@@ -292,7 +292,7 @@ public abstract partial record EvaluationRequest {
     private EvaluationRequest() { }
     public sealed record Closest(Point3d Target) : EvaluationRequest;
     public sealed record Signed(Point3d Sample) : EvaluationRequest;
-    public sealed record Sample(int Count, Context Model) : EvaluationRequest;
+    public sealed record Sample(Dimension Count, Context Model) : EvaluationRequest;
     public sealed record Vertices : EvaluationRequest;
 }
 
@@ -331,16 +331,16 @@ internal static class Evaluation {
             _ => Fin.Fail<double>(key.Unsupported(inputType: source.GetType(), outputType: typeof(double))),
         }
         select distance;
-    private static Fin<Seq<Point3d>> Sampled(object source, int count, Context context, Op key) =>
-        guard(count > 0, key.InvalidInput()).ToFin().Bind(_ => source switch {
-            Curve curve => CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
-            Surface surface => SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
+    private static Fin<Seq<Point3d>> Sampled(object source, Dimension count, Context context, Op key) =>
+        source switch {
+            Curve curve => CurveSampleParameters(curve: curve, count: count.Value, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
+            Surface surface => SurfaceSampleUv(surface: surface, count: count.Value, context: context, key: key)
                 .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y))),
             object value when Capability.CurveForm.Admits(type: value.GetType()) || Capability.SurfaceForm.Admits(type: value.GetType()) =>
                 Recovered(source: value, key: key, verb: (inner, op) => Sampled(source: inner, count: count, context: context, key: op)),
             object value when Capability.ReadVertices.Admits(type: value.GetType()) => Vertices(source: value, key: key),
             _ => Recovered(source: source, key: key, verb: (value, op) => Sampled(source: value, count: count, context: context, key: op)),
-        });
+        };
     private static Fin<Seq<Point3d>> Vertices(object source, Op key) =>
         source switch {
             Point3d point => Fin.Succ(Seq(point)),

@@ -58,6 +58,7 @@ public sealed partial class ToleranceLane {
     public static readonly ToleranceLane Approach = new(key: "approach", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane Filter = new(key: "filter", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane PlaneDistance = new(key: "plane-distance", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
+    public static readonly ToleranceLane LineDistance = new(key: "line-distance", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane Mollification = new(key: "mollification", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value * context.Relative.Value);
     public static readonly ToleranceLane Area = new(key: "area", band: Band.Length, dimension: UnitsNet.Area.BaseDimensions, derive: static context => Math.Max(context.Absolute.Value * context.Absolute.Value, EpsilonPolicy.SqrtEpsilon * 2.0));
     public static readonly ToleranceLane Length = new(key: "length", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);

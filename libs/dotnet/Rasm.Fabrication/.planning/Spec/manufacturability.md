@@ -1335,7 +1335,7 @@ public static class Manufacturability {
             .As();
 
     private static Fin<Seq<DfmObservation>> IntegrityEvidence(MeshSpace space, Instant at) =>
-        Analyze.Run<Mesh, MeshSample>(AnalysisQuery.MeshPointSpatial(Meshes.Defects), space.DuplicateNative())
+        Analyze.Run<Mesh, MeshSample>(new AnalysisQuery.MeshesCase(Query: new Meshes.SamplesCase(Group: MeshSampleGroup.Defect)), space.DuplicateNative())
             .ToFin()
             .Bind(samples => samples.TraverseM(sample => Observe(
                 DfmConcern.Integrity,

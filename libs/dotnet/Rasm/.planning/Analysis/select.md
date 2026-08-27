@@ -8,20 +8,20 @@ Every projection duplicating host geometry travels as a `TopologyProjection` min
 
 - [02]-[CURVES]: `Curves` `[Union]` selection over the `EdgeFeature`/`EdgeDescriptor` taxonomy, the `SegmentPosture` rows, and the `Project` disposal fold.
 - [03]-[FACES]: `Faces` `[Union]` decomposition fanned across typed projections on one builder, lease-aware through `DetachFrom`.
-- [04]-[POINTS]: `Points` `[Union]` extraction over a derived key index and the `SpreadAspect` spread family, each row carrying its `OutputBinding` and `Fit`.
+- [04]-[POINTS]: `Points` `[Union]` extraction over case-derived keys and the `SpreadAspect` spread family, each row carrying its `OutputBinding` and `Fit`.
 - [05]-[DENSITY_BAR]: one owner per axis; a new feature, projection, or aspect is a row, a case, or a fan arm.
 
 ## [02]-[CURVES]
 
-- Owner: `CurveFeature` `[SmartEnum<int>]` is the closed curve-provenance vocabulary — every extracted curve names what it was on the source, so downstream filtering reads a row rather than re-deriving adjacency. `EdgeFeature` is its ADJACENCY subset, the roster an edge descriptor can derive and an edge request can name, each row carrying the `CurveFeature` it publishes. `SilhouetteTrait` rosters the host capture kinds as a `CapabilitySet` column. `EdgeDescriptor` internal `[Union]` describes an edge; its one `Features` projection derives the `EdgeFeature` rows the edge carries and `IsSelectableEdge` names the selectable subset. `SegmentPosture` `[SmartEnum<string>]` carries the two segment readings as rows — the host piece call and the emitted feature travel together. `Curves` `[Union]` resolves the emitted feature per source stratum through `Feature(Topology)`, tests selection through the data-driven `Matches(EdgeDescriptor)`, and applies the shared index law through `Select`.
+- Owner: `CurveFeature` `[SmartEnum<int>]` is the closed curve-provenance vocabulary — every extracted curve names what it was on the source, so downstream filtering reads a row rather than re-deriving adjacency. `EdgeFeature` is its ADJACENCY subset, the roster an edge descriptor can derive and an edge request can name, each row carrying the `CurveFeature` it publishes. `SilhouetteTrait` rosters the host capture kinds as a `CapabilitySet` column. `EdgeDescriptor` internal `[Union]` describes an edge; its one `Features` projection derives the `EdgeFeature` rows the edge carries and `IsSelectableEdge` names the selectable subset. `SegmentPosture` `[SmartEnum<string>]` carries the two segment readings as rows — the host piece call and the emitted feature travel together. `Curves` `[Union]` resolves the emitted feature per source stratum through `Feature(Topology)`, tests selection through the data-driven `Matches(EdgeDescriptor)`, and applies the shared index law in the `Project` evaluator's generated case fold.
 - Cases: the eight edge-feature spellings are one `EdgesCase` parameterized by `EdgeFeature`, and silhouette and draft share one `SilhouetteCase` whose draft-angle presence selects the host call and whose trait set names the captured kinds; a new selection spelling is a factory over an existing case, never a sibling case.
 - Entry: `Curves.Operation<TGeometry, TOut>()` is the family entry `Analysis/query` forwards to; admission gates through `CanProject` (universal ingress, else `Kind.Of` topology dispatch against the case's source table), and the output type discriminates the projection one `Project` builder fans.
 - Law: `bool smooth` is not a knob — `SegmentPosture` is the row, so the host call (`DuplicateSegments` vs `GetSubCurves`) and the provenance feature (`Segment` vs `SubCurve`) cannot drift apart, and every other optional rides `Option<T>` with the policy owner naming the fallback at one site.
 - Law: extraction admission reads a SET, never a mode flag — each arm names the `EdgeFeature` rows it serves and an absent kind asks for that arm's whole run, so a loops-only arm declines it by roster rather than by an `allowNone` argument; the draft angle is required because a zero-angle draft is a silhouette wearing the wrong provenance.
-- Auto: one fold owns extraction, selection, projection, and disposal — `Project` resolves the source kind, derives the emitted feature, extracts every candidate, applies `Select`, projects the chosen subset, and releases every non-transferred projection through `TopologyProjection.Project`, so a leaked duplicate is impossible on the success and failure branches alike; the per-source extraction table and the trim-aware iso kernel live in the fence.
+- Auto: one fold owns extraction, selection, projection, and disposal — `Project` resolves the source kind, derives the emitted feature, extracts every candidate, folds the case's index law through `IndexSelection.At`, projects the chosen subset, and releases every non-transferred projection through `TopologyProjection.Project`, so a leaked duplicate is impossible on the success and failure branches alike; the per-source extraction table and the trim-aware iso kernel live in the fence.
 - Packages: RhinoCommon supplies brep, mesh, and SubD topology, iso extraction, and silhouette capture; `Rasm.Domain` supplies the capability vocabulary, form recoveries, the `TopologyProjection` carrier and its `Project` fold, `ToleranceLane` rows, and the `Lease`; `Rasm.Numerics` supplies `Direction.Of`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
 - Growth: a new edge feature is one `EdgeFeature` row with its provenance column and one `Features` arm; a new extraction source is one table arm emitting `TopologyProjection`s; a new typed output is one projection row on the fan; a new segment reading is one `SegmentPosture` row — selection, projection, and disposal untouched.
-- Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; every `Curves` fold — `CanProject`, `Feature`, `Matches`, `Select` — is the generated total `Switch`, so a new case breaks all four loudly at compile time where a discard arm answers for it silently, and `EdgeDescriptor.Features` folds the same way with each host-enum tail stating its own emptiness; a projection that DECLINES refuses typed rather than vanishing under a `Choose`, so a caller asking for five curves and receiving three learns which arm refused; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
+- Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; the evaluator's case fold rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; every `Curves` fold — `CanProject`, `Feature`, `Matches`, and the evaluator's index selection — is the generated total `Switch`, so a new case breaks all four loudly at compile time where a discard arm answers for it silently, and `EdgeDescriptor.Features` folds the same way with each host-enum tail stating its own emptiness; a projection that DECLINES refuses typed rather than vanishing under a `Choose`, so a caller asking for five curves and receiving three learns which arm refused; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -58,29 +58,26 @@ public sealed partial class CurveFeature {
 
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EdgeFeature : ICapability<EdgeFeature> {
-    public static readonly EdgeFeature Boundary = new(key: "boundary", rank: 0, provenance: CurveFeature.Boundary);
-    public static readonly EdgeFeature NakedOuter = new(key: "naked-outer", rank: 1, provenance: CurveFeature.NakedOuter);
-    public static readonly EdgeFeature NakedInner = new(key: "naked-inner", rank: 2, provenance: CurveFeature.NakedInner);
-    public static readonly EdgeFeature Interior = new(key: "interior", rank: 3, provenance: CurveFeature.Interior);
-    public static readonly EdgeFeature NonManifold = new(key: "non-manifold", rank: 4, provenance: CurveFeature.NonManifold);
-    public static readonly EdgeFeature OuterLoop = new(key: "outer-loop", rank: 5, provenance: CurveFeature.OuterLoop);
-    public static readonly EdgeFeature InnerLoop = new(key: "inner-loop", rank: 6, provenance: CurveFeature.InnerLoop);
+    public static readonly EdgeFeature Boundary = new(key: "boundary", provenance: CurveFeature.Boundary);
+    public static readonly EdgeFeature NakedOuter = new(key: "naked-outer", provenance: CurveFeature.NakedOuter);
+    public static readonly EdgeFeature NakedInner = new(key: "naked-inner", provenance: CurveFeature.NakedInner);
+    public static readonly EdgeFeature Interior = new(key: "interior", provenance: CurveFeature.Interior);
+    public static readonly EdgeFeature NonManifold = new(key: "non-manifold", provenance: CurveFeature.NonManifold);
+    public static readonly EdgeFeature OuterLoop = new(key: "outer-loop", provenance: CurveFeature.OuterLoop);
+    public static readonly EdgeFeature InnerLoop = new(key: "inner-loop", provenance: CurveFeature.InnerLoop);
 
-    public int Rank { get; }
     public CurveFeature Provenance { get; }
 }
 
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SilhouetteTrait : ICapability<SilhouetteTrait> {
-    public static readonly SilhouetteTrait Projecting = new(key: "projecting", rank: 0, bit: (int)SilhouetteType.Projecting);
-    public static readonly SilhouetteTrait TangentProjects = new(key: "tangent-projects", rank: 1, bit: (int)SilhouetteType.TangentProjects);
-    public static readonly SilhouetteTrait Tangent = new(key: "tangent", rank: 2, bit: (int)SilhouetteType.Tangent);
-    public static readonly SilhouetteTrait Crease = new(key: "crease", rank: 3, bit: (int)SilhouetteType.Crease);
-    public static readonly SilhouetteTrait Boundary = new(key: "boundary", rank: 4, bit: (int)SilhouetteType.Boundary);
+    public static readonly SilhouetteTrait Projecting = new(key: "projecting", bit: (int)SilhouetteType.Projecting);
+    public static readonly SilhouetteTrait TangentProjects = new(key: "tangent-projects", bit: (int)SilhouetteType.TangentProjects);
+    public static readonly SilhouetteTrait Tangent = new(key: "tangent", bit: (int)SilhouetteType.Tangent);
+    public static readonly SilhouetteTrait Crease = new(key: "crease", bit: (int)SilhouetteType.Crease);
+    public static readonly SilhouetteTrait Boundary = new(key: "boundary", bit: (int)SilhouetteType.Boundary);
 
-    public int Rank { get; }
     public int Bit { get; }
-    public static int MaskOf(CapabilitySet<SilhouetteTrait> traits) => traits.Mask(bit: static trait => trait.Bit);
 }
 
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -149,27 +146,26 @@ public abstract partial record Curves {
     public static Curves Form(Option<int> index = default) => new FormCase(Index: index);
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
-        CanProject(type: typeof(TGeometry)) switch {
+        (Capability.Universal(type: typeof(TGeometry))
+            || Kind.Of(type: typeof(TGeometry)).Exists(kind => CanProject(topology: kind.Topology, type: typeof(TGeometry)))) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Curve) => Project<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static (p, _, _, op) => p.As<Curve>(key: op)),
                 Type t when t == typeof(TopologyProjection) => Project<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static (p, _, _, _) => Fin.Succ(p)),
                 Type t when t == typeof(CurveFeature) => Project<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static (_, feature, _, _) => Fin.Succ(feature)),
                 Type t when t == typeof(ComponentIndex) => Project<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static (p, _, _, _) => Fin.Succ(p.Source)),
-                Type t when t == typeof(CurveForm) && this is FormCase => Project<TGeometry, TOut, CurveForm>(key: Key, aspect: this, project: static (p, _, context, op) => Classify(projection: p, context: context, op: op)),
+                Type t when t == typeof(CurveForm) && this is FormCase => Project<TGeometry, TOut, CurveForm>(key: Key, aspect: this, project: static (p, _, context, op) => p.As<Curve>(key: op).Map(curve => Normalization.CurveFormOf(curve: curve, context: context))),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
 
-    internal bool CanProject(Type type) =>
-        Capability.Universal(type: type)
-        || Kind.Of(type: type).Exists(kind => CanProject(topology: kind.Topology, type: type));
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
         edgesCase: static (state, e) => e.Kind.Case switch {
             null => Capability.CurveForm.Admits(type: state.Type) || Capability.BrepForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Mesh, typeof(Mesh)), (Topology.SubD, typeof(SubD))),
             EdgeFeature feature when feature.Equals(EdgeFeature.Boundary) => Capability.CurveForm.Admits(type: state.Type) || Capability.BrepForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Mesh, typeof(Mesh))),
-            EdgeFeature feature when FeatureIsAny(feature, EdgeFeature.NakedOuter, EdgeFeature.NakedInner, EdgeFeature.OuterLoop, EdgeFeature.InnerLoop) => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep))),
+            EdgeFeature feature when feature == EdgeFeature.NakedOuter || feature == EdgeFeature.NakedInner
+                || feature == EdgeFeature.OuterLoop || feature == EdgeFeature.InnerLoop => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep))),
             _ => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh))),
         },
         segmentsCase: static (state, _) => Capability.CurveForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.SubD, typeof(SubD))),
@@ -182,14 +178,6 @@ public abstract partial record Curves {
         formCase: static (state, _) =>
             Capability.CurveForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh)), (Topology.SubD, typeof(SubD))));
 
-    internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) => Switch(
-        state: curves,
-        edgesCase: static (items, _) => Fin.Succ(items),
-        segmentsCase: static (items, _) => Fin.Succ(items),
-        isoCase: static (items, _) => Fin.Succ(items),
-        silhouetteCase: static (items, _) => Fin.Succ(items),
-        atCase: static (items, at) => items.At(index: at.Value, key: Key),
-        formCase: static (items, form) => form.Index.IsSome ? items.At(index: form.Index, key: Key) : Fin.Succ(items));
     internal CurveFeature Feature(Topology topology) => Switch(
         state: topology,
         edgesCase: static (t, e) => e.Kind.Map(static row => row.Provenance).IfNone(EdgeFeatureFor(topology: t)),
@@ -232,7 +220,14 @@ public abstract partial record Curves {
                 from kind in geometry.KindOf(context: runtime.Context).ToEff()
                 let feature = state.Aspect.Feature(topology: kind.Topology)
                 from curves in Extract(geometry: geometry, aspect: state.Aspect, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
-                from chosen in state.Aspect.Select(curves: curves).ToEff()
+                from chosen in state.Aspect.Switch(
+                    state: curves,
+                    edgesCase: static (items, _) => Fin.Succ(items),
+                    segmentsCase: static (items, _) => Fin.Succ(items),
+                    isoCase: static (items, _) => Fin.Succ(items),
+                    silhouetteCase: static (items, _) => Fin.Succ(items),
+                    atCase: static (items, at) => items.At(index: at.Value, key: Key),
+                    formCase: static (items, form) => form.Index.IsSome ? items.At(index: form.Index, key: Key) : Fin.Succ(items)).ToEff()
                 from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => values.TraverseM(projection => state.Project(arg1: projection, arg2: feature, arg3: runtime.Context, arg4: state.Key)).As().Bind(projected => state.Key.Accept(values: projected))).ToEff()
                 select result).As<TGeometry, TOut>(key: key);
 
@@ -244,16 +239,18 @@ public abstract partial record Curves {
             (Brep brep, Curves candidate) when Serves(candidate, BrepLoopRun) =>
                 Matching(source: brep.Loops, selector: aspect,
                     describe: static loop => new EdgeDescriptor.OfLoop(LoopType: loop.LoopType),
-                    project: loop => Optional(loop.To3dCurve()).Map(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.BrepLoop, loop.LoopIndex)))),
+                    project: loop => TopologyProjection.Of(curve: loop.To3dCurve(), source: new ComponentIndex(ComponentIndexType.BrepLoop, loop.LoopIndex))),
             (Brep brep, IsoCase iso) =>
                 toSeq(brep.Faces).TraverseM(face => Isolines(surface: face, iso: iso.Direction, normalized: iso.Normalized, op: op)
                     .Bind(curves => curves.TraverseM(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex))).As())).As()
                     .Map(static nested => nested.Bind(static seq => seq)),
-            (BrepFace face, Curves candidate) when ServesRun(candidate, BoundaryRun) => FaceEdges(face: face, selector: aspect),
+            (BrepFace face, Curves candidate) when ServesRun(candidate, BoundaryRun) =>
+                toSeq(face.Loops).Bind(loop => toSeq(loop.Trims).Choose(static trim => Optional(trim.Edge)))
+                    .TraverseM(edge => TopologyProjection.Of(curve: edge.DuplicateCurve(), source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex))).As(),
             (Mesh mesh, Curves candidate) when ServesRun(candidate, MeshEdgeRun) =>
                 Matching(source: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count), selector: aspect,
                     describe: i => new EdgeDescriptor.OfMesh(ConnectedFaces: mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length),
-                    project: i => Some(TopologyProjection.Of(curve: mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), source: new ComponentIndex(ComponentIndexType.MeshTopologyEdge, i)))),
+                    project: i => TopologyProjection.Of(curve: mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), source: new ComponentIndex(ComponentIndexType.MeshTopologyEdge, i))),
             (Surface surface, IsoCase iso) => SurfaceIso(surface: surface, iso: iso, op: op),
             (object surfaceLike, IsoCase iso) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
                 Normalization.SurfaceForm(source: surfaceLike, key: op).Bind(lease => lease.Use(surface => SurfaceIso(surface: surface, iso: iso, op: op))),
@@ -276,17 +273,13 @@ public abstract partial record Curves {
                 : Optional(surface.IsoCurve(iso, domain.ParameterAt(normalized))).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
         _ => Fin.Fail<Seq<Curve>>(op.InvalidInput()),
     };
-    internal static Fin<CurveForm> Classify(TopologyProjection projection, Context context, Op op) =>
-        projection.As<Curve>(key: op).Map(curve => Normalization.CurveFormOf(curve: curve, context: context));
 
     private static CurveFeature EdgeFeatureFor(Topology topology) =>
         topology == Topology.Curve ? CurveFeature.Input : topology == Topology.Surface ? CurveFeature.Boundary : CurveFeature.Edge;
-    private static bool FeatureIsAny(EdgeFeature feature, params ReadOnlySpan<EdgeFeature> features) =>
-        features.Contains(feature);
     private static Fin<Seq<TopologyProjection>> BrepEdges(Brep brep, Curves selector) =>
         Matching(source: brep.Edges, selector: selector,
             describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
-            project: edge => Optional(edge.DuplicateCurve()).Map(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex))));
+            project: edge => TopologyProjection.Of(curve: edge.DuplicateCurve(), source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex)));
     private static Fin<Seq<TopologyProjection>> SurfaceIso(Surface surface, IsoCase iso, Op op) =>
         Isolines(surface: surface, iso: iso.Direction, normalized: iso.Normalized, op: op)
             .Bind(curves => curves.TraverseM(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.NoType, 0))).As());
@@ -301,14 +294,8 @@ public abstract partial record Curves {
             },
             _ => Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Bind(whole => TopologyProjection.Of(curve: whole, source: new ComponentIndex(ComponentIndexType.NoType, 0)).Map(static p => Seq(p))),
         }));
-    private static Fin<Seq<TopologyProjection>> Matching<TPrimitive>(IEnumerable<TPrimitive> source, Curves selector, Func<TPrimitive, EdgeDescriptor> describe, Func<TPrimitive, Option<Fin<TopologyProjection>>> project) =>
-        toSeq(source).Choose(item => selector.Matches(descriptor: describe(arg: item)) ? project(arg: item) : Option<Fin<TopologyProjection>>.None).TraverseM(identity).As();
-    private static Fin<Seq<TopologyProjection>> FaceEdges(BrepFace face, Curves selector) =>
-        toSeq(face.Loops).Bind(loop => toSeq(loop.Trims).Choose(trim => (selector, trim.Edge) switch {
-            (Curves candidate, BrepEdge edge) when ServesRun(candidate, BoundaryRun) =>
-                Optional(edge.DuplicateCurve()).Map(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex))),
-            _ => Option<Fin<TopologyProjection>>.None,
-        })).TraverseM(identity).As();
+    private static Fin<Seq<TopologyProjection>> Matching<TPrimitive>(IEnumerable<TPrimitive> source, Curves selector, Func<TPrimitive, EdgeDescriptor> describe, Func<TPrimitive, Fin<TopologyProjection>> project) =>
+        toSeq(source).Filter(item => selector.Matches(descriptor: describe(arg: item))).TraverseM(project).As();
     private static Fin<Seq<TopologyProjection>> SubDEdges(SubD subd) {
         _ = subd.UpdateSurfaceMeshCache(lazyUpdate: true);
         return toSeq(subd.DuplicateEdgeCurves().Select((curve, i) => TopologyProjection.Of(curve: curve, source: new ComponentIndex(type: ComponentIndexType.SubdEdge, index: i)))).TraverseM(identity).As();
@@ -325,7 +312,7 @@ public abstract partial record Curves {
                 }).Bind(lease => lease.Use(shape =>
                     Optional(silhouette.DraftAngle.Case switch {
                         double angle => Rhino.Geometry.Silhouette.ComputeDraftCurve(shape, angle, direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, cancel),
-                        _ => Rhino.Geometry.Silhouette.Compute(shape, (SilhouetteType)SilhouetteTrait.MaskOf(traits: silhouette.Traits), direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, [], cancel),
+                        _ => Rhino.Geometry.Silhouette.Compute(shape, (SilhouetteType)silhouette.Traits.Mask(bit: static trait => trait.Bit), direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, [], cancel),
                     }).ToFin(cancel.IsCancellationRequested ? Errors.Cancelled : op.InvalidResult())
                     .Bind(found => toSeq(found).TraverseM(sil => TopologyProjection.Of(curve: sil.Curve, source: sil.GeometryComponentIndex)).As()))));
 }
@@ -383,7 +370,8 @@ public abstract partial record Faces {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Build<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None,
-                    project: static (chosen, _) => Key.Accept(values: chosen.Choose(static face => face.As<Brep>()))),
+                    project: static (chosen, _) => chosen.TraverseM(face => face.As<Brep>(key: Key)).As()
+                        .Bind(breps => Key.Accept(values: breps))),
                 Type t when t == typeof(TopologyProjection) => Build<TGeometry, TOut, TopologyProjection>(key: Key, selector: this, requirement: Requirement.None,
                     project: static (chosen, _) => Key.Accept(values: chosen)),
                 Type t when t == typeof(Plane) => Build<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
@@ -418,7 +406,11 @@ public abstract partial record Faces {
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from faces in Decompose(key: state.Key, geometry: geometry).ToEff()
-                from chosen in Choose(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
+                from chosen in state.Selector.Switch(
+                    state: (Key: state.Key, Faces: faces, Runtime: context),
+                    allCase: static (s, _) => Fin.Succ(s.Faces),
+                    rankedCase: static (s, ranked) => Ranked(state: s, axis: ranked.Axis, direction: ranked.Direction),
+                    atCase: static (s, at) => s.Faces.At(index: at.Value, key: s.Key)).ToEff()
                 from result in TopologyProjection.Project(all: faces, chosen: chosen, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result).As<TGeometry, TOut>(key: key);
     private static Fin<Seq<TopologyProjection>> Decompose<TGeometry>(Op key, TGeometry geometry) where TGeometry : notnull =>
@@ -430,11 +422,6 @@ public abstract partial record Faces {
                     .Bind(faces => faces.TraverseM(face => face.DetachFrom(source: brep)).As())))),
             _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
         });
-    private static Fin<Seq<TopologyProjection>> Choose(Op key, Seq<TopologyProjection> faces, Faces selector, Context runtime) => selector.Switch(
-        state: (Key: key, Faces: faces, Runtime: runtime),
-        allCase: static (s, _) => Fin.Succ(s.Faces),
-        rankedCase: static (s, ranked) => Ranked(state: s, axis: ranked.Axis, direction: ranked.Direction),
-        atCase: static (s, at) => s.Faces.At(index: at.Value, key: s.Key));
     private static Fin<Seq<TopologyProjection>> Ranked((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
         state.Faces.IsEmpty switch {
             true => Fin.Succ(Seq<TopologyProjection>()),
@@ -452,15 +439,14 @@ public abstract partial record Faces {
 - Owner: `SpreadAspect` `[SmartEnum<int>]` asks what a point set's spread is, each row binding its own `OutputBinding` (`Plane`, `Stat<Scalar>`, or `bool`) and its own `Fit` body. `Points` `[Union]` extracts directional extrema, edge midpoints, vertices, control points, or spread — one case per extraction kind, its operation key derived from the case name.
 - Cases: five extraction cases; `ExtremaCase` admits caller directions or derives the world quadrant set, and `SpreadCase` carries its `SpreadAspect`; a new aspect is a `SpreadAspect` row, a new extraction a case.
 - Entry: `Points.Operation<TGeometry, TOut>()` is the family entry; every arm gates capability through the `Domain/normalization` vocabulary — `Capability.ReadEdges` and `Capability.ReadControlPoints` are the rows, never a `Kind` bool column — and the output type before building.
-- Auto: extrema resolves directions through `Direction.Of` over the supplied set or `SignedAxis.Cardinal` at the curve's rank (planar curves collapse to the in-plane pair, absent directions derive the cardinal set) then folds `Curve.ExtremeParameters` through the one `Stat.Extrema` fold at `ToleranceLane.Project`; edge midpoints composes the `Curves` family so the edge walk lives once in the curve family; vertices routes `Domain/evaluation`'s `Evaluate` vertex verb; control points unfolds NURBS nets, lowering non-NURBS sources through owned leases; spread reads vertices and each aspect row runs its own `Fit`, folding centroid distances into `Stat<Scalar>.Of` or fitting a plane and deriving frame, principal frame, coplanarity, or collinearity — the principal angle is the PCA of the fit-plane coordinates, every point decomposing through `VectorSpan.Components`, the rows folding through `Domain/stats`'s `SampleMoment` covariance into a `Numerics/matrix` `SymmetricMatrix`, and the dominant eigenpair (selected by `Stat.Extrema` over eigenvalues, independent of decomposition return order) giving the axis; degeneracy answers ahead of the fit, so a plane-fit refusal never doubles as a coplanarity verdict.
-- Packages: RhinoCommon supplies curve extrema, NURBS control nets, and plane fitting; `Rasm.Domain` supplies the capability rows, the evaluation verb union, statistics on the `Scalar` carrier, `ToleranceLane` rows, and the lease; `Rasm.Numerics` supplies `Direction.Of`, `VectorSpan.Components`, `SignedAxis.Cardinal`, and `SymmetricMatrix`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
+- Auto: extrema resolves directions through `Direction.Of` over the supplied set or `SignedAxis.Cardinal` at the curve's rank (planar curves collapse to the in-plane pair, absent directions derive the cardinal set) then folds `Curve.ExtremeParameters` through the one `Stat.Extrema` fold at `ToleranceLane.Project`; edge midpoints composes the `Curves` family so the edge walk lives once in the curve family; vertices routes `Domain/evaluation`'s `Evaluate` vertex verb; control points unfolds NURBS nets, lowering non-NURBS sources through owned leases; spread reads vertices and each aspect row runs its own `Fit`, folding centroid distances into `Stat<Scalar>.Of` or fitting a plane and deriving frame or principal frame, collinearity reading every point's distance to the host `Line.TryFitLineToPoints` axis at `ToleranceLane.LineDistance` with coincident or two-point sets collinear by dimension, coplanarity reading the host `Point3d.ArePointsCoplanar` predicate at `ToleranceLane.PlaneDistance` with three or fewer points coplanar by dimension — the principal angle is the PCA of the fit-plane coordinates, every point decomposing through `VectorSpan.Components`, the rows folding through `Domain/stats`'s `SampleMoment` covariance into a `Numerics/matrix` `SymmetricMatrix`, and the dominant eigenpair (selected by `Stat.Extrema` over eigenvalues, independent of decomposition return order) giving the axis; degeneracy answers ahead of the fit, so a plane-fit refusal never doubles as a coplanarity verdict.
+- Packages: RhinoCommon supplies curve extrema, NURBS control nets, plane fitting, and the coplanarity predicate; `Rasm.Domain` supplies the capability rows, the evaluation verb union, statistics on the `Scalar` carrier, `ToleranceLane` rows, and the lease; `Rasm.Numerics` supplies `Direction.Of`, `VectorSpan.Components`, `SignedAxis.Cardinal`, and `SymmetricMatrix`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
 - Growth: a new spread aspect is one `SpreadAspect` row carrying its `OutputBinding` and its `Fit` delegate over the same moment fold; a new extraction source is one table arm; a new extremum policy is a `ToleranceLane` row on the existing fold.
 - Boundary: spread mathematics is composed — `SampleMoment` owns the covariance, `SymmetricMatrix` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection; a local covariance accumulation or eigen-ordering assumption is the double-owner defect, and selecting the dominant eigenvalue keeps the result order-independent where a first-returned-pair convention couples correctness to an upstream sort; planar-coordinate projection failures abort the fold, since a zero-row substitution biases the covariance toward the origin; `EdgeMidpoints` composes the `Curves` family, so a second topology-edge walker is the wrong move; control-point extraction leases every minted NURBS form so conversion never leaks. `Lattice` dispatches an ERASED `TGeometry` runtime value, not a closed family, so its discard arm is the boundary refusal the open ingress owes — it mints the typed `Unsupported` naming both the runtime type and the output, and collapsing it onto a generated `Switch` is unspellable where no union owns the input.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System;
-using System.Collections.Frozen;
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
@@ -476,32 +462,28 @@ namespace Rasm.Analysis;
 [SmartEnum<int>]
 public sealed partial class SpreadAspect {
     public static readonly SpreadAspect Frame = new(key: 0, output: OutputBinding.Of<Plane>(),
-        fit: static (points, _, _, op) => Fitted(points: points, op: op).Map(static fit => Seq<object>(fit.Plane)));
+        fit: static (points, _, _, op) => Fitted(points: points, op: op).Map(static fit => Seq<object>(fit)));
     public static readonly SpreadAspect PrincipalFrame = new(key: 1, output: OutputBinding.Of<Plane>(),
         fit: static (points, _, context, op) => Fitted(points: points, op: op)
-            .Bind(fit => Oriented(fit: fit.Plane, points: points, context: context, op: op)).Map(static plane => Seq<object>(plane)));
+            .Bind(fit => Oriented(fit: fit, points: points, context: context, op: op)).Map(static plane => Seq<object>(plane)));
     public static readonly SpreadAspect Distribution = new(key: 2, output: OutputBinding.Of<Stat<Scalar>>(),
         fit: static (points, geometry, context, op) => MassKind.CentroidOf(geometry: geometry, context: context, op: op)
             .Bind(centroid => Stat<Scalar>.Of(values: points.Map(point => (Scalar)point.DistanceTo(other: centroid)), key: op))
             .Map(static stat => Seq<object>(stat)));
     public static readonly SpreadAspect Collinear = new(key: 3, output: OutputBinding.Of<bool>(),
-        fit: static (points, _, context, op) => points.Count <= 2
-            ? Fin.Succ(Seq<object>(true))
-            : Fitted(points: points, op: op)
-                .Bind(fit => Minor(fit: fit.Plane, points: points, context: context, op: op))
-                .Map(spread => Seq<object>(spread <= context.For(lane: ToleranceLane.Collinear).Value)));
+        fit: static (points, _, context, op) => OnLine(points: points, tolerance: context.For(lane: ToleranceLane.LineDistance), op: op)
+            .Map(static collinear => Seq<object>(collinear)));
     public static readonly SpreadAspect Coplanar = new(key: 4, output: OutputBinding.Of<bool>(),
-        fit: static (points, _, context, op) => points.Count <= 2
-            ? Fin.Succ(Seq<object>(true))
-            : Fitted(points: points, op: op).Map(fit => Seq<object>(fit.Deviation <= context.For(lane: ToleranceLane.PlaneDistance).Value)));
+        fit: static (points, _, context, _) => Fin.Succ(Seq<object>(points.Count <= 3
+            || Point3d.ArePointsCoplanar(points.AsIterable(), context.For(lane: ToleranceLane.PlaneDistance).Value))));
 
     public OutputBinding Output { get; }
     [UseDelegateFromConstructor] internal partial Fin<Seq<object>> Fit(Seq<Point3d> points, object geometry, Context context, Op op);
 
-    private static Fin<(Plane Plane, double Deviation)> Fitted(Seq<Point3d> points, Op op) =>
-        (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane fit, maximumDeviation: out double deviation), fit.IsValid) switch {
-            (PlaneFitResult.Success, true) => Fin.Succ((Plane: fit, Deviation: deviation)),
-            _ => Fin.Fail<(Plane, double)>(op.InvalidResult()),
+    private static Fin<Plane> Fitted(Seq<Point3d> points, Op op) =>
+        (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane fit, maximumDeviation: out _), fit.IsValid) switch {
+            (PlaneFitResult.Success, true) => Fin.Succ(fit),
+            _ => Fin.Fail<Plane>(op.InvalidResult()),
         };
     private static Fin<double> Principal(Seq<Point3d> points, Plane fit, Context context, Op op) =>
         points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op).Bind(span => span.Components(frame: fit, key: op))).As()
@@ -517,13 +499,12 @@ public sealed partial class SpreadAspect {
         from yAxis in Rasm.Numerics.Direction.Of(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis), context: context, key: op).Map(static direction => direction.Value)
         from plane in op.AcceptValue(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
         select plane;
-    private static Fin<double> Minor(Plane fit, Seq<Point3d> points, Context context, Op op) =>
-        from angle in Principal(points: points, fit: fit, context: context, op: op)
-        from offsets in points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
-            .Bind(span => span.Components(frame: fit, key: op))
-            .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))).As()
-        from spread in Stat.Extrema(items: offsets, projection: static offset => offset, band: context.For(lane: ToleranceLane.Project), direction: ExtremumDirection.Maximum).Head.ToFin(op.InvalidResult())
-        select spread;
+    private static Fin<bool> OnLine(Seq<Point3d> points, Tolerance tolerance, Op op) =>
+        points.Count <= 2 || points.Head.Exists(anchor => points.ForAll(point => point.DistanceTo(anchor) <= tolerance.Value))
+            ? Fin.Succ(true)
+            : Line.TryFitLineToPoints(points.AsIterable(), out Line axis) && axis.IsValid
+                ? Fin.Succ(points.ForAll(point => axis.DistanceTo(point, false) <= tolerance.Value))
+                : Fin.Fail<bool>(op.InvalidResult());
 }
 
 [Union]
@@ -534,10 +515,12 @@ public abstract partial record Points {
     public sealed record VerticesCase : Points;
     public sealed record ControlPointsCase : Points;
     public sealed record SpreadCase(SpreadAspect Aspect) : Points;
-    private static readonly Lazy<FrozenDictionary<Type, Op>> Keys = new(static () =>
-        typeof(Points).GetNestedTypes().Where(static shape => shape.IsSubclassOf(c: typeof(Points)))
-            .ToFrozenDictionary(static shape => shape, static shape => Op.Of(name: shape.Name)));
-    internal Op Key => Keys.Value[GetType()];
+    internal Op Key => Switch(
+        extremaCase: static _ => Op.Of(name: nameof(ExtremaCase)),
+        edgeMidpointsCase: static _ => Op.Of(name: nameof(EdgeMidpointsCase)),
+        verticesCase: static _ => Op.Of(name: nameof(VerticesCase)),
+        controlPointsCase: static _ => Op.Of(name: nameof(ControlPointsCase)),
+        spreadCase: static _ => Op.Of(name: nameof(SpreadCase)));
     public static Points Quadrants => new ExtremaCase(Directions: Option<Seq<Vector3d>>.None);
     public static Points Extrema(Seq<Vector3d> directions) => new ExtremaCase(Directions: Some(value: directions));
     public static Points EdgeMidpoints => new EdgeMidpointsCase();
@@ -643,7 +626,7 @@ flowchart LR
     accDescr: Curves extracting edge, loop, segment, iso, and silhouette features onto provenance carriers minted on the Fin result, faces decomposing borrowed or owned and ranking by axis, points sampling vertices and control lattices into principal spread, and all three entering the query dispatch as operation builders.
     Curves -->|EdgeDescriptor.Features data taxonomy| Extraction[edges · loops · segments · iso · silhouette]
     Extraction -->|TopologyProjection.Of → Fin + ComponentIndex| Carrier[provenance carriers]
-    Carrier -->|Select → Project disposal fold| Outputs[Curve · TopologyProjection · CurveFeature · ComponentIndex · CurveForm]
+    Carrier -->|IndexSelection.At → Project disposal fold| Outputs[Curve · TopologyProjection · CurveFeature · ComponentIndex · CurveForm]
     Faces -->|Decompose: Borrowed live / Owned DetachFrom| Carrier
     Faces -->|MassKind.CentroidOf × Stat.Extrema| Ranked[axis-ranked selection]
     Points -->|Evaluate Vertices · Lattice · Curves family midpoints| Point3d
@@ -664,7 +647,7 @@ One owner per axis; a new feature, projection, or aspect is a row, a case, or a 
 |  [05]   | Edge taxonomy     | `EdgeDescriptor`  | internal `[Union]` + the `Features` derivation  | `Matches → bool` (data-driven)    |    3    |
 |  [06]   | Curve selection   | `Curves`          | `[Union]` selection over the feature taxonomy   | `Operation → Eff<Env, Seq<TOut>>` |    6    |
 |  [07]   | Face selection    | `Faces`           | `[Union]` fanned across projection rows         | `Operation → Eff<Env, Seq<TOut>>` |    3    |
-|  [08]   | Point extraction  | `Points`          | `[Union]` extraction family + derived key index | `Operation → Eff<Env, Seq<TOut>>` |    5    |
+|  [08]   | Point extraction  | `Points`          | `[Union]` extraction family + case-derived key   | `Operation → Eff<Env, Seq<TOut>>` |    5    |
 |  [09]   | Spread vocabulary | `SpreadAspect`    | `[SmartEnum<int>]` + `OutputBinding` + `Fit`    | `Fit → Fin<Seq<object>>`          |    5    |
 
 ## [06]-[RESEARCH]

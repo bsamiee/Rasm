@@ -1557,7 +1557,7 @@ public static class Fleet {
                     Kind.BoundingBox, None, $"fleet:bound:{component.RepresentationKey}")));
 
     private static Fin<BoundingBox> MeshBound(MeshSpace mesh) =>
-        Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(Bounds.AxisAligned), mesh)
+        Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(new Bounds.AxisAlignedCase()), mesh)
             .ToFin()
             .Bind(static boxes => boxes.Head.ToFin(
                 new GeometryFault.DegenerateInput(Kind.Mesh, None, "fleet:mesh-bound")));

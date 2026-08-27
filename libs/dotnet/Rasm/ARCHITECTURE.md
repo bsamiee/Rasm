@@ -47,7 +47,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Panelize.cs        # PanelFamily rides the request as data; each panel leaves with origin, field-aligned x-axis, metric-true normal
 │   ├── Patternmap.cs      # Wallpaper symmetry closed by theorem as data; the emitted PlanarInstances/SurfaceInstances are the Generation plane's exact input
 │   ├── Projections.cs     # Selectors drain one Project<TOut> into ResultProjection.Raw; clock values stay branded to the injected timeline
-│   └── Locate.cs          # Operation<TGeometry, TOut> under Eff<Env, Seq<TOut>>; AnalysisQuery.Location is the sole public route in
+│   └── Locate.cs          # Operation<TGeometry, TOut> under Eff<Env, Seq<TOut>>; AnalysisQuery.LocationCase construction is the sole public route in
 ├── Meshing/               # Mesh substrate and construction ops
 │   ├── Delaunay.cs        # Tessellation.Build over one SimplexStore arena; Implicit carriage keeps exact signs to ToMesh
 │   ├── Arrangement.cs     # ArrangementOp over subdivide, classify, keep, weld; four booleans are four data rows, manifoldc the companion
