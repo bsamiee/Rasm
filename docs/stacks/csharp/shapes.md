@@ -177,7 +177,7 @@ public static class AxisAlgebra {
 - Law: keyed vocabularies carry two independent orders: `Items` by declaration and comparison by key comparer; one key policy swings lookup, hash, comparison, and operators, and a key mirroring a host enum ordinal spells `(int)HostEnum.Value`, never a hand-numbered literal the host roster silently outgrows.
 - Law: domain rank is an item column, never a bent comparer; range dispatch needs numeric keys to keep future thresholds total, and a row-to-row correspondence is a `[UseDelegateFromConstructor]` column deferring behind `static () => Row` — never an eager field reference, which captures null before materialization protects it, and never a key string re-looked-up at read time, whose failed lookup silently falls back to the unresolved row.
 - Accept: keyless vocabularies for every process-local roster — items, dispatch, reference identity, behavior columns; a key is earned by wire, host, or persisted identity alone, and a hand-numbered `key: 0, 1, 2` on a local roster is the deleted form.
-- Law: a two-row vocabulary with no behavior column is a `bool` column on its owner named for the true arm; a roster mirroring a union's cases, or a bool its producer already holds, publishes a second discriminant and deletes.
+- Law: a two-row vocabulary is a `bool` column on its owner named for the true arm unless its behavior column holds two genuinely distinct operations, since succeed-against-refuse and identity-against-one-call are a bool and one expression; a roster mirroring a union's cases, or a bool its producer already holds, publishes a second discriminant and deletes.
 
 [LOOKUP_LIFECYCLE]:
 - Law: validity belongs to keys, never instances; no invalid item is constructible, callers choose `Get`, `TryGet`, or `Validate`, and exception catching is the wrong verb.
@@ -187,7 +187,7 @@ public static class AxisAlgebra {
 - Boundary: items are static per load context and generic instantiation; each closed type argument has its own materialization and poisoning, and values cross isolation boundaries as keys re-admitted on the far side.
 
 [DISPATCH_AND_ROWS]:
-- Law: `Switch` is the total dispatch surface: integer jump table, write-once index cell, one hot-path field read, state-threaded forms with span-shaped state and results, and `static` lambdas.
+- Law: `Switch` is the total dispatch surface: integer jump table, write-once index cell, one hot-path field read, state-threaded forms with span-shaped state and results, and `static` lambdas wherever the arm reaches no instance member.
 - Law: totality is method arity; new items add parameters to total overloads, stale exhaustive dispatch fails to compile, and named callback arguments are the reorder shield.
 - Reject: language `switch`, key-pattern probes, and guard chains; items are singletons, not constants, and only generated `Switch` is total.
 - Law: row-owned behavior wins when the vocabulary owns the policy or the same full-coverage `Switch` repeats; `[UseDelegateFromConstructor]` columns force every item to answer once, while generated `Switch` remains for single-consumer reactions.

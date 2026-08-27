@@ -370,7 +370,7 @@ public static class FactResult {
 public readonly record struct ChangeRow(string Action, Guid Before, Guid After);
 public readonly record struct CutTag(string Lane, Guid Key);
 public readonly record struct MassFact(string Lane, int Touched, Seq<Guid> Keys) {
-    public Seq<CutTag> CutTags => Keys.Map(key => new CutTag(Lane, key));
+    public Seq<CutTag> CutTags { get { string lane = Lane; return Keys.Map(key => new CutTag(lane, key)); } }
 }
 
 public static class WriteMass {

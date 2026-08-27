@@ -80,7 +80,7 @@ Run this scan on every edit. Any signal triggers the move; the move is refused o
 |  [09]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
 |  [10]   | dispatch nests inside a dispatch arm              | one flattened joint pattern or table     |
 |  [11]   | a consumer sequences a module's internals         | internalize the flow into the entrypoint |
-|  [12]   | two-row vocabulary with no behavior column        | one bool column on the owner             |
+|  [12]   | two-row vocabulary with no distinct behavior      | one bool column on the owner             |
 |  [13]   | roster mirrors a union's cases or a producer bool | delete; the case is the identity         |
 
 ## [04]-[PAGE_CRAFT]
@@ -105,7 +105,7 @@ How pages in this folder are authored: the corpus is one body, and these laws ke
 
 ## [05]-[CORPUS_LAW]
 
-How the corpus accretes: the folder is one cohesive body, not isolated pages, and atlas order is implementation order. In the atlas, `[STATE]` is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
+How the corpus accretes: the folder is one cohesive body, not isolated pages, and atlas order is implementation order. Every page in the atlas is binding law for every page authored after it, admitted by a context-free cold grade of the full page and every snippet converging to a zero-edit pass.
 
 - Three-layer inheritance: every page is authored under the doctrine, under every finalized page — adhered to, never restated, never referenced, never contradicted — and from its own source reservoir.
 - Prose consumes earlier layers as given: vocabulary, owners, carriers, and policy values arrive settled, never re-taught, and the page spends its lines only on its own layer.
