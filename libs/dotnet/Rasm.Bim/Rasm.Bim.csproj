@@ -114,8 +114,4 @@
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
-
-    <ItemGroup Label="System Usings">
-        <Using Include="System.Collections.Frozen" />
-    </ItemGroup>
 </Project>

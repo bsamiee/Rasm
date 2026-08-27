@@ -100,6 +100,32 @@
 |  [32]   | `Amount<SELF, SCALAR>`           | interface       | ordered vector-space measure axis                |
 |  [33]   | `Locus<SELF, DIST, DIST_SCALAR>` | interface       | affine position over a distance axis             |
 
+[PUBLIC_TYPE_SCOPE]: newtype trait derivation (`LanguageExt.Deriving`) — each interface lifts one `LanguageExt.Traits` conformance off the `Subtype` its `Supertype` wraps
+
+| [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------- | :------------ | :-------------------------------------------------------- |
+|  [01]   | `Deriving.Alternative<Supertype, Subtype>`   | interface     | `Choose`, `Pure`, `Apply`, `Map`; `Empty` stays abstract  |
+|  [02]   | `Deriving.Applicative<Supertype, Subtype>`   | interface     | `Pure`, `Action`, both `Apply` arities                    |
+|  [03]   | `Deriving.Choice<Supertype, Subtype>`        | interface     | `Choose` over a strict and a `Memo` right side            |
+|  [04]   | `Deriving.Cofunctor<Supertype, Subtype>`     | interface     | `Comap` contravariant projection                          |
+|  [05]   | `Deriving.Decidable<Supertype, Subtype>`     | interface     | `Lose` and `Route` over `Either<B, C>`                    |
+|  [06]   | `Deriving.Divisible<Supertype, Subtype>`     | interface     | `Divide` and `Conquer`, constrained on `Decidable`        |
+|  [07]   | `Deriving.Fallible<E, Supertype, Subtype>`   | interface     | `Fail` and predicate `Catch` in an `E` currency           |
+|  [08]   | `Deriving.Fallible<Supertype, Subtype>`      | interface     | `Fail` and `Catch` with `E` fixed to `Error`              |
+|  [09]   | `Deriving.Final<Supertype, Subtype>`         | interface     | `Finally` teardown across either branch                   |
+|  [10]   | `Deriving.Foldable<Supertype, Subtype>`      | interface     | every fold, search, aggregate, and `ToSeq` default        |
+|  [11]   | `Deriving.Functor<Supertype, Subtype>`       | interface     | `Map`                                                     |
+|  [12]   | `Deriving.Monad<Supertype, Subtype>`         | interface     | `Bind`, `Flatten`, tail-recursive `Recur`                 |
+|  [13]   | `Deriving.MonadIO<Supertype, Subtype>`       | interface     | both `LiftIO` arities                                     |
+|  [14]   | `Deriving.MonadT<Supertype, Subtype, M>`     | interface     | `Lift` from the inner `M`                                 |
+|  [15]   | `Deriving.MonadUnliftIO<Supertype, Subtype>` | interface     | `ToIO`, `MapIO`, bracket, timeout, repeat, retry, fold-IO |
+|  [16]   | `Deriving.MonoidK<Supertype, Subtype>`       | interface     | `Empty` identity element                                  |
+|  [17]   | `Deriving.Readable<Supertype, Env, Subtype>` | interface     | `Ask`, `Asks`, `Local` over `Env`                         |
+|  [18]   | `Deriving.SemigroupK<Supertype, Subtype>`    | interface     | `Combine`                                                 |
+|  [19]   | `Deriving.Stateful<Supertype, Subtype, S>`   | interface     | `Get`, `Put`, `Modify`, `Gets` over `S`                   |
+|  [20]   | `Deriving.Traversable<Supertype, Subtype>`   | interface     | `Traverse`, `Sequence`, their `M` twins, and `Foldable`   |
+|  [21]   | `Deriving.Writable<Supertype, Subtype, W>`   | interface     | `Tell`, `Listen`, `Pass` over `W : Monoid<W>`             |
+
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Fin<A>` construction, fold, and egress
@@ -391,81 +417,81 @@
 
 [ENTRYPOINT_SCOPE]: `Seq`, `Arr`, `HashMap`, `Set` — immutable carriers
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :----------------------------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `Prelude.Seq(A, A)`                                                | static   | ordered-carrier construction         |
-|  [02]   | `Prelude.toSeq(IEnumerable<A>)`                                    | static   | enumerable admission                 |
-|  [03]   | `Seq.Map(Func<A,B>)`                                               | instance | element projection                   |
-|  [04]   | `Seq.Map(Func<A,int,B>)`                                           | instance | indexed `(value, index)` projection  |
-|  [05]   | `LanguageExt.Seq.map(Seq<A>, Func<int,A,B>)`                       | static   | indexed `(index, value)` twin        |
-|  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                         | instance | monadic expansion                    |
-|  [07]   | `Seq.Filter(Func<A,bool>)`                                         | instance | predicate narrowing                  |
-|  [08]   | `Seq.Partition(Func<A,bool>)`                                      | instance | one-pass two-way split               |
-|  [09]   | `Seq.Exists(Func<A,bool>)`                                         | instance | any-member predicate probe           |
-|  [10]   | `Seq.ForAll(Func<A,bool>)`                                         | instance | every-member predicate probe         |
-|  [11]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                          | static   | one-pass filter-map                  |
-|  [12]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                      | static   | indexed one-pass filter-map          |
-|  [13]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                           | static   | projected pairwise join              |
-|  [14]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                               | static   | running-state projection             |
-|  [15]   | `Seq.Head`                                                         | property | `Option<A>` first read               |
-|  [16]   | `Seq.Last`                                                         | property | `Option<A>` final read               |
-|  [17]   | `Seq.Tail`                                                         | property | all but the first member             |
-|  [18]   | `Seq.Init`                                                         | property | all but the final member             |
-|  [19]   | `Seq.Tails`                                                        | property | every suffix                         |
-|  [20]   | `Seq.Inits`                                                        | property | every prefix                         |
-|  [21]   | `Seq.Add(A)`                                                       | instance | append one member                    |
-|  [22]   | `Seq.Concat(Seq<A>)`                                               | instance | cross-collection join                |
-|  [23]   | `Seq.Intersperse(A)`                                               | instance | separator weave                      |
-|  [24]   | `Seq.Strict()`                                                     | instance | force a lazily-built sequence        |
-|  [25]   | `Seq.AsSpan()`                                                     | instance | zero-copy contiguous read            |
-|  [26]   | `Seq.AsIterable()`                                                 | instance | lazy-view lift                       |
-|  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                     | instance | applicative shape inversion          |
-|  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                    | instance | short-circuiting shape inversion     |
-|  [29]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                          | fold     | carrier-generic state fold           |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `Prelude.Seq(A, A)`                                                | static   | ordered-carrier construction              |
+|  [02]   | `Prelude.toSeq(IEnumerable<A>)`                                    | static   | enumerable admission                      |
+|  [03]   | `Seq.Map(Func<A,B>)`                                               | instance | element projection                        |
+|  [04]   | `Seq.Map(Func<A,int,B>)`                                           | instance | indexed `(value, index)` projection       |
+|  [05]   | `LanguageExt.Seq.map(Seq<A>, Func<int,A,B>)`                       | static   | indexed `(index, value)` twin             |
+|  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                         | instance | monadic expansion                         |
+|  [07]   | `Seq.Filter(Func<A,bool>)`                                         | instance | predicate narrowing                       |
+|  [08]   | `Seq.Partition(Func<A,bool>)`                                      | instance | one-pass two-way split                    |
+|  [09]   | `Seq.Exists(Func<A,bool>)`                                         | instance | any-member predicate probe                |
+|  [10]   | `Seq.ForAll(Func<A,bool>)`                                         | instance | every-member predicate probe              |
+|  [11]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                          | static   | one-pass filter-map                       |
+|  [12]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                      | static   | indexed one-pass filter-map               |
+|  [13]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                           | static   | projected pairwise join                   |
+|  [14]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                               | static   | running-state projection                  |
+|  [15]   | `Seq.Head`                                                         | property | `Option<A>` first read                    |
+|  [16]   | `Seq.Last`                                                         | property | `Option<A>` final read                    |
+|  [17]   | `Seq.Tail`                                                         | property | all but the first member                  |
+|  [18]   | `Seq.Init`                                                         | property | all but the final member                  |
+|  [19]   | `Seq.Tails`                                                        | property | every suffix                              |
+|  [20]   | `Seq.Inits`                                                        | property | every prefix                              |
+|  [21]   | `Seq.Add(A)`                                                       | instance | append one member                         |
+|  [22]   | `Seq.Concat(Seq<A>)`                                               | instance | cross-collection join                     |
+|  [23]   | `Seq.Intersperse(A)`                                               | instance | separator weave                           |
+|  [24]   | `Seq.Strict()`                                                     | instance | force a lazily-built sequence             |
+|  [25]   | `Seq.AsSpan()`                                                     | instance | zero-copy contiguous read                 |
+|  [26]   | `Seq.AsIterable()`                                                 | instance | lazy-view lift                            |
+|  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                     | instance | applicative shape inversion               |
+|  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                    | instance | short-circuiting shape inversion          |
+|  [29]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                          | fold     | carrier-generic state fold                |
 |  [30]   | `FoldableExtensions.FoldM` / `FoldBackM(S, Func<S,A,K<M,S>>)`      | fold     | monadic fold, tail-to-head / head-to-tail |
-|  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | predicate-bounded fold               |
-|  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                            | fold     | monoidal aggregation                 |
-|  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                            | static   | `Option`-shaped search               |
-|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                         | static   | every match as a `Seq`               |
-|  [35]   | `Arr.create(A[])`                                                  | static   | immutable-array construction         |
-|  [36]   | `Arr.createRange(IEnumerable<A>)`                                  | static   | immutable-array admission            |
-|  [37]   | `HashMap.Find(K)`                                                  | instance | `Option<V>` lookup                   |
-|  [38]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                              | instance | matched lookup fold                  |
-|  [39]   | `HashMap.FindOrAdd(K, Func<V>)`                                    | instance | lookup with insert-on-miss           |
-|  [40]   | `HashMap.Add(K, V)`                                                | instance | persistent insert                    |
-|  [41]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                       | instance | persistent matched upsert            |
-|  [42]   | `HashMap.AddOrUpdate(K, Func<V,V>, V)`                             | instance | matched upsert, value fills the miss |
-|  [43]   | `HashMap.SetItem(K, V)`                                            | instance | persistent replace                   |
-|  [44]   | `HashMap.Remove(K)`                                                | instance | persistent delete                    |
-|  [45]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`          | instance | merge with a collision rule          |
-|  [46]   | `HashMap.ContainsKey(K)`                                           | instance | total key membership                 |
-|  [47]   | `HashMap.ToTrackingHashMap()`                                      | instance | change-logged map lift               |
-|  [48]   | `HashMap.AddOrUpdate(K, V)`                                        | instance | persistent unconditional upsert      |
-|  [49]   | `HashMap.AsIterable()`                                             | instance | `(K Key, V Value)` pair carrier      |
-|  [50]   | `Set.Add(A)`                                                       | instance | persistent set insertion             |
-|  [51]   | `Set.TryAdd(A)`                                                    | instance | insertion tolerating a duplicate     |
-|  [52]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                    | static   | lazy sync lift                       |
-|  [53]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`               | static   | lazy async lift                      |
-|  [54]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                            | static   | `params` span into the carrier       |
-|  [55]   | `LanguageExt.List.unfold(S, Func<S,Option<(A,S)>>)`                | static   | state-seeded lazy generation         |
-|  [56]   | `Prelude.toSet(IEnumerable<A>)`                                    | static   | ordered-set enumerable admission     |
-|  [57]   | `Set(IEnumerable<A>)`                                              | ctor     | ordered-set construction             |
-|  [58]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                            | static   | hashed-map pair admission            |
-|  [59]   | `Seq.Iter(Action<A>)`                                              | instance | side-effecting element walk          |
-|  [60]   | `Seq.Skip(int)`                                                    | instance | drop a leading run                   |
-|  [61]   | `Seq.Take(int)`                                                    | instance | keep a leading run                   |
-|  [62]   | `Seq.Count`                                                        | property | materialized member count            |
-|  [63]   | `SeqExtensions.Rev(Seq<A>)`                                        | static   | reversed carrier                     |
-|  [64]   | `Seq.TakeWhile(Func<A,bool>)`                                      | instance | predicate-bounded leading run        |
-|  [65]   | `Seq.TakeWhile(Func<A,int,bool>)`                                  | instance | indexed predicate-bounded run        |
-|  [66]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic predicate-bounded fold       |
-|  [67]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic fold to a stop condition     |
-|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | fold     | the argument-flipped module twin     |
-|  [69]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | pure fold to a stop condition        |
-|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | fold     | the right-to-left bounded twins      |
-|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | fold     | the folder itself decides the stop   |
-|  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | bounded monoidal aggregation, nested |
-|  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | one pass over `K<T, K<U, A>>`        |
+|  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | predicate-bounded fold                    |
+|  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                            | fold     | monoidal aggregation                      |
+|  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                            | static   | `Option`-shaped search                    |
+|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                         | static   | every match as a `Seq`                    |
+|  [35]   | `Arr.create(A[])`                                                  | static   | immutable-array construction              |
+|  [36]   | `Arr.createRange(IEnumerable<A>)`                                  | static   | immutable-array admission                 |
+|  [37]   | `HashMap.Find(K)`                                                  | instance | `Option<V>` lookup                        |
+|  [38]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                              | instance | matched lookup fold                       |
+|  [39]   | `HashMap.FindOrAdd(K, Func<V>)`                                    | instance | lookup with insert-on-miss                |
+|  [40]   | `HashMap.Add(K, V)`                                                | instance | persistent insert                         |
+|  [41]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                       | instance | persistent matched upsert                 |
+|  [42]   | `HashMap.AddOrUpdate(K, Func<V,V>, V)`                             | instance | matched upsert, value fills the miss      |
+|  [43]   | `HashMap.SetItem(K, V)`                                            | instance | persistent replace                        |
+|  [44]   | `HashMap.Remove(K)`                                                | instance | persistent delete                         |
+|  [45]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`          | instance | merge with a collision rule               |
+|  [46]   | `HashMap.ContainsKey(K)`                                           | instance | total key membership                      |
+|  [47]   | `HashMap.ToTrackingHashMap()`                                      | instance | change-logged map lift                    |
+|  [48]   | `HashMap.AddOrUpdate(K, V)`                                        | instance | persistent unconditional upsert           |
+|  [49]   | `HashMap.AsIterable()`                                             | instance | `(K Key, V Value)` pair carrier           |
+|  [50]   | `Set.Add(A)`                                                       | instance | persistent set insertion                  |
+|  [51]   | `Set.TryAdd(A)`                                                    | instance | insertion tolerating a duplicate          |
+|  [52]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                    | static   | lazy sync lift                            |
+|  [53]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`               | static   | lazy async lift                           |
+|  [54]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                            | static   | `params` span into the carrier            |
+|  [55]   | `LanguageExt.List.unfold(S, Func<S,Option<(A,S)>>)`                | static   | state-seeded lazy generation              |
+|  [56]   | `Prelude.toSet(IEnumerable<A>)`                                    | static   | ordered-set enumerable admission          |
+|  [57]   | `Set(IEnumerable<A>)`                                              | ctor     | ordered-set construction                  |
+|  [58]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                            | static   | hashed-map pair admission                 |
+|  [59]   | `Seq.Iter(Action<A>)`                                              | instance | side-effecting element walk               |
+|  [60]   | `Seq.Skip(int)`                                                    | instance | drop a leading run                        |
+|  [61]   | `Seq.Take(int)`                                                    | instance | keep a leading run                        |
+|  [62]   | `Seq.Count`                                                        | property | materialized member count                 |
+|  [63]   | `SeqExtensions.Rev(Seq<A>)`                                        | static   | reversed carrier                          |
+|  [64]   | `Seq.TakeWhile(Func<A,bool>)`                                      | instance | predicate-bounded leading run             |
+|  [65]   | `Seq.TakeWhile(Func<A,int,bool>)`                                  | instance | indexed predicate-bounded run             |
+|  [66]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic predicate-bounded fold            |
+|  [67]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | monadic fold to a stop condition          |
+|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | fold     | the argument-flipped module twin          |
+|  [69]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | pure fold to a stop condition             |
+|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | fold     | the right-to-left bounded twins           |
+|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | fold     | the folder itself decides the stop        |
+|  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | bounded monoidal aggregation, nested      |
+|  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | one pass over `K<T, K<U, A>>`             |
 
 - The bounded folds split their predicate arity by carrier and the two do not look different at the call site: the PURE `FoldWhile`/`FoldUntil` take `Func<(S State, A Value), bool>` — the running state AND the element — while the MONADIC `FoldWhileM`/`FoldUntilM` take `Func<A, bool>` over the element ALONE. A state-reading stop condition therefore has no monadic form; it either folds pure and lifts afterwards, or carries the condition into the effect and returns a settled state the next step reads. `foldWhileM` is the same operator with the arguments flipped to `(f, pred, state, ta)`, so a mechanical rewrite between the instance and module spellings silently transposes them.
 - The monadic fold pair is DIRECTION-SWAPPED against the pure pair on the landed release: `Fold` walks head-to-tail, but `FoldM` walks TAIL-TO-HEAD (a string-append fold over `[1, 2, 3]` answers `321`) while `FoldBackM` walks head-to-tail (`123`) — so an order-dependent monadic fold over an ascending run (a running parameter renormalization, a prefix-dependent admission) spells `FoldBackM`, and a `FoldM` there silently feeds the step its input reversed.
@@ -555,6 +581,51 @@
 - `Swap` hands the transition function a `TrackingHashMap<K, V>`, so a whole-map update can read the deltas it is itself producing and decide from them; the log is what the emitted `HashMapPatch.Changes` is built from.
 - `Change` fires ONCE per accepted commit with a `HashMapPatch<K, V>` carrying `From`, `To`, and a `HashMap<K, Change<V>>` of per-key deltas, which makes the cell an observable keyed store rather than a mutable dictionary a watcher polls. A bulk member commits one patch covering every touched key, so a range write is one notification and not one per entry.
 - Every mutating member re-runs its transition inside the CAS loop exactly as `Atom<A>.Swap` does, so the same side-effect prohibition binds: a dispose, a counter bump, or a log inside a swap runs once per losing attempt.
+
+[ENTRYPOINT_SCOPE]: `Deriving.*` defaults declared on the `Supertype` — `Transform` unwraps to the `Subtype`, `CoTransform` rewraps, and every row below routes through that pair
+
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `Transform(K<Supertype,A>) -> K<Subtype,A>`                           | static   | unwrap to the inner carrier, hand-written          |
+|  [02]   | `CoTransform(K<Subtype,A>) -> K<Supertype,A>`                         | static   | rewrap the inner result, hand-written              |
+|  [03]   | `Map(Func<A,B>, K<Supertype,A>)`                                      | static   | `Functor` projection                               |
+|  [04]   | `Pure(A)`                                                             | static   | `Applicative` lift                                 |
+|  [05]   | `Apply(K<Supertype,Func<A,B>>, K<Supertype,A>)`                       | static   | fan-in, `Memo` arity beside it                     |
+|  [06]   | `Action(K<Supertype,A>, K<Supertype,B>)`                              | static   | sequence, keeping the right                        |
+|  [07]   | `Bind(K<Supertype,A>, Func<A,K<Supertype,B>>)`                        | static   | `Monad` chain                                      |
+|  [08]   | `Flatten(K<Supertype,K<Supertype,A>>)`                                | static   | `Monad` join                                       |
+|  [09]   | `Recur(A, Func<A,K<Supertype,Next<A,B>>>)`                            | static   | tail-recursive loop                                |
+|  [10]   | `LiftIO(IO<A>)` / `LiftIO(K<IO,A>)`                                   | static   | `MonadIO` admission                                |
+|  [11]   | `ToIO(K<Supertype,A>)` / `MapIO(K<Supertype,A>, Func<IO<A>,IO<B>>)`   | static   | `MonadUnliftIO` window                             |
+|  [12]   | `BracketIO(K<Supertype,A>, Func<A,IO<C>>, Func<A,IO<B>>)`             | static   | acquire-use-release, `Catch` arity beside it       |
+|  [13]   | `RepeatIO(K<Supertype,A>, Schedule)`                                  | static   | cadence; `RepeatWhileIO`/`RepeatUntilIO` alongside |
+|  [14]   | `RetryIO(K<Supertype,A>, Schedule)`                                   | static   | retry; `RetryWhileIO`/`RetryUntilIO` alongside     |
+|  [15]   | `FoldIO(K<Supertype,A>, Schedule, S, Func<S,A,S>)`                    | static   | streaming fold; `FoldWhileIO`/`FoldUntilIO` beside |
+|  [16]   | `LocalIO(K)` / `PostIO(K)` / `TimeoutIO(K, TimeSpan)`                 | static   | `IO` scope, ordering, and deadline                 |
+|  [17]   | `Fail(E)`                                                             | static   | `Fallible` raise                                   |
+|  [18]   | `Catch(K<Supertype,A>, Func<E,bool>, Func<E,K<Supertype,A>>)`         | static   | `Fallible` predicate recovery                      |
+|  [19]   | `Finally(K<Supertype,A>, K<Supertype,X>)`                             | static   | `Final` teardown                                   |
+|  [20]   | `Choose(K<Supertype,A>, K<Supertype,A>)`                              | static   | first-success, `Memo` arity beside it              |
+|  [21]   | `Combine(K<Supertype,A>, K<Supertype,A>)`                             | static   | `SemigroupK` join                                  |
+|  [22]   | `Empty()`                                                             | static   | `MonoidK` identity                                 |
+|  [23]   | `Ask`                                                                 | property | `Readable` environment read                        |
+|  [24]   | `Asks(Func<Env,A>)` / `Local(Func<Env,Env>, K<Supertype,A>)`          | static   | environment projection and shadowing               |
+|  [25]   | `Get`                                                                 | property | `Stateful` state read                              |
+|  [26]   | `Put(S)` / `Modify(Func<S,S>)` / `Gets(Func<S,A>)`                    | static   | state write and projection                         |
+|  [27]   | `Tell(W)` / `Listen(K<Supertype,A>)`                                  | static   | `Writable` output and its capture                  |
+|  [28]   | `Pass(K<Supertype,(A,Func<W,W>)>)`                                    | static   | rewrite the captured output                        |
+|  [29]   | `Lift(K<M,A>)`                                                        | static   | `MonadT` inner-carrier lift                        |
+|  [30]   | `Traverse(Func<A,K<F,B>>, K<Supertype,A>)` / `TraverseM`              | static   | effect and shape inversion                         |
+|  [31]   | `Sequence(K<Supertype,K<F,A>>)` / `SequenceM`                         | static   | inversion with the map already applied             |
+|  [32]   | `TraverseDefault(Func<A,K<F,B>>, K<Supertype,A>)`                     | static   | `Traverse` through `Sequence`                      |
+|  [33]   | `Comap(Func<A,B>, K<Supertype,B>)`                                    | static   | `Cofunctor` contramap                              |
+|  [34]   | `Divide(Func<A,(B,C)>, K<Supertype,B>, K<Supertype,C>)` / `Conquer()` | static   | `Divisible` split and unit                         |
+|  [35]   | `Lose(Func<A,Void>)` / `Route(Func<A,Either<B,C>>, K, K)`             | static   | `Decidable` absurd and branch                      |
+|  [36]   | `Fold(Func<A,Func<S,S>>, S, K<Supertype,A>)`                          | static   | `Foldable` seed; the whole roster rides it         |
+
+- `Transform` and `CoTransform` are the whole obligation: a wrapper declaring `Deriving.MonadUnliftIO<Supertype, Subtype>`, `Deriving.Fallible<Supertype, Subtype>`, and `Deriving.Final<Supertype, Subtype>` compiles with those two members alone. `Deriving.Alternative` carries no body of its own — it composes the `Choice` and `Applicative` derivations — so `Alternative<Supertype>.Empty` stays abstract and the wrapper writes it or takes `CS0535`.
+- `Supertype` heads every parameter list while `Subtype` moves: `Deriving.Readable<Supertype, Env, Subtype>` seats it LAST, `Deriving.Stateful<Supertype, Subtype, S>`, `Deriving.Writable<Supertype, Subtype, W>`, and `Deriving.MonadT<Supertype, Subtype, M>` seat it SECOND, and `Deriving.Fallible<E, Supertype, Subtype>` puts the failure currency FIRST — `Deriving.Fallible<Supertype, Subtype>` is that interface with `E` fixed to `Error`.
+- `LanguageExt.Deriving` is a static CLASS, so `using LanguageExt.Deriving;` fails as `CS0138` and every derivation spells `Deriving.Monad<Supertype, Subtype>` through the `LanguageExt` namespace import. `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate arity-two interface aliasing `NaturalIso<Supertype, Subtype>`, and the arity split resolves both names unqualified with both namespaces imported.
 
 ## [03]-[IMPLEMENTATION_LAW]
 

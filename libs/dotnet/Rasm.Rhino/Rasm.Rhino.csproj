@@ -36,7 +36,6 @@
         <Using Include="Rhino.Display" />
         <Using Include="Rhino.DocObjects" />
         <Using Include="Rhino.FileIO" />
-        <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Input" />
         <Using Include="Rhino.Input.Custom" />
         <Using Include="Rhino.PlugIns" />

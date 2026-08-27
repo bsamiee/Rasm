@@ -56,7 +56,6 @@
     <ItemGroup Label="Rhino Usings">
         <Using Include="Rhino" />
         <Using Include="Rhino.FileIO" />
-        <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Intersect" />
     </ItemGroup>
 
@@ -66,7 +65,6 @@
     </ItemGroup>
 
     <ItemGroup Label="System Usings">
-        <Using Include="System.Collections.Immutable" />
         <Using Include="System.Globalization" />
         <Using Include="System.Runtime.CompilerServices" />
         <Using Include="System.Runtime.InteropServices" />

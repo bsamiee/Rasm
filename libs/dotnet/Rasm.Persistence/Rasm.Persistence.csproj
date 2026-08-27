@@ -90,6 +90,7 @@
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Json" />
         <PackageReference Include="DotPulsar" />
+        <PackageReference Include="LanguageExt.Parsec" />
         <PackageReference Include="Marten" />
         <PackageReference Include="OpenTelemetry.Instrumentation.ConfluentKafka" />
         <PackageReference Include="Pidgin" />

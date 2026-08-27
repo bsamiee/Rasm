@@ -1164,6 +1164,14 @@
         "resolved": "1.0.8",
         "contentHash": "Wp2F7BamQ2Q/7Hk834nV9vRQapgcr8kgv9Jvfm8J3D0IhDqZMMl+a2yxUq5ltJitvXvQfB8W6K4F4fCbw/P6YQ=="
       },
+      "LanguageExt.Streaming": {
+        "type": "Transitive",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77"
+        }
+      },
       "LBT.Newtonsoft.Json": {
         "type": "Transitive",
         "resolved": "13.0.3.2",
@@ -2147,6 +2155,7 @@
           "Grpc.Net.Client": "[2.83.0, )",
           "Grpc.StatusProto": "[2.83.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "LanguageExt.Sys": "[5.0.0-beta-77, )",
           "MQTTnet": "[5.2.0.1603, )",
           "MTConnect.NET-Common": "[6.9.0.2, )",
           "Microsoft.AspNetCore.Authorization": "[10.0.10, )",
@@ -2302,6 +2311,7 @@
           "K4os.Compression.LZ4": "[1.3.8, )",
           "K4os.Compression.LZ4.Streams": "[1.3.8, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "LanguageExt.Parsec": "[5.0.0-beta-77, )",
           "LightningDB": "[0.22.0, )",
           "MPXJ.Net": "[16.6.0, )",
           "MQTTnet": "[5.2.0.1603, )",
@@ -2927,6 +2937,26 @@
         "dependencies": {
           "K4os.Compression.LZ4": "1.3.8",
           "K4os.Hash.xxHash": "1.0.8"
+        }
+      },
+      "LanguageExt.Parsec": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "NWs3kHkIaOroUmW6YvS+oKOgb7Qnp9db++V9TJJn5HjmyzBYlA4hDXGh2R8NxgmMIrz4sxc8xr0czIKeg7zDkw==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77",
+          "LanguageExt.Streaming": "5.0.0-beta-77"
+        }
+      },
+      "LanguageExt.Sys": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "I3WGD+Vlsh82d49rhHYKFfLreKAirnhZRk0TueZCjEXOtfD06rHfPpF5tX6/qwwaTggpJNN83imzUGctTQ+gBg==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77",
+          "LanguageExt.Streaming": "5.0.0-beta-77"
         }
       },
       "LightningDB": {

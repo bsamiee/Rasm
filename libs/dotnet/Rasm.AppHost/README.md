@@ -67,6 +67,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.Extensions.DependencyInjection`
 - `FluentValidation`
 - `FluentValidation.DependencyInjectionExtensions`
+- `LanguageExt.Sys` — Lifts BCL console, clock, file, and environment effects onto runtime-bound traits.
 - `Scrutor`
 - `System.CommandLine` — Projects the app-root verb table onto `CommandDispatch.Run`.
 - `Cronos`

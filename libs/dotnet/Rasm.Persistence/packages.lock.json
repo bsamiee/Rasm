@@ -422,6 +422,16 @@
         "resolved": "5.0.0-beta-77",
         "contentHash": "zVBqn2alHIDTOSjgWDUo31irEg59ZfM6T8e24UcUn6o/F+5Qr0jRjGPp2LzME7PHyKh+crK+boBmdCAFguwqjw=="
       },
+      "LanguageExt.Parsec": {
+        "type": "Direct",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "NWs3kHkIaOroUmW6YvS+oKOgb7Qnp9db++V9TJJn5HjmyzBYlA4hDXGh2R8NxgmMIrz4sxc8xr0czIKeg7zDkw==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77",
+          "LanguageExt.Streaming": "5.0.0-beta-77"
+        }
+      },
       "LightningDB": {
         "type": "Direct",
         "requested": "[0.22.0, )",
@@ -1661,6 +1671,14 @@
         "resolved": "1.0.8",
         "contentHash": "Wp2F7BamQ2Q/7Hk834nV9vRQapgcr8kgv9Jvfm8J3D0IhDqZMMl+a2yxUq5ltJitvXvQfB8W6K4F4fCbw/P6YQ=="
       },
+      "LanguageExt.Streaming": {
+        "type": "Transitive",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77"
+        }
+      },
       "LBT.Newtonsoft.Json": {
         "type": "Transitive",
         "resolved": "13.0.3.2",
@@ -2631,6 +2649,7 @@
           "Grpc.Net.Client": "[2.83.0, )",
           "Grpc.StatusProto": "[2.83.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "LanguageExt.Sys": "[5.0.0-beta-77, )",
           "MQTTnet": "[5.2.0.1603, )",
           "MTConnect.NET-Common": "[6.9.0.2, )",
           "Microsoft.AspNetCore.Authorization": "[10.0.10, )",
@@ -2995,6 +3014,16 @@
         "requested": "[3.0.10, )",
         "resolved": "3.0.10",
         "contentHash": "yZIhtw8sYuvsONzQbZxWpR60tMWYHXoo0DL6nyOqSFiU5POjBTSEyWFpTQtJEZuy+oqiYTXKXY/Mjx7KnqIQFw=="
+      },
+      "LanguageExt.Sys": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "I3WGD+Vlsh82d49rhHYKFfLreKAirnhZRk0TueZCjEXOtfD06rHfPpF5tX6/qwwaTggpJNN83imzUGctTQ+gBg==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77",
+          "LanguageExt.Streaming": "5.0.0-beta-77"
+        }
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",

@@ -128,6 +128,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `CloudNative.CloudEvents.Kafka` — Binary-mode `ce_` header binding onto `Confluent.Kafka`; backs the `kafka` binding row.
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs the `rabbitmq` binding row.
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs the `pulsar` binding row.
+- `LanguageExt.Parsec` — Derives a CESQL lexer and expression parser from one language definition.
 - `Pidgin` — Allocation-light parser combinators; the table-driven CESQL grammar behind the `sql` dialect at `Version/egress#SUBSCRIPTION_FILTER`.
 
 [OBJECT_CUSTODY]: Cloud object stores and the KMS key custody beneath the content-keyed object plane.

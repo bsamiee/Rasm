@@ -12,8 +12,12 @@
     </PropertyGroup>
 
     <ItemGroup Label="Project Usings">
+        <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
         <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Effects;LanguageExt.Pretty;LanguageExt.Traits;LanguageExt.Traits.Domain" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
         <Using Include="LanguageExt.Prelude" Static="true" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
+        <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Sys'))' != ''" />
+        <!-- LanguageExt.Parsec exports a static class Char; sources spell the BCL type as the keyword char. -->
+        <Using Include="LanguageExt.Parsec" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Parsec'))' != ''" />
         <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />

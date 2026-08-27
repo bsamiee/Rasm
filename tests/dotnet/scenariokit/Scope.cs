@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using System.Globalization;
 using Eto.Drawing;
 using Grasshopper2.Components;

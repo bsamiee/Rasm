@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using Eto.Drawing;
 using Grasshopper2.Framework;
 using GhEditor = Grasshopper2.UI.Editor;

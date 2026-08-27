@@ -68,8 +68,4 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
     </ItemGroup>
-
-    <ItemGroup Label="System Usings">
-        <Using Include="System.Collections.Frozen" />
-    </ItemGroup>
 </Project>
