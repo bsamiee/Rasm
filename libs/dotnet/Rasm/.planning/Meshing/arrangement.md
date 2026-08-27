@@ -695,18 +695,18 @@ flowchart LR
 
 `[RESULT]` cells name the one return type each owner exposes.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]              | [RESULT]                                     | [CASES] |
-| :-----: | :----------------- | :------------------- | :------------------------------------------- | :-----: |
-|  [01]   | Arrangement        | `ArrangementOp`      | `Arrangement.Apply → Fin<ArrangementResult>` |    3    |
-|  [02]   | Boolean vocabulary | `BooleanOp`          | policy rows (repair delegates)               |    4    |
-|  [03]   | Fill rule          | `PolygonFill`        | policy rows (`Inside` delegate)              |    4    |
-|  [04]   | Route evidence     | `BooleanRoute`       | census column                                |    2    |
-|  [05]   | Boolean evidence   | `BooleanCensus`      | carrier (census, guarantee, provenance)      |    —    |
-|  [06]   | Source attribution | `ManifoldProvenance` | `OperandOf → Option<int>`                    |    —    |
-|  [07]   | Managed governance | `GeometryFault` cancellation leaves | direct fault rows (progress fraction) |    4    |
-|  [08]   | Operand side       | `Operand`            | policy rows (`Progress`/`Facing` columns)    |    2    |
-|  [09]   | Patch arena        | `PatchStore`         | frozen projection                            |    —    |
-|  [10]   | Scale companion    | `ManifoldGate`       | `Fin` ( on missing asset)                    |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                             | [RESULT]                                     | [CASES] |
+| :-----: | :----------------- | :---------------------------------- | :------------------------------------------- | :-----: |
+|  [01]   | Arrangement        | `ArrangementOp`                     | `Arrangement.Apply → Fin<ArrangementResult>` |    3    |
+|  [02]   | Boolean vocabulary | `BooleanOp`                         | policy rows (repair delegates)               |    4    |
+|  [03]   | Fill rule          | `PolygonFill`                       | policy rows (`Inside` delegate)              |    4    |
+|  [04]   | Route evidence     | `BooleanRoute`                      | census column                                |    2    |
+|  [05]   | Boolean evidence   | `BooleanCensus`                     | carrier (census, guarantee, provenance)      |    —    |
+|  [06]   | Source attribution | `ManifoldProvenance`                | `OperandOf → Option<int>`                    |    —    |
+|  [07]   | Managed governance | `GeometryFault` cancellation leaves | direct fault rows (progress fraction)        |    4    |
+|  [08]   | Operand side       | `Operand`                           | policy rows (`Progress`/`Facing` columns)    |    2    |
+|  [09]   | Patch arena        | `PatchStore`                        | frozen projection                            |    —    |
+|  [10]   | Scale companion    | `ManifoldGate`                      | `Fin` ( on missing asset)                    |    —    |
 
 ## [04]-[RESEARCH]
 

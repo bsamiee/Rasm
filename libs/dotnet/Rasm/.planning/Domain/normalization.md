@@ -569,7 +569,7 @@ One owner per axis; capability is a row, case, or set member, never a sibling su
 |  [01]   | `Topology`           | `[SmartEnum<int>]` + recovery row          | `Fin<Lease<GeometryBase>>`             |
 |  [02]   | `Kind`               | `[SmartEnum<int>]` + capability set column | `Kind.Of → Option<Kind>`               |
 |  [03]   | `Capability`         | `[SmartEnum<string>]` `ICapability` row    | `Admits → bool`                        |
-|  [04]   | `CurveForm`          | analytic `[Union]` over one closed column  | `CurveFormOf → CurveForm`         |
+|  [04]   | `CurveForm`          | analytic `[Union]` over one closed column  | `CurveFormOf → CurveForm`              |
 |  [05]   | `AnalyticForm`       | forward and inverse correspondence rows    | `Fin<GeometryBase>` / `Option<object>` |
 |  [06]   | `Normalization`      | receiver ingress + three lane entries      | `Fin<T>` / `Fin<Lease<T>>`             |
 |  [07]   | `TopologyProjection` | component-aware `IValidityEvidence` lease  | `Fin<TopologyProjection>` / `As<T>`    |

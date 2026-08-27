@@ -1020,12 +1020,12 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 
 | [INDEX] | [AXIS_CONCERN]       | [OWNER]                            | [CASES] |
 | :-----: | :------------------- | :--------------------------------- | :-----: |
-|  [01]   | Integrator rows      | `RungeKuttaMethod`                   |    9    |
+|  [01]   | Integrator rows      | `RungeKuttaMethod`                 |    9    |
 |  [02]   | Coefficient carrier  | `ButcherTableau`                   |    1    |
-|  [03]   | Continuous extension | `DenseOutput`               |    3    |
+|  [03]   | Continuous extension | `DenseOutput`                      |    3    |
 |  [04]   | Step algebra         | `IntegrationModule<TState,TDelta>` |   2·2   |
 |  [05]   | Accuracy route       | `QuadratureRoute`                  |    3    |
-|  [06]   | Integration arity    | `QuadratureDomain`                |    5    |
+|  [06]   | Integration arity    | `QuadratureDomain`                 |    5    |
 |  [07]   | Reference domain     | `ReferenceElement`                 |  7·16   |
 
 - [01]-[INTEGRATOR_ROWS]: `[SmartEnum<int>]` — the tableau IS the row.
