@@ -1335,8 +1335,7 @@ public sealed class FeatureControlWire : IToleranceEncoder {
         Total<MaterialCondition, Contract.Material>(static () => MaterialCondition.Items, static row => row.Key, static row =>
             row == MaterialCondition.Regardless ? Contract.Material.Regardless
             : row == MaterialCondition.Maximum ? Contract.Material.Maximum
-            : row == MaterialCondition.Least ? Contract.Material.Least
-            : throw new InvalidOperationException($"<feature-control-material-unmapped:{row.Key}>"));
+            : Contract.Material.Least);
 
     public FeatureControlWire() {
         _ = Characteristics.Value;
@@ -1431,31 +1430,36 @@ public sealed class FeatureControlWire : IToleranceEncoder {
     static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(
         Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
         where TRow : notnull where TEnum : struct, Enum =>
-        Total(rows, row => Lift<TEnum>(key(row)));
+        Total(rows, key, row => Lift<TEnum>(key(row)).IfNone(default(TEnum)));
 
     static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(
         Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key, Func<TRow, TEnum> lift)
-        where TRow : notnull where TEnum : struct, Enum => new(() => {
-            IReadOnlyList<TRow> domain = rows();
-            (TRow Row, string Key, TEnum Value)[] mapped = domain
-                .Select(row => (Row: row, Key: key(row), Value: lift(row)))
-                .ToArray();
-            FrozenSet<TEnum> generated = Enum.GetValues<TEnum>()
-                .Where(static value => !EqualityComparer<TEnum>.Default.Equals(value, default))
-                .ToFrozenSet();
-            bool uniqueKeys = mapped.Select(static row => row.Key)
-                .Distinct(StringComparer.Ordinal).Count() == mapped.Length;
-            FrozenSet<TEnum> projected = mapped.Select(static row => row.Value).ToFrozenSet();
-            if (!uniqueKeys || projected.Count != mapped.Length || !projected.SetEquals(generated))
-                throw new InvalidOperationException($"<feature-control-vocabulary-not-bijective:{typeof(TRow).Name}:{typeof(TEnum).Name}>");
-            return mapped.ToFrozenDictionary(static row => row.Row, static row => row.Value);
-        });
+        where TRow : notnull where TEnum : struct, Enum =>
+        new(() => rows().ToFrozenDictionary(row => row, lift));
 
-    static TEnum Lift<TEnum>(string key) where TEnum : struct, Enum =>
+    internal static Fin<Unit> Proof<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
+        where TRow : notnull where TEnum : struct, Enum {
+        (TRow Row, string Key, Option<TEnum> Value)[] mapped = rows()
+            .Select(row => (Row: row, Key: key(row), Value: Lift<TEnum>(key(row))))
+            .ToArray();
+        FrozenSet<TEnum> generated = Enum.GetValues<TEnum>()
+            .Where(static value => !EqualityComparer<TEnum>.Default.Equals(value, default))
+            .ToFrozenSet();
+        FrozenSet<TEnum> projected = mapped.Choose(static row => row.Value).ToFrozenSet();
+        return mapped.Select(static row => row.Key).Distinct(StringComparer.Ordinal).Count() == mapped.Length
+            && projected.Count == mapped.Length
+            && projected.SetEquals(generated)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
+                Label: $"{typeof(TRow).Name}->{typeof(TEnum).Name}",
+                Requirement: "a bijective wire vocabulary"));
+    }
+
+    static Option<TEnum> Lift<TEnum>(string key) where TEnum : struct, Enum =>
         Enum.TryParse(key.Replace("-", string.Empty), ignoreCase: true, out TEnum value)
         && !EqualityComparer<TEnum>.Default.Equals(value, default)
-            ? value
-            : throw new InvalidOperationException($"<feature-control-vocabulary-unmapped:{typeof(TEnum).Name}:{key}>");
+            ? Some(value)
+            : None;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

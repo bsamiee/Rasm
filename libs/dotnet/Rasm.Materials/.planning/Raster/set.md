@@ -803,15 +803,24 @@ public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
 }
 
 public static class WireVocabulary {
-    public static TEnum Lift<TEnum>(string key) where TEnum : struct, Enum =>
+    public static Option<TEnum> Lift<TEnum>(string key) where TEnum : struct, Enum =>
         Enum.TryParse(key.Replace("_", string.Empty).Replace("-", string.Empty), ignoreCase: true, out TEnum value)
         && !EqualityComparer<TEnum>.Default.Equals(value, default)
-            ? value
-            : throw new InvalidOperationException($"<wire-vocabulary-unsound:{typeof(TEnum).Name}:{key}>");
+            ? Some(value)
+            : None;
 
     public static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
         where TRow : notnull where TEnum : struct, Enum =>
-        new(() => rows().ToFrozenDictionary(static row => row, row => Lift<TEnum>(key(row))));
+        new(() => rows().ToFrozenDictionary(static row => row, row => Lift<TEnum>(key(row)).IfNone(default(TEnum))));
+
+    public static Fin<Unit> Proof<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
+        where TRow : notnull where TEnum : struct, Enum =>
+        toSeq(rows())
+            .Filter(row => Lift<TEnum>(key(row)).IsNone)
+            .Map(row => (Error)new MaterialFault.Parameter($"<wire-vocabulary-unsound:{typeof(TEnum).Name}:{key(row)}>"))
+            is { IsEmpty: false } faults
+            ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
+            : Fin.Succ(unit);
 
     static readonly Lazy<FrozenDictionary<TextureChannel, Wire.Role>> Roles = Total<TextureChannel, Wire.Role>(static () => TextureChannel.Items, static r => r.Key);
     static readonly Lazy<FrozenDictionary<PlaneTransfer, Wire.Transfer>> Transfers = Total<PlaneTransfer, Wire.Transfer>(static () => PlaneTransfer.Items, static r => r.Key);
@@ -848,14 +857,14 @@ public static class WireVocabulary {
         var p when p == PlanePrimaries.Bt2020 => Wire.Primaries.Bt2020,
         var p when p == PlanePrimaries.P3D65 => Wire.Primaries.Displayp3,
         var p when p == PlanePrimaries.Xyz => Wire.Primaries.Ciexyz,
-        _ => throw new InvalidOperationException($"<wire-primaries-unsound:{row.Key}>"),
+        _ => Wire.Primaries.None,
     };
     public static Wire.Depth Depth(ChannelDtype row) => row switch {
         var d when d == ChannelDtype.Unorm8 => Wire.Depth.U8,
         var d when d == ChannelDtype.Unorm16 => Wire.Depth.U16,
         var d when d == ChannelDtype.Float16 => Wire.Depth.F16,
         var d when d == ChannelDtype.Float32 => Wire.Depth.F32,
-        _ => throw new InvalidOperationException($"<wire-depth-unsound:{row.Key}>"),
+        _ => Wire.Depth.Unspecified,
     };
     public static Fin<Wire.Container> Container(RasterFormat row) =>
         Containers.Value.TryGetValue(row, out Wire.Container container)
