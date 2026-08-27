@@ -110,7 +110,7 @@ public static class Development {
                         ? Fin.Succ(unrolled)
                         : Fin.Fail<UnrolledStrip>(new GeometryFault.StripIsometryExceeded(strip, (double)unrolled.Witness, policy.Isometry))).ToValidation())
                 .As().ToFin()
-                .Bind(unrolled => Emit(source, field, unrolled, key)),
+                .Bind(unrolled => Emit(source, field, unrolled)),
         };
 
     internal readonly record struct UnrolledStrip(Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Planar, ddouble Witness, double MaxJacobianRatio);

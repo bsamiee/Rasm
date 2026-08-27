@@ -40,8 +40,8 @@ Every constructor takes a leading `void* mem` sized by its `manifold_*_size()` t
 |  [02]   | `MANIFOLD_ADD`                         | union operation        |
 |  [03]   | `MANIFOLD_SUBTRACT`                    | difference operation   |
 |  [04]   | `MANIFOLD_INTERSECT`                   | intersection operation |
-|  [05]   | `manifold_boolean(mem, a, b, op)`      | binary dispatch        |
-|  [06]   | `manifold_batch_boolean(mem, vec, op)` | manifold-vector fold   |
+|  [05]   | `manifold_boolean(mem, a, b)`      | binary dispatch        |
+|  [06]   | `manifold_batch_boolean(mem, vec)` | manifold-vector fold   |
 |  [07]   | `manifold_union`                       | unrouted named twin    |
 |  [08]   | `manifold_difference`                  | unrouted named twin    |
 |  [09]   | `manifold_intersection`                | unrouted named twin    |

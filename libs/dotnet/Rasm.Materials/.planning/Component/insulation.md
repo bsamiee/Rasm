@@ -117,8 +117,8 @@ public static class InsulationSeed {
 
     static Fin<SectionProfile> Profile(InsulationRow r) =>
         r.ExtentMm.Match(
-            Some: extent => SectionProfile.Rectangle.Of(widthMm: extent.WidthMm, depthMm: r.ThicknessMm, key),
-            None: () => SectionProfile.Nominal.Of(r.ThicknessMm, key));
+            Some: extent => SectionProfile.Rectangle.Of(widthMm: extent.WidthMm, depthMm: r.ThicknessMm),
+            None: () => SectionProfile.Nominal.Of(r.ThicknessMm));
 
     static Fin<PropertyBag> Detail(InsulationRow r, SectionProfile profile) =>
         from thickness in ComponentDetail.Measured(DetailSchema.PanelThickness, Dimension.LengthDim, r.ThicknessMm * 1e-3)

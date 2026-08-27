@@ -352,7 +352,7 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
             .As()
             .ToFin()
             .Bind(held => BindLaw
-                .Admit(new BindFusion(Source: held.Source.Kind, Flow: held.Flow, Timing: held.Cadence.Kind), key, op)
+                .Admit(new BindFusion(Source: held.Source.Kind, Flow: held.Flow, Timing: held.Cadence.Kind))
                 .Map(fusion => new BindingPlan<TControl, TValue, TModel>(held.Select, held.Source, fusion, held.Cadence, gate, held.Ledger)));
     }
 
@@ -483,8 +483,8 @@ public static class DataScope {
 
 - Owner: `StoreRow<T>` the collection carrier family; `StoreItemLens` the list display and key projections; `TreeStore<T>` the tree carrier with its element projection; `StoreSink<T>` the closed mount destination family, every case carrying its own store; `StoreGate` the one mount gate.
 - Cases: `StoreRow` is `Eager` over a fully materialized observable source whose mutations refresh the bound view, or `Virtual` over a random-access window contract adapted at mount. `StoreSink<T>` is `Grid` and `List` each carrying their `StoreRow<T>`, or `Tree` carrying its `TreeStore<T>` — the tree's item contract, not the element type, is what discriminates it.
-- Entry: `StoreGate.Mount(sink, key)` is the ONE gate; every case carries the store it mounts, so the gate takes no second carrier.
-- Law: the store rides its CASE. NAMED LOSS: the mount's `Option<StoreRow<T>>` arity, whose tree case demanded absence and whose two other cases demanded presence — a pairing every call site had to know and no signature stated. The tree-with-rows and the grid-without-rows corners are now unrepresentable rather than refusable. Witness: `StoreGate.Mount(new StoreSink.Tree(view, store), Some(rows), key)` no longer compiles, where before it type-checked and refused at runtime.
+- Entry: `StoreGate.Mount(sink)` is the ONE gate; every case carries the store it mounts, so the gate takes no second carrier.
+- Law: the store rides its CASE. NAMED LOSS: the mount's `Option<StoreRow<T>>` arity, whose tree case demanded absence and whose two other cases demanded presence — a pairing every call site had to know and no signature stated. The tree-with-rows and the grid-without-rows corners are now unrepresentable rather than refusable. Witness: `StoreGate.Mount(new StoreSink.Tree(view, store), Some(rows))` no longer compiles, where before it type-checked and refused at runtime.
 - Law: `TreeStore<T>` carries its element projection beside the host store, so the type parameter is RECOVERABLE — a selection read off a tree view answers `Option<T>` rather than the `ITreeGridItem` the host sink erased it to. A carrier branded by a parameter nothing reads is the decorative form this column forecloses.
 - Auto: both carriers project through one `Carrier` dispatch onto the enumerable the host view demands, so a virtualized window never reaches a view unadapted and an enumerable source is never wrapped in an adapter its view already accepts.
 - Law: mutation flows through the mounted collection and the view refreshes from the collection change — rebuilding a control per row is the deleted form. A snapshot source that never mutates still mounts `Eager`, because the CARRIER is the contract and the mutation rate is not.

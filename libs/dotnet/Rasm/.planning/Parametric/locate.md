@@ -142,17 +142,17 @@ public abstract partial record Location {
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         state: key,
-        curveAt: static (op, row) => Locate.Curve<TGeometry, TOut>(row.Address, row.Projection, op),
-        surfaceAt: static (op, row) => Locate.Surface<TGeometry, TOut>(row.Uv, row.Projection, op),
-        closest: static (op, row) => Locate.Closest<TGeometry, TOut>(row.Probe, row.Projection, op),
-        perpendicularFrames: static (op, row) => Locate.Perpendicular<TGeometry, TOut>(row.Parameters, op),
-        curveDerivative: static (op, row) => Locate.CurveDerivative<TGeometry, TOut>(row.Address, row.Order, op),
-        surfaceDerivative: static (op, row) => Locate.SurfaceDerivative<TGeometry, TOut>(row.Uv, row.Order, op),
-        curvature: static (op, row) => Locate.Curvature<TGeometry, TOut>(row.Count, row.Metric, row.Output, op),
-        divide: static (op, row) => Locate.Divide<TGeometry, TOut>(row.By, op),
-        orientation: static (op, row) => Locate.Orientation<TGeometry, TOut>(row.Frame, op),
-        contains: static (op, row) => Locate.Contains<TGeometry, TOut>(row.Probe, row.Frame, op),
-        shortPath: static (op, row) => Locate.ShortPath<TGeometry, TOut>(row.Start, row.End, op));
+        curveAt: static (row) => Locate.Curve<TGeometry, TOut>(row.Address, row.Projection),
+        surfaceAt: static (row) => Locate.Surface<TGeometry, TOut>(row.Uv, row.Projection),
+        closest: static (row) => Locate.Closest<TGeometry, TOut>(row.Probe, row.Projection),
+        perpendicularFrames: static (row) => Locate.Perpendicular<TGeometry, TOut>(row.Parameters),
+        curveDerivative: static (row) => Locate.CurveDerivative<TGeometry, TOut>(row.Address, row.Order),
+        surfaceDerivative: static (row) => Locate.SurfaceDerivative<TGeometry, TOut>(row.Uv, row.Order),
+        curvature: static (row) => Locate.Curvature<TGeometry, TOut>(row.Count, row.Metric, row.Output),
+        divide: static (row) => Locate.Divide<TGeometry, TOut>(row.By),
+        orientation: static (row) => Locate.Orientation<TGeometry, TOut>(row.Frame),
+        contains: static (row) => Locate.Contains<TGeometry, TOut>(row.Probe, row.Frame),
+        shortPath: static (row) => Locate.ShortPath<TGeometry, TOut>(row.Start, row.End));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -303,15 +303,15 @@ internal static class Locate {
     }
 
     private static Fin<Seq<CurvatureSample>> CurveSamples(Curve curve, Dimension count, ScalarMetric metric, Context context) =>
-        Evaluation.CurveSampleParameters(curve, count.Value, context, key).Bind(parameters => parameters
-            .TraverseM(t => metric.Of(curve.CurvatureAt(t), key)
+        Evaluation.CurveSampleParameters(curve, count.Value, context).Bind(parameters => parameters
+            .TraverseM(t => metric.Of(curve.CurvatureAt(t))
                 .Map(value => new CurvatureSample(curve.PointAt(t), value))).As());
 
     private static Fin<Seq<CurvatureSample>> SurfaceSamples(Surface surface, Dimension count, ScalarMetric metric, Context context) =>
-        Evaluation.SurfaceSampleUv(surface, count.Value, context, key).Bind(uvs => uvs.TraverseM(uv =>
+        Evaluation.SurfaceSampleUv(surface, count.Value, context).Bind(uvs => uvs.TraverseM(uv =>
             Optional(surface.CurvatureAt(uv.X, uv.Y)).ToFin(new KernelFault.InvalidResult()).Bind(bundle =>
                 new Lease<SurfaceCurvature>.Owned(bundle).Use(scoped => scoped.IsSet
-                    ? metric.Of(scoped, key).Map(value => new CurvatureSample(scoped.Point, value))
+                    ? metric.Of(scoped).Map(value => new CurvatureSample(scoped.Point, value))
                     : Fin.Fail<CurvatureSample>(new KernelFault.InvalidResult())))).As());
 }
 ```

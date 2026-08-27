@@ -54,13 +54,13 @@ public static class GeoReferenceProjector {
                     || op is IfcRigidOperation { FirstCoordinate: IfcLengthMeasure, SecondCoordinate: IfcLengthMeasure }))
             .Match(
                 Some: op => op switch {
-                    IfcMapConversion conversion => FromMapConversion(conversion, key),
+                    IfcMapConversion conversion => FromMapConversion(conversion),
                     IfcRigidOperation { FirstCoordinate: IfcLengthMeasure first, SecondCoordinate: IfcLengthMeasure second } rigid
-                                                => FromRigidOperation(rigid, first, second, key),
+                                                => FromRigidOperation(rigid, first, second),
                     _                           => Fin.Succ(GeoReference.Identity),
                 },
                 None: () => Optional(project.Extract<IfcSite>().FirstOrDefault())
-                    .Match(Some: site => FromSite(site, model, key), None: static () => Fin.Succ(GeoReference.Identity)));
+                    .Match(Some: site => FromSite(site, model), None: static () => Fin.Succ(GeoReference.Identity)));
 
     static Fin<GeoReference> FromMapConversion(IfcMapConversion conversion) {
         Fin<(double X, double Y, double Z)> axes = conversion is IfcMapConversionScaled scaled
@@ -72,21 +72,21 @@ public static class GeoReferenceProjector {
             : Positive(conversion.Scale, nameof(IfcMapConversion.Scale)).Map(static s => (s, s, s));
         double abscissa = double.IsNaN(conversion.XAxisAbscissa) ? 1.0 : conversion.XAxisAbscissa;
         double ordinate = double.IsNaN(conversion.XAxisOrdinate) ? 0.0 : conversion.XAxisOrdinate;
-        return from map in MapFrame(conversion.TargetCRS, key)
+        return from map in MapFrame(conversion.TargetCRS)
                from axis in axes
                from reference in Admit(
                    Metres(conversion.Eastings, map), Metres(conversion.Northings, map), Metres(conversion.OrthogonalHeight, map),
-                   abscissa, ordinate, Metres(axis.X, map), Metres(axis.Y, map), Metres(axis.Z, map), conversion.TargetCRS, key)
+                   abscissa, ordinate, Metres(axis.X, map), Metres(axis.Y, map), Metres(axis.Z, map), conversion.TargetCRS)
                select reference;
     }
 
     static Fin<GeoReference> FromRigidOperation(IfcRigidOperation rigid, IfcLengthMeasure first, IfcLengthMeasure second) =>
-        MapFrame(rigid.TargetCRS, key).Bind(map => {
+        MapFrame(rigid.TargetCRS).Bind(map => {
             double metre = Metres(1.0, map);
             return Admit(
                 Metres(first.Measure, map), Metres(second.Measure, map),
                 Metres(double.IsNaN(rigid.Height) ? 0.0 : rigid.Height, map),
-                1.0, 0.0, metre, metre, metre, rigid.TargetCRS, key);
+                1.0, 0.0, metre, metre, metre, rigid.TargetCRS);
         });
 
     static Fin<GeoReference> FromSite(IfcSite site, UnitScheme model) =>
@@ -99,8 +99,8 @@ public static class GeoReferenceProjector {
 
     static Fin<GeoReference> Admit(double e, double n, double h, double abscissa, double ordinate, double sx, double sy, double sz, IfcCoordinateReferenceSystem? crs) {
         var (name, datum, vertical, wkt, mapProjection, mapZone) = Carriers(crs);
-        return GeoReference.Admit(e, n, h, abscissa, ordinate, sx, sy, sz, datum, vertical, name, wkt, mapProjection, mapZone, key)
-            .MapFail(_ => new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-name-unresolvable", name })));
+        return GeoReference.Admit(e, n, h, abscissa, ordinate, sx, sy, sz, datum, vertical, name, wkt, mapProjection, mapZone)
+            .MapFail(_ => new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-name-unresolvable", name })));
     }
 
     static (string Name, string GeodeticDatum, string VerticalDatum, string Wkt, string MapProjection, string MapZone) Carriers(IfcCoordinateReferenceSystem? crs) {
@@ -152,14 +152,14 @@ public static class GeoReferenceProjector {
         return level == GeoAuthored.Geographic
             ? Optional(project.Extract<IfcSite>().FirstOrDefault())
                 .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "site" })))
-                .Bind(site => AuthorSite(site, reference, model, key))
+                .Bind(site => AuthorSite(site, reference, model))
             : Optional(project.RepresentationContexts.OfType<IfcGeometricRepresentationContext>().FirstOrDefault())
-                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "context" })))
+                .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "context" })))
                 .Map(context => AuthorOperation(db, context, reference, level));
     }
 
     static Fin<GeoAuthored> AuthorSite(IfcSite site, GeoReference reference, UnitScheme model) =>
-        MeasureValue.OfSi(Dimension.LengthDim, reference.OrthogonalHeight, key)
+        MeasureValue.OfSi(Dimension.LengthDim, reference.OrthogonalHeight)
             .Map(model.Render)
             .Map(declared => {
                 site.RefLongitude = new IfcCompoundPlaneAngleMeasure(reference.Eastings);
@@ -283,7 +283,7 @@ public static class GeoTransform {
                 select TransformFactory.CreateFromCoordinateSystems(src, dst).MathTransform).Run().Bind(static inner => inner)
             .Match(Succ: static t => t, Fail: static _ => Option<MathTransform>.None);
         if (managed.Case is not MathTransform transform) {
-            return Osr(source, target, ordinates, stride, key);
+            return Osr(source, target, ordinates, stride);
         }
         int count = ordinates.Length / stride;
         var (ox, oy, oz) = (ordinates[0], ordinates[1], ordinates[2]);
@@ -293,10 +293,10 @@ public static class GeoTransform {
         } else {
             transform.Transform(ordinates, ordinates[1..], stride, stride);
         }
-        var (scale, convergence) = Distortion((x, y) => { var (px, py, _) = transform.Transform(x, y, oz); return (px, py); }, ox, oy, key);
+        var (scale, convergence) = Distortion((x, y) => { var (px, py, _) = transform.Transform(x, y, oz); return (px, py); }, ox, oy);
         return AllFinite(ordinates, stride, count)
-            ? Fin.Succ(new Reprojection(GeoEngine.Managed, count, Some(rank), RoundTrip(transform, ordinates, ox, oy, oz, key), scale, convergence, EpochPosture.Unprobed))
-            : Fin.Fail<Reprojection>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key })));
+            ? Fin.Succ(new Reprojection(GeoEngine.Managed, count, Some(rank), RoundTrip(transform, ordinates, ox, oy, oz), scale, convergence, EpochPosture.Unprobed))
+            : Fin.Fail<Reprojection>(new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key })));
     }
 
     static Option<string> VerticalGap(GeoReference source, GeoReference target) =>
@@ -351,14 +351,14 @@ public static class GeoTransform {
                     inverse.TransformPoints(1, rx, ry, rz);
                     return Hypot(rx[0] - ox, ry[0] - oy, rz[0] - oz);
                 }).Run().Bind(static inner => inner).ToOption();
-                var (scale, convergence) = Distortion((x, y) => { double[] p = [x, y, oz]; pipeline.TransformPoint(p); return (p[0], p[1]); }, ox, oy, key);
+                var (scale, convergence) = Distortion((x, y) => { double[] p = [x, y, oz]; pipeline.TransformPoint(p); return (p[0], p[1]); }, ox, oy);
                 return (roundTrip, scale, convergence, epoch);
             }).Run().Bind(static inner => inner);
             bool outOfDomain = outcome.IsSucc && !AllFinite(xs, ys, zs, count);
             if (outcome.IsFail || outOfDomain) {
                 return Fin.Fail<Reprojection>(outOfDomain
-                    ? new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key }))
-                    : new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-pair-unreconcilable", source.Resolution.Key, target.Resolution.Key })));
+                    ? new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key }))
+                    : new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-pair-unreconcilable", source.Resolution.Key, target.Resolution.Key })));
             }
             for (int i = 0, o = 0; i < count; i++, o += stride) {
                 (ordinates[o], ordinates[o + 1], ordinates[o + 2]) = (xs[i], ys[i], zs[i]);
@@ -432,7 +432,7 @@ public static class GeoTransform {
                 (Memo: Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)>(), Rows: Seq<FrameAlignment>()),
                 (state, pair) => token.IsCancellationRequested
                     ? Fin.Fail<(Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)> Memo, Seq<FrameAlignment> Rows)>(Errors.Cancelled)
-                    : Align(pair.Source, pair.Target, anchor, state.Memo, key) switch {
+                    : Align(pair.Source, pair.Target, anchor, state.Memo) switch {
                         var (memo, row) => Fin.Succ((memo, state.Rows.Add(row))),
                     })
             .As()

@@ -212,8 +212,8 @@ public static class FieldCarrier {
 public static class Trajectory {
     public static Fin<TrajectoryRun<TState>> Trace<TState, TDelta>(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control) =>
         Admit(spec: spec, control: control).Bind(seeded => control.Spill.Match(
-            None: () => Fin.Succ(Settle(Run(seeded, spec, control, key, None), spec.Integrator.RejectBudget)),
-            Some: spill => Spilled(seeded, spec, control, key, spill)));
+            None: () => Fin.Succ(Settle(Run(seeded, spec, control, None), spec.Integrator.RejectBudget)),
+            Some: spill => Spilled(seeded, spec, control, spill)));
 
     private static Fin<TrajectoryRun<TState>> Spilled<TState, TDelta>(
         TrajectoryCursor<TState> seeded, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, TraceSpill spill) =>
@@ -229,7 +229,7 @@ public static class Trajectory {
                     from _ in axis.Write(spec.Stations.ToArray())
                     from cursor in session.Cursor(slots.Rows)
                     select Settle(
-                        Run(seeded, spec, control, key, Some(new StationSink<TState>(cursor, state => spec.Project(state).ToArray()))),
+                        Run(seeded, spec, control, Some(new StationSink<TState>(cursor, state => spec.Project(state).ToArray()))),
                         spec.Integrator.RejectBudget)))
                 .Run());
 
@@ -352,7 +352,7 @@ public static class Trajectory {
 - Packages: Rasm (project — the kernel transform band and its arena, `Numerics/atoms` `Dimension`/`PositiveMagnitude`/`SignedAxis`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new operator is one `SpectralSymbol` row with its generated symbol column and parity; a composite is a `Spectral.Then` chain; a tighter Hermitian band is one `SpectralControl` value; a new buffer layout is one kernel `SpectralArena` case, which breaks the `SpectralPlane` fold at compile time — zero new code path.
 - Boundary — symbols: every constant-coefficient periodic operator is one `SpectralSymbol` row applied pointwise to the forward transform; symbols compose by pointwise multiplication before a single inverse, and parity is row data the operator owns, never a `bool oddOrder` knob nor a bare `Func<double, Complex>` riding beside the call. `ZeroesNyquist` is DERIVED from the parity row rather than kept as a column beside it: an odd symbol is discontinuous across ±Nyquist and therefore zeroes that bin, which is a fact about the row, not a second value that can disagree with it.
-- Boundary — arena: the transform floor is the kernel's whole. `SpectralArena` is the ONE transform carrier and `arena.Transform(sense, scaling, key)` the one entry, so this lane picks the arena CASE its field parity implies and spells no transform of its own; `SpectralScaling.Unscaled` is the convention value because this lane READS BETWEEN the legs — an unscaled forward leaves the intermediate bins carrying true DFT coefficients so a symbol's magnitude IS the operator's transfer function, where a `1/√N` forward rescales every spectrum the imaginary-residual gate and any bin-domain consumer inspect, and the round-trip factor the `Unscaled` row carries is applied once on the way out. The symbol MULTIPLY stays this lane's because the kernel's own `Spectrum.Modulate` binds the interleaved plane arena alone and neither one-dimensional case reaches it — the generation of a multiplier is consumer domain policy exactly as tap generation is, and both legs' multiply is the same three-line fold over the arena's own layout. The split-spectrum wavenumber derives once from the transformed spectrum's own `Frequencies` read (ascending positives through Nyquist, then descending negatives, scaled by `2π`), because hand-indexing the bin applies an aliased symbol past the half length silently, and `WaveAxis` therefore owns the extent-to-rate projection alone rather than a second frequency table.
+- Boundary — arena: the transform floor is the kernel's whole. `SpectralArena` is the ONE transform carrier and `arena.Transform(sense, scaling)` the one entry, so this lane picks the arena CASE its field parity implies and spells no transform of its own; `SpectralScaling.Unscaled` is the convention value because this lane READS BETWEEN the legs — an unscaled forward leaves the intermediate bins carrying true DFT coefficients so a symbol's magnitude IS the operator's transfer function, where a `1/√N` forward rescales every spectrum the imaginary-residual gate and any bin-domain consumer inspect, and the round-trip factor the `Unscaled` row carries is applied once on the way out. The symbol MULTIPLY stays this lane's because the kernel's own `Spectrum.Modulate` binds the interleaved plane arena alone and neither one-dimensional case reaches it — the generation of a multiplier is consumer domain policy exactly as tap generation is, and both legs' multiply is the same three-line fold over the arena's own layout. The split-spectrum wavenumber derives once from the transformed spectrum's own `Frequencies` read (ascending positives through Nyquist, then descending negatives, scaled by `2π`), because hand-indexing the bin applies an aliased symbol past the half length silently, and `WaveAxis` therefore owns the extent-to-rate projection alone rather than a second frequency table.
 - Boundary — gate: `SpectralControl` binds the SPLIT leg ALONE, and the discriminant is field PARITY, never caller intent. Even-length fields ride the packed arena whose output is real by construction — no imaginary channel to measure, the floor goes unread, and the evidence reports `None`; passing a tighter floor with an even grid changes nothing the run does. That asymmetry is why the residual is `Option<double>`, never a `0.0` written by both legs — a reader treating a missing residual as a passed gate has inverted the one leg that proves Hermitian symmetry. The control arrives as an `Option`, so absence is a carrier rather than a nullable reference crossing a public boundary. The residual denominator floors at the smallest NORMAL double rather than at `double.Epsilon`, whose value is the smallest subnormal and which therefore names a quantity a hundred orders of magnitude below the guard it was standing in for.
 - Boundary — discriminant against the `Stats/signal#SIGNAL_LANE` `SpectralTransform` axis is spatial-versus-sampled, never availability: a symbol is a differential operator over a SPATIAL extent in angular wavenumber, that axis transform-and-invert, framing, and windowing over a SAMPLE RATE in bin frequency. Collapsing either end hands a spatial operator frame, hop, and window evidence it has none of, or a spectrogram a parity column no transform owns.
 
@@ -455,9 +455,9 @@ public static class SpectralOperator {
         if (rate.Case is not PositiveMagnitude sampling) { return rate.Map(static _ => default(SpectralEvidence)!); }
         SpectralPlane plane = SpectralPlane.Of(field, sampling);
         return plane.Arena.Transform(sense: SpectralSense.Forward, scaling: SpectralScaling.Unscaled)
-            .Bind(forward => axis.Wavenumbers(forward, key).Map(k => Modulated(plane, op, k, axis.Nyquist)))
+            .Bind(forward => axis.Wavenumbers(forward).Map(k => Modulated(plane, k, axis.Nyquist)))
             .Bind(_ => plane.Arena.Transform(sense: SpectralSense.Inverse, scaling: SpectralScaling.Unscaled))
-            .Bind(inverse => Settled(plane, op, axis, inverse, control.IfNone(SpectralControl.Default)));
+            .Bind(inverse => Settled(plane, axis, inverse, control.IfNone(SpectralControl.Default)));
     }
 
     static Unit Modulated(SpectralPlane plane, Spectral op, double[] k, Option<int> nyquist) => plane.Switch(

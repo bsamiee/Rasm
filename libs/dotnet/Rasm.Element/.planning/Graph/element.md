@@ -261,7 +261,7 @@ public sealed record AppearanceSummary {
          .ToFin();
 
     public static Fin<AppearanceSummary> Rehydrate(UInt128 appearanceKey, AppearanceVector vector) =>
-        Of(vector, key).Bind(summary =>
+        Of(vector).Bind(summary =>
             summary.AppearanceKey == appearanceKey
                 ? Fin.Succ(summary)
                 : new ElementFault.AddressUnstable("<appearance-key-mismatch>"));
@@ -399,11 +399,11 @@ public abstract partial class Node {
 ## [03]-[ELEMENT_GRAPH]
 
 - Owner: `Header` the model header (`ReleaseVersion` + `ModelView` + `Geospatial/reference#GEO_REFERENCE` `GeoReference` + `Tolerance` + `Instant` + `StepHeader` + the `Properties/quantity#MEASURE_VALUE` `UnitScheme` presentation declaration) carrying the ONE semantic-header `CanonicalBytes` projection both the `Projection/address#CONTENT_ADDRESS` `OfGraph` snapshot key and the `Graph/delta#GRAPH_DELTA` `GraphDelta.Address` header contribution compose (the projection owned once, never re-spelled per call site) and the `SameGrid` bitwise-tolerance law every grid gate reads; `ElementGraph` the frozen read snapshot carrying the nodes, edges, the built-once incidence index, the `(EdgeFilter, EdgeOrientation)`-keyed view cache, and the memoized `Bake`; `Element` the derived-fold "has it all" result; `BakedMaterial` the material-plus-usage pair `Bake` folds from an `Associate` edge (the occurrence's own AND, via the named inheritance, the `Component`'s, unioned by `MaterialKey`); `TypeBinding` the named type→occurrence inheritance carrier `Bake` produces from the `Assign.TypeDefinition` resolution (the type id + the inherited `BakedMaterial` set / resolved `SectionProperties` / secondary `Classification`s), surfaced as `Element.Type` so `Element.TypeId` recovers which `Component` a piece realizes.
-- Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by every node its `Members` touch, the `MaterialId`-keyed material index, the demand-built `(EdgeFilter, EdgeOrientation)`-keyed `QuikGraph` view cache over `TypedEdge` legs, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto; `Apply(delta, key)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry), `Fin<T>` refusing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent member — either binary endpoint or a `Connect`'s realizing intermediary, the full `Relationship.Members` closure.
-- Entry: `Bake(objectId, key)` folds the reachable subgraph from an `Object` node into an `Element`, memoized by `objectId` within the snapshot (a new snapshot from a `Graph/delta#GRAPH_DELTA` carries a fresh memo), `Fin<T>` refusing `ElementFault.NodeAbsent` on an absent root and `ElementFault.RelationshipInvalid` on a cyclic `Compose` chain (a `Compose` ancestry set threaded through the fold); `View(filter, orientation)` is the ONE kind-and-orientation scope — memoized per row pair, `TypedEdge` legs carrying the edge so a kind-aware traversal reads it off the leg — with `Topology()` its `(All, Forward)` one-hop; a `Func`-predicate scope died because it could never KEY the cache Persistence's `TopologyView` and Bim's `SpatialStructure` demand; rooted spatial ancestry is Bim `Model/spatial` `SpatialStructure.Ancestry`'s alone (E-E9) — the `Compose` graph is MULTI-PARENT and the real law is Contain-then-Aggregate precedence, which the contract's deleted `ContainmentPath` contradicted.
+- Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by every node its `Members` touch, the `MaterialId`-keyed material index, the demand-built `(EdgeFilter, EdgeOrientation)`-keyed `QuikGraph` view cache over `TypedEdge` legs, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto; `Apply(delta)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry), `Fin<T>` refusing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent member — either binary endpoint or a `Connect`'s realizing intermediary, the full `Relationship.Members` closure.
+- Entry: `Bake(objectId)` folds the reachable subgraph from an `Object` node into an `Element`, memoized by `objectId` within the snapshot (a new snapshot from a `Graph/delta#GRAPH_DELTA` carries a fresh memo), `Fin<T>` refusing `ElementFault.NodeAbsent` on an absent root and `ElementFault.RelationshipInvalid` on a cyclic `Compose` chain (a `Compose` ancestry set threaded through the fold); `View(filter, orientation)` is the ONE kind-and-orientation scope — memoized per row pair, `TypedEdge` legs carrying the edge so a kind-aware traversal reads it off the leg — with `Topology()` its `(All, Forward)` one-hop; a `Func`-predicate scope died because it could never KEY the cache Persistence's `TopologyView` and Bim's `SpatialStructure` demand; rooted spatial ancestry is Bim `Model/spatial` `SpatialStructure.Ancestry`'s alone (E-E9) — the `Compose` graph is MULTI-PARENT and the real law is Contain-then-Aggregate precedence, which the contract's deleted `ContainmentPath` contradicted.
 - Entry: the read accessors `ObjectNodes`/`Find`/`Find<T>`/`Material(MaterialId)`/`MaterialsOf`/`CompositionOf`/`PropertiesOf`/`SectionOf` enumerate the object roots and resolve a node (raw or typed by case) and the material/composition/property/section subgraph a member binds — `MaterialsOf` carrying the one-hop type-resolved fallback the other three compose (an occurrence with no own material/profile reads its `Component`'s), the `SectionOf(member)` signature FROZEN.
 - Entry: the group family `GroupsOf`/`MembersOf` resolves the `Assign.Group` memberships (every element in system X, the zones a space belongs to) as incidence reads, and `ObservationsUnder(root)` rolls the measured series over the same OWNING `Compose` closure `BakeParts` recurses so a whole answers for its parts' sensors — together the polymorphic surface a `Rasm.Compute` analysis route, a Persistence index pass, and an AppUi model tree read the concrete graph through, the discipline reads (loads/supports/spaces/areas) composing in Compute from these primitives.
-- Auto: `Of` builds the incidence index, the `MaterialId`-keyed material index the `Material(key)` read serves off, and a topology containing every node, including isolated vertices. `Bake` folds one root's incidence: property definitions become bags, assessments land flat, observations become measured series off the occurrence alone, associations become material/appearance/coverage values, owning compositions recurse into parts, and `Assign.TypeDefinition` applies the named type inheritance once. Topology and memo ride the sealed `ElementGraph` as lazy equality-excluded caches; only `Of`, `Genesis`, and `Apply` mint snapshots.
+- Auto: `Of` builds the incidence index, the `MaterialId`-keyed material index the `Material()` read serves off, and a topology containing every node, including isolated vertices. `Bake` folds one root's incidence: property definitions become bags, assessments land flat, observations become measured series off the occurrence alone, associations become material/appearance/coverage values, owning compositions recurse into parts, and `Assign.TypeDefinition` applies the named type inheritance once. Topology and memo ride the sealed `ElementGraph` as lazy equality-excluded caches; only `Of`, `Genesis`, and `Apply` mint snapshots.
 - Output: the `Element` is the one flat record a consumer reads — `element.Properties.Find(name)`, `element.Materials`, `element.Assessments`, `element.Observations`, `element.Appearance`, `element.Coverages`, `element.Parts`, and `element.TypeId` (the inherited `Component`, the generator's type-representation recovery key), with `ObservationsUnder` the whole-over-parts measured rollup beside them — "has it all" in one `Bake`, never a join across the graph, and the computed-versus-measured commissioning read is `element.Assessments` beside `element.Observations` off one baked root rather than a historian join; the `ElementGraph` is the immutable read snapshot Persistence persists and the projectors assemble onto, its `Generator.Equals` structural equality and `Inequalities` member diff feeding the Persistence 3-way `StructuralMerge`; the keyed `View` cache answers reachability and topological order for a consumer without a second graph; the containment breadcrumb is Bim `SpatialStructure.Ancestry`'s (E-E9).
 - Packages: `Generator.Equals` (`[Equatable]` snapshot equality, `[StringEquality]`/`[UnorderedEquality]`/`[IgnoreEquality]` member policies, `Inequalities` diff, and the generated `EqualityComparer.Default` reused as the LINQ/`HashSet` key comparer outside generated code), QuikGraph (`BidirectionalGraph` over the shared `TypedEdge`, `AlgorithmExtensions`; kind scoping is the `EdgeFilter`-keyed view cache, so no per-call predicate wrapper materializes), LanguageExt.Core (`Seq`/`Map`/`Option`/`Fin`), System.Collections.Frozen/Immutable, NodaTime (`Instant`).
 - Growth: a new derived element field is one column on `Element` the `Bake` fold populates from an existing edge kind; a new edge semantic the fold reads is one arm in `Bake`; a new type-inherited `Seq` is one `UnionBy` arm in the named inheritance, a new occurrence-overrides-type single field one fall-back guard; the working/frozen split keeps the live delta path in the HAMT (`Graph/delta`) and the read path in the frozen snapshot, so neither grows the other; never a second stored `Element` record beside the graph, never a second identity scheme for the deterministic Type id.
@@ -587,7 +587,7 @@ public sealed partial class ElementGraph {
     toSeq(EdgesAt(group)).Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.Group && a.Definition == group ? Some(a.Subject) : None);
 
     public Fin<Seq<ObservationSeries>> ObservationsUnder(NodeId root) =>
-    Bake(root, key).Map(static element => Rollup(element));
+    Bake(root).Map(static element => Rollup(element));
 
     static Seq<ObservationSeries> Rollup(Element element) =>
     element.Parts.Fold(element.Observations, static (series, part) => series + Rollup(part));
@@ -602,7 +602,7 @@ public sealed partial class ElementGraph {
     ? Fin.Succ(cached)
     : Find<Node.Object>(objectId)
     .ToFin(new ElementFault.NodeAbsent($"<bake-root-absent:{objectId.ToValue()}>"))
-    .Bind(root => BakeObject(root, key, ancestry.Add(objectId)).Map(element => { bakeMemo[objectId] = element; return element; }));
+    .Bind(root => BakeObject(root, ancestry.Add(objectId)).Map(element => { bakeMemo[objectId] = element; return element; }));
 
     Fin<Element> BakeObject(Node.Object root, ImmutableHashSet<NodeId> ancestry) {
     Gathered own = Gather(root.Id, GatherFamily.Occurrence);
@@ -679,10 +679,10 @@ public sealed partial class ElementGraph {
 ## [04]-[FEDERATION]
 
 - Owner: `ElementGraph.Federate` the static cross-model union over a tagged source set under one caller-supplied coordination `Header`; `ElementGraph.Extract` the instance slice over a root set; `FederationCensus` the per-source `FederationSource` rows beside the union totals and the merged tally.
-- Entry: `Federate(sources, coordination, key)` takes `Seq<(string Source, ElementGraph Graph)>` — the source tag being the caller's own model label, never a contract-minted id — one coordination `Header`, and the kernel returning `Fin<(ElementGraph Graph, FederationCensus Census)>`.
+- Entry: `Federate(sources, coordination)` takes `Seq<(string Source, ElementGraph Graph)>` — the source tag being the caller's own model label, never a contract-minted id — one coordination `Header`, and the kernel returning `Fin<(ElementGraph Graph, FederationCensus Census)>`.
 - Entry: `Extract(roots)` takes `Seq<NodeId>` and the kernel returning `Fin<ElementGraph>` under the SOURCE `Header` unchanged — a slice is the same model narrowed, never a re-coordinated one.
 - Auto: every refusal accumulates through the kernel admission-slot algebra over `Validation<Error,_>` and collapses to `Fin<T>` once at the return, so a federation attempt reports every divergent source and every colliding id in ONE failure rather than the first it meets.
-- Auto: both entries mint through ONE `GraphDelta` carrying the union (or slice) as `AddedNodes`/`AddedEdges` with a `Reheader`, run through `AdmitOnto(Genesis(header), key)` — the sanctioned validating mint, so `LegalLink` re-crosses every foreign edge; a raw `ElementGraph.Of` over foreign edges is the deleted form, because it freezes a topology no structural law admitted.
+- Auto: both entries mint through ONE `GraphDelta` carrying the union (or slice) as `AddedNodes`/`AddedEdges` with a `Reheader`, run through `AdmitOnto(Genesis(header))` — the sanctioned validating mint, so `LegalLink` re-crosses every foreign edge; a raw `ElementGraph.Of` over foreign edges is the deleted form, because it freezes a topology no structural law admitted.
 - Law: the three refusal axes are the source set being EMPTY, a source `Header.Tolerance` differing BITWISE from the coordination tolerance, and a source `Header.Reference` differing STRUCTURALLY from the coordination reference under `GeoReference`'s own value equality; each fault detail names the source tag and both sides' values.
 - Law: id collision discriminates by MINTING REGIME, not by payload alone — a rooted OCCURRENCE id (`Node.Object { Kind: Occurrence }`) shared across two sources is ALWAYS `DeltaConflict`, because a Guid-v7 placement identity carries no content preimage and a repeat is corruption; a content-derived or type-derived id repeats legitimately, so equal payloads under `EqualityComparer<Node>.Default` merge as the dedup the id regime exists for and unequal payloads fault naming the id and both source tags.
 - Law: an edge JOINS an `Extract` slice only when EVERY id in its `Members` is inside the closure, and the closure is what guarantees it: expansion follows `DirectedPairs` DOWNWARD (whole→part, subject→definition, from→to) and pulls in each reached edge's FULL `Members`, so a buried `PropertyValue.Reference` target and a `Connect`'s realizing intermediary ride in with the edge and no slice can dangle.
@@ -704,17 +704,17 @@ public sealed record FederationCensus(
 public sealed partial class ElementGraph {
     public static Fin<(ElementGraph Graph, FederationCensus Census)> Federate(
     Seq<(string Source, ElementGraph Graph)> sources, Header coordination) =>
-    Admitted(sources, coordination, key).ToFin().Bind(union =>
+    Admitted(sources, coordination).ToFin().Bind(union =>
     (GraphDelta.Empty with { AddedNodes = union.Nodes, AddedEdges = union.Edges })
     .Reheader(coordination)
-    .AdmitOnto(Genesis(coordination), key)
+    .AdmitOnto(Genesis(coordination))
     .Map(step => (Graph: step.Graph, Census: CensusOf(sources, union.Nodes, union.Edges))));
 
     static Validation<Error, (Seq<Node> Nodes, Seq<Relationship> Edges)> Admitted(
     Seq<(string Source, ElementGraph Graph)> sources, Header coordination) =>
     (Gate(sources.Count > 0, "<federate-empty-source-set>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-     Accumulate(sources.Map(source => Aligned(source, coordination, key))),
-     Unified(sources, key))
+     Accumulate(sources.Map(source => Aligned(source, coordination))),
+     Unified(sources))
     .Apply(static (_, _, union) => union).As();
 
     static Validation<Error, Unit> Aligned((string Source, ElementGraph Graph) source, Header coordination) =>
@@ -774,7 +774,7 @@ public sealed partial class ElementGraph {
     public Fin<ElementGraph> Extract(Seq<NodeId> roots) =>
     roots.Find(root => !Nodes.ContainsKey(root)) is { IsSome: true, Case: NodeId absent }
     ? new ElementFault.NodeAbsent($"<extract-root-absent:{absent.ToValue()}>")
-    : Sliced(roots, key);
+    : Sliced(roots);
 
     Fin<ElementGraph> Sliced(Seq<NodeId> roots) {
     ImmutableHashSet<NodeId> closure = Closure(ImmutableHashSet.CreateRange(roots), roots.Distinct());

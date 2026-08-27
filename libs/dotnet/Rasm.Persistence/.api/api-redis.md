@@ -70,19 +70,19 @@
 | [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                       |
 | :-----: | :----------------------------------------------- | :------- | :------------------------------------------------- |
 |  [01]   | `StringGet(flags?)`                         | instance | gets value by key                                  |
-|  [02]   | `StringSet(key, value, expiry?, when?, flags?)`  | instance | sets value with optional expiry                    |
-|  [03]   | `StringGetSetExpiry(key, expiry)`                | instance | gets value and sets new expiry                     |
-|  [04]   | `HashGet(key, field, flags?)`                    | instance | gets one hash field                                |
-|  [05]   | `HashGetAll(key, flags?)`                        | instance | gets all `HashEntry[]`                             |
-|  [06]   | `HashSet(key, entries, flags?)`                  | instance | sets multiple `HashEntry[]`                        |
-|  [07]   | `ListLeftPush(key, values, flags?)`              | instance | prepends values                                    |
-|  [08]   | `ListRightPop(key, flags?)`                      | instance | pops from right                                    |
-|  [09]   | `SetAdd(key, values, flags?)`                    | instance | adds members                                       |
-|  [10]   | `SortedSetAdd(key, entries, flags?)`             | instance | adds scored members                                |
+|  [02]   | `StringSet(value, expiry?, when?, flags?)`  | instance | sets value with optional expiry                    |
+|  [03]   | `StringGetSetExpiry(expiry)`                | instance | gets value and sets new expiry                     |
+|  [04]   | `HashGet(field, flags?)`                    | instance | gets one hash field                                |
+|  [05]   | `HashGetAll(flags?)`                        | instance | gets all `HashEntry[]`                             |
+|  [06]   | `HashSet(entries, flags?)`                  | instance | sets multiple `HashEntry[]`                        |
+|  [07]   | `ListLeftPush(values, flags?)`              | instance | prepends values                                    |
+|  [08]   | `ListRightPop(flags?)`                      | instance | pops from right                                    |
+|  [09]   | `SetAdd(values, flags?)`                    | instance | adds members                                       |
+|  [10]   | `SortedSetAdd(entries, flags?)`             | instance | adds scored members                                |
 |  [11]   | `KeyExpire(expiry, flags?)`                 | instance | sets key TTL                                       |
 |  [12]   | `KeyDelete(keys, flags?)`                        | instance | deletes one or many keys                           |
-|  [13]   | `KeyExpire(key, expiry, when, flags?)`           | instance | conditional TTL via `ExpireWhen` (GT/LT/NX/XX)     |
-|  [14]   | `SortedSetAdd(key, member, score, when, flags?)` | instance | conditional ZADD via `SortedSetWhen` (GT/LT/NX/XX) |
+|  [13]   | `KeyExpire(expiry, when, flags?)`           | instance | conditional TTL via `ExpireWhen` (GT/LT/NX/XX)     |
+|  [14]   | `SortedSetAdd(member, score, when, flags?)` | instance | conditional ZADD via `SortedSetWhen` (GT/LT/NX/XX) |
 |  [15]   | `Execute(command, args?)`                        | instance | executes arbitrary raw command                     |
 |  [16]   | `CreateBatch(asyncState?)`                       | factory  | creates pipelined batch                            |
 |  [17]   | `CreateTransaction(asyncState?)`                 | factory  | creates `MULTI/EXEC` transaction                   |
@@ -93,12 +93,12 @@ Every op carries a trailing `CommandFlags flags` and an `…Async` twin on `IDat
 
 | [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------------- | :------- | :------------------------------------------------------- |
-|  [01]   | `StreamAdd(key, pairs, …, trimMode)`               | instance | XADD with `StreamTrimMode` capped trim; returns entry id |
-|  [02]   | `StreamAdd(key, field, value, StreamIdempotentId)` | instance | at-most-once XADD keyed on `StreamIdempotentId`          |
-|  [03]   | `StreamRead(StreamPosition[], countPerStream?)`    | instance | multi-stream XREAD from `(key, position)` cursors        |
-|  [04]   | `StreamReadGroup(key, group, consumer, …)`         | instance | XREADGROUP cursor-replay with idle-claim takeover        |
-|  [05]   | `StreamAcknowledge(key, group, messageIds)`        | instance | XACK processed entries; advances the group cursor        |
-|  [06]   | `StreamCreateConsumerGroup(key, group, position?)` | instance | XGROUP CREATE the replay cursor                          |
+|  [01]   | `StreamAdd(pairs, …, trimMode)`               | instance | XADD with `StreamTrimMode` capped trim; returns entry id |
+|  [02]   | `StreamAdd(field, value, StreamIdempotentId)` | instance | at-most-once XADD keyed on `StreamIdempotentId`          |
+|  [03]   | `StreamRead(StreamPosition[], countPerStream?)`    | instance | multi-stream XREAD from `(position)` cursors        |
+|  [04]   | `StreamReadGroup(group, consumer, …)`         | instance | XREADGROUP cursor-replay with idle-claim takeover        |
+|  [05]   | `StreamAcknowledge(group, messageIds)`        | instance | XACK processed entries; advances the group cursor        |
+|  [06]   | `StreamCreateConsumerGroup(group, position?)` | instance | XGROUP CREATE the replay cursor                          |
 
 [ENTRYPOINT_SCOPE]: pub/sub and subscriber operations
 

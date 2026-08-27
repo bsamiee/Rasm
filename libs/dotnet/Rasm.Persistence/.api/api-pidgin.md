@@ -55,7 +55,7 @@
 |  [06]   | `parser.Labelled(label)`                                           | instance | names the expectation an error reports              |
 |  [07]   | `parser.MapWithInput(selector)` / `.Slice(selector)`               | instance | projects the matched span without materializing it  |
 |  [08]   | `from x in p1 from y in p2 select f(x, y)`                         | query    | `SelectMany` composition in LINQ syntax             |
-|  [09]   | `Operator.InfixL(op)` / `InfixR` / `InfixN` / `Prefix` / `Postfix` | static   | one precedence-table row per fixity                 |
+|  [09]   | `Operator.InfixL()` / `InfixR` / `InfixN` / `Prefix` / `Postfix` | static   | one precedence-table row per fixity                 |
 |  [10]   | `ExpressionParser.Build(term, table)`                              | static   | folds term and table into one expression parser     |
 |  [11]   | `parser.Parse(input[, configuration])`                             | instance | `Result<TToken, T>` — the admitted result           |
 |  [12]   | `parser.ParseOrThrow(input[, configuration])`                      | instance | raises `ParseException<TToken>`                     |

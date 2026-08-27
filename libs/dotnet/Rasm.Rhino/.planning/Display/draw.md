@@ -379,7 +379,7 @@ public abstract partial record PathPrimitive {
         new Line(new Point2d(frame.X, frame.Y + frame.Height), new Point2d(frame.X, frame.Y)));
 
     private static Fin<Seq<PathPrimitive>> Outlined(ParametricOp op) =>
-        Parametric.Apply(op, key).Bind(result => result is ParametricResult.Outline outline
+        Parametric.Apply().Bind(result => result is ParametricResult.Outline outline
             ? Fin.Succ(toSeq(outline.Run).Map(Planar).Strict())
             : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.InvalidResult(Detail: Some(result.GetType().Name))));
 
@@ -625,7 +625,7 @@ public sealed class SpriteSheet : IDisposable {
 ## [04]-[MARKS]
 
 - Owner: `DisplayMark` partitions the three payload bands by backend capability while preserving one public concept; `WorldMark` is the RhinoCommon world band, grown by the retained-overlay fold (`Points`, `Vector`, `Polygon`, `Label3d` — the old eight-case `RetainedMark` deletes whole); `SpriteMark` is the ONE `DisplayBitmap` blit family whose `SpriteAnchor` closes the three anchor shapes the host publishes; `Canvas` names the four backends, each case CARRYING what its backend consumes; `Marks.Paint` is the one dispatch and `DrawTally` its accounted evidence.
-- Entry: `Marks.Paint(canvas, marks, key)` draws one batch and accounts every mark as drawn, culled, or refused — a capability-illegal `Canvas × mark` corner lands a typed refusal ROW on `DrawTally` and the batch continues, while a HOST fault aborts typed; `DrawTally.IsValid` is the empty refusal set, so a silent partial draw is unrepresentable.
+- Entry: `Marks.Paint(canvas, marks)` draws one batch and accounts every mark as drawn, culled, or refused — a capability-illegal `Canvas × mark` corner lands a typed refusal ROW on `DrawTally` and the batch continues, while a HOST fault aborts typed; `DrawTally.IsValid` is the empty refusal set, so a silent partial draw is unrepresentable.
 - Law: the corner table is LAW, per canvas: the PIPELINE draws world marks, sprite blits, and the stroke-and-plain-text projection of kernel screen marks (fills, glyph blocks, panes, clips, poses, and OS-role faces refuse — Eto-surface capabilities); the RETAINED overlay draws the `CustomDisplay`-addressable world subset (`Points`, `Vector`, `Polygon`, undecorated `Curve`, `Label3d`) and refuses the rest; the SURFACE and PAGE replay kernel screen marks through `PaintProgram.Replay` — the kernel owns draw, cull, hit, and stock — and refuse world and sprite bands. NAMED LOSS: the per-entry backend twins (`Pipeline`/`Surface`/`ScreenPipeline`/`ScreenSurface`/`WorldPipeline`) and their per-arm refusals; bought back as the explicit corner rows this dispatch names and `DrawTally` reports.
 - Law: `Surface` and `Page` are two quality postures over one Graphics replay — `Surface` carries its caller's `ScenePolicy`, `Page` is pinned `Fidelity` because a printed page never trades quality for latency — and both hand the kernel the stock and timeline the replay is gauged against.
 - Law: render order is input order; hit-testing is the KERNEL's (`PaintProgram.Hit` over the screen band) and this page answers none — the world band hit-tests through the host pick pipeline, a different owner.

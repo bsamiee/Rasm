@@ -254,10 +254,10 @@ public sealed partial class SemanticProjector(
 
     Fin<(string GlobalId, Node.Object Node, Option<PropertyBag> Source)> AdmitType(
         IfcTypeObject definition, Map<string, IfcMaterialSelect> materials, Map<string, NodeId> rooted) {
-        IfcTypeSignature signature = TypeSignatureOf(definition, materials, key);
-        return typeReconciler.Resolve(signature, key).Bind(resolved => resolved.Match(
+        IfcTypeSignature signature = TypeSignatureOf(definition, materials);
+        return typeReconciler.Resolve(signature).Bind(resolved => resolved.Match(
             Some: type => Fin.Succ((definition.GlobalId, IfcBoundaryMapper.Canonical(type), Option<PropertyBag>.None)),
-            None: () => SeatOf(definition, rooted, ObjectKind.Type, key).Map(seat =>
+            None: () => SeatOf(definition, rooted, ObjectKind.Type).Map(seat =>
                 (definition.GlobalId,
                  IfcBoundaryMapper.Lower(definition, seat),
                  Some(ImportedSource(signature))))));
@@ -450,7 +450,7 @@ public sealed partial class SemanticProjector(
         IEnumerable<IfcPhysicalQuantity> quantities, string prefix, UnitScheme scheme,
         (Map<PropertyName, MeasureValue> Values, Map<string, GroupIdentity> Groups) bag) =>
         toSeq(quantities).FoldM(bag, (acc, quantity) => quantity switch {
-            IfcPhysicalSimpleQuantity simple => PropertyLowering.Measure(simple, scheme, key)
+            IfcPhysicalSimpleQuantity simple => PropertyLowering.Measure(simple, scheme)
                 .Map(value => acc with {
                     Values = acc.Values.AddOrUpdate(PropertyName.Create($"{prefix}{PropertyLowering.Stated(simple.Name).IfNone("")}"), value)
                 }),
@@ -458,8 +458,8 @@ public sealed partial class SemanticProjector(
                 complex.HasQuantities, $"{prefix}{PropertyLowering.Stated(complex.Name).IfNone("")}.", scheme,
                 acc with {
                     Groups = acc.Groups.AddOrUpdate($"{prefix}{PropertyLowering.Stated(complex.Name).IfNone("")}", GroupOf(complex))
-                }, key),
-            _ => Fin.Fail<(Map<PropertyName, MeasureValue>, Map<string, GroupIdentity>)>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name }))),
+                }),
+            _ => Fin.Fail<(Map<PropertyName, MeasureValue>, Map<string, GroupIdentity>)>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name }))),
         }).As();
 
     static GroupIdentity GroupOf(IfcPhysicalComplexQuantity complex) =>
@@ -480,27 +480,27 @@ public sealed partial class SemanticProjector(
         }.ToFrozenDictionary();
 
     static Seq<(string Key, Fin<PropertyValue> Value)> DoorPanel(IfcDoorPanelProperties p, UnitScheme scheme) =>
-        Seq(Scalar("PanelDepth", p.PanelDepth, Dimension.LengthDim, scheme, key),
-            Scalar("PanelWidth", p.PanelWidth, Dimension.Dimensionless, scheme, key),
+        Seq(Scalar("PanelDepth", p.PanelDepth, Dimension.LengthDim, scheme),
+            Scalar("PanelWidth", p.PanelWidth, Dimension.Dimensionless, scheme),
             Token("PanelOperation", p.OperationType.ToString()),
             Token("PanelPosition", p.PanelPosition.ToString()));
 
     static Seq<(string Key, Fin<PropertyValue> Value)> Frame(double depth, double thickness, string operation, string position, UnitScheme scheme) =>
-        Seq(Scalar("FrameDepth", depth, Dimension.LengthDim, scheme, key),
-            Scalar("FrameThickness", thickness, Dimension.LengthDim, scheme, key),
+        Seq(Scalar("FrameDepth", depth, Dimension.LengthDim, scheme),
+            Scalar("FrameThickness", thickness, Dimension.LengthDim, scheme),
             Token("OperationType", operation), Token("PanelPosition", position));
 
     static Seq<(string Key, Fin<PropertyValue> Value)> WindowLining(IfcWindowLiningProperties p, UnitScheme scheme) =>
         Seq("LiningDepth", "LiningThickness", "TransomThickness", "MullionThickness")
             .Zip(Seq(p.LiningDepth, p.LiningThickness, p.TransomThickness, p.MullionThickness))
-            .Map(row => Scalar(row.Item1, row.Item2, Dimension.LengthDim, scheme, key))
+            .Map(row => Scalar(row.Item1, row.Item2, Dimension.LengthDim, scheme))
         + Seq("FirstTransomOffset", "SecondTransomOffset", "FirstMullionOffset", "SecondMullionOffset")
             .Zip(Seq(p.FirstTransomOffset, p.SecondTransomOffset, p.FirstMullionOffset, p.SecondMullionOffset))
-            .Map(row => Scalar(row.Item1, row.Item2, Dimension.Dimensionless, scheme, key));
+            .Map(row => Scalar(row.Item1, row.Item2, Dimension.Dimensionless, scheme));
 
     static WriterT<FidelityLog, Fin, Seq<(PropertyName Name, PropertyValue Value)>> PreDefinedRows(IfcPreDefinedPropertySet set, UnitScheme scheme) =>
         (PreDefinedReads.TryGetValue(set.GetType(), out Func<IfcPreDefinedPropertySet, UnitScheme, Seq<(string Key, Fin<PropertyValue> Value)>>? read)
-            ? Fidelity.Clean(read(set, scheme, key))
+            ? Fidelity.Clean(read(set, scheme))
             : Fidelity.Drop(FidelityDrop.PredefinedPsetOpaque,
                 PropertyLowering.Stated(set.Name).IfNone(() => set.GetType().Name), Seq<(string Key, Fin<PropertyValue> Value)>()))
         .Bind(rows => Fidelity.Lift(rows.TraverseM(row => row.Value.Map(value => (row.Key, value))).As()))

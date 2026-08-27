@@ -363,7 +363,7 @@ public sealed partial class MeshMetric {
                 select values);
     internal static Operation<Mesh, MeshFaceShape> Shapes() =>
         Operation<Mesh, MeshFaceShape>.Build(state: key, requirement: Some(Requirement.MeshCheck), requiresContext: true,
-            evaluator: static (op, mesh) =>
+            evaluator: static (mesh) =>
                 from runtime in Env.EnvAsks
                 let moments = AtomHashMap(HashMap<int, (Vector3d Normal, double Area)>())
                 from shapes in Meshes.PolygonsOf(mesh: mesh)

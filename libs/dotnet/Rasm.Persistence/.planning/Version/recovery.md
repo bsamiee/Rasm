@@ -164,7 +164,7 @@ public static class RecoveryRoutes {
 |  [02]   | objective source   | caller-threaded `RecoveryObjective`                  | never a locally re-declared record                       |
 |  [03]   | pg recovery        | base backup + WAL replay to coordinate               | the Marten stream restores to an exact version           |
 |  [04]   | WAL RPO projection | byte lag ÷ `RecoveryContext.WalBytesPerSecond`       | explicit throughput row; no segment-size-as-rate literal |
-|  [05]   | blob recovery      | `ObjectStore.Head` over `(key, sealedAt)` manifest   | byte-identical by hash; lag = oldest missing seal's age  |
+|  [05]   | blob recovery      | `ObjectStore.Head` over `(sealedAt)` manifest   | byte-identical by hash; lag = oldest missing seal's age  |
 |  [06]   | snapshot floor     | `Snapshots.Verify` at backup time                    | a torn sealed checkpoint faults before cold storage      |
 |  [07]   | objective gauge    | measured RPO/RTO `RecoveryFact`                      | a breach is a typed health signal, never SLA prose       |
 

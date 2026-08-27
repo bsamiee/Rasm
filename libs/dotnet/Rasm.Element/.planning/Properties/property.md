@@ -14,7 +14,7 @@
 
 - Owner: `PropertyValue` the `[Union]` typed IFC-value family; `PropertyName` the `[ValueObject<string>]` property key; `Interpolation` the table-curve rule; `TemporalValue` the NodaTime temporal leaf family; the closed fourteen-case value vocabulary a property carries.
 - Cases: `Text` (verbatim string) · `Measure` (SI-coerced `MeasureValue`) · `Boolean` (strict two-valued) · `Logical` (three-valued) · `Integer` (unbounded signed integer) · `Number` (finite IEEE-754 real) · `Binary` (byte-exact payload) · `Enumerated` (selected and allowed typed scalar members) · `Reference` (target and optional usage) · `Bounded` (lower/upper/setpoint measures) · `List` (ordered recursive values) · `Table` (defining→defined rows and interpolation) · `Complex` (named sub-properties) · `Temporal` (`Date`/`Moment`/`Time`/`Span`/`Stamp`). `PropertyValue` preserves the full `IfcValue` scalar family and the structured property forms without stringification.
-- Entry: `PropertyValue.Of(value, key)` is the fallible admission a raw author crosses — returning `KernelFault.OutOfRange` for a non-finite `Number` and `ElementFault.ValueRejected` for an empty/cross-type/inverted `Bounded`, a non-subset or composite-membered `Enumerated`, an empty `Table`, or an empty `Complex`, and recursively re-admitting nested values. `Integer` carries unbounded `BigInteger`, `Number` carries finite IEEE-754, and `Binary` carries byte-exact `Seq<byte>`; none collapse to `Text`.
+- Entry: `PropertyValue.Of(value)` is the fallible admission a raw author crosses — returning `KernelFault.OutOfRange` for a non-finite `Number` and `ElementFault.ValueRejected` for an empty/cross-type/inverted `Bounded`, a non-subset or composite-membered `Enumerated`, an empty `Table`, or an empty `Complex`, and recursively re-admitting nested values. `Integer` carries unbounded `BigInteger`, `Number` carries finite IEEE-754, and `Binary` carries byte-exact `Seq<byte>`; none collapse to `Text`.
 - Auto: `Render` dispatches the generated total `Switch` — `Text` verbatim, `Measure` the SI magnitude and canonical unit, `Boolean`/`Logical` `TRUE`/`FALSE`(/`UNKNOWN`), `Enumerated` the recursive selected-member join, `Reference` the target id, `Bounded` the `[lower, upper, setpoint]` interval, `List`/`Table` the recursive join, `Complex` the `usage{name=value;…}` named-bag join, `Temporal` the ISO-8601 token — one projection, never a per-case consumer branch; `CanonicalBytes` writes the case ordinal then the payload (a `Measure` quantized to tolerance, the `Logical` a presence bit and the bool, an `Enumerated` member through its own typed `CanonicalBytes` so two members sharing one text spelling under different types hash apart, a `Temporal` its arm ordinal and ISO token, every collection count-prefixed so the encoding is injective, the `Complex` sub-properties name-sorted `Ordinal`) so the content key is byte-stable across runtimes.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` + the generated total `Switch` the `Of`/`Render`/`CanonicalBytes`/`Remap` folds dispatch, `[ValueObject<string>]`/`[SmartEnum<string>]`/`ComparerAccessors`), LanguageExt.Core (`Seq`/`Option`/`Fin`/`Map` + the `Seq.Choose`/`Seq.TraverseM`/`Map.Fold`/`Option.Match` combinators the `Of` admission composes), `Projection/fault#FAULT_BAND` (`ElementFault.ValueRejected`).
 - Growth: a new IFC value kind is one `PropertyValue` arm carrying its payload; a new table-curve rule is one `Interpolation` row; a recursive composite rides the existing `List`/`Table`/`Complex` arms; never a per-Pset value type, never a stringly-typed value field, and a raw `string` property key crossing a bag is the named defect.
@@ -114,24 +114,24 @@ public abstract partial record PropertyValue {
   enumerated: p =>
    from allowed in p.Allowed.IsEmpty
     ? new ElementFault.ValueRejected("<enumerated-allowed-empty>")
-    : p.Allowed.TraverseM(v => AdmitScalar(v, key, "<enumerated-member-not-scalar>")).As()
-   from selected in p.Selected.TraverseM(v => AdmitScalar(v, key, "<enumerated-member-not-scalar>")).As()
+    : p.Allowed.TraverseM(v => AdmitScalar(v, "<enumerated-member-not-scalar>")).As()
+   from selected in p.Selected.TraverseM(v => AdmitScalar(v, "<enumerated-member-not-scalar>")).As()
    from _ in selected.Exists(s => !allowed.Contains(s))
-    ? new ElementFault.ValueRejected(key, "<enumerated-selected-not-allowed>")
+    ? new ElementFault.ValueRejected("<enumerated-selected-not-allowed>")
     : Fin.Succ(unit)
    select (PropertyValue)new Enumerated(selected, allowed),
-  bounded: p => AdmitBounded(p, key),
-  list: p => p.Values.TraverseM(v => Of(v, key)).As().Map(static vs => (PropertyValue)new List(vs)),
+  bounded: p => AdmitBounded(p),
+  list: p => p.Values.TraverseM(v => Of(v)).As().Map(static vs => (PropertyValue)new List(vs)),
   table: p => p.Rows.IsEmpty
-   ? new ElementFault.ValueRejected(key, "<table-rows-empty>")
+   ? new ElementFault.ValueRejected("<table-rows-empty>")
    : p.Rows.TraverseM(r =>
-      from defining in AdmitScalar(r.Defining, key, "<table-defining-not-scalar>")
-      from defined in AdmitScalar(r.Defined, key, "<table-defined-not-scalar>")
+      from defining in AdmitScalar(r.Defining, "<table-defining-not-scalar>")
+      from defined in AdmitScalar(r.Defined, "<table-defined-not-scalar>")
       select (Defining: defining, Defined: defined))
      .As().Map(rows => (PropertyValue)new Table(rows, p.Interp)),
   complex: p => p.Properties.IsEmpty
-   ? new ElementFault.ValueRejected(key, "<complex-properties-empty>")
-   : p.Properties.Fold(Fin.Succ(Map<PropertyName, PropertyValue>()), (acc, k, v) => acc.Bind(m => Of(v, key).Map(x => m.AddOrUpdate(k, x)))).Map(m => (PropertyValue)new Complex(p.UsageName, m)));
+   ? new ElementFault.ValueRejected("<complex-properties-empty>")
+   : p.Properties.Fold(Fin.Succ(Map<PropertyName, PropertyValue>()), (acc, k, v) => acc.Bind(m => Of(v).Map(x => m.AddOrUpdate(k, x)))).Map(m => (PropertyValue)new Complex(p.UsageName, m)));
 
  public string Render() => Switch(
   text: static p => p.Value,
@@ -216,9 +216,9 @@ public abstract partial record PropertyValue {
  private static Fin<PropertyValue> AdmitBounded(Bounded b) {
   Seq<MeasureValue> present = Seq(b.Lower, b.Upper, b.SetPoint).Choose(static o => o);
   return Accumulate(Seq(
-    Gate(!present.IsEmpty, key, "<bounded-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(present.Head.ForAll(head => present.ForAll(m => m.Type == head.Type)), key, "<bounded-cross-type>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(!Inverted(b.Lower, b.Upper), key, "<bounded-inverted>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Gate(!present.IsEmpty, "<bounded-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(present.Head.ForAll(head => present.ForAll(m => m.Type == head.Type)), "<bounded-cross-type>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(!Inverted(b.Lower, b.Upper), "<bounded-inverted>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .ToFin()
    .Map(_ => (PropertyValue)b);
  }
@@ -235,7 +235,7 @@ public abstract partial record PropertyValue {
   enumerated: false, reference: false, bounded: false, list: false, table: false, complex: false);
 
  private static Fin<PropertyValue> AdmitScalar(PropertyValue value, string detail) =>
-  value.IsScalar ? Of(value, key) : new ElementFault.ValueRejected(key, detail);
+  value.IsScalar ? Of(value) : new ElementFault.ValueRejected(detail);
 }
 ```
 
@@ -302,7 +302,7 @@ public sealed partial record ValueBag<V>(string SetName, [property: UnorderedEqu
 ## [04]-[DETAIL_SCHEMA]
 
 - Owner: `DetailSchema` the ONE neutral schema mechanism over the `ValueBag<V>` aliases — a neutral `SetName`, an `InheritanceMode`, and an optional `JointType` allowed-set — and the canonical `PropertyName` vocabulary both bag families key on; `PropertyCategory` the owner-blessed producer scope every package mints its own row names through; `StructuralRows` the cross-package support, release, load, offset, and topology vocabulary a Bim projector stamps onto a `Generic` edge and a Compute runner reads back, with `QuantityRows`, `EnvelopeRows`, `BoundaryRows`, and `PortRows` its siblings over the baked base-quantity takeoff, the building-envelope `Pset` rows, the space-boundary edge payload, and the distribution-port flow attributes. `DetailSchema.Realization` owns realizing fastener/rebar/connector/joint detail with the masonry work-size tolerance, cmu profile-subtype, and concrete/post-tensioning/fireproofing/cladding trade rows; `DetailSchema.Product` owns panel board/deck/membrane product geometry with the IGU build rows and the curtain-wall, precast, insulation, membrane, pipework, ductwork, and electrical-containment trade rows; `DetailSchema.Takeoff` owns the type-level per-running-metre quantity rows; `DetailSchema.Appearance` owns the appearance node's own bag — `TextureSet` the baked-set content address and `DoubleSided` the render-sidedness bit — the RULINGS-landed escape hatch that keeps the frozen `AppearanceSummary` preimage from widening.
-- Entry: `PropertyCategory.<scope>.Row(name)` mints a producer-scoped row name, `PropertyCategory.Neutral` carrying the empty prefix so the schema's own statics keep the bare names an IFC round-trip froze; `StructuralRows.Translation`/`Rotation`/`Warping` project the joint's support families and `ReleaseTranslation`/`ReleaseRotation`/`ReleaseWarping` the member end's own stated release, `Dofs` and `Releases` reading the two rosters in ONE slot order, `ReleaseCore` the six-row presence a stated release always carries whole, `ReleaseOf` the support-row→release-row correspondence zipped off that pair, and `Offset` the stated rigid-end offset vector in the connection's own `Frame`; `Force`/`Moment`/`PlanarForce`/`Start`/`End` the applied-load component families and `DeltaT` the `Gradients`-keyed thermal family; `QuantityRows.SurfaceArea`/`FloorArea`/`FootprintArea`/`CrossSection`/`Volume`/`Weight` project the ordered net-over-gross takeoff chains a reader folds first-hit-wins; `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `DetailSchema.Takeoff` the canonical type-quantity schema; `DetailSchema.Appearance` the canonical appearance-bag schema its `TextureSet`/`DoubleSided` rows key on; `schema.Bag(source = default)` mints the empty conforming source-stamped `PropertyBag` and `schema.Quantities(source = default)` its `QuantityBag` counterpart, the omitted source deriving `EvidenceGrade.Catalogue`; `schema.Joint(selected, key)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set, result-returning because the token crosses the `Of` admission.
+- Entry: `PropertyCategory.<scope>.Row(name)` mints a producer-scoped row name, `PropertyCategory.Neutral` carrying the empty prefix so the schema's own statics keep the bare names an IFC round-trip froze; `StructuralRows.Translation`/`Rotation`/`Warping` project the joint's support families and `ReleaseTranslation`/`ReleaseRotation`/`ReleaseWarping` the member end's own stated release, `Dofs` and `Releases` reading the two rosters in ONE slot order, `ReleaseCore` the six-row presence a stated release always carries whole, `ReleaseOf` the support-row→release-row correspondence zipped off that pair, and `Offset` the stated rigid-end offset vector in the connection's own `Frame`; `Force`/`Moment`/`PlanarForce`/`Start`/`End` the applied-load component families and `DeltaT` the `Gradients`-keyed thermal family; `QuantityRows.SurfaceArea`/`FloorArea`/`FootprintArea`/`CrossSection`/`Volume`/`Weight` project the ordered net-over-gross takeoff chains a reader folds first-hit-wins; `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `DetailSchema.Takeoff` the canonical type-quantity schema; `DetailSchema.Appearance` the canonical appearance-bag schema its `TextureSet`/`DoubleSided` rows key on; `schema.Bag(source = default)` mints the empty conforming source-stamped `PropertyBag` and `schema.Quantities(source = default)` its `QuantityBag` counterpart, the omitted source deriving `EvidenceGrade.Catalogue`; `schema.Joint(selected)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set, result-returning because the token crosses the `Of` admission.
 - Auto: `Bag` and `Quantities` pin `SetName` and `InheritanceMode` from the schema and stamp the resolved source rank, so neither author nor reader hand-spells the set-name string, re-stamps precedence, or drops source rank; `Joint(selected)` constructs the typed `PropertyValue.Enumerated` over `Text`-wrapped tokens (the selected token against the schema's closed `JointTypes` allowed-set) so the `Properties/property#PROPERTY_VALUE` `Of` admission holds.
 - Output: the conforming `PropertyBag` lands on the shared `ElementGraph` as a `Graph/element#NODE_MODEL` `Node.PropertySet` and the conforming `QuantityBag` as a `Node.QuantitySet`, each bound by one `Relations/relation#EDGE_ALGEBRA` `Assign.PropertyDefinition` edge, the `Bake` fold merging them into `element.Properties` and `element.Quantities` — a takeoff bound to a Type reaches every occurrence through that same type-bag merge, so no occurrence re-mints it; both bags mint through `NodeId.Of(NodeSeed.Content)` over the node's own `CanonicalBytes` projection (id excluded) so two structurally-identical bags dedup to one node, never a second `(GeometryKey, DetailKey)` hasher.
 - Packages: LanguageExt.Core (`Seq`/`Map` + the `Prelude` constructors), Thinktecture.Runtime.Extensions (the `PropertyName` `Create` factory + the `InheritanceMode` statics), `Properties/quantity#MEASURE_VALUE` (both `MeasureValue.OfSi` mints — the typed identity and the dimension-anonymous fallback the bag law elects between), and the shared `PropertyBag`/`PropertyValue`/`PropertyName`/`InheritanceMode` owners this cluster composes.

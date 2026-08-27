@@ -374,7 +374,7 @@ public static class SafCodec {
                 .Filter(static row => row.Role == CorrespondenceRole.Member)
                 .Map(row => (Node: node, Kind: row)))
             .TraverseM(member => joints.Filter(joint => joint.Source == member.Node.Id)
-                .TraverseM(joint => JointOf(graph, joint, key)).As()
+                .TraverseM(joint => JointOf(graph, joint)).As()
                 .Map(resolved => new CorrespondenceRow(
                     member.Node.Id, physicals.Find(member.Node.Id), member.Kind, member.Node.PredefinedType.ToValue(),
                     physicals.Find(member.Node.Id)
@@ -403,7 +403,7 @@ public static class SafCodec {
 
     public static Fin<ExcelModel> Workbook(
         ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime) =>
-        Correspondence(graph, key).Map(rows => {
+        Correspondence(graph).Map(rows => {
             Map<NodeId, Node.Object> objects = toMap(graph.ObjectNodes.Map(static node => (node.Id, node)));
             Seq<Relationship.Generic> generics = toSeq(graph.Edges).Choose(static edge => edge is Relationship.Generic g ? Some(g) : None);
             Seq<Relationship.Generic> joints = generics.Filter(static edge => edge.WireName == IfcRelKind.ConnectsStructMember.Key);
@@ -696,8 +696,8 @@ public static class SafCodec {
 
     public static WriterT<FidelityLog, Fin, Unit> Author(
         DatabaseIfc db, IfcSpatialElement host, ExcelModel model) =>
-        from admitted in Fidelity.Lift(Admit(model, key))
-        from analysis in Fidelity.Lift(Boundary(key, () =>
+        from admitted in Fidelity.Lift(Admit(model))
+        from analysis in Fidelity.Lift(Boundary(() =>
             new IfcStructuralAnalysisModel(host, "SAF", IfcAnalysisModelTypeEnum.LOADING_3D)))
         from nodes in Fidelity.Lift(Boundary(key, () => Points(db, analysis, admitted.Points)))
         from members in Fidelity.Lift(Boundary(key, () => Curves(db, analysis, admitted.Curves, nodes)))
@@ -762,14 +762,14 @@ public static class SafCodec {
 
     private static Fin<SafWorkbook> Admit(ExcelModel model) =>
         (
-            (SafCell.All(Rows<ExcelStructuralPointConnection>(model).Map(row => Point(row, key))),
-             SafCell.All(Rows<ExcelStructuralCurveMember>(model).Map(row => Curve(row, key))),
-             SafCell.All(Rows<ExcelStructuralSurfaceMember>(model).Map(row => Surface(row, key))),
-             SafCell.All(Rows<ExcelStructuralPointSupport>(model).Map(row => Support(row, key))),
-             SafCell.All(Rows<ExcelRelConnectsStructuralMember>(model).Map(row => Hinge(row, key))),
-             SafCell.All(Rows<ExcelStructuralLoadCase>(model).Map(row => Case(row, key))),
-             SafCell.All(Rows<ExcelStructuralLoadCombination>(model).Map(row => Combination(row, key))),
-             SafCell.All(Actions(model, key)))
+            (SafCell.All(Rows<ExcelStructuralPointConnection>(model).Map(row => Point(row))),
+             SafCell.All(Rows<ExcelStructuralCurveMember>(model).Map(row => Curve(row))),
+             SafCell.All(Rows<ExcelStructuralSurfaceMember>(model).Map(row => Surface(row))),
+             SafCell.All(Rows<ExcelStructuralPointSupport>(model).Map(row => Support(row))),
+             SafCell.All(Rows<ExcelRelConnectsStructuralMember>(model).Map(row => Hinge(row))),
+             SafCell.All(Rows<ExcelStructuralLoadCase>(model).Map(row => Case(row))),
+             SafCell.All(Rows<ExcelStructuralLoadCombination>(model).Map(row => Combination(row))),
+             SafCell.All(Actions(model)))
             .Apply((points, curves, surfaces, supports, hinges, cases, combinations, actions) =>
                 new SafWorkbook(points, curves, surfaces, supports, hinges, cases, combinations, actions)).As()).ToFin();
 
@@ -848,17 +848,17 @@ public static class SafCodec {
             row.Name, row.LoadCase, LoadFamily.SingleForce, row.ReferenceNode, row.CoordinateSystem, ExcelLocation.Length,
             Vector(row.DirectionVector, static q => q.Newtons), None, None, nameof(ExcelStructuralPointAction)))
         + Rows<ExcelStructuralCurveAction>(model).Map(row => row.Distribution == ExcelCurveDistribution.Trapezoidal
-            ? Ramp(row, key)
+            ? Ramp(row)
             : Action(row.Name, row.LoadCase, LoadFamily.LinearForce, row.Member, row.CoordinateSystem, row.Location,
-                Vector(row.DirectionVector, static q => q.NewtonsPerMeter), None, None, nameof(ExcelStructuralCurveAction), key))
+                Vector(row.DirectionVector, static q => q.NewtonsPerMeter), None, None, nameof(ExcelStructuralCurveAction)))
         + Rows<ExcelStructuralSurfaceAction>(model).Map(row => Action(
             row.Name, row.LoadCase, LoadFamily.PlanarForce, row.Member2DReference, row.CoordinateSystem, ExcelLocation.Length,
             Directed(row.Direction, Optional(row.Value).Map(static v => v.Pascals)), None, None,
-            nameof(ExcelStructuralSurfaceAction), key))
+            nameof(ExcelStructuralSurfaceAction)))
         + Rows<ExcelStructuralCurveActionThermal>(model).Map(row => Action(
             row.Name, row.LoadCase, LoadFamily.Temperature, row.Member, ExcelCoordinateSystem.Global, ExcelLocation.Length,
             Optional(row.DeltaT).Map(static t => Seq(t.Kelvins, 0d, 0d)), None, None,
-            nameof(ExcelStructuralCurveActionThermal), key));
+            nameof(ExcelStructuralCurveActionThermal)));
 
     private static Validation<Error, SafAction> Ramp(ExcelStructuralCurveAction row) =>
         (Components(Vector(row.DirectionVector, static q => q.NewtonsPerMeter), nameof(ExcelStructuralCurveAction)),
@@ -880,7 +880,7 @@ public static class SafCodec {
         (SafCell.Text(name, worksheet, nameof(SafAction.Name)),
          SafCell.Text(loadCase, worksheet, nameof(SafAction.Case)),
          SafCell.Text(target, worksheet, nameof(SafAction.Target)),
-         Components(components, worksheet, key))
+         Components(components, worksheet))
         .Apply((admitted, admittedCase, admittedTarget, values) => new SafAction(
             admitted, admittedCase, family, admittedTarget,
             system != ExcelCoordinateSystem.Local, location == ExcelLocation.Projection, values, start, end)).As();

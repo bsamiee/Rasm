@@ -436,13 +436,13 @@ public abstract partial record ContentIo {
 | [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                                    | [ENTRY]                       |
 | :-----: | :----------------- | :---------------- | :-------------------------------------------------------- | :---------------------------- |
 |  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns       | `Of` / `Attach` / `Table`     |
-|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value           | `Of(native, key)` / `Native`  |
-|  [03]   | style capabilities | `ContentStyle`    | `ICapability` rows carrying the native mask bit           | `Of(native, key)`             |
+|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value           | `Of(native)` / `Native`  |
+|  [03]   | style capabilities | `ContentStyle`    | `ICapability` rows carrying the native mask bit           | `Of(native)`             |
 |  [04]   | write bracket      | `ChangeScope`     | host window on `Lease` custody, release aggregated        | `Write(content, reason, ...)` |
 |  [05]   | shared projections | `Bridge`          | column row read and null-answering mint custody           | `Row` / `Minted`              |
 |  [06]   | content address    | `ContentRef`      | one union: id, slot path                                  | `Of` / `Resolve`              |
 |  [07]   | content state      | `ContentTrait`    | `ICapability` rows over the host state predicates         | `Of(content)`                 |
-|  [08]   | content snapshot   | `ContentSnapshot` | one-pass identity and topology read                       | `Of(content, key)`            |
+|  [08]   | content snapshot   | `ContentSnapshot` | one-pass identity and topology read                       | `Of(content)`            |
 |  [09]   | hash exclusions    | `HashAxis`        | atomic host bits; alias and composite derive as sets      | `Flags(axes)`                 |
 |  [10]   | render-hash read   | `HashProbe`       | admitted exclusions answering a self-minted `HashWitness` | `Excluding` / `Read`          |
 |  [11]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer      | `Xml` / `Archive` / `Mint`    |

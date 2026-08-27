@@ -69,7 +69,7 @@ Every reopen predicate rides the license gate.
 - `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.
 - `Interpolant<TCapability>` is the ONE interpolation capability owner — `TCapability` carries differentiation and integration, so unsupported calls never compile.
 - `PerceptualColor` host egress REFUSES an out-of-display colour where the byte leg CLIPS — a silent clip hands a painter an unattributable colour.
-- `UiThread.Run(crossing, lane, key)` is the ONE marshal entry — the crossing CASE selects arity, and a crossing never swallows a body's `Fin`.
+- `UiThread.Run(crossing, lane)` is the ONE marshal entry — the crossing CASE selects arity, and a crossing never swallows a body's `Fin`.
 - `MountCustody` is the ONE release latch on host chrome — teardown runs recursive and mint-reverse behind the machine's own published transitions.
 - `UiLease` is the ONE accruing one-shot release base — a mount derives it and accrues teardown arms at mint; a hand latch beside it is deleted.
 - `UiFault.Absent` names a missing host MEMBER, `Unavailable` a missing platform FEATURE, a live-member raise `HostRejected` — never conflated.

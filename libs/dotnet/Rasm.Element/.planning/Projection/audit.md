@@ -218,8 +218,8 @@ public sealed partial record ModelAudit {
         Coverage.ByDiscipline.Find(discipline).Map(static row => row.Assessed).IfNone(CoverageRatio.Vacuous).Share;
 
     public static Fin<ModelAudit> Of(ElementGraph graph, Option<AuditThresholds> thresholds = default) =>
-        (Policy: thresholds.IfNone(AuditThresholds.Structural), Pass: Population(graph, key)) switch {
-            var grade => new AuditRun(graph, key, grade.Pass.Census, grade.Policy) switch {
+        (Policy: thresholds.IfNone(AuditThresholds.Structural), Pass: Population(graph)) switch {
+            var grade => new AuditRun(graph, grade.Pass.Census, grade.Policy) switch {
                 var run => Fin.Succ(new ModelAudit(
                     ContentAddress.OfGraph(graph),
                     run.Census,
@@ -233,7 +233,7 @@ public sealed partial record ModelAudit {
         toSeq(graph.ObjectNodes)
             .Filter(static o => o.Kind == ObjectKind.Occurrence)
             .Fold((Census: CoverageCensus.Empty, Verdicts: Seq<AuditFinding>()), (state, occurrence) =>
-                graph.Bake(occurrence.Id, key).Match(
+                graph.Bake(occurrence.Id).Match(
                     Succ: element => (state.Census.Fold(element), state.Verdicts),
                     Fail: error => (state.Census, state.Verdicts.Add(
                         AuditFinding.Of(AuditCategory.BakeRejected, error, Some(occurrence.Id))))));
@@ -278,7 +278,7 @@ public sealed partial record ModelAudit {
                 AuditCategory.AssessmentStale, $"<assessment-{a.Payload.Outcome.Key}:{a.Id.ToValue()}>", Some(a.Id)));
 
     internal static Seq<AuditFinding> Drift(ElementGraph graph) =>
-        ContentAddress.Verify(graph, key).Match(
+        ContentAddress.Verify(graph).Match(
             Succ: static _ => Seq<AuditFinding>(),
             Fail: static error => Unpack(error)
                 .Map(static drift => AuditFinding.Of(AuditCategory.AddressDrift, drift)));

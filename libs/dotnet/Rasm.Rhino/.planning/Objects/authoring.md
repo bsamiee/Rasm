@@ -868,7 +868,7 @@ public abstract partial record GripEdit {
 
     internal Fin<GripEdit> Admit() =>
         Switch(rig: static (key, edit) => Admit.Need(edit.Signal).Map(_ => (GripEdit)edit),
-            move: static (key, edit) =>
+            move: static (edit) =>
                 from motion in Admit.Need(edit.Motion).Bind(value => value.Admit())
                 from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), new KernelFault.InvalidInput())
                 select (GripEdit)new Move(Index: edit.Index, Motion: motion));

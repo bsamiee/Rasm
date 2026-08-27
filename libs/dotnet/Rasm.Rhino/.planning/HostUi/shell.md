@@ -830,7 +830,7 @@ public sealed partial class WindowPolicy {
     internal partial Fin<Unit> Persist(Window window);
 
     internal Fin<Unit> Prepare(Window window) =>
-        Styler.TraverseM(dress => dress.Dress(window, key)).As().Map(static _ => unit);
+        Styler.TraverseM(dress => dress.Dress(window)).As().Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -1173,7 +1173,7 @@ public abstract partial record ScriptRun {
     internal Fin<ScriptRun> Admit() => Switch(source: static (key, row) => Acceptance.Text(value: row.Script).Map<ScriptRun>(script => new Source(Script: script)),
         file: static (key, row) => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new File(Path: path)),
         fileInScope: static (key, row) => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new FileInScope(Path: path)),
-        expression: static (key, row) =>
+        expression: static (row) =>
             from statements in Acceptance.Text(value: row.Statements)
             from formula in Acceptance.Text(value: row.Formula)
             select (ScriptRun)new Expression(Statements: statements, Formula: formula),
@@ -1426,13 +1426,13 @@ public abstract partial record TokenAsk(string ClientId) {
             from id in Acceptance.Text(value: row.ClientId)
             from secret in Acceptance.Text(value: row.ClientSecret)
             select (TokenAsk)new Acquire(ClientId: id, ClientSecret: secret),
-        acquireScoped: static (key, row) =>
+        acquireScoped: static (row) =>
             from id in Acceptance.Text(value: row.ClientId)
             from secret in Acceptance.Text(value: row.ClientSecret)
             from scopes in row.Scopes.TraverseM(scope => Acceptance.Text(value: scope)).As()
             select (TokenAsk)new AcquireScoped(
                 ClientId: id, ClientSecret: secret, Scopes: scopes.Strict(), Prompt: row.Prompt, MaxAge: row.MaxAge),
-        tryCached: static (key, row) =>
+        tryCached: static (row) =>
             from id in Acceptance.Text(value: row.ClientId)
             from scopes in row.Scopes.TraverseM(scope => Acceptance.Text(value: scope)).As()
             select (TokenAsk)new TryCached(ClientId: id, Scopes: scopes.Strict()));
@@ -1460,7 +1460,7 @@ public sealed class TokenLease : IDisposable {
 
     internal TokenLease(IOpenIDConnectToken openId, IOAuth2Token oauth, string clientId) {
         held = Atom(Some((openId, oauth)));
-        (this.clientId, this.op) = (clientId, op);
+        (this.clientId, this.op) = (clientId);
     }
 
     public string ClientId => clientId;
@@ -2131,7 +2131,7 @@ public sealed class NoticeLease : IDisposable {
     private readonly Subscription observation;
 
     private NoticeLease(HostNotice notice, NoticeGate gate, Subscription observation) =>
-        (this.notice, this.gate, this.observation, this.op) = (notice, gate, observation, op);
+        (this.notice, this.gate, this.observation, this.op) = (notice, gate, observation);
 
     internal static Fin<NoticeLease> Of(
         HostNotice notice, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline) {
@@ -2315,7 +2315,7 @@ public sealed class ShellCapsule : IDisposable {
         FaultCell faults,
         Seating seated) {
         (Identity, Timeline, Faults, Themes, Names, this.op) =
-            (identity, timeline, faults, seated.Themes, seated.Names, op);
+            (identity, timeline, faults, seated.Themes, seated.Names);
         retire = Atom<LeaseState<Seq<Func<Fin<Unit>>>>>(new LeaseState<Seq<Func<Fin<Unit>>>>.Live(Held: seated.Retire));
     }
 

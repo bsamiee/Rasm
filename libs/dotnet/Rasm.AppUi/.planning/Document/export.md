@@ -316,8 +316,8 @@ public readonly record struct ReportHeading(int Level, string Text, Paragraph No
 
 public sealed record ReportSetup(PlotPolicy Plot, SheetMargin Margin) {
     public static Fin<ReportSetup> Issue(SheetSize size) =>
-        from plot in PlotPolicy.Issue(size, key)
-        from margin in plot.Frame.Margin(size, key)
+        from plot in PlotPolicy.Issue(size)
+        from margin in plot.Frame.Margin(size)
         select new ReportSetup(plot, margin);
 
     public (double Width, double Height) Extent {

@@ -123,10 +123,10 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
     public Fin<(BimRepository Repository, BimCommit Commit)> Commit(
         ElementGraph graph, string branch, string author, string message, Instant at,
         Option<FidelityLog> fidelity = default, Option<BimHooks> hooks = default) =>
-        BimCommit.Of(graph, Branches.Find(branch).Map(static b => Seq(b.Head)).IfNone(Seq<ContentAddress>()), author, message, at, key, fidelity)
+        BimCommit.Of(graph, Branches.Find(branch).Map(static b => Seq(b.Head)).IfNone(Seq<ContentAddress>()), author, message, at, fidelity)
             .Map(commit => Branches.Find(branch).Bind(b => Commits.Find(b.Head)).Filter(head => head.Fingerprints == commit.Fingerprints).Match(
                 Some: head => (this, head),
-                None: () => Seal(commit, branch, key, hooks)));
+                None: () => Seal(commit, branch, hooks)));
 
     public Seq<BimCommit> History(ContentAddress head) => Ancestry(Lineage(), head).Choose(Commits.Find);
 
@@ -155,7 +155,7 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
             _ when parents.Distinct().Count < 2 => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "merge-parent-arity", parents.Distinct().Count.ToString(CultureInfo.InvariantCulture) }))),
             ({ IsEmpty: false } absent, _)      => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "parent", string.Join(',', absent.Map(static p => p.ToValue().ToString("X32", CultureInfo.InvariantCulture))) }))),
             (_, false)                          => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "merge-unresolved-conflicts", resolved.Conflicts.Count.ToString(CultureInfo.InvariantCulture) }))),
-            _                                   => Fin.Succ(Seal(BimCommit.Sealed(parents, resolved.Merged, author, message, at), branch, key, hooks)),
+            _                                   => Fin.Succ(Seal(BimCommit.Sealed(parents, resolved.Merged, author, message, at), branch, hooks)),
         };
 
     (BimRepository Repository, BimCommit Commit) Seal(BimCommit commit, string branch, Option<BimHooks> hooks) {

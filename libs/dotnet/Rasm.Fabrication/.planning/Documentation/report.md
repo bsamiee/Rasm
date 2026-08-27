@@ -18,7 +18,7 @@ Every column writer here frames over the `Rasm.Element` `CanonicalWriter` compos
 - Law: `EvidenceOutcome` carries its RANK and whether it counts as measured — nothing else. The census counts ROWS PER OUTCOME in one fold, so the partition holds by construction and seven parallel indicator columns per row, each restating which bucket the row belongs to, are the deleted form.
 - Law: `Disposition.RequiresAuthority` DERIVES from `Conforming`. Material-review authority exists to disposition NONCONFORMING product, so a conforming verdict demanding it and a nonconforming verdict waiving it are both unrepresentable rather than a stored pair a new row could contradict.
 - Law: root cause and correction are TYPED. A cause names its category beside its statement and a correction names its kind, so a corrective-action query partitions on rows rather than parsing narrative text a shop typed once.
-- Law: every closed row uses the GENERATED positional constructor. A hand `private Row(string key, …) : this(key) => (…)` beside the generator's own is a second construction path that drifts the moment a column is added.
+- Law: every closed row uses the GENERATED positional constructor. A hand `private Row(string key, …) : this() => (…)` beside the generator's own is a second construction path that drifts the moment a column is added.
 - Growth: a refusal is one `RecordRefusal` row; an outcome is one `EvidenceOutcome` row carrying its rank; a cause category, correction kind, or declaration kind is one row on its own owner; an attestation role is one row at the Element owner.
 
 ```csharp

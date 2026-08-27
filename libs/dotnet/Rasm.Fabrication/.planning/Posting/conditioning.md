@@ -149,7 +149,7 @@ public sealed partial class PostFit {
 
     public static Fin<PostFit> Admit(FitRaw raw) =>
         (PostArrow.Length("post-fit:deviation", raw.Deviation)
-            .Bind(value => Tolerance.Of(ToleranceLane.Deviation, value.Millimeters, key).ToValidation()),
+            .Bind(value => Tolerance.Of(ToleranceLane.Deviation, value.Millimeters).ToValidation()),
          PostArrow.Length("post-fit:minimum-run", raw.MinimumRun),
          PostArrow.Length("post-fit:split-distance", raw.SplitDistance))
         .Apply((deviation, run, split) =>

@@ -21,7 +21,7 @@ Every appearance is required by the captured spec, and every `OccurrenceBinding`
 - Growth: a new projected node kind is one contract `Node` case, a new spec modality one `ProjectionSpec` case, a new occurrence-usage shape one contract `MaterialUsage` case carried by `OccurrenceBinding`, a new type-level takeoff quantity one contract `DetailSchema.Takeoff` row with its `TypeTakeoff` mint line, and a new VETO one `MaterialsPoint` row with its seating — never a projector edit, because the consult is over the merged delta this fold already produces.
 - Law: EDGE KIND FOLLOWS ENDPOINT KIND, which is the contract's own admission and not a local preference. `Associate` carries a RESOURCE and admits `Node.Object` relating a `Node.Material`, `Node.Appearance`, or `Node.Coverage`; `Assign` carries a DEFINITION and admits `Node.Object` relating the bag or type its `AssignKind` names. Every property set — seed-built detail, derived takeoff, texture-and-sidedness alike — therefore reaches its owner as `Assign.PropertyDefinition` from an OBJECT, and an appearance node standing as a relating endpoint is unrepresentable in both directions at once: it is not an `Object`, and a bag is not a resource. The Type fold binds its bags to the minted Type; the substance fold, which mints no Object, binds them to each VOUCHED element.
 - Law: each Type occurrence is vouched independently and binds through `Assign.TypeDefinition` with its explicit occurrence-to-material usage.
-- Law: `MaterialLibrary.Lookup(...).Bind(row => AppearanceEgress.Summary(row, key))` remains required on `Fin` at BOTH hops — the contract factory gates every channel to the unit range and fails on its own key, so the lowering binds rather than maps; no optional appearance state survives inside the spec.
+- Law: `MaterialLibrary.Lookup(...).Bind(row => AppearanceEgress.Summary(row))` remains required on `Fin` at BOTH hops — the contract factory gates every channel to the unit range and fails on its own key, so the lowering binds rather than maps; no optional appearance state survives inside the spec.
 - Law: `TypeTakeoff` reads the contract-owned row vocabulary and the contract substance-density accessor, deriving no numeric semantics of its own — quantity identity, unit, and dimensional composition stay `Rasm.Element`'s, this projector supplying only the section and substance a running metre is measured from.
 - Law: BAKING NEVER RE-KEYS `AppearanceSummary`. The contract key freezes at the seven neutral PBR values, so the baked set rides one graph hop away as a content-keyed `Node.PropertySet` carrying the set address under the contract-declared row, and re-pressing a material at a higher resolution adds an edge while every node id in the graph stands. Widening the summary instead forks the `Rasm.Bim` dedup key for a field only a texture consumer reads and stops a material deduplicating against its own baked variant.
 - Law: seed-built detail bags ROUND-TRIP by element genus — a realizing-element family imports through the `Rasm.Bim` connection-detail reader against `DetailSchema.Realization`, panel product detail through the general Bim object/property fold against `DetailSchema.Product`. One bag crosses out and two genus-keyed readers bring it back, never a projector-side import path.
@@ -68,9 +68,9 @@ public sealed record MaterialFacts(
     Seq<MaterialPropertySet> Properties,
     Option<Classification> Classification) {
     public static Fin<MaterialFacts> Lookup(MaterialId id) =>
-        (MaterialPropertyCatalogue.Lookup(id, key).ToValidation(),
-         SustainabilityCatalogue.Lookup(id, key).ToValidation(),
-         SustainabilityCatalogue.Classification(id, key).ToValidation())
+        (MaterialPropertyCatalogue.Lookup(id).ToValidation(),
+         SustainabilityCatalogue.Lookup(id).ToValidation(),
+         SustainabilityCatalogue.Classification(id).ToValidation())
             .Apply(static (engineering, lifecycle, classification) => new MaterialFacts(engineering + lifecycle, classification))
             .As()
             .ToFin();
@@ -339,8 +339,8 @@ public static class CompositionAuthor {
     public static MaterialComposition Single(MaterialId material) => MaterialComposition.OfSingle(material);
 
     public static Fin<MaterialComposition> LayerSet(Seq<(MaterialId Material, double ThicknessMm, string Name)> layers) =>
-        layers.Traverse(l => MeasureValue.Of(l.ThicknessMm, UnitsNet.Units.LengthUnit.Millimeter, key).Map(t => new MaterialLayer(l.Material, t, l.Name))).As()
-              .Bind(specs => MaterialComposition.OfLayerSet(specs, key));
+        layers.Traverse(l => MeasureValue.Of(l.ThicknessMm, UnitsNet.Units.LengthUnit.Millimeter).Map(t => new MaterialLayer(l.Material, t, l.Name))).As()
+              .Bind(specs => MaterialComposition.OfLayerSet(specs));
 
     public static MaterialComposition ProfileSet(MaterialId material, ComponentId component) =>
         MaterialComposition.OfProfileSet(material, ProfileRef.Of(component.Value));
@@ -375,9 +375,9 @@ public static class Constituents {
     static Fin<Seq<(MaterialId Material, string Category, double Fraction, string PartName)>> LayupRows(
         Seq<(MaterialId Material, double ThicknessMm, string Category)> layers) =>
         layers.Traverse(layer =>
-                (from sets in MaterialPropertyCatalogue.Lookup(layer.Material, key)
+                (from sets in MaterialPropertyCatalogue.Lookup(layer.Material)
                  from mass in sets.Density
-                     .ToFin(new ElementFault.ValueRejected(key, $"<layup-density-missing:{layer.Material.ToValue()}>"))
+                     .ToFin(new ElementFault.ValueRejected($"<layup-density-missing:{layer.Material.ToValue()}>"))
                      .Map(density => layer.ThicknessMm * 1e-3 * density.Si)
                  select (layer.Material, layer.Category, MassPerArea: mass)).ToValidation())
             .As()
@@ -409,16 +409,16 @@ public static class ComponentSubgraph {
         FrozenDictionary<ProfileRef, ResolvedComponent> sections) =>
         materials
             .Traverse(id =>
-                (from facts in MaterialFacts.Lookup(id, key)
+                (from facts in MaterialFacts.Lookup(id)
                  from composition in recipeOf(id)
-                     .TraverseM(recipe => Constituents.Of(recipe, key)
-                         .Bind(rows => CompositionAuthor.ConstituentSet(rows, key)))
+                     .TraverseM(recipe => Constituents.Of(recipe)
+                         .Bind(rows => CompositionAuthor.ConstituentSet(rows)))
                      .As()
                      .Map(row => row.IfNone(CompositionAuthor.Single(id)))
                  let elements = elementsOf(id)
                  let bindings = elements.Map(element => new MaterialBinding(element, new MaterialUsage.Unbound(), facts.Classification))
-                 from row in MaterialLibrary.Lookup(id, key)
-                 from appearance in AppearanceEgress.Summary(row, key)
+                 from row in MaterialLibrary.Lookup(id)
+                 from appearance in AppearanceEgress.Summary(row)
                  select new ProjectionSpec.Substance(id, composition, facts.Properties, appearance, setOf(id), row.ThinWalled, bindings)).ToValidation())
             .As()
             .Map(specs => specs.Fold(ProjectionSource.Empty with { Sections = sections }, static (source, spec) => source.Add(spec)))
@@ -428,11 +428,11 @@ public static class ComponentSubgraph {
         ProjectionSource source, Seq<(ComponentRow Row, Seq<OccurrenceBinding> Occurrences)> rows,
         Func<MaterialId, Option<ContentAddress>> setOf) =>
         rows.Traverse(entry =>
-                (from composition in CompositionOf(entry.Row, key)
-                 from facts in MaterialFacts.Lookup(entry.Row.Item.SubstanceId, key)
-                 from physics in Lowerings.Value[entry.Row.Item.Family](entry.Row.Item, key)
-                 from row in MaterialLibrary.Lookup(entry.Row.Item.AppearanceId, key)
-                 from appearance in AppearanceEgress.Summary(row, key)
+                (from composition in CompositionOf(entry.Row)
+                 from facts in MaterialFacts.Lookup(entry.Row.Item.SubstanceId)
+                 from physics in Lowerings.Value[entry.Row.Item.Family](entry.Row.Item)
+                 from row in MaterialLibrary.Lookup(entry.Row.Item.AppearanceId)
+                 from appearance in AppearanceEgress.Summary(row)
                  select new ProjectionSpec.Type(entry.Row.Item, composition, facts.Properties + physics, appearance,
                      setOf(entry.Row.Item.AppearanceId), facts.Classification, row.ThinWalled, entry.Occurrences)).ToValidation())
             .As()
@@ -442,17 +442,17 @@ public static class ComponentSubgraph {
     static readonly Lazy<FrozenDictionary<ComponentFamily, Func<Component, Fin<Seq<MaterialPropertySet>>>>> Lowerings =
         new(static () => new Dictionary<ComponentFamily, Func<Component, Fin<Seq<MaterialPropertySet>>>> {
             [ComponentFamily.Glazing] = static (item, key) => GlazingSeed.Resolve(item)
-                .Bind(build => GlazingDetail.Properties(build.Panes, build.Cavities, build.FireResistanceEiMinutes, key)),
+                .Bind(build => GlazingDetail.Properties(build.Panes, build.Cavities, build.FireResistanceEiMinutes)),
             [ComponentFamily.Timber] = static (item, key) => TimberSeed.Resolve(item)
                 .Bind(row => row.Grade.TimberArm
-                    .ToFin(new ProjectionFault.Unresolved(key, $"<timber-grade-arm-unresolved:{item.Designation.Value}>"))
-                    .Bind(arm => arm.ToProperties(key))),
+                    .ToFin(new ProjectionFault.Unresolved($"<timber-grade-arm-unresolved:{item.Designation.Value}>"))
+                    .Bind(arm => arm.ToProperties())),
             [ComponentFamily.Masonry] = static (item, key) => MasonrySeed.Resolve(item)
-                .Bind(row => MasonryDetail.Properties(item.Profile, row.Body, key)),
+                .Bind(row => MasonryDetail.Properties(item.Profile, row.Body)),
             [ComponentFamily.Cmu] = static (item, key) => SeedJoin.Resolve(CmuSeed.Table, item.Designation)
                 .Bind(row => item.Profile is SectionProfile.CellularRectangle cell
-                    ? CmuSeed.Properties(row, cell, key)
-                    : new ProjectionFault.Unresolved(key, $"<cmu-lattice-unresolved:{item.Designation.Value}>")),
+                    ? CmuSeed.Properties(row, cell)
+                    : new ProjectionFault.Unresolved($"<cmu-lattice-unresolved:{item.Designation.Value}>")),
         }.Concat(ComponentFamily.Items.Select(static family =>
                 KeyValuePair.Create(family,
                     (Func<Component, Fin<Seq<MaterialPropertySet>>>)(static (_, _) =>

@@ -143,11 +143,11 @@ public sealed partial class CmuAggregate {
     public static Fin<double> BlendedThicknessMm(RatingPeriod period, params ReadOnlySpan<(CmuAggregate Aggregate, double Fraction)> mix) {
         Seq<(CmuAggregate Aggregate, double Fraction)> blend = toSeq([.. mix]);
         return
-            from closure in Tolerance.Of(ToleranceLane.Conservation, VolumeClosureBand, key)
+            from closure in Tolerance.Of(ToleranceLane.Conservation, VolumeClosureBand)
             from unitVolume in guard(!blend.IsEmpty && Math.Abs(blend.Sum(static m => m.Fraction) - 1.0) <= closure.Value,
                 new KernelFault.OutOfRange(nameof(blend), blend.Sum(static m => m.Fraction), "fractions summing to one"))
             from weighted in blend.Traverse(m => m.Aggregate.RequiredThicknessMm(period)
-                .ToFin(new ComponentFault.FireThicknessMissing(key, period))
+                .ToFin(new ComponentFault.FireThicknessMissing(period))
                 .Map(required => required * m.Fraction)).As()
             select weighted.Sum();
     }
@@ -370,12 +370,12 @@ public static class CmuSeed {
             : new ComponentFault.ProfileMismatch(ComponentFamily.Cmu, profile.GetType());
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        from row in SeedJoin.Resolve(Table, component.Designation, key)
-        from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
+        from row in SeedJoin.Resolve(Table, component.Designation)
+        from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
         from lattice in component.Profile is SectionProfile.CellularRectangle cell
             ? Fin.Succ(cell)
-            : Fin.Fail<SectionProfile.CellularRectangle>(new ComponentFault.ProfileMismatch(key, ComponentFamily.Cmu, component.Profile.GetType()))
-        from strength in row.Strength.CmuArm.ToFin(new ComponentFault.GradeBodyMissing(key, row.Strength, ComponentFamily.Cmu))
+            : Fin.Fail<SectionProfile.CellularRectangle>(new ComponentFault.ProfileMismatch(ComponentFamily.Cmu, component.Profile.GetType()))
+        from strength in row.Strength.CmuArm.ToFin(new ComponentFault.GradeBodyMissing(row.Strength, ComponentFamily.Cmu))
         from capacity in SectionCapacity.Lift(row.ReinforcedCells > 0
             ? new CapacityLift.ReinforcedMasonry(component.Designation, strength, solved, placement.HeightMm, placement.Basis, row, placement.BarGrade)
             : new CapacityLift.Masonry(
@@ -394,15 +394,15 @@ public static class CmuSeed {
             conductivity: row.Density.ConductivityWPerMK,
             specificHeat: ConcreteSpecificHeatJKgK,
             uValue: 1.0 / physics.ThermalResistanceM2KPerW,
-            vapourResistanceFactor: ConcreteVapourMu, key)
-        from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2, key)
+            vapourResistanceFactor: ConcreteVapourMu)
+        from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2)
         from fire in physics.FireRating
             .TraverseM(period => FireResistance.Of(FireCoverage.I).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
             .Map(static rows => rows.IfNone(Seq<MaterialPropertySet>()))
         select Seq(thermal, MaterialPropertySet.OfAcoustic(spectrum)) + fire;
 
     public static Fin<ComponentUnit> Module(CmuRow row) =>
-        ComponentUnit.Of(row.WMm, row.HMm, row.LMm, row.HMm + CoordinatingJointMm, key);
+        ComponentUnit.Of(row.WMm, row.HMm, row.LMm, row.HMm + CoordinatingJointMm);
 
     static Seq<VoidCell> Lattice(CmuRow r) {
         if (r.Cells <= 0) { return Seq<VoidCell>(); }

@@ -173,13 +173,13 @@ public abstract partial record TimeFault : Fault {
 public sealed record LeasePolicy(Duration CrashStaleness) {
     public static readonly LeasePolicy Maintenance = new(CrashStaleness: Duration.FromSeconds(120));
 
-    public static Unit Outlasts => OutlastsProof.Value;
-
-    private static readonly Lazy<Unit> OutlastsProof = new(static () =>
+    public static Fin<Unit> Outlasts =>
         Maintenance.CrashStaleness > DeadlineClass.DrainCooperative.Allotted + DeadlineClass.DrainForced.Allotted
-            ? unit
-            : throw new InvalidOperationException($"{nameof(LeasePolicy)}.{nameof(Maintenance)}"),
-        LazyThreadSafetyMode.ExecutionAndPublication);
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.OutOfRange(
+                Label: $"{nameof(LeasePolicy)}.{nameof(Maintenance)}",
+                Scalar: Maintenance.CrashStaleness.TotalSeconds,
+                Requirement: "a staleness outlasting both drain allotments"));
 }
 
 public sealed record ScheduleEntry(
@@ -275,7 +275,7 @@ The watchdog spine composes end to end without a watchdog service type: `Run` re
 - Owner: `FencingToken` `[ValueObject<ulong>]` — the decoded carrier of the store-issued lease generation; `LeaseElection` the ONE Persistence PORT adapter acquiring, renewing, and fencing through the coordination op-union; `FenceVerb` the four-row lease-transition roster, each row binding its own store arrow as a delegate column; `FenceHolding<TKey>`/`FenceStep<TKey>` the held state and its transition; `FencedRuntime` the one dependency capsule every fenced holder threads; `FencedLease<TKey>` the algebra over all of them.
 - Law: this fence DETECTS and each guarded write REJECTS — `Fence` binds the coordination `LeaseGuard` READ case, which validates the held generation against the lease row and mutates nothing, so a passing guard proves the lease stood at the read instant and proves nothing about the write that follows; the authoritative rejection is the `WHERE token >= held` predicate inside each guarded write's own statement, re-evaluated by the engine against the committed row version, and `Wire/coordination#DISTRIBUTED_LOCK` `DistributedLock.Guard` brackets its critical section with that read on both sides to DETECT a stolen lock rather than to admit the section — a guard evaluated apart from the write it protects passes on a generation another writer already moved.
 - Entry: `Acquire(LeaseElection.Runtime runtime, string leaseKey)` returns `Fin<FencingToken>` — the adapter calls the Persistence coordination op-union with wire-stable primitives (lease key, holder id, staleness millis) and DECODES the store-issued `LeaseToken` generation into the carrier; `Fence(runtime, leaseKey, held)` reads the lease row through `LeaseGuard` and answers whether the held generation still stands; `Admits(FencingToken incoming)` survives ONLY as a documented client-side pre-check that short-circuits an obviously-stale retry before the round-trip, never a substitute for the store's verdict.
-- Entry: `FencedLease<TKey>.Acquire(runtime, key, correlation)` mints a holding, `Fenced(runtime, holding, verb)` applies one post-acquisition verb, and `Guard(runtime, holding, section)` brackets a critical section with the guard read on both sides — each answering `IO<Fin<FenceStep<TKey>>>` over the namespaced key its caller holds.
+- Entry: `FencedLease<TKey>.Acquire(runtime, correlation)` mints a holding, `Fenced(runtime, holding, verb)` applies one post-acquisition verb, and `Guard(runtime, holding, section)` brackets a critical section with the guard read on both sides — each answering `IO<Fin<FenceStep<TKey>>>` over the namespaced key its caller holds.
 - Law: RENEW RE-ISSUES. `LeaseElection.Renew` decodes a fresh generation, so the verb column answers `Fin<Option<FencingToken>>` and the holding advances onto what the store issued — a verb answering `Fin<Unit>` leaves every holder fencing on the generation it acquired with while the store has already moved past it, which is a stale-token rejection the holder cannot explain.
 - Law: `TKey` is the caller's own namespaced key value object under `Thinktecture.IConvertible<string>`, so the store's lease key has exactly one author per namespace and a bare interpolation cannot reach the adapter; `Wire/coordination#ROLE_ELECTION` and `#DISTRIBUTED_LOCK` are two `LeaseKey` namespaces over this one fold, never two algebras.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox

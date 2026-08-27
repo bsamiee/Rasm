@@ -305,7 +305,7 @@ public sealed class UtilizationCell : IDisposable {
 
     public static Fin<UtilizationCell> Of(PressureSource source, MonotonicTimeline line) =>
         Error.New(key.Message)
-            .Map(seed => new UtilizationCell(source, line, key, seed))
+            .Map(seed => new UtilizationCell(source, line, seed))
             .Map(static held => held.source.Switch(
                 state: held,
                 metered: static (cell, row) => cell.Listening(row),
@@ -791,7 +791,7 @@ public static class AlertEngine {
     public static (AlertState State, Option<Alert> Fired) Evaluate(
         AlertRule rule, AlertState state, double value, Instant at) {
         var window = (state.Window.Add(value) is var w && w.Count > rule.Condition.Depth ? w.Tail : w).Strict();
-        var breached = Breached(rule.Condition, value, state.Window, state.Firing, key);
+        var breached = Breached(rule.Condition, value, state.Window, state.Firing);
         Option<Instant> breachedSince = breached && !state.Firing
             ? state.BreachedSince.Match(Some: static since => Some(since), None: () => Some(at))
             : None;
@@ -811,7 +811,7 @@ public static class AlertEngine {
 
     public static Seq<Alert> Backtest(AlertRule rule, Seq<(Instant At, double Value)> history) =>
         history.Fold((State: AlertState.Clear, Fired: Seq<Alert>()), (acc, sample) =>
-            Threaded(acc, Evaluate(rule, acc.State, sample.Value, sample.At, key))).Fired;
+            Threaded(acc, Evaluate(rule, acc.State, sample.Value, sample.At))).Fired;
 
     static (AlertState State, Seq<Alert> Fired) Threaded(
         (AlertState State, Seq<Alert> Fired) held, (AlertState State, Option<Alert> Fired) step) =>

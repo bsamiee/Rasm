@@ -538,16 +538,16 @@ public static class SessionWorksession {
                    from request in Admit.Need(change)
                    from outcome in Admit.Demand(
                        use: document =>
-                           from before in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
+                           from before in WorksessionSnapshot.Of(document: document, modelSerials: Seq<uint>())
                            from completed in DocumentCommit.Compensated(
                                source: request.Verbs,
-                               land: verb => Apply(document: document, model: request.Model, verb: verb, op: op).Map(_ => verb),
+                               land: verb => Apply(document: document, model: request.Model, verb: verb).Map(_ => verb),
                                rollback: landed => Restore(
                                    document: document,
                                    model: request.Model,
                                    completed: landed,
                                    op: op))
-                           from after in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
+                           from after in WorksessionSnapshot.Of(document: document, modelSerials: Seq<uint>())
                                .Rollback(() => Restore(
                                    document: document,
                                    model: request.Model,
@@ -739,7 +739,7 @@ public sealed partial class SessionNeed {
 - Law: a failed admission releases an owned lease before returning its original fault, the cleanup fault AGGREGATING into the primary through the `Error` monoid — never discarded. A successful admission never calls `Lease.Use`, because `Use` closes `Owned` when its projection returns; the session retains the lease and releases it exactly once through the gate's one terminal transition.
 - Law: `Demand` is the sole capability surface. Its command overload admits `Fin<Unit>` directly, while the generic overload retains the `IDetachedDocumentResult` bound that rejects a raw `RhinoDoc`; both enter the same private capability window, and the kernel `Context` crosses through the private detached `DetachedContext` capsule.
 - Law: the demand window is a BRACKET — `Enter` acquires, the body runs, `Exit` settles in the `Fin` arm of the same expression — so a body that raises still exits, a nested demand enters its own bracket, and `Dispose` issued mid-demand defers to the outermost exit, which runs the release and aggregates its fault into the body's outcome.
-- Law: the marshal is the kernel dispatch — a live-lane demand crosses `UiThread.Run(new UiDispatch<TResult>.Blocking(body), DispatchLane.Immediate, op)`, in-frame when the caller already holds the marshal and invoked otherwise, while a headless session runs the body on the caller thread because a headless process has no marshal to cross and the kernel entry would refuse `Headless` typed. The former hand marshal and its S2-ledger carve both delete; the gauged span is the kernel dispatch's own pulse.
+- Law: the marshal is the kernel dispatch — a live-lane demand crosses `UiThread.Run(new UiDispatch<TResult>.Blocking(body), DispatchLane.Immediate)`, in-frame when the caller already holds the marshal and invoked otherwise, while a headless session runs the body on the caller thread because a headless process has no marshal to cross and the kernel entry would refuse `Headless` typed. The former hand marshal and its S2-ledger carve both delete; the gauged span is the kernel dispatch's own pulse.
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
 - Law: `Admission.All` and `Admission.Pair` own reference-argument admission — one span fold and one applicative pair composed by every Document spine, so the Optional-traverse spelling appears once. The former `Admission.Admitted` funnel is DELETED: `op.AcceptValidated` surfaces the generated `DraftFault` directly, and a member that re-stamped it with a bare refusal was the message-stranding defect `[02]` names.
 - Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback. `DocumentPath` conforms — admitted path text is detached by construction — so a path resolution returns through `Demand` directly.
@@ -1048,7 +1048,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         from lane in Admit.Need(mode)
         from body in Admit.Need(use)
         from result in lane.Capabilities().Admits(capability: LaneCapability.Live)
-            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate, op)
+            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate)
             : body()
         select result;
 

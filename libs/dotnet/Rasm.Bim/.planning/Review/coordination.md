@@ -144,16 +144,16 @@ public static class Coordination {
     public static Fin<FederatedModel> Federate(
         Seq<(string Model, ElementGraph Graph)> models, Header coordination,
         (double X, double Y, double Z) anchor, CancellationToken token) =>
-        GeoTransform.Preflight(models.Map(static m => (m.Model, m.Graph.Header.Reference)), anchor, token, key)
+        GeoTransform.Preflight(models.Map(static m => (m.Model, m.Graph.Header.Reference)), anchor, token)
             .Bind(alignment =>
                 alignment.Find(static row => row.Verdict is FrameVerdict.Unresolvable)
                 is { IsSome: true, Case: FrameAlignment { Verdict: FrameVerdict.Unresolvable blocked } }
                     ? Fin.Fail<FederatedModel>(blocked.Cause)
-                    : ElementGraph.Federate(models, coordination, key)
+                    : ElementGraph.Federate(models, coordination)
                         .Map(union => new FederatedModel(union.Graph, union.Census, alignment)));
 
     public static Fin<Seq<RuleVerdict>> Check(ElementGraph graph, Seq<CoordinationRule> rules) =>
-        rules.TraverseM(rule => Validate(rule, key)).As()
+        rules.TraverseM(rule => Validate(rule)).As()
             .Map(valid => Systems(graph) switch {
                 var systems => valid.Map(rule => Verdict(graph, systems, rule)),
             });
@@ -170,14 +170,14 @@ public static class Coordination {
             .Filter(clash => clash.Kind == test.Kind && clash.Deficit >= test.Tolerance.Si)
             .Filter(clash => (left.Contains(clash.First) && right.Contains(clash.Second))
                           || (left.Contains(clash.Second) && right.Contains(clash.First)));
-        return Rows(graph, scoped, policy, test.Name, author, at, key)
+        return Rows(graph, scoped, policy, test.Name, author, at)
             .Map(rows => new ClashReport(test, Lifecycle(rows, prior.Map(static p => p.Rows).IfNone(Seq<ClashProposalRow>())), at));
     }
 
     static Fin<Seq<ClashProposalRow>> Rows(
         ElementGraph graph, Seq<Interference> interferences, CoordinationPolicy policy, string test, string author, Instant at) =>
         interferences.Traverse(clash =>
-            ResolveOf(clash, policy, key).Map(fix => new ClashProposalRow(
+            ResolveOf(clash, policy).Map(fix => new ClashProposalRow(
                 test, clash.First, clash.Second, fix.Yields, clash.Kind, fix.Fix, ClashState.New,
                 TopicOf(graph, clash, author, at)))).As();
 

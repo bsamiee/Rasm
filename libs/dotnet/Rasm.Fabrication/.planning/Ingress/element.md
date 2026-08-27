@@ -121,7 +121,7 @@ public sealed partial class ElementSource {
     }
 
     public static Fin<ElementSource> Admit(ElementGraph graph, Seq<ElementSubject> subjects) =>
-        Validate(graph, subjects, key, out ElementSource source).Admitted(source);
+        Validate(graph, subjects, out ElementSource source).Admitted(source);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -619,7 +619,7 @@ public static class ElementImport {
             }).Run().Bind(static inner => inner));
 
     private static Fin<AdmittedElement> AdmitOne(ElementGraph graph, ElementSubject subject) =>
-        from baked in graph.Bake(subject.Id, key)
+        from baked in graph.Bake(subject.Id)
         let topology = Ordered(graph.EdgesAt(baked.Id))
         let tolerance = graph.Header.Tolerance
         let locus = LocusOf(baked.Id, FactScope.Root.Row(nameof(Element)), tolerance)
@@ -636,7 +636,7 @@ public static class ElementImport {
             connections,
             facts.Quantities,
             facts.Properties)
-        from properties in CanonicalProperties(graph, baked, key)
+        from properties in CanonicalProperties(graph, baked)
         from result in AdmittedElement.Admit(component, topology, facts, properties, locus)
         select result;
 

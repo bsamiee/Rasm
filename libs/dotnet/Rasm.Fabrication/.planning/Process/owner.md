@@ -557,14 +557,14 @@ public static class FabricationCanon {
 
     public static Fin<ContentKey> Keyed(
         EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
-        Sealed(kind, grid, frame, key).Map(closed => closed.Key);
+        Sealed(kind, grid, frame).Map(closed => closed.Key);
 
     public static UInt128 Ordered(double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
         ContentHash.Of(frame, static (emit, writer) => emit(writer), tolerance: grid);
 
     public static Fin<ContentKey> Keyed(
         EgressKind kind, Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame) =>
-        Keyed(kind, tolerance.Absolute.Value, frame, key);
+        Keyed(kind, tolerance.Absolute.Value, frame);
 
     public static UInt128 Ordered(Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame) =>
         Ordered(tolerance.Absolute.Value, frame);
@@ -708,7 +708,7 @@ public static class Fabrication {
         tubeFormed: static (_, _) => Fin.Succ(unit));
 
     private static Fin<Unit> Raised(FabricationHooks hooks, FabricationHookFact fact) =>
-        hooks.Fire(fact.At, fact, key).Bind(admitted => admitted == fact
+        hooks.Fire(fact.At, fact).Bind(admitted => admitted == fact
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("owner", $"hook-rewrite:{fact.At.Key}")));
 }

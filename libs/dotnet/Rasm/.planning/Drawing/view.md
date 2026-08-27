@@ -336,7 +336,7 @@ public static class View {
 
     static Fin<Assembly> Admit(Seq<ViewSubject> parts, HashMap<int, bool> occludes) =>
         parts.Map(static (part, ordinal) => (Part: part, Ordinal: ordinal))
-            .TraverseM(entry => Seat(entry.Part, entry.Ordinal, key))
+            .TraverseM(entry => Seat(entry.Part, entry.Ordinal))
             .As()
             .Map(seated => Freeze(seated, occludes));
 
@@ -394,13 +394,13 @@ public static class View {
     static Fin<ContactSet> Contacts(Assembly assembly, ViewPolicy policy, CapabilitySet<ViewTrait> traits) {
         if (assembly.Spans.Length < 2) return Fin.Succ(new ContactSet(Seq<PartContact>(), Seq<(Point3d, Point3d, int)>()));
         BoundingBox[] bounds = [.. assembly.Posed.Select(static space => space.Bounds)];
-        return SpatialIndex.Build(SpatialKind.Bvh, bounds, policy.Broad, key).Bind(index =>
-            index.Query(index, policy.Tolerance.For(ToleranceLane.MeshIntersection).Value, key).Bind(pairs =>
+        return SpatialIndex.Build(SpatialKind.Bvh, bounds, policy.Broad).Bind(index =>
+            index.Query(index, policy.Tolerance.For(ToleranceLane.MeshIntersection).Value).Bind(pairs =>
                 pairs.Filter(static pair => pair.Left < pair.Right)
                     .TraverseM(pair => Intersection
-                        .Apply(new IntersectOp.MeshMesh(assembly.Posed[pair.Left], assembly.Posed[pair.Right], policy.Narrow), key)
+                        .Apply(new IntersectOp.MeshMesh(assembly.Posed[pair.Left], assembly.Posed[pair.Right], policy.Narrow))
                         .Bind(result => result is IntersectResult.Chains chains
-                            ? Contact(pair.Left, pair.Right, chains, policy.WeldCoplanar, assembly.Draws, traits, key)
+                            ? Contact(pair.Left, pair.Right, chains, policy.WeldCoplanar, assembly.Draws, traits)
                             : Fin.Fail<Option<(PartContact, Seq<(Point3d, Point3d, int)>)>>(new KernelFault.InvalidResult())))
                     .As()
                     .Map(static rows => rows.Bind(static row => row.ToSeq()))
@@ -426,7 +426,7 @@ public static class View {
     readonly record struct Locus(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> Edges, Sign[] Side, Point3d[] V);
 
     static Fin<Locus> Silhouettes(Assembly assembly, Seq<(Point3d A, Point3d B, int Part)> contacts, Camera camera, ViewPolicy policy) =>
-        CreaseEdges(assembly, policy, key).Bind(creases => {
+        CreaseEdges(assembly, policy).Bind(creases => {
             (Point3d[] V, (int A, int B, int C)[] F) soup = (assembly.V, assembly.F);
             Sign[] side = new Sign[soup.F.Length];
             for (int f = 0; f < soup.F.Length; f++) side[f] = camera.SideOf(soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
@@ -469,7 +469,7 @@ public static class View {
 
     static Fin<System.Collections.Generic.HashSet<(int A, int B)>> CreaseEdges(Assembly assembly, ViewPolicy policy) =>
         toSeq(Enumerable.Range(0, assembly.Posed.Length))
-            .TraverseM(p => Creases(assembly, p, policy, key))
+            .TraverseM(p => Creases(assembly, p, policy))
             .As()
             .Map(static sets => sets.Fold(new System.Collections.Generic.HashSet<(int A, int B)>(), static (union, set) => { union.UnionWith(set); return union; }));
 
@@ -494,20 +494,20 @@ public static class View {
     static Fin<DrawingProjection> Resolve(Assembly assembly, Locus locus, Seq<PartContact> contacts, Camera camera, ViewPolicy policy, CapabilitySet<ViewTrait> traits) {
         int[] component = Components(locus.Edges);
         (BoundingBox[] boxes, Arr<(Point3d A, Point3d B, Point3d C)> triangles, int[] worldFace) = Occluders(assembly);
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad, key).Bind(world =>
-            Crossings(assembly, locus, camera, policy, key).Bind(table =>
-                Seeds(assembly, locus, component, camera, world, worldFace, triangles, policy, key).Map(seeds =>
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad).Bind(world =>
+            Crossings(assembly, locus, camera, policy).Bind(table =>
+                Seeds(assembly, locus, component, camera, world, worldFace, triangles, policy).Map(seeds =>
                     Emit(assembly, locus.Edges, table, System.Array.ConvertAll(component, label => seeds[label]), contacts, camera, traits, locus.V))));
     }
 
     static Fin<Seq<(double T, int Delta)>[]> Crossings(Assembly assembly, Locus locus, Camera camera, ViewPolicy policy) {
         (Line[] candidate2d, Line[] occluder2d, int[] occluderEdge) = ScreenSegments(locus.Edges, locus.V, camera, assembly.Occludes);
-        return SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(candidate2d), policy.Broad, key).Bind(cand =>
-            SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(occluder2d), policy.Broad, key).Bind(occ =>
-                cand.Query(occ, camera.Tolerance.For(ToleranceLane.MeshIntersection).Value, key).Bind(pairs =>
+        return SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(candidate2d), policy.Broad).Bind(cand =>
+            SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(occluder2d), policy.Broad).Bind(occ =>
+                cand.Query(occ, camera.Tolerance.For(ToleranceLane.MeshIntersection).Value).Bind(pairs =>
                     pairs.Filter(pair => pair.Left != occluderEdge[pair.Right] && assembly.Draws[locus.Edges[pair.Left].Part])
                         .TraverseM(pair => Intersection
-                            .Apply(new IntersectOp.SegmentSegment(candidate2d[pair.Left], occluder2d[pair.Right], Axis.Z), key)
+                            .Apply(new IntersectOp.SegmentSegment(candidate2d[pair.Left], occluder2d[pair.Right], Axis.Z))
                             .Map(result => result is IntersectResult.Points points
                                 ? points.Hits.Map(hit => (Edge: pair.Left, Row: (candidate2d[pair.Left].ClosestParameter(hit),
                                     Delta(locus, pair.Left, occluderEdge[pair.Right], camera))))
@@ -538,11 +538,11 @@ public static class View {
                 .Map(toEye => seed[i] + (camera.Tolerance.For(ToleranceLane.Approach).Value * toEye.Value)))
             .As()
             .Map(static probes => probes.ToArray())
-            .Bind(probes => world.Query(new Arr<Point3d>(probes), triangles, policy.BetaSquared, key))
+            .Bind(probes => world.Query(new Arr<Point3d>(probes), triangles, policy.BetaSquared))
             .Bind(field => toSeq(Enumerable.Range(0, seed.Length))
                 .TraverseM(i => field[i] <= 0.5
                     ? Fin.Succ(0)
-                    : StabCount(assembly, locus.Side, seed[i], camera, world, worldFace, policy, key))
+                    : StabCount(assembly, locus.Side, seed[i], camera, world, worldFace, policy))
                 .As()
                 .Map(static counts => counts.ToArray()));
     }

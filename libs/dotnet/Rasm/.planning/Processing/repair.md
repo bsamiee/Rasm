@@ -151,7 +151,7 @@ public static class Heal {
                     sequence.Fold(
                         Fin.Succ((Space: admitted, Status: first, Steps: Seq<HealStep>(), Incidence: Option<Incidence>.None)),
                         (acc, heal) => acc.Bind(state =>
-                            from edit in heal.Apply(live, state.Space, repair, op, state.Incidence)
+                            from edit in heal.Apply(live, state.Space, repair, state.Incidence)
                             from space in Publish(edit)
                             from after in MeshKernel.TopologyDetailed(space)
                             select (Space: space, Status: after, Steps: state.Steps.Add(Step(heal, edit, state.Status, after)), edit.Incidence)))
@@ -161,7 +161,7 @@ public static class Heal {
 
             Fin<MeshSpace> Publish(RepairEdit edit) {
                 if (!ReferenceEquals(edit.Edit, live)) { live.Dispose(); live = edit.Edit; }
-                return live.ToSpace(op);
+                return live.ToSpace();
             }
 
             HealStep Step(HealOp heal, RepairEdit edit, Topology before, Topology after) {

@@ -208,16 +208,16 @@ internal static class AlignKernel {
     // --- [OUTER_FOLD]
     internal static Fin<Alignment> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, AlignmentPolicy policy) =>
         (source, target) switch {
-            (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => IcpAlign(src, tgt, kind, policy, key),
+            (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => IcpAlign(src, tgt, kind, policy),
             _ => Fin.Fail<Alignment>(new KernelFault.InvalidInput()),
         };
 
     private static Fin<Alignment> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, AlignmentPolicy policy) =>
-        from solver in SolvePolicy.Of(source.Tolerance, key, policy.OptimizerBudget)
+        from solver in SolvePolicy.Of(source.Tolerance, policy.OptimizerBudget)
         from activeSolver in (solver with {
             ResidualTolerance = PositiveMagnitude.Create(source.Tolerance.For(policy.Residual).Value),
             StepFloor = source.Tolerance.For(policy.Step).Value,
-        }).Admit(key)
+        }).Admit()
         let bands = new AlignBands(
             source.Tolerance.For(ToleranceLane.Neglect).Value,
             source.Tolerance.For(policy.Convergence).Value,
@@ -226,7 +226,7 @@ internal static class AlignKernel {
             source.Tolerance.For(ToleranceLane.Real).Value,
             source.Tolerance.For(policy.Ridge).Value,
             activeSolver)
-        from neighborhoodPolicy in NeighborhoodPolicy.Of(source.Tolerance, key)
+        from neighborhoodPolicy in NeighborhoodPolicy.Of(source.Tolerance)
         from targetNormals in kind.Needs.Admits(AlignNeed.TargetNormals) ? NeighborKernel.OrientNormals(cluster: target, policy: neighborhoodPolicy).Map(static seq => seq.AsIterable().ToArray()) : Fin.Succ(System.Array.Empty<Vector3d>())
         from sourceNormals in kind.Needs.Admits(AlignNeed.SourceNormals) ? NeighborKernel.OrientNormals(cluster: source, policy: neighborhoodPolicy).Map(static seq => seq.AsIterable().ToArray()) : Fin.Succ(System.Array.Empty<Vector3d>())
         from sourcePca in kind.Needs.Admits(AlignNeed.Covariances) ? NeighborKernel.PcaOf(cluster: source, policy: neighborhoodPolicy).Map(Some) : Fin.Succ(Option<NeighborhoodPcaResult>.None)
@@ -302,7 +302,7 @@ internal static class AlignKernel {
                 int[] sourceRows = [.. kept.Select(i => match.SourceRows[i])];
                 Vector3d[] normals = match.Normals.Length == 0 ? [] : [.. kept.Select(i => match.Normals[i])];
                 Vector3d[] rowSourceNormals = match.SourceNormals.Length == 0 ? [] : [.. kept.Select(i => match.SourceNormals[i])];
-                return CorrespondenceSetOf(items, distances, rowMass, targetMass, bands, key)
+                return CorrespondenceSetOf(items, distances, rowMass, targetMass, bands)
                     .Bind(set => Acceptance.Value((Source: toSeq(sourceRows.Select(row => source[row])), Match: match with {
                         Correspondences = set, Targets = targets, Normals = normals, SourceNormals = rowSourceNormals,
                         Distances = distances, RowMass = rowMass, TargetIndices = targetIndices, SourceRows = sourceRows,
@@ -338,7 +338,7 @@ internal static class AlignKernel {
                         SourceMass: sourceMass[index: row], TargetMass: targetMass[index: nearest],
                         CouplingMass: sourceMass[index: row], Confidence: Option<double>.None));
                 }
-                return CorrespondenceSetOf(items, distances, rowMass, targetMass, bands, key)
+                return CorrespondenceSetOf(items, distances, rowMass, targetMass, bands)
                     .Map(set => new AlignmentMatch(set, targets, rowNormals, rowSourceNormals,
                         distances, rowMass, targetIndices, rows, sourcePca, targetPca));
             }).Run().Bind(static inner => inner)));
@@ -353,8 +353,8 @@ internal static class AlignKernel {
         Seq<Scalar> rows = toSeq(distances).Map(static value => (Scalar)value);
         Seq<int> covered = toSeq(items.Select(static item => item.TargetIndex)).Distinct().Strict();
         return from spread in Distribution<Scalar>.Of(rows, [90.0, 95.0], Some(QuantileRule.NearestRank))
-               from weighted in Stat<Scalar>.Of(rows, key, Some(toSeq(rowMass)))
-               from coupling in Stat<Scalar>.Of(toSeq(rowMass).Map(static value => (Scalar)value), key)
+               from weighted in Stat<Scalar>.Of(rows, Some(toSeq(rowMass)))
+               from coupling in Stat<Scalar>.Of(toSeq(rowMass).Map(static value => (Scalar)value))
                select new CloudCorrespondenceSet(Items: toSeq(items), SourceCount: items.Count, TargetCount: targetMass.Count,
                    Measurements: Some((coupling, weighted, spread)), CoveredSourceCount: items.Count, CoveredTargetCount: covered.Count,
                    RetainedSourceMass: totalMass, RetainedTargetMass: covered.Fold(0.0, (total, index) => total + targetMass[index]));
@@ -365,7 +365,7 @@ internal static class AlignKernel {
         int n = source.Count;
         return from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: ProcrustesFloor)
                from residualCount in Admit.SameCount(expected: count, counts: [residuals.Length])
-               from finiteResiduals in Admit.AllFinite(residuals, key)
+               from finiteResiduals in Admit.AllFinite(residuals)
                from spread in Distribution<Scalar>.Of(
                    values: toSeq(residuals).Map(static residual => (Scalar)Math.Abs(value: residual)),
                    percentiles: Seq<double>())
@@ -381,15 +381,15 @@ internal static class AlignKernel {
         Seq<Point3d> source, AlignmentMatch match, Transform current, AlignBands bands) =>
         from sourcePca in match.SourcePca.ToFin(new KernelFault.InvalidInput())
         from targetPca in match.TargetPca.ToFin(new KernelFault.InvalidInput())
-        from rows in AdmitAlignmentRows(source, match.Targets, match.RowMass, ProcrustesFloor, key)
+        from rows in AdmitAlignmentRows(source, match.Targets, match.RowMass, ProcrustesFloor)
         from sourceRowCount in Admit.SameCount(expected: rows, counts: [match.SourceRows.Length])
         from sourceRows in guard(match.SourceRows.All(row => row >= 0 && row < sourcePca.Samples.Count), new KernelFault.InvalidInput())
         from targetIndexCount in Admit.SameCount(expected: rows, counts: [match.TargetIndices.Length])
         from targetIndices in guard(match.TargetIndices.All(index => index >= 0 && index < targetPca.Samples.Count), new KernelFault.InvalidInput())
-        from seedField in PrecisionFieldOf(source, match, sourcePca, targetPca, current, bands, key)
-        from initial in ObjectiveOf(source, match, seedField, current, bands, key)
-        let model = new GicpModel(source, match, sourcePca, targetPca, current, seedField, initial, bands, key)
-        from result in Lm.Minimize(model, bands.Solver, key).MapFail(fault => model.Fault.IfNone(fault))
+        from seedField in PrecisionFieldOf(source, match, sourcePca, targetPca, current, bands)
+        from initial in ObjectiveOf(source, match, seedField, current, bands)
+        let model = new GicpModel(source, match, sourcePca, targetPca, current, seedField, initial, bands)
+        from result in Lm.Minimize(model, bands.Solver).MapFail(fault => model.Fault.IfNone(fault))
         from step in model.Fault.Match(
             Some: fault => Fin.Fail<AlignmentStep>(fault),
             None: () => {
@@ -559,8 +559,8 @@ internal static class AlignKernel {
                 double inverse = 1.0 / lambda; int slot = 0;
                 for (int i = 0; i < 3; i++) for (int j = i; j < 3; j++) upper[slot++] += inverse * vector[i] * vector[j];
             }
-            return Admit.AllFinite(upper, key)
-                .Bind(_ => SymmetricMatrix.Of(Dimension.Create(3), new Arr<double>(upper), key))
+            return Admit.AllFinite(upper)
+                .Bind(_ => SymmetricMatrix.Of(Dimension.Create(3), new Arr<double>(upper)))
                 .Map(matrix => (matrix, clamped));
         }
     }

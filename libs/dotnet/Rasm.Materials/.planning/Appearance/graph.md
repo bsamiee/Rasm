@@ -328,8 +328,8 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
         return from _ in guard(byId.Count == Nodes.Count, new MaterialFault.Graph("<duplicate-node-id>"))
                from _admitted in Nodes.Choose(n => Admit(n, byId)).Head
                    .TraverseM(reason => Fin.Fail<Unit>(new MaterialFault.Graph(reason))).As()
-               from output in SinkOf(byId, Sink, key)
-               from ___ in guard(dag.IsDirectedAcyclicGraph(), new MaterialFault.Graph(key, "<cyclic-appearance-graph>"))
+               from output in SinkOf(byId, Sink)
+               from ___ in guard(dag.IsDirectedAcyclicGraph(), new MaterialFault.Graph("<cyclic-appearance-graph>"))
                let order = toSeq(dag.SourceFirstTopologicalSort()).Map(id => byId[id])
                let slots = order.Map(static (node, index) => KeyValuePair.Create(node.Id, index)).ToFrozenDictionary()
                select new CompiledGraph(order, output, slots,
@@ -338,7 +338,7 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
 
     public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters) =>
         Compile().Bind(compiled => compiled.Shade(
-            point, parameters, new PortValue[compiled.ScratchWidth], new SurfaceShade[1], key));
+            point, parameters, new PortValue[compiled.ScratchWidth], new SurfaceShade[1]));
 
     // --- [AUTHORING]
     public Seq<PortId> Ports(int count) =>
@@ -355,7 +355,7 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
             route: static (s, r) => s.Routed(r.Channel, r.Port, s.Key));
 
     public Fin<PortId> PortOf(ShadeChannel channel) =>
-        SinkOf(ByPort, Sink, key).Map(channel.Port);
+        SinkOf(ByPort, Sink).Map(channel.Port);
 
     Fin<MaterialGraph> Admitted(AppearanceNode node) =>
         ByPort switch { var known =>
@@ -379,10 +379,10 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
 
     Fin<MaterialGraph> Routed(ShadeChannel channel, PortId port) =>
         ByPort switch { var known =>
-            SinkOf(known, Sink, key)
+            SinkOf(known, Sink)
                 .Bind(sink => Answers(known, port)
                     ? Fin.Succ(this with { Nodes = Nodes.Map(n => n.Id == Sink ? channel.Route(sink, port) : n) })
-                    : Fin.Fail<MaterialGraph>(new MaterialFault.Graph(key, $"<route-unanswerable-port:{channel.Key}<-{port.Value}>"))) };
+                    : Fin.Fail<MaterialGraph>(new MaterialFault.Graph($"<route-unanswerable-port:{channel.Key}<-{port.Value}>"))) };
 
     public static readonly MaterialGraph Default = BuildDefault();
 
@@ -406,11 +406,11 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
     public ReadOnlySpan<int> Operands(int position) => OperandSlots[position];
 
     public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> window) =>
-        ShadeSpan([point], parameters, scratch, window, key).Case is Error abandoned
+        ShadeSpan([point], parameters, scratch, window).Case is Error abandoned
             ? Fin.Fail<SurfaceShade>(abandoned)
             : window[0] is SurfaceShade shaded
                 ? Fin.Succ(shaded)
-                : Fin.Fail<SurfaceShade>(new MaterialFault.Graph(key, "<shade-window-unwritten>"));
+                : Fin.Fail<SurfaceShade>(new MaterialFault.Graph("<shade-window-unwritten>"));
 
     public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades) {
         if (scratch.Length < ScratchWidth || shades.Length < points.Length) {
@@ -423,11 +423,11 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
                     AppearanceNode node = Order[n];
                     int[] sources = OperandSlots[n];
                     for (int d = 0; d < sources.Length; d++) { operands[d] = scratch[sources[d]]; }
-                    Fin<PortSlot> produced = NodeEvaluator.Apply(node, points[p], parameters, operands, key);
+                    Fin<PortSlot> produced = NodeEvaluator.Apply(node, points[p], parameters, operands);
                     if (produced.Case is not PortSlot slot) { return produced.Map(static _ => unit); }
                     if (slot.Produced) { scratch[n] = slot.Value; }
                 }
-                Fin<SurfaceShade> shade = Assemble(Output, points[p], scratch, Slots, key);
+                Fin<SurfaceShade> shade = Assemble(Output, points[p], scratch, Slots);
                 if (shade.Case is not SurfaceShade assembled) { return shade.Map(static _ => unit); }
                 shades[p] = assembled;
             }
@@ -673,7 +673,7 @@ public static class MaterialLibrary {
         select row;
 
     public static Fin<MaterialParameters> Assign(MaterialId appearanceId) =>
-        Rows.ContainsKey(appearanceId) ? Lookup(appearanceId, key) : Lookup(Neutral, key);
+        Rows.ContainsKey(appearanceId) ? Lookup(appearanceId) : Lookup(Neutral);
 
     public static MaterialParameters Named(Unicolour reference, MaterialParameters template) {
         ColourTriplet ap1 = reference.ConvertToConfiguration(PortValue.SceneLinear).RgbLinear.Triplet;

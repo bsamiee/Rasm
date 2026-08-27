@@ -27,7 +27,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Editors receive their write channel BOUND from `EditorRowFactory` — the factory path carries the command mint, veto edge, and undo enqueue.
 - Event publication counts once — a running-total scan publishes the per-delta cell, and two producers publish DISTINCT outcomes.
 - `SessionPresence` is a HINT and `MemberRegister` AUTHORITY — admission reads membership alone, so a forged frame costs a cursor alone.
-- Foreign narrows lift a fresh handle and leave the wrapper standing — `CollabRegister.Read`/`Level` scope both, so `Get(key)?.As*()` leaks.
+- Foreign narrows lift a fresh handle and leave the wrapper standing — `CollabRegister.Read`/`Level` scope both, so `Get()?.As*()` leaks.
 - `RoutedCommandExecutingEventArgs` extends its executed args, so a veto edge narrows to the DERIVED type — a base-typed probe never reaches cancel.
 - Foreign admission predicates read against the LIFECYCLE they gate — the grid factory's `Accept` filters CLONING, and a narrowing refuses the token.
 - Merged accessors answering a SENTINEL are no mixed-state channel — divergent and uniformly null read alike, so `MergedCell` folds an array.

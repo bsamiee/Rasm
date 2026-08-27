@@ -501,7 +501,7 @@ internal static partial class Relations {
     internal static Operation<(TA A, TB B), TOut> Deviate<TA, TB, TOut>() where TA : notnull where TB : notnull =>
         (Capability.CurveForm.Admits(type: typeof(TA)) && Capability.CurveForm.Admits(type: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
             ? Operation<(TA A, TB B), TOut>.Build(requiresContext: true, state: key,
-                evaluator: static (op, pair) =>
+                evaluator: static (pair) =>
                     from runtime in Env.EnvAsks
                     from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToFin().ToEff()
                     from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context).ToEff()
@@ -514,7 +514,7 @@ internal static partial class Relations {
             || typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)))
          && IntersectionResult.HitsShape.CanProject(output: typeof(TOut)))
             ? Operation<TGeometry, TOut>.Build(requirement: Some(Requirement.Basic), state: key,
-                evaluator: static (op, geometry) =>
+                evaluator: static (geometry) =>
                     from runtime in Env.EnvAsks
                     from result in SelfIntersectionOf(geometry: geometry, env: runtime).ToEff()
                     from typed in result.Project<TOut>().ToEff()

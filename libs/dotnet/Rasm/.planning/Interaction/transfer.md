@@ -45,7 +45,7 @@ public readonly partial struct Mime {
 
 - Owner: `PayloadSlot` the closed payload family with total one-shot release; `PayloadShape` its read-side mirror naming what a caller ASKS for without carrying a value; `PayloadPresence` the two-row gate carrying the absent-read settle itself; `WellKnownFormat` the capability vocabulary over the four shapes the platform names itself.
 - Cases: `Text`, `Html`, `Picture(Lease<Image>)`, `Linked(Seq<Uri>)`, `Bytes(Mime, Arr<byte>)`, `Streamed(Mime, Lease<Stream>)`, `Stringed(Mime, string)`, `Boxed(Mime, Type, object)`, `Resourced(Mime, Lease<IDisposable>)`. The four well-known shapes carry no key because the platform names them; the five keyed shapes carry their `Mime` because the caller does.
-- Entry: `PayloadSlot.Box(key, value, op)` is the ONE `Boxed` mint — it derives the declared type from the value and refuses a disposable, which belongs on `Resourced` with its lease.
+- Entry: `PayloadSlot.Box(value)` is the ONE `Boxed` mint — it derives the declared type from the value and refuses a disposable, which belongs on `Resourced` with its lease.
 - Law: disposal is TOTAL over the family and runs once — every case answers `Dispose`, the value-carrying cases close their lease and the inert cases no-op, so a write leg that refuses mid-roster disposes exactly what it staged. A per-case `using` at each call site is the deleted form, and a slot disposed twice is a no-op rather than a fault.
 - Law: `Boxed` is the ONE erased case and it carries its `Type` beside its `Mime`, so a consumer that must interrogate an unmodelled host payload reads the declared type rather than probing the object. The type DERIVES from the value at admission — a caller-stated type beside the value is two authorities the first mismatch cannot arbitrate.
 - Law: `Boxed` refuses an `IDisposable` at admission AND at the write leg, before any format reaches the platform. `Boxed` carries no custody, so a disposable admitted there is a handle the write leg can neither close on refusal nor hand back on read; `Resourced` is where a disposable payload rides, with its lease.
@@ -218,7 +218,7 @@ public static class Transfer {
 ## [05]-[DRAG]
 
 - Owner: `DragPlan` the staged drag payload with its permitted effects and optional ghost; `Drop` the admitted drop with its location, allowed effects, and payload; `DropOutcome` the settled effect.
-- Entry: `Drop.Of(provider, key)` admits the host event argument ONCE and publishes admitted values; `Resolve(effect, key, description)` gates the caller's chosen effect against the permitted set and settles.
+- Entry: `Drop.Of(provider)` admits the host event argument ONCE and publishes admitted values; `Resolve(effect, description)` gates the caller's chosen effect against the permitted set and settles.
 - Law: the host event argument NEVER escapes — it is read at admission and gone, so no consumer holds an argument the platform recycles after the callback returns, and no consumer reads a mutable effect field after the frame that owned it.
 - Law: the resolved effect is GATED against `Allowed` — a caller choosing an effect the source never permitted refuses typed rather than silently landing a copy where a move was offered.
 - Law: the ghost is an `Option` pair of image and offset, so a drag with no visual carries no half-specified placement; a null image beside a real offset is unrepresentable.

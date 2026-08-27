@@ -318,7 +318,7 @@ public sealed class BoundFlow : IDisposable {
     }
 
     public Fin<Unit> Chain(DeviceMemory device, BoundFlow next) =>
-        Refused().Bind(_ => next.Refused()).Bind(_ => TensorBridge.Relay(device, sink, next.bound, key));
+        Refused().Bind(_ => next.Refused()).Bind(_ => TensorBridge.Relay(device, sink, next.bound));
 
     public Fin<Unit> Rebind(BindingSource source) =>
         Refused().Bind(_ => Next(source).Bind(next => Try.lift(() => {

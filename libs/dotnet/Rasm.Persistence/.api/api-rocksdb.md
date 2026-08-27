@@ -89,8 +89,8 @@
 | :-----: | :------------------------------------------------------------------------- | :------- | :------------------------------- |
 |  [01]   | `RocksDb.Put(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)`            | instance | writes one key (span, no alloc)  |
 |  [02]   | `RocksDb.Get(ReadOnlySpan<byte> key)`                                      | instance | reads one value (`byte[]?`)      |
-|  [03]   | `RocksDb.Get<T>(key, ISpanDeserializer<T>)`                                | instance | zero-copy span→`T` decode        |
-|  [04]   | `RocksDb.GetFixedSizeValue(key, Span<byte> output)`                        | instance | reads into a caller buffer       |
+|  [03]   | `RocksDb.Get<T>(ISpanDeserializer<T>)`                                | instance | zero-copy span→`T` decode        |
+|  [04]   | `RocksDb.GetFixedSizeValue(Span<byte> output)`                        | instance | reads into a caller buffer       |
 |  [05]   | `RocksDb.MultiGet(byte[][] keys)`                                          | instance | batched multi-key read           |
 |  [06]   | `RocksDb.Merge(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)`          | instance | enqueues a merge operand         |
 |  [07]   | `RocksDb.Remove(ReadOnlySpan<byte> key)`                                   | instance | deletes one key                  |

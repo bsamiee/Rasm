@@ -100,7 +100,7 @@ public abstract partial record SlotValue {
             meshSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
             source: static (key, slot) => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
-            pointOnSource: static (key, slot) =>
+            pointOnSource: static (slot) =>
                 from source in Admit.Need(slot.Value)
                 from point in Acceptance.Input(value: slot.At)
                 select (SlotValue)new PointOnSource(Value: source, At: point),
@@ -496,7 +496,7 @@ public abstract partial record ReplayRoster {
 
     internal Fin<ReplayRoster> Admit() => Switch(preserve: static (_, value) => Fin.Succ<ReplayRoster>(value),
         append: static (key, value) => guard(value.Count > 0, new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)value),
-        retain: static (key, value) => guard(
+        retain: static (value) => guard(
             !value.Indices.IsEmpty && value.Indices.ForAll(static index => index >= 0),
             new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)new Retain(value.Indices.Distinct())));
 
@@ -603,7 +603,7 @@ public sealed class ReplayProgram {
                                  return program.regrow(in frame, index);
                              }).Run().Bind(static inner => inner)
                              .Bind(proposed => proposed.Admit())).As()
-                     from _ in program.roster.Apply(active, op)
+                     from _ in program.roster.Apply(active)
                      from results in Fin.Succ(value: toSeq(active.Results))
                      from __ in guard(results.Count == staged.Count, new KernelFault.InvalidResult())
                      from ___ in results

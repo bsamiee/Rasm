@@ -251,7 +251,7 @@ public static class WireAdmission {
     }
 
     public static Fin<T> Admit<T>(T message, WireBoundary boundary) where T : IMessage =>
-        Validate(message, key).Bind(admission => admission.Match(
+        Validate(message).Bind(admission => admission.Match(
             Fail: violations => Fin.Fail<T>(new HopFault.Malformed(
                 boundary,
                 new WireViolation.Contract(message.Descriptor.FullName, violations))),
@@ -278,7 +278,7 @@ public static class WireAdmission {
             FieldPathElement.SubscriptOneofCase.IntKey => $"[{element.IntKey.ToString(CultureInfo.InvariantCulture)}]",
             FieldPathElement.SubscriptOneofCase.UintKey => $"[{element.UintKey.ToString(CultureInfo.InvariantCulture)}]",
             FieldPathElement.SubscriptOneofCase.StringKey => $"[{JsonSerializer.Serialize(element.StringKey)}]",
-            _ => throw new InvalidOperationException($"Unknown field-path subscript {element.SubscriptCase}."),
+            var unresolved => $"[{unresolved}]",
         });
 }
 
@@ -305,11 +305,11 @@ public static class WireJson {
 
     public static Fin<T> Read<T>(TextReader source) where T : IMessage<T>, new() =>
         Try.lift(() => Fin.Succ(Parser.Parse<T>(source))).Run().Bind(static inner => inner)
-            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
 
     public static Fin<T> Read<T>(Stream source) where T : IMessage<T>, new() {
         using StreamReader reader = new(source, Utf8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-        return Read<T>(reader, key);
+        return Read<T>(reader);
     }
 
     public static JsonElement Element(IMessage message) {
@@ -319,7 +319,7 @@ public static class WireJson {
 
     public static Fin<T> Read<T>(JsonElement payload) where T : IMessage<T>, new() =>
         Try.lift(() => Fin.Succ(Parser.Parse<T>(payload.GetRawText()))).Run().Bind(static inner => inner)
-            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
 }
 
 public static class HostWire {
@@ -552,10 +552,7 @@ public partial class AppHostWireContext : JsonSerializerContext;
 
 public static class SuiteContracts
 {
-    public static JsonSerializerOptions Host {
-        get => field ?? throw new InvalidOperationException("SuiteContracts.Wire seats Host at the app-root mint.");
-        private set;
-    }
+    public static Option<JsonSerializerOptions> Host { get; private set; }
 
     static void OmitAbsent(JsonTypeInfo contract) {
         foreach (JsonPropertyInfo property in contract.Properties) {

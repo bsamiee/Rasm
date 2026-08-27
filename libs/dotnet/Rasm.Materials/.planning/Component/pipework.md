@@ -240,7 +240,7 @@ public static class PipeworkSeed {
                 new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus"))));
 
     static Fin<PropertyBag> Detail(PipeRow r, SectionProfile profile) =>
-        from joint in ComponentDetail.Joint(r.System.Joint, key)
+        from joint in ComponentDetail.Joint(r.System.Joint)
         from od in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Size.OdMm * 1e-3)
         from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, r.Size.WallMm * 1e-3)
         from rated in r.Size.RatedPsi.TraverseM(static psi => ComponentDetail.Measured(SegmentRows.WorkingPressure, Dimension.PressureDim, psi * PsiPa)).As()

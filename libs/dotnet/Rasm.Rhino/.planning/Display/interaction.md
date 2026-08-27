@@ -843,7 +843,7 @@ public sealed class WidgetHost : IDisposable {
                     && marks.ForAll(static mark => mark is not null && mark.Valid),
                 new KernelFault.InvalidInput()).ToFin().Bind(_ => {
                     WidgetId identity = WidgetId.Create(Guid.NewGuid());
-                    WidgetSink sink = new(identity, channel.Writer, Atom(marks), faults, submitted, rejected, lifecycle, op);
+                    WidgetSink sink = new(identity, channel.Writer, Atom(marks), faults, submitted, rejected, lifecycle);
                     return from widget in Try.lift(() => spec.Switch(
                                sink,
                                grip: static (state, row) => (UserInterfaceObjectBase)new GripWidget(row, state),
@@ -863,7 +863,7 @@ public sealed class WidgetHost : IDisposable {
                                        use: doc => Try.lift(() => Admit.Confirm(doc.ViewUserInterface.Remove(ctx) > 0)).Run().Bind(static inner => inner),
                                        needs: [SessionNeed.Mutate]))))
                            let value = new WidgetMount(widget, sink, retire)
-                           from mountedId in SetPosture(value, posture, op)
+                           from mountedId in SetPosture(value, posture)
                                .Bind(_ => Try.lift(() => {
                                    _ = mounted.Add(identity, value);
                                    return Fin.Succ(identity);
@@ -884,7 +884,7 @@ public sealed class WidgetHost : IDisposable {
                         None: static () => true),
                 new KernelFault.InvalidInput()).ToFin().Bind(_ => Find(identity).Bind(value =>
                     Try.lift(() => Fin.Succ(State(identity, value))).Run().Bind(static inner => inner).Bind(prior =>
-                        SetPosture(value, posture, op)
+                        SetPosture(value, posture)
                             .Map(_ => (ignore(marks.Iter(value.Sink.Retarget)), State(identity, value)).Item2)
                             .Rollback(
                                 release: () => SetPosture(value, prior.Posture))))),
@@ -894,7 +894,7 @@ public sealed class WidgetHost : IDisposable {
     public Fin<WidgetAnswer> Ask(WidgetId identity, WidgetProbe probe) {
         return lifecycle.Within(
             body: () => guard(identity.Value != Guid.Empty && probe is not null && probe.Valid, new KernelFault.InvalidInput()).ToFin()
-                .Bind(_ => Find(identity, op))
+                .Bind(_ => Find(identity))
                 .Bind(value => probe.Switch(
                     value,
                     glyphs: static (ctx, row) => Admit.Demand(
@@ -926,7 +926,7 @@ public sealed class WidgetHost : IDisposable {
     public Fin<WidgetState> Inspect(WidgetId identity) {
         return lifecycle.Within(
             body: () => guard(identity.Value != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
-                .Bind(_ => Find(identity, op))
+                .Bind(_ => Find(identity))
                 .Map(value => State(identity, value)),
             refused: () => Fin.Fail<WidgetState>(new KernelFault.InvalidContext()));
     }
@@ -934,8 +934,8 @@ public sealed class WidgetHost : IDisposable {
     public Fin<Unit> Retire(WidgetId identity) {
         return lifecycle.Within(
             body: () => guard(identity.Value != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
-                .Bind(_ => Find(identity, op))
-                .Bind(value => Retire(identity, value, op)),
+                .Bind(_ => Find(identity))
+                .Bind(value => Retire(identity, value)),
             refused: () => Fin.Fail<Unit>(new KernelFault.InvalidContext()));
     }
 

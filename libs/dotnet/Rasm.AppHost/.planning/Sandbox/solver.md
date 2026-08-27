@@ -219,7 +219,7 @@ public sealed record SolverHostRuntime(
 public static class SolverHost {
     public static IO<Validation<Error, Seq<HostedSolver>>> Register(
         SolverHostRuntime runtime, Seq<SolverManifest> declared, GrantScope scope) =>
-        declared.TraverseM(manifest => Host(runtime, manifest, scope, key)).As()
+        declared.TraverseM(manifest => Host(runtime, manifest, scope)).As()
             .Map(static hosted => hosted.Traverse(static row => row).As());
 
     public static IO<Validation<Error, HostedSolver>> Host(
@@ -227,7 +227,7 @@ public static class SolverHost {
         (from valid in SolverPluginContract.Validate(manifest, runtime.Hosted)
          from negotiation in Negotiate(valid)
          select (Manifest: valid, Negotiation: negotiation)).Match(
-            Succ: proven => Loaded(runtime, proven.Manifest, scope, proven.Negotiation, key),
+            Succ: proven => Loaded(runtime, proven.Manifest, scope, proven.Negotiation),
             Fail: faults => IO.pure(Fail<Error, HostedSolver>(faults)));
 
     static IO<Validation<Error, HostedSolver>> Loaded(
@@ -237,7 +237,7 @@ public static class SolverHost {
                 ? Fin.Succ(resolved)
                 : Fin.Fail<PluginArtifact>(new SolverFault.ContractRejected(
                     $"{manifest.PluginId}: {manifest.ContractRange} != {resolved.ContractRange}"))))
-        from instance in SandboxRows.Load(runtime.Row, artifact, scope, runtime.Sandbox, key)
+        from instance in SandboxRows.Load(runtime.Row, artifact, scope, runtime.Sandbox)
         from hosted in Projected(runtime, manifest, negotiation, instance).Catch(error =>
             QuotaControl.Evict(runtime.Sandbox, instance, new EvictionCause.CommandedCase(nameof(SolverHost)))
                 .Bind(_ => IO.fail<HostedSolver>(error)))

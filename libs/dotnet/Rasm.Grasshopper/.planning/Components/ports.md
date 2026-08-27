@@ -347,14 +347,14 @@ public sealed record PinPlan {
                 .MapFail(_ => new GhFault.ContractRefused(
                     GhContract.Pin,
                     new GhEvidence($"{nameof(PinTrim)}:{trim.GetType().Name}")))
-                .Bind(valid => valid.Apply(parameter, op)))
+                .Bind(valid => valid.Apply(parameter)))
             .As()
             .Bind(_ => Persistent
                 .TraverseM(held => Kind is not null && Kind.Family.Accepts(Kind.Carrier, held.Type)
                     ? Try.lift(() => { parameter.PersistentDataWeak = held; }).Run().Bind(static inner => inner)
                     : Fin.Fail<Unit>(new GhFault.ContractRefused(
                         GhContract.Pin,
-                        new GhEvidence(op, $"{nameof(Persistent)}:{held.Type.Name}"))))
+                        new GhEvidence($"{nameof(Persistent)}:{held.Type.Name}"))))
                 .As())
             .Map(static _ => unit);
     }
@@ -642,8 +642,8 @@ public static class Ports {
             ? plan.Kind.Accepts(plan, PinSide.Input).Bind(_ => Try.lift(() => Fin.Succ<IParameter>(plan.Visibility == PinVisibility.Shown
                     ? adder.AddEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host)
                     : adder.AddHiddenEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host))).Run().Bind(static inner => inner))
-                .Bind(parameter => plan.Realize(parameter, op).Map(_ => parameter))
-            : Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(op, $"{plan.Kind.Key}:{nameof(DeclareEnum)}"))));
+                .Bind(parameter => plan.Realize(parameter).Map(_ => parameter))
+            : Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{plan.Kind.Key}:{nameof(DeclareEnum)}"))));
     }
 
     public static Fin<IParameter> DeclareEnum<T>(ModularOutputAdder adder, PinPlan plan) where T : struct, Enum {
@@ -657,18 +657,18 @@ public static class Ports {
     public static Validation<Error, Unit> Realize(ComponentParameters parameters, Seq<PinPlan> inputs, Seq<PinPlan> outputs) {
         return (inputs.Map(static (plan, index) => (Plan: plan, Index: index))
                 .Traverse(row => Try.lift(() => Fin.Succ<IParameter>(parameters.Input(row.Index))).Run().Bind(static inner => inner)
-                    .Bind(parameter => row.Plan.Realize(parameter, op)).ToValidation()).As(),
+                    .Bind(parameter => row.Plan.Realize(parameter)).ToValidation()).As(),
             outputs.Map(static (plan, index) => (Plan: plan, Index: index))
                 .Traverse(row => Try.lift(() => Fin.Succ<IParameter>(parameters.Output(row.Index))).Run().Bind(static inner => inner)
-                    .Bind(parameter => row.Plan.Realize(parameter, op)).ToValidation()).As())
+                    .Bind(parameter => row.Plan.Realize(parameter)).ToValidation()).As())
             .Apply(static (_, _) => unit)
             .As();
     }
 
     private static Fin<IParameter> Minted(PinPlan plan, PinSide side, Func<Fin<IParameter>> bind) =>
-        plan.Kind.Accepts(plan, side, key)
+        plan.Kind.Accepts(plan, side)
             .Bind(_ => bind())
-            .Bind(parameter => plan.Realize(parameter, key).Map(_ => parameter));
+            .Bind(parameter => plan.Realize(parameter).Map(_ => parameter));
 
     private static Fin<Unit> EnumType<T>() where T : struct, Enum =>
         Enum.GetUnderlyingType(typeof(T)) == typeof(int) && !typeof(T).IsDefined(typeof(FlagsAttribute), inherit: false)

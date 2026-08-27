@@ -68,21 +68,21 @@ public static partial class MaterialShape {
 public static partial class MaterialProjection {
     public static Fin<Node.Material> Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, UnitScheme scale) =>
         relatingMaterial switch {
-            IfcMaterialLayerSetUsage u    => Optional(u.ForLayerSet).ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "layer-set" }))).Bind(set => LayerSetOf(set, tolerance, scale, key)),
-            IfcMaterialProfileSetUsage u  => Optional(u.ForProfileSet).ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "profile-set" }))).Bind(set => ProfileSetOf(set, tolerance, profiles, scale, key)),
-            IfcMaterialLayerSet set       => LayerSetOf(set, tolerance, scale, key),
-            IfcMaterialProfileSet set     => ProfileSetOf(set, tolerance, profiles, scale, key),
-            IfcMaterialConstituentSet set => ConstituentSetOf(set, tolerance, key),
+            IfcMaterialLayerSetUsage u    => Optional(u.ForLayerSet).ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "layer-set" }))).Bind(set => LayerSetOf(set, tolerance, scale)),
+            IfcMaterialProfileSetUsage u  => Optional(u.ForProfileSet).ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "profile-set" }))).Bind(set => ProfileSetOf(set, tolerance, profiles, scale)),
+            IfcMaterialLayerSet set       => LayerSetOf(set, tolerance, scale),
+            IfcMaterialProfileSet set     => ProfileSetOf(set, tolerance, profiles, scale),
+            IfcMaterialConstituentSet set => ConstituentSetOf(set, tolerance),
             IfcMaterial material          => SingleOf(material, tolerance),
-            _                             => Fin.Fail<Node.Material>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-select-unresolved", relatingMaterial.GetType().Name }))),
+            _                             => Fin.Fail<Node.Material>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-select-unresolved", relatingMaterial.GetType().Name }))),
         };
 
     static Fin<Node.Material> LayerSetOf(IfcMaterialLayerSet set, double tolerance, UnitScheme scale) =>
-        LayersOf(set, scale, key).Bind(layers => Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfLayerSet(layers, key)));
+        LayersOf(set, scale).Bind(layers => Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfLayerSet(layers)));
 
     static Fin<Node.Material> ProfileSetOf(IfcMaterialProfileSet set, double tolerance, IIfcProfileStore profiles, UnitScheme scale) =>
-        from rows in ProfilesOf(set, profiles, scale, key)
-        from material in Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfProfileSet(rows, key, CompositeOf(set, profiles, key)))
+        from rows in ProfilesOf(set, profiles, scale)
+        from material in Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfProfileSet(rows, CompositeOf(set, profiles)))
         select material;
 
     static Fin<Node.Material> ConstituentSetOf(IfcMaterialConstituentSet set, double tolerance) =>
@@ -108,15 +108,15 @@ public static partial class MaterialProjection {
             .ToSeq()
             .TraverseM(row => Optional(row.Profile)
                 .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-profile-missing", set.Name, row.Name })))
-                .Bind(profile => OffsetsOf(row, scale, key)
+                .Bind(profile => OffsetsOf(row, scale)
                     .Map(offsets => new MaterialProfile(
                         MaterialShape.Key(row.Material?.Name, set.Name),
-                        profiles.Preserve(profile, key),
+                        profiles.Preserve(profile),
                         MaterialShape.Junction(row.Priority), MaterialShape.Label(row.Category), offsets))))
             .As();
 
     static Option<ProfileRef> CompositeOf(IfcMaterialProfileSet set, IIfcProfileStore profiles) =>
-        Optional(set.CompositeProfile).Map(composite => profiles.Preserve(composite, key));
+        Optional(set.CompositeProfile).Map(composite => profiles.Preserve(composite));
 
     static Fin<Seq<MeasureValue>> OffsetsOf(IfcMaterialProfile row, UnitScheme scale) =>
         row is IfcMaterialProfileWithOffsets offsets
@@ -132,14 +132,14 @@ public static partial class MaterialProjection {
     public static WriterT<FidelityLog, Fin, Seq<PropertyBag>> ImportedPsets(
         IfcMaterialDefinition definition, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates) =>
         definition.HasProperties.AsIterable().ToSeq()
-            .Traverse(pset => Bag(pset, rooted, scale, templates, key))
+            .Traverse(pset => Bag(pset, rooted, scale, templates))
             .As();
 
     static WriterT<FidelityLog, Fin, PropertyBag> Bag(
         IfcMaterialProperties pset, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates) {
         string name = MaterialShape.Label(pset.Name);
         return pset.Properties.Values.AsIterable().ToSeq()
-            .Traverse(property => PropertyLowering.Lower(property, rooted, scale, key)
+            .Traverse(property => PropertyLowering.Lower(property, rooted, scale)
                 .Map(value => (Name: PropertyCategory.Neutral.Row(MaterialShape.Label(property.Name)), Value: value)))
             .As()
             .Map(rows => new PropertyBag(

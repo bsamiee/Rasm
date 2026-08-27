@@ -14,7 +14,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 - Cases: `NodeWire.payload` mirrors the eight `Node` cases. Nested generated oneofs mirror `PropertyValue`, `TemporalValue`, `MaterialComposition`, and `MaterialPropertySet` only because a node payload can reach them. `CoverageSample` stays branch-interior because no node seats it.
 - Law: `NodeWire` exists to make `Persistence/Version/merge#STRUCTURAL_DIFF` field-mask edits schema-aware. It does not make the enclosing graph, delta algebra, relationship algebra, headers, redaction policy, or event framing a cross-language contract.
 - Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `BoundaryConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
-- Entry: `Encode(node, tolerance, key)` mints `content_address` under the caller's active graph tolerance and validates the generated result. `Decode(wire)` validates and re-admits every nested value, but does not claim address verification because tolerance belongs to the graph context at the persistence caller.
+- Entry: `Encode(node, tolerance)` mints `content_address` under the caller's active graph tolerance and validates the generated result. `Decode(wire)` validates and re-admits every nested value, but does not claim address verification because tolerance belongs to the graph context at the persistence caller.
 - Output: the caller retains producer-carried `content_address` as the held-node OCC base. It never derives that value from ProtoJSON or treats `NodeWire` as a manifest actor.
 - Packages: Celly.Protovalidate validates corpus rules; Google.Protobuf owns generated messages and descriptors; Rasm owns `ContentHash.Wire`/`Admit`; Mapperly owns field transcription; Thinktecture owns total union dispatch; LanguageExt owns `Fin` and presence; NodaTime.Serialization.Protobuf owns temporal projections.
 - Growth: a new seated `Node` case lands one corpus arm and one total mapping. A graph-local feature stays native unless a real manifest actor requires it; code generation never justifies widening the public contract surface.
@@ -79,7 +79,7 @@ public static partial class BoundaryConverters {
  public static Fin<UInt128> ToKey(ByteString wire) => ContentHash.Admit(wire.Span);
 
  public static Fin<NodeId> ToNodeId(ByteString wire) =>
-  ContentHash.Admit(wire.Span, key)
+  ContentHash.Admit(wire.Span)
    .Map(static value => NodeId.Create(value.ToString("X32", CultureInfo.InvariantCulture)));
 
  // --- [CARRIER_CODECS]
@@ -115,7 +115,7 @@ public static partial class BoundaryConverters {
       w.Si)
      from admitted in w.Uncertainty is null
       ? Fin.Succ(measure)
-      : ToMeasureBand(w.Uncertainty, key).Bind(band => measure.WithUncertainty(band, key))
+      : ToMeasureBand(w.Uncertainty).Bind(band => measure.WithUncertainty(band))
      select admitted;
 
  [UserMapping] public static MeasureBandWire ToWire(MeasureBand band) {
@@ -148,7 +148,7 @@ public static partial class BoundaryConverters {
       }).Bind(kind => MeasureBand.Admit(
        kind, w.LowerSi, w.UpperSi,
        w.HasStandardDeviationSi ? Some(w.StandardDeviationSi) : None,
-       w.HasCoverageFactor ? Some(w.CoverageFactor) : None, key));
+       w.HasCoverageFactor ? Some(w.CoverageFactor) : None));
 
  [UserMapping] public static ClassificationWire ToWire(Classification value) {
   ClassificationWire wire = new() { System = value.System, Code = value.Code, Edition = value.Edition };
@@ -165,7 +165,7 @@ public static partial class BoundaryConverters {
       .Traverse(date => Try.lift(() => date.ToLocalDate()).Run().Bind(static inner => inner))
       .As()
      from admitted in Classification.Of(
-      wire.System, wire.Code, key, wire.Edition,
+      wire.System, wire.Code, wire.Edition,
       source: wire.HasSource ? Some(wire.Source) : None, editionDate: editionDate,
       title: wire.HasTitle ? Some(wire.Title) : None)
      select admitted;
@@ -200,13 +200,14 @@ public static partial class BoundaryConverters {
 [UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.ProtobufExtensions))]
 internal static partial class WireCodec {
  // --- [UNION_PARITY]
- static WireCodec() {
-  foreach (CrossingFamily family in CrossingFamily.Items) {
-   if (family.Arms != family.WireArms()) {
-    throw new InvalidOperationException($"<wire-union-parity:{family.Key}:{family.Arms}:{family.WireArms()}>");
-   }
-  }
- }
+ internal static Fin<Unit> Proof() =>
+  toSeq(CrossingFamily.Items)
+   .Filter(static family => family.Arms != family.WireArms())
+   .Map(static family => (Error)new KernelFault.OutOfRange(
+    Label: family.Key, Scalar: family.WireArms(), Requirement: $"{family.Arms} wire arms"))
+   is { IsEmpty: false } faults
+    ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
+    : Fin.Succ(unit);
 
  static Fin<T> Iso<T>(NodaTime.Text.IPattern<T> pattern, string token) =>
   pattern.Parse(token) is { Success: true } parsed
@@ -217,7 +218,7 @@ internal static partial class WireCodec {
   left == right ? Fin.Succ(unit) : new KernelFault.InvalidValue($"element-wire.{column}", "carry both presence columns or neither");
 
  static Fin<Option<NodaTime.LocalDate>> ToDate(bool present, string iso) =>
-  Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token, key)).As();
+  Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token)).As();
 
  static Fin<T> Present<T>(T? w, string column) where T : class =>
   w is not null ? Fin.Succ(w) : new KernelFault.InvalidValue($"element-wire.{column}", "required message is absent");
@@ -232,7 +233,7 @@ internal static partial class WireCodec {
   select window;
 
  static Fin<Option<MeasureValue>> OptMeasure(MeasureValueWire? w) =>
-  Optional(w).Traverse(m => ToMeasure(m, key)).As();
+  Optional(w).Traverse(m => ToMeasure(m)).As();
 
  static Fin<Option<SampledCurve>> OptCurve(SampledCurveWire? w) =>
   Optional(w).Traverse(c => SampledCurve.Of(
@@ -252,7 +253,7 @@ internal static partial class WireCodec {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementWire {
  public static Fin<NodeWire> Encode(Node node, double tolerance) =>
-  WireCodec.ToWire(node, tolerance, key).Bind(wire => WireCodec.Validate(wire, key));
+  WireCodec.ToWire(node, tolerance).Bind(wire => WireCodec.Validate(wire));
 
  public static Fin<Node> Decode(NodeWire wire) =>
   WireCodec.Validate(wire).Bind(valid => Try.lift(() => WireCodec.ToNode(valid)).Run().Bind(static inner => inner));

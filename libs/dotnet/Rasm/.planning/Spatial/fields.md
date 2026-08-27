@@ -407,14 +407,14 @@ public abstract partial record VectorField {
             vortexCase: static (s, c) => RotationalField(anchor: c.Anchor, axis: c.Axis, falloff: c.Falloff, axial: 0.0, swirl: 1.0, state: s),
             helicalCase: static (s, c) => RotationalField(anchor: c.Anchor, axis: c.Axis, falloff: c.Falloff, axial: c.Axial, swirl: c.Swirl, state: s),
             influenceCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context,
-                hitToScaled: (hit, op) =>
+                hitToScaled: (hit) =>
                     from distance in hit.Distance.ToFin(Fail: new KernelFault.InvalidResult())
                     let residual = c.ShellRadius.Map(r => Math.Abs(distance - r.Value)).IfNone(distance)
                     let shellSign = c.ShellRadius.Map(r => distance >= r.Value ? 1.0 : -1.0).IfNone(1.0)
                     from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, tolerance: s.Context.For(lane: ToleranceLane.Duplicate).Value)
                     select (Raw: shellSign * (hit.Point - s.Sample), Scale: c.ShellRadius.IsSome ? residual * weight : weight)),
             hitFieldCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context,
-                hitToScaled: (hit, op) => c.Projection
+                hitToScaled: (hit) => c.Projection
                     .Project<Vector3d>(space: c.Source, hit: hit, sample: s.Sample, context: s.Context)
                     .Map(static raw => (Raw: raw, Scale: 1.0))),
             coulombCase: static (s, c) => c.Charges
@@ -451,7 +451,7 @@ public abstract partial record VectorField {
     private static Fin<Vector3d> ClosestDirected(SupportSpace source, Point3d sample, BoundarySense sense, Context context,
         Func<ClosestHit, Fin<(Vector3d Raw, double Scale)>> hitToScaled) =>
         from hit in source.Closest(sample: sample)
-        from scaled in hitToScaled(hit, key)
+        from scaled in hitToScaled(hit)
         from direction in Direction.Of(value: sense.Sign * scaled.Raw, context: context)
         select direction.Value * scaled.Scale;
 }

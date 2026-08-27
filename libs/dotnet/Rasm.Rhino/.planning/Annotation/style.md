@@ -167,7 +167,7 @@ public sealed record TableGrip<TComponent, TDef>(
         from copy in Try.lift(() => Fin.Succ(value: Duplicate(live))).Run().Bind(static inner => inner)
         from _ in Bracketed(copy: copy, revise: revise)
             .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
-        from __ in Modify(document, copy, index, interaction, op)
+        from __ in Modify(document, copy, index, interaction)
             .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
         from ___ in Custody.Dispose(held: Seq(copy))
         select unit;
@@ -176,14 +176,14 @@ public sealed record TableGrip<TComponent, TDef>(
 
     private Fin<Unit> Bracketed(TComponent copy, Func<TComponent, Fin<Unit>> revise) => Scoped.Match(
         Some: enter =>
-            from exit in enter(copy, op)
-            from outcome in revise(copy, op).Match(
-                Succ: _ => exit(op),
-                Fail: primary => exit(op).Match(
+            from exit in enter(copy)
+            from outcome in revise(copy).Match(
+                Succ: _ => exit(),
+                Fail: primary => exit().Match(
                     Succ: _ => Fin.Fail<Unit>(error: primary),
                     Fail: restore => Fin.Fail<Unit>(error: primary + restore)))
             select outcome,
-        None: () => revise(copy, op));
+        None: () => revise(copy));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -811,7 +811,7 @@ public abstract partial record StyleOp {
             clearOverrides: static (context, edit) =>
                 Grip.Revised(target: edit.Target, document: context,
                     interaction: edit.Interaction,
-                    revise: (style, key) => edit.Fields.IsEmpty
+                    revise: (style) => edit.Fields.IsEmpty
                         ? Try.lift(() => Fin.Succ(value: HostEdge.Side(style.ClearAllFieldOverrides))).Run().Bind(static inner => inner)
                         : edit.Fields.TraverseM(field => Try.lift(() => Fin.Succ(value: HostEdge.Side(
                             () => style.ClearFieldOverride(field: field.Host)))).Run().Bind(static inner => inner)).As().Map(static _ => unit)),
@@ -1089,7 +1089,7 @@ internal static class DraftSpine {
                 name: plan.Name,
                 recordsUndo: plan.Mode.Custody.Records,
                 redraw: plan.Mode.Redraw,
-                run: () => plan.Operations.TraverseM(operation => apply(document, operation, op)).As()
+                run: () => plan.Operations.TraverseM(operation => apply(document, operation)).As()
                     .Map(static _ => unit),
                 project: Fin.Succ),
             needs: SessionNeed.Mutation(custody: plan.Mode.Custody, redraw: plan.Mode.Redraw).ToArray());
@@ -1103,8 +1103,8 @@ internal static class DraftSpine {
 |  [01]   | native crossing  | `DraftCrossing`                 | detached handle crossing                        | `Crossed`                  |
 |  [02]   | table revision   | `TableGrip<T, TDef>`            | Document lens + the host verb column roster     | `Revised(target, ...)`     |
 |  [03]   | table verbs      | `TableOp<T, TDef>`              | eight cases every component table shares        | `Apply(grip, ...)`         |
-|  [04]   | list revision    | `ListEdit<TRow>`/`ListSurface`  | index-addressed edits over a declared interface | `Apply(surface, op)`       |
-|  [05]   | user-string bag  | `TagEdit`/`TagSurface`          | incremental edits + compensated whole-bag       | `Apply(owner, op)`         |
+|  [04]   | list revision    | `ListEdit<TRow>`/`ListSurface`  | index-addressed edits over a declared interface | `Apply(surface)`       |
+|  [05]   | user-string bag  | `TagEdit`/`TagSurface`          | incremental edits + compensated whole-bag       | `Apply(owner)`         |
 |  [06]   | object singleton | `TargetResolution`              | exactly-one id + typed cast on `TableTarget`    | `Only<TNative>`            |
 |  [07]   | input custody    | `DraftBorrow`                   | nested lease scopes over a handle or a run      | `Typed<TNative, TOut>`     |
 |  [08]   | drafting scalars | `DraftScale`/`DraftAngle`       | positive scale and radian owners                | `Create` / `Value`         |
@@ -1114,7 +1114,7 @@ internal static class DraftSpine {
 |  [12]   | config schema    | `StyleField`                    | one row per proven property/`Field` pairing     | `Read` / `Write` / `On`    |
 |  [13]   | edit currency    | `StylePatch`                    | exact-family run, table and override folds      | `Apply` / `Overlay`        |
 |  [14]   | drawing standard | `DraftStandard`                 | kernel sheet ladders projected onto the rows    | `Patch(size, form, scale)` |
-|  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override       | `Apply(annotation, op)`    |
+|  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override       | `Apply(annotation)`    |
 |  [16]   | style mutations  | `StyleOp`                       | shared verbs plus six style-only cases          | `Styles.Commit`            |
 |  [17]   | style reads      | `StyleAsk`                      | closed request/answer family, axis-scoped       | `Styles.Ask`               |
 |  [18]   | commit entry     | `DraftSpine`                    | sealed command fold                             | `Commit`                   |

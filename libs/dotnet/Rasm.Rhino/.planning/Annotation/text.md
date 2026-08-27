@@ -785,7 +785,7 @@ public abstract partial record TextOp {
             document: context, seed: edit.Seed, placement: edit.Placement),
         amendCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
-            change: (annotation, key) => edit.Edits
+            change: (annotation) => edit.Edits
                 .TraverseM(item => item.Apply(annotation: annotation)).As().Map(static _ => unit)),
         reformulaCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
@@ -793,7 +793,7 @@ public abstract partial record TextOp {
                 rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle)))).Run().Bind(static inner => inner)),
         repointCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
-            change: (annotation, key) =>
+            change: (annotation) =>
                 from leader in Admit.Need(annotation as Leader)
                 from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(
                     () => leader.Points3D = edit.Path.Points.ToArray()))).Run().Bind(static inner => inner)
@@ -839,7 +839,7 @@ public abstract partial record TextOp {
             from copy in Admit.Need(source.Duplicate() as AnnotationBase)
             from __ in new Lease<AnnotationBase>.Owned(Value: copy).Use(
                 body: owned =>
-                    from ___ in change(owned, op)
+                    from ___ in change(owned)
                     from ____ in Admit.Confirm(success: document.Objects.Replace(
                         objectId: id, geometry: owned, ignoreModes: false))
                     select unit)
@@ -1030,7 +1030,7 @@ public sealed record TextState(
     TextStyleState Style) : IDetachedDocumentResult {
     internal static Fin<TextState> Of(AnnotationObjectBase native) => Try.lift(() =>
         from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: new KernelFault.InvalidResult())
-        from id in ResourceId.Admit(native.Id, key)
+        from id in ResourceId.Admit(native.Id)
         from kind in FactoryBridge.Row<AnnotationType, AnnotationKind>(
             candidate: annotation.AnnotationType, ordinal: static value => (int)value)
         from mask in TextMask.Read(annotation: annotation)
@@ -1038,7 +1038,7 @@ public sealed record TextState(
             candidate: annotation.DimensionLengthDisplay, ordinal: static value => (int)value)
         from alternateLengthDisplay in FactoryBridge.Row<DimensionStyle.LengthDisplay, LengthDisplayRow>(
             candidate: annotation.AlternateDimensionLengthDisplay, ordinal: static value => (int)value)
-        from style in ResourceId.Admit(annotation.DimensionStyleId, key)
+        from style in ResourceId.Admit(annotation.DimensionStyleId)
         select new TextState(
             Key: id,
             Kind: kind,

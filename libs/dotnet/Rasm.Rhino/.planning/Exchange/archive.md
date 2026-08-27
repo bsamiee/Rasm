@@ -618,11 +618,11 @@ public abstract partial record ArchiveOp {
 
     internal Fin<ArchiveOp> Admit() => Switch(snapshotCase: static (key, request) => Admit.Need(request.Slice).Map(_ => (ArchiveOp)request),
         inspectCase: static (_, request) => Fin.Succ<ArchiveOp>(value: request),
-        extractCase: static (key, request) => FactoryValidation.Admit(FactoryValidation.Violated(
+        extractCase: static (request) => FactoryValidation.Admit(FactoryValidation.Violated(
             (request.Folder == default, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(ExtractCase.Folder) }))),
             (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(ExtractCase.Output) })))))
             .Map(_ => (ArchiveOp)request),
-        amendCase: static (key, request) => FactoryValidation.Admit(FactoryValidation.Violated(
+        amendCase: static (request) => FactoryValidation.Admit(FactoryValidation.Violated(
             (request.Patches.IsEmpty || request.Patches.Exists(static patch => patch is null),
                 () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Patches) }))),
             (request.Target == default, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Target) }))),
@@ -630,7 +630,7 @@ public abstract partial record ArchiveOp {
             (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Output) })))))
             .Map(_ => (ArchiveOp)request),
         serializeCase: static (key, request) => Admit.Need(request.Policy).Map(_ => (ArchiveOp)request),
-        persistCase: static (key, request) => FactoryValidation.Admit(FactoryValidation.Violated(
+        persistCase: static (request) => FactoryValidation.Admit(FactoryValidation.Violated(
             (request.Target == default, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(PersistCase.Target) }))),
             (request.Policy is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(PersistCase.Policy) }))),
             (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(PersistCase.Output) })))))
@@ -639,7 +639,7 @@ public abstract partial record ArchiveOp {
         diffCase: static (key, request) => Admit.Need(request.Other)
             .Bind(source => source.Admit())
             .Map(_ => (ArchiveOp)request),
-        batchCase: static (key, request) =>
+        batchCase: static (request) =>
             from _shape in FactoryValidation.Admit(FactoryValidation.Violated(
                 (request.Program.IsEmpty || request.Program.Exists(static item => item is null),
                     () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(BatchCase.Program) }))),

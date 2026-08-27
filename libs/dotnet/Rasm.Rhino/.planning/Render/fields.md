@@ -593,11 +593,11 @@ public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentRes
 | :-----: | :---------------- | :----------------- | :-------------------------------------------------------- | :----------------------------- |
 |  [01]   | payload family    | `ContentValue`     | union cases derived through `ContentCarrier` rows         | `Declare` / `Write` / `Of`     |
 |  [02]   | payload contract  | `IContentPayload`  | the case's own static mint and payload read               | `Of(value)` / `Value`          |
-|  [03]   | field declaration | `FieldSpec`        | name + value + prompt + section + presentation row        | `Declare(fields, key)`         |
+|  [03]   | field declaration | `FieldSpec`        | name + value + prompt + section + presentation row        | `Declare(fields)`         |
 |  [04]   | dynamic fields    | `DynamicFieldSpec` | clause-accumulating admission plus bracketed traversal    | `Of` / `DynamicFields.Declare` |
 |  [05]   | parameter binding | `FieldBinding`     | admitted direct and child-slot cases                      | `Of` / `Bind`                  |
 |  [06]   | parameter routes  | `ParamScope`       | named, child-slot, and direct-extra cases                 | `Named` / `Child` / `Extra`    |
-|  [07]   | field census      | `FieldCensus`      | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields, key)`              |
+|  [07]   | field census      | `FieldCensus`      | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields)`              |
 |  [08]   | pbr name space    | `PbrChannel`       | texture-type keyed, one host resolver for both axes       | `Name` / `Slot` / `SlotOf`     |
 |  [09]   | basic param names | `ContentParameter` | the basic-material name constants                         | `ParamScope.Named`             |
 

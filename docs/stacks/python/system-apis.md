@@ -224,7 +224,7 @@ def summarized(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prio
 [DIGEST_AND_AUTH]:
 - Owner: `hashlib.file_digest`, `zlib.adler32_combine`/`crc32_combine`, keyed `hmac.new`/`hmac.digest`, the constant-time `hmac.compare_digest`/`secrets.compare_digest`, and the secure-random `secrets.token_bytes`/`token_hex`.
 - Gate: a wire digest streams through `hashlib.file_digest` (file object) or one `hashlib` one-shot (in-memory); key, token, and nonce material comes from `secrets`, never `random`.
-- Law: a keyed authenticity tag is one `hmac.digest(key, message, digest)` one-shot where a `hashlib` update loop over key-plus-message reinvents the construction; tag and digest equality is `hmac.compare_digest`, constant-time over the full width where `==` leaks a timing oracle on the first differing byte; `zlib.crc32_combine(crc_a, crc_b, len_b)` folds two independently-checksummed spans into the whole-stream checksum without a rescan.
+- Law: a keyed authenticity tag is one `hmac.digest(message, digest)` one-shot where a `hashlib` update loop over key-plus-message reinvents the construction; tag and digest equality is `hmac.compare_digest`, constant-time over the full width where `==` leaks a timing oracle on the first differing byte; `zlib.crc32_combine(crc_a, crc_b, len_b)` folds two independently-checksummed spans into the whole-stream checksum without a rescan.
 - Reject: a chunked hash loop; a recompute-to-checksum loop; a `hashlib`-built MAC where `hmac` is the keyed owner; `==` on a digest or tag; `random` for key, token, or nonce material.
 
 ```python

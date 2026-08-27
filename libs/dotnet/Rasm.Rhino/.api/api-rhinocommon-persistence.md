@@ -48,8 +48,8 @@
 
 [DICTIONARY_VALUE_READ]:
 - `TryGet<Kind>(string, out T)` / `Get<Kind>(string) -> T` / `Get<Kind>(string, T default) -> T` over {`String`, `Dictionary`, `Bytes`, `Bool`, `Float`, `Double`, `Integer`, `Point3f`, `Point3d`, `Vector3d`, `Guid`, `Plane`} — typed read is narrower than write: `Color`, `Size`, `Rectangle`, `Point`, `Interval`, and `Transform` write typed but read back only through the boxed indexer.
-- `Get<Kind>(string)` throws `KeyNotFoundException` on a missing key and `NotSupportedException` on a type mismatch; the `Get<Kind>(key, default)` sibling swallows both and returns the fallback — opposite failure contracts on one name.
-- `GetEnumValue<T>()` / `GetEnumValue<T>(string)` / `TryGetEnumValue<T>(string, out T)` / `RemoveEnumValue<T>()` where `T : struct, IConvertible` — reads `Enum.Parse(ignoreCase: true)` over the stored name; `GetEnumValue<T>()` throws `KeyNotFoundException`/`FormatException`, a non-enum `T` throws `ArgumentException`, and no `(key, default)` overload exists here.
+- `Get<Kind>(string)` throws `KeyNotFoundException` on a missing key and `NotSupportedException` on a type mismatch; the `Get<Kind>(default)` sibling swallows both and returns the fallback — opposite failure contracts on one name.
+- `GetEnumValue<T>()` / `GetEnumValue<T>(string)` / `TryGetEnumValue<T>(string, out T)` / `RemoveEnumValue<T>()` where `T : struct, IConvertible` — reads `Enum.Parse(ignoreCase: true)` over the stored name; `GetEnumValue<T>()` throws `KeyNotFoundException`/`FormatException`, a non-enum `T` throws `ArgumentException`, and no `(default)` overload exists here.
 - `this[string] -> object` — getter throws `KeyNotFoundException` on a missing key; the setter accepts only {`int`, `long`, `bool`, `double`, `string`, `GeometryBase`, `IEnumerable<GeometryBase>`} and throws `NotSupportedException` otherwise; `TryGetValue(string, out object)` is the non-throwing boxed read.
 - `ContainsKey(string)` / `Keys -> string[]` / `Values -> object[]` / `Count -> int` — membership and enumeration.
 
@@ -57,7 +57,7 @@
 - `AddContentsFrom(ArchivableDictionary) -> bool` — reflects `GetMethod("Set", {string, value.GetType()})` with exact-type match and no assignability: every array entry (runtime `int[]` versus parameter `IEnumerable<int>`) and every `GeometryBase` subtype or `ObjRef` entry finds no overload and throws `ArgumentException`; only exact-type scalar entries survive. Throws `ArgumentNullException` on null source.
 - `ReplaceContentsWith(ArchivableDictionary) -> bool` — clears, then `AddContentsFrom`; same throw surface.
 - `Clone() -> ArchivableDictionary` — preserves `Version`, `Name`, and `ChangeSerialNumber`; a value clones only when it implements `ICloneable` (nested `ArchivableDictionary` and arrays clone; `GeometryBase`, `MeshingParameters`, and `ObjRef` values share by reference), so the clone is not deep and no `CloneValue`/`DeepCloneValue` exists.
-- `Remove(string)` / `Clear()` — `IDictionary<string,object>.Add(key,value)` always throws `NotSupportedException`, so mutation enters only through `Set`.
+- `Remove(string)` / `Clear()` — `IDictionary<string,object>.Add(value)` always throws `NotSupportedException`, so mutation enters only through `Set`.
 - `Version -> int` (get/set) / `Name -> string` (get/set) / `ChangeSerialNumber -> uint` — the serial increments only on `Set`, never on remove or clear.
 - `ParentUserData -> UserData` — owning user data, null when detached.
 - `ArchivableDictionary(int version, string name)` / `(int version)` / `(UserData)` / `()` — the `int version` overloads stamp the archive schema version.
@@ -73,7 +73,7 @@
 - `TryGet<Kind>(string, out T)` / `Get<Kind>(string) -> T` / `Get<Kind>(string, T default) -> T` over {`Guid`, `Bool`, `Byte`, `Integer`, `UnsignedInteger`, `Double`, `Char`, `String`, `StringList`(`string[]`), `StringDictionary`(`KeyValuePair<string,string>[]`), `Date`(`DateTime`), `Color`, `Color?`, `Point`, `Point3d`, `Size`, `Rectangle`} — each read overload has an `IEnumerable<string> legacyKeyList` sibling that falls back across renamed keys.
 - `GetInteger(string, int default, int bound, bool boundIsLower)` / `GetInteger(string, int default, int lowerBound, int upperBound)` — clamp the stored integer to a one-sided or two-sided bound; `int` is the only kind carrying clamp overloads.
 - `GetEnumValue<T>(string)` / `GetEnumValue<T>(string, T default)` / `GetEnumValue<T>(T default)` / `TryGetEnumValue<T>(string, out T)` where `T : struct, IConvertible` — `TryGetEnumValue` always assigns `enumValue` (`default(T)` on failure), so only the returned bool proves presence.
-- Every defaulted `Get<Kind>(key, default)` MUTATES the tree: on hit it stamps the default layer, on miss it registers the default AND materializes the key to it, marking the node changed; the no-default `Get<Kind>(string)` instead throws `KeyNotFoundException` on a missing key and `NotSupportedException` on a type mismatch.
+- Every defaulted `Get<Kind>(default)` MUTATES the tree: on hit it stamps the default layer, on miss it registers the default AND materializes the key to it, marking the node changed; the no-default `Get<Kind>(string)` instead throws `KeyNotFoundException` on a missing key and `NotSupportedException` on a type mismatch.
 
 [SETTINGS_TYPED_WRITE]:
 - `Set<Kind>(string, T)` as the named methods `SetGuid`/`SetBool`/`SetByte`/`SetInteger`/`SetUnsignedInteger`/`SetDouble`/`SetChar`/`SetString`/`SetStringList`/`SetStringDictionary`/`SetDate`/`SetColor`(over `Color` and `Color?`)/`SetPoint3d`/`SetRectangle`/`SetSize`/`SetPoint`/`SetEnumValue<T>` — one typed writer per value kind.

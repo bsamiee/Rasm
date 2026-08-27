@@ -15,7 +15,7 @@ Refinement is the only Parametric surface that outputs a mesh, published through
 - Auto: `Refine` folds levels through the per-level sparse operator, the terminal level emitting the limit operator; `Limit` reuses the sharpness admission, accumulates every sample's face-bound, face-arity, and triangular-domain refusal against the mesh, and only then traverses the probes through the Stam eigen lane, each basis read off the private `(scheme, valence)` memo and each factor solve consumed as a whole `LinearSolution` verdict.
 - Law: the per-`(scheme, valence)` basis memo is `Subdivision`-private — no public basis type and no forwarding cache class — and seats through `Cell.Claim`, so the CAS verdict is a `Transition` a reader can discriminate rather than a discarded `Swap` return; the mint runs once outside the CAS and a `Ceded` claim returns the first-seated basis, recompute being idempotent. The memo keys on the `SubdivisionScheme` ROW under its own `[KeyMemberEqualityComparer]`, and the post-state read is `Find(...).ToFin(...)` — `HashMap`'s indexer throws, so a totality claim resting on it is a `Fin` escape wearing a memo.
 - Law: a limit probe is admitted material. `FaceSample.Of` proves the face ordinal nonnegative and both parameters through `UnitInterval` ONCE as three independent gates accumulated under `Validation`, so a caller reads every offending coordinate in one refusal and the eigen lane holds no per-sample predicate; face bounds and the triangular domain need the mesh and scheme, so they gate at operation admission. NAMED LOSS: the raw `(int, double, double)` tuple column a caller could hand-build; the gain is that the only refusal left in the lane names a real offending face.
-- Law: admission runs ONCE per operation and the generated `Apply(...).Switch(...)` stays the dispatch, because only the selected arm may run. The shared `Admit(space, sharpness, key)` overload accumulates every sharpness refusal — non-finite or non-positive values, self-edges, out-of-range vertex ids, duplicate undirected edge or corner keys — then canonicalizes edge keys into the `HashMap`s; the `Refine` overload adds face arity equal to `Scheme.Arity`, `Uv` count equal to the vertex count, admitted levels, and in-range region face ids before the region becomes a `Set<int>`, and returns the one `State` the fold and publication thread. A `bool IsValid` precheck beside a second admission step is the deleted form.
+- Law: admission runs ONCE per operation and the generated `Apply(...).Switch(...)` stays the dispatch, because only the selected arm may run. The shared `Admit(space, sharpness)` overload accumulates every sharpness refusal — non-finite or non-positive values, self-edges, out-of-range vertex ids, duplicate undirected edge or corner keys — then canonicalizes edge keys into the `HashMap`s; the `Refine` overload adds face arity equal to `Scheme.Arity`, `Uv` count equal to the vertex count, admitted levels, and in-range region face ids before the region becomes a `Set<int>`, and returns the one `State` the fold and publication thread. A `bool IsValid` precheck beside a second admission step is the deleted form.
 - Law: boundary behavior is scheme ROW data — `BoundaryVertexStencil`/`BoundaryEdgeStencil` columns seeded with the cubic-B-spline boundary curve rule (⅛, ¾, ⅛). NAMED LOSS: the shared `BoundaryMask` const class no row owned, whose masks the fence never clause-named while every sibling weight cited its source.
 - Packages: `Rasm.Numerics` for the sparse operators, the `Dimension` level budget, and the Stam EVD (`Matrix.DecomposeEigenDetailed`) with its retained eigenvector factor (`Matrix.DecomposeLu`, `LuResult.SolveDetailed`, `LinearSolution`), `Rasm.Meshing` for the `MeshSpace` quad publish and `MeshEdit` tri arena, `Rasm.Domain` for `Cell`/`Transition`/`ValidityClaim` (tolerance is `MeshSpace.Tolerance`, never a second `Context` column), Rhino.Geometry for the native quad types, Thinktecture.Runtime.Extensions for `[SmartEnum]` delegate columns, LanguageExt.Core for the `Fin` result, the `Validation` admission fan-in, and the `Atom` cache cell, and BCL `ArrayPool<double>` for level staging.
 - Growth: a new primal scheme is one `SubdivisionScheme` row with its stencil columns; a dual (Doo-Sabin) or √3 scheme adds one refinement-topology delegate the same fold reads, the `Arity ∈ {3,4}` gate keeping a topology-less row loud. New boundary behavior is one row's own stencil pair, adaptive sharpness a `Creases`/`Corners` widening, a new per-vertex channel one more SpMV plane beside the UV pair, a new limit quantity one mask column and one SpMV — zero new entry surfaces.
@@ -118,7 +118,7 @@ public static class Subdivision {
     static Fin<StamBasis> Basis(SubdivisionScheme scheme, int valence) =>
         Bases.Value.Find((scheme, valence)).Match(
             Some: Fin.Succ,
-            None: () => AssembleBasis(scheme, valence, key).Bind(minted =>
+            None: () => AssembleBasis(scheme, valence).Bind(minted =>
                 Cell.Claim(Bases, (scheme, valence), () => minted).Current
                     .Find((scheme, valence))
                     .ToFin(Fail: new KernelFault.InvalidResult())));
@@ -137,11 +137,11 @@ public static class Subdivision {
     sealed record State(Level Level, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners, Set<int> Region, int Closures);
 
     static Fin<SubdivisionResult> RefineOf(SubdivideOp.Refine op) =>
-        Admit(op, key).Bind(seed =>
+        Admit().Bind(seed =>
             Range(0, op.Levels.Value).Fold(
                 Fin.Succ(seed),
                 (state, iteration) => state.Bind(current => Advance(op.Scheme, current, iteration)))
-            .Bind(final => Publish(op, final, key)));
+            .Bind(final => Publish(final)));
 
     static Fin<(HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners)> Admit(MeshSpace space, Option<Sharpness> sharpness);
     static Fin<State> Admit(SubdivideOp.Refine op);
@@ -150,8 +150,8 @@ public static class Subdivision {
 
     // --- [STAM_LIMIT]
     static Fin<SubdivisionResult> LimitOf(SubdivideOp.Limit op) =>
-        Admit(op, key)
-            .Bind(input => input.Op.Samples.TraverseM(sample => EvaluateLimit(input, sample, key)).As())
+        Admit()
+            .Bind(input => input.Op.Samples.TraverseM(sample => EvaluateLimit(input, sample)).As())
             .Map(rows => (SubdivisionResult)new SubdivisionResult.LimitField(
                 rows.Map(static row => row.Point),
                 rows.Map(static row => row.Normal)));
@@ -178,7 +178,7 @@ flowchart LR
     Scheme["SubdivisionScheme rows — stencil columns"] -->|"triplet emission"| Operator["SparseMatrix.FromTriplets → Multiply ×3"]
     Fold --> Operator
     Operator -->|"limit SpMV + tangent masks"| Columns["LimitField — Points · Normals"]
-    Fold -->|"Loop: soup arena → ToSpace(key)"| Arena["edit.md MeshEdit"]
+    Fold -->|"Loop: soup arena → ToSpace()"| Arena["edit.md MeshEdit"]
     Fold -->|"CatmullClark: native quad Mesh"| Space["mesh.md MeshSpace.Of — quads preserved"]
     Scheme -->|"per-(scheme, valence), Cell.Claim memo"| Stam["Matrix.DecomposeEigenDetailed + DecomposeLu — Stam basis"]
     Stam -->|"(P̂ᵀV) Λᵐ (V⁻¹ b(u,v)) — LuResult.SolveDetailed"| LimitField

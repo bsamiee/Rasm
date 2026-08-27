@@ -170,14 +170,14 @@ public static class AluminumSeed {
             AdmissionSlots.Gate(die.Grade.AluminumArm.IsSome,
                 new ComponentFault.GradeBodyMissing(die.Grade, ComponentFamily.Aluminum)),
             die.Grade.AluminumArm
-                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm, key).ToValidation().Map(static _ => unit)).As()
+                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm).ToValidation().Map(static _ => unit)).As()
                 .Map(static _ => unit)));
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, DieRow>>> Table =
         SeedJoin.Of(Roster, static die => die.Designation);
 
     public static Fin<DieRow> Resolve(Component component) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+        SeedJoin.Resolve(Table, component.Designation);
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
         from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))

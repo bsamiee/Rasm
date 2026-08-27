@@ -394,42 +394,42 @@ public abstract partial record AttributeEdit {
                 select (AttributeEdit)new Identity(Name: name, Url: url),
             layer: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             paint: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
+                .Bind(source => SourceValue(source.FromObject, edit.Value, edit)),
             plot: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
+                .Bind(source => SourceValue(source.FromObject, edit.Value, edit)),
             plotWeight: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit, key)),
-            linePattern: static (key, edit) =>
+                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit)),
+            linePattern: static (edit) =>
                 from source in Admit.Need(edit.Source)
-                from admitted in SourceValue(source.FromObject, edit.Index, edit, key)
+                from admitted in SourceValue(source.FromObject, edit.Index, edit)
                 from _ in guard(edit.PatternScale
                     .Map(static value => double.IsFinite(value) && value > 0.0)
                     .IfNone(noneValue: true), new KernelFault.InvalidInput())
                 select admitted,
             customLine: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             materialBind: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Index, edit, key)),
+                .Bind(source => SourceValue(source.FromObject, edit.Index, edit)),
             shadows: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             wires: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             drawOrder: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             decorate: static (key, edit) => Admit.Need(edit.Ends).Map(_ => (AttributeEdit)edit),
-            realm: static (key, edit) => guard(
+            realm: static (edit) => guard(
                 edit.Space is not null && edit.Space != ActiveSpaceUse.None
                 && edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
                 new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             groups: static (key, edit) => Admit.Need(edit.Move)
                 .Bind(move => move.Admit(grow: static index => index >= 0, cut: static index => index >= 0))
                 .Map(static move => (AttributeEdit)new Groups(Move: move)),
-            modeOverride: static (key, edit) => guard(
+            modeOverride: static (edit) => guard(
                 edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true)
                 && edit.Mode.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
                 new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            detailHide: static (key, edit) =>
+            detailHide: static (edit) =>
                 from _ in guard(edit.Detail != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
                 from __ in Admit.Need(edit.Signal)
                 select (AttributeEdit)edit,
             detailBackground: static (key, edit) => Admit.Need(edit.Signal).Map(_ => (AttributeEdit)edit),
-            activity: static (key, edit) =>
+            activity: static (edit) =>
                 from signal in Admit.Need(edit.Signal)
                 from move in Admit.Need(edit.Move)
                 from admitted in move.Admit(grow: static id => id != Guid.Empty, cut: static id => id != Guid.Empty)
@@ -439,13 +439,13 @@ public abstract partial record AttributeEdit {
             sectionFace: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             label: static (key, edit) => Admit.Need(edit.Style).Map(_ => (AttributeEdit)edit),
             hatchFill: static (key, edit) => guard(edit.Fill.IsSome || edit.Print.IsSome, new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            hatchBoundary: static (key, edit) => guard(
+            hatchBoundary: static (edit) => guard(
                 edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
                 || edit.PlotColorSource.IsSome || edit.Pen.IsSome,
                 new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             anchorFrame: static (key, edit) => Acceptance.Input(value: edit.Frame).Map(_ => (AttributeEdit)edit),
             anchorMove: static (key, edit) => Acceptance.Input(value: edit.Motion).Map(_ => (AttributeEdit)edit),
-            meshing: static (key, edit) => edit.Encoded
+            meshing: static (edit) => edit.Encoded
                 .Traverse(text =>
                     from accepted in Acceptance.Text(value: text)
                     from normalized in Try.lift(() => {
@@ -461,7 +461,7 @@ public abstract partial record AttributeEdit {
             decals: static (key, edit) => Admit.Need(edit.Move)
                 .Bind(move => move.Admit(grow: static seed => seed is not null, cut: static crc => crc != 0))
                 .Map(static move => (AttributeEdit)new Decals(Move: move)),
-            tag: static (key, edit) =>
+            tag: static (edit) =>
                 from operation in Admit.Need(edit.Operation)
                 from _ in guard(operation.Mutates, new KernelFault.InvalidInput())
                 select (AttributeEdit)edit,
@@ -696,7 +696,7 @@ public abstract partial record AttributeAsk {
 
     internal Fin<AttributeAsk> Admit() =>
         Switch(stored: static (_, ask) => Fin.Succ<AttributeAsk>(ask),
-            resolved: static (key, ask) => guard(
+            resolved: static (ask) => guard(
                 ask.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
                 new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeAsk)ask));
 }

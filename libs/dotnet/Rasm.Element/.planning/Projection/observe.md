@@ -156,14 +156,14 @@ public static class ElementHooks {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementTap {
  public static Fin<(ElementGraph Graph, GraphDelta Delta)> Admitted(ElementHooks hooks, GraphDelta delta, ElementGraph seed) =>
-  hooks.Fire(ElementPoint.DeltaApplied, ElementFact.Of(key, delta, seed.Header), key, fact => Marked(fact, () => delta.AdmitOnto(seed, key)))
-   .Bind(step => hooks.Fire(ElementPoint.Frozen, ElementFact.Of(key, step.Graph), key, fact => Marked(fact, () => Fin.Succ(step))));
+  hooks.Fire(ElementPoint.DeltaApplied, ElementFact.Of(delta, seed.Header), fact => Marked(fact, () => delta.AdmitOnto(seed)))
+   .Bind(step => hooks.Fire(ElementPoint.Frozen, ElementFact.Of(step.Graph), fact => Marked(fact, () => Fin.Succ(step))));
 
  public static Fin<Element> Baked(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph, NodeId root) =>
-  Timed(hooks, line, ElementPoint.Baked, key, () => graph.Bake(root, key), (_, elapsed) => ElementFact.Of(key, root, elapsed));
+  Timed(hooks, line, ElementPoint.Baked, () => graph.Bake(root), (_, elapsed) => ElementFact.Of(root, elapsed));
 
  public static Fin<ModelAudit> Audited(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph) =>
-  Timed(hooks, line, ElementPoint.Audited, key, () => ModelAudit.Of(graph, key), (audit, elapsed) => ElementFact.Of(key, audit, elapsed));
+  Timed(hooks, line, ElementPoint.Audited, () => ModelAudit.Of(graph), (audit, elapsed) => ElementFact.Of(audit, elapsed));
 
  public static Fin<AssembledModel> Assembled(ElementHooks hooks, MonotonicTimeline line, ProjectionSuite suite, ElementGraph seed, ProjectionContext ctx) =>
   Timed(hooks, line, ElementPoint.Assembled, ctx.Key, () => ProjectionAssembly.Assemble(suite, seed, ctx),
@@ -178,8 +178,8 @@ public static class ElementTap {
   Error.New(key.Message).Bind(start =>
    body().Bind(value =>
     Error.New(key.Message).Bind(end =>
-     line.Elapsed(start, end, key).Bind(elapsed =>
-      hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), key, admitted => Marked(admitted, () => Fin.Succ(value)))
+     line.Elapsed(start, end).Bind(elapsed =>
+      hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), admitted => Marked(admitted, () => Fin.Succ(value)))
        .Bind(landed => fan is null ? Fin.Succ(landed) : fan(landed))))));
 
  static Fin<T> Marked<T>(ElementFact fact, Func<Fin<T>> body) {
@@ -204,7 +204,7 @@ public static class ElementTap {
 
 - Law: [PULL_POLARITY] — a measurement is PUSHED unless the cell it reports is process-scoped AND has no fire to ride. Graph population stays EVENT-shaped because its identifier-grade root and snapshot keys are unbounded. `Frozen` histograms measure each completed snapshot, while an unkeyed scalar level over many graphs would publish only the last graph. `TapFaults` depth alone is pulled: the evidence cell is composition-scoped and subscriber faults have no fact-emission site.
 - Owner: `ElementInstrument` the closed `rasm.element.*` roster — a `[SmartEnum<string>]` whose every row CARRIES its kernel `InstrumentSpec` (kind, measurement form, UCUM unit, kernel `Buckets` advice, the closed dimension set) so `Rows` derives from `Items` and construction proves each row's name against its key, beside the one dotted slot block both the metric rows and the `[02]` span marks spell — with the contributor-port mint under the kernel `TelemetrySource.Element` scope; `GraphInstrument` the fact-to-write projection over the `InstrumentSet` the composing root materializes.
-- Entry: `ElementInstrument.Telemetry(version)` is the contributor port the composing root materializes — the semconv coordinate is the kernel pin so all three signals bump together — and a root outside that fan binds `InstrumentSet.Of(cells, (meter, ElementInstrument.Rows))` directly against its own minted meter; either path, never both. `GraphInstrument.Tap(set)` returns the tap row passed to `ElementHooks.Live`, handing the kernel's write path straight to the capsule shield; `GraphInstrument.Depth(set, hooks, key)` registers the hooks' own parked-fault read against the one pulled row and returns the scope that retires it, so the composing root arms it AFTER the mint the tap fed.
+- Entry: `ElementInstrument.Telemetry(version)` is the contributor port the composing root materializes — the semconv coordinate is the kernel pin so all three signals bump together — and a root outside that fan binds `InstrumentSet.Of(cells, (meter, ElementInstrument.Rows))` directly against its own minted meter; either path, never both. `GraphInstrument.Tap(set)` returns the tap row passed to `ElementHooks.Live`, handing the kernel's write path straight to the capsule shield; `GraphInstrument.Depth(set, hooks)` registers the hooks' own parked-fault read against the one pulled row and returns the scope that retires it, so the composing root arms it AFTER the mint the tap fed.
 - Auto: `DeltaApplied` counts the two delta magnitudes and one `rasm.element.assessment.outcomes` per census touch (discipline and outcome dimensions — both closed rows); `Frozen` records the snapshot node/edge population histograms; `Baked`/`Audited`/`Assembled` record the duration histograms; `Audited` counts one `rasm.element.audit.findings` per `AuditTally` bucket (integrity category and severity dimensions) and writes the drift count UNCONDITIONALLY — a clean run posts its own zero, so the tamper series never leaves an alert unable to tell a verified snapshot from an unaudited one; `Graded` retains the original `Error` and counts findings under its optional generated numeric code, severity, and waiver; foreign errors leave that opt-in dimension absent instead of fabricating code zero; the kernel `TenantContext.Current` resolves ONCE per fact and threads as dispatch state, so every write of one fact lands under one partition, a root-tenant process mints no tenant dimension, and a partitioned one mints it uniformly — the ambient read is the AsyncLocal slot the kernel owns, never a value captured at tap-mint time, which stamps the composing root's tenant onto every later request; instrument identity de-duplicates by name inside the one meter, so name, unit, kind, and description are declaration facts the row carries once.
 - Output: the projection is a pure fold of the fact tap, and every operational dashboard reads the exported stream, never a shared cell. `InstrumentSet.Write` refuses an unmounted name or a family mismatch out to the tap shield, which parks it point-attributed, so a mount defect is visible rather than a silent measurement drop.
 - Packages: BCL `System.Diagnostics.Metrics` reached through the kernel capsule alone, `Rasm` (the kernel instrument mechanism, the scope identity roster, the numeric fault-code slot, and the tenancy frame), Thinktecture.Runtime.Extensions (the generated fact `Switch`), LanguageExt.Core.
@@ -306,7 +306,7 @@ public static class GraphInstrument {
  public static ElementObserver Tap(InstrumentSet set) => new(fact => Project(set, fact));
 
  public static Fin<IDisposable> Depth(InstrumentSet set, ElementHooks hooks) =>
-  set.Bind(ElementInstrument.TapFaults.Row, () => (double)hooks.Faults.Parked.Count, key, InstrumentSet.Tags(TenantContext.Current));
+  set.Bind(ElementInstrument.TapFaults.Row, () => (double)hooks.Faults.Parked.Count, InstrumentSet.Tags(TenantContext.Current));
 
  static Fin<Unit> Project(InstrumentSet set, ElementFact fact) =>
   fact.Switch<(InstrumentSet Rows, TenantContext Tenant), Fin<Unit>>(

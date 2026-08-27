@@ -433,12 +433,12 @@ public static class JointSeed {
         new JointRow.Adhesive("joint.adhesive-ssg-12mm",  AdhesiveClass.SiliconeStructural, PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(1000.0)));
 
     static Fin<SectionProfile> WeldProfileOf(JointRow.Weld row) => row.Geometry.Switch(
-        fillet: geometry => SectionProfile.FilletTriangle.Of(geometry.LegMm.Value, geometry.LegMm.Value, key),
-        groove: geometry => GrooveProfile(geometry, key),
-        plug: geometry => SectionProfile.Circle.Of(geometry.Hole.DiameterMm.Value, key),
-        slot: geometry => SectionProfile.Rectangle.Of(geometry.Hole.DiameterMm.Value, geometry.LengthMm.Value, key),
-        flareBevel: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value, key),
-        flareV: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value, key));
+        fillet: geometry => SectionProfile.FilletTriangle.Of(geometry.LegMm.Value, geometry.LegMm.Value),
+        groove: geometry => GrooveProfile(geometry),
+        plug: geometry => SectionProfile.Circle.Of(geometry.Hole.DiameterMm.Value),
+        slot: geometry => SectionProfile.Rectangle.Of(geometry.Hole.DiameterMm.Value, geometry.LengthMm.Value),
+        flareBevel: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value),
+        flareV: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value));
 
     static Fin<SectionProfile> GrooveProfile(WeldGeometry.Groove geometry) {
         GroovePrep p = geometry.Prep;
@@ -485,14 +485,14 @@ public static class JointSeed {
         adhesive: static _ => ComponentAuthority.Astm);
 
     static Validation<Error, Unit> Coherence(JointRow row) => row.Switch(
-        weld: r => AdmitWeld(r, key).ToValidation().Map(static _ => unit),
+        weld: r => AdmitWeld(r).ToValidation().Map(static _ => unit),
         stud: r => FactoryBridge.Accept<PositiveMagnitude>(candidate: r.RealizedLengthMm).ToValidation().Map(static _ => unit),
         adhesive: static _ => Validation<Error, Unit>.Success(unit));
 
     static Fin<SectionProfile> ProfileOf(JointRow row) => row.Switch(
-        weld: r => WeldProfileOf(r, key),
-        stud: r => SectionProfile.Circle.Of(diameterMm: r.Class.DiameterMm, key),
-        adhesive: r => SectionProfile.Nominal.Of(nominalMm: r.BondMm.Value, key));
+        weld: r => WeldProfileOf(r),
+        stud: r => SectionProfile.Circle.Of(diameterMm: r.Class.DiameterMm),
+        adhesive: r => SectionProfile.Nominal.Of(nominalMm: r.BondMm.Value));
 
     static readonly FrozenDictionary<ComponentId, JointRow> Rowset =
         Roster.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
@@ -503,10 +503,10 @@ public static class JointSeed {
             : new ComponentFault.ComponentMissing(ProfileRef.Of(component.Designation.Value));
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        Resolve(component, key).Bind(row => SectionCapacity.Lift(row.Switch<CapacityLift>(
+        Resolve(component).Bind(row => SectionCapacity.Lift(row.Switch<CapacityLift>(
             weld: r => new CapacityLift.Weld(component.Designation, r, placement.LoadAngleDeg),
             adhesive: r => new CapacityLift.Adhesive(component.Designation, r),
-            stud: r => new CapacityLift.Stud(component.Designation, r, placement.StudGroup, placement.StudCount)), key));
+            stud: r => new CapacityLift.Stud(component.Designation, r, placement.StudGroup, placement.StudCount))));
 }
 ```
 

@@ -152,10 +152,10 @@ public sealed partial class IfcClass {
     public Fin<Unit> Admits(ReleaseVersion schema) => Eligibility.Gate(Span, schema, Key);
 
     public Fin<string> AdmitPredefined(string token, string objectType, ReleaseVersion schema) =>
-        Admits(schema, key)
-            .Bind(_ => PredefinedToken.Admit(token, objectType, Key, key))
+        Admits(schema)
+            .Bind(_ => PredefinedToken.Admit(token, objectType, Key))
             .Bind(admitted => admitted.Switch(
-                state: (Row: this, schema, key),
+                state: (Row: this, schema),
                 canonical:   static (_, _) => Fin.Succ(PredefinedType.NotDefined.Token),
                 userDefined: static (_, _) => Fin.Succ("USERDEFINED"),
                 named:       static (s, n) => s.Row.Ranked(n.Token, s.schema, s.key)));

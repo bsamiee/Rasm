@@ -121,7 +121,7 @@ public sealed record SheetSet(string Key, SheetSize Size, Seq<Sheet> Sheets) {
             .Apply(static (lead, _) => lead).As().ToFin()
             .Bind(lead => toSeq(sheets.Zip(Range(1, sheets.Count)))
                 .Traverse(pair => Restamped(pair.Item1, pair.Item2, sheets.Count, seat)).As()
-                .Map(stamped => new SheetSet(key, lead.Size, stamped)));
+                .Map(stamped => new SheetSet(lead.Size, stamped)));
     }
 
     private static Validation<Error, Sheet> Peopled(string key, Seq<Sheet> sheets) =>

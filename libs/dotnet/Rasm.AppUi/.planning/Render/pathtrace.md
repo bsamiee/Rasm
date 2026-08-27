@@ -111,19 +111,19 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
         Seq<ResidencyMeshlet> meshlets = scene.Clusters;
         if (meshlets.IsEmpty) { return Fin.Succ(new Bvh([], [], [], None)); }
         return from policy in limits.Broadphase()
-               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy, op)
-               from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)], op)
+               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy)
+               from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)])
                select view;
     }
 
     public Fin<Bvh> Refit(MeshletCluster scene, TraceLimits limits) {
         Seq<ResidencyMeshlet> moved = scene.Clusters;
         return Index.Match(
-            None: () => Build(scene, limits, op),
+            None: () => Build(scene, limits),
             Some: held => moved.Count != held.Store.Order.Length
-                ? Build(scene, limits, op)
-                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))], op)
-                  from view in Wired(index, [.. moved.Map(static m => m.Bounds)], op)
+                ? Build(scene, limits)
+                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))])
+                  from view in Wired(index, [.. moved.Map(static m => m.Bounds)])
                   select view);
     }
 
@@ -654,7 +654,7 @@ public sealed record PathTracePass(
 - Law: the shading frame's AZIMUTH is DERIVED, never invented — `MeshletCluster.Sample` solves it from the winning triangle's UV gradient and `OracleFrame.Of` orthonormalizes it; `About` is the arbitrary-azimuth completion, admissible only where azimuth carries no meaning, and `ParameterizationSource.ProxySphere` is the row that DECLARES that state, so a proxied hit's anisotropy is typed degradation rather than a silent lie.
 - Law: attribution degradation is DECLARED and material identity is OPTIONAL — the proxy arm answers `Option.None` for the material key rather than fabricating one from a primitive ordinal, and the binding resolves an absent key against the fallback row `SetBind` already guarantees, so a stand-in surface shades as the declared fallback instead of dispatching on a string no set ever named.
 - Entry: `public Fin<(RgbSpectrum Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(SurfacePoint point, LayeredBsdf bsdf, (double X, double Y, double Z) wo, double uLobe, double u0, double u1)` — admits the oracle point and outgoing ray through the port, invokes the exact six-argument Materials `LayeredBsdf.Sample` entry, transforms through `ShadingFrame.ToWorld`, applies `|cos(theta)| / pdf` once; `Evaluate` the deterministic NEE counterpart; `Density` the balance-heuristic density both estimators weigh against.
-- Auto: the integrator consumes the one `LayeredBsdf` the `SlabStack.ToLayered` produces and the `SurfaceShade` the `MaterialGraph.Evaluate` sink assembles, shading every material as a weighting of the closed seven-lobe set with zero per-material code; the composition root binds `SetBind.Bind(set, fallback, new BindTarget.Point(u, v, mip), SamplerState.Default with { Filter = FilterMode.Trilinear }, key)` — the trilinear row is what makes the fractional level this page computes the level the reconstruction reads.
+- Auto: the integrator consumes the one `LayeredBsdf` the `SlabStack.ToLayered` produces and the `SurfaceShade` the `MaterialGraph.Evaluate` sink assembles, shading every material as a weighting of the closed seven-lobe set with zero per-material code; the composition root binds `SetBind.Bind(set, fallback, new BindTarget.Point(u, v, mip), SamplerState.Default with { Filter = FilterMode.Trilinear })` — the trilinear row is what makes the fractional level this page computes the level the reconstruction reads.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project)
 - Growth: a new shading path is a `LayeredBsdf` policy the Materials owner carries, never a Render-side lobe; a new per-point appearance value is one `SurfaceMaterial` column filled from an existing `TextureChannel` row; zero new surface.
 - Boundary: `PathTracePass` invokes `LayeredBsdf.Sample`/`Evaluate`/`Pdf` with the exact Materials `ShadingFrame`, `Direction`, and `RgbSpectrum` types and never re-derives lobe math; `ShadePort` is the single composition-time boundary from oracle tuples to those domain values — a Render-side BSDF, host-color throughput, texture sampler, mip reconstruction, transfer decode, or channel roster is the rejected form; Materials delivers the tangent-space normal DECODED and signed, so the perturbation here is one basis rotation and never a `2v−1` decode a second surface double-applies.

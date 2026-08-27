@@ -327,7 +327,7 @@ public sealed class HostPage : IMount, IDisposable {
         Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open);
 
     private HostPage(PagePlan plan, PageLeaf leaf, Lease<ElementMount> content) =>
-        (this.plan, this.leaf, this.content, Key) = (plan, leaf, content, key);
+        (this.plan, this.leaf, this.content, Key) = (plan, leaf, content);
 
 
     public PagePlan Plan => plan;
@@ -424,7 +424,7 @@ public sealed class HostPage : IMount, IDisposable {
             }).Run().Bind(static inner => inner)
             .Match(
                 Succ: page => Fin.Succ(value: page),
-                Fail: fault => outcome.Use(_ => Fin.Fail<HostPage>(error: fault), op)));
+                Fail: fault => outcome.Use(_ => Fin.Fail<HostPage>(error: fault))));
 
     internal Fin<Unit> Retain(HostPage child, Action land, Action rollback) => Within(
         body: () => {
@@ -510,7 +510,7 @@ internal sealed class OptionsLeaf : OptionsDialogPage {
     private readonly Control content;
 
     internal OptionsLeaf(PagePlan.Stacked plan, Control content) : base(plan.Identity.Caption.English) =>
-        (this.plan, this.content, this.op) = (plan, content, op);
+        (this.plan, this.content, this.op) = (plan, content);
 
     public override object PageControl => content;
     public override string LocalPageTitle => plan.Identity.Caption.Resolve();
@@ -539,7 +539,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
     private readonly Control content;
 
     internal PropertiesLeaf(PagePlan.Properties plan, Control content) =>
-        (this.plan, this.content, this.op) = (plan, content, op);
+        (this.plan, this.content, this.op) = (plan, content);
 
     public override object PageControl => content;
     public override string EnglishPageTitle => plan.Identity.Caption.English;

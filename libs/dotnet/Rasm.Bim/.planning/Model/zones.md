@@ -147,7 +147,7 @@ public static class ZoneProjection {
                     None: () => (state.Leaves.Add(member), state.Seen.Add(member))));
 
     public static Fin<Option<MeasureValue>> Aggregate(ElementGraph graph, BimZone zone, ValueSource source) =>
-        ElementQuery.SumOf(graph, Closure(graph, zone), source, key);
+        ElementQuery.SumOf(graph, Closure(graph, zone), source);
 
     public static Seq<PropertyValue> Values(ElementGraph graph, BimZone zone, ValueSource source) =>
         graph.Find<Node.Object>(zone.Id).ToSeq().Bind(o => ElementQuery.ValuesOf(graph, o, source));

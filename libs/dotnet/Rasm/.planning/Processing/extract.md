@@ -437,21 +437,21 @@ public abstract partial record Extraction {
                 .Bind(vector => VectorSpan.Of(anchor: point, vector: vector, context: model))
                 .Map(span => new Line(span.Anchor, span.Anchor + (extraction.Scale.Value * span.Value))),
             project: static (glyphs, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(GlyphCase),
-                Gated<Seq<Line>>(rejected, op, () => Fin.Succ(glyphs)))),
+                Gated<Seq<Line>>(rejected, () => Fin.Succ(glyphs)))),
         gridCase: static (state, extraction) => ProjectSamples<TOut, (Point3d Point, double Value)>(
             seeds: extraction.Seeds, domain: extraction.Domain, context: state,
             sample: (point, model, op) => extraction.Field.SampleScalar(sample: point, context: model).Map(value => (Point: point, Value: value)),
             project: static (samples, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(GridCase),
-                Gated<Seq<(Point3d Point, double Value)>>(rejected, op, () => samples.ForAll(static sample => ValidityClaim.Finite(sample.Point) && ValidityClaim.Finite(value: sample.Value))
+                Gated<Seq<(Point3d Point, double Value)>>(rejected, () => samples.ForAll(static sample => ValidityClaim.Finite(sample.Point) && ValidityClaim.Finite(value: sample.Value))
                     ? Fin.Succ(samples)
                     : Fin.Fail<Seq<(Point3d Point, double Value)>>(new KernelFault.InvalidResult())))),
         streamBundleCase: static (state, extraction) => ProjectSamples<TOut, StreamlineTrace>(
             seeds: extraction.Seeds, domain: extraction.Domain, context: state,
             sample: (seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: extraction.Field, seed: seed, initialStep: extraction.InitialStep, integrator: extraction.Integrator, termination: extraction.Termination, context: model),
             project: static (traces, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(StreamBundleCase),
-                Streamed<StreamlineTrace>(rejected, op, traces),
-                Streamed<Polyline>(rejected, op, traces),
-                Streamed<Curve>(rejected, op, traces))),
+                Streamed<StreamlineTrace>(rejected, traces),
+                Streamed<Polyline>(rejected, traces),
+                Streamed<Curve>(rejected, traces))),
         drapeCase: static (state, extraction) => extraction.Domain is ExtractionDomain.MeshCase meshDomain
             ? from samples in extraction.Seeds.Evaluate(domain: extraction.Domain, context: state)
               from direction in Direction.Of(value: extraction.Direction, context: state)
@@ -484,11 +484,11 @@ public abstract partial record Extraction {
 
     private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Func<Point3d, Context, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionTally, Fin<TOut>> project) =>
         from samples in seeds.Evaluate(domain: domain, context: context)
-        let split = samples.Points.Map(point => sample(point, context, key)).Partition()
+        let split = samples.Points.Map(point => sample(point, context)).Partition()
         let tally = new ExtractionTally(
             Native: false, Attempted: samples.Points.Count, Emitted: split.Succs.Count,
             Tolerance: ExtractionTolerance.NotApplicable, Sample: Some(samples.Tally))
-        from output in project(split.Succs, split.Fails.Count, tally, key)
+        from output in project(split.Succs, split.Fails.Count, tally)
         select output;
 }
 

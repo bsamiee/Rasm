@@ -281,7 +281,7 @@ public readonly record struct IndexedColour(Seq<(double R, double G, double B)> 
 
     public Fin<IfcIndexedColourMap> Author(IfcTessellatedFaceSet faceSet) =>
         Palette
-            .TraverseM(c => AppearanceProjection.Bytes(c.R, c.G, c.B, Alpha, key)
+            .TraverseM(c => AppearanceProjection.Bytes(c.R, c.G, c.B, Alpha)
                 .Map(static b => System.Drawing.Color.FromArgb(b.Red, b.Green, b.Blue)))
             .As()
             .Map(colors => new IfcIndexedColourMap(faceSet, new IfcColourRgbList(faceSet.Database, colors), Face) { Opacity = Alpha });
@@ -345,7 +345,7 @@ public static class AppearanceProjection {
             .Filter(static surface => surface.Side is IfcSurfaceSide.BOTH or IfcSurfaceSide.POSITIVE)
             .Head
             .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "surface-slot-miss", "style", styledItem.StepId.ToString(CultureInfo.InvariantCulture) })))
-            .Bind(surface => SummaryOf(surface, key).Map(summary =>
+            .Bind(surface => SummaryOf(surface).Map(summary =>
                 new StyledAppearance(Mint(summary, tolerance), TexturesOf(surface), LightingOf(surface), surface.Side is IfcSurfaceSide.BOTH)));
 
     static Option<SurfaceLighting> LightingOf(IfcSurfaceStyle surface) =>
@@ -392,7 +392,7 @@ public static class AppearanceProjection {
 
         return shading.Bind(static sh => Optional(sh.SurfaceColour)).Map(Lin)
             .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "surface-slot-miss", "colour", surface.StepId.ToString(CultureInfo.InvariantCulture) })))
-            .Bind(surfaceBase => Neutral(rendering, shading, refraction, surfaceBase, key));
+            .Bind(surfaceBase => Neutral(rendering, shading, refraction, surfaceBase));
     }
 
     static Fin<AppearanceSummary> Neutral(
@@ -409,7 +409,7 @@ public static class AppearanceProjection {
         double roughness = rendering.Bind(static r => RoughnessOf(r.SpecularHighlight)).IfNone(reflectance.RoughnessHint);
         bool transmissive = reflectance.Transmissive || refraction.IsSome;
 
-        return AppearanceSummary.Of(baseColor.R, baseColor.G, baseColor.B, reflectance.Metalness, Math.Clamp(roughness, 0.0, 1.0), opacity, transmissive, key);
+        return AppearanceSummary.Of(baseColor.R, baseColor.G, baseColor.B, reflectance.Metalness, Math.Clamp(roughness, 0.0, 1.0), opacity, transmissive);
     }
 
     static Option<double> RoughnessOf(IfcSpecularHighlightSelect? highlight) => highlight switch {
@@ -454,7 +454,7 @@ public static class AppearanceProjection {
         corners.Length >= 3 && corners.Length % 3 == 0
             ? corners.Max() switch { var reach => attributes
                 .TraverseM(entry => Optional(Binders.Value.GetValueOrDefault(entry.Channel)).Match(
-                    Some: bind => bind(styled, faceSet, entry.Lane, corners, reach, key).Map(item => item.Map(bound => (entry.Channel, Item: bound))),
+                    Some: bind => bind(styled, faceSet, entry.Lane, corners, reach).Map(item => item.Map(bound => (entry.Channel, Item: bound))),
                     None: () => Fin.Succ(Option<(EncodingChannel Channel, IfcPresentationItem Item)>.None)))
                 .As()
                 .Map(static bound => bound.Somes()) }
@@ -473,7 +473,7 @@ public static class AppearanceProjection {
 
     static Fin<Option<IfcIndexedColourMap>> Coloured(IfcTriangulatedFaceSet faceSet, float[] lane, long[] corners, long reach) =>
         Indexable(lane, reach, arity: 4)
-            ? IndexedColour.Of(lane, corners, key).TraverseM(colour => colour.Author(faceSet, key)).As()
+            ? IndexedColour.Of(lane, corners).TraverseM(colour => colour.Author(faceSet)).As()
             : Fin.Succ(Option<IfcIndexedColourMap>.None);
 
     static bool Indexable(float[] lane, long reach, int arity) =>
@@ -493,7 +493,7 @@ public static class AppearanceProjection {
         RgbProfile.Srgb.Configuration.Rgb.FromLinear(channel, RgbProfile.Srgb.Configuration.DynamicRange);
 
     public static Fin<(byte Red, byte Green, byte Blue, byte Alpha)> Bytes(double r, double g, double b, double alpha) =>
-        PerceptualColor.OfRgb(r, g, b, RgbProfile.Srgb, alpha, key).Map(static colour => colour.ToRgb());
+        PerceptualColor.OfRgb(r, g, b, RgbProfile.Srgb, alpha).Map(static colour => colour.ToRgb());
 
     public static (double R, double G, double B, double A) Decode(byte red, byte green, byte blue, byte alpha) =>
         PerceptualColor.Of(red, green, blue, alpha / 255.0).ToRgb(RgbProfile.Srgb, transfer: RgbTransfer.Linear);

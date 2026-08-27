@@ -262,8 +262,8 @@ public sealed partial class SettingKind {
 
     private static Fin<Option<ArchiveValue>> ReadEnumTyped<T>(PersistentSettings source, string key)
         where T : struct, IConvertible =>
-        source.TryGetEnumValue(key, out T value)
-            ? ArchiveValue.Enum(value, op).Map(Some)
+        source.TryGetEnumValue(out T value)
+            ? ArchiveValue.Enum(value).Map(Some)
             : Fin.Succ(value: Option<ArchiveValue>.None);
 
     private static SettingKind OfNone<T>(
@@ -343,7 +343,7 @@ public sealed partial class SettingKind {
 - Law: a read carrying a legacy roster is the ONE deliberate mutation on a read path — the host renames the resolved roster key in place, which is the read's purpose — so `ValueCase.Adopted` publishes the rename rather than letting it pass silently.
 - Law: `Legacy` is an ORDERED rename-precedence roster the host walks only when the current key is absent, stopping at the FIRST roster key it resolves, so a repeat and a self-reference name a rank that can never win and both refuse at admission.
 - Law: the enum row is legacy-blind by host construction, so a roster carried on an enum read rides into a walk the host never makes and publishes an `Adopted` rename that never happened.
-- Law: `ClampCase` is a MUTATING read. Every defaulted `Get<Kind>(key, default)` stamps the default layer on a hit and registers the default AND materializes the key on a miss, so the clamped integer reads route with `ChildPolicy.Create` and answer a value the tree now holds. `int` is the only kind carrying clamp overloads, and the case names it.
+- Law: `ClampCase` is a MUTATING read. Every defaulted `Get<Kind>(default)` stamps the default layer on a hit and registers the default AND materializes the key on a miss, so the clamped integer reads route with `ChildPolicy.Create` and answer a value the tree now holds. `int` is the only kind carrying clamp overloads, and the case names it.
 - Law: every flag on a node or value rides `CapabilitySet<SettingTrait>` and every two-state host answer rides its own `[SmartEnum<bool>]` row, so `ReadOnly`, `Hidden`, and `Changed` are one held set and no answer carries a bare bool a reader must interpret from position.
 - Law: `NodeMutation` carries the prior and current visibility rows alone — a child-deleted flag beside an `Option<SettingKey> Child` was a second authority over the same fact, true exactly when the child is present.
 - Law: `SettingGuardSeat` is published rather than swallowed: `PersistentSettings` publishes no unregister, no clear, and no null-accepting overload, so a seated guard holds for the node's process lifetime and the caller holds what it can never hand back.
@@ -599,7 +599,7 @@ public static class SettingStore {
                            state: args,
                            plugInCase: static (state, _) => state.PlugInSettings,
                            commandCase: static (state, command) => state.CommandSettings(command.EnglishCommandName)))).Run().Bind(static inner => inner)
-                       from tree in Snapshot(node, location, DepthBudget.Value, op)
+                       from tree in Snapshot(node, location, DepthBudget.Value)
                        select new SettingsSaved(tree, (SaveOrigin)args.SavedByThisRhino))))).Run().Bind(static inner => inner))
                from subscription in Subscription.Attach(
                    subscribe: callback => owner.SettingsSaved += callback,
@@ -739,7 +739,7 @@ public static class SettingStore {
 
     private static Fin<SettingAnswer> Execute(PersistentSettings node, SettingOperation operation) =>
         operation.Switch<(PersistentSettings Node), Fin<SettingAnswer>>(
-            state: (node, op),
+            state: (node),
             readCase: static (s, read) => from adopted in Adopted(s.Node, read.Legacy)
                                           from value in read.Kind.Read(s.Node, read.Legacy)
                                           select (SettingAnswer)new SettingAnswer.ValueCase(value, adopted),
@@ -837,7 +837,7 @@ public static class SettingStore {
         Admit.Probe<Type>((out Type value) => node.TryGetSettingType(key.Value, out value));
 
     private static Fin<SettingKind> AdmitTarget(PersistentSettings node, SettingKey key, ArchiveValue value) =>
-        from kind in SettingKind.For(value, op)
+        from kind in SettingKind.For(value)
         from existing in Try.lift(() => Fin.Succ(value: SeatedType(node))).Run().Bind(static inner => inner)
         from _compatible in existing
             .TraverseM(found => guard(kind.Accepts(found, value), new KernelFault.InvalidInput()).ToFin())
@@ -854,7 +854,7 @@ public static class SettingStore {
     private static Fin<SettingAnswer> Delete(PersistentSettings node, SettingOperation.DeleteCase request) =>
         from type in Try.lift(() => Fin.Succ(value: SeatedType(node, request.Key))).Run().Bind(static inner => inner)
         from prior in type.Match(
-            Some: found => SettingKind.For(found, op)
+            Some: found => SettingKind.For(found)
                 .Bind(kind => kind.Read(node, Seq<SettingKey>())),
             None: () => Fin.Succ(value: Option<ArchiveValue>.None))
         from _ in Try.lift(() => node.DeleteItem(request.Key.Value)).Run().Bind(static inner => inner)
@@ -867,13 +867,13 @@ public static class SettingStore {
             prior.IsSome ? SettingDelta.Changed : SettingDelta.Unchanged));
 
     private static Fin<SettingAnswer> DeleteChild(PersistentSettings node, SettingOperation.DeleteChildCase request) =>
-        from before in Visibility(node, op)
+        from before in Visibility(node)
         from _present in Try.lift(() => guard(Child(node, request.Child).IsSome, new KernelFault.MissingContext()).ToFin()).Run().Bind(static inner => inner)
         from _delete in Try.lift(() => node.DeleteChild(request.Child.Value)).Run().Bind(static inner => inner)
         from _absent in Try.lift(() => guard(
             Child(node, request.Child).IsNone,
             new KernelFault.InvalidResult(Detail: Some($"Settings child '{request.Child.Value}' survived deletion."))).ToFin()).Run().Bind(static inner => inner)
-        from after in Visibility(node, op)
+        from after in Visibility(node)
         select (SettingAnswer)new SettingAnswer.NodeCase(new NodeMutation(
             request.Path,
             Some(request.Child),
@@ -903,7 +903,7 @@ public static class SettingStore {
                 Traits: Held(
                     (node.GetSettingIsReadOnly(key.Value), SettingTrait.ReadOnly),
                     (node.GetSettingIsHiddenFromUserInterface(key.Value), SettingTrait.Hidden))))).Run().Bind(static inner => inner)
-            .Map(read => new SettingMetadata(key, read.Runtime, SettingKind.For(read.Runtime, op).ToOption(), read.Traits));
+            .Map(read => new SettingMetadata(read.Runtime, SettingKind.For(read.Runtime).ToOption(), read.Traits));
 
     private static CapabilitySet<SettingTrait> Held(params ReadOnlySpan<(bool Holds, SettingTrait Trait)> rows) =>
         CapabilitySet<SettingTrait>.Of(rows
@@ -961,11 +961,11 @@ public static class SettingStore {
     private static Fin<Unit> RegisterTyped<T>(PersistentSettings node, string key, ISettingGuard guard) =>
         Try.lift(() => {
             node.RegisterSettingsValidator<T>((_, args) => ignore(Try.lift(() =>
-                from current in guard.Kind.Capture(args.CurrentValue, op)
-                from proposed in guard.Kind.Capture(args.NewValue, op)
+                from current in guard.Kind.Capture(args.CurrentValue)
+                from proposed in guard.Kind.Capture(args.NewValue)
                 from accepted in guard.Validate(current, proposed)
-                from host in guard.Kind.Host(accepted, op)
-                from _assigned in Assign(args, host, op)
+                from host in guard.Kind.Host(accepted)
+                from _assigned in Assign(args, host)
                 select unit).Run().Bind(static inner => inner)
                 .BindFail(error => Try.lift(() => {
                     args.Cancel = true;
@@ -996,7 +996,7 @@ public static class SettingStore {
 
     private static Fin<SettingAnswer> Changed(PersistentSettings node, SettingOperation.ChangedCase request) =>
         request.CompareWith.Match(
-            Some: path => Resolve(path, ChildPolicy.Require, op)
+            Some: path => Resolve(path, ChildPolicy.Require)
                 .Bind(other => Try.lift(() => Fin.Succ(value: node.ContainsModifiedValues(other))).Run().Bind(static inner => inner)),
             None: () => Try.lift(() => Fin.Succ(value: node.ContainsChangedValues())).Run().Bind(static inner => inner))
         .Map<SettingAnswer>(static changed => new SettingAnswer.ChangedCase((ChangeVerdict)changed));

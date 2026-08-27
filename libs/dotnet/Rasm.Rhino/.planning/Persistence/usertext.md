@@ -394,7 +394,7 @@ public static class UserTexts {
 
     private static Fin<DocumentFold> Advance(RhinoDoc document, DocumentFold fold, TextMutation mutation) =>
         mutation.Address.Switch<(RhinoDoc Document, DocumentFold Fold, TextMutation Mutation), Fin<DocumentFold>>(
-            state: (document, fold, mutation, key),
+            state: (document, fold, mutation),
             documentKeyCase: static (state, address) => Written(
                     mutation: state.Mutation,
                     set: value => state.Document.Strings.SetString(address.Key.Value, value),

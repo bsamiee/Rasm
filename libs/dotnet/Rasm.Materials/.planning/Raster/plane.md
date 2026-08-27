@@ -335,7 +335,7 @@ public sealed partial class PlaneFormat {
 ## [04]-[TEXTURE_PLANE]
 
 - Owner: `PlaneStore` the arena base with its `IPlaneFold` re-entry interface; `PlaneStore<T>` the ONE generic realization; `TexturePlane` the admitted plane carrying format, grid, layers, transfer, primaries, association, range, and store.
-- Entry: `TexturePlane.Of` is ONE admission over two input modalities discriminating on shape, never a knob — the EXTENT modality `(format, width, height, transfer, alpha, layers, range, primaries, pitchMm, mode)` seats a fresh `CellLattice` and the LATTICE modality `(format, grid, layers, transfer, alpha, range, primaries, mode)` adopts one a caller already holds (a pyramid level, a world-seated bake target, a re-association twin); the trailing `AllocationMode` defaults to `Clear` so a press writing every texel opts out of the zeroing pass explicitly. `Read(row, layer, lanes)`/`Write(row, layer, lanes)` are the one decoded LANE row accessor and `ReadShade(row, layer, texels)`/`WriteShade(row, layer, texels)` its `ShadeVec4` projection — the tile, set, press, and environment folds all stage `ShadeVec4` rows, so the lane-to-register correspondence (single-lane replication, two-lane X/Y with zero Z, alpha seat, four-lane identity) is declared ONCE here rather than re-derived per consumer; `RowScalars` sizes a consumer's lane scratch; `Run(steps)` is the one spatial-grain read; `Layer(index, key)` windows one layer; `ToAlpha(target, key)` and `ToPrimaries(target, key)` are the two declaration crossings; `Key` is the streaming content key.
+- Entry: `TexturePlane.Of` is ONE admission over two input modalities discriminating on shape, never a knob — the EXTENT modality `(format, width, height, transfer, alpha, layers, range, primaries, pitchMm, mode)` seats a fresh `CellLattice` and the LATTICE modality `(format, grid, layers, transfer, alpha, range, primaries, mode)` adopts one a caller already holds (a pyramid level, a world-seated bake target, a re-association twin); the trailing `AllocationMode` defaults to `Clear` so a press writing every texel opts out of the zeroing pass explicitly. `Read(row, layer, lanes)`/`Write(row, layer, lanes)` are the one decoded LANE row accessor and `ReadShade(row, layer, texels)`/`WriteShade(row, layer, texels)` its `ShadeVec4` projection — the tile, set, press, and environment folds all stage `ShadeVec4` rows, so the lane-to-register correspondence (single-lane replication, two-lane X/Y with zero Z, alpha seat, four-lane identity) is declared ONCE here rather than re-derived per consumer; `RowScalars` sizes a consumer's lane scratch; `Run(steps)` is the one spatial-grain read; `Layer(index)` windows one layer; `ToAlpha(target)` and `ToPrimaries(target)` are the two declaration crossings; `Key` is the streaming content key.
 - Law: the EXTENT SPINE is the kernel `Numerics/atoms#CELL_LATTICE` `CellLattice` and this page mints none. `Width` and `Height` read `Grid.Columns` and `Grid.Rows`, `Linear` is the lattice's own linearization, the `Array.MaxLength` element budget is the lattice's `ceiling` argument, and `Coarsen` is the `[05]` level step — so a texel grid, a voxel sweep, an overview chain, and a Fabrication field all address through one owner. Admission seats the lattice at `Layers = 1` and `TexturePlane` keeps its OWN layer band, because the plane's layers are a STACKING axis whose law `set#TEXTURE_SET` `LayerLaw` names — cube faces, array slices, flipbook frames — and `Coarsen` ceiling-halves every reducible lattice axis — odd axes round up, terminal axes stay fixed: folding the band into the lattice would halve six cube faces to three at the first mip level.
 - Law: the SPATIAL GRAIN rides the affine and the READ CARRIES NO UNIT IN ITS NAME, because it does not carry one in its value: a pixel plane seats the identity map, so its cell measures one texel and `Run` returns a texel-unit run; a physically-pitched plane seats its millimetres-per-texel as a uniform scale, so `Run` returns millimetres and the same relief at two resolutions derives one horizon, one curvature magnitude, and one gradient slope. A millimetre suffix here would assert the pitched case on every identity-seated plane in the corpus and collide with the genuinely-millimetre `Component/joint#JOINT_FAMILY` weld run under one spelling; the typed-absence arm is the honest one, so the AFFINE is the unit witness and a caller needing physical units seats a pitch. Grain is therefore a property of the grid every derivative reads off the plane it is differentiating, never a column each derivative carrier re-declares. `Run(columns, rows)` takes the march as a PER-AXIS texel count and returns its Euclidean length through `Grid.CellSize`, so an anisotropic seat is honoured rather than approximated: reading `CellSize.X` alone would report a vertical sweep's rise over a horizontal spacing, and every consumer marching a direction — the horizon sweep, the curvature stencil, the gradient slope — passes the direction it actually walked.
 - Law: a ten-case store union is the DELETED form. Ten cases carried one field pair and one disposal, so the arena is one generic record and typed code re-enters through `Accept<TFold, TResult>` — a `struct` or `ref struct` fold the JIT specializes per texel, allocating nothing and capturing nothing. `PlaneFormat` rows carry their own `Rent` column, deleting the `format.Key` switch that throws on an unmatched row: an unmatched format is unrepresentable rather than an exception in a fallible path.
@@ -407,10 +407,10 @@ public sealed record TexturePlane(
         PlaneFormat format, Dimension width, Dimension height, PlaneTransfer transfer, AlphaMode alpha,
         Option<Dimension> layers = default, Option<PlaneRange> range = default, Option<PlanePrimaries> primaries = default,
         Option<PositiveMagnitude> pitchMm = default, AllocationMode mode = AllocationMode.Clear) =>
-        from map in Seat(pitchMm, key)
-        from grid in CellLattice.Of(map, width, height, Single, Array.MaxLength, key)
+        from map in Seat(pitchMm)
+        from grid in CellLattice.Of(map, width, height, Single, Array.MaxLength)
         from plane in Of(format, grid, layers.IfNone(Single), transfer, alpha,
-            range.IfNone(PlaneRange.Unit), primaries.IfNone(PlanePrimaries.Unknown), key, mode)
+            range.IfNone(PlaneRange.Unit), primaries.IfNone(PlanePrimaries.Unknown), mode)
         select plane;
 
     public static Fin<TexturePlane> Of(
@@ -480,14 +480,14 @@ public sealed record TexturePlane(
         target == Alpha ? Fin.Succ(this)
         : !Alpha.Convertible(target, Format.Depth)
             ? new MaterialFault.Parameter($"<plane-alpha-crossing:{Alpha.Key}->{target.Key}:{Format.Depth.Key}>")
-        : Of(Format, Grid, Layers, Transfer, target, Range, Primaries, key, AllocationMode.Default)
+        : Of(Format, Grid, Layers, Transfer, target, Range, Primaries, AllocationMode.Default)
               .Map(Reassociate);
 
     public Fin<TexturePlane> ToPrimaries(PlanePrimaries target) =>
         target == Primaries
             ? Fin.Succ(this)
-            : from matrix in Primaries.Matrix(target, key)
-              from destination in Of(Format, Grid, Layers, Transfer, Alpha, Range, target, key, AllocationMode.Default)
+            : from matrix in Primaries.Matrix(target)
+              from destination in Of(Format, Grid, Layers, Transfer, Alpha, Range, target, AllocationMode.Default)
               select Rebase(destination, matrix);
 
     private TexturePlane Reassociate(TexturePlane destination) {
@@ -635,13 +635,13 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
     public static Fin<TexturePyramid> Of(TexturePlane basePlane, MipPolicy policy, Option<TexturePyramid> paired = default) =>
         !policy.Traits.Admits(PlaneTrait.Chains)
             ? Fin.Succ(new TexturePyramid(Seq(basePlane), policy, Coupled: false))
-            : Chain(basePlane, policy, paired, key);
+            : Chain(basePlane, policy, paired);
 
     private static Fin<TexturePyramid> Chain(TexturePlane basePlane, MipPolicy policy, Option<TexturePyramid> paired) {
         bool coupled = policy.Traits.Admits(PlaneTrait.Coupled) && paired.IsSome;
-        return Descend(basePlane.Grid, key).Bind(grids =>
+        return Descend(basePlane.Grid).Bind(grids =>
             grids.FoldM(Seq(basePlane), (levels, grid) =>
-                Fold(levels[levels.Count - 1], grid, policy, coupled ? paired.Bind(chain => Level(chain, levels.Count)) : None, key)
+                Fold(levels[levels.Count - 1], grid, policy, coupled ? paired.Bind(chain => Level(chain, levels.Count)) : None)
                     .Map(levels.Add)).As())
             .Map(levels => new TexturePyramid(levels, policy, coupled));
     }
@@ -650,14 +650,14 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
         grid.Columns.Value is 1 && grid.Rows.Value is 1
             ? Fin.Succ(Seq<CellLattice>())
             : grid.Coarsen()
-                .Bind(level => Descend(level, key).Map(rest => level.Cons(rest)));
+                .Bind(level => Descend(level).Map(rest => level.Cons(rest)));
 
     private static Option<TexturePlane> Level(TexturePyramid chain, int index) =>
         index < chain.Levels.Count ? Some(chain.Levels[index]) : None;
 
     private static Fin<TexturePlane> Fold(TexturePlane source, CellLattice grid, MipPolicy policy, Option<TexturePlane> companion) =>
         TexturePlane.Of(source.Format, grid, source.Layers, source.Transfer, source.Alpha, source.Range,
-                source.Primaries, key, AllocationMode.Default)
+                source.Primaries, AllocationMode.Default)
             .Map(level => Resample(source, level, policy, companion));
 
     private static TexturePlane Resample(TexturePlane source, TexturePlane level, MipPolicy policy, Option<TexturePlane> companion) {
@@ -850,8 +850,8 @@ public sealed class PlaneResidency : IDisposable {
         seated.Find(index).Match(
             Some: tile => Fin.Succ(Touch(tile)),
             None: () => index >= 0 && index < declared.CellCount
-                ? mint(index).Bind(chain => Seat(index, chain, key))
-                : new MaterialFault.Parameter(key, $"<residency-tile:{index}:{declared.CellCount}>"));
+                ? mint(index).Bind(chain => Seat(index, chain))
+                : new MaterialFault.Parameter($"<residency-tile:{index}:{declared.CellCount}>"));
 
     private TexturePyramid Touch(ResidentTile tile) {
         seated = seated.AddOrUpdate(tile.Index, tile with { Touched = ++clock, Hits = tile.Hits + 1 });
@@ -865,9 +865,9 @@ public sealed class PlaneResidency : IDisposable {
                 .Rollback(chain);
 
         Seq<ResidentTile> victims = Reclaim(budget - cost);
-        return Custody.Release(victims, tile => Retire(tile, key), key)
+        return Custody.Release(victims, tile => Retire(tile))
             .Bind(_ => resident + cost > budget
-                ? Fin.Fail<TexturePyramid>(new MaterialFault.Parameter(key, $"<residency-over-budget:{cost}:{resident}:{budget}>"))
+                ? Fin.Fail<TexturePyramid>(new MaterialFault.Parameter($"<residency-over-budget:{cost}:{resident}:{budget}>"))
                 : SeatOwned(index, chain, cost))
             .Rollback(chain);
     }

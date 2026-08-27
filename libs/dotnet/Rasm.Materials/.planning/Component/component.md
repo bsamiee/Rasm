@@ -2,7 +2,7 @@
 
 THE POLYMORPHIC COMPONENT OWNER. One `Component` record is the canonical standardized-TYPE concept every steel/timber/concrete/aluminum member, masonry/CMU/IGU unit, sheet-goods board, precast product, covering/insulation product, pipe/duct/conductor segment, and rebar/fastener/connector/joint part parameterizes: a closed `SectionProfile` cross-section algebra (a FIELD, never a peer union of per-family payloads), an `IfcBinding` row stamp, a `Coring` void class, a `ComponentStandard` regional row, two independent `MaterialId` slots, and an `Option<PropertyBag>` detail whose presence is a TYPE LAW of the family's `DetailLane`. One `ComponentFamily` `[SmartEnum<string>]` is THE policy row: each of the nineteen rows {masonry · cmu · steel · timber · glazing · reinforcement · fastener · connector · joint · panel · concrete · precast · aluminum · insulation · finish · fireproofing · pipework · ductwork · electrical} carries its `ComponentClass`, its `DetailLane`, its profile-admission predicate, its cross-nominal selector, its symmetry projection, and its `<Family>Seed.Rows` fold — so a NEW FAMILY is one row and one seed page with zero central edits, and a NEW PART is one seed row with zero type edits. Every per-family discriminant is a stored column, a base-constructor fact, a family delegate, or a field read — the family axis carries its own class, lane, IFC leaf, admission predicate, cross-nominal selector, symmetry projection, seed fold, and capacity producer, so nothing about a family is decided by dispatch anywhere else.
 
-This page also owns the ONE section-computation spine: `SectionSolver.Solve` is the single exhaustive generated `Switch` over the closed `SectionProfile` axis — a new arm is compiler-forced HERE and nowhere else. Every solvable arm routes the ONE `VividOrange.Sections.SectionProperties` Green's-theorem integral through the ONE twenty-column `Admit` lift, then a topology supplement: `Curves` lowers each arm onto the TYPED `VividOrange.IProfiles` floor contract (`IRectangle`/`IRoundedRectangle`/`IRectangularHollow`/`IRoundedRectangularHollow`/`ICircle`/`ICircularHollow`/`IEllipse`/`IIParallelFlange`/`ICustomI`/`IChannel`/`IC`/`ITee`/`IAngle`/`IZ`) or an exact `Perimeter`; the typed contracts let the solver decompose fillets and curved edges through `TrapezoidalPart` + `EllipseQuarterPart`, while the `Perimeter` path preserves multi-void, corrugated, offset-trapezium, triangle, and free-outline geometry. `Forms` supplies the plastic/torsion/warping/shear/asymmetry supplement through TWO kernels: `ThinWalled` sweeps each open arm's own midline for its shear centre, warping constant, and Saint-Venant torsion, and `Plastic` integrates the exact equal-area-axis first moment over each arm's strip stack — so a shape factor against an elastic modulus and a per-shape warping transcription are both unrepresentable. `ComputedSection` stays the FROZEN twenty-column record (`[FROZEN_INVARIANTS]`), `ComponentCatalogue.Of` the ONE fail-loud `Traverse` fold computing BOTH frozen maps in one pass beside `AdmitImported`, the reverse-direction fold lowering ingested IFC type candidates onto the same result-typed `Component.Of` construction, `ComponentResolution` the byte-identical M7 one-hop, `QuantityRow` the one typed-mint owner `Projection/component#COMPONENT_PROJECTOR` `SeamSection` and `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Admit` compose, and `ComponentDetail` the seed-time bag constructors every `Realization`/`Product`-lane seed composes. The page composes the `Rasm.Numerics` kernel `PositiveMagnitude`, the `Rasm.Domain` `Context`/`Fault`/`FactoryBridge.Accept` result, the `Rasm.Element` contract (`MaterialId`, `ProfileRef`, `FaultBand`, the `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`DetailSchema` property vocabulary), and the VividOrange profile/section floor. `ProfileRef`/`ProfileSet`/`SectionProperties`/`ComputedSection` stay contract-canonical — the rename STOPS at the Materials boundary. This page also owns the folder's TWO seed spines: `MaterialGrade` over the closed `GradeProperties` payload is the ONE registered-grade identity (the six per-family grade owners collapse to rows here, one typed `ComponentAuthority` axis), and `SeedLaw<TRow>`/`ComponentSeed.Rows` the ONE accumulating seed traverse every `ComponentFamily.rows:` delegate binds — a family page carries vocabulary, rows, and its law value alone.
+This page also owns the ONE section-computation spine: `SectionSolver.Solve` is the single exhaustive generated `Switch` over the closed `SectionProfile` axis — a new arm is compiler-forced HERE and nowhere else. Every solvable arm routes the ONE `VividOrange.Sections.SectionProperties` Green's-theorem integral through the ONE twenty-column `Section` lift, then a topology supplement: `Curves` lowers each arm onto the TYPED `VividOrange.IProfiles` floor contract (`IRectangle`/`IRoundedRectangle`/`IRectangularHollow`/`IRoundedRectangularHollow`/`ICircle`/`ICircularHollow`/`IEllipse`/`IIParallelFlange`/`ICustomI`/`IChannel`/`IC`/`ITee`/`IAngle`/`IZ`) or an exact `Perimeter`; the typed contracts let the solver decompose fillets and curved edges through `TrapezoidalPart` + `EllipseQuarterPart`, while the `Perimeter` path preserves multi-void, corrugated, offset-trapezium, triangle, and free-outline geometry. `Forms` supplies the plastic/torsion/warping/shear/asymmetry supplement through TWO kernels: `ThinWalled` sweeps each open arm's own midline for its shear centre, warping constant, and Saint-Venant torsion, and `Plastic` integrates the exact equal-area-axis first moment over each arm's strip stack — so a shape factor against an elastic modulus and a per-shape warping transcription are both unrepresentable. `ComputedSection` stays the FROZEN twenty-column record (`[FROZEN_INVARIANTS]`), `ComponentCatalogue.Of` the ONE fail-loud `Traverse` fold computing BOTH frozen maps in one pass beside `AdmitImported`, the reverse-direction fold lowering ingested IFC type candidates onto the same result-typed `Component.Of` construction, `ComponentResolution` the byte-identical M7 one-hop, `QuantityRow` the one typed-mint owner `Projection/component#COMPONENT_PROJECTOR` `SeamSection` and `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Admit` compose, and `ComponentDetail` the seed-time bag constructors every `Realization`/`Product`-lane seed composes. The page composes the `Rasm.Numerics` kernel `PositiveMagnitude`, the `Rasm.Domain` `Context`/`Fault`/`FactoryBridge.Accept` result, the `Rasm.Element` contract (`MaterialId`, `ProfileRef`, `FaultBand`, the `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`DetailSchema` property vocabulary), and the VividOrange profile/section floor. `ProfileRef`/`ProfileSet`/`SectionProperties`/`ComputedSection` stay contract-canonical — the rename STOPS at the Materials boundary. This page also owns the folder's TWO seed spines: `MaterialGrade` over the closed `GradeProperties` payload is the ONE registered-grade identity (the six per-family grade owners collapse to rows here, one typed `ComponentAuthority` axis), and `SeedLaw<TRow>`/`ComponentSeed.Rows` the ONE accumulating seed traverse every `ComponentFamily.rows:` delegate binds — a family page carries vocabulary, rows, and its law value alone.
 
 ## [01]-[INDEX]
 
@@ -21,7 +21,7 @@ This page also owns the ONE section-computation spine: `SectionSolver.Solve` is 
 
 - Owner: `Component` over the nineteen-row `ComponentFamily` policy axis; `ComponentId` the `family.designation` key; `ComponentFault` on the `FaultBand.Component` allocation; `IfcBinding` the Materials-side IFC pair as ROW DATA (was two 10-arm switches); `DetailLane` the bag-presence law; `Coring`/`CoringClass` the cross-family void class; `ComponentUnit`/`ComponentStandard` the shared dimensional and regional rows; `ComponentSymmetry` the construction-row projection onto the kernel `MaterialSymmetry` — the ONE symmetry authority for grain, nap, and face direction, bound per family as the `Symmetry` policy column.
 - Cases: one `Component` shape across all nineteen families — `Family` (the policy row), `Designation`, `Profile` (the `SectionProfile` arm), `Ifc` (the stored `IfcBinding` row), `Coring`, `Standard`, `SubstanceId`/`AppearanceId` (independent `MaterialId` slots — a coated rebar keeps capacity steel and epoxy appearance distinct), `Detail` (`Option<PropertyBag>`, `Some` iff the family lane is not `None`). Every per-family discriminant is a field read (`IfcEntity`/`PredefinedToken`), a family delegate (`CrossNominalMm`, `Symmetry`), or base-constructor state (`GrossRectangleMm`).
-- Entry: `Component.Of(family, designation, profile, ifc, coring, standard, substanceId, appearanceId, detail, key)` guards the exact `family.designation` grammar, family-prefix ownership, family/profile admission, coring, and lane/detail consistency. `SectionProfile.Layered.Of` owns ply-stack closure because every admitted layered value must be valid before a `Component` exists.
+- Entry: `Component.Of(family, designation, profile, ifc, coring, standard, substanceId, appearanceId, detail)` guards the exact `family.designation` grammar, family-prefix ownership, family/profile admission, coring, and lane/detail consistency. `SectionProfile.Layered.Of` owns ply-stack closure because every admitted layered value must be valid before a `Component` exists.
 - Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Context`/`Fault`/`FactoryBridge.Accept`), Rasm (project — `MaterialSymmetry`/`RotationOrder`/`MirrorGrant`, the `Rasm/Parametric/patternmap#PATTERNING` placement-legality law the `Symmetry` derivation projects onto), Rasm.Element (project — `MaterialId`, `ProfileRef`, `FaultBand`, `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`PropertyName`/`PropertyValue`/`DetailSchema`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`[UseDelegateFromConstructor]`, generated exhaustive `Switch`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`; `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`guard` — results-and-effects doctrine substrate), VividOrange.IProfiles + VividOrange.Profiles.Perimeter + VividOrange.Geometry + VividOrange.Sections.SectionProperties + UnitsNet (`Rasm.Materials/.api` catalogues), BCL inbox (`FrozenDictionary`).
 - Growth: a new part is one seed row; a new family is one `ComponentFamily` row and one seed page (no union edit, no switch edit, no `.Concat` edit); a new section shape is one `SectionProfile` arm and one compiler-forced `Solve` arm (buildingSMART profile-schema cadence, never thing cadence); a new fault is one `ComponentFault` case; a new structural column is one `ComputedSection` field every solvable arm fills; a new detail row is one `DetailSchema`-named tuple in a seed bag; a new typed mint is one `QuantityRow` row; a new evidence tier is an Element `EvidenceGrade` row (contract-owned, wire tokens append-only), never a local provenance roster; a new grade is one `MaterialGrade` row plus its `GradeProperties` arm. Three admissions widen by declared trigger, never speculatively: the reinforcement predicate grows `CircleHollow` when a certified tendon-duct diameter lands (the `reinforcement#REINFORCEMENT_FAMILY` Growth clause seeds the annular `IfcTendonConduit` row through the same generator), the precast predicate grows `Layered` when a dimensioned sandwich-wythe build two-sources over the `PlyRole.ConcreteWythe` row (its symmetry already rides `ComponentSymmetry.Stack`, so the wythe stack derives with zero symmetry edits), and the electrical predicate grows `CircleHollow` when the NEC Chapter 9 Table 4 OD/ID ladder proves (the `electrical#CONTAINMENT` conduit systems then mint through their own fold beside the conductor folds — without this widening the declared containment growth would fault at family admission). The symmetry projection widens by declared trigger the same way: `MirrorGrant.Matched` lands when a book-match veneer pairing fact two-sources onto a construction row — the pair obligation then derives from the material fact alone, never a caller flag — and the nap vector (`RotationOrder.Identity`: a pile lies one way, so a half-turn shows) lands when a napped covering build authors an oriented face row.
 - Boundary: `ComponentFault` derives `Fault`; generated identity binds each direct leaf to `FaultBand.Component`. Documented VividOrange grade, section, capacity-solve, and capacity-decode refusals use cause-bearing semantic leaves; unknown provider throws stay exact `Exceptional` errors. `IfcBinding` strings stay NEUTRAL here; the generated `Rasm.Bim` roster is the validation authority (composition-time `IfcLegality`, egress-time `AdmitPredefined`, design-time emitter stamp audit) — Materials never references `Rasm.Bim`. Every seed page declares the ONE flat `Rasm.Materials.Component` namespace — the `Component/` folder is one namespace under `dotnet_style_namespace_match_folder = true:error` — so the policy rows bind `<Family>Seed.Rows` by bare name with no alias. `Component.Symmetry` is the ONE symmetry authority: the kernel `PatternPlan.Symmetry`/`PanelPolicy.Symmetry` admissions and the `Rasm.Fabrication` nesting move gate read this projection, never a re-derivation from appearance or geometry — a consumer-side legality knob beside a material that already models direction is the named re-mint. The derivation under-grants and never over-grants (a directional read admits a subset of the isotropic placements), so a missing construction fact costs placements, never legality; masonry stays isotropic by the same boundary — `BondGeometry`'s wallpaper group is ASSEMBLY symmetry, how units tile, while this law is the unit substance's own, and the two never merge.
@@ -196,7 +196,7 @@ public static class ComponentSymmetry {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ComponentFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Component;
-    private ComponentFault(string message) { Key = key; MessageCore = message; }
+    private ComponentFault(string message) => MessageCore = message;
     private string MessageCore { get; }
     public override string Message => MessageCore;
 
@@ -385,12 +385,12 @@ public abstract partial record SectionProfile {
 
     public sealed record Rectangle(PositiveMagnitude WidthMm, PositiveMagnitude DepthMm) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double widthMm, double depthMm) =>
-            from w in key.Pm(widthMm) from d in key.Pm(depthMm) select (SectionProfile)new Rectangle(w, d);
+            from w in Section.Pm(widthMm) from d in Section.Pm(depthMm) select (SectionProfile)new Rectangle(w, d);
     }
 
     public sealed record CellularRectangle(PositiveMagnitude WidthMm, PositiveMagnitude DepthMm, Seq<VoidCell> Cells) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double widthMm, double depthMm, Seq<VoidCell> cells) =>
-            from w in key.Pm(widthMm) from d in key.Pm(depthMm)
+            from w in Section.Pm(widthMm) from d in Section.Pm(depthMm)
             from contained in guard(cells.ForAll(c => c.WidthMm > 0.0 && c.HeightMm > 0.0 && c.XMm >= 0.0 && c.YMm >= 0.0
                     && double.IsFinite(c.XMm + c.YMm + c.WidthMm + c.HeightMm)
                     && c.XMm + c.WidthMm <= w.Value && c.YMm + c.HeightMm <= d.Value),
@@ -408,34 +408,34 @@ public abstract partial record SectionProfile {
 
     public sealed record RectangleHollow(PositiveMagnitude WidthMm, PositiveMagnitude DepthMm, PositiveMagnitude WallMm, double InnerFilletMm, double OuterFilletMm) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double widthMm, double depthMm, double wallMm, double innerFilletMm, double outerFilletMm) =>
-            from w in key.Pm(widthMm) from d in key.Pm(depthMm) from t in key.Pm(wallMm)
-            from fi in key.Edge(innerFilletMm) from fo in key.Edge(outerFilletMm)
+            from w in Section.Pm(widthMm) from d in Section.Pm(depthMm) from t in Section.Pm(wallMm)
+            from fi in Section.Edge(innerFilletMm) from fo in Section.Edge(outerFilletMm)
             from closed in guard(2.0 * t.Value < Math.Min(w.Value, d.Value), new ComponentFault.EnvelopeRejected(typeof(RectangleHollow), widthMm, depthMm))
             select (SectionProfile)new RectangleHollow(w, d, t, fi, fo);
     }
 
     public sealed record RoundedRectangle(PositiveMagnitude WidthMm, PositiveMagnitude DepthMm, PositiveMagnitude RoundingMm) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double widthMm, double depthMm, double roundingMm) =>
-            from w in key.Pm(widthMm) from d in key.Pm(depthMm) from r in key.Pm(roundingMm)
+            from w in Section.Pm(widthMm) from d in Section.Pm(depthMm) from r in Section.Pm(roundingMm)
             from fits in guard(2.0 * r.Value <= Math.Min(w.Value, d.Value), new ComponentFault.EnvelopeRejected(typeof(RoundedRectangle), widthMm, depthMm))
             select (SectionProfile)new RoundedRectangle(w, d, r);
     }
 
     public sealed record Circle(PositiveMagnitude DiameterMm) : SectionProfile(DiameterMm, DiameterMm) {
         public static Fin<SectionProfile> Of(double diameterMm) =>
-            key.Pm(diameterMm).Map(static d => (SectionProfile)new Circle(d));
+            Section.Pm(diameterMm).Map(static d => (SectionProfile)new Circle(d));
     }
 
     public sealed record CircleHollow(PositiveMagnitude DiameterMm, PositiveMagnitude WallMm) : SectionProfile(DiameterMm, DiameterMm) {
         public static Fin<SectionProfile> Of(double diameterMm, double wallMm) =>
-            from d in key.Pm(diameterMm) from t in key.Pm(wallMm)
+            from d in Section.Pm(diameterMm) from t in Section.Pm(wallMm)
             from closed in guard(2.0 * t.Value < d.Value, new ComponentFault.EnvelopeRejected(typeof(CircleHollow), diameterMm, diameterMm))
             select (SectionProfile)new CircleHollow(d, t);
     }
 
     public sealed record Ellipse(PositiveMagnitude WidthMm, PositiveMagnitude DepthMm) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double widthMm, double depthMm) =>
-            from w in key.Pm(widthMm) from d in key.Pm(depthMm) select (SectionProfile)new Ellipse(w, d);
+            from w in Section.Pm(widthMm) from d in Section.Pm(depthMm) select (SectionProfile)new Ellipse(w, d);
     }
 
     public sealed record IShape(PositiveMagnitude DepthMm, PositiveMagnitude WidthMm, PositiveMagnitude WebMm, PositiveMagnitude FlangeMm, double FilletMm, PositiveMagnitude FlangeToeMm) : SectionProfile(WidthMm, DepthMm) {
@@ -443,8 +443,8 @@ public abstract partial record SectionProfile {
         public double MeanFlangeMm => (FlangeMm.Value + FlangeToeMm.Value) / 2.0;
 
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double webMm, double flangeMm, double filletMm, double flangeToeMm) =>
-            from d in key.Pm(depthMm) from b in key.Pm(widthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
-            from f in key.Edge(filletMm) from te in key.Pm(flangeToeMm)
+            from d in Section.Pm(depthMm) from b in Section.Pm(widthMm) from tw in Section.Pm(webMm) from tf in Section.Pm(flangeMm)
+            from f in Section.Edge(filletMm) from te in Section.Pm(flangeToeMm)
             from tapered in guard(te.Value <= tf.Value, new ComponentFault.EnvelopeRejected(typeof(IShape), widthMm, depthMm))
             from fits in guard(tw.Value < b.Value && 2.0 * tf.Value < d.Value && 2.0 * f <= Math.Min(b.Value - tw.Value, d.Value - 2.0 * tf.Value),
                 new ComponentFault.EnvelopeRejected(typeof(IShape), widthMm, depthMm))
@@ -453,8 +453,8 @@ public abstract partial record SectionProfile {
 
     public sealed record AsymmetricIShape(PositiveMagnitude DepthMm, PositiveMagnitude TopFlangeWidthMm, PositiveMagnitude BottomFlangeWidthMm, PositiveMagnitude WebThicknessMm, PositiveMagnitude TopFlangeThicknessMm, PositiveMagnitude BottomFlangeThicknessMm, double FilletMm) : SectionProfile(Wider(TopFlangeWidthMm, BottomFlangeWidthMm), DepthMm) {
         public static Fin<SectionProfile> Of(double depthMm, double topFlangeWidthMm, double bottomFlangeWidthMm, double webThicknessMm, double topFlangeThicknessMm, double bottomFlangeThicknessMm, double filletMm) =>
-            from d in key.Pm(depthMm) from bt in key.Pm(topFlangeWidthMm) from bb in key.Pm(bottomFlangeWidthMm)
-            from tw in key.Pm(webThicknessMm) from tt in key.Pm(topFlangeThicknessMm) from tb in key.Pm(bottomFlangeThicknessMm) from f in key.Edge(filletMm)
+            from d in Section.Pm(depthMm) from bt in Section.Pm(topFlangeWidthMm) from bb in Section.Pm(bottomFlangeWidthMm)
+            from tw in Section.Pm(webThicknessMm) from tt in Section.Pm(topFlangeThicknessMm) from tb in Section.Pm(bottomFlangeThicknessMm) from f in Section.Edge(filletMm)
             from fits in guard(tw.Value < Math.Min(bt.Value, bb.Value) && tt.Value + tb.Value < d.Value
                     && 2.0 * f <= Math.Min(Math.Min(bt.Value, bb.Value) - tw.Value, d.Value - tt.Value - tb.Value),
                 new ComponentFault.EnvelopeRejected(typeof(AsymmetricIShape), Math.Max(topFlangeWidthMm, bottomFlangeWidthMm), depthMm))
@@ -466,8 +466,8 @@ public abstract partial record SectionProfile {
         public double MeanFlangeMm => (FlangeMm.Value + FlangeToeMm.Value) / 2.0;
 
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double webMm, double flangeMm, double filletMm, double flangeToeMm) =>
-            from d in key.Pm(depthMm) from b in key.Pm(widthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
-            from f in key.Edge(filletMm) from te in key.Pm(flangeToeMm)
+            from d in Section.Pm(depthMm) from b in Section.Pm(widthMm) from tw in Section.Pm(webMm) from tf in Section.Pm(flangeMm)
+            from f in Section.Edge(filletMm) from te in Section.Pm(flangeToeMm)
             from tapered in guard(te.Value <= tf.Value, new ComponentFault.EnvelopeRejected(typeof(Channel), widthMm, depthMm))
             from fits in guard(tw.Value < b.Value && 2.0 * tf.Value < d.Value && 2.0 * f <= Math.Min(b.Value - tw.Value, d.Value - 2.0 * tf.Value),
                 new ComponentFault.EnvelopeRejected(typeof(Channel), widthMm, depthMm))
@@ -476,7 +476,7 @@ public abstract partial record SectionProfile {
 
     public sealed record ColdFormedC(PositiveMagnitude DepthMm, PositiveMagnitude WidthMm, PositiveMagnitude WallMm, PositiveMagnitude GirthMm, double InnerFilletMm) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double wallMm, double girthMm, double innerFilletMm) =>
-            from d in key.Pm(depthMm) from b in key.Pm(widthMm) from t in key.Pm(wallMm) from g in key.Pm(girthMm) from f in key.Edge(innerFilletMm)
+            from d in Section.Pm(depthMm) from b in Section.Pm(widthMm) from t in Section.Pm(wallMm) from g in Section.Pm(girthMm) from f in Section.Edge(innerFilletMm)
             from lipped in guard(2.0 * t.Value < Math.Min(d.Value, b.Value) && g.Value + t.Value < b.Value && g.Value < d.Value / 2.0
                     && f <= Math.Min(b.Value - 2.0 * t.Value, d.Value / 2.0 - t.Value),
                 new ComponentFault.EnvelopeRejected(typeof(ColdFormedC), widthMm, depthMm))
@@ -488,8 +488,8 @@ public abstract partial record SectionProfile {
         public double MeanWebMm => (WebMm.Value + WebToeMm.Value) / 2.0;
 
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double webMm, double flangeMm, double filletMm, double flangeToeMm, double webToeMm) =>
-            from d in key.Pm(depthMm) from b in key.Pm(widthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
-            from f in key.Edge(filletMm) from fe in key.Pm(flangeToeMm) from we in key.Pm(webToeMm)
+            from d in Section.Pm(depthMm) from b in Section.Pm(widthMm) from tw in Section.Pm(webMm) from tf in Section.Pm(flangeMm)
+            from f in Section.Edge(filletMm) from fe in Section.Pm(flangeToeMm) from we in Section.Pm(webToeMm)
             from tapered in guard(fe.Value <= tf.Value && we.Value <= tw.Value,
                 new ComponentFault.EnvelopeRejected(typeof(Tee), widthMm, depthMm))
             from fits in guard(tw.Value < b.Value && tf.Value < d.Value && 2.0 * f <= Math.Min(b.Value - tw.Value, d.Value - tf.Value),
@@ -501,8 +501,8 @@ public abstract partial record SectionProfile {
         public double MeanLegMm => (ThicknessMm.Value + LegToeMm.Value) / 2.0;
 
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double thicknessMm, double filletMm, double legToeMm) =>
-            from d in key.Pm(depthMm) from b in key.Pm(widthMm) from t in key.Pm(thicknessMm)
-            from f in key.Edge(filletMm) from e in key.Pm(legToeMm)
+            from d in Section.Pm(depthMm) from b in Section.Pm(widthMm) from t in Section.Pm(thicknessMm)
+            from f in Section.Edge(filletMm) from e in Section.Pm(legToeMm)
             from tapered in guard(e.Value <= t.Value, new ComponentFault.EnvelopeRejected(typeof(Angle), widthMm, depthMm))
             from fits in guard(t.Value < Math.Min(d.Value, b.Value) && 2.0 * f <= Math.Min(d.Value - t.Value, b.Value - t.Value),
                 new ComponentFault.EnvelopeRejected(typeof(Angle), widthMm, depthMm))
@@ -511,8 +511,8 @@ public abstract partial record SectionProfile {
 
     public sealed record Zed(PositiveMagnitude DepthMm, PositiveMagnitude TopFlangeWidthMm, PositiveMagnitude BottomFlangeWidthMm, PositiveMagnitude WallMm, double TopLipMm, double BottomLipMm, double InnerFilletMm) : SectionProfile(Wider(TopFlangeWidthMm, BottomFlangeWidthMm), DepthMm) {
         public static Fin<SectionProfile> Of(double depthMm, double topFlangeWidthMm, double bottomFlangeWidthMm, double thicknessMm, double topLipMm, double bottomLipMm, double innerFilletMm) =>
-            from d in key.Pm(depthMm) from bt in key.Pm(topFlangeWidthMm) from bb in key.Pm(bottomFlangeWidthMm) from t in key.Pm(thicknessMm)
-            from lt in key.Edge(topLipMm) from lb in key.Edge(bottomLipMm) from f in key.Edge(innerFilletMm)
+            from d in Section.Pm(depthMm) from bt in Section.Pm(topFlangeWidthMm) from bb in Section.Pm(bottomFlangeWidthMm) from t in Section.Pm(thicknessMm)
+            from lt in Section.Edge(topLipMm) from lb in Section.Edge(bottomLipMm) from f in Section.Edge(innerFilletMm)
             from fits in guard(t.Value < Math.Min(bt.Value, bb.Value) && 2.0 * t.Value < d.Value
                     && lt < d.Value / 2.0 && lb < d.Value / 2.0 && 2.0 * f <= d.Value - 2.0 * t.Value,
                 new ComponentFault.EnvelopeRejected(typeof(Zed), Math.Max(topFlangeWidthMm, bottomFlangeWidthMm), depthMm))
@@ -529,8 +529,8 @@ public abstract partial record SectionProfile {
         public double TopOffsetMm { get; }
 
         public static Fin<SectionProfile> Of(double bottomWidthMm, double topWidthMm, double depthMm, double topOffsetMm) =>
-            from bb in key.Pm(bottomWidthMm) from bt in key.Pm(topWidthMm) from d in key.Pm(depthMm) from o in key.Slope(topOffsetMm)
-            from span in key.Pm(Span(bb.Value, bt.Value, o))
+            from bb in Section.Pm(bottomWidthMm) from bt in Section.Pm(topWidthMm) from d in Section.Pm(depthMm) from o in Section.Slope(topOffsetMm)
+            from span in Section.Pm(Span(bb.Value, bt.Value, o))
             select (SectionProfile)new Trapezium(bb, bt, d, o, span);
 
         internal static double Span(double bottom, double top, double offset) {
@@ -541,13 +541,13 @@ public abstract partial record SectionProfile {
 
     public sealed record FilletTriangle(PositiveMagnitude LegMm, PositiveMagnitude Leg2Mm) : SectionProfile(LegMm, Leg2Mm) {
         public static Fin<SectionProfile> Of(double legMm, double leg2Mm) =>
-            from a in key.Pm(legMm) from b in key.Pm(leg2Mm) select (SectionProfile)new FilletTriangle(a, b);
+            from a in Section.Pm(legMm) from b in Section.Pm(leg2Mm) select (SectionProfile)new FilletTriangle(a, b);
     }
 
     public sealed record Corrugated(PositiveMagnitude CoverWidthMm, PositiveMagnitude RibDepthMm, PositiveMagnitude RibPitchMm, PositiveMagnitude GaugeMm, PositiveMagnitude TopFlatMm, PositiveMagnitude BottomFlatMm) : SectionProfile(CoverWidthMm, RibDepthMm) {
         public static Fin<SectionProfile> Of(double coverWidthMm, double ribDepthMm, double ribPitchMm, double gaugeMm, double topFlatMm, double bottomFlatMm) =>
-            from cw in key.Pm(coverWidthMm) from rd in key.Pm(ribDepthMm) from rp in key.Pm(ribPitchMm)
-            from g in key.Pm(gaugeMm) from tf in key.Pm(topFlatMm) from bf in key.Pm(bottomFlatMm)
+            from cw in Section.Pm(coverWidthMm) from rd in Section.Pm(ribDepthMm) from rp in Section.Pm(ribPitchMm)
+            from g in Section.Pm(gaugeMm) from tf in Section.Pm(topFlatMm) from bf in Section.Pm(bottomFlatMm)
             from folds in guard(tf.Value + bf.Value < rp.Value && rp.Value <= cw.Value, new ComponentFault.EnvelopeRejected(typeof(Corrugated), coverWidthMm, ribDepthMm))
             select (SectionProfile)new Corrugated(cw, rd, rp, g, tf, bf);
     }
@@ -559,7 +559,7 @@ public abstract partial record SectionProfile {
 
         public static Fin<SectionProfile> Of(Seq<Ply> plies, double overallMm, double widthMm) =>
             from stacked in guard(!plies.IsEmpty, new ComponentFault.PlyStackRejected(plies.Count, overallMm, 0.0))
-            from o in key.Pm(overallMm) from w in key.Pm(widthMm)
+            from o in Section.Pm(overallMm) from w in Section.Pm(widthMm)
             from faced in guard(toSeq(plies.Index()).ForAll(p => !p.Item.Role.Facing || p.Index == 0 || p.Index == plies.Count - 1),
                 new ComponentFault.PlyStackRejected(plies.Count, overallMm, plies.Sum(static p => p.ThicknessMm.Value)))
             from band in Tolerance.Of(lane: ToleranceLane.Build, value: BuildBandMm)
@@ -570,7 +570,7 @@ public abstract partial record SectionProfile {
 
     public sealed record Nominal(PositiveMagnitude NominalMm) : SectionProfile(NominalMm, NominalMm) {
         public static Fin<SectionProfile> Of(double nominalMm) =>
-            key.Pm(nominalMm).Map(static n => (SectionProfile)new Nominal(n));
+            Section.Pm(nominalMm).Map(static n => (SectionProfile)new Nominal(n));
     }
 
     public sealed record Catalogued(SteelShape Shape) : SectionProfile(Shape.Section.WidthMm, Shape.Section.DepthMm);
@@ -582,7 +582,7 @@ public abstract partial record SectionProfile {
                 new ComponentFault.OutlineRejected(ring.Count, topology))
             from free in guard(topology == ProfileTopology.SolidPolygon || topology == ProfileTopology.OpenThin,
                 new ComponentFault.OutlineRejected(ring.Count, topology))
-            from w in key.Pm(widthMm) from d in key.Pm(depthMm)
+            from w in Section.Pm(widthMm) from d in Section.Pm(depthMm)
             select (SectionProfile)new Outline(ring, topology, w, d);
     }
 
@@ -597,8 +597,8 @@ public abstract partial record SectionProfile {
                 new ComponentFault.CompositionRejected(parts.Count))
             from membered in guard(parts.ForAll(static p => p.Part is not (SectionProfile.Layered or SectionProfile.Nominal or SectionProfile.BuiltUp)),
                 new ComponentFault.CompositionRejected(parts.Count))
-            from w in key.Pm(Span(parts, static p => (p.DyMm, p.Part.GrossRectangleMm.WidthMm.Value)))
-            from d in key.Pm(Span(parts, static p => (p.DzMm, p.Part.GrossRectangleMm.DepthMm.Value)))
+            from w in Section.Pm(Span(parts, static p => (p.DyMm, p.Part.GrossRectangleMm.WidthMm.Value)))
+            from d in Section.Pm(Span(parts, static p => (p.DzMm, p.Part.GrossRectangleMm.DepthMm.Value)))
             select (SectionProfile)new BuiltUp(parts, w, d);
 
         static double Span(Seq<(SectionProfile Part, double DyMm, double DzMm)> parts, Func<(SectionProfile Part, double DyMm, double DzMm), (double Offset, double Extent)> axis) =>
@@ -614,7 +614,7 @@ public abstract partial record SectionProfile {
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
-file static class Admit {
+file static class Section {
     public static Fin<PositiveMagnitude> Pm(double candidateMm) => FactoryBridge.Accept<PositiveMagnitude>(candidate: candidateMm);
     public static Fin<double> Edge(double candidateMm) =>
         double.IsFinite(candidateMm) && candidateMm >= 0.0
@@ -629,9 +629,9 @@ file static class Admit {
 
 ## [04]-[SECTION_SOLVER]
 
-- Owner: `SectionSolver` — ONE solver replaces every per-family perimeter builder: one generated exhaustive `Switch` over the closed profile axis routes the ONE `new SectionProperties((IProfile)…)` Green's-theorem integral (decompile-verified: both `SectionProperties(IProfile)` and `SectionProperties(ISection)` constructors exist) through the ONE twenty-column `Admit` lift with a `SectionSupplement` topology row; `Curves` the per-arm profile table; `Forms` the per-arm supplement table.
+- Owner: `SectionSolver` — ONE solver replaces every per-family perimeter builder: one generated exhaustive `Switch` over the closed profile axis routes the ONE `new SectionProperties((IProfile)…)` Green's-theorem integral (decompile-verified: both `SectionProperties(IProfile)` and `SectionProperties(ISection)` constructors exist) through the ONE twenty-column `Section` lift with a `SectionSupplement` topology row; `Curves` the per-arm profile table; `Forms` the per-arm supplement table.
 - Cases: `Curves` lowers each arm onto a verified `VividOrange.IProfiles` contract or a typed `Perimeter`. The `Perimeter` path owns multi-void, corrugated, asymmetric-trapezium, triangle, and free-outline geometry; `Trapezium.TopOffsetMm` therefore changes the integrated centroid and moments instead of disappearing through the symmetric `ITrapezoid` contract.
-- Entry: `SectionSolver.Solve(profile, key)` and `SectionSolver.ProfileOf(profile, key)` are two COLUMN READS over the one `SectionGeometry.Of` row; `ProfileOf` is the PROFILE-FAITHFUL RC-outline entry `reinforcement#RC_SECTION` feeds, and because both reads take the SAME outline column, a circular column feeds `ConcreteSection` its true `ICircle`, a trapezoidal member its integrated `Perimeter`, and a cellular unit its void-bearing perimeter whose grouted cells are already filled — so a partly-grouted unit cannot present as solid stock on the RC path while presenting its true net on the elastic one.
+- Entry: `SectionSolver.Solve(profile)` and `SectionSolver.ProfileOf(profile)` are two COLUMN READS over the one `SectionGeometry.Of` row; `ProfileOf` is the PROFILE-FAITHFUL RC-outline entry `reinforcement#RC_SECTION` feeds, and because both reads take the SAME outline column, a circular column feeds `ConcreteSection` its true `ICircle`, a trapezoidal member its integrated `Perimeter`, and a cellular unit its void-bearing perimeter whose grouted cells are already filled — so a partly-grouted unit cannot present as solid stock on the RC path while presenting its true net on the elastic one.
 - Boundary: `SectionSolver.Solve` is the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.SectionSolve(Key, Profile, Section, Elapsed)` tap SUBJECT and the `Projection/benchmarks#BENCH_CORPUS` `BenchKernel.SectionSolve` measured kernel; the tap is a composition-root decorator on the folder hook set at `MaterialsPoint.SectionSolve`, so this owner emits nothing, carries no `Duration`, and references no signal type — the boundary is declared at both ends and instrumented at neither.
 - Boundary: `Forms` states each arm's midline and strip stack; solver-generated value invariants cross the kernel bridge, cross-column coherence fails `SectionIncoherent`, and provider throws retain their exact exceptional `Error` through one `Try.lift`.
 
@@ -695,7 +695,7 @@ public static class SectionSolver {
     public static Fin<IProfile> ProfileOf(SectionProfile profile) => SectionGeometry.Of(profile).Outline();
 
     internal static Fin<ComputedSection> Compose(SectionProfile.BuiltUp b) =>
-        b.Parts.Traverse(p => Solve(p.Part, key).Map(cs => (S: cs, p.DyMm, p.DzMm))).As().Bind(members => {
+        b.Parts.Traverse(p => Solve(p.Part).Map(cs => (S: cs, p.DyMm, p.DzMm))).As().Bind(members => {
             double a = members.Sum(static m => m.S.AreaMm2.Value);
             double cy = members.Sum(static m => m.S.AreaMm2.Value * m.DyMm) / a;
             double cz = members.Sum(static m => m.S.AreaMm2.Value * m.DzMm) / a;
@@ -706,19 +706,19 @@ public static class SectionSolver {
             double zx = Plastic.Modulus(members.Map(static m => (m.S.AreaMm2.Value, m.DzMm, m.S.DepthMm.Value, m.S.ZxMm3.Value)));
             double zy = Plastic.Modulus(members.Map(static m => (m.S.AreaMm2.Value, m.DyMm, m.S.WidthMm.Value, m.S.ZyMm3.Value)));
             return
-                from area in Section(a, key)
-                from ixV in Section(ix, key)
-                from iyV in Section(iy, key)
-                from sx in Section(ix / fibreZ, key)
-                from sy in Section(iy / fibreY, key)
-                from rx in Section(Math.Sqrt(ix / a), key)
-                from ry in Section(Math.Sqrt(iy / a), key)
-                from zxV in Section(zx, key)
-                from zyV in Section(zy, key)
-                from j in Section(members.Sum(static m => m.S.JMm4.Value), key)
-                from avy in Section(members.Sum(static m => m.S.AvyMm2.Value), key)
-                from avz in Section(members.Sum(static m => m.S.AvzMm2.Value), key)
-                from perim in Section(members.Sum(static m => m.S.HeatedPerimeterMm.Value), key)
+                from area in Section(a)
+                from ixV in Section(ix)
+                from iyV in Section(iy)
+                from sx in Section(ix / fibreZ)
+                from sy in Section(iy / fibreY)
+                from rx in Section(Math.Sqrt(ix / a))
+                from ry in Section(Math.Sqrt(iy / a))
+                from zxV in Section(zx)
+                from zyV in Section(zy)
+                from j in Section(members.Sum(static m => m.S.JMm4.Value))
+                from avy in Section(members.Sum(static m => m.S.AvyMm2.Value))
+                from avz in Section(members.Sum(static m => m.S.AvzMm2.Value))
+                from perim in Section(members.Sum(static m => m.S.HeatedPerimeterMm.Value))
                 select new ComputedSection(area, ixV, iyV, sx, sy, rx, ry, zxV, zyV, j, IwMm6: 0.0, avy, avz,
                     DepthMm: b.GrossRectangleMm.DepthMm, WidthMm: b.GrossRectangleMm.WidthMm, HeatedPerimeterMm: perim,
                     AxisDistanceMm: 0.0, ShearCentreYMm: 0.0, ShearCentreZMm: 0.0, MonosymmetryFactor: 0.0);
@@ -735,18 +735,18 @@ public static class SectionSolver {
             }).Run().Bind(static inner => inner)
             .Bind(p => {
                 SectionSupplement s = p.Supplement;
-                return (Section(p.Area, key), Section(p.Ix, key), Section(p.Iy, key),
-                        Section(p.Sx, key), Section(p.Sy, key), Section(p.Rx, key),
-                        Section(p.Ry, key), Section(s.Zx, key), Section(s.Zy, key),
-                        Section(s.J, key))
+                return (Section(p.Area), Section(p.Ix), Section(p.Iy),
+                        Section(p.Sx), Section(p.Sy), Section(p.Rx),
+                        Section(p.Ry), Section(s.Zx), Section(s.Zy),
+                        Section(s.J))
                     .Apply(static (area, ix, iy, sx, sy, rx, ry, zx, zy, jj) => (area, ix, iy, sx, sy, rx, ry, zx, zy, jj))
                     .As()
                     .Bind(head =>
-                        (Section(s.Avy, key), Section(s.Avz, key), Section(p.Perim, key),
+                        (Section(s.Avy), Section(s.Avz), Section(p.Perim),
                          AdmissionSlots.Gate(
                              s.Iw >= 0.0 && double.IsFinite(s.Iw) && double.IsFinite(s.ShearCentreY)
                              && double.IsFinite(s.ShearCentreZ) && double.IsFinite(s.Monosymmetry),
-                             new ComponentFault.SectionIncoherent(key, source.GetType())))
+                             new ComponentFault.SectionIncoherent(source.GetType())))
                         .Apply((avy, avz, perim, _) => new ComputedSection(
                             head.area, head.ix, head.iy, head.sx, head.sy, head.rx, head.ry, head.zx, head.zy, head.jj,
                             IwMm6: s.Iw, avy, avz,
@@ -1297,10 +1297,10 @@ public sealed record ComponentCatalogue(
             .Traverse(family => family.Rows(context).Map(rows => (Family: family, Rows: rows))).As()
         let claims = Claims(seeded)
         let catalogued = Catalogued(seeded)
-        from elected in candidates.Traverse(candidate => Imported(candidate, claims, catalogued, key)).As()
+        from elected in candidates.Traverse(candidate => Imported(candidate, claims, catalogued)).As()
         let rows = elected.Somes()
         let collisions = rows.Count - rows.Map(static r => r.Item.Designation).Distinct().Count
-        from keyed in guard(collisions == 0, new ComponentFault.CatalogueConflict(key, collisions))
+        from keyed in guard(collisions == 0, new ComponentFault.CatalogueConflict(collisions))
         select rows;
 
     static Fin<Option<ComponentRow>> Imported(
@@ -1412,7 +1412,7 @@ The seed-time bag constructors: each `Realization`/`Product`-lane seed page buil
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ComponentDetail {
     public static Fin<(PropertyName, PropertyValue)> Joint(string kind) =>
-        DetailSchema.Realization.Joint(kind, key).Map(static value => (DetailSchema.JointType, value));
+        DetailSchema.Realization.Joint(kind).Map(static value => (DetailSchema.JointType, value));
 
     public static (PropertyName, PropertyValue) Sourced(EvidenceGrade source) =>
         (PropertyCategory.Materials.Row(nameof(EvidenceGrade)), new PropertyValue.Text(source.Token));
@@ -1437,7 +1437,7 @@ public static class ComponentDetail {
 
 - Owner: `ResolvedComponent` the one-hop `(Component, Option<ComputedSection>)` pair; `ComponentResolution` the contract-`ProfileRef` resolver and frozen cache — BYTE-IDENTICAL (`[FROZEN_INVARIANTS]`): only catalogue CONSTRUCTION went `Fin` (`ComponentCatalogue.Of`), bound once at composition; `graph.SectionOf` and every downstream signature are untouched.
 - Cases: a `ProfileRef` keys exactly one `ResolvedComponent`; a component present in BOTH maps joins `Some(section)`, one present only in the row map joins `None` — the contract-honest absence (a `PositiveMagnitude` rejects zero, so a forged all-zero `ComputedSection` is unrepresentable), total over every registered ref. The `Option` mirrors the contract `MaterialComposition.ProfileSet` `Option<SectionProperties>` the projector bakes.
-- Entry: `Build(rows, sections)` is the total build-time join; `Resolve(reference, table, key)` aborts an unregistered reference on `ComponentMissing`, distinct from an earlier section-integral refusal.
+- Entry: `Build(rows, sections)` is the total build-time join; `Resolve(reference, table)` aborts an unregistered reference on `ComponentMissing`, distinct from an earlier section-integral refusal.
 - Boundary: the resolver owns NO section math and NO contract type — the section is DATA captured at the catalogue-build site that owns the geometry, never a `Func<Component, Fin<ComputedSection>>` re-invoked at resolution. `ProfileRef` stays contract-canonical.
 
 ```csharp

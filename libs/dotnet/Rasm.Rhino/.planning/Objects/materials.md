@@ -109,7 +109,7 @@ public abstract partial record MaterialScope {
         Switch(face: static (op, scope) => Admit.Need(scope.Side).Map(_ => (MaterialScope)scope),
             part: static (_, scope) => Fin.Succ<MaterialScope>(scope),
             partFor: static (op, scope) => guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => (MaterialScope)scope),
-            partUnder: static (op, scope) =>
+            partUnder: static (scope) =>
                 from _ in guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
                 from __ in Admit.Need(scope.Program)
                 select (MaterialScope)scope);
@@ -218,11 +218,11 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
                 from policy in Admit.Need(batch.Policy)
                 from thread in Admit.Need(batch.Thread)
                 select (MeshBatch)new Worker(Policy: policy, Thread: thread),
-            dialog: static (key, batch) =>
+            dialog: static (batch) =>
                 from policy in Admit.Need(batch.Policy)
                 from prompt in Admit.Need(batch.Prompt)
                 select (MeshBatch)new Dialog(Policy: policy, Prompt: prompt),
-            styled: static (key, batch) =>
+            styled: static (batch) =>
                 from policy in Admit.Need(batch.Policy)
                 from motion in Acceptance.Input(value: batch.Motion)
                 select (MeshBatch)new Styled(Policy: policy, Style: batch.Style, Motion: motion));
@@ -513,7 +513,7 @@ public abstract partial record MaterialEdit {
                 from motion in edit.Motion.Traverse(value => Acceptance.Input(value: value)).As()
                 select (MaterialEdit)new SetMapping(
                     Channel: channel, Spec: spec, Profile: profile, Motion: motion),
-            buildCache: static (key, edit) =>
+            buildCache: static (edit) =>
                 from kind in Admit.Need(edit.Kind)
                 from policy in Admit.Need(edit.Policy)
                 from ignore in Admit.Need(edit.IgnoreCustom)
@@ -521,7 +521,7 @@ public abstract partial record MaterialEdit {
             dropCache: static (key, edit) => Admit.Need(edit.Kind).Map(_ => (MaterialEdit)edit),
             setCachePolicy: static (key, edit) => Admit.Need(edit.Policy)
                 .Map(policy => (MaterialEdit)new SetCachePolicy(Policy: policy)),
-            setKnob: static (key, edit) =>
+            setKnob: static (edit) =>
                 from _ in guard(edit.Provider != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
                 from name in Acceptance.Text(value: edit.Name)
                 from value in Admit.Need(edit.Value).Bind(item => item.Admit())
@@ -597,7 +597,7 @@ public static class Materials {
                from answer in session.Demand(
                    use: document =>
                        from natives in Objects.Resolve(document: document, target: target)
-                       from folded in active.Read(natives, op)
+                       from folded in active.Read(natives)
                        select folded,
                    needs: [SessionNeed.Read])
                select answer;

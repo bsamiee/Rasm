@@ -872,7 +872,7 @@ public sealed partial class Tessellation : IValidityEvidence {
 
     public Fin<MeshSpace> LowerHull(Context context) =>
         Kind == TessellationKind.Tetrahedralization
-            ? ToMesh(context, key)
+            ? ToMesh(context)
             : Fin.Fail<MeshSpace>(new GeometryFault.UnsupportedTessellationProjection(Kind, typeof(MeshSpace)));
 
     // --- [PRIVATE_KERNELS]

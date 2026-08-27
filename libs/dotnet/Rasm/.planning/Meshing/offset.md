@@ -284,7 +284,7 @@ public static partial class Offsetting {
             oriented.Reverse();
         }
         ClearanceProbe edges = EdgesOf(oriented, policy);
-        return SelfCrossing(edges, policy, key).Bind(crossing => crossing.Match(
+        return SelfCrossing(edges, policy).Bind(crossing => crossing.Match(
             Some: vertex => Fin.Fail<(Polyline Ring, ClearanceProbe Edges)>(
                 new GeometryFault.DegenerateOffset(vertex)),
             None: () => Fin.Succ((oriented, edges))));
@@ -575,10 +575,10 @@ public static partial class Offsetting {
     }
 
     static Fin<Seq<Chain>> Resolve(Seq<Polyline> loops, OffsetPolicy policy) =>
-        loops.TraverseM(loop => SelfCrossing(EdgesOf(loop, policy), policy, key)).As()
+        loops.TraverseM(loop => SelfCrossing(EdgesOf(loop, policy), policy)).As()
             .Bind(crossings => crossings.Exists(static crossing => crossing.IsSome)
                 ? Arrangement.Apply(new ArrangementOp.PlanarOverlay(
-                        loops, Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
+                        loops, Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical))
                     .Bind(static result => result is ArrangementResult.Overlay overlay
                         ? Fin.Succ(overlay.Loops)
                         : Fin.Fail<Seq<Chain>>(new GeometryFault.DegenerateOffset(0)))

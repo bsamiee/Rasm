@@ -1436,7 +1436,7 @@ public static class WriteBackSurface {
         LiveWireRuntime runtime, BindingSpec spec, double canonical, WriteAttempt attempt,
         MonotonicStamp start) =>
         from end in IO.lift(Error.New(key.Message))
-        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end, key))
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end))
         select LiveWireContract.Outcome(
             spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span));
 

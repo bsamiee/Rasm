@@ -77,7 +77,7 @@
 - [01]-[VERSION_VECTOR]: `VersionVector` carries the per-peer op frontier and forms the `Export(Updates(vv))` delta base.
 - [02]-[FRONTIERS]: `Frontiers` carries a DAG cut of op ids for `Checkout`, `Fork`, and `Revert`.
 - [03]-[CURSOR]: `Cursor` carries a text or list position across concurrent edits through `GetCursor` and `GetCursorPos`; `Encode() : byte[]` and the static `Decode(byte[]) : Cursor` are the wire pair a remote-caret channel transports, so a peer publishes its anchor and the receiving replica re-resolves it against its OWN document state rather than against an index it never held.
-- [04]-[VALUE_OR_CONTAINER]: `Get` yields a `LoroValue` leaf or a live container handle, and the wrapper narrows itself — `IsValue()`/`IsContainer()` discriminate, `ContainerType()` reads the kind, `AsValue()` takes the leaf, `AsContainer()` yields the `ContainerId` identity rather than a handle, and `AsLoroText`/`AsLoroMap`/`AsLoroList`/`AsLoroMovableList`/`AsLoroTree`/`AsLoroCounter`/`AsLoroUnknown` each take a handle or null, so a kind narrow is table dispatch, never a cast ladder. Each `As*` narrow LIFTS its own Rust Arc, so the narrowed handle is independent of the wrapper that produced it and the wrapper is a second lifetime the caller frees — `Get(key)?.As*()` strands it, so a scoped resolve binds both.
+- [04]-[VALUE_OR_CONTAINER]: `Get` yields a `LoroValue` leaf or a live container handle, and the wrapper narrows itself — `IsValue()`/`IsContainer()` discriminate, `ContainerType()` reads the kind, `AsValue()` takes the leaf, `AsContainer()` yields the `ContainerId` identity rather than a handle, and `AsLoroText`/`AsLoroMap`/`AsLoroList`/`AsLoroMovableList`/`AsLoroTree`/`AsLoroCounter`/`AsLoroUnknown` each take a handle or null, so a kind narrow is table dispatch, never a cast ladder. Each `As*` narrow LIFTS its own Rust Arc, so the narrowed handle is independent of the wrapper that produced it and the wrapper is a second lifetime the caller frees — `Get()?.As*()` strands it, so a scoped resolve binds both.
 - [05]-[SUBSCRIPTION]: `Subscription` holds a live subscription and detaches it on disposal.
 - [06]-[UNDO_MANAGER]: `new UndoManager(LoroDoc)` owns local undo and redo while skipping remote operations.
 - [07]-[EPHEMERAL_STORE]: `new EphemeralStore(long timeoutMs)` holds TTL-expiring cursor and selection state.
@@ -193,15 +193,15 @@
 
 [LORO_TEXT]:
 - Mutation: `Insert(pos, s)`, `Delete(pos, len)`, `Splice(pos, len, s)`, and `Update(s, UpdateOptions)` apply direct and whole-document diff updates.
-- Marks: `Mark(from, to, key, value)` and `Unmark` edit rich-text marks.
+- Marks: `Mark(from, to, value)` and `Unmark` edit rich-text marks.
 - Position: `GetCursor(pos, Side)` returns a stable cursor.
 - Delta: `ToDelta()` returns `TextDelta[]`, and `ApplyDelta` applies that representation.
 - Encoding: Unicode, `*Utf8`, and `*Utf16` forms compose with `ConvertPos(index, PosType from, PosType to) : uint?`, which answers null for an index outside the container's extent in the declared encoding — so a converted position folds through the same absent arm the null cursor takes and never reaches `GetCursor` as a value.
 
 [LORO_MAP]:
-- Values: `Insert(key, v)`, `Get(key)`, `Delete(key)`, `Keys()`, and `Values()` own key access.
-- Containers: `EnsureMergeableText`/`EnsureMergeableMap`/`EnsureMergeableList`/`EnsureMergeableMovableList`/`EnsureMergeableTree`/`EnsureMergeableCounter(key)` create nested containers idempotently, while `Insert*Container` and `GetOrCreate*Container(key, child)` attach children.
-- Provenance: `GetLastEditor(key)` returns `ulong?` editor identity.
+- Values: `Insert(v)`, `Get()`, `Delete()`, `Keys()`, and `Values()` own key access.
+- Containers: `EnsureMergeableText`/`EnsureMergeableMap`/`EnsureMergeableList`/`EnsureMergeableMovableList`/`EnsureMergeableTree`/`EnsureMergeableCounter()` create nested containers idempotently, while `Insert*Container` and `GetOrCreate*Container(child)` attach children.
+- Provenance: `GetLastEditor()` returns `ulong?` editor identity.
 
 [LORO_LIST]:
 - Values: `Insert(pos, v)`, `Push(v)`, `Pop()`, `Delete(pos, len)`, `Get(index)`, and `ToVec()` own sequence access.
@@ -238,7 +238,7 @@
 - Policy: `SetOnPush(OnPush)`, `SetOnPop(OnPop)`, `SetMaxUndoSteps(uint)`, and `AddExcludeOriginPrefix(string)` bind hooks, depth, and origin exclusion.
 
 [EPHEMERAL_STORE]:
-- State: `EphemeralStore(long).Set(key, value)`, `Get(key) : LoroValue?`, `Encode(key)`, `EncodeAll()`, and `Apply(byte[])` own cursor and selection presence; `Keys() : string[]` and `GetAllStates() : Dictionary<string, LoroValue>` read the whole channel in one pass, so a per-peer overlay projects every slot without a probe per key, and key PREFIXES partition one store between unrelated presence concerns.
+- State: `EphemeralStore(long).Set(value)`, `Get() : LoroValue?`, `Encode()`, `EncodeAll()`, and `Apply(byte[])` own cursor and selection presence; `Keys() : string[]` and `GetAllStates() : Dictionary<string, LoroValue>` read the whole channel in one pass, so a per-peer overlay projects every slot without a probe per key, and key PREFIXES partition one store between unrelated presence concerns.
 - Expiry: `EphemeralStore.RemoveOutdated()` returns VOID and evicts expired state; `Awareness` carries a returning sweep — `Awareness.RemoveOutdated() : ulong[]` answers the evicted peer ids — and both `Awareness.GetAllStates() : Dictionary<ulong, PeerInfo>` and the store's own reads KEEP a lapsed entry until that sweep runs, so a roster or overlay read sweeps first. `PeerInfo(LoroValue State, int Counter, long Timestamp)`.
 - Feed: `Subscribe(EphemeralSubscriber)` and `SubscribeLocalUpdate(LocalEphemeralListener)` emit presence changes whose encoded bytes broadcast to peers; `EphemeralSubscriber` is `void OnEphemeralEvent(EphemeralStoreEvent)` and the payload is `EphemeralStoreEvent(EphemeralEventTrigger By, string[] Added, string[] Removed, string[] Updated)` — the trigger case rides beside the changed keys — while `LocalEphemeralListener` is `void OnEphemeralUpdate(byte[])`, the broadcast-bytes twin of `LocalUpdateCallback`.
 
@@ -301,7 +301,7 @@
 
 [RICH_TEXT]:
 - Delta: `LoroText.ToDelta()` and `ApplyDelta(TextDelta[])` bind the Quill-shaped `AvaloniaEdit` document representation.
-- Marks: `Mark(from, to, key, value)` carries inline style spans.
+- Marks: `Mark(from, to, value)` carries inline style spans.
 - Encoding: `ConvertPos` maps Avalonia UTF-16 offsets to Loro Unicode indices across the `Bytes`, `Unicode`, and `Utf16` `PosType` cases.
 
 [STRUCTURED_EDITING]:

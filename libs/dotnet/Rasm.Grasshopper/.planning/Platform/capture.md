@@ -579,7 +579,7 @@ public static class PaintProof {
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
                from ties in rows.TraverseM(row => row.Fact.Fact switch {
                    GhFact.CanvasCase { Signal: var signal } when signal == CanvasSignal.Draw =>
-                       FirstTie(frames, row.Sequence, row.Fact.Stamp, clock, window, op),
+                       FirstTie(frames, row.Sequence, row.Fact.Stamp, clock, window),
                    _ => Fin.Succ(Option<CaptureTie>.None),
                }).As()
                select ties.Choose(identity).Strict();

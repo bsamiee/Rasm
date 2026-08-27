@@ -209,11 +209,11 @@ public static class MaterialPropertyCatalogue {
         PropertyEvidence.Of("vendor", EvidenceGrade.Import, Some("astm f1667 s1 / astm f1575 via nds 12.3.1b"));
 
     internal static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row) =>
-        Strength(row.Mechanical, key).Bind(strength =>
-            (Mechanical(row, strength, key).ToValidation(),
-             Thermal(row, key).ToValidation(),
+        Strength(row.Mechanical).Bind(strength =>
+            (Mechanical(row, strength).ToValidation(),
+             Thermal(row).ToValidation(),
              row.Acoustic.Traverse(a =>
-                 Acoustic.Of(a.Absorption, a.Sri, key, flowResistivity: a.FlowResistivityPaSPerM2, lossFactor: a.LossFactor)
+                 Acoustic.Of(a.Absorption, a.Sri, flowResistivity: a.FlowResistivityPaSPerM2, lossFactor: a.LossFactor)
                      .Map(spectrum => Seq(MaterialPropertySet.OfAcoustic(spectrum, row.Evidence))).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Physics.Fire.Traverse(f =>
@@ -221,20 +221,20 @@ public static class MaterialPropertyCatalogue {
                   FactoryBridge.Accept<EuroclassSuffix>(f.Suffix).ToValidation(),
                   (f.LoadBearingMinutes.IsNone && f.IntegrityMinutes.IsNone && f.InsulationMinutes.IsNone
                       ? Fin.Succ(FireResistance.None)
-                      : FireResistance.Of(f.LoadBearingMinutes, f.IntegrityMinutes, f.InsulationMinutes, key)).ToValidation())
+                      : FireResistance.Of(f.LoadBearingMinutes, f.IntegrityMinutes, f.InsulationMinutes)).ToValidation())
                      .Apply((reaction, suffix, resistance) => Seq(MaterialPropertySet.OfFire(reaction, suffix, resistance, row.Evidence))).As()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Physics.DampingRatio.Traverse(zeta =>
-                 MaterialPropertySet.OfDamping(zeta, Option<(double AlphaPerS, double BetaS)>.None, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfDamping(zeta, Option<(double AlphaPerS, double BetaS)>.None, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Hygrothermal.Traverse(h =>
-                 MaterialPropertySet.OfHygrothermal(h.Porosity, h.W80KgM3, h.WfKgM3, h.AValueKgM2SqrtS, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfHygrothermal(h.Porosity, h.W80KgM3, h.WfKgM3, h.AValueKgM2SqrtS, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Optical.Traverse(o =>
-                 MaterialPropertySet.OfOptical(o.VisibleT, o.VisibleRf, o.VisibleRb, o.SolarT, o.SolarRf, o.SolarRb, o.IrT, o.IrEf, o.IrEb, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfOptical(o.VisibleT, o.VisibleRf, o.VisibleRb, o.SolarT, o.SolarRf, o.SolarRb, o.IrT, o.IrEf, o.IrEb, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Electrical.Traverse(e =>
-                 MaterialPropertySet.OfElectrical(e.ResistivityOhmM, e.RelativePermittivity, e.DielectricStrengthVPerM, e.MagneticPermeabilityRelative, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfElectrical(e.ResistivityOhmM, e.RelativePermittivity, e.DielectricStrengthVPerM, e.MagneticPermeabilityRelative, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())))
             .Apply(static (mechanical, thermal, acoustic, fire, damping, hygrothermal, optical, electrical) =>
                 Seq(mechanical, thermal) + acoustic + fire + damping + hygrothermal + optical + electrical).As()
@@ -242,20 +242,20 @@ public static class MaterialPropertyCatalogue {
 
     static Fin<MaterialPropertySet> Mechanical(MaterialPropertyRow row, StrengthTriple strength) =>
         from density in Measure(Published.Of(UnitsNet.Density.FromKilogramsPerCubicMeter(row.Physics.DensityKgM3), AuthoredBand, row.Evidence),
-                                static q => q.KilogramsPerCubicMeter, QuantityRow.Density, key)
-        from youngs in Measure(strength.Youngs, static q => q.Pascals, QuantityRow.Pressure, key)
-        from proof in Measure(strength.Yield, static q => q.Pascals, QuantityRow.Pressure, key)
-        from ultimate in Measure(strength.Ultimate, static q => q.Pascals, QuantityRow.Pressure, key)
-        from set in MaterialPropertySet.OfMechanical(density, youngs, proof, ultimate, row.Physics.PoissonsRatio, row.Physics.ExpansionPerK, key, strength.Evidence)
+                                static q => q.KilogramsPerCubicMeter, QuantityRow.Density)
+        from youngs in Measure(strength.Youngs, static q => q.Pascals, QuantityRow.Pressure)
+        from proof in Measure(strength.Yield, static q => q.Pascals, QuantityRow.Pressure)
+        from ultimate in Measure(strength.Ultimate, static q => q.Pascals, QuantityRow.Pressure)
+        from set in MaterialPropertySet.OfMechanical(density, youngs, proof, ultimate, row.Physics.PoissonsRatio, row.Physics.ExpansionPerK, strength.Evidence)
         select set;
 
     static Fin<MaterialPropertySet> Thermal(MaterialPropertyRow row) =>
         from conductivity in Measure(Published.Of(ThermalConductivity.FromWattsPerMeterKelvin(row.Physics.ConductivityWMK), AuthoredBand, row.Evidence),
-                                     static q => q.WattsPerMeterKelvin, QuantityRow.ThermalConductivity, key)
+                                     static q => q.WattsPerMeterKelvin, QuantityRow.ThermalConductivity)
         from specificHeat in Measure(Published.Of(SpecificEntropy.FromJoulesPerKilogramKelvin(row.Physics.SpecificHeatJKgK), AuthoredBand, row.Evidence),
-                                     static q => q.JoulesPerKilogramKelvin, QuantityRow.SpecificEntropy, key)
+                                     static q => q.JoulesPerKilogramKelvin, QuantityRow.SpecificEntropy)
         from unitThickness in QuantityRow.HeatTransferCoefficient.OfNative(row.Physics.ConductivityWMK)
-        from set in MaterialPropertySet.OfThermal(conductivity, specificHeat, unitThickness, VapourFactor(row.Physics.Vapour), key, row.Evidence)
+        from set in MaterialPropertySet.OfThermal(conductivity, specificHeat, unitThickness, VapourFactor(row.Physics.Vapour), row.Evidence)
         select set;
 
     static double VapourFactor(VapourResistance vapour) => vapour.Switch(
@@ -265,7 +265,7 @@ public static class MaterialPropertyCatalogue {
     static Fin<MeasureValue> Measure<TQuantity>(Published<TQuantity> datum, Func<TQuantity, double> si, QuantityRow row) where TQuantity : IQuantity =>
         row.OfNative(si(datum.Value.CentralValue)).Bind(measure => datum.Kind == UncertaintyKind.Exact
             ? Fin.Succ(measure)
-            : datum.Band(si, row.Scale, key).Bind(band => measure.WithUncertainty(band, key)));
+            : datum.Band(si, row.Scale).Bind(band => measure.WithUncertainty(band)));
 
     static Fin<StrengthTriple> Strength(MechanicalSource source) =>
         source.Switch(
@@ -647,7 +647,7 @@ public static class DurabilityCatalogue {
                 ? $"<durability-mix-unprinted:{cement.Key}:{waterCementRatio:R}>"
                 : $"<durability-mix-out-of-domain:{cement.Key}:{waterCementRatio:R}:{MinWaterCementRatio:R}..{MaxWaterCementRatio:R}>"))
             .Bind(mix => MaterialPropertySet.OfDurability(
-                carbonationRateMmPerSqrtYear, mix.DrcmE12 * DrcmScaleToSi, cement.AlphaMean, key, MixTable));
+                carbonationRateMmPerSqrtYear, mix.DrcmE12 * DrcmScaleToSi, cement.AlphaMean, MixTable));
 }
 ```
 
@@ -764,21 +764,21 @@ public static class MixDesign {
         }.ToFrozenDictionary();
 
     public static Fin<MixProportion> Proportion(MixSpec spec) =>
-        from water in Cell(spec, key)
+        from water in Cell(spec)
         from _floor in spec.TargetMpa >= spec.Exposure.MinFckMpa
             ? Fin.Succ(unit)
-            : new ElementFault.ValueRejected(key, $"<mix-strength-below-exposure:{spec.Exposure.Key}:{spec.TargetMpa:R}:{spec.Exposure.StrengthClass}>")
-        from wcMethod in InterpolatedWc(spec, key)
+            : new ElementFault.ValueRejected($"<mix-strength-below-exposure:{spec.Exposure.Key}:{spec.TargetMpa:R}:{spec.Exposure.StrengthClass}>")
+        from wcMethod in InterpolatedWc(spec)
         let wcApplied = spec.Exposure.MaxWc.Match(Some: cap => Math.Min(wcMethod, cap), None: () => wcMethod)
         let cementMethod = water.KgM3 / wcApplied
         let cement = spec.Exposure.MinCementKgM3.Match(Some: floor => Math.Max(cementMethod, floor), None: () => cementMethod)
-        from coarseShare in InterpolatedCoarse(spec, key)
+        from coarseShare in InterpolatedCoarse(spec)
         let coarse = coarseShare * spec.CoarseDryRoddedKgM3
         let fineVolume = 1.0 - (water.KgM3 / WaterDensityKgM3) - (cement / (spec.CementSpecificGravity * WaterDensityKgM3))
             - (coarse / (spec.CoarseSpecificGravity * WaterDensityKgM3)) - water.AirFraction
         from fine in fineVolume > 0.0
             ? Fin.Succ(fineVolume * spec.FineSpecificGravity * WaterDensityKgM3)
-            : new ElementFault.ValueRejected(key, $"<mix-overconstrained:{spec.Exposure.Key}:{fineVolume:R}>")
+            : new ElementFault.ValueRejected($"<mix-overconstrained:{spec.Exposure.Key}:{fineVolume:R}>")
         select new MixProportion(
             CementKgM3: cement, WaterKgM3: water.KgM3, FineKgM3: fine, CoarseKgM3: coarse,
             AirFraction: water.AirFraction, WaterCement: water.KgM3 / cement,

@@ -922,7 +922,7 @@ public static class MenuLinks {
                 address.Item,
                 (_, live) => ignore(observer.Guard(
                     project: () => Try.lift(() => sync(address)
-                        .TraverseM(delta => Apply(live, delta, op))
+                        .TraverseM(delta => Apply(live, delta))
                         .As()
                         .Map(static _ => unit)).Run().Bind(static inner => inner))))))));
     }
@@ -1015,7 +1015,7 @@ internal sealed class PanelSectionLeaf : EtoCollapsibleSection3 {
     private readonly Action<Error> report;
 
     internal PanelSectionLeaf(PanelSectionSpec spec, Control content, Action<Error> report) =>
-        (this.spec, this.report, this.op, Content) = (spec, report, op, content);
+        (this.spec, this.report, this.op, Content) = (spec, report, content);
 
     public override LocalizeStringPair Caption => new(spec.Caption.English, spec.Caption.Resolve());
     public override int SectionHeight => spec.Height.Value;
@@ -1066,7 +1066,7 @@ public sealed class PanelSectionMount : IDisposable {
     private readonly Atom<MountState> state = Atom<MountState>(new MountState.Live());
 
     internal PanelSectionMount(Control host, Seq<ElementMount> contents, Ring<Error> faults) =>
-        (Host, this.contents, this.faults, this.op) = (host, contents, faults, op);
+        (Host, this.contents, this.faults, this.op) = (host, contents, faults);
 
     public Control Host { get; }
 

@@ -47,12 +47,13 @@ public sealed partial class VerdictPort {
             : Fin.Fail<InputVerdict>(new KernelFault.InvalidInput(Axis: Some(nameof(Response))));
 
     private static readonly Lazy<System.Collections.Frozen.FrozenDictionary<InputVerdict, VerdictPort>> Rows =
-        new(static () => {
-            var rows = Items.ToFrozenDictionary(static row => row.Verdict, static row => row);
-            return InputVerdict.Items.All(rows.ContainsKey)
-                ? rows
-                : throw new InvalidOperationException("VerdictPort rows drifted from the kernel InputVerdict roster.");
-        });
+        new(static () => Items.ToFrozenDictionary(static row => row.Verdict, static row => row));
+
+    internal static Fin<Unit> RosterProof() =>
+        InputVerdict.Items.All(Rows.Value.ContainsKey)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
+                Label: nameof(VerdictPort), Requirement: "a port row for every kernel InputVerdict"));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -286,7 +287,7 @@ public sealed class EdgeResize {
 - Owner: `MenuMoment` — the populate-raise evidence; `MenuMount` — the synchronous population hook over `PopulateContextMenu`. Filler returns `Seq<MenuNode>` — the KERNEL menu vocabulary — and the hook resolves each node through the runtime's `IntentTable` into the host-supplied live menu inside the raise, so authoring rides the one kernel tree and this page keeps only the raise-and-project residue the host forces (the menu must fill before the handler returns).
 - Law: whether ANY context menu opens is `Canvas/canvas.md`'s `ActionGate` policy; a filler that opens its own menu beside the host's is the double-menu defect.
 - Law: the filler runs through `Try.lift` and its faults park on the mount's cell; a refused node projection muted-drops that node and the rest of the menu fills — the per-row producer posture.
-- Boundary: dwell facts remain `Shell/events.md`; tooltip content remains `Shell/chrome.md`; dwell timing writes ride `CanvasOperator.Apply(new CanvasOp.DwellCase(delay), clock, key)`.
+- Boundary: dwell facts remain `Shell/events.md`; tooltip content remains `Shell/chrome.md`; dwell timing writes ride `CanvasOperator.Apply(new CanvasOp.DwellCase(delay), clock)`.
 - Packages: Grasshopper2 (`FlexControl.PopulateContextMenu`, `PopulateContextMenuEventArgs`), `Rasm.Interaction` (`MenuNode`, `IntentTable`), Eto.Forms (`ContextMenu`, `MouseEventArgs`), `Rasm.Domain`, `Shell/session.md`.
 - Growth: a new synchronous host moment is one moment record with one mount; observation-shaped events stay `Shell/events.md` rows.
 

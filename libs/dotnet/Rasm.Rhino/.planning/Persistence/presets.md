@@ -618,7 +618,7 @@ public static class Presets {
 
     private static Fin<Unit> Apply(RhinoDoc document, PresetOperation operation) =>
         operation.Switch<(RhinoDoc Document), Fin<Unit>>(
-            state: (document, key),
+            state: (document),
             putCPlaneCase: static (state, put) =>
                 from native in put.Model.Native()
                 from index in Try.lift(() => Fin.Succ(value: state.Document.NamedConstructionPlanes.Add(native))).Run().Bind(static inner => inner)
@@ -724,7 +724,7 @@ public static class Presets {
 
     private static Fin<ResourceId> Resolve(NamedPositionTable table, PositionRef position) =>
         from candidate in position.Switch<(NamedPositionTable Table), Fin<Guid>>(
-            state: (table, key),
+            state: (table),
             idCase: static (_, address) => Fin.Succ(address.Id.Value),
             nameCase: static (state, named) => Try.lift(() => Fin.Succ(value: state.Table.Id(named.Name.Value))).Run().Bind(static inner => inner))
         from present in Try.lift(() => Fin.Succ(value: table.Ids.Contains(candidate))).Run().Bind(static inner => inner)

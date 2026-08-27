@@ -15,7 +15,7 @@
 
 ## [02]-[PAYLOAD]
 
-`Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads at THIRTEEN cases. The seven single-field geometry wrappers collapse onto ONE `Shape` case whose payload is the kernel form recovery's own answer — `Lease<GeometryBase>`, owned by the outcome's consumer — because every producer already erased the static shape type into `Func<Fin<Acquired>>` and no consumer dispatched on it. NAMED LOSS: the per-shape static payload type; witness: `ShapeAsk.Segment` projected `new Acquired.Segment(Line)` and now projects `value.GeometryForm(key)` into `Shape`, and the one former consumer read the outcome's payload erased either way. `AcquireTerminal` preserves every non-fault control terminal, including native timeout. `DragCensus` (RENAMED from `DragEvidence` — the kernel `Interaction/input` owns `DragEvidence` as the pointer-slop fact and one assembly resolves bare names, E-R31) detaches the drag buffer's object, grip, and owner census with its measured extent and applied-pose count, so the host buffer itself dies inside the drive.
+`Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads at THIRTEEN cases. The seven single-field geometry wrappers collapse onto ONE `Shape` case whose payload is the kernel form recovery's own answer — `Lease<GeometryBase>`, owned by the outcome's consumer — because every producer already erased the static shape type into `Func<Fin<Acquired>>` and no consumer dispatched on it. NAMED LOSS: the per-shape static payload type; witness: `ShapeAsk.Segment` projected `new Acquired.Segment(Line)` and now projects `value.GeometryForm()` into `Shape`, and the one former consumer read the outcome's payload erased either way. `AcquireTerminal` preserves every non-fault control terminal, including native timeout. `DragCensus` (RENAMED from `DragEvidence` — the kernel `Interaction/input` owns `DragEvidence` as the pointer-slop fact and one assembly resolves bare names, E-R31) detaches the drag buffer's object, grip, and owner census with its measured extent and applied-pose count, so the host buffer itself dies inside the drive.
 
 `Acquired.Distance` pairs its magnitude with the kernel `ModelUnit` read off the document at parse time — the pairing `Document/session.md`'s `UnitText.LengthValueCase` already detaches on. An `AcquireOutcome` outlives its acquire window, so a `UnitRegime` change between acquisition and use re-reads a bare magnitude in a regime that no longer produced it; consumers re-entering the value rescale through `ModelUnit.ScaleTo`, the branch's one scale owner. `Acquired.Angle` carries no regime: radians ARE the canonical measure its name spells, `AngleGrammar` owns the degree/radian dialect on the TEXT side alone, and a regime column there names a fact no document holds.
 
@@ -119,12 +119,12 @@ public sealed record RulePlan<TRule, TSlot>(Seq<TRule> Rules)
                from __ in guard(
                    slotted.Map(static rule => rule.SlotKey).Distinct().Count == slotted.Count,
                    new KernelFault.InvalidInput())
-               from ___ in rules.TraverseM(rule => admit(rule, key)).As()
+               from ___ in rules.TraverseM(rule => admit(rule)).As()
                select new RulePlan<TRule, TSlot>(Rules: rules);
     }
 
     public Fin<Unit> Apply<TTarget>(TTarget target, Func<TRule, TTarget, Fin<Unit>> apply) =>
-        Rules.TraverseM(rule => apply(rule, target, key)).As().Map(static _ => unit);
+        Rules.TraverseM(rule => apply(rule, target)).As().Map(static _ => unit);
 
     public bool Holds(Func<TRule, bool> probe) => Rules.Exists(probe);
 }
@@ -1094,7 +1094,7 @@ public static class Acquisition {
             create: static () => new GetPoint(),
             prepare: getter => intent.Point.Plan.Apply(
                 target: getter, apply: static (rule, target, k) => rule.Apply(target, k)),
-            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging, op).Bind(callbacks => {
+            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging).Bind(callbacks => {
                 GetResult raw;
                 using (callbacks) {
                     raw = getter.Get(
@@ -1241,17 +1241,17 @@ internal static class GetterDrive {
                      return Fin.Succ(unit);
                  }).Run().Bind(static inner => inner)
                  from __ in request.Default
-                     .TraverseM(value => value.Apply(getter, op))
+                     .TraverseM(value => value.Apply(getter))
                      .As()
                      .Map(static _ => unit)
-                 from ___ in request.Accept.Apply(getter, op)
+                 from ___ in request.Accept.Apply(getter)
                  from ____ in prepare(getter)
-                 from outcome in Dragged(request.Drag, op, dragging =>
+                 from outcome in Dragged(request.Drag, dragging =>
                      dragging.Map(buffer => buffer.Bind(getter)).IfNone(Fin.Succ(unit))
                          .Bind(_ => request.Options.Match(
-                             Some: options => options.Bind(getter, op),
+                             Some: options => options.Bind(getter),
                              None: static () => Fin.Succ(new OptionLease())))
-                         .Bind(lease => Cycle(request, getter, dragging, receive, project, lease, op)
+                         .Bind(lease => Cycle(request, getter, dragging, receive, project, lease)
                              .Settled(held: Seq(lease), release: held => held.Release())))
                  select outcome)
                 .Settled(
@@ -1263,7 +1263,7 @@ internal static class GetterDrive {
     private static Fin<AcquireOutcome> Dragged(
         Option<DragSelection> plan,
         Func<Option<DragBuffer>, Fin<AcquireOutcome>> body) => plan.Match(
-        Some: row => DragBuffer.Of(row, op).Bind(buffer =>
+        Some: row => DragBuffer.Of(row).Bind(buffer =>
             body(Some(buffer))
                 .Settled(
                     held: Seq(buffer),
@@ -1282,16 +1282,16 @@ internal static class GetterDrive {
             .FoldUntil(
                 Fin.Succ(new GetterCycle(Choices: [], Terminal: None)),
                 (state, _) => state.Bind(cycle => receive(getter, dragging).Bind(raw => raw is GetResult.Option
-                    ? lease.Selected(getter, op).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
+                    ? lease.Selected(getter).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
                     : Fin.Succ(cycle with { Terminal = Some(raw) }))),
                 pair => pair.State.Match(Succ: static cycle => cycle.Terminal.IsSome, Fail: static _ => true))
             .Bind(cycle => cycle.Terminal.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(AcceptPlan.OptionBudget))))
                 .Bind(raw => TerminalRow.TryGet(raw, out TerminalRow? row)
-                    ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging, op)
+                    ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging)
                     : raw is GetResult.NoResult or GetResult.Miss
                         ? Fin.Fail<AcquireOutcome>(new KernelFault.InvalidResult(Detail: Some(raw.ToString())))
                         : project(getter, raw).Bind(payload => Sealed(
-                            new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging, op))));
+                            new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging))));
 
     private static Fin<AcquireOutcome> Sealed(
         AcquireTerminal terminal,
@@ -1335,13 +1335,13 @@ internal sealed class DragBuffer : IDisposable {
             .Bind(_ => selection.GetMultiple(plan.Selection.Minimum, plan.Selection.Maximum) is GetResult.Object
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some(nameof(DragSelection.Selection)))))
-            .Bind(_ => Minted(selection, plan.Scope, op));
+            .Bind(_ => Minted(selection, plan.Scope));
     }).Run().Bind(static inner => inner);
 
     private static Fin<DragBuffer> Minted(GetObject selection, DragScope scope) {
         TransformObjectList buffer = new();
         return Admit.Confirm(buffer.AddObjects(selection, scope.Grips) > 0)
-            .Map(_ => new DragBuffer(buffer, scope, op))
+            .Map(_ => new DragBuffer(buffer, scope))
             .Rollback(release: () => Try.lift(() => { buffer.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner));
     }
 

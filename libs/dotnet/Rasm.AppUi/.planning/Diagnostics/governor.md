@@ -70,14 +70,18 @@ public sealed partial class QualityTier {
     public PassCut Cut { get; }
 
     private static readonly Lazy<(FrozenDictionary<int, QualityTier> ByRank, int Floor, int Ceiling)> Ranks =
-        new(static () => {
-            FrozenDictionary<int, QualityTier> byRank = Items.ToFrozenDictionary(static row => row.Rank);
-            int floor = Items.Min(static row => row.Rank);
-            int ceiling = Items.Max(static row => row.Rank);
-            return ceiling - floor + 1 == Items.Count
-                ? (byRank, floor, ceiling)
-                : throw new InvalidOperationException($"QualityTier ranks must run contiguously: {floor}..{ceiling} over {Items.Count} rows.");
-        });
+        new(static () => (
+            Items.ToFrozenDictionary(static row => row.Rank),
+            Items.Min(static row => row.Rank),
+            Items.Max(static row => row.Rank)));
+
+    public static Fin<Unit> Proof() =>
+        Ranks.Value.Ceiling - Ranks.Value.Floor + 1 == Items.Count
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.OutOfRange(
+                Label: nameof(QualityTier),
+                Scalar: Items.Count,
+                Requirement: $"contiguous ranks {Ranks.Value.Floor}..{Ranks.Value.Ceiling}"));
 
     public static QualityTier Ranked(int rank) =>
         Ranks.Value.ByRank[Math.Clamp(rank, Ranks.Value.Floor, Ranks.Value.Ceiling)];

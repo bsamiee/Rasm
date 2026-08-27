@@ -334,7 +334,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     }
 
     private Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel) =>
-        HostUnits.Of(access, key).Map(units => new ProcessScope {
+        HostUnits.Of(access).Map(units => new ProcessScope {
             Access = access,
             Spec = spec,
             Units = units,
@@ -343,7 +343,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
         });
 
     private Fin<Seq<ProcessScope>> Scopes(IDataAccess[] iterations, CancellationToken cancel) =>
-        toSeq(iterations).TraverseM(access => Scope(access, cancel, key)).As();
+        toSeq(iterations).TraverseM(access => Scope(access, cancel)).As();
 
     private static Fin<Unit> Stage(
         Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> stage,
@@ -376,7 +376,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     private void ProcessHost(IDataAccess[] iterations, CancellationToken token) => base.Process(iterations, token);
 
     private Unit CustomIterations(IDataAccess[] iterations, CancellationToken token, IterationPolicy.Custom policy) =>
-        Scopes(iterations, token, key).Match(
+        Scopes(iterations, token).Match(
             Succ: scopes => Complete(scopes, Try.lift(() => policy.Step(scopes, token)).Run().Bind(static inner => inner)),
             Fail: fault => Capture(fault, None));
 

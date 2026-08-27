@@ -25,7 +25,7 @@ Every multi-column admission ACCUMULATES: the `Of*` smart-constructors run each 
 
 - Owner: `MaterialId` the `[ValueObject<string>]` material-identity key a `Material` node carries; `MaterialComposition` the `[Union]` type-level material-set structure; `MaterialLayer` the layer row (`MaterialId` + `Dimension`-length `Thickness` + name + `Priority`/`Category`/`Ventilated`); `MaterialConstituent` the constituent row (`MaterialId` + category + fraction + `PartName`); `MaterialProfile` the compound-profile row (`MaterialId` + its own `ProfileRef` + `Priority`/`Category` + the reference-axis `Offsets` vector); `ProfileRef` the neutral section-profile reference (`Standard` + `Designation` + content key) a `Rasm.Materials` projector resolves one-hop to the VividOrange section-property catalogue; `SectionProperties` the neutral baked section algebra over `Properties/quantity#MEASURE_VALUE` columns.
 - Cases: `Single` (one homogeneous `MaterialId` — `IfcMaterial`) · `LayerSet` (a `Seq<MaterialLayer>` of material-plus-thickness layers, walls/slabs/IGUs — `IfcMaterialLayerSet`) · `ProfileSet` (a `Seq<MaterialProfile>` of per-row material-plus-profile rows beside the set-level `Composite` outline and one baked section, members and built-up compounds — `IfcMaterialProfileSet`) · `ConstituentSet` (a `Seq<MaterialConstituent>` of fraction-weighted keyword-tagged components, composites — `IfcMaterialConstituentSet`); the closed IFC material-definition family (`IfcMaterialList` deprecated and never admitted), a composition selecting how the material resolves.
-- Entry: `MaterialComposition.OfSingle(material)` is the TOTAL constructor (no admission invariant — the `MaterialPropertySet.OfAcoustic`/`OfFire` total shape, never a `Fin` wrapper over a total op); `OfProfileSet` owns both profile modalities on the INPUT SHAPE — `(material, profile)` the total single-row mint every authored member takes, `(profiles, key, composite)` the `Fin<T>` compound admission an IFC ingest folds; `OfLayerSet(layers, key)` and `OfConstituentSet(constituents, key)` are `Fin<T>` admissions using kernel scalar refusal for non-positive thickness and bounded priorities/fractions, while empty sets, offset arity, and fraction normalization remain `ElementFault.ValueRejected` semantics; every factory is `Of`-prefixed so the name never collides with the same-named nested case type (the `MaterialPropertySet.Of*` convention — a bare `Single(...)` static method and a nested `Single` case are one declaration space, a compile collision). `Materials` projects the assigned `MaterialId` set, `PrimaryMaterial` the appearance/structural-default key, `TotalThickness` (a `LayerSet` read) the layer buildup depth, and `ProfileSet.Primary`/`Material`/`Profile` the IFC-ordered head-row reads.
+- Entry: `MaterialComposition.OfSingle(material)` is the TOTAL constructor (no admission invariant — the `MaterialPropertySet.OfAcoustic`/`OfFire` total shape, never a `Fin` wrapper over a total op); `OfProfileSet` owns both profile modalities on the INPUT SHAPE — `(material, profile)` the total single-row mint every authored member takes, `(profiles, composite)` the `Fin<T>` compound admission an IFC ingest folds; `OfLayerSet(layers)` and `OfConstituentSet(constituents)` are `Fin<T>` admissions using kernel scalar refusal for non-positive thickness and bounded priorities/fractions, while empty sets, offset arity, and fraction normalization remain `ElementFault.ValueRejected` semantics; every factory is `Of`-prefixed so the name never collides with the same-named nested case type (the `MaterialPropertySet.Of*` convention — a bare `Single(...)` static method and a nested `Single` case are one declaration space, a compile collision). `Materials` projects the assigned `MaterialId` set, `PrimaryMaterial` the appearance/structural-default key, `TotalThickness` (a `LayerSet` read) the layer buildup depth, and `ProfileSet.Primary`/`Material`/`Profile` the IFC-ordered head-row reads.
 - Auto: the three invariant-bearing SET cases carry a PRIVATE constructor and an internal `Seed` re-hydration escape (the `Relations/relation#EDGE_ALGEBRA` `MaterialUsage.ProfileSet` and `Composition/acoustic#ACOUSTIC_FOLDS` `Acoustic` admission shape), so the only public admission is the `Of` factory and an empty/degenerate set is UNREPRESENTABLE — `PrimaryMaterial`'s `OrderByDescending(...).First()` and `ProfileSet.Primary`'s index-zero read are then total, never a latent throw on the empty set a public positional ctor admits; `Materials` dispatches the generated `Switch` projecting the `MaterialId` set each case carries, a compound `ProfileSet` reporting EVERY row's material; `OfLayerSet` guards each `MaterialLayer.Thickness` positive (the SI metre magnitude of the `Properties/quantity#MEASURE_VALUE` length) and each row priority in `[0,100]`; `OfProfileSet` guards the row set non-empty, each row priority in range, and each offset vector within the IFC `LIST[1:2]` arity; `OfConstituentSet` guards each fraction finite and the fraction sum to one within tolerance so a composite mixture normalizes once at construction (the `Rasm.Compute` `AssemblyAggregator` rule-of-mixtures reads the normalized fractions and never re-guards them) — every guard an independent accumulating slot, so one malformed datasheet reports every offending row and column at once.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[ValueObject<string>]`), Generator.Equals (`[Equatable]`/`[OrderedEquality]`/`[StringEquality]`), LanguageExt.Core (`Seq`/`Fin`/`Option`), `Projection/address#CONTENT_ADDRESS` (`CanonicalWriter`, `ContentAddress.Of`), `Rasm` (`Rasm/Domain/validation#ADMISSION_SLOTS`).
 - Growth: a temperature-dependent property is one `Option<SampledCurve>` column beside its steady-state scalar; the IFC material-definition family is closed at four cases; a new layer/constituent/profile attribute is one row column; a new structural or fire section column is one `MeasureValue` field the Materials resolver fills and a Compute check reads — appended AFTER `Form` in the canonical order, never re-ordered; a new section catalogue is one `ProfileRef.Standard` token; a new evidence axis is one `PropertyEvidence` column + its `CaseBytes` write in the same edit; imported material `Pset` rows are NOT columns here — each lands as a neutral `PROPERTY_BAG` node under `EvidenceGrade.Import` bound by one `Assign.PropertyDefinition` edge, the typed family staying FULL-VECTOR and authored-only.
@@ -157,7 +157,7 @@ public readonly partial record struct SectionProperties(
  static readonly Dimension WarpingDim = Dimension.Create(6, 0, 0, 0, 0, 0, 0);
 
  static Validation<Error, MeasureValue> Column(double valueMm, double factor, QuantityType type, Dimension dimension, string name, bool strict) =>
-  (strict ? In(valueMm, Band.Positive, name, key) : Finite(key, (name, valueMm)).Map(_ => valueMm))
+  (strict ? In(valueMm, Band.Positive, name) : Finite((name, valueMm)).Map(_ => valueMm))
    .Bind(value => MeasureValue.OfSi(type, dimension, value * factor).ToValidation());
 
  static class Millimetre {
@@ -260,16 +260,16 @@ public sealed partial record SampledCurve {
  public static Fin<SampledCurve> Of(ReadOnlyMemory<double> axis, ReadOnlyMemory<double> values) =>
   axis.Length < 2 || axis.Length != values.Length
    ? new ElementFault.ValueRejected($"<curve-arity:axis={axis.Length}:values={values.Length}>")
-   : (Indexed(axis.Span, double.IsFinite, key, "curve-axis"), Indexed(values.Span, double.IsFinite, key, "curve-value"))
+   : (Indexed(axis.Span, double.IsFinite, "curve-axis"), Indexed(values.Span, double.IsFinite, "curve-value"))
     .Apply(static (_, _) => unit).As().ToFin()
     .Bind(_ => NotIncreasing(axis.Span)
-     ? new ElementFault.ValueRejected(key, "<curve-axis-not-increasing>")
-     : Interpolant.LinearSpline(toArray(axis.ToArray()), toArray(values.ToArray()), key)
+     ? new ElementFault.ValueRejected("<curve-axis-not-increasing>")
+     : Interpolant.LinearSpline(toArray(axis.ToArray()), toArray(values.ToArray()))
         .Map(fitted => new SampledCurve([.. axis.Span], [.. values.Span], fitted)));
 
  public Fin<double> At(double x) =>
   double.IsFinite(x)
-   ? AtAdmitted(x, key)
+   ? AtAdmitted(x)
    : new KernelFault.OutOfRange("curve-query", x, "be finite");
 
  internal Fin<double> AtAdmitted(double x) {
@@ -361,31 +361,31 @@ public abstract partial class MaterialComposition {
   ProfileSet.Seed(Seq(new MaterialProfile(material, profile)), Option<ProfileRef>.None, Option<SectionProperties>.None);
 
  public static Fin<MaterialComposition> OfProfileSet(Seq<MaterialProfile> profiles, Option<ProfileRef> composite = default) =>
-  (Gate(!profiles.IsEmpty, key, "<profile-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+  (Gate(!profiles.IsEmpty, "<profile-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
    Accumulate(profiles.Map((profile, index) => profile.Priority.Match(
-    Some: priority => InRange(priority, 0, PriorityCeiling, $"profile-priority[{index}]", key).Map(static _ => unit),
+    Some: priority => InRange(priority, 0, PriorityCeiling, $"profile-priority[{index}]").Map(static _ => unit),
     None: static () => Success<Error, Unit>(unit)))),
-   Accumulate(profiles.Map((profile, index) => Gate(profile.Offsets.Count <= OffsetArityCeiling, key, $"<profile-offset-arity:index={index}:count={profile.Offsets.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))))
+   Accumulate(profiles.Map((profile, index) => Gate(profile.Offsets.Count <= OffsetArityCeiling, $"<profile-offset-arity:index={index}:count={profile.Offsets.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))))
   .Apply((_, _, _) => (MaterialComposition)ProfileSet.Seed(profiles, composite, Option<SectionProperties>.None))
   .As().ToFin();
 
  public static Fin<MaterialComposition> OfLayerSet(Seq<MaterialLayer> layers) =>
-  (Gate(!layers.IsEmpty, key, "<layer-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Accumulate(layers.Map((layer, index) => In(layer.Thickness.Si, Band.Positive, $"layer-thickness[{index}]", key).Map(static _ => unit))),
+  (Gate(!layers.IsEmpty, "<layer-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Accumulate(layers.Map((layer, index) => In(layer.Thickness.Si, Band.Positive, $"layer-thickness[{index}]").Map(static _ => unit))),
    Accumulate(layers.Map((layer, index) => layer.Priority.Match(
-    Some: priority => InRange(priority, 0, PriorityCeiling, $"layer-priority[{index}]", key).Map(static _ => unit),
+    Some: priority => InRange(priority, 0, PriorityCeiling, $"layer-priority[{index}]").Map(static _ => unit),
     None: static () => Success<Error, Unit>(unit)))))
   .Apply((_, _, _) => (MaterialComposition)LayerSet.Seed(layers))
   .As().ToFin();
 
  public static Fin<MaterialComposition> OfConstituentSet(Seq<MaterialConstituent> constituents) =>
-  (Gate(!constituents.IsEmpty, key, "<constituent-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Accumulate(constituents.Map((constituent, index) => In(constituent.Fraction, Band.Unit, $"constituent-fraction[{index}]", key).Map(static _ => unit))))
+  (Gate(!constituents.IsEmpty, "<constituent-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Accumulate(constituents.Map((constituent, index) => In(constituent.Fraction, Band.Unit, $"constituent-fraction[{index}]").Map(static _ => unit))))
   .Apply(static (_, _) => unit)
   .As().ToFin()
   .Bind(_ => Math.Abs(constituents.Sum(static constituent => constituent.Fraction) - 1.0) <= FractionTolerance
    ? Fin.Succ<MaterialComposition>(ConstituentSet.Seed(constituents))
-   : new ElementFault.ValueRejected(key, $"<constituent-fraction-not-normalized:{constituents.Sum(static constituent => constituent.Fraction):R}>"));
+   : new ElementFault.ValueRejected($"<constituent-fraction-not-normalized:{constituents.Sum(static constituent => constituent.Fraction):R}>"));
 }
 ```
 
@@ -394,8 +394,8 @@ public abstract partial class MaterialComposition {
 - Owner: `MaterialPropertySet` the `[Union]` typed engineering-property family keyed to `Discipline`; `FireRating` the `[SmartEnum<string>]` reaction-to-fire class with `EuroclassSuffix` the EN 13501-1 sub-classification pair; `FireCoverage` the criterion presence rows and `FireResistance` the EN 13501-2 R/E/I criteria; the `Of` admissions coercing each measured column through `Properties/quantity#MEASURE_VALUE` and gating scalars on the kernel `Band` rows through `[ADMISSION_SLOTS]` `In`/`InRange`.
 - Cases: `Mechanical` (density / Young's modulus / yield strength / ultimate strength as `MeasureValue`, Poisson's ratio + thermal-expansion as guarded dimensionless doubles, the isotropic shear modulus DERIVED `G = E/(2(1+ν))`, and the optional `YoungsReduction`/`YieldReduction` temperature-reduction `SampledCurve` pair — factor vs °C, the fire-route stiffness/strength decay evidence beside the 20 °C scalars — `Discipline.Structural`) · `Orthotropic` (density / the two principal moduli `E1∥`/`E2⊥` / the INDEPENDENT measured shear modulus `G` / the two principal strengths as `MeasureValue` + thermal-expansion, with the matching optional `ModulusReduction`/`StrengthReduction` pair — the directional-stiffness carrier the isotropic `Mechanical` structurally cannot model, the `Rasm.Materials` `timber#TIMBER_FAMILY` consumer's contract home, also `Discipline.Structural` so the case TYPE discriminates an isotropic from a directional material) · `Thermal` (conductivity / specific heat / U-value as `MeasureValue` + vapour-resistance factor μ as a guarded dimensionless double for EN 13788 Glaser condensation — `Discipline.Thermal`) · `Acoustic` (the `Composition/acoustic#ACOUSTIC_FOLDS` banded carrier with its `DynamicStiffnessMNPerM3`/`FlowResistivityPaSPerM2`/`LossFactor` intrinsic constants forwarded — `Discipline.Acoustic`) · `Fire` (an optional `FireRating` reaction class + its `EuroclassSuffix` pair + a `FireResistance` R/E/I rating — `Discipline.Fire`) · `Environmental` (a `MeasurementBasis` declared unit + the EN 15804+A2 `(ImpactCategory × LifecycleStage)` row-major flat `Impacts` matrix that is the ONE impact store + `RecycledContent`/`EndOfLifeRecovery` fractions + EPD provenance, with the general `IndicatorAt(category, stage)` cell read and the `WholeLife(category)` cross-stage fold, and the carbon-keyed convenience projections `Gwp` (the DERIVED cradle-to-gate `(GwpTotal, A1A3)` cell, never a parallel stored scalar), `StageAt`, `WholeLifeGwp`, and the DERIVED `StageGwp` per-module GwpTotal-row vector (the `[A1A3..D]` carbon row sliced from the matrix via `IndicatorAt(GwpTotal, stage)`, never a parallel stored 6-vector, the `Rasm.Compute` carbon fold reads one-hop) over them — `Discipline.Environmental`) · `Cost` (supply / install / lifecycle per-unit columns over a `Currency` + `MeasurementBasis` — `Discipline.Cost`) · `Damping` (the EN 1998-1 fraction-of-critical `DampingRatio` ζ + the optional per-material Rayleigh `(α, β)` proportional-damping pair a time-history FE model reads + the DERIVED hysteretic `StructuralLossFactor = 2ζ` — `Discipline.Dynamic`) · `Hygrothermal` (the EN 15026/WUFI transient-simulation inputs the steady-state `Thermal` case cannot model: `Porosity`, the `WaterContent80Rh`/`FreeWaterSaturation` sorption-isotherm anchors as MoistureStorage-typed kg/m³ measures, the optional capillary `WaterAbsorptionKgPerM2SqrtS` A-value, and the three optional `SampledCurve` measured functions — the full sorption isotherm `w(φ)`, the liquid-transport table `Dw(w)`, the moisture-dependent conductivity `λ(w)` — the WUFI-class solver runs on where the anchors under-model — `Discipline.Hygrothermal`) · `Durability` (the fib Model Code service-life inputs: `CarbonationRateMmPerSqrtYear` K, the `ChlorideDiffusion` D_RCM as a ChlorideDiffusivity-typed m²/s measure, the `AgeingExponent` decay fraction — `Discipline.Durability`) · `Optical` (the IFC `Pset_MaterialOptical` / EnergyPlus `WindowMaterial:Glazing` solar-optical record: per-band transmittance with side-asymmetric front/back reflectances for the visible and solar bands, thermal-IR transmittance with front/back hemispherical emissivities, the band absorptances DERIVED conservation remainders — `Discipline.Energy`) · `Electrical` (the IEC 60364 / NEC substance constants a conductor-, insulation-, or shielding-material declares: `Resistivity` the DC volume resistivity as an ElectricResistivity-typed Ω·m measure, `RelativePermittivity` the dielectric constant εr as a guarded ≥ 1 dimensionless double, the optional `DielectricStrength` breakdown field as a DielectricStrength-typed V/m measure, and the optional `MagneticPermeabilityRelative` μr ratio — `Discipline.Electrical`); a property is a `MaterialPropertySet` case over a `MaterialId`, never a property subtype, and a single-indicator GWP-only environmental model is the deleted 1-of-13 slice of the EN 15804+A2 indicator family.
 - Law: FAULT ARITY selects the admission idiom, and the two idioms this branch carries are principled peers, never drift. `[ComplexValueObject]` with `ValidateFactoryArguments` owns SINGLE-fault shape-and-trim admission — one product, one refusal, the generated `Validate` the only authority (`Currency`'s alpha-3 shape gate, `Classification/classification#CLASSIFICATION_AXIS` `Classification`, `Geospatial/reference#GEO_REFERENCE` `ProjectedCrs`) — because the generated factory spine returns at most one error and re-minting the hook to accumulate is unmanufacturable. Hand-rolled private-ctor accumulating `Of` triads earn their place exactly where MULTI-SLOT accumulation IS the contract — every `MaterialPropertySet` case, `FireResistance`, `SampledCurve`, `MaterialComposition`'s three set cases — because a datasheet with three bad columns must report three named faults in one `Fin.Fail`. Owners cross from the first idiom to the second only when the independent-column count passes one; converting a single-fault owner to the triad buys nothing and forfeits the generated `Validate`, `Create`, and equality surface.
-- Entry: `MaterialPropertySet.OfMechanical(density, youngsModulus, yieldStrength, ultimateStrength, poissons, thermalExpansion, key, evidence, youngsReduction, yieldReduction)` / `OfOrthotropic(density, e1Parallel, e005Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular, thermalExpansion, key, evidence, modulusReduction, strengthReduction)` (the trailing `Option<SampledCurve>` pairs the factor-vs-°C temperature-reduction evidence, arriving already admitted through `SampledCurve.Of` and riding as pass-through columns — the `Thermal` `conductivityCurve` shape; `e005Parallel` an `Option` on BOTH arities — the measured fifth-percentile parallel stiffness every timber grade prints and a fractile-less directional source omits, the EN 1995 stability kernels refusing on absence rather than reconstructing a ratio) / `OfThermal(conductivity, specificHeat, uValue, vapourResistanceFactor, key, evidence, conductivityCurve)` (`uValue` an `Option` on BOTH arities — a substance declares no transmittance and the EN ISO 6946 assembly fold owns U, so only a product-declared transmittance fills it) / `OfAcoustic(acoustic)` / `OfFire(rating, resistance)` (+ the full `OfFire(rating, suffix, resistance)`) / `OfEnvironmental(basis, impacts, recycledContent, endOfLifeRecovery, key)` (the `impacts` an `ImmutableArray<double>` of arity `ImpactCategory.Items.Count × LifecycleStage.Items.Count`; the two resource fractions `Option<double>` — scenario data many declarations omit, absence never a fabricated fraction; EPD identity + `LocalDate` expiry ride the `evidence` argument as `PropertyEvidence.Declaration("epd", id, validUntil)`, never per-case columns) / `OfCost(basis, currency, supply, install, lifecycle, key)` (the factory's leading pair mirrors the `Cost` case ctor, so no call site reorders one against the other) / `OfDamping(dampingRatio, rayleigh)` / `OfHygrothermal(porosity, waterContent80Rh, freeWaterSaturation, waterAbsorption)` / `OfDurability(carbonationRate, chlorideDiffusion, ageingExponent)` / `OfOptical(visibleTransmittance, visibleReflectanceFront, visibleReflectanceBack, solarTransmittance, solarReflectanceFront, solarReflectanceBack, thermalIrTransmittance, thermalIrEmissivityFront, thermalIrEmissivityBack)` — `OfMechanical`, `OfOrthotropic`, and `OfThermal` each DECLARE both a raw-double and a typed-`MeasureValue` arity discriminating on input shape, the typed form owning the ONE slot set and the raw form coercing its declared-unit doubles (those coercions accumulating among themselves) before delegating into it, so a producer holding `QuantityRow`-minted columns keeps its propagated `MeasureBand` instead of unwrapping to a declared-unit double and re-coercing, and the two arities cannot drift; the typed smart-constructors coerce each measured column to its SI base and guard the dimensionless ratios, every multi-column form an ACCUMULATING admission (each independent column one slot — the shared `Rasm/Domain/validation#ADMISSION_SLOTS` fold on its concrete carrier — the tuple `.Apply` unioning kernel scalar and Element semantic refusals through `Error.Combine`/`ManyErrors`, `.As().ToFin()` collapsing once at the shared return — the public result stays `Fin<T>`, so consumers are untouched while a bad datasheet reports ALL offending columns; the total `OfAcoustic`/`OfFire` carry no invariant and return the bare case; `OfHygrothermal` (whose trailing `Option<SampledCurve>` `sorptionIsotherm`/`liquidTransport`/`moistureConductivity` columns arrive already admitted through `SampledCurve.Of` and ride as pass-through evidence) binds its `wf >= w80` isotherm refinement AND the curve↔anchor agreement refinement (`Disagrees` at `φ=0.8`/`φ=1.0` within `IsothermAnchorTolerance`) AFTER the accumulated leaves, and `OfOptical` accumulates its six per-band-per-side `τ + ρ <= 1`/`τIR + ε <= 1` conservation refinements as a SECOND stage after the nine in-unit leaves, the COMPOSITE_ADMISSION order) / `OfElectrical(resistivityOhmM, relativePermittivity, dielectricStrengthVPerM, magneticPermeabilityRelative)`; `Discipline` reads the case-to-discipline map; the named per-discipline reads derive from ONE private polymorphic `Property<T>()` body (a future case lands its one-line forward — the generic read carried zero external consumers, so it no longer ships public), and `props.Density` is the cross-case substance read over both stiffness carriers.
-- Auto: `MaterialPropertySet` is a CLASS-root `[Union]` + `[Equatable]` (the `[GRAPH_FAMILY]` form), so the generated `Switch`/`Map` survive while structural equality and the member diff ride `Generator.Equals` — the `Graph/element#NODE_MODEL` `Node.Material` `[Equatable]` drill descends into each case's columns (a record-root case is an opaque equality leaf that collapses the `Rasm.Persistence` `StructuralMerge` to whole-property replacement); `Discipline` dispatches the generated `Switch` mapping each case to its row (`Mechanical`/`Orthotropic`→`Structural`, `Damping`→`Dynamic`, `Hygrothermal`→`Hygrothermal`, `Durability`→`Durability`, `Optical`→`Energy`, …, `Cost`→`Cost`); the `Of` constructors route each dimensioned value through `MeasureValue.Of(value, UnitsNet.Units.X, key)` (or the TYPED `OfSi` for the registry-less MoistureStorage/ChlorideDiffusivity signatures) so the column carries its SI base and `Dimension`, the Poisson's ratio guarded to the physical isotropic `[0,0.5]` range (the `is >= 0.0 and <= 0.5` relational pattern rejecting an out-of-range ratio AND a `NaN`), every density/stiffness/strength/conductivity column guarded finite-AND-strictly-positive through the per-column `Positive` slot (a negative MPa is finite, so the `MeasureValue.Of` finiteness gate alone admits a physically-impossible negative-stiffness material the contract rejects BY NAME), the dimensionless ratios and the `MeasurementBasis`-relative fractions guarded finite-and-in-unit through the same NaN-rejecting relational patterns, and the raw-double cost columns guarded finite-and-non-negative (the `MeasureValue` finiteness gate never sees the raw-double `Cost`/`Environmental`-fraction carriers, so a bare `< 0.0` guard admits `NaN`/∞ into the content hash is rejected at admission) — every such miss ACCUMULATED across the constructor's independent slots, never first-fault-wins; the `Mechanical` shear modulus is a DERIVED read off `E` and `ν` (the isotropic relation `G = E/(2(1+ν))`), never a drift-prone stored column; the `Acoustic` case wraps the `Composition/acoustic#ACOUSTIC_FOLDS` `Acoustic` carrier whose `Nrc`/`Saa`/`StcWeighted` are derived reads; the `Fire` case carries the EN 13501-1 reaction class with its smoke/droplet sub-class and the EN 13501-2 R/E/I `FireResistance`; the `Environmental` case stores the EN 15804+A2 impact matrix row-major flat and `OfEnvironmental` guards its `Environmental.MatrixArity` and finiteness once so the derived `IndicatorAt`/`Gwp`/`WholeLife` reads trust the admission.
+- Entry: `MaterialPropertySet.OfMechanical(density, youngsModulus, yieldStrength, ultimateStrength, poissons, thermalExpansion, evidence, youngsReduction, yieldReduction)` / `OfOrthotropic(density, e1Parallel, e005Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular, thermalExpansion, evidence, modulusReduction, strengthReduction)` (the trailing `Option<SampledCurve>` pairs the factor-vs-°C temperature-reduction evidence, arriving already admitted through `SampledCurve.Of` and riding as pass-through columns — the `Thermal` `conductivityCurve` shape; `e005Parallel` an `Option` on BOTH arities — the measured fifth-percentile parallel stiffness every timber grade prints and a fractile-less directional source omits, the EN 1995 stability kernels refusing on absence rather than reconstructing a ratio) / `OfThermal(conductivity, specificHeat, uValue, vapourResistanceFactor, evidence, conductivityCurve)` (`uValue` an `Option` on BOTH arities — a substance declares no transmittance and the EN ISO 6946 assembly fold owns U, so only a product-declared transmittance fills it) / `OfAcoustic(acoustic)` / `OfFire(rating, resistance)` (+ the full `OfFire(rating, suffix, resistance)`) / `OfEnvironmental(basis, impacts, recycledContent, endOfLifeRecovery)` (the `impacts` an `ImmutableArray<double>` of arity `ImpactCategory.Items.Count × LifecycleStage.Items.Count`; the two resource fractions `Option<double>` — scenario data many declarations omit, absence never a fabricated fraction; EPD identity + `LocalDate` expiry ride the `evidence` argument as `PropertyEvidence.Declaration("epd", id, validUntil)`, never per-case columns) / `OfCost(basis, currency, supply, install, lifecycle)` (the factory's leading pair mirrors the `Cost` case ctor, so no call site reorders one against the other) / `OfDamping(dampingRatio, rayleigh)` / `OfHygrothermal(porosity, waterContent80Rh, freeWaterSaturation, waterAbsorption)` / `OfDurability(carbonationRate, chlorideDiffusion, ageingExponent)` / `OfOptical(visibleTransmittance, visibleReflectanceFront, visibleReflectanceBack, solarTransmittance, solarReflectanceFront, solarReflectanceBack, thermalIrTransmittance, thermalIrEmissivityFront, thermalIrEmissivityBack)` — `OfMechanical`, `OfOrthotropic`, and `OfThermal` each DECLARE both a raw-double and a typed-`MeasureValue` arity discriminating on input shape, the typed form owning the ONE slot set and the raw form coercing its declared-unit doubles (those coercions accumulating among themselves) before delegating into it, so a producer holding `QuantityRow`-minted columns keeps its propagated `MeasureBand` instead of unwrapping to a declared-unit double and re-coercing, and the two arities cannot drift; the typed smart-constructors coerce each measured column to its SI base and guard the dimensionless ratios, every multi-column form an ACCUMULATING admission (each independent column one slot — the shared `Rasm/Domain/validation#ADMISSION_SLOTS` fold on its concrete carrier — the tuple `.Apply` unioning kernel scalar and Element semantic refusals through `Error.Combine`/`ManyErrors`, `.As().ToFin()` collapsing once at the shared return — the public result stays `Fin<T>`, so consumers are untouched while a bad datasheet reports ALL offending columns; the total `OfAcoustic`/`OfFire` carry no invariant and return the bare case; `OfHygrothermal` (whose trailing `Option<SampledCurve>` `sorptionIsotherm`/`liquidTransport`/`moistureConductivity` columns arrive already admitted through `SampledCurve.Of` and ride as pass-through evidence) binds its `wf >= w80` isotherm refinement AND the curve↔anchor agreement refinement (`Disagrees` at `φ=0.8`/`φ=1.0` within `IsothermAnchorTolerance`) AFTER the accumulated leaves, and `OfOptical` accumulates its six per-band-per-side `τ + ρ <= 1`/`τIR + ε <= 1` conservation refinements as a SECOND stage after the nine in-unit leaves, the COMPOSITE_ADMISSION order) / `OfElectrical(resistivityOhmM, relativePermittivity, dielectricStrengthVPerM, magneticPermeabilityRelative)`; `Discipline` reads the case-to-discipline map; the named per-discipline reads derive from ONE private polymorphic `Property<T>()` body (a future case lands its one-line forward — the generic read carried zero external consumers, so it no longer ships public), and `props.Density` is the cross-case substance read over both stiffness carriers.
+- Auto: `MaterialPropertySet` is a CLASS-root `[Union]` + `[Equatable]` (the `[GRAPH_FAMILY]` form), so the generated `Switch`/`Map` survive while structural equality and the member diff ride `Generator.Equals` — the `Graph/element#NODE_MODEL` `Node.Material` `[Equatable]` drill descends into each case's columns (a record-root case is an opaque equality leaf that collapses the `Rasm.Persistence` `StructuralMerge` to whole-property replacement); `Discipline` dispatches the generated `Switch` mapping each case to its row (`Mechanical`/`Orthotropic`→`Structural`, `Damping`→`Dynamic`, `Hygrothermal`→`Hygrothermal`, `Durability`→`Durability`, `Optical`→`Energy`, …, `Cost`→`Cost`); the `Of` constructors route each dimensioned value through `MeasureValue.Of(value, UnitsNet.Units.X)` (or the TYPED `OfSi` for the registry-less MoistureStorage/ChlorideDiffusivity signatures) so the column carries its SI base and `Dimension`, the Poisson's ratio guarded to the physical isotropic `[0,0.5]` range (the `is >= 0.0 and <= 0.5` relational pattern rejecting an out-of-range ratio AND a `NaN`), every density/stiffness/strength/conductivity column guarded finite-AND-strictly-positive through the per-column `Positive` slot (a negative MPa is finite, so the `MeasureValue.Of` finiteness gate alone admits a physically-impossible negative-stiffness material the contract rejects BY NAME), the dimensionless ratios and the `MeasurementBasis`-relative fractions guarded finite-and-in-unit through the same NaN-rejecting relational patterns, and the raw-double cost columns guarded finite-and-non-negative (the `MeasureValue` finiteness gate never sees the raw-double `Cost`/`Environmental`-fraction carriers, so a bare `< 0.0` guard admits `NaN`/∞ into the content hash is rejected at admission) — every such miss ACCUMULATED across the constructor's independent slots, never first-fault-wins; the `Mechanical` shear modulus is a DERIVED read off `E` and `ν` (the isotropic relation `G = E/(2(1+ν))`), never a drift-prone stored column; the `Acoustic` case wraps the `Composition/acoustic#ACOUSTIC_FOLDS` `Acoustic` carrier whose `Nrc`/`Saa`/`StcWeighted` are derived reads; the `Fire` case carries the EN 13501-1 reaction class with its smoke/droplet sub-class and the EN 13501-2 R/E/I `FireResistance`; the `Environmental` case stores the EN 15804+A2 impact matrix row-major flat and `OfEnvironmental` guards its `Environmental.MatrixArity` and finiteness once so the derived `IndicatorAt`/`Gwp`/`WholeLife` reads trust the admission.
 - Output: a `Seq<MaterialPropertySet>` on a `Material` node is the full engineering profile a `Bake`-derived `Element` reads flat — `props.Thermal.Bind(t => t.UValue)`, `props.Mechanical.Map(m => m.YieldStrength)`, `props.Acoustic.Map(a => a.StcWeighted)`, `props.Damping.Map(d => d.DampingRatio)`, `props.Durability.Map(u => u.ChlorideDiffusion)`, or the generic `props.Property<T>()` for a future case before its named forward lands — one node carrying every discipline keyed by `Discipline`; the `Rasm.Compute` analysis route reads the `MeasureValue` columns by `Discipline`, and the assembly aggregation (series-resistance U-value, rule-of-mixtures density, layered STC) folds the `MaterialComposition` plies in Compute, never re-keyed per assembly.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[ValueObject<string>]`), Generator.Equals (`[Equatable]` the class-root `MaterialPropertySet` union's structural equality + the member diff the `Rasm.Persistence` `StructuralMerge` drills, `[OrderedEquality]` the `Environmental.Impacts` matrix), LanguageExt.Core (`Seq`/`Option`/`Fin`/`Validation<Error,_>` the accumulating admission slots joined by the tuple `.Apply` and collapsed `.ToFin()`/`Choose`/`Find`), `Rasm/Domain/validation#ADMISSION_SLOTS` (the shared `Guarded`-sibling slots — `Gate`, `Accumulate`, `Optional` — the material-domain combinators sit beside), NodaTime (`LocalDate` the `PropertyEvidence.ValidUntil` calendar expiry — the exact EPD/declaration date the procurement filter compares, over the deleted lossy int-year), UnitsNet (via `MeasureValue`), System.Collections.Immutable (`ImmutableArray<double>` the immutable impact-matrix store), `Rasm/Domain/identity#CONTENT_KEY` (`CanonicalWriter` the `MaterialPropertySet.CanonicalBytes` content projection writes through).
 - Growth: a new engineering property shared across materials is one column on its `MaterialPropertySet` case; a new property discipline with no fit is one `MaterialPropertySet` case carrying its `Discipline` — never a parallel `Eco`/`Cost` owner (the `Damping`/`Hygrothermal`/`Durability`/`Optical`/`Electrical` cases are this law EXECUTED: each one case + one `Discipline` row + one next-free `CanonicalBytes` ordinal + one named forward, zero new surfaces beside the union); a new fire-reaction class is one `FireRating` row, a new acoustic rating one fold on the `Acoustic` carrier, a new EN 15804 environmental indicator one `ImpactCategory` row (the `Impacts` matrix widens by one indicator row and `IndicatorAt`/`WholeLife` read it with no new column or method); a new admission invariant is one `[ADMISSION_SLOTS]` combinator slot, never a per-constructor guard chain; a new state-dependent measured function (a temperature-dependent modulus, a moisture-dependent property) is one `Option<SampledCurve>` column on its owning case and one `Curve` canon write — the ONE sampled-function carrier, never a per-curve column spray and never a lossy point compression; the family grows by case, column, and vocabulary row, never by a per-discipline material type, and the typed lookup grows by ONE generic `Property<T>()` over the case type and an ergonomic named forward, never a per-case roster of independent `Choose` bodies.
@@ -457,17 +457,17 @@ public readonly record struct FireResistance {
  public static readonly FireResistance None = new(Option<int>.None, Option<int>.None, Option<int>.None);
 
  public static Fin<FireResistance> Of(Option<int> loadBearingMinutes, Option<int> integrityMinutes, Option<int> insulationMinutes) =>
-  (Gate(loadBearingMinutes.IsSome || integrityMinutes.IsSome || insulationMinutes.IsSome, key, "<fire-resistance-unmeasured>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Minutes(loadBearingMinutes, "load-bearing", key),
-   Minutes(integrityMinutes, "integrity", key),
-   Minutes(insulationMinutes, "insulation", key))
+  (Gate(loadBearingMinutes.IsSome || integrityMinutes.IsSome || insulationMinutes.IsSome, "<fire-resistance-unmeasured>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Minutes(loadBearingMinutes, "load-bearing"),
+   Minutes(integrityMinutes, "integrity"),
+   Minutes(insulationMinutes, "insulation"))
   .Apply(static (_, r, e, i) => new FireResistance(r, e, i))
   .As().ToFin();
 
  public static Fin<FireResistance> Of(FireCoverage coverage, int minutes) =>
   Of(coverage.LoadBearing ? Some(minutes) : None,
      coverage.Integrity ? Some(minutes) : None,
-     coverage.Insulation ? Some(minutes) : None, key);
+     coverage.Insulation ? Some(minutes) : None);
 
  private static Validation<Error, Option<int>> Minutes(Option<int> value, string criterion) =>
   value.Exists(static minutes => minutes < 0)
@@ -738,13 +738,13 @@ public abstract partial class MaterialPropertySet {
    .Optional(Evidence.Run, static (r, run) => r.CanonicalBytes(run));
 
  public static Fin<MaterialPropertySet> OfMechanical(double density, double youngsModulus, double yieldStrength, double ultimateStrength, double poissons, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> youngsReduction = default, Option<SampledCurve> yieldReduction = default) =>
-  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter, key),
-   Coerce(youngsModulus, UnitsNet.Units.PressureUnit.Megapascal, key),
-   Coerce(yieldStrength, UnitsNet.Units.PressureUnit.Megapascal, key),
-   Coerce(ultimateStrength, UnitsNet.Units.PressureUnit.Megapascal, key))
+  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter),
+   Coerce(youngsModulus, UnitsNet.Units.PressureUnit.Megapascal),
+   Coerce(yieldStrength, UnitsNet.Units.PressureUnit.Megapascal),
+   Coerce(ultimateStrength, UnitsNet.Units.PressureUnit.Megapascal))
   .Apply(static (rho, e, fy, fu) => (Density: rho, Youngs: e, Yield: fy, Ultimate: fu))
   .As().ToFin()
-  .Bind(column => OfMechanical(column.Density, column.Youngs, column.Yield, column.Ultimate, poissons, thermalExpansion, key, evidence, youngsReduction, yieldReduction));
+  .Bind(column => OfMechanical(column.Density, column.Youngs, column.Yield, column.Ultimate, poissons, thermalExpansion, evidence, youngsReduction, yieldReduction));
 
  public static Fin<MaterialPropertySet> OfMechanical(MeasureValue density, MeasureValue youngsModulus, MeasureValue yieldStrength, MeasureValue ultimateStrength, double poissons, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> youngsReduction = default, Option<SampledCurve> yieldReduction = default) =>
   (Positive(density, "mechanical-density"),
@@ -757,16 +757,16 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin();
 
  public static Fin<MaterialPropertySet> OfOrthotropic(double density, double e1Parallel, Option<double> e005Parallel, double e2Perpendicular, double shearModulus, double strength1Parallel, double strength2Perpendicular, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> modulusReduction = default, Option<SampledCurve> strengthReduction = default) =>
-  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter, key),
-   Coerce(e1Parallel, UnitsNet.Units.PressureUnit.Megapascal, key),
-   e005Parallel.Traverse(e => Coerce(e, UnitsNet.Units.PressureUnit.Megapascal, key)).As(),
-   Coerce(e2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal, key),
-   Coerce(shearModulus, UnitsNet.Units.PressureUnit.Megapascal, key),
-   Coerce(strength1Parallel, UnitsNet.Units.PressureUnit.Megapascal, key),
-   Coerce(strength2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal, key))
+  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter),
+   Coerce(e1Parallel, UnitsNet.Units.PressureUnit.Megapascal),
+   e005Parallel.Traverse(e => Coerce(e, UnitsNet.Units.PressureUnit.Megapascal)).As(),
+   Coerce(e2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal),
+   Coerce(shearModulus, UnitsNet.Units.PressureUnit.Megapascal),
+   Coerce(strength1Parallel, UnitsNet.Units.PressureUnit.Megapascal),
+   Coerce(strength2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal))
   .Apply(static (rho, e1, e05, e2, g, s1, s2) => (Density: rho, E1: e1, E005: e05, E2: e2, Shear: g, S1: s1, S2: s2))
   .As().ToFin()
-  .Bind(column => OfOrthotropic(column.Density, column.E1, column.E005, column.E2, column.Shear, column.S1, column.S2, thermalExpansion, key, evidence, modulusReduction, strengthReduction));
+  .Bind(column => OfOrthotropic(column.Density, column.E1, column.E005, column.E2, column.Shear, column.S1, column.S2, thermalExpansion, evidence, modulusReduction, strengthReduction));
 
  public static Fin<MaterialPropertySet> OfOrthotropic(MeasureValue density, MeasureValue e1Parallel, Option<MeasureValue> e005Parallel, MeasureValue e2Perpendicular, MeasureValue shearModulus, MeasureValue strength1Parallel, MeasureValue strength2Perpendicular, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> modulusReduction = default, Option<SampledCurve> strengthReduction = default) =>
   (Positive(density, "orthotropic-density"),
@@ -781,12 +781,12 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin();
 
  public static Fin<MaterialPropertySet> OfThermal(double conductivity, double specificHeat, Option<double> uValue, double vapourResistanceFactor, PropertyEvidence evidence = default, Option<SampledCurve> conductivityCurve = default) =>
-  (Coerce(conductivity, UnitsNet.Units.ThermalConductivityUnit.WattPerMeterKelvin, key),
-   Coerce(specificHeat, UnitsNet.Units.SpecificEntropyUnit.JoulePerKilogramKelvin, key),
-   uValue.Traverse(u => MeasureValue.Of(u, UnitsNet.Units.HeatTransferCoefficientUnit.WattPerSquareMeterKelvin, key).ToValidation()).As())
+  (Coerce(conductivity, UnitsNet.Units.ThermalConductivityUnit.WattPerMeterKelvin),
+   Coerce(specificHeat, UnitsNet.Units.SpecificEntropyUnit.JoulePerKilogramKelvin),
+   uValue.Traverse(u => MeasureValue.Of(u, UnitsNet.Units.HeatTransferCoefficientUnit.WattPerSquareMeterKelvin).ToValidation()).As())
   .Apply(static (lambda, cp, u) => (Conductivity: lambda, SpecificHeat: cp, UValue: u))
   .As().ToFin()
-  .Bind(column => OfThermal(column.Conductivity, column.SpecificHeat, column.UValue, vapourResistanceFactor, key, evidence, conductivityCurve));
+  .Bind(column => OfThermal(column.Conductivity, column.SpecificHeat, column.UValue, vapourResistanceFactor, evidence, conductivityCurve));
 
  public static Fin<MaterialPropertySet> OfThermal(MeasureValue conductivity, MeasureValue specificHeat, Option<MeasureValue> uValue, double vapourResistanceFactor, PropertyEvidence evidence = default, Option<SampledCurve> conductivityCurve = default) =>
   (Positive(conductivity, "thermal-conductivity"),
@@ -806,9 +806,9 @@ public abstract partial class MaterialPropertySet {
   new Fire(Option<FireRating>.Some(reaction), suffix, resistance, evidence);
 
  public static Fin<MaterialPropertySet> OfEnvironmental(MeasurementBasis basis, ImmutableArray<double> impacts, Option<double> recycledContent, Option<double> endOfLifeRecovery, PropertyEvidence evidence = default) =>
-  (Matrix(impacts, key),
-   recycledContent.Traverse(r => In(r, Band.Unit, "environmental-recycled-content", key)).As(),
-   endOfLifeRecovery.Traverse(r => In(r, Band.Unit, "environmental-recovery", key)).As())
+  (Matrix(impacts),
+   recycledContent.Traverse(r => In(r, Band.Unit, "environmental-recycled-content")).As(),
+   endOfLifeRecovery.Traverse(r => In(r, Band.Unit, "environmental-recovery")).As())
   .Apply((m, recycled, recovery) => (MaterialPropertySet)new Environmental(basis, m, recycled, recovery, evidence))
   .As().ToFin();
 
@@ -821,7 +821,7 @@ public abstract partial class MaterialPropertySet {
 
  public static Fin<MaterialPropertySet> OfDamping(double dampingRatio, Option<(double AlphaPerS, double BetaS)> rayleigh, PropertyEvidence evidence = default) =>
   (In(dampingRatio, Band.Fractional, "damping-ratio"),
-   Rayleigh(rayleigh, key))
+   Rayleigh(rayleigh))
   .Apply((zeta, pair) => (MaterialPropertySet)new Damping(zeta, pair, evidence))
   .As().ToFin();
 
@@ -835,7 +835,7 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin()
   .Bind(t => t.Wf.Si < t.W80.Si
    ? Fin.Fail<MaterialPropertySet>(new ElementFault.ValueRejected($"<hygrothermal-isotherm-inverted:w80={t.W80.Si:R}:wf={t.Wf.Si:R}>"))
-   : Anchors(sorptionIsotherm, t.W80.Si, t.Wf.Si, key)
+   : Anchors(sorptionIsotherm, t.W80.Si, t.Wf.Si)
       .Map(_ => (MaterialPropertySet)new Hygrothermal(t.Phi, t.W80, t.Wf, t.A, sorptionIsotherm, liquidTransport, moistureConductivity, evidence)));
 
  private const double IsothermAnchorTolerance = 0.02;
@@ -877,10 +877,10 @@ public abstract partial class MaterialPropertySet {
    .As().ToFin());
 
  public static Fin<MaterialPropertySet> OfElectrical(double resistivityOhmM, double relativePermittivity, Option<double> dielectricStrengthVPerM, Option<double> magneticPermeabilityRelative, PropertyEvidence evidence = default) =>
-  (Positive(MeasureValue.Of(resistivityOhmM, UnitsNet.Units.ElectricResistivityUnit.OhmMeter, key), "electrical-resistivity", key),
-   Guarded(relativePermittivity is >= 1.0, relativePermittivity, "electrical-relative-permittivity-below-unity", key),
-   dielectricStrengthVPerM.Traverse(v => PositiveSi(v, QuantityType.Create("DielectricStrength"), Dimension.Create(1, 1, -3, -1, 0, 0, 0), "electrical-dielectric-strength", key)).As(),
-   Optional(magneticPermeabilityRelative, Band.Positive, "electrical-permeability", key))
+  (Positive(MeasureValue.Of(resistivityOhmM, UnitsNet.Units.ElectricResistivityUnit.OhmMeter), "electrical-resistivity"),
+   Guarded(relativePermittivity is >= 1.0, relativePermittivity, "electrical-relative-permittivity-below-unity"),
+   dielectricStrengthVPerM.Traverse(v => PositiveSi(v, QuantityType.Create("DielectricStrength"), Dimension.Create(1, 1, -3, -1, 0, 0, 0), "electrical-dielectric-strength")).As(),
+   Optional(magneticPermeabilityRelative, Band.Positive, "electrical-permeability"))
   .Apply((rho, er, ds, mu) => (MaterialPropertySet)new Electrical(rho, er, ds, mu, evidence))
   .As().ToFin();
 
@@ -891,7 +891,7 @@ public abstract partial class MaterialPropertySet {
    : new ElementFault.ValueRejected(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"<optical-{band}-{side}-conservation:{transmittance + counterpart:R}>"));
 
  private static Validation<Error, MeasureValue> Coerce(double value, Enum unit) =>
-  MeasureValue.Of(value, unit, key).ToValidation();
+  MeasureValue.Of(value, unit).ToValidation();
 
  private static Validation<Error, double> Guarded(bool valid, double value, string name) =>
   valid ? value : new KernelFault.OutOfRange(name, value, "satisfy the declared scalar predicate");
@@ -900,7 +900,7 @@ public abstract partial class MaterialPropertySet {
   column.Bind(m => m.Si > 0.0 ? Fin.Succ(m) : new KernelFault.OutOfRange(name, m.Si, "be positive")).ToValidation();
 
  private static Validation<Error, MeasureValue> Positive(MeasureValue column, string name) =>
-  Positive(Fin.Succ(column), name, key);
+  Positive(Fin.Succ(column), name);
 
  private static Validation<Error, MeasureValue> PositiveSi(double value, QuantityType type, Dimension dimension, string name) =>
   double.IsFinite(value) && value > 0.0
@@ -914,7 +914,7 @@ public abstract partial class MaterialPropertySet {
  private static Validation<Error, ImmutableArray<double>> Matrix(ImmutableArray<double> impacts) =>
   impacts.IsDefaultOrEmpty || impacts.Length != Environmental.MatrixArity
    ? new ElementFault.ValueRejected($"<environmental-impact-arity:{(impacts.IsDefault ? -1 : impacts.Length)}:expected={Environmental.MatrixArity}>")
-   : Indexed(impacts.AsSpan(), double.IsFinite, key, "environmental-impact").Map(_ => impacts);
+   : Indexed(impacts.AsSpan(), double.IsFinite, "environmental-impact").Map(_ => impacts);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1494,13 +1494,13 @@ public static class Tables {
 |  [01]   | document tables        | `TableKind`                    | keyed behavior rows          | `ForComponentType` / `Reclaim`        |
 |  [02]   | object addressing      | `TableTarget`                  | ids/query union              | `Of` / `Query`                        |
 |  [03]   | query predicates       | `TablePredicate`               | frozen predicate union       | `Tag` / `Color` / `Bounds`            |
-|  [04]   | query axes + product   | `QueryAxis` / `QuerySpec`      | seated rows + admitted value | `Of` / `Build(document, key)`         |
+|  [04]   | query axes + product   | `QueryAxis` / `QuerySpec`      | seated rows + admitted value | `Of` / `Build(document)`         |
 |  [05]   | mutation program       | `TableOp`                      | admitted total union         | operation factories / `Apply`         |
 |  [06]   | attribute payload      | `AttributeChange`              | admitted mutation body       | `TableOp.Amend`                       |
 |  [07]   | commit scope           | `TableTransaction`             | program-mode union           | `Recorded` / `Immediate` / `Navigate` |
 |  [08]   | resource ingress       | `GeometryIntake`               | native/value custody union   | `Admit`                               |
 |  [09]   | table commit spine     | `Tables`                       | session/commit fold          | `Commit`                              |
-|  [10]   | component addressing   | `ResourceRef` / `ResourceLens` | id/name/index over a lens    | `Of` / `Resolve(document, lens, key)` |
+|  [10]   | component addressing   | `ResourceRef` / `ResourceLens` | id/name/index over a lens    | `Of` / `Resolve(document, lens)` |
 |  [11]   | viewport addressing    | `ViewportTarget`               | address & census union       | `Active` / `ResolveViewport`          |
 |  [12]   | object-type vocabulary | `ObjectKind` / `ObjectKinds`   | keyed rows over a set        | `Of` / `Any` / `Mask` / `OfMask`      |
 |  [13]   | space partition        | `ActiveSpaceUse`               | host-keyed rows              | `Get` / `Key`                         |

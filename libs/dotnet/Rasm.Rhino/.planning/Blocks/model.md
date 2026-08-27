@@ -285,7 +285,7 @@ public abstract partial record Placement {
     public static Fin<Placement> Of(
         Transform motion, ObjectAttributes attributes, Lease<HistoryRecord> history, PlacementKind kind) {
         return (
-                Motioned(motion: motion, op).ToValidation(),
+                Motioned(motion: motion).ToValidation(),
                 Admit.Need(attributes).ToValidation(),
                 Admit.Need(history).ToValidation(),
                 Admit.Need(kind).ToValidation())
@@ -351,8 +351,8 @@ public sealed partial record BlockSnapshot(
                        .ToFin()
                    from _valid in projected
                        .Traverse(member => (
-                           Valid(member.Geometry, key).ToValidation(),
-                           Valid(member.Attributes, key).ToValidation())
+                           Valid(member.Geometry).ToValidation(),
+                           Valid(member.Attributes).ToValidation())
                            .Apply(static (_, _) => unit)
                            .As())
                        .As()

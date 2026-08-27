@@ -687,10 +687,10 @@ public static class NativeObject {
     private static Fin<Unit> Reconcile(Grasshopper2.Parameters.Special.TimerObject timer, Seq<Guid> desired) =>
         Try.lift(() => Fin.Succ(toSeq(timer.TargetIds))).Run().Bind(static inner => inner)
             .Bind(current => current.Filter(id => !desired.Contains(id))
-                .TraverseM(id => Target(timer, id, add: false, key))
+                .TraverseM(id => Target(timer, id, add: false))
                 .As()
                 .Bind(_ => desired.Filter(id => !current.Contains(id))
-                    .TraverseM(id => Target(timer, id, add: true, key))
+                    .TraverseM(id => Target(timer, id, add: true))
                     .As())
                 .Map(static _ => unit));
 

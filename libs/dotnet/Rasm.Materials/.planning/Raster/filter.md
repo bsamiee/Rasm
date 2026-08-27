@@ -280,27 +280,27 @@ public abstract partial record PlaneOp {
     public Fin<PlaneShape> Project(PlaneShape input) => Switch(
         resize: op => input.Layers.Value is 1
             ? AdmittedEdge(op.Edge).Map(_ => input with { Width = op.Width, Height = op.Height })
-            : new MaterialFault.Parameter(key, $"<resize-layered:{input.Layers.Value}>"),
+            : new MaterialFault.Parameter($"<resize-layered:{input.Layers.Value}>"),
         convolve: op => op.Kernel.Admitted().Bind(_ => AdmittedEdge(op.Edge)).Map(_ => input),
         heightNormal: op => (op.Inverse, input.Format.Components) switch {
-            (false, 1) => input.Retyped(3, AlphaMode.None, PlaneRange.Signed, key),
+            (false, 1) => input.Retyped(3, AlphaMode.None, PlaneRange.Signed),
             (true, >= 3) when input.Layers.Value is not 1 =>
-                new MaterialFault.Parameter(key, $"<height-inverse-layered:{input.Layers.Value}>"),
-            (true, >= 3) => input.Retyped(1, AlphaMode.None, PlaneRange.Unit, key),
-            (false, int n) => new MaterialFault.Parameter(key, $"<height-normal-scalar:{n}>"),
-            (true, int n) => new MaterialFault.Parameter(key, $"<height-normal-vector:{n}>"),
+                new MaterialFault.Parameter($"<height-inverse-layered:{input.Layers.Value}>"),
+            (true, >= 3) => input.Retyped(1, AlphaMode.None, PlaneRange.Unit),
+            (false, int n) => new MaterialFault.Parameter($"<height-normal-scalar:{n}>"),
+            (true, int n) => new MaterialFault.Parameter($"<height-normal-vector:{n}>"),
         },
         fromHeight: op => input.Format.Components is 1
             ? input.Retyped(1, AlphaMode.None, op.Derivative.Range)
-            : new MaterialFault.Parameter(key, $"<from-height-scalar:{input.Format.Components}>"),
+            : new MaterialFault.Parameter($"<from-height-scalar:{input.Format.Components}>"),
         dilate: op => (input.Alpha.Traits.Admits(PlaneTrait.Coverage), op.Rings) switch {
-            (false, _) => new MaterialFault.Parameter(key, $"<dilate-no-coverage:{input.Alpha.Key}>"),
+            (false, _) => new MaterialFault.Parameter($"<dilate-no-coverage:{input.Alpha.Key}>"),
             (_, <= 0) => new MaterialFault.Parameter($"<dilate-rings:{op.Rings}>"),
             _ => Fin.Succ(input),
         },
         remap: _ => Fin.Succ(input),
         swizzle: op => op.Lanes.IsEmpty
-            ? new MaterialFault.Parameter(key, "<swizzle-lanes-empty>")
+            ? new MaterialFault.Parameter("<swizzle-lanes-empty>")
             : input.Retyped(op.Lanes.Count, input.Alpha, input.Range));
 }
 ```
@@ -308,7 +308,7 @@ public abstract partial record PlaneOp {
 ## [03]-[PLANE_STAGE]
 
 - Owner: `PlaneOp.Apply` the plan-schedule-run entry; `PlaneStage` the scheduled group; `BakeGovernance` the folder's ONE long-operation token-and-sink carrier; `PlaneTrace` the executed-chain trace.
-- Entry: `Apply(source, ops, key)` returns the transformed plane paired with its trace. Its source is never mutated and never disposed — the caller owns it, because a chain that consumed its input would make the trace useless as evidence.
+- Entry: `Apply(source, ops)` returns the transformed plane paired with its trace. Its source is never mutated and never disposed — the caller owns it, because a chain that consumed its input would make the trace useless as evidence.
 - Law: GOVERNANCE is ONE carrier, never two tails. `BakeGovernance` pairs the cancellation token with an OPTIONAL `IProgress<double>` sink and its `Opened(done)` boundary publishes the fraction and answers the token in one call, so no fold spells the two separately and no arm publishes progress it then cancels past. It is DEFAULT-INERT: a caller wanting neither passes nothing and an unwatched chain pays one struct copy. `Within(from, span)` NARROWS the carrier onto a sub-range, so one boundary serves every depth: a stage hands its bands a governance reporting into the stage's own slice, and a band's `Opened(0..1)` reaches the caller as a true global fraction. That narrowing is what makes cancellation REAL — the token is answered per BAND inside a long pass rather than only between passes, so a cancelled sixteen-million-texel neighbourhood pass stops instead of running to completion, while the sampling stays coarse enough that a sink with one number to show is never flooded. The completed fraction is COUNT-DERIVED over the schedule rather than declared per row, because a chain's stage roster is the caller's own op sequence and there is no fixed vocabulary to declare fractions on; `press#TEXTURE_PRESS` and `environment#IBL_PREFILTER` compose this same carrier, so the corpus' three long operations report on one shape.
 - Law: A NEIGHBOURHOOD PASS WALKS BANDS, because a whole-plane staging is not affordable at the extents this module bakes: one interleaved double run over a 16k four-lane plane is 8 GiB and the separable body once held four at once, which defeats the arena law the typed store exists to hold. `StagingCeiling` is the ONE declared budget every band computation reads, and each band stages its own rows plus the op's halo. The band fills BY ADDRESS rather than by contiguity — slot `i` carries whatever row the op's `EdgeMode` names for `origin − halo + i`, so `Wrap` genuinely reaches the opposite edge, `Reflect` mirrors, and a `Clamp`-dropped tap is an ABSENT slot every kernel excludes — the square and ring walks per tap through `Slot`, the composed separable fold by narrowing its staged window onto the present run. The edge law is therefore resolved exactly once, at the fill, and `PlaneOp.Edge` states each op's own mode: a convolution carries the caller's, the height stencils and the curvature Hessian are reflected because reflection IS the Neumann mirror the bounded solver assembles, and dilation clamps. Rings iterate INSIDE the band, since a ring advances the coverage front one texel and a `Rings`-deep halo holds every neighbour those rings read.
 - Law: A HALO IS A FUNCTION OF THE SHAPE, so `PlaneOp.Halo(shape)` takes the plane it runs at: an occlusion march reaches a FRACTION of the longer axis, which is 819 rows at 16k and 26 at 512, and a constant radius could only ever answer one of them. Where a halo alone exceeds the ceiling the walk COLLAPSES to one band over the whole plane — the arithmetic's own answer rather than a special case — and that degenerate band is exactly the extent-proportional op's declared cost: a 16k occlusion sweep stages its single-lane height field whole at 2 GiB. Every bounded-halo op bands genuinely.
@@ -437,15 +437,15 @@ public abstract partial record PlaneOp {
         if (ops.IsEmpty) { return Fin.Succ((source, PlaneTrace.Empty)); }
         TimeProvider ticks = clock.IfNone(TimeProvider.System);
         long opened = ticks.GetTimestamp();
-        return Schedule(PlaneShape.Of(source), ops, key).Bind(stages => Run(source, stages, ops, key, ticks, opened, governance));
+        return Schedule(PlaneShape.Of(source), ops).Bind(stages => Run(source, stages, ops, ticks, opened, governance));
     }
 
     private static Fin<Seq<PlaneStage>> Schedule(PlaneShape input, Seq<PlaneOp> ops) =>
-        ops.FoldM((Shape: input, Stages: Seq<PlaneStage>()), (carry, op) =>
+        ops.FoldM((Shape: input, Stages: Seq<PlaneStage>()), (carry) =>
             op.Project(carry.Shape).Map(shape => (
                 Shape: shape,
                 Stages: !carry.Stages.IsEmpty && carry.Stages[^1].Kind.Fuses && op.Stage.Fuses
-                    ? carry.Stages.Init.Add(carry.Stages[^1] with { Ops = carry.Stages[^1].Ops.Add((op, shape)), Shape = shape })
+                    ? carry.Stages.Init.Add(carry.Stages[^1] with { Ops = carry.Stages[^1].Ops.Add((shape)), Shape = shape })
                     : carry.Stages.Add(new PlaneStage(op.Stage, Seq((shape)), shape, op.Halo(carry.Shape)))))).As()
         .Map(static carry => carry.Stages);
 
@@ -456,8 +456,8 @@ public abstract partial record PlaneOp {
                 Some: abandoned => ReferenceEquals(carry.Plane, source)
                     ? Fin.Fail<(TexturePlane Plane, Option<HeightEvidence> Evidence, int Done)>(abandoned)
                     : Fin.Fail<(TexturePlane Plane, Option<HeightEvidence> Evidence, int Done)>(abandoned).Rollback(carry.Plane),
-                None: () => Rent(carry.Plane, stage, key)
-                    .Bind(destination => PlaneKernel.Execute(carry.Plane, destination, stage, key,
+                None: () => Rent(carry.Plane, stage)
+                    .Bind(destination => PlaneKernel.Execute(carry.Plane, destination, stage,
                             governance.Within(carry.Done / (double)stages.Count, 1.0 / stages.Count))
                         .Bind(evidence => ReferenceEquals(carry.Plane, source)
                             ? Fin.Succ((Plane: destination, Evidence: evidence.IfNone(() => carry.Evidence), Done: carry.Done + 1))
@@ -478,9 +478,9 @@ public abstract partial record PlaneOp {
     private static Fin<TexturePlane> Rent(TexturePlane source, PlaneStage stage) =>
         stage.Shape.Width == source.Width && stage.Shape.Height == source.Height
             ? TexturePlane.Of(stage.Shape.Format, source.Grid, stage.Shape.Layers, stage.Shape.Transfer,
-                stage.Shape.Alpha, stage.Shape.Range, source.Primaries, key, AllocationMode.Default)
+                stage.Shape.Alpha, stage.Shape.Range, source.Primaries, AllocationMode.Default)
             : TexturePlane.Of(stage.Shape.Format, stage.Shape.Width, stage.Shape.Height, stage.Shape.Transfer,
-                stage.Shape.Alpha, key, Some(stage.Shape.Layers), Some(stage.Shape.Range), Some(source.Primaries),
+                stage.Shape.Alpha, Some(stage.Shape.Layers), Some(stage.Shape.Range), Some(source.Primaries),
                 mode: AllocationMode.Default);
 }
 
@@ -717,7 +717,7 @@ internal static class PlaneKernel {
     private static Fin<double> Convolve(PlaneBand window, TexturePlane source, TexturePlane destination, int layer, PlaneOp.Convolve op) {
         int colour = source.Alpha.ColourLanes(source.Lanes);
         if (op.Kernel.Separable) { return Separable(window, source, destination, layer); }
-        Square(window, destination, layer, colour, op);
+        Square(window, destination, layer, colour);
         return Fin.Succ(0.0);
     }
 
@@ -728,7 +728,7 @@ internal static class PlaneKernel {
         }
         double[] taps = new double[(radius * 2) + 1];
         for (int tap = -radius; tap <= radius; tap++) { taps[tap + radius] = WeightKernel.Gaussian.Weight(Math.Abs(tap), support); }
-        Fin<TapSeries> mint = TapSeries.Of(new Arr<double>(taps), key);
+        Fin<TapSeries> mint = TapSeries.Of(new Arr<double>(taps));
         if (mint.Case is not TapSeries series) { return mint.Map(static _ => 0.0); }
 
         int alphaLane = source.Alpha.AlphaLane(lanes);
@@ -750,12 +750,12 @@ internal static class PlaneKernel {
             from: window.Halo - lead, run: Dimension.Create(window.Own));
         if (admitted.Case is not TapWindow columns) { return admitted.Map(static _ => 0.0); }
         Fin<Unit> folded = series.Convolve(window.Staging.Slice(lead * width * lanes, present * width * lanes),
-            vertical.Span, columns, TapBorder.Omit, key);
+            vertical.Span, columns, TapBorder.Omit);
         for (int row = 0; folded.IsSucc && row < window.Own; row++) {
             folded = series.Convolve(vertical.Span.Slice(row * width * lanes, width * lanes),
                 blurred.Span.Slice(row * width * lanes, width * lanes),
                 TapWindow.Whole(extent: Dimension.Create(value: width), stride: Dimension.Create(value: lanes)),
-                Border(window.Edge), key);
+                Border(window.Edge));
         }
         if (folded.Case is Error fault) { return Fin.Fail<double>(fault); }
         if (alphaLane >= 0) {
@@ -1138,16 +1138,16 @@ internal static class HeightField {
 
     internal static Fin<HeightEvidence> ToHeight(
         TexturePlane normal, TexturePlane height, HeightSolver solver, HeightEvidence evidence, HeightPolicy policy) =>
-        solver.Periodic ? Spectral(normal, height, evidence, key) : Bounded(normal, height, evidence, policy, key);
+        solver.Periodic ? Spectral(normal, height, evidence) : Bounded(normal, height, evidence, policy);
 
     private static Fin<HeightEvidence> Spectral(TexturePlane normal, TexturePlane height, HeightEvidence evidence) {
         int w = height.Width.Value, h = height.Height.Value;
         Complex[] field = new Complex[w * h];
         Divergence(normal, field.AsSpan(), w, h);
         return from spectrum in new SpectralArena.Interleaved(Values: field, Lattice: height.Grid)
-                   .Transform(SpectralSense.Forward, SpectralScaling.Symmetric, key)
-               from filtered in spectrum.Modulate(InverseLaplacian(w, h).AsSpan(), key)
-               from restored in filtered.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric, key)
+                   .Transform(SpectralSense.Forward, SpectralScaling.Symmetric)
+               from filtered in spectrum.Modulate(InverseLaplacian(w, h).AsSpan())
+               from restored in filtered.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric)
                select Restore(height, RealPart(restored.Arena.Values), evidence);
     }
 
@@ -1176,10 +1176,10 @@ internal static class HeightField {
         Divergence(normal, rhs.Span, height.Width.Value, height.Height.Value);
         TensorPrimitives.Negate(rhs.Span, rhs.Span);
         rhs.Span[order.Value - 1] = 0.0;
-        if (order.Value > policy.DirectCeiling) { return Krylov(rhs.Span, height, evidence, policy, key); }
-        return from matrix in SparseMatrix.FromTriplets(order, order, Laplacian(height.Width.Value, height.Height.Value), key)
-               from factor in CholeskySparse.Of(matrix, key)
-               from solved in factor.Solve(new Arr<double>(rhs.Span), key)
+        if (order.Value > policy.DirectCeiling) { return Krylov(rhs.Span, height, evidence, policy); }
+        return from matrix in SparseMatrix.FromTriplets(order, order, Laplacian(height.Width.Value, height.Height.Value))
+               from factor in CholeskySparse.Of(matrix)
+               from solved in factor.Solve(new Arr<double>(rhs.Span))
                select Restore(height, solved.AsSpan(), evidence);
     }
 

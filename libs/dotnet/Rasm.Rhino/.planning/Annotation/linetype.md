@@ -412,7 +412,7 @@ public abstract partial record LinetypeOp {
             from __ in Grip.Revised(
                 target: edit.Target, document: context,
                 interaction: edit.Interaction,
-                revise: (copy, key) => edit.Edits
+                revise: (copy) => edit.Edits
                     .TraverseM(row => row.Apply(surface: Run(copy))).As().Map(static _ => unit))
             select unit,
         revert: static (context, edit) =>

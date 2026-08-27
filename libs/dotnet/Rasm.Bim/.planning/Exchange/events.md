@@ -230,11 +230,11 @@ public static class BimEventing {
         egress:        static (_, _) => Fin.Succ(Option<UInt128>.None),
         textured:      static (_, _) => Fin.Succ(Option<UInt128>.None),
         degraded:      static (_, _) => Fin.Succ(Option<UInt128>.None),
-        committed:     static (op, c) => Body(BimEventWire.Wire(c), BimEventContext.Default.CommittedWire, op).Map(body => Some(body.Content)),
-        issueMutated:  static (op, i) => Body(BimEventWire.Wire(i), BimEventContext.Default.IssueMutatedWire, op).Map(body => Some(body.Content)),
-        verdict:       static (op, v) => Body(BimEventWire.Wire(v), BimEventContext.Default.VerdictIssuedWire, op).Map(body => Some(body.Content)),
-        exported:      static (op, e) => Body(BimEventWire.Wire(e), BimEventContext.Default.ArtifactMintedWire, op).Map(body => Some(body.Content)),
-        emitted:       static (op, m) => Body(BimEventWire.Wire(m), BimEventContext.Default.EnergyMintedWire, op).Map(body => Some(body.Content)));
+        committed:     static (c) => Body(BimEventWire.Wire(c), BimEventContext.Default.CommittedWire).Map(body => Some(body.Content)),
+        issueMutated:  static (i) => Body(BimEventWire.Wire(i), BimEventContext.Default.IssueMutatedWire).Map(body => Some(body.Content)),
+        verdict:       static (v) => Body(BimEventWire.Wire(v), BimEventContext.Default.VerdictIssuedWire).Map(body => Some(body.Content)),
+        exported:      static (e) => Body(BimEventWire.Wire(e), BimEventContext.Default.ArtifactMintedWire).Map(body => Some(body.Content)),
+        emitted:       static (m) => Body(BimEventWire.Wire(m), BimEventContext.Default.EnergyMintedWire).Map(body => Some(body.Content)));
 
     public static Fin<BimFact> Admit(CloudEvent envelope) =>
         from admitted in RasmEventEnvelope.Admit(
@@ -248,11 +248,11 @@ public static class BimEventing {
             BimReason.Codec,
             string.Join(':', new object?[] { "event-type-miss", type.ToString() })))
         from fact in body is JsonElement data
-            ? Admitted(row, data, key)
+            ? Admitted(row, data)
             : Fin.Fail<BimFact>(new BimFault.Refused(BimScope.Events,
                 BimReason.Codec,
                 string.Join(':', new object?[] { "event-body-miss", type.ToString() })))
-        from content in Content(fact, key)
+        from content in Content(fact)
         from expected in content.ToFin(new BimFault.Refused(BimScope.Events,
             BimReason.Codec,
             string.Join(':', new object?[] { "event-type-unannounced", type.ToString() })))
@@ -354,7 +354,7 @@ public static class BimEventing {
 
     static Fin<Option<string>> OptionalGuid(string? value, string slot) => value is null
         ? Fin.Succ(Option<string>.None)
-        : GuidText(value, slot, key).Map(Some);
+        : GuidText(value, slot).Map(Some);
 
     static Fin<ContentKeySet> ContentKeys(ImmutableArray<string> values, string slot) =>
         WireSet.Ordered(values)

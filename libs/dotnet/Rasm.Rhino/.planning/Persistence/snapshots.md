@@ -143,7 +143,7 @@ public static class Snapshots {
                from request in Admit.Need(value: operation)
                from answer in owner.Demand(
                    use: document => request.Switch<(RhinoDoc Document), Fin<SnapshotAnswer>>(
-                       state: (document, op),
+                       state: (document),
                        rosterCase: static (state, _) => Roster(document: state.Document)
                            .Map<SnapshotAnswer>(static roster => new SnapshotAnswer.RosterCase(Roster: roster)),
                        mutationCase: static (state, mutation) => Run(
@@ -217,7 +217,7 @@ public static class Snapshots {
 ## [03]-[PARTICIPANT_CONTRACTS]
 
 - Owner: `SnapshotCategory` is the seven-row host category vocabulary; `ParticipantName` admits the displayed participant name; `SnapshotObjectState` is the per-object payload; `IDocumentSnapshotLane`, `IObjectSnapshotLane`, and `IAnimationSnapshotLane` are the three payload contracts; `ParticipantSpec` is the participant's whole declaration.
-- Entry: `ParticipantSpec.Of(plugInId, clientId, category, name, codec, report, document, objects, animation, key)` admits identity, category, codec, and at least one lane; the three lane slots ride `Option<T>` on the spec.
+- Entry: `ParticipantSpec.Of(plugInId, clientId, category, name, codec, report, document, objects, animation)` admits identity, category, codec, and at least one lane; the three lane slots ride `Option<T>` on the spec.
 - Auto: `SupportsDocument`, `SupportsObjects`, and `SupportsAnimation` DERIVE from the three slots, and every invocation reads the same slot the probe read. The retired form keyed a `HashMap<SnapshotCapability, ISnapshotLane>` by a three-row vocabulary whose only column was a `Type`, then answered both the probe and the invocation by searching that roster for a row whose contract matched `typeof(TLane)` and downcasting the value — a type-test dispatch disagreeing with itself under no compiler check. The slots type the answer.
 - Law: the erasure family DELETES whole — `SnapshotCapability`, its `Type Contract` column, the `Lanes` map, the generic `Lane<TLane>`/`Carries<TLane>` lookups, and the `ValidateLane` interface-versus-capability agreement gate. The gate existed only because the map allowed a lane to be filed under a row its own type did not satisfy; a typed slot cannot hold the wrong lane, so the agreement is a compile fact and the roster's three rows had no upstream at all.
 - Law: `SnapshotCodec` DELETES onto `Persistence/userdata#ARCHIVE_FRAME`'s `IArchiveCodec` (E-R57) — the retired class declared `Schema`, `Upgrade`, `Write`, and `Read` exactly as `TypedUserData<TSelf>` did, so a page-local abstract adding nothing over the seated one is a forwarding shell. `ParticipantSpec.Codec` is an `IArchiveCodec` and every crossing on this page reads it.
@@ -591,14 +591,14 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         from state in use()
         from admitted in Acceptance.Value(value: state.Transform)
         from _written in writer
-            .TraverseM(archive => spec.Codec.Write(archive, state.Payload, key))
+            .TraverseM(archive => spec.Codec.Write(archive, state.Payload))
             .As()
             .Map(static _ => unit)
         select admitted;
 
     private Fin<(ArchiveMap Start, ArchiveMap Stop)> Maps(BinaryArchiveReader start, BinaryArchiveReader stop) =>
-        from first in spec.Codec.Read(start, key)
-        from last in spec.Codec.Read(stop, key)
+        from first in spec.Codec.Read(start)
+        from last in spec.Codec.Read(stop)
         select (first, last);
 
     private Fin<(ArchiveMap Current, Seq<ArchiveMap> Snapshots)> Probes(
@@ -606,7 +606,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         SimpleArrayBinaryArchiveReader archiveArray) =>
         from current in spec.Codec.Read(archive)
         from snapshots in toSeq(Enumerable.Range(0, archiveArray.Count))
-            .TraverseM(index => spec.Codec.Read(archiveArray.Get(index), key))
+            .TraverseM(index => spec.Codec.Read(archiveArray.Get(index)))
             .As()
         select (current, snapshots);
 

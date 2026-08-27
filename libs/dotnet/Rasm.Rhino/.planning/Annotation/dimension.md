@@ -196,11 +196,11 @@ public abstract partial record DimensionSpec {
         rotated: static (key, spec) => spec.Points.Admit().Bind(_ => Acceptance.Rows(spec.RotationRadians)).Map(static _ => unit),
         angularVertex: static (key, spec) => spec.Points.Admit(),
         angularSpread: static (key, spec) => spec.Points.Admit(),
-        angularLines: static (key, spec) =>
+        angularLines: static (spec) =>
             from lines in Acceptance.Rows(spec.SideA, spec.SideB)
             from points in Acceptance.Rows(spec.OnA, spec.OnB, spec.OnArc)
             select unit,
-        angularArc: static (key, spec) =>
+        angularArc: static (spec) =>
             from arc in Acceptance.Rows(spec.Value)
             from offset in Acceptance.Rows(spec.Offset)
             select unit,
@@ -289,7 +289,7 @@ public abstract partial record DimAdjust {
     private Fin<Unit> Admit() => Switch(linear: static (key, fit) => Acceptance.Rows(fit.Ext1End, fit.Ext2End, fit.OnDimLine).Map(static _ => unit),
         angularVertex: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
         angularSpread: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
-        radial: static (key, fit) =>
+        radial: static (fit) =>
             from plane in Acceptance.Rows(fit.Plane)
             from points in fit.Points.Admit()
             from rotation in Acceptance.Rows(fit.RotationRadians)

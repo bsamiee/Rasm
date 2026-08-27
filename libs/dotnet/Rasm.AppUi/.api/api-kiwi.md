@@ -85,7 +85,7 @@
 |  [03]   | `Constraint.Equal(lhs, rhs, strength)`                             | static factory | `==` constraint from two sides    |
 |  [04]   | `Constraint.LessEqual(lhs, rhs, strength)`                         | static factory | `<=` constraint from two sides    |
 |  [05]   | `Constraint.GreaterEqual(lhs, rhs, strength)`                      | static factory | `>=` constraint from two sides    |
-|  [06]   | `Constraint.Make(lhs, op, rhs, strength)` (15 overloads)           | static factory | operator-selected mixed-arg bind  |
+|  [06]   | `Constraint.Make(lhs, rhs, strength)` (15 overloads)           | static factory | operator-selected mixed-arg bind  |
 |  [07]   | `Constraint.Expression` / `Operator` / `Strength` / `Violated`     | property       | constraint inspection             |
 
 [ENTRYPOINT_SCOPE]: expression assembly

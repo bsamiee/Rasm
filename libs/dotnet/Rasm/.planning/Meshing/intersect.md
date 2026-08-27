@@ -314,21 +314,21 @@ public static class Intersection {
     static Fin<SpatialIndex> Bvh(MeshEdit soup) {
         BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) { boxes[f] = soup.Bounds(f); }
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, key);
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical);
     }
 
     // --- [CROSSINGS]
     static Fin<CrossingStore> Cross(IntersectOp.MeshMesh op) {
         using MeshEdit ea = MeshEdit.Of(op.A);
         using MeshEdit eb = MeshEdit.Of(op.B);
-        return (Bvh(ea, key), Bvh(eb, key)).Apply((ia, ib) => (ia, ib)).As()
+        return (Bvh(ea), Bvh(eb)).Apply((ia, ib) => (ia, ib)).As()
             .Bind(t => t.ia.Query(t.ib, op.A.Tolerance.For(ToleranceLane.MeshIntersection).Value))
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => PairCrossings(store, ea, eb, pair.Left, pair.Right, op.Policy)));
     }
 
     static Fin<CrossingStore> SelfCross(IntersectOp.SelfMesh op) {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
-        return Bvh(soup, key)
+        return Bvh(soup)
             .Bind(index => index.Query(index, op.Mesh.Tolerance.For(ToleranceLane.MeshIntersection).Value))
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => {
                 if (pair.Left >= pair.Right) { return store; }
@@ -502,7 +502,7 @@ public static class Intersection {
         (Point3d from, Point3d to) = (op.Ray.Position, op.Ray.PointAt(op.MaxT));
         if (Axis.DominantOf(op.Ray.Direction).Case is not Axis axis) { return Fin.Fail<IntersectResult>(new KernelFault.InvalidInput()); }
         Sign forward = Sign.Of(axis.Along(op.Ray.Direction));
-        return Bvh(soup, key)
+        return Bvh(soup)
             .Bind(index => index.Query(new BoundingBox([from, to])))
             .Map(faces => {
                 Option<Implicit> best = None;

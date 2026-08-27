@@ -187,7 +187,7 @@ public static class SandboxRows {
             state: (Row: row, Artifact: artifact, Scope: scope, Runtime: runtime),
             wasmCase: static (seat, wasm) => Capsule(seat.Row, seat.Artifact, seat.Scope, seat.Runtime, wasm).Map(static capsule => (Vehicle)new Vehicle.WasmCase(capsule)),
             childCase: static (seat, child) => child.Spawn(seat.Artifact, seat.Scope).Map(peer => (Vehicle)new Vehicle.ChildCase(peer, child)))
-        from opened in IO.lift(QuotaCell.Open(row.Quota, runtime.Clocks, key))
+        from opened in IO.lift(QuotaCell.Open(row.Quota, runtime.Clocks))
         select new PluginInstance(
             artifact.PluginId, artifact, scope, opened, vehicle,
             Atom<Quarantine>(new Quarantine.Active()),
@@ -274,7 +274,7 @@ public static class GrantHandleSurface {
     public static IO<CommandResult> Invoke(
         SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle,
         string descriptorId, CommandArguments arguments) =>
-        from breach in IO.lift(plugin.Quota.Breach(runtime.Clocks, key))
+        from breach in IO.lift(plugin.Quota.Breach(runtime.Clocks))
         from result in breach.Match(
             Some: hit => Refused(runtime, descriptorId, arguments, new SandboxFault.QuotaExceeded(hit)),
             None: () => runtime.Command.Registry.Resolve(descriptorId).Match(
@@ -365,7 +365,7 @@ public sealed record QuotaCell(QuotaShape Shape, Atom<MeterVector> Spent, Monoto
 
     public Fin<Option<Breach>> Breach(ClockPolicy clocks) =>
         from now in Error.New(key.Message)
-        from ran in clocks.Line.Elapsed(Opened, now, key)
+        from ran in clocks.Line.Elapsed(Opened, now)
         select ran >= Shape.Wall.Bound
             ? Some(new Breach(CostUnit.WallMillis, (long)(ran - Shape.Wall.Bound).TotalMilliseconds))
             : Shape.Breach(Spent.Value);
@@ -421,7 +421,7 @@ public static class QuotaControl {
 
     public static IO<Option<Breach>> Enforce(SandboxRuntime runtime, PluginInstance plugin) =>
         from _charged in IO.lift(() => plugin.Quota.Charge(Observed(plugin)))
-        from breach in IO.lift(plugin.Quota.Breach(runtime.Clocks, key))
+        from breach in IO.lift(plugin.Quota.Breach(runtime.Clocks))
         select breach;
 
     public static IO<Unit> Evict(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause) =>
@@ -433,7 +433,7 @@ public static class QuotaControl {
 
     public static IO<Unit> Sweep(SandboxRuntime runtime, Seq<PluginInstance> live) =>
         live.TraverseM(plugin =>
-                from breach in Enforce(runtime, plugin, key)
+                from breach in Enforce(runtime, plugin)
                 from _ in breach.Match(
                     Some: hit => Evict(runtime, plugin, new EvictionCause.BreachedCase(hit)),
                     None: static () => IO.pure(unit))

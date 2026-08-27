@@ -367,15 +367,15 @@ public static class ModelRegistry {
     public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy) =>
         policy.PinnedCard.Match(
             Some: id => Rows.TryGetValue(id, out ModelCard? pinned) && pinned.Stage == stage
-                ? Admissible(pinned, policy, key)
-                : new MaterialFault.Parameter(key, $"<model-card-unpinned:{id.Value}:{stage.Key}>"),
+                ? Admissible(pinned, policy)
+                : new MaterialFault.Parameter($"<model-card-unpinned:{id.Value}:{stage.Key}>"),
             None: () => toSeq(toSeq(Rows.Values)
                     .Filter(card => card.Stage == stage && card.Admits(policy.Ceiling))
                     .OrderBy(card => card.Providers.Exists(p => p == policy.Preferred) ? 0 : 1)
                     .ThenBy(static card => card.PartitionBound)
                     .ThenBy(static card => card.License.Rank))
                 .Head
-                .ToFin(new MaterialFault.Parameter(key, $"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
+                .ToFin(new MaterialFault.Parameter($"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
 
     public static Option<PbrStage> EmitterOf(Seq<PbrStage> prefix, StageProduct product) =>
         prefix.Filter(stage => StageRelation.Emits(stage, product)).Last;
@@ -435,7 +435,7 @@ public static class ModelRegistry {
 ## [03]-[STAGE_PLAN]
 
 - Owner: `StagePlan` the planning fold; `StageIntent`/`StagePolicy` the request shapes; `StageInput` the producer binding; `InferenceTiling` the fixed-bucket tiling; `StageReplay`/`StageStep` the replay consult and the planned step it carries; `StageRequest`/`StageResult`/`StageOutput` the boundary records.
-- Entry: `public static Fin<Seq<StageStep>> Plan(StageIntent intent, Option<StageReplay> replay = default)` resolves the requested `StageProduct` set into the dependency-ordered step sequence — one entry for the whole plan, because a per-stage entrypoint pushes the ordering, the input binding, the extent threading, and the replay consult onto every caller; `StageResult.Admit(StageResult, ModelCard, StageRequest)` is the ONE ingestion gate every returned result crosses — card echo, product permission, output completeness, extent congruence, partition bound, and residual ceiling in one result — and `InferenceTiling.Of(width, height, contract, key)` derives the tiling from the card's own bucket roster.
+- Entry: `public static Fin<Seq<StageStep>> Plan(StageIntent intent, Option<StageReplay> replay = default)` resolves the requested `StageProduct` set into the dependency-ordered step sequence — one entry for the whole plan, because a per-stage entrypoint pushes the ordering, the input binding, the extent threading, and the replay consult onto every caller; `StageResult.Admit(StageResult, ModelCard, StageRequest)` is the ONE ingestion gate every returned result crosses — card echo, product permission, output completeness, extent congruence, partition bound, and residual ceiling in one result — and `InferenceTiling.Of(width, height, contract)` derives the tiling from the card's own bucket roster.
 - Law: resolution is COVER, then CLOSURE, then REFINE, and each pass reads row data AND the licence posture. `Cover` runs a greedy set cover over the SERVICEABLE `StageSelection.Cover` rows against the requested `StageProduct` set — one demand axis over channels AND priors, so the depth anchor and the spectral curve are requestable exactly as a channel is and a prior-emitting stage is reachable rather than orphaned. SERVICEABLE means the stage's whole consume-closure holds a granting card at the caller's ceiling, so the grant gate shapes the ROUTE instead of surfacing as a refusal three stages deep; the stage covering the most still-uncovered products wins and declaration order breaks every tie.
 - Law: `Closure` walks the roster in REVERSE declaration order ONCE, pulling each selected stage's consumed products back to their serviceable emitters through `StageRelation` — a single reverse pass is exact because the census asserts at type initialization that a consumed product is emitted by an earlier row. `Refine` ACCUMULATES the refinement chain against the target-over-source factor: each granted refine row whose `Scale` divides the remainder appends in declaration order, an anisotropic or unreachable target REFUSES, and a chained refinement binds its predecessor through the prefix rather than the cover stage's original.
 - Law: each stage's INPUT is its PRODUCER's output, never the source photo. `StageInput.Source` carries the intent's plane for a stage consuming nothing, and `StageInput.Produced` names the emitting stage and the product for a stage consuming one, which the executor resolves against the results it already holds. Handing every stage the same source blob runs a chain whose links never touch, its albedo estimator reading the raw photograph the delighting stage exists to replace.
@@ -507,12 +507,12 @@ public sealed record StageRequest(
         from _ in guard(card.License.Grants, new MaterialFault.Parameter($"<stage-license-blocked:{card.Id.Value}>"))
         from _seed in guard(!card.Traits.Admits(ModelTrait.Stochastic) || intent.Policy.Seed != 0UL,
                 new MaterialFault.Parameter($"<stage-stochastic-seed-unset:{card.Id.Value}>"))
-        from inputs in Bind(card.Stage, intent, prefix, key)
+        from inputs in Bind(card.Stage, intent, prefix)
         let resolved = Preferred(card, intent.Policy)
         select new StageRequest(card.Stage, card.Id, card.Artefact, card.License, inputs, width, height,
             Dimension.Create(width.Value * card.Stage.Scale), Dimension.Create(height.Value * card.Stage.Scale),
             tiles.TileWidth.Value, tiles.TileHeight.Value, tiles.Overlap, tiles.PadMode, tiles.Bucket, card.Contract.TensorLayout,
-            resolved.Provider, resolved.Precision, card.Traits.Admits(ModelTrait.Stochastic) ? intent.Policy.Seed : 0UL, key);
+            resolved.Provider, resolved.Precision, card.Traits.Admits(ModelTrait.Stochastic) ? intent.Policy.Seed : 0UL);
 
     static Fin<Seq<StageInput>> Bind(PbrStage stage, StageIntent intent, Seq<PbrStage> prefix) =>
         stage.Consumes().IsEmpty
@@ -580,9 +580,9 @@ public readonly record struct StageStep(StageRequest Request, Option<StageResult
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StagePlan {
     public static Fin<Seq<StageStep>> Plan(StageIntent intent, Option<StageReplay> replay = default) =>
-        from covered in Cover(intent.Requested, intent.Policy, key)
-        from ordered in Refine(Closure(covered, intent.Policy), intent, key)
-        from steps in Thread(ordered, intent, replay, key)
+        from covered in Cover(intent.Requested, intent.Policy)
+        from ordered in Refine(Closure(covered, intent.Policy), intent)
+        from steps in Thread(ordered, intent, replay)
         select steps;
 
     static Fin<Seq<PbrStage>> Cover(Seq<StageProduct> requested, StagePolicy policy) =>
@@ -639,10 +639,10 @@ public static class StagePlan {
         ordered.FoldM(
             (Steps: Seq<StageStep>(), Prefix: Seq<PbrStage>(), Width: intent.Width, Height: intent.Height),
             (carried, stage) =>
-                from card in ModelRegistry.Select(stage, intent.Policy, key)
-                from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract, key)
-                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles, key)
-                from held in Consulted(replay, request, card, key)
+                from card in ModelRegistry.Select(stage, intent.Policy)
+                from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract)
+                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles)
+                from held in Consulted(replay, request, card)
                 select (Steps: carried.Steps.Add(new StageStep(request, held)), Prefix: carried.Prefix.Add(stage),
                         Width: request.OutputWidth, Height: request.OutputHeight))
         .As()
@@ -650,7 +650,7 @@ public static class StagePlan {
 
     static Fin<Option<StageResult>> Consulted(Option<StageReplay> replay, StageRequest request, ModelCard card) =>
         replay.Bind(port => port(request))
-            .TraverseM(held => StageResult.Admit(held, card, request, key)).As();
+            .TraverseM(held => StageResult.Admit(held, card, request)).As();
 }
 ```
 

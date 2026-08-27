@@ -183,7 +183,7 @@ public static class MaterialBridge {
 - Law: configuration writes are total state, never a patch — `Apply` re-asserts every field under one `ChangeReason`, so an absent field cannot silently clear and the write is replayable from the record alone.
 - Law: `AxisFold.Apply` is the ONE write-roster fold on this branch — it takes any `string`-keyed row roster, prefixes the refusing row's own key onto the fault, and answers `Unit`; a second per-roster copy of the same traverse is the deleted form, and `TextureAxis`, `FacsimileAxis`, and every sibling page's `*State.Apply` roster take it unchanged.
 - Law: `TextureAxis` and `FacsimileAxis` are the write rosters — every row answers `Unit` so the fold is uniform, a conditional host pair is one row whose option is its own predicate, and a straight-line setter run beside the roster is the deleted form.
-- Law: boolean texture axes ride ONE `CapabilitySet<TextureToggle>` whose row keys are the `TextureAxis` keys they write, so a boundary reading a persisted toggle word resolves it through `Admits(key)` without a second correspondence table. This collapse LOSES per-toggle compile-time exhaustiveness; the axis rows buy it back, naming their toggle row explicitly and breaking loudly when one is retired.
+- Law: boolean texture axes ride ONE `CapabilitySet<TextureToggle>` whose row keys are the `TextureAxis` keys they write, so a boundary reading a persisted toggle word resolves it through `Admits()` without a second correspondence table. This collapse LOSES per-toggle compile-time exhaustiveness; the axis rows buy it back, naming their toggle row explicitly and breaking loudly when one is retired.
 - Law: read-only `LocalMappingTransform` and `OriginalFilename` never enter writable state; local mapping reconstructs from the admitted UVW fields, while original filename remains observation-only host provenance.
 - Law: `EnvironmentProjection` closes the eight host projection modes that name an environment mapping, and the simulated `Emap` posture is the one fallback row the key column cannot carry — it reads the OTHER host enum, so it stays the named `else` inside the one owner rather than an inline arm at the call site. Unrostered projections read as legal absence, not a fault, so this correspondence answers `Option` and takes no row-read result.
 - Boundary: live evaluation (`CreateEvaluator`) and the bake gate (`SimulateTexture`) are the Display render page's `TextureBake` owner; this page configures the content, that one evaluates it, and the two never merge.
@@ -718,12 +718,12 @@ public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease
 |  [05]   | texture configuration  | `TextureConfig`         | total replayable state, toggles as one column     | `Of` / `Apply(texture, reason)`  |
 |  [06]   | texture write roster   | `TextureAxis`           | one row per writable host axis                    | `Write` / `Items`                |
 |  [07]   | roster fold            | `AxisFold`              | the branch's one keyed write traverse             | `Apply(target, state, write)`    |
-|  [08]   | texture classification | `TextureTraits`         | detached local mapping and capability column      | `Of(texture, key)`               |
+|  [08]   | texture classification | `TextureTraits`         | detached local mapping and capability column      | `Of(texture)`               |
 |  [09]   | baked-texture crossing | `TextureFacsimile`      | replayable facsimile state                        | `Of` / `Apply`                   |
 |  [10]   | facsimile write roster | `FacsimileAxis`         | one row per simulated axis, option as predicate   | `Write` / `Items`                |
 |  [11]   | environment projection | `EnvironmentProjection` | host projection keyed, simulated `Emap` fallback  | `Of(projection, simulated)`      |
 |  [12]   | texture mint/export    | `TextureMint`           | admitted leased texture lifecycle                 | `From` / `Mint`                  |
-|  [13]   | environment bake/mint  | `EnvironmentState`      | detached state and document-aware leased mint     | `Bake` / `Mint(document, key)`   |
+|  [13]   | environment bake/mint  | `EnvironmentState`      | detached state and document-aware leased mint     | `Bake` / `Mint(document)`   |
 |  [14]   | photometric payload    | `PhotometricFile`       | dialect-admitted attachment answering its address | `Of` / `AttachTo`                |
 |  [15]   | photometric readers    | `PhotometricPress`      | declarative registry serializer roster            | `Serializers(retention, record)` |
 

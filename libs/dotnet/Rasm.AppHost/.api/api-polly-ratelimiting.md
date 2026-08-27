@@ -93,12 +93,12 @@ Each options value carries its settable members, and `AutoReplenishment` default
 |  [04]   | `PartitionedRateLimiter<TResource>.AttemptAcquire(TResource, int)`                   | instance | per-partition fast path      |
 |  [05]   | `PartitionedRateLimiter<TResource>.GetStatistics(TResource)`                         | instance | per-partition readout        |
 |  [06]   | `PartitionedRateLimiter<TResource>.WithTranslatedKey<TOuter>(keyAdapter, leaveOpen)` | instance | key-shape adaptation         |
-|  [07]   | `RateLimitPartition.GetTokenBucketLimiter<TKey>(key, factory)`                       | static   | token-bucket partition row   |
-|  [08]   | `RateLimitPartition.GetConcurrencyLimiter<TKey>(key, factory)`                       | static   | concurrency partition row    |
-|  [09]   | `RateLimitPartition.GetSlidingWindowLimiter<TKey>(key, factory)`                     | static   | sliding-window partition row |
-|  [10]   | `RateLimitPartition.GetFixedWindowLimiter<TKey>(key, factory)`                       | static   | fixed-window partition row   |
-|  [11]   | `RateLimitPartition.GetNoLimiter<TKey>(key)`                                         | static   | exempt partition row         |
-|  [12]   | `RateLimitPartition.Get<TKey>(key, Func<TKey, RateLimiter> factory)`                 | static   | arbitrary limiter partition  |
+|  [07]   | `RateLimitPartition.GetTokenBucketLimiter<TKey>(factory)`                       | static   | token-bucket partition row   |
+|  [08]   | `RateLimitPartition.GetConcurrencyLimiter<TKey>(factory)`                       | static   | concurrency partition row    |
+|  [09]   | `RateLimitPartition.GetSlidingWindowLimiter<TKey>(factory)`                     | static   | sliding-window partition row |
+|  [10]   | `RateLimitPartition.GetFixedWindowLimiter<TKey>(factory)`                       | static   | fixed-window partition row   |
+|  [11]   | `RateLimitPartition.GetNoLimiter<TKey>()`                                         | static   | exempt partition row         |
+|  [12]   | `RateLimitPartition.Get<TKey>(Func<TKey, RateLimiter> factory)`                 | static   | arbitrary limiter partition  |
 
 - `RateLimiter` is `IDisposable` and `IAsyncDisposable`; `PartitionedRateLimiter<TResource>` implements both and disposes every partition it minted, while `RateLimitLease` is `IDisposable` alone and releases its permits back to the instance that ISSUED it.
 - `AddConcurrencyLimiter` is not a distinct strategy: both overloads construct a `RateLimiterStrategyOptions` carrying `DefaultRateLimiterOptions` and forward to `AddRateLimiter`, so a chain stacking both verbs seats two limiter strategies, not one limiter with two policies.

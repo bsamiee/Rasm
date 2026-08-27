@@ -381,8 +381,8 @@ public sealed partial record PointCloudSource(
     private static Fin<PointCloudSource> Materialized(
         GpuBackend backend, ResidencyPayload payload, CaptureDecoded.Points decoded) =>
         (from policy in Broadphase(decoded.OctreeDepth)
-         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy, op)
-         from stream in index.Wire(op)
+         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy)
+         from stream in index.Wire()
          select new PointCloudSource(
              payload.ContentKey, backend, decoded.Samples, Decoded(stream), Some(index),
              new BoundingSphere(payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius)))

@@ -106,7 +106,7 @@
 |  [07]   | `RetrieveAsync(name, ids, withPayload, withVectors, …)`                    | async read      | fetches points by id                      |
 |  [08]   | `ScrollAsync(name, filter, limit, orderBy, …)`                             | async scroll    | paged payload-filtered enumeration        |
 |  [09]   | `CountAsync(name, filter, exact)`                                          | async count     | filtered point count                      |
-|  [10]   | `FacetAsync(name, key, filter, …)`                                         | async facet     | payload-value aggregation                 |
+|  [10]   | `FacetAsync(name, filter, …)`                                         | async facet     | payload-value aggregation                 |
 |  [11]   | `SearchMatrixPairsAsync` / `SearchMatrixOffsetsAsync`                      | async matrix    | pairwise similarity matrix                |
 
 [ENTRYPOINT_SCOPE]: snapshot and health

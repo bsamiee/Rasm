@@ -647,11 +647,11 @@ public static class PanelSeed {
                 double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.LengthMm) && r.LengthMm > 0.0
                 && double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0,
                 new KernelFault.InvalidValue(nameof(PanelRow), "positive finite width, length, and thickness")),
-            FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key).ToValidation().Map(static _ => unit),
-            DeckDrift(r, key)));
+            FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener).ToValidation().Map(static _ => unit),
+            DeckDrift(r)));
 
     static Validation<Error, Unit> DeckDrift(PanelRow r) =>
-        Tolerance.Of(ToleranceLane.Match, DeckDriftMm, key).ToValidation()
+        Tolerance.Of(ToleranceLane.Match, DeckDriftMm).ToValidation()
             .Bind(band => AdmissionSlots.Gate(r.Specification.Deck.ForAll(deck =>
                     Math.Abs(r.ThicknessMm - deck.Rib.RibDepthMm) <= band.Value
                     && Math.Abs(r.WidthMm - deck.Rib.CoverageMm) <= band.Value),
@@ -664,39 +664,39 @@ public static class PanelSeed {
         r.Specification.Deck.Match(
             Some: deck => SectionProfile.Corrugated.Of(
                 coverWidthMm: deck.Rib.CoverageMm, ribDepthMm: deck.Rib.RibDepthMm, ribPitchMm: deck.Rib.RibPitchMm,
-                gaugeMm: deck.Gauge.BaseThicknessMm, topFlatMm: deck.Rib.TopFlatMm, bottomFlatMm: deck.Rib.BottomFlatMm, key),
+                gaugeMm: deck.Gauge.BaseThicknessMm, topFlatMm: deck.Rib.TopFlatMm, bottomFlatMm: deck.Rib.BottomFlatMm),
             None: () =>
                 from thickness in FactoryBridge.Accept<PositiveMagnitude>(candidate: r.ThicknessMm)
                 from plies in r.Specification.Layup(r.Kind, thickness)
                     .ToFin(new KernelFault.InvalidValue(nameof(r.ThicknessMm), "at least the built facing thickness"))
-                from layered in SectionProfile.Layered.Of(plies, overallMm: r.ThicknessMm, widthMm: r.WidthMm, key)
+                from layered in SectionProfile.Layered.Of(plies, overallMm: r.ThicknessMm, widthMm: r.WidthMm)
                 select layered);
 
     static Fin<PropertyBag> Detail(PanelRow r, SectionProfile profile) =>
         from length in FactoryBridge.Accept<PositiveMagnitude>(candidate: r.LengthMm)
         from thickness in FactoryBridge.Accept<PositiveMagnitude>(candidate: r.ThicknessMm)
-        from fastening in FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key)
+        from fastening in FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener)
         from bag in PanelDetail.Of(length, thickness, r.Edge, r.Orientation, fastening, r.Specification, r.Source)
         select bag;
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        from row in SeedJoin.Resolve(Table, component.Designation, key)
+        from row in SeedJoin.Resolve(Table, component.Designation)
         from capacity in row.Specification.Switch(
             deckSheet: deck =>
-                from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
-                from design in SteelDesign.Capacity(component.Profile, deck.Rib.Grade, solved, placement, key)
-                from lifted in SectionCapacity.Lift(new CapacityLift.DeckSheet(component.Designation, deck.Gauge, deck.Rib, design), key)
+                from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
+                from design in SteelDesign.Capacity(component.Profile, deck.Rib.Grade, solved, placement)
+                from lifted in SectionCapacity.Lift(new CapacityLift.DeckSheet(component.Designation, deck.Gauge, deck.Rib, design))
                 select lifted,
             woodPanel: wood =>
                 from nominal in LateralShear.Nominal(
                     wood.Grade, row.ThicknessMm / LateralShear.InchToMm, wood.Nail, placement.Assembly,
                     row.EdgeMm / LateralShear.InchToMm, placement.FramingWidthMm / LateralShear.InchToMm,
-                    placement.DiaphragmCase, key)
-                from design in placement.Hazard.Design(nominal, placement.Basis.Format, key)
-                from lifted in SectionCapacity.Lift(new CapacityLift.LateralPanel(component.Designation, design, placement.Hazard), key)
+                    placement.DiaphragmCase)
+                from design in placement.Hazard.Design(nominal, placement.Basis.Format)
+                from lifted in SectionCapacity.Lift(new CapacityLift.LateralPanel(component.Designation, design, placement.Hazard))
                 select lifted,
-            gypsumBoard: _ => Unpriced(component.Designation, key), facedBoard: _ => Unpriced(component.Designation, key),
-            foamBoard: _ => Unpriced(component.Designation, key), membrane: _ => Unpriced(component.Designation, key))
+            gypsumBoard: _ => Unpriced(component.Designation), facedBoard: _ => Unpriced(component.Designation),
+            foamBoard: _ => Unpriced(component.Designation), membrane: _ => Unpriced(component.Designation))
         select capacity;
 
     static Fin<SectionCapacity> Unpriced(ComponentId subject) =>

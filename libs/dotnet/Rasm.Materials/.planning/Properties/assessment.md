@@ -14,7 +14,7 @@ THE DATED-DECLARATION SOURCE. The two catalogue owners are CURATED: `Properties/
 - Law: A VOCABULARY ROW OWNS ITS OWN LANDING. Each `AssessedProperty` carries the lens that seats its measured column onto the contract case that owns it, so a new assessable property either declares where it lands or does not compile. A resolution that discriminated the landing centrally — one property routed to the thermal case and every other to the mechanical one — silently landed each new row in whichever branch the condition defaulted to, publishing a measured column on a case that does not own it, and the defect was invisible because the fold still type-checked.
 - Law: A DECLARATION'S PROVENANCE DECIDES ITS SPREAD AND ITS GRADE. The modality row carries the evidence RANK that resolves a contest between two records, the default relative BAND the admitted value wears, and the contract `EvidenceGrade` the minted `PropertyEvidence` carries, so a rebound-hammer reading and a certified coupon are distinguishable at the contract `MeasureBand` without a second column and the `Rasm.Compute` propagation route reads the real spread instead of a precision no instrument had. A declaration is the one modality whose grade its OWN row cannot decide: the generated `Subtype` value projects representativeness once, so an industry-average declaration enters at `EvidenceGrade.Catalogue` rather than wearing a product-specific attribution. Rank is a domain column, never a bent comparer.
 - Law: THE TRANSPORT ADMITS ONCE, AND THE INTERIOR NEVER READS A DOCUMENT. `DeclarationWire.Decode` parses protobuf binary through `CodedInputStream.CreateWithLimits`, then the app spine's neutral `WireAdmission.Admit` descriptor evaluator admits the generated message before a domain projection runs. The whole read and date projection funnels through ONE `Try.lift`, so malformed protobuf, invalid contract fields, and invalid calendar values park as typed refusals instead of escaping the `Fin` signature. No C# record, JSON context, enum roster, parser, validator, or per-field check restates the descriptor.
-- Entry: `AssessmentAdmission.Admit(record, key)` is the ONE domain admission — it proves each in-process shape's own columns through the shared `Projection/fault#ADMISSION_SLOTS` slots over kernel `Band` rows, lifts every scalar onto `Published<T>` at the modality's own band with the evidence its row's grade names, and returns the neutral `Assessed` the resolution law folds. `AssessmentSet.Of(records)` admits a whole delivery in ONE `Traverse`, so a malformed record ABORTS the set rather than being dropped — a dropped assessment silently reverts to catalogue data. `DeclarationWire.Decode(record)` is the corpus-contract transport: bounded binary parse and generated-rule admission run once, one banding fold sums the contract's fifteen modules onto the six-band `LifecycleStage` axis and PICKS the `DeclaredImpacts` arm its census earns, one direct projection creates `EpdRow`, and the decoded row crosses the SAME `Admit` gate an in-process record crosses.
+- Entry: `AssessmentAdmission.Admit(record)` is the ONE domain admission — it proves each in-process shape's own columns through the shared `Projection/fault#ADMISSION_SLOTS` slots over kernel `Band` rows, lifts every scalar onto `Published<T>` at the modality's own band with the evidence its row's grade names, and returns the neutral `Assessed` the resolution law folds. `AssessmentSet.Of(records)` admits a whole delivery in ONE `Traverse`, so a malformed record ABORTS the set rather than being dropped — a dropped assessment silently reverts to catalogue data. `DeclarationWire.Decode(record)` is the corpus-contract transport: bounded binary parse and generated-rule admission run once, one banding fold sums the contract's fifteen modules onto the six-band `LifecycleStage` axis and PICKS the `DeclaredImpacts` arm its census earns, one direct projection creates `EpdRow`, and the decoded row crosses the SAME `Admit` gate an in-process record crosses.
 - Growth: a new declaration modality is one `AssessmentRecord` case with its `Admit` and resolution arms; a new survey scheme is one `ConditionGrade` row carrying its retention factor; a new EN 15804+A2 indicator is one corpus enum member and one contract `ImpactCategory` row at the matching ordinal; a new assessable property is one `AssessedProperty` row carrying its `QuantityRow` and its lens, and a new `Seat` lens only where it reaches a contract case no existing lens rebuilds; a new contract enum member gains only a domain projection when this consumer can seat it; a new declaration GRANULARITY is one `DeclaredImpacts` case the generated Switch compiler-forces at fold, arity law, and resolution alike; a new contract COLUMN is consumed only when an interior decision reads it. Never a per-modality record type, never a parallel assessed-material surface, never a second `Published` carrier or document reader.
 - Boundary: an `AssessmentRecord` is INGRESS DATA, not a domain owner — `Admit` is its one `BOUNDARY_ADMISSION` and the interior sees only `Assessed`; generated contract values cross once onto `EpdRow`, and no generated message survives that projection. Every scalar rides `Published<T>`, so an assessed column and a seed column are ONE type at the boundary. Expiry is a HARD gate at RESOLUTION and never at admission — an expired certificate is a historical record that stops overriding — and a record with no expiry never expires. `Attested` and `Run` stay absent: the contract declares neither, and filling either attributes a review nobody performed. The assessable axis is CARVED, not thin: a row needs a `QuantityRow`, so the contract's fractional-exponent columns — carbonation rate mm/sqrt-year, the ageing exponent — are unassessable, sqrt-time being inexpressible in the integer dimension vector; a durability survey assesses the chloride diffusivity and the seat carries those two untouched.
 
@@ -202,14 +202,14 @@ public static class AssessmentAdmission {
         declared: static (k, r) => Declared(r.Material, r.Epd, k));
 
     static Fin<Assessed> Declared(MaterialId material, EpdRow epd) =>
-        (Arity(epd, key),
+        (Arity(epd),
          DeclarationProfile.Basis(epd.DeclaredUnit).Match(
              Some: static basis => Success<Error, MeasurementBasis>(basis),
              None: () => Fail<Error, MeasurementBasis>(
-                 new ElementFault.ValueRejected(key, $"<declaration-unit-unseated:{epd.DeclaredUnit}>"))),
-         AdmissionSlots.Gate(material.ToValue().Length > 0, new ElementFault.ValueRejected(key, $"<epd-material-blank:{epd.Reference}>")),
-         AdmissionSlots.Optional(epd.RecycledContent, Band.Unit, "epd-recycled-content", key),
-         AdmissionSlots.Optional(epd.EndOfLifeRecovery, Band.Unit, "epd-end-of-life-recovery", key))
+                 new ElementFault.ValueRejected($"<declaration-unit-unseated:{epd.DeclaredUnit}>"))),
+         AdmissionSlots.Gate(material.ToValue().Length > 0, new ElementFault.ValueRejected($"<epd-material-blank:{epd.Reference}>")),
+         AdmissionSlots.Optional(epd.RecycledContent, Band.Unit, "epd-recycled-content"),
+         AdmissionSlots.Optional(epd.EndOfLifeRecovery, Band.Unit, "epd-end-of-life-recovery"))
             .Apply((_, basis, _, recycled, recovery) => Lifecycle(
                 new AssessedIdentity(material, AssessmentModality.Declaration, EpdEvidence(epd), epd.Issued, Some(epd.ValidUntil)),
                 basis, epd, recycled, recovery))
@@ -248,7 +248,7 @@ public static class DeclarationWire {
         Try.lift(() => Fin.Succ(DeclarationRecord.Parser.ParseFrom(
                 CodedInputStream.CreateWithLimits(
                     record.AsStream(), WireLimits.Declaration.SizeLimit, WireLimits.Declaration.RecursionLimit)))).Run().Bind(static inner => inner)
-            .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload, key))
+            .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload))
             .Map(admitted => (AssessmentRecord)new AssessmentRecord.Declared(
                 MaterialId.Create(admitted.MaterialKey), ToEpd(admitted, Banded(admitted.Cells))));
 
@@ -307,7 +307,7 @@ public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> B
     public static readonly AssessmentSet Empty = new(FrozenDictionary<MaterialId, Seq<Assessed>>.Empty);
 
     public static Fin<AssessmentSet> Of(Seq<AssessmentRecord> records) =>
-        records.Traverse(record => AssessmentAdmission.Admit(record, key)).As()
+        records.Traverse(record => AssessmentAdmission.Admit(record)).As()
             .Map(static admitted => new AssessmentSet(
                 admitted.GroupBy(static a => a.Identity.Material).ToFrozenDictionary(static g => g.Key, static g => toSeq(g))));
 
@@ -322,9 +322,9 @@ public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> B
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentResolution {
     public static Fin<Seq<MaterialPropertySet>> Resolve(MaterialId id, AssessmentSet assessed, LocalDate at) =>
-        from engineering in MaterialPropertyCatalogue.Lookup(id, key)
-        from lifecycle in SustainabilityCatalogue.Lookup(id, key)
-        from resolved in Overlay(engineering + lifecycle, assessed.Live(id, at), key)
+        from engineering in MaterialPropertyCatalogue.Lookup(id)
+        from lifecycle in SustainabilityCatalogue.Lookup(id)
+        from resolved in Overlay(engineering + lifecycle, assessed.Live(id, at))
         select resolved;
 
     static Fin<Seq<MaterialPropertySet>> Overlay(Seq<MaterialPropertySet> published, Seq<Assessed> live) =>
@@ -333,7 +333,7 @@ public static class AssessmentResolution {
             : live.FoldM((Sets: published, Claimed: Set<string>()), (carried, record) =>
                     carried.Claimed.Contains(record.Axis)
                         ? Fin.Succ(carried)
-                        : Apply(carried.Sets, record, key).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))).As()
+                        : Apply(carried.Sets, record).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))).As()
                 .Map(static carried => carried.Sets);
 
     static Fin<Seq<MaterialPropertySet>> Apply(Seq<MaterialPropertySet> sets, Assessed record) =>
@@ -346,7 +346,7 @@ public static class AssessmentResolution {
     // --- [PER_AXIS_RESOLUTION]
     static Fin<Seq<MaterialPropertySet>> ReplaceColumn(Seq<MaterialPropertySet> sets, Assessed.Column record) =>
         record.Property.Row.OfNative(record.Value.Central)
-            .Bind(measure => record.Property.Landing(sets, measure, record.Identity.Evidence, key));
+            .Bind(measure => record.Property.Landing(sets, measure, record.Identity.Evidence));
 
     internal static Fin<Seq<MaterialPropertySet>> SeatMechanical(
         Seq<MaterialPropertySet> sets, PropertyEvidence evidence,
@@ -358,7 +358,7 @@ public static class AssessmentResolution {
                 youngs.IfNone(mechanical.YoungsModulus),
                 yieldStrength.IfNone(mechanical.YieldStrength),
                 ultimate.IfNone(mechanical.UltimateStrength),
-                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, key, evidence), key);
+                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, evidence));
 
     internal static Fin<Seq<MaterialPropertySet>> SeatThermal(
         Seq<MaterialPropertySet> sets, PropertyEvidence evidence, MeasureValue conductivity) =>
@@ -379,8 +379,8 @@ public static class AssessmentResolution {
             from ultimate in QuantityRow.Pressure.OfNative(mechanical.UltimateStrength.Si * record.Factor)
             from scaled in MaterialPropertySet.OfMechanical(
                 mechanical.Density, modulus, proof, ultimate,
-                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, key, record.Identity.Evidence)
-            select scaled, key);
+                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, record.Identity.Evidence)
+            select scaled);
 
     static Fin<Seq<MaterialPropertySet>> ReplaceEnvironmental(Seq<MaterialPropertySet> sets, Assessed.Lifecycle record) =>
         MaterialPropertySet.OfEnvironmental(

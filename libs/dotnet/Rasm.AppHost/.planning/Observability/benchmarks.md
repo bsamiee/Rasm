@@ -15,7 +15,7 @@ Settled composition: `AppHostMeasure.BenchmarkDuration`/`BenchmarkRegressions` a
 
 - Owner: `Benchmark` — the judged run; `BenchMeasurement` the harness-edge carrier over one `Distribution<Elapsed>`; `ReferenceEvidence` the same-run relative baseline; `BenchmarkVerdict` `[SmartEnum<string>]` the gate-disposition vocabulary; `BudgetColumn` `[SmartEnum<string>]` the gated-column roster carrying each column's fresh read, baseline read, and policy budget as delegate columns; `BudgetBreach` the per-column overrun evidence; `BenchmarkFault` `[Union]` deriving through `FaultBand.Benchmark`; `GatePolicy` the admitted threshold row; `BenchmarkGate` — the corpus pass-or-regress fold.
 - Cases: `BenchmarkVerdict` = Unjudged | Pass | Regressed | HostMismatch; `BudgetColumn` = Median | P95 | Allocation, each a ceiling against the held claim's own column; `BenchmarkFault` = GateRegressed | HostMismatch | ReferenceAbsent | PolicyRejected | MeasurementRejected.
-- Entry: `BenchMeasurement.Of(spans, allocatedBytes, operations, key)` admits a bounded materialized span sample into exact order statistics; `Benchmark.Of(suite, case, corpus, measured, stamps, reference, artifact)` is the one fresh mint every folder claim family reaches, stamping `HostFingerprint.Current(stamps)` and holding the verdict at its floor; `GatePolicy.Of(...)` admits finite positive budgets and a finite nonnegative optional speedup floor; `BenchmarkGate.Gate(signals, fresh, claim, policy, key)` judges the fresh run against the held claim, stamps the verdict row, writes `AppHostMeasure.BenchmarkDuration` and — past budget — `BenchmarkRegressions` through the mounted set, and returns the accumulating gate result; `BenchmarkGate.Judge(...)` is the pure verdict fold the entry composes.
+- Entry: `BenchMeasurement.Of(spans, allocatedBytes, operations)` admits a bounded materialized span sample into exact order statistics; `Benchmark.Of(suite, case, corpus, measured, stamps, reference, artifact)` is the one fresh mint every folder claim family reaches, stamping `HostFingerprint.Current(stamps)` and holding the verdict at its floor; `GatePolicy.Of(...)` admits finite positive budgets and a finite nonnegative optional speedup floor; `BenchmarkGate.Gate(signals, fresh, claim, policy)` judges the fresh run against the held claim, stamps the verdict row, writes `AppHostMeasure.BenchmarkDuration` and — past budget — `BenchmarkRegressions` through the mounted set, and returns the accumulating gate result; `BenchmarkGate.Judge(...)` is the pure verdict fold the entry composes.
 - Auto: the duration figures are ONE `Distribution<Elapsed>` over an ascending materialized sample — median, interquartile spread, median absolute deviation, and the `Quantiles` roster's p95 all read one sort, so a new figure is a percentile row rather than a second pass or a second carrier; the spread is EVIDENCE rather than a gate input, because a widening distribution under a held median is a stability signal a reviewer reads, not a budget a run fails, and folding it into a budget column fails every legitimately noisier lane; `HostFingerprint.Current(stamps)` stamps machine, OS, architecture, processor count, runtime, and the caller's stamp map with one ordered render, so a claim binds only against a matching host and a cross-host comparison faults as `HostMismatch` rather than a phantom regression; a corpus-bound family stamps its input fingerprint on `Corpus`, so a corpus revision re-baselines structurally — a held claim over a different corpus contributes no budget refusal; `ReferenceEvidence` carries a same-run scalar reference when a family claims relative speed, and `GatePolicy.SpeedupFloor` arms that ratio as its own gate leg; the durable claim is the Persistence reuse-index row the bench project persists off the judged value, so benchmark history is a persisted domain record and never a second stream; a regressed run still writes, so the duration and regression rows count every verdict, never the passing subset alone.
 - Output: `Benchmark` — suite, case, host fingerprint, corpus identity, the measurement carrier, gate verdict, optional same-run reference evidence, optional artifact key; the run span carries the correlation.
 - Packages: Rasm (`Distribution<Elapsed>`, `Elapsed`, `ContentHash`, `FaultBand`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
@@ -164,7 +164,7 @@ public readonly partial struct GatePolicy {
 public static class BenchmarkGate {
     public static Validation<Error, Benchmark> Judge(
         Benchmark fresh, Option<Benchmark> claim, GatePolicy policy) =>
-        (Hosts(fresh, claim, policy), Relative(fresh, policy, key), Budgets(fresh, claim, policy, key))
+        (Hosts(fresh, claim, policy), Relative(fresh, policy), Budgets(fresh, claim, policy))
             .Apply(static (_, _, _) => unit)
             .Map(_ => fresh with { Verdict = BenchmarkVerdict.Pass })
             .As();
@@ -200,7 +200,7 @@ public static class BenchmarkGate {
 
     public static IO<Validation<Error, Benchmark>> Gate(
         InstrumentSet signals, Benchmark fresh, Option<Benchmark> claim, GatePolicy policy) =>
-        from judged in IO.pure(Judge(fresh, claim, policy, key))
+        from judged in IO.pure(Judge(fresh, claim, policy))
         let stamped = fresh with { Verdict = Settled(judged) }
         let tags = InstrumentSet.Tags(
             (AppHostSlot.Suite, stamped.Suite),
@@ -263,7 +263,7 @@ public sealed record PerfMapLease(DiagnosticsClient Client) : IDisposable {
 
 - Owner: `BenchmarkRun` — the ONE gated-run capability, its `Session` composition row and `Case` identity row; `ProfileSignal` `[SmartEnum<string>]` the agent tracking vocabulary realizing `ICapability<ProfileSignal>` with each row's toggle as a delegate column; `ProfileTracking` the root arming fold; `ProfileLabels` the bounded label-scope surface partitioning continuous profiles by the dimensions instruments already carry; `ProfileSample` the correlation-keyed sample the dispatcher fans; `ProfileFrameForm` the symbolization posture every sample stamps; `ProfileCapturePolicy` the admitted decode bounds; `ProfileCapture` the sample-profiler decode producer.
 - Cases: `ProfileSignal` = Cpu | Allocation | Exception | Contention; `ProfileFrameForm` = Address | Resolved, the row deriving from whether composition supplied a `ProfileSymbolizer`.
-- Entry: `BenchmarkRun.Execute(session, spec, harness, claim, policy)` returns `IO<Validation<Error, Benchmark>>` — the ONE gated run: it arms the tracking set, opens the symbol lease and the sample capture under one bracket, runs the harness inside one activity and one label frame, constructs the benchmark off `HostFingerprint.Current(session.Stamps)`, and folds the gate; `BenchmarkRun.Relative(session, spec, reference, subject, claim, policy)` runs BOTH lanes under one session and mints the `ReferenceEvidence` the relative gate leg reads; `ProfileTracking.Apply(held)` seats the whole tracking set at the profiler root in one fold; `ProfileLabels.Scoped(tenant, command, level, body)` runs one body under one derived label frame; `ProfileCapturePolicy.Of(...)` admits the sample-class set, frame cap, and the weight floor, nominal, and ceiling; `ProfileCapture.Bind(source, policy, hooks, attribute, symbolize, key)` subscribes the sample-profiler pair to a source another owner pumps and returns its detacher.
+- Entry: `BenchmarkRun.Execute(session, spec, harness, claim, policy)` returns `IO<Validation<Error, Benchmark>>` — the ONE gated run: it arms the tracking set, opens the symbol lease and the sample capture under one bracket, runs the harness inside one activity and one label frame, constructs the benchmark off `HostFingerprint.Current(session.Stamps)`, and folds the gate; `BenchmarkRun.Relative(session, spec, reference, subject, claim, policy)` runs BOTH lanes under one session and mints the `ReferenceEvidence` the relative gate leg reads; `ProfileTracking.Apply(held)` seats the whole tracking set at the profiler root in one fold; `ProfileLabels.Scoped(tenant, command, level, body)` runs one body under one derived label frame; `ProfileCapturePolicy.Of(...)` admits the sample-class set, frame cap, and the weight floor, nominal, and ceiling; `ProfileCapture.Bind(source, policy, hooks, attribute, symbolize)` subscribes the sample-profiler pair to a source another owner pumps and returns its detacher.
 - Auto: the run's activity carries suite and case tags at start so they participate in the sampling verdict, and the Observability/telemetry `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the run's root span; `LabelsWrapper.Do(labels.Activate() -> body -> reset)` restores the prior frame on every exit, so a nested scope composes and an escaped label is structurally impossible; the tracking set arms by walking `ProfileSignal.Items` against the held capability set, so a signal added to the vocabulary arms and disarms without a fifth setter call; `Bind` pairs the two sample-profiler events by thread — `ThreadSample` parks its instant and class in the pending cell keyed by `ThreadID` and the `ThreadStackWalk` that follows consumes it — so a walk arriving with no parked sample publishes nothing, and each sample's weight is the elapsed span since that thread's previous sample clamped to the policy band with the first sample taking `Nominal`, so a capture never assumes a cadence the provider row does not state; both composition-supplied delegates cross one guarded invocation that answers absence on a raise, so a symbolizer fault degrades its frame to the address form and an attribution fault drops its sample without escaping the callback and killing the producer session.
 - Output: `Benchmark` is the judged run; profile samples travel through the existing dispatcher.
 - Packages: Pyroscope, Microsoft.Diagnostics.Tracing.TraceEvent, Rasm (`CapabilitySet`, `HookSet`, `Dimension`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
@@ -383,7 +383,7 @@ public static class ProfileCapture {
             var thread = e.ThreadID;
             ignore(pending.Value.Find(thread).Match(
                 None: static () => unit,
-                Some: parked => Publish(seen, policy, hooks, attribute, form, key,
+                Some: parked => Publish(seen, policy, hooks, attribute, form,
                     thread, parked, Frames(e, policy, symbolize))));
             ignore(pending.Swap(held => held.Remove(thread)));
         }
@@ -466,20 +466,20 @@ public static class BenchmarkRun {
     public static IO<Validation<Error, Benchmark>> Execute(
         Session session, Case spec, Func<Fin<BenchMeasurement>> harness,
         Option<Benchmark> claim, GatePolicy policy) =>
-        Braced(session, spec, harness, key)
+        Braced(session, spec, harness)
             .Bind(measured => measured.Match(
                 Succ: figures => BenchmarkGate.Gate(
                     session.Instruments,
                     Benchmark.Of(spec.Suite, spec.Name, spec.Corpus, figures,
                         session.Stamps, artifact: spec.Artifact),
-                    claim, policy, key),
+                    claim, policy),
                 Fail: fault => IO.pure(Validation<Error, Benchmark>.Fail((BenchmarkFault)fault))));
 
     public static IO<Validation<Error, Benchmark>> Relative(
         Session session, Case spec, Func<Fin<BenchMeasurement>> reference, Func<Fin<BenchMeasurement>> subject,
         Option<Benchmark> claim, GatePolicy policy) =>
-        from baseline in Braced(session, spec with { Name = $"{spec.Name}#reference" }, reference, key)
-        from measured in Braced(session, spec, subject, key)
+        from baseline in Braced(session, spec with { Name = $"{spec.Name}#reference" }, reference)
+        from measured in Braced(session, spec, subject)
         from gated in (baseline, measured).Apply(static (held, fresh) => (Held: held, Fresh: fresh)).As().Match(
             Succ: pair => BenchmarkGate.Gate(
                 session.Instruments,
@@ -487,7 +487,7 @@ public static class BenchmarkRun {
                     reference: Some(new ReferenceEvidence(spec.Name,
                         HostFingerprint.Current(session.Stamps), pair.Held.Figures.Median, spec.Corpus)),
                     artifact: spec.Artifact),
-                claim, policy, key),
+                claim, policy),
             Fail: faults => IO.pure(Validation<Error, Benchmark>.Fail(faults)))
         select gated;
 

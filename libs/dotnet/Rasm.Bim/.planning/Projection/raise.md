@@ -11,7 +11,7 @@ Both election tables DERIVE from the ingress rosters — the typed-measure mint 
 ## [02]-[VALUE_RAISE]
 
 - Owner: `ValueRaise` the egress value re-author — `Bag` the bag-node admission, `RaiseProperty` the generated total `IfcProperty` dispatch, `RaiseValue` the generated total cell dispatch, `MeasureMints`/`QuantityMints` the two ingress-derived mint tables, `BaseIdentities` the five base-dimension rows both canonical rungs read, `Elect` the one two-rung election, `RaiseQuantities`/`Nest` the group-prefix rebuild; `BoundSlot` the `[SmartEnum<string>]` naming the three IFC bound slots beside their shared reader and entity binder; `IfcDurationMapper` the `[Mapper]` crossing a NodaTime `Period` to the seven-scalar `IfcDuration`.
-- Entry: `ValueRaise.Bag(target, node, authored, scale, key)` returns `Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>>` — `None` where the node is not a bag or carries no values, the writer where it lowers; `ValueRaise.Quantity(target, name, measure, scale, key)` returns `Fin<IfcPhysicalQuantity>` because a physical quantity narrows losslessly or faults.
+- Entry: `ValueRaise.Bag(target, node, authored, scale)` returns `Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>>` — `None` where the node is not a bag or carries no values, the writer where it lowers; `ValueRaise.Quantity(target, name, measure, scale)` returns `Fin<IfcPhysicalQuantity>` because a physical quantity narrows losslessly or faults.
 - Law: the two carriers answer two questions. The `Option` is the ADMISSION verdict — a node that is not a bag, or a bag with no values — and the writer is the lowering with its ledger; one carrier answering both made a node this emit never authored indistinguishable from one it authored losslessly. The empty-bag skip is load-bearing rather than defensive: the `IfcPropertySet`/`IfcElementQuantity` ctors derive their database from their FIRST member, so an empty set throws at the boundary.
 - Law: election is ONE two-rung ladder — the ingested identity first, the base-dimension canonical second, the leg's own last rung last — instantiated per target mint rather than re-spelled per leg. The measure leg's last rung is a COUNTED flatten onto `IfcReal`; the quantity leg has no last rung and faults, because a bare real is still a measure while a wrong `IfcQuantityCount` claims a quantity type the source never carried.
 - Law: `Dimensionless` carries NO canonical row. `Count`, `Number`, `Ratio`, and `Angle` all sign the zero vector, so a dimension key cannot separate an integral tally from a real one; the derived dimensions carry none either, their preimage not being injective (`PressureDim` answers four measure types).
@@ -123,7 +123,7 @@ internal static class ValueRaise {
             .Traverse(kv => RaiseProperty(target, authored, kv.Value, scale)).As()
             .Map(properties => (IfcPropertySetDefinition)new IfcPropertySet(ps.Bag.SetName, properties))),
         Node.QuantitySet qs when !qs.Bag.Values.IsEmpty => Some(
-            Fidelity.Lift(Quantities(target, qs.Bag, scale, key))
+            Fidelity.Lift(Quantities(target, qs.Bag, scale))
                 .Map(quantities => (IfcPropertySetDefinition)new IfcElementQuantity(qs.Bag.SetName, quantities))),
         _ => Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>>.None,
     };
@@ -179,8 +179,8 @@ internal static class ValueRaise {
 
     static WriterT<FidelityLog, Fin, IfcPropertyTableValue> Table(
         DatabaseIfc target, PropertyName name, PropertyValue.Table table, UnitScheme scale) =>
-        from defining in table.Rows.Traverse(r => RaiseValue(r.Defining, scale, key)).As()
-        from defined in table.Rows.Traverse(r => RaiseValue(r.Defined, scale, key)).As()
+        from defining in table.Rows.Traverse(r => RaiseValue(r.Defining, scale)).As()
+        from defined in table.Rows.Traverse(r => RaiseValue(r.Defined, scale)).As()
         select Filled(new IfcPropertyTableValue(target, name.ToValue()) { CurveInterpolation = Interp(table.Interp) }, defining, defined);
 
     static IfcPropertyTableValue Filled(IfcPropertyTableValue raised, Seq<IfcValue> defining, Seq<IfcValue> defined) {
@@ -243,7 +243,7 @@ internal static class ValueRaise {
     static Fin<(string Owner, IfcPhysicalQuantity Quantity)> Member(
         DatabaseIfc target, Map<string, GroupIdentity> groups, PropertyName name, MeasureValue measure, UnitScheme scale) =>
         from owner in Fin.Succ(OwnerOf(groups, name))
-        from quantity in Quantity(target, owner.Length == 0 ? name : PropertyCategory.Neutral.Row(Leaf(name.ToValue())), measure, scale, key)
+        from quantity in Quantity(target, owner.Length == 0 ? name : PropertyCategory.Neutral.Row(Leaf(name.ToValue())), measure, scale)
         select (Owner: owner, Quantity: quantity);
 
     static string OwnerOf(Map<string, GroupIdentity> groups, PropertyName name) =>

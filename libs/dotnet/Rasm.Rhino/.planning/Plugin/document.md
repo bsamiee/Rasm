@@ -301,9 +301,9 @@ public static class PluginSettings {
                 from presence in answer.Presence(key: held)
                 from __ in presence.Switch(
                     held,
-                    absent: static (key, _) => Fin.Fail<Unit>(
+                    absent: static (_) => Fin.Fail<Unit>(
                         error: new PluginFault.Unbound(Member: nameof(PlugIn.SavePluginSettings))),
-                    present: static (key, found) => found.States.Admits(PluginState.Loaded)
+                    present: static (found) => found.States.Admits(PluginState.Loaded)
                         ? Fin.Succ(value: unit)
                         : Fin.Fail<Unit>(error: new KernelFault.InvalidValue(nameof(PlugIn.SavePluginSettings), "a loaded plug-in")))
                 from ___ in Try.lift(() => PlugIn.SavePluginSettings(plugInId: row.Plugin.ToValue())).Run().Bind(static inner => inner)

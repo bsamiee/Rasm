@@ -1040,10 +1040,10 @@ public static class ScreenMap {
         return references
             .Traverse(key =>
                 resolve().Bind(program =>
-                    string.Equals(program.Panel, key, StringComparison.Ordinal)
+                    string.Equals(program.Panel, StringComparison.Ordinal)
                         ? Fin<LayoutProgram>.Succ(LayoutMap.Emit(program, measured(program)))
                         : Fin<LayoutProgram>.Fail(
-                            new ScreenFault.Rejected(key, $"layout resolved as {program.Panel}"))))
+                            new ScreenFault.Rejected($"layout resolved as {program.Panel}"))))
             .As()
             .Map(layouts => new AppUiSurfaceProgram {
                 Workspace = surface.Workspace,
@@ -1052,7 +1052,7 @@ public static class ScreenMap {
                 Root = wireRoot,
                 Layouts = { layouts },
             })
-            .Bind(wire => WireAdmission.Admit(wire, WireBoundary.OutboundPayload, op));
+            .Bind(wire => WireAdmission.Admit(wire, WireBoundary.OutboundPayload));
     }
 
     private static (Seq<ControlIntentWire> Controls, Seq<string> Layouts) Census(ControlIntentWire node) {

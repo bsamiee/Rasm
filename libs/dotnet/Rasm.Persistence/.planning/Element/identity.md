@@ -867,7 +867,7 @@ public sealed partial class EnvelopeAad {
             .Bind(framed => {
                 Span<byte> digest = stackalloc byte[32];
                 _ = System.Security.Cryptography.CryptographicOperations.HashData(System.Security.Cryptography.HashAlgorithmName.SHA256, framed.Span, digest);
-                return ContentHash.Admit(digest[..16], key).Map(half => new EnvelopeAad(partition, half));
+                return ContentHash.Admit(digest[..16]).Map(half => new EnvelopeAad(partition, half));
             });
 }
 

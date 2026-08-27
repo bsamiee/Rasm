@@ -428,31 +428,31 @@ public static class QuantityDerivation {
             None: () => Fin.Succ(occurrence),
             Some: set => set.Quantities.Distinct().FoldM(occurrence, (acc, member) =>
                 Derivations.TryGetValue((member.Dimension, member.Name), out var row)
-                    ? row.Project(measures, massDensity, key).Match(
+                    ? row.Project(measures, massDensity).Match(
                         Some: derived => derived.Map(value => acc.AddOrUpdate(FactoryBridge.Row(member.Name), value)),
                         None: () => Fin.Succ(acc))
                     : Fin.Succ(acc)).As());
 
     public static Fin<Map<MaterialId, MeasureValue>> Decompose(
         MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections) =>
-        materials.TraverseM(baked => Shares(measures, baked.Material.Composition, sections, key)).As()
+        materials.TraverseM(baked => Shares(measures, baked.Material.Composition, sections)).As()
             .Bind(rows => toSeq(rows.Flatten()).FoldM(Map<MaterialId, MeasureValue>(), (acc, row) =>
                 acc.Find(row.Material).Match(
-                    Some: existing => MeasureValue.Sum(Seq(existing, row.Share), key).Map(sum => acc.SetItem(row.Material, sum)),
+                    Some: existing => MeasureValue.Sum(Seq(existing, row.Share)).Map(sum => acc.SetItem(row.Material, sum)),
                     None: () => Fin.Succ(acc.Add(row.Material, row.Share))).As());
 
     static Fin<Seq<(MaterialId Material, MeasureValue Share)>> Shares(
         MeasureBundle measures, MaterialComposition composition, Func<ProfileRef, Option<SectionProperties>> sections) =>
         composition.Switch(
-            single: s => ElementVolume(measures, key).Match(
+            single: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Map(volume => Seq((s.Material, volume)))),
-            layerSet: s => ElementVolume(measures, key).Match(
+            layerSet: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Bind(volume => {
                     double total = s.Layers.Fold(0.0, static (acc, layer) => acc + layer.Thickness.Si);
                     return s.Layers.TraverseM(layer =>
-                        volume.Scale(layer.Thickness.Si / total, key).Map(share => (layer.Material, share))).As();
+                        volume.Scale(layer.Thickness.Si / total).Map(share => (layer.Material, share))).As();
                 })),
             profileSet: s => measures.Magnitude(MassKind.Length).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
@@ -461,15 +461,15 @@ public static class QuantityDerivation {
                         .TraverseM(row => sections(row.Profile).Match(
                             None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                             Some: section =>
-                                from swept in section.Area.Multiply(span, key)
-                                from volume in swept.WithType(QuantityType.Volume, key)
+                                from swept in section.Area.Multiply(span)
+                                from volume in swept.WithType(QuantityType.Volume)
                                 select Seq((row.Material, volume))))
                         .As()
                         .Map(static rows => rows.Flatten()))),
-            constituentSet: s => ElementVolume(measures, key).Match(
+            constituentSet: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Bind(volume => s.Constituents.TraverseM(constituent =>
-                    volume.Scale(constituent.Fraction, key).Map(share => (constituent.Material, share))).As())));
+                    volume.Scale(constituent.Fraction).Map(share => (constituent.Material, share))).As())));
 
     static Option<Fin<MeasureValue>> ElementVolume(MeasureBundle measures) =>
         measures.Magnitude(MassKind.Volume).Map(v => MeasureValue.OfSi(QuantityType.Volume, Dimension.VolumeDim, v));
@@ -517,7 +517,7 @@ public static class TemplateAudit {
                         Some: cls => acc.Add(pair, PropertyKey.Resolve(cls, Token(pair.Token), graph.Header.Schema, scope, dictionary(cls))
                             .Map(static t => (t, t.Pattern.Map(static p => new Regex($"^(?:{p})$", RegexOptions.NonBacktracking | RegexOptions.CultureInvariant)))))));
         return occurrences
-            .TraverseM(node => graph.Bake(node.Id, key).Map(element =>
+            .TraverseM(node => graph.Bake(node.Id).Map(element =>
                 resolved.Find((node.Classification.Code, node.PredefinedType.ToValue()))
                     .Map(templates => Check(node.Id, templates, element))
                     .IfNone(Seq<TemplateFinding>())))

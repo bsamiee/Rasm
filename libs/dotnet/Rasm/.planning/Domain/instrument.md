@@ -332,7 +332,7 @@ public sealed record InstrumentSet(Seq<(InstrumentSpec Row, Instrument Handle)> 
     public Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, in TagList tags = default) {
         KeyValuePair<string, object?>[] stamped = [.. tags];
         return Pulled(row, toSeq(stamped).Map(static tag => tag.Key).Head)
-            .Bind(admitted => Cells.Bind(admitted, read, stamped, key));
+            .Bind(admitted => Cells.Bind(admitted, read, stamped));
     }
 
     public bool Enabled(Seq<InstrumentSpec> rows) =>
@@ -393,7 +393,7 @@ public sealed record InstrumentSet(Seq<(InstrumentSpec Row, Instrument Handle)> 
 
 - Owner: `ReadingCell` is the one measured shape — one accumulator per `(row, digest)` pair, the digest framing its tag set — nesting the branch's `Stat` recurrence and adding the two columns `Stat` cannot express; `InstrumentReading` is the per-row projection with its three read states; `TallyState` is the one fold state cells, census, and refusals advance in together; `InstrumentTally` is the backend-free read plane over a mounted set.
 - Cases: three read states, never two — a row carrying cells is MEASURED, a row with neither cells nor a refusal is QUIET, and a row whose probe or measurement refused is BROKEN. QUIET and BROKEN stay distinct, so a doctor archive separates a producer that never ran from one that raised on every collection.
-- Entry: `Of(set, ceiling)` opens the read plane under its distinct-series bound and `Read(key)` is its one entry, driving the observables then projecting every declared row.
+- Entry: `Of(set, ceiling)` opens the read plane under its distinct-series bound and `Read()` is its one entry, driving the observables then projecting every declared row.
 - Auto: admission is HANDLE identity through the set's own listener index, so a foreign instrument sharing a declared name never enters the read. Pushed measurements ACCUMULATE their sum and pulled ones REPLACE it, because an observable republishes its whole value each collection and accumulating one compounds a level into a total no producer measured; count, minimum, and maximum ride `Stat` on both arms.
 - Auto: admission and fold run in ONE swap step, so the ceiling test reads the map the fold is about to write and two racing measurements cannot both seat the cell that crosses it. Standing series fold in place, a new one seats while the map is under the tally ceiling AND the row's own declared `Ceiling` bound, and every further series folds onto its row's own overflow cell — bounded past either ceiling by the declared row count alone, never by the tag space. Per-row census rides the fold state, so the new-series branch reads a count instead of re-walking every key.
 - Law: `Stat`'s own count floor IS the seed guard — `Update` refuses an invalid prior and a zero-count cell is exactly that, so the first measurement mints through `Stat.Of` and no arm fabricates a minimum no producer measured (`Domain/stats` is the branch's one moment mint under `Rasm` RULINGS `[02]`).

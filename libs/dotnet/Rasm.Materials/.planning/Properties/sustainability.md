@@ -171,13 +171,13 @@ public static class SustainabilityCatalogue {
          MaterialPropertySet.OfEnvironmental(
                  row.EnvironmentalBasis,
                  row.Matrix.IfNone(() => MaterialPropertySet.Environmental.CarbonMatrix(row.StageGwp)),
-                 row.Recycled, row.Recovery, key, row.Evidence)
+                 row.Recycled, row.Recovery, row.Evidence)
              .ToValidation(),
          row.Cost.Match(
              None: static () => NoCost,
              Some: c => FactoryBridge.Accept<Currency>(c.Currency)
                  .Bind(currency => MaterialPropertySet.OfCost(
-                     c.Basis, currency, c.Supply, c.Install, c.Lifecycle, key, SustainabilityRow.CostEstimate))
+                     c.Basis, currency, c.Supply, c.Install, c.Lifecycle, SustainabilityRow.CostEstimate))
                  .Map(static priced => Seq(priced))
                  .ToValidation()))
         .Apply(static (_, _, environmental, cost) => Seq(environmental) + cost).As()
@@ -379,7 +379,7 @@ public static class SustainabilityCatalogue {
     public static Fin<Option<Classification>> Classification(MaterialId id) =>
         Rows.TryGetValue(id, out SustainabilityRow? row)
             ? row!.Classification
-                .TraverseM(c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code, key))
+                .TraverseM(c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code))
                 .As()
             : Fin.Succ(Option<Classification>.None);
 }

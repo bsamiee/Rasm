@@ -290,16 +290,16 @@ public static class PositioningProjection {
                     (PositioningRows.EndCantRight, Length(c.EndCantRight, scale))),
                 _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
             },
-            IfcReferent referent => Rows(key, (PositioningRows.RestartDistance, Length(referent.RestartDistance, scale, key))),
+            IfcReferent referent => Rows((PositioningRows.RestartDistance, Length(referent.RestartDistance, scale))),
             IfcProduct { ObjectPlacement: IfcLinearPlacement { Distance: { } distance } } => Rows((PositioningRows.Station, distance.DistanceAlong is IfcLengthMeasure along
                     ? Length(along.Measure, scale)
                     : Option<Fin<PropertyValue>>.None),
                 (PositioningRows.StationParameter, distance.DistanceAlong is IfcParameterValue parameter
-                    ? Ratio(parameter.Measure, key)
+                    ? Ratio(parameter.Measure)
                     : Option<Fin<PropertyValue>>.None),
-                (PositioningRows.OffsetLateral, Length(distance.OffsetLateral, scale, key)),
-                (PositioningRows.OffsetVertical, Length(distance.OffsetVertical, scale, key)),
-                (PositioningRows.OffsetLongitudinal, Length(distance.OffsetLongitudinal, scale, key))),
+                (PositioningRows.OffsetLateral, Length(distance.OffsetLateral, scale)),
+                (PositioningRows.OffsetVertical, Length(distance.OffsetVertical, scale)),
+                (PositioningRows.OffsetLongitudinal, Length(distance.OffsetLongitudinal, scale))),
             _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
         };
 
@@ -322,7 +322,7 @@ public static class PositioningProjection {
 
     static Option<Fin<PropertyValue>> Ratio(double native) =>
         double.IsFinite(native)
-            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, native, key).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, native).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
             : Option<Fin<PropertyValue>>.None;
 
     static Option<Fin<PropertyValue>> Token(string value) =>

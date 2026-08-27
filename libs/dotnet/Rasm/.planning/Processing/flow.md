@@ -445,14 +445,14 @@ internal static class MorseAtlas {
         let horizon = (Termination)new Termination.StepCountCase(policy.TransitionSteps)
         from arcs in seeds.Map((seed, cell) => (Seed: seed, Cell: cell))
             .TraverseM(row => Transitions(source, partition, row.Cell, row.Seed, initialStep,
-                integrator, horizon, context, key, tracePolicy)).As()
+                integrator, horizon, context, tracePolicy)).As()
             .Map(static chunks => chunks.Bind(static chunk => chunk))
-        from condensed in Condense(arcs, partition.Cells.Value, key)
+        from condensed in Condense(arcs, partition.Cells.Value)
         let census = condensed.Census
         let sites = census.Map(row => seeds[row.Cell])
         from critical in census.Map((row, node) => (Row: row, Site: sites[node]))
             .TraverseM(entry => entry.Row.Recurrent
-                ? CriticalAt(source, entry.Site, policy, context, key)
+                ? CriticalAt(source, entry.Site, policy, context)
                     .Map(row => (Kind: Some(row.Kind), row.Unstable))
                 : Fin.Succ((Kind: Option<FixedPointKind>.None, Unstable: Seq<Vector3d>())))
             .As()
@@ -472,7 +472,7 @@ internal static class MorseAtlas {
     private static Fin<Seq<SEdge<int>>> Transitions(
         VectorField source, FlowPartition partition, int origin, Point3d seed, PositiveMagnitude initialStep,
         RungeKuttaIntegrator integrator, Termination termination, Context context, Option<TracePolicy> policy) =>
-        FlowKernel.Trace<Seq<Point3d>>(source, seed, initialStep, integrator, termination, context, key, policy)
+        FlowKernel.Trace<Seq<Point3d>>(source, seed, initialStep, integrator, termination, context, policy)
             .Map(trail => trail.Fold((Cells: Seq<int>(), Last: Option<int>.None), (state, point) =>
                 partition.Locate(point) is { IsSome: true, Case: int cell } && state.Last != Some(cell)
                     ? (state.Cells.Add(cell), Some(cell))

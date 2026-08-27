@@ -14,7 +14,7 @@ Everything here is host-light: `LifecycleGate`, `Subscription`, and `Reentrancy`
 
 - Owner: `LifecycleGate` — the package's ONE claims/close/retry lifecycle capsule; `LeaseState` its closed four-state custody union. Every bounded-settle lease across the boundary composes it from this namespace, and a sibling hand-rolling a `lock`/`Monitor` lifecycle machine beside it is the collapsed form.
 - Cases: `Open(Claims)` admits work, `Closing` drains it under a one-owner token, `Reopenable(Claims)` is a close whose settle refused and may be re-driven, `Closed` is terminal. `Reopenable` — never `Retryable`: the branch makes `Retriability`/`Redrive` the ONE retry vocabulary, and a close-state case wearing that word reads as a retry capsule where none exists.
-- Entry: `Of(settleWithin, key)` admits the drain bound; `Within(body, refused, key)` claims, runs, and releases; `Close(stop, settle, key)` is the blocking one-owner close; `Begin(stop, settle, key)` arms the close and hands back the completion for an owner that must not block its own callback thread.
+- Entry: `Of(settleWithin)` admits the drain bound; `Within(body, refused)` claims, runs, and releases; `Close(stop, settle)` is the blocking one-owner close; `Begin(stop, settle)` arms the close and hands back the completion for an owner that must not block its own callback thread.
 - Law: a claim runs to completion on the thread that took it, so a close issued from a thread already inside a claim would wait on its own release forever — the claiming-thread set is the structural refusal for that re-entrancy, and it is what keeps a bounded blocking close safe on the host callback thread.
 - Law: the drain is bounded but still BLOCKING, so it never rides the closing caller's thread: `Begin` arms the close, runs `stop` on the caller's own thread so a marshalled arm keeps its affinity, and hands back the completion — a host UI-thread owner settles that completion off-thread, because blocking there stalls the very callbacks the drain waits to see released.
 - Law: the owning close alone drives the drain, and it drives it as a scheduler continuation: `stop` runs inline on the caller's thread, then the bounded wait and the settle ride the pool; concurrent closers join the in-flight completion rather than double-driving it.
@@ -57,7 +57,7 @@ internal sealed class LifecycleGate {
             : Try.lift(refused).Run().Bind(static inner => inner);
 
     internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle) =>
-        Begin(stop, settle, key).Bind(completion => Await(completion, key)).Bind(static outcome => outcome);
+        Begin(stop, settle).Bind(completion => Await(completion)).Bind(static outcome => outcome);
 
     internal Fin<Task<Fin<Unit>>> Begin(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle) {
         if (claiming.Value.Contains(Environment.CurrentManagedThreadId)) { return Fin.Fail<Task<Fin<Unit>>>(new KernelFault.InvalidContext()); }
@@ -361,7 +361,7 @@ internal sealed class Reentrancy {
 ## [04]-[PUMP]
 
 - Owner: `IdlePump<TTag>` — the bounded idle-deferred pump: work parks tagged until the host's next quiet moment, the pending queue is capacity-bounded, every loss is a typed row the owner's own callback records, and the drain crosses the kernel dispatch on the deferred lane so idle work spends a gauged frame budget; `PumpLoss` the two-row loss vocabulary.
-- Entry: `Open(capacity, lost, key)` attaches the one `RhinoApp.Idle` hook and admits the bound; `Enqueue(tag, alive, run)` parks one unit of work; `Close` cancels the pending roster, reports each as `Cancelled`, and detaches the hook.
+- Entry: `Open(capacity, lost)` attaches the one `RhinoApp.Idle` hook and admits the bound; `Enqueue(tag, alive, run)` parks one unit of work; `Close` cancels the pending roster, reports each as `Cancelled`, and detaches the hook.
 - Law: the pump is GENERIC over the tag its loss callback names, so the delivery owner instantiates it over its own origin vocabulary and the pump holds no journal, no fact shape, and no event type — a pump that posted for its caller would couple every deferred consumer to one journal.
 - Law: admission is a guarded step whose verdict rides the transition — a full queue DECLINES and the loss callback records `Overflow`, a closed pump records `Cancelled`, and neither outcome is inferred from a count read beside the swap.
 - Law: the drain is take-and-clear through the kernel `Cell.Take`, so the drained roster is the `Committed` payload of one transition and a batch enqueued during the drain waits for the next idle tick rather than racing the sweep.
@@ -396,7 +396,7 @@ internal sealed class IdlePump<TTag> : IDisposable {
     private Subscription? subscription;
 
     private IdlePump(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost) =>
-        (this.capacity, this.lost, this.key) = (capacity, lost, key);
+        (this.capacity, this.lost, this.key) = (capacity, lost);
 
     internal static Fin<IdlePump<TTag>> Open(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost) {
         IdlePump<TTag> pump = new(capacity: capacity, lost: lost);

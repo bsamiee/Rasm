@@ -254,10 +254,10 @@ public static class Hatching {
             ? Seq(HatchCount.Instances, HatchCount.Culled)
             : Seq(HatchCount.Courses, HatchCount.Crossings, HatchCount.Grazed)).Iter(slot => store.Tally(slot, delta: 0));
         return plan.Motif.Match(
-            Some: motif => Motifs(store, region, loops, plan, motif, policy, key),
+            Some: motif => Motifs(store, region, loops, plan, motif, policy),
             None: () => Courses(store, region,
                 [.. loops.Bind(static loop => toSeq(loop.Points.GetSegments()).Map(static segment => (A: segment.From, B: segment.To)))],
-                plan, policy, key));
+                plan, policy));
     }
 
     // --- [COURSES]
@@ -267,10 +267,10 @@ public static class Hatching {
         return frames.TraverseM(frame => frame.Count()).As().Bind(counts =>
             counts.Fold(0L, static (sum, rung) => sum + rung) is long census && census > policy.CourseBudget.Value
                 ? Fin.Fail<Unit>(new GeometryFault.HatchFailed(plan.Pattern, region, $"course census {census} over budget {policy.CourseBudget.Value}"))
-                : SpatialIndex.Build(SpatialKind.Bvh, System.Array.ConvertAll(edges, static edge => new BoundingBox([edge.A, edge.B])), policy.Broad, key).Bind(index =>
+                : SpatialIndex.Build(SpatialKind.Bvh, System.Array.ConvertAll(edges, static edge => new BoundingBox([edge.A, edge.B])), policy.Broad).Bind(index =>
                     frames.Map(static (frame, ordinal) => (Frame: frame, Ordinal: ordinal))
                         .TraverseM(entry => toSeq(Enumerable.Range(0, counts[entry.Ordinal]))
-                            .TraverseM(ordinal => CourseOf(store, index, edges, origin, entry.Frame, ordinal, region, plan.Pattern, policy, key))
+                            .TraverseM(ordinal => CourseOf(store, index, edges, origin, entry.Frame, ordinal, region, plan.Pattern, policy))
                             .As()
                             .Map(static _ => unit))
                         .As()
@@ -324,14 +324,14 @@ public static class Hatching {
         BoundingBox box = new([hatch.From, hatch.To]);
         box.Inflate(hatch.Length * EpsilonPolicy.SqrtEpsilon);
         return index.Query(box)
-            .Bind(ids => Rows((hatch, origin, frame.D), edges, ids, key))
+            .Bind(ids => Rows((hatch, origin, frame.D), edges, ids))
             .Bind(scan => scan.Rows
                 .FoldBackM((Winding: 0, Open: 0.0), (held, row) => {
                     int stepped = held.Winding + row.Delta;
                     return held.Winding == 0 && stepped != 0
                         ? Fin.Succ((stepped, row.S))
                         : held.Winding != 0 && stepped == 0 && row.S > held.Open
-                            ? Dashes(store, origin, frame, region, ordinal, odd, c, held.Open, row.S, pattern, policy, key).Map(_ => (stepped, held.Open))
+                            ? Dashes(store, origin, frame, region, ordinal, odd, c, held.Open, row.S, pattern, policy).Map(_ => (stepped, held.Open))
                             : Fin.Succ((stepped, held.Open));
                 }).As()
                 .Map(_ => {
@@ -397,9 +397,9 @@ public static class Hatching {
             return Fin.Fail<Unit>(new GeometryFault.HatchFailed(plan.Pattern, region, $"orbit extent {motif.Orbit.Extent.Value:R} under region radius {Math.Sqrt(reach):R}"));
         }
         Transform orbitTurn = Transform.Rotation(angleRadians: plan.Angle, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin);
-        return Patterning.Apply(motif.Orbit, key)
+        return Patterning.Apply(motif.Orbit)
             .Bind(planar => toSeq(Enumerable.Range(0, planar.Site.Count))
-                .TraverseM(i => Stamp(store, region, loops, plan, motif, planar, orbitTurn, i, policy, key))
+                .TraverseM(i => Stamp(store, region, loops, plan, motif, planar, orbitTurn, i, policy))
                 .As()
                 .Map(static _ => unit));
     }

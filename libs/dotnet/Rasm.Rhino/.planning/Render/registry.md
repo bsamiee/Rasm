@@ -96,7 +96,7 @@ public static class ContentUuidCatalog {
     private static Fin<Seq<ContentUuidSeed>> Build() =>
         from slots in Try.lift(() => Fin.Succ(toSeq(Slots()))).Run().Bind(static inner => inner)
         from _ in guard(!slots.IsEmpty, (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "at least one content identity"))
-        from seeds in slots.TraverseM(slot => Seed(slot, op)).As()
+        from seeds in slots.TraverseM(slot => Seed(slot)).As()
         from __ in guard(
             seeds.Map(static seed => seed.Id).Distinct().Count == seeds.Count,
             (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "distinct seed identities"))
@@ -112,8 +112,8 @@ public static class ContentUuidCatalog {
             .OrderBy(static slot => slot.Name, StringComparer.Ordinal);
 
     private static Fin<ContentUuidSeed> Seed((string Name, Func<Guid> Read) slot) =>
-        from role in Role(slot.Name, op)
-        from kind in Kind(slot.Name, op)
+        from role in Role(slot.Name)
+        from kind in Kind(slot.Name)
         from raw in Try.lift(() => Fin.Succ(value: slot.Read())).Run().Bind(static inner => inner)
         from id in ResourceId.Admit(value: raw)
         select new ContentUuidSeed(Name: slot.Name, Kind: kind, Role: role, Id: id);
@@ -735,7 +735,7 @@ public abstract partial record ContentAdmission {
     private static Fin<Unit> Transfer(
         ContentKind expected, Lease<RenderContent> lease, RhinoDoc document,
         Option<(RenderContent Content, string Slot)> parent, ChangeReason reason) =>
-        (from actual in ContentKind.Of(lease.Resource, op)
+        (from actual in ContentKind.Of(lease.Resource)
          from _ in guard(actual == expected, (Error)new KernelFault.InvalidValue(nameof(ContentKind), expected.ToString()))
          from transferred in parent.Case switch {
              (RenderContent content, string slot) =>
@@ -972,8 +972,8 @@ public abstract partial record ContentMutation {
     private static Fin<Unit> Release(Lease<ObjRef> held) => Fin.Succ(value: held.Dispose());
 
     private static Fin<Unit> ReplaceWith(RenderContent target, Lease<RenderContent> lease) =>
-        (from targetKind in ContentKind.Of(target, op)
-         from replacementKind in ContentKind.Of(lease.Resource, op)
+        (from targetKind in ContentKind.Of(target)
+         from replacementKind in ContentKind.Of(lease.Resource)
          from _ in guard(targetKind == replacementKind, (Error)new KernelFault.InvalidValue(nameof(ContentKind), targetKind.ToString()))
          from __ in Try.lift(() => Admit.Confirm(success: target.Replace(newcontent: lease.Resource))).Run().Bind(static inner => inner)
          select unit)
@@ -1200,7 +1200,7 @@ public static class ContentQuery {
         new(read: static (_, content, op) => ContentSnapshot.Of(content: content));
 
     public static ContentQuery<ContentArchive> Archive { get; } =
-        new(read: static (_, content, op) =>
+        new(read: static (_, content) =>
             from xml in Acceptance.Text(value: content.Xml)
             from embedded in Try.lift(() => Fin.Succ(value: toSeq(content.GetEmbeddedFilesList()))).Run().Bind(static inner => inner)
             select new ContentArchive(Xml: xml, EmbeddedFiles: embedded));
@@ -1500,7 +1500,7 @@ public static class Registry {
 ## [05]-[EVENTS]
 
 - Owner: `ContentPulse` carries each catalogued static event as one bind row beside its `ScopeAffinity` column; `ContentSignal` closes detached payloads; `ContentObservation` is the ask a binder hands in; `ContentStream` owns transactional attach, document gating, symmetric release, and a bounded `Ring<ContentStreamFailure>`.
-- Entry: `ContentStream.Of(observation, key)` is the ONE mint — the observation IS the parameter set, so the six-argument entry that re-spelled its columns is gone and the hook binding forwards the ask untouched.
+- Entry: `ContentStream.Of(observation)` is the ONE mint — the observation IS the parameter set, so the six-argument entry that re-spelled its columns is gone and the hook binding forwards the ask untouched.
 - Law: every reference-like host member projects inside the callback — content becomes its `ResourceId`, the document becomes `DocKey`, the preview bitmap clones into an owned lease; a live `RenderContent` never rides a fact.
 - Law: the stream and the table family split by granularity — the Document events page's `RenderContent` payload reports table transitions and material assignment; this stream reports per-content lifecycle, change context, and field mutation the table family cannot; a consumer needing both composes two watches.
 - Law: reason filtering occurs at the bind — `PulseFilter` drops changed and field facts whose reason the filter names; filtering never claims debounce or coalescing semantics the host event stream does not provide.
@@ -1787,7 +1787,7 @@ public sealed class ContentStream : IDisposable {
                        pulse: pulse,
                        scope: ask.Scope,
                        filter: ask.Filter,
-                       deliver: fact => state.Deliver(fact, ask.Sink, op)))))
+                       deliver: fact => state.Deliver(fact, ask.Sink)))))
                from _ in state.Attach(attached: attached)
                select new ContentStream(state: state);
     }

@@ -418,7 +418,7 @@ public abstract partial record HatchProgram {
             from __ in Grip.Revised(
                 target: edit.Target, document: context,
                 interaction: edit.Interaction,
-                revise: (copy, key) =>
+                revise: (copy) =>
                     from applied in edit.Edits.TraverseM(row => row.Apply(surface: Generators(copy))).As()
                     from __ in guard(copy.FillType != HatchPatternFillType.Lines || copy.HatchLineCount > 0,
                         new KernelFault.InvalidResult())
@@ -448,7 +448,7 @@ public abstract partial record HatchProgram {
 
     private static ListSurface<LineDef> Generators(HatchPattern pattern) => new(
         Count: () => pattern.HatchLineCount,
-        Append: (row, key) =>
+        Append: (row) =>
             from line in row.Mint()
             from index in Try.lift(() => Fin.Succ(value: pattern.AddHatchLine(hatchLine: line))).Run().Bind(static inner => inner)
             from _ in guard(index >= 0, new KernelFault.InvalidResult())
@@ -487,7 +487,7 @@ public abstract partial record HatchProgram {
             from original in Try.lift(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from revised in Try.lift(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                 .Rollback(release: () => Custody.Dispose(held: Seq(original)))
-            from _ in change(revised, op)
+            from _ in change(revised)
                 .Rollback(release: () => Custody.Dispose(held: Seq(original, revised)))
             select new HatchRevision(Id: id, Original: original, Revised: revised);
 }

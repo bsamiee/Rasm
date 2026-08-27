@@ -6,7 +6,7 @@ The round-trip is BIDIRECTIONAL across three entries: `Classify` lowers a valida
 
 ## [01]-[INDEX]
 
-- [02]-[CLASSIFICATION_AXIS]: `BsddPins` the composition-supplied hosted-version policy; `ClassificationSystem` `[SmartEnum<string>]` the standard-systems vocabulary (system title, bSDD dictionary stem, version pin reader, code-shape policy); `Classify(code, title, key)` gating a raw code on the row's shape and handing it to the contract's ONE result-returning `Classification.Of` admission at authoring ingress; `Ingest(reference, pins, key)` resolving an imported `IfcClassificationReference` back onto a shared value at import ingress; and `Author(db, related, classification, pins)` the egress re-authoring an `Object` node's standard `Classification` onto `IfcRelAssociatesClassification`/`IfcClassificationReference` over the shared `Semantics/composition#EGRESS` `EmitMemo` dictionary-source memo (the element-classification egress the `Projection/egress#IFC_EGRESS` `Emit` composes).
+- [02]-[CLASSIFICATION_AXIS]: `BsddPins` the composition-supplied hosted-version policy; `ClassificationSystem` `[SmartEnum<string>]` the standard-systems vocabulary (system title, bSDD dictionary stem, version pin reader, code-shape policy); `Classify(code, title, key)` gating a raw code on the row's shape and handing it to the contract's ONE result-returning `Classification.Of` admission at authoring ingress; `Ingest(reference, pins)` resolving an imported `IfcClassificationReference` back onto a shared value at import ingress; and `Author(db, related, classification, pins)` the egress re-authoring an `Object` node's standard `Classification` onto `IfcRelAssociatesClassification`/`IfcClassificationReference` over the shared `Semantics/composition#EGRESS` `EmitMemo` dictionary-source memo (the element-classification egress the `Projection/egress#IFC_EGRESS` `Emit` composes).
 - [03]-[BSDD_RESOLUTION]: the live bSDD dictionary resolution (`BsddClass`/`BsddProperty`/`BsddPort`/`BsddResolution`) over Compute's transport, projecting the FULL `ClassContract.v1` surface — the constraint surface (`ValueKind`/`AllowedValues`/`Pattern`/`Bounds`/`SiDimension`/`Units`), the relation set (`BsddRelation` forward + reverse), the authoritative containment (`Parent`/`Ancestry`/`Children` `BsddRef` rows), and the supersession surface (`Status`/`Replaces`/`ReplacedBy`/`Deprecation`) — degrading to the row's local code-shape policy ONLY when the endpoint was unreached; `BsddWire` the `[Mapper]` boundary transcription owning the result-free wire rows; `BsddResolution.Certify` the supersession-gated authoring lowering, `BsddResolution.Search` the `api/Class/Search/v1` concept-to-code resolution carrying each hit's server-order `Rank`, and `BsddFederation` the QuikGraph connected-component equivalence classes whose `Translate` lowers a code across standards onto the shared value; feeding the `Semantics/properties#PROPERTY_TEMPLATES` template, the IDS facets, and the shared `MeasureValue` coercion; the `Suggest` graph-scale enrichment fold returning ranked `ClassificationSuggestion` candidates per unclassified element and target system.
 
 ## [02]-[CLASSIFICATION_AXIS]
@@ -78,8 +78,8 @@ public sealed partial class ClassificationSystem {
 
     public Fin<Classification> Classify(string code, Option<string> title, BsddPins pins) =>
         CodeShape(pins).IsMatch(code.Trim())
-            ? Classification.Of(Key, code, key, title: title)
-            : Fin.Fail<Classification>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", Key, code })));
+            ? Classification.Of(Key, code, title: title)
+            : Fin.Fail<Classification>(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", Key, code })));
 
     public string ClassUri(string code, BsddPins pins) => $"{DictionaryUri(pins)}/class/{System.Uri.EscapeDataString(code.Trim())}";
 
@@ -259,10 +259,10 @@ public sealed partial record BsddClass(
     public static Fin<BsddClass> Of(BsddClassResponse response) =>
         string.IsNullOrWhiteSpace(response.Code) || string.IsNullOrWhiteSpace(response.Uri)
             ? Fin.Fail<BsddClass>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-class-malformed", response.Uri })))
-            : from status in StatusOf(response.Status, key)
-              from properties in BsddWire.Rows(response.ClassProperties).TraverseM(p => Property(p, key)).As()
-              from relations in BsddWire.Rows(response.ClassRelations).TraverseM(r => RelationOf(r, key)).As()
-              from reverse in BsddWire.Rows(response.ReverseClassRelations).TraverseM(r => RelationOf(r, key)).As()
+            : from status in StatusOf(response.Status)
+              from properties in BsddWire.Rows(response.ClassProperties).TraverseM(p => Property(p)).As()
+              from relations in BsddWire.Rows(response.ClassRelations).TraverseM(r => RelationOf(r)).As()
+              from reverse in BsddWire.Rows(response.ReverseClassRelations).TraverseM(r => RelationOf(r)).As()
               select new BsddClass(
                   response.Code, response.Name, BsddWire.Text(response.ClassType), BsddWire.Text(response.Definition), response.Uri,
                   properties, status, BsddWire.Rows(response.RelatedIfcEntityNames), relations, reverse,
@@ -279,8 +279,8 @@ public sealed partial record BsddClass(
             : Fin.Fail<BsddClass>(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-superseded", Code, ReplacedBy.Head.IfNone("") })));
 
     static Fin<BsddProperty> Property(BsddClassResponse.ClassProperty p) =>
-        from kind in ValueKindOf(p.PropertyValueKind, key)
-        from status in StatusOf(p.PropertyStatus, key)
+        from kind in ValueKindOf(p.PropertyValueKind)
+        from status in StatusOf(p.PropertyStatus)
         select new BsddProperty(
             Optional(p.PropertyCode).Filter(static c => c.Length > 0).IfNone(p.Name), p.Name,
             BsddWire.Text(p.DataType), BsddWire.Text(p.PropertySet), BsddWire.Text(p.PredefinedValue),
@@ -418,19 +418,19 @@ public static class BsddResolution {
             work: IO.lift(() => Try.lift(() => port.Fetch<TWire>(resource, token)).Run().Bind(static inner => inner))).Run()).Run().Bind(static inner => inner);
 
     public static Fin<BsddClass> Resolve(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token) =>
-        Fetch<BsddClassResponse>(port, ClassResource(system.ClassUri(code, pins)), token, key)
+        Fetch<BsddClassResponse>(port, ClassResource(system.ClassUri(code, pins)), token)
             .Bind(reached => reached.Match(
-                Some: response => BsddClass.Of(response, key),
-                None: () => LocalShape(system, code, pins, key)));
+                Some: response => BsddClass.Of(response),
+                None: () => LocalShape(system, code, pins)));
 
     public static Fin<Classification> Certify(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token) =>
-        Resolve(system, code, port, pins, token, key)
-            .Bind(cls => cls.Admit(key))
-            .Bind(admitted => system.Classify(admitted.Code, Optional(admitted.Name).Filter(static n => n.Length > 0), pins, key));
+        Resolve(system, code, port, pins, token)
+            .Bind(cls => cls.Admit())
+            .Bind(admitted => system.Classify(admitted.Code, Optional(admitted.Name).Filter(static n => n.Length > 0), pins));
 
     public static Fin<Seq<BsddHit>> Search(string text, Seq<ClassificationSystem> scope, Option<string> relatedIfcEntity, BsddPort port, BsddPins pins, CancellationToken token) =>
-        Fetch<BsddSearchResponse>(port, SearchResource(text, scope, relatedIfcEntity, pins), token, key)
-            .Bind(reached => reached.ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-search-unreachable", text }))))
+        Fetch<BsddSearchResponse>(port, SearchResource(text, scope, relatedIfcEntity, pins), token)
+            .Bind(reached => reached.ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-search-unreachable", text }))))
             .Map(response => BsddWire.Rows(response.Classes).Map((hit, index) => HitOf(hit, index, pins)).Somes());
 
     static string ClassResource(string classUri) =>

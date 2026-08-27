@@ -534,7 +534,7 @@ public abstract partial record SwatchSlot {
         widgetCase: static (color, row) => HostEdge.Side(() => AppearanceSettings.SetWidgetColor(whichColor: row.Slot, c: color)));
 
     internal Fin<Color> Preset(Option<AppTheme> theme) => Switch<(Option<AppTheme> Theme), Fin<Color>>(
-        state: (theme, op),
+        state: (theme),
         paintCase: static (s, row) => Fin.Succ(value: s.Theme.Match(
             Some: mode => AppearanceSettings.DefaultPaintColor(whichColor: row.Slot, darkMode: mode.Key),
             None: () => AppearanceSettings.DefaultPaintColor(whichColor: row.Slot))),
@@ -658,18 +658,18 @@ public static class AppSettings {
             .Bind(active => Seated(active, writer))
             .Bind(active => active.Switch< Fin<AppAnswer>>(captureCase: static (op, capture) => Error.New(op: op.Message)
                 .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state)),
-            fallbackCase: static (op, fallback) => fallback.Theme.Match(
+            fallbackCase: static (fallback) => fallback.Theme.Match(
                 Some: theme => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.StateCase(
                     State: new AppState.AppearanceCase(Value: theme.Preset())))).Run().Bind(static inner => inner),
                 None: () => fallback.Family.Fallback()
                     .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state))),
-            applyCase: static (op, apply) => Mutated(
+            applyCase: static (apply) => Mutated(
                 family: apply.State.Family,
                 write: () => apply.State.Family.Apply(state: apply.State)),
-            resetCase: static (op, reset) => Mutated(
+            resetCase: static (reset) => Mutated(
                 family: reset.Family,
                 write: () => reset.Family.Reset()),
-            themeCase: static (op, theme) => Mutated(
+            themeCase: static (theme) => Mutated(
                 family: AppSettingsFamily.Appearance,
                 write: () => Try.lift(() => Admit.Confirm(success: theme.Theme.Adopt())).Run().Bind(static inner => inner)),
             themeProbeCase: static (op, probe) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.ThemeCase(
@@ -678,7 +678,7 @@ public static class AppSettings {
             swatchCase: static (op, swatch) => Try.lift(() => {
                 Color prior = swatch.Slot.Read();
                 swatch.Value.IfSome(swatch.Slot.Write);
-                return swatch.Slot.Preset(swatch.Theme, op).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
+                return swatch.Slot.Preset(swatch.Theme).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
                     Mutation: new SwatchMutation(
                         Slot: swatch.Slot,
                         Prior: prior,
@@ -689,7 +689,7 @@ public static class AppSettings {
             shortcutCase: static (op, shortcut) => Shortcuts(edit: shortcut.Edit),
             repeatCase: static (op, repeat) => Repeats(edit: repeat.Edit),
             pathCase: static (op, path) => Paths(edit: path.Edit),
-            conductCase: static (op, conduct) => Mutated(
+            conductCase: static (conduct) => Mutated(
                 family: AppSettingsFamily.General,
                 write: () => Try.lift(() => {
                     conduct.Conduct.Switch(
@@ -722,38 +722,38 @@ public static class AppSettings {
 
     private static Fin<AppOperation> Admit(AppOperation operation) => operation.Switch< Fin<AppOperation>>(
         state: op,
-        captureCase: static (op, value) => Verb(value.Family, FamilyVerb.Capture, op).Map(_ => (AppOperation)value),
-        fallbackCase: static (op, value) => value.Theme.Match(
+        captureCase: static (value) => Verb(value.Family, FamilyVerb.Capture).Map(_ => (AppOperation)value),
+        fallbackCase: static (value) => value.Theme.Match(
             Some: _ => guard(value.Family == AppSettingsFamily.Appearance, new KernelFault.InvalidInput())
                 .ToFin()
                 .Map(_ => (AppOperation)value),
-            None: () => Verb(value.Family, FamilyVerb.Preset, op).Map(_ => (AppOperation)value)),
+            None: () => Verb(value.Family, FamilyVerb.Preset).Map(_ => (AppOperation)value)),
         applyCase: static (value) => Admit.Need(value.State)
-            .Bind(state => Verb(state.Family, FamilyVerb.Apply, op))
+            .Bind(state => Verb(state.Family, FamilyVerb.Apply))
             .Map(_ => (AppOperation)value),
-        resetCase: static (op, value) => Verb(value.Family, FamilyVerb.Reset, op).Map(_ => (AppOperation)value),
+        resetCase: static (value) => Verb(value.Family, FamilyVerb.Reset).Map(_ => (AppOperation)value),
         themeCase: static (value) => Admit.Need(value.Theme).Map(_ => (AppOperation)value),
         themeProbeCase: static (value) => Admit.Need(value.Theme).Map(_ => (AppOperation)value),
         swatchCase: static (value) => Admit.Need(value.Slot)
             .Bind(slot => guard(slot.Defined, new KernelFault.InvalidInput()).ToFin())
             .Map(_ => (AppOperation)value),
         aliasCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.AliasCase(edit)),
         shortcutCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.ShortcutCase(edit)),
         repeatCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.RepeatCase(edit)),
         pathCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.PathCase(edit)),
         conductCase: static (value) => Admit.Need(value.Conduct)
-            .Bind(conduct => Admit(conduct, op))
+            .Bind(conduct => Admit(conduct))
             .Map(conduct => (AppOperation)new AppOperation.ConductCase(conduct)),
         windowPositionCase: static (_, _) => Fin.Succ<AppOperation>(new AppOperation.WindowPositionCase()),
-        autoRangeCase: static (op, value) => (
+        autoRangeCase: static (value) => (
                 Admit.Need(value.Seed).ToValidation(),
                 guard(!value.Meshes.IsEmpty, new KernelFault.InvalidInput()).ToFin().ToValidation(),
                 value.Meshes.Traverse(mesh => Admit.Need(mesh).ToValidation()).As())
@@ -773,13 +773,13 @@ public static class AppSettings {
         presetCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.PresetCase()),
         probeCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.ProbeCase(name)),
-        putCase: static (op, value) => Admit(value.Binding, op)
+        putCase: static (value) => Admit(value.Binding)
             .Map(binding => (AliasEdit)new AliasEdit.PutCase(binding)),
         deleteCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.DeleteCase(name)),
         mergeCase: static (value) => Admit.Need(value.Merge)
             .Bind(merge => value.Bindings
-                .Map(binding => Admit(binding, op).ToValidation())
+                .Map(binding => Admit(binding).ToValidation())
                 .Traverse(static binding => binding)
                 .As()
                 .ToFin()
@@ -799,11 +799,11 @@ public static class AppSettings {
         state: op,
         rosterCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
         presetCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
-        assignCase: static (op, value) => Admit(value.Binding, op)
+        assignCase: static (value) => Admit(value.Binding)
             .Map(binding => (ShortcutEdit)new ShortcutEdit.AssignCase(binding)),
         mergeCase: static (value) => Admit.Need(value.Merge)
             .Bind(merge => value.Bindings
-                .Map(binding => Admit(binding, op).ToValidation())
+                .Map(binding => Admit(binding).ToValidation())
                 .Traverse(static binding => binding)
                 .As()
                 .ToFin()
@@ -816,12 +816,12 @@ public static class AppSettings {
 
     private static Fin<ShortcutBinding> Admit(KeyboardKey key, ModifierKey modifier, string? macro) =>
         from _key in guard(
-            Defined(key)
+            Defined()
             && FlagsDefined(modifier)
             && ShortcutKeySettings.IsAcceptableKeyCombo(modifier: modifier),
             new KernelFault.InvalidInput()).ToFin()
         from admittedMacro in FactoryBridge.Accept<MacroText>(macro)
-        select new ShortcutBinding(key, modifier, admittedMacro);
+        select new ShortcutBinding(modifier, admittedMacro);
 
     private static Fin<RepeatEdit> Admit(RepeatEdit edit) => edit.Switch< Fin<RepeatEdit>>(
         state: op,
@@ -836,16 +836,16 @@ public static class AppSettings {
         state: op,
         rosterCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RosterCase()),
         addCase: static (value) => (
-                DocumentPath.Of(value.Folder.Value, op).ToValidation(),
+                DocumentPath.Of(value.Folder.Value).ToValidation(),
                 guard(value.IndexAt >= -1, new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply((folder, _) => (PathEdit)new PathEdit.AddCase(folder, value.IndexAt))
             .As()
             .ToFin(),
-        removeCase: static (op, value) => DocumentPath.Of(value.Folder.Value, op)
+        removeCase: static (value) => DocumentPath.Of(value.Folder.Value)
             .Map(folder => (PathEdit)new PathEdit.RemoveCase(folder)),
         findCase: static (value) => Acceptance.Text(value.FileName)
             .Map(name => (PathEdit)new PathEdit.FindCase(name)),
-        autosaveCase: static (op, value) => value.Commands.Match(
+        autosaveCase: static (value) => value.Commands.Match(
             Some: commands => commands
                 .Traverse(name => Acceptance.Text(value: name).ToValidation())
                 .As()
@@ -897,7 +897,7 @@ public static class AppSettings {
                 CommandAliasList.FindAlias(alias: name) is { } found
                     ? (Name: name, Macro: found.Macro, Instant: Some(found.Instant))
                     : (Name: name, Macro: CommandAliasList.GetMacro(alias: name), Instant: Option<bool>.None))),
-        presetCase: static (op, _) => AliasBindings(
+        presetCase: static (_) => AliasBindings(
             source: () => CommandAliasList.GetDefaults().Select(static binding => (
                 Name: binding.Key,
                 Macro: binding.Value,
@@ -935,12 +935,12 @@ public static class AppSettings {
 
     private static Fin<AppAnswer> Shortcuts(ShortcutEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetShortcuts),
         presetCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetDefaults),
-        assignCase: static (op, assign) =>
+        assignCase: static (assign) =>
             from _written in Try.lift(() => ShortcutKeySettings.SetMacro(modifier: assign.Binding.Modifier,
                 macro: assign.Binding.Macro.Value)).Run().Bind(static inner => inner)
             from roster in Bindings(source: ShortcutKeySettings.GetShortcuts)
             select roster,
-        mergeCase: static (op, merge) =>
+        mergeCase: static (merge) =>
             from _updated in Try.lift(() => ShortcutKeySettings.Update(
                 shortcuts: merge.Bindings.Map(static binding => new KeyboardShortcut {
                     Key = binding.Key,
@@ -960,7 +960,7 @@ public static class AppSettings {
             .Map(static bindings => (AppAnswer)new AppAnswer.ShortcutsCase(Bindings: bindings))).Run().Bind(static inner => inner);
 
     private static Fin<AppAnswer> Repeats(RepeatEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Roster(),
-        replaceCase: static (op, replace) =>
+        replaceCase: static (replace) =>
             from _landed in Try.lift(() => Admit.Confirm(
                 success: NeverRepeatList.SetList(commandNames: replace.CommandNames.ToArray()) >= 0)).Run().Bind(static inner => inner)
             from roster in Roster()
@@ -978,13 +978,13 @@ public static class AppSettings {
             .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
         removeCase: static (op, remove) => Try.lift(() => Admit.Confirm(success: FileSettings.DeleteSearchPath(folder: remove.Folder.Value))
             .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
-        findCase: static (op, find) =>
+        findCase: static (find) =>
             from resolved in Try.lift(() => Optional(FileSettings.FindFile(fileName: find.FileName))
                 .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
                 .Traverse(value => DocumentPath.Of(value: value))
                 .As()).Run().Bind(static inner => inner)
             select (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved),
-        autosaveCase: static (op, autosave) => autosave.Commands.Match(
+        autosaveCase: static (autosave) => autosave.Commands.Match(
             Some: commands => Try.lift(() => FileSettings.SetAutoSaveBeforeCommands(commands: commands.ToArray())).Run().Bind(static inner => inner)
                 .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.AutoSaveBeforeCommands()))),
             None: () => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(

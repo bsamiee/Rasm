@@ -378,18 +378,18 @@ public abstract partial record NamedViewOp {
     internal Fin<Unit> Apply(RhinoDoc document, RhinoViewport viewport) =>
         Switch(
             (Document: document, Viewport: viewport),
-            restoreCase: static (ctx, op) =>
+            restoreCase: static (ctx) =>
                 from index in IndexOf(document: ctx.Document, name: op.Name)
                 from _ in op.Pace.Apply(views: ctx.Document.NamedViews, index: index.Value, viewport: ctx.Viewport)
                 select unit,
-            addCase: static (ctx, op) => ResourceIndex
+            addCase: static (ctx) => ResourceIndex
                 .Admit(value: ctx.Document.NamedViews.Add(name: op.Name.Value, viewportId: ctx.Viewport.Id))
                 .Map(static _ => unit),
-            renameCase: static (ctx, op) =>
+            renameCase: static (ctx) =>
                 from index in IndexOf(document: ctx.Document, name: op.Name)
                 from _ in Admit.Confirm(success: ctx.Document.NamedViews.Rename(index: index.Value, newName: op.NewName.Value))
                 select unit,
-            deleteCase: static (ctx, op) =>
+            deleteCase: static (ctx) =>
                 from index in IndexOf(document: ctx.Document, name: op.Name)
                 from _ in Admit.Confirm(success: ctx.Document.NamedViews.Delete(index: index.Value))
                 select unit);
@@ -509,7 +509,7 @@ public sealed partial class RestoreScope {
 - Law: admission belongs to the family, not to the factory. `ProjectionChange`, `StackVerb`, `NamedViewOp`, and `ClipLink` each answer `Admit()` the way `GestureRequest` always has, so `CameraOp`'s eight factories are each one lift and the four inner `Switch` ladders — twenty-six arms re-walking payloads the case owner already understands — have no successor.
 - Law: a paced drive is PREPARED once — `CameraStage.Of` runs the address census, mints one lease per resolved row, and derives the per-frame policy before the first tick, so the tick body carries the pose alone and pays one borrow per row. Replaying the whole entry pipeline per frame spends admission work on inputs the drive proved at preparation.
 - Law: an address resolved BEFORE the write it serves binds explicitly. `ActiveBinding.Pinned` keeps the viewport that was active at preparation and refuses with `InvalidContext` once it stops being active; `Following` re-resolves the live active view per frame. `StagedRow.Of` reads the `(binding, address)` PRODUCT as one pattern, because a computed flag branched twice is the joint discriminant spelled apart.
-- Law: the detail commit is ONE member. `ApplyPolicy.CommitDetail(row, key)` carries the posture and the `Admit.Confirm` funnel, so the one-shot pipeline arm and the staged tick body cannot drift on what committing a detail means — the two verbatim copies of that block are gone.
+- Law: the detail commit is ONE member. `ApplyPolicy.CommitDetail(row)` carries the posture and the `Admit.Confirm` funnel, so the one-shot pipeline arm and the staged tick body cannot drift on what committing a detail means — the two verbatim copies of that block are gone.
 - Law: `CameraTrack.Of` accumulates its five independent admissions through `Validation`, so a caller with a bad source pose AND a mismatched projection learns both; the `from`-chain reported only the first.
 - Law: `ConventionCase` carries the kernel `ViewPose` — the `Rasm.Drawing` `ViewConvention.Pose` derivation over a subject bounds and a convention row — and this arm only lowers it through `ProjectionChange.Of`, seats the pose, and frames the subject.
 - Law: motion APPLY stays host-side and the kernel owns the algebra: `MotionDrive.Step` is the tick body at `Viewport/motion`, `MotionPump.Drive` takes the session's ONE injected `MonotonicTimeline`, and a driven spring (`RungeKuttaIntegrator`) is REFUSED — the kernel's fixed stepper is the whole spring arithmetic and no integrator parameter survives on this page.
@@ -806,12 +806,12 @@ public static class Cameras {
                         .Map(static move => (CameraOutcome)new CameraOutcome.StackedCase(Move: move)),
                     frameCase: static (ctx, op) => Admit.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Padding.Inflate(subject: op.Subject)))
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
-                    namedCase: static (ctx, op) => op.Scope.Within(
+                    namedCase: static (ctx) => op.Scope.Within(
                         body: () => op.Verb.Apply(document: ctx.Document, viewport: ctx.Row.Viewport)
                             .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase())),
                     clipCase: static (ctx, op) => op.Link.Apply(document: ctx.Document, viewport: ctx.Row.Viewport)
                         .Map(static planes => (CameraOutcome)new CameraOutcome.ClippedCase(Planes: planes)),
-                    conventionCase: static (ctx, op) =>
+                    conventionCase: static (ctx) =>
                         from _lowered in ProjectionChange.Of(intent: op.Pose.Projection, lens: op.Pose.Lens)
                             .Apply(viewport: ctx.Row.Viewport)
                         from _seated in Try.lift(() => {

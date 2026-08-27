@@ -170,7 +170,7 @@ public static class IconOwner {
                     return Compiled(s.Key, s.Origin, compiled, new(Errors: toSeq(errors), Warnings: toSeq(warnings)), None);
                 }).Run().Bind(static inner => inner),
             render: static (s, _) => Fin.Fail<IconHandle>(new KernelFault.InvalidInput(Axis: Some(nameof(AssetOrigin.Render)))))),
-            DispatchLane.Interactive, op));
+            DispatchLane.Interactive));
     }
 
     public static Fin<Unit> Pose(IIcon icon, PoseShift shift) {
@@ -185,7 +185,7 @@ public static class IconOwner {
                            c.Value, HostEdge.Slot(c.State),
                            HostEdge.Nullable(c.Span),
                            HostEdge.Nullable(c.Curve))).Run().Bind(static inner => inner))),
-                   DispatchLane.Interactive, op)
+                   DispatchLane.Interactive)
                select settled;
     }
 
@@ -219,7 +219,7 @@ public static class IconOwner {
                        Optional(s.DrawToBitmap(c.Extent, c.Padding, c.Backdrop)).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                        .Map(static frame => (IconProduct)new IconProduct.RasterCase(
                            Frame: new AssetRaster.Toolkit(Scale: PositiveMagnitude.One, Bitmap: new Lease<Bitmap>.Owned(Value: frame)))))),
-                   DispatchLane.Interactive, op)
+                   DispatchLane.Interactive)
                select output;
     }
 

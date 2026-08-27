@@ -126,7 +126,7 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
 
     static Fin<FitPrimitive> SolveCone(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) =>
         normals.Match(
-            Some: field => ApexFromNormals(cloud, draw, field, key).Bind(apex => {
+            Some: field => ApexFromNormals(cloud, draw, field).Bind(apex => {
                 Vector3d u0 = Unit(cloud[draw[0]] - apex), u1 = Unit(cloud[draw[1]] - apex), u2 = Unit(cloud[draw[2]] - apex);
                 Vector3d axis = Vector3d.CrossProduct(u1 - u0, u2 - u0);
                 if (axis.IsTiny(EpsilonPolicy.ZeroTolerance))
@@ -626,7 +626,7 @@ public static class Fit {
         return Try.lift(() => {
             Deterministic.Draw draw = new(Seed: op.Policy.Seed, Prefix: [.. op.Kinds.Map(static kind => kind.Lane)]);
             int[] whole = [.. Enumerable.Range(0, op.Cloud.Length)];
-            return Validate(op)
+            return Validate()
                 .Bind(_ => NeighborIndex.Of(new NeighborSource.PointsCase(toSeq(op.Cloud)), ok))
                 .Bind(index => Order(op.Cloud, op.Normals, op.Policy, tolerance, ok)
                     .Bind(order => op.Kinds
@@ -688,9 +688,9 @@ public static class Fit {
         Option<Candidate> best = None;
         int budget = policy.MaxTrials.Value, support = 0;
         for (int trial = 0; trial < budget; trial++) {
-            int[] sample = Sample(order, cloud, index, kind, policy, trial, lane, key);
-            if (kind.Solve(cloud, sample, normals, tolerance, key).Case is not FitPrimitive primitive) continue;
-            (ddouble cost, Arr<int> inliers) = Score(primitive, cloud, normals, index, whole, policy, t2, threshold, key);
+            int[] sample = Sample(order, cloud, index, kind, policy, trial, lane);
+            if (kind.Solve(cloud, sample, normals, tolerance).Case is not FitPrimitive primitive) continue;
+            (ddouble cost, Arr<int> inliers) = Score(primitive, cloud, normals, index, whole, policy, t2, threshold);
             if (inliers.Count > support) {
                 support = inliers.Count;
                 double fraction = (double)support / cloud.Length;
@@ -756,9 +756,9 @@ public static class Fit {
                     for (int i = 0; i < field.Length; i++) rank[i] = Math.Abs(field[i] * mode);
                     return Acceptance.Value(rank);
                 },
-                None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None, key)
-                    .Bind(stats => stats.Cov.DecomposeEigenDetailed(key)
-                        .Bind(solved => solved.PairsIn(EigenOrder.DescendingMagnitude, key))
+                None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None)
+                    .Bind(stats => stats.Cov.DecomposeEigenDetailed()
+                        .Bind(solved => solved.PairsIn(EigenOrder.DescendingMagnitude))
                         .Map(eigen => (stats.Mean, Eigen: eigen)))
                     .Bind(pca => {
                         if (pca.Eigen.Count < 3) return Fin.Fail<double[]>(new KernelFault.InvalidResult());
@@ -828,10 +828,10 @@ public static class Fit {
 
     // --- [REFINE]
     static Fin<Fitted> Refine(Candidate seed, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole, FitPolicy policy, Context tolerance) =>
-        Lm.Minimize(new Model(seed.Primitive, cloud, seed.Inliers), policy.Refine, key).Bind(result => {
+        Lm.Minimize(new Model(seed.Primitive, cloud, seed.Inliers), policy.Refine).Bind(result => {
             FitPrimitive refined = seed.Primitive.Kind.Rebuild(result.Parameters.AsSpan());
             double threshold = policy.InlierScale.Value * tolerance.Absolute.Value;
-            (ddouble _, Arr<int> mask) = Score(refined, cloud, normals, index, whole, policy, threshold * threshold, threshold, key);
+            (ddouble _, Arr<int> mask) = Score(refined, cloud, normals, index, whole, policy, threshold * threshold, threshold);
             return mask.IsEmpty
                 ? Fin.Fail<Fitted>(new KernelFault.InvalidResult())
                 : Acceptance.Value(new Fitted(

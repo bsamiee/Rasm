@@ -71,8 +71,8 @@ public static class SpectralUpsample {
     }
 
     public static Fin<Spd> ToSpd(RgbSpectrum rgb) =>
-        ToCurve(rgb, key).Bind(curve => new Spd(SampleStart, SampleStep, curve.ToArray()) switch {
-            var spd => spd.IsValid ? Fin.Succ(spd) : Fin.Fail<Spd>(new MaterialFault.Parameter(key, "<spd-interval-invalid>")),
+        ToCurve(rgb).Bind(curve => new Spd(SampleStart, SampleStep, curve.ToArray()) switch {
+            var spd => spd.IsValid ? Fin.Succ(spd) : Fin.Fail<Spd>(new MaterialFault.Parameter("<spd-interval-invalid>")),
         });
     private static void Acc(double[] dst, double[] basis, double w) { double c = Math.Max(0.0, w); for (int i = 0; i < dst.Length; i++) { dst[i] += basis[i] * c; } }
 

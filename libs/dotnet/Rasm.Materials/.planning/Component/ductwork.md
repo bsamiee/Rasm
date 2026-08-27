@@ -205,7 +205,7 @@ public static class DuctworkSeed {
         rectangular: static (@class, x) => DuctSchedule.Rect(@class, Math.Max(x.WidthIn, x.DepthIn)));
 
     static Fin<SectionProfile> Profile(DuctRow r) =>
-        from gauge in Gauge(r, key)
+        from gauge in Gauge(r)
         from profile in r.Shape.Switch(
             state: gauge,
             round: static (x, s) => SectionProfile.CircleHollow.Of(s.DiameterIn * ThreadRow.InchToMm, x.ThicknessMm, x.Key),
@@ -215,7 +215,7 @@ public static class DuctworkSeed {
         select profile;
 
     static Fin<PropertyBag> Detail(DuctRow r, SectionProfile profile) =>
-        from gauge in Gauge(r, key)
+        from gauge in Gauge(r)
         from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, gauge.ThicknessMm * 1e-3)
         from diameter in r.Shape is DuctShape.Round round
             ? ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, round.DiameterIn * ThreadRow.InchToMm * 1e-3).Map(Some)

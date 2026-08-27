@@ -19,7 +19,7 @@
 - Entry: `Reconcile` aligns imported ids from GlobalId and unambiguous GlobalId-less type keys.
 - Entry: `Forest` and `DiffContent` project object topology and non-object content onto separate detection axes.
 - Entry: `ThreeWay` returns clean edits, typed conflicts, and tally evidence in one result.
-- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault channel; `EditWire.Wire(edit, key)` lowers one edit onto the generated message.
+- Entry: `Patch(script, base, target, policy)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault channel; `EditWire.Wire(edit)` lowers one edit onto the generated message.
 - Auto: Every base is `ContentAddress.Of(baseNode, base.Header.Tolerance)`.
 - Auto: `Members` diffs the binary `NodeWire` pair field by field off `NodeWire.Descriptor.Fields.InFieldNumberOrder()` through `IFieldAccessor` equality — message fields recurse, repeated and map fields compare whole, a presence flip names the path, a changed oneof arm names both arms.
 - Auto: `FieldMask.IsValid` gates the path set; `Merge` under `ReplaceMessageFields`/`ReplaceRepeatedFields`/`ReplacePrimitiveFields` applies it, so a primitive returning to its default crosses as a change — the member a ProtoJSON diff elided.
@@ -157,7 +157,7 @@ public sealed record MemberPatch(FieldMask Mask, NodeWire Prior, NodeWire Succes
     public static Fin<Option<MemberPatch>> Between(NodeWire prior, NodeWire successor, PatchPolicy policy) =>
         MemberDiff.Paths(prior, successor) switch {
             { IsEmpty: true } => Fin.Succ(Option<MemberPatch>.None),
-            var paths => Masked(paths.Count <= policy.OperationCeiling ? paths : MemberDiff.TopLevel(prior, successor), prior, successor, key),
+            var paths => Masked(paths.Count <= policy.OperationCeiling ? paths : MemberDiff.TopLevel(prior, successor), prior, successor),
         };
 
     static Fin<Option<MemberPatch>> Masked(Seq<string> paths, NodeWire prior, NodeWire successor) =>
@@ -316,27 +316,27 @@ public static class StructuralMerge {
     static Fin<Option<EntityEdit>> Edit(
         NodeId subject, Seq<EditOp> ops, ElementGraph @base, ElementGraph target, PatchPolicy policy) =>
         (ops.Exists(static op => op is EditOp.Delete), ops.Exists(static op => op is EditOp.Insert)) switch {
-            (true, true) => ElementFault.DeltaConflict(key, $"<merge-edit-existence-conflict:{subject.ToValue()}>"),
+            (true, true) => ElementFault.DeltaConflict($"<merge-edit-existence-conflict:{subject.ToValue()}>"),
             (true, false) when target.Find(subject).IsSome =>
-                ElementFault.DeltaConflict(key, $"<merge-tombstone-target-present:{subject.ToValue()}>"),
+                ElementFault.DeltaConflict($"<merge-tombstone-target-present:{subject.ToValue()}>"),
             (true, false) => @base.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-tombstone-base-absent:{subject.ToValue()}>"))
+                .ToFin(ElementFault.NodeAbsent($"<merge-tombstone-base-absent:{subject.ToValue()}>"))
                 .Map(node => Some<EntityEdit>(new EntityEdit.Tombstone(
                     subject, ContentAddress.Of(node, @base.Header.Tolerance)))),
             (false, true) when @base.Find(subject).IsSome =>
-                ElementFault.DeltaConflict(key, $"<merge-insert-base-present:{subject.ToValue()}>"),
+                ElementFault.DeltaConflict($"<merge-insert-base-present:{subject.ToValue()}>"),
             (false, true) when ops.Exists(static op => op is not EditOp.Insert and not EditOp.Match) =>
-                ElementFault.DeltaConflict(key, $"<merge-insert-mixed-edit:{subject.ToValue()}>"),
+                ElementFault.DeltaConflict($"<merge-insert-mixed-edit:{subject.ToValue()}>"),
             (false, true) => target.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-insert-target-absent:{subject.ToValue()}>"))
+                .ToFin(ElementFault.NodeAbsent($"<merge-insert-target-absent:{subject.ToValue()}>"))
                 .Map(static _ => Option<EntityEdit>.None),
             _ => @base.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-base-absent:{subject.ToValue()}>"))
+                .ToFin(ElementFault.NodeAbsent($"<merge-members-base-absent:{subject.ToValue()}>"))
                 .Bind(before => target.Find(subject)
-                    .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-target-absent:{subject.ToValue()}>"))
-                    .Bind(after => ElementWire.Encode(before, @base.Header.Tolerance, key).Bind(beforeWire =>
-                        ElementWire.Encode(after, target.Header.Tolerance, key).Bind(afterWire =>
-                            MemberPatch.Between(beforeWire, afterWire, policy, key)
+                    .ToFin(ElementFault.NodeAbsent($"<merge-members-target-absent:{subject.ToValue()}>"))
+                    .Bind(after => ElementWire.Encode(before, @base.Header.Tolerance).Bind(beforeWire =>
+                        ElementWire.Encode(after, target.Header.Tolerance).Bind(afterWire =>
+                            MemberPatch.Between(beforeWire, afterWire, policy)
                                 .Map(patch => patch.Map(held => (EntityEdit)new EntityEdit.Members(
                                     subject, ContentAddress.Of(before, @base.Header.Tolerance), held))))))),
         };

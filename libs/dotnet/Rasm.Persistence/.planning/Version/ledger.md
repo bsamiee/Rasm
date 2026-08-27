@@ -794,10 +794,10 @@ public static partial class SyncWireMap {
 
     public static Fin<SyncCursor> Admit(SyncCursorWire? wire) =>
         Optional(wire).ToFin(new KernelFault.InvalidInput(Axis: Some(nameof(SyncCursorWire)))).Bind(stated =>
-            (Store(stated.OriginStore, key).ToValidation(),
+            (Store(stated.OriginStore).ToValidation(),
              OpLogWire.I63(stated.Sequence, "cursor").ToValidation(),
              Optional(stated.Stamp).ToFin(new KernelFault.InvalidInput(Axis: Some(nameof(Clock.Hlc))))
-                 .Bind(held => HostWire.Stamp(held, key)).ToValidation())
+                 .Bind(held => HostWire.Stamp(held)).ToValidation())
                 .Apply(static (origin, sequence, stamp) => new SyncCursor(origin, sequence, stamp.Physical, stamp.Logical))
                 .As().ToFin());
 
@@ -807,7 +807,7 @@ public static partial class SyncWireMap {
             : Fin.Fail<Guid>(new KernelFault.InvalidInput(Axis: Some("cursor-origin-width")));
 
     public static Fin<Seq<UInt128>> Keys(IEnumerable<ByteString> wire) =>
-        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span, key).ToValidation()).As().ToFin();
+        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span).ToValidation()).As().ToFin();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

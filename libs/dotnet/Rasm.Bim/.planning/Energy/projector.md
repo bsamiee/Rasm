@@ -359,7 +359,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     }
 
     static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance) =>
-        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling, key).Map(height => {
+        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling).Map(height => {
             QuantityBag bag = new(QuantityRows.SpaceBaseQuantities,
                 Map((QuantityRows.Height, height)),
                 InheritanceMode.OccurrenceWins, EvidenceGrade.Import);
@@ -368,7 +368,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         });
 
     static Fin<Node.PropertySet> MultiplierEvidence(int multiplier, double tolerance) =>
-        MeasureValue.OfSi(Dimension.Dimensionless, multiplier, key).Map(value => {
+        MeasureValue.OfSi(Dimension.Dimensionless, multiplier).Map(value => {
             PropertyBag bag = new(EnergyModelSet,
                 Map((StoryMultiplier, (PropertyValue)new PropertyValue.Measure(value))),
                 InheritanceMode.OccurrenceWins, EvidenceGrade.Import);

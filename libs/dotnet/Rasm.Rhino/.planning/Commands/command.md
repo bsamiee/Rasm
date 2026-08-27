@@ -600,7 +600,7 @@ public sealed partial class CommandPulse {
         return from active in Admit.Need(hooks)
                from _ in guard(!candidates.IsEmpty && candidates.ForAll(static pulse => pulse is not null), new KernelFault.InvalidInput())
                from attached in Subscription.AttachAll(candidates.Distinct().Map(pulse =>
-                   (Func<Fin<Subscription>>)(() => pulse.Attach(active, op))))
+                   (Func<Fin<Subscription>>)(() => pulse.Attach(active))))
                select attached;
     }
 }

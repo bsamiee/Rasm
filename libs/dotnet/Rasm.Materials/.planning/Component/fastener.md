@@ -222,17 +222,17 @@ public static class Fastening {
             : new ComponentFault.BasisUnsupported(basis, ComponentFamily.Fastener);
 
     public static Fin<double> ShearResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, ShearPlane plane, DesignBasis basis) =>
-        from gamma in JointFactor(basis, key)
-        from alphaV in plane.ShearFactor(arm).ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
+        from gamma in JointFactor(basis)
+        from alphaV in plane.ShearFactor(arm).ToFin(new ComponentFault.GradeBandMissing(ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
         select alphaV * arm.SpecifiedUltimateMpa * plane.ResistanceAreaMm2(thread) / gamma * 1e-3;
 
     public static Fin<double> TensionResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis) =>
-        from gamma in JointFactor(basis, key)
-        from tabulated in arm.EurocodeAlphaV.ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
+        from gamma in JointFactor(basis)
+        from tabulated in arm.EurocodeAlphaV.ToFin(new ComponentFault.GradeBandMissing(ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
         select head.TensionFactor * arm.SpecifiedUltimateMpa * thread.StressAreaMm2 / gamma * 1e-3;
 
     public static Fin<double> PunchingResistanceKn(ThreadRow thread, double plyThicknessMm, double plyUltimateMpa, DesignBasis basis) =>
-        JointFactor(basis, key).Map(gamma => 0.6 * Math.PI * thread.PunchingDiameterMm * plyThicknessMm * plyUltimateMpa / gamma * 1e-3);
+        JointFactor(basis).Map(gamma => 0.6 * Math.PI * thread.PunchingDiameterMm * plyThicknessMm * plyUltimateMpa / gamma * 1e-3);
 
     public readonly record struct ReferenceLengthBand(double LengthCeilingMm, double AdditionMm);
     static readonly ImmutableArray<ReferenceLengthBand> ReferenceLengths = [new(125.0, 6.0), new(200.0, 12.0), new(double.PositiveInfinity, 25.0)];
@@ -445,7 +445,7 @@ public static class FastenerSeed {
             : new ComponentFault.ComponentMissing(ProfileRef.Of(component.Designation.Value));
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        from row in Resolve(component, key)
+        from row in Resolve(component)
         from connection in placement.Fastener.ToFin(
             new ComponentFault.ConnectionMissing(key, component.Designation))
         from lift in connection.Switch(
@@ -470,7 +470,7 @@ public static class FastenerSeed {
     static Fin<FastenerAssembly> Assembly(StockRow row, BoltCategory category, FayingSurface faying, HeadForm head, int gripPlies, int shearPlanes, Option<HexHardware> washer) =>
         from thread in row.Thread.ToFin(new KernelFault.InvalidValue(nameof(row.Thread), "a threaded stock row"))
         from grade in row.Grade.ToFin(new KernelFault.InvalidValue(nameof(row.Grade), "a threaded stock grade"))
-        from assembly in FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer, key)
+        from assembly in FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer)
         select assembly;
 
     static Fin<GradeProperties.Timber> TimberArm(MaterialGrade grade) =>
@@ -484,7 +484,7 @@ public static class FastenerSeed {
 
 - Owner: `FastenerAssembly` owns the installed bolt state and its own resistance projections; `BearingDesign` owns the ply the shank bears against and derives its EN 1993-1-8 Table 3.4 factors from the bolt-group geometry; `BoltPosition` and `HoleShape` own the published position and hole-form policy; `FastenerInstallation` admits the shared `(ks, γM3, km)` slip-and-torque policy.
 - Cases: one assembly shape for every modality — a non-preloaded (A/D) assembly resolves `FayingSurface.None` and returns `None` for preload, slip, and tightening torque; a preloaded (B/C/E) assembly requires a named slip class and returns `Some` design values — never a numeric absence sentinel and never a `PreloadedBolt`/`BearingBolt` pair. `BoltPosition` closes the four-cell product of the two independent Table 3.4 discriminants: end-versus-inner along the load path selects α_d, edge-versus-inner across it selects k1.
-- Entry: `FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer, key)` ACCUMULATES its four independent admissions — a system- or size-mismatched thread/grade pair, a missing fastener arm, a preloaded category over a non-preloadable grade, and a preloaded category with `FayingSurface.None` — then admits the two discrete counts, and carries the PROVED arm onto the assembly so no projection re-unwraps it. `BearingDesign.Of` admits the ply and its bolt-group distances once.
+- Entry: `FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer)` ACCUMULATES its four independent admissions — a system- or size-mismatched thread/grade pair, a missing fastener arm, a preloaded category over a non-preloadable grade, and a preloaded category with `FayingSurface.None` — then admits the two discrete counts, and carries the PROVED arm onto the assembly so no projection re-unwraps it. `BearingDesign.Of` admits the ply and its bolt-group distances once.
 - Growth: a new connection modality is a `BoltCategory`/`FayingSurface` row the assembly reads; a new hole form one `HoleShape` row; a new bolt-group position one `BoltPosition` row; the multi-bolt group `ΣFs,Rd`, the long-joint `β`, and the `Fv,Ed/Fv,Rd + Ft,Ed/(1.4·Ft,Rd) ≤ 1` interaction are `Rasm.Compute` consumers over these single-bolt design values.
 - Boundary: `Count` admits the discrete grip and shear-plane columns. `BearingDesign` takes the DISTANCES the code's own formulas consume and derives `k1` and `α_b` from them, so a caller cannot hand the resistance one opaque scalar in which a transposed edge and end distance is invisible; the hole-shape reduction and the countersink thickness deduction are rows the same derivation reads. Every resistance takes the placement's `DesignBasis` and reads γM2 through `Fastening.JointFactor` — this section spells no partial factor either. The preload is bounded by the grade's own yield load, because a pretension above the elastic limit is a tightening method the assembly cannot represent. A washer's ABSENCE is the absence of a washer, so its hardness, outer diameter, and thickness are all `None` together rather than a bool guarding three separate reads.
 
@@ -545,7 +545,7 @@ public readonly partial struct BearingDesign {
         Math.Min(Math.Min(Position.AlphaD(LoadwiseDistanceMm, HoleDiameterMm), arm.SpecifiedUltimateMpa / PlyUltimateMpa), 1.0);
 
     public Fin<double> ResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis) =>
-        Fastening.JointFactor(basis, key).Map(gamma =>
+        Fastening.JointFactor(basis).Map(gamma =>
             Hole.BearingFactor * K1 * AlphaB(arm) * PlyUltimateMpa * thread.MajorMm
                 * (PlyThicknessMm - head.ThicknessDeductionRatio * thread.MajorMm) / gamma * 1e-3);
 }
@@ -601,11 +601,11 @@ public readonly record struct FastenerAssembly(
         PreloadKn.Map(preload => design.Km * (Thread.MajorMm * 1e-3) * (preload * 1e3));
 
     public Fin<double> ShearResistanceKn(ShearPlane plane, DesignBasis basis) =>
-        Fastening.ShearResistanceKn(Thread, Arm, plane, basis, key).Map(perPlane => perPlane * ShearPlanes.Value);
+        Fastening.ShearResistanceKn(Thread, Arm, plane, basis).Map(perPlane => perPlane * ShearPlanes.Value);
     public Fin<double> TensionResistanceKn(DesignBasis basis) => Fastening.TensionResistanceKn(Thread, Arm, Head, basis);
     public Fin<double> BearingResistanceKn(BearingDesign ply, DesignBasis basis) => ply.ResistanceKn(Thread, Arm, Head, basis);
     public Fin<double> PunchingResistanceKn(BearingDesign ply, DesignBasis basis) =>
-        Fastening.PunchingResistanceKn(Thread, ply.PlyThicknessMm, ply.PlyUltimateMpa, basis, key);
+        Fastening.PunchingResistanceKn(Thread, ply.PlyThicknessMm, ply.PlyUltimateMpa, basis);
 
     public Option<double> WasherHardnessHv => Washer.Map(_ => Arm.Preloadable ? 300.0 : 200.0);
     public Option<double> WasherOuterMm => Washer.Map(static h => h.WasherOuterMm);

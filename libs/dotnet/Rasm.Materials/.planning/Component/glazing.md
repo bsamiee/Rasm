@@ -12,7 +12,7 @@ The ONE stack-admission law is `GlazingDetail.Stack`, an ACCUMULATING census: ar
 
 - Owner: the glazing policy vocabulary; `CavityFill` the gas-vs-vacuum `[Union]`; `Pane`/`Cavity`/`EdgeSeal`/`MuntinGrid` the typed stack rows; `GlazingThermal` the shared resistance, optical, and acoustic kernel; `GlazingGwp` the lifecycle vector; `GlazingPerformance` the computed performance row; `GlazingDetail` the shared stack census, bag, property, and ply operations; `GlazingSeed` the EN 1279 roster, its seed law, and the typed resolver.
 - Cases: the glazing vocabulary spans the glass, per-face coating, gas, interlayer, spacer, and edge-seal axes. `GlazingBuild` derives `Double`, `Triple`, or `Quadruple` from `Panes.Count`; stack arity and finite pane/cavity values admit before either physics boundary runs.
-- Entry: `ComponentSeed.Rows(context, GlazingSeed.Roster, GlazingSeed.Law)` — the law's coherence is the stack census plus the grid gate, its profile the ply projection onto `Layered`, and its detail the performance gate before the Product bag, so a build whose spectrum cannot admit never seeds and one malformed row aborts the catalogue. `GlazingSeed.Resolve(Component)` restores the typed build axes through the shared `SeedJoin` result. `GlazingDetail.Properties(panes, cavities, ei, key, serviceYears)` lowers `Thermal`/`Acoustic`/`Environmental`/`Fire` as one result AT the declared service age (`None` reads year zero).
+- Entry: `ComponentSeed.Rows(context, GlazingSeed.Roster, GlazingSeed.Law)` — the law's coherence is the stack census plus the grid gate, its profile the ply projection onto `Layered`, and its detail the performance gate before the Product bag, so a build whose spectrum cannot admit never seeds and one malformed row aborts the catalogue. `GlazingSeed.Resolve(Component)` restores the typed build axes through the shared `SeedJoin` result. `GlazingDetail.Properties(panes, cavities, ei, serviceYears)` lowers `Thermal`/`Acoustic`/`Environmental`/`Fire` as one result AT the declared service age (`None` reads year zero).
 - Packages: Rasm.Numerics (`PositiveMagnitude` — every pane/gap/pillar/bar column), Rasm.Domain (`Context`/`FactoryBridge.Accept`), Rasm.Element (`MaterialId`, `EvidenceGrade`, `MaterialPropertySet`, `MeasureValue`, `Dimension`, `MeasurementBasis`, `LifecycleStage`, `Acoustic`, `AcousticBand`, `FireRating`, `FireResistance`, `DetailSchema`, `PropertyValue`, `PropertyName`, `PropertyBag`), the parent `component#COMPONENT_OWNER`/`#COMPONENT_DETAIL`/`#COMPONENT_SEED`/`#QUANTITY_ROW` owners, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime (`LocalDate` — the EPD evidence expiry axis), UnitsNet (`RatioUnit.DecimalFraction` — the dimensionless `g`/`τv` contract admission), VividOrange.Uncertainties + VividOrange.Uncertainties.Quantities (`WithRelativeUncertainty`, `IUncertainty<HeatTransferCoefficient>.LowerBound`/`UpperBound` — the typed `Ug` model band lowered onto `MeasureBand`). VividOrange.Materials is NOT composed (glazing fills no profile solve). Wacton.Unicolour is NOT composed: a coating's OPTICAL signal crosses as the coated pane's content-keyed `Node.Appearance`; glazing tags the `MaterialId`, never the colour kernel.
 - Growth: a new IGU is one `GlazingRow`; a new glass substance one `GlassType` row; a new coating tier one `Coating` row; a new gas one `CavityGas` row; a new interlayer one `Interlayer` row; a new edge-seal chemistry one `Sealant`/`Desiccant` row; a quad build one `GlazingBuild` row the derived `Build` read maps; an electrochromic variant a `GlassType` row plus a `Coating` row. The full per-wavelength `τ(λ)`/`ρ(λ)` angular EN 410 §5 spectral integral is a `GlassType`/`Coating` per-wavelength-curve column growth the broadband recursion here is the center-of-glass simplification of, never a parallel optical owner.
 - Boundary: `SectionProfile.Layered` is the geometric gross only; `ComponentFamily.Glazing.Admits` rejects every non-glazing `PlyRole`, and physics reads the typed `Pane`/`Cavity` rows restored through `GlazingSeed.Resolve`, never re-parsed plies or bag text. `GlazingThermal.Evaluate` is INTERIOR over a census-gated stack and computes one ordered resistance chain shared by `Ug` and the EN 410 inward-flowing secondary flux. `QuantityRow.HeatTransferCoefficient.OfNative` owns the `Ug` mint, while dimension-only bag rows use `MeasureValue.OfSi(Dimension, si)`. `SpacerType.PsiWmK` feeds the Compute-owned whole-window aggregation. The IFC layer name derives from `(Material, Role, ordinal)`, coating stays face data, and `MuntinGrid` stays face geometry.
@@ -219,7 +219,7 @@ public readonly record struct MoisturePenetration(double InitialFraction, double
     public bool Conforms => Index <= IndividualCeiling;
 
     public static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, Desiccant desiccant) =>
-        Of(initialFraction, finalFraction, desiccant.CapacityFraction, key);
+        Of(initialFraction, finalFraction, desiccant.CapacityFraction);
 
     static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, double capacityFraction) =>
         from finite in guard(double.IsFinite(initialFraction) && double.IsFinite(finalFraction) && double.IsFinite(capacityFraction),
@@ -274,11 +274,11 @@ public static class GlazingThermal {
         return from ugMeasure in QuantityRow.HeatTransferCoefficient.OfNative(ug)
                from ugBand in MeasureBand.Admit(UncertaintyKind.Relative,
                    ugUncertainty.LowerBound.WattsPerSquareMeterKelvin, ugUncertainty.UpperBound.WattsPerSquareMeterKelvin,
-                   Option<double>.None, Option<double>.None, key)
-               from ugBanded in ugMeasure.WithUncertainty(ugBand, key)
-               from acoustic in MassLawSpectrum(panes, cavities, key)
-               from solarG in MeasureValue.Of(g, UnitsNet.Units.RatioUnit.DecimalFraction, key)
-               from lightTv in MeasureValue.Of(tv, UnitsNet.Units.RatioUnit.DecimalFraction, key)
+                   Option<double>.None, Option<double>.None)
+               from ugBanded in ugMeasure.WithUncertainty(ugBand)
+               from acoustic in MassLawSpectrum(panes, cavities)
+               from solarG in MeasureValue.Of(g, UnitsNet.Units.RatioUnit.DecimalFraction)
+               from lightTv in MeasureValue.Of(tv, UnitsNet.Units.RatioUnit.DecimalFraction)
                select new GlazingPerformance(ugBanded, solarG, lightTv, acoustic, EvidenceGrade.Defined);
     }
 
@@ -364,7 +364,7 @@ public static class GlazingThermal {
             sri[band.Key] = Math.Max(0.0, 20.0 * Math.Log10(Math.Max(areal, 1e-9) * band.CenterHz) - MassLawOffsetDb + bonus - resonanceDip);
             absorption[band.Key] = 0.03;
         }
-        return Acoustic.Of(absorption, sri, key);
+        return Acoustic.Of(absorption, sri);
     }
 
     static double PaneArealMass(Pane pane) =>
@@ -414,7 +414,7 @@ public static class GlazingStructural {
     public static Fin<GlassCapacity> Capacity(
         Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double loadDurationS,
         GlassBasis basis, double edgeFactor) =>
-        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes, key)
+        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes)
         from timed in guard(double.IsFinite(loadDurationS) && loadDurationS > 0.0,
             new KernelFault.OutOfRange(nameof(loadDurationS), loadDurationS, "finite and positive"))
         from edged in guard(double.IsFinite(edgeFactor) && edgeFactor is > 0.0 and <= 1.0,
@@ -454,7 +454,7 @@ public static class GlazingLifetime {
     const double GasRetentionPerYear = 0.99;
 
     public static Fin<GlazingService> AtYears(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double years, CavityTilt tilt) =>
-        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes, key)
+        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes)
         from aged in guard(double.IsFinite(years) && years >= 0.0,
             new KernelFault.OutOfRange(nameof(years), years, "finite and non-negative"))
         let retention = Math.Pow(GasRetentionPerYear, years)
@@ -492,7 +492,7 @@ public static class GlazingDetail {
                 new KernelFault.InvalidValue(nameof(cavities), "admitted cavity width and fill fractions"))));
 
     internal static Fin<Unit> Admit(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes) =>
-        Stack(panes, cavities, fireEiMinutes, key).ToFin();
+        Stack(panes, cavities, fireEiMinutes).ToFin();
 
     static bool Coherent(Pane p) =>
         double.IsFinite(p.InterlayerThicknessMm)
@@ -510,7 +510,7 @@ public static class GlazingDetail {
     public static Fin<Seq<MaterialPropertySet>> Properties(
         Seq<Pane> panes, Seq<Cavity> cavities, EdgeSeal seal, SpacerType spacer, double perimeterToAreaRatio,
         int fireEiMinutes, CavityTilt tilt, Option<double> serviceYears = default) =>
-        from service in GlazingLifetime.AtYears(panes, cavities, fireEiMinutes, serviceYears.IfNone(0.0), tilt, key)
+        from service in GlazingLifetime.AtYears(panes, cavities, fireEiMinutes, serviceYears.IfNone(0.0), tilt)
         let perf = service.Aged
         from thermal in MaterialPropertySet.OfThermal(
             conductivity: GlassConductivity(panes),
@@ -520,9 +520,9 @@ public static class GlazingDetail {
         from environmental in MaterialPropertySet.OfEnvironmental(
             MeasurementBasis.PerM2,
             MaterialPropertySet.Environmental.CarbonMatrix(GlazingGwp.StagesPerM2(panes, seal, spacer, perimeterToAreaRatio)),
-            recycledContent: None, endOfLifeRecovery: None, key, evidence: GenericEpd)
+            recycledContent: None, endOfLifeRecovery: None, evidence: GenericEpd)
         from fire in fireEiMinutes > 0
-            ? FireResistance.Of(FireCoverage.Ei, fireEiMinutes, key).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
+            ? FireResistance.Of(FireCoverage.Ei, fireEiMinutes).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
             : Fin.Succ(Seq<MaterialPropertySet>())
         let acoustic = MaterialPropertySet.OfAcoustic(perf.Acoustic)
         select Seq(thermal, acoustic, environmental) + fire;
@@ -671,7 +671,7 @@ public static class GlazingSeed {
         SeedJoin.Of(Roster, static r => r.Designation);
 
     public static Fin<GlazingRow> Resolve(Component component) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+        SeedJoin.Resolve(Table, component.Designation);
 
     public static readonly SeedLaw<GlazingRow> Law = SeedLaw<GlazingRow>.Of(
         family: ComponentFamily.Glazing,
@@ -686,28 +686,28 @@ public static class GlazingSeed {
 
     static Validation<Error, Unit> Coherence(GlazingRow r) =>
         AdmissionSlots.Accumulate(Seq(
-            GlazingDetail.Stack(r.Panes, r.Cavities, r.FireResistanceEiMinutes, key),
+            GlazingDetail.Stack(r.Panes, r.Cavities, r.FireResistanceEiMinutes),
             AdmissionSlots.Gate(
                 r.Muntin.ForAll(static m => m.HorizontalBars >= 0 && m.VerticalBars >= 0 && m.HorizontalBars + m.VerticalBars > 0),
                 new KernelFault.InvalidValue(nameof(r.Muntin), "non-negative bars with at least one muntin"))));
 
     static Fin<SectionProfile> Profile(GlazingRow r) =>
-        from plies in GlazingDetail.Plies(r.Panes, r.Cavities, key)
+        from plies in GlazingDetail.Plies(r.Panes, r.Cavities)
         let overallMm = r.Panes.Sum(static p => p.ThicknessMm.Value) + r.Cavities.Sum(static c => c.WidthMm.Value)
-        from profile in SectionProfile.Layered.Of(plies, overallMm: overallMm, widthMm: overallMm, key)
+        from profile in SectionProfile.Layered.Of(plies, overallMm: overallMm, widthMm: overallMm)
         select profile;
 
     static Fin<PropertyBag> Detail(GlazingRow r, SectionProfile profile) =>
-        from performance in GlazingThermal.Evaluate(r.Panes, r.Cavities, CavityTilt.Vertical, key)
+        from performance in GlazingThermal.Evaluate(r.Panes, r.Cavities, CavityTilt.Vertical)
         from bag in GlazingDetail.Bag(r.Panes, r.Cavities, r.Spacer, r.EdgeSeal, r.Muntin, r.FireResistanceEiMinutes, r.Source)
         select bag;
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        from row in Resolve(component, key)
+        from row in Resolve(component)
         from capacity in GlazingStructural.Capacity(
             row.Panes, row.Cavities, row.FireResistanceEiMinutes, placement.GlassLoadDurationS,
-            placement.GlassBasis, placement.GlassEdgeFactor, key)
-        from lifted in SectionCapacity.Lift(new CapacityLift.Glass(component.Designation, capacity), key)
+            placement.GlassBasis, placement.GlassEdgeFactor)
+        from lifted in SectionCapacity.Lift(new CapacityLift.Glass(component.Designation, capacity))
         select lifted;
 }
 ```

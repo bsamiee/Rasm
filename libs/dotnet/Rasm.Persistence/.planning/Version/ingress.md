@@ -153,7 +153,7 @@ public static class CdcIngress {
         ResumeOrigin origin, TimeSpan budget) =>
         origin.Switch(
             committed: _ => Stored(held),
-            atTime:    at => Timed(client, held, at.Wall, budget, key));
+            atTime:    at => Timed(client, held, at.Wall, budget));
 
     static List<TopicPartitionOffset> Stored(List<TopicPartition> held) =>
         held.ConvertAll(partition => new TopicPartitionOffset(partition, Offset.Stored));
@@ -189,7 +189,7 @@ public static class CdcIngress {
             Option<Error> refused = None;
             Option<IngressOutcome> settled = None;
             ConsumeResult<string, byte[]>? offered = await consumer.ConsumeAndProcessMessageAsync(async (result, _, processingToken) => {
-                (await Settle(result.Message, source, ports, key, processingToken).ConfigureAwait(false)).Match(
+                (await Settle(result.Message, source, ports, processingToken).ConfigureAwait(false)).Match(
                     Succ: outcome => {
                         processingToken.ThrowIfCancellationRequested();
                         settled = Some(outcome);
@@ -221,28 +221,28 @@ public static class CdcIngress {
 
     static async ValueTask<Fin<IngressOutcome>> Settle(Message<string, byte[]> message, IngressSource source,
         IngressPorts ports, CancellationToken token) =>
-        await Admit(message, source, key).Match(
-            Succ: admitted => Applied(admitted, ports, source.Topic, key, token),
+        await Admit(message, source).Match(
+            Succ: admitted => Applied(admitted, ports, source.Topic, token),
             Fail: fault => Dead(ports, fault, source.Topic, token)).ConfigureAwait(false);
 
     static Fin<AdmittedRecord> Admit(Message<string, byte[]> message, IngressSource source) =>
-        from envelope in Decoded(message, key)
-        from extensions in EgressEventExtensions.Contract.Admit(envelope, key)
+        from envelope in Decoded(message)
+        from extensions in EgressEventExtensions.Contract.Admit(envelope)
             .MapFail(error => new IngressFault.EnvelopeRejected(Optional(envelope.Id), error))
         from origin in Admitted(envelope, source)
-        from id in Identified(envelope, key)
+        from id in Identified(envelope)
         from subject in Optional(envelope.Subject)
             .ToFin(new IngressFault.InvalidEnvelope(Optional(envelope.Id), "<absent-content-key>"))
         from content in ContentHash.Admit(hex: subject)
             .MapFail(error => new IngressFault.EnvelopeRejected(Some(id.ToString()), error))
-        from payload in Payload(envelope, extensions, id.ToString(), key)
+        from payload in Payload(envelope, extensions, id.ToString())
         select new AdmittedRecord(new Uniqueness(origin, id.ToString()), content, envelope, extensions, payload);
 
     static Fin<CloudEvent> Decoded(Message<string, byte[]> message) =>
         message.IsCloudEvent()
             ? from declared in EgressEventExtensions.Contract.Declarations()
               from envelope in Try.lift(() => Fin.Succ(message.ToCloudEvent(EventFormat.Json.Formatter, declared))).Run().Bind(static inner => inner)
-                  .Bind(admitted => EventEnvelope.Admit(admitted, key))
+                  .Bind(admitted => EventEnvelope.Admit(admitted))
                   .MapFail(error => IngressFault.Lift(error,
                       static raised => raised is ArgumentException or JsonException,
                       cause => new IngressFault.EnvelopeRejected(None, cause)))

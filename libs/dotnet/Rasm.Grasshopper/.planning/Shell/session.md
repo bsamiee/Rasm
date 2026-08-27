@@ -116,7 +116,7 @@ public static class GhSession {
                from valid in Admit.Need(project)
                from output in UiThread.Run(
                    new UiDispatch<TOut>.Blocking(GhCrossing.Bind(target: row, body: valid)),
-                   DispatchLane.Interactive, op)
+                   DispatchLane.Interactive)
                select output;
     }
 

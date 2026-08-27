@@ -14,7 +14,7 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Cases: `SurfaceOp` is the request `[Union]`, one case per surface operation; `SurfaceResult` the result `[Union]`, one typed carrier per request family; rule and policy rows are the vocabularies the ops read.
 - Entry: `Geodesics` takes the `UvTessellation` carrier, so the provenance proof is the parameter type.
 - Auto: every op composes the vendored engine with the landed distance, refit, and arena machinery; no evaluation arithmetic is local.
-- Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>, key)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
+- Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
 - Law: the curvature sweep's area is `NurbsForm.Surface.Area` on the same live surface — the engine's one area owner with its guarded cubature and error witness; a local Jacobian integral over a hardcoded unit rectangle re-derives that engine and suppresses its witness.
 - Law: the dense-projection seed lookup is `NeighborIndex` — Rasm `RULINGS [02]` seats bare-point neighborhoods there, and the query subject is a bare point. NAMED LOSS: the page-local `Supercluster.KDTree.Net` admission, its per-probe boxing of three doubles into an `IReadOnlyList<double>`, and a `.First()` that threw on an empty answer; the gain is one batch query, one owner, and a `Fin` result through the seed leg.
 - Law: `GeodesicPlan.Windows` selects the distance lane — `None` the cached heat-distance lane, `Some(policy)` exact MMP propagation under that caller-visible budget — and `VertexDistances` dispatches through `Windows.Match`; `ChainContours` copies `plan.Windows` onto `GeodesicField.Windows`, so the executed policy is result evidence that outlives the request — a heat field reads `None`, an exact field the budget that shaped it. The compact offset-plus-column contour layout stays; nested per-contour arrays add allocations and weaken the dense carrier. `UvTessellation` carries its own provenance and nothing beside it.
@@ -173,7 +173,7 @@ public static class Surfaces {
     static Fin<SurfaceResult> NormalOffsetOf(SurfaceOp.NormalOffset op) =>
         op.Refine.Run(
             seed: GrevilleGrid(op.Surface),
-            fit: (grid, index) => OffsetFit(op, grid, index, key),
+            fit: (grid, index) => OffsetFit(grid, index),
             densify: Densified,
             unconverged: deviation => new GeometryFault.OffsetUnconverged(Kind.Surface, deviation))
         .Map(final => (SurfaceResult)new SurfaceResult.Offsets(final.Fit, final.Evidence));
@@ -185,7 +185,7 @@ public static class Surfaces {
     // --- [CURVATURE_SAMPLE]
     static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op) =>
         op.Surface.Area(policy: op.Policy)
-            .Bind(area => SweepCurvature(op, area, key));
+            .Bind(area => SweepCurvature(area));
 
     static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area);
 
@@ -193,11 +193,11 @@ public static class Surfaces {
     static Fin<SurfaceResult> ProjectOf(SurfaceOp.Project op) =>
         !op.Policy.IsValid
             ? Fin.Fail<SurfaceResult>(new KernelFault.InvalidInput())
-            : Seeds(op, key)
+            : Seeds()
                 .Bind(seeds => toSeq(op.Probes)
                     .Zip(toSeq(seeds), static (probe, seed) => (Probe: probe, Seed: seed))
                     .TraverseM(row => op.Surface.ClosestParameter(row.Probe, Some(op.Policy.Nurbs), row.Seed)).As())
-                .Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])));
+                .Map(uv => Emit(new Arr<(double U, double V)>([.. uv])));
 
     static Fin<Arr<Option<(double U, double V)>>> Seeds(SurfaceOp.Project op) {
         if (op.Probes.Count < op.Policy.SeedThreshold.Value) {

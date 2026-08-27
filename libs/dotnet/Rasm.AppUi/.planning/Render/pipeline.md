@@ -19,7 +19,7 @@
 - Law: each `GpuBackend` row is CONSTRUCTED with its target-construction delegate and CARRIES the trait set its substrate admits, so `IsGpu` and every `Family == A || Family == B` disjunction become one `Traits.Admits` read and a pass roster narrows from `pass.Contract.Demands` against `binding.Backend.Traits`. `Metal`, `Vulkan`, and `OpenGl` fold the `GpuBinding.Ganesh` leased `GRContext` to `SKSurface.Create(GRRecordingContext, budgeted, request.Info, request.Samples, GRSurfaceOrigin)` for an offscreen target, or wrap the host framebuffer as a `GRBackendRenderTarget` and read `SampleCount` back as the granted column; `Software` folds `GpuBinding.Raster` to the CPU `SKSurface.Create(SKImageInfo)` floor, which takes no sample count and therefore grants one; `Wgpu` folds `GpuBinding.Wgpu` — whose target texture carries `TextureDescriptor.SampleCount` and whose pipeline multisample state must match it — over the `Silk.NET.WebGPU` wgpu/Dawn substrate (D3D12/Metal/Vulkan auto-negotiated through `BackendType`) whose `Adapter` matched the compositor adapter LUID/UUID at composition, its `Device`+`Queue` shared branch-wide; and `WebGpu` folds `GpuBinding.Browser`, the in-browser WebGPU surface the TS web leg consumes. `GpuBinding.Backend` DERIVES the backend row from the binding case, so `RenderGraph` holds bindings alone and a substrate swap is one backend row with its binding case.
 - Law: the compositor synchronization mode is a CLOSED ROW admitted ONCE, at `WgpuPresentation.CompositedOf`, where the interop's `GetSynchronizationCapabilities` probe is already read — so `Present` dispatches over `SyncArm` totally and the five `HasFlag` probes and the unsupported-mode `throw` beside them have no spelling. The composited arm imports the rendered texture through the compositor interop family (`ICompositionGpuInterop.ImportImage`/`ImportSemaphore` then the arm's own `UpdateWith*Async` member); a second swapchain in composited mode is the DELETED form, and `SurfaceConfigure`/`SurfaceGetCurrentTexture` survives ONLY as the exclusive-fullscreen and headless arm. The wgpu mesh-shader and compute passes record through `CommandEncoder`/`RenderPassEncoder` and submit through `QueueSubmit`, never a managed scene wrapper.
 - Law: a lost compositor import and a refused lease are TRANSIENT by the fault row's own `Retriability` column, so the re-drive is the kernel `RedrivePolicy(Schedule, Bound)` the composition elects and the graph's own fallback arm reads `error.Retriability` rather than a type-pattern disjunction over the fault union. A hand `catch`-and-rewrap, a bare `Option<Instant> Retry`, and a spelled-out `fault is LeaseRejected or ContextUnavailable` list are the three deleted forms.
-- Law: the resolve ladder is ONE authority — `ResolvePass.MinRank` — read against `QualityTier`'s own rank roster. The per-tier table proves its coverage at type initialization exactly as `QualityTier.Ranked` proves its contiguity, so `ResolvePass.For(tier)` is TOTAL by construction and the absent-key fall to `Msaa` that answered the floor tier's most-degraded frame with a four-sample resolve has no spelling; a hand `(rank, pass)` roster beside the tier roster was a second authority over one ladder. `Taa` jitters the camera sub-pixel per frame and reprojects the prior frame through the motion-vector buffer under a neighborhood clamp, `Smaa` runs morphological edge AA, `Msaa` multi-samples the raster, and `Fsr` renders sub-resolution and spatially upscales, so the governor steps the whole ladder on the same hysteresis band that degrades the render passes.
+- Law: the resolve ladder is ONE authority — `ResolvePass.MinRank` — read against `QualityTier`'s own rank roster. The per-tier table answers `Option<ResolvePass>` and `ResolvePass.For(tier)` collapses it onto a typed refusal, so the absent-key fall to `Msaa` that answered the floor tier's most-degraded frame with a four-sample resolve has no spelling; a hand `(rank, pass)` roster beside the tier roster was a second authority over one ladder. `Taa` jitters the camera sub-pixel per frame and reprojects the prior frame through the motion-vector buffer under a neighborhood clamp, `Smaa` runs morphological edge AA, `Msaa` multi-samples the raster, and `Fsr` renders sub-resolution and spatially upscales, so the governor steps the whole ladder on the same hysteresis band that degrades the render passes.
 - Law: each of the resolve row's three columns reaches the surface it governs. `RenderScale` and `Samples` mint the frame's `RenderTargetRequest`, so an `Fsr` frame allocates at `round(display * 0.6)` and an `Msaa` frame asks its backend for four samples, while `RenderTarget.Samples` publishes what the allocation GRANTED. `Jitter` becomes a CAMERA fact: `FrameView.Of` converts the signed sub-pixel offset to NDC against the target the frame allocated, and the geometry draw adds `NdcJitter` to its projection's third column. Cull and LOD read `FrameView.Camera` and `FrameView.LodScale` — the governor's own degrade lever — because a sub-pixel offset moves no cull decision; the `PathTrace` arm reads `Camera` too, and that is load-bearing: a jittered lens differs from the prior frame's every frame, so `AccumulationTarget.Reset` would fire on every frame and the film would never converge past one sample. The `Taa` motion-vector buffer is ONE `Render/meshlets` `BindlessTable` slot, never a parallel motion-vector owner.
 - Law: the triangle column is a MEASURED draw count over one contract, and the contract is the frame's CUT. `RenderPass.Geometry` carries `Phase`, the `Render/meshlets` `CutPhase` row naming which slice of the cut it draws; `Charge`, the budget projection the pre-charge gate reads against that slice; and `Draw`, which returns the triangles it recorded. The cut is minted ONCE per geometry pass and charged then drawn, so the pre-charge estimate and the actual submission read one value; every other case contributes zero triangles, while the sim arm answers its swept field points and the pathTrace arm the film's shade-fault level on their own columns — measures with their own instruments, kept out of the triangle ceiling because a marched volume and a failed scatter are not triangles. `Render/meshlets`' `ClusterCull.DrawRows` mints BOTH meshlet geometry rows off one submit arrow — `CutPhase.Prior` then `CutPhase.Retest` — and the DAG orders them by their declared depth product rather than by their arrival order in a caller's seq.
 - Output: `FrameRender` carries the frame ordinal, backend, per-pass durations, folded elapsed total, GPU duration, drawn triangles, swept sim points, film shade-fault level, typed budget verdict, deferred-pass set, instant, correlation, and fault. The producer folds elapsed once into the result, `RenderGraph.Observe` projects its measured columns onto instruments beside the accepted residency plan, and `Diagnostics/governor.md` consumes it directly as `PerfSample`. `WgpuFrameEvidence` fills the GPU column from timestamp-query readback and places a failed readback on the result's fault channel; `GpuTimeline.Deepen` replaces that duration only when every pass resolved, then fires `AppUiFact.GpuFrame` through the AppUi hook dispatch.
@@ -95,17 +95,17 @@ public sealed partial class ResolvePass {
 
     public int MinRank { get; }
 
-    private static readonly Lazy<FrozenDictionary<int, ResolvePass>> Ladder = new(static () =>
+    private static readonly Lazy<FrozenDictionary<int, Option<ResolvePass>>> Ladder = new(static () =>
         QualityTier.Items.ToFrozenDictionary(
             static tier => tier.Rank,
             static tier => toSeq(toSeq(Items)
                 .Filter(row => row.MinRank <= tier.Rank)
                 .OrderByDescending(static row => row.MinRank))
-                .Head
-                .IfNone(() => throw new InvalidOperationException(
-                    $"ResolvePass rows must cover QualityTier rank {tier.Rank}."))));
+                .Head));
 
-    public static ResolvePass For(QualityTier tier) => Ladder.Value[tier.Rank];
+    public static Fin<ResolvePass> For(QualityTier tier) =>
+        Ladder.Value[tier.Rank].ToFin(new KernelFault.OutOfRange(
+            Label: nameof(ResolvePass), Scalar: tier.Rank, Requirement: "a pass row covering the tier rank"));
 
     private const int JitterPeriod = 8;
 
@@ -481,13 +481,12 @@ public sealed class RenderGraph {
         select frame;
 
     private Fin<ResolveStep> Resolved(QualityVerdict quality, ViewCamera camera) =>
-        ResolvePass.For(quality.Tier) switch {
-            var pass => Cell.Commit(resolve, held => pass.Advance(held, camera)) switch {
+        ResolvePass.For(quality.Tier).Bind(pass =>
+            Cell.Commit(resolve, held => pass.Advance(held, camera)) switch {
                 Transition<ResolveState>.Committed landed => Fin.Succ(new ResolveStep(pass, Drained(landed.State))),
                 var contended => Fin.Fail<ResolveStep>(new ViewportFault.Contended(
                     $"render/resolve: the cell spent its swap budget at ordinal {contended.Current.Ordinal}")),
-            },
-        };
+            });
 
     private static ResolveState Drained(ResolveState installed) =>
         installed.Retired.Iter(static image => image.Dispose()) switch {
@@ -873,7 +872,7 @@ public static class ResidencyMap {
     private static Fin<Viewpoint> View(Host.ViewpointWire wire) {
         return
             from camera in Camera(wire.Camera)
-            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row, key)).As()
+            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row)).As()
             from at in Optional(wire.At)
                 .ToFin(new ViewportFault.ContextUnavailable("viewpoint/decode: timestamp is absent"))
                 .Bind(value => Try.lift(() => Fin.Succ(value.ToInstant())).Run().Bind(static inner => inner))
@@ -969,7 +968,7 @@ public static class ResidencyMap {
     }
 
     private static Fin<ViewMeasurement> Measurement(Host.ViewMeasurementWire wire) =>
-        toSeq(wire.Vertices).TraverseM(point => Point(point, key)).As().Map(vertices => new ViewMeasurement(
+        toSeq(wire.Vertices).TraverseM(point => Point(point)).As().Map(vertices => new ViewMeasurement(
             wire.Key,
             vertices,
             UnitsNet.Length.FromMeters(wire.TotalMeters),
@@ -983,7 +982,7 @@ public static class ResidencyMap {
         };
 
     private static Fin<ViewMeasurementPoint> Point(Host.ViewMeasurementPointWire point) =>
-        ContentHash.Admit(point.SourceKey.Span, key).Map(source => new ViewMeasurementPoint(
+        ContentHash.Admit(point.SourceKey.Span).Map(source => new ViewMeasurementPoint(
             source,
             checked((int)point.SampleIndex),
             Point(point.Position)));

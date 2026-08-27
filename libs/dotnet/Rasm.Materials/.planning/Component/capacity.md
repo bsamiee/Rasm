@@ -525,7 +525,7 @@ public readonly partial struct Demand {
     public static Fin<Demand> Of(double axialKn, double momentYKnm, double momentZKnm,
         double shearYKn = 0.0, double shearZKn = 0.0, double torsionKnm = 0.0, double bearingKn = 0.0,
         double unitShearKnPerM = 0.0, double stressRangeMpa = 0.0, double cycleCount = 0.0) =>
-        Admit(axialKn, momentYKnm, momentZKnm, key, shearYKn, shearZKn, torsionKnm, bearingKn,
+        Admit(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
             unitShearKnPerM, stressRangeMpa, cycleCount).ToFin();
 
     public double MomentResultantKnm => Math.Sqrt(MomentYKnm * MomentYKnm + MomentZKnm * MomentZKnm);
@@ -676,9 +676,9 @@ public abstract partial record SectionCapacity {
             ShearLinkAreaMm2 > 0.0
                 ? FywdMpa.Match(
                     Some: fywd =>
-                        from area in MeasureValue.Of(ShearLinkAreaMm2 * 1e-6, UnitsNet.Units.AreaUnit.SquareMeter, key)
-                        from fywdPa in MeasureValue.Of(fywd * 1e6, UnitsNet.Units.PressureUnit.Pascal, key)
-                        from ceiling in MeasureValue.Of(VrdMaxKn * 1e3, UnitsNet.Units.ForceUnit.Newton, key)
+                        from area in MeasureValue.Of(ShearLinkAreaMm2 * 1e-6, UnitsNet.Units.AreaUnit.SquareMeter)
+                        from fywdPa in MeasureValue.Of(fywd * 1e6, UnitsNet.Units.PressureUnit.Pascal)
+                        from ceiling in MeasureValue.Of(VrdMaxKn * 1e3, UnitsNet.Units.ForceUnit.Newton)
                         select Seq(
                             (StructuralRows.ShearLinkArea, (PropertyValue)new PropertyValue.Measure(area)),
                             (StructuralRows.ShearLinkYield, (PropertyValue)new PropertyValue.Measure(fywdPa)),
@@ -1015,7 +1015,7 @@ public abstract partial record SectionCapacity {
                             Fctm(fck)));
                     }).Run().Bind(static inner => inner)),
             detail: d => Fin.Succ((SectionCapacity)new Fatigue(d.Law)),
-            anchorage: a => Anchoring(a, key),
+            anchorage: a => Anchoring(a),
             bearing: b => Fin.Succ(Baseplating(b.Plate)));
 
     public static Fin<SectionCapacity> Lift(CapacityLift lift) => lift.Switch(
@@ -1064,9 +1064,9 @@ public abstract partial record SectionCapacity {
             r.Capacity.LateralF2Kn.Map(second => new LateralPair(second, r.Capacity.Rule)))),
         lateralPanel: static r => Held(new LateralPanel(DesignBasis.Sdpws, r.DesignKnPerM, r.Hazard)),
         bolt: r =>
-            from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints, key)
-            from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints, key)
-            from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints, key)
+            from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints)
+            from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints)
+            from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints)
             select (SectionCapacity)new Connection(DesignBasis.En1993Joints, Some(shear), Some(tension), Some(bearing)),
         slipCritical: static r => Held(new Connection(DesignBasis.En1993Joints, r.Assembly.SlipResistanceKn(r.Install), None, None)),
         timberDowel: static r => Held(new Connection(DesignBasis.En1995, Some(Math.Max(r.Planes, 0) * r.PerPlaneShearKn), None, None)),
@@ -1092,8 +1092,8 @@ public abstract partial record SectionCapacity {
         double edge = a.Bed.EdgeMm.Map(ca => Math.Min(0.7 + 0.3 * ca / (1.5 * a.Bed.HefMm.Value), 1.0)).IfNone(1.0);
         double coneKn = DesignBasis.En1992Anchors.Resist(ResistanceAction.CrossSection,
             k1 * Math.Sqrt(a.Bed.FckMpa) * Math.Pow(a.Bed.HefMm.Value, 1.5) * edge * 1e-3);
-        return from shear in a.Assembly.ShearResistanceKn(a.Plane, DesignBasis.En1992Anchors, key)
-               from tension in a.Assembly.TensionResistanceKn(DesignBasis.En1992Anchors, key)
+        return from shear in a.Assembly.ShearResistanceKn(a.Plane, DesignBasis.En1992Anchors)
+               from tension in a.Assembly.TensionResistanceKn(DesignBasis.En1992Anchors)
                select (SectionCapacity)new Connection(
                    DesignBasis.En1992Anchors, Some(shear), Some(Math.Min(tension, coneKn)), None,
                    Defer: Some(MemberCheckRequirement.AnchorForwardModes));
@@ -1178,10 +1178,10 @@ public readonly record struct HullCache(SectionCapacity Capacity, Option<string>
 
     public static Fin<HullCache> Of(CapacityBuild.Hull build, Func<string, Option<string>> read) =>
         read(Key(build.Subject, build.Resolution)).Match(
-            Some: body => SectionCapacity.Thaw(build.Subject, build.Resolution, body, key)
+            Some: body => SectionCapacity.Thaw(build.Subject, build.Resolution, body)
                 .Map(capacity => new HullCache(capacity, None)),
-            None: () => SectionCapacity.Resolve(build, key)
-                .Bind(capacity => SectionCapacity.Freeze((SectionCapacity.RcInteraction)capacity, key)
+            None: () => SectionCapacity.Resolve(build)
+                .Bind(capacity => SectionCapacity.Freeze((SectionCapacity.RcInteraction)capacity)
                     .Map(body => new HullCache(capacity, Some(body)))));
 }
 ```
@@ -1190,7 +1190,7 @@ public readonly record struct HullCache(SectionCapacity Capacity, Option<string>
 
 - Owner: `SectionSelection` is the INVERSE of `Check` — design as selection over a produced candidate sequence under ONE law. `SectionCandidate<TSubject>` is that sequence's element: the subject the query returns, the linear mass it ranks by, and the DEFERRED capacity the demand is checked against; `Least` is the one acceptance fold; the three producers are the only thing that differs between a catalogue query, a fabricated-member sweep, and a bolt sizing scan.
 - Cases: `Stocked` scans the frozen catalogue (a section someone stocked); `Fabricated` sweeps a caller-parameterized composition space (a section nobody stocked yet), solving each candidate HERE because a fabricated section has no catalogue entry to have solved it; `Threaded` sweeps the (thread × grade) table the fastener standards tables publish, which is what makes every catalogued thread and grade REACHABLE — a row no `Stocked` selection names is still selected the moment its size and system fit the demand, so the tables are the admission domain rather than decoration.
-- Entry: `SectionSelection.Least(candidates, demand, key)` over any producer's output. Mass is `Area × ρ(substance)`, never area alone: area ranks linear mass only INSIDE one substance, so a mixed steel/timber/masonry catalogue ordered by area returns a 90 mm sawn section ahead of every W-shape. Density arrives through the caller's `densityOf` projection (the composing root binds it to `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Lookup(id, key)`'s Mechanical density column), so `admit` stays a genuine POLICY filter — a stocked subset, a depth cap, one `SteelClass` — rather than a correctness precondition the type system never enforced.
+- Entry: `SectionSelection.Least(candidates, demand)` over any producer's output. Mass is `Area × ρ(substance)`, never area alone: area ranks linear mass only INSIDE one substance, so a mixed steel/timber/masonry catalogue ordered by area returns a 90 mm sawn section ahead of every W-shape. Density arrives through the caller's `densityOf` projection (the composing root binds it to `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Lookup(id)`'s Mechanical density column), so `admit` stays a genuine POLICY filter — a stocked subset, a depth cap, one `SteelClass` — rather than a correctness precondition the type system never enforced.
 - Growth: a new search space is one producer returning the ranked candidate sequence; the fold, the acceptance rule, and the exhaustion fault are already written.
 - Boundary: the capacity is a THUNK because only the lightest passing candidate is worth pricing — an eager capacity column pays a hull solve per catalogue row. The fold is therefore LAZY and halts on the first pass OR the first fault: a candidate whose density or capacity FAULTS aborts the scan loud (a filter admitting a family the projections cannot price is a caller defect, never a silently skipped row), and an exhausted search faults typed.
 - Boundary: acceptance is the SECTION-altitude verdict, so a linked RC section that passes and merely owes stirrup detailing returns WITH its deferral for the caller to route forward — the strict `Adequate` bit stays the terminal report's, never the sizing gate's.
@@ -1223,7 +1223,7 @@ public static class SectionSelection {
         toSeq(sections)
             .Filter(pair => rows.ContainsKey(pair.Key) && admit(rows[pair.Key]))
             .Traverse(pair => densityOf(rows[pair.Key].SubstanceId).Map(density =>
-                Candidate(rows[pair.Key], pair.Value, density, placement, key)))
+                Candidate(rows[pair.Key], pair.Value, density, placement)))
             .As();
 
     public static Fin<Seq<SectionCandidate<Component>>> Fabricated(
@@ -1232,9 +1232,9 @@ public static class SectionSelection {
         CapacityPlacement placement,
         Func<MaterialId, Fin<double>> densityOf) =>
         toSeq(Enumerable.Range(0, Math.Max(sweeps, 0))).Bind(sweep)
-            .Traverse(candidate => SectionSolver.Solve(candidate.Profile, key)
+            .Traverse(candidate => SectionSolver.Solve(candidate.Profile)
                 .Bind(section => densityOf(candidate.Row.SubstanceId)
-                    .Map(density => Candidate(candidate.Row, section, density, placement, key))))
+                    .Map(density => Candidate(candidate.Row, section, density, placement))))
             .As();
 
     public static Fin<Seq<SectionCandidate<(ThreadRow Thread, MaterialGrade Grade)>>> Threaded(
@@ -1250,9 +1250,9 @@ public static class SectionSelection {
                     pair,
                     pair.Thread.StressAreaMm2 * density,
                     () => FastenerAssembly.Of(pair.Thread, pair.Grade, joint.Category, joint.Faying, joint.Head,
-                            joint.GripPlies, joint.ShearPlanes, joint.Washer, key)
+                            joint.GripPlies, joint.ShearPlanes, joint.Washer)
                         .Bind(assembly => SectionCapacity.Lift(
-                            new CapacityLift.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane), key)))))
+                            new CapacityLift.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane))))))
             .As();
 
     public static Fin<(TSubject Subject, Utilisation Verdict)> Least<TSubject>(
@@ -1270,7 +1270,7 @@ public static class SectionSelection {
 
     static SectionCandidate<Component> Candidate(Component row, ComputedSection section, double density,
         CapacityPlacement placement) =>
-        new(row, section.AreaMm2.Value * density, () => row.Family.Capacity(row, Some(section), placement, key));
+        new(row, section.AreaMm2.Value * density, () => row.Family.Capacity(row, Some(section), placement));
 
 }
 ```

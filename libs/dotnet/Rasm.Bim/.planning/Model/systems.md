@@ -447,7 +447,7 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
             });
 
     public Fin<Option<MeasureValue>> Demand(ElementGraph graph, ValueSource source) =>
-        ElementQuery.SumOf(graph, ReachedElements, source, key);
+        ElementQuery.SumOf(graph, ReachedElements, source);
 
     internal static Seq<(NodeId From, NodeId To)> Orient(NodeId from, NodeId to, FlowDirection fromFlow, FlowDirection toFlow, TraceMode mode) =>
         mode.Legs.Admits(EdgeCapability.Unoriented)
@@ -554,7 +554,7 @@ public static class InterferenceCheck {
         PropertyCategory.Neutral.Row("MaintenanceClearance"));
 
     public static Fin<Seq<Interference>> Interferences(ElementGraph graph, GeometryProximity proximity) =>
-        Build(graph, proximity, key)
+        Build(graph, proximity)
             .Bind(index => Candidates(index).TraverseM(pair => Clash(pair.A, pair.B, proximity)).As())
             .Map(static rows => toSeq(rows.Somes().OrderByDescending(static clash => clash.Rank)));
 
@@ -569,7 +569,7 @@ public static class InterferenceCheck {
             .Filter(static o => o.Kind == ObjectKind.Occurrence)
             .TraverseM(o => IfcClass.TryGet(o.Classification.Code)
                 .Bind(c => o.Representations.Body.Map(body => (Class: c, Body: body)))
-                .TraverseM(row => ClearanceOf(graph, o.Id, key).Map(clearance =>
+                .TraverseM(row => ClearanceOf(graph, o.Id).Map(clearance =>
                     new ClashCandidate(o.Id, row.Class.Domain, row.Body, RolesOf(row.Class.Domain), clearance)))
                 .As())
             .As()
@@ -638,7 +638,7 @@ public static class InterferenceCheck {
             : None;
 
     private static Fin<double> ClearanceOf(ElementGraph graph, NodeId member) =>
-        graph.Bake(member, key).Map(element => ClearanceKeys
+        graph.Bake(member).Map(element => ClearanceKeys
                 .Choose(name => element.Properties.Choose(bag => bag.Find(name)).Head)
                 .Choose(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : Option<double>.None)
                 .Fold(0d, static (max, si) => Math.Max(max, si)));

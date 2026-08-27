@@ -115,7 +115,7 @@ Row `[01]` derives field list, field order, and every column's own builder from 
 |  [13]   | `Build(MemoryAllocator allocator = null)`                                     | factory  | seals the immutable typed array             |
 |  [14]   | `new Schema.Builder()` / `.Build()`                                           | ctor     | opens and seals an immutable `Schema`       |
 |  [15]   | `Schema.Builder.Field(Field)` / `.Field(Action<…>)`                           | instance | adds a field by value or inline builder     |
-|  [16]   | `Schema.Builder.Metadata(key, value)`                                         | instance | attaches schema-level operation facts       |
+|  [16]   | `Schema.Builder.Metadata(value)`                                         | instance | attaches schema-level operation facts       |
 |  [17]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`                       | factory  | assembles one field from parts              |
 |  [18]   | `new Field(name, IArrowType, nullable, metadata?)`                            | ctor     | direct field construction                   |
 |  [19]   | `new Schema(IEnumerable<Field>, IEnumerable<KVP>)`                            | ctor     | ordered field list, metadata nullable       |
@@ -199,7 +199,7 @@ Row `[01]` derives field list, field order, and every column's own builder from 
 - `IArrowArrayStream` (`Schema` + `ReadNextRecordBatchAsync`) is the one async-enumerable egress boundary IPC, ADBC, and Flight all yield; the egress owner folds all three behind it and never forks a per-transport reader.
 - `RecordBatch` implements `IArrowRecord` and `IArrowArray` and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy.
 - `IpcOptions.CompressionCodec` (`CompressionCodecType?`, `Lz4Frame` \| `Zstd`) is inert unless `CompressionCodecFactory` is set; the concrete `ICompressionCodecFactory` ships in `Apache.Arrow.Compression`, never core Arrow, invoked per batch for the per-codec `ICompressionCodec`.
-- `DictionaryType(indexType, valueType, ordered)` throws `ArgumentException` unless `indexType` is an `IntegerType`, and its `Default` is `[Obsolete]`, so the index width is fixed at the composing owner; `MapType(key, value, …)` builds its own `entries` struct field, so a composing schema hands two logical types and never assembles the key-value struct itself.
+- `DictionaryType(indexType, valueType, ordered)` throws `ArgumentException` unless `indexType` is an `IntegerType`, and its `Default` is `[Obsolete]`, so the index width is fixed at the composing owner; `MapType(value, …)` builds its own `entries` struct field, so a composing schema hands two logical types and never assembles the key-value struct itself.
 - Container assembly holds ONE discipline: build each child array through its element type's own builder, then bind the container constructor. `ListArray.Builder` and `MapArray.Builder` reach their children only through the untyped `IArrowArrayBuilder<IArrowArray, …>` face, so a typed append needs a cast; `DictionaryArray` ships no builder and `FixedSizeBinaryArray` ships only the abstract `BuilderBase<TArray, TBuilder>`, so a fixed-width column packs its own run and binds `ArrayData`.
 
 [STACKING]:

@@ -665,7 +665,7 @@ public static class CompositionRoot {
                         ServiceLifetime.Singleton)))),
 
         new RootBinding.Seated("coordination-seat", static (services, inputs) =>
-            Try.lift(static () => Fin.Succ(LeasePolicy.Outlasts)).Run().Bind(static inner => inner)
+            LeasePolicy.Outlasts
                 .MapFail(static _ => (Error)new KernelFault.InvalidValue(
                     Label: $"{nameof(LeasePolicy)}.{nameof(LeasePolicy.Maintenance)}",
                     Requirement: "<a crash-staleness window outlasting the cooperative and forced drain bounds>"))
@@ -1116,11 +1116,11 @@ public sealed class BimComputeCompanion(
         WireCall calls = services.Bind(spine);
         return FrameEdge.Frames(request.SourceBytes).Match(
             Succ: partition => FrameEdge.Put(calls, spine, partition, cancel).Bind(uploaded => uploaded.Match(
-                Succ: source => TessellationWire.Project(request, source, key).Match(
+                Succ: source => TessellationWire.Project(request, source).Match(
                     Succ: wire => CompanionEdge
                         .Tessellate(services, spine, pool, wire, cancel)
                         .Map(outcome => outcome.Bind(artifact =>
-                            TessellationWire.Admit(request, artifact.Response, artifact.Glb, key))),
+                            TessellationWire.Admit(request, artifact.Response, artifact.Glb))),
                     Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error))),
                 Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)))),
             Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)));

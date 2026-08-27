@@ -94,7 +94,7 @@ internal static partial class WireCodec {
  internal static Fin<NodeWire> ToWire(Node node, double tolerance) =>
   Try.lift(() => node.Switch<Fin<NodeWire>>(
    @object: value => Fin.Succ(new() { Id = ToWire(value.Id), Object = ToWire(value) }),
-   material: value => ToWire(value, key).Map(payload => new NodeWire { Id = ToWire(value.Id), Material = payload }),
+   material: value => ToWire(value).Map(payload => new NodeWire { Id = ToWire(value.Id), Material = payload }),
    propertySet: value => Fin.Succ(new() { Id = ToWire(value.Id), PropertySet = ToWire(value.Bag) }),
    quantitySet: value => Fin.Succ(new() { Id = ToWire(value.Id), QuantitySet = ToWire(value.Bag) }),
    assessment: value => Fin.Succ(new() { Id = ToWire(value.Id), Assessment = ToWire(value.Payload) }),
@@ -107,39 +107,39 @@ internal static partial class WireCodec {
   })).Run().Bind(static inner => inner);
 
  internal static Fin<Node> ToNode(NodeWire wire) =>
-  ToNodeId(wire.Id, key).Bind(id => wire.PayloadCase switch {
-   NodeWire.PayloadOneofCase.Object => ToObject(id, wire.Object, key),
-   NodeWire.PayloadOneofCase.Material => ToMaterial(id, wire.Material, key),
-   NodeWire.PayloadOneofCase.PropertySet => ToBag(wire.PropertySet, key).Map(bag => (Node)new Node.PropertySet(id, bag)),
-   NodeWire.PayloadOneofCase.QuantitySet => ToBag(wire.QuantitySet, key).Map(bag => (Node)new Node.QuantitySet(id, bag)),
-   NodeWire.PayloadOneofCase.Assessment => ToAssessment(wire.Assessment, key).Map(payload => (Node)new Node.Assessment(id, payload)),
-   NodeWire.PayloadOneofCase.Appearance => ToAppearance(id, wire.Appearance, key),
-   NodeWire.PayloadOneofCase.Coverage => ToCoverage(wire.Coverage, key).Map(grid => (Node)new Node.Coverage(id, grid)),
-   NodeWire.PayloadOneofCase.Observation => ToObservation(wire.Observation, key).Map(series => (Node)new Node.Observation(id, series)),
+  ToNodeId(wire.Id).Bind(id => wire.PayloadCase switch {
+   NodeWire.PayloadOneofCase.Object => ToObject(id, wire.Object),
+   NodeWire.PayloadOneofCase.Material => ToMaterial(id, wire.Material),
+   NodeWire.PayloadOneofCase.PropertySet => ToBag(wire.PropertySet).Map(bag => (Node)new Node.PropertySet(id, bag)),
+   NodeWire.PayloadOneofCase.QuantitySet => ToBag(wire.QuantitySet).Map(bag => (Node)new Node.QuantitySet(id, bag)),
+   NodeWire.PayloadOneofCase.Assessment => ToAssessment(wire.Assessment).Map(payload => (Node)new Node.Assessment(id, payload)),
+   NodeWire.PayloadOneofCase.Appearance => ToAppearance(id, wire.Appearance),
+   NodeWire.PayloadOneofCase.Coverage => ToCoverage(wire.Coverage).Map(grid => (Node)new Node.Coverage(id, grid)),
+   NodeWire.PayloadOneofCase.Observation => ToObservation(wire.Observation).Map(series => (Node)new Node.Observation(id, series)),
    _ => new KernelFault.InvalidValue("element-wire.node.payload", "one payload arm is required"),
   });
 
  static Fin<Node> ToAppearance(NodeId id, AppearanceWire wire) =>
-  from appearanceKey in ToKey(wire.AppearanceKey, key)
+  from appearanceKey in ToKey(wire.AppearanceKey)
   from summary in AppearanceSummary.Rehydrate(appearanceKey, AppearanceVector.Create(
    wire.BaseColorR, wire.BaseColorG, wire.BaseColorB, wire.Metallic, wire.Roughness,
-   wire.Opacity, wire.Transmissive), key)
+   wire.Opacity, wire.Transmissive))
   select (Node)new Node.Appearance(id, summary);
 
  static Fin<Node> ToObject(NodeId id, ObjectWire wire) =>
-  from kind in ToObjectKind(wire.Kind, key)
-  from classificationWire in Present(wire.Classification, "object.classification", key)
-  from classification in ToClassification(classificationWire, key)
-  from classifications in toSeq(wire.Classifications).TraverseM(row => ToClassification(row, key)).As()
-  from spanWire in Present(wire.Span, "object.span", key)
-  from span in ToSpan(spanWire, key)
+  from kind in ToObjectKind(wire.Kind)
+  from classificationWire in Present(wire.Classification, "object.classification")
+  from classification in ToClassification(classificationWire)
+  from classifications in toSeq(wire.Classifications).TraverseM(row => ToClassification(row)).As()
+  from spanWire in Present(wire.Span, "object.span")
+  from span in ToSpan(spanWire)
   from representations in toSeq(wire.Representations).TraverseM(row =>
-   from slot in ToRepresentationSlot(row.Kind, key)
+   from slot in ToRepresentationSlot(row.Kind)
    from hash in ToKey()
    select (Key: slot, Value: hash)).As()
-  from representationMap in UniqueMap(representations, "object.representations", key)
-  from history in Optional(wire.History).Traverse(value => ToHistory(value, key)).As()
-  from placement in Optional(wire.Placement).Traverse(value => ToPlacement(value, key)).As()
+  from representationMap in UniqueMap(representations, "object.representations")
+  from history in Optional(wire.History).Traverse(value => ToHistory(value)).As()
+  from placement in Optional(wire.Placement).Traverse(value => ToPlacement(value)).As()
   select (Node)new Node.Object(
    id, kind, Opt(wire.HasExternalId, wire.ExternalId), classification,
    PredefinedType.Create(wire.PredefinedType), Opt(wire.HasObjectType, wire.ObjectType),
@@ -147,15 +147,15 @@ internal static partial class WireCodec {
    classifications, placement);
 
  static Fin<SchemaSpan> ToSpan(SchemaSpanWire wire) =>
-  from introduced in ToReleaseVersion(wire.IntroducedIn, key)
-  from removed in Opt(wire.HasRemovedIn, wire.RemovedIn).Traverse(value => ToReleaseVersion(value, key)).As()
+  from introduced in ToReleaseVersion(wire.IntroducedIn)
+  from removed in Opt(wire.HasRemovedIn, wire.RemovedIn).Traverse(value => ToReleaseVersion(value)).As()
   select new SchemaSpan(introduced, removed);
 
  static Fin<OwnerHistory> ToHistory(OwnerHistoryWire wire) =>
   from created in Present(wire.Created, "owner-history.created")
   from modified in Optional(wire.Modified).Traverse(value => Fin.Succ(value.ToInstant())).As()
-  from action in ToChangeAction(wire.ChangeAction, key)
-  from state in ToObjectState(wire.State, key)
+  from action in ToChangeAction(wire.ChangeAction)
+  from state in ToObjectState(wire.State)
   select new OwnerHistory(wire.OwningUser, wire.OwningApplication, created.ToInstant(), modified, action, state);
 
  static Fin<Map<TKey, TValue>> UniqueMap<TKey, TValue>(Seq<(TKey Key, TValue Value)> rows, string column)

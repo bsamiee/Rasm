@@ -207,8 +207,8 @@ public static class BcfArchive {
     static Fin<BcfFile> Decode(ReadOnlyMemory<byte> bcfzip) {
         byte[] bytes = bcfzip.ToArray();
         return Optional(BcfExtensions.GetVersionFromStreamArchive(Fresh(bytes)).GetAwaiter().GetResult()).Match(
-            Some: source => source is BcfVersionEnum.Bcf30 ? Native(bytes, key) : Converted(bytes, key),
-            None: () => Fin.Fail<BcfFile>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "version", "unreadable" }))));
+            Some: source => source is BcfVersionEnum.Bcf30 ? Native(bytes) : Converted(bytes),
+            None: () => Fin.Fail<BcfFile>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "version", "unreadable" }))));
     }
 
     static Fin<BcfFile> Native(byte[] bytes) {
@@ -216,13 +216,13 @@ public static class BcfArchive {
         Bcf30.Extensions vocabulary = BcfExtensions.ParseExtensions<Bcf30.Extensions>(Fresh(bytes)).GetAwaiter().GetResult();
         Bcf30.ProjectInfo? project = BcfExtensions.ParseProject<Bcf30.ProjectInfo>(Fresh(bytes)).GetAwaiter().GetResult();
         Bcf30.DocumentInfo? documents = BcfExtensions.ParseDocuments<Bcf30.DocumentInfo>(Fresh(bytes)).GetAwaiter().GetResult();
-        return FileOf(toSeq(markups), vocabulary, project, documents, BcfGeneration.Bcf30, key)
+        return FileOf(toSeq(markups), vocabulary, project, documents, BcfGeneration.Bcf30)
             .Map(native => native with { Blobs = BlobsOf(bytes, native.Topics) });
     }
 
     static Fin<BcfFile> Converted(byte[] bytes) {
         Bcf30.Bcf bcf = new Worker().BcfFromStream(Fresh(bytes)).GetAwaiter().GetResult();
-        return FileOf(toSeq(bcf.Markups), bcf.Extensions, bcf.Project, bcf.Document, BcfGeneration.Bcf21, key)
+        return FileOf(toSeq(bcf.Markups), bcf.Extensions, bcf.Project, bcf.Document, BcfGeneration.Bcf21)
             .Map(converted => converted with { Blobs = BlobsOf(bytes, converted.Topics) });
     }
 
@@ -245,7 +245,7 @@ public static class BcfArchive {
     static MemoryStream Fresh(byte[] bytes) => new(bytes, writable: false);
 
     static Fin<BcfFile> FileOf(Seq<Bcf30.Markup> markups, Bcf30.Extensions? vocabulary, Bcf30.ProjectInfo? project, Bcf30.DocumentInfo? documents, BcfGeneration source) =>
-        (markups.Traverse(markup => TopicOf(markup, key)).As().Map(topics =>
+        (markups.Traverse(markup => TopicOf(markup)).As().Map(topics =>
             new BcfFile(
                 toSeq(topics.OrderBy(static t => t.Index.IfNone(int.MaxValue)).ThenBy(static t => t.Guid, StringComparer.Ordinal)),
                 Optional(project?.Project).Map(static p => new BcfProject(BcfEdge.Word(p.ProjectId), BcfEdge.Word(p.Name))),
@@ -259,8 +259,8 @@ public static class BcfArchive {
 
     static Validation<Error, BcfTopic> TopicOf(Bcf30.Markup markup) {
         Bcf30.Topic topic = markup.Topic;
-        return (BcfEdge.Rows(topic.Viewpoints).Traverse(reference => ViewpointOf(reference, key)).As(),
-                BcfEdge.Rows(topic.DocumentReferences).Traverse(reference => ReferenceOf(reference, key)).As())
+        return (BcfEdge.Rows(topic.Viewpoints).Traverse(reference => ViewpointOf(reference)).As(),
+                BcfEdge.Rows(topic.DocumentReferences).Traverse(reference => ReferenceOf(reference)).As())
             .Apply((viewpoints, references) => new BcfTopic(
                 topic.Guid, BcfEdge.Word(topic.Title), BcfLifecycle.Elect(topic.TopicStatus),
                 BcfEdge.Word(topic.TopicType), BcfEdge.Word(topic.Priority), BcfEdge.Word(topic.CreationAuthor),
@@ -299,7 +299,7 @@ public static class BcfArchive {
     static Validation<Error, BcfViewpoint> ViewpointOf(Bcf30.ViewPoint reference) {
         Bcf30.VisualizationInfo? visualization = reference.VisualizationInfo;
         Bcf30.Components? components = visualization?.Components;
-        return (CameraOf(visualization, reference.Guid, key)).ToValidation().Map(camera =>
+        return (CameraOf(visualization, reference.Guid)).ToValidation().Map(camera =>
             new BcfViewpoint(
                 reference.Guid, camera,
                 BcfEdge.Rows(components?.Selection).Map(static c => c.IfcGuid),
@@ -323,7 +323,7 @@ public static class BcfArchive {
                 BcfEdge.Vec(p.CameraViewPoint), BcfEdge.Vec(p.CameraDirection), BcfEdge.Vec(p.CameraUpVector), p.FieldOfView, p.AspectRatio)),
             Optional(visualization?.OrthogonalCamera).Map(static o => new BcfCamera.Orthogonal(
                 BcfEdge.Vec(o.CameraViewPoint), BcfEdge.Vec(o.CameraDirection), BcfEdge.Vec(o.CameraUpVector), o.ViewToWorldScale, o.AspectRatio)),
-            viewpoint, key);
+            viewpoint);
 
     static Fin<byte[]> Encode(BcfFile file) {
         BcfBuilder seeded = file.Vocabulary.Match(
@@ -378,7 +378,7 @@ public static class BcfArchive {
         using Stream stream = new Worker().ToBcf(builder.Build(), BcfVersionEnum.Bcf30).GetAwaiter().GetResult();
         using MemoryStream sink = new();
         stream.CopyTo(sink);
-        return WithBitmapParts(sink, file, key);
+        return WithBitmapParts(sink, file);
     }
 
     static Fin<byte[]> WithBitmapParts(MemoryStream container, BcfFile file) =>
@@ -739,7 +739,7 @@ public static partial class BcfProjection {
                 BcfEdge.Vec(p.CameraViewPoint), BcfEdge.Vec(p.CameraDirection), BcfEdge.Vec(p.CameraUpVector), p.FieldOfView, p.AspectRatio)),
             Optional(body.OrthogonalCamera).Map(static o => new BcfCamera.Orthogonal(
                 BcfEdge.Vec(o.CameraViewPoint), BcfEdge.Vec(o.CameraDirection), BcfEdge.Vec(o.CameraUpVector), o.ViewToWorldScale, o.AspectRatio)),
-            body.Guid, key)
+            body.Guid)
         .Map(camera => {
             BcfApiComponentsBody parts = BcfEdge.Parts(body.Components);
             return new BcfViewpoint(
@@ -858,10 +858,10 @@ public static class BcfApi {
             readExtensions:          static (s, _) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.project}/extensions", default)));
 
     static Fin<BcfApiRequest> Write<T>(BcfApiVerb verb, string resource, T body) =>
-        Encode(body, key).Map(bytes => new BcfApiRequest(verb, resource, bytes));
+        Encode(body).Map(bytes => new BcfApiRequest(verb, resource, bytes));
 
     public static Fin<T> Admit<T>(ReadOnlyMemory<byte> body, string resource) =>
-        Decode<T>(body, resource, key);
+        Decode<T>(body, resource);
 
     static Fin<byte[]> Encode<T>(T body) =>
         Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(body, BcfApiContext.Json)).Run().Bind(static inner => inner);
@@ -875,7 +875,7 @@ public static class BcfApi {
     public static Fin<BcfOutcome> Open(BcfResource resource, int status, ReadOnlyMemory<byte> body) =>
         status is >= 200 and < 300
             ? resource.Switch(
-                state:                   (body, key),
+                state:                   (body),
                 createTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b)))),
                 reviseTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b)))),
                 readTopic:               static (s, r) => r.Guid.IsSome
@@ -907,12 +907,12 @@ public static class BcfApi {
                 addDocument:             static (s, _) => Admit<BcfApiDocumentBody>(s.body, "documents", s.key).Map(static d => (BcfOutcome)new BcfOutcome.Documents(Seq(new BcfDocument(d.Guid, d.Filename, BcfEdge.Word(d.Description), default)))),
                 readProject:             static (s, _) => Admit<BcfApiProjectBody>(s.body, "project", s.key).Map(static p => (BcfOutcome)new BcfOutcome.Project(new BcfProject(p.ProjectId, p.Name))),
                 readExtensions:          static (s, _) => Admit<BcfApiExtensionsBody>(s.body, "extensions", s.key).Map(static e => (BcfOutcome)new BcfOutcome.Extensions(BcfProjection.ToDomain(e))))
-            : Fin.Fail<BcfOutcome>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api-status", status.ToString(CultureInfo.InvariantCulture), resource.GetType().Name })));
+            : Fin.Fail<BcfOutcome>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api-status", status.ToString(CultureInfo.InvariantCulture), resource.GetType().Name })));
 
     static Fin<Seq<T>> Rows<T>(ReadOnlyMemory<byte> body, string resource) =>
-        Admit<ImmutableArray<T>>(body, resource, key)
+        Admit<ImmutableArray<T>>(body, resource)
             .Bind(rows => rows.IsDefault
-                ? Fin.Fail<Seq<T>>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api", "read", resource, "null-collection" })))
+                ? Fin.Fail<Seq<T>>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api", "read", resource, "null-collection" })))
                 : Fin.Succ(toSeq(rows)));
 }
 

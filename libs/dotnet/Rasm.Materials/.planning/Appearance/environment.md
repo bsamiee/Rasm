@@ -13,7 +13,7 @@ THE SKY, ENVIRONMENT-MAP, AND IMAGE-BASED-LIGHTING OWNER. One `SkyModel` `[Union
 
 - Owner: `WorldDirection` the page-owned `+Z`-up WORLD direction carrier every dome surface speaks (structurally distinct from the `bsdf#SHADING_FRAME` tangent `LocalVector<T>`); `SkyModel` `[Union]` (`HosekWilkie` · `CieStandard`); `SkyCoefficients` and `SolarCoefficients` the two content-keyed fitted assets over the one `ControlGrid` interpolation algebra; `SolarDisc` the resolved direct-beam term; `CieSkyType`/`CieGradation`/`CieIndicatrix` `[SmartEnum<int>]` bands; `SolarFrame` the frame projection over the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac; `SkyAtmosphere` the turbidity, ground-albedo, admitted-zenith-level, exposure, and solar-angular-diameter row; `SkyRender` the radiance-closure surface; `SkySpectrum` the one band→scene colour path both fitted assets cross.
 - Cases: sky {`HosekWilkie` (the fitted anisotropic-Mie daylight model over a `SkyCoefficients` diffuse asset paired with its `SolarCoefficients` limb-darkened disc asset), `CieStandard` (the ISO 15469 relative-luminance distribution over a `CieSkyType` row)}; gradation {`I`…`VI`}; indicatrix {`One`…`Six`}; sky-type {`Type01`…`Type15`, each binding one gradation and one indicatrix — `Type01` the CIE Overcast Sky, `Type12` the CIE Standard Clear Sky}.
-- Entry: `public static Func<Vector3d, RgbSpectrum> Radiance(SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun)` is the ONE synthesis surface — the per-texel radiance closure `Raster/press#PRESS_PLAN` `PressSubject.Sky` calls under `PressProgram.Dome`, so the sky owner supplies the model and the press owns partitioning, cancellation, the run record, and the accelerator lane; `SolarFrame.Of(latitudeDegrees, longitudeDegrees, instant, key, elevationM)` is the ONE sun-direction entry, so a caller holding a measured direction passes it and a caller holding a site and a clock resolves it here; `SkyModel.Disc(WorldDirection sun, SkyAtmosphere atmosphere)` is the ONE direct-beam read both cases answer. `MaterialFault` fails a sub-unit or super-decade turbidity, a negative zenith level, a non-positive exposure, an out-of-band solar diameter, an out-of-range site, and a non-finite radiance.
+- Entry: `public static Func<Vector3d, RgbSpectrum> Radiance(SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun)` is the ONE synthesis surface — the per-texel radiance closure `Raster/press#PRESS_PLAN` `PressSubject.Sky` calls under `PressProgram.Dome`, so the sky owner supplies the model and the press owns partitioning, cancellation, the run record, and the accelerator lane; `SolarFrame.Of(latitudeDegrees, longitudeDegrees, instant, elevationM)` is the ONE sun-direction entry, so a caller holding a measured direction passes it and a caller holding a site and a clock resolves it here; `SkyModel.Disc(WorldDirection sun, SkyAtmosphere atmosphere)` is the ONE direct-beam read both cases answer. `MaterialFault` fails a sub-unit or super-decade turbidity, a negative zenith level, a non-positive exposure, an out-of-band solar diameter, an out-of-range site, and a non-finite radiance.
 - Law: radiance covers the WHOLE sphere. Each model distributes its own radiance over the upper hemisphere; the lower hemisphere is the GROUND — `GroundAlbedo` times the model's horizon radiance, evaluated once per texel through the same case — so a synthesized dome carries a real bounce rather than the mirrored bright band a clamped zenith cosine produces below the horizon. `GroundAlbedo` reaches that ground term as the same `RgbSpectrum` the Hosek-Wilkie fit consumes as its albedo axis, so one authored value drives both the sky's own inter-reflection and the dome's lower half.
 - Law: the SYNTHESIZED FIELD carries the sky alone and the DISC rides its own term. A half-degree source four decades brighter than the sky around it lands in one texel of a bounded dome, so writing it into the plane makes the `[04]` guide's texel measure the only structure importance-sampling it — a firefly no tap budget resolves and a quadrature error the SH projection carries forever. `Radiance` is therefore the diffuse field at every direction and `Disc` the direct beam the `[05]` row publishes as its own arm, which is what lets one dome serve a raster read and a path-traced draw without double-counting the sun.
 - Law: the MEASURED-KERNEL carve-out is declared ONCE here and nowhere per site — the `readonly struct` `IAction` row sweeps writing into the plane owner's `Write` accessor by row index (the carve `texture#TEXTURE_UV` `ProceduralNoise` also names), the band and Bernstein folds over a fitted block, the type-init basis reconstruction, the bounded disc quadrature, the running-mass guide and its bisection, and the fixture proof's own grid pass. Every other operation is expression-bodied and result-threaded, so a loop outside that carve is a defect readable against this one bullet rather than against a comment at each site.
@@ -183,8 +183,8 @@ public readonly record struct SkyAtmosphere(
         double.IsFinite(turbidity) && turbidity is >= 1.0 and <= 10.0
         && double.IsFinite(exposure) && exposure > 0.0
         && double.IsFinite(solarDiameter) && solarDiameter > 0.0 && solarDiameter <= SolarDiameterCeiling
-            ? from level in Photometric.Admit(zenithQuantity, zenithValue, zenithUnit, key, correlation)
-              from bands in SkySpectrum.BandAlbedo(groundAlbedo, key)
+            ? from level in Photometric.Admit(zenithQuantity, zenithValue, zenithUnit, correlation)
+              from bands in SkySpectrum.BandAlbedo(groundAlbedo)
               select new SkyAtmosphere(turbidity, groundAlbedo, bands, level, exposure, solarDiameter)
             : new MaterialFault.Parameter($"<sky-atmosphere-out-of-range:{turbidity:R},{exposure:R},{solarDiameter:R}>");
 }
@@ -457,7 +457,7 @@ internal static class SkySpectrum {
     }
 
     public static Fin<ReadOnlyMemory<double>> BandAlbedo(RgbSpectrum albedo) =>
-        SpectralUpsample.ToCurve(albedo, key).Map(static curve =>
+        SpectralUpsample.ToCurve(albedo).Map(static curve =>
             (ReadOnlyMemory<double>)[.. Enumerable.Range(0, BandCount).Select(band =>
                 Math.Clamp((BandStartNm + (band * BandStepNm) - SpectralUpsample.SampleStart) / (double)SpectralUpsample.SampleStep, 0.0, SpectralUpsample.SampleCount - 1.0) switch {
                     var position => (int)position switch {
@@ -510,7 +510,7 @@ public sealed record EnvironmentMap(
     public static Fin<EnvironmentMap> Of(
         TexturePlane plane, MapLayout layout, PhotometricQuantity quantity, double intensity, Enum unit,
         double rotation, Guid correlation) =>
-        Photometric.Admit(quantity, intensity, unit, key, correlation).Bind(evidence => Of(plane, layout, evidence, rotation, key));
+        Photometric.Admit(quantity, intensity, unit, correlation).Bind(evidence => Of(plane, layout, evidence, rotation));
 
     public static Fin<EnvironmentMap> Of(TexturePlane plane, MapLayout layout, EmissionEvidence intensity, double rotation) =>
         from _ in guard(plane.Layers.Value == layout.Layers,
@@ -526,21 +526,21 @@ public sealed record EnvironmentMap(
         from ______ in guard(double.IsFinite(intensity.RadiometricSi) && intensity.RadiometricSi >= 0.0
                           && double.IsFinite(rotation) && rotation is >= 0.0 and < (2.0 * Math.PI),
                 new MaterialFault.Parameter($"<environment-read-policy:{intensity.Measure.CanonicalUnit}:{intensity.RadiometricSi:R},{rotation:R}>"))
-        from lifted in Lift(plane, key)
+        from lifted in Lift(plane)
         select new EnvironmentMap(plane, lifted.Map(static pair => pair.Pyramid), lifted.Map(static pair => pair.Source),
-            layout, intensity, rotation, key);
+            layout, intensity, rotation);
 
     static Fin<Seq<(TexturePyramid Pyramid, TextureSource.Image Source)>> Lift(TexturePlane plane) =>
         toSeq(Enumerable.Range(0, plane.Layers.Value))
             .Traverse(layer =>
-                from face in Face(plane, layer, key)
-                from pyramid in TexturePyramid.Of(face, MipPolicy.Kaiser, key)
-                from source in pyramid.AsImage(key)
+                from face in Face(plane, layer)
+                from pyramid in TexturePyramid.Of(face, MipPolicy.Kaiser)
+                from source in pyramid.AsImage()
                 select (Pyramid: pyramid, Source: source)).As()
             .Map(static pairs => pairs.Strict());
 
     static Fin<TexturePlane> Face(TexturePlane plane, int layer) =>
-        TexturePlane.Of(PlaneFormat.Rgba32F, plane.Width, plane.Height, PlaneTransfer.Linear, AlphaMode.None, key)
+        TexturePlane.Of(PlaneFormat.Rgba32F, plane.Width, plane.Height, PlaneTransfer.Linear, AlphaMode.None)
             .Map(face => {
                 using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value, AllocationMode.Clear);
                 for (int row = 0; row < plane.Height.Value; row++) {
@@ -570,13 +570,13 @@ public sealed record EnvironmentMap(
     public Fin<EnvironmentMap> Project(MapLayout target, Dimension edge, RenderBudget budget) {
         if (target.Key == Layout.Key) { return Fin.Succ(this); }
         (Dimension width, Dimension height) = target.Extent(edge);
-        return TexturePlane.Of(PlaneFormat.Rgba32F, width, height, PlaneTransfer.Linear, AlphaMode.None, key,
+        return TexturePlane.Of(PlaneFormat.Rgba32F, width, height, PlaneTransfer.Linear, AlphaMode.None,
                     layers: Some(Dimension.Create(target.Layers)))
                 .Bind(plane => budget
-                    .Sweep(height.Value * target.Layers, new ProjectSweep(this, target, plane), key)
+                    .Sweep(height.Value * target.Layers, new ProjectSweep(this, target, plane))
                     .Map(_ => plane)
                     .Rollback(plane))
-                .Bind(plane => Of(plane, target, Intensity, Rotation, key)
+                .Bind(plane => Of(plane, target, Intensity, Rotation)
                     .Rollback(plane));
     }
 
@@ -769,7 +769,7 @@ public sealed record Sh9(ReadOnlyMemory<double> Bands) {
             for (int row = 0; row < h * layers; row++) {
                 for (int slot = 0; slot < Slots; slot++) { bands[slot] += rows[(row * Slots) + slot]; }
             }
-            return Of(bands, key);
+            return Of(bands);
         });
     }
 
@@ -803,7 +803,7 @@ public readonly record struct IblPolicy(
 
 public sealed record LuminanceCdf(ReadOnlyMemory<double> Conditional, ReadOnlyMemory<double> Marginal, double Total, int Width, int Height) {
     public Fin<TexturePlane> Plane() =>
-        TexturePlane.Of(PlaneFormat.R32F, Dimension.Create(Width), Dimension.Create(Height + 1), PlaneTransfer.Raw, AlphaMode.None, key)
+        TexturePlane.Of(PlaneFormat.R32F, Dimension.Create(Width), Dimension.Create(Height + 1), PlaneTransfer.Raw, AlphaMode.None)
             .Map(plane => {
                 using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(Width, AllocationMode.Clear);
                 for (int row = 0; row <= Height; row++) {
@@ -858,10 +858,10 @@ public static class IblPrefilter {
     public static Fin<IblProduct> Prefilter(
         EnvironmentMap map, IblPolicy policy, RenderBudget budget, Option<PressDevice> device = default) =>
         (policy.Backend.ContentAuthoritative, device.Case) switch {
-            (true, null) => Mint(map, policy, budget, key).Map(static products => (IblProduct)new IblProduct.Minted(products)),
-            (true, _) => new MaterialFault.Parameter(key, $"<ibl-device-on-authoritative-backend:{policy.Backend.Key}>"),
-            (false, PressDevice lease) => Accelerate(map, policy, lease, key),
-            (false, _) => new MaterialFault.Parameter(key, $"<ibl-accelerator-without-device:{policy.Backend.Key}>"),
+            (true, null) => Mint(map, policy, budget).Map(static products => (IblProduct)new IblProduct.Minted(products)),
+            (true, _) => new MaterialFault.Parameter($"<ibl-device-on-authoritative-backend:{policy.Backend.Key}>"),
+            (false, PressDevice lease) => Accelerate(map, policy, lease),
+            (false, _) => new MaterialFault.Parameter($"<ibl-accelerator-without-device:{policy.Backend.Key}>"),
         };
 
     static Fin<IblProduct> Accelerate(EnvironmentMap map, IblPolicy policy, PressDevice device) =>
@@ -870,7 +870,7 @@ public static class IblPrefilter {
         from specular in toSeq(Enumerable.Range(0, policy.Mips))
             .FoldM(Seq<TexturePlane>(), (levels, mip) =>
                 device.Dispatch(WgslKernel.PrefilterSpecular, LevelBinding(map, policy, mip))
-                    .Bind(readback => Decode(policy, mip, readback.Output, key))
+                    .Bind(readback => Decode(policy, mip, readback.Output))
                     .Map(level => levels.Add(level))
                     .Rollback([.. levels])).As()
         select (IblProduct)new IblProduct.Preview(irradiance, specular.Strict(),
@@ -917,7 +917,7 @@ public static class IblPrefilter {
     static Fin<TexturePlane> Decode(IblPolicy policy, int mip, ReadOnlyMemory<float> output) =>
         Extent(policy, mip) switch {
             var (width, height) => TexturePlane.Of(PlaneFormat.Rgba32F, Dimension.Create(width), Dimension.Create(height),
-                    PlaneTransfer.Linear, AlphaMode.None, key)
+                    PlaneTransfer.Linear, AlphaMode.None)
                 .Map(plane => {
                     using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
                     ReadOnlySpan<float> lanes = output.Span;
@@ -933,12 +933,12 @@ public static class IblPrefilter {
         };
 
     static Fin<IblProducts> Mint(EnvironmentMap map, IblPolicy policy, RenderBudget budget) =>
-        from irradiance in Sh9.Project(map, budget, key)
-        from specular in Specular(map, policy, budget, key)
-        from lut in BrdfLut(policy, budget, key)
-        from lutPyramid in TexturePyramid.Of(lut, MipPolicy.None, key)
-        from lutSource in lutPyramid.AsImage(key)
-        from cdf in policy.ImportanceSampled ? Guide(map, budget, key).Map(Some) : Fin.Succ(Option<LuminanceCdf>.None)
+        from irradiance in Sh9.Project(map, budget)
+        from specular in Specular(map, policy, budget)
+        from lut in BrdfLut(policy, budget)
+        from lutPyramid in TexturePyramid.Of(lut, MipPolicy.None)
+        from lutSource in lutPyramid.AsImage()
+        from cdf in policy.ImportanceSampled ? Guide(map, budget).Map(Some) : Fin.Succ(Option<LuminanceCdf>.None)
         select new IblProducts(irradiance, specular, toSeq(Enumerable.Range(0, policy.Mips).Select(policy.RoughnessAt)), lut, lutPyramid, lutSource, cdf);
 
     static Fin<Seq<TexturePlane>> Specular(EnvironmentMap map, IblPolicy policy, RenderBudget budget) =>
@@ -946,7 +946,7 @@ public static class IblPrefilter {
             .FoldM(Seq<TexturePlane>(), (levels, mip) =>
                 budget.Opened(mip, policy.Mips).Match(
                     Some: abandoned => Fin.Fail<Seq<TexturePlane>>(abandoned).Rollback([.. levels]),
-                    None: () => Level(map, policy, mip, budget, key)
+                    None: () => Level(map, policy, mip, budget)
                         .Map(level => levels.Add(level))
                         .Rollback([.. levels]))).As()
             .Map(static levels => levels.Strict());
@@ -955,9 +955,9 @@ public static class IblPrefilter {
         int edge = Math.Max(1, policy.SpecularEdge.Value >> mip);
         double sourceSolidAngle = 4.0 * Math.PI / (map.Plane.Width.Value * map.Plane.Height.Value * map.Plane.Layers.Value);
         return TexturePlane.Of(PlaneFormat.Rgba32F, Dimension.Create(edge * 2), Dimension.Create(edge),
-                PlaneTransfer.Linear, AlphaMode.None, key)
+                PlaneTransfer.Linear, AlphaMode.None)
             .Bind(plane => budget
-                .Sweep(edge, new SpecularSweep(map, policy, Microfacet<double>.AlphaOf(policy.RoughnessAt(mip)), sourceSolidAngle, plane), key)
+                .Sweep(edge, new SpecularSweep(map, policy, Microfacet<double>.AlphaOf(policy.RoughnessAt(mip)), sourceSolidAngle, plane))
                 .Map(_ => plane)
                 .Rollback(plane));
     }
@@ -990,9 +990,9 @@ public static class IblPrefilter {
     }
 
     static Fin<TexturePlane> BrdfLut(IblPolicy policy, RenderBudget budget) =>
-        TexturePlane.Of(PlaneFormat.Rg16, policy.LutExtent, policy.LutExtent, PlaneTransfer.Raw, AlphaMode.None, key)
+        TexturePlane.Of(PlaneFormat.Rg16, policy.LutExtent, policy.LutExtent, PlaneTransfer.Raw, AlphaMode.None)
             .Bind(plane => budget
-                .Sweep(policy.LutExtent.Value, new LutSweep(policy, plane), key)
+                .Sweep(policy.LutExtent.Value, new LutSweep(policy, plane))
                 .Map(_ => plane)
                 .Rollback(plane));
 
@@ -1024,9 +1024,9 @@ public static class IblPrefilter {
 
     static Fin<LuminanceCdf> Guide(EnvironmentMap map, RenderBudget budget) =>
         map.Layout.Key == MapLayout.Equirect.Key
-            ? Accumulate(map, budget, key)
-            : map.Project(MapLayout.Equirect, map.Plane.Height, budget, key).Bind(projected => {
-                  using (projected) { return Accumulate(projected, budget, key); }
+            ? Accumulate(map, budget)
+            : map.Project(MapLayout.Equirect, map.Plane.Height, budget).Bind(projected => {
+                  using (projected) { return Accumulate(projected, budget); }
               });
 
     static Fin<LuminanceCdf> Accumulate(EnvironmentMap map, RenderBudget budget) {
@@ -1060,9 +1060,9 @@ public sealed record ShOracle(string Name, Func<WorldDirection, double> Radiance
     public const int ProofRows = 2048;
 
     static Fin<(Tolerance Band, Tolerance Irradiance, Tolerance Measure)> Bars() =>
-        (Tolerance.Of(ToleranceLane.Spectral, BandBar, key).ToValidation(),
-         Tolerance.Of(ToleranceLane.Irradiance, IrradianceBar, key).ToValidation(),
-         Tolerance.Of(ToleranceLane.Conservation, MeasureBar, key).ToValidation())
+        (Tolerance.Of(ToleranceLane.Spectral, BandBar).ToValidation(),
+         Tolerance.Of(ToleranceLane.Irradiance, IrradianceBar).ToValidation(),
+         Tolerance.Of(ToleranceLane.Conservation, MeasureBar).ToValidation())
             .Apply(static (band, irradiance, measure) => (Band: band, Irradiance: irradiance, Measure: measure))
             .As().ToFin();
 
@@ -1077,7 +1077,7 @@ public sealed record ShOracle(string Name, Func<WorldDirection, double> Radiance
                 var sum when Math.Abs(sum - (4.0 * Math.PI)) <= bars.Measure.Value => Fin.Succ(unit),
                 var sum => Fin.Fail<Unit>(new MaterialFault.Parameter($"<sh-oracle-measure:{layout.Key}:{sum:R}>")),
             }).As()
-        from bands in All.Traverse(row => row.Project(bars, key)).As()
+        from bands in All.Traverse(row => row.Project(bars)).As()
         select unit;
 
     Fin<Unit> Project((Tolerance Band, Tolerance Irradiance, Tolerance Measure) bars) {
@@ -1101,10 +1101,10 @@ public sealed record ShOracle(string Name, Func<WorldDirection, double> Radiance
         for (int slot = 0; slot < 9; slot++) {
             (interleaved[slot * 3], interleaved[(slot * 3) + 1], interleaved[(slot * 3) + 2]) = (bands[slot], bands[slot], bands[slot]);
         }
-        return Sh9.Of(interleaved, key).Bind(sh =>
+        return Sh9.Of(interleaved).Bind(sh =>
             Math.Abs(sh.Irradiance(WorldDirection.Zenith).R - IrradianceAtZenith) <= bars.Irradiance.Value
                 ? Fin.Succ(unit)
-                : (Fin<Unit>)new MaterialFault.Parameter(key, $"<sh-oracle-irradiance:{Name}:{sh.Irradiance(WorldDirection.Zenith).R:R}>"));
+                : (Fin<Unit>)new MaterialFault.Parameter($"<sh-oracle-irradiance:{Name}:{sh.Irradiance(WorldDirection.Zenith).R:R}>"));
     }
 
     static double MeasureSum(MapLayout layout, int edge) {

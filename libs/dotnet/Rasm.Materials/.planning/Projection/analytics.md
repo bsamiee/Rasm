@@ -313,7 +313,7 @@ public static class AnalyticsProjection {
 
     public static Fin<Seq<TextureChannelAnalyticsRow>> Textures(
         Seq<Wire.Set> sets, ProjectionContext frame) =>
-        sets.Traverse(set => Surface(set, key).Map(surface => surface
+        sets.Traverse(set => Surface(set).Map(surface => surface
                 .Map(value => TextureRows(value, frame))
                 .IfNone(Seq<TextureChannelAnalyticsRow>())))
             .As()
@@ -359,7 +359,7 @@ public static class AnalyticsProjection {
 
     public static Fin<Seq<TextureSetAnalyticsRow>> TextureSets(
         Seq<(Wire.Set Set, Option<TileRun> Tile)> sets, ProjectionContext frame) =>
-        sets.Traverse(entry => Surface(entry.Set, key).Map(surface => surface.Map(value => {
+        sets.Traverse(entry => Surface(entry.Set).Map(surface => surface.Map(value => {
             Option<TileScore> score = entry.Tile.Bind(static run => run.Score.Value());
             Option<Wire.Press> press = value.Baked.Bind(static baked => Optional(baked.Press));
             return new TextureSetAnalyticsRow(
@@ -379,14 +379,14 @@ public static class AnalyticsProjection {
 
     public static Fin<Seq<EnvironmentProductRow>> Environments(
         Seq<Wire.Set> sets, ProjectionContext frame) =>
-        sets.Traverse(set => EnvironmentRows(set, frame, key)).As()
+        sets.Traverse(set => EnvironmentRows(set, frame)).As()
             .Map(static rows => rows.Bind(static row => row));
 
     static Fin<Seq<EnvironmentProductRow>> EnvironmentRows(Wire.Set set, ProjectionContext frame) =>
         set.ProductCase switch {
             Wire.Set.ProductOneofCase.Pbr or Wire.Set.ProductOneofCase.Baked =>
                 Fin.Succ(Seq<EnvironmentProductRow>()),
-            Wire.Set.ProductOneofCase.Environment => Products(set.Environment, key).Map(products =>
+            Wire.Set.ProductOneofCase.Environment => Products(set.Environment).Map(products =>
                 products.Map(product => new EnvironmentProductRow(
                     Set: Hex(set.Key), Product: product.Product, Level: product.Level,
                     Container: product.Plane.Container.ToString(), Format: product.Plane.Format.ToString(),

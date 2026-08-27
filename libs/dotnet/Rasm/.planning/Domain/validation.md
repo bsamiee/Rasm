@@ -468,7 +468,7 @@ public static class AdmissionSlots {
 
 ## [06]-[PAIR_COMBINATOR]
 
-- Owner: `RequirementContext` internal static — one `extension(Context)` block carrying `Pair<TA, TB>`, the two-operand kind-resolve-then-validate combinator every pairwise operation composes receiver-style (`context.Pair(a, b, op, requirements)`).
+- Owner: `RequirementContext` internal static — one `extension(Context)` block carrying `Pair<TA, TB>`, the two-operand kind-resolve-then-validate combinator every pairwise operation composes receiver-style (`context.Pair(a, b, requirements)`).
 - Auto: `Pair` returns `(A, B, KindA, KindB)`, so the operation dispatches on the resolved kinds without re-deriving them.
 - Law: pairwise readiness is policy-driven — the `requirements` delegate is the caller's policy row — and the combinator owns the resolve-then-validate order so no pair operation re-spells it.
 - Boundary: consumers are `Analysis/measure.md` conformance pairs and `Analysis/relations.md` intersection, classification, and deviation pairs; `Kind` and `KindOf` are `normalization.md`'s.

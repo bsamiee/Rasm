@@ -251,7 +251,7 @@ public sealed partial class SolidPolicy {
         RepairLaw repair,
         Context context,
         ThreeMfReadMode threeMf) =>
-        Validate(tolerance, units, weld, faces, closure, repair, context, key, threeMf, out SolidPolicy policy)
+        Validate(tolerance, units, weld, faces, closure, repair, context, threeMf, out SolidPolicy policy)
             .Admitted(policy);
 }
 

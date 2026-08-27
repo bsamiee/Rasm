@@ -197,7 +197,7 @@ public abstract partial record TextureSource {
                        && double.IsFinite(candidate.Warp.Amplitude) && candidate.Warp.Amplitude >= 0.0
                        && double.IsFinite(candidate.Warp.Frequency),
                        new MaterialFault.Parameter($"<noise-column-out-of-domain:{candidate.Base.MtlxNode}>"))
-                   from admitted in candidate.Period.Periodic ? Periodic(candidate, key) : Fin.Succ(candidate)
+                   from admitted in candidate.Period.Periodic ? Periodic(candidate) : Fin.Succ(candidate)
                    select admitted;
         }
 
@@ -240,7 +240,7 @@ public abstract partial record TextureSource {
             if (stops.IsEmpty) { return new MaterialFault.Parameter("<gradient-no-stops>"); }
             Seq<(UnitInterval At, Unicolour Color)> sorted = toSeq(stops.OrderBy(static s => s.At.Value));
             return sorted
-                .TraverseM(stop => Admit(stop.Color, key).Map(colour => (stop.At, Colour: colour))).As()
+                .TraverseM(stop => Admit(stop.Color).Map(colour => (stop.At, Colour: colour))).As()
                 .Map(admitted => new Gradient(vertical, sorted,
                     toSeq(Enumerable.Range(0, LutTexels)).Map(i => Resolve(admitted, i / (LutTexels - 1.0)))));
         }
@@ -687,8 +687,8 @@ public readonly record struct LatticeTables(double[] RandVecs2D, double[] RandVe
     public static readonly LatticeAsset Vecs3D = new("fnl-randvecs-3d", Entries: 256, Lanes: 4, Pin: Option<ContentAddress>.None);
 
     public static Fin<LatticeTables> Of(ReadOnlyMemory<byte> vecs2D, ReadOnlyMemory<byte> vecs3D) =>
-        from a in Admit(Vecs2D, vecs2D, key)
-        from b in Admit(Vecs3D, vecs3D, key)
+        from a in Admit(Vecs2D, vecs2D)
+        from b in Admit(Vecs3D, vecs3D)
         select new LatticeTables(a, b);
 
     static Fin<double[]> Admit(LatticeAsset asset, ReadOnlyMemory<byte> payload) =>
@@ -702,11 +702,11 @@ public readonly record struct LatticeTables(double[] RandVecs2D, double[] RandVe
 
 public static class TextureUv {
     public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler) =>
-        Sampled(source, point, point.U.Value, point.V.Value, sampler, key);
+        Sampled(source, point, point.U.Value, point.V.Value, sampler);
 
     static Fin<ShadeVec4> Sampled(TextureSource source, UvSample point, double u, double v, SamplerState sampler) =>
         source.Switch(
-            state:     (Point: Anchored(point, u, v, sampler), sampler, key),
+            state:     (Point: Anchored(point, u, v, sampler), sampler),
             noise:     static (s, n) => Fin.Succ(SampleNoise(n, s.Point.U.Value, s.Point.V.Value, s.Point)),
             checker:   static (s, c) => Fin.Succ(SampleChecker(c, s.Point.U.Value, s.Point.V.Value)),
             gradient:  static (s, g) => Fin.Succ(SampleGradient(g, s.Point)),
@@ -720,7 +720,7 @@ public static class TextureUv {
 
     public static Func<double, double, Option<double>, PortValue> Port(
         TextureSource source, UvSample anchor, SamplerState sampler, Channel channel) =>
-        (u, v, parameter) => Sampled(source, anchor with { Parameter = parameter }, u, v, sampler, key)
+        (u, v, parameter) => Sampled(source, anchor with { Parameter = parameter }, u, v, sampler)
             .Match(Succ: field => field.IsFinite ? channel.Project(field) : channel.Neutral(), Fail: _ => channel.Neutral());
 
     private static ShadeVec4 SampleNoise(TextureSource.Noise n, double u, double v, UvSample point) {
@@ -799,7 +799,7 @@ public static class TextureUv {
         double sum = ax + ay + az;
         if (sum <= double.Epsilon) { return new MaterialFault.Parameter("<triplanar-degenerate-normal>"); }
         Vector3d p = point.World * t.Scale;
-        Fin<ShadeVec4> Plane(double a, double b) => Sampled(t.Projected, point with { World = p }, a, b, sampler, key);
+        Fin<ShadeVec4> Plane(double a, double b) => Sampled(t.Projected, point with { World = p }, a, b, sampler);
         return from x in Plane(p.Y, p.Z)
                from y in Plane(p.Z, p.X)
                from z in Plane(p.X, p.Y)
@@ -871,7 +871,7 @@ public static class PeriodProof {
                     : Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-oracle-wrong-refusal:{r.Name}:{error.Code}>"))));
 
     static Fin<Unit> Shifted(TextureSource.Noise source, PeriodOracle.Admitted row) =>
-        from seam in Tolerance.Of(ToleranceLane.Residual, row.Tolerance, key)
+        from seam in Tolerance.Of(ToleranceLane.Residual, row.Tolerance)
         from _ in toSeq(Enumerable.Range(0, row.Samples))
             .Map(i => (U: (i + 0.5) / row.Samples, V: ((i * 7919) % row.Samples + 0.5) / row.Samples))
             .Map(at => (At: at, Delta: Math.Abs(Field(source, at.U, at.V) - Field(source, at.U + row.ShiftU, at.V + row.ShiftV))))

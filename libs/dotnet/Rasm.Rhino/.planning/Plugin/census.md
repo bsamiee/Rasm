@@ -306,7 +306,7 @@ public abstract partial record PluginQuery {
             .Bind(_ => Acceptance.Text(value: row.Value))
             .Map<PluginQuery>(value => new Text(Read: row.Read, Value: value)),
         installed: static (key, row) => Admit.Need(row.Naming).Map<PluginQuery>(_ => row),
-        installedNames: static (key, row) => (
+        installedNames: static (row) => (
                 Admit.Need(row.Roster).ToValidation(),
                 Admit.Need(row.Naming).ToValidation(),
                 PluginKind.Law.Admit(held: row.Kinds).ToValidation())
