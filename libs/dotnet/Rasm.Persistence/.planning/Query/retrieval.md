@@ -484,8 +484,8 @@ public static class VectorCodebook {
         float[] sums = new float[codes * subDim];
         int[] counts = new int[codes];
         for (int iteration = 0; iteration < iterations; iteration++) {
-            Array.Clear(sums);
-            Array.Clear(counts);
+            System.Array.Clear(sums);
+            System.Array.Clear(counts);
             foreach (ReadOnlyMemory<float> vector in corpus) {
                 ReadOnlySpan<float> part = vector.Span.Slice(offset, subDim);
                 (float Nearest, int Code) best = (float.PositiveInfinity, 0);

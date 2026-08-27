@@ -51,9 +51,9 @@ public sealed partial class PluginArtifact {
             admitted: admitted);
 
     static partial void ValidateFactoryArguments(
-        ref ValidationError? error, ref string pluginId, ref ReadOnlyMemory<byte> component,
+        ref ValidationError? validationError, ref string pluginId, ref ReadOnlyMemory<byte> component,
         ref Option<FileInfo> bundle, ref string contractRange) =>
-        error = component.IsEmpty || string.IsNullOrWhiteSpace(pluginId)
+        validationError = component.IsEmpty || string.IsNullOrWhiteSpace(pluginId)
             ? new ValidationError(string.Join(" | ", new object?[] { pluginId }))
             : null;
 }

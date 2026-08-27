@@ -1025,7 +1025,7 @@ public sealed partial class Machine {
         .Traverse(AdmitSeed)
         .As()
         .Match(
-            Succ: static rows => rows.Fold(HashMap<string, Machine>.Empty, static (index, machine) => index.AddOrUpdate(machine.Key, machine)),
+            Succ: static rows => rows.Fold(HashMap<string, Machine>(), static (index, machine) => index.AddOrUpdate(machine.Key, machine)),
             Fail: static refusal => throw refusal.ToException());
 
     public static Fin<Machine> Register(MachineIngress ingress) =>

@@ -1351,7 +1351,7 @@ public sealed partial class TimescaleTier {
     public LocalDatePattern Pattern(CultureInfo culture) => LocalDatePattern.Create(PatternText, culture);
 
     public Seq<LocalDate> Cells(LocalDate from, LocalDate to) =>
-        toSeq(List.unfold(Floor(from), cursor =>
+        toSeq(LanguageExt.List.unfold(Floor(from), cursor =>
             cursor > to ? Option<(LocalDate, LocalDate)>.None : Some((cursor, cursor + Step))));
 }
 

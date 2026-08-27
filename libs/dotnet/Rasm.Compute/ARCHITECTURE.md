@@ -324,7 +324,7 @@ Interface graph carries which owner exchanges which shape; the load-bearing cros
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay contract-owned, composed here.
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
-- `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
+- `Analysis/daylight` consumes the kernel `SpatialIndex.Wire` decoded scene as the app-staged `ObstructionScene` payload.
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
 - Every ledger fold reads the kernel `TenantContext` stamped on the message envelope as its tenant partition, never a Compute-minted tenancy.
 - `Runtime/ingest` owns ONE pump over both `BrokerBinding` rows; the pump opens no span, and parent adoption stays the kernel causal-frame band's.

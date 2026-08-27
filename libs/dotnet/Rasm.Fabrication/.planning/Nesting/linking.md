@@ -355,23 +355,14 @@ public static class Linking {
                     row.loop.At(segment) + (0.5 * (row.loop.At(segment + 1) - row.loop.At(segment)))))));
         double radius = (0.5 * run.Policy.CutWidth.Millimeters) + run.Policy.MatchToleranceMm
             + run.Policy.MaxSegmentSpan.Millimeters;
-        return Spatial.Apply(
-                new SpatialOp.Build(SpatialKind.Bvh, sites.Map(site => Ball(site.Midpoint, radius)).ToArray(), BuildPolicy.Canonical),
-                Op.Of(name: nameof(Candidates)))
-            .Bind(static answer => answer is SpatialAnswer.Index built
-                ? Fin.Succ(built.Value)
-                : Fin.Fail<SpatialIndex>(new KernelFault.InvalidValue("linking", "link:site-index")))
+        return SpatialIndex.Build(SpatialKind.Bvh, sites.Map(site => Ball(site.Midpoint, radius)).ToArray(), BuildPolicy.Canonical, Op.Of(name: nameof(Candidates)))
             .Bind(index => sites
                 .Map((site, ordinal) => (site, ordinal))
-                .Traverse(row => Spatial
-                    .Apply(new SpatialOp.Query(index,
-                            new SpatialQuery.Range(Ball(row.site.Midpoint, radius), Some(new Sphere(row.site.Midpoint, radius)))),
-                        Op.Of(name: nameof(Candidates)))
-                    .Map(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits { Ids: var found } }
-                        ? found
-                            .Filter(other => other > row.ordinal)
-                            .Map(other => (Left: row.site, Right: sites[other]))
-                        : Seq<(SegmentSite Left, SegmentSite Right)>())
+                .Traverse(row => index
+                    .Query(Ball(row.site.Midpoint, radius), Some(new Sphere(row.site.Midpoint, radius)), Op.Of(name: nameof(Candidates)))
+                    .Map(found => found
+                        .Filter(other => other > row.ordinal)
+                        .Map(other => (Left: row.site, Right: sites[other])))
                     .ToValidation())
                 .As().ToFin())
             .Map(pairs => toSeq(pairs

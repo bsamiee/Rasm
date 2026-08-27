@@ -100,7 +100,7 @@ public static class Panelization {
                 None: () => Fin.Fail<PanelResult>(key.InvalidResult())));
 
     static Fin<Arr<Point2d>> Reprovenance(SurfaceResult.UvTessellation source, MeshSpace emitted, PanelPolicy policy, Op key) =>
-        Surfaces.Apply(new SurfaceOp.Pullback(source.Source, toArr(emitted.Native.Vertices.ToPoint3dArray()), policy.Pullback), key)
+        Surfaces.Apply(new SurfaceOp.Pullback(source.Source, toArray(emitted.Native.Vertices.ToPoint3dArray()), policy.Pullback), key)
             .Bind(result => result is SurfaceResult.Pulled pulled
                 ? Fin.Succ(pulled.Uv)
                 : Fin.Fail<Arr<Point2d>>(key.InvalidResult()));
@@ -108,9 +108,9 @@ public static class Panelization {
     static PanelBuild LatticeBuild(MeshSpace emitted, QuadProvenance quads, Arr<Point2d> uv) {
         int panels = quads.Corners.Count / 4;
         return new PanelBuild(
-            CornerOffsets: toArr(Enumerable.Range(0, panels + 1).Select(static p => 4 * p)),
+            CornerOffsets: toArray(Enumerable.Range(0, panels + 1).Select(static p => 4 * p)),
             Corners: quads.Corners,
-            Vertices: toArr(emitted.Native.Vertices.ToPoint3dArray()),
+            Vertices: toArray(emitted.Native.Vertices.ToPoint3dArray()),
             Uv: uv,
             PatchOf: quads.PatchOf);
     }
@@ -125,8 +125,8 @@ public static class Panelization {
     static Fin<PanelBuild> SeededCells(SurfaceResult.UvTessellation source, Seq<Point3d> seeds, Op key) {
         Point3d[] vertices = source.Mesh.Native.Vertices.ToPoint3dArray();
         return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(vertices)), key: key)
-            .Bind(index => NeighborKernel.GraphOf(
-                index: index, needles: [.. seeds], count: Some(1), radius: Option<double>.None, key: key))
+            .Bind(index => key.AcceptValidated<Dimension>(candidate: 1).Bind(one => NeighborKernel.GraphOf(
+                index: index, needles: [.. seeds], count: Some(one), radius: Option<PositiveMagnitude>.None, key: key)))
             .Bind(graph => toSeq(graph.Ids).TraverseM(hits => hits.Length > 0
                 ? Fin.Succ(hits[0])
                 : Fin.Fail<int>(key.InvalidResult())).As())
@@ -247,7 +247,7 @@ public static class Panelization {
             offsets.Add(corners.Count);
             patchOf.Add(cell);
         }
-        return new PanelBuild(toArr(offsets), toArr(corners), toArr(seats), toArr(feet), toArr(patchOf));
+        return new PanelBuild(toArray(offsets), toArray(corners), toArray(seats), toArray(feet), toArray(patchOf));
     }
 
     internal readonly record struct PanelBuild(
@@ -304,11 +304,11 @@ public static class Panelization {
             int at = offsets[p];
             foreach (SEdge<int> edge in graph.AdjacentEdges(p)) { adjacent[at++] = edge.Source == p ? edge.Target : edge.Source; }
         }
-        return (toArr(offsets), toArr(adjacent));
+        return (toArray(offsets), toArray(adjacent));
     }
 
     static Arr<double> PlanarityOf(Arr<int> offsets, Arr<int> corners, Arr<Point3d> vertices) =>
-        toArr(Enumerable.Range(0, offsets.Count - 1).Select(p => Defect(Ring(offsets, corners, vertices, p))));
+        toArray(Enumerable.Range(0, offsets.Count - 1).Select(p => Defect(Ring(offsets, corners, vertices, p))));
 
     static double Defect(ReadOnlySpan<Point3d> ring) {
         Vector3d normal = VectorFrame.NewellNormal(ring);
@@ -334,9 +334,9 @@ public static class Panelization {
         Range(0, build.CornerOffsets.Count - 1).ToSeq()
             .TraverseM(p => FrameOf(source, build, fieldSymmetry, p, key)).As()
             .Map(static rows => (
-                toArr(rows.Map(static row => row.Origin)),
-                toArr(rows.Map(static row => row.X)),
-                toArr(rows.Map(static row => row.Z))));
+                toArray(rows.Map(static row => row.Origin)),
+                toArray(rows.Map(static row => row.X)),
+                toArray(rows.Map(static row => row.Z))));
 
     static Fin<(Point3d Origin, Vector3d X, Vector3d Z)> FrameOf(
         SurfaceResult.UvTessellation source, PanelBuild build, Option<RoSyOrder> fieldSymmetry, int panel, Op key) {
@@ -390,7 +390,7 @@ public static class Panelization {
             classes[p] = ordinalOf.TryGetValue(key, out int seen) ? seen : ordinalOf[key] = ordinalOf.Count;
             merged.Add(least);
         }
-        return (toArr(classes), toArr(flipped), ordinalOf.Count - merged.Count);
+        return (toArray(classes), toArray(flipped), ordinalOf.Count - merged.Count);
     }
 
     static long[] Mirrored(long[] forward) {
@@ -407,7 +407,7 @@ public static class Panelization {
         int n = pairs.Length / 2;
         if (n <= 1) { return pairs; }
         int[] failure = new int[2 * n];
-        Array.Fill(failure, -1);
+        System.Array.Fill(failure, -1);
         int least = 0;
         for (int j = 1; j < 2 * n; j++) {
             int i = failure[j - least - 1];
@@ -461,9 +461,9 @@ public static class Panelization {
     // --- [PLANARIZE]
     static Fin<PanelResult> PlanarizeOf(PanelResult prior, PanelPolicy policy, Op key) =>
         Range(0, policy.Rounds.Value).FoldUntil(
-                state: Fin.Succ((Field: prior.Field, Band: prior.Planarity, Rounds: 0)),
+                initialState: Fin.Succ((Field: prior.Field, Band: prior.Planarity, Rounds: 0)),
                 f: (state, _) => state.Bind(s => ProjectRound(s.Field, key).Map(next => (next.Field, next.Band, s.Rounds + 1))),
-                stateP: state => state.Match(
+                predicate: state => state.Match(
                     Succ: s => s.Band.Maximum.To() <= policy.Planarity.Value,
                     Fail: static _ => true))
             .Bind(final => final.Band.Maximum.To() > policy.Planarity.Value
@@ -499,15 +499,15 @@ public static class Panelization {
                 hits[v]++;
             }
         }
-        Arr<Point3d> moved = toArr(Enumerable.Range(0, field.Vertices.Count)
+        Arr<Point3d> moved = toArray(Enumerable.Range(0, field.Vertices.Count)
             .Select(v => hits[v] == 0 ? field.Vertices[v] : new Point3d(pulled[v].X / hits[v], pulled[v].Y / hits[v], pulled[v].Z / hits[v])));
         Arr<double> planarity = PlanarityOf(field.CornerOffsets, field.Corners, moved);
         return Stat<Scalar>.Of(planarity.AsSpan(), key).Map(band => (
             field with {
                 Vertices = moved, Planarity = planarity,
-                Origin = toArr(Enumerable.Range(0, panels).Select(p => Centroid(Ring(field.CornerOffsets, field.Corners, moved, p)))),
-                ZAxis = toArr(Enumerable.Range(0, panels).Select(p => planeNormal[p].IsZero ? field.ZAxis[p] : planeNormal[p])),
-                XAxis = toArr(Enumerable.Range(0, panels).Select(p => Retangent(field.XAxis[p], planeNormal[p].IsZero ? field.ZAxis[p] : planeNormal[p]))),
+                Origin = toArray(Enumerable.Range(0, panels).Select(p => Centroid(Ring(field.CornerOffsets, field.Corners, moved, p)))),
+                ZAxis = toArray(Enumerable.Range(0, panels).Select(p => planeNormal[p].IsZero ? field.ZAxis[p] : planeNormal[p])),
+                XAxis = toArray(Enumerable.Range(0, panels).Select(p => Retangent(field.XAxis[p], planeNormal[p].IsZero ? field.ZAxis[p] : planeNormal[p]))),
             },
             band));
     }

@@ -14,7 +14,7 @@ Every appearance value crosses as a Materials VALUE: `ShadePort` resolves a hit 
 
 ## [02]-[PATH_TRACE]
 
-- Owner: `Bvh` the trace-accelerator VIEW over the kernel broad phase — build, refit, and the degradation-triggered rebuild are `Rasm/.planning/Spatial/index.md#[02]-[SPATIAL_INDEX]`'s through `Spatial.Apply`, the node stream arrives through the one sanctioned `SpatialAnswer.Wire` egress exactly as Compute decodes it, and page-local remains ONLY the per-ray wire walk (the measured oracle kernel) with the exact ray-sphere leaf narrow test; `NodeLink` the ONE wire node-link reader this compilation unit holds — `Render/reality.md`'s octree fold composes it, so the packing constants exist once; `Reservoir` the ReSTIR sample reservoir carried per pixel ON the accumulation target, its payload the `Render/pathtrace.md` `LightCandidate`; `SamplePolicy` the light-selection dispatch row; `RayCone` the propagated texture footprint; `TraceLimits` the transport policy row; `PathTracePass` the progressive accumulation pass; `GuidePolicy` the guide-accumulation row family; `Denoiser` the edge-aware denoise fold over the target's own guide plane.
+- Owner: `Bvh` the trace-accelerator VIEW over the kernel broad phase — build, refit, and the degradation-triggered rebuild are `Rasm/.planning/Spatial/index.md#[02]-[SPATIAL_INDEX]`'s through `SpatialIndex.Build`/`Refit`, the node stream arrives through the one sanctioned `SpatialIndex.Wire` egress exactly as Compute decodes it, and page-local remains ONLY the per-ray wire walk (the measured oracle kernel) with the exact ray-sphere leaf narrow test; `NodeLink` the ONE wire node-link reader this compilation unit holds — `Render/reality.md`'s octree fold composes it, so the packing constants exist once; `Reservoir` the ReSTIR sample reservoir carried per pixel ON the accumulation target, its payload the `Render/pathtrace.md` `LightCandidate`; `SamplePolicy` the light-selection dispatch row; `RayCone` the propagated texture footprint; `TraceLimits` the transport policy row; `PathTracePass` the progressive accumulation pass; `GuidePolicy` the guide-accumulation row family; `Denoiser` the edge-aware denoise fold over the target's own guide plane.
 - Law: `RayCone` derives every texture LOD and no caller chooses one — width grows by the spread over the traversed distance, its footprint at the hit divides the plane's texel span into the FRACTIONAL mip level the port samples at, and only the trilinear sampler row honours a fractional level. Spread advances by DISTANCE (`Advanced`) and by CURVATURE (`Scattered` — twice the hit's own measured curvature over the covered footprint, magnitude only, so a concave hit widens rather than focusing without bound). The curvature is Compute's `ResidencyMeshlet.Curvature` producer column carried on `SurfaceAttributes`; a straight-through cut-out transmission scatters no direction and takes no curvature leg. `RayCone` rides the SHADOW segment too, so a blocker's cut-out reads at the blocker's own distance and texel density.
 - Law: environment transport is MULTIPLE-IMPORTANCE-SAMPLED, not double-counted — an NEE dome draw and the BSDF continuation escaping into the same dome split one estimate through the balance heuristic, and delta rows report zero density the weight reads as the pass-through case.
 - Law: every `SamplePolicy` arm estimates the SAME integral at the SAME energy — RIS weights each streamed candidate by its target over its own source density (uniform streaming ⇒ N× the target), so the reservoir arm and the `Uniform` arm agree on brightness by construction.
@@ -22,8 +22,8 @@ Every appearance value crosses as a Materials VALUE: `ShadePort` resolves a hit 
 - Law: the trace accelerator is built over the cluster owner WHOLE — `Bvh.Build`/`Refit` take `MeshletCluster` and read `Clusters` themselves, so `hit.Primitive` and the ordinal the port resolves are one index space by construction; built over a cut, every hit attributes to a different cluster than the ray struck without a fault, which is why the port closes at the TYPE.
 - Exemption: `Integrate` (the scanline nest), `Bvh.Intersect` (the per-ray wire walk with its `[ThreadStatic]` traversal scratch), and `Denoiser.Resolve` (the 3×3 gather) are the page's measured oracle kernels — statement-bodied span work where a per-tap result cannot price (`EXPRESSION_SPINE` carve-out); the `OracleFrame` tuple folds are the declared sub-hit carve-out beneath the one kernel-frame admission per shaded hit.
 - Entry: `public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed, CancelScope scope, Option<IProgress<double>> progress = default)` — accumulates one progressive sample set onto the running per-pixel mean and returns the ADVANCED target; convergence is the accumulated sample count against the film's own declared `Converge` target; the cancel latch polls per scanline and a cancelled batch RESETS the target before refusing; that same poll reports `AccumulationTarget.Fraction` onto the optional progress sink. `AccumulationTarget.Pinned` — the raw-mean content identity the render-hash lane compares, minted through kernel `ContentHash.Of`, so the pinning claim is a typed egress rather than prose.
-- Auto: `Bvh.Build` admits cluster spheres as enclosing boxes into `Spatial.Apply` `SpatialOp.Build` under the `BuildPolicy` `TraceLimits.Broadphase()` derives, and decodes the wire ONCE per build; `Refit` rides `SpatialOp.Refit` (kernel `Rebound` owns re-bounding and the deterministic SAH rebuild trigger); NEE dispatches on the `SamplePolicy` row — `Restir` streams every rig row through the pixel's `Reservoir` with payload-carried temporal reuse (only the survivor pays a shadow ray), `Uniform` draws one row scaled by count, `Stratified` rotates by pixel-plus-ordinal; the primary hit writes the pixel's normal/depth guide through the pass's `GuidePolicy` row; `Present` mints the composite row whose raster folds the noisy mean with the guides through `Denoiser.Resolve` as scene-linear `RgbaF32`; the film's `Faults` counter reaches `FrameRender.FilmFaults` through the graph's pathTrace arm.
-- Packages: SkiaSharp, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project), Rasm (project — `Deterministic`, `Spatial.Apply`/`SpatialOp`/`SpatialAnswer.Wire`, `ContentHash.Of`, `EpsilonPolicy`, `Direction`/`UnitInterval`/`Dimension`)
+- Auto: `Bvh.Build` admits cluster spheres as enclosing boxes into `SpatialIndex.Build` under the `BuildPolicy` `TraceLimits.Broadphase()` derives, and decodes the wire ONCE per build; `Refit` rides `SpatialIndex.Refit` (kernel `Rebound` owns re-bounding and the deterministic SAH rebuild trigger); NEE dispatches on the `SamplePolicy` row — `Restir` streams every rig row through the pixel's `Reservoir` with payload-carried temporal reuse (only the survivor pays a shadow ray), `Uniform` draws one row scaled by count, `Stratified` rotates by pixel-plus-ordinal; the primary hit writes the pixel's normal/depth guide through the pass's `GuidePolicy` row; `Present` mints the composite row whose raster folds the noisy mean with the guides through `Denoiser.Resolve` as scene-linear `RgbaF32`; the film's `Faults` counter reaches `FrameRender.FilmFaults` through the graph's pathTrace arm.
+- Packages: SkiaSharp, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project), Rasm (project — `Deterministic`, `SpatialIndex.Build`/`Refit`/`Wire`, `ContentHash.Of`, `EpsilonPolicy`, `Direction`/`UnitInterval`/`Dimension`)
 - Growth: a new sampling strategy is one `SamplePolicy` row carrying its `SampleDecision` delegate; a new guide accumulation is one `GuidePolicy` row; a new guide plane extends `AccumulationTarget` and `Denoiser`; a new transport bound is one `TraceLimits` column plus its `Of` slot; zero new surface.
 - Boundary: convergence is sample-count progressive and the progress sink is the kernel's own `IProgress<double>` governance shape — a fraction this page publishes means samples folded, never seconds spent; the BVH refits in place and rebuilds only through the kernel degradation trigger; the ray-trace dispatch is the GPU compute surface bound through the `Render/pipeline` render-graph lease, the CPU oracle the correctness reference, and the GPU acceleration the SPIKE; per-hit parameterization arrives through `ShadePort` over the `Render/meshlets` `MeshletCluster.Sample` projection — a fabricated `(0, 0)` UV is the deleted form, and the sphere-proxy fallback is a DECLARED degradation the attributes row types.
 
@@ -96,10 +96,10 @@ public readonly record struct TraceLimits {
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new ViewportFault.ContextUnavailable($"trace-limits: {requirement}"));
 
     public Fin<BuildPolicy> Broadphase() =>
-        BuildPolicy.Canonical with { RefitDegradationLimit = RefitDegradationLimit } switch {
-            { IsAdmitted: true } policy => Fin.Succ(policy),
-            var policy => Fin.Fail<BuildPolicy>(new ViewportFault.ContextUnavailable($"trace-limits/build-policy: the kernel refused {policy}")),
-        };
+        BuildPolicy.Of(
+            leafSize: BuildPolicy.Canonical.LeafSize.Value, maxDepth: BuildPolicy.Canonical.MaxDepth.Value,
+            sahBuckets: BuildPolicy.Canonical.SahBuckets.Value, refitGrowth: RefitDegradationLimit - 1.0,
+            parallelFloor: BuildPolicy.Canonical.ParallelFloor.Value);
 }
 
 public readonly record struct RayHit(int Primitive, double T);
@@ -112,8 +112,7 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
         if (meshlets.IsEmpty) { return Fin.Succ(new Bvh([], [], [], None)); }
         Op op = key.OrDefault();
         return from policy in limits.Broadphase()
-               from built in Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy), op)
-               from index in built is SpatialAnswer.Index answer ? Fin.Succ(answer.Value) : Fin.Fail<SpatialIndex>(op.InvalidResult())
+               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy, op)
                from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)], op)
                select view;
     }
@@ -123,18 +122,15 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
         Op op = key.OrDefault();
         return Index.Match(
             None: () => Build(scene, limits, op),
-            Some: held => moved.Count != held.Primitives.Length
+            Some: held => moved.Count != held.Store.Order.Length
                 ? Build(scene, limits, op)
-                : from refit in Spatial.Apply(new SpatialOp.Refit(held, [.. moved.Map(static m => Box(m.Bounds))]), op)
-                  from index in refit is SpatialAnswer.Index answer ? Fin.Succ(answer.Value) : Fin.Fail<SpatialIndex>(op.InvalidResult())
+                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))], op)
                   from view in Wired(index, [.. moved.Map(static m => m.Bounds)], op)
                   select view);
     }
 
     private static Fin<Bvh> Wired(SpatialIndex index, ImmutableArray<BoundingSphere> spheres, Op op) =>
-        from answer in Spatial.Apply(new SpatialOp.Wire(index), op)
-        from wire in answer is SpatialAnswer.Wire w ? Fin.Succ(w) : Fin.Fail<SpatialAnswer.Wire>(op.InvalidResult())
-        select new Bvh(wire.Bounds, wire.Nodes, spheres, Some(index));
+        index.Wire(op).Map(wire => new Bvh(wire.Bounds, wire.Nodes, spheres, Some(index)));
 
     private static BoundingBox Box(BoundingSphere sphere) => new(
         new Point3d(sphere.X - sphere.Radius, sphere.Y - sphere.Radius, sphere.Z - sphere.Radius),

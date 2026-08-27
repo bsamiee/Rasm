@@ -669,11 +669,10 @@ public readonly record struct GaugeFix(
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<MatrixDrawLane>.Lane))]
 public sealed partial class MatrixDrawLane : IDrawLane<MatrixDrawLane> {
-    public static readonly MatrixDrawLane RealBasis = new(lane: 17L);
-    public static readonly MatrixDrawLane HermitianBasis = new(lane: 19L);
-    public long Lane { get; }
+    public static readonly MatrixDrawLane RealBasis = new(17L);
+    public static readonly MatrixDrawLane HermitianBasis = new(19L);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

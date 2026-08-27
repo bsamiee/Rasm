@@ -124,7 +124,7 @@ public static class Skeletonize {
         double totalSeed = ringSeed.Sum();
         double meanFace = totalSeed / double.Max(arena.FaceCount, 1);
         double[] wh = new double[n];
-        Array.Fill(wh, policy.Attraction.Value);
+        System.Array.Fill(wh, policy.Attraction.Value);
 
         Fin<(int Round, double Wl, double Ratio)> contracted = Range(0, policy.MaxIterations.Value).FoldMaybe(
             Fin.Succ((Round: 0, Wl: policy.LaplaceSeed.Value * Math.Sqrt(meanFace), Ratio: 1.0)),
@@ -314,7 +314,7 @@ public static class Skeletonize {
         Span2D<int> tally = census.Memory.AsMemory2D(height: 2, width: nodes).Span;
         (Span<int> count, Span<int> seed) = (tally.GetRowSpan(0), tally.GetRowSpan(1));
         seed.Fill(int.MaxValue);
-        Array.Fill(radius, double.PositiveInfinity);
+        System.Array.Fill(radius, double.PositiveInfinity);
         for (int nId = 0; nId < nodes; nId++) {
             Point3d p = arena.Position(survivors[nId]);
             (nx[nId], ny[nId], nz[nId]) = (p.X, p.Y, p.Z);

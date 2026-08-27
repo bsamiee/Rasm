@@ -82,7 +82,7 @@ public sealed record SubscriptionPolicy(Duration MinInterval, double MinFraction
 }
 
 public readonly record struct MeterVector(HashMap<CostUnit, long> Units) {
-    public static readonly MeterVector Zero = new(HashMap<CostUnit, long>.Empty);
+    public static readonly MeterVector Zero = new(HashMap<CostUnit, long>());
 
     public MeterVector Add(MeterVector other) =>
         new(other.Units.AsIterable().Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => existing + kv.Value, kv.Value)));

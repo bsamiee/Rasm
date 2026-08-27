@@ -576,9 +576,9 @@ public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
         int need = (ordinal >> 6) + 1;
         if (need <= capacityWords) { return; }
         capacityWords = need;
-        Array.Resize(ref live, capacityWords);
+        System.Array.Resize(ref live, capacityWords);
         foreach (Dictionary<string, ulong[]> bucket in words.Values) {
-            foreach (string value in bucket.Keys.ToArray()) { Array.Resize(ref CollectionsMarshal.GetValueRefOrNullRef(bucket, value), capacityWords); }
+            foreach (string value in bucket.Keys.ToArray()) { System.Array.Resize(ref CollectionsMarshal.GetValueRefOrNullRef(bucket, value), capacityWords); }
         }
     }
 }

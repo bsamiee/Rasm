@@ -64,8 +64,8 @@ public sealed class MeshEdit : IDisposable {
         tri = ArrayPool<int>.Shared.Rent(3 * seed);
         dirtyVertex = ArrayPool<ulong>.Shared.Rent(((seed - 1) >> 6) + 1);
         dirtyFace = ArrayPool<ulong>.Shared.Rent(((seed - 1) >> 6) + 1);
-        Array.Clear(dirtyVertex);
-        Array.Clear(dirtyFace);
+        System.Array.Clear(dirtyVertex);
+        System.Array.Clear(dirtyFace);
     }
 
     // --- [ADMISSION]
@@ -109,7 +109,7 @@ public sealed class MeshEdit : IDisposable {
         return edit;
     }
 
-    void Baseline() { Array.Clear(dirtyVertex); Array.Clear(dirtyFace); }
+    void Baseline() { System.Array.Clear(dirtyVertex); System.Array.Clear(dirtyFace); }
 
     // --- [READ_SURFACE]
     public Context Tolerance => context;

@@ -386,7 +386,7 @@ public static class GlazingGwp {
             + IguAssemblyGwpPerM2;
         double edge = (seal.Primary.ProcessGwpPerM + seal.Secondary.ProcessGwpPerM + spacer.EdgeSealGwpPerM) * perimeterToAreaRatio;
         Option<double>[] stages = new Option<double>[LifecycleStage.Items.Count];
-        Array.Fill(stages, Option<double>.None);
+        System.Array.Fill(stages, Option<double>.None);
         stages[LifecycleStage.A1A3.Key] = Some(substance + processing + edge);
         return stages;
     }

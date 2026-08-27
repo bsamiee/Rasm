@@ -604,9 +604,9 @@ public static class RecomputeGraph {
                 node.Inputs.Map(input => new SEquatableEdge<ChainHash>(input, node.Hash)))));
             return Op.Of().Catch(() => Fin.Succ(toSeq(builder.TopologicalSort())))
                 .Map(order => new Graph(
-                    nodes.Fold(HashMap<ChainHash, RecomputeNode>.Empty, static (map, node) => map.Add(node.Hash, node)),
+                    nodes.Fold(HashMap<ChainHash, RecomputeNode>(), static (map, node) => map.Add(node.Hash, node)),
                     builder.ToArrayAdjacencyGraph(),
-                    order.Fold(HashMap<ChainHash, int>.Empty, static (rank, hash) => rank.Add(hash, rank.Count))));
+                    order.Fold(HashMap<ChainHash, int>(), static (rank, hash) => rank.Add(hash, rank.Count))));
         }
     }
 
@@ -621,7 +621,7 @@ public static class RecomputeGraph {
 
     public static IO<Seq<CommandResult>> Recompute(RecomputeRuntime runtime, Graph graph, ChainHash changed) =>
         Invalidate(graph, changed).Tail
-            .FoldM((Results: Seq<CommandResult>(), Pruned: HashSet<ChainHash>.Empty), (state, hash) =>
+            .FoldM((Results: Seq<CommandResult>(), Pruned: HashSet<ChainHash>()), (state, hash) =>
                 state.Pruned.Contains(hash)
                     ? IO.pure(state)
                     : graph.Nodes.Find(hash).Match(
@@ -663,7 +663,7 @@ flowchart TD
 
 ## [07]-[ADVERSARIAL_PROBE]
 
-- Owner: `ChaosKind` `[SmartEnum<string>]` the four failure planes carrying each plane's injection projection, its catalogue-fill predicate, and its resilience-event name; `ChaosLane` `[SmartEnum<int>] : IDrawLane<ChaosLane>` the declared draw-lane roster; `ChaosInjection` `[Union]` the typed injected value; `ChaosRow`/`ChaosBand` the weighted catalogue and the per-pipeline arming row over it; `ChaosArm` `[SmartEnum<string>]` the kill switch as a gate BEHAVIOUR and `ChaosPosture` the arm-and-scale value; `ChaosOrdinals` the per-plane execution address; `ChaosDecision` the recorded decision and `ChaosDecisionRow` its neutral column group; `ChaosArming` the ONE parameterized configurator with its `Recording` and `Driven` seats and its injected posture cell; `ChaosOptions` the four strategy-option projections every arming site composes; `ChaosDrift` the declared-versus-observed fold with `ResilienceSeries` its Polly-meter partition coordinates and `ChaosObservation` the addressed series a reader receives; `Divergence` the bisection result record; `AdversarialProbe` the static surface owning `[CHAOS_REPLAY]`, `[PLACEMENT_DRIFT]`, and `[DIVERGENCE_BISECT]`, each composing the kernel's own `EventLog`/`REPLAY_VERIFY` owners — no second determinism surface.
+- Owner: `ChaosKind` `[SmartEnum<string>]` the four failure planes carrying each plane's injection projection, its catalogue-fill predicate, and its resilience-event name; `ChaosLane` `[SmartEnum<long>] : IDrawLane<ChaosLane>` the declared draw-lane roster; `ChaosInjection` `[Union]` the typed injected value; `ChaosRow`/`ChaosBand` the weighted catalogue and the per-pipeline arming row over it; `ChaosArm` `[SmartEnum<string>]` the kill switch as a gate BEHAVIOUR and `ChaosPosture` the arm-and-scale value; `ChaosOrdinals` the per-plane execution address; `ChaosDecision` the recorded decision and `ChaosDecisionRow` its neutral column group; `ChaosArming` the ONE parameterized configurator with its `Recording` and `Driven` seats and its injected posture cell; `ChaosOptions` the four strategy-option projections every arming site composes; `ChaosDrift` the declared-versus-observed fold with `ResilienceSeries` its Polly-meter partition coordinates and `ChaosObservation` the addressed series a reader receives; `Divergence` the bisection result record; `AdversarialProbe` the static surface owning `[CHAOS_REPLAY]`, `[PLACEMENT_DRIFT]`, and `[DIVERGENCE_BISECT]`, each composing the kernel's own `EventLog`/`REPLAY_VERIFY` owners — no second determinism surface.
 - Cases: `ChaosKind` = latency | fault | outcome | behavior, the four planes the package partitions — latency spends the time plane, fault injects the exception path, outcome substitutes the result path without invoking the callback, behavior runs a side effect before the call; `ChaosInjection` = Latency | Fault | Substituted | Behavior, one typed value per plane; `ChaosLane` = gate | value; `ChaosArm` = disarmed | armed.
 - Entry: `ChaosArming.Recording(DeterminismContext context, Atom<ChaosPosture> posture, Func<ChaosDecision, ValueTask> recorder, Func<string, ChaosKind, Option<ChaosBand>> bands)` and `ChaosArming.Driven(Seq<LogEntry> log, Atom<ChaosPosture> posture, Func<string, ChaosKind, Option<ChaosBand>> bands)` return the two seats of one arming; `ChaosBand.Of(pipelineKey, kind, rate, rows)` returns `Validation<Error, ChaosBand>` accumulating every admission refusal at once; `Latency(ChaosBand band)`, `Fault(ChaosBand band, Func<string, Exception> faults)`, `Substitution<T>(ChaosBand band, Func<string, Outcome<T>> substitutions)`, and `Behavior(ChaosBand band, Func<string, ValueTask> behaviors)` return the fully bound `Chaos…StrategyOptions` an arming site hands `AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome`/`AddChaosBehavior`; `RecordChaos(EventLog.Chain chain, ChangefeedPort feed, ChaosDecision decision, DeterminismContext context, Instant physical, ulong logical)` returns `Fin<(EventLog.Chain, LogEntry)>` chaining one decision as a `LogBody.Chaos` entry; `ChaosArming.Rederive(DeterminismContext recorded, ChaosDecision decision)` returns `Option<ChaosDecision>` recomputing a recorded decision from its address; `Drift(Seq<LogEntry> log, Func<ChaosObservation, long> observed)` returns `Seq<ChaosDrift>` comparing decided against observed injections per pipeline and plane; `Bisect(Seq<LogEntry> recorded, Func<LogEntry, ChainHash> rederive)` returns `Option<Divergence>` binary-searching the first divergent step over the content-hash chain in log-time.
 - Auto: `[CHAOS_REPLAY]` settles the whole per-execution conjunction at the ONE delegate the package hands a `ResilienceContext` on every execution — the posture cell's `ChaosArm` gates, the addressed roll runs against the band's posture-scaled rate, a second lane picks a weighted catalogue row, the resulting `ChaosDecision` STAMPS onto that execution's context, and the chain records it — while `InjectionRate` pins to one and `Randomizer` to a constant, because the roll already happened against a number the seed reproduces and the package's own default randomizer is the ambient entropy this kernel forbids; both draws bind ONE `Deterministic.Draw` prefix per execution and differ only in their trailing `ChaosLane` ordinal, so the gate roll and the value pick cost one key digest between them and each lane is a declared roster row rather than a positional const; each plane's value generator then READS the stamp rather than drawing, so the injected latency, the selected fault row, the substituted outcome row, and the behavior row are all functions of one address; the recorded decision therefore carries everything a reconstruction needs — pipeline, plane, ordinal, effective rate, the draw that beat it, and the injected value — and roll and value both re-derive from that address under the run's seed, so the record proves itself and `ChaosArming.Driven` replays a campaign without drawing at all; `[PLACEMENT_DRIFT]` folds decided against observed per pipeline and plane, so a decision the chain holds with no matching resilience event names the strategy above the chaos block that swallowed it, and `Observability/bundles#CAPTURE_PIPELINE` runs the fold as a support contributor so a pulled bundle carries the campaign's own placement evidence; `[DIVERGENCE_BISECT]` narrows the tamper-evident chain by halving rather than the linear `ReplayVerify` fold — it re-derives the midpoint entry's content hash, compares it to the recorded hash, and narrows into the half carrying the first mismatch, so a divergence in a thousand-step log is found in `log₂(n)` hash re-derivations and the found step is cryptographically pinned to the chain because every downstream hash depends on it.
@@ -718,13 +718,10 @@ public sealed partial class ChaosKind {
     static bool Resolvable(ChaosRow row) => !string.IsNullOrWhiteSpace(row.Key);
 }
 
-[SmartEnum<int>]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<ChaosLane>.Lane))]
 public sealed partial class ChaosLane : IDrawLane<ChaosLane> {
-    public static readonly ChaosLane Gate = new(key: 0);
-    public static readonly ChaosLane Value = new(key: 1);
-
-    static IReadOnlyList<ChaosLane> IDrawLane<ChaosLane>.Items => Items;
-    public long Lane => Key;
+    public static readonly ChaosLane Gate = new(0L);
+    public static readonly ChaosLane Value = new(1L);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -871,7 +868,7 @@ public sealed record ChaosArming(
         new(new ChaosOrdinals(), posture, (held, band, ordinal) => Derived(context, held, band, ordinal), recorder, bands);
 
     public static ChaosArming Driven(Seq<LogEntry> log, Atom<ChaosPosture> posture, Func<string, ChaosKind, Option<ChaosBand>> bands) =>
-        log.Fold(HashMap<(string, ChaosKind, long), ChaosDecision>.Empty, static (map, entry) =>
+        log.Fold(HashMap<(string, ChaosKind, long), ChaosDecision>(), static (map, entry) =>
             entry.Body is LogBody.Chaos chaos
                 ? map.AddOrUpdate((chaos.Decision.PipelineKey, chaos.Decision.Kind, chaos.Decision.Ordinal), chaos.Decision)
                 : map) switch {
@@ -979,7 +976,7 @@ public static class AdversarialProbe {
 
     // --- [PLACEMENT_DRIFT]
     public static Seq<ChaosDrift> Drift(Seq<LogEntry> log, Func<ChaosObservation, long> observed) =>
-        toSeq(log.Fold(HashMap<(string Pipeline, ChaosKind Kind), long>.Empty, static (map, entry) =>
+        toSeq(log.Fold(HashMap<(string Pipeline, ChaosKind Kind), long>(), static (map, entry) =>
             entry.Body is LogBody.Chaos chaos
                 ? map.AddOrUpdate((chaos.Decision.PipelineKey, chaos.Decision.Kind), static decided => decided + 1L, 1L)
                 : map))

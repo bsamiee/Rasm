@@ -758,7 +758,7 @@ public static class Link {
                         Seq<int>(),
                         Range(0, job.Elements.Count).ToSeq(),
                         Range(0, job.Elements.Count).Fold(
-                            HashMap<int, int>.Empty,
+                            HashMap<int, int>(),
                             (pending, index) => pending.Add(index, order.InDegree(index))),
                         Option<LinkStation>.None,
                         Seq<LinkLeg>(),

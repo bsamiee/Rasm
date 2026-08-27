@@ -273,7 +273,7 @@ internal static partial class SegmentKernel {
             Mesh mesh = space.Native;
             FeatureCurvatureSignals curvature = EdgeCurvatureSignals(mesh: mesh, faceNormals: faceNormals, smoothingScale: activePolicy.SmoothingScale.Value);
             List<FeatureEdge> features = new(capacity: mesh.TopologyEdges.Count);
-            HashMap<MeshFeatureKind, int> census = HashMap<MeshFeatureKind, int>.Empty;
+            HashMap<MeshFeatureKind, int> census = HashMap<MeshFeatureKind, int>();
             int unclassified = 0;
             for (int e = 0; e < mesh.TopologyEdges.Count; e++) {
                 int[] faces = mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: e);

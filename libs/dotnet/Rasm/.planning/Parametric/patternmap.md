@@ -238,7 +238,7 @@ public static class Patterning {
         double reach = plan.Extent * plan.Extent;
         foreach ((int i, int j) in CellWindow(plan)) {
             for (int a = 0; a < plan.Anchors.Count; a++) {
-                Array.Fill(placed, -1);
+                System.Array.Fill(placed, -1);
                 for (int s = 0; s < seats.Count; s++) {
                     (double U, double V) at = Placed(plan, seats[s], (plan.Anchors[a].U, plan.Anchors[a].V), i, j);
                     if (!Inside(at, reach)) { continue; }

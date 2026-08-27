@@ -112,7 +112,7 @@ public sealed record GraphDelta(
 
  static NodePartition Coalesced(Seq<(NodeId Id, NodeSlot Slot)> claims) {
   HashMap<NodeId, NodeSlot> slots = claims.Fold(
-   HashMap<NodeId, NodeSlot>.Empty,
+   HashMap<NodeId, NodeSlot>(),
    static (state, claim) => state.AddOrUpdate(claim.Id, held => NodeSlot.Advance(held, claim.Slot), claim.Slot));
   return toSeq(claims.Map(static claim => claim.Id).AsEnumerable().Distinct())
    .Choose(id => slots.Find(id))
@@ -132,7 +132,7 @@ public sealed record GraphDelta(
  static (Seq<Relationship> Added, Seq<Relationship> Removed) EdgeFold(
   Seq<(Relationship Edge, EdgeSlot Slot)> claims, Func<Relationship, bool> entangled) {
   HashMap<Relationship, EdgeSlot> slots = claims.Fold(
-   HashMap<Relationship, EdgeSlot>.Empty,
+   HashMap<Relationship, EdgeSlot>(),
    (state, claim) => state.AddOrUpdate(claim.Edge, held => EdgeSlot.Advance(held, claim.Slot, entangled(claim.Edge)), claim.Slot));
   return toSeq(claims.Map(static claim => claim.Edge).AsEnumerable().Distinct(EqualityComparer<Relationship>.Default))
    .Choose(edge => slots.Find(edge))

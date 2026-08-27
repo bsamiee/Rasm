@@ -746,7 +746,7 @@ internal readonly record struct MetricState(
 - Entry: `public static Fin<AuditEvidence> Preflight(SliceStack stack, AuditPolicy policy)` admits the stack channels first because every later gate indexes them, then accumulates demand, evidence, and support admission before opening the pooled kernel. Allocation crosses one `Try` boundary and every owner disposes before egress.
 - Auto: `DemandGate` proves the co-axiality the frame convention rests on — a layer whose points scatter across local ordinates has no single ordinate and every grid read would mislocate — and bounds the rental in bytes against the admitted cell cap; open-contour counts read the stack's own per-contour `Open` column through its layer pointers rather than materializing every chain to count the unclosed ones; the support plan's own spatial index resolves the branch set crossing each layer once on the result, so no cell fold scans the node roster, and an absent index — the planar-only program's honest state — takes the same empty-capsule arm an absent plan does.
 - Output: `AuditEvidence` carries the process, per-layer metrics, component rows with parents and children, void rows with escape disposition, typed defects, and `Census` keyed by `AuditRisk`. The census seeds over the admitted families alone, so a zero means a family was checked and clean rather than a family the process cannot exhibit; a new defect case reports through it without a result edit.
-- Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `Open`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Of`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the component lineage alone; `Process/faults`; LanguageExt.Core.
+- Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `Open`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Of`); `Rasm.Spatial` (the box `SpatialIndex.Query` arm); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the component lineage alone; `Process/faults`; LanguageExt.Core.
 - Boundary: wall thickness composes the kernel wavefront and never the raster, so this page mints no thickness measure of its own and speaks the same clearance vocabulary the toolpath boundary already reads. The wavefront admits ONE simple ring, so an outer ring's medial cannot see the layer's holes — every interior node re-measures against them, and that second read is the whole reason the wall fold is not the kernel call alone. QuikGraph addresses components, never cells: a lineage graph holds one vertex per labeled region while a raster graph holds one per cell, and only the former sizes with what the demand gate budgets. `IncrementalConnectedComponentsAlgorithm` and `ForestDisjointSet<T>` are refused for raster connectivity by name — both key on a boxed vertex, so either reintroduces the per-cell element count the run algebra exists to delete.
 
 ```csharp
@@ -858,12 +858,7 @@ public static class Audit {
             .Bind(static plan => plan.Topology.Sites.Map(index => (Plan: plan, Index: index)))
             .Match(
                 Some: held => Range(0, stack.LayerCount).ToSeq()
-                    .Traverse(layer => Spatial
-                        .Apply(new SpatialOp.Query(held.Index, new SpatialQuery.Range(Slab(stack, policy, layer), None)))
-                        .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
-                            ? Fin.Succ(Reached(held.Plan, hits.Ids))
-                            : Fin.Fail<Seq<(SupportNode From, SupportNode To)>>(
-                                new KernelFault.InvalidValue("audit", "audit:support-index"))))
+                    .Traverse(layer => held.Index.Query(Slab(stack, policy, layer)).Map(hits => Reached(held.Plan, hits)))
                     .As().Map(static rows => rows.ToArr()),
                 None: () => Fin.Succ(Range(0, stack.LayerCount).ToSeq()
                     .Map(static _ => Seq<(SupportNode From, SupportNode To)>()).ToArr()));

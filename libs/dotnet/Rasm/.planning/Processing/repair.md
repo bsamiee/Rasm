@@ -196,7 +196,7 @@ internal readonly struct Incidence {
     internal static (int U, int V) Key(int u, int v) => u < v ? (u, v) : (v, u);
 
     internal Arr<(int Tail, int Head, int Face)> Boundary(MeshEdit edit) =>
-        toArr(Edges.Where(static row => row.Value.Count == 1).Select(row => {
+        toArray(Edges.Where(static row => row.Value.Count == 1).Select(row => {
             (int a, int b, int c) = edit.Face(row.Value[0]);
             (int u, int v) = row.Key;
             (int tail, int head) = (a == u && b == v) || (b == u && c == v) || (c == u && a == v) ? (u, v) : (v, u);
@@ -204,7 +204,7 @@ internal readonly struct Incidence {
         }));
 
     internal Arr<((int U, int V) Edge, List<int> Fans)> NonManifold() =>
-        toArr(Edges.Where(static row => row.Value.Count > 2).Select(static row => (row.Key, row.Value)));
+        toArray(Edges.Where(static row => row.Value.Count > 2).Select(static row => (row.Key, row.Value)));
 
     internal AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> Dual(MeshEdit edit) {
         AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> dual = new(allowParallelEdges: true);
@@ -280,8 +280,9 @@ public static class Heal {
         if (rim.Count < 2) return Fin.Succ(HealEdit.Carrying(edit, incidence));
         double span = edit.Tolerance.For(policy.Gap).Value;
         Point3d[] heads = [.. rim.Map(h => edit.Position(h.Head))];
-        return NeighborIndex.Of(new NeighborSource.StaticCase(toSeq(rim.Map(h => edit.Position(h.Tail)))), key)
-            .Bind(index => NeighborKernel.GraphOf(index: index, needles: heads, count: Option<int>.None, radius: Some(span), key: key))
+        return NeighborIndex.Of(new NeighborSource.PointsCase(toSeq(rim.Map(h => edit.Position(h.Tail)))), key)
+            .Bind(index => key.AcceptValidated<PositiveMagnitude>(candidate: span)
+                .Bind(reach => NeighborKernel.GraphOf(index: index, needles: heads, count: Option<Dimension>.None, radius: Some(reach), key: key)))
             .Map(graph => Bridge(edit, rim, graph.Ids, span, incidence));
     }
 
@@ -432,7 +433,7 @@ public static class Heal {
                     TessellationKind.Triangulation, [.. rows], toSeq(conforms), policy.Retile, plane, Some((pa, pb, pc))))
                 .Bind(static tess => tess.Triangles())
                 .Map(tris => Splice(edit, face,
-                    toArr(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))),
+                    toArray(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))),
                     corner, minted, mirrored));
         });
 

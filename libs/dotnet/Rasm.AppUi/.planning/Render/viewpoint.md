@@ -275,7 +275,7 @@ public static class HighlightChannel {
         VisibilityAction.Highlight.Fold(scene, matched);
 
     public static Seq<VisibilityOverride> Clear(Seq<string> scene) =>
-        VisibilityAction.Reset.Fold(scene, LanguageExt.HashSet<string>.Empty);
+        VisibilityAction.Reset.Fold(scene, LanguageExt.HashSet<string>());
 
     public static Seq<VisibilityOverride> Over(Seq<VisibilityOverride> posture, Seq<VisibilityOverride> highlight) =>
         toSeq(highlight.Fold(

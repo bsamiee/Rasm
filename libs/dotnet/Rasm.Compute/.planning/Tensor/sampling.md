@@ -389,7 +389,7 @@ public sealed partial record LowDiscrepancy {
 }
 
 public static class HaltonBases {
-    static readonly Atom<int[]> Cached = Atom(Array.Empty<int>());
+    static readonly Atom<int[]> Cached = Atom(System.Array.Empty<int>());
 
     public static int[] Primes(int dimensions) =>
         Cached.Swap(held => held.Length >= dimensions ? held : Sieve(dimensions));

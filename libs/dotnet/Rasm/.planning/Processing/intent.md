@@ -53,7 +53,7 @@ public abstract partial record VectorIntent {
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
     public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
     public sealed record CurveCase : VectorIntent { internal CurveCase(Curve source, double parameter, CurveProjection mode) { Source = source; Parameter = parameter; Mode = mode; } public Curve Source { get; } public double Parameter { get; } public CurveProjection Mode { get; } }
-    public sealed record CloudCase : VectorIntent { internal CloudCase(VectorCloud value, VectorCloudMetric metric, CloudMetricPolicy policy) { Value = value; Metric = metric; Policy = policy; } public VectorCloud Value { get; } public VectorCloudMetric Metric { get; } public CloudMetricPolicy Policy { get; } }
+    public sealed record CloudCase : VectorIntent { internal CloudCase(VectorCloud value, VectorCloudMetric metric, NeighborhoodPolicy policy) { Value = value; Metric = metric; Policy = policy; } public VectorCloud Value { get; } public VectorCloudMetric Metric { get; } public NeighborhoodPolicy Policy { get; } }
     public sealed record WindingCase : VectorIntent { internal WindingCase(VectorCloud.RingCase value, Point3d query) { Value = value; Query = query; } public VectorCloud.RingCase Value { get; } public Point3d Query { get; } }
     public sealed record ConeCase(VectorCone Value, ConeProjection Mode) : VectorIntent;
     public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Basis) : VectorIntent;
@@ -70,13 +70,13 @@ public abstract partial record VectorIntent {
     public sealed record FlattenHostCase : VectorIntent { internal FlattenHostCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
     public sealed record ParameterizeCase : VectorIntent { internal ParameterizeCase(ParamOp request) => Request = request; public ParamOp Request { get; } }
     public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy) { Source = source; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
-    public sealed record VoronoiCase : VectorIntent { internal VoronoiCase(VectorCloud.ClusterCase source, CloudHullPolicy policy) { Source = source; Policy = policy; } public VectorCloud.ClusterCase Source { get; } public CloudHullPolicy Policy { get; } }
+    public sealed record VoronoiCase : VectorIntent { internal VoronoiCase(VectorCloud.ClusterCase source, PositiveMagnitude tolerance) { Source = source; Tolerance = tolerance; } public VectorCloud.ClusterCase Source { get; } public PositiveMagnitude Tolerance { get; } }
     public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain domain, SampleKind kind) { Domain = domain; Kind = kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
     public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy policy) { Source = source; Target = target; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } public AlignmentPolicy Policy { get; } }
     public sealed record RemeshHostCase : VectorIntent { internal RemeshHostCase(MeshSpace space, RemeshKind kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
     public sealed record RewriteCase : VectorIntent { internal RewriteCase(RemeshOp request) => Request = request; public RemeshOp Request { get; } }
     public sealed record SimplifyCase : VectorIntent { internal SimplifyCase(SimplifyOp request) => Request = request; public SimplifyOp Request { get; } }
-    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud source, VectorCloud target, CloudTransportPolicy policy) { Source = source; Target = target; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public CloudTransportPolicy Policy { get; } }
+    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, CloudTransportPolicy policy) { Source = source; Target = target; Policy = policy; } public VectorCloud.ClusterCase Source { get; } public VectorCloud.ClusterCase Target { get; } public CloudTransportPolicy Policy { get; } }
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
     public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace space, MeshFeaturePolicy policy) { Space = space; Policy = policy; } public MeshSpace Space { get; } public MeshFeaturePolicy Policy { get; } }
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace space, MeshDescriptor kind, Dimension pairs) { Space = space; Kind = kind; Pairs = pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
@@ -117,11 +117,13 @@ public abstract partial record VectorIntent {
                from validMode in Admit.NotNull(value: mode, key: op)
                select (VectorIntent)new CurveCase(source: active, parameter: parameter, mode: validMode);
     }
-    public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Option<CloudMetricPolicy> policy = default, Op? key = null) {
+    public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Option<NeighborhoodPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validCloud in Admit.NotNull(value: cloud, key: op)
                from validMetric in Admit.NotNull(value: metric, key: op)
-               from validPolicy in CloudMetricPolicy.AdmitOrDefault(policy: policy, context: validCloud.Tolerance, key: op)
+               from validPolicy in policy.Match(
+                   Some: candidate => candidate.Admit(key: op),
+                   None: () => NeighborhoodPolicy.Of(context: validCloud.Tolerance, key: op))
                from _ in guard(validMetric.AdmitsCase(cloud: validCloud), op.Unsupported(inputType: validCloud.GetType(), outputType: validMetric.Output))
                select (VectorIntent)new CloudCase(value: validCloud, metric: validMetric, policy: validPolicy);
     }
@@ -208,14 +210,16 @@ public abstract partial record VectorIntent {
                from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
                select (VectorIntent)new HullCase(source: cluster, kind: validKind, policy: validPolicy);
     }
-    public static Fin<VectorIntent> Voronoi(VectorCloud source, Option<CloudHullPolicy> policy = default, Op? key = null) {
+    public static Fin<VectorIntent> Voronoi(VectorCloud source, Option<PositiveMagnitude> tolerance = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Admit.NotNull(value: source, key: op)
                from cluster in validSource is VectorCloud.ClusterCase c
                    ? Fin.Succ(c)
                    : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(inputType: validSource.GetType(), outputType: typeof(CloudVoronoiResult)))
-               from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
-               select (VectorIntent)new VoronoiCase(source: cluster, policy: validPolicy);
+               from validTolerance in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance.Match(
+                   Some: static supplied => supplied.Value,
+                   None: () => cluster.Tolerance.For(lane: ToleranceLane.Deviation).Value))
+               select (VectorIntent)new VoronoiCase(source: cluster, tolerance: validTolerance);
     }
     public static Fin<VectorIntent> Sample(ExtractionDomain domain, SampleKind kind, Op? key = null) {
         Op op = key.OrDefault();
@@ -237,12 +241,12 @@ public abstract partial record VectorIntent {
                from activeKind in Admit.NotNull(value: kind, key: op)
                select (VectorIntent)new RemeshHostCase(space: space, kind: activeKind);
     }
-    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
+    public static Fin<VectorIntent> Transport(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, CloudTransportPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Admit.NotNull(value: source, key: op)
                from validTarget in Admit.NotNull(value: target, key: op)
-               from _ in guard(policy != default(CloudTransportPolicy), op.InvalidInput())
-               select (VectorIntent)new TransportCase(source: validSource, target: validTarget, policy: policy);
+               from validPolicy in Admit.NotNull(value: policy, key: op)
+               select (VectorIntent)new TransportCase(source: validSource, target: validTarget, policy: validPolicy);
     }
     public static Fin<VectorIntent> Topology(MeshSpace space, Op? key = null) =>
         Admit.NotNull(value: space.Native, key: key.OrDefault()).Map(_ => (VectorIntent)new TopologyCase(space: space));
@@ -371,7 +375,7 @@ public abstract partial record VectorIntent {
             from output in result.Project<TOut>(context: state.Context, key: state.Key)
             select output,
         voronoiCase: static (state, intent) =>
-            from result in CloudKernel.ComputeVoronoiDetailed(cluster: intent.Source, policy: intent.Policy, key: state.Key)
+            from result in CloudKernel.ComputeVoronoiDetailed(cluster: intent.Source, tolerance: intent.Tolerance, key: state.Key)
             from output in result.Project<TOut>(context: state.Context, key: state.Key)
             select output,
         sampleCase: static (state, intent) => intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),

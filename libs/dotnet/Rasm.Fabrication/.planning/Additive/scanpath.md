@@ -595,10 +595,10 @@ public static class SourcePartition {
 
 - Owner: `ScanPlane` owns every derived spatial quantity — Morton locality and gas bearing — and is the ONE Morton owner on the page; `Scan.Waves` owns wave election; `ScanOrder` owns the sort key law.
 - Law: Morton order is a deterministic ORDERING key, never an index. Neighbour and overlap questions fold the kernel `Rasm.Spatial` owner, so this page holds no bucket grid, no cell hash, and no neighbourhood stencil — three byte-identical grids across this folder collapse onto one kernel index.
-- Law: contention is decided ONCE per layer. `SpatialQuery.SelfOverlap` enumerates every unordered pair inside one index whose bounds — each vector's segment box inflated by half the separation — overlap, and the exact `EdgeSeparation.Gap` predicate narrows that broad phase. A second quadratic re-test at result time re-derives what the election already settled and is the deleted form.
+- Law: contention is decided ONCE per layer. The self-overlap `SpatialIndex.Query` arm enumerates every unordered pair inside one index whose bounds — each vector's segment box inflated by half the separation — overlap, and the exact `EdgeSeparation.Gap` predicate narrows that broad phase. A second quadratic re-test at result time re-derives what the election already settled and is the deleted form.
 - Law: a wave identifier stays inside `[0, ThermalWindow)`. A vector whose whole window is blocked is UNRESOLVED — it takes its seed wave, the result counts it, and the plan refuses on that count. Growing the identifier past the window escapes the modal vocabulary the machine schedules against and turns an unschedulable vector into a silently valid one.
 - Auto: `ScanOrder` rows carry one `Project` column, so `ScanSort.Order` is one sort over one comparable key and no caller re-tests order identity. No row rewrites geometry: serpentine orientation is owned by ray emission, so an ordering that reverses alternate rows after sorting pairs whichever vectors the sort adjoined and never survives a re-sort.
-- Packages: `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Build`/`Query`, `SpatialKind.Bvh`, `BuildPolicy.Canonical`, `SpatialQuery.SelfOverlap`, `SpatialAnswer.Result`, `QueryResult.Pairs`), `Rasm.Fabrication.Geometry2D` (`EdgeSeparation.Gap`), LanguageExt.Core.
+- Packages: `Rasm.Spatial` (`SpatialIndex.Build`, the self-overlap `Query` arm, `SpatialKind.Bvh`, `BuildPolicy.Canonical`), `Rasm.Fabrication.Geometry2D` (`EdgeSeparation.Gap`), LanguageExt.Core.
 - Growth: an ordering law is one `ScanOrder` row with its projection column.
 - Boundary: the plume gate and the thermal gate share one separation — the greater of the two policy lengths — so one index answers both and no second broad phase exists to disagree with the first.
 
@@ -1008,16 +1008,8 @@ public static class Scan {
     private static Fin<WaveElection> Waves(Seq<SourceAssignment> rows, ScanPlane plane) {
         double separation = plane.Thermal.Contention.Millimeters;
         BoundingBox[] boxes = rows.Map(row => Inflated(row.Vector.Geometry, separation * 0.5)).ToArray();
-        return from index in Spatial
-                   .Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), Op.Of(name: nameof(Waves)))
-                   .Bind(static answer => answer is SpatialAnswer.Index built
-                       ? Fin.Succ(built.Value)
-                       : Fin.Fail<SpatialIndex>(new KernelFault.InvalidValue("scanpath", "scan:contention-index")))
-               from pairs in Spatial
-                   .Apply(new SpatialOp.Query(index, new SpatialQuery.SelfOverlap(separation)), Op.Of(name: nameof(Waves)))
-                   .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs overlaps }
-                       ? Fin.Succ(overlaps.Overlaps)
-                       : Fin.Fail<Seq<(int Left, int Right)>>(new KernelFault.InvalidValue("scanpath", "scan:contention-pairs")))
+        return from index in SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, Op.Of(name: nameof(Waves)))
+               from pairs in index.Query(separation, Op.Of(name: nameof(Waves)))
                let adjacency = Adjacency(rows, pairs, plane)
                select Coloured(rows, adjacency, plane.Thermal.Window);
     }

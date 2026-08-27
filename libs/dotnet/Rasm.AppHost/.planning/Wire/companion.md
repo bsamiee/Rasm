@@ -207,7 +207,7 @@ public sealed record PeerRoster(
     ClockPolicy Clocks) {
     public static PeerRoster Boot(
         string service, Func<PeerCredential, DiscoveryManifest, Unit> contribute, ClockPolicy clocks) =>
-        new(service, Atom((HashMap<int, RosterEntry>.Empty, 0UL)), contribute, clocks);
+        new(service, Atom((HashMap<int, RosterEntry>(), 0UL)), contribute, clocks);
 
     public Seq<RosterEntry> Attached => Peers.Value.Entries.Values.ToSeq();
 
@@ -799,7 +799,7 @@ public static partial class SystemdActivation {
             ? Some((0, count))
             : listenNames.Match(
                 None: () => count == 1 ? Some((0, 1)) : Option<(int, int)>.None,
-                Some: names => names.Split(':') is var rows && Array.IndexOf(rows, activationName) is var offset && offset >= 0
+                Some: names => names.Split(':') is var rows && System.Array.IndexOf(rows, activationName) is var offset && offset >= 0
                     ? Some((offset, rows.Skip(offset).TakeWhile(name => string.Equals(name, activationName, StringComparison.Ordinal)).Count()))
                     : None);
 

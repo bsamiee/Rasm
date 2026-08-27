@@ -203,7 +203,7 @@ public static class CurveAlgebra {
         from chords in Loop.Admit(
             vertices,
             request.Path.IsClosed,
-            toArr(Enumerable.Repeat(0.0, vertices.Count)),
+            toArray(Enumerable.Repeat(0.0, vertices.Count)),
             request.Tolerance)
         from deviation in MaximumMidpointDeviation(request.Path, division)
         select (division, chords, deviation);

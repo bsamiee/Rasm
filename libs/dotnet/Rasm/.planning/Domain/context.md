@@ -225,7 +225,7 @@ public sealed record Context {
     public Tolerance Relative { get; }
     public Tolerance Angle { get; }
     public ModelUnit Unit { get; }
-    private HashMap<ToleranceLane, Tolerance> Overrides { get; init; } = HashMap<ToleranceLane, Tolerance>.Empty;
+    private HashMap<ToleranceLane, Tolerance> Overrides { get; init; } = HashMap<ToleranceLane, Tolerance>();
 
     public Tolerance For(ToleranceLane lane) =>
         Overrides.Find(key: lane).IfNone(() => new Tolerance(Lane: lane, Value: lane.Derive(context: this)));

@@ -815,7 +815,6 @@ public static class Manufacturability {
     private static readonly Error MeshBounds = Refusal("mesh-bounds");
     private static readonly Error MeshDefects = Refusal("mesh-defects");
     private static readonly Error ProfileSample = Refusal("profile-sample");
-    private static readonly Error ProbeRay = Refusal("probe-ray");
     private static readonly Error DegenerateApproach = Refusal("degenerate-approach");
     private static readonly Error DegenerateJoint = Refusal("degenerate-joint");
 
@@ -1412,12 +1411,7 @@ public static class Manufacturability {
     }
 
     private static Fin<Option<double>> RayHitT(SpatialIndex index, Ray3d ray, double maxT) =>
-        Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Ray(ray, maxT)), DfmOp)
-            .Bind(static answer => answer switch {
-                SpatialAnswer.Result { Value: QueryResult.RayHit { Id.IsSome: true } hit } => Fin.Succ(Some(hit.T)),
-                SpatialAnswer.Result { Value: QueryResult.RayHit } => Fin.Succ(Option<double>.None),
-                _ => Fin.Fail<Option<double>>(ProbeRay),
-            });
+        index.Query(ray, maxT, DfmOp).Map(static hit => hit.Id.Map(_ => hit.T));
 
     private static Seq<(int Index, Edge3 Span, double Radius)> BulgeRadii(Loop loop) =>
         toSeq(Enumerable.Range(0, loop.Count)).Choose(index => {

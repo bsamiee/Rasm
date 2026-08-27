@@ -87,7 +87,7 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 [PRIMITIVE_SAMPLING]: `Sphere.PointAt(lonRadians, latRadians)` `Sphere.ClosestPoint` `Sphere.ClosestParameter(pt, out lon, out lat)` `Circle.PointAt(t)` `Circle.ClosestPoint` `Circle.ClosestParameter(pt, out t)` `Arc.PointAt(t)` `Arc.ClosestParameter(pt)` — evaluate a primitive at its own parameterization, the `Analysis` cardinality switch reading the result beside the crossing verdict.
 
 - Projection arity forks across the family: `Sphere` and `Circle` return `bool` with the parameters on `out` channels, while `Arc.ClosestParameter` returns the `double` directly and carries no failure verdict — a fold treating the three uniformly drops the `Arc` case or invents a verdict it never gets.
-[RAY_SAMPLING]: `Ray3d.PointAt(t)` `Position` `Direction` — parametric ray sampling driving `SpatialQuery.Ray` and `MeshRay`.
+[RAY_SAMPLING]: `Ray3d.PointAt(t)` `Position` `Direction` — parametric ray sampling driving the ray `SpatialIndex.Query` arm and `MeshRay`.
 
 [ENTRYPOINT_SCOPE]: curve evaluation, projection, division, classification, and transformation, and the polyline chain surface; instance members
 

@@ -390,19 +390,14 @@ public static class Remeshing {
             (int a, int b, int c) = soup.Face(f);
             corners[f] = (soup.Position(a), soup.Position(b), soup.Position(c));
         }
-        return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
-            .Bind(answer => answer is SpatialAnswer.Index built
-                ? Fin.Succ(new Source(built.Value, corners))
-                : Fin.Fail<Source>(key.InvalidResult()));
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, key)
+            .Map(built => new Source(built, corners));
     }
 
     static Fin<Unit> Project(MeshEdit arena, Source source, RemeshPolicy policy, Op key) =>
         Range(0, arena.VertexCount).ToSeq().TraverseM(v => {
             Point3d p = arena.Position(v);
-            return Spatial.Apply(new SpatialOp.Query(source.Index, new SpatialQuery.Nearest(p, policy.ProjectCandidates.Value)), key)
-                .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest hits }
-                    ? Fin.Succ(hits.Ordered)
-                    : Fin.Fail<Seq<int>>(key.InvalidResult()))
+            return source.Index.Query(p, policy.ProjectCandidates.Value, key)
                 .Map(hits => {
                     (Point3d at, Option<double> _) = hits.Fold(
                         (At: p, Distance: Option<double>.None),
@@ -456,7 +451,7 @@ public static class Remeshing {
     static Fin<Arr<double>> SampleStripes(MeshSpace space, VectorField field, double frequency, Op key) =>
         Range(0, space.Native.Vertices.Count)
             .TraverseM(v => SegmentKernel.StripeAt(space, field, frequency, space.Native.Vertices[v], key)).As()
-            .Map(static values => toArr(values));
+            .Map(static values => toArray(values));
 
     static readonly (long Du, long Dv)[] Ring = [(0, 0), (1, 0), (1, 1), (0, 1)];
 
@@ -524,7 +519,7 @@ public static class Remeshing {
             }
         }
         return emit.ToSpace(key).Map(mesh => new RewriteResult(
-            mesh, trace, Some(new QuadProvenance(toArr(corners), toArr(patchOf), toArr(uOut), toArr(vOut), toArr(singular.Order())))));
+            mesh, trace, Some(new QuadProvenance(toArray(corners), toArray(patchOf), toArray(uOut), toArray(vOut), toArray(singular.Order())))));
     }
 
     static Option<(Point3d At, int Face)> Locate(MeshEdit soup, Arr<double> u, Arr<double> v, Dictionary<(long Iu, long Iv), List<int>> cells, long cu, long cv) {

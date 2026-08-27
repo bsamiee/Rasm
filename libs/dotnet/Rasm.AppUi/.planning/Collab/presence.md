@@ -82,7 +82,7 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
 }
 
 public sealed record CollabWireContext(Map<string, string> Carrier) {
-    public static readonly CollabWireContext Empty = new(Map<string, string>.Empty);
+    public static readonly CollabWireContext Empty = new(Map<string, string>());
 
     public Option<string> Get(string key) => Carrier.Find(key);
     public CollabWireContext With(string key, string value) => this with { Carrier = Carrier.AddOrUpdate(key, value) };

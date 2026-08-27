@@ -1106,14 +1106,14 @@ public sealed unsafe class ClipMuxer : IDisposable {
 
     private Fin<byte[]> Closed() {
         Fin<Unit> step = Drain(null);
-        if (step.IsFail) { return step.Map(static _ => Array.Empty<byte>()); }
+        if (step.IsFail) { return step.Map(static _ => System.Array.Empty<byte>()); }
         step = Guard(ffmpeg.av_write_trailer(mux), "trailer");
-        if (step.IsFail) { return step.Map(static _ => Array.Empty<byte>()); }
+        if (step.IsFail) { return step.Map(static _ => System.Array.Empty<byte>()); }
 
         int length = ffmpeg.avio_close_dyn_buf(mux->pb, &muxed);
         mux->pb = null;
         step = Guard(length, "io-close");
-        if (step.IsFail) { return step.Map(static _ => Array.Empty<byte>()); }
+        if (step.IsFail) { return step.Map(static _ => System.Array.Empty<byte>()); }
         return length > 0 && muxed is not null
             ? Fin.Succ(new ReadOnlySpan<byte>(muxed, length).ToArray())
             : Fin.Fail<byte[]>(new VisualFault.EncodeFailed("clip/io-close: muxer returned no payload"));
@@ -1167,7 +1167,7 @@ public static class ClipEncoder {
                             }
                             finally { image.Dispose(); }
                         });
-                        if (pushed.IsFail) { return pushed.Map(static _ => Array.Empty<byte>()); }
+                        if (pushed.IsFail) { return pushed.Map(static _ => System.Array.Empty<byte>()); }
                     }
                     return held is null
                         ? Fin.Fail<byte[]>(new VisualFault.EncodeFailed("clip/empty: the frame stream yielded nothing"))

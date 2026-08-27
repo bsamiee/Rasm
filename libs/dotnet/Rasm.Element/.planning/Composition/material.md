@@ -264,7 +264,7 @@ public sealed partial record SampledCurve {
     .Apply(static (_, _) => unit).As().ToFin()
     .Bind(_ => NotIncreasing(axis.Span)
      ? new ElementFault.ValueRejected(key, "<curve-axis-not-increasing>")
-     : Interpolant.LinearSpline(toArr(axis.ToArray()), toArr(values.ToArray()), key)
+     : Interpolant.LinearSpline(toArray(axis.ToArray()), toArray(values.ToArray()), key)
         .Map(fitted => new SampledCurve([.. axis.Span], [.. values.Span], fitted)));
 
  public Fin<double> At(double x, Op key) =>

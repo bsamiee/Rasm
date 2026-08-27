@@ -46,12 +46,10 @@ using static LanguageExt.Prelude;
 namespace Rasm.Materials.Raster;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<TileLane>.Lane))]
 public sealed partial class TileLane : IDrawLane<TileLane> {
-    public static readonly TileLane Atlas = new(key: 0, lane: 0L);
-    public static readonly TileLane Strip = new(key: 1, lane: 1L);
-
-    public long Lane { get; }
+    public static readonly TileLane Atlas = new(0L);
+    public static readonly TileLane Strip = new(1L);
 }
 
 [SmartEnum<int>]
@@ -105,9 +103,9 @@ public static class TileSynth {
                from guide in set.Channels.Find(policy.Guide).ToFin(new RasterFault.Tile(key, $"<tile-guide-absent:{policy.Guide.Key}>"))
                from image in guide.AsImage(key)
                from plan in key.Catch(() => Fin.Succ(
-                   policy.Strategy.Solve(image.Levels[0].AsMemory2D(guide.Base.Height.Value, guide.Base.Width.Value), policy, policy.Seed)))
+                   policy.Strategy.Solve(image.Levels[0], policy, policy.Seed)))
                from channels in PairingOrder(set.Channels)
-                   .FoldM(HashMap<TextureChannel, TexturePyramid>.Empty, (map, row) =>
+                   .FoldM(HashMap<TextureChannel, TexturePyramid>(), (map, row) =>
                        set.Channels.Find(row).ToFin(new RasterFault.Tile(key, $"<tile-channel-lost:{row.Key}>"))
                            .Bind(pyramid => Apply(plan, pyramid, key, Companion(row, set.Channels).Bind(map.Find))
                                .Map(tiled => map.Add(row, tiled)))).As()
@@ -124,7 +122,7 @@ public static class TileSynth {
 
     private static Seq<TextureChannel> PairingOrder(HashMap<TextureChannel, TexturePyramid> planes) =>
         toSeq(planes.Keys.OrderBy(static row => row.Ordinal))
-            .Fold((Order: Seq<TextureChannel>.Empty, Seen: Set<TextureChannel>.Empty), (state, row) => Emit(row, planes, state))
+            .Fold((Order: Seq<TextureChannel>(), Seen: Set<TextureChannel>()), (state, row) => Emit(row, planes, state))
             .Order;
 
     private static (Seq<TextureChannel> Order, Set<TextureChannel> Seen) Emit(
@@ -151,7 +149,7 @@ public static class TileSynth {
                       pyramid.Base.Transfer, pyramid.Base.Alpha, pyramid.Base.Range, pyramid.Base.Primaries,
                       key, AllocationMode.Default)
                   from chain in TexturePyramid.Of(
-                          Fill(top, TileKernel.Fold(plan, image.Levels[0].AsMemory2D(pyramid.Base.Height.Value, pyramid.Base.Width.Value))),
+                          Fill(top, TileKernel.Fold(plan, image.Levels[0])),
                           pyramid.Policy, key, paired)
                       .Rollback(top)
                   select chain;
@@ -499,7 +497,7 @@ internal static class TileGate {
             }
         }
         if (total <= 0.0 || taken is 0) { return 0.0; }
-        Array.Sort(axis, 0, taken);
+        System.Array.Sort(axis, 0, taken);
         return Math.Clamp(axis[taken / 2] * taken / total, 0.0, 1.0);
     }
 

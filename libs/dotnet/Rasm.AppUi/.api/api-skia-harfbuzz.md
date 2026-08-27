@@ -73,7 +73,7 @@
 
 [TOPOLOGY]:
 - `SKShaper(SKTypeface)` opens the typeface stream through `ToHarfBuzzBlob`, builds a `Face`/`Font`, sets the internal 512 HarfBuzz scale, and selects OpenType functions — face setup runs once per shaper.
-- `Shape` runs `hbFont.Shape(buffer, Array.Empty<Feature>())`, then rescales integer advances by `font.Size / 512 * font.ScaleX` into `Points`/`Width`; a `string` overload calls `AddUtf8` + `GuessSegmentProperties` on a transient buffer, a `Buffer` overload trusts caller-prepared script, direction, and language.
+- `Shape` runs `hbFont.Shape(buffer, System.Array.Empty<Feature>())`, then rescales integer advances by `font.Size / 512 * font.ScaleX` into `Points`/`Width`; a `string` overload calls `AddUtf8` + `GuessSegmentProperties` on a transient buffer, a `Buffer` overload trusts caller-prepared script, direction, and language.
 - `DrawShapedText` shapes the run, allocates `SKTextBlobBuilder.AllocateRawPositionedRun(font, count, null)`, copies `Codepoints`->`Glyphs` and `Points`->`Positions`, builds the `SKTextBlob`, applies the `SKTextAlign` offset (`Left`=0, `Center`=-Width/2, `Right`=-Width), and draws `SKCanvas.DrawText`.
 
 [STACKING]:

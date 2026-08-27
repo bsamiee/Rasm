@@ -612,7 +612,7 @@ public static class MaterialsTap {
                     MaterialsInstrument.ReasonSlot, string.Empty);
                 return bind.Rows.Write(MaterialsInstrument.IngestStems.Row, f.Claimed, claimed)
                     .Bind(_ => f.Unresolved
-                        .Fold(HashMap<IngestRefusal, long>.Empty, static (tally, row) =>
+                        .Fold(HashMap<IngestRefusal, long>(), static (tally, row) =>
                             tally.AddOrUpdate(row.Reason, static held => held + 1L, 1L))
                         .AsIterable()
                         .TraverseM(row => bind.Rows.Write(MaterialsInstrument.IngestStems.Row, row.Value,

@@ -111,11 +111,11 @@ public sealed partial class OperatorForm {
             ? Fin.Succ(Square(10, (row, column) => row == column && row < 9 ? flow.Viscosity
                 : row == 9 && column == 9 ? flow.PressureStabilization
                 : row == 9 && column is 0 or 4 or 8 || column == 9 && row is 0 or 4 or 8 ? -1.0 : 0.0))
-            : Require(false, payload).Map(static _ => Array.Empty<double>());
+            : Require(false, payload).Map(static _ => System.Array.Empty<double>());
     static Fin<double[]> LowerEddy(MaterialForm form, double scale, double poisson, PhysicsPayload payload) =>
         payload is PhysicsPayload.EddyCurrent eddy
             ? Fin.Succ(Square(6, (row, column) => row == column ? 1.0 / eddy.Permeability : 0.0))
-            : Require(false, payload).Map(static _ => Array.Empty<double>());
+            : Require(false, payload).Map(static _ => System.Array.Empty<double>());
     static Fin<double[]> LowerNetwork(MaterialForm form, double scale, double poisson, PhysicsPayload payload) =>
         Fin.Fail<double[]>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.Type(payload.GetType()))));
 

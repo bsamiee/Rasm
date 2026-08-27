@@ -224,7 +224,7 @@ public sealed partial class SliceRegion {
 
     private static Fin<Loop> Ring(SliceStack stack, int layer, int contour, Context tolerance) =>
         Loop.Admit(
-            toArr(stack.ContourAt(layer, contour).Points.SkipLast(1).Select(static point => new Point3d(point.X, point.Y, point.Z))),
+            toArray(stack.ContourAt(layer, contour).Points.SkipLast(1).Select(static point => new Point3d(point.X, point.Y, point.Z))),
             closed: true, Arr<double>(), tolerance);
 
     private static Fin<Loop> Run(Seq<Edge3> run, Context tolerance) =>
@@ -1202,7 +1202,7 @@ public static partial class Slice {
             .Filter(static chain => !chain.Points.IsClosed)
             .Filter(static chain => chain.Points.Count >= 2)
             .Traverse(chain => Loop.Admit(
-                toArr(chain.Points.Select(static point => new Point3d(point.X, point.Y, point.Z))),
+                toArray(chain.Points.Select(static point => new Point3d(point.X, point.Y, point.Z))),
                 closed: false, Arr<double>(), tolerance))
             .As();
 

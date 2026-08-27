@@ -259,7 +259,7 @@ public abstract partial record AnalysisQuery {
     public sealed record OverlapCase(NeighborIndex Left, NeighborIndex Right, Tolerance Band) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Overlap;
         Operation<Unit, TOut> IServiceQuery.Build<TOut>(Op key) =>
-            Spine<TOut>(key: key, resolve: _ => Fin.Succ(Left), query: new NeighborQuery.OverlapsCase(Other: Right, Tolerance: Band.Value), anchor: Point3d.Origin);
+            Spine<TOut>(key: key, resolve: _ => Fin.Succ(Left), query: new NeighborQuery.OverlapsCase(Other: Right, Band: Band), anchor: Point3d.Origin);
     }
     public sealed record PointPairsCase(Seq<Point3d> Points, Seq<Point3d> Needles, NeighborQuery Probe) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.PointPairs;

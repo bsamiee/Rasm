@@ -108,7 +108,7 @@ public readonly record struct MembershipStep(int NodeId, NodeState From, NodeSta
 
 [Equatable]
 public sealed partial record MembershipView(HashMap<int, MemberRecord> Members, Option<MembershipStep> Settled) {
-    public static readonly MembershipView Empty = new(HashMap<int, MemberRecord>.Empty, None);
+    public static readonly MembershipView Empty = new(HashMap<int, MemberRecord>(), None);
 
     public Seq<MemberRecord> Serving => Members.Values.Filter(static m => m.State == NodeState.Serving).ToSeq();
 

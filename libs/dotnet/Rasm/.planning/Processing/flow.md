@@ -542,7 +542,7 @@ internal static class MorseAtlas {
     private static Seq<(int Cell, bool Recurrent)> Census(Seq<int> component, int nodes, LanguageExt.HashSet<int> trapped) {
         int[] first = new int[nodes];
         int[] size = new int[nodes];
-        Array.Fill(array: first, value: -1);
+        System.Array.Fill(array: first, value: -1);
         for (int cell = 0; cell < component.Count; cell++) {
             size[component[cell]]++;
             if (first[component[cell]] < 0) first[component[cell]] = cell;

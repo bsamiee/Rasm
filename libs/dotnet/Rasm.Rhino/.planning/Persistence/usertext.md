@@ -679,7 +679,7 @@ public static class UserTexts {
                 state.Store == ObjectTextStore.Geometry,
                 state.Store == ObjectTextStore.Attributes,
                 enumerator.Settings))))
-        select toSeq(Optional(found).IfNone(Array.Empty<RhinoObject>())).Map(static value => value.Id);
+        select toSeq(Optional(found).IfNone(System.Array.Empty<RhinoObject>())).Map(static value => value.Id);
 
     private static Fin<RhinoObject> Resolve(RhinoDoc document, ResourceId objectId, Op key) =>
         key.Catch(() => Optional(document.Objects.FindId(objectId.Value))

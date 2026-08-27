@@ -32,7 +32,7 @@
 - [21]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — stencils, noise lattices, falloff profiles, solar almanac.
 
 [SPATIAL]:
-- [22]-[INDEX](.planning/Spatial/index.md): Polymorphic `SpatialIndex` behind one apply entry — queries, refit, and the one traversal owner.
+- [22]-[INDEX](.planning/Spatial/index.md): One sealed `SpatialIndex` with typed build, query, refit, and wire operations over one frozen `NodeStore` — and the one traversal owner.
 - [23]-[NAMING](.planning/Spatial/naming.md): Persistent topological naming — lineage algebra, name registry, and the re-anchor-by-signature fold.
 - [24]-[RECONCILIATION](.planning/Spatial/reconciliation.md): Naming-to-hash fence — canonical byte streams onto `NamingHash` Persistence consumes.
 - [25]-[SUPPORT](.planning/Spatial/support.md): Corpus proximity gate — capability-gated support projection behind its typed space union.

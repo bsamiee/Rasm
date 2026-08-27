@@ -748,7 +748,7 @@ public static partial class Removal {
         double total = cumulative[surface.Count - 1];
         Seq<Option<DeviationSample>> rows = toSeq(Enumerable.Range(0, budget)).Map(index => {
             int face = Math.Clamp(
-                Array.BinarySearch(cumulative, total * (index + 0.5) / budget) is var found && found >= 0
+                System.Array.BinarySearch(cumulative, total * (index + 0.5) / budget) is var found && found >= 0
                     ? found
                     : ~found,
                 0,

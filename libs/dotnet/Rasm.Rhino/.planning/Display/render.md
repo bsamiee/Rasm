@@ -2927,8 +2927,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                        from digest in answer.Switch(
                            state: key,
                            digest: static (_, row) => Fin.Succ(row.Value),
-                           reconciled: static (op, _) => Fin.Fail<GeometryHash>(op.InvalidResult(detail: nameof(ReconcileAnswer.Reconciled))),
-                           topology: static (op, _) => Fin.Fail<GeometryHash>(op.InvalidResult(detail: nameof(ReconcileAnswer.Topology))))
+                           reconciled: static (op, _) => Fin.Fail<GeometryHash>(op.InvalidResult(detail: nameof(ReconcileAnswer.Reconciled))))
                        from residency in policy.Residency
                            .TraverseM(pack => Encode.Apply(new PackOp.MeshPatch(Source: space, Policy: pack), key))
                            .As()

@@ -278,7 +278,7 @@ public sealed partial class ExternalTransport {
     static IO<ExternalValue> Drained(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
         SubscriptionLane.Drain(runtime.Lane(spec.BindingId), token);
 
-    static Seq<ScheduleEntry> NoEntries(LiveWireRuntime runtime, BindingHandle handle) => Seq<ScheduleEntry>.Empty;
+    static Seq<ScheduleEntry> NoEntries(LiveWireRuntime runtime, BindingHandle handle) => Seq<ScheduleEntry>();
 
     static OutboundHop Http(LiveWireRuntime runtime, BindingSpec spec) => new OutboundHop.HttpApi(new Uri(spec.ExternalAddress));
     static OutboundHop Stream(LiveWireRuntime runtime, BindingSpec spec) => new OutboundHop.ServerStream(new Uri(spec.ExternalAddress));
@@ -807,7 +807,7 @@ public static class BacnetLane {
     public static Seq<ScheduleEntry> Entries(LiveWireRuntime runtime, BindingHandle handle) =>
         runtime.Seat<TransportSeat.Bacnet>(handle.Spec.Transport)
             .Map(seat => Renewal(runtime, seat, handle).ToSeq().Add(Sweep(runtime, seat, handle)))
-            .IfFail(static _ => Seq<ScheduleEntry>.Empty);
+            .IfFail(static _ => Seq<ScheduleEntry>());
 
     static Option<ScheduleEntry> Renewal(LiveWireRuntime runtime, TransportSeat.Bacnet seat, BindingHandle handle) =>
         seat.Bbmd.Map(bbmd => new ScheduleEntry(

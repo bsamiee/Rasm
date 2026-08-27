@@ -372,7 +372,7 @@ public readonly record struct BezierEase(double X1, double Y1, double X2, double
         Op op = key.OrDefault();
         (double x1, double x2, double y1, double y2, double target) = (X1, X2, Y1, Y2, t.Value);
         return Range(0, Probes.Value).FoldUntil(
-                state: (U: target, Lo: 0.0, Hi: 1.0, Settled: Option<double>.None),
+                initialState: (U: target, Lo: 0.0, Hi: 1.0, Settled: Option<double>.None),
                 f: (state, _) => {
                     double x = Axis(a: x1, b: x2, u: state.U) - target;
                     if (Math.Abs(value: x) <= EpsilonPolicy.SqrtEpsilon) { return (state.U, state.Lo, state.Hi, Some(state.U)); }
@@ -381,7 +381,7 @@ public readonly record struct BezierEase(double X1, double Y1, double X2, double
                     return (slope > EpsilonPolicy.ZeroTolerance ? Math.Clamp(value: state.U - (x / slope), min: lo, max: hi) : (lo + hi) / 2.0,
                         lo, hi, Option<double>.None);
                 },
-                stateP: static state => state.Settled.IsSome)
+                predicate: static state => state.Settled.IsSome)
             .Settled
             .Map(u => Axis(a: y1, b: y2, u: u))
             .ToFin(Fail: op.InvalidResult());

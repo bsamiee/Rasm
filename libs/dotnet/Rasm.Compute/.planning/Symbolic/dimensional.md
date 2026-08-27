@@ -65,7 +65,7 @@ public readonly partial struct DimensionMonomial :
 
     public static DimensionMonomial Of(params ReadOnlySpan<(SiAxis Axis, ERational Exponent)> terms) {
         ERational[] slots = new ERational[SiAxis.Rank];
-        Array.Fill(slots, ERational.Zero);
+        System.Array.Fill(slots, ERational.Zero);
         foreach ((SiAxis axis, ERational exponent) in terms) {
             slots[axis.Key] += exponent;
         }

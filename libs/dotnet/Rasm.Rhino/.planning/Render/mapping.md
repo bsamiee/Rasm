@@ -513,7 +513,7 @@ public sealed partial class CoordinateBlock : IDetachedDocumentResult {
                 : new ValidationError(string.Join(" | ", new object?[] { nameof(CoordinateBlock), "a 2D or 3D block whose rows match the vertex count" }));
 
     internal static Fin<CoordinateBlock> Of(CachedTextureCoordinates coordinates, int expected, Op key) {
-        Arr<Point3d> rows = toArr(coordinates);
+        Arr<Point3d> rows = toArray(coordinates);
         return key.AcceptValidated<CoordinateBlock>(
             Validate(coordinates.Dim, coordinates.MappingId, expected, rows, out CoordinateBlock? value), value);
     }

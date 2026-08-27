@@ -65,17 +65,9 @@ public sealed partial class LicenseClass {
     public bool Grants { get; }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<StageDraw>.Lane))]
 public sealed partial class StageDraw : IDrawLane<StageDraw> {
-    public static readonly StageDraw Latent = new("latent", lane: 0L);
-
-    private StageDraw(string key, long lane) : this(key) => Lane = lane;
-
-    public long Lane { get; }
-
-    static IReadOnlyList<StageDraw> IDrawLane<StageDraw>.Items => Items;
+    public static readonly StageDraw Latent = new(0L);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

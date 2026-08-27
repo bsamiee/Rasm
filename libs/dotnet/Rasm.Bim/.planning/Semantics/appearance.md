@@ -458,7 +458,7 @@ public static class AppearanceProjection {
                     None: () => Fin.Succ(Option<(EncodingChannel Channel, IfcPresentationItem Item)>.None)))
                 .As()
                 .Map(static bound => bound.Somes()) }
-            : Fin.Succ(Seq<(EncodingChannel Channel, IfcPresentationItem Item)>.Empty);
+            : Fin.Succ(Seq<(EncodingChannel Channel, IfcPresentationItem Item)>());
 
     static readonly Lazy<FrozenDictionary<EncodingChannel, Func<IfcStyledItem, IfcTriangulatedFaceSet, float[], long[], long, Op, Fin<Option<IfcPresentationItem>>>>> Binders =
         new(static () => new Dictionary<EncodingChannel, Func<IfcStyledItem, IfcTriangulatedFaceSet, float[], long[], long, Op, Fin<Option<IfcPresentationItem>>>> {

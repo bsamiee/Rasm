@@ -283,7 +283,7 @@ public sealed partial class FieldEntry {
     static Fin<FieldValue> Chosen(FormField field, JsonElement value) =>
         (value.GetString() ?? string.Empty) switch {
             var text => Options(field.Control).Match(
-                Some: rows => Array.IndexOf(rows.Map(static row => row.Value).ToArray(), text) switch {
+                Some: rows => System.Array.IndexOf(rows.Map(static row => row.Value).ToArray(), text) switch {
                     >= 0 and var at => Fin.Succ<FieldValue>(new FieldValue.Pick(Some(at), text)),
                     _ => Fin.Fail<FieldValue>(new FormFault.FieldInvalid(field.Key.Value, $"value outside the option roster: {text}")),
                 },

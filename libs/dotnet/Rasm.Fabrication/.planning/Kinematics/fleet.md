@@ -1228,7 +1228,7 @@ public sealed partial class FleetPolicy {
     public Duration PerformanceHorizon { get; }
 
     public static FleetPolicy Canonical { get; } =
-        Create(HashMap<FleetObjective, ObjectiveTuning>.Empty, Duration.FromHours(24));
+        Create(HashMap<FleetObjective, ObjectiveTuning>(), Duration.FromHours(24));
 
     public ObjectiveTuning For(FleetObjective objective) => Tuning.Find(objective).IfNone(objective.Canonical);
 

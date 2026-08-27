@@ -85,7 +85,7 @@ public abstract partial record ShadeSupply {
         if (values.IsEmpty) { return Nothing; }
         float[] lanes = new float[values.Length];
         TensorPrimitives.ConvertTruncating<double, float>(values, lanes);
-        return new Run(toArr(lanes));
+        return new Run(toArray(lanes));
     }
 
     public static ShadeSupply Of(Seq<double> values) =>

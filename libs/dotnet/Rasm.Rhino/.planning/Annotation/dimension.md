@@ -621,7 +621,7 @@ public sealed partial class DimFamily {
     private delegate bool TextRectProbe(out Point3d[] corners);
 
     private static Fin<Arr<Point3d>> TextBox(TextRectProbe probe, Op key) => key.Catch(() =>
-        probe(out Point3d[] corners) ? Fin.Succ(value: toArr(corners)) : Fin.Fail<Arr<Point3d>>(key.InvalidResult()));
+        probe(out Point3d[] corners) ? Fin.Succ(value: toArray(corners)) : Fin.Fail<Arr<Point3d>>(key.InvalidResult()));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

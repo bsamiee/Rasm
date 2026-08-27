@@ -486,7 +486,7 @@ public static class TexturePress {
     static Fin<PressProduct> Mint(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
         from program in Compile(subject, plan, key)
         from folded in plan.Bindings.Filter(b => Direct(program, b))
-            .FoldM((Planes: HashMap<TextureChannel, TexturePyramid>.Empty, Evidence: HashMap<TextureChannel, PlaneTrace>.Empty, Downgraded: Seq<TextureChannel>(), Faulted: HashMap<TextureChannel, ulong>.Empty, Done: 0), (carried, binding) =>
+            .FoldM((Planes: HashMap<TextureChannel, TexturePyramid>(), Evidence: HashMap<TextureChannel, PlaneTrace>(), Downgraded: Seq<TextureChannel>(), Faulted: HashMap<TextureChannel, ulong>(), Done: 0), (carried, binding) =>
                 Staged(governance, carried.Done, plan.Bindings.Count, carried.Planes, () =>
                     Land(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), key, ticks, governance.Cancel)
                         .Map(next => (next.Planes, next.Evidence, next.Downgraded, next.Faulted, Done: carried.Done + 1))
@@ -612,7 +612,7 @@ public static class TexturePress {
     static Fin<PressProduct> Accelerate(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
         from lease in PressDevice.Acquire(DevicePolicy.Default, key)
         from planes in lease.Use((Subject: subject, Plan: plan, Key: key, Governance: governance), static (state, device) =>
-            state.Plan.Bindings.FoldM((Rows: HashMap<TextureChannel, TexturePyramid>.Empty, Done: 0), (carried, binding) =>
+            state.Plan.Bindings.FoldM((Rows: HashMap<TextureChannel, TexturePyramid>(), Done: 0), (carried, binding) =>
                 Staged(state.Governance, carried.Done, state.Plan.Bindings.Count, carried.Rows, () =>
                     Lower(state.Subject, binding, state.Key)
                         .Bind(lowered => device.Dispatch(lowered.Kernel, Stage(state.Plan, lowered.Kernel, lowered.Field), state.Key))
@@ -623,7 +623,7 @@ public static class TexturePress {
             .Map(static carried => carried.Rows))
         select (PressProduct)new PressProduct.Preview(planes, new PressRun(plan.Backend, plan.PlanKey,
             Option<UInt128>.None, plan.Seed, Texels(plan, planes), ticks.GetElapsedTime(opened).TotalMilliseconds,
-            HashMap<TextureChannel, PlaneTrace>.Empty, Seq<TextureChannel>(), HashMap<TextureChannel, ulong>.Empty,
+            HashMap<TextureChannel, PlaneTrace>(), Seq<TextureChannel>(), HashMap<TextureChannel, ulong>(),
             GpuDeltaMax: Option<double>.None, Aging: Option<AgeCoverage>.None));
 
     static Fin<PressProgram> Compile(PressSubject subject, PressPlan plan, Op key) =>

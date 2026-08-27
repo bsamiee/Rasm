@@ -437,7 +437,7 @@ public sealed record SearchPlane(
                     Succ: static _ => (PaletteStatus)new PaletteStatus.Settled(),
                     Fail: static error => new PaletteStatus.Refused(error)))
                 .StartWith(new PaletteStatus.Pending()),
-            Hits.Connect().ToCollection().StartWith(Array.Empty<SearchResult>()),
+            Hits.Connect().ToCollection().StartWith(System.Array.Empty<SearchResult>()),
             static (status, hits) => new PaletteSlice(ProviderKind, status,
                 Ordered(hits).Map(static (hit, ordinal) => SearchMap.ToHit(hit, ordinal)))));
 

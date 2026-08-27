@@ -600,11 +600,11 @@ public static partial class Support {
 ## [06]-[GROWTH]
 
 - Owner: `SupportSites` owns tip distribution, guarded descent, spatial merge, parent resolution, demand accumulation, and stress sizing; `TreeSeed` is its pre-identity carrier.
-- Law: neighbour search is the KERNEL broad phase. Point sites enter `Spatial.Apply` as degenerate boxes and the page applies the exact metric to the candidate set the kernel narrowed, so the merge relation, the parent candidate set, and the nearest-parent fallback all read ONE structure. A bucket grid, a Morton hash, or a page-local cell index is the deleted form here and on every sibling.
-- Law: `SpatialQuery.SelfOverlap` emits each unordered pair once, so the merge relation needs no upper-triangular filter of its own; a symmetric relation resolves through `ConnectedComponents` over an `UndirectedGraph`.
+- Law: neighbour search is the KERNEL broad phase. Point sites enter `SpatialIndex.Build` as degenerate boxes and the page applies the exact metric to the candidate set the kernel narrowed, so the merge relation, the parent candidate set, and the nearest-parent fallback all read ONE structure. A bucket grid, a Morton hash, or a page-local cell index is the deleted form here and on every sibling.
+- Law: the self-overlap `SpatialIndex.Query` arm emits each unordered pair once, so the merge relation needs no upper-triangular filter of its own; a symmetric relation resolves through `ConnectedComponents` over an `UndirectedGraph`.
 - Law: avoidance reads the POINT against the material — inside or outside the region, inside or outside the access-clearance band, and within or beyond half the maximum bridge from the boundary. A predicate reading policy alone decides nothing and every state it returns is fiction; a bounding-box centre stands in for material the box does not describe.
 - Law: lateral descent bears away from the layer's own AREA-WEIGHTED centroid, which `SliceStack.CentroidAt` measures, and the branch phase decorrelates adjacent trunks by keying its turn on the tip's own ordinal. A detour that cannot leave the material is a typed collision, never a fabricated offset.
-- Law: nearest-parent resolution is `SpatialQuery.Nearest`, so no tessellation runs to answer a proximity question; `PolygonOp.Cells` stays where it does real work — the relaxed, merged tip field.
+- Law: nearest-parent resolution is the k-nearest `SpatialIndex.Query` arm, so no tessellation runs to answer a proximity question; `PolygonOp.Cells` stays where it does real work — the relaxed, merged tip field.
 - Law: node identifiers mint once after spatial merge; no child plan carries a private ordinal into composition.
 - Law: demand accumulation folds one keyed map in descending identity — reverse topological order for a strictly layered parent edge — so no node is rescanned per parent link.
 - Boundary: one `PolygonOp.Cells` request distributes tips over the site cloud `Additive/slicing` `CellPattern` draws — stateless, lane-keyed on the candidate ordinal and axis under `GrowthPolicy.Seed` plus the demand layer — so no relaxation loop, merge callback, draw stream, page-local RNG, or second copy of the placement body is minted here. That owner composes the kernel `Deterministic.Unit` and never forks a draw-law family; a draw-law vocabulary landing at the `Process` atoms floor collapses it to one row read.
@@ -640,24 +640,7 @@ public static partial class Support {
 
 internal static class SupportSites {
     internal static Fin<SpatialIndex> Index(Seq<Point3d> sites) =>
-        Spatial.Apply(
-            new SpatialOp.Build(SpatialKind.Bvh, [.. sites.Map(static at => new BoundingBox(at, at))], BuildPolicy.Canonical),
-            Op.Of(name: nameof(Index)))
-            .Bind(static answer => Answer<SpatialAnswer.Index>(answer, "support:site-index").Map(static built => built.Value));
-
-    private static Fin<TQuery> Answer<TQuery>(SpatialAnswer answer, string locus)
-        where TQuery : SpatialAnswer =>
-        answer is TQuery typed
-            ? Fin.Succ(typed)
-            : Fin.Fail<TQuery>(new KernelFault.InvalidValue("support", locus));
-
-    private static Fin<TResult> Probe<TResult>(SpatialIndex index, SpatialQuery query, string locus)
-        where TResult : QueryResult =>
-        Spatial.Apply(new SpatialOp.Query(index, query), Op.Of(name: nameof(Probe)))
-            .Bind(answer => Answer<SpatialAnswer.Result>(answer, locus))
-            .Bind(found => found.Value is TResult typed
-                ? Fin.Succ(typed)
-                : Fin.Fail<TResult>(new KernelFault.InvalidValue("support", locus)));
+        SpatialIndex.Build(SpatialKind.Bvh, [.. sites.Map(static at => new BoundingBox(at, at))], BuildPolicy.Canonical, Op.Of(name: nameof(Index)));
 
     public static Fin<Seq<TreeSeed>> Tips(Seq<SupportDemand> demand, GrowthPolicy policy) =>
         demand.Traverse(row => row.Region.IsEmpty
@@ -774,8 +757,8 @@ internal static class SupportSites {
     public static Fin<Seq<TreeSeed>> Merge(Seq<TreeSeed> rows, Length distance) => rows.IsEmpty
         ? Fin.Succ(rows)
         : from index in Index(rows.Map(static row => row.At))
-          from overlaps in Probe<QueryResult.Pairs>(index, new SpatialQuery.SelfOverlap(distance.Millimeters), "support:merge-pairs")
-          let close = overlaps.Overlaps.Filter(pair =>
+          from overlaps in index.Query(distance.Millimeters, Op.Of(name: nameof(Merge)))
+          let close = overlaps.Filter(pair =>
               rows[pair.Left].Layer == rows[pair.Right].Layer
               && rows[pair.Left].At.DistanceTo(rows[pair.Right].At) <= distance.Millimeters)
           from labels in Components(rows.Count, close)
@@ -868,13 +851,13 @@ internal static class SupportSites {
         BoundingBox box = new(
             new Point3d(at.X - margin, at.Y - margin, at.Z - margin),
             new Point3d(at.X + margin, at.Y + margin, at.Z + margin));
-        return Probe<QueryResult.Hits>(index, new SpatialQuery.Range(box, Some(new Sphere(at, margin))), "support:parent-range")
-            .Bind(hits => hits.Ids.IsEmpty
-                ? Probe<QueryResult.Nearest>(index, new SpatialQuery.Nearest(at, 1), "support:parent-nearest")
-                    .Bind(nearest => nearest.Ordered.Head
+        return index.Query(box, Some(new Sphere(at, margin)), Op.Of(name: nameof(Parents)))
+            .Bind(hits => hits.IsEmpty
+                ? index.Query(at, 1, Op.Of(name: nameof(Parents)))
+                    .Bind(nearest => nearest.Head
                         .ToFin(new KernelFault.InvalidValue("support", "support:parent-absent"))
                         .Map(slot => (child.Id, Seq(lower[slot].Id))))
-                : Fin.Succ((child.Id, hits.Ids.Map(slot => lower[slot].Id))));
+                : Fin.Succ((child.Id, hits.Map(slot => lower[slot].Id))));
     }
 
     private static Seq<SupportNode> Accumulate(Seq<SupportNode> nodes, SupportPolicy policy) =>

@@ -389,7 +389,7 @@ public sealed record ContentSnapshot(
                 UseCount: active.UseCount())));
 
     private static Seq<SlotState> SlotsOf(RenderContent parent) =>
-        toSeq(List.unfold(
+        toSeq(LanguageExt.List.unfold(
                 Optional(parent.FirstChild),
                 static cursor => cursor.Map(child => (child, Optional(child.NextSibling)))))
             .Map(child => new SlotState(

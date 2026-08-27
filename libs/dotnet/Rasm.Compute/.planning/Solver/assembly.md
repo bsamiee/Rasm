@@ -366,7 +366,7 @@ public abstract partial record BoundaryCondition {
     }
 
     internal static void AddAt(SparseCompressedRowMatrixStorage<double> csr, double[] values, int row, int column, double delta) {
-        int index = Array.BinarySearch(csr.ColumnIndices, csr.RowPointers[row], csr.RowPointers[row + 1] - csr.RowPointers[row], column);
+        int index = System.Array.BinarySearch(csr.ColumnIndices, csr.RowPointers[row], csr.RowPointers[row + 1] - csr.RowPointers[row], column);
         if (index >= 0) { values[index] += delta; }
     }
 

@@ -185,13 +185,7 @@ public sealed record CellDiagram(
     double Plane) {
     public Fin<int> Locate(Point3d sample, Op? key = null) {
         Op op = key.OrDefault();
-        return Spatial.Apply(new SpatialOp.Query(Seeds, new SpatialQuery.Nearest(sample, K: 1)), op).Bind(answer => answer.Switch(
-            state: op,
-            index: static (key, _) => Fin.Fail<int>(key.InvalidResult(detail: "cells:non-query-answer")),
-            wire: static (key, _) => Fin.Fail<int>(key.InvalidResult(detail: "cells:non-query-answer")),
-            result: static (key, admitted) => admitted.Value is QueryResult.Nearest { Ordered: [int site, ..] }
-                ? Fin.Succ(site)
-                : Fin.Fail<int>(key.InvalidResult(detail: "cells:empty-nearest"))));
+        return Seeds.Query(sample, 1, op).Bind(ordered => ordered.Head.ToFin(op.InvalidResult(detail: "cells:empty-nearest")));
     }
 }
 
@@ -791,17 +785,7 @@ public static class PolygonAlgebra {
     }
 
     private static Fin<SpatialIndex> SeedIndex(Arr<SiteCell> cells, Op op) =>
-        Spatial.Apply(
-                new SpatialOp.Build(
-                    SpatialKind.Bvh,
-                    [.. cells.Map(static cell => new BoundingBox(cell.Seed, cell.Seed))],
-                    BuildPolicy.Canonical),
-                op)
-            .Bind(answer => answer.Switch(
-                state: op,
-                index: static (_, admitted) => Fin.Succ(admitted.Value),
-                result: static (key, _) => Fin.Fail<SpatialIndex>(key.InvalidResult(detail: "cells:non-index-answer")),
-                wire: static (key, _) => Fin.Fail<SpatialIndex>(key.InvalidResult(detail: "cells:non-index-answer"))));
+        SpatialIndex.Build(SpatialKind.Bvh, [.. cells.Map(static cell => new BoundingBox(cell.Seed, cell.Seed))], BuildPolicy.Canonical, op);
 
     internal static FillRule FillOf(PolygonFill fill) => fill.Switch(
         nonZero: static () => FillRule.NonZero,
@@ -819,7 +803,7 @@ public static class PolygonAlgebra {
     }
 
     private static Fin<RegionTopology> TopologyOf(PolyTreeD tree, Context tolerance, double plane, PolygonFill fill, Op op) =>
-        Descendants(tree, None, Seq<(PolyPathD Node, Option<int> Parent)>.Empty)
+        Descendants(tree, None, Seq<(PolyPathD Node, Option<int> Parent)>())
             .Map(static (row, index) => (row.Node, row.Parent, Index: index))
             .TraverseM(row => op.Need(row.Node.Polygon)
                 .Bind(path => FromPath(path, closed: true, tolerance, plane)

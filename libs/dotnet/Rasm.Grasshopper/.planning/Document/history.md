@@ -179,7 +179,7 @@ public static partial class HistoryLedger {
                })), DispatchLane.Interactive, active)
                select path;
 
-        static Seq<Node> Climb(Node tip, Node ancestor) => toSeq(List.unfold(Some(tip), held => held.Map(node =>
+        static Seq<Node> Climb(Node tip, Node ancestor) => toSeq(LanguageExt.List.unfold(Some(tip), held => held.Map(node =>
             (node, ReferenceEquals(node, ancestor) ? Option<Node>.None : Some(node.Parent)))));
     }
 

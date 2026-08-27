@@ -431,7 +431,7 @@ public abstract partial record BlockOp {
         Op op,
         Func<IEnumerable<GeometryBase>, IEnumerable<ObjectAttributes>, Fin<Unit>> run) =>
         members.IsEmpty
-            ? op.Catch(() => run(Array.Empty<GeometryBase>(), Array.Empty<ObjectAttributes>()))
+            ? op.Catch(() => run(System.Array.Empty<GeometryBase>(), System.Array.Empty<ObjectAttributes>()))
             : from active in domain.ToFin(Fail: op.MissingContext())
               from admitted in Leased(members: members, domain: active, op: op)
               from _ in op.Catch(() => run(
@@ -512,7 +512,7 @@ public abstract partial record FieldSource {
                 select (BlockAnswer)new BlockAnswer.Token(Value: token));
 
     private static Arr<BlockField> Described(IEnumerable<TextFields.InstanceAttributeField> descriptors) =>
-        toArr(descriptors).Map(FieldMap.From);
+        toArray(descriptors).Map(FieldMap.From);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]

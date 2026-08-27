@@ -237,10 +237,10 @@ public sealed partial class HostDescriptor {
     public CapabilitySet<HostCapability> Held { get; }
 
     static partial void ValidateFactoryArguments(
-        ref ValidationError? error, ref string key, ref string fits, ref string tenancy, ref DescriptorLifetime lifetime,
+        ref ValidationError? validationError, ref string key, ref string fits, ref string tenancy, ref DescriptorLifetime lifetime,
         ref Option<string> residual, ref ShipVehicle vehicle, ref HostAttach attach, ref HostSurface surface,
         ref RecoveryObjective durability, ref CapabilitySet<HostCapability> held) =>
-        error = Descriptors.Coordinates(nameof(HostDescriptor), key, fits, tenancy, lifetime);
+        validationError = Descriptors.Coordinates(nameof(HostDescriptor), key, fits, tenancy, lifetime);
 }
 
 [ComplexValueObject]
@@ -254,9 +254,9 @@ public sealed partial class ProviderDescriptor {
     public Isolation Reach { get; }
 
     static partial void ValidateFactoryArguments(
-        ref ValidationError? error, ref string key, ref string fits, ref string tenancy,
+        ref ValidationError? validationError, ref string key, ref string fits, ref string tenancy,
         ref DescriptorLifetime lifetime, ref Faculty supplies, ref Isolation reach) =>
-        error = Descriptors.Coordinates(nameof(ProviderDescriptor), key, fits, tenancy, lifetime);
+        validationError = Descriptors.Coordinates(nameof(ProviderDescriptor), key, fits, tenancy, lifetime);
 }
 
 static class Descriptors {

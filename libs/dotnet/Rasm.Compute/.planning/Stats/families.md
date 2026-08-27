@@ -1214,7 +1214,7 @@ public static class EstimatorKernels {
     private static Matrix<double> Seed(Matrix<double> x, int k) {
         int[] chosen = new int[k];
         double[] nearest = new double[x.RowCount];
-        Array.Fill(nearest, double.MaxValue);
+        System.Array.Fill(nearest, double.MaxValue);
         for (int c = 1; c < k; c++) {
             for (int i = 0; i < x.RowCount; i++) { nearest[i] = Math.Min(nearest[i], EstimatorFold.Distance(x.Row(i), x.Row(chosen[c - 1]))); }
             chosen[c] = Enumerable.Range(0, x.RowCount).MaxBy(i => nearest[i]);

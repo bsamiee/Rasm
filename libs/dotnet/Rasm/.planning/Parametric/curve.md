@@ -117,9 +117,9 @@ public static class Refine {
         Func<Arr<TStation>, Arr<TStation>, Arr<TStation>> densify,
         Func<double, Error> unconverged) =>
         Range(0, policy.Rounds.Value).FoldUntil(
-            state: fit(seed, 0),
+            initialState: fit(seed, 0),
             f: (state, _) => state.Bind(s => fit(densify(s.Stations, s.Breaching), s.Round + 1)),
-            stateP: static state => state.Match(Succ: static s => s.Breaching.Count == 0, Fail: static _ => true))
+            predicate: static state => state.Match(Succ: static s => s.Breaching.Count == 0, Fail: static _ => true))
         .Bind(final => !double.IsFinite(final.Deviation) || final.Deviation < 0.0
             || (final.Breaching.Count > 0 && final.Deviation > policy.Slack.Value)
             ? Fin.Fail<(TFit Fit, Refinement Refinement)>(unconverged(final.Deviation))

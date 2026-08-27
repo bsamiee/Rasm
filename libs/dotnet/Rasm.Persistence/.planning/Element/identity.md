@@ -718,7 +718,7 @@ public sealed record SpineMount(Placement Placement, TrackerDisposition Disposit
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpineAltitude {
-    public static readonly SpineAltitude Compilation = new("compilation", static _ => Seq<IInterceptor>.Empty);
+    public static readonly SpineAltitude Compilation = new("compilation", static _ => Seq<IInterceptor>());
     public static readonly SpineAltitude UnitOfWork = new("unit-of-work",
         static mount => Seq<IInterceptor>(mount.Resolution.Mount(), new IdentityWriteGate(mount.Placement, mount.Disposition)));
 
@@ -759,7 +759,7 @@ public static class IdentitySpine {
 | [INDEX] | [POLICY]           | [VALUE]                                         | [BINDING]                                                       |
 | :-----: | :----------------- | :---------------------------------------------- | :-------------------------------------------------------------- |
 |  [01]   | altitudes          | `SpineAltitude` two declared rows               | registration order is execution order; roster is spelled        |
-|  [02]   | compilation row    | `Seq<IInterceptor>.Empty`, recorded negative    | projections materialize no entity; no shape rewrite exists      |
+|  [02]   | compilation row    | `Seq<IInterceptor>()`, recorded negative    | projections materialize no entity; no shape rewrite exists      |
 |  [03]   | write gate         | `InterceptionResult<int>.SuppressWithResult`    | the `Writes` authority refuses at the store, not the call site  |
 |  [04]   | tracker settlement | `TrackerDisposition` delegate row               | clear, detach, or hold; never phantom dirty state               |
 |  [05]   | modality twins     | `SavingChanges` with `SavingChangesAsync`       | pass-through defaults leave the async path unintercepted        |

@@ -771,7 +771,7 @@ public sealed class JobGraph(
             .ThenByDescending(static node => node.FairShareWeight.Value)));
         return Fill(
             units,
-            new JobWave(state.States, Seq<JobLaunch>(), budget.Workers, HashMap<TenantId, int>(), LanguageExt.HashSet<DeviceToken>.Empty, 0, 0),
+            new JobWave(state.States, Seq<JobLaunch>(), budget.Workers, HashMap<TenantId, int>(), LanguageExt.HashSet<DeviceToken>(), 0, 0),
             state.States,
             shares,
             state.Keys);

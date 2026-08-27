@@ -765,7 +765,7 @@ public static class TextItemizer {
             .Map(segments => Ordered(segments, spec.Direction));
 
     static Fin<Seq<(int Index, int Length, Rune Rune)>> Runes(string text) =>
-        Seq.generate(text.Length, static index => index)
+        LanguageExt.Seq.generate(text.Length, static index => index)
             .Fold(Fin.Succ((Next: 0, Cells: Seq<(int Index, int Length, Rune Rune)>())), (state, _) => state.Bind(held =>
                 held.Next >= text.Length
                     ? Fin.Succ(held)

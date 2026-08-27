@@ -224,7 +224,7 @@ public static class EventBus {
             .ToFin()
             .Map(mounted => new Cell(
                 runtime,
-                mounted.Fold(HashMap<Topic, TopicHead>.Empty, static (held, row) => held.Add(row.Head.Topic, row.Head)),
+                mounted.Fold(HashMap<Topic, TopicHead>(), static (held, row) => held.Add(row.Head.Topic, row.Head)),
                 mounted.Fold(Seq<Subscription>(), static (held, row) => held + row.Subs)));
 
     static Fin<(TopicHead Head, Seq<Subscription> Subs)> Mounted(

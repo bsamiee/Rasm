@@ -228,12 +228,9 @@ public sealed partial class BufferScope {
     public static readonly BufferScope Operation = new("operation");
 }
 
-[SmartEnum<int>]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<TelemetryLane>.Lane))]
 public sealed partial class TelemetryLane : IDrawLane<TelemetryLane> {
-    public static readonly TelemetryLane Sampler = new(key: 0);
-
-    static IReadOnlyList<TelemetryLane> IDrawLane<TelemetryLane>.Items => Items;
-    public long Lane => Key;
+    public static readonly TelemetryLane Sampler = new(0L);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

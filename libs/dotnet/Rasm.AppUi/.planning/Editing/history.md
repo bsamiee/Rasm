@@ -482,7 +482,7 @@ public static class ScrubPoint {
     public const string YField = "y";
 
     public static CommandPayload Of(Point at) =>
-        new CommandPayload.Fields(HashMap<string, JsonElement>.Empty
+        new CommandPayload.Fields(HashMap<string, JsonElement>()
             .Add(XField, JsonSerializer.SerializeToElement(at.X))
             .Add(YField, JsonSerializer.SerializeToElement(at.Y)));
 

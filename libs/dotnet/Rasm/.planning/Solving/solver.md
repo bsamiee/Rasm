@@ -938,8 +938,8 @@ public sealed record ConstraintSystem(
         }
         Seq<int>[] entityRows = new Seq<int>[partition.SetCount];
         Seq<int>[] constraintRows = new Seq<int>[partition.SetCount];
-        Array.Fill(entityRows, Seq<int>());
-        Array.Fill(constraintRows, Seq<int>());
+        System.Array.Fill(entityRows, Seq<int>());
+        System.Array.Fill(constraintRows, Seq<int>());
         for (int entity = 0; entity < entities.Count; entity++) entityRows[islandOf[entity]] = entityRows[islandOf[entity]].Add(entity);
         for (int constraint = 0; constraint < constraints.Count; constraint++) {
             int ordinal = islandOf[anchorOf[constraint]];

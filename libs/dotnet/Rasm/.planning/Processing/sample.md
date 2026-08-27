@@ -56,16 +56,14 @@ using IndexSet = System.Collections.Generic.HashSet<int>;
 namespace Rasm.Processing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<SampleLane>.Lane))]
 public sealed partial class SampleLane : IDrawLane<SampleLane> {
-    public static readonly SampleLane Priority    = new(key: 0);
-    public static readonly SampleLane Active      = new(key: 1);
-    public static readonly SampleLane Annulus     = new(key: 2);
-    public static readonly SampleLane Area        = new(key: 3);
-    public static readonly SampleLane Barycentric = new(key: 4);
-    public static readonly SampleLane Jitter      = new(key: 5);
-
-    public long Lane => Key;
+    public static readonly SampleLane Priority    = new(0L);
+    public static readonly SampleLane Active      = new(1L);
+    public static readonly SampleLane Annulus     = new(2L);
+    public static readonly SampleLane Area        = new(3L);
+    public static readonly SampleLane Barycentric = new(4L);
+    public static readonly SampleLane Jitter      = new(5L);
 }
 
 [SmartEnum<string>]
@@ -442,9 +440,10 @@ internal static class Spacing {
         Math.Sqrt(d: 2.0 * measure / (Math.Sqrt(d: 3.0) * Math.Max(val1: 1, val2: count)));
     internal static Fin<Seq<double>> Nearest(Seq<Point3d> points, Op key) =>
         points.Count < 2
-            ? Fin.Succ(Seq<double>.Empty)
-            : from index in NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: points), key: key)
-              from graph in NeighborKernel.GraphOf(index: index, needles: [.. points.AsIterable()], count: Some(2), radius: Option<double>.None, key: key)
+            ? Fin.Succ(Seq<double>())
+            : from index in NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: points), key: key)
+              from pair in key.AcceptValidated<Dimension>(candidate: 2)
+              from graph in NeighborKernel.GraphOf(index: index, needles: [.. points.AsIterable()], count: Some(pair), radius: Option<PositiveMagnitude>.None, key: key)
               select toSeq(Enumerable.Range(start: 0, count: points.Count)).Choose(i =>
                   graph.Ids.Length > i
                       ? toSeq(graph.Ids[i]).Find(id => id != i && id >= 0 && id < points.Count).Map(id => points[index: i].DistanceTo(other: points[index: id]))
@@ -860,8 +859,9 @@ internal static class SampleKernel {
             return new Regularity(Sites: toSeq(moved), AliasedCount: aliasedCount, RelocatedCount: relocated);
         }
         private bool[] AliasMask(Seq<Point3d> currentSites, double radius) =>
-            (from index in NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: currentSites), key: key)
-             from graph in NeighborKernel.GraphOf(index: index, needles: [.. currentSites.AsIterable()], count: Option<int>.None, radius: Some(radius), key: key)
+            (from index in NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: currentSites), key: key)
+             from reach in key.AcceptValidated<PositiveMagnitude>(candidate: radius)
+             from graph in NeighborKernel.GraphOf(index: index, needles: [.. currentSites.AsIterable()], count: Option<Dimension>.None, radius: Some(reach), key: key)
              select graph.Ids)
             .Match(
                 Succ: ids => [.. Enumerable.Range(start: 0, count: currentSites.Count).Select(i => ids.Length > i && ids[i].Any(id => id >= 0 && id < i))],
@@ -960,7 +960,7 @@ internal static class SampleKernel {
                 .Where(i => weights[i] > 0.0)
                 .OrderBy(i => -Math.Log(d: Deterministic.UnitInterval(point: candidates[index: i].Point, salt: SampleLane.Priority.Lane, seed: seed)) / weights[i]))
             .Fold(
-                initialState: (Chosen: Seq<(Point3d Point, double Radius)>.Empty, Mass: Seq<double>.Empty, Band: Option<(double Min, double Max)>.None),
+                initialState: (Chosen: Seq<(Point3d Point, double Radius)>(), Mass: Seq<double>(), Band: Option<(double Min, double Max)>.None),
                 f: (held, index) => {
                     if (held.Chosen.Count >= count) return held;
                     Point3d candidate = candidates[index: index].Point;
@@ -996,7 +996,7 @@ internal static class SampleKernel {
                 Point3d gridOrigin = ordered.Length > 0 ? new BoundingBox(points: ordered.Select(item => candidates[index: item.Index].Point)).Min : Point3d.Origin;
                 DworkCell CellOf(Point3d point) => new(X: (long)Math.Floor(d: (point.X - gridOrigin.X) / cellSize), Y: (long)Math.Floor(d: (point.Y - gridOrigin.Y) / cellSize), Z: (long)Math.Floor(d: (point.Z - gridOrigin.Z) / cellSize));
                 Point3d[] pool = [.. ordered.Select(item => candidates[index: item.Index].Point)];
-                return NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: toSeq(pool)), key: key).Bind(poolIndex => {
+                return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(pool)), key: key).Bind(poolIndex => {
                     List<DworkCandidate> chosen = ordered.Length > 0 ? [ordered[0]] : [];
                     Dictionary<DworkCell, List<int>> chosenGrid = [];
                     void Record(DworkCandidate candidate) {
@@ -1027,7 +1027,8 @@ internal static class SampleKernel {
                         int activeOffset = (int)(activeDraw.At(activePops).State % (ulong)active.Count);
                         DworkCandidate parent = active[activeOffset];
                         Point3d parentPoint = candidates[index: parent.Index].Point;
-                        Fin<NeighborhoodGraph> reach = NeighborKernel.GraphOf(index: poolIndex, needles: [parentPoint], count: Option<int>.None, radius: Some(2.0 * parent.Radius), key: key);
+                        Fin<NeighborhoodGraph> reach = key.AcceptValidated<PositiveMagnitude>(candidate: 2.0 * parent.Radius)
+                            .Bind(ring => NeighborKernel.GraphOf(index: poolIndex, needles: [parentPoint], count: Option<Dimension>.None, radius: Some(ring), key: key));
                         List<DworkCandidate> annulus = reach.Match(
                             Succ: graph => graph.Ids.Length > 0
                                 ? [.. graph.Ids[0].Where(o => o >= 0 && o < ordered.Length && parentPoint.DistanceTo(other: pool[o]) >= parent.Radius).Select(o => ordered[o])]
@@ -1299,8 +1300,9 @@ internal static class SampleKernel {
         double dMin = dMax * (1.0 - Math.Pow(x: (double)count / input.Length, y: gamma)) * beta;
         if (input.Length <= count || count <= 0 || !double.IsFinite(dMax) || dMax <= 0.0 || !double.IsFinite(dMin) || dMin < 0.0)
             return Fin.Fail<(int[] Indices, SampleAlgorithm Algorithm)>(key.InvalidInput());
-        return from index in NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: toSeq(input.Select(static item => item.Point))), key: key)
-               from neighbors in NeighborKernel.GraphOf(index: index, needles: [.. input.Select(static item => item.Point)], count: Option<int>.None, radius: Some(dMax), key: key)
+        return from index in NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(input.Select(static item => item.Point))), key: key)
+               from reach in key.AcceptValidated<PositiveMagnitude>(candidate: dMax)
+               from neighbors in NeighborKernel.GraphOf(index: index, needles: [.. input.Select(static item => item.Point)], count: Option<Dimension>.None, radius: Some(reach), key: key)
                let graph = ConflictGraph(input: input, ids: neighbors.Ids, dMax: dMax, dMin: dMin, alpha: alpha)
                let run = Eliminate(graph: graph, input: input, count: count, seed: seed)
                select (Indices: run.Indices,
@@ -1415,7 +1417,7 @@ internal static class SampleKernel {
         bool truncated = total != candidates.Count;
         int[] retained = truncated ? FarthestIndices(candidates: candidates, count: total) : [];
         Seq<SampleCandidate> active = truncated ? toSeq(retained.Select(i => candidates[index: i])) : candidates;
-        return NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: toSeq(active.AsIterable().Select(static candidate => candidate.Point))), key: key)
+        return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(active.AsIterable().Select(static candidate => candidate.Point))), key: key)
             .Bind(candidateIndex => toSeq(Enumerable.Range(start: 0, count: iterations)).Fold(
                 initialState: Fin.Succ(FarthestIndices(candidates: active, count: count)),
                 f: (state, _) => state.Bind(sites => RelaxSites(sites: sites, candidates: active, candidateIndex: candidateIndex, total: active.Count, capacity: capacity, key: key))))
@@ -1426,7 +1428,7 @@ internal static class SampleKernel {
         Fin<int[]> assigned = capacity.Match(
             Some: limit => AssignUnderCapacity(candidates: candidates, sites: sites, limit: limit).Map(static held => held.Hits).ToFin(key.InvalidResult()),
             None: () => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(sites.Select(site => candidates[index: site].Point))), key: key)
-                .Bind(siteIndex => NeighborKernel.GraphOf(index: siteIndex, needles: [.. candidates.AsIterable().Select(static candidate => candidate.Point)], count: Some(1), radius: Option<double>.None, key: key))
+                .Bind(siteIndex => key.AcceptValidated<Dimension>(candidate: 1).Bind(one => NeighborKernel.GraphOf(index: siteIndex, needles: [.. candidates.AsIterable().Select(static candidate => candidate.Point)], count: Some(one), radius: Option<PositiveMagnitude>.None, key: key)))
                 .Bind(graph => key.Catch(() => {
                     int[] hits = new int[total];
                     for (int i = 0; i < total; i++) {
@@ -1440,7 +1442,8 @@ internal static class SampleKernel {
             int[] counts = new int[sites.Length];
             for (int i = 0; i < total; i++) { if (hits[i] < 0) continue; sums[hits[i]] += (Vector3d)candidates[index: i].Point; counts[hits[i]]++; }
             Point3d[] centroids = [.. Enumerable.Range(start: 0, count: sites.Length).Select(s => counts[s] > 0 ? Point3d.Origin + (sums[s] / counts[s]) : candidates[index: sites[s]].Point)];
-            return NeighborKernel.GraphOf(index: candidateIndex, needles: centroids, count: Some(total), radius: Option<double>.None, key: key).Bind(snap => key.Catch(() => {
+            return key.AcceptValidated<Dimension>(candidate: total)
+                .Bind(bound => NeighborKernel.GraphOf(index: candidateIndex, needles: centroids, count: Some(bound), radius: Option<PositiveMagnitude>.None, key: key)).Bind(snap => key.Catch(() => {
                 int[] next = new int[sites.Length];
                 IndexSet occupied = [];
                 for (int s = 0; s < sites.Length; s++) {

@@ -334,7 +334,7 @@ public static class AssessmentResolution {
     static Fin<Seq<MaterialPropertySet>> Overlay(Seq<MaterialPropertySet> published, Seq<Assessed> live, Op key) =>
         live.IsEmpty
             ? Fin.Succ(published)
-            : live.FoldM((Sets: published, Claimed: Set<string>.Empty), (carried, record) =>
+            : live.FoldM((Sets: published, Claimed: Set<string>()), (carried, record) =>
                     carried.Claimed.Contains(record.Axis)
                         ? Fin.Succ(carried)
                         : Apply(carried.Sets, record, key).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))).As()

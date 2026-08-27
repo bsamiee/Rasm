@@ -732,7 +732,7 @@ public static class SetIngest {
         from head in maps.Head.ToFin(new MaterialFault.Parameter(key, "<ingest-tile-empty>"))
         from _ in guard(maps.ForAll(map => map.Probe.Width == head.Probe.Width && map.Probe.Height == head.Probe.Height),
             new MaterialFault.Parameter(key, $"<ingest-tile-extent-divergent:{head.Stem}>"))
-        from bound in maps.FoldM((Channels: HashMap<TextureChannel, TexturePyramid>.Empty, Packs: Seq<ChannelPackPlane>()), (carried, map) =>
+        from bound in maps.FoldM((Channels: HashMap<TextureChannel, TexturePyramid>(), Packs: Seq<ChannelPackPlane>()), (carried, map) =>
                 from supplied in planes.Find(map.Stem).ToFin(new MaterialFault.Parameter(key, $"<ingest-plane-missing:{map.Stem}>"))
                 from converted in Converted(supplied, map, convention, key)
                 select map.Pack

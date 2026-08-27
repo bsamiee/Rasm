@@ -30,7 +30,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Spectral.cs        # Mesh-free DEC carrier layer and eigen filter surface; Meshing/dec owns the mesh-bound assembly above it
 │   └── Calculus.cs        # Sampler-generic differential operators and the closed-form site-and-instant almanac; no mesh type reaches here
 ├── Spatial/               # Proximity, clouds, neighborhoods, transport, fields, and naming
-│   ├── Index.cs           # SpatialIndex [Union] kernels share one frozen NodeStore; primitive-AABB broad phase alone seats here
+│   ├── Index.cs           # One sealed SpatialIndex over one frozen NodeStore, kernels selected by SpatialKind; primitive-AABB broad phase alone seats here
 │   ├── Naming.cs          # TopoName UInt128 lineage identity orthogonal to content hash; Track and Resolve fold one NamingOp union
 │   ├── Reconciliation.cs  # GeometryHash and TopoName stay type-distinct so a cross-axis compare cannot compile
 │   ├── Support.cs         # SupportSpace [Union] discriminated once at admission by proximity regime; Project<TOut> capability-gates reads

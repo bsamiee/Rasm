@@ -283,7 +283,7 @@ internal static class Hlr {
                     Run: Drawn(run.Projection.Visible, chain)))
                 .ToSeq())
             .Fold(
-                Map<int, (int Head, Seq<int> Chain, double Run)>.Empty,
+                Map<int, (int Head, Seq<int> Chain, double Run)>(),
                 static (held, row) => held
                     .Find(row.Part)
                     .Exists(seated => seated.Run > row.Run || (seated.Run >= row.Run && seated.Head < row.Head))
@@ -351,6 +351,7 @@ internal static class Hlr {
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)
         from camera in pose.ToCamera(model.Tolerance, HlrOp)
+        from broad in Broad(policy)
         select (
             pose,
             camera,
@@ -358,7 +359,7 @@ internal static class Hlr {
                 CreaseDihedralRadians = policy.CreaseDihedral.As(AngleUnit.Radian),
                 BetaSquared = policy.BetaSquared,
                 Narrow = IntersectPolicy.Canonical,
-                Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
+                Broad = broad,
             });
 
     private static K<Validation<Error>, (ProjectionRun Run, Camera Camera)> ProjectionLeg(
@@ -370,17 +371,21 @@ internal static class Hlr {
          from projection in View.Apply(operation, HlrOp)
          from hatch in policy.Hatching
              .Find(view.Key)
-             .TraverseM(plan => Hatching.Apply(
-                 new HatchOp.Projection(projection, plan, HatchLane(policy)),
-                 HlrOp))
+             .TraverseM(plan => HatchLane(policy).Bind(lane => Hatching.Apply(
+                 new HatchOp.Projection(projection, plan, lane),
+                 HlrOp)))
              .As()
          select (new ProjectionRun(view.Key, lowered.Pose, view.Kind, projection, hatch), lowered.Camera))
         .ToValidation();
 
-    private static HatchPolicy HatchLane(ProjectionPolicy policy) =>
-        HatchPolicy.Canonical with {
-            Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
-        };
+    private static Fin<HatchPolicy> HatchLane(ProjectionPolicy policy) =>
+        Broad(policy).Map(static broad => HatchPolicy.Canonical with { Broad = broad });
+
+    private static Fin<BuildPolicy> Broad(ProjectionPolicy policy) =>
+        BuildPolicy.Of(
+            leafSize: policy.SpatialLeaf, maxDepth: BuildPolicy.Canonical.MaxDepth.Value,
+            sahBuckets: BuildPolicy.Canonical.SahBuckets.Value, refitGrowth: BuildPolicy.Canonical.RefitGrowth.Value,
+            parallelFloor: BuildPolicy.Canonical.ParallelFloor.Value, key: HlrOp);
 }
 ```
 

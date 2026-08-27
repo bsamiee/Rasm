@@ -478,7 +478,7 @@ public sealed partial class FilterArity {
 
     public bool Admits(int operands) => operands >= Least && operands <= Most;
 
-    public Seq<PropertyValue> Probes(FilterKind kind) => Seq.repeat(kind.Probe, int.Min(Least, 2)).Strict();
+    public Seq<PropertyValue> Probes(FilterKind kind) => LanguageExt.Seq.repeat(kind.Probe, int.Min(Least, 2)).Strict();
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

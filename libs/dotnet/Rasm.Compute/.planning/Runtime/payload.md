@@ -445,7 +445,7 @@ public static class Residency {
             nuint written = Meshopt.Simplify(simplified, current, positions, (nuint)vertexCount, PositionStride, target,
                 targetError: float.MaxValue, options: SimplificationOptions.SimplifyLockBorder, out float resultError);
             if (written >= (nuint)current.Length || written < 3) { break; }
-            Array.Resize(ref simplified, (int)written);
+            System.Array.Resize(ref simplified, (int)written);
             level++;
             float objectError = resultError * scale;
             (int coarse, int coarseFirst) = ClusterLevel(simplified, positions, vertexCount, policy, all, vertices, triangles, level, objectError, shells);

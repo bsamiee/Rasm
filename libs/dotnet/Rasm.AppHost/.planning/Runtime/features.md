@@ -59,8 +59,8 @@ public sealed partial class FlagReason {
     ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 public readonly partial struct RolloutSegment {
-    static partial void ValidateFactoryArguments(ref ValidationError? error, ref int value) =>
-        error = value is >= 0 and < 100 ? null : new ValidationError($"<segment-out-of-band:{value}>");
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = value is >= 0 and < 100 ? null : new ValidationError($"<segment-out-of-band:{value}>");
 
     public bool Holds(int bucket) => bucket < (int)this;
 

@@ -553,7 +553,7 @@ public static class LasIngest {
             var h = codec.header;
             ulong[] byReturn = h.extended_number_of_point_records > 0
                 ? h.extended_number_of_points_by_return
-                : Array.ConvertAll(h.number_of_points_by_return, static c => (ulong)c);
+                : System.Array.ConvertAll(h.number_of_points_by_return, static c => (ulong)c);
             return Assemble(bytes, positions, classes, colors, crs, (ulong)read, byReturn,
                 new Vector3(h.min_x, h.min_y, h.min_z), new Vector3(h.max_x, h.max_y, h.max_z),
                 new Vector3(h.x_scale_factor, h.y_scale_factor, h.z_scale_factor),

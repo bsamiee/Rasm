@@ -168,7 +168,7 @@ internal sealed class SimplexStore {
     }
 
     static void Grow<T>(ref T[] column, int needed) {
-        if (needed > column.Length) { Array.Resize(ref column, int.Max(needed, column.Length << 1)); }
+        if (needed > column.Length) { System.Array.Resize(ref column, int.Max(needed, column.Length << 1)); }
     }
 }
 
@@ -255,7 +255,7 @@ public sealed partial class Tessellation : IValidityEvidence {
         Option<Point3d>[] sites = [.. rows.AsIterable().Map(static r => r.Round())];
         BoundingBox box = new(sites.Somes());
         Vector3d span = box.Max - box.Min;
-        uint[] codes = Array.ConvertAll(sites, at => at.Match(
+        uint[] codes = System.Array.ConvertAll(sites, at => at.Match(
             Some: p => Morton(Normalize(p.X, box.Min.X, span.X), Normalize(p.Y, box.Min.Y, span.Y), Normalize(p.Z, box.Min.Z, span.Z)),
             None: static () => 0u));
         return toSeq(Enumerable.Range(0, sites.Length)
@@ -280,7 +280,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             if (p.Vertices[i].IsExplicit && !ValidityClaim.Finite(point: p.Vertices[i].AsExplicit)) { return Reject(i, "non-finite explicit row"); }
         }
         int[] explicitRows = [.. Enumerable.Range(0, p.Vertices.Count).Where(i => p.Vertices[i].IsExplicit)];
-        Array.Sort(explicitRows, (a, b) => Rank(p.Vertices[a], p.Vertices[b]));
+        System.Array.Sort(explicitRows, (a, b) => Rank(p.Vertices[a], p.Vertices[b]));
         for (int i = 1; i < explicitRows.Length; i++) {
             if (Rank(p.Vertices[explicitRows[i - 1]], p.Vertices[explicitRows[i]]) == 0) { return Reject(explicitRows[i], "duplicate row"); }
         }
@@ -717,7 +717,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             }
             faces.Add((at[0], at[1], at[2]));
         }
-        return Fin.Succ((toArr(corners), toArr(faces)));
+        return Fin.Succ((toArray(corners), toArray(faces)));
     }
 
     public Fin<(Arr<Point3d> Corners, Arr<(int A, int B, int C, int D)> Cells)> Tetrahedra() {
@@ -739,7 +739,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             }
             cells.Add((at[0], at[1], at[2], at[3]));
         }
-        return (toArr(corners), toArr(cells));
+        return (toArray(corners), toArray(cells));
     }
 
     public Fin<DualGraph> VoronoiDual() {
@@ -774,7 +774,7 @@ public sealed partial class Tessellation : IValidityEvidence {
                 }
             }
         }
-        return Fin.Succ(new DualGraph(toArr(centers), toArr(radius), toArr(edges), toArr(across)));
+        return Fin.Succ(new DualGraph(toArray(centers), toArray(radius), toArray(edges), toArray(across)));
 
         static (Point3d Center, double Radius) Circumcircle(Point3d a, Point3d b, Point3d c, Axis plane) {
             (Axis u, Axis v) = (plane.U, plane.V);
@@ -830,9 +830,9 @@ public sealed partial class Tessellation : IValidityEvidence {
                 (front, back, frontLabel, backLabel, count) = (back, front, backLabel, frontLabel, written);
                 if (count < 3) { break; }
             }
-            if (count >= 3) { cells.Add(new BoundedCell(site, toArr<Point3d>([.. front.AsSpan(0, count), front[0]]))); }
+            if (count >= 3) { cells.Add(new BoundedCell(site, toArray<Point3d>([.. front.AsSpan(0, count), front[0]]))); }
         }
-        return Fin.Succ(toArr(cells));
+        return Fin.Succ(toArray(cells));
 
         int[] Adjacent(int site) {
             IndexSet ring = [];
@@ -842,7 +842,7 @@ public sealed partial class Tessellation : IValidityEvidence {
                 }
             }
             int[] ordered = [.. ring];
-            Array.Sort(ordered);
+            System.Array.Sort(ordered);
             return ordered;
         }
 
@@ -866,7 +866,7 @@ public sealed partial class Tessellation : IValidityEvidence {
                 (Point3d a, Point3d b) = (open[i], open[(i + 1) % open.Length]);
                 twice += (u.Read(a) * v.Read(b)) - (u.Read(b) * v.Read(a));
             }
-            if (twice < 0.0) { Array.Reverse(open); }
+            if (twice < 0.0) { System.Array.Reverse(open); }
             return open;
         }
     }

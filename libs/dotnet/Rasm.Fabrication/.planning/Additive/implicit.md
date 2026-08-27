@@ -177,13 +177,13 @@ public sealed partial class FieldKind {
     private static FieldExpression Cosine(Vector3 frequency) => new FieldExpression.Wave(1.0f, frequency, 0.0f);
 
     private static FieldExpression Add(params ReadOnlySpan<FieldExpression> terms) =>
-        new FieldExpression.Sum(toArr(terms.ToArray()));
+        new FieldExpression.Sum(toArray(terms.ToArray()));
 
     private static FieldExpression Multiply(params ReadOnlySpan<FieldExpression> factors) =>
-        new FieldExpression.Product(toArr(factors.ToArray()));
+        new FieldExpression.Product(toArray(factors.ToArray()));
 
     private static FieldExpression Minimum(params ReadOnlySpan<FieldExpression> terms) =>
-        new FieldExpression.Minimum(toArr(terms.ToArray()));
+        new FieldExpression.Minimum(toArray(terms.ToArray()));
 
     private static FieldExpression Absolute(FieldExpression term) => new FieldExpression.Absolute(term);
 

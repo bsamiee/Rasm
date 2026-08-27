@@ -1001,7 +1001,7 @@ internal static class MeshKernel {
             }
         }
         foreach ((int edge, double _, OverlayPoint point) in crossings.OrderBy(static row => row.Edge).ThenBy(static row => row.Parameter)) {
-            int slot = Array.FindIndex(array: alongB[edge], startIndex: 1, match: static occupant => occupant is null);
+            int slot = System.Array.FindIndex(array: alongB[edge], startIndex: 1, match: static occupant => occupant is null);
             if (slot < 1 || slot > imesh.EdgeAt(index: edge).Crossings) return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-slot:{edge}"));
             alongB[edge][slot] = point;
             points.Add(item: point);

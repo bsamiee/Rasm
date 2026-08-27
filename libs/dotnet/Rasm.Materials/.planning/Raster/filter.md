@@ -384,7 +384,7 @@ public sealed class OrderStatistics {
             int seat = (int)(texel * lanes);
             for (int lane = 0; lane < colour; lane++) { built[lane][at] = staging[seat + lane]; }
         }
-        foreach (double[] ladder in built) { Array.Sort(ladder); }
+        foreach (double[] ladder in built) { System.Array.Sort(ladder); }
         return new OrderStatistics(built);
     }
 
@@ -397,19 +397,19 @@ public sealed class OrderStatistics {
             ShadeVec4 sample = plane[(int)(texel / plane.Width), (int)(texel % plane.Width)];
             (built[0][at], built[1][at], built[2][at]) = (sample.X, sample.Y, sample.Z);
         }
-        foreach (double[] ladder in built) { Array.Sort(ladder); }
+        foreach (double[] ladder in built) { System.Array.Sort(ladder); }
         return new OrderStatistics(built);
     }
 
     public static OrderStatistics Of(Seq<double> samples) {
         double[] ladder = samples.ToArray();
-        Array.Sort(ladder);
+        System.Array.Sort(ladder);
         return new OrderStatistics([ladder]);
     }
 
     public double Quantile(int lane, double value) {
         double[] ladder = ladders[Math.Min(lane, ladders.Length - 1)];
-        int found = Array.BinarySearch(ladder, value);
+        int found = System.Array.BinarySearch(ladder, value);
         double rank = (found >= 0 ? found : ~found) + 0.5;
         return Math.Clamp(rank / ladder.Length, 0.5 / ladder.Length, 1.0 - (0.5 / ladder.Length));
     }
@@ -425,7 +425,7 @@ public sealed class OrderStatistics {
 }
 
 public readonly record struct PlaneTrace(Seq<string> Operations, Seq<string> Stages, long Texels, Option<HeightEvidence> Height, double ElapsedMs) {
-    public static readonly PlaneTrace Empty = new(Seq<string>.Empty, Seq<string>.Empty, 0L, None, 0.0);
+    public static readonly PlaneTrace Empty = new(Seq<string>(), Seq<string>(), 0L, None, 0.0);
 
     public Option<double> Residual => Height.Map(static evidence => evidence.Residual);
 }
@@ -441,7 +441,7 @@ public abstract partial record PlaneOp {
     }
 
     private static Fin<Seq<PlaneStage>> Schedule(PlaneShape input, Seq<PlaneOp> ops, Op key) =>
-        ops.FoldM((Shape: input, Stages: Seq<PlaneStage>.Empty), (carry, op) =>
+        ops.FoldM((Shape: input, Stages: Seq<PlaneStage>()), (carry, op) =>
             op.Project(carry.Shape, key).Map(shape => (
                 Shape: shape,
                 Stages: !carry.Stages.IsEmpty && carry.Stages[^1].Kind.Fuses && op.Stage.Fuses

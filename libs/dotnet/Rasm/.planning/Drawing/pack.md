@@ -239,12 +239,12 @@ public sealed record ToolpathPath(Point3d Start, Seq<ToolpathSpan> Spans) {
 // --- [POLICIES] ------------------------------------------------------------------------
 public sealed record PackPolicy(
     Seq<int> GeodesicSources, PositiveMagnitude CurvatureStep, Dimension CurvatureRounds,
-    SdfMeshPolicy Sdf, Option<CloudMetricPolicy> Cloud, Context Tolerance) {
+    SdfMeshPolicy Sdf, Option<NeighborhoodPolicy> Cloud, Context Tolerance) {
 
     public static readonly Dimension Rounds = Dimension.Create(value: 1);
 
     public static Fin<PackPolicy> Of(
-        Context tolerance, SdfMeshPolicy sdf, Seq<int> geodesicSources = default, Option<CloudMetricPolicy> cloud = default,
+        Context tolerance, SdfMeshPolicy sdf, Seq<int> geodesicSources = default, Option<NeighborhoodPolicy> cloud = default,
         Option<PositiveMagnitude> curvatureStep = default, Option<Dimension> curvatureRounds = default, Op? key = null) {
         Op op = key.OrDefault();
         return curvatureStep.Match(
@@ -336,7 +336,7 @@ public static class Encode {
         Op k = key.OrDefault();
         if (count <= 0 || lanes.IsEmpty) return Fin.Fail<EncodedGeometry>(k.InvalidInput());
         Option<EncodingChannel> doubled = lanes.Fold(
-            (Seen: Set<EncodingChannel>.Empty, Dup: Option<EncodingChannel>.None),
+            (Seen: Set<EncodingChannel>(), Dup: Option<EncodingChannel>.None),
             static (acc, lane) => acc.Seen.Contains(lane.Channel)
                 ? (acc.Seen, acc.Dup.IsNone ? Some(lane.Channel) : acc.Dup)
                 : (acc.Seen.Add(lane.Channel), acc.Dup)).Dup;
@@ -426,8 +426,7 @@ public static class Encode {
             .Bind(answer => answer.Switch(
                 state: key,
                 digest:     static (_, d) => Fin.Succ(d.Value),
-                reconciled: static (k, _) => Fin.Fail<GeometryHash>(k.InvalidResult()),
-                topology:   static (k, _) => Fin.Fail<GeometryHash>(k.InvalidResult())));
+                reconciled: static (k, _) => Fin.Fail<GeometryHash>(k.InvalidResult())));
 
     // --- [CENSUS]
     static Fin<int> Census(PackOp op) => op.Switch(

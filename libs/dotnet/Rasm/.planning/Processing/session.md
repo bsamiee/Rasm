@@ -19,7 +19,7 @@ This page mints the heal session — `ManifoldStatus` snapshots, the `HealStep` 
 - Output: the `HealStep` chain on the `HealSession` is the heal evidence the naming `Track` consumes, returned in the `Heal.Repair` result; `ManifoldStatus` is the composed `Topology` projection and the boolean payload the composed arrangement `BooleanCensus`, neither re-computed here.
 - Packages: `Rasm.Meshing` (`Topology` via the Genus-tolerant `Rasm.Numerics` `ProjectionRow`; `MeshEdit` dirty-bitset seed and bound `Context`; `BooleanOp`/`BooleanCensus` — the composed payload), `Rasm.Numerics` (`Dimension` the pass-budget column), Rasm.Domain (`IValidityEvidence`/`ValidityClaim` the registered validity fold, `Tolerance`/`ToleranceLane` the band carrier), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new heal op lands THREE coupled rows in one pass — a `HealStage` row carrying both its `Mint` and `Step` delegates, a `HealOp` case, and a `HealStep` case with its typed evidence and `IsValid` arm — each generated `Switch` breaking every dispatch site until its own row lands, so presence is compiler-enforced. PAIRING is structural: `HealStage.Step` is the ONE mint and stamps its own row onto `HealStep.Stage`, so a step cannot carry a stage other than the one that minted it and no inverse table re-answers the question. New topological status fields are one column on `ManifoldStatus` projected from the existing `Topology` carrier and one `ProjectionRow` widening at the mesh.md boundary.
-- Boundary: `HealStep` stays the typed per-kind union — a `Weld`'s merged-vertex set and a `Manifold`'s forked-face set are different shapes carried by different cases; the before/after status is the composed `Rasm.Meshing` `Topology` projected through the un-gated six-field row; the boolean payload is the arrangement `BooleanCensus`; convergence registers as `IValidityEvidence`. `RebuildLog` feeds the naming `Track` re-anchor and the step's affected-ref set is the re-anchor seed, so a topology-rebuilding op that emits no affected entities re-anchors the naming fold blind; the fold carries VERTICES and FACES alone because the arena keys topology by face triples and the `Track` resolves edges through `VertexNames`, so an edge column publishes an empty set every op and makes `ReanchorsLineage` read a slot no arm can set. `Orient.FlippedFaces` rides `Affected` as pure evidence — the `RebuildsTopology` filter excludes the orient stage, so the naming fold still sees nothing while a session consumer can audit the winding change. Op band and payload evidence ride the step, which mints no hash and asserts no content identity — the healed mesh's content hash is the reconciliation `Encode` job, the step only naming which entities changed so the reference identity (`TopoName`) re-binds.
+- Boundary: `HealStep` stays the typed per-kind union — a `Weld`'s merged-vertex set and a `Manifold`'s forked-face set are different shapes carried by different cases; the before/after status is the composed `Rasm.Meshing` `Topology` projected through the un-gated six-field row; the boolean payload is the arrangement `BooleanCensus`; convergence registers as `IValidityEvidence`. `RebuildLog` feeds the naming `Track` re-anchor and the step's affected-ref set is the re-anchor seed, so a topology-rebuilding op that emits no affected entities re-anchors the naming fold blind; the fold carries VERTICES and FACES alone because the arena keys topology by face triples and the `Track` resolves edges through the vertex ordinals `Anchor` carries in fold state, so an edge column publishes an empty set every op and makes `ReanchorsLineage` read a slot no arm can set. `Orient.FlippedFaces` rides `Affected` as pure evidence — the `RebuildsTopology` filter excludes the orient stage, so the naming fold still sees nothing while a session consumer can audit the winding change. Op band and payload evidence ride the step, which mints no hash and asserts no content identity — the healed mesh's content hash is the reconciliation `Encode` job, the step only naming which entities changed so the reference identity (`TopoName`) re-binds.
 
 ```csharp
 using LanguageExt;
@@ -87,17 +87,17 @@ public abstract partial record HealStep : IValidityEvidence {
 
     public (Set<int> Vertices, Set<int> Faces) Affected =>
         Switch(
-            degenerate:    static d => (Set<int>.Empty, d.CollapsedFaces),
+            degenerate:    static d => (Set<int>(), d.CollapsedFaces),
             gap:           static g => (g.StitchedVertices, g.BridgedFaces),
-            weld:          static w => (w.MergedVertices, Set<int>.Empty),
+            weld:          static w => (w.MergedVertices, Set<int>()),
             manifold:      static m => (m.ForkedVertices, m.ForkedFaces),
             selfIntersect: static s => (s.MintedVertices, s.RetiledFaces),
-            orient:        static o => (Set<int>.Empty, o.FlippedFaces),
+            orient:        static o => (Set<int>(), o.FlippedFaces),
             merge:         static m => (m.SelectedVertices, m.SelectedFaces));
 }
 
 public sealed record RebuildLog(Set<int> Vertices, Set<int> Faces, Seq<HealStage> Ops) {
-    public static readonly RebuildLog Empty = new(Set<int>.Empty, Set<int>.Empty, Seq<HealStage>());
+    public static readonly RebuildLog Empty = new(Set<int>(), Set<int>(), Seq<HealStage>());
 
     public bool ReanchorsLineage => !Vertices.IsEmpty || !Faces.IsEmpty;
 }

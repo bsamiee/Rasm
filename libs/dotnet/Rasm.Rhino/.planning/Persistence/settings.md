@@ -789,7 +789,7 @@ public static class SettingStore {
                 put.Key,
                 kind,
                 CapabilitySet<SettingReach>.All,
-                read: () => kind.Read(s.Node, put.Key, Seq<SettingKey>.Empty, s.Op),
+                read: () => kind.Read(s.Node, put.Key, Seq<SettingKey>(), s.Op),
                 write: () => kind.Write(s.Node, put.Key, put.Value, s.Op))),
             deleteCase: static (s, delete) => Delete(s.Node, delete, s.Op),
             readDefaultCase: static (s, read) => read.Kind.ReadDefault(s.Node, read.Key, s.Op)
@@ -898,7 +898,7 @@ public static class SettingStore {
         from type in op.Catch(() => Fin.Succ(value: SeatedType(node, request.Key)))
         from prior in type.Match(
             Some: found => SettingKind.For(found, op)
-                .Bind(kind => kind.Read(node, request.Key, Seq<SettingKey>.Empty, op)),
+                .Bind(kind => kind.Read(node, request.Key, Seq<SettingKey>(), op)),
             None: () => Fin.Succ(value: Option<ArchiveValue>.None))
         from _ in op.Catch(() => node.DeleteItem(request.Key.Value))
         from _absent in op.Catch(() => guard(SeatedType(node, request.Key).IsNone, op.InvalidResult()).ToFin())

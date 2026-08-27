@@ -541,7 +541,7 @@ public sealed partial record GenerationPolicy(
                 text: static _ => true,
                 multimodal: static assets => assets.Media.Files.ForAll(File.Exists),
                 streamingAudio: static assets => !assets.Chunks.IsEmpty
-                    && assets.Chunks.ForAll(static chunk => chunk.Length > 0 && Array.TrueForAll(chunk, float.IsFinite))
+                    && assets.Chunks.ForAll(static chunk => chunk.Length > 0 && System.Array.TrueForAll(chunk, float.IsFinite))
                     && assets.ProcessorOptions.ForAll(static row => row.Key.Length > 0 && row.Value.Length > 0),
                 batched: static assets => !assets.Prompts.IsEmpty && assets.Prompts.ForAll(static prompt => prompt.Length > 0))
                 ? candidate

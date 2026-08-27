@@ -437,7 +437,7 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
 
     public Seq<VisibilityOverride> Ground(Seq<string> scene) =>
         (Active.IsEmpty ? VisibilityAction.Reset : VisibilityAction.Xray)
-            .Fold(scene, LanguageExt.HashSet<string>.Empty);
+            .Fold(scene, LanguageExt.HashSet<string>());
 
     Fin<LayerStack> Rewrite(string key, Func<ResultLayer, ResultLayer> edit) =>
         Find(key).Match(

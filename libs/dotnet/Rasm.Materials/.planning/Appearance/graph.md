@@ -299,7 +299,7 @@ public static class NodeEvaluator {
 
 public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
     HashMap<PortId, AppearanceNode> ByPort =>
-        Nodes.Fold(HashMap<PortId, AppearanceNode>.Empty, static (m, n) => m.AddOrUpdate(n.Id, n));
+        Nodes.Fold(HashMap<PortId, AppearanceNode>(), static (m, n) => m.AddOrUpdate(n.Id, n));
 
     static Option<string> Admit(AppearanceNode node, HashMap<PortId, AppearanceNode> known) =>
         node is AppearanceNode.Math math && !math.Op.Accepts(math.Operands.Count)

@@ -413,7 +413,7 @@ public static class LayoutPrograms {
         int neededRows = children.IsEmpty ? 1 : (int)Math.Ceiling((double)children.Length / admittedColumns.Length);
         Seq<TrackSize> admittedRows = rows.IsEmpty ? Seq<TrackSize>(new TrackSize.Auto()) : rows;
         Seq<TrackSize> completedRows = admittedRows
-            + Seq.generate(Math.Max(0, neededRows - admittedRows.Length), static _ => (TrackSize)new TrackSize.Auto());
+            + LanguageExt.Seq.generate(Math.Max(0, neededRows - admittedRows.Length), static _ => (TrackSize)new TrackSize.Auto());
         Seq<(GridAxis Axis, Seq<(string Owner, TrackSize Track)> Tracks)> axes = Seq(
             (GridAxis.Columns, admittedColumns.Map((track, i) => (Owner: $"{panel}.col{i}", Track: track)).Strict()),
             (GridAxis.Rows, completedRows.Map((track, j) => (Owner: $"{panel}.row{j}", Track: track)).Strict()));

@@ -648,7 +648,7 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
 
     private static Fin<Seq<CellLattice>> Descend(CellLattice grid, Op key) =>
         grid.Columns.Value is 1 && grid.Rows.Value is 1
-            ? Fin.Succ(Seq<CellLattice>.Empty)
+            ? Fin.Succ(Seq<CellLattice>())
             : grid.Coarsen(key)
                 .Bind(level => Descend(level, key).Map(rest => level.Cons(rest)));
 
@@ -830,7 +830,7 @@ public sealed class PlaneResidency : IDisposable {
     private readonly CellLattice declared;
     private readonly ResidencyPolicy policy;
     private readonly long budget;
-    private HashMap<int, ResidentTile> seated = HashMap<int, ResidentTile>.Empty;
+    private HashMap<int, ResidentTile> seated = HashMap<int, ResidentTile>();
     private long resident;
     private long clock;
 
@@ -881,10 +881,10 @@ public sealed class PlaneResidency : IDisposable {
     private Seq<ResidentTile> Reclaim(long headroom) =>
         policy.Rank is { } rank
             ? toSeq(seated.Values.OrderBy(rank))
-                  .Fold((Freed: 0L, Victims: Seq<ResidentTile>.Empty), (state, tile) =>
+                  .Fold((Freed: 0L, Victims: Seq<ResidentTile>()), (state, tile) =>
                       resident - state.Freed <= headroom ? state : (state.Freed + tile.Cost, state.Victims.Add(tile)))
                   .Victims
-            : Seq<ResidentTile>.Empty;
+            : Seq<ResidentTile>();
 
     private Fin<Unit> Retire(ResidentTile tile, Op key) {
         seated = seated.Remove(tile.Index);
@@ -894,7 +894,7 @@ public sealed class PlaneResidency : IDisposable {
 
     public void Dispose() {
         seated.Values.Iter(static tile => tile.Chain.Dispose());
-        (seated, resident) = (HashMap<int, ResidentTile>.Empty, 0L);
+        (seated, resident) = (HashMap<int, ResidentTile>(), 0L);
     }
 }
 ```

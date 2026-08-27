@@ -192,7 +192,7 @@ internal readonly record struct ButcherTableau : IValidityEvidence {
 
         public ddouble[] Weight(ddouble[,] a, int stages) {
             ddouble[] phi = new ddouble[stages];
-            Array.Fill(array: phi, value: (ddouble)1.0);
+            System.Array.Fill(array: phi, value: (ddouble)1.0);
             foreach (RootedTree child in Children) {
                 ddouble[] childWeight = child.Weight(a: a, stages: stages);
                 for (int i = 0; i < stages; i++) {
@@ -360,7 +360,7 @@ internal static class DenseOutput {
             : Math.Max(val1: 1, val2: Math.Min(val1: tableau.MethodOrder, val2: DistinctAnchors(tableau: tableau).Count));
     private static Seq<int> DistinctAnchors(ButcherTableau tableau) =>
         tableau.Abscissae.AsIterable().Select((c, stage) => (Stage: stage, C: c)).Aggregate(
-            seed: Seq<int>.Empty,
+            seed: Seq<int>(),
             func: (anchors, row) => anchors.Exists(seen => Math.Abs(value: tableau.Abscissae[seen] - row.C) <= ButcherTableau.CoefficientTolerance)
                 ? anchors
                 : anchors.Add(row.Stage));

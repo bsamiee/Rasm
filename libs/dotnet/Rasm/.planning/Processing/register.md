@@ -321,14 +321,13 @@ internal static class AlignKernel {
                     Option<int> hit = graph.Ids.Length > i && graph.Ids[i].Length > 0 ? Some(graph.Ids[i][0]) : Option<int>.None;
                     if (hit.Case is not int nearest || nearest >= target.Vertices.Count || (normals.Length > 0 && nearest >= normals.Length)) return Fin.Fail<AlignmentMatch>(key.InvalidResult());
                     Point3d targetPoint = indexed.PointAt(index: nearest);
-                    Vector3d residual = targetPoint - transformed[i];
-                    double squared = residual.SquareLength;
+                    double squared = transformed[i].DistanceToSquared(other: targetPoint);
                     targets[i] = targetPoint; distances[i] = Math.Sqrt(d: squared); rowMass[i] = sourceMass[index: row]; targetIndices[i] = nearest;
                     if (normals.Length > 0) rowNormals[i] = normals[nearest];
                     if (sourceNormals.Length > 0) rowSourceNormals[i] = sourceNormals[row];
-                    items.Add(item: new CloudCorrespondence(SourceIndex: row, TargetIndex: nearest, SourcePoint: transformed[i], TargetPoint: targetPoint, Residual: residual,
-                        Distance: distances[i], SquaredDistance: squared, SourceMass: Some(sourceMass[index: row]), TargetMass: Some(targetMass[index: nearest]),
-                        CouplingMass: Some(sourceMass[index: row]), Confidence: Option<double>.None));
+                    items.Add(item: new CloudCorrespondence(SourceIndex: row, TargetIndex: nearest, SourcePoint: transformed[i], TargetPoint: targetPoint,
+                        SourceMass: sourceMass[index: row], TargetMass: targetMass[index: nearest],
+                        CouplingMass: sourceMass[index: row], Confidence: Option<double>.None));
                 }
                 return CorrespondenceSetOf(items: items, distances: distances, rowMass: rowMass, targetIndices: targetIndices, targetMass: targetMass, sourceCount: n, targetCount: target.Vertices.Count, bands: bands, key: key)
                     .Map(set => new AlignmentMatch(Correspondences: set,
@@ -344,8 +343,9 @@ internal static class AlignKernel {
         Seq<int> covered = toSeq(targetIndices).Distinct().Strict();
         return from spread in Distribution<Scalar>.Of(values: rows, percentiles: [90.0, 95.0], key: key, rule: Some(QuantileRule.NearestRank))
                from weighted in Stat<Scalar>.Of(values: rows, key: key, weights: Some(toSeq(rowMass)))
-               select new CloudCorrespondenceSet(Items: toSeq(items), SourceCount: sourceCount, TargetCount: targetCount, NonZeroCount: items.Count,
-                   TotalMass: totalMass, Rmse: Some(weighted.Rms), Distances: Some(spread),
+               from coupling in Stat<Scalar>.Of(values: toSeq(rowMass).Map(static value => (Scalar)value), key: key)
+               select new CloudCorrespondenceSet(Items: toSeq(items), SourceCount: sourceCount, TargetCount: targetCount,
+                   Measurements: Some((Coupling: coupling, WeightedDistance: weighted, Distance: spread)),
                    CoveredSourceCount: sourceCount, CoveredTargetCount: covered.Count,
                    RetainedSourceMass: totalMass,
                    RetainedTargetMass: covered.Fold(0.0, (held, index) => held + targetMass[index: index]));

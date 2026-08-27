@@ -2,7 +2,7 @@
 
 `SimplifyOp` owns predicate-gated mesh decimation and LOD: one `[Union]` folds every modality through one quadric-error collapse queue admitting a fold only on an exact `Orient3D` sign against the pre-collapse supporting plane, so a flipped face is refused by construction and the boundary link condition decimates open-mesh rims. This owner mints the exact-plane gate, the directed Hausdorff budget, and the reversible vertex-split stream `Mesh.Reduce` lacks, and that host reduce keeps the fast face-count lane.
 
-Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Numerics/predicates` exact `Orient3D` floor as collapse gate, the `Spatial/index` `Spatial.Apply` entry for the directed bound, the `Meshing/reconstruct` iso lane for the `VoxelRemesh` resample, the `Numerics/matrix` Cholesky for the optimal-position solve, the `Domain/identity` `Deterministic` draw for every sampled distance, and the kernel curvature and feature signals for the weight rows. Every failure routes the `GeometryFault` union on `Fin`, and the result carriers content-address through the `Spatial/reconciliation` `Encode` boundary.
+Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Numerics/predicates` exact `Orient3D` floor as collapse gate, the `Spatial/index` `SpatialIndex.Build` and k-nearest `Query` for the directed bound, the `Meshing/reconstruct` iso lane for the `VoxelRemesh` resample, the `Numerics/matrix` Cholesky for the optimal-position solve, the `Domain/identity` `Deterministic` draw for every sampled distance, and the kernel curvature and feature signals for the weight rows. Every failure routes the `GeometryFault` union on `Fin`, and the result carriers content-address through the `Spatial/reconciliation` `Encode` boundary.
 
 ## [01]-[INDEX]
 
@@ -61,11 +61,9 @@ public sealed partial class PositionRoute {
     public static readonly PositionRoute Midpoint = new(key: 1);
 }
 
-[SmartEnum<int>]
+[SmartEnum<long>(KeyMemberName = nameof(IDrawLane<DecimateLane>.Lane))]
 public sealed partial class DecimateLane : IDrawLane<DecimateLane> {
-    public static readonly DecimateLane Hausdorff = new(key: 0, lane: 0L);
-
-    public long Lane { get; }
+    public static readonly DecimateLane Hausdorff = new(0L);
 }
 
 [SmartEnum<string>]
@@ -531,7 +529,7 @@ public static class Simplify {
     internal static Fin<Unit> Curvature(SimplifyOp op, Context context, Op key, Memory<double> plane) =>
         Uniform(plane).Bind(_ =>
             VectorCloud.Cluster(toSeq(VertexPositions(op.Mesh)), context)
-                .Bind(cloud => VectorIntent.Cloud(cloud, VectorCloudMetric.PrincipalCurvature, Option<CloudMetricPolicy>.None, key))
+                .Bind(cloud => VectorIntent.Cloud(cloud, VectorCloudMetric.PrincipalCurvature, Option<NeighborhoodPolicy>.None, key))
                 .Bind(intent => intent.Project<CurvatureResult>(context, key))
                 .Map(curvature => {
                     Span<double> w = plane.Span;
@@ -600,8 +598,7 @@ public static class Simplify {
         try {
             BoundingBox[] boxes = new BoundingBox[src.FaceCount];
             for (int f = 0; f < src.FaceCount; f++) boxes[f] = src.Bounds(f);
-            return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
-                .Bind(answer => answer is SpatialAnswer.Index built ? Fin.Succ(built.Value) : Fin.Fail<SpatialIndex>(key.InvalidResult()))
+            return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, key)
                 .Bind(index => {
                     int count = lod.FaceCount * policy.HausdorffSamplesPerFace.Value;
                     using MemoryOwner<Point3d> samples = MemoryOwner<Point3d>.Allocate(count, AllocationMode.Clear);
@@ -622,10 +619,8 @@ public static class Simplify {
     readonly struct DirectedDistance(SpatialIndex index, MeshEdit source, ReadOnlyMemory<Point3d> samples, Memory<double> distances, Atom<Seq<int>> misses, Op key) : IAction {
         public void Invoke(int i) {
             Point3d sample = samples.Span[i];
-            Fin<double> measured = Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Nearest(sample, 1)), key)
-                .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest { Ordered.Count: > 0 } hit }
-                    ? Fin.Succ(Foot(source, hit.Ordered[0], sample))
-                    : Fin.Fail<double>(key.InvalidResult()));
+            Fin<double> measured = index.Query(sample, 1, key)
+                .Bind(hits => hits.Head.ToFin(key.InvalidResult()).Map(id => Foot(source, id, sample)));
             if (measured.Case is double distance) { distances.Span[i] = distance; }
             else { _ = misses.Swap(held => held.Add(i)); }
         }
@@ -690,7 +685,7 @@ flowchart LR
     ApplyCollapse -->|VertexSplit record| Splits
     ApplyCollapse -->|stall, no admissible| GeometryFault["FaceBudgetMissed"]
     MeshEdit -->|ToSpace freeze| Simplified
-    Simplified -->|Spatial.Apply Build+Nearest| SpatialIndex
+    Simplified -->|SpatialIndex Build + k-nearest Query| SpatialIndex
     SpatialIndex -->|lane-keyed Deterministic draw + TensorPrimitives.Max| DecimationResult
     Splits --> DecimationResult
     DecimationResult -.->|Compute tile-pyramid / coarse-seed / meshlet residency| Boundary

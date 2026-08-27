@@ -151,8 +151,8 @@ public sealed partial class ContentCarrier {
         box: static value => value is ContentValue.Bytes bytes ? bytes.Value.ToArray() : null,
         acceptsRange: static (_, _) => false,
         read: static (payload, key) => payload switch {
-            ByteArrayField field => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArr(field.Value))),
-            byte[] value => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArr(value))),
+            ByteArrayField field => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArray(field.Value))),
+            byte[] value => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArray(value))),
             _ => Fin.Fail<ContentValue>(error: key.InvalidResult()),
         },
         declare: static (declaration, payload, key) => declaration.Presentation is FieldPresentation.Plain && payload is byte[] bytes
@@ -593,7 +593,7 @@ public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentRes
                 UseTextureAmount: field.UseTextureAmount,
                 HiddenInAutoUi: field.IsHiddenInAutoUI)))
             .As()
-            .Map(static rows => new FieldCensus(Rows: toArr(rows))));
+            .Map(static rows => new FieldCensus(Rows: toArray(rows))));
 }
 ```
 

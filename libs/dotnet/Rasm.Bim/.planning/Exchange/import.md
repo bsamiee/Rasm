@@ -701,14 +701,14 @@ public static partial class BimIo {
         row.Names.Find(name => vertex.Element.Properties.Exists(p => p.Name == name))
             .Map(name => row.Channel == EncodingChannel.ColorRgba
                 ? ColourScale.TryGetValue(vertex[name].Property.DataType, out float scale)
-                    ? Array.ConvertAll(Column(vertex, name), value => value / scale)
+                    ? System.Array.ConvertAll(Column(vertex, name), value => value / scale)
                     : Column(vertex, name)
                 : Column(vertex, name));
 
     static float[] Column(ElementData element, string name) => element[name].Data switch {
         float[] f  => f,
-        double[] d => Array.ConvertAll(d, static x => (float)x),
-        int[] i    => Array.ConvertAll(i, static x => (float)x),
+        double[] d => System.Array.ConvertAll(d, static x => (float)x),
+        int[] i    => System.Array.ConvertAll(i, static x => (float)x),
         Array a    => Enumerable.Range(0, a.Length).Select(i => Convert.ToSingle(a.GetValue(i), CultureInfo.InvariantCulture)).ToArray(),
         _          => [],
     };

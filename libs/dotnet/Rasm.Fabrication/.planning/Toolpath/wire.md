@@ -810,10 +810,10 @@ public static class WireEdm {
         double window = pass.CornerSlowMm / perimeter;
         HashMap<int, Seq<(double Station, double TurnDeg)>> corners = window > 0.0
             ? vertices.Fold(
-                HashMap<int, Seq<(double Station, double TurnDeg)>>.Empty,
+                HashMap<int, Seq<(double Station, double TurnDeg)>>(),
                 (index, vertex) => index.AddOrUpdate(
                     (int)Math.Floor(vertex.Station / window), held => held.Add(vertex), Seq(vertex)))
-            : HashMap<int, Seq<(double Station, double TurnDeg)>>.Empty;
+            : HashMap<int, Seq<(double Station, double TurnDeg)>>();
         Seq<(double Station, double Progress, double SpeedScale, double TurnDeg)> ordered =
             toSeq(pass.CornerStations(vertices.Map(static row => row.Station), perimeter, loop.Closed)
                 .Concat(job.Policy.Retention.Stations)

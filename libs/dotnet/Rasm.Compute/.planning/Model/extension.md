@@ -155,7 +155,7 @@ public static class CustomOps {
             : Extent(info.Shape)
                 .ToFin(EgressRefusal.ShapeSymbolic.Fault())
                 .Bind(elements => value.GetStringTensorAsArray() is string[] text && elements == text.LongLength
-                    ? Fin.Succ<OpOutput>(new OpOutput.Strings(new DenseTensor<string>(text, Array.ConvertAll(info.Shape, static extent => (int)extent))))
+                    ? Fin.Succ<OpOutput>(new OpOutput.Strings(new DenseTensor<string>(text, System.Array.ConvertAll(info.Shape, static extent => (int)extent))))
                     : Fin.Fail<OpOutput>(EgressRefusal.CardinalityMismatched.Fault()));
 
     static Fin<Seq<(OpOutput.MapKey Key, OpOutput.MapValue Value)>> Pairs(OrtValue map) {

@@ -641,8 +641,8 @@ public abstract partial record PreviewInk {
 
     internal Seq<PerceptualColor> Spread(PerceptualColor fallback, Rasm.Numerics.Dimension meshes) => Switch(
         (Fallback: fallback, Meshes: meshes),
-        document: static (held, _) => Seq.generate(held.Meshes.Value, _ => held.Fallback).Strict(),
-        uniform: static (held, row) => Seq.generate(held.Meshes.Value, _ => row.Value).Strict(),
+        document: static (held, _) => LanguageExt.Seq.generate(held.Meshes.Value, _ => held.Fallback).Strict(),
+        uniform: static (held, row) => LanguageExt.Seq.generate(held.Meshes.Value, _ => row.Value).Strict(),
         perMesh: static (_, row) => row.Values);
 }
 

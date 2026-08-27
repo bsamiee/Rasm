@@ -18,7 +18,7 @@ Rebuilding composes ring simplicity and convolution crossings from `Meshing/inte
 - Output: the `OffsetResult` ad-hoc union over `SkeletonGraph`, `Seq<Chain>`, and `ClearanceNode`, every node carrying its clearance radius; the hash-eligible artifacts are the emitted `Polyline`/`Chain` values, never the live `WavefrontStore`.
 - Law: every budget and ratio is a guarded value object and both metric bands are `ToleranceLane` rows derived from the bound `Context`, so the policy carries no evidence fold and no page-local epsilon; the only invariant left is each speed table's arity-and-positivity, and it is gated once at the arm that reads it.
 - Exemption: the wavefront's BCL `PriorityQueue` is the named span-kernel stay — an event simulation orders by a schedule TIME the fire re-validates, not by a graph relaxation, and QuikGraph publishes no event queue; the `free` slot recycler is a stack the arena pops and pushes with no traversal reading it; the ring walk reads the arena's own successor column and its product is the CYCLIC ORDER no component labeller publishes. Mutable tables — `keep` in the medial fold, `seen` in the ring walk, the `WavefrontStore` columns themselves — live inside one statement kernel and never freeze.
-- Packages: `Rasm.Numerics` (`Predicate` exact-turn floor, `EpsilonPolicy.ZeroTolerance` the dimensionless degeneracy floor, `Dimension`/`PositiveMagnitude` the guarded budgets, `GeometryFault`), `Rasm.Meshing` (`Intersection.Apply` crossing checks and `Chain` loop rows, `Containment.Of` the ONE even-odd ring predicate, `ArenaPolicy` the wavefront capacity law, `Tessellation.Build`/`VoronoiDual` medial substrate with `Conform.Edge` ring conforms, `Arrangement.Apply` loop resolution), `Rasm.Spatial` (`Spatial.Apply` over `SpatialOp.Build` and `SpatialQuery.Nearest`/`SelfOverlap` — the probe's index and the simplicity broad phase), `Rasm.Domain` (`Op`, `Context`/`ToleranceLane` the two metric bands, `ValidityClaim`), CommunityToolkit.HighPerformance (`MemoryOwner<T>` the support-dot plane), System.Numerics.Tensors (`TensorPrimitives.IndexOfMax` the support search), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Line.ClosestParameter`/`PointAt`/`DistanceTo`/`Polyline`/`BoundingBox`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL `PriorityQueue`.
+- Packages: `Rasm.Numerics` (`Predicate` exact-turn floor, `EpsilonPolicy.ZeroTolerance` the dimensionless degeneracy floor, `Dimension`/`PositiveMagnitude` the guarded budgets, `GeometryFault`), `Rasm.Meshing` (`Intersection.Apply` crossing checks and `Chain` loop rows, `Containment.Of` the ONE even-odd ring predicate, `ArenaPolicy` the wavefront capacity law, `Tessellation.Build`/`VoronoiDual` medial substrate with `Conform.Edge` ring conforms, `Arrangement.Apply` loop resolution), `Rasm.Spatial` (`SpatialIndex.Build` and the k-nearest and self-overlap `Query` arms — the probe's index and the simplicity broad phase), `Rasm.Domain` (`Op`, `Context`/`ToleranceLane` the two metric bands, `ValidityClaim`), CommunityToolkit.HighPerformance (`MemoryOwner<T>` the support-dot plane), System.Numerics.Tensors (`TensorPrimitives.IndexOfMax` the support search), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Line.ClosestParameter`/`PointAt`/`DistanceTo`/`Polyline`/`BoundingBox`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL `PriorityQueue`.
 - Growth: a new offsetting modality is one `OffsetOp` case over the same propagation; a new corner strategy one `JoinType` row carrying its emission delegate; a new cap one `EndType` row; a new event shape one `OffsetEvent` case and one drain arm; a new metric band one `ToleranceLane` read off the bound `Context`. Clearance family widens by zero new types; variable-speed demands ride `EdgeSpeed`, variable-reach demands one `OffsetReach` case.
 - Boundary: `OffsetOp` is the sole offsetting `[Union]`; exact turn signs decide reflex classification, split admission, ring simplicity, and convolution compatibility over input geometry, while event ordering stays analytic schedule data validated at fire. Ring simplicity and convolution crossings route `Intersection.Apply` behind the probe's own broad phase; the interior test routes `slice.md`'s `Containment.Of`, since a page-local straddle forks the crossing kernel's verdict; loop resolution routes `Arrangement.Apply` `PlanarOverlay` ring-direct; the medial composes the delaunay `VoronoiDual`. `Apply` is total over `Fin`, so a degenerate ring or stalled queue returns a fault rather than throwing, and a `Split` divides the ring rather than dropping a reflex chain to satisfy a budget.
 
@@ -126,10 +126,7 @@ public sealed class ClearanceProbe {
 
     public static ClearanceProbe Of(Arr<Line> segments, Dimension ceiling) {
         BoundingBox[] boxes = [.. segments.Map(static segment => segment.BoundingBox)];
-        Option<SpatialIndex> index = Spatial.Apply(
-                new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical))
-            .ToOption()
-            .Bind(static answer => answer is SpatialAnswer.Index seated ? Some(seated.Value) : None);
+        Option<SpatialIndex> index = SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical).ToOption();
         return new(segments, index, ceiling);
     }
 
@@ -137,15 +134,11 @@ public sealed class ClearanceProbe {
         for (int candidates = int.Min(ceiling.Value, Count); ;
             candidates = int.Min(candidates << 1, Count)) {
             (double best, int at, double foot, bool closed) = (double.PositiveInfinity, 0, 0.0, false);
-            IEnumerable<int> ordered = index.Bind(seated => Spatial.Apply(new SpatialOp.Query(
-                    seated, new SpatialQuery.Nearest(probe, candidates))).ToOption())
-                .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest ranked }
-                    ? Some(ranked.Ordered) : None)
+            IEnumerable<int> ordered = index.Bind(seated => seated.Query(probe, candidates).ToOption())
                 .Map(static ranked => ranked.AsEnumerable())
                 .IfNone(() => Enumerable.Range(0, Count));
             foreach (int s in ordered) {
-                if (index.Map(seated => seated.Primitives[s].ClosestPoint(probe, true).DistanceTo(probe))
-                        .IfNone(noneValue: 0.0) >= best) { closed = true; break; }
+                if (index.IsSome && segments[s].BoundingBox.ClosestPoint(probe, true).DistanceTo(probe) >= best) { closed = true; break; }
                 Line segment = segments[s];
                 double t = segment.Length <= EpsilonPolicy.ZeroTolerance
                     ? 0.0 : Math.Clamp(segment.ClosestParameter(probe), 0.0, 1.0);
@@ -157,10 +150,7 @@ public sealed class ClearanceProbe {
     }
 
     internal IEnumerable<(int I, int J)> Overlaps(double tolerance) =>
-        index.Bind(seated => Spatial.Apply(new SpatialOp.Query(
-            seated, new SpatialQuery.SelfOverlap(tolerance))).ToOption())
-            .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs pairs }
-                ? Some(pairs.Overlaps) : None)
+        index.Bind(seated => seated.Query(tolerance).ToOption())
             .Map(static pairs => pairs.AsEnumerable().Select(static pair =>
                 (int.Min(pair.Left, pair.Right), int.Max(pair.Left, pair.Right))))
             .IfNone(() => from i in Enumerable.Range(0, Count)
@@ -230,12 +220,12 @@ public static partial class Offsetting {
             int v = free.Count > 0 ? free.Pop() : count++;
             if (v >= px.Length) {
                 int extent = int.Max(v + 1, px.Length << 1);
-                Array.Resize(ref px, extent); Array.Resize(ref py, extent);
-                Array.Resize(ref vx, extent); Array.Resize(ref vy, extent);
-                Array.Resize(ref spawnTime, extent);
-                Array.Resize(ref prev, extent); Array.Resize(ref next, extent);
-                Array.Resize(ref node, extent); Array.Resize(ref edgeOf, extent);
-                Array.Resize(ref dead, extent);
+                System.Array.Resize(ref px, extent); System.Array.Resize(ref py, extent);
+                System.Array.Resize(ref vx, extent); System.Array.Resize(ref vy, extent);
+                System.Array.Resize(ref spawnTime, extent);
+                System.Array.Resize(ref prev, extent); System.Array.Resize(ref next, extent);
+                System.Array.Resize(ref node, extent); System.Array.Resize(ref edgeOf, extent);
+                System.Array.Resize(ref dead, extent);
             }
             (px[v], py[v], vx[v], vy[v]) = (at.X, at.Y, velocity.X, velocity.Y);
             (spawnTime[v], node[v], edgeOf[v], dead[v]) = (time, fromNode, outEdge, false);
@@ -604,7 +594,7 @@ public static partial class Offsetting {
         return Tessellation.Build(new TessellationOp.Points(TessellationKind.Triangulation, rows, edges, TessellationPolicy.Canonical, Axis.Z))
             .Bind(static t => t.VoronoiDual().Map(dual => (Tess: t, Dual: dual)))
             .Bind(static pair => pair.Tess.Triangles().Map(tris => (pair.Dual,
-                Tris: toArr(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))))))
+                Tris: toArray(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))))))
             .Map(x => {
                 bool[] interior = [.. x.Tris.Select(tri => Containment.Of(new Point3d(
                     (tri.A.X + tri.B.X + tri.C.X) / 3.0,

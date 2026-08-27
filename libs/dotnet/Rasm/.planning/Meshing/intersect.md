@@ -2,7 +2,7 @@
 
 `Rasm.Meshing` owns the predicate-exact crossing table: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact straddle signs, every crossing POINT an `Implicit` construction rounded at the `Round()` emission boundary. Endpoints key by defining entities through `CrossKey`, adjacent-face crossings interning to one row by integer equality, and chains walk that adjacency into oriented closed loops and open runs, closure reading off the polyline endpoints. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
 
-Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossTable` so `Meshing/arrangement` consumes the same run without a second narrow phase.
+Rebuilding composes the broad phase from `SpatialIndex.Build` and its typed `Query` arms, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossTable` so `Meshing/arrangement` consumes the same run without a second narrow phase.
 
 ## [01]-[INDEX]
 
@@ -14,11 +14,11 @@ Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups fro
 - Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the direct intersection fault payloads read; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `CrossTable.Row` pairs the `Implicit` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossTable` projection; `Chain` is the result row and `Chain.Of` the ONE oriented-edge decomposition minting it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
 - Cases: `IntersectOp` cases `SegmentSegment` · `SegmentTriangle` · `TriangleTriangle` · `RayMesh` · `MeshMesh` · `SelfMesh` · `PlaneMesh`; `IntersectResult` cases `Points` · `Segments` · `Chains`.
 - Entry: `Apply` discriminates on the op case and resolves the ONE key every interior static then takes outright; `Fin<T>` routes `GeometryFault.DegenerateInput` on an inadmissible primitive and `GeometryFault.NonManifoldIntersection` — carrying the offending endpoint in its `Junction` column — on a section edge key incident to three or more faces, while an OPEN section on a boundaried mesh is a chain whose endpoints differ, never a fault. `SegmentSegment` carries its projection `Axis`, so the 2D restriction lives in the request shape.
-- Auto: point-level cases run the exact straddle directly; mesh-level cases fold `MeshEdit.Of`, the `Spatial.Apply` BVH broad phase, and the narrow phase, interning each crossing endpoint into `CrossingStore` by `CrossKey` so a crossing reached from two face pairs lands on one row and a hit on a pierced edge or corner keys by its classified landing, not by either incident face. Chain assembly hands the material-oriented segments stored `from → to` to `Chain.Of`, which seats them in a bidirectional container source-first: an out-degree or in-degree above one on any endpoint routes the non-manifold junction fault carrying that endpoint, a zero-indegree head opens an open run, a head the container gives a predecessor sits on a cycle and closes an oriented loop, and every remaining component is reached by the one depth-first sweep.
+- Auto: point-level cases run the exact straddle directly; mesh-level cases fold `MeshEdit.Of`, the `SpatialIndex` BVH broad phase, and the narrow phase, interning each crossing endpoint into `CrossingStore` by `CrossKey` so a crossing reached from two face pairs lands on one row and a hit on a pierced edge or corner keys by its classified landing, not by either incident face. Chain assembly hands the material-oriented segments stored `from → to` to `Chain.Of`, which seats them in a bidirectional container source-first: an out-degree or in-degree above one on any endpoint routes the non-manifold junction fault carrying that endpoint, a zero-indegree head opens an open run, a head the container gives a predecessor sits on a cycle and closes an oriented loop, and every remaining component is reached by the one depth-first sweep.
 - Output: `IntersectResult`, its `Chains` case carrying the frozen `CrossTable` as payload; the hash-eligible artifacts are the `Polyline`/`Point3d` values at the `Round()` boundary.
 - Law: every crossing row keys by INTEGER defining entities, and the one coincidence fallback keys by `Axis.BitKey` — the predicate owner's exact IEEE triple with signed zero folded onto positive, the same zero the exact `Compare` reads — so the arena carries no float-keyed table, no page re-derives that ordinal, and no tolerance decides identity. Broad-phase inflation reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the sweep band scales with the model instead of pinning an absolute epsilon on the policy row. `IntersectPolicy.KeepCoplanar` stays a bare bool: it gates whether the coplanar AREA contact emits constraint rows at all, and no second policy column shares a legal-corner law with it.
 - Exemption: the mutable tables are arena or statement-kernel state, never frozen — `CrossingStore`'s `interned`/`byBits` intern maps and `segments`/`coplanar` accumulators (the arena's own columns, published only through `Freeze`), the `shared` third-vertex ledger inside one `Section` sweep, and `Chain.Of`'s `incoming` seed set, which orders the container's insertion and dies with the build.
-- Packages: `Rasm.Numerics` (`Predicate`, `Implicit` with its `SegmentIntersection`/`LinePlaneIntersection` cases, `Sign`, `Axis` with `Along`/`BitKey`, `Dimension`, `GeometryFault`), `Rasm.Spatial` (`Spatial.Apply` broad phase), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Op`, `Kind`, `Context`/`ToleranceLane`), QuikGraph (`GraphExtensions.ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: `Rasm.Numerics` (`Predicate`, `Implicit` with its `SegmentIntersection`/`LinePlaneIntersection` cases, `Sign`, `Axis` with `Along`/`BitKey`, `Dimension`, `GeometryFault`), `Rasm.Spatial` (`SpatialIndex.Build`, the overlap and box `Query` arms), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Op`, `Kind`, `Context`/`ToleranceLane`), QuikGraph (`GraphExtensions.ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new crossing modality is one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `Implicit` case; a new broad-phase knob is one `IntersectPolicy` column, and a new band is one `ToleranceLane` row at the context owner.
 - Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission with their seed repeated, so `Polyline.IsClosed` is the one closure read; `Apply` is total over `Fin`; `CrossingStore` is the single-writer arena whose frozen `CrossTable` is the only projection consumers hold.
 
@@ -303,7 +303,7 @@ public static class Intersection {
         }
         if (Axis.DominantOf(v - u).Case is not Axis along) { return kept; }
         int[] ranked = [.. Enumerable.Range(0, kept.Count)];
-        Array.Sort(ranked, (l, r) => {
+        System.Array.Sort(ranked, (l, r) => {
             (Implicit left, Implicit right) = (kept[l], kept[r]);
             Sign side = Predicate.Compare(in left, in right, along);
             return side != Sign.Zero ? side.Key : l.CompareTo(r);
@@ -315,31 +315,22 @@ public static class Intersection {
     static Fin<SpatialIndex> Bvh(MeshEdit soup, Op key) {
         BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) { boxes[f] = soup.Bounds(f); }
-        return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
-            .Bind(answer => answer is SpatialAnswer.Index built
-                ? Fin.Succ(built.Value)
-                : Fin.Fail<SpatialIndex>(key.InvalidResult()));
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, key);
     }
-
-    static Fin<Seq<(int Left, int Right)>> OverlapPairs(SpatialIndex a, SpatialIndex b, double inflation, Op key) =>
-        Spatial.Apply(new SpatialOp.Query(a, new SpatialQuery.Overlap(b, inflation)), key)
-            .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs pairs }
-                ? Fin.Succ(pairs.Overlaps)
-                : Fin.Fail<Seq<(int, int)>>(key.InvalidResult()));
 
     // --- [CROSSINGS]
     static Fin<CrossingStore> Cross(IntersectOp.MeshMesh op, Op key) {
         using MeshEdit ea = MeshEdit.Of(op.A);
         using MeshEdit eb = MeshEdit.Of(op.B);
         return (Bvh(ea, key), Bvh(eb, key)).Apply((ia, ib) => (ia, ib)).As()
-            .Bind(t => OverlapPairs(t.ia, t.ib, op.A.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
+            .Bind(t => t.ia.Query(t.ib, op.A.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => PairCrossings(store, ea, eb, pair.Left, pair.Right, op.Policy)));
     }
 
     static Fin<CrossingStore> SelfCross(IntersectOp.SelfMesh op, Op key) {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
         return Bvh(soup, key)
-            .Bind(index => OverlapPairs(index, index, op.Mesh.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
+            .Bind(index => index.Query(index, op.Mesh.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => {
                 if (pair.Left >= pair.Right) { return store; }
                 (int a0, int a1, int a2) = soup.Face(pair.Left);
@@ -513,10 +504,7 @@ public static class Intersection {
         if (Axis.DominantOf(op.Ray.Direction, key).Case is not Axis axis) { return Fin.Fail<IntersectResult>(key.InvalidInput()); }
         Sign forward = Sign.Of(axis.Along(op.Ray.Direction));
         return Bvh(soup, key)
-            .Bind(index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(new BoundingBox([from, to]), None)), key))
-            .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
-                ? Fin.Succ(hits.Ids)
-                : Fin.Fail<Seq<int>>(key.InvalidResult()))
+            .Bind(index => index.Query(new BoundingBox([from, to]), key: key))
             .Map(faces => {
                 Option<Implicit> best = None;
                 foreach (int f in faces) {
@@ -549,7 +537,7 @@ flowchart LR
     accTitle: Crossing table flow
     accDescr: Operands flow through the broad phase, exact narrow phase, and key-interned crossing rows into chained loops and open rows.
     IntersectOp -->|Orient3D / projected Orient2D straddles| Predicate
-    IntersectOp -->|Overlap pairs / ray-reach Range via Spatial.Apply| SpatialIndex
+    IntersectOp -->|overlap pairs / ray-reach box Query| SpatialIndex
     IntersectOp -->|MeshEdit.Of — the ONE soup| MeshEdit
     Predicate -->|LinePlaneIntersection / SegmentIntersection defining-entity construction| CrossRow["CrossTable.Row"]
     CrossRow -->|CrossKey intern — exact cross-face merge| CrossingStore

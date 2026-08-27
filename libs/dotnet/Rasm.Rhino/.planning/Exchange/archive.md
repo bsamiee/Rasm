@@ -922,12 +922,12 @@ public static class Archives {
 
     private static Seq<TResult> ProjectOwned<T, TResult>(T[]? values, Func<T, TResult> project)
         where T : class, IDisposable =>
-        toSeq(values ?? Array.Empty<T>())
+        toSeq(values ?? System.Array.Empty<T>())
             .Map(value => new Lease<T>.Owned(Value: value).Use(project))
             .Strict();
 
     private static int CountOwned<T>(T[]? values) where T : class, IDisposable =>
-        toSeq(values ?? Array.Empty<T>()).Fold(0, static (count, value) =>
+        toSeq(values ?? System.Array.Empty<T>()).Fold(0, static (count, value) =>
             new Lease<T>.Owned(Value: value).Use(state: count, project: static (held, _) => held + 1));
 
     private static Fin<ArchiveOutcome> InspectPath(DocumentPath path, Op op) =>

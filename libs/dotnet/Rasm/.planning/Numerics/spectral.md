@@ -486,7 +486,7 @@ internal static class SpectralKernel {
         SpectralRank[] ranks = [.. candidates.AsIterable()
             .Select((SpectralDescriptor candidate, int index) => new SpectralRank(Index: index, Distance: policy.Distance.Compute(a: queryOperand, b: new([.. candidate.Values.AsIterable()])), Descriptor: candidate))
             .OrderBy(static rank => rank.Distance).ThenBy(static rank => rank.Index)];
-        return Array.TrueForAll(ranks, static (SpectralRank rank) => double.IsFinite(rank.Distance)) ? Fin.Succ(toSeq(ranks)) : Fin.Fail<Seq<SpectralRank>>(key.InvalidResult());
+        return System.Array.TrueForAll(ranks, static (SpectralRank rank) => double.IsFinite(rank.Distance)) ? Fin.Succ(toSeq(ranks)) : Fin.Fail<Seq<SpectralRank>>(key.InvalidResult());
     }
     private static Fin<double[]> Rescaled(double[] values, DescriptorNormalization normalization, Op key) =>
         TensorPrimitives.IsFiniteAll<double>(values)

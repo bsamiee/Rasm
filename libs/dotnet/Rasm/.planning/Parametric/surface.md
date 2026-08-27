@@ -217,9 +217,9 @@ public static class Surfaces {
             return Fin.Succ(new Arr<Option<(double U, double V)>>([.. op.Probes.Map(static _ => Option<(double U, double V)>.None)]));
         }
         (Point3d[] seeds, Point2d[] seedUv) = SeedGrid(op.Surface, op.Policy);
-        return NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: toSeq(seeds)), key: key)
-            .Bind(index => NeighborKernel.GraphOf(
-                index: index, needles: [.. op.Probes], count: Some(1), radius: Option<double>.None, key: key))
+        return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(seeds)), key: key)
+            .Bind(index => key.AcceptValidated<Dimension>(candidate: 1).Bind(one => NeighborKernel.GraphOf(
+                index: index, needles: [.. op.Probes], count: Some(one), radius: Option<PositiveMagnitude>.None, key: key)))
             .Map(graph => new Arr<Option<(double U, double V)>>([.. graph.Ids.Select(hits =>
                 hits.Length > 0 ? Some((seedUv[hits[0]].X, seedUv[hits[0]].Y)) : Option<(double U, double V)>.None)]));
     }

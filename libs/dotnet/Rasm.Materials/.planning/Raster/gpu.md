@@ -1431,7 +1431,7 @@ public static class Oracle {
         return Fin.Succ(unit);
     }
 
-    static ReadOnlyMemory<float> Constant(int texels) { float[] plane = new float[texels * 4]; Array.Fill(plane, 1f); return plane; }
+    static ReadOnlyMemory<float> Constant(int texels) { float[] plane = new float[texels * 4]; System.Array.Fill(plane, 1f); return plane; }
 
     static ReadOnlyMemory<float> Meridian(int texels, int mirror, int drawn) {
         float[] plane = new float[texels * 4];
@@ -1503,7 +1503,7 @@ public sealed record ChainPlan(Seq<ChainStep> Steps, int Slots, int Terminal) {
         }
 
         int[] head = new int[count], next = new int[count];
-        Array.Fill(head, -1);
+        System.Array.Fill(head, -1);
         for (int at = count - 1; at >= 0; at--) { next[at] = head[dies[at]]; head[dies[at]] = at; }
 
         int[] slotOf = new int[count], free = new int[count];

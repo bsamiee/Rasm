@@ -1,13 +1,13 @@
 # [RASM_SPATIAL_INDEX]
 
-`Spatial.Apply` folds every broad-phase modality onto one `Fin<SpatialAnswer>` result over a `SpatialIndex` `[Union]` whose kernels differ only in build partition strategy and share one frozen `NodeStore`, so query, refit, and wire read that store kernel-agnostically. This owner serves predicate-exact primitive-bounds broad phase alone.
+`SpatialIndex` owns every broad-phase modality as a typed operation — static `Build`, instance `Refit`, one input-shape-dispatched `Query`, and `Wire` — each landing its own `Fin` result over one sealed `SpatialIndex` whose `SpatialKind` kernels differ only in build partition strategy and share one frozen `NodeStore`, so query, refit, and wire read that store kernel-agnostically. This owner serves predicate-exact primitive-bounds broad phase alone.
 
 `SpatialIndex` computes on raw primitive coordinates, never a unit-bearing quantity type. `NodeWalk` is this page's ONE hierarchy traversal owner and every query composes it: the monotone arm projects the child links onto a QuikGraph delegate graph and reads one breadth-first walk, while the state-threading arm is the named span kernel the four walks whose graph is not fixed per walk share. `NodeVerdict` is the one pruning vocabulary both arms read. `BuildPolicy` and every scalar it carries admit through the `Numerics/atoms` `Band` rows, so an inadmissible policy is unrepresentable and no consumer re-gates one. `Wire` is the one cross-package egress and carries raw arrays alone, so `Rasm.Compute` decodes with no Compute type entering this owner; `Rasm.Persistence` content-addresses the frozen `NodeStore` itself, and this owner mints no second store.
 
 ## [01]-[INDEX]
 
 - [02]-[NODE_WALK]: `NodeWalk` owns every hierarchy descent, the monotone arm on QuikGraph and the state-threading arm named.
-- [03]-[SPATIAL_INDEX]: `Spatial.Apply` folds every broad-phase op over the shared node store.
+- [03]-[SPATIAL_INDEX]: `SpatialIndex` lands every broad-phase op as a typed operation over the shared node store.
 
 ## [02]-[NODE_WALK]
 
@@ -37,11 +37,11 @@ using static LanguageExt.Prelude;
 namespace Rasm.Spatial;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class NodeVerdict {
-    public static readonly NodeVerdict Prune = new(key: 0, offersChildren: false, visits: false);
-    public static readonly NodeVerdict Absorb = new(key: 1, offersChildren: false, visits: true);
-    public static readonly NodeVerdict Descend = new(key: 2, offersChildren: true, visits: true);
+[SmartEnum]
+internal sealed partial class NodeVerdict {
+    internal static readonly NodeVerdict Prune = new(offersChildren: false, visits: false);
+    internal static readonly NodeVerdict Absorb = new(offersChildren: false, visits: true);
+    internal static readonly NodeVerdict Descend = new(offersChildren: true, visits: true);
 
     internal bool OffersChildren { get; }
     internal bool Visits { get; }
@@ -85,39 +85,24 @@ internal static class NodeWalk {
 
 ## [03]-[SPATIAL_INDEX]
 
-- Owner: `SpatialKind` rows own kernel selection, each row carrying its own builder over the shared `NodeStore` and each built case carrying the row that built it, so a refit rebuilds through its own kernel; `SpatialIndex.ClosestOnTriangle` is the one point-triangle refinement every consumer of this page's candidate prune reads, foot and distance leaving together.
-- Output: `QueryResult` carries every query verdict, and the index itself is the registered validity evidence.
-- Law: `BuildPolicy.Of` is the ONE admission — every scalar enters through a `Numerics/atoms` owner, so `Band.Count`'s closed floor of one is the authority that makes a zero leaf size, depth, bucket count, or parallel floor unrepresentable and the `IsAdmitted` bool it replaced carried nothing the band does not. `Canonical`'s figures each carry their provenance on site, because a band authorizes a RANGE and never a value. The packed-field ceiling DERIVES from `ChildShift`, both seated on `BuildPolicy` so the wire layout has ONE authority the projection reads, and `RefitGrowth` carries the degradation limit as a positive FRACTION above unity so a limit at or below one is unrepresentable rather than guarded. Far-field cut and every degeneracy floor on this page read `EpsilonPolicy.ZeroTolerance`, the branch's one degeneracy anchor — the ray slab included, its probe unitized at admission so the comparison shares that anchor's scale — so no page literal states either.
-- Output: `RangeHits` and `SlabHits` publish LEVEL order — the monotone walk's own discovery order, the owner's published order for a hit set (`DIGEST_OVER_UNORDERED_CONTAINER`); `Nearest` publishes ascending distance, `Pairs` the dual descent's own order, and `Field` the query-point order the caller supplied.
-- Exemption: the build kernels keep mutable accumulators for exactly one build — the octree's `List<(int Lo, int Hi)> runs` per cell, the agglomerative round's `nearest` and survivor arrays, the pooled `Arena`, bucket, bin, and partition spans, and the `Compact` visit/map arrays — and every one dies at `Freeze`; k-nearest selection composes the `Rasm.Domain` `Ranked` cell under `ExtremumDirection.Minimum`, whose `Bound` is the walk's pruning threshold, so the page holds no `PriorityQueue` of its own.
+- Owner: `SpatialKind` rows own kernel selection, each row carrying its own builder over the shared `NodeStore` and each built index carrying the row that built it beside an optional SAH baseline only the BVH-shaped kernels mint, so a refit rebuilds through its own kernel when that baseline degrades; `SpatialIndex.ClosestOnTriangle` is the one point-triangle refinement every consumer of this page's candidate prune reads, foot and distance leaving together.
+- Output: each `Query` overload answers its own typed result — a hit `Seq<int>`, a ray `(Option<int> Id, double T)`, an overlap-pair `Seq`, or a winding `double[]` — and the index itself is the registered validity evidence.
+- Law: `BuildPolicy.Of` is the ONE admission — every scalar enters through a `Numerics/atoms` owner, so `Band.Count`'s closed floor of one is the authority that makes a zero leaf size, depth, bucket count, or parallel floor unrepresentable; the five independent admissions accumulate through the tuple `Apply` before the packed-count and bucket-floor relation sequences on the admitted values. `Canonical`'s figures each carry their provenance on site, because a band authorizes a RANGE and never a value. The packed-field ceiling DERIVES from `ChildShift`, both seated on `BuildPolicy` so the wire layout has ONE authority the projection reads, and `RefitGrowth` carries the degradation limit as a positive FRACTION above unity so a limit at or below one is unrepresentable rather than guarded. Far-field cut and every degeneracy floor on this page read `EpsilonPolicy.ZeroTolerance`, the branch's one degeneracy anchor — the ray slab included, its probe unitized at admission so the comparison shares that anchor's scale — so no page literal states either.
+- Output: the box and slab `Query` arms publish LEVEL order — the monotone walk's own discovery order, the owner's published order for a hit set (`DIGEST_OVER_UNORDERED_CONTAINER`); the k-nearest arm publishes ascending distance, the overlap arms the dual descent's own order, and the winding arm the query-point order the caller supplied.
+- Exemption: the build kernels keep mutable accumulators for exactly one build — the BVH's `(Node, Lo, Hi, Depth)` range frontier, the octree's `List<(int Lo, int Hi)> runs` per cell, the agglomerative round's `nearest` and survivor arrays, the pooled `Arena`, bucket, bin, and partition spans, and the `Compact` visit/map arrays — and every one dies at `Freeze`. The BVH partition is an explicit range stack, never a recursive local function or a `NodeWalk.Descend` step, because its bucket, bin, and partition scratch are `SpanOwner<T>` rentals — a `ref struct` no local function or lambda may capture (`CS8175`) — so the split loop reads `.Span` off the rentals in the frame that owns them, and the octree's `Cell` stays recursive because it captures the class-typed `Arena` and arrays alone; k-nearest selection composes the `Rasm.Domain` `Ranked` cell under `ExtremumDirection.Minimum`, whose `Bound` is the walk's pruning threshold, so the page holds no `PriorityQueue` of its own.
 - Packages: RhinoCommon through `Rasm.Numerics`, `Rasm.Domain`, QuikGraph, CommunityToolkit.HighPerformance (`SpanOwner`/`MemoryOwner` the pooled arenas, `Span2D<T>.GetRowSpan` every strided plane read, `ParallelHelper.For` the PLOC sweep and the leaf refit), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new kernel is one `SpatialKind` row over the shared `NodeStore` and one `Builder` column on the case it mints, a new query one `SpatialQuery` case with its `QueryKind` row and `Query` arm, a new op one `SpatialOp` case and `Apply` arm, a new knob one `BuildPolicy` column; a new node layout is one `SpatialIndex` case, admitted only by charter amendment.
+- Growth: a new kernel is one `SpatialKind` row over the shared `NodeStore`, carried as the index's `Kind`, a new query one `Query` overload discriminating on its input shape, a new op one typed member on `SpatialIndex`, a new knob one `BuildPolicy` column; a new node layout is one `NodeStore` shape change, admitted only by charter amendment.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum]
 public sealed partial class SpatialKind {
-    public static readonly SpatialKind Bvh = new("bvh", SpatialIndex.BuildBvh);
-    public static readonly SpatialKind Octree = new("octree", SpatialIndex.BuildOctree);
-    public static readonly SpatialKind Agglomerative = new("agglomerative", SpatialIndex.BuildAgglomerative);
+    public static readonly SpatialKind Bvh = new(SpatialIndex.BuildBvh);
+    public static readonly SpatialKind Octree = new(SpatialIndex.BuildOctree);
+    public static readonly SpatialKind Agglomerative = new(SpatialIndex.BuildAgglomerative);
 
     [UseDelegateFromConstructor]
-    public partial Fin<SpatialIndex> Build(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy);
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class QueryKind {
-    public static readonly QueryKind Range = new("range");
-    public static readonly QueryKind Ray = new("ray");
-    public static readonly QueryKind Nearest = new("nearest");
-    public static readonly QueryKind Overlap = new("overlap");
-    public static readonly QueryKind SelfOverlap = new("self-overlap");
-    public static readonly QueryKind Winding = new("winding");
-    public static readonly QueryKind Slab = new("slab");
+    internal partial Fin<SpatialIndex> Build(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -133,17 +118,17 @@ public sealed record BuildPolicy {
     public Dimension SahBuckets { get; }
     public PositiveMagnitude RefitGrowth { get; }
     public Dimension ParallelFloor { get; }
-    public double RefitDegradationLimit => 1.0 + RefitGrowth.Value;
 
     public static Fin<BuildPolicy> Of(int leafSize, int maxDepth, int sahBuckets, double refitGrowth, int parallelFloor, Op? key = null) {
         Op op = key.OrDefault();
-        return from leaf in op.AcceptValidated<Dimension>(candidate: leafSize)
-               from depth in op.AcceptValidated<Dimension>(candidate: maxDepth)
-               from buckets in op.AcceptValidated<Dimension>(candidate: sahBuckets)
-               from growth in op.AcceptValidated<PositiveMagnitude>(candidate: refitGrowth)
-               from floor in op.AcceptValidated<Dimension>(candidate: parallelFloor)
-               from _ in guard(leaf.Value <= PackedCountMax && buckets.Value > 1, op.InvalidInput()).ToFin()
-               select new BuildPolicy(leafSize: leaf, maxDepth: depth, sahBuckets: buckets, refitGrowth: growth, parallelFloor: floor);
+        return (op.AcceptValidated<Dimension>(leafSize).ToValidation(),
+                op.AcceptValidated<Dimension>(maxDepth).ToValidation(),
+                op.AcceptValidated<Dimension>(sahBuckets).ToValidation(),
+                op.AcceptValidated<PositiveMagnitude>(refitGrowth).ToValidation(),
+                op.AcceptValidated<Dimension>(parallelFloor).ToValidation())
+            .Apply((leaf, depth, buckets, growth, floor) => new BuildPolicy(leaf, depth, buckets, growth, floor)).As().ToFin()
+            .Bind(policy => guard(policy.LeafSize.Value <= PackedCountMax && policy.SahBuckets.Value > 1, op.InvalidInput()).ToFin()
+                .Map(_ => policy));
     }
 
     public static readonly BuildPolicy Canonical = new(
@@ -152,7 +137,6 @@ public sealed record BuildPolicy {
 }
 
 public sealed record NodeStore(
-    int Count,
     float[] BoundsMin,
     float[] BoundsMax,
     int[] FirstChild,
@@ -160,10 +144,12 @@ public sealed record NodeStore(
     int[] LeafStart,
     int[] LeafCount,
     int[] Order) {
+    public int Count => FirstChild.Length;
+
     internal Span2D<float> Lower => BoundsMin.AsSpan2D(height: Count, width: 3);
     internal Span2D<float> Upper => BoundsMax.AsSpan2D(height: Count, width: 3);
 
-    public BoundingBox Bound(int node) {
+    internal BoundingBox Bound(int node) {
         ReadOnlySpan<float> lo = Lower.GetRowSpan(node), hi = Upper.GetRowSpan(node);
         return new(new Point3d(lo[0], lo[1], lo[2]), new Point3d(hi[0], hi[1], hi[2]));
     }
@@ -173,77 +159,27 @@ public sealed record NodeStore(
         Enumerable.Range(LeafStart[node], LeafCount[node]).Select(slot => Order[slot]);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record QueryResult {
-    private QueryResult() { }
-
-    public sealed record Hits(Seq<int> Ids) : QueryResult;
-    public sealed record RayHit(Option<int> Id, double T) : QueryResult;
-    public sealed record Nearest(Seq<int> Ordered) : QueryResult;
-    public sealed record Pairs(Seq<(int Left, int Right)> Overlaps) : QueryResult;
-    public sealed record Field(double[] Values) : QueryResult;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SpatialQuery {
-    private SpatialQuery() { }
-
-    public sealed record Range(BoundingBox Box, Option<Sphere> Ball) : SpatialQuery;
-    public sealed record Ray(Ray3d Probe, double MaxT) : SpatialQuery;
-    public sealed record Nearest(Point3d Query, int K) : SpatialQuery;
-    public sealed record Overlap(SpatialIndex Other, double Tolerance) : SpatialQuery;
-    public sealed record SelfOverlap(double Tolerance) : SpatialQuery;
-    public sealed record Winding(Arr<Point3d> Queries, Arr<(Point3d A, Point3d B, Point3d C)> Triangles, PositiveMagnitude Beta) : SpatialQuery;
-    public sealed record Slab(CellLattice Grid, int Layer) : SpatialQuery;
-
-    public QueryKind Kind =>
-        Switch(
-            range: static _ => QueryKind.Range,
-            ray: static _ => QueryKind.Ray,
-            nearest: static _ => QueryKind.Nearest,
-            overlap: static _ => QueryKind.Overlap,
-            selfOverlap: static _ => QueryKind.SelfOverlap,
-            winding: static _ => QueryKind.Winding,
-            slab: static _ => QueryKind.Slab);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SpatialOp {
-    private SpatialOp() { }
-
-    public sealed record Build(SpatialKind Kind, BoundingBox[] Primitives, BuildPolicy Policy) : SpatialOp;
-    public sealed record Refit(SpatialIndex Index, BoundingBox[] Updated) : SpatialOp;
-    public sealed record Query(SpatialIndex Index, SpatialQuery Probe) : SpatialOp;
-    public sealed record Wire(SpatialIndex Index) : SpatialOp;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SpatialAnswer {
-    private SpatialAnswer() { }
-
-    public sealed record Index(SpatialIndex Value) : SpatialAnswer;
-    public sealed record Result(QueryResult Value) : SpatialAnswer;
-    public sealed record Wire(float[] Bounds, long[] Nodes) : SpatialAnswer;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SpatialIndex : IValidityEvidence {
-    private SpatialIndex() { }
+public sealed class SpatialIndex : IValidityEvidence {
+    private SpatialIndex(NodeStore store, BoundingBox[] primitives, BuildPolicy policy, SpatialKind kind, Option<double> baseline) =>
+        (Store, Primitives, Policy, Kind, Baseline) = (store, primitives, policy, kind, baseline);
 
-    public sealed record Bvh(NodeStore Store, BoundingBox[] Primitives, double BuildCost, BuildPolicy Policy, SpatialKind Builder) : SpatialIndex;
-    public sealed record LinearOctree(NodeStore Store, BoundingBox[] Primitives, BuildPolicy Policy, SpatialKind Builder) : SpatialIndex;
-
-    public abstract NodeStore Store { get; init; }
-    public abstract BoundingBox[] Primitives { get; init; }
-    public abstract BuildPolicy Policy { get; init; }
-    public abstract SpatialKind Builder { get; init; }
+    public NodeStore Store { get; }
+    BoundingBox[] Primitives { get; }
+    BuildPolicy Policy { get; }
+    SpatialKind Kind { get; }
+    Option<double> Baseline { get; }
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Store.Count, floor: 1),
         ValidityClaim.CountExactly(count: Store.BoundsMin.Length, expected: 3 * Store.Count),
         ValidityClaim.CountExactly(count: Store.BoundsMax.Length, expected: 3 * Store.Count),
+        ValidityClaim.CountExactly(count: Store.ChildCount.Length, expected: Store.Count),
+        ValidityClaim.CountExactly(count: Store.LeafStart.Length, expected: Store.Count),
+        ValidityClaim.CountExactly(count: Store.LeafCount.Length, expected: Store.Count),
         ValidityClaim.CountExactly(count: Store.Order.Length, expected: Primitives.Length),
+        Store.Order.All(primitive => (uint)primitive < (uint)Primitives.Length)
+            && Store.Order.Distinct().Count() == Primitives.Length,
         TensorPrimitives.IsFiniteAll<float>(Store.BoundsMin) && TensorPrimitives.IsFiniteAll<float>(Store.BoundsMax),
         Links(Store));
 
@@ -258,9 +194,17 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     internal static Point3d[] Centroids(BoundingBox[] boxes) =>
-        Array.ConvertAll(boxes, static box => 0.5 * (box.Min + box.Max));
+        System.Array.ConvertAll(boxes, static box => 0.5 * (box.Min + box.Max));
 
     // --- [BUILD]
+    public static Fin<SpatialIndex> Build(SpatialKind kind, BoundingBox[] primitives, BuildPolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return from boxes in Admit(primitives)
+               from built in kind.Build(boxes, Centroids(boxes), policy)
+               from _ in guard(built.IsValid, op.InvalidResult())
+               select built;
+    }
+
     internal static Fin<SpatialIndex> BuildBvh(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         int buckets = policy.SahBuckets.Value;
         using Arena arena = Arena.Rent(boxes.Length, depthCeiling: 2);
@@ -269,30 +213,42 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         using SpanOwner<int> scratch = SpanOwner<int>.Allocate(boxes.Length);
         int[] order = Enumerable.Range(0, boxes.Length).ToArray();
         int next = 1;
-        bool Partition(int node, int lo, int hi, int depth) {
+        Stack<(int Node, int Lo, int Hi, int Depth)> frontier = new();
+        frontier.Push((0, 0, boxes.Length, 0));
+        while (frontier.Count > 0) {
+            (int node, int lo, int hi, int depth) = frontier.Pop();
             BoundingBox bound = Union(boxes, order, lo, hi);
             int count = hi - lo;
             if (count <= policy.LeafSize.Value || depth >= policy.MaxDepth.Value) {
-                return arena.Write(node, bound, 0, 0, lo, count);
+                if (!arena.Write(node, bound, 0, 0, lo, count)) { return Overflowed(); }
+                continue;
             }
-            BoundingBox centroidBound = CentroidBound(centroids, order, lo, hi);
+            BoundingBox centroidBound = BoundingBox.Empty;
+            for (int i = lo; i < hi; i++) { centroidBound.Union(centroids[order[i]]); }
             (int axis, double cost, int splitBucket) = BestSah(boxes, centroids, order, lo, hi, bound, centroidBound, buckets, counts.Span, bins.Span);
             if (cost >= count) {
-                return arena.Write(node, bound, 0, 0, lo, count);
+                if (!arena.Write(node, bound, 0, 0, lo, count)) { return Overflowed(); }
+                continue;
             }
             double extent = Axis(centroidBound.Max, axis) - Axis(centroidBound.Min, axis);
-            int mid = StablePartition(order, lo, hi, scratch.Span, idx =>
-                (int)(buckets * (Axis(centroids[idx], axis) - Axis(centroidBound.Min, axis)) / Math.Max(extent, EpsilonPolicy.ZeroTolerance)) <= splitBucket);
+            Span<int> partition = scratch.Span[..count];
+            int mid = lo, right = 0;
+            for (int i = lo; i < hi; i++) {
+                int primitive = order[i];
+                int bucket = (int)(buckets * (Axis(centroids[primitive], axis) - Axis(centroidBound.Min, axis)) / Math.Max(extent, EpsilonPolicy.ZeroTolerance));
+                if (bucket <= splitBucket) { order[mid++] = primitive; }
+                else { partition[right++] = primitive; }
+            }
+            partition[..right].CopyTo(order.AsSpan(mid, right));
             mid = mid == lo || mid == hi ? (lo + hi) / 2 : mid;
             int firstChild = next;
             next += 2;
-            return arena.Write(node, bound, firstChild, 2, -1, 0)
-                && Partition(firstChild, lo, mid, depth + 1)
-                && Partition(firstChild + 1, mid, hi, depth + 1);
+            if (!arena.Write(node, bound, firstChild, 2, -1, 0)) { return Overflowed(); }
+            frontier.Push((firstChild + 1, mid, hi, depth + 1));
+            frontier.Push((firstChild, lo, mid, depth + 1));
         }
-        if (!Partition(0, 0, boxes.Length, 0)) { return Overflowed(); }
         NodeStore store = arena.Freeze(next, order);
-        return Fin.Succ((SpatialIndex)new Bvh(store, boxes, AggregateSahCost(store), policy, SpatialKind.Bvh));
+        return Fin.Succ(new SpatialIndex(store, boxes, policy, SpatialKind.Bvh, Some(AggregateSahCost(store))));
     }
 
     internal static Fin<SpatialIndex> BuildOctree(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
@@ -304,7 +260,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         bool Cell(int node, int lo, int hi, int depth, BoundingBox bound) {
             int count = hi - lo;
             if (count <= policy.LeafSize.Value || depth >= ceiling) {
-                return arena.Write(node, Union(boxes, order, lo, hi), 0, 0, lo, count);
+                return arena.Write(node, bound, 0, 0, lo, count);
             }
             int shift = 3 * (MortonDepth - 1 - depth);
             List<(int Lo, int Hi)> runs = new(8);
@@ -321,7 +277,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             return true;
         }
         if (!Cell(0, 0, boxes.Length, 0, root)) { return Overflowed(); }
-        return Fin.Succ((SpatialIndex)new LinearOctree(arena.Freeze(next, order), boxes, policy, SpatialKind.Octree));
+        return Fin.Succ(new SpatialIndex(arena.Freeze(next, order), boxes, policy, SpatialKind.Octree, None));
     }
 
     internal static Fin<SpatialIndex> BuildAgglomerative(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
@@ -358,7 +314,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             live = survivors[..kept];
         }
         NodeStore store = Compact(live[0].Node, next, childA, childB, bound, leafSlot, order);
-        return Fin.Succ((SpatialIndex)new Bvh(store, boxes, AggregateSahCost(store), policy, SpatialKind.Agglomerative));
+        return Fin.Succ(new SpatialIndex(store, boxes, policy, SpatialKind.Agglomerative, Some(AggregateSahCost(store))));
     }
 
     readonly struct NearestSweep((int Node, BoundingBox Bound)[] live, int window, int[] nearest) : IAction {
@@ -401,10 +357,12 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
     static (uint[] Codes, int[] Order) MortonOrder(int count, Point3d[] centroids, BoundingBox root) {
         Vector3d span = root.Max - root.Min;
-        uint[] codes = Array.ConvertAll(centroids, c => Morton(
-            Normalize(c.X, root.Min.X, span.X), Normalize(c.Y, root.Min.Y, span.Y), Normalize(c.Z, root.Min.Z, span.Z)));
+        uint[] codes = System.Array.ConvertAll(centroids, c =>
+            Expand10(Normalize(c.X, root.Min.X, span.X))
+            | (Expand10(Normalize(c.Y, root.Min.Y, span.Y)) << 1)
+            | (Expand10(Normalize(c.Z, root.Min.Z, span.Z)) << 2));
         int[] order = Enumerable.Range(0, count).ToArray();
-        Array.Sort(codes, order);
+        System.Array.Sort(codes, order);
         return (codes, order);
     }
 
@@ -456,39 +414,55 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     // --- [QUERY]
-    internal Fin<QueryResult> Query(SpatialQuery probe, Op key) {
-        SpatialIndex self = this;
-        return probe.Switch(
-            state: (Self: self, Key: key),
-            range: static (s, q) =>
-                guard(q.Box.IsValid && q.Ball.Match(static ball => ball.IsValid, static () => true), s.Key.InvalidInput()).ToFin()
-                    .Map(_ => (QueryResult)new QueryResult.Hits(RangeHits(s.Self.Store, s.Self.Primitives, q))),
-            ray: static (s, q) =>
-                guard(q.Probe.Direction.Length > 0.0 && double.IsFinite(q.MaxT) && q.MaxT > 0.0, s.Key.InvalidInput()).ToFin()
-                    .Map(_ => (QueryResult)RayNearest(s.Self.Store, s.Self.Primitives,
-                        q with { Probe = new Ray3d(q.Probe.Position, UnitDirection(q.Probe.Direction)) })),
-            nearest: static (s, q) =>
-                guard(q.K > 0, s.Key.InvalidInput()).ToFin()
-                    .Map(_ => (QueryResult)new QueryResult.Nearest(KNearest(s.Self.Store, s.Self.Primitives, q))),
-            overlap: static (s, q) =>
-                guard(double.IsFinite(q.Tolerance) && q.Tolerance >= 0.0, s.Key.InvalidInput()).ToFin()
-                    .Map(_ => (QueryResult)new QueryResult.Pairs(OverlapPairs(s.Self, q.Other, q.Tolerance, static (_, _) => true))),
-            selfOverlap: static (s, q) =>
-                guard(double.IsFinite(q.Tolerance) && q.Tolerance >= 0.0, s.Key.InvalidInput()).ToFin()
-                    .Map(_ => (QueryResult)new QueryResult.Pairs(OverlapPairs(s.Self, s.Self, q.Tolerance, static (a, b) => a < b))),
-            winding: static (s, q) =>
-                q.Triangles.Count != s.Self.Primitives.Length
-                    ? Fin.Fail<QueryResult>(new GeometryFault.IndexMismatch(EntityKind.Face, s.Self.Primitives.Length, q.Triangles.Count))
-                    : guard(q.Queries.Count > 0, s.Key.InvalidInput()).ToFin()
-                        .Map(_ => (QueryResult)new QueryResult.Field(Winding(s.Self.Store, q))),
-            slab: static (s, q) =>
-                guard(q.Layer >= 0 && q.Layer < q.Grid.Layers.Value, s.Key.InvalidInput()).ToFin()
-                    .Map(_ => (QueryResult)new QueryResult.Hits(SlabHits(s.Self.Store, s.Self.Primitives, q))));
+    public Fin<Seq<int>> Query(BoundingBox box, Option<Sphere> ball = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(box.IsValid && ball.Match(static sphere => sphere.IsValid, static () => true), op.InvalidInput()).ToFin()
+            .Map(_ => LeafHits(Store, node => BoundingBox.Intersection(Store.Bound(node), box).IsValid ? NodeVerdict.Descend : NodeVerdict.Prune,
+                primitive => BoundingBox.Intersection(Primitives[primitive], box).IsValid
+                    && ball.Match(sphere => Primitives[primitive].ClosestPoint(sphere.Center).DistanceTo(sphere.Center) <= sphere.Radius, static () => true)));
     }
 
-    static Seq<int> SlabHits(NodeStore store, BoundingBox[] primitives, SpatialQuery.Slab slab) =>
-        LeafHits(store: store, verdict: node => CrossesLayer(store.Bound(node), slab.Grid, slab.Layer) ? NodeVerdict.Descend : NodeVerdict.Prune,
-            admit: prim => CrossesLayer(primitives[prim], slab.Grid, slab.Layer));
+    public Fin<(Option<int> Id, double T)> Query(Ray3d ray, double maxT, Op? key = null) {
+        Vector3d direction = ray.Direction;
+        Op op = key.OrDefault();
+        return guard(ray.Position.IsValid && direction.IsValid && direction.Unitize() && double.IsFinite(maxT) && maxT > 0.0, op.InvalidInput()).ToFin()
+            .Map(_ => RayNearest(Store, Primitives, new Ray3d(ray.Position, direction), maxT));
+    }
+
+    public Fin<Seq<int>> Query(Point3d point, int count, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(point.IsValid && count > 0, op.InvalidInput()).ToFin()
+            .Map(_ => KNearest(Store, Primitives, point, count));
+    }
+
+    public Fin<Seq<(int Left, int Right)>> Query(SpatialIndex other, double tolerance, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(double.IsFinite(tolerance) && tolerance >= 0.0, op.InvalidInput()).ToFin()
+            .Map(_ => OverlapPairs(this, other, tolerance, static (_, _) => true));
+    }
+
+    public Fin<Seq<(int Left, int Right)>> Query(double tolerance, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(double.IsFinite(tolerance) && tolerance >= 0.0, op.InvalidInput()).ToFin()
+            .Map(_ => OverlapPairs(this, this, tolerance, static (left, right) => left < right));
+    }
+
+    public Fin<double[]> Query(Arr<Point3d> points, Arr<(Point3d A, Point3d B, Point3d C)> triangles, PositiveMagnitude betaSquared, Op? key = null) {
+        Op op = key.OrDefault();
+        return triangles.Count != Primitives.Length
+            ? Fin.Fail<double[]>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, triangles.Count))
+            : guard(points.Count > 0, op.InvalidInput()).ToFin().Map<double[]>(_ => {
+                (Vector3d[] dipole, Point3d[] weighted, double[] area) = Moments(Store, triangles);
+                return [.. points.AsIterable().Select(point => WindingAt(Store, triangles, betaSquared.Value, dipole, weighted, area, point))];
+            });
+    }
+
+    public Fin<Seq<int>> Query(CellLattice grid, int layer, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(layer >= 0 && layer < grid.Layers.Value, op.InvalidInput()).ToFin()
+            .Map(_ => LeafHits(Store, node => CrossesLayer(Store.Bound(node), grid, layer) ? NodeVerdict.Descend : NodeVerdict.Prune,
+                primitive => CrossesLayer(Primitives[primitive], grid, layer)));
+    }
 
     static bool CrossesLayer(BoundingBox box, CellLattice grid, int layer) {
         Transform w = grid.WorldToIndex;
@@ -499,21 +473,10 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return z - reach <= layer + 1.0 && z + reach >= layer;
     }
 
-    static Seq<int> RangeHits(NodeStore store, BoundingBox[] primitives, SpatialQuery.Range range) =>
-        LeafHits(store: store, verdict: node => Intersects(store.Bound(node), range.Box) ? NodeVerdict.Descend : NodeVerdict.Prune,
-            admit: prim => Intersects(primitives[prim], range.Box)
-                && range.Ball.Match(ball => SphereHits(primitives[prim], ball), static () => true));
-
     static Seq<int> LeafHits(NodeStore store, Func<int, NodeVerdict> verdict, Func<int, bool> admit) =>
         NodeWalk.Reach(store: store, verdict: verdict)
             .Filter(store.Leaf)
             .Bind(node => toSeq(store.Primitives(node).Where(admit)));
-
-    static double[] Winding(NodeStore store, SpatialQuery.Winding query) {
-        (Vector3d[] dipole, Point3d[] weighted, double[] area) = Moments(store, query.Triangles);
-        double betaSquared = query.Beta.Value * query.Beta.Value;
-        return [.. query.Queries.AsIterable().Select(point => WindingAt(store, query, betaSquared, dipole, weighted, area, point))];
-    }
 
     static (Vector3d[] Dipole, Point3d[] Weighted, double[] Area) Moments(NodeStore store, Arr<(Point3d A, Point3d B, Point3d C)> triangles) {
         Vector3d[] dipole = new Vector3d[store.Count];
@@ -539,17 +502,17 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return (dipole, weighted, area);
     }
 
-    static double WindingAt(NodeStore store, SpatialQuery.Winding query, double betaSquared, Vector3d[] dipole, Point3d[] weighted, double[] area, Point3d point) =>
+    static double WindingAt(NodeStore store, Arr<(Point3d A, Point3d B, Point3d C)> triangles, double betaSquared, Vector3d[] dipole, Point3d[] weighted, double[] area, Point3d point) =>
         NodeWalk.Descend(root: 0, seed: 0.0, step: (total, node, frontier) => {
             NodeVerdict verdict = Multipole(store, betaSquared, node, point);
             if (verdict.OffersChildren) {
                 for (int c = 0; c < store.ChildCount[node]; c++) { frontier.Push(store.FirstChild[node] + c); }
             }
-            return total + (verdict.Equals(NodeVerdict.Absorb)
+            return total + (verdict == NodeVerdict.Absorb
                 ? FarField(dipole: dipole[node], weighted: weighted[node], area: area[node], point: point)
                 : store.Leaf(node)
                     ? store.Primitives(node).Sum(tri => FourPiInverse * SolidAngle(
-                        query.Triangles[tri].A, query.Triangles[tri].B, query.Triangles[tri].C, point))
+                        triangles[tri].A, triangles[tri].B, triangles[tri].C, point))
                     : 0.0);
         });
 
@@ -576,29 +539,29 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return 2.0 * Math.Atan2(numerator, denominator);
     }
 
-    static QueryResult.RayHit RayNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Ray ray) {
-        (double best, Option<int> hit) = NodeWalk.Descend(root: 0, seed: (Best: ray.MaxT, Hit: Option<int>.None), step: (state, node, frontier) => {
-            if (!Slab(store.Bound(node), ray.Probe, state.Best, out _)) { return state; }
+    static (Option<int> Id, double T) RayNearest(NodeStore store, BoundingBox[] primitives, Ray3d ray, double maxT) {
+        (double best, Option<int> hit) = NodeWalk.Descend(root: 0, seed: (Best: maxT, Hit: Option<int>.None), step: (state, node, frontier) => {
+            if (!Slab(store.Bound(node), ray, state.Best, out _)) { return state; }
             if (store.Leaf(node)) {
                 foreach (int prim in store.Primitives(node)) {
-                    if (Slab(primitives[prim], ray.Probe, state.Best, out double t) && t < state.Best) { state = (t, Some(prim)); }
+                    if (Slab(primitives[prim], ray, state.Best, out double t) && t < state.Best) { state = (t, Some(prim)); }
                 }
                 return state;
             }
             for (int c = 0; c < store.ChildCount[node]; c++) { frontier.Push(store.FirstChild[node] + c); }
             return state;
         });
-        return new QueryResult.RayHit(hit, hit.IsSome ? best : ray.MaxT);
+        return (hit, hit.IsSome ? best : maxT);
     }
 
-    static Seq<int> KNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Nearest knn) {
-        Ranked<int, double> nearest = new(knn.K, ExtremumDirection.Minimum);
+    static Seq<int> KNearest(NodeStore store, BoundingBox[] primitives, Point3d point, int count) {
+        Ranked<int, double> nearest = new(count, ExtremumDirection.Minimum);
         _ = NodeWalk.Descend(root: 0, seed: unit, step: (state, node, frontier) => {
-            double lower = store.Bound(node).ClosestPoint(knn.Query).DistanceTo(knn.Query);
+            double lower = store.Bound(node).ClosestPoint(point).DistanceTo(point);
             if (nearest.Bound.Match(bound => lower > bound, static () => false)) { return state; }
             if (store.Leaf(node)) {
                 foreach (int prim in store.Primitives(node)) {
-                    nearest.Offer(prim, primitives[prim].ClosestPoint(knn.Query).DistanceTo(knn.Query));
+                    nearest.Offer(prim, primitives[prim].ClosestPoint(point).DistanceTo(point));
                 }
                 return state;
             }
@@ -635,12 +598,12 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         (NodeStore rs, BoundingBox[] rp) = (right.Store, right.Primitives);
         return NodeWalk.Descend(root: (L: 0, R: 0), seed: Seq<(int, int)>(), step: (pairs, cursor, frontier) => {
             (int l, int r) = cursor;
-            if (!Intersects(Inflate(ls.Bound(l), tolerance), rs.Bound(r))) { return pairs; }
+            if (!BoundingBox.Intersection(Inflate(ls.Bound(l), tolerance), rs.Bound(r)).IsValid) { return pairs; }
             (bool lLeaf, bool rLeaf) = (ls.Leaf(l), rs.Leaf(r));
             if (lLeaf && rLeaf) {
                 foreach (int pa in ls.Primitives(l))
                     foreach (int pb in rs.Primitives(r))
-                        if (admit(pa, pb) && Intersects(Inflate(lp[pa], tolerance), rp[pb])) { pairs = pairs.Add((pa, pb)); }
+                        if (admit(pa, pb) && BoundingBox.Intersection(Inflate(lp[pa], tolerance), rp[pb]).IsValid) { pairs = pairs.Add((pa, pb)); }
                 return pairs;
             }
             if (rLeaf || (!lLeaf && ls.Bound(l).Diagonal.Length >= rs.Bound(r).Diagonal.Length)) {
@@ -653,10 +616,13 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     // --- [REFIT]
-    internal Fin<SpatialIndex> Refit(BoundingBox[] revised) =>
-        revised.Length != Primitives.Length
+    public Fin<SpatialIndex> Refit(BoundingBox[] revised, Op? key = null) {
+        Op op = key.OrDefault();
+        Fin<SpatialIndex> result = revised.Length != Primitives.Length
             ? Fin.Fail<SpatialIndex>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, revised.Length))
             : Admit(revised).Bind(Rebound);
+        return result.Bind(index => guard(index.IsValid, op.InvalidResult()).ToFin().Map(_ => index));
+    }
 
     Fin<SpatialIndex> Rebound(BoundingBox[] updated) {
         NodeStore store = Store;
@@ -677,18 +643,18 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             }
         }
         NodeStore refitted = store with { BoundsMin = min, BoundsMax = max };
-        double cost = AggregateSahCost(refitted);
-        return Switch<Fin<SpatialIndex>>(
-            bvh: b => cost > b.Policy.RefitDegradationLimit * b.BuildCost
-                ? b.Builder.Build(updated, Centroids(updated), b.Policy)
-                : Fin.Succ((SpatialIndex)(b with { Primitives = updated, Store = refitted })),
-            linearOctree: o => Fin.Succ((SpatialIndex)(o with { Primitives = updated, Store = refitted })));
+        return Baseline.Match(
+            Some: prior => AggregateSahCost(refitted) > (1.0 + Policy.RefitGrowth.Value) * prior
+                ? Kind.Build(updated, Centroids(updated), Policy)
+                : Fin.Succ(new SpatialIndex(refitted, updated, Policy, Kind, Baseline)),
+            None: () => Fin.Succ(new SpatialIndex(refitted, updated, Policy, Kind, None)));
     }
 
     readonly struct LeafRefit(NodeStore store, BoundingBox[] boxes, float[] min, float[] max) : IAction {
         public void Invoke(int node) {
             if (!store.Leaf(node)) { return; }
-            BoundingBox bound = LeafBound(store, boxes, node);
+            BoundingBox bound = BoundingBox.Empty;
+            foreach (int primitive in store.Primitives(node)) { bound.Union(boxes[primitive]); }
             Span<float> lo = min.AsSpan2D(height: store.Count, width: 3).GetRowSpan(node);
             Span<float> hi = max.AsSpan2D(height: store.Count, width: 3).GetRowSpan(node);
             (lo[0], lo[1], lo[2]) = (Down(bound.Min.X), Down(bound.Min.Y), Down(bound.Min.Z));
@@ -697,25 +663,26 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     // --- [WIRE]
-    internal static Fin<(float[] Bounds, long[] Nodes)> NodeLinkProjection(NodeStore store, Op key) {
-        for (int node = 0; node < store.Count; node++)
-            if (store.LeafCount[node] > BuildPolicy.PackedCountMax || store.ChildCount[node] > BuildPolicy.PackedCountMax)
-                return Fin.Fail<(float[] Bounds, long[] Nodes)>(key.InvalidInput());
+    public Fin<(float[] Bounds, long[] Nodes)> Wire(Op? key = null) {
+        Op op = key.OrDefault();
+        for (int node = 0; node < Store.Count; node++)
+            if (Store.LeafCount[node] > BuildPolicy.PackedCountMax || Store.ChildCount[node] > BuildPolicy.PackedCountMax)
+                return Fin.Fail<(float[] Bounds, long[] Nodes)>(op.InvalidInput());
 
-        int count = store.Count;
+        int count = Store.Count;
         float[] bounds = new float[6 * count];
-        long[] nodes = new long[count + store.Order.Length];
+        long[] nodes = new long[count + Store.Order.Length];
         int tail = count;
         Span2D<float> wire = bounds.AsSpan2D(height: count, width: 6);
         for (int node = 0; node < count; node++) {
             Span<float> row = wire.GetRowSpan(node);
-            store.Lower.GetRowSpan(node).CopyTo(row[..3]);
-            store.Upper.GetRowSpan(node).CopyTo(row[3..]);
-            if (store.Leaf(node)) {
-                nodes[node] = -(((long)(tail - count) << BuildPolicy.ChildShift) | (uint)store.LeafCount[node]) - 1;
-                foreach (int prim in store.Primitives(node)) { nodes[tail++] = prim; }
+            Store.Lower.GetRowSpan(node).CopyTo(row[..3]);
+            Store.Upper.GetRowSpan(node).CopyTo(row[3..]);
+            if (Store.Leaf(node)) {
+                nodes[node] = -(((long)(tail - count) << BuildPolicy.ChildShift) | (uint)Store.LeafCount[node]) - 1;
+                foreach (int prim in Store.Primitives(node)) { nodes[tail++] = prim; }
             } else {
-                nodes[node] = ((long)store.FirstChild[node] << BuildPolicy.ChildShift) | (uint)store.ChildCount[node];
+                nodes[node] = ((long)Store.FirstChild[node] << BuildPolicy.ChildShift) | (uint)Store.ChildCount[node];
             }
         }
         return Fin.Succ((bounds, nodes));
@@ -745,7 +712,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             return true;
         }
 
-        internal NodeStore Freeze(int count, int[] order) => new(count,
+        internal NodeStore Freeze(int count, int[] order) => new(
             mins.Span[..(3 * count)].ToArray(), maxs.Span[..(3 * count)].ToArray(),
             firstChild.Span[..count].ToArray(), childCount.Span[..count].ToArray(),
             leafStart.Span[..count].ToArray(), leafCount.Span[..count].ToArray(), order);
@@ -760,10 +727,17 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     static float Up(double value) => float.BitIncrement((float)value);
 
     static bool Links(NodeStore store) {
+        if (store.ChildCount.Length != store.Count || store.LeafStart.Length != store.Count
+            || store.LeafCount.Length != store.Count) { return false; }
         for (int node = 0; node < store.Count; node++) {
-            bool leaf = store.Leaf(node);
-            if (leaf && (store.LeafStart[node] < 0 || store.LeafStart[node] + store.LeafCount[node] > store.Order.Length)) return false;
-            if (!leaf && store.ChildCount[node] > 0 && (store.FirstChild[node] <= node || store.FirstChild[node] + store.ChildCount[node] > store.Count)) return false;
+            bool leaf = store.LeafCount[node] > 0;
+            if (leaf
+                    ? store.ChildCount[node] != 0 || store.FirstChild[node] != 0
+                    : store.ChildCount[node] == 0 || store.LeafStart[node] != -1) { return false; }
+            if (leaf && (store.LeafStart[node] < 0
+                    || store.LeafCount[node] > store.Order.Length - store.LeafStart[node])) { return false; }
+            if (!leaf && (store.FirstChild[node] <= node
+                    || store.ChildCount[node] > store.Count - store.FirstChild[node])) { return false; }
         }
         return true;
     }
@@ -780,18 +754,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return box;
     }
 
-    static BoundingBox CentroidBound(Point3d[] centroids, int[] order, int lo, int hi) {
-        BoundingBox box = BoundingBox.Empty;
-        for (int i = lo; i < hi; i++) box.Union(centroids[order[i]]);
-        return box;
-    }
-
-    static BoundingBox LeafBound(NodeStore store, BoundingBox[] boxes, int node) {
-        BoundingBox box = BoundingBox.Empty;
-        foreach (int prim in store.Primitives(node)) box.Union(boxes[prim]);
-        return box;
-    }
-
     static BoundingBox Inflate(BoundingBox box, double tolerance) {
         box.Inflate(tolerance);
         return box;
@@ -799,16 +761,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
     static double Axis(Point3d p, int axis) => axis == 0 ? p.X : axis == 1 ? p.Y : p.Z;
     static double Axis(Vector3d v, int axis) => axis == 0 ? v.X : axis == 1 ? v.Y : v.Z;
-
-    static Vector3d UnitDirection(Vector3d direction) {
-        _ = direction.Unitize();
-        return direction;
-    }
-
-    static bool Intersects(BoundingBox a, BoundingBox b) =>
-        a.Min.X <= b.Max.X && a.Max.X >= b.Min.X && a.Min.Y <= b.Max.Y && a.Max.Y >= b.Min.Y && a.Min.Z <= b.Max.Z && a.Max.Z >= b.Min.Z;
-
-    static bool SphereHits(BoundingBox box, Sphere ball) => box.ClosestPoint(ball.Center).DistanceTo(ball.Center) <= ball.Radius;
 
     static bool Slab(BoundingBox box, Ray3d ray, double max, out double t) {
         double tMin = 0.0, tMax = max;
@@ -830,8 +782,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return true;
     }
 
-    static uint Morton(uint x, uint y, uint z) => Expand10(x) | (Expand10(y) << 1) | (Expand10(z) << 2);
-
     static uint Expand10(uint v) {
         v &= 0x3FF;
         v = (v | (v << 16)) & 0x030000FF;
@@ -843,35 +793,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
     static uint Normalize(double value, double min, double span) =>
         span <= EpsilonPolicy.ZeroTolerance ? 0u : (uint)Math.Clamp((int)(1023.0 * (value - min) / span), 0, 1023);
-
-    static int StablePartition(int[] order, int lo, int hi, Span<int> scratch, Func<int, bool> onLeft) {
-        Span<int> buffer = scratch[..(hi - lo)];
-        int write = lo, b = 0;
-        for (int i = lo; i < hi; i++) { if (onLeft(order[i])) { order[write++] = order[i]; } else { buffer[b++] = order[i]; } }
-        buffer[..b].CopyTo(order.AsSpan(write, b));
-        return write;
-    }
-}
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-public static class Spatial {
-    public static Fin<SpatialAnswer> Apply(SpatialOp op, Op? key = null) {
-        Op minted = key.OrDefault();
-        return op.Switch(
-            state: minted,
-            build: static (k, b) =>
-                from boxes in SpatialIndex.Admit(b.Primitives)
-                from built in b.Kind.Build(boxes, SpatialIndex.Centroids(boxes), b.Policy)
-                from _ in guard(built.IsValid, k.InvalidResult()).ToFin()
-                select (SpatialAnswer)new SpatialAnswer.Index(built),
-            refit: static (k, r) =>
-                from refitted in r.Index.Refit(r.Updated)
-                from _ in guard(refitted.IsValid, k.InvalidResult()).ToFin()
-                select (SpatialAnswer)new SpatialAnswer.Index(refitted),
-            query: static (k, q) => q.Index.Query(q.Probe, k).Map(static r => (SpatialAnswer)new SpatialAnswer.Result(r)),
-            wire: static (k, w) => SpatialIndex.NodeLinkProjection(w.Index.Store, k)
-                .Map(static t => (SpatialAnswer)new SpatialAnswer.Wire(t.Bounds, t.Nodes)));
-    }
 }
 ```
 

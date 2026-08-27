@@ -453,7 +453,7 @@ public static class Transform {
                     ReadOnlySpan<float> block = corpus.Frames.Span.Slice(f * frame * n, frame * n);
                     for (int c = 0; c < n; c++) {
                         for (int i = 0; i < frame; i++) { real[c][i] = block[i * n + c] * taper[i]; }
-                        Array.Clear(imaginary[c]);
+                        System.Array.Clear(imaginary[c]);
                         Fourier.Forward(real[c], imaginary[c], FourierOptions.NoScaling);
                     }
                     Hermitian(power, real, imaginary);
@@ -544,7 +544,7 @@ public static class Transform {
                     int sample = offset + i;
                     real[c][i] = 0 <= sample && sample < plane.Length ? plane[sample] * taper[i] : 0.0;
                 }
-                Array.Clear(imaginary[c]);
+                System.Array.Clear(imaginary[c]);
                 Fourier.Forward(real[c], imaginary[c], scaling);
             }
             state = reduce(state, f, real, imaginary);
@@ -727,8 +727,8 @@ public static class Transform {
                 double[] real = new double[grid.Frame];
                 double[] imaginary = new double[grid.Frame];
                 for (int f = 0; f < grid.Frames; f++) {
-                    Array.Clear(real);
-                    Array.Clear(imaginary);
+                    System.Array.Clear(real);
+                    System.Array.Clear(imaginary);
                     int row = f * grid.Bins;
                     for (int k = 0; k < grid.Bins; k++) {
                         double magnitude = frames.Magnitude.Span[row + k];

@@ -909,7 +909,7 @@ public static class Rui {
 
     private static Fin<Seq<T>> Indexed<T>(int count, Func<int, T?> read, Op op) where T : class =>
         from _ in guard(flag: count >= 0, False: op.InvalidResult()).ToFin()
-        from rows in Seq.generate(count, static index => index)
+        from rows in LanguageExt.Seq.generate(count, static index => index)
             .TraverseM(index => Optional(read(index)).ToFin(Fail: op.InvalidResult(detail: $"{typeof(T).Name}[{index}]")))
             .As()
         select rows.Strict();

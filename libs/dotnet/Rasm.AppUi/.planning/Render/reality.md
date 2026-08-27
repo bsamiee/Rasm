@@ -214,13 +214,13 @@ flowchart LR
 
 ## [03]-[POINT_SOURCE]
 
-- Owner: `PointSample` the single LiDAR return; `PointFamily` the nominal grouping each ASPRS code sits in; `PointClass` `[SmartEnum<byte>]` the classification vocabulary; `CapturePalette` the DERIVED classification ink; `PointOctreeNode` the render-domain LOD node; `PointCloudSource` the decoded point set holding the kernel index it built. The octree is `Rasm/.planning/Spatial/index.md#[02]-[SPATIAL_INDEX]`'s — the partition, the Morton ordering, the cell cut, AND the nearest-neighbour query are `SpatialKind.Octree`'s through `Spatial.Apply`; page-local remains the render-domain fold over the decoded nodes.
+- Owner: `PointSample` the single LiDAR return; `PointFamily` the nominal grouping each ASPRS code sits in; `PointClass` `[SmartEnum<byte>]` the classification vocabulary; `CapturePalette` the DERIVED classification ink; `PointOctreeNode` the render-domain LOD node; `PointCloudSource` the decoded point set holding the kernel index it built. The octree is `Rasm/.planning/Spatial/index.md#[02]-[SPATIAL_INDEX]`'s — the partition, the Morton ordering, the cell cut, AND the nearest-neighbour query are `SpatialKind.Octree`'s through `SpatialIndex.Build` and its `Query` arms; page-local remains the render-domain fold over the decoded nodes.
 - Exemption: the wire decode is a measured kernel — two index sweeps over the node stream, statement-bodied because the depth sweep and the bottom-up sample fold both write per-node slots keyed by ordinal, exactly as `Sorted`'s LSD radix is. The three per-node scratch runs are pooled `SpanOwner<T>` spans, and the positional `Where((_, at) => at % stride == 0)` that allocated an enumerator per node inside that kernel is now the named `Strided` fold.
 - Entry: `PointCloudSource.Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode, Op? key = null)` takes the SAME `CaptureAdmission` ladder, then the kernel broad phase; `Visible(Frustum frustum, ViewCamera camera, double lodScale, LodPolicy lod, long ceiling)` narrows to the LOD cut under the batch ceiling; `Snap((double X, double Y, double Z) requested, UnitsNet.Length tolerance, Op? key = null)` resolves a world point to one resident return as a `ViewMeasurementPoint`; `CapturePalette.Of(Colormap map)` admits the classification ink once.
-- Law: the RETAINED `SpatialIndex` is the query owner. `Materialized` keeps what the build produced, so `Snap` is `SpatialOp.Query` under `SpatialQuery.Nearest` in the same primitive space the build admitted — the leaf filter, the run gather, the `Distinct`, and the min-fold that stood in for it are all the kernel's, and building an index only to hand-scan past it is the deleted form the sibling `Render/pathtrace` `Bvh` already forecloses by retaining its own.
+- Law: the RETAINED `SpatialIndex` is the query owner. `Materialized` keeps what the build produced, so `Snap` is the k-nearest `SpatialIndex.Query` arm in the same primitive space the build admitted — the leaf filter, the run gather, the `Distinct`, and the min-fold that stood in for it are all the kernel's, and building an index only to hand-scan past it is the deleted form the sibling `Render/pathtrace` `Bvh` already forecloses by retaining its own.
 - Law: what a measurement IS belongs to `Render/measure#MEASURE_MODE` — kinds, folds, pinning, and the `ViewMeasurement` projection. This owner answers the one question that page declares outside itself: which resident return a requested coordinate resolves to. `Snap` therefore ANSWERS the settled `ViewMeasurementPoint` and mints no overlay, segment, angle, or viewpoint projection of its own.
-- Auto: each point carries its position, the classification byte, the intensity, and the RGB colour; the LOD tree is BUILT by the kernel — every return admits as its own degenerate `BoundingBox`, the `BuildPolicy` DERIVES from the payload's declared octree depth and reads the kernel's `IsAdmitted` verdict, and `SpatialOp.Wire` yields the frozen node stream the render fold decodes ONCE per build through the `Render/pathtrace` `NodeLink` reader; that fold lands the columns the draw reads — each node's `Level` from one forward sweep, its resident `Count` and strided sample run from one bottom-up sweep, its `SampleStride` from its depth below the deepest level, and its PARENT's bounds carried as a column so the half-open cut compares against a real extent without an O(n) index-back into the node seq; residency keys off the SOURCE's payload `ContentKey`, one per cloud, never a mirror on every node.
-- Packages: Thinktecture.Runtime.Extensions, Generator.Equals, LanguageExt.Core, CommunityToolkit.HighPerformance, SkiaSharp, UnitsNet, Rasm (project — `Spatial.Apply`/`SpatialOp`/`SpatialQuery`/`SpatialAnswer`/`BuildPolicy` the federation broad phase, `PerceptualColor` the ink admission, `Op` the correlation key), Rasm.Compute (project)
+- Auto: each point carries its position, the classification byte, the intensity, and the RGB colour; the LOD tree is BUILT by the kernel — every return admits as its own degenerate `BoundingBox`, the `BuildPolicy` DERIVES from the payload's declared octree depth and composes the kernel's `BuildPolicy.Of` admission, and `SpatialIndex.Wire` yields the frozen node stream the render fold decodes ONCE per build through the `Render/pathtrace` `NodeLink` reader; that fold lands the columns the draw reads — each node's `Level` from one forward sweep, its resident `Count` and strided sample run from one bottom-up sweep, its `SampleStride` from its depth below the deepest level, and its PARENT's bounds carried as a column so the half-open cut compares against a real extent without an O(n) index-back into the node seq; residency keys off the SOURCE's payload `ContentKey`, one per cloud, never a mirror on every node.
+- Packages: Thinktecture.Runtime.Extensions, Generator.Equals, LanguageExt.Core, CommunityToolkit.HighPerformance, SkiaSharp, UnitsNet, Rasm (project — `SpatialIndex.Build`/`Query`/`Wire`/`BuildPolicy` the federation broad phase, `PerceptualColor` the ink admission, `Op` the correlation key), Rasm.Compute (project)
 - Growth: a new point attribute is one `PointSample` field; a new classification code is one `PointClass` row naming its family, its ink deriving with no palette edit; a new grouping is one `PointFamily` row taking the next qualitative slot; a new build knob is one `BuildPolicy` column at the kernel owner; zero new surface.
 - Boundary: offline LAZ/scan decode crosses as a Compute payload, so AppUi carries no LAZ decoder; a page-local Morton interleave, cell-index recovery, level-folding sweep, or nearest-neighbour scan is the DELETED form, and the kernel's own errors lower onto `CaptureFault` so a refused build reads as a capture payload fault rather than a geometry fault crossing the render pipeline untyped. Node bounds are the kernel's unioned primitive extents rather than the full cell, so a sparse cell's sphere is tight. NAMED LOSS on the node: the wire PARENT ORDINAL is gone — `ParentBounds` is the only thing the cut ever read it for, and carrying both made two authorities for one link. NAMED LOSS on the snap: the answer carries the source key and the sample index rather than the whole `PointSample`, because the index already resolves classification, intensity, and colour off `Points` and a copied sample is a mirror that can disagree. Tolerance is compared IN its `UnitsNet` quantity — the `.Meters` unwrap that used to reach the query boundary re-opened the display-unit law the ingress had already settled.
 
@@ -370,10 +370,7 @@ public sealed partial record PointCloudSource(
                     $"snap/{ResidencyMarshal.KeyHex(ContentKey)}: no resident return within {tolerance}")));
 
     private static Fin<Option<int>> Nearest(SpatialIndex index, (double X, double Y, double Z) requested, Op op) =>
-        Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Nearest(new Point3d(requested.X, requested.Y, requested.Z), K: 1)), op)
-            .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest ordered }
-                ? Fin.Succ(ordered.Ordered.Head)
-                : Fin.Fail<Option<int>>(op.InvalidResult()));
+        index.Query(new Point3d(requested.X, requested.Y, requested.Z), 1, op).Map(static ordered => ordered.Head);
 
     private static UnitsNet.Length Gap((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
         UnitsNet.Length.FromMeters(Math.Sqrt(
@@ -384,25 +381,24 @@ public sealed partial record PointCloudSource(
     private static Fin<PointCloudSource> Materialized(
         GpuBackend backend, ResidencyPayload payload, CaptureDecoded.Points decoded, Op op) =>
         (from policy in Broadphase(decoded.OctreeDepth)
-         from built in Spatial.Apply(new SpatialOp.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy), op)
-         from index in built is SpatialAnswer.Index seated ? Fin.Succ(seated.Value) : Fin.Fail<SpatialIndex>(op.InvalidResult())
-         from projected in Spatial.Apply(new SpatialOp.Wire(index), op)
-         from stream in projected is SpatialAnswer.Wire wire ? Fin.Succ(wire) : Fin.Fail<SpatialAnswer.Wire>(op.InvalidResult())
+         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy, op)
+         from stream in index.Wire(op)
          select new PointCloudSource(
              payload.ContentKey, backend, decoded.Samples, Decoded(stream), Some(index),
              new BoundingSphere(payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius)))
             ;
 
     private static Fin<BuildPolicy> Broadphase(int declaredDepth) =>
-        BuildPolicy.Canonical with { MaxDepth = declaredDepth } switch {
-            { IsAdmitted: true } policy => Fin.Succ(policy),
-            var policy => Fin.Fail<BuildPolicy>(new CaptureFault.PayloadMalformed($"point/octree-depth: the kernel refused {policy}")),
-        };
+        BuildPolicy.Of(
+                leafSize: BuildPolicy.Canonical.LeafSize.Value, maxDepth: declaredDepth,
+                sahBuckets: BuildPolicy.Canonical.SahBuckets.Value, refitGrowth: BuildPolicy.Canonical.RefitGrowth.Value,
+                parallelFloor: BuildPolicy.Canonical.ParallelFloor.Value)
+            .MapFail(static refused => new CaptureFault.PayloadMalformed($"point/octree-depth: the kernel refused {declaredDepth}: {refused.Message}"));
 
     private static BoundingBox Box(PointSample sample) =>
         new(new Point3d(sample.X, sample.Y, sample.Z), new Point3d(sample.X, sample.Y, sample.Z));
 
-    private static Seq<PointOctreeNode> Decoded(SpatialAnswer.Wire wire) {
+    private static Seq<PointOctreeNode> Decoded((float[] Bounds, long[] Nodes) wire) {
         int count = NodeLink.Count(wire.Bounds);
         using SpanOwner<int> levelLease = SpanOwner<int>.Allocate(count, AllocationMode.Clear);
         using SpanOwner<int> parentLease = SpanOwner<int>.Allocate(count, AllocationMode.Clear);

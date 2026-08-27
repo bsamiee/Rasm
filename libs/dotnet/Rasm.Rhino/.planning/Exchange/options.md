@@ -391,7 +391,7 @@ public abstract partial record FormatDial {
 
     internal DialSeat Seat { get; }
 
-    private protected virtual Seq<ValidationClause> RefusalsFor(Op key) => Seq<ValidationClause>.Empty;
+    private protected virtual Seq<ValidationClause> RefusalsFor(Op key) => Seq<ValidationClause>();
 
     internal Fin<Unit> Admit(FileCodec codec, CodecPhase phase, Op key) =>
         FactoryValidation.Admit(

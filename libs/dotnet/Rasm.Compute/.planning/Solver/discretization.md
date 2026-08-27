@@ -389,7 +389,7 @@ public static class DelaunayCore {
         Seq<Vector3> points = Seed(boundary, index, policy);
         return Tessellation.Build(new TessellationOp.Points(
                 TessellationKind.Tetrahedralization,
-                toArr(points.Map(static p => (Implicit)new Point3d(p.X, p.Y, p.Z))),
+                toArray(points.Map(static p => (Implicit)new Point3d(p.X, p.Y, p.Z))),
                 Seq<Conform>(), TessellationPolicy.Canonical, Axis.Z))
             .Bind(static tessellation => tessellation.Tetrahedra())
             .Map(projection => Kept(projection, index, policy));
@@ -443,7 +443,7 @@ public static class DelaunayCore {
         Seq<Vector2> points = rim + interior;
         return Tessellation.Build(new TessellationOp.Points(
                 TessellationKind.Triangulation,
-                toArr(points.Map(p => (Implicit)new Point3d(p.X, p.Y, z))),
+                toArray(points.Map(p => (Implicit)new Point3d(p.X, p.Y, z))),
                 Seq<Conform>(), TessellationPolicy.Canonical, Axis.Z))
             .Bind(static tessellation => tessellation.Triangles())
             .Map(projection => (

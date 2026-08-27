@@ -382,7 +382,7 @@ public sealed record SystemRun(NodeId Terminal, Seq<NodeId> Route, double Cost);
 public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> ElementHops, Seq<TraceHop> PortHops) {
     internal AdjacencyGraph<NodeId, SEdge<NodeId>> Network { get; init; } = new(allowParallelEdges: true);
 
-    internal LanguageExt.HashSet<NodeId> Transit { get; init; } = LanguageExt.HashSet<NodeId>.Empty;
+    internal LanguageExt.HashSet<NodeId> Transit { get; init; } = LanguageExt.HashSet<NodeId>();
 
     public Seq<NodeId> ReachedElements => ElementHops.Map(static hop => hop.Node);
 
@@ -392,7 +392,7 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
         LanguageExt.HashSet<NodeId> ports = toHashSet(system.Ports.Map(static p => p.Id));
         Map<NodeId, FlowDirection> flowByPort = system.Ports.Fold(Map<NodeId, FlowDirection>(), static (map, port) => map.AddOrUpdate(port.Id, port.Flow));
         Map<NodeId, NodeId> ownerByPort = system.Ports.Fold(Map<NodeId, NodeId>(), static (map, port) => map.AddOrUpdate(port.Id, port.Owner));
-        LanguageExt.HashSet<NodeId> transit = LanguageExt.HashSet<NodeId>.Empty;
+        LanguageExt.HashSet<NodeId> transit = LanguageExt.HashSet<NodeId>();
         AdjacencyGraph<NodeId, SEdge<NodeId>> graph = new(allowParallelEdges: true);
         graph.AddVertexRange(system.Members);
         graph.AddVertexRange(ports);

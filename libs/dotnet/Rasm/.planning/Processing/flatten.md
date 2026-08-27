@@ -454,7 +454,7 @@ public static class Flatten {
             if (seen[chart].Add(c)) vertices[chart].Add(c);
         }
         return toSeq(Enumerable.Range(0, count).Select(chart =>
-            new UvIsland(ChartId.Create(chart), toArr(vertices[chart]), toArr(faces[chart]), toArr(vertices[chart].Select(store.At))))).Strict();
+            new UvIsland(ChartId.Create(chart), toArray(vertices[chart]), toArray(faces[chart]), toArray(vertices[chart].Select(store.At))))).Strict();
     }
 
     // --- [PRIMITIVES]
@@ -467,7 +467,7 @@ public static class Flatten {
         double step = cumulative[^1] / count;
         return [.. Enumerable.Range(0, count).Select(i => {
             double target = i * step;
-            int hit = Array.BinarySearch(cumulative, target);
+            int hit = System.Array.BinarySearch(cumulative, target);
             int segment = Math.Min(hit >= 0 ? hit : ~hit - 1, boundary.Count - 2);
             double span = cumulative[segment + 1] - cumulative[segment];
             Point3d p = boundary.PointAt(segment + (span > 0.0 ? (target - cumulative[segment]) / span : 0.0));

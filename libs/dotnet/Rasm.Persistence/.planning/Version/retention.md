@@ -341,7 +341,7 @@ public abstract partial record Hold {
 }
 
 public readonly record struct Reachability(LanguageExt.HashSet<ContentAddress> Live) {
-    public static readonly Reachability None = new(LanguageExt.HashSet<ContentAddress>.Empty);
+    public static readonly Reachability None = new(LanguageExt.HashSet<ContentAddress>());
     public bool Reachable(ContentAddress key) => Live.Contains(key);
 }
 
@@ -364,8 +364,8 @@ public readonly record struct SweepTally(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RetentionSweep {
     public static IO<LanguageExt.HashSet<ContentAddress>> Mark(ReachabilitySource source) => source.Switch(
-        cuts: static row => IO.pure(row.EveryCut.Fold(LanguageExt.HashSet<ContentAddress>.Empty, (live, cut) => row.ReferencedAt(cut).Fold(live, static (set, key) => set.Add(key)))),
-        tags: static row => row.QueryByTags(row.Query).Map(static keys => keys.Fold(LanguageExt.HashSet<ContentAddress>.Empty, static (set, key) => set.Add(key))));
+        cuts: static row => IO.pure(row.EveryCut.Fold(LanguageExt.HashSet<ContentAddress>(), (live, cut) => row.ReferencedAt(cut).Fold(live, static (set, key) => set.Add(key)))),
+        tags: static row => row.QueryByTags(row.Query).Map(static keys => keys.Fold(LanguageExt.HashSet<ContentAddress>(), static (set, key) => set.Add(key))));
 
     public static (Seq<SweepVerdict> Verdicts, SweepTally Tally) Run(
         RetentionClass cls, Seq<RetentionFact> inventory, Seq<Hold> holds, Reachability live,

@@ -341,7 +341,7 @@ public static class InterchangeIdentity {
         ContentHash.Of((formatKey, lanes, indices, policy), static (s, w) =>
             Head(w, s.formatKey, s.policy.Span, present: !(s.lanes.Descriptors.IsEmpty && s.indices.IsEmpty))
                 .Ordinal(s.lanes.Witness.Root.Key)
-                .U128(s.lanes.Witness.ContentHash.Value)
+                .U128((UInt128)s.lanes.Witness.ContentHash)
                 .Rows(s.lanes.Descriptors, static (d, x) => x.String(d.Channel.Key).String(d.Dtype.Key).I64(d.Count))
                 .Ordinal(s.indices.Length)
                 .Raw(s.indices.Span));
@@ -380,7 +380,7 @@ public sealed record GeometryDataset(PackKind Kind, string Model, Seq<EncodedGeo
 
     public UInt128 ContentKey =>
         ContentHash.Of(this, static (d, w) => w.U128(d.Schema.SchemaId)
-            .Rows(d.Instances, static (instance, x) => x.Ordinal(instance.Witness.Root.Key).U128(instance.Witness.ContentHash.Value)));
+            .Rows(d.Instances, static (instance, x) => x.Ordinal(instance.Witness.Root.Key).U128((UInt128)instance.Witness.ContentHash)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -534,7 +534,7 @@ public static class ArrowBatch {
     }
 
     static RecordBatch Batch(Schema wire, Seq<EncodingChannel> channels, EncodedGeometry instance, Option<MemoryAllocator> allocator) {
-        string node = string.Create(CultureInfo.InvariantCulture, $"{instance.Witness.Root.Key}:{instance.Witness.ContentHash.Value:x32}");
+        string node = string.Create(CultureInfo.InvariantCulture, $"{instance.Witness.Root.Key}:{(UInt128)instance.Witness.ContentHash:x32}");
         MemoryAllocator? arena = allocator.IfNoneUnsafe(() => null!);
         Seq<IArrowArray> columns = channels.Map(channel => Wrap(channel, instance)) + Seq<IArrowArray>(
             new StringArray.Builder().Reserve(instance.Count)

@@ -720,7 +720,7 @@ public static class RobotProgram {
 
     private static Fin<Seq<RobotCell>> Samples(RobotCell cell, CellPlacementPolicy policy) =>
         from poses in toSeq(CellPlacementAxis.Items.OrderBy(static axis => axis.Order)).Fold(
-            Fin.Succ(Seq(HashMap<CellPlacementAxis, double>.Empty)),
+            Fin.Succ(Seq(HashMap<CellPlacementAxis, double>())),
             (generated, axis) =>
                 from rows in generated
                 from sampling in policy.Space.Find(axis)
@@ -756,7 +756,7 @@ public static class RobotProgram {
             .Map(static rows => toSeq(rows))
         let joints = solutions.Map(static solution => solution.Joints.ToArr())
         let metrics = toSeq(CellPlacementMetric.Items).Fold(
-            HashMap<CellPlacementMetric, double>.Empty,
+            HashMap<CellPlacementMetric, double>(),
             (measured, metric) => measured.Add(metric, metric.Measure(solutions)))
         let diagnostics = solutions.Bind(static solution => toSeq(solution.Errors)).Distinct().Strict()
         select new CellPlacementCandidate(candidate, normalized, joints, diagnostics, metrics, placement.Burden(solutions));
