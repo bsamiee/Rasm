@@ -15,6 +15,8 @@
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
         <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Effects;LanguageExt.Pretty;LanguageExt.Traits;LanguageExt.Traits.Domain" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
         <Using Include="LanguageExt.Prelude" Static="true" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
+        <!-- LanguageExt.Streaming publishes into LanguageExt and LanguageExt.Pipes; no LanguageExt.Streaming namespace exists to import. -->
+        <Using Include="LanguageExt.Pipes" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Streaming'))' != ''" />
         <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Sys'))' != ''" />
         <!-- LanguageExt.Parsec exports a static class Char; sources spell the BCL type as the keyword char. -->
         <Using Include="LanguageExt.Parsec" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Parsec'))' != ''" />

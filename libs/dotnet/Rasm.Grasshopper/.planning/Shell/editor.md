@@ -82,14 +82,14 @@ public sealed partial class ShellSlot {
 
     private static ShellSlot EditorRow<THost>(int key, Func<Editor, THost?> read, Func<THost, ShellPane> pane)
         where THost : class =>
-        new(key: key, resolve: op =>
+        new(resolve: op =>
             Optional(Editor.Instance).ToFin(new KernelFault.MissingContext())
                 .Bind(shell => Optional(read(arg: shell)).ToFin(new KernelFault.MissingContext()))
                 .Map(pane));
 
     private static ShellSlot StaticRow<THost>(int key, Func<THost?> read, Func<THost, ShellPane> pane)
         where THost : class =>
-        new(key: key, resolve: op => Optional(read()).ToFin(new KernelFault.MissingContext()).Map(pane));
+        new(resolve: op => Optional(read()).ToFin(new KernelFault.MissingContext()).Map(pane));
 }
 
 [SmartEnum<int>]
@@ -151,7 +151,7 @@ public static class EditorShell {
 
     public static Fin<ShellFacts> Snapshot() {
         return UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
-            () => ScopeTarget.EditorHost.Acquire().Bind(scope => Project(scope: scope, key: op))),
+            () => ScopeTarget.EditorHost.Acquire().Bind(scope => Project(scope: scope))),
             DispatchLane.Interactive);
     }
 

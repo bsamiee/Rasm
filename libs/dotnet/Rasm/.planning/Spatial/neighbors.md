@@ -173,7 +173,7 @@ public abstract partial record NeighborIndex {
                         order: static (left, right) => left.Id.CompareTo(right.Id), cancel: s.Cancel))
                     select (NeighborAnswer)new NeighborAnswer.Hits(Values: hits),
                 overlapsCase: static (s, q) =>
-                    from pairs in s.Self.WithTree(run: mine => q.Other.WithTree(key: s.Key, run: theirs => SearchCapsule<NeighborPair>(
+                    from pairs in s.Self.WithTree(run: mine => q.Other.WithTree(run: theirs => SearchCapsule<NeighborPair>(
                         run: buffer => RTree.SearchOverlaps(treeA: mine, treeB: theirs, tolerance: q.Band.Value,
                             callback: (sender, args) => { if (NeighborPair.TryCreate(args.Id, args.IdB, out NeighborPair? pair)) { buffer.Add(pair!); } args.Cancel = s.Cancel.IsCancellationRequested; }),
                         order: static (left, right) => left.A != right.A ? left.A.CompareTo(right.A) : left.B.CompareTo(right.B), cancel: s.Cancel)))

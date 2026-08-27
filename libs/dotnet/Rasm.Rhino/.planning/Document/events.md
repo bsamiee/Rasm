@@ -59,7 +59,7 @@ public sealed partial class Cadence {
     public static readonly Cadence PerFrame = new(static (delivery, family, key) =>
         delivery is Delivery.Paced paced && paced.Lane.Dropping
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new DocumentFault.Cadence(Key: key, Family: family)));
+            : Fin.Fail<Unit>(new DocumentFault.Cadence(Family: family)));
 
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Admits(Delivery delivery, EventFamily family);
@@ -1195,8 +1195,8 @@ public static class DocumentStream {
     private static readonly Atom<long> Sequence = Atom(0L);
 
     public static Fin<Watch> Observe(Observation request) {
-        return Admit.Need(request).Bind(active => active.Switch(host: static (key, observation) => ObserveHost(request: observation, key: key),
-            file: static (key, observation) => ObserveFile(request: observation, key: key)));
+        return Admit.Need(request).Bind(active => active.Switch(host: static (key, observation) => ObserveHost(request: observation),
+            file: static (key, observation) => ObserveFile(request: observation)));
     }
 
     private static Fin<Watch> ObserveHost(Observation.Host request) =>
@@ -1364,8 +1364,7 @@ public static class DocumentStream {
                                 .As().Map(static _ => unit),
                             () => Optional(watcher)
                                 .TraverseM(live => Try.lift(() => { live.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))
-                                .As().Map(static _ => unit)),
-                        key: key));
+                                .As().Map(static _ => unit))));
             }
         }).Run().Bind(static inner => inner);
 
@@ -1606,7 +1605,7 @@ public static class DocumentHooks {
                 binding: new HookBinding<RhinoPoint, PluginKey, Observation.Host, Watch>(
                     Point: row.Point,
                     Owner: plugin,
-                    Bind: ask => EventFamily.In(band: row.Band, key: op)
+                    Bind: ask => EventFamily.In(band: row.Band)
                         .Bind(families => DocumentStream.Observe(ask with { Families = families }))))))
             .Add(() => MountRegistry.Mount(
                 binding: new HookBinding<RhinoPoint, PluginKey, Observation.File, Watch>(

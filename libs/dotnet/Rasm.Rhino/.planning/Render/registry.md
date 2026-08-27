@@ -63,7 +63,7 @@ public sealed record ContentTypeInfo(
         Try.lift(() => toSeq(RenderContentType.GetAllAvailableTypes()).TraverseM(descriptor =>
             Lease<RenderContentType>.Acquire(mint: () => descriptor).Bind(lease => lease.Use(
                 body: held =>
-                    from type in ResourceId.Admit(value: held.Id, key: key)
+                    from type in ResourceId.Admit(value: held.Id)
                     from plugin in FactoryBridge.Accept<PluginKey>(held.PlugInId)
                     from name in Acceptance.Text(value: held.InternalName)
                     select new ContentTypeInfo(
@@ -344,8 +344,7 @@ public abstract partial record ShellRow {
         panelCase: static (context, row) =>
             from panels in context.Registrar.IsPanels
                 ? Admit.Need(context.Registrar.AsPanels)
-                : Fin.Fail<RenderPanels>(error: new RenderFault.Unbound(
-                    Key: context.Op, Member: nameof(RenderPanels)))
+                : Fin.Fail<RenderPanels>(error: new RenderFault.Unbound(Member: nameof(RenderPanels)))
             from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => panels.RegisterPanel(
                 plugin: context.Owner,
                 renderPanelType: row.Kind.Native,
@@ -359,7 +358,7 @@ public abstract partial record ShellRow {
         tabCase: static (context, row) =>
             from tabs in context.Registrar.IsTabs
                 ? Admit.Need(context.Registrar.AsTabs)
-                : Fin.Fail<RenderTabs>(error: new RenderFault.Unbound(Key: context.Op, Member: nameof(RenderTabs)))
+                : Fin.Fail<RenderTabs>(error: new RenderFault.Unbound(Member: nameof(RenderTabs)))
             from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => tabs.RegisterTab(
                 plugin: context.Owner,
                 tabType: row.Body,
@@ -575,7 +574,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
     [return: MaybeNull]
     public override RenderContent Read(string pathToFile) {
         return (from path in Acceptance.Text(pathToFile)
-                from read in program.Read.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(Read)))
+                from read in program.Read.ToFin(Fail: new RenderFault.Unbound(Member: nameof(Read)))
                 from transfer in Try.lift(() => read(path)).Run().Bind(static inner => inner)
                 from active in Optional(transfer).ToFin(Fail: new KernelFault.InvalidResult())
                 from content in active.Take()
@@ -588,7 +587,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
         return (from path in Acceptance.Text(pathToFile)
                 from content in Admit.Need(renderContent)
                 from preview in Admit.Need(previewArgs)
-                from write in program.Write.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(Write)))
+                from write in program.Write.ToFin(Fail: new RenderFault.Unbound(Member: nameof(Write)))
                 from _ in Try.lift(() => write(path, content, preview)).Run().Bind(static inner => inner)
                 select unit).Match(
                     Succ: static _ => true,
@@ -605,7 +604,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
                 from _0 in guard(
                     !files.IsEmpty && files.ForAll(static path => !string.IsNullOrWhiteSpace(path)),
                     (Error)new KernelFault.InvalidValue(nameof(paths), "a non-empty path set"))
-                from load in program.LoadMultiple.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(LoadMultiple)))
+                from load in program.LoadMultiple.ToFin(Fail: new RenderFault.Unbound(Member: nameof(LoadMultiple)))
                 from admittedKind in ContentKind.Of(kind)
                 from policy in LoadPolicy.Of(flags)
                 from reports in Try.lift(() => load(activeDocument, files, admittedKind, policy)).Run().Bind(static inner => inner)
@@ -1157,8 +1156,7 @@ public sealed record ContentCollectionProbe {
                        release: () => Custody.Release(
                            releases: Seq<Func<Fin<Unit>>>(
                                () => Fin.Succ(value: list.Dispose()),
-                               () => Fin.Succ(value: collection.Dispose())),
-                           key: op))
+                               () => Fin.Succ(value: collection.Dispose()))))
                select probe;
     }
 }
@@ -1199,7 +1197,7 @@ public sealed class ContentQuery<T> where T : IDetachedDocumentResult {
 
 public static class ContentQuery {
     public static ContentQuery<ContentSnapshot> Snapshot { get; } =
-        new(read: static (_, content, op) => ContentSnapshot.Of(content: content, key: op));
+        new(read: static (_, content, op) => ContentSnapshot.Of(content: content));
 
     public static ContentQuery<ContentArchive> Archive { get; } =
         new(read: static (_, content, op) =>
@@ -1208,35 +1206,34 @@ public static class ContentQuery {
             select new ContentArchive(Xml: xml, EmbeddedFiles: embedded));
 
     public static ContentQuery<FieldCensus> Fields { get; } =
-        new(read: static (_, content, op) => FieldCensus.Of(fields: content.Fields, key: op));
+        new(read: static (_, content, op) => FieldCensus.Of(fields: content.Fields));
 
     public static ContentQuery<ScentCensus> Scents(Seq<MaterialScent> wanted = default) =>
         As<RenderMaterial, ScentCensus>((material, _) =>
             Fin.Succ(value: MaterialScent.CensusOf(material: material, wanted: wanted)));
 
     public static ContentQuery<TextureConfig> Config { get; } =
-        As<RenderTexture, TextureConfig>(static (texture, op) => TextureConfig.Of(texture: texture, key: op));
+        As<RenderTexture, TextureConfig>(static (texture, op) => TextureConfig.Of(texture: texture));
 
     public static ContentQuery<TextureTraits> Traits { get; } =
-        As<RenderTexture, TextureTraits>(static (texture, op) => TextureTraits.Of(texture: texture, key: op));
+        As<RenderTexture, TextureTraits>(static (texture, op) => TextureTraits.Of(texture: texture));
 
     public static ContentQuery<HashWitness> Hash(HashProbe probe, HashScope scope) =>
         new(read: (document, content, op) =>
             from active in Admit.Need(probe)
             from row in Admit.Need(scope)
             from witness in row == HashScope.Documented
-                ? Lease<RenderSettings>.Acquire(mint: () => document.RenderSettings, key: op).Bind(lease => lease.Use(
+                ? Lease<RenderSettings>.Acquire(mint: () => document.RenderSettings).Bind(lease => lease.Use(
                     body: settings => SubOwners.Within(
                         settings: settings,
-                        borrow: owners => active.Read(content: content, workflow: Some(owners.Workflow))),
-                    key: op))
+                        borrow: owners => active.Read(content: content, workflow: Some(owners.Workflow)))))
                 : active.Read(content: content, workflow: None)
             select witness);
 
     public static ContentQuery<ContentValue> Param(ParamScope scope) =>
         new(read: (_, content, op) =>
             from active in Admit.Need(scope)
-            from value in active.Read(content: content, key: op)
+            from value in active.Read(content: content)
             select value);
 
     public static ContentQuery<SlotUsage> Usage(RenderMaterial.StandardChildSlots slot) =>
@@ -1272,13 +1269,13 @@ public static class ContentQuery {
     public static ContentQuery<ContentIcon> Icon(IconRequest request) =>
         new(read: (_, content, op) =>
             from active in Admit.Need(request)
-            from icon in active.Render(content: content, key: op)
+            from icon in active.Render(content: content)
             select icon);
 
     public static ContentQuery<MatchEvidence> Match(ContentRef old) =>
         new(read: (document, content, op) =>
             from reference in Admit.Need(old)
-            from prior in reference.Resolve(document: document, key: op)
+            from prior in reference.Resolve(document: document)
             from native in Try.lift(() => Fin.Succ(content.MatchData(oldContent: prior))).Run().Bind(static inner => inner)
             from verdict in MatchVerdict.Of(native)
             select new MatchEvidence(Verdict: verdict));
@@ -1299,9 +1296,9 @@ public static class ContentQuery {
                 from count in Try.lift(() => Fin.Succ(collection.Count())).Run().Bind(static inner => inner)
                 from members in toSeq(Enumerable.Range(0, count)).TraverseM(index => Try.lift(() =>
                     Optional(collection.ContentAt(index)).ToFin(Fail: new KernelFault.InvalidResult())
-                        .Bind(row => ResourceId.Admit(value: row.Id, key: op))).Run().Bind(static inner => inner)).As()
+                        .Bind(row => ResourceId.Admit(value: row.Id))).Run().Bind(static inner => inner)).As()
                 from kind in ContentKind.Of(content)
-                from scope in KindScope.Of(kinds: kinds, key: op)
+                from scope in KindScope.Of(kinds: kinds)
                 from traits in Try.lift(() => Fin.Succ(value: CapabilitySet<CollectionTrait>.Of(
                     Seq((Trait: CollectionTrait.ForcedVaries, Held: collection.GetForcedVaries()),
                         (Trait: CollectionTrait.NeedsPreview, Held: collection.ContentNeedsPreviewThumbnail(c: content, includeChildren: false)),
@@ -1406,7 +1403,7 @@ public static class Registry {
         from facts in active.Use<RhinoSettings, EditorFacts>(
             provider: EditorProvider.Settings,
             intent: EditorIntent.Read,
-            borrow: settings => Facts(settings: settings, op: op))
+            borrow: settings => Facts(settings: settings))
         select facts;
 
     private static Fin<EditorFacts> Facts(RhinoSettings settings) =>
@@ -1467,7 +1464,7 @@ public static class Registry {
         from active in Admit.Need(query)
         from result in activeSession.Demand(
             use: document =>
-                from content in activeTarget.Resolve(document: document, key: op)
+                from content in activeTarget.Resolve(document: document)
                 from answer in active.Run(document: document, content: content)
                 select answer,
             needs: [SessionNeed.Read])
@@ -1478,7 +1475,7 @@ public static class Registry {
         from activeKind in Admit.Need(kind)
         from result in activeSession.Demand(
             use: document => activeKind.Roster(document)
-                .Traverse(content => ResourceId.Admit(value: content.Id, key: op).ToValidation())
+                .Traverse(content => ResourceId.Admit(value: content.Id).ToValidation())
                 .As()
                 .ToFin()
                 .Map(ids => new ContentRoster(Kind: activeKind, Ids: ids)),
@@ -1817,17 +1814,17 @@ public sealed class ContentStream : IDisposable {
                 body: () => Cell.Seat(cell: subscription, mint: () => attached).Switch(
                     state: op,
                     committed: static (_, _) => Fin.Succ(value: unit),
-                    ceded: static (key, _) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Key: key, Engine: Guid.Empty)),
+                    ceded: static (key, _) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
                     refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
                     contended: static (key, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult())),
                 refused: () => Fin.Fail<Unit>(error: new KernelFault.InvalidContext())
-                    .Rollback(release: () => Release(fact: attached, op: op), key: op));
+                    .Rollback(release: () => Release(fact: attached)));
 
         internal Fin<Unit> Deliver(ContentFact fact, Func<ContentFact, Fin<Unit>> sink) =>
             gate.Within(
                 body: () => Delivered(fact: fact, sink: sink),
                 refused: () => Fin.Fail<Unit>(error: new KernelFault.InvalidContext())
-                    .Rollback(release: () => Release(fact: fact, op: op), key: op));
+                    .Rollback(release: () => Release(fact: fact)));
 
         internal Fin<Unit> Close() =>
             gate.Close(
@@ -1843,22 +1840,21 @@ public sealed class ContentStream : IDisposable {
                     Succ: value => Release(fact: detached).Map(_ => value),
                     Fail: fault => Park(original: fact, detached: detached, fault: fault)),
                 Fail: fault => Fin.Fail<Unit>(error: fault).Rollback(
-                    release: () => Release(fact: fact, op: op)));
+                    release: () => Release(fact: fact)));
 
         private Fin<Unit> Park(ContentFact original, ContentFact detached, Error fault) =>
             failures.Park(
                 item: new ContentStreamFailure(Fact: detached, Fault: fault),
-                release: dropped => Release(fact: dropped.Fact, op: op)).Switch(
+                release: dropped => Release(fact: dropped.Fact)).Switch(
                 state: (Original: original, Detached: detached, Fault: fault),
                 landed: static (ctx, row) => Fin.Fail<Unit>(error: ctx.Fault)
                     .Rollback(
                         release: () => row.Cleanup.Settled(
-                            release: () => Release(fact: ctx.Original, op: ctx.Op),
-                            key: ctx.Op)),
+                            release: () => Release(fact: ctx.Original))),
                 ceded: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Fault + new KernelFault.InvalidResult())
-                    .Rollback(held: Seq(ctx.Original, ctx.Detached), release: row => Release(fact: row, op: ctx.Op)),
+                    .Rollback(held: Seq(ctx.Original, ctx.Detached), release: row => Release(fact: row)),
                 refused: static (ctx, row) => Fin.Fail<Unit>(error: ctx.Fault + row.Cause)
-                    .Rollback(held: Seq(ctx.Original, ctx.Detached), release: r => Release(fact: r, op: ctx.Op)));
+                    .Rollback(held: Seq(ctx.Original, ctx.Detached), release: r => Release(fact: r)));
 
         private static Fin<Unit> Release(ContentFact fact) =>
             Try.lift(() => Fin.Succ(value: HostEdge.Side(fact.Dispose))).Run().Bind(static inner => inner);

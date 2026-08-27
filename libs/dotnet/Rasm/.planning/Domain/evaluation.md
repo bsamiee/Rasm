@@ -166,7 +166,7 @@ internal sealed partial class ClosestForm {
         });
     public static readonly ClosestForm Sphere = new(
         native: typeof(Sphere),
-        recover: static (value, target, key) => Normalization.SurfaceForm(source: (Sphere)value, key: key)
+        recover: static (value, target, key) => Normalization.SurfaceForm(source: (Sphere)value)
             .Bind(lease => lease.Use(target, static (state, surface) =>
                 Of(surface.GetType()).ToFin(new KernelFault.Unsupported(InputType: surface.GetType(), OutputType: typeof(ClosestHit)))
                     .Bind(row => row.Recover(value: surface, target: state)))));
@@ -359,8 +359,8 @@ internal static class Evaluation {
                 (SubDVertex?)subd.Vertices.First,
                 static vertex => vertex switch { SubDVertex current => Some((current.ControlNetPoint, (SubDVertex?)current.Next)), _ => None }))),
             GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native)
-                .Bind(lease => lease.Use(static (op, brep) => Vertices(source: brep, key: op))),
-            _ => Recovered(source: source, verb: static (value, op) => Vertices(source: value, key: op)),
+                .Bind(lease => lease.Use(static (op, brep) => Vertices(source: brep))),
+            _ => Recovered(source: source, verb: static (value, op) => Vertices(source: value)),
         };
     private static Fin<T> Recovered<T>(object source, Func<object, Fin<T>> verb) =>
         source switch {

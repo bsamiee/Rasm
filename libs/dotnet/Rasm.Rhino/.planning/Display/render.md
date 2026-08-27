@@ -501,8 +501,7 @@ internal sealed class JobAsync : AsyncRenderContext {
                             running: static row => row.Port.Close(),
                             stopped: static _ => unit))).Run().Bind(static inner => inner),
                         () => program.Stopped.TraverseM(hook => Try.lift(hook).Run().Bind(static inner => inner)).As().Map(static _ => unit),
-                        () => Try.lift(() => base.StopRendering()).Run().Bind(static inner => inner)),
-                    key: key)
+                        () => Try.lift(() => base.StopRendering()).Run().Bind(static inner => inner)))
                 .IfFail(record);
         }
     }
@@ -511,7 +510,7 @@ internal sealed class JobAsync : AsyncRenderContext {
         Seq<Func<Fin<Unit>>> releases = isDisposing
             ? Seq<Func<Fin<Unit>>>(() => Try.lift(halt.Dispose).Run().Bind(static inner => inner), () => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner))
             : Seq<Func<Fin<Unit>>>(() => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner));
-        _ = Custody.Release(releases: releases, key: key).IfFail(record);
+        _ = Custody.Release(releases: releases).IfFail(record);
     }
 }
 
@@ -701,8 +700,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                     code: ctx.Pipeline.RenderWindow(
                         view: row.View,
                         rect: request.Origin.Window(extent: request.Extent),
-                        inWindow: request.Placement.Native),
-                    key: ctx.Op)).Run().Bind(static inner => inner))
+                        inWindow: request.Placement.Native))).Run().Bind(static inner => inner))
                 select outcome);
     }
 
@@ -1073,7 +1071,7 @@ public static class RealtimeEngines {
                    let installed = toSeq(rows).Map(static row => row.GUID).Strict()
                    from matched in guard(
                        installed.Exists(row => row == engine),
-                       (Error)new RenderFault.SeatAbsent(Key: op, Engine: engine))
+                       (Error)new RenderFault.SeatAbsent(Engine: engine))
                    select installed)
                select claimed;
     }
@@ -1134,7 +1132,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         bound = RealtimeEngines.Plan(Engine);
         _ = bound.Match(
             Some: Wire,
-            None: () => Observe(new RenderFault.Unbound(Key: key, Member: nameof(PostConstruct))));
+            None: () => Observe(new RenderFault.Unbound(Member: nameof(PostConstruct))));
     }
 
     private Unit Wire(RealtimeEnginePlan plan) {
@@ -1309,7 +1307,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
     // --- [ENGINE_INTERNALS]
     private Fin<TOut> Bound<TOut>(Func<RealtimeProgram, Fin<TOut>> use) =>
-        bound.ToFin(Fail: new RenderFault.Unbound(Key: key, Member: nameof(Bound)))
+        bound.ToFin(Fail: new RenderFault.Unbound(Member: nameof(Bound)))
             .Bind(plan => Try.lift(() => use(plan.Program)).Run().Bind(static inner => inner));
 
     private TOut Policy<TOut>(Func<RealtimePassPolicy, TOut> read, TOut fallback) =>
@@ -1320,7 +1318,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
     private TOut Seated<TOut>(Func<RealtimeEnginePlan, TOut> read, TOut fallback, string member) => bound.Match(
         Some: read,
-        None: () => (Observe(new RenderFault.Unbound(Key: key, Member: member)), fallback).Item2);
+        None: () => (Observe(new RenderFault.Unbound(Member: member)), fallback).Item2);
 
     private Fin<DrawTally> Project(
         RealtimeEnginePlan plan, DisplayPipeline pipeline, ConduitPhase phase, Func<ConduitFrame, Fin<Seq<DisplayMark>>> project) {
@@ -2005,11 +2003,11 @@ public abstract class EffectHost : PostEffects.PostEffect {
         Accept(Pass(pipeline, rect).Bind(pass => program.Execute(pass).Map(static _ => true)));
 
     public override bool ReadState(PostEffects.PostEffectState state) =>
-        Accept(Try.lift(() => program.Read(new EffectStateBag(state: state, key: key))).Run().Bind(static inner => inner).Map(static _ => true));
+        Accept(Try.lift(() => program.Read(new EffectStateBag(state: state))).Run().Bind(static inner => inner).Map(static _ => true));
 
     public override bool WriteState(ref PostEffects.PostEffectState state) {
         PostEffects.PostEffectState held = state;
-        return Accept(Try.lift(() => program.Write(new EffectStateBag(state: held, key: key))).Run().Bind(static inner => inner).Map(static _ => true));
+        return Accept(Try.lift(() => program.Write(new EffectStateBag(state: held))).Run().Bind(static inner => inner).Map(static _ => true));
     }
 
     public override void ResetToFactoryDefaults() =>
@@ -2097,8 +2095,8 @@ public static class Effects {
                from roster in source.Demand(
                    use: document => Try.lift(() => {
                        using PostEffects.PostEffectCollection collection = document.RenderSettings.PostEffects;
-                       return ops.TraverseM(row => row.Apply(collection: collection, key: op)).As()
-                           .Bind(_ => Roster(collection: collection, op: op));
+                       return ops.TraverseM(row => row.Apply(collection: collection)).As()
+                           .Bind(_ => Roster(collection: collection));
                    }).Run().Bind(static inner => inner),
                    needs: ops.Exists(static row => row.Mutates)
                        ? [SessionNeed.Read, SessionNeed.Mutate]
@@ -2678,7 +2676,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     // --- [NOTIFY_BRACKET]
     protected override void NotifyBeginUpdates() {
         base.NotifyBeginUpdates();
-        _ = opened.Swap(_ => Error.New(key: key.Message, key: key).ToOption());
+        _ = opened.Swap(_ => Error.New(key: key.Message).ToOption());
     }
 
     protected override void NotifyEndUpdates() {
@@ -2705,7 +2703,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
 
     protected override int BakingSize(RhinoObject obj, RenderMaterial material, TextureType type) => policy.BakeSize.Match(
         Some: size => Observe(
-                from slot in HostRow<TextureType>.Of(native: type, key: key)
+                from slot in HostRow<TextureType>.Of(native: type)
                 from measured in Try.lift(() => size(new BakeDemand(Subject: obj.Id, Material: material.RenderHash, Slot: slot))).Run().Bind(static inner => inner)
                 select measured)
             .Match(Succ: static value => value.Value, Fail: _ => base.BakingSize(obj, material, type)),
@@ -2743,7 +2741,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         SceneBatch batch = new(
             deltas: cut,
             opened: opened.Value,
-            sealedAt: Error.New(key: key.Message, key: key).ToOption(),
+            sealedAt: Error.New(key: key.Message).ToOption(),
             units: units);
         _ = HostEdge.SideWhen(!lane.Writer.TryWrite(batch), () => {
             _ = batch.Release();
@@ -2809,7 +2807,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     private Fin<Unit> Sweep() {
         Seq<SceneBatch> residue = Taken();
         return Custody.Release(residue, batch => (
-            losses.Park(item: new QueueLoss(At: Error.New(key: op.Message, key: op).ToOption(), Deltas: batch.Count)),
+            losses.Park(item: new QueueLoss(At: Error.New(key: op.Message).ToOption(), Deltas: batch.Count)),
             batch.Release()).Item2);
     }
 

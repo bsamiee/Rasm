@@ -252,7 +252,7 @@ public sealed class CanvasPacer : IDisposable {
             committed: (op, _) => owned.Resource.Start()
                 .Map(_ => (Lease<CanvasPacer>)new Lease<CanvasPacer>.Owned(Value: this)),
             ceded: (op, _) => Fin.Fail<Lease<CanvasPacer>>(new KernelFault.InvalidResult())
-                .Rollback(release: () => Fin.Succ(owned.Dispose()), key: op),
+                .Rollback(release: () => Fin.Succ(owned.Dispose())),
             refused: static (_, row) => Fin.Fail<Lease<CanvasPacer>>(row.Cause),
             contended: static (op, _) => Fin.Fail<Lease<CanvasPacer>>(new KernelFault.InvalidResult()));
 
@@ -269,7 +269,7 @@ public sealed class CanvasPacer : IDisposable {
         return Cell.Commit(live, _ => continuing).Switch(
             state: (Key: operation, Faulted: faulted),
             committed: (state, _) => GhSession.Apply(
-                    op: new SessionOp.RepaintCase(Row: RepaintRow.Scheduled, Delay: None), key: state.Key)
+                    op: new SessionOp.RepaintCase(Row: RepaintRow.Scheduled, Delay: None))
                 .Bind(_ => state.Faulted.IsEmpty
                     ? continuing.IsEmpty ? Stop() : Fin.Succ(unit)
                     : Fin.Fail<Unit>(Error.Many(state.Faulted))),

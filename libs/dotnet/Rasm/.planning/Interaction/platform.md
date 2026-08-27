@@ -62,7 +62,7 @@ public sealed partial class HandlerDemand {
 }
 
 public sealed record HandlerHold<THandler>(HandlerCustody Custody, THandler Handler) where THandler : class {
-    public Fin<Unit> Release() => Custody.Release(handler: Handler, key: key.OrDefault());
+    public Fin<Unit> Release() => Custody.Release(handler: Handler);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

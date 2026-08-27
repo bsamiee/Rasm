@@ -85,7 +85,6 @@ flowchart TB
     Persistence e6@-->|"[IMPORT]: ContentHash"| Rasm
     Persistence e7@-->|"[IMPORT]: RecoveryObjective"| AppHost
     Materials e8@-->|"[IMPORT]: IElementProjection"| Element
-    Materials e9@-->|"[IMPORT]: Op"| Rasm
     Materials e10@-->|"[IMPORT]: BenchmarkGate"| AppHost
     Bim e11@-->|"[IMPORT]: GraphDelta"| Element
     Bim e12@-->|"[IMPORT]: GeometryMeasures"| Rasm

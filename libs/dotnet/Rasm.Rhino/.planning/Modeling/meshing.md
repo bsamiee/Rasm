@@ -1131,7 +1131,7 @@ public abstract partial record MeshOp {
             runtime,
             fromGeometry: static (model, edit) => {
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, body: source =>
-                    from parameters in edit.Fidelity.Rig(domain: model, key: op)
+                    from parameters in edit.Fidelity.Rig(domain: model)
                     from built in Try.lift(() => {
                         using MeshingParameters live = parameters;
                         return source switch {
@@ -1159,7 +1159,7 @@ public abstract partial record MeshOp {
             },
             fromBoundary: static (model, edit) => {
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Boundary, body: boundary =>
-                    from parameters in edit.Fidelity.Rig(domain: model, key: op)
+                    from parameters in edit.Fidelity.Rig(domain: model)
                     from built in Try.lift(() => {
                         using MeshingParameters live = parameters;
                         return ModelGate.Single(() => Mesh.CreateFromPlanarBoundary(
@@ -1262,7 +1262,7 @@ public abstract partial record MeshOp {
                             parameters: parameters,
                             token: model.Cancellation), token: model.Cancellation),
                         (false, PointCloud, _) => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput()),
-                        (false, _, MeshFidelity fidelity) => fidelity.Rig(domain: model, key: op).Bind(meshing => Try.lift(() => {
+                        (false, _, MeshFidelity fidelity) => fidelity.Rig(domain: model).Bind(meshing => Try.lift(() => {
                             using MeshingParameters live = meshing;
                             return ModelGate.Single(() => Mesh.ShrinkWrap(
                                 geometryBases: sources.AsIterable(),
@@ -1284,7 +1284,7 @@ public abstract partial record MeshOp {
             curveExtrude: static (model, edit) => {
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Curve, body: curve =>
                     edit.Fidelity.Case switch {
-                        MeshFidelity fidelity => fidelity.Rig(domain: model, key: op).Bind(parameters => Try.lift(() => {
+                        MeshFidelity fidelity => fidelity.Rig(domain: model).Bind(parameters => Try.lift(() => {
                             using MeshingParameters live = parameters;
                             return ModelGate.Single(() => edit.Bounds.Case switch {
                                 BoundingBox bounds => Mesh.CreateFromCurveExtrusion(curve: curve, direction: edit.Direction, parameters: live, boundingBox: bounds),
@@ -1317,7 +1317,7 @@ public abstract partial record MeshOp {
                     Mesh hull = Mesh.CreateConvexHull3D(
                         points: edit.Points.AsIterable(), hullFacets: out _,
                         tolerance: model.Domain.Absolute.Value, angleTolerance: model.Domain.Angle.Value);
-                    return ModelGate.Own(built: hull, key: op).Map(handle => Seq(handle));
+                    return ModelGate.Own(built: hull).Map(handle => Seq(handle));
                 }).Run().Bind(static inner => inner);
             },
             patch: static (model, edit) => {
@@ -1480,7 +1480,7 @@ public abstract partial record MeshOp {
                     Try.lift(() => {
                         Mesh working = new();
                         working.Append(meshes: sources.AsIterable());
-                        return ModelGate.Own(built: working, key: op).Map(handle => Seq(handle));
+                        return ModelGate.Own(built: working).Map(handle => Seq(handle));
                     }).Run().Bind(static inner => inner));
             },
             projectFaces: static (_, edit) => {
@@ -1529,7 +1529,7 @@ public abstract partial record MeshOp {
                         };
                         return Admit.Confirm(success: engine.ExtrudedMesh(
                                 extrudedMeshOut: out Mesh extruded, componentIndicesOut: out _))
-                            .Bind(_ => ModelGate.Own(built: extruded, key: op).Map(handle => Seq(handle)));
+                            .Bind(_ => ModelGate.Own(built: extruded).Map(handle => Seq(handle)));
                     }).Run().Bind(static inner => inner));
             });
 

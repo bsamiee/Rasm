@@ -1814,14 +1814,6 @@
         "resolved": "1.0.8",
         "contentHash": "Wp2F7BamQ2Q/7Hk834nV9vRQapgcr8kgv9Jvfm8J3D0IhDqZMMl+a2yxUq5ltJitvXvQfB8W6K4F4fCbw/P6YQ=="
       },
-      "LanguageExt.Streaming": {
-        "type": "Transitive",
-        "resolved": "5.0.0-beta-77",
-        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
-        "dependencies": {
-          "LanguageExt.Core": "5.0.0-beta-77"
-        }
-      },
       "LBT.Newtonsoft.Json": {
         "type": "Transitive",
         "resolved": "13.0.3.2",
@@ -4225,6 +4217,15 @@
         "dependencies": {
           "LanguageExt.Core": "5.0.0-beta-77",
           "LanguageExt.Streaming": "5.0.0-beta-77"
+        }
+      },
+      "LanguageExt.Streaming": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77"
         }
       },
       "LanguageExt.Sys": {

@@ -227,7 +227,7 @@ public abstract partial record TextQuery {
 
     public static Fin<TextQuery> Objects(params ReadOnlySpan<Guid> objectIds) {
         return from admitted in toSeq(objectIds.ToArray())
-                   .Traverse(id => ResourceId.Admit(value: id, key: op).ToValidation())
+                   .Traverse(id => ResourceId.Admit(value: id).ToValidation())
                    .As()
                    .ToFin()
                from _nonempty in guard(!admitted.IsEmpty,
@@ -379,11 +379,11 @@ public static class UserTexts {
             recordsUndo: true,
             redraw: RedrawPolicy.None,
             run: () =>
-                from seed in ReadDocument(document: document, key: key)
+                from seed in ReadDocument(document: document)
                 from folded in mutations.Fold(
                     Fin.Succ(value: new DocumentFold(Flat: seed.Flat, Sections: seed.Sections)),
                     (state, mutation) => state.Bind(fold => Advance(document: document, fold: fold, mutation: mutation)))
-                from settled in ReadDocument(document: document, key: key)
+                from settled in ReadDocument(document: document)
                 from _proof in guard(
                     settled.Flat == folded.Flat && settled.Sections == folded.Sections,
                     (Error)new PersistenceFault.Diverged(Subject: nameof(DocumentTextSnapshot),

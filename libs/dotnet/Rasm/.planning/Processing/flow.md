@@ -130,9 +130,9 @@ public abstract partial record Termination {
             tolerance: (Residual: s.Context.Absolute.Value, Position: s.Context.Absolute.Value),
             budget: c.LocalizationBudget.Value,
             sample: point =>
-                from hit in c.Surface.Closest(sample: point, key: s.Key)
+                from hit in c.Surface.Closest(sample: point)
                 from value in c.Surface.SignedReach(hit: hit)
-                    ? c.Surface.SignedDistance(sample: point, key: s.Key)
+                    ? c.Surface.SignedDistance(sample: point)
                     : Fin.Fail<double>(new KernelFault.Unsupported(InputType: c.Surface.SourceType, OutputType: typeof(double)))
                 select value).Map(@event => (Stop: @event.IsSome, Event: @event)),
         regionThresholdCase: static (s, c) => EvaluateEvent(

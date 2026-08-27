@@ -496,7 +496,7 @@ public sealed partial class SequenceRequest {
 - Law: the stiffness assembles through the kernel sparse owners — `SparseMatrix.FromTriplets` sums duplicate triplets into one SPD operator and `CholeskySparse.Of` factors it once per request, so every candidate pays one solve against a cached symbolic analysis and no raw CSparse type crosses this page.
 - Auto: the residual witness rides the kernel's own `LinearSolution`, so the field summary reports the solver's measured residual and factor fill rather than a re-derived figure.
 - Output: `DistortionField` carries one row per assembly member — the three linear displacement components as one `Vector3d` and the dominating source — beside the `DistortionEvidence` summary holding the sweep, camber, twist, and angular extremes, the residual, and the factor fill. It takes no `*Result` name: it addresses no content key, names no producing plane, and carries no stamp, because scheduling clocks are DURATIONS from a zero this page never anchors to an instant, and a stamp here forges an evaluation moment nothing measured.
-- Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `LinearSolution`, and `Dimension.Create`; `Rasm.Domain` supplies `Op`.
+- Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `LinearSolution`, and `Dimension.Create`.
 - Boundary: the kernel holds the factor and the member index alone; the graph, the load vector, and every intermediate array stay inside the fold.
 
 ```csharp

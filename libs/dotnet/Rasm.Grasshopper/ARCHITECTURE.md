@@ -32,7 +32,7 @@ Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   ├── Layers.cs       # CoreAnimation graph custody; every layer write rides the transaction fence, Display-P3 colour
 │   └── Native.cs       # MacGate platform admission precondition; managed-to-AppKit extraction, input monitors
 └── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
-    ├── Chrome.cs       # Apply(ChromeIntent, Op?) outcome against Toolbar.Bar and InputPanel hosts; leased traverse
+    ├── Chrome.cs       # Apply(ChromeIntent) outcome against Toolbar.Bar and InputPanel hosts; leased traverse
     ├── Editor.cs       # Editor shell — chrome-pane slots, toggles, state projection, Rhino getter
     ├── Events.cs       # UI fact/event evidence, anchor/source rows, transactional subscription, bounded drain
     ├── Hooks.cs        # Scoped veto/observe/replay hook dispatch with subscriber-fault isolation and taps
@@ -102,7 +102,7 @@ flowchart TB
 
 Timing owners admit the kernel's `MonotonicTimeline`; colour owners admit `PerceptualColor`. `Interaction` crosses on the same edges: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, `ControlSpec` seats every chrome pane, and `AssetOrigin` names every icon. Host operations return their canonical values, and instrument writes project at the producing site.
 
-Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically; kernel-end edges fold it per owner, boundary, and kind, so a member moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row. `Op` is the correlation key every fence takes and rides no boundary edge; `InstrumentSpec` rides `[PORT]` because `GhInstruments` DECLARES rows the app root mounts, while every other member crosses as a bound value.
+Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically; kernel-end edges fold it per owner, boundary, and kind, so a member moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row. `InstrumentSpec` rides `[PORT]` because `GhInstruments` DECLARES rows the app root mounts, while every other member crosses as a bound value.
 
 `GhTelemetry` admits the app root's `IMeterFactory` and `ILoggerFactory` the same way: capability in, `rasm.grasshopper.*` instrument writes out, zero provider reference inside the boundary.
 

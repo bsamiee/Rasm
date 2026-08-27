@@ -2,7 +2,7 @@
 
 `ExtractionDomain` owns the extraction/projection API: one polymorphic `Of` ingress admits raw Rhino geometry or an admitted `CellLattice` into a typed sampling domain, `ContourPolicy` sections every domain through the owner its shape names — RhinoCommon's contour and iso adapters for the multi-plane and surface-iso routes, the `Meshing/intersect` `IntersectOp.PlaneMesh` crossing table for a single mesh section, the `reconstruct.md` marching-squares owner for lattice scalar levels — and typed projection rows fold every request shape to any output type. One local marching-triangles kernel serves the per-vertex scalar contouring no owner carries.
 
-Output dispatch rides `Numerics/atoms.md`'s `ResultProjection.Rows`; evidence validity folds through `Domain/results.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rows, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this API re-implements none of them.
+Output dispatch rides `Numerics/atoms.md`'s `ResultProjection.Rows`; evidence validity folds through `Domain/results.md`'s `ValidityClaim` . Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rows, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this API re-implements none of them.
 
 ## [01]-[INDEX]
 
@@ -23,7 +23,7 @@ Output dispatch rides `Numerics/atoms.md`'s `ResultProjection.Rows`; evidence va
 
 - Owner: `Extraction` `[Union]` is the public request vocabulary — three probe cases as the field point-probes, one contour case, one iso-surface case, and four sampled cases over one shared seed generator; `ExtractionTolerance` `[Union]` carries provenance and value as one.
 - Entry: the request factories admit once — probe source and sample gated, an admitted domain null-gated and never rebuilt, policy validated through its own `Admit`, sampled payload, domain, and seeds gated at the case factory, iso bounds gated finite and non-degenerate; `extraction.Project<TOut>(…)` is the one egress, each request kind resolving its output through typed projection rows.
-- Law: every union on this page is one owner, so its factories carry the `Op? key = null` + `OrDefault()` spelling as a type-wide contract rather than a per-member attribute.
+- Law: every union on this page is one owner, so its factories share one admission contract rather than a per-member attribute.
 - Auto: `ProjectSamples` is the one sampled spine — evaluate the seeds, fold each through the mode's item arm, mint the tally, and project through one `Rows` call; item rows gate on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
 - Output: `ExtractionTally` carries the native-route flag, attempted and emitted counts with derived rejected and completion, the tolerance carrier, and the optional child evidence, all folded to one validity claim.
 - Growth: a new section policy is one `ContourPolicy` case and one adapter arm per admitting domain, a new sampled mode one `Extraction` case and one spine arm, a new probe output one `ProjectionRow`, a new ingress shape one `Of` arm.
@@ -480,7 +480,7 @@ public abstract partial record Extraction {
         ProjectionRow.Of<T>(() => rejected == 0 ? body() : Fin.Fail<T>(new KernelFault.InvalidResult()));
 
     private static ProjectionRow Streamed<TShape>(int rejected, Seq<StreamlineTrace> traces) =>
-        Gated<Seq<TShape>>(rejected, () => traces.TraverseM(trace => FlowKernel.ProjectTrace<TShape>(trace: trace, key: op)).As());
+        Gated<Seq<TShape>>(rejected, () => traces.TraverseM(trace => FlowKernel.ProjectTrace<TShape>(trace: trace)).As());
 
     private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Func<Point3d, Context, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionTally, Fin<TOut>> project) =>
         from samples in seeds.Evaluate(domain: domain, context: context)

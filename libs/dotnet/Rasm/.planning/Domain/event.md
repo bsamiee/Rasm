@@ -1,6 +1,6 @@
 # [RASM_EVENT]
 
-Bindings, filters, subscriptions, and `dataref` storage policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `results.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
+Bindings, filters, subscriptions, and `dataref` storage policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: the `Fault` band from `results.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
 
 ## [01]-[INDEX]
 

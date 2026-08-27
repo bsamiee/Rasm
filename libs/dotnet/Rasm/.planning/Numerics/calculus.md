@@ -2,7 +2,7 @@
 
 `Rasm.Numerics` calculus is the sample-anywhere analytic-math floor: differential operators, weight-profile mathematics, procedural noise lattices, and the geodetic solar almanac — the field operators generic over a sampler, the almanac closed-form over a site and an instant — so no field, mesh, or cloud type reaches this floor.
 
-Every operator threads `Op` and gates finite input through the Domain validation vocabulary, so admission composes upstream and this floor carries the mathematics alone; the `SlopeBound`, `Slope`, and `DerivativeSupremum` slope evidence its kernels and profiles carry feeds the `Spatial/fields` Lipschitz fold downstream. Positive-definiteness is `Numerics/matrix`'s one verdict (`SymmetricMatrix.Definite`) and the non-zero-sum tap fold is `Numerics/transform`'s (`TapSeries.Convolve`); this page differentiates and weights, and re-spells neither.
+Every operator gates finite input through the Domain validation vocabulary, so admission composes upstream and this floor carries the mathematics alone; the `SlopeBound`, `Slope`, and `DerivativeSupremum` slope evidence its kernels and profiles carry feeds the `Spatial/fields` Lipschitz fold downstream. Positive-definiteness is `Numerics/matrix`'s one verdict (`SymmetricMatrix.Definite`) and the non-zero-sum tap fold is `Numerics/transform`'s (`TapSeries.Convolve`); this page differentiates and weights, and re-spells neither.
 
 ## [01]-[INDEX]
 

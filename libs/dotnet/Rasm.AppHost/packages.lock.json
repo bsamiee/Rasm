@@ -1142,14 +1142,6 @@
           "Grpc.Core.Api": "2.83.0"
         }
       },
-      "LanguageExt.Streaming": {
-        "type": "Transitive",
-        "resolved": "5.0.0-beta-77",
-        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
-        "dependencies": {
-          "LanguageExt.Core": "5.0.0-beta-77"
-        }
-      },
       "librdkafka.redist": {
         "type": "Transitive",
         "resolved": "2.15.0",
@@ -1813,6 +1805,15 @@
         "contentHash": "9w52xxORdIGu4Mm8lff3psMIlarenu+7TC4uIfiiW9AyaHZ6iPE/18gIkG1DD9byGDuhjuhnN9hiviBUAmCuZw==",
         "dependencies": {
           "Grpc.Core.Api": "2.83.0"
+        }
+      },
+      "LanguageExt.Streaming": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77"
         }
       },
       "MathNet.Numerics": {

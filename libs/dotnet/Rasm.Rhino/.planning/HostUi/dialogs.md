@@ -365,10 +365,10 @@ public static class Inquiries {
                     Dialogs.ShowTextDialog(message: ask.Body.Resolve(), title: ask.Title.Resolve());
                     return Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.Transcript());
                 }).Run().Bind(static inner => inner),
-                pick: static (held, ask) => Keyed(rows: ask.Rows, op: held.Op).Bind(rows => ask.Multiplicity.Pick(
+                pick: static (held, ask) => Keyed(rows: ask.Rows).Bind(rows => ask.Multiplicity.Pick(
                     title: ask.Title, prompt: ask.Prompt, rows: rows)),
                 check: static (held, ask) =>
-                    from rows in Keyed(rows: ask.Rows, op: held.Op)
+                    from rows in Keyed(rows: ask.Rows)
                     from states in Optional(Dialogs.ShowCheckListBox(
                             title: ask.Title.Resolve(),
                             message: ask.Prompt.Resolve(),
@@ -378,7 +378,7 @@ public static class Inquiries {
                     from answer in Zipped(rows: rows, values: states)
                     select (InquiryAnswer)new InquiryAnswer.Checks(Rows: answer),
                 properties: static (held, ask) =>
-                    from rows in Keyed(rows: ask.Rows, op: held.Op)
+                    from rows in Keyed(rows: ask.Rows)
                     from values in Optional(Dialogs.ShowPropertyListBox(
                             title: ask.Title.Resolve(),
                             message: ask.Prompt.Resolve(),
@@ -451,7 +451,7 @@ public static class Inquiries {
                         None: () => Dialogs.ShowPrintWidths(title: ask.Title.Resolve(), message: ask.Prompt.Resolve()));
                     return Settled(
                         probe: () => Fin.Succ(value: RhinoMath.IsValidDouble(width)),
-                        answer: () => PrintPen.OfHost(weight: width, key: held.Op)
+                        answer: () => PrintPen.OfHost(weight: width)
                             .Map<InquiryAnswer>(static pen => new InquiryAnswer.PrintWidth(Value: pen)));
                 },
                 sun: static (held, _) => Settled(
@@ -463,7 +463,7 @@ public static class Inquiries {
     public static Fin<Option<TResult>> Ask<TResult>(DocumentSession session, PickerDemand<TResult> demand) {
         return Acceptance.Rows<object>(session, demand).Bind(_ => Framed<Option<TResult>>(
             session: session,
-            body: (_, parent) => demand.Present(anchor: Some<Control>(parent), key: op)));
+            body: (_, parent) => demand.Present(anchor: Some<Control>(parent))));
     }
 
     private static Fin<T> Framed<T>(
@@ -567,7 +567,7 @@ public static class Inquiries {
             Color4f answered = colour;
             return Settled(
                 probe: () => Fin.Succ(value: accepted),
-                answer: () => PerceptualColor.OfHost(host: answered, key: op).Map<InquiryAnswer>(
+                answer: () => PerceptualColor.OfHost(host: answered).Map<InquiryAnswer>(
                     value => new InquiryAnswer.Shade(Value: value, PreviewFaults: previews.Parked)));
         });
     }

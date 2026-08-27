@@ -677,7 +677,7 @@ public sealed partial class OutlineSpec {
                     Crc: item.DataCRC(currentRemainder: 0u),
                     Bounds: item.GetBoundingBox(accurate: true))).Strict()).Strict(),
                 custody.Map(static item => (GeometryBase)item)))).Run().Bind(static inner => inner)
-            .Rollback(release: () => Custody.Dispose(held: custody, key: key));
+            .Rollback(release: () => Custody.Dispose(held: custody));
     }
 }
 ```
@@ -786,7 +786,7 @@ public abstract partial record TextOp {
         amendCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
             change: (annotation, key) => edit.Edits
-                .TraverseM(item => item.Apply(annotation: annotation, key: key)).As().Map(static _ => unit)),
+                .TraverseM(item => item.Apply(annotation: annotation)).As().Map(static _ => unit)),
         reformulaCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
             change: (annotation, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => annotation.SetRichText(
@@ -800,7 +800,7 @@ public abstract partial record TextOp {
                 select unit),
         styleCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
-            change: (annotation, key) => edit.Edit.Apply(annotation: annotation, op: key)));
+            change: (annotation, key) => edit.Edit.Apply(annotation: annotation)));
 
     private static Fin<Unit> Placed(
         RhinoDoc document, AnnotationSeed seed, AnnotationPlacement placement) =>
@@ -808,7 +808,7 @@ public abstract partial record TextOp {
         from geometry in seed.Mint(plane: placement.Frame, style: style)
         from _ in new Lease<AnnotationBase>.Owned(Value: geometry).Use(
             body: owned =>
-                from _ in placement.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: op)).As()
+                from _ in placement.Overrides.Traverse(patch => patch.Overlay(annotation: owned)).As()
                 from __ in Added(document: document, geometry: owned, placement: placement)
                 select unit)
         select unit;
@@ -1218,7 +1218,7 @@ public static class Texts {
     public static Fin<TextAnswer> Ask(DocumentSession session, TextAsk request) {
         return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
 }

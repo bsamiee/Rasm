@@ -99,10 +99,10 @@ public static class BenchBand {
     public static Fin<(Fin<T> Outcome, BenchEvidence Evidence)> Measured<T>(
         MonotonicTimeline timeline, string operation, long inputScale, Func<Fin<T>> run) {
         return from clock in Admit.Need(timeline)
-               from opened in Error.New(key: op.Message, key: op)
+               from opened in Error.New(key: op.Message)
                let allocated = GC.GetAllocatedBytesForCurrentThread()
                let outcome = Try.lift(run).Run().Bind(static inner => inner)
-               from closed in Error.New(key: op.Message, key: op)
+               from closed in Error.New(key: op.Message)
                from duration in clock.Elapsed(start: opened, end: closed)
                select (outcome, new BenchEvidence(
                    Operation: operation,
@@ -139,7 +139,7 @@ internal static class ModelGate {
                 : fresh.FoldM<Fin, Seq<GeometryHandle>>(Seq<GeometryHandle>(), (held, value) =>
                     Own(built: value)
                         .Map(handle => held.Add(value: handle))
-                        .Rollback(release: () => Custody.Dispose(held: held, key: key))));
+                        .Rollback(release: () => Custody.Dispose(held: held))));
 
     internal static Fin<Seq<GeometryHandle>> OwnEach<TSource>(
         Seq<TSource> sources, Func<TSource, GeometryBase?> run, bool allowEmpty = false) =>
@@ -206,9 +206,9 @@ internal static class ModelGate {
                                    select (detached = copy)!;
         return copied
             .Settled(
-                release: () => Custody.Dispose(held: Optional(source).ToSeq(), key: key))
+                release: () => Custody.Dispose(held: Optional(source).ToSeq()))
             .Rollback(
-                release: () => Custody.Dispose(held: Optional(detached).ToSeq(), key: key));
+                release: () => Custody.Dispose(held: Optional(detached).ToSeq()));
     }
 
     internal static Fin<Seq<GeometryBase>> DetachedMany(IEnumerable<GeometryBase>? source) =>
@@ -216,7 +216,7 @@ internal static class ModelGate {
             Seq<GeometryBase>(),
             (held, row) => Detached(source: row)
                 .Map(held.Add)
-                .Rollback(release: () => Custody.Dispose(held: held, key: key))));
+                .Rollback(release: () => Custody.Dispose(held: held))));
 
     internal static Fin<Seq<GeometryHandle>> Staged(params ReadOnlySpan<(System.Collections.Generic.IEnumerable<GeometryBase>? Values, bool AllowEmpty)> stages) =>
         StageOwned(success: Option<bool>.None, stages: stages.ToArray());
@@ -234,14 +234,14 @@ internal static class ModelGate {
                 .Map(held.Add)
                 .Rollback(
                     release: () => Custody.Dispose(
-                        held: held.Bind(static products => products), key: op)));
+                        held: held.Bind(static products => products))));
         return from rows in captured
                let products = rows.Bind(static stage => stage)
                from _ in success
                    .TraverseM(verdict => Admit.Confirm(success: verdict))
                    .As()
                    .Map(static _ => unit)
-                   .Rollback(release: () => Custody.Dispose(held: products, key: op))
+                   .Rollback(release: () => Custody.Dispose(held: products))
                select products;
     }
 
@@ -583,16 +583,15 @@ public abstract partial record SolidSeed : IValidityEvidence {
                     _ => null,
                 })).Run().Bind(static inner => inner),
             fromSurface: static (ctx, seed) => ModelGate.Borrow<Surface, GeometryHandle>(handle: seed.Source,
-                body: surface => Try.lift(() => ModelGate.Own(built: Brep.CreateFromSurface(surface: surface), key: ctx.Op)).Run().Bind(static inner => inner)),
+                body: surface => Try.lift(() => ModelGate.Own(built: Brep.CreateFromSurface(surface: surface))).Run().Bind(static inner => inner)),
             fromRevolve: static (ctx, seed) => ModelGate.Borrow<RevSurface, GeometryHandle>(handle: seed.Source,
                 body: surface => Try.lift(() => ModelGate.Own(
                     built: Brep.CreateFromRevSurface(
                         surface: surface,
                         capStart: seed.Caps.Admits(capability: CapEnd.Lower),
-                        capEnd: seed.Caps.Admits(capability: CapEnd.Upper)),
-                    key: ctx.Op)).Run().Bind(static inner => inner)),
+                        capEnd: seed.Caps.Admits(capability: CapEnd.Upper)))).Run().Bind(static inner => inner)),
             fromMesh: static (ctx, seed) => ModelGate.Borrow<Mesh, GeometryHandle>(handle: seed.Source,
-                body: mesh => Try.lift(() => ModelGate.Own(built: Brep.CreateFromMesh(mesh: mesh, trimmedTriangles: seed.TrimmedTriangles), key: ctx.Op)).Run().Bind(static inner => inner)));
+                body: mesh => Try.lift(() => ModelGate.Own(built: Brep.CreateFromMesh(mesh: mesh, trimmedTriangles: seed.TrimmedTriangles))).Run().Bind(static inner => inner)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -621,11 +620,10 @@ public abstract partial record ExtrusionSeed : IValidityEvidence {
             context: key,
             profile: static (seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile,
                 body: profile => Try.lift(() => ModelGate.Own(
-                    built: Extrusion.Create(planarCurve: profile, height: seed.Height, cap: seed.Cap),
-                    key: op)).Run().Bind(static inner => inner)),
+                    built: Extrusion.Create(planarCurve: profile, height: seed.Height, cap: seed.Cap))).Run().Bind(static inner => inner)),
             framedProfile: static (seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile,
                 body: profile => Try.lift(() => ModelGate.Own(
-                    built: Extrusion.Create(curve: profile, plane: seed.Frame, height: seed.Height, cap: seed.Cap), key: op)).Run().Bind(static inner => inner)),
+                    built: Extrusion.Create(curve: profile, plane: seed.Frame, height: seed.Height, cap: seed.Cap))).Run().Bind(static inner => inner)),
             ofBox: static (seed) => Try.lift(() => ModelGate.Own(built: Extrusion.CreateBoxExtrusion(box: seed.Value, cap: seed.Cap))).Run().Bind(static inner => inner),
             ofCylinder: static (seed) => Try.lift(() => ModelGate.Own(
                 built: Extrusion.CreateCylinderExtrusion(
@@ -1090,25 +1088,25 @@ public abstract partial record SolidOp {
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, new KernelFault.InvalidInput())
-                        from settings in edit.Law.Rig(domain: model, key: op)
+                        from settings in edit.Law.Rig(domain: model)
                         from built in Try.lift(() =>
                             Admit.Confirm(success: Brep.CreateFilletSurface(
                                 face0: first.Faces[edit.FirstFace], uv0: edit.FirstUv,
                                 face1: second.Faces[edit.SecondFace], uv1: edit.SecondUv,
                                 settings: settings, results: out Brep.FilletSurfaceResults results))
-                            .Bind(_ => Harvested(results: results, op: op))).Run().Bind(static inner => inner)
+                            .Bind(_ => Harvested(results: results))).Run().Bind(static inner => inner)
                         select built));
             },
             faceCurveFillet: static (model, edit) => {
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Host, body: host =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Along, body: along =>
                         from _ in guard(edit.Face < host.Faces.Count, new KernelFault.InvalidInput())
-                        from settings in edit.Law.Rig(domain: model, key: op)
+                        from settings in edit.Law.Rig(domain: model)
                         from built in Try.lift(() =>
                             Admit.Confirm(success: Brep.CreateFilletSurfaceCurve(
                                 face: host.Faces[edit.Face], uv: edit.Uv, curve: along, t: edit.Parameter,
                                 settings: settings, results: out Brep.FilletSurfaceResults results))
-                            .Bind(_ => Harvested(results: results, op: op))).Run().Bind(static inner => inner)
+                            .Bind(_ => Harvested(results: results))).Run().Bind(static inner => inner)
                         select built));
             },
             sectionFillet: static (model, edit) => {
@@ -1235,7 +1233,7 @@ public abstract partial record SolidOp {
                             brepsToJoin: targets.AsIterable(), tolerance: model.Absolute.Value,
                             angleTolerance: model.Angle.Value,
                             indexMap: out _);
-                        return ModelGate.OwnMany(built: joined, key: op);
+                        return ModelGate.OwnMany(built: joined);
                     }).Run().Bind(static inner => inner));
             },
             joinEdges: static (model, edit) => {
@@ -1269,7 +1267,7 @@ public abstract partial record SolidOp {
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.TargetCurves, body: curves =>
                         from _ in guard(edit.Edge < target.Edges.Count, new KernelFault.InvalidInput())
-                        from settings in edit.Law.Rig(domain: model, key: op)
+                        from settings in edit.Law.Rig(domain: model)
                         from built in Try.lift(() =>
                             ModelGate.Staged(success: Brep.CreateFromMatch(
                                 edge: target.Edges[edit.Edge], targetCurves: curves.AsIterable(), settings: settings,
@@ -1310,7 +1308,7 @@ public abstract partial record SolidOp {
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     Try.lift(() => {
                         Brep[] pieces = Brep.SplitDisjointPieces(brep: target);
-                        return ModelGate.OwnMany(built: pieces, key: op);
+                        return ModelGate.OwnMany(built: pieces);
                     }).Run().Bind(static inner => inner));
             },
             splitBy: static (model, edit) => {
@@ -1319,7 +1317,7 @@ public abstract partial record SolidOp {
                         cutters.Count == 1
                             ? Try.lift(() => {
                                 Brep[] pieces = target.Split(cutter: cutters[0], intersectionTolerance: model.Absolute.Value, toleranceWasRaised: out _);
-                                return ModelGate.OwnMany(built: pieces, key: op);
+                                return ModelGate.OwnMany(built: pieces);
                             }).Run().Bind(static inner => inner)
                             : ModelGate.Many(() => target.Split(cutters: cutters.AsIterable(), intersectionTolerance: model.Absolute.Value))));
             },
@@ -1380,19 +1378,19 @@ public abstract partial record SolidOp {
                         state: source,
                         heavy: static (ctx, read) => ModelGate.Single(() =>
                             ctx.ToBrep(splitKinkyFaces: read.SplitKinkyFaces)),
-                        wireframe: static ctx => Try.lift(() => ModelGate.DetachedMany(source: ctx.GetWireframe(), key: ctx.Op)).Run().Bind(static inner => inner)
+                        wireframe: static ctx => Try.lift(() => ModelGate.DetachedMany(source: ctx.GetWireframe())).Run().Bind(static inner => inner)
                             .Bind(detached => ModelGate.Many(() => detached.AsEnumerable())),
                         mesh: static (ctx, read) => Try.lift(() => ModelGate.Detached(
-                                source: ctx.GetMesh(meshType: read.Kind), key: ctx.Op)).Run().Bind(static inner => inner)
+                                source: ctx.GetMesh(meshType: read.Kind))).Run().Bind(static inner => inner)
                             .Bind(detached => ModelGate.Single(() => detached)),
                         profile: static (ctx, read) => Try.lift(() => ModelGate.Detached(
-                                source: ctx.Profile3d(profileIndex: read.Index, s: read.Station), key: ctx.Op)).Run().Bind(static inner => inner)
+                                source: ctx.Profile3d(profileIndex: read.Index, s: read.Station))).Run().Bind(static inner => inner)
                             .Bind(detached => ModelGate.Single(() => detached)),
                         wallEdge: static (ctx, read) => Try.lift(() => ModelGate.Detached(
-                                source: ctx.WallEdge(ci: read.Component), key: ctx.Op)).Run().Bind(static inner => inner)
+                                source: ctx.WallEdge(ci: read.Component))).Run().Bind(static inner => inner)
                             .Bind(detached => ModelGate.Single(() => detached)),
                         wallSurface: static (ctx, read) => Try.lift(() => ModelGate.Detached(
-                                source: ctx.WallSurface(ci: read.Component), key: ctx.Op)).Run().Bind(static inner => inner)
+                                source: ctx.WallSurface(ci: read.Component))).Run().Bind(static inner => inner)
                             .Bind(detached => ModelGate.Single(() => detached))));
             });
 

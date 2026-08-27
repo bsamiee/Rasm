@@ -631,7 +631,7 @@ public abstract partial record CameraOp {
     }
 
     public static Fin<CameraOp> Pose(CameraPose pose) =>
-        CameraPose.Admit(pose: pose, key: key.OrDefault())
+        CameraPose.Admit(pose: pose)
             .Map(static admitted => (CameraOp)new PoseCase(Pose: admitted));
 
     public static Fin<CameraOp> Stack(StackVerb verb) {
@@ -738,9 +738,9 @@ internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> Pinn
     internal Fin<Unit> Seat(CameraPose pose, ApplyPolicy plan) =>
         Lease.Use(
             borrow: (document, row) =>
-                from _addressed in Addressed(document: document, key: key)
+                from _addressed in Addressed(document: document)
                 from _seated in CameraStage.Seat(pose: pose, viewport: row.Viewport)
-                from _committed in plan.CommitDetail(row: row, key: key)
+                from _committed in plan.CommitDetail(row: row)
                 select unit);
 
     private Fin<Unit> Addressed(RhinoDoc document) => PinnedActive
@@ -783,9 +783,9 @@ public static class Cameras {
                    script: request.Script,
                    target: plan.Redraw.Landing(target: address),
                    timeline: timeline,
-                   apply: sample => Progressed(sample: sample, key: op)
-                       .Bind(progress => request.Track.Sample(progress: progress, key: op))
-                       .Bind(pose => stage.Frame(pose: pose, key: op)),
+                   apply: sample => Progressed(sample: sample)
+                       .Bind(progress => request.Track.Sample(progress: progress))
+                       .Bind(pose => stage.Frame(pose: pose)),
                    clock: request.Clock)
                select lease;
     }
@@ -796,25 +796,24 @@ public static class Cameras {
                 from before in Fin.Succ(row.Viewport.ChangeCounter)
                 from outcome in operation.Switch(
                     (Document: document, Row: row),
-                    gestureCase: static (ctx, op) => op.Request.Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
+                    gestureCase: static (ctx, op) => op.Request.Apply(viewport: ctx.Row.Viewport)
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
-                    projectCase: static (ctx, op) => op.Change.Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
+                    projectCase: static (ctx, op) => op.Change.Apply(viewport: ctx.Row.Viewport)
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
                     poseCase: static (ctx, op) => CameraStage.Seat(pose: op.Pose, viewport: ctx.Row.Viewport)
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
-                    stackCase: static (ctx, op) => op.Verb.Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
+                    stackCase: static (ctx, op) => op.Verb.Apply(viewport: ctx.Row.Viewport)
                         .Map(static move => (CameraOutcome)new CameraOutcome.StackedCase(Move: move)),
                     frameCase: static (ctx, op) => Admit.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Padding.Inflate(subject: op.Subject)))
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
                     namedCase: static (ctx, op) => op.Scope.Within(
                         body: () => op.Verb.Apply(document: ctx.Document, viewport: ctx.Row.Viewport)
-                            .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
-                        key: ctx.Op),
+                            .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase())),
                     clipCase: static (ctx, op) => op.Link.Apply(document: ctx.Document, viewport: ctx.Row.Viewport)
                         .Map(static planes => (CameraOutcome)new CameraOutcome.ClippedCase(Planes: planes)),
                     conventionCase: static (ctx, op) =>
                         from _lowered in ProjectionChange.Of(intent: op.Pose.Projection, lens: op.Pose.Lens)
-                            .Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
+                            .Apply(viewport: ctx.Row.Viewport)
                         from _seated in Try.lift(() => {
                             _ = CameraSeat.Seat(
                                 viewport: ctx.Row.Viewport,
@@ -824,7 +823,7 @@ public static class Cameras {
                             return Admit.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Pose.Subject));
                         }).Run().Bind(static inner => inner)
                         select (CameraOutcome)new CameraOutcome.AppliedCase())
-                from _committed in plan.CommitDetail(row: row, key: key)
+                from _committed in plan.CommitDetail(row: row)
                 from _redrawn in Fin.Succ(value: plan.Redraw.PerRow(view: row.View))
                 select new RowEvidence(Before: before, After: row.Viewport.ChangeCounter, Outcome: outcome),
             terminal: (document, count) => Fin.Succ(value: plan.Redraw.Terminal(document: document, count: count)),

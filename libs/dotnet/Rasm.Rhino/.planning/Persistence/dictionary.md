@@ -287,7 +287,7 @@ public sealed record ArchiveValue {
         : Fin.Fail<ArchiveValue>(error: new KernelFault.Unsupported(InputType: Shape, OutputType: typeof(ArchivableDictionary)));
 
     public static Fin<ArchiveValue> Of<T>(T source) where T : notnull =>
-        Capture(source: source, op: key.OrDefault());
+        Capture(source: source);
 
     internal static Fin<ArchiveValue> Capture(object? source) =>
         Optional(source)

@@ -330,7 +330,7 @@ public static partial class GraphScope {
         hooks
             .TraverseM(live => live.Fire(
                 at: GrasshopperPoint.DocumentMutate,
-                fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity))))
+                fact: new HookSignal.IntentCase(DocumentId: Some(document.Identity))))
             .As()
             .Map(static _ => unit);
 

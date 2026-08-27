@@ -202,7 +202,7 @@ public abstract partial record MorphKind : IValidityEvidence {
             from _ in guard(SpaceMorph.IsMorphable(geometry: source), new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(GeometryBase)))
             from working in Try.lift(() => Optional(source.Duplicate()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from morphed in morph(arg: working).Match(
-                Succ: _ => ModelGate.Own(built: working, key: key),
+                Succ: _ => ModelGate.Own(built: working),
                 Fail: error => {
                     working.Dispose();
                     return Fin.Fail<GeometryHandle>(error: error);
@@ -462,7 +462,7 @@ public abstract partial record DeformOp {
                                 Seq<Curve> carried = Optional(flatCurves).Map(static rows => toSeq(rows)).IfNone(Seq<Curve>());
                                 Seq<TextDot> dots = Optional(flatDots).Map(static rows => toSeq(rows)).IfNone(Seq<TextDot>());
                                 return
-                                    from flat in ModelGate.OwnMany(built: flatBreps, key: op)
+                                    from flat in ModelGate.OwnMany(built: flatBreps)
                                         .Rollback([.. dots])
                                     from carriedHandles in ModelGate.OwnMany(
                                             built: carried, allowEmpty: true)
@@ -477,14 +477,14 @@ public abstract partial record DeformOp {
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, allowEmpty: true, body: marks =>
                         from parameters in edit.Law.Rig()
-                        from flattened in parameters.Use(key: op, body: sp => Try.lift(() => {
+                        from flattened in parameters.Use(body: sp => Try.lift(() => {
                             using Squisher engine = new();
                             System.Collections.Generic.List<GeometryBase> mapped = [];
                             Fin<GeometryHandle> flat = source switch {
                                 Surface surface => ModelGate.Own(
-                                    built: engine.SquishSurface(sp: sp, surface: surface, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
+                                    built: engine.SquishSurface(sp: sp, surface: surface, marks: marks.AsIterable(), squished_marks_out: mapped)),
                                 Mesh mesh => ModelGate.Own(
-                                    built: engine.SquishMesh(sp: sp, mesh3d: mesh, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
+                                    built: engine.SquishMesh(sp: sp, mesh3d: mesh, marks: marks.AsIterable(), squished_marks_out: mapped)),
                                 _ => Fin.Fail<GeometryHandle>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Squisher))),
                             };
                             return flat.Rollback([.. mapped]).Bind(primary => (
@@ -504,8 +504,8 @@ public abstract partial record DeformOp {
                                         run: engine.SquishTextDot,
                                         allowEmpty: true)).Rollback([.. crossed + directCurves])
                                 from nets in (edit.Law.Behavior.Admits(capability: SquishBehavior.CaptureNets)
-                                    ? from flat2d in ModelGate.Own(built: engine.Get2dMesh(), key: op)
-                                      from flat3d in ModelGate.Own(built: engine.Get3dMesh(), key: op).Rollback(flat2d)
+                                    ? from flat2d in ModelGate.Own(built: engine.Get2dMesh())
+                                      from flat3d in ModelGate.Own(built: engine.Get3dMesh()).Rollback(flat2d)
                                       select Seq(flat2d, flat3d)
                                     : Fin.Succ(value: Seq<GeometryHandle>()))
                                     .Rollback([.. crossed + directCurves + directDots])
@@ -519,7 +519,7 @@ public abstract partial record DeformOp {
                     ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, body: marks =>
                         from _ in Admit.Confirm(success: Squisher.Is2dPatternSquished(geometry: pattern))
                         from restored in Try.lift(() => ModelGate.OwnMany(
-                            built: Squisher.SquishBack2dMarks(squishedGeometry: pattern, marks: marks.AsIterable()), key: op)).Run().Bind(static inner => inner)
+                            built: Squisher.SquishBack2dMarks(squishedGeometry: pattern, marks: marks.AsIterable()))).Run().Bind(static inner => inner)
                         select restored));
             },
             unwrap: static (_, edit) => {

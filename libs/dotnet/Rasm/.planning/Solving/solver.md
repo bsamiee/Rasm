@@ -2,7 +2,7 @@
 
 `Rasm.Solving` owns one damped Gauss-Newton functor and the parametric-sketch algebra it serves. `Lm.Minimize` is the kernel's one nonlinear least-squares iterate: every `ILmModel` minimizes on one accept/reject λ-ladder folded by `Schedule.recurs` under one shared trial budget, rank deficiency past the ceiling routing to `GeometryFault.SingularSystem` and each `LinearSolution` READ rather than projected away, so an unusable factorization refuses instead of seating a NaN step. A model states its Jacobian in closed form or states its residual alone in forward-mode dual arithmetic and lets `DualModel` derive it exactly. Sketch solving closes over that functor — one closed `Constraint` `[Union]` residual-and-Jacobian algebra, `ConstraintSystem` folding incidence into union-find islands, `ConstraintSystem.Solve` returning `Solution`.
 
-Solver geometry composes the settled `Point3d`/`Vector3d` vocabulary and routes every factorization through the `Numerics/matrix` owners. Caller `Op` keys thread through every owner, `ddouble` accumulates `Σr²`, and `GeometryFault` cases carry every failure; parameters stay raw `double` and public output is the one `Solution` carrier registering `IValidityEvidence`. Sibling `EntityKind` and local `SketchEntityKind` stay separate vocabularies.
+Solver geometry composes the settled `Point3d`/`Vector3d` vocabulary and routes every factorization through the `Numerics/matrix` owners. `ddouble` accumulates `Σr²`, and `GeometryFault` cases carry every failure; parameters stay raw `double` and public output is the one `Solution` carrier registering `IValidityEvidence`. Sibling `EntityKind` and local `SketchEntityKind` stay separate vocabularies.
 
 ## [01]-[INDEX]
 

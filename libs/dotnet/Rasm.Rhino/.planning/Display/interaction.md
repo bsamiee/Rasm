@@ -146,8 +146,7 @@ public sealed class PointerLease : IDisposable {
     internal Fin<Unit> Enable() => Arm(enabled: true);
 
     private Fin<Unit> Arm(bool enabled) => HostThread.Run(
-        work: new HostWork<Unit>.Execute(Body: () => Try.lift(() => Fin.Succ((hook.Enabled = enabled, unit).Item2)).Run().Bind(static inner => inner)),
-        key: key);
+        work: new HostWork<Unit>.Execute(Body: () => Try.lift(() => Fin.Succ((hook.Enabled = enabled, unit).Item2)).Run().Bind(static inner => inner)));
 
     private Fin<Unit> Release() => lifecycle.Close(
         stop: () => Arm(enabled: false),
@@ -869,7 +868,7 @@ public sealed class WidgetHost : IDisposable {
                                    _ = mounted.Add(identity, value);
                                    return Fin.Succ(identity);
                                }).Run().Bind(static inner => inner))
-                               .Rollback(release: retire, key: op)
+                               .Rollback(release: retire)
                            select mountedId;
                 }),
             refused: () => Fin.Fail<WidgetId>(new KernelFault.InvalidContext()));
@@ -888,8 +887,7 @@ public sealed class WidgetHost : IDisposable {
                         SetPosture(value, posture)
                             .Map(_ => (ignore(marks.Iter(value.Sink.Retarget)), State(identity, value)).Item2)
                             .Rollback(
-                                release: () => SetPosture(value, prior.Posture),
-                                key: op)))),
+                                release: () => SetPosture(value, prior.Posture))))),
             refused: () => Fin.Fail<WidgetState>(new KernelFault.InvalidContext()));
     }
 

@@ -330,7 +330,7 @@ internal static partial class SegmentKernel {
 - Entry: `Segment<TOut>` folds a generated total `Switch` over the union, projecting through `ResultProjection` rows — one entry, the algorithm is the case, `TOut` is the projection.
 - Auto: every algorithm shares ONE scalar derivation, ONE memoized frozen face-adjacency graph, and ONE connected-component split, so a per-algorithm re-derivation is the deleted form; the normalized-cut affinity `σ` is scale-derived from the value range over `√faceCount`, never a knob, and clustering is deterministic farthest-first k-means with no RNG, and both round folds ride `Cell.Converge` — each step commits its explicit settlement fact, so no hand `while` shadows the schedule and normal completion never borrows `Refused`.
 - Law: one `Segmentation` shape carries every algorithm — algorithm-specific evidence rides `Option` columns, never sibling types; the admitted request IS the algorithm identity and carries its own counts, budgets, and thresholds, so no roster mirrors the union's cases and no column echoes the request; a round fold that exhausts its budget refuses with the invalid-result fault, never a status row or a converged bool.
-- Boundary: `UnassignedRegion = -1` is the interior packing alone — `RegionLabel` admits nonnegative ordinals and the result publishes `Option<RegionLabel>`, so absence never crosses the boundary as an int a consumer must decode by prose; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the `Op` gate, so an invalid request never constructs.
+- Boundary: `UnassignedRegion = -1` is the interior packing alone — `RegionLabel` admits nonnegative ordinals and the result publishes `Option<RegionLabel>`, so absence never crosses the boundary as an int a consumer must decode by prose; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the admission gate, so an invalid request never constructs.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -816,7 +816,7 @@ internal static partial class SegmentKernel {
                    .. Enumerable.Range(start: 0, count: n).Select(v => (laplacian.MassLumped[index: v] * qHat[v]).Imaginary)])
                from connection in BuildConnectionLaplacian(space: space, order: order, edgeAdjustment: edgeAdjustment)
                from factor in space.Cache.ConnectionCholesky(symmetry: order.Key, time: connection.FrobeniusScale / EpsilonPolicy.SqrtEpsilon, edgeAdjustment: edgeAdjustment)
-               from solution in GeodesicKernel.Solved(factor.SolveDetailed(rhs: rhs, key: key))
+               from solution in GeodesicKernel.Solved(factor.SolveDetailed(rhs: rhs))
                select NormalizePhases(eigenvector: new Arr<Complex>([.. Enumerable.Range(start: 0, count: n).Select(v => new Complex(real: solution[index: v], imaginary: solution[index: v + n]))]));
     }
     private static Complex[] EncodeAndRescaleHints(int n, Seq<(int Vertex, Direction Hint)> hints, FrameBundle frames, RosyOrder order, Arr<double> mass) {

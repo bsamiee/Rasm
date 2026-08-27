@@ -18,6 +18,7 @@
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="Generator.Equals"                                        Version="4.0.2" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
+        <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-77" />
         <PackageVersion Include="NodaTime"                                                Version="3.3.3" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />
         <PackageVersion Include="QuikGraph"                                               Version="2.5.0" />

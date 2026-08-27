@@ -109,7 +109,7 @@ public static partial class HistoryLedger {
         hooks
             .TraverseM(live => live.Fire(
                 at: GrasshopperPoint.HistoryReplay,
-                fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity))))
+                fact: new HookSignal.IntentCase(DocumentId: Some(document.Identity))))
             .As()
             .Map(static _ => unit);
 

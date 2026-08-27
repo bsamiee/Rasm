@@ -12,7 +12,7 @@ Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/c
 
 ## [02]-[TOPOLOGY]
 
-- Owner: `Topologies` `[Union]` closes structural interrogation over any admitted geometry — classification, interval domains, solid orientation, connected components, point containment, and the scalar family — its public cases being the construction surface and `Key` deriving each case's `Op` through the generated `Switch`; `TopologyScalar` `[SmartEnum<string>]` names each scalar by its generated key, from which `Op.Of(row.Key)` derives the operation identity at use, and binds it to an `OutputBinding` column and an `Extract` delegate folding through the one `OnGeometry` gate, the count rows sharing one `CountOf` projection over mesh or brep. `MeasuredValue` `[Union]` is the measurement carrier both rosters answer on — flag, count, signed, or statistic — so no row publishes an `object`.
+- Owner: `Topologies` `[Union]` closes structural interrogation over any admitted geometry — classification, interval domains, solid orientation, connected components, point containment, and the scalar family — its public cases being the construction surface; `TopologyScalar` `[SmartEnum<string>]` names each scalar by its generated key, and binds it to an `OutputBinding` column and an `Extract` delegate folding through the one `OnGeometry` gate, the count rows sharing one `CountOf` projection over mesh or brep. `MeasuredValue` `[Union]` is the measurement carrier both rosters answer on — flag, count, signed, or statistic — so no row publishes an `object`.
 - Cases: the structural-interrogation cases with `ScalarCase` carrying a `TopologyScalar` row; a consumer constructs the case directly, a flat factory roster beside the cases being the deleted forwarding layer, and the fence declares both closed sets.
 - Entry: `Topologies.Operation<TGeometry, TOut>()` is the family entry every arm gates at build — `Capability.EvaluateTopology` admits scalar, orientation, and containment; curve-or-surface form admits domains; output type is checked per arm. Context is demanded only where read: classification and containment declare it, the scalar, domain, orientation, and component rows run scope-less, and an operation demanding context it never reads is the deleted over-requirement.
 - Auto: `OnGeometry` is the one mesh/brep gate — `Mesh` and `Brep` dispatch directly, brep-coercible natives lower through `Capability.BrepForm`, everything else rejects — so brep-like admission is written once and every scalar, orientation, containment, and component fold routes through it; its third arity takes ONE `GeometryBase` delegate for folds polymorphic over the lowered geometry, collapsing `GenusOf` to a single body. Genus folds the primitive Euler, boundary-loop, and component counts through one applicative `Apply` gated on `OrientableOf`, derives its numerator in `long`, and admits parity, sign, and `int` range before narrowing — a truncating division certifies inconsistent evidence as a genus; `PieceCount` brackets the disposal of every piece it counts.
@@ -54,7 +54,7 @@ public abstract partial record Topologies {
                 }
                 : new KernelFault.Unsupported(),
         domainsCase: static (key, _) => typeof(TOut) == typeof(Interval) && (Capability.CurveForm.Admits(type: typeof(TGeometry)) || Capability.SurfaceForm.Admits(type: typeof(TGeometry)))
-            ? Lift<TGeometry, Interval>(state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => Acceptance.Rows(values: domains))).As<TGeometry, TOut>()
+            ? Lift<TGeometry, Interval>(state: key, extract: static (op, g, _) => DomainsOf(geometry: g).Bind(domains => Acceptance.Rows(values: domains))).As<TGeometry, TOut>()
             : new KernelFault.Unsupported(),
         solidOrientationCase: static (key, _) => typeof(TOut) == typeof(BrepSolidOrientation) && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
             ? Lift<TGeometry, BrepSolidOrientation>(state: key, extract: static (op, g, _) => OnGeometry(geometry: g,
@@ -64,7 +64,7 @@ public abstract partial record Topologies {
         componentsCase: static (key, _) =>
             (typeof(TOut) == typeof(Brep) || typeof(TOut) == typeof(Mesh))
             && (Capability.Universal(type: typeof(TGeometry)) || typeof(TOut).IsAssignableFrom(c: typeof(TGeometry)))
-                ? Lift<TGeometry, TOut>(state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(components => ProjectPieces<TOut>(components: components, op: op))).As<TGeometry, TOut>()
+                ? Lift<TGeometry, TOut>(state: key, extract: static (op, g, _) => ComponentsOf(geometry: g).Bind(components => ProjectPieces<TOut>(components: components))).As<TGeometry, TOut>()
                 : new KernelFault.Unsupported(),
         containsPointCase: static (key, cp) =>
             ValidityClaim.Finite(cp.Point).Holds && typeof(TOut) == typeof(bool) && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
@@ -77,7 +77,7 @@ public abstract partial record Topologies {
         scalarCase: static (_, scalar) => {
             return scalar.Scalar.Output.Serves<TOut>() && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
                 ? Lift<TGeometry, TOut, (TopologyScalar Row)>(state: (scalar.Scalar),
-                    extract: static (state, g, _) => OnGeometry(geometry: g, onAny: native => state.Row.Extract(geometry: native, op: state.Key))
+                    extract: static (state, g, _) => OnGeometry(geometry: g, onAny: native => state.Row.Extract(geometry: native))
                         .Bind(value => state.Row.Output.Admit<TOut>(values: Seq(value.Boxed))))
                 : new KernelFault.Unsupported();
         });
@@ -115,8 +115,8 @@ public abstract partial record Topologies {
             onBrep: static b => Fin.Succ(b.IsManifold));
     internal static Fin<int> GenusOf<TG>(TG geometry) where TG : notnull =>
         OnGeometry(geometry: geometry, onAny: native =>
-            OrientableOf(geometry: native, op: op).Bind(orientable => orientable
-                ? (EulerOf(geometry: native, op: op), BoundaryLoopsOf(geometry: native, op: op), PieceCount(geometry: native, op: op))
+            OrientableOf(geometry: native).Bind(orientable => orientable
+                ? (EulerOf(geometry: native), BoundaryLoopsOf(geometry: native), PieceCount(geometry: native))
                     .Apply(static (euler, boundaries, components) => (2L * components) - euler - boundaries).As()
                     .Bind(numerator => guard(numerator >= 0 && numerator % 2 == 0 && numerator / 2 <= int.MaxValue, new KernelFault.InvalidResult()).ToFin().Map(_ => (int)(numerator / 2)))
                 : Fin.Fail<int>(new KernelFault.Unsupported(InputType: native.GetType(), OutputType: typeof(int)))));
@@ -183,10 +183,10 @@ public abstract partial record MeasuredValue {
 
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TopologyScalar {
-    public static readonly TopologyScalar Manifold = new(key: nameof(Manifold), output: OutputBinding.Of<bool>(), extract: static (g, op) => Topologies.ManifoldOf(geometry: g, op: op).Map(MeasuredValue.Flag));
-    public static readonly TopologyScalar Euler = new(key: nameof(Euler), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.EulerOf(geometry: g, op: op).Map(MeasuredValue.Signed));
-    public static readonly TopologyScalar BoundaryLoops = new(key: nameof(BoundaryLoops), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.BoundaryLoopsOf(geometry: g, op: op).Map(MeasuredValue.Count));
-    public static readonly TopologyScalar Genus = new(key: nameof(Genus), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.GenusOf(geometry: g, op: op).Map(MeasuredValue.Count));
+    public static readonly TopologyScalar Manifold = new(key: nameof(Manifold), output: OutputBinding.Of<bool>(), extract: static (g, op) => Topologies.ManifoldOf(geometry: g).Map(MeasuredValue.Flag));
+    public static readonly TopologyScalar Euler = new(key: nameof(Euler), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.EulerOf(geometry: g).Map(MeasuredValue.Signed));
+    public static readonly TopologyScalar BoundaryLoops = new(key: nameof(BoundaryLoops), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.BoundaryLoopsOf(geometry: g).Map(MeasuredValue.Count));
+    public static readonly TopologyScalar Genus = new(key: nameof(Genus), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.GenusOf(geometry: g).Map(MeasuredValue.Count));
     public static readonly TopologyScalar FaceCount = new(key: nameof(FaceCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, meshCount: static m => m.Faces.Count, brepCount: static b => b.Faces.Count).Map(MeasuredValue.Count));
     public static readonly TopologyScalar EdgeCount = new(key: nameof(EdgeCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, meshCount: static m => m.TopologyEdges.Count, brepCount: static b => b.Edges.Count).Map(MeasuredValue.Count));
     public static readonly TopologyScalar VertexCount = new(key: nameof(VertexCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, meshCount: static m => m.TopologyVertices.Count, brepCount: static b => b.Vertices.Count).Map(MeasuredValue.Count));
@@ -197,7 +197,7 @@ public sealed partial class TopologyScalar {
 
 ## [03]-[MESH]
 
-- Owner: `MeshSampleGroup` keyless `[SmartEnum]` bands the sample census and carries the `Capture` delegate deciding where the band's `MeshCheckParameters` come from; `Census` derives the band's rows by one filter over `MeshSampleKind.Items` at build, never a per-census rescan or a frozen band index. `MeshSampleKind` `[SmartEnum<string>]` names each row by its generated key, carries its `Group` as one column, and binds a `Sample(Mesh, MeshCheckParameters)` delegate across validity flags, census counts (the topology rows reusing the `TopologyScalar` extractors), defect counters reading the threaded capture, and valence-quality folds. `MeshMetric` keyless `[SmartEnum]` binds each face metric to a measure delegate over one visible polygon and publishes ONE `Measure` builder whose `OutputBinding` pair picks the terminal fold. `Meshes` `[Union]` closes sample groups, face quality and shape, visible-polygon addressing and count, naked edges, and plane outlines, its public cases the construction surface and `Key` deriving each case's `Op` through the generated `Switch`.
+- Owner: `MeshSampleGroup` keyless `[SmartEnum]` bands the sample census and carries the `Capture` delegate deciding where the band's `MeshCheckParameters` come from; `Census` derives the band's rows by one filter over `MeshSampleKind.Items` at build, never a per-census rescan or a frozen band index. `MeshSampleKind` `[SmartEnum<string>]` names each row by its generated key, carries its `Group` as one column, and binds a `Sample(Mesh, MeshCheckParameters)` delegate across validity flags, census counts (the topology rows reusing the `TopologyScalar` extractors), defect counters reading the threaded capture, and valence-quality folds. `MeshMetric` keyless `[SmartEnum]` binds each face metric to a measure delegate over one visible polygon and publishes ONE `Measure` builder whose `OutputBinding` pair picks the terminal fold. `Meshes` `[Union]` closes sample groups, face quality and shape, visible-polygon addressing and count, naked edges, and plane outlines, its public cases the construction surface.
 - Cases: the mesh-inspection cases with `SamplesCase` carrying a `MeshSampleGroup` and `FaceQualityCase` a `MeshMetric` named explicitly; a consumer constructs the case directly, a factory roster beside the cases being the deleted forwarding layer, and the fence declares the band rows and metric rows.
 - Entry: `Meshes.Operation<TGeometry, TOut>()` lifts every arm through `Lift` — the mesh specialization applying a typed `Operation<Mesh, TValue>` to any geometry that is a mesh and rejecting the rest — so the family accepts `object`-typed pipelines and stays mesh-strict at evaluation.
 - Law: absence is `Option`, never a null-object row — `AtVisiblePolygonCase` carries `Option<int>` and reads the first polygon at evaluation, `FaceQualityCase` names its metric with no absent-metric default, and the census `MeshMetric.None`, `MeshSampleGroup.None`, and `MeshSampleKind.None` rows — each existing only to be rejected — DELETE with the `Equals(None)` guards that read them.
@@ -235,13 +235,13 @@ public abstract partial record Meshes {
     public sealed record OutlineCase(Plane Plane) : Meshes;
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         state: Key,
-        samplesCase: static (key, s) => Lift<TGeometry, TOut, MeshSample>(key: key, source: s.Group.Census()),
+        samplesCase: static (key, s) => Lift<TGeometry, TOut, MeshSample>(source: s.Group.Census()),
         faceQualityCase: static (key, fq) => fq.Metric.Measure<TGeometry, TOut>(),
         faceShapeCase: static (key, _) => typeof(TOut) == typeof(MeshFaceShape)
-            ? Lift<TGeometry, TOut, MeshFaceShape>(key: key, source: MeshMetric.Shapes())
+            ? Lift<TGeometry, TOut, MeshFaceShape>(source: MeshMetric.Shapes())
             : new KernelFault.Unsupported(),
         atVisiblePolygonCase: static (key, at) => Lift<TGeometry, TOut, TopologyProjection>(source: Analysis.Operation<Mesh, TopologyProjection>.Build(state: (Key: key, Selector: at.Value),
-                evaluator: static (state, geometry) => PolygonsOf(mesh: geometry, key: state.Key).Bind(polygons => (Source: polygons, Index: state.Selector.IfNone(0)) switch {
+                evaluator: static (state, geometry) => PolygonsOf(mesh: geometry).Bind(polygons => (Source: polygons, Index: state.Selector.IfNone(0)) switch {
                     (Seq<MeshNgon> source, _) when source.Count == 0 => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.InvalidResult()),
                     (Seq<MeshNgon> source, int selected) when selected < 0 || selected >= source.Count => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.InvalidInput()),
                     (Seq<MeshNgon> source, int selected) => SourceOf(mesh: geometry, polygon: source[selected])
@@ -255,7 +255,7 @@ public abstract partial record Meshes {
         outlineCase: static (key, o) => Lift<TGeometry, TOut, Polyline>(source: o.Plane.IsValid
             ? Analysis.Operation<Mesh, Polyline>.Build(state: (Key: key, Plane: o.Plane), evaluator: static (state, mesh) =>
                 Optional(mesh.GetOutlines(plane: state.Plane)).Map(outlines => Acceptance.Rows(values: outlines)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff())
-            : Analysis.Operation<Mesh, Polyline>.Reject(key: key, fault: new KernelFault.InvalidInput())));
+            : Analysis.Operation<Mesh, Polyline>.Reject(fault: new KernelFault.InvalidInput())));
 
     internal static Fin<ComponentIndex> SourceOf(Mesh mesh, MeshNgon polygon) =>
         Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(new KernelFault.InvalidResult())
@@ -293,14 +293,14 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind Closed = new(key: nameof(Closed), group: MeshSampleGroup.Validity, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Flag(m.IsClosed)));
     public static readonly MeshSampleKind Oriented = new(key: nameof(Oriented), group: MeshSampleGroup.Validity, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Flag(m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented)));
     public static readonly MeshSampleKind Solid = new(key: nameof(Solid), group: MeshSampleGroup.Validity, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Flag(m.IsSolid)));
-    public static readonly MeshSampleKind Manifold = new(key: nameof(Manifold), group: MeshSampleGroup.Validity, sample: static (m, _, key) => Topologies.ManifoldOf(geometry: m, op: key).Map(MeasuredValue.Flag));
+    public static readonly MeshSampleKind Manifold = new(key: nameof(Manifold), group: MeshSampleGroup.Validity, sample: static (m, _, key) => Topologies.ManifoldOf(geometry: m).Map(MeasuredValue.Flag));
     public static readonly MeshSampleKind BoundaryFree = new(key: nameof(BoundaryFree), group: MeshSampleGroup.Validity, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Flag(m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool boundary) && !boundary)));
-    public static readonly MeshSampleKind Vertices = new(key: nameof(Vertices), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.VertexCount.Extract(geometry: m, op: key));
-    public static readonly MeshSampleKind Faces = new(key: nameof(Faces), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.FaceCount.Extract(geometry: m, op: key));
+    public static readonly MeshSampleKind Vertices = new(key: nameof(Vertices), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.VertexCount.Extract(geometry: m));
+    public static readonly MeshSampleKind Faces = new(key: nameof(Faces), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.FaceCount.Extract(geometry: m));
     public static readonly MeshSampleKind Triangles = new(key: nameof(Triangles), group: MeshSampleGroup.Count, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Count(m.Faces.TriangleCount)));
     public static readonly MeshSampleKind Quads = new(key: nameof(Quads), group: MeshSampleGroup.Count, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Count(m.Faces.QuadCount)));
-    public static readonly MeshSampleKind Edges = new(key: nameof(Edges), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.EdgeCount.Extract(geometry: m, op: key));
-    public static readonly MeshSampleKind Euler = new(key: nameof(Euler), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.Euler.Extract(geometry: m, op: key));
+    public static readonly MeshSampleKind Edges = new(key: nameof(Edges), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.EdgeCount.Extract(geometry: m));
+    public static readonly MeshSampleKind Euler = new(key: nameof(Euler), group: MeshSampleGroup.Count, sample: static (m, _, key) => TopologyScalar.Euler.Extract(geometry: m));
     public static readonly MeshSampleKind VisiblePolygons = new(key: nameof(VisiblePolygons), group: MeshSampleGroup.Count, sample: static (m, _, _) => Fin.Succ(MeasuredValue.Count(m.GetNgonAndFacesCount())));
     public static readonly MeshSampleKind DegenerateFaces = new(key: nameof(DegenerateFaces), group: MeshSampleGroup.Defect, sample: static (_, p, _) => Fin.Succ(MeasuredValue.Count(p.DegenerateFaceCount)));
     public static readonly MeshSampleKind DisjointMeshes = new(key: nameof(DisjointMeshes), group: MeshSampleGroup.Defect, sample: static (_, p, _) => Fin.Succ(MeasuredValue.Count(p.DisjointMeshCount)));
@@ -317,8 +317,8 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind ZeroLengthNormals = new(key: nameof(ZeroLengthNormals), group: MeshSampleGroup.Defect, sample: static (_, p, _) => Fin.Succ(MeasuredValue.Count(p.ZeroLengthNormalCount)));
     public static readonly MeshSampleKind MaximumValence = new(key: nameof(MaximumValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, project: static stat => MeasuredValue.Count((int)stat.Maximum.Value)));
     public static readonly MeshSampleKind MinimumValence = new(key: nameof(MinimumValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, project: static stat => MeasuredValue.Count((int)stat.Minimum.Value)));
-    public static readonly MeshSampleKind BoundaryLoopCount = new(key: nameof(BoundaryLoopCount), group: MeshSampleGroup.Quality, sample: static (m, _, key) => TopologyScalar.BoundaryLoops.Extract(geometry: m, op: key));
-    public static readonly MeshSampleKind Genus = new(key: nameof(Genus), group: MeshSampleGroup.Quality, sample: static (m, _, key) => TopologyScalar.Genus.Extract(geometry: m, op: key));
+    public static readonly MeshSampleKind BoundaryLoopCount = new(key: nameof(BoundaryLoopCount), group: MeshSampleGroup.Quality, sample: static (m, _, key) => TopologyScalar.BoundaryLoops.Extract(geometry: m));
+    public static readonly MeshSampleKind Genus = new(key: nameof(Genus), group: MeshSampleGroup.Quality, sample: static (m, _, key) => TopologyScalar.Genus.Extract(geometry: m));
     public static readonly MeshSampleKind AverageValence = new(key: nameof(AverageValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, project: static stat => MeasuredValue.Statistic(stat.Mean)));
     internal MeshSampleGroup Group { get; }
     [UseDelegateFromConstructor] internal partial Fin<MeasuredValue> Sample(Mesh mesh, MeshCheckParameters parameters);
@@ -345,17 +345,17 @@ public sealed partial class MeshMetric {
     private static readonly OutputBinding SummaryBinding = OutputBinding.Of<Stat<Scalar>>();
     internal Operation<TGeometry, TOut> Measure<TGeometry, TOut>() where TGeometry : notnull =>
         SampleBinding.Serves<TOut>()
-            ? Meshes.Lift<TGeometry, TOut, MeshMetricSample>(source: Folded(key: key, terminal: static (samples, _) => Fin.Succ(samples)))
+            ? Meshes.Lift<TGeometry, TOut, MeshMetricSample>(source: Folded(terminal: static (samples, _) => Fin.Succ(samples)))
         : SummaryBinding.Serves<TOut>()
-            ? Meshes.Lift<TGeometry, TOut, Stat<Scalar>>(source: Folded(key: key, terminal: static (samples, op) =>
-                Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Value), key: op).Bind(stat => Acceptance.Rows(value: stat))))
+            ? Meshes.Lift<TGeometry, TOut, Stat<Scalar>>(source: Folded(terminal: static (samples, op) =>
+                Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Value)).Bind(stat => Acceptance.Rows(value: stat))))
         : new KernelFault.Unsupported();
     private Operation<Mesh, TValue> Folded<TValue>(Func<Seq<MeshMetricSample>, Fin<Seq<TValue>>> terminal) where TValue : notnull =>
         Operation<Mesh, TValue>.Build(state: (Metric: this, Terminal: terminal), requirement: Some(Requirement.MeshCheck), requiresContext: true,
             evaluator: static (state, mesh) =>
                 from runtime in Env.EnvAsks
                 let moments = AtomHashMap(HashMap<int, (Vector3d Normal, double Area)>())
-                from values in Meshes.PolygonsOf(mesh: mesh, key: state.Key)
+                from values in Meshes.PolygonsOf(mesh: mesh)
                     .Bind(polygons => polygons.TraverseM(polygon => runtime.Cancellation.IsCancellationRequested
                         ? Fin.Fail<MeshMetricSample>(Errors.Cancelled)
                         : state.Metric.Sample(mesh: mesh, polygon: polygon, moments: moments, context: runtime.Context)).As())
@@ -366,7 +366,7 @@ public sealed partial class MeshMetric {
             evaluator: static (op, mesh) =>
                 from runtime in Env.EnvAsks
                 let moments = AtomHashMap(HashMap<int, (Vector3d Normal, double Area)>())
-                from shapes in Meshes.PolygonsOf(mesh: mesh, key: op)
+                from shapes in Meshes.PolygonsOf(mesh: mesh)
                     .Bind(polygons => polygons.TraverseM(polygon => runtime.Cancellation.IsCancellationRequested
                         ? Fin.Fail<MeshFaceShape>(Errors.Cancelled)
                         : Probe(mesh: mesh, polygon: polygon, moments: moments)

@@ -344,8 +344,7 @@ public static class ObjectsHooks {
                         Plugin: plugin,
                         Ask: typeof(GripProgram),
                         Grant: typeof(GripProgram),
-                        Bind: ask => Admit.Need(ask as GripProgram).Map(static program => (object)program)),
-                    key: op)),
+                        Bind: ask => Admit.Need(ask as GripProgram).Map(static program => (object)program)))),
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
                         Point: RhinoPoint.ObjectsFault,
@@ -353,8 +352,7 @@ public static class ObjectsHooks {
                         Ask: typeof(ILogger),
                         Grant: typeof(IDisposable),
                         Bind: ask => ObjectsTelemetry.Configure(plugin: plugin, sink: (ILogger)ask)
-                            .Map(static seat => (object)seat)),
-                    key: op)),
+                            .Map(static seat => (object)seat)))),
                 Tap(point: RhinoPoint.HostException, plugin: plugin),
                 Tap(point: RhinoPoint.HostCloudLog, plugin: plugin)));
     }
@@ -378,7 +376,7 @@ public static class ObjectsHooks {
                 Plugin: plugin,
                 Ask: typeof(PluginKey),
                 Grant: typeof(IDisposable),
-                Bind: ask => HostTap.Mount(plugin: (PluginKey)ask, key: op).Map(static seat => (object)seat)));
+                Bind: ask => HostTap.Mount(plugin: (PluginKey)ask).Map(static seat => (object)seat)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -488,7 +486,7 @@ internal static class HostForward {
             slot: program.MeshSlot(static meshes => meshes.Tally),
             site: FaultSite.RenderMesh,
             inherited: inherited,
-            body: refine => op => Policy(parameters: parameters, op: op)
+            body: refine => op => Policy(parameters: parameters)
                 .Bind(policy => refine(kind, policy, inherited))
                 .Bind(answer => guard(answer >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => answer)));
 
@@ -497,7 +495,7 @@ internal static class HostForward {
             slot: program.MeshSlot(static meshes => meshes.Built),
             site: FaultSite.RenderMesh,
             inherited: inherited,
-            body: refine => op => Policy(parameters: parameters, op: op)
+            body: refine => op => Policy(parameters: parameters)
                 .Bind(policy => refine(new RenderMeshBuild(
                     Kind: kind, Policy: policy, IgnoreCustom: ignore, Inherited: inherited)))
                 .Bind(answer => guard(answer >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => answer)));
@@ -718,7 +716,7 @@ public abstract class RasmGrips : CustomObjectGrips {
         return from source in Admit.Need(geometry)
                from seeds in Try.lift(() => Program.Seeds(source)).Run().Bind(static inner => inner)
                from admitted in seeds.Traverse(seed => Admit.Need(seed).ToValidation()).As().ToFin()
-               from roster in GripSeed.AdmitRoster(seeds: admitted, key: op)
+               from roster in GripSeed.AdmitRoster(seeds: admitted)
                from _ in Try.lift(() => roster
                    .Map(seed => new RasmGrip(seed: seed, locationChanged: Program.LocationChanged))
                    .Strict()
@@ -727,7 +725,7 @@ public abstract class RasmGrips : CustomObjectGrips {
                    .Rollback(release: () => {
                        Dispose();
                        return Fin.Succ(unit);
-                   }, key: op)
+                   })
                select unit;
     }
 
@@ -926,7 +924,7 @@ public static class Grips {
                 from natives in Objects.Resolve(document: document, target: target)
                 from rows in natives.TraverseM(native => Try.lift(() =>
                     Optional(native.GetGrips()).Map(static held => toSeq(held)).IfNone(Seq<GripObject>())
-                        .TraverseM(grip => GripFacts.Of(grip: grip, key: op)).As()
+                        .TraverseM(grip => GripFacts.Of(grip: grip)).As()
                         .Map(facts => (native.Id, facts))).Run().Bind(static inner => inner)).As()
                 select new GripCensus(Rows: rows),
             needs: [SessionNeed.Read]));
@@ -955,7 +953,7 @@ public static class Grips {
                                    _ => Fin.Succ(value: roster),
                                }
                                from _ in guard(!chosen.IsEmpty, new KernelFault.MissingContext())
-                               from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
+                               from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip)).As()
                                select ctx.Id)).As()
                        select ids,
                    needs: [SessionNeed.Mutate])

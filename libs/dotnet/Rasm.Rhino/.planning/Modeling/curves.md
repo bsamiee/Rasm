@@ -919,7 +919,7 @@ public abstract partial record CurveOp {
                         tangent: static ctx => ModelGate.Single(() => ctx.Curve.OffsetTangentToSurface(
                             surface: ctx.Surface, height: ctx.Edit.Height.Value))))),
             ribbon: static (model, edit) => Borrowed(edit.Curve, (curve, op) =>
-                from parameters in edit.Law.Rig(domain: model, key: op)
+                from parameters in edit.Law.Rig(domain: model)
                 from built in Try.lift(() => {
                     Curve ribbon = curve.RibbonOffset(
                         ribbonParameters: parameters, railCurves: out Curve[] rails,
@@ -958,13 +958,13 @@ public abstract partial record CurveOp {
                     return changed.Bind(_ => ModelGate.Kept(working)).Rollback(working);
                 }).Run().Bind(static inner => inner)),
             nurbsFit: static (model, edit) => Borrowed(edit.Curve, (curve, op) =>
-                edit.Law.Rig(domain: model, key: op).Bind(parameters => {
+                edit.Law.Rig(domain: model).Bind(parameters => {
                     using (parameters) {
                         return Try.lift(() => {
                             NurbsCurve fitted = Curve.CreateNurbsCurveFit(
                                 curve: curve, domain: edit.Domain, rebuildOptions: parameters,
                                 maximumSeparation: out _, thisSeparationParameter: out _, nurbsSeparationParameter: out _);
-                            return ModelGate.Own(built: fitted, key: op).Map(static owned => Seq(owned));
+                            return ModelGate.Own(built: fitted).Map(static owned => Seq(owned));
                         }).Run().Bind(static inner => inner);
                     }
                 })),
@@ -1029,7 +1029,7 @@ public abstract partial record CurveOp {
                                 curves: curves.AsIterable(), breps: breps.AsIterable(), direction: law.Direction,
                                 tolerance: ctx.Absolute.Value,
                                 curveIndices: out _, brepIndices: out _);
-                            return ModelGate.OwnMany(built: projected, key: ctx.Op);
+                            return ModelGate.OwnMany(built: projected);
                         }).Run().Bind(static inner => inner))),
                 toMeshes: static (ctx, law) => ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: law.Curves, body: curves =>
                     ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: law.Meshes, body: meshes =>
@@ -1045,7 +1045,7 @@ public abstract partial record CurveOp {
                             inputCurves: curves.AsIterable(), joinTolerance: model.Absolute.Value,
                             preserveDirection: edit.Grants.Admits(capability: JoinGrant.PreserveDirection),
                             simpleJoin: edit.Grants.Admits(capability: JoinGrant.SimpleJoin), key: out _);
-                        return ModelGate.OwnMany(built: joined, key: op);
+                        return ModelGate.OwnMany(built: joined);
                     }).Run().Bind(static inner => inner));
             },
             boolean: static (model, edit) => edit.Law.Switch(
@@ -1054,7 +1054,7 @@ public abstract partial record CurveOp {
                     Try.lift(() => {
                         Curve[] fused = Curve.CreateBooleanUnion(
                             curves: curves.AsIterable(), tolerance: ctx.Absolute.Value, indexMap: out _);
-                        return ModelGate.OwnMany(built: fused, key: ctx.Op);
+                        return ModelGate.OwnMany(built: fused);
                     }).Run().Bind(static inner => inner)),
                 intersection: static (ctx, law) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: law.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: law.Second, body: second =>
@@ -1074,8 +1074,7 @@ public abstract partial record CurveOp {
                             using (live) {
                                 return ModelGate.OwnMany(
                                     built: Enumerable.Range(start: 0, count: live.RegionCount)
-                                        .SelectMany(region => live.RegionCurves(regionIndex: region)),
-                                    key: op);
+                                        .SelectMany(region => live.RegionCurves(regionIndex: region)));
                             }
                         });
                     }).Run().Bind(static inner => inner));
@@ -1223,7 +1222,7 @@ public abstract partial record CurveOp {
                         fromLength: static (request, law) => Hung(native: Curve.CreateCatenaryCurveFromLength, request: request, shape: law.Value),
                         fromParameter: static (request, law) => Hung(native: Curve.CreateCatenaryCurveFromParameter, request: request, shape: law.Value),
                         fromApex: static (request, law) => Hung(native: Curve.CreateCatenaryCurveFromApex, request: request, shape: law.Value));
-                    return ModelGate.Own(built: hung, key: op).Map(static owned => Seq(owned));
+                    return ModelGate.Own(built: hung).Map(static owned => Seq(owned));
                 }).Run().Bind(static inner => inner);
             },
             makeEndsMeet: static (_, edit) => {

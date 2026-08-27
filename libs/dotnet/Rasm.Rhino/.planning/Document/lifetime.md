@@ -201,14 +201,14 @@ public sealed class Subscription : IDisposable {
     public static Fin<Subscription> Attach<THandler>(Action<THandler> subscribe, Action<THandler> unsubscribe, THandler handler)
         where THandler : Delegate {
         return Try.lift(() => { subscribe(obj: handler); return Fin.Succ(value: Of(detach: () => unsubscribe(obj: handler))); }).Run().Bind(static inner => inner)
-            .Rollback(release: () => Try.lift(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner), key: key);
+            .Rollback(release: () => Try.lift(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner));
     }
 
     public static Fin<Subscription> Acquire(Action acquire, Action release) {
         ArgumentNullException.ThrowIfNull(acquire);
         ArgumentNullException.ThrowIfNull(release);
         return Try.lift(() => { acquire(); return Fin.Succ(value: Of(detach: release)); }).Run().Bind(static inner => inner)
-            .Rollback(release: () => Try.lift(() => { release(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner), key: key);
+            .Rollback(release: () => Try.lift(() => { release(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner));
     }
 
     public static Fin<Subscription> AttachAll(Seq<Func<Fin<Subscription>>> attach) =>

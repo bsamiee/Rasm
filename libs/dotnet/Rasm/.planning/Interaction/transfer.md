@@ -71,7 +71,7 @@ public sealed partial class PayloadPresence {
         settle: static (found, _, _) => Fin.Succ(found));
     public static readonly PayloadPresence Required = new(key: 1,
         settle: static (found, wanted, key) => found
-            .ToFin(new UiFault.AbsentPayload(Key: key, Wanted: wanted))
+            .ToFin(new UiFault.AbsentPayload(Wanted: wanted))
             .Map(Some));
 
     [UseDelegateFromConstructor]

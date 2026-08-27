@@ -101,13 +101,12 @@ internal static class DocumentCommit {
         RedrawScope.Within(document: document, redraw: redraw, body: () => Try.lift(() => {
             using UndoBracket undo = UndoBracket.Begin(document: document, name: name, recordsUndo: recordsUndo);
             Func<TResult, Fin<TResult>> stamped = undo.Stamper(
-                stamp: stamp.IfNone(static (result, _) => result),
-                key: op);
+                stamp: stamp.IfNone(static (result, _) => result));
             Fin<TOut> executed = guard(undo.Admitted, new KernelFault.InvalidResult()).ToFin()
                 .Bind(_ => Try.lift(run).Run().Bind(static inner => inner))
                 .Bind(stamped)
                 .Bind(result => Try.lift(() => project(result)).Run().Bind(static inner => inner));
-            return undo.Seal(outcome: executed, key: op);
+            return undo.Seal(outcome: executed);
         }).Run().Bind(static inner => inner));
 
     internal static Fin<Seq<TKey>> Compensated<TSource, TKey>(

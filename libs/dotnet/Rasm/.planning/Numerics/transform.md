@@ -2,7 +2,7 @@
 
 `Rasm.Numerics` owns the transform band beside the solve kernel: the taper roster a spectral caller windows with, the capability-typed interpolant every one-dimensional fit mints into, and the spectral plane — one arena union over the four MathNet buffer layouts, one transform entry, one `Spectrum`, and BOTH routes of the one convolution correspondence, the pointwise spectral product and the sample-domain tap fold. It is `Numerics/matrix`'s own surface split at the transform boundary: zero edges into the solve core, its own consumer population (`Rasm.Materials` raster planes, `Rasm.Fabrication` implicit lattices, `Rasm.Compute` signal spectra), and one `partial` half of `MatrixKernel` so the one-funnel ruling binds the TYPE and no consumer reaches a raw MathNet transform member on either side of the file cut.
 
-Rebuilds compose the `Rasm.Domain` types as the validity floor and `Numerics/atoms` as the addressing floor: `CellLattice` is the ONE linearization a lattice-backed plane addresses through, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`SignedAxis` carry every extent, rate, fraction, and axis, `EpsilonPolicy` anchors the two floors this band reads, and `Op` keys every entry under the optional-key spelling. MathNet's managed provider is the pinned realization — the multidim entrypoints are unservable by construction and the separable row-column fold IS the platform-total N-dimensional transform.
+Rebuilds compose the `Rasm.Domain` types as the validity floor and `Numerics/atoms` as the addressing floor: `CellLattice` is the ONE linearization a lattice-backed plane addresses through, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`SignedAxis` carry every extent, rate, fraction, and axis, `EpsilonPolicy` anchors the two floors this band reads. MathNet's managed provider is the pinned realization — the multidim entrypoints are unservable by construction and the separable row-column fold IS the platform-total N-dimensional transform.
 
 ## [01]-[INDEX]
 
@@ -138,7 +138,7 @@ public sealed class Interpolant<TCapability> where TCapability : IEvaluable {
     internal Interpolant(IInterpolation curve) => Curve = curve;
     internal IInterpolation Curve { get; }
 
-    public Fin<double> Evaluate(double t) => Interpolant.AdmitFinite(value: Curve.Interpolate(t: t), key: key.OrDefault());
+    public Fin<double> Evaluate(double t) => Interpolant.AdmitFinite(value: Curve.Interpolate(t: t));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -199,12 +199,12 @@ public static class Interpolant {
         double.IsFinite(value) ? Acceptance.Value(value: value) : Fin.Fail<double>(new KernelFault.InvalidResult());
 
     extension<TCapability>(Interpolant<TCapability> self) where TCapability : IDifferentiable {
-        public Fin<double> Derivative(double t) => AdmitFinite(value: self.Curve.Differentiate(t: t), key: key.OrDefault());
-        public Fin<double> SecondDerivative(double t) => AdmitFinite(value: self.Curve.Differentiate2(t: t), key: key.OrDefault());
+        public Fin<double> Derivative(double t) => AdmitFinite(value: self.Curve.Differentiate(t: t));
+        public Fin<double> SecondDerivative(double t) => AdmitFinite(value: self.Curve.Differentiate2(t: t));
     }
     extension<TCapability>(Interpolant<TCapability> self) where TCapability : IIntegrable {
         public Fin<double> Integrate(double upper, Option<double> lower = default) =>
-            AdmitFinite(value: lower.Match(Some: a => self.Curve.Integrate(a: a, b: upper), None: () => self.Curve.Integrate(t: upper)), key: key.OrDefault());
+            AdmitFinite(value: lower.Match(Some: a => self.Curve.Integrate(a: a, b: upper), None: () => self.Curve.Integrate(t: upper)));
     }
 }
 ```
@@ -358,7 +358,7 @@ public sealed class Spectrum : IValidityEvidence {
     public long Cells => Arena.Cells;
     public double RoundTripFactor => Scaling.RoundTrip(cells: Cells);
     public bool IsValid => Arena is not null && Sense is not null && Scaling is not null && Arena.IsValid;
-    public Fin<Arr<double>> Power() => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
+    public Fin<Arr<double>> Power() => MatrixKernel.SpectralPower(arena: Arena);
     public Fin<Arr<double>> Frequencies(SignedAxis axis) =>
         MatrixKernel.SpectralFrequencies(arena: Arena, axis: axis);
     public Fin<Spectrum> Modulate(ReadOnlySpan<Complex> symbol) =>

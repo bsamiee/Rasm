@@ -344,7 +344,7 @@ public abstract partial record PositionRef {
     internal sealed record NameCase(PresetName Name) : PositionRef;
 
     public static Fin<PositionRef> Of(Guid id) =>
-        ResourceId.Admit(value: id, key: key.OrDefault()).Map<PositionRef>(static admitted => new IdCase(Id: admitted));
+        ResourceId.Admit(value: id).Map<PositionRef>(static admitted => new IdCase(Id: admitted));
 
     public static Fin<PositionRef> Of(string name) =>
         key.OrDefault().AcceptValidated<PresetName>(candidate: name)
@@ -445,7 +445,7 @@ public abstract partial record PresetOperation {
         Named(name: name).Map<PresetOperation>(static admitted => new DeleteCPlaneCase(Name: admitted));
 
     public static Fin<PresetOperation> SavePosition(string name, params ReadOnlySpan<Guid> objectIds) {
-        return (Named(name: name, key: op).ToValidation(), Participants(ids: objectIds, key: op).ToValidation())
+        return (Named(name: name).ToValidation(), Participants(ids: objectIds).ToValidation())
             .Apply(static (admitted, ids) => (PresetOperation)new SavePositionCase(Name: admitted, ObjectIds: ids))
             .As()
             .ToFin();
@@ -459,7 +459,7 @@ public abstract partial record PresetOperation {
     }
 
     public static Fin<PresetOperation> AppendPosition(PositionRef position, params ReadOnlySpan<Guid> objectIds) {
-        return (Admit.Need(value: position).ToValidation(), Participants(ids: objectIds, key: op).ToValidation())
+        return (Admit.Need(value: position).ToValidation(), Participants(ids: objectIds).ToValidation())
             .Apply(static (address, ids) => (PresetOperation)new AppendPositionCase(Position: address, ObjectIds: ids))
             .As()
             .ToFin();
@@ -693,7 +693,7 @@ public static class Presets {
     private static Fin<PresetSnapshot> Census(RhinoDoc document) =>
         from planes in Project(
             source: () => document.NamedConstructionPlanes,
-            project: value => CPlaneModel.Read(source: value, key: key))
+            project: value => CPlaneModel.Read(source: value))
         from positions in Project(
             source: () => document.NamedPositions.Ids,
             project: id => Captured(table: document.NamedPositions, id: id))
@@ -708,7 +708,7 @@ public static class Presets {
         from name in Named(table: table, id: address)
         from objects in Project(
             source: () => table.ObjectIds(id),
-            project: objectId => ResourceId.Admit(value: objectId, key: key)
+            project: objectId => ResourceId.Admit(value: objectId)
                 .Bind(participant => Stored(table: table, id: address, objectId: participant)
                     .Map(transform => new PositionObject(ObjectId: participant, Transform: transform))))
         select new PositionSnapshot(Id: address, Name: name, Objects: objects);

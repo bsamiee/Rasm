@@ -210,7 +210,7 @@ internal sealed partial class RayTarget {
         admits: static type => typeof(Brep).IsAssignableFrom(c: type) || Capability.BrepForm.Admits(type: type),
         shoot: static (query, target, env, op) => target is Brep brep
             ? Relations.TrimAwareRay(query: query, brep: brep, env: env)
-            : Normalization.BrepForm(source: target, key: op).Bind(lease => lease.Use(body: lowered => Relations.TrimAwareRay(query: query, brep: lowered, env: env), key: op)));
+            : Normalization.BrepForm(source: target).Bind(lease => lease.Use(body: lowered => Relations.TrimAwareRay(query: query, brep: lowered, env: env))));
     public Dimension Reflections { get; }
     [UseDelegateFromConstructor] internal partial bool Admits(Type type);
     [UseDelegateFromConstructor] internal partial Fin<IntersectionResult> Shoot(RayQuery query, object target, Env env);
@@ -344,19 +344,19 @@ internal static partial class Relations {
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
                 RayTarget.For(target: right.GetType()).ToFin(new KernelFault.Unsupported(InputType: right.GetType(), OutputType: typeof(IntersectionResult)))
-                    .Bind(row => row.Admit(query: (RayQuery)left, op: op).Bind(query => row.Shoot(query: query, target: right, env: env)))),
+                    .Bind(row => row.Admit(query: (RayQuery)left).Bind(query => row.Shoot(query: query, target: right, env: env)))),
         new IntersectionCase(
             Supports: static (l, r) => l != typeof(Curve) && !typeof(Curve).IsAssignableFrom(c: l) && Capability.CurveForm.Admits(type: l)
                 && (Capability.CurveForm.Admits(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)),
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
-                Normalization.CurveForm(source: left, key: op).Bind(lease => lease.Use(body: curve => Scan(left: curve, right: right, env: env), key: op))),
+                Normalization.CurveForm(source: left).Bind(lease => lease.Use(body: curve => Scan(left: curve, right: right, env: env)))),
         new IntersectionCase(
             Supports: static (l, r) => r != typeof(Curve) && !typeof(Curve).IsAssignableFrom(c: r) && Capability.CurveForm.Admits(type: r)
                 && (Capability.CurveForm.Admits(type: l) || l == typeof(Plane) || l == typeof(Line) || typeof(Surface).IsAssignableFrom(l) || typeof(Brep).IsAssignableFrom(l) || typeof(BrepFace).IsAssignableFrom(l)),
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
-                Normalization.CurveForm(source: right, key: op).Bind(lease => lease.Use(body: curve => Scan(left: left, right: curve, env: env), key: op))));
+                Normalization.CurveForm(source: right).Bind(lease => lease.Use(body: curve => Scan(left: left, right: curve, env: env)))));
 
     internal static Option<IntersectionResult> ShapeOf(Type left, Type right, Type output, PairOrder order) =>
         order.Pairs(left: left, right: right).Fold(
@@ -372,14 +372,13 @@ internal static partial class Relations {
                         : Fin.Fail<IntersectionResult>(cause))));
     internal static Fin<IntersectionResult> ClassifiedOf<TL, TR>(TL left, TR right, Env env) where TL : notnull where TR : notnull =>
         Normalization.CurveForm(source: left).Bind(leftLease => leftLease.Use(
-            body: leftCurve => Normalization.CurveForm(source: right, key: op).Bind(rightLease => rightLease.Use(
+            body: leftCurve => Normalization.CurveForm(source: right).Bind(rightLease => rightLease.Use(
                 body: rightCurve => Scan(left: leftCurve, right: rightCurve, env: env)
                     .Bind(result => result.Switch(
                         state: (Env: env, Left: leftCurve, Right: rightCurve),
                         lines: Unenriched, points: Unenriched, intervals: Unenriched, polylines: Unenriched,
                         hits: static (s, h) => EnrichTangency(hits: h.Values, left: s.Left, right: s.Right, context: s.Env.Context)
-                            .Map(static enriched => (IntersectionResult)new IntersectionResult.Hits(Values: enriched)))),
-                key: op))));
+                            .Map(static enriched => (IntersectionResult)new IntersectionResult.Hits(Values: enriched))))))));
     private static Fin<IntersectionResult> Unenriched<TState>(TState _, IntersectionResult shape) => Fin.Succ(shape);
     private static Fin<IntersectionResult> Scan(object left, object right, Env env) =>
         env.Cancellation.IsCancellationRequested
@@ -506,7 +505,7 @@ internal static partial class Relations {
                     from runtime in Env.EnvAsks
                     from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToFin().ToEff()
                     from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context).ToEff()
-                    from result in AnalysisOutput<TOut>.Project(key: op, values: Seq(deviation)).ToEff()
+                    from result in AnalysisOutput<TOut>.Project(values: Seq(deviation)).ToEff()
                     select result)
             : key.Unsupported<(TA A, TB B), TOut>();
     internal static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>() where TGeometry : notnull =>

@@ -486,12 +486,11 @@ internal static class SectionDefaults {
             .ToFin(Fail: new KernelFault.MissingContext()));
 
     private static readonly Lazy<Fin<Seq<SectionEdit>>> Rows = new(static () => {
-        return Lease<SectionStyle>.Acquire(mint: static () => new SectionStyle(), key: key).Bind(lease => lease.Use(
+        return Lease<SectionStyle>.Acquire(mint: static () => new SectionStyle()).Bind(lease => lease.Use(
             body: seed => toSeq(SectionField.Items).Traverse(field => field
-                .Read(style: seed, key: key)
+                .Read(style: seed)
                 .Bind(value => SectionEdit.Of(field: field, value: value))
-                .ToValidation()).As().ToFin(),
-            key: key));
+                .ToValidation()).As().ToFin()));
     });
 }
 
@@ -684,7 +683,7 @@ public abstract partial record SectionOp {
             from shaped in Try.lift(() => Fin.Succ(value: new SectionStyle())).Run().Bind(static inner => inner)
             from _ in def.Apply(style: shaped, document: document)
                 .Rollback(
-                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
+                    release: () => Custody.Dispose(held: Seq(shaped)))
             select shaped,
         Revise: static (document, copy, def, key) => def.Apply(style: copy, document: document),
         Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
@@ -769,8 +768,8 @@ public abstract partial record SectionOp {
 
     private static Fin<T> Drained<T>(Error primary, ImportSpoil spoil) =>
         Fin.Fail<T>(error: primary)
-            .Rollback(release: () => Custody.Dispose(held: spoil.Styles, key: op))
-            .Rollback(release: () => Custody.Dispose(held: spoil.Patterns, key: op));
+            .Rollback(release: () => Custody.Dispose(held: spoil.Styles))
+            .Rollback(release: () => Custody.Dispose(held: spoil.Patterns));
 
     private static Fin<(Seq<PatternIntent> Patterns, Seq<SectionIntent> Styles)> Preflight(
         RhinoDoc document, ImportSpoil spoil) => Try.lift(() =>
@@ -922,7 +921,7 @@ public abstract partial record SectionAsk {
     private static Fin<Option<SectionStroke>> Stroke(SectionStyle style) =>
         Optional(style.GetBoundaryLinetype()) is { IsSome: true, Case: Linetype embedded }
             ? new Lease<Linetype>.Owned(Value: embedded).Use(
-                body: owned => StrokeDef.Read(linetype: owned, key: key)
+                body: owned => StrokeDef.Read(linetype: owned)
                     .Map(static definition => Some<SectionStroke>(new SectionStroke.Embedded(Definition: definition))))
             : style.BoundaryLinetypeIndex >= 0
                 ? ResourceRef.Of(index: style.BoundaryLinetypeIndex)
@@ -956,7 +955,7 @@ public static class Sections {
     public static Fin<SectionAnswer> Ask(DocumentSession session, SectionAsk request) {
         return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
 }

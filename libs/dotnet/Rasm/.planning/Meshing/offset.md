@@ -486,8 +486,8 @@ public static partial class Offsetting {
                         .Bind(admitted => Propagate(admitted, s.Op.Policy, Arr<double>.Empty, until: u.Distance))
                         .Map(trace => Rings(trace.Store).Map(loop => Dressed(trace, loop, u.Distance)))
                     : s.Op.Path.IsClosed
-                        ? AdmitRing(s.Op.Path, s.Op.Policy).Map(admitted => Ribbon(s.Op with { Path = admitted.Ring }, u.Distance))
-                        : AdmitPath(s.Op.Path, s.Op.Policy).Map(path => Ribbon(s.Op with { Path = path }, u.Distance))
+                        ? AdmitRing(s.Op.Path, s.Op.Policy).Map(admitted => Ribbon(s. { Path = admitted.Ring }, u.Distance))
+                        : AdmitPath(s.Op.Path, s.Op.Policy).Map(path => Ribbon(s. { Path = path }, u.Distance))
                 : Fin.Fail<Seq<Polyline>>(new GeometryFault.DegenerateOffset(0)),
             perEdge: static (s, p) => s.Op.Path.IsClosed
                 ? AdmitRing(s.Op.Path, s.Op.Policy)

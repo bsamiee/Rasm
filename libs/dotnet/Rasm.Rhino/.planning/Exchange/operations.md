@@ -268,7 +268,7 @@ public sealed partial record OutputPolicy {
                        from written in writer(arg: staged.Path)
                        from bytes in ReadNonempty(target: requested, path: staged.Path)
                        from _checked in validate.Map(check => check(arg: bytes)).IfNone(Fin.Succ(value: unit))
-                       from _durable in Flush(path: staged.Path, op: op)
+                       from _durable in Flush(path: staged.Path)
                        from committed in Collision.Land(
                            temporary: staged.Path, path: requested, bound: OrdinalBound)
                        select new Landed<TStage>(
@@ -593,7 +593,7 @@ public abstract partial record AnchorOp {
     internal Fin<AnchorYield> Apply(RhinoDoc document) => Switch(
         document,
         readCase: static (ctx, _) => Anchored(ctx, AnchorDemand.Any, use: static (anchor, _, op) =>
-            EarthAnchor.From(anchor: anchor, op: op).Map(static value => (AnchorYield)new AnchorYield.AnchorCase(Anchor: value))),
+            EarthAnchor.From(anchor: anchor).Map(static value => (AnchorYield)new AnchorYield.AnchorCase(Anchor: value))),
         writeCase: static (ctx, edit) =>
             from anchor in Admit.Need(edit.Anchor)
             from _written in anchor.Write(document: ctx)
@@ -803,7 +803,7 @@ public abstract partial record DocumentWritePolicy {
         target,
         saveAsCase: static (ctx, _) => Archived(),
         documentCase: static (ctx, _) => Codecs.Detect(path: ctx.Value)
-            .ToFin(Fail: new ExchangeFault.CodecUnknown(Key: ctx.Op, Requested: ctx.Value)),
+            .ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: ctx.Value)),
         archiveCase: static (ctx, _) => Archived(),
         templateCase: static (ctx, _) => Archived());
 
@@ -1147,7 +1147,7 @@ public static class Exchanges {
                 from policy in Admit.Need(edit.Policy)
                 from output in Admit.Need(edit.Output)
                 from archived in Codecs.Archive.ToFin(
-                    Fail: new ExchangeFault.CodecUnknown(Key: ctx.Op, Requested: CodecAbility.Archive.Key))
+                    Fail: new ExchangeFault.CodecUnknown(Requested: CodecAbility.Archive.Key))
                 from landed in Try.lift(() => {
                     using File3dm archive = new();
                     using ObjectAttributes attributes = new();

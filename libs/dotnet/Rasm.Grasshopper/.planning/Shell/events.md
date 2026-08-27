@@ -189,14 +189,14 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 
     private static GhSource Canvas<TArgs>(string key, EventTable<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
         where TArgs : EventArgs =>
-        new(Key: key, Bind: (anchor, emit, op) => anchor switch {
+        new(Bind: (anchor, emit, op) => anchor switch {
             EventAnchor.OnControl { Value: Canvas surface } => Try.lift(() => Fin.Succ(Hook(surface, wired, project, emit))).Run().Bind(static inner => inner),
             _ => Fin.Fail<IDisposable>(new KernelFault.InvalidInput()),
         });
 
     private static GhSource Subject<THost, TArgs>(THost host, string key, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
         where TArgs : EventArgs =>
-        new(Key: key, Bind: (anchor, emit, op) => anchor switch {
+        new(Bind: (anchor, emit, op) => anchor switch {
             EventAnchor.Ambient => Try.lift(() => Fin.Succ(Hook(host, wired, project, emit))).Run().Bind(static inner => inner),
             _ => Fin.Fail<IDisposable>(new KernelFault.InvalidInput()),
         });
@@ -243,7 +243,7 @@ public static class HookBridge {
 
     private static void Consult(
         HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, GrasshopperPoint at, CancelEventArgs args) =>
-        hooks.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None))
+        hooks.Fire(at: at, fact: new HookSignal.IntentCase(DocumentId: None))
             .IfFail(_ => { args.Cancel = true; });
 }
 ```

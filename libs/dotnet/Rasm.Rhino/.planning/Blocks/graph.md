@@ -78,7 +78,7 @@ public sealed record GraphProjection<TVertex> where TVertex : notnull {
         Try.lift(() => Fin.Succ(value: graph.ComputeTransitiveClosure(
             edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target)))).Run().Bind(static inner => inner));
     public static readonly GraphProjection<TVertex> Reduction = new(project: static (graph, op) =>
-        GraphFold.Reduced(graph: graph, op: op));
+        GraphFold.Reduced(graph: graph));
 
     private GraphProjection(
         Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> project) =>
@@ -206,7 +206,7 @@ public static partial class BlockGraph {
                from answer in active.Switch(
                    context: source,
                    definitions: static (ctx, _) =>
-                       from topology in Of(source: ctx, key: ctx.Op)
+                       from topology in Of(source: ctx)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Nodes(Values: topology.Nodes),
                    containers: static (ctx, ask) => Live(source: ctx, read: document =>
                        from target in Admit.Need(ask.Target)
@@ -230,12 +230,12 @@ public static partial class BlockGraph {
                            Levels: outer.UsesDefinition(otherIdefIndex: inner.Index))),
                    boundary: static (ctx, ask) =>
                        from policy in Admit.Need(ask.Policy)
-                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from topology in Complete(source: ctx)
                        from graph in topology.Fold()
                        from values in Try.lift(() => Fin.Succ(value: policy.Select(graph))).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(Keys: values),
                    path: static (ctx, ask) =>
-                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from topology in Complete(source: ctx)
                        from start in KeyOf(topology: topology, target: ask.From)
                        from finish in KeyOf(topology: topology, target: ask.To)
                        from graph in topology.Fold()
@@ -247,32 +247,32 @@ public static partial class BlockGraph {
                        }).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Path(Keys: path),
                    order: static (ctx, _) =>
-                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from topology in Complete(source: ctx)
                        from graph in topology.Fold()
-                       from ordered in GraphFold.Ordered(graph: graph, op: ctx.Op)
+                       from ordered in GraphFold.Ordered(graph: graph)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Ordered(BakeOrder: ordered),
                    groups: static (ctx, ask) =>
-                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from topology in Complete(source: ctx)
                        from policy in Admit.Need(ask.Policy)
                        from graph in topology.Fold()
                        from groups in Try.lift(() => Fin.Succ(value: policy.Select(graph))).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Groups(Values: groups),
                    projection: static (ctx, ask) =>
                        from policy in Admit.Need(ask.Policy)
-                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from topology in Complete(source: ctx)
                        from folded in topology.Fold()
                        from graph in policy.Project(folded)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Graph(
                            Edges: toSeq(graph.Edges).Map(static edge => (edge, edge.Target))),
                    condensation: static (ctx, _) =>
-                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from topology in Complete(source: ctx)
                        from graph in topology.Fold()
                        from condensed in Try.lift(() => Fin.Succ(value: GraphFold.Condensed(graph: graph))).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Condensed(
                            Components: condensed.Components,
                            Edges: condensed.Edges),
                    placed: static (ctx, _) =>
-                       from topology in Of(source: ctx, key: ctx.Op)
+                       from topology in Of(source: ctx)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Placements(
                            Evidence: topology.Evidence,
                            Values: topology.Evidence == GraphEvidence.Complete ? topology.Placements : Seq<PlacementNode>()),
@@ -287,7 +287,7 @@ public static partial class BlockGraph {
                        }).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Usage(Counts: usage)),
                    archives: static (ctx, ask) =>
-                       from root in RootPath(source: ctx, op: ctx.Op)
+                       from root in RootPath(source: ctx)
                        from budget in Admit.Need(ask.Budget)
                        from report in ArchiveClosure(rootPath: root, budget: budget)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Archives(Report: report))
@@ -325,7 +325,7 @@ public static partial class BlockGraph {
         Admit.Need(source).Bind(request => request.Switch(
             context: key,
             live: static (held) => Admit.Need(held.Session).Bind(session => session.Demand(
-                use: document => LiveTopology(document: document, op: op),
+                use: document => LiveTopology(document: document),
                 needs: [SessionNeed.Read])),
             loaded: static (held) => Admit.Need(held.Archive)
                 .Bind(archive => Offline(archive: archive)),
@@ -822,7 +822,7 @@ public static partial class BlockGraph {
                 observed: checked((long)walk.Usage.Archives + 1),
                 allowed: scope.Budget.MaxArchives,
                 path: target.Path)
-            : scope.Root.Open(candidate: target.Path.Value, op: scope.Op).Match(
+            : scope.Root.Open(candidate: target.Path.Value).Match(
                 Fail: error => walk.Refused(target: target, fault: error),
                 Succ: input => Measured(walk: walk, input: input, target: target, scope: scope));
 
@@ -850,7 +850,7 @@ public static partial class BlockGraph {
     }
 
     private static ClosureWalk Scanned(ClosureWalk walk, ArchiveInput input, ArchiveTarget target, ClosureScope scope) =>
-        InspectArchive(input: input, op: scope.Op).Match(
+        InspectArchive(input: input).Match(
             Fail: error => walk.Refused(target: target, fault: error),
             Succ: scan => scan.Switch(
                 rejected: rejected => walk

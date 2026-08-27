@@ -130,7 +130,7 @@ public static class PaintAnchor {
 
     private static Fin<HookSignal> Herald(
         HookSet<GrasshopperPoint, HookSignal, HookScope> hooks) =>
-        hooks.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None));
+        hooks.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(DocumentId: None));
 
     public static Fin<Lease<Mounted<PaintPass>>> MountRaw(
         PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults);

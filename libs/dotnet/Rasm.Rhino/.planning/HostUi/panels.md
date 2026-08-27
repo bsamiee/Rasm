@@ -183,8 +183,7 @@ public abstract class HostPanel : Panel, IPanel {
                         Fail: static _ => Seq<Func<Fin<Unit>>>())
                     + fallback.Match(
                         Some: control => Seq<Func<Fin<Unit>>>(() => Try.lift(() => Fin.Succ(value: HostEdge.Side(control.Dispose))).Run().Bind(static inner => inner)),
-                        None: static () => Seq<Func<Fin<Unit>>>()),
-                key: op)
+                        None: static () => Seq<Func<Fin<Unit>>>()))
             .IfFail(failure => ignore(faults.Park(item: failure)))
         : Fin.Succ(value: unit);
 
@@ -442,7 +441,7 @@ public static class PanelHost {
                        work: new HostWork<T>.Session(
                            Document: seat.Session,
                            Needs: [SessionNeed.Read],
-                           Body: document => DocKey.Of(document: document, key: held.Op).Bind(model => held.Body(
+                           Body: document => DocKey.Of(document: document).Bind(model => held.Body(
                                new PanelSeat(Plugin: held.Plugin, Panel: held.Panel, Document: Some(model)),
                                toSeq(Panels.GetPanels<TPanel>(document)).Strict())))),
                    serial: static (held, seat) => HostThread.Run(
@@ -499,14 +498,12 @@ public static class PanelHost {
                 from text in caption.Match(
                     Some: value => Acceptance.Text(value: value.Resolve()),
                     None: () => Fin.Succ(value: string.Empty))
-                from badge in PanelBadge.Of(origin: origin, op: op)
+                from badge in PanelBadge.Of(origin: origin)
                 from _ in badge.Switch(
                     (Anchor: named, Icon: owned, Text: text),
                     named: (held, row) => guard(
                             flag: row.Anchor.Owner == typeof(TPanel).Assembly || verb != PanelVerb.Rebadged,
-                            False: new UiFault.HostRejected(
-                                Key: held.Op,
-                                Detail: $"{nameof(Panels.ChangePanelIcon)} resolves a resource against {typeof(TPanel).Assembly.GetName().Name}"))
+                            False: new UiFault.HostRejected(Detail: $"{nameof(Panels.ChangePanelIcon)} resolves a resource against {typeof(TPanel).Assembly.GetName().Name}"))
                         .ToFin()
                         .Map(_ => held.Anchor(row.Anchor, held.Text)),
                     owned: (held, row) => row.Icon.Use(icon => Fin.Succ(value: held.Icon(icon, held.Text))))
@@ -576,7 +573,7 @@ public static class PanelObservation {
                     Families: Seq(EventFamily.PanelVisibility, EventFamily.PanelClosed),
                     Delivery: new Delivery.Inline(Sink: fact => Fin.Succ(value: held.Observer.Guard(
                         project: () => fact.Payload is EventPayload.Panel panel
-                            ? PanelKey.Of(value: panel.PanelId, key: held.Op).Bind(id => PanelHost.Stamp(
+                            ? PanelKey.Of(value: panel.PanelId).Bind(id => PanelHost.Stamp(
                                 plugin: None,
                                 panel: id,
                                 document: fact.Key,
@@ -786,7 +783,7 @@ public static class Rui {
                    .As()
                    .ToFin()
                from outcome in HostThread.Run(
-                   work: new HostWork<RuiOutcome>.Execute(Body: () => Applied(commands: admitted.Strict(), op: op)))
+                   work: new HostWork<RuiOutcome>.Execute(Body: () => Applied(commands: admitted.Strict())))
                select outcome;
     }
 
@@ -926,8 +923,7 @@ public static class MenuLinks {
                     project: () => Try.lift(() => sync(address)
                         .TraverseM(delta => Apply(live, delta))
                         .As()
-                        .Map(static _ => unit)).Run().Bind(static inner => inner),
-                    op: op)))))));
+                        .Map(static _ => unit)).Run().Bind(static inner => inner))))))));
     }
 
     private static Fin<Unit> Apply(RuiUpdateUi live, MenuDelta delta) => delta.Switch(
@@ -1083,8 +1079,7 @@ public sealed class PanelSectionMount : IDisposable {
         ? HostThread.Release(
                 releases: contents.Rev()
                     .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
-                    .Add(() => Try.lift(() => Fin.Succ(value: HostEdge.Side(Host.Dispose))).Run().Bind(static inner => inner)),
-                key: op)
+                    .Add(() => Try.lift(() => Fin.Succ(value: HostEdge.Side(Host.Dispose))).Run().Bind(static inner => inner)))
             .IfFail(failure => ignore(faults.Park(item: failure)))
         : Fin.Succ(value: unit);
 
@@ -1153,8 +1148,7 @@ public static class PanelSections {
             release: () => HostThread.Release(
                 releases: contents.Rev()
                     .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
-                    .Add(() => Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(holder is not null, () => holder!.Dispose()))).Run().Bind(static inner => inner)),
-                key: op));
+                    .Add(() => Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(holder is not null, () => holder!.Dispose()))).Run().Bind(static inner => inner))));
     }
 }
 ```
@@ -1480,7 +1474,7 @@ public static class ThemePalette {
         return Admit.Need(zone).Bind(_ => HostThread.Run(
             work: new HostWork<Seq<ThemeSwatch>>.Execute(Body: () => toSeq(zone.Enumerate())
                 .Choose(static entry => entry.Value is Color colour ? Some((Entry: entry, Colour: colour)) : None)
-                .TraverseM(row => PaintColor.OfHost(host: row.Colour, key: op)
+                .TraverseM(row => PaintColor.OfHost(host: row.Colour)
                     .Map(colour => new ThemeSwatch(Path: $"{zone.Id}/{row.Entry.Id}", Value: colour)))
                 .As()
                 .Map(static swatches => swatches.Strict()))));
@@ -1513,8 +1507,7 @@ public static class UiServices {
         return HostThread.Run(
             work: new HostWork<TService>.Execute(Body: () => Try.lift(() =>
                 (Optional(RhinoUiServiceLocator.GetService<TService>()) | Optional(PlatformServiceProvider.Service as TService))
-                    .ToFin(Fail: new UiFault.HostRejected(
-                        Key: op, Detail: $"no {typeof(TService).Name} is registered on this host"))).Run().Bind(static inner => inner)));
+                    .ToFin(Fail: new UiFault.HostRejected(Detail: $"no {typeof(TService).Name} is registered on this host"))).Run().Bind(static inner => inner)));
     }
 }
 ```

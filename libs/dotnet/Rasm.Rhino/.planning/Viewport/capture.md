@@ -204,7 +204,7 @@ public abstract partial record CaptureSubject {
         previewCase: static (ctx, preview) => preview.Source.Realize(row: ctx)
             .Bind(basis => basis.Use(
                 body: held => Lease<ViewCaptureSettings>.Acquire(
-                    mint: () => held.CreatePreviewSettings(preview.Pixels.Native), key: ctx.Op))));
+                    mint: () => held.CreatePreviewSettings(preview.Pixels.Native)))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -433,7 +433,7 @@ public abstract partial record MediaLayout {
     public static MediaLayout Default { get; } = new ViewportCase(Placement: MediaPlacement.Default);
 
     public static Fin<MediaLayout> Viewport(Option<MediaPlacement> placement = default) =>
-        Placed(placement: placement, op: key.OrDefault())
+        Placed(placement: placement)
             .Map(static admitted => (MediaLayout)new ViewportCase(Placement: admitted));
 
     public static Fin<MediaLayout> Crop(CaptureCrop crop, Option<MediaPlacement> placement = default) {
@@ -457,7 +457,7 @@ public abstract partial record MediaLayout {
     }
 
     public static Fin<MediaLayout> Maximize(Option<MediaPlacement> placement = default) =>
-        Placed(placement: placement, op: key.OrDefault())
+        Placed(placement: placement)
             .Map(static admitted => (MediaLayout)new MaximizeCase(Placement: admitted));
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings) => Switch(
@@ -1221,7 +1221,7 @@ internal sealed class PreparedCapture : IDisposable {
     private PreparedCapture(Seq<ViewCaptureSettings> rows) => (this.rows, this.key) = (rows);
 
     internal static Fin<TOut> Bracket<TOut>(Seq<ViewCaptureSettings> rows, Func<PreparedCapture, Fin<TOut>> body) =>
-        Lease<PreparedCapture>.Acquire(mint: () => new PreparedCapture(rows: rows, key: key))
+        Lease<PreparedCapture>.Acquire(mint: () => new PreparedCapture(rows: rows))
             .Bind(window => window.Use(body: body));
 
     internal Fin<TOut> Use<TOut>(Func<Seq<ViewCaptureSettings>, Fin<TOut>> body) =>
@@ -1355,16 +1355,15 @@ public static class Captures {
                 recordsUndo: true,
                 redraw: RedrawPolicy.None,
                 run: () =>
-                    from viewport in adopt.Spec.Target.ResolveViewport(document: ctx, key: ctx.Op)
-                    from native in Lease<AnimationProperties>.Acquire(mint: () => ctx.AnimationProperties, key: ctx.Op)
+                    from viewport in adopt.Spec.Target.ResolveViewport(document: ctx)
+                    from native in Lease<AnimationProperties>.Acquire(mint: () => ctx.AnimationProperties)
                     from _commit in native.Use(
                         body: held => Try.lift(() => {
                             _ = adopt.Spec.Seat(native: held, viewport: viewport);
                             ctx.AnimationProperties = held;
                             return Fin.Succ(value: unit);
-                        }).Run().Bind(static inner => inner),
-                        key: ctx.Op)
-                    from outcome in Read(document: ctx, key: ctx.Op)
+                        }).Run().Bind(static inner => inner))
+                    from outcome in Read(document: ctx)
                     select outcome,
                 stamp: static (outcome, serial) => outcome.Stamp(undoRecord: serial),
                 project: static outcome => Fin.Succ((CaptureArtifact)new CaptureArtifact.SequenceCase(Outcome: outcome))));

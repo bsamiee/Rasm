@@ -247,7 +247,7 @@ public static class SchedulePort {
 
     static Fin<Seq<Instant>> Bounded(string key, int bound, IEnumerable<Instant> occurrences) =>
         toSeq(occurrences.Take(bound + 1)).Strict() switch {
-            var taken when taken.Count > bound => Fin.Fail<Seq<Instant>>(new TimeFault.WindowExhausted(Key: key, Bound: bound)),
+            var taken when taken.Count > bound => Fin.Fail<Seq<Instant>>(new TimeFault.WindowExhausted(Bound: bound)),
             var taken => Fin.Succ(taken),
         };
 

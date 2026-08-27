@@ -391,9 +391,9 @@ public abstract partial record DimOp {
                 select unit)
             select unit,
         adjust: static (ctx, edit) => Amended(ctx, edit.Target,
-            (dimension, key) => edit.Fit.Apply(geometry: dimension, op: key)),
+            (dimension, key) => edit.Fit.Apply(geometry: dimension)),
         repose: static (ctx, edit) => Amended(ctx, edit.Target,
-            (dimension, key) => edit.Pose.Apply(geometry: dimension, key: key)),
+            (dimension, key) => edit.Pose.Apply(geometry: dimension)),
         restate: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => dimension.UpdateDimensionText(
                 dimension.DimensionStyle,
@@ -401,7 +401,7 @@ public abstract partial record DimOp {
         redisplay: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => Try.lift(() => Fin.Succ(value: edit.Channel.Apply(dimension, edit.Display.Host))).Run().Bind(static inner => inner)),
         style: static (ctx, edit) => Amended(ctx, edit.Target,
-            (dimension, key) => edit.Edit.Apply(annotation: dimension, op: key)));
+            (dimension, key) => edit.Edit.Apply(annotation: dimension)));
 
     private static Fin<Unit> Amended(
         RhinoDoc document,
@@ -416,13 +416,13 @@ public abstract partial record DimOp {
 public static class Dimensions {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<DimOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document, op: key),
+            apply: static (document, operation, key) => operation.Apply(document: document),
             op: Op.Of(name: nameof(Dimensions)));
 
     public static Fin<DimAnswer> Ask(DocumentSession session, DimAsk request) {
         return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
 }

@@ -804,7 +804,7 @@ public static class Archives {
                 from outcome in other.Lease.Use(
                     body: otherArchive =>
                         from otherBytes in ArchiveBytes(archive: otherArchive, policy: ArchiveWritePolicy.Current)
-                        from otherGraph in Graph(archive: otherArchive, op: ctx.Op)
+                        from otherGraph in Graph(archive: otherArchive)
                         select ArchiveOutcome.Of(
                             yield: new ArchiveYield.DeltaCase(Delta: ArchiveDelta.Of(
                                 sourceKey: ContentHash.Of(canonicalBytes: sourceBytes),
@@ -859,7 +859,7 @@ public static class Archives {
                         error: ExchangeFault.Host(member: nameof(File3dm.WriteWithLog), log: native));
             }).Run().Bind(static inner => inner)
             select written,
-        validate: Some<Func<byte[], Fin<Unit>>>(bytes => ValidateArchiveBytes(bytes: bytes, op: op)));
+        validate: Some<Func<byte[], Fin<Unit>>>(bytes => ValidateArchiveBytes(bytes: bytes)));
 
     private static Seq<ExchangeEvidence> Committed(string surface) =>
         Seq<ExchangeEvidence>(new ExchangeEvidence.MutationCase(

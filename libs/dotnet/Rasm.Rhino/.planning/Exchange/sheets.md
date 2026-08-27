@@ -1097,7 +1097,7 @@ public static class Sheets {
                 from units in ModelUnit.Of(value: ctx.PageUnits)
                 from field in DetailArrangement.Field(size: edit.Size, orientation: edit.Orientation, units: units)
                 from _changes in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (_, detail, index, count) =>
-                    from current in DetailState.DetailFrameOf(detail: detail, op: ctx.Op)
+                    from current in DetailState.DetailFrameOf(detail: detail)
                     from _frame in edit.Arrangement.Frame(context: new LayoutContext(
                         Current: current, Field: field.Field, Zones: field.Zones,
                         Anchor: edit.Anchor, Offset: edit.Offset, Index: index, Count: count))
@@ -1273,7 +1273,7 @@ public static class Sheets {
                 from units in ModelUnit.Of(value: ctx.PageUnits)
                 from field in DetailArrangement.Field(size: edit.Size, orientation: edit.Orientation, units: units)
                 from _rows in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (page, detail, index, count) =>
-                    from current in DetailState.DetailFrameOf(detail: detail, op: ctx.Op)
+                    from current in DetailState.DetailFrameOf(detail: detail)
                     from frame in edit.Arrangement.Frame(context: new LayoutContext(
                         Current: current, Field: field.Field, Zones: field.Zones,
                         Anchor: edit.Anchor, Offset: edit.Offset, Index: index, Count: count))

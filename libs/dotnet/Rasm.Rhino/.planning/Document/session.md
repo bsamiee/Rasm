@@ -893,7 +893,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                from session in Marshalled(
                    mode: admission.Second,
                    use: () =>
-                       from acquired in admission.First.Acquire(mode: admission.Second, key: op)
+                       from acquired in admission.First.Acquire(mode: admission.Second)
                        from adopted in Adopt(
                            acquired: acquired,
                            lane: admission.Second,
@@ -904,7 +904,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
 
     public Fin<SessionSnapshot> Snapshot() {
         return Demand(
-            use: document => SessionSnapshot.Of(document: document, key: op),
+            use: document => SessionSnapshot.Of(document: document),
             needs: [SessionNeed.Observe]);
     }
 
@@ -949,7 +949,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         return Demand(
             use: document => {
                 document.TimeoutActiveGet();
-                return SessionSnapshot.Of(document: document, key: op);
+                return SessionSnapshot.Of(document: document);
             },
             needs: [SessionNeed.Interrupt]);
     }
@@ -1397,7 +1397,7 @@ public static class SessionRegimes {
         public Fin<UnitRegime> Regime(DocumentSpace space) {
             return from admission in Admission.Pair(first: session, second: space)
                    from regime in admission.First.Demand(
-                       use: document => admission.Second.Read(document: document, op: op),
+                       use: document => admission.Second.Read(document: document),
                        needs: [SessionNeed.Read])
                    select regime;
         }
@@ -1422,14 +1422,14 @@ public static class SessionRegimes {
                            recordsUndo: true,
                            redraw: RedrawPolicy.None,
                            run: () =>
-                               from before in admission.Axis.Read(document: document, op: op)
+                               from before in admission.Axis.Read(document: document)
                                from applied in admission.Request.Apply(
                                    document: document,
                                    space: admission.Axis,
                                    before: before)
                                from after in (
-                                   from observed in admission.Axis.Read(document: document, op: op)
-                                   from matches in admission.Request.Matches(actual: observed, op: op)
+                                   from observed in admission.Axis.Read(document: document)
+                                   from matches in admission.Request.Matches(actual: observed)
                                    from exact in guard(flag: matches, False: new KernelFault.InvalidResult())
                                    select observed).Rollback(() => admission.Request.Restore(
                                    document: document,

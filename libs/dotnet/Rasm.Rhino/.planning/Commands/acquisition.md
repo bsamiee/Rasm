@@ -603,18 +603,18 @@ public sealed partial class TextMeaning {
             : Fin.Fail<Acquired>(new KernelFault.InvalidInput());
     }).Run().Bind(static inner => inner));
     public static readonly TextMeaning Length = new(key: 2, parse: static (text, document, key) =>
-        from regime in DocumentSpace.Model.Read(document: document, op: key)
-        from encoded in UnitText.Length(text: text, key: key)
-        from crossed in encoded.Cross(regime: regime, key: key)
+        from regime in DocumentSpace.Model.Read(document: document)
+        from encoded in UnitText.Length(text: text)
+        from crossed in encoded.Cross(regime: regime)
         from measured in crossed is UnitText.LengthValueCase value
             ? Fin.Succ<Acquired>(value: new Acquired.Distance(Value: value.Value, Unit: value.Unit))
             : Fin.Fail<Acquired>(error: new KernelFault.InvalidResult())
         select measured);
     public static readonly TextMeaning AngleDegrees = new(key: 3, parse: static (text, _, key) =>
-        AngleGrammar.Degrees.Parse(text: text, op: key)
+        AngleGrammar.Degrees.Parse(text: text)
             .Map(static radians => (Acquired)new Acquired.Angle(Radians: radians)));
     public static readonly TextMeaning AngleRadians = new(key: 4, parse: static (text, _, key) =>
-        AngleGrammar.Radians.Parse(text: text, op: key)
+        AngleGrammar.Radians.Parse(text: text)
             .Map(static radians => (Acquired)new Acquired.Angle(Radians: radians)));
 
     [UseDelegateFromConstructor]
@@ -1116,7 +1116,7 @@ public static class Acquisition {
             target: getter, apply: static (rule, target, k) => rule.Apply(target, k)),
         receive: (getter, _) => Try.lift(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))).Run().Bind(static inner => inner),
         project: (getter, raw) => raw is GetResult.Object
-            ? Picks.CaptureOwned(references: getter.Objects(), key: op)
+            ? Picks.CaptureOwned(references: getter.Objects())
                 .Map(static picked => (Acquired)new Acquired.Objects(Picked: picked))
             : Fin.Fail<Acquired>(new KernelFault.InvalidResult(Detail: Some(raw.ToString()))));
 
@@ -1184,12 +1184,12 @@ public static class Acquisition {
             System.Drawing.Color value = seed;
             Result native = RhinoGet.GetColor(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value);
-            return (native, () => Slots.Shade(color: value, key: held.Op)
+            return (native, () => Slots.Shade(color: value)
                 .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
         })),
         distance: static (held, modal) => ModalResult(() => {
             Result native = RhinoGet.GetDistance(held.Request.Prompt, modal.Seed, out double value);
-            return (native, () => DocumentSpace.Model.Read(document: held.Document, op: held.Op)
+            return (native, () => DocumentSpace.Model.Read(document: held.Document)
                 .Map(regime => (Acquired)new Acquired.Distance(Value: value, Unit: regime.Unit)));
         }),
         shape: static (held, modal) => ModalResult(() => modal.Ask.Run()),

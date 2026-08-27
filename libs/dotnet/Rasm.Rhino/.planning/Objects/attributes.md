@@ -669,7 +669,7 @@ public sealed class AttributeProgram {
 
     internal Fin<Unit> Apply(ObjectAttributes attributes) {
         return from working in Admit.Need(attributes)
-               from _ in Edits.TraverseM(edit => edit.Apply(attributes: working, op: op)).As()
+               from _ in Edits.TraverseM(edit => edit.Apply(attributes: working)).As()
                select unit;
     }
 }
@@ -920,7 +920,7 @@ public static class Attributes {
                        from folded in active.Switch(
                            (Document: document, Natives: natives),
                            stored: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => AttributeSnapshot.Of(attributes: native.Attributes, key: ctx.Op)).As()
+                               .TraverseM(native => AttributeSnapshot.Of(attributes: native.Attributes)).As()
                                .Map(static rows => (AttributeAnswer)new AttributeAnswer.Declared(Rows: rows)),
                            resolved: static (ctx, ask) => ctx.Natives
                                .TraverseM(native => EffectiveDisplay.Of(

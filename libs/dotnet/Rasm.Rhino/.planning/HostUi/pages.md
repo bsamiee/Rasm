@@ -64,8 +64,7 @@ public sealed partial class PageReveal {
     internal partial Fin<Window> Window(OptionsDialogPage page);
 
     private static Func<OptionsDialogPage, Fin<Window>> Refused =>
-        static (_, op) => Fin.Fail<Window>(error: new UiFault.HostRejected(
-            Key: op, Detail: $"{nameof(RhinoEtoApp)} publishes no reveal window for this seat"));
+        static (_, op) => Fin.Fail<Window>(error: new UiFault.HostRejected(Detail: $"{nameof(RhinoEtoApp)} publishes no reveal window for this seat"));
 
     private static Func<OptionsDialogPage, Fin<Window>> Resolved(Func<OptionsDialogPage, Window?> resolve) =>
         (page, op) => Try.lift(() => Optional(resolve(page)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner);
@@ -374,7 +373,7 @@ public sealed class HostPage : IMount, IDisposable {
         return Admit.Need(nav).Bind(_ => HostThread.Run(
             work: new HostWork<Unit>.Execute(Body: () => StackedLeaf
                 .ToFin(Fail: Absent(nameof(StackedDialogPage)))
-                .Bind(page => Within(body: () => nav.Apply(owner: this, page: page), op: op)))));
+                .Bind(page => Within(body: () => nav.Apply(owner: this, page: page))))));
     }
 
     public Fin<Window> Reveal() {
@@ -383,9 +382,8 @@ public sealed class HostPage : IMount, IDisposable {
                 body: () =>
                     from stacked in StackedPlan.ToFin(Fail: new KernelFault.InvalidInput())
                     from page in StackedLeaf.ToFin(Fail: new KernelFault.InvalidResult())
-                    from window in stacked.Reveal.Window(page: page, op: op)
-                    select window,
-                op: op)));
+                    from window in stacked.Reveal.Window(page: page)
+                    select window)));
     }
 
     public Fin<Seq<Guid>> Selection(ObjectKinds filter) {
@@ -395,15 +393,14 @@ public sealed class HostPage : IMount, IDisposable {
                 .Bind(page => Within(
                     body: () => Try.lift(() => Fin.Succ(value: toSeq(page.GetSelectedObjects(filter.Mask))
                         .Map(static item => item.Id)
-                        .Strict())).Run().Bind(static inner => inner),
-                    op: op)))));
+                        .Strict())).Run().Bind(static inner => inner))))));
     }
 
     public Fin<Unit> Modify(Func<Fin<Unit>> change) {
         return Admit.Need(change).Bind(_ => HostThread.Run(
             work: new HostWork<Unit>.Execute(Body: () => PropertiesLeaf
                 .ToFin(Fail: Absent(nameof(ObjectPropertiesPage.ModifyPage)))
-                .Bind(page => Within(body: () => Modified(page: page, change: change), op: op)))));
+                .Bind(page => Within(body: () => Modified(page: page, change: change))))));
     }
 
     private static Fin<Unit> Modified(ObjectPropertiesPage page, Func<Fin<Unit>> change) {
@@ -432,7 +429,7 @@ public sealed class HostPage : IMount, IDisposable {
     internal Fin<Unit> Retain(HostPage child, Action land, Action rollback) => Within(
         body: () => {
             PageOwner owner = new PageOwner.Parent(Value: this);
-            return child.Claim(owner: owner, op: op).Bind(_ => Try.lift(() => Fin.Succ(value: HostEdge.Side(land))).Run().Bind(static inner => inner)
+            return child.Claim(owner: owner).Bind(_ => Try.lift(() => Fin.Succ(value: HostEdge.Side(land))).Run().Bind(static inner => inner)
                 .Match(
                     Succ: _ => Fin.Succ(value: Track(child)),
                     Fail: primary => Try.lift(() => Fin.Succ(value: (HostEdge.Side(rollback), child.Unclaim(owner)).Item2)).Run().Bind(static inner => inner)
@@ -525,7 +522,7 @@ internal sealed class OptionsLeaf : OptionsDialogPage {
     public override bool OnActivate(bool active) => Answer(new PageSignal.Activated(
         State: active ? PageActivation.Entered : PageActivation.Left)).IsSucc;
     public override Result RunScript(RhinoDoc doc, RunMode mode) =>
-        SessionMode.OfRunMode(mode: mode, key: op).Bind(lane => DocKey.Of(document: doc, key: op)
+        SessionMode.OfRunMode(mode: mode).Bind(lane => DocKey.Of(document: doc)
             .Bind(document => Answer(new PageSignal.Scripted(Document: Some(document), Mode: lane))))
             .Match(Succ: static _ => Result.Success, Fail: static _ => Result.Failure);
     public override void OnDefaults() => ignore(Answer(new PageSignal.Reset()));
@@ -556,7 +553,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
     public override bool OnActivate(bool active) => Answer(new PageSignal.Activated(
         State: active ? PageActivation.Entered : PageActivation.Left)).IsSucc;
     public override Result RunScript(ObjectPropertiesPageEventArgs e) =>
-        SessionMode.OfRunMode(mode: RunMode.Scripted, key: op)
+        SessionMode.OfRunMode(mode: RunMode.Scripted)
             .Bind(mode => Answer(new PageSignal.Scripted(Document: DocumentOf(e), Mode: mode)))
             .Match(Succ: static _ => Result.Success, Fail: static _ => Result.Failure);
     public override bool ShouldDisplay(ObjectPropertiesPageEventArgs e) =>
@@ -676,9 +673,7 @@ public abstract partial record PageNav {
                 select added,
             styled: static (held, nav) =>
                 from platform in HostPlatform.Snapshot()
-                from _ in platform.Row.Filter(Styling.Contains).ToFin(Fail: new UiFault.HostRejected(
-                    Key: held.Op,
-                    Detail: $"{nameof(StackedDialogPage.NavigationTextColor)} is published by "
+                from _ in platform.Row.Filter(Styling.Contains).ToFin(Fail: new UiFault.HostRejected(Detail: $"{nameof(StackedDialogPage.NavigationTextColor)} is published by "
                         + string.Join(", ", Styling.Map(static row => row.Key))))
                 from ink in nav.Style.Color.ToDrawing()
                 select HostEdge.Side(() => {
@@ -785,8 +780,7 @@ internal sealed class PageMountLease {
 
     private Fin<Unit> Drain(Func<PageRegistration, Fin<Unit>> close) => HostThread.Run(
         work: new HostWork<Unit>.Execute(Body: () => HostThread.Release(
-            releases: registrations.Map(registration => (Func<Fin<Unit>>)(() => close(registration))),
-            key: op)));
+            releases: registrations.Map(registration => (Func<Fin<Unit>>)(() => close(registration))))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

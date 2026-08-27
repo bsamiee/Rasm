@@ -409,8 +409,7 @@ public abstract partial record BlockOp {
                             description: edit.Metadata.Description,
                             basePoint: edit.BasePoint,
                             geometry: geometry,
-                            attributes: attributes)),
-                    key: context.Op)).Run().Bind(static inner => inner)
+                            attributes: attributes)))).Run().Bind(static inner => inner)
                 select unit);
 
     private static Fin<Unit> Place(Transform motion, Func<Guid> add) =>
@@ -616,7 +615,7 @@ public sealed partial class BlockTransaction {
     public static Fin<BlockTransaction> Batch(string name, RedrawPolicy redraw, params ReadOnlySpan<BlockOp> operations) {
         return from admitted in Acceptance.Text(value: name)
                from policy in Admit.Need(redraw)
-               from program in Admission.All(values: operations, key: op)
+               from program in Admission.All(values: operations)
                from plan in FactoryBridge.Accept<BlockTransaction>(
                    fault: Validate(admitted, program, policy, out BlockTransaction? built),
                    admitted: built)
@@ -653,10 +652,10 @@ public static class Blocks {
                            select (BlockAnswer)new BlockAnswer.Dependency(Measure: measure),
                        preview: static (ctx, ask) =>
                            from definition in Definitions.Resolve(target: ask.Target, document: ctx)
-                           from bitmap in ask.Spec.Render(definition: definition, key: ctx.Op)
+                           from bitmap in ask.Spec.Render(definition: definition)
                            select (BlockAnswer)new BlockAnswer.Rendered(
                                Preview: new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap)),
-                       fields: static (ctx, ask) => ask.Source.Read(document: ctx, op: ctx.Op),
+                       fields: static (ctx, ask) => ask.Source.Read(document: ctx),
                        mintName: static (ctx, ask) =>
                            from minted in Try.lift(() => Acceptance.Text(value: ask.Root.Match(
                                Some: root => ctx.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: root.Value),

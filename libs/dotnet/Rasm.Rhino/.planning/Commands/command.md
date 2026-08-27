@@ -288,7 +288,7 @@ public sealed record CommandFlow<TState> {
 
 `RasmCommand<TSelf,TState>` owns the only `Command` derivation. Session admission, deterministic release, flow execution, and native projection occur in the sealed callback; replay never escapes its host-owned callback window.
 
-Both host overrides collapse a typed result into a bare native verdict, so both persist the `Error` into `CommandFaults` before the scalar returns — the console line is a presentation leg, never the sink. The site is recoverable from the error itself, because each override mints its `Op` with its own name, so the ledger needs no parallel site column. `Commands` is S1 and the `ObjectsTelemetry` egress is S2, so publishing there is the forbidden upward edge; the process-local cell is the S1 evidence surface, and a consumer above the boundary reads it.
+Both host overrides collapse a typed result into a bare native verdict, so both persist the `Error` into `CommandFaults` before the scalar returns — the console line is a presentation leg, never the sink. The site is recoverable from the error itself, because each override names itself, so the ledger needs no parallel site column. `Commands` is S1 and the `ObjectsTelemetry` egress is S2, so publishing there is the forbidden upward edge; the process-local cell is the S1 evidence surface, and a consumer above the boundary reads it.
 
 - Law: `CommandFaults` is a LEDGER declaration, not a fault family and not a factory — it holds one `Ring<Error>` under a declared retention row and one `Refused` sink, mints no case, takes no message string, and classifies nothing. It belongs to this package's `<Surface>Faults` ledger family beside `PluginFaults`, `ShellFaults`, and `DisplayFaults`, so renaming it alone forks four consistent declarations into three plus one. The near-collision with `Rasm.AppHost`'s `CommandFault` union is not one: that family sits at a stratum this package cannot reference, and the branch row rules a referencing package's own EVIDENCE and REFUSAL types, which is what this static holder is not. A suffix sweep converting it destroys a real retention surface and reaches no untyped producer.
 - Law: the process ledger IS the kernel ring. A cap, oldest-first eviction, and a shed counter were this page's hand `FaultLedger` — the kernel `Ring<Error>` is that shape once for the solution, its `Park` verdict is COUNTED (`Lost`) rather than discarded, and the capacity is a named policy row instead of a buried literal. The per-observer twin deletes with the observer plumbing (`[05]`).
@@ -321,7 +321,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
             from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
             from policy in Admit.Need(Policy)
             from flow in Flow
-            from lane in SessionMode.OfRunMode(mode: mode, key: op)
+            from lane in SessionMode.OfRunMode(mode: mode)
             from session in DocumentSession.Of(source: new SessionSource.Live(Document: doc), mode: lane, needs: policy.Needs.ToArray())
             from verdict in Try.lift(() => {
                 using DocumentSession active = session;
@@ -648,7 +648,7 @@ public static class Scripting {
                            from name in Acceptance.Text(value: run.CommandName)
                            from _ in guard(Command.IsCommand(name: name), new KernelFault.InvalidInput(Axis: Some(nameof(Named.CommandName))))
                            from native in Try.lift(() => Fin.Succ(value: RhinoApp.ExecuteCommand(document: held.Document, commandName: name))).Run().Bind(static inner => inner)
-                           from result in CommandVerdict.OfNative(result: native, key: held.Op)
+                           from result in CommandVerdict.OfNative(result: native)
                            select result),
                    needs: [SessionNeed.Acquire])
                select verdict;
@@ -666,7 +666,7 @@ public static class Scripting {
                from dispatched in target.Demand(
                    use: document => Try.lift(() => {
                        Command.RunProxyCommand(
-                           commandCallback: (_, mode, _) => SessionMode.OfRunMode(mode: mode, key: op)
+                           commandCallback: (_, mode, _) => SessionMode.OfRunMode(mode: mode)
                                .Bind(lane => run(arg1: target, arg2: lane, arg3: data))
                                .Match(
                                    Succ: static verdict => verdict.Native,

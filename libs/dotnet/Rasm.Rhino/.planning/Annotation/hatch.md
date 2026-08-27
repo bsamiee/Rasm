@@ -111,7 +111,7 @@ public sealed partial class PatternDef {
     internal Fin<HatchPattern> Mint() =>
         from pattern in Try.lift(() => Fin.Succ(value: new HatchPattern())).Run().Bind(static inner => inner)
         from _ in Apply(pattern: pattern)
-            .Rollback(release: () => Custody.Dispose(held: Seq(pattern), key: key))
+            .Rollback(release: () => Custody.Dispose(held: Seq(pattern)))
         select pattern;
 
     internal Fin<Unit> Apply(HatchPattern pattern) =>
@@ -284,7 +284,7 @@ public abstract partial record HatchSpec {
         from hatches in Switch(
             (Document: document, Index: pattern.Index, Placement: placement),
             bounded: static (context, spec) => spec.Outer.Typed<Curve, Seq<Hatch>>(project: outer =>
-                spec.Holes.Typed<Curve, Seq<Hatch>>(key: context.Op, project: holes =>
+                spec.Holes.Typed<Curve, Seq<Hatch>>(project: holes =>
                     from _ in Acceptance.Rows(spec.Plane)
                     from __ in Area(document: context.Document, curves: Seq(outer) + holes)
                     from made in Try.lift(() => Optional(Hatch.Create(
@@ -374,7 +374,7 @@ public abstract partial record HatchProgram {
         Duplicate: static pattern => new HatchPattern(other: pattern),
         Tags: PatternDef.Surface,
         Mint: static (_, def, key) => def.Mint(),
-        Revise: static (_, copy, def, key) => def.Apply(pattern: copy, key: key),
+        Revise: static (_, copy, def, key) => def.Apply(pattern: copy),
         Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
         Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.HatchPatterns.Modify(
             hatchPattern: copy, hatchPatternIndex: index, quiet: interaction.IsQuiet)),
@@ -392,9 +392,9 @@ public abstract partial record HatchProgram {
                     filename: path.Value, quiet: interaction.IsQuiet))
                 .Map(static patterns => toSeq(patterns).Strict())
                 .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-            from canonical in raw.TraverseM(pattern => PatternDef.Canonical(pattern: pattern, key: key)).As()
-                .Rollback(release: () => Custody.Dispose(held: raw, key: key), key: key)
-            from _ in Custody.Dispose(held: raw, key: key)
+            from canonical in raw.TraverseM(pattern => PatternDef.Canonical(pattern: pattern)).As()
+                .Rollback(release: () => Custody.Dispose(held: raw))
+            from _ in Custody.Dispose(held: raw)
             select canonical,
         Emit: static (path, patterns, key) => Admit.Confirm(success: HatchPattern.WriteToFile(
             filename: path.Value, hatchPatterns: patterns.AsIterable())));
@@ -408,7 +408,7 @@ public abstract partial record HatchProgram {
                 .Find(candidate => string.Equals(candidate.Name, edit.Name.Value, StringComparison.OrdinalIgnoreCase))
                 .ToFin(Fail: new KernelFault.MissingContext())
                 .Bind(source => PatternDef.Read(pattern: source))
-                .Rollback(release: () => Custody.Dispose(held: stock, key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: stock))
             from _ in Custody.Dispose(held: stock)
             from __ in new TableOp<HatchPattern, PatternDef>.Author(Def: definition, Interaction: edit.Interaction)
                 .Apply(grip: Grip, document: context)
@@ -419,7 +419,7 @@ public abstract partial record HatchProgram {
                 target: edit.Target, document: context,
                 interaction: edit.Interaction,
                 revise: (copy, key) =>
-                    from applied in edit.Edits.TraverseM(row => row.Apply(surface: Generators(copy), op: key)).As()
+                    from applied in edit.Edits.TraverseM(row => row.Apply(surface: Generators(copy))).As()
                     from __ in guard(copy.FillType != HatchPatternFillType.Lines || copy.HatchLineCount > 0,
                         new KernelFault.InvalidResult())
                     select unit)
@@ -486,9 +486,9 @@ public abstract partial record HatchProgram {
             from source in Admit.Need(native.Geometry as Hatch)
             from original in Try.lift(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from revised in Try.lift(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-                .Rollback(release: () => Custody.Dispose(held: Seq(original), key: op))
+                .Rollback(release: () => Custody.Dispose(held: Seq(original)))
             from _ in change(revised)
-                .Rollback(release: () => Custody.Dispose(held: Seq(original, revised), key: op))
+                .Rollback(release: () => Custody.Dispose(held: Seq(original, revised)))
             select new HatchRevision(Id: id, Original: original, Revised: revised);
 }
 
@@ -496,13 +496,13 @@ public abstract partial record HatchProgram {
 public static class Hatches {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<HatchProgram> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document, op: key),
+            apply: static (document, operation, key) => operation.Apply(document: document),
             op: Op.Of(name: nameof(Hatches)));
 
     public static Fin<HatchAnswer> Ask(DocumentSession session, HatchAsk request) {
         return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
 }
@@ -582,7 +582,7 @@ public abstract partial record HatchAsk {
         defaults: static (context, _) =>
             from stock in Try.lift(() => Fin.Succ(value: toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict())).Run().Bind(static inner => inner)
             from definitions in stock.TraverseM(pattern => PatternDef.Read(pattern: pattern)).As()
-                .Rollback(release: () => Custody.Dispose(held: stock, key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: stock))
             from _ in Custody.Dispose(held: stock)
             select (HatchAnswer)new HatchAnswer.Definitions(
                 definitions, ResourceIndex.Create(context.HatchPatterns.CurrentHatchPatternIndex)),
@@ -619,7 +619,7 @@ public abstract partial record HatchAsk {
             from bounds in DraftCrossing.Crossed(products: raw.Bounds)
             from solid in raw.Solid
                 .Traverse(brep => DraftCrossing.Crossed(products: Seq(brep))).As()
-                .Rollback(release: () => Custody.Dispose(held: bounds, key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: bounds))
             select (HatchAnswer)new HatchAnswer.Drawable(new HatchDisplay(
                 Bounds: bounds,
                 Lines: raw.Lines,

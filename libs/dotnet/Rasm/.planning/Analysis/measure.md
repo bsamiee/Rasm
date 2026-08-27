@@ -93,28 +93,28 @@ public abstract partial record Measure {
 public sealed partial class MassKind : ICapability<MassKind> {
     public static readonly MassKind Length = new(key: nameof(Length), requirement: Requirement.CurveLength,
         escalation: CapabilitySet<MomentDemand>.Of(MomentDemand.Second), compute: LengthMass, aggregate: LengthBatch,
-        centroidOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Map(static held => held.Centroid),
-        axesOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+        centroidOf: static (handle, key) => Held<LengthMassProperties>(handle: handle).Map(static held => held.Centroid),
+        axesOf: static (handle, key) => Held<LengthMassProperties>(handle: handle).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
             x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis)),
-        momentsOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Map(static held => new MassMoments(
+        momentsOf: static (handle, key) => Held<LengthMassProperties>(handle: handle).Map(static held => new MassMoments(
             Magnitude: held.Length, MagnitudeError: held.LengthError, Centroid: held.Centroid, CentroidError: held.CentroidError,
             Radii: held.CentroidCoordinatesRadiiOfGyration, Inertia: held.WorldCoordinatesMomentsOfInertia, Products: held.WorldCoordinatesProductMoments)));
     public static readonly MassKind Area = new(key: nameof(Area), requirement: Requirement.AreaMass,
         escalation: CapabilitySet<MomentDemand>.None, compute: AreaMass,
         aggregate: static (geometry, context, demands, op) => SumBatch<AreaMassProperties>(geometry: geometry, context: context, compute: AreaMass, demands: demands, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
-        centroidOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Map(static held => held.Centroid),
-        axesOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+        centroidOf: static (handle, key) => Held<AreaMassProperties>(handle: handle).Map(static held => held.Centroid),
+        axesOf: static (handle, key) => Held<AreaMassProperties>(handle: handle).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
             x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis)),
-        momentsOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Map(static held => new MassMoments(
+        momentsOf: static (handle, key) => Held<AreaMassProperties>(handle: handle).Map(static held => new MassMoments(
             Magnitude: held.Area, MagnitudeError: held.AreaError, Centroid: held.Centroid, CentroidError: held.CentroidError,
             Radii: held.CentroidCoordinatesRadiiOfGyration, Inertia: held.WorldCoordinatesMomentsOfInertia, Products: held.WorldCoordinatesProductMoments)));
     public static readonly MassKind Volume = new(key: nameof(Volume), requirement: Requirement.VolumeMass,
         escalation: CapabilitySet<MomentDemand>.None, compute: VolumeMass,
         aggregate: static (geometry, context, demands, op) => SumBatch<VolumeMassProperties>(geometry: geometry, context: context, compute: VolumeMass, demands: demands, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
-        centroidOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Map(static held => held.Centroid),
-        axesOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+        centroidOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle).Map(static held => held.Centroid),
+        axesOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
             x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis)),
-        momentsOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Map(static held => new MassMoments(
+        momentsOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle).Map(static held => new MassMoments(
             Magnitude: held.Volume, MagnitudeError: held.VolumeError, Centroid: held.Centroid, CentroidError: held.CentroidError,
             Radii: held.CentroidCoordinatesRadiiOfGyration, Inertia: held.WorldCoordinatesMomentsOfInertia, Products: held.WorldCoordinatesProductMoments)));
     internal Requirement Requirement { get; }
@@ -251,28 +251,28 @@ public sealed partial class MassKind : ICapability<MassKind> {
 public sealed partial class MassProperty {
     public static readonly MassProperty Magnitude = new(key: nameof(Magnitude), output: OutputBinding.Of<double>(),
         baseDemands: CapabilitySet<MomentDemand>.None, escalates: CapabilitySet<MomentDemand>.None,
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.Magnitude)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.Magnitude)));
     public static readonly MassProperty MagnitudeError = new(key: nameof(MagnitudeError), output: OutputBinding.Of<double>(),
         baseDemands: CapabilitySet<MomentDemand>.None, escalates: CapabilitySet<MomentDemand>.Of(MomentDemand.Second),
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.MagnitudeError)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.MagnitudeError)));
     public static readonly MassProperty Centroid = new(key: nameof(Centroid), output: OutputBinding.Of<Point3d>(),
         baseDemands: CapabilitySet<MomentDemand>.Of(MomentDemand.First), escalates: CapabilitySet<MomentDemand>.Of(MomentDemand.Second),
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.Centroid)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.Centroid)));
     public static readonly MassProperty CentroidError = new(key: nameof(CentroidError), output: OutputBinding.Of<Vector3d>(),
         baseDemands: CapabilitySet<MomentDemand>.Of(MomentDemand.First), escalates: CapabilitySet<MomentDemand>.Of(MomentDemand.Second),
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.CentroidError)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.CentroidError)));
     public static readonly MassProperty Radii = new(key: nameof(Radii), output: OutputBinding.Of<Vector3d>(),
         baseDemands: CapabilitySet<MomentDemand>.Of(MomentDemand.First, MomentDemand.Second), escalates: CapabilitySet<MomentDemand>.None,
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.Radii)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.Radii)));
     public static readonly MassProperty PrincipalAxes = new(key: nameof(PrincipalAxes), output: OutputBinding.Of<ValueTuple<double, Vector3d>>(),
         baseDemands: CapabilitySet<MomentDemand>.All, escalates: CapabilitySet<MomentDemand>.None,
-        project: static (mass, handle, key) => mass.AxesOf(handle: handle, key: key).Map(static axes => axes.Map(static axis => (object)axis)));
+        project: static (mass, handle, key) => mass.AxesOf(handle: handle).Map(static axes => axes.Map(static axis => (object)axis)));
     public static readonly MassProperty Inertia = new(key: nameof(Inertia), output: OutputBinding.Of<Vector3d>(),
         baseDemands: CapabilitySet<MomentDemand>.All, escalates: CapabilitySet<MomentDemand>.None,
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.Inertia)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.Inertia)));
     public static readonly MassProperty InertiaProducts = new(key: nameof(InertiaProducts), output: OutputBinding.Of<Vector3d>(),
         baseDemands: CapabilitySet<MomentDemand>.All, escalates: CapabilitySet<MomentDemand>.None,
-        project: static (mass, handle, key) => mass.MomentsOf(handle: handle, key: key).Map(static moments => Seq((object)moments.Products)));
+        project: static (mass, handle, key) => mass.MomentsOf(handle: handle).Map(static moments => Seq((object)moments.Products)));
     public OutputBinding Output { get; }
     internal CapabilitySet<MomentDemand> BaseDemands { get; }
     internal CapabilitySet<MomentDemand> Escalates { get; }
@@ -346,7 +346,7 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
 
 - Owner: `Bounds` `[Union]` closes four modality clusters — box recovery, box projections, box metrics through one `Metric` builder, and enclosing solids — over one `Admit` gate each arm feeds its own case token and ingress predicate, one sampling fold, and one generic `RitterFit` parameterized by the constructed solid. `CornerSet` carries the corner-read law as rows, and an enclosing case's `Option<CornerSet> Fallback` is the whole statement of whether and how an unsupported sampling degrades to the box corners — the case is constructed directly, its two optional slots defaulting to absence.
 - Cases: box recovery `AxisAligned`/`Oriented`/`Transformed`/`Principal`, projections `Center`/`Corners`/`Edges`, metrics `Area`/`Volume`/`Diagonal`/`AspectRatio`/`Tightness`, and enclosing solids `EnclosingSphere`/`EnclosingCircle`/`EnclosingCylinder`.
-- Entry: `Bounds.Operation<TGeometry, TOut>()` — one generated `Switch` whose every arm hands `Admit` its own `nameof` case token and ingress predicate; the `Op` key derives from that token with the `Case` suffix dropped, the ingress refuses onto `KernelFault.Unsupported` at build time, and the output type admits at the `As` lift alone, so no roster mirrors the cases.
+- Entry: `Bounds.Operation<TGeometry, TOut>()` — one generated `Switch` whose every arm hands `Admit` its own `nameof` case token and ingress predicate, the ingress refuses onto `KernelFault.Unsupported` at build time, and the output type admits at the `As` lift alone, so no roster mirrors the cases.
 - Auto: `Enclosing` samples the surface through `Domain/evaluation`'s `Evaluate` verb and, on `KernelFault.Unsupported` alone, reads the box corners through the case's `Fallback` row where one is present — an absent fallback re-raises the refusal; an absent budget derives off the chord lane against the bound diagonal; `RitterFit` is one generic two-pass fold shared verbatim by sphere and cylinder-disc; the cylinder admits its axis through `Numerics/atoms` `Direction.Of` and folds the exact axial extent, and the enclosing circle delegates to the host exact smallest-enclosing-circle in the projection plane.
 - Packages: RhinoCommon box accessors, oriented capture, and `Circle.TrySmallestEnclosingCircle`; `Rasm.Domain` `BoundsOf`/`Evaluate` entries, `ToleranceLane` rows, and `Capability` rows; `Rasm.Numerics` `Direction.Of` axis admission.
 - Growth: a new box metric is one `Metric` arm, a new enclosing solid composes the same sampling and fit machinery, a new recovery frame one case arm, a new corner posture one `CornerSet` row — never a `BoundsCalculator` sibling.
@@ -643,11 +643,11 @@ public sealed partial class ConformanceMetric {
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Band: d.Band))))))),
             (object curveLike, _) when Capability.CurveForm.Admits(type: curveLike.GetType()) =>
                 Normalization.CurveForm(source: curveLike).Bind(lease => lease.Use(curve => Residuals(curve, target, count, context, cancel,
-                    sampler: static (c, n, ctx, op) => c.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: n), Model: ctx), key: op),
+                    sampler: static (c, n, ctx, op) => c.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: n), Model: ctx)),
                     distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model)))),
             (object surfaceLike, _) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
                 Normalization.SurfaceForm(source: surfaceLike).Bind(lease => lease.Use(surface => Residuals(surface, target, count, context, cancel,
-                    sampler: static (s, n, ctx, op) => s.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: n), Model: ctx), key: op),
+                    sampler: static (s, n, ctx, op) => s.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: n), Model: ctx)),
                     distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model)))),
             _ => Fin.Fail<Seq<ResidualSample>>(new KernelFault.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };

@@ -127,7 +127,7 @@ public sealed class GeometryHandle : IDisposable {
                from domain in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
                from result in With(project: geometry => Analyze.In(context: domain)
                        .Run(
-                           operation: Analyze.Query<GeometryBase, TOut>(query: AnalysisQuery.Bounds(query: query), key: op),
+                           operation: Analyze.Query<GeometryBase, TOut>(query: AnalysisQuery.Bounds(query: query)),
                            input: geometry)
                        .ToFin())
                select result;
@@ -139,7 +139,7 @@ public sealed class GeometryHandle : IDisposable {
                 state,
                 held => held.Release is HandleRelease.Released && held.Pending.IsEmpty
                     ? Option<HandleState>.None
-                    : Some(Settled(held: held, key: op)),
+                    : Some(Settled(held: held)),
                 new KernelFault.InvalidResult()));
         }
     }
@@ -595,7 +595,7 @@ public abstract partial record TagOp {
     internal static HashMap<string, string> Snapshot(System.Collections.Specialized.NameValueCollection native) =>
         toSeq(native.AllKeys)
             .Choose(name => Optional(name).Bind(key => Optional(native[key]).Map(value => (Key: key, Value: value))))
-            .Fold(HashMap<string, string>(), static (map, pair) => map.AddOrUpdate(key: pair.Key, value: pair.Value));
+            .Fold(HashMap<string, string>(), static (map, pair) => map.AddOrUpdate(value: pair.Value));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -787,7 +787,7 @@ public abstract partial record ViewportOp {
     public static Fin<Seq<Guid>> Proven(RhinoDoc document, params ReadOnlySpan<ViewportTarget> targets) {
         return toSeq(targets.ToArray())
             .Traverse(target => Admit.Need(target)
-                .Bind(address => address.ResolveViewport(document: document, key: op))
+                .Bind(address => address.ResolveViewport(document: document))
                 .Map(static viewport => viewport.Id)
                 .ToValidation())
             .As()

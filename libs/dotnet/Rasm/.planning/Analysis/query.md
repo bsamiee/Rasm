@@ -2,7 +2,7 @@
 
 `AnalysisQuery` `[Union]` is the kernel's one public request algebra, `AnalysisVerb` its executable roster, and `Analyze` its execution facade — the measured-query runtime every host consumer enters. Call arity is recovered from the case through the `Single`/`Pair`/`Service` dispatchers reading the arity floor it realizes, never a name suffix, a verb sibling, or a mode knob, and the geometry band absorbs the geometry-request vocabulary as first-class cases: a second request ADT re-dispatched through a mapping switch into the same operations is the killed form, and a factory forwarding to another factory in two hops resolves in one instead. `Analyze.From(RhinoDoc)` is the surface's one doc-coupled adapter.
 
-`Analyze` is ONE class on this page, not a facade fragmented across five: `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` publish their operation builders on their OWN owners — `Measure`, `Bounds`, `ConformanceMetric`, `Topologies`, `Meshes`, `Curves`, `Faces`, `Points`, `Relations` — and this page reaches them through the union's arity dispatch alone. `Operation<TGeometry, TOut>` carries the effect algebra over `Eff<Env, _>`, threading `Op` as the value key while `Env` holds the ambient runtime from `Domain/results`; acceptance delegates to the one `Domain/validation` oracle `Acceptance.Value`, and the host re-enters against frozen spellings a rename breaks.
+`Analyze` is ONE class on this page, not a facade fragmented across five: `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` publish their operation builders on their OWN owners — `Measure`, `Bounds`, `ConformanceMetric`, `Topologies`, `Meshes`, `Curves`, `Faces`, `Points`, `Relations` — and this page reaches them through the union's arity dispatch alone. `Operation<TGeometry, TOut>` carries the effect algebra over `Eff<Env, _>` while `Env` holds the ambient runtime from `Domain/results`; acceptance delegates to the one `Domain/validation` oracle `Acceptance.Value`, and the host re-enters against frozen spellings a rename breaks.
 
 ## [01]-[INDEX]
 
@@ -140,8 +140,8 @@ public abstract partial record AnalysisQuery {
                 ? Operation<TGeometry, TOut>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: key,
                     evaluator: static (op, geometry) =>
                         from context in Env.Asks
-                        from value in geometry.CoerceTo<TOut>(context: context, key: op).ToEff()
-                        from admitted in AnalysisOutput<TOut>.Project(key: op, values: Seq(value)).ToEff()
+                        from value in geometry.CoerceTo<TOut>(context: context).ToEff()
+                        from admitted in AnalysisOutput<TOut>.Project(values: Seq(value)).ToEff()
                         select admitted)
                 : new KernelFault.Unsupported();
     }
@@ -151,8 +151,8 @@ public abstract partial record AnalysisQuery {
             Operation<TGeometry, Rasm.Domain.CurveForm>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from form in Normalization.CurveForm(source: geometry, key: op).Map(lease => lease.Use(curve => Normalization.CurveFormOf(curve: curve, context: context))).ToEff()
-                    from admitted in AnalysisOutput<Rasm.Domain.CurveForm>.Project(key: op, values: Seq(form)).ToEff()
+                    from form in Normalization.CurveForm(source: geometry).Map(lease => lease.Use(curve => Normalization.CurveFormOf(curve: curve, context: context))).ToEff()
+                    from admitted in AnalysisOutput<Rasm.Domain.CurveForm>.Project(values: Seq(form)).ToEff()
                     select admitted)
                 .As<TGeometry, TOut>();
     }
@@ -161,8 +161,8 @@ public abstract partial record AnalysisQuery {
         Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
             Operation<TGeometry, Point3d>.Build(state: key,
                 evaluator: static (op, geometry) =>
-                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: op).ToEff()
-                    from admitted in AnalysisOutput<Point3d>.Project(key: op, values: points).ToEff()
+                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices()).ToEff()
+                    from admitted in AnalysisOutput<Point3d>.Project(values: points).ToEff()
                     select admitted)
                 .As<TGeometry, TOut>();
     }
@@ -172,8 +172,8 @@ public abstract partial record AnalysisQuery {
             Operation<TGeometry, Point3d>.Build(requiresContext: true, state: (Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: state.Count, Model: context), key: state.Key).ToEff()
-                    from admitted in AnalysisOutput<Point3d>.Project(key: state.Key, values: points).ToEff()
+                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: state.Count, Model: context)).ToEff()
+                    from admitted in AnalysisOutput<Point3d>.Project(values: points).ToEff()
                     select admitted)
                 .As<TGeometry, TOut>();
     }
@@ -183,8 +183,8 @@ public abstract partial record AnalysisQuery {
             Operation<TGeometry, Point2d>.Build(requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true, state: (Uv),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from result in Normalization.SurfaceForm(source: geometry, key: state.Key).Bind(lease => lease.Use(surface => Evaluation.SurfaceUv(surface: surface, uv: state.Uv, context: context))).ToEff()
-                    from admitted in AnalysisOutput<Point2d>.Project(key: state.Key, values: Seq(result)).ToEff()
+                    from result in Normalization.SurfaceForm(source: geometry).Bind(lease => lease.Use(surface => Evaluation.SurfaceUv(surface: surface, uv: state.Uv, context: context))).ToEff()
+                    from admitted in AnalysisOutput<Point2d>.Project(values: Seq(result)).ToEff()
                     select admitted)
                 .As<TGeometry, TOut>();
     }
@@ -193,8 +193,8 @@ public abstract partial record AnalysisQuery {
         Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
             Operation<TGeometry, ClosestHit>.Build(state: (Target),
                 evaluator: static (state, geometry) =>
-                    from hit in geometry.Evaluate<ClosestHit>(request: new EvaluationRequest.Closest(Target: state.Target), key: state.Key).ToEff()
-                    from admitted in AnalysisOutput<ClosestHit>.Project(key: state.Key, values: Seq(hit)).ToEff()
+                    from hit in geometry.Evaluate<ClosestHit>(request: new EvaluationRequest.Closest(Target: state.Target)).ToEff()
+                    from admitted in AnalysisOutput<ClosestHit>.Project(values: Seq(hit)).ToEff()
                     select admitted)
                 .As<TGeometry, TOut>();
     }
@@ -203,8 +203,8 @@ public abstract partial record AnalysisQuery {
         Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
             Operation<TGeometry, double>.Build(state: (Sample),
                 evaluator: static (state, geometry) =>
-                    from distance in geometry.Evaluate<double>(request: new EvaluationRequest.Signed(Sample: state.Sample), key: state.Key).ToEff()
-                    from admitted in AnalysisOutput<double>.Project(key: state.Key, values: Seq(distance)).ToEff()
+                    from distance in geometry.Evaluate<double>(request: new EvaluationRequest.Signed(Sample: state.Sample)).ToEff()
+                    from admitted in AnalysisOutput<double>.Project(values: Seq(distance)).ToEff()
                     select admitted)
                 .As<TGeometry, TOut>();
     }
@@ -295,7 +295,7 @@ public abstract partial record AnalysisQuery {
     public sealed record PointPairsCase(Seq<Point3d> Points, Seq<Point3d> Needles, NeighborQuery Probe) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.PointPairs;
         Operation<Unit, TOut> IServiceQuery.Build<TOut>() =>
-            Search<TOut>(resolve: op => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: Points), key: op), query: new NeighborQuery.PairsCase(Needles: Needles, Probe: Probe), anchor: Point3d.Origin);
+            Search<TOut>(resolve: op => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: Points)), query: new NeighborQuery.PairsCase(Needles: Needles, Probe: Probe), anchor: Point3d.Origin);
     }
 
     // --- [FACTORIES]
@@ -329,7 +329,7 @@ public abstract partial record AnalysisQuery {
             from runtime in Env.EnvAsks
             from index in state.Resolve(state.Key).ToEff()
             from answer in index.Query(query: state.Query, anchor: state.Anchor, cancel: runtime.Cancellation).ToEff()
-            from projected in Project<TOut>(answer: answer, key: state.Key).ToEff()
+            from projected in Project<TOut>(answer: answer).ToEff()
             select projected);
     private static Fin<Seq<TOut>> Project<TOut>(NeighborAnswer answer) => answer.Switch(
         state: key,

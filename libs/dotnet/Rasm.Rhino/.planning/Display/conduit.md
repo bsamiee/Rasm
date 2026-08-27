@@ -490,8 +490,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
         releases: Seq<Func<Fin<Unit>>>(
             () => Try.lift(() => { Enabled = false; return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
             () => Try.lift(() => { UnbindAll(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
-            () => sprites.Release()),
-        key: key);
+            () => sprites.Release()));
 }
 
 internal static class PipelineScope {
@@ -577,7 +576,7 @@ public static class ConduitHooks {
     }
 
     public static Fin<Unit> Release(PluginKey plugin) =>
-        MountRegistry.Release(scope: plugin, key: key.OrDefault());
+        MountRegistry.Release(scope: plugin);
 }
 ```
 
@@ -715,9 +714,9 @@ internal sealed class AnalysisOverlay : AnalysisMode {
 
     private Fin<Unit> Paint(Mesh mesh, AnalysisLaw held, Context context) =>
         from samples in Analyze.In(context: context)
-            .Run(operation: Analyze.Query<Mesh, MeshMetricSample>(query: held.Query, key: key), input: mesh)
+            .Run(operation: Analyze.Query<Mesh, MeshMetricSample>(query: held.Query), input: mesh)
             .ToFin()
-        from band in held.Scale.Band(values: samples.Map(static row => row.Value).Strict(), key: key)
+        from band in held.Scale.Band(values: samples.Map(static row => row.Value).Strict())
         from cold in held.Cold.ToDrawing()
         from _sized in Try.lift(() => Fin.Succ((HostEdge.Side(() => {
             mesh.VertexColors.Clear();
@@ -828,8 +827,7 @@ public sealed class RetainedOverlay : IDisposable {
             _ = Custody.Release(
                     releases: Seq<Func<Fin<Unit>>>(
                         () => Try.lift(() => { display.Clear(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
-                        () => Try.lift(() => { display.Dispose(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)),
-                    key: key)
+                        () => Try.lift(() => { display.Dispose(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)))
                 .IfFail(cause => {
                     released = false;
                     _ = faults.Park(point: HookPoint, cause: cause);

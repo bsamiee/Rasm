@@ -110,8 +110,8 @@ public sealed class ViewportLease : IDetachedDocumentResult {
         UiThread.Run(
             new UiDispatch<Seq<TOut>>.Blocking(() => session.Demand(
                 use: document =>
-                    from rows in target.Resolve(document: document, key: key)
-                    from _ in cardinality.Admit(count: rows.Count, op: key)
+                    from rows in target.Resolve(document: document)
+                    from _ in cardinality.Admit(count: rows.Count)
                     from outputs in mode.Suppress(count: rows.Count)
                         ? Suppressed(document: document, rows: rows, borrow: borrow)
                         : rows.TraverseM(row => Capture(document: document, row: row, borrow: borrow)).As()
@@ -181,7 +181,7 @@ public sealed partial class ProjectionKind {
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, LensAngle Angle, ProjectionKind Projection) {
     public static Fin<CameraPose> Of(VectorFrame frame, Point3d target, LensAngle angle, ProjectionKind projection) =>
-        Admit(pose: new CameraPose(Frame: frame, Target: target, Angle: angle, Projection: projection), key: key.OrDefault());
+        Admit(pose: new CameraPose(Frame: frame, Target: target, Angle: angle, Projection: projection));
 
     internal static Fin<CameraPose> Admit(CameraPose pose) =>
         from _frame in guard(pose.Frame.Value.IsValid, new KernelFault.InvalidInput()).ToFin()
@@ -271,7 +271,7 @@ public abstract partial record SpatialProbe {
             atPoint: static (ctx, probe) => Extent(hit: ctx.GetDepth(point: probe.Value, distance: out double at), near: at, far: at),
             ofBounds: static (ctx, probe) => Extent(hit: ctx.GetDepth(bbox: probe.Value, nearDistance: out double near, farDistance: out double far), near: near, far: far),
             ofSphere: static (ctx, probe) => Extent(hit: ctx.GetDepth(sphere: probe.Value, nearDistance: out double near, farDistance: out double far), near: near, far: far),
-            ofGeometry: static (ctx, probe) => Bounds(geometry: probe.Value, key: ctx.Op)
+            ofGeometry: static (ctx, probe) => Bounds(geometry: probe.Value)
                 .Bind(bounds => Extent(hit: ctx.GetDepth(bbox: bounds, nearDistance: out double near, farDistance: out double far), near: near, far: far)))));
     }
 
@@ -282,7 +282,7 @@ public abstract partial record SpatialProbe {
             atPoint: static (ctx, probe) => guard(probe.Value.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => ctx.IsVisible(point: probe.Value)),
             ofBounds: static (ctx, probe) => guard(probe.Value.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => ctx.IsVisible(bbox: probe.Value)),
             ofSphere: static (ctx, probe) => guard(probe.Value.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => ctx.IsVisible(bbox: probe.Value.BoundingBox)),
-            ofGeometry: static (ctx, probe) => Bounds(geometry: probe.Value, key: ctx.Op).Map(bounds => ctx.IsVisible(bbox: bounds)))));
+            ofGeometry: static (ctx, probe) => Bounds(geometry: probe.Value).Map(bounds => ctx.IsVisible(bbox: bounds)))));
     }
 
     private static Fin<BoundingBox> Bounds(GeometryBase geometry) =>
@@ -362,7 +362,7 @@ public readonly partial struct CameraFrustum {
 
     public static Fin<CameraFrustum> Read(ViewportLease lease) {
         return ViewportLease.Admit(lease: lease)
-            .Bind(owner => owner.Read(project: row => ReadRow(row: row, key: op)));
+            .Bind(owner => owner.Read(project: row => ReadRow(row: row)));
     }
 
     internal static Fin<CameraFrustum> ReadRow(ViewportRef row) =>
@@ -463,7 +463,7 @@ public sealed record CPlaneState(Option<string> Name, Plane Plane, CPlaneGrid Gr
     public static Fin<CPlaneState> Read(ViewportLease lease) {
         return ViewportLease.Admit(lease: lease).Bind(owner => owner.Read(
             project: row => Try.lift(() => Fin.Succ(row.Viewport.GetConstructionPlane())).Run().Bind(static inner => inner)
-                .Bind(cplane => Admitted(cplane: cplane, key: op))));
+                .Bind(cplane => Admitted(cplane: cplane))));
     }
 
     private static Fin<CPlaneState> Admitted(DocObjects.ConstructionPlane cplane) =>
@@ -499,10 +499,10 @@ public abstract partial record DetailLength {
             project: row => row.Detail.ToFin(Fail: new KernelFault.InvalidInput()).Bind(detail => self.Switch(
                 detail,
                 paperCase: static (ctx, length) => ctx.TryGetModelLength(paperLength: (double)length.Value, modelLength: out double value)
-                    ? Model(value: value, key: ctx.Op)
+                    ? Model(value: value)
                     : Fin.Fail<DetailLength>(new KernelFault.InvalidResult()),
                 modelCase: static (ctx, length) => ctx.TryGetPaperLength(modelLength: (double)length.Value, paperLength: out double value)
-                    ? Paper(value: value, key: ctx.Op)
+                    ? Paper(value: value)
                     : Fin.Fail<DetailLength>(new KernelFault.InvalidResult())))));
     }
 }
@@ -524,7 +524,7 @@ public static class ViewTransforms {
             return ViewportLease.Admit(lease: lease).Bind(owner => owner.Read(project: row => row.Info(project: info =>
                 info.GetXform(sourceSystem: mapping.Source, destinationSystem: mapping.Destination) is { IsValid: true } transform
                     ? Fin.Succ(transform)
-                    : Fin.Fail<Transform>(new KernelFault.InvalidResult()), key: op)));
+                    : Fin.Fail<Transform>(new KernelFault.InvalidResult()))));
         }
 
         public Fin<double> PixelScale(Point3d at) {
@@ -579,11 +579,11 @@ public sealed record CameraSnapshot(
             borrow: (document, row) =>
                 from context in Rasm.Domain.Context.Of(doc: document).ToFin()
                 from pose in CameraPose.ReadRow(row: row, context: context)
-                from frustum in CameraFrustum.ReadRow(row: row, key: op)
+                from frustum in CameraFrustum.ReadRow(row: row)
                 from quads in row.Info(project: info =>
                     from near in Quad(info.GetFramePlaneCorners(depth: frustum.Near))
                     from far in Quad(info.GetFramePlaneCorners(depth: frustum.Far))
-                    select (Near: near, Far: far), key: op)
+                    select (Near: near, Far: far))
                 select new CameraSnapshot(Pose: pose, Frustum: frustum, NearQuad: quads.Near, FarQuad: quads.Far, Document: owner.Key, ChangeSerial: row.Viewport.ChangeCounter)));
     }
 

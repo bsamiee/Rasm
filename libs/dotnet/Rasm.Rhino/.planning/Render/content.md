@@ -196,9 +196,9 @@ internal static class Bridge {
 - Owner: `ContentRef` `[Union]` — `ById` over the content instance guid, `AtSlot` over a root guid and a child-slot-name path; one `Resolve` fold answers the live `RenderContent` and every arm treats missing content or a broken path as absent.
 - Law: `ContentRef` is the package's content identity — facts, event facts, and settings bindings carry the guid; a slot path addresses a child without a consumer walking `FirstChild`/`NextSibling`.
 - Law: resolution reads live per call — the content graph mutates under UI edits, undo, and linked events, so no resolved handle is cached on a value; a consumer holding a `ContentRef` re-resolves at each use inside the owning operation.
-- Law: every public factory threads the caller's `Op` — a key minted inside the owner names the owner instead of the operation that asked, so the fault loses the call site it came from.
+- Law: every public factory admits at its own boundary, so a refusal names the factory that refused rather than the operation that asked, so the fault loses the call site it came from.
 - Boundary: `Resolve` is the only site naming `RenderContent.FromId` and `FindChild`; every sibling page addresses through this union.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`Op.OrDefault`, `Acceptance.Text`, `KernelFault.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`Acceptance.Text`, `KernelFault.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -405,7 +405,7 @@ public sealed record ContentSnapshot(
 - Law: `Lease<RenderContent>` disposes every untransferred mint; successful table attachment transfers custody to the document.
 - Law: XML and archive cases preserve the host's two serialized ingress routes; XML/file egress and embedded-file evidence belong to registry programs because those operations start from addressed live content.
 - Boundary: factory-registry minting (`RenderContent.Create` by type id) is the registry page's; this union owns only the serialized-form ingress.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`, `Acceptance.Text`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`, `Acceptance.Text`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

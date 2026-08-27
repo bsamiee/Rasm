@@ -67,10 +67,10 @@ public sealed partial class CandidateRow {
     [UseDelegateFromConstructor]
     internal partial Fin<SnappingAction> MintOn(CandidatePayload payload);
 
-    public Fin<SnappingAction> Mint(CandidatePayload payload) => MintOn(payload: payload, key: key.OrDefault());
+    public Fin<SnappingAction> Mint(CandidatePayload payload) => MintOn(payload: payload);
 
     private static CandidateRow Row<TCase>(int key, Func<TCase, SnappingAction> mint) where TCase : CandidatePayload =>
-        new(key: key, mintOn: (payload, op) => payload is TCase matched
+        new(mintOn: (payload, op) => payload is TCase matched
             ? Try.lift(() => Fin.Succ(mint(matched))).Run().Bind(static inner => inner)
             : Fin.Fail<SnappingAction>(new KernelFault.InvalidValue(
                 Label: typeof(TCase).Name, Requirement: "the payload case this row mints from")));

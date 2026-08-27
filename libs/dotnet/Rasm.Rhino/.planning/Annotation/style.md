@@ -27,7 +27,7 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 - Law: `ResourceName` carries the ordinal-ignore-case comparer the host component tables key on, so a name census, a duplicate probe, and an occupancy guard read ONE comparison policy instead of passing `StringComparer.OrdinalIgnoreCase` per call site.
 - Law: `TargetResolution.Only<TNative>` owns exactly-one object resolution with the typed cast probe; `LengthDisplayRow` keys each host value explicitly, including the host spelling `Millmeters`.
 - Boundary: resolution reads live per call inside the owning operation — tables mutate under commands, so no resolved component is cached on a value.
-- Packages: `Document/tables.md` (`ResourceRef`, `ResourceLens<T>`, `ResourceName`, `ResourceIndex`, `TableTarget`, `GeometryHandle`, `GeometryCrossing`, `TagOp.Snapshot`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Document/session.md` (`DraftFault`), `Domain/results` (`Lease<T>`, `Custody`, the `Op` receiver rows); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon component tables per `.api/api-rhinocommon-drafting-resources.md`.
+- Packages: `Document/tables.md` (`ResourceRef`, `ResourceLens<T>`, `ResourceName`, `ResourceIndex`, `TableTarget`, `GeometryHandle`, `GeometryCrossing`, `TagOp.Snapshot`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Document/session.md` (`DraftFault`), `Domain/results` (`Lease<T>`, `Custody`); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon component tables per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a component table joins with one lens row and one grip; a new table verb is one `TableOp` case beside one grip column every table already answers.
 
 ```csharp
@@ -166,9 +166,9 @@ public sealed record TableGrip<TComponent, TDef>(
         let index = Index(live)
         from copy in Try.lift(() => Fin.Succ(value: Duplicate(live))).Run().Bind(static inner => inner)
         from _ in Bracketed(copy: copy, revise: revise)
-            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op))
+            .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
         from __ in Modify(document, copy, index, interaction)
-            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op))
+            .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
         from ___ in Custody.Dispose(held: Seq(copy))
         select unit;
 
@@ -212,7 +212,7 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
         rename: static (context, edit) => context.Grip.Revised(
             target: edit.Target, document: context.Document, interaction: edit.Interaction, revise: (copy, key) => context.Grip.Retitle(copy, edit.Name)),
         retag: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, interaction: edit.Interaction, revise: (copy, key) => edit.Edit.Apply(owner: context.Grip.Tags(copy), op: key)),
+            target: edit.Target, document: context.Document, interaction: edit.Interaction, revise: (copy, key) => edit.Edit.Apply(owner: context.Grip.Tags(copy))),
         delete: static (context, edit) =>
             from _ in guard(!edit.Targets.IsEmpty, new KernelFault.InvalidInput()).ToFin()
             from rows in edit.Targets.TraverseM(target => target.Resolve(
@@ -231,13 +231,13 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 valueType: typeof(DraftPath), OutputType: typeof(Seq<TComponent>)))
             from read in ingest(edit.Path, edit.Interaction)
             from titles in read.TraverseM(native => context.Grip.Title(native)).As()
-                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: read))
             from _ in guard(
                 !read.IsEmpty
                 && titles.Distinct().Count == titles.Count
                 && !titles.Exists(title => context.Grip.Occupied(context.Document, title)),
                 new KernelFault.InvalidInput())
-                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: read))
             from __ in DocumentCommit.Compensated(
                 source: read,
                 land: native => context.Grip.Seat(context.Document, native),
@@ -280,7 +280,7 @@ public static class DraftBorrow {
             where TNative : GeometryBase =>
             handles.Head.Match(
                 Some: head => head.Typed<TNative, TResult>(project: native =>
-                    handles.Tail.Typed<TNative, TResult>(key: key, project: rest => project(Seq(native) + rest))),
+                    handles.Tail.Typed<TNative, TResult>(project: rest => project(Seq(native) + rest))),
                 None: () => project(Seq<TNative>()));
     }
 }
@@ -449,7 +449,7 @@ public static class FieldTable<TOwner, THostEnum>
     public static FieldSeat<TOwner> Tint(
         Func<TOwner, System.Drawing.Color> get, Action<TOwner, System.Drawing.Color> set) =>
         Of(get, set,
-            static (value, key) => PerceptualColor.OfHost(host: value, key: key)
+            static (value, key) => PerceptualColor.OfHost(host: value)
                 .Map(static color => (StyleValue)new StyleValue.Tint(Value: color)),
             static (value, key) => ((StyleValue.Tint)value).Value.ToDrawing(),
             static value => value is StyleValue.Tint);
@@ -683,9 +683,9 @@ public sealed record StylePatch {
         from child in Try.lift(() => Fin.Succ(value: parent.Duplicate(
             newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId))).Run().Bind(static inner => inner)
         from _ in Apply(style: child)
-            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key))
+            .Rollback(release: () => Custody.Dispose(held: Seq(child)))
         from attached in Admit.Confirm(success: annotation.SetOverrideDimStyle(overrideStyle: child))
-            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key))
+            .Rollback(release: () => Custody.Dispose(held: Seq(child)))
         select child;
 }
 
@@ -783,10 +783,10 @@ public abstract partial record StyleOp {
             style.GetUserStrings, style.SetUserString, style.DeleteUserString, style.DeleteAllUserStrings),
         Mint: static (_, def, key) =>
             from shaped in Try.lift(() => Fin.Succ(value: new DimensionStyle())).Run().Bind(static inner => inner)
-            from _ in def.Apply(style: shaped, key: key)
-                .Rollback(release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
+            from _ in def.Apply(style: shaped)
+                .Rollback(release: () => Custody.Dispose(held: Seq(shaped)))
             select shaped,
-        Revise: static (_, copy, def, key) => def.Apply(style: copy, key: key),
+        Revise: static (_, copy, def, key) => def.Apply(style: copy),
         Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
         Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.DimStyles.Modify(
             newSettings: copy, dimstyleIndex: index, quiet: interaction.IsQuiet)),
@@ -887,13 +887,13 @@ public sealed record DraftPlan<TOp> where TOp : class {
 public static class Styles {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<StyleOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document, op: key),
+            apply: static (document, operation, key) => operation.Apply(document: document),
             op: Op.Of(name: nameof(Styles)));
 
     public static Fin<StyleAnswer> Ask(DocumentSession session, StyleAsk request) {
         return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
 }

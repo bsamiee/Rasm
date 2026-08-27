@@ -401,12 +401,12 @@ public abstract partial record Faces {
         Analysis.Operation<TGeometry, TValue>.Build(state: (Selector: selector, Project: project), requirement: Some(requirement), requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
-                from faces in Decompose(key: state.Key, geometry: geometry).ToEff()
+                from faces in Decompose(geometry: geometry).ToEff()
                 from chosen in state.Selector.Switch(
                     state: (Key: state.Key, Faces: faces, Runtime: context),
                     allCase: static (s, _) => Fin.Succ(s.Faces),
                     rankedCase: static (s, ranked) => Ranked(state: s, axis: ranked.Axis, direction: ranked.Direction),
-                    atCase: static (s, at) => s.Faces.At(index: at.Value, key: s.Key)).ToEff()
+                    atCase: static (s, at) => s.Faces.At(index: at.Value)).ToEff()
                 from result in TopologyProjection.Project(all: faces, chosen: chosen, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result).As<TGeometry, TOut>();
     private static Fin<Seq<TopologyProjection>> Decompose<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
@@ -458,13 +458,13 @@ namespace Rasm.Analysis;
 [SmartEnum<int>]
 public sealed partial class SpreadAspect {
     public static readonly SpreadAspect Frame = new(key: 0, output: OutputBinding.Of<Plane>(),
-        fit: static (points, _, _, op) => Fitted(points: points, op: op).Map(static fit => Seq<object>(fit)));
+        fit: static (points, _, _, op) => Fitted(points: points).Map(static fit => Seq<object>(fit)));
     public static readonly SpreadAspect PrincipalFrame = new(key: 1, output: OutputBinding.Of<Plane>(),
-        fit: static (points, _, context, op) => Fitted(points: points, op: op)
+        fit: static (points, _, context, op) => Fitted(points: points)
             .Bind(fit => Oriented(fit: fit, points: points, context: context)).Map(static plane => Seq<object>(plane)));
     public static readonly SpreadAspect Distribution = new(key: 2, output: OutputBinding.Of<Stat<Scalar>>(),
         fit: static (points, geometry, context, op) => MassKind.CentroidOf(geometry: geometry, context: context)
-            .Bind(centroid => Stat<Scalar>.Of(values: points.Map(point => (Scalar)point.DistanceTo(other: centroid)), key: op))
+            .Bind(centroid => Stat<Scalar>.Of(values: points.Map(point => (Scalar)point.DistanceTo(other: centroid))))
             .Map(static stat => Seq<object>(stat)));
     public static readonly SpreadAspect Collinear = new(key: 3, output: OutputBinding.Of<bool>(),
         fit: static (points, _, context, op) => OnLine(points: points, tolerance: context.For(lane: ToleranceLane.LineDistance))
@@ -523,7 +523,7 @@ public abstract partial record Points {
             ? Analysis.Operation<TGeometry, Point3d>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: (Key: c.Key, c.Directions),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from lease in Normalization.CurveForm(source: geometry, key: state.Key).ToEff()
+                    from lease in Normalization.CurveForm(source: geometry).ToEff()
                     from points in lease.Use((Curve curve) => curve.IsValid switch {
                         false => Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidInput()),
                         true => state.Directions
@@ -552,14 +552,14 @@ public abstract partial record Points {
         verticesCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadVertices.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(state: c.Key,
                 evaluator: static (op, geometry) =>
-                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: op).ToEff()
+                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices()).ToEff()
                     from result in Acceptance.Rows(values: points).ToEff()
                     select result).As<TGeometry, TOut>()
             : new KernelFault.Unsupported(),
         controlPointsCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadControlPoints.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(state: c.Key,
                 evaluator: static (op, geometry) =>
-                    from points in Lattice(geometry: geometry, op: op).ToEff()
+                    from points in Lattice(geometry: geometry).ToEff()
                     from result in Acceptance.Rows(values: points).ToEff()
                     select result).As<TGeometry, TOut>()
             : new KernelFault.Unsupported(),
@@ -567,9 +567,9 @@ public abstract partial record Points {
             ? Analysis.Operation<TGeometry, TOut>.Build(requiresContext: true, state: (Key: s.Key, s.Aspect),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: state.Key).ToEff()
+                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices()).ToEff()
                     from fitted in state.Aspect.Fit(points: points, geometry: geometry, context: context).ToEff()
-                    from result in state.Aspect.Output.Admit<TOut>(values: fitted, key: state.Key).ToEff()
+                    from result in state.Aspect.Output.Admit<TOut>(values: fitted).ToEff()
                     select result)
             : new KernelFault.Unsupported());
 

@@ -584,7 +584,7 @@ public sealed class ReplayProgram {
             ReplayHook.Validate(Delegate, out ReplayHook? admitted), admitted);
 
     internal Func<ReplayHistoryData, bool> Delegate => data => {
-        return Try.lift(() => Drive(data: data, op: op)).Run().Bind(static inner => inner).Match(
+        return Try.lift(() => Drive(data: data)).Run().Bind(static inner => inner).Match(
             Succ: static replayed => replayed,
             Fail: error => {
                 _ = ObjectsTelemetry.Publish(site: FaultSite.Replay, error: error);
@@ -755,7 +755,7 @@ public sealed partial class HistoryConduct {
     internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body) =>
         Read().Bind(prior => Write(value: signal)
             .Bind(_ => Try.lift(body).Run().Bind(static inner => inner)
-                .Settled(release: () => Write(value: prior, op: op))));
+                .Settled(release: () => Write(value: prior))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -793,7 +793,7 @@ public static class Chronicle {
 
     public static Fin<ObjectSignal> Conduct(HistoryConduct row, Option<ObjectSignal> set = default) {
         return from active in Admit.Need(row)
-               from _ in set.Traverse(signal => active.Write(value: signal, op: op)).As()
+               from _ in set.Traverse(signal => active.Write(value: signal)).As()
                from value in active.Read()
                select value;
     }
@@ -815,7 +815,7 @@ public static class Chronicle {
             linked: static native => native.HistoryChildren());
 
     internal static Fin<WebAnswer> Order(RhinoDoc document, TableTarget target, WebBudget budget) =>
-        Projected(document, target, budget, static (graph, key) => GraphFold.Ordered(graph: graph, op: key)
+        Projected(document, target, budget, static (graph, key) => GraphFold.Ordered(graph: graph)
             .Map(static ordered => (WebAnswer)new WebAnswer.Ordered(UpdateOrder: ordered)));
 
     internal static Fin<WebAnswer> Loops(RhinoDoc document, TableTarget target, WebBudget budget) =>
@@ -824,10 +824,10 @@ public static class Chronicle {
 
     internal static Fin<WebAnswer> Closure(RhinoDoc document, TableTarget target, WebBudget budget) =>
         Projected(document, target, budget, static (graph, key) =>
-            GraphProjection<Guid>.Closure.Project(graph: graph, op: key).Map(Edges));
+            GraphProjection<Guid>.Closure.Project(graph: graph).Map(Edges));
 
     internal static Fin<WebAnswer> Reduction(RhinoDoc document, TableTarget target, WebBudget budget) =>
-        Projected(document, target, budget, static (graph, key) => GraphFold.Reduced(graph: graph, op: key).Map(Edges));
+        Projected(document, target, budget, static (graph, key) => GraphFold.Reduced(graph: graph).Map(Edges));
 
     internal static Fin<WebAnswer> Condensation(RhinoDoc document, TableTarget target, WebBudget budget) =>
         Projected(document, target, budget, static (graph, key) => Try.lift(() => {

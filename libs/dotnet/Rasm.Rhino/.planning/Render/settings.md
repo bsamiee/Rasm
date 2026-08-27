@@ -1230,7 +1230,7 @@ public static class Settings {
                    read: static (state, _) => state.Use(
                        borrow: settings => SubOwners.Within(
                            settings: settings,
-                           borrow: owners => RenderState.Of(owners: owners, key: state.Op)
+                           borrow: owners => RenderState.Of(owners: owners)
                                .Map(static value => (SettingsResult)new SettingsResult.State(value)))),
                    edit: static (state, command) => Commit(state, command.Change)
                        .Map(static _ => (SettingsResult)new SettingsResult.Changed()),
@@ -1245,30 +1245,30 @@ public static class Settings {
             name: nameof(SettingsRequest.Edit),
             borrow: settings => SubOwners.Within(
                 settings: settings,
-                borrow: owners => RenderState.Of(owners: owners, key: op)
+                borrow: owners => RenderState.Of(owners: owners)
                     .Bind(prior => Compensated(
-                        owners, prior, (state, key) => active.Apply(owners: state, op: key)))))
+                        owners, prior, (state, key) => active.Apply(owners: state)))))
         select changed;
 
     private static Fin<Unit> Compensated(
         SubOwners owners, RenderState prior, Func<SubOwners, Fin<Unit>> apply) =>
         prior.Use(
             borrow: record => apply(owners)
-                .Rollback(release: () => record.Apply(owners: owners, key: op), key: op));
+                .Rollback(release: () => record.Apply(owners: owners)));
 
     private static Fin<Unit> Copy(SettingsSource source, SettingsSource target) =>
         from activeTarget in Admit.Need(target)
         from state in source.Use(
             borrow: settings => SubOwners.Within(
-                settings: settings, borrow: owners => RenderState.Of(owners: owners, key: op)))
+                settings: settings, borrow: owners => RenderState.Of(owners: owners)))
         from changed in state.Use(
             borrow: value => activeTarget.Mutate(
                 name: nameof(SettingsRequest.CopyTo),
                 borrow: settings => SubOwners.Within(
                     settings: settings,
-                    borrow: owners => RenderState.Of(owners: owners, key: op)
+                    borrow: owners => RenderState.Of(owners: owners)
                         .Bind(prior => Compensated(
-                            owners, prior, (active, key) => value.Apply(owners: active, key: key))))))
+                            owners, prior, (active, key) => value.Apply(owners: active))))))
         select changed;
 }
 ```

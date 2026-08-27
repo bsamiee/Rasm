@@ -201,7 +201,7 @@ public static class HostThread {
     }
 
     internal static Fin<Unit> Release(Seq<Func<Fin<Unit>>> releases) {
-        return Run(work: new HostWork<Unit>.Execute(Body: () => Custody.Release(releases: releases, key: op)));
+        return Run(work: new HostWork<Unit>.Execute(Body: () => Custody.Release(releases: releases)));
     }
 
     private static Fin<T> Bracketed<T>(HostWork<T>.Guarded request) =>
@@ -238,13 +238,11 @@ public static class HostThread {
                     declined: new KernelFault.InvalidContext())
                 .Switch(
                     state: (Op: op, Task: completed.Task),
-                    committed: static (ctx, _) => Fin.Fail<T>(error: new UiFault.HostRejected(
-                        Key: ctx.Op, Detail: nameof(RhinoApp.InvokeOnUiThread))),
+                    committed: static (ctx, _) => Fin.Fail<T>(error: new UiFault.HostRejected(Detail: nameof(RhinoApp.InvokeOnUiThread))),
                     ceded: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()),
                     refused: static (ctx, row) => row.State is PostedState.Settled
                         ? ctx.Task.Result
-                        : Fin.Fail<T>(error: new UiFault.HostRejected(
-                            Key: ctx.Op, Detail: nameof(RhinoApp.InvokeOnUiThread))),
+                        : Fin.Fail<T>(error: new UiFault.HostRejected(Detail: nameof(RhinoApp.InvokeOnUiThread))),
                     contended: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()));
         }).Run().Bind(static inner => inner);
 
@@ -417,7 +415,7 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
                 Document: session,
                 Needs: [SessionNeed.Read],
                 Body: document =>
-                    from regime in ModelUnit.Of(value: document.ModelUnits, key: op)
+                    from regime in ModelUnit.Of(value: document.ModelUnits)
                     from toasts in Operations.Fold(
                         Fin.Succ(value: Seq<ToastOutcome>()),
                         (state, next) => state.Bind(carried => Apply(next: next, toasts: carried, regime: regime)))
@@ -657,8 +655,7 @@ public sealed class ProgressLease : IDisposable {
                         Fail: failure => (self.faults.Park(item: failure), Fin.Fail<Unit>(error: failure)).Item2),
                     released: static (_, _) => Fin.Succ(value: unit));
             }
-        }),
-        key: op);
+        }));
 
     public void Dispose() => _ = Release();
 
@@ -671,8 +668,7 @@ public sealed class ProgressLease : IDisposable {
             owned: static (self, owner) => Seq<Func<Fin<Unit>>>(
                 () => Try.lift(() => StatusBar.HideProgressMeter(docSerialNumber: owner.Document)).Run().Bind(static inner => inner),
                 self.Restore) + self.Disarm(),
-            foreign: static (self, _) => Seq<Func<Fin<Unit>>>(self.Restore) + self.Disarm()),
-        key: op);
+            foreign: static (self, _) => Seq<Func<Fin<Unit>>>(self.Restore) + self.Disarm()));
 
     private Seq<Func<Fin<Unit>>> Disarm() => Seq<Func<Fin<Unit>>>(
         () => Try.lift(() => Fin.Succ((escape.Iter(static row => row.Dispose()), unit).Item2)).Run().Bind(static inner => inner),
@@ -761,7 +757,7 @@ public static class Progress {
                             embedLabel: policy.Features.Contains(ProgressFeature.EmbeddedLabel),
                             showPercentComplete: policy.Features.Contains(ProgressFeature.Percentage)),
                         document: session.Key)
-                    from armed in Armed(policy: policy, op: op)
+                    from armed in Armed(policy: policy)
                     from result in Bracketed(
                         lease: new ProgressLease(
                             grant: grant, policy: policy, cell: faults,
@@ -871,11 +867,11 @@ public static class ShellWindows {
                     (string Title, Eto.Drawing.Point Location, WindowState State) prior =
                         (window.Title, window.Location, window.WindowState);
                     Atom<Option<Subscription>> attached = Atom(Option<Subscription>.None);
-                    return (from _ in policy.Prepare(window: window, key: op)
+                    return (from _ in policy.Prepare(window: window)
                             from closed in Subscription.Attach(
                                 subscribe: callback => window.Closed += callback,
                                 unsubscribe: callback => window.Closed -= callback,
-                                handler: (EventHandler<EventArgs>)((_, _) => ignore(policy.Persist(window: window, key: op))))
+                                handler: (EventHandler<EventArgs>)((_, _) => ignore(policy.Persist(window: window))))
                             from seated in Fin.Succ(value: ignore(Cell.Seat(attached, () => closed)))
                             from shown in Try.lift(() => EtoExtensions.Show(window, document)).Run().Bind(static inner => inner)
                             select window)
@@ -884,8 +880,7 @@ public static class ShellWindows {
                                 _ = Cell.Take(attached).Current.Iter(static row => row.Dispose());
                                 (window.Title, window.Location, window.WindowState) = prior;
                                 return Fin.Succ(value: unit);
-                            }).Run().Bind(static inner => inner),
-                            key: op);
+                            }).Run().Bind(static inner => inner));
                 }));
     }
 
@@ -943,7 +938,7 @@ public static class ShellWindows {
             work: new HostWork<DocKey>.Execute(
                 Body: () => Optional(EtoExtensions.GetRhinoDoc(window))
                     .ToFin(Fail: new KernelFault.MissingContext())
-                    .Bind(document => DocKey.Of(document: document, key: op))));
+                    .Bind(document => DocKey.Of(document: document))));
     }
 }
 
@@ -954,7 +949,7 @@ public static class ShellTheme {
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(observer);
         EventHandler handler = (_, _) => ignore(observer.Guard(
-            project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current), key: op)));
+            project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current))));
         return Subscription.Attach(
             subscribe: callback => ThemeSettings.ThemeChanged += callback,
             unsubscribe: callback => ThemeSettings.ThemeChanged -= callback,
@@ -1788,7 +1783,7 @@ public sealed partial class NamedKind {
             .Map(value => (Func<Fin<Unit>>)(() => Fin.Succ(value: ignore(fun(value.Dispose)()))));
         return Try.lift(write).Run().Bind(static inner => inner)
             .Map(_ => releases)
-            .Rollback(release: () => HostThread.Release(releases: releases, key: op));
+            .Rollback(release: () => HostThread.Release(releases: releases));
     }
 }
 
@@ -1887,7 +1882,7 @@ public sealed record NamedBag {
                         Fail: fault => held with { Fault = Some(fault) }));
         return state.Fault.Match(
             Some: fault => Fin.Fail<NamedLease>(error: fault)
-                .Rollback(release: () => HostThread.Release(releases: state.Releases, key: op)),
+                .Rollback(release: () => HostThread.Release(releases: state.Releases)),
             None: () => Fin.Succ(value: new NamedLease(releases: state.Releases)));
     }
 
@@ -2378,7 +2373,7 @@ public sealed class ShellCapsule : IDisposable {
                 Fin.Succ(value: new Seating(Retire: Seq<Func<Fin<Unit>>>(), Themes: None, Names: None)),
                 (held, mount) => held.Bind(seated => Seat(
                         mount: mount, seated: seated, identity: identity, timeline: timeline, faults: faults)
-                    .Rollback(release: () => Custody.Release(releases: seated.Retire.Rev(), key: op))))
+                    .Rollback(release: () => Custody.Release(releases: seated.Retire.Rev()))))
             .Map(seated => (Lease<ShellCapsule>)new Lease<ShellCapsule>.Owned(Value: new ShellCapsule(
                 identity: identity, timeline: timeline, faults: faults, seated: seated)));
     }
@@ -2392,7 +2387,7 @@ public sealed class ShellCapsule : IDisposable {
                     : None,
                 declined: new KernelFault.InvalidContext())
             is Transition<LeaseState<Seq<Func<Fin<Unit>>>>>.Committed
-            ? Custody.Release(releases: drained.Rev(), key: op).MapFail(failure =>
+            ? Custody.Release(releases: drained.Rev()).MapFail(failure =>
                 (teardown.Park(item: failure), failure).Item2)
             : Fin.Succ(value: unit);
     }

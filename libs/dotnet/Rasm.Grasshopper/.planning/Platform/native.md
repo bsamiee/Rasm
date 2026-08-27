@@ -295,7 +295,7 @@ public static class NativeLayer {
         from lease in UiThread.Run(new UiDispatch<Lease<NativeHold<T>>>.Blocking(() => Try.lift(mint).Run().Bind(static inner => inner)
             .Map(minted => (Lease<NativeHold<T>>)new Lease<NativeHold<T>>.Owned(
                 Value: new NativeHold<T>(value: minted.Value, inverse: minted.Release, faults: faults)))
-            .Rollback(release: unwind, key: key)), DispatchLane.Interactive)
+            .Rollback(release: unwind)), DispatchLane.Interactive)
         select lease;
 
     public static Fin<Lease<NativeHold<NativeMonitor>>> Observe(MonitorPlan plan) {
@@ -306,7 +306,7 @@ public static class NativeLayer {
             mint: () => {
                 NSObject active = NSEvent.AddLocalMonitorForEventsMatchingMask(
                     mask: valid.Mask,
-                    handler: raw => monitor?.Receive(raw: raw, key: op) ?? raw);
+                    handler: raw => monitor?.Receive(raw: raw) ?? raw);
                 token = active;
                 monitor = new NativeMonitor(Token: active, Plan: valid);
                 return Fin.Succ((Value: monitor, Release: (Func<Fin<Unit>>)(() => Custody.Release(Seq<Func<Fin<Unit>>>(
@@ -401,7 +401,7 @@ public static class NativeLayer {
         return from _ in MacGate.Demand()
                from active in Admit.Need(anchor)
                from bounds in UiThread.Run(new UiDispatch<PaceBounds>.Blocking(() =>
-                   ReadPace(anchor: active, key: op)), DispatchLane.Interactive)
+                   ReadPace(anchor: active)), DispatchLane.Interactive)
                select bounds;
     }
 

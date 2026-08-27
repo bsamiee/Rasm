@@ -1,6 +1,6 @@
 # [RASM_VECTORS_SAMPLE]
 
-`SampleKind` owns point sampling: every draw is one closed `[Union]` case admitted at its factory, and `SampleKernel.Sample` folds all cases through one domain dispatch total over admitted kinds. `PowerCcvtPolicy.Preset` mints the BNOT tuning surface from trusted declaration values through the generated `Create` factories and admits its cross-field clauses once on the `Op` gate, one `with` mutation overrides it, and every convergence threshold reads its own `ToleranceLane` at the run.
+`SampleKind` owns point sampling: every draw is one closed `[Union]` case admitted at its factory, and `SampleKernel.Sample` folds all cases through one domain dispatch total over admitted kinds. `PowerCcvtPolicy.Preset` mints the BNOT tuning surface from trusted declaration values through the generated `Create` factories and admits its cross-field clauses once on the admission gate, one `with` mutation overrides it, and every convergence threshold reads its own `ToleranceLane` at the run.
 
 Rebuild work composes settled owners: `extract.md` `ExtractionDomain` carries the domain axis, `evaluation.md` `Evaluate(EvaluationRequest.Sample(...))` the support-space candidate draw, `matrix.md` `SparseMatrix.SingularSolveDetailed` the gauge-fixed solve, `segment.md` `SegmentKernel.ValidateSamplingSpectrum` the blue-noise witness, `mesh.md` `RestrictedPowerDiagram` the restricted power cells this page reads one-directionally, and `identity.md` `Deterministic` every draw addresses through a declared `SampleLane` ordinal.
 

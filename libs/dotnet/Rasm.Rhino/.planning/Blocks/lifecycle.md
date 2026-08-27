@@ -318,7 +318,7 @@ public sealed class BlockVault {
 
     private Fin<Unit> Delivered(DocEvent fact, DocumentSession owner, RefreshPolicy policy) {
         return fact.Origin switch {
-            EventOrigin.Host { Family: var family } when family == EventFamily.Closed => Evict(document: owner.Key, op: key),
+            EventOrigin.Host { Family: var family } when family == EventFamily.Closed => Evict(document: owner.Key),
             EventOrigin.Host { Family: var family }
                 when family == EventFamily.InstanceDefinitionTable || family == EventFamily.WorksessionFile =>
                 Invalidate(document: owner.Key, policy: policy, session: Some(owner)),
@@ -413,7 +413,7 @@ public sealed class BlockVault {
                             None: () => fold)
                         : fold.Live.Find(row.Key).Match(
                             Some: entry => fold with {
-                                Live = fold.Live.AddOrUpdate(key: row.Key, value: entry with { Stale = true }),
+                                Live = fold.Live.AddOrUpdate(value: entry with { Stale = true }),
                             },
                             None: () => fold));
             return (next, new VaultOutcome.Swept(Rows: rows));
@@ -421,12 +421,11 @@ public sealed class BlockVault {
             state: (Session: session, Cell: this),
             @default: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()),
             swept: (held, swept) => Attempted(() => Lowered(faults: ReleaseAll(
-                        images: swept.Rows.Choose(static row => row.Closing),
-                        op: held.Op)),
+                        images: swept.Rows.Choose(static row => row.Closing))),
                     () => swept.Rows
                         .Filter(static row => row.Action == SweepAction.Rerender)
                         .Traverse(row => held.Session.ToFin(Fail: new KernelFault.MissingContext())
-                            .Bind(active => Rerendered(session: active, key: row.Key, op: held.Op))
+                            .Bind(active => Rerendered(session: active))
                             .ToValidation())
                         .As()
                         .ToFin()
@@ -543,9 +542,7 @@ public sealed class BlockVault {
         return Commit(transition: state => state.Live.Find().Case switch {
                 PreviewEntry current when current.Version == version => (
                     state with {
-                        Live = state.Live.AddOrUpdate(
-                            key: key,
-                            value: current with { Grants = int.Max(current.Grants - 1, 0) }),
+                        Live = state.Live.AddOrUpdate(value: current with { Grants = int.Max(current.Grants - 1, 0) }),
                     },
                     VaultOutcome.Clean),
                 _ => state.Retired.Find(key: (version)).Case switch {

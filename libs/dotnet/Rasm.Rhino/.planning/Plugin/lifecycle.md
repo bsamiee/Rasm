@@ -270,7 +270,7 @@ public abstract partial class RasmPlugIn : PlugIn {
         Lost: refusals.Lost);
 
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
-        LoadEvidence evidence = Held().Bind(program => Boot(program: program, op: op)).Match(
+        LoadEvidence evidence = Held().Bind(program => Boot(program: program)).Match(
             Succ: static _ => new LoadEvidence(Verdict: LoadVerdict.Loaded, Message: string.Empty, Fault: None),
             Fail: error => new LoadEvidence(
                 Verdict: Optional(Program).Map(static program => program.Refusal).IfNone(LoadVerdict.RefusedLoudly),
@@ -309,32 +309,32 @@ public abstract partial class RasmPlugIn : PlugIn {
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
-        CommandRegistrar registrar = new(seat: RegisterCommand, op: op);
-        ignore(Route(phase: new PluginPhase.CommandsCreating(Registrar: registrar), op: op));
+        CommandRegistrar registrar = new(seat: RegisterCommand);
+        ignore(Route(phase: new PluginPhase.CommandsCreating(Registrar: registrar)));
         ignore(registrar.Close());
     }
 
     protected sealed override void OnShutdown() {
         base.OnShutdown();
-        ignore(Route(phase: new PluginPhase.ShuttingDown(), op: op));
+        ignore(Route(phase: new PluginPhase.ShuttingDown()));
         ignore(Release());
     }
 
     protected sealed override void ResetMessageBoxes() {
         base.ResetMessageBoxes();
-        ignore(Route(phase: new PluginPhase.MessageBoxReset(), op: op));
+        ignore(Route(phase: new PluginPhase.MessageBoxReset()));
     }
 
     public sealed override bool DisplayHelp(nint windowHandle) {
         bool handled = base.DisplayHelp(windowHandle: windowHandle);
-        return handled || Route(phase: new PluginPhase.HelpAsked(Window: windowHandle), op: op).IsSucc;
+        return handled || Route(phase: new PluginPhase.HelpAsked(Window: windowHandle)).IsSucc;
     }
 
     public sealed override object GetPlugInObject() {
         object fallback = base.GetPlugInObject();
         return Record(outcome:
             from program in Held()
-            from capability in program.Capability.ToFin(Fail: new PluginFault.Unbound(Key: op, Member: nameof(GetPlugInObject)))
+            from capability in program.Capability.ToFin(Fail: new PluginFault.Unbound(Member: nameof(GetPlugInObject)))
             from published in capability.Publish()
             select published)
             .Match(Succ: static value => value, Fail: _ => fallback);
@@ -344,32 +344,30 @@ public abstract partial class RasmPlugIn : PlugIn {
         base.OptionsDialogPages(pages: pages);
         ignore(Admit.Need(pages).Bind(seat => Route(
             phase: new PluginPhase.OptionsPages(
-                Basket: new PageBasket.Stacked(Pages: seat, Seat: PageSeat.Options)), op: op)));
+                Basket: new PageBasket.Stacked(Pages: seat, Seat: PageSeat.Options)))));
     }
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
         base.DocumentPropertiesDialogPages(doc: doc, pages: pages);
         ignore(
             from seat in Admit.Need(pages)
-            from document in DocKey.Of(document: doc, key: op)
+            from document in DocKey.Of(document: doc)
             from answer in Route(
                 phase: new PluginPhase.DocumentPages(
-                    Document: document, Basket: new PageBasket.Stacked(Pages: seat, Seat: PageSeat.Document)),
-                op: op)
+                    Document: document, Basket: new PageBasket.Stacked(Pages: seat, Seat: PageSeat.Document)))
             select answer);
     }
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
         base.ObjectPropertiesPages(collection: collection);
         ignore(Admit.Need(collection).Bind(seat => Route(
-            phase: new PluginPhase.ObjectPages(Basket: new PageBasket.Properties(Pages: seat)), op: op)));
+            phase: new PluginPhase.ObjectPages(Basket: new PageBasket.Properties(Pages: seat)))));
     }
 
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) {
         bool declared = base.ShouldCallWriteDocument(options: options);
         return declared || Cross(
-            ask: program => new ParticipationAsk.Declared(Participant: program.Archive, Options: options),
-            op: op).Match(
+            ask: program => new ParticipationAsk.Declared(Participant: program.Archive, Options: options)).Match(
                 Succ: static answer => answer is ParticipationAnswer.DeclaredCase row && row.Writes,
                 Fail: static _ => false);
     }
@@ -378,16 +376,14 @@ public abstract partial class RasmPlugIn : PlugIn {
         base.WriteDocument(doc: doc, archive: archive, options: options);
         ignore(Cross(
             ask: program => new ParticipationAsk.WriteCase(
-                Participant: program.Archive, Document: doc, Writer: archive, Options: options),
-            op: op));
+                Participant: program.Archive, Document: doc, Writer: archive, Options: options)));
     }
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
         base.ReadDocument(doc: doc, archive: archive, options: options);
         ignore(Cross(
             ask: program => new ParticipationAsk.ReadCase(
-                Participant: program.Archive, Document: doc, Reader: archive, Options: options),
-            op: op));
+                Participant: program.Archive, Document: doc, Reader: archive, Options: options)));
     }
 
     private Fin<PluginProgram> Held() =>

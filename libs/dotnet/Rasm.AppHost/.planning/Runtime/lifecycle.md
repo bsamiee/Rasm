@@ -9,7 +9,7 @@ Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm
 - [02]-[PHASE_FAMILY]: Eight phases, one step correspondence, kernel-committed transitions, boot log events.
 - [03]-[FAULT_SPINE]: Five native fault sources, trap registrations, and crash-marker probing.
 - [04]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into the stopped phase fact.
-- [05]-[CANCEL_SPINE]: One root source; derived scopes carry `Op` provenance segments and deadline rows.
+- [05]-[CANCEL_SPINE]: One root source; derived scopes carry provenance segments and deadline rows.
 
 ## [02]-[PHASE_FAMILY]
 
@@ -432,9 +432,9 @@ public static class DrainConductor {
 
 - Owner: `CancelScope` — the one root source and every derived scope as provenance-carrying values; `CancelDeadline` carries the lane and effective allotment beside its timer.
 - Entry: `CancelScope Derive(ClockPolicy clocks, Option<DeadlineClass> bound = default)` derives a local row allotment; `Derive(ClockPolicy, DeadlineClass, Duration)` preserves a caller-inherited effective allotment without minting a second deadline owner.
-- Packages: Rasm (kernel `Op`), LanguageExt.Core, NodaTime, BCL inbox
+- Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one derivation row per scope axis — phase, queue, hop attempt; zero new surface.
-- Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of `Op` segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `BandFact.Name`; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.
+- Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `BandFact.Name`; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------

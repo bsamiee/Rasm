@@ -868,8 +868,7 @@ public static class Publishing {
                         printerName: landing.PrinterName,
                         settings: [.. rows],
                         copies: landing.Copies.Value))).Run().Bind(static inner => inner)
-                    select unit,
-                key: op))
+                    select unit))
         select unit;
 
     private static Fin<Unit> Fanned(
@@ -896,8 +895,7 @@ public static class Publishing {
                     from _arity in guard(rows.Count == 1, new KernelFault.InvalidResult()).ToFin()
                     from row in rows.Head.ToFin(Fail: new KernelFault.MissingContext())
                     from minted in Landed(landing: landing, row: row)
-                    select minted,
-                key: op))
+                    select minted))
         select artifact;
 
     private static Fin<CaptureArtifact> Landed(Landing landing, ViewCaptureSettings row) => landing.Switch(
@@ -1042,8 +1040,7 @@ public static class Publishing {
                                 int pageIndex = ctx.Pdf.AddPage(settings: row);
                                 return guard(pageIndex >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => pageIndex);
                             }).Run().Bind(static inner => inner)
-                            select added,
-                        key: ctx.Op))
+                            select added))
                 select minted);
 
     private static Fin<Unit> Flush(

@@ -364,7 +364,7 @@ public abstract partial record LinetypeOp {
             from shaped in Try.lift(() => Fin.Succ(value: new Linetype())).Run().Bind(static inner => inner)
             from _ in def.Apply(document: document, linetype: shaped)
                 .Rollback(
-                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
+                    release: () => Custody.Dispose(held: Seq(shaped)))
             select shaped,
         Revise: static (document, copy, def, key) => def.Apply(document: document, linetype: copy),
         Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
@@ -413,7 +413,7 @@ public abstract partial record LinetypeOp {
                 target: edit.Target, document: context,
                 interaction: edit.Interaction,
                 revise: (copy, key) => edit.Edits
-                    .TraverseM(row => row.Apply(surface: Run(copy), op: key)).As().Map(static _ => unit))
+                    .TraverseM(row => row.Apply(surface: Run(copy))).As().Map(static _ => unit))
             select unit,
         revert: static (context, edit) =>
             from linetype in edit.Target.Resolve(document: context, lens: Lens)
@@ -451,13 +451,13 @@ public abstract partial record LinetypeOp {
 public static class Linetypes {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<LinetypeOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document, op: key),
+            apply: static (document, operation, key) => operation.Apply(document: document),
             op: Op.Of(name: nameof(Linetypes)));
 
     public static Fin<LinetypeAnswer> Ask(DocumentSession session, LinetypeAsk request) {
         return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
 }

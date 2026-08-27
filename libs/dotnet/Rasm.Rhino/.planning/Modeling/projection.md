@@ -334,7 +334,7 @@ public abstract partial record ProjectionOp {
                 return ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(
                     handles: edit.Subjects.Map(static subject => subject.Geometry),
                     body: natives =>
-                        from parameters in law.Rig(domain: model, key: op)
+                        from parameters in law.Rig(domain: model)
                         from rigged in edit.Frame.Rig()
                         from harvested in Try.lift(() => {
                             using ViewportInfo frame = rigged;

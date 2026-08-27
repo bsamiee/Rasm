@@ -194,10 +194,10 @@ public sealed record PluginProtection(PluginKey Plugin, LoadProtection Behavior)
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PluginRead {
     public static readonly PluginRead Path = new(key: "path", read: static (plugin, op) =>
-        Named(read: () => PlugIn.PathFromId(pluginId: plugin.ToValue()), op: op));
+        Named(read: () => PlugIn.PathFromId(pluginId: plugin.ToValue())));
     public static readonly PluginRead Descriptor = new(key: "descriptor", read: Detached);
     public static readonly PluginRead Presence = new(key: "presence", read: static (plugin, op) =>
-        Probed(plugin: plugin, op: op).Map<PluginAnswer>(static row => new PluginAnswer.Presence(Value: row)));
+        Probed(plugin: plugin).Map<PluginAnswer>(static row => new PluginAnswer.Presence(Value: row)));
     public static readonly PluginRead Protection = new(key: "protection", read: Guarded);
     public static readonly PluginRead Commands = new(key: "commands", read: static (plugin, op) =>
         Try.lift(() => Fin.Succ<PluginAnswer>(value: new PluginAnswer.Names(
@@ -273,15 +273,15 @@ public sealed partial class PluginRead {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PluginLookup {
     public static readonly PluginLookup IdOfName = new(key: "id-of-name", read: static (value, op) =>
-        Resolved(read: () => PlugIn.IdFromName(pluginName: value), op: op));
+        Resolved(read: () => PlugIn.IdFromName(pluginName: value)));
     public static readonly PluginLookup IdOfPath = new(key: "id-of-path", read: static (value, op) =>
-        Resolved(read: () => PlugIn.IdFromPath(pluginPath: value), op: op));
+        Resolved(read: () => PlugIn.IdFromPath(pluginPath: value)));
     public static readonly PluginLookup IdOfFile = new(key: "id-of-file", read: static (value, op) =>
-        Resolved(read: () => PlugIn.IdFromFileName(filename: value), op: op));
+        Resolved(read: () => PlugIn.IdFromFileName(filename: value)));
     public static readonly PluginLookup NameOfPath = new(key: "name-of-path", read: static (value, op) =>
-        PluginRead.Named(read: () => PlugIn.NameFromPath(pluginPath: value), op: op));
+        PluginRead.Named(read: () => PlugIn.NameFromPath(pluginPath: value)));
     public static readonly PluginLookup PathOfName = new(key: "path-of-name", read: static (value, op) =>
-        PluginRead.Named(read: () => PlugIn.PathFromName(pluginName: value), op: op));
+        PluginRead.Named(read: () => PlugIn.PathFromName(pluginName: value)));
 
     [UseDelegateFromConstructor] internal partial Fin<PluginAnswer> Read(string value);
 

@@ -447,9 +447,9 @@ public static class Picks {
                        from defaultView in Optional(document.Views.ActiveView).ToFin(Fail: new KernelFault.MissingContext())
                        from projected in Try.lift(() => {
                            using PickContext context = new() { View = defaultView };
-                           return active.Apply(target: context, key: op)
+                           return active.Apply(target: context)
                                .Bind(_ => Try.lift(() => Fin.Succ(document.Objects.PickObjects(pickContext: context))).Run().Bind(static inner => inner))
-                               .Bind(references => CaptureOwned(references: references, key: op)
+                               .Bind(references => CaptureOwned(references: references)
                                    .Map(held => held with { Getter = Participant(context) }));
                        }).Run().Bind(static inner => inner)
                        select projected,

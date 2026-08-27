@@ -476,7 +476,7 @@ flowchart LR
 |  [06]   | Census slots   | `HatchCount`   | census rows (pure)                    |    6    |
 |  [07]   | Result carrier | `HatchResult`  | carrier (`ToSegments`/`ToPolylines`)  |    —    |
 
-- [01]-[HATCHING]: `[Union]` (`Regions`/`Projection`) folded by ONE `Apply` with `Op?` threading, policy threaded through the base positional.
+- [01]-[HATCHING]: `[Union]` (`Regions`/`Projection`) folded by ONE `Apply`, policy threaded through the base positional.
 - [02]-[PATTERN_ROWS]: `[SmartEnum<int>]` four rows — family-table data over one weave, `Motif` realized by its plan's orbit.
 - [03]-[FAMILY_RHYTHM]: `[ComplexValueObject]` relative angle/spacing/phase and the spacing-unit dash law, bounds read off `Band` rows at construction and default validation evidence crossing through the kernel bridge; absolute scale enters once on the plan.
 - [04]-[REGION_PLAN]: per-region pattern, angle, `PositiveMagnitude` spacing, origin, and the optional `Patterning` orbit — policy on the request shape, five claims accumulated once at `Of`.

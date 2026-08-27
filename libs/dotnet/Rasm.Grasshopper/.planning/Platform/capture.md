@@ -636,7 +636,7 @@ flowchart LR
 |  [07]   | journal correlation | `PaintProof.Correlate`           | `Correlate → Fin<Seq<CaptureTie>>`         |    1    |
 |  [08]   | fault emission      | `CaptureLog`                     | three generated `[LoggerMessage]` partials |    3    |
 
-`MacGate`, kernel `EvidenceDrain`/`UiEvent`/`GaugedSpan`, `Op` (async `Catch` included), `Lease<T>`, `FaultCell`, `ValidityClaim`, `MonotonicTimeline`, `GhLog`, `GhInstruments`, `PaintPass`, and `JournalExport` are composed upstream owners; the hand frame ring, the per-session `LastFault` atoms, the `Guarded` try/catch funnel, the 6-clause conjunction guard, the hand survey projections, and the local lag/bound breach pair are all deleted; recording-to-disk, the sharing picker, and export serialization compose at the app root over the detached record.
+`MacGate`, kernel `EvidenceDrain`/`UiEvent`/`GaugedSpan`, `Lease<T>`, `FaultCell`, `ValidityClaim`, `MonotonicTimeline`, `GhLog`, `GhInstruments`, `PaintPass`, and `JournalExport` are composed upstream owners; the hand frame ring, the per-session `LastFault` atoms, the `Guarded` try/catch funnel, the 6-clause conjunction guard, the hand survey projections, and the local lag/bound breach pair are all deleted; recording-to-disk, the sharing picker, and export serialization compose at the app root over the detached record.
 
 ## [07]-[RESEARCH]
 

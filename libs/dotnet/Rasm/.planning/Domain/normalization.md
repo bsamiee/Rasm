@@ -40,16 +40,16 @@ namespace Rasm.Domain;
 public sealed partial class Topology {
     public static readonly Topology Point = new(key: 0, recover: static (source, key) => source switch {
         Point3d point => Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Owned(Value: new RhinoPoint(location: point))),
-        _ => Normalization.BorrowedGeometry(source: source, key: key),
+        _ => Normalization.BorrowedGeometry(source: source),
     });
-    public static readonly Topology Curve = new(key: 1, recover: static (source, key) => Normalization.CurveForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
-    public static readonly Topology Surface = new(key: 2, recover: static (source, key) => Normalization.SurfaceForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
-    public static readonly Topology Brep = new(key: 3, recover: static (source, key) => Normalization.BrepForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
-    public static readonly Topology Mesh = new(key: 4, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology SubD = new(key: 5, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology PointCloud = new(key: 6, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology Hatch = new(key: 7, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology Extrusion = new(key: 8, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
+    public static readonly Topology Curve = new(key: 1, recover: static (source, key) => Normalization.CurveForm(source: source).Map(static lease => Normalization.Widen(lease: lease)));
+    public static readonly Topology Surface = new(key: 2, recover: static (source, key) => Normalization.SurfaceForm(source: source).Map(static lease => Normalization.Widen(lease: lease)));
+    public static readonly Topology Brep = new(key: 3, recover: static (source, key) => Normalization.BrepForm(source: source).Map(static lease => Normalization.Widen(lease: lease)));
+    public static readonly Topology Mesh = new(key: 4, recover: static (source, key) => Normalization.BorrowedGeometry(source: source));
+    public static readonly Topology SubD = new(key: 5, recover: static (source, key) => Normalization.BorrowedGeometry(source: source));
+    public static readonly Topology PointCloud = new(key: 6, recover: static (source, key) => Normalization.BorrowedGeometry(source: source));
+    public static readonly Topology Hatch = new(key: 7, recover: static (source, key) => Normalization.BorrowedGeometry(source: source));
+    public static readonly Topology Extrusion = new(key: 8, recover: static (source, key) => Normalization.BorrowedGeometry(source: source));
     [UseDelegateFromConstructor]
     internal partial Fin<Lease<GeometryBase>> Recover(object source);
 }
@@ -77,7 +77,7 @@ public sealed partial class Kind {
         static (value, _) => Fin.Succ(((Arc)value).BoundingBox()));
     public static readonly Kind Ellipse = new(5, typeof(Ellipse), Topology.Curve,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.CurveForm), Option<ObjectType>.None,
-        static (value, key) => Normalization.CurveForm(source: value, key: key).Map(static lease => lease.Use(static curve => curve.GetBoundingBox(accurate: true))));
+        static (value, key) => Normalization.CurveForm(source: value).Map(static lease => lease.Use(static curve => curve.GetBoundingBox(accurate: true))));
     public static readonly Kind Curve = new(6, typeof(Curve), Topology.Curve,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.CurveForm), Some(ObjectType.Curve), NativeBounds);
     public static readonly Kind Surface = new(7, typeof(Surface), Topology.Surface,

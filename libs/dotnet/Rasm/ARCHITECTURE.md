@@ -7,7 +7,7 @@
 ```text
 Rasm/                      # Kernel below the .NET app strata: exact-arithmetic floor, operational geometry, interaction machinery
 ├── Domain/                # Kernel substrate floor every sibling composes
-│   ├── Results.cs         # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor
+│   ├── Results.cs         # Fault, Retriability, Transition, Lease<T>, and HostEdge; every fallible surface compiles against this floor
 │   ├── Context.cs         # ToleranceLane rows bind Band and BaseDimensions; Context.For(lane) is the one read every gate threads
 │   ├── Identity.cs        # CanonicalWriter, XXH ContentHash, SHA-256 ArtifactContent, and deterministic derivation
 │   ├── Validation.cs      # Acceptance.ValidityOf single validity oracle; CapabilitySet<TCapability> the one capability column
@@ -58,14 +58,14 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Mesh.cs            # MeshSource discriminant, MeshDraft accumulator, LaplacianCache, intrinsic-triangulation witnesses
 │   ├── Edit.cs            # Single-writer SoA arena with in-place Weld and Apply verbs; publish is freeze into MeshSpace
 │   ├── Dec.cs             # Mesh-bound assembly of the spectral bundle under the ∂∂ = 0 gate; assembles, never re-derives
-│   └── Reconstruct.cs     # Each ReconstructionPolicy case builds a fields scalar field; native callbacks convert through Op.Catch
+│   └── Reconstruct.cs     # Each ReconstructionPolicy case builds a fields scalar field; native callbacks convert through Try.lift
 ├── Processing/            # Algorithm pipelines over the floors
 │   ├── Repair.cs          # Total over its input class: non-manifold and odd-Euler meshes heal rather than fail; mints no content hash
 │   ├── Session.cs         # HealStep evidence over the Topology witness, HealSession chain; interior heal evidence Heal.Repair returns
 │   ├── Decimate.cs        # Exact Orient3D gate refuses flipped faces by construction; reversible vertex-split stream, Hausdorff budget
 │   ├── Remesh.cs          # One projected-convexity exact flip gate over a single MeshEdit arena; first-principles rewrite, no host echo
 │   ├── Flatten.cs         # Pinned solves eliminate boundary rows so the interior factors SPD; penalty forms are the refused class
-│   ├── Sample.cs          # PowerCcvtPolicy.Preset mints tuning on the Op channel; every threshold reads its own tolerance row at the run
+│   ├── Sample.cs          # PowerCcvtPolicy.Preset mints tuning; every threshold reads its own tolerance row at the run
 │   ├── Extract.cs         # ContourPolicy routes each domain to its named owner: host adapters, crossing table, or the marching lane
 │   ├── Flow.cs            # Termination union decides every stop; MorseAtlas.Of<TOut> folds the tracer into a frozen-column MorseGraph and projects it
 │   ├── Register.cs        # Two VectorCloud clusters in, one gated Transform out; the Procrustes lane adds scale under the policy record

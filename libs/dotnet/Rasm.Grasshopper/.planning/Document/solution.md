@@ -111,7 +111,7 @@ public static partial class SolutionControl {
         hooks
             .TraverseM(live => live.Fire(
                 at: GrasshopperPoint.SolutionLifecycle,
-                fact: new HookSignal.IntentCase(Operation: op, DocumentId: subject)))
+                fact: new HookSignal.IntentCase(DocumentId: subject)))
             .As()
             .Map(static _ => unit);
 

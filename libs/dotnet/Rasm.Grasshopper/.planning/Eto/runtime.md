@@ -76,8 +76,7 @@ public static class EtoTimer {
                        return opened.Rollback(
                            release: () => native is not null && handler is not null
                                ? TimerHold.Release(native, handler)
-                               : Fin.Succ(unit),
-                           key: op);
+                               : Fin.Succ(unit));
                    }), DispatchLane.Interactive)
                select (Lease<TimerHold>)new Lease<TimerHold>.Owned(
                    Value: new TimerHold(

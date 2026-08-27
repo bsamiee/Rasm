@@ -122,7 +122,7 @@ internal static partial class GeodesicKernel {
                                    from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay)
                                    from heat in space.Cache.ScalarHeatCholesky(time: h * h)
                                    let delta = DecAssembly.SourceDelta(n: n, sources: ordered, mass: laplacian.MassLumped)
-                                   from u in Solved(heat.SolveDetailed(rhs: delta, key: key))
+                                   from u in Solved(heat.SolveDetailed(rhs: delta))
                                    let gradient = DecAssembly.FaceGradients(mesh: space.Native, u: u)
                                    let divergence = DecAssembly.Divergence(mesh: space.Native, gradients: gradient)
                                    from distance in Solved(laplacian.Stiffness.SingularSolveDetailed(rhs: divergence, gauge: GaugePolicy.Pinned(indices: [.. ordered], mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance))
@@ -155,7 +155,7 @@ internal static partial class GeodesicKernel {
             double[][] rhs = [new double[n], new double[n], new double[n]];
             for (int axis = 0; axis < rhs.Length; axis++)
                 TensorPrimitives.Multiply<double>(weights, current[axis], rhs[axis]);
-            return toSeq(rhs).TraverseM(axis => Solved(system.SolveDetailed(rhs: new Arr<double>(axis), key: key))
+            return toSeq(rhs).TraverseM(axis => Solved(system.SolveDetailed(rhs: new Arr<double>(axis)))
                 .Map(solution => solution.AsIterable().ToArray())).As().Map(axes => axes.AsIterable().ToArray());
         }).As()
         .Map(smoothed => {
@@ -768,9 +768,9 @@ internal static partial class GeodesicKernel {
                 from connection in space.Cache.ConnectionCholesky(symmetry: 1, time: time, edgeAdjustment: None)
                 from heat in space.Cache.ScalarHeatCholesky(time: time)
                 let rhs = EncodeVectorHeatSources(n: n, sources: ordered, frames: frames, mass: laplacian.MassLumped)
-                from direction in Solved(connection.SolveDetailed(rhs: rhs.StackedDirection, key: key))
-                from magnitude in Solved(heat.SolveDetailed(rhs: rhs.Magnitude, key: key))
-                from indicator in Solved(heat.SolveDetailed(rhs: rhs.Indicator, key: key))
+                from direction in Solved(connection.SolveDetailed(rhs: rhs.StackedDirection))
+                from magnitude in Solved(heat.SolveDetailed(rhs: rhs.Magnitude))
+                from indicator in Solved(heat.SolveDetailed(rhs: rhs.Indicator))
                 select RecoverVectorHeat(n: n, direction: direction, magnitude: magnitude, indicator: indicator));
     }
     private static (Arr<double> StackedDirection, Arr<double> Magnitude, Arr<double> Indicator) EncodeVectorHeatSources(

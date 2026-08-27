@@ -323,7 +323,7 @@ public abstract partial record Touch {
         Fin<Seq<TouchResult>> primary = states
             .TraverseM(state => Apply(native: state.Native))
             .As();
-        return primary.Rollback(release: () => Restore(states: states, key: key));
+        return primary.Rollback(release: () => Restore(states: states));
     }
 
     private Fin<TouchResult> Apply(RhinoObject native) =>
@@ -733,7 +733,7 @@ public static class Objects {
                        from folded in active.Switch(
                            (Document: document, Natives: natives),
                            snapshot: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => ObjectSnapshot.Of(native: native, key: ctx.Op)).As()
+                               .TraverseM(native => ObjectSnapshot.Of(native: native)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.States(Rows: rows)),
                            frames: static (ctx, ask) => ctx.Natives
                                .TraverseM(native => Try.lift(() =>
@@ -781,7 +781,7 @@ public static class Objects {
                                natives: ctx.Natives,
                                detach: native => Try.lift(() =>
                                    Optional(native.GetSubObjects()).ToFin(Fail: new KernelFault.InvalidResult())
-                                       .Bind(parts => DetachMembers(members: parts, key: ctx.Op))).Run().Bind(static inner => inner))
+                                       .Bind(parts => DetachMembers(members: parts))).Run().Bind(static inner => inner))
                                .Map(static rows => (StateAnswer)new StateAnswer.Members(Rows: rows)),
                            cut: static (ctx, ask) =>
                                from domain in Rasm.Domain.Context.Of(doc: ctx.Document).ToFin()
@@ -800,7 +800,7 @@ public static class Objects {
                from results in session.Demand(
                    use: document =>
                        from natives in Resolve(document: document, target: target)
-                       from folded in active.Transact(natives: natives, key: op)
+                       from folded in active.Transact(natives: natives)
                        select folded,
                    needs: [SessionNeed.Mutate])
                select results;

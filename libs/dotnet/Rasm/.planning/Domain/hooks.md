@@ -312,7 +312,7 @@ public sealed class HookSet<TPoint, TFact, TOwner>
             : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: at.Id.ToValue(), Requirement: "a retaining point"));
 
     public Fin<Unit> Detach() =>
-        Unwind(taken: Cell.Take(cell: subscriptions).Current, key: Op.Of());
+        Unwind(taken: Cell.Take(cell: subscriptions).Current);
 
     public Fin<Unit> Release(TOwner scope) {
         Seq<(Option<TOwner> Owner, IDisposable Detach)> mine = subscriptions.Value.Filter(row => row.Owner.Exists(owner => owner.Equals(scope))).Strict();

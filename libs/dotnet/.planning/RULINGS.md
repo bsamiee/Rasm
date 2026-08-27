@@ -31,7 +31,7 @@
 - `FaultBand` row names never shadow a kernel TYPE in consumer scope — `LaneGuard`/`StoreStat` prefix, a row name being free where a wire key is not.
 - No declaration takes the simple name of an ADMITTED PACKAGE type its folder references — `FieldPack`, never `FieldCodec`, beside `Google.Protobuf`.
 - Host-boundary gesture and pick results stay PLURAL — a viewport pick and a canvas pick share no consumer, so one owner forces a cross-host edge.
-- `Option<T>` crosses to a host `T?` slot through `HostEdge.Slot`/`ToHostNullable` ALONE — the one place `null` is a legal spelling on this branch.
+- `Option<T>` crosses to a host `T?` slot through `HostEdge.Slot`/`HostEdge.Nullable` ALONE — the one place `null` is a legal spelling on this branch.
 - Value records holding a sequence, array, or map member declare `[Equatable]` with explicit member equality, or hold `Seq`/`Arr` over an array.
 - Boundary declarations whose simple name matches a kernel owner RENAME at the boundary — one assembly resolves bare names and the kernel keeps it.
 - `FaultBand.OwnerOf` takes the `BandKind` it decodes — the two id spaces partition, so an interval-only read answers whichever row sorts first.
@@ -84,7 +84,6 @@
 - Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.Direction` on `Vector3` floors its inverse at `1.1e-3°`.
 - Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never rises.
 - Corpus proto descriptors keep ONE spelling — an owner page carries the header-only fence alone; the roster is gate-emitted and a hand mirror forks.
-- `params` entrypoints mint their own `Op` at the entry — an optional `Op? key = null` ahead of the spread forecloses every positional call.
 - Host-enum reads resolve a `[SmartEnum]` row through `FactoryBridge.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
 - `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed selection `KeySelection`, both over the shared `Selection<TKey>`.
 - `Rasm.Element` `Predicate<ElementLeaf>` is the ONE class-selection closure — `NodeClassSelector` admits through `All(ByKind, ByClassification)`.

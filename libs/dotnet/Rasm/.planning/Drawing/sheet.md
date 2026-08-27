@@ -197,11 +197,11 @@ public abstract partial record SheetSize : IValidityEvidence {
         item = null;
         Fin<SheetSize> parsed = Optional(value).ToFin(new KernelFault.InvalidInput()).Bind(text =>
             text.StartsWith("custom-", StringComparison.Ordinal)
-                ? CustomOf(text: text.AsSpan(7), key: key)
+                ? CustomOf(text: text.AsSpan(7))
                 : ByPrefixLength.Value
                     .Find(row => text.StartsWith(row.Prefix, StringComparison.Ordinal))
                     .ToFin(new KernelFault.InvalidInput())
-                    .Bind(row => row.Index(suffix: text[row.Prefix.Length..], key: key).Bind(index => Of(series: row, index: index))));
+                    .Bind(row => row.Index(suffix: text[row.Prefix.Length..]).Bind(index => Of(series: row, index: index))));
         return parsed.Match(
             Succ: size => { item = size; return null; },
             Fail: static _ => new ValidationError(message: "SheetSize requires a rostered key (a3, ansi-b, arch-d, jis-b4) or custom-{standard}-{w}x{h}mm."));
@@ -235,7 +235,7 @@ public abstract partial record SheetSize : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Width > Length.Zero, Height > Length.Zero);
 
     public Fin<(double Width, double Height)> In(ModelUnit unit) =>
-        MillimetreScale(unit: unit, key: key.OrDefault()).Map(scale => (Width.Millimeters * scale.Into, Height.Millimeters * scale.Into));
+        MillimetreScale(unit: unit).Map(scale => (Width.Millimeters * scale.Into, Height.Millimeters * scale.Into));
 }
 
 [ComplexValueObject]
@@ -253,7 +253,7 @@ public sealed partial class SheetMargin {
             : new ValidationError(message: "SheetMargin requires finite non-negative insets.");
 
     public Fin<(double Left, double Top, double Right, double Bottom)> In(ModelUnit unit) =>
-        SheetSize.MillimetreScale(unit: unit, key: key.OrDefault())
+        SheetSize.MillimetreScale(unit: unit)
             .Map(scale => (Left.Millimeters * scale.Into, Top.Millimeters * scale.Into, Right.Millimeters * scale.Into, Bottom.Millimeters * scale.Into));
 }
 ```

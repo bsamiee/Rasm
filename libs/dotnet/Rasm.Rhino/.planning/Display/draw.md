@@ -603,10 +603,7 @@ public sealed class SpriteSheet : IDisposable {
                                             loaded.SetBlendFunction(blend.Source.Native, blend.Destination.Native)))).Run().Bind(static inner => inner)
                                         .Map(_ => loaded)
                                         .Rollback(
-                                            release: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(loaded.Dispose))).Run().Bind(static inner => inner),
-                                            key: key)),
-                                key: key)),
-                        key: key))));
+                                            release: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(loaded.Dispose))).Run().Bind(static inner => inner)))))))));
 
     public Fin<Unit> Release() {
         Transition<SheetGate> closing = Cell.Step(

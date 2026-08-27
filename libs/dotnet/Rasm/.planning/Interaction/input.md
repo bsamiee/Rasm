@@ -585,7 +585,7 @@ public sealed partial class UiSource : IUiSource<UiFact> {
     // --- [CLOCK]
     public static readonly UiSource Beat = new(key: "clock.beat",
         attach: static (anchor, emit, key) => OnClock(anchor, emit,
-            static (clock, observer, op) => clock.Tap(observer: observer, key: op),
+            static (clock, observer, op) => clock.Tap(observer: observer),
             static beat => Fin.Succ<UiFact>(new UiFact.BeatCase(Beat: beat))));
 
     [UseDelegateFromConstructor]

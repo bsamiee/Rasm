@@ -210,7 +210,7 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 
     private Fin<CADisplayLink> Configured(CADisplayLink link, NSScreen screen) =>
         from ceiling in FactoryBridge.Accept<PositiveMagnitude>(candidate: Math.Max(1.0, (double)screen.MaximumFramesPerSecond))
-        from scaled in pace.ScaleTo(ceiling: ceiling, key: key)
+        from scaled in pace.ScaleTo(ceiling: ceiling)
         select (CADisplayLink)(link.PreferredFrameRateRange = CAFrameRateRange.Create(
                 minimum: (float)scaled.Minimum,
                 maximum: (float)scaled.Maximum,

@@ -295,14 +295,14 @@ public readonly record struct Matrix : IValidityEvidence {
             : MatrixKernel.DenseResult(source: this, rows: Rows, cols: Cols, project: static matrix => matrix.Inverse());
     public Fin<Matrix> PseudoInverse() =>
         MatrixKernel.DenseResult(source: this, rows: Cols, cols: Rows, project: static matrix => matrix.PseudoInverse());
-    public Fin<EigenSolution<Complex, Arr<Complex>>> DecomposeEigenDetailed() => MatrixKernel.GeneralEigen(matrix: this, key: key.OrDefault());
-    public Fin<LuResult> DecomposeLu() => MatrixKernel.Lu(matrix: this, key: key.OrDefault());
-    public Fin<QrResult> DecomposeQr() => MatrixKernel.Qr(matrix: this, key: key.OrDefault());
-    public Fin<SvdResult> DecomposeSvd() => MatrixKernel.Svd(matrix: this, key: key.OrDefault());
+    public Fin<EigenSolution<Complex, Arr<Complex>>> DecomposeEigenDetailed() => MatrixKernel.GeneralEigen(matrix: this);
+    public Fin<LuResult> DecomposeLu() => MatrixKernel.Lu(matrix: this);
+    public Fin<QrResult> DecomposeQr() => MatrixKernel.Qr(matrix: this);
+    public Fin<SvdResult> DecomposeSvd() => MatrixKernel.Svd(matrix: this);
     public Fin<double> Norm(MatrixNormKind kind) => key.OrDefault().Finite(value: kind.Compute(matrix: this));
     public Fin<double> Trace() =>
         Rows.Value != Cols.Value ? Fin.Fail<double>(key.OrDefault().InvalidInput()) : key.OrDefault().Finite(value: MatrixKernel.ToMathNet(this).Trace());
-    public Fin<double> Determinant() => MatrixKernel.Determinant(matrix: this, key: key.OrDefault());
+    public Fin<double> Determinant() => MatrixKernel.Determinant(matrix: this);
     public Fin<LinearSolution> SolveDetailed(Arr<double> rhs) => MatrixKernel.Solve(matrix: this, rhs: rhs);
     public Fin<LinearSolution> LeastSquaresDetailed(Arr<double> rhs) => MatrixKernel.LeastSquares(matrix: this, rhs: rhs);
     internal ReadOnlySpan2D<double> AsPlane() => Entries.AsSpan().AsSpan2D(height: Rows.Value, width: Cols.Value);
@@ -323,9 +323,9 @@ public readonly record struct SymmetricMatrix : IValidityEvidence {
         ValidityClaim.CountExactly(count: Upper.Count, expected: Dimension.Value * (Dimension.Value + 1) / 2),
         ValidityClaim.Finite(Upper.AsSpan()));
     public Matrix ToDense() => MatrixKernel.Expanded(matrix: this);
-    public Fin<EigenSolution<double, Arr<double>>> DecomposeEigenDetailed() => MatrixKernel.SymmetricEigen(matrix: this, key: key.OrDefault());
-    public Fin<CholeskyResult> DecomposeCholesky() => MatrixKernel.Cholesky(matrix: this, key: key.OrDefault());
-    public Fin<Unit> Definite() => MatrixKernel.DefiniteSweep(matrix: this, key: key.OrDefault());
+    public Fin<EigenSolution<double, Arr<double>>> DecomposeEigenDetailed() => MatrixKernel.SymmetricEigen(matrix: this);
+    public Fin<CholeskyResult> DecomposeCholesky() => MatrixKernel.Cholesky(matrix: this);
+    public Fin<Unit> Definite() => MatrixKernel.DefiniteSweep(matrix: this);
     internal double At(int i, int j) => Upper[FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j))];
     internal SymmetricMatrix With(int i, int j, double value) =>
         new(dimension: Dimension, upper: Upper.SetItem(FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j)), value));
@@ -501,7 +501,7 @@ public sealed record CholeskySparse : IValidityEvidence {
     public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Option<IProgress<double>> progress = default) =>
         symmetric.Rows.Value != symmetric.Cols.Value
             ? Fin.Fail<CholeskySparse>(error: key.OrDefault().InvalidInput())
-            : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric, key: key.OrDefault())
+            : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric)
               from factor in key.OrDefault().Catch(() => Fin.Succ(progress.Match(
                   Some: report => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, progress: report),
                   None: () => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA))))

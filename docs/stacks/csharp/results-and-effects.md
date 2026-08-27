@@ -50,8 +50,10 @@ Every boundary converts once into the carrier that states the real outcome; reus
 - Reject: reminting a captured failure from its `Message`; a bare `try`/`catch` wrapping a carrier transform; a blanket `MapFail` onto a typed fault, which destroys type, stack, and cause for every unknown failure at once.
 
 ```csharp
-public static Fin<Report> Capture(Func<Fin<Report>> native, CancellationToken token) =>
-    Op.Of().Catch(native, NativeBoundary.Classify, token);
+public static Fin<Report> Capture(Func<Fin<Report>> native) {
+    try { return native(); }
+    catch (Exception raised) { return Fin.Fail<Report>(NativeBoundary.Classify(Error.New(raised.Message, raised))); }
+}
 ```
 
 [CROSS_CARRIER_PROJECTION]:

@@ -383,7 +383,7 @@ public static class MaterialAsk {
                 : Seq<int>()).TraverseM(channel => Try.lift(() => {
                     using TextureMapping? mapping = native.GetTextureMapping(channel, out Transform objectTransform);
                     return from admitted in Optional(mapping).ToFin(Fail: new KernelFault.InvalidResult())
-                           from slot in MappingChannel.Admit(value: channel, key: op)
+                           from slot in MappingChannel.Admit(value: channel)
                            select new MappingStamp(
                                Channel: slot, Id: admitted.Id, ObjectTransform: objectTransform);
                 }).Run().Bind(static inner => inner)).As().Map(values => (native.Id, values))).Run().Bind(static inner => inner)).As());
@@ -405,16 +405,15 @@ public static class MaterialAsk {
                 detach: native => Try.lift(() =>
                     Optional(native.GetMeshes(meshType: kind.Host)).ToFin(Fail: new KernelFault.InvalidResult())
                         .Bind(meshes => ObjectPiece.DetachAll(
-                            rows: toSeq(meshes).Map(static mesh => ((GeometryBase)mesh, Option<ObjectAttributes>.None)),
-                            key: op))).Run().Bind(static inner => inner))
+                            rows: toSeq(meshes).Map(static mesh => ((GeometryBase)mesh, Option<ObjectAttributes>.None))))).Run().Bind(static inner => inner))
             .Map(static rows => new MeshPieces(Rows: rows)));
 
     public static MaterialAsk<Seq<(Guid Id, Option<RenderMeshPolicy> Value)>> CachePolicy(MeshFallback fallback) => new(
         admit: op => Admit.Need(fallback).Map(row => CachePolicy(fallback: row)),
         read: (natives, op) => natives
             .TraverseM(native => Try.lift(() => fallback == MeshFallback.Document
-                ? Fresh(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: true), key: op)
-                : Stored(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: false), key: op)).Run().Bind(static inner => inner)
+                ? Fresh(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: true))
+                : Stored(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: false))).Run().Bind(static inner => inner)
                 .Map(value => (native.Id, value))).As());
 
     public static MaterialAsk<Seq<(Guid Id, bool Verdict)>> Meshable(MeshKind kind) => new(
@@ -425,13 +424,13 @@ public static class MaterialAsk {
 
     public static MaterialAsk<MeshHarvest> Harvest(MeshBatch batch) => new(
         admit: op => Admit.Need(batch).Bind(value => value.Admit()).Map(value => Harvest(batch: value)),
-        read: (natives, op) => batch.Run(natives: natives, op: op)
+        read: (natives, op) => batch.Run(natives: natives)
             .Bind(run => run.Verdict == CommandVerdict.Completed
                 ? Harvested(meshes: run.Meshes, attributes: run.Attributes)
                     .Map(rows => new MeshHarvest(Rows: rows, Settled: run.Settled))
                 : Fin.Fail<MeshHarvest>(error: new KernelFault.InvalidResult(Detail: Some(run.Verdict.Key.ToString(
                         System.Globalization.CultureInfo.InvariantCulture))))
-                    .Rollback(release: () => run.Release(), key: op)));
+                    .Rollback(release: () => run.Release())));
 
     public static MaterialAsk<Seq<(Guid Id, Option<ProviderValue> Value)>> Knob(Guid provider, string name) => new(
         admit: op =>

@@ -397,7 +397,7 @@ public abstract partial record TableTarget {
     public static Fin<TableTarget> Query(QuerySpec spec, params ReadOnlySpan<TablePredicate> predicates) {
         return (
                 Admit.Need(spec).ToValidation(),
-                Admission.All(values: predicates, key: op).ToValidation())
+                Admission.All(values: predicates).ToValidation())
             .Apply(static (source, filters) => (TableTarget)new QueryCase(
                 Spec: source,
                 Predicates: filters))
@@ -999,7 +999,7 @@ public abstract partial record TableOp {
         return (
                 Admit.Need(custody).ToValidation(),
                 toSeq(sources.ToArray())
-                    .Traverse(source => GeometryIntake.Of(source: source, key: op).ToValidation())
+                    .Traverse(source => GeometryIntake.Of(source: source).ToValidation())
                     .As(),
                 guard(sources.Length > 0, new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply(static (policy, values, _) => (TableOp)new AddCase(
@@ -1209,8 +1209,7 @@ public abstract partial record TableOp {
                 document: context.Document,
                 target: edit.Target,
                 step: id => ResourceId.Admit(
-                    value: edit.Policy.Apply(table: context.Document.Objects, id: id, motion: edit.Motion),
-                    key: context.Op).Map(static _ => unit)),
+                    value: edit.Policy.Apply(table: context.Document.Objects, id: id, motion: edit.Motion)).Map(static _ => unit)),
             amendCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
@@ -1479,7 +1478,7 @@ public static class Tables {
             recordsUndo: plan.Undo.Demands().Admits(capability: UndoTrait.Records),
             redraw: plan.Redraw,
             run: () =>
-                from _registered in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, key: op)).As()
+                from _registered in plan.CustomUndo.TraverseM(undo => undo.Register(document: document)).As()
                 from _applied in plan.Operations
                     .TraverseM(operation => operation.Apply(document: document, domain: domain)).As()
                 select unit,

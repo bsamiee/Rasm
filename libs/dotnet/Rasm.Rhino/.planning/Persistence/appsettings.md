@@ -656,7 +656,7 @@ public static class AppSettings {
         return Admit.Need(operation)
             .Bind(active => Admit(active))
             .Bind(active => Seated(active, writer))
-            .Bind(active => active.Switch< Fin<AppAnswer>>(captureCase: static (op, capture) => Error.New(op: op.Message, op: op)
+            .Bind(active => active.Switch< Fin<AppAnswer>>(captureCase: static (op, capture) => Error.New(op: op.Message)
                 .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state)),
             fallbackCase: static (op, fallback) => fallback.Theme.Match(
                 Some: theme => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.StateCase(
@@ -665,7 +665,7 @@ public static class AppSettings {
                     .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state))),
             applyCase: static (op, apply) => Mutated(
                 family: apply.State.Family,
-                write: () => apply.State.Family.Apply(state: apply.State, op: op)),
+                write: () => apply.State.Family.Apply(state: apply.State)),
             resetCase: static (op, reset) => Mutated(
                 family: reset.Family,
                 write: () => reset.Family.Reset()),
@@ -685,10 +685,10 @@ public static class AppSettings {
                         Current: swatch.Slot.Read(),
                         Preset: preset)));
             }).Run().Bind(static inner => inner),
-            aliasCase: static (op, alias) => Aliases(edit: alias.Edit, op: op),
-            shortcutCase: static (op, shortcut) => Shortcuts(edit: shortcut.Edit, op: op),
-            repeatCase: static (op, repeat) => Repeats(edit: repeat.Edit, op: op),
-            pathCase: static (op, path) => Paths(edit: path.Edit, op: op),
+            aliasCase: static (op, alias) => Aliases(edit: alias.Edit),
+            shortcutCase: static (op, shortcut) => Shortcuts(edit: shortcut.Edit),
+            repeatCase: static (op, repeat) => Repeats(edit: repeat.Edit),
+            pathCase: static (op, path) => Paths(edit: path.Edit),
             conductCase: static (op, conduct) => Mutated(
                 family: AppSettingsFamily.General,
                 write: () => Try.lift(() => {
@@ -896,14 +896,12 @@ public static class AppSettings {
             source: () => CommandAliasList.GetNames().Select(name =>
                 CommandAliasList.FindAlias(alias: name) is { } found
                     ? (Name: name, Macro: found.Macro, Instant: Some(found.Instant))
-                    : (Name: name, Macro: CommandAliasList.GetMacro(alias: name), Instant: Option<bool>.None)),
-            op: op),
+                    : (Name: name, Macro: CommandAliasList.GetMacro(alias: name), Instant: Option<bool>.None))),
         presetCase: static (op, _) => AliasBindings(
             source: () => CommandAliasList.GetDefaults().Select(static binding => (
                 Name: binding.Key,
                 Macro: binding.Value,
-                Instant: Option<bool>.None)),
-            op: op),
+                Instant: Option<bool>.None))),
         probeCase: static (op, probe) => Try.lift(() => CommandAliasList.IsAlias(alias: probe.Name.Value)
             ? FactoryBridge.Accept<MacroText>(CommandAliasList.GetMacro(alias: probe.Name.Value))
                 .Map(static macro => (AppAnswer)new AppAnswer.MacroCase(Macro: Some(macro)))
@@ -935,12 +933,12 @@ public static class AppSettings {
             .ToFin()
             .Map(static bindings => (AppAnswer)new AppAnswer.AliasesCase(Bindings: bindings))).Run().Bind(static inner => inner);
 
-    private static Fin<AppAnswer> Shortcuts(ShortcutEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetShortcuts, op: op),
-        presetCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetDefaults, op: op),
+    private static Fin<AppAnswer> Shortcuts(ShortcutEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetShortcuts),
+        presetCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetDefaults),
         assignCase: static (op, assign) =>
             from _written in Try.lift(() => ShortcutKeySettings.SetMacro(modifier: assign.Binding.Modifier,
                 macro: assign.Binding.Macro.Value)).Run().Bind(static inner => inner)
-            from roster in Bindings(source: ShortcutKeySettings.GetShortcuts, op: op)
+            from roster in Bindings(source: ShortcutKeySettings.GetShortcuts)
             select roster,
         mergeCase: static (op, merge) =>
             from _updated in Try.lift(() => ShortcutKeySettings.Update(
@@ -950,7 +948,7 @@ public static class AppSettings {
                     Macro = binding.Macro.Value,
                 }).AsIterable(),
                 replaceAll: merge.Merge.Key)).Run().Bind(static inner => inner)
-            from roster in Bindings(source: ShortcutKeySettings.GetShortcuts, op: op)
+            from roster in Bindings(source: ShortcutKeySettings.GetShortcuts)
             select roster);
 
     private static Fin<AppAnswer> Bindings(Func<KeyboardShortcut[]> source) =>
@@ -983,7 +981,7 @@ public static class AppSettings {
         findCase: static (op, find) =>
             from resolved in Try.lift(() => Optional(FileSettings.FindFile(fileName: find.FileName))
                 .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-                .Traverse(value => DocumentPath.Of(value: value, key: op))
+                .Traverse(value => DocumentPath.Of(value: value))
                 .As()).Run().Bind(static inner => inner)
             select (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved),
         autosaveCase: static (op, autosave) => autosave.Commands.Match(
@@ -995,13 +993,13 @@ public static class AppSettings {
             Names: toSeq(FileSettings.RecentlyOpenedFiles())))).Run().Bind(static inner => inner),
         dataFolderCase: static (op, data) => Try.lift(() => Optional(FileSettings.GetDataFolder(currentUser: data.CurrentUser))
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-            .Traverse(value => DocumentPath.Of(value: value, key: op))
+            .Traverse(value => DocumentPath.Of(value: value))
             .As()
             .Map(static resolved => (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved))).Run().Bind(static inner => inner),
         templateFolderCase: static (op, template) => Try.lift(() => Optional(
                 FileSettings.DefaultTemplateFolderForLanguageID(languageID: template.LanguageId))
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-            .Traverse(value => DocumentPath.Of(value: value, key: op))
+            .Traverse(value => DocumentPath.Of(value: value))
             .As()
             .Map(static resolved => (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved))).Run().Bind(static inner => inner));
 }

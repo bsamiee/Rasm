@@ -561,7 +561,7 @@ public abstract partial record LightOp {
             mint: static (context, work) => work.Seed.Mint().Bind(lease => lease.Use(
                 fresh => Try.lift(() => {
                     _ = work.Name.Iter(name => fresh.Name = name);
-                    return ResourceIndex.Admit(value: context.Lights.Add(fresh), key: context.Op)
+                    return ResourceIndex.Admit(value: context.Lights.Add(fresh))
                         .Map(static _ => unit);
                 }).Run().Bind(static inner => inner))),
             amend: static (context, work) =>
@@ -730,7 +730,7 @@ public static class Lights {
                from roster in session.Demand(
                    use: document =>
                        from model in Rasm.Domain.Context.Of(doc: document).ToFin()
-                       from rows in address.Resolve(document: document, key: op)
+                       from rows in address.Resolve(document: document)
                        from stamps in rows.TraverseM(row => LightStamp.Of(
                            index: row.Index, native: row.Native, model: model)).As()
                        select new LightRoster(Rows: stamps),
@@ -750,7 +750,7 @@ public static class Lights {
                    name: nameof(Lights),
                    redraw: policy,
                    run: (document, key) => plan
-                       .TraverseM(work => work.Apply(document: document, op: key)).As()
+                       .TraverseM(work => work.Apply(document: document)).As()
                        .Map(static _ => unit))
                select unit;
     }
@@ -767,7 +767,7 @@ public static class Lights {
                from capture in session.Demand(
                    use: document =>
                        from model in Rasm.Domain.Context.Of(doc: document).ToFin()
-                       from rows in new LightSelect.Every().Resolve(document: document, key: op)
+                       from rows in new LightSelect.Every().Resolve(document: document)
                        from stamps in rows.TraverseM(row => LightStamp.Of(
                            index: row.Index, native: row.Native, model: model)).As()
                        from photometry in stamps.TraverseM(stamp => ScenePhotometry.Of(

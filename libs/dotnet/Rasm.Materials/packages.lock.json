@@ -354,14 +354,6 @@
           "Grpc.Core.Api": "2.83.0"
         }
       },
-      "LanguageExt.Streaming": {
-        "type": "Transitive",
-        "resolved": "5.0.0-beta-77",
-        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
-        "dependencies": {
-          "LanguageExt.Core": "5.0.0-beta-77"
-        }
-      },
       "librdkafka.redist": {
         "type": "Transitive",
         "resolved": "2.15.0",
@@ -1423,6 +1415,15 @@
         "dependencies": {
           "Google.Api.CommonProtos": "2.16.0",
           "Grpc.Core.Api": "2.83.0"
+        }
+      },
+      "LanguageExt.Streaming": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0-beta-77, )",
+        "resolved": "5.0.0-beta-77",
+        "contentHash": "tU1b/ZmDWmckM0BiUR5NuFS0nQro3v4NYCZHxrpUm4+EbvYA5e+odgUa1Oa/GcqGmeF4te8PJHO8o8aVHLndhQ==",
+        "dependencies": {
+          "LanguageExt.Core": "5.0.0-beta-77"
         }
       },
       "LanguageExt.Sys": {

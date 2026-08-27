@@ -121,10 +121,10 @@ public abstract partial record LayerRef {
     private sealed record CurrentCase : LayerRef;
 
     public static Fin<LayerRef> ById(Guid value) =>
-        ResourceId.Admit(value: value, key: key.OrDefault()).Map(static id => (LayerRef)new IdCase(Value: id));
+        ResourceId.Admit(value: value).Map(static id => (LayerRef)new IdCase(Value: id));
 
     public static Fin<LayerRef> AtIndex(int value) =>
-        ResourceIndex.Admit(value: value, key: key.OrDefault()).Map(static index => (LayerRef)new IndexCase(Value: index));
+        ResourceIndex.Admit(value: value).Map(static index => (LayerRef)new IndexCase(Value: index));
 
     public static Fin<LayerRef> AtPath(LayerPath value) =>
         guard(value != default, key.OrDefault().InvalidInput()).ToFin()
@@ -739,7 +739,7 @@ public abstract partial record LayerArrangement {
     public static LayerArrangement ByName(SortSense sense) => new ByNameCase(Sense: sense);
 
     public static Fin<LayerArrangement> Explicit(params ReadOnlySpan<LayerRef> order) {
-        return from values in Admission.All(values: order, key: op)
+        return from values in Admission.All(values: order)
                from _ in guard(!values.IsEmpty, new KernelFault.InvalidInput())
                select (LayerArrangement)new ExplicitCase(Order: values);
     }
@@ -788,7 +788,7 @@ public abstract partial record LayerOp {
     private sealed record ReclaimCase : LayerOp;
 
     public static Fin<LayerOp> Create(LeafName name, Option<LayerRef> parent = default, params ReadOnlySpan<LayerEdit> edits) =>
-        Admission.All(values: edits, key: Op.Of())
+        Admission.All(values: edits)
             .Map(admitted => (LayerOp)new CreateCase(Name: name, Parent: parent, Edits: admitted));
 
     public static Fin<LayerOp> Graft(LayerPath path, Option<System.Drawing.Color> color = default) =>
@@ -797,7 +797,7 @@ public abstract partial record LayerOp {
 
     public static Fin<LayerOp> Amend(LayerRef target, params ReadOnlySpan<LayerEdit> edits) {
         return from address in Admit.Need(target)
-               from admitted in Admission.All(values: edits, key: op)
+               from admitted in Admission.All(values: edits)
                from _ in guard(!admitted.IsEmpty, new KernelFault.InvalidInput())
                select (LayerOp)new AmendCase(Target: address, Edits: admitted);
     }
@@ -970,7 +970,7 @@ public abstract partial record LayerOp {
             : Staged(
                 document: document,
                 index: index,
-                revise: staged => edits.TraverseM(edit => edit.Apply(staged: staged, key: op)).As().Map(static _ => unit));
+                revise: staged => edits.TraverseM(edit => edit.Apply(staged: staged)).As().Map(static _ => unit));
 
     private static Fin<Unit> Staged(RhinoDoc document, int index, Func<Layer, Fin<Unit>> revise) =>
         from live in Optional(document.Layers.FindIndex(index: index)).ToFin(Fail: new KernelFault.MissingContext())
@@ -1060,7 +1060,7 @@ public sealed record LayerDelta {
     public RedrawPolicy Redraw { get; }
 
     public static Fin<LayerDelta> Of(RedrawPolicy redraw, Option<string> recordName = default, params ReadOnlySpan<LayerOp> operations) {
-        return from admitted in Admission.All(values: operations, key: op)
+        return from admitted in Admission.All(values: operations)
                from _ in guard(!admitted.IsEmpty, new KernelFault.InvalidInput())
                select new LayerDelta(Operations: admitted, RecordName: recordName, Redraw: redraw);
     }
@@ -1082,7 +1082,7 @@ public static partial class Layers {
                 recordsUndo: true,
                 redraw: delta.Redraw,
                 run: () => delta.Operations
-                    .TraverseM(operation => operation.Apply(document: document, op: op))
+                    .TraverseM(operation => operation.Apply(document: document))
                     .As()
                     .Map(static _ => unit),
                 project: Fin.Succ),

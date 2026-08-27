@@ -264,7 +264,6 @@ Every kernel contract is a frozen-name value type the host binds and never re-mi
 
 Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically. Kernel-end edges fold this fence per owner, boundary, and kind, so a member added or retired here moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row.
 
-- `Op` is the result key every fence takes and rides no boundary edge, as on every other kernel boundary; `Lease<T>` and `HookSet` cross as declared shapes.
 - `Dimension` here is `Rasm.Numerics.Dimension` spelled in full; the bare host `Rhino.Geometry.Dimension` on the Annotation pages is no crossing.
 - Boundary `Placement` names the kernel transform builder reached through `Placement.Build`; `Blocks/model` owns its separate block-instance union.
 - `InstrumentSpec` rides `[PORT]` because the boundary DECLARES rows the app root mounts; every other kernel member crosses as a bound value.
