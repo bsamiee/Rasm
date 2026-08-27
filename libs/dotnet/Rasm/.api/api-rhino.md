@@ -32,7 +32,8 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 |  [04]   | `Polyline`            | `List<Point3d>` value | polyline geometry      |
 |  [05]   | `Mesh`                | reference             | mesh geometry          |
 |  [06]   | `Brep`                | reference             | boundary geometry      |
-|  [07]   | `CurveEvaluationSide` | enum                  | kink evaluation branch |
+|  [07]   | `Surface`             | abstract reference    | parametric surface     |
+|  [08]   | `CurveEvaluationSide` | enum                  | kink evaluation branch |
 
 - Reference geometry descends from the substrate's `GeometryBase`, so identity, duplication, `ObjectType`, disposal, and the bounds triple read there; this partition owns what each concrete type adds.
 - `NurbsCurve` exposes control-point and knot access, the densest `Curve` realization; `PolylineCurve` lowers a polyline to `Curve`, bridging `Curve.TryGetPolyline`.
@@ -87,6 +88,8 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 [PRIMITIVE_SAMPLING]: `Sphere.PointAt(lonRadians, latRadians)` `Sphere.ClosestPoint` `Sphere.ClosestParameter(pt, out lon, out lat)` `Circle.PointAt(t)` `Circle.ClosestPoint` `Circle.ClosestParameter(pt, out t)` `Arc.PointAt(t)` `Arc.ClosestParameter(pt)` — evaluate a primitive at its own parameterization, the `Analysis` cardinality switch reading the result beside the crossing verdict.
 
 - Projection arity forks across the family: `Sphere` and `Circle` return `bool` with the parameters on `out` channels, while `Arc.ClosestParameter` returns the `double` directly and carries no failure verdict — a fold treating the three uniformly drops the `Arc` case or invents a verdict it never gets.
+[PLANE_FITTING]: `Plane.FitPlaneToPoints(IEnumerable<Point3d> points, out Plane plane, out double maximumDeviation) -> PlaneFitResult` `Plane(Point3d origin, Vector3d xDirection, Vector3d yDirection)` `Plane.Normal` `Plane.IsValid` `Plane.ClosestPoint(Point3d) -> Point3d` — the host least-squares plane per panel with its maximum deviation as the planarity defect, `PlaneFitResult.Success` the one accepted verdict (`Failure`/`Inconclusive` refuse through `Fin`), and the two-axis constructor the orientation-preserving frame re-admission that holds a refit normal to its prior side.
+
 [RAY_SAMPLING]: `Ray3d.PointAt(t)` `Position` `Direction` — parametric ray sampling driving the ray `SpatialIndex.Query` arm and `MeshRay`.
 
 [ENTRYPOINT_SCOPE]: curve evaluation, projection, division, classification, and transformation, and the polyline chain surface; instance members
@@ -94,16 +97,20 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 [CURVE_EVALUATION]: `Curve.PointAt(t)` `TangentAt` `CurvatureAt` `FrameAt` `PerpendicularFrameAt` `DerivativeAt(t, derivativeCount)` `DerivativeAt(t, derivativeCount, CurveEvaluationSide)` — evaluate the curve and the moving frame `Drawing` and sweep paths read.
 
 - `Curve.DerivativeAt` returns `Vector3d[]` of length `derivativeCount + 1` where index `0` is the POINT and index `k` the `k`-th derivative, so a third-order read passes `3` and takes indices `1`, `2`, `3`; the two-arg form forwards `CurveEvaluationSide.Default`, and the three-arg form is the kink-aware primitive.
+[CURVE_FRAMES]: `Curve.GetPerpendicularFrames(IEnumerable<double> parameters) -> Plane[]` — the ONE batch perpendicular-frame read, minimizing rotation across the ORDERED parameter sequence, so it is not the per-station `PerpendicularFrameAt` repeated; null on refusal, and the caller sorts and dedups the stations first.
+[SURFACE_EVALUATION]: `Surface.PointAt(u, v)` `Evaluate(double u, double v, int numberDerivatives, out Point3d point, out Vector3d[] derivatives) -> bool` — `derivatives` packs the jet by order, order `k` starting at offset `(k-1)(k+2)/2` with `k+1` entries (`Du`, `Dv` at `0`, `1`; `Duu`, `Duv`, `Dvv` at `2`..`4`), so a reader slices the order it asked for and treats a short array as refusal. `Surface.ShortPath(Point2d start, Point2d end, double tolerance) -> Curve` — the geodesic between two surface UV stations, null on refusal. `Surface.CurvatureAt(double u, double v) -> SurfaceCurvature` — null on refusal; `SurfaceCurvature` is an `IDisposable` host bundle read under a lease: `IsSet` `Point` `Gaussian` `Mean` `Kappa(direction)` `Direction(direction)` `OsculatingCircle(direction)` `MaximumPrincipalCurvature` `MinimumPrincipalCurvature`, an unset bundle refused before any read.
 [CURVE_PROJECTION]: `Curve.ClosestPoint(pt,out t)` `LocalClosestPoint` — nearest parameter under a max-distance gate, `LocalClosestPoint` seeding from a guess.
-[CURVE_DIVISION]: `Curve.DivideByCount` `DivideByLength` `DivideEquidistant` `GetLength` — arc-length sampling for contour and toolpath resamplers.
+[CURVE_PARAMETERIZATION]: `Curve.LengthParameter(double segmentLength, out double t, double fractionalTolerance) -> bool` `NormalizedLengthParameter(double s, out double t, double fractionalTolerance) -> bool` `NormalizedLengthParameters(double[] s, double absoluteTolerance, double fractionalTolerance) -> double[]` — arc-length and normalized arc-length stations lowered to curve parameters, the `bool` forms refusing through `Fin` and the batch form answering null on refusal.
+[CURVE_DIVISION]: `Curve.DivideByCount` `DivideByLength` `DivideEquidistant` `DivideAsContour(Point3d contourStart, Point3d contourEnd, double interval) -> Point3d[]` `GetLength` — arc-length, chord, and contour-plane sampling for contour and toolpath resamplers; `DivideAsContour` answers null on refusal and an empty array where no plane crosses.
 [CURVE_CLASSIFICATION]: `Curve.TryGetPolyline(out)` `TryGetPlane(out)` `IsClosed` `IsPlanar` — exact lowering to `Polyline` or a supporting `Plane`, the kernel routing the non-exact `bool` through `Fin`.
+[CURVE_PLANAR_PREDICATES]: `Curve.ClosedCurveOrientation(Plane plane) -> CurveOrientation` `Contains(Point3d testPoint, Plane plane, double tolerance) -> PointContainment` — closed-planar-curve winding and point containment in the given plane; `CurveOrientation.Undefined` and `PointContainment.Unset` are the host's refusal sentinels and never valid output.
 [CURVE_TRANSFORMATION]: `Curve.Extend` `Simplify` `TrimInterval` `Offset` `ToNurbsCurve` — extend, simplify, trim, offset, and lower to canonical NURBS.
 [POLYLINE_EVALUATION]: `Polyline.PointAt(t)` `ClosestPoint` `CenterPoint` `Length` `GetSegments` `IsClosed` — the crossing-chain carrier the `Meshing/intersect` `ToPolylines` projection builds.
 [POLYLINE_REDUCTION]: `Polyline.ToNurbsCurve` `ToPolylineCurve` `ReduceSegments` `MergeColinearSegments` `Smooth` `BreakAtAngles` `Trim` — chain-to-curve lowering and section-curve decimation.
 
 [ENTRYPOINT_SCOPE]: mesh storage — vertex, face, normal, topology, n-gon — and the repair, restructuring, query, factory, and boolean operations; the kernel reads the buffers without reminting them
 
-[VERTEX_STORAGE]: `Mesh.Vertices` (`MeshVertexList`) — `Add` `SetVertex` `CombineIdentical` over `Point3f`/`Point3d` storage.
+[VERTEX_STORAGE]: `Mesh.Vertices` (`MeshVertexList`) — `Add` `SetVertex` `CombineIdentical` over `Point3f`/`Point3d` storage; `ToPoint3dArray() -> Point3d[]` the one whole-buffer double-precision copy out, so a kernel reading every vertex takes it once rather than widening `Point3f` per index.
 [FACE_STORAGE]: `Mesh.Faces` (`MeshFaceList`) — `MeshFace` connectivity with `GetFaceVertices` `ConvertQuadsToTriangles`.
 [NORMAL_STORAGE]: `Mesh.Normals` (`MeshVertexNormalList`) `FaceNormals` (`MeshFaceNormalList`) `ComputeNormals`.
 [TOPOLOGY_STORAGE]: `Mesh.TopologyVertices` `TopologyEdges` — `ConnectedTopologyVertices` `ConnectedFaces` `ConnectedEdges` `MeshVertexIndices` `IndicesFromFace`, the welded half-edge adjacency graph the narrow phase walks.

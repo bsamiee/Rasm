@@ -179,7 +179,7 @@ flowchart LR
     Rasm e4@-->|"[SHAPE]: ChannelDtype"| Raster
     Rasm e5@-->|"[PROJECTION]: ChartAtlas"| Raster
     Rasm e6@-->|"[WIRE]: DualModel"| Appearance
-    Rasm e7@-->|"[WIRE]: PatternPlan + InstanceStream"| Component
+    Rasm e7@-->|"[WIRE]: PatternPlan + PlanarInstances"| Component
     Rasm e8@-->|"[SHAPE]: MaterialSymmetry"| Component
     Rasm e9@-->|"[SHAPE]: RgbProfile"| Appearance
     Rasm e10@-->|"[SHAPE]: TapSeries"| Appearance

@@ -358,7 +358,7 @@ public abstract partial record PathPrimitive {
         curveCase: static (op, row) => Outlined(new ParametricOp.CardinalSpline(
             Frame: Plane.WorldXY,
             Points: new Arr<Point2d>([.. toSeq(row.Points).Map(P)]),
-            Tension: (float)row.Tension.Value,
+            Tension: row.Tension,
             Closed: false), op),
         compositeCase: static (op, row) => row.Figures.TraverseM(figure => Lower(spec: figure, key: op)).As()
             .Map(static lowered => lowered.Bind(static run => run).Strict()));
@@ -384,12 +384,8 @@ public abstract partial record PathPrimitive {
 
     private static PathPrimitive Planar(PlanarPrimitive primitive) => primitive.Switch(
         segment: static row => (PathPrimitive)new Line(row.From, row.To),
-        sweep: static row => new Arc(
-            Center: row.Center,
-            Radius: row.Radius,
-            Start: VectorAngle.Create(value: row.Start),
-            Sweep: VectorAngle.Create(value: row.Angle)),
-        cubic: static row => new Bezier(row.Start, row.Control1, row.Control2, row.End));
+        arc: static row => new Arc(Center: row.Center, Radius: row.Radius.Value, Start: row.Start, Sweep: row.Sweep),
+        bezier: static row => new Bezier(row.Start, row.Control1, row.Control2, row.End));
 }
 
 [SmartEnum<int>]

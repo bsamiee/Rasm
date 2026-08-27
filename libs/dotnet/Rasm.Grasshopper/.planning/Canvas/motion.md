@@ -200,12 +200,12 @@ public static class GlyphPath {
 
 ## [05]-[PACER]
 
-- Owner: `CanvasPacer` — the lease-owned GH2 clock pacer over the KERNEL clock: `Mount(cadence, drives, posture, clock, faults, key)` admits a non-empty drive set — each drive a kernel `MotionScript` BESIDE its host `Action<MotionSample>` apply closure (the ruled host apply arm; the kernel names no apply hook) — creates one inert owned `UiClock` over the injected session timeline, seats it through `Cell.Seat`, and starts it only after ownership installed. Clock callback holds weak references to pacer and clock, so the clock never roots its owner and an abandoned pacer disposes the orphaned clock on the next tick.
+- Owner: `CanvasPacer` — the lease-owned GH2 clock pacer over the KERNEL clock: `Mount(cadence, drives, accessibility, clock, faults, key)` admits a non-empty drive set — each drive a kernel `MotionScript` BESIDE its host `Action<MotionSample>` apply closure (the ruled host apply arm; the kernel names no apply hook) — creates one inert owned `UiClock` over the injected session timeline, seats it through `Cell.Seat`, and starts it only after ownership installed. Clock callback holds weak references to pacer and clock, so the clock never roots its owner and an abandoned pacer disposes the orphaned clock on the next tick.
 - Law: `MotionDrive.Step` is the shared sampling path for this pacer and the platform display link — each successful beat steps every script at `beat.Evidence`, applies every sample through its own closure under `Op.Catch`, retains only continuing drives through one `Cell.Commit`, schedules ONE repaint for that write set through `GhSession.Apply(RepaintCase(Scheduled))`, and stops the clock after the terminal repaint request.
 - Law: an empty live set stops defensively and schedules nothing; a sampling or apply fault RETIRES its row, the survivor roster commits and the repaint schedules FIRST (commit-then-park — moved visuals never strand unpainted), then the fault returns on the beat path where the kernel `FaultPosture.Halt` stops the clock with the cause parked on the composition's `FaultCell` — no newest-only fault column exists here.
 - Law: custody is the kernel idiom — the clock seat is `Cell.Seat` over an option cell (a doubled mount reads `Ceded` and disposes its surplus with the refusal AGGREGATED), the release one-shot is the `Atom<bool>` latch through `Cell.Step`, and the drive roster advances through `Cell.Commit` — the two interlocked integer ladders and the five discarded swaps are unspellable.
 - Boundary: drive writes update consumer state; the repaint renders it in the next paint window — this pacer never writes host visuals directly. Composition root's mount roster reaches this owner, and this pacer is the one mount of `Platform/layers.md`'s `MotionAttachment` where a drive belongs on the compositor instead of the paint clock.
-- Packages: `Rasm.Interaction` (`UiClock`, `PulseBeat`, `FaultPosture`), `Rasm.Parametric` (`MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `MonotonicTimeline`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Shell/session.md` (`GhSession`, `SessionOp.RepaintCase`, `RepaintRow`), `Rasm.Numerics` (`PositiveMagnitude`).
+- Packages: `Rasm.Interaction` (`UiClock`, `PulseBeat`, `FaultPosture`, `Accessibility`), `Rasm.Parametric` (`MotionScript`, `MotionSample`, `MotionDrive`, `MonotonicTimeline`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Shell/session.md` (`GhSession`, `SessionOp.RepaintCase`, `RepaintRow`), `Rasm.Numerics` (`PositiveMagnitude`).
 - Growth: a new drive shape is one kernel `MotionScript` case; neither pacer gains a parallel sampling arm.
 
 ```csharp
@@ -221,7 +221,7 @@ namespace Rasm.Grasshopper.Canvas;
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class CanvasPacer : IDisposable {
     private readonly Atom<Seq<(MotionScript Script, Action<MotionSample> Apply)>> live;
-    private readonly MotionPosture posture;
+    private readonly CapabilitySet<Accessibility> accessibility;
     private readonly FaultCell faults;
     private readonly Atom<Option<Lease<UiClock>>> clock = Atom(Option<Lease<UiClock>>.None);
     private readonly Atom<bool> released = Atom(false);
@@ -230,14 +230,14 @@ public sealed class CanvasPacer : IDisposable {
     public static Fin<Lease<CanvasPacer>> Mount(
         PositiveMagnitude cadence,
         Seq<(MotionScript Script, Action<MotionSample> Apply)> drives,
-        MotionPosture posture,
+        CapabilitySet<Accessibility> accessibility,
         MonotonicTimeline clock,
         FaultCell faults,
         Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in guard(!drives.IsEmpty, op.InvalidInput()).ToFin()
                from scripts in drives.TraverseM(row => MotionDrive.Admit(script: row.Script, key: op).Map(_ => row)).As()
-               let pacer = new CanvasPacer(drives: scripts.Strict(), posture: posture, faults: faults, operation: op)
+               let pacer = new CanvasPacer(drives: scripts.Strict(), accessibility: accessibility, faults: faults, operation: op)
                let weakPacer = new WeakReference<CanvasPacer>(pacer)
                from owned in UiClock.Of(
                    cadence: cadence,
@@ -266,7 +266,7 @@ public sealed class CanvasPacer : IDisposable {
         Seq<(MotionScript Script, Action<MotionSample> Apply)> active = live.Value;
         if (active.IsEmpty) { return Stop(); }
         (Seq<Error> faulted, Seq<((MotionScript Script, Action<MotionSample> Apply) Row, bool Continues)> stepped) = active
-            .Map(row => MotionDrive.Step(script: row.Script, beat: beat.Evidence, posture: posture, key: operation)
+            .Map(row => MotionDrive.Step(script: row.Script, beat: beat.Evidence, accessibility: accessibility, key: operation)
                 .Bind(step => operation.Catch(() => row.Apply(step.Sample))
                     .Map(_ => (Row: row, step.Continues))))
             .Partition();
@@ -379,7 +379,7 @@ public static class BudgetGate {
 |  [05]   | pacing          | `CanvasPacer`               | kernel clock/sampler, host apply closures, `Cell`   |    1    |
 |  [06]   | budget          | `BudgetRow` + `BudgetGate`  | `IGaugeLane` fractions → `GaugedSpan` sequence      |   10    |
 
-`MotionScript`/`MotionSample`/`MotionDrive`/`MotionPosture`, `UiClock`/`PulseBeat`/`FaultPosture`, `Tween`, and `GaugedSpan`/`IGaugeLane`/`PaceBand` are kernel owners; `DriveSpec`, `DriveFrame`, `UiCadence`, `ClockBeat`, `AccessibilityPosture`, the five hand interpolators, `StrokeStep`, `BudgetBreach`, the millisecond bound table, and the two interlocked ladders deleted onto them.
+`MotionScript`/`MotionSample`/`MotionDrive`/`Accessibility`, `UiClock`/`PulseBeat`/`FaultPosture`, `Tween`, and `GaugedSpan`/`IGaugeLane`/`PaceBand` are kernel owners; `DriveSpec`, `DriveFrame`, `UiCadence`, `ClockBeat`, `AccessibilityPosture`, the five hand interpolators, `StrokeStep`, `BudgetBreach`, the millisecond bound table, and the two interlocked ladders deleted onto them.
 
 ## [08]-[RESEARCH]
 

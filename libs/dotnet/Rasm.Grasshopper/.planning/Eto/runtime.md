@@ -89,7 +89,8 @@ public static class EtoTimer {
 public static class FrameTune {
     public static Fin<Unit> Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default, Op? key = null) {
         Op op = key.OrDefault();
-        return from scaled in PaceBand.Portable.ScaleTo(reference: interval, key: op)
+        return from ceiling in op.AcceptValidated<PositiveMagnitude>(candidate: 1.0 / interval.Value)
+               from scaled in PaceBand.Portable.ScaleTo(ceiling: ceiling, key: op)
                from seated in UiThread.Tune(
                    policy: new StallPolicy(Pace: scaled, Stretch: HashMap<DispatchLane, double>()),
                    clock: clock,

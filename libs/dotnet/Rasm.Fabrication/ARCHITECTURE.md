@@ -266,10 +266,10 @@ flowchart LR
     Rasm e15@-->|"[SHAPE]: CellLattice + SpectralArena"| Additive
     Rasm e16@-->|"[SHAPE]: CellLattice"| Geometry2D
     Rasm e17@-->|"[SHAPE]: ObjectiveSense"| Additive
-    Rasm e18@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceStream"| Nesting
+    Rasm e18@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceBatch"| Nesting
 ```
 
-- `[SHAPE]: MaterialSymmetry + PanelField + InstanceStream` — nesting reads move and pairing legality from their carried columns.
+- `[SHAPE]: MaterialSymmetry + PanelField + InstanceBatch` — nesting reads move and pairing legality from their carried columns.
 
 ## [04]-[INTERNAL]
 

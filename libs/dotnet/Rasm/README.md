@@ -114,7 +114,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `TYoshimura.DoubleDouble` — Middle-precision tier of the predicate ladder.
 
 [COMPUTATIONAL_GEOMETRY]:
-- `Supercluster.KDTree.Net` — Flat 3D kd-tree exact k-NN and radius-search leaf (`Spatial` neighbors; `Parametric` surface pullback).
+- `Supercluster.KDTree.Net` — Flat 3D kd-tree exact k-NN and radius-search leaf (`Spatial` neighbors).
 - `MIConvexHull` — 2D/3D incremental hulls and Delaunay complexes realizing the cloud hull arm.
 - `manifoldc` — In-house P/Invoke over `elalish/manifold`, the guaranteed-manifold scale companion.
 

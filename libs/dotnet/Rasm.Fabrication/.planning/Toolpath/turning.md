@@ -60,6 +60,7 @@ using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Tooling;
+using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Solving;
 using Rhino.Geometry;
@@ -876,6 +877,7 @@ public static class Turning {
     private static Fin<Seq<Move>> Spline(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         from fit in FitPolicy.Of(context: profile.Tolerance, key: Key)
         let chord = profile.Tolerance.For(ToleranceLane.Chord).Value
+        from admittedChord in Key.AcceptValidated<PositiveMagnitude>(candidate: chord)
         from fitted in CurveAlgebra.Apply(new CurveOp.Admit(
             new CurveSource.Outline(profile, chord, fit),
             Key))
@@ -884,7 +886,7 @@ public static class Turning {
             : Fin.Fail<NurbsForm.Curve>(new KernelFault.InvalidValue("turning", "turning:spline-fit"))
         from lowered in CurveAlgebra.Apply(new CurveOp.Lower(
             curve,
-            new CurveLowering.Chords(new DivideRule.ByChord(chord)),
+            new CurveLowering.Chords(new DivideRule.ByChord(admittedChord)),
             profile.Tolerance,
             Key))
         from loop in lowered is CurveTrace.Lowered result

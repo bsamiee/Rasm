@@ -2,7 +2,7 @@
 
 `Panelization` owns cross-field-guided panelization: `Apply` maps a UV-provenanced surface into a panel graph whose every panel leaves with a placement frame — origin, field-aligned x-axis, and metric-true binding normal — because position without orientation is half a panel. `PanelFamily` rides the request as data, so a new family is one case over the shared assembly fold rather than a sibling mapper, and per-panel planarity is the fabrication acceptance measure whose breach routes a fault instead of shipping an unfabricatable lattice. Mould reuse keys through the `patternmap.md` material-symmetry law: a mirrored congruence merges only where the material's `MirrorGrant` merges it, `Flipped` records which panels ride the mirrored digest, and the merges the law refused count on the census as the mould-cost delta of the material choice.
 
-Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u, v)`, and live `NurbsForm.Surface` binding — so an unbound mesh cannot enter and every `PanelField` keeps its UV provenance. `Lattice` consumes the remesh substrate's `QuadLayout` without re-running any field solve while `Seeded` lands geodesic-Voronoi cells over the `sample.md` distribution suite, `Order` the one `segment` `RosyOrder` row keying both arms; adjacency composes through QuikGraph.
+Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u, v)`, and live `NurbsForm.Surface` binding — so an unbound mesh cannot enter and every `PanelField` keeps its UV provenance. `Lattice` consumes the remesh substrate's `QuadLayout` without re-running any field solve while `Seeded` lands geodesic-Voronoi cells over the `sample.md` distribution suite, `Order` the one `segment` `RosyOrder` row keying both arms; adjacency packs as CSR straight off the shared-wall table.
 
 ## [01]-[INDEX]
 
@@ -10,17 +10,17 @@ Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u,
 
 ## [02]-[PANELIZATION]
 
-- Owner: `Panelization` mints the one static entry; `PanelFamily` carries the family as data, `PanelPolicy` the `IValidityEvidence` policy row carrying the lane-resolved planarity band and the `MaterialSymmetry` law the congruence fold reads (`None` reading `Free`), and `PanelResult` carries the panel-graph-plus-frame `PanelField` with its retained fabrication measures.
-- Cases: `PanelFamily` cases `Lattice` and `Seeded` — the substrate-guided lattice and the sample-suite distribution, `Order` the one `segment` `RosyOrder` row keying both; `PanelOp` cases `Map` and `Planarize` — generation versus fabrication-correction, `Planarize` consuming `Map`'s carrier.
-- Entry: `public static Fin<PanelResult> Apply(PanelOp op, Op? key = null)` — the one entry discriminating on the op case, the family arm discriminating inside it.
-- Auto: `Map`+`Lattice` binds the substrate's `QuadLayout` as the panel lattice and restores UV through one batch `Pullback`; `Map`+`Seeded` lands geodesic-Voronoi cells from cached heat-distance labels walled at the equidistance lerp. Both arms assemble identically — Newell plane per panel, planarity defect, adjacency composed through QuikGraph — and `Planarize` runs bounded proximal rounds toward the planarity band, keeping each panel's pre-planarization UV feet while frames and the `ShapeClass`/`Flipped`/`ChiralSplit` evidence re-derive from the planarized geometry — congruence answers the final rings, never the ones the rewrite retired.
+- Owner: `Panelization` mints the one static entry; `PanelFamily` carries the family as data, `PanelPolicy` the `IValidityEvidence` policy row carrying the lane-resolved planarity band and the required `MaterialSymmetry` `Symmetry` policy the congruence fold reads (`Of` seats `Free`), and `PanelResult` carries the panel-graph-plus-frame `PanelField` with its retained fabrication measures.
+- Cases: `PanelFamily` cases `Lattice` and `Seeded` — the substrate-guided lattice and the sample-suite distribution, `Order` the one `segment` `RosyOrder` row keying both.
+- Entry: `public static Fin<PanelResult> Apply(SurfaceResult.UvTessellation source, PanelFamily family, PanelPolicy policy, Op? key = null)` — the one entry admitting the policy once, the generated `PanelFamily.Switch` discriminating the family, and the raw assembly binding into the planarity gate before it can escape; no second planarization request exists.
+- Auto: `Lattice` binds the substrate's `QuadLayout` as the panel lattice and restores UV through one batch `Project`; `Seeded` lands geodesic-Voronoi cells from cached heat-distance fields walled at the equidistance lerp. Both arms assemble identically — RhinoCommon least-squares plane per panel (`Plane.FitPlaneToPoints`, its maximum deviation over the panel diameter the dimensionless defect), planarity defect, CSR adjacency packed off the shared-wall table — and the planarity gate passes an already-accepted band untouched, else runs bounded proximal rounds toward it — each round fits the same least-squares plane the defect reads, averages the projection displacement at every shared indexed vertex, and refits every moved panel's frame through the one `Frame` admission with the normal held to its prior orientation — keeping each panel's pre-planarization UV feet while the `ShapeClass`/`Flipped`/`ChiralSplit` evidence classifies exactly once off the admitted geometry — congruence answers the final rings, never the ones the rewrite retired.
 - Law: the result's planarity band is ONE `Stat<Scalar>` derived from the field's own `Planarity` column, never a max/mean pair beside it. NAMED LOSS: the two scalar fields; the gain is that the band cannot disagree with the column it summarizes, and the consumer reads variance and RMS no pair carries. WITNESS: `result.MaxPlanarity` rebuilt as `result.Planarity.Maximum.To()`, the same value off `Stat<Scalar>.Of(column.AsSpan(), key)`.
 - Law: the acceptance ceiling is `Tolerance` off `ToleranceLane.Fraction` — the defect is dimensionless (max vertex-plane deviation over panel diameter), so it belongs to the ratio band and the document sets it. NAMED LOSS: `PanelPolicy.Canonical` and its `5e-3` literal.
-- Exemption: `Loop`, `Cells`, `SharedWalls`, and `ShapeClasses` hold mutable `Dictionary`/`HashSet`/`List` accumulators inside their own span windows — a walled-cell chain, a wall pairing, and a first-seen class roster are single-pass build state that never escapes the member, and `Grain` states its quantum (the model's absolute tolerance, the branch's emission-boundary grain) on site.
+- Exemption: `Loops`, `Pack`, `Cells`, `AdjacencyOf`, and `ShapeClasses` hold mutable `Dictionary`/`HashSet`/`List` accumulators inside their own span windows — a walled-cell loop set, a grain-interned vertex table, a wall pairing, and a first-seen class roster are single-pass build state that never escapes the member, and `Grain` states its quantum (the model's absolute tolerance, the branch's emission-boundary grain) on site for both the loop stitch and the vertex intern.
 - Output: `PanelResult` carries the planarity band, the `ChiralSplit` count, and planarize rounds beside the field; counts derivable from the field and unconsumed build tallies do not leave the producer.
-- Packages: `Rasm.Processing` for the remesh substrate (`QuadLayout`, `RemeshOp`, `RemeshPolicy`, `RosyOrder`) and the seed suite (`SampleKind`, `SampleKernel.Sample`, `SegmentKernel.CrossFieldAt`, `GeodesicKernel.EnsureGeodesicDistances`, `ExtractionDomain.Mesh`); `Rasm.Parametric` `surface.md` for the `UvTessellation` input and `Pullback` restore, `nurbs.md` for the frame normals, and `patternmap.md` for the `MaterialSymmetry` law the congruence fold reads; `Rasm.Spatial` `ScalarField` for density seeds and `NeighborIndex`/`NeighborSource`/`NeighborKernel` for the one batch seed snap; `Rasm.Numerics` for `VectorFrame.NewellNormal`, `Dimension`/`PositiveMagnitude`, and `GeometryFault`; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`/`Tolerance`, `ContentHash`/`CanonicalWriter`, `Stat<Scalar>`/`Scalar`, and `IValidityEvidence`; QuikGraph for adjacency; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: `Rasm.Processing` for the remesh substrate (`QuadLayout`, `RemeshOp`, `RemeshPolicy`, `RosyOrder`) and the seed suite (`SampleKind`, `SampleKernel.Sample`, `SegmentKernel.CrossFieldAt`, `GeodesicKernel.EnsureGeodesicDistances`, `ExtractionDomain.Mesh`); `Rasm.Parametric` `surface.md` for the `UvTessellation` input and `Project` restore, `nurbs.md` for the frame normals, and `patternmap.md` for the `MaterialSymmetry` law the congruence fold reads; `Rasm.Spatial` `ScalarField` for density seeds and `NeighborIndex`/`NeighborSource`/`NeighborKernel` for the one batch seed snap; `Rasm.Numerics` for `Dimension`/`PositiveMagnitude` and `GeometryFault`; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`/`Tolerance`, `ContentHash`/`CanonicalWriter`, `Stat<Scalar>`/`Scalar`, and `IValidityEvidence`; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new panel family is one `PanelFamily` case over the same assembly fold; a new seed distribution is one `SampleKind` row; a new panel measure is one `PanelField` column — `ShapeClass` congruence and its `Flipped` parity are the executed precedent; a fabrication-nesting order is one projection off the adjacency columns.
-- Boundary: the field solve is the substrate's — a `CrossFieldAt`/`StripeAt` loop here is the named re-derivation defect, the lattice arm consuming `QuadLayout` whole, its sole local frame read (stripe-U off the quad's own corners) holding only because the emitted geometry is the integrated field. Output keeps provenance — a wire without UV columns is the named drop, restored by one batch `Pullback` never a per-vertex `ClosestParameter` loop; seeded labels are geodesic, a Euclidean nearest-seed the named naivety defect across folds. `Planarize` fits per-panel planes and never parameterizes, a conformal or ARAP energy belonging to `flatten.md`; every content key rides the branch `CanonicalWriter` — a second hasher or a hand `BinaryPrimitives` preimage forks the seed the federation reproduces; mould-reuse congruence merges a mirrored digest only where the material law's `MirrorRight.Merge` right licenses it — an unconditional min-digest merge cuts a mirrored panel from a blank a chiral material cannot flip, and a fold branching on grant identity instead of the rights set is the named re-derivation; a planarity breach routes `PanelPlanarityExceeded` with the worst panel and its measured deviation, every admission or impossible-result branch the resolved `Op.InvalidInput`/`Op.InvalidResult` channel, composed owners surfacing their own faults untranslated.
+- Boundary: the field solve is the substrate's — a `CrossFieldAt`/`StripeAt` loop here is the named re-derivation defect, the lattice arm consuming `QuadLayout` whole, its sole local frame read (stripe-U off the quad's own corners) holding only because the emitted geometry is the integrated field. Output keeps provenance — a wire without UV columns is the named drop, restored by one batch `Project` never a per-vertex `ClosestParameter` loop; seeded labels are geodesic, a Euclidean nearest-seed the named naivety defect across folds. The planarity gate fits per-panel planes and never parameterizes, a conformal or ARAP energy belonging to `flatten.md`; every content key rides the branch `CanonicalWriter` — a second hasher or a hand `BinaryPrimitives` preimage forks the seed the federation reproduces; mould-reuse congruence merges a mirrored digest only where the material law's `MirrorRight.Merge` right licenses it — an unconditional min-digest merge cuts a mirrored panel from a blank a chiral material cannot flip, and a fold branching on grant identity instead of the rights set is the named re-derivation; a planarity breach routes `PanelPlanarityExceeded` with the worst panel and its measured deviation, every admission or impossible-result branch the resolved `Op.InvalidInput`/`Op.InvalidResult` channel, composed owners surfacing their own faults untranslated.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -28,10 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
-using QuikGraph;
-using QuikGraph.Algorithms;
 using Rasm.Domain;
-using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Processing;
 using Rasm.Spatial;
@@ -50,91 +47,79 @@ public abstract partial record PanelFamily {
     public sealed record Seeded(SampleKind Seeds, RosyOrder Order) : PanelFamily;
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record PanelPolicy(
-    Tolerance Planarity, Dimension Rounds, RemeshPolicy Remesh, PullbackPolicy Pullback,
-    Option<MaterialSymmetry> Law = default) : IValidityEvidence {
+    Tolerance Planarity, Dimension Rounds, RemeshPolicy Remesh, ProjectionPolicy Projection,
+    MaterialSymmetry Symmetry) : IValidityEvidence {
     public static PanelPolicy Of(Context context) => new(
         Planarity: context.For(lane: ToleranceLane.Fraction), Rounds: Dimension.Create(value: 32),
-        Remesh: RemeshPolicy.Canonical, Pullback: PullbackPolicy.Of(context: context));
+        Remesh: RemeshPolicy.Canonical, Projection: ProjectionPolicy.Of(context: context),
+        Symmetry: MaterialSymmetry.Free);
 
-    public bool IsValid => ValidityClaim.All(Planarity.IsValid, Remesh.IsValid, Pullback.IsValid);
+    public bool IsValid => ValidityClaim.All(Planarity.IsValid, Remesh.IsValid);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PanelField(
     Arr<int> CornerOffsets, Arr<int> Corners, Arr<Point3d> Vertices, Arr<Point2d> Uv,
     Arr<Point3d> Origin, Arr<Vector3d> XAxis, Arr<Vector3d> ZAxis, Arr<double> Planarity,
-    Arr<int> PatchOf, Arr<int> AdjacencyOffsets, Arr<int> Adjacent, Arr<int> Component, Arr<int> ShapeClass, Arr<bool> Flipped,
+    Arr<int> PatchOf, Arr<int> AdjacencyOffsets, Arr<int> Adjacent, Arr<int> ShapeClass, Arr<bool> Flipped,
     Context Model);
 
 public sealed record PanelResult(PanelField Field, Stat<Scalar> Planarity, int ChiralSplit, int Rounds);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PanelOp {
-    private PanelOp() { }
-
-    public sealed record Map(SurfaceResult.UvTessellation Source, PanelFamily Family, PanelPolicy Policy) : PanelOp;
-    public sealed record Planarize(PanelResult Prior, PanelPolicy Policy) : PanelOp;
-}
-
 public static class Panelization {
-    public static Fin<PanelResult> Apply(PanelOp op, Op? key = null) =>
-        op.Switch(
-            state: key.OrDefault(),
-            map: static (k, m) => !m.Policy.IsValid
-                ? Fin.Fail<PanelResult>(k.InvalidInput())
-                : m.Family.Switch(
-                    state: (m.Source, m.Policy, Key: k),
-                    lattice: static (s, f) => LatticePanels(s.Source, f, s.Policy, s.Key),
-                    seeded:  static (s, f) => SeededPanels(s.Source, f, s.Policy, s.Key)),
-            planarize: static (k, p) => PlanarizeOf(p.Prior, p.Policy, k));
-
-    // --- [LATTICE]
-    static Fin<PanelResult> LatticePanels(SurfaceResult.UvTessellation source, PanelFamily.Lattice family, PanelPolicy policy, Op key) =>
-        Remeshing.Apply(new RemeshOp(source.Mesh, family.TargetLength, policy.Remesh, Some(family.Order)), key)
-            .Bind(remesh => remesh.Quads.Match(
-                Some: quads => Reprovenance(source, remesh.Mesh, policy, key)
-                    .Bind(uv => Assemble(source, LatticeBuild(remesh.Mesh, quads, uv), fieldOrder: None, policy, key)),
-                None: () => Fin.Fail<PanelResult>(key.InvalidResult())));
-
-    static Fin<Arr<Point2d>> Reprovenance(SurfaceResult.UvTessellation source, MeshSpace emitted, PanelPolicy policy, Op key) =>
-        Surfaces.Apply(new SurfaceOp.Pullback(source.Source, toArray(emitted.Native.Vertices.ToPoint3dArray()), policy.Pullback), key)
-            .Bind(result => result is SurfaceResult.Pulled pulled
-                ? Fin.Succ(pulled.Uv)
-                : Fin.Fail<Arr<Point2d>>(key.InvalidResult()));
-
-    static PanelBuild LatticeBuild(MeshSpace emitted, QuadLayout quads, Arr<Point2d> uv) {
-        int panels = quads.Corners.Count / 4;
-        return new PanelBuild(
-            CornerOffsets: toArray(Enumerable.Range(0, panels + 1).Select(static p => 4 * p)),
-            Corners: quads.Corners,
-            Vertices: toArray(emitted.Native.Vertices.ToPoint3dArray()),
-            Uv: uv,
-            PatchOf: quads.PatchOf);
+    public static Fin<PanelResult> Apply(
+        SurfaceResult.UvTessellation source, PanelFamily family, PanelPolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        if (!policy.IsValid) { return Fin.Fail<PanelResult>(op.InvalidInput()); }
+        return family.Switch(
+                state: (Source: source, Policy: policy, Key: op),
+                lattice: static (s, f) =>
+                    Remeshing.Apply(new RemeshOp(s.Source.Mesh, f.TargetLength, s.Policy.Remesh, Some(f.Order)), s.Key)
+                        .Bind(remesh => remesh.Quads.Match(
+                            Some: quads => {
+                                Point3d[] vertices = remesh.Mesh.Native.Vertices.ToPoint3dArray();
+                                int panels = quads.Corners.Count / 4;
+                                return Surfaces.Apply(
+                                        new SurfaceOp.Project(s.Source.Source, toArray(vertices), s.Policy.Projection), s.Key)
+                                    .Bind(result => result is SurfaceResult.Projection projection
+                                        ? Assemble(s.Source, new PanelBuild(
+                                            toArray(Enumerable.Range(0, panels + 1).Select(static p => 4 * p)),
+                                            quads.Corners, toArray(vertices), projection.Uv, quads.PatchOf),
+                                            fieldOrder: None, s.Policy, s.Key)
+                                        : Fin.Fail<PanelResult>(s.Key.InvalidResult()));
+                            },
+                            None: () => Fin.Fail<PanelResult>(s.Key.InvalidResult()))),
+                seeded: static (s, f) =>
+                    ExtractionDomain.Mesh(s.Source.Mesh, s.Key)
+                        .Bind(domain => SampleKernel.Sample(f.Seeds, domain, s.Source.Mesh.Tolerance, s.Key))
+                        .Bind(seeds => SeededCells(s.Source, seeds.Points, s.Key))
+                        .Bind(build => Assemble(s.Source, build, fieldOrder: Some(f.Order), s.Policy, s.Key)))
+            .Bind(prior => PlanarizeOf(prior, policy, op));
     }
 
     // --- [SEEDED]
-    static Fin<PanelResult> SeededPanels(SurfaceResult.UvTessellation source, PanelFamily.Seeded family, PanelPolicy policy, Op key) =>
-        ExtractionDomain.Mesh(source.Mesh, key)
-            .Bind(domain => SampleKernel.Sample(family.Seeds, domain, source.Mesh.Tolerance, key))
-            .Bind(seeds => SeededCells(source, seeds.Points, key))
-            .Bind(build => Assemble(source, build, fieldOrder: Some(family.Order), policy, key));
-
     static Fin<PanelBuild> SeededCells(SurfaceResult.UvTessellation source, Seq<Point3d> seeds, Op key) {
         Point3d[] vertices = source.Mesh.Native.Vertices.ToPoint3dArray();
         return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(vertices)), key: key)
-            .Bind(index => key.AcceptValidated<Dimension>(candidate: 1).Bind(one => NeighborKernel.GraphOf(
-                index: index, needles: [.. seeds], count: Some(one), radius: Option<PositiveMagnitude>.None, key: key)))
+            .Bind(index => NeighborKernel.GraphOf(
+                index: index, needles: [.. seeds], count: Some(Dimension.Create(value: 1)), radius: Option<PositiveMagnitude>.None, key: key))
             .Bind(graph => toSeq(graph.Ids).TraverseM(hits => hits.Length > 0
                 ? Fin.Succ(hits[0])
                 : Fin.Fail<int>(key.InvalidResult())).As())
-            .Bind(snapped => snapped.TraverseM(vertex => GeodesicKernel.EnsureGeodesicDistances(source.Mesh, Seq(vertex), key)).As())
+            .Bind(snapped => {
+                Seq<int> sources = snapped.Distinct();
+                return sources.IsEmpty
+                    ? Fin.Fail<Seq<Arr<double>>>(key.InvalidResult())
+                    : sources.TraverseM(vertex =>
+                        GeodesicKernel.EnsureGeodesicDistances(source.Mesh, Seq(vertex), key)).As();
+            })
             .Bind(fields => Cells(source, vertices, fields, key));
     }
 
-    internal readonly record struct Bary(int A, int B, int C, double W0, double W1, double W2) {
+    internal readonly record struct BaryPoint(int A, int B, int C, double W0, double W1, double W2) {
         internal double Of(Arr<double> field) => (W0 * field[A]) + (W1 * field[B]) + (W2 * field[C]);
         internal Point3d World(Point3d[] rows) => new(
             (W0 * rows[A].X) + (W1 * rows[B].X) + (W2 * rows[C].X),
@@ -146,66 +131,60 @@ public static class Panelization {
     }
 
     static Fin<PanelBuild> Cells(SurfaceResult.UvTessellation source, Point3d[] vertices, Seq<Arr<double>> fields, Op key) {
+        Dictionary<int, List<BaryPoint[]>> byCell = new();
         Mesh native = source.Mesh.Native;
-        int[] label = [.. Enumerable.Range(0, vertices.Length).Select(v => Argmin(fields, v))];
-        Dictionary<int, List<Bary[]>> byCell = new();
         for (int f = 0; f < native.Faces.Count; f++) {
             MeshFace face = native.Faces[f];
             Seq<(int A, int B, int C)> triangles = face.IsQuad
                 ? Seq((face.A, face.B, face.C), (face.A, face.C, face.D))
                 : Seq((face.A, face.B, face.C));
             foreach ((int a, int b, int c) in triangles) {
-                int[] present = [.. Seq(label[a], label[b], label[c]).Distinct()];
-                foreach (int cell in present) {
-                    Bary[] fragment = Clip(fields, a, b, c, cell, present);
+                for (int cell = 0; cell < fields.Count; cell++) {
+                    BaryPoint[] fragment = Clip(fields, a, b, c, cell);
                     if (fragment.Length < 3) { continue; }
-                    if (!byCell.TryGetValue(cell, out List<Bary[]>? rows)) { byCell[cell] = rows = []; }
+                    if (!byCell.TryGetValue(cell, out List<BaryPoint[]>? rows)) { byCell[cell] = rows = []; }
                     rows.Add(fragment);
                 }
             }
         }
         return toSeq(byCell.OrderBy(static row => row.Key))
-            .TraverseM(row => Loop(row.Value, vertices, source.Mesh.Tolerance, key).Map(ring => (Cell: row.Key, Ring: ring))).As()
-            .Map(rings => Pack(rings, vertices, source.Uv));
+            .TraverseM(row => Loops(row.Value, vertices, source.Mesh.Tolerance, key)
+                .Map(rings => rings.Map(ring => (Cell: row.Key, Ring: ring)))).As()
+            .Map(groups => Pack(groups.Bind(static group => group), vertices, source.Uv, source.Mesh.Tolerance));
     }
 
-    static int Argmin(Seq<Arr<double>> fields, int vertex) {
-        (int at, double best) = (0, double.PositiveInfinity);
-        for (int c = 0; c < fields.Count; c++) {
-            if (fields[c][vertex] < best) { (at, best) = (c, fields[c][vertex]); }
-        }
-        return at;
-    }
-
-    static Bary[] Clip(Seq<Arr<double>> fields, int a, int b, int c, int cell, int[] present) {
-        List<Bary> ring = [new(a, b, c, 1.0, 0.0, 0.0), new(a, b, c, 0.0, 1.0, 0.0), new(a, b, c, 0.0, 0.0, 1.0)];
-        foreach (int rival in present) {
-            if (rival == cell || ring.Count < 3) { continue; }
-            List<Bary> kept = new(ring.Count + 2);
+    static BaryPoint[] Clip(Seq<Arr<double>> fields, int a, int b, int c, int cell) {
+        List<BaryPoint> ring = [
+            new(a, b, c, 1.0, 0.0, 0.0),
+            new(a, b, c, 0.0, 1.0, 0.0),
+            new(a, b, c, 0.0, 0.0, 1.0)];
+        for (int rival = 0; rival < fields.Count && ring.Count >= 3; rival++) {
+            if (rival == cell) { continue; }
+            List<BaryPoint> kept = new(ring.Count + 2);
             for (int i = 0; i < ring.Count; i++) {
-                (Bary u, Bary v) = (ring[i], ring[(i + 1) % ring.Count]);
-                (double du, double dv) = (Delta(fields, cell, rival, u), Delta(fields, cell, rival, v));
+                (BaryPoint u, BaryPoint v) = (ring[i], ring[(i + 1) % ring.Count]);
+                double du = u.Of(fields[cell]) - u.Of(fields[rival]);
+                double dv = v.Of(fields[cell]) - v.Of(fields[rival]);
                 if (du <= 0.0) { kept.Add(u); }
-                if (du * dv < 0.0) { kept.Add(Lerp(u, v, du / (du - dv))); }
+                if (du * dv < 0.0) {
+                    double t = du / (du - dv);
+                    kept.Add(new BaryPoint(a, b, c,
+                        u.W0 + ((v.W0 - u.W0) * t),
+                        u.W1 + ((v.W1 - u.W1) * t),
+                        u.W2 + ((v.W2 - u.W2) * t)));
+                }
             }
             ring = kept;
         }
         return [.. ring];
     }
 
-    static double Delta(Seq<Arr<double>> fields, int cell, int rival, Bary at) => at.Of(fields[cell]) - at.Of(fields[rival]);
-
-    static Bary Lerp(Bary from, Bary to, double t) => new(
-        from.A, from.B, from.C,
-        from.W0 + ((to.W0 - from.W0) * t), from.W1 + ((to.W1 - from.W1) * t), from.W2 + ((to.W2 - from.W2) * t));
-
-    static Fin<Bary[]> Loop(List<Bary[]> fragments, Point3d[] vertices, Context model, Op key) {
-        Dictionary<(long, long, long), Bary> seat = new();
-        Dictionary<(long, long, long), (long, long, long)> next = new();
-        HashSet<((long, long, long) From, (long, long, long) To)> directed = new();
-        foreach (Bary[] fragment in fragments) {
+    static Fin<Seq<BaryPoint[]>> Loops(List<BaryPoint[]> fragments, Point3d[] vertices, Context model, Op key) {
+        Dictionary<(long, long, long), BaryPoint> seat = new();
+        HashSet<((long, long, long) From, (long, long, long) To)> directed = [];
+        foreach (BaryPoint[] fragment in fragments) {
             for (int i = 0; i < fragment.Length; i++) {
-                (Bary from, Bary to) = (fragment[i], fragment[(i + 1) % fragment.Length]);
+                (BaryPoint from, BaryPoint to) = (fragment[i], fragment[(i + 1) % fragment.Length]);
                 ((long, long, long) lo, (long, long, long) hi) = (Grain(from, vertices, model), Grain(to, vertices, model));
                 if (lo == hi) { continue; }
                 seat.TryAdd(lo, from);
@@ -213,41 +192,59 @@ public static class Panelization {
                 if (!directed.Remove((hi, lo))) { directed.Add((lo, hi)); }
             }
         }
-        foreach (((long, long, long) from, (long, long, long) to) in directed) { next[from] = to; }
-        if (next.Count < 3) { return Fin.Fail<Bary[]>(key.InvalidResult()); }
-        List<Bary> ring = new(next.Count);
-        (long, long, long) seed = next.Keys.Min();
-        (long, long, long) walk = seed;
-        for (int step = 0; step < next.Count; step++) {
-            ring.Add(seat[walk]);
-            if (!next.TryGetValue(walk, out walk)) { return Fin.Fail<Bary[]>(key.InvalidResult()); }
-            if (walk == seed) { return Fin.Succ<Bary[]>([.. ring]); }
+
+        Dictionary<(long, long, long), (long, long, long)> next = new();
+        HashSet<(long, long, long)> incoming = [];
+        foreach (((long, long, long) from, (long, long, long) to) in directed) {
+            if (!next.TryAdd(from, to) || !incoming.Add(to)) {
+                return Fin.Fail<Seq<BaryPoint[]>>(key.InvalidResult());
+            }
         }
-        return Fin.Fail<Bary[]>(key.InvalidResult());
+
+        List<BaryPoint[]> rings = [];
+        while (next.Count > 0) {
+            int budget = next.Count;
+            (long, long, long) start = next.Keys.Min();
+            (long, long, long) walk = start;
+            List<BaryPoint> ring = [];
+            for (int step = 0; step < budget; step++) {
+                ring.Add(seat[walk]);
+                if (!next.Remove(walk, out walk)) { return Fin.Fail<Seq<BaryPoint[]>>(key.InvalidResult()); }
+                if (walk == start) { break; }
+            }
+            if (walk != start || ring.Count < 3) { return Fin.Fail<Seq<BaryPoint[]>>(key.InvalidResult()); }
+            rings.Add([.. ring]);
+        }
+        return rings.Count > 0 ? Fin.Succ(toSeq(rings)) : Fin.Fail<Seq<BaryPoint[]>>(key.InvalidResult());
     }
 
-    static (long, long, long) Grain(Bary at, Point3d[] vertices, Context model) {
-        Point3d seat = at.World(vertices);
+    static (long, long, long) Grain(BaryPoint at, Point3d[] vertices, Context model) {
+        Point3d point = at.World(vertices);
         double grain = model.Absolute.Value;
-        return ((long)Math.Round(seat.X / grain), (long)Math.Round(seat.Y / grain), (long)Math.Round(seat.Z / grain));
+        return ((long)Math.Round(point.X / grain), (long)Math.Round(point.Y / grain), (long)Math.Round(point.Z / grain));
     }
 
-    static PanelBuild Pack(Seq<(int Cell, Bary[] Ring)> rings, Point3d[] vertices, Arr<Point2d> uv) {
+    static PanelBuild Pack(Seq<(int Cell, BaryPoint[] Ring)> rings, Point3d[] vertices, Arr<Point2d> uv, Context model) {
+        Dictionary<(long, long, long), int> vertexOf = new();
         List<int> offsets = [0];
-        List<int> corners = new();
-        List<int> patchOf = new();
-        List<Point3d> seats = new();
-        List<Point2d> feet = new();
-        foreach ((int cell, Bary[] ring) in rings) {
-            foreach (Bary corner in ring) {
-                corners.Add(seats.Count);
-                seats.Add(corner.World(vertices));
-                feet.Add(corner.Uv(uv));
+        List<int> corners = [];
+        List<int> patchOf = [];
+        List<Point3d> points = [];
+        List<Point2d> feet = [];
+        foreach ((int cell, BaryPoint[] ring) in rings) {
+            foreach (BaryPoint corner in ring) {
+                (long, long, long) grain = Grain(corner, vertices, model);
+                if (!vertexOf.TryGetValue(grain, out int vertex)) {
+                    vertexOf.Add(grain, vertex = points.Count);
+                    points.Add(corner.World(vertices));
+                    feet.Add(corner.Uv(uv));
+                }
+                corners.Add(vertex);
             }
             offsets.Add(corners.Count);
             patchOf.Add(cell);
         }
-        return new PanelBuild(toArray(offsets), toArray(corners), toArray(seats), toArray(feet), toArray(patchOf));
+        return new PanelBuild(toArray(offsets), toArray(corners), toArray(points), toArray(feet), toArray(patchOf));
     }
 
     internal readonly record struct PanelBuild(
@@ -256,23 +253,15 @@ public static class Panelization {
     // --- [ASSEMBLY]
     static Fin<PanelResult> Assemble(
         SurfaceResult.UvTessellation source, PanelBuild build, Option<RosyOrder> fieldOrder, PanelPolicy policy, Op key) {
-        int panels = build.CornerOffsets.Count - 1;
-        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(Enumerable.Range(0, panels));
-        foreach ((int a, int b) in SharedWalls(build)) { graph.AddEdge(new SEdge<int>(a, b)); }
-        Dictionary<int, int> componentOf = new();
-        graph.ConnectedComponents(componentOf);
-        (Arr<int> offsets, Arr<int> adjacent) = AdjacencyColumns(graph, panels);
+        (Arr<int> offsets, Arr<int> adjacent) = AdjacencyOf(build);
         return Frames(source, build, fieldOrder, key).Bind(frames => {
             Arr<double> planarity = PlanarityOf(build.CornerOffsets, build.Corners, build.Vertices);
-            MaterialSymmetry law = policy.Law.IfNone(MaterialSymmetry.Free);
             (Arr<int> shapeClass, Arr<bool> flipped, int chiralSplit) = ShapeClasses(
-                build.CornerOffsets, build.Corners, build.Vertices, frames, source.Mesh.Tolerance, law);
+                build.CornerOffsets, build.Corners, build.Vertices, frames, source.Mesh.Tolerance, policy.Symmetry);
             return Stat<Scalar>.Of(planarity.AsSpan(), key).Map(band => new PanelResult(
                 new PanelField(
                     build.CornerOffsets, build.Corners, build.Vertices, build.Uv,
                     frames.Origin, frames.X, frames.Z, planarity, build.PatchOf, offsets, adjacent,
-                    new Arr<int>([.. Enumerable.Range(0, panels).Select(p => componentOf[p])]),
                     shapeClass, flipped, source.Mesh.Tolerance),
                 band, chiralSplit, Rounds: 0));
         });
@@ -281,28 +270,31 @@ public static class Panelization {
     static Point3d[] Ring(Arr<int> offsets, Arr<int> corners, Arr<Point3d> vertices, int panel) =>
         [.. Enumerable.Range(offsets[panel], offsets[panel + 1] - offsets[panel]).Select(i => vertices[corners[i]])];
 
-    static Seq<(int A, int B)> SharedWalls(PanelBuild build) {
+    static (Arr<int> Offsets, Arr<int> Adjacent) AdjacencyOf(PanelBuild build) {
+        int panels = build.CornerOffsets.Count - 1;
         Dictionary<(int, int), int> byWall = new();
-        List<(int A, int B)> pairs = new();
-        for (int p = 0; p + 1 < build.CornerOffsets.Count; p++) {
-            (int lo, int hi) = (build.CornerOffsets[p], build.CornerOffsets[p + 1]);
+        List<int>[] neighbors = [.. Enumerable.Range(0, panels).Select(static _ => new List<int>())];
+        for (int panel = 0; panel < panels; panel++) {
+            (int lo, int hi) = (build.CornerOffsets[panel], build.CornerOffsets[panel + 1]);
             for (int i = lo; i < hi; i++) {
                 (int u, int v) = (build.Corners[i], build.Corners[lo + (((i - lo) + 1) % (hi - lo))]);
                 (int a, int b) = (int.Min(u, v), int.Max(u, v));
-                if (byWall.Remove((a, b), out int other)) { pairs.Add((other, p)); }
-                else { byWall[(a, b)] = p; }
+                if (byWall.Remove((a, b), out int other)) {
+                    neighbors[other].Add(panel);
+                    neighbors[panel].Add(other);
+                } else {
+                    byWall[(a, b)] = panel;
+                }
             }
         }
-        return toSeq(pairs);
-    }
 
-    static (Arr<int> Offsets, Arr<int> Adjacent) AdjacencyColumns(UndirectedGraph<int, SEdge<int>> graph, int panels) {
         int[] offsets = new int[panels + 1];
-        for (int p = 0; p < panels; p++) { offsets[p + 1] = offsets[p] + graph.AdjacentDegree(p); }
+        for (int panel = 0; panel < panels; panel++) {
+            offsets[panel + 1] = offsets[panel] + neighbors[panel].Count;
+        }
         int[] adjacent = new int[offsets[panels]];
-        for (int p = 0; p < panels; p++) {
-            int at = offsets[p];
-            foreach (SEdge<int> edge in graph.AdjacentEdges(p)) { adjacent[at++] = edge.Source == p ? edge.Target : edge.Source; }
+        for (int panel = 0; panel < panels; panel++) {
+            neighbors[panel].CopyTo(adjacent, offsets[panel]);
         }
         return (toArray(offsets), toArray(adjacent));
     }
@@ -310,17 +302,16 @@ public static class Panelization {
     static Arr<double> PlanarityOf(Arr<int> offsets, Arr<int> corners, Arr<Point3d> vertices) =>
         toArray(Enumerable.Range(0, offsets.Count - 1).Select(p => Defect(Ring(offsets, corners, vertices, p))));
 
-    static double Defect(ReadOnlySpan<Point3d> ring) {
-        Vector3d normal = VectorFrame.NewellNormal(ring);
+    static double Defect(Point3d[] ring) {
         double diameter = 0.0;
         for (int i = 0; i < ring.Length; i++) {
             for (int j = i + 1; j < ring.Length; j++) { diameter = double.Max(diameter, ring[i].DistanceTo(ring[j])); }
         }
-        if (!normal.Unitize() || diameter <= 0.0) { return double.PositiveInfinity; }
-        Point3d seat = Centroid(ring);
-        double worst = 0.0;
-        foreach (Point3d corner in ring) { worst = double.Max(worst, Math.Abs(normal * (corner - seat))); }
-        return worst / diameter;
+        return diameter > 0.0
+            && Plane.FitPlaneToPoints(ring, out Plane plane, out double maximumDeviation) is PlaneFitResult.Success
+            && plane.IsValid && double.IsFinite(maximumDeviation)
+                ? maximumDeviation / diameter
+                : double.PositiveInfinity;
     }
 
     static Point3d Centroid(ReadOnlySpan<Point3d> ring) {
@@ -332,44 +323,38 @@ public static class Panelization {
     static Fin<(Arr<Point3d> Origin, Arr<Vector3d> X, Arr<Vector3d> Z)> Frames(
         SurfaceResult.UvTessellation source, PanelBuild build, Option<RosyOrder> fieldOrder, Op key) =>
         Range(0, build.CornerOffsets.Count - 1).ToSeq()
-            .TraverseM(p => FrameOf(source, build, fieldOrder, p, key)).As()
-            .Map(static rows => (
-                toArray(rows.Map(static row => row.Origin)),
-                toArray(rows.Map(static row => row.X)),
-                toArray(rows.Map(static row => row.Z))));
+            .TraverseM(panel => {
+                (int lo, int hi) = (build.CornerOffsets[panel], build.CornerOffsets[panel + 1]);
+                Point3d origin = Centroid(Ring(build.CornerOffsets, build.Corners, build.Vertices, panel));
+                (double u, double v) = (0.0, 0.0);
+                for (int i = lo; i < hi; i++) {
+                    Point2d uv = build.Uv[build.Corners[i]];
+                    (u, v) = (u + uv.X, v + uv.Y);
+                }
+                Point2d foot = new(u / (hi - lo), v / (hi - lo));
+                Vector3d stripe = hi - lo == 4
+                    ? ((build.Vertices[build.Corners[lo + 1]] - build.Vertices[build.Corners[lo]])
+                       + (build.Vertices[build.Corners[lo + 2]] - build.Vertices[build.Corners[lo + 3]])) * 0.5
+                    : build.Vertices[build.Corners[lo + 1]] - build.Vertices[build.Corners[lo]];
+                return from normal in source.Source.NormalAt(foot.X, foot.Y)
+                       from axis in fieldOrder.Match(
+                           Some: order => SegmentKernel.CrossFieldAt(source.Mesh, order, None, None, origin, key),
+                           None: () => Fin.Succ(stripe))
+                       from frame in Frame(origin, normal, axis, key)
+                       select frame;
+            }).As()
+            .Map(static frames => (
+                toArray(frames.Map(static frame => frame.Origin)),
+                toArray(frames.Map(static frame => frame.XAxis)),
+                toArray(frames.Map(static frame => frame.ZAxis))));
 
-    static Fin<(Point3d Origin, Vector3d X, Vector3d Z)> FrameOf(
-        SurfaceResult.UvTessellation source, PanelBuild build, Option<RosyOrder> fieldOrder, int panel, Op key) {
-        (int lo, int hi) = (build.CornerOffsets[panel], build.CornerOffsets[panel + 1]);
-        Point3d seat = Centroid(Ring(build.CornerOffsets, build.Corners, build.Vertices, panel));
-        Point2d foot = UvSeat(build, lo, hi);
-        return from normal in source.Source.NormalAt(foot.X, foot.Y)
-               from axis in fieldOrder.Match(
-                   Some: order => SegmentKernel.CrossFieldAt(source.Mesh, order, None, None, seat, key),
-                   None: () => Fin.Succ(StripeU(build, lo, hi)))
-               from frame in Orthonormal(seat, normal, axis, key)
-               select frame;
-    }
-
-    static Point2d UvSeat(PanelBuild build, int lo, int hi) {
-        (double u, double v) = (0.0, 0.0);
-        for (int i = lo; i < hi; i++) { (u, v) = (u + build.Uv[build.Corners[i]].X, v + build.Uv[build.Corners[i]].Y); }
-        return new Point2d(u / (hi - lo), v / (hi - lo));
-    }
-
-    static Vector3d StripeU(PanelBuild build, int lo, int hi) =>
-        hi - lo == 4
-            ? ((build.Vertices[build.Corners[lo + 1]] - build.Vertices[build.Corners[lo]])
-               + (build.Vertices[build.Corners[lo + 2]] - build.Vertices[build.Corners[lo + 3]])) * 0.5
-            : build.Vertices[build.Corners[lo + 1]] - build.Vertices[build.Corners[lo]];
-
-    static Fin<(Point3d Origin, Vector3d X, Vector3d Z)> Orthonormal(Point3d seat, Vector3d normal, Vector3d axis, Op key) {
+    static Fin<Plane> Frame(Point3d origin, Vector3d normal, Vector3d axis, Op key) {
         Vector3d z = normal;
-        if (!z.Unitize()) { return Fin.Fail<(Point3d, Vector3d, Vector3d)>(key.InvalidResult()); }
+        if (!z.Unitize()) { return Fin.Fail<Plane>(key.InvalidResult()); }
         Vector3d x = axis - ((z * axis) * z);
-        return x.Unitize()
-            ? Fin.Succ((seat, x, z))
-            : Fin.Fail<(Point3d, Vector3d, Vector3d)>(key.InvalidResult());
+        if (!x.Unitize()) { return Fin.Fail<Plane>(key.InvalidResult()); }
+        Plane frame = new(origin, x, Vector3d.CrossProduct(z, x));
+        return frame.IsValid ? Fin.Succ(frame) : Fin.Fail<Plane>(key.InvalidResult());
     }
 
     static (Arr<int> Classes, Arr<bool> Flipped, int ChiralSplit) ShapeClasses(
@@ -459,68 +444,72 @@ public static class Panelization {
     }
 
     // --- [PLANARIZE]
-    static Fin<PanelResult> PlanarizeOf(PanelResult prior, PanelPolicy policy, Op key) =>
-        Range(0, policy.Rounds.Value).FoldUntil(
+    static Fin<PanelResult> PlanarizeOf(PanelResult prior, PanelPolicy policy, Op key) {
+        if (prior.Planarity.Maximum.To() <= policy.Planarity.Value) { return Fin.Succ(prior); }
+        return Range(0, policy.Rounds.Value).FoldUntil(
                 initialState: Fin.Succ((Field: prior.Field, Band: prior.Planarity, Rounds: 0)),
-                f: (state, _) => state.Bind(s => ProjectRound(s.Field, key).Map(next => (next.Field, next.Band, s.Rounds + 1))),
-                predicate: state => state.Match(
+                f: (state, _) => state.Bind(s =>
+                    ProjectRound(s.Field, key).Map(next => (next.Field, next.Band, s.Rounds + 1))),
+                predicate: row => row.State.Match(
                     Succ: s => s.Band.Maximum.To() <= policy.Planarity.Value,
                     Fail: static _ => true))
-            .Bind(final => final.Band.Maximum.To() > policy.Planarity.Value
-                ? WorstPanel(final.Field).ToFin(key.InvalidResult()).Bind(panel =>
-                    Fin.Fail<PanelResult>(new GeometryFault.PanelPlanarityExceeded(panel, final.Band.Maximum.To(), policy.Planarity)))
-                : Fin.Succ(Reclassified(prior, final.Field, final.Band, final.Rounds, policy)));
-
-    static PanelResult Reclassified(PanelResult prior, PanelField field, Stat<Scalar> band, int rounds, PanelPolicy policy) {
-        (Arr<int> shapeClass, Arr<bool> flipped, int chiralSplit) = rounds == 0
-            ? (field.ShapeClass, field.Flipped, prior.ChiralSplit)
-            : ShapeClasses(
-                field.CornerOffsets, field.Corners, field.Vertices, (field.Origin, field.XAxis, field.ZAxis),
-                field.Model, policy.Law.IfNone(MaterialSymmetry.Free));
-        return new PanelResult(
-            field with { ShapeClass = shapeClass, Flipped = flipped },
-            band, chiralSplit, rounds);
+            .Bind(final => {
+                double maximum = final.Band.Maximum.To();
+                if (maximum > policy.Planarity.Value) {
+                    int panel = Enumerable.Range(0, final.Field.Planarity.Count)
+                        .MaxBy(p => final.Field.Planarity[p]);
+                    return Fin.Fail<PanelResult>(
+                        new GeometryFault.PanelPlanarityExceeded(panel, maximum, policy.Planarity));
+                }
+                (Arr<int> classes, Arr<bool> flipped, int chiralSplit) = ShapeClasses(
+                    final.Field.CornerOffsets, final.Field.Corners, final.Field.Vertices,
+                    (final.Field.Origin, final.Field.XAxis, final.Field.ZAxis),
+                    final.Field.Model, policy.Symmetry);
+                return Fin.Succ(new PanelResult(
+                    final.Field with { ShapeClass = classes, Flipped = flipped },
+                    final.Band, chiralSplit, final.Rounds));
+            });
     }
 
     static Fin<(PanelField Field, Stat<Scalar> Band)> ProjectRound(PanelField field, Op key) {
-        Vector3d[] pulled = new Vector3d[field.Vertices.Count];
+        Vector3d[] displacement = new Vector3d[field.Vertices.Count];
         int[] hits = new int[field.Vertices.Count];
         int panels = field.CornerOffsets.Count - 1;
-        Vector3d[] planeNormal = new Vector3d[panels];
-        for (int p = 0; p < panels; p++) {
-            Point3d[] ring = Ring(field.CornerOffsets, field.Corners, field.Vertices, p);
-            Vector3d normal = VectorFrame.NewellNormal(ring);
-            if (!normal.Unitize()) { continue; }
-            planeNormal[p] = normal;
-            Point3d seat = Centroid(ring);
-            for (int i = field.CornerOffsets[p]; i < field.CornerOffsets[p + 1]; i++) {
-                int v = field.Corners[i];
-                pulled[v] += (Vector3d)field.Vertices[v] - ((normal * (field.Vertices[v] - seat)) * normal);
-                hits[v]++;
+        for (int panel = 0; panel < panels; panel++) {
+            Point3d[] ring = Ring(field.CornerOffsets, field.Corners, field.Vertices, panel);
+            if (Plane.FitPlaneToPoints(ring, out Plane plane, out _) is not PlaneFitResult.Success || !plane.IsValid) {
+                return Fin.Fail<(PanelField, Stat<Scalar>)>(key.InvalidResult());
+            }
+            for (int i = field.CornerOffsets[panel]; i < field.CornerOffsets[panel + 1]; i++) {
+                int vertex = field.Corners[i];
+                displacement[vertex] += plane.ClosestPoint(field.Vertices[vertex]) - field.Vertices[vertex];
+                hits[vertex]++;
             }
         }
-        Arr<Point3d> moved = toArray(Enumerable.Range(0, field.Vertices.Count)
-            .Select(v => hits[v] == 0 ? field.Vertices[v] : new Point3d(pulled[v].X / hits[v], pulled[v].Y / hits[v], pulled[v].Z / hits[v])));
+
+        Arr<Point3d> moved = toArray(Enumerable.Range(0, field.Vertices.Count).Select(vertex =>
+            hits[vertex] == 0
+                ? field.Vertices[vertex]
+                : field.Vertices[vertex] + (displacement[vertex] / hits[vertex])));
         Arr<double> planarity = PlanarityOf(field.CornerOffsets, field.Corners, moved);
-        return Stat<Scalar>.Of(planarity.AsSpan(), key).Map(band => (
-            field with {
-                Vertices = moved, Planarity = planarity,
-                Origin = toArray(Enumerable.Range(0, panels).Select(p => Centroid(Ring(field.CornerOffsets, field.Corners, moved, p)))),
-                ZAxis = toArray(Enumerable.Range(0, panels).Select(p => planeNormal[p].IsZero ? field.ZAxis[p] : planeNormal[p])),
-                XAxis = toArray(Enumerable.Range(0, panels).Select(p => Retangent(field.XAxis[p], planeNormal[p].IsZero ? field.ZAxis[p] : planeNormal[p]))),
-            },
-            band));
+        return Range(0, panels).ToSeq().TraverseM(panel => {
+                Point3d[] ring = Ring(field.CornerOffsets, field.Corners, moved, panel);
+                if (Plane.FitPlaneToPoints(ring, out Plane plane, out _) is not PlaneFitResult.Success || !plane.IsValid) {
+                    return Fin.Fail<Plane>(key.InvalidResult());
+                }
+                Vector3d normal = plane.Normal * field.ZAxis[panel] < 0.0 ? -plane.Normal : plane.Normal;
+                return Frame(Centroid(ring), normal, field.XAxis[panel], key);
+            }).As()
+            .Bind(frames => Stat<Scalar>.Of(planarity.AsSpan(), key).Map(band => (
+                field with {
+                    Vertices = moved,
+                    Planarity = planarity,
+                    Origin = toArray(frames.Map(static frame => frame.Origin)),
+                    XAxis = toArray(frames.Map(static frame => frame.XAxis)),
+                    ZAxis = toArray(frames.Map(static frame => frame.ZAxis)),
+                },
+                band)));
     }
-
-    static Vector3d Retangent(Vector3d prior, Vector3d normal) {
-        Vector3d axis = prior - ((normal * prior) * normal);
-        return axis.Unitize() ? axis : prior;
-    }
-
-    static Option<int> WorstPanel(PanelField field) =>
-        field.Planarity.Count == 0
-            ? Option<int>.None
-            : Some(Enumerable.Range(0, field.Planarity.Count).MaxBy(p => field.Planarity[p]));
 }
 ```
 
@@ -534,16 +523,16 @@ config:
 ---
 flowchart LR
     accTitle: Panelization flow
-    accDescr: PanelOp folds seeds through the cross-field remesh and pullback into the PanelField SoA wire with frames, planarity, adjacency, component, shape-class, and flip-parity columns.
-    UvT["surface.md UvTessellation — mesh + (u,v) + binding"] -->|"Panelization.Apply — ONE Switch"| Family["PanelFamily — data rows"]
+    accDescr: Panelization.Apply folds seeds through the cross-field remesh and projection into the PanelField SoA wire with frames, planarity, adjacency, shape-class, and flip-parity columns, gated on planarity before it leaves.
+    UvT["surface.md UvTessellation — mesh + (u,v) + binding"] -->|"Panelization.Apply — policy admitted once, ONE family Switch"| Family["PanelFamily — data rows"]
     Family -->|"Lattice: Remeshing.Apply(RemeshOp with Order)"| Remesh["remesh.md QuadLayout channels"]
-    Remesh -->|"ONE batch Pullback — provenance restore"| Build["PanelBuild — polygons + UV"]
+    Remesh -->|"ONE batch Project — provenance restore"| Build["PanelBuild — polygons + UV"]
     Family -->|"Seeded: SampleKernel.Sample over ExtractionDomain.Mesh"| Seeds["sample.md CCVT / blue-noise seeds"]
-    Seeds -->|"k cached heat solves → argmin labels → lerp walls"| Build
-    Build -->|"Newell planes · planarity defects · CrossFieldAt / stripe-U frames"| Field["PanelField — frames + defects"]
-    Build -->|"UndirectedGraph → adjacency + components"| Field
+    Seeds -->|"k cached heat solves → lower-envelope clip → lerp walls"| Build
+    Build -->|"least-squares planes · planarity defects · CrossFieldAt / stripe-U frames"| Field["PanelField — frames + defects"]
+    Build -->|"shared-wall table → CSR adjacency"| Field
     Field -->|"Stat&lt;Scalar&gt; band over the planarity column"| Result["PanelResult — field + retained measures"]
-    Field -->|"bounded proximal rounds toward the Planarity band"| Planar["Planarize — fabrication grade"]
+    Field -->|"bounded proximal rounds toward the Planarity band"| Planar["planarity gate — fabrication grade"]
     Field --> Gate["Generation panelization gate"]
     UvT -.->|"PanelPlanarityExceeded — planarity defect"| GeometryFault
 ```

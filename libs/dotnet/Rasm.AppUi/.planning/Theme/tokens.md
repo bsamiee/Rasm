@@ -620,13 +620,13 @@ public static class ThemeCatalog {
 
 ## [03]-[VARIANT_AXIS]
 
-- Owner: `ThemeVariantRow` `[SmartEnum<string>]` binding the page vocabulary to the host variant key column, its `VariantProjection`, and the `Semi.Avalonia` `ThemeVariant` slots; `PostureVariant` the scoped per-surface variant mint; `PreferenceRow` `[SmartEnum<string>]` and `PreferenceValue` `[Union]` the typed host-preference family, its concession rows keyed by the kernel `MotionConcession` vocabulary; `PreferenceCell` the probe capsule every consumer binds.
-- Cases: `ThemeVariantRow` = light | dark | high-contrast-light | high-contrast-dark | host-matched — host-matched is a probe fold, never a resolved row, and the two high-contrast rows bind the shipped `SemiTheme` high-contrast variants; `PreferenceRow` = appearance | increased-contrast | reduced-motion | reduced-transparency | text-scale, the three concession rows each carrying their kernel `MotionConcession` row; `PreferenceValue` = Appearance | Granted | Withheld | Scale — a concession is PRESENT or WITHHELD, never a bool.
+- Owner: `ThemeVariantRow` `[SmartEnum<string>]` binding the page vocabulary to the host variant key column, its `VariantProjection`, and the `Semi.Avalonia` `ThemeVariant` slots; `PostureVariant` the scoped per-surface variant mint; `PreferenceRow` `[SmartEnum<string>]` and `PreferenceValue` `[Union]` the typed host-preference family, its concession rows keyed by the kernel `Accessibility` vocabulary; `PreferenceCell` the probe capsule every consumer binds.
+- Cases: `ThemeVariantRow` = light | dark | high-contrast-light | high-contrast-dark | host-matched — host-matched is a probe fold, never a resolved row, and the two high-contrast rows bind the shipped `SemiTheme` high-contrast variants; `PreferenceRow` = appearance | increased-contrast | reduced-motion | reduced-transparency | text-scale, the three concession rows each carrying their kernel `Accessibility` row; `PreferenceValue` = Appearance | Granted | Withheld | Scale — a concession is PRESENT or WITHHELD, never a bool.
 - Law: a preference is read through ONE capsule and never through a second per-concern probe path — the variant fold, the motion degrade switch, the material translucency gate, and the typography multiplier are four consumers of one owner, so a host flip re-derives every dependent surface in one resolve; a pinned preference overrides the host read and disposes back to it, so a proof lane fixes appearance, contrast, motion, transparency, and text scale independently of whatever machine executes it.
-- Entry: `ThemeVariantRow.Concrete(PreferenceCell preferences)` — total fold; concrete rows return themselves and the absent-probe default is `Light`; `PreferenceCell.Read(PreferenceRow row)`, `Concedes(MotionConcession row)`, `Concessions`, `Track(Action<PreferenceRow>)`, and `Pin(row, value)` are the whole probe surface; `PreferenceCell.OfPlatform(IPlatformSettings, hostPort, hostFlips)` builds the standalone binding over the port's read-and-change pair.
+- Entry: `ThemeVariantRow.Concrete(PreferenceCell preferences)` — total fold; concrete rows return themselves and the absent-probe default is `Light`; `PreferenceCell.Read(PreferenceRow row)`, `Concedes(Accessibility row)`, `Concessions`, `Track(Action<PreferenceRow>)`, and `Pin(row, value)` are the whole probe surface; `PreferenceCell.OfPlatform(IPlatformSettings, hostPort, hostFlips)` builds the standalone binding over the port's read-and-change pair.
 - Auto: host appearance and contrast flips ride `IPlatformSettings.ColorValuesChanged` into `Track`, so a host dark-mode or high-contrast change re-resolves with zero per-control handlers; a `PostureVariant` scope re-maps the surface family for a panel or overlay subtree through the subtree's `RequestedThemeVariant`, so a posture is a resource-resolution fact rather than a second dictionary the swap has to keep in step.
-- Packages: Avalonia, Semi.Avalonia, System.Reactive (`Disposable.Create` and `CompositeDisposable`), Rasm (project — `MotionConcession`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new preference is one `PreferenceRow` row plus its host-port read-and-change pair; a new accessibility concession is one kernel `MotionConcession` row and one `PreferenceRow` row naming it; a new surface posture is one `PostureSlot` row and its emitted variant partition.
+- Packages: Avalonia, Semi.Avalonia, System.Reactive (`Disposable.Create` and `CompositeDisposable`), Rasm (project — `Rasm.Interaction` `Accessibility`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new preference is one `PreferenceRow` row plus its host-port read-and-change pair; a new accessibility concession is one kernel `Accessibility` row and one `PreferenceRow` row naming it; a new surface posture is one `PostureSlot` row and its emitted variant partition.
 - Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe reads `HostUtils.RunningInDarkMode` with flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rides the same host row, standalone rows read `Application.PlatformSettings` (`GetColorValues()` answering `ThemeVariant` and `ContrastPreference`, re-probed on `ColorValuesChanged`), and the browser probe stays a designed-only column. Avalonia publishes appearance and contrast alone: reduced motion, reduced transparency, and text scale have NO platform surface, so those three rows read the host-attach port column a mount supplies and default to `Withheld` when a host answers nothing. The port is a PAIR, read beside change, because a host that can answer those rows can also flip them — with the platform subscription as the only change source three of five rows are unraisable, and a host answering nothing binds an empty subscription rather than an absent one. `RegisterFollowSystemTheme` is NOT the OS light-and-dark follow: it guards on Windows, tracks `ContrastPreference` alone, and maps the system accent onto one of the four shipped high-contrast variants, so mounting it would install a second appearance driver. The four shipped Semi high-contrast variants inherit every palette key from their parent variant, so the shipped side is a system-colour mapping and the high-contrast PALETTE is this page's own projection: two rows here, `Desert` carrying the light-inheriting chain and `NightSky` the dark-inheriting one, and a locally minted `new ThemeVariant("high-contrast", …)` key never reaches that dictionary because inheritance resolves through the shipped key. Density and variant are orthogonal and compose only inside `Resolve`; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule.
 
 ```csharp
@@ -669,12 +669,12 @@ public sealed partial class ThemeVariantRow {
             p));
 
     public Glazing Glazing(PreferenceCell preferences) =>
-        Projection.Traits.Admits(VariantTrait.Translucency) && !preferences.Concedes(MotionConcession.ReduceTransparency)
+        Projection.Traits.Admits(VariantTrait.Translucency) && !preferences.Concedes(Accessibility.ReduceTransparency)
             ? Glazing.Translucent
             : Glazing.Opaque;
 
     static ThemeVariantRow Contrasted(ThemeVariantRow row, PreferenceCell preferences) =>
-        preferences.Concedes(MotionConcession.IncreaseContrast)
+        preferences.Concedes(Accessibility.IncreaseContrast)
             ? (row.Dark ? HighContrastDark : HighContrastLight)
             : row;
 }
@@ -689,8 +689,8 @@ public abstract partial record PreferenceValue {
     private PreferenceValue() { }
 
     public sealed record Appearance(ThemeVariantRow Row) : PreferenceValue;
-    public sealed record Granted(MotionConcession Row) : PreferenceValue;
-    public sealed record Withheld(MotionConcession Row) : PreferenceValue;
+    public sealed record Granted(Accessibility Row) : PreferenceValue;
+    public sealed record Withheld(Accessibility Row) : PreferenceValue;
     public sealed record Scale(UnitInterval Factor) : PreferenceValue;
 }
 
@@ -700,16 +700,16 @@ public abstract partial record PreferenceValue {
 public sealed partial class PreferenceRow {
     public static readonly PreferenceRow Appearance = new("appearance", None,
         static () => new PreferenceValue.Appearance(ThemeVariantRow.Light));
-    public static readonly PreferenceRow IncreasedContrast = new("increased-contrast", Some(MotionConcession.IncreaseContrast),
-        static () => new PreferenceValue.Withheld(MotionConcession.IncreaseContrast));
-    public static readonly PreferenceRow ReducedMotion = new("reduced-motion", Some(MotionConcession.ReduceMotion),
-        static () => new PreferenceValue.Withheld(MotionConcession.ReduceMotion));
-    public static readonly PreferenceRow ReducedTransparency = new("reduced-transparency", Some(MotionConcession.ReduceTransparency),
-        static () => new PreferenceValue.Withheld(MotionConcession.ReduceTransparency));
+    public static readonly PreferenceRow IncreasedContrast = new("increased-contrast", Some(Accessibility.IncreaseContrast),
+        static () => new PreferenceValue.Withheld(Accessibility.IncreaseContrast));
+    public static readonly PreferenceRow ReducedMotion = new("reduced-motion", Some(Accessibility.ReduceMotion),
+        static () => new PreferenceValue.Withheld(Accessibility.ReduceMotion));
+    public static readonly PreferenceRow ReducedTransparency = new("reduced-transparency", Some(Accessibility.ReduceTransparency),
+        static () => new PreferenceValue.Withheld(Accessibility.ReduceTransparency));
     public static readonly PreferenceRow TextScale = new("text-scale", None,
         static () => new PreferenceValue.Scale(UnitInterval.Create(0.5d)));
 
-    public Option<MotionConcession> Concession { get; }
+    public Option<Accessibility> Concession { get; }
 
     [UseDelegateFromConstructor]
     public partial PreferenceValue Fallback();
@@ -722,12 +722,12 @@ public sealed class PreferenceCell(
     public PreferenceValue Read(PreferenceRow row) =>
         pinned.Value.Find(row).IfNone(() => host(row).IfNone(row.Fallback));
 
-    public bool Concedes(MotionConcession concession) =>
+    public bool Concedes(Accessibility concession) =>
         toSeq(PreferenceRow.Items)
             .Exists(row => row.Concession == Some(concession) && Read(row) is PreferenceValue.Granted);
 
-    public CapabilitySet<MotionConcession> Concessions =>
-        CapabilitySet<MotionConcession>.Of(toSeq(PreferenceRow.Items)
+    public CapabilitySet<Accessibility> Concessions =>
+        CapabilitySet<Accessibility>.Of(toSeq(PreferenceRow.Items)
             .Choose(row => Read(row) is PreferenceValue.Granted granted ? Some(granted.Row) : None)
             .ToArray());
 
@@ -748,8 +748,8 @@ public sealed class PreferenceCell(
                     s.Settings.GetColorValues().ThemeVariant is PlatformThemeVariant.Dark ? ThemeVariantRow.Dark : ThemeVariantRow.Light)),
                 increasedContrast: static (s, _) => Some<PreferenceValue>(
                     s.Settings.GetColorValues().ContrastPreference is ColorContrastPreference.High
-                        ? new PreferenceValue.Granted(MotionConcession.IncreaseContrast)
-                        : new PreferenceValue.Withheld(MotionConcession.IncreaseContrast)),
+                        ? new PreferenceValue.Granted(Accessibility.IncreaseContrast)
+                        : new PreferenceValue.Withheld(Accessibility.IncreaseContrast)),
                 reducedMotion: static (s, r) => s.Port(r),
                 reducedTransparency: static (s, r) => s.Port(r),
                 textScale: static (s, r) => s.Port(r)),

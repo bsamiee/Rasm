@@ -1,6 +1,6 @@
 # [APPUI_MOTION_TOKENS]
 
-Rasm.AppUi motion is one `MotionToken` vocabulary: each row carries one `MotionTiming` modality and one reduced-motion delegate, and every duration, easing, or spring literal in the package traces to that owner. `MotionTiming.Tween` carries duration with easing while `MotionTiming.Spring` derives its response curve from the admitted spring, so an impossible duration/curve/spring combination is unrepresentable. This page owns the token axis, the axis-to-transition binding table with its spatial/effects damping split, the plan family carrying enter, exit, stagger, dwell, hold, and choreography as DATA, the latency tiers selecting feedback form from expected operation duration, the interactive handoff physics over the kernel closed forms, the closed `ProgressPhase` mapping, and the reduced-motion degrade switch publishing the kernel `MotionPosture`. `Vfx/compose` owns where this timing EXECUTES on the render thread; a duration, a curve, or a stagger authored anywhere else is a second timing source the reduction switch never reaches.
+Rasm.AppUi motion is one `MotionToken` vocabulary: each row carries one `MotionTiming` modality and one reduced-motion delegate, and every duration, easing, or spring literal in the package traces to that owner. `MotionTiming.Tween` carries duration with easing while `MotionTiming.Spring` derives its response curve from the admitted spring, so an impossible duration/curve/spring combination is unrepresentable. This page owns the token axis, the axis-to-transition binding table with its spatial/effects damping split, the plan family carrying enter, exit, stagger, dwell, hold, and choreography as DATA, the latency tiers selecting feedback form from expected operation duration, the interactive handoff physics over the kernel closed forms, the closed `ProgressPhase` mapping, and the reduced-motion degrade switch publishing the kernel `CapabilitySet<Accessibility>`. `Vfx/compose` owns where this timing EXECUTES on the render thread; a duration, a curve, or a stagger authored anywhere else is a second timing source the reduction switch never reaches.
 
 ## [01]-[INDEX]
 
@@ -677,7 +677,7 @@ public sealed partial class MotionDecay {
 
     public double Retention { get; }
 
-    public Fin<DecayShape> Shape => DecayShape.Of(retention: Retention);
+    public Fin<DecayShape> Shape => Op.Of(name: nameof(Shape)).AcceptValidated<DecayShape>(candidate: Retention);
 
     public Fin<double> Project(double velocity) =>
         Shape.Bind(shape => shape.Project(
@@ -834,22 +834,22 @@ flowchart LR
 
 ## [07]-[REDUCED_MOTION]
 
-- Owner: `ReducedMotion` — the one degrade switch AND the Avalonia producer of the kernel `MotionPosture`.
+- Owner: `ReducedMotion` — the one degrade switch AND the Avalonia producer of the kernel `CapabilitySet<Accessibility>`.
 - Law: reduced motion is a HOST PREFERENCE, not a motion-local fact. The switch reads `PreferenceRow.ReducedMotion` through the one `PreferenceCell` every preference consumer binds, so a host flip re-derives motion, variant, translucency, and text scale in one resolve and a second probe path for motion alone cannot exist to disagree with it.
-- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Posture(PaceBand pace)` — the kernel `MotionPosture` producer for any consumer stepping kernel drives, filling `CapabilitySet<MotionConcession>` from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace; `ReducedMotion.Conformance(HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — the headless sweep firing each resolved token through the AppUi motion point.
+- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Granted` — the `CapabilitySet<Accessibility>` producer for any consumer stepping kernel drives, filled from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace, with pace staying on the clock that owns it; `ReducedMotion.Conformance(HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — the headless sweep firing each resolved token through the AppUi motion point.
 - Auto: the cell's own `Track` subscription carries a host reduced-motion flip to the same swap that re-resolves the token catalogue, so every subsequent `Select` resolves the reduced pair globally with no per-animation re-check; a proof lane fixes the state through `PreferenceCell.Pin(PreferenceRow.ReducedMotion, new PreferenceValue.Flag(true))`, whose disposal restores the host read.
-- Packages: Rasm (project — `MotionPosture`/`MotionConcession`/`PaceBand`/`CapabilitySet`), LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Rasm (project — `Rasm.Interaction` `Accessibility`, `CapabilitySet`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new host reduced-motion source is one column on the preference family at `tokens#VARIANT_AXIS`; a new concession correspondence is one row in the `Concessions` table below; this page grows nothing else.
-- Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch, and the host probe rows live with the preference family that owns every other host read, so an unbound switch answers the unreduced default rather than fabricating a reading. Reduced selection lands on spring-free rows, positional transforms drop with the spring, and looping grades reduce to `Instant`; the collapse table below states what each execution lane does under reduction, because the lanes fail differently — a retained transition that merely shortens still animates, and a render-thread tick that merely slows still costs a recomposite per frame. The posture producer maps the three concession-shaped preference rows onto their kernel `MotionConcession` rows; `Appearance` and `TextScale` stay preference-only BY DISCRIMINANT — they carry values, not display concessions, so no kernel row exists for them and none is owed.
+- Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch, and the host probe rows live with the preference family that owns every other host read, so an unbound switch answers the unreduced default rather than fabricating a reading. Reduced selection lands on spring-free rows, positional transforms drop with the spring, and looping grades reduce to `Instant`; the collapse table below states what each execution lane does under reduction, because the lanes fail differently — a retained transition that merely shortens still animates, and a render-thread tick that merely slows still costs a recomposite per frame. The accessibility producer maps the three concession-shaped preference rows onto their kernel `Accessibility` rows; `Appearance` and `TextScale` stay preference-only BY DISCRIMINANT — they carry values, not display concessions, so no kernel row exists for them and none is owed.
 
 ```csharp
 public static class ReducedMotion {
     static readonly Atom<Option<PreferenceCell>> bound = Atom(Option<PreferenceCell>.None);
 
-    static readonly Seq<(PreferenceRow Row, MotionConcession Concession)> Concessions = Seq(
-        (PreferenceRow.ReducedMotion, MotionConcession.ReduceMotion),
-        (PreferenceRow.IncreasedContrast, MotionConcession.IncreaseContrast),
-        (PreferenceRow.ReducedTransparency, MotionConcession.ReduceTransparency));
+    static readonly Seq<(PreferenceRow Row, Accessibility Concession)> Concessions = Seq(
+        (PreferenceRow.ReducedMotion, Accessibility.ReduceMotion),
+        (PreferenceRow.IncreasedContrast, Accessibility.IncreaseContrast),
+        (PreferenceRow.ReducedTransparency, Accessibility.ReduceTransparency));
 
     public static bool Active => bound.Value.Match(
         Some: static cell => cell.Read(PreferenceRow.ReducedMotion) is PreferenceValue.Flag { On: true },
@@ -857,13 +857,11 @@ public static class ReducedMotion {
 
     public static MotionToken Select(MotionToken token) => Active ? token.Reduced() : token;
 
-    public static MotionPosture Posture(PaceBand pace) => new(
-        Concessions: bound.Value.Match(
-            Some: cell => CapabilitySet<MotionConcession>.Of(Concessions
-                .Filter(pair => cell.Read(pair.Row) is PreferenceValue.Flag { On: true })
-                .Map(static pair => pair.Concession).ToArray()),
-            None: static () => CapabilitySet<MotionConcession>.None),
-        Pace: pace);
+    public static CapabilitySet<Accessibility> Granted => bound.Value.Match(
+        Some: cell => CapabilitySet<Accessibility>.Of(Concessions
+            .Filter(pair => cell.Read(pair.Row) is PreferenceValue.Flag { On: true })
+            .Map(static pair => pair.Concession).ToArray()),
+        None: static () => CapabilitySet<Accessibility>.None);
 
     public static IDisposable Bind(PreferenceCell cell) {
         bound.Swap(_ => Some(cell));

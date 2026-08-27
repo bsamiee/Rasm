@@ -1018,9 +1018,9 @@ public static class TubeProgram {
             ? Fin.Succ(crossed)
             : Fin.Fail<IntersectResult.Chains>(new KernelFault.InvalidValue("tube", "tube:cope-intersection"))
         from development in Development.Apply(new DevelopOp.Unroll(source.Part, source.Development))
-        from unrolled in development is DevelopmentResult.Unrolled value
-            ? Fin.Succ(value)
-            : Fin.Fail<DevelopmentResult.Unrolled>(new KernelFault.InvalidValue("tube", "tube:cope-development"))
+        from unrolled in development.SwitchPartially(
+            @default: static _ => Fin.Fail<DevelopmentResult.Unrolled>(new KernelFault.InvalidValue("tube", "tube:cope-development")),
+            unrolled: static value => Fin.Succ(value))
         from edges in ProjectEdges(chains.Table, unrolled.Atlas)
         let stations = Stations(chains.Table, source.Part.Mesh.Tolerance.Absolute.Value)
         from developed in chains.Walked

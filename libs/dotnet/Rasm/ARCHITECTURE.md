@@ -45,7 +45,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Subdivide.cs       # SubdivisionScheme stencil rows emit sparse operators; the Stam eigen lane makes limit evaluation mandatory
 │   ├── Develop.cs         # Per-strip ddouble isometry witness; a strip over budget faults rather than shipping approximate flattening
 │   ├── Panelize.cs        # PanelFamily rides the request as data; each panel leaves with origin, field-aligned x-axis, metric-true normal
-│   ├── Patternmap.cs      # Wallpaper symmetry closed by theorem as data; the emitted InstanceStream is the Generation plane's exact input
+│   ├── Patternmap.cs      # Wallpaper symmetry closed by theorem as data; the emitted PlanarInstances/SurfaceInstances are the Generation plane's exact input
 │   ├── Projections.cs     # Selectors drain one Project<TOut> into ResultProjection.Raw; clock values stay branded to the injected timeline
 │   └── Locate.cs          # Operation<TGeometry, TOut> under Eff<Env, Seq<TOut>>; AnalysisQuery.Location is the sole public route in
 ├── Meshing/               # Mesh substrate and construction ops
@@ -228,7 +228,7 @@ flowchart LR
     Meshing e28@-->|"[WIRE]: SliceStack"| Compute
     Parametric e29@-->|"[BOUNDARY]: SpringShape"| AppUi
     Parametric e30@-->|"[SHAPE]: MaterialSymmetry"| Materials
-    Parametric e31@-->|"[WIRE]: PatternPlan + InstanceStream"| Materials
+    Parametric e31@-->|"[WIRE]: PatternPlan + PlanarInstances"| Materials
     Processing e32@-->|"[PROJECTION]: ChartAtlas"| Materials
     Solving e33@-->|"[SHAPE]: ObjectiveSense"| Compute
     Solving e34@-->|"[WIRE]: DualModel"| Materials
@@ -269,7 +269,7 @@ flowchart LR
     Numerics e3@-->|"[SHAPE]: Predicate + SpectralArena + CellLattice + VectorCone"| Fabrication
     Meshing e4@-->|"[WIRE]: MeshSpace + SliceStack + CurveSkeleton"| Fabrication
     Parametric e5@-->|"[WIRE]: ParametricOp + DevelopOp + DevelopmentResult"| Fabrication
-    Parametric e12@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceStream"| Fabrication
+    Parametric e12@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceBatch"| Fabrication
     Processing e7@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Solving e8@-->|"[SHAPE]: ObjectiveSense"| Fabrication
     Solving e9@-->|"[WIRE]: Fitted"| Fabrication

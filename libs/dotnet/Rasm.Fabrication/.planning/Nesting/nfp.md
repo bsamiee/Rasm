@@ -23,11 +23,11 @@
 - Law: one `StockFacts` projection derives common body facts, and one `StockTraits` projection derives physicality, nestability, rectangular extent policy, gauge, grain, and the admitted symmetry law; a new modality answers remnant and stock consumers through one case arm.
 - Law: every planar modality carrying a grain axis carries the STOCK material's `MaterialSymmetry` beside it, read off `Component.Symmetry` at admission and never re-derived; an isotropic sheet passes `MaterialSymmetry.Free`, and a bar, tube, billet, or filament answers `Free` because no planar move exists to gate.
 - Law: the grain VECTOR the law refines IS the existing `GrainAxis` angle in the sheet plane — one spelling, one column, and a second direction column beside it is the deleted form.
-- Law: stock identity folds the law's `Fold` and `Mirror` keys immediately after the grain axis, so one sheet declared chiral and the same sheet declared reflective are two stocks — a stricter law admits a different move set and must address differently.
+- Law: stock identity folds the law's `Rotation` and `Mirror` keys immediately after the grain axis, so one sheet declared chiral and the same sheet declared reflective are two stocks — a stricter law admits a different move set and must address differently.
 - Law: a `Mate` names a part id in the roster and the naming is SYMMETRIC — the policy factory proves `a`'s mate is `b` exactly when `b`'s mate is `a`, refusing `nest:mate-asymmetric`, because a half pair obligates an adjacency no second row honours.
 - Law: `ConstraintForce.Required` rejects a candidate and fails delivery; `ConstraintForce.Preferred` admits the candidate and rides `NestObjective` as weighted penalty.
 - Law: six objective weights fan onto one comparable number and every term reaches it DIMENSIONLESS. `NestBasis` carries all three nondimensionalizers — the characteristic length the cut and shared-edge terms divide through, the currency reference the cost term does, and the violation ceiling the constraint term does — on the scoring input, never on `NestSearch`; the basis derives once per solve from the admitted inventory and policy and threads on `SearchState`.
-- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, the `Chain` loop carrier, and the `MaterialSymmetry`/`SymmetryFold`/`MirrorRight` legality algebra beside the `PanelResult` and `InstanceStream` carriers `NestParts` admits; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` result; `Thinktecture` supplies the generated stock, constraint, chirality, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
+- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, the `Chain` loop carrier, and the `MaterialSymmetry`/`RotationOrder`/`MirrorRight` legality algebra beside the `PanelResult` and `InstanceBatch` carriers `NestParts` admits; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` result; `Thinktecture` supplies the generated stock, constraint, chirality, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
 - Growth: a stock modality, constraint, candidate source, objective, or search algorithm lands as one case or row consumed by the existing folds; a further kernel carrier of placed instances lands as one `NestParts.Of` arm over the same three chirality columns.
 - Boundary: the symmetry law arrives DERIVED from the material's own construction rows — this plane admits it, folds it into identity, and derives moves from it, and a caller-set legality knob beside a material that already models direction has no parameter to reach.
 
@@ -51,12 +51,12 @@
 - Law: exactly TWO of the seven placement constraints mint precedence edges — `Precedes` orders its pair directly and `Inside` orders an outer part before the part it contains. The other five are ORDER-FREE by construction: `Together`, `Separate`, `Adjacent`, `StockOnly`, and `KeepOut` each constrain WHERE a candidate may sit, never when, so they gate at `Accept` against the placed set and a precedence edge for any of them would forbid a placement the geometry admits.
 - Law: the transitive CLOSURE and the transitive REDUCTION are both retained as result data on the graph — `InDegree` over the closure is the ordering's primary key and the reduction's own topological sort IS the `rank` column its tertiary key reads — so neither walk's output is computed and dropped.
 - Owner: `Nest.Moves` is the ONE move set — a `(Rotation, Mirrored)` roster DERIVED per part rule against the stock laws it is handed, so one stock answers that stock's admitted turns and flips and the whole inventory answers the union a genome may draw from. There is no move family and no legality flag: a free rotation roster and a caller-set flip switch are both the deleted form.
-- Law: a rotation survives when the stock's fold admits the part's grain RESIDUAL — the placed grain against the stock axis — under the stock's own angular cone, and `Nest.Fold` is the ONE place grain lowers onto the fold: a grain axis is a LINE, so a half-turn preserves it and a `Free`-fold stock still binds a grain-bearing part to `SymmetryFold.Half`, which is exactly the half-turn congruence the bare grain gate always ran.
+- Law: a rotation survives when the stock's rotation order admits the part's grain RESIDUAL — the placed grain against the stock axis — under the stock's own angular tolerance, and `Nest.Fold` is the ONE place grain lowers onto the rotation order: a grain axis is a LINE, so a half-turn preserves it and a `Free`-order stock still binds a grain-bearing part to `RotationOrder.Twofold`, which is exactly the half-turn congruence the bare grain gate always ran.
 - Law: `Nest.Grain` is the ONE placed-grain fold both nesting lanes read — a mirror negates local X, so a direction at `g` leaves at `π − g` before the turn applies, and a lane spelling that reflection itself forks the alignment two consumers must agree on.
 - Law: a mirrored move exists only where the grant admits `MirrorRight.Place`; a `Refused` grant admits none, and the reflected loops are minted ONCE per part per parity rather than per candidate.
 - Law: under `MirrorRight.Merge` a variant salts its shape CLASS instead of its part ordinal, so two congruent parts cut from one mould present one pair identity and the NFP matrix collapses from parts onto classes — sound because `NestParts.Of` lands every panel ring in its own panel frame, so congruent panels present one canonical loop preimage. Where the law refuses the merge the part ordinal stays the salt, because two moulds are two shapes.
 - Law: under `MirrorRight.Pair` — the `Matched` grant — every `Mate` pair mints ONE `PlacementConstraint.Adjacent` row at `ConstraintForce.Required` on admission, so book-matched mates nest as adjacent units through the constraint graph the search already honours rather than through a second pairing mechanism. Its ceiling is the shared-cut gap — clearance and kerf under the boundary metric — because a book match that does not touch is two parts that merely landed near each other, and obligation mints where ANY admitted stock carries the right, since a match honoured on one sheet and abandoned on the next is not a match.
-- Law: `Nest.Admitted` is the ONE candidate gate, answering material, then grain, then symmetry in cost order. `Grain` names the ABSENT axis — a directional part against stock declaring no direction — and `Symmetry` names the refused MOVE: this turn's residual outside the fold's cone, or a flip the grant refuses. Per-axis booleans let a caller read one axis and forget the other, and neither names the move the law refused.
+- Law: `Nest.Admitted` is the ONE candidate gate, answering material, then grain, then symmetry in cost order. `Grain` names the ABSENT axis — a directional part against stock declaring no direction — and `Symmetry` names the refused MOVE: this turn's residual outside the rotation order's angular tolerance, or a flip the grant refuses. Per-axis booleans let a caller read one axis and forget the other, and neither names the move the law refused.
 - Owner: `CandidateSource` composes NFP vertices, inner-fit boundaries, arc-native contacts, stock extrema, and relaxed Voronoi centroids into one slot-keyed frontier; its `Absolute` column decides which rows can seed an empty stock.
 - Auto: `PlacementMode.Compile` emits one `SearchProgram`; `SearchOp` folds order, branch, breed, mutate, cool, relax, bound, and select steps over one `SearchState`.
 - Auto: `SearchState.Evidence.Evaluated` counts exact decisions across every active run, and `SearchOp.Bounded` halts the stochastic sub-program at `NestPolicy.EvaluationBudget`.
@@ -522,7 +522,7 @@ public abstract partial record Stock {
         .Double(body.Cost);
 
     static CanonicalWriter LawKey(CanonicalWriter writer, MaterialSymmetry law) =>
-        writer.Ordinal(law.Fold.Key).String(law.Mirror.Key);
+        writer.Ordinal(law.Rotation.Key).String(law.Mirror.Key);
 
     static CanonicalWriter Scalar(CanonicalWriter writer, double value) => writer.Double(value);
 }
@@ -1288,22 +1288,22 @@ public static class Nest {
             .Lowering(new KernelFault.InvalidValue("nfp", "nest:arc-projection-trace"))
             .Map(static evidence => evidence.Output));
 
-    internal static SymmetryFold Fold(Option<double> grain, MaterialSymmetry law) =>
-        law.Fold == SymmetryFold.Free && grain.IsSome ? SymmetryFold.Half : law.Fold;
+    internal static RotationOrder Fold(Option<double> grain, MaterialSymmetry law) =>
+        law.Rotation == RotationOrder.Free && grain.IsSome ? RotationOrder.Twofold : law.Rotation;
 
     internal static double Grain(double axis, double rotation, bool mirrored) =>
         (mirrored ? Math.PI - axis : axis) + rotation;
 
     internal static Seq<(double Rotation, bool Mirrored)> Moves(PartRule rule, Seq<Stock> inventory) =>
         inventory.Bind(stock => {
-            SymmetryFold fold = Fold(rule.GrainAxis, stock.Law);
+            RotationOrder order = Fold(rule.GrainAxis, stock.Law);
             double cone = stock.Tolerance.Angle.Value;
             Seq<(double Rotation, bool Mirrored)> straight = rule.Angles.Map(static angle => (Rotation: angle, Mirrored: false));
             return (stock.Law.Mirror.Rights.Admits(MirrorRight.Place)
                     ? straight.Concat(rule.Angles.Map(static angle => (Rotation: angle, Mirrored: true)))
                     : straight)
                 .Filter(move => rule.GrainAxis.ForAll(axis => stock.GrainAxis
-                    .Exists(grain => fold.Admits(Grain(axis, move.Rotation, move.Mirrored) - grain, cone))));
+                    .Exists(grain => order.Admits(Grain(axis, move.Rotation, move.Mirrored) - grain, cone))));
         }).Distinct();
 
     static Seq<(double Rotation, bool Mirrored)> Roster(Seq<PartRule> rules, int partId, Seq<Stock> inventory) =>
@@ -1377,26 +1377,21 @@ public static class NestParts {
                         Some(panels.Field.ShapeClass[panel]), Option<int>.None)
                     select (loop, rule)).As())
             .Map(rows => (rows.Map(static row => row.loop).ToArr(), rows.Map(static row => row.rule),
-                panels.Result.ChiralSplit));
+                panels.ChiralSplit));
 
     public static Fin<(Arr<Loop> Profiles, Seq<PartRule> Rules, int ChiralFloor)> Of(
-        InstanceStream stream, Loop motif, MaterialSymmetry stockLaw) {
-        (Arr<double> Spin, Arr<bool> Mirrored, Arr<Option<int>> PairOf) columns = Columns(stream);
+        InstanceBatch instances, Loop motif, MaterialSymmetry stockLaw) {
         bool pairs = stockLaw.Mirror.Rights.Admits(MirrorRight.Pair);
-        return Placeable(columns.Mirrored, stockLaw)
-            .Bind(_ => toSeq(Enumerable.Range(0, columns.Spin.Count))
+        return Placeable(instances.Mirrored, stockLaw)
+            .Bind(_ => toSeq(Enumerable.Range(0, instances.Spin.Count))
                 .TraverseM(site =>
-                    from loop in Nest.Seated(motif, radians: 0.0, columns.Mirrored[site])
-                    from rule in Rule(site, Seq(columns.Spin[site]), columns.Mirrored[site], Some(MotifClass),
-                        pairs ? columns.PairOf[site] : Option<int>.None)
+                    from loop in Nest.Seated(motif, radians: 0.0, instances.Mirrored[site])
+                    from rule in Rule(site, Seq(instances.Spin[site]), instances.Mirrored[site], Some(MotifClass),
+                        pairs ? instances.PairOf[site] : Option<int>.None)
                     select (loop, rule)).As())
             .Map(rows => (rows.Map(static row => row.loop).ToArr(), rows.Map(static row => row.rule),
-                Split(columns.Mirrored, stockLaw)));
+                Split(instances.Mirrored, stockLaw)));
     }
-
-    static (Arr<double> Spin, Arr<bool> Mirrored, Arr<Option<int>> PairOf) Columns(InstanceStream stream) => stream.Switch(
-        planar: static row => (row.Spin, row.Mirrored, row.PairOf),
-        mapped: static row => (row.Spin, row.Mirrored, row.PairOf));
 
     static Fin<Unit> Placeable(Arr<bool> mirrored, MaterialSymmetry law) =>
         law.Mirror.Rights.Admits(MirrorRight.Place) || !mirrored.Exists(identity)

@@ -2,14 +2,14 @@
 
 `MacGate` heads the macOS-native boundary — platform admission, managed-to-AppKit view extraction, rich input monitors, gesture and pressure attachment, workspace accessibility facts, screen-bound pacing evidence, and every inverse native lifecycle. `MacGate` requires both a macOS process and the active valid `Eto.Mac.Platform`; the kernel `UiThread` owns UI affinity; the kernel `Lease<T>` bounds every retained observer or attachment with its faults PARKED on the caller's `FaultCell` (never a per-lease `LastFault` cell); and deferred native callbacks record faults instead of throwing through the AppKit pump.
 
-Vocabularies are the kernel's wherever the kernel owns the concept: workspace accessibility is `CapabilitySet<MotionConcession>` — the five `NSWorkspace` display options ARE the kernel's five concession rows, probed here and consumed by every motion posture unchanged — and appearance is the folder's `AppearanceRow` two-row vocabulary this page MINTS (`Canvas/paint.md`'s `PaintFrame` composes it), because a bare dark bool cannot grow the host's high-contrast appearance. Every host enum a consumer must choose from crosses through a row owner carrying the host value as a column, and every acquire shares ONE mint-or-unwind fold.
+Vocabularies are the kernel's wherever the kernel owns the concept: workspace accessibility is `CapabilitySet<Accessibility>` — the five `NSWorkspace` display options ARE the kernel's five concession rows, probed here and consumed by every motion posture unchanged — and appearance is the folder's `AppearanceRow` two-row vocabulary this page MINTS (`Canvas/paint.md`'s `PaintFrame` composes it), because a bare dark bool cannot grow the host's high-contrast appearance. Every host enum a consumer must choose from crosses through a row owner carrying the host value as a column, and every acquire shares ONE mint-or-unwind fold.
 
 ## [01]-[INDEX]
 
 - [02]-[GATE_AND_ANCHOR]: `MacGate` + `MacViewRole` + `AnchorSource` + `MacAnchor` + `AppearanceRow` — dual platform admission, explicit `IMacControlHandler` view-role extraction, and the appearance vocabulary.
 - [03]-[INPUT]: `NativeInput` + `NativeMap` + `MonitorPlan` + `NativeMonitor` — ABI-faithful `NSEvent` evidence through the generated projection mapper, absorption policy, callback containment, and leased monitor teardown.
 - [04]-[GESTURE_AND_PRESSURE]: `GestureKind` + `GesturePlan` + `GestureBinding` + `PressureRow` + `PressureBinding` — typed recognizer minting, callback evidence, the pressure-behavior row owner, and exact UI-affine inverses.
-- [05]-[WORKSPACE]: kernel `MotionConcession` probes + `PaceBounds` + `WorkspaceFact` + `WorkspaceWatch` — initial and changing accessibility facts with anchor-screen retuning evidence feeding `Eto/runtime.md`'s `FrameTune`.
+- [05]-[WORKSPACE]: kernel `Accessibility` probes + `PaceBounds` + `WorkspaceFact` + `WorkspaceWatch` — initial and changing accessibility facts with anchor-screen retuning evidence feeding `Eto/runtime.md`'s `FrameTune`.
 
 ## [02]-[GATE_AND_ANCHOR]
 
@@ -48,14 +48,14 @@ Vocabularies are the kernel's wherever the kernel owns the concept: workspace ac
 
 ## [05]-[WORKSPACE]
 
-- Owner: the workspace accessibility vocabulary is the KERNEL's `MotionConcession` — the five installed `NSWorkspace` display options are exactly the kernel's five concession rows, so the folder `AccessibilityAxis`/`AccessibilityPosture` twins delete and the probe table maps each kernel row to its `NSWorkspace` read; the posture is `CapabilitySet<MotionConcession>`, handed UNCHANGED to `Canvas/motion.md`'s `MotionPosture` and every kernel motion consumer — no translation layer survives.
+- Owner: the workspace accessibility vocabulary is the KERNEL's `Accessibility` — the five installed `NSWorkspace` display options are exactly the kernel's five concession rows, so the folder `AccessibilityAxis`/`AccessibilityPosture` twins delete and the probe table maps each kernel row to its `NSWorkspace` read; the set is `CapabilitySet<Accessibility>`, handed UNCHANGED to `Canvas/motion.md`'s `CanvasPacer`, `layers.md`'s `MotionAttachment`, and every kernel `MotionDrive.Step` consumer — no translation layer survives.
 - Owner: `PaceBounds` retains the screen handle, native-width `nint MaximumFramesPerSecond`, and refresh-interval bounds. `NativeLayer.Pace(MacAnchor, Op?)` resolves the anchor view's current window and screen on every read, validates the nonzero screen identity, positive native ceiling, finite positive intervals, and their order, and never substitutes `NSScreen.MainScreen` for the display hosting the view.
-- Owner: `WorkspaceFact` carries one coherent accessibility-pace-appearance snapshot: the workspace-wide `CapabilitySet<MotionConcession>`, the anchor screen's `PaceBounds`, and the anchor VIEW's own `AppearanceRow`. `NativeLayer.Watch(MacAnchor, Action<WorkspaceFact>, FaultCell, Op?)` → `Fin<Lease<NativeHold<WorkspaceWatch>>>` subscribes both `NSApplication.Notifications.ObserveDidChangeScreenParameters` and `NSWorkspace.Notifications.ObserveDisplayOptionsDidChange`, then publishes the initial snapshot. Either notification republishes the triple atomically, so a composition owner retunes screen pacing, accessibility policy, and skin selection off one lease.
+- Owner: `WorkspaceFact` carries one coherent accessibility-pace-appearance snapshot: the workspace-wide `CapabilitySet<Accessibility>`, the anchor screen's `PaceBounds`, and the anchor VIEW's own `AppearanceRow`. `NativeLayer.Watch(MacAnchor, Action<WorkspaceFact>, FaultCell, Op?)` → `Fin<Lease<NativeHold<WorkspaceWatch>>>` subscribes both `NSApplication.Notifications.ObserveDidChangeScreenParameters` and `NSWorkspace.Notifications.ObserveDisplayOptionsDidChange`, then publishes the initial snapshot. Either notification republishes the triple atomically, so a composition owner retunes screen pacing, accessibility policy, and skin selection off one lease.
 - Law: appearance rides `WorkspaceFact` and not the concession set because the concessions are a process-wide `NSWorkspace` read while the appearance is a per-`NSView` `EffectiveAppearance` read — the same discriminant that keeps `PaceBounds` anchor-derived — so the concession set stays anchor-free and reusable and the two view-scoped facts share one refresh.
 - Boundary: `PaceBounds.MinimumRefreshInterval` is the ONE producer of the real frame budget (E-G41) — the composition feeds it into `Eto/runtime.md`'s `FrameTune.Feed`, which scales the kernel `PaceBand` and seats `UiThread.Tune`; the kernel seeds `StallPolicy.Portable` conservatively and cannot read the display's rate itself, so an untuned floor over-reports a stall and never hides one.
 - Law: notification callbacks execute projection and publication inside `Op.Catch`; failures PARK on the watch's cell. Disposal marshals and releases both notification tokens exactly once, attempting both inverses and AGGREGATING either fault.
-- Packages: Microsoft.macOS (`NSWorkspace`, `NSApplication`, `NSScreen`, `NSWindow`, `NSAppearance`, `NSNotificationEventArgs`), Eto.macOS (`MacControlExtensions.HasDarkTheme`), `Rasm.Parametric` (`MotionConcession`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `CapabilitySet`, `ValidityClaim`, `Custody`), `Rasm.Interaction` (`UiThread`).
-- Growth: a new workspace policy axis is one kernel `MotionConcession` row with one probe-table entry, and a new retuning value is one `WorkspaceFact` field; the fold, observation, and teardown never widen.
+- Packages: Microsoft.macOS (`NSWorkspace`, `NSApplication`, `NSScreen`, `NSWindow`, `NSAppearance`, `NSNotificationEventArgs`), Eto.macOS (`MacControlExtensions.HasDarkTheme`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `CapabilitySet`, `ValidityClaim`, `Custody`), `Rasm.Interaction` (`UiThread`, `Accessibility`).
+- Growth: a new workspace policy axis is one kernel `Accessibility` row with one probe-table entry, and a new retuning value is one `WorkspaceFact` field; the fold, observation, and teardown never widen.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -70,7 +70,6 @@ using Microsoft.Extensions.Logging;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
-using Rasm.Parametric;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Grasshopper.Platform;
@@ -187,7 +186,7 @@ public readonly record struct PaceBounds(
 }
 
 public sealed record WorkspaceFact(
-    CapabilitySet<MotionConcession> Concessions, PaceBounds Pace, AppearanceRow Appearance);
+    CapabilitySet<Accessibility> Concessions, PaceBounds Pace, AppearanceRow Appearance);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class NativeLog {
@@ -285,12 +284,12 @@ public static class MacGate {
 }
 
 public static class NativeLayer {
-    private static readonly Seq<(MotionConcession Row, Func<NSWorkspace, bool> Read)> ConcessionProbes = Seq(
-        (MotionConcession.ReduceMotion, (Func<NSWorkspace, bool>)(static w => w.AccessibilityDisplayShouldReduceMotion)),
-        (MotionConcession.ReduceTransparency, static w => w.AccessibilityDisplayShouldReduceTransparency),
-        (MotionConcession.DifferentiateColour, static w => w.AccessibilityDisplayShouldDifferentiateWithoutColor),
-        (MotionConcession.IncreaseContrast, static w => w.AccessibilityDisplayShouldIncreaseContrast),
-        (MotionConcession.InvertColors, static w => w.AccessibilityDisplayShouldInvertColors));
+    private static readonly Seq<(Accessibility Row, Func<NSWorkspace, bool> Read)> ConcessionProbes = Seq(
+        (Accessibility.ReduceMotion, (Func<NSWorkspace, bool>)(static w => w.AccessibilityDisplayShouldReduceMotion)),
+        (Accessibility.ReduceTransparency, static w => w.AccessibilityDisplayShouldReduceTransparency),
+        (Accessibility.DifferentiateColour, static w => w.AccessibilityDisplayShouldDifferentiateWithoutColor),
+        (Accessibility.IncreaseContrast, static w => w.AccessibilityDisplayShouldIncreaseContrast),
+        (Accessibility.InvertColors, static w => w.AccessibilityDisplayShouldInvertColors));
 
     private static Fin<Lease<NativeHold<T>>> Acquire<T>(
         FaultCell faults, Op key, Func<Fin<(T Value, Func<Fin<Unit>> Release)>> mint, Func<Fin<Unit>> unwind) =>
@@ -398,10 +397,10 @@ public static class NativeLayer {
                select row;
     }
 
-    public static Fin<CapabilitySet<MotionConcession>> Concessions(Op? key = null) {
+    public static Fin<CapabilitySet<Accessibility>> Concessions(Op? key = null) {
         Op op = key.OrDefault();
         return from _ in MacGate.Demand(key: op)
-               from posture in UiThread.Run(new UiDispatch<CapabilitySet<MotionConcession>>.Blocking(() =>
+               from posture in UiThread.Run(new UiDispatch<CapabilitySet<Accessibility>>.Blocking(() =>
                    ReadConcessions(key: op)), DispatchLane.Interactive, op)
                select posture;
     }
@@ -443,9 +442,9 @@ public static class NativeLayer {
                 select lease);
     }
 
-    internal static Fin<CapabilitySet<MotionConcession>> ReadConcessions(Op key) => key.Catch(body: () =>
+    internal static Fin<CapabilitySet<Accessibility>> ReadConcessions(Op key) => key.Catch(body: () =>
         from workspace in Optional(NSWorkspace.SharedWorkspace).ToFin(key.MissingContext())
-        select CapabilitySet<MotionConcession>.Of([.. ConcessionProbes.Filter(probe => probe.Read(workspace)).Map(static probe => probe.Row)]));
+        select CapabilitySet<Accessibility>.Of([.. ConcessionProbes.Filter(probe => probe.Read(workspace)).Map(static probe => probe.Row)]));
 
     internal static Fin<PaceBounds> ReadPace(MacAnchor anchor, Op key) => key.Catch(body: () =>
         from window in Optional(anchor.View.Window).ToFin(key.MissingContext())
@@ -492,7 +491,7 @@ flowchart LR
     Anchor -->|"bind screen context"| Watch["WorkspaceWatch"]
     Screen["screen-parameter notification"] -->|"request refresh"| Watch
     Display["display-options notification"] -->|"request refresh"| Watch
-    Watch -->|"publish coherent triple"| Facts["kernel MotionConcession set + PaceBounds + AppearanceRow"]
+    Watch -->|"publish coherent triple"| Facts["kernel Accessibility set + PaceBounds + AppearanceRow"]
     Facts -->|"FrameTune.Feed → UiThread.Tune (E-G41)"| Retune["composition retuning"]
 ```
 

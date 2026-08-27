@@ -10,7 +10,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 
 - [02]-[HANDLER]: `HandlerDemand`, `HandlerCustody`, `HandlerHold<THandler>`, `MintFact`, `HandlerRow`, `HandlerIdentity`, `HandlerSeat`, `Handlers` — the registration rows with their restoring lease, the custody-preserving resolution, the widget identity capsule, and the mint census.
 - [03]-[MOUNT]: `NativeMount`, `PlatformMount` — the two native-supply timings and the realize-plus-attach capsule that owns the crossing's inverse.
-- [04]-[PLATFORM]: `PlatformCapability`, `FormFactor`, `PlatformScope`, `PlatformRow`, `PlatformClaim`, `PlatformId`, `PlatformFact`, `HostPlatform`, `StyleKey`, `StyleRow`, `StyleContext`, `StyleSeat`, `ThemePort` — the platform roster with its capability gate and scope rows, and the keyed style port that injects a theme grid into the host registry.
+- [04]-[PLATFORM]: `PlatformCapability`, `Accessibility`, `FormFactor`, `PlatformScope`, `PlatformRow`, `PlatformClaim`, `PlatformId`, `PlatformFact`, `HostPlatform`, `StyleKey`, `StyleRow`, `StyleContext`, `StyleSeat`, `ThemePort` — the platform roster with its capability gate, the accessibility-display vocabulary, and scope rows, and the keyed style port that injects a theme grid into the host registry.
 
 ## [02]-[HANDLER]
 
@@ -149,8 +149,8 @@ public sealed class PlatformMount : IDisposable {
 
 ## [04]-[PLATFORM]
 
-- Owner: `PlatformCapability` the admitted-feature vocabulary; `FormFactor` the two device postures; `PlatformRow` the backend roster; `PlatformClaim` the one capability demand; `PlatformFact` the ambient snapshot; `HostPlatform` the four ambient entries; `StyleKey` the keyed style identity; `StyleRow`, `StyleContext`, and `StyleSeat` the registration family; `ThemePort` the injection port binding a `ThemeGrid` to the host style registry.
-- Cases: `PlatformRow` carries six rows keyed on the host's own platform identifiers — macOS, WinForms, WPF, GTK, iOS, Android — and `PlatformClaim` is `FeatureCase`, `HandlerCase`, or `RowCase`, three demand shapes behind one gate.
+- Owner: `PlatformCapability` the admitted-feature vocabulary; `Accessibility` the host accessibility-display vocabulary every motion, theme, and translucency consumer reads as one `CapabilitySet<Accessibility>`; `FormFactor` the two device postures; `PlatformRow` the backend roster; `PlatformClaim` the one capability demand; `PlatformFact` the ambient snapshot; `HostPlatform` the four ambient entries; `StyleKey` the keyed style identity; `StyleRow`, `StyleContext`, and `StyleSeat` the registration family; `ThemePort` the injection port binding a `ThemeGrid` to the host style registry.
+- Cases: `PlatformRow` carries six rows keyed on the host's own platform identifiers — macOS, WinForms, WPF, GTK, iOS, Android — and `PlatformClaim` is `FeatureCase`, `HandlerCase`, or `RowCase`, three demand shapes behind one gate. `Accessibility` carries five rows — `ReduceMotion`, `IncreaseContrast`, `DifferentiateColour`, `ReduceTransparency`, `InvertColors` — the closed macOS accessibility-display axis set; `CapabilitySet` carries the combination, so the five bool columns three folders declared independently are one canonical key-ordered membership, and only ONE row is a motion fact — the other four are display settings, which is why the roster seats here and not with the motion fold.
 - Entry: `HostPlatform.Snapshot` reads the ambient fact; `Demand` is the ONE capability gate; `Scope(scope, body, key)` is the ONE scoped crossing over the `PlatformScope` row; `ThemePort.Register` claims and seats a style batch, `Wear` assigns a claimed key to a widget, `Change` lands a theme shift, and `Provide` swaps the provider.
 - Law: form factor is a ROW COLUMN, not a probe pair. Reading `IsDesktop` and `IsMobile` off the live platform and carrying both as bools admits a platform answering neither and a platform answering both; the roster declares each row's factor once and the fact projects it, so the two host predicates are the deleted form and the scattered `IsMac` tests they enabled have no spelling left.
 - Law: bundle validity is an ADMISSION, not a column. Platforms reporting themselves invalid produce no usable fact, so `Snapshot` refuses typed and the `Valid` bool disappears rather than riding out for every reader to re-check. The identity is a `PlatformId`, so the fact carries no evidence fold at all — a one-conjunct claim over an admitted value object measures nothing its own construction did not refuse.
@@ -164,8 +164,8 @@ public sealed class PlatformMount : IDisposable {
 - Auto: a rebroadcast failure lands on the change's failure set rather than on the caller's result — a single control refusing its restyle does not un-accept a theme every other control already took.
 - Output: `ThemeChange` from the grid carries generation, variant, changed roles, and rebroadcast failures; `StyleSeat` publishes claimed and refused rows.
 - Packages: Eto for `Platform`, its identifiers, its feature flags, `Style`, and the `IStyleProvider` contract a provider swap seats (`libs/dotnet/.api/api-eto-platform.md`); Eto.Forms for `Widget` and `Control`; LanguageExt.Core for `Atom`, `HashMap`, the types, and the `Lease`; Thinktecture.Runtime.Extensions for the rows, the claim union, and the two key value objects; `Domain/hooks` for the `FaultCell` a seat's restyle faults park on.
-- Growth: a new backend is one `PlatformRow` row carrying its probe and its factor; a new host feature is one `PlatformCapability` row naming its flag; a new demand shape is one `PlatformClaim` case; a new ambient scope is one `PlatformScope` row and no second entry.
-- Boundary: HOST-SPECIFIC-STAYS — the Rhino theme-zone swatch feeder that produces a hosted shift and its host UI service resolution stay at that boundary; the Grasshopper session styling target and its accessibility axis stay at that one. Plugin identity is `Domain/frame`'s `PackageIdentity`, never a second identity here.
+- Growth: a new backend is one `PlatformRow` row carrying its probe and its factor; a new host feature is one `PlatformCapability` row naming its flag; a new accessibility accommodation is one `Accessibility` row plus one probe entry at each boundary that reads the host; a new demand shape is one `PlatformClaim` case; a new ambient scope is one `PlatformScope` row and no second entry.
+- Boundary: HOST-SPECIFIC-STAYS — the Rhino theme-zone swatch feeder that produces a hosted shift and its host UI service resolution stay at that boundary; the Grasshopper session styling target stays at that one, and every `NSWorkspace` or preference PROBE filling `CapabilitySet<Accessibility>` stays at the boundary that reads its host. Plugin identity is `Domain/frame`'s `PackageIdentity`, never a second identity here.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -188,6 +188,18 @@ public sealed partial class PlatformCapability : ICapability<PlatformCapability>
     internal PlatformFeatures Flag { get; }
 
     internal static CapabilitySet<PlatformCapability> Of(PlatformFeatures admitted);
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class Accessibility : ICapability<Accessibility> {
+    public static readonly Accessibility ReduceMotion = new(key: "reduce-motion", rank: 0);
+    public static readonly Accessibility IncreaseContrast = new(key: "increase-contrast", rank: 1);
+    public static readonly Accessibility DifferentiateColour = new(key: "differentiate-colour", rank: 2);
+    public static readonly Accessibility ReduceTransparency = new(key: "reduce-transparency", rank: 3);
+    public static readonly Accessibility InvertColors = new(key: "invert-colors", rank: 4);
+
+    public int Rank { get; }
 }
 
 [SmartEnum<int>]

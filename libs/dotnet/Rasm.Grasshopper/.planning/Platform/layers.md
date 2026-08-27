@@ -188,12 +188,12 @@ public sealed partial class TransactionPosture {
 - Owner: `MotionAttachment` — the `CADisplayLink` lease: callback target, run-loop attachment, workspace observation, and the per-tick fold that advances the injected timeline, samples kernel `MotionDrive.Step`, and applies the sample at the host inside the transaction fence. Kernel owns every number; this owner owns the timer lease and the apply hook alone (the branch motion ruling), and `Canvas/motion.md`'s pacer is its one mount.
 - Entry: `Attach(anchor, script, apply, clock, faults, completed = default, key = null)` → `Fin<Lease<MotionAttachment>>` — admits the script through kernel `MotionDrive.Admit`, acquires the workspace watch, seats the callback through `Cell.Seat` so a second claim refuses typed, pauses and tunes the link, attaches to `NSRunLoop.Main` under `Common` mode, and only then resumes. Any mint or dispatch fault removes the run-loop attachment, invalidates and disposes every native, releases the watch, and aggregates cleanup faults through kernel `Custody.Release`.
 - Law: each callback advances `clock.Beat(seed, cadence, key)` from the origin or prior beat — the cadence DERIVES from the applied pace band's preferred rate, so the ordinal counts display periods and a coalesced tick reads as a gap. Clock is the session's ONE injected timeline (folder RULINGS `[02]`); this page mints none.
-- Law: the posture each sample carries is `MotionPosture(fact.Concessions, pace)` read off one `WorkspaceFact` snapshot, and the pace band scales through `PaceBand.ScaleTo` off the display's live ceiling — a retune fires only when the snapshot's pace moved, so a display migration never combines a stale ceiling with a new accessibility state.
+- Law: the accessibility set each step reads is `fact.Concessions` off one `WorkspaceFact` snapshot, and the pace band scales through `PaceBand.ScaleTo` off the display's live ceiling onto the LINK alone — pace is clock policy and never a sample input — a retune fires only when the snapshot's pace moved, so a display migration never combines a stale ceiling with a new accessibility state.
 - Law: a colour tween is an `Eased` script whose apply closure samples `PerceptualColor.Mix` at the eased value — the kernel refuses a colour case by design, and the blend path lives in the closure (the kernel's own NAMED LOSS, honoured here).
 - Law: completion belongs to the terminal frame — the sample whose `Continues` is false installs a once-gated continuation (`Cell.Step` over the completion latch) on `CATransaction.CompletionBlock`, pauses the link, and suppresses the continuation after release begins. Every beat, sampling, or apply fault parks on the injected `FaultCell` and pauses the link — the cell is bounded evidence, never an `Atom<Option<Error>>` holding only the newest fault.
 - Law: release is the kernel one-shot — the `Atom<bool>` latch through `Cell.Step`, unbind before run-loop removal, pause, removal, invalidation, and both native disposals attempted independently, the workspace watch released even when UI dispatch refuses, every inverse fault aggregated.
-- Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `BeatSeed`, `MonotonicBeat`, `MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `PaceBand`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Platform/native.md` (`WorkspaceFact`, `WorkspaceWatch`, `NativeLayer.Watch`, `MacGate`).
-- Growth: a new sampled modality is one kernel `MotionScript` case; this attachment inherits beat, posture, terminal, and verdict semantics with no arm of its own.
+- Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `BeatSeed`, `MonotonicBeat`, `MotionScript`, `MotionSample`, `MotionDrive`, `PaceBand`), `Rasm.Interaction` (`Accessibility`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Platform/native.md` (`WorkspaceFact`, `WorkspaceWatch`, `NativeLayer.Watch`, `MacGate`).
+- Growth: a new sampled modality is one kernel `MotionScript` case; this attachment inherits beat, accessibility, terminal, and verdict semantics with no arm of its own.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -223,10 +223,10 @@ public sealed class MotionAttachment : IDisposable {
     private Fin<Unit> Tick(Op key) =>
         from beat in clock.Beat(seed: seed.Value, cadence: cadence, key: key)
         from fact in workspace.Value.ToFin(key.InvalidResult())
-        from pace in PaceBand.Portable.ScaleTo(reference: fact.Ceiling, key: key)
+        from ceiling in key.AcceptValidated<PositiveMagnitude>(candidate: (double)fact.Pace.MaximumFramesPerSecond)
+        from pace in PaceBand.Portable.ScaleTo(ceiling: ceiling, key: key)
         from _tuned in Retune(pace: pace, key: key)
-        from stepped in MotionDrive.Step(
-            script: script, beat: beat, posture: new MotionPosture(Concessions: fact.Concessions, Pace: pace), key: key)
+        from stepped in MotionDrive.Step(script: script, beat: beat, accessibility: fact.Concessions, key: key)
         let terminal = stepped.Continues ? Option<Action>.None : Continuation(key: key)
         from applied in Compose.Fence(
             body: () => apply(stepped.Sample), posture: TransactionPosture.Instant, completed: terminal, key: key)

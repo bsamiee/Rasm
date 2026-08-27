@@ -189,7 +189,7 @@ public abstract partial record AnalysisQuery {
     }
     public sealed record LocationCase(Location Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Location;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>(key);
     }
     public sealed record CurvesCase(Curves Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Curves;

@@ -18,7 +18,7 @@
 - Law: the symmetry law is the STOCK's and rides the frame alone — a part row declares where it wants its grain, and the material declares which turns of the blank leave it looking the same, so a law column beside the part states the material's fact at the wrong owner.
 - Cases: `NestStrategy` carries maximal-rectangle, skyline, guillotine, shelf, homogeneous mass-cut, and parameterized sweep policies.
 - Law: `CutAxis` and `CutProof` carry the ordinal every digest and validator reads, so no consumer re-derives a discriminant by case test.
-- Packages: `Thinktecture` supplies the generated strategy, axis, grade, and proof families; `LanguageExt` supplies admission and the `Fin` result; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest and the `MaterialSymmetry`/`SymmetryFold` legality algebra each frame carries.
+- Packages: `Thinktecture` supplies the generated strategy, axis, grade, and proof families; `LanguageExt` supplies admission and the `Fin` result; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest and the `MaterialSymmetry`/`RotationOrder` legality algebra each frame carries.
 - Growth: a rectangular provider or heuristic lands as one `NestStrategy` case consumed by `Evaluate`; a stock modality remains a `Stock` case consumed by `Frame`.
 
 ## [03]-[ADMISSION]
@@ -27,7 +27,7 @@
 - Law: `StockNest.Frames` admits rectangular frames before applying `StockLimit`, so the budget never buys frames the packer rejects.
 - Law: `EligibilityGraph` joins each part instance only to stock frames satisfying material, extent, grain, and exclusion policy, then refuses any component whose part-area demand exceeds its reachable stock supply — Hall's condition BY AREA, exact for a relation where one frame carries many parts. `MaximumBipartiteMatchingAlgorithm` is refused by name: a matching saturates a one-to-one assignment, so on this relation it is vacuous where the area bound is decisive; the graph's own `AdjacentDegree` answers the orphan question the part-by-orientation cross-product re-derived, and supply indexes by component once.
 - Law: admission is a GRADE, not a verdict — `EligibilityGrade` names the axis a frame refused a part on and carries the arrow onto the `UnplacedReason` case the true-shape lane already publishes, so a rectangular miss reaches a consumer as material, extent, grain, or symmetry rather than a blanket capacity claim. Measurement runs ONCE per instance-rotation-frame triple inside the relation walk: admitting rows become edges, refusing rows become the retained diagnosis, and no consumer re-measures an axis the relation already decided.
-- Law: `Grain` names the ABSENT axis — a directional part against stock declaring no direction — and `Symmetry` names the refused TURN, a quarter-turn whose grain residual falls outside the stock fold's cone under the effective fold. Both readings and both folds are `Nesting/nfp`'s own, so this lane GRADES exactly what that lane GATES and a second alignment algebra never exists to disagree.
+- Law: `Grain` names the ABSENT axis — a directional part against stock declaring no direction — and `Symmetry` names the refused TURN, a quarter-turn whose grain residual falls outside the stock's angular tolerance under the effective rotation order. Both readings and both derivations are `Nesting/nfp`'s own, so this lane GRADES exactly what that lane GATES and a second alignment algebra never exists to disagree.
 - Law: a rectangle envelope is ACHIRAL, so no provider in the family inserts a reflected part and this lane mints no flip move at all — the grade reads the straight parity because that is the only parity it can produce, while `NestPlacement` still carries the column because `Nest.Honor` transcribes plans this packer did not author.
 - Entry: `NestRun.FromProfiles` expands every `PartRule.Quantity` into stable `(PartId, Instance)` identities, clamps the stock budget to real inventory, and narrows each rotation family to its quarter-turn subset; `RectangularBudget` and `RectangularGrid` carry the eight ceilings and grid scalars as two admitted values, so no caller transposes two adjacent positional ints.
 - Packages: `QuikGraph` supplies the eligibility components; `LanguageExt` supplies the applicative admission and traversal; the `Geometry2D` owner supplies the profile measure every part bounding envelope reads.
@@ -925,12 +925,12 @@ internal sealed class EligibilityGraph {
 
     static EligibilityGrade Fits(CutPart part, StockFrame stock, double kerf, double rotation) {
         (int Width, int Height) extent = StockNest.Envelope(part, stock.Resolution, kerf, rotation);
-        SymmetryFold fold = Nest.Fold(part.GrainAxis, stock.Law);
+        RotationOrder order = Nest.Fold(part.GrainAxis, stock.Law);
         return !part.Material.ForAll(material => material == stock.Material) ? EligibilityGrade.Material
             : extent.Width > stock.Width || extent.Height > stock.Height ? EligibilityGrade.Extent
             : part.GrainAxis.IsSome && stock.GrainAxis.IsNone ? EligibilityGrade.Grain
             : part.GrainAxis.ForAll(axis => stock.GrainAxis.Exists(grain =>
-                fold.Admits(Nest.Grain(axis, rotation, mirrored: false) - grain, part.AngularTolerance)))
+                order.Admits(Nest.Grain(axis, rotation, mirrored: false) - grain, part.AngularTolerance)))
                     ? EligibilityGrade.Admitted
                     : EligibilityGrade.Symmetry;
     }

@@ -1,13 +1,13 @@
 # [RASM_RHINO_MOTION]
 
-Host motion-pacing adapter (`Rasm.Rhino.Viewport`). The sampling algebra is the kernel's whole: `MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `PaceBand`, and `SettleBand` arrive from `Rasm.Parametric`, and this page computes no motion value — its tick body is ONE `MotionDrive.Step` call. What is genuinely host lives here alone: the display-link, timer, and idle clock leases, the accessibility-concession PROBE that fills the kernel posture, the redraw landing, and the drive capsule that owns pause, resume, retarget, and disposal over one clock attachment. The apply closure is the consumer's and stays host-side — the kernel owns the algebra, never the landing (E-G25).
+Host motion-pacing adapter (`Rasm.Rhino.Viewport`). The sampling algebra is the kernel's whole: `MotionScript`, `MotionSample`, `MotionDrive`, `PaceBand`, and `SettleBand` arrive from `Rasm.Parametric` and `Accessibility` from `Rasm.Interaction`, and this page computes no motion value — its tick body is ONE `MotionDrive.Step` call. What is genuinely host lives here alone: the display-link, timer, and idle clock leases, the accessibility PROBE that fills the kernel `CapabilitySet<Accessibility>`, the redraw landing, and the drive capsule that owns pause, resume, retarget, and disposal over one clock attachment. The apply closure is the consumer's and stays host-side — the kernel owns the algebra, never the landing (E-G25).
 
 Temporal identity is the kernel's too: every tick advances one `MonotonicTimeline` beat chain per drive, so a motion frame and a gauged span order against one clock, and the display link's `TargetTimestamp` — a presentation prediction, not a monotonic counter — never leaves the pacer that reads it. Device density is a display fact: a consumer wanting hairline width or hit slop reads the kernel `DisplayFacts` scale, and no tick carries a per-frame DPI column.
 
 ## [01]-[INDEX]
 
 - [02]-[REDRAW_TARGETS]: `RedrawTarget` — the frame-landing rows and their one invalidation dispatch.
-- [03]-[CLOCKS]: `FrameClock`, `ConcessionProbe`, `MotionAttachment`, `MacPacer` — the three host clock leases, the posture producer, and the macOS display-link pacer with screen-parameter rebinding.
+- [03]-[CLOCKS]: `FrameClock`, `ConcessionProbe`, `MotionAttachment`, `MacPacer` — the three host clock leases, the accessibility producer, and the macOS display-link pacer with screen-parameter rebinding.
 - [04]-[DRIVE]: `DriveGate`, `MotionLease`, `MotionPump` — the drive capsule over one kernel `MotionDrive.Step` tick and the reduce-motion collapse.
 
 ## [02]-[REDRAW_TARGETS]
@@ -57,7 +57,7 @@ public abstract partial record RedrawTarget {
 
 ## [03]-[CLOCKS]
 
-- Owner: `FrameClock` `[Union]` owns display-link, timer, and idle pacing rows; `ConcessionProbe` is the PRODUCER filling the kernel `MotionPosture` — the five `NSWorkspace` accessibility reads land as `CapabilitySet<MotionConcession>` rows and the pace as a `PaceBand`; `MotionAttachment` is the pause/resume/dispose lease every row answers; `MacPacer` is the one `Microsoft.macOS` crossing.
+- Owner: `FrameClock` `[Union]` owns display-link, timer, and idle pacing rows; `ConcessionProbe` is the PRODUCER of the kernel `CapabilitySet<Accessibility>` — the five `NSWorkspace` accessibility reads land as rows — while the pace stays a `PaceBand` on the clock row and never enters a sample; `MotionAttachment` is the pause/resume/dispose lease every row answers; `MacPacer` is the one `Microsoft.macOS` crossing.
 - Entry: `FrameClock.Resolve(Option<PaceBand>, Op?) : Fin<FrameClock>` admits a pace band and selects display link or timer off ONE anchor probe crossing `UiThread` — the probe is an AppKit window walk, so the row decision runs UI-affine inside the `Fin` funnel; `FrameClock.Idle()` admits background-tolerant pacing explicitly; `Start(onTick, onFault, Op) : Fin<MotionAttachment>` returns one lifecycle whose tick is a bare PULSE — the drive mints its own kernel beat per pulse, so no clock row carries a timestamp column.
 - Law: the tick is a PULSE, never a stamped value. The drive owns the one `MonotonicTimeline` beat chain (seed → `Beat(seed, cadence, key)` per tick), so timer, idle, and display-link rows all advance one temporal identity and the deleted `FrameTick` carrier — timestamp, delta, and a per-frame `BackingScale` column — has no successor: elapsed and delta ride the kernel beat, and density rides the kernel `DisplayFacts` a consumer reads once per drive, not per frame.
 - Law: the timer row is the kernel `UiClock` — `UiClock.Of(cadence, beat, posture, faults, clock, key)` over the drive's own timeline — so cadence, drift, missed-beat counting, and observer isolation are the kernel's and this page adds only the `MotionAttachment` projection over the lease's `Pause`/`Resume`/`Stop`. A page-local timer wrapper re-deriving drift beside that owner is the deleted form; the former Eto `Pulse` composition retired with the Eto sub-domain.
@@ -72,18 +72,16 @@ public abstract partial record RedrawTarget {
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 internal static class ConcessionProbe {
-    private static readonly Seq<(MotionConcession Row, Func<bool> Active)> Reads = Seq<(MotionConcession, Func<bool>)>(
-        (MotionConcession.ReduceMotion, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion),
-        (MotionConcession.IncreaseContrast, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast),
-        (MotionConcession.DifferentiateColour, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor),
-        (MotionConcession.ReduceTransparency, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency),
-        (MotionConcession.InvertColors, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldInvertColors));
+    private static readonly Seq<(Accessibility Row, Func<bool> Active)> Reads = Seq<(Accessibility, Func<bool>)>(
+        (Accessibility.ReduceMotion, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion),
+        (Accessibility.IncreaseContrast, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast),
+        (Accessibility.DifferentiateColour, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor),
+        (Accessibility.ReduceTransparency, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency),
+        (Accessibility.InvertColors, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldInvertColors));
 
-    internal static MotionPosture Posture(PaceBand pace) => new(
-        Concessions: OperatingSystem.IsMacOS()
-            ? CapabilitySet<MotionConcession>.Of(Reads.Filter(static read => read.Active()).Map(static read => read.Row).ToArray())
-            : CapabilitySet<MotionConcession>.None,
-        Pace: pace);
+    internal static CapabilitySet<Accessibility> Read() => OperatingSystem.IsMacOS()
+        ? CapabilitySet<Accessibility>.Of(Reads.Filter(static read => read.Active()).Map(static read => read.Row).ToArray())
+        : CapabilitySet<Accessibility>.None;
 }
 
 internal interface MotionAttachment : IDisposable {
@@ -217,7 +215,7 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 
     private Fin<CADisplayLink> Configured(CADisplayLink link, NSScreen screen) =>
         from ceiling in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(1.0, (double)screen.MaximumFramesPerSecond))
-        from scaled in pace.ScaleTo(reference: ceiling, key: key)
+        from scaled in pace.ScaleTo(ceiling: ceiling, key: key)
         select (CADisplayLink)(link.PreferredFrameRateRange = CAFrameRateRange.Create(
                 minimum: (float)scaled.Minimum,
                 maximum: (float)scaled.Maximum,
@@ -259,10 +257,10 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 ## [04]-[DRIVE]
 
 - Owner: `DriveGate` `[Union]` — the drive lifecycle as a closed state the CAS verdict reads; `MotionLease` — the drive capsule owning pause, resume, retarget, completion, and disposal over one clock attachment (RENAMED from the former `MotionDrive` class: the kernel owns that name for the sampler, `ARCHITECTURE.md`'s bare-name law resolves the collision, and the census witness already spells `Fin<MotionLease> Drive(...)`); `MotionPump` — the one drive entry.
-- Entry: `MotionPump.Drive(session, script, target, timeline, apply, clock?, key?) : Fin<MotionLease>` — the timeline is the session's ONE injected `MonotonicTimeline` (the folder ruling), the script admits through the kernel's own `MotionDrive.Admit`, and the tick body is sample → apply → invalidate with the sample computed by ONE `MotionDrive.Step(script, beat, posture, key)` call.
+- Entry: `MotionPump.Drive(session, script, target, timeline, apply, clock?, key?) : Fin<MotionLease>` — the timeline is the session's ONE injected `MonotonicTimeline` (the folder ruling), the script admits through the kernel's own `MotionDrive.Admit`, and the tick body is sample → apply → invalidate with the sample computed by ONE `MotionDrive.Step(script, beat, accessibility, key)` call.
 - Law: the tick body computes nothing — the kernel steps, the consumer applies, the target row invalidates; a numeric expression in the pump beyond beat minting is the deleted form this page's history exists to warn about. Settling is the kernel's own verdict: `Step` answers `(Sample, Continues)` and the drive terminates when `Continues` reads false, so no band probe, iteration guess, or elapsed comparison survives host-side.
 - Law: the drive's temporal identity is one kernel beat chain — a per-drive `BeatSeed` cell advanced through `MonotonicTimeline.Beat(seed, cadence, key)` on every pulse, guarded by `Cell.Step` on the observed seed exactly as the kernel clock's own cursor law demands — and each tick body runs GAUGED on `DispatchLane.Paced`, whose one-frame budget reads the seated pace band, so an over-budget tick is a pulse with a breached span rather than an invisible stall.
-- Law: reduced motion is a collapse, not a skip — when the probed posture admits `MotionConcession.ReduceMotion`, the drive applies the TERMINAL sample once (the eased curve at its end, the spring at its settled target, the glide at its projected rest — each read off the kernel case's own columns), invalidates once, and completes; perceivable state changes still land, motion does not.
+- Law: reduced motion is a collapse, not a skip — when the probed set admits `Accessibility.ReduceMotion`, the drive applies the TERMINAL sample once (the eased curve at its end, the spring at its settled target, the glide at its projected rest — each read off the kernel case's own columns), invalidates once, and completes; perceivable state changes still land, motion does not.
 - Law: the lifecycle is a CLOSED state the CAS reads — `Running → Stopping → Released` through `Cell.Step` on one `Atom<DriveGate>` — so a tick that raced a disposal reads its `Ceded`/`Refused` verdict and settles without host work, a second disposal reads `Refused` rather than re-running teardown, and the two hand booleans the prior page serialized under a lock have no successor. Terminal custody is one fold: pause, release, and the primary outcome merge with every cleanup fault APPENDING through the `Error` monoid — never `ignore`d — before any waiter resumes.
 - Law: `Retarget` is the kernel's own — the script cell commits `MotionDrive.Retarget(script, lastSample, goal, key)` so a running spring re-aims mid-flight through the algebra that owns the composition, and a retarget on a script the kernel refuses (an eased tween, a coasting glide) lands the kernel's typed refusal untouched. The last sample rides its own cell because the retarget step is the one consumer of it.
 - Law: the apply closure and the invalidation are HOST-SIDE by decision (E-G25) — the kernel samples and the boundary lands, at both boundaries identically — and a driven spring (`RungeKuttaIntegrator`) has NO consumer and is REFUSED: no integrator parameter survives, and the kernel's fixed stepper is the whole spring arithmetic.
@@ -343,27 +341,25 @@ public static class MotionPump {
                from consumer in op.Need(value: apply)
                from admitted in MotionDrive.Admit(script: script, key: op)
                from selected in clock.Match(Some: Fin.Succ, None: () => FrameClock.Resolve(key: op))
-               let posture = ConcessionProbe.Posture(pace: selected.Pace)
-               from drive in posture.Concessions.Admits(capability: MotionConcession.ReduceMotion)
-                   ? Collapsed(session: owner, script: admitted, posture: posture, landing: landing, apply: consumer, key: op)
-                   : Running(session: owner, script: admitted, posture: posture, landing: landing, timeline: beats, apply: consumer, clock: selected, key: op)
+               let accessibility = ConcessionProbe.Read()
+               from drive in accessibility.Admits(capability: Accessibility.ReduceMotion)
+                   ? Collapsed(session: owner, script: admitted, landing: landing, apply: consumer, key: op)
+                   : Running(session: owner, script: admitted, accessibility: accessibility, landing: landing, timeline: beats, apply: consumer, clock: selected, key: op)
                select drive;
     }
 
     private static Fin<MotionLease> Collapsed(
-        DocumentSession session, MotionScript script, MotionPosture posture, RedrawTarget landing,
+        DocumentSession session, MotionScript script, RedrawTarget landing,
         Func<MotionSample, Fin<Unit>> apply, Op key) =>
         from terminal in script.Switch(
-            state: (Posture: posture, Op: key),
-            eased: static (ctx, plan) => ctx.Op
-                .AcceptValidated<UnitInterval>(candidate: 1.0)
-                .Map(end => (MotionSample)new MotionSample.Eased(
-                    Value: plan.Curve.Evaluate(t: end), Posture: plan.Cycle.Terminal, Motion: ctx.Posture)),
-            sprung: static (ctx, plan) => Fin.Succ((MotionSample)new MotionSample.Sprung(
-                State: new SpringState(Position: plan.To, Velocity: 0.0), Motion: ctx.Posture)),
-            glided: static (ctx, plan) => plan.Decay
-                .Project(velocity: plan.Velocity, key: ctx.Op)
-                .Map(rest => (MotionSample)new MotionSample.Glided(Value: plan.Origin + rest, Motion: ctx.Posture)))
+            state: key,
+            eased: static (op, plan) => op
+                .Finite(value: plan.Curve.Evaluate(t: plan.Cycle.Terminal))
+                .Map(value => new MotionSample(Value: value, Velocity: None)),
+            sprung: static (_, plan) => Fin.Succ(new MotionSample(Value: plan.To, Velocity: Some(0.0))),
+            glided: static (op, plan) => plan.Decay
+                .Project(velocity: plan.Velocity, key: op)
+                .Map(rest => new MotionSample(Value: plan.Origin + rest, Velocity: None)))
         from _ in key.Catch(() => apply(terminal))
         from __ in landing.Invalidate(session: session, key: key)
         select new MotionLease(
@@ -376,7 +372,7 @@ public static class MotionPump {
             key: key);
 
     private static Fin<MotionLease> Running(
-        DocumentSession session, MotionScript script, MotionPosture posture, RedrawTarget landing,
+        DocumentSession session, MotionScript script, CapabilitySet<Accessibility> accessibility, RedrawTarget landing,
         MonotonicTimeline timeline, Func<MotionSample, Fin<Unit>> apply, FrameClock clock, Op key) {
         TaskCompletionSource<Fin<Unit>> done = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Atom<DriveGate> gate = Atom<DriveGate>(new DriveGate.Running());
@@ -389,7 +385,7 @@ public static class MotionPump {
                let seed = Atom((BeatSeed)origin)
                from attachment in clock.Start(
                    onTick: () => Tick(
-                       session: session, plan: plan, last: last, posture: posture, landing: landing, apply: apply,
+                       session: session, plan: plan, last: last, accessibility: accessibility, landing: landing, apply: apply,
                        timeline: timeline, seed: seed, cadence: cadence, gate: gate, finish: Finish, key: key),
                    onFault: error => { _ = Finish(Fin.Fail<Unit>(error)); },
                    timeline: timeline,
@@ -422,7 +418,7 @@ public static class MotionPump {
     }
 
     private static void Tick(
-        DocumentSession session, Atom<MotionScript> plan, Atom<Option<MotionSample>> last, MotionPosture posture,
+        DocumentSession session, Atom<MotionScript> plan, Atom<Option<MotionSample>> last, CapabilitySet<Accessibility> accessibility,
         RedrawTarget landing, Func<MotionSample, Fin<Unit>> apply, MonotonicTimeline timeline, Atom<BeatSeed> seed,
         PositiveMagnitude cadence, Atom<DriveGate> gate, Func<Fin<Unit>, Fin<Unit>> finish, Op key) {
         if (gate.Value is not DriveGate.Running) { return; }
@@ -436,7 +432,7 @@ public static class MotionPump {
                         is Transition<BeatSeed>.Committed
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(key.InvalidResult())
-                from stepped in MotionDrive.Step(script: plan.Value, beat: beat, posture: posture, key: key)
+                from stepped in MotionDrive.Step(script: plan.Value, beat: beat, accessibility: accessibility, key: key)
                 from _ in Fin.Succ(ignore(last.Swap(_ => Some(stepped.Sample))))
                 from applied in key.Catch(() => apply(stepped.Sample))
                 from invalidated in landing.Invalidate(session: session, key: key)
@@ -458,10 +454,10 @@ config:
 ---
 flowchart LR
     accTitle: Rhino viewport motion pump
-    accDescr: The kernel motion sampler and pace band feeding the host drive, the three host clock rows pulsing it, the accessibility probe filling the kernel posture, the timeline minting beats and gauging each tick, and the drive landing samples on the consumer apply and the redraw targets.
-    Kernel["Rasm.Parametric MotionDrive · MotionScript · PaceBand · SettleBand"] -->|"Step(script, beat, posture)"| Pump["MotionPump.Drive"]
+    accDescr: The kernel motion sampler and pace band feeding the host drive, the three host clock rows pulsing it, the accessibility probe filling the kernel accessibility set, the timeline minting beats and gauging each tick, and the drive landing samples on the consumer apply and the redraw targets.
+    Kernel["Rasm.Parametric MotionDrive · MotionScript · PaceBand · SettleBand"] -->|"Step(script, beat, accessibility)"| Pump["MotionPump.Drive"]
     Clock["FrameClock — CADisplayLink · UiClock · RhinoApp.Idle"] -->|pulse| Pump
-    Probe["ConcessionProbe — NSWorkspace accessibility reads"] -->|"MotionPosture"| Pump
+    Probe["ConcessionProbe — NSWorkspace accessibility reads"] -->|"CapabilitySet<Accessibility>"| Pump
     Timeline["MonotonicTimeline"] -->|"Beat + Gauged(Paced)"| Pump
     Screen["NSScreen bounds · ObserveDidChangeScreenParameters"] -->|"PaceBand.ScaleTo · rebind"| Clock
     Pump -->|"MotionSample"| Apply["consumer apply — camera pose · conduit state"]
@@ -469,7 +465,7 @@ flowchart LR
     Pump -->|"MotionDrive.Retarget"| Spring["script cell re-aim"]
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — redraw targets, view pipeline); `AppKit`/`CoreAnimation` (`Rasm.Rhino/.api/api-macos-native.md` — the display-link pulse the drive gates); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[Union]` motion verbs); kernel `Parametric` (`MotionDrive`, `MotionScript`, `MotionSample`, `MotionPosture`, `SpringState`, `PaceBand`, `SettleBand`, `MonotonicTimeline` one-timeline law) + `Interaction/clock` (the kernel tick floor).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — redraw targets, view pipeline); `AppKit`/`CoreAnimation` (`Rasm.Rhino/.api/api-macos-native.md` — the display-link pulse the drive gates); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[Union]` motion verbs); kernel `Parametric` (`MotionDrive`, `MotionScript`, `MotionSample`, `PaceBand`, `SettleBand`, `MonotonicTimeline` one-timeline law) + `Interaction/platform` (`Accessibility`) + `Interaction/clock` (the kernel tick floor).
 
 ## [05]-[RESEARCH]
 

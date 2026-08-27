@@ -864,13 +864,7 @@ public static class Cameras {
         select new CameraRun(Operation: operation, Rows: rows, Redrew: plan.Redraw);
 
     private static Fin<UnitInterval> Progressed(MotionSample sample, Op key) =>
-        key.AcceptValidated<UnitInterval>(candidate: double.Clamp(
-            sample.Switch(
-                eased: static frame => frame.Value,
-                sprung: static frame => frame.State.Position,
-                glided: static frame => frame.Value),
-            0.0,
-            1.0));
+        key.AcceptValidated<UnitInterval>(candidate: double.Clamp(sample.Value, 0.0, 1.0));
 }
 ```
 

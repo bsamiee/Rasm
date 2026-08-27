@@ -10,12 +10,12 @@
 
 - Owner: `SampleClosure` replaces the raw closure knob with open and closed policy rows and owns canonical vertex and fitted-sample projection. `CurveSource` closes sample, arc-outline, and line-sourced chord admission. `CurveLowering` closes chord and recovered-arc egress. `CurveOp` contains only manufacturing concerns; consumers compose the kernel `Parametric.Apply` owner directly.
 - Cases: `CurveOp` carries admission and lowering. `CurveTrace` carries fitted admission evidence or lowering evidence.
-- Law: planar region resolution over free-form loops is the kernel `Arrangement` owner's, reached directly: a page-local case that forwarded `Parametric.Fill` and re-terminated its chains added no manufacturing decision, and the arc and line bands own the region walks every consumer actually issues. A pass distribution is likewise `Toolpath/turning`'s, whose `SweepKind` rows generate roughing and finishing passes from their own process law.
+- Law: planar region resolution over free-form loops is the kernel `Arrangement` owner's, reached directly: a page-local case that forwarded the kernel through a since-deleted `Parametric` fill shell and re-terminated its chains added no manufacturing decision, and the arc and line bands own the region walks every consumer actually issues. A pass distribution is likewise `Toolpath/turning`'s, whose `SweepKind` rows generate roughing and finishing passes from their own process law.
 - Entry: `CurveAlgebra.Apply(CurveOp)` is the sole public operation, and every case carries its own `Op?` key — the kernel entry's own provenance shape, taken verbatim at the boundary it crosses.
 - Law: `Narrowed` is the ONE kernel-union narrowing gate. Narrowing asks one question — is the returned case the requested one — so a generated total `Switch` whose every other arm returns the same refusal spells that question once per case; the type test spells it once per CALL, and a kernel union gaining a case grows this page by nothing.
 - Auto: closed sample admission normalizes one closure vertex before appending exactly one closing sample. Outline admission composes `ArcProjection.Lower`; chord admission composes `ArcProjection.Recover`. Lowering measures each chord's midpoint deviation and optionally recovers residual biarcs under the same requested error.
 - Result: `CurveAdmission` retains sample cardinality or the complete arc bridge evidence. `CurveOutput` discriminates chord-only and recovered-arc evidence without an optional recovery field.
-- Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed results; `Thinktecture` generates every closed request, result, and value owner.
+- Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsInput.CurveFit`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed results; `Thinktecture` generates every closed request, result, and value owner.
 - Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
 - Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
 
@@ -164,7 +164,7 @@ public static class CurveAlgebra {
         CurveAdmission result) =>
         points.Count < policy.Degree + 1
             ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples"))
-            : Nurbs.Of(new NurbsWire.CurveThrough(points, policy), key)
+            : Nurbs.Of(new NurbsInput.CurveFit(points, policy), key)
                 .Bind(static form => Narrowed<NurbsForm, NurbsForm.Curve>(form, "curve-admit:form"))
                 .Bind(curve => closure.IsClosed && !curve.IsClosed
                     ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure"))

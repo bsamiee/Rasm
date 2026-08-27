@@ -979,7 +979,7 @@ public static class Placement {
 ## [04]-[VECTOR_ALGEBRA]
 
 - Owner: `Direction` is the single admitted unit-vector currency of the kernel; `VectorSpan` the anchored vector, `VectorFrame` the validated orthonormal frame over `Plane`, `VectorCone` the apex/axis/half-angle solid sector. All four carriers are construction-gated — the private constructor is unreachable except through the validating `Of`, so an instance is its own admission evidence.
-- Cases: `Direction` owns admission, reflection, refraction, and transport; `VectorSpan` anchored magnitude decomposition; `VectorFrame` orthonormal admission and chained construction; `VectorCone` containment, enclosure, and rim partition.
+- Cases: `Direction` owns admission, reflection, refraction, and transport; `VectorSpan` anchored magnitude decomposition; `VectorFrame` orthonormal admission and chained construction; `VectorCone` containment, enclosure, rim partition, and the `Spread` beam-radius-per-unit-distance scalar, which refuses at or past the half-space so no spotlight or capture boundary re-derives it with inline trig.
 - Law: `Direction` implements `IValidityEvidence`, so its `IsValid` is the ruled `ValidityClaim.All` fold rather than a loose bool — the unit-length claim and the host-finiteness claim compose there and every reader sees one evidence surface.
 - Entry: every constructor and host-backed transform returns `Fin<T>` under one `Op`; `Direction.Reflect` and `ParallelTransport`, the `VectorFrame` transform projection, and the `VectorCone` rotation folds construct only through `Placement.Build`.
 - Auto: `Transported` re-admits every rigid-transform result against the type's OWN validity band so reflection, refraction, and parallel transport share one floor instead of gating a unit quantity on a distance-degeneracy epsilon; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed shared by frame construction and cone partition; `NewellNormal` is the one inexact polygon-normal fold every ring and panel fit composes, the exact carrier staying on the predicates ladder.
@@ -1125,6 +1125,10 @@ public readonly record struct VectorCone {
     public Direction Axis { get; }
     public VectorAngle HalfAngle { get; }
     public double SolidAngle => Math.Tau * (1.0 - Math.Cos(d: HalfAngle.Value));
+    public Fin<double> Spread(Op? key = null) =>
+        HalfAngle.Value < Math.PI / 2.0
+            ? Fin.Succ(Math.Tan(a: HalfAngle.Value))
+            : Fin.Fail<double>(key.OrDefault().InvalidResult());
     public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) =>
         from _ in Admit.Cone(apex: apex, axis: axis, halfAngle: halfAngleRadians, key: key.OrDefault())
         from direction in Direction.Of(value: axis, context: context, key: key.OrDefault())
@@ -1346,7 +1350,7 @@ public readonly record struct CellLattice {
 ## [06]-[PROJECTION_ROW]
 
 - Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `ResultProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through. `RawAdmission` is the capability vocabulary a raw-boundary caller declares its conditional arms with.
-- Cases: `Rows` scans a typed row-table with identity fallthrough; `Self`, `Value`, `SelfOrValue`, `Values`, and `Custom` cover the fixed acceptance shapes; `Raw` is the one raw-`object` boundary case where a loose payload meets the typed world.
+- Cases: `Rows` scans a typed row-table with identity fallthrough; `Self`, `Value`, `SelfOrValue`, `Values`, and `Custom` cover the fixed acceptance shapes; `Raw` is the one raw-`object` boundary case where a loose payload meets the typed world, and `Accepts(raw, output, admits)` is its pair predicate — the same (raw type, output type, magnitude admission) table answered as a `bool` before any sample exists, so a selector row storing its raw type gates an output shape at build time and the run-time fold can only agree.
 - Law: a conditional `Raw` arm reads a `CapabilitySet<RawAdmission>` the caller declares as row data, never a boolean beside the payload — magnitude admission is a property of the producing row and the set is how that row states it.
 - Exemption: `Rows` carries two arities because a `params` span may not follow an optional parameter; the owner-bearing arity is the primary and the other forwards its absent owner.
 - Entry: `ResultProjection.Rows` scans the row table, first match winning and `TOut == TSelf` yielding the value itself, anything else failing `key.Unsupported`; `ProjectionRow.Of` declares one row.
@@ -1396,6 +1400,14 @@ internal static class ResultProjection {
         typeof(TOut) == typeof(TValue)
             ? claim ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
             : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
+    internal static bool Accepts(Type raw, Type output, CapabilitySet<RawAdmission> admits) => raw switch {
+        Type r when r == typeof(Vector3d) => output == typeof(Vector3d) || output == typeof(Direction) || (output == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude)),
+        Type r when r == typeof(Plane) => output == typeof(Plane) || output == typeof(VectorFrame),
+        Type r when r == typeof(VectorAngle) => output == typeof(VectorAngle) || output == typeof(double),
+        Type r when r == typeof(Direction) => output == typeof(Direction) || output == typeof(Vector3d),
+        Type r when r == typeof(double) || r == typeof(Circle) || r == typeof(Point3d) || r == typeof(Matrix) || r == typeof(Seq<double>) || r == typeof(SymmetricMatrix) => output == r,
+        _ => false,
+    };
     internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, CapabilitySet<RawAdmission> admits) =>
         (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),

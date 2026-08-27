@@ -6,28 +6,26 @@ Every reachable failure routes its direct `GeometryFault` case or the resolved `
 
 ## [01]-[INDEX]
 
-- [02]-[PARAMETRIC]: `ParametricOp` request `[Union]` folds through ONE `Apply` into typed `ParametricResult`, over the division/measure/crossing/planar-primitive vocabularies and the shared deviation-refinement driver.
+- [02]-[PARAMETRIC]: `ParametricOp` request `[Union]` folds through ONE `Apply` into typed `ParametricResult`, over the division/measure/planar-primitive vocabularies and the shared deviation-refinement driver.
 
 ## [02]-[PARAMETRIC]
 
-- Owner: `DivideRule`, `MeasureProbe`, `IntersectTarget`, and `PlanarPrimitive` `[Union]` the division, measure-address, planar-crossing, and planar-primitive payload vocabularies as cases; `StationPlan` and `RefinePolicy` bind the station and deviation-refinement policy rows as `IValidityEvidence`, with `Refine.Fold` the one bounded refinement driver; `ParametricOp` and `ParametricResult` `[Union]` the request and result algebra; `Parametric` mints the static `Apply` entry and the `Fill` projection.
-- Cases: `ParametricOp` folds the request cases `Evaluate`, `Measure`, `Divide`, `Stations`, `Split`, `Reconstruct`, `Offset`, `Blend`, `Project`, `Intersect2D`, `RoundedRectangle`, and `CardinalSpline`, each paired to one typed `ParametricResult` carrier; the two planar constructions answer one `Outline` run because a rounded corner and a spline span lower to the same three primitives.
-- Entry: `Apply` discriminates the op case through the generated total `Switch` — the one entry, no per-op sibling family; `Fill` projects closed loops to the arrangement overlay.
-- Auto: each op case internalizes its vendored-engine kernel at the fence with no per-op knob; `Divide` and `Stations` share ONE `Stationize` arc→parameter kernel, and both offset lanes ride ONE `Refine.Fold`.
-- Law: `RefinePolicy` carries a `Tolerance` — the lane-resolved deviation band, minted through `RefinePolicy.Of(context)` — never a bare double, so a refusal names WHICH gate refused and a coarse-tolerance document does not chase a fabricated 1e-6. NAMED LOSS: the context-free `RefinePolicy.Canonical` static; a caller with no model context has no honest deviation band to spend.
-- Law: `Refinement` publishes the band the fit MET. `Slack` is a second lane-resolved `Tolerance` — the band a final still-breaching round may be accepted under — and `Applied` carries it beside `Target`, so no consumer reads a tolerance the refinement never cleared. NAMED LOSS: `double Budget: 8.0`, a dimensionless multiplier on a document tolerance that admitted a fit eight times outside the band it published; a caller wanting slack now states an admitted allowance in model units and the default slack IS the band.
+- Owner: `DivideRule` and `PlanarPrimitive` `[Union]` the division and planar-primitive payload vocabularies as cases, and `MeasureAt` is the ad-hoc `[Union<Unit, UnitInterval, Point3d>]` measure address whose stateless `Whole` arm is the whole-length read; `StationPlan` and `RefinePolicy` are the `[ComplexValueObject]` station and deviation-refinement policy rows, admitted once at generated construction, with `RefinePolicy.Run` the one bounded refinement driver; `ParametricOp` and `ParametricResult` `[Union]` the request and result algebra; `Parametric` mints the static `Apply` entry.
+- Cases: `ParametricOp` folds the request cases `Evaluate`, `Measure`, `Divide`, `Stations`, `Split`, `Reconstruct`, `Offset`, `Blend`, `Project`, `Intersect`, `Section`, `RoundedRectangle`, and `CardinalSpline`, each paired to one typed `ParametricResult` carrier and each carrying its unit-domain parameters and counts already admitted as `UnitInterval`/`Dimension`; the two planar constructions answer one `Outline` run because a rounded corner and a spline span lower to the same three primitives.
+- Entry: `Apply` discriminates the op case through the generated total `Switch` — the one entry, no per-op sibling family, and the one `Op` key threads into every kernel including the planar constructors; a region owner lowers closed loops under its own admitted fidelity and calls `Arrangement.Apply(PlanarOverlay)` itself.
+- Auto: each op case internalizes its vendored-engine kernel at the fence with no per-op knob; `Divide` and `Stations` share ONE `Stationize` arc→parameter kernel, and both offset lanes ride ONE `RefinePolicy.Run`.
+- Law: `RefinePolicy` carries a `Tolerance` — the lane-resolved deviation band, minted through `RefinePolicy.Of(context, limit, key)` onto `Fin<RefinePolicy>` — never a bare double, so a refusal names WHICH gate refused and a coarse-tolerance document does not chase a fabricated 1e-6. NAMED LOSS: the context-free `RefinePolicy.Canonical` static; a caller with no model context has no honest deviation band to spend.
+- Law: `Refinement` publishes the band the fit MET. `Limit` is a second lane-resolved `Tolerance` — the band a final still-breaching round may be accepted under — carried beside `Target`, both admitted at policy construction so half-present evidence is unrepresentable and no consumer reads a tolerance the refinement never cleared; `Rounds` counts rounds RUN while the zero-based `RefineRound.Index` stays internal. NAMED LOSS: `double Budget: 8.0`, a dimensionless multiplier on a document tolerance that admitted a fit eight times outside the band it published; a caller wanting slack now states an admitted allowance in model units and the default limit IS the target.
 - Law: `Order` and every count on this page are `Dimension`. NAMED LOSS: `int.Max(1, op.Order)`, a silent clamp answering order 1 where `locate.md` refuses the same request — three regimes for one concept across three pages collapse to the carrier's own guard.
-- Output: `Refinement` carries the deviation evidence on `Refit`/`Offsets`, both bands absent on an arm that ran no refinement; `StationField.FrameDefect` is the orthonormality witness whose vectorized reduction rides the registered `FrameDefectClaim`, correctness never on it, and an empty batch refuses rather than publishing a fabricated zero.
-- Packages: `Rasm.Parametric` `nurbs.md` (the vendored engine — `RationalDerivatives`/`TangentAt`/`CurvatureAt`/`Length`/`LengthAt`/`ParameterAtLength`/`ParameterAtChordLength`/`ClosestParameter`/`PerpendicularFrames`/`SplitAt`/`SubCurve`/`IsClosed` carrier members, `Nurbs.Of` + `NurbsWire.CurveThrough` + `SplinePolicy` the fit seed, `NurbsPolicy` the G7 knobs), `Rasm.Numerics` (`Interpolant.PchipSpline` the batch inversion table — the ONE interpolation owner, never a raw MathNet reach; `Predicate`/`Axis` the exact escalation ladder; the `GeometryFault` union; `Dimension` atoms), MathNet.Numerics (`Brent.TryFindRoot` the section roots; `Broyden.FindRoot` the 2-var crossing refinement, `Op.Catch`-funnelled), `Rasm.Meshing` (`Intersection.Apply` + `IntersectOp.SegmentSegment` the exact candidate table; `Arrangement.Apply` + `ArrangementOp.PlanarOverlay` + `BooleanOp` + `ArrangementPolicy` the `Fill` delegation), `Rasm.Domain` (`Op`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`, `BenchClaim` the registered claim row), `Rhino.Geometry` (`Point3d`/`Point2d`/`Vector3d`/`Plane`/`Interval`/`Line`/`Polyline` carriers), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Arr`/`Seq`/`Option`, `FoldUntil` the halting fold both bounded refinements ride), System.Numerics.Tensors (`TensorPrimitives.Max` the SoA wire reduction under the registered claim row), CommunityToolkit.HighPerformance (`MemoryOwner<double>` the frame-defect staging plane).
-- Growth: a new op is one `ParametricOp` case over the SAME carrier members — `Blend` and `Project` are the executed precedent; a new division scheme is one `DivideRule` case read by the shared `Stationize` kernel; a new measure address is one `MeasureProbe` case; a new crossing target (the host-deferred triple arriving in-kernel) is one `IntersectTarget` case; a new planar construction is one op case lowering onto the SAME `PlanarPrimitive` run, and a new primitive shape is one `PlanarPrimitive` case every construction and every rendering arm gains together; zero new entry surfaces.
-- Boundary: OP altitude composes `nurbs.md`'s ENGINE members — an op union there, or a basis/insertion/arc-length/RMF kernel re-minted here instead of the vendored instance surface, is the altitude violation. Runtime reciprocals hold one anchor each: `projections.md` Rhino evaluation, `locate.md` Rhino location, `relations.md` the host-deferred SSI/surface-plane/curve-surface triple; a second location algebra or a kernel SSI beside them is the double-owner defect. `Intersect2D` existence is EXACT and coordinates are refined `double` — an unrefined crossing or unescalated near-tangent verdict downstream is the precision defect. `Fill` DELEGATES — a local winding fill or re-derived overlay is the deleted form. `Offset` trims by exact `SegmentSegment` verdicts on neighbor-excluded pairs — trusting the raw fit or trimming by float chords is the G8 regression. `StationField` binds the Generation entry directly as SoA columns; a row-object re-pack is the rejected layout. Composite planar outlines are DERIVED ONCE here — a host path backend and a NURBS emission both read the `Outline` run, so a host composite factory on one arm and a hand-derived corner walk on the other, two derivations of one shape that silently disagree, is the deleted form; the run is frame-local and radian-valued, and the pixel or degree conversion is the consuming boundary's own.
+- Output: `Refinement` carries the deviation evidence on `Offsets`; `Refit` publishes the measured deviation and sample count of its one reconstruction pass and fabricates no band; `StationField` carries the frame batch `PerpendicularFrames` already proved orthonormal, with no second witness, and an empty batch refuses rather than publishing a fabricated zero; offset tallies are `Dimension` counts.
+- Packages: `Rasm.Parametric` `nurbs.md` (the vendored engine — `RationalDerivatives`/`TangentAt`/`CurvatureAt`/`Length`/`LengthAt`/`ParameterAtLength`/`ParameterAtChordLength`/`ClosestParameter`/`PerpendicularFrames`/`SplitAt`/`SubCurve`/`IsClosed` carrier members, `Nurbs.Of` + `NurbsInput.CurveFit` + `SplinePolicy` the fit seed, `NurbsPolicy` the G7 knobs), `Rasm.Numerics` (`Interpolant.PchipSpline` the batch inversion table — the ONE interpolation owner, never a raw MathNet reach; `Predicate`/`Axis` the exact escalation ladder; the `GeometryFault` union; `Dimension`/`PositiveMagnitude`/`UnitInterval`/`VectorAngle` atoms), MathNet.Numerics (`Brent.TryFindRoot` the section roots; `Broyden.FindRoot` the 2-var crossing refinement, `Op.Catch`-funnelled), `Rasm.Meshing` (`Intersection.Apply` + `IntersectOp.SegmentSegment` the exact candidate table), `Rasm.Domain` (`Op` + `AcceptValidated` the policy admission lift, `Context`/`ToleranceLane`), `Rhino.Geometry` (`Point3d`/`Point2d`/`Vector3d`/`Plane`/`Interval`/`Line` carriers), Thinktecture.Runtime.Extensions (`[Union]`/`[Union<T1, T2, T3>]` dispatch, `[ComplexValueObject]` policy admission), LanguageExt.Core (`Fin`/`Arr`/`Seq`/`Option`, `FoldUntil` the halting fold both bounded refinements ride, `FoldBackM` the head-to-tail dependent split fold).
+- Growth: a new op is one `ParametricOp` case over the SAME carrier members — `Blend` and `Project` are the executed precedent; a new division scheme is one `DivideRule` case read by the shared `Stationize` kernel; a new measure address is one `MeasureAt` slot; a new crossing (the host-deferred triple arriving in-kernel) is one direct `ParametricOp` case beside `Intersect` and `Section`; a new planar construction is one op case lowering onto the SAME `PlanarPrimitive` run, and a new primitive shape is one `PlanarPrimitive` case every construction and every rendering arm gains together; zero new entry surfaces.
+- Boundary: OP altitude composes `nurbs.md`'s ENGINE members — an op union there, or a basis/insertion/arc-length/RMF kernel re-minted here instead of the vendored instance surface, is the altitude violation. Runtime reciprocals hold one anchor each: `projections.md` Rhino evaluation, `locate.md` Rhino location, `relations.md` the host-deferred SSI/surface-plane/curve-surface triple; a second location algebra or a kernel SSI beside them is the double-owner defect. `Intersect`/`Section` existence is EXACT and coordinates are refined `double` — an unrefined crossing or unescalated near-tangent verdict downstream is the precision defect. `Offset` trims by exact `SegmentSegment` verdicts on neighbor-excluded pairs — trusting the raw fit or trimming by float chords is the G8 regression. `StationField` binds the Generation entry directly as SoA columns; a row-object re-pack is the rejected layout. Composite planar outlines are DERIVED ONCE here — a host path backend and a NURBS emission both read the `Outline` run, so a host composite factory on one arm and a hand-derived corner walk on the other, two derivations of one shape that silently disagree, is the deleted form; the run is frame-local and radian-valued, and the pixel or degree conversion is the consuming boundary's own.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Linq;
-using System.Numerics.Tensors;
-using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
@@ -45,106 +43,121 @@ namespace Rasm.Parametric;
 public abstract partial record DivideRule {
     private DivideRule() { }
 
-    public sealed record ByCount(int Count) : DivideRule;
-    public sealed record ByLength(double MaxSegment) : DivideRule;
-    public sealed record ByEqualLength(double MaxSegment) : DivideRule;
-    public sealed record ByChord(double Chord) : DivideRule;
+    public sealed record ByCount(Dimension Count) : DivideRule;
+    public sealed record ByLength(PositiveMagnitude Maximum) : DivideRule;
+    public sealed record ByEqualLength(PositiveMagnitude Maximum) : DivideRule;
+    public sealed record ByChord(PositiveMagnitude Chord) : DivideRule;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MeasureProbe {
-    private MeasureProbe() { }
-
-    public sealed record Whole : MeasureProbe;
-    public sealed record AtParameter(double T) : MeasureProbe;
-    public sealed record NearPoint(Point3d P) : MeasureProbe;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record IntersectTarget {
-    private IntersectTarget() { }
-
-    public sealed record Curve2d(NurbsForm.Curve Other, Axis Plane) : IntersectTarget;
-    public sealed record SectionPlane(Plane Cut) : IntersectTarget;
-}
+[Union<Unit, UnitInterval, Point3d>(T1Name = "Whole", T1IsStateless = true, T2Name = "Parameter", T3Name = "Point")]
+public readonly partial struct MeasureAt;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlanarPrimitive {
     private PlanarPrimitive() { }
 
     public sealed record Segment(Point2d From, Point2d To) : PlanarPrimitive;
-    public sealed record Sweep(Point2d Center, double Radius, double Start, double Angle) : PlanarPrimitive;
-    public sealed record Cubic(Point2d Start, Point2d Control1, Point2d Control2, Point2d End) : PlanarPrimitive;
+    public sealed record Arc(Point2d Center, PositiveMagnitude Radius, VectorAngle Start, VectorAngle Sweep) : PlanarPrimitive;
+    public sealed record Bezier(Point2d Start, Point2d Control1, Point2d Control2, Point2d End) : PlanarPrimitive;
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-public sealed record StationPlan(double T0, double T1, DivideRule Rule, Dimension TableFloor) : IValidityEvidence {
-    public static readonly Dimension TableCeiling = Dimension.Create(value: 256);
-    public static readonly Dimension TableSeed = Dimension.Create(value: 16);
+// --- [POLICIES] ------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial class StationPlan {
+    public UnitInterval Start { get; }
+    public UnitInterval End { get; }
+    public DivideRule Rule { get; }
 
-    public static StationPlan Of(double t0, double t1, DivideRule rule) => new(t0, t1, rule, TableSeed);
-
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.UnitInterval(value: T0), ValidityClaim.UnitInterval(value: T1),
-        T0 < T1,
-        ValidityClaim.CountAtLeast(count: TableFloor.Value, floor: 2));
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref UnitInterval start,
+        ref UnitInterval end,
+        ref DivideRule rule) =>
+        validationError = start.Value < end.Value && rule is not null
+            ? null
+            : new ValidationError("StationPlan requires an ordered unit-domain window and a division rule.");
 }
 
-public sealed record RefinePolicy(Tolerance Band, Tolerance Slack, Dimension Rounds, Dimension Seed) : IValidityEvidence {
-    public static RefinePolicy Of(Context context, Option<Tolerance> slack = default) =>
-        context.For(lane: ToleranceLane.Deviation) switch {
-            Tolerance band => new RefinePolicy(
-                Band: band, Slack: slack.IfNone(band),
-                Rounds: Dimension.Create(value: 6), Seed: Dimension.Create(value: 24)),
-        };
+[ComplexValueObject]
+public sealed partial class RefinePolicy {
+    public Tolerance Target { get; }
+    public Tolerance Limit { get; }
+    public Dimension Rounds { get; }
+    public Dimension Seed { get; }
 
-    public bool IsValid => ValidityClaim.All(
-        Band.IsValid, Slack.IsValid,
-        Slack.Value >= Band.Value,
-        ValidityClaim.CountAtLeast(count: Seed.Value, floor: 4));
-}
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Tolerance target,
+        ref Tolerance limit,
+        ref Dimension rounds,
+        ref Dimension seed) =>
+        validationError = target.IsValid
+            && limit.IsValid
+            && target.Lane == ToleranceLane.Deviation
+            && limit.Lane == target.Lane
+            && limit.Value >= target.Value
+            && seed.Value >= 4
+                ? null
+                : new ValidationError("Refinement requires one deviation lane, an ordered limit, and at least four seeds.");
 
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record Refinement(Option<double> Target, Option<double> Applied, double Achieved, int Rounds, int Samples);
+    public static Fin<RefinePolicy> Of(Context context, Option<Tolerance> limit = default, Op? key = null) {
+        Tolerance target = context.For(lane: ToleranceLane.Deviation);
+        Tolerance accepted = limit.IfNone(target);
+        return key.OrDefault().AcceptValidated<RefinePolicy>(
+            Validate(
+                target, accepted,
+                Dimension.Create(value: 6), Dimension.Create(value: 24),
+                out RefinePolicy? policy),
+            policy);
+    }
 
-public readonly record struct RefineRound<TFit, TStation>(TFit Fit, Arr<TStation> Stations, Arr<TStation> Breaching, double Deviation, int Round);
-
-public static class Refine {
-    public static Fin<(TFit Fit, Refinement Refinement)> Fold<TFit, TStation>(
-        RefinePolicy policy,
+    internal Fin<(TFit Fit, Refinement Evidence)> Run<TFit, TStation>(
         Arr<TStation> seed,
         Func<Arr<TStation>, int, Fin<RefineRound<TFit, TStation>>> fit,
         Func<Arr<TStation>, Arr<TStation>, Arr<TStation>> densify,
         Func<double, Error> unconverged) =>
-        Range(0, policy.Rounds.Value).FoldUntil(
+        Range(0, Rounds.Value).FoldUntil(
             initialState: fit(seed, 0),
-            f: (state, _) => state.Bind(s => fit(densify(s.Stations, s.Breaching), s.Round + 1)),
-            predicate: static state => state.Match(Succ: static s => s.Breaching.Count == 0, Fail: static _ => true))
-        .Bind(final => !double.IsFinite(final.Deviation) || final.Deviation < 0.0
-            || (final.Breaching.Count > 0 && final.Deviation > policy.Slack.Value)
-            ? Fin.Fail<(TFit Fit, Refinement Refinement)>(unconverged(final.Deviation))
-            : Fin.Succ((final.Fit, new Refinement(
-                Target: Some(policy.Band.Value), Applied: Some(policy.Slack.Value),
-                Achieved: final.Deviation, Rounds: final.Round, Samples: final.Stations.Count))));
+            f: (state, _) => state.Bind(current => current.Breaching.Count == 0
+                ? state
+                : fit(densify(current.Stations, current.Breaching), current.Index + 1)),
+            predicate: static step => step.State.Match(
+                Succ: static current => current.Breaching.Count == 0,
+                Fail: static _ => true))
+        .Bind(final => !double.IsFinite(final.Deviation)
+            || final.Deviation < 0.0
+            || (final.Breaching.Count > 0 && final.Deviation > Limit.Value)
+                ? Fin.Fail<(TFit Fit, Refinement Evidence)>(unconverged(final.Deviation))
+                : Fin.Succ((final.Fit, new Refinement(
+                    Target, Limit, final.Deviation,
+                    Dimension.Create(value: final.Index + 1),
+                    Dimension.Create(value: final.Stations.Count)))));
 }
+
+// --- [MODELS] --------------------------------------------------------------------------
+public sealed record Refinement(Tolerance Target, Tolerance Limit, double Deviation, Dimension Rounds, Dimension Samples);
+
+internal readonly record struct RefineRound<TFit, TStation>(
+    TFit Fit, Arr<TStation> Stations, Arr<TStation> Breaching, double Deviation, int Index);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ParametricOp {
     private ParametricOp() { }
 
-    public sealed record Evaluate(NurbsForm.Curve Curve, double T, Dimension Order) : ParametricOp;
-    public sealed record Measure(NurbsForm.Curve Curve, MeasureProbe Probe, Context Model) : ParametricOp;
+    public sealed record Evaluate(NurbsForm.Curve Curve, UnitInterval Parameter, Dimension Order) : ParametricOp;
+    public sealed record Measure(NurbsForm.Curve Curve, MeasureAt At, Context Model) : ParametricOp;
     public sealed record Divide(NurbsForm.Curve Curve, DivideRule Rule) : ParametricOp;
     public sealed record Stations(NurbsForm.Curve Curve, StationPlan Plan) : ParametricOp;
-    public sealed record Split(NurbsForm.Curve Curve, Arr<double> At) : ParametricOp;
-    public sealed record Reconstruct(NurbsForm.Curve Curve, SplinePolicy Fit, int Samples) : ParametricOp;
+    public sealed record Split(NurbsForm.Curve Curve, Arr<UnitInterval> At) : ParametricOp;
+    public sealed record Reconstruct(NurbsForm.Curve Curve, SplinePolicy Fit, Dimension Samples) : ParametricOp;
     public sealed record Offset(NurbsForm.Curve Curve, Plane Frame, double Distance, RefinePolicy Refine) : ParametricOp;
-    public sealed record Blend(NurbsForm.Curve A, double TA, NurbsForm.Curve B, double TB, int Continuity, RefinePolicy Refine) : ParametricOp;
+    public sealed record Blend(NurbsForm.Curve A, UnitInterval AtA, NurbsForm.Curve B, UnitInterval AtB, Dimension Continuity, RefinePolicy Refine) : ParametricOp;
     public sealed record Project(NurbsForm.Curve Curve, Plane Frame, SplinePolicy Fit, RefinePolicy Refine) : ParametricOp;
-    public sealed record Intersect2D(NurbsForm.Curve Curve, IntersectTarget Target) : ParametricOp;
+    public sealed record Intersect(NurbsForm.Curve Curve, NurbsForm.Curve Other, Axis Plane) : ParametricOp;
+    public sealed record Section(NurbsForm.Curve Curve, Plane Cut) : ParametricOp;
     public sealed record RoundedRectangle(Plane Frame, Interval X, Interval Y, double NW, double NE, double SE, double SW) : ParametricOp;
-    public sealed record CardinalSpline(Plane Frame, Arr<Point2d> Points, double Tension, bool Closed) : ParametricOp;
+    public sealed record CardinalSpline(Plane Frame, Arr<Point2d> Points, UnitInterval Tension, bool Closed) : ParametricOp;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -154,124 +167,106 @@ public abstract partial record ParametricResult {
     public sealed record Sample(Point3d Point, Vector3d Tangent, Arr<Vector3d> Derivatives, Plane Frame, Vector3d Curvature) : ParametricResult;
     public sealed record Measured(double Length, double Parameter, Point3d Point, Vector3d Curvature, bool Closed) : ParametricResult;
     public sealed record Division(Arr<double> Parameters, Arr<Point3d> Points) : ParametricResult;
-
-    public sealed record StationField(Arr<double> Arcs, Arr<double> Parameters, Arr<Point3d> Points, Arr<Plane> Frames, double FrameDefect) : ParametricResult;
-
+    public sealed record StationField(Arr<double> Arcs, Arr<double> Parameters, Arr<Point3d> Points, Arr<Plane> Frames) : ParametricResult;
     public sealed record Pieces(Arr<NurbsForm.Curve> Curves) : ParametricResult;
-    public sealed record Refit(NurbsForm.Curve Curve, Refinement Refinement) : ParametricResult;
-    public sealed record Offsets(Arr<NurbsForm.Curve> Curves, Refinement Refinement, int TrimmedCrossings, int KeptSegments) : ParametricResult;
+    public sealed record Refit(NurbsForm.Curve Curve, double Deviation, Dimension Samples) : ParametricResult;
+    public sealed record Offsets(Arr<NurbsForm.Curve> Curves, Refinement Refinement, Dimension Trimmed, Dimension Kept) : ParametricResult;
     public sealed record Crossings(Arr<(double TA, double TB, Point3d At)> Hits) : ParametricResult;
-
     public sealed record Outline(Arr<PlanarPrimitive> Run, Plane Frame, bool Closed) : ParametricResult;
 }
 
 public static class Parametric {
-    public static readonly BenchClaim FrameDefectClaim = new(
-        Claim: Op.Of(name: nameof(ParametricResult.StationField)),
-        VectorizedLane: "TensorPrimitives.Max<double> over the filled |X̂·Ŷ| plane",
-        ReferenceLane: "scalar LINQ Max fold over the frame batch",
-        SpeedupFloor: 1.0);
-
     public static Fin<ParametricResult> Apply(ParametricOp op, Op? key = null) =>
         op.Switch(
             state: key.OrDefault(),
-            evaluate:    static (k, e) => EvaluateOf(e, k),
-            measure:     static (k, m) => MeasureOf(m, k),
-            divide:      static (k, d) => Stationize(d.Curve, d.Rule, StationPlan.TableCeiling, k).Map(static rows =>
-                (ParametricResult)new ParametricResult.Division(rows.Parameters, new Arr<Point3d>([.. rows.Parameters.Select(rows.Curve.PointAt)]))),
-            stations:    static (k, s) => StationsOf(s, k),
-            split:       static (k, s) => SplitOf(s, k),
-            reconstruct: static (k, r) => ReconstructOf(r, k),
-            offset:      static (k, o) => OffsetOf(o, k),
-            blend:       static (k, b) => BlendOf(b, k),
-            project:     static (k, p) => ProjectOf(p, k),
-            intersect2D: static (k, i) => i.Target.Switch(
-                curve2d:      c => CrossingsOf(i.Curve, c, k),
-                sectionPlane: p => SectionOf(i.Curve, p.Cut, k)),
-            roundedRectangle: static (_, r) => RoundedOf(r),
-            cardinalSpline:   static (_, c) => CardinalOf(c));
-
-    public static Fin<ArrangementResult> Fill(Arr<NurbsForm.Curve> loops, Axis plane, Context model, Option<ArrangementPolicy> policy = default, Op? key = null) {
-        Op site = key.OrDefault();
-        return loops.Exists(loop => !loop.IsClosed(model))
-            ? Fin.Fail<ArrangementResult>(site.InvalidInput())
-            : loops.TraverseM(loop => Stationize(loop, new DivideRule.ByCount(int.Max(16, 4 * loop.ControlCount)), StationPlan.TableCeiling, site)
-                    .Map(static rows => new Polyline(rows.Parameters.Select(rows.Curve.PointAt))))
-                .As()
-                .Bind(rings => Arrangement.Apply(
-                    new ArrangementOp.PlanarOverlay(toSeq(rings), Seq<Polyline>(), BooleanOp.Union, plane,
-                        policy.IfNone(noneValue: ArrangementPolicy.Canonical)), site));
-    }
+            evaluate:         static (k, e) => EvaluateOf(e, k),
+            measure:          static (k, m) => MeasureOf(m, k),
+            divide:           static (k, d) => Stationize(d.Curve, d.Rule, k).Map(rows =>
+                (ParametricResult)new ParametricResult.Division(
+                    rows.Parameters,
+                    new Arr<Point3d>([.. rows.Parameters.Select(d.Curve.PointAt)]))),
+            stations:         static (k, s) => StationsOf(s, k),
+            split:            static (k, s) => SplitOf(s, k),
+            reconstruct:      static (k, r) => ReconstructOf(r, k),
+            offset:           static (k, o) => OffsetOf(o, k),
+            blend:            static (k, b) => BlendOf(b, k),
+            project:          static (k, p) => ProjectOf(p, k),
+            intersect:        static (k, i) => CrossingsOf(i.Curve, i.Other, i.Plane, k),
+            section:          static (k, s) => SectionOf(s.Curve, s.Cut, k),
+            roundedRectangle: static (k, r) => RoundedOf(r, k),
+            cardinalSpline:   static (k, c) => CardinalOf(c, k));
 
     // --- [EVALUATE_MEASURE]
     static Fin<ParametricResult> EvaluateOf(ParametricOp.Evaluate op, Op key) =>
-        op.T is < 0.0 or > 1.0
-            ? Fin.Fail<ParametricResult>(key.InvalidInput())
-            : op.Curve.PerpendicularFrames([op.T]).Map(frames => {
-                (Point3d point, Vector3d[] ders) = op.Curve.RationalDerivatives(op.T, Some(op.Order));
-                return (ParametricResult)new ParametricResult.Sample(
-                    point, op.Curve.TangentAt(op.T), new Arr<Vector3d>(ders), frames[0], op.Curve.CurvatureAt(op.T));
-            });
+        op.Curve.PerpendicularFrames([op.Parameter.Value]).Map(frames => {
+            (Point3d point, Arr<Vector3d> derivatives) = op.Curve.RationalDerivatives(op.Parameter.Value, Some(op.Order));
+            return (ParametricResult)new ParametricResult.Sample(
+                point, op.Curve.TangentAt(op.Parameter.Value), derivatives,
+                frames[0], op.Curve.CurvatureAt(op.Parameter.Value));
+        });
 
     static Fin<ParametricResult> MeasureOf(ParametricOp.Measure op, Op key) =>
-        op.Probe.Switch<(Fin<double> Parameter, Func<double, Fin<double>> Measure)>(
-            whole:       _ => (Fin.Succ(1.0), _ => op.Curve.Length(key: key)),
-            atParameter: a => (Fin.Succ(a.T), t => op.Curve.LengthAt(t, key: key)),
-            nearPoint:   n => (op.Curve.ClosestParameter(n.P, key: key), t => op.Curve.LengthAt(t, key: key)))
-        switch {
-            (Fin<double> parameter, Func<double, Fin<double>> measure) => parameter.Bind(t => t is < 0.0 or > 1.0
-                ? Fin.Fail<ParametricResult>(key.InvalidInput())
-                : measure(t).Map(measured => (ParametricResult)new ParametricResult.Measured(
-                    measured, t, op.Curve.PointAt(t), op.Curve.CurvatureAt(t), op.Curve.IsClosed(op.Model)))),
-        };
+        op.At.Switch<Fin<(double Parameter, double Length)>>(
+                whole: _ => op.Curve.Length(key: key)
+                    .Map(static length => (Parameter: 1.0, Length: length)),
+                parameter: value => op.Curve.LengthAt(value.Value, key: key)
+                    .Map(length => (Parameter: value.Value, Length: length)),
+                point: value => op.Curve.ClosestParameter(value, key: key)
+                    .Bind(parameter => op.Curve.LengthAt(parameter, key: key)
+                        .Map(length => (Parameter: parameter, Length: length))))
+            .Bind(row => Fin.Succ((ParametricResult)new ParametricResult.Measured(
+                row.Length, row.Parameter, op.Curve.PointAt(row.Parameter),
+                op.Curve.CurvatureAt(row.Parameter), op.Curve.IsClosed(op.Model))));
 
     // --- [STATION_KERNEL]
-    internal readonly record struct StationRows(NurbsForm.Curve Curve, Arr<double> Arcs, Arr<double> Parameters);
+    private static readonly Dimension TableThreshold = Dimension.Create(value: 256);
 
-    internal static Fin<StationRows> Stationize(NurbsForm.Curve curve, DivideRule rule, Dimension tableFloor, Op key) =>
-        ArcTargets(curve, rule).Bind(arcs => arcs.Count < tableFloor.Value
+    static Fin<(Arr<double> Arcs, Arr<double> Parameters)> Stationize(NurbsForm.Curve curve, DivideRule rule, Op key) =>
+        ArcTargets(curve, rule).Bind(arcs => arcs.Count < TableThreshold.Value
             ? arcs.TraverseM(arc => curve.ParameterAtLength(arc, key: key)).As()
-                .Map(ts => new StationRows(curve, arcs, new Arr<double>([.. ts])))
+                .Map(parameters => (Arcs: arcs, Parameters: new Arr<double>([.. parameters])))
             : InvertByTable(curve, arcs, key));
 
     static Fin<Arr<double>> ArcTargets(NurbsForm.Curve curve, DivideRule rule);
-    static Fin<StationRows> InvertByTable(NurbsForm.Curve curve, Arr<double> arcs, Op key);
+    static Fin<(Arr<double> Arcs, Arr<double> Parameters)> InvertByTable(NurbsForm.Curve curve, Arr<double> arcs, Op key);
 
     static Fin<ParametricResult> StationsOf(ParametricOp.Stations op, Op key) =>
-        !op.Plan.IsValid
-            ? Fin.Fail<ParametricResult>(key.InvalidInput())
-            : op.Curve.SubCurve(op.Plan.T0, op.Plan.T1)
-                .Bind(window => Stationize(window, op.Plan.Rule, op.Plan.TableFloor, key))
-                .Bind(rows => rows.Curve.PerpendicularFrames([.. rows.Parameters]).Bind(frames => {
-                    if (frames.Length == 0) {
-                        return Fin.Fail<ParametricResult>(key.InvalidResult());
-                    }
-                    Arr<double> parent = new([.. rows.Parameters.Select(t => op.Plan.T0 + (t * (op.Plan.T1 - op.Plan.T0)))]);
-                    Arr<Point3d> points = new([.. frames.Select(static f => f.Origin)]);
-                    using MemoryOwner<double> staging = MemoryOwner<double>.Allocate(frames.Length);
-                    Span<double> dots = staging.Span;
-                    for (int i = 0; i < dots.Length; i++) { dots[i] = Math.Abs(frames[i].XAxis * frames[i].YAxis); }
-                    return Fin.Succ((ParametricResult)new ParametricResult.StationField(
-                        rows.Arcs, parent, points, new Arr<Plane>(frames), TensorPrimitives.Max<double>(dots)));
-                }));
+        op.Curve.SubCurve(op.Plan.Start.Value, op.Plan.End.Value)
+            .Bind(window => Stationize(window, op.Plan.Rule, key).Bind(rows =>
+                window.PerpendicularFrames([.. rows.Parameters]).Bind(frames => frames.Count == 0
+                    ? Fin.Fail<ParametricResult>(key.InvalidResult())
+                    : Fin.Succ((ParametricResult)new ParametricResult.StationField(
+                        rows.Arcs,
+                        new Arr<double>([.. rows.Parameters.Select(parameter => op.Plan.Start.Value
+                            + (parameter * (op.Plan.End.Value - op.Plan.Start.Value)))]),
+                        new Arr<Point3d>([.. frames.Select(static frame => frame.Origin)]),
+                        frames)))));
 
     // --- [SPLIT_RECONSTRUCT]
     static Fin<ParametricResult> SplitOf(ParametricOp.Split op, Op key) =>
-        op.At.Exists(static t => !double.IsFinite(t))
-            ? Fin.Fail<ParametricResult>(key.InvalidInput())
-            : toSeq(op.At.Filter(static t => t is > 0.0 and < 1.0).Distinct().OrderBy(static t => t)).Fold(
-                Fin.Succ((Head: op.Curve, Done: Seq<NurbsForm.Curve>(), Consumed: 0.0)),
-                (state, t) => state.Bind(s => s.Head.SplitAt((t - s.Consumed) / (1.0 - s.Consumed))
-                    .Map(pair => (pair.Tail, s.Done.Add(pair.Head), t))))
-            .Map(static s => (ParametricResult)new ParametricResult.Pieces(new Arr<NurbsForm.Curve>([.. s.Done.Add(s.Head)])));
+        toSeq(toSeq(op.At)
+                .Map(static parameter => parameter.Value)
+                .Filter(static parameter => parameter is > 0.0 and < 1.0)
+                .Distinct()
+                .OrderBy(static parameter => parameter))
+            .FoldBackM( // FoldM walks tail-to-head on the landed release; FoldBackM is the head-to-tail walk the ascending Consumed renormalization needs
+                (Head: op.Curve, Done: Seq<NurbsForm.Curve>(), Consumed: 0.0),
+                (split, parameter) => split.Head.SplitAt((parameter - split.Consumed) / (1.0 - split.Consumed))
+                    .Map(pair => (pair.Tail, split.Done.Add(pair.Head), parameter)))
+            .As()
+            .Map(static split => (ParametricResult)new ParametricResult.Pieces(
+                new Arr<NurbsForm.Curve>([.. split.Done.Add(split.Head)])));
 
     static Fin<ParametricResult> ReconstructOf(ParametricOp.Reconstruct op, Op key) =>
-        Stationize(op.Curve, new DivideRule.ByCount(int.Max(op.Fit.Degree.Value + 1, op.Samples)), StationPlan.TableCeiling, key)
-            .Bind(rows => Nurbs.Of(new NurbsWire.CurveThrough(new Arr<Point3d>([.. rows.Parameters.Select(rows.Curve.PointAt)]), op.Fit), key))
+        Stationize(
+                op.Curve,
+                new DivideRule.ByCount(Dimension.Create(value: int.Max(op.Fit.Degree.Value + 1, op.Samples.Value))),
+                key)
+            .Bind(rows => Nurbs.Of(new NurbsInput.CurveFit(
+                new Arr<Point3d>([.. rows.Parameters.Select(op.Curve.PointAt)]), op.Fit), key))
             .Bind(form => form is NurbsForm.Curve refit
-                ? DeviationAgainst(op.Curve, refit, 2 * op.Samples).Map(deviation =>
-                    (ParametricResult)new ParametricResult.Refit(refit, new Refinement(
-                        Target: None, Applied: None, Achieved: deviation, Rounds: 1, Samples: op.Samples)))
+                ? DeviationAgainst(op.Curve, refit, 2 * op.Samples.Value).Map(deviation =>
+                    (ParametricResult)new ParametricResult.Refit(refit, deviation, op.Samples))
                 : Fin.Fail<ParametricResult>(key.InvalidResult()));
 
     static Fin<double> DeviationAgainst(NurbsForm.Curve reference, NurbsForm.Curve candidate, int probes);
@@ -281,23 +276,23 @@ public static class Parametric {
     static Fin<ParametricResult> ProjectOf(ParametricOp.Project op, Op key);
 
     static Fin<ParametricResult> OffsetOf(ParametricOp.Offset op, Op key) =>
-        Stationize(op.Curve, new DivideRule.ByCount(op.Refine.Seed.Value), StationPlan.TableCeiling, key)
-            .Bind(rows => Refine.Fold(
-                op.Refine, rows.Parameters,
-                fit: (stations, round) => SeedFit(op, stations, round, key),
+        Stationize(op.Curve, new DivideRule.ByCount(op.Refine.Seed), key)
+            .Bind(rows => op.Refine.Run(
+                seed: rows.Parameters,
+                fit: (stations, index) => stations.TraverseM(
+                        parameter => OffsetLocus(op.Curve, op.Frame, op.Distance, parameter))
+                    .As()
+                    .Bind(samples => Nurbs.Of(new NurbsInput.CurveFit(
+                        new Arr<Point3d>([.. samples]), SplinePolicy.Canonical), key))
+                    .Bind(form => form is NurbsForm.Curve fit
+                        ? Fin.Succ(Probed(op, fit, stations, index))
+                        : Fin.Fail<RefineRound<NurbsForm.Curve, double>>(key.InvalidResult())),
                 densify: Densified,
                 unconverged: deviation => new GeometryFault.OffsetUnconverged(Kind.Curve, deviation)))
-            .Bind(final => TrimLoops(op, final.Fit, final.Refinement, key));
-
-    static Fin<RefineRound<NurbsForm.Curve, double>> SeedFit(ParametricOp.Offset op, Arr<double> stations, int round, Op key) =>
-        stations.TraverseM(t => OffsetLocus(op.Curve, op.Frame, op.Distance, t)).As()
-            .Bind(samples => Nurbs.Of(new NurbsWire.CurveThrough(new Arr<Point3d>([.. samples]), SplinePolicy.Canonical), key))
-            .Bind(form => form is NurbsForm.Curve fit
-                ? Fin.Succ(Probed(op, fit, stations, round))
-                : Fin.Fail<RefineRound<NurbsForm.Curve, double>>(key.InvalidResult()));
+            .Bind(final => TrimLoops(op, final.Fit, final.Evidence, key));
 
     static Fin<Point3d> OffsetLocus(NurbsForm.Curve curve, Plane frame, double distance, double t);
-    static RefineRound<NurbsForm.Curve, double> Probed(ParametricOp.Offset op, NurbsForm.Curve fit, Arr<double> stations, int round);
+    static RefineRound<NurbsForm.Curve, double> Probed(ParametricOp.Offset op, NurbsForm.Curve fit, Arr<double> stations, int index);
     static Arr<double> Densified(Arr<double> stations, Arr<double> breaching);
 
     static Fin<ParametricResult> TrimLoops(ParametricOp.Offset op, NurbsForm.Curve fit, Refinement refinement, Op key);
@@ -305,11 +300,11 @@ public static class Parametric {
     // --- [PLANAR_CROSSINGS]
     static Fin<ParametricResult> SectionOf(NurbsForm.Curve curve, Plane cut, Op key);
 
-    static Fin<ParametricResult> CrossingsOf(NurbsForm.Curve a, IntersectTarget.Curve2d target, Op key);
+    static Fin<ParametricResult> CrossingsOf(NurbsForm.Curve a, NurbsForm.Curve b, Axis plane, Op key);
 
     // --- [PLANAR_CONSTRUCTION]
-    static Fin<ParametricResult> RoundedOf(ParametricOp.RoundedRectangle op);
-    static Fin<ParametricResult> CardinalOf(ParametricOp.CardinalSpline op);
+    static Fin<ParametricResult> RoundedOf(ParametricOp.RoundedRectangle op, Op key);
+    static Fin<ParametricResult> CardinalOf(ParametricOp.CardinalSpline op, Op key);
 }
 ```
 
@@ -323,15 +318,14 @@ config:
 ---
 flowchart LR
     accTitle: Parametric curve dispatch
-    accDescr: Curve operations compose the vendored engine, exact crossing table, arrangement owner, and identity projection.
-    Op["ParametricOp — 12 cases"] -->|"Parametric.Apply — ONE Switch"| Engine["nurbs.md NurbsForm.Curve members"]
+    accDescr: Curve operations compose the vendored engine, exact crossing table, and identity projection.
+    Op["ParametricOp — 13 cases"] -->|"Parametric.Apply — ONE Switch"| Engine["nurbs.md NurbsForm.Curve members"]
     Op -->|"RoundedRectangle · CardinalSpline"| Outline["Outline — PlanarPrimitive run, frame-local radians"]
-    Engine -->|"SubCurve [T0,T1] → Stationize → batch PerpendicularFrames"| Wire["StationField SoA — Generation PathRow/Placement"]
-    Engine -->|"CurveThrough fit seed"| Offset["Offset: deviation fold → exact trim"]
+    Engine -->|"SubCurve [Start,End] → Stationize → batch PerpendicularFrames"| Wire["StationField SoA — Generation PathRow/Placement"]
+    Engine -->|"CurveFit seed"| Offset["Offset: deviation fold → exact trim"]
     Offset -->|"SegmentSegment verdicts"| Table["intersect.md [V4] crossing table"]
-    Op -->|"Intersect2D"| Table
+    Op -->|"Intersect · Section"| Table
     Table -->|"Broyden / Brent refine"| Crossings
-    Parametric -->|"Fill: rings → PlanarOverlay"| Arrangement["arrangement.md exact overlay"]
     Engine -->|"ToEncodeForm — normalized bytes"| Identity["reconciliation EncodeForm.Parametric"]
     Op -.->|"OffsetUnconverged / InvalidInput / InvalidResult"| GeometryFault
 ```
@@ -342,23 +336,19 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 
 | [INDEX] | [AXIS_CONCERN]    | [OWNER]                                      | [RESULT]                          | [CASES] |
 | :-----: | :---------------- | :------------------------------------------- | :-------------------------------- | :-----: |
-|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric`                | `Apply → Fin<ParametricResult>`   |   12    |
+|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric`                | `Apply → Fin<ParametricResult>`   |   13    |
 |  [02]   | Result carrier    | `ParametricResult`                           | carrier (drained at the consumer) |    9    |
 |  [03]   | Division rules    | `DivideRule`                                 | payload                           |    4    |
-|  [04]   | Measure address   | `MeasureProbe`                               | payload                           |    3    |
-|  [05]   | Crossing targets  | `IntersectTarget`                            | payload                           |    2    |
-|  [06]   | Planar primitives | `PlanarPrimitive`                            | payload                           |    3    |
-|  [07]   | Policy rows       | `StationPlan`/`RefinePolicy` + `Refine.Fold` | values + the one driver           |    —    |
-|  [08]   | Region delegation | `Parametric.Fill`                            | `Fill → Fin<ArrangementResult>`   |    —    |
+|  [04]   | Measure address   | `MeasureAt`                                  | payload                           |    3    |
+|  [05]   | Planar primitives | `PlanarPrimitive`                            | payload                           |    3    |
+|  [06]   | Policy rows       | `StationPlan`/`RefinePolicy` + `Run`         | values + the one driver           |    —    |
 
-- [01]-[CURVE_OP_ALGEBRA]: `[Union]` request cases folded by ONE `Apply`.
+- [01]-[CURVE_OP_ALGEBRA]: `[Union]` request cases folded by ONE `Apply`; the planar curve crossing and the plane section are direct cases, and the SSI triple stays host-deferred.
 - [02]-[RESULT_CARRIER]: `[Union]` typed results; `StationField` the SoA wire, `Offsets`/`Refit` evidence-bearing, `Outline` the planar run.
 - [03]-[DIVISION_RULES]: `[Union]` count/capped/equalized/chord — rule DATA the one `Stationize` kernel reads.
-- [04]-[MEASURE_ADDRESS]: `[Union]` whole/parameter/point.
-- [05]-[CROSSING_TARGETS]: `[Union]` planar curve/section; the SSI triple stays host-deferred.
-- [06]-[PLANAR_PRIMITIVES]: `[Union]` segment/sweep/cubic — the one lowering both planar constructions emit and every rendering arm reads.
-- [07]-[POLICY_ROWS]: window + inversion-table floor · lane-resolved deviation band with its one `Refine.Fold` driver.
-- [08]-[REGION_DELEGATION]: ring sampling → `PlanarOverlay` — delegation, never a local fill.
+- [04]-[MEASURE_ADDRESS]: ad-hoc `[Union]` whole/parameter/point.
+- [05]-[PLANAR_PRIMITIVES]: `[Union]` segment/arc/bezier, the arc radius and radian angles admitted where `RoundedOf` emits them — the one lowering both planar constructions emit and every rendering arm reads.
+- [06]-[POLICY_ROWS]: ordered unit window + rule · lane-resolved deviation target and limit with the one `RefinePolicy.Run` driver, both admitted through generated construction.
 
 Signature-pinned kernels compose vendored engine members and the exact table; no textbook arithmetic is local.
 

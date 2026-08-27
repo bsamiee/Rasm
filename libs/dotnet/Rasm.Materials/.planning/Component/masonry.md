@@ -4,7 +4,7 @@ THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `Component
 
 The unreinforced tension screen rides TWO published table families into the `capacity#SECTION_CAPACITY` `MasonryUnreinforced` columns through the `SectionCapacity.Lift(lift, key)` `CapacityLift.Masonry` case, the lift's `DesignBasis` selecting the read: `RuptureModulus` the TMS 402 Table `9.1.9.2` modulus of rupture `fr` keyed by `MortarSystem`/`MortarType`; `FlexuralStrengthEn` the EN 1996-1-1 clause `3.6.3(3)` NOTE-2 flexural pair `f_xk1`/`f_xk2` keyed by unit group, carrying beside it the Table `3.4` initial shear strength `f_vko` the same unit group keys; `FlexuralStrengthNa` the UK National Annex Table `NA.6` supersession keyed by water absorption, unit format, and wall thickness. One direction column (`RuptureModulus.SpanParallelToBed`) serves every read, the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). EN 1996-1-1 `8.1.4.1(2)P` requires unreinforced units to overlap on alternate courses, so an un-bonded pattern is not a weaker table row but an inadmissible unreinforced wall: `MasonrySeed.Capacity` REFUSES it typed, and `BondName.Overlap` derives the `8.1.4.1(3)` overlap from the bond's own course stagger.
 
-The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template bond reads its course set by wrapped index, a generated bond IS a plane-symmetry tiling — its `BondGeometry` row names a `Rasm/Parametric/patternmap#PATTERNING` `WallpaperGroup` (the complete 17-row plane census) with its motif seats in cell coordinates, and the FULL per-unit packing transform (offset + lateral + rotation + mirror parity) derives from the kernel `Patterning.Apply(PatternOp.Orbit)` fold read band by band, the unit's own coordinating module the cell basis — so a new decorative bond is DATA over a closed theorem, never a per-index delegate and never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are the app root's; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, `SeedJoin`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
+The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template bond reads its course set by wrapped index, a generated bond IS a plane-symmetry tiling — its `BondGeometry` row names a `Rasm/Parametric/patternmap#PATTERNING` `WallpaperGroup` (the complete 17-row plane census) with its motif seats in cell coordinates, and the FULL per-unit packing transform (offset + lateral + rotation + mirror parity) derives from the kernel `Patterning.Apply(PatternPlan)` orbit fold read band by band, the unit's own coordinating module the cell basis — so a new decorative bond is DATA over a closed theorem, never a per-index delegate and never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are the app root's; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, `SeedJoin`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template
 
 - Owner: the masonry vocabulary (all FORM-law `[SmartEnum]`, each stacking `[KeyMemberComparer]` beside `[KeyMemberEqualityComparer]` so ordered key lookup matches the `ComponentFamily` row convention); `MasonrySeed` the roster, the seed law, and the basis-admitting capacity producer; `RatingPeriod` the published fire-period ladder; `UnitPlacement`/`CourseTemplate` the per-unit course transform; `BondOverlap` the EC6 overlap derivation; `MortarJoint` the generated-admission joint specification; `FrogGeometry`/`Perforation` the generative void geometry; `MasonryVoids` the `VoidCell` derivation + fallible void-class bucket; `MasonryBody` the substance axis keyed on its own `MaterialId`; `MasonryDetail` the seed-time realization bag AND the contract `Properties` lowering; `MasonryRow` the `AUTHORED` raw row; `MasonrySeed` the ONE fold the `component#CATALOGUE` composes with its `SeedJoin` body join.
 - Cases: orientation {stretcher/header/soldier/sailor/rowlock/shiner, each carrying its run/rise course footprint and its exposed `FaceShown`} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel, each carrying its cut-plane remainder + plane-normal orientation} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/birdsmouth/voussoir, each carrying its profile modifier + the voussoir radial taper} · mortar-profile {concave/v/weathered/struck/raked/flush/beaded/squeezed, each carrying its `RecessShape` cross-section} · mortar-type {M/S/N/O/K, the ASTM C270 proportion and strength row whose EN class DERIVES} · en-mortar-class {M1/M2,5/M5/M10/M15/M20 categorial + `Md` open} · en-mortar-kind {G/T/L} · mortar-system {portland-lime/mortar-cement/masonry-cement/air-entrained-portland-lime} · rupture-modulus {8 direction×form rows × 4 published MPa columns} · en flexural {7 unit-group rows × the four-column `FlexuralBand` pair × the Table 3.4 shear band} · na flexural {13 UK-annex rows × the three-column `NaBand` pair} · lateral-action {transient/permanent} · tolerance {T1/T2/Tm} · range {R1/R2/Rm} · authority {ASTM/BS/DIN/AS/IS, each carrying the region its own standards body publishes into} · profile {`Rectangle` a solid unit, `CellularRectangle` a frogged/cored unit}.
-- Entry: `ComponentSeed.Rows(context, MasonrySeed.Roster, MasonrySeed.Law)` — this page states the roster and the policy, never the fold, and the law's coherence proves the coordinating module, the whole frog declaration, the four dimensional columns through `ComponentUnit.Of`, the derived void fraction, and the EN 771-1 deviation and range bands TOGETHER, so a malformed row names every column it broke in one verdict. `BondName.Course(unit, jointMm, index, key)` resolves a course template or orbits the generated descriptor's wallpaper group and reads the band, `BondGeometry.Courses(unit, jointMm, courses, key)` the whole-stack primary the single-index read projects; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate and `BondName.Overlap(unit, jointMm, key)` the EN 1996-1-1 `8.1.4.1(3)` overlap derivation; `MasonryDetail.Properties(profile, body, key)` lowers the `MasonryPhysics` row onto the contract `Thermal`/`Acoustic`/`Fire` cases; `SizeTolerance.WorkEnvelope(workMm, declaredMm, key)` is the EN 771-1 permitted actual-size range, ADMITTED on the kernel `Grade` tolerance lane, that the coursing tolerance and the GLB tessellation read.
+- Entry: `ComponentSeed.Rows(context, MasonrySeed.Roster, MasonrySeed.Law)` — this page states the roster and the policy, never the fold, and the law's coherence proves the coordinating module, the whole frog declaration, the four dimensional columns through `ComponentUnit.Of`, the derived void fraction, and the EN 771-1 deviation and range bands TOGETHER, so a malformed row names every column it broke in one verdict. `BondName.Course(unit, jointMm, index, context, key)` resolves a course template or orbits the generated descriptor's wallpaper group and reads the band, `BondGeometry.Courses(unit, jointMm, courses, context, key)` the whole-stack primary the single-index read projects — the context resolves the `Orientation`/`Fraction` lanes the kernel `PatternPlan` carries and the extent admits through `PositiveMagnitude`; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate and `BondName.Overlap(unit, jointMm, context, key)` the EN 1996-1-1 `8.1.4.1(3)` overlap derivation; `MasonryDetail.Properties(profile, body, key)` lowers the `MasonryPhysics` row onto the contract `Thermal`/`Acoustic`/`Fire` cases; `SizeTolerance.WorkEnvelope(workMm, declaredMm, key)` is the EN 771-1 permitted actual-size range, ADMITTED on the kernel `Grade` tolerance lane, that the coursing tolerance and the GLB tessellation read.
 - Packages: Rasm (project — `PositiveMagnitude` from `Rasm.Numerics`; `Op`/`Context`/`AcceptValidated` from `Rasm.Domain`), Rasm.Element (project — `MaterialId`, `PropertyBag`, the contract `DetailSchema`/`PropertyCategory`/`PropertyName`/`Dimension` currencies `MasonryDetail` composes, and the `MaterialPropertySet` its `Properties` lowering mints; every `DetailSchema.Realization` row a unit stamps is Element-declared at `Rasm.Element/Properties/property#DETAIL_SCHEMA`, never minted here), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[ComplexValueObject]` + generated `ValidateFactoryArguments`/`Validate`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, `ComparerAccessors`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Traverse` — the fail-loud RESULT law), BCL inbox; NO `VividOrange` — masonry is `AUTHORED` under `SEED_ROW_LAW` (no admitted producer owns EN 771/ASTM C216 masonry-unit tables; every value restates verbatim with per-column provenance).
 - Growth: a new template bond is one `BondName` row carrying its course set; a new generated bond is one `BondGeometry` row naming its wallpaper group and motif seats beside one `BondName` row — the symmetry census is closed by theorem, so the row is DATA and never a new derivation; a new orientation/cut/shape/mortar/tolerance row is one SmartEnum row; a new `fr` direction/form row, EN unit group, UK-annex row, or cementitious system is one `RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`MortarSystem` row; a thin-layer or lightweight mortar is one `MortarType` row declaring that `EnMortarKind`, which arms the EN table's T and L columns with zero type edits; a new regional unit is one `MasonryRow` — per `[DIFF_OF_NEXT_THING]`. A sibling family lands its own vocabulary on its own seed page.
 - Boundary: this page emits profiles, vocabulary rows, bags, contract property sets, and the seed fold. `MasonryVoids.Bucket` refuses an invalid derived fraction on `CoringRejected`; bond-orbit refusals lower once to `BondRejected`, and section-map membership derives from `ProfileTopology.Solvable`.
@@ -523,43 +523,41 @@ public sealed partial class BondGeometry {
 
     public bool Admits(double lengthOverHeight) => lengthOverHeight >= AspectLo && lengthOverHeight <= AspectHi;
 
-    public Fin<Seq<CourseTemplate>> Courses(ComponentUnit unit, double jointMm, int courses, Op key) =>
-        from plan in Fin.Succ(Plan(unit, jointMm, courses))
-        from stream in Patterning.Apply(new PatternOp.Orbit(plan), key)
-        from bands in stream.Switch(
-            planar: p => Fin.Succ(Bands(p, plan, courses)),
-            mapped: _ => Fin.Fail<Seq<CourseTemplate>>(new ComponentFault.BondRejected(key, None)))
-        select bands;
+    public Fin<Seq<CourseTemplate>> Courses(ComponentUnit unit, double jointMm, int courses, Context context, Op key) =>
+        from plan in Plan(unit, jointMm, courses, context, key)
+        from planar in Patterning.Apply(plan, key)
+        select Bands(planar, plan, courses);
 
-    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Op key) =>
-        Courses(unit, jointMm, Math.Abs(index) + 1, key).Bind(stack => stack.IsEmpty
+    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Context context, Op key) =>
+        Courses(unit, jointMm, Math.Abs(index) + 1, context, key).Bind(stack => stack.IsEmpty
             ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(key, Some(index)))
             : Fin.Succ(stack[((index % stack.Count) + stack.Count) % stack.Count]));
 
-    PatternPlan Plan(ComponentUnit unit, double jointMm, int courses) =>
-        new(Group,
-            ((unit.LengthMm.Value + jointMm) * 1e-3, 0.0),
-            (0.0, (unit.HeightMm.Value + jointMm) * 1e-3),
-            Seats.Map(static s => (s.U, s.V, s.Spin)),
-            Math.Sqrt(Math.Pow((unit.LengthMm.Value + jointMm) * 1e-3, 2.0) + Math.Pow((unit.HeightMm.Value + jointMm) * 1e-3 * courses, 2.0))
-                + (ExtentMarginCells * Math.Max(unit.LengthMm.Value, unit.HeightMm.Value) * 1e-3),
-            (0.0, 0.0), LogMapAlgorithm.VectorHeat);
+    Fin<PatternPlan> Plan(ComponentUnit unit, double jointMm, int courses, Context context, Op key) =>
+        key.AcceptValidated<PositiveMagnitude>(
+                Math.Sqrt(Math.Pow((unit.LengthMm.Value + jointMm) * 1e-3, 2.0) + Math.Pow((unit.HeightMm.Value + jointMm) * 1e-3 * courses, 2.0))
+                + (ExtentMarginCells * Math.Max(unit.LengthMm.Value, unit.HeightMm.Value) * 1e-3))
+            .Map(extent => new PatternPlan(Group,
+                ((unit.LengthMm.Value + jointMm) * 1e-3, 0.0),
+                (0.0, (unit.HeightMm.Value + jointMm) * 1e-3),
+                Seats.Map(static s => (s.U, s.V, s.Spin)),
+                extent, context.For(ToleranceLane.Orientation), context.For(ToleranceLane.Fraction), MaterialSymmetry.Free));
 
-    Seq<CourseTemplate> Bands(InstanceStream.Planar planar, PatternPlan plan, int courses) =>
+    Seq<CourseTemplate> Bands(PlanarInstances planar, PatternPlan plan, int courses) =>
         toSeq(Enumerable.Range(0, courses))
             .Map(band => Placed(planar, plan, band))
             .Map(static units => new CourseTemplate(units, units.Head.Map(static u => u.AlongFraction).IfNone(0.0)));
 
-    Seq<UnitPlacement> Placed(InstanceStream.Planar planar, PatternPlan plan, int band) =>
+    Seq<UnitPlacement> Placed(PlanarInstances planar, PatternPlan plan, int band) =>
         toSeq(Enumerable.Range(0, planar.Site.Count)
                 .Where(i => planar.Site[i].V >= band * plan.BasisB.V && planar.Site[i].V < (band + 1) * plan.BasisB.V)
                 .OrderBy(i => planar.Site[i].U))
             .Map(i => new UnitPlacement(
-                Seats[planar.Anchor[i]].Face,
+                Seats[planar.Instances.Anchor[i]].Face,
                 Residual(planar.Site[i].U, plan.BasisA.U),
                 (planar.Site[i].V - (band * plan.BasisB.V)) / plan.BasisB.V,
-                planar.Spin[i] * (180.0 / Math.PI),
-                planar.Mirrored[i]));
+                planar.Instances.Spin[i] * (180.0 / Math.PI),
+                planar.Instances.Mirrored[i]));
 
     static double Residual(double along, double advance) => (along / advance) - Math.Floor(along / advance);
 
@@ -595,20 +593,20 @@ public sealed partial class BondName {
     public bool Fits(ComponentUnit unit) =>
         Geometry.Match(Some: g => g.Admits(unit.LengthOverHeight), None: () => true);
 
-    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Op key) =>
-        Stack(unit, jointMm, Math.Abs(index) + 1, key).Bind(stack => stack.IsEmpty
+    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Context context, Op key) =>
+        Stack(unit, jointMm, Math.Abs(index) + 1, context, key).Bind(stack => stack.IsEmpty
             ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(key, Some(index)))
             : Fin.Succ(stack[((index % stack.Count) + stack.Count) % stack.Count]));
 
-    public Fin<Seq<CourseTemplate>> Stack(ComponentUnit unit, double jointMm, int courses, Op key) =>
+    public Fin<Seq<CourseTemplate>> Stack(ComponentUnit unit, double jointMm, int courses, Context context, Op key) =>
         Geometry.Match(
-            Some: geometry => geometry.Courses(unit, jointMm, courses, key),
+            Some: geometry => geometry.Courses(unit, jointMm, courses, context, key),
             None: () => Courses.IsEmpty
                 ? Fin.Fail<Seq<CourseTemplate>>(new ComponentFault.BondRejected(key, None))
                 : Fin.Succ(Courses));
 
-    public Fin<BondOverlap> Overlap(ComponentUnit unit, double jointMm, Op key) =>
-        Stack(unit, jointMm, OverlapSampleCourses, key).Map(stack => new BondOverlap(
+    public Fin<BondOverlap> Overlap(ComponentUnit unit, double jointMm, Context context, Op key) =>
+        Stack(unit, jointMm, OverlapSampleCourses, context, key).Map(stack => new BondOverlap(
             OverlapMm: Stagger(stack) * (unit.LengthMm.Value + jointMm) is var lapped && lapped > unit.LengthMm.Value
                 ? unit.LengthMm.Value
                 : Stagger(stack) * (unit.LengthMm.Value + jointMm),

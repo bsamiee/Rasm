@@ -481,7 +481,6 @@ public sealed partial class FormPolicy {
             source is { IsValid: true }, material is not null, state is not null,
             method is not null, punch is not null, brake is not null,
             kSource is not null, kFactors.ForAll(static value => value is not null), relief is not null,
-            development is { IsValid: true },
             kSource != KSource.Table || kFactors.IsSome, kSource != KSource.Coupon || coupon.IsSome,
             ValidityClaim.Finite(thicknessMm), thicknessMm > 0.0,
             coupon.ForAll(static value => value is not null),
@@ -726,10 +725,6 @@ public static class FlatPattern {
             strips: static _ => Fin.Fail<DevelopmentResult.Unrolled>(
                 new KernelFault.InvalidValue("sheet", FlatRejection.SurfaceResult.Key)),
             unrolled: static value => Fin.Succ(value))
-        from _accepted in unrolled.Result.Band.Maximum.To() <= policy.Development.Isometry.Value
-            && unrolled.Result.Torsal.Maximum.To() <= policy.Development.Torsal.Value
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(FabricationFault.UnfoldInfeasible(unrolled.Atlas.Islands.Count, unrolled.Field.RailOffsets.Count))
         from bends in source.Links.Traverse(link => SurfaceBendOf(link, unrolled.Atlas.Islands, policy, forming).ToValidation()).As().ToFin()
         from closure in ClosureOf(bends)
         from panels in Neutralize(unrolled.Atlas.Islands, bends, closure, source.Value.Mesh.Tolerance)
@@ -737,7 +732,7 @@ public static class FlatPattern {
             panels.Map(static panel => panel.Boundary).ToArr(),
             bends,
             source.Features,
-            Some(unrolled.Result),
+            Some(unrolled.Isometry),
             panels,
             closure);
 
@@ -1131,8 +1126,8 @@ public static class FlatPattern {
                 .Rows(toSeq(relief.Meeting.Order()), static (slot, bend) => slot.Ordinal(bend))
                 .Bool(relief.ExistingClearance))
             .Maybe(unfold.Evidence.Isometry, static (target, result) => Write(Write(target
-                        .Ordinal(result.Strips).Ordinal(result.Rulings)
-                        .Rows(result.IsometryOf.ToSeq(), static (slot, value) => slot.Double(value)),
+                        .Ordinal(result.Witness.Count).Ordinal(result.Torsal.Count)
+                        .Rows(result.Witness.ToSeq(), static (slot, value) => slot.Double(value)),
                     result.Band),
                     result.Torsal)
                 .Ordinal(result.Components))
