@@ -58,7 +58,6 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 
 [CRITICAL]:
 - ALWAYS land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
-- NEVER introduce a member, type, cache, table, or layer that only renames, relays, stores, or projects an expression already available from its inputs or owner.
 - NEVER use weak, unbounded, or erased types where the language can express the domain precisely.
 - NEVER use exception-style control flow in domain logic; use typed results and the required route's recovery patterns.
 - NEVER spell absence as null, sentinel, or magic default past the boundary; absence rides an option-shaped carrier consumers unwrap.
@@ -66,8 +65,6 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 [POLYMORPHISM] - Fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
 - ALWAYS fold one polymorphic entrypoint per concern, discriminating on input shape; forward and inverse of one correspondence share one owner.
 - ALWAYS collapse siblings sharing an identity regime, admission path, payload timing, or consumer; survival needs a discriminant named on site.
-- ALWAYS fold repeated mutation/status/count construction into one fact stream with slot/kind metadata; the trigger is shared shape, never count.
-- ALWAYS widen an owner in place to the full concept it admits NOW — the next case lands as one declaration, consumers untouched or loudly broken.
 - ALWAYS close dispatch by default — a catch-all over an owned family turns a compile break into a silent pass; openness needs foreign extension.
 - NEVER mint entrypoint siblings — name-suffix families, arity twins, boolean mode knobs; the discriminant must be recoverable from the value.
 - NEVER guard an invalid state at each use; make it unrepresentable at construction and canonicalize at intake so consumers read one regime.
@@ -77,7 +74,6 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS hunt both directions — a literal encoding a decision becomes a policy row; a knob set whose combinations the body re-derives collapses.
 - ALWAYS test parameters by deletion — one the input value or policy already reconstructs was a knob; collapse it into the owner.
 - ALWAYS treat a hardcoded instance roster as seed data for the algebraic owner; a closed member set is lawful only where the owner decides it.
-- ALWAYS declare one primary correspondence and compute secondary values from it at use; materialization requires repeated expensive work or a non-derivable lookup.
 - ALWAYS return typed exhaustion faults when a bounded budget runs out — a success-shaped fall-through certifies unconverged as converged.
 - ALWAYS declare one recovery posture per fault reason at the family owner; cross-cutting policy composes as values, never per call site.
 
@@ -102,7 +98,6 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
 - ALWAYS maintain semantic consistency in naming of files, code functionality, types, classes, and functions, USE 1-2 word values; avoid 3+
 - ALWAYS use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, or policy row.
-- ALWAYS spell explicit types and name arguments only where they disambiguate; `var`, `Foo(value: value)`, and `Fin.Succ(x)` in a typed slot are noise.
 
 ## [03]-[DEPENDENCY_POLICY]
 

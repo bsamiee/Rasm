@@ -472,14 +472,14 @@ To
 
 ```csharp
 public static readonly ConformanceMetric Distance = new(key: 0, output: OutputBinding.Of<double>(), traits: CapabilitySet<ResidualTrait>.None,
-    project: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample.Distance)));
-[UseDelegateFromConstructor] private partial Fin<Seq<object>> Project(Seq<ResidualSample> residuals, Seq<double> percentiles, Tolerance band, Op key);
-.Bind(stream => Project(residuals: stream.Samples, percentiles: percentiles, band: stream.Band, key: key))
+    reduce: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample.Distance)));
+[UseDelegateFromConstructor] private partial Fin<Seq<object>> Reduce(Seq<ResidualSample> residuals, Seq<double> percentiles, Tolerance band, Op key);
+.Bind(stream => Reduce(residuals: stream.Samples, percentiles: percentiles, band: stream.Band, key: key))
 ```
 
-Why: The hand-declared delegate type and stored property reproduce Thinktecture's generated delegate-backed method surface already used by other policy owners on this page.
+Why: The hand-declared delegate type and stored property reproduce Thinktecture's generated delegate-backed method surface already used by other policy owners on this page. `ConformanceMetric` already declares the generic operation `Project<TOut>`, so the row delegate takes the distinct name `Reduce` — one canonical name per bounded concept, and no second `Project` on the same owner.
 
-Change: Rename every row argument to `project:`, replace the delegate type/property with one `[UseDelegateFromConstructor]` partial method, and call it.
+Change: Rename every row argument to `reduce:`, replace the delegate type/property with one `[UseDelegateFromConstructor]` partial method named `Reduce`, and call it.
 
 Delta: -1 LOC; -1 nested delegate type; member count neutral.
 
@@ -491,7 +491,7 @@ From
 
 ```csharp
 .Bind(admitted => Banded(samples: admitted, key: key).Map(band => (Samples: admitted, Band: band)))
-.Bind(stream => Project(residuals: stream.Samples, percentiles: percentiles, band: stream.Band, key: key))
+.Bind(stream => Reduce(residuals: stream.Samples, percentiles: percentiles, band: stream.Band, key: key))
 private static Fin<Tolerance> Banded(Seq<ResidualSample> samples, Op key) =>
     samples.Map(static sample => sample.Band).Distinct() switch {
         Seq<Tolerance> bands when bands.Count == 1 => Fin.Succ(bands[0]),
@@ -503,7 +503,7 @@ To
 
 ```csharp
 .Bind(admitted => admitted.Map(static sample => sample.Band).Distinct() switch {
-    Seq<Tolerance> bands when bands.Count == 1 => Project(residuals: admitted, percentiles: percentiles, band: bands[0], key: key),
+    Seq<Tolerance> bands when bands.Count == 1 => Reduce(residuals: admitted, percentiles: percentiles, band: bands[0], key: key),
     _ => Fin.Fail<Seq<object>>(key.InvalidInput()),
 })
 // ConformanceMetric.Banded DELETED
@@ -522,8 +522,8 @@ Delta: -2 LOC; -1 module-level method; type count neutral.
 From
 
 ```csharp
-project: static (residuals, _, band, key) => Worst(samples: residuals, band: band, key: key).Map(static sample => Seq((object)sample)));
-project: static (residuals, percentiles, band, key) => Spread(samples: residuals, percentiles: percentiles, band: band, key: key).Map(static result => Seq((object)result)));
+reduce: static (residuals, _, band, key) => Worst(samples: residuals, band: band, key: key).Map(static sample => Seq((object)sample)));
+reduce: static (residuals, percentiles, band, key) => Spread(samples: residuals, percentiles: percentiles, band: band, key: key).Map(static result => Seq((object)result)));
 private static Fin<ResidualSample> Worst(Seq<ResidualSample> samples, Tolerance band, Op key) =>
     Stat.Extrema(items: samples, projection: static sample => Math.Abs(sample.Distance), band: band, direction: ExtremumDirection.Maximum)
         .Head.ToFin(key.InvalidResult());
@@ -534,10 +534,10 @@ private static Fin<Distribution<Scalar>> Spread(Seq<ResidualSample> samples, Seq
 To
 
 ```csharp
-project: static (residuals, _, band, key) =>
+reduce: static (residuals, _, band, key) =>
     Stat.Extrema(items: residuals, projection: static sample => Math.Abs(sample.Distance), band: band, direction: ExtremumDirection.Maximum)
         .Head.ToFin(key.InvalidResult()).Map(static sample => Seq((object)sample)));
-project: static (residuals, percentiles, band, key) =>
+reduce: static (residuals, percentiles, band, key) =>
     Distribution<Scalar>.Of(values: residuals.Map(static sample => (Scalar)sample.Distance), percentiles: percentiles, key: key, context: Some((StatContext)band))
         .Map(static result => Seq((object)result)));
 // ConformanceMetric.Worst DELETED

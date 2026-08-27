@@ -920,7 +920,7 @@ AnalysisVerb.Conformance.Op.InvalidInput(axis: nameof(percentiles))
 To
 
 ```csharp
-Rasm.Domain.Op.Of(name: AnalysisVerb.Conformance.Key).InvalidInput(axis: nameof(percentiles))
+Op.Of(name: AnalysisVerb.Conformance.Key).InvalidInput(axis: nameof(percentiles))
 ```
 
 Why: The frozen dictionary stores `Op.Of(row.Key)` for every verb, while the forwarding accessor has one code consumer. `Op` identity is its string value, so that consumer can derive it from the generated Thinktecture key without either module-level member.

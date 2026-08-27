@@ -956,7 +956,7 @@ Delta
 
 # 18. Keep inspection read-only
 
-`inspect.md:500-517` — polygon-normal selection, face-moment fallback, and the normal-buffer probe.
+`inspect.md:500-517` — polygon-normal selection, face-moment fallback, and the normal-buffer probe. The `From` below is the state AFTER Task 17 has landed, which is what the file holds when this task runs.
 
 From
 
@@ -964,15 +964,17 @@ From
 { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < probe.Mesh.Ngons.Count =>
     FaceIndicesOf(mesh: probe.Mesh, ngon: ngon, key: key)
         .Bind(faces => Normals(mesh: probe.Mesh)
-            ? faces.TraverseM(face => probe.Moments.At(face: face, measure: () => FaceMomentOf(probe: probe, face: face, context: context, key: key))).As()
+            ? faces.TraverseM(face => FaceMomentOf(probe: probe, face: face, context: context, key: key)).As()
                 .Bind(moments => Rasm.Numerics.Direction.Of(value: moments.Fold(initialState: Vector3d.Zero, f: static (sum, moment) => sum + (moment.Normal * moment.Area)), context: context, key: key).Map(static direction => direction.Value))
             : Ring<Vector3d>(metric: VectorCloudMetric.Normal, probe: probe, context: context, key: key)),
 private static Fin<(Vector3d Normal, double Area)> FaceMomentOf(PolygonProbe probe, int face, Context context, Op key) =>
-    Normals(mesh: probe.Mesh)
-        ? from normal in Rasm.Numerics.Direction.Of(value: new Vector3d(probe.Mesh.FaceNormals[face]), context: context, key: key).Map(static direction => direction.Value)
-          from area in Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context, key: key)
-          select (Normal: normal, Area: area)
-        : Fin.Fail<(Vector3d Normal, double Area)>(key.InvalidResult());
+    probe.Moments.Find(face).Map(static moment => Fin.Succ(moment)).IfNone(() =>
+        (Normals(mesh: probe.Mesh)
+            ? from normal in Rasm.Numerics.Direction.Of(value: new Vector3d(probe.Mesh.FaceNormals[face]), context: context, key: key).Map(static direction => direction.Value)
+              from area in Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context, key: key)
+              select (Normal: normal, Area: area)
+            : Fin.Fail<(Vector3d Normal, double Area)>(key.InvalidResult()))
+        .Map(moment => probe.Moments.FindOrMaybeAdd(face, () => Some(moment)).IfNone(moment)));
 private static bool Normals(Mesh mesh) => mesh.FaceNormals.Count >= mesh.Faces.Count || mesh.FaceNormals.ComputeFaceNormals();
 ```
 
@@ -1304,30 +1306,74 @@ Ripples
 
 `inspect.md:243,250,598` changes `MeshMetric` from `[SmartEnum<int>]` to a keyless behavior roster and removes key-driven growth language.
 
-# 27. Preserve negative Euler samples
+# 27. Carry signed measurements
 
-`inspect.md:384` — the mesh-census Euler row.
+`inspect.md:203-220` — the `MeasuredValue` carrier, which models no signed integral measurement.
 
 From
 
 ```csharp
-public static readonly MeshSampleKind Euler = new(key: 15, label: nameof(Euler), sample: static (m, _, key) => TopologyScalar.Euler.Extract(geometry: m, op: key));
+    public sealed record CountCase(int Value) : MeasuredValue;
+    public sealed record StatisticCase(double Value) : MeasuredValue;
+    public static MeasuredValue Count(int tally) => new CountCase(Value: tally);
+    public static MeasuredValue Statistic(double value) => new StatisticCase(Value: value);
+    internal object Boxed => Switch(
+        flagCase: static row => (object)row.Value,
+        countCase: static row => (object)row.Value,
+        statisticCase: static row => (object)row.Value);
+    internal ValidityClaim Admissible => Switch(
+        flagCase: static _ => new ValidityClaim(Holds: true),
+        countCase: static row => ValidityClaim.CountAtLeast(count: row.Value, floor: 0),
+        statisticCase: static row => ValidityClaim.Finite(row.Value));
 ```
 
 To
 
 ```csharp
-public static readonly MeshSampleKind Euler = new(key: nameof(Euler), group: MeshSampleGroup.Count, sample: static (m, _, key) => Topologies.EulerOf(geometry: m, op: key).Map(MeasuredValue.Statistic));
+    public sealed record CountCase(int Value) : MeasuredValue;
+    public sealed record SignedCase(int Value) : MeasuredValue;
+    public sealed record StatisticCase(double Value) : MeasuredValue;
+    public static MeasuredValue Count(int tally) => new CountCase(Value: tally);
+    public static MeasuredValue Signed(int value) => new SignedCase(Value: value);
+    public static MeasuredValue Statistic(double value) => new StatisticCase(Value: value);
+    internal object Boxed => Switch(
+        flagCase: static row => (object)row.Value,
+        countCase: static row => (object)row.Value,
+        signedCase: static row => (object)row.Value,
+        statisticCase: static row => (object)row.Value);
+    internal ValidityClaim Admissible => Switch(
+        flagCase: static _ => new ValidityClaim(Holds: true),
+        countCase: static row => ValidityClaim.CountAtLeast(count: row.Value, floor: 0),
+        signedCase: static _ => new ValidityClaim(Holds: true),
+        statisticCase: static row => ValidityClaim.Finite(row.Value));
+```
+
+`inspect.md:225` — the topology Euler row, the ONE source both Euler surfaces read. The `From` below is the state AFTER Task 9 has landed.
+
+From
+
+```csharp
+public static readonly TopologyScalar Euler = new(key: nameof(Euler), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.EulerOf(geometry: g, op: op).Map(MeasuredValue.Count));
+```
+
+To
+
+```csharp
+public static readonly TopologyScalar Euler = new(key: nameof(Euler), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.EulerOf(geometry: g, op: op).Map(MeasuredValue.Signed));
 ```
 
 Why
 
-`TopologyScalar.Euler` wraps its signed integer in `MeasuredValue.Count`, whose admissibility requires a nonnegative value. Meshes with sufficiently high genus have a negative Euler characteristic, so the census currently manufactures an invalid sample from a valid topology result.
+Euler characteristic is a signed integer — a genus-2 closed mesh answers `-2` — and the carrier models no signed integral measurement, so the row spells `MeasuredValue.Count`, whose `Admissible` claim floors at zero. Every valid high-genus topology therefore fails admission as an invalid count. `Statistic` is not the escape: it retypes an exact integer as `double` and would break the row's `OutputBinding.Of<int>()`. The missing axis on `MeasuredValue` is the defect; `SignedCase` keeps the value integral, so `Boxed` still yields an `int` and the output binding is unchanged.
 
 Change
 
-Keep the public typed topology scalar unchanged, but represent Euler in the heterogeneous mesh census through the finite scalar case rather than the nonnegative count case.
+Add the signed integral case, its mint, and its two generated `Switch` arms to `MeasuredValue`, then read it from the Euler row. `MeshSampleKind.Euler` already delegates to `TopologyScalar.Euler.Extract`, so the mesh census inherits the correction with no edit of its own — one authority, both surfaces.
 
 Delta
 
-0 LOC and neutral module-level type/member count; corrects the carrier classification without adding a case.
++4 LOC, +1 generated union case, +1 mint; module-level type count neutral. Every other scalar and sample row stays on `Count`, whose nonnegative floor is correct for them.
+
+Ripples
+
+`inspect.md:15` describes `MeasuredValue` as the "flag, count, or statistic" carrier and `inspect.md:599` counts it at three cases with a `flag/count/statistic` label; both become flag, count, signed, or statistic at four cases. No consumer outside this spec names `MeasuredValue`.

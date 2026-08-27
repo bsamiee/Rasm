@@ -50,7 +50,7 @@ order.Pairs(left: pair.L, right: pair.R).Fold(
 
 Why
 
-Ordering is a real two-case policy, but its process-local rows need no string identity and its permutation is generic over the carried pair. Replacing the owner with a boolean parameter would reintroduce the forbidden mode knob.
+Ordering is a real two-case policy, but its process-local rows need no string identity and its permutation is generic over the carried pair. The owner survives because each row carries BEHAVIOR — a distinct permutation — which is what separates it from a payload-free two-case family that collapses to a bool (see Task 2).
 
 Change
 
@@ -469,29 +469,25 @@ From
 
 ```csharp
 body: rightCurve => IntersectionOf(left: leftCurve, right: rightCurve, env: env, op: op, order: PairOrder.Unordered)
-lines: Unenriched, points: Unenriched, intervals: Unenriched, polylines: Unenriched,
-private static Fin<IntersectionResult> Unenriched<TState>(TState _, IntersectionResult shape) => Fin.Succ(shape);
 ```
 
 To
 
 ```csharp
 body: rightCurve => Scan(left: leftCurve, right: rightCurve, env: env, op: op)
-lines: static (_, shape) => Fin.Succ((IntersectionResult)shape), points: static (_, shape) => Fin.Succ((IntersectionResult)shape), intervals: static (_, shape) => Fin.Succ((IntersectionResult)shape), polylines: static (_, shape) => Fin.Succ((IntersectionResult)shape),
-// Relations.Unenriched DELETED
 ```
 
 Why
 
-Both leases have already normalized the operands to `Curve`, so pair permutation and null admission cannot select another row. The remaining helper only forwards the four exhaustive non-hit arms unchanged.
+Both leases have already normalized the operands to `Curve`, so pair permutation and null admission cannot select another row.
 
 Change
 
-Enter the exact `Curve`/`Curve` scan directly and keep generated total dispatch with local identity arms.
+Enter the exact `Curve`/`Curve` scan directly. RETAIN `Unenriched`: it backs four of the five `Switch` arms as a method group, and its `IntersectionResult` parameter is what widens each arm's concrete case type — inlining it would repeat one lambda four times and force an upcast the method group makes unnecessary.
 
 Delta
 
-Net -1 LOC, -1 member, neutral type count.
+Neutral LOC, member, and type count.
 
 # 10. Remove the redundant right-side curve lowering row
 
@@ -531,6 +527,8 @@ To
 Why
 
 Relation pairs that permit curve-form lowering use the unordered fold. If the curve-form operand arrives on the right, the second permutation presents it to the retained left-side lowering row; ordered ray casting is consumed by the earlier `RayTarget` row and never needs either lowering row.
+
+Before landing, CONFIRM at the table that no row reaching curve-form lowering is scanned under `PairOrder.Ordered` — coverage here rests entirely on the unordered permutation, and an ordered caller would lose the right-side case silently rather than at compile time. If any ordered path reaches it, drop this task.
 
 Change
 
