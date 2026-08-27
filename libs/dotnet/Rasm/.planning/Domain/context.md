@@ -235,7 +235,7 @@ public sealed record Context {
                    : UnitsNet.UnitConverter.TryConvert(value, unit, UnitsNet.Units.LengthUnit.Meter, out double metres)
                      && double.IsFinite(metres)
                        ? Fin.Succ(metres / Unit.MetersPerUnit) : Fin.Fail<double>(new KernelFault.InvalidInput())
-               from admitted in Tolerance.Of(lane, converted)
+               from admitted in Tolerance.Of(lane, converted, op)
                select this with { Overrides = Overrides.AddOrUpdate(lane, admitted) };
     }
 

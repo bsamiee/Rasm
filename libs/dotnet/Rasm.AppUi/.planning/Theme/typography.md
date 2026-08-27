@@ -204,7 +204,7 @@ public sealed partial class TypographyRole {
     private static TypographyRole Row(
         string key, Rasm.Contracts.Ui.TypographyRole wire, int size, LeadingClass leading, int rung, TrimPolicy trim,
         FeatureFacet? numerals = null, FeatureFacet? casing = null, FamilyLane? lane = null, double trackingBias = 0d, int? heading = null) =>
-        new(wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
+        new(key, wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
             lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
 
     static partial void ValidateConstructorArguments(
@@ -566,7 +566,7 @@ public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
                 None: () => FaceInstance.Open(typeface, request).Bind(opened =>
                     Cell.Step(instances, map => map.ContainsKey() ? None : Some(map.Add(opened)), new KernelFault.InvalidResult()) switch {
                         Transition<HashMap<FaceKey, FaceInstance>>.Committed => Fin.Succ(opened),
-                        Transition<HashMap<FaceKey, FaceInstance>> settled => (fun(opened.Dispose)(), settled.Current.Find()).Item2
+                        Transition<HashMap<FaceKey, FaceInstance>> settled => (fun(opened.Dispose)(), settled.Current.Find(key)).Item2
                             .ToFin(Fail: new KernelFault.InvalidResult()),
                     })),
         };

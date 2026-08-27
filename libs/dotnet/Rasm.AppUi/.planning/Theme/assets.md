@@ -416,7 +416,7 @@ public static class PointerCatalog {
 
 - Owner: `BudgetedCache<TKey,TValue>` — the folder's ONE byte-budgeted, generation-stamped, least-touched-release cache every product plane composes (`Theme/typography` shaped runs, `Render/shading` shader and texture planes, `Render/meshlets` residency callers); `RetentionPosture` — the `[SmartEnum]` carrying the two retention laws as ROW DATA; `CacheSweep` — the lifecycle counts a cohort edge or a seal answers; `AssetCache` — the asset plane's instance over `AssetProduct`, owning the theme-swap and display-scale edges and the platform pointer handles.
 - Cases: `RetentionPosture.Generation` — a read below the live generation MISSES, because the cell backs a device handle a current draw dereferences; `RetentionPosture.Holder` — reads ignore generation and a retired cohort survives ONE grace rotation on its own lane, because retention is a consumer holding the value; the pressure lane is every instance's and rotates on every fill.
-- Entry: `BudgetedCache.Of(ceiling, posture, bytes, release, refuse)` — `Fin`; `Take(build)` — the one admission path and the pressure-lane edge; a CAS loser releases its OWN mint and returns the winner; `Retire(stale, advance)` — the cohort edge, raising the generation when `advance`; `Seal()` — drains the pressure counts (count instruments report what happened since the previous seal); `Dispose()` releases every lane and every live cell. `AssetCache.Cycle(rows)` and `Rescale(scale)` are the asset plane's two cohort edges and return the intrinsic `CacheSweep`; `Platform(row, mint)` seats a platform pointer handle under the row.
+- Entry: `BudgetedCache.Of(ceiling, posture, bytes, release, refuse)` — `Fin`; `Take(key, build)` — the one admission path and the pressure-lane edge; a CAS loser releases its OWN mint and returns the winner; `Retire(stale, advance)` — the cohort edge, raising the generation when `advance`; `Seal()` — drains the pressure counts (count instruments report what happened since the previous seal); `Dispose()` releases every lane and every live cell. `AssetCache.Cycle(rows)` and `Rescale(scale)` are the asset plane's two cohort edges and return the intrinsic `CacheSweep`; `Platform(row, mint)` seats a platform pointer handle under the row.
 - Auto: `Cycle` binds `ThemeCell.Rebuild` at composition and acts on the `Rematerialize.TintedAsset` row alone; `Rescale` binds the `Shell/hosts` `SurfaceFact.ScaleChanged` fact; every transition is one `Cell.Commit` over a single immutable state record, so the byte total, the touch order, the lanes, and the generation move as one value and a contended commit past the swap budget REFUSES rather than corrupting the ledger.
 - Packages: Rasm (`Cell`, `Transition`, `Dimension`), Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new product plane is one `BudgetedCache.Of` call naming its posture, cost, and release; a new retention law is one `RetentionPosture` row; a new cohort cause on the asset plane is one `Retire` projection.
@@ -456,7 +456,7 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
     readonly Func<TKey, long, Error> refuse;
 
     BudgetedCache(long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse) =>
-        (this.ceiling, this.posture, this.bytes, this.release, this.refuse, this.key) = (ceiling, posture, bytes, release, refuse);
+        (this.ceiling, this.posture, this.bytes, this.release, this.refuse, this.key) = (ceiling, posture, bytes, release, refuse, key);
 
     public static Fin<BudgetedCache<TKey, TValue>> Of(
         long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse) =>
@@ -681,9 +681,9 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
     readonly ITypefaceProvider typefaces = new FontManagerTypefaceProvider { FontManager = fonts };
 
     public Fin<SvgLease> Load(AssetKey key, SvgPosture posture, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation) =>
-        retained.Value.Find().Match(Some: Fin.Succ, None: () => AssetCatalog.Open(1d).Bind(payload => Admit(payload)))
+        retained.Value.Find(key).Match(Some: Fin.Succ, None: () => AssetCatalog.Open(key, 1d).Bind(payload => Admit(key, payload)))
             .Bind(document => Ensure(document, posture))
-            .Bind(document => Leased(document, posture, onAnimation));
+            .Bind(document => Leased(key, document, posture, onAnimation));
 
     public Fin<IImage> Image(AssetKey asset, Color tint) =>
         Load(asset, SvgPosture.PictureOnly, None).Bind(_ => AdmitImage(asset, tint)).Map(static image => (IImage)image);
@@ -697,21 +697,21 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
         .Bind(parsed => parsed.Loaded.IsSome
             ? Fin.Succ(parsed.Document)
             : (parsed.Document.Dispose(), Fin.Fail<SKSvg>(new AssetFault.MaterializeRejected($"svg {key}"))).Item2)
-        .Map(document => Cell.Claim(retained, () => document) switch {
+        .Map(document => Cell.Claim(retained, key, () => document) switch {
             Transition<HashMap<AssetKey, SKSvg>>.Committed => document,
             var ceded => (document.Dispose(), ceded.Current[key]).Item2,
         });
 
     Fin<SvgImage> AdmitImage(AssetKey key, Color tint) =>
-        images.Value.Find((tint)).Match(
+        images.Value.Find((key, tint)).Match(
             Some: Fin.Succ,
             None: () => retained.Value.Find().ToFin(Fail: new AssetFault.UnknownKey(key.ToString()))
                 .Bind(document => Try.lift(() => { lock (document.Sync) { return Fin.Succ(Optional(document.SourceDocument)); } }).Run().Bind(static inner => inner)
                     .Bind(source => source.ToFin(Fail: new AssetFault.MaterializeRejected($"svg document {key}")))
                     .Bind(source => Try.lift(() => Fin.Succ(new SvgImage { Source = SvgSource.LoadFromSvgDocument(source), CurrentColor = tint })).Run().Bind(static inner => inner)))
-                .Map(candidate => Cell.Claim(images, (tint), () => candidate) switch {
+                .Map(candidate => Cell.Claim(images, (key, tint), () => candidate) switch {
                     Transition<HashMap<(AssetKey, Color), SvgImage>>.Committed => candidate,
-                    var ceded => (candidate.Source?.Dispose(), ceded.Current[(tint)]).Item2,
+                    var ceded => (candidate.Source?.Dispose(), ceded.Current[(key, tint)]).Item2,
                 }));
 
     static Fin<SKSvg> Ensure(SKSvg document, SvgPosture posture) =>
@@ -725,9 +725,9 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
             return Fin.Succ((posture.Traits.Admits(SvgTrait.Animate) ? onAnimation : None).Match(
                 Some: handler => {
                     document.AnimationInvalidated += handler;
-                    return new SvgLease(document, posture, () => { lock (document.Sync) { document.AnimationInvalidated -= handler; } });
+                    return new SvgLease(key, document, posture, () => { lock (document.Sync) { document.AnimationInvalidated -= handler; } });
                 },
-                None: () => new SvgLease(document, posture, static () => { })));
+                None: () => new SvgLease(key, document, posture, static () => { })));
         }}).Run().Bind(static inner => inner);
 
     public void Dispose() {
@@ -872,7 +872,7 @@ public sealed partial class AssetDeclaration {
         new($"history-{kind}", AssetKind.Vector, Avares($"vector/history-{kind}.svg"), [], [PreloadPartition.Chrome], Option<HostGlyph>.None, row => [Own(row, tint, mirror)]);
 
     private AssetDeclaration(string key, AssetKind kind, Uri source, ImmutableArray<(double, Uri)> variants, ImmutableArray<PreloadPartition> partitions, Option<HostGlyph> binding, Func<AssetDeclaration, ImmutableArray<IconRow>> icons) {
-        Asset = AssetKey.Create();
+        Asset = AssetKey.Create(key);
         Kind = kind; Source = source; Variants = variants; Partitions = partitions; Binding = binding; Icons = icons(this);
     }
 
@@ -906,7 +906,7 @@ public static class AssetCatalog {
     public static Fin<System.IO.Stream> Open(AssetKey key, double scale) =>
         from admitted in (
                 FactoryBridge.Accept<PositiveMagnitude>(scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{scale}")).ToValidation(),
-                Declared().ToValidation())
+                Declared(key).ToValidation())
             .Apply(static (s, row) => (Scale: s, Declared: row)).ToFin()
         from bytes in admitted.Declared.Kind == AssetKind.Glyph
             ? Fin.Fail<Unit>(new AssetFault.MaterializeRejected($"{key}: glyph row ships no bytes"))

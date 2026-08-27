@@ -342,11 +342,11 @@ public static class Covering {
 
     static Fin<SectionProfile> ProfileOf(CoveringRow row) =>
         row.ModuleMm.Match(
-            Some: module => SectionProfile.Rectangle.Of(widthMm: module.WidthMm, depthMm: row.ThicknessMm),
-            None: () => SectionProfile.Nominal.Of(row.ThicknessMm));
+            Some: module => SectionProfile.Rectangle.Of(widthMm: module.WidthMm, depthMm: row.ThicknessMm, key),
+            None: () => SectionProfile.Nominal.Of(row.ThicknessMm, key));
 
     static Fin<PropertyBag> Detail(CoveringRow row, SectionProfile profile) =>
-        CoveringDetail.Of(row, profile.GrossRectangleMm.DepthMm);
+        CoveringDetail.Of(row, profile.GrossRectangleMm.DepthMm, key);
 }
 
 // --- [POLICIES] ------------------------------------------------------------------------

@@ -603,7 +603,7 @@ public sealed class ReplayProgram {
                                  return program.regrow(in frame, index);
                              }).Run().Bind(static inner => inner)
                              .Bind(proposed => proposed.Admit())).As()
-                     from _ in program.roster.Apply(active)
+                     from _ in program.roster.Apply(active, op)
                      from results in Fin.Succ(value: toSeq(active.Results))
                      from __ in guard(results.Count == staged.Count, new KernelFault.InvalidResult())
                      from ___ in results

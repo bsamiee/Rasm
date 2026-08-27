@@ -542,7 +542,7 @@ public static class Residency {
 
         UInt128 key = InterchangeIdentity.Key($"{formatKey}:{kind.Key}", blob, policy.Vector);
         return ArtifactContent.Of(blob).Map(artifact =>
-            new ResidencyPayload(kind, artifact, blob, layout.ToFrozenDictionary(), clusters,
+            new ResidencyPayload(kind, key, artifact, blob, layout.ToFrozenDictionary(), clusters,
                 residentCount, bounds.Center, bounds.Radius, harmonicDegree));
     }
 

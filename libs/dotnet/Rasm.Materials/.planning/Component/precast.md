@@ -117,7 +117,7 @@ public static class PrecastSeed {
         SeedJoin.Of(Roster, static r => r.Designation);
 
     public static Fin<PrecastRow> Resolve(Component component) =>
-        SeedJoin.Resolve(Table, component.Designation);
+        SeedJoin.Resolve(Table, component.Designation, key);
 
     public static readonly SeedLaw<PrecastRow> Law = SeedLaw<PrecastRow>.Of(
         family: ComponentFamily.Precast,
@@ -143,8 +143,8 @@ public static class PrecastSeed {
 
     static Fin<SectionProfile> Profile(PrecastRow r) =>
         (r.Interior is PrecastInterior.Cored cored ? cored.Cores : Option<Seq<VoidCell>>.None).Match(
-            Some: cells => SectionProfile.CellularRectangle.Of(r.WidthMm, r.DepthMm, cells),
-            None: () => SectionProfile.Rectangle.Of(r.WidthMm, r.DepthMm));
+            Some: cells => SectionProfile.CellularRectangle.Of(r.WidthMm, r.DepthMm, cells, key),
+            None: () => SectionProfile.Rectangle.Of(r.WidthMm, r.DepthMm, key));
 
     static Fin<PropertyBag> Detail(PrecastRow r, SectionProfile profile) =>
         from interior in InteriorRows(r.Interior)

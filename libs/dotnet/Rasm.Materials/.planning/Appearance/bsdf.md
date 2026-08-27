@@ -110,7 +110,7 @@ public readonly record struct ShadingFrame(VectorFrame Frame, Context Context) {
     public Fin<Direction> ToWorld(LocalVector<double> local) {
         Plane b = Frame.Value;
         Vector3d w = (local.X * b.XAxis) + (local.Y * b.YAxis) + (local.Z * b.ZAxis);
-        return Direction.Of(w, Context);
+        return Direction.Of(w, Context, key);
     }
     private static LocalVector<double> Project(Plane basis, Vector3d w) => new(w * basis.XAxis, w * basis.YAxis, w * basis.ZAxis);
 }
@@ -418,7 +418,7 @@ public abstract partial record BsdfLobe {
         double r = Math.Sqrt(u0), phi = 2.0 * Math.PI * u1;
         double z = Math.Sqrt(Math.Max(0.0, 1.0 - u0));
         LocalVector<double> wi = new(r * Math.Cos(phi), r * Math.Sin(phi), wo.CosTheta < 0.0 ? -z : z);
-        return LobeSample.Of(wi, owner.Evaluate(wo, wi), Math.Abs(wi.CosTheta) / Math.PI, transmission: false, "<zero-pdf-cosine-sample>");
+        return LobeSample.Of(wi, owner.Evaluate(wo, wi), Math.Abs(wi.CosTheta) / Math.PI, transmission: false, key, "<zero-pdf-cosine-sample>");
     }
     private static Fin<LobeSample> ReflectSample(
         LocalVector<double> wo, double rotation, double ax, double ay, double u0, double u1, BsdfLobe owner) {
@@ -428,7 +428,7 @@ public abstract partial record BsdfLobe {
         if (!local.SameHemisphere(reflected)) { return Fin.Fail<LobeSample>(new MaterialFault.Graph("<vndf-below-horizon>")); }
         LocalVector<double> wi = reflected.RotateZ(rotation);
         return LobeSample.Of(wi, owner.Evaluate(wo, wi), Microfacet<double>.ReflectPdf(local, h, ax, ay),
-            transmission: false, "<zero-pdf-vndf-sample>");
+            transmission: false, key, "<zero-pdf-vndf-sample>");
     }
     private static double ReflectPdf(LocalVector<double> outgoing, LocalVector<double> incident, double rotation, double ax, double ay) {
         (LocalVector<double> wo, LocalVector<double> wi) = (outgoing.RotateZ(-rotation), incident.RotateZ(-rotation));
@@ -446,21 +446,21 @@ public abstract partial record BsdfLobe {
             LocalVector<double> wiReflect = reflected.RotateZ(g.Rotation);
             return wo.SameHemisphere(reflected)
                 ? LobeSample.Of(wiReflect, EvalDielectricReflect(g, outgoing, wiReflect),
-                      f * Microfacet<double>.ReflectPdf(wo, h, g.AlphaX, g.AlphaY), transmission: false, "<dielectric-reflect-degenerate>")
-                : Fin.Fail<LobeSample>(new MaterialFault.Graph("<dielectric-reflect-degenerate>"));
+                      f * Microfacet<double>.ReflectPdf(wo, h, g.AlphaX, g.AlphaY), transmission: false, key, "<dielectric-reflect-degenerate>")
+                : Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<dielectric-reflect-degenerate>"));
         }
         double eta = wo.CosTheta > 0.0 ? 1.0 / g.Ior : g.Ior;
         LocalVector<double> n = wo.Dot(h) < 0.0 ? h.Scale(-1.0) : h;
         double cosI = Math.Clamp(wo.Dot(n), -1.0, 1.0);
         double k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)));
-        if (k < 0.0) { return Fin.Fail<LobeSample>(new MaterialFault.Graph("<dielectric-refract-tir>")); }
+        if (k < 0.0) { return Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<dielectric-refract-tir>")); }
         LocalVector<double> refracted = wo.Scale(-eta).Add(n.Scale((eta * cosI) - Math.Sqrt(k)));
         double etaH = 1.0 / eta;
         double sqrtDenom = wo.Dot(h) + (etaH * refracted.Dot(h));
         double pdf = (1.0 - f) * Microfacet<double>.VisibleNormalPdf(wo, h, g.AlphaX, g.AlphaY)
             * Math.Abs(etaH * etaH * refracted.Dot(h)) / Math.Max(RhinoMath.ZeroTolerance, sqrtDenom * sqrtDenom);
         LocalVector<double> wi = refracted.RotateZ(g.Rotation);
-        return LobeSample.Of(wi, EvalDielectricTransmit(g, outgoing, wi), pdf, transmission: true, "<dielectric-refract-degenerate>");
+        return LobeSample.Of(wi, EvalDielectricTransmit(g, outgoing, wi), pdf, transmission: true, key, "<dielectric-refract-degenerate>");
     }
     private static double DielectricPdf(Dielectric g, LocalVector<double> outgoing, LocalVector<double> incident) {
         (LocalVector<double> wo, LocalVector<double> wi) = (outgoing.RotateZ(-g.Rotation), incident.RotateZ(-g.Rotation));
@@ -520,8 +520,8 @@ public static class MultiScatter {
             LocalVector<double> next = h.Scale(2.0 * upper.Dot(h)).Add(upper.Scale(-1.0)).Normalize();
             weight = weight.Mul(ior.Fresnel(Math.Abs(upper.Dot(h))));
             density *= Microfacet<double>.ReflectPdf(upper, h, alphaX, alphaY);
-            if (next.CosTheta > 0.0) { return LobeSample.Of(next, weight, density, transmission: false, "<multi-scatter-walk-degenerate>"); }
-            if (Draw(seed, tap, depth, axis: 2) >= live) { return Fin.Fail<LobeSample>(new MaterialFault.Graph("<multi-scatter-walk-absorbed>")); }
+            if (next.CosTheta > 0.0) { return LobeSample.Of(next, weight, density, transmission: false, key, "<multi-scatter-walk-degenerate>"); }
+            if (Draw(seed, tap, depth, axis: 2) >= live) { return Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<multi-scatter-walk-absorbed>")); }
             (w, weight, density) = (next, weight.Scale(1.0 / live), density * live);
         }
     }
@@ -578,14 +578,14 @@ public sealed record LayeredBsdf {
                 ? (s.U, s.Cumulative + (s.Cumulative > s.U ? 0.0 : lw.Weight.Value), s.Before, s.Pick)
                 : (s.U, s.Cumulative + lw.Weight.Value, s.Cumulative, lw));
         double uc = Math.Clamp((uLobe - pick.Before) / Math.Max(RhinoMath.ZeroTolerance, pick.Pick.Weight.Value), 0.0, 1.0);
-        return pick.Pick.Lobe.Sample(lo, uc, u0, u1).Bind(sample => {
+        return pick.Pick.Lobe.Sample(lo, uc, u0, u1, key).Bind(sample => {
             double mixedPdf = Lobes.Fold((Acc: 0.0, Lo: lo, Wi: sample.Direction),
                 static (s, lw) => (s.Acc + lw.Weight.Value * lw.Lobe.Pdf(s.Lo, s.Wi), s.Lo, s.Wi)).Acc;
             RgbSpectrum mixedValue = Lobes.Fold((Acc: RgbSpectrum.Black, Lo: lo, Wi: sample.Direction),
                 static (s, lw) => (s.Acc.Add(lw.Lobe.Evaluate(s.Lo, s.Wi).Mul(lw.Throughput).Scale(lw.Weight.Value)), s.Lo, s.Wi)).Acc;
             return mixedPdf > 0.0
                 ? Fin.Succ(sample with { Pdf = mixedPdf, Value = mixedValue })
-                : Fin.Fail<LobeSample>(new MaterialFault.Graph("<degenerate-mixed-pdf>"));
+                : Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<degenerate-mixed-pdf>"));
         });
     }
 }

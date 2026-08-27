@@ -251,7 +251,7 @@ public sealed partial class SolidPolicy {
         RepairLaw repair,
         Context context,
         ThreeMfReadMode threeMf) =>
-        Validate(tolerance, units, weld, faces, closure, repair, context, threeMf, out SolidPolicy policy)
+        Validate(tolerance, units, weld, faces, closure, repair, context, key, threeMf, out SolidPolicy policy)
             .Admitted(policy);
 }
 
@@ -618,10 +618,10 @@ public static partial class SolidImport {
                 vertices.Add(source);
                 continue;
             }
-            if (!coalesced.TryGetValue(out int mapped)) {
+            if (!coalesced.TryGetValue(key, out int mapped)) {
                 mapped = vertices.Count;
                 coalesced[key] = mapped;
-                vertices.Add();
+                vertices.Add(key);
             }
             remap[index] = mapped;
         }

@@ -138,7 +138,7 @@ public sealed class TreatmentHost : Control {
 
     public override void Render(DrawingContext context) =>
         context.Custom(new TreatmentOperation(
-            treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, hooks, faults));
+            treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, hooks, faults, key));
 }
 
 [Equatable(Explicit = true)]

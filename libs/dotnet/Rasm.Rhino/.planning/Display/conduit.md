@@ -414,7 +414,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.conduit");
 
     internal ConduitAdapter(ConduitProgram program, FaultCell faults) =>
-        (this.program, this.faults, this.key) = (program, faults);
+        (this.program, this.faults, this.key) = (program, faults, key);
 
     protected override void ObjectCulling(CullObjectEventArgs e) => Invoke(() =>
         program.Culls
@@ -468,8 +468,8 @@ internal sealed class ConduitAdapter : DisplayConduit {
 
     private Fin<Unit> Render(ConduitFrame frame, Seq<RenderAspect> state, Fin<Seq<DisplayMark>> projected) =>
         PipelineScope.With(frame.Pipeline, state, () => projected
-            .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks))
-            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: HookPoint, cause: cause)))));
+            .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks, key))
+            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: HookPoint, cause: cause)))), key);
 
     private Fin<Unit> Project(DrawObjectEventArgs e, ConduitStep.Draw step) {
         ConduitFrame frame = ConduitFrame.Of(e.Display, e.Viewport, step.Phase);
@@ -499,7 +499,7 @@ internal static class PipelineScope {
         Fin<Unit> crossed = toSeq(state.AsEnumerable().Reverse())
             .Fold<Func<Fin<Unit>>>(
                 () => (slot = draw()).Map(static _ => unit),
-                (next, aspect) => () => aspect.With(pipeline, next))();
+                (next, aspect) => () => aspect.With(pipeline, next, key))();
         return crossed.Bind(_ => slot);
     }
 }
@@ -517,7 +517,7 @@ public sealed class ConduitLease : IDisposable {
     private readonly Atom<LeaseGate> gate = Atom<LeaseGate>(new LeaseGate.Live());
 
     internal ConduitLease(ConduitAdapter adapter, FaultCell faults) =>
-        (this.adapter, this.faults, this.key) = (adapter, faults);
+        (this.adapter, this.faults, this.key) = (adapter, faults, key);
 
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
@@ -542,12 +542,12 @@ public static class Conduits {
         return from owner in Optional(session).ToFin(new KernelFault.MissingContext())
                from admitted in Optional(program).ToFin(new KernelFault.InvalidInput())
                from faults in Fin.Succ(DisplayFaults.Cell())
-               from adapter in Fin.Succ(new ConduitAdapter(admitted, faults))
+               from adapter in Fin.Succ(new ConduitAdapter(admitted, faults, op))
                from lease in (from __ in Try.lift(() => Fin.Succ(admitted.Criteria
                                   .Fold(unit, static (_, criterion) => criterion.Apply(adapter)))).Run().Bind(static inner => inner)
-                              from ___ in Bind(owner, adapter, admitted.Binding)
+                              from ___ in Bind(owner, adapter, admitted.Binding, op)
                               from ____ in Try.lift(() => Fin.Succ((adapter.Enabled = true, unit).Item2)).Run().Bind(static inner => inner)
-                              select new ConduitLease(adapter, faults))
+                              select new ConduitLease(adapter, faults, op))
                                   .Rollback(release: adapter.Release)
                select lease;
     }

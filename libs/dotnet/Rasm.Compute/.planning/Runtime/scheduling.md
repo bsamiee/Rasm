@@ -816,7 +816,7 @@ public sealed class JobGraph(
         bool resume = initial.Find(node.Id).Map(static state => state == JobState.Spilled).IfNone(false);
         return acc with {
             States = acc.States.SetItem(node.Id, speculative ? JobState.Speculative : JobState.Running),
-            Launches = acc.Launches.Add(new JobLaunch(node, resume)),
+            Launches = acc.Launches.Add(new JobLaunch(node, key, resume)),
             Global = acc.Global - 1,
             Tenant = acc.Tenant.AddOrUpdate(node.Tenant, static c => c + 1, 1),
             Speculated = acc.Speculated + (speculative ? 1 : 0),
@@ -926,7 +926,7 @@ public sealed class JobGraph(
         LanguageExt.HashSet<JobId> members = toHashSet(component);
         GangKey key = GangKey.Create(JobId.Of(JobId.Component, toSeq(component.Map(static id => id.ToValue()).Order(StringComparer.Ordinal))[0]).ToValue());
         return nodes.Map(node => members.Contains(node.Id)
-            ? node with { Gang = Some(), DependsOn = node.DependsOn.Filter(dependency => !members.Contains(dependency)) }
+            ? node with { Gang = Some(key), DependsOn = node.DependsOn.Filter(dependency => !members.Contains(dependency)) }
             : node);
     }
 

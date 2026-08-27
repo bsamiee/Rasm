@@ -789,7 +789,7 @@ public static class Turning {
         select pass;
 
     private static Fin<TurnPass> Finish(int index, Loop profile, TurnDemand demand, TurnStep step, LatheOp.Finish op) =>
-        from moves in FinishMoves(profile, demand)
+        from moves in FinishMoves(profile, demand, op)
         from pass in Loaded(index, demand, step, moves, Seq<LatheDirective>(),
             Envelope(profile, demand, op.Kind.Side, op.RadialAllowance, op.AxialAllowance))
         select pass;

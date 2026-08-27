@@ -209,11 +209,11 @@ internal static class PropertyLowering {
 
     public static WriterT<FidelityLog, Fin, PropertyValue> Lower(IfcProperty property, Map<string, NodeId> rooted, UnitScheme scheme) =>
         property switch {
-            IfcPropertySingleValue sv => LowerValue(sv.NominalValue, scheme, sv.Unit),
+            IfcPropertySingleValue sv => LowerValue(sv.NominalValue, scheme, sv.Unit, key),
             IfcPropertyEnumeratedValue ev =>
-                from selected in ev.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null)).As()
+                from selected in ev.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null, key)).As()
                 from sanctioned in Optional(ev.EnumerationReference).Match(
-                    Some: reference => reference.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null)).As(),
+                    Some: reference => reference.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null, key)).As(),
                     None: static () => Fidelity.Clean(Seq<PropertyValue>()))
                 select (PropertyValue)new PropertyValue.Enumerated(selected, sanctioned),
             IfcPropertyReferenceValue rv =>
@@ -222,21 +222,21 @@ internal static class PropertyLowering {
                     None: () => Fidelity.Drop(FidelityDrop.ReferenceResource, ResourceAnchor(rv), ResourceId(rv)))
                     .Map(id => (PropertyValue)new PropertyValue.Reference(id, Stated(rv.UsageName))),
             IfcPropertyBoundedValue bv => Fidelity.Lift(
-                from lower in MeasureOpt(bv.LowerBoundValue, scheme, bv.Unit)
-                from upper in MeasureOpt(bv.UpperBoundValue, scheme, bv.Unit)
-                from setpoint in MeasureOpt(bv.SetPointValue, scheme, bv.Unit)
+                from lower in MeasureOpt(bv.LowerBoundValue, scheme, bv.Unit, key)
+                from upper in MeasureOpt(bv.UpperBoundValue, scheme, bv.Unit, key)
+                from setpoint in MeasureOpt(bv.SetPointValue, scheme, bv.Unit, key)
                 select (PropertyValue)new PropertyValue.Bounded(lower, upper, setpoint)),
             IfcPropertyListValue lv => lv.ListValues.AsIterable().ToSeq()
-                .Traverse(value => LowerValue(value, scheme, lv.Unit)).As()
+                .Traverse(value => LowerValue(value, scheme, lv.Unit, key)).As()
                 .Map(static rows => (PropertyValue)new PropertyValue.List(rows)),
             IfcPropertyTableValue tv => toSeq(tv.DefiningValues.Zip(tv.DefinedValues))
                 .Traverse(pair =>
-                    from defining in LowerValue(pair.First, scheme, tv.DefiningUnit)
-                    from defined in LowerValue(pair.Second, scheme, tv.DefinedUnit)
+                    from defining in LowerValue(pair.First, scheme, tv.DefiningUnit, key)
+                    from defined in LowerValue(pair.Second, scheme, tv.DefinedUnit, key)
                     select (defining, defined)).As()
                 .Map(cells => (PropertyValue)new PropertyValue.Table(cells, InterpolationOf(tv.CurveInterpolation))),
             IfcComplexProperty cp => cp.HasProperties.Values.AsIterable().ToSeq()
-                .Traverse(sub => Lower(sub, rooted, scheme).Map(lowered => (Name: RowName(sub), Value: lowered))).As()
+                .Traverse(sub => Lower(sub, rooted, scheme, key).Map(lowered => (Name: RowName(sub), Value: lowered))).As()
                 .Map(rows => (PropertyValue)new PropertyValue.Complex(cp.UsageName,
                     rows.Fold(Map<PropertyName, PropertyValue>(), static (bag, row) => bag.AddOrUpdate(row.Name, row.Value)))),
             _ => Fidelity.Clean<PropertyValue>(new PropertyValue.Text(Stated(property.Name).IfNone(""))),
@@ -247,12 +247,12 @@ internal static class PropertyLowering {
             None: static () => Fidelity.Clean<PropertyValue>(new PropertyValue.Text("")),
             Some: present => ScalarKind.For(present.GetType()).Match(
                 Some: row => Fidelity.Clean(row.Narrow(present)),
-                None: () => Measured(present, scheme, declared)));
+                None: () => Measured(present, scheme, declared, key)));
 
     static WriterT<FidelityLog, Fin, PropertyValue> Measured(IfcValue value, UnitScheme scheme, IfcUnit? declared) =>
         value switch {
             IfcMeasureValue or IfcDerivedMeasureValue => Signature(value).Match(
-                Some: row => Fidelity.Lift(MeasureOf(value, row, scheme, declared)
+                Some: row => Fidelity.Lift(MeasureOf(value, row, scheme, declared, key)
                     .Map(static measure => (PropertyValue)new PropertyValue.Measure(measure))),
                 None: () => Fidelity.Drop<PropertyValue>(FidelityDrop.MeasureUnmapped, value.GetType().Name, new PropertyValue.Text(value.ValueString))),
             IfcText or IfcIdentifier =>
@@ -278,7 +278,7 @@ internal static class PropertyLowering {
             Coerce(scheme, AsDouble(measure.Value), measure.GetType().Name, dimension, declared));
 
     static Fin<Option<MeasureValue>> MeasureOpt(IfcValue? value, UnitScheme scheme, IfcUnit? declared) =>
-        Signature(value).TraverseM(row => MeasureOf(value!, row, scheme, declared)).As();
+        Signature(value).TraverseM(row => MeasureOf(value!, row, scheme, declared, key)).As();
 
     internal static readonly QuantityType Number = QuantityType.Create("Number");
 

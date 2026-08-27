@@ -725,7 +725,7 @@ public static class Nest {
                 .ToFin(new FabricationFault.StockOverflow(parts.Count, plan.Yield.SheetCount))
                 .Bind(seed => KeyOf(placed, Seq<Remnant>(), plan.Evidence.Digest, seed.Tolerance))
                 .Map(key => (FabricationResult)new FabricationResult.Placement(placed, plan.Yield.UtilizationRatio,
-                    plan.Yield.UnplacedCount, Seq<Remnant>())));
+                    plan.Yield.UnplacedCount, Seq<Remnant>(), key)));
 
     internal static UInt128 Identity(Seq<Loop> loops, Context tolerance, Func<CanonicalWriter, CanonicalWriter> salt) =>
         FabricationCanon.Ordered(tolerance, writer =>
@@ -808,7 +808,7 @@ public static class Nest {
             bounded: static (scope, row) => row.Body.FoldM<Fin, SearchState>(scope.state, (inner, op) =>
                 inner.Evidence.Evaluated >= row.Evaluations
                     ? Fin.Succ(inner)
-                    : Apply(inner, scope.parts, scope.inventory, scope.variants, scope.pairs, scope.policy,
+                    : Apply(op, inner, scope.parts, scope.inventory, scope.variants, scope.pairs, scope.policy,
                         scope.graph)).As(),
             rectangular: static (scope, row) => NestRun.FromProfiles(
                     scope.parts,
@@ -1121,7 +1121,7 @@ public static class Nest {
                                         (EnginePhase.Moulds, evidence.Moulds),
                                         (EnginePhase.ChiralFloor, evidence.ChiralFloor))
                                     select (FabricationResult)new FabricationResult.Placement(
-                                        transforms, evidence.Utilization, evidence.Unplaced.Count, remnants));
+                                        transforms, evidence.Utilization, evidence.Unplaced.Count, remnants, key));
                         })))));
 
     static NestSearch Evidence(SearchRun run, NestSearch basis) {

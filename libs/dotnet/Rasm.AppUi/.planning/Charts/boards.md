@@ -184,7 +184,7 @@ public static class BoardLink {
 
 - Owner: `PlacementGrid` — the column count per breakpoint tier, mintable only through its frozen roster; `SpanPolicy` — equal-weight against fixed-span wrapping; `PlacementFlow` — the ONE placement fold every board layout derives from.
 - Cases: `SpanPolicy` = Equal | Fixed(span).
-- Entry: `PlacementGrid.For(at)` — the tier's grid row; `PlacementFlow.Flow(grid, keys, span, rowSpan, from)` — the one fold; `PlacementFlow.Layout(bands, canvasState)` — the whole-board derivation across every tier.
+- Entry: `PlacementGrid.For(at)` — the tier's grid row; `PlacementFlow.Flow(grid, keys, span, rowSpan, from)` — the one fold; `PlacementFlow.Layout(key, bands, canvasState)` — the whole-board derivation across every tier.
 - Auto: every board layout derives its columns and spans from the grid row for the active breakpoint, so a literal column index, a literal span, and a literal wrap arithmetic are all unspellable; a FACET grid is the same fold at a tile-local grid whose column count is the facet's own declared width — a grid is a grid at every scale.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new responsive tier is one roster row over the settled breakpoint vocabulary; a new spanning posture is one `SpanPolicy` arm; zero new surface.

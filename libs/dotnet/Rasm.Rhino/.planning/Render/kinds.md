@@ -718,12 +718,12 @@ public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease
 |  [05]   | texture configuration  | `TextureConfig`         | total replayable state, toggles as one column     | `Of` / `Apply(texture, reason)`  |
 |  [06]   | texture write roster   | `TextureAxis`           | one row per writable host axis                    | `Write` / `Items`                |
 |  [07]   | roster fold            | `AxisFold`              | the branch's one keyed write traverse             | `Apply(target, state, write)`    |
-|  [08]   | texture classification | `TextureTraits`         | detached local mapping and capability column      | `Of(texture)`               |
+|  [08]   | texture classification | `TextureTraits`         | detached local mapping and capability column      | `Of(texture, key)`               |
 |  [09]   | baked-texture crossing | `TextureFacsimile`      | replayable facsimile state                        | `Of` / `Apply`                   |
 |  [10]   | facsimile write roster | `FacsimileAxis`         | one row per simulated axis, option as predicate   | `Write` / `Items`                |
 |  [11]   | environment projection | `EnvironmentProjection` | host projection keyed, simulated `Emap` fallback  | `Of(projection, simulated)`      |
 |  [12]   | texture mint/export    | `TextureMint`           | admitted leased texture lifecycle                 | `From` / `Mint`                  |
-|  [13]   | environment bake/mint  | `EnvironmentState`      | detached state and document-aware leased mint     | `Bake` / `Mint(document)`   |
+|  [13]   | environment bake/mint  | `EnvironmentState`      | detached state and document-aware leased mint     | `Bake` / `Mint(document, key)`   |
 |  [14]   | photometric payload    | `PhotometricFile`       | dialect-admitted attachment answering its address | `Of` / `AttachTo`                |
 |  [15]   | photometric readers    | `PhotometricPress`      | declarative registry serializer roster            | `Serializers(retention, record)` |
 

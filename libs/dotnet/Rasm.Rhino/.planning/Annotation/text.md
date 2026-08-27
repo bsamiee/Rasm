@@ -839,7 +839,7 @@ public abstract partial record TextOp {
             from copy in Admit.Need(source.Duplicate() as AnnotationBase)
             from __ in new Lease<AnnotationBase>.Owned(Value: copy).Use(
                 body: owned =>
-                    from ___ in change(owned)
+                    from ___ in change(owned, op)
                     from ____ in Admit.Confirm(success: document.Objects.Replace(
                         objectId: id, geometry: owned, ignoreModes: false))
                     select unit)
@@ -1030,7 +1030,7 @@ public sealed record TextState(
     TextStyleState Style) : IDetachedDocumentResult {
     internal static Fin<TextState> Of(AnnotationObjectBase native) => Try.lift(() =>
         from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: new KernelFault.InvalidResult())
-        from id in ResourceId.Admit(native.Id)
+        from id in ResourceId.Admit(native.Id, key)
         from kind in FactoryBridge.Row<AnnotationType, AnnotationKind>(
             candidate: annotation.AnnotationType, ordinal: static value => (int)value)
         from mask in TextMask.Read(annotation: annotation)
@@ -1038,7 +1038,7 @@ public sealed record TextState(
             candidate: annotation.DimensionLengthDisplay, ordinal: static value => (int)value)
         from alternateLengthDisplay in FactoryBridge.Row<DimensionStyle.LengthDisplay, LengthDisplayRow>(
             candidate: annotation.AlternateDimensionLengthDisplay, ordinal: static value => (int)value)
-        from style in ResourceId.Admit(annotation.DimensionStyleId)
+        from style in ResourceId.Admit(annotation.DimensionStyleId, key)
         select new TextState(
             Key: id,
             Kind: kind,

@@ -115,7 +115,7 @@ Row `[01]` derives field list, field order, and every column's own builder from 
 |  [13]   | `Build(MemoryAllocator allocator = null)`                                     | factory  | seals the immutable typed array             |
 |  [14]   | `new Schema.Builder()` / `.Build()`                                           | ctor     | opens and seals an immutable `Schema`       |
 |  [15]   | `Schema.Builder.Field(Field)` / `.Field(Action<…>)`                           | instance | adds a field by value or inline builder     |
-|  [16]   | `Schema.Builder.Metadata(value)`                                              | instance | attaches schema-level operation facts       |
+|  [16]   | `Schema.Builder.Metadata(key, value)`                                         | instance | attaches schema-level operation facts       |
 |  [17]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`                       | factory  | assembles one field from parts              |
 |  [18]   | `new Field(name, IArrowType, nullable, metadata?)`                            | ctor     | direct field construction                   |
 |  [19]   | `new Schema(IEnumerable<Field>, IEnumerable<KVP>)`                            | ctor     | ordered field list, metadata nullable       |

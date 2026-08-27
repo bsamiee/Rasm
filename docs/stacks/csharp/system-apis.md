@@ -135,7 +135,7 @@ public static class Tally {
     public readonly record struct Roll(int Count, int Peak, int FirstAt);
 
     public static Fin<int> RankOf(ReadOnlySpan<char> key) =>
-        Probe.TryGetValue(out int rank)
+        Probe.TryGetValue(key, out int rank)
             ? Fin.Succ(rank)
             : Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(), Requirement: "a registered tally key"));
 

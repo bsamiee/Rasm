@@ -136,7 +136,7 @@ public sealed record ArtifactIndexRow(
     public RetentionClass Retention => Kind.Retention;
 
     public static ArtifactIndexRow Admit(ArtifactKind kind, string key, ReadOnlySpan<byte> bytes, DataClassification classification, Instant at, Option<UInt128> sourceKey) =>
-        new(kind, ContentAddress.Of(bytes), bytes.Length, classification, sourceKey, at);
+        new(kind, key, ContentAddress.Of(bytes), bytes.Length, classification, sourceKey, at);
 
     public static HashMap<UInt128, Seq<ArtifactIndexRow>> Project(Seq<ArtifactIndexRow> rows) =>
         rows.Fold(HashMap<UInt128, Seq<ArtifactIndexRow>>(), static (acc, row) =>
@@ -256,7 +256,7 @@ public sealed record BenchmarkRow {
     BenchmarkRow(string key, string route, Duration median, Duration p95, long allocatedBytes, long operations,
         Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
         (Key, Route, Median, P95, AllocatedBytes, Operations, Corpus, ArtifactKey, Fingerprint, At) =
-        (route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
+        (key, route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
 
     public string Key { get; }
     public string Route { get; }
@@ -356,7 +356,7 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
 
     public async ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token = default) {
         await using IDocumentSession session = store.LightweightSession();
-        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(), token).ConfigureAwait(false);
+        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(key), token).ConfigureAwait(false);
         DateTimeOffset stamp = now();
         if (row is null || row.ExpiresAt.Match(Some: expiresAt => expiresAt <= stamp, None: static () => false)) { return false; }
         if (row.SlidingExpiration.IsSome) {
@@ -374,7 +374,7 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
         await using IDocumentSession session = store.LightweightSession();
         DateTimeOffset stamp = now();
         session.Store(new CacheBlob(
-            Physical(),
+            Physical(key),
             value.ToArray(),
             stamp,
             Optional(options.AbsoluteExpiration),
@@ -390,7 +390,7 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
     public void Refresh(string key) => RefreshAsync().GetAwaiter().GetResult();
     public async Task RefreshAsync(string key, CancellationToken token = default) {
         await using IDocumentSession session = store.LightweightSession();
-        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(), token).ConfigureAwait(false);
+        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(key), token).ConfigureAwait(false);
         if (row is null || row.SlidingExpiration.IsNone) { return; }
         session.Store(row with { ExpiresAt = Deadline(now(), row.AbsoluteExpiration, None, row.SlidingExpiration) });
         await session.SaveChangesAsync(token).ConfigureAwait(false);

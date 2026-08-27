@@ -695,7 +695,7 @@ public static class SectionSolver {
     public static Fin<IProfile> ProfileOf(SectionProfile profile) => SectionGeometry.Of(profile).Outline();
 
     internal static Fin<ComputedSection> Compose(SectionProfile.BuiltUp b) =>
-        b.Parts.Traverse(p => Solve(p.Part).Map(cs => (S: cs, p.DyMm, p.DzMm))).As().Bind(members => {
+        b.Parts.Traverse(p => Solve(p.Part, key).Map(cs => (S: cs, p.DyMm, p.DzMm))).As().Bind(members => {
             double a = members.Sum(static m => m.S.AreaMm2.Value);
             double cy = members.Sum(static m => m.S.AreaMm2.Value * m.DyMm) / a;
             double cz = members.Sum(static m => m.S.AreaMm2.Value * m.DzMm) / a;
@@ -706,19 +706,19 @@ public static class SectionSolver {
             double zx = Plastic.Modulus(members.Map(static m => (m.S.AreaMm2.Value, m.DzMm, m.S.DepthMm.Value, m.S.ZxMm3.Value)));
             double zy = Plastic.Modulus(members.Map(static m => (m.S.AreaMm2.Value, m.DyMm, m.S.WidthMm.Value, m.S.ZyMm3.Value)));
             return
-                from area in Section(a)
-                from ixV in Section(ix)
-                from iyV in Section(iy)
-                from sx in Section(ix / fibreZ)
-                from sy in Section(iy / fibreY)
-                from rx in Section(Math.Sqrt(ix / a))
-                from ry in Section(Math.Sqrt(iy / a))
-                from zxV in Section(zx)
-                from zyV in Section(zy)
-                from j in Section(members.Sum(static m => m.S.JMm4.Value))
-                from avy in Section(members.Sum(static m => m.S.AvyMm2.Value))
-                from avz in Section(members.Sum(static m => m.S.AvzMm2.Value))
-                from perim in Section(members.Sum(static m => m.S.HeatedPerimeterMm.Value))
+                from area in Section(a, key)
+                from ixV in Section(ix, key)
+                from iyV in Section(iy, key)
+                from sx in Section(ix / fibreZ, key)
+                from sy in Section(iy / fibreY, key)
+                from rx in Section(Math.Sqrt(ix / a), key)
+                from ry in Section(Math.Sqrt(iy / a), key)
+                from zxV in Section(zx, key)
+                from zyV in Section(zy, key)
+                from j in Section(members.Sum(static m => m.S.JMm4.Value), key)
+                from avy in Section(members.Sum(static m => m.S.AvyMm2.Value), key)
+                from avz in Section(members.Sum(static m => m.S.AvzMm2.Value), key)
+                from perim in Section(members.Sum(static m => m.S.HeatedPerimeterMm.Value), key)
                 select new ComputedSection(area, ixV, iyV, sx, sy, rx, ry, zxV, zyV, j, IwMm6: 0.0, avy, avz,
                     DepthMm: b.GrossRectangleMm.DepthMm, WidthMm: b.GrossRectangleMm.WidthMm, HeatedPerimeterMm: perim,
                     AxisDistanceMm: 0.0, ShearCentreYMm: 0.0, ShearCentreZMm: 0.0, MonosymmetryFactor: 0.0);
@@ -735,18 +735,18 @@ public static class SectionSolver {
             }).Run().Bind(static inner => inner)
             .Bind(p => {
                 SectionSupplement s = p.Supplement;
-                return (Section(p.Area), Section(p.Ix), Section(p.Iy),
-                        Section(p.Sx), Section(p.Sy), Section(p.Rx),
-                        Section(p.Ry), Section(s.Zx), Section(s.Zy),
-                        Section(s.J))
+                return (Section(p.Area, key), Section(p.Ix, key), Section(p.Iy, key),
+                        Section(p.Sx, key), Section(p.Sy, key), Section(p.Rx, key),
+                        Section(p.Ry, key), Section(s.Zx, key), Section(s.Zy, key),
+                        Section(s.J, key))
                     .Apply(static (area, ix, iy, sx, sy, rx, ry, zx, zy, jj) => (area, ix, iy, sx, sy, rx, ry, zx, zy, jj))
                     .As()
                     .Bind(head =>
-                        (Section(s.Avy), Section(s.Avz), Section(p.Perim),
+                        (Section(s.Avy, key), Section(s.Avz, key), Section(p.Perim, key),
                          AdmissionSlots.Gate(
                              s.Iw >= 0.0 && double.IsFinite(s.Iw) && double.IsFinite(s.ShearCentreY)
                              && double.IsFinite(s.ShearCentreZ) && double.IsFinite(s.Monosymmetry),
-                             new ComponentFault.SectionIncoherent(source.GetType())))
+                             new ComponentFault.SectionIncoherent(key, source.GetType())))
                         .Apply((avy, avz, perim, _) => new ComputedSection(
                             head.area, head.ix, head.iy, head.sx, head.sy, head.rx, head.ry, head.zx, head.zy, head.jj,
                             IwMm6: s.Iw, avy, avz,
@@ -1297,10 +1297,10 @@ public sealed record ComponentCatalogue(
             .Traverse(family => family.Rows(context).Map(rows => (Family: family, Rows: rows))).As()
         let claims = Claims(seeded)
         let catalogued = Catalogued(seeded)
-        from elected in candidates.Traverse(candidate => Imported(candidate, claims, catalogued)).As()
+        from elected in candidates.Traverse(candidate => Imported(candidate, claims, catalogued, key)).As()
         let rows = elected.Somes()
         let collisions = rows.Count - rows.Map(static r => r.Item.Designation).Distinct().Count
-        from keyed in guard(collisions == 0, new ComponentFault.CatalogueConflict(collisions))
+        from keyed in guard(collisions == 0, new ComponentFault.CatalogueConflict(key, collisions))
         select rows;
 
     static Fin<Option<ComponentRow>> Imported(
@@ -1412,7 +1412,7 @@ The seed-time bag constructors: each `Realization`/`Product`-lane seed page buil
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ComponentDetail {
     public static Fin<(PropertyName, PropertyValue)> Joint(string kind) =>
-        DetailSchema.Realization.Joint(kind).Map(static value => (DetailSchema.JointType, value));
+        DetailSchema.Realization.Joint(kind, key).Map(static value => (DetailSchema.JointType, value));
 
     public static (PropertyName, PropertyValue) Sourced(EvidenceGrade source) =>
         (PropertyCategory.Materials.Row(nameof(EvidenceGrade)), new PropertyValue.Text(source.Token));
@@ -1660,7 +1660,7 @@ public sealed partial class MaterialGrade {
     // --- [MINTS]
     static MaterialGrade Steel(string key, ComponentAuthority authority, double nominalYieldMpa, string substanceId,
         Option<string> enDesignation = default, Option<StainlessRow> stainless = default) =>
-        new(ComponentFamily.Steel, authority, substanceId, None,
+        new(key, ComponentFamily.Steel, authority, substanceId, None,
             new GradeProperties.Steel(nominalYieldMpa, enDesignation, stainless));
 
     static MaterialGrade Iso(string designation, SizeBand sizes, double proofMpa, double tensileMinMpa, double yieldMinMpa,
@@ -1673,7 +1673,7 @@ public sealed partial class MaterialGrade {
     static MaterialGrade Us(string key, ComponentAuthority authority, SizeBand sizes, Option<double> proofKsi,
         double tensileKsi, double yieldKsi, bool preloadable,
         Option<(double AboveIn, double ProofKsi, double TensileKsi, double YieldKsi)> step = default) =>
-        new(ComponentFamily.Fastener, authority,
+        new(key, ComponentFamily.Fastener, authority,
             $"steel.fastener-{key}", Some(tensileKsi >= 120.0 ? "metal.steel" : "metal.iron"),
             new GradeProperties.Fastener(sizes, proofKsi.Map(static ksi => ksi * KsiToMpa), tensileKsi * KsiToMpa,
                 yieldKsi * KsiToMpa, SpecifiedUltimateMpa: tensileKsi * KsiToMpa, EurocodeAlphaV: None, preloadable,
@@ -1682,17 +1682,17 @@ public sealed partial class MaterialGrade {
 
     static MaterialGrade Rebar(string key, ComponentAuthority authority, Option<double> yieldMpa, RebarStandard standard,
         string substanceId, string appearanceId, Option<EnRebarGrade> en = default) =>
-        new(ComponentFamily.Reinforcement, authority, substanceId, Some(appearanceId),
+        new(key, ComponentFamily.Reinforcement, authority, substanceId, Some(appearanceId),
             new GradeProperties.Rebar(yieldMpa, standard, en));
 
     static MaterialGrade Strand(string key, ComponentAuthority authority, double diameterMm, double areaMm2,
         double ultimateMpa, double yieldRatio, string substanceId) =>
-        new(ComponentFamily.Reinforcement, authority, substanceId, None,
+        new(key, ComponentFamily.Reinforcement, authority, substanceId, None,
             new GradeProperties.Strand(diameterMm, areaMm2, ultimateMpa, yieldRatio, RelaxationClass.LowRelaxation));
 
     static MaterialGrade Aluminum(string key, BucklingClass bucklingClass, string substanceId, Seq<AlloyBand> bands,
         Option<HazRow> haz) =>
-        new(ComponentFamily.Aluminum, ComponentAuthority.En, substanceId, None,
+        new(key, ComponentFamily.Aluminum, ComponentAuthority.En, substanceId, None,
             new GradeProperties.Aluminum(bucklingClass, bands, haz));
 
     static MaterialGrade Timber(string key, double fmk, double ft0k, double fc0k, double fc90k, double fvk,
@@ -1701,14 +1701,14 @@ public sealed partial class MaterialGrade {
             new GradeProperties.Timber(fmk, ft0k, fc0k, fc90k, fvk, fRvk, e0Mean, e005, e90Mean, gMean, densityK, k90Base));
 
     static MaterialGrade Glulam(string key, double fmk, double ft0k, double fc0k, double e0Mean, double e005, double rhoK) =>
-        Timber(fmk, ft0k, fc0k, Fc90GlulamMpa, FvGlulamMpa, Some(FrGlulamMpa), e0Mean, e005, E90GlulamMpa, GGlulamMpa, rhoK, 1.35);
+        Timber(key, fmk, ft0k, fc0k, Fc90GlulamMpa, FvGlulamMpa, Some(FrGlulamMpa), e0Mean, e005, E90GlulamMpa, GGlulamMpa, rhoK, 1.35);
 
     static MaterialGrade Concrete(string key, EnConcreteGrade en, double fckMpa, double fckCubeMpa, string mixToken) =>
         new(ComponentFamily.Concrete, ComponentAuthority.En, $"concrete.{key}", None,
             new GradeProperties.Concrete(en, fckMpa, fckCubeMpa, mixToken));
 
     static MaterialGrade Cmu(string key, double fmMpa, double netUnitMsMpa, Option<double> netUnitNMpa) =>
-        new(ComponentFamily.Cmu, ComponentAuthority.Astm, "concrete.cmu", None,
+        new(key, ComponentFamily.Cmu, ComponentAuthority.Astm, "concrete.cmu", None,
             new GradeProperties.Cmu(fmMpa, netUnitMsMpa, netUnitNMpa));
 
     const double KsiToMpa = 6.894757;

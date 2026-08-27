@@ -96,15 +96,17 @@ internal sealed record SustainabilityRow(
 public static class SustainabilityCatalogue {
     static readonly Validation<Error, Seq<MaterialPropertySet>> NoCost = Success<Error, Seq<MaterialPropertySet>>(Seq<MaterialPropertySet>());
 
-    static SustainabilityCatalogue() {
+    public static Fin<Unit> Proof() {
         string[] diverged = [
             .. Rows.Keys.Except(MaterialPropertyCatalogue.Rows.Keys)
                 .Concat(MaterialPropertyCatalogue.Rows.Keys.Except(Rows.Keys))
                 .Select(static id => id.ToValue())
                 .Order(StringComparer.Ordinal)];
-        if (diverged.Length > 0) {
-            throw new InvalidOperationException($"<full-roster-divergence:{string.Join(',', diverged)}>");
-        }
+        return diverged.Length == 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
+                Label: nameof(SustainabilityCatalogue),
+                Requirement: $"the same row set as MaterialPropertyCatalogue; diverged on {string.Join(',', diverged)}"));
     }
 
     // --- [TABLES]
@@ -169,13 +171,13 @@ public static class SustainabilityCatalogue {
          MaterialPropertySet.OfEnvironmental(
                  row.EnvironmentalBasis,
                  row.Matrix.IfNone(() => MaterialPropertySet.Environmental.CarbonMatrix(row.StageGwp)),
-                 row.Recycled, row.Recovery, row.Evidence)
+                 row.Recycled, row.Recovery, key, row.Evidence)
              .ToValidation(),
          row.Cost.Match(
              None: static () => NoCost,
              Some: c => FactoryBridge.Accept<Currency>(c.Currency)
                  .Bind(currency => MaterialPropertySet.OfCost(
-                     c.Basis, currency, c.Supply, c.Install, c.Lifecycle, SustainabilityRow.CostEstimate))
+                     c.Basis, currency, c.Supply, c.Install, c.Lifecycle, key, SustainabilityRow.CostEstimate))
                  .Map(static priced => Seq(priced))
                  .ToValidation()))
         .Apply(static (_, _, environmental, cost) => Seq(environmental) + cost).As()
@@ -377,7 +379,7 @@ public static class SustainabilityCatalogue {
     public static Fin<Option<Classification>> Classification(MaterialId id) =>
         Rows.TryGetValue(id, out SustainabilityRow? row)
             ? row!.Classification
-                .TraverseM(c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code))
+                .TraverseM(c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code, key))
                 .As()
             : Fin.Succ(Option<Classification>.None);
 }

@@ -165,11 +165,11 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             .Bind(admitted => Axes.Find(row => row.Carried(admitted) && !row.Reaches(this)).Match(
                 Some: row => Fin.Fail<SourcePolicy>(new LiveDataFault.Source($"{row.Axis} admits only {row.Cases}")),
                 None: () => Fin.Succ(admitted)))
-            .Map(admitted => OpenAdmitted(admitted, fault));
+            .Map(admitted => OpenAdmitted(key, admitted, fault));
 
     private Opened OpenAdmitted(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) {
-        SourceCache<TRow, TKey> cache = new();
-        DataFeed source = Feed(cache, policy, fault);
+        SourceCache<TRow, TKey> cache = new(key);
+        DataFeed source = Feed(cache, key, policy, fault);
         return new Opened(
             cache, source.Ordered, source.Transport, policy,
             new CompositeDisposable(cache, source.Subscription, Bounds(cache, policy, fault)));
@@ -188,7 +188,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
 
     private DataFeed Feed(ISourceCache<TRow, TKey> cache, Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) =>
         Switch(
-            state: (cache, policy, fault),
+            state: (cache, key, policy, fault),
             hostDocumentEvents: static (s, c) => Pump(
                 c.Facts, s.policy, "host-facts", s.fault,
                 fact => s.cache.Edit(updater => AdmitMode.Merge.Seat(updater, c.Project(fact)))),
@@ -276,7 +276,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         Func<Option<string>, Fin<(Seq<TRow> Rows, Option<string> Next)>> fetch,
         SourcePolicy policy,
         Action<Error> fault) {
-        SourceCache<TRow, TKey> staging = new();
+        SourceCache<TRow, TKey> staging = new(key);
         CancellationTokenSource life = new();
         SerialDisposable swap = new();
         IDisposable walk = policy.Source.Schedule(() => _ = Task.Run(async () => {
@@ -326,7 +326,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                 list,
                 bind(list),
                 list.Connect().Subscribe(
-                    changes => cache.Edit(updater => changes.Iter(change => Fold(updater, change, fault))),
+                    changes => cache.Edit(updater => changes.Iter(change => Fold(updater, key, change, fault))),
                     raw => fault(Error.New(raw.Message, raw)))),
             Some<IObservableList<TRow>>(list),
             Observable.Return(false));
@@ -921,7 +921,7 @@ public sealed record SnapshotPort<TScope, TKey, TValue>(
     Func<TScope, TKey, IO<Unit>> Drop)
     where TScope : notnull where TKey : notnull where TValue : notnull {
     public IO<Fin<TValue>> Recall(TScope scope, TKey key, Error absent) =>
-        Load(scope).Map(found => found.Match(
+        Load(scope, key).Map(found => found.Match(
             Some: row => Admit(scope, row),
             None: () => Fin.Fail<TValue>(absent)));
 
@@ -1445,16 +1445,16 @@ public sealed record OptionSet(
                 .Select(value => new OptionReading(group.Key, kpi.Key, value, kpi.Polarity)));
 
     private OptionSet Seated(OptionKey key, string name, Option<OptionKey> parent) => this with {
-        Options = Options.AddOrUpdate(new DesignOption(name, parent, Clock())),
+        Options = Options.AddOrUpdate(key, new DesignOption(key, name, parent, Clock())),
     };
 
     private Fin<DesignOption> Present(OptionKey key) =>
-        Options.Find().Match(
+        Options.Find(key).Match(
             Some: Fin.Succ,
             None: () => Fin.Fail<DesignOption>(new LiveDataFault.Options($"option {key} is absent")));
 
     private Fin<Unit> Absent(OptionKey key) =>
-        Options.ContainsKey()
+        Options.ContainsKey(key)
             ? Fin.Fail<Unit>(new LiveDataFault.Options($"option {key} already exists"))
             : Fin.Succ(unit);
 

@@ -456,7 +456,7 @@ public sealed partial class ProbePlan {
         double clearanceMm,
         PositiveMagnitude travelLimitMm,
         Tolerance approach) =>
-        Validate(feature, cycle, band, count, attempts, feedMmPerMinute, clearanceMm,
+        Validate(key, feature, cycle, band, count, attempts, feedMmPerMinute, clearanceMm,
             travelLimitMm, approach, out ProbePlan plan).Admitted(plan);
 }
 ```
@@ -580,7 +580,7 @@ public sealed partial class StylusCalibration {
         double calibrationUncertaintyMm,
         Interval validity,
         Seq<ProbeLobe> lobes) =>
-        Validate(radiusMm, preTravelMm, probeFrame, thermalExpansionPerC, referenceTemperatureC,
+        Validate(key, radiusMm, preTravelMm, probeFrame, thermalExpansionPerC, referenceTemperatureC,
             thermalReference, calibrationUncertaintyMm, validity, lobes, out StylusCalibration calibration)
             .Admitted(calibration);
 

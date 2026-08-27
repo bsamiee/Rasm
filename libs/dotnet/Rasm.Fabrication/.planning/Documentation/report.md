@@ -1557,7 +1557,7 @@ public sealed partial class ScheduleKind {
     public Seq<PropertyName> RequiredRows => TypeRows + OccurrenceRows;
 
     private static ScheduleKind Of(string key, string row, Seq<PropertyName> type, Seq<PropertyName> occurrence, Seq<PropertyName> optional = default) =>
-        new(PropertyCategory.Fabrication.Row(row), type, occurrence, optional);
+        new(key, PropertyCategory.Fabrication.Row(row), type, occurrence, optional);
 
     static Option<ScheduleRow> Read(PropertyBag realization, PropertyName name) =>
         realization.Find(name).Map(value => new ScheduleRow(name, value));

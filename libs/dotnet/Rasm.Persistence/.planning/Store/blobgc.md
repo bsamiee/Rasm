@@ -118,12 +118,12 @@ public static class BlobGc {
         from _t in frame.Tenant.TenantId == client.Tenant ? IO.pure(unit) : IO.fail<Unit>(new RemoteStoreFault.Denied(admitted.Key, store.Key, "tenant-mismatch"))
         let key = admitted.Key
         let session = admitted.Session
-        let handle = BlobName.Handle(client.Tenant, kind.Retention, codec, source.Length)
-        from _o in ledger.Open(new PendingWrite(kind, source.Length, frame.Now(), session))
-        from formed in store.Encode(codec, source)
-        from resident in MultipartTransfer.Upload(store, client, handle, BlobPlacement.From(new Extent(formed.Bytes.Length, source.Length), new Rung.Assumed(store.Tier), codec) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, formed.Bytes), formed.Bytes, frame)
-        from _c in ledger.Catalog(new BlobCatalogRow(kind, resident.Extent, store.Tier, codec, admitted.Lineage, frame.Tenant.TenantId, admitted.Classification, resident.WormUntil, formed.Dek, frame.Now()))
-        from _x in ledger.Close()
+        let handle = BlobName.Handle(key, client.Tenant, kind.Retention, codec, source.Length)
+        from _o in ledger.Open(new PendingWrite(key, kind, source.Length, frame.Now(), session))
+        from formed in store.Encode(codec, key, source)
+        from resident in MultipartTransfer.Upload(store, client, handle, BlobPlacement.From(key, new Extent(formed.Bytes.Length, source.Length), new Rung.Assumed(store.Tier), codec) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, formed.Bytes), formed.Bytes, frame)
+        from _c in ledger.Catalog(new BlobCatalogRow(key, kind, resident.Extent, store.Tier, codec, admitted.Lineage, frame.Tenant.TenantId, admitted.Classification, resident.WormUntil, formed.Dek, frame.Now()))
+        from _x in ledger.Close(key)
         select resident;
 
     public static Func<ContentAddress, bool> InFlightFence(Seq<PendingWrite> pending, Instant now) =>
@@ -132,9 +132,9 @@ public static class BlobGc {
     static RetentionFact ToFact(BlobCatalogRow row) => new(row.Class, row.Key, row.Extent.Stored, row.Tier, row.At);
 
     static IO<Unit> Demote(ObjectStore store, ObjectClient client, RetentionClass cls, ContentAddress key, StorageTier colder, FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm, Instant now) {
-        BlobHandle handle = BlobName.Handle(client.Tenant, cls, ObjectCodec.Identity, 0L);
-        return worm.TryGetValue(out (string Mode, Instant Until) held) && now < held.Until
-            ? IO.fail<Unit>(new RemoteStoreFault.Locked(held.Mode, held.Until))
+        BlobHandle handle = BlobName.Handle(key, client.Tenant, cls, ObjectCodec.Identity, 0L);
+        return worm.TryGetValue(key, out (string Mode, Instant Until) held) && now < held.Until
+            ? IO.fail<Unit>(new RemoteStoreFault.Locked(key, held.Mode, held.Until))
             : store.Head(client, handle).Bind(present => present.Match(Some: resident => resident.Tier is Rung.Realized { Tier: var realized } && realized == colder, None: static () => false)
                 ? IO.pure(unit)
                 : store.Transition(client, handle, colder, now));

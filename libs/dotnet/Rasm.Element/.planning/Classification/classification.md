@@ -58,7 +58,7 @@ public readonly partial struct Classification {
         Accumulate(Seq(
             Gate(!string.IsNullOrWhiteSpace(system), "classification-system",
                 static (label, op) => (Error)new KernelFault.InvalidValue(label, "not be blank")),
-            Gate(!string.IsNullOrWhiteSpace(code), "classification-code",
+            Gate(!string.IsNullOrWhiteSpace(code), "classification-code", key,
                 static (label, op) => (Error)new KernelFault.InvalidValue(label, "not be blank"))))
          .Map(_ => new Classification(
             system.Trim().ToLowerInvariant(), code.Trim(), edition.Trim(),

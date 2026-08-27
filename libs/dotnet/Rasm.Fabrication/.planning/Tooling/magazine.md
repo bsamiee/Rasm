@@ -255,7 +255,7 @@ public sealed partial class ToolMeasure {
         Index.Value.TryGetValue(provider, out ToolMeasure? row) ? Some(row) : None;
 
     private static ToolMeasure Of<TMeasurement>(string key, MetricDimension dimension)
-        where TMeasurement : IToolingMeasurement => new(dimension, typeof(TMeasurement));
+        where TMeasurement : IToolingMeasurement => new(key, dimension, typeof(TMeasurement));
 }
 
 [SmartEnum<string>]
@@ -412,7 +412,7 @@ public sealed partial class ToolEdge {
     public static Fin<ToolEdge> Admit(ToolEdgeKey key, Option<string> grade, Option<string> locus,
         Option<string> programToolGroup, Seq<string> manufacturers, Seq<ToolAvailability> status,
         Seq<LifeBudget> life, Seq<ToolMetric> metrics) =>
-        Validate(grade, locus, programToolGroup, manufacturers, status, life, metrics, out ToolEdge edge)
+        Validate(key, grade, locus, programToolGroup, manufacturers, status, life, metrics, out ToolEdge edge)
             .Admitted(edge);
 }
 
@@ -769,7 +769,7 @@ public sealed partial class WorkItem {
 
     public static Fin<WorkItem> Admit(Operation op, ToolAssembly assembly, LifeDemand demand, CutterForm form,
         CutterForm required, Ratio formDiameterBand) =>
-        Validate(assembly, demand, form, required, formDiameterBand, out WorkItem item).Admitted(item);
+        Validate(op, assembly, demand, form, required, formDiameterBand, out WorkItem item).Admitted(item);
 }
 
 [ComplexValueObject]
@@ -1054,9 +1054,9 @@ public static class ToolCatalog {
     private static Fin<ToolEdge> AdmitEdge(ICuttingItem item, Instant observedAt) =>
         from key in ToolEdgeKey.Admit(item.ItemId ?? string.Join('-', item.Indices))
         from metrics in toSeq(item.Measurements).Traverse(AdmitMetric).As()
-        from life in toSeq(item.ItemLife).Traverse(row => AdmitLife(new ToolTarget.Edge(), row, observedAt)).As()
+        from life in toSeq(item.ItemLife).Traverse(row => AdmitLife(new ToolTarget.Edge(key), row, observedAt)).As()
         from status in Status(item.CutterStatus, item)
-        from edge in ToolEdge.Admit(Optional(item.Grade), Optional(item.Locus),
+        from edge in ToolEdge.Admit(key, Optional(item.Grade), Optional(item.Locus),
             Optional(item.ProgramToolGroup), toSeq(item.Manufacturers), status, life, metrics)
         select edge;
 

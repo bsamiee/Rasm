@@ -151,7 +151,7 @@ public static class Heal {
                     sequence.Fold(
                         Fin.Succ((Space: admitted, Status: first, Steps: Seq<HealStep>(), Incidence: Option<Incidence>.None)),
                         (acc, heal) => acc.Bind(state =>
-                            from edit in heal.Apply(live, state.Space, repair, state.Incidence)
+                            from edit in heal.Apply(live, state.Space, repair, op, state.Incidence)
                             from space in Publish(edit)
                             from after in MeshKernel.TopologyDetailed(space)
                             select (Space: space, Status: after, Steps: state.Steps.Add(Step(heal, edit, state.Status, after)), edit.Incidence)))
@@ -161,7 +161,7 @@ public static class Heal {
 
             Fin<MeshSpace> Publish(RepairEdit edit) {
                 if (!ReferenceEquals(edit.Edit, live)) { live.Dispose(); live = edit.Edit; }
-                return live.ToSpace();
+                return live.ToSpace(op);
             }
 
             HealStep Step(HealOp heal, RepairEdit edit, Topology before, Topology after) {
@@ -331,7 +331,7 @@ public static class Heal {
                 (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(s0), soup.Position(s1), soup.Position(s2));
                 List<Implicit> rows = new(3 + cuts.Count) { new(pa), new(pb), new(pc) };
                 Dictionary<CrossKey, int> slotOf = new();
-                return Axis.DominantOf(pa, pb, pc).Bind(plane => {
+                return Axis.DominantOf(pa, pb, pc, key).Bind(plane => {
                     Vector3d normal = Vector3d.CrossProduct(pb - pa, pc - pa);
                     Vector3d lift = plane.Basis;
                     bool mirrored = plane.Along(normal) < 0.0;

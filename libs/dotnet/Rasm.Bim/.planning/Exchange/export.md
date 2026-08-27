@@ -270,7 +270,7 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
 
     public Fin<uint> Rgba() =>
         Surface.Match(
-            Some: s => AppearanceProjection.Bytes(s.BaseColorR, s.BaseColorG, s.BaseColorB, s.Opacity)
+            Some: s => AppearanceProjection.Bytes(s.BaseColorR, s.BaseColorG, s.BaseColorB, s.Opacity, key)
                 .Map(static b => (uint)b.Red << 24 | (uint)b.Green << 16 | (uint)b.Blue << 8 | b.Alpha),
             None: static () => Fin.Succ(0xFFFFFFFFu));
 
@@ -325,7 +325,7 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
 
 public readonly record struct MeshLanes(float[] Positions, float[] Normals) {
     public static Fin<MeshLanes> Of(ImportedGeometry geometry) =>
-        (Admit(geometry, EncodingChannel.Position), Admit(geometry, EncodingChannel.Normal))
+        (Admit(geometry, EncodingChannel.Position, key), Admit(geometry, EncodingChannel.Normal, key))
             .Apply(static (positions, normals) => new MeshLanes(positions, normals)).As().ToFin();
 
     static Validation<Error, float[]> Admit(ImportedGeometry geometry, EncodingChannel channel) =>
@@ -351,11 +351,11 @@ public sealed record ElementScene {
             : instances.Find(instance => !pool.ContainsKey(instance.MeshKey)).Match(
                 Some: miss => Fin.Fail<ElementScene>(new BimFault.Refused(BimScope.Export, BimReason.DanglingReference, string.Join(':', new object?[] { "element-scene-mesh-miss", miss.GlobalId, miss.MeshKey.ToString("x32", CultureInfo.InvariantCulture) }))),
                 None: () => toSeq(pool.AsIterable())
-                    .Traverse(pair => MeshLanes.Of(pair.Value).Map(lanes => (pair.Key, lanes))).As()
+                    .Traverse(pair => MeshLanes.Of(pair.Value, key).Map(lanes => (pair.Key, lanes))).As()
                     .Map(rows => new ElementScene(pool, rows.ToMap(), instances)));
 
     public static Fin<ElementScene> Of(ImportedGeometry soup) =>
-        MeshLanes.Of(soup).Map(lanes => Sole(soup, lanes));
+        MeshLanes.Of(soup, key).Map(lanes => Sole(soup, lanes));
 
     static ElementScene Sole(ImportedGeometry soup, MeshLanes lanes) {
         UInt128 pooled = ContentHash.Of(soup.Lanes.Payload.Span);
@@ -394,7 +394,7 @@ public sealed record ElementScene {
             (vBase, iBase, slot) = (vBase + mesh.VertexCount, iBase + corners.Length, slot + 1);
         }
         var placed = Instances.Map(i => new MeshInstance(ordinals[i.MeshKey], i.Placement));
-        return Encode.Of(vertexTotal, lanes).Map(arena => new ImportedGeometry(
+        return Encode.Of(vertexTotal, lanes, key).Map(arena => new ImportedGeometry(
             lead.FormatKey, arena, indices, vertexTotal, indexTotal / 3, toSeq(blocks), placed, lead.At));
     }
 }
@@ -415,25 +415,25 @@ public sealed record GlbScene(
 
 public static partial class BimExport {
     public static Fin<ExportArtifact> Export(InterchangeFormat format, ExportPayload payload, InterchangePolicy policy, IClock clock) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Export).Bind(row => row.Codec.Switch(
-            sharpGltf:        () => GlbBytes(payload, policy).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            dotBim:           () => DotBimBytes(payload).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            sceneExchange:    () => Admitted(payload).Bind(pair => SceneBytes(format, pair.Geometry, pair.Lanes)).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            usdStage:         () => Admitted(payload).Bind(pair => Encoded(() => UsdBytes(format, pair.Geometry, pair.Lanes), "usd-export")).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            geometryGym:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-route", "use-ExportIfc", format.Key }))),
-            geospatialVector: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "geo-export-route", "GeoVector.Write", format.Key }))),
-            geospatialRaster: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            meshText:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            ply:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            pointCloud:       () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            acadSharp:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            stepIso10303:     () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            nativeCompanion:  () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
-            igesAnsi:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
-            saf:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "saf-export-graph-route", "use-SafEmit", format.Key }))),
-            cobieXlsx:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "cobie-export-graph-route", "use-CobieEmit", format.Key }))),
-            energyModel:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "energy-export-route", "EnergyExchange.Apply", format.Key }))),
-            ifc5Pending:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "export-catalogue-pending", format.Key })))));
+        InterchangeFormat.Admitted(format, InterchangeCapability.Export, key).Bind(row => row.Codec.Switch(
+            sharpGltf:        () => GlbBytes(payload, policy, key).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            dotBim:           () => DotBimBytes(payload, key).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            sceneExchange:    () => Admitted(payload, key).Bind(pair => SceneBytes(format, pair.Geometry, pair.Lanes, key)).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            usdStage:         () => Admitted(payload, key).Bind(pair => Encoded(() => UsdBytes(format, pair.Geometry, pair.Lanes), key, "usd-export")).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            geometryGym:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-route", "use-ExportIfc", format.Key }))),
+            geospatialVector: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "geo-export-route", "GeoVector.Write", format.Key }))),
+            geospatialRaster: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            meshText:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            ply:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            pointCloud:       () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            acadSharp:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            stepIso10303:     () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            nativeCompanion:  () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
+            igesAnsi:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
+            saf:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "saf-export-graph-route", "use-SafEmit", format.Key }))),
+            cobieXlsx:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "cobie-export-graph-route", "use-CobieEmit", format.Key }))),
+            energyModel:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "energy-export-route", "EnergyExchange.Apply", format.Key }))),
+            ifc5Pending:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "export-catalogue-pending", format.Key })))));
 
     public static Fin<GlbScene> Author(ElementScene scene, InterchangePolicy policy) =>
         Try.lift(() => Staged(scene, policy)).Run().Bind(static inner => inner)
@@ -456,7 +456,7 @@ public static partial class BimExport {
         });
 
     internal static Fin<(ImportedGeometry Geometry, MeshLanes Lanes)> Admitted(ExportPayload payload) =>
-        payload.Flat().Bind(flat => MeshLanes.Of(flat).Map(lanes => (flat, lanes)));
+        payload.Flat(key).Bind(flat => MeshLanes.Of(flat, key).Map(lanes => (flat, lanes)));
 
     static GlbScene Staged(ElementScene scene, InterchangePolicy policy) {
         var rows = scene.Instances.Select(static (instance, row) => (instance.GlobalId, row)).ToMap();
@@ -472,7 +472,7 @@ public static partial class BimExport {
         MaterialBuilder Finished(MaterialFinish finish) =>
             materials.TryGetValue(finish.Key, out MaterialBuilder? held) ? held : materials[finish.Key] = finish.Author();
         var pool = scene.Pool.Map((key, mesh) => {
-            var (row, finish) = byMesh.GetValueOrDefault((nullRow, MaterialFinish.White));
+            var (row, finish) = byMesh.GetValueOrDefault(key, (nullRow, MaterialFinish.White));
             return MeshOf(mesh, scene.Lanes[key], Finished(finish), Some(row));
         });
         var builder = new SceneBuilder();
@@ -521,7 +521,7 @@ public static partial class BimExport {
                 state: key,
                 soup: static (k, s) => ElementScene.Of(s.Geometry, k),
                 scene: static (_, s) => Fin.Succ(s.Elements))
-            .Bind(scene => Wired(scene));
+            .Bind(scene => Wired(scene, key));
 
     static Fin<byte[]> Wired(ElementScene scene) {
         Map<UInt128, int> ordinals = scene.Pool.Keys.Select(static (k, index) => (k, index)).ToMap();
@@ -530,8 +530,8 @@ public static partial class BimExport {
             Coordinates = [.. scene.Lanes[pair.Key].Positions.Select(static v => (double)v)],
             Indices = [.. pair.Value.Indices.ToArray().Select(static i => (int)i)],
         }).ToList();
-        return scene.Instances.Traverse(instance => Placed(instance, ordinals)).As()
-            .Bind(elements => Encoded(() => Written(meshes, elements.ToList()), "bim-export"));
+        return scene.Instances.Traverse(instance => Placed(instance, ordinals, key)).As()
+            .Bind(elements => Encoded(() => Written(meshes, elements.ToList()), key, "bim-export"));
     }
 
     static Fin<dotbim.Element> Placed(ElementInstance instance, Map<UInt128, int> ordinals) =>
@@ -595,17 +595,17 @@ public static partial class BimExport {
     public static Fin<ExportArtifact> ExportIfc(
         InterchangeFormat format, ElementGraph graph, SemanticProjector projector,
         InterchangePolicy policy, IClock clock, Option<EmitContext> context) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Export).Bind(row => row.Serialization
-            .ToFin(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-codec-miss", format.Key })))
-            .Bind(form => projector.Emit(graph, form, context)
+        InterchangeFormat.Admitted(format, InterchangeCapability.Export, key).Bind(row => row.Serialization
+            .ToFin(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-codec-miss", format.Key })))
+            .Bind(form => projector.Emit(graph, form, key, context)
                 .Map(bytes => Sealed(row, bytes, policy, clock.GetCurrentInstant()))));
 
     static Fin<byte[]> GlbBytes(ExportPayload payload, InterchangePolicy policy) =>
         policy.Compression switch {
-            KhrEncoder.Draco => Admitted(payload).Bind(pair => Encoded(() => DracoBytes(pair.Geometry, pair.Lanes, policy), "gltf-export")),
-            KhrEncoder.Meshopt => Admitted(payload).Bind(pair => Encoded(() => MeshoptBytes(pair.Geometry, pair.Lanes, policy), "gltf-export")),
-            KhrEncoder.None => Container(payload, policy).Bind(model => Encoded(() => WriteGlb(model, policy), "gltf-export")),
-            var unknown => Fin.Fail<byte[]>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "khr-encoder-unrouted", unknown.ToString() }))),
+            KhrEncoder.Draco => Admitted(payload, key).Bind(pair => Encoded(() => DracoBytes(pair.Geometry, pair.Lanes, policy), key, "gltf-export")),
+            KhrEncoder.Meshopt => Admitted(payload, key).Bind(pair => Encoded(() => MeshoptBytes(pair.Geometry, pair.Lanes, policy), key, "gltf-export")),
+            KhrEncoder.None => Container(payload, policy, key).Bind(model => Encoded(() => WriteGlb(model, policy), key, "gltf-export")),
+            var unknown => Fin.Fail<byte[]>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "khr-encoder-unrouted", unknown.ToString() }))),
         };
 
     static Fin<byte[]> Encoded(Func<byte[]> encode, string detail) =>
@@ -613,7 +613,7 @@ public static partial class BimExport {
 
     static Fin<ModelRoot> Container(ExportPayload payload, InterchangePolicy policy) =>
         payload.Switch(
-            state: (policy),
+            state: (policy, key),
             soup:  static (run, flat) => MeshLanes.Of(flat.Geometry, run.key).Map(lanes => SceneOf(flat.Geometry, lanes, run.policy)),
             scene: static (run, per) => Fin.Succ(Staged(per.Elements, run.policy).Model));
 
@@ -893,7 +893,7 @@ public sealed record LodLevel(
 
 public static class BimLod {
     public static Fin<Seq<LodLevel>> Pyramid(ImportedGeometry geometry, InterchangePolicy policy) =>
-        MeshLanes.Of(geometry).Bind(lanes =>
+        MeshLanes.Of(geometry, key).Bind(lanes =>
             Try.lift(() => Levels(geometry, lanes, policy)).Run().Bind(static inner => inner));
 
     static unsafe Seq<LodLevel> Levels(ImportedGeometry geometry, MeshLanes lanes, InterchangePolicy policy) {
@@ -963,7 +963,7 @@ public static class BimLod {
     }
 
     public static unsafe Fin<Seq<MeshletBand>> Meshlets(ImportedGeometry geometry) =>
-        MeshLanes.Of(geometry).Bind(lanes =>
+        MeshLanes.Of(geometry, key).Bind(lanes =>
             Try.lift(() => Cluster(geometry, lanes)).Run().Bind(static inner => inner));
 
     static unsafe Seq<MeshletBand> Cluster(ImportedGeometry geometry, MeshLanes lanes) {
@@ -1154,7 +1154,7 @@ public static class RoundTrip {
             .Map(static rows => rows.ToMap());
 
     static Fin<RoundTripReport> Compare(string formatKey, ElementGraph source, ElementGraph reimported) =>
-        (ElementsByExternal(source).ToValidation(), ElementsByExternal(reimported).ToValidation())
+        (ElementsByExternal(source, key).ToValidation(), ElementsByExternal(reimported, key).ToValidation())
             .Apply((sourceElements, reimportedElements) => {
                 var dropped = sourceElements.Keys.Filter(id => !reimportedElements.ContainsKey(id)).ToSeq();
                 var lossy = sourceElements
@@ -1168,7 +1168,7 @@ public static class RoundTrip {
     static Fin<Map<string, Element>> ElementsByExternal(ElementGraph graph) =>
         graph.ObjectNodes
             .Choose(static o => o.ExternalId.Map(external => (External: external, o.Id)))
-            .TraverseM(row => graph.Bake(row.Id).Map(element => (row.External, element))).As()
+            .TraverseM(row => graph.Bake(row.Id, key).Map(element => (row.External, element))).As()
             .Map(static rows => rows.ToMap());
 
     static Seq<string> Divergence(Element source, Element reimported) =>
@@ -1199,7 +1199,7 @@ public static class TileAvailability {
         Try.lift(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
                 ? subtree.SubtreeCreator3D.GenerateSubtreefile(tiles.Map(TileOf3D).ToList())
                 : subtree.SubtreeCreator.GenerateSubtreefile(tiles.Map(TileOf).ToList())).Run().Bind(static inner => inner)
-            .Bind(binary => Witness(binary, tiles, scheme));
+            .Bind(binary => Witness(binary, tiles, scheme, key));
 
     static Fin<SubtreeArtifact> Witness(byte[] binary, Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme) {
         int levels = tiles.Max(static node => node.Lod) + 1;
@@ -1278,7 +1278,7 @@ public static class CobieEmit {
             using var model = new CobieModel();
             Seq<CobieDegrade> degrades;
             using (var txn = model.BeginTransaction("rasm-cobie")) {
-                degrades = Author(model, graph);
+                degrades = Author(model, graph, key);
                 txn.Commit();
             }
             using var stream = new MemoryStream();
@@ -1291,7 +1291,7 @@ public static class CobieEmit {
     static Seq<CobieDegrade> Author(CobieModel model, ElementGraph graph) =>
         graph.ObjectNodes.Find(static o => o.Classification.Code == IfcClass.Building.Key).Match(
             None: () => Seq(new CobieDegrade(CobieReason.FacilityMissing, graph.Header.Schema.ToString())),
-            Some: root => Registered(model, graph, root));
+            Some: root => Registered(model, graph, root, key));
 
     static Seq<CobieDegrade> Registered(CobieModel model, ElementGraph graph, Node.Object root) {
         CobieFacility facility = model.Instances.New<CobieFacility>(f => Named(f, root));
@@ -1317,14 +1317,14 @@ public static class CobieEmit {
             .Filter(node => !spaces.ContainsKey(node.Id)
                 && node.Classification.Code != IfcClass.Building.Key
                 && node.Classification.Code != IfcClass.BuildingStorey.Key)
-            .Fold(Seq<CobieDegrade>(), (log, node) => Landed(model, graph, node, spaces, types, templates, log));
+            .Fold(Seq<CobieDegrade>(), (log, node) => Landed(model, graph, node, spaces, types, templates, log, key));
     }
 
     static Seq<CobieDegrade> Landed(
         CobieModel model, ElementGraph graph, Node.Object node, HashMap<NodeId, CobieSpace> spaces,
         Dictionary<NodeId, CobieType> types, Map<(string Code, string Token), Map<string, PropertyTemplate>> templates,
         Seq<CobieDegrade> log) =>
-        graph.Bake(node.Id).Match(
+        graph.Bake(node.Id, key).Match(
             Succ: baked => Landed(model, graph, node, spaces, types, templates, log, baked),
             Fail: error => log.Add(new CobieDegrade(CobieReason.ElementUnbakeable, Identity(node), Some(error))));
 
@@ -1423,11 +1423,11 @@ public static class CobieEmit {
 public static class SafEmit {
     public static Fin<ExportArtifact> Export(
         ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime, SafServices services, Instant at) =>
-        SafCodec.Workbook(graph, geometry, regime).Bind(model => {
+        SafCodec.Workbook(graph, geometry, regime, key).Bind(model => {
             using MemoryStream stream = new();
             return SafCodec.Run(
                     new SafOp.Export(stream, model, services.Target),
-                    services.Imports, services.Exports, services.Validator)
+                    services.Imports, services.Exports, services.Validator, key)
                 .Map(_ => BimExport.Sealed(InterchangeFormat.Saf, stream.ToArray(), InterchangePolicy.Canonical, at));
         });
 }

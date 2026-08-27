@@ -56,10 +56,10 @@ public static class Nabla {
             z: (samples.X1.Y - samples.X0.Y - (samples.Y1.X - samples.Y0.X)) * inv2eps))
         select curl;
     public static Fin<Vector3d> CurlNoiseAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps) =>
-        from g1 in GradientAt(sampler, point, eps)
+        from g1 in GradientAt(sampler, point, eps, key)
         let offset = new Vector3d(eps, 1.3 * eps, 0.7 * eps)
-        from g2 in GradientAt(sampler, point + (offset * 137.0), eps)
-        from g3 in GradientAt(sampler, point - (offset * 311.0), eps)
+        from g2 in GradientAt(sampler, point + (offset * 137.0), eps, key)
+        from g3 in GradientAt(sampler, point - (offset * 311.0), eps, key)
         from raw in Acceptance.Value(new Vector3d(g3.Y - g2.Z, g1.Z - g3.X, g2.X - g1.Y))
         select raw;
     public static Fin<double> DivergenceAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps) =>
@@ -155,7 +155,7 @@ public static class Nabla {
 
 - Owner: `KernelProfile` carries value, first and second derivative, and a `KernelStatus` smoothness verdict, so a consumer reads a kernel's derivative off the profile instead of re-differencing; `KernelKind` mints the kernel bases in three bands — compact-support rows, band-limited `Lanczos`/`Jinc` reconstruction rows whose profiles evaluate at 106-bit through the `ddouble` cardinal ladder and narrow once, and globally-supported RBF rows — each row privately carrying whether its normalized profile has compact support, its `Origin` status, `DerivativeSupremum`, its dimensionless slope-bound numerator, and `PolynomialOrder`, the reproduction-tail order the conditionally-positive-definite bases demand; `WeightKernel` mints the reconstruction-weight profiles; `Falloff` the radial-decay `[Union]` whose anisotropic case takes a `SymmetricMatrix` metric sampler driving the Mahalanobis distance.
 - Cases: the `KernelStatus` verdicts, the compact, band-limited, and global `KernelKind` rows, the `WeightKernel` weights including the band-limited interpolating row, and the `Falloff` decay cases including the metric-sampler anisotropic one.
-- Entry: `KernelKind.Profile(distance, radius)` returns the full gated profile and `Weight` the bare fast path; each of the three weight owners carries a SPAN arm beside its scalar one — `KernelKind.Weights`, `WeightKernel.Weights`, `Falloff.Weights` — so a tap table or a design matrix fills in one call; `Falloff.Weight` discriminates bare distance, offset vector, and offset-plus-sample-point through one `WeightCore`, and `Falloff.Slope` is the LOCAL slope beside the family-wide `SlopeBound`.
+- Entry: `KernelKind.Profile(distance, radius, key)` returns the full gated profile and `Weight` the bare fast path; each of the three weight owners carries a SPAN arm beside its scalar one — `KernelKind.Weights`, `WeightKernel.Weights`, `Falloff.Weights` — so a tap table or a design matrix fills in one call; `Falloff.Weight` discriminates bare distance, offset vector, and offset-plus-sample-point through one `WeightCore`, and `Falloff.Slope` is the LOCAL slope beside the family-wide `SlopeBound`.
 - Auto: one `Profiled` body serves both support regimes — the row's private compact-support fact decides the `q = 1` clamp and its `Origin` the q→0 verdict — banded on the dimensionless `q = d/r` so classification is scale-invariant with exact zeros outside support; the profile is gated by `Acceptance.Value`, whose `IValidityEvidence` arm IS the finiteness proof, so the fold that hand-tested it deletes; the metric falloff proves the sampled tensor definite through `SymmetricMatrix.Definite`, so an indefinite metric fails typed instead of producing `√negative`.
 - Law: `KernelProfile.FirstDerivative` is read by `Falloff.Slope` — the local Lipschitz bound `Spatial/fields` folds where the family-wide `SlopeBound` column answers `None` — and `SecondDerivative` is the profile's complete calculus output with no present consumer; `Rasm.Compute` `Tensor/sampling#RECONSTRUCT` binds the row's `Weight`, `DerivativeSupremum`, and `PolynomialOrder`.
 - Output: `KernelProfile` is the per-evaluation reading — value, both derivatives, and status — proving itself through the `IValidityEvidence` fold. `SpanProfile.Fill` is the ONE span-fill owner both profile families hand their row closure to; the guard, the q normalization, and the finiteness finalize have one seat.

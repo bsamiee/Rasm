@@ -430,7 +430,7 @@ public static class SparseOps {
     public static IO<Fin<RecyclableMemoryStream>> Emit(SparseContainer container, StreamPool pool, CorrelationId correlation, FactoredOp op, HdfArchivePolicy policy) =>
         IO.pure(pool.Get(correlation, new StreamGrant.Open())).Bind(opened => opened.Match(
             Succ: staged => IO.lift(() => staged).Bracket(
-                Use: held => IO.lift(() => container.Write(held, policy).Map(_ => { held.Position = 0; return held; })),
+                Use: held => IO.lift(() => container.Write(held, op, policy).Map(_ => { held.Position = 0; return held; })),
                 Catch: static error => IO.pure(Fin<RecyclableMemoryStream>.Fail(error)),
                 Fin: static held => IO.lift(() => { held.Dispose(); return unit; })),
             Fail: static error => IO.pure(Fin<RecyclableMemoryStream>.Fail(error))));
@@ -483,13 +483,13 @@ public static class SparseOps {
         };
 
     public static Fin<FactoredOp> Apply(FactoredOp op, Edit edit, double pivotTol) =>
-        Admit(edit).Bind(admitted => admitted.Switch(
+        Admit(op, edit).Bind(admitted => admitted.Switch(
             pin: pin => Refactor(Pinned(op.A, pin.Node), pivotTol, admitted.Regates),
             prune: prune => Refactor(Cleaned(op.A, prune.Tolerance), pivotTol, admitted.Regates),
             bump: bump => op.Kind.Rank1Edit
-                ? Downdate(bump, pivotTol)
+                ? Downdate(op, bump, pivotTol)
                 : Refactor(Bumped(op.A, bump), pivotTol, admitted.Regates),
-            revalue: revalue => Revalue(revalue.Values, pivotTol)));
+            revalue: revalue => Revalue(op, revalue.Values, pivotTol)));
 
     static Fin<Edit> Admit(FactoredOp op, Edit edit) =>
         edit.Switch(
@@ -514,7 +514,7 @@ public static class SparseOps {
                 Fill = op.Kind.Fill(changed.NonZerosCount, changed.RowCount, changed.ColumnCount),
                 FrobeniusNorm = changed.FrobeniusNorm(),
             })
-            : Refactor(changed, pivotTol, regate: false);
+            : Refactor(changed, op, pivotTol, regate: false);
     }
 
     static Fin<FactoredOp> Revalue(FactoredOp op, double[] values, double pivotTol) =>

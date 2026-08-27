@@ -156,7 +156,7 @@ public abstract partial record HopFault : Fault {
     public sealed partial record OwnerConflict : HopFault {
         public OwnerConflict(HopKey key, RetryOwner incumbent, RetryOwner loser)
             : base($"<owner-conflict:{key.Value}>") =>
-            (Key, Incumbent, Loser) = (incumbent, loser);
+            (Key, Incumbent, Loser) = (key, incumbent, loser);
         public HopKey Key { get; }
         public RetryOwner Incumbent { get; }
         public RetryOwner Loser { get; }
@@ -763,8 +763,8 @@ public static class OutboundSurface {
             contended: contended => Held(contended.State, row.Key, owner));
 
     static Fin<HopClaim> Held(HashMap<HopKey, HopClaim> seated, HopKey key, RetryOwner owner) =>
-        seated.Find() is var held && held.Exists(claim => claim.Owner == owner)
-            ? held.ToFin(new HopFault.OwnerConflict(owner, owner))
+        seated.Find(key) is var held && held.Exists(claim => claim.Owner == owner)
+            ? held.ToFin(new HopFault.OwnerConflict(key, owner, owner))
             : Fin.Fail<HopClaim>(new HopFault.OwnerConflict(held.Map(static claim => claim.Owner).IfNone(RetryOwner.Pipeline), owner));
 
     public static Fin<Unit> Seat(OutboundRuntime runtime) =>

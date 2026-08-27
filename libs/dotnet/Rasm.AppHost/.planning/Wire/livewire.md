@@ -681,7 +681,7 @@ public static class MqttLane {
             ignore(SubscriptionLane.Submit(sink, ExternalValue.Parsed(
                 Payload(args.ApplicationMessage), spec, runtime.Clocks.Now, WireReason.Unparsed,
                 args.ApplicationMessage.CorrelationData is { Length: > 0 } key
-                    ? new EchoDiscriminator.Tokened()
+                    ? new EchoDiscriminator.Tokened(key)
                     : EchoDiscriminator.Unproven)));
             return Task.CompletedTask;
         };
@@ -1393,7 +1393,7 @@ public static class WriteBackSurface {
         from start in IO.lift(Error.New(key.Message))
         from attempt in Conduct(runtime, spec, canonicalValue) | WireRecovery.Refused()
         from remembered in IO.lift(() => Remember(runtime, spec.BindingId, attempt.Verdict))
-        from outcome in Sealed(runtime, spec, canonicalValue, attempt, start)
+        from outcome in Sealed(runtime, spec, canonicalValue, attempt, start, key)
         select outcome;
 
     static IO<WriteAttempt> Conduct(LiveWireRuntime runtime, BindingSpec spec, double canonical) =>
@@ -1436,7 +1436,7 @@ public static class WriteBackSurface {
         LiveWireRuntime runtime, BindingSpec spec, double canonical, WriteAttempt attempt,
         MonotonicStamp start) =>
         from end in IO.lift(Error.New(key.Message))
-        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end))
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end, key))
         select LiveWireContract.Outcome(
             spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span));
 

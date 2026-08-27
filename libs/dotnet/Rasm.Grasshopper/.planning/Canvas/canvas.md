@@ -500,7 +500,7 @@ public static class CanvasOperator {
                    new UiDispatch<Unit>.Blocking(() => Try.lift(() => admitted.Match(
                        Some: span => live.ScheduleRedraw(span),
                        None: live.ScheduleRedraw)).Run().Bind(static inner => inner)),
-                   DispatchLane.Immediate)
+                   DispatchLane.Immediate, op)
                select unit;
     }
 }

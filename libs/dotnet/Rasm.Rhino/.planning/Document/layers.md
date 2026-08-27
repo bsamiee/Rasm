@@ -15,7 +15,7 @@
 ## [02]-[IDENTITY_AND_ADDRESS]
 
 - Owner: `LeafName` admits one leaf name under the HOST name rule — the host's own legality probe plus separator freedom, no field structure — because a Rhino document's layers are arbitrary user text no published grammar governs; `LayerPath` canonicalizes trimmed segments and admits every leaf through that same rule before owning leaf, parent, and child projections. `StandardLayers` is the standards crossing: both directions of the kernel `Rasm.Drawing.LayerName` ↔ host-path correspondence, composed through `HostLayerScheme.RhinoPath` and nothing local. `Liveness` closes the deleted-row resolution axis as rows. `LayerRef` `[Union]` closes id, index, full-path, and current-layer addressing; `LayerStamp` `[ComplexValueObject]` is the detached identity anchor every fact row and tree node carries.
-- Entry: `LayerRef.ById`/`AtIndex`/`AtPath`/`Current` are the only constructors. Internal `Resolve` admits one live row for every address case under a `Liveness` row, and `Index` projects that row's durable table index without a second lookup. `StandardLayers.Path(name)` projects a standards name into an admitted host path; `StandardLayers.Name(standard, path)` re-admits a host path under a declared standard. `StandardLayers` is a PUBLIC altitude entry under the folder census ruling — the `apps/<app>/` plugin shell's issued-set import composes it, so its zero in-corpus caller count proves altitude, not death.
+- Entry: `LayerRef.ById`/`AtIndex`/`AtPath`/`Current` are the only constructors. Internal `Resolve` admits one live row for every address case under a `Liveness` row, and `Index` projects that row's durable table index without a second lookup. `StandardLayers.Path(name, key)` projects a standards name into an admitted host path; `StandardLayers.Name(standard, path, key)` re-admits a host path under a declared standard. `StandardLayers` is a PUBLIC altitude entry under the folder census ruling — the `apps/<app>/` plugin shell's issued-set import composes it, so its zero in-corpus caller count proves altitude, not death.
 - Law: the HOST leaf rule and the STANDARDS grammar are two facts with two owners, and the discriminant is stated here: `LeafName` admits what the HOST accepts (any legal layer text), while the kernel `Rasm.Drawing.LayerName` admits what a STANDARD publishes — a set issued under NCS, ISO 13567, BS 1192, or the house scheme crosses through `StandardLayers`, and a document following no standard never fabricates one. The prior local `LayerName` value object shadowed the kernel owner's simple name inside one assembly and carried no standards structure; the rename resolves the shadow and the standards half composes down.
 - Law: the `::` path is a PROJECTION of the standards name, never the storage form — `HostLayerScheme.RhinoPath.Path` spells the segments and `Unproject` re-admits through the standard's OWN `LayerName.Parse` (the kernel member is reached through the scheme row, which re-joins the host separator onto the standard's delimiter before parsing), so a consumer that stored `Parent::Child` re-enters through `StandardLayers.Name` and no local code splits a standards path; the five `Layer.PathSeparator` sites on this page are the HOST-grammar owners' own interior (`LeafName` refusal, `LayerPath` canonicalize/segment/append) under the Boundary row's host-grammar law, never consumers.
 - Law: a deleted layer is addressable only by id or index under `Liveness.IncludeDeleted` — the revive path — so a path address never resolves a dead branch, and every resolution failure is a typed fault, never a `-1` or null leak; the liveness ROW replaces the boolean whose negation each arm re-spelled.
@@ -1239,7 +1239,7 @@ public static partial class Layers {
                 .ToValidation())
             .As()
             .ToFin()
-        from children in Branches(node.Children, path, currentKey, residents, authority)
+        from children in Branches(node.Children, path, currentKey, residents, authority, op)
         select new ProjectedNode(
             Entity: new OrganizationEntity(Name: node.Name,
                 Visible: node.Conditions.Admits(capability: LayerTrait.Visible),
@@ -1267,7 +1267,7 @@ public static class OrganizationAdmit {
 
     public static Fin<OrganizationFact> Admit(OrganizationFact fact) =>
         from census in Walk(fact.Roots, depth: 1, new Census(HashSet<UInt128>(), 0))
-        from _ in fact.Current.Traverse(path => Resolve(fact.Roots, path)).As()
+        from _ in fact.Current.Traverse(path => Resolve(fact.Roots, path, key)).As()
         select fact;
 
     private static Fin<Census> Walk(Seq<OrganizationEntity> nodes, int depth, Census held) =>

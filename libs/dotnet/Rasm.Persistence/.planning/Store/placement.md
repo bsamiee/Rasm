@@ -242,7 +242,7 @@ public abstract partial record ObjectEncryption {
 
     public IO<(ReadOnlySequence<byte> Bytes, Option<WrappedKey> Dek)> SealSource(ContentAddress key, ChunkPolicy policy, ReadOnlySequence<byte> plain) =>
         this is ClientSealed sealed_
-            ? sealed_.Acquire().Map(minted => {
+            ? sealed_.Acquire(key).Map(minted => {
                 SealFrame frame = SealFrame.Of(policy);
                 byte[] framed = new byte[frame.Sealed(plain.Length)];
                 try {
@@ -300,21 +300,21 @@ public abstract partial record ObjectEncryption {
         Func<Option<(long Start, long End)>, IO<Stream>> fetch) =>
         (this, range) switch {
             (ClientSealed, { IsSome: true, Case: (long Start, long End) window }) =>
-                from present in stat()
-                from resident in IO.lift(present.ToFin(new RemoteStoreFault.NotFound()))
+                from present in stat(key)
+                from resident in IO.lift(present.ToFin(new RemoteStoreFault.NotFound(key)))
                 let frame = SealFrame.Of(policy)
                 let plainLength = frame.Plain(resident.Extent.Stored)
                 from bounded in window is { Start: >= 0 } && window.End >= window.Start && window.End < plainLength
                     ? IO.pure(frame.Window(window.Start, window.End))
-                    : IO.fail<FrameWindow>(new RemoteStoreFault.InvalidRange(window.Start, window.End, plainLength))
-                from dek in envelope()
+                    : IO.fail<FrameWindow>(new RemoteStoreFault.InvalidRange(key, window.Start, window.End, plainLength))
+                from dek in envelope(key)
                 from raw in fetch(Some((bounded.Start, long.Min(bounded.End, resident.Extent.Stored - 1))))
-                from opened in ObjectIo.Drain(raw, run => OpenSource(policy, bounded.Start / (frame.Stride + SealFrame.Overhead), run, dek))
+                from opened in ObjectIo.Drain(raw, run => OpenSource(key, policy, bounded.Start / (frame.Stride + SealFrame.Overhead), run, dek))
                 select opened.Slice(checked((int)bounded.Skip), checked((int)(window.End - window.Start + 1))).AsStream(),
             (ClientSealed, _) =>
-                from dek in envelope()
+                from dek in envelope(key)
                 from raw in fetch(None)
-                from plain in ObjectIo.Drain(raw, run => OpenSource(policy, 0L, run, dek))
+                from plain in ObjectIo.Drain(raw, run => OpenSource(key, policy, 0L, run, dek))
                 select plain.AsStream(),
             _ => fetch(range),
         };

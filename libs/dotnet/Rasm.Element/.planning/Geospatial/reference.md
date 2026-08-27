@@ -164,13 +164,13 @@ public sealed partial record GeoReference {
  string projectedCrsName, string wkt, string mapProjection, string mapZone,
  Option<double> epoch = default, Option<int> verticalEpsg = default) =>
  (Finite(("map-eastings", eastings), ("map-northings", northings), ("map-orthogonal-height", orthogonalHeight)),
-  Direction(abscissa, ordinate),
-  In(scaleX, Band.Positive, "map-scale-x"),
-  In(scaleY, Band.Positive, "map-scale-y"),
-  In(scaleZ, Band.Positive, "map-scale-z"),
-  Optional(epoch, Band.Positive, "coordinate-epoch"),
-  AdmitCrs(projectedCrsName, wkt, mapProjection, mapZone),
-  AdmitVertical(verticalEpsg, verticalDatum))
+  Direction(abscissa, ordinate, key),
+  In(scaleX, Band.Positive, "map-scale-x", key),
+  In(scaleY, Band.Positive, "map-scale-y", key),
+  In(scaleZ, Band.Positive, "map-scale-z", key),
+  Optional(epoch, Band.Positive, "coordinate-epoch", key),
+  AdmitCrs(projectedCrsName, wkt, mapProjection, mapZone, key),
+  AdmitVertical(verticalEpsg, verticalDatum, key))
  .Apply((_, direction, x, y, z, admittedEpoch, crs, vertical) => Uniform(x, y, z) switch {
    var (sx, sy, sz) => new GeoReference(
     eastings, northings, orthogonalHeight, direction.Abscissa, direction.Ordinate, sx, sy, sz,
@@ -198,13 +198,13 @@ public sealed partial record GeoReference {
  private static Validation<Error, Option<ProjectedCrs>> AdmitCrs(string name, string wkt, string mapProjection, string mapZone) =>
   (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(wkt) && string.IsNullOrWhiteSpace(mapProjection) && string.IsNullOrWhiteSpace(mapZone)
    ? Fin.Succ(Option<ProjectedCrs>.None)
-   : ProjectedCrs.Of(name, mapProjection, mapZone, wkt).Map(Some))
+   : ProjectedCrs.Of(name, mapProjection, mapZone, wkt, key).Map(Some))
   .ToValidation();
 
  private static Validation<Error, Option<VerticalCrs>> AdmitVertical(Option<int> epsg, string datum) =>
   (epsg.IsNone && string.IsNullOrWhiteSpace(datum)
    ? Fin.Succ(Option<VerticalCrs>.None)
-   : VerticalCrs.Of(epsg, datum).Map(Some))
+   : VerticalCrs.Of(epsg, datum, key).Map(Some))
   .ToValidation();
 }
 ```

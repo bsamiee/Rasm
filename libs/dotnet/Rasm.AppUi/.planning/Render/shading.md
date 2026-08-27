@@ -92,7 +92,7 @@ public abstract partial record ShadeSupply {
         values.IsEmpty ? Nothing : new Run(values.Map(static value => (float)value).ToArr());
 
     public static ShadeSupply Of(UInt128 key, Seq<TexturePlane> levels, SamplerState sampler, Option<MipPolicy> mip, int lane) =>
-        levels.IsEmpty ? Nothing : new Sampled(new PlaneUpload(levels, sampler, mip), lane);
+        levels.IsEmpty ? Nothing : new Sampled(new PlaneUpload(key, levels, sampler, mip), lane);
 }
 
 [SmartEnum<string>]
@@ -123,7 +123,7 @@ public sealed partial class EnvironmentRead {
     public bool Nearest { get; }
 
     private EnvironmentRead(string key, ShaderUniformKind kind, int lanes, Func<EnvironmentLight, ShadeSupply> supply)
-        : this(kind, lanes, nearest: false, supply) {
+        : this(key, kind, lanes, nearest: false, supply) {
     }
 
     [UseDelegateFromConstructor]
@@ -258,8 +258,8 @@ public sealed record ShaderSource(string Key, string Revision, string Sksl, stri
             $"{key}: colliding wgpu (group, slot)"),
         ShaderFault.Gate(bindings.Count(static row => row.Source is ShadeSource.Lobes) <= 1,
             $"{key}: a second lobe-weight slot"),
-        bindings.Traverse(row => Admit(row)).As())
-        .Apply((_, _, _, _, _) => new ShaderSource(revision, sksl, wgsl, bindings)).As().ToFin();
+        bindings.Traverse(row => Admit(key, row)).As())
+        .Apply((_, _, _, _, _) => new ShaderSource(key, revision, sksl, wgsl, bindings)).As().ToFin();
 
     static Validation<Error, Unit> Admit(string key, ShaderBinding row) =>
         RowGates.Traverse(gate => gate(row).Match(

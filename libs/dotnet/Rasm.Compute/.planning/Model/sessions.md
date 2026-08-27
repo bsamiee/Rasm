@@ -230,16 +230,16 @@ public sealed class ResidentPool<TKey, THandle>
         residents.AsIterable().Map(static pair => (Key: pair.Key, Held: pair.Value.Held));
 
     public Fin<Lease> Hold(TKey key, Option<int> cap, Func<Fin<THandle>> build, IClock clock, CancelScope scope) =>
-        Acquire(clock).Match(
+        Acquire(key, clock).Match(
             Some: Fin.Succ,
             None: () => Try.lift(build).Run().Bind(static inner => inner)
                 .MapFail(error => ModelSessions.Faulted(scope, error))
-                .Bind(built => Publish(cap, built, clock)));
+                .Bind(built => Publish(key, cap, built, clock)));
 
     public Option<Lease> Acquire(TKey key, IClock clock) {
         Instant now = clock.GetCurrentInstant();
         Option<THandle> taken = None;
-        residents.SwapKey(seat => {
+        residents.SwapKey(key, seat => {
             taken = seat.Map(static row => row.Held);
             return seat.Map(row => row with { LastUsed = now, Leases = row.Leases + 1 });
         });
@@ -249,7 +249,7 @@ public sealed class ResidentPool<TKey, THandle>
     Fin<Lease> Publish(TKey key, Option<int> cap, THandle built, IClock clock) {
         Instant now = clock.GetCurrentInstant();
         Option<THandle> seated = None;
-        residents.SwapKey(seat => {
+        residents.SwapKey(key, seat => {
             seated = seat.Map(static row => row.Held);
             return seat.Match(
                 Some: row => Some(row with { LastUsed = now, Leases = row.Leases + 1 }),
@@ -274,7 +274,7 @@ public sealed class ResidentPool<TKey, THandle>
 
     Option<THandle> Taken(TKey key, Func<Row, bool> admits) {
         Option<THandle> taken = None;
-        residents.SwapKey(seat => {
+        residents.SwapKey(key, seat => {
             taken = seat.Filter(row => row.Leases is 0 && admits(row)).Map(static row => row.Held);
             return taken.IsSome ? Option<Row>.None : seat;
         });
@@ -292,7 +292,7 @@ public sealed class ResidentPool<TKey, THandle>
     public Fin<int> Drain() => Unload(Instant.MaxValue).Map(static keys => keys.Count);
 
     void Release(TKey key, Instant at) =>
-        residents.SwapKey(seat => seat.Map(row => row with { LastUsed = at, Leases = Math.Max(row.Leases - 1, 0) }));
+        residents.SwapKey(key, seat => seat.Map(row => row with { LastUsed = at, Leases = Math.Max(row.Leases - 1, 0) }));
 }
 
 public static class ModelSessions {
@@ -361,9 +361,9 @@ public static class ModelSessions {
     public static OrtAllocator SharedAllocator(OrtEpDevice device, OrtDeviceMemoryType memory) {
         (ulong Device, OrtDeviceMemoryType Memory) key = (ProviderSnapshot.Fingerprint(device), memory);
         lock (Gate) {
-            if (SharedAllocators.Find().Case is DeviceArena raced) { return raced.Allocator; }
+            if (SharedAllocators.Find(key).Case is DeviceArena raced) { return raced.Allocator; }
             DeviceArena arena = new(device, memory, OrtEnv.Instance().CreateSharedAllocator(device, memory, OrtAllocatorType.ArenaAllocator, FrozenDictionary<string, string>.Empty));
-            SharedAllocators = SharedAllocators.Add(arena);
+            SharedAllocators = SharedAllocators.Add(key, arena);
             return arena.Allocator;
         }
     }
@@ -514,7 +514,7 @@ public static class ModelSessions {
         }).Run().Bind(static inner => inner).MapFail(error => Faulted(scope, error));
 
     static Fin<WarmSite> Site(WarmKey key, ExecutionProvider ep, SessionPolicy policy, string artifactDir, Seq<OrtEpDevice> devices) {
-        string artifactKey = ContextKey(devices.Head, ep.Warm);
+        string artifactKey = ContextKey(key, devices.Head, ep.Warm);
         string location = Path.Combine(artifactDir, artifactKey);
         return ep.Warmth(location, devices).Map(verdict => (verdict.Bound, Mapped: ReferenceEquals(ep.Warm, WarmForm.OptimizedGraph)) switch {
             (true, true) => (WarmSite)new WarmSite.Hit(artifactKey, verdict, GraphOptimizationLevel.ORT_DISABLE_ALL),

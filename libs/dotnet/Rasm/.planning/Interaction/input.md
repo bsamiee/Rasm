@@ -371,7 +371,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Owner: `PickAxis` the pick capability vocabulary and `PickGates` its three named sets; `GripEdge` and `GripCorner` the two-dimensional grip vocabularies; `EdgeGrip` the grip family; `IUiSource<TFact>` the source floor; `UiSource` the Eto event-source roster; `EventAnchor` what a subscription attaches to; `Atomicity` the seating posture; `UiEvents` the one observe entry; `EvidenceDrain<TFact>` the bounded evidence channel and the total order's one minter.
 - Cases: `EventAnchor` is `OnControl`, `OnWindow`, `Ambient`, or `OnClock` — four attach shapes over one entry, so a subscription's lifetime is recoverable from the value. Five binders serve them, because the ambient case splits by publisher: an application event and a static input table are two host surfaces under one anchor.
 - Cases: `Atomicity` is `Partial` — a refused row leaves the others live and the subscription reports which — or `AllOrNothing`, which detaches every seated row and refuses the whole observe. Both are lawful postures a caller NAMES: a diagnostic panel wants whatever it can get and a replayable journal wants all or none, and neither can be inferred from the row set.
-- Entry: `UiEvents.Observe(anchor, drain, atomicity, rows)` attaches the named source rows into ONE drain and returns a `Lease<UiSubscription<TFact>>` whose disposal detaches every row in reverse order.
+- Entry: `UiEvents.Observe(anchor, drain, atomicity, key, rows)` attaches the named source rows into ONE drain and returns a `Lease<UiSubscription<TFact>>` whose disposal detaches every row in reverse order.
 - Auto: the roster carries 30 rows — twenty control, four window, five ambient, one clock — each naming its event table and the fact it projects. That pairing is the whole reason a consumer never writes `+=`: the table carries add and remove together, so a row stating a subscription it cannot undo is unspellable. The fourteen rows with a phase counterpart read that phase row's table rather than restating it.
 - Auto: pick capability is a `CapabilitySet<PickAxis>`, so the five-bool gate both boundaries carried becomes one column and the three named gates become three set literals — `Whole` is the full set, `Bodies` is the set difference the record-`with` subtraction was spelling by hand, and `Wiring` is a singleton. Each is accessor-backed, because the generated roster fills from its own static constructor and an eager static field would freeze an EMPTY set.
 - Law: the ORDINAL has one minter. `EvidenceDrain.Publish` mints the stamp and the ordinal together under one compare-and-swap and refuses at saturation, so two sources publishing in one frame serialize and a replay reads the order the sink observed. NAMED LOSS: the free `Action<UiEvent>` publication sink deletes — `Observe` writes into a drain and a consumer reads `drain.Reader`. Witness: an inline publish closure becomes a read loop over the reader, and that is precisely what makes the order replayable rather than callback-scheduled.
@@ -487,19 +487,19 @@ public sealed partial class UiSource : IUiSource<UiFact> {
 
     public static readonly UiSource DragEnter = new(key: "drag.enter",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, emit, DragPhase.Enter.Table, Dragged(DragPhase.Enter)));
+            OnControl(anchor, key, emit, DragPhase.Enter.Table, Dragged(DragPhase.Enter)));
     public static readonly UiSource DragOver = new(key: "drag.over",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, emit, DragPhase.Over.Table, Dragged(DragPhase.Over)));
+            OnControl(anchor, key, emit, DragPhase.Over.Table, Dragged(DragPhase.Over)));
     public static readonly UiSource DragLeave = new(key: "drag.leave",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, emit, DragPhase.Leave.Table, Dragged(DragPhase.Leave)));
+            OnControl(anchor, key, emit, DragPhase.Leave.Table, Dragged(DragPhase.Leave)));
     public static readonly UiSource DragDrop = new(key: "drag.drop",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, emit, DragPhase.Drop.Table, Dragged(DragPhase.Drop)));
+            OnControl(anchor, key, emit, DragPhase.Drop.Table, Dragged(DragPhase.Drop)));
     public static readonly UiSource DragEnd = new(key: "drag.end",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, emit, DragPhase.End.Table, Dragged(DragPhase.End)));
+            OnControl(anchor, key, emit, DragPhase.End.Table, Dragged(DragPhase.End)));
 
     public static readonly UiSource FocusGained = new(key: "focus.gained",
         attach: static (anchor, emit, key) => OnControl(anchor, emit,

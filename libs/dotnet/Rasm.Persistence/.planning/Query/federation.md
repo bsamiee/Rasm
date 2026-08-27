@@ -536,7 +536,7 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
     internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ProjectionContext frame, AtomHashMap<UInt128, FederatedResult> hold) {
         Fin<Seq<RecordBatch>> held =
             from key in ContentHash.Admit(ticket.Ticket.Span).MapFail(_ => (Error)new FederationFault.TicketMalformed(ticket.Ticket.Length))
-            from result in hold.Find().ToFin(new FederationFault.TicketUnknown())
+            from result in hold.Find(key).ToFin(new FederationFault.TicketUnknown(key))
             from batches in Batches(result)
             select batches;
         foreach (RecordBatch batch in held.Match(Succ: static batches => batches, Fail: fault => throw FaultWire.Raise(fault, Context(frame)))) {

@@ -394,21 +394,21 @@ public abstract partial record AttributeEdit {
                 select (AttributeEdit)new Identity(Name: name, Url: url),
             layer: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             paint: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Value, edit)),
+                .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
             plot: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Value, edit)),
+                .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
             plotWeight: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit)),
+                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit, key)),
             linePattern: static (key, edit) =>
                 from source in Admit.Need(edit.Source)
-                from admitted in SourceValue(source.FromObject, edit.Index, edit)
+                from admitted in SourceValue(source.FromObject, edit.Index, edit, key)
                 from _ in guard(edit.PatternScale
                     .Map(static value => double.IsFinite(value) && value > 0.0)
                     .IfNone(noneValue: true), new KernelFault.InvalidInput())
                 select admitted,
             customLine: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             materialBind: static (key, edit) => Admit.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Index, edit)),
+                .Bind(source => SourceValue(source.FromObject, edit.Index, edit, key)),
             shadows: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             wires: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             drawOrder: static (_, edit) => Fin.Succ<AttributeEdit>(edit),

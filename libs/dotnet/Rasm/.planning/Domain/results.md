@@ -547,8 +547,8 @@ public static class Cell {
         TValue candidate = mint();
         bool seated = false;
         HashMap<TKey, TValue> settled = cell.Swap(held => {
-            seated = !held.ContainsKey();
-            return seated ? held.Add(candidate) : held;
+            seated = !held.ContainsKey(key);
+            return seated ? held.Add(key, candidate) : held;
         });
         return seated
             ? (Transition<HashMap<TKey, TValue>>)new Transition<HashMap<TKey, TValue>>.Committed(State: settled)
@@ -835,7 +835,7 @@ public sealed class HashMapJsonConverter<K, V> : JsonConverter<HashMap<K, V>> wh
         JsonConverter<K> keys = (JsonConverter<K>)options.GetConverter(typeof(K));
         writer.WriteStartObject();
         foreach ((K key, V item) in value.AsIterable()) {
-            keys.WriteAsPropertyName(writer, options);
+            keys.WriteAsPropertyName(writer, key, options);
             JsonSerializer.Serialize(writer, item, options);
         }
         writer.WriteEndObject();

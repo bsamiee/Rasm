@@ -240,7 +240,7 @@ public sealed partial class HostDescriptor {
         ref ValidationError? validationError, ref string key, ref string fits, ref string tenancy, ref DescriptorLifetime lifetime,
         ref Option<string> residual, ref ShipVehicle vehicle, ref HostAttach attach, ref HostSurface surface,
         ref RecoveryObjective durability, ref CapabilitySet<HostCapability> held) =>
-        validationError = Descriptors.Coordinates(nameof(HostDescriptor), fits, tenancy, lifetime);
+        validationError = Descriptors.Coordinates(nameof(HostDescriptor), key, fits, tenancy, lifetime);
 }
 
 [ComplexValueObject]
@@ -256,12 +256,12 @@ public sealed partial class ProviderDescriptor {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref string key, ref string fits, ref string tenancy,
         ref DescriptorLifetime lifetime, ref Faculty supplies, ref Isolation reach) =>
-        validationError = Descriptors.Coordinates(nameof(ProviderDescriptor), fits, tenancy, lifetime);
+        validationError = Descriptors.Coordinates(nameof(ProviderDescriptor), key, fits, tenancy, lifetime);
 }
 
 static class Descriptors {
     public static ValidationError? Coordinates(string family, string key, string fits, string tenancy, DescriptorLifetime lifetime) =>
-        string.IsNullOrWhiteSpace() || string.IsNullOrWhiteSpace(fits)
+        string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(fits)
         || string.IsNullOrWhiteSpace(tenancy) || string.IsNullOrWhiteSpace(lifetime.Survives)
             ? new ValidationError($"{family} requires key, fits, tenancy, and a lifetime span.")
             : null;
@@ -913,14 +913,14 @@ public static partial class DarwinPower {
                 : None);
 
     private static Option<Handle> Value(Handle dictionary, string key) {
-        IntPtr name = CFStringCreateWithCString(IntPtr.Zero, Utf8Encoding);
+        IntPtr name = CFStringCreateWithCString(IntPtr.Zero, key, Utf8Encoding);
         try { return Handle.Of(CFDictionaryGetValue(dictionary.Address, name)); }
         finally { CFRelease(name); }
     }
 
     private static Option<string> Text(Handle dictionary, string key) {
         Span<byte> buffer = stackalloc byte[128];
-        return Value(dictionary) is { IsSome: true, Case: Handle held }
+        return Value(dictionary, key) is { IsSome: true, Case: Handle held }
             && CFStringGetCString(held.Address, buffer, buffer.Length, Utf8Encoding)
             && buffer.IndexOf((byte)0) is var terminator && terminator >= 0
             ? Some(Encoding.UTF8.GetString(buffer[..terminator]))
@@ -928,10 +928,10 @@ public static partial class DarwinPower {
     }
 
     private static Option<int> Number(Handle dictionary, string key) =>
-        Value(dictionary).Bind(static held => CFNumberGetValue(held.Address, IntType, out var value) ? Some(value) : None);
+        Value(dictionary, key).Bind(static held => CFNumberGetValue(held.Address, IntType, out var value) ? Some(value) : None);
 
     private static Option<bool> Flag(Handle dictionary, string key) =>
-        Value(dictionary).Map(static held => CFBooleanGetValue(held.Address));
+        Value(dictionary, key).Map(static held => CFBooleanGetValue(held.Address));
 }
 
 public static partial class WindowsPower {

@@ -143,7 +143,7 @@ public static class Snapshots {
                from request in Admit.Need(value: operation)
                from answer in owner.Demand(
                    use: document => request.Switch<(RhinoDoc Document), Fin<SnapshotAnswer>>(
-                       state: (document),
+                       state: (document, op),
                        rosterCase: static (state, _) => Roster(document: state.Document)
                            .Map<SnapshotAnswer>(static roster => new SnapshotAnswer.RosterCase(Roster: roster)),
                        mutationCase: static (state, mutation) => Run(
@@ -460,7 +460,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         Transform incoming = transform;
         return HostEdge.Settle(ref transform, Reported(Try.lift(() => ObjectState(
             use: () => from lane in Objects()
-                       from payload in spec.Codec.Read(archive)
+                       from payload in spec.Codec.Read(archive, op)
                        from state in lane.Restore(doc, rhObject, incoming, payload)
                        select state,
             writer: None)).Run().Bind(static inner => inner)));
@@ -470,7 +470,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         Transform incoming = transform;
         return HostEdge.Settle(ref transform, Reported(Try.lift(() => ObjectState(
             use: () => from lane in Objects()
-                       from payload in spec.Codec.Read(archive)
+                       from payload in spec.Codec.Read(archive, op)
                        from state in lane.TransformChanged(doc, rhObject, incoming, payload)
                        select state,
             writer: None)).Run().Bind(static inner => inner)));
@@ -528,7 +528,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         ref BoundingBox bbox) {
         BoundingBox incoming = bbox;
         _ = HostEdge.Settle(ref bbox, Reported(Try.lift(() => Maps(start, stop).Bind(maps =>
-            Animation().Bind(lane => lane.ExtendDocument(doc, maps.Start, maps.Stop, incoming))
+            Animation(op).Bind(lane => lane.ExtendDocument(doc, maps.Start, maps.Stop, incoming))
                 .Bind(value => Acceptance.Value(value: value)))).Run().Bind(static inner => inner)));
     }
 
@@ -542,7 +542,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         Transform incomingTransform = transform;
         BoundingBox incomingBounds = bbox;
         _ = HostEdge.Settle(ref bbox, Reported(Try.lift(() => Maps(start, stop).Bind(maps =>
-            Animation().Bind(lane => lane.ExtendObject(doc, rhObject, incomingTransform, maps.Start, maps.Stop, incomingBounds))
+            Animation(op).Bind(lane => lane.ExtendObject(doc, rhObject, incomingTransform, maps.Start, maps.Stop, incomingBounds))
                 .Bind(value => Acceptance.Value(value: value)))).Run().Bind(static inner => inner)));
     }
 
@@ -591,14 +591,14 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         from state in use()
         from admitted in Acceptance.Value(value: state.Transform)
         from _written in writer
-            .TraverseM(archive => spec.Codec.Write(archive, state.Payload))
+            .TraverseM(archive => spec.Codec.Write(archive, state.Payload, key))
             .As()
             .Map(static _ => unit)
         select admitted;
 
     private Fin<(ArchiveMap Start, ArchiveMap Stop)> Maps(BinaryArchiveReader start, BinaryArchiveReader stop) =>
-        from first in spec.Codec.Read(start)
-        from last in spec.Codec.Read(stop)
+        from first in spec.Codec.Read(start, key)
+        from last in spec.Codec.Read(stop, key)
         select (first, last);
 
     private Fin<(ArchiveMap Current, Seq<ArchiveMap> Snapshots)> Probes(
@@ -606,7 +606,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         SimpleArrayBinaryArchiveReader archiveArray) =>
         from current in spec.Codec.Read(archive)
         from snapshots in toSeq(Enumerable.Range(0, archiveArray.Count))
-            .TraverseM(index => spec.Codec.Read(archiveArray.Get(index)))
+            .TraverseM(index => spec.Codec.Read(archiveArray.Get(index), key))
             .As()
         select (current, snapshots);
 

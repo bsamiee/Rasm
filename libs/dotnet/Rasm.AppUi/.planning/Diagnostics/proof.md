@@ -76,7 +76,7 @@ public delegate IO<(SKImage Image, Option<SKPicture> Record)> FrameGrab(
 
 public sealed record CaptureRow {
     private CaptureRow(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
-        (Key, Scale, Gamut, Posture, Ticks, Grab) = (scale, gamut, posture, ticks, grab);
+        (Key, Scale, Gamut, Posture, Ticks, Grab) = (key, scale, gamut, posture, ticks, grab);
 
     public string Key { get; }
     public double Scale { get; }
@@ -87,9 +87,9 @@ public sealed record CaptureRow {
 
     public static Fin<CaptureRow> Of(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
         (Slot(!string.IsNullOrWhiteSpace(), "key"),
-         Slot(scale > 0d, "scale", scale.ToString(CultureInfo.InvariantCulture)),
-         Slot(ticks > 0, "ticks", ticks.ToString(CultureInfo.InvariantCulture)))
-            .Apply((_, _, _) => new CaptureRow(scale, gamut, posture, ticks, grab))
+         Slot(scale > 0d, key, "scale", scale.ToString(CultureInfo.InvariantCulture)),
+         Slot(ticks > 0, key, "ticks", ticks.ToString(CultureInfo.InvariantCulture)))
+            .Apply((_, _, _) => new CaptureRow(key, scale, gamut, posture, ticks, grab))
             .ToFin();
 
     static Validation<Error, Unit> Slot(bool holds, string cell, string column, string value) =>

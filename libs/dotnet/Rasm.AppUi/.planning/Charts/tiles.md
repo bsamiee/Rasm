@@ -122,7 +122,7 @@ public sealed partial class DeltaPolarity {
 
 - Owner: `TileState` — the per-tile lifecycle union; `TilePosture` — the presentation vocabulary each state projects onto, carrying opacity, veil, and interactivity as row columns; `TilePresentation` — the projected posture beside the drop depth and badge; `StatAnatomy` — the scalar tile's full reading; `TilePlacement` and `DashboardLayout` — the breakpoint-indexed board spine; `DashboardTile` — the closed tile union and its admission.
 - Cases: `TileState` = Loading | Ready | Empty | Failed | Cramped; `TilePosture` = live | veiled | inert | faulted; `DashboardTile` = Chart | Stat | Gauge | Table | Scorecard | Custom.
-- Entry: `TileState.Present` — the one presentation projection; `StatAnatomy.Folded(label, polarity, held, taus)` — the whole reading off ONE retained window; `DashboardLayout.Admit(placements, canvasState)` — accumulating admission with a per-tier sweep; `DashboardLayout.At(breakpoint)` — the widest-declared-tier resolution; `DashboardTile.Admit()` — the per-case source-arm proof.
+- Entry: `TileState.Present` — the one presentation projection; `StatAnatomy.Folded(label, polarity, held, taus)` — the whole reading off ONE retained window; `DashboardLayout.Admit(key, placements, canvasState)` — accumulating admission with a per-tier sweep; `DashboardLayout.At(breakpoint)` — the widest-declared-tier resolution; `DashboardTile.Admit()` — the per-case source-arm proof.
 - Auto: presentation is a projection of the state, so no tile decides its own opacity, veil, or interactivity — four postures resolve from five states and a sixth state lands as one arm; the scalar tile's headline, delta, spark, and declared percentiles are one retained window read four ways, so they cannot disagree; a gauge holds no window because a dial shows one reading and a trend under it states a second the dial cannot draw.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new lifecycle posture is one `TileState` case with its `Present` arm; a new tile kind is one `DashboardTile` case with its admission arm; zero new surface.
@@ -208,14 +208,14 @@ public sealed record DashboardLayout(string Key, Seq<TilePlacement> Placements, 
                  && placement.ColumnSpan > 0 && placement.RowSpan > 0),
              $"{key}: degenerate placement"),
          toSeq(placements.GroupBy(static placement => placement.At))
-             .Traverse(tier => Tier(toSeq(tier))).Map(static _ => unit).As())
-            .Apply((_, _, _) => new DashboardLayout(placements, canvasState)).As().ToFin();
+             .Traverse(tier => Tier(key, toSeq(tier))).Map(static _ => unit).As())
+            .Apply((_, _, _) => new DashboardLayout(key, placements, canvasState)).As().ToFin();
 
     static Validation<Error, Unit> Tier(string key, Seq<TilePlacement> tier) =>
         tier.Map(static placement => placement.TileKey).Distinct().Count == tier.Count
             && Swept(tier)
             ? unit
-            : (Validation<Error, Unit>)(Error)new ChartFault.PlacementRejected();
+            : (Validation<Error, Unit>)(Error)new ChartFault.PlacementRejected(key);
 
     static bool Swept(Seq<TilePlacement> tier) {
         Seq<TilePlacement> ordered = toSeq(tier.OrderBy(static placement => placement.Column));
@@ -370,14 +370,14 @@ public static class DashboardSurface {
     }
 
     static IDisposable Layered(TileMount mount, string key, Option<ChartSpec> spec, Option<TileSource> source) =>
-        Streams(mount, spec, source).Match(
+        Streams(mount, key, spec, source).Match(
             Succ: streams => streams.IsEmpty
-                ? Pinned(mount)
+                ? Pinned(mount, key)
                 : Observable.CombineLatest(streams.Map(static row => row.Rows))
                     .ObserveOn(mount.Capsule.Ui)
                     .Subscribe(
                         frame => {
-                            mount.Render(new TileRender.Series(streams.Map(static row => row.Layer).Zip(toSeq(frame))));
+                            mount.Render(key, new TileRender.Series(streams.Map(static row => row.Layer).Zip(toSeq(frame))));
                             mount.State(Ready(mount));
                         },
                         raw => mount.State(Failed(mount, Error.New(raw.Message, raw)))),
@@ -390,14 +390,14 @@ public static class DashboardSurface {
                 .Filter(static layer => !layer.Literal)
                 .Map(layer => (layer.Name, Piped(mount, layer.Stream, layer.Transforms)))),
             None: () => source.Case is TileSource.Streamed streamed
-                ? Fin.Succ(Seq((Piped(mount, streamed.Stream, streamed.Transforms))))
-                : Fin.Fail<Seq<(string, IObservable<Seq<ChartDatum>>)>>(new ChartFault.SourceMismatch()));
+                ? Fin.Succ(Seq((key, Piped(mount, streamed.Stream, streamed.Transforms))))
+                : Fin.Fail<Seq<(string, IObservable<Seq<ChartDatum>>)>>(new ChartFault.SourceMismatch(key)));
 
     static IObservable<Seq<ChartDatum>> Piped(TileMount mount, ChartStream stream, Seq<TransformRow> rows) =>
         ChartFolds.Snapshots(stream, ChartFolds.Shape(stream, mount.Feed(stream)), rows, mount.Calendar);
 
     static IDisposable Pinned(TileMount mount, string key) {
-        mount.Render(new TileRender.Series(Seq<(string, Seq<ChartDatum>)>()));
+        mount.Render(key, new TileRender.Series(Seq<(string, Seq<ChartDatum>)>()));
         mount.State(Ready(mount));
         return Disposable.Empty;
     }

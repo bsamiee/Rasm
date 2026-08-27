@@ -246,7 +246,7 @@ public sealed partial class FeedstockLot {
         int exposureCount,
         Option<ContentKey> sieveHistory,
         Option<FeedstockLotKey> parent) =>
-        Validate(material, certificate, received, available, reuseCount, exposureCount, sieveHistory, parent,
+        Validate(key, material, certificate, received, available, reuseCount, exposureCount, sieveHistory, parent,
             out FeedstockLot lot).Admitted(lot);
 }
 

@@ -269,13 +269,13 @@ public sealed record IdsSpecification(
             new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "ids-lane", "parse", "load-empty" }))));
 
     public static Fin<Seq<IdsResolved>> Resolve(Seq<IdsSpecification> specifications, BsddPort port, BsddPins pins, CancellationToken token) =>
-        specifications.TraverseM(spec => Settle(spec, port, pins, token)).As();
+        specifications.TraverseM(spec => Settle(spec, port, pins, token, key)).As();
 
     static Fin<IdsResolved> Settle(IdsSpecification spec, BsddPort port, BsddPins pins, CancellationToken token) =>
         from applicability in spec.Applicability
-            .TraverseM(facet => Reached(facet, FacetGroup.FacetUse.Applicability, port, pins, token)).As()
+            .TraverseM(facet => Reached(facet, FacetGroup.FacetUse.Applicability, port, pins, token, key)).As()
         from requirements in spec.Requirements
-            .TraverseM(req => Reached(req.Facet, FacetGroup.FacetUse.Requirement, port, pins, token)
+            .TraverseM(req => Reached(req.Facet, FacetGroup.FacetUse.Requirement, port, pins, token, key)
                 .Map(reached => reached.Map(facet => req with { Facet = facet }))).As()
         select IdsResolved.Of(spec with {
             Applicability = applicability.Bind(static e => e.RightToSeq()),
@@ -286,17 +286,17 @@ public sealed record IdsSpecification(
     static Fin<Either<DroppedFacet, IdsFacet>> Reached(IdsFacet facet, FacetGroup.FacetUse role, BsddPort port, BsddPins pins, CancellationToken token) =>
         facet switch {
             IdsFacet.Classification { Reach: ClassificationReach.Pending } c =>
-                Descend(c, port, pins, token)
+                Descend(c, port, pins, token, key)
                     .Map(reached => reached.MapLeft(reason => new DroppedFacet(role, c.Reach.Key, reason))),
             IdsFacet.PartOf p => p.Container.Match(
-                Some: inner => Reached(inner, role, port, pins, token)
+                Some: inner => Reached(inner, role, port, pins, token, key)
                     .Map(reached => reached.Map(settled => (IdsFacet)(p with { Container = Some(settled) }))),
                 None: () => Fin.Succ(Right<DroppedFacet, IdsFacet>(p))),
             _ => Fin.Succ(Right<DroppedFacet, IdsFacet>(facet)),
         };
 
     static Fin<Either<DropReason, IdsFacet>> Descend(IdsFacet.Classification facet, BsddPort port, BsddPins pins, CancellationToken token) =>
-        facet.Branches.TraverseM(branch => Children(branch, port, pins, token)).As()
+        facet.Branches.TraverseM(branch => Children(branch, port, pins, token, key)).As()
             .Map(expanded => expanded.ForAll(static rows => rows.IsSome)
                 ? Right<DropReason, IdsFacet>(facet with {
                     Reach = new ClassificationReach.Subsumed(expanded.Somes().Bind(static rows => rows).Distinct()),
@@ -306,20 +306,20 @@ public sealed record IdsSpecification(
     static Fin<Option<Seq<ElementClassification>>> Children(ElementClassification branch, BsddPort port, BsddPins pins, CancellationToken token) =>
         toSeq(ClassificationSystem.Items).Find(row => string.Equals(row.Key, branch.System, StringComparison.OrdinalIgnoreCase))
             .Match(
-                Some: system => BsddResolution.Resolve(system, branch.Code, port, pins, token)
+                Some: system => BsddResolution.Resolve(system, branch.Code, port, pins, token, key)
                     .Map(resolved => resolved.Children
-                        .Traverse(child => ElementClassification.Of(branch.System, child.Code).ToOption()).As()),
+                        .Traverse(child => ElementClassification.Of(branch.System, child.Code, key).ToOption()).As()),
                 None: static () => Fin.Succ(Option<Seq<ElementClassification>>.None));
 
     public static Fin<byte[]> Publish(Seq<IdsSpecification> specifications) =>
-        from raised in specifications.Traverse(spec => Raisable(spec)).As()
+        from raised in specifications.Traverse(spec => Raisable(spec, key)).As()
         from bytes in Try.lift(() => Serialize(raised)).Run().Bind(static inner => inner)
         select bytes;
 
     static Fin<(IdsSpecification Spec, Seq<IFacet> Applicability, Seq<(IFacet Facet, RequirementCardinalityOptions Options)> Requirements)> Raisable(
         IdsSpecification spec) =>
         spec.Requirements
-            .Traverse(req => Legal(new RequirementCardinalityOptions(Raise(req.Facet, spec.Schema), req.Cardinality.AuthoredFacet), req.Cardinality)).As()
+            .Traverse(req => Legal(new RequirementCardinalityOptions(Raise(req.Facet, spec.Schema), req.Cardinality.AuthoredFacet), req.Cardinality, key)).As()
             .Map(rows => (spec, spec.Applicability.Map(facet => Raise(facet, spec.Schema)), rows.Map(static row => (row.RelatedFacet, row))));
 
     static Fin<RequirementCardinalityOptions> Legal(RequirementCardinalityOptions row, IdsCardinality cardinality) =>
@@ -796,8 +796,8 @@ public partial record ModelFinding {
 public sealed record ModelHealth(TemplateScope Scope, ModelAudit Structural, Seq<TemplateFinding> Baseline, Seq<IdsAudit> Authored) {
 
     public static Fin<ModelHealth> Audit(ElementGraph graph, TemplateScope scope, Seq<IdsResolved> specifications, Func<IfcClass, Option<BsddClass>> dictionary) =>
-        from structural in ModelAudit.Of(graph)
-        from baseline in TemplateAudit.Run(graph, scope, dictionary)
+        from structural in ModelAudit.Of(graph, key)
+        from baseline in TemplateAudit.Run(graph, scope, dictionary, key)
         select new ModelHealth(scope, structural, baseline, specifications.Map(spec => spec.Audit(graph)));
 
     public Seq<ModelFinding> Findings =>

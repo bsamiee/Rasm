@@ -763,7 +763,7 @@ public static partial class Removal {
         Seq<DeviationSample> samples = rows.Bind(static row => row.ToSeq());
         int unresolved = rows.Count - samples.Count;
         return SnapshotKey(policy, window, fieldKey, loops, metrics, samples, unresolved, tolerance).Map(key =>
-            new DeviationField(window.Setup, fieldKey, policy.Cutter, samples, unresolved, Span(samples)));
+            new DeviationField(window.Setup, fieldKey, key, policy.Cutter, samples, unresolved, Span(samples)));
     }
 
     private static Option<DeviationSample> Projected(Voxels actual, Vector3 nominal) =>

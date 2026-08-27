@@ -134,10 +134,10 @@ public sealed partial class CapabilityMetric {
                 + (value * value / (2.0 * double.Max(sampleSize - 1.0, 1.0))));
 
     private static CapabilityMetric Moment(string key, CapabilityScale scale, CapabilitySide? side) =>
-        new(CapabilityMethod.Moment, scale, Optional(side), Unadjusted);
+        new(key, CapabilityMethod.Moment, scale, Optional(side), Unadjusted);
 
     private static CapabilityMetric Quantile(string key, CapabilitySide? side) =>
-        new(CapabilityMethod.Percentile, CapabilityScale.Long, Optional(side), Unadjusted);
+        new(key, CapabilityMethod.Percentile, CapabilityScale.Long, Optional(side), Unadjusted);
 
     private static Option<double> Closest(CapabilitySpread spread, CapabilityTolerance tolerance) {
         Option<double> lower = CapabilitySide.Lower.Index(spread, tolerance);
@@ -185,7 +185,7 @@ public sealed partial class SpcChart {
     private static SpcChart Bounded(string key, bool attribute) => new(attribute, Set(SpcRuleClass.Limit));
 
     private static SpcChart Western(string key, bool attribute) =>
-        new(attribute, Set(SpcRuleClass.Limit, SpcRuleClass.Zone, SpcRuleClass.Pattern));
+        new(key, attribute, Set(SpcRuleClass.Limit, SpcRuleClass.Zone, SpcRuleClass.Pattern));
 }
 
 [SmartEnum<string>]
@@ -209,14 +209,14 @@ public sealed partial class SpcRule {
     public Func<Arr<double>, bool> Breach { get; }
 
     private static SpcRule Limit(string key) =>
-        new(SpcRuleClass.Limit, window: 1, static values => values.Exists(static value => Math.Abs(value) > 1.0));
+        new(key, SpcRuleClass.Limit, window: 1, static values => values.Exists(static value => Math.Abs(value) > 1.0));
 
     private static SpcRule Zone(string key, int window, int minimum, double zone) =>
-        new(SpcRuleClass.Zone, window,
+        new(key, SpcRuleClass.Zone, window,
             values => int.Max(values.Count(value => value > zone), values.Count(value => value < -zone)) >= minimum);
 
     private static SpcRule Pattern(string key, int window, Func<Arr<double>, bool> breach) =>
-        new(SpcRuleClass.Pattern, window, breach);
+        new(key, SpcRuleClass.Pattern, window, breach);
 
     private static Arr<int> Steps(Arr<double> values) {
         Seq<double> walk = toSeq(values);
@@ -500,7 +500,7 @@ public sealed partial class DistributionFamily {
 
     private static DistributionFamily One(string key, DistributionSupport support,
         Func<CapabilityMoment, double, DistributionPolicy, DistributionParameters> seed) =>
-        new(support, (moment, sigma, policy) => Seq(seed(moment, sigma, policy)));
+        new(key, support, (moment, sigma, policy) => Seq(seed(moment, sigma, policy)));
 
     private static DistributionParameters LogParameters(double mean, double sigma) =>
         LogNormalOf(mean, Math.Sqrt(Math.Log(1.0 + Math.Pow(sigma / mean, 2.0))));

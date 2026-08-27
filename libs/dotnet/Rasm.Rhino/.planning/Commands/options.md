@@ -248,7 +248,7 @@ public abstract partial record OptionValue {
         TEnum current,
         Option<Seq<TEnum>> selection = default)
         where TEnum : struct, Enum, IConvertible =>
-        TypedEnumBinding<TEnum>.Of(current: current, selection: selection, key: key.OrDefault(name: nameof(OfEnum)))
+        TypedEnumBinding<TEnum>.Of(current: current, selection: selection)
             .Map(static binding => (OptionValue)new EnumChoice(Binding: binding));
 }
 

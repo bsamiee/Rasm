@@ -229,7 +229,7 @@ public sealed class ThemeCell(
 
     static FormField Picker(string key, Seq<string> keys, double pickerExtent) =>
         FormField.Of($"{ThemePolicy.Section}.{key}",
-            new ControlIntent.Select(SelectPosture.Closed,
+            new ControlIntent.Select(key, SelectPosture.Closed,
                 new OptionSource.Inline(keys.Map(row => new OptionRow(row, $"{ThemePolicy.Section}.{key}.{row}", None, None))),
                 VirtualWindowSpec.FixedRow(pickerExtent), IntentBinding.Of(PaintRole.Text)),
             FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit));
@@ -281,10 +281,10 @@ public sealed class ThemeCell(
         };
 
     static Option<ThemeVariantRow> Variant(string key) =>
-        ThemeVariantRow.TryGet(out ThemeVariantRow? row) ? Optional(row) : None;
+        ThemeVariantRow.TryGet(key, out ThemeVariantRow? row) ? Optional(row) : None;
 
     static Option<DensityRow> Density(string key) =>
-        DensityRow.TryGet(out DensityRow? row) ? Optional(row) : None;
+        DensityRow.TryGet(key, out DensityRow? row) ? Optional(row) : None;
 
     static uint Changed<T>(FrozenDictionary<TokenKey, T> previous, FrozenDictionary<TokenKey, T> next) =>
         (uint)previous.Keys.Concat(next.Keys).Distinct()

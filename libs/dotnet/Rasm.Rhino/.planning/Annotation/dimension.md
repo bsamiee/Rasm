@@ -498,7 +498,7 @@ public sealed partial class DimFamily {
             from lines in Try.lift(() => linear.GetDisplayLines(linear.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
                 ? Fin.Succ(value: toSeq(rows))
                 : Fin.Fail<Seq<Line>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-            from box in TextBox(linear.GetTextRectangle)
+            from box in TextBox(linear.GetTextRectangle, key)
             select new DimSkeleton(points, lines, Seq<Arc>(), box),
         text: static (geometry, units, key) =>
             from linear in Admit.Need(geometry as LinearDimension)
@@ -524,7 +524,7 @@ public sealed partial class DimFamily {
             from display in Try.lift(() => angular.GetDisplayLines(angular.DimensionStyle, scale.Value, out Line[] lines, out Arc[] arcs)
                 ? Fin.Succ(value: (Lines: toSeq(lines), Arcs: toSeq(arcs)))
                 : Fin.Fail<(Seq<Line> Lines, Seq<Arc> Arcs)>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-            from box in TextBox(angular.GetTextRectangle)
+            from box in TextBox(angular.GetTextRectangle, key)
             select new DimSkeleton(points, display.Lines, display.Arcs, box),
         text: static (geometry, _, key) =>
             from angular in Admit.Need(geometry as AngularDimension)
@@ -552,7 +552,7 @@ public sealed partial class DimFamily {
             from lines in Try.lift(() => radial.GetDisplayLines(radial.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
                 ? Fin.Succ(value: toSeq(rows))
                 : Fin.Fail<Seq<Line>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-            from box in TextBox(radial.GetTextRectangle)
+            from box in TextBox(radial.GetTextRectangle, key)
             select new DimSkeleton(points, lines, Seq<Arc>(), box),
         text: static (geometry, units, key) =>
             from radial in Admit.Need(geometry as RadialDimension)
@@ -576,7 +576,7 @@ public sealed partial class DimFamily {
             from lines in Try.lift(() => ordinate.GetDisplayLines(ordinate.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
                 ? Fin.Succ(value: toSeq(rows))
                 : Fin.Fail<Seq<Line>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-            from box in TextBox(ordinate.GetTextRectangle)
+            from box in TextBox(ordinate.GetTextRectangle, key)
             select new DimSkeleton(points, lines, Seq<Arc>(), box),
         text: static (geometry, units, key) =>
             from ordinate in Admit.Need(geometry as OrdinateDimension)

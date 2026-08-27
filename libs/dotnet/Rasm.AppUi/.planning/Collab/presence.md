@@ -352,7 +352,7 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
         Viewport.SubscribeLocalUpdate(new EphemeralSink(Viewport, sink, body));
 
     public Fin<byte[]> PublishViewport(string key, LoroVal state) =>
-        CollabDoc.Lift(() => { Viewport.Set(state); return Viewport.Encode(); });
+        CollabDoc.Lift(() => { Viewport.Set(key, state); return Viewport.Encode(key); });
 
     public HashMap<ulong, LoroValue> Roster() {
         ignore(Peers.RemoveOutdated());

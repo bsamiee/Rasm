@@ -125,7 +125,7 @@ internal sealed partial class LoadFamily {
     internal static Option<LoadFamily> Of(IfcStructuralLoad load) => Token(load.GetType().Name);
 
     internal static Option<LoadFamily> Token(string key) =>
-        TryGet(out LoadFamily? row) && row is { } hit ? Some(hit) : None;
+        TryGet(key, out LoadFamily? row) && row is { } hit ? Some(hit) : None;
 
     private static Option<string> Named<TMeasure>() where TMeasure : IfcValue => Some(typeof(TMeasure).Name);
 
@@ -167,42 +167,42 @@ public static class StructuralProjection {
         BaseClassIfc? entity, UnitScheme scale, Option<EurocodePolicy> eurocode, IIfcProfileStore profiles) =>
         entity switch {
             IfcRelConnectsStructuralMember relation =>
-                from release in RestraintOf(relation.AppliedCondition, Release, scale)
-                from support in RestraintOf(relation.RelatedStructuralConnection?.AppliedCondition, Support, scale)
-                from frame in Frame(relation.ConditionCoordinateSystem)
-                from length in Measures(Seq((StructuralRows.SupportedLength, Named<IfcLengthMeasure>(), relation.SupportedLength)), scale)
-                from offset in Measures(OffsetOf(relation), scale)
+                from release in RestraintOf(relation.AppliedCondition, Release, scale, key)
+                from support in RestraintOf(relation.RelatedStructuralConnection?.AppliedCondition, Support, scale, key)
+                from frame in Frame(relation.ConditionCoordinateSystem, key)
+                from length in Measures(Seq((StructuralRows.SupportedLength, Named<IfcLengthMeasure>(), relation.SupportedLength)), scale, key)
+                from offset in Measures(OffsetOf(relation), scale, key)
                 select release.AddRange(support).AddRange(frame).AddRange(length).AddRange(offset)
                     .AddRange(Optional((relation as IfcRelConnectsWithEccentricity)?.ConnectionConstraint)
-                        .Map(constraint => (Eccentricity, (PropertyValue)new PropertyValue.Text(profiles.Preserve(constraint).ToString("X32"))))
+                        .Map(constraint => (Eccentricity, (PropertyValue)new PropertyValue.Text(profiles.Preserve(constraint, key).ToString("X32"))))
                         .ToSeq())
                     .AddRange(AtStart(relation.RelatingStructuralMember as IfcStructuralCurveMember, relation.RelatedStructuralConnection)
                         .Map(static atStart => (StructuralRows.AtStart, (PropertyValue)new PropertyValue.Boolean(atStart))).ToSeq()),
             IfcRelConnectsStructuralActivity relation =>
-                from load in LoadOf(relation.RelatedStructuralActivity, scale, eurocode)
+                from load in LoadOf(relation.RelatedStructuralActivity, scale, eurocode, key)
                 from station in Measures(Station(relation.RelatingElement as IfcStructuralCurveMember, relation.RelatedStructuralActivity)
-                    .Map(static value => (StructuralRows.Station, Anonymous, value)).ToSeq(), scale)
+                    .Map(static value => (StructuralRows.Station, Anonymous, value)).ToSeq(), scale, key)
                 select load.AddRange(station),
             IfcStructuralConnection connection =>
-                from restraint in RestraintOf(connection.AppliedCondition, Support, scale)
-                from frame in Frame((connection as IfcStructuralPointConnection)?.ConditionCoordinateSystem)
+                from restraint in RestraintOf(connection.AppliedCondition, Support, scale, key)
+                from frame in Frame((connection as IfcStructuralPointConnection)?.ConditionCoordinateSystem, key)
                 select restraint.AddRange(frame),
-            IfcStructuralActivity activity => LoadOf(activity, scale, eurocode),
+            IfcStructuralActivity activity => LoadOf(activity, scale, eurocode, key),
             IfcStructuralLoadCase loadCase =>
-                from group in GroupOf(loadCase, scale, eurocode)
+                from group in GroupOf(loadCase, scale, eurocode, key)
                 from weight in Measures(Optional(loadCase.SelfWeightCoefficients).ToSeq().Bind(static vector => Seq(
                     (SelfWeight["X"], Named<IfcRatioMeasure>(), vector.Item1),
                     (SelfWeight["Y"], Named<IfcRatioMeasure>(), vector.Item2),
-                    (SelfWeight["Z"], Named<IfcRatioMeasure>(), vector.Item3))), scale)
+                    (SelfWeight["Z"], Named<IfcRatioMeasure>(), vector.Item3))), scale, key)
                 select group.AddRange(weight),
-            IfcStructuralLoadGroup group => GroupOf(group, scale, eurocode),
+            IfcStructuralLoadGroup group => GroupOf(group, scale, eurocode, key),
             IfcStructuralResultGroup result => Fin.Succ(Map(
                 (StructuralRow.AnalysisTheory.Name, Enumerated(result.TheoryType.ToString(), TheoryKinds)),
                 (StructuralRow.IsLinear.Name, (PropertyValue)new PropertyValue.Boolean(result.IsLinear)))
                 .AddRange(Optional(result.ResultForLoadGroup)
                     .Map(static loadGroup => (StructuralRow.ResultFor.Name, (PropertyValue)new PropertyValue.Text(loadGroup.GlobalId))).ToSeq())),
             IfcStructuralAnalysisModel model =>
-                from frame in Frame(model.OrientationOf2DPlane)
+                from frame in Frame(model.OrientationOf2DPlane, key)
                 select Seq(
                         (StructuralRow.LoadedBy.Name, toSeq(model.LoadedBy).Map(static group => group.GlobalId)),
                         (StructuralRow.HasResults.Name, toSeq(model.HasResults).Map(static result => result.GlobalId)))
@@ -214,8 +214,8 @@ public static class StructuralProjection {
             IfcStructuralCurveMember member => Measures(Optional(member.Axis).ToSeq().Bind(static axis => Seq(
                 (LocalAxis["X"], Anonymous, axis.DirectionRatioX),
                 (LocalAxis["Y"], Anonymous, axis.DirectionRatioY),
-                (LocalAxis["Z"], Anonymous, axis.DirectionRatioZ))), scale),
-            IfcStructuralSurfaceMember surface => Measures(Seq(StructuralRow.Thickness.Cell(surface.Thickness)), scale),
+                (LocalAxis["Z"], Anonymous, axis.DirectionRatioZ))), scale, key),
+            IfcStructuralSurfaceMember surface => Measures(Seq(StructuralRow.Thickness.Cell(surface.Thickness)), scale, key),
             _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
         };
 
@@ -236,16 +236,16 @@ public static class StructuralProjection {
         IfcBoundaryNodeConditionWarping w => SixDof(
                 (w.TranslationalStiffnessX, w.TranslationalStiffnessY, w.TranslationalStiffnessZ),
                 (w.RotationalStiffnessX, w.RotationalStiffnessY, w.RotationalStiffnessZ),
-                Named<IfcLinearStiffnessMeasure>(), Named<IfcRotationalStiffnessMeasure>(), family, scale)
-            .Bind(rows => WarpingOf(w, family, scale).Map(rows.AddRange)),
+                Named<IfcLinearStiffnessMeasure>(), Named<IfcRotationalStiffnessMeasure>(), family, scale, key)
+            .Bind(rows => WarpingOf(w, family, scale, key).Map(rows.AddRange)),
         IfcBoundaryNodeCondition n => SixDof(
             (n.TranslationalStiffnessX, n.TranslationalStiffnessY, n.TranslationalStiffnessZ),
             (n.RotationalStiffnessX, n.RotationalStiffnessY, n.RotationalStiffnessZ),
-            Named<IfcLinearStiffnessMeasure>(), Named<IfcRotationalStiffnessMeasure>(), family, scale),
+            Named<IfcLinearStiffnessMeasure>(), Named<IfcRotationalStiffnessMeasure>(), family, scale, key),
         IfcBoundaryEdgeCondition e => SixDof(
             (e.LinearStiffnessByLengthX, e.LinearStiffnessByLengthY, e.LinearStiffnessByLengthZ),
             (e.RotationalStiffnessByLengthX, e.RotationalStiffnessByLengthY, e.RotationalStiffnessByLengthZ),
-            Named<IfcModulusOfLinearSubgradeReactionMeasure>(), Named<IfcModulusOfRotationalSubgradeReactionMeasure>(), family, scale),
+            Named<IfcModulusOfLinearSubgradeReactionMeasure>(), Named<IfcModulusOfRotationalSubgradeReactionMeasure>(), family, scale, key),
         _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
     };
 
@@ -253,7 +253,7 @@ public static class StructuralProjection {
         IfcBoundaryNodeConditionWarping condition, RestraintFamily family, UnitScheme scale) =>
         IfcInternals.Warping(condition).Match(
             None: static () => Fin.Succ(Map<PropertyName, PropertyValue>()),
-            Some: reading => Verdict(family.Warping, reading, Named<IfcWarpingMomentMeasure>(), scale)
+            Some: reading => Verdict(family.Warping, reading, Named<IfcWarpingMomentMeasure>(), scale, key)
                 .Map(static row => Map((row.Name, row.Value))));
 
     private static Fin<Map<PropertyName, PropertyValue>> Frame(IfcAxis2Placement3D? system) =>
@@ -275,14 +275,14 @@ public static class StructuralProjection {
             (family.Rotation["X"],    rotation.X,    rotationMeasure),
             (family.Rotation["Y"],    rotation.Y,    rotationMeasure),
             (family.Rotation["Z"],    rotation.Z,    rotationMeasure))
-            .Traverse(degree => (Verdict(degree.Item1, Dof(degree.Item2), degree.Item3, scale)).ToValidation()).As().ToFin()
+            .Traverse(degree => (Verdict(degree.Item1, Dof(degree.Item2), degree.Item3, scale, key)).ToValidation()).As().ToFin()
         .Map(static rows => rows.Fold(Map<PropertyName, PropertyValue>(), static (map, row) => map.Add(row.Name, row.Value)));
 
     private static Fin<(PropertyName Name, PropertyValue Value)> Verdict(
         PropertyName name, (bool Fixity, double Native) reading, Option<string> measure, UnitScheme scale) =>
         reading.Native switch {
             0d => Fin.Succ((Name: name, Value: (PropertyValue)new PropertyValue.Boolean(reading.Fixity))),
-            var native when double.IsFinite(native) && native > 0d => Admit(measure, native, scale)
+            var native when double.IsFinite(native) && native > 0d => Admit(measure, native, scale, key)
                 .Map(value => (Name: name, Value: (PropertyValue)new PropertyValue.Measure(value))),
             _ => new KernelFault.OutOfRange(
                         Label: name.ToString(),
@@ -318,15 +318,15 @@ public static class StructuralProjection {
             None: static () => Fin.Succ((Signature: Dimension.Dimensionless, Type: Option<QuantityType>.None, Si: native)));
 
     internal static Fin<MeasureValue> Admit(Option<string> measure, double native, UnitScheme scale) =>
-        Resolve(measure, native, scale).Bind(resolved => resolved.Type
+        Resolve(measure, native, scale, key).Bind(resolved => resolved.Type
             .Match(
                 Some: type => MeasureValue.OfSi(type, resolved.Signature, resolved.Si),
-                None: () => MeasureValue.OfSi(resolved.Signature, resolved.Si)));
+                None: () => MeasureValue.OfSi(resolved.Signature, resolved.Si, key)));
 
     internal static Fin<Map<PropertyName, PropertyValue>> Measures(
         Seq<(PropertyName Name, Option<string> Measure, double Native)> rows, UnitScheme scale) =>
         rows.Filter(static row => double.IsFinite(row.Native))
-            .Traverse(row => (Admit(row.Measure, row.Native, scale)).ToValidation()
+            .Traverse(row => (Admit(row.Measure, row.Native, scale, key)).ToValidation()
                 .Map(value => (Name: row.Name, Value: (PropertyValue)new PropertyValue.Measure(value)))).As().ToFin()
             .Map(static admitted => admitted.Fold(
                 Map<PropertyName, PropertyValue>(),
@@ -346,8 +346,8 @@ public static class StructuralProjection {
             .Match(
                 Some: pair => {
                     ActionRow row = Eurocode.RowOf(pair.Activity, eurocode);
-                    return from measures in Measures(pair.Family.Vectors(pair.Load), scale)
-                           from factors in Eurocode.Factors(row, eurocode, scale)
+                    return from measures in Measures(pair.Family.Vectors(pair.Load), scale, key)
+                           from factors in Eurocode.Factors(row, eurocode, scale, key)
                            select Map(
                                (StructuralRow.LoadType.Name, Enumerated(pair.Family.Key, LoadKinds)),
                                (StructuralRows.LoadKind, (PropertyValue)new PropertyValue.Text(pair.Family.Kind)),
@@ -365,10 +365,10 @@ public static class StructuralProjection {
 
     private static Fin<Map<PropertyName, PropertyValue>> GroupOf(
         IfcStructuralLoadGroup group, UnitScheme scale, Option<EurocodePolicy> eurocode) =>
-        from measures in Measures(Seq(StructuralRow.Coefficient.Cell(group.Coefficient)), scale)
+        from measures in Measures(Seq(StructuralRow.Coefficient.Cell(group.Coefficient)), scale, key)
         from combination in group.PredefinedType == IfcLoadGroupTypeEnum.LOAD_COMBINATION_GROUP
             ? eurocode.Match(
-                Some: policy => Eurocode.Combination(group, policy, scale),
+                Some: policy => Eurocode.Combination(group, policy, scale, key),
                 None: static () => Fin.Succ(Map<PropertyName, PropertyValue>()))
             : Fin.Succ(Map<PropertyName, PropertyValue>())
         select Map(
@@ -386,7 +386,7 @@ public static class StructuralProjection {
         DatabaseIfc db, IfcObjectDefinition entity, Map<PropertyName, PropertyValue> attrs) =>
         entity switch {
             IfcStructuralConnection connection when attrs.ContainsKey(StructuralRows.Translation["X"]) =>
-                Consume(attrs, Support.Consumed, () => connection.AppliedCondition = new IfcBoundaryNodeCondition(db, "",
+                Consume(attrs, Support.Consumed, key, () => connection.AppliedCondition = new IfcBoundaryNodeCondition(db, "",
                     Translational(attrs, StructuralRows.Translation["X"]),
                     Translational(attrs, StructuralRows.Translation["Y"]),
                     Translational(attrs, StructuralRows.Translation["Z"]),
@@ -394,7 +394,7 @@ public static class StructuralProjection {
                     Rotational(attrs, StructuralRows.Rotation["Y"]),
                     Rotational(attrs, StructuralRows.Rotation["Z"]))),
             IfcStructuralActivity activity when LoadTypeOf(attrs) == Some(LoadFamily.SingleForce) =>
-                Consume(attrs, ForceNames, () => activity.AppliedLoad = new IfcStructuralLoadSingleForce(db,
+                Consume(attrs, ForceNames, key, () => activity.AppliedLoad = new IfcStructuralLoadSingleForce(db,
                         Si(attrs, StructuralRows.Force["X"]), Si(attrs, StructuralRows.Force["Y"]), Si(attrs, StructuralRows.Force["Z"])) {
                     MomentX = Si(attrs, StructuralRows.Moment["X"]),
                     MomentY = Si(attrs, StructuralRows.Moment["Y"]),

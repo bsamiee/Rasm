@@ -232,7 +232,7 @@ public static class Slicing {
                 if (cos < 0.0) { overhang.Add((fl, -cos)); }
             }
             (double Start, double Cos)[] rows = [.. overhang.OrderBy(static row => row.Start)];
-            return Axis.DominantOf(d).Map(vertical => new Frame(vertical, lo, hi, slope, [.. rows.Select(static row => row.Start)], [.. rows.Select(static row => row.Cos)]));
+            return Axis.DominantOf(d, key).Map(vertical => new Frame(vertical, lo, hi, slope, [.. rows.Select(static row => row.Start)], [.. rows.Select(static row => row.Cos)]));
         }
 
         internal double SteepestSlope(double z, double ahead) {
@@ -296,7 +296,7 @@ public static class Slicing {
         int layers = elevations.Count;
         using MemoryOwner<Fin<IntersectResult>> slots = MemoryOwner<Fin<IntersectResult>>.Allocate(layers);
         double[] family = [.. elevations];
-        ParallelHelper.For(0, layers, new SectionAction(mesh, datum, family, policy.Intersect, slots.Memory), policy.ParallelFloor.Value);
+        ParallelHelper.For(0, layers, new SectionAction(mesh, datum, family, policy.Intersect, slots.Memory, key), policy.ParallelFloor.Value);
 
         using ArrayPoolBufferWriter<double> u = new();
         using ArrayPoolBufferWriter<double> v = new();

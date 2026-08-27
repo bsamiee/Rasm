@@ -119,12 +119,12 @@ public sealed record RulePlan<TRule, TSlot>(Seq<TRule> Rules)
                from __ in guard(
                    slotted.Map(static rule => rule.SlotKey).Distinct().Count == slotted.Count,
                    new KernelFault.InvalidInput())
-               from ___ in rules.TraverseM(rule => admit(rule)).As()
+               from ___ in rules.TraverseM(rule => admit(rule, key)).As()
                select new RulePlan<TRule, TSlot>(Rules: rules);
     }
 
     public Fin<Unit> Apply<TTarget>(TTarget target, Func<TRule, TTarget, Fin<Unit>> apply) =>
-        Rules.TraverseM(rule => apply(rule, target)).As().Map(static _ => unit);
+        Rules.TraverseM(rule => apply(rule, target, key)).As().Map(static _ => unit);
 
     public bool Holds(Func<TRule, bool> probe) => Rules.Exists(probe);
 }
@@ -1094,7 +1094,7 @@ public static class Acquisition {
             create: static () => new GetPoint(),
             prepare: getter => intent.Point.Plan.Apply(
                 target: getter, apply: static (rule, target, k) => rule.Apply(target, k)),
-            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging).Bind(callbacks => {
+            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging, op).Bind(callbacks => {
                 GetResult raw;
                 using (callbacks) {
                     raw = getter.Get(
@@ -1241,17 +1241,17 @@ internal static class GetterDrive {
                      return Fin.Succ(unit);
                  }).Run().Bind(static inner => inner)
                  from __ in request.Default
-                     .TraverseM(value => value.Apply(getter))
+                     .TraverseM(value => value.Apply(getter, op))
                      .As()
                      .Map(static _ => unit)
-                 from ___ in request.Accept.Apply(getter)
+                 from ___ in request.Accept.Apply(getter, op)
                  from ____ in prepare(getter)
-                 from outcome in Dragged(request.Drag, dragging =>
+                 from outcome in Dragged(request.Drag, op, dragging =>
                      dragging.Map(buffer => buffer.Bind(getter)).IfNone(Fin.Succ(unit))
                          .Bind(_ => request.Options.Match(
-                             Some: options => options.Bind(getter),
+                             Some: options => options.Bind(getter, op),
                              None: static () => Fin.Succ(new OptionLease())))
-                         .Bind(lease => Cycle(request, getter, dragging, receive, project, lease)
+                         .Bind(lease => Cycle(request, getter, dragging, receive, project, lease, op)
                              .Settled(held: Seq(lease), release: held => held.Release())))
                  select outcome)
                 .Settled(
@@ -1263,7 +1263,7 @@ internal static class GetterDrive {
     private static Fin<AcquireOutcome> Dragged(
         Option<DragSelection> plan,
         Func<Option<DragBuffer>, Fin<AcquireOutcome>> body) => plan.Match(
-        Some: row => DragBuffer.Of(row).Bind(buffer =>
+        Some: row => DragBuffer.Of(row, op).Bind(buffer =>
             body(Some(buffer))
                 .Settled(
                     held: Seq(buffer),
@@ -1282,16 +1282,16 @@ internal static class GetterDrive {
             .FoldUntil(
                 Fin.Succ(new GetterCycle(Choices: [], Terminal: None)),
                 (state, _) => state.Bind(cycle => receive(getter, dragging).Bind(raw => raw is GetResult.Option
-                    ? lease.Selected(getter).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
+                    ? lease.Selected(getter, op).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
                     : Fin.Succ(cycle with { Terminal = Some(raw) }))),
                 pair => pair.State.Match(Succ: static cycle => cycle.Terminal.IsSome, Fail: static _ => true))
             .Bind(cycle => cycle.Terminal.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(AcceptPlan.OptionBudget))))
                 .Bind(raw => TerminalRow.TryGet(raw, out TerminalRow? row)
-                    ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging)
+                    ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging, op)
                     : raw is GetResult.NoResult or GetResult.Miss
                         ? Fin.Fail<AcquireOutcome>(new KernelFault.InvalidResult(Detail: Some(raw.ToString())))
                         : project(getter, raw).Bind(payload => Sealed(
-                            new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging))));
+                            new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging, op))));
 
     private static Fin<AcquireOutcome> Sealed(
         AcquireTerminal terminal,
@@ -1335,13 +1335,13 @@ internal sealed class DragBuffer : IDisposable {
             .Bind(_ => selection.GetMultiple(plan.Selection.Minimum, plan.Selection.Maximum) is GetResult.Object
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some(nameof(DragSelection.Selection)))))
-            .Bind(_ => Minted(selection, plan.Scope));
+            .Bind(_ => Minted(selection, plan.Scope, op));
     }).Run().Bind(static inner => inner);
 
     private static Fin<DragBuffer> Minted(GetObject selection, DragScope scope) {
         TransformObjectList buffer = new();
         return Admit.Confirm(buffer.AddObjects(selection, scope.Grips) > 0)
-            .Map(_ => new DragBuffer(buffer, scope))
+            .Map(_ => new DragBuffer(buffer, scope, op))
             .Rollback(release: () => Try.lift(() => { buffer.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner));
     }
 

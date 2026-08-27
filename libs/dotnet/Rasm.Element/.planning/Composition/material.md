@@ -157,7 +157,7 @@ public readonly partial record struct SectionProperties(
  static readonly Dimension WarpingDim = Dimension.Create(6, 0, 0, 0, 0, 0, 0);
 
  static Validation<Error, MeasureValue> Column(double valueMm, double factor, QuantityType type, Dimension dimension, string name, bool strict) =>
-  (strict ? In(valueMm, Band.Positive, name) : Finite((name, valueMm)).Map(_ => valueMm))
+  (strict ? In(valueMm, Band.Positive, name, key) : Finite(key, (name, valueMm)).Map(_ => valueMm))
    .Bind(value => MeasureValue.OfSi(type, dimension, value * factor).ToValidation());
 
  static class Millimetre {
@@ -260,16 +260,16 @@ public sealed partial record SampledCurve {
  public static Fin<SampledCurve> Of(ReadOnlyMemory<double> axis, ReadOnlyMemory<double> values) =>
   axis.Length < 2 || axis.Length != values.Length
    ? new ElementFault.ValueRejected($"<curve-arity:axis={axis.Length}:values={values.Length}>")
-   : (Indexed(axis.Span, double.IsFinite, "curve-axis"), Indexed(values.Span, double.IsFinite, "curve-value"))
+   : (Indexed(axis.Span, double.IsFinite, key, "curve-axis"), Indexed(values.Span, double.IsFinite, key, "curve-value"))
     .Apply(static (_, _) => unit).As().ToFin()
     .Bind(_ => NotIncreasing(axis.Span)
-     ? new ElementFault.ValueRejected("<curve-axis-not-increasing>")
-     : Interpolant.LinearSpline(toArray(axis.ToArray()), toArray(values.ToArray()))
+     ? new ElementFault.ValueRejected(key, "<curve-axis-not-increasing>")
+     : Interpolant.LinearSpline(toArray(axis.ToArray()), toArray(values.ToArray()), key)
         .Map(fitted => new SampledCurve([.. axis.Span], [.. values.Span], fitted)));
 
  public Fin<double> At(double x) =>
   double.IsFinite(x)
-   ? AtAdmitted(x)
+   ? AtAdmitted(x, key)
    : new KernelFault.OutOfRange("curve-query", x, "be finite");
 
  internal Fin<double> AtAdmitted(double x) {
@@ -361,31 +361,31 @@ public abstract partial class MaterialComposition {
   ProfileSet.Seed(Seq(new MaterialProfile(material, profile)), Option<ProfileRef>.None, Option<SectionProperties>.None);
 
  public static Fin<MaterialComposition> OfProfileSet(Seq<MaterialProfile> profiles, Option<ProfileRef> composite = default) =>
-  (Gate(!profiles.IsEmpty, "<profile-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+  (Gate(!profiles.IsEmpty, key, "<profile-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
    Accumulate(profiles.Map((profile, index) => profile.Priority.Match(
-    Some: priority => InRange(priority, 0, PriorityCeiling, $"profile-priority[{index}]").Map(static _ => unit),
+    Some: priority => InRange(priority, 0, PriorityCeiling, $"profile-priority[{index}]", key).Map(static _ => unit),
     None: static () => Success<Error, Unit>(unit)))),
-   Accumulate(profiles.Map((profile, index) => Gate(profile.Offsets.Count <= OffsetArityCeiling, $"<profile-offset-arity:index={index}:count={profile.Offsets.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))))
+   Accumulate(profiles.Map((profile, index) => Gate(profile.Offsets.Count <= OffsetArityCeiling, key, $"<profile-offset-arity:index={index}:count={profile.Offsets.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))))
   .Apply((_, _, _) => (MaterialComposition)ProfileSet.Seed(profiles, composite, Option<SectionProperties>.None))
   .As().ToFin();
 
  public static Fin<MaterialComposition> OfLayerSet(Seq<MaterialLayer> layers) =>
-  (Gate(!layers.IsEmpty, "<layer-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Accumulate(layers.Map((layer, index) => In(layer.Thickness.Si, Band.Positive, $"layer-thickness[{index}]").Map(static _ => unit))),
+  (Gate(!layers.IsEmpty, key, "<layer-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Accumulate(layers.Map((layer, index) => In(layer.Thickness.Si, Band.Positive, $"layer-thickness[{index}]", key).Map(static _ => unit))),
    Accumulate(layers.Map((layer, index) => layer.Priority.Match(
-    Some: priority => InRange(priority, 0, PriorityCeiling, $"layer-priority[{index}]").Map(static _ => unit),
+    Some: priority => InRange(priority, 0, PriorityCeiling, $"layer-priority[{index}]", key).Map(static _ => unit),
     None: static () => Success<Error, Unit>(unit)))))
   .Apply((_, _, _) => (MaterialComposition)LayerSet.Seed(layers))
   .As().ToFin();
 
  public static Fin<MaterialComposition> OfConstituentSet(Seq<MaterialConstituent> constituents) =>
-  (Gate(!constituents.IsEmpty, "<constituent-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Accumulate(constituents.Map((constituent, index) => In(constituent.Fraction, Band.Unit, $"constituent-fraction[{index}]").Map(static _ => unit))))
+  (Gate(!constituents.IsEmpty, key, "<constituent-set-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Accumulate(constituents.Map((constituent, index) => In(constituent.Fraction, Band.Unit, $"constituent-fraction[{index}]", key).Map(static _ => unit))))
   .Apply(static (_, _) => unit)
   .As().ToFin()
   .Bind(_ => Math.Abs(constituents.Sum(static constituent => constituent.Fraction) - 1.0) <= FractionTolerance
    ? Fin.Succ<MaterialComposition>(ConstituentSet.Seed(constituents))
-   : new ElementFault.ValueRejected($"<constituent-fraction-not-normalized:{constituents.Sum(static constituent => constituent.Fraction):R}>"));
+   : new ElementFault.ValueRejected(key, $"<constituent-fraction-not-normalized:{constituents.Sum(static constituent => constituent.Fraction):R}>"));
 }
 ```
 
@@ -457,17 +457,17 @@ public readonly record struct FireResistance {
  public static readonly FireResistance None = new(Option<int>.None, Option<int>.None, Option<int>.None);
 
  public static Fin<FireResistance> Of(Option<int> loadBearingMinutes, Option<int> integrityMinutes, Option<int> insulationMinutes) =>
-  (Gate(loadBearingMinutes.IsSome || integrityMinutes.IsSome || insulationMinutes.IsSome, "<fire-resistance-unmeasured>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Minutes(loadBearingMinutes, "load-bearing"),
-   Minutes(integrityMinutes, "integrity"),
-   Minutes(insulationMinutes, "insulation"))
+  (Gate(loadBearingMinutes.IsSome || integrityMinutes.IsSome || insulationMinutes.IsSome, key, "<fire-resistance-unmeasured>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Minutes(loadBearingMinutes, "load-bearing", key),
+   Minutes(integrityMinutes, "integrity", key),
+   Minutes(insulationMinutes, "insulation", key))
   .Apply(static (_, r, e, i) => new FireResistance(r, e, i))
   .As().ToFin();
 
  public static Fin<FireResistance> Of(FireCoverage coverage, int minutes) =>
   Of(coverage.LoadBearing ? Some(minutes) : None,
      coverage.Integrity ? Some(minutes) : None,
-     coverage.Insulation ? Some(minutes) : None);
+     coverage.Insulation ? Some(minutes) : None, key);
 
  private static Validation<Error, Option<int>> Minutes(Option<int> value, string criterion) =>
   value.Exists(static minutes => minutes < 0)
@@ -738,13 +738,13 @@ public abstract partial class MaterialPropertySet {
    .Optional(Evidence.Run, static (r, run) => r.CanonicalBytes(run));
 
  public static Fin<MaterialPropertySet> OfMechanical(double density, double youngsModulus, double yieldStrength, double ultimateStrength, double poissons, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> youngsReduction = default, Option<SampledCurve> yieldReduction = default) =>
-  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter),
-   Coerce(youngsModulus, UnitsNet.Units.PressureUnit.Megapascal),
-   Coerce(yieldStrength, UnitsNet.Units.PressureUnit.Megapascal),
-   Coerce(ultimateStrength, UnitsNet.Units.PressureUnit.Megapascal))
+  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter, key),
+   Coerce(youngsModulus, UnitsNet.Units.PressureUnit.Megapascal, key),
+   Coerce(yieldStrength, UnitsNet.Units.PressureUnit.Megapascal, key),
+   Coerce(ultimateStrength, UnitsNet.Units.PressureUnit.Megapascal, key))
   .Apply(static (rho, e, fy, fu) => (Density: rho, Youngs: e, Yield: fy, Ultimate: fu))
   .As().ToFin()
-  .Bind(column => OfMechanical(column.Density, column.Youngs, column.Yield, column.Ultimate, poissons, thermalExpansion, evidence, youngsReduction, yieldReduction));
+  .Bind(column => OfMechanical(column.Density, column.Youngs, column.Yield, column.Ultimate, poissons, thermalExpansion, key, evidence, youngsReduction, yieldReduction));
 
  public static Fin<MaterialPropertySet> OfMechanical(MeasureValue density, MeasureValue youngsModulus, MeasureValue yieldStrength, MeasureValue ultimateStrength, double poissons, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> youngsReduction = default, Option<SampledCurve> yieldReduction = default) =>
   (Positive(density, "mechanical-density"),
@@ -757,16 +757,16 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin();
 
  public static Fin<MaterialPropertySet> OfOrthotropic(double density, double e1Parallel, Option<double> e005Parallel, double e2Perpendicular, double shearModulus, double strength1Parallel, double strength2Perpendicular, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> modulusReduction = default, Option<SampledCurve> strengthReduction = default) =>
-  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter),
-   Coerce(e1Parallel, UnitsNet.Units.PressureUnit.Megapascal),
-   e005Parallel.Traverse(e => Coerce(e, UnitsNet.Units.PressureUnit.Megapascal)).As(),
-   Coerce(e2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal),
-   Coerce(shearModulus, UnitsNet.Units.PressureUnit.Megapascal),
-   Coerce(strength1Parallel, UnitsNet.Units.PressureUnit.Megapascal),
-   Coerce(strength2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal))
+  (Coerce(density, UnitsNet.Units.DensityUnit.KilogramPerCubicMeter, key),
+   Coerce(e1Parallel, UnitsNet.Units.PressureUnit.Megapascal, key),
+   e005Parallel.Traverse(e => Coerce(e, UnitsNet.Units.PressureUnit.Megapascal, key)).As(),
+   Coerce(e2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal, key),
+   Coerce(shearModulus, UnitsNet.Units.PressureUnit.Megapascal, key),
+   Coerce(strength1Parallel, UnitsNet.Units.PressureUnit.Megapascal, key),
+   Coerce(strength2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal, key))
   .Apply(static (rho, e1, e05, e2, g, s1, s2) => (Density: rho, E1: e1, E005: e05, E2: e2, Shear: g, S1: s1, S2: s2))
   .As().ToFin()
-  .Bind(column => OfOrthotropic(column.Density, column.E1, column.E005, column.E2, column.Shear, column.S1, column.S2, thermalExpansion, evidence, modulusReduction, strengthReduction));
+  .Bind(column => OfOrthotropic(column.Density, column.E1, column.E005, column.E2, column.Shear, column.S1, column.S2, thermalExpansion, key, evidence, modulusReduction, strengthReduction));
 
  public static Fin<MaterialPropertySet> OfOrthotropic(MeasureValue density, MeasureValue e1Parallel, Option<MeasureValue> e005Parallel, MeasureValue e2Perpendicular, MeasureValue shearModulus, MeasureValue strength1Parallel, MeasureValue strength2Perpendicular, double thermalExpansion, PropertyEvidence evidence = default, Option<SampledCurve> modulusReduction = default, Option<SampledCurve> strengthReduction = default) =>
   (Positive(density, "orthotropic-density"),
@@ -781,12 +781,12 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin();
 
  public static Fin<MaterialPropertySet> OfThermal(double conductivity, double specificHeat, Option<double> uValue, double vapourResistanceFactor, PropertyEvidence evidence = default, Option<SampledCurve> conductivityCurve = default) =>
-  (Coerce(conductivity, UnitsNet.Units.ThermalConductivityUnit.WattPerMeterKelvin),
-   Coerce(specificHeat, UnitsNet.Units.SpecificEntropyUnit.JoulePerKilogramKelvin),
-   uValue.Traverse(u => MeasureValue.Of(u, UnitsNet.Units.HeatTransferCoefficientUnit.WattPerSquareMeterKelvin).ToValidation()).As())
+  (Coerce(conductivity, UnitsNet.Units.ThermalConductivityUnit.WattPerMeterKelvin, key),
+   Coerce(specificHeat, UnitsNet.Units.SpecificEntropyUnit.JoulePerKilogramKelvin, key),
+   uValue.Traverse(u => MeasureValue.Of(u, UnitsNet.Units.HeatTransferCoefficientUnit.WattPerSquareMeterKelvin, key).ToValidation()).As())
   .Apply(static (lambda, cp, u) => (Conductivity: lambda, SpecificHeat: cp, UValue: u))
   .As().ToFin()
-  .Bind(column => OfThermal(column.Conductivity, column.SpecificHeat, column.UValue, vapourResistanceFactor, evidence, conductivityCurve));
+  .Bind(column => OfThermal(column.Conductivity, column.SpecificHeat, column.UValue, vapourResistanceFactor, key, evidence, conductivityCurve));
 
  public static Fin<MaterialPropertySet> OfThermal(MeasureValue conductivity, MeasureValue specificHeat, Option<MeasureValue> uValue, double vapourResistanceFactor, PropertyEvidence evidence = default, Option<SampledCurve> conductivityCurve = default) =>
   (Positive(conductivity, "thermal-conductivity"),
@@ -806,9 +806,9 @@ public abstract partial class MaterialPropertySet {
   new Fire(Option<FireRating>.Some(reaction), suffix, resistance, evidence);
 
  public static Fin<MaterialPropertySet> OfEnvironmental(MeasurementBasis basis, ImmutableArray<double> impacts, Option<double> recycledContent, Option<double> endOfLifeRecovery, PropertyEvidence evidence = default) =>
-  (Matrix(impacts),
-   recycledContent.Traverse(r => In(r, Band.Unit, "environmental-recycled-content")).As(),
-   endOfLifeRecovery.Traverse(r => In(r, Band.Unit, "environmental-recovery")).As())
+  (Matrix(impacts, key),
+   recycledContent.Traverse(r => In(r, Band.Unit, "environmental-recycled-content", key)).As(),
+   endOfLifeRecovery.Traverse(r => In(r, Band.Unit, "environmental-recovery", key)).As())
   .Apply((m, recycled, recovery) => (MaterialPropertySet)new Environmental(basis, m, recycled, recovery, evidence))
   .As().ToFin();
 
@@ -821,7 +821,7 @@ public abstract partial class MaterialPropertySet {
 
  public static Fin<MaterialPropertySet> OfDamping(double dampingRatio, Option<(double AlphaPerS, double BetaS)> rayleigh, PropertyEvidence evidence = default) =>
   (In(dampingRatio, Band.Fractional, "damping-ratio"),
-   Rayleigh(rayleigh))
+   Rayleigh(rayleigh, key))
   .Apply((zeta, pair) => (MaterialPropertySet)new Damping(zeta, pair, evidence))
   .As().ToFin();
 
@@ -835,7 +835,7 @@ public abstract partial class MaterialPropertySet {
   .As().ToFin()
   .Bind(t => t.Wf.Si < t.W80.Si
    ? Fin.Fail<MaterialPropertySet>(new ElementFault.ValueRejected($"<hygrothermal-isotherm-inverted:w80={t.W80.Si:R}:wf={t.Wf.Si:R}>"))
-   : Anchors(sorptionIsotherm, t.W80.Si, t.Wf.Si)
+   : Anchors(sorptionIsotherm, t.W80.Si, t.Wf.Si, key)
       .Map(_ => (MaterialPropertySet)new Hygrothermal(t.Phi, t.W80, t.Wf, t.A, sorptionIsotherm, liquidTransport, moistureConductivity, evidence)));
 
  private const double IsothermAnchorTolerance = 0.02;
@@ -877,10 +877,10 @@ public abstract partial class MaterialPropertySet {
    .As().ToFin());
 
  public static Fin<MaterialPropertySet> OfElectrical(double resistivityOhmM, double relativePermittivity, Option<double> dielectricStrengthVPerM, Option<double> magneticPermeabilityRelative, PropertyEvidence evidence = default) =>
-  (Positive(MeasureValue.Of(resistivityOhmM, UnitsNet.Units.ElectricResistivityUnit.OhmMeter), "electrical-resistivity"),
-   Guarded(relativePermittivity is >= 1.0, relativePermittivity, "electrical-relative-permittivity-below-unity"),
-   dielectricStrengthVPerM.Traverse(v => PositiveSi(v, QuantityType.Create("DielectricStrength"), Dimension.Create(1, 1, -3, -1, 0, 0, 0), "electrical-dielectric-strength")).As(),
-   Optional(magneticPermeabilityRelative, Band.Positive, "electrical-permeability"))
+  (Positive(MeasureValue.Of(resistivityOhmM, UnitsNet.Units.ElectricResistivityUnit.OhmMeter, key), "electrical-resistivity", key),
+   Guarded(relativePermittivity is >= 1.0, relativePermittivity, "electrical-relative-permittivity-below-unity", key),
+   dielectricStrengthVPerM.Traverse(v => PositiveSi(v, QuantityType.Create("DielectricStrength"), Dimension.Create(1, 1, -3, -1, 0, 0, 0), "electrical-dielectric-strength", key)).As(),
+   Optional(magneticPermeabilityRelative, Band.Positive, "electrical-permeability", key))
   .Apply((rho, er, ds, mu) => (MaterialPropertySet)new Electrical(rho, er, ds, mu, evidence))
   .As().ToFin();
 
@@ -891,7 +891,7 @@ public abstract partial class MaterialPropertySet {
    : new ElementFault.ValueRejected(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"<optical-{band}-{side}-conservation:{transmittance + counterpart:R}>"));
 
  private static Validation<Error, MeasureValue> Coerce(double value, Enum unit) =>
-  MeasureValue.Of(value, unit).ToValidation();
+  MeasureValue.Of(value, unit, key).ToValidation();
 
  private static Validation<Error, double> Guarded(bool valid, double value, string name) =>
   valid ? value : new KernelFault.OutOfRange(name, value, "satisfy the declared scalar predicate");
@@ -900,7 +900,7 @@ public abstract partial class MaterialPropertySet {
   column.Bind(m => m.Si > 0.0 ? Fin.Succ(m) : new KernelFault.OutOfRange(name, m.Si, "be positive")).ToValidation();
 
  private static Validation<Error, MeasureValue> Positive(MeasureValue column, string name) =>
-  Positive(Fin.Succ(column), name);
+  Positive(Fin.Succ(column), name, key);
 
  private static Validation<Error, MeasureValue> PositiveSi(double value, QuantityType type, Dimension dimension, string name) =>
   double.IsFinite(value) && value > 0.0
@@ -914,7 +914,7 @@ public abstract partial class MaterialPropertySet {
  private static Validation<Error, ImmutableArray<double>> Matrix(ImmutableArray<double> impacts) =>
   impacts.IsDefaultOrEmpty || impacts.Length != Environmental.MatrixArity
    ? new ElementFault.ValueRejected($"<environmental-impact-arity:{(impacts.IsDefault ? -1 : impacts.Length)}:expected={Environmental.MatrixArity}>")
-   : Indexed(impacts.AsSpan(), double.IsFinite, "environmental-impact").Map(_ => impacts);
+   : Indexed(impacts.AsSpan(), double.IsFinite, key, "environmental-impact").Map(_ => impacts);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

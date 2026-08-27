@@ -455,10 +455,10 @@ public abstract partial record Appearance {
             .Bind(live => toSeq(ConcernRow.Items).TraverseM(row => Try.lift(op => row.Read(live)).Run().Bind(static inner => inner)).As());
 
     private static Fin<PerceptualColor> Ink(System.Drawing.Color value) =>
-        PerceptualColor.OfRgb(value.R, value.G, value.B, value.A);
+        PerceptualColor.OfRgb(value.R, value.G, value.B, value.A, key);
 
     private static Fin<Option<PerceptualColor>> Ink(bool used, System.Drawing.Color value) =>
-        used ? Ink(value).Map(Some) : Fin.Succ(Option<PerceptualColor>.None);
+        used ? Ink(value, key).Map(Some) : Fin.Succ(Option<PerceptualColor>.None);
 
     internal Unit Write(DisplayPipelineAttributes target) => Switch(
         target,
@@ -576,11 +576,11 @@ public abstract partial record Appearance {
 
     // --- [READERS]
     internal static Fin<Appearance> ReadShading(DisplayPipelineAttributes a) =>
-        from objectColor in Ink(a.UseCustomObjectColor, a.ObjectColor)
-        from backface in HostRow<DisplayPipelineAttributes.BackfaceStyle>.Of(a.BackfaceDisplayStyle)
-        from diffuse in Ink(a.FrontDiffuse)
-        from backDiffuse in Ink(a.BackMaterialDiffuseColor)
-        from fill in Fill.Of(a)
+        from objectColor in Ink(a.UseCustomObjectColor, a.ObjectColor, key)
+        from backface in HostRow<DisplayPipelineAttributes.BackfaceStyle>.Of(a.BackfaceDisplayStyle, key)
+        from diffuse in Ink(a.FrontDiffuse, key)
+        from backDiffuse in Ink(a.BackMaterialDiffuseColor, key)
+        from fill in Fill.Of(a, key)
         select (Appearance)new Shading(
             Axes: DisplayAxis.Sweep(ConcernRow.Shading, a),
             ObjectColor: objectColor, Backface: backface,
@@ -592,13 +592,13 @@ public abstract partial record Appearance {
 
     internal static Fin<Appearance> ReadEdges(DisplayPipelineAttributes a) =>
         from widthUse in FactoryBridge.Row(WidthUse.Items, a.GetSurfaceNakedEdgeThicknessUsage(), static row => row.Naked)
-        from edgeUse in HostRow<DisplayPipelineAttributes.SurfaceEdgeColorUse>.Of(a.SurfaceEdgeColorUsage)
-        from isoUse in HostRow<DisplayPipelineAttributes.SurfaceIsoColorUse>.Of(a.GetSurfaceIsoColorUsage())
-        from color in Ink(a.SurfaceEdgeColor)
-        from single in Ink(a.UseSingleCurveColor, a.CurveColor)
-        from isoUv in Ink(a.SurfaceIsoUVColor)
-        from isoU in Ink(a.SurfaceIsoUColor)
-        from isoV in Ink(a.SurfaceIsoVColor)
+        from edgeUse in HostRow<DisplayPipelineAttributes.SurfaceEdgeColorUse>.Of(a.SurfaceEdgeColorUsage, key)
+        from isoUse in HostRow<DisplayPipelineAttributes.SurfaceIsoColorUse>.Of(a.GetSurfaceIsoColorUsage(), key)
+        from color in Ink(a.SurfaceEdgeColor, key)
+        from single in Ink(a.UseSingleCurveColor, a.CurveColor, key)
+        from isoUv in Ink(a.SurfaceIsoUVColor, key)
+        from isoU in Ink(a.SurfaceIsoUColor, key)
+        from isoV in Ink(a.SurfaceIsoVColor, key)
         select (Appearance)new Edges(
             Axes: DisplayAxis.Sweep(ConcernRow.Edges, a),
             Width: a.CurveThickness, WidthUse: widthUse, Scale: a.CurveThicknessScale, Color: color,
@@ -606,9 +606,9 @@ public abstract partial record Appearance {
             EdgeColorUse: edgeUse, IsoColorUse: isoUse, IsoUv: isoUv, IsoU: isoU, IsoV: isoV);
 
     internal static Fin<Appearance> ReadLighting(DisplayPipelineAttributes a) =>
-        from scheme in HostRow<DisplayPipelineAttributes.LightingSchema>.Of(a.LightingScheme)
-        from ambient in Ink(a.AmbientLightingColor)
-        from shadow in Ink(a.ShadowColor)
+        from scheme in HostRow<DisplayPipelineAttributes.LightingSchema>.Of(a.LightingScheme, key)
+        from ambient in Ink(a.AmbientLightingColor, key)
+        from shadow in Ink(a.ShadowColor, key)
         select (Appearance)new Lighting(
             Axes: DisplayAxis.Sweep(ConcernRow.Lighting, a),
             Scheme: scheme, Ambient: ambient,
@@ -621,20 +621,20 @@ public abstract partial record Appearance {
 
     internal static Fin<Appearance> ReadGround(DisplayPipelineAttributes a) =>
         from usage in FactoryBridge.Row(ScopeUse.Items, a.GroundPlaneUsage, static row => row.Ground)
-        from color in Ink(a.CustomGroundPlaneColor)
+        from color in Ink(a.CustomGroundPlaneColor, key)
         select (Appearance)new Ground(
             Axes: DisplayAxis.Sweep(ConcernRow.Ground, a),
             Usage: usage, Altitude: a.CustomGroundPlaneAltitude, Color: color);
 
     internal static Fin<Appearance> ReadGrid(DisplayPipelineAttributes a) =>
-        from planeVisibility in HostRow<DisplayPipelineAttributes.GridPlaneVisibilityMode>.Of(a.GridPlaneVisibility)
-        from axesColorUse in HostRow<DisplayPipelineAttributes.WorldAxesIconColorUse>.Of(a.WorldAxesIconColorUsage)
-        from thin in Ink(a.ViewSpecificAttributes.ThinGridLineColor)
-        from thick in Ink(a.ViewSpecificAttributes.ThickGridLineColor)
-        from x in Ink(a.ViewSpecificAttributes.WorldAxisColorX)
-        from y in Ink(a.ViewSpecificAttributes.WorldAxisColorY)
-        from z in Ink(a.ViewSpecificAttributes.WorldAxisColorZ)
-        from planeColor in Ink(a.GridPlaneColor)
+        from planeVisibility in HostRow<DisplayPipelineAttributes.GridPlaneVisibilityMode>.Of(a.GridPlaneVisibility, key)
+        from axesColorUse in HostRow<DisplayPipelineAttributes.WorldAxesIconColorUse>.Of(a.WorldAxesIconColorUsage, key)
+        from thin in Ink(a.ViewSpecificAttributes.ThinGridLineColor, key)
+        from thick in Ink(a.ViewSpecificAttributes.ThickGridLineColor, key)
+        from x in Ink(a.ViewSpecificAttributes.WorldAxisColorX, key)
+        from y in Ink(a.ViewSpecificAttributes.WorldAxisColorY, key)
+        from z in Ink(a.ViewSpecificAttributes.WorldAxisColorZ, key)
+        from planeColor in Ink(a.GridPlaneColor, key)
         select (Appearance)new Grid(
             Axes: DisplayAxis.Sweep(ConcernRow.Grid, a),
             ThinFrequency: a.ViewSpecificAttributes.ThinGridLineFrequency,
@@ -645,10 +645,10 @@ public abstract partial record Appearance {
 
     internal static Fin<Appearance> ReadSubD(DisplayPipelineAttributes a) =>
         from widthUse in FactoryBridge.Row(WidthUse.Items, a.SubDSmoothInteriorThicknessUsage, static row => row.SubD)
-        from smooth in Ink(a.SubDSmoothInteriorEdgeColor)
-        from crease in Ink(a.SubDCreaseInteriorEdgeColor)
-        from nonManifold in Ink(a.SubDNonManifoldEdgeColor)
-        from boundary in Ink(a.SubDBoundaryEdgeColor)
+        from smooth in Ink(a.SubDSmoothInteriorEdgeColor, key)
+        from crease in Ink(a.SubDCreaseInteriorEdgeColor, key)
+        from nonManifold in Ink(a.SubDNonManifoldEdgeColor, key)
+        from boundary in Ink(a.SubDBoundaryEdgeColor, key)
         select (Appearance)new SubD(
             Axes: DisplayAxis.Sweep(ConcernRow.SubD, a),
             Width: a.SubDSmoothInteriorEdgeThickness, WidthUse: widthUse,
@@ -656,19 +656,19 @@ public abstract partial record Appearance {
             NonManifoldColor: nonManifold, BoundaryColor: boundary);
 
     internal static Fin<Appearance> ReadMesh(DisplayPipelineAttributes a) =>
-        from wire in Ink(a.MeshEdgeColor)
-        from naked in Ink(a.MeshNakedEdgeColor)
-        from nonManifold in Ink(a.MeshNonmanifoldEdgeColor)
+        from wire in Ink(a.MeshEdgeColor, key)
+        from naked in Ink(a.MeshNakedEdgeColor, key)
+        from nonManifold in Ink(a.MeshNonmanifoldEdgeColor, key)
         select (Appearance)new Mesh(
             Axes: DisplayAxis.Sweep(ConcernRow.Mesh, a),
             Width: a.MeshEdgeThickness, VertexSize: a.MeshVertexSize,
             WireColor: wire, NakedColor: naked, NonManifoldColor: nonManifold);
 
     internal static Fin<Appearance> ReadClipping(DisplayPipelineAttributes a) =>
-        from fillUse in HostRow<DisplayPipelineAttributes.ClippingPlaneFillColorUse>.Of(a.ClippingPlaneFillColorUsage)
-        from edgeUse in HostRow<DisplayPipelineAttributes.ClippingEdgeColorUse>.Of(a.ClippingEdgeColorUsage)
-        from fill in Ink(a.ClippingFillColor)
-        from edge in Ink(a.ClippingEdgeColor)
+        from fillUse in HostRow<DisplayPipelineAttributes.ClippingPlaneFillColorUse>.Of(a.ClippingPlaneFillColorUsage, key)
+        from edgeUse in HostRow<DisplayPipelineAttributes.ClippingEdgeColorUse>.Of(a.ClippingEdgeColorUsage, key)
+        from fill in Ink(a.ClippingFillColor, key)
+        from edge in Ink(a.ClippingEdgeColor, key)
         select (Appearance)new Clipping(
             Axes: DisplayAxis.Sweep(ConcernRow.Clipping, a),
             FillUse: fillUse, EdgeUse: edgeUse, FillColor: fill,
@@ -678,8 +678,8 @@ public abstract partial record Appearance {
         Try.lift(() => Fin.Succ<Appearance>(new Technical(Axes: DisplayAxis.Sweep(ConcernRow.Technical, a)))).Run().Bind(static inner => inner);
 
     internal static Fin<Appearance> ReadLocked(DisplayPipelineAttributes a) =>
-        from usage in HostRow<DisplayPipelineAttributes.LockedObjectUse>.Of(a.LockedObjectUsage)
-        from color in Ink(a.LockedColor)
+        from usage in HostRow<DisplayPipelineAttributes.LockedObjectUse>.Of(a.LockedObjectUsage, key)
+        from color in Ink(a.LockedColor, key)
         select (Appearance)new Locked(
             Axes: DisplayAxis.Sweep(ConcernRow.Locked, a),
             Usage: usage, Color: color, Transparency: a.LockedObjectTransparency);
@@ -694,7 +694,7 @@ public abstract partial record Appearance {
 
     internal static Fin<Appearance> ReadGrips(DisplayPipelineAttributes a) =>
         from style in FactoryBridge.Row(PointUse.Items, a.ControlPolygonStyle, static row => row.Native)
-        from fixedColor in Ink(a.ControlPolygonUseFixedSingleColor, a.ControlPolygonColor)
+        from fixedColor in Ink(a.ControlPolygonUseFixedSingleColor, a.ControlPolygonColor, key)
         select (Appearance)new Grips(
             Axes: DisplayAxis.Sweep(ConcernRow.Grips, a),
             Style: style, WireWidth: a.ControlPolygonWireThickness, Size: a.ControlPolygonGripSize, FixedColor: fixedColor);
@@ -716,8 +716,8 @@ public abstract partial record Appearance {
 
     internal static Fin<Appearance> ReadPipeline(DisplayPipelineAttributes a) =>
         from workflow in FactoryBridge.Row(ScopeUse.Items, a.LinearWorkflowUsage, static row => row.Workflow)
-        from bounds in HostRow<DisplayPipelineAttributes.BoundingBoxDisplayMode>.Of(a.BoundingBoxMode)
-        from dynamic in HostRow<DisplayPipelineAttributes.DynamicDisplayUse>.Of(a.DynamicDisplayUsage)
+        from bounds in HostRow<DisplayPipelineAttributes.BoundingBoxDisplayMode>.Of(a.BoundingBoxMode, key)
+        from dynamic in HostRow<DisplayPipelineAttributes.DynamicDisplayUse>.Of(a.DynamicDisplayUsage, key)
         select (Appearance)new Pipeline(
             Axes: DisplayAxis.Sweep(ConcernRow.Pipeline, a),
             Workflow: workflow, PreGamma: a.PreProcessGamma, PostGamma: a.PostProcessGamma,
@@ -1047,17 +1047,17 @@ public static class Modes {
                 .Map(_ => (ModeOutcome)new ModeOutcome.Bound(row.Mode)),
             inspect: static (op, row) => ViewportLease.Of(row.Session, row.Target)
                 .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(borrow.Viewport.DisplayMode).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-                    .Bind(mode => Appearance.Of(mode.DisplayAttributes).Map(concerns => (
+                    .Bind(mode => Appearance.Of(mode.DisplayAttributes, op).Map(concerns => (
                         Mode: ModeId.Create(mode.Id),
                         Concerns: concerns,
-                        Traits: ModeTrait.Sweep(mode))))))
+                        Traits: ModeTrait.Sweep(mode)))), op))
                 .Map(state => (ModeOutcome)new ModeOutcome.Inspected(state.Mode, state.Concerns, state.Traits)),
             capture: static (op, row) => Resolve(row.Mode)
-                .Bind(mode => ViewportLease.Of(row.Session, row.Target)
+                .Bind(mode => ViewportLease.Of(row.Session, row.Target, op)
                     .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(row.Extent.Match(
                         Some: size => borrow.View.CaptureToBitmap(size.Native, mode),
                         None: () => borrow.View.CaptureToBitmap(mode))).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner))))
-                .Bind(bitmap => CaptureArtifact.Raster(bitmap))
+                .Bind(bitmap => CaptureArtifact.Raster(bitmap, op))
                 .Map(artifact => (ModeOutcome)new ModeOutcome.Captured(artifact)),
             analyze: static (op, row) => Analyze(row.Session, row.Edit),
             census: static (op, _) => Summarize(new ModeOp.CensusCase()),
@@ -1078,18 +1078,18 @@ public static class Modes {
             Fin.Succ<ModeOutcome>(new ModeOutcome.Resolved(modes.Map(ModeMap.Summary).Strict()))).Run().Bind(static inner => inner));
 
     private static Fin<ModeOutcome> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns) =>
-        from prior in Appearance.Of(mode.DisplayAttributes)
+        from prior in Appearance.Of(mode.DisplayAttributes, key)
         from band in Try.lift(() => Fin.Succ(ModeTrait.Sweep(mode))).Run().Bind(static inner => inner)
-        from outcome in (from _ in Appearance.Write(concerns, mode.DisplayAttributes)
-                         from __ in ModePolicy.Write(policies, mode)
-                         from ___ in new ModeOp.UpdateCase(mode).Apply()
+        from outcome in (from _ in Appearance.Write(concerns, mode.DisplayAttributes, key)
+                         from __ in ModePolicy.Write(policies, mode, key)
+                         from ___ in new ModeOp.UpdateCase(mode).Apply(key)
                          select (ModeOutcome)new ModeOutcome.Configured(ModeId.Create(mode.Id)))
             .Rollback(release: () => Restore(mode, prior, band))
         select outcome;
 
     private static Fin<Unit> Restore(DisplayModeDescription mode, Seq<Appearance> concerns, CapabilitySet<ModeTrait> band) =>
-        Appearance.Write(concerns, mode.DisplayAttributes)
-            .Bind(_ => ModePolicy.Write(Seq<ModePolicy>(new ModePolicy.Traits(band)), mode));
+        Appearance.Write(concerns, mode.DisplayAttributes, key)
+            .Bind(_ => ModePolicy.Write(Seq<ModePolicy>(new ModePolicy.Traits(band)), mode, key));
 
     private static Fin<ModeOutcome> Analyze(DocumentSession session, AnalysisEdit edit) => edit.Switch(
         session,

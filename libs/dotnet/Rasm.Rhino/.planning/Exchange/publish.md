@@ -415,7 +415,7 @@ public abstract partial record PdfMark {
 - Law: the frame is CAPTURE intent and the kernel `Interaction/chrome` `PageFrame` is PRINT geometry — a page size, a printer's own settings, a bounded rectangle, or an issued sheet. Two owners under one name across two strata is the collision this rename closes, and no fence composes the other's cases.
 - Law: page order is evidence order — the resolved stream fixes ordinal and count before any egress, so `%pagenumber%`/`%pagecount%` tokens, PDF page indices, and per-page artifact names all read one numbering.
 - Law: SCALE evidence is per-source and typed — a detail page carries the detail's live `DrawingScale` so `%scale%` renders through the issued standard's own `ScaleNotation`, while whole-page, named-view, viewport, and blank sources carry none and the token falls to its host answer; a host-formatted `1:n` string is the lowering the render performs, never the evidence it carries.
-- Law: a blank page is a SHEET. The source names a `SheetSize` under its standard and the frame's admitted DPI resolves the host's dot extent, so `SheetSize.In(unit)` is the one projection and a caller-supplied pixel pair that no sheet series admits is unrepresentable (D3, D4).
+- Law: a blank page is a SHEET. The source names a `SheetSize` under its standard and the frame's admitted DPI resolves the host's dot extent, so `SheetSize.In(unit, key)` is the one projection and a caller-supplied pixel pair that no sheet series admits is unrepresentable (D3, D4).
 - Law: a multi-page raster or vector target lands one atomic artifact per page — the page's file name derives from the target stem through the token fold (`stem-%pagenumber%`, or `stem-%number%` where an issued block names a `SheetNumber`), and `OutputPolicy` settles each destination before a same-directory temporary artifact replaces it (D28).
 - Law: frame modality is structural. `Plan` accepts only `SettingsCase`, and `TransparentSpec` accepts only `TransparentCase`; no boolean or absent field reconstructs capture intent.
 - Law: resolution is the admitted `CaptureDpi` the capture pipeline owns, carried on both frame cases and read once — every downstream site consumes the admitted value instead of re-running `CaptureDpi.Of` over a raw double, and `CaptureFrame.Plot` seats the kernel `PlotResolution.Plot` row through the capture pipeline's own output-class arity, so the one DPI a frameless request inherits is a rostered output class rather than a literal (D80, D81).
@@ -877,7 +877,7 @@ public static class Publishing {
         Func<PublishPage.CapturedCase, CaptureArtifact, Fin<Unit>> artifact) =>
         from _landed in pages.TraverseM(page =>
             from capturedPage in Captured(page: page)
-            from _delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art))
+            from _delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art, op))
             select unit).As()
         select unit;
 

@@ -241,7 +241,7 @@ public static class Reingest {
         Try.lift(() => projector.Project(ctx)).Run().Bind(static inner => inner)
             .Map(fresh => fresh.ReplayOnto(ElementGraph.Genesis(ctx.Header)))
             .Map(revised => Reconcile(prior, revised))
-            .Bind(delta => prior.Apply(delta).Map(patched => new ReingestResult(patched, delta)));
+            .Bind(delta => prior.Apply(delta, key).Map(patched => new ReingestResult(patched, delta)));
 
     static GraphDelta Reconcile(ElementGraph prior, ElementGraph revised) {
         var priorByExternal = prior.ObjectNodes
@@ -273,13 +273,13 @@ public static class Reingest {
     public static Fin<Seq<TypeCandidate>> ExportTypeCandidates(ElementGraph graph) =>
         from types in graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Type)
-            .Traverse(node => graph.Bake(node.Id).Map(baked => (Node: node, Bags: baked.Properties))).As()
+            .Traverse(node => graph.Bake(node.Id, key).Map(baked => (Node: node, Bags: baked.Properties))).As()
         let library = Library(graph.Header.Step)
         from candidates in types
             .Choose(static type => type.Bags
                 .Filter(static bag => bag.SetName == SemanticProjector.TypeSignatureSet).Head
                 .Map(signature => (type.Node, type.Bags, Signature: signature)))
-            .Traverse(pair => Candidate(library, pair.Node, pair.Bags, pair.Signature)).As()
+            .Traverse(pair => Candidate(library, pair.Node, pair.Bags, pair.Signature, key)).As()
         select candidates;
 
     static Fin<TypeCandidate> Candidate(string library, Node.Object node, Seq<PropertyBag> bags, PropertyBag signature) =>

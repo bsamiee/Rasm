@@ -148,14 +148,14 @@ public sealed partial class ArchiveSlot {
         keys: Seq(typeof(ArchiveMap)),
         reach: CapabilitySet<ArchiveReach>.All,
         admit: static (value, op) => value switch {
-            ArchivableDictionary native => ArchiveMap.Detach(native).Map(static map => (object)map),
+            ArchivableDictionary native => ArchiveMap.Detach(native, op).Map(static map => (object)map),
             ArchiveMap detached => Fin.Succ<object>(value: detached),
             _ => Fin.Fail<object>(error: new KernelFault.InvalidInput()),
         },
         detach: static value => value,
         same: static (left, right) => ((ArchiveMap)left).SameContent((ArchiveMap)right),
         mint: static (target, key, value, op) => ((ArchiveMap)value)
-            .Mint()
+            .Mint(op)
             .Bind(native => Try.lift(() => Admit.Confirm(success: target.Set(key.Value, native))).Run().Bind(static inner => inner)));
 
     public static readonly ArchiveSlot Enumeration = new(
@@ -294,14 +294,14 @@ public sealed record ArchiveValue {
             .ToFin(Fail: new KernelFault.InvalidInput())
             .Bind(value => ArchiveSlot.Resolve(source: value)
                 .ToFin(Fail: new KernelFault.Unsupported(InputType: value.GetType(), OutputType: typeof(ArchiveValue)))
-                .Bind(row => row.Admit(value).Map(payload => new ArchiveValue(row, payload))));
+                .Bind(row => row.Admit(value, op).Map(payload => new ArchiveValue(row, payload))));
 
     internal static Fin<ArchiveValue> Enum(object? source) => Optional(source)
         .ToFin(Fail: new KernelFault.InvalidInput())
         .Bind(value => value is System.Enum ? Capture(value) : Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput()));
 
     internal static Fin<Unit> EnumMint(object target, string method, string key, (Type EnumType, string Name) entry) =>
-        Minter(new MintKey(target.GetType(), method, entry.EnumType))
+        Minter(new MintKey(target.GetType(), method, entry.EnumType), op)
             .Bind(closed => Try.lift(() => Admit.Confirm(success: closed.Invoke(
                 target,
                 [key, System.Enum.Parse(enumType: entry.EnumType, value: entry.Name, ignoreCase: true)]) is not false)).Run().Bind(static inner => inner));
@@ -334,7 +334,7 @@ public sealed record ArchiveValue {
     }
 
     internal Fin<Unit> Write(ArchivableDictionary target, ArchiveKey key) =>
-        AdmitArchive().Bind(_ => Row.Mint(target, Payload));
+        AdmitArchive(op).Bind(_ => Row.Mint(target, key, Payload, op));
 }
 ```
 
@@ -478,7 +478,7 @@ public sealed record ArchiveMap {
                 .Fold(
                     Fin.Succ(value: Entries),
                     (state, row) => state.Bind(entries => entries.Find(row.Key).Match(
-                        Some: current => policy.Resolve(current, row.Value).Map(resolved => entries.SetItem(row.Key, resolved)),
+                        Some: current => policy.Resolve(current, row.Value, op).Map(resolved => entries.SetItem(row.Key, resolved)),
                         None: () => Fin.Succ(value: entries.Add(row.Key, row.Value)))))
                 .Map(entries => this with { Entries = entries }));
     }
@@ -511,7 +511,7 @@ public sealed record ArchiveMap {
 
     public Fin<ArchivableDictionary> Mint() {
         ArchivableDictionary target = new(Version, Name.Value);
-        return WriteTo(target).Map(_ => target);
+        return WriteTo(target, op).Map(_ => target);
     }
 
     internal Fin<Unit> WriteTo(ArchivableDictionary target) =>

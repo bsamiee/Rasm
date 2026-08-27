@@ -303,12 +303,12 @@ public static class AssessmentLane {
 
     public static Fin<Plan> Scan(UInt128 key, Option<Discipline> discipline) =>
         BackendPlan.Scan(AssessmentDataset.Schema,
-            Seq((AssessmentDataset.KeyColumn, ContentHash.Hex()))
+            Seq((AssessmentDataset.KeyColumn, ContentHash.Hex(key)))
             + discipline.Map(static row => (AssessmentDataset.DisciplineColumn, row.Key)).ToSeq());
 
     public static IO<Fin<BackendResult<T>>> Resident<T>(
         BackendReach reach, BackendScope scope, UInt128 key, Option<Discipline> discipline, Func<FactRow, T> mint) =>
-        Scan(discipline).Match(
+        Scan(key, discipline).Match(
             Succ: plan => BackendRead.Read(reach, plan, scope, BackendProjection.Point,
                 row => Shape(scope, row).Map(mint)),
             Fail: error => IO.pure(Fin<BackendResult<T>>.Fail(error)));
@@ -376,7 +376,7 @@ public static class AssessmentLane {
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.NameColumn))
                     .Bind(token => FactoryBridge.Accept<PropertyName>(token)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.ValueColumn))
-                    .Bind(json => ElementWire.Decode(json)).ToValidation())
+                    .Bind(json => ElementWire.Decode(json, key)).ToValidation())
             .Apply(static (content, discipline, facets, name, value) =>
                 (Key: content, Discipline: discipline, Facets: facets, Name: name, Value: value))
             .As().ToFin();

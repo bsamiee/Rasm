@@ -81,15 +81,15 @@ public sealed record CacheRuntime(IServiceProvider Services, DeploymentTopology 
 public static class CacheSurface {
     extension(CacheRuntime runtime) {
         public ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, Option<HybridCacheEntryOptions> entry = default, CancellationToken token = default) =>
-            runtime.Cache(lane).GetOrCreateAsync(lane.Scoped(), state, factory, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
+            runtime.Cache(lane).GetOrCreateAsync(lane.Scoped(key), state, factory, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
 
         public ValueTask Write<T>(CacheLane lane, string key, T value, Seq<string> owners = default, Option<HybridCacheEntryOptions> entry = default, CancellationToken token = default) =>
-            runtime.Cache(lane).SetAsync(lane.Scoped(), value, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
+            runtime.Cache(lane).SetAsync(lane.Scoped(key), value, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
 
         public IO<Unit> Write(CacheLane lane, string key, ReadOnlyMemory<byte> payload, Seq<string> owners = default) =>
             payload.Length <= lane.MaxPayloadBytes
                 ? IO.liftAsync(async env => {
-                    await runtime.Cache(lane).SetAsync(lane.Scoped(), payload, runtime.Entry(lane), owners.Map(lane.Tag).Add(lane.Key), env.Token);
+                    await runtime.Cache(lane).SetAsync(lane.Scoped(key), payload, runtime.Entry(lane), owners.Map(lane.Tag).Add(lane.Key), env.Token);
                     return unit;
                 })
                 : IO.fail<Unit>(new KernelFault.InvalidValue(
@@ -102,7 +102,7 @@ public static class CacheSurface {
                 : runtime.Cache(lane).RemoveByTagAsync(owners.Map(lane.Tag), token);
 
         public ValueTask Remove(CacheLane lane, string key, CancellationToken token = default) =>
-            runtime.Cache(lane).RemoveAsync(lane.Scoped(), token);
+            runtime.Cache(lane).RemoveAsync(lane.Scoped(key), token);
     }
 
     public static IServiceCollection Register(IServiceCollection services, IHybridCacheSerializerFactory contributed, DeploymentTopology topology) =>
@@ -385,12 +385,12 @@ public sealed class DedupeWindow {
     public static DedupeWindow Of(Duration ttl, int cap) => new(ttl, cap);
 
     public bool Admit(string key, Instant now) =>
-        cell.Swap(held => Advanced(held.Seen.Filter(deadline => deadline > now), now + ttl)).Admitted;
+        cell.Swap(held => Advanced(held.Seen.Filter(deadline => deadline > now), key, now + ttl)).Admitted;
 
     Window Advanced(HashMap<string, Instant> live, string key, Instant deadline) =>
-        live.ContainsKey()
+        live.ContainsKey(key)
             ? new Window(live, Admitted: false)
-            : new Window(Bounded(live.Add(deadline)), Admitted: true);
+            : new Window(Bounded(live.Add(key, deadline)), Admitted: true);
 
     HashMap<string, Instant> Bounded(HashMap<string, Instant> live) =>
         live.Count <= cap

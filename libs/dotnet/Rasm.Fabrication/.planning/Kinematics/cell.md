@@ -851,8 +851,8 @@ internal static class RobotBoundary {
             .Map(static (group, ordinal) => (Group: group, Ordinal: ordinal))
             .Traverse(row => (
                     CellVendor.Of(row.Group.Robot.Manufacturer).ToValidation(),
-                    Seated(row.Group).ToValidation())
-                .Apply((vendor, seats) => Row(industrial, row.Group, row.Ordinal, vendor, seats,
+                    Seated(key, row.Group).ToValidation())
+                .Apply((vendor, seats) => Row(industrial, key, row.Group, row.Ordinal, vendor, seats,
                     reach, processes, holding, coolant, capacities))
                 .As())
             .As()

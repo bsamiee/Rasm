@@ -124,9 +124,9 @@ public sealed record ModelDiff(
     Seq<ElementChange> Changes,
     int UnchangedCount) {
     public static Fin<ModelDiff> Between(ElementGraph baseline, ElementGraph revision) =>
-        from prior in Federate(baseline)
-        from next in Federate(revision)
-        from diff in Classify(baseline, revision, prior, next)
+        from prior in Federate(baseline, key)
+        from next in Federate(revision, key)
+        from diff in Classify(baseline, revision, prior, next, key)
         select diff;
 
     static Fin<ModelDiff> Classify(
@@ -148,8 +148,8 @@ public sealed record ModelDiff(
         return common
             .Filter(id => prior[id].Fp.ContentKey != next[id].Fp.ContentKey)
             .TraverseM(id =>
-                from before in baseline.Bake(prior[id].Obj.Id)
-                from after in revision.Bake(next[id].Obj.Id)
+                from before in baseline.Bake(prior[id].Obj.Id, key)
+                from after in revision.Bake(next[id].Obj.Id, key)
                 select (ElementChange)new ElementChange.Modified(
                     id, prior[id].Fp.ContentKey, next[id].Fp.ContentKey,
                     prior[id].Fp.PlacementKey, next[id].Fp.PlacementKey, Deltas(before, after)))
@@ -191,12 +191,12 @@ public sealed record ModelDiff(
 
     public static Fin<ModelDiff> Admit(ModelDiffWire? wire) => wire is null
         ? Rejected<ModelDiff>("diff-message-absent")
-        : from baseline in ToKey(wire.Baseline)
-          from revision in ToKey(wire.Revision)
+        : from baseline in ToKey(wire.Baseline, key)
+          from revision in ToKey(wire.Revision, key)
           from unchanged in wire.UnchangedCount <= int.MaxValue
               ? Fin.Succ((int)wire.UnchangedCount)
-              : Rejected<int>("diff-unchanged-count-overflow")
-          from changes in toSeq(wire.Changes).TraverseM(change => AdmitChange(change)).As()
+              : Rejected<int>(key, "diff-unchanged-count-overflow")
+          from changes in toSeq(wire.Changes).TraverseM(change => AdmitChange(change, key)).As()
           select new ModelDiff(ContentAddress.Create(baseline), ContentAddress.Create(revision), changes, unchanged);
 
     static ElementChangeWire SealChange(ElementChange change) => change.Switch(
@@ -255,7 +255,7 @@ public sealed record ModelDiff(
         Enum.TryParse(value.Key, ignoreCase: true, out Rasm.Contracts.Bim.DeltaShape wire)
         && wire != Rasm.Contracts.Bim.DeltaShape.Unspecified
             ? wire
-            : throw new InvalidOperationException($"<diff-delta-shape:{value.Key}>");
+            : Rasm.Contracts.Bim.DeltaShape.Unspecified;
 
     static DeltaValueWire SealDeltaValue(DeltaValue value) => value.Switch(
         measure: static item => new DeltaValueWire { Measure = ToWire(item.Value) },
@@ -266,43 +266,43 @@ public sealed record ModelDiff(
     static Fin<ElementChange> AdmitChange(ElementChangeWire? wire) => wire is null
         ? Rejected<ElementChange>("diff-change-message-absent")
         : wire.KindCase switch {
-            ElementChangeWire.KindOneofCase.Added => AdmitEnd(wire.Added)
+            ElementChangeWire.KindOneofCase.Added => AdmitEnd(wire.Added, key)
                 .Map(static ElementChange (value) => new ElementChange.Added(value.GlobalId, value.Classification, value.Predefined, value.Content)),
-            ElementChangeWire.KindOneofCase.Removed => AdmitEnd(wire.Removed)
+            ElementChangeWire.KindOneofCase.Removed => AdmitEnd(wire.Removed, key)
                 .Map(static ElementChange (value) => new ElementChange.Removed(value.GlobalId, value.Classification, value.Predefined, value.Content)),
-            ElementChangeWire.KindOneofCase.Modified => AdmitModified(wire.Modified),
-            ElementChangeWire.KindOneofCase.Moved => AdmitMoved(wire.Moved),
-            ElementChangeWire.KindOneofCase.Split => AdmitRegroup(wire.Split)
+            ElementChangeWire.KindOneofCase.Modified => AdmitModified(wire.Modified, key),
+            ElementChangeWire.KindOneofCase.Moved => AdmitMoved(wire.Moved, key),
+            ElementChangeWire.KindOneofCase.Split => AdmitRegroup(wire.Split, key)
                 .Map(static ElementChange (value) => new ElementChange.Split(value.GlobalId, value.Content, value.Counterparts)),
-            ElementChangeWire.KindOneofCase.Merged => AdmitRegroup(wire.Merged)
+            ElementChangeWire.KindOneofCase.Merged => AdmitRegroup(wire.Merged, key)
                 .Map(static ElementChange (value) => new ElementChange.Merged(value.GlobalId, value.Content, value.Counterparts)),
-            _ => Rejected<ElementChange>("diff-change-kind-unset"),
+            _ => Rejected<ElementChange>(key, "diff-change-kind-unset"),
         };
 
     static Fin<(string GlobalId, Classification Classification, PredefinedType Predefined, ContentAddress Content)> AdmitEnd(
         DiffEndWire? wire) => wire is null
         ? Rejected<(string, Classification, PredefinedType, ContentAddress)>("diff-end-message-absent")
-        : from classification in ToClassification(wire.Classification)
-          from content in ToKey(wire.Content)
+        : from classification in ToClassification(wire.Classification, key)
+          from content in ToKey(wire.Content, key)
           select (wire.GlobalId, classification, PredefinedType.Create(wire.Predefined), ContentAddress.Create(content));
 
     static Fin<ElementChange> AdmitModified(DiffModifiedWire? wire) => wire is null
         ? Rejected<ElementChange>("diff-modified-message-absent")
-        : from baselineContent in ToKey(wire.BaselineContent)
-          from revisionContent in ToKey(wire.RevisionContent)
-          from baselinePlacement in ToKey(wire.BaselinePlacement)
-          from revisionPlacement in ToKey(wire.RevisionPlacement)
-          from deltas in toSeq(wire.Deltas).TraverseM(delta => AdmitDelta(delta)).As()
+        : from baselineContent in ToKey(wire.BaselineContent, key)
+          from revisionContent in ToKey(wire.RevisionContent, key)
+          from baselinePlacement in ToKey(wire.BaselinePlacement, key)
+          from revisionPlacement in ToKey(wire.RevisionPlacement, key)
+          from deltas in toSeq(wire.Deltas).TraverseM(delta => AdmitDelta(delta, key)).As()
           select (ElementChange)new ElementChange.Modified(
               wire.GlobalId, ContentAddress.Create(baselineContent), ContentAddress.Create(revisionContent),
               ContentAddress.Create(baselinePlacement), ContentAddress.Create(revisionPlacement), [.. deltas]);
 
     static Fin<ElementChange> AdmitMoved(DiffMovedWire? wire) => wire is null
         ? Rejected<ElementChange>("diff-moved-message-absent")
-        : from baselinePlacement in ToKey(wire.BaselinePlacement)
-          from revisionPlacement in ToKey(wire.RevisionPlacement)
-          from baselinePose in Optional(wire.BaselinePose).Traverse(pose => ToPlacement(pose)).As()
-          from revisionPose in Optional(wire.RevisionPose).Traverse(pose => ToPlacement(pose)).As()
+        : from baselinePlacement in ToKey(wire.BaselinePlacement, key)
+          from revisionPlacement in ToKey(wire.RevisionPlacement, key)
+          from baselinePose in Optional(wire.BaselinePose).Traverse(pose => ToPlacement(pose, key)).As()
+          from revisionPose in Optional(wire.RevisionPose).Traverse(pose => ToPlacement(pose, key)).As()
           select (ElementChange)new ElementChange.Moved(
               wire.GlobalId, ContentAddress.Create(baselinePlacement), ContentAddress.Create(revisionPlacement),
               baselinePose, revisionPose);
@@ -310,14 +310,14 @@ public sealed record ModelDiff(
     static Fin<(string GlobalId, ContentAddress Content, ImmutableArray<string> Counterparts)> AdmitRegroup(
         DiffRegroupWire? wire) => wire is null
         ? Rejected<(string, ContentAddress, ImmutableArray<string>)>("diff-regroup-message-absent")
-        : ToKey(wire.Content).Map(content =>
+        : ToKey(wire.Content, key).Map(content =>
             (wire.GlobalId, ContentAddress.Create(content), wire.Counterparts.ToImmutableArray()));
 
     static Fin<AspectDelta> AdmitDelta(AspectDeltaWire? wire) => wire is null
         ? Rejected<AspectDelta>("diff-delta-message-absent")
-        : from shape in AdmitShape(wire.Shape)
-          from before in AdmitDeltaValue(wire.Before)
-          from after in AdmitDeltaValue(wire.After)
+        : from shape in AdmitShape(wire.Shape, key)
+          from before in AdmitDeltaValue(wire.Before, key)
+          from after in AdmitDeltaValue(wire.After, key)
           select new AspectDelta(wire.Path, shape, before, after);
 
     static Fin<DeltaShape> AdmitShape(Rasm.Contracts.Bim.DeltaShape wire) => wire switch {
@@ -333,13 +333,13 @@ public sealed record ModelDiff(
     static Fin<DeltaValue> AdmitDeltaValue(DeltaValueWire? wire) => wire is null
         ? Rejected<DeltaValue>("diff-delta-value-absent")
         : wire.ValueCase switch {
-            DeltaValueWire.ValueOneofCase.Measure => ToMeasure(wire.Measure)
+            DeltaValueWire.ValueOneofCase.Measure => ToMeasure(wire.Measure, key)
                 .Map(static DeltaValue (value) => new DeltaValue.Measure(value)),
-            DeltaValueWire.ValueOneofCase.Address => ToKey(wire.Address)
+            DeltaValueWire.ValueOneofCase.Address => ToKey(wire.Address, key)
                 .Map(static DeltaValue (value) => new DeltaValue.Address(ContentAddress.Create(value))),
             DeltaValueWire.ValueOneofCase.Label => Fin.Succ<DeltaValue>(new DeltaValue.Label(wire.Label)),
             DeltaValueWire.ValueOneofCase.Absent => Fin.Succ<DeltaValue>(new DeltaValue.Absent()),
-            _ => Rejected<DeltaValue>("diff-delta-value-unset"),
+            _ => Rejected<DeltaValue>(key, "diff-delta-value-unset"),
         };
 
     static Fin<T> Rejected<T>(string detail) =>

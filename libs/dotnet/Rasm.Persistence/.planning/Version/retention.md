@@ -245,9 +245,9 @@ public static class RetentionCatalog {
     static IO<Fin<RetentionFact>> Land(
         RetentionClass cls, ContentAddress key, StorageTier tier,
         Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) =>
-        cls.Scheme.Dedups && resident()
-            ? IO.pure(Fin<RetentionFact>.Succ(new RetentionFact(cls, 0L, tier, frame.Now())))
-            : write().Map(outcome => outcome.Map(committed => new RetentionFact(cls, committed.Committed, tier, frame.Now())));
+        cls.Scheme.Dedups && resident(key)
+            ? IO.pure(Fin<RetentionFact>.Succ(new RetentionFact(cls, key, 0L, tier, frame.Now())))
+            : write(key).Map(outcome => outcome.Map(committed => new RetentionFact(cls, key, committed.Committed, tier, frame.Now())));
 }
 ```
 

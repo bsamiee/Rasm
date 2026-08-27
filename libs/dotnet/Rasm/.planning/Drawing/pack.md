@@ -558,7 +558,7 @@ public static class Encode {
     internal static Fin<float[]> Vertexwise(ScalarField field, MeshSpace space, Context tolerance) {
         Mesh native = space.Native;
         return toSeq(Enumerable.Range(0, native.Vertices.Count))
-            .TraverseM(i => field.SampleDetailed(native.Vertices.Point3dAt(i), tolerance).Map(static sample => (float)sample.Value))
+            .TraverseM(i => field.SampleDetailed(native.Vertices.Point3dAt(i), tolerance, key).Map(static sample => (float)sample.Value))
             .As()
             .Map(static values => values.ToArray());
     }
@@ -569,7 +569,7 @@ public static class Encode {
         return toSeq(Enumerable.Range(0, (int)grid.CellCount))
             .TraverseM(i => {
                 (int column, int row, int layer) = grid.Coordinate(i);
-                return field.SampleSdfDetailed(grid.Center(column: column, row: row, layer: layer), policy.Tolerance)
+                return field.SampleSdfDetailed(grid.Center(column: column, row: row, layer: layer), policy.Tolerance, key)
                     .Map(sample => sample.Value <= isoBand ? 1f : 0f);
             })
             .As()

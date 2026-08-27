@@ -274,7 +274,7 @@ public sealed record ElementQuery {
                     ? Fin.Succ(measure.Value)
                     : Fin.Fail<MeasureValue>(ElementFault.ValueRejected($"<aggregate-non-measure:{value.GetType().Name}>")))
                 .As()
-                .Bind(measures => MeasureValue.Sum(measures).Map(Some));
+                .Bind(measures => MeasureValue.Sum(measures, key).Map(Some));
     }
 
     static Seq<PropertyValue> EffectiveValues(ElementGraph graph, NodeId obj, ValueMatch set, ValueMatch name) {

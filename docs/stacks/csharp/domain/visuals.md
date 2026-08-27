@@ -256,11 +256,11 @@ public static class VectorAssets {
 
     public static Fin<SKPicture> Variant(SKSvg owner, VariantKey key, string css) {
         ArgumentNullException.ThrowIfNull(owner);
-        return Matrix.Value.Find() is { IsSome: true, Case: SKPicture held }
+        return Matrix.Value.Find(key) is { IsSome: true, Case: SKPicture held }
             ? Fin.Succ(held)
             : Optional(owner.ReLoad(new SvgParameters(null, css)))
                 .ToFin(Error.New(7822, $"<restyle-failure:{key.Variant}>"))
-                .Map(picture => Matrix.Swap(m => m.TryAdd(picture)).Find().IfNone(picture));
+                .Map(picture => Matrix.Swap(m => m.TryAdd(key, picture)).Find(key).IfNone(picture));
     }
 }
 ```
@@ -366,7 +366,7 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
         (HashMap<string, TPayload> next, Resolved<TPayload> prior) = (catalog.Resolve(nextVariant, nextDensity), Current);
         int generation = cell.Swap(held => new Resolved<TPayload>((prior = held).Generation + 1, axis, next)).Generation;
         Seq<string> changed = toSeq(next.Filter((key, value) =>
-            prior.Artifacts.Find().Map(was => !value.Equals(was)).IfNone(true)).Keys);
+            prior.Artifacts.Find(key).Map(was => !value.Equals(was)).IfNone(true)).Keys);
         return (generation, changed, axis);
     }
 }

@@ -368,7 +368,7 @@ public static class MaterialAsk {
             from address in Admit.Need(scope).Bind(value => value.Admit())
             select Resolve(realm: family, scope: address),
         read: (natives, op) => natives
-            .TraverseM(native => scope.Resolve(realm, native).Map(stamp => (native.Id, stamp))).As());
+            .TraverseM(native => scope.Resolve(realm, native, op).Map(stamp => (native.Id, stamp))).As());
 
     public static MaterialAsk<Seq<(Guid Id, Seq<ComponentIndex> Components)>> PartCensus { get; } = Free(
         read: static (natives, op) => natives
@@ -440,7 +440,7 @@ public static class MaterialAsk {
         read: (natives, op) => natives
             .TraverseM(native => Try.lift(() =>
                 Optional(native.GetCustomRenderMeshParameter(providerId: provider, parameterName: name))
-                    .Traverse(value => ProviderValue.Of(value)).As()
+                    .Traverse(value => ProviderValue.Of(value, op)).As()
                     .Map(value => (native.Id, value))).Run().Bind(static inner => inner)).As());
 
     private static MaterialAsk<TAnswer> Free<TAnswer>(Func<Seq<RhinoObject>, Fin<TAnswer>> read) =>
@@ -597,7 +597,7 @@ public static class Materials {
                from answer in session.Demand(
                    use: document =>
                        from natives in Objects.Resolve(document: document, target: target)
-                       from folded in active.Read(natives)
+                       from folded in active.Read(natives, op)
                        select folded,
                    needs: [SessionNeed.Read])
                select answer;

@@ -6,7 +6,7 @@
 
 [DRAWING_TYPES]: canvas, paint, path, and geometry value owners
 
-| [INDEX] | [SYMBOL]                | [CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                    | [CAPABILITY]                                          |
 | :-----: | :-------------------------- | :---------------------------------------------------- |
 |  [01]   | `SKCanvas`                  | draw target + clip + matrix stack                     |
 |  [02]   | `SKPaint`                   | composition state: shader/filter/effect/blend/stroke  |
@@ -32,7 +32,7 @@
 
 [SURFACE_AND_IMAGE_TYPES]: pixel ownership, recording, and document output
 
-| [INDEX] | [SYMBOL]                | [CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                                     | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------- | :------------------------------------------------------- |
 |  [01]   | `SKSurface`                                  | draw target backed by raster or GPU memory               |
 |  [02]   | `SKImage`                                    | immutable snapshot; raster<->texture transfer + encode   |
@@ -50,7 +50,7 @@
 
 [TEXT_AND_FONT_TYPES]: typeface, font, and shaped-text boundary
 
-| [INDEX] | [SYMBOL]                | [CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                            | [CAPABILITY]                                                                     |
 | :-----: | :---------------------------------- | :------------------------------------------------------------------------------- |
 |  [01]   | `SKFont`                            | sized font: measure, glyph paths, positions, break, and the render-posture knobs |
 |  [02]   | `SKTypeface`                        | font face (file/stream/family resolved) with variation and palette cloning       |
@@ -72,7 +72,7 @@
 
 [PAINT_PIPELINE_TYPES]: color, shader, filter, effect, and runtime-SkSL surfaces
 
-| [INDEX] | [SYMBOL]                | [CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                    |
 | :-----: | :---------------------------- | :---------------------------------------------- |
 |  [01]   | `SKColor`                     | 8-bit ARGB; `Parse`/`FromHsl`/`FromHsv`/`With*` |
 |  [02]   | `SKColorF`                    | float RGBA color (wide-gamut/HDR)               |
@@ -101,7 +101,7 @@
 
 [CODEC_AND_FORMAT_TYPES]: format, pixel layout, blend, and sampling enums
 
-| [INDEX] | [SYMBOL]                | [CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                                                              |
 | :-----: | :-------------------------------- | :---------------------------------------------------------------------------------------- |
 |  [01]   | `SKEncodedImageFormat`            | Png/Jpeg/Webp/Avif/Heif/Gif/Bmp/Ico/Dng/Ktx/Pkm/Astc                                      |
 |  [02]   | `SKColorType`                     | pixel layout — `PlatformColorType` default, `RgbaF16`/`RgbaF16Clamped`/`RgbaF32` HDR rows |
@@ -150,7 +150,7 @@
 [CANVAS_ENTRYPOINTS]: draw, layer, clip, and transform
 - root: `SKCanvas`
 
-| [INDEX] | [SURFACE]                      | [CALL]                                                                            |
+| [INDEX] | [SURFACE]                                  | [CALL]                                                              |
 | :-----: | :----------------------------------------- | :------------------------------------------------------------------ |
 |  [01]   | `DrawPath`                                 | `(SKPath, SKPaint)` — fill/stroke per paint `Style`                 |
 |  [02]   | `DrawRoundRect`                            | `(SKRoundRect, SKPaint)` per-corner rounding                        |
@@ -179,7 +179,7 @@
 [PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform
 - surface-root: `SKPath` (`new SKPath()` empty; `new SKPath(SKPath)` copy)
 
-| [INDEX] | [SURFACE]                      | [CALL]                                                                            |
+| [INDEX] | [SURFACE]                                 | [CALL]                                                                      |
 | :-----: | :---------------------------------------- | :-------------------------------------------------------------------------- |
 |  [01]   | `MoveTo` / `LineTo`                       | `(SKPoint)` or `(float x, float y)` contour/line                            |
 |  [02]   | `QuadTo` / `ConicTo` / `CubicTo`          | quadratic/rational-quadratic/cubic Bézier segments                          |
@@ -202,7 +202,7 @@
 
 [SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, picture record/replay, snapshot, codec, and pixel transfer
 
-| [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
+| [INDEX] | [SURFACE]                          | [ROOT]               | [CALL]                                                                 |
 | :-----: | :--------------------------------- | :------------------- | :--------------------------------------------------------------------- |
 |  [01]   | `Create`                           | `SKSurface`          | `(SKImageInfo)` raster                                                 |
 |  [02]   | `Create`                           | `SKSurface`          | `(GRRecordingContext, budgeted, info, samples, origin, props)` GPU     |
@@ -245,7 +245,7 @@
 
 [TRANSFORM_VALUE_ENTRYPOINTS]: affine and similarity transform construction
 
-| [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
+| [INDEX] | [SURFACE]                                  | [ROOT]                  | [CALL]                                                     |
 | :-----: | :----------------------------------------- | :---------------------- | :--------------------------------------------------------- |
 |  [01]   | `CreateIdentity` / `CreateTranslation`     | `SKMatrix`              | `()` / `(float x, float y)`                                |
 |  [02]   | `CreateScale`                              | `SKMatrix`              | `(x, y)` / `(x, y, pivotX, pivotY)`                        |
@@ -259,7 +259,7 @@
 
 [DOCUMENT_AND_COLOR_ENTRYPOINTS]: paged export and color-managed reproject
 
-| [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
+| [INDEX] | [SURFACE]                         | [ROOT]                   | [CALL]                                                |
 | :-----: | :-------------------------------- | :----------------------- | :---------------------------------------------------- |
 |  [01]   | `CreatePdf`                       | `SKDocument`             | `(Stream, SKDocumentPdfMetadata)` with PDF/A metadata |
 |  [02]   | `CreateXps`                       | `SKDocument`             | `(Stream, dpi)` Windows-only backend                  |
@@ -283,7 +283,7 @@
 
 - posture carry: `SKFont` exposes every host-variable knob as settable state — `Edging`, `Hinting`, `Subpixel`, `LinearMetrics`, `BaselineSnap`, `ForceAutoHinting`, `EmbeddedBitmaps`, `Embolden`, `ScaleX`, `SkewX`, `Size`, `Typeface`, `Spacing`, `Metrics` — so a surface class pins the whole set rather than inheriting a platform default.
 
-| [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
+| [INDEX] | [SURFACE]                               | [ROOT]              | [CALL]                                                               |
 | :-----: | :-------------------------------------- | :------------------ | :------------------------------------------------------------------- |
 |  [01]   | `MatchCharacter`                        | `SKFontManager`     | `(family, weight, width, slant, bcp47[], codepoint)` cover           |
 |  [02]   | `Default` / `MatchFamily`               | `SKFontManager`     | process registry / `(family)` and `(family, SKFontStyle)` match      |
@@ -308,7 +308,7 @@
 - root: `SKPaint`
 - `SetColor(SKColorF, SKColorSpace)` is the only colour-managed pigment entry: the `ColorF` and `Color` setters carry no space, so the byte path assumes sRGB and quantizes before any conversion and a wide-gamut paint writes float through `SetColor` or its gamut is fiction.
 
-| [INDEX] | [SURFACE]                      | [CALL]                                                                            |
+| [INDEX] | [SURFACE]                                | [CALL]                                                                          |
 | :-----: | :--------------------------------------- | :------------------------------------------------------------------------------ |
 |  [01]   | `Shader` / `ColorFilter` / `ImageFilter` | settable effect slots one paint composes per draw                               |
 |  [02]   | `MaskFilter` / `PathEffect`              | settable effect slots one paint composes per draw                               |
@@ -328,7 +328,7 @@
 - gradient carry: every gradient factory carries an `SKColorF[] colors, SKColorSpace colorspace` wide-gamut twin of its `SKColor[]` form, an optional `float[] colorPos` stop array, and an optional trailing `SKMatrix localMatrix`.
 - algebra custody: `CreateBlend`'s `SKBlendMode` arm SHORT-CIRCUITS the same three modes the image-filter twin does — `Src` returns `shaderB`, `Dst` returns `shaderA`, and `Clear` yields a shader retaining NEITHER operand — while its `SKBlender` arm and every other mode retain both, as do `CreateCompose`, `CreateColorFilter`, and `WithColorFilter`. Every operand is non-nullable and throws `ArgumentNullException`, and the `CreateColorFilter`/`CreateLocalMatrix` statics forward to the receiver's `WithColorFilter`/`WithLocalMatrix`, so the pair is one owner under two spellings.
 
-| [INDEX] | [SURFACE]                      | [CALL]                                                                            |
+| [INDEX] | [SURFACE]                                 | [CALL]                                                                               |
 | :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------- |
 |  [01]   | `CreateLinearGradient`                    | `(SKPoint start, SKPoint end, SKColor[], SKShaderTileMode)`                          |
 |  [02]   | `CreateRadialGradient`                    | `(SKPoint center, float radius, SKColor[], SKShaderTileMode)`                        |
@@ -348,7 +348,7 @@
 
 [PATH_AND_MASK_EFFECT_ENTRYPOINTS]: stroke-geometry effects and coverage-mask effects
 
-| [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
+| [INDEX] | [SURFACE]                                       | [ROOT]         | [CALL]                                                          |
 | :-----: | :---------------------------------------------- | :------------- | :-------------------------------------------------------------- |
 |  [01]   | `CreateDash`                                    | `SKPathEffect` | `(float[] intervals, float phase)` dash pattern                 |
 |  [02]   | `CreateTrim`                                    | `SKPathEffect` | `(float start, float stop[, SKTrimPathEffectMode])`             |
@@ -368,7 +368,7 @@
 - `CreateSrgbToLinearGamma` and `CreateLinearToSrgbGamma` are process-wide dispose-protected singletons: each hands back one shared instance whose `Dispose` is inert, so `using` over either is the deleted form.
 - `[SKBlender]`: `CreateBlendMode(SKBlendMode)` serves a STATIC dispose-protected row per rostered mode and throws `ArgumentOutOfRangeException` off that roster, so it mints nothing and owns nothing; `CreateArithmetic(k1, k2, k3, k4, bool enforcePMColor)` mints a caller-owned blender and returns NULL on a non-finite coefficient.
 
-| [INDEX] | [SURFACE]                      | [CALL]                                                                            |
+| [INDEX] | [SURFACE]                                             | [CALL]                                                              |
 | :-----: | :---------------------------------------------------- | :------------------------------------------------------------------ |
 |  [01]   | `CreateColorMatrix` / `CreateHslaColorMatrix`         | `(ReadOnlySpan<float>)` 20-entry row-major matrix                   |
 |  [02]   | `CreateBlendMode`                                     | `(SKColor, SKBlendMode)` constant-colour composite                  |
@@ -417,7 +417,7 @@
 [RUNTIME_EFFECT_ENTRYPOINTS]: SkSL compilation, uniform and child binding, and effect projection
 - uniform carry: `SKRuntimeEffectUniform` converts implicitly from `float` and `int` with their arrays and spans, `SKPoint`/`SKPointI`, `SKSize`/`SKSizeI`, `SKPoint3`, `SKColor`, `SKColorF`, `SKMatrix`, and `float[][]`; `SKRuntimeEffectChild` converts from `SKShader`, `SKColorFilter`, and `SKBlender`; a projection's `uniforms` argument is an `SKRuntimeEffectUniforms` and its `children` argument an `SKRuntimeEffectChildren`.
 
-| [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
+| [INDEX] | [SURFACE]                               | [ROOT]                    | [CALL]                                                      |
 | :-----: | :-------------------------------------- | :------------------------ | :---------------------------------------------------------- |
 |  [01]   | `CreateShader` / `CreateColorFilter`    | `SKRuntimeEffect`         | `(string sksl, out string errors)` compile                  |
 |  [02]   | `CreateBlender`                         | `SKRuntimeEffect`         | `(string sksl, out string errors)` compile                  |

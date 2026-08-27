@@ -320,7 +320,7 @@ public sealed class DegradationFold : IHealthCheckPublisher {
 - Law: every cached read is `GetOrCreateAsync` over (derived key, explicit `TState`, static factory, options row, tags) — get-then-set pairs are stampede-unsafe by construction, a set is a read-through with a constant factory, and batch removal verbs fold the singular forms.
 - Law: topology is a flags value ORing per-call entry flags onto profile hard flags — L1-only, write-through, and probe postures are policy rows, and `DisableUnderlyingData` turns a miss into a default return with no factory run, the read-without-work row.
 - Law: L1 storage discriminates payload immutability — types proven immutable share instances while mutable payloads re-deserialize per read, so consumers can never alias a cached mutable and immutable records are the only performant payload shape.
-- Law: single-flight keys on (flags) and joiner cancellation is reference-counted — an impatient caller detaches without killing shared work, so observability counts joins, never factory runs.
+- Law: single-flight keys on (key, flags) and joiner cancellation is reference-counted — an impatient caller detaches without killing shared work, so observability counts joins, never factory runs.
 - Law: tags are validity predicates compared on every hit, never indexes — `RemoveByTagAsync` shadows by timestamp, `*` is the constant-cost global epoch, and shadowed entries free memory only at natural expiry — so the tag vocabulary stays small, closed, and declared beside the key derivation.
 - Law: keyed profiles absorb deployment shape — `AddKeyedHybridCache` rows carry L2 selection, serializer set, guards, and default entry options, with effective L1 lifetime clamped to the lesser of `LocalCacheExpiration` and `Expiration` and guard breaches degrading to factory-direct execution, never a fault; the memory-shim L2 is silently elided, so L2 behavior proves only against a real out-of-process backend.
 - Law: a cache slot holding a live `Delegate` roots the delegate's `AssemblyLoadContext`, so every delegate-caching owner declares an eviction surface — key removal plus tag purge — wired to load-context teardown; TTL expiry alone never unpins a collectible context.
@@ -409,7 +409,7 @@ public static class Cadence {
     public static Option<ScheduleRow> Row(string key, string expression, int jitterSeed, string zoneId, Misfire policy, int band) =>
         (DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId),
          CronExpression.TryParse(expression, CronFormat.IncludeSeconds, jitterSeed, out CronExpression cron) ? Optional(cron) : None) switch {
-            ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(parsed, zone, policy, band),
+            ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(key, parsed, zone, policy, band),
             _ => None,
         };
     public static Option<(ScheduleRow Row, DateTimeOffset At)> Next(Seq<ScheduleRow> catalog, ClockPort clock) =>

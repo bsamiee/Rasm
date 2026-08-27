@@ -405,7 +405,7 @@
 
 [STACKING]:
 - `TextMateSharp`(`.api/api-textmatesharp.md`): `InstallTextMate` consumes an `IRegistryOptions`, `SetGrammar` a scope string, and `SetTheme` an `IRawTheme` that `LoadTheme(ThemeName)` returns; the provider owns the `IGrammar`/`ThemeName`/theme corpus and this adapter only forwards those handles.
-- `TextMateSharp`(`.api/api-textmatesharp.md`): `Installation.TryGetThemeColor(out hex)` reads exactly the `Theme.GetGuiColorDictionary()` map the applied theme carried, so a hex string parses to a brush and lands on the styled-property set — `"editor.background"` onto the control, `"editor.selectionBackground"` onto `TextArea.SelectionBrush`, `"editor.lineHighlightBackground"` onto `TextView.CurrentLineBackground`. Key coverage is theme-authored, so every read branches on the `false` return.
+- `TextMateSharp`(`.api/api-textmatesharp.md`): `Installation.TryGetThemeColor(key, out hex)` reads exactly the `Theme.GetGuiColorDictionary()` map the applied theme carried, so a hex string parses to a brush and lands on the styled-property set — `"editor.background"` onto the control, `"editor.selectionBackground"` onto `TextArea.SelectionBrush`, `"editor.lineHighlightBackground"` onto `TextView.CurrentLineBackground`. Key coverage is theme-authored, so every read branches on the `false` return.
 - AppUi code pane: `TextEditor` + `TextDocument` wrap in a `ReactiveUserControl`; `FoldingManager.Install`/`SearchPanel.Install`/`CompletionWindow`/`CSharpIndentationStrategy` own structure, find, IntelliSense, and indent; the single `Installation` rides `TextView.LineTransformers`, its `AppliedTheme` handler rewrites the chrome property set, and disposal runs through `WhenActivated`'s `CompositeDisposable` when the editor unloads.
 
 [LOCAL_ADMISSION]:

@@ -137,7 +137,7 @@ public sealed unsafe class PressDevice : IDisposable {
         (api, vendor, instance, adapter, device, queue, policy, timestamps, limits);
 
     public static Fin<Lease<PressDevice>> Acquire(DevicePolicy policy) =>
-        Bring(policy).Map(static device => (Lease<PressDevice>)new Lease<PressDevice>.Owned(device));
+        Bring(policy, key).Map(static device => (Lease<PressDevice>)new Lease<PressDevice>.Owned(device));
 
     static Fin<PressDevice> Bring(DevicePolicy policy) {
         const int PumpBound = 1024;
@@ -207,9 +207,9 @@ public sealed unsafe class PressDevice : IDisposable {
 
     public Fin<KernelReadback> Dispatch(WgslKernel kernel, KernelBinding binding) =>
         from _ in WgslOpCode.Total()
-        from __ in Guard(kernel, binding)
-        from pipeline in Pipeline(kernel)
-        from output in Run(kernel, pipeline, binding)
+        from __ in Guard(kernel, binding, key)
+        from pipeline in Pipeline(kernel, key)
+        from output in Run(kernel, pipeline, binding, key)
         select output;
 
     Fin<Unit> Guard(WgslKernel kernel, KernelBinding binding) =>
@@ -1410,7 +1410,7 @@ public static class Oracle {
         WgslOpCode.Total().Bind(_ =>
             kernel.Oracle
                 .TraverseM(fixture => device.Dispatch(kernel, Bind(kernel, fixture, kernel.Groups(fixture.Width, fixture.Height, fixture.Layers)))
-                    .Bind(readback => Compare(kernel, fixture, readback)))
+                    .Bind(readback => Compare(kernel, fixture, readback, key)))
                 .As()
                 .Map(static _ => unit));
 
@@ -1536,15 +1536,15 @@ namespace Rasm.Materials.Raster;
 public sealed partial class PressDevice {
     public Fin<KernelReadback> Dispatch(ChainPlan plan, Dimension width, Dimension height, Dimension layers) =>
         from _ in WgslOpCode.Total()
-        from __ in plan.Admits((long)width.Value * height.Value * layers.Value)
-        from pipelines in plan.Steps.TraverseM(step => Pipeline(step.Kernel)).As()
-        from output in RunChain(plan, pipelines, width, height, layers)
+        from __ in plan.Admits((long)width.Value * height.Value * layers.Value, key)
+        from pipelines in plan.Steps.TraverseM(step => Pipeline(step.Kernel, key)).As()
+        from output in RunChain(plan, pipelines, width, height, layers, key)
         select output;
 
     Fin<KernelReadback> RunChain(ChainPlan plan, Seq<nint> pipelines, Dimension width, Dimension height, Dimension layers) =>
-        Pooled(plan, width, height, layers, (pool, encoder) =>
+        Pooled(plan, width, height, layers, key, (pool, encoder) =>
             plan.Steps
-                .FoldM(0, (index, step) => Record(pool, encoder, pipelines[index], step, width, height, layers).Map(_ => index + 1))
+                .FoldM(0, (index, step) => Record(pool, encoder, pipelines[index], step, width, height, layers, key).Map(_ => index + 1))
                 .As());
 
     Fin<KernelReadback> Pooled(

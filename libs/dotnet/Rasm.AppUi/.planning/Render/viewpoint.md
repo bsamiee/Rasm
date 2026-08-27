@@ -11,7 +11,7 @@
 
 - Owner: `CameraFrame` the common eye/target/up product; `ViewCamera` `[Union]` the perspective, orthographic, or asymmetric-XR lens; `SectionBox` the axis-aligned clip volume; `OverrideState` `[Union]` the closed hidden/ghosted/tinted vocabulary a renderer can answer; `VisibilityOverride` the per-element row pairing a scene key with that state; `OverrideRole` `[SmartEnum<string>]` the one tinted-row family both the version-diff projection and the analysis-participation posture read, partitioned by its `Family` column; `VisibilityAction` `[SmartEnum]` the isolate/hide/x-ray/highlight/reset interaction fold; `VersionGhost` and `HighlightChannel` the two projections onto those rows; `PropertyDomain` `[Union]` the derived categorical-or-sequential property axis electing palette and legend together; `DisplayPosture` `[Union]` the colour-by, participation, and precision-wireframe posture family; `ViewMeasurement`/`ViewMeasurementPoint` the source-addressed measurement markup; `Viewpoint` the portable state; `ViewpointMap` the generated `[Mapper]` over the BCF camera and markup correspondences; `ViewpointCodec` the union dispatch and preservation fold binding that state to `Rasm.Bim`'s `BcfViewpoint`.
 - Cases: `OverrideState` = Hidden | Ghosted | Tinted; `OverrideRole` = added | removed | modified | unchanged (family `diff`) and target | obstacle | excluded (family `participation`); `ViewCamera` = Perspective | Orthographic | Asymmetric; `PropertyDomain` = Categorical | Sequential; `DisplayPosture` = ColorBy | Participation | Wireframe.
-- Entry: `Viewpoint.Capture(revision, camera, section, overrides, selection, measurements, at)` — the seven-column admission, every defect named on one `Validation` fold, the revision arriving from its minter; `Viewpoint.Encode()`/`Viewpoint.Decode(blob)` — generated `Render.ViewpointWire` ProtoJSON through the one AppHost `WireJson` posture; `ViewpointCodec.ToBcf(guid, view, source)`/`FromBcf(revision, bcf, at)` — the exchange projection.
+- Entry: `Viewpoint.Capture(key, revision, camera, section, overrides, selection, measurements, at)` — the seven-column admission, every defect named on one `Validation` fold, the revision arriving from its minter; `Viewpoint.Encode()`/`Viewpoint.Decode(blob)` — generated `Render.ViewpointWire` ProtoJSON through the one AppHost `WireJson` posture; `ViewpointCodec.ToBcf(guid, view, source)`/`FromBcf(key, revision, bcf, at)` — the exchange projection.
 - Auto: a viewpoint captures the full reproducible view state once — one `ViewCamera` case carries only its live lens scalar, `Option<SectionBox>` distinguishes absence from a real clip volume, override rows key by scene id, and `ViewMeasurement` preserves the capture payload key and point-sample index behind every vertex; BCF projection maps the camera onto the typed `BcfCamera` union, the override rows onto `BcfVisibility` and `BcfColoring`, section bounds onto six `BcfClippingPlane` rows, and measurement segments onto `BcfLine` rows.
 - Law: `OverrideState` is the WHOLE discriminant of what a renderer does to an element, so the visible/transparent/tinted product a four-column row admitted collapses to the three states a frame can answer — a hidden element carrying a 0.85 transparency was representable and meaningless, and `VisibilityAction.Isolate` spelled that exact pair. `Visible`, `ColorArgb`, and `Transparency` survive as DERIVATIONS the wire and the BCF projection read, so the crossing columns are unchanged in both directions and nothing downstream re-derives the inversion.
 - Law: `VisibilityAction` folds a selection onto the one override vocabulary — `Isolate` hides every unselected element, `Hide` hides the selection, `Xray` ghosts the unselected rest hard as a posture the user issues, `Highlight` ghosts it lightly as the transient hover row every brushing surface reads and emits a row for EVERY element so a hover restores what the previous hover ghosted, `Reset` clears the set — each row constructed with its fold delegate so the interactive state, the saved viewpoint, and the animation visibility track speak one visibility language. The Shell verb binding raising these folds as `CommandRow`s is `Shell/commands#INTENT_TABLE`'s row.
@@ -171,7 +171,7 @@ public sealed record Viewpoint(
          Col(Distinct(measurements.Map(static row => row.Key)), "distinct measurement keys"),
          Col(measurements.ForAll(static row => !row.Vertices.IsEmpty), "no vertex-less measurement"),
          Col(section.ForAll(static box => box.Ordered), "an ordered section box"))
-        .Apply((_, _, _, _, _, _, _) => new Viewpoint(revision, camera, section, overrides, selection, measurements, at))
+        .Apply((_, _, _, _, _, _, _) => new Viewpoint(key, revision, camera, section, overrides, selection, measurements, at))
         .ToFin();
 
     private static bool Distinct(Seq<string> ids) => toSeq(ids.Distinct()).Count == ids.Count;
@@ -454,7 +454,7 @@ public readonly partial struct ViewKey {
 
     public static Option<ViewKey> Parse(string link) =>
         link.StartsWith(LinkPrefix, StringComparison.Ordinal) && TryCreate(link[LinkPrefix.Length..], out ViewKey key)
-            ? Some()
+            ? Some(key)
             : None;
 }
 
@@ -536,7 +536,7 @@ public readonly record struct ViewRing(Seq<ViewKey> Keys, int Cursor, int Capaci
     public static ViewRing Of(int capacity) => new(Seq<ViewKey>(), -1, Math.Max(capacity, 1));
 
     public ViewRing Visit(ViewKey key) =>
-        Keys.Take(Cursor + 1).Add() switch {
+        Keys.Take(Cursor + 1).Add(key) switch {
             var walked => walked.Count > Capacity
                 ? new ViewRing(walked.Skip(walked.Count - Capacity), Capacity - 1, Capacity)
                 : new ViewRing(walked, walked.Count - 1, Capacity),
@@ -639,7 +639,7 @@ public sealed class ViewRevisions {
     private readonly Atom<HashMap<string, int>> minted = Atom(HashMap<string, int>());
 
     public int Next(string key) =>
-        minted.Swap(held => held.AddOrUpdate(static prior => prior + 1, 1)).Find().IfNone(1);
+        minted.Swap(held => held.AddOrUpdate(key, static prior => prior + 1, 1)).Find(key).IfNone(1);
 }
 
 public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Ring, double OrbitRadius) {
@@ -674,7 +674,7 @@ public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Rin
     private const string VisitedPrefix = "visited-";
 
     public Fin<ViewRegistry> Save(ViewKey key, string labelKey, ViewCamera camera, Option<SectionBox> section, Seq<VisibilityOverride> overrides, Instant at) =>
-        Rows.Find().Exists(static row => row.Origin == ViewOrigin.Standard)
+        Rows.Find(key).Exists(static row => row.Origin == ViewOrigin.Standard)
             ? Fin.Fail<ViewRegistry>(new ViewportFault.ContextUnavailable($"view/standard-row:{key.Value}"))
             : Fin.Succ(this with {
                 Rows = Rows.AddOrUpdate(new NamedView(labelKey, ViewOrigin.Bookmark, camera, section, overrides, MotionToken.Emphasized, at)),
@@ -684,7 +684,7 @@ public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Rin
         Rows.Find().ToFin(new ViewportFault.ContextUnavailable($"view/unknown:{key.Value}")).Bind(row =>
             row.Origin == ViewOrigin.Standard
                 ? Fin.Fail<ViewRegistry>(new ViewportFault.ContextUnavailable($"view/standard-row:{key.Value}"))
-                : Fin.Succ(this with { Rows = Rows.Remove(), Ring = Ring.Without() }));
+                : Fin.Succ(this with { Rows = Rows.Remove(key), Ring = Ring.Without(key) }));
 
     public Fin<ViewStep> Walk(int delta, ViewCamera from) =>
         StepDirection.Of(delta) switch {

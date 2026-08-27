@@ -466,7 +466,7 @@ public static class Remnants {
 
     private static Fin<Remnant> Mint(Loop boundary, Seq<Loop> holes, MaterialId material, RemnantOrigin origin, RemnantProfile profile) =>
         KeyOf(boundary, holes, material, origin).Bind(key =>
-            Remnant.Validate(boundary, holes, material, origin, profile, out Remnant remnant).Admitted(remnant));
+            Remnant.Validate(boundary, holes, material, origin, profile, key, out Remnant remnant).Admitted(remnant));
 
     private static RemnantOrigin Lineage(Stock stock) => stock switch {
         Stock.FromRemnant source => new RemnantOrigin(
@@ -787,15 +787,15 @@ public static class Remnants {
 
     private static Either<RemnantConflict, RemnantRow> Resolve(ContentKey key, int expectedRevision, RemnantInventory inventory) =>
         key.Kind != EgressKind.Remnant
-            ? Left<RemnantConflict, RemnantRow>(new RemnantConflict.Kind())
+            ? Left<RemnantConflict, RemnantRow>(new RemnantConflict.Kind(key))
             : inventory.Rows.Find(key.Digest).Match(
                 Some: row => (row.Revision == expectedRevision, row.State.Terminal) switch {
                     (false, _) => Left<RemnantConflict, RemnantRow>(
-                        new RemnantConflict.Revision(expectedRevision, row.Revision)),
-                    (true, true) => Left<RemnantConflict, RemnantRow>(new RemnantConflict.State(row.State)),
+                        new RemnantConflict.Revision(key, expectedRevision, row.Revision)),
+                    (true, true) => Left<RemnantConflict, RemnantRow>(new RemnantConflict.State(key, row.State)),
                     _ => Right<RemnantConflict, RemnantRow>(row),
                 },
-                None: () => Left<RemnantConflict, RemnantRow>(new RemnantConflict.Missing()));
+                None: () => Left<RemnantConflict, RemnantRow>(new RemnantConflict.Missing(key)));
 
     private static Fin<Unit> AdmitInventory(RemnantInventory inventory) {
         RemnantRow[] rows = inventory.Rows.Values.ToArray();

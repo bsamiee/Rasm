@@ -826,8 +826,8 @@ internal static class Traveler {
         from document in Build(request, input, clock.GetCurrentInstant())
         from key in TravelerPreimage.Of(new TravelerCanonicalSource.Document(document))
         from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Document(document))
-        from amendments in SealAmendments(document, request.Corpus.Amendments)
-        let consumed = toSeq((Seq()
+        from amendments in SealAmendments(key, document, request.Corpus.Amendments)
+        let consumed = toSeq((Seq(key)
             + document.Composed
             + amendments.Map(static value => value.Amendment.Previous)
             + amendments.Bind(static value => value.Amendment.Evidence)
@@ -844,7 +844,7 @@ internal static class Traveler {
             encoded.Descriptor,
             encoded.Rendering,
             consumed,
-            Seq() + amendments.Map(static value => value.Key),
+            Seq(key) + amendments.Map(static value => value.Key),
             request.Corpus.DigitalProductPassport,
             amendments)
         from _amendments in set.Write(FabricationInstruments.TravelerAmendments, artifact.Amendments.Count)

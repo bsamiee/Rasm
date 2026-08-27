@@ -561,7 +561,7 @@ public sealed class RenderGraph {
         public PassFold Deferring(string key) => this with { Deferred = Deferred.Add() };
 
         public PassFold Ran(string key, Duration elapsed, PassAnswer answer) => this with {
-            Passes = Passes.Add((elapsed)),
+            Passes = Passes.Add((key, elapsed)),
             Elapsed = Elapsed + elapsed,
             Triangles = Triangles + answer.Triangles,
             Points = Points + answer.Points,
@@ -873,7 +873,7 @@ public static class ResidencyMap {
     private static Fin<Viewpoint> View(Host.ViewpointWire wire) {
         return
             from camera in Camera(wire.Camera)
-            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row)).As()
+            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row, key)).As()
             from at in Optional(wire.At)
                 .ToFin(new ViewportFault.ContextUnavailable("viewpoint/decode: timestamp is absent"))
                 .Bind(value => Try.lift(() => Fin.Succ(value.ToInstant())).Run().Bind(static inner => inner))
@@ -969,7 +969,7 @@ public static class ResidencyMap {
     }
 
     private static Fin<ViewMeasurement> Measurement(Host.ViewMeasurementWire wire) =>
-        toSeq(wire.Vertices).TraverseM(point => Point(point)).As().Map(vertices => new ViewMeasurement(
+        toSeq(wire.Vertices).TraverseM(point => Point(point, key)).As().Map(vertices => new ViewMeasurement(
             wire.Key,
             vertices,
             UnitsNet.Length.FromMeters(wire.TotalMeters),
@@ -983,7 +983,7 @@ public static class ResidencyMap {
         };
 
     private static Fin<ViewMeasurementPoint> Point(Host.ViewMeasurementPointWire point) =>
-        ContentHash.Admit(point.SourceKey.Span).Map(source => new ViewMeasurementPoint(
+        ContentHash.Admit(point.SourceKey.Span, key).Map(source => new ViewMeasurementPoint(
             source,
             checked((int)point.SampleIndex),
             Point(point.Position)));

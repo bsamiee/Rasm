@@ -249,7 +249,7 @@ public sealed class HopTopology {
     }
 
     ResiliencePipeline<Reply> Resolved(HopKey key) =>
-        registry.TryGetPipeline<Reply>(out ResiliencePipeline<Reply> pipeline) ? pipeline : ResiliencePipeline<Reply>.Empty;
+        registry.TryGetPipeline<Reply>(key, out ResiliencePipeline<Reply> pipeline) ? pipeline : ResiliencePipeline<Reply>.Empty;
 
     ResiliencePipeline<Reply> Conceded(HopRow row) =>
         (Conflicts.Swap(facts => facts.Add(new ClaimFact(

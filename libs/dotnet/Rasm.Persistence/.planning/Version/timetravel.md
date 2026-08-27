@@ -248,8 +248,8 @@ public static class TimeTravel {
     static Fin<ScrubFrame> FlipFrame(int index, IEvent<GraphEvent> e, ElementGraph before, ElementGraph after) {
         GraphMembers members = GraphMembers.Of(before);
         ContentAddress priorAddress = ContentAddress.OfGraph(members);
-        return from author in AuthorshipOf(e)
-               from step in members.Advance(e.Data.Body)
+        return from author in AuthorshipOf(e, key)
+               from step in members.Advance(e.Data.Body, key)
                let afterAddress = ContentAddress.OfGraph(step.Resolve(_ => GraphMembers.Of(after)))
                select new ScrubFrame(index, e.Version, e.Data.Lifecycle,
                    new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), author.Actor,

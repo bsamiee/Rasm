@@ -169,16 +169,16 @@ public static class AppearanceEgress {
     }
 
     public static Fin<Wire.Material> Mint(MaterialId id) =>
-        from parameters in MaterialLibrary.Lookup(id)
-        from point in ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Option<Vector3d>.None, 0.5, 0.5, Context.Canonical)
-        from preview in MaterialGraph.Default.Evaluate(point, parameters)
+        from parameters in MaterialLibrary.Lookup(id, key)
+        from point in ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Option<Vector3d>.None, 0.5, 0.5, Context.Canonical, key)
+        from preview in MaterialGraph.Default.Evaluate(point, parameters, key)
         select Project(id, parameters, CaptureProvenance.Authored, preview);
 
     public static Fin<Wire.Set> Set(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
         CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence) =>
-        Baked(set, summary, planes, packs, provenance, press, licence)
-            .Bind(document => WireAdmission.Admit(document, WireBoundary.OutboundPayload));
+        Baked(set, summary, planes, packs, provenance, press, licence, key)
+            .Bind(document => WireAdmission.Admit(document, WireBoundary.OutboundPayload, key));
 
     static Fin<Wire.Set> Baked(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
@@ -190,8 +190,8 @@ public static class AppearanceEgress {
                 new MaterialFault.Parameter("<set-wire-channel-both-packed-and-standalone>"))
         from rows in toSeq(TextureChannel.Items)
             .Choose(channel => planes.Find(plane => plane.Channel == channel).Map(plane => (Channel: channel, Plane: plane)))
-            .Traverse(entry => Plane(set, entry.Channel, entry.Plane)).As()
-        from packed in packs.Traverse(pack => Pack(set, pack)).As()
+            .Traverse(entry => Plane(set, entry.Channel, entry.Plane, key)).As()
+        from packed in packs.Traverse(pack => Pack(set, pack, key)).As()
         let surface = Fill(new Wire.SurfaceSet {
             Width = (uint)set.Width.Value, Height = (uint)set.Height.Value, Layers = (uint)set.Layers.Value,
             LayerLaw = WireVocabulary.Law(set.Law),
@@ -233,10 +233,10 @@ public static class AppearanceEgress {
         from tiles in sheet.Tiles.Traverse(pair =>
             storage.Find(entry => entry.Tile == pair.Tile)
                 .ToFin(new MaterialFault.Parameter($"<set-wire-udim-missing-tile:{pair.Tile.Value}>"))
-                .Bind(entry => Baked(pair.Set, summary, entry.Planes, entry.Packs, provenance, press, licence)
+                .Bind(entry => Baked(pair.Set, summary, entry.Planes, entry.Packs, provenance, press, licence, key)
                     .Map(wire => (pair.Tile, Wire: wire)))).As()
-        from head in tiles.Head.ToFin(new MaterialFault.Parameter("<set-wire-udim-empty>"))
-        from admitted in WireAdmission.Admit(Sheet(head.Wire, sheet, tiles), WireBoundary.OutboundPayload)
+        from head in tiles.Head.ToFin(new MaterialFault.Parameter(key, "<set-wire-udim-empty>"))
+        from admitted in WireAdmission.Admit(Sheet(head.Wire, sheet, tiles), WireBoundary.OutboundPayload, key)
         select admitted;
 
     static Wire.Set Sheet(Wire.Set head, UdimSheet sheet, Seq<(UdimTile Tile, Wire.Set Wire)> tiles) {
@@ -258,9 +258,9 @@ public static class AppearanceEgress {
         from scene in guard(pyramid.Base.Transfer.SceneReferred, new MaterialFault.Parameter($"<set-wire-display-referred:{channel.Key}:{pyramid.Base.Transfer.Key}>"))
         from law in guard(plane.Levels.Count == (plane.Format.HoldsPyramid ? 1 : pyramid.Levels.Count),
                 new MaterialFault.Parameter($"<set-wire-levels-unaddressed:{channel.Key}:{plane.Levels.Count}:{pyramid.Levels.Count}>"))
-        from container in WireVocabulary.Container(plane.Format)
+        from container in WireVocabulary.Container(plane.Format, key)
         from levels in plane.Levels.Traverse(level =>
-            set.Egress(new EgressSlot.Channel(channel), level.Variant, plane.Format)
+            set.Egress(new EgressSlot.Channel(channel), level.Variant, plane.Format, key)
                 .Map(leaf => Reference(leaf, level.Artifact))).As()
         select new Wire.Plane {
             Role = WireVocabulary.Role(channel),
@@ -281,9 +281,9 @@ public static class AppearanceEgress {
             .ToFin(new MaterialFault.Parameter($"<set-wire-unbound-pack:{pack.Pack.Key}>"))
         from law in guard(pack.Levels.Count == (pack.Format.HoldsPyramid ? 1 : plane.Plane.Levels.Count),
                 new MaterialFault.Parameter($"<set-wire-pack-levels-unaddressed:{pack.Pack.Key}:{pack.Levels.Count}:{plane.Plane.Levels.Count}>"))
-        from container in WireVocabulary.Container(pack.Format)
+        from container in WireVocabulary.Container(pack.Format, key)
         from levels in pack.Levels.Traverse(level =>
-            set.Egress(new EgressSlot.Pack(pack.Pack), level.Variant, pack.Format)
+            set.Egress(new EgressSlot.Pack(pack.Pack), level.Variant, pack.Format, key)
                 .Map(leaf => Reference(leaf, level.Artifact))).As()
         select new Wire.PackRow {
             Pack = WireVocabulary.Pack(pack.Pack),
@@ -310,12 +310,12 @@ public static class AppearanceEgress {
                 && storage.Specular.Count == light.Products.Specular.Count
                 && storage.LuminanceCdf.Map(static product => product.Blob) == light.Blobs.LuminanceCdf,
                 new MaterialFault.Parameter("<ibl-wire-storage-diverges-from-blobs>"))
-        from equirect in Product(storage.Equirect)
-        from cubemap in Product(storage.Cubemap)
-        from preview in Product(storage.Preview)
-        from specular in storage.Specular.Traverse(product => Product(product)).As()
-        from brdf in Product(storage.BrdfLut)
-        from guide in storage.LuminanceCdf.Traverse(product => Product(product))
+        from equirect in Product(storage.Equirect, key)
+        from cubemap in Product(storage.Cubemap, key)
+        from preview in Product(storage.Preview, key)
+        from specular in storage.Specular.Traverse(product => Product(product, key)).As()
+        from brdf in Product(storage.BrdfLut, key)
+        from guide in storage.LuminanceCdf.Traverse(product => Product(product, key))
         let source = new Wire.EnvironmentSource {
             Sh9 = { light.Products.Irradiance.Bands.ToArray() },
             Equirect = equirect, Cubemap = cubemap, Preview = preview,
@@ -334,7 +334,7 @@ public static class AppearanceEgress {
             LicenseClass = LicenceVocabulary.Wire(licence),
             Environment = environment,
         }, light)
-        from admitted in WireAdmission.Admit(document, WireBoundary.OutboundPayload)
+        from admitted in WireAdmission.Admit(document, WireBoundary.OutboundPayload, key)
         select admitted;
 
     static Wire.Set Fill(Wire.Set wire, EnvironmentLight light) {
@@ -348,7 +348,7 @@ public static class AppearanceEgress {
     }
 
     static Fin<Wire.EnvironmentPlane> Product(EnvironmentProductEgress product) =>
-        WireVocabulary.Container(product.Container).Map(container => new Wire.EnvironmentPlane {
+        WireVocabulary.Container(product.Container, key).Map(container => new Wire.EnvironmentPlane {
             Plane = Reference(product.File, product.Artifact),
             Container = container,
             Format = WireVocabulary.Format(product.Plane.Format),
@@ -561,14 +561,14 @@ public static class Mtlx {
         NodeCategory.TryGet(source.MtlxCategory, out NodeCategory? category) ? category! : NodeCategory.Image;
 
     public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, HashMap<PortId, TextureSource> textures = default) =>
-        graph.Nodes.TraverseM(n => Row(n, parameters, textures).Map(row => (n.Id, row))).As().Map(toHashMap)
+        graph.Nodes.TraverseM(n => Row(n, parameters, textures, key).Map(row => (n.Id, row))).As().Map(toHashMap)
             .Bind(ports =>
-                from _ in guard(ports.Count == graph.Nodes.Count, new MaterialFault.Graph("<mtlx-duplicate-node-id>"))
+                from _ in guard(ports.Count == graph.Nodes.Count, new MaterialFault.Graph(key, "<mtlx-duplicate-node-id>"))
                 from __ in guard(graph.Nodes.Exists(n => n.Id == graph.Sink && n is AppearanceNode.BsdfOutput),
-                    new MaterialFault.Graph("<mtlx-sink-not-bsdf-output>"))
+                    new MaterialFault.Graph(key, "<mtlx-sink-not-bsdf-output>"))
                 from ___ in guard(graph.Nodes.ForAll(n => n.Dependencies.ForAll(ports.ContainsKey)),
-                    new MaterialFault.Graph("<mtlx-dangling-edge>"))
-                from emitted in graph.Nodes.TraverseM(n => Emit(n, ports, parameters, textures)).As()
+                    new MaterialFault.Graph(key, "<mtlx-dangling-edge>"))
+                from emitted in graph.Nodes.TraverseM(n => Emit(n, ports, parameters, textures, key)).As()
                 let lossy = toSeq(ports.Values).Bind(shape => shape.Mix.Bind(static row => row.Lossy).ToSeq())
                           + toSeq(textures.Values).Bind(static source => source.MtlxLossy.ToSeq())
                 select new MtlxDocument(MtlxDocument.Schema, emitted.Bind(static group => group),
@@ -598,7 +598,7 @@ public static class Mtlx {
         public static Seq<string> Of(MathOp op, int operands) =>
             op == MathOp.Pick
                 ? Seq("which") + toSeq(Enumerable.Range(1, Math.Max(operands - 1, 0)).Select(static slot => $"in{slot}"))
-                : NamedPorts.TryGetValue(out ImmutableArray<string> named)
+                : NamedPorts.TryGetValue(op, out ImmutableArray<string> named)
                     ? toSeq(named.Take(operands))
                     : operands == 1
                         ? Seq("in")
@@ -641,7 +641,7 @@ public static class Mtlx {
             ifGreater:    () => Fin.Succ((NodeCategory.IfGreater, MtlxPort.Float)),
             ifEqual:      () => Fin.Succ((NodeCategory.IfEqual, MtlxPort.Float)),
             pick:         () => Fin.Succ((NodeCategory.Switch, MtlxPort.Float)),
-            fresnel:      () => Fin.Fail<(NodeCategory, MtlxPort)>(new MaterialFault.Graph("<mtlx-no-category:fresnel-weight>")));
+            fresnel:      () => Fin.Fail<(NodeCategory, MtlxPort)>(new MaterialFault.Graph(key, "<mtlx-no-category:fresnel-weight>")));
 
     static readonly CapabilitySet<MixTrait> Lowered = CapabilitySet<MixTrait>.Of(MixTrait.Lowered);
     static readonly CapabilitySet<MixTrait> LoweredSwapped = CapabilitySet<MixTrait>.Of(MixTrait.Lowered, MixTrait.Swapped);
@@ -744,7 +744,7 @@ public static class Mtlx {
         string.IsNullOrWhiteSpace(wire.Id)
             ? Fin.Fail<MtlxDocument>(new MaterialFault.Graph("<mtlx-empty-material-id>"))
             : planes
-                .Map(set => toSeq(set.Planes).Traverse(row => Bound(row)).As()
+                .Map(set => toSeq(set.Planes).Traverse(row => Bound(row, key)).As()
                     .Map(bound => Document(wire, bound.Bind(static entry => entry.Nodes).Add(Textured(wire, bound)))))
                 .IfNone(() => Fin.Succ(Document(wire, Seq(SurfaceNode(wire)))));
 
@@ -795,7 +795,7 @@ public static class Mtlx {
 
     static Fin<(TextureChannel Channel, Seq<MtlxNode> Nodes, string Source)> Bound(Wire.Plane row) =>
         WireVocabulary.Channel(row.Role).Case is TextureChannel channel
-            ? BaseLeaf(row).Map(file => channel.Mtlx switch {
+            ? BaseLeaf(row, key).Map(file => channel.Mtlx switch {
                 MtlxBinding.Scaled scaled => (channel, Seq(
                         Image(channel, file),
                         new MtlxNode($"scale_{channel.Key}", NodeCategory.Multiply, Lane(channel), Seq(
@@ -810,7 +810,7 @@ public static class Mtlx {
                     $"nrm_{channel.Key}"),
                 _ => (channel, Seq(Image(channel, file)), $"tex_{channel.Key}"),
             })
-            : Fin.Fail<(TextureChannel, Seq<MtlxNode>, string)>(new MaterialFault.Graph($"<mtlx-unknown-channel:{row.Role}>"));
+            : Fin.Fail<(TextureChannel, Seq<MtlxNode>, string)>(new MaterialFault.Graph(key, $"<mtlx-unknown-channel:{row.Role}>"));
 
     static Fin<string> BaseLeaf(Wire.Plane row) =>
         toSeq(row.Levels).Head
@@ -901,27 +901,27 @@ public static class StageWire {
             : new MaterialFault.Parameter($"<stage-pad-unrostered:{spelling}>");
 
     public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request) =>
-        from message in WireAdmission.Admit(wire, WireBoundary.InboundPayload)
+        from message in WireAdmission.Admit(wire, WireBoundary.InboundPayload, key)
         from _echo in guard(message.Op == key.ToString(), new MaterialFault.Parameter($"<stage-op-echo:{message.Op}>"))
-        from stage in Row(message.Stage)
-        from provider in Row(message.ProviderUsed)
-        from artefact in Address(message.Artefact)
-        from outputs in toSeq(message.Outputs).Traverse(output => Output(output)).As()
+        from stage in Row(message.Stage, key)
+        from provider in Row(message.ProviderUsed, key)
+        from artefact in Address(message.Artefact, key)
+        from outputs in toSeq(message.Outputs).Traverse(output => Output(output, key)).As()
         from scores in toSeq(message.Scores).Traverse(score =>
-            Product(score.Role).Map(product => new StageScore(product, score.Value))).As()
+            Product(score.Role, key).Map(product => new StageScore(product, score.Value))).As()
         from echoed in FactoryBridge.Accept<ModelCardId>(message.ModelCardId)
         from admitted in StageResult.Admit(
             new StageResult(stage, echoed, artefact, outputs, scores, provider,
                 checked((int)message.PartitionCount), message.Elapsed.ToNodaDuration().TotalMilliseconds,
-                message.ReferenceDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted)),
-            card, request)
+                message.ReferenceDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted), key),
+            card, request, key)
         select admitted;
 
     static Fin<StageOutput> Output(StageOutputWire output) =>
-        from product in Product(output.Role)
-        from transfer in Row(output.Transfer)
-        from format in Row(output.Format)
-        from blob in Address(output.Blob)
+        from product in Product(output.Role, key)
+        from transfer in Row(output.Transfer, key)
+        from format in Row(output.Format, key)
+        from blob in Address(output.Blob, key)
         select new StageOutput(product, blob, Dimension.Create(checked((int)output.Width)), Dimension.Create(checked((int)output.Height)), transfer, format);
 
     static Fin<StageProduct> Product(StageProductWire role) =>
@@ -930,13 +930,13 @@ public static class StageWire {
                 TextureChannel.TryGet(role.Channel, out TextureChannel? channel)
                     ? Fin.Succ<StageProduct>(new StageProduct.Channel(channel!))
                     : Refused<StageProduct>("channel", role.Channel),
-            StageProductWire.RoleOneofCase.Prior => Row(role.Prior).Map(static field => (StageProduct)new StageProduct.Prior(field)),
-            StageProductWire.RoleOneofCase.Measure => Row(role.Measure).Map(static field => (StageProduct)new StageProduct.Measure(field)),
-            var absent => Refused<StageProduct>("product", absent.ToString()),
+            StageProductWire.RoleOneofCase.Prior => Row(role.Prior, key).Map(static field => (StageProduct)new StageProduct.Prior(field)),
+            StageProductWire.RoleOneofCase.Measure => Row(role.Measure, key).Map(static field => (StageProduct)new StageProduct.Measure(field)),
+            var absent => Refused<StageProduct>(key, "product", absent.ToString()),
         };
 
     static Fin<ContentAddress> Address(ByteString bytes) =>
-        ContentHash.Admit(bytes.Span).Map(ContentAddress.Of);
+        ContentHash.Admit(bytes.Span, key).Map(ContentAddress.Of);
 
     static Fin<PbrStage> Row(PbrStageWire wire) =>
         wire switch {

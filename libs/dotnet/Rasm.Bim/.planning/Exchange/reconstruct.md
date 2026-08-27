@@ -279,7 +279,7 @@ public static class ElementClassifier {
     public static Fin<(IfcClass Class, PredefinedType Predefined)> Classify(
         ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context, ReleaseVersion schema) =>
         ReconstructionContext.BiasOf(segment.DominantClass).Switch(
-            state: (primitive.Analytic, context, schema),
+            state: (primitive.Analytic, context, schema, key),
             excluded: static (s, _) => Fin.Fail<(IfcClass Class, PredefinedType Predefined)>(
                 new BimFault.Refused(s.key, BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "recon-unregistered", s.Analytic.Shape.Key, "asprs-excluded" }))),
             constructed: static (s, row) => row.Pin.Match(
@@ -297,12 +297,12 @@ public static class ElementClassifier {
                 | Table.Find((analytic.Shape, Option<IfcDomain>.None, FitOrientation.Any)))
             .ToFin(new BimFault.Refused(BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-shape-miss", analytic.Shape.Key, domain.ToString(), orientation.ToString() })))
             .Bind(row => row.Band.Admits(analytic.Gauge)
-                ? Admit(row.Class, row.Predefined, schema)
-                : Fin.Fail<(IfcClass, PredefinedType)>(new BimFault.Refused(BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-below-band", analytic.Shape.Key, row.Class.Key, analytic.Gauge.IfNone(0.0).ToString(CultureInfo.InvariantCulture) }))));
+                ? Admit(row.Class, row.Predefined, schema, key)
+                : Fin.Fail<(IfcClass, PredefinedType)>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-below-band", analytic.Shape.Key, row.Class.Key, analytic.Gauge.IfNone(0.0).ToString(CultureInfo.InvariantCulture) }))));
     }
 
     static Fin<(IfcClass Class, PredefinedType Predefined)> Admit(IfcClass @class, string predefined, ReleaseVersion schema) =>
-        @class.AdmitPredefined(predefined, "", schema).Map(token => (@class, PredefinedType.Create(token)));
+        @class.AdmitPredefined(predefined, "", schema, key).Map(token => (@class, PredefinedType.Create(token)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -340,11 +340,11 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
         });
 
     Fin<Node.PropertySet> ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance) =>
-        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value)
-        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual)
-        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers)
-        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total)
-        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass)
+        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value, key)
+        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual, key)
+        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers, key)
+        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total, key)
+        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass, key)
         let bag = new PropertyBag(ReconstructionRows.Set, Map<PropertyName, PropertyValue>(
             (ReconstructionRows.FitConfidence,  new PropertyValue.Measure(confidence)),
             (ReconstructionRows.Residual,       new PropertyValue.Measure(residual)),
@@ -428,12 +428,12 @@ public static class LasIngest {
     static bool Colored(byte pointFormat) => pointFormat is 2 or 3 or 5 or 7 or 8 or 10;
 
     public static Fin<LasCloud> Decode(ReadOnlyMemory<byte> bytes, Instant at, Option<CloudWindow> window = default) =>
-        Decoded(LasCompression.Sniff(bytes.Span), bytes, window, at);
+        Decoded(LasCompression.Sniff(bytes.Span), bytes, window, at, key);
 
     static Fin<LasCloud> Decoded(LasCompression codec, ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) =>
         codec == LasCompression.Compressed
-            ? Trap(codec, () => ReadLaz(bytes, window, at))
-            : Trap(codec, () => ReadLas(bytes, window, at)).Bind(static read => read);
+            ? Trap(codec, key, () => ReadLaz(bytes, window, at))
+            : Trap(codec, key, () => ReadLas(bytes, window, at, key)).Bind(static read => read);
 
     static Fin<T> Trap<T>(LasCompression codec, Func<T> read) =>
         Try.lift(read).Run().Bind(static inner => inner);

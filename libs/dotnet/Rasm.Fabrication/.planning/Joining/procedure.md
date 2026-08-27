@@ -202,7 +202,7 @@ public sealed partial class EssentialVariable {
         Set<QualificationSource> sources,
         VariableRequirement requirement,
         Option<ApplicabilityLaw> applicability) =>
-        Validate(family, modality, quantity, sources, requirement, applicability, out EssentialVariable variable)
+        Validate(key, family, modality, quantity, sources, requirement, applicability, out EssentialVariable variable)
             .Admitted(variable);
 }
 

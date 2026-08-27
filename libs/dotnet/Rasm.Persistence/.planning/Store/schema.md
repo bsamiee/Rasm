@@ -229,7 +229,7 @@ public static class ContractComposition {
         Func<TRow, TRow, bool> same)
         where TRow : class {
         Seq<string> keys = toSeq(rows
-            .GroupBy(StringComparer.Ordinal)
+            .GroupBy(key, StringComparer.Ordinal)
             .Where(group => group.Skip(1).Any(row => !same(group.First(), row)))
             .Select(static group => group.Key));
         return keys.Traverse(key => (Validation<Error, Unit>)new ContractFault.ContributionCollision())

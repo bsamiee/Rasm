@@ -194,18 +194,13 @@ public sealed partial class ChunkGrid {
     public int Count => Grid.Span.ToArray().Aggregate(1, static (acc, axis) => acc * axis);
     public int ChunkElements => Chunk.Span.ToArray().Aggregate(1, static (acc, axis) => acc * (int)axis);
 
-    public HyperslabSelection Selection(int ordinal) => Selection(ordinal, ReadOnlySpan<ulong>.Empty);
-
-    public HyperslabSelection Selection(int ordinal, ReadOnlySpan<ulong> origin) {
-        if (!origin.IsEmpty && origin.Length != Rank) { throw new ArgumentException("selection origin rank", nameof(origin)); }
-        (ulong[] local, ulong[] blocks) = Bounds(ordinal);
-        ulong[] starts = [.. local];
-        for (int axis = 0; axis < Rank; axis++) { starts[axis] += origin.IsEmpty ? 0UL : origin[axis]; }
+    public HyperslabSelection Selection(int ordinal) {
+        (ulong[] starts, ulong[] blocks) = Bounds(ordinal);
         return new HyperslabSelection(Rank, starts, blocks);
     }
 
     (ulong[] Starts, ulong[] Blocks) Bounds(int ordinal) {
-        if ((uint)ordinal >= (uint)Count) { throw new ArgumentOutOfRangeException(nameof(ordinal)); }
+        if ((uint)ordinal >= (uint)Count) { return (new ulong[Rank], new ulong[Rank]); }
         ulong[] starts = new ulong[Rank];
         ReadOnlySpan<int> grid = Grid.Span;
         ReadOnlySpan<uint> chunk = Chunk.Span;
@@ -222,10 +217,13 @@ public sealed partial class ChunkGrid {
 
     public int SelectionElements(int ordinal) => checked((int)Selection(ordinal).TotalElementCount);
 
-    public T[] Pack<T>(ReadOnlySpan<T> source, int ordinal) {
+    public Fin<T[]> Pack<T>(ReadOnlySpan<T> source, int ordinal) {
         ReadOnlySpan<ulong> dims = FileDims.Span;
         long total = dims.ToArray().Aggregate(1L, static (acc, axis) => acc * (long)axis);
-        if (source.Length != total) { throw new ArgumentException("chunk source extent", nameof(source)); }
+        if (source.Length != total) {
+            return Fin.Fail<T[]>(new ComputeFault.Violation(ComputeArea.Runtime,
+                new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(source.Length, total))));
+        }
         (ulong[] starts, ulong[] blocks) = Bounds(ordinal);
         int count = checked((int)blocks.Aggregate(1UL, static (acc, axis) => acc * axis));
         T[] packed = new T[count];
@@ -242,7 +240,7 @@ public sealed partial class ChunkGrid {
             }
             packed[index] = source[checked((int)sourceIndex)];
         }
-        return packed;
+        return Fin.Succ(packed);
     }
 
     public Range LogicalElements(int ordinal, int payloadElements) {
@@ -353,26 +351,38 @@ public sealed class ArchiveSession : IDisposable {
                 H5File graph = new();
                 Dictionary<IArchiveSlot, object> datasets = new(ReferenceEqualityComparer.Instance);
                 Dictionary<IArchiveSlot, ChunkState> states = new(ReferenceEqualityComparer.Instance);
-                slots.Iter(slot => { Seat(graph, slot, policy, datasets); states.Add(slot, new ChunkState(slot.Grid)); });
-                attributes.Iter(pair => graph.Attributes[pair.Key] = pair.Value.Boxed);
-                grouped.Iter(set => set.Values.Iter(pair => Group(graph, set.Path).Attributes[pair.Key] = pair.Value.Boxed));
-                return Fin.Succ(new ArchiveSession(new HdfWriter(graph.BeginWrite(sink, new H5WriteOptions())), datasets, states));
+                return slots
+                    .Traverse(slot => Seat(graph, slot, policy, datasets)
+                        .Map(_ => HostEdge.Side(() => states.Add(slot, new ChunkState(slot.Grid)))))
+                    .As()
+                    .Bind(_ => grouped.Traverse(set => Group(graph, set.Path)
+                        .Map(node => HostEdge.Side(() => set.Values.Iter(pair => node.Attributes[pair.Key] = pair.Value.Boxed)))).As())
+                    .Map(_ => {
+                        attributes.Iter(pair => graph.Attributes[pair.Key] = pair.Value.Boxed);
+                        return new ArchiveSession(new HdfWriter(graph.BeginWrite(sink, new H5WriteOptions())), datasets, states);
+                    });
             }).Run().Bind(static inner => inner);
 
-    static void Seat(H5File graph, IArchiveSlot slot, HdfArchivePolicy policy, Dictionary<IArchiveSlot, object> datasets) {
+    static Fin<Unit> Seat(H5File graph, IArchiveSlot slot, HdfArchivePolicy policy, Dictionary<IArchiveSlot, object> datasets) {
         string[] cells = slot.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (cells.Length == 0) { throw new InvalidOperationException("archive slot path is empty"); }
-        H5Group parent = Group(graph, string.Join('/', cells.Take(cells.Length - 1)));
-        object dataset = slot.Seat(policy);
-        parent[cells[^1]] = dataset;
-        datasets.Add(slot, dataset);
+        return cells.Length == 0
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: nameof(slot.Path), Requirement: "at least one path cell"))
+            : Group(graph, string.Join('/', cells.Take(cells.Length - 1))).Map(parent => {
+                object dataset = slot.Seat(policy);
+                parent[cells[^1]] = dataset;
+                datasets.Add(slot, dataset);
+                return unit;
+            });
     }
 
-    static H5Group Group(H5File graph, string path) {
+    static Fin<H5Group> Group(H5File graph, string path) {
         H5Group parent = graph;
         foreach (string cell in path.Split('/', StringSplitOptions.RemoveEmptyEntries)) {
             if (parent.TryGetValue(cell, out object? found)) {
-                parent = found as H5Group ?? throw new InvalidOperationException($"archive path is not a group: {path}");
+                if (found is not H5Group group) {
+                    return Fin.Fail<H5Group>(new KernelFault.InvalidValue(Label: path, Requirement: "a group at every path cell"));
+                }
+                parent = group;
             } else {
                 H5Group child = new();
                 parent[cell] = child;
@@ -412,11 +422,9 @@ public sealed class ArchiveSession : IDisposable {
         _writer.Dispose();
     }
 
-    public void Dispose() {
-        int incomplete = _states.Values.Count(static state => !state.Complete);
-        Release();
-        if (incomplete != 0) { throw new InvalidOperationException($"archive session incomplete: {_states.Count - incomplete}/{_states.Count} slots"); }
-    }
+    public int Incomplete => _states.Values.Count(static state => !state.Complete);
+
+    public void Dispose() => Release();
 }
 
 internal sealed class ChunkState(ChunkGrid grid) {
@@ -462,6 +470,6 @@ public sealed class ChunkCursor<T> where T : unmanaged {
         source.LongLength != _state.Grid.FileDims.Span.ToArray().Aggregate(1L, static (acc, axis) => acc * (long)axis)
             ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(source.LongLength, _state.Grid.FileDims.Span.ToArray().Aggregate(1L, static (acc, axis) => acc * (long)axis)))))
             : Range(_state.Next, _state.Grid.Count - _state.Next).Fold(Fin.Succ(unit), (result, ordinal) =>
-                result.Bind(_ => Write(_state.Grid.Pack(source, ordinal))));
+                result.Bind(_ => _state.Grid.Pack(source, ordinal).Bind(Write)));
 }
 ```

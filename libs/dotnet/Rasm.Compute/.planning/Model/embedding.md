@@ -189,7 +189,7 @@ public sealed partial class EmbeddingVector {
                     (Error)EmbedRefusal.CarrierRejected.Fault()))
             .Apply(static (_, _, _, _) => unit).As().ToFin()
             .Bind(_ => KeyOf(modelKey, encoding, dimension, owned, retained) is UInt128 key && key == expectedKey
-                ? Fin.Succ(new EmbeddingVector(encoding, modelKey, dimension, retained, owned))
+                ? Fin.Succ(new EmbeddingVector(encoding, modelKey, dimension, retained, owned, key))
                 : Fin.Fail<EmbeddingVector>(EmbedRefusal.KeyEchoFailed.Fault()));
     }
 

@@ -414,21 +414,21 @@ public abstract partial record DeformOp {
     internal Fin<DeformOp> Admitted() =>
         Switch(
             context: key,
-            morph: static (row) => ModelClaim.Admits(row,
+            morph: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Kind), row.Kind is { IsValid: true })),
-            unroll: static (row) => ModelClaim.Admits(row,
+            unroll: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Followers), row.Followers.IsValid), (nameof(row.Law), row.Law.IsValid)),
-            squish: static (row) => ModelClaim.Admits(row,
+            squish: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Law), row.Law.IsValid),
                 (nameof(row.Marks), ModelClaim.Handles(handles: row.Marks, allowEmpty: true)),
                 (nameof(row.Followers), row.Followers.IsValid)),
-            squishBack: static (row) => ModelClaim.Admits(row,
+            squishBack: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Pattern), ModelClaim.Handle(handle: row.Pattern)),
                 (nameof(row.Marks), ModelClaim.Handles(handles: row.Marks))),
-            unwrap: static (row) => ModelClaim.Admits(row,
+            unwrap: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Meshes), ModelClaim.Handles(handles: row.Meshes)),
                 (nameof(row.Method), Enum.IsDefined(row.Method)),
                 (nameof(row.Symmetry), ValidityClaim.WhenPresent(facet: row.Symmetry, claim: static symmetry => symmetry.IsValid))));
@@ -532,7 +532,7 @@ public abstract partial record DeformOp {
                             using MeshUnwrapper engine = new(meshes: working.AsIterable());
                             _ = edit.Symmetry.Iter(symmetry => engine.SymmetryPlane = symmetry);
                             return Admit.Confirm(success: engine.Unwrap(method: edit.Method))
-                                .Bind(_ => ModelGate.Many(() => working.AsEnumerable()));
+                                .Bind(_ => ModelGate.Many(op, () => working.AsEnumerable()));
                         }).Run().Bind(static inner => inner)
                         .Rollback([.. working])
                     select unwrapped);

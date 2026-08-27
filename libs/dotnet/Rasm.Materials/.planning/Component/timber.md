@@ -1,6 +1,6 @@
 # [MATERIALS_TIMBER]
 
-THE TIMBER SEED FAMILY GROUNDED IN THE EN STRENGTH-CLASS TABLES. A sawn/glulam/LVL/PSL member and a cross-laminated panel are each one `ComponentRow` the ONE `component#COMPONENT_SEED` generator mints from `TimberSeed.Roster` under `TimberSeed.Law` over the `ComponentFamily.Timber` policy row (`ComponentClass.Primary`, `DetailLane.None`, admits a `SectionProfile.Rectangle` or a `SectionProfile.Layered` containing only `PlyRole.Longitudinal`/`PlyRole.Transverse`, cross-nominal the section depth) — never a `GlulamBeam`/`CltPanel` type, never a hand-keyed strength literal, and never a bespoke `TimberSection` payload. A profiled MEMBER is `SectionProfile.Rectangle` and solvable; a CLT PANEL is `SectionProfile.Layered`, which carries no section integral and therefore no section-map entry. `TimberSeed.Resolve` joins either resolved `ComponentId` back to the typed `TimberRow`, preserving the product form, the registered grade, and the declared edgewise strength for `TimberDesign.Capacity` without widening `Component` or adding a detail bag. The strength class is a `component#MATERIAL_GRADE` `MaterialGrade` row over the `GradeProperties.Timber` arm whose PHYSICS — the rolling-shear modulus, the species read, the orthotropic law, and the contract lowering — is co-located here with the family that owns it. `TimberDesign` owns the EN 1995-1-1 capacity and Annex B stiffness operations with the EN 1995-1-2 member and CLT fire modalities; `TimberCapacity` is the frozen resistance set the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(lift)` `CapacityLift.Timber`/`TimberFire` cases consume.
+THE TIMBER SEED FAMILY GROUNDED IN THE EN STRENGTH-CLASS TABLES. A sawn/glulam/LVL/PSL member and a cross-laminated panel are each one `ComponentRow` the ONE `component#COMPONENT_SEED` generator mints from `TimberSeed.Roster` under `TimberSeed.Law` over the `ComponentFamily.Timber` policy row (`ComponentClass.Primary`, `DetailLane.None`, admits a `SectionProfile.Rectangle` or a `SectionProfile.Layered` containing only `PlyRole.Longitudinal`/`PlyRole.Transverse`, cross-nominal the section depth) — never a `GlulamBeam`/`CltPanel` type, never a hand-keyed strength literal, and never a bespoke `TimberSection` payload. A profiled MEMBER is `SectionProfile.Rectangle` and solvable; a CLT PANEL is `SectionProfile.Layered`, which carries no section integral and therefore no section-map entry. `TimberSeed.Resolve` joins either resolved `ComponentId` back to the typed `TimberRow`, preserving the product form, the registered grade, and the declared edgewise strength for `TimberDesign.Capacity` without widening `Component` or adding a detail bag. The strength class is a `component#MATERIAL_GRADE` `MaterialGrade` row over the `GradeProperties.Timber` arm whose PHYSICS — the rolling-shear modulus, the species read, the orthotropic law, and the contract lowering — is co-located here with the family that owns it. `TimberDesign` owns the EN 1995-1-1 capacity and Annex B stiffness operations with the EN 1995-1-2 member and CLT fire modalities; `TimberCapacity` is the frozen resistance set the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(lift, key)` `CapacityLift.Timber`/`TimberFire` cases consume.
 
 ## [01]-[INDEX]
 
@@ -179,26 +179,26 @@ public static class TimberSeed {
             ? row.BuildMm.Map((mm, index) => (Mm: mm, Role: (index & 1) == 0 ? PlyRole.Longitudinal : PlyRole.Transverse))
                 .Traverse(ply => FactoryBridge.Accept<PositiveMagnitude>(candidate: ply.Mm)
                     .Map(t => new Ply(row.Grade.Substance, t, ply.Role))).As()
-                .Bind(plies => SectionProfile.Layered.Of(plies, overallMm: row.DMm, widthMm: row.WMm))
-            : SectionProfile.Rectangle.Of(row.WMm, row.DMm);
+                .Bind(plies => SectionProfile.Layered.Of(plies, overallMm: row.DMm, widthMm: row.WMm, key))
+            : SectionProfile.Rectangle.Of(row.WMm, row.DMm, key);
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, TimberRow>>> Table =
         SeedJoin.Of(Roster, static row => row.Designation);
 
     public static Fin<TimberRow> Resolve(Component component) =>
-        SeedJoin.Resolve(Table, component.Designation);
+        SeedJoin.Resolve(Table, component.Designation, key);
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        from row in Resolve(component)
+        from row in Resolve(component, key)
         from lift in placement.FireExposure.Match(
             Some: exposure => TimberDesign
-                .Fire(row, component.Profile, exposure.Value, FullyExposedFaces, placement.EffectiveLengthMm)
+                .Fire(row, component.Profile, exposure.Value, FullyExposedFaces, placement.EffectiveLengthMm, key)
                 .Map(capacity => CapacityLift.Fire(component.Designation, new FireState.Timber(capacity))),
             None: () =>
-                from state in DesignState.Ambient(row.Form, placement.Service, placement.Duration)
-                from capacity in TimberDesign.Capacity(row, component.Profile, section, state, placement.EffectiveLengthMm)
+                from state in DesignState.Ambient(row.Form, placement.Service, placement.Duration, key)
+                from capacity in TimberDesign.Capacity(row, component.Profile, section, state, placement.EffectiveLengthMm, key)
                 select (CapacityLift)new CapacityLift.Timber(component.Designation, capacity))
-        from capacity in SectionCapacity.Lift(lift)
+        from capacity in SectionCapacity.Lift(lift, key)
         select capacity;
 
     const int FullyExposedFaces = 4;
@@ -259,16 +259,16 @@ public static class TimberDesign {
         from grade in row.Grade.TimberArm.ToFin(new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Timber))
         from charred in profile switch {
             SectionProfile.Layered layered =>
-                from plies in ResidualStack(row.Form, grade, layered.Plies, exposureMinutes)
-                from stack in SectionProfile.Layered.Of(plies, overallMm: plies.Sum(static p => p.ThicknessMm.Value), widthMm: layered.WidthMm.Value)
+                from plies in ResidualStack(row.Form, grade, layered.Plies, exposureMinutes, key)
+                from stack in SectionProfile.Layered.Of(plies, overallMm: plies.Sum(static p => p.ThicknessMm.Value), widthMm: layered.WidthMm.Value, key)
                 select (Profile: stack, Section: Option<ComputedSection>.None),
             _ =>
-                from residual in ResidualSection(row.Form, grade, profile, exposureMinutes, exposedSides)
-                from rectangle in SectionProfile.Rectangle.Of(residual.ResidualWidthMm.Value, residual.ResidualDepthMm.Value)
-                from solved in SectionSolver.Solve(rectangle)
+                from residual in ResidualSection(row.Form, grade, profile, exposureMinutes, exposedSides, key)
+                from rectangle in SectionProfile.Rectangle.Of(residual.ResidualWidthMm.Value, residual.ResidualDepthMm.Value, key)
+                from solved in SectionSolver.Solve(rectangle, key)
                 select (Profile: rectangle, Section: Some(solved)),
         }
-        from capacity in Capacity(row, charred.Profile, charred.Section, DesignState.Fire, effectiveLengthMm)
+        from capacity in Capacity(row, charred.Profile, charred.Section, DesignState.Fire, effectiveLengthMm, key)
         select capacity;
 
     static TimberCapacity Member(TimberForm f, GradeProperties.Timber g, SectionProfile.Rectangle r, ComputedSection cs, DesignState state, double lengthMm) {

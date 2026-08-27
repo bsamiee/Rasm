@@ -265,7 +265,7 @@ public readonly partial struct DrawingLaw : IValidityEvidence {
 
     internal Fin<HiddenLineDrawingParameters> Rig(Context domain) {
         DrawingLaw law = this;
-        return from clips in ProjectionOp.AdmittedClips(law.Clips)
+        return from clips in ProjectionOp.AdmittedClips(law.Clips, key)
                from parameters in Try.lift(() => {
                    HiddenLineDrawingParameters parameters = new() { AbsoluteTolerance = domain.Absolute.Value };
                    _ = toSeq(DrawingFeature.Items).Iter(feature =>
@@ -313,15 +313,15 @@ public abstract partial record ProjectionOp {
     internal Fin<ProjectionOp> Admitted() =>
         Switch(
             context: key,
-            drawing: static (row) => ModelClaim.Admits(row,
+            drawing: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Subjects), ModelClaim.Rows(rows: row.Subjects, claim: static subject => (ValidityClaim)subject.IsValid)),
                 (nameof(row.Frame), row.Frame is { IsValid: true }),
                 (nameof(row.Law), row.Law.IsValid)),
-            outline: static (row) => ModelClaim.Admits(row,
+            outline: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Subject), ModelClaim.Handle(handle: row.Subject)),
                 (nameof(row.Frame), row.Frame is { IsValid: true }),
                 (nameof(row.Clips), ModelClaim.Rows(rows: row.Clips, claim: static clip => (ValidityClaim)clip.IsValid, allowEmpty: true))),
-            draft: static (row) => ModelClaim.Admits(row,
+            draft: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Subject), ModelClaim.Handle(handle: row.Subject)),
                 (nameof(row.Angle), ValidityClaim.Finite(value: row.Angle)),
                 (nameof(row.Pull), ValidityClaim.Direction(value: row.Pull))));
@@ -390,7 +390,7 @@ public abstract partial record ProjectionOp {
         int ordinal, Context model) =>
         from motion in subject.Placement
             .Traverse(spec => Placement.Build(spec: spec, context: Some(model))).As()
-        from clips in AdmittedClips(subject.Clips)
+        from clips in AdmittedClips(subject.Clips, op)
         from _ in Admit.Confirm(success: parameters.AddGeometryAndPlanes(
             native, motion.IfNone(noneValue: Transform.Identity), ordinal, subject.Occluding, [.. clips]))
         select unit;

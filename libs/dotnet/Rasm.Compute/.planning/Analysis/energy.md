@@ -531,7 +531,7 @@ public static partial class EnergySimulation {
                     from _ in Reads.Writing(versionFacts, unit)
                     from build in BuildModel(graph, request, geometry, scratch)
                     from sqlPath in Reads.Lift(RunSubprocess(binary, build.IdfPath, request, scratch))
-                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(build.Model, build.Zones))
+                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, build.Model, build.Zones))
                     from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
                     from published in Reads.Lift(sink.Rows(readout.Rows).Run())
                     select (Readout: readout, Blob: blob))
@@ -763,14 +763,14 @@ public abstract partial record EnergyRoute {
 public static partial class EnergySimulation {
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock) =>
         request.Policy.Route.Switch(
-            subprocess: _ => RunLocal(graph, request, geometry, sink, clock),
-            cloud:      c => RunCloud(graph, request, c, sink, clock));
+            subprocess: _ => RunLocal(graph, request, geometry, sink, key, clock),
+            cloud:      c => RunCloud(graph, request, c, sink, key, clock));
 
     static Fin<AssessmentResult> RunCloud(ElementGraph graph, AssessmentRequest.Energy request, EnergyRoute.Cloud route, AssessmentSink sink, ContentAddress key, IClock clock) {
         Instant at = clock.GetCurrentInstant();
         return Leased(CloudScratch, scratch =>
                     from sqlPath in Reads.Lift(Orchestrate(route, scratch).Run())
-                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(route.Model, Seq<ZoneTarget>()))
+                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, route.Model, Seq<ZoneTarget>()))
                     from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
                     from published in Reads.Lift(sink.Rows(readout.Rows).Run())
                     select (Readout: readout, Blob: blob))

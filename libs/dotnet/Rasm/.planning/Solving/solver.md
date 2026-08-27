@@ -372,15 +372,15 @@ public static class Lm {
                 schedule: Schedule.recurs(policy.MaxIterations.Value - 1),
                 initialState: Fin.Succ(Next.Loop<LmState, (LmState State, SolveStatus Status)>(seed)),
                 folder: (acc, _) => acc.Bind(next => next.Match(
-                    state => Pass(model, dof, policy, state),
+                    state => Pass(model, dof, policy, state, key),
                     _ => Fin.Succ(next))),
                 stateIs: static state => state.Match(
                     Succ: static next => next.IsDone,
                     Fail: static _ => true))
             .Run()
             .Bind(next => next.Match(
-                state => Result(state, SolveStatus.Exhausted),
-                done => Result(done.State, done.Status)));
+                state => Result(state, SolveStatus.Exhausted, key),
+                done => Result(done.State, done.Status, key)));
 
     static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Pass(ILmModel model, int dof, SolvePolicy policy, LmState state) =>
         state.Norm < policy.ResidualTolerance.Value
@@ -411,7 +411,7 @@ public static class Lm {
                 ? Fin.Succ(solved.Solution)
                 : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()))
             .Match(
-                Succ: delta => Accept(model, policy, state, normal, delta),
+                Succ: delta => Accept(model, policy, state, normal, delta, key),
                 Fail: _ => Fin.Succ(Reject(policy, state, normal)));
     }
 
@@ -879,7 +879,7 @@ public sealed record ConstraintSystem(
         Seq<(Seq<int> Entities, Seq<int> Constraints)> islands = Islands.Value;
         return islands.TraverseM(island =>
                 Model.Of(island, SeedVector.Value)
-                    .Bind(model => Lm.Minimize(model, policy))
+                    .Bind(model => Lm.Minimize(model, policy, op))
                     .Map(result => (Island: island, Result: result)))
             .As()
             .Bind(solved => {
@@ -958,7 +958,7 @@ public sealed record ConstraintSystem(
 
     internal static DofReport WitnessRank(ConstraintSystem system) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
-            (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value);
+            (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value, key);
             return rows == 0
                 ? new IslandVerdict(ordinal, dofs > 0 ? Determinacy.Under : Determinacy.Well, dofs, 0, 0, RankMethod.Count)
                 : jacobian.ToFin(new KernelFault.InvalidResult()).Bind(j => j.DecomposeSvd()).Match(

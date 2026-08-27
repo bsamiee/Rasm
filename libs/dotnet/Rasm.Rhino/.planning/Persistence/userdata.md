@@ -183,7 +183,7 @@ public static class ArchiveIo {
                from _sound in guard(
                    captured.Integrity.IsValid,
                    new KernelFault.InvalidResult(Detail: Some("Binary archive checksum or reader state is invalid.")))
-               from payload in ArchiveMap.Detach(captured.Native)
+               from payload in ArchiveMap.Detach(captured.Native, op)
                select new ArchiveEnvelope(payload, captured.Integrity);
     }
 }
@@ -270,7 +270,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
             base.OnTransform(transform);
             return Snapshot()
                 .Bind(payload => TransformPayload(payload, transform))
-                .Bind(payload => Derive(payload));
+                .Bind(payload => Derive(payload, op));
         }).Run().Bind(static inner => inner).Match(Succ: static _ => unit, Fail: error => Poison(error));
     }
 
@@ -294,7 +294,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 
     private Unit Poison(Error error) {
         ignore(Cell.Step(cell: held, step: _ => Some(Fin.Fail<Option<ArchiveMap>>(error)), declined: new KernelFault.InvalidContext()));
-        return Reported(error);
+        return Reported(error, op);
     }
 
     private Unit Reported(Error error) => Try.lift(() => Report(error)).Run().Bind(static inner => inner)
@@ -413,13 +413,13 @@ public static class Custody {
                 censusCase: static (census) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.CensusCase(
                     census.Target.UserData.Map(Describe).ToSeq()))).Run().Bind(static inner => inner),
                 probeCase: static (probe) => probe.Reference.Switch<(CommonObject Target), Fin<CustodyAnswer>>(
-                    state: (probe.Target),
+                    state: (probe.Target, op),
                     idCase: static (ctx, row) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.PresenceCase(
                         (CustodyPresence)ctx.Target.UserData.Contains(row.Value)))).Run().Bind(static inner => inner),
                     typeCase: static (ctx, row) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.DescriptionCase(
                         Optional(ctx.Target.UserData.Find(row.Value)).Map(Describe)))).Run().Bind(static inner => inner)),
-                sharedCase: static (read) => Open(read.Target)
-                    .Bind(opened => ArchiveMap.Detach(opened.Dictionary)
+                sharedCase: static (op, read) => Open(read.Target, op)
+                    .Bind(opened => ArchiveMap.Detach(opened.Dictionary, op)
                         .Map<CustodyAnswer>(map => new CustodyAnswer.SharedCase(map, opened.Origin)))));
     }
 
@@ -433,7 +433,7 @@ public static class Custody {
                     recordsUndo: true,
                     redraw: admitted.Redraw,
                     run: () => admitted.Steps
-                        .TraverseM(step => Land(step))
+                        .TraverseM(step => Land(step, op))
                         .As()
                         .Map(static _ => unit),
                     project: Fin.Succ),
@@ -442,7 +442,7 @@ public static class Custody {
 
     private static Fin<CustodyProgram> Admit(CustodyProgram program) =>
         from steps in program.Steps
-            .Map(step => Admit(step).ToValidation())
+            .Map(step => Admit(step, op).ToValidation())
             .Traverse(static step => step)
             .As()
             .ToFin()
@@ -474,7 +474,7 @@ public static class Custody {
             .Apply(static (target, value) => (CustodyStep)new CustodyStep.AttachCase(target, value))
             .As()
             .ToFin(),
-        removeCase: static (remove) => (
+        removeCase: static (op, remove) => (
                 Admit.Need(remove.Target).ToValidation(),
                 Admit.Need(remove.Value).ToValidation(),
                 Admit.Need(remove.Disposal).ToValidation())
@@ -486,7 +486,7 @@ public static class Custody {
             .Apply(static (source, destination) => (CustodyStep)new CustodyStep.CopyCase(source, destination))
             .As()
             .ToFin(),
-        moveCase: static (move) => (
+        moveCase: static (op, move) => (
                 Admit.Need(move.Source).ToValidation(),
                 Admit.Need(move.Destination).ToValidation(),
                 Admit.Need(move.Placement).ToValidation())
@@ -497,7 +497,7 @@ public static class Custody {
             .Apply(static (target, payload) => (CustodyStep)new CustodyStep.ReplaceCase(target, payload))
             .As()
             .ToFin(),
-        mergeCase: static (merge) => (
+        mergeCase: static (op, merge) => (
                 Admit.Need(merge.Target).ToValidation(),
                 Admit.Need(merge.Payload).ToValidation(),
                 Admit.Need(merge.Merge).ToValidation())
@@ -523,12 +523,12 @@ public static class Custody {
             from _present in guard(id != Guid.Empty, new KernelFault.InvalidResult(Detail: Some("User-data move found no transferable custody.")))
             from _placed in Try.lift(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key)).Run().Bind(static inner => inner)
             select unit,
-        replaceCase: static (replace) => Open(replace.Target)
-            .Bind(opened => Reseat(opened, replace.Payload)),
-        mergeCase: static (merge) => Open(merge.Target)
-            .Bind(opened => ArchiveMap.Detach(opened.Dictionary)
-                .Bind(current => current.Merge(merge.Payload, merge.Merge))
-                .Bind(payload => Reseat(opened, payload))));
+        replaceCase: static (op, replace) => Open(replace.Target, op)
+            .Bind(opened => Reseat(opened, replace.Payload, op)),
+        mergeCase: static (op, merge) => Open(merge.Target, op)
+            .Bind(opened => ArchiveMap.Detach(opened.Dictionary, op)
+                .Bind(current => current.Merge(merge.Payload, merge.Merge, op))
+                .Bind(payload => Reseat(opened, payload, op))));
 
     private static Fin<Unit> Reseat(
         (CommonObject Target, ArchivableDictionary Dictionary, SharedOrigin Origin) opened,
@@ -537,13 +537,13 @@ public static class Custody {
         from _schema in prior.Diff(payload).Map(static _ => unit)
         from settled in (
             from _clear in Try.lift(opened.Dictionary.Clear).Run().Bind(static inner => inner)
-            from _write in payload.WriteTo(opened.Dictionary)
-            from current in ArchiveMap.Detach(opened.Dictionary)
+            from _write in payload.WriteTo(opened.Dictionary, op)
+            from current in ArchiveMap.Detach(opened.Dictionary, op)
             from _proof in guard(
                 current.SameContent(payload),
                 new KernelFault.InvalidResult(Detail: Some("Shared user dictionary postcondition failed.")))
             select unit)
-            .Rollback(() => RestoreShared(opened, prior))
+            .Rollback(() => RestoreShared(opened, prior, op))
         select settled;
 
     private static Fin<Unit> RestoreShared(

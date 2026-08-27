@@ -249,16 +249,15 @@ public sealed partial class DesignBasis {
         ["aisc360", "aisi-s100", "en1992", "en1993", "en1993-1-4", "en1994", "en1995", "en1996", "en1999",
          "tms402", "sdpws", "nds", "aci318"],
         StringComparer.Ordinal);
-    static readonly Unit RosterParity = ProveRoster();
-
-    static Unit ProveRoster() {
+    public static Fin<Unit> Proof() {
         Seq<string> declared = toSeq(Items).Map(static basis => basis.Key);
-        Seq<string> member = declared.Filter(static key => !SectionCarve.Contains());
+        Seq<string> member = declared.Filter(static key => !SectionCarve.Contains(key));
         return member.Count == MemberKeys.Count && member.ForAll(MemberKeys.Contains)
             && declared.Count == member.Count + SectionCarve.Count
-            ? unit
-            : throw new InvalidOperationException(
-                $"Design-basis members are absent from the canonical roster: {string.Join(',', member.Filter(key => !MemberKeys.Contains(key)))}.");
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
+                Label: nameof(DesignBasis),
+                Requirement: $"a canonical roster seating {string.Join(',', member.Filter(key => !MemberKeys.Contains(key)))}"));
     }
 }
 ```
@@ -526,7 +525,7 @@ public readonly partial struct Demand {
     public static Fin<Demand> Of(double axialKn, double momentYKnm, double momentZKnm,
         double shearYKn = 0.0, double shearZKn = 0.0, double torsionKnm = 0.0, double bearingKn = 0.0,
         double unitShearKnPerM = 0.0, double stressRangeMpa = 0.0, double cycleCount = 0.0) =>
-        Admit(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
+        Admit(axialKn, momentYKnm, momentZKnm, key, shearYKn, shearZKn, torsionKnm, bearingKn,
             unitShearKnPerM, stressRangeMpa, cycleCount).ToFin();
 
     public double MomentResultantKnm => Math.Sqrt(MomentYKnm * MomentYKnm + MomentZKnm * MomentZKnm);
@@ -677,9 +676,9 @@ public abstract partial record SectionCapacity {
             ShearLinkAreaMm2 > 0.0
                 ? FywdMpa.Match(
                     Some: fywd =>
-                        from area in MeasureValue.Of(ShearLinkAreaMm2 * 1e-6, UnitsNet.Units.AreaUnit.SquareMeter)
-                        from fywdPa in MeasureValue.Of(fywd * 1e6, UnitsNet.Units.PressureUnit.Pascal)
-                        from ceiling in MeasureValue.Of(VrdMaxKn * 1e3, UnitsNet.Units.ForceUnit.Newton)
+                        from area in MeasureValue.Of(ShearLinkAreaMm2 * 1e-6, UnitsNet.Units.AreaUnit.SquareMeter, key)
+                        from fywdPa in MeasureValue.Of(fywd * 1e6, UnitsNet.Units.PressureUnit.Pascal, key)
+                        from ceiling in MeasureValue.Of(VrdMaxKn * 1e3, UnitsNet.Units.ForceUnit.Newton, key)
                         select Seq(
                             (StructuralRows.ShearLinkArea, (PropertyValue)new PropertyValue.Measure(area)),
                             (StructuralRows.ShearLinkYield, (PropertyValue)new PropertyValue.Measure(fywdPa)),
@@ -1016,7 +1015,7 @@ public abstract partial record SectionCapacity {
                             Fctm(fck)));
                     }).Run().Bind(static inner => inner)),
             detail: d => Fin.Succ((SectionCapacity)new Fatigue(d.Law)),
-            anchorage: a => Anchoring(a),
+            anchorage: a => Anchoring(a, key),
             bearing: b => Fin.Succ(Baseplating(b.Plate)));
 
     public static Fin<SectionCapacity> Lift(CapacityLift lift) => lift.Switch(
@@ -1065,9 +1064,9 @@ public abstract partial record SectionCapacity {
             r.Capacity.LateralF2Kn.Map(second => new LateralPair(second, r.Capacity.Rule)))),
         lateralPanel: static r => Held(new LateralPanel(DesignBasis.Sdpws, r.DesignKnPerM, r.Hazard)),
         bolt: r =>
-            from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints)
-            from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints)
-            from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints)
+            from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints, key)
+            from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints, key)
+            from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints, key)
             select (SectionCapacity)new Connection(DesignBasis.En1993Joints, Some(shear), Some(tension), Some(bearing)),
         slipCritical: static r => Held(new Connection(DesignBasis.En1993Joints, r.Assembly.SlipResistanceKn(r.Install), None, None)),
         timberDowel: static r => Held(new Connection(DesignBasis.En1995, Some(Math.Max(r.Planes, 0) * r.PerPlaneShearKn), None, None)),
@@ -1093,8 +1092,8 @@ public abstract partial record SectionCapacity {
         double edge = a.Bed.EdgeMm.Map(ca => Math.Min(0.7 + 0.3 * ca / (1.5 * a.Bed.HefMm.Value), 1.0)).IfNone(1.0);
         double coneKn = DesignBasis.En1992Anchors.Resist(ResistanceAction.CrossSection,
             k1 * Math.Sqrt(a.Bed.FckMpa) * Math.Pow(a.Bed.HefMm.Value, 1.5) * edge * 1e-3);
-        return from shear in a.Assembly.ShearResistanceKn(a.Plane, DesignBasis.En1992Anchors)
-               from tension in a.Assembly.TensionResistanceKn(DesignBasis.En1992Anchors)
+        return from shear in a.Assembly.ShearResistanceKn(a.Plane, DesignBasis.En1992Anchors, key)
+               from tension in a.Assembly.TensionResistanceKn(DesignBasis.En1992Anchors, key)
                select (SectionCapacity)new Connection(
                    DesignBasis.En1992Anchors, Some(shear), Some(Math.Min(tension, coneKn)), None,
                    Defer: Some(MemberCheckRequirement.AnchorForwardModes));
@@ -1179,10 +1178,10 @@ public readonly record struct HullCache(SectionCapacity Capacity, Option<string>
 
     public static Fin<HullCache> Of(CapacityBuild.Hull build, Func<string, Option<string>> read) =>
         read(Key(build.Subject, build.Resolution)).Match(
-            Some: body => SectionCapacity.Thaw(build.Subject, build.Resolution, body)
+            Some: body => SectionCapacity.Thaw(build.Subject, build.Resolution, body, key)
                 .Map(capacity => new HullCache(capacity, None)),
-            None: () => SectionCapacity.Resolve(build)
-                .Bind(capacity => SectionCapacity.Freeze((SectionCapacity.RcInteraction)capacity)
+            None: () => SectionCapacity.Resolve(build, key)
+                .Bind(capacity => SectionCapacity.Freeze((SectionCapacity.RcInteraction)capacity, key)
                     .Map(body => new HullCache(capacity, Some(body)))));
 }
 ```
@@ -1224,7 +1223,7 @@ public static class SectionSelection {
         toSeq(sections)
             .Filter(pair => rows.ContainsKey(pair.Key) && admit(rows[pair.Key]))
             .Traverse(pair => densityOf(rows[pair.Key].SubstanceId).Map(density =>
-                Candidate(rows[pair.Key], pair.Value, density, placement)))
+                Candidate(rows[pair.Key], pair.Value, density, placement, key)))
             .As();
 
     public static Fin<Seq<SectionCandidate<Component>>> Fabricated(
@@ -1233,9 +1232,9 @@ public static class SectionSelection {
         CapacityPlacement placement,
         Func<MaterialId, Fin<double>> densityOf) =>
         toSeq(Enumerable.Range(0, Math.Max(sweeps, 0))).Bind(sweep)
-            .Traverse(candidate => SectionSolver.Solve(candidate.Profile)
+            .Traverse(candidate => SectionSolver.Solve(candidate.Profile, key)
                 .Bind(section => densityOf(candidate.Row.SubstanceId)
-                    .Map(density => Candidate(candidate.Row, section, density, placement))))
+                    .Map(density => Candidate(candidate.Row, section, density, placement, key))))
             .As();
 
     public static Fin<Seq<SectionCandidate<(ThreadRow Thread, MaterialGrade Grade)>>> Threaded(
@@ -1251,9 +1250,9 @@ public static class SectionSelection {
                     pair,
                     pair.Thread.StressAreaMm2 * density,
                     () => FastenerAssembly.Of(pair.Thread, pair.Grade, joint.Category, joint.Faying, joint.Head,
-                            joint.GripPlies, joint.ShearPlanes, joint.Washer)
+                            joint.GripPlies, joint.ShearPlanes, joint.Washer, key)
                         .Bind(assembly => SectionCapacity.Lift(
-                            new CapacityLift.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane))))))
+                            new CapacityLift.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane), key)))))
             .As();
 
     public static Fin<(TSubject Subject, Utilisation Verdict)> Least<TSubject>(
@@ -1271,7 +1270,7 @@ public static class SectionSelection {
 
     static SectionCandidate<Component> Candidate(Component row, ComputedSection section, double density,
         CapacityPlacement placement) =>
-        new(row, section.AreaMm2.Value * density, () => row.Family.Capacity(row, Some(section), placement));
+        new(row, section.AreaMm2.Value * density, () => row.Family.Capacity(row, Some(section), placement, key));
 
 }
 ```

@@ -596,7 +596,7 @@ public interface IWeldAccess {
     public static Fin<IWeldAccess> Admit(
         string key,
         Func<WeldJoint, Seq<WeldPass>, K<Validation<Error>, Unit>> constraint) =>
-        WeldAccess.Validate(constraint, out WeldAccess access).Admitted<IWeldAccess>(access);
+        WeldAccess.Validate(key, constraint, out WeldAccess access).Admitted<IWeldAccess>(access);
 }
 
 [ComplexValueObject]
@@ -608,7 +608,7 @@ internal sealed partial class WeldAccess : IWeldAccess {
         ref ValidationError? validationError,
         ref string key,
         ref Func<WeldJoint, Seq<WeldPass>, K<Validation<Error>, Unit>> constraint) {
-        if (!Witness.Keyed())
+        if (!Witness.Keyed(key))
             validationError = new ValidationError("weld-access");
     }
 

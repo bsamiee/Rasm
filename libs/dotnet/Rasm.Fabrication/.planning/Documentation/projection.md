@@ -264,7 +264,7 @@ internal static class Hlr {
         Seq<ProjectionCharacteristic> characteristics) =>
         characteristics.Bind(characteristic => {
             double depth = camera.Depth(characteristic.ModelLocus);
-            return ValidityClaim.Positive(depth) ? Seq(new ProjectionAnchor(characteristic, camera.Project(characteristic.ModelLocus), depth))
+            return ValidityClaim.Positive(depth) ? Seq(new ProjectionAnchor(key, characteristic, camera.Project(characteristic.ModelLocus), depth))
                 : Seq<ProjectionAnchor>();
         });
 
@@ -306,7 +306,7 @@ internal static class Hlr {
                     : (state.Travelled + span,
                         Seat(row, span > 0.0 ? Math.Min((half - state.Travelled) / span, 1.0) : 0.0));
             }).Seat;
-        return new BalloonAnchor(part, seat.Locus, seat.Depth, run, chain.Count);
+        return new BalloonAnchor(key, part, seat.Locus, seat.Depth, run, chain.Count);
     }
 
     private static (Point3d Locus, double Depth) Seat(ProjectedSegment row, double at) => (

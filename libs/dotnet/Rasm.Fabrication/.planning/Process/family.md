@@ -854,7 +854,7 @@ public sealed partial class Machine {
         ref KinematicClass topology,
         ref Set<CoolantDelivery> coolant,
         ref Seq<MachineCapacity> capacities) {
-        if (!(Witness.Keyed()
+        if (!(Witness.Keyed(key)
             && !processes.IsEmpty
             && !axes.IsEmpty
             && axes.Count >= topology.MinAxes
@@ -880,7 +880,7 @@ public sealed partial class Machine {
 
     public static Fin<Machine> Resolve(string key) => Optional()
         .Bind(value => Registry.Value.Find(value))
-        .ToFin(new FabricationFault.UnknownAxis(nameof(Machine)));
+        .ToFin(new FabricationFault.UnknownAxis(nameof(Machine), key));
 
     public string ToValue() => Key;
 

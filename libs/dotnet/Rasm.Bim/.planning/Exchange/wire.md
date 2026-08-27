@@ -65,7 +65,7 @@ public sealed partial record IfcWire {
 
     public static Fin<IfcWire> Of(
         string format, ReadOnlyMemory<byte> bytes, ReleaseVersion schema, ContentAddress content, Instant at) =>
-        (Rostered(format), Payload(bytes, format))
+        (Rostered(format, key), Payload(bytes, format, key))
             .Apply((row, payload) => new IfcWire(row.Key, payload, schema, content, at)).As().ToFin();
 
     static Validation<Error, InterchangeFormat> Rostered(string value) =>
@@ -81,9 +81,9 @@ public sealed partial record IfcWire {
         SemanticProjector projector, ElementGraph graph, InterchangeFormat format,
         Option<EmitContext> context, Instant at) =>
         format.Serialization.Filter(_ => format.RoundTrippable).Match(
-            Some: form => projector.Emit(graph, form, context).Bind(bytes =>
+            Some: form => projector.Emit(graph, form, key, context).Bind(bytes =>
                 Of(bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at)),
-            None: () => Fin.Fail<IfcWire>(new BimFault.Refused(BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format.Key }))));
+            None: () => Fin.Fail<IfcWire>(new BimFault.Refused(key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format.Key }))));
 
     public Fin<ElementGraph> Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles) =>
         from format in Rostered(Format, ctx.Key).ToFin()

@@ -46,7 +46,7 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
         Build(profile, toSeq(rows.ToArray()));
 
     public Option<ScreenCatalogRow> Resolve(string key) =>
-        Rows.TryGetValue(out ScreenCatalogRow? row) ? Some(row) : None;
+        Rows.TryGetValue(key, out ScreenCatalogRow? row) ? Some(row) : None;
 
     public Seq<ScreenCatalogRow> For(ConsumptionProfile profile, SurfaceMount mount) =>
         toSeq(Rows.Values).Filter(row => row.Surface(profile, mount));
@@ -104,7 +104,7 @@ public sealed record ScreenProgram(
     StateLens State,
     Func<ProductScreen, Func<string, bool>> Alive) {
     public static ScreenProgram Of(string key, Func<ProductScreen, ControlIntent> body) =>
-        new(static _ => Seq<IDisposable>(), body, StateLens.Stateless, static _ => static _ => true);
+        new(key, static _ => Seq<IDisposable>(), body, StateLens.Stateless, static _ => static _ => true);
 }
 
 public readonly record struct SlotKey<T>(string Name) {
@@ -155,17 +155,17 @@ public sealed partial class ProductScreen : ReactiveObject, IActivatableViewMode
     internal Unit WriteRaw(string key, object? value) {
         Option<object?> retired = None;
         ignore(cells.Swap(held => {
-            retired = held.Find();
-            return held.AddOrUpdate(value);
+            retired = held.Find(key);
+            return held.AddOrUpdate(key, value);
         }));
         if (retired.Map(prior => Equals(prior, value)).IfNone(false)) { return unit; }
-        this.RaisePropertyChanged();
-        edits.OnNext();
+        this.RaisePropertyChanged(key);
+        edits.OnNext(key);
         return unit;
     }
 
     public IObservable<Unit> Edited(string key) =>
-        edits.Where(edited => StringComparer.Ordinal.Equals(edited)).Select(static _ => unit);
+        edits.Where(edited => StringComparer.Ordinal.Equals(edited, key)).Select(static _ => unit);
 
     public ScreenState Blank() =>
         new(Row.Key, Surface, Seq<string>(), 0d, None, Set<string>(), None, Runtime.Clock.GetCurrentInstant());
@@ -204,7 +204,7 @@ public static class ScreenRoster {
         Func<ConsumptionProfile, SurfaceMount, bool> surface,
         ScreenComposition composition,
         ScreenProgram program) =>
-        new(composition.Label, proof, surface,
+        new(key, composition.Label, proof, surface,
             (row, mounted) => new ProductScreen(row, mounted, composition, program));
 
     static bool Anywhere(ConsumptionProfile profile, SurfaceMount mount) =>
@@ -619,8 +619,8 @@ public static partial class ScreenOps {
                 Release: screen.Lifetimes.Release);
 
         public Fin<IDisposable> Channel(string key, Control control, AvaloniaProperty slot) =>
-            screen.Values.Find()
-                .ToFin(new ScreenFault.Rejected("no value slot"))
+            screen.Values.Find(key)
+                .ToFin(new ScreenFault.Rejected(key, "no value slot"))
                 .Map(cell => (IDisposable)new CompositeDisposable(
                     cell.Changed.StartWith(unit).Subscribe(_ => ignore(control.SetValue(slot, cell.Read()))),
                     control.GetObservable(slot).DistinctUntilChanged().Subscribe(value => ignore(cell.Write(value)))));
@@ -748,7 +748,7 @@ public static class SettingsSurface {
         (FormState State, Seq<Error> Errors) folded = fields.Fold(
             (State: row.Read(), Errors: Seq<Error>()),
             (held, key) => row.Defaults.Values.Find().Bind(static value => value.Uniform).Match(
-                Some: value => row.Schema.Seat(held.State, value, locale).Match(
+                Some: value => row.Schema.Seat(held.State, key, value, locale).Match(
                     Succ: seated => (seated, held.Errors),
                     Fail: errors => (held.State, held.Errors + errors)),
                 None: () => (held.State, held.Errors.Add(new ScreenFault.PolicyRejected(row.Section, $"no default for {key}")))));
@@ -1040,10 +1040,10 @@ public static class ScreenMap {
         return references
             .Traverse(key =>
                 resolve().Bind(program =>
-                    string.Equals(program.Panel, StringComparison.Ordinal)
+                    string.Equals(program.Panel, key, StringComparison.Ordinal)
                         ? Fin<LayoutProgram>.Succ(LayoutMap.Emit(program, measured(program)))
                         : Fin<LayoutProgram>.Fail(
-                            new ScreenFault.Rejected($"layout resolved as {program.Panel}"))))
+                            new ScreenFault.Rejected(key, $"layout resolved as {program.Panel}"))))
             .As()
             .Map(layouts => new AppUiSurfaceProgram {
                 Workspace = surface.Workspace,
@@ -1052,7 +1052,7 @@ public static class ScreenMap {
                 Root = wireRoot,
                 Layouts = { layouts },
             })
-            .Bind(wire => WireAdmission.Admit(wire, WireBoundary.OutboundPayload));
+            .Bind(wire => WireAdmission.Admit(wire, WireBoundary.OutboundPayload, op));
     }
 
     private static (Seq<ControlIntentWire> Controls, Seq<string> Layouts) Census(ControlIntentWire node) {

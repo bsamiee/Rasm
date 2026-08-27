@@ -830,7 +830,7 @@ public sealed partial class WindowPolicy {
     internal partial Fin<Unit> Persist(Window window);
 
     internal Fin<Unit> Prepare(Window window) =>
-        Styler.TraverseM(dress => dress.Dress(window)).As().Map(static _ => unit);
+        Styler.TraverseM(dress => dress.Dress(window, key)).As().Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -1460,7 +1460,7 @@ public sealed class TokenLease : IDisposable {
 
     internal TokenLease(IOpenIDConnectToken openId, IOAuth2Token oauth, string clientId) {
         held = Atom(Some((openId, oauth)));
-        (this.clientId, this.op) = (clientId);
+        (this.clientId, this.op) = (clientId, op);
     }
 
     public string ClientId => clientId;
@@ -1776,7 +1776,7 @@ public sealed partial class NamedSlot {
         ref string key,
         ref NamedKind kind,
         ref SlotPresence presence) =>
-        validationError = string.IsNullOrWhiteSpace()
+        validationError = string.IsNullOrWhiteSpace(key)
             ? new ValidationError(message: $"{nameof(Key)} is blank.")
             : kind is null
                 ? new ValidationError(message: $"{nameof(Kind)} is absent.")
@@ -2131,7 +2131,7 @@ public sealed class NoticeLease : IDisposable {
     private readonly Subscription observation;
 
     private NoticeLease(HostNotice notice, NoticeGate gate, Subscription observation) =>
-        (this.notice, this.gate, this.observation, this.op) = (notice, gate, observation);
+        (this.notice, this.gate, this.observation, this.op) = (notice, gate, observation, op);
 
     internal static Fin<NoticeLease> Of(
         HostNotice notice, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline) {
@@ -2315,7 +2315,7 @@ public sealed class ShellCapsule : IDisposable {
         FaultCell faults,
         Seating seated) {
         (Identity, Timeline, Faults, Themes, Names, this.op) =
-            (identity, timeline, faults, seated.Themes, seated.Names);
+            (identity, timeline, faults, seated.Themes, seated.Names, op);
         retire = Atom<LeaseState<Seq<Func<Fin<Unit>>>>>(new LeaseState<Seq<Func<Fin<Unit>>>>.Live(Held: seated.Retire));
     }
 

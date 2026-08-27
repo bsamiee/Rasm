@@ -716,7 +716,7 @@ internal sealed record SurfaceSample(
                    CutSignature.Of(run.Strategy.Cut, toolKey, workOffset, run.Cutter, moves)))
                from element in CutElement.Admit(toolKey,
                    workOffset,
-                   new EntryFamily.Fixed(ElementVariant.Of(moves, ProcessModality.Subtractive)))
+                   new EntryFamily.Fixed(ElementVariant.Of(key, moves, ProcessModality.Subtractive)))
                select element;
     }
 
@@ -895,7 +895,7 @@ internal static class OpenCamLib {
                         run,
                         operation,
                         op => ReadGroups(run, OpenCamNative.OperationLoopCount, OpenCamNative.OperationLoopPointCount, OpenCamNative.OperationGetLoop)
-                            .Bind(groups => ReadFibers(run).Map(fibers => (Groups: groups, Fibers: fibers)))))))
+                            .Bind(groups => ReadFibers(op, run).Map(fibers => (Groups: groups, Fibers: fibers)))))))
               .Map(units => Sampled(
                   run,
                   units.Bind(static unit => unit.Value.Groups),
@@ -1360,8 +1360,8 @@ int Run(OclShimOperation& op) {
             unit.run();
             op.bucketSize = unit.getBucketSize(); op.calls = unit.getCalls();
             std::vector<ocl::CLPoint> points = *unit.getCLPoints();
-            Witness(unit, points);
-            Filter(points);
+            Witness(op, unit, points);
+            Filter(op, points);
             op.groups.emplace_back();
             for (ocl::CLPoint& cl : points) op.groups[0].push_back(Of(cl));
             return kOk;
@@ -1377,7 +1377,7 @@ int Run(OclShimOperation& op) {
                 unit.run();
                 op.bucketSize = unit.getBucketSize(); op.calls = unit.getCalls();
                 points = unit.getPoints();
-                Witness(unit, points);
+                Witness(op, unit, points);
             } else {
                 ocl::AdaptivePathDropCutter unit;
                 unit.setSTL(*op.surface); unit.setCutter(*op.cutter); unit.setSampling(op.sampling);
@@ -1387,9 +1387,9 @@ int Run(OclShimOperation& op) {
                 unit.run();
                 op.bucketSize = unit.getBucketSize(); op.calls = unit.getCalls();
                 points = unit.getPoints();
-                Witness(unit, points);
+                Witness(op, unit, points);
             }
-            Filter(points);
+            Filter(op, points);
             op.groups.emplace_back();
             for (ocl::CLPoint& cl : points) op.groups[0].push_back(Of(cl));
             return kOk;
@@ -1401,7 +1401,7 @@ int Run(OclShimOperation& op) {
             for (ocl::Fiber& fiber : op.fibers) unit.appendFiber(fiber);
             unit.run();
             std::vector<ocl::Fiber> pushed = *unit.getFibers();
-            Witness(unit, pushed);
+            Witness(op, unit, pushed);
             for (ocl::Fiber& fiber : pushed) {
                 std::vector<Row> group;
                 for (ocl::Interval& interval : fiber.ints) {
@@ -1421,11 +1421,11 @@ int Run(OclShimOperation& op) {
             unit.setSTL(*op.surface); unit.setCutter(*op.cutter); unit.setSampling(op.sampling); unit.setZ(op.z);
             if (op.kind == 5) {
                 unit.run();
-                Loops(unit.getLoops());
+                Loops(op, unit.getLoops());
                 return kOk;
             }
             unit.run2();
-            Loops(unit.getLoops());
+            Loops(op, unit.getLoops());
             for (ocl::Fiber& fiber : unit.getXFibers()) op.fiberRows.push_back(Evidence(fiber));
             for (ocl::Fiber& fiber : unit.getYFibers()) op.fiberRows.push_back(Evidence(fiber));
             return kOk;
@@ -1435,7 +1435,7 @@ int Run(OclShimOperation& op) {
             unit.setSTL(*op.surface); unit.setCutter(*op.cutter); unit.setSampling(op.sampling);
             unit.setMinSampling(op.minSampling); unit.setZ(op.z);
             unit.run();
-            Loops(unit.getLoops());
+            Loops(op, unit.getLoops());
             return kOk;
         }
         case 7: {
@@ -1461,7 +1461,7 @@ int Run(OclShimOperation& op) {
             for (ocl::CLPoint& seed : op.seeds) unit.addPoint(seed);
             unit.run();
             std::vector<ocl::CLPoint> points = unit.getOutput();
-            Filter(points);
+            Filter(op, points);
             op.groups.emplace_back();
             for (ocl::CLPoint& cl : points) op.groups[0].push_back(Of(cl));
             return kOk;
@@ -1489,14 +1489,14 @@ OCL_SHIM_EXPORT void* ocl_stl_create(const double* triangles, int triangleCount)
 }
 OCL_SHIM_EXPORT void ocl_stl_destroy(void* surface) { delete static_cast<ocl::STLSurf*>(surface); }
 OCL_SHIM_EXPORT int ocl_op_set_surface(void* op, void* surface) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (surface == nullptr) return kBadHandle;
         unit.surface = static_cast<ocl::STLSurf*>(surface);
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_reset(void* op) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         unit.groups.clear();
         unit.fibers.clear();
         unit.fiberRows.clear();
@@ -1506,33 +1506,33 @@ OCL_SHIM_EXPORT int ocl_op_reset(void* op) {
     });
 }
 OCL_SHIM_EXPORT int ocl_op_set_filter_tolerance(void* op, double tolerance) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (tolerance < 0.0) return kBadBuffer;
         unit.filterTolerance = tolerance;
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_set_cutter(void* op, void* cutter) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (cutter == nullptr) return kBadHandle;
         unit.cutter = static_cast<ocl::MillingCutter*>(cutter);
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_set_sampling(void* op, double sampling) {
-    return Trap([&](OclShimOperation& unit) { unit.sampling = sampling; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.sampling = sampling; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_min_sampling(void* op, double sampling) {
-    return Trap([&](OclShimOperation& unit) { unit.minSampling = sampling; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.minSampling = sampling; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_cos_limit(void* op, double cosLimit) {
-    return Trap([&](OclShimOperation& unit) { unit.cosLimit = cosLimit; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.cosLimit = cosLimit; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_threads(void* op, int threads) {
-    return Trap([&](OclShimOperation& unit) { unit.threads = threads > 0 ? threads : 1; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.threads = threads > 0 ? threads : 1; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_bucket_size(void* op, int bucketSize) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (bucketSize <= 0) return kBadBuffer;
         unit.bucketSize = bucketSize;
         return kOk;
@@ -1545,54 +1545,54 @@ OCL_SHIM_EXPORT int ocl_op_get_calls(void* op) {
     return op == nullptr ? kBadHandle : Op()->calls;
 }
 OCL_SHIM_EXPORT int ocl_op_set_z(void* op, double z) {
-    return Trap([&](OclShimOperation& unit) { unit.z = z; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.z = z; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_append_point(void* op, double x, double y, double z) {
-    return Trap([&](OclShimOperation& unit) { unit.seeds.emplace_back(x, y, z); return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.seeds.emplace_back(x, y, z); return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_path(void* op, void* path) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (path == nullptr) return kBadHandle;
         unit.path = static_cast<ocl::Path*>(path);
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_append_fiber(void* op, double x1, double y1, double z1, double x2, double y2, double z2) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         unit.fibers.emplace_back(ocl::Point(x1, y1, z1), ocl::Point(x2, y2, z2));
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_set_x_direction(void* op) {
-    return Trap([&](OclShimOperation& unit) { unit.yDirection = false; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.yDirection = false; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_y_direction(void* op) {
-    return Trap([&](OclShimOperation& unit) { unit.yDirection = true; return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.yDirection = true; return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_direction(void* op, double degrees) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         unit.direction = degrees * std::numbers::pi / 180.0;
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_set_origin(void* op, double x, double y, double z) {
-    return Trap([&](OclShimOperation& unit) { unit.origin = ocl::Point(x, y, z); return kOk; });
+    return Trap(op, [&](OclShimOperation& unit) { unit.origin = ocl::Point(x, y, z); return kOk; });
 }
 OCL_SHIM_EXPORT int ocl_op_set_stepover(void* op, double stepOver) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (stepOver <= 0.0) return kBadBuffer;
         unit.stepOver = stepOver;
         return kOk;
     });
 }
 OCL_SHIM_EXPORT int ocl_op_run(void* op) {
-    return Trap([&](OclShimOperation& unit) { return Run(unit); });
+    return Trap(op, [&](OclShimOperation& unit) { return Run(unit); });
 }
 OCL_SHIM_EXPORT int ocl_op_cl_count(void* op) {
     return op == nullptr || Op()->groups.empty() ? 0 : static_cast<int>(Op()->groups[0].size());
 }
 OCL_SHIM_EXPORT int ocl_op_get_clpoints(void* op, double* output, int capacity, int* written) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         return unit.groups.empty() ? kBadState : Fill(unit.groups[0], output, capacity, written);
     });
 }
@@ -1601,10 +1601,10 @@ OCL_SHIM_EXPORT int ocl_op_loop_count(void* op) {
 }
 OCL_SHIM_EXPORT int ocl_op_loop_point_count(void* op, int loop) {
     return op == nullptr || loop < 0 || loop >= static_cast<int>(Op()->groups.size())
-        ? 0 : static_cast<int>(Op()->groups[loop].size());
+        ? 0 : static_cast<int>(Op(op)->groups[loop].size());
 }
 OCL_SHIM_EXPORT int ocl_op_get_loop(void* op, int loop, double* output, int capacity, int* written) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         return loop < 0 || loop >= static_cast<int>(unit.groups.size())
             ? kBadState : Fill(unit.groups[loop], output, capacity, written);
     });
@@ -1614,14 +1614,14 @@ OCL_SHIM_EXPORT int ocl_op_fiber_count(void* op) {
 }
 OCL_SHIM_EXPORT int ocl_op_fiber_point_count(void* op, int fiber) { return ocl_op_loop_point_count(fiber); }
 OCL_SHIM_EXPORT int ocl_op_get_fiber(void* op, int fiber, double* output, int capacity, int* written) {
-    return ocl_op_get_loop(fiber, output, capacity, written);
+    return ocl_op_get_loop(op, fiber, output, capacity, written);
 }
 OCL_SHIM_EXPORT int ocl_op_fiber_interval_count(void* op, int fiber) {
     return op == nullptr || fiber < 0 || fiber >= static_cast<int>(Op()->fiberRows.size())
-        ? 0 : static_cast<int>(Op()->fiberRows[fiber].intervals.size());
+        ? 0 : static_cast<int>(Op(op)->fiberRows[fiber].intervals.size());
 }
 OCL_SHIM_EXPORT int ocl_op_get_fiber_intervals(void* op, int fiber, double* output, int capacity, int* written) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (fiber < 0 || fiber >= static_cast<int>(unit.fiberRows.size())) return kBadState;
         const FiberRow& row = unit.fiberRows[fiber];
         std::vector<double> flat(row.geometry.begin(), row.geometry.end());
@@ -1635,10 +1635,10 @@ OCL_SHIM_EXPORT int ocl_op_witness_count(void* op) {
 }
 OCL_SHIM_EXPORT int ocl_op_witness_facet_count(void* op, int witness) {
     return op == nullptr || witness < 0 || witness >= static_cast<int>(Op()->witnesses.size())
-        ? 0 : static_cast<int>(Op()->witnesses[witness].facets.size());
+        ? 0 : static_cast<int>(Op(op)->witnesses[witness].facets.size());
 }
 OCL_SHIM_EXPORT int ocl_op_get_witness(void* op, int witness, double* output, int capacity, int* written) {
-    return Trap([&](OclShimOperation& unit) {
+    return Trap(op, [&](OclShimOperation& unit) {
         if (witness < 0 || witness >= static_cast<int>(unit.witnesses.size())) return kBadState;
         const WitnessRow& row = unit.witnesses[witness];
         std::vector<double> flat{static_cast<double>(row.location)};

@@ -1072,13 +1072,13 @@ public static class CompositionRoot {
         };
 
     static IO<Unit> Occurring(Atom<HashMap<string, ScheduleEntry>> roster, ClockPolicy clocks, string key) =>
-        roster.Value.Find().Match(
+        roster.Value.Find(key).Match(
             None: () => IO.pure(unit),
             Some: entry => SchedulePort.Next(entry, clocks.Now).Match(
-                None: () => IO.lift(() => ignore(roster.Swap(held => held.Remove()))),
+                None: () => IO.lift(() => ignore(roster.Swap(held => held.Remove(key)))),
                 Some: next => IO.yieldFor((next - clocks.Now).ToTimeSpan())
                     .Bind(_ => SchedulePort.Run(clocks, entry))
-                    .Bind(_ => Occurring(roster, clocks))));
+                    .Bind(_ => Occurring(roster, clocks, key))));
 
     static ScheduleEntry Cadence(string key, Duration every, DeadlineClass deadline, Func<IO<Unit>> work) =>
         new(Spec: new OccurrenceSpec.Every(every), Deadline: deadline,
@@ -1116,11 +1116,11 @@ public sealed class BimComputeCompanion(
         WireCall calls = services.Bind(spine);
         return FrameEdge.Frames(request.SourceBytes).Match(
             Succ: partition => FrameEdge.Put(calls, spine, partition, cancel).Bind(uploaded => uploaded.Match(
-                Succ: source => TessellationWire.Project(request, source).Match(
+                Succ: source => TessellationWire.Project(request, source, key).Match(
                     Succ: wire => CompanionEdge
                         .Tessellate(services, spine, pool, wire, cancel)
                         .Map(outcome => outcome.Bind(artifact =>
-                            TessellationWire.Admit(request, artifact.Response, artifact.Glb))),
+                            TessellationWire.Admit(request, artifact.Response, artifact.Glb, key))),
                     Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error))),
                 Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)))),
             Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)));

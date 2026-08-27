@@ -115,9 +115,9 @@ public sealed record AdmittedIntent {
 
     private static Fin<T> Keyed<T>(string axis, string key)
         where T : IObjectFactory<T, string, ValidationError> =>
-        T.Validate(provider: null, out T? row) is null && row is { } admitted
+        T.Validate(key, provider: null, out T? row) is null && row is { } admitted
             ? Fin.Succ(admitted)
-            : Fin.Fail<T>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(axis))));
+            : Fin.Fail<T>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(axis, key))));
 
     private static Fin<Duration> Budgeted(Spec spec) =>
         spec.Budget.Match(
@@ -269,7 +269,7 @@ public sealed partial class Substrate {
     public Option<long> PayloadCap { get; }
 
     public static Fin<Substrate> Admit(string key) =>
-        TryGet(out Substrate? row) && row is { } admitted
+        TryGet(key, out Substrate? row) && row is { } admitted
             ? Fin.Succ(admitted)
             : Fin.Fail<Substrate>(new ComputeFault.SubstrateUnavailable($"<substrate-unrostered:{key}>"));
 

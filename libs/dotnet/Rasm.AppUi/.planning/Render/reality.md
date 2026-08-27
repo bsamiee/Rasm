@@ -381,8 +381,8 @@ public sealed partial record PointCloudSource(
     private static Fin<PointCloudSource> Materialized(
         GpuBackend backend, ResidencyPayload payload, CaptureDecoded.Points decoded) =>
         (from policy in Broadphase(decoded.OctreeDepth)
-         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy)
-         from stream in index.Wire()
+         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy, op)
+         from stream in index.Wire(op)
          select new PointCloudSource(
              payload.ContentKey, backend, decoded.Samples, Decoded(stream), Some(index),
              new BoundingSphere(payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius)))
@@ -647,7 +647,7 @@ public sealed class CaptureTileSet {
                 $"capture/kind:{payload.Kind.Key} carries no capture arm"));
 
     private bool Admits(UInt128 key, long frame) =>
-        parked.Value.Find().Match(
+        parked.Value.Find(key).Match(
             Some: row => row.Posture.Switch(
                 terminalCase: static _ => false,
                 transientCase: _ => frame - row.Frame >= RedriveFrames,
@@ -655,7 +655,7 @@ public sealed class CaptureTileSet {
             None: static () => true);
 
     private Error Park(UInt128 key, long frame, Error cause) =>
-        (ignore(Cell.Commit(parked, held => held.AddOrUpdate(new ParkedTile(frame, Posture(cause))))), cause).Item2;
+        (ignore(Cell.Commit(parked, held => held.AddOrUpdate(key, new ParkedTile(frame, Posture(cause))))), cause).Item2;
 
     private static Retriability Posture(Error cause) =>
         cause is Fault expected ? expected.Retriability : Retriability.Terminal;
@@ -707,7 +707,7 @@ public sealed record CaptureClip(string Key, Seq<CaptureEpoch> Epochs) {
     public Fin<Track> OnTimeline(string key) =>
         Epochs.Head.Match(
             None: () => Fin.Fail<Track>(new CaptureFault.PayloadMalformed($"clip/empty:{Key}")),
-            Some: head => Track.OfFieldIndex(Epochs.Map(epoch => new Keyframe<int>(
+            Some: head => Track.OfFieldIndex(key, Epochs.Map(epoch => new Keyframe<int>(
                 epoch.At - head.At, epoch.Index, MotionToken.Standard))));
 }
 ```

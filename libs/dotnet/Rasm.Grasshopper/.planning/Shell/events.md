@@ -202,11 +202,11 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
         });
 
     private static GhSource Listed(Document graph, string key, GraphSignal signal, EventTable<Document, ObjectEventArgs> wired) =>
-        Subject(graph, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
+        Subject(graph, key, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
     private static GhSource Pulsed(SolutionServer server, string key, SolutionSignal signal, EventTable<SolutionServer, SolutionEventArgs> wired) =>
-        Subject(server, wired, project: (_, args) => new GhFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: None));
+        Subject(server, key, wired, project: (_, args) => new GhFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: None));
     private static GhSource Sealed<TArgs>(History ledger, string key, UndoSignal signal, EventTable<History, TArgs> wired) where TArgs : EventArgs =>
-        Subject(ledger, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
+        Subject(ledger, key, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
 
     private static IDisposable Hook<THost, TArgs>(
         THost host, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project, Action<Func<Fin<GhFact>>> emit)

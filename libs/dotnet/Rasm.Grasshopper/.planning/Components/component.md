@@ -192,13 +192,13 @@ public sealed record ComponentSpec {
 
     public Validation<Error, ComponentSpec> Admit() {
         return (
-            Inputs.Traverse(plan => Sided(plan, PinSide.Input)).As(),
-            Outputs.Traverse(output => Sided(output.Plan, PinSide.Output)).As(),
-            Topology(),
-            Iteration(),
+            Inputs.Traverse(plan => Sided(plan, PinSide.Input, op)).As(),
+            Outputs.Traverse(output => Sided(output.Plan, PinSide.Output, op)).As(),
+            Topology(op),
+            Iteration(op),
             Guid.TryParse(IoId, out _)
                 ? Success<Error, Unit>(unit)
-                : Fail<Error, Unit>(new GhFault.Registration(nameof(IoId))))
+                : Fail<Error, Unit>(new GhFault.Registration(op, nameof(IoId))))
             .Apply((_, _, _, _, _) => this)
             .As();
     }
@@ -334,7 +334,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     }
 
     private Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel) =>
-        HostUnits.Of(access).Map(units => new ProcessScope {
+        HostUnits.Of(access, key).Map(units => new ProcessScope {
             Access = access,
             Spec = spec,
             Units = units,
@@ -343,7 +343,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
         });
 
     private Fin<Seq<ProcessScope>> Scopes(IDataAccess[] iterations, CancellationToken cancel) =>
-        toSeq(iterations).TraverseM(access => Scope(access, cancel)).As();
+        toSeq(iterations).TraverseM(access => Scope(access, cancel, key)).As();
 
     private static Fin<Unit> Stage(
         Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> stage,
@@ -376,7 +376,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     private void ProcessHost(IDataAccess[] iterations, CancellationToken token) => base.Process(iterations, token);
 
     private Unit CustomIterations(IDataAccess[] iterations, CancellationToken token, IterationPolicy.Custom policy) =>
-        Scopes(iterations, token).Match(
+        Scopes(iterations, token, key).Match(
             Succ: scopes => Complete(scopes, Try.lift(() => policy.Step(scopes, token)).Run().Bind(static inner => inner)),
             Fail: fault => Capture(fault, None));
 

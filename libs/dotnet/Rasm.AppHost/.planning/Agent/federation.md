@@ -252,7 +252,7 @@ public sealed record FederatedCall(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FederatedDispatch {
     public static Fin<CommandBody> Compile(FederatedServer server, PeerVerb verb, string op, CommandArguments arguments) =>
-        Fin.Succ(new CommandBody($"federated.{server.Value}{verb.Key}", arguments.Payload));
+        Fin.Succ(new CommandBody($"federated.{server.Value}{verb.Key}", op, arguments.Payload));
 
     public static FederatedCall Decode(CommandBody body, CorrelationId correlation) =>
         body.Surface["federated.".Length..] switch {
@@ -352,7 +352,7 @@ public static partial class FederationProjection {
             cost: cost,
             permission: server.Trust.Floor(effect),
             progress: None,
-            compile: args => FederatedDispatch.Compile(server, verb, args));
+            compile: args => FederatedDispatch.Compile(server, verb, op, args));
     }
 }
 

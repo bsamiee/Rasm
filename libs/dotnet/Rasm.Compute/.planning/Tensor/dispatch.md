@@ -1482,7 +1482,7 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
     Fin<Unit> DrainScope(string key) {
         api.DevicePopErrorScope(device, ScopeSink, null);
         ext.DevicePoll(device, true, null);
-        return scopeFault is { } captured ? TensorReason.NativeRejected.Fail<Unit>("device-validation", captured) : Fin.Succ(unit);
+        return scopeFault is { } captured ? TensorReason.NativeRejected.Fail<Unit>("device-validation", key, captured) : Fin.Succ(unit);
     }
 
     public string Identity => identity;
@@ -1507,7 +1507,7 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
             layout = api.ComputePipelineGetBindGroupLayout(pipeline, 0);
             if (layout == null) { return TensorReason.ShapeMismatch.Fail<DeviceKernel>("device-layout"); }
             transferred = true;
-            return Fin.Succ(new DeviceKernel(element, (nuint)pipeline, (nuint)layout, (nuint)module));
+            return Fin.Succ(new DeviceKernel(op, element, (nuint)pipeline, (nuint)layout, (nuint)module));
         }
         catch (Exception ex) {
             return Fin.Fail<DeviceKernel>(Error.New(ex.Message, ex));

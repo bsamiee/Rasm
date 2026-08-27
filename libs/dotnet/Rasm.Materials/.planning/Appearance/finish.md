@@ -192,14 +192,14 @@ public readonly record struct PigmentCapture(
             bands.Map(static band => band.K).ToArray(), bands.Map(static band => band.S).ToArray(), K1, K2, name);
 
     static Fin<(double K, double S)> Separate(double rw, double rb, double gw, double gb, double thicknessMm, int nm) =>
-        from d in Separating((rw * gb) - (rb * gw), nm)
+        from d in Separating((rw * gb) - (rb * gw), nm, key)
         let u = (((1.0 + (rw * gw)) * gb) - ((1.0 + (rb * gb)) * gw)) / d
         let v = ((rw * (1.0 + (rb * gb))) - (rb * (1.0 + (rw * gw)))) / d
         let a = (u + v) / 2.0
-        from _ in guard(a > 1.0, new MaterialFault.Parameter($"<pigment-solve-absorption:{nm}:{a:R}>"))
+        from _ in guard(a > 1.0, new MaterialFault.Parameter(key, $"<pigment-solve-absorption:{nm}:{a:R}>"))
         let b = Math.Sqrt((a * a) - 1.0)
         let coth = (u - v) / (2.0 * b)
-        from __ in guard(coth > 1.0, new MaterialFault.Parameter($"<pigment-solve-thickness:{nm}:{coth:R}>"))
+        from __ in guard(coth > 1.0, new MaterialFault.Parameter(key, $"<pigment-solve-thickness:{nm}:{coth:R}>"))
         let s = Math.Atanh(1.0 / coth) / (b * thicknessMm)
         select ((a - 1.0) * s, s);
 
@@ -216,14 +216,14 @@ public static class Finish {
     internal static readonly Unicolour PrimedGround = Linear(0.92, 0.92, 0.90);
 
     public static Fin<(MaterialParameters Row, CaptureProvenance Provenance)> Resolve(FinishKind kind, FinishMix mix, Seq<FinishLayer> stack, Option<MaterialParameters> substrate = default) =>
-        from layers in AdmitStack(stack)
-        from reflectance in mix.Reflectance()
+        from layers in AdmitStack(stack, key)
+        from reflectance in mix.Reflectance(key)
         let composed = layers.Fold(reflectance, static (below, layer) => layer.Compose(below))
-        from admitted in Admit(composed, reflectance, kind.Handling)
+        from admitted in Admit(composed, reflectance, kind.Handling, key)
         let top = TopcoatOf(layers)
         let seed = kind.Seed(admitted, substrate.Map(static s => s.BaseColor).IfNone(PrimedGround), top.Weight, top.Roughness,
             top.Film.Weight > 0.0 ? top.Film : kind.Handling.Film)
-        from row in MaterialParameters.Of(seed)
+        from row in MaterialParameters.Of(seed, key)
         select (row, MixProvenance(mix));
 
     static Fin<Seq<FinishLayer>> AdmitStack(Seq<FinishLayer> stack) =>
@@ -232,12 +232,12 @@ public static class Finish {
             .Map(_ => stack);
 
     static Fin<Unicolour> Admit(Unicolour composed, Unicolour mix, FinishHandling handling) =>
-        from drift in Tolerance.Of(ToleranceLane.Spectral, handling.DriftTolerance)
-        from hue in Tolerance.Of(ToleranceLane.Spectral, handling.HueTolerance)
-        from spectral in MaterialLibrary.SpectralAdmit(composed)
-        from surface in MaterialLibrary.PointerAdmit(spectral)
-        from _ in MaterialLibrary.NearestChecker(surface, drift, handling.Drift)
-        from anchored in MaterialLibrary.HueConstant(surface, mix, hue)
+        from drift in Tolerance.Of(ToleranceLane.Spectral, handling.DriftTolerance, key)
+        from hue in Tolerance.Of(ToleranceLane.Spectral, handling.HueTolerance, key)
+        from spectral in MaterialLibrary.SpectralAdmit(composed, key)
+        from surface in MaterialLibrary.PointerAdmit(spectral, key)
+        from _ in MaterialLibrary.NearestChecker(surface, drift, handling.Drift, key)
+        from anchored in MaterialLibrary.HueConstant(surface, mix, hue, key)
         select anchored;
 
     static (double Weight, double Roughness, ThinFilm Film) TopcoatOf(Seq<FinishLayer> stack) =>

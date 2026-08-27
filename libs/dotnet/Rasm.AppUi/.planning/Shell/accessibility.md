@@ -532,7 +532,7 @@ public static class AccessProof {
             .As();
 
     static Validation<Error, Color> Paint(ResolvedTheme resolved, TokenKey key) =>
-        resolved.Paints.TryGetValue(out Color value)
+        resolved.Paints.TryGetValue(key, out Color value)
             ? Success<Error, Color>(value)
             : Fail<Error, Color>(new AccessFault.PaintUnresolved(key.Value));
 

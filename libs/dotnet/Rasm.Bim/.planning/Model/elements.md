@@ -55,7 +55,7 @@ public sealed partial class EgressEligibility {
     public static readonly EgressEligibility Authorable = new("authorable",
         gate: static (window, schema, cls, key) => window.Covers(schema)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "class-out-of-schema", cls, schema.Key }))));
+            : Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "class-out-of-schema", cls, schema.Key }))));
 
     public static readonly EgressEligibility Vocabulary = new("vocabulary",
         gate: static (_, _, cls, key) => Fin.Fail<Unit>(new BimFault.Refused(BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "abstract-class-at-egress", cls }))));
@@ -152,10 +152,10 @@ public sealed partial class IfcClass {
     public Fin<Unit> Admits(ReleaseVersion schema) => Eligibility.Gate(Span, schema, Key);
 
     public Fin<string> AdmitPredefined(string token, string objectType, ReleaseVersion schema) =>
-        Admits(schema)
-            .Bind(_ => PredefinedToken.Admit(token, objectType, Key))
+        Admits(schema, key)
+            .Bind(_ => PredefinedToken.Admit(token, objectType, Key, key))
             .Bind(admitted => admitted.Switch(
-                state: (Row: this, schema),
+                state: (Row: this, schema, key),
                 canonical:   static (_, _) => Fin.Succ(PredefinedType.NotDefined.Token),
                 userDefined: static (_, _) => Fin.Succ("USERDEFINED"),
                 named:       static (s, n) => s.Row.Ranked(n.Token, s.schema, s.key)));

@@ -460,13 +460,13 @@ internal sealed class JobAsync : AsyncRenderContext {
     private JobAsyncLifecycle lifecycle = new JobAsyncLifecycle.Idle();
 
     internal JobAsync(AsyncProgram program, Func<Error, Unit> record) =>
-        (this.program, this.record, this.key) = (program, record);
+        (this.program, this.record, this.key) = (program, record, key);
 
     internal Fin<Unit> Launch() {
         lock (lifecycleGate) {
             return from _ in guard(lifecycle is JobAsyncLifecycle.Idle, new KernelFault.InvalidContext()).ToFin()
                    from window in Optional(RenderWindow).ToFin(Fail: new KernelFault.MissingContext())
-                   let opened = new RealtimePort(window)
+                   let opened = new RealtimePort(window, key)
                    from installed in Fin.Succ(HostEdge.Side(() => lifecycle = new JobAsyncLifecycle.Running(opened)))
                    from started in Try.lift(() => Admit.Confirm(success: StartRenderThread(
                            threadStart: () => Settled(window: window, port: opened),
@@ -529,7 +529,7 @@ internal sealed class JobPipeline : RenderPipeline {
         Option<AsyncProgram> render,
         Ring<Error> faults)
         : base(document, mode, plugin, extent.Native, plugin.Name, Channels.Flags(channels), reuseRenderWindow: false, clearLastRendering: true) {
-        (this.program, this.faults, this.key) = (program, faults);
+        (this.program, this.faults, this.key) = (program, faults, key);
         detached = render.Map(plan => new JobAsync(plan, record: failure => Record(failure)));
         _ = detached.Iter(context => {
             AsyncRenderContext bound = context;
@@ -621,7 +621,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 
     private RenderJob(DocumentSession session, PlugIn owner, Size2i extent, CapabilitySet<RenderChannel> channels, RenderProgram program, Option<AsyncProgram> render, Option<Func<EffectId, Fin<bool>>> decide) =>
         (this.session, this.owner, this.extent, this.channels, this.program, this.render, this.decide, this.key) =
-        (session, owner, extent, channels, program, render, decide);
+        (session, owner, extent, channels, program, render, decide, key);
 
     public static Fin<RenderJob> Open(DocumentSession session, PlugIn owner, Size2i extent, CapabilitySet<RenderChannel> channels, RenderProgram program, Option<AsyncProgram> render = default, Option<Func<EffectId, Fin<bool>>> gate = default) {
         return from documentSession in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
@@ -633,7 +633,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                    Some: static detached => detached is { Render: not null } && !string.IsNullOrWhiteSpace(detached.ThreadName),
                    None: static () => true), new KernelFault.InvalidInput(Axis: Some("render")))
                from ____ in guard(gate.Match(Some: static value => value is not null, None: static () => true), new KernelFault.InvalidInput(Axis: Some("gate")))
-               select new RenderJob(documentSession, plugin, extent, channels, plan, render, gate);
+               select new RenderJob(documentSession, plugin, extent, channels, plan, render, gate, op);
     }
 
     public Seq<Error> Faults => faults.Parked;
@@ -644,7 +644,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
             return guard(!phase.Value.Closes, new KernelFault.InvalidContext()).ToFin()
                 .Bind(_ => guard(request is not null && request.IsValid, new KernelFault.InvalidInput()).ToFin())
                 .Bind(_ => Admit.Demand(
-                    use: document => Current(document).Bind(current => Apply(current, request)),
+                    use: document => Current(document, op).Bind(current => Apply(current, request, op)),
                     needs: request.Needs.ToArray()));
         }
     }
@@ -683,7 +683,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
             current,
             new FramebufferScope.SessionCase(Wireframe: FramebufferRow.OmitWireframe, Source: FramebufferRow.PipelineSource),
             window => Try.lift(() => {
-                PostEffectGate armed = new(predicate, current.Record);
+                PostEffectGate armed = new(predicate, current.Record, op);
                 window.RegisterPostEffectExecutionControl(ec: armed);
                 gate = armed;
                 return Fin.Succ(value: unit);
@@ -987,7 +987,7 @@ public sealed class RealtimePort {
     internal RealtimePort(RenderWindow window) =>
         (this.window, this.key) = (Atom(Some(window)));
 
-    public Fin<Unit> Write(PixelBlock block) => Held().Bind(target => block.Blit(target));
+    public Fin<Unit> Write(PixelBlock block) => Held().Bind(target => block.Blit(target, key));
 
     public Fin<Unit> Progress(HostText caption, UnitInterval fraction) => Held().Bind(target =>
         Try.lift(() => Fin.Succ(HostEdge.Side(() => target.SetProgress(text: caption.Resolve(), progress: (float)fraction.Value)))).Run().Bind(static inner => inner));
@@ -1072,7 +1072,7 @@ public static class RealtimeEngines {
                    from matched in guard(
                        installed.Exists(row => row == engine),
                        (Error)new RenderFault.SeatAbsent(Engine: engine))
-                   select installed)
+                   select installed, op)
                select claimed;
     }
 
@@ -1194,13 +1194,13 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
             Fin<RealtimeLifecycle.Priming> opened =
                 from _ in guard(lifecycle.Value is RealtimeLifecycle.Idle, new KernelFault.InvalidContext()).ToFin()
                 from size in Size2i.Of(width: w, height: h)
-                from document in DocKey.Of(doc)
+                from document in DocKey.Of(doc, key)
                 from intent in FactoryBridge.Row<bool, RenderIntent>(candidate: forCapture)
                 from window in Admit.Need(renderWindow)
-                let primed = new RealtimeLifecycle.Priming(new SpriteSheet(), new RealtimePort(window))
+                let primed = new RealtimeLifecycle.Priming(new SpriteSheet(), new RealtimePort(window, key))
                 from started in Bound(program => program.Start(new RealtimeStart(
                         Extent: size, Document: document, Intent: intent, Pixels: primed.Pixels, Signal: Signal())))
-                    .Rollback(() => Release(primed))
+                    .Rollback(() => Release(primed), key)
                 from seated in Fin.Succ(ignore(extent.Swap(_ => size)))
                 from stepped in Step(_ => Some<RealtimeLifecycle>(primed)) is Transition<RealtimeLifecycle>.Committed
                     ? Fin.Succ(primed)
@@ -1216,7 +1216,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
             _ = Step(static held => held is RealtimeLifecycle.Idle ? None : Some<RealtimeLifecycle>(new RealtimeLifecycle.Idle()))
                 is Transition<RealtimeLifecycle>.Committed
                 ? ignore(Observe(Custody.Release(
-                    Seq<Func<Fin<Unit>>>(() => Bound(static program => program.Shutdown()), () => Released(prior)))))
+                    Seq<Func<Fin<Unit>>>(() => Bound(static program => program.Shutdown()), () => Released(prior)), key)))
                 : unit;
         }
     }
@@ -1233,8 +1233,8 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     public override void CreateWorld(RhinoDoc doc, ViewInfo viewInfo, DisplayPipelineAttributes displayPipelineAttributes) =>
         ignore(bound.Bind(static plan => plan.Program.World).Match(
             Some: build => Observe(
-                from document in DocKey.Of(doc)
-                from concerns in Appearance.Of(displayPipelineAttributes)
+                from document in DocKey.Of(doc, key)
+                from concerns in Appearance.Of(displayPipelineAttributes, key)
                 from built in Try.lift(() => build(new RealtimeWorld(document, viewInfo.Viewport.Id, concerns))).Run().Bind(static inner => inner)
                 select built),
             None: () => { base.CreateWorld(doc, viewInfo, displayPipelineAttributes); return Fin.Succ(unit); }));
@@ -1451,7 +1451,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
     public sealed override bool DeleteLight(RhinoDoc doc, Light light, bool bUndelete) => LightAuthorities.Answer(
         Engine, doc,
         (program, key) => FactoryBridge.Row<bool, LightRetirement>(candidate: bUndelete)
-            .Bind(verb => program.Retire(light, verb))
+            .Bind(verb => program.Retire(key, light, verb))
             .Map(static _ => true),
         fallback: false);
 
@@ -1486,7 +1486,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
         Engine, doc,
         (program, key) => program.Solo.Match(
             Some: solo => FactoryBridge.Row<bool, SwitchState>(candidate: bSolo)
-                .Bind(state => solo.Set(uuid_light, state))
+                .Bind(state => solo.Set(key, uuid_light, state))
                 .Map(static _ => true),
             None: () => Fin.Succ(base.SetLightSolo(doc, uuid_light, bSolo))),
         fallback: false);
@@ -1494,14 +1494,14 @@ public abstract class LightAuthorityHost : LightManagerSupport {
     public override bool GetLightSolo(RhinoDoc doc, Guid uuid_light) => LightAuthorities.Answer(
         Engine, doc,
         (program, key) => program.Solo.Match(
-            Some: solo => solo.Get(uuid_light).Map(static state => state.Enabled),
+            Some: solo => solo.Get(key, uuid_light).Map(static state => state.Enabled),
             None: () => Fin.Succ(base.GetLightSolo(doc, uuid_light))),
         fallback: false);
 
     public override int LightsInSoloStorage(RhinoDoc doc) => LightAuthorities.Answer(
         Engine, doc,
         (program, key) => program.Solo.Match(
-            Some: solo => solo.Count().Map(static count => count.Value),
+            Some: solo => solo.Count(key).Map(static count => count.Value),
             None: () => Fin.Succ(base.LightsInSoloStorage(doc))),
         fallback: 0);
 
@@ -1812,7 +1812,7 @@ public abstract partial record TextureBake : IValidityEvidence {
     }
 
     private static Fin<RenderTexture> Texture(ContentRef address, RhinoDoc document) =>
-        from content in address.Resolve(document)
+        from content in address.Resolve(document, key)
         from texture in content is RenderTexture value
             ? Fin.Succ(value)
             : Fin.Fail<RenderTexture>(new RenderFault.HostRefused(Member: nameof(ContentRef.Resolve), Detail: content.GetType().Name))
@@ -1824,7 +1824,7 @@ public sealed class ChannelView {
     private readonly RenderWindow.Channel channel;
 
     internal ChannelView(RenderWindow.Channel channel, Size2i extent, ChannelOrder order) =>
-        (this.channel, Extent, Order, this.key) = (channel, extent, order);
+        (this.channel, Extent, Order, this.key) = (channel, extent, order, key);
 
     public Size2i Extent { get; }
     public ChannelOrder Order { get; }
@@ -1895,7 +1895,7 @@ public sealed class EffectPass {
     private readonly PostEffects.PostEffectPipeline pipeline;
 
     internal EffectPass(PostEffects.PostEffectPipeline pipeline, Offset2i origin, Size2i extent) =>
-        (this.pipeline, Origin, Extent, this.key) = (pipeline, origin, extent);
+        (this.pipeline, Origin, Extent, this.key) = (pipeline, origin, extent, key);
 
     public Offset2i Origin { get; }
     public Size2i Extent { get; }
@@ -2025,7 +2025,7 @@ public abstract class EffectHost : PostEffects.PostEffect {
     public override bool SetParam(string param, object v) => Accept(
         from field in FactoryBridge.Accept<EffectField>(candidate: param)
         from held in v is IConvertible convertible
-            ? EffectValue.Of(convertible)
+            ? EffectValue.Of(convertible, key)
             : Fin.Fail<EffectValue>(new RenderFault.HostRefused(Member: nameof(SetParam), Detail: param))
         from written in Amended(ChangeReason.Program, () => Try.lift(() => program.Tune(field, held)).Run().Bind(static inner => inner))
         select true);
@@ -2070,7 +2070,7 @@ internal sealed class PostEffectGate : PostEffects.PostEffectExecutionControl {
     private readonly Func<Error, Unit> reject;
 
     internal PostEffectGate(Func<EffectId, Fin<bool>> decide, Func<Error, Unit> reject) =>
-        (this.decide, this.reject, this.key) = (decide, reject);
+        (this.decide, this.reject, this.key) = (decide, reject, key);
 
     public override bool ReadyToExecutePostEffect(Guid postEffectId) =>
         Try.lift(() => decide(EffectId.Create(postEffectId))).Run().Bind(static inner => inner).Match(
@@ -2381,7 +2381,7 @@ public sealed class SceneBatch : IDisposable {
     private readonly Atom<MountPhase> phase = Atom(MountPhase.Open);
 
     internal SceneBatch(Seq<SceneDelta> deltas, Option<MonotonicStamp> opened, Option<MonotonicStamp> sealedAt, ModelUnit units) =>
-        (this.deltas, Opened, Sealed, Units, this.key) = (deltas, opened, sealedAt, units);
+        (this.deltas, Opened, Sealed, Units, this.key) = (deltas, opened, sealedAt, units, key);
 
     public Option<MonotonicStamp> Opened { get; }
     public Option<MonotonicStamp> Sealed { get; }
@@ -2466,12 +2466,12 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             bRespectDisplayPipelineAttributes: policy.Traits.Admits(QueueTrait.RespectDisplayAttributes),
             bNotifyChanges: policy.Traits.Admits(QueueTrait.NotifyChanges)) =>
         (this.policy, this.timeline, this.units, this.context, this.key, lane) =
-        (policy, timeline, units, context, Open(policy, timeline, losses));
+        (policy, timeline, units, context, key, Open(policy, timeline, losses, key));
 
     private SceneQueue(Guid plugin, CreatePreviewEventArgs preview, QueuePolicy policy, MonotonicTimeline timeline, ModelUnit units, Context context)
         : base(plugin, preview) =>
         (this.policy, this.timeline, this.units, this.context, this.key, lane) =
-        (policy, timeline, units, context, Open(policy, timeline, losses));
+        (policy, timeline, units, context, key, Open(policy, timeline, losses, key));
 
     public ChannelReader<SceneBatch> Deltas => lane.Reader;
 
@@ -2583,9 +2583,9 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             Transition<QueueCell>.Committed { State: QueueCell.Closed closed } =>
                 Custody.Release(
                     Seq<Func<Fin<Unit>>>(
-                        () => self.Stranded(closed.Stranded),
+                        () => self.Stranded(closed.Stranded, op),
                         () => Try.lift(() => Fin.Succ(HostEdge.Side(() => ignore(self.lane.Writer.TryComplete())))).Run().Bind(static inner => inner),
-                        () => self.Sweep(),
+                        () => self.Sweep(op),
                         () => Try.lift(() => { self.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))),
             _ => Fin.Succ(unit),
         };
@@ -2598,7 +2598,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override void ApplyMeshChanges(Guid[] deleted, List<Cq.Mesh> added) => StageBatch(
         source: toSeq(added),
         detach: Detach,
-        release: delta => Custody.Release(delta.Patches, static patch => Fin.Succ(patch.Geometry.Dispose())),
+        release: delta => Custody.Release(delta.Patches, static patch => Fin.Succ(patch.Geometry.Dispose()), key),
         project: rows => new SceneDelta.GeometryCase(Removed: toSeq(deleted).Strict(), Added: rows));
 
     protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<Cq.MeshInstance> addedOrChanged) => StageBatch(
@@ -2638,7 +2638,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         Touches: toSeq(mats).Map(payload => Touch(material: payload.Id, instance: payload.MeshInstanceId)).Strict())));
 
     protected override void ApplyRenderSettingsChanges(RenderSettings rs) => ignore(Observe(
-        RenderConfig.Of(rs).Map(config => Stage(new SceneDelta.SettingsCase(Config: config)))));
+        RenderConfig.Of(rs, key).Map(config => Stage(new SceneDelta.SettingsCase(Config: config)))));
 
     protected override void ApplyRenderSettingsChanges(Cq.DisplayRenderSettings settings) =>
         ignore(Stage(new SceneDelta.DisplaySettingsCase()));
@@ -2667,7 +2667,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         ignore(Stage(new SceneDelta.DynamicClipCase(Changed: toSeq(changed).Map(QueueMap.Detach).Strict())));
 
     protected override void ApplyDisplayPipelineAttributesChanges(DisplayPipelineAttributes displayPipelineAttributes) =>
-        ignore(Observe(Appearance.Of(displayPipelineAttributes)
+        ignore(Observe(Appearance.Of(displayPipelineAttributes, key)
             .Map(concerns => Stage(new SceneDelta.AttributesCase(Concerns: concerns)))));
 
     // --- [NOTIFY_BRACKET]
@@ -2776,7 +2776,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             Fin.Succ(Seq<TOut>()),
             (accepted, input) => accepted.Bind(done => Try.lift(() => detach(input)).Run().Bind(static inner => inner)
                 .Map(done.Add)
-                .Rollback(done, release)));
+                .Rollback(done, release, key)));
 
     private Fin<Rasm.Numerics.Dimension> Apply(Seq<SceneBatch> batches, Func<SceneBatch, Fin<Unit>> take, Option<Env> env) {
         (Seq<Error> refused, Seq<Rasm.Numerics.Dimension> applied) = batches
@@ -2805,7 +2805,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         Seq<SceneBatch> residue = Taken();
         return Custody.Release(residue, batch => (
             losses.Park(item: new QueueLoss(At: Error.New(key: op.Message).ToOption(), Deltas: batch.Count)),
-            batch.Release()).Item2);
+            batch.Release()).Item2, op);
     }
 
     private Fin<Unit> Stranded(Seq<SceneDelta> rows) => rows.IsEmpty

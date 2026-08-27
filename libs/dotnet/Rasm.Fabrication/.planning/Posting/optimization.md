@@ -971,7 +971,7 @@ internal static class PatternCensus {
     }
 
     private static ulong Lane(UInt128 key) {
-        (ulong low, ulong high) = ContentHash.Halves();
+        (ulong low, ulong high) = ContentHash.Halves(key);
         return low ^ high;
     }
 

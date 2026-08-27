@@ -80,11 +80,11 @@ public abstract partial record StageProduct {
         Switch(channel: static c => Some(c.Field.Transfer), prior: static p => Some(p.Field.Transfer), measure: static _ => Option<PlaneTransfer>.None);
 
     public static Option<StageProduct> Parse(string key) =>
-        TextureChannel.TryGet(out TextureChannel? channel)
+        TextureChannel.TryGet(key, out TextureChannel? channel)
             ? Some<StageProduct>(new Channel(channel))
-            : PriorField.TryGet(out PriorField? prior)
+            : PriorField.TryGet(key, out PriorField? prior)
                 ? Some<StageProduct>(new Prior(prior))
-                : ScoreField.TryGet(out ScoreField? score)
+                : ScoreField.TryGet(key, out ScoreField? score)
                     ? Some<StageProduct>(new Measure(score))
                     : None;
 
@@ -367,15 +367,15 @@ public static class ModelRegistry {
     public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy) =>
         policy.PinnedCard.Match(
             Some: id => Rows.TryGetValue(id, out ModelCard? pinned) && pinned.Stage == stage
-                ? Admissible(pinned, policy)
-                : new MaterialFault.Parameter($"<model-card-unpinned:{id.Value}:{stage.Key}>"),
+                ? Admissible(pinned, policy, key)
+                : new MaterialFault.Parameter(key, $"<model-card-unpinned:{id.Value}:{stage.Key}>"),
             None: () => toSeq(toSeq(Rows.Values)
                     .Filter(card => card.Stage == stage && card.Admits(policy.Ceiling))
                     .OrderBy(card => card.Providers.Exists(p => p == policy.Preferred) ? 0 : 1)
                     .ThenBy(static card => card.PartitionBound)
                     .ThenBy(static card => card.License.Rank))
                 .Head
-                .ToFin(new MaterialFault.Parameter($"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
+                .ToFin(new MaterialFault.Parameter(key, $"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
 
     public static Option<PbrStage> EmitterOf(Seq<PbrStage> prefix, StageProduct product) =>
         prefix.Filter(stage => StageRelation.Emits(stage, product)).Last;
@@ -507,12 +507,12 @@ public sealed record StageRequest(
         from _ in guard(card.License.Grants, new MaterialFault.Parameter($"<stage-license-blocked:{card.Id.Value}>"))
         from _seed in guard(!card.Traits.Admits(ModelTrait.Stochastic) || intent.Policy.Seed != 0UL,
                 new MaterialFault.Parameter($"<stage-stochastic-seed-unset:{card.Id.Value}>"))
-        from inputs in Bind(card.Stage, intent, prefix)
+        from inputs in Bind(card.Stage, intent, prefix, key)
         let resolved = Preferred(card, intent.Policy)
         select new StageRequest(card.Stage, card.Id, card.Artefact, card.License, inputs, width, height,
             Dimension.Create(width.Value * card.Stage.Scale), Dimension.Create(height.Value * card.Stage.Scale),
             tiles.TileWidth.Value, tiles.TileHeight.Value, tiles.Overlap, tiles.PadMode, tiles.Bucket, card.Contract.TensorLayout,
-            resolved.Provider, resolved.Precision, card.Traits.Admits(ModelTrait.Stochastic) ? intent.Policy.Seed : 0UL);
+            resolved.Provider, resolved.Precision, card.Traits.Admits(ModelTrait.Stochastic) ? intent.Policy.Seed : 0UL, key);
 
     static Fin<Seq<StageInput>> Bind(PbrStage stage, StageIntent intent, Seq<PbrStage> prefix) =>
         stage.Consumes().IsEmpty
@@ -580,9 +580,9 @@ public readonly record struct StageStep(StageRequest Request, Option<StageResult
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StagePlan {
     public static Fin<Seq<StageStep>> Plan(StageIntent intent, Option<StageReplay> replay = default) =>
-        from covered in Cover(intent.Requested, intent.Policy)
-        from ordered in Refine(Closure(covered, intent.Policy), intent)
-        from steps in Thread(ordered, intent, replay)
+        from covered in Cover(intent.Requested, intent.Policy, key)
+        from ordered in Refine(Closure(covered, intent.Policy), intent, key)
+        from steps in Thread(ordered, intent, replay, key)
         select steps;
 
     static Fin<Seq<PbrStage>> Cover(Seq<StageProduct> requested, StagePolicy policy) =>
@@ -639,10 +639,10 @@ public static class StagePlan {
         ordered.FoldM(
             (Steps: Seq<StageStep>(), Prefix: Seq<PbrStage>(), Width: intent.Width, Height: intent.Height),
             (carried, stage) =>
-                from card in ModelRegistry.Select(stage, intent.Policy)
-                from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract)
-                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles)
-                from held in Consulted(replay, request, card)
+                from card in ModelRegistry.Select(stage, intent.Policy, key)
+                from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract, key)
+                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles, key)
+                from held in Consulted(replay, request, card, key)
                 select (Steps: carried.Steps.Add(new StageStep(request, held)), Prefix: carried.Prefix.Add(stage),
                         Width: request.OutputWidth, Height: request.OutputHeight))
         .As()
@@ -650,7 +650,7 @@ public static class StagePlan {
 
     static Fin<Option<StageResult>> Consulted(Option<StageReplay> replay, StageRequest request, ModelCard card) =>
         replay.Bind(port => port(request))
-            .TraverseM(held => StageResult.Admit(held, card, request)).As();
+            .TraverseM(held => StageResult.Admit(held, card, request, key)).As();
 }
 ```
 

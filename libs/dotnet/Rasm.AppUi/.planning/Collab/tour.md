@@ -97,7 +97,7 @@ public readonly record struct StopSeat(int Index, TourStop Stop, Duration Offset
 
 public sealed record ReviewTour {
     private ReviewTour(TourKey key, TourStop lead, Seq<TourStop> rest) {
-        (Key, Lead, Rest) = (lead, rest);
+        (Key, Lead, Rest) = (key, lead, rest);
         (Seats, Opening, Trailing) = Seated(lead, rest);
         Total = Trailing.End;
     }
@@ -118,7 +118,7 @@ public sealed record ReviewTour {
 
     public static Fin<ReviewTour> Of(string key, Seq<TourStop> stops) =>
         (FactoryBridge.Accept<TourKey>(candidate: key).ToValidation(),
-         stops.Head.ToValidation<Error, TourStop>(new TourFault.Empty()))
+         stops.Head.ToValidation<Error, TourStop>(new TourFault.Empty(key)))
         .Apply(static (admitted, lead) => (Key: admitted, Lead: lead))
         .ToFin()
         .Map(seed => new ReviewTour(seed.Key, seed.Lead, stops.Tail));
@@ -404,7 +404,7 @@ public abstract partial record TourSource {
         Duration Dwell,
         MotionToken Transition) : TourSource {
         public static TopicTour Of(string key, Seq<Rasm.Bim.Coordination.BcfTopic> topics) =>
-            new(topics, MotionToken.SpringGentle.Duration, MotionToken.Emphasized);
+            new(key, topics, MotionToken.SpringGentle.Duration, MotionToken.Emphasized);
     }
 
     public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Func<string, int> revision, Instant at) =>

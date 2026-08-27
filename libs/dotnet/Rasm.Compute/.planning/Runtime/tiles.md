@@ -163,8 +163,8 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
             geometry.FormatKey, geometry.Lanes, MemoryMarshal.AsBytes(geometry.Indices.AsSpan()), policy.Vector);
         return depth >= policy.TileMaxDepth || geometry.TriangleCount <= policy.TileSplitThreshold
             ? Fin.Succ(new TileNode(depth, bounds, error, contentKey, metadata(contentKey), Seq<TileNode>()))
-            : Split(geometry, positions, bounds)
-                .Bind(leaves => leaves.TraverseM(leaf => Partition(leaf, metadata, policy, depth + 1)).As())
+            : Split(geometry, positions, bounds, key)
+                .Bind(leaves => leaves.TraverseM(leaf => Partition(leaf, metadata, policy, depth + 1, key)).As())
                 .Map(children => new TileNode(depth, bounds, error, contentKey, None, children));
     }
 
@@ -191,7 +191,7 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
         return toSeq(Range(0, geometry.TriangleCount)
                 .GroupBy(tri => Octant(positions, geometry.Indices.AsSpan(), tri, cx, cy, cz))
                 .Select(static group => toSeq(group)))
-            .TraverseM(group => Tessellate(geometry, group)).As();
+            .TraverseM(group => Tessellate(geometry, group, key)).As();
     }
 
     static int Octant(ReadOnlySpan<float> positions, ReadOnlySpan<long> indices, int triangle, float cx, float cy, float cz) {
@@ -267,7 +267,7 @@ public static class TilePartition {
     public static Fin<TilesetExport> ExportTiles(
         StreamPool pool, CorrelationId correlation, ImportedGeometry geometry,
         Func<UInt128, Option<TileMetadata>> metadata, TilePolicy policy, IClock clock) =>
-        TileSet.Build(geometry, metadata, policy)
+        TileSet.Build(geometry, metadata, policy, key)
             .Bind(tiles => Tileset(pool, correlation, tiles, policy, clock)
                 .Map(manifest => new TilesetExport(manifest, tiles.Census, Leaves(tiles.Root, tiles.At))));
 

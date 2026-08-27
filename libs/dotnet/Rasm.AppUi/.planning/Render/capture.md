@@ -254,8 +254,8 @@ public sealed record EffectTokens(int Generation, ResolvedTheme Theme, VisualCod
         new(generation, theme, policy, policy.Working.Space());
 
     public Fin<SKColorF> Pigment(TokenKey key) =>
-        (Theme.Paints.TryGetValue(out Color token) ? Some(token) : Option<Color>.None)
-            .ToFin(new VisualFault.CatalogMiss(new CatalogAddress.Pigment()))
+        (Theme.Paints.TryGetValue(key, out Color token) ? Some(token) : Option<Color>.None)
+            .ToFin(new VisualFault.CatalogMiss(new CatalogAddress.Pigment(key)))
             .Bind(Policy.Resolve);
 }
 
@@ -457,7 +457,7 @@ public sealed record PreviewRow<TValue>(
         });
 
     public ThumbnailRow Row(string key, ThumbnailSource source, TValue value, PaintCatalog paints, EncodeRow encode, DataClassification classification) =>
-        new(source,
+        new(key, source,
             variant => IO.lift(() => Render(paints, value, Info(paints, variant))),
             encode, classification, PlaceholderKey: $"{Key}/placeholder", ErrorKey: $"{Key}/error");
 
@@ -708,7 +708,7 @@ public static class VisualCodec {
             ReadOnlyMemory<byte> bytes = profile.ToArray();
             using SKColorSpace? probe = SKColorSpace.CreateIcc(bytes.Span);
             return probe is null
-                ? Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid())
+                ? Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid(key))
                 : Fin.Succ(new ColorPolicy(new ColorFrame.Icc(bytes), new ColorFrame.Icc(bytes), GamutPolicy.Perceptual, surface, None));
         }
 
@@ -802,7 +802,7 @@ public static class VisualCodec {
         from opened in IO.lift(() => Error.New(EncodeOp.Message, EncodeOp))
         from pixels in IO.lift(() => Try.lift(() => PixelIdentity.Of(image)).Run().Bind(static inner => inner))
         from bytes in IO.lift(() => Encoded(image, row))
-        from destination in Redrive.Run(runtime.Redrive, runtime.BlobWrite(bytes))
+        from destination in Redrive.Run(runtime.Redrive, runtime.BlobWrite(key, bytes))
         from closed in IO.lift(() => Error.New(EncodeOp.Message, EncodeOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, EncodeOp))
         let artifact = VisualArtifact.Of(

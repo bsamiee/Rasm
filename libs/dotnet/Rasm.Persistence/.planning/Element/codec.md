@@ -474,8 +474,8 @@ public static class Snapshots {
         (uint magic, byte version, byte domain, int codec, int compression) = (BinaryPrimitives.ReadUInt32LittleEndian(a), a[4], a[5], BinaryPrimitives.ReadInt32LittleEndian(a[8..]), BinaryPrimitives.ReadInt32LittleEndian(a[12..]));
         (ulong fingerprint, ulong epoch, long plain, long stored) = (BinaryPrimitives.ReadUInt64LittleEndian(a[20..]), BinaryPrimitives.ReadUInt64LittleEndian(a[28..]), BinaryPrimitives.ReadInt64LittleEndian(a[36..]), BinaryPrimitives.ReadInt64LittleEndian(a[44..]));
         uint checksum = BinaryPrimitives.ReadUInt32LittleEndian(a[SnapshotHeader.ChecksumOffset..]);
-        return (Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.ContentOffset..SnapshotHeader.StoredOffset]),
-                Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.StoredOffset..SnapshotHeader.ChecksumOffset]))
+        return (Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.ContentOffset..SnapshotHeader.StoredOffset], key),
+                Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.StoredOffset..SnapshotHeader.ChecksumOffset], key))
             .Apply((content, storedDigest) => new SnapshotHeader(magic, version, domain, codec, compression, fingerprint, epoch, plain, stored, content, storedDigest, checksum))
             .As();
     }

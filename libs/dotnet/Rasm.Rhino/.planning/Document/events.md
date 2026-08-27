@@ -477,12 +477,12 @@ public sealed partial class EventFamily {
 
         internal CorrelationMove Retain(TKey key, TValue value) {
             HashMap<TKey, TValue> standing = held.Value;
-            bool advanced = standing.Find().Map(prior => !EqualityComparer<TValue>.Default.Equals(x: prior, y: value)).IfNone(true);
+            bool advanced = standing.Find(key).Map(prior => !EqualityComparer<TValue>.Default.Equals(x: prior, y: value)).IfNone(true);
             if (!advanced) {
                 return new CorrelationMove.Held();
             }
             int cleared = standing.Count >= capacity && !standing.ContainsKey() ? standing.Count : 0;
-            HashMap<TKey, TValue> next = (cleared > 0 ? HashMap<TKey, TValue>() : standing).AddOrUpdate(value);
+            HashMap<TKey, TValue> next = (cleared > 0 ? HashMap<TKey, TValue>() : standing).AddOrUpdate(key, value);
             return Cell.Step(
                     cell: held,
                     step: current => current == standing ? Some(next) : None,
@@ -494,9 +494,9 @@ public sealed partial class EventFamily {
 
         internal Option<TValue> Release(TKey key) {
             HashMap<TKey, TValue> standing = held.Value;
-            return standing.Find().Bind(claimed => Cell.Step(
+            return standing.Find(key).Bind(claimed => Cell.Step(
                     cell: held,
-                    step: current => current == standing ? Some(current.Remove()) : None,
+                    step: current => current == standing ? Some(current.Remove(key)) : None,
                     declined: new KernelFault.InvalidResult())
                 is Transition<HashMap<TKey, TValue>>.Committed
                     ? Some(claimed)

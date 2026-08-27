@@ -185,7 +185,7 @@ public static class Coordinate {
         ProjectionContext frame,
         CancellationToken cancellationToken) {
         CoordinationOp op = new CoordinationOp.OutboxAdvance(letter.Sink, letter.Sequence);
-        Seq<CoordinationOp> ops = Seq();
+        Seq<CoordinationOp> ops = Seq(op);
         return from sql in IO.lift(() => ops.Map(value => CaseSql.For(value, frame.Now())))
                from rows in Bracket(
                    session, ops, sql, Some(held), frame,
@@ -551,7 +551,7 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
 |  [04]   | read guard      | tenant RLS predicate structural on every READ  | no cross-tenant in-flight/lease/membership leak                      |
 |  [05]   | lock order      | `pg_advisory_xact_lock` in `LockRank` order    | released at commit AND rollback; a session lock survives both        |
 |  [06]   | port direction  | AppHost decodes Persistence-owned types        | four PORT rows + `MembershipView.Serving`; nothing crosses down      |
-|  [07]   | row canon       | `(state, fence, value, until, payload)`   | fence and case scalar never alias; `CaseSql.For` generates every row |
+|  [07]   | row canon       | `(key, state, fence, value, until, payload)`   | fence and case scalar never alias; `CaseSql.For` generates every row |
 |  [08]   | signal row      | fenced `(workflow, channel)` upsert            | `SignalPut`/`SignalLoad` decode `StepStatePort.SignalPut`/`SignalOf` |
 |  [09]   | throw crossing  | one `CoordinationFault.Lift` per operation leg | banded case on every `Fin`; a bare `Error` is the deleted form       |
 |  [10]   | retry axes      | kernel `Retriability` + `RetryShape` per case  | provider-classified contention waits; a fenced token rescopes        |

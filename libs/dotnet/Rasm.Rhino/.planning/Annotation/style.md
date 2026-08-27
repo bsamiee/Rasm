@@ -167,7 +167,7 @@ public sealed record TableGrip<TComponent, TDef>(
         from copy in Try.lift(() => Fin.Succ(value: Duplicate(live))).Run().Bind(static inner => inner)
         from _ in Bracketed(copy: copy, revise: revise)
             .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
-        from __ in Modify(document, copy, index, interaction)
+        from __ in Modify(document, copy, index, interaction, op)
             .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
         from ___ in Custody.Dispose(held: Seq(copy))
         select unit;
@@ -176,14 +176,14 @@ public sealed record TableGrip<TComponent, TDef>(
 
     private Fin<Unit> Bracketed(TComponent copy, Func<TComponent, Fin<Unit>> revise) => Scoped.Match(
         Some: enter =>
-            from exit in enter(copy)
-            from outcome in revise(copy).Match(
-                Succ: _ => exit(),
-                Fail: primary => exit().Match(
+            from exit in enter(copy, op)
+            from outcome in revise(copy, op).Match(
+                Succ: _ => exit(op),
+                Fail: primary => exit(op).Match(
                     Succ: _ => Fin.Fail<Unit>(error: primary),
                     Fail: restore => Fin.Fail<Unit>(error: primary + restore)))
             select outcome,
-        None: () => revise(copy));
+        None: () => revise(copy, op));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -487,7 +487,7 @@ public static class FieldTable<TOwner, THostEnum>
                 from _ in guard(accepts(value), new KernelFault.InvalidResult())
                 select value,
             Write: (owner, value, key) =>
-                from typed in unwrap(value)
+                from typed in unwrap(value, key)
                 from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => set(owner, typed)))).Run().Bind(static inner => inner)
                 select unit);
 
@@ -1089,7 +1089,7 @@ internal static class DraftSpine {
                 name: plan.Name,
                 recordsUndo: plan.Mode.Custody.Records,
                 redraw: plan.Mode.Redraw,
-                run: () => plan.Operations.TraverseM(operation => apply(document, operation)).As()
+                run: () => plan.Operations.TraverseM(operation => apply(document, operation, op)).As()
                     .Map(static _ => unit),
                 project: Fin.Succ),
             needs: SessionNeed.Mutation(custody: plan.Mode.Custody, redraw: plan.Mode.Redraw).ToArray());

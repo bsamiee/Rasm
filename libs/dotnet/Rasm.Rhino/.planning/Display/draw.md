@@ -117,11 +117,13 @@ public sealed partial class PatternLaw {
             ? null
             : new ValidationError(message: "PatternLaw requires a finite pattern offset.");
 
-    public static PatternLaw Portable => Seed.Value;
-    private static readonly Lazy<PatternLaw> Seed = new(static () =>
-        Validate(CapabilitySet<PatternTrait>.Of(), PositiveMagnitude.Create(value: 1d), 0f, out PatternLaw? law) is null
-            ? law!
-            : throw new InvalidOperationException("PatternLaw.Portable"));
+    public static Fin<PatternLaw> Portable => Seed.Value;
+    private static readonly Lazy<Fin<PatternLaw>> Seed = new(static () =>
+        (Validate(CapabilitySet<PatternTrait>.Of(), PositiveMagnitude.Create(value: 1d), 0f, out PatternLaw? law), law) switch {
+            (null, PatternLaw seeded) => Fin.Succ(seeded),
+            (ValidationError refusal, _) => Fin.Fail<PatternLaw>(new KernelFault.InvalidValue(Label: nameof(Portable), Requirement: refusal.Message)),
+            _ => Fin.Fail<PatternLaw>(new KernelFault.InvalidResult()),
+        });
 }
 
 [ComplexValueObject]
@@ -178,10 +180,11 @@ public sealed record Stroke {
                 (float.IsFinite(miter) && miter >= 1f
                     ? Validation<Error, float>.Success(miter)
                     : Validation<Error, float>.Fail(new KernelFault.InvalidInput(Axis: Some(nameof(miter))))),
-                PenRhythm.Admit(dash: dash).ToValidation())
-            .Apply((admittedMiter, admittedDash) => new Stroke(
+                PenRhythm.Admit(dash: dash).ToValidation(),
+                pattern.Match(Some: Validation<Error, PatternLaw>.Success, None: () => Portable.ToValidation()))
+            .Apply((admittedMiter, admittedDash, admittedPattern) => new Stroke(
                 colour, width, space, cap, join, admittedDash,
-                decoration.IfNone(PenDecoration.Bare), pattern.IfNone(PatternLaw.Portable), admittedMiter))
+                decoration.IfNone(PenDecoration.Bare), admittedPattern, admittedMiter))
             .As().ToFin();
     }
 
@@ -376,7 +379,7 @@ public abstract partial record PathPrimitive {
         new Line(new Point2d(frame.X, frame.Y + frame.Height), new Point2d(frame.X, frame.Y)));
 
     private static Fin<Seq<PathPrimitive>> Outlined(ParametricOp op) =>
-        Parametric.Apply().Bind(result => result is ParametricResult.Outline outline
+        Parametric.Apply(op, key).Bind(result => result is ParametricResult.Outline outline
             ? Fin.Succ(toSeq(outline.Run).Map(Planar).Strict())
             : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.InvalidResult(Detail: Some(result.GetType().Name))));
 

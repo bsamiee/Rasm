@@ -295,7 +295,7 @@ public static class EgressPump {
 ## [03]-[EGRESS_SINK]
 
 - Owner: `Egress.Envelope` the ONE mint of an `OpLogEntry`, composing `Rasm/Domain/event#ENVELOPE_MINT` so the branch owner's `Validate()` funnel runs on every projected row and the projection returns `IO<Fin<CloudEvent>>` — the store write a body past the row's `dataref` threshold takes is the one effect a mint carries, and it lands BEFORE the envelope publishes the address; `BindingCapability`/`BindingCaps` the transport capability vocabulary and its barred empty corner; `Binding` the transport roster carrying each transport's capability set, attribute prefix, routing member, settings roster, `dataref` policy, and honest degrade as COLUMNS; `ProtocolSettings` the admitted per-subscription slice over that roster; `Subscription` the delivery instance; `DeliveryAck` the one union every provider outcome folds to at its own boundary, so a raw `PubAckResponse`/`DeliveryResult`/`MessageId` never crosses into the pump and the union itself names no provider type; `KafkaAck` the one written-out leg fold, seated as a boundary owner beside the union rather than inside it; `SinkBinding.Watch` the cell every leg consults before folding.
-- Entry: `Egress.Envelope(row, sink, ports)` mints on `IO`; `Subscription.Deliver(envelope, row)` resolves the bound leg; `Subscription.Matches(envelope)` answers the filter AND-set; `ProtocolSettings.Admit(binding, settings)` is the ONE admission every subscription crosses at composition.
+- Entry: `Egress.Envelope(row, sink, ports)` mints on `IO`; `Subscription.Deliver(envelope, row)` resolves the bound leg; `Subscription.Matches(envelope)` answers the filter AND-set; `ProtocolSettings.Admit(binding, settings, key)` is the ONE admission every subscription crosses at composition.
 - Cases: closed transport rows over ONE envelope, each settling its own engine's answer rather than a shared convention. `http` enqueues `net.http_post` under an idempotency-key header and folds `net.http_response_result` on the NEXT drain, so a PENDING response resolves without a poller; `nats` reads BOTH `NatsResult.Error` (never reached the stream) and `PubAckResponse.Error` (the stream refused), because folding the result alone reports `Persisted` for a refused ack; `kafka` pins `EnableIdempotence` under an instrumented producer, since the dedup column claims broker-side suppression an unset flag leaves unconfigured, and that one flag then FORCES `acks=all`, `max.in.flight.requests.per.connection=5`, `retries=INT32_MAX`, and `queuing.strategy=fifo` — a producer whose supplied configuration contradicts any of them refuses to instantiate, so the row spells none of them as a settable key and bounds the forced retry through `message.timeout.ms` alone; `rabbitmq` sends `mandatory: true` and reads `PublishException.IsReturn`, because an unroutable message under `false` is discarded while the confirm still ACKS, and under `true` the return and the nack arrive as ONE exception type whose only discriminant is that flag — an unroutable address is terminal and a nack is the broker refusing a routable message, so folding both onto one verdict either letters a re-drivable row or re-drives an address no retry reaches; `pulsar` writes `SequenceId` as the durable op-log position incremented by one, because broker dedup keys on `(producer name, sequence id)` MONOTONICITY against a stored high-water mark and DotPulsar reads a ZERO id as the auto-assign sentinel for a per-producer counter that restarts at `InitialSequenceId` on every construction — a content key written there is unordered by construction and roughly half of every send lands at or beneath the mark, while the auto counter re-lands the whole replayed suffix beneath it after any restart, and BOTH are discarded as duplicates against a returned `MessageId` the fold reads as `Persisted`; only the op-log sequence stays monotone per stream and durable across restarts, and the increment keeps position zero off the sentinel; `redis`, `clickhouse`, and `wirenative` are house legs whose `Spec` column says so.
 - Cases: the AMQP row bounds its OWN in-flight window because the client publishes no sender-side credit member — the peer grants credit on its `Flow`, `SetCredit` has no sender counterpart, and the callback send appends to an unbounded internal list the moment credit is absent — so the awaited pair is the only admitted send and the window is a bounded `Channel` under `Wait`, settled in OFFER order exactly as the NATS concurrent futures settle. Row `mqtt` is BRANCH-OWNED because the published package compiles against a retired carrier shape and reaches structured mode alone; it pins `V500`, since every v5 field drops SILENTLY under `V311` — no throw, no reason code — and carries the one UNPREFIXED attribute map, a `ce-` or `ce_` spelling there being a conformance defect a peer silently drops.
 - Cases: the ClickHouse row's `Watch` cell is the one standing behind NO event — that driver declares zero connection events, never raises the inherited `StateChange`, and ships no pool type — so `State` echoes only an explicit `Open`/`Close` this fence already made. Instead an ACTIVE `PingAsync` probe on the composition root's own cadence feeds the same cell every event-bearing row writes, so the `Watch` arrow holds ONE shape across the family and only this row's producer differs; its table IS the `Query/datasets#WAREHOUSE_OPLOG` `WarehouseSchema.Table` with its `Columns` roster, and its read side the `Query/backend#BACKEND_FAMILY` `Backend.Fleet` row, so writer and reader share one typed vocabulary rather than two independently-authored shapes.
@@ -339,7 +339,7 @@ public abstract partial record WebhookSettle {
     public sealed record PerRequest : WebhookSettle;
     public sealed record PerEnvelope(Func<string, int, Fin<Seq<DeliveryDisposition>>> Read) : WebhookSettle {
         public Fin<Seq<DeliveryAck>> Correlate(string request, Seq<CloudEvent> offered) =>
-            Read(request, offered.Count).Bind(answered => Correlated(offered, answered));
+            Read(request, offered.Count).Bind(answered => Correlated(offered, answered, key));
     }
 
     private static Fin<Seq<DeliveryAck>> Correlated(
@@ -938,19 +938,19 @@ public sealed partial class CesqlOperator {
             fold(CesqlCast.Number(left.Value), CesqlCast.Number(right.Value)));
 
     static CesqlResult Arith(CesqlResult left, CesqlResult right, string op, Func<int, int, long> fold) =>
-        Widened(Admitted(left, CesqlCast.AsNumber), Admitted(right, CesqlCast.AsNumber),
+        Widened(Admitted(left, CesqlCast.AsNumber), Admitted(right, CesqlCast.AsNumber), op,
             fold(CesqlCast.Number(left.Value), CesqlCast.Number(right.Value)));
 
     static CesqlResult Widened(CesqlResult left, CesqlResult right, string op, long wide) => wide switch {
         >= int.MinValue and <= int.MaxValue => left.Join(right, (int)wide),
-        < 0 => left.Join(right, int.MinValue).Fault(new CesqlFault.MathError("<int32-overflow>")),
-        _ => left.Join(right, int.MaxValue).Fault(new CesqlFault.MathError("<int32-overflow>")),
+        < 0 => left.Join(right, int.MinValue).Fault(new CesqlFault.MathError(op, "<int32-overflow>")),
+        _ => left.Join(right, int.MaxValue).Fault(new CesqlFault.MathError(op, "<int32-overflow>")),
     };
 
     static CesqlResult Divided(CesqlResult left, CesqlResult right, string op) =>
         (Admitted(left, CesqlCast.AsNumber), Admitted(right, CesqlCast.AsNumber)) switch {
             (var l, var r) when CesqlCast.Number(right.Value) is 0 =>
-                l.Join(r, 0).Fault(new CesqlFault.MathError("<divide-by-zero>")),
+                l.Join(r, 0).Fault(new CesqlFault.MathError(op, "<divide-by-zero>")),
             (var l, var r) when op is "/" =>
                 l.Join(r, CesqlCast.Number(left.Value) / CesqlCast.Number(right.Value)),
             (var l, var r) => l.Join(r, CesqlCast.Number(left.Value) % CesqlCast.Number(right.Value)),
@@ -1033,11 +1033,11 @@ public static class Cesql {
 
     static Parser<char, Func<CesqlExpression, CesqlExpression, CesqlExpression>> Infix(CesqlOperator op, string spelling) =>
         Try(CIString(spelling)).Between(SkipWhitespaces).ThenReturn<Func<CesqlExpression, CesqlExpression, CesqlExpression>>(
-            (left, right) => new CesqlExpression.Binary(left, right));
+            (left, right) => new CesqlExpression.Binary(op, left, right));
 
     static Parser<char, Func<CesqlExpression, CesqlExpression>> Unary(CesqlOperator op, string spelling) =>
         Try(CIString(spelling)).Between(SkipWhitespaces).ThenReturn<Func<CesqlExpression, CesqlExpression>>(
-            operand => new CesqlExpression.Unary(operand));
+            operand => new CesqlExpression.Unary(op, operand));
 }
 ```
 

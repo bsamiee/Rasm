@@ -136,7 +136,7 @@ public sealed record RasterBandInfo(
 
 - Owner: `GeoRaster` the GDAL raster ingest, the shared `Coverage`-node projection, and the contour/COG/warp/DEM derive legs; `BufferWidth` the closed read-width roster the stack read dispatches through; `SampleRows` the ONE GDAL-`DataType` roster carrying both the kernel storage row and the buffer width.
 - Law: pixels move through the PER-TYPE `Dataset.ReadRaster` overload family into a managed array matching the `Band.DataType` — a generic `<T>` call binds no overload on that SWIG surface — and the returned `CPLErr` gates the buffer before it becomes a band, because GDAL populates a read buffer BEFORE it reports failure and a discarded status publishes a zero-filled stack as pixel evidence; the abort grain is DECLARED, not assumed — GDAL publishes no interrupt across `Gdal.Open` or a windowed `ReadRaster`, so the token gates the ONE managed boundary this leg owns.
-- Entry: `Read(bytes, window, targetWidth, targetHeight, token)` opens the raster and reads the windowed band stack, every per-band schema, the mask, and the pyramid ONCE; `ToCoverage(tile, reference, field, overviewKey, ctx)` lands the shared `Node.Coverage`; `Contour(demBytes, interval)` vectorizes, `Cog(bytes)` transcodes, `Warp(bytes, target)` reprojects, and `DemProcess(demBytes, mode)` derives hillshade/slope/aspect.
+- Entry: `Read(bytes, window, targetWidth, targetHeight, token, key)` opens the raster and reads the windowed band stack, every per-band schema, the mask, and the pyramid ONCE; `ToCoverage(tile, reference, field, overviewKey, ctx)` lands the shared `Node.Coverage`; `Contour(demBytes, interval, key)` vectorizes, `Cog(bytes, key)` transcodes, `Warp(bytes, target, key)` reprojects, and `DemProcess(demBytes, mode, key)` derives hillshade/slope/aspect.
 - Auto: `Read` re-anchors the `GetGeoTransform` affine to the pixel window and resample ratio and folds the NTS extent off THIS affine's four corners (rotation honored), because stamping the SOURCE affine on a windowed or resampled buffer silently mislocates the tile; `ToCoverage` lowers the geo-transform onto the kernel `CellLattice` through `Placement.Build`'s `PointBasisMap` (the two rotation terms riding the affine's off-diagonal and the SIGNED pixel height preserved, so a north-up raster's negative Y scale is ordinary), derives every pyramid level as the base grid's `Coarsen` step, and lands a NON-ROOTED `Node.Coverage` whose `NodeId` is CONTENT-hashed over its own canonical bytes.
 - Output: the shared `Coverage` node is the by-reference field the terrain consumer and the `Exchange/export` 3D-Tiles terrain leg read — its `OverviewLevel` run letting a `Rasm.Compute` working-resolution route pick a level by `LevelFor`, size the fetch by `ByteLength(level)`, and read that level's bytes by its own `BlobKey` rather than the full base raster; the contour `GeoFeature` lines are the vectorized terrain the site model indexes.
 - Packages: `MaxRev.Gdal.Core`, `MaxRev.Gdal.MacosRuntime.Minimal.arm64`, `NetTopologySuite`, `ProjNET`, `CommunityToolkit.HighPerformance`, `Rasm.Element`, `Rasm`, `LanguageExt.Core`
@@ -197,16 +197,16 @@ public static class GeoRaster {
             first.GetBlockSize(out int baseBlockX, out int baseBlockY);
             double baseCell = Math.Sqrt(Math.Abs((transform[1] * transform[5]) - (transform[2] * transform[4])));
             Option<ProjectedCrs> sourceCrs = SourceFrame(dataset.GetProjectionRef());
-            return from band in Materialize(dataset, first.DataType, xOff, yOff, xSize, ySize, targetWidth, targetHeight, bands, bandMap)
-                   from overviews in Overviews(first, dataset.RasterXSize, baseCell)
+            return from band in Materialize(dataset, first.DataType, xOff, yOff, xSize, ySize, targetWidth, targetHeight, bands, bandMap, key)
+                   from overviews in Overviews(first, dataset.RasterXSize, baseCell, key)
                    select new RasterTile(band, targetWidth, targetHeight, gt, extent, schema, overviews,
-                       baseBlockX, baseBlockY, sourceCrs, Mask(first, xOff, yOff, xSize, ySize, targetWidth, targetHeight));
-        }, "raster-read");
+                       baseBlockX, baseBlockY, sourceCrs, Mask(first, xOff, yOff, xSize, ySize, targetWidth, targetHeight, key));
+        }, "raster-read", key);
 
     static Option<ProjectedCrs> SourceFrame(string wkt) =>
         wkt.Length == 0
             ? Option<ProjectedCrs>.None
-            : ProjectedCrs.Of("", "", "", wkt).ToOption();
+            : ProjectedCrs.Of("", "", "", wkt, key).ToOption();
 
     // --- [COVERAGE_PROJECTION]
     public static Fin<Node.Coverage> ToCoverage(
@@ -355,7 +355,7 @@ public static class GeoRaster {
             Units:       band.GetUnitType() ?? "",
             Offset:      offset,
             Scale:       scale,
-            Range:       Statistics(band),
+            Range:       Statistics(band, key),
             Histogram:   Histogram(band),
             Mask:        MaskSource.Of(band.GetMaskFlags()),
             Palette:     PaletteOf(band));

@@ -165,16 +165,16 @@ public static partial class Arrangement {
             (true, _) => Fin.Fail<ArrangementResult>(new GeometryFault.CellComplexScaleExceeded(gate.Faces, policy.ScaleCeiling)),
             (false, BooleanOp op) => operands.Tail
                 .FoldM((Solid: gate.First, Census: new BooleanCensus(0L, 0L, 0L)),
-                    (state, next) => Arrange(state.Solid, next, policy)
-                        .Bind(store => KeepAndWeld(store, state.Solid.Tolerance, policy))
+                    (state, next) => Arrange(state.Solid, next, policy, key)
+                        .Bind(store => KeepAndWeld(store, op, state.Solid.Tolerance, policy, key))
                         .Map(step => (Solid: step.Solid, Census: new BooleanCensus(
                             Classified: state.Census.Classified + step.Census.Classified,
                             Kept: state.Census.Kept + step.Census.Kept,
                             Welded: state.Census.Welded + step.Census.Welded))))
                 .As()
-                .Bind(final => Severed(final.Solid, policy).Map(shells =>
+                .Bind(final => Severed(final.Solid, policy, key).Map(shells =>
                     (ArrangementResult)new ArrangementResult.Boolean(shells, final.Census))),
-            (false, _) => Arrange(gate.First, gate.Second, policy).Map(store =>
+            (false, _) => Arrange(gate.First, gate.Second, policy, key).Map(store =>
                 (ArrangementResult)new ArrangementResult.Complex(
                     new([.. store.patches.AsSpan(0, store.count)]), new([.. store.fromA.AsSpan(0, store.count)]),
                     new([.. store.insideA.AsSpan(0, store.count)]), new([.. store.insideB.AsSpan(0, store.count)]),
@@ -220,7 +220,7 @@ public static partial class Arrangement {
         int shells = graph.ConnectedComponents(label);
         List<int>[] buckets = [.. Enumerable.Range(0, shells).Select(static _ => new List<int>())];
         for (int f = 0; f < welded.FaceCount; f++) { (int a, _, _) = welded.Face(f); buckets[label[a]].Add(f); }
-        return toSeq(buckets).TraverseM(bucket => Shell(welded, bucket, solid.Tolerance, policy)).As()
+        return toSeq(buckets).TraverseM(bucket => Shell(welded, bucket, solid.Tolerance, policy, key)).As()
             .Map(static shells => shells.Strict());
     }
 
@@ -250,9 +250,9 @@ public static partial class Arrangement {
             .Bind(result => result is IntersectResult.Chains chains
                 ? Fin.Succ(chains.Table)
                 : Fin.Fail<CrossTable>(new KernelFault.InvalidResult()))
-            .Bind(table => Subdivided(store, ea, table, fromA: true, eb, policy)
-                .Bind(_ => Subdivided(store, eb, table, fromA: false, ea, policy)))
-            .Bind(_ => Classify(store, ea, eb, a.Tolerance, policy));
+            .Bind(table => Subdivided(store, ea, table, fromA: true, eb, policy, key)
+                .Bind(_ => Subdivided(store, eb, table, fromA: false, ea, policy, key)))
+            .Bind(_ => Classify(store, ea, eb, a.Tolerance, policy, key));
     }
 
     static Fin<Unit> Subdivided(PatchStore store, MeshEdit soup, CrossTable table, bool fromA, MeshEdit other, ArrangementPolicy policy) {
@@ -270,7 +270,7 @@ public static partial class Arrangement {
                 store.Add((ca, cb, cc), fromA);
                 continue;
             }
-            Fin<Unit> built = FaceBuild(store, table, cuts, flush, fromA, (ca, cb, cc), f, soup, other, policy);
+            Fin<Unit> built = FaceBuild(store, table, cuts, flush, fromA, (ca, cb, cc), f, soup, other, policy, key);
             if (built.IsFail) { return built; }
         }
         return Fin.Succ(unit);
@@ -290,7 +290,7 @@ public static partial class Arrangement {
             rows.Add(crossing.Point);
             return slotOf[crossing.Key] = rows.Count - 1;
         }
-        return Axis.DominantOf(face.A, face.B, face.C).Bind(plane => {
+        return Axis.DominantOf(face.A, face.B, face.C, key).Bind(plane => {
             Vector3d lift = plane.Basis;
             List<Conform> conforms = new(cuts.Length + flush.Length);
             foreach ((int A, int B, int FaceA, int FaceB) cut in cuts) {
@@ -324,7 +324,7 @@ public static partial class Arrangement {
             Vector3d normal = Vector3d.CrossProduct(b - a, c - a);
             probes[p] = normal.IsTiny() ? centroid : centroid + (nudge * (normal / normal.Length));
         }
-        return (Field(probes, ea, policy), Field(probes, eb, policy)).Apply((wa, wb) => (wa, wb)).As()
+        return (Field(probes, ea, policy, key), Field(probes, eb, policy, key)).Apply((wa, wb) => (wa, wb)).As()
             .Map(t => {
                 for (int p = 0; p < store.Count; p++) {
                     store.insideA[p] = t.wa[p] > policy.WindingThreshold.Value;
@@ -342,8 +342,8 @@ public static partial class Arrangement {
             triangles[f] = (soup.Position(a), soup.Position(b), soup.Position(c));
             boxes[f] = soup.Bounds(f);
         }
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad)
-            .Bind(built => built.Query(probes, triangles, policy.BetaSquared));
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad, key)
+            .Bind(built => built.Query(probes, triangles, policy.BetaSquared, key));
     }
 
     // --- [KEEP_AND_WELD]
@@ -368,7 +368,7 @@ public static partial class Arrangement {
         using MeshEdit edit = MeshEdit.Of([.. vertices], [.. faces], context, policy.Arena);
         int before = edit.VertexCount;
         edit.Weld();
-        return edit.ToSpace().Map(solid =>
+        return edit.ToSpace(key).Map(solid =>
             (solid, new BooleanCensus(store.Count, kept, before - edit.VertexCount)));
     }
 
@@ -520,7 +520,7 @@ public static partial class Arrangement {
                 int status = manifold_status(observed);
                 policy.Progress.Iter(sink => sink.Report(manifold_execution_context_progress(host)));
                 return status switch {
-                    0 => Shells(observed, context, policy)
+                    0 => Shells(observed, context, policy, key)
                             .Map(shells => {
                                 BooleanCensus.ManifoldEvidence evidence = Evidence(observed, seated);
                                 return (ArrangementResult)new ArrangementResult.Boolean(shells, new BooleanCensus(
@@ -563,7 +563,7 @@ public static partial class Arrangement {
             nint vec = manifold_manifold_vec(manifold_alloc_manifold_vec(), (nuint)raised.Length);
             try {
                 for (int i = 0; i < raised.Length; i++) { manifold_manifold_vec_set(vec, (nuint)i, raised[i]); }
-                return manifold_batch_boolean(manifold_alloc_manifold(), vec);
+                return manifold_batch_boolean(manifold_alloc_manifold(), vec, op);
             }
             finally { manifold_delete_manifold_vec(vec); }
         }
@@ -572,7 +572,7 @@ public static partial class Arrangement {
             nint vec = manifold_decompose(manifold_alloc_manifold_vec(), result);
             try {
                 int count = (int)manifold_manifold_vec_length(vec);
-                return toSeq(Enumerable.Range(0, count)).TraverseM(at => Lower(vec, at, context, policy)).As()
+                return toSeq(Enumerable.Range(0, count)).TraverseM(at => Lower(vec, at, context, policy, key)).As()
                     .Map(static solids => solids.Strict());
             }
             finally { manifold_delete_manifold_vec(vec); }

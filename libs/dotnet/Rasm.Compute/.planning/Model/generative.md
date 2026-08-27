@@ -247,9 +247,9 @@ public sealed record RuntimeOption {
     public string Value { get; }
 
     public static Fin<RuntimeOption> Admit(string key, string value) =>
-        string.IsNullOrWhiteSpace() || string.IsNullOrWhiteSpace(value) || Banned.Contains()
+        string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value) || Banned.Contains(key)
             ? GenerativeRefusal.RuntimeOption.Fault<RuntimeOption>()
-            : Fin.Succ(new RuntimeOption(value));
+            : Fin.Succ(new RuntimeOption(key, value));
 }
 
 public sealed class ModelData {

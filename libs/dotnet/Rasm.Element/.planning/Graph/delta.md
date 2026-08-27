@@ -157,13 +157,13 @@ public sealed record GraphDelta(
  public Validation<Error, Unit> NormalForm() {
   NodePartition folded = Coalesced(Claims);
   return Accumulate(Seq(
-   Gate(folded.Added.Count == AddedNodes.Count, "<delta-denormal:added-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(folded.Removed.Count == RemovedNodes.Count, "<delta-denormal:removed-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(folded.Revised.Count == RevisedNodes.Count, "<delta-denormal:revised-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(RevisedNodes.ForAll(static revision => revision.Before.Id == revision.After.Id), "<delta-denormal:revision-id-mismatch>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(AddedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == AddedEdges.Count, "<delta-denormal:duplicate-added-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(RemovedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == RemovedEdges.Count, "<delta-denormal:duplicate-removed-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(AddedEdges.ForAll(edge => !RemovedEdges.Contains(edge) || RemovedNodes.Exists(edge.Touches)), "<delta-denormal:unentangled-edge-pair>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
+   Gate(folded.Added.Count == AddedNodes.Count, key, "<delta-denormal:added-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(folded.Removed.Count == RemovedNodes.Count, key, "<delta-denormal:removed-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(folded.Revised.Count == RevisedNodes.Count, key, "<delta-denormal:revised-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(RevisedNodes.ForAll(static revision => revision.Before.Id == revision.After.Id), key, "<delta-denormal:revision-id-mismatch>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(AddedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == AddedEdges.Count, key, "<delta-denormal:duplicate-added-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(RemovedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == RemovedEdges.Count, key, "<delta-denormal:duplicate-removed-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(AddedEdges.ForAll(edge => !RemovedEdges.Contains(edge) || RemovedNodes.Exists(edge.Touches)), key, "<delta-denormal:unentangled-edge-pair>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
  }
 
  public int NodeCount => AddedNodes.Count + RevisedNodes.Count + RemovedNodes.Count;
@@ -280,13 +280,13 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
   (NodeId relating, NodeId related) = edge.Endpoints;
   return edge.Members.Find(member => !nodes.ContainsKey(member)).Match(
    Some: member => new ElementFault.NodeAbsent($"<link-member-absent:{member.ToValue()}>"),
-   None: () => LegalPresent(edge, relating, related, nodes));
+   None: () => LegalPresent(edge, relating, related, nodes, key));
  }
 
  static Fin<Unit> LegalPresent(Relationship edge, NodeId relating, NodeId related, HashMap<NodeId, Node> nodes) =>
    relating == related && edge is not Relationship.Generic ? new ElementFault.RelationshipInvalid($"<link-self-loop:{relating.ToValue()}>")
    : edge.Switch<(Node Relating, Node Related, HashMap<NodeId, Node> Nodes), Fin<Unit>>(
-    (nodes[relating], nodes[related], nodes),
+    (nodes[relating], nodes[related], nodes, key),
     compose: static (s, _) => BothObjects(s.Relating, s.Related, s.Key, "<compose-endpoints-must-be-objects>"),
     assign: static (s, a) => LegalAssign(a, s.Relating, s.Related, s.Key),
     associate: static (s, _) => s.Relating is Node.Object && s.Related is (Node.Material or Node.Appearance or Node.Coverage) ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(s.Key, "<associate-resource-must-be-material-appearance-or-coverage>"),
@@ -295,14 +295,14 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     generic: static (s, _) => Fin.Succ(unit));
 
  static Fin<Unit> LegalConnect(Relationship.Connect c, Node from, Node to, HashMap<NodeId, Node> nodes) =>
-  BothObjects(from, to, "<connect-endpoints-must-be-objects>")
+  BothObjects(from, to, key, "<connect-endpoints-must-be-objects>")
    .Bind(_ => c.Realizing.Match(
      None: () => Fin.Succ(unit),
      Some: realizing => realizing == c.From || realizing == c.To
-      ? new ElementFault.RelationshipInvalid($"<connect-realizing-must-be-distinct:{realizing.ToValue()}>")
+      ? new ElementFault.RelationshipInvalid(key, $"<connect-realizing-must-be-distinct:{realizing.ToValue()}>")
       : nodes.Find(realizing)
-       .ToFin(new ElementFault.NodeAbsent($"<connect-realizing-absent:{realizing.ToValue()}>"))
-       .Bind(n => n is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid("<connect-realizing-must-be-object>"))));
+       .ToFin(new ElementFault.NodeAbsent(key, $"<connect-realizing-absent:{realizing.ToValue()}>"))
+       .Bind(n => n is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<connect-realizing-must-be-object>"))));
 
  static Fin<Unit> LegalAssign(Relationship.Assign a, Node subject, Node definition) =>
   subject is not Node.Object ? new ElementFault.RelationshipInvalid("<assign-subject-must-be-object>")

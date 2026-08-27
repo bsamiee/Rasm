@@ -251,7 +251,7 @@ public static class WireAdmission {
     }
 
     public static Fin<T> Admit<T>(T message, WireBoundary boundary) where T : IMessage =>
-        Validate(message).Bind(admission => admission.Match(
+        Validate(message, key).Bind(admission => admission.Match(
             Fail: violations => Fin.Fail<T>(new HopFault.Malformed(
                 boundary,
                 new WireViolation.Contract(message.Descriptor.FullName, violations))),
@@ -305,11 +305,11 @@ public static class WireJson {
 
     public static Fin<T> Read<T>(TextReader source) where T : IMessage<T>, new() =>
         Try.lift(() => Fin.Succ(Parser.Parse<T>(source))).Run().Bind(static inner => inner)
-            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
 
     public static Fin<T> Read<T>(Stream source) where T : IMessage<T>, new() {
         using StreamReader reader = new(source, Utf8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-        return Read<T>(reader);
+        return Read<T>(reader, key);
     }
 
     public static JsonElement Element(IMessage message) {
@@ -319,7 +319,7 @@ public static class WireJson {
 
     public static Fin<T> Read<T>(JsonElement payload) where T : IMessage<T>, new() =>
         Try.lift(() => Fin.Succ(Parser.Parse<T>(payload.GetRawText()))).Run().Bind(static inner => inner)
-            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
 }
 
 public static class HostWire {

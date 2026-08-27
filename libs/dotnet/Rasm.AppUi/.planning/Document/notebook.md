@@ -189,7 +189,7 @@ public sealed record Notebook {
 
     public static Fin<Notebook> Of(string key, Seq<NotebookCell> cells, HashMap<string, CellMetadata> metadata) =>
         toHashMap(cells.Map(static (cell, ordinal) => (cell.Id, (cell, ordinal)))) switch {
-            var at when at.Count == cells.Count => Fin.Succ(new Notebook(cells, at, metadata)),
+            var at when at.Count == cells.Count => Fin.Succ(new Notebook(key, cells, at, metadata)),
             _ => Fin.Fail<Notebook>(new KernelFault.InvalidValue("notebook cells", $"{key} contains duplicate cell identities")),
         };
 

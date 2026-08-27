@@ -113,22 +113,22 @@ public sealed partial class SemanticProjector {
     // --- [ENTRY]
 
     public Fin<ReadOnlyMemory<byte>> Emit(ElementGraph graph, IfcWireForm form, Option<EmitContext> context = default) =>
-        Egress(graph, form, context).Map(static run => run.Bytes);
+        Egress(graph, form, key, context).Map(static run => run.Bytes);
 
     public Fin<(ReadOnlyMemory<byte> Bytes, FidelityLog Fidelity)> Egress(
         ElementGraph graph, IfcWireForm form, Option<EmitContext> context = default) =>
-        form.Published(graph.Header.Schema)
-            .Bind(_ => ReleaseRaise(graph.Header.Schema))
+        form.Published(graph.Header.Schema, key)
+            .Bind(_ => ReleaseRaise(graph.Header.Schema, key))
             .Bind(release => {
                 EmitContext ctx = context.IfNone(EmitContext.Whole);
-                return Scoped(graph, ctx).Bind(model => {
+                return Scoped(graph, ctx, key).Bind(model => {
                     Seq<Node.Object> targets = model.Nodes.Values
                         .Choose(static node => node is Node.Object { Classification.System: "ifc" } obj ? Some(obj) : None)
                         .ToSeq();
                     BimFact.Egress admission = new(targets.Count);
                     return ctx.Hooks.Match(
-                        Some: hooks => hooks.Fire(BimPoint.Egress, admission, _ => Write(model, targets, form, release, ctx)),
-                        None: () => Write(model, targets, form, release, ctx));
+                        Some: hooks => hooks.Fire(BimPoint.Egress, admission, key, _ => Write(model, targets, form, release, ctx, key)),
+                        None: () => Write(model, targets, form, release, ctx, key));
                 });
             });
 
@@ -183,7 +183,7 @@ public sealed partial class SemanticProjector {
         DatabaseIfc target, Seq<Node.Object> targets, ElementGraph graph, PriorIndex prior) {
         Map<IfcChangeActionEnum, IfcOwnerHistory> histories = Histories(target);
         return targets
-            .Traverse(obj => (Author(target, obj, graph.Header.Schema, graph.Header.Tolerance, prior, histories)).ToValidation()
+            .Traverse(obj => (Author(target, obj, graph.Header.Schema, graph.Header.Tolerance, key, prior, histories)).ToValidation()
                 .Map(entity => (Id: obj.Id, Entity: entity)))
             .As()
             .Map(rows => rows.Fold(Map<NodeId, IfcObjectDefinition>(), static (map, row) => map.AddOrUpdate(row.Id, row.Entity)))
@@ -207,15 +207,15 @@ public sealed partial class SemanticProjector {
     static Fin<IfcObjectDefinition> Author(
         DatabaseIfc target, Node.Object obj, ReleaseVersion schema, double tolerance,
         PriorIndex prior, Map<IfcChangeActionEnum, IfcOwnerHistory> histories) =>
-        IfcClass.Resolve(obj.Classification.Code)
-            .Bind(cls => cls.AdmitPredefined(obj.PredefinedType.ToValue(), obj.ObjectType.IfNone(""), schema)
+        IfcClass.Resolve(obj.Classification.Code, key)
+            .Bind(cls => cls.AdmitPredefined(obj.PredefinedType.ToValue(), obj.ObjectType.IfNone(""), schema, key)
                 .Bind(token => {
                     var entity = (IfcObjectDefinition)(cls == IfcClass.Project
                         ? new IfcProject(target, obj.Name)
                         : target.Factory.Construct(cls.Key));
                     entity.GlobalId = obj.ExternalId.IfNone(() => ParserIfc.EncodeGuid(ContentGuid(obj, tolerance)));
                     entity.Name = obj.Name;
-                    return StampPredefined(entity, cls, token, obj.ObjectType).Map(_ => {
+                    return StampPredefined(entity, cls, token, obj.ObjectType, key).Map(_ => {
                         obj.History.IfSome(_ => entity.OwnerHistory = histories[ChangeOf(obj, prior)]);
                         return entity;
                     });
@@ -237,7 +237,7 @@ public sealed partial class SemanticProjector {
 
     static Fin<Unit> StampPredefined(IfcObjectDefinition entity, IfcClass cls, string token, Option<string> objectType) =>
         from labelled in Fin.Succ(Labelled(entity, token, objectType))
-        from stamped in Stamp(entity, cls, token)
+        from stamped in Stamp(entity, cls, token, key)
         select stamped;
 
     static Unit Labelled(IfcObjectDefinition entity, string token, Option<string> objectType) =>
@@ -282,11 +282,11 @@ public sealed partial class SemanticProjector {
             .Bind(token => DeclaredFamilies.TryGetValue(token, out IfcUnitAssignment.Length family) ? Some(family) : None)
             .IfSome(family => { target.Project.UnitsInContext = new IfcUnitAssignment(target, family); });
         UnitScheme scale = IfcUnits.SchemeOf(target);
-        return MeasureValue.OfSi(Dimension.LengthDim, graph.Header.Tolerance)
+        return MeasureValue.OfSi(Dimension.LengthDim, graph.Header.Tolerance, key)
             .Map(scale.Render)
             .Map(declared => {
                 target.Tolerance = declared.Value;
-                return new EmitFrame(target, graph, authored, scale, Partitioned(graph));
+                return new EmitFrame(target, graph, authored, scale, Partitioned(graph), key);
             });
     }
 

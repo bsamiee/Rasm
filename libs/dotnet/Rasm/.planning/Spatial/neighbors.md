@@ -432,7 +432,7 @@ internal static partial class NeighborKernel {
 
     internal static Fin<Seq<double>> Project(
         CurvatureAxis axis, VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy) =>
-        PrincipalCurvatures(cluster, policy).Map(r => r.Samples.Map(axis.Project));
+        PrincipalCurvatures(cluster, policy, key).Map(r => r.Samples.Map(axis.Project));
 
     private static Fin<NeighborhoodGraph> Batch(Point3d[] needles, Option<Dimension> count, Option<PositiveMagnitude> radius,
         int hayCount, Func<int, Point3d> hayAt, bool usesKdTree,

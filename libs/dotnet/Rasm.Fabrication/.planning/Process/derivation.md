@@ -613,7 +613,7 @@ public static class Derivation {
         Map<UInt128, Instant> predecessorCompletion) =>
         from completed in lot.Predecessors
             .TraverseM(key => predecessorCompletion.Find()
-                .ToFin(Reject(new DeriveWitness.PredecessorLotMissing(), DerivationStage.Operations)))
+                .ToFin(Reject(new DeriveWitness.PredecessorLotMissing(key), DerivationStage.Operations)))
             .As()
         let available = completed.Map(predecessor => predecessor + lot.TransferBuffer)
             .Fold(lot.Release, static (current, transferred) => transferred > current ? transferred : current)
@@ -1147,19 +1147,19 @@ internal sealed class FabricationElementProjection(Seq<(NodeId Element, Fabricat
 
     private static class Facts<TSource> {
         public static Fact<TSource> Integer(string key, Func<TSource, long> read) =>
-            new(row => new PropertyValue.Integer(read(row)));
+            new(key, row => new PropertyValue.Integer(read(row)));
 
         public static Fact<TSource> Number(string key, Func<TSource, double> read) =>
-            new(row => new PropertyValue.Number(read(row)));
+            new(key, row => new PropertyValue.Number(read(row)));
 
         public static Fact<TSource> Flag(string key, Func<TSource, bool> read) =>
-            new(row => new PropertyValue.Boolean(read(row)));
+            new(key, row => new PropertyValue.Boolean(read(row)));
 
         public static Fact<TSource> Token(string key, Func<TSource, string> read) =>
-            new(row => new PropertyValue.Text(read(row)));
+            new(key, row => new PropertyValue.Text(read(row)));
 
         public static Fact<TSource> Key(string key, Func<TSource, ContentKey> read) =>
-            new(row => {
+            new(key, row => {
                 ContentKey content = read(row);
                 return Complex("ContentKey", Seq(
                     ("Kind", (PropertyValue)new PropertyValue.Text(content.Kind.Key)),
@@ -1167,18 +1167,18 @@ internal sealed class FabricationElementProjection(Seq<(NodeId Element, Fabricat
             });
 
         public static Fact<TSource> Tokens(string key, Func<TSource, Seq<string>> read) =>
-            new(row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Text(value))));
+            new(key, row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Text(value))));
 
         public static Fact<TSource> Ordinals(string key, Func<TSource, Seq<int>> read) =>
-            new(row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Integer(value))));
+            new(key, row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Integer(value))));
 
         public static Fact<TSource> Rows<TRow>(
             string key, string usage, Seq<Fact<TRow>> columns, Func<TSource, Seq<TRow>> read) =>
-            new(row => new PropertyValue.List(
+            new(key, row => new PropertyValue.List(
                 read(row).Map(element => Complex(usage, Render(columns, element)))));
 
         public static Measure<TSource> Quantity(string key, Dimension dimension, Func<TSource, double> si) =>
-            new(dimension, si);
+            new(key, dimension, si);
     }
 
     private static Seq<(string Key, PropertyValue Value)> Render<TSource>(Seq<Fact<TSource>> table, TSource source) =>

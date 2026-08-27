@@ -213,7 +213,7 @@ public static class EvidenceOps {
     public static JsonElement Element(IMessage message) => WireJson.Element(message);
 
     public static Fin<T> Message<T>(JsonElement payload) where T : IMessage<T>, new() =>
-        WireJson.Read<T>(payload);
+        WireJson.Read<T>(payload, key);
 
     public static JsonSerializerOptions Wire {
         get => field ?? throw new InvalidOperationException("the app root seats Wire beside the SuiteContracts mint.");
@@ -251,19 +251,19 @@ public static partial class EvidenceMap {
     public static Fin<AppUiFact> Admit(Wire.EvidenceWire wire) => wire.KindCase switch {
         Wire.EvidenceWire.KindOneofCase.Surface => Fin.Succ<AppUiFact>(Surface(wire.Surface)),
         Wire.EvidenceWire.KindOneofCase.Focus => Fin.Succ<AppUiFact>(Focus(wire.Focus)),
-        Wire.EvidenceWire.KindOneofCase.Render => Render(wire.Render),
+        Wire.EvidenceWire.KindOneofCase.Render => Render(wire.Render, key),
         Wire.EvidenceWire.KindOneofCase.Disposal => Fin.Succ<AppUiFact>(Disposal(wire.Disposal)),
         Wire.EvidenceWire.KindOneofCase.Edit => Fin.Succ<AppUiFact>(Edit(wire.Edit)),
-        Wire.EvidenceWire.KindOneofCase.Command => DeckWire.Admit(wire.Command).Map(static AppUiFact (outcome) => new AppUiFact.Command(outcome)),
+        Wire.EvidenceWire.KindOneofCase.Command => DeckWire.Admit(wire.Command, key).Map(static AppUiFact (outcome) => new AppUiFact.Command(outcome)),
         Wire.EvidenceWire.KindOneofCase.NativeAsset => Fin.Succ<AppUiFact>(new AppUiFact.NativeAssetIdentity(NativeAsset(wire.NativeAsset))),
         Wire.EvidenceWire.KindOneofCase.Theme => Fin.Succ<AppUiFact>(Theme(wire.Theme)),
         Wire.EvidenceWire.KindOneofCase.Motion => Fin.Succ<AppUiFact>(Motion(wire.Motion)),
-        Wire.EvidenceWire.KindOneofCase.Effect => Effect(wire.Effect),
-        Wire.EvidenceWire.KindOneofCase.Asset => Asset(wire.Asset),
+        Wire.EvidenceWire.KindOneofCase.Effect => Effect(wire.Effect, key),
+        Wire.EvidenceWire.KindOneofCase.Asset => Asset(wire.Asset, key),
         Wire.EvidenceWire.KindOneofCase.LiveData => Fin.Succ<AppUiFact>(LiveData(wire.LiveData)),
         Wire.EvidenceWire.KindOneofCase.CollabSync => Fin.Succ<AppUiFact>(CollabSync(wire.CollabSync)),
-        Wire.EvidenceWire.KindOneofCase.CollabRevert => CollabRevert(wire.CollabRevert),
-        Wire.EvidenceWire.KindOneofCase.Media => Media(wire.Media),
+        Wire.EvidenceWire.KindOneofCase.CollabRevert => CollabRevert(wire.CollabRevert, key),
+        Wire.EvidenceWire.KindOneofCase.Media => Media(wire.Media, key),
         Wire.EvidenceWire.KindOneofCase.Quality => Fin.Succ<AppUiFact>(Quality(wire.Quality)),
         Wire.EvidenceWire.KindOneofCase.GpuFrame => Fin.Succ<AppUiFact>(GpuFrame(wire.GpuFrame)),
         Wire.EvidenceWire.KindOneofCase.Layout => Fin.Succ<AppUiFact>(Layout(wire.Layout)),
@@ -281,7 +281,7 @@ public static partial class EvidenceMap {
                 _ => Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Type.ToString(), Requirement: "EvidenceWire event data")),
             }
             : Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Source.ToString(), Requirement: $"the {AppUiPoint.Domain} domain")))
-        .Bind(wire => Admit(wire));
+        .Bind(wire => Admit(wire, key));
 
     public static Fin<AppUiFact> Decode(RasmEvent<Extensions> row) => Decode(row, DecodeOp);
 
@@ -383,9 +383,9 @@ public static partial class EvidenceMap {
     private static partial AppUiFact.Focus Focus(Wire.EvidenceWire.Types.Focus wire);
 
     private static Fin<AppUiFact> Render(Wire.EvidenceWire.Types.Render wire) =>
-        (ContentHash.Admit(wire.FrameHash.Span).ToValidation(),
-         Presence(wire.HasDrawHash, wire.DrawHash).Traverse(hash => ContentHash.Admit(hash.Span).ToValidation()).As(),
-         Optional(wire.Pixels).Traverse(pixels => Pixels(pixels).ToValidation()).As())
+        (ContentHash.Admit(wire.FrameHash.Span, key).ToValidation(),
+         Presence(wire.HasDrawHash, wire.DrawHash).Traverse(hash => ContentHash.Admit(hash.Span, key).ToValidation()).As(),
+         Optional(wire.Pixels).Traverse(pixels => Pixels(pixels, key).ToValidation()).As())
             .Apply((frame, draw, pixels) => (AppUiFact)new AppUiFact.Render(
                 wire.Slot, wire.Format, frame, draw, pixels, wire.Bytes, wire.Elapsed.ToNodaDuration(), wire.ColorSpace,
                 Presence(wire.HasDestination, wire.Destination)))
@@ -398,7 +398,7 @@ public static partial class EvidenceMap {
     private static partial AppUiFact.Theme Theme(Wire.EvidenceWire.Types.Theme wire);
     private static partial AppUiFact.Motion Motion(Wire.EvidenceWire.Types.Motion wire);
     private static Fin<AppUiFact> Effect(Wire.EvidenceWire.Types.Effect wire) =>
-        Measure(wire).Map(measure => (AppUiFact)new AppUiFact.Effect(
+        Measure(wire, key).Map(measure => (AppUiFact)new AppUiFact.Effect(
             wire.Plane, wire.Key, wire.Outcome, wire.Flag, wire.Count, measure));
 
     private static Fin<EffectMeasure> Measure(Wire.EvidenceWire.Types.Effect wire) =>
@@ -406,7 +406,7 @@ public static partial class EvidenceMap {
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Whole =>
                 Fin.Succ<EffectMeasure>(new EffectMeasure.Whole(wire.Whole)),
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Digest =>
-                ContentHash.Admit(wire.Digest.Span)
+                ContentHash.Admit(wire.Digest.Span, key)
                     .Map(static EffectMeasure (digest) => new EffectMeasure.Digest(digest)),
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Extent =>
                 Fin.Succ<EffectMeasure>(new EffectMeasure.Extent(wire.Extent.Rows, wire.Extent.Columns)),
@@ -419,14 +419,14 @@ public static partial class EvidenceMap {
         };
 
     private static Fin<AppUiFact> Asset(Wire.EvidenceWire.Types.Asset wire) =>
-        ContentHash.Admit(wire.ContentHash.Span)
+        ContentHash.Admit(wire.ContentHash.Span, key)
             .Map(static AppUiFact (hash) => new AppUiFact.Asset(wire.Key, wire.AssetKind, wire.Origin, wire.Scale, hash));
 
     private static partial AppUiFact.LiveData LiveData(Wire.EvidenceWire.Types.LiveData wire);
     private static partial AppUiFact.CollabSync CollabSync(Wire.EvidenceWire.Types.CollabSync wire);
 
     private static Fin<AppUiFact> CollabRevert(Wire.EvidenceWire.Types.CollabRevert wire) =>
-        ContentHash.Admit(wire.FrontierDigest.Span)
+        ContentHash.Admit(wire.FrontierDigest.Span, key)
             .Map(static AppUiFact (digest) => new AppUiFact.CollabRevert(wire.DocKey, digest, wire.InverseOps));
 
     private static Fin<AppUiFact> Media(Wire.EvidenceWire.Types.Media wire) =>
@@ -449,8 +449,8 @@ public static partial class EvidenceMap {
             ? Fin.Fail<PixelIdentity>(new KernelFault.InvalidInput(Axis: Some($"pixel layout {wire.Layout}")))
             : wire.Width > int.MaxValue || wire.Height > int.MaxValue
                 ? Fin.Fail<PixelIdentity>(new KernelFault.InvalidInput(Axis: Some($"canonical pixel extent {wire.Width}x{wire.Height}")))
-                : ContentHash.Admit(wire.Hash.Span)
-                    .Bind(hash => PixelIdentity.Admit((int)wire.Width, (int)wire.Height, hash));
+                : ContentHash.Admit(wire.Hash.Span, key)
+                    .Bind(hash => PixelIdentity.Admit((int)wire.Width, (int)wire.Height, hash, key));
 
     // --- [CONVERTERS]
     [UserMapping] private static WkDuration Lapse(Duration span) => span.ToProtobufDuration();

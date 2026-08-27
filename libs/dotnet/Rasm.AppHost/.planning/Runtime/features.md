@@ -93,7 +93,7 @@ public sealed class FlagRegistry {
     public FlagRegistry(IEnumerable<FlagDefinition> flags) =>
         byKey = flags.ToFrozenDictionary(static f => f.Key);
     public Option<FlagDefinition> Resolve(FlagKey key) =>
-        byKey.TryGetValue(out var flag) ? Optional(flag) : None;
+        byKey.TryGetValue(key, out var flag) ? Optional(flag) : None;
     public Iterable<FlagDefinition> All => byKey.Values.AsIterable();
 }
 
@@ -232,12 +232,12 @@ public static class Features {
 
     public static IO<FlagVerdict> Evaluate(IFeatureClient client, FlagKey key, FlagSubject subject) =>
         IO.liftAsync(async () => await client.GetObjectDetailsAsync((string)key, new Value(), Context(subject)))
-            .Map(detail => Projected(detail));
+            .Map(detail => Projected(key, detail));
 
     static FlagVerdict Projected(FlagKey key, FlagEvaluationDetails<Value> detail) =>
         detail.ErrorType is ErrorType.ProviderNotReady
             ? FlagVerdict.Inert with { Key = key }
-            : Seated(detail, FlagReason.From(detail.Reason));
+            : Seated(key, detail, FlagReason.From(detail.Reason));
 
     static FlagVerdict Seated(FlagKey key, FlagEvaluationDetails<Value> detail, FlagReason reason) =>
         new(detail.Variant is { } named ? Variant.Create(named) : Variant.Absent,
@@ -274,7 +274,7 @@ public sealed class SpineHook(FeaturesRuntime runtime) : Hook {
         HookContext<T> context, FlagEvaluationDetails<T> details,
         IReadOnlyDictionary<string, object>? hints = null, CancellationToken cancellationToken = default) {
         FlagKey key = FlagKey.Create(details.FlagKey);
-        ignore(runtime.Expose(context.EvaluationContext,
+        ignore(runtime.Expose(key, context.EvaluationContext,
             TrackingEventDetails.Builder()
                 .Set("variant", details.Variant ?? Variant.Absent.Value)
                 .Set("reason", FlagReason.From(details.Reason).Key)

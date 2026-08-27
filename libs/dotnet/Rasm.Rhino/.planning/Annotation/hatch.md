@@ -487,7 +487,7 @@ public abstract partial record HatchProgram {
             from original in Try.lift(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from revised in Try.lift(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                 .Rollback(release: () => Custody.Dispose(held: Seq(original)))
-            from _ in change(revised)
+            from _ in change(revised, op)
                 .Rollback(release: () => Custody.Dispose(held: Seq(original, revised)))
             select new HatchRevision(Id: id, Original: original, Revised: revised);
 }

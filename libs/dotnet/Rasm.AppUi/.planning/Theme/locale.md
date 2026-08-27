@@ -230,7 +230,7 @@ public readonly record struct MessageVariant(Option<string> Context, MessageLeng
     public Seq<string> Keys(string key) =>
         Context.Match(
             Some: context => Length.Widening.Map(length => Suffixed($"{key}.{context}", length)) + Length.Widening.Map(length => Suffixed(length)),
-            None: () => Length.Widening.Map(length => Suffixed(length)));
+            None: () => Length.Widening.Map(length => Suffixed(key, length)));
 
     static string Suffixed(string stem, MessageLength length) =>
         length.Suffix.Length is 0 ? stem : $"{stem}.{length.Suffix}";
@@ -262,13 +262,13 @@ public static class LocaleStrings {
     public static string Find(string key, CultureInfo strings) => Table.GetString(strings) ?? Marker();
 
     public static string Resolve(string key, MessageVariant variant, LocaleRow row, CultureInfo strings) =>
-        row.Pseudo.Proof(variant.Keys()
+        row.Pseudo.Proof(variant.Keys(key)
             .Choose(candidate => Optional(Table.GetString(candidate, strings)))
             .Head
-            .IfNone(() => Marker()));
+            .IfNone(() => Marker(key)));
 
     public static MessagePattern Pattern(string key, PluralRoute route, CultureInfo strings) =>
-        new(Source: Find(strings), Route: route);
+        new(Source: Find(key, strings), Route: route);
 
     static string Marker(string key) => $"[{MissingMarker}:{key}]";
 }
@@ -426,10 +426,10 @@ public sealed record ResolvedLocale(
     public string Label(string key, MessageVariant variant) => LocaleStrings.Resolve(variant, Row, Strings);
 
     public Fin<string> Message(string key, params (string Name, object? Value)[] args) =>
-        Format(() => LocaleStrings.Find(Strings), args);
+        Format(() => LocaleStrings.Find(key, Strings), args);
 
     public Fin<string> Plural(string key, long count, PluralRoute route) =>
-        LocaleStrings.Pattern(route, Strings).Admitted()
+        LocaleStrings.Pattern(key, route, Strings).Admitted(key)
             .Bind(pattern => Format(() => pattern.Source, ("count", count)));
 
     public string Text(CompositeFormat format, params object?[] args) => string.Format(Formats, format, args);

@@ -43,7 +43,7 @@ public sealed class TimerHold : IDisposable {
 
     internal TimerHold(UITimer timer, EventHandler<EventArgs> handler, FaultCell faults, HookId point) =>
         release = new Lazy<Unit>(() => UiThread.Run(
-                new UiDispatch<Unit>.Blocking(() => Release(timer, handler)), DispatchLane.Interactive)
+                new UiDispatch<Unit>.Blocking(() => Release(timer, handler, key)), DispatchLane.Interactive, key)
                 .IfFail(fault => ignore(faults.Park(point: point, cause: fault))),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -75,7 +75,7 @@ public static class EtoTimer {
                        }).Run().Bind(static inner => inner);
                        return opened.Rollback(
                            release: () => native is not null && handler is not null
-                               ? TimerHold.Release(native, handler)
+                               ? TimerHold.Release(native, handler, op)
                                : Fin.Succ(unit));
                    }), DispatchLane.Interactive)
                select (Lease<TimerHold>)new Lease<TimerHold>.Owned(

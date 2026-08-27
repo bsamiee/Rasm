@@ -252,10 +252,10 @@ public static class StructuralEdit
     {
         Edit.Bump b when op.Kind.Rank1Edit =>
             op.RankOne(b.Sign, b.Column)
-                ? Fin.Succ()
-                : Rebuild(edit),
+                ? Fin.Succ(op)
+                : Rebuild(op, edit),
         Edit.Revalue r => Fin.Succ(op with { Inner = Refactor(op.Permutation, r.Values) }),
-        Edit structural => Rebuild(structural),
+        Edit structural => Rebuild(op, structural),
     };
 }
 ```

@@ -82,7 +82,7 @@
 |  [19]   | `RuleConditionException` | condition fault    | `: RuleException`; a condition rule was violated                                   |
 
 - `Rule` fields: `Name` `Doc` `Kind` `Mode` `Type` `Expr` `Tags` `Params` `OnSuccess` `OnFailure` `Disabled`.
-- `RuleContext` props: `Source` `Target` `Subject` `Topic` `Headers` `IsKey` `RuleMode` `Rule` `Rules` `Index` `FieldTransformer` `CustomData`; walks the nested `FieldContext` (`FullName`/`Name`/`Type`/`Tags` + `IsPrimitive()`) via `CurrentField()`/`EnterField(...)`/`GetParameter()`/`GetTags(fullName)`.
+- `RuleContext` props: `Source` `Target` `Subject` `Topic` `Headers` `IsKey` `RuleMode` `Rule` `Rules` `Index` `FieldTransformer` `CustomData`; walks the nested `FieldContext` (`FullName`/`Name`/`Type`/`Tags` + `IsPrimitive()`) via `CurrentField()`/`EnterField(...)`/`GetParameter(key)`/`GetTags(fullName)`.
 - `RuleRegistry` members: static `RegisterRuleExecutor`/`RegisterRuleAction`/`RegisterRuleOverride`, instance `RegisterExecutor`/`RegisterAction`/`RegisterOverride`, `Get*`/`TryGet*`, and the `GlobalInstance` singleton.
 
 [PUBLIC_TYPE_SCOPE]: authentication and error family

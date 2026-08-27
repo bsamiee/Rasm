@@ -354,7 +354,7 @@ public sealed partial class CuttingRow {
 
     public static Fin<CuttingRow> Admit(CuttingKey key, Pressure kc11, double mc, CutRegime regime,
         KienzleCorrection correction, double feedForceRatio, double passiveForceRatio, CuttingEvidence evidence) =>
-        Validate(kc11, mc, regime, correction, feedForceRatio, passiveForceRatio, evidence,
+        Validate(key, kc11, mc, regime, correction, feedForceRatio, passiveForceRatio, evidence,
             out CuttingRow row).Admitted(row);
 }
 

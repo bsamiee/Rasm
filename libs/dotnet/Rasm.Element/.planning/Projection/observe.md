@@ -156,14 +156,14 @@ public static class ElementHooks {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementTap {
  public static Fin<(ElementGraph Graph, GraphDelta Delta)> Admitted(ElementHooks hooks, GraphDelta delta, ElementGraph seed) =>
-  hooks.Fire(ElementPoint.DeltaApplied, ElementFact.Of(delta, seed.Header), fact => Marked(fact, () => delta.AdmitOnto(seed)))
-   .Bind(step => hooks.Fire(ElementPoint.Frozen, ElementFact.Of(step.Graph), fact => Marked(fact, () => Fin.Succ(step))));
+  hooks.Fire(ElementPoint.DeltaApplied, ElementFact.Of(key, delta, seed.Header), key, fact => Marked(fact, () => delta.AdmitOnto(seed, key)))
+   .Bind(step => hooks.Fire(ElementPoint.Frozen, ElementFact.Of(key, step.Graph), key, fact => Marked(fact, () => Fin.Succ(step))));
 
  public static Fin<Element> Baked(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph, NodeId root) =>
-  Timed(hooks, line, ElementPoint.Baked, () => graph.Bake(root), (_, elapsed) => ElementFact.Of(root, elapsed));
+  Timed(hooks, line, ElementPoint.Baked, key, () => graph.Bake(root, key), (_, elapsed) => ElementFact.Of(key, root, elapsed));
 
  public static Fin<ModelAudit> Audited(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph) =>
-  Timed(hooks, line, ElementPoint.Audited, () => ModelAudit.Of(graph), (audit, elapsed) => ElementFact.Of(audit, elapsed));
+  Timed(hooks, line, ElementPoint.Audited, key, () => ModelAudit.Of(graph, key), (audit, elapsed) => ElementFact.Of(key, audit, elapsed));
 
  public static Fin<AssembledModel> Assembled(ElementHooks hooks, MonotonicTimeline line, ProjectionSuite suite, ElementGraph seed, ProjectionContext ctx) =>
   Timed(hooks, line, ElementPoint.Assembled, ctx.Key, () => ProjectionAssembly.Assemble(suite, seed, ctx),
@@ -178,8 +178,8 @@ public static class ElementTap {
   Error.New(key.Message).Bind(start =>
    body().Bind(value =>
     Error.New(key.Message).Bind(end =>
-     line.Elapsed(start, end).Bind(elapsed =>
-      hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), admitted => Marked(admitted, () => Fin.Succ(value)))
+     line.Elapsed(start, end, key).Bind(elapsed =>
+      hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), key, admitted => Marked(admitted, () => Fin.Succ(value)))
        .Bind(landed => fan is null ? Fin.Succ(landed) : fan(landed))))));
 
  static Fin<T> Marked<T>(ElementFact fact, Func<Fin<T>> body) {
@@ -192,7 +192,7 @@ public static class ElementTap {
    from id in FactoryBridge.Accept<EventId>(Guid.CreateVersion7().ToString("N"))
    from envelope in RasmEventEnvelope.Publish(
     new RasmEventMint<Extensions>(fact.Point.Type, fact.Point.Source, id, fact.Subject, clock.Wall, None, None, null, new Extensions()),
-    contract, clock)
+    contract, clock, key)
    from _ in binding(envelope)
    select unit,
    Scope: Some(ElementPoint.Durable));
@@ -295,7 +295,7 @@ public sealed partial class ElementInstrument {
   new(Scope: TelemetrySource.Element, Version: version, Instruments: Rows, Planes: ElementPoint.Scopes);
 
  static partial void ValidateConstructorArguments(ref string key, ref InstrumentSpec row) {
-  if (!string.Equals(row.Name, StringComparison.Ordinal)) {
+  if (!string.Equals(key, row.Name, StringComparison.Ordinal)) {
    throw new ArgumentException($"<element-instrument:{key}>", nameof(row));
   }
  }
@@ -306,7 +306,7 @@ public static class GraphInstrument {
  public static ElementObserver Tap(InstrumentSet set) => new(fact => Project(set, fact));
 
  public static Fin<IDisposable> Depth(InstrumentSet set, ElementHooks hooks) =>
-  set.Bind(ElementInstrument.TapFaults.Row, () => (double)hooks.Faults.Parked.Count, InstrumentSet.Tags(TenantContext.Current));
+  set.Bind(ElementInstrument.TapFaults.Row, () => (double)hooks.Faults.Parked.Count, key, InstrumentSet.Tags(TenantContext.Current));
 
  static Fin<Unit> Project(InstrumentSet set, ElementFact fact) =>
   fact.Switch<(InstrumentSet Rows, TenantContext Tenant), Fin<Unit>>(

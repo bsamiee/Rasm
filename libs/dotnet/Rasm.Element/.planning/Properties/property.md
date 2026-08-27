@@ -14,7 +14,7 @@
 
 - Owner: `PropertyValue` the `[Union]` typed IFC-value family; `PropertyName` the `[ValueObject<string>]` property key; `Interpolation` the table-curve rule; `TemporalValue` the NodaTime temporal leaf family; the closed fourteen-case value vocabulary a property carries.
 - Cases: `Text` (verbatim string) · `Measure` (SI-coerced `MeasureValue`) · `Boolean` (strict two-valued) · `Logical` (three-valued) · `Integer` (unbounded signed integer) · `Number` (finite IEEE-754 real) · `Binary` (byte-exact payload) · `Enumerated` (selected and allowed typed scalar members) · `Reference` (target and optional usage) · `Bounded` (lower/upper/setpoint measures) · `List` (ordered recursive values) · `Table` (defining→defined rows and interpolation) · `Complex` (named sub-properties) · `Temporal` (`Date`/`Moment`/`Time`/`Span`/`Stamp`). `PropertyValue` preserves the full `IfcValue` scalar family and the structured property forms without stringification.
-- Entry: `PropertyValue.Of(value)` is the fallible admission a raw author crosses — returning `KernelFault.OutOfRange` for a non-finite `Number` and `ElementFault.ValueRejected` for an empty/cross-type/inverted `Bounded`, a non-subset or composite-membered `Enumerated`, an empty `Table`, or an empty `Complex`, and recursively re-admitting nested values. `Integer` carries unbounded `BigInteger`, `Number` carries finite IEEE-754, and `Binary` carries byte-exact `Seq<byte>`; none collapse to `Text`.
+- Entry: `PropertyValue.Of(value, key)` is the fallible admission a raw author crosses — returning `KernelFault.OutOfRange` for a non-finite `Number` and `ElementFault.ValueRejected` for an empty/cross-type/inverted `Bounded`, a non-subset or composite-membered `Enumerated`, an empty `Table`, or an empty `Complex`, and recursively re-admitting nested values. `Integer` carries unbounded `BigInteger`, `Number` carries finite IEEE-754, and `Binary` carries byte-exact `Seq<byte>`; none collapse to `Text`.
 - Auto: `Render` dispatches the generated total `Switch` — `Text` verbatim, `Measure` the SI magnitude and canonical unit, `Boolean`/`Logical` `TRUE`/`FALSE`(/`UNKNOWN`), `Enumerated` the recursive selected-member join, `Reference` the target id, `Bounded` the `[lower, upper, setpoint]` interval, `List`/`Table` the recursive join, `Complex` the `usage{name=value;…}` named-bag join, `Temporal` the ISO-8601 token — one projection, never a per-case consumer branch; `CanonicalBytes` writes the case ordinal then the payload (a `Measure` quantized to tolerance, the `Logical` a presence bit and the bool, an `Enumerated` member through its own typed `CanonicalBytes` so two members sharing one text spelling under different types hash apart, a `Temporal` its arm ordinal and ISO token, every collection count-prefixed so the encoding is injective, the `Complex` sub-properties name-sorted `Ordinal`) so the content key is byte-stable across runtimes.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` + the generated total `Switch` the `Of`/`Render`/`CanonicalBytes`/`Remap` folds dispatch, `[ValueObject<string>]`/`[SmartEnum<string>]`/`ComparerAccessors`), LanguageExt.Core (`Seq`/`Option`/`Fin`/`Map` + the `Seq.Choose`/`Seq.TraverseM`/`Map.Fold`/`Option.Match` combinators the `Of` admission composes), `Projection/fault#FAULT_BAND` (`ElementFault.ValueRejected`).
 - Growth: a new IFC value kind is one `PropertyValue` arm carrying its payload; a new table-curve rule is one `Interpolation` row; a recursive composite rides the existing `List`/`Table`/`Complex` arms; never a per-Pset value type, never a stringly-typed value field, and a raw `string` property key crossing a bag is the named defect.
@@ -114,24 +114,24 @@ public abstract partial record PropertyValue {
   enumerated: p =>
    from allowed in p.Allowed.IsEmpty
     ? new ElementFault.ValueRejected("<enumerated-allowed-empty>")
-    : p.Allowed.TraverseM(v => AdmitScalar(v, "<enumerated-member-not-scalar>")).As()
-   from selected in p.Selected.TraverseM(v => AdmitScalar(v, "<enumerated-member-not-scalar>")).As()
+    : p.Allowed.TraverseM(v => AdmitScalar(v, key, "<enumerated-member-not-scalar>")).As()
+   from selected in p.Selected.TraverseM(v => AdmitScalar(v, key, "<enumerated-member-not-scalar>")).As()
    from _ in selected.Exists(s => !allowed.Contains(s))
-    ? new ElementFault.ValueRejected("<enumerated-selected-not-allowed>")
+    ? new ElementFault.ValueRejected(key, "<enumerated-selected-not-allowed>")
     : Fin.Succ(unit)
    select (PropertyValue)new Enumerated(selected, allowed),
-  bounded: p => AdmitBounded(p),
-  list: p => p.Values.TraverseM(v => Of(v)).As().Map(static vs => (PropertyValue)new List(vs)),
+  bounded: p => AdmitBounded(p, key),
+  list: p => p.Values.TraverseM(v => Of(v, key)).As().Map(static vs => (PropertyValue)new List(vs)),
   table: p => p.Rows.IsEmpty
-   ? new ElementFault.ValueRejected("<table-rows-empty>")
+   ? new ElementFault.ValueRejected(key, "<table-rows-empty>")
    : p.Rows.TraverseM(r =>
-      from defining in AdmitScalar(r.Defining, "<table-defining-not-scalar>")
-      from defined in AdmitScalar(r.Defined, "<table-defined-not-scalar>")
+      from defining in AdmitScalar(r.Defining, key, "<table-defining-not-scalar>")
+      from defined in AdmitScalar(r.Defined, key, "<table-defined-not-scalar>")
       select (Defining: defining, Defined: defined))
      .As().Map(rows => (PropertyValue)new Table(rows, p.Interp)),
   complex: p => p.Properties.IsEmpty
-   ? new ElementFault.ValueRejected("<complex-properties-empty>")
-   : p.Properties.Fold(Fin.Succ(Map<PropertyName, PropertyValue>()), (acc, k, v) => acc.Bind(m => Of(v).Map(x => m.AddOrUpdate(k, x)))).Map(m => (PropertyValue)new Complex(p.UsageName, m)));
+   ? new ElementFault.ValueRejected(key, "<complex-properties-empty>")
+   : p.Properties.Fold(Fin.Succ(Map<PropertyName, PropertyValue>()), (acc, k, v) => acc.Bind(m => Of(v, key).Map(x => m.AddOrUpdate(k, x)))).Map(m => (PropertyValue)new Complex(p.UsageName, m)));
 
  public string Render() => Switch(
   text: static p => p.Value,
@@ -216,9 +216,9 @@ public abstract partial record PropertyValue {
  private static Fin<PropertyValue> AdmitBounded(Bounded b) {
   Seq<MeasureValue> present = Seq(b.Lower, b.Upper, b.SetPoint).Choose(static o => o);
   return Accumulate(Seq(
-    Gate(!present.IsEmpty, "<bounded-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(present.Head.ForAll(head => present.ForAll(m => m.Type == head.Type)), "<bounded-cross-type>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(!Inverted(b.Lower, b.Upper), "<bounded-inverted>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Gate(!present.IsEmpty, key, "<bounded-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(present.Head.ForAll(head => present.ForAll(m => m.Type == head.Type)), key, "<bounded-cross-type>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(!Inverted(b.Lower, b.Upper), key, "<bounded-inverted>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .ToFin()
    .Map(_ => (PropertyValue)b);
  }
@@ -235,7 +235,7 @@ public abstract partial record PropertyValue {
   enumerated: false, reference: false, bounded: false, list: false, table: false, complex: false);
 
  private static Fin<PropertyValue> AdmitScalar(PropertyValue value, string detail) =>
-  value.IsScalar ? Of(value) : new ElementFault.ValueRejected(detail);
+  value.IsScalar ? Of(value, key) : new ElementFault.ValueRejected(key, detail);
 }
 ```
 

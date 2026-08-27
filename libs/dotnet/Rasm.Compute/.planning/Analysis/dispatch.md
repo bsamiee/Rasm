@@ -99,15 +99,15 @@ public static partial class Analysis {
         let key = ContentKey(graph, request)
         from nodeId in AssessmentNodeId(request.Route.Discipline, route, key.ToValue(), graph.Header.Tolerance)
         from assessed in (rerun == RerunPolicy.Force ? None : graph.Find<Node.Assessment>(nodeId)).Match(
-            Some: hit => Cached(graph, request, hit, geometry, sink, rerun, correlation, clock),
-            None: () => Fresh(graph, request, geometry, sink, correlation, clock, attempt: 0, AssessmentDisposition.Fresh))
+            Some: hit => Cached(graph, request, hit, key, geometry, sink, rerun, correlation, clock),
+            None: () => Fresh(graph, request, key, geometry, sink, correlation, clock, attempt: 0, AssessmentDisposition.Fresh))
         select assessed;
 
     static Fin<Assessed> Cached(ElementGraph graph, AssessmentRequest request, Node.Assessment hit, ContentAddress key, GeometrySource geometry, AssessmentSink sink, RerunPolicy rerun, CorrelationId correlation, IClock clock) {
         AssessmentPayload payload = hit.Payload;
         CapabilitySet<OutcomeCapability> held = payload.Outcome.Capabilities;
         Fin<Assessed> Recompute(int attempt, AssessmentDisposition how) =>
-            Fresh(graph, request, geometry, sink, correlation, clock, attempt, how);
+            Fresh(graph, request, key, geometry, sink, correlation, clock, attempt, how);
         Fin<Assessed> Served(AssessmentDisposition how) =>
             Fin.Succ(new Assessed(GraphDelta.Empty, payload, how));
 
@@ -130,11 +130,11 @@ public static partial class Analysis {
             .Map(static _ => AssessmentDisposition.Retry);
 
     static Fin<Assessed> Fresh(ElementGraph graph, AssessmentRequest request, ContentAddress key, GeometrySource geometry, AssessmentSink sink, CorrelationId correlation, IClock clock, int attempt, AssessmentDisposition disposition) {
-        return Run(graph, request, geometry, sink, clock)
-            .Bind(result => WriteBack(graph, request, result)
+        return Run(graph, request, geometry, sink, key, clock)
+            .Bind(result => WriteBack(graph, request, result, key)
                 .Map(written => new Assessed(written.Delta, written.Result, disposition)))
             .BindFail(error => error is ComputeFault.AnalysisFailed failed
-                ? FailedWriteBack(graph, request, failed, attempt, correlation, clock)
+                ? FailedWriteBack(graph, request, failed, key, attempt, correlation, clock)
                 : Fin.Fail<Assessed>(error));
     }
 
@@ -145,11 +145,11 @@ public static partial class Analysis {
             thermal:     r => BuildingPhysics.RunThermal(graph, r, clock),
             acoustic:    r => BuildingPhysics.RunAcoustic(graph, r, clock),
             fire:        r => BuildingPhysics.RunFire(graph, r, clock),
-            energy:      r => EnergySimulation.Run(graph, r, geometry, sink, clock),
+            energy:      r => EnergySimulation.Run(graph, r, geometry, sink, key, clock),
             carbon:      r => LifecycleAssessment.RunCarbon(graph, r, clock),
             cost:        r => LifecycleAssessment.RunCost(graph, r, clock),
             circulation: r => CirculationAnalysis.Run(graph, r, geometry, clock),
-            daylight:    r => DaylightAnalysis.Run(graph, r, geometry, sink, clock));
+            daylight:    r => DaylightAnalysis.Run(graph, r, geometry, sink, key, clock));
 
     static Fin<(GraphDelta Delta, AssessmentPayload Result)> WriteBack(ElementGraph graph, AssessmentRequest request, AssessmentResult result, ContentAddress key) =>
         from route in FactoryBridge.Accept<AnalysisRoute>(result.Route.Key)
@@ -271,7 +271,7 @@ public static partial class Analysis {
             from route in FactoryBridge.Accept<AnalysisRoute>(request.Route.Key)
             let key = ContentKey(graph, request)
             from nodeId in AssessmentNodeId(request.Route.Discipline, route, key.ToValue(), graph.Header.Tolerance)
-            select new Keyed(request, route, nodeId)).As();
+            select new Keyed(request, route, key, nodeId)).As();
 
         return keyed.Bind(entries => Reconcile(graph, entries, context))
             .Map(marks => Dispatch(graph, marks, context))
@@ -334,7 +334,7 @@ public static partial class Analysis {
             Seq<JobNode> nodes = toSeq(Admitted.Keys).Map(key => new JobNode(
                 $"{key:x32}", context.Intent, Seq<string>(), context.Tenant,
                 Speculative: false, Preemptible: true, FairShareWeight: 1, AcceleratorAffinity: None,
-                MemoryBudgetBytes: context.MemoryBudgetBytes, InputBytes: ContentBytes()));
+                MemoryBudgetBytes: context.MemoryBudgetBytes, InputBytes: ContentBytes(key)));
             return context.RunJobs(jobs, nodes, toSeq(Admitted.Values).Map(request =>
                     fun(() => Assess(graph, request, geometry, sink, RerunPolicy.Force, correlation, clock))))
                 .Map(dispatched => dispatched.Bind(runs =>

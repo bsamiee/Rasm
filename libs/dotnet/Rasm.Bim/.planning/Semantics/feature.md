@@ -127,7 +127,7 @@ public sealed record GeoFeature(
     public GeoFeature Mapped(AffineTransformation map) => this with { Geometry = map.Transform(Geometry) };
 
     public Fin<Option<ulong>> Cell(int resolution) =>
-        GeoServices.Wgs84.Bind(frame => Reproject(frame)).Map(wgs => {
+        GeoServices.Wgs84.Bind(frame => Reproject(frame, key)).Map(wgs => {
             H3Index cell = H3Index.FromPoint(wgs.Anchor, resolution);
             return cell.IsValidCell ? Some((ulong)cell) : Option<ulong>.None;
         });
@@ -189,7 +189,7 @@ public sealed record GeoFeature(
         corridors.Nearest(this).Match(
             Some: corridor => GeoModel.Along(corridor.Centreline, new LinearProbe.Locate(Anchor.Coordinate))
                 .Bind(answer => answer is LinearAnswer.At hit
-                    ? (MeasureValue.OfSi(Dimension.LengthDim, hit.Station), MeasureValue.OfSi(Dimension.LengthDim, hit.Offset))
+                    ? (MeasureValue.OfSi(Dimension.LengthDim, hit.Station, key), MeasureValue.OfSi(Dimension.LengthDim, hit.Offset, key))
                     .Apply((station, offset) => Seq(
                         (AlignmentRow, (PropertyValue)new PropertyValue.Text(corridor.Alignment)),
                         (StationRow, new PropertyValue.Measure(station)),
@@ -220,7 +220,7 @@ public sealed record GeoFeature(
     public Fin<GeoFeature> Reproject(GeoReference target) =>
         SourceFrame().Bind(source => {
             Geometry shifted = Geometry.Copy();
-            var walk = new OrdinateReproject(source, target);
+            var walk = new OrdinateReproject(source, target, key);
             shifted.Apply(walk);
             return walk.Verdict.Map(_ => {
                 shifted.SRID = target.Epsg.IfNone(0);
@@ -234,7 +234,7 @@ public sealed record GeoFeature(
     Fin<GeoReference> SourceFrame() =>
         SourceCrs.Match(
             Some: crs => GeoReference.Admit(0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, "", "",
-                crs.Name, crs.Wkt, crs.MapProjection, crs.MapZone),
+                crs.Name, crs.Wkt, crs.MapProjection, crs.MapZone, key),
             None: static () => Fin.Succ(GeoReference.Identity));
 
     sealed class OrdinateReproject(GeoReference source, GeoReference target) : IEntireCoordinateSequenceFilter {
@@ -246,7 +246,7 @@ public sealed record GeoFeature(
         public void Filter(CoordinateSequence seq) =>
             verdict = seq switch {
                 PackedDoubleCoordinateSequence packed =>
-                    GeoTransform.Reproject(source, target, packed.GetRawCoordinates().AsSpan(), stride: seq.Dimension),
+                    GeoTransform.Reproject(source, target, packed.GetRawCoordinates().AsSpan(), stride: seq.Dimension, key),
                 _ => Copied(seq),
             };
 
@@ -258,7 +258,7 @@ public sealed record GeoFeature(
                     ordinates[(i * stride) + ordinate] = seq.GetOrdinate(i, ordinate);
                 }
             }
-            return GeoTransform.Reproject(source, target, ordinates.AsSpan(), stride: stride).Map(_ => {
+            return GeoTransform.Reproject(source, target, ordinates.AsSpan(), stride: stride, key).Map(_ => {
                 for (int i = 0; i < seq.Count; i++) {
                     for (int ordinate = 0; ordinate < stride; ordinate++) {
                         seq.SetOrdinate(i, ordinate, ordinates[(i * stride) + ordinate]);
@@ -392,7 +392,7 @@ public static class GeoClassifier {
 - Owner: `GeoWire` the `GeoFeature`'s two canonical wire projections per `docs/stacks/csharp/domain/data-interchange#GEO_INTERCHANGE` — the GeoJSON text and the GeoPackage binary blob; `GeoWkb` the ONE bidirectional OGR↔NTS bridge every GDAL leg and the GeoParquet geo-column cross; `GeoGdal` the once-per-process `MaxRev.Gdal.Core` bootstrap AND the ONE acquire-use-release bracket every `/vsimem` leg in this folder runs inside; `GdalSink` the closed sink vocabulary a derive leg writes through.
 - Cases: `GdalSink` arms `Memory` (a `/vsimem` path the same process unlinks) and `Temp` (a real temp file the managed read-back recovers, because this GDAL SWIG build exposes only `VSIFWriteL(string, …)` and NO `byte[]` `VSIFReadL`).
 - Law: `GdalBase.ConfigureAll()` MUST run before any `OSGeo.*` call, and a second bootstrap owner is the deleted form — every GDAL-touching page composes `GeoGdal.Bootstrap`; the `IsConfigured` read stays INSIDE the lazy factory so a foreign caller that already configured the process is not re-configured.
-- Entry: `GeoGdal.Bootstrap()` seats the drivers, PROJ paths, and the thrown SWIG error model; `GeoGdal.Derive(bytes, sink, suffix, run, lane)` acquires the `/vsimem` source and the sink path, opens the dataset, hands `run` the open dataset and the sink path, and releases BOTH on every arm; `GeoWire.ToGeoJson`/`ToGpkgBlob`/`FromGpkgBlob` project the row; `GeoWkb.ToNts`/`FromNts`/`ToOgr` cross the bridge.
+- Entry: `GeoGdal.Bootstrap()` seats the drivers, PROJ paths, and the thrown SWIG error model; `GeoGdal.Derive(bytes, sink, suffix, run, lane, key)` acquires the `/vsimem` source and the sink path, opens the dataset, hands `run` the open dataset and the sink path, and releases BOTH on every arm; `GeoWire.ToGeoJson`/`ToGpkgBlob`/`FromGpkgBlob` project the row; `GeoWkb.ToNts`/`FromNts`/`ToOgr` cross the bridge.
 - Auto: `Derive` rides `IO.Bracket`, so release brackets the ACQUISITION rather than the outcome — the three hand `try`/`finally` pairs it replaces each spelled one acquire/release policy three times and each released only what its own body acquired.
 - Output: a derive leg returns its own `Fin`, the lane naming which derivation refused; the bracket adds no value of its own because a released resource is not evidence.
 - Packages: `NetTopologySuite`, `NetTopologySuite.IO.GeoJSON4STJ`, `NetTopologySuite.IO.GeoPackage`, `MaxRev.Gdal.Core`, `MaxRev.Gdal.MacosRuntime.Minimal.arm64`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`

@@ -775,7 +775,7 @@ public abstract partial record ViewportOp {
     public sealed record Replace(Seq<Guid> Ids) : ViewportOp;
 
     internal Fin<Seq<Guid>> Resolve(Seq<Guid> before) =>
-        from current in Admit(before)
+        from current in Admit(before, key)
         from desired in Switch(
             current,
             add: static (state, edit) => Admit(edit.Ids).Map(ids => Canonical(state + ids)),
@@ -816,7 +816,7 @@ public abstract partial record ClipOp {
 
     internal Fin<ClipTransition> Apply(GeometryBase geometry) =>
         geometry is ClippingPlaneSurface surface
-            ? from before in State(surface)
+            ? from before in State(surface, key)
               from _ in this.Switch(
                   (Surface: surface, Before: before),
                   read: static (_, _) => Fin.Succ(value: unit),
@@ -839,7 +839,7 @@ public abstract partial record ClipOp {
         Try.lift(() => {
             Seq<Guid> viewports = toSeq(surface.ViewportIds().Distinct().Order());
             Fin<ClipScope> scope = surface.ParticipationListsEnabled
-                ? ScopeOf(surface)
+                ? ScopeOf(surface, key)
                 : Fin.Succ<ClipScope>(value: new ClipScope.Everything());
             Fin<Option<double>> depth = surface.PlaneDepthEnabled
                 ? Admit.Positive(value: surface.PlaneDepth).Map(static value => Some(value))
@@ -893,7 +893,7 @@ public abstract partial record ClipOp {
 
     private static Fin<Unit> Viewported(ClippingPlaneSurface surface, Seq<Guid> before, ViewportOp operation) =>
         from request in Admit.Need(operation)
-        from desired in request.Resolve(before)
+        from desired in request.Resolve(before, key)
         from _ in before.Filter(id => !desired.Exists(candidate => candidate == id))
             .TraverseM(id => Admit.Confirm(success: surface.RemoveClipViewportId(viewportId: id))).As()
         from __ in desired.Filter(id => !before.Exists(candidate => candidate == id))

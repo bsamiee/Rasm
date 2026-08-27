@@ -432,7 +432,7 @@ public static class ProjectRows {
     }
 
     static Validation<Error, int> Keyed(string row, int? key, Option<string> detail) =>
-        Optional().ToValidation(
+        Optional(key).ToValidation(
             (Error)new ScheduleFault.RowUnkeyed(row, detail.IfNone("<unnamed>")));
 
     internal static Option<string> Text(string? value) =>

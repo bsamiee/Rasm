@@ -234,7 +234,7 @@ public sealed record TableColumnRow<TRow>(
                 ? None : Refused(row.Key, "a classified column carries no sort, measure, or edit"))));
 
     private static Option<Error> Refused(AggregateColumn key, string detail) =>
-        Some((Error)new EditFault.Invariant(detail));
+        Some((Error)new EditFault.Invariant(key, detail));
 }
 
 public sealed record TableChrome(
@@ -816,7 +816,7 @@ public static class PivotFold {
 
     private static TableColumnRow<PivotRow> Axis(
         AggregateColumn key, TableCellKind kind, Func<PivotRow, string> project) =>
-        new(kind,
+        new(key, key, kind,
             new TableColumnAccess<PivotRow>.Plain(None, project),
             DataGridLength.Auto,
             CapabilitySet<ColumnTrait>.Of(ColumnTrait.Sortable, ColumnTrait.AutoSized));
@@ -1138,7 +1138,7 @@ public static class CommitSurface {
                 .Bind(_ => spec.Columns
                     .Traverse(key => rows
                         .Find(row => row.Key == key && row.Visible && row.Access is TableColumnAccess<TRow>.Plain)
-                        .ToFin(new EditFault.Invariant("column is absent, hidden, or classified")))
+                        .ToFin(new EditFault.Invariant(key, "column is absent, hidden, or classified")))
                     .As());
 
         public Fin<ReadOnlyMemory<byte>> Encode(TableExportSpec spec, Seq<TRow> items, ResolvedLocale locale) =>

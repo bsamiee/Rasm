@@ -187,12 +187,12 @@ public sealed record EvidenceRun {
   Accumulate(Seq(
     Gate(!string.IsNullOrWhiteSpace(author), "evidence-run-author",
      static (label, op) => (Error)new KernelFault.InvalidValue(label, "not be blank")),
-    Gate(!string.IsNullOrWhiteSpace(tool), "evidence-run-tool",
+    Gate(!string.IsNullOrWhiteSpace(tool), "evidence-run-tool", key,
      static (label, op) => (Error)new KernelFault.InvalidValue(label, "not be blank")),
-    Gate(!string.IsNullOrWhiteSpace(version), "evidence-run-version",
+    Gate(!string.IsNullOrWhiteSpace(version), "evidence-run-version", key,
      static (label, op) => (Error)new KernelFault.InvalidValue(label, "not be blank")),
-    In(elapsed.TotalSeconds, Band.Nonnegative, "evidence-run-elapsed-seconds").Map(static _ => unit),
-    In(attempt, Band.Nonnegative, "evidence-run-attempt").Map(static _ => unit)))
+    In(elapsed.TotalSeconds, Band.Nonnegative, "evidence-run-elapsed-seconds", key).Map(static _ => unit),
+    In(attempt, Band.Nonnegative, "evidence-run-attempt", key).Map(static _ => unit)))
    .ToFin()
    .Map(_ => new EvidenceRun(author.Trim(), tool.Trim(), version.Trim(), at, elapsed, window, correlation, attempt));
 
@@ -264,11 +264,11 @@ public sealed partial record AssessmentPayload {
  public Fin<AssessmentPayload> Land(PayloadContent content, EvidenceRun provenance) =>
   Accumulate(Seq(
     Gate(Outcome.Capabilities.Admits(OutcomeCapability.InFlight), $"<assessment-land-not-in-flight:{content.Kind}:{Outcome.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(content is not PayloadContent.EmptyCase, $"<assessment-land-empty:{Outcome.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Gate(content is not PayloadContent.EmptyCase, key, $"<assessment-land-empty:{Outcome.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .ToFin()
    .Bind(_ => Open(Discipline, Route, InputKey,
      content is PayloadContent.FailureCase ? AssessmentOutcome.Failed : AssessmentOutcome.Computed,
-     content, provenance, DependsOn));
+     content, provenance, key, DependsOn));
 }
 ```
 

@@ -121,7 +121,7 @@ public sealed partial class ElementSource {
     }
 
     public static Fin<ElementSource> Admit(ElementGraph graph, Seq<ElementSubject> subjects) =>
-        Validate(graph, subjects, out ElementSource source).Admitted(source);
+        Validate(graph, subjects, key, out ElementSource source).Admitted(source);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -619,7 +619,7 @@ public static class ElementImport {
             }).Run().Bind(static inner => inner));
 
     private static Fin<AdmittedElement> AdmitOne(ElementGraph graph, ElementSubject subject) =>
-        from baked in graph.Bake(subject.Id)
+        from baked in graph.Bake(subject.Id, key)
         let topology = Ordered(graph.EdgesAt(baked.Id))
         let tolerance = graph.Header.Tolerance
         let locus = LocusOf(baked.Id, FactScope.Root.Row(nameof(Element)), tolerance)
@@ -636,7 +636,7 @@ public static class ElementImport {
             connections,
             facts.Quantities,
             facts.Properties)
-        from properties in CanonicalProperties(graph, baked)
+        from properties in CanonicalProperties(graph, baked, key)
         from result in AdmittedElement.Admit(component, topology, facts, properties, locus)
         select result;
 
@@ -733,7 +733,7 @@ public static class ElementImport {
 
     private static Seq<ElementFact> MaterialRows(BakedMaterial material) {
         string key = material.Material.MaterialKey.ToValue();
-        FactScope root = FactScope.Root.Then("Material").Then();
+        FactScope root = FactScope.Root.Then("Material").Then(key);
         FactScope composition = root.Then("Composition");
         return material.Material.Composition.Switch(
             state: composition,
@@ -748,7 +748,7 @@ public static class ElementImport {
                     ElementColumns.Constituent.Emit(scope.Then("Constituent", index), constituent)).Bind(identity))
             + material.Material.Properties.Bind(property => PropertySetRows(root, property))
             + SectionRows(root, material.Material.Composition)
-            + UsageRows(FactScope.Root.Then("Usage").Then(), material.Usage);
+            + UsageRows(FactScope.Root.Then("Usage").Then(key), material.Usage);
     }
 
     private static Seq<ElementFact> PropertySetRows(FactScope root, MaterialPropertySet property) {

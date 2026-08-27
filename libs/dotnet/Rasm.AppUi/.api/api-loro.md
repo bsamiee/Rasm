@@ -193,7 +193,7 @@
 
 [LORO_TEXT]:
 - Mutation: `Insert(pos, s)`, `Delete(pos, len)`, `Splice(pos, len, s)`, and `Update(s, UpdateOptions)` apply direct and whole-document diff updates.
-- Marks: `Mark(from, to, value)` and `Unmark` edit rich-text marks.
+- Marks: `Mark(from, to, key, value)` and `Unmark` edit rich-text marks.
 - Position: `GetCursor(pos, Side)` returns a stable cursor.
 - Delta: `ToDelta()` returns `TextDelta[]`, and `ApplyDelta` applies that representation.
 - Encoding: Unicode, `*Utf8`, and `*Utf16` forms compose with `ConvertPos(index, PosType from, PosType to) : uint?`, which answers null for an index outside the container's extent in the declared encoding — so a converted position folds through the same absent arm the null cursor takes and never reaches `GetCursor` as a value.

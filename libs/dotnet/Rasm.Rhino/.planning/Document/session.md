@@ -1048,7 +1048,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         from lane in Admit.Need(mode)
         from body in Admit.Need(use)
         from result in lane.Capabilities().Admits(capability: LaneCapability.Live)
-            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate)
+            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate, op)
             : body()
         select result;
 

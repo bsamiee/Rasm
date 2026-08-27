@@ -256,12 +256,12 @@ public sealed partial class GCommand {
     public bool Serves(ProcessModality modality) => Modalities.IsEmpty || Modalities.Contains(modality);
 
     private static GCommand MotionRow(string key, string code, MotionRole role, params ReadOnlySpan<DialectFeature> requires) =>
-        new(code, ModalGroup.Motion, new CommandGrammar(Set<char>(), Motion, Set<char>(), WordValueLaw.Symbolic),
+        new(key, code, ModalGroup.Motion, new CommandGrammar(Set<char>(), Motion, Set<char>(), WordValueLaw.Symbolic),
             role, Set(requires.ToArray()), Set<ProcessModality>(), None);
     private static GCommand StateRow(string key, string code, ModalGroup group, params ReadOnlySpan<DialectFeature> requires) =>
-        new(code, group, Empty, MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
+        new(key, code, group, Empty, MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
     private static GCommand Aux(string key, string code, ModalGroup group, Set<char> allowed, params ReadOnlySpan<DialectFeature> requires) =>
-        new(code, group, new CommandGrammar(Set<char>(), allowed, Set<char>(), WordValueLaw.Symbolic),
+        new(key, code, group, new CommandGrammar(Set<char>(), allowed, Set<char>(), WordValueLaw.Symbolic),
             MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
     private static GCommand CycleRow(string key, string code, Set<char> required, params ReadOnlySpan<DialectFeature> requires) => new(code,
         ModalGroup.Cycle,

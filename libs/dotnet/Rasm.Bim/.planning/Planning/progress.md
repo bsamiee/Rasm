@@ -62,7 +62,7 @@ public static class ProgressVerification {
     static readonly ValueSource Lineage = new ValueSource.Property(ReconstructionRows.Set, ReconstructionRows.SourceCloud.Value);
 
     public static Fin<ProgressReport> Compare(ScheduleNetwork network, ElementGraph asDesigned, ElementGraph observed, Instant captureAt) =>
-        network.BindAssignments(asDesigned).Map(bound => {
+        network.BindAssignments(asDesigned, key).Map(bound => {
             ElementQuery capture = ElementQuery.Query(observed, BimLeaf.Of(new ElementLeaf.ByKind(ObjectKind.Occurrence)));
             ElementQuery uncertain = capture.Where(Flagged);
             IdSet verified = toHashSet(capture.Except(uncertain).GlobalIds);

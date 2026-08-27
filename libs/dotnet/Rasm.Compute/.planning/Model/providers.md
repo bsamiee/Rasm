@@ -345,7 +345,7 @@ public sealed partial class ExecutionProvider {
         Func<ModelPrecision, FrozenDictionary<string, string>> sessionKeys,
         Option<string> ordinalKey,
         Option<ExecutionProviderDevicePolicy> devicePolicy, OrtHardwareDeviceType hardwareAffinity, WarmForm warm,
-        Action<SessionOptions, Dictionary<string, string>> registerRow) : this() {
+        Action<SessionOptions, Dictionary<string, string>> registerRow) : this(key) {
         (ProviderName, WireKey, HostGate, EpOptions, LocationOptions, SessionKeys, OrdinalKey, DevicePolicy, HardwareAffinity, Warm, RegisterRow) =
             (providerName, wireKey, hostGate, epOptions, locationOptions, sessionKeys, ordinalKey, devicePolicy, hardwareAffinity, warm, registerRow);
         ranked = new(() => toSeq(Devices
@@ -379,7 +379,7 @@ public sealed partial class ExecutionProvider {
     public static ExecutionProvider Floor => Cpu;
 
     public static ExecutionProvider Resolve(string key) =>
-        TryGet(out ExecutionProvider? row) && row.Available ? row : Floor;
+        TryGet(key, out ExecutionProvider? row) && row.Available ? row : Floor;
 
     public static ExecutionProvider FromWire(string wire) =>
         toSeq(Items)
@@ -423,7 +423,7 @@ public sealed partial class ExecutionProvider {
         toHashMap(EpOptions(precision))
             .AddOrUpdateRange(LocationOptions(artifacts))
             .AddOrUpdateRange(OrdinalKey.Bind(key => Ordinal(devices)
-                .Map(ordinal => (ordinal.ToString(CultureInfo.InvariantCulture))))
+                .Map(ordinal => (key, ordinal.ToString(CultureInfo.InvariantCulture))))
                 .ToSeq())
             .ToDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
 

@@ -198,15 +198,15 @@ public static class PolicyBinding {
             .ToValidation();
 
     public static Validation<Error, Instant> BindInstant(IConfigurationRoot root, string key) =>
-        Admit(InstantPattern.ExtendedIso, root, nameof(InstantPattern.ExtendedIso));
+        Admit(InstantPattern.ExtendedIso, root, key, nameof(InstantPattern.ExtendedIso));
 
     public static Validation<Error, Duration> BindDuration(IConfigurationRoot root, string key) =>
-        Admit(DurationPattern.Roundtrip, root, nameof(DurationPattern.Roundtrip));
+        Admit(DurationPattern.Roundtrip, root, key, nameof(DurationPattern.Roundtrip));
 
     static Validation<Error, T> Admit<T>(IPattern<T> pattern, IConfigurationRoot root, string key, string named) =>
-        pattern.Parse(root.GetValue<string>() ?? string.Empty) is { Success: true } parsed
+        pattern.Parse(root.GetValue<string>(key) ?? string.Empty) is { Success: true } parsed
             ? Success<Error, T>(parsed.Value)
-            : Fail<Error, T>(new ConfigError.Scalar($"text outside {named}"));
+            : Fail<Error, T>(new ConfigError.Scalar(key, $"text outside {named}"));
 }
 ```
 

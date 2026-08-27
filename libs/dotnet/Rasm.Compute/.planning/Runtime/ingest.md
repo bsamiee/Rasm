@@ -167,7 +167,7 @@ public static class BrokerChannels {
     public static class BrokerCodec {
         public static Fin<CloudEvent> Structured(ReadOnlyMemory<byte> body, ContentType framing) =>
             from declared in ExtensionContract.Declarations()
-            from rows in EventEnvelope.Decode(new EventFrame(Body: body, Framing: framing), declared)
+            from rows in EventEnvelope.Decode(new EventFrame(Body: body, Framing: framing), declared, key)
             from single in rows is [CloudEvent envelope]
                 ? Fin.Succ(envelope)
                 : Fin.Fail<CloudEvent>(new ComputeFault.WireDecodeRejected($"<broker-batch-on-stream:{rows.Count}>"))
@@ -188,11 +188,11 @@ public static class BrokerChannels {
         BrokerIngress ingress, BrokerBinding binding, BrokerDelivery delivery, ClockPolicy clocks) {
         Instant received = clocks.Now;
         using IDisposable adopted = delivery.Adopt(ingress);
-        return Bounded(delivery.Body)
+        return Bounded(delivery.Body, key)
             .Bind(body => delivery.Framing.Filter(static type => EventFormat.Of(type).IsSome).Match(
-                Some: type => BrokerCodec.Structured(body, type),
-                None: () => BrokerCodec.Raise(binding, delivery.Carried, body, delivery.Framing)))
-            .Bind(envelope => ExtensionContract.Admit(envelope)
+                Some: type => BrokerCodec.Structured(body, type, key),
+                None: () => BrokerCodec.Raise(binding, delivery.Carried, body, delivery.Framing, key)))
+            .Bind(envelope => ExtensionContract.Admit(envelope, key)
                 .Map(extensions => (Envelope: envelope, Extensions: extensions, Received: received)))
             .Bind(Project<T>);
     }
@@ -205,7 +205,7 @@ public static class BrokerChannels {
         ClockPolicy clocks,
         [EnumeratorCancellation] CancellationToken ct = default) {
         await foreach (Fin<BrokerDelivery> delivery in binding.Subscribe(source, filter, binding.Bridge, ct).WithCancellation(ct).ConfigureAwait(false)) {
-            yield return delivery.Bind(admitted => Decode<T>(ingress, binding, admitted, clocks));
+            yield return delivery.Bind(admitted => Decode<T>(ingress, binding, admitted, clocks, key));
         }
     }
 
@@ -401,7 +401,7 @@ internal static class NatsBinding {
                 : toSeq(message.Headers).Map(static row => (row.Key, row.Value.ToString())));
 
     private static IEnumerable<string> Carrier(NatsHeaders? carrier, string key) =>
-        carrier is not null && carrier.TryGetValue(out StringValues values) && !StringValues.IsNullOrEmpty(values)
+        carrier is not null && carrier.TryGetValue(key, out StringValues values) && !StringValues.IsNullOrEmpty(values)
             ? [values.ToString()]
             : [];
 }

@@ -182,7 +182,7 @@ public abstract partial record ColumnCell {
 
     public static byte[] Packed(UInt128 key) {
         byte[] bytes = new byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(bytes);
+        BinaryPrimitives.WriteUInt128BigEndian(bytes, key);
         return bytes;
     }
 }
@@ -595,10 +595,10 @@ public static class AnalyticsGate {
         Seq<Identifier> key = keys.Filter(static name => name != Backend.TenantColumn);
         return at.Match(
             Some: named => spine == TimeSpine.Event
-                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, supplied, named, spine, measure))
+                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, key, supplied, named, spine, measure))
                 : Fail<Error, AnalyticsSchema>(new BackendFault.Unprovisioned($"<schema-spine:{dataset}:landing-names-clock>")),
             None: () => spine == TimeSpine.Landing
-                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset,
+                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, key,
                     supplied + Seq(new ColumnRow(LandedColumn, ColumnType.Timestamp, Nullable: false)), LandedColumn, spine, measure))
                 : Fail<Error, AnalyticsSchema>(new BackendFault.Unprovisioned($"<schema-spine:{dataset}:event-names-no-clock>")));
     }

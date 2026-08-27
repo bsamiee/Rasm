@@ -373,16 +373,16 @@ public sealed class ControlContractInterceptor(ControlRuntime runtime) : Interce
         UnaryServerMethod<TRequest, TResponse> continuation) {
         TRequest admitted = Direction(request, context, request: true);
         TResponse response = await continuation(admitted, context).ConfigureAwait(false);
-        return Direction(response, context, request: false);
+        return Direction(response, context, key, request: false);
     }
 
     private T Direction<T>(T message, ServerCallContext context, bool request)
         where T : class, Google.Protobuf.IMessage =>
-        WireAdmission.Validate(message).Match(
+        WireAdmission.Validate(message, key).Match(
             Succ: admission => admission.Match(
-                Fail: violations => Refused(message, context, request, violations),
+                Fail: violations => Refused(message, context, key, request, violations),
                 Succ: static admitted => admitted),
-            Fail: error => Broken<T>(context, error));
+            Fail: error => Broken<T>(context, key, error));
 
     private T Refused<T>(T message, ServerCallContext context, bool request,
         Seq<Google.Rpc.BadRequest.Types.FieldViolation> violations)
@@ -1017,9 +1017,9 @@ public sealed class IngressBody {
     public EventFrame Frame => new(Bytes, Framing);
 
     public static async Task<Fin<IngressBody>> Capture(HttpRequest request, Dimension limit) =>
-        await AdmittedFraming(request).Match(
+        await AdmittedFraming(request, key).Match(
             Fail: error => Task.FromResult(Fin.Fail<IngressBody>(error)),
-            Succ: framing => Captured(request, limit, framing)).ConfigureAwait(false);
+            Succ: framing => Captured(request, limit, framing, key)).ConfigureAwait(false);
 
     private static Fin<ContentType> AdmittedFraming(HttpRequest request) =>
         request.ContentType is not { Length: > 0 } media
@@ -1091,10 +1091,10 @@ public static class EventIngress {
                 if (access.Credential.Query) response.Headers[HeaderNames.CacheControl] = "private";
                 return AllowedOrigin(request, policy).Match(
                     Fail: error => IO.pure(Fin.Fail<Delivery>(error)),
-                    Succ: _ => IO.liftAsync(async () => await Decoded(request, policy).ConfigureAwait(false))
+                    Succ: _ => IO.liftAsync(async () => await Decoded(request, policy, key).ConfigureAwait(false))
                         .Bind(decoded => decoded.Match(
                             Succ: envelopes => envelopes
-                                .TraverseM(envelope => Admitted(envelope, access.Principal, policy, bus)).As()
+                                .TraverseM(envelope => Admitted(envelope, access.Principal, policy, bus, key)).As()
                                 .Map(static members => members.Fold(
                                     Delivery.Empty, static (tally, member) => tally.Add(member)))
                                 .Map(Fin.Succ),
@@ -1166,17 +1166,17 @@ public static class EventIngress {
         Fin<IngressBody> captured = await Error.New(request.Message, request).ConfigureAwait(false);
         return captured.Bind(body => policy.Verify
             .Traverse(verify => verify(request, body.Bytes)).As()
-            .Bind(_ => WireAdmission.EventExtensions.Declarations())
-            .Bind(declared => EventEnvelope.Decode(body.Frame, declared)));
+            .Bind(_ => WireAdmission.EventExtensions.Declarations(key))
+            .Bind(declared => EventEnvelope.Decode(body.Frame, declared, key)));
     }
 
     static IO<Delivery> Admitted(
         CloudEvent envelope, Principal principal, IngressPolicy policy, EventBus.Cell bus) =>
-        (from _ in EventEnvelope.Admit(envelope)
+        (from _ in EventEnvelope.Admit(envelope, key)
          from source in Optional(envelope.Source).ToFin(new KernelFault.InvalidValue(
              Label: nameof(CloudEvent.Source), Requirement: "a present URI-reference source"))
          from _source in policy.Source(source)
-         from extensions in WireAdmission.EventExtensions.Admit(envelope)
+         from extensions in WireAdmission.EventExtensions.Admit(envelope, key)
          from grade in DataGrade.Validate(
                  extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
                  && admittedGrade is { } classification
@@ -1184,7 +1184,7 @@ public static class EventIngress {
              : Fin.Fail<DataGrade>(new KernelFault.InvalidValue(
                  Label: nameof(extensions.Dataclassification), Requirement: "an admitted DataGrade"))
          from _classification in policy.Classification(grade)
-         from raised in policy.Project(envelope, extensions, grade, principal.Tenant)
+         from raised in policy.Project(envelope, extensions, grade, principal.Tenant, key)
          select (Event: raised, Externalized: extensions.HasDataref)).Match(
             Fail: error => IO.pure(Delivery.Empty with { Refusals = Seq(CompanionFault.Of(error)) }),
             Succ: admitted => policy.Dedupe.Admit($"{envelope.Source}\u0000{envelope.Id}", policy.Clocks.Now)

@@ -152,7 +152,7 @@ public static class Compose {
                from valid in Admit.Need(body)
                from settled in UiThread.Run(
                    new UiDispatch<Unit>.Blocking(() => Fence(body: valid, posture: posture, completed: None)),
-                   DispatchLane.Immediate)
+                   DispatchLane.Immediate, op)
                select settled;
     }
 
@@ -243,7 +243,7 @@ public sealed class MotionAttachment : IDisposable {
 
 - Owner: `GlideKey` `[ValueObject<string>]` — the admitted managed key `CALayer.AddAnimation`/`RemoveAnimation` require, so the two raw-string guards the pair carried are one admission; `GlidePlan` `[Union]` — `TimedCase` pairs an explicitly owned or borrowed `CAAnimation` with its key, `SprungCase` carries the kernel `SpringShape` with its key path, endpoints, and `SettleBand`, projected onto `CASpringAnimation` at the attach (unit mass, `k = ω²`, `c = 2ζω`, duration from the kernel `Settle` projection); `TimingCurve` `[SmartEnum<int>]` closes the standard CoreAnimation timing names; `Glides` and `Curves` are the entries.
 - Law: `Glides.Animate` REFUSES a hand-authored `CASpringAnimation` on the timed arm — the spring door is `SprungCase`, so locally-authored spring constants cannot fork motion feel past the kernel mint (branch spring-parity ruling). CoreAnimation copies the attached animation, so an owned plan releases immediately after the call while a borrowed plan stays caller-held.
-- Law: the settle horizon reads `SpringShape.Settle(origin, target, band)` off the caller's `SettleBand` — the hand epsilon const is deleted, and `SettleBand.Perceptual` is the row a caller with no tighter band names.
+- Law: the settle horizon reads `SpringShape.Settle(origin, target, band, key)` off the caller's `SettleBand` — the hand epsilon const is deleted, and `SettleBand.Perceptual` is the row a caller with no tighter band names.
 - Law: sampled drives and host glides stay distinct by state ownership — a sampled drive exposes kernel state and retained completion through `MotionAttachment`; a glide delegates interpolation to CoreAnimation and owns only attachment and removal.
 - Packages: Microsoft.macOS (`CAAnimation`, `CASpringAnimation`, `CAMediaTimingFunction`, `CALayer`, `NSString`), Thinktecture.Runtime.Extensions, `Rasm.Parametric` (`SpringShape`, `SettleBand`), `Rasm.Domain` (`Lease<T>`), `Platform/native.md` (`MacGate`). Consumer: `Canvas/paint.md`'s CoreAnimation overlay projection.
 - Growth: a new standard timing name is one `TimingCurve` row; a new host animation is one `GlidePlan` case on the one attachment lifecycle.

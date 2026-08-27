@@ -264,7 +264,7 @@ internal static class Eurocode {
                     None: static () => Seq<(PropertyName, double)>())
                 + Partials(policy.Situation)).Run().Bind(static inner => inner)
                 .Bind(rows => StructuralProjection.Measures(
-                    rows.Map(static factor => (factor.Item1, StructuralProjection.Anonymous, factor.Item2)), scale))
+                    rows.Map(static factor => (factor.Item1, StructuralProjection.Anonymous, factor.Item2)), scale, key))
                 .Map(factors => factors.Add(Situation,
                     StructuralProjection.Enumerated(policy.Situation.Class.ToString(), SituationKinds))));
 
@@ -277,12 +277,12 @@ internal static class Eurocode {
         IfcStructuralLoadGroup group, EurocodePolicy policy, UnitScheme scale) =>
         toSeq(group.IsGroupedBy)
             .Bind(static rel => toSeq(rel.RelatedObjects).Choose(static o => o is IfcStructuralLoadGroup g ? Some(g) : None))
-            .TraverseM(member => CaseOf(member, policy, scale))
+            .TraverseM(member => CaseOf(member, policy, scale, key))
             .As()
             .Bind(cases => Try.lift(() => Elect(cases.Somes().ToList(), policy)).Run().Bind(static inner => inner))
             .Bind(combinations => toSeq(combinations)
                 .Bind(static c => toSeq(c.GetFactoredLoads()).Bind(Components))
-                .TraverseM(row => StructuralProjection.Admit(row.Measure, row.Si, UnitScheme.Si))
+                .TraverseM(row => StructuralProjection.Admit(row.Measure, row.Si, UnitScheme.Si, key))
                 .As()
                 .Map(values => Map(
                     (Combinations, (PropertyValue)new PropertyValue.List(
@@ -328,7 +328,7 @@ internal static class Eurocode {
         toSeq(group.IsGroupedBy)
             .Bind(static rel => toSeq(rel.RelatedObjects).Choose(static o => o is IfcStructuralActivity a ? Some(a) : None))
             .TraverseM(activity => Optional(activity.AppliedLoad).Match(
-                Some: load => Carrier(load, Application(activity.GlobalOrLocal), scale),
+                Some: load => Carrier(load, Application(activity.GlobalOrLocal), scale, key),
                 None: static () => Fin.Succ(Seq<ILoad>())))
             .As()
             .Map(carried => {
@@ -342,7 +342,7 @@ internal static class Eurocode {
     private static Fin<Seq<ILoad>> Carrier(IfcStructuralLoad load, LoadApplication application, UnitScheme scale) =>
         LoadFamily.Of(load).Match(
             None: static () => Fin.Succ(Seq<ILoad>()),
-            Some: family => StructuralProjection.Measures(family.Vectors(load), scale).Map(si => family.Switch<Seq<ILoad>>(
+            Some: family => StructuralProjection.Measures(family.Vectors(load), scale, key).Map(si => family.Switch<Seq<ILoad>>(
                 singleForce: () => Seq<ILoad>(
                     new PointForce(
                         Force.FromNewtons(StructuralProjection.Si(si, StructuralRows.Force["X"])),

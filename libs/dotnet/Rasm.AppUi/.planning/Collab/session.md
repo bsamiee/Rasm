@@ -220,8 +220,8 @@ public static class MemberRegister {
         .IfNone(Fin.Fail<MemberRow>(new SessionFault.Conflict($"session/{peer}: register row omits state or role")));
 
     static Option<MemberRow> Seated(LoroMap members, string key) =>
-        ulong.TryParse(CultureInfo.InvariantCulture, out ulong peer)
-            ? members.Level(live => Admitted(peer, live).ToOption())
+        ulong.TryParse(key, CultureInfo.InvariantCulture, out ulong peer)
+            ? members.Level(key, live => Admitted(peer, live).ToOption())
             : None;
 }
 ```
@@ -362,16 +362,16 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
 
     Validation<Error, Unit> Governed(EditIntent intent, SessionRole role, Seq<MemberRow> roster) =>
         intent is EditIntent.Membership { Op: var op }
-            ? Probed(role, RosterView.Of(roster)) switch {
+            ? Probed(op, role, RosterView.Of(roster)) switch {
                 var probe => toSeq(RosterInvariant.Items)
-                    .Filter(Demanded().Admits)
+                    .Filter(Demanded(op).Admits)
                     .Traverse(invariant => invariant.Holds(probe))
                     .As().Map(static _ => unit),
             }
             : Success<Error, Unit>(unit);
 
     RosterProbe Probed(MembershipOp op, SessionRole role, RosterView view) =>
-        new(Actor, role, MemberRegister.Subject(), Granted(), view);
+        new(Actor, role, MemberRegister.Subject(op), Granted(op), view);
 
     public static CapabilitySet<RosterInvariant> Demanded(MembershipOp op) => op.Switch(
         invite: static _ => Delegation,

@@ -104,16 +104,16 @@ public readonly partial record struct ObservationChunk(Interval Window, Artifact
  public static Fin<(ObservationChunk Chunk, ReadOnlyMemory<byte> Bytes)> Encode(
   Seq<(Instant At, double Si, ObservationGrade Grade)> samples) =>
   Accumulate(Seq(
-    Gate(!samples.IsEmpty, "<observation-chunk-sampleless>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(!samples.Zip(samples.Tail).Exists(static pair => pair.Item2.At <= pair.Item1.At), "<observation-samples-not-advancing>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Gate(!samples.IsEmpty, key, "<observation-chunk-sampleless>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(!samples.Zip(samples.Tail).Exists(static pair => pair.Item2.At <= pair.Item1.At), key, "<observation-samples-not-advancing>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .ToFin()
-   .Bind(_ => Written(samples));
+   .Bind(_ => Written(samples, key));
 
  public Fin<Seq<(Instant At, double Si, ObservationGrade Grade)>> Decode(ReadOnlyMemory<byte> blob) =>
   Convert.ToHexStringLower(SHA256.HashData(blob.Span)) == Series.Sha256
    && checked((ulong)blob.Length) == Series.Bytes
-   ? Read(blob)
-   : new ElementFault.AddressUnstable($"<observation-chunk-artifact-mismatch:{Series.Sha256}:{Series.Bytes}>");
+   ? Read(blob, key)
+   : new ElementFault.AddressUnstable(key, $"<observation-chunk-artifact-mismatch:{Series.Sha256}:{Series.Bytes}>");
 
  public bool IsBounded => Window.HasStart && Window.HasEnd;
 
@@ -127,7 +127,7 @@ public readonly partial record struct ObservationChunk(Interval Window, Artifact
   CanonicalWriter.Retaining(0d)
    .Rows(samples, static (sample, w) => w.I64(sample.At.ToUnixTimeTicks()).Double(sample.Si).String(sample.Grade.Key))
    .ToBytes()
-   .Bind(bytes => ArtifactContent.Of(bytes).Map(reference => (new ObservationChunk(
+   .Bind(bytes => ArtifactContent.Of(bytes, key).Map(reference => (new ObservationChunk(
     new Interval(samples[0].At, samples[samples.Count - 1].At), reference, samples.Count), bytes)));
 
  private static Fin<Seq<(Instant At, double Si, ObservationGrade Grade)>> Read(ReadOnlyMemory<byte> blob) {
@@ -188,7 +188,7 @@ public sealed partial record ObservationSeries {
  public static Fin<ObservationSeries> Open(
   SensorId sensor, PropertyName aspect, QuantitySignature quantity, SamplingKind sampling,
   Option<Duration> cadence, Instant start, Option<SensorProvenance> provenance) =>
-  Accumulate(Seq(Named(quantity), Cadenced(cadence)))
+  Accumulate(Seq(Named(quantity, key), Cadenced(cadence, key)))
    .Map(_ => new ObservationSeries(
     sensor, aspect, quantity, sampling, cadence,
     new Interval(start, start), Seq<ObservationChunk>(), SeriesStatistics.Empty, provenance))
@@ -196,9 +196,9 @@ public sealed partial record ObservationSeries {
 
  public Fin<ObservationSeries> Append(ObservationChunk chunk, SeriesStatistics statistics) =>
   Accumulate(Seq(
-    Lawful(chunk),
-    Gate(!chunk.IsBounded || chunk.Window.Start >= Window.End, $"<observation-chunk-overlaps:{Sensor.Value}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Summarized(statistics, SampleCount + chunk.SampleCount)))
+    Lawful(chunk, key),
+    Gate(!chunk.IsBounded || chunk.Window.Start >= Window.End, key, $"<observation-chunk-overlaps:{Sensor.Value}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Summarized(statistics, SampleCount + chunk.SampleCount, key)))
    .Map(_ => new ObservationSeries(
     Sensor, Aspect, Quantity, Sampling, Cadence,
     new Interval(Window.Start, chunk.Window.End), Chunks.Add(chunk), statistics, Provenance))
@@ -209,14 +209,14 @@ public sealed partial record ObservationSeries {
   Option<Duration> cadence, Interval window, Seq<ObservationChunk> chunks,
   SeriesStatistics statistics, Option<SensorProvenance> provenance) =>
   Accumulate(Seq(
-    Named(quantity), Cadenced(cadence),
-    Bounded(window).Map(static _ => unit),
-    Accumulate(chunks.Map(chunk => Lawful(chunk))),
-    Gate(!chunks.Zip(chunks.Tail).Exists(static pair => pair.Item1.IsBounded && pair.Item2.IsBounded && pair.Item2.Window.Start < pair.Item1.Window.End), "<observation-chunks-not-advancing>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(Spans(window, chunks), "<observation-window-does-not-span-chunks>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(Brackets(window, chunks), "<observation-window-does-not-bracket-run>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Summarized(statistics, chunks.Fold(0, static (total, chunk) => total + chunk.SampleCount)),
-    Gate(!chunks.IsEmpty || statistics == SeriesStatistics.Empty, "<observation-empty-series-summarized>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Named(quantity, key), Cadenced(cadence, key),
+    Bounded(window, key).Map(static _ => unit),
+    Accumulate(chunks.Map(chunk => Lawful(chunk, key))),
+    Gate(!chunks.Zip(chunks.Tail).Exists(static pair => pair.Item1.IsBounded && pair.Item2.IsBounded && pair.Item2.Window.Start < pair.Item1.Window.End), key, "<observation-chunks-not-advancing>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(Spans(window, chunks), key, "<observation-window-does-not-span-chunks>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(Brackets(window, chunks), key, "<observation-window-does-not-bracket-run>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Summarized(statistics, chunks.Fold(0, static (total, chunk) => total + chunk.SampleCount), key),
+    Gate(!chunks.IsEmpty || statistics == SeriesStatistics.Empty, key, "<observation-empty-series-summarized>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .Map(_ => new ObservationSeries(
     sensor, aspect, quantity, sampling, cadence,
     window, chunks, statistics, provenance))
@@ -226,7 +226,7 @@ public sealed partial record ObservationSeries {
  public Option<ObservationChunk> ChunkAt(Instant at) => Chunks.Find(chunk => chunk.Covers(at));
 
  public Fin<Seq<ObservationChunk>> ChunksIn(Interval window) =>
-  Bounded(window).Map(admitted => Chunks.Filter(chunk => chunk.Overlaps(admitted))).ToFin();
+  Bounded(window, key).Map(admitted => Chunks.Filter(chunk => chunk.Overlaps(admitted))).ToFin();
 
  public int SampleCount => Chunks.Fold(0, static (total, chunk) => total + chunk.SampleCount);
 
@@ -240,8 +240,8 @@ public sealed partial record ObservationSeries {
   MeasureValue.OfSi(Quantity.Type, Quantity.Dimension, si, Some(UnitProvenance.Carried(Quantity.CanonicalUnit))).Bind(measure =>
    Provenance.Bind(static audit => audit.Tolerance).Match(
     Some: tolerance => MeasureBand
-     .Admit(tolerance.Kind, si + tolerance.LowerSi, si + tolerance.UpperSi, tolerance.StandardDeviationSi, tolerance.CoverageFactor)
-     .Bind(band => measure.WithUncertainty(band)),
+     .Admit(tolerance.Kind, si + tolerance.LowerSi, si + tolerance.UpperSi, tolerance.StandardDeviationSi, tolerance.CoverageFactor, key)
+     .Bind(band => measure.WithUncertainty(band, key)),
     None: () => Fin.Succ(measure)));
 
  public void CanonicalBytes(CanonicalWriter w) {
@@ -262,14 +262,14 @@ public sealed partial record ObservationSeries {
 
  private static Validation<Error, Unit> Lawful(ObservationChunk chunk) =>
   Accumulate(Seq(
-   Gate(chunk.IsBounded, "<observation-chunk-unbounded>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(!chunk.IsBounded || chunk.Window.End > chunk.Window.Start || chunk.SampleCount == 1, "<observation-chunk-window-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(chunk.SampleCount > 0, "<observation-chunk-sampleless>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
+   Gate(chunk.IsBounded, key, "<observation-chunk-unbounded>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(!chunk.IsBounded || chunk.Window.End > chunk.Window.Start || chunk.SampleCount == 1, key, "<observation-chunk-window-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(chunk.SampleCount > 0, key, "<observation-chunk-sampleless>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
 
  private static Validation<Error, Unit> Summarized(SeriesStatistics statistics, int run) =>
   Accumulate(Seq(
-   Gate(statistics.IsCoherent, "<observation-statistics-incoherent>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(statistics.Observed == run, "<observation-census-not-run-total>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
+   Gate(statistics.IsCoherent, key, "<observation-statistics-incoherent>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(statistics.Observed == run, key, "<observation-census-not-run-total>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
 
  private static bool Spans(Interval window, Seq<ObservationChunk> chunks) =>
   !window.HasStart || !window.HasEnd
@@ -354,7 +354,7 @@ public readonly record struct SeriesStatistics(
   };
 
  public static Fin<SeriesStatistics> Fold(SeriesStatistics left, SeriesStatistics right) =>
-  Joined(left.Figures, right.Figures).Bind(figures =>
+  Joined(left.Figures, right.Figures, key).Bind(figures =>
    Added(left.Total, right.Total).Map(total =>
     new SeriesStatistics(
      right.Census.Fold(left.Census, static (census, grade, count) => census.AddOrUpdate(grade, existing => existing + count, count)),
@@ -363,17 +363,17 @@ public readonly record struct SeriesStatistics(
 
  public Fin<MeasureValue> Representative(SamplingKind sampling) =>
   sampling.Switch(
-   instantaneous: () => Figure(Mean, "mean"),
-   averaged: () => Figure(Mean, "mean"),
-   total: () => Figure(Total, "total"),
-   cumulative: () => Figure(Total, "register-span"),
-   minimum: () => Figure(Minimum, "minimum"),
-   maximum: () => Figure(Maximum, "maximum"));
+   instantaneous: () => Figure(Mean, key, "mean"),
+   averaged: () => Figure(Mean, key, "mean"),
+   total: () => Figure(Total, key, "total"),
+   cumulative: () => Figure(Total, key, "register-span"),
+   minimum: () => Figure(Minimum, key, "minimum"),
+   maximum: () => Figure(Maximum, key, "maximum"));
 
  // --- [MERGE_PRIMITIVES] ---------------------------------------------------------------
  private static Fin<Option<MeasureStat>> Joined(Option<MeasureStat> left, Option<MeasureStat> right) =>
   (left.Case, right.Case) switch {
-   (MeasureStat a, MeasureStat b) => MeasureStat.Merge(a, b).Map(Some),
+   (MeasureStat a, MeasureStat b) => MeasureStat.Merge(a, b, key).Map(Some),
    (MeasureStat, _) => Fin.Succ(left),
    _ => Fin.Succ(right),
   };

@@ -269,8 +269,8 @@ public sealed partial class MappingProfile {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(MappingProfile), "admitted space, projection, and a valid UVW transform" }));
 
     internal static Fin<MappingProfile> Of(TextureMapping mapping) =>
-        from space in MappingSpace.Of(mapping.TextureSpace)
-        from projection in MappingProjection.Of(mapping.Projection)
+        from space in MappingSpace.Of(mapping.TextureSpace, key)
+        from projection in MappingProjection.Of(mapping.Projection, key)
         from profile in FactoryBridge.Accept<MappingProfile>(
             Validate(space, projection, mapping.UvwTransform, out MappingProfile? value), value)
         select profile;
@@ -315,9 +315,9 @@ public sealed partial class MappingSnapshot : IDetachedDocumentResult {
 
     internal static Fin<(MappingSnapshot Value, Option<Lease<Mesh>> Coordinates)> Of(
         TextureMapping mapping, Option<Transform> motion) =>
-        from kind in MappingKind.Of(mapping.MappingType)
-        from profile in MappingProfile.Of(mapping)
-        from recovered in kind.Recover(mapping)
+        from kind in MappingKind.Of(mapping.MappingType, key)
+        from profile in MappingProfile.Of(mapping, key)
+        from recovered in kind.Recover(mapping, key)
         from _ in guard(kind.Accepts(recovered), new KernelFault.InvalidResult())
             .ToFin()
             .Rollback(release: () => recovered.Release())
@@ -352,8 +352,8 @@ public sealed partial class MappingProbe {
                     (mapping.Evaluate(Point, Normal, out Point3d moved, points, normals), moved),
                 _ => (mapping.Evaluate(Point, Normal, out Point3d direct), direct),
             };
-            return from admittedSide in MappingSide.Of(mapping.MappingType, side)
-                   from evaluation in MappingEvaluation.Of(admittedSide, mapped)
+            return from admittedSide in MappingSide.Of(mapping.MappingType, side, key)
+                   from evaluation in MappingEvaluation.Of(admittedSide, mapped, key)
                    select evaluation;
         }).Run().Bind(static inner => inner);
 }
@@ -369,7 +369,7 @@ public abstract partial record MappingSide {
             Some: static row => Fin.Succ<MappingSide>(value: new Sided(Code: row)),
             None: () => type is TextureMappingType.None || side <= 0 || SideCode.Rules(owner: type)
                 ? Fin.Fail<MappingSide>(error: new KernelFault.InvalidResult(Detail: Some($"{type}:{side}")))
-                : MappingKind.Of(type).Map(static kind => (MappingSide)new General(Kind: kind)));
+                : MappingKind.Of(type, key).Map(static kind => (MappingSide)new General(Kind: kind)));
 }
 
 [SmartEnum<string>]
@@ -569,7 +569,7 @@ public static class TextureCoordinates {
         from block in Try.lift(() => {
             using var coordinates = mesh.GetCachedTextureCoordinates(mappingId);
             return from active in Optional(coordinates).ToFin(Fail: new KernelFault.MissingContext())
-                   from value in CoordinateBlock.Of(active, mesh.Vertices.Count)
+                   from value in CoordinateBlock.Of(active, mesh.Vertices.Count, key)
                    select value;
         }).Run().Bind(static inner => inner)
         select (CoordinateResult)new CoordinateResult.Block(block);
@@ -664,10 +664,10 @@ public static class Mappings {
                 recordsUndo: true,
                 redraw: redraw,
                 run: () =>
-                    from ids in objects.Resolve(document)
-                    from lease in spec.Mint()
+                    from ids in objects.Resolve(document, op)
+                    from lease in spec.Mint(op)
                     from applied in lease.Use(mapping =>
-                        from _ in profile.Apply(mapping)
+                        from _ in profile.Apply(mapping, op)
                         from _ in ids.TraverseM(id =>
                             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())
                             from code in Try.lift(() => Fin.Succ(command.ObjectMotion switch {
@@ -693,7 +693,7 @@ public static class Mappings {
         from activeProject in Admit.Need(project)
         from answer in session.Demand(
             use: document =>
-                from ids in activeTarget.Resolve(document)
+                from ids in activeTarget.Resolve(document, op)
                 from id in ids switch {
                     [var only] => Fin.Succ(only),
                     _ => Fin.Fail<Guid>(new KernelFault.InvalidInput()),
@@ -704,7 +704,7 @@ public static class Mappings {
                         .ToFin(Fail: new KernelFault.MissingContext())
                         .Bind(mapping => new Lease<TextureMapping>.Owned(Value: mapping).Use(active =>
                             from _ in guard(motion.IsValid, new KernelFault.InvalidResult()).ToFin()
-                            from projected in activeProject(state, active, Some(motion))
+                            from projected in activeProject(state, active, Some(motion), op)
                             select projected))).Run().Bind(static inner => inner)
                 select result,
             needs: [SessionNeed.Read])
@@ -714,11 +714,11 @@ public static class Mappings {
         from activeTarget in Admit.Need(target)
         from census in session.Demand(
             use: document =>
-                from ids in activeTarget.Resolve(document)
+                from ids in activeTarget.Resolve(document, op)
                 from rows in ids.TraverseM(id =>
                     from native in Optional(document.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())
                     from channels in Try.lift(() => native.Attributes.HasMapping && native.HasTextureMapping()
-                        ? toSeq(native.GetTextureChannels()).TraverseM(value => MappingChannel.Of(value)).As()
+                        ? toSeq(native.GetTextureChannels()).TraverseM(value => MappingChannel.Of(value, op)).As()
                         : Fin.Succ(Seq<MappingChannel>())).Run().Bind(static inner => inner)
                     select (Object: id, Channels: channels)).As()
                 select new MappingCensus(rows),
@@ -738,8 +738,8 @@ public static class Mappings {
 |  [05]   | construction     | `MappingSpec`       | factory union stating its own kind map       | `Mint` / `Kind`              |
 |  [06]   | inverse evidence | `MappingSnapshot`   | value-only kind plus recoverable spec        | `Of`                         |
 |  [07]   | side taxonomy    | `SideCode`          | host side ordinals per mapping type, indexed | `Of` / `Rules`               |
-|  [08]   | side answer      | `MappingSide`       | two cases over the coded and uncoded types   | `Of(type, side)`        |
-|  [09]   | channel identity | `MappingChannel`    | positive, default-refusing at the type       | `Of(value)`             |
+|  [08]   | side answer      | `MappingSide`       | two cases over the coded and uncoded types   | `Of(type, side, key)`        |
+|  [09]   | channel identity | `MappingChannel`    | positive, default-refusing at the type       | `Of(value, key)`             |
 |  [10]   | channel pipeline | `MappingRequest`    | bind, snapshot, evaluate, decompose, census  | `Mappings.Run`               |
 |  [11]   | tag round trip   | `ChannelTag`        | admitted kind with native projection         | `Of` / `Native`              |
 |  [12]   | coordinate cache | `CoordinateRequest` | prime, read, probe, or scoped invalidation   | `TextureCoordinates.Run`     |

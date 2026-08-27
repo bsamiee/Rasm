@@ -190,7 +190,7 @@ public abstract partial record Track(string Key) {
         toSeq(frames.OrderBy(static frame => frame.At)) switch {
             var sorted => sorted.Head.Match(
                 Some: lead => Fin.Succ(new Keyframes<T>(lead, sorted.Tail.ToArr())),
-                None: () => Fin<Keyframes<T>>.Fail(new AnimationFault.EmptyTrack())),
+                None: () => Fin<Keyframes<T>>.Fail(new AnimationFault.EmptyTrack(key))),
         };
 
     public Keyframes<KeyMark> Marks => Switch(
@@ -245,7 +245,7 @@ public abstract partial record Track(string Key) {
         frames.All switch {
             var held => edit(Marked(frames)).Traverse(row => row.Ordinal >= 0 && row.Ordinal < held.Count
                 ? Fin.Succ(new Keyframe<T>(row.At, held[row.Ordinal].Value, row.Easing))
-                : Fin.Fail<Keyframe<T>>(new AnimationFault.KeyMissing(row.Ordinal))).As(),
+                : Fin.Fail<Keyframe<T>>(new AnimationFault.KeyMissing(key, row.Ordinal))).As(),
         };
 
     public static T Sample<T>(Keyframes<T> frames, Duration t, Func<T, T, double, T> blend) =>
@@ -377,7 +377,7 @@ public sealed record Timeline(string Key, Seq<Track> Tracks, PositiveMagnitude F
     public static Fin<Timeline> Of(string key, Seq<Track> tracks, double frameRate, PlaybackMode mode) =>
         FactoryBridge.Accept<PositiveMagnitude>(candidate: frameRate)
             .MapFail(static _ => (Error)new AnimationFault.RateOutOfDomain(frameRate))
-            .Map(rate => new Timeline(tracks, rate, mode));
+            .Map(rate => new Timeline(key, tracks, rate, mode));
 
     public Duration Total => Tracks.Map(static track => track.Duration).Max(Duration.Zero);
 
@@ -392,11 +392,11 @@ public readonly record struct SchedulePhase(Instant At, ConstructionPhase Phase,
 public static class SchedulePlayback {
     public static Fin<Timeline> FromSchedule(string key, Seq<SchedulePhase> phases, double fps, PlaybackMode mode) =>
         phases.Head.Match(
-            None: () => Fin.Fail<Timeline>(new AnimationFault.EmptyTrack()),
+            None: () => Fin.Fail<Timeline>(new AnimationFault.EmptyTrack(key)),
             Some: head => Track.OfVisibility(
                     $"{key}/state",
                     phases.Map(phase => new Keyframe<Seq<VisibilityOverride>>(phase.At - head.At, phase.State, MotionToken.Standard)))
-                .Bind(state => Timeline.Of(Seq(state), fps, mode)));
+                .Bind(state => Timeline.Of(key, Seq(state), fps, mode)));
 }
 ```
 

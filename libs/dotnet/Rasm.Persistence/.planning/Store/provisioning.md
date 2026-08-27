@@ -306,7 +306,7 @@ public sealed partial class RollingWindow {
         (Period, Ahead, Aged) = (period, ahead, aged);
 
     public StoreOptions Declare<T>(StoreOptions opts, Expression<Func<T, DateTimeOffset>> key) where T : notnull {
-        opts.Schema.For<T>().PartitionOn(x => x.ByRollingRange(Managed, Period, Ahead, Aged));
+        opts.Schema.For<T>().PartitionOn(key, x => x.ByRollingRange(Managed, Period, Ahead, Aged));
         return opts;
     }
 }
@@ -645,7 +645,7 @@ public sealed record EmbeddedRitual(
             ("<uuid7>", static store => { store.CreateFunction("uuid7", static () => Guid.CreateVersion7().ToString("N"), isDeterministic: false); return Fin.Succ(unit); }),
             ("<xxh128>", static store => { store.CreateFunction("xxh128", static (byte[] bytes) => {
                 byte[] key = new byte[16];
-                System.Buffers.Binary.BinaryPrimitives.WriteUInt128BigEndian(System.IO.Hashing.XxHash128.HashToUInt128(bytes));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt128BigEndian(key, System.IO.Hashing.XxHash128.HashToUInt128(bytes));
                 return key;
             }, isDeterministic: true); return Fin.Succ(unit); }),
             ("<instant-iso>", static store => { store.CreateCollation("instant_iso", static (left, right) => string.CompareOrdinal(left, right)); return Fin.Succ(unit); }),
@@ -929,7 +929,7 @@ public sealed class KvVault : IDisposable {
         if (!space.Seal.Seals) { return value; }
         byte[] frame = new byte[NonceWidth + TagWidth + value.Length];
         RandomNumberGenerator.Fill(frame.AsSpan(0, NonceWidth));
-        cipher.Encrypt(frame.AsSpan(0, NonceWidth), value.Span, frame.AsSpan(NonceWidth + TagWidth), frame.AsSpan(NonceWidth, TagWidth), Aad(space));
+        cipher.Encrypt(frame.AsSpan(0, NonceWidth), value.Span, frame.AsSpan(NonceWidth + TagWidth), frame.AsSpan(NonceWidth, TagWidth), Aad(space, key));
         return frame;
     }
 
@@ -938,7 +938,7 @@ public sealed class KvVault : IDisposable {
         if (frame.Length < NonceWidth + TagWidth) { return Fin.Fail<ReadOnlyMemory<byte>>(new EmbeddedFault.Kv("seal", "<frame-short>", space.Key, RetryShape.Terminal)); }
         byte[] value = new byte[frame.Length - NonceWidth - TagWidth];
         return Try.lift(() => {
-            cipher.Decrypt(frame.Span[..NonceWidth], frame.Span[(NonceWidth + TagWidth)..], frame.Span.Slice(NonceWidth, TagWidth), value, Aad(space));
+            cipher.Decrypt(frame.Span[..NonceWidth], frame.Span[(NonceWidth + TagWidth)..], frame.Span.Slice(NonceWidth, TagWidth), value, Aad(space, key));
             return Fin.Succ((ReadOnlyMemory<byte>)value);
         }).Run().Bind(static inner => inner);
     }
@@ -1304,7 +1304,7 @@ public static class KvFloor {
                     if (cursor.SetRange(s.Bound.Span) == MDBResultCode.Success) {
                         for ((MDBResultCode code, MDBValue key, MDBValue value) = cursor.GetCurrent();
                              code == MDBResultCode.Success && key.AsSpan().StartsWith(s.Bound.Span);
-                             (code, value) = cursor.Next()) {
+                             (code, key, value) = cursor.Next()) {
                             rows = rows.Add(((ReadOnlyMemory<byte>)key.CopyToNewArray(), (ReadOnlyMemory<byte>)value.CopyToNewArray()));
                         }
                     }

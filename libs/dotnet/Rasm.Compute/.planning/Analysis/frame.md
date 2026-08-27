@@ -227,10 +227,10 @@ public sealed record SiteActionPolicy(
         double basicWindSpeedMPerS, WindExposureClass exposure, double kzt, double kd, double gcpNet,
         Option<double> groundSnowPa, double ce, double ct, double snowImportance, double roofSlopeFactor,
         LiveLoadClass liveLoad, double tributaryWidthM, Option<double> roofBandM) =>
-        (Magnitude(basicWindSpeedMPerS), Magnitude(kzt), Magnitude(kd), Magnitude(gcpNet),
-         groundSnowPa.Traverse(value => Magnitude(value)).As(), Magnitude(ce), Magnitude(ct),
+        (Magnitude(basicWindSpeedMPerS, key), Magnitude(kzt, key), Magnitude(kd, key), Magnitude(gcpNet, key),
+         groundSnowPa.Traverse(value => Magnitude(value, key)).As(), Magnitude(ce, key), Magnitude(ct, key),
          Magnitude(snowImportance), FactoryBridge.Accept<UnitInterval>(candidate: roofSlopeFactor).ToValidation(),
-         Magnitude(tributaryWidthM), roofBandM.Traverse(value => Magnitude(value)).As())
+         Magnitude(tributaryWidthM, key), roofBandM.Traverse(value => Magnitude(value, key)).As())
         .Apply((wind, kzt, kd, gcp, snow, ce, ct, importance, slope, width, band) =>
             new SiteActionPolicy(wind, exposure, kzt, kd, gcp, snow, ce, ct, importance, slope, liveLoad, width, band))
         .As();

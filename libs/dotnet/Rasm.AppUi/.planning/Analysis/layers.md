@@ -96,7 +96,7 @@ public sealed partial class ResultKind {
     public partial Fin<RenderPass> Pass(ResultLayer layer, ResultRuntime runtime);
 
     public static Option<ResultKind> Find(string key) =>
-        TryGet(out ResultKind? row) ? Optional(row) : None;
+        TryGet(key, out ResultKind? row) ? Optional(row) : None;
 
     public Validation<Error, Unit> Admit(ResultPayload payload) =>
         (Col(!payload.Samples.IsEmpty, $"{Key}: no samples"),
@@ -290,7 +290,7 @@ public sealed record ResultLayer(
         LayerProvenance provenance) =>
         (Col(!string.IsNullOrWhiteSpace(), "layer carries no key"),
          kind.Admit(payload),
-         Spanned(domain))
+         Spanned(key, domain))
         .Apply((_, _, _) => new ResultLayer(kind, payload, domain, measure, domain.Palette, averaging,
             UnitInterval.Create(1d), Visible: true, Seq(provenance)))
         .ToFin();
@@ -406,10 +406,10 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
     public Fin<LayerStack> Reseat(ResultLayer layer) => Rewrite(layer.Key, _ => layer);
 
     public Fin<LayerStack> Toggle(string key) =>
-        Rewrite(static layer => layer with { Visible = !layer.Visible });
+        Rewrite(key, static layer => layer with { Visible = !layer.Visible });
 
     public Fin<LayerStack> Dim(string key, UnitInterval opacity) =>
-        Rewrite(layer => layer with { Opacity = opacity });
+        Rewrite(key, layer => layer with { Opacity = opacity });
 
     public Fin<LayerStack> Raise(string key, int by) =>
         Layers.Map(static (layer, index) => (Index: index, Layer: layer)).Find(row => row.Layer.Key == key).Match(
@@ -423,7 +423,7 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
         rest.Take(target) + Seq(moved) + rest.Skip(target);
 
     public Fin<LayerStack> Drop(string key) =>
-        Find().Match(
+        Find(key).Match(
             Some: layer => Fin.Succ(this with { Layers = Layers.Filter(held => held.Key != layer.Key) }),
             None: () => Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{key} is not mounted")));
 
@@ -439,7 +439,7 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
             .Fold(scene, LanguageExt.HashSet<string>());
 
     Fin<LayerStack> Rewrite(string key, Func<ResultLayer, ResultLayer> edit) =>
-        Find().Match(
+        Find(key).Match(
             Some: layer => Fin.Succ(this with { Layers = Layers.Map(held => held.Key == key ? edit(held) : held) }),
             None: () => Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{key} is not mounted")));
 }
@@ -492,7 +492,7 @@ public static class AnalysisLayers {
                         return screen.Write(Selection, merged.Selection);
                     }),
                 Alive = screen => key =>
-                    screen.Composition.Layers(screen.Surface).Find().IsSome,
+                    screen.Composition.Layers(screen.Surface).Find(key).IsSome,
             };
 
     public static ControlIntent Body(LayerStack stack, ProbeReading reading, VirtualWindowSpec window) =>

@@ -75,18 +75,18 @@ internal static partial class WireCodec {
  static Fin<CoverageGrid> ToCoverage(CoverageWire w) =>
   from kind in FactoryBridge.Row<string, CoverageKind>(w.Kind)
   from geo in Present(w.Crs, "coverage.crs")
-  from crs in ToGeoReference(geo)
-  from bands in toSeq(w.Bands).TraverseM(band => ToBand(band)).As()
-  from grid in ToLattice(w.Grid)
+  from crs in ToGeoReference(geo, key)
+  from bands in toSeq(w.Bands).TraverseM(band => ToBand(band, key)).As()
+  from grid in ToLattice(w.Grid, key)
   from overviews in toSeq(w.Overviews).TraverseM(overview =>
-   from grid in ToLattice(overview.Grid)
-   from raster in ToArtifactContent(overview.RasterArtifact, "coverage.overview.raster_artifact")
+   from grid in ToLattice(overview.Grid, key)
+   from raster in ToArtifactContent(overview.RasterArtifact, "coverage.overview.raster_artifact", key)
    select new OverviewLevel(grid, raster, Blocked(overview.BlockX, overview.BlockY))).As()
-  from raster in ToArtifactContent(w.RasterArtifact, "coverage.raster_artifact")
+  from raster in ToArtifactContent(w.RasterArtifact, "coverage.raster_artifact", key)
   from coverage in CoverageGrid.Of(
    kind,
    new OverviewLevel(grid, raster, Blocked(w.BaseBlockX, w.BaseBlockY)).Cons(overviews),
-   bands, crs)
+   bands, crs, key)
   select coverage;
 
  static Option<(int X, int Y)> Blocked(int x, int y) => x > 0 && y > 0 ? Some((x, y)) : None;
@@ -96,7 +96,7 @@ internal static partial class WireCodec {
    ? from columns in FactoryBridge.Accept<LatticeAxis>(candidate: wire.Columns)
      from rows in FactoryBridge.Accept<LatticeAxis>(candidate: wire.Rows)
      from layers in FactoryBridge.Accept<LatticeAxis>(candidate: wire.Layers)
-     from grid in CellLattice.Of([.. wire.Affine], columns, rows, layers, wire.Ceiling)
+     from grid in CellLattice.Of([.. wire.Affine], columns, rows, layers, wire.Ceiling, key)
      select grid
    : new KernelFault.InvalidValue("element-wire.grid.affine", $"carry 12 coefficients; actual={w?.Affine.Count ?? 0}");
 
@@ -109,7 +109,7 @@ internal static partial class WireCodec {
     : toSeq(w.Palette).TraverseM(bin => PerceptualColor
        .OfRgb((byte)bin.R, (byte)bin.G, (byte)bin.B, alpha: bin.A / 255.0)
        .Map(colour => new ColorBin(bin.Index, colour, bin.Category))).As()
-      .Bind(palette => CoverageBand.Of(w.Index, w.Name, t.sampleType, t.role,
+      .Bind(palette => CoverageBand.Of(w.Index, w.Name, t.sampleType, t.role, key,
        Opt(w.HasNoData, w.NoData), w.Units, w.Offset, w.Scale, Opt(w.HasRangeMin, (w.RangeMin, w.RangeMax)), palette))));
 
  static Fin<GeoReference> ToGeoReference(GeoReferenceWire w) => GeoReference.Admit(

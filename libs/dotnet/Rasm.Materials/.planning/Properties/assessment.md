@@ -202,14 +202,14 @@ public static class AssessmentAdmission {
         declared: static (k, r) => Declared(r.Material, r.Epd, k));
 
     static Fin<Assessed> Declared(MaterialId material, EpdRow epd) =>
-        (Arity(epd),
+        (Arity(epd, key),
          DeclarationProfile.Basis(epd.DeclaredUnit).Match(
              Some: static basis => Success<Error, MeasurementBasis>(basis),
              None: () => Fail<Error, MeasurementBasis>(
-                 new ElementFault.ValueRejected($"<declaration-unit-unseated:{epd.DeclaredUnit}>"))),
-         AdmissionSlots.Gate(material.ToValue().Length > 0, new ElementFault.ValueRejected($"<epd-material-blank:{epd.Reference}>")),
-         AdmissionSlots.Optional(epd.RecycledContent, Band.Unit, "epd-recycled-content"),
-         AdmissionSlots.Optional(epd.EndOfLifeRecovery, Band.Unit, "epd-end-of-life-recovery"))
+                 new ElementFault.ValueRejected(key, $"<declaration-unit-unseated:{epd.DeclaredUnit}>"))),
+         AdmissionSlots.Gate(material.ToValue().Length > 0, new ElementFault.ValueRejected(key, $"<epd-material-blank:{epd.Reference}>")),
+         AdmissionSlots.Optional(epd.RecycledContent, Band.Unit, "epd-recycled-content", key),
+         AdmissionSlots.Optional(epd.EndOfLifeRecovery, Band.Unit, "epd-end-of-life-recovery", key))
             .Apply((_, basis, _, recycled, recovery) => Lifecycle(
                 new AssessedIdentity(material, AssessmentModality.Declaration, EpdEvidence(epd), epd.Issued, Some(epd.ValidUntil)),
                 basis, epd, recycled, recovery))
@@ -248,7 +248,7 @@ public static class DeclarationWire {
         Try.lift(() => Fin.Succ(DeclarationRecord.Parser.ParseFrom(
                 CodedInputStream.CreateWithLimits(
                     record.AsStream(), WireLimits.Declaration.SizeLimit, WireLimits.Declaration.RecursionLimit)))).Run().Bind(static inner => inner)
-            .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload))
+            .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload, key))
             .Map(admitted => (AssessmentRecord)new AssessmentRecord.Declared(
                 MaterialId.Create(admitted.MaterialKey), ToEpd(admitted, Banded(admitted.Cells))));
 
@@ -307,7 +307,7 @@ public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> B
     public static readonly AssessmentSet Empty = new(FrozenDictionary<MaterialId, Seq<Assessed>>.Empty);
 
     public static Fin<AssessmentSet> Of(Seq<AssessmentRecord> records) =>
-        records.Traverse(record => AssessmentAdmission.Admit(record)).As()
+        records.Traverse(record => AssessmentAdmission.Admit(record, key)).As()
             .Map(static admitted => new AssessmentSet(
                 admitted.GroupBy(static a => a.Identity.Material).ToFrozenDictionary(static g => g.Key, static g => toSeq(g))));
 
@@ -322,9 +322,9 @@ public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> B
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentResolution {
     public static Fin<Seq<MaterialPropertySet>> Resolve(MaterialId id, AssessmentSet assessed, LocalDate at) =>
-        from engineering in MaterialPropertyCatalogue.Lookup(id)
-        from lifecycle in SustainabilityCatalogue.Lookup(id)
-        from resolved in Overlay(engineering + lifecycle, assessed.Live(id, at))
+        from engineering in MaterialPropertyCatalogue.Lookup(id, key)
+        from lifecycle in SustainabilityCatalogue.Lookup(id, key)
+        from resolved in Overlay(engineering + lifecycle, assessed.Live(id, at), key)
         select resolved;
 
     static Fin<Seq<MaterialPropertySet>> Overlay(Seq<MaterialPropertySet> published, Seq<Assessed> live) =>
@@ -333,7 +333,7 @@ public static class AssessmentResolution {
             : live.FoldM((Sets: published, Claimed: Set<string>()), (carried, record) =>
                     carried.Claimed.Contains(record.Axis)
                         ? Fin.Succ(carried)
-                        : Apply(carried.Sets, record).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))).As()
+                        : Apply(carried.Sets, record, key).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))).As()
                 .Map(static carried => carried.Sets);
 
     static Fin<Seq<MaterialPropertySet>> Apply(Seq<MaterialPropertySet> sets, Assessed record) =>
@@ -346,7 +346,7 @@ public static class AssessmentResolution {
     // --- [PER_AXIS_RESOLUTION]
     static Fin<Seq<MaterialPropertySet>> ReplaceColumn(Seq<MaterialPropertySet> sets, Assessed.Column record) =>
         record.Property.Row.OfNative(record.Value.Central)
-            .Bind(measure => record.Property.Landing(sets, measure, record.Identity.Evidence));
+            .Bind(measure => record.Property.Landing(sets, measure, record.Identity.Evidence, key));
 
     internal static Fin<Seq<MaterialPropertySet>> SeatMechanical(
         Seq<MaterialPropertySet> sets, PropertyEvidence evidence,
@@ -358,7 +358,7 @@ public static class AssessmentResolution {
                 youngs.IfNone(mechanical.YoungsModulus),
                 yieldStrength.IfNone(mechanical.YieldStrength),
                 ultimate.IfNone(mechanical.UltimateStrength),
-                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, evidence));
+                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, key, evidence), key);
 
     internal static Fin<Seq<MaterialPropertySet>> SeatThermal(
         Seq<MaterialPropertySet> sets, PropertyEvidence evidence, MeasureValue conductivity) =>
@@ -379,8 +379,8 @@ public static class AssessmentResolution {
             from ultimate in QuantityRow.Pressure.OfNative(mechanical.UltimateStrength.Si * record.Factor)
             from scaled in MaterialPropertySet.OfMechanical(
                 mechanical.Density, modulus, proof, ultimate,
-                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, record.Identity.Evidence)
-            select scaled);
+                mechanical.PoissonsRatio, mechanical.ThermalExpansionPerK, key, record.Identity.Evidence)
+            select scaled, key);
 
     static Fin<Seq<MaterialPropertySet>> ReplaceEnvironmental(Seq<MaterialPropertySet> sets, Assessed.Lifecycle record) =>
         MaterialPropertySet.OfEnvironmental(

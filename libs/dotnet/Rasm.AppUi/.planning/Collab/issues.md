@@ -265,19 +265,19 @@ public static class CommentLens {
             .Somes();
 
     static Option<CommentEntry> Read(LoroMap thread, string key) =>
-        thread.Level(live => EntryOf(thread, live));
+        thread.Level(key, live => EntryOf(thread, key, live));
 
     static Option<CommentEntry> EntryOf(LoroMap thread, string key, LoroMap row) =>
         (row.Read(CollabColumn.Author, static leaf => leaf.Text),
          row.Read(CollabColumn.Body, static leaf => leaf.Text),
          row.Read(CollabColumn.At, static leaf => leaf.Stamp)).Apply((author, body, at) =>
             new CommentEntry(
-                System.Guid.ParseExact("N").ToString(), author, body,
+                System.Guid.ParseExact(key, "N").ToString(), author, body,
                 row.Read(CollabColumn.Viewpoint, static leaf => leaf.Text),
                 row.Read(CollabColumn.Resolved, static leaf => leaf.Flag).IfNone(false), at,
                 row.Read(CollabColumn.EditedAt, static leaf => leaf.Stamp),
                 row.Read(CollabColumn.EditedBy, static leaf => leaf.Text),
-                Optional(thread.GetLastEditor())));
+                Optional(thread.GetLastEditor(key))));
 }
 
 public readonly record struct CommentNotice(Guid CommentId, string TopicId, Instant At);
@@ -307,8 +307,8 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
             inbox => CollabDoc.Lift(() => toSeq(inbox.Keys()).Choose(key => Notice(inbox))));
 
     static Option<CommentNotice> Notice(LoroMap inbox, string key) =>
-        Guid.TryParseExact("N", out Guid comment)
-            ? inbox.Read(static row => (row.Field(CollabColumn.Topic, static leaf => leaf.Text),
+        Guid.TryParseExact(key, "N", out Guid comment)
+            ? inbox.Read(key, static row => (row.Field(CollabColumn.Topic, static leaf => leaf.Text),
                                              row.Field(CollabColumn.At, static leaf => leaf.Stamp))
                 .Apply((topic, at) => new CommentNotice(comment, topic, at)))
             : None;
@@ -498,7 +498,7 @@ public static class IssueRegister {
 
     static IssueTriage Triage(LoroMap row) => new(
         row.Read(CollabColumn.Status, static leaf => leaf.Text).Bind(static key =>
-            IssueStatus.TryGet(out IssueStatus? held) ? Some(held) : None),
+            IssueStatus.TryGet(key, out IssueStatus? held) ? Some(held) : None),
         row.Read(CollabColumn.Assignee, static leaf => leaf.Text),
         Labels(row),
         row.Read(CollabColumn.Priority, static leaf => leaf.Text),
@@ -718,13 +718,13 @@ public sealed partial class MarkupLeg {
          from key in FinT.liftIO<IO, string>(IO.lift(static () => $"{RasterPrefix}{Guid.CreateVersion7():N}"))
          from image in FinT.lift<IO, SKImage>(placement.Raster(stroke, seat))
          from artifact in FinT.liftIO<IO, VisualArtifact>(
-             VisualCodec.Encode(placement.Runtime, image, placement.Encode, RasterKind))
+             VisualCodec.Encode(placement.Runtime, image, placement.Encode, RasterKind, key))
          from source in FinT.lift<IO, string>(artifact.Destination.ToFin(
              new IssueFault.Unwritten($"redline/unwritten-raster:{key}")))
          select Seq<ViewpointMarkup>(new ViewpointMarkup.Bitmap(
              new Rasm.Bim.Coordination.BcfBitmap(
-                 artifact.Format, seat.Origin, placement.Facing, placement.Up, seat.Height),
-             new MediaSurface.Image(source, Stretch.Uniform)))).runFin.As();
+                 artifact.Format, key, seat.Origin, placement.Facing, placement.Up, seat.Height),
+             new MediaSurface.Image(key, source, Stretch.Uniform)))).runFin.As();
 
     public static readonly ArtifactKind RasterKind = ArtifactKind.Create("redline");
 

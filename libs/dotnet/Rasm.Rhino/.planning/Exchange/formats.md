@@ -268,12 +268,12 @@ public sealed partial class FileCodec {
     public static readonly FileCodec Ai = new("ai", Seq(".ai"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Export, CodecAbility.Vector),
         static (tune, carrier, doc, path, op) => Confirm(FileAi.Read(path, doc,
-            Dials.Scale(new FileAiReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.AiRead))),
+            Dials.Scale(new FileAiReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.AiRead)), op),
         static (tune, carrier, doc, path, op) => Confirm(FileAi.Write(path, doc,
             Dials.Scale(
                 Dials.Resolve(tune, carrier, static () => new FormatDial.AiWriteCase(), static (dial, policy, _) => dial.Mint(tune: policy)),
                 tune,
-                VectorLenses.AiWrite))));
+                VectorLenses.AiWrite)), op));
     public static readonly FileCodec Amf = new("amf", Seq(".amf"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Export), Unread,
         Writer(FileAmf.Write, static () => new FormatDial.AmfWriteCase(), static (dial, _, _) => dial.Mint()));
@@ -301,7 +301,7 @@ public sealed partial class FileCodec {
     public static readonly FileCodec Eps = new("eps", Seq(".eps"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Vector),
         static (tune, carrier, doc, path, op) => Confirm(FileEps.Read(path, doc,
-            Dials.Scale(new FileEpsReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.Eps))), Unwritten);
+            Dials.Scale(new FileEpsReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.Eps)), op), Unwritten);
     public static readonly FileCodec Stl = new("stl", Seq(".stl"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Export),
         Reader(FileStl.Read, static () => new FormatDial.StlReadCase(), static (dial, _, _) => dial.Mint()),
@@ -392,7 +392,7 @@ public sealed partial class FileCodec {
             Dials.Scale(
                 Dials.Resolve(tune, carrier, static () => new FormatDial.PdfReadCase(), static (dial, policy, _) => dial.Mint(tune: policy)),
                 tune,
-                VectorLenses.Pdf))), Unwritten);
+                VectorLenses.Pdf)), op), Unwritten);
     public static readonly FileCodec Svg = new("svg", Seq(".svg"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Vector),
         Reader(FileSvg.Read, static () => new FormatDial.SvgReadCase(), static (dial, _, _) => dial.Mint()), Unwritten);

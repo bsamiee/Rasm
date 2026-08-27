@@ -983,71 +983,71 @@ public abstract partial record MeshOp {
     internal Fin<MeshOp> Admitted() =>
         Switch(
             context: key,
-            fromGeometry: static (row) => ModelClaim.Admits(row,
+            fromGeometry: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Fidelity), row.Fidelity is { IsValid: true })),
-            fromSubD: static (row) => ModelClaim.Admits(row,
+            fromSubD: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Level), Enum.IsDefined(row.Level))),
-            cage: static (row) => ModelClaim.Admits(row,
+            cage: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source))),
-            fromBoundary: static (row) => ModelClaim.Admits(row,
+            fromBoundary: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Boundary), ModelClaim.Handle(handle: row.Boundary)),
                 (nameof(row.Fidelity), row.Fidelity is { IsValid: true })),
-            seedPlane: static (row) => ModelClaim.Admits(row,
+            seedPlane: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Frame), row.Frame.IsValid), (nameof(row.X), row.X.IsValid), (nameof(row.Y), row.Y.IsValid)),
-            seedBox: static (row) => ModelClaim.Admits(row, (nameof(row.Box), row.Box.IsValid)),
-            seedSphere: static (row) => ModelClaim.Admits(row, (nameof(row.Sphere), row.Sphere.IsValid)),
-            seedIcoSphere: static (row) => ModelClaim.Admits(row, (nameof(row.Sphere), row.Sphere.IsValid)),
-            seedQuadSphere: static (row) => ModelClaim.Admits(row, (nameof(row.Sphere), row.Sphere.IsValid)),
-            seedCylinder: static (row) => ModelClaim.Admits(row,
+            seedBox: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Box), row.Box.IsValid)),
+            seedSphere: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Sphere), row.Sphere.IsValid)),
+            seedIcoSphere: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Sphere), row.Sphere.IsValid)),
+            seedQuadSphere: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Sphere), row.Sphere.IsValid)),
+            seedCylinder: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Cylinder), row.Cylinder.IsValid),
                 (nameof(row.Grants), CylinderGrants.Admit(held: row.Grants).IsSucc)),
-            seedCone: static (row) => ModelClaim.Admits(row,
+            seedCone: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Cone), row.Cone.IsValid),
                 (nameof(row.Grants), ConeGrants.Admit(held: row.Grants).IsSucc)),
-            seedTorus: static (row) => ModelClaim.Admits(row, (nameof(row.Torus), row.Torus.IsValid)),
-            seedClosedPolyline: static (row) => ModelClaim.Admits(row,
+            seedTorus: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Torus), row.Torus.IsValid)),
+            seedClosedPolyline: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Boundary), row.Boundary is { IsValid: true })),
-            quadRemesh: static (row) => ModelClaim.Admits(row,
+            quadRemesh: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Law), row.Law.IsValid),
                 (nameof(row.Guides), ModelClaim.Handles(handles: row.Guides, allowEmpty: true)),
                 (nameof(row.FaceBlocks), ModelClaim.Rows(
                     rows: row.FaceBlocks, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0), allowEmpty: true))),
-            wrap: static (row) => ModelClaim.Admits(row,
+            wrap: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Sources), ModelClaim.Handles(handles: row.Sources)),
                 (nameof(row.Law), row.Law.IsValid),
                 (nameof(row.Fidelity), ValidityClaim.WhenPresent(
                     facet: row.Fidelity, claim: static fidelity => (ValidityClaim)fidelity.IsValid))),
-            curvePipe: static (row) => ModelClaim.Admits(row,
+            curvePipe: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)),
                 (nameof(row.Radius), ValidityClaim.Positive(value: row.Radius)),
                 (nameof(row.Accuracy), ValidityClaim.CountAtLeast(count: row.Accuracy, floor: 1)),
                 (nameof(row.Cap), Enum.IsDefined(row.Cap)),
                 (nameof(row.Intervals), ModelClaim.Rows(
                     rows: row.Intervals, claim: static interval => (ValidityClaim)interval.IsValid, allowEmpty: true))),
-            curveExtrude: static (row) => ModelClaim.Admits(row,
+            curveExtrude: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)),
                 (nameof(row.Direction), ValidityClaim.Direction(value: row.Direction)),
                 (nameof(row.Fidelity), ValidityClaim.WhenPresent(
                     facet: row.Fidelity, claim: static fidelity => (ValidityClaim)fidelity.IsValid)),
                 (nameof(row.Bounds), ValidityClaim.WhenPresent(
                     facet: row.Bounds, claim: static bounds => (ValidityClaim)bounds.IsValid))),
-            isosurface: static (row) => ModelClaim.Admits(row,
+            isosurface: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Field), row.Field is not null), (nameof(row.Box), row.Box.IsValid),
                 (nameof(row.RootFindingMaxSteps), ValidityClaim.CountAtLeast(count: row.RootFindingMaxSteps, floor: 1))),
-            fromLines: static (row) => ModelClaim.Admits(row,
+            fromLines: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Lines), ModelClaim.Handles(handles: row.Lines)),
                 (nameof(row.MaxFaceValence), ValidityClaim.CountAtLeast(count: row.MaxFaceValence, floor: 3))),
-            tessellate: static (row) => ModelClaim.Admits(row,
+            tessellate: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Points), ModelClaim.Points(points: row.Points)),
                 (nameof(row.Edges), ModelClaim.Rows(rows: row.Edges, claim: static loop => ModelClaim.Points(points: loop))),
                 (nameof(row.Frame), row.Frame.IsValid)),
-            convexHull: static (row) => ModelClaim.Admits(row,
+            convexHull: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Points), ValidityClaim.All(
                     ValidityClaim.CountAtLeast(count: row.Points.Count, floor: 4), ModelClaim.Points(points: row.Points)))),
-            patch: static (row) => ModelClaim.Admits(row,
+            patch: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.OuterBoundary), ValidityClaim.All(
                     ValidityClaim.CountAtLeast(count: row.OuterBoundary.Count, floor: 4),
                     ModelClaim.Points(points: row.OuterBoundary))),
@@ -1057,70 +1057,70 @@ public abstract partial record MeshOp {
                 (nameof(row.BothSideCurves), ModelClaim.Handles(handles: row.BothSideCurves, allowEmpty: true)),
                 (nameof(row.InnerPoints), ModelClaim.Points(points: row.InnerPoints, allowEmpty: true)),
                 (nameof(row.Divisions), ValidityClaim.CountAtLeast(count: row.Divisions, floor: 1))),
-            rebuild: static (row) => ModelClaim.Admits(row,
+            rebuild: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source))),
-            cleanup: static (row) => ModelClaim.Admits(row,
+            cleanup: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Sources), ModelClaim.Handles(handles: row.Sources))),
-            refineLoop: static (row) => ModelClaim.Admits(row,
+            refineLoop: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Formula), Enum.IsDefined(row.Formula)), (nameof(row.NakedEdges), Enum.IsDefined(row.NakedEdges))),
-            refineCatmullClark: static (row) => ModelClaim.Admits(row,
+            refineCatmullClark: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.NakedEdges), Enum.IsDefined(row.NakedEdges))),
-            subdivideMidEdge: static (row) => ModelClaim.Admits(row,
+            subdivideMidEdge: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Faces), ModelClaim.Rows(
                     rows: row.Faces, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0), allowEmpty: true))),
-            booleanUnion: static (row) => ModelClaim.Admits(row,
+            booleanUnion: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Inputs), ModelClaim.Handles(handles: row.Inputs))),
-            booleanIntersection: static (row) => ModelClaim.Admits(row,
+            booleanIntersection: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handles(handles: row.First)),
                 (nameof(row.Second), ModelClaim.Handles(handles: row.Second))),
-            booleanDifference: static (row) => ModelClaim.Admits(row,
+            booleanDifference: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handles(handles: row.First)),
                 (nameof(row.Second), ModelClaim.Handles(handles: row.Second))),
-            booleanSplit: static (row) => ModelClaim.Admits(row,
+            booleanSplit: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets)),
                 (nameof(row.Cutters), ModelClaim.Handles(handles: row.Cutters))),
-            splitPlane: static (row) => ModelClaim.Admits(row,
+            splitPlane: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Plane), row.Plane.IsValid)),
-            splitMeshes: static (row) => ModelClaim.Admits(row,
+            splitMeshes: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Cutters), ModelClaim.Handles(handles: row.Cutters)),
                 (nameof(row.Policy), row.Policy is not null)),
-            splitDisjoint: static (row) => ModelClaim.Admits(row,
+            splitDisjoint: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitNonManifold: static (row) => ModelClaim.Admits(row,
+            splitNonManifold: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitProjectedPolylines: static (row) => ModelClaim.Admits(row,
+            splitProjectedPolylines: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Curves), ModelClaim.Handles(handles: row.Curves))),
-            splitUnweldedEdges: static (row) => ModelClaim.Admits(row,
+            splitUnweldedEdges: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitCount: static (row) => ModelClaim.Admits(row,
+            splitCount: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.MaxCount), ValidityClaim.CountAtLeast(count: row.MaxCount, floor: 1)),
                 (nameof(row.Mode), row.Mode is not null)),
-            partition: static (row) => ModelClaim.Admits(row,
+            partition: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.MaxVertexCount), ValidityClaim.CountAtLeast(count: row.MaxVertexCount, floor: 1)),
                 (nameof(row.MaxFaceCount), ValidityClaim.CountAtLeast(count: row.MaxFaceCount, floor: 1))),
-            matchEdges: static (row) => ModelClaim.Admits(row,
+            matchEdges: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets)), (nameof(row.Law), row.Law.IsValid)),
-            append: static (row) => ModelClaim.Admits(row,
+            append: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Sources), ModelClaim.Handles(handles: row.Sources))),
-            projectFaces: static (row) => ModelClaim.Admits(row,
+            projectFaces: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Indices), ModelClaim.Rows(
                     rows: row.Indices, claim: static index => ValidityClaim.CountAtLeast(count: index, floor: 0)))),
-            projectNakedEdges: static (row) => ModelClaim.Admits(row,
+            projectNakedEdges: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            projectOutlines: static (row) => ModelClaim.Admits(row,
+            projectOutlines: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Frame), row.Frame.IsValid)),
-            edit: static (row) => ModelClaim.Admits(row,
+            edit: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Verb), row.Verb is { IsValid: true })),
-            extrude: static (row) => ModelClaim.Admits(row,
+            extrude: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Components), ModelClaim.Rows(
                     rows: row.Components, claim: static component => ValidityClaim.CountAtLeast(count: component.Index, floor: 0))),
@@ -1135,9 +1135,9 @@ public abstract partial record MeshOp {
                     from built in Try.lift(() => {
                         using MeshingParameters live = parameters;
                         return source switch {
-                            Brep brep => ModelGate.Many(() => Mesh.CreateFromBrep(brep: brep, meshingParameters: live)),
-                            Surface surface => ModelGate.Single(() => Mesh.CreateFromSurface(surface: surface, meshingParameters: live)),
-                            Extrusion extrusion => ModelGate.Single(() => Mesh.CreateFromExtrusion(extrusion: extrusion, meshingParameters: live)),
+                            Brep brep => ModelGate.Many(op, () => Mesh.CreateFromBrep(brep: brep, meshingParameters: live)),
+                            Surface surface => ModelGate.Single(op, () => Mesh.CreateFromSurface(surface: surface, meshingParameters: live)),
+                            Extrusion extrusion => ModelGate.Single(op, () => Mesh.CreateFromExtrusion(extrusion: extrusion, meshingParameters: live)),
                             _ => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Mesh))),
                         };
                     }).Run().Bind(static inner => inner)
@@ -1150,10 +1150,10 @@ public abstract partial record MeshOp {
             cage: static (_, edit) => {
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, body: source =>
                     source switch {
-                        SubD subd => ModelGate.Single(() => edit.TextureCoordinates
+                        SubD subd => ModelGate.Single(op, () => edit.TextureCoordinates
                             ? Mesh.CreateFromSubDControlNetWithTextureCoordinates(subd: subd)
                             : Mesh.CreateFromSubDControlNet(subd: subd)),
-                        Surface surface => ModelGate.Single(() => Mesh.CreateFromSurfaceControlNet(surface: surface)),
+                        Surface surface => ModelGate.Single(op, () => Mesh.CreateFromSurfaceControlNet(surface: surface)),
                         _ => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Mesh))),
                     });
             },
@@ -1162,7 +1162,7 @@ public abstract partial record MeshOp {
                     from parameters in edit.Fidelity.Rig(domain: model)
                     from built in Try.lift(() => {
                         using MeshingParameters live = parameters;
-                        return ModelGate.Single(() => Mesh.CreateFromPlanarBoundary(
+                        return ModelGate.Single(op, () => Mesh.CreateFromPlanarBoundary(
                             boundary: boundary, parameters: live, tolerance: model.Domain.Absolute.Value));
                     }).Run().Bind(static inner => inner)
                     select built);
@@ -1233,16 +1233,16 @@ public abstract partial record MeshOp {
                         from remeshed in (source switch {
                             Brep brep => model.Await(() => Mesh.QuadRemeshBrepAsync(
                                 brep: brep, parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
                             Mesh mesh when !edit.FaceBlocks.IsEmpty => model.Await(() => mesh.QuadRemeshAsync(
                                 faceBlocks: edit.FaceBlocks.AsIterable(), parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
                             Mesh mesh => model.Await(() => mesh.QuadRemeshAsync(
                                 parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
                             _ => Fin.Fail<Mesh>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Mesh))),
                         })
-                        from built in ModelGate.Single(() => remeshed)
+                        from built in ModelGate.Single(op, () => remeshed)
                         select built));
             },
             wrap: static (model, edit) => {
@@ -1252,19 +1252,19 @@ public abstract partial record MeshOp {
                         AllMeshes: sources.ForAll(static value => value is Mesh),
                         Cloud: sources.Count == 1 ? sources[0] as PointCloud : null,
                         Fidelity: edit.Fidelity.Case) switch {
-                        (true, _, null) => ModelGate.Single(() => Mesh.ShrinkWrap(
+                        (true, _, null) => ModelGate.Single(op, () => Mesh.ShrinkWrap(
                             meshes: sources.Map(static value => (Mesh)value).AsIterable(),
                             parameters: parameters,
                             token: model.Cancellation), token: model.Cancellation),
                         (true, _, _) => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput()),
-                        (false, PointCloud cloud, null) => ModelGate.Single(() => Mesh.ShrinkWrap(
+                        (false, PointCloud cloud, null) => ModelGate.Single(op, () => Mesh.ShrinkWrap(
                             pointCloud: cloud,
                             parameters: parameters,
                             token: model.Cancellation), token: model.Cancellation),
                         (false, PointCloud, _) => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput()),
                         (false, _, MeshFidelity fidelity) => fidelity.Rig(domain: model).Bind(meshing => Try.lift(() => {
                             using MeshingParameters live = meshing;
-                            return ModelGate.Single(() => Mesh.ShrinkWrap(
+                            return ModelGate.Single(op, () => Mesh.ShrinkWrap(
                                 geometryBases: sources.AsIterable(),
                                 parameters: parameters,
                                 meshingParameters: live,
@@ -1286,14 +1286,14 @@ public abstract partial record MeshOp {
                     edit.Fidelity.Case switch {
                         MeshFidelity fidelity => fidelity.Rig(domain: model).Bind(parameters => Try.lift(() => {
                             using MeshingParameters live = parameters;
-                            return ModelGate.Single(() => edit.Bounds.Case switch {
+                            return ModelGate.Single(op, () => edit.Bounds.Case switch {
                                 BoundingBox bounds => Mesh.CreateFromCurveExtrusion(curve: curve, direction: edit.Direction, parameters: live, boundingBox: bounds),
                                 _ => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction, parameters: live),
                             });
                         }).Run().Bind(static inner => inner)),
                         _ => edit.Bounds.IsSome
                             ? Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput())
-                            : ModelGate.Single(() => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction)),
+                            : ModelGate.Single(op, () => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction)),
                     });
             },
             isosurface: static (_, edit) => {
@@ -1326,7 +1326,7 @@ public abstract partial record MeshOp {
                         ModelGate.BorrowMany<Surface, Seq<GeometryHandle>>(
                             handles: edit.PullbackSurface.ToSeq(),
                             allowEmpty: true,
-                            body: pullbacks => ModelGate.Single(() => Mesh.CreatePatch(
+                            body: pullbacks => ModelGate.Single(op, () => Mesh.CreatePatch(
                                 outerBoundary: new Polyline(collection: edit.OuterBoundary.AsIterable()),
                                 angleToleranceRadians: model.Domain.Angle.Value,
                                 pullbackSurface: pullbacks.IsEmpty ? null : pullbacks[0],
@@ -1373,7 +1373,7 @@ public abstract partial record MeshOp {
                     return Admit.Confirm(success: edit.Faces.IsEmpty
                             ? working.Subdivide()
                             : working.Subdivide(faceIndices: edit.Faces.AsIterable()))
-                        .Bind(_ => ModelGate.Kept(working))
+                        .Bind(_ => ModelGate.Kept(op, working))
                         .Rollback(working);
                 }).Run().Bind(static inner => inner));
             },
@@ -1426,7 +1426,7 @@ public abstract partial record MeshOp {
                         Try.lift(() => {
                             (bool coplanar, bool ngons) = edit.Policy.Native;
                             using TextLog log = new();
-                            return ModelGate.Many(() => mesh.Split(
+                            return ModelGate.Many(op, () => mesh.Split(
                                     meshes: cutters.AsIterable(),
                                     tolerance: model.Domain.For(lane: ToleranceLane.MeshIntersection).Value,
                                     splitAtCoplanar: coplanar,
@@ -1457,7 +1457,7 @@ public abstract partial record MeshOp {
             splitCount: static (_, edit) => {
                 return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh => {
                     (bool countSum, bool countTriangles) = edit.Mode.Native;
-                    return ModelGate.Many(() => Mesh.SplitMesh(
+                    return ModelGate.Many(op, () => Mesh.SplitMesh(
                         mesh: mesh, maxCount: edit.MaxCount, countSum: countSum, countTriangles: countTriangles));
                 });
             },
@@ -1489,7 +1489,7 @@ public abstract partial record MeshOp {
                     return from _ in guard(
                                selected.All(index => index < mesh.Faces.Count),
                                new KernelFault.InvalidInput())
-                           from built in ModelGate.Single(() => Mesh.CreateFromFilteredFaceList(
+                           from built in ModelGate.Single(op, () => Mesh.CreateFromFilteredFaceList(
                                original: mesh,
                                inclusion: Enumerable.Range(start: 0, count: mesh.Faces.Count).Select(selected.Contains)))
                            select built;

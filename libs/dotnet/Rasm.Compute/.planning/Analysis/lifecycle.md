@@ -460,7 +460,7 @@ public static partial class LifecycleAssessment {
         Instant now = clock.GetCurrentInstant();
         Seq<(Node.Material Material, Fin<MaterialPropertySet> Resolved)> resolved = Seq<(Node.Material, Fin<MaterialPropertySet>)>();
         foreach (Node.Material material in MissingDeclarations(graph, request.Targets)) {
-            resolved = resolved.Add((material, await Descend(epds, request.Query, material, now)));
+            resolved = resolved.Add((material, await Descend(epds, request.Query, material, now, key)));
         }
         return resolved.Find(static row => Aborts(row.Resolved)).Match(
             Some: aborted => Fin.Fail<(GraphDelta, PlyGaps)>(aborted.Resolved.Match(Succ: static _ => Error.Empty, Fail: static error => error)),
@@ -485,7 +485,7 @@ public static partial class LifecycleAssessment {
             if (Aborts(answer)) { return Fin.Fail<MaterialPropertySet>(answer.Match(Succ: static _ => Error.Empty, Fail: static e => e)); }
             Option<MaterialPropertySet> admitted = answer.ToOption()
                 .Bind(rows => rows.Rows.Find(row => row.Declares(ImpactCategory.GwpTotal)))
-                .Bind(row => ToEnvironmental(row, query).ToOption());
+                .Bind(row => ToEnvironmental(row, query, key).ToOption());
             if (admitted.Case is MaterialPropertySet resolved) { return Fin.Succ(resolved); }
         }
         return Fin.Fail<MaterialPropertySet>(Missing(AssessmentInputReason.PlyPropertyAbsent, material.MaterialKey.ToValue()));

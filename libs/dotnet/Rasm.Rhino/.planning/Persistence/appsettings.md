@@ -534,7 +534,7 @@ public abstract partial record SwatchSlot {
         widgetCase: static (color, row) => HostEdge.Side(() => AppearanceSettings.SetWidgetColor(whichColor: row.Slot, c: color)));
 
     internal Fin<Color> Preset(Option<AppTheme> theme) => Switch<(Option<AppTheme> Theme), Fin<Color>>(
-        state: (theme),
+        state: (theme, op),
         paintCase: static (s, row) => Fin.Succ(value: s.Theme.Match(
             Some: mode => AppearanceSettings.DefaultPaintColor(whichColor: row.Slot, darkMode: mode.Key),
             None: () => AppearanceSettings.DefaultPaintColor(whichColor: row.Slot))),
@@ -678,7 +678,7 @@ public static class AppSettings {
             swatchCase: static (op, swatch) => Try.lift(() => {
                 Color prior = swatch.Slot.Read();
                 swatch.Value.IfSome(swatch.Slot.Write);
-                return swatch.Slot.Preset(swatch.Theme).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
+                return swatch.Slot.Preset(swatch.Theme, op).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
                     Mutation: new SwatchMutation(
                         Slot: swatch.Slot,
                         Prior: prior,
@@ -722,38 +722,38 @@ public static class AppSettings {
 
     private static Fin<AppOperation> Admit(AppOperation operation) => operation.Switch< Fin<AppOperation>>(
         state: op,
-        captureCase: static (value) => Verb(value.Family, FamilyVerb.Capture).Map(_ => (AppOperation)value),
-        fallbackCase: static (value) => value.Theme.Match(
+        captureCase: static (op, value) => Verb(value.Family, FamilyVerb.Capture, op).Map(_ => (AppOperation)value),
+        fallbackCase: static (op, value) => value.Theme.Match(
             Some: _ => guard(value.Family == AppSettingsFamily.Appearance, new KernelFault.InvalidInput())
                 .ToFin()
                 .Map(_ => (AppOperation)value),
-            None: () => Verb(value.Family, FamilyVerb.Preset).Map(_ => (AppOperation)value)),
+            None: () => Verb(value.Family, FamilyVerb.Preset, op).Map(_ => (AppOperation)value)),
         applyCase: static (value) => Admit.Need(value.State)
-            .Bind(state => Verb(state.Family, FamilyVerb.Apply))
+            .Bind(state => Verb(state.Family, FamilyVerb.Apply, op))
             .Map(_ => (AppOperation)value),
-        resetCase: static (value) => Verb(value.Family, FamilyVerb.Reset).Map(_ => (AppOperation)value),
+        resetCase: static (op, value) => Verb(value.Family, FamilyVerb.Reset, op).Map(_ => (AppOperation)value),
         themeCase: static (value) => Admit.Need(value.Theme).Map(_ => (AppOperation)value),
         themeProbeCase: static (value) => Admit.Need(value.Theme).Map(_ => (AppOperation)value),
         swatchCase: static (value) => Admit.Need(value.Slot)
             .Bind(slot => guard(slot.Defined, new KernelFault.InvalidInput()).ToFin())
             .Map(_ => (AppOperation)value),
         aliasCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit))
+            .Bind(edit => Admit(edit, op))
             .Map(edit => (AppOperation)new AppOperation.AliasCase(edit)),
         shortcutCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit))
+            .Bind(edit => Admit(edit, op))
             .Map(edit => (AppOperation)new AppOperation.ShortcutCase(edit)),
         repeatCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit))
+            .Bind(edit => Admit(edit, op))
             .Map(edit => (AppOperation)new AppOperation.RepeatCase(edit)),
         pathCase: static (value) => Admit.Need(value.Edit)
-            .Bind(edit => Admit(edit))
+            .Bind(edit => Admit(edit, op))
             .Map(edit => (AppOperation)new AppOperation.PathCase(edit)),
         conductCase: static (value) => Admit.Need(value.Conduct)
-            .Bind(conduct => Admit(conduct))
+            .Bind(conduct => Admit(conduct, op))
             .Map(conduct => (AppOperation)new AppOperation.ConductCase(conduct)),
         windowPositionCase: static (_, _) => Fin.Succ<AppOperation>(new AppOperation.WindowPositionCase()),
-        autoRangeCase: static (value) => (
+        autoRangeCase: static (op, value) => (
                 Admit.Need(value.Seed).ToValidation(),
                 guard(!value.Meshes.IsEmpty, new KernelFault.InvalidInput()).ToFin().ToValidation(),
                 value.Meshes.Traverse(mesh => Admit.Need(mesh).ToValidation()).As())
@@ -773,13 +773,13 @@ public static class AppSettings {
         presetCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.PresetCase()),
         probeCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.ProbeCase(name)),
-        putCase: static (value) => Admit(value.Binding)
+        putCase: static (op, value) => Admit(value.Binding, op)
             .Map(binding => (AliasEdit)new AliasEdit.PutCase(binding)),
         deleteCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.DeleteCase(name)),
         mergeCase: static (value) => Admit.Need(value.Merge)
             .Bind(merge => value.Bindings
-                .Map(binding => Admit(binding).ToValidation())
+                .Map(binding => Admit(binding, op).ToValidation())
                 .Traverse(static binding => binding)
                 .As()
                 .ToFin()
@@ -799,11 +799,11 @@ public static class AppSettings {
         state: op,
         rosterCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
         presetCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
-        assignCase: static (value) => Admit(value.Binding)
+        assignCase: static (op, value) => Admit(value.Binding, op)
             .Map(binding => (ShortcutEdit)new ShortcutEdit.AssignCase(binding)),
         mergeCase: static (value) => Admit.Need(value.Merge)
             .Bind(merge => value.Bindings
-                .Map(binding => Admit(binding).ToValidation())
+                .Map(binding => Admit(binding, op).ToValidation())
                 .Traverse(static binding => binding)
                 .As()
                 .ToFin()
@@ -816,12 +816,12 @@ public static class AppSettings {
 
     private static Fin<ShortcutBinding> Admit(KeyboardKey key, ModifierKey modifier, string? macro) =>
         from _key in guard(
-            Defined()
+            Defined(key)
             && FlagsDefined(modifier)
             && ShortcutKeySettings.IsAcceptableKeyCombo(modifier: modifier),
             new KernelFault.InvalidInput()).ToFin()
         from admittedMacro in FactoryBridge.Accept<MacroText>(macro)
-        select new ShortcutBinding(modifier, admittedMacro);
+        select new ShortcutBinding(key, modifier, admittedMacro);
 
     private static Fin<RepeatEdit> Admit(RepeatEdit edit) => edit.Switch< Fin<RepeatEdit>>(
         state: op,
@@ -836,16 +836,16 @@ public static class AppSettings {
         state: op,
         rosterCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RosterCase()),
         addCase: static (value) => (
-                DocumentPath.Of(value.Folder.Value).ToValidation(),
+                DocumentPath.Of(value.Folder.Value, op).ToValidation(),
                 guard(value.IndexAt >= -1, new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply((folder, _) => (PathEdit)new PathEdit.AddCase(folder, value.IndexAt))
             .As()
             .ToFin(),
-        removeCase: static (value) => DocumentPath.Of(value.Folder.Value)
+        removeCase: static (op, value) => DocumentPath.Of(value.Folder.Value, op)
             .Map(folder => (PathEdit)new PathEdit.RemoveCase(folder)),
         findCase: static (value) => Acceptance.Text(value.FileName)
             .Map(name => (PathEdit)new PathEdit.FindCase(name)),
-        autosaveCase: static (value) => value.Commands.Match(
+        autosaveCase: static (op, value) => value.Commands.Match(
             Some: commands => commands
                 .Traverse(name => Acceptance.Text(value: name).ToValidation())
                 .As()

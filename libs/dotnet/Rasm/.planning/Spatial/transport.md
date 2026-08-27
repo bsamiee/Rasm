@@ -104,15 +104,15 @@ public static class CloudTransport {
                from tgtMass in CloudKernel.MassOf(cluster: tgt)
                from plan in Solve(src.Vertices, tgt.Vertices, srcMass, tgtMass, active)
                from bias in active.Debias
-                   ? from selfS in Solve(src.Vertices, src.Vertices, srcMass, srcMass, active)
-                     from selfT in Solve(tgt.Vertices, tgt.Vertices, tgtMass, tgtMass, active)
+                   ? from selfS in Solve(src.Vertices, src.Vertices, srcMass, srcMass, active, op)
+                     from selfT in Solve(tgt.Vertices, tgt.Vertices, tgtMass, tgtMass, active, op)
                      from _ in guard(selfS.Converged && selfT.Converged,
                          new KernelFault.InvalidResult(Detail: Some("sinkhorn-debias-unconverged")))
                      select (Evidence: Some((Raw: plan.Distance, Source: selfS.Distance, Target: selfT.Distance)),
                          Distance: plan.Distance - (0.5 * selfS.Distance) - (0.5 * selfT.Distance))
                    : Fin.Succ((Evidence: Option<(double Raw, double Source, double Target)>.None,
                        Distance: plan.Distance))
-               from output in plan.Project<TOut>(src, tgt, bias.Distance, bias.Evidence)
+               from output in plan.Project<TOut>(src, tgt, bias.Distance, bias.Evidence, op)
                select output;
     }
 
@@ -217,12 +217,12 @@ public static class CloudTransport {
                 ProjectionRow.Of<double>(() => Settled(() => Acceptance.Value(value: distance))),
                 ProjectionRow.Of<SinkhornSummary>(() =>
                     from pairs in CloudCorrespondenceSet.OfCoupling(source, target, plane,
-                        policy.CouplingCutoff.Value, sourceMass, targetMass)
+                        policy.CouplingCutoff.Value, sourceMass, targetMass, key)
                     from summary in Acceptance.Value(new SinkhornSummary(distance, bias, policy,
                         converged, underflowFloored, sourceResidual, targetResidual, iterations, pairs))
                     select summary),
                 ProjectionRow.Of<CloudCorrespondenceSet>(() => Settled(() => CloudCorrespondenceSet.OfCoupling(
-                    source, target, plane, policy.CouplingCutoff.Value, sourceMass, targetMass))),
+                    source, target, plane, policy.CouplingCutoff.Value, sourceMass, targetMass, key))),
                 ProjectionRow.Of<Matrix>(() => Settled(() =>
                     from rows in FactoryBridge.Accept<Dimension>(sourceMass.Count)
                     from cols in FactoryBridge.Accept<Dimension>(targetMass.Count)
@@ -311,8 +311,8 @@ public readonly record struct CloudCorrespondenceSet(
             Distribution<Scalar> Distance)>> measured = samples.IsEmpty
             ? Fin.Succ(Option<(Stat<Scalar>, Stat<Scalar>, Distribution<Scalar>)>.None)
             : from coupling in Stat<Scalar>.Of(mass.Map(static value => (Scalar)value))
-              from weighted in Stat<Scalar>.Of(samples, Some(mass))
-              from spread in Distribution<Scalar>.Of(samples, Seq(90.0, 95.0),
+              from weighted in Stat<Scalar>.Of(samples, key, Some(mass))
+              from spread in Distribution<Scalar>.Of(samples, Seq(90.0, 95.0), key,
                   Some(QuantileRule.Interpolated))
               select Some((Coupling: coupling, WeightedDistance: weighted, Distance: spread));
         return from measurements in measured

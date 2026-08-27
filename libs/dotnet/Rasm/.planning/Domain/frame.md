@@ -205,7 +205,7 @@ public sealed class Hlc(IClock clock) {
 ## [05]-[PACKAGE_IDENTITY]
 
 - Owner: `PackageIdentity<TKey,THostFact>` — the one plugin-identity resolve. `TKey` is the host's own typed key (`PluginKey` at the Rhino boundary, `HookScope` at the Grasshopper boundary), so a raw-string plugin parameter cannot enter and the key spaces stay each boundary's; `THostFact` is the host-package evidence the kernel cannot name, carried as an `Option` column rather than forcing a wrapper record at one boundary and not the other.
-- Entry: `Resolve(pluginRoot, plugin, host)` reads the load context and the assembly version off the plugin root, folds the optional host probe, and lands the identity in the result; `RootOf(Assembly)` is the ONE spelling of the directory read both boundaries hand-wrote byte-identically.
+- Entry: `Resolve(pluginRoot, plugin, host, key)` reads the load context and the assembly version off the plugin root, folds the optional host probe, and lands the identity in the result; `RootOf(Assembly)` is the ONE spelling of the directory read both boundaries hand-wrote byte-identically.
 - Law: `PluginSlot` is the owner-declared dimension key beside `CorrelationId.Slot` and `TenantContext.TenantSlot` — a bare noun at an emitting boundary forks the dimension vocabulary (branch RULINGS `[02]`).
 - Law: package self-identity homes at the kernel causal frame, so a distant emitter never hand-spells a string-typed scope for a meter, a span, or an event source.
 - Law: this owner resolves identity and mints no meter — the metered identity is `Domain/instrument`'s `TelemetryIdentity`, and merging them puts a semantic-convention pin on a value the host resolves at load time.

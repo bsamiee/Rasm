@@ -148,7 +148,7 @@ public static class DocumentGate {
     internal static Fin<TOut> Resolve<TOut>(Option<HostDocument> graph, Func<HostDocument, Fin<TOut>> body) =>
         graph.Match(
             Some: chosen => UiThread.Run(
-                new UiDispatch<TOut>.Blocking(() => body(chosen)), DispatchLane.Interactive),
+                new UiDispatch<TOut>.Blocking(() => body(chosen)), DispatchLane.Interactive, key),
             None: () => GhSession.Run(
                 target: ScopeTarget.DocumentHost,
                 project: scope => scope.Document.ToFin(new KernelFault.MissingContext()).Bind(body)));

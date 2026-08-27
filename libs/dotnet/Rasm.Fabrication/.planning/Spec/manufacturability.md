@@ -148,10 +148,10 @@ public sealed partial class DfmConcern {
     public bool AppliesTo(ModalityClass cls) => Classes.Contains(cls);
 
     private static DfmConcern Any(string key, bool required) =>
-        For(required, ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined);
+        For(key, required, ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined);
 
     private static DfmConcern For(string key, bool required, params ModalityClass[] classes) =>
-        new(toSet(classes), required);
+        new(key, toSet(classes), required);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -188,9 +188,9 @@ public sealed partial class DfmProvenance {
     public static readonly DfmProvenance Probed = Stepped("probed");
 
     private static DfmProvenance Closed(string key) =>
-        new(static resolution => resolution is DfmResolution.Exact { IsValid: true });
+        new(key, static resolution => resolution is DfmResolution.Exact { IsValid: true });
     private static DfmProvenance Stepped(string key) =>
-        new(static resolution => resolution is DfmResolution.Discretized { IsValid: true });
+        new(key, static resolution => resolution is DfmResolution.Discretized { IsValid: true });
 
     [UseDelegateFromConstructor]
     public partial bool Admits(DfmResolution resolution);

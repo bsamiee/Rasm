@@ -111,19 +111,19 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
         Seq<ResidencyMeshlet> meshlets = scene.Clusters;
         if (meshlets.IsEmpty) { return Fin.Succ(new Bvh([], [], [], None)); }
         return from policy in limits.Broadphase()
-               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy)
-               from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)])
+               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy, op)
+               from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)], op)
                select view;
     }
 
     public Fin<Bvh> Refit(MeshletCluster scene, TraceLimits limits) {
         Seq<ResidencyMeshlet> moved = scene.Clusters;
         return Index.Match(
-            None: () => Build(scene, limits),
+            None: () => Build(scene, limits, op),
             Some: held => moved.Count != held.Store.Order.Length
-                ? Build(scene, limits)
-                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))])
-                  from view in Wired(index, [.. moved.Map(static m => m.Bounds)])
+                ? Build(scene, limits, op)
+                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))], op)
+                  from view in Wired(index, [.. moved.Map(static m => m.Bounds)], op)
                   select view);
     }
 
@@ -358,7 +358,7 @@ public sealed record PathTracePass(
     TraceLimits Limits) {
 
     public RenderPass Present(string key, Atom<AccumulationTarget> film) =>
-        new RenderPass.Composite((canvas, request, _) => Painted(canvas, request, film.Value));
+        new RenderPass.Composite(key, (canvas, request, _) => Painted(canvas, request, film.Value));
 
     private Fin<Unit> Painted(SKCanvas canvas, RenderTargetRequest request, AccumulationTarget target) {
         using MemoryOwner<float> resolved = Denoise.Resolve(target);

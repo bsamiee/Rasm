@@ -177,57 +177,57 @@ public static partial class BimIo {
         readonly HashSet<string> seen = new(StringComparer.Ordinal);
 
         public Unit Once(string type, Option<BimHooks> hooks) =>
-            seen.Add(type) ? DecodeReason.TypeUnevaluated.Degrade(hooks, type) : unit;
+            seen.Add(type) ? DecodeReason.TypeUnevaluated.Degrade(hooks, key, type) : unit;
     }
 
     public static Fin<ImportedGeometry> ImportGeometry(
         InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock,
         Option<BimHooks> hooks = default, Option<UsdScope> scope = default) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Import).Bind(row => row.Codec.Switch(
-            sharpGltf:        () => Boundary(() => Gltf(format, bytes, clock.GetCurrentInstant(), hooks)).Bind(g => Framed(format, g)),
-            meshText:         () => MeshTextGeometry(format, bytes, clock.GetCurrentInstant(), hooks),
-            ply:              () => Boundary(() => Ply(format, bytes, clock.GetCurrentInstant(), hooks)).Bind(g => Framed(format, g)),
-            sceneExchange:    () => Boundary(() => Scene(format, bytes, clock.GetCurrentInstant(), hooks)).Bind(g => Framed(format, g)),
-            usdStage:         () => Boundary(() => Usd(format, bytes, clock.GetCurrentInstant(), hooks, scope)),
-            acadSharp:        () => Boundary(() => AcadReader.Read(format, bytes, clock.GetCurrentInstant(), hooks)).Bind(g => Framed(format, g)),
-            dotBim:           () => Boundary(() => DotBim(format, bytes, clock.GetCurrentInstant(), hooks)).Bind(g => Framed(format, g)),
-            geometryGym:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),
-            stepIso10303:     () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-step-route", "use-ImportStep", format.Key }))),
-            geospatialVector: () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-geospatial-route", format.Key }))),
-            geospatialRaster: () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-geospatial-route", format.Key }))),
-            pointCloud:       () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-point-cloud-route", format.Key }))),
-            nativeCompanion:  () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Capability, string.Join(':', new object?[] { "import-needs-companion", format.Key }))),
-            igesAnsi:         () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Capability, string.Join(':', new object?[] { "import-needs-companion", format.Key }))),
-            saf:              () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),
-            cobieXlsx:        () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Import.Key, format.Key }))),
-            energyModel:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-energy-route", "EnergyExchange.Apply", format.Key }))),
-            ifc5Pending:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-catalogue-pending", format.Key })))));
+        InterchangeFormat.Admitted(format, InterchangeCapability.Import, key).Bind(row => row.Codec.Switch(
+            sharpGltf:        () => Boundary(key, () => Gltf(format, bytes, clock.GetCurrentInstant(), hooks, key)).Bind(g => Framed(format, g, key)),
+            meshText:         () => MeshTextGeometry(format, bytes, clock.GetCurrentInstant(), hooks, key),
+            ply:              () => Boundary(key, () => Ply(format, bytes, clock.GetCurrentInstant(), hooks, key)).Bind(g => Framed(format, g, key)),
+            sceneExchange:    () => Boundary(key, () => Scene(format, bytes, clock.GetCurrentInstant(), hooks, key)).Bind(g => Framed(format, g, key)),
+            usdStage:         () => Boundary(key, () => Usd(format, bytes, clock.GetCurrentInstant(), hooks, scope, key)),
+            acadSharp:        () => Boundary(key, () => AcadReader.Read(format, bytes, clock.GetCurrentInstant(), hooks, key)).Bind(g => Framed(format, g, key)),
+            dotBim:           () => Boundary(key, () => DotBim(format, bytes, clock.GetCurrentInstant(), hooks, key)).Bind(g => Framed(format, g, key)),
+            geometryGym:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),
+            stepIso10303:     () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-step-route", "use-ImportStep", format.Key }))),
+            geospatialVector: () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-geospatial-route", format.Key }))),
+            geospatialRaster: () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-geospatial-route", format.Key }))),
+            pointCloud:       () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-point-cloud-route", format.Key }))),
+            nativeCompanion:  () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Capability, string.Join(':', new object?[] { "import-needs-companion", format.Key }))),
+            igesAnsi:         () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Capability, string.Join(':', new object?[] { "import-needs-companion", format.Key }))),
+            saf:              () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),
+            cobieXlsx:        () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Import.Key, format.Key }))),
+            energyModel:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-energy-route", "EnergyExchange.Apply", format.Key }))),
+            ifc5Pending:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-catalogue-pending", format.Key })))));
 
     public static Fin<ImportedGeometry> ImportSpeckle(Base root, IClock clock, Option<BimHooks> hooks = default) =>
-        Boundary(() => DisplayScene(root, clock.GetCurrentInstant(), hooks))
+        Boundary(key, () => DisplayScene(root, clock.GetCurrentInstant(), hooks, key))
             .Bind(scene => scene.TriangleCount > 0
                 ? Fin.Succ(scene)
-                : Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "speckle-no-display", root.speckle_type }))));
+                : Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "speckle-no-display", root.speckle_type }))));
 
     public static Fin<DatabaseIfc> ImportIfc(
         InterchangeFormat format, ReadOnlyMemory<byte> bytes,
         Option<SafServices> saf = default, Option<BimHooks> hooks = default) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Import).Bind(row =>
+        InterchangeFormat.Admitted(format, InterchangeCapability.Import, key).Bind(row =>
             row.Codec == InterchangeCodec.GeometryGym
-                ? row.Serialization.ToFin(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", row.Key, "serialization-absent" })))
-                    .Bind(form => form.Sniff(bytes)
-                        .Bind(schema => Boundary(() => Database(row, bytes, schema))))
+                ? row.Serialization.ToFin(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", row.Key, "serialization-absent" })))
+                    .Bind(form => form.Sniff(bytes, key)
+                        .Bind(schema => Boundary(key, () => Database(row, bytes, schema, key))))
             : row.Codec == InterchangeCodec.Saf
                 ? saf.Match(
-                    Some: services => SafDatabase(bytes, services, hooks),
-                    None: () => Fin.Fail<DatabaseIfc>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", row.Key, "saf-services-absent" }))))
-                : Fin.Fail<DatabaseIfc>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", row.Key }))));
+                    Some: services => SafDatabase(bytes, services, hooks, key),
+                    None: () => Fin.Fail<DatabaseIfc>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", row.Key, "saf-services-absent" }))))
+                : Fin.Fail<DatabaseIfc>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", row.Key }))));
 
     public static Fin<StepSemanticModel> ImportStep(InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Import)
+        InterchangeFormat.Admitted(format, InterchangeCapability.Import, key)
             .Bind(row => row.Codec == InterchangeCodec.StepIso10303
-                ? Boundary(() => Fin.Succ(StepReader.Read(row, bytes.Span, clock.GetCurrentInstant())))
-                : Fin.Fail<StepSemanticModel>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "step-codec-miss", row.Key }))));
+                ? Boundary(key, () => Fin.Succ(StepReader.Read(row, bytes.Span, clock.GetCurrentInstant())))
+                : Fin.Fail<StepSemanticModel>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "step-codec-miss", row.Key }))));
 
     // --- [OPERATIONS]
     static Fin<T> Boundary<T>(Func<Fin<T>> decode) =>
@@ -249,7 +249,7 @@ public static partial class BimIo {
     static Fin<int> Baked(
         MeshDraft draft, long count, Seq<(EncodingChannel Channel, float[] Values)> lanes,
         ReadOnlySpan<long> corners, Option<string> material = default) =>
-        draft.Append(count, lanes, corners, material).Bind(block => draft.Place(block, Transform.Identity).Map(_ => block));
+        draft.Append(count, lanes, corners, key, material).Bind(block => draft.Place(block, Transform.Identity).Map(_ => block));
 
     static Seq<(int A, int B, int C)> Fan(int arity) =>
         toSeq(Enumerable.Range(1, Math.Max(0, arity - 2))).Map(static k => (A: 0, B: k, C: k + 1));
@@ -318,8 +318,8 @@ public static partial class BimIo {
         var builder = new DMesh3Builder();
         var reader = new StandardMeshReader { MeshBuilder = builder };
         return reader.SupportsFormat(extension)
-            ? Boundary(() => MeshText(reader, builder, format, extension, bytes, at, hooks)).Bind(g => Framed(format, g))
-            : Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "mesh-text-unsupported", format.Key, extension })));
+            ? Boundary(key, () => MeshText(reader, builder, format, extension, bytes, at, hooks, key)).Bind(g => Framed(format, g, key))
+            : Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "mesh-text-unsupported", format.Key, extension })));
     }
 
     static Fin<ImportedGeometry> MeshText(
@@ -329,12 +329,12 @@ public static partial class BimIo {
         if (read.code != IOCode.Ok) {
             return Fin.Fail<ImportedGeometry>(new BimFault.Refused(BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "import-decode", "mesh-text-read", read.code.ToString(), read.message })));
         }
-        DecodeStage.Opened.Beat(hooks);
+        DecodeStage.Opened.Beat(hooks, key);
         using var draft = MeshDraft.Of();
         return toSeq(builder.Meshes)
-            .Traverse(mesh => TextBlock(draft, mesh)).As()
-            .Map(_ => DecodeStage.Decoded.Beat(hooks))
-            .Bind(_ => Sealed(draft, format, at, hooks));
+            .Traverse(mesh => TextBlock(draft, mesh, key)).As()
+            .Map(_ => DecodeStage.Decoded.Beat(hooks, key))
+            .Bind(_ => Sealed(draft, format, at, hooks, key));
     }
 
     static Fin<int> TextBlock(MeshDraft draft, DMesh3 mesh) {
@@ -356,7 +356,7 @@ public static partial class BimIo {
                 ? new long[] { compact.Slot(tri.a), compact.Slot(tri.b), compact.Slot(tri.c) }
                 : [])
             .ToArray();
-        return Baked(draft, compact.Count, Lanes(positions, normals), corners);
+        return Baked(draft, compact.Count, Lanes(positions, normals), corners, key);
     }
 
     static Seq<(EncodingChannel Channel, float[] Values)> Lanes(float[] positions, float[] normals) =>
@@ -367,16 +367,16 @@ public static partial class BimIo {
     static Fin<DatabaseIfc> SafDatabase(ReadOnlyMemory<byte> bytes, SafServices services, Option<BimHooks> hooks) =>
         SafCodec.Run(
                 new SafOp.Import(new MemoryStream(bytes.ToArray()), services.Target),
-                services.Imports, services.Exports, services.Validator)
-            .Bind(model => Boundary(() => {
+                services.Imports, services.Exports, services.Validator, key)
+            .Bind(model => Boundary(key, () => {
                 DatabaseIfc db = new(services.Schema);
                 IfcSite host = new(db, "SAF");
                 _ = new IfcProject(host, "SAF", IfcUnitAssignment.Length.Metre);
                 return Fin.Succ((Db: db, Host: host, Model: model));
             }))
-            .Bind(authored => Fidelity.Run(SafCodec.Author(authored.Db, authored.Host, authored.Model))
+            .Bind(authored => Fidelity.Run(SafCodec.Author(authored.Db, authored.Host, authored.Model, key))
                 .Map(run => {
-                    run.Log.Facts.Iter(fact => DecodeReason.SafResidue.Degrade(hooks, fact.Anchor));
+                    run.Log.Facts.Iter(fact => DecodeReason.SafResidue.Degrade(hooks, key, fact.Anchor));
                     return authored.Db;
                 }));
 
@@ -398,8 +398,8 @@ public static partial class BimIo {
         } else {
             model = TextContext(bytes, validation).ReadTextSchema2(new MemoryStream(bytes.ToArray()));
         }
-        DecodeStage.Opened.Beat(hooks);
-        return Decoded(format, compressed ? Compression.Decompress(model, json) : model, at, hooks);
+        DecodeStage.Opened.Beat(hooks, key);
+        return Decoded(format, compressed ? Compression.Decompress(model, json) : model, at, hooks, key);
     }
 
     static ReadContext TextContext(ReadOnlyMemory<byte> bytes, ValidationMode validation) {
@@ -415,10 +415,10 @@ public static partial class BimIo {
         using var draft = MeshDraft.Of();
         return toSeq(Enumerable.Range(0, meshes.Count))
             .Traverse(m => GltfBlock(draft, meshes[m], Declared(model.LogicalMeshes[m]))).As()
-            .Map(blocks => { DecodeStage.Decoded.Beat(hooks); return blocks; })
-            .Bind(blocks => Walk(model, blocks).Accrue(Option<SharpGLTF.Schema2.Node>.None, draft))
-            .Map(_ => DecodeStage.Placed.Beat(hooks))
-            .Bind(_ => Sealed(draft, format, at, hooks));
+            .Map(blocks => { DecodeStage.Decoded.Beat(hooks, key); return blocks; })
+            .Bind(blocks => Walk(model, blocks).Accrue(Option<SharpGLTF.Schema2.Node>.None, draft, key))
+            .Map(_ => DecodeStage.Placed.Beat(hooks, key))
+            .Bind(_ => Sealed(draft, format, at, hooks, key));
     }
 
     static SceneWalk<Option<SharpGLTF.Schema2.Node>> Walk(ModelRoot model, Seq<int> blocks) => new(
@@ -466,7 +466,7 @@ public static partial class BimIo {
         }
         return draft.Append(vertexCount,
             Lanes(positions, normals) + (mapped ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>()),
-            corners);
+            corners, key);
     }
 
     static Fin<ImportedGeometry> Framed(InterchangeFormat format, ImportedGeometry geometry) {
@@ -663,7 +663,7 @@ public static partial class BimIo {
         using var stream = new MemoryStream(bytes.ToArray());
         using var draft = MeshDraft.Of();
         var elements = PlyParser.Parse(stream, maxChunkSize: 1 << 20).Data.ToList();
-        DecodeStage.Opened.Beat(hooks);
+        DecodeStage.Opened.Beat(hooks, key);
         var vertex = elements.First(static d => d.Element.Type == ElementType.Vertex);
         var face = elements.FirstOrDefault(static d => d.Element.Type == ElementType.Face);
         int vertexCount = Resolve(vertex, PlyLane.X).Map(static column => column.Length).IfNone(0);
@@ -676,9 +676,9 @@ public static partial class BimIo {
                 .SelectMany(static entry => new long[] {
                     entry.polygon[entry.tri.A], entry.polygon[entry.tri.B], entry.polygon[entry.tri.C] })
                 .ToArray();
-        DecodeStage.Decoded.Beat(hooks);
-        return Baked(draft, vertexCount, lanes, corners)
-            .Bind(_ => Sealed(draft, format, at, hooks));
+        DecodeStage.Decoded.Beat(hooks, key);
+        return Baked(draft, vertexCount, lanes, corners, key)
+            .Bind(_ => Sealed(draft, format, at, hooks, key));
     }
 
     static Option<(EncodingChannel Channel, float[] Values)> Lane(
@@ -727,14 +727,14 @@ public static partial class BimIo {
             PostProcessSteps.Triangulate | PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.GenerateSmoothNormals
                 | PostProcessSteps.CalculateTangentSpace | PostProcessSteps.GenerateUVCoords,
             format.Extensions.Head.Map(static ext => ext.TrimStart('.')).IfNone(format.Key));
-        DecodeStage.Opened.Beat(hooks);
+        DecodeStage.Opened.Beat(hooks, key);
         using var draft = MeshDraft.Of();
         return toSeq(Enumerable.Range(0, scene.MeshCount))
-            .Traverse(m => AssimpBlock(draft, scene.Meshes[m])).As()
-            .Map(blocks => { DecodeStage.Decoded.Beat(hooks); return blocks; })
-            .Bind(blocks => AssimpWalk(blocks).Accrue(scene.RootNode, draft))
-            .Map(_ => DecodeStage.Placed.Beat(hooks))
-            .Bind(_ => Sealed(draft, format, at, hooks));
+            .Traverse(m => AssimpBlock(draft, scene.Meshes[m], key)).As()
+            .Map(blocks => { DecodeStage.Decoded.Beat(hooks, key); return blocks; })
+            .Bind(blocks => AssimpWalk(blocks).Accrue(scene.RootNode, draft, key))
+            .Map(_ => DecodeStage.Placed.Beat(hooks, key))
+            .Bind(_ => Sealed(draft, format, at, hooks, key));
     }
 
     static SceneWalk<Assimp.Node> AssimpWalk(Seq<int> blocks) => new(
@@ -776,7 +776,7 @@ public static partial class BimIo {
             Lanes(positions, normals)
             + (mapped ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>())
             + (painted ? Seq((EncodingChannel.ColorRgba, colours)) : Seq<(EncodingChannel, float[])>()),
-            corners);
+            corners, key);
     }
 
     // --- [USD]
@@ -785,15 +785,15 @@ public static partial class BimIo {
         Option<UsdScope> scope) =>
         use(() => Spooled(bytes, format), path => IO.lift(() => Try.lift(() => {
             using var stage = Staged(path.Value, scope);
-            DecodeStage.Opened.Beat(hooks);
+            DecodeStage.Opened.Beat(hooks, key);
             bool zUp = UsdGeom.UsdGeomGetStageUpAxis(stage).ToString() == "Z";
             using var draft = MeshDraft.Of();
             var xform = new UsdGeomXformCache();
             var pool = new Dictionary<string, Seq<int>>(StringComparer.Ordinal);
-            return UsdWalk(Roster(stage, xform, hooks), pool).Accrue(Option<UsdNode>.None, draft)
-                .Map(_ => { DecodeStage.Decoded.Beat(hooks); DecodeStage.Placed.Beat(hooks); return unit; })
-                .Bind(_ => Sealed(draft, format, at, hooks))
-                .Bind(geometry => zUp ? Fin.Succ(geometry) : Framed(format, geometry));
+            return UsdWalk(Roster(stage, xform, hooks, key), pool, key).Accrue(Option<UsdNode>.None, draft, key)
+                .Map(_ => { DecodeStage.Decoded.Beat(hooks, key); DecodeStage.Placed.Beat(hooks, key); return unit; })
+                .Bind(_ => Sealed(draft, format, at, hooks, key))
+                .Bind(geometry => zUp ? Fin.Succ(geometry) : Framed(format, geometry, key));
         }).Run().Bind(static inner => inner))).Run().As();
 
     static SceneWalk<Option<UsdNode>> UsdWalk(Seq<UsdNode> roster, Dictionary<string, Seq<int>> pool) => new(
@@ -804,14 +804,14 @@ public static partial class BimIo {
             scattered: static scatter => scatter.Worlds)).IfNone(Seq<Transform>()),
         Blocks: (node, draft) => node.Match(
             Some: held => held.Switch(
-                meshed: mesh => Pooled(mesh.Prim, draft, pool),
-                scattered: scatter => Pooled(scatter.Prototype, draft, pool)),
+                meshed: mesh => Pooled(mesh.Prim, draft, pool, key),
+                scattered: scatter => Pooled(scatter.Prototype, draft, pool, key)),
             None: () => Fin.Succ(Seq<int>())));
 
     static Fin<Seq<int>> Pooled(UsdPrim prim, MeshDraft draft, Dictionary<string, Seq<int>> pool) =>
         prim.GetPath().GetAsString() is var path && pool.TryGetValue(path, out Seq<int> held)
             ? Fin.Succ(held)
-            : UsdMesh(new UsdGeomMesh(prim), draft).Map(minted => pool[path] = minted);
+            : UsdMesh(new UsdGeomMesh(prim), draft, key).Map(minted => pool[path] = minted);
 
     static Seq<UsdNode> Roster(UsdStage stage, UsdGeomXformCache xform, Option<BimHooks> hooks) {
         Seq<string> prototypes = stage.Traverse().AsIterable()
@@ -825,13 +825,13 @@ public static partial class BimIo {
             .Bind(prim => prim.GetTypeName().ToString() switch {
                 MeshType => Seq<UsdNode>(new UsdNode.Meshed(prim, Placed(xform.GetLocalToWorldTransform(prim)))),
                 PointInstancerType => Scatter(stage, prim, Placed(xform.GetLocalToWorldTransform(prim))),
-                var other => Skipped(other, unseen, hooks),
+                var other => Skipped(other, unseen, hooks, key),
             })
             .ToSeq().Strict();
     }
 
     static Seq<UsdNode> Skipped(string type, Unseen unseen, Option<BimHooks> hooks) {
-        ignore(unseen.Once(type, hooks));
+        ignore(unseen.Once(type, hooks, key));
         return Seq<UsdNode>();
     }
 
@@ -909,7 +909,7 @@ public static partial class BimIo {
             : Ordinals(UsdGeomSubset.GetUnassignedIndices(subsets, (uint)faces));
         return subsetGroups.Add((remainder, own))
             .Filter(static group => !group.Faces.IsEmpty)
-            .Traverse(group => Partition(draft, group.Faces, group.Material)).As();
+            .Traverse(group => Partition(draft, group.Faces, group.Material, key)).As();
 
         Fin<int> Partition(MeshDraft target, Seq<int> group, Option<string> material) {
             var compact = new OrdinalCompactor(0);
@@ -943,7 +943,7 @@ public static partial class BimIo {
             }
             return target.Append(compact.Count,
                 Lanes(verts, normals) + (mapped ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>()),
-                tris, material);
+                tris, op, material);
         }
     }
 
@@ -970,40 +970,40 @@ public static partial class BimIo {
         using var draft = MeshDraft.Of();
         return Optional(JsonSerializer.Deserialize(bytes.Span, DotBimContext.Default.DotBimFile))
             .ToFin(new BimFault.Refused(BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "import-decode", "dotbim-empty-document" })))
-            .Map(file => { DecodeStage.Opened.Beat(hooks); return file; })
+            .Map(file => { DecodeStage.Opened.Beat(hooks, key); return file; })
             .Bind(file => toSeq(file.Meshes)
                 .Traverse(mesh => draft.Append(
                         mesh.Coordinates.Count / 3,
                         Lanes(mesh.Coordinates.Select(static c => (float)c).ToArray(), []),
-                        mesh.Indices.Select(static i => (long)i).ToArray())
+                        mesh.Indices.Select(static i => (long)i).ToArray(), key)
                     .Map(block => (mesh.MeshId, Block: block))).As()
-                .Map(pool => { DecodeStage.Decoded.Beat(hooks); return (File: file, Pool: toMap(pool)); }))
+                .Map(pool => { DecodeStage.Decoded.Beat(hooks, key); return (File: file, Pool: toMap(pool)); }))
             .Bind(decoded => toSeq(decoded.File.Elements)
                 .Traverse(element => decoded.Pool.Find(element.MeshId)
-                    .ToFin(new BimFault.Refused(BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "import-decode", "dotbim-mesh-miss", element.MeshId.ToString(CultureInfo.InvariantCulture) })))
+                    .ToFin(new BimFault.Refused(key, BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "import-decode", "dotbim-mesh-miss", element.MeshId.ToString(CultureInfo.InvariantCulture) })))
                     .Bind(block => draft.Place(block, Placed(
                         Matrix4x4.CreateFromQuaternion(new System.Numerics.Quaternion(
                             (float)element.Rotation.Qx, (float)element.Rotation.Qy,
                             (float)element.Rotation.Qz, (float)element.Rotation.Qw))
                         * Matrix4x4.CreateTranslation(
                             (float)element.Vector.X, (float)element.Vector.Y, (float)element.Vector.Z))))).As())
-            .Map(_ => DecodeStage.Placed.Beat(hooks))
-            .Bind(_ => Sealed(draft, format, at, hooks));
+            .Map(_ => DecodeStage.Placed.Beat(hooks, key))
+            .Bind(_ => Sealed(draft, format, at, hooks, key));
     }
 
     // --- [SPECKLE]
     static Fin<ImportedGeometry> DisplayScene(Base root, Instant at, Option<BimHooks> hooks) {
         using var draft = MeshDraft.Of();
-        DecodeStage.Opened.Beat(hooks);
+        DecodeStage.Opened.Beat(hooks, key);
         return toSeq(root.Flatten()
                 .SelectMany(static node => Optional(node.TryGetDisplayValue()).Map(static d => d.OfType<Mesh>()).IfNone([])))
-            .Traverse(mesh => SpeckleBlock(draft, mesh)).As()
-            .Map(_ => DecodeStage.Decoded.Beat(hooks))
-            .Bind(_ => Sealed(draft, InterchangeFormat.Glb, at, hooks));
+            .Traverse(mesh => SpeckleBlock(draft, mesh, key)).As()
+            .Map(_ => DecodeStage.Decoded.Beat(hooks, key))
+            .Bind(_ => Sealed(draft, InterchangeFormat.Glb, at, hooks, key));
     }
 
     static Fin<int> SpeckleBlock(MeshDraft draft, Mesh mesh) =>
-        Fans(mesh.faces).Bind(fans => {
+        Fans(mesh.faces, key).Bind(fans => {
             double scale = Units.GetConversionFactor(mesh.units, Units.Meters);
             bool authored = mesh.vertexNormals.Count == mesh.vertices.Count;
             var positions = new float[fans.Count * 3];
@@ -1023,7 +1023,7 @@ public static partial class BimIo {
                 }
                 corners[i] = i;
             }
-            return Baked(draft, fans.Count, Lanes(positions, normals), corners);
+            return Baked(draft, fans.Count, Lanes(positions, normals), corners, key);
         });
 
     static Fin<Seq<int>> Fans(List<int> faces) {
@@ -1047,19 +1047,19 @@ public static partial class BimIo {
             using var stream = new MemoryStream(bytes.ToArray());
             using ICadReader reader = IsDxf(bytes) ? new DxfReader(stream) : new DwgReader(stream);
             reader.OnProgress += (_, args) => {
-                if (DecodeStage.ByReadStage.TryGetValue(args.Stage, out DecodeStage? stage)) { stage.Beat(hooks); }
+                if (DecodeStage.ByReadStage.TryGetValue(args.Stage, out DecodeStage? stage)) { stage.Beat(hooks, key); }
             };
             using var draft = MeshDraft.Of();
             var unseen = new Unseen();
             Seq<Cad.Entity> entities = toSeq(reader.Read().Entities);
             return entities
-                .Traverse(entity => Accumulate(draft, entity, unseen, hooks)).As()
+                .Traverse(entity => Accumulate(draft, entity, unseen, hooks, key)).As()
                 .Map(_ => {
                     entities.Choose(static entity => Optional(entity.Layer?.Name).Filter(static name => name.Length > 0))
-                        .Distinct().Iter(layer => DecodeReason.PresentationDropped.Degrade(hooks, layer));
-                    return DecodeStage.Placed.Beat(hooks);
+                        .Distinct().Iter(layer => DecodeReason.PresentationDropped.Degrade(hooks, key, layer));
+                    return DecodeStage.Placed.Beat(hooks, key);
                 })
-                .Bind(_ => Sealed(draft, format, at, hooks));
+                .Bind(_ => Sealed(draft, format, at, hooks, key));
         }
 
         static Fin<Unit> Accumulate(MeshDraft draft, Cad.Entity entity, Unseen unseen, Option<BimHooks> hooks) =>
@@ -1068,14 +1068,14 @@ public static partial class BimIo {
                 Cad.Face3D face => Block(draft, Quad(face.FirstCorner, face.SecondCorner, face.ThirdCorner, face.FourthCorner)),
                 Cad.PolyfaceMesh poly => Block(draft, Polyface(poly)),
                 Cad.Insert insert => toSeq(insert.Explode())
-                    .Traverse(placed => Accumulate(draft, placed, unseen, hooks)).As().Map(static _ => unit),
+                    .Traverse(placed => Accumulate(draft, placed, unseen, hooks, key)).As().Map(static _ => unit),
                 Cad.ModelerGeometry acis => Fin.Succ(DecodeReason.SolidUnevaluated.Degrade(
-                    hooks, acis.Handle.ToString(CultureInfo.InvariantCulture))),
-                var other => Fin.Succ(unseen.Once(other.GetType().Name, hooks)),
+                    hooks, key, acis.Handle.ToString(CultureInfo.InvariantCulture))),
+                var other => Fin.Succ(unseen.Once(other.GetType().Name, hooks, key)),
             };
 
         static Fin<Unit> Block(MeshDraft draft, (float[] Positions, long[] Corners) block) =>
-            Baked(draft, block.Positions.Length / 3, Lanes(block.Positions, []), block.Corners).Map(static _ => unit);
+            Baked(draft, block.Positions.Length / 3, Lanes(block.Positions, []), block.Corners, key).Map(static _ => unit);
 
         static bool IsDxf(ReadOnlyMemory<byte> bytes) =>
             bytes.Length >= 4 && !(bytes.Span[0] == (byte)'A' && bytes.Span[1] == (byte)'C' && char.IsDigit((char)bytes.Span[2]));
@@ -1386,7 +1386,7 @@ public static partial class BimIo {
     }
 
     public static Fin<ExplicitTessellation> ImportIfcTessellation(DatabaseIfc db, IClock clock) =>
-        Boundary(() => Partition(db, clock));
+        Boundary(key, () => Partition(db, clock, key));
 
     static Fin<ExplicitTessellation> Partition(DatabaseIfc db, IClock clock) {
         using var draft = MeshDraft.Of();
@@ -1396,12 +1396,12 @@ public static partial class BimIo {
                     ? Fin.Succ(split)
                     : !items.ForAll(static item => item is IfcTessellatedFaceSet set && Fannable(set))
                         ? Fin.Succ(split with { Deferred = split.Deferred.Add(product.GlobalId) })
-                        : items.Traverse(item => Decode(draft, (IfcTessellatedFaceSet)item)).As()
+                        : items.Traverse(item => Decode(draft, (IfcTessellatedFaceSet)item, key)).As()
                             .Map(bound => split with {
                                 Textures = split.Textures + bound.Choose(identity),
                                 Decoded = split.Decoded + 1,
                             })).As()
-            .Bind(split => Sealed(draft, InterchangeFormat.Ifc, clock.GetCurrentInstant(), None)
+            .Bind(split => Sealed(draft, InterchangeFormat.Ifc, clock.GetCurrentInstant(), None, key)
                 .Map(geometry => new ExplicitTessellation(
                     geometry, split.Decoded, split.Deferred, split.Textures.Distinct())));
     }
@@ -1415,7 +1415,7 @@ public static partial class BimIo {
         faceSet is not IfcPolygonalFaceSet poly || poly.Faces.All(static face => face is not IfcIndexedPolygonalFaceWithVoids);
 
     static Fin<Option<string>> Decode(MeshDraft draft, IfcTessellatedFaceSet faceSet) =>
-        Corners(faceSet).Bind(mesh => {
+        Corners(faceSet, key).Bind(mesh => {
             var points = Coordinates(faceSet);
             var authored = Normals(faceSet);
             Option<Seq<(int A, int B, int C)>> normalRun = NormalIndex(faceSet);
@@ -1443,7 +1443,7 @@ public static partial class BimIo {
                     Lanes(positions, normals)
                     + (uvs.Length > 0 ? Seq((EncodingChannel.Uv, uvs)) : Seq<(EncodingChannel, float[])>())
                     + (paint.Length > 0 ? Seq((EncodingChannel.ColorRgba, paint)) : Seq<(EncodingChannel, float[])>()),
-                    corners)
+                    corners, key)
                 .Map(_ => uv.Bind(static plan => plan.Texture));
         });
 

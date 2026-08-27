@@ -78,7 +78,7 @@ public sealed partial class VectorMetric {
     public string Fn { get; }
     private CapabilitySet<EmbeddingArity> Arities { get; }
     private VectorMetric(string key, string op, string fn, CapabilitySet<EmbeddingArity> arities) : this(key) =>
-        (Op, Fn, Arities) = (fn, arities);
+        (Op, Fn, Arities) = (op, fn, arities);
 
     public Fin<Expression> Order(Expression column, EmbeddingArity arity, float[] probe) =>
         Arities.Require(CapabilitySet<EmbeddingArity>.Of(arity),
@@ -87,10 +87,10 @@ public sealed partial class VectorMetric {
                 Expression.Constant(arity.Probe(probe))));
 
     private static VectorMetric Numeric(string key, string op, string fn) =>
-        new(fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Dense, EmbeddingArity.Half, EmbeddingArity.Sparse));
+        new(key, op, fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Dense, EmbeddingArity.Half, EmbeddingArity.Sparse));
 
     private static VectorMetric Binary(string key, string op, string fn) =>
-        new(fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Bit));
+        new(key, op, fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Bit));
 }
 
 [SmartEnum<string>]

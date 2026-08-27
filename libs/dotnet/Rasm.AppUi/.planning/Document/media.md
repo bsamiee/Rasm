@@ -124,7 +124,7 @@ public sealed partial class MediaCodecRow {
         "svg", visual: true, timed: false,
         Seq(".svg"),
         static (key, source) => FactoryBridge.Accept<AssetKey>(source)
-            .Map<MediaSurface>(asset => new MediaSurface.Svg(source, asset))
+            .Map<MediaSurface>(asset => new MediaSurface.Svg(key, source, asset))
             .MapFail(_ => (Error)new ContentFault.CodecAbsent($"media/vector: {source} is not an admitted asset")));
     public static readonly MediaCodecRow Video = new(
         "video", visual: true, timed: true,
@@ -148,7 +148,7 @@ public sealed partial class MediaCodecRow {
         toSeq(Items).Find(row => row.Extensions.Exists(extension =>
                 destination.EndsWith(extension, StringComparison.OrdinalIgnoreCase)))
             .ToFin(new ContentFault.CodecAbsent($"media/extension: {destination}"))
-            .Bind(row => row.Mint(destination));
+            .Bind(row => row.Mint(key, destination));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1734,7 +1734,7 @@ public static class DiffSeats {
         CodePane.Fold(pane.Folding, pane.Editor.Document, surface.Regions(pane.Ordinal).Map(DiffFolds.ToFold));
 
     static TableColumnRow<PropertyDiffRow> Column(string key, string path, string header, Func<PropertyDiffRow, string> read) =>
-        new(AggregateColumn.Create(), header, TableCellKind.Text,
+        new(AggregateColumn.Create(key), header, TableCellKind.Text,
             new TableColumnAccess<PropertyDiffRow>.Plain(
                 Cell: Some<BindingBase>(new Binding(path)), Export: read),
             new DataGridLength(1d, DataGridLengthUnitType.Star),

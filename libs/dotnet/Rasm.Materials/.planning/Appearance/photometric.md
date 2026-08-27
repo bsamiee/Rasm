@@ -71,7 +71,7 @@ public sealed partial class PhotometricQuantity {
     public string Ucum { get; }
 
     internal Fin<EmissionEvidence> Admit(double value, Enum unit, double efficacyRatio, Guid correlation) =>
-        Coercion.Admit(value, unit, correlation)
+        Coercion.Admit(value, unit, key, correlation)
             .Map(evidence => evidence with {
                 RadiometricSi = Photopic ? evidence.Measure.CanonicalValue / (Radiometry.LuminousEfficacy * efficacyRatio) : evidence.Measure.CanonicalValue });
 }
@@ -156,14 +156,14 @@ public readonly record struct PhotometricPolicy(EmissionSpectrum Spectrum, doubl
 public static class Photometric {
     public static Fin<EmissionEvidence> Admit(PhotometricQuantity quantity, double value, Enum unit, Guid correlation, double efficacyRatio = 1.0) =>
         double.IsFinite(value) && value >= 0.0 && efficacyRatio is > 0.0 and <= 1.0
-            ? quantity.Admit(value, unit, efficacyRatio, correlation)
-            : new MaterialFault.Parameter($"<photometric-magnitude:{quantity.Key}:{value:R}@{efficacyRatio:R}>");
+            ? quantity.Admit(value, unit, efficacyRatio, key, correlation)
+            : new MaterialFault.Parameter(key, $"<photometric-magnitude:{quantity.Key}:{value:R}@{efficacyRatio:R}>");
 
     public static Fin<EmissionInput> Resolve(PhotometricQuantity quantity, double value, Enum unit, PhotometricPolicy policy, Guid correlation) =>
         from _ in guard(double.IsFinite(policy.Exposure) && policy.Exposure >= 0.0,
             new MaterialFault.Parameter($"<photometric-exposure:{policy.Exposure:R}>"))
-        from canonical in Admit(quantity, value, unit, correlation, policy.EfficacyRatio)
-        from resolved in SceneLinear(policy.Spectrum, policy.Observer)
+        from canonical in Admit(quantity, value, unit, key, correlation, policy.EfficacyRatio)
+        from resolved in SceneLinear(policy.Spectrum, policy.Observer, key)
         select EmissionInput.Of(resolved.Colour, canonical.RadiometricSi * policy.Exposure, quantity, resolved.Mapped, canonical);
 
     public static Fin<MaterialParameters> WithEmission(MaterialParameters row, EmissionInput emission) =>

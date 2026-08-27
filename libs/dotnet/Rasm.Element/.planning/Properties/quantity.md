@@ -41,7 +41,7 @@ namespace Rasm.Element.Properties;
 // --- [TYPES] ---------------------------------------------------------------------------
 file static class Probe {
  internal static Option<TValue> Find<TKey, TValue>(FrozenDictionary<TKey, TValue> table, TKey key) where TKey : notnull =>
-  table.TryGetValue(out TValue? held) ? Some(held!) : None;
+  table.TryGetValue(key, out TValue? held) ? Some(held!) : None;
 }
 
 [ComplexValueObject]
@@ -149,7 +149,7 @@ public sealed partial class QuantityType {
 ## [03]-[MEASURE_VALUE]
 
 - Owner: `MeasureValue` the SI-coerced measured-scalar carrier (`QuantityType Type` + `Dimension Dimension` + `double Si` + `Option<string> CanonicalUnit` + `Option<MeasureBand> Uncertainty`); `MeasureBand` the neutral uncertainty carrier; `UncertaintyKind` the closed uncertainty vocabulary whose `Gaussian` column dispatches propagation; `UnitProvenance` the `[Union]` naming HOW an SI-native mint's canonical unit resolves — `Derive` (the registry/dimension probe), `Label(string)` (a conventional token the registry cannot supply), `Carried(Option<string>)` (a triple a prior admission already stamped) — so the former five mint arities are ONE `OfSi` whose provenance is a value; `DimensionOp` the `[SmartEnum]` rows (`Product`/`Quotient`) carrying exponent composition, scalar op, first-order partials, and the zero-spanning-divisor widening policy, so `Combine` is ONE algebra owner and `Multiply`/`Divide` one-hop reads over it.
-- Entry: `Of(value, unit, expected)` admits through `Quantity.TryFrom` + the ONE `SiUnit` election, the optional `expected` family gating name identity (UnitsNet collapses lumen/candela/nit onto one signature, so NAME is load-bearing); `Of(value, unitAbbreviation, expected)` is the invariant-culture string ingress; `OfSi(type, dimension, si, provenance)` the SI-native mint (`provenance` defaults `Derive`); `OfSi(dimension, si)` the dimension-anonymous one-hop; `Combine(other, DimensionOp)` the cross-quantity algebra; `Scale(factor)` the type-preserving multiple; `Sum(measures)` the accumulating same-type reduction; `WithType` the band-preserving re-stamp; `WithUncertainty(band)` the contains-the-nominal band admission; `As(QuantityType)`/`In(Enum)`/`In(string)` the reads.
+- Entry: `Of(value, unit, key, expected)` admits through `Quantity.TryFrom` + the ONE `SiUnit` election, the optional `expected` family gating name identity (UnitsNet collapses lumen/candela/nit onto one signature, so NAME is load-bearing); `Of(value, unitAbbreviation, key, expected)` is the invariant-culture string ingress; `OfSi(type, dimension, si, provenance, key)` the SI-native mint (`provenance` defaults `Derive`); `OfSi(dimension, si, key)` the dimension-anonymous one-hop; `Combine(other, DimensionOp, key)` the cross-quantity algebra; `Scale(factor, key)` the type-preserving multiple; `Sum(measures, key)` the accumulating same-type reduction; `WithType` the band-preserving re-stamp; `WithUncertainty(band, key)` the contains-the-nominal band admission; `As(QuantityType)`/`In(Enum)`/`In(string)` the reads.
 - Auto: `Coerce` reprojects every admission through the ONE `SiUnit` election — declared `BaseUnitInfo` by default, one `SiElection` row per departure (a different coherent unit, or `None` refusing by name) — so the persisted scalar is base-normalized whatever the admission spelling; `Sum` accumulates EVERY cross-type member on `Validation` (naming index and type per offender) before the fold runs; band propagation is `CombineBand` kind-dispatched on the `Gaussian` column, corner envelopes fold in ONE pass through `MeasureBand.Envelope`, and every arm that would mint a zero-width band answers `None` (EXACTNESS IS BAND ABSENCE).
 - Output: a `MeasureValue` is the unit-checked magnitude a takeoff, a property facet, and a cost join read; `measure.Uncertainty` is absent exactly where the value is exact, and the uncertainty producer stays above the boundary.
 - Packages: UnitsNet (`Quantity.TryFrom`/`TryFromUnitAbbreviation` ingress, `Quantity.Infos`/`UnitInfo` the once-built index, `UnitConverter.TryConvert` the guarded egress — the struct-native `As` conversion under the hood; the instance `TryGetConversionFunction` store serves CUSTOM registrations only, decompile-proven, so binding it would MISS every built-in conversion — `QuantityInfo.BaseUnitInfo`/`BaseDimensions`), Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm` (kernel `Try.lift`).
@@ -275,14 +275,14 @@ public sealed record MeasureValue {
   !double.IsFinite(value)
    ? new KernelFault.OutOfRange("measure", value, "be finite")
    : Quantity.TryFrom(value, unit, out IQuantity? quantity) && quantity is { } q
-    ? Coerce(q).Bind(admitted => Family(admitted, expected))
+    ? Coerce(q, key).Bind(admitted => Family(admitted, expected, key))
     : new KernelFault.InvalidValue("measure-unit", $"resolve {unit}");
 
  public static Fin<MeasureValue> Of(double value, string unit, Option<QuantityType> expected = default) =>
   !double.IsFinite(value)
    ? new KernelFault.OutOfRange("measure", value, "be finite")
    : Quantity.TryFromUnitAbbreviation(CultureInfo.InvariantCulture, value, unit, out IQuantity? quantity) && quantity is { } q
-    ? Coerce(q).Bind(admitted => Family(admitted, expected))
+    ? Coerce(q, key).Bind(admitted => Family(admitted, expected, key))
     : new KernelFault.InvalidValue("measure-unit", $"resolve {unit}");
 
  static Fin<MeasureValue> Family(MeasureValue admitted, Option<QuantityType> expected) =>
@@ -452,7 +452,7 @@ public sealed record MeasureValue {
 ## [04]-[UNIT_SCHEME]
 
 - Owner: `UnitScheme` the model-level declared-unit regime the `Header` carries — `Overrides` the `QuantityType`-grained display map (an IFC derived unit is DECLARED, never synthesized, so a compound display unit is an override row), `Axes` the `DimensionAxis`-keyed affine set (`UnitAxis(Factor, Offset, Token)` — the offset arm `IfcConversionBasedUnitWithOffset` requires, without which every Fahrenheit/Rankine property is a wrong number with no fault), `CultureName`/`Format` the presentation policy (a culture NAME, not a `CultureInfo` reference — a mutable reference type is not an equality-safe value column); `MeasureEvidence` the ONE conversion outcome (`Family`, original pair, canonical pair, `UnitResolution`, `CorrelationId`); `UnitResolution` the declared/inferred/assumed/overridden policy vocabulary — the column that SAYS a unit was assumed or caller-forced, without which a STEP file with no `SI_UNIT` header silently becomes millimetres.
-- Entry: `Coerce(native, type, dimension, Option<UnitAxis> declared = default)` lowers a project-unit magnitude onto SI — a per-VALUE declared axis overrides the regime whole-quantity (the IFC property/quantity-carried unit, affine and derived-multiplier forms included; ingress-only, so egress never reads it), else the `Angle` type arm reads the `PlaneAngle` axis, a pure single-axis dimension takes the affine `(native + Offset) × Factor`, a compound dimension composes the multiplicative factors per exponent (offsets do not distribute over products, the reason IFC carries them on base units alone); `Declare(axis, unit)`/`Declare(type, token)` build the regime one declaration at a time — the Bim ingress lowers `IfcUnitAssignment` row by row; `Render(measure)` re-emits declared units — override token first, declared-axis inverse for a pure single-axis measure, SI fallback; `Text(measure)` formats under the declared culture and format; `QuantityType.Admit(family, value, unit, resolution, correlation)` is the evidence-minting foreign admission — the expected-family gate plus the evidence mint in one entry.
+- Entry: `Coerce(native, type, dimension, Option<UnitAxis> declared = default)` lowers a project-unit magnitude onto SI — a per-VALUE declared axis overrides the regime whole-quantity (the IFC property/quantity-carried unit, affine and derived-multiplier forms included; ingress-only, so egress never reads it), else the `Angle` type arm reads the `PlaneAngle` axis, a pure single-axis dimension takes the affine `(native + Offset) × Factor`, a compound dimension composes the multiplicative factors per exponent (offsets do not distribute over products, the reason IFC carries them on base units alone); `Declare(axis, unit)`/`Declare(type, token)` build the regime one declaration at a time — the Bim ingress lowers `IfcUnitAssignment` row by row; `Render(measure)` re-emits declared units — override token first, declared-axis inverse for a pure single-axis measure, SI fallback; `Text(measure)` formats under the declared culture and format; `QuantityType.Admit(family, value, unit, resolution, key, correlation)` is the evidence-minting foreign admission — the expected-family gate plus the evidence mint in one entry.
 - Auto: `QuantityType.Relations`/`Reciprocals` seat the cross-quantity roster where the rows live, and `Consistency()` proves every declared relation against the registry's own dimensions (a roster row wired to the wrong UnitsNet family is the defect every metadata-sourced column reads as correct) — accumulating, so one run names every inconsistent row.
 - Output: `MeasureEvidence` is the audit row a Materials capture, a Fabrication solid ingress, and a Compute unit policy keep beside the admitted value; `Resolution` is its load-bearing column.
 - Packages: LanguageExt.Core (`Map`/`Option`), `Rasm` (kernel `CorrelationId`), Thinktecture.Runtime.Extensions, BCL (`CultureInfo.GetCultureInfo`).
@@ -540,17 +540,17 @@ public sealed partial class QuantityType {
 
  public static Fin<Unit> Consistency() {
   return Accumulate(
-   Relations.Map(row => Registered(row.Compound).Bind(compound =>
-     (Registered(row.Left), Registered(row.Right)).Apply((left, right) =>
+   Relations.Map(row => Registered(row.Compound, op).Bind(compound =>
+     (Registered(row.Left, op), Registered(row.Right, op)).Apply((left, right) =>
       compound == row.Op.Compose(left, right)).As()
       .Bind(holds => holds
        ? Success<Error, Unit>(unit)
-       : Fail<Error, Unit>(new ElementFault.ValueRejected($"<quantity-relation-inconsistent:{row.Compound.ToValue()}>"))))
-   + Reciprocals.Map(pair => (Registered(pair.Left), Registered(pair.Right)).Apply((left, right) =>
+       : Fail<Error, Unit>(new ElementFault.ValueRejected(op, $"<quantity-relation-inconsistent:{row.Compound.ToValue()}>"))))
+   + Reciprocals.Map(pair => (Registered(pair.Left, op), Registered(pair.Right, op)).Apply((left, right) =>
       left == Dimension.Dimensionless.Divide(right)).As()
       .Bind(holds => holds
        ? Success<Error, Unit>(unit)
-       : Fail<Error, Unit>(new ElementFault.ValueRejected($"<quantity-reciprocal-inconsistent:{pair.Left.ToValue()}>")))))
+       : Fail<Error, Unit>(new ElementFault.ValueRejected(op, $"<quantity-reciprocal-inconsistent:{pair.Left.ToValue()}>")))))
    ).ToFin();
  }
 
@@ -560,7 +560,7 @@ public sealed partial class QuantityType {
 
  public static Fin<(MeasureValue Value, MeasureEvidence Evidence)> Admit(
   QuantityType family, double value, Enum unit, UnitResolution resolution, CorrelationId correlation) =>
-  MeasureValue.Of(value, unit, Some(family)).Map(admitted =>
+  MeasureValue.Of(value, unit, key, Some(family)).Map(admitted =>
    (admitted, new MeasureEvidence(
     family, unit.ToString(), value,
     admitted.CanonicalUnit.IfNone(family.ToValue()), admitted.Si,
@@ -608,18 +608,18 @@ public sealed record MeasureStat(QuantitySignature Signature, Stat<Scalar> Figur
     : Fail<Error, Unit>(new ElementFault.ValueRejected($"<measure-stat-signature-mismatch:index={index}:type={member.Type.ToValue()}>"))))
    .ToFin()
    .Bind(_ => values.Traverse(member => Scalar.From(member.Si)).As())
-   .Bind(scalars => Stat<Scalar>.Of(scalars, weights))
+   .Bind(scalars => Stat<Scalar>.Of(scalars, key, weights))
    .Map(figures => new MeasureStat(signature, figures));
 
  public static Fin<MeasureStat> Of(QuantitySignature signature, Seq<double> si, Option<Seq<double>> weights = default) =>
   si.Traverse(sample => Scalar.From(sample)).As()
-   .Bind(scalars => Stat<Scalar>.Of(scalars, weights))
+   .Bind(scalars => Stat<Scalar>.Of(scalars, key, weights))
    .Map(figures => new MeasureStat(signature, figures));
 
  public static Fin<MeasureStat> Merge(MeasureStat left, MeasureStat right) =>
   left.Signature == right.Signature
-   ? Stat<Scalar>.Merge(left.Figures, right.Figures).Map(figures => new MeasureStat(left.Signature, figures))
-   : new ElementFault.ValueRejected($"<measure-stat-merge-signature:{right.Signature.Type.ToValue()}>");
+   ? Stat<Scalar>.Merge(left.Figures, right.Figures, key).Map(figures => new MeasureStat(left.Signature, figures))
+   : new ElementFault.ValueRejected(key, $"<measure-stat-merge-signature:{right.Signature.Type.ToValue()}>");
 
  public MeasureValue Minimum => MeasureValue.Reproject(Signature, Figures.Minimum.To());
  public MeasureValue Maximum => MeasureValue.Reproject(Signature, Figures.Maximum.To());

@@ -1542,7 +1542,7 @@ public static class XrChrome {
             return Fin.Fail<XrPanel>(new ImmersiveFault.NativeRefused(
                 XrSurface.Frame, $"{nameof(XR.CreateSwapchain)}:panel/{key}", outcome));
         }
-        XrPanel panel = new(swapchain, extent, pose, pixelsPerMetre, content);
+        XrPanel panel = new(key, swapchain, extent, pose, pixelsPerMetre, content);
         return session.Acquire(new XrHandle.SwapchainHandle(swapchain), ChromeKey)
             .Map(_ => { ignore(session.Panels.Swap(held => held.Add(panel))); return panel; });
     }

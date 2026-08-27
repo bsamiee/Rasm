@@ -323,7 +323,7 @@ public sealed partial class PlaneFormat {
     private PlaneFormat(string key, int components, ChannelDtype depth, AlphaMode alpha, Func<int, int, AllocationMode, PlaneStore> rent)
         : this(key) => (Components, Depth, Alpha, Rent) = (components, depth, alpha, rent);
     private static PlaneFormat Row(string key, int components, ChannelDtype depth, AlphaMode alpha, Func<int, int, AllocationMode, PlaneStore> rent) =>
-        new(components, depth, alpha, rent);
+        new(key, components, depth, alpha, rent);
 
     public static Option<PlaneFormat> For(int semanticComponents, ChannelDtype depth) =>
         toSeq(Items.Where(row => row.Depth == depth && row.Components >= Math.Max(1, semanticComponents))
@@ -407,10 +407,10 @@ public sealed record TexturePlane(
         PlaneFormat format, Dimension width, Dimension height, PlaneTransfer transfer, AlphaMode alpha,
         Option<Dimension> layers = default, Option<PlaneRange> range = default, Option<PlanePrimaries> primaries = default,
         Option<PositiveMagnitude> pitchMm = default, AllocationMode mode = AllocationMode.Clear) =>
-        from map in Seat(pitchMm)
-        from grid in CellLattice.Of(map, width, height, Single, Array.MaxLength)
+        from map in Seat(pitchMm, key)
+        from grid in CellLattice.Of(map, width, height, Single, Array.MaxLength, key)
         from plane in Of(format, grid, layers.IfNone(Single), transfer, alpha,
-            range.IfNone(PlaneRange.Unit), primaries.IfNone(PlanePrimaries.Unknown), mode)
+            range.IfNone(PlaneRange.Unit), primaries.IfNone(PlanePrimaries.Unknown), key, mode)
         select plane;
 
     public static Fin<TexturePlane> Of(
@@ -480,14 +480,14 @@ public sealed record TexturePlane(
         target == Alpha ? Fin.Succ(this)
         : !Alpha.Convertible(target, Format.Depth)
             ? new MaterialFault.Parameter($"<plane-alpha-crossing:{Alpha.Key}->{target.Key}:{Format.Depth.Key}>")
-        : Of(Format, Grid, Layers, Transfer, target, Range, Primaries, AllocationMode.Default)
+        : Of(Format, Grid, Layers, Transfer, target, Range, Primaries, key, AllocationMode.Default)
               .Map(Reassociate);
 
     public Fin<TexturePlane> ToPrimaries(PlanePrimaries target) =>
         target == Primaries
             ? Fin.Succ(this)
-            : from matrix in Primaries.Matrix(target)
-              from destination in Of(Format, Grid, Layers, Transfer, Alpha, Range, target, AllocationMode.Default)
+            : from matrix in Primaries.Matrix(target, key)
+              from destination in Of(Format, Grid, Layers, Transfer, Alpha, Range, target, key, AllocationMode.Default)
               select Rebase(destination, matrix);
 
     private TexturePlane Reassociate(TexturePlane destination) {
@@ -635,13 +635,13 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
     public static Fin<TexturePyramid> Of(TexturePlane basePlane, MipPolicy policy, Option<TexturePyramid> paired = default) =>
         !policy.Traits.Admits(PlaneTrait.Chains)
             ? Fin.Succ(new TexturePyramid(Seq(basePlane), policy, Coupled: false))
-            : Chain(basePlane, policy, paired);
+            : Chain(basePlane, policy, paired, key);
 
     private static Fin<TexturePyramid> Chain(TexturePlane basePlane, MipPolicy policy, Option<TexturePyramid> paired) {
         bool coupled = policy.Traits.Admits(PlaneTrait.Coupled) && paired.IsSome;
-        return Descend(basePlane.Grid).Bind(grids =>
+        return Descend(basePlane.Grid, key).Bind(grids =>
             grids.FoldM(Seq(basePlane), (levels, grid) =>
-                Fold(levels[levels.Count - 1], grid, policy, coupled ? paired.Bind(chain => Level(chain, levels.Count)) : None)
+                Fold(levels[levels.Count - 1], grid, policy, coupled ? paired.Bind(chain => Level(chain, levels.Count)) : None, key)
                     .Map(levels.Add)).As())
             .Map(levels => new TexturePyramid(levels, policy, coupled));
     }
@@ -650,14 +650,14 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
         grid.Columns.Value is 1 && grid.Rows.Value is 1
             ? Fin.Succ(Seq<CellLattice>())
             : grid.Coarsen()
-                .Bind(level => Descend(level).Map(rest => level.Cons(rest)));
+                .Bind(level => Descend(level, key).Map(rest => level.Cons(rest)));
 
     private static Option<TexturePlane> Level(TexturePyramid chain, int index) =>
         index < chain.Levels.Count ? Some(chain.Levels[index]) : None;
 
     private static Fin<TexturePlane> Fold(TexturePlane source, CellLattice grid, MipPolicy policy, Option<TexturePlane> companion) =>
         TexturePlane.Of(source.Format, grid, source.Layers, source.Transfer, source.Alpha, source.Range,
-                source.Primaries, AllocationMode.Default)
+                source.Primaries, key, AllocationMode.Default)
             .Map(level => Resample(source, level, policy, companion));
 
     private static TexturePlane Resample(TexturePlane source, TexturePlane level, MipPolicy policy, Option<TexturePlane> companion) {
@@ -850,8 +850,8 @@ public sealed class PlaneResidency : IDisposable {
         seated.Find(index).Match(
             Some: tile => Fin.Succ(Touch(tile)),
             None: () => index >= 0 && index < declared.CellCount
-                ? mint(index).Bind(chain => Seat(index, chain))
-                : new MaterialFault.Parameter($"<residency-tile:{index}:{declared.CellCount}>"));
+                ? mint(index).Bind(chain => Seat(index, chain, key))
+                : new MaterialFault.Parameter(key, $"<residency-tile:{index}:{declared.CellCount}>"));
 
     private TexturePyramid Touch(ResidentTile tile) {
         seated = seated.AddOrUpdate(tile.Index, tile with { Touched = ++clock, Hits = tile.Hits + 1 });
@@ -865,9 +865,9 @@ public sealed class PlaneResidency : IDisposable {
                 .Rollback(chain);
 
         Seq<ResidentTile> victims = Reclaim(budget - cost);
-        return Custody.Release(victims, tile => Retire(tile))
+        return Custody.Release(victims, tile => Retire(tile, key), key)
             .Bind(_ => resident + cost > budget
-                ? Fin.Fail<TexturePyramid>(new MaterialFault.Parameter($"<residency-over-budget:{cost}:{resident}:{budget}>"))
+                ? Fin.Fail<TexturePyramid>(new MaterialFault.Parameter(key, $"<residency-over-budget:{cost}:{resident}:{budget}>"))
                 : SeatOwned(index, chain, cost))
             .Rollback(chain);
     }

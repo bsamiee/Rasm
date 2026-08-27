@@ -632,14 +632,14 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
 
     public static Fin<ResourceRef> Of(Guid id) =>
         ResourceId.Maybe(id).Map(static value => (ResourceRef)new ById(value: value))
-            .ToFin(Fail: key.OrDefault(name: nameof(ResourceRef)).InvalidInput());
+            .ToFin(Fail: new KernelFault.InvalidInput());
 
     public static Fin<ResourceRef> Of(string name) =>
-        key.OrDefault(name: nameof(ResourceRef)).AcceptText(value: name)
+        Acceptance.Text(value: name)
             .Map(static valid => (ResourceRef)new ByName(value: ResourceName.Create(valid)));
 
     public static Fin<ResourceRef> Of(int index) =>
-        ResourceIndex.Admit(value: index, key: key.OrDefault(name: nameof(ResourceRef)))
+        ResourceIndex.Admit(value: index)
             .Map(static value => (ResourceRef)new ByIndex(value: value));
 
     internal Fin<TComponent> Resolve<TComponent>(RhinoDoc document, ResourceLens<TComponent> lens) where TComponent : class =>

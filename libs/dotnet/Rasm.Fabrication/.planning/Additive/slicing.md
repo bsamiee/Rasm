@@ -878,7 +878,7 @@ public static partial class Slice {
         select result;
 
     private static Fin<AdditiveResult> Voxel(ImplicitOp op, Option<IProgress<double>> progress) =>
-        Sdf.Cli(progress)
+        Sdf.Cli(op, progress)
             .Map(static cli => new AdditiveResult(Seq<Move>(), cli.Layers, Seq(cli.Key).Concat(cli.Masks)));
 
     private static Fin<InfillLayer> Layer(

@@ -85,7 +85,7 @@ public static class Skeletonize {
     public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy) =>
         Admit(mesh, policy).Bind(_ => {
             using MeshEdit arena = MeshEdit.Of(mesh, ArenaPolicy.Canonical with { ParallelFloor = policy.ParallelFloor });
-            return Contract(arena, policy)
+            return Contract(arena, policy, key)
                 .Bind(state => Surgery(state, policy))
                 .Map(state => Extract(state, policy));
         });
@@ -131,7 +131,7 @@ public static class Skeletonize {
             (state, _) => state.Match(
                 Succ: active => active.Round > 0 && active.Ratio <= policy.CollapseAreaRatio.Value
                     ? None
-                    : Some(Round(arena, policy, active, wh, ringSeed, totalSeed)),
+                    : Some(Round(arena, policy, active, wh, ringSeed, totalSeed, key)),
                 Fail: static _ => None));
 
         return contracted.Bind(final =>
@@ -147,9 +147,9 @@ public static class Skeletonize {
     static Fin<(int Round, double Wl, double Ratio)> Round(
         MeshEdit arena, SkeletonPolicy policy, (int Round, double Wl, double Ratio) at,
         double[] wh, double[] ringSeed, double totalSeed) =>
-        Assemble(arena, at.Wl, wh, policy.CotangentCeiling.Value)
+        Assemble(arena, at.Wl, wh, policy.CotangentCeiling.Value, key)
             .Bind(system => CholeskySparse.Of(symmetric: system))
-            .Bind(factor => SolveAxes(arena, factor, wh, at.Round))
+            .Bind(factor => SolveAxes(arena, factor, wh, at.Round, key))
             .Bind(_ => {
                 double areaFloor = arena.Tolerance.For(lane: ToleranceLane.Area).Value;
                 for (int f = 0; f < arena.FaceCount; f++) {
@@ -477,7 +477,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 
 | [INDEX] | [AXIS_CONCERN]     | [OWNER]          | [RESULT]                                        | [CASES] |
 | :-----: | :----------------- | :--------------- | :---------------------------------------------- | :-----: |
-|  [01]   | Skeletonization    | `Skeletonize`    | `Apply(mesh, policy) → Fin<CurveSkeleton>` |    —    |
+|  [01]   | Skeletonization    | `Skeletonize`    | `Apply(mesh, policy, key) → Fin<CurveSkeleton>` |    —    |
 |  [02]   | Contraction policy | `SkeletonPolicy` | `Of(Context, …) → value` (lane columns)         |    —    |
 |  [03]   | Result + wire      | `CurveSkeleton`  | carrier (graph + sidecars frozen at extraction) |    —    |
 

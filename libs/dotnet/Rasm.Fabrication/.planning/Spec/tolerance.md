@@ -85,7 +85,7 @@ public sealed partial class ToleranceZoneKind {
     private static string Diametral => ZoneModifier.Diametral.Glyph.ToString(CultureInfo.InvariantCulture);
 
     private static ToleranceZoneKind Plain(string key, string prefix) =>
-        new(prefix, projects: false, static (second, _) => second.IsNone);
+        new(key, prefix, projects: false, static (second, _) => second.IsNone);
 
     public string Prefix { get; }
 
@@ -606,10 +606,10 @@ public sealed partial class FitLetter {
     public partial double ShaftMicrometers(double geometricMeanMm, ItSeries series);
 
     private static FitLetter Upper(string key, Func<double, ItSeries, double> shaft) =>
-        new(FitBound.Upper, tabulates: false, shaft);
+        new(key, FitBound.Upper, tabulates: false, shaft);
 
     private static FitLetter Lower(string key, Func<double, ItSeries, double> shaft) =>
-        new(FitBound.Lower, tabulates: false, shaft);
+        new(key, FitBound.Lower, tabulates: false, shaft);
 
     private static double Blend(string first, string second, double meanMm, ItSeries series) =>
         Math.Sqrt(Math.Abs(Get(first).ShaftMicrometers(meanMm, series))
@@ -976,9 +976,9 @@ public sealed partial class SurfaceParameter {
     public static readonly SurfaceParameter Psm = Row("PSm", SurfaceProfile.Primary, SurfaceMeasure.Spacing);
 
     private static SurfaceParameter Row(string key, SurfaceProfile profile, SurfaceMeasure measure) =>
-        new(profile, measure, None);
+        new(key, profile, measure, None);
     private static SurfaceParameter Converted(string key, double raRatio) =>
-        new(SurfaceProfile.Roughness, SurfaceMeasure.Amplitude, Some(raRatio));
+        new(key, SurfaceProfile.Roughness, SurfaceMeasure.Amplitude, Some(raRatio));
 
     public SurfaceProfile Profile { get; }
     public SurfaceMeasure Measure { get; }
@@ -1187,7 +1187,7 @@ public sealed partial class ToleranceTerm {
         from _ in guard(double.IsFinite(nominalMm) && admitted.Grade.Diameter.Contains(nominalMm),
             ToleranceSpec.Range("tolerance-term:nominal", nominalMm, "finite and inside the fit diameter band"))
         let sizes = admitted.Sizes(nominalMm)
-        from term in Validate(sizes.LowerMm - nominalMm, sizes.UpperMm - nominalMm, sensitivity, distribution,
+        from term in Validate(key, sizes.LowerMm - nominalMm, sizes.UpperMm - nominalMm, sensitivity, distribution,
             out ToleranceTerm value).Admitted(value)
         select term;
 }

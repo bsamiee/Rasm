@@ -904,7 +904,7 @@ internal static class ObjectSpine {
                 name: name,
                 recordsUndo: recordsUndo,
                 redraw: redraw,
-                run: () => run(document),
+                run: () => run(document, op),
                 project: Fin.Succ),
             needs: SessionNeed.Mutation(undo: recordsUndo, redraw: redraw).ToArray());
 }

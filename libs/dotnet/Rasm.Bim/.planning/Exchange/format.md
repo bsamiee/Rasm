@@ -236,7 +236,7 @@ public sealed partial class InterchangeFormat {
         from corner in InterchangeCorner.FormatLaw.Admit(format.Capabilities)
         from _ in corner.Require(
             CapabilitySet<InterchangeCapability>.Of(demanded),
-            missing => format.Refuse(missing))
+            missing => format.Refuse(missing, key))
         select format;
 
     Error Refuse(CapabilitySet<InterchangeCapability> missing) {

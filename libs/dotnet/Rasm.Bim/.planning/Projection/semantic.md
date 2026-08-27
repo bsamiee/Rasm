@@ -198,15 +198,15 @@ public sealed partial class SemanticProjector(
             UnitScheme scheme = IfcUnits.SchemeOf(db);
             double tolerance = scheme.Coerce(db.Tolerance, QuantityType.Length, Dimension.LengthDim);
             return
-                from geo in GeoReferenceProjector.Project(project, scheme)
-                from schema in ReleaseLower(db.Release)
+                from geo in GeoReferenceProjector.Project(project, scheme, key)
+                from schema in ReleaseLower(db.Release, key)
                 let header = new Header(schema, ViewLower(db.ModelView), geo, tolerance, ctx.At, StepHeaderOf(db)) { Units = scheme }
-                from objects in Objects(project, header, rooted, tolerance, scheme)
+                from objects in Objects(project, header, rooted, tolerance, scheme, key)
                 from run in (
-                    ConnectionProjection.All(project, objects.Rooted, tolerance, scheme).ToValidation(),
-                    Fidelity.Run(Bags(project, objects.Rooted, scheme)).ToValidation(),
-                    Fidelity.Run(Materials(project, objects.Rooted, tolerance, scheme)).ToValidation(),
-                    Fidelity.Run(EdgeProjection.All(project, objects.Rooted, tolerance, scheme, eurocode, templates, profiles)).ToValidation())
+                    ConnectionProjection.All(project, objects.Rooted, tolerance, scheme, key).ToValidation(),
+                    Fidelity.Run(Bags(project, objects.Rooted, scheme, key)).ToValidation(),
+                    Fidelity.Run(Materials(project, objects.Rooted, tolerance, scheme, key)).ToValidation(),
+                    Fidelity.Run(EdgeProjection.All(project, objects.Rooted, tolerance, scheme, eurocode, templates, profiles, key)).ToValidation())
                     .Apply(static (details, bags, materials, edges) => (
                         Nodes: bags.Value + materials.Value + details.Map(static detail => detail.Bag),
                         Edges: edges.Value + details.Map(static detail => detail.Edge),
@@ -228,13 +228,13 @@ public sealed partial class SemanticProjector(
             project.Extract<IfcObjectDefinition>().AsIterable()
                 .Filter(static definition => definition is not IfcTypeObject)
                 .ToSeq()
-                .Traverse(definition => (SourceBag(definition, scheme).ToValidation(),
-                                         SeatOf(definition, rooted, ObjectKind.Occurrence).ToValidation())
+                .Traverse(definition => (SourceBag(definition, scheme, key).ToValidation(),
+                                         SeatOf(definition, rooted, ObjectKind.Occurrence, key).ToValidation())
                     .Apply((source, seat) => (GlobalId: definition.GlobalId,
                                               Node: IfcBoundaryMapper.Lower(definition, seat),
                                               Source: source)).As()).As(),
             project.Extract<IfcTypeObject>().AsIterable().ToSeq()
-                .Traverse(type => AdmitType(type, materials, rooted).ToValidation()).As())
+                .Traverse(type => AdmitType(type, materials, rooted, key).ToValidation()).As())
             .Apply(static (occurrences, types) => occurrences + types)
             .As().ToFin()
             .Map(rows => rows.Fold(IfcIngest.Empty(header, rooted), (ingest, row) =>
@@ -254,10 +254,10 @@ public sealed partial class SemanticProjector(
 
     Fin<(string GlobalId, Node.Object Node, Option<PropertyBag> Source)> AdmitType(
         IfcTypeObject definition, Map<string, IfcMaterialSelect> materials, Map<string, NodeId> rooted) {
-        IfcTypeSignature signature = TypeSignatureOf(definition, materials);
-        return typeReconciler.Resolve(signature).Bind(resolved => resolved.Match(
+        IfcTypeSignature signature = TypeSignatureOf(definition, materials, key);
+        return typeReconciler.Resolve(signature, key).Bind(resolved => resolved.Match(
             Some: type => Fin.Succ((definition.GlobalId, IfcBoundaryMapper.Canonical(type), Option<PropertyBag>.None)),
-            None: () => SeatOf(definition, rooted, ObjectKind.Type).Map(seat =>
+            None: () => SeatOf(definition, rooted, ObjectKind.Type, key).Map(seat =>
                 (definition.GlobalId,
                  IfcBoundaryMapper.Lower(definition, seat),
                  Some(ImportedSource(signature))))));
@@ -273,7 +273,7 @@ public sealed partial class SemanticProjector(
     Fin<GraphDelta> Classify(IfcProject project, Map<string, NodeId> rooted, GraphDelta delta) =>
         project.Extract<IfcRelAssociatesClassification>().AsIterable().ToSeq()
             .Traverse(rel => Optional(rel.RelatingClassification as IfcClassificationReference).Match(
-                Some: reference => ClassificationSystem.Ingest(reference, pins).ToValidation()
+                Some: reference => ClassificationSystem.Ingest(reference, pins, key).ToValidation()
                     .Map(classification => classification.Map(value => (
                         Related: toSeq(rel.RelatedObjects.OfType<IfcRoot>()).Choose(root => rooted.Find(root.GlobalId)),
                         Value: value))),
@@ -297,7 +297,7 @@ public sealed partial class SemanticProjector(
             token == "USERDEFINED" && PropertyLowering.Stated((definition as IfcElementType)?.ElementType).Case is string label ? label : token,
             PropertyLowering.Stated(definition.Name).IfNone(""),
             MaterialSignatureOf(relatingMaterial),
-            ProfileSignatureOf(relatingMaterial));
+            ProfileSignatureOf(relatingMaterial, key));
     }
 
     const string MaterialFamilyPrefix = "Pset_Material";
@@ -312,7 +312,7 @@ public sealed partial class SemanticProjector(
 
     Option<IfcProfileSignature> ProfileSignatureOf(Option<IfcMaterialSelect> relatingMaterial) =>
         relatingMaterial.Bind(ProfileOf).Map(profile => {
-            ProfileRef preserved = profiles.Preserve(profile);
+            ProfileRef preserved = profiles.Preserve(profile, key);
             return new IfcProfileSignature(
                 Standard: preserved.Standard,
                 Designation: PropertyLowering.Stated(preserved.Designation)
@@ -374,11 +374,11 @@ public sealed partial class SemanticProjector(
                 InheritanceMode.OccurrenceWins,
                 EvidenceGrade.Import))),
             IfcStructuralItem or IfcStructuralActivity or IfcStructuralLoadGroup or IfcStructuralResultGroup or IfcStructuralAnalysisModel =>
-                StructuralProjection.Attrs(definition, scheme, eurocode, profiles).Map(attrs => attrs.IsEmpty
+                StructuralProjection.Attrs(definition, scheme, eurocode, profiles, key).Map(attrs => attrs.IsEmpty
                     ? Option<PropertyBag>.None
                     : Some(new PropertyBag(StructuralDefinitionSet, attrs, InheritanceMode.OccurrenceWins, EvidenceGrade.Import))),
             IfcAlignmentSegment or IfcReferent or IfcProduct { ObjectPlacement: IfcLinearPlacement } =>
-                PositioningProjection.Attrs(definition, scheme).Map(attrs => attrs.IsEmpty
+                PositioningProjection.Attrs(definition, scheme, key).Map(attrs => attrs.IsEmpty
                     ? Option<PropertyBag>.None
                     : Some(new PropertyBag(PositioningAttributeSet, attrs, InheritanceMode.OccurrenceWins, EvidenceGrade.Import))),
             IfcContext context => Fin.Succ(
@@ -421,13 +421,13 @@ public sealed partial class SemanticProjector(
     WriterT<FidelityLog, Fin, Seq<Node>> Bags(IfcProject project, Map<string, NodeId> rooted, UnitScheme scheme) =>
         from properties in project.Extract<IfcPropertySet>().AsIterable().ToSeq().Traverse(ps =>
             ps.HasProperties.Values.AsIterable().ToSeq()
-                .Traverse(property => PropertyLowering.Lower(property, rooted, scheme)
+                .Traverse(property => PropertyLowering.Lower(property, rooted, scheme, key)
                     .Map(lowered => (Name: PropertyName.Create(PropertyLowering.Stated(property.Name).IfNone("")), Value: lowered))).As()
                 .Map(rows => BagNode(rooted[ps.GlobalId], ps.Name, rows, Binding(ps)))).As()
         from predefined in project.Extract<IfcPreDefinedPropertySet>().AsIterable().ToSeq().Traverse(set =>
-            PreDefinedRows(set, scheme).Map(rows => BagNode(rooted[set.GlobalId], set.Name, rows, Binding(set)))).As()
+            PreDefinedRows(set, scheme, key).Map(rows => BagNode(rooted[set.GlobalId], set.Name, rows, Binding(set)))).As()
         from quantities in Fidelity.Lift(project.Extract<IfcElementQuantity>().AsIterable().ToSeq().TraverseM(eq =>
-            FlattenQuantities(eq.Quantities.Values, "", scheme, (Map<PropertyName, MeasureValue>(), Map<string, GroupIdentity>()))
+            FlattenQuantities(eq.Quantities.Values, "", scheme, (Map<PropertyName, MeasureValue>(), Map<string, GroupIdentity>()), key)
                 .Map(flat => (Node)new Node.QuantitySet(rooted[eq.GlobalId], new QuantityBag(
                     PropertyLowering.Stated(eq.Name).IfNone(""), flat.Values,
                     PropertyInheritance.ModeOf(PropertyLowering.Stated(eq.Name).IfNone(""), Binding(eq), templates),
@@ -450,7 +450,7 @@ public sealed partial class SemanticProjector(
         IEnumerable<IfcPhysicalQuantity> quantities, string prefix, UnitScheme scheme,
         (Map<PropertyName, MeasureValue> Values, Map<string, GroupIdentity> Groups) bag) =>
         toSeq(quantities).FoldM(bag, (acc, quantity) => quantity switch {
-            IfcPhysicalSimpleQuantity simple => PropertyLowering.Measure(simple, scheme)
+            IfcPhysicalSimpleQuantity simple => PropertyLowering.Measure(simple, scheme, key)
                 .Map(value => acc with {
                     Values = acc.Values.AddOrUpdate(PropertyName.Create($"{prefix}{PropertyLowering.Stated(simple.Name).IfNone("")}"), value)
                 }),
@@ -458,8 +458,8 @@ public sealed partial class SemanticProjector(
                 complex.HasQuantities, $"{prefix}{PropertyLowering.Stated(complex.Name).IfNone("")}.", scheme,
                 acc with {
                     Groups = acc.Groups.AddOrUpdate($"{prefix}{PropertyLowering.Stated(complex.Name).IfNone("")}", GroupOf(complex))
-                }),
-            _ => Fin.Fail<(Map<PropertyName, MeasureValue>, Map<string, GroupIdentity>)>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name }))),
+                }, key),
+            _ => Fin.Fail<(Map<PropertyName, MeasureValue>, Map<string, GroupIdentity>)>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name }))),
         }).As();
 
     static GroupIdentity GroupOf(IfcPhysicalComplexQuantity complex) =>
@@ -471,36 +471,36 @@ public sealed partial class SemanticProjector(
         new Dictionary<Type, Func<IfcPreDefinedPropertySet, UnitScheme, Seq<(string Key, Fin<PropertyValue> Value)>>> {
             [typeof(IfcDoorPanelProperties)] = static (set, scheme, key) => DoorPanel((IfcDoorPanelProperties)set, scheme),
             [typeof(IfcWindowPanelProperties)] = static (set, scheme, key) => ((IfcWindowPanelProperties)set) switch {
-                var p => Frame(p.FrameDepth, p.FrameThickness, p.OperationType.ToString(), p.PanelPosition.ToString(), scheme),
+                var p => Frame(p.FrameDepth, p.FrameThickness, p.OperationType.ToString(), p.PanelPosition.ToString(), scheme, key),
             },
             [typeof(IfcPermeableCoveringProperties)] = static (set, scheme, key) => ((IfcPermeableCoveringProperties)set) switch {
-                var p => Frame(p.FrameDepth, p.FrameThickness, p.OperationType.ToString(), p.PanelPosition.ToString(), scheme),
+                var p => Frame(p.FrameDepth, p.FrameThickness, p.OperationType.ToString(), p.PanelPosition.ToString(), scheme, key),
             },
             [typeof(IfcWindowLiningProperties)] = static (set, scheme, key) => WindowLining((IfcWindowLiningProperties)set, scheme),
         }.ToFrozenDictionary();
 
     static Seq<(string Key, Fin<PropertyValue> Value)> DoorPanel(IfcDoorPanelProperties p, UnitScheme scheme) =>
-        Seq(Scalar("PanelDepth", p.PanelDepth, Dimension.LengthDim, scheme),
-            Scalar("PanelWidth", p.PanelWidth, Dimension.Dimensionless, scheme),
+        Seq(Scalar("PanelDepth", p.PanelDepth, Dimension.LengthDim, scheme, key),
+            Scalar("PanelWidth", p.PanelWidth, Dimension.Dimensionless, scheme, key),
             Token("PanelOperation", p.OperationType.ToString()),
             Token("PanelPosition", p.PanelPosition.ToString()));
 
     static Seq<(string Key, Fin<PropertyValue> Value)> Frame(double depth, double thickness, string operation, string position, UnitScheme scheme) =>
-        Seq(Scalar("FrameDepth", depth, Dimension.LengthDim, scheme),
-            Scalar("FrameThickness", thickness, Dimension.LengthDim, scheme),
+        Seq(Scalar("FrameDepth", depth, Dimension.LengthDim, scheme, key),
+            Scalar("FrameThickness", thickness, Dimension.LengthDim, scheme, key),
             Token("OperationType", operation), Token("PanelPosition", position));
 
     static Seq<(string Key, Fin<PropertyValue> Value)> WindowLining(IfcWindowLiningProperties p, UnitScheme scheme) =>
         Seq("LiningDepth", "LiningThickness", "TransomThickness", "MullionThickness")
             .Zip(Seq(p.LiningDepth, p.LiningThickness, p.TransomThickness, p.MullionThickness))
-            .Map(row => Scalar(row.Item1, row.Item2, Dimension.LengthDim, scheme))
+            .Map(row => Scalar(row.Item1, row.Item2, Dimension.LengthDim, scheme, key))
         + Seq("FirstTransomOffset", "SecondTransomOffset", "FirstMullionOffset", "SecondMullionOffset")
             .Zip(Seq(p.FirstTransomOffset, p.SecondTransomOffset, p.FirstMullionOffset, p.SecondMullionOffset))
-            .Map(row => Scalar(row.Item1, row.Item2, Dimension.Dimensionless, scheme));
+            .Map(row => Scalar(row.Item1, row.Item2, Dimension.Dimensionless, scheme, key));
 
     static WriterT<FidelityLog, Fin, Seq<(PropertyName Name, PropertyValue Value)>> PreDefinedRows(IfcPreDefinedPropertySet set, UnitScheme scheme) =>
         (PreDefinedReads.TryGetValue(set.GetType(), out Func<IfcPreDefinedPropertySet, UnitScheme, Seq<(string Key, Fin<PropertyValue> Value)>>? read)
-            ? Fidelity.Clean(read(set, scheme))
+            ? Fidelity.Clean(read(set, scheme, key))
             : Fidelity.Drop(FidelityDrop.PredefinedPsetOpaque,
                 PropertyLowering.Stated(set.Name).IfNone(() => set.GetType().Name), Seq<(string Key, Fin<PropertyValue> Value)>()))
         .Bind(rows => Fidelity.Lift(rows.TraverseM(row => row.Value.Map(value => (row.Key, value))).As()))
@@ -523,9 +523,9 @@ public sealed partial class SemanticProjector(
             .Choose(static rel => Optional(rel.RelatingMaterial));
         return
             from materials in Fidelity.Lift(relating.ToSeq()
-                .TraverseM(select => MaterialProjection.Project(select, tolerance, profiles, scheme)).As())
+                .TraverseM(select => MaterialProjection.Project(select, tolerance, profiles, scheme, key)).As())
             from imported in relating.Choose(DefinitionOf).ToSeq().Distinct()
-                .Traverse(definition => MaterialProjection.ImportedPsets(definition, rooted, scheme, templates)
+                .Traverse(definition => MaterialProjection.ImportedPsets(definition, rooted, scheme, templates, key)
                     .Map(bags => bags.Map(bag => (Node)IfcIngest.Bag(bag, tolerance)))).As()
             select toSeq(materials.Map(static m => (Node)m)
                 .Concat(imported.Flatten())

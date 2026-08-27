@@ -230,7 +230,7 @@ public sealed record EventExtensionContract<TExtensions>(
 
     public Fin<Seq<EventField>> Project(TExtensions message) =>
         message.Descriptor == Descriptor
-            ? Valid(message).Bind(_ => toSeq(Descriptor.Fields.InFieldNumberOrder())
+            ? Valid(message, key).Bind(_ => toSeq(Descriptor.Fields.InFieldNumberOrder())
                 .Filter(field => field.Accessor.HasValue(message))
                 .Traverse(field => Project(field: field, value: field.Accessor.GetValue(message))).As())
             : Fin.Fail<Seq<EventField>>(new KernelFault.InvalidValue(
@@ -247,7 +247,7 @@ public sealed record EventExtensionContract<TExtensions>(
             object? held = envelope[attribute];
             if (held is not null) field.Accessor.SetValue(message, ToGenerated(field: field, value: held));
         }
-        return Valid(message).Map(_ => message);
+        return Valid(message, key).Map(_ => message);
     }).Run().Bind(static inner => inner);
 
     public Fin<TExtensions> Stamp(TExtensions message, CausalStamp stamp) => Try.lift(() => {
@@ -366,7 +366,7 @@ public static partial class EventEnvelope {
                 DataContentType = HostEdge.Slot(dataType.Map(static type => type.ToString())),
             },
             static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value)))).Run().Bind(static inner => inner)
-            .Bind(envelope => Admit(envelope));
+            .Bind(envelope => Admit(envelope, key));
 
     private static CloudEvent Admitted(CloudEvent envelope, string name, string value) {
         if (name == CloudEventsSpecVersion.SpecVersionAttribute.Name) {
@@ -393,7 +393,7 @@ public static class RasmEventEnvelope {
         where TExtensions : class, IMessage<TExtensions> {
         CausalStamp stamp = CausalStamp.Now(clock);
         return contract.Stamp(message: request.Extensions, stamp: stamp)
-            .Bind(stamped => Mint(request with { Time = stamp.Clock.Physical, Extensions = stamped }, contract));
+            .Bind(stamped => Mint(request with { Time = stamp.Clock.Physical, Extensions = stamped }, contract, key));
     }
 
     public static Fin<CloudEvent> Mint<TExtensions>(
@@ -475,7 +475,7 @@ public static class EventCarrier {
 
 - Owner: `EventFormat` the closed row family over the three admitted event formats, each carrying its batch reach and the one formatter instance every binding shares, and the seat of the one JSON serializer options identity `EventFormat.JsonOptions`; `EventFrame` carries encoded bytes beside framing; `EventEnvelope` owns bytes and official protobuf message crossings.
 - Cases: JSON and Protobuf each define a structured envelope and a distinct batch envelope; Avro defines structured mode alone. A protocol binding owns binary mode, where attributes ride transport metadata and already-encoded data rides the body; the formatter's binary-data helper is package mechanics rather than an event-format capability. Framing derives from `MimeUtilities.MediaType` and `BatchMediaType` with `+` and the row's key, so no literal media type or suffix is spelled anywhere.
-- Entry: `EventEnvelope.Encode(format, envelopes)` discriminates on arity; generic `.Decode(frame, declared)` takes SDK declarations while the profile overload takes `EventExtensionContract<T>` and returns typed admitted extensions. `EventEnvelope.ToProtobuf` and `EventEnvelope.FromProtobuf` expose the formatter's official `CloudEvent` and `CloudEventBatch` messages for registry-framed legs.
+- Entry: `EventEnvelope.Encode(format, key, envelopes)` discriminates on arity; generic `.Decode(frame, declared, key)` takes SDK declarations while the profile overload takes `EventExtensionContract<T>` and returns typed admitted extensions. `EventEnvelope.ToProtobuf` and `EventEnvelope.FromProtobuf` expose the formatter's official `CloudEvent` and `CloudEventBatch` messages for registry-framed legs.
 - Auto: the local encode convenience refuses an empty span because it carries no send intent. Decode preserves the specification's zero-or-more batch semantics for every batching format, so both JSON `[]` and an empty official protobuf `CloudEventBatch` return an empty sequence.
 - Law: structured Protobuf selects its official data `oneof` from the admitted SDK value: string to `text_data`, bytes to `binary_data`, and `IMessage` to `proto_data` packed as `Any`. Binary-mode bindings carry explicitly encoded body bytes and never ask an event-format row to decide transport placement.
 - Law: ONE formatter instance per row is the codec identity every transport binding, every mint, and every decode shares — serializer options fix at construction, never per event, and a per-transport or per-event formatter is the rejected form; the JSON row's options identity registers the branch's own converters so a typed payload carrying instants, generated owners, or functional carriers round-trips through the same handle a raw `JsonElement` crosses.
@@ -555,7 +555,7 @@ public static partial class EventEnvelope {
                 Label: format.Key, Requirement: "at least one envelope to frame")),
             [_, _, ..] when !format.Batches => Fin.Fail<EventFrame>(new KernelFault.InvalidValue(
                 Label: format.Key, Requirement: "a batching event format")),
-            _ => toSeq(envelopes.ToArray()).TraverseM(envelope => Admit(envelope)).As()
+            _ => toSeq(envelopes.ToArray()).TraverseM(envelope => Admit(envelope, key)).As()
                 .Bind(admitted => Try.lift(() => {
                     CloudEvent[] rows = admitted.ToArray();
                     ContentType framing;
@@ -572,7 +572,7 @@ public static partial class EventEnvelope {
             .Bind(format => Try.lift(() => Fin.Succ(string.Equals(frame.Framing.MediaType, format.Batch, StringComparison.OrdinalIgnoreCase)
                     ? toSeq(format.Formatter.DecodeBatchModeMessage(frame.Body, frame.Framing, declared))
                     : Seq(format.Formatter.DecodeStructuredModeMessage(frame.Body, frame.Framing, declared)))).Run().Bind(static inner => inner)
-                .Bind(rows => rows.TraverseM(envelope => Admit(envelope)).As()));
+                .Bind(rows => rows.TraverseM(envelope => Admit(envelope, key)).As()));
 
     public static Fin<Seq<RasmEvent<TExtensions>>> Decode<TExtensions>(
         EventFrame frame,

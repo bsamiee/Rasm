@@ -513,13 +513,13 @@ public sealed partial class NativeKind {
         Func<THost, TValue, Fin<Unit>> write)
         where THost : class, Grasshopper2.Doc.IDocumentObject, new()
         where TValue : PersistedValue =>
-        new(family, typeof(THost),
+        new(key, family, typeof(THost),
             static () => (Grasshopper2.Doc.IDocumentObject)new THost(),
             reader => rehydrate(reader),
             host => read((THost)host),
             (value, op) => Try.lift(static () => Fin.Succ((Grasshopper2.Doc.IDocumentObject)new THost())).Run().Bind(static inner => inner)
-                .Bind(host => Pair<THost, TValue>(host, value)
-                    .Bind(pair => write(pair.Host, pair.Value))
+                .Bind(host => Pair<THost, TValue>(host, value, key, op)
+                    .Bind(pair => write(pair.Host, pair.Value, op))
                     .Map(_ => host)),
             (host, value, op) => Pair<THost, TValue>(host, value).Bind(pair => write(pair.Host, pair.Value)));
 
@@ -532,13 +532,13 @@ public sealed partial class NativeKind {
         where THost : class, Grasshopper2.Doc.IDocumentObject, new()
         where TValue : PersistedValue {
         Lazy<string> label = Label<THost>();
-        return new(family, typeof(THost),
+        return new(key, family, typeof(THost),
             static () => (Grasshopper2.Doc.IDocumentObject)new THost(),
             reader => rehydrate(reader),
             host => read((THost)host),
             (value, op) => Admitted<TValue>(value).Bind(held =>
                 Try.lift(() => Fin.Succ((Grasshopper2.Doc.IDocumentObject)seed(label.Value, held))).Run().Bind(static inner => inner)
-                    .Bind(host => write((THost)host, held).Map(_ => host))),
+                    .Bind(host => write((THost)host, held, op).Map(_ => host))),
             (host, value, op) => Pair<THost, TValue>(host, value).Bind(pair => write(pair.Host, pair.Value)));
     }
 
@@ -550,7 +550,7 @@ public sealed partial class NativeKind {
         where THost : class, Grasshopper2.Doc.IDocumentObject, new()
         where TValue : PersistedValue {
         Lazy<string> label = Label<THost>();
-        return new(family, typeof(THost),
+        return new(key, family, typeof(THost),
             static () => (Grasshopper2.Doc.IDocumentObject)new THost(),
             reader => rehydrate(reader),
             host => read((THost)host),
@@ -561,7 +561,7 @@ public sealed partial class NativeKind {
 
     private static NativeKind Inert<THost>(string key, ObjectFamily family, Func<GrasshopperIO.IReader, THost> rehydrate)
         where THost : class, Grasshopper2.Doc.IDocumentObject, new() =>
-        Of<THost, PersistedValue.Empty>(family, rehydrate,
+        Of<THost, PersistedValue.Empty>(key, family, rehydrate,
             static _ => new PersistedValue.Empty(),
             static (_, _, _) => Fin.Succ(unit));
 
@@ -687,10 +687,10 @@ public static class NativeObject {
     private static Fin<Unit> Reconcile(Grasshopper2.Parameters.Special.TimerObject timer, Seq<Guid> desired) =>
         Try.lift(() => Fin.Succ(toSeq(timer.TargetIds))).Run().Bind(static inner => inner)
             .Bind(current => current.Filter(id => !desired.Contains(id))
-                .TraverseM(id => Target(timer, id, add: false))
+                .TraverseM(id => Target(timer, id, add: false, key))
                 .As()
                 .Bind(_ => desired.Filter(id => !current.Contains(id))
-                    .TraverseM(id => Target(timer, id, add: true))
+                    .TraverseM(id => Target(timer, id, add: true, key))
                     .As())
                 .Map(static _ => unit));
 

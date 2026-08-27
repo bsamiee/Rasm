@@ -276,8 +276,8 @@ public static class Simplify {
                 int target = op.Policy.Target.Count(store.Live);
                 return store.Live == 0
                     ? Fin.Fail<DecimationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "decimation: no live faces"))
-                    : Collapse(store, edit, target, context, token)
-                        .Bind(_ => Emit(store, edit, target, context, token));
+                    : Collapse(store, edit, op, target, context, token)
+                        .Bind(_ => Emit(store, edit, op, target, context, token));
             });
     }
 
@@ -289,13 +289,13 @@ public static class Simplify {
             for (int u = 0; u < edit.VertexCount; u++) {
                 if (!store.Alive(u)) continue;
                 foreach (int v in store.Ring[u]) {
-                    if (v > u && store.Alive(v)) Enqueue(store, edit, u, v);
+                    if (v > u && store.Alive(v)) Enqueue(store, edit, u, v, key);
                 }
             }
             while (store.Live > target && store.Pq.TryDequeue(out Edge edge, out double _)) {
                 if (!store.Alive(edge.U) || !store.Alive(edge.V)
                     || store.Versions[edge.U] != edge.VersionU || store.Versions[edge.V] != edge.VersionV) continue;
-                if (CollapseValid(store, edit, edge.U, edge.V, edge.Target)) ApplyCollapse(store, edit, edge);
+                if (CollapseValid(store, edit, edge.U, edge.V, edge.Target)) ApplyCollapse(store, edit, edge, key);
             }
             return store.Live <= target
                 ? Fin.Succ(unit)
@@ -421,7 +421,7 @@ public static class Simplify {
         store.valid.Span[v] = false;
         store.Versions[u]++;
         foreach (int w in store.Ring[u]) {
-            if (store.Alive(w)) Enqueue(store, edit, u, w);
+            if (store.Alive(w)) Enqueue(store, edit, u, w, key);
         }
     }
 
@@ -474,7 +474,7 @@ public static class Simplify {
 
     // --- [EMIT]
     static Fin<DecimationResult> Emit(QuadricStore store, MeshEdit edit, SimplifyOp op, int target, Context context) =>
-        edit.ToSpace().Bind(space =>
+        edit.ToSpace(key).Bind(space =>
             Hausdorff(op.Mesh, space, op.Policy).Bind(bound =>
                 op.Policy.HausdorffCeiling.Filter(ceiling => bound > ceiling.Value).Case is PositiveMagnitude breached
                     ? Fin.Fail<DecimationResult>(new KernelFault.InvalidResult(Detail: Some($"hausdorff {bound:G6} over ceiling {breached.Value:G6}")))

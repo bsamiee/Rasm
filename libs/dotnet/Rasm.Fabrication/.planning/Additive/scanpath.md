@@ -894,7 +894,7 @@ public static class Scan {
             (EnginePhase.Jumps, evidence.Jumps),
             (EnginePhase.Remelts, evidence.Remelts),
             (EnginePhase.Stitches, evidence.Stitches))
-        select new ScanPlan(layers, bytes, evidence));
+        select new ScanPlan(layers, bytes, evidence, key));
 
     // --- [ZONING]
     private static Fin<Seq<ExposureRegion>> Regions(SliceStack stack, Option<SupportPlan> support, ScanPolicy policy) =>

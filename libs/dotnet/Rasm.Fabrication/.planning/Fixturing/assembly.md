@@ -246,7 +246,7 @@ public sealed partial class JoinMethod {
         JoinTrait[]? traits = null,
         JoinText[]? texts = null,
         JoinMetric[]? metrics = null) =>
-        new(joinClass, shape, action, toSet(traits ?? []), toSet(texts ?? [JoinText.Agent]), toSet(metrics ?? []));
+        new(key, joinClass, shape, action, toSet(traits ?? []), toSet(texts ?? [JoinText.Agent]), toSet(metrics ?? []));
 }
 
 [ComplexValueObject]
@@ -584,7 +584,7 @@ public sealed record AssemblyPlan(
     Seq<JoinStep> ServiceOrder,
     ContentKey Key) {
     public static Fin<AssemblyResult> Apply(AssemblyOp? op) =>
-        Optional()
+        Optional(op)
             .ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
             .Bind(static operation => operation.Switch(
                 admit: static row => Assemblies.Admit(row.Members, row.Policy)
@@ -751,7 +751,7 @@ internal static partial class Assemblies {
                     index.Joints, results, blocked, built.Service),
                 Key)
                 .Map(key => new AssemblyPlan(input, policy.Execution, built.Steps, count, built.Reduced,
-                    index.Joints, results, blocked, built.Service)));
+                    index.Joints, results, blocked, built.Service, key)));
     }
 
     private static (BidirectionalGraph<JoinNode, AssemblyEdge> Graph, Seq<BlockedCorridor> Blocked) Graph(

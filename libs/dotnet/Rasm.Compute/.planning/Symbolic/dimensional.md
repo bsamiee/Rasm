@@ -135,7 +135,7 @@ public sealed record DimensionContext(Map<SymbolName, DimensionMonomial> Binding
         FactoryBridge.Accept<SymbolName>(name).ToValidation();
 
     static Validation<Error, QuantityFamily> Family(string key) =>
-        QuantityFamily.TryGet(out QuantityFamily? row)
+        QuantityFamily.TryGet(key, out QuantityFamily? row)
             ? Success<Error, QuantityFamily>(row)
             : Fail<Error, QuantityFamily>(new ComputeFault.ParseRejected($"<symbolic-family-unknown:{key}>"));
 }

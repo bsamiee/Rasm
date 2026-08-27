@@ -344,7 +344,7 @@ public sealed record TextureSet(
     Option<ConductorMetal> Conductor, Option<MaterialId> Material, UInt128 Key) : IValidityEvidence {
 
     public static Fin<TextureSet> Of(TextureSetDraft draft) =>
-        Gates(draft)
+        Gates(draft, key)
             .TraverseM(static gate => gate()).As()
             .Map(_ => new TextureSet(draft.Width, draft.Height, draft.Layers, draft.Law, draft.Convention, draft.Alpha,
                 draft.HeightScaleMm, draft.Tiled, toSeq(draft.Udim.OrderBy(static t => t.Value)), draft.Channels,
@@ -367,7 +367,7 @@ public sealed record TextureSet(
             () => guard(draft.HeightScaleMm.IsNone || draft.Channels.ContainsKey(TextureChannel.Height),
                 new MaterialFault.Parameter("<height-scale-without-height-channel>")),
             () => toSeq(draft.Channels.AsIterable()).TraverseM(pair => AdmitChannel(draft, pair.Value)).As().Map(_ => unit),
-            () => draft.Packs.TraverseM(pack => AdmitPack(draft, pack)).As().Map(_ => unit));
+            () => draft.Packs.TraverseM(pack => AdmitPack(draft, pack, key)).As().Map(_ => unit));
 
     static Fin<Unit> AdmitChannel(TextureSetDraft draft, TextureChannel channel, TexturePyramid pyramid) =>
         from _ in guard(pyramid.Base.Width == draft.Width && pyramid.Base.Height == draft.Height, new MaterialFault.Parameter($"<channel-extent-mismatch:{channel.Key}>"))
@@ -503,7 +503,7 @@ public sealed record TextureAtlas(TextureSet Sheet, Seq<AtlasPlacement> Placemen
         from ___ in guard(participants.ForAll(static p => p.Placement.SetKey == p.Set.Key),
             new MaterialFault.Parameter("<atlas-placement-key-mismatch>"))
         from ____ in guard(gutterRings > 0, new MaterialFault.Parameter($"<atlas-gutter-rings:{gutterRings}>"))
-        from bound in TextureSet.Of(sheet)
+        from bound in TextureSet.Of(sheet, key)
         select new TextureAtlas(bound, participants.Map(static p => p.Placement));
 }
 ```
@@ -622,10 +622,10 @@ public static class SetIngest {
     public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire) =>
         Try.lift(() => Fin.Succ(Wire.Set.Parser.ParseFrom(
                 CodedInputStream.CreateWithLimits(wire.AsStream(), WireLimits.Manifest.SizeLimit, WireLimits.Manifest.RecursionLimit)))).Run().Bind(static inner => inner)
-            .Bind(manifest => WireAdmission.Admit(manifest, WireBoundary.InboundPayload))
+            .Bind(manifest => WireAdmission.Admit(manifest, WireBoundary.InboundPayload, key))
             .Bind(manifest => manifest.ProductCase == Wire.Set.ProductOneofCase.Pbr
                 ? Fin.Succ<IngestSource>(new IngestSource.Peer(manifest))
-                : new MaterialFault.Parameter($"<peer-manifest-product:{manifest.ProductCase}>"));
+                : new MaterialFault.Parameter(key, $"<peer-manifest-product:{manifest.ProductCase}>"));
 
     static SetManifest Validate(ClassifiedMap map) =>
         toSeq(map.Channels.Filter(static c => !Index.Value.ContainsKey(c.Key)).Map(static c => c.Key)) is { IsEmpty: false } retired
@@ -725,7 +725,7 @@ public static class SetIngest {
     public static Fin<Seq<(Option<UdimTile> Tile, TextureSetDraft Draft)>> Draft(
         SetManifest manifest, HashMap<string, TexturePyramid> planes, IngestIntent intent) =>
         toSeq(manifest.Maps.GroupBy(static map => map.Tile.Map(static t => t.Value).IfNone(0)))
-            .TraverseM(group => Tile(toSeq(group), manifest.Convention, planes, intent)).As();
+            .TraverseM(group => Tile(toSeq(group), manifest.Convention, planes, intent, key)).As();
 
     static Fin<(Option<UdimTile> Tile, TextureSetDraft Draft)> Tile(
         Seq<ClassifiedMap> maps, Option<NormalConvention> convention, HashMap<string, TexturePyramid> planes, IngestIntent intent) =>
@@ -734,7 +734,7 @@ public static class SetIngest {
             new MaterialFault.Parameter($"<ingest-tile-extent-divergent:{head.Stem}>"))
         from bound in maps.FoldM((Channels: HashMap<TextureChannel, TexturePyramid>(), Packs: Seq<ChannelPackPlane>()), (carried, map) =>
                 from supplied in planes.Find(map.Stem).ToFin(new MaterialFault.Parameter($"<ingest-plane-missing:{map.Stem}>"))
-                from converted in Converted(supplied, map, convention)
+                from converted in Converted(supplied, map, convention, key)
                 select map.Pack
                     .Map(pack => (carried.Channels, carried.Packs.Add(new ChannelPackPlane(pack, converted, map.Channels))))
                     .IfNone(() => (carried.Channels.AddOrUpdate(map.Channels[0], converted), carried.Packs))).As()
@@ -751,7 +751,7 @@ public static class SetIngest {
             ? Fin.Succ(pyramid)
             : pyramid.Levels
                 .FoldM(Seq<TexturePlane>(), (built, level) =>
-                    PlaneOp.Apply(level, ops)
+                    PlaneOp.Apply(level, ops, key)
                         .Map(result => built.Add(result.Plane))
                         .Rollback([.. built])).As()
                 .Bind(levels => Custody.Bracket(
@@ -933,8 +933,8 @@ public static class SetBind {
     static Fin<MaterialGraph> Dag(TextureSet set, SamplerState sampler) =>
         set.Layers.Value > 1
             ? Fin.Fail<MaterialGraph>(new MaterialFault.Parameter($"<layered-set-has-no-uv-program:{set.Law.Key}:{set.Layers.Value}>"))
-            : from perturbed in MaterialGraph.Default.PortOf(ShadeChannel.NormalFrame)
-              from seats in toSeq(SinkSlot.Items).TraverseM(slot => SlotEdit(set, slot, sampler)).As()
+            : from perturbed in MaterialGraph.Default.PortOf(ShadeChannel.NormalFrame, key)
+              from seats in toSeq(SinkSlot.Items).TraverseM(slot => SlotEdit(set, slot, sampler, key)).As()
                   .Map(static edits => edits.Somes())
               from bound in MaterialGraph.Default.Author(
                   set.Channels.ContainsKey(TextureChannel.GeometryNormal)
@@ -946,7 +946,7 @@ public static class SetBind {
         set.Channels.Find(TextureChannel.BySlot(slot))
             .TraverseM(pyramid => pyramid.AsImage().Map(image => (GraphEdit)new GraphEdit.Seat(
                 new AppearanceNode.Texture(slot.Port, Option<PortId>.None,
-                    Compose(TextureUv.Port(image, Anchor, sampler, slot.Modality), slot)))))
+                    Compose(TextureUv.Port(image, Anchor, sampler, slot.Modality, key), slot)))))
             .As();
 
     static Func<double, double, Option<double>, PortValue> Compose(Func<double, double, Option<double>, PortValue> port, SinkSlot slot) =>
@@ -954,14 +954,14 @@ public static class SetBind {
 
     static Fin<MaterialParameters> Sample(TextureSet set, MaterialParameters fallback, BindTarget.Point at, SamplerState sampler) =>
         toSeq(set.Channels.AsIterable())
-            .FoldM(fallback, (row, pair) => Read(pair.Value, at, sampler).Map(texel => Apply(pair.Key, row, texel))).As()
+            .FoldM(fallback, (row, pair) => Read(pair.Value, at, sampler, key).Map(texel => Apply(pair.Key, row, texel))).As()
             .Bind(row => set.Packs
-                .FoldM(row, (carried, pack) => Read(pack.Plane, at, sampler).Map(texel => Unpack(pack, carried, texel))).As())
-            .Bind(row => MaterialParameters.Of(row));
+                .FoldM(row, (carried, pack) => Read(pack.Plane, at, sampler, key).Map(texel => Unpack(pack, carried, texel))).As())
+            .Bind(row => MaterialParameters.Of(row, key));
 
     static Fin<ShadeVec4> Read(TexturePyramid pyramid, BindTarget.Point at, SamplerState sampler) =>
         from image in pyramid.AsImage()
-        from sample in TextureUv.Sample(image, new UvSample(at.U, at.V, Vector3d.Zero, Vector3d.ZAxis, at.MipLevel), sampler)
+        from sample in TextureUv.Sample(image, new UvSample(at.U, at.V, Vector3d.Zero, Vector3d.ZAxis, at.MipLevel), sampler, key)
         select sample;
 
     static MaterialParameters Apply(TextureChannel channel, MaterialParameters row, ShadeVec4 texel) =>

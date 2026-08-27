@@ -141,7 +141,7 @@ public sealed class Charges(CostPolicy rates, EventExtensionContract<Extensions>
                         DataSchema: None, DataContentType: Some(MediaTypeNames.Application.Json),
                         Data: JsonSerializer.SerializeToUtf8Bytes(charge, wire.Charge),
                         Extensions: new Extensions()),
-                    contract, clock))
+                    contract, clock, key))
                 .Map(Some)
             : Fin.Succ(Option<CloudEvent>.None);
 }

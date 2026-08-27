@@ -505,7 +505,7 @@ public sealed partial class SunState : IDetachedDocumentResult {
     }
 
     internal static Fin<SunState> Of(global::Rhino.Render.Sun sun) =>
-        from accuracy in SunAccuracy.Of(sun.Accuracy)
+        from accuracy in SunAccuracy.Of(sun.Accuracy, key)
         let placement = sun.ManualControlOn
                 ? (SunPlacement)new SunPlacement.ManualAngles(Azimuth: sun.Azimuth, Altitude: sun.Altitude)
                 : new SunPlacement.Automatic(
@@ -574,7 +574,7 @@ public sealed partial class PostGamma {
 public readonly record struct WorkflowState(
     CapabilitySet<WorkflowStage> Stages, float PreProcessGamma, PostGamma PostGamma) : IDetachedDocumentResult {
     internal static Fin<WorkflowState> Of(LinearWorkflow workflow) =>
-        PostGamma.Of(workflow).Map(postGamma => new WorkflowState(
+        PostGamma.Of(workflow, key).Map(postGamma => new WorkflowState(
             Stages: WorkflowStage.Of(workflow: workflow),
             PreProcessGamma: workflow.PreProcessGamma,
             PostGamma: postGamma));
@@ -600,7 +600,7 @@ public readonly record struct WorkflowEvidence(float PostGammaReciprocal, uint H
 
 public readonly record struct DitherState(DitherMethod Method, bool Enabled) : IDetachedDocumentResult {
     internal static Fin<DitherState> Of(Dithering dither) =>
-        DitherMethod.Of(dither.Method).Map(method => new DitherState(Method: method, Enabled: dither.Enabled));
+        DitherMethod.Of(dither.Method, key).Map(method => new DitherState(Method: method, Enabled: dither.Enabled));
 
     internal Fin<Unit> Apply(Dithering dither) {
         DitherState self = this;
@@ -694,9 +694,9 @@ public abstract partial record RenderSource {
     internal static Fin<RenderSource> Of(RenderSettings settings) => settings.RenderSource switch {
         RenderSettings.RenderingSources.ActiveViewport => Fin.Succ<RenderSource>(new ActiveViewport()),
         RenderSettings.RenderingSources.SpecificViewport => Named(
-            settings.SpecificViewport, static name => new SpecificViewport(name)),
-        RenderSettings.RenderingSources.NamedView => Named(settings.NamedView, static name => new NamedView(name)),
-        RenderSettings.RenderingSources.SnapShot => Named(settings.Snapshot, static name => new Snapshot(name)),
+            settings.SpecificViewport, key, static name => new SpecificViewport(name)),
+        RenderSettings.RenderingSources.NamedView => Named(settings.NamedView, key, static name => new NamedView(name)),
+        RenderSettings.RenderingSources.SnapShot => Named(settings.Snapshot, key, static name => new Snapshot(name)),
         _ => Fin.Fail<RenderSource>(new KernelFault.InvalidResult()),
     };
 
@@ -865,10 +865,10 @@ public sealed record RenderConfig(
             from ambient in PerceptualColor.OfHost(host: settings.AmbientLight)
             from top in PerceptualColor.OfHost(host: settings.BackgroundColorTop)
             from bottom in PerceptualColor.OfHost(host: settings.BackgroundColorBottom)
-            from background in BackgroundMode.Of(settings.BackgroundStyle)
-            from antialias in AntialiasPolicy.Of(settings.AntialiasLevel)
-            from output in RenderOutput.Of(settings)
-            from source in RenderSource.Of(settings)
+            from background in BackgroundMode.Of(settings.BackgroundStyle, key)
+            from antialias in AntialiasPolicy.Of(settings.AntialiasLevel, key)
+            from output in RenderOutput.Of(settings, key)
+            from source in RenderSource.Of(settings, key)
             from environments in EnvironmentBindingState.Of(settings: settings)
             select new RenderConfig(
                 Ambient: ambient, BackgroundTop: top, BackgroundBottom: bottom,
@@ -1253,7 +1253,7 @@ public static class Settings {
     private static Fin<Unit> Compensated(
         SubOwners owners, RenderState prior, Func<SubOwners, Fin<Unit>> apply) =>
         prior.Use(
-            borrow: record => apply(owners)
+            borrow: record => apply(owners, op)
                 .Rollback(release: () => record.Apply(owners: owners)));
 
     private static Fin<Unit> Copy(SettingsSource source, SettingsSource target) =>

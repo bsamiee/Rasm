@@ -138,7 +138,7 @@ public sealed record MacAnchor(
                        select (View: view, Handler: Optional(row.Surface.GetMacViewHandler())))
                    .Map(extracted => new MacAnchor(
                        View: extracted.View, Window: Optional(extracted.View.Window), Bounds: extracted.View.Bounds,
-                       Handler: extracted.Handler))), DispatchLane.Interactive)
+                       Handler: extracted.Handler))), DispatchLane.Interactive, op)
                select anchor;
     }
 }
@@ -258,7 +258,7 @@ public sealed class NativeHold<T> : IDisposable {
     internal NativeHold(T value, Func<Fin<Unit>> inverse, FaultCell faults) {
         Value = value;
         release = new Lazy<Unit>(() => UiThread.Run(new UiDispatch<Unit>.Blocking(() => Try.lift(inverse).Run().Bind(static inner => inner)),
-                DispatchLane.Interactive)
+                DispatchLane.Interactive, key)
             .IfFail(error => NativeMonitor.Park(cell: faults, error: error)),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }

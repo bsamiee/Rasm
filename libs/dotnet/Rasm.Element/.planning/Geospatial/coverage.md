@@ -141,16 +141,16 @@ public sealed partial record CoverageBand {
   Option<(double Min, double Max)> range = default, Seq<ColorBin> palette = default) =>
   Accumulate(Seq(
     Finite(($"coverage-band[{index}].offset", offset), ($"coverage-band[{index}].scale", scale)),
-    AdmittedRange(range, index),
-    Gate(role != BandRole.Palette || !palette.IsEmpty, $"<coverage-band-palette-empty:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(palette.Map(static c => c.Index).Distinct().Count == palette.Count, $"<coverage-band-palette-index-duplicate:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    AdmittedRange(range, index, key),
+    Gate(role != BandRole.Palette || !palette.IsEmpty, key, $"<coverage-band-palette-empty:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(palette.Map(static c => c.Index).Distinct().Count == palette.Count, key, $"<coverage-band-palette-index-duplicate:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .Map(_ => new CoverageBand(index, name, sampleType, role, noData, units, offset, scale, range,
    toSeq(palette.OrderBy(static c => c.Index)).Strict()))
    .ToFin();
 
  private static Validation<Error, Unit> AdmittedRange(Option<(double Min, double Max)> range, int index) =>
   range.Traverse(bounds => (Finite(($"coverage-band[{index}].range.min", bounds.Min), ($"coverage-band[{index}].range.max", bounds.Max)),
-    Gate(bounds.Min <= bounds.Max, $"<coverage-band-range-inverted:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))
+    Gate(bounds.Min <= bounds.Max, key, $"<coverage-band-range-inverted:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))
     .Apply(static (_, _) => unit).As()).As().Map(static _ => unit);
 
  public double Real(double raw) => Offset + (Scale * raw);
@@ -198,11 +198,11 @@ public sealed partial record CoverageGrid {
  public static Fin<CoverageGrid> Of(
   CoverageKind kind, Seq<OverviewLevel> levels, Seq<CoverageBand> bands, GeoReference crs) =>
   Accumulate(Seq(
-    Gate(!levels.IsEmpty, "<coverage-levels-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    AdmittedBlocks(levels),
-    Coarsens(levels),
-    Gate(!bands.IsEmpty, "<coverage-bands-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(bands.Map(static b => b.Index).Distinct().Count == bands.Count, "<coverage-band-index-duplicate>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Gate(!levels.IsEmpty, key, "<coverage-levels-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    AdmittedBlocks(levels, key),
+    Coarsens(levels, key),
+    Gate(!bands.IsEmpty, key, "<coverage-bands-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    Gate(bands.Map(static b => b.Index).Distinct().Count == bands.Count, key, "<coverage-band-index-duplicate>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .Map(_ => new CoverageGrid(kind, levels, toSeq(bands.OrderBy(static b => b.Index)).Strict(), crs))
    .ToFin();
 
@@ -215,7 +215,7 @@ public sealed partial record CoverageGrid {
  private static Validation<Error, Unit> Coarsens(Seq<OverviewLevel> levels) =>
   Accumulate(levels.Zip(levels.Tail).Map(pair =>
    pair.Item1.Grid.Coarsen().ToValidation().Bind(next =>
-    Gate(next == pair.Item2.Grid, "<coverage-level-off-coarsen-chain>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))).Strict());
+    Gate(next == pair.Item2.Grid, key, "<coverage-level-off-coarsen-chain>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))).Strict());
 
  public Option<CoverageBand> BandAt(int index) => Bands.Find(b => b.Index == index);
 
@@ -259,7 +259,7 @@ public sealed partial record CoverageGrid {
   double x0, double y0, double x1, double y1, OverviewLevel level) =>
   Accumulate(Seq(
     Finite(("coverage-window-x0", x0), ("coverage-window-y0", y0), ("coverage-window-x1", x1), ("coverage-window-y1", y1)),
-    Gate(x0 <= x1 && y0 <= y1, $"<coverage-window-reversed:{x0:R}:{y0:R}:{x1:R}:{y1:R}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
+    Gate(x0 <= x1 && y0 <= y1, key, $"<coverage-window-reversed:{x0:R}:{y0:R}:{x1:R}:{y1:R}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))))
    .Map(_ => WindowAdmitted(x0, y0, x1, y1, level)).ToFin();
 
  internal Option<(int Col, int Row, int SpanCol, int SpanRow)> WindowAdmitted(

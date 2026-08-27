@@ -68,9 +68,9 @@ public sealed record MaterialFacts(
     Seq<MaterialPropertySet> Properties,
     Option<Classification> Classification) {
     public static Fin<MaterialFacts> Lookup(MaterialId id) =>
-        (MaterialPropertyCatalogue.Lookup(id).ToValidation(),
-         SustainabilityCatalogue.Lookup(id).ToValidation(),
-         SustainabilityCatalogue.Classification(id).ToValidation())
+        (MaterialPropertyCatalogue.Lookup(id, key).ToValidation(),
+         SustainabilityCatalogue.Lookup(id, key).ToValidation(),
+         SustainabilityCatalogue.Classification(id, key).ToValidation())
             .Apply(static (engineering, lifecycle, classification) => new MaterialFacts(engineering + lifecycle, classification))
             .As()
             .ToFin();
@@ -339,8 +339,8 @@ public static class CompositionAuthor {
     public static MaterialComposition Single(MaterialId material) => MaterialComposition.OfSingle(material);
 
     public static Fin<MaterialComposition> LayerSet(Seq<(MaterialId Material, double ThicknessMm, string Name)> layers) =>
-        layers.Traverse(l => MeasureValue.Of(l.ThicknessMm, UnitsNet.Units.LengthUnit.Millimeter).Map(t => new MaterialLayer(l.Material, t, l.Name))).As()
-              .Bind(specs => MaterialComposition.OfLayerSet(specs));
+        layers.Traverse(l => MeasureValue.Of(l.ThicknessMm, UnitsNet.Units.LengthUnit.Millimeter, key).Map(t => new MaterialLayer(l.Material, t, l.Name))).As()
+              .Bind(specs => MaterialComposition.OfLayerSet(specs, key));
 
     public static MaterialComposition ProfileSet(MaterialId material, ComponentId component) =>
         MaterialComposition.OfProfileSet(material, ProfileRef.Of(component.Value));
@@ -375,9 +375,9 @@ public static class Constituents {
     static Fin<Seq<(MaterialId Material, string Category, double Fraction, string PartName)>> LayupRows(
         Seq<(MaterialId Material, double ThicknessMm, string Category)> layers) =>
         layers.Traverse(layer =>
-                (from sets in MaterialPropertyCatalogue.Lookup(layer.Material)
+                (from sets in MaterialPropertyCatalogue.Lookup(layer.Material, key)
                  from mass in sets.Density
-                     .ToFin(new ElementFault.ValueRejected($"<layup-density-missing:{layer.Material.ToValue()}>"))
+                     .ToFin(new ElementFault.ValueRejected(key, $"<layup-density-missing:{layer.Material.ToValue()}>"))
                      .Map(density => layer.ThicknessMm * 1e-3 * density.Si)
                  select (layer.Material, layer.Category, MassPerArea: mass)).ToValidation())
             .As()
@@ -409,16 +409,16 @@ public static class ComponentSubgraph {
         FrozenDictionary<ProfileRef, ResolvedComponent> sections) =>
         materials
             .Traverse(id =>
-                (from facts in MaterialFacts.Lookup(id)
+                (from facts in MaterialFacts.Lookup(id, key)
                  from composition in recipeOf(id)
-                     .TraverseM(recipe => Constituents.Of(recipe)
-                         .Bind(rows => CompositionAuthor.ConstituentSet(rows)))
+                     .TraverseM(recipe => Constituents.Of(recipe, key)
+                         .Bind(rows => CompositionAuthor.ConstituentSet(rows, key)))
                      .As()
                      .Map(row => row.IfNone(CompositionAuthor.Single(id)))
                  let elements = elementsOf(id)
                  let bindings = elements.Map(element => new MaterialBinding(element, new MaterialUsage.Unbound(), facts.Classification))
-                 from row in MaterialLibrary.Lookup(id)
-                 from appearance in AppearanceEgress.Summary(row)
+                 from row in MaterialLibrary.Lookup(id, key)
+                 from appearance in AppearanceEgress.Summary(row, key)
                  select new ProjectionSpec.Substance(id, composition, facts.Properties, appearance, setOf(id), row.ThinWalled, bindings)).ToValidation())
             .As()
             .Map(specs => specs.Fold(ProjectionSource.Empty with { Sections = sections }, static (source, spec) => source.Add(spec)))
@@ -428,11 +428,11 @@ public static class ComponentSubgraph {
         ProjectionSource source, Seq<(ComponentRow Row, Seq<OccurrenceBinding> Occurrences)> rows,
         Func<MaterialId, Option<ContentAddress>> setOf) =>
         rows.Traverse(entry =>
-                (from composition in CompositionOf(entry.Row)
-                 from facts in MaterialFacts.Lookup(entry.Row.Item.SubstanceId)
-                 from physics in Lowerings.Value[entry.Row.Item.Family](entry.Row.Item)
-                 from row in MaterialLibrary.Lookup(entry.Row.Item.AppearanceId)
-                 from appearance in AppearanceEgress.Summary(row)
+                (from composition in CompositionOf(entry.Row, key)
+                 from facts in MaterialFacts.Lookup(entry.Row.Item.SubstanceId, key)
+                 from physics in Lowerings.Value[entry.Row.Item.Family](entry.Row.Item, key)
+                 from row in MaterialLibrary.Lookup(entry.Row.Item.AppearanceId, key)
+                 from appearance in AppearanceEgress.Summary(row, key)
                  select new ProjectionSpec.Type(entry.Row.Item, composition, facts.Properties + physics, appearance,
                      setOf(entry.Row.Item.AppearanceId), facts.Classification, row.ThinWalled, entry.Occurrences)).ToValidation())
             .As()
@@ -442,17 +442,17 @@ public static class ComponentSubgraph {
     static readonly Lazy<FrozenDictionary<ComponentFamily, Func<Component, Fin<Seq<MaterialPropertySet>>>>> Lowerings =
         new(static () => new Dictionary<ComponentFamily, Func<Component, Fin<Seq<MaterialPropertySet>>>> {
             [ComponentFamily.Glazing] = static (item, key) => GlazingSeed.Resolve(item)
-                .Bind(build => GlazingDetail.Properties(build.Panes, build.Cavities, build.FireResistanceEiMinutes)),
+                .Bind(build => GlazingDetail.Properties(build.Panes, build.Cavities, build.FireResistanceEiMinutes, key)),
             [ComponentFamily.Timber] = static (item, key) => TimberSeed.Resolve(item)
                 .Bind(row => row.Grade.TimberArm
-                    .ToFin(new ProjectionFault.Unresolved($"<timber-grade-arm-unresolved:{item.Designation.Value}>"))
-                    .Bind(arm => arm.ToProperties())),
+                    .ToFin(new ProjectionFault.Unresolved(key, $"<timber-grade-arm-unresolved:{item.Designation.Value}>"))
+                    .Bind(arm => arm.ToProperties(key))),
             [ComponentFamily.Masonry] = static (item, key) => MasonrySeed.Resolve(item)
-                .Bind(row => MasonryDetail.Properties(item.Profile, row.Body)),
+                .Bind(row => MasonryDetail.Properties(item.Profile, row.Body, key)),
             [ComponentFamily.Cmu] = static (item, key) => SeedJoin.Resolve(CmuSeed.Table, item.Designation)
                 .Bind(row => item.Profile is SectionProfile.CellularRectangle cell
-                    ? CmuSeed.Properties(row, cell)
-                    : new ProjectionFault.Unresolved($"<cmu-lattice-unresolved:{item.Designation.Value}>")),
+                    ? CmuSeed.Properties(row, cell, key)
+                    : new ProjectionFault.Unresolved(key, $"<cmu-lattice-unresolved:{item.Designation.Value}>")),
         }.Concat(ComponentFamily.Items.Select(static family =>
                 KeyValuePair.Create(family,
                     (Func<Component, Fin<Seq<MaterialPropertySet>>>)(static (_, _) =>

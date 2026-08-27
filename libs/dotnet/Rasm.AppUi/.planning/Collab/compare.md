@@ -107,7 +107,7 @@ public sealed record TimeTravel(
     public Fin<CollabDoc> Fork(Frontiers cut) =>
         from key in FactoryBridge.Accept<DocumentKey>($"{Document.Key.Value}/fork/{Guid.CreateVersion7():N}")
         from forked in CollabDoc.Lift(() => Document.Doc.ForkAt(cut))
-        select CollabDoc.Of(forked);
+        select CollabDoc.Of(forked, key);
 }
 ```
 
@@ -296,7 +296,7 @@ public sealed record DiffSurface(
 
     static ControlIntent Verb(string key) =>
         new ControlIntent.Button($"{key}.label",
-            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some() });
+            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some(key) });
 
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(SessionKey, screen => composition.Diff(screen.Surface).Body(composition.Window));

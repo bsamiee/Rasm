@@ -361,19 +361,19 @@ public static class ConnectorSeed {
 
     static Fin<SectionProfile> ProfileOf(ConnectorRow row) =>
         row.Plate.Match(
-            Some: plate => SectionProfile.Rectangle.Of(plate.FootprintMm, plate.Stock.SheetThicknessMm),
-            None: () => SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm));
+            Some: plate => SectionProfile.Rectangle.Of(plate.FootprintMm, plate.Stock.SheetThicknessMm, key),
+            None: () => SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm, key));
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, ConnectorRow>>> Table =
         SeedJoin.Of(Roster, static row => row.Designation);
 
     public static Fin<ConnectorRow> Resolve(Component component) =>
-        SeedJoin.Resolve(Table, component.Designation);
+        SeedJoin.Resolve(Table, component.Designation, key);
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
-        from row in Resolve(component)
-        from governed in row.GovernedCapacity(placement.ConnectorDuration)
-        from capacity in SectionCapacity.Lift(new CapacityLift.Connector(component.Designation, governed))
+        from row in Resolve(component, key)
+        from governed in row.GovernedCapacity(placement.ConnectorDuration, key)
+        from capacity in SectionCapacity.Lift(new CapacityLift.Connector(component.Designation, governed), key)
         select capacity;
 }
 ```

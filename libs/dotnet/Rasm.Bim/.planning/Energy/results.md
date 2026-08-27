@@ -113,7 +113,7 @@ public sealed record EnergyResult(
     ArtifactKey Artifact, ResultScope Scope, ResultQuantity Quantity, MeasureValue Value, Instant At) {
 
     public static Fin<EnergyResult> Of(ArtifactKey artifact, ResultScope scope, ResultQuantity quantity, double si, Instant at) =>
-        quantity.Admit(si).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
+        quantity.Admit(si, key).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -147,11 +147,11 @@ public static class EnergyResults {
         ResultTargets targets = ResultTargets.Of(graph);
         return results
             .FoldM(HashMap<(NodeId Target, ArtifactKey Run), (Instant At, Map<string, EnergyResult> Rows)>(),
-                (grouped, result) => targets.Resolve(result.Scope).Bind(target =>
+                (grouped, result) => targets.Resolve(result.Scope, key).Bind(target =>
                     grouped.Find((target, result.Artifact)) is { IsSome: true, Case: (Instant at, Map<string, EnergyResult> rows) }
                         ? rows.ContainsKey(result.Quantity.Key)
                             ? Fin.Fail<HashMap<(NodeId, ArtifactKey), (Instant, Map<string, EnergyResult>)>>(
-                                new BimFault.Refused(BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-result-duplicate", result.Artifact.Value, result.Quantity.Key })))
+                                new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-result-duplicate", result.Artifact.Value, result.Quantity.Key })))
                             : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact), (at, rows.Add(result.Quantity.Key, result))))
                         : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact),
                             (result.At, Map((result.Quantity.Key, result)))))).As()

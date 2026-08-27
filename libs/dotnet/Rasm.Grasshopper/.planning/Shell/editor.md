@@ -145,14 +145,14 @@ public static class EditorShell {
                from valid in Admit.Need(project)
                from output in UiThread.Run(new UiDispatch<TOut>.Blocking(
                    () => row.Resolve().Bind(pane => Try.lift(() => valid(arg: pane)).Run().Bind(static inner => inner))),
-                   DispatchLane.Interactive)
+                   DispatchLane.Interactive, op)
                select output;
     }
 
     public static Fin<ShellFacts> Snapshot() {
         return UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
             () => ScopeTarget.EditorHost.Acquire().Bind(scope => Project(scope: scope))),
-            DispatchLane.Interactive);
+            DispatchLane.Interactive, op);
     }
 
     public static Fin<ShellFacts> Apply(ShellOp op) {

@@ -151,7 +151,7 @@ public static class TraceContext {
         };
 
     static IEnumerable<string> Get(Metadata carrier, string key) =>
-        carrier.GetAll().Select(static entry => entry.Value);
+        carrier.GetAll(key).Select(static entry => entry.Value);
 
     public static Metadata Inject(Metadata carrier) =>
         Inject(carrier, static (c, key, value) => c.Add(value));
@@ -163,13 +163,13 @@ public static class TraceContext {
 
     public static MqttApplicationMessageBuilder Inject(MqttApplicationMessageBuilder carrier) =>
         Inject(carrier, static (c, key, value) =>
-            ignore(c.WithUserProperty(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(value)))));
+            ignore(c.WithUserProperty(key, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(value)))));
 
     public static IDisposable Continue(ActivitySource source, MqttApplicationMessage carrier, string name, TenantAdoption adoption) =>
         Continue(source, carrier, Get, name, adoption, ActivityKind.Consumer);
 
     static IEnumerable<string> Get(MqttApplicationMessage carrier, string key) =>
-        (carrier.UserProperties ?? []).Where(entry => string.Equals(entry.Name, StringComparison.Ordinal))
+        (carrier.UserProperties ?? []).Where(entry => string.Equals(entry.Name, key, StringComparison.Ordinal))
             .Select(static entry => entry.ReadValueAsString());
 }
 

@@ -345,9 +345,9 @@ public sealed partial class FidelityTier {
     public string LabelKey => LocaleStrings.Key(nameof(FidelityTier), Key);
 
     public static Fin<FidelityTier> Elect(string key) =>
-        TryGet(out FidelityTier? row) && row is not null
+        TryGet(key, out FidelityTier? row) && row is not null
             ? Fin.Succ(row)
-            : Fin.Fail<FidelityTier>(new ContextFault.TierUnknown());
+            : Fin.Fail<FidelityTier>(new ContextFault.TierUnknown(key));
 }
 ```
 

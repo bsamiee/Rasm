@@ -56,7 +56,7 @@ public sealed partial class OutboxOrdinal {
     public static Fin<OutboxOrdinal> Admit(string text) =>
         ulong.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out ulong held)
             && StringComparer.Ordinal.Equals(text, held.ToString("D20", CultureInfo.InvariantCulture))
-            ? Admit(held)
+            ? Admit(held, key)
             : Fin.Fail<OutboxOrdinal>(new KernelFault.InvalidInput(Axis: Some(nameof(OutboxOrdinal))));
 
     public static Fin<OutboxOrdinal> Admit(ulong ordinal) =>
@@ -129,7 +129,7 @@ public static class OutboxEventExtensions {
         ]));
 
     public static Fin<RasmEvent<global::Rasm.Contracts.Event.Extensions>> Admit(CloudEvent envelope) =>
-        RasmEventEnvelope.Admit(envelope, Contract);
+        RasmEventEnvelope.Admit(envelope, Contract, key);
 
     public static TraceCarrier Trace(global::Rasm.Contracts.Event.Extensions message) =>
         TraceCarrier.Admit(
@@ -164,12 +164,12 @@ public sealed record RelayEntry(
                 ? Fin.Succ<RelayState>(state)
                 : Fin.Fail<RelayState>(new KernelFault.InvalidInput(Axis: Some(nameof(PendingRelay.State)))),
             deadLettered: _ => Fin.Fail<RelayState>(new KernelFault.InvalidInput(Axis: Some(nameof(PendingRelay.State)))))
-        from admitted in OutboxEventExtensions.Admit(pending.Envelope)
+        from admitted in OutboxEventExtensions.Admit(pending.Envelope, key)
         let extensions = admitted.Extensions
         from sequence in extensions.HasSequence
             ? Fin.Succ(extensions.Sequence)
             : Fin.Fail<string>(new KernelFault.InvalidInput(Axis: Some(nameof(global::Rasm.Contracts.Event.Extensions.Sequence))))
-        from ordinal in OutboxOrdinal.Admit(sequence)
+        from ordinal in OutboxOrdinal.Admit(sequence, key)
         from grade in DataGrade.Validate(
                 extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
                 && admittedGrade is { } handling

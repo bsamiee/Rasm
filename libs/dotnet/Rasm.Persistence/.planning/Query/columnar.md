@@ -264,7 +264,7 @@ public static class ColumnarLane {
             session.Anchor.RegisterScalarFunction<string>("uuid7", static () => Guid.CreateVersion7().ToString("N"));
             session.Anchor.RegisterScalarFunction<byte[], byte[]>("xxh128", static bytes => {
                 byte[] key = new byte[16];
-                BinaryPrimitives.WriteUInt128BigEndian(XxHash128.HashToUInt128(bytes));
+                BinaryPrimitives.WriteUInt128BigEndian(key, XxHash128.HashToUInt128(bytes));
                 return key;
             });
             return Fin<Unit>.Succ(unit);
@@ -513,7 +513,7 @@ public static class ArtifactEgress {
         IO.liftAsync(async () => (await Try.lift(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
-            command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode() = 'stamp'";
+            command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode(key) = 'stamp'";
             command.Parameters.Add(new DuckDBParameter("path", (string)artifact));
             return Fin<Option<string>>.Succ(Optional(await command.ExecuteScalarAsync().ConfigureAwait(false)).Map(static held => (string)held));
         }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
@@ -524,7 +524,7 @@ public static class ArtifactEgress {
 
     static Option<UInt128> ParseStamp(string held) {
         bool parsed = UInt128.TryParse(held, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt128 key);
-        return parsed ? Some() : None;
+        return parsed ? Some(key) : None;
     }
 
     public static FormattableString Generation(StorePath root) =>

@@ -233,7 +233,7 @@ public sealed class VirtualWindow<TItem, TKey>(ExtentLedger<TKey> ledger, FaultC
     }
 
     private RealizedItem<TItem> Realized(TItem item, TKey key) {
-        (RowSeat seat, Option<VirtualFault> breach) = ledger.SeatOf();
+        (RowSeat seat, Option<VirtualFault> breach) = ledger.SeatOf(key);
         breach.Iter(fault => ignore(Park(fault)));
         return new RealizedItem<TItem>(item, seat.Index, seat.Offset, seat.Extent);
     }
@@ -332,14 +332,14 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
             return Fin.Fail<Unit>(
                 new VirtualFault.ExtentUnmeasured(extent.ToString(CultureInfo.InvariantCulture)));
         }
-        _ = ordinals.ContainsKey() ? Adjust(extent) : Append(extent);
+        _ = ordinals.ContainsKey(key) ? Adjust(key, extent) : Append(key, extent);
         _ = Publish();
         return Fin.Succ(unit);
     }
 
     public (RowSeat Seat, Option<VirtualFault> Breach) SeatOf(TKey key) {
-        if (ordinals.TryGetValue(out int index)) { return (Spec.Mode.SeatOf(probe, index), None); }
-        _ = Append(AverageExtent);
+        if (ordinals.TryGetValue(key, out int index)) { return (Spec.Mode.SeatOf(probe, index), None); }
+        _ = Append(key, AverageExtent);
         _ = Publish();
         return (Spec.Mode.SeatOf(probe, ordinals[key]), Some<VirtualFault>(new VirtualFault.KeyAbsent(Named())));
     }
@@ -382,7 +382,7 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     private double Append(TKey key, double extent) {
         int index = order.Count;
         ordinals[key] = index;
-        order.Add();
+        order.Add(key);
         extents.Add(extent);
         extentSum += extent;
         live++;
@@ -403,10 +403,10 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     }
 
     private Option<double> Retire(TKey key) {
-        if (!ordinals.TryGetValue(out int index)) { return None; }
-        double released = Adjust(0d);
+        if (!ordinals.TryGetValue(key, out int index)) { return None; }
+        double released = Adjust(key, 0d);
         Ascend(tombstones, index, order.Count, 1);
-        _ = ordinals.Remove();
+        _ = ordinals.Remove(key);
         live--;
         retired++;
         return Some(released);
@@ -702,7 +702,7 @@ public static class FlatFold {
                 source.TransformToTree(parentKey).ToCollection(),
                 expansion,
                 (roots, expanded) => Ordered(roots, order, static node => node.Item)
-                    .Bind(root => Branch(root, expanded, order)));
+                    .Bind(root => Branch(root, expanded, key, order)));
 
         public IObservable<IChangeSet<FlatNode<TItem>, TKey>> Grouped<TGroup>(
             GroupPlan<TItem, TKey, TGroup> plan,
@@ -712,7 +712,7 @@ public static class FlatFold {
                 source.Group(plan.Of).TransformOnObservable(group => Slice(group, plan)).ToCollection(),
                 expansion,
                 (slices, expanded) => Ordered(slices, plan.Order, static slice => slice.Key)
-                    .Bind(slice => Banded(slice, expanded, plan)));
+                    .Bind(slice => Banded(slice, expanded, plan, key)));
 
         private static Seq<(TKey Key, FlatNode<TItem> Node)> Branch(
             Node<TItem, TKey> node, Set<TKey> expanded, Func<TItem, TKey> key, Option<IComparer<TItem>> order) =>
@@ -720,7 +720,7 @@ public static class FlatFold {
                     node.Item, node.Depth, node.Children.Count > 0, expanded.Contains(key(node.Item))))
                 .Cons(expanded.Contains(key(node.Item))
                     ? Ordered(node.Children.Items, order, static child => child.Item)
-                        .Bind(child => Branch(child, expanded, order))
+                        .Bind(child => Branch(child, expanded, key, order))
                     : Seq<(TKey, FlatNode<TItem>)>());
 
         private static IObservable<GroupSlice<TItem, TGroup>> Slice<TGroup>(

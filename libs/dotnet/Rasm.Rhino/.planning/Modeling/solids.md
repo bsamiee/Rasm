@@ -165,7 +165,7 @@ internal static class ModelGate {
                from _ in guard(!operations.IsEmpty, new KernelFault.InvalidInput())
                from admitted in operations
                    .Traverse(operation => Admit.Need(operation)
-                       .Bind(active => admit(active))
+                       .Bind(active => admit(active, op))
                        .ToValidation())
                    .As()
                    .ToFin()
@@ -868,37 +868,37 @@ public abstract partial record SolidOp {
     internal Fin<SolidOp> Admitted() =>
         Switch(
             context: key,
-            boolean: static (row) => ModelClaim.Admits(row,
+            boolean: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Law), row.Law is { IsValid: true })),
-            planarBoolean: static (row) => ModelClaim.Admits(row,
+            planarBoolean: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Plane), row.Plane.IsValid), (nameof(row.Law), row.Law is { IsValid: true })),
-            solidify: static (row) => ModelClaim.Admits(row,
+            solidify: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Open), ModelClaim.Handles(handles: row.Open))),
-            filletEdges: static (row) => ModelClaim.Admits(row,
+            filletEdges: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Edges), ModelClaim.Rows(rows: row.Edges, claim: static edge => edge.IsValid)),
                 (nameof(row.Blend), Enum.IsDefined(row.Blend)), (nameof(row.Rail), Enum.IsDefined(row.Rail))),
-            faceFillet: static (row) => ModelClaim.Admits(row,
+            faceFillet: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstUv), row.FirstUv.IsValid),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondFace), ValidityClaim.CountAtLeast(count: row.SecondFace, floor: 0)),
                 (nameof(row.SecondUv), row.SecondUv.IsValid), (nameof(row.Law), row.Law.IsValid)),
-            faceCurveFillet: static (row) => ModelClaim.Admits(row,
+            faceCurveFillet: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Host), ModelClaim.Handle(handle: row.Host)),
                 (nameof(row.Face), ValidityClaim.CountAtLeast(count: row.Face, floor: 0)),
                 (nameof(row.Uv), row.Uv.IsValid), (nameof(row.Along), ModelClaim.Handle(handle: row.Along)),
                 (nameof(row.Parameter), ValidityClaim.Finite(value: row.Parameter)),
                 (nameof(row.Law), row.Law.IsValid)),
-            sectionFillet: static (row) => ModelClaim.Admits(row,
+            sectionFillet: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstUv), row.FirstUv.IsValid),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondFace), ValidityClaim.CountAtLeast(count: row.SecondFace, floor: 0)),
                 (nameof(row.SecondUv), row.SecondUv.IsValid), (nameof(row.Law), row.Law is { IsValid: true })),
-            blendSurface: static (row) => ModelClaim.Admits(row,
+            blendSurface: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstEdge), ValidityClaim.CountAtLeast(count: row.FirstEdge, floor: 0)),
@@ -910,7 +910,7 @@ public abstract partial record SolidOp {
                 (nameof(row.SecondDomain), row.SecondDomain.IsValid),
                 (nameof(row.SecondContinuity), Enum.IsDefined(row.SecondContinuity)),
                 (nameof(row.Reverse), row.Reverse is not null)),
-            blendSection: static (row) => ModelClaim.Admits(row,
+            blendSection: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstEdge), ValidityClaim.CountAtLeast(count: row.FirstEdge, floor: 0)),
@@ -922,96 +922,96 @@ public abstract partial record SolidOp {
                 (nameof(row.SecondT), ValidityClaim.Finite(value: row.SecondT)),
                 (nameof(row.SecondContinuity), Enum.IsDefined(row.SecondContinuity)),
                 (nameof(row.Reverse), row.Reverse is not null)),
-            offsetSolid: static (row) => ModelClaim.Admits(row,
+            offsetSolid: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.Grants), SolidOffsetGrants.Admit(held: row.Grants).IsSucc)),
-            faceOffset: static (row) => ModelClaim.Admits(row,
+            faceOffset: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Face), ValidityClaim.CountAtLeast(count: row.Face, floor: 0)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.Grants), FaceOffsetGrants.Admit(held: row.Grants).IsSucc)),
-            shell: static (row) => ModelClaim.Admits(row,
+            shell: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.FacesToRemove), ModelClaim.Rows(
                     rows: row.FacesToRemove, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0), allowEmpty: true)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0))),
-            pipe: static (row) => ModelClaim.Admits(row,
+            pipe: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)),
                 (nameof(row.Law), row.Law is { IsValid: true }), (nameof(row.Cap), Enum.IsDefined(row.Cap))),
-            seed: static (row) => ModelClaim.Admits(row, (nameof(row.Value), row.Value is { IsValid: true })),
-            taperedExtrude: static (row) => ModelClaim.Admits(row,
+            seed: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Value), row.Value is { IsValid: true })),
+            taperedExtrude: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.Direction), ValidityClaim.Direction(value: row.Direction)),
                 (nameof(row.BasePoint), ValidityClaim.Finite(value: row.BasePoint)),
                 (nameof(row.DraftAngleRadians), ValidityClaim.Finite(value: row.DraftAngleRadians)),
                 (nameof(row.Corner), Enum.IsDefined(row.Corner))),
-            taperedExtrudeRef: static (row) => ModelClaim.Admits(row,
+            taperedExtrudeRef: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Direction), ValidityClaim.Direction(value: row.Direction)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.DraftAngleRadians), ValidityClaim.Finite(value: row.DraftAngleRadians)),
                 (nameof(row.Reference), row.Reference.IsValid)),
-            planarFill: static (row) => ModelClaim.Admits(row,
+            planarFill: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Loops), ModelClaim.Handles(handles: row.Loops))),
-            edgeSurface: static (row) => ModelClaim.Admits(row,
+            edgeSurface: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Rails), ModelClaim.Handles(handles: row.Rails))),
-            trimmedPlane: static (row) => ModelClaim.Admits(row,
+            trimmedPlane: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Frame), row.Frame.IsValid), (nameof(row.Curves), ModelClaim.Handles(handles: row.Curves))),
-            join: static (row) => ModelClaim.Admits(row,
+            join: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets))),
-            joinEdges: static (row) => ModelClaim.Admits(row,
+            joinEdges: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstEdge), ValidityClaim.CountAtLeast(count: row.FirstEdge, floor: 0)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondEdge), ValidityClaim.CountAtLeast(count: row.SecondEdge, floor: 0))),
-            merge: static (row) => ModelClaim.Admits(row,
+            merge: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets))),
-            mergeFaces: static (row) => ModelClaim.Admits(row,
+            mergeFaces: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.Law), row.Law is { IsValid: true })),
-            match: static (row) => ModelClaim.Admits(row,
+            match: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Edge), ValidityClaim.CountAtLeast(count: row.Edge, floor: 0)),
                 (nameof(row.TargetCurves), ModelClaim.Handles(handles: row.TargetCurves)),
                 (nameof(row.Law), row.Law is { IsValid: true })),
-            extendToConnect: static (row) => ModelClaim.Admits(row,
+            extendToConnect: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondFace), ValidityClaim.CountAtLeast(count: row.SecondFace, floor: 0)),
                 (nameof(row.At), row.At is { IsValid: true })),
-            splitPieces: static (row) => ModelClaim.Admits(row,
+            splitPieces: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitBy: static (row) => ModelClaim.Admits(row,
+            splitBy: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Cutters), ModelClaim.Handles(handles: row.Cutters))),
-            trim: static (row) => ModelClaim.Admits(row,
+            trim: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Cutter), row.Cutter is { IsValid: true })),
-            cutUp: static (row) => ModelClaim.Admits(row,
+            cutUp: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Curves), ModelClaim.Handles(handles: row.Curves))),
-            copyTrims: static (row) => ModelClaim.Admits(row,
+            copyTrims: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.TrimSource), ModelClaim.Handle(handle: row.TrimSource)),
                 (nameof(row.Face), ValidityClaim.CountAtLeast(count: row.Face, floor: 0)),
                 (nameof(row.SurfaceSource), ModelClaim.Handle(handle: row.SurfaceSource))),
-            edit: static (row) => ModelClaim.Admits(row,
+            edit: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Verb), row.Verb is { IsValid: true })),
-            simplify: static (row) => ModelClaim.Admits(row,
+            simplify: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            lite: static (row) => ModelClaim.Admits(row, (nameof(row.Value), row.Value is { IsValid: true })),
-            liteProfiled: static (row) => ModelClaim.Admits(row,
+            lite: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Value), row.Value is { IsValid: true })),
+            liteProfiled: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Outer), ModelClaim.Handle(handle: row.Outer)),
                 (nameof(row.Inners), ModelClaim.Handles(handles: row.Inners, allowEmpty: true)),
                 (nameof(row.Path), ValidityClaim.WhenPresent(facet: row.Path, claim: static path => ValidityClaim.All(
                     ValidityClaim.Finite(value: path.A), ValidityClaim.Finite(value: path.B),
                     ValidityClaim.Direction(value: path.Up))))),
-            liteRead: static (row) => ModelClaim.Admits(row,
+            liteRead: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Read), row.Read is { IsValid: true })));
 
@@ -1062,7 +1062,7 @@ public abstract partial record SolidOp {
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     from _ in guard(edit.Edges.ForAll(row => row.Edge < target.Edges.Count), new KernelFault.InvalidInput())
                     from built in edit.Edges.Exists(static row => row.Law is RadiusLaw.Profiled)
-                        ? ModelGate.Many(() => Brep.CreateFilletEdgesVariableRadius(
+                        ? ModelGate.Many(op, () => Brep.CreateFilletEdgesVariableRadius(
                             brep: target,
                             edgeIndices: edit.Edges.Map(static row => row.Edge).AsIterable(),
                             edgeDistances: edit.Edges.AsEnumerable().ToDictionary(
@@ -1075,7 +1075,7 @@ public abstract partial record SolidOp {
                                         new BrepEdgeFilletDistance(edgeParameter: point.Parameter, filletDistance: point.Distance))])),
                             blendType: edit.Blend, railType: edit.Rail, setbackFillets: edit.Setback,
                             tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))
-                        : ModelGate.Many(() => Brep.CreateFilletEdges(
+                        : ModelGate.Many(op, () => Brep.CreateFilletEdges(
                             brep: target,
                             edgeIndices: edit.Edges.Map(static row => row.Edge).AsIterable(),
                             startRadii: edit.Edges.Map(static row => ((RadiusLaw.Constant)row.Law).Start).AsIterable(),
@@ -1128,7 +1128,7 @@ public abstract partial record SolidOp {
                             edit.FirstFace < first.Faces.Count && edit.FirstEdge < first.Edges.Count
                             && edit.SecondFace < second.Faces.Count && edit.SecondEdge < second.Edges.Count,
                             new KernelFault.InvalidInput())
-                        from built in ModelGate.Many(() => Brep.CreateBlendSurface(
+                        from built in ModelGate.Many(op, () => Brep.CreateBlendSurface(
                             face0: first.Faces[edit.FirstFace], edge0: first.Edges[edit.FirstEdge], domain0: edit.FirstDomain, rev0: edit.Reverse.First, continuity0: edit.FirstContinuity,
                             face1: second.Faces[edit.SecondFace], edge1: second.Edges[edit.SecondEdge], domain1: edit.SecondDomain, rev1: edit.Reverse.Second, continuity1: edit.SecondContinuity))
                         select built));
@@ -1140,7 +1140,7 @@ public abstract partial record SolidOp {
                             edit.FirstFace < first.Faces.Count && edit.FirstEdge < first.Edges.Count
                             && edit.SecondFace < second.Faces.Count && edit.SecondEdge < second.Edges.Count,
                             new KernelFault.InvalidInput())
-                        from built in ModelGate.Single(() => Brep.CreateBlendShape(
+                        from built in ModelGate.Single(op, () => Brep.CreateBlendShape(
                             face0: first.Faces[edit.FirstFace], edge0: first.Edges[edit.FirstEdge], t0: edit.FirstT, rev0: edit.Reverse.First, continuity0: edit.FirstContinuity,
                             face1: second.Faces[edit.SecondFace], edge1: second.Edges[edit.SecondEdge], t1: edit.SecondT, rev1: edit.Reverse.Second, continuity1: edit.SecondContinuity))
                         select built));
@@ -1242,7 +1242,7 @@ public abstract partial record SolidOp {
                         from _ in guard(
                             edit.FirstEdge < first.Edges.Count && edit.SecondEdge < second.Edges.Count,
                             new KernelFault.InvalidInput())
-                        from built in ModelGate.Single(() => Brep.CreateFromJoinedEdges(
+                        from built in ModelGate.Single(op, () => Brep.CreateFromJoinedEdges(
                             brep0: first, edgeIndex0: edit.FirstEdge, brep1: second, edgeIndex1: edit.SecondEdge, joinTolerance: model.Absolute.Value))
                         select built));
             },
@@ -1319,7 +1319,7 @@ public abstract partial record SolidOp {
                                 Brep[] pieces = target.Split(cutter: cutters[0], intersectionTolerance: model.Absolute.Value, toleranceWasRaised: out _);
                                 return ModelGate.OwnMany(built: pieces);
                             }).Run().Bind(static inner => inner)
-                            : ModelGate.Many(() => target.Split(cutters: cutters.AsIterable(), intersectionTolerance: model.Absolute.Value))));
+                            : ModelGate.Many(op, () => target.Split(cutters: cutters.AsIterable(), intersectionTolerance: model.Absolute.Value))));
             },
             trim: static (model, edit) => {
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
@@ -1368,7 +1368,7 @@ public abstract partial record SolidOp {
                                 from __ in Admit.Confirm(success: working.SetOuterProfile(outerProfile: outer, cap: edit.Cap))
                                 from ___ in inners.FoldM<Fin, Unit>(unit, (_, inner) =>
                                     Admit.Confirm(success: working.AddInnerProfile(innerProfile: inner)))
-                                from built in ModelGate.Kept(working)
+                                from built in ModelGate.Kept(op, working)
                                 select built)
                                 .Rollback(working))).Run().Bind(static inner => inner))));
             },

@@ -308,7 +308,7 @@ public sealed partial class NumericKind {
         AvaloniaProperty slot,
         Func<NumericRange, Fin<Control>> construct,
         Func<Control, NumericRange, Fin<Unit>> redress) =>
-        new(wire, control, slot, construct, redress);
+        new(key, wire, control, slot, construct, redress);
 
     static AvaloniaProperty Slot<T>() where T : struct, IComparable<T> => NumericUpDownBase<T>.ValueProperty;
 
@@ -1070,7 +1070,7 @@ public static partial class ControlFactory {
         command.Match(
             Some: key => context.Command().Match(
                 Some: static resolved => Validation<Error, Option<ICommand>>.Success(Some(resolved)),
-                None: () => Validation<Error, Option<ICommand>>.Fail(new ControlFault.UnboundIntent())),
+                None: () => Validation<Error, Option<ICommand>>.Fail(new ControlFault.UnboundIntent(key))),
             None: () => Validation<Error, Option<ICommand>>.Success(None));
 
     private static Fin<Option<ICommand>> Required(Option<string> command, MaterializeContext context) =>
@@ -1086,7 +1086,7 @@ public static partial class ControlFactory {
     private static Validation<Error, Option<(string Key, AvaloniaProperty Slot)>> Slotted(ControlIntent intent, ControlShape shape) =>
         intent.Binding.ValueKey.Match(
             Some: key => shape.Slot.Match(
-                Some: slot => Validation<Error, Option<(string, AvaloniaProperty)>>.Success(Some((slot))),
+                Some: slot => Validation<Error, Option<(string, AvaloniaProperty)>>.Success(Some((key, slot))),
                 None: () => Validation<Error, Option<(string, AvaloniaProperty)>>.Fail(
                     new ControlFault.SlotUnavailable($"{intent.Key}:value"))),
             None: () => Validation<Error, Option<(string, AvaloniaProperty)>>.Success(None));
@@ -1206,7 +1206,7 @@ public static partial class ControlFactory {
             });
 
     private static Control Watermarked(Control control, AvaloniaProperty slot, string key, MaterializeContext context) {
-        control.SetValue(slot, context.Label());
+        control.SetValue(slot, context.Label(key));
         return control;
     }
 

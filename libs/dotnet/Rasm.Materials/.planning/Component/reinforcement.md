@@ -15,7 +15,7 @@ Under `SEED_ROW_LAW` the pure standards data are frozen row tables with per-colu
 
 - Owner: `RebarStandard`/`RebarUsage`/`RebarSurface`/`RibPattern`/`HookKind`/`RebarHook` the policy vocabularies; `AnchorageKind`/`TendonConduitKind`/`TendonProfileKind` the PT-hardware kind rosters with their roster-verified IFC leaves; `SizeLadder` the ONE published size-band correspondence three ladders share; `BarRow`/`ShapeCodeRow`/`ConduitRow` the row currencies with `Bars`/`ShapeCodes`/`Ducts` the frozen tables; `GradeProperties.Rebar`/`Strand` the grade physics; `RebarRibGeometry`/`RebarBend` the geometry rows; `RebarSchedule` the rib/hook operation owner; `ForceBasis`/`TendonBasis` the force-policy rows; `ReinforcementDetail` the ONE seed-time bag builder; `ReinforcementSeed` the roster and law `component#COMPONENT_OWNER` binds.
 - Cases: `ReinforcementRow.{Bar · Tendon}` — grade {A615 Gr40/Gr60/Gr75/Gr80 (carbon, non-weldable) · A706 Gr60W/Gr80W (low-alloy, weldable) · G30.18 400W/500W (CSA metric, weldable) · EN 10080 B500A/B500B/B500C (the ductility classes `EnRebarFactory.CreateBiLinear` k = 1.05/1.08/1.15 branches read) · the five A416 / EN 10138-3 seven-wire strand rows} × size {#3..#11, #14, #18 imperial · 10M..55M CSA · H6..H50 EN keyed `BarDiameter.D6`..`D50`} × usage {the full verified 11-member `IfcReinforcingBarTypeEnum`} × surface {textured · plain} × rib-pattern {uniform-height 90° · crescent 60°} × hook {90°/135°/180° over development/stirrup-tie/seismic ACI tables} × shape-code {the BS 8666:2020 37-code set}; a tendon is pre-tensioned (no assembly) or POST-tensioned (an `AnchorageKind` × `ConduitRow` × `TendonProfileKind` assembly), and the standard-consistency law `MaterialGrade.Admits(BarRow)` is proven in the seed coherence census BEFORE construction.
-- Entry: `ComponentSeed.Rows(context, ReinforcementSeed.Roster, ReinforcementSeed.Law)` — this page states the roster and the policy, never the fold, and the OWNER's applicative traverse names every offending row of BOTH modalities in one verdict. `RebarSchedule.StandardHook(bar, usage, kind, hook)` rejects a longitudinal usage paired with a tie/seismic hook policy and a transverse usage paired with the development policy before emitting the ACI/EN/BS `RebarBend`.
+- Entry: `ComponentSeed.Rows(context, ReinforcementSeed.Roster, ReinforcementSeed.Law)` — this page states the roster and the policy, never the fold, and the OWNER's applicative traverse names every offending row of BOTH modalities in one verdict. `RebarSchedule.StandardHook(bar, usage, kind, hook, key)` rejects a longitudinal usage paired with a tie/seismic hook policy and a transverse usage paired with the development policy before emitting the ACI/EN/BS `RebarBend`.
 - Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Context`/`FactoryBridge.Accept`), Rasm.Element (project — `MaterialId`, `EvidenceGrade`, `PropertyBag`/`DetailSchema`/`Dimension`), VividOrange.Sections (`BarDiameter` the EN-10080 D6..D50 catalogue the EN `BarRow` rows VENDOR-key; `.api/api-vividorange-sections.md`), VividOrange.Materials (`EnRebarGrade` the EN-bodied binding, `EnRebarFactory.CreateLinearElastic`/`CreateBiLinear` the registered yield + ductility ultimate; `.api/api-vividorange-materials.md`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[Union]`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Option`/`Traverse`/`.Apply`/`guard`), BCL inbox (`FrozenDictionary`, `ImmutableArray`).
 - Growth: one row per new fact — a new bar size one `BarRow`, a new grade one `MaterialGrade` row on `component#MATERIAL_GRADE` bound to its `EnRebarGrade` when EN-bodied, a new role one `RebarUsage` row carrying its verified token, a new schedule shape one `ShapeCodes` static, a new hook table one `HookKind` row with its own bend ladder, a new realized bar or tendon one `ReinforcementRow` value, a new relaxation certification one `RelaxationClass` row; a new anchorage or conduit product is one `AnchorageKind`/`ConduitRow` whose dimension columns fill ONLY from an ETA/vendor certificate, and a duct row gaining a certified inner diameter both stamps its `DuctDiameter` bag row and seeds as an `IfcTendonConduit` component once the family admission widens to its annular profile — never a per-bar type, never a `ComponentFamily` edit. A welded mesh grows as an `IfcReinforcingMesh` projection over the same row currencies, never an eleventh family.
 - Boundary: the seed admits raw standards data once through the symbolic `Bars` and `MaterialGrade` row references, the `MaterialGrade.Admits(BarRow)` size-system law, and the `SectionProfile.Circle.Of` factory. `RebarStandard` keeps its STANDARD IDENTITY alone — weldability and the size system its mills roll — because the issuing body is the `MaterialGrade` row's own `ComponentAuthority` column and the free-text authority string, the body column, and the region column were one fact spelled four ways. The regional `ComponentStandard` therefore derives at seed time from `grade.Authority.Region`. `ForceBasis.ForceKn` validates the bar/grade system before any registered-grade projection; `TendonBasis.Jacking` resolves the ceiling at `ComponentAuthority.JackingCeilingMpa`, which evaluates the two-term minimum both codes state (ACI 318 Table 20.3.2.5.1 `min(0.80·fpu, 0.94·fpy)`, EC2 §5.10.2.1 `min(0.80·fpk, 0.90·fp0,1k)`) at the body that publishes both coefficients — so a body with no published rule projects ABSENCE and no ultimate-term literal is re-typed here.
@@ -391,13 +391,13 @@ public static class ReinforcementDetail {
         from joint in ComponentDetail.Joint("Cast")
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, section.DiameterMm * 1e-3)
         from area in ComponentDetail.Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, section.AreaMm2 * 1e-6)
-        from extension in Extension(row)
+        from extension in Extension(row, key)
         select ComponentDetail.RealizationRows([joint, ComponentDetail.Sourced(source), diameter, area, .. extension]);
 
     static Fin<Seq<(PropertyName, PropertyValue)>> Extension(ReinforcementRow row) => row.Switch(
         bar: item =>
             from bend in item.Bend.TraverseM(policy =>
-                RebarSchedule.StandardHook(item.Size, item.Usage, policy.Kind, policy.Hook)).As()
+                RebarSchedule.StandardHook(item.Size, item.Usage, policy.Kind, policy.Hook, key)).As()
             from schedule in bend.TraverseM(BendRow).As()
             select Seq(
                 ComponentDetail.Token(DetailSchema.BarType, item.Usage.IfcPredefinedType),
@@ -502,7 +502,7 @@ public static class ReinforcementSeed {
     static Fin<SectionProfile> ProfileOf(ReinforcementRow row) =>
         row.Section
             .ToFin(new KernelFault.InvalidValue(nameof(row.Section), "a reinforcement cross-section"))
-            .Bind(section => SectionProfile.Circle.Of(section.DiameterMm));
+            .Bind(section => SectionProfile.Circle.Of(section.DiameterMm, key));
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
         new ComponentFault.CapacityUnavailable(component.Designation);
@@ -604,12 +604,12 @@ public static class RcSectionBuilder {
     public static Fin<RcSection> Of(Component concrete, EnConcreteGrade concreteGrade, MaterialGrade barGrade, BarRow link, Seq<RebarLayout> layout, double coverMm, NationalAnnex annex) =>
         from cover in guard(double.IsFinite(coverMm) && coverMm >= 0.0,
             new KernelFault.OutOfRange(nameof(coverMm), coverMm, "finite and non-negative"))
-        from concreteMaterial in EnGrade.Concrete(concreteGrade, annex)
-        from rebarMaterial in EnGrade.Rebar(barGrade, annex)
-        from arm in barGrade.RebarArm.ToFin(new ComponentFault.GradeBodyMissing(barGrade, ComponentFamily.Reinforcement))
+        from concreteMaterial in EnGrade.Concrete(concreteGrade, annex, key)
+        from rebarMaterial in EnGrade.Rebar(barGrade, annex, key)
+        from arm in barGrade.RebarArm.ToFin(new ComponentFault.GradeBodyMissing(key, barGrade, ComponentFamily.Reinforcement))
         from linkAdmitted in guard(barGrade.Admits(link), new KernelFault.InvalidValue(nameof(link), "a link admitted by its grade system"))
-        from admittedLayout in layout.Traverse(item => ValidateLayout(item, barGrade)).As()
-        from profile in SectionSolver.ProfileOf(concrete.Profile)
+        from admittedLayout in layout.Traverse(item => ValidateLayout(item, barGrade, key)).As()
+        from profile in SectionSolver.ProfileOf(concrete.Profile, key)
         from built in Try.lift(() => Fin.Succ(Build(profile, concreteMaterial, rebarMaterial, link, admittedLayout, coverMm))).Run().Bind(static inner => inner)
         from properties in Try.lift(() => { ConcreteSectionProperties p = new(built); _ = p.TotalReinforcementArea; return Fin.Succ(p); }).Run().Bind(static inner => inner)
         select new RcSection(built, properties, concreteMaterial, rebarMaterial, arm.CharacteristicYieldMpa, coverMm, concrete,
@@ -619,7 +619,7 @@ public static class RcSectionBuilder {
         AdmissionSlots.Accumulate(Seq(
                 AdmissionSlots.Gate(grade.Admits(layout.Bar),
                     new KernelFault.InvalidValue(nameof(layout.Bar), "a layout bar admitted by its grade system")),
-                Shape(layout)))
+                Shape(layout, key)))
             .ToFin().Map(_ => layout);
 
     static Validation<Error, Unit> Shape(RebarLayout layout) => layout.Switch(
@@ -654,8 +654,8 @@ public static class RcSectionBuilder {
     public static Fin<SectionCapacity> Capacity(
         Component concrete, EnConcreteGrade concreteGrade, MaterialGrade barGrade, BarRow link,
         Seq<RebarLayout> layout, double coverMm, RcCapacityIntent intent, CapacityPlacement placement) =>
-        from section in Of(concrete, concreteGrade, barGrade, link, layout, coverMm, placement.Annex)
-        from capacity in SectionCapacity.Resolve(Request(concrete.Designation, section, intent))
+        from section in Of(concrete, concreteGrade, barGrade, link, layout, coverMm, placement.Annex, key)
+        from capacity in SectionCapacity.Resolve(Request(concrete.Designation, section, intent), key)
         select capacity;
 
     static CapacityBuild Request(ComponentId subject, RcSection section, RcCapacityIntent intent) => intent.Switch<CapacityBuild>(

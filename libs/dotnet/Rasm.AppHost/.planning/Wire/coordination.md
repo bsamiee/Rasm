@@ -414,7 +414,7 @@ public abstract partial record CoordinationFault : Fault {
 public static class DistributedLock {
     public static IO<Validation<Error, FenceHolding<LeaseKey>>> Acquire(
         FencedRuntime runtime, LeaseKey key) =>
-        FencedLease<LeaseKey>.Acquire(runtime, Correlation.Mint()).Map(RoleElection.Settled);
+        FencedLease<LeaseKey>.Acquire(runtime, key, Correlation.Mint()).Map(RoleElection.Settled);
 
     public static IO<Validation<Error, A>> Guard<A>(FencedRuntime runtime, FenceHolding<LeaseKey> held, IO<A> section) =>
         FencedLease<LeaseKey>.Guard(runtime, held, section)

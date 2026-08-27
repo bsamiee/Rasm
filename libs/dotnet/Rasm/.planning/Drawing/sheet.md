@@ -791,9 +791,9 @@ public sealed partial class NamingStandard {
         sequence: Seq(NamingField.Discipline, NamingField.SheetType, NamingField.Sequence),
         caseRule: static text => text.ToUpperInvariant(),
         admit: static (fields, key) => (
-                Field(fields, NamingField.Discipline, static v => DisciplineDesignator.TryGet(v, out _), "an NCS discipline designator"),
-                Field(fields, NamingField.SheetType, static v => v.Length == 1 && char.IsAsciiDigit(v[0]), "one sheet-type digit"),
-                Field(fields, NamingField.Sequence, static v => v.Length == 2 && v.All(char.IsAsciiDigit), "a two-digit sequence"))
+                Field(fields, NamingField.Discipline, static v => DisciplineDesignator.TryGet(v, out _), key, "an NCS discipline designator"),
+                Field(fields, NamingField.SheetType, static v => v.Length == 1 && char.IsAsciiDigit(v[0]), key, "one sheet-type digit"),
+                Field(fields, NamingField.Sequence, static v => v.Length == 2 && v.All(char.IsAsciiDigit), key, "a two-digit sequence"))
             .Apply(static (a, b, c) => Seq(a, b, c)).As(),
         parse: static text => text.Split('-') is [var d, var rest] && rest.Length == 3
             ? Some(Seq((NamingField.Discipline, d), (NamingField.SheetType, rest[..1]), (NamingField.Sequence, rest[1..])))
@@ -802,13 +802,13 @@ public sealed partial class NamingStandard {
         sequence: Seq(NamingField.Project, NamingField.Originator, NamingField.Volume, NamingField.Level, NamingField.Type, NamingField.Role, NamingField.Number),
         caseRule: static text => text.ToUpperInvariant(),
         admit: static (fields, key) => (
-                Field(fields, NamingField.Project, static v => v.Length is >= 2 and <= 6, "a 2-6 character project code"),
-                Field(fields, NamingField.Originator, static v => v.Length is >= 3 and <= 6, "a 3-6 character originator code"),
-                Field(fields, NamingField.Volume, static v => v.Length is >= 1 and <= 3, "a 1-3 character volume/system code"),
-                Field(fields, NamingField.Level, static v => v.Length == 2, "a two-character level/location code"),
-                Field(fields, NamingField.Type, static v => ContainerType.TryGet(v, out _), "a UK annex information-type code (DR, M3, SP…)"),
-                Field(fields, NamingField.Role, static v => ContainerRole.TryGet(v, out _), "a UK annex role code (A, S, M…)"),
-                Field(fields, NamingField.Number, static v => v.Length is >= 4 and <= 6 && v.All(char.IsAsciiDigit), "a 4-6 digit number"))
+                Field(fields, NamingField.Project, static v => v.Length is >= 2 and <= 6, key, "a 2-6 character project code"),
+                Field(fields, NamingField.Originator, static v => v.Length is >= 3 and <= 6, key, "a 3-6 character originator code"),
+                Field(fields, NamingField.Volume, static v => v.Length is >= 1 and <= 3, key, "a 1-3 character volume/system code"),
+                Field(fields, NamingField.Level, static v => v.Length == 2, key, "a two-character level/location code"),
+                Field(fields, NamingField.Type, static v => ContainerType.TryGet(v, out _), key, "a UK annex information-type code (DR, M3, SP…)"),
+                Field(fields, NamingField.Role, static v => ContainerRole.TryGet(v, out _), key, "a UK annex role code (A, S, M…)"),
+                Field(fields, NamingField.Number, static v => v.Length is >= 4 and <= 6 && v.All(char.IsAsciiDigit), key, "a 4-6 digit number"))
             .Apply(static (a, b, c, d, e, f, g) => Seq(a, b, c, d, e, f, g)).As(),
         parse: static text => text.Split('-') is { Length: 7 } parts
             ? Some(toSeq(Iso19650!.Sequence).Zip(toSeq(parts)).Map(static pair => (pair.Item1, pair.Item2)))
@@ -817,8 +817,8 @@ public sealed partial class NamingStandard {
         sequence: Seq(NamingField.Prefix, NamingField.Sequence),
         caseRule: static text => text,
         admit: static (fields, key) => (
-                Field(fields, NamingField.Prefix, static v => v.Length >= 1, "a non-empty prefix"),
-                Field(fields, NamingField.Sequence, static v => v.Length >= 1 && v.All(char.IsAsciiDigit), "a digit sequence"))
+                Field(fields, NamingField.Prefix, static v => v.Length >= 1, key, "a non-empty prefix"),
+                Field(fields, NamingField.Sequence, static v => v.Length >= 1 && v.All(char.IsAsciiDigit), key, "a digit sequence"))
             .Apply(static (a, b) => Seq(a, b)).As(),
         parse: static text => text.AsSpan().LastIndexOfAnyExcept(Digits) is int last && last >= 0 && last < text.Length - 1
             ? Some(Seq((NamingField.Prefix, text[..(last + 1)]), (NamingField.Sequence, text[(last + 1)..])))
@@ -871,7 +871,7 @@ public sealed partial class SheetNumber {
 ## [07]-[LAYER]
 
 - Owner: `LayerStandard` `[SmartEnum<string>]` — the layer-naming grammars as rows, each carrying its field sequence, delimiter, case rule, `Parse`, and `Format`: `Ncs` (US NCS / AIA CAD Layer Guidelines: `{Discipline}-{Major}[-{Minor}[-{Minor}]][-{Status}]`, hyphen, uppercase, discipline 1-2 letters, major and minor four letters, status one letter), `Iso13567` (ISO 13567-2: fixed-position fields — agent 2, element 6, presentation 2, status 1, sector 4, phase 1, projection 1, scale 1, work package 2, user-definable — hyphens as fillers, no delimiter), `Bs1192` (BS 1192:2007 §… `{Role}-{Classification}-{Presentation}-{Description}`, hyphen), `House` (the branch's own `draft-{style}[-part-{n}]` scheme absorbed as ONE row); `LayerField` `[SmartEnum<string>]` — the field vocabulary; `LayerName` `[ComplexValueObject]` — the admitted name, standard + ordered field values, `Text` rendered by the standard; `HostLayerScheme` `[SmartEnum<string>]` — the host projections: `RhinoPath` (the standard's fields become `::`-nested segments — discipline over major over minor — never a flat name with a foreign delimiter), `AutoCadFlat` (the standard's own formatted text, since DWG layer names ARE the standard's grammar), `IfcPresentation` (`IfcPresentationLayerAssignment.Name` = the formatted text), `Pdf` (an optional-content-group name).
-- Entry: `LayerName.Of(standard, fields)` (Validation over every field); `LayerName.Parse(standard, text)`; `name.Text`; `HostLayerScheme.X.Project(name)`; `LayerStandard.Ncs.Status` rows (N new, E existing, D demolish, F future, T temporary, M to be moved, X abandoned).
+- Entry: `LayerName.Of(standard, fields, key)` (Validation over every field); `LayerName.Parse(standard, text, key)`; `name.Text`; `HostLayerScheme.X.Project(name)`; `LayerStandard.Ncs.Status` rows (N new, E existing, D demolish, F future, T temporary, M to be moved, X abandoned).
 - Law: parsing takes the standard EXPLICITLY (a hyphenated raw string is ambiguous across NCS and BS 1192 — the same reason `SheetNumber` carries none), and the Rhino `::` path is a PROJECTION of the fields, never the storage form; a consumer that stored `Parent::Child` re-parses through `RhinoPath.Unproject`.
 - Law: the solution's `draft-{style}` scheme is a `LayerStandard` row and never a string interpolation at a consumer; its part ordinal is a FIELD (`Part`) rather than a `-part-{n}` suffix an interpolation cannot parse back.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Validation`), Rasm.Domain.
@@ -1511,7 +1511,7 @@ public sealed partial class NorthPosture {
 ## [11]-[PLOT]
 
 - Owner: `PlotResolution` `[SmartEnum<string>]` — the output-class resolutions (review 150 dpi, plot 300 dpi, archive 600 dpi) so no `300.0` literal is the one default every frameless request inherits; `PdfTrait` `[SmartEnum<string>]` realizing `ICapability<PdfTrait>` — PDF/A-2b, PDF/A-3, and PDF/UA as COMBINABLE conformance claims under one `CapabilityLaw` (ISO 19005-2/-3 and ISO 14289-1 are orthogonal and one file is routinely both); `LayerEmission` `[SmartEnum<string>]` — how layers cross to PDF (flattened, or optional-content groups per `HostLayerScheme.Pdf`); `IssuePosture` `[SmartEnum<string>]` — one row per issuing convention carrying every default an issued sheet takes; `PlotPolicy` — the issued-sheet policy binding size, orientation, frame, scale, line group, plot-style table, posture, resolution, layer emission, and PDF conformance into ONE admitted value the host PDF and print policies compose.
-- Entry: `PlotPolicy.Of(size, orientation, scale, posture, resolution, emission, conformance, styles)` — `Validation` over every admissible column, with the frame and the line group DERIVED from the size inside the mint; `PlotPolicy.Issue(size)` — the size's own standard's `IssuePosture` row.
+- Entry: `PlotPolicy.Of(size, orientation, scale, posture, resolution, emission, conformance, styles, key)` — `Validation` over every admissible column, with the frame and the line group DERIVED from the size inside the mint; `PlotPolicy.Issue(size, key)` — the size's own standard's `IssuePosture` row.
 - Law: the plot posture and the PDF colour target bind at ONE value — AppUi's `PlotColor.Target` and `PdfPolicy.Color` were read separately for one emitted sheet; here `Posture` decides and the host colour target derives.
 - Law: `Frame` and `Group` DERIVE from the size inside the mint and the ctor is private, so a frame from one standard beside a size from another is unrepresentable rather than guarded at a later read; an absent plot-style table rides the option, because an empty table resolves every pen to nothing while claiming to be one.
 - Law: issued-sheet defaults are ROWS — orientation, scale, posture, resolution, emission, and conformance all read the standard's `IssuePosture` — so a new issuing convention is one row and never six literals inside a body.

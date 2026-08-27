@@ -151,7 +151,7 @@ public sealed record BindingOverlay(
     public bool Rebound(string key) => Gestures.ContainsKey();
 
     public BindingOverlay With(string key, Option<KeyGesture> gesture) =>
-        this with { Gestures = Gestures.AddOrUpdate(gesture) };
+        this with { Gestures = Gestures.AddOrUpdate(key, gesture) };
 
     public BindingOverlay Without(string key) => this with { Gestures = Gestures.Remove() };
 }
@@ -239,7 +239,7 @@ public sealed record CommandDeck(
             .Order(StringComparer.Ordinal));
 
     public Option<CommandRow> Row(string key) =>
-        Rows.TryGetValue(out CommandRow? row) ? Optional(row) : None;
+        Rows.TryGetValue(key, out CommandRow? row) ? Optional(row) : None;
 
     public Seq<GestureContest> Contests() =>
         toSeq(toSeq(Rows.Values)
@@ -323,7 +323,7 @@ public sealed record DeckArrows(HashMap<string, Func<CommandPayload, Cancellatio
     }
 
     public Fin<Func<CommandPayload, CancellationToken, IO<Unit>>> Bound(string key) =>
-        Rows.Find().ToFin(new DeckFault.UnknownIntent());
+        Rows.Find(key).ToFin(new DeckFault.UnknownIntent(key));
 
     public static Func<CommandPayload, CancellationToken, IO<Unit>> Bare(Func<IO<Unit>> run) => (_, _) => run();
 
@@ -475,7 +475,7 @@ public static class DeckRows {
 
     static CommandRow Entered(
         string key, WorkspaceCell cell, Func<WorkspaceCell, WorkspaceRow, IO<Fin<Seq<RouteRestoreFact>>>> run) =>
-        new FamilyRow(CommandScope.Global, RowShape.Keyed).Mint(
+        new FamilyRow(key, CommandScope.Global, RowShape.Keyed).Mint(
             DeckArrows.Lifted(payload => payload is CommandPayload.Single addressed
                 ? Workspaces.Find(addressed.Id).Match(
                     Succ: row => run(cell, row).Map(static outcome => outcome.Map(static _ => unit)),
@@ -566,7 +566,7 @@ public static class CommandGate {
 
 - Owner: `CommandOutcome` `[Union]` total result vocabulary; `DeckOutcome` execution result; `CommandExecution` — the materialize-cross-observe fold, the `CommandResult` translation, the batch-combine projection, the deck-owned span-ranked search, the one raise, the one remote entry, and the telemetry contribution.
 - Cases: `CommandOutcome` = Completed | Cancelled | Rejected | RolledBack | Compensated — one case per `Ui.CommandOutcomeWire.kind` arm; `CommandExecution.Observe` writes the outcome dimension from `CommandWire.KindOf`, the arm name the descriptor publishes, so the dimension value and the wire discriminator are one spelling.
-- Entry: `public ReactiveCommand<CommandPayload, DeckOutcome> Materialize(CommandDeck deck)` — one generated command per admitted row; `public IO<DeckOutcome> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default)` — the one admit-mint-cross fold every modality ends at, minting the row's `CommandIntent`, handing it to the AppHost `Run` door, and firing the returned outcome on the package hook dispatch; `Raise(payload, cancel)` — the one non-wire raise the palette activation, the action panel, and the argument submit all end at, seating `CallerModality.Operator` for all three; `Invoke(CommandPayloadWire payload, caller, cancel)` — the single remote, deep-link, and journal-replay route, taking the generated message its caller parsed through the AppHost `WireJson.Parser` and carrying the caller's declared modality; `Search(query)` — the deck-owned span-ranked lookup the palette's command provider and the binding editor's text probe both read.
+- Entry: `public ReactiveCommand<CommandPayload, DeckOutcome> Materialize(CommandDeck deck)` — one generated command per admitted row; `public IO<DeckOutcome> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default)` — the one admit-mint-cross fold every modality ends at, minting the row's `CommandIntent`, handing it to the AppHost `Run` door, and firing the returned outcome on the package hook dispatch; `Raise(key, payload, cancel)` — the one non-wire raise the palette activation, the action panel, and the argument submit all end at, seating `CallerModality.Operator` for all three; `Invoke(key, CommandPayloadWire payload, caller, cancel)` — the single remote, deep-link, and journal-replay route, taking the generated message its caller parsed through the AppHost `WireJson.Parser` and carrying the caller's declared modality; `Search(query)` — the deck-owned span-ranked lookup the palette's command provider and the binding editor's text probe both read.
 - Auto: `Settled` folds the returned `CommandResult.Txn` through the union's generated total `Switch`, so the outcome is total by CONSTRUCTION rather than by a catch-all arm and a fifth transaction case breaks this page at compile time; the only residual catch is cancellation, which the suite reports as a rolled-back transaction the UI must still tell apart from a fault; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row; elapsed derives from the kernel `MonotonicTimeline` stamp pair the composition binds, so a broken gauge refuses on the result rather than fabricating a duration; `Combine` resolves each batch key through `Row` and a fail-closed `Traverse` into `Fin`, so an unknown intent key aborts the macro rather than silently dropping.
 - Evidence: `DeckOutcome` carries the intent key, surface key, elapsed `Duration`, command outcome, and payload digest; `AppUiFact.Command` fires it at `AppUiPoint.Command` on the composition's `HookSet`, whose observe tap lowers it to the generated `Ui.EvidenceWire` command arm and publishes that data through the CloudEvent envelope; `TelemetryRow` contributes the command-outcome and command-elapsed instrument rows inward through the contributor port, and `Observe` records elapsed directly from the outcome.
 - Packages: ReactiveUI, LanguageExt.Core, NodaTime, Rasm (kernel `ContentHash`, `MonotonicTimeline`, `HookSet`, instrument rows), Rasm.AppHost (project — `CommandIntent`, `CallerModality`, `CommandResult`), BCL inbox
@@ -659,8 +659,8 @@ public static partial class DeckWire {
     public static partial Wire.DeckOutcomeWire Lower(DeckOutcome outcome);
 
     public static Fin<DeckOutcome> Admit(Wire.DeckOutcomeWire wire) =>
-        (CommandWire.Admit(wire.Outcome).ToValidation(),
-         ContentHash.Admit(wire.PayloadDigest.Span).ToValidation())
+        (CommandWire.Admit(wire.Outcome, key).ToValidation(),
+         ContentHash.Admit(wire.PayloadDigest.Span, key).ToValidation())
             .Apply((outcome, digest) => new DeckOutcome(wire.Key, wire.Surface, wire.Elapsed.ToNodaDuration(), outcome, digest))
             .As().ToFin();
 
@@ -736,24 +736,24 @@ public static class CommandExecution {
             toSeq(keys.ToArray())
                 .Traverse(key => deck.Row()
                     .Map(row => row.Materialize(deck))
-                    .ToFin(Fail: new DeckFault.UnknownIntent()))
+                    .ToFin(Fail: new DeckFault.UnknownIntent(key)))
                 .As()
                 .Map(children => ReactiveCommand.CreateCombined(children, outputScheduler: deck.Composition.Scheduler));
 
         public IO<DeckOutcome> Raise(string key, CommandPayload payload, CancellationToken cancel = default) =>
-            deck.Row().Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
+            deck.Row(key).Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
                 Some: row => row.Run(payload, deck, CallerModality.Operator, cancel),
-                None: () => IO.fail<DeckOutcome>(new DeckFault.UnknownIntent()));
+                None: () => IO.fail<DeckOutcome>(new DeckFault.UnknownIntent(key)));
     }
 
     extension(CommandDeck deck) {
 
         public IO<DeckOutcome> Invoke(string key, Wire.CommandPayloadWire payload, CallerModality caller, CancellationToken cancel = default) =>
-            deck.Row().Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
+            deck.Row(key).Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
                 Some: row => CommandWire.Admit(payload, RunKey).Match(
                     Succ: decoded => row.Run(decoded, deck, caller, cancel),
                     Fail: IO.fail<DeckOutcome>),
-                None: () => deck.Raise(new CommandPayload.None(), cancel));
+                None: () => deck.Raise(key, new CommandPayload.None(), cancel));
 
         public Seq<(string Key, int Rank)> Search(ReadOnlySpan<char> query) {
             Span<char> folded = query.Length <= 128 ? stackalloc char[query.Length] : new char[query.Length];

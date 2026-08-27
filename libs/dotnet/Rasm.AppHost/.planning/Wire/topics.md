@@ -166,7 +166,7 @@ public static class SubscriptionFabric {
         return new Subscription(TopicFabric.Sink.ActionSink<DomainEvent>(
                 async evt => {
                     seat.Swap(held => held.Seated(evt.Offset)).Gap
-                        .Iter(gap => missed(new FanMiss(TopicFabric.Fan.Name, gap.First, gap.Last)));
+                        .Iter(gap => missed(new FanMiss(TopicFabric.Fan.Name, key, gap.First, gap.Last)));
                     if (dedupe.Admit(evt.IdempotencyKey, clocks.Now)) {
                         await consume(evt).RunAsync().ConfigureAwait(false);
                     }

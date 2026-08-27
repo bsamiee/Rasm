@@ -559,7 +559,7 @@ public static class MetricPanel {
 
     static TableColumnRow<MetricReading> Column(
         string key, string path, TableCellKind kind, double weight, Func<MetricReading, string> export, ResolvedLocale locale) =>
-        new(AggregateColumn.Create(), locale.Label(LocaleStrings.Key(nameof(MetricPanel))), kind,
+        new(AggregateColumn.Create(key), locale.Label(LocaleStrings.Key(nameof(MetricPanel), key)), kind,
             new TableColumnAccess<MetricReading>.Plain(Some<BindingBase>(new Binding(path)), export),
             new DataGridLength(weight, DataGridLengthUnitType.Star),
             CapabilitySet<ColumnTrait>.Of(ColumnTrait.Sortable));

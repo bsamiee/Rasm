@@ -346,16 +346,16 @@ public static partial class StageWireMap {
         };
 
     [UserMapping] static StageProductWire Role(string key) =>
-        Named(out PriorFieldWire prior)
+        Named(key, out PriorFieldWire prior)
             ? new StageProductWire { Prior = prior }
-            : Named(out ScoreFieldWire measure)
+            : Named(key, out ScoreFieldWire measure)
                 ? new StageProductWire { Measure = measure }
                 : new StageProductWire { Channel = key };
 
     static bool Named<TEnum>(string key, out TEnum row) where TEnum : struct, Enum {
         row = default;
         return key.Length > 0 && char.IsAsciiLetter(key[0])
-            && Enum.TryParse(ignoreCase: true, out row)
+            && Enum.TryParse(key, ignoreCase: true, out row)
             && !EqualityComparer<TEnum>.Default.Equals(row, default);
     }
 
@@ -546,7 +546,7 @@ public static partial class StageRun {
                                  from key in ports.Write(
                                      produced.Plane.Memory, plan.OutputWidth, plan.OutputHeight, produced.Product.Channels)
                                  select new StageOutput(
-                                     produced.Product.Role, plan.OutputWidth, plan.OutputHeight,
+                                     produced.Product.Role, key, plan.OutputWidth, plan.OutputHeight,
                                      shape.Transfer, shape.Format)).ToValidation())
                             .As()
                             .ToFin()

@@ -79,8 +79,8 @@ public sealed record Sheet(
         Seq<(string Region, DraftDimension Value)> dimensions, Seq<Annotation> annotations) =>
         (Placed(size, regions.Map(region => ($"{key}/{region.Key}", region.X, region.Y, region.Width, region.Height))),
             Placed(size, cards.Map(card => ($"{key}/card:{card.Key}", card.X, card.Y, card.Width, card.Height))),
-            Anchored(regions, dimensions))
-        .Apply((_, _, _) => new Sheet(size, units, title, regions, cards, dimensions, annotations))
+            Anchored(key, regions, dimensions))
+        .Apply((_, _, _) => new Sheet(key, size, units, title, regions, cards, dimensions, annotations))
         .As().ToFin();
 
     private static readonly Validation<Error, Unit> Seated = Validation<Error, Unit>.Success(unit);
@@ -121,13 +121,13 @@ public sealed record SheetSet(string Key, SheetSize Size, Seq<Sheet> Sheets) {
             .Apply(static (lead, _) => lead).As().ToFin()
             .Bind(lead => toSeq(sheets.Zip(Range(1, sheets.Count)))
                 .Traverse(pair => Restamped(pair.Item1, pair.Item2, sheets.Count, seat)).As()
-                .Map(stamped => new SheetSet(lead.Size, stamped)));
+                .Map(stamped => new SheetSet(key, lead.Size, stamped)));
     }
 
     private static Validation<Error, Sheet> Peopled(string key, Seq<Sheet> sheets) =>
         sheets.Head.Match(
             Some: static lead => Validation<Error, Sheet>.Success(lead),
-            None: () => Validation<Error, Sheet>.Fail((Error)new DraftFault.EmptySet()));
+            None: () => Validation<Error, Sheet>.Fail((Error)new DraftFault.EmptySet(key)));
 
     private static Validation<Error, Unit> Uniform(string key, Seq<Sheet> sheets) =>
         sheets.Map(static sheet => sheet.Size).Distinct() is { Count: > 1 } spread

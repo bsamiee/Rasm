@@ -91,7 +91,7 @@ public sealed partial class RatingContour {
   if (s.Length < FirstIndex + Contour.Length) {
    return new ElementFault.ValueRejected($"<contour-window-short:{s.Length}:expected>={FirstIndex + Contour.Length}>");
   }
-  Fin<Unit> window = Indexed(s.Slice(FirstIndex, Contour.Length), double.IsFinite, "contour-band-non-finite").ToFin();
+  Fin<Unit> window = Indexed(s.Slice(FirstIndex, Contour.Length), double.IsFinite, key, "contour-band-non-finite").ToFin();
   return window.IsSucc ? Fin.Succ(FitAdmitted(s)) : window.Map(static _ => 0);
  }
 
@@ -186,12 +186,12 @@ public sealed partial record Acoustic {
 
  public static Fin<Acoustic> Of(ReadOnlyMemory<double> absorption, ReadOnlyMemory<double> sri,
   Option<double> dynamicStiffness = default, Option<double> flowResistivity = default, Option<double> lossFactor = default) =>
-  (Gate(absorption.Length == AcousticBand.Items.Count && sri.Length == AcousticBand.Items.Count, $"<acoustic-band-arity:absorption={absorption.Length}:sri={sri.Length}:expected={AcousticBand.Items.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Indexed(absorption.Span, static band => band is >= 0.0 and <= 1.0, "acoustic-absorption-out-of-unit"),
-   Indexed(sri.Span, double.IsFinite, "acoustic-sri-non-finite"),
-   Optional(dynamicStiffness, Band.Positive, "acoustic-dynamic-stiffness"),
-   Optional(flowResistivity, Band.Positive, "acoustic-flow-resistivity"),
-   Optional(lossFactor, Band.Positive, "acoustic-loss-factor"))
+  (Gate(absorption.Length == AcousticBand.Items.Count && sri.Length == AcousticBand.Items.Count, key, $"<acoustic-band-arity:absorption={absorption.Length}:sri={sri.Length}:expected={AcousticBand.Items.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Indexed(absorption.Span, static band => band is >= 0.0 and <= 1.0, key, "acoustic-absorption-out-of-unit"),
+   Indexed(sri.Span, double.IsFinite, key, "acoustic-sri-non-finite"),
+   Optional(dynamicStiffness, Band.Positive, "acoustic-dynamic-stiffness", key),
+   Optional(flowResistivity, Band.Positive, "acoustic-flow-resistivity", key),
+   Optional(lossFactor, Band.Positive, "acoustic-loss-factor", key))
   .Apply((_, _, _, _, _, _) => new Acoustic([.. absorption.Span], [.. sri.Span], dynamicStiffness, flowResistivity, lossFactor))
   .As().ToFin();
 

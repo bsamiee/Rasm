@@ -184,7 +184,7 @@ public sealed record CostSchedule(
         : this(globalId, kind, name, currency, status, items, resources, Contingency.None) { }
 
     public Fin<CostSchedule> Drawdown(Money draw) =>
-        Contingency.Drawdown(draw).Map(reserve => this with { Contingency = reserve });
+        Contingency.Drawdown(draw, key).Map(reserve => this with { Contingency = reserve });
 
     public (ContentAddress QuantityKey, ContentAddress ResourceKey) Identity => (
         ContentAddress.Of(Items, 0.0, static (items, writer) =>
@@ -203,10 +203,10 @@ public sealed record CostSchedule(
     public Fin<CostRollup> Rollup(Seq<ExchangeRate> fx = default) =>
         Items
             .Bind(static item => item.Values.Map(value => (value.Category.Key, Native: value.Rate * (decimal)item.Quantity.Si)))
-            .TraverseM(line => CostMoney.Reprice(line.Native, Currency, fx).Map(amount => (line.Key, line.Native, Amount: amount)))
+            .TraverseM(line => CostMoney.Reprice(line.Native, Currency, fx, key).Map(amount => (line.Key, line.Native, Amount: amount)))
             .As()
             .Bind(lines => Resources
-                .TraverseM(resource => CostMoney.Reprice(resource.Cost, Currency, fx).Map(cost => (resource.Kind.Key, Cost: cost)))
+                .TraverseM(resource => CostMoney.Reprice(resource.Cost, Currency, fx, key).Map(cost => (resource.Kind.Key, Cost: cost)))
                 .As()
                 .Map(costs => new CostRollup(
                     lines.Fold(Money.AdditiveIdentity, static (total, line) => total + line.Amount),
@@ -234,19 +234,19 @@ public static class CostProjection {
         Optional(value).Map(static text => text.Trim()).Filter(static text => text.Length > 0);
 
     public static Fin<CostSchedule> Project(IfcCostSchedule schedule, Seq<IfcConstructionResource> resources, ElementGraph graph, Option<BimHooks> hooks = default) {
-        ignore(EstimateStage.Indexed.Beat(hooks));
+        ignore(EstimateStage.Indexed.Beat(hooks, key));
         var index = graph.ObjectNodes.Fold(Map<string, NodeId>(),
             static (map, o) => o.ExternalId.Match(Some: id => map.AddOrUpdate(id, o.Id), None: () => map));
         UnitScheme scale = IfcUnits.SchemeOf(schedule.Database);
-        return MonetaryOf(schedule)
+        return MonetaryOf(schedule, key)
             .Bind(model =>
-                from pricing in Opened(EstimateStage.Priced, hooks)
-                from items in ItemsOf(schedule).TraverseM(item => CostItemOf(item, index, graph, model, scale)).As()
-                from resourcing in Opened(EstimateStage.Resourced, hooks)
+                from pricing in Opened(EstimateStage.Priced, hooks, key)
+                from items in ItemsOf(schedule).TraverseM(item => CostItemOf(item, index, graph, model, scale, key)).As()
+                from resourcing in Opened(EstimateStage.Resourced, hooks, key)
                 from rows in resources
                     .Filter(static r => ResourceKind.Of(r.GetType().Name) != ResourceKind.NotDefined)
-                    .TraverseM(r => ResourceOf(r, model)).As()
-                from settling in Opened(EstimateStage.Settled, hooks)
+                    .TraverseM(r => ResourceOf(r, model, key)).As()
+                from settling in Opened(EstimateStage.Settled, hooks, key)
                 select new CostSchedule(
                     schedule.GlobalId,
                     CostScheduleKind.Of(schedule.PredefinedType),
@@ -261,7 +261,7 @@ public static class CostProjection {
     }
 
     public static Fin<Seq<CostSchedule>> ProjectAll(Seq<IfcCostSchedule> schedules, Seq<IfcConstructionResource> resources, ElementGraph graph, Option<BimHooks> hooks = default) =>
-        schedules.TraverseM(schedule => Project(schedule, resources, graph, hooks)).As();
+        schedules.TraverseM(schedule => Project(schedule, resources, graph, key, hooks)).As();
 
     static Fin<Unit> Opened(EstimateStage stage, Option<BimHooks> hooks) => Fin.Succ(stage.Beat(hooks));
 
@@ -269,7 +269,7 @@ public static class CostProjection {
         Optional(schedule.Database?.Project?.UnitsInContext)
             .Bind(static units => Optional(units.Units.OfType<IfcMonetaryUnit>().FirstOrDefault()))
             .Match(
-                Some: unit => CostMoney.Of(0m, unit.Currency).Map(static zero => zero.Currency),
+                Some: unit => CostMoney.Of(0m, unit.Currency, key).Map(static zero => zero.Currency),
                 None: () => Fin.Succ(Currency.NoCurrency));
 
     static Seq<IfcCostItem> ItemsOf(IfcCostSchedule schedule) =>
@@ -294,14 +294,14 @@ public static class CostProjection {
         return priced.Find(id => !index.ContainsKey(id)).Match(
             Some: id => Fin.Fail<CostItem>(new BimFault.Refused(BimScope.Planning, BimReason.DanglingReference, string.Join(':', new object?[] { "cost-priced-miss", id }))),
             None: () =>
-                from values in ValuesOf(item, model, scale)
+                from values in ValuesOf(item, model, scale, key)
                 from same in guard(
                     values.Map(static v => v.Applied.Currency).Filter(static c => c != Currency.NoCurrency).Distinct().Count <= 1,
-                    new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "value-mixed", item.GlobalId })))
-                from quantity in QuantityOf(item, priced.Choose(index.Find), graph, scale)
+                    new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "value-mixed", item.GlobalId })))
+                from quantity in QuantityOf(item, priced.Choose(index.Find), graph, scale, key)
                 from basis in guard(
                     values.ForAll(v => v.UnitBasis.Dimension == Dimension.Dimensionless || v.UnitBasis.Dimension == quantity.Dimension),
-                    new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-basis-dimension", item.GlobalId, quantity.Dimension.SiSymbol.IfNone("si-unrostered") })))
+                    new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-basis-dimension", item.GlobalId, quantity.Dimension.SiSymbol.IfNone("si-unrostered") })))
                 select new CostItem(item.GlobalId, TextOf(item.Name).IfNone(""), values, quantity, priced, resource,
                     Optional(item.Nests?.RelatingObject?.GlobalId)));
     }
@@ -309,8 +309,8 @@ public static class CostProjection {
     static Fin<Seq<CostValue>> ValuesOf(IfcCostItem item, Currency model, UnitScheme scale) =>
         item.CostValues.AsIterable().ToSeq()
             .TraverseM(value =>
-                from applied in AmountOf(value, model)
-                from basis in BasisOf(value, scale)
+                from applied in AmountOf(value, model, key)
+                from basis in BasisOf(value, scale, key)
                 select new CostValue(applied, basis, CostCategory.Of(value.Category)))
             .As();
 
@@ -319,10 +319,10 @@ public static class CostProjection {
             IfcMonetaryMeasure monetary => Fin.Succ(new Money((decimal)monetary.Measure, model)),
             IfcMeasureValue measure => Fin.Succ(new Money((decimal)measure.Measure, Currency.NoCurrency)),
             _ => value.Components.AsIterable().ToSeq() is { IsEmpty: false } components
-                ? components.TraverseM(c => AmountOf(c, model)).As()
+                ? components.TraverseM(c => AmountOf(c, model, key)).As()
                     .Bind(parts => parts.Map(static p => p.Currency).Filter(static c => c != Currency.NoCurrency).Distinct().Count <= 1
                         ? Fin.Succ(Aggregate(value.ArithmeticOperator, parts))
-                        : Fin.Fail<Money>(new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "component-mixed" }))))
+                        : Fin.Fail<Money>(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "component-mixed" }))))
                 : Fin.Succ(new Money(0m, Currency.NoCurrency)),
         };
 
@@ -349,11 +349,11 @@ public static class CostProjection {
             : UnitRate;
 
     static Fin<MeasureValue> QuantityOf(IfcCostItem item, Seq<NodeId> priced, ElementGraph graph, UnitScheme scale) =>
-        Measures(item.CostQuantities.AsIterable().ToSeq(), scale).Bind(explicitQuantities =>
+        Measures(item.CostQuantities.AsIterable().ToSeq(), scale, key).Bind(explicitQuantities =>
             explicitQuantities.IsEmpty
-                ? priced.TraverseM(id => graph.Bake(id)).As()
-                    .Bind(elements => Dominant(elements.Bind(static e => e.Quantities).Bind(static b => b.Values.Values.ToSeq())))
-                : Dominant(explicitQuantities));
+                ? priced.TraverseM(id => graph.Bake(id, key)).As()
+                    .Bind(elements => Dominant(elements.Bind(static e => e.Quantities).Bind(static b => b.Values.Values.ToSeq()), key))
+                : Dominant(explicitQuantities, key));
 
     static readonly Seq<Dimension> PricingRank =
         Seq(Dimension.VolumeDim, Dimension.AreaDim, Dimension.LengthDim, Dimension.MassDim, Dimension.DurationDim);
@@ -361,15 +361,15 @@ public static class CostProjection {
     static Fin<MeasureValue> Dominant(Seq<MeasureValue> measures) =>
         PricingRank.Choose(d => measures.Filter(m => m.Dimension == d) is { IsEmpty: false } same ? Some(same) : None)
             .Head
-            .Match(Some: same => MeasureValue.Sum(same), None: () => MeasureValue.OfSi(Dimension.Dimensionless, 1d));
+            .Match(Some: same => MeasureValue.Sum(same, key), None: () => MeasureValue.OfSi(Dimension.Dimensionless, 1d, key));
 
     static Fin<Seq<MeasureValue>> Measures(Seq<IfcPhysicalQuantity> quantities, UnitScheme scale) =>
         quantities.Choose(static quantity => quantity as IfcPhysicalSimpleQuantity)
-            .TraverseM(simple => PropertyLowering.Measure(simple, scale))
+            .TraverseM(simple => PropertyLowering.Measure(simple, scale, key))
             .As();
 
     static Fin<ConstructionResource> ResourceOf(IfcConstructionResource resource, Currency model) =>
-        BaseCostOf(resource, model).Map(baseCost => new ConstructionResource(
+        BaseCostOf(resource, model, key).Map(baseCost => new ConstructionResource(
             resource.GlobalId, TextOf(resource.Name).IfNone(""), ResourceKind.Of(resource.GetType().Name),
             MeasureOf(resource.BaseQuantity).IfNone(MeasureValue.Zero),
             baseCost,
@@ -380,7 +380,7 @@ public static class CostProjection {
 
     static Fin<Option<Money>> BaseCostOf(IfcConstructionResource resource, Currency model) =>
         resource.BaseCosts.AsIterable().Head
-            .TraverseM(value => AmountOf(value, model))
+            .TraverseM(value => AmountOf(value, model, key))
             .As();
 
     static Option<string> SkillOf(IfcConstructionResource resource) => resource switch {
@@ -500,7 +500,7 @@ public static class CostPerformance {
         var taskById = network.Tasks.Fold(Map<string, ConstructionTask>(), static (m, t) => m.AddOrUpdate(t.GlobalId, t));
         var resourceById = schedule.Resources.Fold(Map<string, ConstructionResource>(), static (m, r) => m.AddOrUpdate(r.GlobalId, r));
         return schedule.Items
-            .TraverseM(item => Line(item, taskByElement, taskById, resourceById, actuals, observed, statusDate, schedule.Currency, fx))
+            .TraverseM(item => Line(item, taskByElement, taskById, resourceById, actuals, observed, statusDate, schedule.Currency, fx, key))
             .As()
             .Map(lines => lines.Fold(
                 (Bac: Money.AdditiveIdentity, Bcws: Money.AdditiveIdentity, Bcwp: Money.AdditiveIdentity, Acwp: Option<Money>.None),
@@ -517,11 +517,11 @@ public static class CostPerformance {
         CostItem item, Map<string, string> taskByElement, Map<string, ConstructionTask> taskById,
         Map<string, ConstructionResource> resourceById, Map<string, Money> actuals, Map<string, double> observed,
         Instant statusDate, Currency report, Seq<ExchangeRate> fx) =>
-        from budget in CostMoney.Reprice(item.ValueOf(), report, fx)
+        from budget in CostMoney.Reprice(item.ValueOf(), report, fx, key)
         from recorded in actuals.Find(item.GlobalId)
-            .TraverseM(money => CostMoney.Reprice(money, report, fx)).As()
+            .TraverseM(money => CostMoney.Reprice(money, report, fx, key)).As()
         from spent in item.ResourceGlobalId.Bind(resourceById.Find).Filter(static r => r.Completion.IsSome)
-            .TraverseM(resource => CostMoney.Reprice(resource.Spent, report, fx)).As()
+            .TraverseM(resource => CostMoney.Reprice(resource.Spent, report, fx, key)).As()
         select item.PricedGlobalIds.Choose(taskByElement.Find).Head
             .Bind(taskById.Find)
             .Match(
@@ -585,10 +585,10 @@ public sealed record CarbonRollup(Seq<CarbonLine> Lines, Map<LifecycleStage, dou
 public static class CarbonEstimate {
     public static Fin<CarbonRollup> Rollup(ElementGraph graph, ElementQuery scope, Func<Node.Object, CapabilitySet<MassKind>, Option<MeasureBundle>> measures) =>
         scope.Objects
-            .TraverseM(obj => graph.Bake(obj.Id).Bind(element =>
+            .TraverseM(obj => graph.Bake(obj.Id, key).Bind(element =>
                 measures(obj, Admit.Demand(element.Materials)).Match(
                     None: () => Fin.Succ((Lines: Seq<CarbonLine>(), Gaps: Seq(new CarbonGap(obj.Id, None, "geometry-unresolved")))),
-                    Some: bundle => QuantityDerivation.Decompose(bundle, element.Materials, element.Section)
+                    Some: bundle => QuantityDerivation.Decompose(bundle, element.Materials, element.Section, key)
                         .Bind(shares => shares.AsIterable()
                             .Traverse(share => Priced(obj.Id, element.Materials, share.Value).ToValidation()).As().ToFin()
                             .Map(priced => priced.Fold(
@@ -607,7 +607,7 @@ public static class CarbonEstimate {
                 .Head
                 .Match(
                     None: () => Fin.Succ(Left<CarbonGap, CarbonLine>(new CarbonGap(element, Some(material), "environmental-unset"))),
-                    Some: environmental => Quantity(environmental.Basis, material, share, baked).Map(quantity => quantity.Match<Either<CarbonGap, CarbonLine>>(
+                    Some: environmental => Quantity(environmental.Basis, material, share, baked, key).Map(quantity => quantity.Match<Either<CarbonGap, CarbonLine>>(
                         None: () => new CarbonGap(element, Some(material), $"basis-unresolvable:{environmental.Basis.Key}"),
                         Some: admitted => new CarbonLine(
                             element, material, share,
@@ -637,7 +637,7 @@ public static class CarbonEstimate {
             profileSet:     static (_, _) => Seq<MeasureValue>(),
             constituentSet: static (_, _) => Seq<MeasureValue>(),
             layerSet: static (id, set) => set.Layers.Filter(layer => layer.Material == id).Map(static layer => layer.Thickness))
-        is { IsEmpty: false } plies ? MeasureValue.Sum(plies).Map(Some) : Fin.Succ(Option<MeasureValue>.None);
+        is { IsEmpty: false } plies ? MeasureValue.Sum(plies, key).Map(Some) : Fin.Succ(Option<MeasureValue>.None);
 }
 ```
 

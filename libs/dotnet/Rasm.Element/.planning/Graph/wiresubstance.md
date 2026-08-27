@@ -38,7 +38,7 @@ namespace Rasm.Element.Graph;
 internal static partial class WireCodec {
  // --- [CASE_TRANSCRIPTIONS]
  internal static Fin<MaterialWire> ToWire(Node.Material node) =>
-  toSeq(node.Properties).TraverseM(set => ToWire(set)).As().Map(properties => {
+  toSeq(node.Properties).TraverseM(set => ToWire(set, key)).As().Map(properties => {
    MaterialWire wire = new() {
     MaterialKey = node.MaterialKey.ToValue(),
     Composition = ToWire(node.Composition),
@@ -180,37 +180,37 @@ internal static partial class WireCodec {
  }
 
  static Fin<Node> ToMaterial(NodeId id, MaterialWire w) =>
-  Present(w.Composition, "material.composition").Bind(c => ToComposition(c)).Bind(composition =>
-   toSeq(w.PropertySets).TraverseM(p => ToPropertySet(p)).As().Map(sets =>
+  Present(w.Composition, "material.composition", key).Bind(c => ToComposition(c, key)).Bind(composition =>
+   toSeq(w.PropertySets).TraverseM(p => ToPropertySet(p, key)).As().Map(sets =>
     (Node)new Node.Material(id, MaterialId.Create(w.MaterialKey), composition, sets)));
 
  static Fin<MaterialComposition> ToComposition(MaterialCompositionWire w) => w.CompositionCase switch {
   MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Create(w.Single))),
   MaterialCompositionWire.CompositionOneofCase.LayerSet =>
-   toSeq(w.LayerSet.Layers).TraverseM(l => ToMeasure(l.Thickness).Map(t => new MaterialLayer(
+   toSeq(w.LayerSet.Layers).TraverseM(l => ToMeasure(l.Thickness, key).Map(t => new MaterialLayer(
      MaterialId.Create(l.MaterialKey), t, l.LayerName,
      Opt(l.HasPriority, l.Priority), l.Category,
      Opt(l.HasVentilated, l.Ventilated)))).As()
-    .Bind(layers => MaterialComposition.OfLayerSet(layers)),
+    .Bind(layers => MaterialComposition.OfLayerSet(layers, key)),
   MaterialCompositionWire.CompositionOneofCase.ProfileSet =>
-   from profiles in toSeq(w.ProfileSet.Profiles).TraverseM(p => ToProfile(p)).As()
-   from composite in Optional(w.ProfileSet.Composite).Traverse(c => ToProfileRef(c)).As()
-   from admitted in MaterialComposition.OfProfileSet(profiles, composite)
-   from section in Optional(w.ProfileSet.Section).Traverse(s => ToSection(s)).As()
+   from profiles in toSeq(w.ProfileSet.Profiles).TraverseM(p => ToProfile(p, key)).As()
+   from composite in Optional(w.ProfileSet.Composite).Traverse(c => ToProfileRef(c, key)).As()
+   from admitted in MaterialComposition.OfProfileSet(profiles, key, composite)
+   from section in Optional(w.ProfileSet.Section).Traverse(s => ToSection(s, key)).As()
    select section.Match(Some: admitted.WithSection, None: () => admitted),
   MaterialCompositionWire.CompositionOneofCase.ConstituentSet => MaterialComposition.OfConstituentSet(
-   toSeq(w.ConstituentSet.Constituents).Map(c => new MaterialConstituent(MaterialId.Create(c.MaterialKey), c.Category, c.Fraction, c.PartName))),
+   toSeq(w.ConstituentSet.Constituents).Map(c => new MaterialConstituent(MaterialId.Create(c.MaterialKey), c.Category, c.Fraction, c.PartName)), key),
   _ => new KernelFault.InvalidValue("element-wire.material-composition", "one composition arm is required"),
  };
 
  static Fin<MaterialProfile> ToProfile(MaterialProfileWire w) =>
   from row in Present(w.Profile, "profile.ref")
-  from profile in ToProfileRef(row)
-  from offsets in toSeq(w.Offsets).TraverseM(o => ToMeasure(o)).As()
+  from profile in ToProfileRef(row, key)
+  from offsets in toSeq(w.Offsets).TraverseM(o => ToMeasure(o, key)).As()
   select new MaterialProfile(MaterialId.Create(w.MaterialKey), profile, Opt(w.HasPriority, w.Priority), w.Category, offsets);
 
  static Fin<ProfileRef> ToProfileRef(ProfileRefWire w) =>
-  ToKey(w.ContentKey).Bind(content => ProfileRef.Rehydrate(w.Standard, w.Designation, content));
+  ToKey(w.ContentKey, key).Bind(content => ProfileRef.Rehydrate(w.Standard, w.Designation, content, key));
 
  static readonly (string Slot, Func<SectionPropertiesWire, MeasureValueWire> Read)[] SectionColumns = [
   ("area", static w => w.Area), ("iyy", static w => w.Iyy), ("izz", static w => w.Izz), ("j", static w => w.J),
@@ -223,13 +223,13 @@ internal static partial class WireCodec {
  static Fin<SectionProperties> ToSection(SectionPropertiesWire w) =>
   toSeq(SectionColumns)
    .Traverse(column => Present(column.Read(w), $"section.{column.Slot}")
-    .Bind(cell => ToMeasure(cell))
+    .Bind(cell => ToMeasure(cell, key))
     .ToValidation())
    .As().ToFin()
    .Map(m => new SectionProperties(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15], m[16], m[17], m[18], w.MonosymmetryFactor));
 
  static Fin<double[]> ToSpectrum(IEnumerable<BandValueWire> rows, string column) =>
-  UniqueMap(toSeq(rows).Map(static row => (Key: (int)row.Band, Value: row.Value)), column)
+  UniqueMap(toSeq(rows).Map(static row => (Key: (int)row.Band, Value: row.Value)), column, key)
    .Bind(values => values.Count == 18 && Enumerable.Range(1, 18).All(values.ContainsKey)
     ? Fin.Succ(Enumerable.Range(1, 18).Select(index => values[index]).ToArray())
     : Fin.Fail<double[]>(new KernelFault.InvalidValue(
@@ -311,69 +311,69 @@ internal static partial class WireCodec {
     "element-wire.environmental.impacts", "carry the full unique impact-category by lifecycle-band tensor")));
 
  static Fin<MaterialPropertySet> ToPropertySet(MaterialPropertySetWire w) =>
-  ToEvidence(w.Evidence)
+  ToEvidence(w.Evidence, key)
    .Bind(evidence => {
    return w.PropertySetCase switch {
     MaterialPropertySetWire.PropertySetOneofCase.Mechanical =>
-     (ToMeasure(w.Mechanical.Density), ToMeasure(w.Mechanical.YoungsModulus), ToMeasure(w.Mechanical.YieldStrength), ToMeasure(w.Mechanical.UltimateStrength), OptCurve(w.Mechanical.YoungsReduction), OptCurve(w.Mechanical.YieldReduction))
+     (ToMeasure(w.Mechanical.Density, key), ToMeasure(w.Mechanical.YoungsModulus, key), ToMeasure(w.Mechanical.YieldStrength, key), ToMeasure(w.Mechanical.UltimateStrength, key), OptCurve(w.Mechanical.YoungsReduction, key), OptCurve(w.Mechanical.YieldReduction, key))
       .Apply(static (density, youngs, yield, ultimate, youngsReduction, yieldReduction) => (density, youngs, yield, ultimate, youngsReduction, yieldReduction)).As()
-      .Bind(t => MaterialPropertySet.OfMechanical(t.density, t.youngs, t.yield, t.ultimate, w.Mechanical.PoissonsRatio, w.Mechanical.ThermalExpansionPerK, evidence, t.youngsReduction, t.yieldReduction)),
+      .Bind(t => MaterialPropertySet.OfMechanical(t.density, t.youngs, t.yield, t.ultimate, w.Mechanical.PoissonsRatio, w.Mechanical.ThermalExpansionPerK, key, evidence, t.youngsReduction, t.yieldReduction)),
     MaterialPropertySetWire.PropertySetOneofCase.Orthotropic =>
-     (ToMeasure(w.Orthotropic.Density), ToMeasure(w.Orthotropic.E1Parallel), ToMeasure(w.Orthotropic.E2Perpendicular), ToMeasure(w.Orthotropic.ShearModulus), ToMeasure(w.Orthotropic.Strength1Parallel), ToMeasure(w.Orthotropic.Strength2Perpendicular), OptCurve(w.Orthotropic.ModulusReduction), OptCurve(w.Orthotropic.StrengthReduction))
+     (ToMeasure(w.Orthotropic.Density, key), ToMeasure(w.Orthotropic.E1Parallel, key), ToMeasure(w.Orthotropic.E2Perpendicular, key), ToMeasure(w.Orthotropic.ShearModulus, key), ToMeasure(w.Orthotropic.Strength1Parallel, key), ToMeasure(w.Orthotropic.Strength2Perpendicular, key), OptCurve(w.Orthotropic.ModulusReduction, key), OptCurve(w.Orthotropic.StrengthReduction, key))
       .Apply(static (density, e1, e2, shear, f1, f2, modulusReduction, strengthReduction) => (density, e1, e2, shear, f1, f2, modulusReduction, strengthReduction)).As()
-      .Bind(t => MaterialPropertySet.OfOrthotropic(t.density, t.e1, None, t.e2, t.shear, t.f1, t.f2, w.Orthotropic.ThermalExpansionPerK, evidence, t.modulusReduction, t.strengthReduction)),
+      .Bind(t => MaterialPropertySet.OfOrthotropic(t.density, t.e1, None, t.e2, t.shear, t.f1, t.f2, w.Orthotropic.ThermalExpansionPerK, key, evidence, t.modulusReduction, t.strengthReduction)),
     MaterialPropertySetWire.PropertySetOneofCase.Thermal =>
-     (ToMeasure(w.Thermal.Conductivity), ToMeasure(w.Thermal.SpecificHeat), OptCurve(w.Thermal.ConductivityCurve))
+     (ToMeasure(w.Thermal.Conductivity, key), ToMeasure(w.Thermal.SpecificHeat, key), OptCurve(w.Thermal.ConductivityCurve, key))
       .Apply(static (conductivity, specificHeat, conductivityCurve) => (conductivity, specificHeat, conductivityCurve)).As()
       .Bind(t => MaterialPropertySet.OfThermal(
-       t.conductivity, t.specificHeat, None, w.Thermal.VapourResistanceFactor, evidence, t.conductivityCurve)),
+       t.conductivity, t.specificHeat, None, w.Thermal.VapourResistanceFactor, key, evidence, t.conductivityCurve)),
     MaterialPropertySetWire.PropertySetOneofCase.Acoustic =>
-     (ToSpectrum(w.Acoustic.Absorption, "acoustic.absorption"),
-      ToSpectrum(w.Acoustic.SoundReductionIndexDb, "acoustic.sound-reduction"))
+     (ToSpectrum(w.Acoustic.Absorption, "acoustic.absorption", key),
+      ToSpectrum(w.Acoustic.SoundReductionIndexDb, "acoustic.sound-reduction", key))
      .Apply(static (absorption, reduction) => (absorption, reduction)).As()
      .Bind(rows => Acoustic.Of(
-      rows.absorption, rows.reduction,
+      rows.absorption, rows.reduction, key,
       Opt(w.Acoustic.HasDynamicStiffnessMnPerM3, w.Acoustic.DynamicStiffnessMnPerM3),
       Opt(w.Acoustic.HasFlowResistivityPaSPerM2, w.Acoustic.FlowResistivityPaSPerM2),
       Opt(w.Acoustic.HasLossFactor, w.Acoustic.LossFactor)))
      .Map(spectrum => MaterialPropertySet.OfAcoustic(spectrum, evidence)),
-    MaterialPropertySetWire.PropertySetOneofCase.Fire => Present(w.Fire.Resistance, "fire.resistance")
+    MaterialPropertySetWire.PropertySetOneofCase.Fire => Present(w.Fire.Resistance, "fire.resistance", key)
      .Bind(r => FireResistance.Of(
       Opt(r.HasLoadBearingMinutes, r.LoadBearingMinutes),
       Opt(r.HasIntegrityMinutes, r.IntegrityMinutes),
-      Opt(r.HasInsulationMinutes, r.InsulationMinutes)))
+      Opt(r.HasInsulationMinutes, r.InsulationMinutes), key))
      .Bind(resistance => !w.Fire.HasReaction
       ? Fin.Succ(MaterialPropertySet.OfFire(None, resistance, evidence))
-      : ToFireRating(w.Fire.Reaction).Bind(reaction => !w.Fire.HasSmoke
+      : ToFireRating(w.Fire.Reaction, key).Bind(reaction => !w.Fire.HasSmoke
        ? Fin.Succ(MaterialPropertySet.OfFire(Some(reaction), resistance, evidence))
        : FactoryBridge.Accept<EuroclassSuffix>($"{ToSmokeToken(w.Fire)},{ToDropletToken(w.Fire)}")
         .Map(suffix => MaterialPropertySet.OfFire(reaction, suffix, resistance, evidence)))),
-    MaterialPropertySetWire.PropertySetOneofCase.Environmental => ToMeasurementBasis(w.Environmental.Basis).Bind(basis =>
-     ToImpactMatrix(w.Environmental.Impacts).Bind(impacts => MaterialPropertySet.OfEnvironmental(basis, impacts,
+    MaterialPropertySetWire.PropertySetOneofCase.Environmental => ToMeasurementBasis(w.Environmental.Basis, key).Bind(basis =>
+     ToImpactMatrix(w.Environmental.Impacts, key).Bind(impacts => MaterialPropertySet.OfEnvironmental(basis, impacts,
       Opt(w.Environmental.HasRecycledContent, w.Environmental.RecycledContent),
-      Opt(w.Environmental.HasEndOfLifeRecovery, w.Environmental.EndOfLifeRecovery), evidence))),
-    MaterialPropertySetWire.PropertySetOneofCase.Cost => ToMeasurementBasis(w.Cost.Basis).Bind(basis =>
+      Opt(w.Environmental.HasEndOfLifeRecovery, w.Environmental.EndOfLifeRecovery), key, evidence))),
+    MaterialPropertySetWire.PropertySetOneofCase.Cost => ToMeasurementBasis(w.Cost.Basis, key).Bind(basis =>
      FactoryBridge.Accept<Currency>(w.Cost.Currency).Bind(currency =>
-      MaterialPropertySet.OfCost(basis, currency, w.Cost.SupplyPerUnit, w.Cost.InstallPerUnit, w.Cost.LifecyclePerUnit, evidence))),
+      MaterialPropertySet.OfCost(basis, currency, w.Cost.SupplyPerUnit, w.Cost.InstallPerUnit, w.Cost.LifecyclePerUnit, key, evidence))),
     MaterialPropertySetWire.PropertySetOneofCase.Damping => MaterialPropertySet.OfDamping(
-     w.Damping.DampingRatio, Optional(w.Damping.Rayleigh).Map(static r => (r.AlphaPerS, r.BetaS)), evidence),
+     w.Damping.DampingRatio, Optional(w.Damping.Rayleigh).Map(static r => (r.AlphaPerS, r.BetaS)), key, evidence),
     MaterialPropertySetWire.PropertySetOneofCase.Hygrothermal =>
-     (ToMeasure(w.Hygrothermal.WaterContent80Rh), ToMeasure(w.Hygrothermal.FreeWaterSaturation),
-      OptCurve(w.Hygrothermal.SorptionIsotherm), OptCurve(w.Hygrothermal.LiquidTransport), OptCurve(w.Hygrothermal.MoistureConductivity))
+     (ToMeasure(w.Hygrothermal.WaterContent80Rh, key), ToMeasure(w.Hygrothermal.FreeWaterSaturation, key),
+      OptCurve(w.Hygrothermal.SorptionIsotherm, key), OptCurve(w.Hygrothermal.LiquidTransport, key), OptCurve(w.Hygrothermal.MoistureConductivity, key))
       .Apply(static (waterContent, saturation, sorption, liquid, conductivity) => (waterContent, saturation, sorption, liquid, conductivity)).As()
       .Bind(t => MaterialPropertySet.OfHygrothermal(w.Hygrothermal.Porosity, t.waterContent.Si, t.saturation.Si,
-       Opt(w.Hygrothermal.HasWaterAbsorptionKgPerM2SqrtS, w.Hygrothermal.WaterAbsorptionKgPerM2SqrtS), evidence, t.sorption, t.liquid, t.conductivity)),
+       Opt(w.Hygrothermal.HasWaterAbsorptionKgPerM2SqrtS, w.Hygrothermal.WaterAbsorptionKgPerM2SqrtS), key, evidence, t.sorption, t.liquid, t.conductivity)),
     MaterialPropertySetWire.PropertySetOneofCase.Durability =>
-     ToMeasure(w.Durability.ChlorideDiffusion).Bind(chloride => MaterialPropertySet.OfDurability(
-      w.Durability.CarbonationRateMmPerSqrtYear, chloride.Si, w.Durability.AgeingExponent, evidence)),
+     ToMeasure(w.Durability.ChlorideDiffusion, key).Bind(chloride => MaterialPropertySet.OfDurability(
+      w.Durability.CarbonationRateMmPerSqrtYear, chloride.Si, w.Durability.AgeingExponent, key, evidence)),
     MaterialPropertySetWire.PropertySetOneofCase.Optical => MaterialPropertySet.OfOptical(
-     w.Optical.VisibleTransmittance, w.Optical.VisibleReflectanceFront, w.Optical.VisibleReflectanceBack, w.Optical.SolarTransmittance, w.Optical.SolarReflectanceFront, w.Optical.SolarReflectanceBack, w.Optical.ThermalIrTransmittance, w.Optical.ThermalIrEmissivityFront, w.Optical.ThermalIrEmissivityBack, evidence),
+     w.Optical.VisibleTransmittance, w.Optical.VisibleReflectanceFront, w.Optical.VisibleReflectanceBack, w.Optical.SolarTransmittance, w.Optical.SolarReflectanceFront, w.Optical.SolarReflectanceBack, w.Optical.ThermalIrTransmittance, w.Optical.ThermalIrEmissivityFront, w.Optical.ThermalIrEmissivityBack, key, evidence),
     MaterialPropertySetWire.PropertySetOneofCase.Electrical =>
-     (ToMeasure(w.Electrical.Resistivity), OptMeasure(w.Electrical.DielectricStrength))
+     (ToMeasure(w.Electrical.Resistivity, key), OptMeasure(w.Electrical.DielectricStrength, key))
       .Apply(static (resistivity, dielectric) => (resistivity, dielectric)).As()
       .Bind(t => MaterialPropertySet.OfElectrical(
        t.resistivity.Si, w.Electrical.RelativePermittivity, t.dielectric.Map(static m => m.Si),
-       Opt(w.Electrical.HasMagneticPermeabilityRelative, w.Electrical.MagneticPermeabilityRelative), evidence)),
+       Opt(w.Electrical.HasMagneticPermeabilityRelative, w.Electrical.MagneticPermeabilityRelative), key, evidence)),
     _ => new KernelFault.InvalidValue("element-wire.material-property", "one property arm is required"),
    };
   });

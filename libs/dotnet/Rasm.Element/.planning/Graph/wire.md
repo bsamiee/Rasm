@@ -79,7 +79,7 @@ public static partial class BoundaryConverters {
  public static Fin<UInt128> ToKey(ByteString wire) => ContentHash.Admit(wire.Span);
 
  public static Fin<NodeId> ToNodeId(ByteString wire) =>
-  ContentHash.Admit(wire.Span)
+  ContentHash.Admit(wire.Span, key)
    .Map(static value => NodeId.Create(value.ToString("X32", CultureInfo.InvariantCulture)));
 
  // --- [CARRIER_CODECS]
@@ -115,7 +115,7 @@ public static partial class BoundaryConverters {
       w.Si)
      from admitted in w.Uncertainty is null
       ? Fin.Succ(measure)
-      : ToMeasureBand(w.Uncertainty).Bind(band => measure.WithUncertainty(band))
+      : ToMeasureBand(w.Uncertainty, key).Bind(band => measure.WithUncertainty(band, key))
      select admitted;
 
  [UserMapping] public static MeasureBandWire ToWire(MeasureBand band) {
@@ -148,7 +148,7 @@ public static partial class BoundaryConverters {
       }).Bind(kind => MeasureBand.Admit(
        kind, w.LowerSi, w.UpperSi,
        w.HasStandardDeviationSi ? Some(w.StandardDeviationSi) : None,
-       w.HasCoverageFactor ? Some(w.CoverageFactor) : None));
+       w.HasCoverageFactor ? Some(w.CoverageFactor) : None, key));
 
  [UserMapping] public static ClassificationWire ToWire(Classification value) {
   ClassificationWire wire = new() { System = value.System, Code = value.Code, Edition = value.Edition };
@@ -165,7 +165,7 @@ public static partial class BoundaryConverters {
       .Traverse(date => Try.lift(() => date.ToLocalDate()).Run().Bind(static inner => inner))
       .As()
      from admitted in Classification.Of(
-      wire.System, wire.Code, wire.Edition,
+      wire.System, wire.Code, key, wire.Edition,
       source: wire.HasSource ? Some(wire.Source) : None, editionDate: editionDate,
       title: wire.HasTitle ? Some(wire.Title) : None)
      select admitted;
@@ -217,7 +217,7 @@ internal static partial class WireCodec {
   left == right ? Fin.Succ(unit) : new KernelFault.InvalidValue($"element-wire.{column}", "carry both presence columns or neither");
 
  static Fin<Option<NodaTime.LocalDate>> ToDate(bool present, string iso) =>
-  Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token)).As();
+  Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token, key)).As();
 
  static Fin<T> Present<T>(T? w, string column) where T : class =>
   w is not null ? Fin.Succ(w) : new KernelFault.InvalidValue($"element-wire.{column}", "required message is absent");
@@ -232,7 +232,7 @@ internal static partial class WireCodec {
   select window;
 
  static Fin<Option<MeasureValue>> OptMeasure(MeasureValueWire? w) =>
-  Optional(w).Traverse(m => ToMeasure(m)).As();
+  Optional(w).Traverse(m => ToMeasure(m, key)).As();
 
  static Fin<Option<SampledCurve>> OptCurve(SampledCurveWire? w) =>
   Optional(w).Traverse(c => SampledCurve.Of(
@@ -252,7 +252,7 @@ internal static partial class WireCodec {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementWire {
  public static Fin<NodeWire> Encode(Node node, double tolerance) =>
-  WireCodec.ToWire(node, tolerance).Bind(wire => WireCodec.Validate(wire));
+  WireCodec.ToWire(node, tolerance, key).Bind(wire => WireCodec.Validate(wire, key));
 
  public static Fin<Node> Decode(NodeWire wire) =>
   WireCodec.Validate(wire).Bind(valid => Try.lift(() => WireCodec.ToNode(valid)).Run().Bind(static inner => inner));

@@ -1014,7 +1014,7 @@ public sealed partial class WeldPlan {
         int beads,
         int lineageDepth,
         ContentKey key) =>
-        Validate(passes, actions, demands, maxHeatInputKjMm, beads, lineageDepth, out WeldPlan plan).Admitted(plan);
+        Validate(passes, actions, demands, maxHeatInputKjMm, beads, lineageDepth, key, out WeldPlan plan).Admitted(plan);
 
     public Fin<WeldView> Project(WeldProjection projection) => Fin.Succ(projection.Switch(
         state: this,

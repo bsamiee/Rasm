@@ -314,7 +314,7 @@ public sealed record ClipboardRow(
         "application/x-rasm-asset-key",
         copy: static payload => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes()) : None,
         paste: static bytes => Encoding.UTF8.GetString(bytes.Span) is { Length: > 0 } key
-            ? (Validation<Error, DragPayload>)new DragPayload.AssetKey()
+            ? (Validation<Error, DragPayload>)new DragPayload.AssetKey(key)
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("empty asset key"));
 
     public static readonly ClipboardRow Uris = RoundTrip(

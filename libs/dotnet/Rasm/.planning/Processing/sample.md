@@ -769,7 +769,7 @@ internal static class SampleKernel {
                 .Bind(run => SelectionOf(state.Candidates, run.Indices, run.Algorithm, state.Key)),
             dworkVariableDensityCase: static (state, value) => DworkCandidateSelection(value, state.Candidates, value.Radius, value.Count.Value, value.MinRadius.Value, value.Attempts, value.Seed, state.Context, state.Key));
     private static Fin<Result> SampleOnCandidates(SampleKind kind, Seq<Candidate> candidates, bool admitsPoisson, Option<(int Rank, double Measure)> domainMeasure, Context context) =>
-        from selection in Select(kind, (candidates, admitsPoisson, domainMeasure, context))
+        from selection in Select(kind, (candidates, admitsPoisson, domainMeasure, context, key))
         let sampled = toSeq(selection.Points)
         let rejected = selection.DensityRejected.IfNone(Math.Max(val1: 0, val2: candidates.Count - selection.Points.Length))
         select new Result(

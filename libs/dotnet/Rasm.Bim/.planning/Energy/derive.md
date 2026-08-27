@@ -144,10 +144,10 @@ public static class EnergyDerive {
     internal static Fin<EnergyOutcome.Emitted> Lower(
         ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at) =>
         Lowers.TryGetValue(target, out var arm)
-            ? arm(graph, scope, geometry, at)
+            ? arm(graph, scope, geometry, at, key)
             : EnergyProjector.Serves(target)
-                ? Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-graph-egress-pending", target.Key })))
-                : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-lower-unsupported", target.Key })));
+                ? Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-graph-egress-pending", target.Key })))
+                : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-lower-unsupported", target.Key })));
 
     static Fin<EnergyOutcome.Emitted> Honeybee(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at) {
         ContentAddress pedigree = ContentAddress.OfGraph(graph);
@@ -505,11 +505,11 @@ public static class EnergyTranslate {
             new((InterchangeFormat.Osm,   InterchangeFormat.Idf),   static (doc, key, bar) => OsmTo(doc, bar, static (model, tally, progress, op) => {
                 using Os.EnergyPlusForwardTranslator ep = new();
                 using Os.Workspace idf = ep.translateModel(model, progress);
-                return Saved(w => idf.save(w, true))
+                return Saved(op, w => idf.save(w, true))
                     .Map(bytes => (bytes, tally + Tally(ep.warnings(), ep.errors())));
             })),
             new((InterchangeFormat.Osm,   InterchangeFormat.Osm),   static (doc, key, bar) => OsmTo(doc, bar, static (model, tally, _, op) =>
-                Saved(w => model.save(w, true)).Map(bytes => (bytes, tally)))),
+                Saved(op, w => model.save(w, true)).Map(bytes => (bytes, tally)))),
             new((InterchangeFormat.GbXml, InterchangeFormat.Osm),   static (doc, key, bar) => ReverseTo(doc, bar)),
             new((InterchangeFormat.Idf,   InterchangeFormat.Osm),   static (doc, key, bar) => ReverseTo(doc, bar)),
         }.ToFrozenDictionary();
@@ -518,10 +518,10 @@ public static class EnergyTranslate {
         if (!Matrix.TryGetValue((source.Format, target), out var row)) {
             return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-translate-miss", source.Format.Key, target.Key })));
         }
-        using TranslateProgress progress = new(lane);
-        return Opened(TranslateStage.Decoded, progress, lane)
-            .Bind(_ => row(source, progress))
-            .Bind(result => Opened(TranslateStage.Sealed, progress, lane).Map(_ => result))
+        using TranslateProgress progress = new(lane, key);
+        return Opened(TranslateStage.Decoded, progress, lane, key)
+            .Bind(_ => row(source, key, progress))
+            .Bind(result => Opened(TranslateStage.Sealed, progress, lane, key).Map(_ => result))
             .Map(result => {
                 EnergyArtifact artifact = EnergyArtifact.Of(target, result.Bytes, None, at);
                 return new EnergyOutcome.Emitted(artifact, new EnergyCensus(
@@ -595,7 +595,7 @@ public static class EnergyTranslate {
             }
             bar.Open(TranslateStage.Translated);
             Os.Model model = optional.get();
-            return emit(model, Tally(vt.warnings(), vt.errors()), bar);
+            return emit(model, Tally(vt.warnings(), vt.errors()), bar, key);
         });
 
     static Fin<(byte[], int)> ReverseTo(EnergyDoc doc, TranslateProgress bar) =>

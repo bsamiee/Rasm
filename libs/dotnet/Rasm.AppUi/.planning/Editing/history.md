@@ -244,7 +244,7 @@ public sealed partial class RevertArm {
         static cursor => cursor with { ClientDepth = Dimension.Create(cursor.ClientDepth.Value + 1) },
         static (scope, direction, cursor, identity) => IO.lift<Fin<(RevertibleOp, RevertCursor)>>(() => scope.Log.Head(direction, cursor).Match(
             Some: op => direction.Drive(scope.Recorder)
-                ? Fin.Succ((direction.After(Client, cursor)))
+                ? Fin.Succ((op, direction.After(Client, cursor)))
                 : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.ApplyRejected(op.Target)),
             None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(direction.Absent(identity)))));
 
@@ -361,7 +361,7 @@ public sealed class ClientLog {
     public Seq<RevertibleOp> Live(RevertCursor cursor) => Retained(Ops.Value, cursor);
 
     public Transition<Seq<RevertibleOp>> Push(RevertibleOp op, RevertCursor cursor) =>
-        Cell.Commit(Ops, held => Retained(held, cursor).Add());
+        Cell.Commit(Ops, held => Retained(held, cursor).Add(op));
 
     public Option<RevertibleOp> Head(RevertDirection direction, RevertCursor cursor) =>
         Head(Ops.Value, direction, cursor);
@@ -509,7 +509,7 @@ public sealed record EditHistory(
         HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         IO.lift(() => {
             Recorder.PushCommand(op.ToCommand(Scope.Apply, Park));
-            return Scope.Log.Push(cursor);
+            return Scope.Log.Push(op, cursor);
         })
         .Map(settled => Fire(
             op.Target, new EditOutcome.Committed(),
@@ -752,7 +752,7 @@ public sealed record TimelineSurface(
                 RevertPhase.At(row.Ordinal, cursor.Position, halted)));
 
     private static Seq<TimelineEntry> Seated(RevertibleOp op, TimelineKey key, RevertPhase phase) =>
-        new TimelineEntry(phase)
+        new TimelineEntry(key, op, phase)
             .Cons(op.Delta.Children.Map((child, at) => new TimelineEntry(key with { Child = at }, child, phase)));
 
     public WindowLease<RealizedItem<FlatNode<TimelineEntry>>> Lease(

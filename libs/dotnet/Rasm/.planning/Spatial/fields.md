@@ -143,11 +143,9 @@ public sealed partial class NoiseKind {
         sample: static (p, seed, f) => FieldNoise.WorleyAt(point: p, seed: seed, frequency: f));
     private CapabilitySet<NoiseTrait> Declared { get; }
     [UseDelegateFromConstructor] internal partial double Sample(Point3d point, int seed, double frequency);
-    public CapabilitySet<NoiseTrait> Traits { get { _ = Lawful.Value; return Declared; } }
-    private static readonly Lazy<Unit> Lawful = new(static () =>
-        toSeq(Items).Fold(unit, static (_, row) => NoiseTrait.Law.Admit(held: row.Declared).Match(
-            Succ: static _ => unit,
-            Fail: static _ => throw new InvalidOperationException("Noise traits violate their capability law."))));
+    public CapabilitySet<NoiseTrait> Traits => Declared;
+    public static Fin<Unit> Proof() =>
+        toSeq(Items).Traverse(static row => NoiseTrait.Law.Admit(held: row.Declared)).As().Map(static _ => unit);
 }
 ```
 
@@ -453,7 +451,7 @@ public abstract partial record VectorField {
     private static Fin<Vector3d> ClosestDirected(SupportSpace source, Point3d sample, BoundarySense sense, Context context,
         Func<ClosestHit, Fin<(Vector3d Raw, double Scale)>> hitToScaled) =>
         from hit in source.Closest(sample: sample)
-        from scaled in hitToScaled(hit)
+        from scaled in hitToScaled(hit, key)
         from direction in Direction.Of(value: sense.Sign * scaled.Raw, context: context)
         select direction.Value * scaled.Scale;
 }

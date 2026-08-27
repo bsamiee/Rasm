@@ -71,8 +71,8 @@ public static class SpectralUpsample {
     }
 
     public static Fin<Spd> ToSpd(RgbSpectrum rgb) =>
-        ToCurve(rgb).Bind(curve => new Spd(SampleStart, SampleStep, curve.ToArray()) switch {
-            var spd => spd.IsValid ? Fin.Succ(spd) : Fin.Fail<Spd>(new MaterialFault.Parameter("<spd-interval-invalid>")),
+        ToCurve(rgb, key).Bind(curve => new Spd(SampleStart, SampleStep, curve.ToArray()) switch {
+            var spd => spd.IsValid ? Fin.Succ(spd) : Fin.Fail<Spd>(new MaterialFault.Parameter(key, "<spd-interval-invalid>")),
         });
     private static void Acc(double[] dst, double[] basis, double w) { double c = Math.Max(0.0, w); for (int i = 0; i < dst.Length; i++) { dst[i] += basis[i] * c; } }
 
@@ -153,7 +153,7 @@ public static class ToneMap {
     static RgbSpectrum Package(RgbSpectrum sceneLinear, ToneMapOperator op) {
         Span<float> lanes = [(float)sceneLinear.R, (float)sceneLinear.G, (float)sceneLinear.B];
         Span<float> graded = stackalloc float[3];
-        ImageProcessing.ToneMap(lanes, graded, channels: 3);
+        ImageProcessing.ToneMap(lanes, graded, channels: 3, op);
         return RgbSpectrum.Create(Math.Max(0.0, graded[0]), Math.Max(0.0, graded[1]), Math.Max(0.0, graded[2]));
     }
 

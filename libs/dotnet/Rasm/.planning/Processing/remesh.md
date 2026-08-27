@@ -79,8 +79,8 @@ public static class Remeshing {
                 new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty mesh")),
             { Policy.IsValid: false } => Fin.Fail<RemeshResult>(
                 new GeometryFault.DegenerateInput(Kind.Mesh, None, "invalid remesh policy")),
-            { Order.Case: RosyOrder order } => Quadrangulate(request, order),
-            _ => Equalize(request.Mesh, request.TargetLength, request.Policy),
+            { Order.Case: RosyOrder order } => Quadrangulate(request, order, op),
+            _ => Equalize(request.Mesh, request.TargetLength, request.Policy, op),
         };
     }
 
@@ -101,7 +101,7 @@ public static class Remeshing {
             (int a, int b, int c) = original.Face(face);
             faces[face] = (original.Position(a), original.Position(b), original.Position(c));
         }
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical).Bind(index => {
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, key).Bind(index => {
             Func<Point3d, double> targetAt = policy.Sizing.Match<Func<Point3d, double>>(
                 Some: field => point => field(point).Value,
                 None: () => _ => target.Value);
@@ -114,7 +114,7 @@ public static class Remeshing {
                 declined: new KernelFault.InvalidResult()).Current;
             return terminal.Bind(state => state.Deviation.Match(
                 Some: measured => measured.Mean <= policy.ConvergenceBand.Value
-                    ? arena.ToSpace().Map(space => new RemeshResult(
+                    ? arena.ToSpace(key).Map(space => new RemeshResult(
                         space, target, measured, state.Iterations, state.Splits, state.Collapses,
                         state.Flips, state.FeatureEdges, None))
                     : Fin.Fail<RemeshResult>(new GeometryFault.RemeshStalled(
@@ -132,7 +132,7 @@ public static class Remeshing {
                 int flips = Flip(arena, edges);
                 Relax(arena, Edges.Of(arena, featureAngle));
                 return Reproject()
-                    .Bind(_ => Deviation(arena, targetAt))
+                    .Bind(_ => Deviation(arena, targetAt, key))
                     .Map(spread => state with {
                         Iterations = state.Iterations + 1, Splits = state.Splits + splits,
                         Collapses = state.Collapses + collapses, Flips = state.Flips + flips,
@@ -145,7 +145,7 @@ public static class Remeshing {
             Fin<Unit> Reproject() =>
                 Range(0, arena.VertexCount).FoldM(unit, (_, vertex) => {
                     Point3d point = arena.Position(vertex);
-                    return index.Query(point, policy.ProjectCandidates.Value).Map(hits => {
+                    return index.Query(point, policy.ProjectCandidates.Value, key).Map(hits => {
                         (Point3d at, Option<double> _) = hits.Fold(
                             (At: point, Distance: Option<double>.None),
                             (best, face) => {
@@ -375,7 +375,7 @@ public static class Remeshing {
 
     // --- [QUAD_FIELD]
     static Fin<RemeshResult> Quadrangulate(RemeshOp request, RosyOrder order) =>
-        Equalize(request.Mesh, request.TargetLength, request.Policy).Bind(remesh => {
+        Equalize(request.Mesh, request.TargetLength, request.Policy, key).Bind(remesh => {
             MeshSpace space = remesh.Mesh;
             double frequency = 1.0 / request.TargetLength.Value;
             (int a, int b, int c) = (space.Native.Faces[0].A, space.Native.Faces[0].B, space.Native.Faces[0].C);
@@ -383,20 +383,20 @@ public static class Remeshing {
             Vector3d normal = Vector3d.CrossProduct(
                 (Point3d)space.Native.Vertices[b] - space.Native.Vertices[a],
                 (Point3d)space.Native.Vertices[c] - space.Native.Vertices[a]);
-            return SegmentKernel.CrossFieldAt(space, order, None, None, seed)
+            return SegmentKernel.CrossFieldAt(space, order, None, None, seed, key)
                 .Bind(baseDirection => Direction.Of(
-                    Vector3d.CrossProduct(normal, baseDirection), space.Tolerance))
+                    Vector3d.CrossProduct(normal, baseDirection), space.Tolerance, key))
                 .Bind(rotated =>
                     (Stripes(None).ToValidation(),
                      Stripes(Some(Seq((a, rotated)))).ToValidation())
                         .Apply(static (u, v) => (U: u, V: v)).As().ToFin()
-                        .Bind(uv => ExtractQuads(remesh, uv.U, uv.V)));
+                        .Bind(uv => ExtractQuads(remesh, uv.U, uv.V, key)));
 
             Fin<Arr<double>> Stripes(Option<Seq<(int Vertex, Direction Hint)>> constraints) =>
-                VectorField.CrossField(space, order, constraints, None)
+                VectorField.CrossField(space, order, constraints, None, key)
                     .Bind(field => Range(0, space.Native.Vertices.Count)
                         .TraverseM(vertex => SegmentKernel.StripeAt(
-                            space, field, frequency, space.Native.Vertices[vertex])).As())
+                            space, field, frequency, space.Native.Vertices[vertex], key)).As())
                     .Map(static values => toArray(values));
         });
 

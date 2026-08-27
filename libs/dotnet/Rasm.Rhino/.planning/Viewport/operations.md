@@ -378,18 +378,18 @@ public abstract partial record NamedViewOp {
     internal Fin<Unit> Apply(RhinoDoc document, RhinoViewport viewport) =>
         Switch(
             (Document: document, Viewport: viewport),
-            restoreCase: static (ctx) =>
+            restoreCase: static (ctx, op) =>
                 from index in IndexOf(document: ctx.Document, name: op.Name)
                 from _ in op.Pace.Apply(views: ctx.Document.NamedViews, index: index.Value, viewport: ctx.Viewport)
                 select unit,
-            addCase: static (ctx) => ResourceIndex
+            addCase: static (ctx, op) => ResourceIndex
                 .Admit(value: ctx.Document.NamedViews.Add(name: op.Name.Value, viewportId: ctx.Viewport.Id))
                 .Map(static _ => unit),
-            renameCase: static (ctx) =>
+            renameCase: static (ctx, op) =>
                 from index in IndexOf(document: ctx.Document, name: op.Name)
                 from _ in Admit.Confirm(success: ctx.Document.NamedViews.Rename(index: index.Value, newName: op.NewName.Value))
                 select unit,
-            deleteCase: static (ctx) =>
+            deleteCase: static (ctx, op) =>
                 from index in IndexOf(document: ctx.Document, name: op.Name)
                 from _ in Admit.Confirm(success: ctx.Document.NamedViews.Delete(index: index.Value))
                 select unit);

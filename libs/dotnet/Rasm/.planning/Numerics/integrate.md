@@ -612,7 +612,7 @@ public readonly record struct DenseOutputSpan<TState, TDelta> {
     public Fin<TState> PointAt(double theta) {
         if (!double.IsFinite(theta) || theta is < 0.0 or > 1.0) return Fin.Fail<TState>(new KernelFault.InvalidInput());
         DenseOutputSpan<TState, TDelta> self = this;
-        return DenseOutput.WeightsAt(self.tableau, self.family, self.interpolant, theta)
+        return DenseOutput.WeightsAt(self.tableau, self.family, self.interpolant, theta, key)
             .Map(weights => self.module.Add(arg1: self.start, arg2: self.step, arg3: self.module.Combine(coefficients: weights, deltas: self.stages)));
     }
 }
@@ -639,20 +639,20 @@ public abstract partial record RungeKuttaIntegrator {
     private RungeKuttaIntegrator() { }
     public static Fin<RungeKuttaIntegrator> Fixed(RungeKuttaMethod method) =>
         from active in Optional(method).ToFin(new KernelFault.InvalidInput())
-        from tableau in active.Tableau.Admit(active.Conditions)
+        from tableau in active.Tableau.Admit(active.Conditions, key)
         from fixedKind in guard(!active.Tableau.Embedded.IsSome, new KernelFault.Unsupported(InputType: active.GetType(), OutputType: typeof(FixedCase)))
         from interp in DenseOutput.Interpolant(tableau: tableau, family: active.Formula)
-        from dense in DenseOutput.Conditions(tableau, active.Formula, interp)
+        from dense in DenseOutput.Conditions(tableau, active.Formula, interp, key)
         select (RungeKuttaIntegrator)new FixedCase(method: active, dense: dense, interp: interp);
     public static Fin<RungeKuttaIntegrator> Adaptive(RungeKuttaMethod method, double tolerance, Option<StepControl> control = default) {
         StepControl controller = control.IfNone(StepControl.Default);
         return from active in Optional(method).ToFin(new KernelFault.InvalidInput())
-               from tableau in active.Tableau.Admit(active.Conditions)
+               from tableau in active.Tableau.Admit(active.Conditions, key)
                from adaptiveKind in guard(active.Tableau.Embedded.IsSome, new KernelFault.Unsupported(InputType: active.GetType(), OutputType: typeof(AdaptiveCase)))
                from admitted in guard(controller.IsValid, new KernelFault.InvalidValue(Label: nameof(StepControl), Requirement: "finite positive safety factor, ordered positive scale clamps, nonnegative reject budget, a step controller"))
                from validated in FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance)
                from interp in DenseOutput.Interpolant(tableau: tableau, family: active.Formula)
-               from dense in DenseOutput.Conditions(tableau, active.Formula, interp)
+               from dense in DenseOutput.Conditions(tableau, active.Formula, interp, key)
                select (RungeKuttaIntegrator)new AdaptiveCase(method: active, tolerance: validated, control: controller, dense: dense, interp: interp);
     }
     public abstract RungeKuttaMethod Method { get; }

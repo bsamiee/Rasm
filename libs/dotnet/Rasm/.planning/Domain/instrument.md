@@ -160,7 +160,7 @@ public sealed partial class InstrumentSpec {
         ref string name, ref InstrumentKind kind, ref MeasureForm form, ref string unit, ref string description,
         ref Seq<string> dimensions, ref Option<Buckets> bounds, ref Option<string> tag, ref Option<int> ceiling) {
         dimensions = tag.Match(
-            Some: key => key.Cons(dimensions.Filter(row => !string.Equals(row, StringComparison.Ordinal))).Strict(),
+            Some: key => key.Cons(dimensions.Filter(row => !string.Equals(row, key, StringComparison.Ordinal))).Strict(),
             None: () => dimensions);
         validationError =
             !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(unit) && !string.IsNullOrWhiteSpace(description)
@@ -252,7 +252,7 @@ public sealed class LevelCells {
                 .Filter(pair => pair.Key.Row.Equals(row))
                 .Map(pair => pair.Key.Key.Match(
                     Some: key => new Measurement<T>(
-                        T.CreateSaturating(pair.Value), new KeyValuePair<string, object?>(tag)),
+                        T.CreateSaturating(pair.Value), new KeyValuePair<string, object?>(tag, key)),
                     None: () => new Measurement<T>(T.CreateSaturating(pair.Value))))
                 .ToSeq() + probes.Find(row)
                     .Map(live => Probed<T>(row, live)).IfNone(Seq<Measurement<T>>()),
@@ -327,12 +327,12 @@ public sealed record InstrumentSet(Seq<(InstrumentSpec Row, Instrument Handle)> 
                 real: static bind => Pushed(bind.Seat, bind.Value, in bind.Tags));
 
     public Fin<Unit> Level(InstrumentSpec row, double value, Option<string> key = default) =>
-        Pulled(row).Map(admitted => Cells.Level(admitted, value));
+        Pulled(row, key).Map(admitted => Cells.Level(admitted, key, value));
 
     public Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, in TagList tags = default) {
         KeyValuePair<string, object?>[] stamped = [.. tags];
         return Pulled(row, toSeq(stamped).Map(static tag => tag.Key).Head)
-            .Bind(admitted => Cells.Bind(admitted, read, stamped));
+            .Bind(admitted => Cells.Bind(admitted, read, stamped, key));
     }
 
     public bool Enabled(Seq<InstrumentSpec> rows) =>

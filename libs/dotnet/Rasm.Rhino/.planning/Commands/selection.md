@@ -341,8 +341,7 @@ public sealed record PickPolicy {
     public static Fin<PickPolicy> Of(Seq<PickRule> rules) =>
         RulePlan<PickRule, PickSlot>.Of(
                 rules: rules,
-                admit: static (rule, k) => rule.Admit(k),
-                key: key.OrDefault(name: nameof(PickPolicy)))
+                admit: static (rule, k) => rule.Admit(k))
             .Map(static plan => new PickPolicy(plan: plan));
 
     internal Fin<Unit> Apply(PickContext target) => Plan.Apply(
@@ -442,7 +441,7 @@ public static class Picks {
         return from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext()).ToFin()
                from target in Admit.Need(session)
                from active in Admit.Need(policy)
-               from outcome in target.Demand(
+               from outcome in Admit.Demand(
                    use: document =>
                        from defaultView in Optional(document.Views.ActiveView).ToFin(Fail: new KernelFault.MissingContext())
                        from projected in Try.lift(() => {

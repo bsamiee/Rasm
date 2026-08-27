@@ -172,7 +172,7 @@ public static partial class FabricationInstruments {
 ## [03]-[OBSERVE]
 
 - Owner: `FabricationEngine` and `EnginePhase` — the solver-lane and lane-point vocabularies every span scope, span mark, and step count keys on; `FabricationTrace` — the scope roster the composing root admits into the kernel `SpanBand`, the engine-keyed bracket every solver lane opens, and the lane-milestone mark; `FabricationInstruments`'s site entries — `Write`, `Level`, and `Steps` over the mounted set a lane receives.
-- Entry: a lane takes `Option<InstrumentSet> set = default, Option<SpanBand> band = default` as trailing columns, or reads `runtime.Instruments`/`runtime.Band` when it enters through `Fabrication.Run`; it measures as `set.Write(FabricationInstruments.<Row>, measurement, (<Slot>, value), …)`, holds a level as `set.Level(<Row>, value)`, counts solver steps as `set.Steps((EnginePhase.<Row>, count), …)`, brackets its fold as `band.Traced(FabricationEngine.<Row>, span => …)`, and marks a milestone as `FabricationTrace.Mark(span, EnginePhase.<Row>)` — every entry one kernel call on the `Fin` result.
+- Entry: a lane takes `Option<InstrumentSet> set = default, Option<SpanBand> band = default` as trailing columns, or reads `runtime.Instruments`/`runtime.Band` when it enters through `Fabrication.Run`; it measures as `set.Write(FabricationInstruments.<Row>, measurement, (<Slot>, value), …)`, holds a level as `set.Level(<Row>, value, key)`, counts solver steps as `set.Steps((EnginePhase.<Row>, count), …)`, brackets its fold as `band.Traced(FabricationEngine.<Row>, key, span => …)`, and marks a milestone as `FabricationTrace.Mark(span, EnginePhase.<Row>)` — every entry one kernel call on the `Fin` result.
 - Law: the write sits INSIDE the producing fold on the settled typed result — one site per measured concern, its dimensions read off the result's own smart-enum keys and the roster consts — so a measurement can neither precede the fact it observes nor survive a refusal of it; `None` on either column writes and traces nothing, so a headless caller passes nothing and branches nowhere, while an unmounted row under a present set refuses on the error channel rather than vanishing.
 - Auto: `Write` folds the ambient `TenantContext` partition through `InstrumentSet.Tags`, so a partitioned shop attributes every row and a single-tenant one mints no dimension, and no lane spells a tenant key; `Steps` derives the solver dimension from the phase row, so the two vocabularies cannot drift and a hand-spelled solver string has no construction path; the scope key derives from the `FabricationEngine` row, so the span source name and the `SolverSlot` value resolve to one vocabulary; the kernel gates every bracket on `HasListeners`, so an unlistened solve pays one null test and a mark on its null span one more.
 - Packages: Rasm, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox (`System.Diagnostics`).
@@ -234,10 +234,10 @@ public static class FabricationTrace {
 
     extension(Option<SpanBand> band) {
         public Fin<T> Traced<T>(FabricationEngine engine, Func<Activity?, Fin<T>> body) =>
-            band.Match(Some: admitted => admitted.Traced(engine.Trace, body), None: () => body(null));
+            band.Match(Some: admitted => admitted.Traced(engine.Trace, key, body), None: () => body(null));
 
         public IO<T> Traced<T>(FabricationEngine engine, Func<Activity?, IO<T>> body) =>
-            band.Match(Some: admitted => admitted.Traced(engine.Trace, body), None: () => body(null));
+            band.Match(Some: admitted => admitted.Traced(engine.Trace, key, body), None: () => body(null));
     }
 
     public static Unit Mark(Activity? span, EnginePhase phase) =>
@@ -252,7 +252,7 @@ public static partial class FabricationInstruments {
         }
 
         public Fin<Unit> Level(InstrumentSpec row, double value, Option<string> key = default) =>
-            set.Match(Some: mounted => mounted.Level(row, value), None: static () => Fin.Succ(unit));
+            set.Match(Some: mounted => mounted.Level(row, value, key), None: static () => Fin.Succ(unit));
 
         public Fin<Unit> Steps(params ReadOnlySpan<(EnginePhase Phase, long Count)> counts) =>
             toSeq(counts.ToArray())

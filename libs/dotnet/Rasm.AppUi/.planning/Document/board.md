@@ -215,8 +215,8 @@ public abstract partial record BoardEdit {
 
 public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Instant At) {
     public static Fin<Board> Of(string key, string title, Seq<BoardItem> items, IClock clock) =>
-        (Named(nameof()), Named(title, nameof(title)), Distinct(items))
-            .Apply((_, _, roster) => new Board(title, roster, clock.GetCurrentInstant()))
+        (Named(key, nameof(key)), Named(title, nameof(title)), Distinct(items))
+            .Apply((_, _, roster) => new Board(key, title, roster, clock.GetCurrentInstant()))
             .As().ToFin();
 
     public Fin<Board> Place(BoardItem item, IClock clock) =>
@@ -456,7 +456,7 @@ public sealed record BoardTemplate(string Key, string Name, Seq<BoardItem> Skele
 
 public static class BoardTemplates {
     public static Fin<BoardTemplate> Seal(Board board, string key, string name, IClock clock) =>
-        (Named(nameof()), Named(name, nameof(name)),
+        (Named(key, nameof(key)), Named(name, nameof(name)),
          board.Items.Traverse(static item => item.WithReference(None).ToValidation()).As())
             .Apply((_, _, skeleton) => new BoardTemplate(name,
                 skeleton,

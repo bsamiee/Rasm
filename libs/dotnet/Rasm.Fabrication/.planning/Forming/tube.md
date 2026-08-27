@@ -328,7 +328,7 @@ public sealed partial class TubeTool {
         ref double capacityKn,
         ref double qualifiedOvality,
         ref double qualifiedThinning) =>
-        validationError = !string.IsNullOrWhiteSpace() && !processes.IsEmpty && !sections.IsEmpty && !materials.IsEmpty && mandrel is not null
+        validationError = !string.IsNullOrWhiteSpace(key) && !processes.IsEmpty && !sections.IsEmpty && !materials.IsEmpty && mandrel is not null
             && processes.ForAll(static process => process is not null)
             && sections.ForAll(static section => section is not null)
             && materials.ForAll(static material => material is not null)
@@ -524,7 +524,7 @@ public sealed partial class RollSection {
         ref Loop profile,
         ref SectionProperties properties,
         ref double governingThicknessMm) =>
-        validationError = !string.IsNullOrWhiteSpace() && kind is not null && profile is not null
+        validationError = !string.IsNullOrWhiteSpace(key) && kind is not null && profile is not null
             && (kind == RollSectionKind.Open ? !profile.Closed : profile.Closed)
             && double.IsFinite(governingThicknessMm) && governingThicknessMm > 0.0
                 ? null
@@ -948,7 +948,7 @@ public static class TubeProgram {
                   maximumDistortion,
                   machine.Torque.NewtonMeters - peakTorque)
               from key in Canonical(evidence)
-              select new RollSchedule(evidence);
+              select new RollSchedule(evidence, key);
 
     private static Fin<double> CommandCurvature(
         double outputCurvature,
@@ -1006,7 +1006,7 @@ public static class TubeProgram {
                from loop in Loop.Admit(points.ToArr(), closed: true, Arr<double>(), source.Tolerance)
                let evidence = new CopeEvidence(samples, samples, Seq<CopeProjection>(), None)
                from key in Canonical(Seq(loop), evidence, source.Tolerance)
-               select new CopePattern(Seq(loop), evidence);
+               select new CopePattern(Seq(loop), evidence, key);
     }
 
     private static Fin<CopePattern> SectionedCope(CopeSource.Sectioned source) =>
@@ -1029,7 +1029,7 @@ public static class TubeProgram {
             edges.Bind(static edge => Seq(edge.A, edge.B)),
             Some(unrolled.Atlas.Distortion))
         from key in Canonical(loops, evidence, source.Part.Mesh.Tolerance)
-        select new CopePattern(loops, evidence);
+        select new CopePattern(loops, evidence, key);
 
     private sealed record DevelopedEdge(int CrossingA, int CrossingB, CopeProjection A, CopeProjection B);
     private sealed record DevelopedRun(ChartId Chart, Seq<Point2d> Points);

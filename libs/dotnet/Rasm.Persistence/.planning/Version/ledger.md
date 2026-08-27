@@ -468,7 +468,7 @@ public static class OpLog {
     static string EntityKey(IEvent<GraphEvent> e) => e.StreamKey ?? e.StreamId.ToString();
 
     static string HeaderValue(IEvent<GraphEvent> e, string key) =>
-        e.Headers is { } h && h.TryGetValue(out object? value) ? value?.ToString() ?? string.Empty : string.Empty;
+        e.Headers is { } h && h.TryGetValue(key, out object? value) ? value?.ToString() ?? string.Empty : string.Empty;
 
     public static Seq<OpLogEntry> Replay(Seq<OpLogEntry> feed, ReplayWindow window) =>
         toSeq(feed.Filter(window.Admits).OrderBy(static entry => entry.Sequence).Take(window.Take));
@@ -490,7 +490,7 @@ public static class OpLog {
     public static IO<OpLogEntry> Crdt(
         long sequence, ModelId model, string entityKey, SyncOpKind kind, CrdtOp op, string actor,
         DotSource dots, ProjectionContext frame) =>
-        CrdtWire.Encode().Match(
+        CrdtWire.Encode(op).Match(
             Succ: payload => Stamp(dots, frame, stamped => new OpLogEntry(
                 sequence, stamped.Id, model, entityKey, ColumnFamily.Crdt, kind,
                 payload, CrdtWire.ContentKey(payload), stamped.Trace, Seq<UInt128>(), actor,
@@ -794,10 +794,10 @@ public static partial class SyncWireMap {
 
     public static Fin<SyncCursor> Admit(SyncCursorWire? wire) =>
         Optional(wire).ToFin(new KernelFault.InvalidInput(Axis: Some(nameof(SyncCursorWire)))).Bind(stated =>
-            (Store(stated.OriginStore).ToValidation(),
+            (Store(stated.OriginStore, key).ToValidation(),
              OpLogWire.I63(stated.Sequence, "cursor").ToValidation(),
              Optional(stated.Stamp).ToFin(new KernelFault.InvalidInput(Axis: Some(nameof(Clock.Hlc))))
-                 .Bind(held => HostWire.Stamp(held)).ToValidation())
+                 .Bind(held => HostWire.Stamp(held, key)).ToValidation())
                 .Apply(static (origin, sequence, stamp) => new SyncCursor(origin, sequence, stamp.Physical, stamp.Logical))
                 .As().ToFin());
 
@@ -807,7 +807,7 @@ public static partial class SyncWireMap {
             : Fin.Fail<Guid>(new KernelFault.InvalidInput(Axis: Some("cursor-origin-width")));
 
     public static Fin<Seq<UInt128>> Keys(IEnumerable<ByteString> wire) =>
-        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span).ToValidation()).As().ToFin();
+        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span, key).ToValidation()).As().ToFin();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -859,7 +859,7 @@ public sealed record SyncWire(
         Peers(peer).Match(
             Succ: seat => OutboundSurface.Dispatch<Fin<T>>(
                     Runtime,
-                    new OutboundHop.Grpc(seat.Address),
+                    new OutboundHop.Grpc(seat.Address, key),
                     async token => Stated(WireAdmission.Admit(
                             await call(seat.Client, new CallOptions(cancellationToken: token)).ConfigureAwait(false),
                             WireBoundary.InboundPayload)

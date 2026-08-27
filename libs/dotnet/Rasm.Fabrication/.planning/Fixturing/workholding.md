@@ -229,7 +229,7 @@ public sealed partial class WorkholdingKind {
         FixtureDemand[]? demands = null,
         FixtureMetric? axis = null,
         params FixtureMetric[] metrics) =>
-        new(role, holding, keepout, rule, contacts, bodies, Optional(bodyCeiling),
+        new(key, role, holding, keepout, rule, contacts, bodies, Optional(bodyCeiling),
             CapabilitySet<FixtureDemand>.Of(demands ?? []), Optional(axis), toSet(metrics));
 }
 
@@ -1460,10 +1460,10 @@ internal static class Fixtures {
     // --- [PROJECTION]
     internal static Fin<FixtureArtifact> Project(Fixture fixture, FixtureProjection projection) =>
         Keyed(fixture, projection).Map(key => projection.Switch<FixtureArtifact>(
-            machine: () => new FixtureArtifact.Machine(fixture.Zones, fixture.Spec.Datum, fixture.Constraint),
-            setupSheet: () => new FixtureArtifact.SetupSheet(fixture.Spec.Elements, fixture.Spec.Sequence, fixture.Spec.Datum, fixture.Constraint),
-            inspection: () => new FixtureArtifact.Inspection(fixture.Contacts, fixture.Spec.Datum, fixture.Constraint),
-            evidence: () => new FixtureArtifact.Evidence(fixture)));
+            machine: () => new FixtureArtifact.Machine(key, fixture.Zones, fixture.Spec.Datum, fixture.Constraint),
+            setupSheet: () => new FixtureArtifact.SetupSheet(key, fixture.Spec.Elements, fixture.Spec.Sequence, fixture.Spec.Datum, fixture.Constraint),
+            inspection: () => new FixtureArtifact.Inspection(key, fixture.Contacts, fixture.Spec.Datum, fixture.Constraint),
+            evidence: () => new FixtureArtifact.Evidence(key, fixture)));
 
     private static Fin<ContentKey> Keyed(Fixture fixture, FixtureProjection projection) =>
         FabricationCanon.Keyed(

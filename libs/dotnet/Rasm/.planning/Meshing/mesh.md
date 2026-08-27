@@ -177,9 +177,9 @@ public readonly record struct MeshSpace {
         (MeshSpace self) = ();
         return from active in Optional(kind).ToFin(new KernelFault.InvalidInput())
                from _ in active.RequiresQualityGate
-                   ? MeshKernel.AspectRatioGuard(self.Native, self.Assembly.AspectRatioCeiling)
+                   ? MeshKernel.AspectRatioGuard(self.Native, self.Assembly.AspectRatioCeiling, op)
                    : Fin.Succ(unit)
-               from result in active.Select(self.Cache)
+               from result in active.Select(self.Cache, op)
                select result;
     }
     public Fin<Arr<Vector3d>> FaceNormals() => Cache.FaceNormals();
@@ -541,8 +541,8 @@ internal sealed class LaplacianCache {
     internal Fin<SparseLaplacian> TuftedIntrinsic(TuftedCoverPolicy policy) =>
         tuftedIntrinsic.Of(probe: policy, compute: () =>
             from imesh in TuftedIntrinsicMeshSnapshot()
-            from cover in MeshKernel.TuftedCoverMesh.Construct(imesh, space, policy)
-            from laplacian in cover.Assemble(space, policy)
+            from cover in MeshKernel.TuftedCoverMesh.Construct(imesh, space, policy, key)
+            from laplacian in cover.Assemble(space, policy, key)
             select laplacian);
     internal Fin<CholeskySparse> Cholesky() =>
         cholesky.Of(probe: unit, compute: () =>

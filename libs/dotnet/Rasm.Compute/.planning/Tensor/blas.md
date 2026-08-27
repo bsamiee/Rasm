@@ -736,7 +736,7 @@ public sealed record BasisArtifact(
 ## [06]-[PROVIDER_CLAIMS]
 
 - Owner: the claim-gated provider-rank selection, the provenance snapshot taken at solve construction, and the `ResidualStream` fourth-order residual-moment accumulator the numeric lane owns over the kernel `Rasm/Domain/stats#MOMENTS` `Stat<Scalar>` result.
-- Entry: `LinearProvider.Select` consumes the resolved `BenchmarkRow` claim — the winner of `ModelResultIndex.Claim(rows, fingerprint)` resolved at composition against the running fingerprint under the index-owned `RecencyHorizon` and clock — so the chosen provider RID is claim-gated, never a static default; `SolveProvenance.Snapshot(LinearProvider provider)` captures the SELECTED row beside the `LinearAlgebraControl.Provider` type name and the public `Control.MaxDegreeOfParallelism` degree; `ResidualStream.Push(residual)` folds each witnessed solve residual into the kernel `Stat<Scalar>` result, whose `Variance`/`Deviation` read the caller-stated kernel `MomentNormalizer` policy; the `Selection`-class evidence row names the chosen provider and the claim that gated it.
+- Entry: `LinearProvider.Select` consumes the resolved `BenchmarkRow` claim — the winner of `ModelResultIndex.Claim(rows, fingerprint)` resolved at composition against the running fingerprint under the index-owned `RecencyHorizon` and clock — so the chosen provider RID is claim-gated, never a static default; `SolveProvenance.Snapshot(LinearProvider provider)` captures the SELECTED row beside the `LinearAlgebraControl.Provider` type name and the public `Control.MaxDegreeOfParallelism` degree; `ResidualStream.Push(residual, key)` folds each witnessed solve residual into the kernel `Stat<Scalar>` result, whose `Variance`/`Deviation` read the caller-stated kernel `MomentNormalizer` policy; the `Selection`-class evidence row names the chosen provider and the claim that gated it.
 - Auto: a native BLAS provider rank wins only behind a fingerprint-matched `BenchmarkRow` resolved by the Persistence `ModelResultIndex.Claim` owner and threaded in, never re-resolved here; bitwise-versus-bounded equality derives from the provider/type/degree triple because the partition-tree topology varies run-to-run, so a recorded value is correct for one core count only and bit-comparison on another host falsely flags tampering. The residual stream accumulates online fourth-order moments through the kernel `Stat<Scalar>.Merge` pairwise join `ResidualStream.Combine` composes, which re-enters the kernel's validity oracle; the stream admits only finite values because one `NaN` permanently poisons every moment.
 - Result: `SolveOutcome<T>` is the per-solve result. `SolveProvenance` captures the selected provider and active MathNet provider state, while `ResidualStream` is the numeric lane's moment carrier.
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, Rasm.Persistence (project), LanguageExt.Core, BCL inbox
@@ -763,7 +763,7 @@ public sealed record ResidualStream(Option<Stat<Scalar>> Held) {
     public ResidualStream Combine(ResidualStream other) =>
         (Held, other.Held) switch {
             ({ IsSome: true, Case: Stat<Scalar> a }, { IsSome: true, Case: Stat<Scalar> b }) =>
-                new ResidualStream(Stat<Scalar>.Merge(a, b).ToOption()),
+                new ResidualStream(Stat<Scalar>.Merge(a, b, key).ToOption()),
             ({ IsSome: true }, _) => this,
             _ => other,
         };

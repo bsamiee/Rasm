@@ -209,7 +209,7 @@ public sealed record CommandFlow<TState> {
         return from _ in guard(!candidates.IsEmpty, new KernelFault.InvalidInput()).ToFin()
                from admittedEntry in FactoryBridge.Accept<StageKey>(candidate: entry.ToValue())
                from admitted in candidates
-                   .Traverse(row => AdmitRow(row).ToValidation())
+                   .Traverse(row => AdmitRow(row, op).ToValidation())
                    .As()
                    .ToFin()
                let table = admitted.Strict()
@@ -600,7 +600,7 @@ public sealed partial class CommandPulse {
         return from active in Admit.Need(hooks)
                from _ in guard(!candidates.IsEmpty && candidates.ForAll(static pulse => pulse is not null), new KernelFault.InvalidInput())
                from attached in Subscription.AttachAll(candidates.Distinct().Map(pulse =>
-                   (Func<Fin<Subscription>>)(() => pulse.Attach(active))))
+                   (Func<Fin<Subscription>>)(() => pulse.Attach(active, op))))
                select attached;
     }
 }

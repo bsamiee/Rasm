@@ -223,7 +223,7 @@ public static class SqliteStatHarvest {
     }
 
     static int Gauge(sqlite3 db, int op) {
-        ignore(raw.sqlite3_db_status(db, out var current, out _, 0));
+        ignore(raw.sqlite3_db_status(db, op, out var current, out _, 0));
         return current;
     }
 }

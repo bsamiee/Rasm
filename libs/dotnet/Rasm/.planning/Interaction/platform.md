@@ -54,7 +54,7 @@ public sealed partial class HandlerDemand {
         mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.CreateShared(type: contract)))));
     public static readonly HandlerDemand Registered = new(key: 2, custody: HandlerCustody.Owned,
         mint: static (platform, contract, key) => FaultGate.Host(
-            () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory()))));
+            () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory())), key));
 
     public HandlerCustody Custody { get; }
 

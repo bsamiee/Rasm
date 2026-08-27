@@ -143,7 +143,7 @@ public sealed class IdentityContext : DbContext {
 public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<IdentityContext> {
     public IdentityContext CreateDbContext(string[] args) {
         IdentityShapeRow row = args is [string key, ..]
-            ? IdentityShapeRow.Get()
+            ? IdentityShapeRow.Get(key)
             : throw new InvalidOperationException("<identity-design-profile:absent>");
         return new IdentityContext(
             (DbContextOptions<IdentityContext>)row.Design(new DbContextOptionsBuilder<IdentityContext>())
@@ -535,12 +535,12 @@ public static class IdentityDispatch {
 
     static Task<Fin<IdentityOutcome>> Execute(IdentityContext store, IdentityOp op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) =>
         facts.Replayable
-            ? Leg(store, facts, profile, token)
-            : Enlisted(store, facts, profile, token);
+            ? Leg(store, op, facts, profile, token)
+            : Enlisted(store, op, facts, profile, token);
 
     static async Task<Fin<IdentityOutcome>> Enlisted(IdentityContext store, IdentityOp op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) {
         await using IDbContextTransaction transaction = await store.Database.BeginTransactionAsync(token).ConfigureAwait(false);
-        Fin<IdentityOutcome> outcome = await Leg(store, facts, profile, token).ConfigureAwait(false);
+        Fin<IdentityOutcome> outcome = await Leg(store, op, facts, profile, token).ConfigureAwait(false);
         if (outcome.IsSucc) { await transaction.CommitAsync(token).ConfigureAwait(false); }
         return outcome;
     }
@@ -867,7 +867,7 @@ public sealed partial class EnvelopeAad {
             .Bind(framed => {
                 Span<byte> digest = stackalloc byte[32];
                 _ = System.Security.Cryptography.CryptographicOperations.HashData(System.Security.Cryptography.HashAlgorithmName.SHA256, framed.Span, digest);
-                return ContentHash.Admit(digest[..16]).Map(half => new EnvelopeAad(partition, half));
+                return ContentHash.Admit(digest[..16], key).Map(half => new EnvelopeAad(partition, half));
             });
 }
 

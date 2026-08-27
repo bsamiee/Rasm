@@ -216,7 +216,7 @@ public sealed partial record LowDiscrepancy {
                     None: () => Fin.Succ(block),
                     Some: cursor => cursor.Write(block.Values).Map(_ => block))))
             .As()
-            .Bind(blocks => Settle(blocks, policy));
+            .Bind(blocks => Settle(blocks, policy, key));
 
     static Fin<ReplicateFamily> Settle(Seq<ReplicateBlock> blocks, ReplicatePolicy policy) {
         Fin<Stat<Scalar>> folded = Stat<Scalar>.Of(blocks.Map(static block => (Scalar)TensorPrimitives.Average<double>(block.Values)));
@@ -311,7 +311,7 @@ public sealed partial record LowDiscrepancy {
         int position = 0;
         while (cursor > 0UL) {
             uint digit = (uint)(cursor % (ulong)radix);
-            inverse += scramble.Digit(digit, radix, position) * fraction;
+            inverse += scramble.Digit(digit, key, radix, position) * fraction;
             cursor /= (ulong)radix;
             fraction /= radix;
             position++;

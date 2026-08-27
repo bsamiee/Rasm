@@ -107,15 +107,15 @@ public static class TileSynth {
                from channels in PairingOrder(set.Channels)
                    .FoldM(HashMap<TextureChannel, TexturePyramid>(), (map, row) =>
                        set.Channels.Find(row).ToFin(new RasterFault.Tile($"<tile-channel-lost:{row.Key}>"))
-                           .Bind(pyramid => Apply(plan, pyramid, Companion(row, set.Channels).Bind(map.Find))
+                           .Bind(pyramid => Apply(plan, pyramid, key, Companion(row, set.Channels).Bind(map.Find))
                                .Map(tiled => map.Add(row, tiled)))).As()
                from packs in set.Packs.TraverseM(pack =>
-                   Apply(plan, pack.Plane).Map(tiled => pack with { Plane = tiled })).As()
-               from regraded in channels.Find(policy.Guide).ToFin(new RasterFault.Tile("<tile-guide-lost>"))
-               let scored = TileProof.Grade(regraded, policy)
+                   Apply(plan, pack.Plane, key).Map(tiled => pack with { Plane = tiled })).As()
+               from regraded in channels.Find(policy.Guide).ToFin(new RasterFault.Tile(key, "<tile-guide-lost>"))
+               let scored = TileProof.Grade(regraded, policy, key)
                let graded = Evidence.Of(scored)
                from tiled in TextureSet.Of(new TextureSetDraft(set.Width, set.Height, set.Layers, set.Law, set.Convention,
-                   set.Alpha, set.HeightScaleMm, graded, set.Udim, channels, packs, set.Conductor, set.Material))
+                   set.Alpha, set.HeightScaleMm, graded, set.Udim, channels, packs, set.Conductor, set.Material), key)
                select (tiled, new TileRun(policy.Strategy, policy.Guide, Evidence.Of(scored.Map(static p => p.Score)),
                    plan.Cut, plan.CutY, plan.Wang, channels.Count + packs.Count, policy.Seed, ticks.GetElapsedTime(opened).TotalMilliseconds));
     }
@@ -149,7 +149,7 @@ public static class TileSynth {
                       pyramid.Base.Transfer, pyramid.Base.Alpha, pyramid.Base.Range, pyramid.Base.Primaries, AllocationMode.Default)
                   from chain in TexturePyramid.Of(
                           Fill(top, TileKernel.Fold(plan, image.Levels[0])),
-                          pyramid.Policy, paired)
+                          pyramid.Policy, key, paired)
                       .Rollback(top)
                   select chain;
 
@@ -400,7 +400,7 @@ public sealed record TileProof {
         return TileGate.LatticeLeak(spectral).Map(leak =>
             new TileProof(policy.Strategy,
                 new TileScore(ratio, leak, Math.Clamp(seam * (1.0 - leak), 0.0, 1.0), spectral.Width,
-                    TileGate.CornerResidual(pyramid.Base, policy), TileGate.Learned(pyramid.Base, policy)),
+                    TileGate.CornerResidual(pyramid.Base, policy), TileGate.Learned(pyramid.Base, policy, key)),
                 policy.Seed, policy.AcceptScore));
     }
 }

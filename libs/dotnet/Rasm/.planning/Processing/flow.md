@@ -416,7 +416,7 @@ internal static class FlowKernel {
             TerminationPoint: state.Event.Map(static e => e.Points.Localized).IfNone(state.Current),
             Event: state.Event)
         from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(new KernelFault.InvalidResult())
-        from output in ProjectTrace<TOut>(valid)
+        from output in ProjectTrace<TOut>(valid, key)
         select output;
 
     internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace) =>
@@ -445,14 +445,14 @@ internal static class MorseAtlas {
         let horizon = (Termination)new Termination.StepCountCase(policy.TransitionSteps)
         from arcs in seeds.Map((seed, cell) => (Seed: seed, Cell: cell))
             .TraverseM(row => Transitions(source, partition, row.Cell, row.Seed, initialStep,
-                integrator, horizon, context, tracePolicy)).As()
+                integrator, horizon, context, key, tracePolicy)).As()
             .Map(static chunks => chunks.Bind(static chunk => chunk))
-        from condensed in Condense(arcs, partition.Cells.Value)
+        from condensed in Condense(arcs, partition.Cells.Value, key)
         let census = condensed.Census
         let sites = census.Map(row => seeds[row.Cell])
         from critical in census.Map((row, node) => (Row: row, Site: sites[node]))
             .TraverseM(entry => entry.Row.Recurrent
-                ? CriticalAt(source, entry.Site, policy, context)
+                ? CriticalAt(source, entry.Site, policy, context, key)
                     .Map(row => (Kind: Some(row.Kind), row.Unstable))
                 : Fin.Succ((Kind: Option<FixedPointKind>.None, Unstable: Seq<Vector3d>())))
             .As()
@@ -472,7 +472,7 @@ internal static class MorseAtlas {
     private static Fin<Seq<SEdge<int>>> Transitions(
         VectorField source, FlowPartition partition, int origin, Point3d seed, PositiveMagnitude initialStep,
         RungeKuttaIntegrator integrator, Termination termination, Context context, Option<TracePolicy> policy) =>
-        FlowKernel.Trace<Seq<Point3d>>(source, seed, initialStep, integrator, termination, context, policy)
+        FlowKernel.Trace<Seq<Point3d>>(source, seed, initialStep, integrator, termination, context, key, policy)
             .Map(trail => trail.Fold((Cells: Seq<int>(), Last: Option<int>.None), (state, point) =>
                 partition.Locate(point) is { IsSome: true, Case: int cell } && state.Last != Some(cell)
                     ? (state.Cells.Add(cell), Some(cell))

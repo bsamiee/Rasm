@@ -124,7 +124,7 @@ public sealed partial class BrakeTool {
         ref double segmentLengthMm,
         ref double capacityKn,
         ref Arr<Loop> forbiddenSections) =>
-        validationError = !string.IsNullOrWhiteSpace() && punch is not null && !methods.IsEmpty
+        validationError = !string.IsNullOrWhiteSpace(key) && punch is not null && !methods.IsEmpty
             && methods.ForAll(static method => method is not null)
             && double.IsFinite(dieOpeningMm) && dieOpeningMm > 0.0
             && double.IsFinite(noseRadiusMm) && noseRadiusMm >= 0.0
@@ -289,7 +289,7 @@ public static class BendSequence {
             if (state.Done.Count == unfold.Bends.Count)
                 return Fin.Succ(new BendPlan(state.Path.Map(static row => row.Step), expanded, rejected));
             SearchKey key = Key(state, policy.Brake);
-            if (best.TryGetValue(out double prior) && prior <= state.Cost)
+            if (best.TryGetValue(key, out double prior) && prior <= state.Cost)
                 continue;
             if (expanded >= policy.Brake.SearchExpansions)
                 return Fin.Fail<BendPlan>(new FabricationFault.BendSearchBudgetExceeded(expanded, frontier.Count));

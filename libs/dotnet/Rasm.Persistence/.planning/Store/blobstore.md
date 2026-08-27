@@ -86,7 +86,7 @@ public readonly record struct BlobAdmission(ContentAddress Key, long Length, Dat
 
 public readonly record struct BlobPlacement(ContentAddress Key, Extent Extent, Rung Tier, ObjectCodec Codec, int Parts, int ResumedParts, Option<ContentAddress> Verified, Option<Instant> WormUntil, Option<string> ConditionToken, CorrelationId Correlation) {
     public static BlobPlacement From(ContentAddress key, Extent extent, Rung tier, ObjectCodec codec) =>
-        new(extent, tier, codec, 0, 0, None, None, None, CorrelationId.None);
+        new(key, extent, tier, codec, 0, 0, None, None, None, CorrelationId.None);
 }
 
 public readonly record struct GrantSigner(IAmazonS3 Client, string Bucket) {
@@ -188,7 +188,7 @@ public sealed partial class ObjectStore {
     public long ObjectCeiling => PartCeiling > long.MaxValue / PartCount ? long.MaxValue : PartCeiling * PartCount;
 
     public IO<(ReadOnlySequence<byte> Bytes, Option<WrappedKey> Dek)> Encode(ObjectCodec codec, ContentAddress key, ReadOnlySequence<byte> plain) =>
-        codec.Pack(Chunking, plain).Bind(packed => Encryption.SealSource(Chunking, packed));
+        codec.Pack(Chunking, plain).Bind(packed => Encryption.SealSource(key, Chunking, packed));
 
     public IO<Stream> Decode(ObjectClient client, BlobHandle handle, Option<(long Start, long End)> range, Func<ContentAddress, IO<Option<WrappedKey>>> envelope) {
         IO<Stream> Opened(Option<(long Start, long End)> window) =>
@@ -248,8 +248,8 @@ public sealed partial class ObjectStore {
         RetentionClass cls = kind.Retention;
         BlobHandle Named(ContentAddress key, long plain) => BlobName.Handle(client.Tenant, cls, codec, plain);
         IO<BlobHandle> Resolved(ContentAddress key) => Head(client, Named(0L))
-            .Bind(present => IO.lift(present.ToFin(new RemoteStoreFault.NotFound())
-                .Map(r => Named(r.Extent.Plain) with { Codec = r.Codec })));
+            .Bind(present => IO.lift(present.ToFin(new RemoteStoreFault.NotFound(key))
+                .Map(r => Named(key, r.Extent.Plain) with { Codec = r.Codec })));
         return new(
             Put: (admitted, stream) => ObjectIo.Drain(stream, source =>
                 BlobGc.WriteBlobFirst(this, client, admitted, kind, codec, source, ledger, frame).Map(static placement => placement.Key)),
@@ -281,7 +281,7 @@ public readonly record struct ContentBlobPort(
     public static ContentBlobPort Of(BlobRemote remote, DataClassification classification) => new(
         Put: bytes => {
             ContentAddress key = ContentAddress.Create(ContentHash.Of(bytes, static (held, hash) => hash.Append(held.Span)));
-            return remote.Put(new BlobAdmission(bytes.Length, classification, None, None), new MemoryStream(bytes.ToArray()));
+            return remote.Put(new BlobAdmission(key, bytes.Length, classification, None, None), new MemoryStream(bytes.ToArray()));
         },
         Get: key => remote.Get(None)
             .Bind(static stream => ObjectIo.Drain(stream, static source => IO.pure((ReadOnlyMemory<byte>)source.ToArray()))));
@@ -442,13 +442,13 @@ public static class ObjectIo {
     internal static IO<T> Bound<T>(ObjectClient client, string provider, ObjectVerb verb, ContentAddress key, Func<Task<T>> call) =>
         client.Redrive.Carry(new StoreHop.Object(verb), provider,
             IO.liftAsync(async () => (await Try.lift(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
-                .MapFail(error => RemoteStoreFault.Lift(provider, verb, error)))
+                .MapFail(error => RemoteStoreFault.Lift(provider, verb, key, error)))
             .Bind(IO.lift));
 
     static IO<HttpResponseMessage> Sent(ObjectClient client, ObjectVerb verb, ContentAddress key, Func<Task<HttpResponseMessage>> call) =>
-        Bound(client, "presigned", verb, call).Bind(response => response.IsSuccessStatusCode
+        Bound(client, "presigned", verb, key, call).Bind(response => response.IsSuccessStatusCode
             ? IO.pure(response)
-            : IO.fail<HttpResponseMessage>(RemoteStoreFault.Granted(verb, response)));
+            : IO.fail<HttpResponseMessage>(RemoteStoreFault.Granted(verb, key, response)));
 
     // --- [LEGS]
     static ObjectLeg S3Leg(ObjectClient.S3 r) => new(
@@ -561,7 +561,7 @@ public static class ObjectIo {
                 .WithObjectSize(source.Length)
                 .WithContentType("application/octet-stream")
                 .WithNotMatchETag("*");
-            await r.Client.PutObjectAsync(store.Stamp(request, now)).ConfigureAwait(false);
+            await r.Client.PutObjectAsync(store.Stamp(request, key, now)).ConfigureAwait(false);
             return unit;
         }),
         Abort: (_, key) => Bound(r, "minio", ObjectVerb.Write, async () => {
@@ -599,7 +599,7 @@ public static class ObjectIo {
         Stage: static (_, _, part, _) => IO.pure(new CommittedPart(part.Number, "")),
         Seal: (_, _, _, key, _, source, _) => r.Minter(new GrantRequest.Write(source.Length)).Bind(grant =>
             Sent(r, ObjectVerb.Write, () => grant.Switch(
-                formPost:  post => Posted(r.Http, post, source),
+                formPost:  post => Posted(r.Http, post, key, source),
                 signedUrl: url => r.Http.PutAsync(url.Url, new ReadOnlyMemoryContent(source))))).Map(static _ => unit),
         Abort: static (_, _) => IO.pure(unit),
         Committed: static (_, _) => IO.pure(Seq<CommittedPart>()),

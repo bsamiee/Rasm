@@ -173,7 +173,7 @@ public static class Surfaces {
     static Fin<SurfaceResult> NormalOffsetOf(SurfaceOp.NormalOffset op) =>
         op.Refine.Run(
             seed: GrevilleGrid(op.Surface),
-            fit: (grid, index) => OffsetFit(grid, index),
+            fit: (grid, index) => OffsetFit(op, grid, index, key),
             densify: Densified,
             unconverged: deviation => new GeometryFault.OffsetUnconverged(Kind.Surface, deviation))
         .Map(final => (SurfaceResult)new SurfaceResult.Offsets(final.Fit, final.Evidence));
@@ -185,7 +185,7 @@ public static class Surfaces {
     // --- [CURVATURE_SAMPLE]
     static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op) =>
         op.Surface.Area(policy: op.Policy)
-            .Bind(area => SweepCurvature(area));
+            .Bind(area => SweepCurvature(op, area, key));
 
     static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area);
 
@@ -193,11 +193,11 @@ public static class Surfaces {
     static Fin<SurfaceResult> ProjectOf(SurfaceOp.Project op) =>
         !op.Policy.IsValid
             ? Fin.Fail<SurfaceResult>(new KernelFault.InvalidInput())
-            : Seeds()
+            : Seeds(op, key)
                 .Bind(seeds => toSeq(op.Probes)
                     .Zip(toSeq(seeds), static (probe, seed) => (Probe: probe, Seed: seed))
                     .TraverseM(row => op.Surface.ClosestParameter(row.Probe, Some(op.Policy.Nurbs), row.Seed)).As())
-                .Map(uv => Emit(new Arr<(double U, double V)>([.. uv])));
+                .Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])));
 
     static Fin<Arr<Option<(double U, double V)>>> Seeds(SurfaceOp.Project op) {
         if (op.Probes.Count < op.Policy.SeedThreshold.Value) {

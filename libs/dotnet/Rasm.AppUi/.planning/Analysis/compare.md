@@ -214,7 +214,7 @@ public static partial class CompareGridMap {
         from option in Checkpoint.AcceptValidated<OptionKey>(wire.PinnedOption)
         from at in CompareAxis.Time.Seat(new CompareCoord(option, wire.PinnedAnalysis, default), wire.PinnedAt)
         from sync in Granted(wire.Sync)
-        from admitted in CompareGrid.Admit(new CompareGrid(rows, columns, wire.RowMembers, wire.ColumnMembers, at, wire.Cap, sync))
+        from admitted in CompareGrid.Admit(new CompareGrid(key, rows, columns, wire.RowMembers, wire.ColumnMembers, at, wire.Cap, sync))
         select admitted;
 
     static Fin<CapabilitySet<CompareLink>> Granted(string wire) =>

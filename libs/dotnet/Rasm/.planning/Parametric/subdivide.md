@@ -118,7 +118,7 @@ public static class Subdivision {
     static Fin<StamBasis> Basis(SubdivisionScheme scheme, int valence) =>
         Bases.Value.Find((scheme, valence)).Match(
             Some: Fin.Succ,
-            None: () => AssembleBasis(scheme, valence).Bind(minted =>
+            None: () => AssembleBasis(scheme, valence, key).Bind(minted =>
                 Cell.Claim(Bases, (scheme, valence), () => minted).Current
                     .Find((scheme, valence))
                     .ToFin(Fail: new KernelFault.InvalidResult())));
@@ -137,11 +137,11 @@ public static class Subdivision {
     sealed record State(Level Level, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners, Set<int> Region, int Closures);
 
     static Fin<SubdivisionResult> RefineOf(SubdivideOp.Refine op) =>
-        Admit().Bind(seed =>
+        Admit(op, key).Bind(seed =>
             Range(0, op.Levels.Value).Fold(
                 Fin.Succ(seed),
                 (state, iteration) => state.Bind(current => Advance(op.Scheme, current, iteration)))
-            .Bind(final => Publish(final)));
+            .Bind(final => Publish(op, final, key)));
 
     static Fin<(HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners)> Admit(MeshSpace space, Option<Sharpness> sharpness);
     static Fin<State> Admit(SubdivideOp.Refine op);
@@ -150,8 +150,8 @@ public static class Subdivision {
 
     // --- [STAM_LIMIT]
     static Fin<SubdivisionResult> LimitOf(SubdivideOp.Limit op) =>
-        Admit()
-            .Bind(input => input.Op.Samples.TraverseM(sample => EvaluateLimit(input, sample)).As())
+        Admit(op, key)
+            .Bind(input => input.Op.Samples.TraverseM(sample => EvaluateLimit(input, sample, key)).As())
             .Map(rows => (SubdivisionResult)new SubdivisionResult.LimitField(
                 rows.Map(static row => row.Point),
                 rows.Map(static row => row.Normal)));

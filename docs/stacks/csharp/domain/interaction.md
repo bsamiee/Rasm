@@ -130,8 +130,8 @@ public static class Spine {
         ArgumentNullException.ThrowIfNull(shell);
         Seq<(RestoreFact Fact, IRoutableViewModel View)> resolved = saved
             .Map(key => Catalog.Find(row => row.Key == key)
-                .Map(row => (Fact: new RestoreFact(true), View: row.Make(shell)))
-                .IfNone(() => (new RestoreFact(false), Catalog[0].Make(shell))))
+                .Map(row => (Fact: new RestoreFact(key, true), View: row.Make(shell)))
+                .IfNone(() => (new RestoreFact(key, false), Catalog[0].Make(shell))))
             .Strict();
         shell.Router.NavigationStack = [.. resolved.Map(static row => row.View)];
         return resolved.Map(static row => row.Fact);

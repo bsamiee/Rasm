@@ -191,7 +191,7 @@ public sealed record ScheduleEntry(
     Func<IO<Unit>> Work) {
     public static int Seed(string key) =>
         unchecked((int)ContentHash.Halves(
-            ContentHash.Of(static (text, writer) => writer.String(text))).Low);
+            ContentHash.Of(key, static (text, writer) => writer.String(text))).Low);
 
     public static Fin<ScheduleEntry> Spread(
         string key,
@@ -202,7 +202,7 @@ public sealed record ScheduleEntry(
         RedrivePolicy redrive,
         Func<IO<Unit>> work) =>
         OccurrenceSpec.Admit(text: template, format: format, jitterSeed: Some(Seed()))
-            .Map(spec => new ScheduleEntry(spec, deadline, lease, redrive, work));
+            .Map(spec => new ScheduleEntry(key, spec, deadline, lease, redrive, work));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -359,7 +359,7 @@ public sealed record FencedRuntime(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FencedLease<TKey> where TKey : notnull, Thinktecture.IConvertible<string> {
     public static IO<Fin<FenceStep<TKey>>> Acquire(FencedRuntime runtime, TKey key, CorrelationId correlation) =>
-        Run(runtime, FenceVerb.Acquire, None, correlation);
+        Run(runtime, FenceVerb.Acquire, key, None, correlation);
 
     public static IO<Fin<FenceStep<TKey>>> Fenced(FencedRuntime runtime, FenceHolding<TKey> holding, FenceVerb verb) =>
         Run(runtime, verb, holding.Key, Some(holding), holding.Correlation);

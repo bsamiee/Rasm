@@ -189,7 +189,7 @@ public sealed class ChromeCell {
             ceded: _ => Park(new KernelFault.InvalidResult(Detail: Some(nameof(Laid)))),
             refused: row => Park(row.Cause),
             contended: _ => Park(new KernelFault.InvalidResult(Detail: Some(nameof(Laid)))));
-        return Decide(new ChromeEvent.Layout(shape), host);
+        return Decide(new ChromeEvent.Layout(shape), host, op);
     }
 
     private Unit Park(Error cause) => ignore(faults.Park(point: faultPoint, cause: cause));

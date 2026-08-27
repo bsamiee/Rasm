@@ -403,14 +403,14 @@ public static partial class RasterCodec {
             ? new RasterFault.Encode($"<raster-depth:{subject.Base.Format.Depth.Key}:{format.MaxDepth.Key}@{format.Key}>")
             : subject.Base.Layers.Value > 1 && !format.Carriage.Admits(CodecCapability.Layers)
             ? new RasterFault.Encode($"<raster-layers:{subject.Base.Layers.Value}@{format.Key}>")
-            : Associate(subject, subject.Base.Alpha, format.CanonicalAlpha)
+            : Associate(subject, subject.Base.Alpha, format.CanonicalAlpha, key)
                 .Bind(normalized => Bracketed(subject, normalized, () => format.Engine.Switch(
                     managed:  arm => Try.lift(() => WriteManaged(normalized, arm, policy)).Run().Bind(static inner => inner),
                     openExr:  arm => Try.lift(() => WriteExr(normalized, arm, format, policy)).Run().Bind(static inner => inner),
                     radiance: _   => Try.lift(() => WriteRadiance(normalized)).Run().Bind(static inner => inner),
                     ktx:      _   => Try.lift(() => KtxGate.Encode(normalized, policy)).Run().Bind(static inner => inner),
                     breadth:  arm => Fin.Fail<ReadOnlyMemory<byte>>(
-                                 new RasterFault.Encode($"<raster-ingest-only:{format.Key}:{arm.Identity}>")))));
+                                 new RasterFault.Encode(key, $"<raster-ingest-only:{format.Key}:{arm.Identity}>")))));
 
     private static Fin<T> Bracketed<T>(TexturePyramid subject, TexturePyramid converted, Func<Fin<T>> write) {
         if (ReferenceEquals(subject, converted)) { return write(); }
@@ -426,7 +426,7 @@ public static partial class RasterCodec {
         from == to
             ? Fin.Succ(chain)
             : chain.Levels
-                .FoldM(Seq<TexturePlane>(), (converted, level) => level.ToAlpha(to)
+                .FoldM(Seq<TexturePlane>(), (converted, level) => level.ToAlpha(to, key)
                     .Map(converted.Add)
                     .Rollback([.. converted]))
                 .As()
@@ -448,7 +448,7 @@ public static partial class RasterCodec {
         PixelOperations<Rgba64>.Instance.ToVector4(Profile, pixels.Span, vectors.Span, PixelConversionModifiers.None);
         return Fill(MemoryMarshal.Cast<Vector4, float>(vectors.Span), image.Width, image.Height, 4,
             format.MaxDepth == ChannelDtype.Unorm8 ? PlaneFormat.Rgba8 : PlaneFormat.Rgba16, PlaneTransfer.Srgb,
-            Declared(image.Metadata), format.CanonicalAlpha, PlaneRange.Unit);
+            Declared(image.Metadata), format.CanonicalAlpha, PlaneRange.Unit, key);
     }
 
     private static Fin<TexturePyramid> ReadBreadth(ReadOnlySpan<byte> payload) {
@@ -463,7 +463,7 @@ public static partial class RasterCodec {
         return Fill(staging.Span, width, height, lanes,
             PlaneFormat.For(lanes, BreadthDepth(image.Depth)).IfNone(PlaneFormat.Rgba32F),
             image.ColorSpace == ImageMagick.ColorSpace.sRGB ? PlaneTransfer.Srgb : PlaneTransfer.Linear,
-            PlanePrimaries.Unknown, image.HasAlpha ? AlphaMode.Straight : AlphaMode.None, PlaneRange.Unit);
+            PlanePrimaries.Unknown, image.HasAlpha ? AlphaMode.Straight : AlphaMode.None, PlaneRange.Unit, key);
     }
 
     private static ChannelDtype BreadthDepth(uint declared) =>
@@ -502,11 +502,11 @@ public static partial class RasterCodec {
         return read is { IsSuccess: true, Value: { } file }
             ? toSeq(file.Parts).Head.ToFin(new RasterFault.Decode("<exr-parts-empty>")).Bind(part =>
                   arm.Topology == ExrTopology.Deep && part.Levels.Count > 0 && part.Levels[0] is DeepLevel deepLevel
-                      ? DeepFront(deepLevel, part)
-                      : arm.Topology == ExrTopology.Tiled ? Tiled(part) : Flat(part))
+                      ? DeepFront(deepLevel, part, key)
+                      : arm.Topology == ExrTopology.Tiled ? Tiled(part, key) : Flat(part, key))
             : read.Error is Exception cause
-            ? new RasterFault.DecodeProvider(Error.New(cause.Message, cause))
-            : new RasterFault.Decode($"<exr-read:{read.Status}>");
+            ? new RasterFault.DecodeProvider(key, Error.New(cause.Message, cause))
+            : new RasterFault.Decode(key, $"<exr-read:{read.Status}>");
     }
 
     private static Fin<TexturePyramid> Flat(Part part) {
@@ -516,12 +516,12 @@ public static partial class RasterCodec {
         return Fill(flat.Data, flat.Width, flat.Height, flat.Channels,
             PlaneFormat.For(flat.Channels, ChannelDtype.Float32).IfNone(PlaneFormat.Rgba32F),
             PlaneTransfer.Linear, Declared(part.Header), flat.Channels is 4 ? AlphaMode.Associated : AlphaMode.None,
-            PlaneRange.Unit);
+            PlaneRange.Unit, key);
     }
 
     private static Fin<TexturePyramid> Tiled(Part part) =>
         toSeq(part.Levels)
-            .TraverseM(level => Level(level, part.Header)).As()
+            .TraverseM(level => Level(level, part.Header, key)).As()
             .Map(levels => new TexturePyramid(levels, levels.Count > 1 ? MipPolicy.Box : MipPolicy.None, Coupled: false));
 
     private static Fin<TexturePlane> Level(PartLevel level, Header header) {
@@ -539,7 +539,7 @@ public static partial class RasterCodec {
         return Fill(staging.Span, width, height, channels,
             PlaneFormat.For(channels, ChannelDtype.Float32).IfNone(PlaneFormat.Rgba32F),
             PlaneTransfer.Linear, Declared(header), channels is 4 ? AlphaMode.Associated : AlphaMode.None,
-            PlaneRange.Unit).Map(static chain => chain.Base);
+            PlaneRange.Unit, key).Map(static chain => chain.Base);
     }
 
     private static PlanePrimaries Declared(Header header) => PlanePrimaries.Of(Optional(header.Chromaticities));
@@ -561,14 +561,14 @@ public static partial class RasterCodec {
         return Fill(staging.Span, width, height, channels,
             PlaneFormat.For(channels, ChannelDtype.Float32).IfNone(PlaneFormat.Rgba32F),
             PlaneTransfer.Linear, Declared(part.Header), channels is 4 ? AlphaMode.Associated : AlphaMode.None,
-            PlaneRange.Unit);
+            PlaneRange.Unit, key);
     }
 
     private static Fin<ReadOnlyMemory<byte>> WriteExr(
         TexturePyramid chain, RasterEngine.OpenExr arm, RasterFormat format, EncodePolicy policy) =>
-        arm.Topology == ExrTopology.Deep ? WriteDeep(chain, arm.Topology, policy)
-        : arm.Topology == ExrTopology.Tiled ? WriteTiled(chain, arm.Topology, format, policy)
-        : WriteFlat(chain, policy);
+        arm.Topology == ExrTopology.Deep ? WriteDeep(chain, arm.Topology, policy, key)
+        : arm.Topology == ExrTopology.Tiled ? WriteTiled(chain, arm.Topology, format, policy, key)
+        : WriteFlat(chain, policy, key);
 
     private static Fin<ReadOnlyMemory<byte>> WriteFlat(TexturePyramid chain, EncodePolicy policy) {
         TexturePlane plane = chain.Base;
@@ -620,9 +620,9 @@ public static partial class RasterCodec {
         int part = writer.AddPart(header);
         return Sealed(writer.Begin(), "exr-tiled-begin")
             .Bind(_ => toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
-                .FoldM(unit, (_, slot) => WriteLevelTiles(writer, part, slot.Index, slot.Level, format, names))
+                .FoldM(unit, (_, slot) => WriteLevelTiles(writer, part, slot.Index, slot.Level, format, names, key))
                 .As())
-            .Bind(_ => Sealed(writer.End(), "exr-tiled-end"))
+            .Bind(_ => Sealed(writer.End(), key, "exr-tiled-end"))
             .Map(_ => (ReadOnlyMemory<byte>)sink.ToArray());
     }
 
@@ -676,7 +676,7 @@ public static partial class RasterCodec {
     private static Fin<TexturePyramid> Radiance(ReadOnlySpan<byte> payload) {
         ArrayBitmap<Rgba32Float> bitmap = HdrCodec.Decode(payload);
         return Fill(MemoryMarshal.Cast<Rgba32Float, float>(bitmap.PixelSpan), bitmap.Width, bitmap.Height, 4,
-            PlaneFormat.Rgba32F, PlaneTransfer.Linear, PlanePrimaries.Unknown, AlphaMode.None, PlaneRange.Unit);
+            PlaneFormat.Rgba32F, PlaneTransfer.Linear, PlanePrimaries.Unknown, AlphaMode.None, PlaneRange.Unit, key);
     }
 
     private static Fin<ReadOnlyMemory<byte>> WriteRadiance(TexturePyramid chain) {
@@ -691,13 +691,13 @@ public static partial class RasterCodec {
         PlaneTransfer transfer, PlanePrimaries primaries, AlphaMode alpha, PlaneRange range) =>
         width <= 0 || height <= 0
             ? new RasterFault.Decode($"<raster-extent:{width}x{height}>")
-            : TexturePlane.Of(format, Dimension.Create(width), Dimension.Create(height), transfer, alpha,
+            : TexturePlane.Of(format, Dimension.Create(width), Dimension.Create(height), transfer, alpha, key,
                     range: Some(range), primaries: Some(primaries), mode: AllocationMode.Default)
                 .Map(plane => {
                     plane.Store.Accept<ComposeRows, Unit>(new ComposeRows(staging, lanes));
                     return plane;
                 })
-                .Bind(plane => TexturePyramid.Of(plane, MipPolicy.None));
+                .Bind(plane => TexturePyramid.Of(plane, MipPolicy.None, key));
 
     internal static MemoryOwner<float> Drain(TexturePlane plane) {
         MemoryOwner<float> staging = MemoryOwner<float>.Allocate(plane.Width.Value * plane.Height.Value * plane.Lanes);
@@ -786,10 +786,10 @@ internal static class KtxGate {
         KtxTexture container = KtxCodec.Read(payload.Span);
         TextureCoderManager coders = new();
         return coders.TryGetCoder(container.Texture.Format, out ITextureCoder? coder) && coder is not null
-            ? Materialize(container, coder)
+            ? Materialize(container, coder, key)
             : hops > 0
-                ? Transcoded(payload, hops - 1)
-                : new RasterFault.Decode($"<ktx-unservable-payload:{container.Texture.Format}>");
+                ? Transcoded(payload, hops - 1, key)
+                : new RasterFault.Decode(key, $"<ktx-unservable-payload:{container.Texture.Format}>");
     }
 
     private static Fin<TexturePyramid> Materialize(KtxTexture container, ITextureCoder coder) {
@@ -797,7 +797,7 @@ internal static class KtxGate {
         PlaneTransfer transfer = SrgbDeclared(declared) ? PlaneTransfer.Srgb : PlaneTransfer.Linear;
         PlaneFormat storage = FloatDeclared(declared) ? PlaneFormat.Rgba32F : PlaneFormat.Rgba16F;
         return toSeq(Enumerable.Range(0, container.Texture.MipLevelCount))
-            .TraverseM(level => Level(container, coder, level, storage, transfer)).As()
+            .TraverseM(level => Level(container, coder, level, storage, transfer, key)).As()
             .Map(levels => new TexturePyramid(levels,
                 container.Texture.MipLevelCount > 1 ? MipPolicy.Box : MipPolicy.None, Coupled: false));
     }
@@ -815,7 +815,7 @@ internal static class KtxGate {
         ArrayBitmap<Rgba32Float> bitmap = new(subresource.Width, subresource.Height);
         coder.Decode(subresource.Payload, bitmap.AsView());
         return RasterCodec.Fill(MemoryMarshal.Cast<Rgba32Float, float>(bitmap.PixelSpan), subresource.Width,
-                subresource.Height, 4, storage, transfer, PlanePrimaries.Unknown, AlphaMode.Straight, PlaneRange.Unit)
+                subresource.Height, 4, storage, transfer, PlanePrimaries.Unknown, AlphaMode.Straight, PlaneRange.Unit, key)
             .Map(static chain => chain.Base);
     }
 
@@ -823,34 +823,34 @@ internal static class KtxGate {
         Staged("transcode", stage => {
             string source = Path.Combine(stage, "in.ktx2"), sink = Path.Combine(stage, "out.ktx2");
             File.WriteAllBytes(source, payload.Span);
-            return Run(["transcode", source, sink])
-                .Bind(_ => Read(File.ReadAllBytes(sink), hops));
-        });
+            return Run(["transcode", source, sink], key)
+                .Bind(_ => Read(File.ReadAllBytes(sink), hops, key));
+        }, key);
 
     internal static Fin<ReadOnlyMemory<byte>> Encode(TexturePyramid chain, EncodePolicy policy) =>
         chain.Base.Layers.Value is not 1
-            ? Layered(chain, policy).Bind(bytes => Validated(bytes, policy))
+            ? Layered(chain, policy, key).Bind(bytes => Validated(bytes, policy, key))
             : policy.Arm == KtxArm.InProcess
-                ? InProcess(chain, policy)
-                    .Bind(bytes => Validated(bytes, policy)
+                ? InProcess(chain, policy, key)
+                    .Bind(bytes => Validated(bytes, policy, key)
                         .BindFail(_ => policy.Payload == KtxPayload.Astc || policy.Payload == KtxPayload.RawBcn
-                            ? Fin.Fail<ReadOnlyMemory<byte>>(new RasterFault.Encode($"<ktx-validate:{policy.Payload.Key}>"))
-                            : Cli(chain, policy)))
+                            ? Fin.Fail<ReadOnlyMemory<byte>>(new RasterFault.Encode(key, $"<ktx-validate:{policy.Payload.Key}>"))
+                            : Cli(chain, policy, key)))
                 : policy.Payload == KtxPayload.Astc || policy.Payload == KtxPayload.RawBcn
-                    ? new RasterFault.Encode($"<ktx-cli-arm:{policy.Payload.Key}>")
-                    : Cli(chain, policy);
+                    ? new RasterFault.Encode(key, $"<ktx-cli-arm:{policy.Payload.Key}>")
+                    : Cli(chain, policy, key);
 
     private static Fin<ReadOnlyMemory<byte>> Layered(TexturePyramid chain, EncodePolicy policy) {
         PlaneTransfer transfer = chain.Base.Transfer;
         int layers = chain.Base.Layers.Value;
         int faces = layers is 6 ? 6 : 1;
-        return Resolve(chain, policy, transfer).Bind(format => {
+        return Resolve(chain, policy, transfer, key).Bind(format => {
             TextureCoderManager coders = new();
             return coders.TryGetCoder(format, out ITextureCoder? coder) && coder is not null
-                ? Slots(chain, coder, format, layers, faces).Map(slots =>
+                ? Slots(chain, coder, format, layers, faces, key).Map(slots =>
                     (ReadOnlyMemory<byte>)KtxCodec.Write(
                         new KtxTexture(format, slots.ToList(), faces is 6 ? 1 : layers, faces), Options(format, policy, transfer)))
-                : Fin.Fail<ReadOnlyMemory<byte>>(new RasterFault.Encode($"<ktx-layer-coder:{format}>"));
+                : Fin.Fail<ReadOnlyMemory<byte>>(new RasterFault.Encode(key, $"<ktx-layer-coder:{format}>"));
         });
     }
 
@@ -859,7 +859,7 @@ internal static class KtxGate {
         toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
             .FoldM(Seq<TextureSubresource>(), (built, slot) =>
                 toSeq(Enumerable.Range(0, layers)).FoldM(built, (rows, layer) =>
-                    slot.Level.Layer(layer).Map(face => {
+                    slot.Level.Layer(layer, key).Map(face => {
                         using MemoryOwner<byte> payload =
                             MemoryOwner<byte>.Allocate(format.GetByteCount(face.Width.Value, face.Height.Value));
                         coder.Encode(StageBlock(face).AsView(), payload.Span);
@@ -870,7 +870,7 @@ internal static class KtxGate {
 
     private static Fin<ReadOnlyMemory<byte>> InProcess(TexturePyramid chain, EncodePolicy policy) {
         PlaneTransfer transfer = chain.Base.Transfer;
-        return Resolve(chain, policy, transfer).Map(format => {
+        return Resolve(chain, policy, transfer, key).Map(format => {
             KtxEncodingOptions options = Options(format, policy, transfer);
             bool ldr = policy.Payload.Traits.Admits(CodecCapability.BlockCompressed)
                 && format != TextureFormats.Bc6HUFloat && format != TextureFormats.Bc6HSFloat;
@@ -956,15 +956,15 @@ internal static class KtxGate {
             return toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
                 .TraverseM(slot =>
                     RasterCodec.Encode(new TexturePyramid(Seq(slot.Level), MipPolicy.None, Coupled: false),
-                            RasterFormat.Exr, policy)
+                            RasterFormat.Exr, policy, key)
                         .Map(bytes => {
                             string leaf = Path.Combine(stage, $"level{slot.Index:D2}.exr");
                             File.WriteAllBytes(leaf, bytes.Span);
                             return leaf;
                         })).As()
-                .Bind(leaves => Run(CreateArgs(chain, policy, leaves, sink)))
+                .Bind(leaves => Run(CreateArgs(chain, policy, leaves, sink), key))
                 .Map(_ => (ReadOnlyMemory<byte>)File.ReadAllBytes(sink));
-        });
+        }, key);
 
     private static Fin<T> Staged<T>(string purpose, Func<string, Fin<T>> body) =>
         Try.lift(() => {
@@ -1035,9 +1035,9 @@ internal static class KtxGate {
     }
 
     private static Fin<Unit> Run(Seq<string> args) =>
-        Spawn(args).Bind(run => run.ExitCode is 0
+        Spawn(args, key).Bind(run => run.ExitCode is 0
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new RasterFault.Encode($"<ktx-{args.Head}:{run.ExitCode}:{run.Stderr}>")));
+            : Fin.Fail<Unit>(new RasterFault.Encode(key, $"<ktx-{args.Head}:{run.ExitCode}:{run.Stderr}>")));
 }
 ```
 

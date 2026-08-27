@@ -316,8 +316,8 @@ public readonly record struct ReportHeading(int Level, string Text, Paragraph No
 
 public sealed record ReportSetup(PlotPolicy Plot, SheetMargin Margin) {
     public static Fin<ReportSetup> Issue(SheetSize size) =>
-        from plot in PlotPolicy.Issue(size)
-        from margin in plot.Frame.Margin(size)
+        from plot in PlotPolicy.Issue(size, key)
+        from margin in plot.Frame.Margin(size, key)
         select new ReportSetup(plot, margin);
 
     public (double Width, double Height) Extent {
@@ -1034,7 +1034,7 @@ public static class PrintArm {
 public sealed record ReportSubscription {
     private ReportSubscription(string key, string reportKey, OccurrenceSpec occurrence, DeadlineClass deadline,
         Option<LeasePolicy> lease, RedrivePolicy redrive) =>
-        (Key, ReportKey, Occurrence, Deadline, Lease, Redrive) = (reportKey, occurrence, deadline, lease, redrive);
+        (Key, ReportKey, Occurrence, Deadline, Lease, Redrive) = (key, reportKey, occurrence, deadline, lease, redrive);
 
     public string Key { get; }
     public string ReportKey { get; }
@@ -1050,7 +1050,7 @@ public sealed record ReportSubscription {
     public static Validation<Error, ReportSubscription> Of(
         string key, string reportKey, OccurrenceSpec occurrence,
         Option<LeasePolicy> lease = default, RedrivePolicy? redrive = null) =>
-        (Named("schedule identity"), Named(reportKey, "report identity"))
+        (Named(key, "schedule identity"), Named(reportKey, "report identity"))
             .Apply((schedule, report) => new ReportSubscription(schedule, report, occurrence, Allotment, lease, redrive ?? Curve))
             .As();
 

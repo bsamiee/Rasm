@@ -271,7 +271,7 @@ public sealed record ChartSpec(
     double AnnotationTolerance,
     ChartPolicy Policy) {
     public static ChartSpec Of(string key, ChartPolicy policy, params ChartLayer[] layers) =>
-        new(toSeq(layers), Seq(ChartAxis.Time), Seq(ChartAxis.Value),
+        new(key, toSeq(layers), Seq(ChartAxis.Time), Seq(ChartAxis.Value),
             Seq<ChartSection>(), Seq<ChartAnnotation>(), None, None, None, 0d, policy);
 
     public ChartCanvas Canvas => Layers[0].Kind.Canvas;
@@ -574,15 +574,15 @@ public static class GeoSeries {
     }
 
     static int Replaced(IList<GeoLand> lands, Dictionary<string, int> index, string key, GeoLand current) {
-        if (!index.TryGetValue(out int at)) { return Appended(lands, index, current); }
+        if (!index.TryGetValue(key, out int at)) { return Appended(lands, index, current); }
         lands[at].Value = current.Value;
         return 1;
     }
 
     static int Dropped(IList<GeoLand> lands, Dictionary<string, int> index, string key) {
-        if (!index.TryGetValue(out int at)) { return 0; }
+        if (!index.TryGetValue(key, out int at)) { return 0; }
         lands.RemoveAt(at);
-        index.Remove();
+        index.Remove(key);
         foreach ((string name, int seat) in index) {
             if (seat > at) { index[name] = seat - 1; }
         }

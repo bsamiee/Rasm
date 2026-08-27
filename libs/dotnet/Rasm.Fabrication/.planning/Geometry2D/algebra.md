@@ -317,7 +317,7 @@ public sealed class PolygonScan : IDisposable {
     }
 
     public static Fin<T> Scan<T>(Seq<Loop> paths, PolygonFill fill, Func<PolygonScan, Fin<T>> fold) =>
-        Of(paths, fill).Bind(scan => {
+        Of(paths, fill, key).Bind(scan => {
             using (scan) { return fold(scan); }
         });
 
@@ -395,19 +395,19 @@ public static class EdgeSeparation {
 public static class PolygonAlgebra {
     public static Fin<PolygonTrace> Apply(PolygonOp? operation) =>
         from admitted in Admit.Need(operation)
-        let resolved = Resolve(admitted)
+        let resolved = Resolve(admitted, key)
         from result in Try.lift(() => admitted.Switch(
                 state: resolved,
-                offset: static (request) => OffsetOf(request),
-                boolean: static (request) => BooleanOf(request),
-                clipOpen: static (request) => OpenClipOf(request),
-                hygiene: static (request) => HygieneOf(request),
-                morphology: static (request) => MorphologyOf(request),
-                measure: static (request) => MeasureOf(request),
-                contains: static (request) => ContainsOf(request),
-                topology: static (request) => TopologyOf(request),
-                cells: static (request) => CellsOf(request),
-                raster: static (request) => RasterOf(request),
+                offset: static (op, request) => OffsetOf(request, op),
+                boolean: static (op, request) => BooleanOf(request, op),
+                clipOpen: static (op, request) => OpenClipOf(request, op),
+                hygiene: static (op, request) => HygieneOf(request, op),
+                morphology: static (op, request) => MorphologyOf(request, op),
+                measure: static (op, request) => MeasureOf(request, op),
+                contains: static (op, request) => ContainsOf(request, op),
+                topology: static (op, request) => TopologyOf(request, op),
+                cells: static (op, request) => CellsOf(request, op),
+                raster: static (op, request) => RasterOf(request, op),
                 calipers: static (request) => CalipersOf(request))).Run().Bind(static inner => inner)
         select result;
 
@@ -435,10 +435,10 @@ public static class PolygonAlgebra {
                     new OffsetOp.Offset(ToPolyline(item.First), new OffsetReach.PerEdge(item.Second),
                         state.Join, state.End, state.Policy))).As()
                 select runs)
-        from chains in results.TraverseM(result => ChainsOf(result)).As()
+        from chains in results.TraverseM(result => ChainsOf(result, op)).As()
         from loops in FromChains(chains.Bind(static c => c), paths[0].Tolerance, paths[0].Plane)
-        from tree in TreeOf(ToPaths(loops), PolygonFill.NonZero, paths[0].Tolerance)
-        from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, PolygonFill.NonZero)
+        from tree in TreeOf(ToPaths(loops), PolygonFill.NonZero, paths[0].Tolerance, op)
+        from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, PolygonFill.NonZero, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
     private static Fin<PolygonTrace> BooleanOf(PolygonOp.Boolean request) =>
@@ -450,17 +450,17 @@ public static class PolygonAlgebra {
         from overlay in Arrangement.Apply(new ArrangementOp.PlanarOverlay(
             subject.Map(ToPolyline), clip.Map(ToPolyline), kind, Axis.Z,
             ArrangementPolicy.Canonical with { Fill = fill }))
-        from chains in OverlayChainsOf(overlay)
+        from chains in OverlayChainsOf(overlay, op)
         from loops in FromChains(chains, operands[0].Tolerance, operands[0].Plane)
-        from tree in TreeOf(ToPaths(loops), fill, operands[0].Tolerance)
-        from topology in TopologyOf(tree, operands[0].Tolerance, operands[0].Plane, fill)
+        from tree in TreeOf(ToPaths(loops), fill, operands[0].Tolerance, op)
+        from topology in TopologyOf(tree, operands[0].Tolerance, operands[0].Plane, fill, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
     private static Fin<PolygonTrace> OpenClipOf(PolygonOp.ClipOpen request) =>
         from clip in Regions(request.Clip)
         from fill in Admit.Need(request.Fill)
         from subject in Edges(request.Subject, clip[0].Tolerance, clip[0].Plane)
-        from result in ClipRuns(subject, clip, fill)
+        from result in ClipRuns(subject, clip, fill, op)
         select (PolygonTrace)new PolygonTrace.SplitRuns(result.Inside, result.Outside);
 
     private static Fin<PolygonTrace> HygieneOf(PolygonOp.Hygiene request) =>
@@ -488,24 +488,24 @@ public static class PolygonAlgebra {
         from pattern in kind.ReflectPattern ? Reflected(operands[0]) : Fin.Succ(operands[0])
         from convolved in Offsetting.Apply(
             new OffsetOp.Minkowski(ToPolyline(operands[1]), ToPolyline(pattern), OffsetPolicy.Of(Context.Canonical)))
-        from chains in ChainsOf(convolved)
+        from chains in ChainsOf(convolved, op)
         from hull in FromChains(chains, operands[0].Tolerance, operands[0].Plane)
         from region in kind.ReflectPattern
             ? Arrangement.Apply(new ArrangementOp.PlanarOverlay(
                     Seq(ToPolyline(operands[1])), hull.Map(ToPolyline), BooleanOp.Difference, Axis.Z,
-                    ArrangementPolicy.Canonical))
-                .Bind(result => OverlayChainsOf(result))
+                    ArrangementPolicy.Canonical), op)
+                .Bind(result => OverlayChainsOf(result, op))
                 .Bind(complement => FromChains(complement, operands[0].Tolerance, operands[0].Plane))
             : Fin.Succ(hull)
-        from tree in TreeOf(ToPaths(region), PolygonFill.NonZero, operands[0].Tolerance)
-        from topology in TopologyOf(tree, operands[0].Tolerance, operands[0].Plane, PolygonFill.NonZero)
+        from tree in TreeOf(ToPaths(region), PolygonFill.NonZero, operands[0].Tolerance, op)
+        from topology in TopologyOf(tree, operands[0].Tolerance, operands[0].Plane, PolygonFill.NonZero, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
     private static Fin<PolygonTrace> MeasureOf(PolygonOp.Measure request) =>
         from paths in Regions(request.Paths)
         from fill in Admit.Need(request.Fill)
-        from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance)
-        from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill)
+        from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance, op)
+        from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill, op)
         from _ in guard(!topology.Nodes.IsEmpty, new GeometryFault.DegenerateInput(Kind.Polyline, None, "measure:empty-fill"))
         select (PolygonTrace)new PolygonTrace.Measured(MeasureOf(topology));
 
@@ -588,8 +588,8 @@ public static class PolygonAlgebra {
     private static Fin<PolygonTrace> TopologyOf(PolygonOp.Topology request) =>
         from paths in Regions(request.Paths)
         from fill in Admit.Need(request.Fill)
-        from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance)
-        from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill)
+        from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance, op)
+        from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill, op)
         select (PolygonTrace)new PolygonTrace.Regions(topology);
 
     private static Fin<PolygonTrace> CellsOf(PolygonOp.Cells request) =>
@@ -609,12 +609,12 @@ public static class PolygonAlgebra {
         let ring = ToPolyline(bounds[0])
         from relaxed in Range(0, policy.Relaxations).ToSeq().FoldM<Fin, Arr<Point3d>>(
             request.Sites,
-            (seeds, _) => Dual(seeds, ring, bounds[0]).Map(dual => Moved(seeds, dual.Cells, policy.RelaxationStrength))).As()
-        from dual in Dual(relaxed, ring, bounds[0])
+            (seeds, _) => Dual(seeds, ring, bounds[0], op).Map(dual => Moved(seeds, dual.Cells, policy.RelaxationStrength))).As()
+        from dual in Dual(relaxed, ring, bounds[0], op)
         from merged in policy.Merge.Match(
-            Some: rule => Merged(dual, rule, ring, bounds[0]),
+            Some: rule => Merged(dual, rule, ring, bounds[0], op),
             None: () => Fin.Succ(dual))
-        from index in SeedIndex(merged.Cells)
+        from index in SeedIndex(merged.Cells, op)
         select (PolygonTrace)new PolygonTrace.Celled(new CellDiagram(
             merged.Cells, merged.Adjacency, index, bounds[0], bounds[0].Tolerance, bounds[0].Plane));
 
@@ -623,7 +623,7 @@ public static class PolygonAlgebra {
         from fill in Admit.Need(request.Fill)
         from grid in Admit.Need(request.Grid)
         from metric in Admit.Need(request.Metric)
-        from result in FieldPlane.Project(paths, fill, grid, metric)
+        from result in FieldPlane.Project(paths, fill, grid, metric, op)
         select (PolygonTrace)new PolygonTrace.Field(result);
 
     // --- [BOUNDARIES] ------------------------------------------------------------------
@@ -717,7 +717,7 @@ public static class PolygonAlgebra {
                 Seq<Conform>(),
                 TessellationPolicy.Canonical,
                 Axis.Z))
-        from bounded in tessellation.VoronoiDual(ring)
+        from bounded in tessellation.VoronoiDual(ring, op)
         from graph in tessellation.VoronoiDual()
         from cells in toSeq(bounded).TraverseM(cell => Loop.Admit(
                 toSeq(cell.Ring).Map(point => new Point3d(point.X, point.Y, boundary.Plane)).ToArr(),
@@ -764,13 +764,13 @@ public static class PolygonAlgebra {
         return kept.Count == dual.Cells.Count
             ? Fin.Succ(dual)
             : kept.Count >= 3
-                ? Dual(dual.Cells.Filter(cell => kept.Contains(cell.Site)).Map(static cell => cell.Seed), ring, boundary)
+                ? Dual(dual.Cells.Filter(cell => kept.Contains(cell.Site)).Map(static cell => cell.Seed), ring, boundary, op)
                 : Fin.Fail<(Arr<SiteCell>, Arr<SiteEdge>)>(
                     new GeometryFault.DegenerateInput(Kind.Point, None, "cells:merge-exhausted"));
     }
 
     private static Fin<SpatialIndex> SeedIndex(Arr<SiteCell> cells) =>
-        SpatialIndex.Build(SpatialKind.Bvh, [.. cells.Map(static cell => new BoundingBox(cell.Seed, cell.Seed))], BuildPolicy.Canonical);
+        SpatialIndex.Build(SpatialKind.Bvh, [.. cells.Map(static cell => new BoundingBox(cell.Seed, cell.Seed))], BuildPolicy.Canonical, op);
 
     internal static FillRule FillOf(PolygonFill fill) => fill.Switch(
         nonZero: static () => FillRule.NonZero,
@@ -972,7 +972,7 @@ public static class FieldPlane {
             .As()
             .ToFin()
             .Bind(_ => metric.Admit())
-        from clearance in Clearance(paths, grid)
+        from clearance in Clearance(paths, grid, op)
         let values = new double[grid.Rows.Value, grid.Columns.Value]
         let kernel = new RasterKernel(
             values, clearance, new FillProbe(paths, fill, PolygonAlgebra.Precision(paths[0].Tolerance)), grid, metric)
@@ -982,7 +982,7 @@ public static class FieldPlane {
     private static Fin<double[]> Clearance(Seq<Loop> paths, CellLattice grid) =>
         from planes in paths.TraverseM(path => SupportSpace.Of(PolygonAlgebra.ToPolyline(path).ToPolylineCurve())
             .Bind(source => new ScalarField.DistanceCase(source, BoundarySense.Toward)
-                .SampleLattice(grid, paths[0].Tolerance))).As()
+                .SampleLattice(grid, paths[0].Tolerance, op))).As()
         from head in planes.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "raster:no-source"))
         select planes.Tail.Fold(head.ToArray(), static (least, plane) => Least(least, plane));
 

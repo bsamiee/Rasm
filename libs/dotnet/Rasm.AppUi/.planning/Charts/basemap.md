@@ -95,7 +95,7 @@ public sealed partial class WidgetRow {
 
     static WidgetRow Of<TWidget>(string key, Func<Map, TWidget> mint, Action<TWidget, ChartInk> retint)
         where TWidget : class, IWidget =>
-        new(typeof(TWidget), map => mint(map),
+        new(key, typeof(TWidget), map => mint(map),
             (widget, ink) => { if (widget is TWidget typed) { retint(typed, ink); } });
 
     internal static void Text(IWidget widget, ChartInk ink) {
@@ -317,10 +317,10 @@ public abstract partial record MapNav {
             double.IsFinite(v.Degrees) ? Fin.Succ(unit) : Refused("rotate-to"), nav => nav.RotateTo(v.Degrees)));
 
     static Fin<Unit> Finite(string key, MPoint center) =>
-        double.IsFinite(center.X) && double.IsFinite(center.Y) ? Fin.Succ(unit) : Refused();
+        double.IsFinite(center.X) && double.IsFinite(center.Y) ? Fin.Succ(unit) : Refused(key);
 
     static Fin<Unit> Positive(string key, double resolution) =>
-        double.IsFinite(resolution) && resolution > 0d ? Fin.Succ(unit) : Refused();
+        double.IsFinite(resolution) && resolution > 0d ? Fin.Succ(unit) : Refused(key);
 
     static Fin<Unit> Refused(string key) =>
         Fin.Fail<Unit>(new ChartFault.VisualDegenerate($"navigate/{key}: argument is out of range"));
@@ -701,7 +701,7 @@ public sealed partial class BasemapSurface {
     public IO<VisualArtifact> Snapshot(VisualRuntime runtime, string key) =>
         from bytes in IO.lift(() => Control.GetSnapshot(Control.Map.Layers, RenderFormat.Png, quality: 100))
         from artifact in VisualCodec.Decode(bytes).Bracket(
-            image => VisualCodec.Encode(runtime, image, VisualCodec.Png, Artifact),
+            image => VisualCodec.Encode(runtime, image, VisualCodec.Png, Artifact, key),
             static image => IO.lift(() => { image.Dispose(); return unit; }))
         select artifact;
 }

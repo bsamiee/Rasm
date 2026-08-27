@@ -103,7 +103,7 @@ public readonly record struct SpectrumPolicy(UnitInterval LowFrequencyCeiling, D
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class SegmentKernel {
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor spec, int eigenpairs) =>
-        from result in DescribeSpectralShape(space, spec, eigenpairs)
+        from result in DescribeSpectralShape(space, spec, eigenpairs, key)
         from output in ResultProjection.Rows<DescriptorResult, TOut>(self: result, owner: typeof(MeshDescriptor),
             ProjectionRow.Of<DescriptorSolve>(() => Fin.Succ(result.Solve)),
             ProjectionRow.Of<SpectralDescriptor>(() => Fin.Succ(new SpectralDescriptor(result.Values, result.Solve.Spectral))),
@@ -112,7 +112,7 @@ internal static partial class SegmentKernel {
         select output;
     internal static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor spec, int eigenpairs) =>
         from bundle in space.Cache.SpectralBasisBundleOf(Dimension.Create(eigenpairs))
-        from spectral in spec.Filter.Evaluate(bundle.Basis, spec.Sources, spec.Policy)
+        from spectral in spec.Filter.Evaluate(bundle.Basis, spec.Sources, spec.Policy, key)
         select new DescriptorResult(spectral.Values,
             new DescriptorSolve(spectral.Profile, bundle.Eigen, bundle.Cached, bundle.SkippedDegenerateFaces));
 
@@ -777,8 +777,8 @@ internal static partial class SegmentKernel {
                     values.Map(c => (c.Vertex, ConeIndex: c.HolonomyDeficit / (2.0 * Math.PI))))
                 select result).As()
             from field in constraints.Match(
-                Some: hints => SolveConstrainedCrossField(space, order, hints, adjustment),
-                None: () => SolveSmoothestCrossField(space, order, adjustment))
+                Some: hints => SolveConstrainedCrossField(space, order, hints, adjustment, key),
+                None: () => SolveSmoothestCrossField(space, order, adjustment, key))
             select field)
         from value in MeshProbe.ComplexBlend(space: space, sample: sample, perVertex: cached,
             decode: (value, x, y) => {

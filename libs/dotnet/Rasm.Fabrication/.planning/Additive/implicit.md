@@ -199,7 +199,7 @@ public abstract partial record FieldDefinition {
     public sealed record Generated(FieldKey Key, FieldExpression Program) : FieldDefinition;
 
     public static Fin<FieldDefinition> Admit(string key) =>
-        Admission.Of<FieldKind, string>().Map(static kind => (FieldDefinition)new Known(kind));
+        Admission.Of<FieldKind, string>(key).Map(static kind => (FieldDefinition)new Known(kind));
 
     public static Fin<FieldDefinition> Admit(FieldKey key, FieldExpression program) =>
         (AdmissionSlots.Gate(program.Valid, FabConcern.Additive, "implicit-field:generated-program", FabricationFault.Inadmissible),
@@ -208,7 +208,7 @@ public abstract partial record FieldDefinition {
             .Apply(static (_, _) => unit)
             .As()
             .ToFin()
-            .Map(_ => (FieldDefinition)new Generated(program));
+            .Map(_ => (FieldDefinition)new Generated(key, program));
 
     public FieldKey Identity => Switch(
         known: static definition => FieldKey.Create(definition.Kind.Key),
@@ -550,16 +550,16 @@ file static class SpectralMorphology {
                            .Select(point => new Complex(
                                held.fSignedDistance(new Vector3((float)point.X, (float)point.Y, (float)point.Z)), 0.0))],
                        lattice))).Run().Bind(static inner => inner)
-               from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric)
+               from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric, key)
                from axes in Seq(SignedAxis.PositiveX, SignedAxis.PositiveY, SignedAxis.PositiveZ)
-                   .TraverseM(axis => forward.Frequencies(axis)).As()
+                   .TraverseM(axis => forward.Frequencies(axis, key)).As()
                let symbol = Enumerable.Range(0, (int)forward.Cells)
                    .Select(bin => lattice.Coordinate(bin))
                    .Select(at => step.Symbol.Of(
                        new Vector3d(axes[0][at.Column], axes[1][at.Row], axes[2][at.Layer]), shape))
                    .ToArray()
-               from modulated in forward.Modulate(symbol)
-               from inverted in modulated.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric)
+               from modulated in forward.Modulate(symbol, key)
+               from inverted in modulated.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric, key)
                from rebuilt in Rasterize(held, inverted, lattice, policy)
                select rebuilt;
     }
@@ -747,7 +747,7 @@ public sealed partial class VdbSource {
 
     public static Fin<VdbSource> Admit(
         ContentKey key, FileInfo path, FieldKey field, HashMap<string, string> requiredMetadata) =>
-        Validate(path, field, requiredMetadata, out VdbSource source).Admitted(source);
+        Validate(key, path, field, requiredMetadata, out VdbSource source).Admitted(source);
 }
 
 [ComplexValueObject]
@@ -1434,7 +1434,7 @@ public static partial class Sdf {
                 return ImplicitCanonical
                     .Cli(slices, Seq(scope.Metrics.Field), operation.Policy, Some(mode))
                     .Map(key => new CliStack(
-                        slices.nCount(), Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None));
+                        slices.nCount(), key, Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None));
             }).Run().Bind(static inner => inner);
 
     private static Fin<CliStack> Grayscale(VoxelScope scope, ImplicitOp operation, CliMode.Grayscale mode) =>
@@ -1456,7 +1456,7 @@ public static partial class Sdf {
                 return masks.Bind(settled => ImplicitCanonical
                     .MaskIndex(settled, scope.Metrics.Field, operation.Policy, mode)
                     .Map(key => new CliStack(
-                        settled.Count, settled, Seq(scope.Metrics.Field), Some(scope.Metrics), None)));
+                        settled.Count, key, settled, Seq(scope.Metrics.Field), Some(scope.Metrics), None)));
             }).Run().Bind(static inner => inner);
 
     private static Fin<CliStack> Direct(ImplicitOp operation, CliMode.VdbCli mode, Option<IProgress<double>> progress) =>

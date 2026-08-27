@@ -170,24 +170,24 @@ public static class AluminumSeed {
             AdmissionSlots.Gate(die.Grade.AluminumArm.IsSome,
                 new ComponentFault.GradeBodyMissing(die.Grade, ComponentFamily.Aluminum)),
             die.Grade.AluminumArm
-                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm).ToValidation().Map(static _ => unit)).As()
+                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm, key).ToValidation().Map(static _ => unit)).As()
                 .Map(static _ => unit)));
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, DieRow>>> Table =
         SeedJoin.Of(Roster, static die => die.Designation);
 
     public static Fin<DieRow> Resolve(Component component) =>
-        SeedJoin.Resolve(Table, component.Designation);
+        SeedJoin.Resolve(Table, component.Designation, key);
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
         from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
         from based in guard(placement.Basis == DesignBasis.En1999,
             new ComponentFault.BasisUnsupported(placement.Basis, ComponentFamily.Aluminum))
-        from die in Resolve(component)
-        from arm in die.Grade.AluminumArm.ToFin(new ComponentFault.GradeBodyMissing(die.Grade, ComponentFamily.Aluminum))
-        from banded in arm.Strengths(die.Form, die.ElementMm)
+        from die in Resolve(component, key)
+        from arm in die.Grade.AluminumArm.ToFin(new ComponentFault.GradeBodyMissing(key, die.Grade, ComponentFamily.Aluminum))
+        from banded in arm.Strengths(die.Form, die.ElementMm, key)
         from capacity in SectionCapacity.Lift(new CapacityLift.Aluminum(
-            component.Designation, die.Grade, die.Form, banded.FoMpa, banded.FuMpa, solved, placement.Basis))
+            component.Designation, die.Grade, die.Form, banded.FoMpa, banded.FuMpa, solved, placement.Basis), key)
         select capacity;
 }
 ```

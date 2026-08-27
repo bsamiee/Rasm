@@ -95,8 +95,8 @@ public sealed partial class SettingKind {
             .Map(toSeq),
         putPreset: static (node, key, value) => node.SetDefault(value.ToArray()),
         capture: static (source, op) => source switch {
-            string[] rows => ArchiveValue.Of(toSeq(rows)),
-            Seq<string> sequence => ArchiveValue.Of(sequence),
+            string[] rows => ArchiveValue.Of(toSeq(rows), op),
+            Seq<string> sequence => ArchiveValue.Of(sequence, op),
             _ => Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput()),
         },
         host: static (value, op) => value.Project<Seq<string>>().Map(static sequence => (object?)sequence.ToArray()),
@@ -110,8 +110,8 @@ public sealed partial class SettingKind {
         put: static (node, key, value) => node.SetStringDictionary(TextMapRows(value)),
         putPreset: static (node, key, value) => node.SetDefault(TextMapRows(value)),
         capture: static (source, op) => source switch {
-            KeyValuePair<string, string>[] rows => ArchiveValue.Of(rows.ToHashMap()),
-            HashMap<string, string> map => ArchiveValue.Of(map),
+            KeyValuePair<string, string>[] rows => ArchiveValue.Of(rows.ToHashMap(), op),
+            HashMap<string, string> map => ArchiveValue.Of(map, op),
             _ => Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput()),
         },
         host: static (value, op) => value.Project<HashMap<string, string>>()
@@ -136,9 +136,9 @@ public sealed partial class SettingKind {
         put: static (node, key, value) => node.SetColor(value.Match<Color?>(Some: static color => color, None: static () => null)),
         putPreset: static (node, key, value) => node.SetDefault(value.Match<Color?>(Some: static color => color, None: static () => null)),
         capture: static (source, op) => source switch {
-            null => ArchiveValue.Of(Option<Color>.None),
-            Color color => ArchiveValue.Of(Some(color)),
-            Option<Color> optional => ArchiveValue.Of(optional),
+            null => ArchiveValue.Of(Option<Color>.None, op),
+            Color color => ArchiveValue.Of(Some(color), op),
+            Option<Color> optional => ArchiveValue.Of(optional, op),
             _ => Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput()),
         },
         host: static (value, op) => value.Project<Option<Color>>()
@@ -182,7 +182,7 @@ public sealed partial class SettingKind {
             InputType: typeof(System.Enum), OutputType: typeof(PersistentSettings))),
         capture: static (source, op) => source is null
             ? Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput())
-            : ArchiveValue.Enum(source),
+            : ArchiveValue.Enum(source, op),
         host: static (value, op) => value.EnumEntry
             .ToFin(Fail: new KernelFault.InvalidInput())
             .Bind(entry => Try.lift(() => Fin.Succ<object?>(value: System.Enum.Parse(entry.EnumType, entry.Name, ignoreCase: true))).Run().Bind(static inner => inner)));
@@ -262,8 +262,8 @@ public sealed partial class SettingKind {
 
     private static Fin<Option<ArchiveValue>> ReadEnumTyped<T>(PersistentSettings source, string key)
         where T : struct, IConvertible =>
-        source.TryGetEnumValue(out T value)
-            ? ArchiveValue.Enum(value).Map(Some)
+        source.TryGetEnumValue(key, out T value)
+            ? ArchiveValue.Enum(value, op).Map(Some)
             : Fin.Succ(value: Option<ArchiveValue>.None);
 
     private static SettingKind OfNone<T>(
@@ -312,7 +312,7 @@ public sealed partial class SettingKind {
             hostType: hostType ?? typeof(T),
             read: (node, settingKey, legacy, op) => Try.lift(() => probe(
                 node, settingKey.Value, legacy.Map(static row => row.Value))
-                .TraverseM(value => ArchiveValue.Of(value))
+                .TraverseM(value => ArchiveValue.Of(value, op))
                 .As()).Run().Bind(static inner => inner),
             write: (node, settingKey, value, op) => value.Project<T>()
                 .Bind(typed => Try.lift(() => put(node, settingKey.Value, typed)).Run().Bind(static inner => inner)),
@@ -320,7 +320,7 @@ public sealed partial class SettingKind {
                 ? (_, _, op) => Fin.Fail<Option<ArchiveValue>>(error: new KernelFault.Unsupported(
                     InputType: typeof(T), OutputType: typeof(PersistentSettings)))
                 : (node, settingKey, op) => Try.lift(() => probePreset(node, settingKey.Value)
-                    .TraverseM(value => ArchiveValue.Of(value))
+                    .TraverseM(value => ArchiveValue.Of(value, op))
                     .As()).Run().Bind(static inner => inner),
             writeDefault: putPreset is null
                 ? (_, _, _, op) => Fin.Fail<Unit>(error: new KernelFault.Unsupported(
@@ -328,7 +328,7 @@ public sealed partial class SettingKind {
                 : (node, settingKey, value, op) => value.Project<T>()
                     .Bind(typed => Try.lift(() => putPreset(node, settingKey.Value, typed)).Run().Bind(static inner => inner)),
             capture: capture ?? ((source, op) => source is T typed
-                ? ArchiveValue.Of(typed)
+                ? ArchiveValue.Of(typed, op)
                 : Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput())),
             host: host ?? ((value, op) => value.Project<T>().Map(static typed => (object?)typed)));
 }
@@ -441,7 +441,7 @@ public abstract partial record IntegerBound {
 
     internal int Clamped(PersistentSettings node, SettingKey key, int fallback) =>
         Switch<(PersistentSettings Node, SettingKey Key, int Fallback), int>(
-            state: (node, fallback),
+            state: (node, key, fallback),
             lowerCase: static (s, row) => s.Node.GetInteger(s.Key.Value, s.Fallback, row.Floor, boundIsLower: true),
             upperCase: static (s, row) => s.Node.GetInteger(s.Key.Value, s.Fallback, row.Ceiling, boundIsLower: false),
             rangeCase: static (s, row) => s.Node.GetInteger(s.Key.Value, s.Fallback, row.Floor, row.Ceiling));
@@ -599,7 +599,7 @@ public static class SettingStore {
                            state: args,
                            plugInCase: static (state, _) => state.PlugInSettings,
                            commandCase: static (state, command) => state.CommandSettings(command.EnglishCommandName)))).Run().Bind(static inner => inner)
-                       from tree in Snapshot(node, location, DepthBudget.Value)
+                       from tree in Snapshot(node, location, DepthBudget.Value, op)
                        select new SettingsSaved(tree, (SaveOrigin)args.SavedByThisRhino))))).Run().Bind(static inner => inner))
                from subscription in Subscription.Attach(
                    subscribe: callback => owner.SettingsSaved += callback,
@@ -739,7 +739,7 @@ public static class SettingStore {
 
     private static Fin<SettingAnswer> Execute(PersistentSettings node, SettingOperation operation) =>
         operation.Switch<(PersistentSettings Node), Fin<SettingAnswer>>(
-            state: (node),
+            state: (node, op),
             readCase: static (s, read) => from adopted in Adopted(s.Node, read.Legacy)
                                           from value in read.Kind.Read(s.Node, read.Legacy)
                                           select (SettingAnswer)new SettingAnswer.ValueCase(value, adopted),
@@ -799,7 +799,7 @@ public static class SettingStore {
         CapabilitySet<SettingReach> reach,
         Func<Fin<Option<ArchiveValue>>> read,
         Func<Fin<Unit>> write) => reach.Admits(SettingReach.Read)
-        ? Observe(path, kind, read, write)
+        ? Observe(path, key, kind, read, write)
         : write().Map(_ => (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutation(
             path,
             new SettingObservation.UnobservableCase(kind),
@@ -837,7 +837,7 @@ public static class SettingStore {
         Admit.Probe<Type>((out Type value) => node.TryGetSettingType(key.Value, out value));
 
     private static Fin<SettingKind> AdmitTarget(PersistentSettings node, SettingKey key, ArchiveValue value) =>
-        from kind in SettingKind.For(value)
+        from kind in SettingKind.For(value, op)
         from existing in Try.lift(() => Fin.Succ(value: SeatedType(node))).Run().Bind(static inner => inner)
         from _compatible in existing
             .TraverseM(found => guard(kind.Accepts(found, value), new KernelFault.InvalidInput()).ToFin())
@@ -854,7 +854,7 @@ public static class SettingStore {
     private static Fin<SettingAnswer> Delete(PersistentSettings node, SettingOperation.DeleteCase request) =>
         from type in Try.lift(() => Fin.Succ(value: SeatedType(node, request.Key))).Run().Bind(static inner => inner)
         from prior in type.Match(
-            Some: found => SettingKind.For(found)
+            Some: found => SettingKind.For(found, op)
                 .Bind(kind => kind.Read(node, Seq<SettingKey>())),
             None: () => Fin.Succ(value: Option<ArchiveValue>.None))
         from _ in Try.lift(() => node.DeleteItem(request.Key.Value)).Run().Bind(static inner => inner)
@@ -867,13 +867,13 @@ public static class SettingStore {
             prior.IsSome ? SettingDelta.Changed : SettingDelta.Unchanged));
 
     private static Fin<SettingAnswer> DeleteChild(PersistentSettings node, SettingOperation.DeleteChildCase request) =>
-        from before in Visibility(node)
+        from before in Visibility(node, op)
         from _present in Try.lift(() => guard(Child(node, request.Child).IsSome, new KernelFault.MissingContext()).ToFin()).Run().Bind(static inner => inner)
         from _delete in Try.lift(() => node.DeleteChild(request.Child.Value)).Run().Bind(static inner => inner)
         from _absent in Try.lift(() => guard(
             Child(node, request.Child).IsNone,
             new KernelFault.InvalidResult(Detail: Some($"Settings child '{request.Child.Value}' survived deletion."))).ToFin()).Run().Bind(static inner => inner)
-        from after in Visibility(node)
+        from after in Visibility(node, op)
         select (SettingAnswer)new SettingAnswer.NodeCase(new NodeMutation(
             request.Path,
             Some(request.Child),
@@ -903,7 +903,7 @@ public static class SettingStore {
                 Traits: Held(
                     (node.GetSettingIsReadOnly(key.Value), SettingTrait.ReadOnly),
                     (node.GetSettingIsHiddenFromUserInterface(key.Value), SettingTrait.Hidden))))).Run().Bind(static inner => inner)
-            .Map(read => new SettingMetadata(read.Runtime, SettingKind.For(read.Runtime).ToOption(), read.Traits));
+            .Map(read => new SettingMetadata(key, read.Runtime, SettingKind.For(read.Runtime, op).ToOption(), read.Traits));
 
     private static CapabilitySet<SettingTrait> Held(params ReadOnlySpan<(bool Holds, SettingTrait Trait)> rows) =>
         CapabilitySet<SettingTrait>.Of(rows
@@ -961,11 +961,11 @@ public static class SettingStore {
     private static Fin<Unit> RegisterTyped<T>(PersistentSettings node, string key, ISettingGuard guard) =>
         Try.lift(() => {
             node.RegisterSettingsValidator<T>((_, args) => ignore(Try.lift(() =>
-                from current in guard.Kind.Capture(args.CurrentValue)
-                from proposed in guard.Kind.Capture(args.NewValue)
+                from current in guard.Kind.Capture(args.CurrentValue, op)
+                from proposed in guard.Kind.Capture(args.NewValue, op)
                 from accepted in guard.Validate(current, proposed)
-                from host in guard.Kind.Host(accepted)
-                from _assigned in Assign(args, host)
+                from host in guard.Kind.Host(accepted, op)
+                from _assigned in Assign(args, host, op)
                 select unit).Run().Bind(static inner => inner)
                 .BindFail(error => Try.lift(() => {
                     args.Cancel = true;
@@ -996,7 +996,7 @@ public static class SettingStore {
 
     private static Fin<SettingAnswer> Changed(PersistentSettings node, SettingOperation.ChangedCase request) =>
         request.CompareWith.Match(
-            Some: path => Resolve(path, ChildPolicy.Require)
+            Some: path => Resolve(path, ChildPolicy.Require, op)
                 .Bind(other => Try.lift(() => Fin.Succ(value: node.ContainsModifiedValues(other))).Run().Bind(static inner => inner)),
             None: () => Try.lift(() => Fin.Succ(value: node.ContainsChangedValues())).Run().Bind(static inner => inner))
         .Map<SettingAnswer>(static changed => new SettingAnswer.ChangedCase((ChangeVerdict)changed));

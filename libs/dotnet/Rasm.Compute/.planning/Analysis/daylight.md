@@ -263,7 +263,7 @@ public static class DaylightAnalysis {
                     + perez),
             None: () => Fin.Succ(Seq(AssessmentFact.Text("sky-state", "geometry-only"))))
         from matrix in probed.Match(
-            Some: sky => Matrix(findings, sky, request, sink).Map(Some),
+            Some: sky => Matrix(findings, sky, request, sink, key).Map(Some),
             None: static () => Fin.Succ(Option<ArtifactContent>.None))
         from result in AssessmentResult.Of(
             request.Route,
