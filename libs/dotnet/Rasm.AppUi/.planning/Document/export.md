@@ -95,7 +95,6 @@ public abstract partial record ExportFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ExportDelivery {
-    static readonly Op Write = Op.Of(name: "appui.export.deliver");
 
     public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload) =>
         destination.Switch(
@@ -119,7 +118,7 @@ public static class ExportDelivery {
         from published in runtime.Publish(artifact)
         select published;
 
-    static IO<MonotonicStamp> Marked(VisualRuntime runtime) => IO.lift<MonotonicStamp>(() => runtime.Line.Capture(Write));
+    static IO<MonotonicStamp> Marked(VisualRuntime runtime) => IO.lift<MonotonicStamp>(() => Error.New(Write.Message, Write));
 
     static IO<Duration> Spanned(VisualRuntime runtime, MonotonicStamp start, MonotonicStamp end) =>
         IO.lift<Duration>(() => runtime.Line.Elapsed(start, end, Write).Map(Duration.FromTimeSpan));
@@ -133,11 +132,11 @@ public static class ExportDelivery {
         string pending = Path.Combine(seat.Directory, $".{Path.GetFileName(seat.Target)}.{Guid.NewGuid():N}.pending");
         return Custody.Bracket(
                 acquire: () => File.OpenHandle(pending, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.WriteThrough),
-                project: handle => Write.Catch(() => { RandomAccess.Write(handle, payload.Span, fileOffset: 0L); return Fin.Succ(unit); }),
+                project: handle => Try.lift(() => { RandomAccess.Write(handle, payload.Span, fileOffset: 0L); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
                 key: Write)
             .Bind(_ => LinkFreeChain(seat.Root, seat.Directory))
-            .Bind(_ => Write.Catch(() => { File.Move(pending, seat.Target, overwrite: true); return Fin.Succ(seat.Target); }))
-            .Rollback(() => Write.Catch(() => { if (File.Exists(pending)) { File.Delete(pending); } return Fin.Succ(unit); }));
+            .Bind(_ => Try.lift(() => { File.Move(pending, seat.Target, overwrite: true); return Fin.Succ(seat.Target); }).Run().Bind(static inner => inner))
+            .Rollback(() => Try.lift(() => { if (File.Exists(pending)) { File.Delete(pending); } return Fin.Succ(unit); }).Run().Bind(static inner => inner));
     }
 
     static Fin<(string Root, string Directory, string Target)> Admitted(ProfileRoots roots, string destination) =>
@@ -210,7 +209,7 @@ public static class SupportBundle {
 
 - Owner: `ReportBlock` [Union] — the typed content vocabulary the branch's five report producers compose; `TableBody` — the header-and-rows table payload both `ReportBlock` and `OfficeSheet` carry; `ListStyle` — the list marker row; `BlockLine` [Union] with `LineRole` — the target-neutral line vocabulary ONE block walk produces; `LineEmitter<TNode>` — the per-target emitter row; `BlockLines` — the one polymorphic fold from a report block or an office cell onto lines; `ReportHeading` — the composed heading node the bookmark outline binds to; `ReportTrait` — the report-composition capability axis; `ReportSetup` — the kernel-issued page geometry; `ReportSpec` — the flow-report composition row; `FlowReport` — the one MigraDoc render surface.
 - Cases: `ReportBlock` = Heading · Body · List · Callout · Code · Table · PlacedVisual · Figure · Footnote · Section · Rule · PageBreak; `BlockLine` = Text · Grid · Series · Tile · Divider · Split; `LineRole` = heading · body · code · caption · footnote; `ListStyle` = ordered · bulleted; `ReportTrait` = page-numbers · bookmarks.
-- Entry: `public static IO<VisualArtifact> Render(VisualRuntime runtime, ReportSpec spec)` — IO effect; `public static Fin<ReportSetup> Issue(SheetSize size, Op? key = null)` on `ReportSetup` — the kernel-issued geometry; `public static Seq<BlockLine> Of(ReportBlock block)` and `public static Seq<BlockLine> Of(OfficeCell cell)` on `BlockLines` — one entrypoint discriminating on input shape.
+- Entry: `public static IO<VisualArtifact> Render(VisualRuntime runtime, ReportSpec spec)` — IO effect; `public static Fin<ReportSetup> Issue(SheetSize size)` on `ReportSetup` — the kernel-issued geometry; `public static Seq<BlockLine> Of(ReportBlock block)` and `public static Seq<BlockLine> Of(OfficeCell cell)` on `BlockLines` — one entrypoint discriminating on input shape.
 - Law: page geometry is the kernel `Rasm/Drawing/sheet` owner's — `ReportSetup` carries one admitted `PlotPolicy` and the standard's own binding-aware `SheetMargin`, so a report page states a published size, an orientation ROW, and four published edges rather than a free centimetre scalar drawn on all four sides. An absent setup IS `Option.None`: a record whose every column was absent while still answering `IsInert` carried two absence regimes for one question.
 - Law: the block walk happens ONCE. `BlockLines.Of` is the only traversal of `ReportBlock` and `OfficeSheet`, and MigraDoc, XLSX, and DOCX are three `LineEmitter` rows over the produced lines — three full parallel walks of one twelve-case union could disagree about a case, and one of them carried a `default:` arm that turned a new case into a silent drop.
 - Law: a series is its OWN line case, so the XLSX emitter writes typed numeric cells; folding chart points into a string table would have lost the numeric cell type the workbook part graph carries.
@@ -316,9 +315,9 @@ public readonly record struct ReportHeading(int Level, string Text, Paragraph No
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ReportSetup(PlotPolicy Plot, SheetMargin Margin) {
-    public static Fin<ReportSetup> Issue(SheetSize size, Op? key = null) =>
-        from plot in PlotPolicy.Issue(size, key)
-        from margin in plot.Frame.Margin(size, key)
+    public static Fin<ReportSetup> Issue(SheetSize size) =>
+        from plot in PlotPolicy.Issue(size)
+        from margin in plot.Frame.Margin(size)
         select new ReportSetup(plot, margin);
 
     public (double Width, double Height) Extent {
@@ -368,7 +367,6 @@ public static class BlockLines {
 }
 
 public static class FlowReport {
-    static readonly Op Compose = Op.Of(name: "appui.export.report");
 
     public static IO<VisualArtifact> Render(VisualRuntime runtime, ReportSpec spec) =>
         ExportDelivery.Landed(
@@ -378,7 +376,7 @@ public static class FlowReport {
             select hardened);
 
     static Fin<ReadOnlyMemory<byte>> Composed(ReportSpec spec) =>
-        Compose.Catch<ReadOnlyMemory<byte>>(() => {
+        Try.lift(() => {
             Document document = new();
             Section section = document.AddSection();
             spec.Setup.Iter(setup => ApplySetup(section.PageSetup, setup));
@@ -398,7 +396,7 @@ public static class FlowReport {
             using MemoryStream sink = new();
             renderer.PdfDocument.Save(sink);
             return Fin.Succ<ReadOnlyMemory<byte>>(sink.ToArray());
-        });
+        }).Run().Bind(static inner => inner);
 
     static LineEmitter<ReportHeading> Seat(Section section) => new(
         Text: row => row.Role.Outlines
@@ -482,7 +480,7 @@ public static class FlowReport {
 - Auto: the colour model is the `ColorTarget` row alone — `PdfDocumentOptions.ColorMode` takes its `Mode` on the renderer document before content materializes while `[06]-[PRINT_ARM]` takes the same row's `Device`, buffer formats, and pixel strides, so a screen export and a proofed press export differ by this value and never by a second code path; the security arm selects AES-256 through `PdfDocument.SecurityHandler.SetEncryptionToV5(bool encryptMetadata)` and applies permissions through `PdfDocument.SecuritySettings`; identity writes `PdfDocumentInformation`; signatures compose `DigitalSignatureHandler.ForDocument`; AcroForm rows write through the catalogued field surface; the accessibility trait attaches `UAManager` to the renderer document before `RenderDocument`. Annotations ride Skia's own annotation entrypoints on the paged canvas — `DrawUrlAnnotation`, `DrawNamedDestinationAnnotation`, and `DrawLinkDestinationAnnotation` mint the `SKData` the native annotation record retains.
 - Packages: PDFsharp, SkiaSharp, Rasm (project — `Drawing/sheet`: `PdfTrait`, `PlotPolicy`; `Domain/validation`: `CapabilitySet`, `CapabilityLaw`), Rasm.AppHost (project), LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new hardening concern is one `PdfExport` column; a new permission is one `PdfPermission` row; a new identity column is one `PdfIdentity` member; a new colour model is one `ColorTarget` row both legs read; a new conformance claim is one kernel `PdfTrait` row; the cross-reference family grows only when the PDF backend honors a fourth key.
-- Boundary: the signing-credential crossing is a declared ledger row (`Document/export` -> AppHost `Runtime/secrets.md`), and `PdfCredentials` is the typed carve naming exactly what the `[08]` form cannot set. PDF-UA tagging and the colour model both bind before content materialization — `PdfDocumentOptions.ColorMode` governs how each `XColor` is WRITTEN, so a post-render pass setting it re-saves already-written content streams and governs nothing; the post-render pass therefore applies security, identity, forms, and signatures alone. `ColorTarget` is the ONE colour-model authority for the whole page — a `PdfColorMode` literal at a render site, a second CMYK selector on the print arm, and a `bool cmyk` knob beside a spec are the three deleted forms. Annotations are page-composition content, so they enter through the capture vector-print page fold and never through the post-render `PdfReader` pass; the PDF backend honors exactly three annotation keys and each is reached through the named Skia entrypoint that passes it, so the family is CLOSED at three cases and the raw `DrawAnnotation(rect, key, value)` passthrough is the deleted form — an unhonored key returns void with no diagnostic. Region shape is the backend's own discriminant: a named destination is DEFINED at a point, which is the zero-extent rect the backend requires, while an outbound url and an internal link carry a real rect, so a zero-area region on either rect-bearing case refuses at admission.
+- Boundary: the signing-credential crossing is a declared ledger row (`Document/export` -> AppHost `Runtime/secrets.md`), and `PdfCredentials` is the typed carve naming exactly what the `[08]` form cannot set. PDF-UA tagging and the colour model both bind before content materialization — `PdfDocumentOptions.ColorMode` governs how each `XColor` is WRITTEN, so a post-render pass setting it re-saves already-written content streams and governs nothing; the post-render pass therefore applies security, identity, forms, and signatures alone. `ColorTarget` is the ONE colour-model authority for the whole page — a `PdfColorMode` literal at a render site, a second CMYK selector on the print arm, and a `bool cmyk` knob beside a spec are the three deleted forms. Annotations are page-composition content, so they enter through the capture vector-print page fold and never through the post-render `PdfReader` pass; the PDF backend honors exactly three annotation keys and each is reached through the named Skia entrypoint that passes it, so the family is CLOSED at three cases and the raw `DrawAnnotation(rect, value)` passthrough is the deleted form — an unhonored key returns void with no diagnostic. Region shape is the backend's own discriminant: a named destination is DEFINED at a point, which is the zero-extent rect the backend requires, while an outbound url and an internal link carry a real rect, so a zero-area region on either rect-bearing case refuses at admission.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -616,13 +614,12 @@ public static class PdfAnnotations {
 }
 
 public static class PdfHardening {
-    static readonly Op Harden = Op.Of(name: "appui.export.pdf");
 
     public static IO<ReadOnlyMemory<byte>> Apply(PdfExport policy, ReadOnlyMemory<byte> rendered) =>
         policy.IsInert ? IO.pure(rendered) : IO.lift<ReadOnlyMemory<byte>>(() => Modify(policy, rendered));
 
     static Fin<ReadOnlyMemory<byte>> Modify(PdfExport policy, ReadOnlyMemory<byte> rendered) =>
-        Harden.Catch<ReadOnlyMemory<byte>>(() => {
+        Try.lift(() => {
             using MemoryStream source = new(rendered.ToArray());
             using PdfDocument document = PdfReader.Open(source, PdfDocumentOpenMode.Modify);
             policy.Credentials.Identity.Iter(identity => {
@@ -648,7 +645,7 @@ public static class PdfHardening {
                 document, signer, policy.Credentials.SignatureOptions.IfNone(static () => new DigitalSignatureOptions())));
             document.Save(sink);
             return Fin.Succ<ReadOnlyMemory<byte>>(sink.ToArray());
-        });
+        }).Run().Bind(static inner => inner);
 }
 ```
 
@@ -712,7 +709,6 @@ public sealed record OfficeSpec(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class OfficeExport {
-    static readonly Op Part = Op.Of(name: "appui.export.office");
 
     public static IO<VisualArtifact> Emit(VisualRuntime runtime, OfficeSpec spec) =>
         ExportDelivery.Landed(
@@ -769,7 +765,7 @@ public static class OfficeExport {
         });
 
     static Fin<ReadOnlyMemory<byte>> Native(string part, Func<byte[]> write) =>
-        Part.Catch<ReadOnlyMemory<byte>>(() => Fin.Succ<ReadOnlyMemory<byte>>(write()));
+        Try.lift(() => Fin.Succ<ReadOnlyMemory<byte>>(write())).Run().Bind(static inner => inner);
 
     // --- [EMITTERS]
 
@@ -911,7 +907,6 @@ public sealed record PrintPlate(byte[] Pixels, PrintProof Proof);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PrintArm {
-    static readonly Op Convert = Op.Of(name: "appui.export.print");
 
     public static IO<PrintPlate> Convert(PrintTransform row, ReadOnlyMemory<byte> raster) =>
         IO.lift<PrintPlate>(() => Transformed(row, raster));
@@ -927,7 +922,7 @@ public static class PrintArm {
 
     static Fin<T> Bracketed<TNative, T>(Func<TNative> acquire, Func<TNative, Fin<T>> project)
         where TNative : class, IDisposable =>
-        Convert.Catch(() => Fin.Succ(acquire()))
+        Try.lift(() => Fin.Succ(acquire())).Run().Bind(static inner => inner)
             .Bind(native => Custody.Bracket(() => project(native), native));
 
     static Fin<T> Opened<T>(Context context, ReadOnlyMemory<byte> bytes, Func<Profile, Fin<T>> project) =>
@@ -991,11 +986,11 @@ public static class PrintArm {
                     chain.Map(static link => link.Adaptation).ToArray(),
                     row.Alarm.IsSome ? proofing.Match(Some: static held => held, None: static () => (Profile?)null) : null,
                     GamutPcs, row.Target.Input, row.Target.Output, proof.Flags),
-                transform => Convert.Catch(() => {
+                transform => Try.lift(() => {
                     byte[] plate = new byte[(long)proof.Pixels * row.Target.OutputStride];
                     transform.DoTransform(raster.Span, plate, proof.Pixels);
                     return Fin.Succ(new PrintPlate(plate, proof));
-                }));
+                }).Run().Bind(static inner => inner));
         });
     }
 
@@ -1039,7 +1034,7 @@ public static class PrintArm {
 public sealed record ReportSubscription {
     private ReportSubscription(string key, string reportKey, OccurrenceSpec occurrence, DeadlineClass deadline,
         Option<LeasePolicy> lease, RedrivePolicy redrive) =>
-        (Key, ReportKey, Occurrence, Deadline, Lease, Redrive) = (key, reportKey, occurrence, deadline, lease, redrive);
+        (Key, ReportKey, Occurrence, Deadline, Lease, Redrive) = (reportKey, occurrence, deadline, lease, redrive);
 
     public string Key { get; }
     public string ReportKey { get; }
@@ -1055,7 +1050,7 @@ public sealed record ReportSubscription {
     public static Validation<Error, ReportSubscription> Of(
         string key, string reportKey, OccurrenceSpec occurrence,
         Option<LeasePolicy> lease = default, RedrivePolicy? redrive = null) =>
-        (Named(key, "schedule identity"), Named(reportKey, "report identity"))
+        (Named("schedule identity"), Named(reportKey, "report identity"))
             .Apply((schedule, report) => new ReportSubscription(schedule, report, occurrence, Allotment, lease, redrive ?? Curve))
             .As();
 
@@ -1155,8 +1150,7 @@ public sealed partial class ExportField {
 
     public Validation<Error, (ExportSection Section, FormField Field)> Seat(ExportTarget target) =>
         (FormSchema.Tag(Id(target)).ToValidation(), DependsOn.Traverse(row => FormSchema.Tag(row.Id(target)).ToValidation()).As())
-            .Apply((key, gate) => (Section, new FormField(
-                key, LabelKey, Control(this, target), Entry,
+            .Apply((key, gate) => (Section, new FormField(LabelKey, Control(this, target), Entry,
                 gate.ToSeq(),
                 gate.Match(Some: static held => (FieldRule)new FieldRule.WhenSet(held), None: static () => new FieldRule.Always()),
                 new FieldRule.Never(),
@@ -1194,7 +1188,7 @@ public static class ExportOptions {
 
     public static Seq<OptionRow> Classifications => toSeq(DataClassification.Items).Map(static row => Row("redaction", row.Key));
 
-    static OptionRow Row(string family, string key) => new(key, $"export.{family}.{key}", None, None);
+    static OptionRow Row(string family, string key) => new($"export.{family}.{key}", None, None);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1281,7 +1275,7 @@ public static class ExportNotes {
 
     public static PreflightNote Redaction(ExportCapability capability, ExportRequest request) =>
         ExportPlan.Chosen(request, ExportField.Redaction).Match(
-            Succ: key => DataClassification.TryGet(key, out DataClassification? row) && row is not null
+            Succ: key => DataClassification.TryGet(out DataClassification? row) && row is not null
                 ? (PreflightNote)new PreflightNote.Honoured(capability)
                 : new PreflightNote.Refused(capability, "export.preflight.redaction-unknown"),
             Fail: _ => new PreflightNote.Refused(capability, "export.preflight.redaction-unset"));
@@ -1435,7 +1429,6 @@ public static partial class ExportCardMap {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ExportPlan {
-    static readonly Op Lower = Op.Of(name: "appui.export.lower");
 
     public static Fin<FieldValue> Read(ExportRequest request, ExportField field) =>
         FormSchema.Tag(field.Id(request.Target))
@@ -1458,21 +1451,21 @@ public static class ExportPlan {
             : Fin.Fail<double>(Refusal(ExportField.Scale, "is not a scalar")));
 
     public static Fin<SheetSize> Paper(ExportRequest request) =>
-        Chosen(request, ExportField.PageSize).Bind(key => Lower.AcceptValidated<SheetSize>(key));
+        Chosen(request, ExportField.PageSize).Bind(key => FactoryBridge.Accept<SheetSize>());
 
     public static Fin<ColorTarget> Colour(ExportRequest request) =>
         Chosen(request, ExportField.Colour).Bind(key =>
-            Op.Probe(() => (ColorTarget.TryGet(key, out ColorTarget? row), row)).Bind(Optional)
+            Admit.Probe(() => (ColorTarget.TryGet(out ColorTarget? row), row)).Bind(Optional)
                 .ToFin(Refusal(ExportField.Colour, $"names no colour row: {key}")));
 
     public static Fin<LayerEmission> Emission(ExportRequest request) =>
         Chosen(request, ExportField.LayerEmissionMode).Bind(key =>
-            Op.Probe(() => (LayerEmission.TryGet(key, out LayerEmission? row), row)).Bind(Optional)
+            Admit.Probe(() => (LayerEmission.TryGet(out LayerEmission? row), row)).Bind(Optional)
                 .ToFin(Refusal(ExportField.LayerEmissionMode, $"names no emission row: {key}")));
 
     public static Fin<ACadVersion> Release(ExportRequest request) =>
         Chosen(request, ExportField.CadRelease).Bind(key =>
-            Op.Probe(() => (Enum.TryParse(key, ignoreCase: true, out ACadVersion parsed), parsed))
+            Admit.Probe(() => (Enum.TryParse(ignoreCase: true, out ACadVersion parsed), parsed))
                 .ToFin(Refusal(ExportField.CadRelease, $"names no admitted release: {key}")));
 
     public static Fin<PdfSecurity> Security(ExportRequest request) =>

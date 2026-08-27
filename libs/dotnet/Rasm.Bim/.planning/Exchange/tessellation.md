@@ -89,8 +89,8 @@ public sealed record TessellationSettings {
             GeomSetting.DefaultMaterials, GeomSetting.ElementGuids),
         Dimensionality.SurfacesAndSolids);
 
-    public static Fin<TessellationSettings> Of(CapabilitySet<GeomSetting> flags, Dimensionality dimensionality, Op key) =>
-        flags.Require(GeomSetting.Required, missing => new BimFault.Refused(key, BimScope.Tessellation, BimReason.Capability, string.Join(':', new object?[] { "tessellation-settings-incomplete", missing.Wire })))
+    public static Fin<TessellationSettings> Of(CapabilitySet<GeomSetting> flags, Dimensionality dimensionality) =>
+        flags.Require(GeomSetting.Required, missing => new BimFault.Refused(BimScope.Tessellation, BimReason.Capability, string.Join(':', new object?[] { "tessellation-settings-incomplete", missing.Wire })))
             .Map(admitted => new TessellationSettings(admitted, dimensionality));
 
 }
@@ -133,20 +133,19 @@ public sealed partial record TessellationRequest {
         bound: 4);
 
     public static Fin<TessellationRequest> Plan(
-        InterchangeFormat source, ReadOnlyMemory<byte> sourceBytes, InterchangePolicy policy, Op key,
+        InterchangeFormat source, ReadOnlyMemory<byte> sourceBytes, InterchangePolicy policy,
         Option<TessellationSettings> settings = default, Option<TessellationScope> scope = default) =>
         source == InterchangeFormat.Ifc
             ? Keyed(
                 sourceBytes, policy,
                 settings.IfNone(TessellationSettings.Canonical),
-                scope.IfNone(TessellationScope.Whole), key)
-            : Fin.Fail<TessellationRequest>(new BimFault.Refused(
-                key, BimScope.Tessellation, BimReason.Capability,
+                scope.IfNone(TessellationScope.Whole))
+            : Fin.Fail<TessellationRequest>(new BimFault.Refused(BimScope.Tessellation, BimReason.Capability,
                 string.Join(':', new object?[] { "tessellation-ifc-required", source.Key })));
 
     static Fin<TessellationRequest> Keyed(
         ReadOnlyMemory<byte> sourceBytes, InterchangePolicy policy,
-        TessellationSettings settings, TessellationScope scope, Op key) {
+        TessellationSettings settings, TessellationScope scope) {
         global::Google.Protobuf.ByteString sha256 =
             global::Google.Protobuf.ByteString.CopyFrom(SHA256.HashData(sourceBytes.Span));
         UInt128 sourceKey = ContentHash.Of(
@@ -157,7 +156,7 @@ public sealed partial record TessellationRequest {
                 .Raw(artifact.Sha256.Span)
                 .Ordinal(global::Rasm.Contracts.Artifact.ArtifactRef.ArtifactBytesFieldNumber)
                 .U64(artifact.ArtifactBytes));
-        return TessellationWire.ContentKey(sourceKey, policy, settings, scope, key).Map(contentKey =>
+        return TessellationWire.ContentKey(sourceKey, policy, settings, scope).Map(contentKey =>
             new TessellationRequest(sourceKey, contentKey, sourceBytes, policy, settings, scope));
     }
 
@@ -166,34 +165,34 @@ public sealed partial record TessellationRequest {
     public IO<Fin<TessellationOutcome>> Resolve(
         ITessellationStore store, ITessellationCompanion companion,
         CorrelationId correlation, CancellationToken cancel,
-        IClock clock, MonotonicTimeline timeline, Op key) {
+        IClock clock, MonotonicTimeline timeline) {
         var at = clock.GetCurrentInstant();
-        return (from mark in FinT.lift<IO, MonotonicStamp>(timeline.Capture(key))
+        return (from mark in FinT.lift<IO, MonotonicStamp>(Error.New(key.Message))
                 from _live in FinT.lift<IO, Unit>(Live(cancel))
                 from hit in FinT.lift<IO, Option<ReadOnlyMemory<byte>>>(store.Lookup(Address))
                 from outcome in hit.Match(
                     Some: glb => FinT.lift<IO, TessellationOutcome>(Live(cancel)
-                        .Bind(_ => Decode(glb, clock, key))
+                        .Bind(_ => Decode(glb, clock))
                         .Bind(geometry => Outcome(
                             geometry, glb.Length, None, None,
-                            TessellationOrigin.Cached, timeline, at, mark, key))),
+                            TessellationOrigin.Cached, timeline, at, mark))),
                     None: () =>
-                        from crossed in new FinT<IO, TessellationCross>(Crossed(companion, correlation, cancel, key))
-                        from geometry in FinT.lift<IO, ImportedGeometry>(Decode(crossed.Glb, clock, key))
-                        from _census in FinT.lift<IO, Unit>(PeerCensus(crossed.Peer, geometry, key).ToFin())
+                        from crossed in new FinT<IO, TessellationCross>(Crossed(companion, correlation, cancel))
+                        from geometry in FinT.lift<IO, ImportedGeometry>(Decode(crossed.Glb, clock))
+                        from _census in FinT.lift<IO, Unit>(PeerCensus(crossed.Peer, geometry).ToFin())
                         from _stored in FinT.lift<IO, Unit>(store.Store(Address, crossed.Glb))
                         from _stillLive in FinT.lift<IO, Unit>(Live(cancel))
                         from landed in FinT.lift<IO, TessellationOutcome>(
                             Outcome(
                                 geometry, crossed.Glb.Length, crossed.Peer.Semantic, Some(crossed.Peer.Spill),
-                                TessellationOrigin.Tessellated, timeline, at, mark, key))
+                                TessellationOrigin.Tessellated, timeline, at, mark))
                         select landed)
                 select outcome).runFin.As();
     }
 
     IO<Fin<TessellationCross>> Crossed(
-        ITessellationCompanion companion, CorrelationId correlation, CancellationToken cancel, Op key) =>
-        companion.Cross(this, correlation, cancel, key)
+        ITessellationCompanion companion, CorrelationId correlation, CancellationToken cancel) =>
+        companion.Cross(correlation, cancel)
             .Map(outcome => outcome.MapFail(Boundary))
             .Catch(error => IO.pure(Fin.Fail<TessellationCross>(Boundary(error))));
 
@@ -205,45 +204,44 @@ public sealed partial record TessellationRequest {
     static Fin<Unit> Live(CancellationToken cancel) =>
         cancel.IsCancellationRequested ? Fin.Fail<Unit>(Errors.Cancelled) : Fin.Succ(unit);
 
-    static Fin<ImportedGeometry> Decode(ReadOnlyMemory<byte> glb, IClock clock, Op key) =>
-        BimIo.ImportGeometry(InterchangeFormat.Glb, glb, clock, key)
-            .Bind(geometry => Sound(geometry, key).ToFin());
+    static Fin<ImportedGeometry> Decode(ReadOnlyMemory<byte> glb, IClock clock) =>
+        BimIo.ImportGeometry(InterchangeFormat.Glb, glb, clock)
+            .Bind(geometry => Sound(geometry).ToFin());
 
     Fin<TessellationOutcome> Outcome(
         ImportedGeometry geometry, int glbBytes,
         Option<TessellationSemantic> semantic,
         Option<global::Rasm.Contracts.Compute.Spill> spill, TessellationOrigin origin,
-        MonotonicTimeline timeline, Instant at, MonotonicStamp mark, Op key) =>
-        timeline.Elapsed(mark, key).Map(elapsed => new TessellationOutcome(
+        MonotonicTimeline timeline, Instant at, MonotonicStamp mark) =>
+        timeline.Elapsed(mark).Map(elapsed => new TessellationOutcome(
                 geometry, Address, ContentKey, SourceKey, Policy.Chord.Value,
                 geometry.VertexCount, geometry.TriangleCount, glbBytes, semantic, spill, origin,
                 elapsed.ToDuration(), at));
 
     static Validation<Error, Unit> PeerCensus(
-        TessellationPeerEvidence peer, ImportedGeometry geometry, Op key) =>
+        TessellationPeerEvidence peer, ImportedGeometry geometry) =>
         (PeerCount(peer.ElementCount == (ulong)geometry.Instances.Count,
-             "elements", peer.ElementCount, geometry.Instances.Count, key),
+             "elements", peer.ElementCount, geometry.Instances.Count),
          PeerCount(peer.TriangleCount == (ulong)geometry.TriangleCount,
-             "triangles", peer.TriangleCount, geometry.TriangleCount, key))
+             "triangles", peer.TriangleCount, geometry.TriangleCount))
         .Apply(static (_, _) => unit).As();
 
     static Validation<Error, Unit> PeerCount(
-        bool held, string coordinate, ulong reported, int decoded, Op key) =>
+        bool held, string coordinate, ulong reported, int decoded) =>
         held
             ? Validation<Error, Unit>.Success(unit)
-            : Validation<Error, Unit>.Fail(new BimFault.Refused(
-                key, BimScope.Tessellation, BimReason.Codec,
+            : Validation<Error, Unit>.Fail(new BimFault.Refused(BimScope.Tessellation, BimReason.Codec,
                 string.Join(':', new object?[] {
                     "tessellation-peer-count-mismatch", coordinate, reported, decoded,
                 })));
 
-    static Validation<Error, ImportedGeometry> Sound(ImportedGeometry geometry, Op key) =>
-        (Claim(geometry is { VertexCount: > 0, TriangleCount: > 0 }, key, "empty"),
-         Claim(geometry.Lanes.IsValid, key, "arena-invalid"),
-         Claim(Finite(geometry), key, "non-finite-coordinate"))
+    static Validation<Error, ImportedGeometry> Sound(ImportedGeometry geometry) =>
+        (Claim(geometry is { VertexCount: > 0, TriangleCount: > 0 }, "empty"),
+         Claim(geometry.Lanes.IsValid, "arena-invalid"),
+         Claim(Finite(geometry), "non-finite-coordinate"))
         .Apply(static (_, _, _) => geometry).As();
 
-    static Validation<Error, Unit> Claim(bool held, Op key, string witness) =>
+    static Validation<Error, Unit> Claim(bool held, string witness) =>
         held
             ? Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Fail(new GeometryFault.DegenerateInput(
@@ -263,8 +261,8 @@ public sealed partial record TessellationRequest {
 public static class TessellationWire {
     internal static Fin<UInt128> ContentKey(
         UInt128 sourceKey, InterchangePolicy policy,
-        TessellationSettings settings, TessellationScope scope, Op key) =>
-        Dimension(settings.Dimensionality, key).Map(dimensionality =>
+        TessellationSettings settings, TessellationScope scope) =>
+        Dimension(settings.Dimensionality).Map(dimensionality =>
             ContentAddress.Of((sourceKey, policy, settings, dimensionality, scope), 0.0, static (s, writer) =>
                 WriteScope(WriteSettings(writer
                         .U128(s.sourceKey)
@@ -280,8 +278,8 @@ public static class TessellationWire {
                     s.scope)).Value);
 
     public static Fin<global::Rasm.Contracts.Compute.TessellateRequest> Project(
-        TessellationRequest request, global::Rasm.Contracts.Artifact.ArtifactRef source, Op key) =>
-        Dimension(request.Settings.Dimensionality, key).Map(dimensionality =>
+        TessellationRequest request, global::Rasm.Contracts.Artifact.ArtifactRef source) =>
+        Dimension(request.Settings.Dimensionality).Map(dimensionality =>
             new global::Rasm.Contracts.Compute.TessellateRequest {
                 Policy = new global::Rasm.Contracts.Geometry.TessellationPolicy {
                     DeflectionM = request.Policy.Chord.Value,
@@ -297,25 +295,23 @@ public static class TessellationWire {
 
     public static Fin<TessellationCross> Admit(
         TessellationRequest request, global::Rasm.Contracts.Compute.TessellateResponse response,
-        ReadOnlyMemory<byte> glb, Op key) =>
-        ContentHash.Admit(response.ContentKey.Span, key).Bind(reported =>
+        ReadOnlyMemory<byte> glb) =>
+        ContentHash.Admit(response.ContentKey.Span).Bind(reported =>
             reported == request.ContentKey
-                ? Peer(response, key).Map(peer => new TessellationCross(glb, peer))
-                : Fin.Fail<TessellationCross>(new BimFault.Refused(
-                    key, BimScope.Tessellation, BimReason.Codec, "tessellation-content-key-mismatch")));
+                ? Peer(response).Map(peer => new TessellationCross(glb, peer))
+                : Fin.Fail<TessellationCross>(new BimFault.Refused(BimScope.Tessellation, BimReason.Codec, "tessellation-content-key-mismatch")));
 
     static Fin<TessellationPeerEvidence> Peer(
-        global::Rasm.Contracts.Compute.TessellateResponse response, Op key) =>
-        from semantic in Semantic(response.Semantic, key)
-        from spill in Spill(response.Spill, key)
+        global::Rasm.Contracts.Compute.TessellateResponse response) =>
+        from semantic in Semantic(response.Semantic)
+        from spill in Spill(response.Spill)
         select new TessellationPeerEvidence(
             response.ElementCount, response.TriangleCount, semantic, spill);
 
     static Fin<Option<TessellationSemantic>> Semantic(
-        global::Rasm.Contracts.Compute.Semantic? semantic, Op key) {
+        global::Rasm.Contracts.Compute.Semantic? semantic) {
         if (semantic is null) {
-            return Fin.Fail<Option<TessellationSemantic>>(new BimFault.Refused(
-                key, BimScope.Tessellation, BimReason.Codec, "tessellation-semantic-missing"));
+            return Fin.Fail<Option<TessellationSemantic>>(new BimFault.Refused(BimScope.Tessellation, BimReason.Codec, "tessellation-semantic-missing"));
         }
         Option<string> schema = Optional(semantic.Schema).Filter(static value => value.Length > 0);
         Option<string> project = Optional(semantic.Project).Filter(static value => value.Length > 0);
@@ -325,11 +321,10 @@ public static class TessellationWire {
     }
 
     static Fin<global::Rasm.Contracts.Compute.Spill> Spill(
-        global::Rasm.Contracts.Compute.Spill spill, Op key) =>
+        global::Rasm.Contracts.Compute.Spill spill) =>
         spill != global::Rasm.Contracts.Compute.Spill.Unspecified && Enum.IsDefined(spill)
             ? Fin.Succ(spill)
-            : Fin.Fail<global::Rasm.Contracts.Compute.Spill>(new BimFault.Refused(
-                key, BimScope.Tessellation, BimReason.Codec,
+            : Fin.Fail<global::Rasm.Contracts.Compute.Spill>(new BimFault.Refused(BimScope.Tessellation, BimReason.Codec,
                 string.Join(':', new object?[] { "tessellation-spill-unsupported", (int)spill })));
 
     static global::Rasm.Contracts.Compute.GeomSetting Setting(GeomSetting setting) => setting.Switch(
@@ -361,12 +356,11 @@ public static class TessellationWire {
             .OrderBy(static setting => (int)setting));
 
     static Fin<global::Rasm.Contracts.Compute.Dimensionality> Dimension(
-        Dimensionality dimensionality, Op key) => dimensionality switch {
+        Dimensionality dimensionality) => dimensionality switch {
             Dimensionality.Curves => Fin.Succ(global::Rasm.Contracts.Compute.Dimensionality.Curves),
             Dimensionality.SurfacesAndSolids => Fin.Succ(global::Rasm.Contracts.Compute.Dimensionality.SurfacesAndSolids),
             Dimensionality.CurvesSurfacesAndSolids => Fin.Succ(global::Rasm.Contracts.Compute.Dimensionality.CurvesSurfacesAndSolids),
-            _ => Fin.Fail<global::Rasm.Contracts.Compute.Dimensionality>(new BimFault.Refused(
-                key, BimScope.Tessellation, BimReason.Codec,
+            _ => Fin.Fail<global::Rasm.Contracts.Compute.Dimensionality>(new BimFault.Refused(BimScope.Tessellation, BimReason.Codec,
                 string.Join(':', new object?[] { "tessellation-dimensionality-unsupported", (byte)dimensionality }))),
         };
 
@@ -426,7 +420,7 @@ public sealed record TessellationCross(ReadOnlyMemory<byte> Glb, TessellationPee
 
 public interface ITessellationCompanion {
     IO<Fin<TessellationCross>> Cross(
-        TessellationRequest request, CorrelationId correlation, CancellationToken cancel, Op key);
+        TessellationRequest request, CorrelationId correlation, CancellationToken cancel);
 }
 ```
 

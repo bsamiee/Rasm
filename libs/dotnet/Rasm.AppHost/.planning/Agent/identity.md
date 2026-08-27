@@ -205,10 +205,10 @@ public static class TokenValidation {
                     .Map(result => Project(result, anchor, runtime.TenantOf))));
 
     static Fin<JsonWebToken> Parsed(JsonWebTokenHandler handler, string token) =>
-        Op.Of(name: nameof(TokenValidation)).Catch(() =>
+        Try.lift(() =>
                 handler.CanReadToken(token)
                     ? Fin.Succ(handler.ReadJsonWebToken(token))
-                    : Fin.Fail<JsonWebToken>(new IdentityFault.Malformed(nameof(JsonWebTokenHandler.CanReadToken))))
+                    : Fin.Fail<JsonWebToken>(new IdentityFault.Malformed(nameof(JsonWebTokenHandler.CanReadToken)))).Run().Bind(static inner => inner)
             .MapFail(error => error is IdentityFault ? error : new IdentityFault.Malformed(error.Message));
 
     static Validation<Error, Principal> Project(TokenValidationResult result, IssuerTrust anchor, Func<string, Option<TenantContext>> tenantOf) =>
@@ -236,7 +236,7 @@ public static class TokenValidation {
     static Error Captured(Exception exception) => Error.New(exception.Message, exception);
 
     public static Validation<Error, Principal> Interactive(IssuerTrust anchor, ProtocolContext context, Principal principal) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
                 anchor.Protocol.ValidateAuthenticationResponse(new OpenIdConnectProtocolValidationContext {
                     Nonce = context.Nonce,
                     State = context.State,
@@ -245,7 +245,7 @@ public static class TokenValidation {
                     ProtocolMessage = new OpenIdConnectMessage { AccessToken = context.AccessToken.IfNone(string.Empty) },
                 });
                 return Fin.Succ(principal);
-            })
+            }).Run().Bind(static inner => inner)
             .MapFail(error => (Error)new IdentityFault.ProtocolRejected(anchor.Issuer, error))
             .ToValidation();
 }

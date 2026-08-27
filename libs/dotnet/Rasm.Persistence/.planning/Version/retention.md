@@ -215,9 +215,9 @@ public sealed partial class ArtifactKind {
     public static (ArtifactKind Kind, Option<UInt128> Source) Representation(RepresentationSlot slot, Option<UInt128> bodyKey) =>
         slot.Switch(
             state: bodyKey,
-            body: static key => Derived(RepresentationBody, key),
-            axis: static key => Derived(RepresentationAxis, key),
-            footPrint: static key => Derived(RepresentationFootprint, key),
+            body: static key => Derived(RepresentationBody),
+            axis: static key => Derived(RepresentationAxis),
+            footPrint: static key => Derived(RepresentationFootprint),
             box: static _ => (RepresentationBox, Option<UInt128>.None),
             annotation: static _ => (RepresentationPreserved, Option<UInt128>.None),
             surface: static _ => (RepresentationPreserved, Option<UInt128>.None),
@@ -229,7 +229,7 @@ public sealed partial class ArtifactKind {
 
     private static (ArtifactKind Kind, Option<UInt128> Source) Derived(ArtifactKind kind, Option<UInt128> bodyKey) =>
         bodyKey.Match(
-            Some: key => (kind, Some(key)),
+            Some: key => (kind),
             None: static () => (RepresentationPreserved, Option<UInt128>.None));
 }
 
@@ -245,9 +245,9 @@ public static class RetentionCatalog {
     static IO<Fin<RetentionFact>> Land(
         RetentionClass cls, ContentAddress key, StorageTier tier,
         Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) =>
-        cls.Scheme.Dedups && resident(key)
-            ? IO.pure(Fin<RetentionFact>.Succ(new RetentionFact(cls, key, 0L, tier, frame.Now())))
-            : write(key).Map(outcome => outcome.Map(committed => new RetentionFact(cls, key, committed.Committed, tier, frame.Now())));
+        cls.Scheme.Dedups && resident()
+            ? IO.pure(Fin<RetentionFact>.Succ(new RetentionFact(cls, 0L, tier, frame.Now())))
+            : write().Map(outcome => outcome.Map(committed => new RetentionFact(cls, committed.Committed, tier, frame.Now())));
 }
 ```
 
@@ -342,7 +342,7 @@ public abstract partial record Hold {
 
 public readonly record struct Reachability(LanguageExt.HashSet<ContentAddress> Live) {
     public static readonly Reachability None = new(LanguageExt.HashSet<ContentAddress>());
-    public bool Reachable(ContentAddress key) => Live.Contains(key);
+    public bool Reachable(ContentAddress key) => Live.Contains();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
@@ -364,8 +364,8 @@ public readonly record struct SweepTally(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RetentionSweep {
     public static IO<LanguageExt.HashSet<ContentAddress>> Mark(ReachabilitySource source) => source.Switch(
-        cuts: static row => IO.pure(row.EveryCut.Fold(LanguageExt.HashSet<ContentAddress>(), (live, cut) => row.ReferencedAt(cut).Fold(live, static (set, key) => set.Add(key)))),
-        tags: static row => row.QueryByTags(row.Query).Map(static keys => keys.Fold(LanguageExt.HashSet<ContentAddress>(), static (set, key) => set.Add(key))));
+        cuts: static row => IO.pure(row.EveryCut.Fold(LanguageExt.HashSet<ContentAddress>(), (live, cut) => row.ReferencedAt(cut).Fold(live, static (set, key) => set.Add()))),
+        tags: static row => row.QueryByTags(row.Query).Map(static keys => keys.Fold(LanguageExt.HashSet<ContentAddress>(), static (set, key) => set.Add())));
 
     public static (Seq<SweepVerdict> Verdicts, SweepTally Tally) Run(
         RetentionClass cls, Seq<RetentionFact> inventory, Seq<Hold> holds, Reachability live,

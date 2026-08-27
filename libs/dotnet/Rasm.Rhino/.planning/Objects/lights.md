@@ -62,8 +62,8 @@ public sealed partial class LightKind {
     internal LightStyle Style { get; }
     internal CapabilitySet<LightModality> Grants { get; }
 
-    internal static Fin<LightKind> Of(LightStyle style, Op key) =>
-        key.Row<LightStyle, LightKind>(candidate: style, ordinal: static value => (int)value);
+    internal static Fin<LightKind> Of(LightStyle style) =>
+        FactoryBridge.Row<LightStyle, LightKind>(candidate: style, ordinal: static value => (int)value);
 }
 
 [SmartEnum<int>]
@@ -78,8 +78,8 @@ public sealed partial class LightFalloff {
     internal Wire.Falloff Wire { get; }
     internal Vector3d Vector { get; }
 
-    internal static Fin<LightFalloff> Of(Light.Attenuation model, Op key) =>
-        key.Row<Light.Attenuation, LightFalloff>(candidate: model, ordinal: static value => (int)value);
+    internal static Fin<LightFalloff> Of(Light.Attenuation model) =>
+        FactoryBridge.Row<Light.Attenuation, LightFalloff>(candidate: model, ordinal: static value => (int)value);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -91,15 +91,15 @@ public abstract partial record LightAttenuation {
     internal Vector3d Coefficients => Switch<Vector3d>(
         named: static law => law.Row.Vector, free: static law => law.Coefficients);
 
-    internal static Fin<LightAttenuation> Of(Light native, Op key) =>
-        LightFalloff.Of(model: native.AttenuationType, key: key)
+    internal static Fin<LightAttenuation> Of(Light native) =>
+        LightFalloff.Of(model: native.AttenuationType)
             .Map(static row => (LightAttenuation)new Named(Row: row));
 
-    internal Fin<LightAttenuation> Admit(Op op) =>
+    internal Fin<LightAttenuation> Admit() =>
         Switch(
             context: op,
             named: static (_, law) => Fin.Succ<LightAttenuation>(law),
-            free: static (key, law) => key.AcceptInput(value: law.Coefficients).Map(_ => (LightAttenuation)law));
+            free: static (law) => Acceptance.Input(value: law.Coefficients).Map(_ => (LightAttenuation)law));
 
     internal Unit Apply(Light working) {
         Vector3d seat = Coefficients;
@@ -117,19 +117,18 @@ public sealed partial class LightFrame {
 
     internal CoordinateSystem Host => (CoordinateSystem)Key;
 
-    internal static Fin<LightFrame> Of(CoordinateSystem system, Op key) =>
-        key.Row<CoordinateSystem, LightFrame>(candidate: system, ordinal: static value => (int)value);
+    internal static Fin<LightFrame> Of(CoordinateSystem system) =>
+        FactoryBridge.Row<CoordinateSystem, LightFrame>(candidate: system, ordinal: static value => (int)value);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpotShape(VectorCone Cone, UnitInterval HotSpot) {
-    internal Fin<SpotShape> Admit(Op op) =>
+    internal Fin<SpotShape> Admit() =>
         from _ in Rasm.Domain.Admit.Cone(
             apex: Cone.Apex,
             axis: Cone.Axis.Value,
-            halfAngle: Cone.HalfAngle.Value,
-            key: op)
-        from hotSpot in op.AcceptValidated<UnitInterval>(candidate: (double)HotSpot)
+            halfAngle: Cone.HalfAngle.Value)
+        from hotSpot in FactoryBridge.Accept<UnitInterval>(candidate: (double)HotSpot)
         select new SpotShape(Cone: Cone, HotSpot: hotSpot);
 }
 
@@ -143,13 +142,13 @@ public abstract partial record ConeEvidence {
 }
 
 public readonly record struct AreaShape(Vector3d Length, Option<Vector3d> Width = default) {
-    internal Fin<AreaShape> Admit(Op op) =>
-        from length in op.AcceptInput(value: Length)
-        from width in Width.Traverse(value => op.AcceptInput(value: value)).As()
+    internal Fin<AreaShape> Admit() =>
+        from length in Acceptance.Input(value: Length)
+        from width in Width.Traverse(value => Acceptance.Input(value: value)).As()
         select new AreaShape(Length: length, Width: width);
 
-    internal Fin<AreaShape> Scaled(double scale, Op op) =>
-        new AreaShape(Length: Length * scale, Width: Width.Map(width => width * scale)).Admit(op: op);
+    internal Fin<AreaShape> Scaled(double scale) =>
+        new AreaShape(Length: Length * scale, Width: Width.Map(width => width * scale)).Admit();
 }
 
 public sealed record LightStamp(
@@ -175,27 +174,27 @@ public sealed record LightStamp(
     ConeEvidence Cone,
     Option<AreaShape> Area,
     LightAttenuation Attenuation) : IDetachedDocumentResult {
-    internal static Fin<LightStamp> Of(ResourceIndex index, LightObject native, Context model, Op key) =>
-        key.Catch(() =>
-            from light in Optional(native.LightGeometry).ToFin(Fail: key.InvalidResult())
-            from kind in LightKind.Of(style: light.LightStyle, key: key)
-            from frame in LightFrame.Of(system: light.CoordinateSystem, key: key)
-            from attenuation in LightAttenuation.Of(native: light, key: key)
-            from diffuse in PerceptualColor.OfHost(host: light.Diffuse, key: key)
-            from ambient in PerceptualColor.OfHost(host: light.Ambient, key: key)
-            from specular in PerceptualColor.OfHost(host: light.Specular, key: key)
+    internal static Fin<LightStamp> Of(ResourceIndex index, LightObject native, Context model) =>
+        Try.lift(() =>
+            from light in Optional(native.LightGeometry).ToFin(Fail: new KernelFault.InvalidResult())
+            from kind in LightKind.Of(style: light.LightStyle)
+            from frame in LightFrame.Of(system: light.CoordinateSystem)
+            from attenuation in LightAttenuation.Of(native: light)
+            from diffuse in PerceptualColor.OfHost(host: light.Diffuse)
+            from ambient in PerceptualColor.OfHost(host: light.Ambient)
+            from specular in PerceptualColor.OfHost(host: light.Specular)
             from cone in kind.Grants.Admits(capability: LightModality.Cone)
                 ? (from value in VectorCone.Of(
                        apex: light.Location, axis: light.Direction,
-                       halfAngleRadians: light.SpotAngleRadians, context: model, key: key)
-                   from hot in key.AcceptValidated<UnitInterval>(candidate: light.HotSpot)
+                       halfAngleRadians: light.SpotAngleRadians, context: model)
+                   from hot in FactoryBridge.Accept<UnitInterval>(candidate: light.HotSpot)
                    select (ConeEvidence)new ConeEvidence.Shaped(Value: new SpotShape(Cone: value, HotSpot: hot)))
                     .BindFail(static _ => Fin.Succ<ConeEvidence>(value: new ConeEvidence.Degenerate()))
                 : Fin.Succ<ConeEvidence>(value: new ConeEvidence.Absent())
             select new LightStamp(
                 Id: native.Id,
                 Index: index,
-                Name: Op.Text(light.Name),
+                Name: HostEdge.Text(light.Name),
                 Kind: kind,
                 Enabled: light.IsEnabled,
                 Location: light.Location,
@@ -220,7 +219,7 @@ public sealed record LightStamp(
                             ? Some(light.Width)
                             : Option<Vector3d>.None))
                     : Option<AreaShape>.None,
-                Attenuation: attenuation));
+                Attenuation: attenuation)).Run().Bind(static inner => inner);
 }
 ```
 
@@ -256,14 +255,13 @@ public sealed partial class Radiance {
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref RadianceUnit unit, ref double magnitude) {
-        Op op = Op.Of(name: nameof(Radiance));
         double value = magnitude;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (unit is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Unit) }))),
                 (!double.IsFinite(value) || value <= 0d, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Magnitude), value, "positive and finite" })))));
     }
 
-    public static Fin<Radiance> Of(RadianceUnit unit, double magnitude, Op? key = null) =>
+    public static Fin<Radiance> Of(RadianceUnit unit, double magnitude) =>
         key.OrDefault().AcceptValidated<Radiance>(
             fault: Validate(unit, magnitude, out Radiance? admitted), admitted: admitted);
 
@@ -289,26 +287,26 @@ public abstract partial record LightSeed {
         linear: static _ => LightKind.Linear,
         rectangular: static _ => LightKind.Rectangular);
 
-    internal Fin<LightSeed> Admit(Op op) =>
+    internal Fin<LightSeed> Admit() =>
         Switch(
             context: op,
-            point: static (key, seed) =>
-                from location in key.AcceptInput(value: seed.Location)
+            point: static (seed) =>
+                from location in Acceptance.Input(value: seed.Location)
                 select (LightSeed)new Point(Location: location),
-            spot: static (key, seed) => seed.Shape.Admit(op: key)
+            spot: static (seed) => seed.Shape.Admit()
                 .Map(shape => (LightSeed)new Spot(Shape: shape)),
-            directional: static (key, seed) =>
-                from location in key.AcceptInput(value: seed.Location)
-                from direction in key.AcceptInput(value: seed.Direction)
+            directional: static (seed) =>
+                from location in Acceptance.Input(value: seed.Location)
+                from direction in Acceptance.Input(value: seed.Direction)
                 select (LightSeed)new Directional(Location: location, Direction: direction),
-            linear: static (key, seed) =>
-                from location in key.AcceptInput(value: seed.Location)
-                from area in new AreaShape(Length: seed.Length).Admit(op: key)
+            linear: static (seed) =>
+                from location in Acceptance.Input(value: seed.Location)
+                from area in new AreaShape(Length: seed.Length).Admit()
                 select (LightSeed)new Linear(Location: location, Length: area.Length),
-            rectangular: static (key, seed) =>
-                from corner in key.AcceptInput(value: seed.Corner)
-                from area in new AreaShape(Length: seed.Length, Width: Some(seed.Width)).Admit(op: key)
-                from width in area.Width.ToFin(Fail: key.InvalidResult())
+            rectangular: static (seed) =>
+                from corner in Acceptance.Input(value: seed.Corner)
+                from area in new AreaShape(Length: seed.Length, Width: Some(seed.Width)).Admit()
+                from width in area.Width.ToFin(Fail: new KernelFault.InvalidResult())
                 select (LightSeed)new Rectangular(Corner: corner, Length: area.Length, Width: width));
 
     private Unit Seat(Light working) =>
@@ -339,13 +337,13 @@ public abstract partial record LightSeed {
                 return unit;
             });
 
-    internal Fin<Lease<Light>> Mint(Op op) {
+    internal Fin<Lease<Light>> Mint() {
         LightSeed seed = this;
         return Lease<Light>.Acquire(
-                mint: () => new Light { LightStyle = seed.Kind.Style, IsEnabled = true }, key: op)
-            .Bind(lease => op.Catch(() => Fin.Succ(value: seed.Seat(working: lease.Resource)))
+                mint: () => new Light { LightStyle = seed.Kind.Style, IsEnabled = true })
+            .Bind(lease => Try.lift(() => Fin.Succ(value: seed.Seat(working: lease.Resource))).Run().Bind(static inner => inner)
                 .Map(_ => lease)
-                .Rollback(release: () => op.Catch(() => Fin.Succ(value: lease.Dispose())), key: op));
+                .Rollback(release: () => Try.lift(() => Fin.Succ(value: lease.Dispose())).Run().Bind(static inner => inner)));
     }
 }
 
@@ -377,53 +375,53 @@ public abstract partial record LightEdit {
         aim: static _ => CapabilitySet<LightModality>.Of(LightModality.Aims),
         attenuate: static _ => CapabilitySet<LightModality>.Of());
 
-    internal Fin<LightEdit> Admit(Op op) =>
+    internal Fin<LightEdit> Admit() =>
         Switch(
             context: op,
-            rename: static (key, edit) => key.AcceptText(value: edit.Name).Map(name => (LightEdit)new Rename(Name: name)),
-            toggle: static (key, edit) => key.Need(edit.Signal).Map(_ => (LightEdit)edit),
-            power: static (key, edit) => key.Need(edit.Value).Map(_ => (LightEdit)edit),
-            shade: static (key, edit) => key.Need(edit.Value)
-                .Bind(shade => shade.Admit(op: key)).Map(shade => (LightEdit)new Shade(Value: shade)),
-            shadow: static (key, edit) => key.AcceptValidated<UnitInterval>(candidate: (double)edit.Value)
+            rename: static (edit) => Acceptance.Text(value: edit.Name).Map(name => (LightEdit)new Rename(Name: name)),
+            toggle: static (edit) => Admit.Need(edit.Signal).Map(_ => (LightEdit)edit),
+            power: static (edit) => Admit.Need(edit.Value).Map(_ => (LightEdit)edit),
+            shade: static (edit) => Admit.Need(edit.Value)
+                .Bind(shade => shade.Admit()).Map(shade => (LightEdit)new Shade(Value: shade)),
+            shadow: static (edit) => FactoryBridge.Accept<UnitInterval>(candidate: (double)edit.Value)
                 .Map(value => (LightEdit)new Shadow(Value: value)),
-            cone: static (key, edit) => edit.Value.Admit(op: key)
+            cone: static (edit) => edit.Value.Admit()
                 .Map(shape => (LightEdit)new Cone(Value: shape)),
-            area: static (key, edit) => edit.Value.Admit(op: key)
+            area: static (edit) => edit.Value.Admit()
                 .Map(area => (LightEdit)new Area(Value: area)),
-            place: static (key, edit) => key.AcceptInput(value: edit.Location)
+            place: static (edit) => Acceptance.Input(value: edit.Location)
                 .Map(location => (LightEdit)new Place(Location: location)),
-            aim: static (key, edit) => key.AcceptInput(value: edit.Direction)
+            aim: static (edit) => Acceptance.Input(value: edit.Direction)
                 .Map(direction => (LightEdit)new Aim(Direction: direction)),
-            attenuate: static (key, edit) => key.Need(edit.Value)
-                .Bind(law => law.Admit(op: key)).Map(law => (LightEdit)new Attenuate(Value: law)));
+            attenuate: static (edit) => Admit.Need(edit.Value)
+                .Bind(law => law.Admit()).Map(law => (LightEdit)new Attenuate(Value: law)));
 
-    internal Fin<Unit> Apply(Light working, LightKind kind, Op op) =>
+    internal Fin<Unit> Apply(Light working, LightKind kind) =>
         kind.Grants
-            .Require(demanded: Requires, refuse: missing => op.InvalidInput(axis: missing.Wire))
-            .Bind(_ => Seat(working: working, op: op));
+            .Require(demanded: Requires, refuse: missing => new KernelFault.InvalidInput(Axis: Some(missing.Wire)))
+            .Bind(_ => Seat(working: working));
 
-    private Fin<Unit> Seat(Light working, Op op) =>
+    private Fin<Unit> Seat(Light working) =>
         Switch(
-            context: (Working: working, Op: op),
-            rename: static (context, edit) => context.Op.Catch(() => context.Working.Name = edit.Name),
-            toggle: static (context, edit) => context.Op.Catch(() => context.Working.IsEnabled = edit.Signal.On),
-            power: static (context, edit) => context.Op.Catch(() => edit.Value.Apply(working: context.Working)),
-            shade: static (context, edit) => edit.Value.Seat(working: context.Working, op: context.Op),
-            shadow: static (context, edit) => context.Op.Catch(() => context.Working.ShadowIntensity = (double)edit.Value),
-            cone: static (context, edit) => context.Op.Catch(() => {
-                context.Working.Location = edit.Value.Cone.Apex;
-                context.Working.Direction = edit.Value.Cone.Axis.Value;
-                context.Working.SpotAngleRadians = edit.Value.Cone.HalfAngle.Value;
-                context.Working.HotSpot = (double)edit.Value.HotSpot;
-            }),
-            area: static (context, edit) => context.Op.Catch(() => {
-                context.Working.Length = edit.Value.Length;
-                _ = edit.Value.Width.Iter(width => context.Working.Width = width);
-            }),
-            place: static (context, edit) => context.Op.Catch(() => context.Working.Location = edit.Location),
-            aim: static (context, edit) => context.Op.Catch(() => context.Working.Direction = edit.Direction),
-            attenuate: static (context, edit) => context.Op.Catch(() => edit.Value.Apply(working: context.Working)));
+            context: working,
+            rename: static (context, edit) => Try.lift(() => context.Name = edit.Name).Run().Bind(static inner => inner),
+            toggle: static (context, edit) => Try.lift(() => context.IsEnabled = edit.Signal.On).Run().Bind(static inner => inner),
+            power: static (context, edit) => Try.lift(() => edit.Value.Apply(working: context)).Run().Bind(static inner => inner),
+            shade: static (context, edit) => edit.Value.Seat(working: context),
+            shadow: static (context, edit) => Try.lift(() => context.ShadowIntensity = (double)edit.Value).Run().Bind(static inner => inner),
+            cone: static (context, edit) => Try.lift(() => {
+                context.Location = edit.Value.Cone.Apex;
+                context.Direction = edit.Value.Cone.Axis.Value;
+                context.SpotAngleRadians = edit.Value.Cone.HalfAngle.Value;
+                context.HotSpot = (double)edit.Value.HotSpot;
+            }).Run().Bind(static inner => inner),
+            area: static (context, edit) => Try.lift(() => {
+                context.Length = edit.Value.Length;
+                _ = edit.Value.Width.Iter(width => context.Width = width);
+            }).Run().Bind(static inner => inner),
+            place: static (context, edit) => Try.lift(() => context.Location = edit.Location).Run().Bind(static inner => inner),
+            aim: static (context, edit) => Try.lift(() => context.Direction = edit.Direction).Run().Bind(static inner => inner),
+            attenuate: static (context, edit) => Try.lift(() => edit.Value.Apply(working: context)).Run().Bind(static inner => inner));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -431,21 +429,21 @@ public sealed record LightShade(
     PerceptualColor Diffuse,
     Option<PerceptualColor> Ambient = default,
     Option<PerceptualColor> Specular = default) {
-    internal Fin<LightShade> Admit(Op op) =>
-        from diffuse in op.Need(Diffuse)
-        from ambient in Ambient.Traverse(value => op.Need(value)).As()
-        from specular in Specular.Traverse(value => op.Need(value)).As()
+    internal Fin<LightShade> Admit() =>
+        from diffuse in Admit.Need(Diffuse)
+        from ambient in Ambient.Traverse(value => Admit.Need(value)).As()
+        from specular in Specular.Traverse(value => Admit.Need(value)).As()
         select new LightShade(Diffuse: diffuse, Ambient: ambient, Specular: specular);
 
-    internal Fin<Unit> Seat(Light working, Op op) =>
-        from diffuse in Diffuse.ToDrawing(key: op)
-        from ambient in Ambient.Traverse(shade => shade.ToDrawing(key: op)).As()
-        from specular in Specular.Traverse(shade => shade.ToDrawing(key: op)).As()
-        from _ in op.Catch(() => {
+    internal Fin<Unit> Seat(Light working) =>
+        from diffuse in Diffuse.ToDrawing()
+        from ambient in Ambient.Traverse(shade => shade.ToDrawing()).As()
+        from specular in Specular.Traverse(shade => shade.ToDrawing()).As()
+        from _ in Try.lift(() => {
             working.Diffuse = diffuse;
             _ = ambient.Iter(shade => working.Ambient = shade);
             _ = specular.Iter(shade => working.Specular = shade);
-        })
+        }).Run().Bind(static inner => inner)
         select unit;
 }
 ```
@@ -487,30 +485,28 @@ public abstract partial record LightSelect {
     public sealed record Of(Guid Id) : LightSelect;
     public sealed record Named(string Name) : LightSelect;
 
-    internal Fin<Seq<(ResourceIndex Index, LightObject Native)>> Resolve(RhinoDoc document, Op key) =>
+    internal Fin<Seq<(ResourceIndex Index, LightObject Native)>> Resolve(RhinoDoc document) =>
         Switch(
-            context: (Document: document, Op: key),
-            every: static (context, _) => context.Op.Catch(() => Fin.Succ(value:
-                context.Document.Lights.AsIterable().ToSeq()
+            context: document,
+            every: static (context, _) => Try.lift(() => Fin.Succ(value:
+                context.Lights.AsIterable().ToSeq()
                     .Filter(static native => !native.IsDeleted)
                     .Choose(native => ResourceIndex
-                        .Maybe(value: context.Document.Lights.Find(native.Id, ignoreDeleted: true))
-                        .Map(index => (Index: index, Native: native))))),
-            at: static (context, address) => context.Op.Catch(() => Row(
-                document: context.Document, index: address.Index, key: context.Op)),
-            of: static (context, address) => context.Op.Catch(() => Row(
-                document: context.Document,
-                index: context.Document.Lights.Find(address.Id, ignoreDeleted: true),
-                key: context.Op)),
+                        .Maybe(value: context.Lights.Find(native.Id, ignoreDeleted: true))
+                        .Map(index => (Index: index, Native: native))))).Run().Bind(static inner => inner),
+            at: static (context, address) => Try.lift(() => Row(
+                document: context, index: address.Index)).Run().Bind(static inner => inner),
+            of: static (context, address) => Try.lift(() => Row(
+                document: context,
+                index: context.Lights.Find(address.Id, ignoreDeleted: true))).Run().Bind(static inner => inner),
             named: static (context, address) =>
-                from name in context.Op.AcceptText(value: address.Name)
-                from rows in context.Op.Catch(() =>
-                    from found in Optional(context.Document.Lights.FindName(name)).ToFin(Fail: context.Op.MissingContext())
+                from name in Acceptance.Text(value: address.Name)
+                from rows in Try.lift(() =>
+                    from found in Optional(context.Lights.FindName(name)).ToFin(Fail: new KernelFault.MissingContext())
                     from row in Row(
-                        document: context.Document,
-                        index: context.Document.Lights.Find(found.Id, ignoreDeleted: true),
-                        key: context.Op)
-                    select row)
+                        document: context,
+                        index: context.Lights.Find(found.Id, ignoreDeleted: true))
+                    select row).Run().Bind(static inner => inner)
                 select rows);
 
     internal static Fin<(ResourceIndex Index, LightObject Native)> Indexed(
@@ -523,12 +519,12 @@ public abstract partial record LightSelect {
         from _ in guard(state(native), failure)
         select (slot, native);
 
-    private static Fin<Seq<(ResourceIndex Index, LightObject Native)>> Row(RhinoDoc document, int index, Op key) =>
+    private static Fin<Seq<(ResourceIndex Index, LightObject Native)>> Row(RhinoDoc document, int index) =>
         Indexed(
             document: document,
             index: index,
             state: static native => !native.IsDeleted,
-            failure: key.MissingContext())
+            failure: new KernelFault.MissingContext())
             .Map(static row => Seq(row));
 }
 
@@ -540,62 +536,61 @@ public abstract partial record LightOp {
     public sealed record Purge(LightSelect Select, HostInteraction Interaction) : LightOp;
     public sealed record Revive(int Index) : LightOp;
 
-    internal Fin<LightOp> Admit(Op op) =>
+    internal Fin<LightOp> Admit() =>
         Switch(
             context: op,
-            mint: static (key, work) =>
-                from seed in key.Need(work.Seed).Bind(value => value.Admit(op: key))
-                from name in work.Name.Traverse(value => key.AcceptText(value: value)).As()
+            mint: static (work) =>
+                from seed in Admit.Need(work.Seed).Bind(value => value.Admit())
+                from name in work.Name.Traverse(value => Acceptance.Text(value: value)).As()
                 select (LightOp)new Mint(Seed: seed, Name: name),
-            amend: static (key, work) =>
-                from address in key.Need(work.Select)
-                from _ in guard(!work.Edits.IsEmpty, key.InvalidInput())
-                from edits in work.Edits.TraverseM(edit => key.Need(edit)
-                    .Bind(value => value.Admit(op: key))).As()
+            amend: static (work) =>
+                from address in Admit.Need(work.Select)
+                from _ in guard(!work.Edits.IsEmpty, new KernelFault.InvalidInput())
+                from edits in work.Edits.TraverseM(edit => Admit.Need(edit)
+                    .Bind(value => value.Admit())).As()
                 select (LightOp)new Amend(Select: address, Edits: edits),
-            purge: static (key, work) =>
-                from address in key.Need(work.Select)
-                from _ in key.Need(work.Interaction)
+            purge: static (work) =>
+                from address in Admit.Need(work.Select)
+                from _ in Admit.Need(work.Interaction)
                 select (LightOp)work,
-            revive: static (key, work) => ResourceIndex.Admit(value: work.Index, key: key).Map(_ => (LightOp)work));
+            revive: static (work) => ResourceIndex.Admit(value: work.Index).Map(_ => (LightOp)work));
 
-    internal Fin<Unit> Apply(RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document) =>
         Switch(
-            context: (Document: document, Op: op),
-            mint: static (context, work) => work.Seed.Mint(op: context.Op).Bind(lease => lease.Use(
-                fresh => context.Op.Catch(() => {
+            context: document,
+            mint: static (context, work) => work.Seed.Mint().Bind(lease => lease.Use(
+                fresh => Try.lift(() => {
                     _ = work.Name.Iter(name => fresh.Name = name);
-                    return ResourceIndex.Admit(value: context.Document.Lights.Add(fresh), key: context.Op)
+                    return ResourceIndex.Admit(value: context.Lights.Add(fresh), key: context.Op)
                         .Map(static _ => unit);
-                }),
-                context.Op)),
+                }).Run().Bind(static inner => inner))),
             amend: static (context, work) =>
-                from rows in work.Select.Resolve(document: context.Document, key: context.Op)
-                from _ in rows.TraverseM(row => context.Op.Catch(() =>
-                    from working in Optional(row.Native.DuplicateLightGeometry()).ToFin(Fail: context.Op.InvalidResult())
-                    from applied in context.Op.Catch(() => {
+                from rows in work.Select.Resolve(document: context)
+                from _ in rows.TraverseM(row => Try.lift(() =>
+                    from working in Optional(row.Native.DuplicateLightGeometry()).ToFin(Fail: new KernelFault.InvalidResult())
+                    from applied in Try.lift(() => {
                         using Light live = working;
-                        return from kind in LightKind.Of(style: live.LightStyle, key: context.Op)
+                        return from kind in LightKind.Of(style: live.LightStyle)
                                from __ in work.Edits.TraverseM(edit => edit.Apply(
-                                   working: live, kind: kind, op: context.Op)).As()
-                               from ___ in context.Op.Confirm(
-                                   success: context.Document.Lights.Modify(row.Index.Value, live))
+                                   working: live, kind: kind)).As()
+                               from ___ in Admit.Confirm(
+                                   success: context.Lights.Modify(row.Index.Value, live))
                                select unit;
-                    })
-                    select applied)).As()
+                    }).Run().Bind(static inner => inner)
+                    select applied).Run().Bind(static inner => inner)).As()
                 select unit,
             purge: static (context, work) =>
-                from rows in work.Select.Resolve(document: context.Document, key: context.Op)
-                from _ in rows.TraverseM(row => context.Op.Confirm(
-                    success: context.Document.Lights.Delete(row.Index.Value, work.Interaction.IsQuiet))).As()
+                from rows in work.Select.Resolve(document: context)
+                from _ in rows.TraverseM(row => Admit.Confirm(
+                    success: context.Lights.Delete(row.Index.Value, work.Interaction.IsQuiet))).As()
                 select unit,
             revive: static (context, work) =>
                 from row in LightSelect.Indexed(
-                    document: context.Document,
+                    document: context,
                     index: work.Index,
                     state: static native => native.IsDeleted,
-                    failure: context.Op.InvalidInput())
-                from _ in context.Op.Confirm(success: context.Document.Lights.Undelete(row.Index.Value))
+                    failure: new KernelFault.InvalidInput())
+                from _ in Admit.Confirm(success: context.Lights.Undelete(row.Index.Value))
                 select unit);
 }
 
@@ -603,11 +598,11 @@ public abstract partial record LightOp {
 public sealed record LightRoster(Seq<LightStamp> Rows) : IDetachedDocumentResult;
 
 public readonly record struct SceneSpectrum(double R, double G, double B) {
-    internal static Fin<SceneSpectrum> Of(PerceptualColor colour, Op key) =>
+    internal static Fin<SceneSpectrum> Of(PerceptualColor colour) =>
         colour.ToRgb(profile: RgbProfile.Srgb, transfer: RgbTransfer.Linear) switch {
             var (red, green, blue, alpha) when alpha >= 1.0 =>
                 Fin.Succ(value: new SceneSpectrum(R: red, G: green, B: blue)),
-            _ => Fin.Fail<SceneSpectrum>(error: key.InvalidInput(axis: nameof(PerceptualColor.Alpha))),
+            _ => Fin.Fail<SceneSpectrum>(error: new KernelFault.InvalidInput(Axis: Some(nameof(PerceptualColor.Alpha)))),
         };
 }
 
@@ -622,9 +617,9 @@ public readonly record struct PhotometricPower(
 }
 
 public readonly record struct PhotometricWebRef(ArtifactContent Artifact, Wire.WebDialect Dialect) {
-    internal Fin<PhotometricWebRef> Admit(Op op) =>
-        from artifact in op.Need(Artifact)
-        from _ in guard(Dialect != Wire.WebDialect.Unspecified, op.InvalidInput())
+    internal Fin<PhotometricWebRef> Admit() =>
+        from artifact in Admit.Need(Artifact)
+        from _ in guard(Dialect != Wire.WebDialect.Unspecified, new KernelFault.InvalidInput())
         select this with { Artifact = artifact };
 }
 
@@ -633,14 +628,14 @@ public readonly record struct SceneShading(
     ulong ElementCount,
     ulong TriangleCount,
     Geometry.TessellationPolicy Fidelity) {
-    internal Fin<SceneShading> Admit(Op op) =>
-        from artifact in op.Need(Artifact)
-        from fidelity in op.Need(Fidelity)
+    internal Fin<SceneShading> Admit() =>
+        from artifact in Admit.Need(Artifact)
+        from fidelity in Admit.Need(Fidelity)
         from _ in guard(
             fidelity.TriangleBudget > 0UL && TriangleCount <= fidelity.TriangleBudget
             && double.IsFinite(fidelity.DeflectionM) && fidelity.DeflectionM > 0d
             && double.IsFinite(fidelity.AngleToleranceRad) && fidelity.AngleToleranceRad > 0d,
-            op.InvalidInput())
+            new KernelFault.InvalidInput())
         select this with { Artifact = artifact, Fidelity = fidelity.Clone() };
 }
 
@@ -668,13 +663,13 @@ public sealed record ScenePhotometry(
     LightAttenuation Attenuation,
     Option<PhotometricWebRef> Web) : IDetachedDocumentResult {
     internal static Fin<ScenePhotometry> Of(
-        LightStamp stamp, double metresPerUnit, Option<PhotometricWebRef> web, Op key) =>
-        from active in key.Need(stamp)
-        from scale in key.Positive(metresPerUnit)
-        from shadow in key.AcceptValidated<UnitInterval>(candidate: active.Shadow)
-        from diffuse in SceneSpectrum.Of(colour: active.Diffuse, key: key)
-        from ambient in SceneSpectrum.Of(colour: active.Ambient, key: key)
-        from specular in SceneSpectrum.Of(colour: active.Specular, key: key)
+        LightStamp stamp, double metresPerUnit, Option<PhotometricWebRef> web) =>
+        from active in Admit.Need(stamp)
+        from scale in Admit.Positive(metresPerUnit)
+        from shadow in FactoryBridge.Accept<UnitInterval>(candidate: active.Shadow)
+        from diffuse in SceneSpectrum.Of(colour: active.Diffuse)
+        from ambient in SceneSpectrum.Of(colour: active.Ambient)
+        from specular in SceneSpectrum.Of(colour: active.Specular)
         let power = PhotometricPower.Of(stamp: active)
         from _ in guard(
             double.IsFinite(power.Lumens) && power.Lumens >= 0d
@@ -682,11 +677,11 @@ public sealed record ScenePhotometry(
             && (power.RadiantFluxIsAuthority
                 ? double.IsFinite(power.Watts) && power.Watts > 0d
                 : double.IsFinite(power.Scale) && power.Scale >= 0d),
-            key.InvalidInput())
-        from direction in SceneMap.Direction(value: active.Direction, key: key)
-        from perpendicular in SceneMap.Direction(value: active.PerpendicularDirection, key: key)
-        from extent in active.Area.Traverse(area => area.Scaled(scale: scale, op: key)).As()
-        from reference in web.Traverse(value => value.Admit(op: key)).As()
+            new KernelFault.InvalidInput())
+        from direction in SceneMap.Direction(value: active.Direction)
+        from perpendicular in SceneMap.Direction(value: active.PerpendicularDirection)
+        from extent in active.Area.Traverse(area => area.Scaled(scale: scale)).As()
+        from reference in web.Traverse(value => value.Admit()).As()
         select new ScenePhotometry(
             Id: active.Id,
             Name: active.Name,
@@ -714,53 +709,49 @@ public sealed record SceneCapture(
     SceneShading Shading,
     Instant CapturedAt) : IDetachedDocumentResult {
     internal static Fin<SceneCapture> Of(
-        SceneSun sun, Seq<ScenePhotometry> lights, SceneShading shading, ModelUnit unit, Instant moment, Op op) =>
-        from band in op.Need(sun)
+        SceneSun sun, Seq<ScenePhotometry> lights, SceneShading shading, ModelUnit unit, Instant moment) =>
+        from band in Admit.Need(sun)
         from _ in guard(
             double.IsFinite(band.IntensityScale) && band.IntensityScale >= 0d,
-            op.InvalidInput())
-        from artifact in op.Need(shading).Bind(value => value.Admit(op: op))
-        from regime in op.Need(unit)
+            new KernelFault.InvalidInput())
+        from artifact in Admit.Need(shading).Bind(value => value.Admit())
+        from regime in Admit.Need(unit)
         let source = regime.Name.IfNone(() => regime.System.ToString())
         let unstamped = new SceneCapture(
             Key: 0, SourceUnit: source, Sun: band, Lights: lights, Shading: artifact, CapturedAt: moment)
-        from key in SceneMap.ContentKey(capture: unstamped, key: op)
+        from key in SceneMap.ContentKey(capture: unstamped)
         select unstamped with { Key = key };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Lights {
-    public static Fin<LightRoster> Ask(DocumentSession session, LightSelect scope, Op? key = null) {
-        Op op = key.OrDefault();
-        return from address in op.Need(scope)
+    public static Fin<LightRoster> Ask(DocumentSession session, LightSelect scope) {
+        return from address in Admit.Need(scope)
                from roster in session.Demand(
                    use: document =>
                        from model in Rasm.Domain.Context.Of(doc: document).ToFin()
                        from rows in address.Resolve(document: document, key: op)
                        from stamps in rows.TraverseM(row => LightStamp.Of(
-                           index: row.Index, native: row.Native, model: model, key: op)).As()
+                           index: row.Index, native: row.Native, model: model)).As()
                        select new LightRoster(Rows: stamps),
-                   key: op,
                    needs: [SessionNeed.Read])
                select roster;
     }
 
     public static Fin<Unit> Commit(
         DocumentSession session, RedrawPolicy redraw, params ReadOnlySpan<LightOp> operations) {
-        Op op = Op.Of();
-        return from policy in op.Need(redraw)
+        return from policy in Admit.Need(redraw)
                from requested in LanguageExt.Iterable<LightOp>.FromSpan(operations).ToSeq()
-                   .TraverseM(work => op.Need(work)).As()
-               from _ in guard(!requested.IsEmpty, op.InvalidInput())
-               from plan in requested.TraverseM(work => work.Admit(op: op)).As()
+                   .TraverseM(work => Admit.Need(work)).As()
+               from _ in guard(!requested.IsEmpty, new KernelFault.InvalidInput())
+               from plan in requested.TraverseM(work => work.Admit()).As()
                from _ in ObjectSpine.Commit(
                    session: session,
                    name: nameof(Lights),
                    redraw: policy,
                    run: (document, key) => plan
                        .TraverseM(work => work.Apply(document: document, op: key)).As()
-                       .Map(static _ => unit),
-                   op: op)
+                       .Map(static _ => unit))
                select unit;
     }
 
@@ -769,44 +760,39 @@ public static class Lights {
         SceneSun sun,
         SceneShading shading,
         IPhotometricRegistry webs,
-        Instant moment,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from band in op.Need(sun)
-               from artifact in op.Need(shading)
-               from registry in op.Need(webs)
+        Instant moment) {
+        return from band in Admit.Need(sun)
+               from artifact in Admit.Need(shading)
+               from registry in Admit.Need(webs)
                from capture in session.Demand(
                    use: document =>
                        from model in Rasm.Domain.Context.Of(doc: document).ToFin()
                        from rows in new LightSelect.Every().Resolve(document: document, key: op)
                        from stamps in rows.TraverseM(row => LightStamp.Of(
-                           index: row.Index, native: row.Native, model: model, key: op)).As()
+                           index: row.Index, native: row.Native, model: model)).As()
                        from photometry in stamps.TraverseM(stamp => ScenePhotometry.Of(
                            stamp: stamp,
                            metresPerUnit: model.Unit.MetersPerUnit,
-                           web: registry.WebOf(light: stamp.Id),
-                           key: op)).As()
+                           web: registry.WebOf(light: stamp.Id))).As()
                        from sealed_ in SceneCapture.Of(
                            sun: band, lights: photometry, shading: artifact,
-                           unit: model.Unit, moment: moment, op: op)
+                           unit: model.Unit, moment: moment)
                        select sealed_,
-                   key: op,
                    needs: [SessionNeed.Read])
-               from bytes in SceneMap.Encode(capture: capture, key: op)
+               from bytes in SceneMap.Encode(capture: capture)
                select (capture, bytes);
     }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class SceneMap {
-    internal static Fin<UInt128> ContentKey(SceneCapture capture, Op key) =>
-        key.Catch(() => Fin.Succ(ContentHash.Of(Descriptor(capture: capture, includeKey: false).ToByteArray())));
+    internal static Fin<UInt128> ContentKey(SceneCapture capture) =>
+        Try.lift(() => Fin.Succ(ContentHash.Of(Descriptor(capture: capture, includeKey: false).ToByteArray()))).Run().Bind(static inner => inner);
 
-    public static Fin<ReadOnlyMemory<byte>> Encode(SceneCapture capture, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in op.Need(capture)
-               from bytes in op.Catch(() => Fin.Succ(
-                   value: (ReadOnlyMemory<byte>)Descriptor(capture: admitted, includeKey: true).ToByteArray()))
+    public static Fin<ReadOnlyMemory<byte>> Encode(SceneCapture capture) {
+        return from admitted in Admit.Need(capture)
+               from bytes in Try.lift(() => Fin.Succ(
+                   value: (ReadOnlyMemory<byte>)Descriptor(capture: admitted, includeKey: true).ToByteArray())).Run().Bind(static inner => inner)
                select bytes;
     }
 
@@ -887,11 +873,11 @@ public static class SceneMap {
         ZM = value.Z,
     };
 
-    internal static Fin<Spatial.UnitDirection3> Direction(Vector3d value, Op key) {
+    internal static Fin<Spatial.UnitDirection3> Direction(Vector3d value) {
         Vector3d admitted = value;
         return admitted.Unitize()
             ? Fin.Succ(new Spatial.UnitDirection3 { X = admitted.X, Y = admitted.Y, Z = admitted.Z })
-            : Fin.Fail<Spatial.UnitDirection3>(key.InvalidInput(axis: "scene-direction"));
+            : Fin.Fail<Spatial.UnitDirection3>(new KernelFault.InvalidInput(Axis: Some("scene-direction")));
     }
 
     internal static Wire.AttenuationCoefficients Coefficients(Vector3d value) => new() {

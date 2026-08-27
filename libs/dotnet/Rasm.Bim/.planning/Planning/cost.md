@@ -2,7 +2,7 @@
 
 The host-neutral 5D/6D cost-carbon-and-resource projection over the `Rasm.Element` element graph: one `CostItem` line joining an `IfcCostValue` applied rate to the takeoff `Rasm.Element/Properties/quantity#MEASURE_VALUE` `MeasureValue` the line resolves at projection from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Element.Quantities` bag (or the cost line's own `IfcCostItem.CostQuantities`), one `ConstructionResource` record discriminated by the `ResourceKind` `[SmartEnum<string>]` over all six `IfcConstructionResource` modalities, and the `CostSchedule.Rollup` `Money`-fold that folds the resolved `(quantity x rate)` lines into one schedule total — one fold, never enumerated per-resource arms. The priced scalar is the `NodaMoney` `Money` `readonly struct` over a `decimal Amount` and an ISO 4217 `Currency`, never a `(double Amount, string Currency)` pair anywhere on the page: a `CostItem` value is `Money`, a unit rate is `Money / decimal` over the typed `CostValue.UnitBasis` denominator, the quantity x rate join is `Money * (decimal)quantity.Si` admitted only after the basis dimension is proved against the takeoff's, a composite IFC `IfcCostValue.Components` rate folds through the `IfcArithmeticOperatorEnum` operator into one `Money` (a non-monetary `IfcRatioMeasure` component lifting as the currencyless scalar factor), the `CostSchedule.Rollup` is a `Money` sum over the additive operator (`Money.AdditiveIdentity` the no-currency anchor) carrying the lossless per-currency `ByCurrency` subtotal partition BEFORE any convert — a genuinely mixed-currency estimate aggregates without a complete FX table — a cross-currency total composes `NodaMoney.Exchange.ExchangeRate.Convert` over the per-line-matched `Seq<ExchangeRate>` fx table (both rate legs matched, never a single-rate assumption), a lump-sum or contingency allocation across packages is the lossless `MoneyExtensions.Split` penny distribution rather than a remainder-losing `total / n` multiply, and the EARNED-VALUE metrics (BCWS/BCWP/ACWP plus the derived `CV`/`SV`) are `Money` while every RATIO-DERIVED read — `CPI`/`SPI`/`TCPI` the dimensionless `Money / Money → decimal` ratio and `EAC`/`VAC`/`ETC` the `Money` it forecasts — is an `Option` whose `None` IS the zero-denominator case, so an unspent schedule reads NO cost index rather than the unity a dashboard renders as on-plan, and the sign reads the native `Money.IsNegative` predicates — never a `(double, string Currency)` carrier. The whole estimate folds under one `NodaMoney.Context.MoneyContext` rounding/precision policy — the `CostMoney.Context` banker's-rounding value the ONE `CostMoney.Install` composition-root `DefaultThreadContext` seat binds before any projection mints a `Money` — so a single rounding rule governs every line rather than a `MidpointRounding` argument threaded through every construction, and the rule stays recoverable from that declaration and from any `Money.Context` the estimate carries.
 
-The estimate is a VIEW of the federated `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph`, never a second quantity or schedule source: each `CostItem` reads its takeoff from the one shared `QuantitySet` bag the `Semantics/properties#BASE_QUANTITIES` `QuantityDerivation` already derived from the kernel geometry the `Node.Object` references by content key, joins to the priced elements through the `IfcRelAssignsToControl.RelatedObjects` cost-control set resolved against the element graph by the `Node.Object.ExternalId` (the 1:1 IFC `GlobalId` projection attribute [H6]), and binds the resource it consumes to the `Planning/schedule#SCHEDULE` `ConstructionTask` activity network through `IfcRelAssignsToProcess` rather than re-modeling a parallel schedule — so a wall's net-volume takeoff, its concrete unit rate, and the labor crew that places it carry one cost line while the contract keeps the element's content-keyed geometry and the schedule keeps the activity's calendar. The estimate is HOST-NEUTRAL — it reads the in-process GeometryGym cost graph and joins to the contract by stable `GlobalId`/`NodeId`, never a RhinoCommon type — and the `Model/query#ELEMENT_SET` `ByProperty(Qto_*)` arm selects the quantified element set the estimate prices, never a second selection surface. The `(QuantityKey, ResourceKey)` shared `ContentAddress` pair `CostSchedule.Identity` derives over the resolved `(globalIds, quantity, rate)` line triples is the reference the cross-libs `dotnet:TELEMETRY_LAKE_ANALYTICS` 5D cost catalog reads the schedule by at `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING`, and the `Rasm.AppUi/Charts` estimate report renders the same rollup — Bim PRODUCES the cost source, never re-pricing it downstream. A foreign IFC amount enters through the result-returning `CostMoney.Of((decimal)amount, iso4217, key)` boundary, which gates the code through `CurrencyInfo.TryFromCode` before construction and raises `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Codec` on a miss; an `IfcMonetaryMeasure` prices in the PROJECT currency (the `IfcContext.UnitsInContext` `IfcMonetaryUnit` resolved once at projection onto `CostSchedule.Currency` — the IFC law for monetary measures and the ONE currency source, `IfcCostValue.UnitBasis` being the measure denominator alone), and every cost rejection lifts the typed `BimFault` case BARE onto the `Fin<T>` result (band 2600 owns the generated `Code`), never a `.ToError()` hop, a new fault family, or a thrown currency exception in domain logic.
+The estimate is a VIEW of the federated `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph`, never a second quantity or schedule source: each `CostItem` reads its takeoff from the one shared `QuantitySet` bag the `Semantics/properties#BASE_QUANTITIES` `QuantityDerivation` already derived from the kernel geometry the `Node.Object` references by content key, joins to the priced elements through the `IfcRelAssignsToControl.RelatedObjects` cost-control set resolved against the element graph by the `Node.Object.ExternalId` (the 1:1 IFC `GlobalId` projection attribute [H6]), and binds the resource it consumes to the `Planning/schedule#SCHEDULE` `ConstructionTask` activity network through `IfcRelAssignsToProcess` rather than re-modeling a parallel schedule — so a wall's net-volume takeoff, its concrete unit rate, and the labor crew that places it carry one cost line while the contract keeps the element's content-keyed geometry and the schedule keeps the activity's calendar. The estimate is HOST-NEUTRAL — it reads the in-process GeometryGym cost graph and joins to the contract by stable `GlobalId`/`NodeId`, never a RhinoCommon type — and the `Model/query#ELEMENT_SET` `ByProperty(Qto_*)` arm selects the quantified element set the estimate prices, never a second selection surface. The `(QuantityKey, ResourceKey)` shared `ContentAddress` pair `CostSchedule.Identity` derives over the resolved `(globalIds, quantity, rate)` line triples is the reference the cross-libs `dotnet:TELEMETRY_LAKE_ANALYTICS` 5D cost catalog reads the schedule by at `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING`, and the `Rasm.AppUi/Charts` estimate report renders the same rollup — Bim PRODUCES the cost source, never re-pricing it downstream. A foreign IFC amount enters through the result-returning `CostMoney.Of((decimal)amount, iso4217)` boundary, which gates the code through `CurrencyInfo.TryFromCode` before construction and raises `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Codec` on a miss; an `IfcMonetaryMeasure` prices in the PROJECT currency (the `IfcContext.UnitsInContext` `IfcMonetaryUnit` resolved once at projection onto `CostSchedule.Currency` — the IFC law for monetary measures and the ONE currency source, `IfcCostValue.UnitBasis` being the measure denominator alone), and every cost rejection lifts the typed `BimFault` case BARE onto the `Fin<T>` result (band 2600 owns the generated `Code`), never a `.ToError()` hop, a new fault family, or a thrown currency exception in domain logic.
 
 ## [01]-[INDEX]
 
@@ -15,8 +15,8 @@ The estimate is a VIEW of the federated `Rasm.Element/Graph/element#ELEMENT_GRAP
 - Owner: `EstimateStage` the projection lane's OWN closed stage roster projecting the `Model/observability#HOOKS` `StageMark` onto the `rasm.bim.planning.progress` observe point; `CostSchedule` the single host-neutral 5D cost-and-resource record carrying the `CostScheduleKind` discriminant, the resolved reporting `Currency` (the project `IfcMonetaryUnit`, else the first priced value's — resolved ONCE at projection, never a head-of-items implicit per fold), the optional `Status` approval state (the GG `Staus` member), the self-contained priced `CostItem` line set (each line carrying its resolved takeoff `MeasureValue`), the `ConstructionResource` resource set, the `Contingency` reserve, and the `(QuantityKey, ResourceKey)` content-key identity the cross-libs cost catalog reads it by, with the result-returning `Fin<CostRollup>` `Money`-fold `Rollup` schedule-total and the lossless `Apportion` lump-sum distribution; `CostItem` the single priced line record joining the `IfcCostItem.CostValues` `Seq<CostValue>` applied-rate SET (bSI sums an item's cost values — a head-only read is the deleted form; same-currency within one line admitted at projection) to the ONE resolved `MeasureValue Quantity` (the shared takeoff or the explicit `IfcCostItem.CostQuantities`) by the priced element `GlobalId` set, carrying the optional `ResourceGlobalId` it consumes (the `IfcConstructionResource` the item's own `Controls` set assigns, routed OFF the priced set so a resource-controlling line never false-faults the element join) and the `ParentGlobalId` nesting reference the `IfcCostItem` `Nests` hierarchy declares — its `ValueOf` the pure `Σ Rate * (decimal)Quantity.Si` fold needing no graph; `ConstructionResource` the ONE record discriminated by the `ResourceKind` `[SmartEnum<string>]` over the six `IfcConstructionResource` modalities (`Labor`/`Material`/`Equipment`/`Crew`/`Product`/`Subcontract`), carrying its `MeasureValue BaseQuantity`, an optional `Money BaseCost` from `IfcConstructionResource.BaseCosts`, the optional `Skill` (the `IfcLaborResourceTypeEnum`/`IfcCrewResourceTypeEnum` `PredefinedType` descriptor), the optional consumed `Material` (read through the resource's `HasAssociations` `IfcRelAssociatesMaterial`), the optional `TaskGlobalId` it resources through `IfcRelAssignsToProcess`, and the optional `Completion` ratio (`IfcResourceTime.Completion` off the inherited `Usage` — the resource-side actual-progress axis feeding the `Spent` incurred read) — never a per-subtype class family; `CostValue` the applied-rate record carrying its `Money` value (the fold of the `IfcCostValue` direct amount OR its `Components` tree through the `ArithmeticOperator`), its `UnitBasis` typed per-unit `MeasureValue` denominator, and its `CostCategory` discriminant, the per-basis rate the native `Money / decimal` divide over that denominator's SI magnitude; `CostScheduleKind`/`ResourceKind`/`CostCategory` the cost-schedule-kind / resource-modality / cost-category `[SmartEnum<string>]` vocabularies; `CostMoney` the boundary lift folding a foreign IFC `(double amount, string iso4217)` into a typed `Money` after public `CurrencyInfo.TryFromCode` admission, raising `BimFault.Refused` with `BimReason.Codec` on a miss, the ONE `Reprice` fx-table repricing owner (both rate legs matched) `Rollup` and `EarnedValue` compose, plus the `MoneyContext` rounding policy; `CostProjection` the static fold over the GeometryGym `IfcCostSchedule` surface and the shared `ElementGraph`.
 - Cases: `ConstructionResource` is ONE record whose `ResourceKind` row discriminates the modality — `Labor` (`IfcLaborResource`, `Skill` = `IfcLaborResourceTypeEnum` `PredefinedType`, `BaseQuantity` crew man-hours), `Material` (`IfcConstructionMaterialResource`, `Material` = the consumed material name through `HasAssociations`, `BaseQuantity` consumed volume/mass), `Equipment` (`IfcConstructionEquipmentResource`, `BaseQuantity` plant-hours), `Crew` (`IfcCrewResource`, `Skill` = `IfcCrewResourceTypeEnum`), `Product` (`IfcConstructionProductResource`, `Material` = the product), `Subcontract` (`IfcSubContractResource`) — each carrying the optional `BaseCost` and `TaskGlobalId`, a seventh modality being one `ResourceKind` row with zero new surface (6 modalities, the `[SmartEnum]` partition the discriminant); the `CostValue` value object carries its `Money` `Applied` rate (the `IfcCostValue.AppliedValue` `IfcMonetaryMeasure.Measure` lifted into one `Money` under the project `IfcMonetaryUnit` currency, or the `IfcAppliedValue.Components` sub-value tree folded through the `IfcArithmeticOperatorEnum` — never a `double` amount beside a bare currency string), its `UnitBasis` typed per-unit `MeasureValue` denominator (the dimensionless `1` for a unit rate, the SI-coerced `IfcCostValue.UnitBasis` `IfcMeasureWithUnit` for a per-basis rate), and its `CostCategory` (`Material`/`Labour`/`Equipment`/`Overhead`/`Subcontract`/`Preliminaries`/`Contingency`/`NotDefined` over the `IfcCostValue.Category` string) — the line rate the native `Applied / UnitBasis` (`Money / decimal → Money`) before multiplying the takeoff quantity; the `CostScheduleKind` rows `Budget`/`CostPlan`/`Estimate`/`Tender`/`PricedBillOfQuantities`/`UnpricedBillOfQuantities`/`ScheduleOfRates`/`UserDefined`/`NotDefined` (9) each frozen over the verified `IfcCostScheduleTypeEnum` member, the `ResourceKind` rows `Labor`/`Material`/`Equipment`/`Crew`/`Product`/`Subcontract`/`NotDefined` (7 — a `UserDefined` row is unreachable dead data because `Of(GetType().Name)` only ever yields the six subtype keys, `NotDefined` the sole `IfNone` fallback) each frozen with its `IfcDomain`, and the `CostCategory` rows (8) over the IFC cost category string.
 - Law: the rounding regime is a property of every `Money` VALUE, not of a fold — the ctor stamps `MoneyContext.CurrentContext` into the value's own flag bits, `money.Context` reads it back, and `Add`/`Subtract`/`Remainder` THROW `MoneyContextMismatchException` across two contexts — so the ONE `CostMoney.Install` composition-root `DefaultThreadContext` seat governs every mint on the page and a fold-local `CreateScope` is the deleted form: it forks the context space between the lines projection minted outside it and the amounts `Reprice` mints inside it, and `ExchangeRate.Convert` (which takes no context argument and can only carry the ambient one) puts that fork on the reprice path of every cross-currency estimate.
-- Entry: `CostProjection.Project(IfcCostSchedule schedule, Seq<IfcConstructionResource> resources, ElementGraph graph, Op key, Option<BimHooks> hooks = default)` folds one GeometryGym cost schedule into one self-contained `CostSchedule` — materializing the schedule's `Controls` `IfcRelAssignsToControl.RelatedObjects` controlled `IfcCostItem` set PLUS each item's transitive `IsNestedBy` sub-item tree once (the nested BoQ child lines a `Controls`-only read drops, deduped by `GlobalId`), building the `ExternalId → NodeId` index over `graph.ObjectNodes` once, resolving the project reporting `Currency` once (`MonetaryOf` over `IfcContext.UnitsInContext`, result-returning through `CostMoney.Of`), folding each cost item onto a `CostItem` line that resolves its WHOLE `CostValues` applied-rate set (the `Components` tree included; mixed real currencies within one item refusing `cost-value-currency-mixed` at admission so `ValueOf` stays total), resolves the priced element `GlobalId` set against the index (`BimFault.Refused` with `BimReason.DanglingReference` BARE on a priced `GlobalId` the element graph never declares as a `Node.Object.ExternalId`), and resolves the line takeoff `MeasureValue` (the explicit `IfcCostItem.CostQuantities` when present, else the dominant base quantity off the priced elements' shared `Bake`d `Element.Quantities`, else a unit lump-sum), and folding the resource set onto `ConstructionResource` rows discriminated by `ResourceKind.Of(resource.GetType().Name)` (a non-construction-resource entity filtered before the traverse rather than aborting the whole schedule; a resource `BaseCosts` currency fault refusing `BimFault.Refused` with `BimReason.Codec` typed rather than silently dropping the cost); `CostProjection.ProjectAll` lifts every cost schedule in a federated graph onto the `Seq<CostSchedule>` the catalog reads, `CostSchedule.Rollup(Op key, Seq<ExchangeRate> fx = default)` folds the resolved per-value lines into the `Fin<CostRollup>` schedule total — the `ByCurrency` partition aggregating each value's NATIVE currency losslessly before any convert, the `Total` repricing through the `CostMoney.Reprice` fx-table match (refusing `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Codec` on a foreign value carrying no matching rate, never a thrown `Money + Money` mismatch in domain logic) — and `CostSchedule.Apportion(Money lumpSum)` distributes a lump-sum (overhead, contingency) across the lines by their value-weight ratios through the lossless `MoneyExtensions.Split` (a zero-weight line set splits evenly — the lump is never dropped).
-- Auto: `Project` reads the `IfcCostSchedule` runtime graph and folds it into the self-contained schedule — the `ItemsOf` projection materializes the schedule's `Controls` `IfcRelAssignsToControl` controlled `IfcCostItem` set plus each item's transitive `IsNestedBy` sub-item closure once (the `NestedItems` recursion mirroring the schedule WBS flatten, deduped by `GlobalId`; a parent line prices only its OWN authored values, a leaf-authored BoQ summing exactly); `ValuesOf` folds each item's WHOLE `CostValues` LIST onto the `Seq<CostValue>` line set (`AmountOf` reading the `IfcMonetaryMeasure.Measure` into one `Money` under the resolved MODEL currency — the project `IfcMonetaryUnit` is the ONE currency source and a `UnitBasis.UnitComponent` currency read is the deleted form, since the basis answers what a rate is PER and never what it is IN — OR lifting a non-monetary `IfcMeasureValue` leaf (an `IfcRatioMeasure` overhead factor) as the currencyless scalar, OR recursively folding the `IfcAppliedValue.Components` sub-value tree through the `IfcArithmeticOperatorEnum` `ADD`/`SUBTRACT`/`MULTIPLY`/`DIVIDE` operator, the `IfcCostValue.UnitBasis` lifting through `BasisOf` onto the typed `MeasureValue UnitBasis` — its `ValueComponent`'s own measure-type name resolving dimension and coercion axis through the owned `PropertyLowering.MeasureDimensions` table and its `UnitComponent` overriding the project regime, so the denominator arrives SI-coerced rather than in the model's declared units the SI takeoff cannot meet — the `IfcCostValue.Category` onto `CostCategory`); `QuantityOf` resolves the line takeoff once at projection (the explicit `IfcCostItem.CostQuantities` `IfcPhysicalSimpleQuantity` set decoded through the owned `Projection/value#PROPERTY_LOWERING` `PropertyLowering.Measure`, else `graph.Bake(node, key)` over each priced element and the dominant `MeasureValue` by `Dimension` rank `Volume ≻ Area ≻ Length ≻ Mass ≻ Duration` summed through `MeasureValue.Sum`, else the `Dimensionless` unit lump-sum), so the line value is the pure `Σ CostValue.Rate * (decimal)Quantity.Si` fold and the schedule needs no graph after projection; `CostItemOf` splits the item's `Controls` related set — the `IfcConstructionResource` head onto `ResourceGlobalId`, the `IfcProduct`s onto the priced set (a related `IfcProcess`/`IfcActor` is neither: the line prices as a unit lump-sum with no element join, never a false `Refused/BimReason.DanglingReference` abort) — and threads the `IfcCostItem` `Nests.RelatingObject.GlobalId` parent onto `ParentGlobalId` so a bill-of-quantities tree folds onto the flat line set with its nesting preserved; `ResourceOf` is ONE fold reading each `IfcConstructionResource` by runtime subtype onto a `ConstructionResource` row — `ResourceKind.Of(GetType().Name)` the discriminant, `MeasureOf(resource.BaseQuantity)` the `MeasureValue BaseQuantity`, the first `IfcConstructionResource.BaseCosts` `IfcAppliedValue` onto the optional `Money BaseCost`, the `IfcLaborResource`/`IfcCrewResource` `PredefinedType` onto `Skill`, the `IfcConstructionMaterialResource`/`IfcConstructionProductResource` associated `IfcMaterial.Name` onto `Material`, and the `OperatesOn`/`HasAssignments` `IfcRelAssignsToProcess.RelatingProcess` `IfcProcess.GlobalId` onto `TaskGlobalId` so the resource binds the `Planning/schedule#SCHEDULE` `ConstructionTask` it resources; `CostSchedule.Rollup` flattens the lines to per-value `(category, native)` pairs, partitions the NATIVE amounts by `Currency.Code` losslessly (`ByCurrency` — the mixed-currency aggregation no FX table gates), reprices each through `CostMoney.Reprice` into the schedule `Currency` (`ExchangeRate.Convert` on the fx-table rate matched on BOTH legs, refusing `BimFault.Refused` with `BimReason.Codec` when no matching rate exists rather than throwing a `Money + Money` mismatch) then sums them into the `Fin<CostRollup>` schedule total through the additive operator, partitions the total by `CostCategory` per VALUE and the resource cost (`BaseCost * BaseQuantity`, repriced through the SAME `CostMoney.Reprice` owner so a foreign-currency resource faults typed rather than throwing inside the partition) by `ResourceKind` through one `Fold`; `CostSchedule.Identity` derives the `(QuantityKey, ResourceKey)` shared `ContentAddress` pair through `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.Of` over the kernel `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter` fold (length-prefixed strings under per-run `Ordinal` counts) across the CANONICALLY-ORDERED priced line `(globalIds, quantity.Si, values)` triples and resource `(GlobalId, kind, baseQuantity.Si)` rows (the line set by `GlobalId`, each priced-id and resource set sorted ordinally, the per-line value list LIST-ordered — STEP LISTs are stable across re-parse) so the key is invariant to the unstable `IfcSet` iteration order a re-parse yields and the catalog re-reads only a genuinely changed estimate.
+- Entry: `CostProjection.Project(IfcCostSchedule schedule, Seq<IfcConstructionResource> resources, ElementGraph graph, Option<BimHooks> hooks = default)` folds one GeometryGym cost schedule into one self-contained `CostSchedule` — materializing the schedule's `Controls` `IfcRelAssignsToControl.RelatedObjects` controlled `IfcCostItem` set PLUS each item's transitive `IsNestedBy` sub-item tree once (the nested BoQ child lines a `Controls`-only read drops, deduped by `GlobalId`), building the `ExternalId → NodeId` index over `graph.ObjectNodes` once, resolving the project reporting `Currency` once (`MonetaryOf` over `IfcContext.UnitsInContext`, result-returning through `CostMoney.Of`), folding each cost item onto a `CostItem` line that resolves its WHOLE `CostValues` applied-rate set (the `Components` tree included; mixed real currencies within one item refusing `cost-value-currency-mixed` at admission so `ValueOf` stays total), resolves the priced element `GlobalId` set against the index (`BimFault.Refused` with `BimReason.DanglingReference` BARE on a priced `GlobalId` the element graph never declares as a `Node.Object.ExternalId`), and resolves the line takeoff `MeasureValue` (the explicit `IfcCostItem.CostQuantities` when present, else the dominant base quantity off the priced elements' shared `Bake`d `Element.Quantities`, else a unit lump-sum), and folding the resource set onto `ConstructionResource` rows discriminated by `ResourceKind.Of(resource.GetType().Name)` (a non-construction-resource entity filtered before the traverse rather than aborting the whole schedule; a resource `BaseCosts` currency fault refusing `BimFault.Refused` with `BimReason.Codec` typed rather than silently dropping the cost); `CostProjection.ProjectAll` lifts every cost schedule in a federated graph onto the `Seq<CostSchedule>` the catalog reads, `CostSchedule.Rollup(Seq<ExchangeRate> fx = default)` folds the resolved per-value lines into the `Fin<CostRollup>` schedule total — the `ByCurrency` partition aggregating each value's NATIVE currency losslessly before any convert, the `Total` repricing through the `CostMoney.Reprice` fx-table match (refusing `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Codec` on a foreign value carrying no matching rate, never a thrown `Money + Money` mismatch in domain logic) — and `CostSchedule.Apportion(Money lumpSum)` distributes a lump-sum (overhead, contingency) across the lines by their value-weight ratios through the lossless `MoneyExtensions.Split` (a zero-weight line set splits evenly — the lump is never dropped).
+- Auto: `Project` reads the `IfcCostSchedule` runtime graph and folds it into the self-contained schedule — the `ItemsOf` projection materializes the schedule's `Controls` `IfcRelAssignsToControl` controlled `IfcCostItem` set plus each item's transitive `IsNestedBy` sub-item closure once (the `NestedItems` recursion mirroring the schedule WBS flatten, deduped by `GlobalId`; a parent line prices only its OWN authored values, a leaf-authored BoQ summing exactly); `ValuesOf` folds each item's WHOLE `CostValues` LIST onto the `Seq<CostValue>` line set (`AmountOf` reading the `IfcMonetaryMeasure.Measure` into one `Money` under the resolved MODEL currency — the project `IfcMonetaryUnit` is the ONE currency source and a `UnitBasis.UnitComponent` currency read is the deleted form, since the basis answers what a rate is PER and never what it is IN — OR lifting a non-monetary `IfcMeasureValue` leaf (an `IfcRatioMeasure` overhead factor) as the currencyless scalar, OR recursively folding the `IfcAppliedValue.Components` sub-value tree through the `IfcArithmeticOperatorEnum` `ADD`/`SUBTRACT`/`MULTIPLY`/`DIVIDE` operator, the `IfcCostValue.UnitBasis` lifting through `BasisOf` onto the typed `MeasureValue UnitBasis` — its `ValueComponent`'s own measure-type name resolving dimension and coercion axis through the owned `PropertyLowering.MeasureDimensions` table and its `UnitComponent` overriding the project regime, so the denominator arrives SI-coerced rather than in the model's declared units the SI takeoff cannot meet — the `IfcCostValue.Category` onto `CostCategory`); `QuantityOf` resolves the line takeoff once at projection (the explicit `IfcCostItem.CostQuantities` `IfcPhysicalSimpleQuantity` set decoded through the owned `Projection/value#PROPERTY_LOWERING` `PropertyLowering.Measure`, else `graph.Bake(node)` over each priced element and the dominant `MeasureValue` by `Dimension` rank `Volume ≻ Area ≻ Length ≻ Mass ≻ Duration` summed through `MeasureValue.Sum`, else the `Dimensionless` unit lump-sum), so the line value is the pure `Σ CostValue.Rate * (decimal)Quantity.Si` fold and the schedule needs no graph after projection; `CostItemOf` splits the item's `Controls` related set — the `IfcConstructionResource` head onto `ResourceGlobalId`, the `IfcProduct`s onto the priced set (a related `IfcProcess`/`IfcActor` is neither: the line prices as a unit lump-sum with no element join, never a false `Refused/BimReason.DanglingReference` abort) — and threads the `IfcCostItem` `Nests.RelatingObject.GlobalId` parent onto `ParentGlobalId` so a bill-of-quantities tree folds onto the flat line set with its nesting preserved; `ResourceOf` is ONE fold reading each `IfcConstructionResource` by runtime subtype onto a `ConstructionResource` row — `ResourceKind.Of(GetType().Name)` the discriminant, `MeasureOf(resource.BaseQuantity)` the `MeasureValue BaseQuantity`, the first `IfcConstructionResource.BaseCosts` `IfcAppliedValue` onto the optional `Money BaseCost`, the `IfcLaborResource`/`IfcCrewResource` `PredefinedType` onto `Skill`, the `IfcConstructionMaterialResource`/`IfcConstructionProductResource` associated `IfcMaterial.Name` onto `Material`, and the `OperatesOn`/`HasAssignments` `IfcRelAssignsToProcess.RelatingProcess` `IfcProcess.GlobalId` onto `TaskGlobalId` so the resource binds the `Planning/schedule#SCHEDULE` `ConstructionTask` it resources; `CostSchedule.Rollup` flattens the lines to per-value `(category, native)` pairs, partitions the NATIVE amounts by `Currency.Code` losslessly (`ByCurrency` — the mixed-currency aggregation no FX table gates), reprices each through `CostMoney.Reprice` into the schedule `Currency` (`ExchangeRate.Convert` on the fx-table rate matched on BOTH legs, refusing `BimFault.Refused` with `BimReason.Codec` when no matching rate exists rather than throwing a `Money + Money` mismatch) then sums them into the `Fin<CostRollup>` schedule total through the additive operator, partitions the total by `CostCategory` per VALUE and the resource cost (`BaseCost * BaseQuantity`, repriced through the SAME `CostMoney.Reprice` owner so a foreign-currency resource faults typed rather than throwing inside the partition) by `ResourceKind` through one `Fold`; `CostSchedule.Identity` derives the `(QuantityKey, ResourceKey)` shared `ContentAddress` pair through `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.Of` over the kernel `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter` fold (length-prefixed strings under per-run `Ordinal` counts) across the CANONICALLY-ORDERED priced line `(globalIds, quantity.Si, values)` triples and resource `(GlobalId, kind, baseQuantity.Si)` rows (the line set by `GlobalId`, each priced-id and resource set sorted ordinally, the per-line value list LIST-ordered — STEP LISTs are stable across re-parse) so the key is invariant to the unstable `IfcSet` iteration order a re-parse yields and the catalog re-reads only a genuinely changed estimate.
 - Output: the `Seq<CostSchedule>` is the cost evidence the cross-libs `dotnet:TELEMETRY_LAKE_ANALYTICS` 5D cost catalog reads by the `(QuantityKey, ResourceKey)` reference at `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` and the `Rasm.AppUi/Charts` estimate report renders, the `Model/query#ELEMENT_SET` `ByProperty(Qto_*)` arm selects the quantified element set the estimate prices, and the `CostRollup` schedule total with its `ByCurrency` native-amount partition (the lossless mixed-currency read no FX table gates) and its `CostCategory`/`ResourceKind` partitions is the 5D estimate evidence; the priced line carries its resolved takeoff, applied rate, and resourced task on one self-contained record joining the shared quantity and the schedule activity by reference, never a second quantity or schedule store.
 - Packages: GeometryGymIFC_Core, NodaMoney, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element, Rasm
 - Growth: a new governance checkpoint is one `EstimateStage` row whose declared fraction the observe point reads with no arithmetic elsewhere; a new cost-schedule kind is one `CostScheduleKind` row reading the next `IfcCostScheduleTypeEnum` member; a new construction-resource modality is one `ResourceKind` row with zero new surface (the ONE `ConstructionResource` record absorbs it on the discriminant — never a new union arm or class); a new cost category is one `CostCategory` row; a composite rate rides the existing `IfcAppliedValue.Components` fold and a second cost value on a line is one `CostValues` LIST entry riding the existing `ValuesOf` traverse; a new per-line binding is one column on `CostItem`; a new convertible currency pair is one `ExchangeRate` row in the `Rollup`/`EarnedValue` fx table and a currency needing no convert reads the lossless `ByCurrency` partition; a regional or custom currency is one `CurrencyInfo.TryAdd(CurrencyInfo)` registration; a new rounding rule (cash-denomination, exact) is one `CostMoney.Context` `MoneyContext` policy (`CashDenominationRounding`/`NoRounding`) the same `Install` seat binds, never a `MidpointRounding` argument; a new cost schedule rides the existing `ProjectAll` fold on one row; never a per-resource-type cost record, never a parallel `LaborCost`/`MaterialCost` class family, never a `GetLaborCost`/`GetByCategory` operation family, never a hand-rolled `MonetaryAmount` `(double, string)` carrier beside `Money`, and never a second takeoff or schedule source.
@@ -36,7 +36,6 @@ using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 using BimHooks = Rasm.Domain.HookSet<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
 
 namespace Rasm.Bim.Planning;
@@ -54,8 +53,8 @@ public sealed partial class EstimateStage {
 
     public StageMark Mark => new(Done, Witness);
 
-    public Unit Beat(Option<BimHooks> hooks, Op key) =>
-        hooks.IfSome(live => ignore(live.Fire(BimPoint.PlanningProgress, new BimFact.Progress(key, ProgressLane.Planning, Mark), key)));
+    public Unit Beat(Option<BimHooks> hooks) =>
+        hooks.IfSome(live => ignore(live.Fire(BimPoint.PlanningProgress, new BimFact.Progress(ProgressLane.Planning, Mark))));
 }
 
 [SmartEnum<string>]
@@ -119,19 +118,19 @@ public static class CostMoney {
 
     public static MoneyContext Install() => MoneyContext.DefaultThreadContext = Context;
 
-    public static Fin<Money> Of(decimal amount, string iso4217, Op key) =>
+    public static Fin<Money> Of(decimal amount, string iso4217) =>
         iso4217.Trim() is { Length: > 0 } code
             ? CurrencyInfo.TryFromCode(code, out var currency)
                 ? Fin.Succ(new Money(amount, (Currency)currency))
-                : Fin.Fail<Money>(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec,
+                : Fin.Fail<Money>(new BimFault.Refused(BimScope.Planning, BimReason.Codec,
                     string.Join(':', new object?[] { "cost-currency", "unknown", code })))
             : Fin.Succ(new Money(amount, Currency.NoCurrency));
 
-    public static Fin<Money> Reprice(Money value, Currency report, Seq<ExchangeRate> fx, Op key) =>
+    public static Fin<Money> Reprice(Money value, Currency report, Seq<ExchangeRate> fx) =>
         value.Currency == report || value.Currency == Currency.NoCurrency
             ? Fin.Succ(value)
             : fx.Find(rate => rate.BaseCurrency == value.Currency && rate.QuoteCurrency == report)
-                .ToFin(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec,
+                .ToFin(new BimFault.Refused(BimScope.Planning, BimReason.Codec,
                     string.Join(':', new object?[] { "cost-currency", "unconvertible", value.Currency.Code, report.Code })))
                 .Map(rate => rate.Convert(value));
 }
@@ -184,8 +183,8 @@ public sealed record CostSchedule(
     public CostSchedule(string globalId, CostScheduleKind kind, string name, Currency currency, Option<string> status, Seq<CostItem> items, Seq<ConstructionResource> resources)
         : this(globalId, kind, name, currency, status, items, resources, Contingency.None) { }
 
-    public Fin<CostSchedule> Drawdown(Money draw, Op key) =>
-        Contingency.Drawdown(draw, key).Map(reserve => this with { Contingency = reserve });
+    public Fin<CostSchedule> Drawdown(Money draw) =>
+        Contingency.Drawdown(draw).Map(reserve => this with { Contingency = reserve });
 
     public (ContentAddress QuantityKey, ContentAddress ResourceKey) Identity => (
         ContentAddress.Of(Items, 0.0, static (items, writer) =>
@@ -201,13 +200,13 @@ public sealed record CostSchedule(
                 .Fold(writer.Ordinal(resources.Count),
                     static (w, resource) => w.String(resource.GlobalId).String(resource.Kind.Key).Double(resource.BaseQuantity.Si))));
 
-    public Fin<CostRollup> Rollup(Op key, Seq<ExchangeRate> fx = default) =>
+    public Fin<CostRollup> Rollup(Seq<ExchangeRate> fx = default) =>
         Items
             .Bind(static item => item.Values.Map(value => (value.Category.Key, Native: value.Rate * (decimal)item.Quantity.Si)))
-            .TraverseM(line => CostMoney.Reprice(line.Native, Currency, fx, key).Map(amount => (line.Key, line.Native, Amount: amount)))
+            .TraverseM(line => CostMoney.Reprice(line.Native, Currency, fx).Map(amount => (line.Key, line.Native, Amount: amount)))
             .As()
             .Bind(lines => Resources
-                .TraverseM(resource => CostMoney.Reprice(resource.Cost, Currency, fx, key).Map(cost => (resource.Kind.Key, Cost: cost)))
+                .TraverseM(resource => CostMoney.Reprice(resource.Cost, Currency, fx).Map(cost => (resource.Kind.Key, Cost: cost)))
                 .As()
                 .Map(costs => new CostRollup(
                     lines.Fold(Money.AdditiveIdentity, static (total, line) => total + line.Amount),
@@ -234,20 +233,20 @@ public static class CostProjection {
     static Option<string> TextOf(string? value) =>
         Optional(value).Map(static text => text.Trim()).Filter(static text => text.Length > 0);
 
-    public static Fin<CostSchedule> Project(IfcCostSchedule schedule, Seq<IfcConstructionResource> resources, ElementGraph graph, Op key, Option<BimHooks> hooks = default) {
-        ignore(EstimateStage.Indexed.Beat(hooks, key));
+    public static Fin<CostSchedule> Project(IfcCostSchedule schedule, Seq<IfcConstructionResource> resources, ElementGraph graph, Option<BimHooks> hooks = default) {
+        ignore(EstimateStage.Indexed.Beat(hooks));
         var index = graph.ObjectNodes.Fold(Map<string, NodeId>(),
             static (map, o) => o.ExternalId.Match(Some: id => map.AddOrUpdate(id, o.Id), None: () => map));
         UnitScheme scale = IfcUnits.SchemeOf(schedule.Database);
-        return MonetaryOf(schedule, key)
+        return MonetaryOf(schedule)
             .Bind(model =>
-                from pricing in Opened(EstimateStage.Priced, hooks, key)
-                from items in ItemsOf(schedule).TraverseM(item => CostItemOf(item, index, graph, model, scale, key)).As()
-                from resourcing in Opened(EstimateStage.Resourced, hooks, key)
+                from pricing in Opened(EstimateStage.Priced, hooks)
+                from items in ItemsOf(schedule).TraverseM(item => CostItemOf(item, index, graph, model, scale)).As()
+                from resourcing in Opened(EstimateStage.Resourced, hooks)
                 from rows in resources
                     .Filter(static r => ResourceKind.Of(r.GetType().Name) != ResourceKind.NotDefined)
-                    .TraverseM(r => ResourceOf(r, model, key)).As()
-                from settling in Opened(EstimateStage.Settled, hooks, key)
+                    .TraverseM(r => ResourceOf(r, model)).As()
+                from settling in Opened(EstimateStage.Settled, hooks)
                 select new CostSchedule(
                     schedule.GlobalId,
                     CostScheduleKind.Of(schedule.PredefinedType),
@@ -261,16 +260,16 @@ public static class CostProjection {
                     rows));
     }
 
-    public static Fin<Seq<CostSchedule>> ProjectAll(Seq<IfcCostSchedule> schedules, Seq<IfcConstructionResource> resources, ElementGraph graph, Op key, Option<BimHooks> hooks = default) =>
-        schedules.TraverseM(schedule => Project(schedule, resources, graph, key, hooks)).As();
+    public static Fin<Seq<CostSchedule>> ProjectAll(Seq<IfcCostSchedule> schedules, Seq<IfcConstructionResource> resources, ElementGraph graph, Option<BimHooks> hooks = default) =>
+        schedules.TraverseM(schedule => Project(schedule, resources, graph, hooks)).As();
 
-    static Fin<Unit> Opened(EstimateStage stage, Option<BimHooks> hooks, Op key) => Fin.Succ(stage.Beat(hooks, key));
+    static Fin<Unit> Opened(EstimateStage stage, Option<BimHooks> hooks) => Fin.Succ(stage.Beat(hooks));
 
-    static Fin<Currency> MonetaryOf(IfcCostSchedule schedule, Op key) =>
+    static Fin<Currency> MonetaryOf(IfcCostSchedule schedule) =>
         Optional(schedule.Database?.Project?.UnitsInContext)
             .Bind(static units => Optional(units.Units.OfType<IfcMonetaryUnit>().FirstOrDefault()))
             .Match(
-                Some: unit => CostMoney.Of(0m, unit.Currency, key).Map(static zero => zero.Currency),
+                Some: unit => CostMoney.Of(0m, unit.Currency).Map(static zero => zero.Currency),
                 None: () => Fin.Succ(Currency.NoCurrency));
 
     static Seq<IfcCostItem> ItemsOf(IfcCostSchedule schedule) =>
@@ -284,7 +283,7 @@ public static class CostProjection {
             .SelectMany(static rel => rel.RelatedObjects.OfType<IfcCostItem>()))
             .Bind(NestedItems);
 
-    static Fin<CostItem> CostItemOf(IfcCostItem item, Map<string, NodeId> index, ElementGraph graph, Currency model, UnitScheme scale, Op key) {
+    static Fin<CostItem> CostItemOf(IfcCostItem item, Map<string, NodeId> index, ElementGraph graph, Currency model, UnitScheme scale) {
         var related = toSeq(item.Controls.SelectMany(static rel => rel.RelatedObjects));
         var priced = toSeq(related.OfType<IfcProduct>()
             .Select(static o => o.GlobalId)
@@ -293,37 +292,37 @@ public static class CostProjection {
             .Select(static r => r.GlobalId)
             .FirstOrDefault(static id => id.Length > 0));
         return priced.Find(id => !index.ContainsKey(id)).Match(
-            Some: id => Fin.Fail<CostItem>(new BimFault.Refused(key, BimScope.Planning, BimReason.DanglingReference, string.Join(':', new object?[] { "cost-priced-miss", id }))),
+            Some: id => Fin.Fail<CostItem>(new BimFault.Refused(BimScope.Planning, BimReason.DanglingReference, string.Join(':', new object?[] { "cost-priced-miss", id }))),
             None: () =>
-                from values in ValuesOf(item, model, scale, key)
+                from values in ValuesOf(item, model, scale)
                 from same in guard(
                     values.Map(static v => v.Applied.Currency).Filter(static c => c != Currency.NoCurrency).Distinct().Count <= 1,
-                    new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "value-mixed", item.GlobalId })))
-                from quantity in QuantityOf(item, priced.Choose(index.Find), graph, scale, key)
+                    new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "value-mixed", item.GlobalId })))
+                from quantity in QuantityOf(item, priced.Choose(index.Find), graph, scale)
                 from basis in guard(
                     values.ForAll(v => v.UnitBasis.Dimension == Dimension.Dimensionless || v.UnitBasis.Dimension == quantity.Dimension),
-                    new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-basis-dimension", item.GlobalId, quantity.Dimension.SiSymbol.IfNone("si-unrostered") })))
+                    new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-basis-dimension", item.GlobalId, quantity.Dimension.SiSymbol.IfNone("si-unrostered") })))
                 select new CostItem(item.GlobalId, TextOf(item.Name).IfNone(""), values, quantity, priced, resource,
                     Optional(item.Nests?.RelatingObject?.GlobalId)));
     }
 
-    static Fin<Seq<CostValue>> ValuesOf(IfcCostItem item, Currency model, UnitScheme scale, Op key) =>
+    static Fin<Seq<CostValue>> ValuesOf(IfcCostItem item, Currency model, UnitScheme scale) =>
         item.CostValues.AsIterable().ToSeq()
             .TraverseM(value =>
-                from applied in AmountOf(value, model, key)
-                from basis in BasisOf(value, scale, key)
+                from applied in AmountOf(value, model)
+                from basis in BasisOf(value, scale)
                 select new CostValue(applied, basis, CostCategory.Of(value.Category)))
             .As();
 
-    static Fin<Money> AmountOf(IfcAppliedValue value, Currency model, Op key) =>
+    static Fin<Money> AmountOf(IfcAppliedValue value, Currency model) =>
         value.AppliedValue switch {
             IfcMonetaryMeasure monetary => Fin.Succ(new Money((decimal)monetary.Measure, model)),
             IfcMeasureValue measure => Fin.Succ(new Money((decimal)measure.Measure, Currency.NoCurrency)),
             _ => value.Components.AsIterable().ToSeq() is { IsEmpty: false } components
-                ? components.TraverseM(c => AmountOf(c, model, key)).As()
+                ? components.TraverseM(c => AmountOf(c, model)).As()
                     .Bind(parts => parts.Map(static p => p.Currency).Filter(static c => c != Currency.NoCurrency).Distinct().Count <= 1
                         ? Fin.Succ(Aggregate(value.ArithmeticOperator, parts))
-                        : Fin.Fail<Money>(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "component-mixed" }))))
+                        : Fin.Fail<Money>(new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "component-mixed" }))))
                 : Fin.Succ(new Money(0m, Currency.NoCurrency)),
         };
 
@@ -341,36 +340,36 @@ public static class CostProjection {
 
     static readonly Fin<MeasureValue> UnitRate = MeasureValue.OfSi(QuantityType.Scalar, Dimension.Dimensionless, 1d);
 
-    static Fin<MeasureValue> BasisOf(IfcAppliedValue value, UnitScheme scale, Op key) =>
+    static Fin<MeasureValue> BasisOf(IfcAppliedValue value, UnitScheme scale) =>
         value.UnitBasis?.ValueComponent is IfcMeasureValue basis
         && basis.Measure > 0d
         && PropertyLowering.MeasureDimensions.TryGetValue(basis.GetType().Name, out Dimension row)
             ? MeasureValue.OfSi(QuantityType.Create(basis.GetType().Name), row,
-                PropertyLowering.Coerce(scale, basis.Measure, basis.GetType().Name, row, value.UnitBasis.UnitComponent), key: key)
+                PropertyLowering.Coerce(scale, basis.Measure, basis.GetType().Name, row, value.UnitBasis.UnitComponent))
             : UnitRate;
 
-    static Fin<MeasureValue> QuantityOf(IfcCostItem item, Seq<NodeId> priced, ElementGraph graph, UnitScheme scale, Op key) =>
-        Measures(item.CostQuantities.AsIterable().ToSeq(), scale, key).Bind(explicitQuantities =>
+    static Fin<MeasureValue> QuantityOf(IfcCostItem item, Seq<NodeId> priced, ElementGraph graph, UnitScheme scale) =>
+        Measures(item.CostQuantities.AsIterable().ToSeq(), scale).Bind(explicitQuantities =>
             explicitQuantities.IsEmpty
-                ? priced.TraverseM(id => graph.Bake(id, key)).As()
-                    .Bind(elements => Dominant(elements.Bind(static e => e.Quantities).Bind(static b => b.Values.Values.ToSeq()), key))
-                : Dominant(explicitQuantities, key));
+                ? priced.TraverseM(id => graph.Bake(id)).As()
+                    .Bind(elements => Dominant(elements.Bind(static e => e.Quantities).Bind(static b => b.Values.Values.ToSeq())))
+                : Dominant(explicitQuantities));
 
     static readonly Seq<Dimension> PricingRank =
         Seq(Dimension.VolumeDim, Dimension.AreaDim, Dimension.LengthDim, Dimension.MassDim, Dimension.DurationDim);
 
-    static Fin<MeasureValue> Dominant(Seq<MeasureValue> measures, Op key) =>
+    static Fin<MeasureValue> Dominant(Seq<MeasureValue> measures) =>
         PricingRank.Choose(d => measures.Filter(m => m.Dimension == d) is { IsEmpty: false } same ? Some(same) : None)
             .Head
-            .Match(Some: same => MeasureValue.Sum(same, key), None: () => MeasureValue.OfSi(Dimension.Dimensionless, 1d, key));
+            .Match(Some: same => MeasureValue.Sum(same), None: () => MeasureValue.OfSi(Dimension.Dimensionless, 1d));
 
-    static Fin<Seq<MeasureValue>> Measures(Seq<IfcPhysicalQuantity> quantities, UnitScheme scale, Op key) =>
+    static Fin<Seq<MeasureValue>> Measures(Seq<IfcPhysicalQuantity> quantities, UnitScheme scale) =>
         quantities.Choose(static quantity => quantity as IfcPhysicalSimpleQuantity)
-            .TraverseM(simple => PropertyLowering.Measure(simple, scale, key))
+            .TraverseM(simple => PropertyLowering.Measure(simple, scale))
             .As();
 
-    static Fin<ConstructionResource> ResourceOf(IfcConstructionResource resource, Currency model, Op key) =>
-        BaseCostOf(resource, model, key).Map(baseCost => new ConstructionResource(
+    static Fin<ConstructionResource> ResourceOf(IfcConstructionResource resource, Currency model) =>
+        BaseCostOf(resource, model).Map(baseCost => new ConstructionResource(
             resource.GlobalId, TextOf(resource.Name).IfNone(""), ResourceKind.Of(resource.GetType().Name),
             MeasureOf(resource.BaseQuantity).IfNone(MeasureValue.Zero),
             baseCost,
@@ -379,9 +378,9 @@ public static class CostProjection {
             TaskOf(resource),
             Optional(resource.Usage).Bind(static usage => usage.Completion is > 0d and <= 1d ? Some(usage.Completion) : None)));
 
-    static Fin<Option<Money>> BaseCostOf(IfcConstructionResource resource, Currency model, Op key) =>
+    static Fin<Option<Money>> BaseCostOf(IfcConstructionResource resource, Currency model) =>
         resource.BaseCosts.AsIterable().Head
-            .TraverseM(value => AmountOf(value, model, key))
+            .TraverseM(value => AmountOf(value, model))
             .As();
 
     static Option<string> SkillOf(IfcConstructionResource resource) => resource switch {
@@ -412,7 +411,7 @@ public static class CostProjection {
 ## [03]-[EARNED_VALUE]
 
 - Owner: `ChangeOrder` the priced-revision record carrying the baseline `CostSchedule` `GlobalId`, the priced `CostItem` delta set (added/modified/removed lines against the baseline), the `ChangeOrderStatus` `[SmartEnum<string>]` approval state, and the revision `Instant`; `Contingency` a `CostCategory.Contingency` `Money` reserve carried on `CostSchedule` a drawdown decrements through the native `Money` subtraction RESULT-RETURNING on currency AND on sufficiency (a foreign-currency draw and a draw exceeding the reserve both fault typed, never a thrown mismatch and never a floor-at-zero that reads an uncovered draw as a satisfied one); `EarnedValueReport` the typed report carrying BCWS (planned value) and BCWP (earned value) as `Money` beside ACWP (actual cost) as `Option<Money>` — actual cost is EVIDENCE, absent where no tier reports it — with the derived `SV = BCWP − BCWS` as `Money` and `CV = BCWP − ACWP` as `Option<Money>`, their `Money.IsNegative` sign reads ARE the `BehindSchedule` predicate and the `Option<bool> OverBudget`, beside the RATIO-DERIVED family every one of whose members is an `Option` — the cost-performance index `CPI = BCWP/ACWP`, schedule-performance index `SPI = BCWP/BCWS`, and to-complete index `TCPI = (BAC − BCWP)/(BAC − ACWP)` as `Option<decimal>` over the dimensionless `Money / Money → decimal` ratio, the estimate-at-completion `EAC = BAC/CPI`, variance-at-completion `VAC = BAC − EAC`, and estimate-to-complete `ETC = EAC − ACWP` as `Option<Money>` — because a zero denominator means the index has NO evidence, and unity is the one reading a dashboard renders as exactly-on-plan; never a `(double, string Currency)` carrier (the currency rides each `Money`) and never a hand-written `< 0` on the raw `decimal`; `CostSchedule.EarnedValue` the currency-RESULT-RETURNING, task-join-TOTAL fold joining three progress tiers and two cost tiers to the self-contained priced lines at a status `Instant`, never a generic ledger — the `observed` scan-verification feed (`Planning/progress#PROGRESS_EVIDENCE` `ProgressEvidence.Observed` keyed by `TaskGlobalId`, its present measurements alone) and the external `actuals` incurred-cost feed entering as the two caller-supplied `Map`s, the `Planning/schedule#SCHEDULE` `ConstructionTask` authored progress and the resource-side `ConstructionResource.Spent` as the schedule-owned middle tiers, and the interval-derived fraction as the progress floor with NO cost floor beneath the two cost tiers.
-- Entry: `CostSchedule.EarnedValue(ScheduleNetwork network, Instant statusDate, Op key, Map<string, Money> actuals = default, Map<string, double> observed = default, Seq<ExchangeRate> fx = default)` folds the `Fin<EarnedValueReport>` at a status date — each `CostItem` joins its priced element set to the `Planning/schedule#SCHEDULE` `ConstructionTask` that assigns it (by the `TaskAssignment` `GlobalId` membership, the FIRST priced element carrying an assignment — a head-only read starving a line whose leading element is unassigned is the deleted form), reads the task's planned percent-complete (the fraction of the task's scheduled `Interval` elapsed at `statusDate`) and elects its actual percent-complete over three ORDERED tiers — the `observed` scan-verified fraction the `Planning/progress#PROGRESS_EVIDENCE` report supplies per `TaskGlobalId`, else the task's AUTHORED progress (the `IfcTaskTime.Completion` ratio the schedule owns, `1.0` on a `Completed` status), else the actual-`Interval` fraction — and contributes `line.ValueOf() × plannedPercent` to BCWS and `× actualPercent` to BCWP, while ACWP elects over its own two EVIDENCE tiers: the line's recorded incurred cost-to-date the `actuals` map supplies per `CostItem.GlobalId` (the EVM cost axis an accounting/Persistence feed produces), else the `ConstructionResource.Spent` of the resource the line's `ResourceGlobalId` names in the same `CostSchedule.Resources` set (available with no second feed, and skipped when that resource authored no `Completion` so a resource carrying no incurred evidence never reads a false zero) — so with `actuals` supplied CPI is a TRUE cost index independent of SPI, with only the resource tier reachable it is a resource-declared cost index, and with neither the schedule has NO actual cost and reports none; the report partitions BCWS/BCWP `Money` over the line set, accrues ACWP as an absence-propagating `Option<Money>`, derives `SV` total and `CV` through that absence, and derives the CPI/SPI/TCPI/EAC/VAC/ETC family as `Option`s absent at a zero or absent denominator; the fold is TOTAL on the task join (a line whose assigning task the network never declares still contributes its budget to BAC and its elected spend to ACWP, never a fault) and RESULT-RETURNING on currency — every line budget, recorded actual, and resource `Spent` reprices to the schedule `Currency` through `CostMoney.Reprice`, so a mixed-currency schedule faults typed instead of the accumulator `Money + Money` THROWING mid-fold, the exception-in-domain defect the prior total-claim prose hid. `ChangeOrder.Apply(CostSchedule baseline)` folds the priced delta set onto the baseline producing the revised `CostSchedule` (the delta lines added/superseding/removing the baseline lines by `GlobalId`) so a revision is the existing `CostItem`/`CostValue` algebra applied against a baseline, never a parallel revision store, and `CostSchedule.Drawdown(Money draw, Op key)` decrements the `Contingency` `Money` reserve through the `Fin<CostSchedule>` fold result-returning on BOTH currency and sufficiency — a draw the reserve cannot cover lifts `BimFault.Refused` with `BimReason.Rejected` (`cost-contingency-overdraw`) BARE rather than clamping to a zero remainder a caller then reads as a covered allocation.
+- Entry: `CostSchedule.EarnedValue(ScheduleNetwork network, Instant statusDate, Map<string, Money> actuals = default, Map<string, double> observed = default, Seq<ExchangeRate> fx = default)` folds the `Fin<EarnedValueReport>` at a status date — each `CostItem` joins its priced element set to the `Planning/schedule#SCHEDULE` `ConstructionTask` that assigns it (by the `TaskAssignment` `GlobalId` membership, the FIRST priced element carrying an assignment — a head-only read starving a line whose leading element is unassigned is the deleted form), reads the task's planned percent-complete (the fraction of the task's scheduled `Interval` elapsed at `statusDate`) and elects its actual percent-complete over three ORDERED tiers — the `observed` scan-verified fraction the `Planning/progress#PROGRESS_EVIDENCE` report supplies per `TaskGlobalId`, else the task's AUTHORED progress (the `IfcTaskTime.Completion` ratio the schedule owns, `1.0` on a `Completed` status), else the actual-`Interval` fraction — and contributes `line.ValueOf() × plannedPercent` to BCWS and `× actualPercent` to BCWP, while ACWP elects over its own two EVIDENCE tiers: the line's recorded incurred cost-to-date the `actuals` map supplies per `CostItem.GlobalId` (the EVM cost axis an accounting/Persistence feed produces), else the `ConstructionResource.Spent` of the resource the line's `ResourceGlobalId` names in the same `CostSchedule.Resources` set (available with no second feed, and skipped when that resource authored no `Completion` so a resource carrying no incurred evidence never reads a false zero) — so with `actuals` supplied CPI is a TRUE cost index independent of SPI, with only the resource tier reachable it is a resource-declared cost index, and with neither the schedule has NO actual cost and reports none; the report partitions BCWS/BCWP `Money` over the line set, accrues ACWP as an absence-propagating `Option<Money>`, derives `SV` total and `CV` through that absence, and derives the CPI/SPI/TCPI/EAC/VAC/ETC family as `Option`s absent at a zero or absent denominator; the fold is TOTAL on the task join (a line whose assigning task the network never declares still contributes its budget to BAC and its elected spend to ACWP, never a fault) and RESULT-RETURNING on currency — every line budget, recorded actual, and resource `Spent` reprices to the schedule `Currency` through `CostMoney.Reprice`, so a mixed-currency schedule faults typed instead of the accumulator `Money + Money` THROWING mid-fold, the exception-in-domain defect the prior total-claim prose hid. `ChangeOrder.Apply(CostSchedule baseline)` folds the priced delta set onto the baseline producing the revised `CostSchedule` (the delta lines added/superseding/removing the baseline lines by `GlobalId`) so a revision is the existing `CostItem`/`CostValue` algebra applied against a baseline, never a parallel revision store, and `CostSchedule.Drawdown(Money draw)` decrements the `Contingency` `Money` reserve through the `Fin<CostSchedule>` fold result-returning on BOTH currency and sufficiency — a draw the reserve cannot cover lifts `BimFault.Refused` with `BimReason.Rejected` (`cost-contingency-overdraw`) BARE rather than clamping to a zero remainder a caller then reads as a covered allocation.
 - Auto: `EarnedValue` reads each `CostItem.ValueOf()` budgeted line value repriced through `CostMoney.Reprice` (the pure `Quantity × Σrate` in the schedule `Currency`, the `BAC` budget-at-completion summing the line set as `Money`), indexes the schedule's own `Resources` by `GlobalId` once so the resource tier costs no second pass, resolves each line's assigning `ConstructionTask` through the `network.Assignments` `TaskAssignment` join over the first assigned priced element (`PricedGlobalIds.Choose(taskByElement.Find).Head`), computes the task planned percent through the one `Fraction` clamped interval law over the scheduled `Interval` and elects the actual percent through the `Option` alternative chain `observed.Find(task.GlobalId) | authored | actual-interval fraction` (`0.0` when every tier is absent), and folds `BCWS += budget × planned`, `BCWP += budget × actual`, and accrues `ACWP` from the elected `recorded | spent` incurred cost, absent where neither tier resolves — every tier repriced through the same `CostMoney.Reprice` owner, the `Money` accumulators summed through the additive operator and the ACWP accumulator through the absence-propagating `Accrue`; the report derives every ratio through the ONE `Ratio` guard answering `None` at a zero denominator — `CPI = BCWP/ACWP`, `SPI = BCWP/BCWS`, `TCPI = (BAC − BCWP)/(BAC − ACWP)` (the `Money / Money → decimal` ratio) — and forecasts `EAC = BAC/CPI` off a NON-ZERO `CPI` alone (the `Money / decimal → Money` divide; a zero index means work was spent with nothing earned and no finite completion cost exists), `VAC = BAC − EAC` and the estimate-to-complete `EAC − ACWP` riding that same `Option`, while the `CV`/`SV` `Money` variances stay total — one `Fold` over the `(line, task)` join, never enumerated per-line arms; `ChangeOrder.Apply` folds the delta set onto the baseline line map keyed by `CostItem.GlobalId` (an added line inserts, a modified line supersedes, a removed line drops) so the revised schedule re-rolls through the existing `Rollup` fold.
 - Output: the `EarnedValueReport` is the typed 5D cost-performance evidence the `Rasm.AppUi/Charts` `EarnedValue/ChangeOrder` report renders — `OverBudget` reads `Money.IsNegative` off the `Option<Money>` `Cv` and is itself absent until a cost tier reports, `BehindSchedule` reads `Money.IsNegative(Sv)`, an `Eac` exceeding `BAC` reads forecast-overrun and a `Tcpi` above one the demanded remaining efficiency — each read through its `Option`, so a dashboard renders "no index" where the denominator carried no evidence instead of a fabricated on-plan row — and `Vac` the cost variance at completion as `Option<Money>`; the `ChangeOrder` revision audit reads the baseline-to-revised line delta and the `ChangeOrderStatus` approval state, and the `Contingency` drawdown reads the remaining `Money` reserve — each carried on the one tracked `CostSchedule`, never a second cost-performance store.
 - Packages: GeometryGymIFC_Core, NodaMoney, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, Rasm.Element, Rasm
@@ -429,7 +428,6 @@ using NodaTime;
 using Rasm.Bim.Model;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Planning;
 
@@ -450,12 +448,12 @@ public sealed partial class ChangeOrderStatus {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Contingency(Money Reserve) {
     public static readonly Contingency None = new(Money.AdditiveIdentity);
-    public Fin<Contingency> Drawdown(Money draw, Op key) =>
+    public Fin<Contingency> Drawdown(Money draw) =>
         draw.Currency != Reserve.Currency && Reserve.Currency != Currency.NoCurrency && draw.Currency != Currency.NoCurrency
-            ? Fin.Fail<Contingency>(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "contingency-draw", draw.Currency.Code, Reserve.Currency.Code })))
+            ? Fin.Fail<Contingency>(new BimFault.Refused(BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "contingency-draw", draw.Currency.Code, Reserve.Currency.Code })))
             : Reserve - draw is var net && !Money.IsNegative(net)
                 ? Fin.Succ(new Contingency(net))
-                : Fin.Fail<Contingency>(new BimFault.Refused(key, BimScope.Planning, BimReason.Rejected, string.Join(':', new object?[] { "cost-contingency-overdraw", draw.Amount.ToString(CultureInfo.InvariantCulture), Reserve.Amount.ToString(CultureInfo.InvariantCulture) })));
+                : Fin.Fail<Contingency>(new BimFault.Refused(BimScope.Planning, BimReason.Rejected, string.Join(':', new object?[] { "cost-contingency-overdraw", draw.Amount.ToString(CultureInfo.InvariantCulture), Reserve.Amount.ToString(CultureInfo.InvariantCulture) })));
 }
 
 public sealed record ChangeOrder(
@@ -495,14 +493,14 @@ public readonly record struct EarnedValueReport(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CostPerformance {
-    public static Fin<EarnedValueReport> EarnedValue(this CostSchedule schedule, ScheduleNetwork network, Instant statusDate, Op key, Map<string, Money> actuals = default, Map<string, double> observed = default, Seq<ExchangeRate> fx = default) {
+    public static Fin<EarnedValueReport> EarnedValue(this CostSchedule schedule, ScheduleNetwork network, Instant statusDate, Map<string, Money> actuals = default, Map<string, double> observed = default, Seq<ExchangeRate> fx = default) {
         var taskByElement = network.Assignments
             .Bind(a => a.ElementGlobalIds.Map(id => (Element: id, a.TaskGlobalId)))
             .Fold(Map<string, string>(), static (m, row) => m.AddOrUpdate(row.Element, row.TaskGlobalId));
         var taskById = network.Tasks.Fold(Map<string, ConstructionTask>(), static (m, t) => m.AddOrUpdate(t.GlobalId, t));
         var resourceById = schedule.Resources.Fold(Map<string, ConstructionResource>(), static (m, r) => m.AddOrUpdate(r.GlobalId, r));
         return schedule.Items
-            .TraverseM(item => Line(item, taskByElement, taskById, resourceById, actuals, observed, statusDate, schedule.Currency, fx, key))
+            .TraverseM(item => Line(item, taskByElement, taskById, resourceById, actuals, observed, statusDate, schedule.Currency, fx))
             .As()
             .Map(lines => lines.Fold(
                 (Bac: Money.AdditiveIdentity, Bcws: Money.AdditiveIdentity, Bcwp: Money.AdditiveIdentity, Acwp: Option<Money>.None),
@@ -518,12 +516,12 @@ public static class CostPerformance {
     static Fin<(Money Budget, Money Bcws, Money Bcwp, Option<Money> Acwp)> Line(
         CostItem item, Map<string, string> taskByElement, Map<string, ConstructionTask> taskById,
         Map<string, ConstructionResource> resourceById, Map<string, Money> actuals, Map<string, double> observed,
-        Instant statusDate, Currency report, Seq<ExchangeRate> fx, Op key) =>
-        from budget in CostMoney.Reprice(item.ValueOf(), report, fx, key)
+        Instant statusDate, Currency report, Seq<ExchangeRate> fx) =>
+        from budget in CostMoney.Reprice(item.ValueOf(), report, fx)
         from recorded in actuals.Find(item.GlobalId)
-            .TraverseM(money => CostMoney.Reprice(money, report, fx, key)).As()
+            .TraverseM(money => CostMoney.Reprice(money, report, fx)).As()
         from spent in item.ResourceGlobalId.Bind(resourceById.Find).Filter(static r => r.Completion.IsSome)
-            .TraverseM(resource => CostMoney.Reprice(resource.Spent, report, fx, key)).As()
+            .TraverseM(resource => CostMoney.Reprice(resource.Spent, report, fx)).As()
         select item.PricedGlobalIds.Choose(taskByElement.Find).Head
             .Bind(taskById.Find)
             .Match(
@@ -545,7 +543,7 @@ public static class CostPerformance {
 ## [04]-[CARBON]
 
 - Owner: `CarbonEstimate` the 6D embodied-carbon rollup — the carbon peer of the 5D estimate on the SAME rollup shape: the `Semantics/properties#BASE_QUANTITIES` `QuantityDerivation.Decompose` material-true takeoff joined to the Materials-authored shared `MaterialPropertySet.Environmental` per-`LifecycleStage` GwpTotal vector, folded per element → per stage → model total with EN 15978 stage discipline and EPD provenance; `CarbonLine` the per-(element, material) evidence row, `CarbonGap` the typed absence row (no environmental set, missing basis evidence, unresolved geometry — counted, never silently zero), `CarbonRollup` the stage-banded rollup.
-- Entry: `CarbonEstimate.Rollup(ElementGraph graph, ElementQuery scope, Func<Node.Object, CapabilitySet<MassKind>, Option<MeasureBundle>> measures, Op key)` folds the selection — the scope IS the query algebra, so per-zone carbon is `Rollup` over the `Model/zones#ZONE_GRAPH` member set and per-model carbon the whole-graph selection — through each element's `Bake` reads (`element.Materials`/`element.Section`) into `Decompose`, the resolver taking the `QuantityDerivation.Demand(element.Materials)` composition-implied mass domains so a profile-set ply's swept LENGTH and a layer-set ply's VOLUME arrive on ONE bundle, each per-material volume share priced against its OWN material's `Environmental` case through a basis-resolved shared `MeasureValue` — never a bare double: a `PerM3` basis reads the share itself, a `PerKg` basis mints the MASS through the SAME material's declared `Mechanical` density (`share.Multiply(density)` re-stamped `QuantityType.Mass`, one material and one scalar product — the multi-ply element WEIGHT aggregate stays `Rasm.Compute`'s frozen boundary), a `PerM2` basis mints the AREA by dividing the share back through the summed ply thickness the `Decompose` `LayerSet` split it by (`share.Divide(thickness)` re-stamped `QuantityType.Area`), and a `PerItem` basis, a non-layered composition under `PerM2`, or a material with no environmental set lands a counted `CarbonGap`; independent share faults accumulate through `Validation<Error, T>` and lower once to `Error.Many`.
+- Entry: `CarbonEstimate.Rollup(ElementGraph graph, ElementQuery scope, Func<Node.Object, CapabilitySet<MassKind>, Option<MeasureBundle>> measures)` folds the selection — the scope IS the query algebra, so per-zone carbon is `Rollup` over the `Model/zones#ZONE_GRAPH` member set and per-model carbon the whole-graph selection — through each element's `Bake` reads (`element.Materials`/`element.Section`) into `Decompose`, the resolver taking the `QuantityDerivation.Demand(element.Materials)` composition-implied mass domains so a profile-set ply's swept LENGTH and a layer-set ply's VOLUME arrive on ONE bundle, each per-material volume share priced against its OWN material's `Environmental` case through a basis-resolved shared `MeasureValue` — never a bare double: a `PerM3` basis reads the share itself, a `PerKg` basis mints the MASS through the SAME material's declared `Mechanical` density (`share.Multiply(density)` re-stamped `QuantityType.Mass`, one material and one scalar product — the multi-ply element WEIGHT aggregate stays `Rasm.Compute`'s frozen boundary), a `PerM2` basis mints the AREA by dividing the share back through the summed ply thickness the `Decompose` `LayerSet` split it by (`share.Divide(thickness)` re-stamped `QuantityType.Area`), and a `PerItem` basis, a non-layered composition under `PerM2`, or a material with no environmental set lands a counted `CarbonGap`; independent share faults accumulate through `Validation<Error, T>` and lower once to `Error.Many`.
 - Auto: each line prices the six-stage vector in one pass — `kgCO2e(stage) = Environmental.StageAt(stage) × basis-resolved quantity` — so A1-A3 through D band every line, `ByStage` folds the stage columns across lines, `Total` is the whole-life sum, and the line keeps its `PropertyEvidence` EPD provenance (registration + validity riding the case's base `Evidence`) so a statutory report cites its declarations; declared-property aggregation exactly like the 5D `Rollup` and the systems `Demand` — never a simulation, and the assembly-ply carbon scaling stays the `Rasm.Compute` aggregator's altitude.
 - Output: the `CarbonRollup` is the 6D deliverable evidence — per-element lines for the hotspot view, the A1-D stage bands for the EN 15978 report, the model total for the statutory threshold, and the gap rows for the data-coverage verdict a reviewer reads FIRST — consumed by the `Rasm.AppUi/Charts` carbon dashboard beside the cost schedule it mirrors.
 - Packages: Rasm.Element (the shared `Environmental`/`LifecycleStage`/`MeasurementBasis`), Rasm (the kernel `Analysis/measure` `MeasureBundle` carrier and the `Domain/validation` `CapabilitySet` demand column), Rasm.Bim (the `Semantics/properties#BASE_QUANTITIES` `Decompose` takeoff beside its `Demand` ceiling), LanguageExt.Core.
@@ -562,7 +560,6 @@ using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Graph;
 using Rasm.Element.Properties;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Planning;
@@ -586,14 +583,14 @@ public sealed record CarbonRollup(Seq<CarbonLine> Lines, Map<LifecycleStage, dou
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CarbonEstimate {
-    public static Fin<CarbonRollup> Rollup(ElementGraph graph, ElementQuery scope, Func<Node.Object, CapabilitySet<MassKind>, Option<MeasureBundle>> measures, Op key) =>
+    public static Fin<CarbonRollup> Rollup(ElementGraph graph, ElementQuery scope, Func<Node.Object, CapabilitySet<MassKind>, Option<MeasureBundle>> measures) =>
         scope.Objects
-            .TraverseM(obj => graph.Bake(obj.Id, key).Bind(element =>
+            .TraverseM(obj => graph.Bake(obj.Id).Bind(element =>
                 measures(obj, QuantityDerivation.Demand(element.Materials)).Match(
                     None: () => Fin.Succ((Lines: Seq<CarbonLine>(), Gaps: Seq(new CarbonGap(obj.Id, None, "geometry-unresolved")))),
-                    Some: bundle => QuantityDerivation.Decompose(bundle, element.Materials, element.Section, key)
+                    Some: bundle => QuantityDerivation.Decompose(bundle, element.Materials, element.Section)
                         .Bind(shares => shares.AsIterable()
-                            .Traverse(share => Priced(obj.Id, element.Materials, share.Key, share.Value, key).ToValidation()).As().ToFin()
+                            .Traverse(share => Priced(obj.Id, element.Materials, share.Value).ToValidation()).As().ToFin()
                             .Map(priced => priced.Fold(
                                 (Lines: Seq<CarbonLine>(), Gaps: Seq<CarbonGap>()),
                                 static (acc, outcome) => outcome.Match(
@@ -602,7 +599,7 @@ public static class CarbonEstimate {
             .As()
             .Map(static rows => CarbonRollup.Of(rows.Bind(static r => r.Lines), rows.Bind(static r => r.Gaps)));
 
-    static Fin<Either<CarbonGap, CarbonLine>> Priced(NodeId element, Seq<BakedMaterial> materials, MaterialId material, MeasureValue share, Op key) =>
+    static Fin<Either<CarbonGap, CarbonLine>> Priced(NodeId element, Seq<BakedMaterial> materials, MaterialId material, MeasureValue share) =>
         materials.Find(baked => baked.Material.MaterialKey == material).Match(
             None: () => Fin.Succ(Left<CarbonGap, CarbonLine>(new CarbonGap(element, Some(material), "material-unresolved"))),
             Some: baked => baked.Material.Properties
@@ -610,7 +607,7 @@ public static class CarbonEstimate {
                 .Head
                 .Match(
                     None: () => Fin.Succ(Left<CarbonGap, CarbonLine>(new CarbonGap(element, Some(material), "environmental-unset"))),
-                    Some: environmental => Quantity(environmental.Basis, material, share, baked, key).Map(quantity => quantity.Match<Either<CarbonGap, CarbonLine>>(
+                    Some: environmental => Quantity(environmental.Basis, material, share, baked).Map(quantity => quantity.Match<Either<CarbonGap, CarbonLine>>(
                         None: () => new CarbonGap(element, Some(material), $"basis-unresolvable:{environmental.Basis.Key}"),
                         Some: admitted => new CarbonLine(
                             element, material, share,
@@ -618,9 +615,9 @@ public static class CarbonEstimate {
                                 band.Add(stage, environmental.StageAt(stage) * admitted.Si)),
                             environmental.Evidence)))));
 
-    static Fin<Option<MeasureValue>> Quantity(MeasurementBasis basis, MaterialId material, MeasureValue share, BakedMaterial baked, Op key) =>
+    static Fin<Option<MeasureValue>> Quantity(MeasurementBasis basis, MaterialId material, MeasureValue share, BakedMaterial baked) =>
         basis.Switch(
-            state: (Material: material, Share: share, Baked: baked, Key: key),
+            state: (Material: material, Share: share, Baked: baked),
             perM3:   static (s, _) => Fin.Succ(Some(s.Share)),
             perKg:   static (s, _) => s.Baked.Material.Properties
                 .Choose(static p => p is MaterialPropertySet.Mechanical m ? Some(m.Density) : Option<MeasureValue>.None)
@@ -633,14 +630,14 @@ public static class CarbonEstimate {
                     .As()),
             perItem: static (_, _) => Fin.Succ(Option<MeasureValue>.None));
 
-    static Fin<Option<MeasureValue>> Thickness(BakedMaterial baked, MaterialId material, Op key) =>
+    static Fin<Option<MeasureValue>> Thickness(BakedMaterial baked, MaterialId material) =>
         baked.Material.Composition.Switch(
             state: material,
             single:         static (_, _) => Seq<MeasureValue>(),
             profileSet:     static (_, _) => Seq<MeasureValue>(),
             constituentSet: static (_, _) => Seq<MeasureValue>(),
             layerSet: static (id, set) => set.Layers.Filter(layer => layer.Material == id).Map(static layer => layer.Thickness))
-        is { IsEmpty: false } plies ? MeasureValue.Sum(plies, key).Map(Some) : Fin.Succ(Option<MeasureValue>.None);
+        is { IsEmpty: false } plies ? MeasureValue.Sum(plies).Map(Some) : Fin.Succ(Option<MeasureValue>.None);
 }
 ```
 

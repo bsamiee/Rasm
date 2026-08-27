@@ -53,7 +53,7 @@ public abstract partial record TaperShape {
 [SmartEnum]
 public sealed partial class WindowTaper {
     [UseDelegateFromConstructor]
-    private partial Fin<Arr<double>> Design(int width, Option<TaperShape> shape, Op key);
+    private partial Fin<Arr<double>> Design(int width, Option<TaperShape> shape);
     public static readonly WindowTaper Hann = new(periodicDesign: Some<Func<int, double[]>>(Window.HannPeriodic), design: Unparameterized(Window.Hann));
     public static readonly WindowTaper Hamming = new(periodicDesign: Some<Func<int, double[]>>(Window.HammingPeriodic), design: Unparameterized(Window.Hamming));
     public static readonly WindowTaper Cosine = new(periodicDesign: Some<Func<int, double[]>>(Window.CosinePeriodic), design: Unparameterized(Window.Cosine));
@@ -87,20 +87,19 @@ public sealed partial class WindowTaper {
     }));
 
     private Option<Func<int, double[]>> PeriodicDesign { get; }
-    public Fin<Arr<double>> Sample(Dimension width, TaperSampling sampling, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(sampling).ToFin(op.InvalidInput()).Bind(request => request.Switch(
-                symmetric: symmetric => Design(width.Value, symmetric.Shape, op),
-                periodic: _ => PeriodicDesign.ToFin(op.InvalidInput()).Map(design => new Arr<double>(design(arg: width.Value)))))
-            .Bind(samples => TensorPrimitives.IsFiniteAll<double>(samples.AsSpan()) ? Fin.Succ(samples) : Fin.Fail<Arr<double>>(op.InvalidResult()));
+    public Fin<Arr<double>> Sample(Dimension width, TaperSampling sampling) {
+        return Optional(sampling).ToFin(new KernelFault.InvalidInput()).Bind(request => request.Switch(
+                symmetric: symmetric => Design(width.Value, symmetric.Shape),
+                periodic: _ => PeriodicDesign.ToFin(new KernelFault.InvalidInput()).Map(design => new Arr<double>(design(arg: width.Value)))))
+            .Bind(samples => TensorPrimitives.IsFiniteAll<double>(samples.AsSpan()) ? Fin.Succ(samples) : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()));
     }
 
-    private static Func<int, Option<TaperShape>, Op, Fin<Arr<double>>> Unparameterized(Func<int, double[]> design) =>
+    private static Func<int, Option<TaperShape>, Fin<Arr<double>>> Unparameterized(Func<int, double[]> design) =>
         (width, shape, key) => shape.IsSome
-            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            ? Fin.Fail<Arr<double>>(new KernelFault.InvalidInput())
             : Fin.Succ(new Arr<double>(design(arg: width)));
-    private static Func<int, Option<TaperShape>, Op, Fin<Arr<double>>> Parameterized(Func<int, double, double[]> design, Func<TaperShape, Option<double>> parameter) =>
-        (width, shape, key) => shape.Bind(parameter).ToFin(key.InvalidInput())
+    private static Func<int, Option<TaperShape>, Fin<Arr<double>>> Parameterized(Func<int, double, double[]> design, Func<TaperShape, Option<double>> parameter) =>
+        (width, shape, key) => shape.Bind(parameter).ToFin(new KernelFault.InvalidInput())
             .Map(value => new Arr<double>(design(arg1: width, arg2: value)));
 }
 ```
@@ -139,39 +138,37 @@ public sealed class Interpolant<TCapability> where TCapability : IEvaluable {
     internal Interpolant(IInterpolation curve) => Curve = curve;
     internal IInterpolation Curve { get; }
 
-    public Fin<double> Evaluate(double t, Op? key = null) => Interpolant.AdmitFinite(value: Curve.Interpolate(t: t), key: key.OrDefault());
+    public Fin<double> Evaluate(double t) => Interpolant.AdmitFinite(value: Curve.Interpolate(t: t), key: key.OrDefault());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Interpolant {
-    public static Fin<Interpolant<ICalculus>> NaturalCubicSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<ICalculus>(points, values, key.OrDefault(), static (p, v) => CubicSpline.InterpolateNaturalSorted(p, v));
-    public static Fin<Interpolant<ICalculus>> AkimaSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<ICalculus>(points, values, key.OrDefault(), static (p, v) => CubicSpline.InterpolateAkimaSorted(p, v));
-    public static Fin<Interpolant<ICalculus>> PchipSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<ICalculus>(points, values, key.OrDefault(), static (p, v) => CubicSpline.InterpolatePchipSorted(p, v));
-    public static Fin<Interpolant<ICalculus>> CubicHermiteSpline(Arr<double> points, Arr<double> values, Arr<double> slopes, Op? key = null) =>
-        Build<ICalculus>(points, values, key.OrDefault(),
+    public static Fin<Interpolant<ICalculus>> NaturalCubicSpline(Arr<double> points, Arr<double> values) =>
+        Build<ICalculus>(points, values, static (p, v) => CubicSpline.InterpolateNaturalSorted(p, v));
+    public static Fin<Interpolant<ICalculus>> AkimaSpline(Arr<double> points, Arr<double> values) =>
+        Build<ICalculus>(points, values, static (p, v) => CubicSpline.InterpolateAkimaSorted(p, v));
+    public static Fin<Interpolant<ICalculus>> PchipSpline(Arr<double> points, Arr<double> values) =>
+        Build<ICalculus>(points, values, static (p, v) => CubicSpline.InterpolatePchipSorted(p, v));
+    public static Fin<Interpolant<ICalculus>> CubicHermiteSpline(Arr<double> points, Arr<double> values, Arr<double> slopes) =>
+        Build<ICalculus>(points, values,
             (p, v) => CubicSpline.InterpolateHermiteSorted(p, v, [.. slopes.AsIterable()]), slopes: Some(slopes));
-    public static Fin<Interpolant<ICalculus>> LinearSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<ICalculus>(points, values, key.OrDefault(), static (p, v) => MathNet.Numerics.Interpolation.LinearSpline.InterpolateSorted(p, v));
-    public static Fin<Interpolant<ICalculus>> StepInterpolation(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<ICalculus>(points, values, key.OrDefault(), static (p, v) => MathNet.Numerics.Interpolation.StepInterpolation.InterpolateSorted(p, v));
-    public static Fin<Interpolant<IDifferentiable>> NevillePolynomial(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<IDifferentiable>(points, values, key.OrDefault(), static (p, v) => NevillePolynomialInterpolation.InterpolateSorted(p, v));
-    public static Fin<Interpolant<IDifferentiable>> LogLinearSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<IDifferentiable>(points, values, key.OrDefault(), static (p, v) => MathNet.Numerics.Interpolation.LogLinear.InterpolateSorted(p, v));
-    public static Fin<Interpolant<IEvaluable>> FloaterHormannRational(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<IEvaluable>(points, values, key.OrDefault(), static (p, v) => Barycentric.InterpolateRationalFloaterHormannSorted(p, v));
-    public static Fin<Interpolant<IEvaluable>> BulirschStoerRational(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<IEvaluable>(points, values, key.OrDefault(), static (p, v) => BulirschStoerRationalInterpolation.InterpolateSorted(p, v));
-    public static Fin<Interpolant<IEvaluable>> EquidistantBarycentricPolynomial(Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<IEvaluable>(points, values, key.OrDefault(), static (p, v) => Barycentric.InterpolatePolynomialEquidistantSorted(p, v));
+    public static Fin<Interpolant<ICalculus>> LinearSpline(Arr<double> points, Arr<double> values) =>
+        Build<ICalculus>(points, values, static (p, v) => MathNet.Numerics.Interpolation.LinearSpline.InterpolateSorted(p, v));
+    public static Fin<Interpolant<ICalculus>> StepInterpolation(Arr<double> points, Arr<double> values) =>
+        Build<ICalculus>(points, values, static (p, v) => MathNet.Numerics.Interpolation.StepInterpolation.InterpolateSorted(p, v));
+    public static Fin<Interpolant<IDifferentiable>> NevillePolynomial(Arr<double> points, Arr<double> values) =>
+        Build<IDifferentiable>(points, values, static (p, v) => NevillePolynomialInterpolation.InterpolateSorted(p, v));
+    public static Fin<Interpolant<IDifferentiable>> LogLinearSpline(Arr<double> points, Arr<double> values) =>
+        Build<IDifferentiable>(points, values, static (p, v) => MathNet.Numerics.Interpolation.LogLinear.InterpolateSorted(p, v));
+    public static Fin<Interpolant<IEvaluable>> FloaterHormannRational(Arr<double> points, Arr<double> values) =>
+        Build<IEvaluable>(points, values, static (p, v) => Barycentric.InterpolateRationalFloaterHormannSorted(p, v));
+    public static Fin<Interpolant<IEvaluable>> BulirschStoerRational(Arr<double> points, Arr<double> values) =>
+        Build<IEvaluable>(points, values, static (p, v) => BulirschStoerRationalInterpolation.InterpolateSorted(p, v));
+    public static Fin<Interpolant<IEvaluable>> EquidistantBarycentricPolynomial(Arr<double> points, Arr<double> values) =>
+        Build<IEvaluable>(points, values, static (p, v) => Barycentric.InterpolatePolynomialEquidistantSorted(p, v));
 
-    public static Fin<Interpolant<ICalculus>> QuadraticSpline(Arr<double> knots, Arr<double> constant, Arr<double> linear, Arr<double> quadratic, Op? key = null) {
-        Op op = key.OrDefault();
-        return Admit.Claims(op,
-                (knots.Count >= 2, "knots-extent"),
+    public static Fin<Interpolant<ICalculus>> QuadraticSpline(Arr<double> knots, Arr<double> constant, Arr<double> linear, Arr<double> quadratic) {
+        return Admit.Claims((knots.Count >= 2, "knots-extent"),
                 (constant.Count == knots.Count - 1, "constant-extent"),
                 (linear.Count == constant.Count, "linear-extent"),
                 (quadratic.Count == constant.Count, "quadratic-extent"),
@@ -180,34 +177,33 @@ public static class Interpolant {
                 (TensorPrimitives.IsFiniteAll<double>(linear.AsSpan()), "linear-finite"),
                 (TensorPrimitives.IsFiniteAll<double>(quadratic.AsSpan()), "quadratic-finite"),
                 (Ascending(knots), "knots-ascending"))
-            .Bind(_ => op.Catch(() => Fin.Succ(new Interpolant<ICalculus>(new MathNet.Numerics.Interpolation.QuadraticSpline(
-                x: [.. knots.AsIterable()], c0: [.. constant.AsIterable()], c1: [.. linear.AsIterable()], c2: [.. quadratic.AsIterable()])))));
+            .Bind(_ => Try.lift(() => Fin.Succ(new Interpolant<ICalculus>(new MathNet.Numerics.Interpolation.QuadraticSpline(
+                x: [.. knots.AsIterable()], c0: [.. constant.AsIterable()], c1: [.. linear.AsIterable()], c2: [.. quadratic.AsIterable()])))).Run().Bind(static inner => inner));
     }
-    public static Fin<Interpolant<IEvaluable>> TransformedInterpolation(Func<double, double> transform, Func<double, double> inverse, Arr<double> points, Arr<double> values, Op? key = null) =>
-        Build<IEvaluable>(points, values, key.OrDefault(), (p, v) => MathNet.Numerics.Interpolation.TransformedInterpolation.InterpolateSorted(transform: transform, transformInverse: inverse, x: p, y: v));
+    public static Fin<Interpolant<IEvaluable>> TransformedInterpolation(Func<double, double> transform, Func<double, double> inverse, Arr<double> points, Arr<double> values) =>
+        Build<IEvaluable>(points, values, (p, v) => MathNet.Numerics.Interpolation.TransformedInterpolation.InterpolateSorted(transform: transform, transformInverse: inverse, x: p, y: v));
 
-    private static Fin<Interpolant<TCapability>> Build<TCapability>(Arr<double> points, Arr<double> values, Op key, Func<double[], double[], IInterpolation> factory, Option<Arr<double>> slopes = default)
+    private static Fin<Interpolant<TCapability>> Build<TCapability>(Arr<double> points, Arr<double> values, Func<double[], double[], IInterpolation> factory, Option<Arr<double>> slopes = default)
         where TCapability : IEvaluable =>
-        Admit.Claims(key,
-                (points.Count >= 2, "points-extent"),
+        Admit.Claims((points.Count >= 2, "points-extent"),
                 (points.Count == values.Count, "sample-arity"),
                 (TensorPrimitives.IsFiniteAll<double>(points.AsSpan()), "points-finite"),
                 (TensorPrimitives.IsFiniteAll<double>(values.AsSpan()), "values-finite"),
                 (slopes.Map(s => s.Count == points.Count).IfNone(true), "slopes-extent"),
                 (slopes.Map(s => TensorPrimitives.IsFiniteAll<double>(s.AsSpan())).IfNone(true), "slopes-finite"),
                 (Ascending(points), "points-ascending"))
-            .Bind(_ => key.Catch(() => Fin.Succ(new Interpolant<TCapability>(factory(arg1: [.. points.AsIterable()], arg2: [.. values.AsIterable()])))));
+            .Bind(_ => Try.lift(() => Fin.Succ(new Interpolant<TCapability>(factory(arg1: [.. points.AsIterable()], arg2: [.. values.AsIterable()])))).Run().Bind(static inner => inner));
     private static bool Ascending(Arr<double> points) =>
         points.Count < 2 || Enumerable.Range(start: 1, count: points.Count - 1).All(index => points[index - 1] < points[index]);
-    internal static Fin<double> AdmitFinite(double value, Op key) =>
-        double.IsFinite(value) ? key.AcceptValue(value: value) : Fin.Fail<double>(key.InvalidResult());
+    internal static Fin<double> AdmitFinite(double value) =>
+        double.IsFinite(value) ? Acceptance.Value(value: value) : Fin.Fail<double>(new KernelFault.InvalidResult());
 
     extension<TCapability>(Interpolant<TCapability> self) where TCapability : IDifferentiable {
-        public Fin<double> Derivative(double t, Op? key = null) => AdmitFinite(value: self.Curve.Differentiate(t: t), key: key.OrDefault());
-        public Fin<double> SecondDerivative(double t, Op? key = null) => AdmitFinite(value: self.Curve.Differentiate2(t: t), key: key.OrDefault());
+        public Fin<double> Derivative(double t) => AdmitFinite(value: self.Curve.Differentiate(t: t), key: key.OrDefault());
+        public Fin<double> SecondDerivative(double t) => AdmitFinite(value: self.Curve.Differentiate2(t: t), key: key.OrDefault());
     }
     extension<TCapability>(Interpolant<TCapability> self) where TCapability : IIntegrable {
-        public Fin<double> Integrate(double upper, Option<double> lower = default, Op? key = null) =>
+        public Fin<double> Integrate(double upper, Option<double> lower = default) =>
             AdmitFinite(value: lower.Match(Some: a => self.Curve.Integrate(a: a, b: upper), None: () => self.Curve.Integrate(t: upper)), key: key.OrDefault());
     }
 }
@@ -216,7 +212,7 @@ public static class Interpolant {
 ## [04]-[SPECTRAL]
 
 - Owner: `SpectralArena` is the ONE transform carrier — four cases, each holding the buffer layout its MathNet entrypoint owns and exactly the extent its arm consumes; `Spectrum` the internally minted result naming the mutable arena a transform leaves — no public constructor, no derived energy column, valid exactly when its arena is; `SpectralScaling` the declared convention row governing both transform owners at once and `SpectralSense` the direction row carrying the four entrypoint pairs as columns; `TapSeries` the admitted sample-domain convolution kernel, `TapBorder` its closed out-of-extent vocabulary answering an `Option<int>` so an absent tap is a carrier and not a sentinel, and `TapWindow` the staged-window geometry a banded caller admits through its own gated `Of`; the `MatrixKernel` `partial` half on this page is the one path to every transform, power, frequency, modulation, and tap-fold body.
-- Entry: `arena.Transform(sense, scaling, key)` is the one transform entry and the arena case its discriminant, so no per-carrier entrypoint family and no mode flag exist; `spectrum.Power`/`Frequencies`/`Modulate` read and re-mint off the spectrum; `series.Convolve(source, folded, window, border, key)` folds one strided axis in the sample domain and `lattice.Convolve(values, axes, border, key)` is its separable lattice form on the ADDRESSING owner, the lattice being the discriminant — one series per axis, never a static twin wearing the instance member's name.
+- Entry: `arena.Transform(sense, scaling)` is the one transform entry and the arena case its discriminant, so no per-carrier entrypoint family and no mode flag exist; `spectrum.Power`/`Frequencies`/`Modulate` read and re-mint off the spectrum; `series.Convolve(source, folded, window, border)` folds one strided axis in the sample domain and `lattice.Convolve(values, axes, border)` is its separable lattice form on the ADDRESSING owner, the lattice being the discriminant — one series per axis, never a static twin wearing the instance member's name.
 - Auto: rank 2 and rank 3 ARE the row-column fold over the managed-complete 1D pair (Radix-2 at a power of two, Bluestein otherwise), and symmetric scaling composes per axis (`1/sqrt(w) · 1/sqrt(h) = 1/sqrt(w·h)`), so the folded transform carries the convention the 1D row declares and `RoundTripFactor` reads the cell count once; the tap fold divides every output by its RESOLVED-weight sum, so partition of unity holds at every border by construction — no caller pre-normalizes a table, `TapSeries.Of` canonicalizes the coefficients to unit sum at the mint so a series and its scalar multiple — a negative one included — are ONE stored value with one equality identity and not merely one folded sample, an `Omit`-dropped tap leaves the divisor rather than darkening the rim, and a rim record whose resolved sum cancels or overflows refuses typed rather than certifying a fabricated sample; both raw-span entries refuse non-finite source material before any mutation, and the core refuses a non-finite output lane at the record that derives it; the lattice tap fold is the SAME per-axis line fold the rank-2/3 transform takes, walking the lattice's own linearization strides; `Power` reads ONE single-pass pair fold across the interleaved and packed layouts — byte-identical `(re, im)` runs a `MemoryMarshal.Cast` unifies, each bin summing its own two squares with no scratch plane, since no tensor primitive reduces adjacent pairs into a half-length destination — beside the vectorized multiply-then-multiply-add pair on the split spans, the reason the split case exists, and never a square root it only squares back; `Frequencies` reads ONE generated union fold inside the sole frequency operation — sample count, published bin count, and sampling rate per case, the lattice arm reading `CellLattice.Extent`/`Spacing`, the packed arm publishing exactly its `floor(N/2)+1` bins — so a spectrum reads its own axis instead of a caller-passed rate that can disagree with the grid, a negative `SignedAxis` row negates the coordinates rather than aliasing its positive twin, and an out-of-rank ordinal states absence once rather than at four call sites; Hartley power reads the defining `(H[k]² + H[N−k]²)/2` identity by reflected index with no copied plane. Every multi-column admission on the page ACCUMULATES through `Admit.Claims`, each clause naming its axis. `SpectralArena.IsValid` refuses the defaultable zero-cell lattice and the zero-sample packed census before any arm reads a stride, and `Power` gates its squared bins finite at the operation that squares them, so an overflowed magnitude refuses where it is produced rather than at construction of an unrelated public scalar — a summed energy is layout-dependent (the packed case never doubles its conjugate interior) and is therefore no carrier evidence.
 - Law: `SpectralScaling` publishes both convention columns so a package binding MathNet's transform entrypoints directly reads the declared row instead of re-spelling a second `FourierOptions` vocabulary; `Rasm.Compute` `Stats/signal` composes it and its eight raw `FourierOptions` sites are the deleted form.
 - Packages: MathNet.Numerics (`Fourier` interleaved, split, and packed pairs, `FrequencyScale`, `Hartley.NaiveForward`/`NaiveInverse`, `FourierOptions`/`HartleyOptions`), System.Numerics.Tensors (`TensorPrimitives.Multiply`/`MultiplyAdd`/`Divide`/`Negate`/`Sum`/`IsFiniteAll`), CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate` — the lattice staging pair; the separable line stays an exact-extent array because the package entrypoint transforms its whole length), `Numerics/atoms` (`CellLattice` with its per-axis `Extent`/`Stride`/`Spacing`, `Dimension`, `PositiveMagnitude`, `SignedAxis`, `EpsilonPolicy`), Rasm.Domain (`Op`, `Admit.Claims`, `Admit.FiniteComplexSpan`, `ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL (`System.Numerics.Complex`, `MemoryMarshal.Cast`).
@@ -288,10 +284,8 @@ public readonly record struct TapWindow : IValidityEvidence {
     public int Run { get; }
     public int Stride { get; }
 
-    public static Fin<TapWindow> Of(Dimension extent, Dimension stride, int origin, int from, Dimension run, Op? key = null) {
-        Op op = key.OrDefault();
-        return Admit.Claims(op,
-                (origin >= 0, "origin"),
+    public static Fin<TapWindow> Of(Dimension extent, Dimension stride, int origin, int from, Dimension run) {
+        return Admit.Claims((origin >= 0, "origin"),
                 (from >= 0, "from"),
                 (origin <= from, "origin-precedes-from"),
                 (run.Value <= extent.Value - from, "run-within-extent"))
@@ -310,23 +304,22 @@ public readonly record struct TapSeries : IValidityEvidence {
     public int Radius => Taps.Count / 2;
     public bool IsValid => ValidityClaim.All(Taps.Count >= 1);
 
-    public static Fin<TapSeries> Of(Arr<double> taps, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TapSeries> Of(Arr<double> taps) {
         double sum = TensorPrimitives.Sum<double>(taps.AsSpan());
-        if (taps.Count < 1 || int.IsEvenInteger(taps.Count) || !TensorPrimitives.IsFiniteAll<double>(taps.AsSpan()) || !double.IsFinite(sum) || Math.Abs(sum) <= EpsilonPolicy.ZeroTolerance) { return Fin.Fail<TapSeries>(op.InvalidInput()); }
+        if (taps.Count < 1 || int.IsEvenInteger(taps.Count) || !TensorPrimitives.IsFiniteAll<double>(taps.AsSpan()) || !double.IsFinite(sum) || Math.Abs(sum) <= EpsilonPolicy.ZeroTolerance) { return Fin.Fail<TapSeries>(new KernelFault.InvalidInput()); }
         double[] normalized = new double[taps.Count];
         TensorPrimitives.Divide<double>(taps.AsSpan(), sum, normalized);
-        return TensorPrimitives.IsFiniteAll<double>(normalized) ? Fin.Succ(new TapSeries(new Arr<double>(normalized))) : Fin.Fail<TapSeries>(op.InvalidResult());
+        return TensorPrimitives.IsFiniteAll<double>(normalized) ? Fin.Succ(new TapSeries(new Arr<double>(normalized))) : Fin.Fail<TapSeries>(new KernelFault.InvalidResult());
     }
 
-    public Fin<Unit> Convolve(ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op? key = null) =>
-        MatrixKernel.TapFold(series: this, source: source, folded: folded, window: window, border: border, key: key.OrDefault());
+    public Fin<Unit> Convolve(ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border) =>
+        MatrixKernel.TapFold(series: this, source: source, folded: folded, window: window, border: border);
 }
 
 public static class LatticeConvolution {
     extension(CellLattice lattice) {
-        public Fin<Unit> Convolve(Span<double> values, Arr<TapSeries> axes, TapBorder border, Op? key = null) =>
-            MatrixKernel.TapFoldLattice(values: values, lattice: lattice, axes: axes, border: border, key: key.OrDefault());
+        public Fin<Unit> Convolve(Span<double> values, Arr<TapSeries> axes, TapBorder border) =>
+            MatrixKernel.TapFoldLattice(values: values, lattice: lattice, axes: axes, border: border);
     }
 }
 
@@ -338,8 +331,8 @@ public abstract partial record SpectralArena : IValidityEvidence {
     public sealed record HalfSpectrum(double[] Values, Dimension Samples, PositiveMagnitude Rate) : SpectralArena;
     public sealed record RealValued(Arr<double> Samples, PositiveMagnitude Rate) : SpectralArena;
 
-    public Fin<Spectrum> Transform(SpectralSense sense, SpectralScaling scaling, Op? key = null) =>
-        MatrixKernel.SpectralTransform(arena: this, sense: sense, scaling: scaling, key: key.OrDefault());
+    public Fin<Spectrum> Transform(SpectralSense sense, SpectralScaling scaling) =>
+        MatrixKernel.SpectralTransform(arena: this, sense: sense, scaling: scaling);
     public bool IsValid => ValidityClaim.All(Switch(
         interleaved: static a => a.Lattice.CellCount >= 1L && a.Values.Length == a.Lattice.CellCount && Admit.FiniteComplexSpan(a.Values.AsSpan()),
         split: static s => s.Real.Length >= 1 && s.Real.Length == s.Imaginary.Length
@@ -365,20 +358,20 @@ public sealed class Spectrum : IValidityEvidence {
     public long Cells => Arena.Cells;
     public double RoundTripFactor => Scaling.RoundTrip(cells: Cells);
     public bool IsValid => Arena is not null && Sense is not null && Scaling is not null && Arena.IsValid;
-    public Fin<Arr<double>> Power(Op? key = null) => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
-    public Fin<Arr<double>> Frequencies(SignedAxis axis, Op? key = null) =>
-        MatrixKernel.SpectralFrequencies(arena: Arena, axis: axis, key: key.OrDefault());
-    public Fin<Spectrum> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
-        MatrixKernel.SpectralModulate(spectrum: this, symbol: symbol, key: key.OrDefault());
+    public Fin<Arr<double>> Power() => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
+    public Fin<Arr<double>> Frequencies(SignedAxis axis) =>
+        MatrixKernel.SpectralFrequencies(arena: Arena, axis: axis);
+    public Fin<Spectrum> Modulate(ReadOnlySpan<Complex> symbol) =>
+        MatrixKernel.SpectralModulate(spectrum: this, symbol: symbol);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class MatrixKernel {
     // --- [SPECTRAL] --------------------------------------------------------------------
-    internal static Fin<Spectrum> SpectralTransform(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
+    internal static Fin<Spectrum> SpectralTransform(SpectralArena arena, SpectralSense sense, SpectralScaling scaling) =>
         arena is null || sense is null || scaling is null || !arena.IsValid
-            ? Fin.Fail<Spectrum>(key.InvalidInput())
-            : key.Catch(() => SpectrumOf(arena: arena.Switch(
+            ? Fin.Fail<Spectrum>(new KernelFault.InvalidInput())
+            : Try.lift(() => SpectrumOf(arena: arena.Switch(
                 state: (Sense: sense, Scaling: scaling),
                 interleaved: static (s, a) => FoldSeparable(arena: a, sense: s.Sense, options: s.Scaling.FourierConvention),
                 split: static (s, a) => {
@@ -391,7 +384,7 @@ internal static partial class MatrixKernel {
                 },
                 realValued: static (s, a) => new SpectralArena.RealValued(
                     Samples: new Arr<double>(s.Sense.RealValued(samples: [.. a.Samples.AsIterable()], options: s.Scaling.HartleyConvention)), Rate: a.Rate)),
-                sense: sense, scaling: scaling, key: key));
+                sense: sense, scaling: scaling)).Run().Bind(static inner => inner);
     private static SpectralArena FoldSeparable(SpectralArena.Interleaved arena, SpectralSense sense, FourierOptions options) {
         CellLattice lattice = arena.Lattice;
         int cells = arena.Values.Length;
@@ -407,14 +400,14 @@ internal static partial class MatrixKernel {
         }
         return arena;
     }
-    private static Fin<Spectrum> SpectrumOf(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) {
+    private static Fin<Spectrum> SpectrumOf(SpectralArena arena, SpectralSense sense, SpectralScaling scaling) {
         Spectrum spectrum = new(arena: arena, sense: sense, scaling: scaling);
-        return spectrum.IsValid ? Fin.Succ(spectrum) : Fin.Fail<Spectrum>(key.InvalidResult());
+        return spectrum.IsValid ? Fin.Succ(spectrum) : Fin.Fail<Spectrum>(new KernelFault.InvalidResult());
     }
-    internal static Fin<Arr<double>> SpectralPower(SpectralArena arena, Op key) =>
+    internal static Fin<Arr<double>> SpectralPower(SpectralArena arena) =>
         arena is null || !arena.IsValid
-            ? Fin.Fail<Arr<double>>(key.InvalidInput())
-            : key.Catch(() => Fin.Succ(arena.Switch(
+            ? Fin.Fail<Arr<double>>(new KernelFault.InvalidInput())
+            : Try.lift(() => Fin.Succ(arena.Switch(
                 interleaved: static a => PairPower(pairs: MemoryMarshal.Cast<Complex, double>(a.Values), bins: a.Values.Length),
                 split: static s => {
                     double[] power = new double[s.Real.Length];
@@ -428,48 +421,47 @@ internal static partial class MatrixKernel {
                     power[0] = r.Samples[0] * r.Samples[0];
                     for (int bin = 1; bin < power.Length; bin++) { double direct = r.Samples[bin], reflected = r.Samples[power.Length - bin]; power[bin] = 0.5 * ((direct * direct) + (reflected * reflected)); }
                     return new Arr<double>(power);
-                })))
+                }))).Run().Bind(static inner => inner)
               .Bind(power => TensorPrimitives.IsFiniteAll<double>(power.AsSpan())
                   ? Fin.Succ(power)
-                  : Fin.Fail<Arr<double>>(key.InvalidResult()));
+                  : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()));
     private static Arr<double> PairPower(ReadOnlySpan<double> pairs, int bins) {
         double[] power = new double[bins];
         for (int bin = 0; bin < bins; bin++) { double real = pairs[2 * bin], imaginary = pairs[(2 * bin) + 1]; power[bin] = (real * real) + (imaginary * imaginary); }
         return new Arr<double>(power);
     }
-    internal static Fin<Arr<double>> SpectralFrequencies(SpectralArena arena, SignedAxis axis, Op key) {
-        if (arena is null || axis is null || !arena.IsValid) { return Fin.Fail<Arr<double>>(key.InvalidInput()); }
+    internal static Fin<Arr<double>> SpectralFrequencies(SpectralArena arena, SignedAxis axis) {
+        if (arena is null || axis is null || !arena.IsValid) { return Fin.Fail<Arr<double>>(new KernelFault.InvalidInput()); }
         Option<(int Samples, int Bins, double Rate)> metric = arena.Switch(
             state: Math.Abs(value: axis.Key) - 1,
             interleaved: static (o, a) => o >= 0 && o < a.Lattice.Rank ? Some((a.Lattice.Extent(o).Value, a.Lattice.Extent(o).Value, 1.0 / a.Lattice.Spacing(o))) : Option<(int, int, double)>.None,
             split: static (o, a) => o is 0 ? Some((a.Real.Length, a.Real.Length, a.Rate.Value)) : Option<(int, int, double)>.None,
             halfSpectrum: static (o, a) => o is 0 ? Some((a.Samples.Value, SpectralArena.PackedLength(a.Samples.Value) / 2, a.Rate.Value)) : Option<(int, int, double)>.None,
             realValued: static (o, a) => o is 0 ? Some((a.Samples.Count, a.Samples.Count, a.Rate.Value)) : Option<(int, int, double)>.None);
-        return metric.ToFin(key.InvalidInput(axis: "spectral-ordinal")).Bind(row =>
+        return metric.ToFin(new KernelFault.InvalidInput(Axis: Some("spectral-ordinal"))).Bind(row =>
             row.Samples < 1 || row.Bins < 1 || row.Bins > row.Samples || !double.IsFinite(row.Rate) || row.Rate <= 0.0
-                ? Fin.Fail<Arr<double>>(key.InvalidInput())
-                : key.Catch(() => {
+                ? Fin.Fail<Arr<double>>(new KernelFault.InvalidInput())
+                : Try.lift(() => {
                     double[] scale = Fourier.FrequencyScale(length: row.Samples, sampleRate: row.Rate);
                     if (axis.Key < 0) { TensorPrimitives.Negate<double>(scale, scale); }
                     Arr<double> bins = new(row.Bins == scale.Length ? scale : scale[..row.Bins]);
-                    return TensorPrimitives.IsFiniteAll<double>(bins.AsSpan()) ? Fin.Succ(bins) : Fin.Fail<Arr<double>>(key.InvalidResult());
-                }));
+                    return TensorPrimitives.IsFiniteAll<double>(bins.AsSpan()) ? Fin.Succ(bins) : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult());
+                }).Run().Bind(static inner => inner));
     }
 
-    internal static Fin<Spectrum> SpectralModulate(Spectrum spectrum, ReadOnlySpan<Complex> symbol, Op key) {
+    internal static Fin<Spectrum> SpectralModulate(Spectrum spectrum, ReadOnlySpan<Complex> symbol) {
         if (!spectrum.IsValid || spectrum.Arena is not SpectralArena.Interleaved plane || plane.Values.Length != symbol.Length || !Admit.FiniteComplexSpan(symbol)) {
-            return Fin.Fail<Spectrum>(key.InvalidInput());
+            return Fin.Fail<Spectrum>(new KernelFault.InvalidInput());
         }
         TensorPrimitives.Multiply<Complex>(plane.Values, symbol, plane.Values);
-        return SpectrumOf(arena: plane, sense: spectrum.Sense, scaling: spectrum.Scaling, key: key);
+        return SpectrumOf(arena: plane, sense: spectrum.Sense, scaling: spectrum.Scaling);
     }
 
     // --- [TAP_FOLD] --------------------------------------------------------------------
-    internal static Fin<Unit> TapFold(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op key) {
+    internal static Fin<Unit> TapFold(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border) {
         int stride = window.Stride, staged = stride >= 1 ? source.Length / stride : 0;
         bool whole = window.Origin == 0 && staged == window.Extent;
-        return Admit.Claims(key,
-                (series.IsValid, "series"),
+        return Admit.Claims((series.IsValid, "series"),
                 (TensorPrimitives.IsFiniteAll<double>(source), "source-finite"),
                 (window.IsValid, "window"),
                 (border is not null, "border"),
@@ -478,12 +470,11 @@ internal static partial class MatrixKernel {
                 ((long)window.Origin <= Math.Max(0L, (long)window.From - series.Radius), "staging-head"),
                 ((long)window.Origin + staged > Math.Min((long)window.Extent - 1, (long)window.From + window.Run - 1 + series.Radius), "staging-tail"),
                 (whole || border == TapBorder.Omit, "partial-window-border"))
-            .Bind(_ => TapFoldCore(series: series, source: source, folded: folded, window: window, border: border, key: key));
+            .Bind(_ => TapFoldCore(series: series, source: source, folded: folded, window: window, border: border));
     }
-    internal static Fin<Unit> TapFoldLattice(Span<double> values, CellLattice lattice, Arr<TapSeries> axes, TapBorder border, Op key) {
+    internal static Fin<Unit> TapFoldLattice(Span<double> values, CellLattice lattice, Arr<TapSeries> axes, TapBorder border) {
         int longest = Math.Max(val1: lattice.Columns.Value, val2: Math.Max(val1: lattice.Rows.Value, val2: lattice.Layers.Value));
-        Fin<Unit> admitted = Admit.Claims(key,
-            (border is not null, "border"),
+        Fin<Unit> admitted = Admit.Claims((border is not null, "border"),
             (lattice.CellCount >= 1L, "lattice-census"),
             (axes.Count == lattice.Rank, "axis-arity"),
             (values.Length == lattice.CellCount, "value-extent"),
@@ -500,14 +491,14 @@ internal static partial class MatrixKernel {
             for (int origin = 0; origin < cells; origin++) {
                 if (origin / stride % count != 0) { continue; }
                 for (int k = 0; k < count; k++) { line[k] = values[origin + (k * stride)]; }
-                Fin<Unit> lineFold = TapFoldCore(series: axes[axis], source: line[..count], folded: result[..count], window: window, border: border, key: key);
+                Fin<Unit> lineFold = TapFoldCore(series: axes[axis], source: line[..count], folded: result[..count], window: window, border: border);
                 if (lineFold.IsFail) { return lineFold; }
                 for (int k = 0; k < count; k++) { values[origin + (k * stride)] = result[k]; }
             }
         }
         return Fin.Succ(unit);
     }
-    private static Fin<Unit> TapFoldCore(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op key) {
+    private static Fin<Unit> TapFoldCore(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border) {
         ReadOnlySpan<double> taps = series.Taps.AsSpan();
         int radius = series.Radius, stride = window.Stride;
         for (int at = 0; at < window.Run; at++) {
@@ -527,10 +518,10 @@ internal static partial class MatrixKernel {
                 TensorPrimitives.MultiplyAdd<double>(source.Slice(sourceOffset, stride), weight, lane, lane);
             }
             if (!double.IsFinite(admitted) || Math.Abs(value: admitted) <= EpsilonPolicy.ZeroTolerance) {
-                return Fin.Fail<Unit>(key.InvalidResult(detail: $"resolved tap-weight sum invalid at record {record}"));
+                return Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some($"resolved tap-weight sum invalid at record {record}")));
             }
             TensorPrimitives.Multiply<double>(lane, 1.0 / admitted, lane);
-            if (!TensorPrimitives.IsFiniteAll<double>(lane)) { return Fin.Fail<Unit>(key.InvalidResult()); }
+            if (!TensorPrimitives.IsFiniteAll<double>(lane)) { return Fin.Fail<Unit>(new KernelFault.InvalidResult()); }
         }
         return Fin.Succ(unit);
     }

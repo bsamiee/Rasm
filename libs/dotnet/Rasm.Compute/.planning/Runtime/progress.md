@@ -234,7 +234,7 @@ public sealed class ProgressCell {
 
     private Unit Forward(Atom<ProgressMark> gate, SubscriptionPolicy policy, Func<ProgressMark, IO<Unit>> observer, ProgressMark mark) =>
         gate.Value != mark && Cell.Step(gate, prior => policy.Due(prior, mark) ? Some(mark) : None, Undue) is Transition<ProgressMark>.Committed
-            ? Op.Of(name: "progress.forward").Catch(() => Fin.Succ(observer(mark).Run())).Match(Succ: static _ => unit, Fail: Fail)
+            ? Try.lift(() => Fin.Succ(observer(mark).Run())).Run().Bind(static inner => inner).Match(Succ: static _ => unit, Fail: Fail)
             : unit;
 
     private static readonly ComputeFault Undue = new ComputeFault.PayloadOverBounds("<progress-under-cadence>");
@@ -252,7 +252,7 @@ public sealed class ProgressCell {
 - Owner: `ProgressObservers` extension fold over `ProgressCell` — one member per in-process observation port, each binding one cadence row to one observer shape; `ProgressWireMap` the ONE `[Mapper]` lowering `ProgressMark` onto the generated `WatchResponse`; `ProgressPorts` the two composition-bound legs the served endpoint reads — the correlation-to-cell resolver and the producer fault evidence; `ProgressStream` the generated `ProgressService.ProgressServiceBase` override this branch serves.
 - Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, SubscriptionPolicy cadence, Action<ProgressMark> render)` binds presentation to `Subscribe` through the supplied cadence and returns the LIFO detacher composite. `public override Task Watch(WatchRequest request, IServerStreamWriter<WatchResponse> responseStream, ServerCallContext context)` is the served entry, and it composes `Subscribe` at the frozen `SubscriptionPolicy.Wire` directly rather than through a port member that would add only that argument.
 - Law: the served endpoint's whole admission is `Runtime/wire#PROTO_VOCABULARY` — `ParseGuard.Validated` proves the request against the rostered descriptor set and its protovalidate rules, `HostWire.Correlation` admits the 16-byte RFC 4122 form, and the resolver answers `Option<ProgressCell>`; a correlation naming no live cell leaves through AppHost `FaultWire.Raise` on the kernel `InvalidContext` refusal, which the ONE producer status table answers as `FailedPrecondition`. No second validator, correlation parser, or status spelling exists here.
-- Law: the phase correspondence is the SmartEnum's generated total `Map` — one arm per `ProgressPhase` row, so a tenth row fails this build until its value lands at `progress.proto`. Compute never reads the wire enum inbound, so this family carries the outbound half alone and no `(key, enum)` table stands between the two rosters.
+- Law: the phase correspondence is the SmartEnum's generated total `Map` — one arm per `ProgressPhase` row, so a tenth row fails this build until its value lands at `progress.proto`. Compute never reads the wire enum inbound, so this family carries the outbound half alone and no `(enum)` table stands between the two rosters.
 - Exemption: `ProgressStream.Watch` and the two presence writes in `ProgressWireMap.ToWire` are platform-forced statement sites. gRPC hands a writer plus a completion `Task` and forbids two `WriteAsync` calls in flight, so the stream's lifetime IS the override's body; and a proto3 `optional` scalar target is a nullable-oblivious `Has*`/`Clear*` pair behind a null-rejecting setter, so an `Option`-to-nullable carrier draws RMG007 and the presence write stays a hand `IfSome`. Every decision on both sites still leaves as a value — admission is a `Fin`, the resolve an `Option`, the pump's latest mark a register read.
 - Growth: one port member binding a cadence row to one observer shape; one numbered `WatchResponse` field beside the `ProgressMark` column it transcribes, which `RequiredMappingStrategy.Both` then forces; zero new surface.
 - Boundary: every in-process port body runs on the producer's thread — the `Change` fan is synchronous, so a native solver worker, a companion pump, or a lane task carries each observer to completion before its own `Advance` returns; AppUi presentation therefore marshals through the port delegate so no Compute type touches a UI thread, and a port that blocks or fans out is the deleted form the `docs/stacks/csharp/boundaries#HANDOFF_DRAIN` law owns. `ProgressStream` seats the latest mark in a register, releases a re-armed completion gate, and returns, while its pump reads the register and owns every `WriteAsync`. Intermediate marks coalesce under a slow peer; the terminal mark remains the newest and therefore the final frame. Every port returns `IO<Unit>` into `ProgressCell.Subscribe`; the stream ends on the terminal mark or `ServerCallContext.CancellationToken`.
@@ -309,14 +309,14 @@ public static partial class ProgressWireMap {
 // --- [ENTRY] ---------------------------------------------------------------------------
 public sealed class ProgressStream(ProgressPorts ports) : ProgressService.ProgressServiceBase {
     public override Task Watch(WatchRequest request, IServerStreamWriter<WatchResponse> responseStream, ServerCallContext context) =>
-        Admit(request, Op.Of(context.Method)).Match(
+        Admit(request).Match(
             Succ: cell => Pump(cell, responseStream, context.CancellationToken),
             Fail: error => throw FaultWire.Raise(error, ports.Evidence()));
 
-    private Fin<ProgressCell> Admit(WatchRequest request, Op key) =>
+    private Fin<ProgressCell> Admit(WatchRequest request) =>
         from message in ParseGuard.Validated(request)
-        from correlation in HostWire.Correlation(message.Correlation, key)
-        from cell in ports.Resolve(correlation).ToFin(Fail: key.InvalidContext())
+        from correlation in HostWire.Correlation(message.Correlation)
+        from cell in ports.Resolve(correlation).ToFin(Fail: new KernelFault.InvalidContext())
         select cell;
 
     private static async Task Pump(ProgressCell cell, IServerStreamWriter<WatchResponse> writer, CancellationToken token) {

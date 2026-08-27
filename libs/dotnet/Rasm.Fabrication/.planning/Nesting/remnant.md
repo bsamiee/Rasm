@@ -466,7 +466,7 @@ public static class Remnants {
 
     private static Fin<Remnant> Mint(Loop boundary, Seq<Loop> holes, MaterialId material, RemnantOrigin origin, RemnantProfile profile) =>
         KeyOf(boundary, holes, material, origin).Bind(key =>
-            Remnant.Validate(boundary, holes, material, origin, profile, key, out Remnant remnant).Admitted(remnant));
+            Remnant.Validate(boundary, holes, material, origin, profile, out Remnant remnant).Admitted(remnant));
 
     private static RemnantOrigin Lineage(Stock stock) => stock switch {
         Stock.FromRemnant source => new RemnantOrigin(
@@ -787,15 +787,15 @@ public static class Remnants {
 
     private static Either<RemnantConflict, RemnantRow> Resolve(ContentKey key, int expectedRevision, RemnantInventory inventory) =>
         key.Kind != EgressKind.Remnant
-            ? Left<RemnantConflict, RemnantRow>(new RemnantConflict.Kind(key))
+            ? Left<RemnantConflict, RemnantRow>(new RemnantConflict.Kind())
             : inventory.Rows.Find(key.Digest).Match(
                 Some: row => (row.Revision == expectedRevision, row.State.Terminal) switch {
                     (false, _) => Left<RemnantConflict, RemnantRow>(
-                        new RemnantConflict.Revision(key, expectedRevision, row.Revision)),
-                    (true, true) => Left<RemnantConflict, RemnantRow>(new RemnantConflict.State(key, row.State)),
+                        new RemnantConflict.Revision(expectedRevision, row.Revision)),
+                    (true, true) => Left<RemnantConflict, RemnantRow>(new RemnantConflict.State(row.State)),
                     _ => Right<RemnantConflict, RemnantRow>(row),
                 },
-                None: () => Left<RemnantConflict, RemnantRow>(new RemnantConflict.Missing(key)));
+                None: () => Left<RemnantConflict, RemnantRow>(new RemnantConflict.Missing()));
 
     private static Fin<Unit> AdmitInventory(RemnantInventory inventory) {
         RemnantRow[] rows = inventory.Rows.Values.ToArray();
@@ -812,7 +812,7 @@ public static class Remnants {
         Map<UInt128, RemnantRow> byIdentity = toSeq(rows).Fold(
             Map<UInt128, RemnantRow>(),
             static (map, row) => map.AddOrUpdate(row.Remnant.Identity, row));
-        bool keyed = toSeq(inventory.Rows.Keys).ForAll(key => inventory.Rows.Find(key)
+        bool keyed = toSeq(inventory.Rows.Keys).ForAll(key => inventory.Rows.Find()
             .Exists(row => key == row.Remnant.Identity));
         BidirectionalGraph<UInt128, SEdge<UInt128>> lineage = new(allowParallelEdges: false);
         lineage.AddVertexRange(byIdentity.Keys);
@@ -1059,7 +1059,6 @@ public static class Remnants {
             .Rows(Ordered(holes), static (held, hole) => hole.CanonicalBytes(held)),
             RemnantOp);
 
-    private static readonly Op RemnantOp = Op.Of(name: nameof(KeyOf));
 
     private static Seq<Loop> Ordered(Seq<Loop> loops) => toSeq(loops.OrderBy(Preimage));
 

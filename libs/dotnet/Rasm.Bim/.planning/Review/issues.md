@@ -10,7 +10,7 @@ The BCF 2.1/3.0 issue-exchange owner: one closed `BcfFile`/`BcfTopic`/`BcfCommen
 ## [02]-[BCF_ARCHIVE]
 
 - Owner: `BcfFile` the archive root — the topic set plus the members every `.bcfzip` carries: `BcfProject` the project identity, `BcfVocabulary` the extension vocabularies (the rows `Review/coordination#SIGN_OFF` board lanes and the topic-type axis read), `BcfDocument` the embedded library, `BcfGeneration` the source evidence; `BcfTopic` the issue record at the FULL `Bcf30.Topic` surface; `BcfComment` the threaded comment with its own provenance; `BcfViewpoint` the saved view — the typed `BcfCamera` union, component selection, the `BcfVisibility` regime, the `BcfViewHint` render-hint set, per-component `Coloring`, redline `Lines`, section `ClippingPlanes`, and `Bitmaps`; `BcfEdge` the ONE foreign-schema correspondence carrying every optional-by-schema column and its inverse; `BcfArchive` the `.bcfzip` codec; `BcfApi` the REST projection of the same family.
-- Entry: `BcfArchive.Read(ReadOnlyMemory<byte> bcfzip, Op key)` lands thrown container failures and already-typed admissions on one `Fin` through `Op.Catch`, preserving each original `Error` — it sniffs the generation through `BcfExtensions.GetVersionFromStreamArchive`, streams a native 3.0 archive per-part (`ParseMarkups`/`ParseExtensions`/`ParseProject`/`ParseDocuments`, no second full-graph materialization), up-converts a 2.1 source through `Worker.BcfFromStream`, folds both onto one `BcfFile`, and lifts each held `{topicGuid}/{Reference}` bitmap part into `BcfFile.Blobs`; `BcfArchive.Write(BcfFile file, Op key)` seeds the builder from the file's own vocabulary/project/documents (`WithDefaults()` only when the file carries no vocabulary), folds each topic through `BcfBuilder.AddMarkup`, emits through `Worker.ToBcf(bcf, BcfVersionEnum.Bcf30)`, and completes the container with each topic's bitmap parts — a reference the store cannot answer refuses BEFORE the container is touched, so a refusal never leaves a half-written archive. `BcfFile.Of(topics)` is the authoring factory a clash or IDS fold seeds a default-vocabulary file from.
+- Entry: `BcfArchive.Read(ReadOnlyMemory<byte> bcfzip)` lands thrown container failures and already-typed admissions on one `Fin` through `Op.Catch`, preserving each original `Error` — it sniffs the generation through `BcfExtensions.GetVersionFromStreamArchive`, streams a native 3.0 archive per-part (`ParseMarkups`/`ParseExtensions`/`ParseProject`/`ParseDocuments`, no second full-graph materialization), up-converts a 2.1 source through `Worker.BcfFromStream`, folds both onto one `BcfFile`, and lifts each held `{topicGuid}/{Reference}` bitmap part into `BcfFile.Blobs`; `BcfArchive.Write(BcfFile file)` seeds the builder from the file's own vocabulary/project/documents (`WithDefaults()` only when the file carries no vocabulary), folds each topic through `BcfBuilder.AddMarkup`, emits through `Worker.ToBcf(bcf, BcfVersionEnum.Bcf30)`, and completes the container with each topic's bitmap parts — a reference the store cannot answer refuses BEFORE the container is touched, so a refusal never leaves a half-written archive. `BcfFile.Of(topics)` is the authoring factory a clash or IDS fold seeds a default-vocabulary file from.
 - Auto: `Read` projects every `Bcf30.Topic` column onto `BcfTopic` — `Index`/`ModifiedDate`/`ModifiedAuthor`/`ServerAssignedId`/`ReferenceLinks`/`RelatedTopics`/`DocumentReferences`/`BimSnippet` and the `Markup.Header` `Files` rows — the verbatim `TopicStatus` token landing on `StatusLabel` beside the elected `BcfStatus` lifecycle, and the topic order re-derived deterministically off the schema `Index`-then-`Guid` (a `ConcurrentBag` parse is bag-racy); reads each `Bcf30.ViewPoint` whole, each declared camera transcribed onto its typed case and handed to the ONE `BcfCamera.Admit` gate; `Write` re-authors ALL of it through the nested builders so the write round-trips exactly what the read captured.
 - Output: the `BcfFile` is the coordination evidence — topics, vocabulary, project, documents, and the source generation — so a CDE or viewer round-trips one typed root through the `Worker` `.bcfzip` codec, and the `BcfApi` REST projection rides the same topic family, never a second vocabulary.
 - Growth: a new BCF entity is one record on the family projected from the `Smino.Bcf.Toolkit` graph, its members verified at `.api/api-smino-bcf-toolkit` before the fence spells them; a new topic or viewpoint column is one trailing-defaulted field the read/write folds each gain one line for; a new render hint is one `BcfViewHint` row; a new BCF version is one `BcfVersionEnum` the `Worker` converter already discriminates; the REST projection is one `BcfResource` case; never a row on the geometry-format axis and never a second issue store.
@@ -36,7 +36,6 @@ using Rasm.Bim.Model;
 using Rasm.Domain;
 using Thinktecture;
 using Bcf30 = BcfToolkit.Model.Bcf30;
-using Op = Rasm.Domain.Op;
 using Vector3 = System.Numerics.Vector3;
 using static LanguageExt.Prelude;
 
@@ -61,9 +60,9 @@ public abstract partial record BcfCamera {
     public sealed record Perspective(Vector3 Position, Vector3 Direction, Vector3 Up, double FieldOfViewDeg = 60d, double AspectRatio = 0d) : BcfCamera;
     public sealed record Orthogonal(Vector3 Position, Vector3 Direction, Vector3 Up, double ViewToWorldScale = 1d, double AspectRatio = 0d) : BcfCamera;
 
-    public static Fin<Option<BcfCamera>> Admit(Option<Perspective> perspective, Option<Orthogonal> orthogonal, string viewpoint, Op key) =>
+    public static Fin<Option<BcfCamera>> Admit(Option<Perspective> perspective, Option<Orthogonal> orthogonal, string viewpoint) =>
         (perspective.IsSome, orthogonal.IsSome) switch {
-            (true, true) => Fin.Fail<Option<BcfCamera>>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-camera-xor", viewpoint }))),
+            (true, true) => Fin.Fail<Option<BcfCamera>>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-camera-xor", viewpoint }))),
             (true, _)    => Fin.Succ(perspective.Map(static p => (BcfCamera)p)),
             (_, true)    => Fin.Succ(orthogonal.Map(static o => (BcfCamera)o)),
             _            => Fin.Succ(Option<BcfCamera>.None),
@@ -199,31 +198,31 @@ public static class BcfEdge {
 }
 
 public static class BcfArchive {
-    public static Fin<BcfFile> Read(ReadOnlyMemory<byte> bcfzip, Op key) =>
-        key.Catch(() => Decode(bcfzip, key));
+    public static Fin<BcfFile> Read(ReadOnlyMemory<byte> bcfzip) =>
+        Try.lift(() => Decode(bcfzip)).Run().Bind(static inner => inner);
 
-    public static Fin<byte[]> Write(BcfFile file, Op key) =>
-        key.Catch(() => Encode(file, key));
+    public static Fin<byte[]> Write(BcfFile file) =>
+        Try.lift(() => Encode(file)).Run().Bind(static inner => inner);
 
-    static Fin<BcfFile> Decode(ReadOnlyMemory<byte> bcfzip, Op key) {
+    static Fin<BcfFile> Decode(ReadOnlyMemory<byte> bcfzip) {
         byte[] bytes = bcfzip.ToArray();
         return Optional(BcfExtensions.GetVersionFromStreamArchive(Fresh(bytes)).GetAwaiter().GetResult()).Match(
-            Some: source => source is BcfVersionEnum.Bcf30 ? Native(bytes, key) : Converted(bytes, key),
-            None: () => Fin.Fail<BcfFile>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "version", "unreadable" }))));
+            Some: source => source is BcfVersionEnum.Bcf30 ? Native(bytes) : Converted(bytes),
+            None: () => Fin.Fail<BcfFile>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "version", "unreadable" }))));
     }
 
-    static Fin<BcfFile> Native(byte[] bytes, Op key) {
+    static Fin<BcfFile> Native(byte[] bytes) {
         ConcurrentBag<Bcf30.Markup> markups = BcfExtensions.ParseMarkups<Bcf30.Markup, Bcf30.VisualizationInfo>(Fresh(bytes)).GetAwaiter().GetResult();
         Bcf30.Extensions vocabulary = BcfExtensions.ParseExtensions<Bcf30.Extensions>(Fresh(bytes)).GetAwaiter().GetResult();
         Bcf30.ProjectInfo? project = BcfExtensions.ParseProject<Bcf30.ProjectInfo>(Fresh(bytes)).GetAwaiter().GetResult();
         Bcf30.DocumentInfo? documents = BcfExtensions.ParseDocuments<Bcf30.DocumentInfo>(Fresh(bytes)).GetAwaiter().GetResult();
-        return FileOf(toSeq(markups), vocabulary, project, documents, BcfGeneration.Bcf30, key)
+        return FileOf(toSeq(markups), vocabulary, project, documents, BcfGeneration.Bcf30)
             .Map(native => native with { Blobs = BlobsOf(bytes, native.Topics) });
     }
 
-    static Fin<BcfFile> Converted(byte[] bytes, Op key) {
+    static Fin<BcfFile> Converted(byte[] bytes) {
         Bcf30.Bcf bcf = new Worker().BcfFromStream(Fresh(bytes)).GetAwaiter().GetResult();
-        return FileOf(toSeq(bcf.Markups), bcf.Extensions, bcf.Project, bcf.Document, BcfGeneration.Bcf21, key)
+        return FileOf(toSeq(bcf.Markups), bcf.Extensions, bcf.Project, bcf.Document, BcfGeneration.Bcf21)
             .Map(converted => converted with { Blobs = BlobsOf(bytes, converted.Topics) });
     }
 
@@ -245,8 +244,8 @@ public static class BcfArchive {
 
     static MemoryStream Fresh(byte[] bytes) => new(bytes, writable: false);
 
-    static Fin<BcfFile> FileOf(Seq<Bcf30.Markup> markups, Bcf30.Extensions? vocabulary, Bcf30.ProjectInfo? project, Bcf30.DocumentInfo? documents, BcfGeneration source, Op key) =>
-        (markups.Traverse(markup => TopicOf(markup, key)).As().Map(topics =>
+    static Fin<BcfFile> FileOf(Seq<Bcf30.Markup> markups, Bcf30.Extensions? vocabulary, Bcf30.ProjectInfo? project, Bcf30.DocumentInfo? documents, BcfGeneration source) =>
+        (markups.Traverse(markup => TopicOf(markup)).As().Map(topics =>
             new BcfFile(
                 toSeq(topics.OrderBy(static t => t.Index.IfNone(int.MaxValue)).ThenBy(static t => t.Guid, StringComparer.Ordinal)),
                 Optional(project?.Project).Map(static p => new BcfProject(BcfEdge.Word(p.ProjectId), BcfEdge.Word(p.Name))),
@@ -258,10 +257,10 @@ public static class BcfArchive {
                     BcfEdge.Base64Of(row.DocumentData).IfNone(ReadOnlyMemory<byte>.Empty))),
                 source))).ToFin();
 
-    static Validation<Error, BcfTopic> TopicOf(Bcf30.Markup markup, Op key) {
+    static Validation<Error, BcfTopic> TopicOf(Bcf30.Markup markup) {
         Bcf30.Topic topic = markup.Topic;
-        return (BcfEdge.Rows(topic.Viewpoints).Traverse(reference => ViewpointOf(reference, key)).As(),
-                BcfEdge.Rows(topic.DocumentReferences).Traverse(reference => ReferenceOf(reference, key)).As())
+        return (BcfEdge.Rows(topic.Viewpoints).Traverse(reference => ViewpointOf(reference)).As(),
+                BcfEdge.Rows(topic.DocumentReferences).Traverse(reference => ReferenceOf(reference)).As())
             .Apply((viewpoints, references) => new BcfTopic(
                 topic.Guid, BcfEdge.Word(topic.Title), BcfLifecycle.Elect(topic.TopicStatus),
                 BcfEdge.Word(topic.TopicType), BcfEdge.Word(topic.Priority), BcfEdge.Word(topic.CreationAuthor),
@@ -284,10 +283,10 @@ public static class BcfArchive {
             .As();
     }
 
-    static Validation<Error, BcfDocumentReference> ReferenceOf(Bcf30.DocumentReference reference, Op key) =>
+    static Validation<Error, BcfDocumentReference> ReferenceOf(Bcf30.DocumentReference reference) =>
         (BcfEdge.OptionText(reference.DocumentGuid), BcfEdge.OptionText(reference.Url)) switch {
             ({ IsSome: true }, { IsSome: true }) or ({ IsNone: true }, { IsNone: true }) =>
-                Validation<Error, BcfDocumentReference>.Fail(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "document-reference", reference.Guid }))),
+                Validation<Error, BcfDocumentReference>.Fail(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "document-reference", reference.Guid }))),
             var (document, url) => Validation<Error, BcfDocumentReference>.Success(
                 new BcfDocumentReference(reference.Guid, document, url, BcfEdge.Word(reference.Description))),
         };
@@ -297,10 +296,10 @@ public static class BcfArchive {
             Optional(comment.Viewpoint?.Guid), BcfEdge.At(comment.Date), BcfEdge.AtOf(comment.ModifiedDate),
             BcfEdge.Word(comment.ModifiedAuthor), None);
 
-    static Validation<Error, BcfViewpoint> ViewpointOf(Bcf30.ViewPoint reference, Op key) {
+    static Validation<Error, BcfViewpoint> ViewpointOf(Bcf30.ViewPoint reference) {
         Bcf30.VisualizationInfo? visualization = reference.VisualizationInfo;
         Bcf30.Components? components = visualization?.Components;
-        return (CameraOf(visualization, reference.Guid, key)).ToValidation().Map(camera =>
+        return (CameraOf(visualization, reference.Guid)).ToValidation().Map(camera =>
             new BcfViewpoint(
                 reference.Guid, camera,
                 BcfEdge.Rows(components?.Selection).Map(static c => c.IfcGuid),
@@ -318,15 +317,15 @@ public static class BcfArchive {
                 Optional(reference.Index)));
     }
 
-    static Fin<Option<BcfCamera>> CameraOf(Bcf30.VisualizationInfo? visualization, string viewpoint, Op key) =>
+    static Fin<Option<BcfCamera>> CameraOf(Bcf30.VisualizationInfo? visualization, string viewpoint) =>
         BcfCamera.Admit(
             Optional(visualization?.PerspectiveCamera).Map(static p => new BcfCamera.Perspective(
                 BcfEdge.Vec(p.CameraViewPoint), BcfEdge.Vec(p.CameraDirection), BcfEdge.Vec(p.CameraUpVector), p.FieldOfView, p.AspectRatio)),
             Optional(visualization?.OrthogonalCamera).Map(static o => new BcfCamera.Orthogonal(
                 BcfEdge.Vec(o.CameraViewPoint), BcfEdge.Vec(o.CameraDirection), BcfEdge.Vec(o.CameraUpVector), o.ViewToWorldScale, o.AspectRatio)),
-            viewpoint, key);
+            viewpoint);
 
-    static Fin<byte[]> Encode(BcfFile file, Op key) {
+    static Fin<byte[]> Encode(BcfFile file) {
         BcfBuilder seeded = file.Vocabulary.Match(
             Some: v => new BcfBuilder().SetExtensions(x => {
                 v.TopicTypes.Iter(t => x.AddTopicType(t)); v.TopicStatuses.Iter(s => x.AddTopicStatus(s));
@@ -348,8 +347,8 @@ public static class BcfArchive {
                 .SetTopicStatus(topic.StatusToken).SetPriority(topic.Priority).SetCreationAuthor(topic.Author)
                 .SetCreationDate(topic.CreationDate.ToDateTimeUtc())
                 .SetDescription(topic.Description).SetAssignedTo(topic.AssignedTo).SetStage(topic.Stage)
-                .SetDueDate(Op.ToHostNullable(topic.DueDate.Map(static d => d.ToDateTimeUtc())))
-                .SetModifiedDate(Op.ToHostNullable(topic.ModifiedDate.Map(static d => d.ToDateTimeUtc())));
+                .SetDueDate(HostEdge.Nullable(topic.DueDate.Map(static d => d.ToDateTimeUtc())))
+                .SetModifiedDate(HostEdge.Nullable(topic.ModifiedDate.Map(static d => d.ToDateTimeUtc())));
             topic.Index.IfSome(i => markup.SetIndex(i));
             if (topic.ModifiedAuthor.Length > 0) { markup.SetModifiedAuthor(topic.ModifiedAuthor); }
             if (topic.ServerAssignedId.Length > 0) { markup.SetServerAssignedId(topic.ServerAssignedId); }
@@ -370,8 +369,8 @@ public static class BcfArchive {
             }));
             topic.Comments.Iter(c => markup.AddComment(comment => {
                 comment.SetGuid(c.Guid).SetAuthor(c.Author).SetComment(c.Text).SetDate(c.Date.ToDateTimeUtc())
-                    .SetViewPointGuid(Op.ToHostSlot(c.ViewpointGuid))
-                    .SetModifiedDate(Op.ToHostNullable(c.ModifiedDate.Map(static d => d.ToDateTimeUtc())));
+                    .SetViewPointGuid(HostEdge.Slot(c.ViewpointGuid))
+                    .SetModifiedDate(HostEdge.Nullable(c.ModifiedDate.Map(static d => d.ToDateTimeUtc())));
                 if (c.ModifiedAuthor.Length > 0) { comment.SetModifiedAuthor(c.ModifiedAuthor); }
             }));
             topic.Viewpoints.Iter(v => markup.AddViewPoint(vp => AuthorViewpoint(vp, v)));
@@ -379,15 +378,15 @@ public static class BcfArchive {
         using Stream stream = new Worker().ToBcf(builder.Build(), BcfVersionEnum.Bcf30).GetAwaiter().GetResult();
         using MemoryStream sink = new();
         stream.CopyTo(sink);
-        return WithBitmapParts(sink, file, key);
+        return WithBitmapParts(sink, file);
     }
 
-    static Fin<byte[]> WithBitmapParts(MemoryStream container, BcfFile file, Op key) =>
+    static Fin<byte[]> WithBitmapParts(MemoryStream container, BcfFile file) =>
         file.Topics
             .Bind(topic => topic.Viewpoints.Bind(static v => v.Bitmaps).Map(static b => b.Reference).Distinct()
                 .Map(reference => (Topic: topic.Guid, Reference: reference)))
             .Traverse(part => file.Blobs.Find(part.Reference)
-                .ToFin(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected,
+                .ToFin(new BimFault.Refused(BimScope.Review, BimReason.Rejected,
                     string.Join(':', new object?[] { "bcf-archive", "bitmap", part.Reference })))
                 .Map(data => (part.Topic, part.Reference, Data: data)))
             .As()
@@ -475,7 +474,6 @@ using Rasm.Bim.Model;
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using Vector3 = System.Numerics.Vector3;
 using static LanguageExt.Prelude;
 
@@ -623,7 +621,7 @@ public static partial class BcfProjection {
 
     [UserMapping]
     static BcfCameraWire? Lens(Option<BcfCamera> camera) =>
-        Op.ToHostSlot(camera.Map(static value => Project(value)));
+        HostEdge.Slot(camera.Map(static value => Project(value)));
 
     static BcfCameraWire Project(BcfCamera camera) => camera.Switch(
         perspective: static value => new BcfCameraWire {
@@ -654,7 +652,7 @@ public static partial class BcfProjection {
 
     [UserMapping]
     static BcfHintsWire? Hints(Option<CapabilitySet<BcfViewHint>> held) =>
-        Op.ToHostSlot(held.Map(
+        HostEdge.Slot(held.Map(
             static set => new BcfHintsWire {
                 SpacesVisible = set.Admits(BcfViewHint.Spaces),
                 SpaceBoundariesVisible = set.Admits(BcfViewHint.SpaceBoundaries),
@@ -664,18 +662,18 @@ public static partial class BcfProjection {
     [UserMapping] static Rasm.Contracts.Spatial.Point3 Point(Vector3 value) => new() { XM = value.X, YM = value.Y, ZM = value.Z };
     [UserMapping] static Rasm.Contracts.Spatial.UnitDirection3 Direction(Vector3 value) => new() { X = value.X, Y = value.Y, Z = value.Z };
     [UserMapping] static Timestamp Stamp(Instant value) => Timestamp.FromDateTime(value.ToDateTimeUtc());
-    [UserMapping] static Timestamp? Stamp(Option<Instant> value) => Op.ToHostSlot(value.Map(static instant => Stamp(instant)));
+    [UserMapping] static Timestamp? Stamp(Option<Instant> value) => HostEdge.Slot(value.Map(static instant => Stamp(instant)));
     [UserMapping] static BcfSnippetWire? Snippet(Option<BcfBimSnippet> value) =>
-        Op.ToHostSlot(value.Map(static snippet => Project(snippet)));
+        HostEdge.Slot(value.Map(static snippet => Project(snippet)));
     [UserMapping] static BcfBitmapFormat Format(string value) => value.ToUpperInvariant() switch {
         "PNG" => BcfBitmapFormat.Png,
         "JPG" or "JPEG" => BcfBitmapFormat.Jpg,
         _ => BcfBitmapFormat.Unspecified,
     };
 
-    static string? Text(Option<string> value) => Op.ToHostSlot(value);
-    static Instant? Moment(Option<Instant> value) => Op.ToHostNullable(value);
-    static int? Ordinal(Option<int> value) => Op.ToHostNullable(value);
+    static string? Text(Option<string> value) => HostEdge.Slot(value);
+    static Instant? Moment(Option<Instant> value) => HostEdge.Nullable(value);
+    static int? Ordinal(Option<int> value) => HostEdge.Nullable(value);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     [MapProperty(nameof(BcfTopic.StatusToken), nameof(BcfApiTopicBody.TopicStatus))]
@@ -695,26 +693,26 @@ public static partial class BcfProjection {
     public static partial BcfApiDocumentReferenceBody ToBody(BcfDocumentReference reference);
 
     [UserMapping] static BcfApiSnippetBody? ApiSnippet(Option<BcfBimSnippet> value) =>
-        Op.ToHostSlot(value.Map(static snippet => ToBody(snippet)));
+        HostEdge.Slot(value.Map(static snippet => ToBody(snippet)));
 
     public static BcfApiViewpointBody ToBody(BcfViewpoint viewpoint) => new(
         viewpoint.Guid,
         Ordinal(viewpoint.Index),
-        Op.ToHostSlot(viewpoint.Camera.Bind(static lens => lens is BcfCamera.Orthogonal o
+        HostEdge.Slot(viewpoint.Camera.Bind(static lens => lens is BcfCamera.Orthogonal o
             ? Some(new BcfApiOrthogonalCameraBody(Point(o.Position), Point(o.Direction), Point(o.Up), o.ViewToWorldScale, o.AspectRatio))
             : None)),
-        Op.ToHostSlot(viewpoint.Camera.Bind(static lens => lens is BcfCamera.Perspective p
+        HostEdge.Slot(viewpoint.Camera.Bind(static lens => lens is BcfCamera.Perspective p
             ? Some(new BcfApiPerspectiveCameraBody(Point(p.Position), Point(p.Direction), Point(p.Up), p.FieldOfViewDeg, p.AspectRatio))
             : None)),
         [.. viewpoint.Lines.Map(static l => new BcfApiLineBody(Point(l.Start), Point(l.End)))],
         [.. viewpoint.ClippingPlanes.Map(static c => new BcfApiClippingPlaneBody(Point(c.Location), Point(c.Direction)))],
-        Op.ToHostSlot(viewpoint.Snapshot.Map(static bytes => new BcfApiSnapshotBody("png", Convert.ToBase64String(bytes.Span)))),
+        HostEdge.Slot(viewpoint.Snapshot.Map(static bytes => new BcfApiSnapshotBody("png", Convert.ToBase64String(bytes.Span)))),
         new BcfApiComponentsBody(
             [.. viewpoint.SelectedGlobalIds.Map(static id => new BcfApiComponentBody(id))],
             [.. viewpoint.Coloring.Map(static c => new BcfApiColoringBody(c.Color, [.. c.GlobalIds.Map(static id => new BcfApiComponentBody(id))]))],
             new BcfApiVisibilityBody(
                 viewpoint.Visibility.Default,
-                Op.ToHostSlot(viewpoint.Hints.Map(static held =>
+                HostEdge.Slot(viewpoint.Hints.Map(static held =>
                     new BcfApiViewSetupHintsBody(held.Admits(BcfViewHint.Spaces), held.Admits(BcfViewHint.SpaceBoundaries), held.Admits(BcfViewHint.Openings)))),
                 [.. viewpoint.Visibility.Exceptions.Map(static id => new BcfApiComponentBody(id))])));
 
@@ -735,13 +733,13 @@ public static partial class BcfProjection {
     [MapProperty(nameof(BcfApiCommentBody.ReplyToCommentGuid), nameof(BcfComment.ReplyToGuid))]
     public static partial BcfComment ToDomain(BcfApiCommentBody body);
 
-    public static Fin<BcfViewpoint> ToDomain(BcfApiViewpointBody body, Op key) =>
+    public static Fin<BcfViewpoint> ToDomain(BcfApiViewpointBody body) =>
         BcfCamera.Admit(
             Optional(body.PerspectiveCamera).Map(static p => new BcfCamera.Perspective(
                 BcfEdge.Vec(p.CameraViewPoint), BcfEdge.Vec(p.CameraDirection), BcfEdge.Vec(p.CameraUpVector), p.FieldOfView, p.AspectRatio)),
             Optional(body.OrthogonalCamera).Map(static o => new BcfCamera.Orthogonal(
                 BcfEdge.Vec(o.CameraViewPoint), BcfEdge.Vec(o.CameraDirection), BcfEdge.Vec(o.CameraUpVector), o.ViewToWorldScale, o.AspectRatio)),
-            body.Guid, key)
+            body.Guid)
         .Map(camera => {
             BcfApiComponentsBody parts = BcfEdge.Parts(body.Components);
             return new BcfViewpoint(
@@ -832,9 +830,9 @@ public abstract partial record BcfOutcome {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class BcfApi {
-    public static Fin<BcfApiRequest> Project(string projectId, BcfResource resource, Op key) =>
+    public static Fin<BcfApiRequest> Project(string projectId, BcfResource resource) =>
         resource.Switch(
-            state:                   (key, project: $"bcf/3.0/projects/{projectId}", topics: $"bcf/3.0/projects/{projectId}/topics"),
+            state:                   (project: $"bcf/3.0/projects/{projectId}", topics: $"bcf/3.0/projects/{projectId}/topics"),
             createTopic:             static (s, r) => Write(BcfApiVerb.Post, s.topics, BcfProjection.ToBody(r.Topic), s.key),
             reviseTopic:             static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.Topic.Guid}", BcfProjection.ToBody(r.Topic), s.key),
             readTopic:               static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, r.Guid.Match(Some: g => $"{s.topics}/{g}", None: () => r.Query.IfNone(BcfQuery.All).Render(s.topics)), default)),
@@ -859,26 +857,25 @@ public static class BcfApi {
             readProject:             static (s, _) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, s.project, default)),
             readExtensions:          static (s, _) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.project}/extensions", default)));
 
-    static Fin<BcfApiRequest> Write<T>(BcfApiVerb verb, string resource, T body, Op key) =>
-        Encode(body, key).Map(bytes => new BcfApiRequest(verb, resource, bytes));
+    static Fin<BcfApiRequest> Write<T>(BcfApiVerb verb, string resource, T body) =>
+        Encode(body).Map(bytes => new BcfApiRequest(verb, resource, bytes));
 
-    public static Fin<T> Admit<T>(ReadOnlyMemory<byte> body, string resource, Op key) =>
-        Decode<T>(body, resource, key);
+    public static Fin<T> Admit<T>(ReadOnlyMemory<byte> body, string resource) =>
+        Decode<T>(body, resource);
 
-    static Fin<byte[]> Encode<T>(T body, Op key) =>
-        key.Catch(() => JsonSerializer.SerializeToUtf8Bytes(body, BcfApiContext.Json));
+    static Fin<byte[]> Encode<T>(T body) =>
+        Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(body, BcfApiContext.Json)).Run().Bind(static inner => inner);
 
-    static Fin<T> Decode<T>(ReadOnlyMemory<byte> body, string resource, Op key) =>
-        key.Catch(() => JsonSerializer.Deserialize<T>(body.Span, BcfApiContext.Json))
+    static Fin<T> Decode<T>(ReadOnlyMemory<byte> body, string resource) =>
+        Try.lift(() => JsonSerializer.Deserialize<T>(body.Span, BcfApiContext.Json)).Run().Bind(static inner => inner)
             .Bind(value => value is { } admitted
                 ? Fin.Succ(admitted)
-                : Fin.Fail<T>(new BimFault.Refused(
-                    key, BimScope.Review, BimReason.Rejected, $"bcf-api:read:{resource}:null-payload")));
+                : Fin.Fail<T>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, $"bcf-api:read:{resource}:null-payload")));
 
-    public static Fin<BcfOutcome> Open(BcfResource resource, int status, ReadOnlyMemory<byte> body, Op key) =>
+    public static Fin<BcfOutcome> Open(BcfResource resource, int status, ReadOnlyMemory<byte> body) =>
         status is >= 200 and < 300
             ? resource.Switch(
-                state:                   (body, key),
+                state:                   (body),
                 createTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b)))),
                 reviseTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b)))),
                 readTopic:               static (s, r) => r.Guid.IsSome
@@ -910,12 +907,12 @@ public static class BcfApi {
                 addDocument:             static (s, _) => Admit<BcfApiDocumentBody>(s.body, "documents", s.key).Map(static d => (BcfOutcome)new BcfOutcome.Documents(Seq(new BcfDocument(d.Guid, d.Filename, BcfEdge.Word(d.Description), default)))),
                 readProject:             static (s, _) => Admit<BcfApiProjectBody>(s.body, "project", s.key).Map(static p => (BcfOutcome)new BcfOutcome.Project(new BcfProject(p.ProjectId, p.Name))),
                 readExtensions:          static (s, _) => Admit<BcfApiExtensionsBody>(s.body, "extensions", s.key).Map(static e => (BcfOutcome)new BcfOutcome.Extensions(BcfProjection.ToDomain(e))))
-            : Fin.Fail<BcfOutcome>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api-status", status.ToString(CultureInfo.InvariantCulture), resource.GetType().Name })));
+            : Fin.Fail<BcfOutcome>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api-status", status.ToString(CultureInfo.InvariantCulture), resource.GetType().Name })));
 
-    static Fin<Seq<T>> Rows<T>(ReadOnlyMemory<byte> body, string resource, Op key) =>
-        Admit<ImmutableArray<T>>(body, resource, key)
+    static Fin<Seq<T>> Rows<T>(ReadOnlyMemory<byte> body, string resource) =>
+        Admit<ImmutableArray<T>>(body, resource)
             .Bind(rows => rows.IsDefault
-                ? Fin.Fail<Seq<T>>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api", "read", resource, "null-collection" })))
+                ? Fin.Fail<Seq<T>>(new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api", "read", resource, "null-collection" })))
                 : Fin.Succ(toSeq(rows)));
 }
 

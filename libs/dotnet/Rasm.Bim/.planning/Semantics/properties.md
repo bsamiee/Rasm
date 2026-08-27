@@ -38,7 +38,6 @@ using Rasm.Element.Properties;
 using Thinktecture;
 using Xbim.Properties;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 using Version = Xbim.Properties.Version;
 
 namespace Rasm.Bim.Semantics;
@@ -376,7 +375,7 @@ public static class PropertyInheritance {
 ## [03]-[BASE_QUANTITIES]
 
 - Owner: `QuantityDerivation` the base-quantity fold deriving the standard `Qto_*BaseQuantities` from `MeasureBundle` — the kernel `Rasm` `Analysis/measure` KIND-KEYED multi-domain takeoff carrier whose `Seq<(MassKind Kind, double Magnitude)> Measures` holds one magnitude per answered domain, whose `Magnitude(MassKind)` answers `Option<double>` so an unheld domain reads honest absence and never a fabricated zero, and whose `Coverage` DERIVES the held `CapabilitySet<MassKind>` off those rows rather than a hand-kept mirror, minted by `MeasureBundle.Of(GeometryBase, CapabilitySet<MassKind>, Context, Op?)` one leased mass handle per demanded kind — the sibling single-domain `GeometryMeasures` moment bundle answers ONE domain and its `Centroid`/`Radii`/`Inertia`/`InertiaProducts`/`PrincipalFrame` moments serve the structural consumers, so it is the wrong carrier at this owner: one `Qto_*BaseQuantities` set declares Length, Area, and Volume members TOGETHER, and a one-kind bundle derived a single dimension, left every member of another dimension standing on its occurrence value, and re-paid the mass computation once per domain the caller asked for separately — the kernel/Compute resolve from the geometry the shared `Object` node references by content key (`Model/elements#REPRESENTATION_KEYS` `RepresentationContentHash`) and supply to `Derive` (Bim consumes the measure, never tessellates it) — producing the shared `QuantitySet` node values as shared `MeasureValue` under derived-wins precedence. The class's base-quantity SET, its `MethodOfMeasurement` basis (the measurement-rule string the 5D estimate displays beside the values WHEN a dataset states one — the bundled definitions state none, every set resolving empty, so no 5D read depends on the basis), and each declared quantity's NAME + `Dimension` come from `PropertyCatalog.BaseQuantitySet` (the offline `Xbim.Properties` `QtoSetDef` catalogue, predefined-scoped like the Pset leg), so the roster covers every class the standard defines, not a hand-listed slice — and every derived key names a quantity the standard set declares.
-- Entry: `QuantityDerivation.Demand(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope)` and `QuantityDerivation.Demand(Seq<BakedMaterial> materials)` are the ONE polymorphic demand entrypoint each fold's caller mints its bundle under, discriminating on input shape — the declared-member ceiling for the class takeoff, the composition-implied ceiling for the material takeoff — so no caller re-reads the catalogue or the composition rows to guess which kinds to ask for. `QuantityDerivation.Derive(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope, MeasureBundle measures, Option<MeasureValue> massDensity, Map<PropertyName, MeasureValue> occurrence, Op key)` derives the geometry-true base quantities for a class and merges them over the occurrence-stored quantities under derived-wins precedence (the geometry takeoff supersedes an authoring tool's stored quantity), returning the shared `QuantitySet` node value map; a class with no `Qto_*BaseQuantities` set in the catalogue returns the occurrence quantities unchanged so a non-takeoff class never blocks. `QuantityDerivation.Decompose(MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections, Op key)` is the MATERIAL-true takeoff the element-level fold cannot answer ("how much concrete is in this model") — the element volume split per `MaterialId` over the shared `MaterialComposition` the baked element's `Associate` edges bind (`element.Materials` + the `SectionOf` baked section are the caller's `Bake` reads): a `LayerSet` splits by thickness share, a `ConstituentSet` by declared `Fraction`, a `ProfileSet` folds PER COMPOUND ROW — each shared `MaterialProfile`'s own one-hop-resolved `SectionProperties.Area × Length` under its OWN `MaterialId`, the swept length and the sibling arms' volume read off ONE bundle because a single element's material rows mix the two modalities and a one-kind carrier answered at most one of them, re-stamped `QuantityType.Volume` through the band-preserving `WithType` (`Multiply` is dimension-anonymous by contract law), a row whose section does not resolve contributing no share, a `Single` carries the element volume whole; a colliding `MaterialId` sums through the shared `MeasureValue.Sum`, an absent element measure yields no row (never a fabricated zero), and the multi-ply WEIGHT decomposition stays the `Rasm.Compute` `AssemblyAggregator`'s — the frozen boundary: volume splits are composition-derivable in full, mass is not.
+- Entry: `QuantityDerivation.Demand(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope)` and `QuantityDerivation.Demand(Seq<BakedMaterial> materials)` are the ONE polymorphic demand entrypoint each fold's caller mints its bundle under, discriminating on input shape — the declared-member ceiling for the class takeoff, the composition-implied ceiling for the material takeoff — so no caller re-reads the catalogue or the composition rows to guess which kinds to ask for. `QuantityDerivation.Derive(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope, MeasureBundle measures, Option<MeasureValue> massDensity, Map<PropertyName, MeasureValue> occurrence)` derives the geometry-true base quantities for a class and merges them over the occurrence-stored quantities under derived-wins precedence (the geometry takeoff supersedes an authoring tool's stored quantity), returning the shared `QuantitySet` node value map; a class with no `Qto_*BaseQuantities` set in the catalogue returns the occurrence quantities unchanged so a non-takeoff class never blocks. `QuantityDerivation.Decompose(MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections)` is the MATERIAL-true takeoff the element-level fold cannot answer ("how much concrete is in this model") — the element volume split per `MaterialId` over the shared `MaterialComposition` the baked element's `Associate` edges bind (`element.Materials` + the `SectionOf` baked section are the caller's `Bake` reads): a `LayerSet` splits by thickness share, a `ConstituentSet` by declared `Fraction`, a `ProfileSet` folds PER COMPOUND ROW — each shared `MaterialProfile`'s own one-hop-resolved `SectionProperties.Area × Length` under its OWN `MaterialId`, the swept length and the sibling arms' volume read off ONE bundle because a single element's material rows mix the two modalities and a one-kind carrier answered at most one of them, re-stamped `QuantityType.Volume` through the band-preserving `WithType` (`Multiply` is dimension-anonymous by contract law), a row whose section does not resolve contributing no share, a `Single` carries the element volume whole; a colliding `MaterialId` sums through the shared `MeasureValue.Sum`, an absent element measure yields no row (never a fabricated zero), and the multi-ply WEIGHT decomposition stays the `Rasm.Compute` `AssemblyAggregator`'s — the frozen boundary: volume splits are composition-derivable in full, mass is not.
 - Auto: `Derive` reads `PropertyCatalog.BaseQuantitySet(cls, predefined, schema, scope)` (the `Qto_*` set name + its `MethodOfMeasurement` + each geometry-relevant `QtoDef`'s declared NAME paired with its `Dimension`, the MOST-SPECIFIC applicable set elected — a `PredefinedType`-scoped row beats a blank-scope sibling, never dataset declaration order) and asks the ONE `Derivations` frozen table for each DECLARED MEMBER by `(Dimension, name)` — a member the table answers derives, a member it does not answer derives nothing and leaves the occurrence value standing, and a member whose row demands a domain the bundle never held reads `Magnitude`'s `None` and leaves it standing likewise, so the emitted key is a standard-set member BY CONSTRUCTION and an oriented takeoff the scalar bundle cannot separate (`GrossArea`, `NetSideArea`, `GrossVolume`) is never stamped from the one it can; each row's `Demands` column is the same table entry's second half, so `Demand` unions the declared members' domains and the projector reads exactly what that union minted — one correspondence, never a demand list beside a projector list that drift apart; the kernel scalar is already SI-base, so each derived value admits through the shared `MeasureValue.OfSi(QuantityType, Dimension, double)` carrying its QTO identity (a dimension-only admit stamps the dimension-anonymous type and strips the QTO read off every derived-wins row), the set name riding the `QuantitySet` bag node so a `{Set}.{name}`-prefixed non-member key whose derived-wins merge silently never collides is the deleted form, merged over the occurrence map with derived-wins so the 5D `Planning/cost#ESTIMATE` join reads the geometry-true measure (`Volume ≻ Area ≻ Length ≻ Mass`); the derived keys are the SAME bare spellings the shared `Properties/property#DETAIL_SCHEMA` `QuantityRows` statics freeze for its non-referencing readers, whose net-before-gross chains (`SurfaceArea`/`FloorArea`/`FootprintArea`/`CrossSection`/`Volume`/`Weight`) fold these rows back first-hit-wins — writer key and reader chain meeting on one declared spelling; `NetWeight = NetVolume × massDensity` through the shared `MeasureValue.Multiply` re-stamped by the band-preserving `WithType(QuantityType.Mass)` (`VolumeDim × DensityDim IS MassDim`, so the algebra proves the product and carries the density's `MeasureBand` forward), a non-density carrier or an absent density skipping the weight rows; an element-set aggregate of the same `Dimension` reduces through the shared `Properties/quantity#MEASURE_VALUE` `MeasureValue.Sum` reducer, never a manual `double` fold.
 - Packages: Xbim.Properties, ids-lib, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new class's base-quantity set is already in the `Xbim.Properties` `QtoSetDef` catalogue (no edit); a newly derivable standard quantity is one `Derivations` row keyed `(Dimension, declared member name)` carrying its demanded `CapabilitySet<MassKind>` beside its admitting projector, so `Demand` widens with the row and no caller edits, landing only where the kernel bundle honestly answers that member; a new decomposition modality is the shared `MaterialComposition` case arm the `Shares` and `Demand` generated total `Switch`es both break on at compile; a new kernel mass domain is demandable the moment the kernel lands its row, the bundle keying by `MassKind` and widening by data alone; the derived quantities merge over the occurrence map under one precedence rule; never a per-class `Derive` method, never a hand-listed per-class set table, and never a re-tessellation in this owner.
@@ -391,20 +390,20 @@ public static class QuantityDerivation {
         (MassKind.Volume, QuantityType.Volume, Dimension.VolumeDim, Seq("Volume", "NetVolume")));
 
     static readonly FrozenDictionary<(Dimension Dimension, string Member),
-        (CapabilitySet<MassKind> Demands, Func<MeasureBundle, Option<MeasureValue>, Op, Option<Fin<MeasureValue>>> Project)> Derivations =
+        (CapabilitySet<MassKind> Demands, Func<MeasureBundle, Option<MeasureValue>, Option<Fin<MeasureValue>>> Project)> Derivations =
         Takeoffs
             .Bind(row => row.Members.Map(member => KeyValuePair.Create(
                 (row.Dimension, member),
                 (Demands: CapabilitySet<MassKind>.Of(row.Domain),
-                 Project: (Func<MeasureBundle, Option<MeasureValue>, Op, Option<Fin<MeasureValue>>>)((measures, _, key) =>
-                     measures.Magnitude(row.Domain).Map(v => MeasureValue.OfSi(row.Type, row.Dimension, v, key: key)))))))
+                 Project: (Func<MeasureBundle, Option<MeasureValue>, Option<Fin<MeasureValue>>>)((measures, _, key) =>
+                     measures.Magnitude(row.Domain).Map(v => MeasureValue.OfSi(row.Type, row.Dimension, v)))))))
             .Add(KeyValuePair.Create(
                 (Dimension.MassDim, "NetWeight"),
                 (Demands: CapabilitySet<MassKind>.Of(MassKind.Volume),
-                 Project: (Func<MeasureBundle, Option<MeasureValue>, Op, Option<Fin<MeasureValue>>>)(static (measures, density, key) =>
-                     from volume in measures.Magnitude(MassKind.Volume).Map(v => MeasureValue.OfSi(QuantityType.Volume, Dimension.VolumeDim, v, key: key))
+                 Project: (Func<MeasureBundle, Option<MeasureValue>, Option<Fin<MeasureValue>>>)(static (measures, density, key) =>
+                     from volume in measures.Magnitude(MassKind.Volume).Map(v => MeasureValue.OfSi(QuantityType.Volume, Dimension.VolumeDim, v))
                      from carrier in density.Filter(static d => d.Dimension == Dimension.DensityDim)
-                     select volume.Bind(admitted => admitted.Multiply(carrier, key)).Bind(mass => mass.WithType(QuantityType.Mass, key))))))
+                     select volume.Bind(admitted => admitted.Multiply(carrier)).Bind(mass => mass.WithType(QuantityType.Mass))))))
             .ToFrozenDictionary();
 
     public static CapabilitySet<MassKind> Demand(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope) =>
@@ -424,63 +423,63 @@ public static class QuantityDerivation {
 
     public static Fin<Map<PropertyName, MeasureValue>> Derive(
         IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope, MeasureBundle measures,
-        Option<MeasureValue> massDensity, Map<PropertyName, MeasureValue> occurrence, Op key) =>
+        Option<MeasureValue> massDensity, Map<PropertyName, MeasureValue> occurrence) =>
         PropertyCatalog.BaseQuantitySet(cls, predefined, schema, scope).Match(
             None: () => Fin.Succ(occurrence),
             Some: set => set.Quantities.Distinct().FoldM(occurrence, (acc, member) =>
                 Derivations.TryGetValue((member.Dimension, member.Name), out var row)
-                    ? row.Project(measures, massDensity, key).Match(
+                    ? row.Project(measures, massDensity).Match(
                         Some: derived => derived.Map(value => acc.AddOrUpdate(PropertyCategory.Neutral.Row(member.Name), value)),
                         None: () => Fin.Succ(acc))
                     : Fin.Succ(acc)).As());
 
     public static Fin<Map<MaterialId, MeasureValue>> Decompose(
-        MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections, Op key) =>
-        materials.TraverseM(baked => Shares(measures, baked.Material.Composition, sections, key)).As()
+        MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections) =>
+        materials.TraverseM(baked => Shares(measures, baked.Material.Composition, sections)).As()
             .Bind(rows => toSeq(rows.Flatten()).FoldM(Map<MaterialId, MeasureValue>(), (acc, row) =>
                 acc.Find(row.Material).Match(
-                    Some: existing => MeasureValue.Sum(Seq(existing, row.Share), key).Map(sum => acc.SetItem(row.Material, sum)),
+                    Some: existing => MeasureValue.Sum(Seq(existing, row.Share)).Map(sum => acc.SetItem(row.Material, sum)),
                     None: () => Fin.Succ(acc.Add(row.Material, row.Share))).As());
 
     static Fin<Seq<(MaterialId Material, MeasureValue Share)>> Shares(
-        MeasureBundle measures, MaterialComposition composition, Func<ProfileRef, Option<SectionProperties>> sections, Op key) =>
+        MeasureBundle measures, MaterialComposition composition, Func<ProfileRef, Option<SectionProperties>> sections) =>
         composition.Switch(
-            single: s => ElementVolume(measures, key).Match(
+            single: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Map(volume => Seq((s.Material, volume)))),
-            layerSet: s => ElementVolume(measures, key).Match(
+            layerSet: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Bind(volume => {
                     double total = s.Layers.Fold(0.0, static (acc, layer) => acc + layer.Thickness.Si);
                     return s.Layers.TraverseM(layer =>
-                        volume.Scale(layer.Thickness.Si / total, key).Map(share => (layer.Material, share))).As();
+                        volume.Scale(layer.Thickness.Si / total).Map(share => (layer.Material, share))).As();
                 })),
             profileSet: s => measures.Magnitude(MassKind.Length).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
-                Some: length => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, length, key: key)
+                Some: length => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, length)
                     .Bind(span => s.Profiles
                         .TraverseM(row => sections(row.Profile).Match(
                             None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                             Some: section =>
-                                from swept in section.Area.Multiply(span, key)
-                                from volume in swept.WithType(QuantityType.Volume, key)
+                                from swept in section.Area.Multiply(span)
+                                from volume in swept.WithType(QuantityType.Volume)
                                 select Seq((row.Material, volume))))
                         .As()
                         .Map(static rows => rows.Flatten()))),
-            constituentSet: s => ElementVolume(measures, key).Match(
+            constituentSet: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Bind(volume => s.Constituents.TraverseM(constituent =>
-                    volume.Scale(constituent.Fraction, key).Map(share => (constituent.Material, share))).As())));
+                    volume.Scale(constituent.Fraction).Map(share => (constituent.Material, share))).As())));
 
-    static Option<Fin<MeasureValue>> ElementVolume(MeasureBundle measures, Op key) =>
-        measures.Magnitude(MassKind.Volume).Map(v => MeasureValue.OfSi(QuantityType.Volume, Dimension.VolumeDim, v, key: key));
+    static Option<Fin<MeasureValue>> ElementVolume(MeasureBundle measures) =>
+        measures.Magnitude(MassKind.Volume).Map(v => MeasureValue.OfSi(QuantityType.Volume, Dimension.VolumeDim, v));
 }
 ```
 
 ## [04]-[TEMPLATE_AUDIT]
 
 - Owner: `TemplateAudit` the graph-wide standard-template conformance fold — the first model-quality question every project asks spec-free ("does each element carry its standard Pset with correctly-typed, in-range values") answered directly against the buildingSMART ground truth this page already resolves, with no authored IDS document; `TemplateVerdict` the `[SmartEnum<string>]` closed verdict vocabulary (`Missing`/`KindMismatch`/`DataTypeMismatch`/`NotAllowed`/`OutOfBounds`/`PatternReject`/`WrongDimension` — one row per constraint axis the `PropertyTemplate` carries, so a new template constraint axis is one verdict row and one `Verdict` arm); `TemplateFinding` the typed per-element finding row a report renders and a fix pass keys on.
-- Entry: `TemplateAudit.Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary, Op key)` audits every entity-type-classified occurrence `Object` node (the `ClassificationSystem.IfcSystem` row key compared in the roster's own `OrdinalIgnoreCase` space, never a bare token literal) against its resolved templates — templates resolve ONCE per distinct `(Classification.Code, PredefinedType.ToValue())` pair through `PropertyKey.Resolve` (the catalogue floor ∪ live dictionary union, `graph.Header.Schema` the schema, the caller's `scope` the definition set — a `Handover` audit grades COBie completeness on the same fold that grades the standard sets, the injected `dictionary` the per-class live evidence a caller supplies or leaves `None` for the offline-only audit) and every element of that pair checks against the SAME resolved map, never a per-element re-resolution; `Fin<T>` carries only the shared `Bake` result (an absent root or cyclic compose is the graph's fault, never this fold's) and the audit itself is total — a clean model returns the empty finding set.
+- Entry: `TemplateAudit.Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary)` audits every entity-type-classified occurrence `Object` node (the `ClassificationSystem.IfcSystem` row key compared in the roster's own `OrdinalIgnoreCase` space, never a bare token literal) against its resolved templates — templates resolve ONCE per distinct `(Classification.Code, PredefinedType.ToValue())` pair through `PropertyKey.Resolve` (the catalogue floor ∪ live dictionary union, `graph.Header.Schema` the schema, the caller's `scope` the definition set — a `Handover` audit grades COBie completeness on the same fold that grades the standard sets, the injected `dictionary` the per-class live evidence a caller supplies or leaves `None` for the offline-only audit) and every element of that pair checks against the SAME resolved map, never a per-element re-resolution; `Fin<T>` carries only the shared `Bake` result (an absent root or cyclic compose is the graph's fault, never this fold's) and the audit itself is total — a clean model returns the empty finding set.
 - Auto: per element the merged `Bake`-derived `element.Properties`/`element.Quantities` bags (type→occurrence precedence already applied by the stamped `InheritanceMode`) probe each template row — an absent value on a template whose `Traits` admit `Required` lands `Missing`; a present value decides per axis: a `Text`/`Enumerated` value outside a non-empty `AllowedValues` lands `NotAllowed`, a `Text` failing the whole-value-anchored `Pattern` lands `PatternReject`, a `Measure` whose `Dimension` disagrees with `SiDimension` lands `WrongDimension`, a `Measure`, `Integer`, or `Number` outside `Bounds` lands `OutOfBounds` (the bSDD `ClassPropertyContract.v1` min/max carry for Integer and Real properties, not only dimensioned measures), and a shared case irreconcilable with the template `Kind` (a `Complex` where the kind is `Single`) lands `KindMismatch` — the verdict axes are the SAME constraint family the `Review/validation#IDS_FACETS` facet narrows into its `ValueConstraint`, decided here with the failing AXIS named because a QA report acts per axis where a facet needs only pass/fail.
 - Output: the `Seq<TemplateFinding>` is the baseline-tier evidence — composed WHOLE as the `Review/validation#MODEL_HEALTH` `ModelFinding.Baseline` case beneath the authored IDS audits, so `Rasm.AppUi` and the review pipeline read the ONE `ModelHealth` verdict surface, never this stream directly; each row carries the element `NodeId`, the `{Set}.{Code}` template coordinate, the verdict, and the actual value so a fix pass addresses the exact property.
 - Packages: Xbim.Properties, ids-lib, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -506,7 +505,7 @@ public readonly record struct TemplateFinding(NodeId Element, string Set, string
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TemplateAudit {
-    public static Fin<Seq<TemplateFinding>> Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary, Op key) {
+    public static Fin<Seq<TemplateFinding>> Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary) {
         Seq<Node.Object> occurrences = graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Occurrence
                 && string.Equals(o.Classification.System, ClassificationSystem.IfcSystem.Key, StringComparison.OrdinalIgnoreCase));
@@ -518,7 +517,7 @@ public static class TemplateAudit {
                         Some: cls => acc.Add(pair, PropertyKey.Resolve(cls, Token(pair.Token), graph.Header.Schema, scope, dictionary(cls))
                             .Map(static t => (t, t.Pattern.Map(static p => new Regex($"^(?:{p})$", RegexOptions.NonBacktracking | RegexOptions.CultureInvariant)))))));
         return occurrences
-            .TraverseM(node => graph.Bake(node.Id, key).Map(element =>
+            .TraverseM(node => graph.Bake(node.Id).Map(element =>
                 resolved.Find((node.Classification.Code, node.PredefinedType.ToValue()))
                     .Map(templates => Check(node.Id, templates, element))
                     .IfNone(Seq<TemplateFinding>())))

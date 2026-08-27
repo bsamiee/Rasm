@@ -99,9 +99,9 @@ public sealed partial class LateralHazard {
     public double AsdDivisor { get; }
     public double LrfdFactor { get; }
 
-    public Fin<double> Design(double nominalKnPerM, SafetyFormat format, Op key) =>
+    public Fin<double> Design(double nominalKnPerM, SafetyFormat format) =>
         format.Reduce(this, nominalKnPerM)
-            .ToFin(new ComponentFault.LateralFormatUnsupported(key, format, this));
+            .ToFin(new ComponentFault.LateralFormatUnsupported(format));
 }
 
 [SmartEnum<string>]
@@ -253,7 +253,7 @@ public sealed partial class DesignBasis {
 
     static Unit ProveRoster() {
         Seq<string> declared = toSeq(Items).Map(static basis => basis.Key);
-        Seq<string> member = declared.Filter(static key => !SectionCarve.Contains(key));
+        Seq<string> member = declared.Filter(static key => !SectionCarve.Contains());
         return member.Count == MemberKeys.Count && member.ForAll(MemberKeys.Contains)
             && declared.Count == member.Count + SectionCarve.Count
             ? unit
@@ -347,7 +347,7 @@ public abstract partial record FatigueLaw {
 - Cases: `CapacityBuild.{Hull · Elastic · Detail · Anchorage · Bearing}`, each arm carrying EXACTLY the inputs its solver consumes — the prior loose parameter pair forced a half-dead knob onto every elastic call, and the same law now keeps an anchor bed off a fatigue request. `CapacityLift.{Steel · Timber · DeckSheet · Masonry · ReinforcedMasonry · Glass · SteelFire · TimberFire · Weld · Adhesive · Stud · Connector · LateralPanel · Bolt · SlipCritical · TimberDowel · Aluminum}`, each carrying its full lift context so the modality is recoverable from the request value alone.
 - Entry: `Demand.Admit(…)` is the ACCUMULATING boundary naming every offending column in one verdict and `Demand.Of` the same proof collapsed onto `Fin`; `CapacityBuild.Declared(subject, placement)` turns the placement's declarations into the build requests they name and `CapacityLift.Fire(subject, state)` the family's fire state into its lift, so every declared modality is reachable from a `Component` and its placement; `CapacityLift.Kind`/`CapacityBuild.Kind` own the case-name projection every signal dimension and analytics column keys on, so a reflected runtime type name at a consumer has no reason to exist.
 - Growth: a new demand axis is one `DemandColumn` row with its `Demand` column — the token, the admitted band, and the guard land together; a new declared modality is one `CapacityBuild` arm with one `CapacityPlacement` column; a new family lift is one `CapacityLift` case, never another overload; a new fire-rated family is one `FireState` case and one `Lift` arm.
-- Boundary: `Demand` MODALITY columns bind their OWN case — unit shear to `LateralPanel`, the range/count pair to `Fatigue` — so a member arm neither resists nor reads them and the check that consumes them is its own invocation. The identity rides the lift and build BASE where a new case cannot forget it: the analytics per-check dataset and the `MaterialsFact` stream both key on (op, kind, governing), which collides for two members of one kind under one op.
+- Boundary: `Demand` MODALITY columns bind their OWN case — unit shear to `LateralPanel`, the range/count pair to `Fatigue` — so a member arm neither resists nor reads them and the check that consumes them is its own invocation. The identity rides the lift and build BASE where a new case cannot forget it: the analytics per-check dataset and the `MaterialsFact` stream both key on (kind, governing), which collides for two members of one kind under one op.
 - Boundary: `FireState` is the fire modality's typed input contract and `CapacityLift.Fire` its ONE mint, so both fire cases are constructed rather than assembled at a call site. BOTH producers are LANDED at their owners: `steel#STEEL_FAMILY` `SteelSeed.Capacity` reads `CapacityPlacement.FireExposure` through the `SteelFire` §4.2.5.1 step and `SteelDesign.Fire` into `FireState.Steel`, and `timber#TIMBER_CAPACITY` `TimberSeed.Capacity` routes its `TimberDesign.Fire` reduced-section capacity into `FireState.Timber` — every fire lift in the folder constructs through this mint and a `new CapacityLift.SteelFire`/`TimberFire` beside it is the deleted form.
 
 ```csharp
@@ -513,20 +513,20 @@ public readonly partial struct Demand {
         validationError = offending.IsEmpty ? null : new ValidationError($"Demand columns must be finite: {string.Join(':', offending)}.");
     }
 
-    public static Validation<Error, Demand> Admit(double axialKn, double momentYKnm, double momentZKnm, Op key,
+    public static Validation<Error, Demand> Admit(double axialKn, double momentYKnm, double momentZKnm,
         double shearYKn = 0.0, double shearZKn = 0.0, double torsionKnm = 0.0, double bearingKn = 0.0,
         double unitShearKnPerM = 0.0, double stressRangeMpa = 0.0, double cycleCount = 0.0) =>
         DemandColumn.Refusals(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
                 unitShearKnPerM, stressRangeMpa, cycleCount)
             .Traverse(token => Validation<Error, Unit>.Fail(
-                new KernelFault.InvalidValue(token, "a finite demand scalar", Some(key))))
+                new KernelFault.InvalidValue(token, "a finite demand scalar")))
             .Map(_ => Create(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
                 unitShearKnPerM, stressRangeMpa, cycleCount)).As();
 
-    public static Fin<Demand> Of(double axialKn, double momentYKnm, double momentZKnm, Op key,
+    public static Fin<Demand> Of(double axialKn, double momentYKnm, double momentZKnm,
         double shearYKn = 0.0, double shearZKn = 0.0, double torsionKnm = 0.0, double bearingKn = 0.0,
         double unitShearKnPerM = 0.0, double stressRangeMpa = 0.0, double cycleCount = 0.0) =>
-        Admit(axialKn, momentYKnm, momentZKnm, key, shearYKn, shearZKn, torsionKnm, bearingKn,
+        Admit(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
             unitShearKnPerM, stressRangeMpa, cycleCount).ToFin();
 
     public double MomentResultantKnm => Math.Sqrt(MomentYKnm * MomentYKnm + MomentZKnm * MomentZKnm);
@@ -630,12 +630,12 @@ public sealed partial class MemberCheckRequirement {
 
 - Owner: one `SectionCapacity` `[Union]` closes the structural-capacity family across the realized member paths AND the connection load path — the ultimate N-M-M hull, the elastic transformed RC section, the rolled/composite/cold-formed (and, basis-told, stainless) steel capacity, the EC5 timber capacity, the EN 1999 aluminium member, the TMS 402 URM and §9.3 reinforced masonry checks, the EN 16612 glass pane, the weld/adhesive/stud/connector/anchor `Connection` triple, the detail-category `Fatigue` law, and the DG1 `BasePlate` pair — so a member AND its connection are checked through one `Check` fold, never a per-type surface.
 - Cases: the non-RC member cases LIFT their family-owner capacities WHOLE (the design-code computation stays the sibling page's, the unified verdict this owner's); the RC, fatigue, anchorage, and base-plate cases are `Resolve` builds over declared inputs, the aluminium case computing at lift because its family owns DATA, not algebra. `RcInteraction` carries its own content key beside the mesh, so the cached hull's identity is the (subject, resolution) pair and NOT a float-wise comparison of a foreign hull.
-- Entry: `SectionCapacity.Resolve(CapacityBuild, Op)` dispatches every DECLARED build; the TOTAL `SectionCapacity.Lift(lift, key)` dispatches every already-computed sibling capacity under the caller's own operation key; `Check(Demand)` returns the closed `Utilisation` verdict; `HullCache.Of` is the ONE content-keyed round trip through `Freeze`/`Thaw`. The masonry lifts carry the member HEIGHT as a kernel-admitted `PositiveMagnitude` beside their section, so `Lift` mints the stability reduction from the section's own governing radius — no caller-supplied stability scalar and no re-derived code bracket exists.
+- Entry: `SectionCapacity.Resolve(CapacityBuild, Op)` dispatches every DECLARED build; the TOTAL `SectionCapacity.Lift(lift)` dispatches every already-computed sibling capacity under the caller's own operation key; `Check(Demand)` returns the closed `Utilisation` verdict; `HullCache.Of` is the ONE content-keyed round trip through `Freeze`/`Thaw`. The masonry lifts carry the member HEIGHT as a kernel-admitted `PositiveMagnitude` beside their section, so `Lift` mints the stability reduction from the section's own governing radius — no caller-supplied stability scalar and no re-derived code bracket exists.
 - Growth: a new structural family's capacity is one `[Union]` case binding either a `Resolve` build or a lift factory and one `Check` arm, admitted only when no existing case's column set carries it; a new design code over an already-cased family is one `DesignBasis` row and the owning family page's per-basis resistance arm, NEVER a sibling case; a persisted-capacity need is the one `HullCache` pair over the `ITaxonomySerializable` marker, never a second serializer.
 - Boundary: `Resolve` and `Check` are the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.CapacityCheck(Key, Lift, Verdict, Elapsed)` tap SUBJECTS and `Check` the `Projection/benchmarks#BENCH_CORPUS` `BenchKernel.InteractionSweep` measured kernel; the tap is a composition-root decorator on the folder hook set at `MaterialsPoint.CapacityCheck`, so this owner emits nothing, carries no `Duration`, and references no signal type.
 - Boundary: `Resolve` admits the `VividOrange.InteractionDiagram` engine once and reads the `ConcreteSectionProperties` captured by `RcSectionBuilder.Of`. Documented engine exceptions become cause-bearing `CapacitySolve`; missing effective depth or tension steel remain distinct semantic leaves, and unknown throws remain exact.
 - Boundary: the `RcInteraction` utilisation is the exact Möller–Trumbore intersection of the origin-cast demand ray against the hull faces, the no-pierce case (an eccentric hull not enclosing the origin) yielding the typed `Utilisation.Unbounded` verdict rather than a silent `+∞`, NEVER the facet `Area` `Ratio` read as a physical quantity. Force and moment axes are never Euclidean-normalized together.
-- Boundary: the frozen hull's store row is REGISTERED at the custodian — `Rasm.Persistence` `Version/retention#RETENTION_CLASSES` `ArtifactKind.CapacityHull` (`RetentionClass.Cache` because the hull rebuilds from the eager fibre-integration sweep, so eviction costs compute and never evidence; `CacheTier.ArtifactBlob` so the L1 lane never locally caches the mesh). The composition root crosses `ArtifactIndexRow.Admit(ArtifactKind.CapacityHull, key, bytes, classification, at, sourceKey)` at the custodian's `Query/cache#ARTIFACT_BLOB_INDEX`, the `(ComponentId, DiagramResolution.Key)` pair riding as the content-key preimage/sourceKey — `HullCache.Of` reads and writes through the store projections that root supplies, so this owner writes no row and the custodian edits nothing further. `Thaw` is fed EXCLUSIVELY what a trusted `Freeze` minted: the `TypeNameHandling.Objects` `$type` wire is a deserialization-gadget surface, so the store carries an opaque content-keyed blob it never decodes, no peer document reaches `Thaw`, and the `$type` shape never crosses to a peer.
+- Boundary: the frozen hull's store row is REGISTERED at the custodian — `Rasm.Persistence` `Version/retention#RETENTION_CLASSES` `ArtifactKind.CapacityHull` (`RetentionClass.Cache` because the hull rebuilds from the eager fibre-integration sweep, so eviction costs compute and never evidence; `CacheTier.ArtifactBlob` so the L1 lane never locally caches the mesh). The composition root crosses `ArtifactIndexRow.Admit(ArtifactKind.CapacityHull, bytes, classification, at, sourceKey)` at the custodian's `Query/cache#ARTIFACT_BLOB_INDEX`, the `(ComponentId, DiagramResolution.Key)` pair riding as the content-key preimage/sourceKey — `HullCache.Of` reads and writes through the store projections that root supplies, so this owner writes no row and the custodian edits nothing further. `Thaw` is fed EXCLUSIVELY what a trusted `Freeze` minted: the `TypeNameHandling.Objects` `$type` wire is a deserialization-gadget surface, so the store carries an opaque content-keyed blob it never decodes, no peer document reaches `Thaw`, and the `$type` shape never crosses to a peer.
 - Boundary: the verdict crosses to `Rasm.Compute/Analysis/capacity#DESIGN_CHECK` as portable scalar data keyed by section, never a `VividOrange` assembly type, and `DesignBasis.Key` is that crossing's JURISDICTION column. Checks stand REFUSED at this altitude as standing law, never faked as arms: SLS DEFLECTION needs the span, the load distribution, and the modulus — none a `SectionCapacity` carries; RC PUNCHING SHEAR is a slab-column JUNCTION check over a control perimeter no cross-section carries; and the SEISMIC system coefficients are DEMAND-side scalars the load derivation consumes before a `Demand` ever reaches `Check`.
 
 ```csharp
@@ -673,13 +673,13 @@ public abstract partial record SectionCapacity {
             Math.Max(WidthMm, 1.0) * 0.9 * Math.Max(EffectiveDepthMm, 1.0) * 0.6
                 * (1.0 - FckMpa / 250.0) * (FckMpa / 1.5) / (2.5 + 0.4) * 1e-3;
 
-        public Fin<Seq<(PropertyName Row, PropertyValue Value)>> ShearLinkRows(Op key) =>
+        public Fin<Seq<(PropertyName Row, PropertyValue Value)>> ShearLinkRows() =>
             ShearLinkAreaMm2 > 0.0
                 ? FywdMpa.Match(
                     Some: fywd =>
-                        from area in MeasureValue.Of(ShearLinkAreaMm2 * 1e-6, UnitsNet.Units.AreaUnit.SquareMeter, key)
-                        from fywdPa in MeasureValue.Of(fywd * 1e6, UnitsNet.Units.PressureUnit.Pascal, key)
-                        from ceiling in MeasureValue.Of(VrdMaxKn * 1e3, UnitsNet.Units.ForceUnit.Newton, key)
+                        from area in MeasureValue.Of(ShearLinkAreaMm2 * 1e-6, UnitsNet.Units.AreaUnit.SquareMeter)
+                        from fywdPa in MeasureValue.Of(fywd * 1e6, UnitsNet.Units.PressureUnit.Pascal)
+                        from ceiling in MeasureValue.Of(VrdMaxKn * 1e3, UnitsNet.Units.ForceUnit.Newton)
                         select Seq(
                             (StructuralRows.ShearLinkArea, (PropertyValue)new PropertyValue.Measure(area)),
                             (StructuralRows.ShearLinkYield, (PropertyValue)new PropertyValue.Measure(fywdPa)),
@@ -988,19 +988,15 @@ public abstract partial record SectionCapacity {
     }
 
     // --- [BOUNDARIES]
-    public static Fin<SectionCapacity> Resolve(CapacityBuild build, Op key) =>
+    public static Fin<SectionCapacity> Resolve(CapacityBuild build) =>
         build.Switch(
-            hull: h => key.Catch(
-                    () => Fin.Succ(new ForceMomentEngine(h.Section.Section, h.Resolution.ToSettings()).Mesh),
-                    cause => cause.Exception.Case is ArgumentException
-                        ? Some(new ComponentFault.CapacitySolve(key, cause))
-                        : None)
+            hull: h => Try.lift(() => Fin.Succ(new ForceMomentEngine(h.Section.Section, h.Resolution.ToSettings()).Mesh)).Run().Bind(static inner => inner)
                 .Map(mesh => (SectionCapacity)new RcInteraction(h.Subject, h.Resolution, mesh)),
             elastic: e =>
-                (e.Section.EffectiveDepthMm(SectionFace.Bottom).ToValidation((Error)new ComponentFault.EffectiveDepthUnavailable(key, e.Subject)),
-                 e.Section.FaceSteelAreaMm2(SectionFace.Bottom).ToValidation((Error)new ComponentFault.TensionChordUnavailable(key, e.Subject)))
+                (e.Section.EffectiveDepthMm(SectionFace.Bottom).ToValidation((Error)new ComponentFault.EffectiveDepthUnavailable(e.Subject)),
+                 e.Section.FaceSteelAreaMm2(SectionFace.Bottom).ToValidation((Error)new ComponentFault.TensionChordUnavailable(e.Subject)))
                     .Apply(static (depth, steel) => (Depth: depth, Steel: steel)).As().ToFin()
-                    .Bind(chord => key.Catch(() => {
+                    .Bind(chord => Try.lift(() => {
                         double fck = EnConcreteFactory.CreateLinearElastic(e.Section.Concrete.Grade).Strength.Megapascals;
                         return Fin.Succ<SectionCapacity>(new RcElastic(
                             e.Section.GrossSteelAreaMm2,
@@ -1018,12 +1014,12 @@ public abstract partial record SectionCapacity {
                             e.Section.ConcreteProfile.GrossRectangleMm.WidthMm.Value,
                             fck,
                             Fctm(fck)));
-                    }, cause => EnGrade.GradeRefusal(key, cause))),
+                    }).Run().Bind(static inner => inner)),
             detail: d => Fin.Succ((SectionCapacity)new Fatigue(d.Law)),
-            anchorage: a => Anchoring(a, key),
+            anchorage: a => Anchoring(a),
             bearing: b => Fin.Succ(Baseplating(b.Plate)));
 
-    public static Fin<SectionCapacity> Lift(CapacityLift lift, Op key) => lift.Switch(
+    public static Fin<SectionCapacity> Lift(CapacityLift lift) => lift.Switch(
         steel: static r => Held(new SteelMember(
             r.Capacity.Basis,
             r.Capacity.FlexuralNmm * 1e-6, r.Capacity.FlexuralMinorNmm * 1e-6, r.Capacity.CompressionN * 1e-3,
@@ -1069,9 +1065,9 @@ public abstract partial record SectionCapacity {
             r.Capacity.LateralF2Kn.Map(second => new LateralPair(second, r.Capacity.Rule)))),
         lateralPanel: static r => Held(new LateralPanel(DesignBasis.Sdpws, r.DesignKnPerM, r.Hazard)),
         bolt: r =>
-            from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints, key)
-            from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints, key)
-            from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints, key)
+            from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints)
+            from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints)
+            from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints)
             select (SectionCapacity)new Connection(DesignBasis.En1993Joints, Some(shear), Some(tension), Some(bearing)),
         slipCritical: static r => Held(new Connection(DesignBasis.En1993Joints, r.Assembly.SlipResistanceKn(r.Install), None, None)),
         timberDowel: static r => Held(new Connection(DesignBasis.En1995, Some(Math.Max(r.Planes, 0) * r.PerPlaneShearKn), None, None)),
@@ -1092,13 +1088,13 @@ public abstract partial record SectionCapacity {
     static Option<BucklingClass> BucklingCurve(MaterialGrade grade) =>
         grade.Columns is GradeProperties.Aluminum alloy ? Some(alloy.Class) : None;
 
-    static Fin<SectionCapacity> Anchoring(CapacityBuild.Anchorage a, Op key) {
+    static Fin<SectionCapacity> Anchoring(CapacityBuild.Anchorage a) {
         double k1 = a.Bed.Cracked ? 8.9 : 12.7;
         double edge = a.Bed.EdgeMm.Map(ca => Math.Min(0.7 + 0.3 * ca / (1.5 * a.Bed.HefMm.Value), 1.0)).IfNone(1.0);
         double coneKn = DesignBasis.En1992Anchors.Resist(ResistanceAction.CrossSection,
             k1 * Math.Sqrt(a.Bed.FckMpa) * Math.Pow(a.Bed.HefMm.Value, 1.5) * edge * 1e-3);
-        return from shear in a.Assembly.ShearResistanceKn(a.Plane, DesignBasis.En1992Anchors, key)
-               from tension in a.Assembly.TensionResistanceKn(DesignBasis.En1992Anchors, key)
+        return from shear in a.Assembly.ShearResistanceKn(a.Plane, DesignBasis.En1992Anchors)
+               from tension in a.Assembly.TensionResistanceKn(DesignBasis.En1992Anchors)
                select (SectionCapacity)new Connection(
                    DesignBasis.En1992Anchors, Some(shear), Some(Math.Min(tension, coneKn)), None,
                    Defer: Some(MemberCheckRequirement.AnchorForwardModes));
@@ -1120,17 +1116,13 @@ public abstract partial record SectionCapacity {
     static double Fctm(double fckMpa) =>
         fckMpa <= 50.0 ? 0.30 * Math.Pow(fckMpa, 2.0 / 3.0) : 2.12 * Math.Log(1.0 + (fckMpa + 8.0) / 10.0);
 
-    internal static Fin<string> Freeze(RcInteraction capacity, Op key) =>
-        key.Catch(() => Fin.Succ(capacity.Hull.ToJson()));
+    internal static Fin<string> Freeze(RcInteraction capacity) =>
+        Try.lift(() => Fin.Succ(capacity.Hull.ToJson())).Run().Bind(static inner => inner);
 
-    internal static Fin<SectionCapacity> Thaw(ComponentId subject, DiagramResolution resolution, string json, Op key) =>
-        key.Catch(
-                () => Fin.Succ(json.FromJson<IForceMomentMesh>()),
-                cause => cause.Exception.Case is JsonException
-                    ? Some(new ComponentFault.CapacityDecode(key, cause))
-                    : None)
+    internal static Fin<SectionCapacity> Thaw(ComponentId subject, DiagramResolution resolution, string json) =>
+        Try.lift(() => Fin.Succ(json.FromJson<IForceMomentMesh>())).Run().Bind(static inner => inner)
             .Bind(mesh => mesh is null
-                ? Fin.Fail<SectionCapacity>(new ComponentFault.CapacityDocumentEmpty(key, subject))
+                ? Fin.Fail<SectionCapacity>(new ComponentFault.CapacityDocumentEmpty(subject))
                 : Fin.Succ((SectionCapacity)new RcInteraction(subject, resolution, mesh)));
 
     static Utilisation Cast(IForceMomentMesh hull, Demand demand) {
@@ -1185,12 +1177,12 @@ public abstract partial record SectionCapacity {
 public readonly record struct HullCache(SectionCapacity Capacity, Option<string> Pending) {
     public static string Key(ComponentId subject, DiagramResolution resolution) => $"{subject.Value}:{resolution.Key}";
 
-    public static Fin<HullCache> Of(CapacityBuild.Hull build, Func<string, Option<string>> read, Op key) =>
+    public static Fin<HullCache> Of(CapacityBuild.Hull build, Func<string, Option<string>> read) =>
         read(Key(build.Subject, build.Resolution)).Match(
-            Some: body => SectionCapacity.Thaw(build.Subject, build.Resolution, body, key)
+            Some: body => SectionCapacity.Thaw(build.Subject, build.Resolution, body)
                 .Map(capacity => new HullCache(capacity, None)),
-            None: () => SectionCapacity.Resolve(build, key)
-                .Bind(capacity => SectionCapacity.Freeze((SectionCapacity.RcInteraction)capacity, key)
+            None: () => SectionCapacity.Resolve(build)
+                .Bind(capacity => SectionCapacity.Freeze((SectionCapacity.RcInteraction)capacity)
                     .Map(body => new HullCache(capacity, Some(body)))));
 }
 ```
@@ -1228,30 +1220,27 @@ public static class SectionSelection {
         FrozenDictionary<ComponentId, ComputedSection> sections,
         Func<Component, bool> admit,
         CapacityPlacement placement,
-        Func<MaterialId, Fin<double>> densityOf,
-        Op key) =>
+        Func<MaterialId, Fin<double>> densityOf) =>
         toSeq(sections)
             .Filter(pair => rows.ContainsKey(pair.Key) && admit(rows[pair.Key]))
             .Traverse(pair => densityOf(rows[pair.Key].SubstanceId).Map(density =>
-                Candidate(rows[pair.Key], pair.Value, density, placement, key)))
+                Candidate(rows[pair.Key], pair.Value, density, placement)))
             .As();
 
     public static Fin<Seq<SectionCandidate<Component>>> Fabricated(
         Func<int, Seq<(Component Row, SectionProfile Profile)>> sweep,
         int sweeps,
         CapacityPlacement placement,
-        Func<MaterialId, Fin<double>> densityOf,
-        Op key) =>
+        Func<MaterialId, Fin<double>> densityOf) =>
         toSeq(Enumerable.Range(0, Math.Max(sweeps, 0))).Bind(sweep)
-            .Traverse(candidate => SectionSolver.Solve(candidate.Profile, key)
+            .Traverse(candidate => SectionSolver.Solve(candidate.Profile)
                 .Bind(section => densityOf(candidate.Row.SubstanceId)
-                    .Map(density => Candidate(candidate.Row, section, density, placement, key))))
+                    .Map(density => Candidate(candidate.Row, section, density, placement))))
             .As();
 
     public static Fin<Seq<SectionCandidate<(ThreadRow Thread, MaterialGrade Grade)>>> Threaded(
         BoltJoint joint,
-        Func<MaterialId, Fin<double>> densityOf,
-        Op key) =>
+        Func<MaterialId, Fin<double>> densityOf) =>
         toSeq(Threads.Rows)
             .Filter(thread => thread.Series == joint.Series)
             .Bind(thread => toSeq(MaterialGrade.Items)
@@ -1262,15 +1251,14 @@ public static class SectionSelection {
                     pair,
                     pair.Thread.StressAreaMm2 * density,
                     () => FastenerAssembly.Of(pair.Thread, pair.Grade, joint.Category, joint.Faying, joint.Head,
-                            joint.GripPlies, joint.ShearPlanes, joint.Washer, key)
+                            joint.GripPlies, joint.ShearPlanes, joint.Washer)
                         .Bind(assembly => SectionCapacity.Lift(
-                            new CapacityLift.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane), key)))))
+                            new CapacityLift.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane))))))
             .As();
 
     public static Fin<(TSubject Subject, Utilisation Verdict)> Least<TSubject>(
         Fin<Seq<SectionCandidate<TSubject>>> candidates,
-        Demand demand,
-        Op key) =>
+        Demand demand) =>
         candidates.Bind(ranked =>
             toSeq(ranked.OrderBy(static candidate => candidate.MassPerMm))
                 .Map(candidate => candidate.Capacity().Map(capacity => (candidate.Subject, Verdict: capacity.Check(demand))))
@@ -1279,11 +1267,11 @@ public static class SectionSelection {
                     Fail: static fault => Some(Fin.Fail<(TSubject Subject, Utilisation Verdict)>(fault))))
                 .Head
                 .IfNone(() => Fin.Fail<(TSubject Subject, Utilisation Verdict)>(
-                    new ComponentFault.SelectionExhausted(key, typeof(TSubject)))));
+                    new ComponentFault.SelectionExhausted(typeof(TSubject)))));
 
     static SectionCandidate<Component> Candidate(Component row, ComputedSection section, double density,
-        CapacityPlacement placement, Op key) =>
-        new(row, section.AreaMm2.Value * density, () => row.Family.Capacity(row, Some(section), placement, key));
+        CapacityPlacement placement) =>
+        new(row, section.AreaMm2.Value * density, () => row.Family.Capacity(row, Some(section), placement));
 
 }
 ```

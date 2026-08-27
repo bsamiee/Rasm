@@ -76,7 +76,7 @@ public delegate IO<(SKImage Image, Option<SKPicture> Record)> FrameGrab(
 
 public sealed record CaptureRow {
     private CaptureRow(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
-        (Key, Scale, Gamut, Posture, Ticks, Grab) = (key, scale, gamut, posture, ticks, grab);
+        (Key, Scale, Gamut, Posture, Ticks, Grab) = (scale, gamut, posture, ticks, grab);
 
     public string Key { get; }
     public double Scale { get; }
@@ -86,10 +86,10 @@ public sealed record CaptureRow {
     public FrameGrab Grab { get; }
 
     public static Fin<CaptureRow> Of(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
-        (Slot(!string.IsNullOrWhiteSpace(key), key, "key", key),
-         Slot(scale > 0d, key, "scale", scale.ToString(CultureInfo.InvariantCulture)),
-         Slot(ticks > 0, key, "ticks", ticks.ToString(CultureInfo.InvariantCulture)))
-            .Apply((_, _, _) => new CaptureRow(key, scale, gamut, posture, ticks, grab))
+        (Slot(!string.IsNullOrWhiteSpace(), "key"),
+         Slot(scale > 0d, "scale", scale.ToString(CultureInfo.InvariantCulture)),
+         Slot(ticks > 0, "ticks", ticks.ToString(CultureInfo.InvariantCulture)))
+            .Apply((_, _, _) => new CaptureRow(scale, gamut, posture, ticks, grab))
             .ToFin();
 
     static Validation<Error, Unit> Slot(bool holds, string cell, string column, string value) =>
@@ -317,8 +317,7 @@ public static class ProofLaw {
                 .Bind(mounted => Custody.Bracket(
                     acquire: () => new MetricCollector<long>(mounted),
                     project: collector => exercise(set)
-                        .Map(_ => collector.GetMeasurementSnapshot().Sum(static measurement => measurement.Value)),
-                    key: Op.Of(name: "proof.instrument"))));
+                        .Map(_ => collector.GetMeasurementSnapshot().Sum(static measurement => measurement.Value)))));
 
     public static Fin<Unit> SemiConformance(ResolvedTheme resolved, Seq<IStyle> chain) =>
         SemiCorrespondence.SemiCovered(resolved, SemiRoster.Walk(chain));
@@ -362,8 +361,7 @@ public static class ProofLaw {
         from measured in IO.lift(() => BenchMeasurement.Of(
             spans: frames.Map(static result => result.Passes.Fold(Duration.Zero, static (total, pass) => total + pass.Elapsed)),
             allocatedBytes: after - before,
-            operations: frames.Count,
-            key: Op.Of()))
+            operations: frames.Count))
         let fresh = measured.Map(figures => Benchmark.Of(
             suite: BenchSuite,
             @case: lane.Case,
@@ -371,7 +369,7 @@ public static class ProofLaw {
             measured: figures,
             stamps: FrozenDictionary<string, string>.Empty))
         from gate in fresh.Match(
-            Succ: row => BenchmarkGate.Gate(signals, row, claim, GatePolicy.Canonical, Op.Of()),
+            Succ: row => BenchmarkGate.Gate(signals, row, claim, GatePolicy.Canonical),
             Fail: fault => IO.pure(Validation<Error, Benchmark>.Fail((BenchmarkFault)fault)))
         from judged in gate.Match(Succ: IO.pure, Fail: static faults => IO.fail<Benchmark>(faults.Head))
         select judged;
@@ -430,8 +428,7 @@ public static class SkewGuards {
                     (Probe(lease.SkCanvas is not null, "proof/skew-skia: the leased canvas did not resolve"),
                      Probe(SkiaSharpExtensions.ToSKColor(Colors.Transparent).Alpha == 0, "proof/skew-skia: the colour crossing did not resolve"))
                         .Apply(static (_, _) => unit)
-                        .ToFin(),
-                key: Op.Of(name: "proof.skew.skia"))
+                        .ToFin())
             : Fin.Fail<Unit>(new ProofFault.SessionUnavailable("proof/skew-skia: the draw context hands out no Skia api lease")));
 
     static Validation<Error, Unit> Probe(bool holds, string detail) =>

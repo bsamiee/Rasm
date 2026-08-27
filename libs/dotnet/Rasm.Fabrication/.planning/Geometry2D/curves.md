@@ -78,12 +78,11 @@ public abstract partial record CurveLowering {
 
 [Union]
 public abstract partial record CurveOp {
-    public sealed record Admit(CurveSource Source, Op? Key) : CurveOp;
+    public sealed record Admit(CurveSource Source) : CurveOp;
     public sealed record Lower(
         NurbsForm.Curve Path,
         CurveLowering Lowering,
-        Context Tolerance,
-        Op? Key) : CurveOp;
+        Context Tolerance) : CurveOp;
 }
 
 // --- [EVIDENCE] ------------------------------------------------------------------------
@@ -117,14 +116,13 @@ public static class CurveAlgebra {
         admit: static request => Admit(request.Source, request.Key),
         lower: static request => Lower(request));
 
-    private static Fin<CurveTrace> Admit(CurveSource source, Op? key) => source.Switch(
+    private static Fin<CurveTrace> Admit(CurveSource source) => source.Switch(
         samples: request =>
             from samples in Fin.Succ(request.Closure.Samples(request.Points, request.Tolerance))
             from fitted in Fit(
                 samples,
                 request.Closure,
                 request.Fit,
-                key,
                 new CurveAdmission.Samples(
                     request.Points.Count,
                     samples.Count,
@@ -139,7 +137,6 @@ public static class CurveAlgebra {
                 closure.Samples(result.Output.Vertices, request.Profile.Tolerance),
                 closure,
                 request.Fit,
-                key,
                 new CurveAdmission.Outline(result))
             select fitted,
         chords: request =>
@@ -152,7 +149,6 @@ public static class CurveAlgebra {
                 closure.Samples(result.Output.Vertices, request.Profile.Tolerance),
                 closure,
                 request.Fit,
-                key,
                 new CurveAdmission.Chords(result))
             select fitted);
 
@@ -160,11 +156,10 @@ public static class CurveAlgebra {
         Arr<Point3d> points,
         SampleClosure closure,
         FitPolicy policy,
-        Op? key,
         CurveAdmission result) =>
         points.Count < policy.Degree + 1
             ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples"))
-            : Nurbs.Of(new NurbsInput.CurveFit(points, policy), key)
+            : Nurbs.Of(new NurbsInput.CurveFit(points, policy))
                 .Bind(static form => Narrowed<NurbsForm, NurbsForm.Curve>(form, "curve-admit:form"))
                 .Bind(curve => closure.IsClosed && !curve.IsClosed
                     ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure"))

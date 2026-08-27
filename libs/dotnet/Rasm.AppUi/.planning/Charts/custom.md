@@ -523,8 +523,6 @@ public sealed partial class CustomVisual {
     public static readonly CustomVisual SkyDome = new("sky-dome", CustomVisuals.SkyDome, CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual Comfort = new("comfort", CustomVisuals.Comfort, CustomVisuals.ComfortLabels, InkAxis.Ramped);
 
-    static readonly Op PackOp = Op.Of(name: "appui.charts.custom.pack");
-
     [UseDelegateFromConstructor]
     public partial Fin<Seq<VisualStroke>> Layout(VisualPayload payload, LayoutFrame frame);
 
@@ -602,8 +600,8 @@ public sealed partial class CustomVisual {
 
     Fin<(VisualRecord Record, Duration Layout)> Gauged(
         MonotonicTimeline line, CustomVisualData data, SKImageInfo info) =>
-        line.Capture(PackOp).Bind(opened => Record(data, info).Bind(record =>
-            (from closed in line.Capture(PackOp)
+        Error.New(PackOp.Message, PackOp).Bind(opened => Record(data, info).Bind(record =>
+            (from closed in Error.New(PackOp.Message, PackOp)
              from elapsed in line.Elapsed(opened, closed, PackOp)
              select (Record: record, Layout: Duration.FromTimeSpan(elapsed)))
             .MapFail(error => (fun(record.Dispose)(), error).Item2))));

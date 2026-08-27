@@ -14,7 +14,7 @@ Composition arrives settled. Every admitted magnitude is a shared `Rasm.Element/
 
 - Owner: `EnergyResults` the one admission entry; `EnergyResult` the admitted result row — the `EnergyArtifact.ArtifactKey` content-key address the run consumed, the `ResultScope` it addresses, its `ResultQuantity`, its typed `MeasureValue`, and the producing run's `Instant`; `ResultScope` the closed `[Union]` target vocabulary (`Building`/`Zone`/`Space`); `ResultQuantity` the two-axis magnitude point over `ResultFuel` × `ResultEndUse` beside the `ResultMeasure` roster carrying the shared `QuantityType`, the `Dimension`, and the `UnitProvenance` its mint stamps through; `ResultTargets` the three-index scope resolver folded once per admission. The result row's SHAPE stays Compute-owned — its `[ENERGY_RESULTS_WIRE]` counterpart mints the record off the `SqlFile` read — and `EnergyResult` is THIS owner's admission record over that column set, so a Compute-side column addition lands here as one axis row and nothing else.
 - Cases: `ResultScope` arms are the three granularities a simulation answers at and no other — `Building` the whole-model total, `Zone(string ZoneName)` the thermal-zone row keyed by its authored name, `Space(string GlobalId)` the per-space row keyed by the IFC identity the model already carries — so the case IS the resolution modality and a `(string TargetKind, string Target)` pair is the deleted stringly form. `ResultFuel` and `ResultEndUse` are the two axes a published magnitude is a POINT on and `ResultMeasure` the physics owner (annual energy, peak demand, area-normalized intensity, duration tally), so a new fuel or a new end-use is one row on its own axis and never a product of rows.
-- Entry: `EnergyResults.Admit(Seq<EnergyResult> results, ElementGraph graph, Op key)` → `Fin<GraphDelta>` folds a whole run onto the graph, and `EnergyResult.Of(artifactKey, scope, quantity, si, at, key)` → `Fin<EnergyResult>` is the row's own admission gate, minting the magnitude through `ResultQuantity.Admit` so no caller carries a raw `double` past this boundary. `Admit` returns the delta alone; the caller applies it through the shared `ElementGraph.Apply`, exactly as a projector's contribution merges. Scope resolution against a subject the graph does not hold lifts `BimFault.Refused` with `BimReason.DanglingReference` under the `Model/faults#FAULT_BAND` `BimReason.DanglingReference` and aborts the whole admission — a half-landed result set reports a building total against zone rows that never arrived.
+- Entry: `EnergyResults.Admit(Seq<EnergyResult> results, ElementGraph graph)` → `Fin<GraphDelta>` folds a whole run onto the graph, and `EnergyResult.Of(artifactKey, scope, quantity, si, at)` → `Fin<EnergyResult>` is the row's own admission gate, minting the magnitude through `ResultQuantity.Admit` so no caller carries a raw `double` past this boundary. `Admit` returns the delta alone; the caller applies it through the shared `ElementGraph.Apply`, exactly as a projector's contribution merges. Scope resolution against a subject the graph does not hold lifts `BimFault.Refused` with `BimReason.DanglingReference` under the `Model/faults#FAULT_BAND` `BimReason.DanglingReference` and aborts the whole admission — a half-landed result set reports a building total against zone rows that never arrived.
 - Auto: `ResultTargets.Of` folds the three scope indexes ONCE per admission — the rank-0 `SpatialClass.Project` context root, the `ExternalId`-keyed occurrence index the `Space` arm resolves against, and the `ZoneProjection.All` name-keyed grouping index — because a run publishes a row per `(scope, quantity)` pair and a per-row graph scan is O(results × nodes); the zone index takes the last row on a name collision, grouping names being an authoring-side vocabulary this owner reads rather than governs. Rows GROUP by `(target, artifact key)`, so one scope under one run carries ONE bag rather than a bag per quantity, and the group's instant is the run's. `ResultQuantity.Admit` mints through `MeasureValue.OfSi(QuantityType, Dimension, double, Option<UnitProvenance>, Op?)` — the QTO-identity mint carrying the row's own provenance, never the dimension-anonymous `OfSi(Dimension, double)` whose stamp answers `None` to every downstream `As(QuantityType)` read and fails the type-equality gate a `Sum` against a stored quantity needs; the contract's own finite gate and registry dimension check refuse a malformed magnitude before it reaches the canonical bytes. Bag identity is the kernel content hash over the bag's own canonical bytes (the id EXCLUDED from `ToCanonicalBytes`, so the empty-probe id is overwritten), so re-admitting an identical run dedups to the same node instead of accreting a second bag beside the first.
 - Output: `GraphDelta` is this owner's whole contribution, and once applied the results are ORDINARY graph content — the AppUi report, an IDS facet over a result threshold, and the `Semantics/properties#TEMPLATE_AUDIT` graph fold all read them through the same `PropertiesOf`/`Bake` reads every authored property answers, with no results-side accessor. Because the bag is an ordinary shared `PropertySet`, the standing `Projection/egress#IFC_EGRESS` `ReauthorProperties` re-emits it as an `IfcPropertySet` with ZERO new egress code, each typed `PropertyValue.Measure` raising its own `IfcValue` — results round-trip into IFC and survive re-export. `EnergyArtifact` and `SimulatedAt` provenance rows ride the bag itself, so a reader answers WHICH lowered model and WHICH run produced a magnitude without a side ledger.
 - Packages: Rasm (the kernel `Op` operation key and the content-hash mint the `NodeId` seeds from), Rasm.Element (the shared `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`PropertyBag`/`PropertyValue`/`PropertyName`/`MeasureValue`/`QuantityType`/`Dimension`/`UnitProvenance`/`TemporalValue`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`/`HashMap`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`).
@@ -96,7 +96,7 @@ public sealed partial class ResultMeasure {
     private ResultMeasure(string key, QuantityType type, Dimension dimension, UnitProvenance provenance) : this(key) =>
         (Type, Dimension, Provenance) = (type, dimension, provenance);
 
-    public Fin<MeasureValue> Admit(double si, Op key) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance), key);
+    public Fin<MeasureValue> Admit(double si) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance));
 }
 
 public readonly record struct ResultQuantity(ResultMeasure Measure, ResultFuel Fuel, ResultEndUse Use) {
@@ -105,15 +105,15 @@ public readonly record struct ResultQuantity(ResultMeasure Measure, ResultFuel F
     public string Key =>
         $"{Measure.Key}{(Fuel == ResultFuel.Total ? "" : Fuel.Key)}{(Use == ResultEndUse.Whole ? "" : Use.Key)}";
 
-    public Fin<MeasureValue> Admit(double si, Op key) => Measure.Admit(si, key);
+    public Fin<MeasureValue> Admit(double si) => Measure.Admit(si);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record EnergyResult(
     ArtifactKey Artifact, ResultScope Scope, ResultQuantity Quantity, MeasureValue Value, Instant At) {
 
-    public static Fin<EnergyResult> Of(ArtifactKey artifact, ResultScope scope, ResultQuantity quantity, double si, Instant at, Op key) =>
-        quantity.Admit(si, key).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
+    public static Fin<EnergyResult> Of(ArtifactKey artifact, ResultScope scope, ResultQuantity quantity, double si, Instant at) =>
+        quantity.Admit(si).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -131,27 +131,27 @@ internal readonly record struct ResultTargets(
             ZoneProjection.All(graph).Fold(Map<string, NodeId>(), static (index, zone) =>
                 index.AddOrUpdate(zone.Name, zone.Id)));
 
-    public Fin<NodeId> Resolve(ResultScope scope, Op key) => scope.Switch(
-        building: _ => Context.ToFin(Miss(key, "context", "")),
-        zone: z => Zones.Find(z.ZoneName).ToFin(Miss(key, "zone", z.ZoneName)),
-        space: s => Spaces.Find(s.GlobalId).ToFin(Miss(key, "space", s.GlobalId)));
+    public Fin<NodeId> Resolve(ResultScope scope) => scope.Switch(
+        building: _ => Context.ToFin(Miss("context", "")),
+        zone: z => Zones.Find(z.ZoneName).ToFin(Miss("zone", z.ZoneName)),
+        space: s => Spaces.Find(s.GlobalId).ToFin(Miss("space", s.GlobalId)));
 
-    static BimFault Miss(Op key, string modality, string subject) =>
-        new BimFault.Refused(key, BimScope.Energy, BimReason.DanglingReference, string.Join(':', new object?[] { "energy-result-target-miss", modality, subject }));
+    static BimFault Miss(string modality, string subject) =>
+        new BimFault.Refused(BimScope.Energy, BimReason.DanglingReference, string.Join(':', new object?[] { "energy-result-target-miss", modality, subject }));
 }
 
 public static class EnergyResults {
     public const string SetName = "Pset_EnergyResults";
 
-    public static Fin<GraphDelta> Admit(Seq<EnergyResult> results, ElementGraph graph, Op key) {
+    public static Fin<GraphDelta> Admit(Seq<EnergyResult> results, ElementGraph graph) {
         ResultTargets targets = ResultTargets.Of(graph);
         return results
             .FoldM(HashMap<(NodeId Target, ArtifactKey Run), (Instant At, Map<string, EnergyResult> Rows)>(),
-                (grouped, result) => targets.Resolve(result.Scope, key).Bind(target =>
+                (grouped, result) => targets.Resolve(result.Scope).Bind(target =>
                     grouped.Find((target, result.Artifact)) is { IsSome: true, Case: (Instant at, Map<string, EnergyResult> rows) }
                         ? rows.ContainsKey(result.Quantity.Key)
                             ? Fin.Fail<HashMap<(NodeId, ArtifactKey), (Instant, Map<string, EnergyResult>)>>(
-                                new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-result-duplicate", result.Artifact.Value, result.Quantity.Key })))
+                                new BimFault.Refused(BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-result-duplicate", result.Artifact.Value, result.Quantity.Key })))
                             : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact), (at, rows.Add(result.Quantity.Key, result))))
                         : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact),
                             (result.At, Map((result.Quantity.Key, result)))))).As()

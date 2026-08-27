@@ -36,7 +36,6 @@ public sealed partial class ChartShape {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct GroupSpread(Distribution<Scalar> Spread, double Sum, double WeightedMean, double Mass) {
-    static readonly Op Key = Op.Of(name: "chart.reduce");
 
     public static Fin<GroupSpread> Of(Seq<ChartDatum> group, Seq<double> taus) {
         Seq<(Scalar Value, double Weight)> admitted = group.Choose(static datum =>
@@ -374,7 +373,7 @@ public static class ChartFolds {
 ## [05]-[PLAN_FEEDS]
 
 - Owner: `PlanFeeds` — the folds projecting the Bim `CostSchedule` and `ScheduleNetwork` planning results into chart rows and event marks.
-- Entry: `PlanFeeds.Schedule(ScheduleNetwork network, Op key)` — composes the Bim CPM (`ScheduleCpm.Schedule`) and folds each ACTIVITY onto one span row: `X` the early-start ordinal, slot A the scheduled working days, slot B the total float in days — criticality DERIVES as `float <= 0`, so no third slot restates it; `PlanFeeds.Milestones(ScheduleNetwork network, string layer, Op key)` — milestones cross as `ChartAnnotation.Moment` event lines at their early start, because a zero-content event drawn as a zero-length bar is invisible exactly where it matters; `PlanFeeds.Cost(CostSchedule schedule, Op key, Seq<ExchangeRate> fx = default)` — composes the Bim result-typed `Rollup` and folds its per-category partition onto categorical rows in the schedule currency, so a stacked cost tile sums values one repricing authority already made summable.
+- Entry: `PlanFeeds.Schedule(ScheduleNetwork network)` — composes the Bim CPM (`ScheduleCpm.Schedule`) and folds each ACTIVITY onto one span row: `X` the early-start ordinal, slot A the scheduled working days, slot B the total float in days — criticality DERIVES as `float <= 0`, so no third slot restates it; `PlanFeeds.Milestones(ScheduleNetwork network, string layer)` — milestones cross as `ChartAnnotation.Moment` event lines at their early start, because a zero-content event drawn as a zero-length bar is invisible exactly where it matters; `PlanFeeds.Cost(CostSchedule schedule, Seq<ExchangeRate> fx = default)` — composes the Bim result-typed `Rollup` and folds its per-category partition onto categorical rows in the schedule currency, so a stacked cost tile sums values one repricing authority already made summable.
 - Packages: Rasm.Bim, NodaTime, LanguageExt.Core
 - Growth: a new planning read is one fold here projecting a result column the Bim owner already carries; zero new surface.
 - Boundary: planning results are CONSUMED as feed values, never re-solved — the CPM walk, the calendar election (`network.CalendarFor(task)`, never a network-wide calendar parameter), the float derivation, and the currency repricing are the Bim owner's, and this fold reads `TaskGrain`, `CriticalPath`, and `CostRollup` columns whole; a `bool IsMilestone` read and a network-wide `WorkCalendar` argument are the deleted forms the Bim page's own laws name. Cost rows fold the `ByCategory` partition of the RESULT-TYPED rollup, so a mixed-currency estimate reaches the chart already repriced or refuses by name — summing native amounts across currencies inside a reducer is unspellable because the fold never sees them. Instants cross to chart space as `DateTime.Ticks` exactly as every temporal coordinate on this plane does.
@@ -382,8 +381,8 @@ public static class ChartFolds {
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PlanFeeds {
-    public static Fin<Seq<ChartDatum>> Schedule(ScheduleNetwork network, Op key) =>
-        network.Schedule(key).Map(paths => network.Tasks
+    public static Fin<Seq<ChartDatum>> Schedule(ScheduleNetwork network) =>
+        network.Schedule().Map(paths => network.Tasks
             .Filter(task => task.Grain != TaskGrain.Milestone)
             .Choose(task => paths.Find(task.GlobalId).Map(path => ChartDatum.Of(
                 x: path.EarlyStart.ToDateTimeUtc().Ticks,
@@ -395,14 +394,14 @@ public static class PlanFeeds {
                 group: task.Name,
                 stamp: Some(path.EarlyStart)))));
 
-    public static Fin<Seq<ChartAnnotation>> Milestones(ScheduleNetwork network, string layer, Op key) =>
-        network.Schedule(key).Map(paths => network.Tasks
+    public static Fin<Seq<ChartAnnotation>> Milestones(ScheduleNetwork network, string layer) =>
+        network.Schedule().Map(paths => network.Tasks
             .Filter(task => task.Grain == TaskGrain.Milestone)
             .Choose(task => paths.Find(task.GlobalId).Map(path =>
                 (ChartAnnotation)new ChartAnnotation.Moment(layer, path.EarlyStart, task.Name, Severity.Info))));
 
-    public static Fin<Seq<ChartDatum>> Cost(CostSchedule schedule, Op key, Seq<ExchangeRate> fx = default) =>
-        schedule.Rollup(key, fx).Map(rollup => toSeq(rollup.ByCategory)
+    public static Fin<Seq<ChartDatum>> Cost(CostSchedule schedule, Seq<ExchangeRate> fx = default) =>
+        schedule.Rollup(fx).Map(rollup => toSeq(rollup.ByCategory)
             .Map((entry, index) => ChartDatum.Of(
                 x: index,
                 value: ChartMagnitude.Of([(double)entry.Value.Amount]),

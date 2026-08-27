@@ -6,7 +6,7 @@
 
 ## [02]-[MATERIAL_WIRE]
 
-- Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key)` lowers a library row to the CONTRACT `AppearanceSummary` through the contract-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` result, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance. It is the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes and the SAME factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; the channel triple crosses as the landed Element `[ComplexValueObject]` `AppearanceVector.Create(...)`, whose accumulated slot gate names every offending channel at once.
+- Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters)` lowers a library row to the CONTRACT `AppearanceSummary` through the contract-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` result, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance. It is the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes and the SAME factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; the channel triple crosses as the landed Element `[ComplexValueObject]` `AppearanceVector.Create(...)`, whose accumulated slot gate names every offending channel at once.
 - Entry: `AppearanceEgress.Project` mints the full OpenPBR material; `Set` projects an admitted baked surface into the generated `Set.baked` arm; `AppearanceEgress.Ibl` projects the resolved dome into `Set.environment.ibl`. Each completed document crosses `WireAdmission.Admit` once after its product is final.
 - Law: every closed vocabulary crosses as its GENERATED ENUM through ONE `WireVocabulary` bridge per roster (`LicenceVocabulary` for the one frontier roster a Raster page cannot name) — derived by parsing each row's own key against the enum's `OriginalName` spelling, so no hand row table exists to drift — and the derivation is PROVED at type init: a `[SmartEnum]` row with no enum member, or an enum value of zero, throws before the first egress. `RasterFormat`→`Container` is the one PARTIAL bridge (a non-wire container such as `jpeg` has no enum row) and answers on the `Fin` result at the egress that asks, never a total map with a fabricated arm.
 - Law: `AppearanceWireMap` is the completeness gate for total reader-free mappings. Presence-sensitive assessment, chromaticity, card, ingest, and proto3 optional scalars lower explicitly in `AppearanceEgress`; no generated mapper is asked to construct evidence whose presence depends on a domain case or `Option`.
@@ -84,14 +84,14 @@ public sealed record IblStorage(
 public static class AppearanceEgress {
     static RgbSpectrum Linear(Unicolour colour) { var lin = colour.RgbLinear; return RgbSpectrum.Create(Math.Max(0.0, lin.R), Math.Max(0.0, lin.G), Math.Max(0.0, lin.B)); }
 
-    public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key) =>
+    public static Fin<AppearanceSummary> Summary(MaterialParameters parameters) =>
         Linear(parameters.BaseColor) switch {
             var baseLinear => AppearanceSummary.Of(AppearanceVector.Create(
                 baseColorR: baseLinear.R, baseColorG: baseLinear.G, baseColorB: baseLinear.B,
                 metallic: Math.Clamp(parameters.Metalness, 0.0, 1.0),
                 roughness: Math.Clamp(parameters.Roughness, 0.0, 1.0),
                 opacity: Math.Clamp(1.0 - parameters.Transmission, 0.0, 1.0),
-                transmissive: parameters.Transmission > 0.0), key),
+                transmissive: parameters.Transmission > 0.0)),
         };
 
     public static Wire.Material Project(MaterialId id, MaterialParameters parameters, CaptureProvenance provenance, SurfaceShade preview) {
@@ -168,30 +168,30 @@ public static class AppearanceEgress {
         return wire;
     }
 
-    public static Fin<Wire.Material> Mint(MaterialId id, Op key) =>
-        from parameters in MaterialLibrary.Lookup(id, key)
-        from point in ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Option<Vector3d>.None, 0.5, 0.5, Context.Canonical, key)
-        from preview in MaterialGraph.Default.Evaluate(point, parameters, key)
+    public static Fin<Wire.Material> Mint(MaterialId id) =>
+        from parameters in MaterialLibrary.Lookup(id)
+        from point in ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Option<Vector3d>.None, 0.5, 0.5, Context.Canonical)
+        from preview in MaterialGraph.Default.Evaluate(point, parameters)
         select Project(id, parameters, CaptureProvenance.Authored, preview);
 
     public static Fin<Wire.Set> Set(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
-        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence, Op key) =>
-        Baked(set, summary, planes, packs, provenance, press, licence, key)
-            .Bind(document => WireAdmission.Admit(document, WireBoundary.OutboundPayload, key));
+        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence) =>
+        Baked(set, summary, planes, packs, provenance, press, licence)
+            .Bind(document => WireAdmission.Admit(document, WireBoundary.OutboundPayload));
 
     static Fin<Wire.Set> Baked(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
-        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence, Op key) =>
+        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence) =>
         from _ in guard(press.ForAll(static run => run.Backend.ContentAuthoritative),
-                new MaterialFault.Parameter(key, "<set-wire-gpu-minted>"))
-        from __ in guard(licence.Grants, new MaterialFault.Parameter(key, $"<set-wire-licence-blocked:{licence.Key}>"))
+                new MaterialFault.Parameter("<set-wire-gpu-minted>"))
+        from __ in guard(licence.Grants, new MaterialFault.Parameter($"<set-wire-licence-blocked:{licence.Key}>"))
         from ___ in guard(!planes.Exists(plane => set.Packs.Exists(pack => pack.Present.Contains(plane.Channel))),
-                new MaterialFault.Parameter(key, "<set-wire-channel-both-packed-and-standalone>"))
+                new MaterialFault.Parameter("<set-wire-channel-both-packed-and-standalone>"))
         from rows in toSeq(TextureChannel.Items)
             .Choose(channel => planes.Find(plane => plane.Channel == channel).Map(plane => (Channel: channel, Plane: plane)))
-            .Traverse(entry => Plane(set, entry.Channel, entry.Plane, key)).As()
-        from packed in packs.Traverse(pack => Pack(set, pack, key)).As()
+            .Traverse(entry => Plane(set, entry.Channel, entry.Plane)).As()
+        from packed in packs.Traverse(pack => Pack(set, pack)).As()
         let surface = Fill(new Wire.SurfaceSet {
             Width = (uint)set.Width.Value, Height = (uint)set.Height.Value, Layers = (uint)set.Layers.Value,
             LayerLaw = WireVocabulary.Law(set.Law),
@@ -227,16 +227,16 @@ public static class AppearanceEgress {
     public static Fin<Wire.Set> Set(
         UdimSheet sheet, AppearanceSummary summary,
         Seq<(UdimTile Tile, Seq<PlaneEgress> Planes, Seq<PackEgress> Packs)> storage,
-        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence, Op key) =>
+        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence) =>
         from _ in guard(storage.Count == sheet.Tiles.Count,
-                new MaterialFault.Parameter(key, "<set-wire-udim-storage-mismatch>"))
+                new MaterialFault.Parameter("<set-wire-udim-storage-mismatch>"))
         from tiles in sheet.Tiles.Traverse(pair =>
             storage.Find(entry => entry.Tile == pair.Tile)
-                .ToFin(new MaterialFault.Parameter(key, $"<set-wire-udim-missing-tile:{pair.Tile.Value}>"))
-                .Bind(entry => Baked(pair.Set, summary, entry.Planes, entry.Packs, provenance, press, licence, key)
+                .ToFin(new MaterialFault.Parameter($"<set-wire-udim-missing-tile:{pair.Tile.Value}>"))
+                .Bind(entry => Baked(pair.Set, summary, entry.Planes, entry.Packs, provenance, press, licence)
                     .Map(wire => (pair.Tile, Wire: wire)))).As()
-        from head in tiles.Head.ToFin(new MaterialFault.Parameter(key, "<set-wire-udim-empty>"))
-        from admitted in WireAdmission.Admit(Sheet(head.Wire, sheet, tiles), WireBoundary.OutboundPayload, key)
+        from head in tiles.Head.ToFin(new MaterialFault.Parameter("<set-wire-udim-empty>"))
+        from admitted in WireAdmission.Admit(Sheet(head.Wire, sheet, tiles), WireBoundary.OutboundPayload)
         select admitted;
 
     static Wire.Set Sheet(Wire.Set head, UdimSheet sheet, Seq<(UdimTile Tile, Wire.Set Wire)> tiles) {
@@ -252,15 +252,15 @@ public static class AppearanceEgress {
         return head;
     }
 
-    static Fin<Wire.Plane> Plane(TextureSet set, TextureChannel channel, PlaneEgress plane, Op key) =>
-        from pyramid in set.Channels.Find(channel).ToFin(new MaterialFault.Parameter(key, $"<set-wire-unbound-channel:{channel.Key}>"))
-        from legal in guard(plane.Payload.Traits.Admits(CodecCapability.WireLegal), new MaterialFault.Parameter(key, $"<set-wire-payload-illegal:{channel.Key}:{plane.Payload.Key}>"))
-        from scene in guard(pyramid.Base.Transfer.SceneReferred, new MaterialFault.Parameter(key, $"<set-wire-display-referred:{channel.Key}:{pyramid.Base.Transfer.Key}>"))
+    static Fin<Wire.Plane> Plane(TextureSet set, TextureChannel channel, PlaneEgress plane) =>
+        from pyramid in set.Channels.Find(channel).ToFin(new MaterialFault.Parameter($"<set-wire-unbound-channel:{channel.Key}>"))
+        from legal in guard(plane.Payload.Traits.Admits(CodecCapability.WireLegal), new MaterialFault.Parameter($"<set-wire-payload-illegal:{channel.Key}:{plane.Payload.Key}>"))
+        from scene in guard(pyramid.Base.Transfer.SceneReferred, new MaterialFault.Parameter($"<set-wire-display-referred:{channel.Key}:{pyramid.Base.Transfer.Key}>"))
         from law in guard(plane.Levels.Count == (plane.Format.HoldsPyramid ? 1 : pyramid.Levels.Count),
-                new MaterialFault.Parameter(key, $"<set-wire-levels-unaddressed:{channel.Key}:{plane.Levels.Count}:{pyramid.Levels.Count}>"))
-        from container in WireVocabulary.Container(plane.Format, key)
+                new MaterialFault.Parameter($"<set-wire-levels-unaddressed:{channel.Key}:{plane.Levels.Count}:{pyramid.Levels.Count}>"))
+        from container in WireVocabulary.Container(plane.Format)
         from levels in plane.Levels.Traverse(level =>
-            set.Egress(new EgressSlot.Channel(channel), level.Variant, plane.Format, key)
+            set.Egress(new EgressSlot.Channel(channel), level.Variant, plane.Format)
                 .Map(leaf => Reference(leaf, level.Artifact))).As()
         select new Wire.Plane {
             Role = WireVocabulary.Role(channel),
@@ -276,14 +276,14 @@ public static class AppearanceEgress {
             BlockFormat = WireVocabulary.Block(plane.Block),
         };
 
-    static Fin<Wire.PackRow> Pack(TextureSet set, PackEgress pack, Op key) =>
+    static Fin<Wire.PackRow> Pack(TextureSet set, PackEgress pack) =>
         from plane in set.Packs.Find(seated => seated.Pack == pack.Pack)
-            .ToFin(new MaterialFault.Parameter(key, $"<set-wire-unbound-pack:{pack.Pack.Key}>"))
+            .ToFin(new MaterialFault.Parameter($"<set-wire-unbound-pack:{pack.Pack.Key}>"))
         from law in guard(pack.Levels.Count == (pack.Format.HoldsPyramid ? 1 : plane.Plane.Levels.Count),
-                new MaterialFault.Parameter(key, $"<set-wire-pack-levels-unaddressed:{pack.Pack.Key}:{pack.Levels.Count}:{plane.Plane.Levels.Count}>"))
-        from container in WireVocabulary.Container(pack.Format, key)
+                new MaterialFault.Parameter($"<set-wire-pack-levels-unaddressed:{pack.Pack.Key}:{pack.Levels.Count}:{plane.Plane.Levels.Count}>"))
+        from container in WireVocabulary.Container(pack.Format)
         from levels in pack.Levels.Traverse(level =>
-            set.Egress(new EgressSlot.Pack(pack.Pack), level.Variant, pack.Format, key)
+            set.Egress(new EgressSlot.Pack(pack.Pack), level.Variant, pack.Format)
                 .Map(leaf => Reference(leaf, level.Artifact))).As()
         select new Wire.PackRow {
             Pack = WireVocabulary.Pack(pack.Pack),
@@ -303,19 +303,19 @@ public static class AppearanceEgress {
             },
         };
 
-    public static Fin<Wire.Set> Ibl(EnvironmentLight light, IblStorage storage, LicenseClass licence, Op key) =>
-        from _ in guard(licence.Grants, new MaterialFault.Parameter(key, $"<ibl-wire-licence-blocked:{licence.Key}>"))
+    public static Fin<Wire.Set> Ibl(EnvironmentLight light, IblStorage storage, LicenseClass licence) =>
+        from _ in guard(licence.Grants, new MaterialFault.Parameter($"<ibl-wire-licence-blocked:{licence.Key}>"))
         from __ in guard(storage.Equirect.Blob == light.Blobs.Equirect && storage.Cubemap.Blob == light.Blobs.Cubemap
                 && storage.Preview.Blob == light.Blobs.Preview && storage.BrdfLut.Blob == light.Blobs.BrdfLut
                 && storage.Specular.Count == light.Products.Specular.Count
                 && storage.LuminanceCdf.Map(static product => product.Blob) == light.Blobs.LuminanceCdf,
-                new MaterialFault.Parameter(key, "<ibl-wire-storage-diverges-from-blobs>"))
-        from equirect in Product(storage.Equirect, key)
-        from cubemap in Product(storage.Cubemap, key)
-        from preview in Product(storage.Preview, key)
-        from specular in storage.Specular.Traverse(product => Product(product, key)).As()
-        from brdf in Product(storage.BrdfLut, key)
-        from guide in storage.LuminanceCdf.Traverse(product => Product(product, key))
+                new MaterialFault.Parameter("<ibl-wire-storage-diverges-from-blobs>"))
+        from equirect in Product(storage.Equirect)
+        from cubemap in Product(storage.Cubemap)
+        from preview in Product(storage.Preview)
+        from specular in storage.Specular.Traverse(product => Product(product)).As()
+        from brdf in Product(storage.BrdfLut)
+        from guide in storage.LuminanceCdf.Traverse(product => Product(product))
         let source = new Wire.EnvironmentSource {
             Sh9 = { light.Products.Irradiance.Bands.ToArray() },
             Equirect = equirect, Cubemap = cubemap, Preview = preview,
@@ -334,7 +334,7 @@ public static class AppearanceEgress {
             LicenseClass = LicenceVocabulary.Wire(licence),
             Environment = environment,
         }, light)
-        from admitted in WireAdmission.Admit(document, WireBoundary.OutboundPayload, key)
+        from admitted in WireAdmission.Admit(document, WireBoundary.OutboundPayload)
         select admitted;
 
     static Wire.Set Fill(Wire.Set wire, EnvironmentLight light) {
@@ -347,8 +347,8 @@ public static class AppearanceEgress {
         return wire;
     }
 
-    static Fin<Wire.EnvironmentPlane> Product(EnvironmentProductEgress product, Op key) =>
-        WireVocabulary.Container(product.Container, key).Map(container => new Wire.EnvironmentPlane {
+    static Fin<Wire.EnvironmentPlane> Product(EnvironmentProductEgress product) =>
+        WireVocabulary.Container(product.Container).Map(container => new Wire.EnvironmentPlane {
             Plane = Reference(product.File, product.Artifact),
             Container = container,
             Format = WireVocabulary.Format(product.Plane.Format),
@@ -422,7 +422,7 @@ public static partial class AppearanceWireMap {
         return wire;
     }
 
-    [UserMapping] static ByteString Key(UInt128 key) => ContentHash.Wire(key);
+    [UserMapping] static ByteString Key(UInt128 key) => ContentHash.Wire();
     [UserMapping] static Duration Elapsed(double milliseconds) => Duration.FromTimeSpan(TimeSpan.FromMilliseconds(milliseconds));
     [UserMapping] static uint Tally(Seq<TextureChannel> downgraded) => (uint)downgraded.Count;
     [UserMapping] static ulong Summed(HashMap<TextureChannel, ulong> faulted) =>
@@ -435,8 +435,8 @@ public static partial class AppearanceWireMap {
 ## [03]-[MATERIALX_DOCUMENT]
 
 - Owner: `MtlxDocument` the MaterialX 1.39 document; `MtlxNode`/`MtlxInput` the node-graph element shapes; `NodeCategory` `[SmartEnum<string>]` the MaterialX node-category axis carrying each category's DEFAULT output port; `Mtlx` the static serialize/admit fold owning the per-node category+port resolution and the input projection.
-- Entry: `public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, Op key, HashMap<PortId, TextureSource> textures = default)` projects the `graph#MATERIAL_GRAPH` node DAG to the MaterialX node-graph document. `parameters` PROBES each `Input` node's pulled `PortValue` for its constant polarity and rendered `value` attribute, since a `constant` node with no value is meaningless MaterialX; `textures` is the wiring-site binding recovering each `Texture` node's `TextureSource` — the graph case erases the source into its total sampler closure, so the map IS the recoverable spelling and an unbound node floors to `image`; an unprojectable node fails `MaterialFault.Graph`.
-- Entry: `public static Fin<MtlxDocument> ToOpenPbr(Wire.Material wire, Option<Wire.Set> planes, Op key)` emits the `open_pbr_surface` document by FOLDING the `OpenPbrPorts` schema table — one row per OpenPBR Surface 1.1 input naming port, polarity, and wire column. Where a baked set is supplied it REPLACES each covered constant input with a `tiledimage` edge whose `file` is the set's own egress leaf under the channel's `MtlxBinding` row, and APPENDS the texture-only geometry ports (a bound normal routes through a `normalmap` node, a tangent binds its vector image direct), so ONE entry serves the textured and untextured documents alike and a baked normal map reaches the surface rather than orphaning. Both target the MaterialX 1.39 `<materialx version="1.39">` root; the `.mtlx` XML serialization rides `System.Xml.Linq` at the host boundary.
+- Entry: `public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, HashMap<PortId, TextureSource> textures = default)` projects the `graph#MATERIAL_GRAPH` node DAG to the MaterialX node-graph document. `parameters` PROBES each `Input` node's pulled `PortValue` for its constant polarity and rendered `value` attribute, since a `constant` node with no value is meaningless MaterialX; `textures` is the wiring-site binding recovering each `Texture` node's `TextureSource` — the graph case erases the source into its total sampler closure, so the map IS the recoverable spelling and an unbound node floors to `image`; an unprojectable node fails `MaterialFault.Graph`.
+- Entry: `public static Fin<MtlxDocument> ToOpenPbr(Wire.Material wire, Option<Wire.Set> planes)` emits the `open_pbr_surface` document by FOLDING the `OpenPbrPorts` schema table — one row per OpenPBR Surface 1.1 input naming port, polarity, and wire column. Where a baked set is supplied it REPLACES each covered constant input with a `tiledimage` edge whose `file` is the set's own egress leaf under the channel's `MtlxBinding` row, and APPENDS the texture-only geometry ports (a bound normal routes through a `normalmap` node, a tangent binds its vector image direct), so ONE entry serves the textured and untextured documents alike and a baked normal map reaches the surface rather than orphaning. Both target the MaterialX 1.39 `<materialx version="1.39">` root; the `.mtlx` XML serialization rides `System.Xml.Linq` at the host boundary.
 - Packages: Rasm.Element (the CONTRACT `MaterialId` identity), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Xml.Linq` at the serialize boundary).
 - Growth: a new `MathOp` row breaks the total generated `Switch` in `MathRow` at compile time and lands as one category+port arm; a new `MixOp` row resolves through the `MixRows` `BlendMode` disposition table — an unlisted mode fails `MaterialFault.Graph` loud at projection, and its native/lowered disposition is one table row; a new MaterialX node category is one `NodeCategory` row; a new `TextureSource` case lands through the `texture#TEXTURE_UV` `TextureSource.MtlxCategory` + `MtlxParameters` projections this page resolves via `Mtlx.CategoryOf(TextureSource)` and folds into inputs via `TextureInputs`; a new OpenPBR wire column is one `OpenPbrPorts` row — never a per-node serializer, never a second MaterialX schema, never a new call expression in a hand-listed input chain.
 - Law: a projected `.mtlx` validates through the MaterialX RUNTIME, never against a schema artefact — MaterialX 1.39 publishes no XSD, JSON Schema, or RelaxNG, and the format is specified in prose alone, so the admission at the host boundary is `readFromXmlFile` into a document whose data library is attached (`setDataLibrary` over the loaded standard libraries) followed by `validate`, which returns the verdict beside its own message; the shipped `mxvalidate` script is that same pair and nothing more. A local well-formedness check standing in for it passes documents whose node categories, port names, and types the library alone can refute, so this page projects and the host validates through the owner.
@@ -560,27 +560,27 @@ public static class Mtlx {
     public static NodeCategory CategoryOf(TextureSource source) =>
         NodeCategory.TryGet(source.MtlxCategory, out NodeCategory? category) ? category! : NodeCategory.Image;
 
-    public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, Op key, HashMap<PortId, TextureSource> textures = default) =>
-        graph.Nodes.TraverseM(n => Row(n, parameters, textures, key).Map(row => (n.Id, row))).As().Map(toHashMap)
+    public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, HashMap<PortId, TextureSource> textures = default) =>
+        graph.Nodes.TraverseM(n => Row(n, parameters, textures).Map(row => (n.Id, row))).As().Map(toHashMap)
             .Bind(ports =>
-                from _ in guard(ports.Count == graph.Nodes.Count, new MaterialFault.Graph(key, "<mtlx-duplicate-node-id>"))
+                from _ in guard(ports.Count == graph.Nodes.Count, new MaterialFault.Graph("<mtlx-duplicate-node-id>"))
                 from __ in guard(graph.Nodes.Exists(n => n.Id == graph.Sink && n is AppearanceNode.BsdfOutput),
-                    new MaterialFault.Graph(key, "<mtlx-sink-not-bsdf-output>"))
+                    new MaterialFault.Graph("<mtlx-sink-not-bsdf-output>"))
                 from ___ in guard(graph.Nodes.ForAll(n => n.Dependencies.ForAll(ports.ContainsKey)),
-                    new MaterialFault.Graph(key, "<mtlx-dangling-edge>"))
-                from emitted in graph.Nodes.TraverseM(n => Emit(n, ports, parameters, textures, key)).As()
+                    new MaterialFault.Graph("<mtlx-dangling-edge>"))
+                from emitted in graph.Nodes.TraverseM(n => Emit(n, ports, parameters, textures)).As()
                 let lossy = toSeq(ports.Values).Bind(shape => shape.Mix.Bind(static row => row.Lossy).ToSeq())
                           + toSeq(textures.Values).Bind(static source => source.MtlxLossy.ToSeq())
                 select new MtlxDocument(MtlxDocument.Schema, emitted.Bind(static group => group),
                     $"node{graph.Sink.Value}", id.Value.Replace('.', '_'), lossy.Strict()));
 
-    static Fin<(NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> Row(AppearanceNode node, MaterialParameters parameters, HashMap<PortId, TextureSource> textures, Op key) =>
+    static Fin<(NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> Row(AppearanceNode node, MaterialParameters parameters, HashMap<PortId, TextureSource> textures) =>
         node.Switch(
-            state: (Parameters: parameters, Textures: textures, Key: key),
+            state: (Parameters: parameters, Textures: textures),
             input:      static (s, i) => Fin.Succ((NodeCategory.Constant, PortOf(i.Pull(s.Parameters)), Option<MixProjection>.None)),
             texture:    static (s, t) => Fin.Succ(Categorized(s.Textures.Find(t.Id))),
-            math:       static (s, m) => MathRow(m.Op, s.Key).Map(static row => (row.Item1, row.Item2, Option<MixProjection>.None)),
-            mix:        static (s, x) => MixRow(x.Op, s.Key).Map(static row =>
+            math:       static (s, m) => MathRow().Map(static row => (row.Item1, row.Item2, Option<MixProjection>.None)),
+            mix:        static (s, x) => MixRow().Map(static row =>
                             (row.Traits.Admits(MixTrait.Lowered) ? NodeCategory.Mix : row.Category, MtlxPort.Color3, Some(row))),
             normal:     static (_, _) => Fin.Succ((NodeCategory.Normalmap, MtlxPort.Vector3, Option<MixProjection>.None)),
             bsdfOutput: static (_, _) => Fin.Succ((NodeCategory.OpenPbrSurface, MtlxPort.Surface, Option<MixProjection>.None)));
@@ -598,14 +598,14 @@ public static class Mtlx {
         public static Seq<string> Of(MathOp op, int operands) =>
             op == MathOp.Pick
                 ? Seq("which") + toSeq(Enumerable.Range(1, Math.Max(operands - 1, 0)).Select(static slot => $"in{slot}"))
-                : NamedPorts.TryGetValue(op, out ImmutableArray<string> named)
+                : NamedPorts.TryGetValue(out ImmutableArray<string> named)
                     ? toSeq(named.Take(operands))
                     : operands == 1
                         ? Seq("in")
                         : toSeq(Enumerable.Range(1, operands).Select(static slot => $"in{slot}"));
     }
 
-    static Fin<(NodeCategory, MtlxPort)> MathRow(MathOp op, Op key) =>
+    static Fin<(NodeCategory, MtlxPort)> MathRow(MathOp op) =>
         op.Switch(
             add:          () => Fin.Succ((NodeCategory.Add, MtlxPort.Vector3)),
             subtract:     () => Fin.Succ((NodeCategory.Subtract, MtlxPort.Vector3)),
@@ -641,7 +641,7 @@ public static class Mtlx {
             ifGreater:    () => Fin.Succ((NodeCategory.IfGreater, MtlxPort.Float)),
             ifEqual:      () => Fin.Succ((NodeCategory.IfEqual, MtlxPort.Float)),
             pick:         () => Fin.Succ((NodeCategory.Switch, MtlxPort.Float)),
-            fresnel:      () => Fin.Fail<(NodeCategory, MtlxPort)>(new MaterialFault.Graph(key, "<mtlx-no-category:fresnel-weight>")));
+            fresnel:      () => Fin.Fail<(NodeCategory, MtlxPort)>(new MaterialFault.Graph("<mtlx-no-category:fresnel-weight>")));
 
     static readonly CapabilitySet<MixTrait> Lowered = CapabilitySet<MixTrait>.Of(MixTrait.Lowered);
     static readonly CapabilitySet<MixTrait> LoweredSwapped = CapabilitySet<MixTrait>.Of(MixTrait.Lowered, MixTrait.Swapped);
@@ -668,19 +668,19 @@ public static class Mtlx {
         [BlendMode.Luminosity]  = new(NodeCategory.Mix, Lossy: "luminosity-as-lerp"),
     }.ToFrozenDictionary();
 
-    static Fin<MixProjection> MixRow(MixOp op, Op key) =>
+    static Fin<MixProjection> MixRow(MixOp op) =>
         MixRows.TryGetValue(op.Mode, out MixProjection row)
             ? Fin.Succ(row)
-            : Fin.Fail<MixProjection>(new MaterialFault.Graph(key, $"<mtlx-no-category:{op.Key}>"));
+            : Fin.Fail<MixProjection>(new MaterialFault.Graph($"<mtlx-no-category:{op.Key}>"));
 
     static (NodeCategory, MtlxPort, Option<MixProjection>) Categorized(Option<TextureSource> source) {
         NodeCategory category = source.Map(CategoryOf).IfNone(NodeCategory.Image);
         return (category, category.Port, Option<MixProjection>.None);
     }
 
-    static Fin<Seq<MtlxNode>> Emit(AppearanceNode node, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports, MaterialParameters parameters, HashMap<PortId, TextureSource> textures, Op key) =>
+    static Fin<Seq<MtlxNode>> Emit(AppearanceNode node, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports, MaterialParameters parameters, HashMap<PortId, TextureSource> textures) =>
         node.Switch(
-            state: (Ports: ports, Parameters: parameters, Textures: textures, Key: key),
+            state: (Ports: ports, Parameters: parameters, Textures: textures),
             input:      static (s, i) => Fin.Succ(One(i.Id, s.Ports, Constant(i.Pull(s.Parameters)))),
             texture:    static (s, t) => Fin.Succ(One(t.Id, s.Ports,
                 (FileSlots.TryGetValue(s.Ports[t.Id].Category, out ImmutableArray<string> slots)
@@ -688,7 +688,7 @@ public static class Mtlx {
                     : s.Textures.Find(t.Id).Map(TextureInputs).IfNone(Seq<MtlxInput>()))
                 + t.Parameter.Map(driver => Seq(Edge("texcoord", driver, s.Ports))).IfNone(Seq<MtlxInput>()))),
             math:       static (s, m) => Fin.Succ(One(m.Id, s.Ports,
-                MtlxPorts.Of(m.Op, m.Operands.Count)
+                MtlxPorts.Of(m.Operands.Count)
                     .Map((slot, index) => Edge(slot, m.Operands[index], s.Ports)))),
             mix:        static (s, x) => s.Ports[x.Id].Mix
                             .ToFin(new MaterialFault.Graph(s.Key, $"<mtlx-mix-unresolved:{x.Id.Value}>"))
@@ -740,11 +740,11 @@ public static class Mtlx {
     static MtlxInput Edge(string name, PortId source, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports, Option<MtlxPort> slot = default) =>
         new(name, slot.IfNone(() => ports[source].Port), string.Empty, Some($"node{source.Value}"));
 
-    public static Fin<MtlxDocument> ToOpenPbr(Wire.Material wire, Option<Wire.Set> planes, Op key) =>
+    public static Fin<MtlxDocument> ToOpenPbr(Wire.Material wire, Option<Wire.Set> planes) =>
         string.IsNullOrWhiteSpace(wire.Id)
-            ? Fin.Fail<MtlxDocument>(new MaterialFault.Graph(key, "<mtlx-empty-material-id>"))
+            ? Fin.Fail<MtlxDocument>(new MaterialFault.Graph("<mtlx-empty-material-id>"))
             : planes
-                .Map(set => toSeq(set.Planes).Traverse(row => Bound(row, key)).As()
+                .Map(set => toSeq(set.Planes).Traverse(row => Bound(row)).As()
                     .Map(bound => Document(wire, bound.Bind(static entry => entry.Nodes).Add(Textured(wire, bound)))))
                 .IfNone(() => Fin.Succ(Document(wire, Seq(SurfaceNode(wire)))));
 
@@ -793,9 +793,9 @@ public static class Mtlx {
             ? Triple(g.SubsurfaceRadius.R / max, g.SubsurfaceRadius.G / max, g.SubsurfaceRadius.B / max)
             : Triple(1.0, 1.0, 1.0);
 
-    static Fin<(TextureChannel Channel, Seq<MtlxNode> Nodes, string Source)> Bound(Wire.Plane row, Op key) =>
+    static Fin<(TextureChannel Channel, Seq<MtlxNode> Nodes, string Source)> Bound(Wire.Plane row) =>
         WireVocabulary.Channel(row.Role).Case is TextureChannel channel
-            ? BaseLeaf(row, key).Map(file => channel.Mtlx switch {
+            ? BaseLeaf(row).Map(file => channel.Mtlx switch {
                 MtlxBinding.Scaled scaled => (channel, Seq(
                         Image(channel, file),
                         new MtlxNode($"scale_{channel.Key}", NodeCategory.Multiply, Lane(channel), Seq(
@@ -810,12 +810,12 @@ public static class Mtlx {
                     $"nrm_{channel.Key}"),
                 _ => (channel, Seq(Image(channel, file)), $"tex_{channel.Key}"),
             })
-            : Fin.Fail<(TextureChannel, Seq<MtlxNode>, string)>(new MaterialFault.Graph(key, $"<mtlx-unknown-channel:{row.Role}>"));
+            : Fin.Fail<(TextureChannel, Seq<MtlxNode>, string)>(new MaterialFault.Graph($"<mtlx-unknown-channel:{row.Role}>"));
 
-    static Fin<string> BaseLeaf(Wire.Plane row, Op key) =>
+    static Fin<string> BaseLeaf(Wire.Plane row) =>
         toSeq(row.Levels).Head
             .Map(static level => level.File)
-            .ToFin(new MaterialFault.Graph(key, $"<mtlx-channel-unaddressed:{row.Role}>"));
+            .ToFin(new MaterialFault.Graph($"<mtlx-channel-unaddressed:{row.Role}>"));
 
     static MtlxNode Image(TextureChannel channel, string file) =>
         new($"tex_{channel.Key}", NodeCategory.TiledImage, Lane(channel),
@@ -854,11 +854,11 @@ public static class Mtlx {
 
 ## [04]-[STAGE_CROSSING]
 
-- Entry: `public static Fin<StageRequestWire> Request(StageRequest request)` transcribes, fills the four columns no generated mapper may construct, and crosses `WireAdmission.Admit` once, keying every refusal on the request's own `Op`; `public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request, Op key)` admits the inbound message, proves the correlation echo, lifts every vocabulary onto its Materials row, and hands the reconstructed result to the `neural#STAGE_PLAN` `StageResult.Admit` registry gate.
+- Entry: `public static Fin<StageRequestWire> Request(StageRequest request)` transcribes, fills the four columns no generated mapper may construct, and crosses `WireAdmission.Admit` once, keying every refusal on the request's own `Op`; `public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request)` admits the inbound message, proves the correlation echo, lifts every vocabulary onto its Materials row, and hands the reconstructed result to the `neural#STAGE_PLAN` `StageResult.Admit` registry gate.
 - Law: the GENERATED MESSAGES are the one vocabulary and no key string crosses for a closed roster. `defined_only` plus `not_in: [0]` refuse an undefined or unspecified ordinal inside `WireAdmission.Admit`, BEFORE any row lift runs, so the inbound `switch` over the generated enum answers a value the corpus already proved rostered and its `_` arm names a value only a generation skew can produce.
 - Law: the CHANNEL ROLE crosses as the appearance roster's own string spelling because that roster is Materials-owned and open to growth, where the stage, prior, and score rosters are corpus-closed. `TextureChannel.TryGet` is its admission and the `^[a-z][a-z0-9_]*$` field rule its shape gate, so a channel landing at `Raster/set#TEXTURE_CHANNEL` reaches this crossing with no proto edit while every closed roster still breaks the build when it grows.
 - Law: the two rosters the product oneof discriminates stay DISJOINT. `StageProduct.Parse` resolves CHANNELS first, so a key both rosters claim would make the prior unreachable at the specifying end and mis-tagged at the executing end's inverse; disjointness is the invariant that keeps one product key readable from either direction, and a `PriorField` or `ScoreField` row spelling an appearance channel is the declaration that breaks it.
-- Law: outbound and inbound read ONE correspondence in two directions and neither is a hand `(key, enum)` table. Row → wire enum is the row's generated total `Map`, one arm per row, so a new `PbrStage`, `LicenseClass`, `InferenceProvider`, or `TensorPrecision` row breaks THIS BUILD until the corpus enum carries its value; wire enum → row is one `switch` expression per roster refusing on the error channel with the value named. The `[02]` `WireVocabulary.Total` derivation is deliberately not reached here: it answers a roster gap as a type-initializer throw, where this crossing's growth law demands a compile break in the same change as the corpus edit.
+- Law: outbound and inbound read ONE correspondence in two directions and neither is a hand `(enum)` table. Row → wire enum is the row's generated total `Map`, one arm per row, so a new `PbrStage`, `LicenseClass`, `InferenceProvider`, or `TensorPrecision` row breaks THIS BUILD until the corpus enum carries its value; wire enum → row is one `switch` expression per roster refusing on the error channel with the value named. The `[02]` `WireVocabulary.Total` derivation is deliberately not reached here: it answers a roster gap as a type-initializer throw, where this crossing's growth law demands a compile break in the same change as the corpus edit.
 - Law: no generated mapper is asked to construct a value whose construction can REFUSE. The optional artefact, the fixed bucket, the pad mode, and the input row set each lower by hand at `Request` — the first because proto3 `optional bytes` sits behind a null-rejecting setter that cannot spell absence, the second and third because they arrive as producer-interior strings the corpus types, and the fourth because a get-only `RepeatedField` fill is not an admitted conversion at `MappingConversionType.None`. `[MapperIgnoreSource]`/`[MapperIgnoreTarget]` name each at the mapper, so the RMG completeness gate still proves every remaining column.
 - Law: `Layout` never crosses. The tensor dimension order is the leased model card's fact at the executing end, so a request column carrying it could only ever contradict the lease; the waiver is a compiler-proved `[MapperIgnoreSource]` row rather than authored inventory, because no `[MapPropertyFromSource]` reader rides this mapping.
 - Law: identity crosses as BYTES and never as text. Every content key rides the sixteen big-endian bytes `ContentHash.Wire` publishes and re-enters through `ContentHash.Admit`, so the contract's `X32` rendering and the kernel's `x32` rendering never meet on this wire and a width other than sixteen refuses at the field rule.
@@ -872,10 +872,10 @@ public static class Mtlx {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StageWire {
     public static Fin<StageRequestWire> Request(StageRequest request) =>
-        from bucket in Bucket(request.Bucket, request.Op)
-        from pad in Pad(request.PadMode, request.Op)
+        from bucket in Bucket(request.Bucket)
+        from pad in Pad(request.PadMode)
         let wire = Fill(AppearanceWireMap.ToWire(request), request, bucket, pad)
-        from admitted in WireAdmission.Admit(wire, WireBoundary.OutboundPayload, request.Op)
+        from admitted in WireAdmission.Admit(wire, WireBoundary.OutboundPayload)
         select admitted;
 
     static StageRequestWire Fill(StageRequestWire wire, StageRequest request, BucketWire bucket, PadModeWire pad) {
@@ -886,59 +886,59 @@ public static class StageWire {
         return wire;
     }
 
-    static Fin<BucketWire> Bucket(string spelling, Op key) =>
+    static Fin<BucketWire> Bucket(string spelling) =>
         spelling.Split('x') switch {
             [var w, var h] when uint.TryParse(w, NumberStyles.None, CultureInfo.InvariantCulture, out uint width)
                              && uint.TryParse(h, NumberStyles.None, CultureInfo.InvariantCulture, out uint height)
                              && width > 0 && height > 0 =>
                 Fin.Succ(new BucketWire { Width = width, Height = height }),
-            _ => new MaterialFault.Parameter(key, $"<stage-bucket-unparsable:{spelling}>"),
+            _ => new MaterialFault.Parameter($"<stage-bucket-unparsable:{spelling}>"),
         };
 
-    static Fin<PadModeWire> Pad(string spelling, Op key) =>
+    static Fin<PadModeWire> Pad(string spelling) =>
         Enum.TryParse(spelling, ignoreCase: true, out PadModeWire pad) && pad is not PadModeWire.Unspecified
             ? Fin.Succ(pad)
-            : new MaterialFault.Parameter(key, $"<stage-pad-unrostered:{spelling}>");
+            : new MaterialFault.Parameter($"<stage-pad-unrostered:{spelling}>");
 
-    public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request, Op key) =>
-        from message in WireAdmission.Admit(wire, WireBoundary.InboundPayload, key)
-        from _echo in guard(message.Op == key.ToString(), new MaterialFault.Parameter(key, $"<stage-op-echo:{message.Op}>"))
-        from stage in Row(message.Stage, key)
-        from provider in Row(message.ProviderUsed, key)
-        from artefact in Address(message.Artefact, key)
-        from outputs in toSeq(message.Outputs).Traverse(output => Output(output, key)).As()
+    public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request) =>
+        from message in WireAdmission.Admit(wire, WireBoundary.InboundPayload)
+        from _echo in guard(message.Op == key.ToString(), new MaterialFault.Parameter($"<stage-op-echo:{message.Op}>"))
+        from stage in Row(message.Stage)
+        from provider in Row(message.ProviderUsed)
+        from artefact in Address(message.Artefact)
+        from outputs in toSeq(message.Outputs).Traverse(output => Output(output)).As()
         from scores in toSeq(message.Scores).Traverse(score =>
-            Product(score.Role, key).Map(product => new StageScore(product, score.Value))).As()
-        from echoed in key.AcceptValidated<ModelCardId>(message.ModelCardId)
+            Product(score.Role).Map(product => new StageScore(product, score.Value))).As()
+        from echoed in FactoryBridge.Accept<ModelCardId>(message.ModelCardId)
         from admitted in StageResult.Admit(
             new StageResult(stage, echoed, artefact, outputs, scores, provider,
                 checked((int)message.PartitionCount), message.Elapsed.ToNodaDuration().TotalMilliseconds,
-                message.ReferenceDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted), key),
-            card, request, key)
+                message.ReferenceDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted)),
+            card, request)
         select admitted;
 
-    static Fin<StageOutput> Output(StageOutputWire output, Op key) =>
-        from product in Product(output.Role, key)
-        from transfer in Row(output.Transfer, key)
-        from format in Row(output.Format, key)
-        from blob in Address(output.Blob, key)
+    static Fin<StageOutput> Output(StageOutputWire output) =>
+        from product in Product(output.Role)
+        from transfer in Row(output.Transfer)
+        from format in Row(output.Format)
+        from blob in Address(output.Blob)
         select new StageOutput(product, blob, Dimension.Create(checked((int)output.Width)), Dimension.Create(checked((int)output.Height)), transfer, format);
 
-    static Fin<StageProduct> Product(StageProductWire role, Op key) =>
+    static Fin<StageProduct> Product(StageProductWire role) =>
         role.RoleCase switch {
             StageProductWire.RoleOneofCase.Channel =>
                 TextureChannel.TryGet(role.Channel, out TextureChannel? channel)
                     ? Fin.Succ<StageProduct>(new StageProduct.Channel(channel!))
-                    : Refused<StageProduct>(key, "channel", role.Channel),
-            StageProductWire.RoleOneofCase.Prior => Row(role.Prior, key).Map(static field => (StageProduct)new StageProduct.Prior(field)),
-            StageProductWire.RoleOneofCase.Measure => Row(role.Measure, key).Map(static field => (StageProduct)new StageProduct.Measure(field)),
-            var absent => Refused<StageProduct>(key, "product", absent.ToString()),
+                    : Refused<StageProduct>("channel", role.Channel),
+            StageProductWire.RoleOneofCase.Prior => Row(role.Prior).Map(static field => (StageProduct)new StageProduct.Prior(field)),
+            StageProductWire.RoleOneofCase.Measure => Row(role.Measure).Map(static field => (StageProduct)new StageProduct.Measure(field)),
+            var absent => Refused<StageProduct>("product", absent.ToString()),
         };
 
-    static Fin<ContentAddress> Address(ByteString bytes, Op key) =>
-        ContentHash.Admit(bytes.Span, key).Map(ContentAddress.Of);
+    static Fin<ContentAddress> Address(ByteString bytes) =>
+        ContentHash.Admit(bytes.Span).Map(ContentAddress.Of);
 
-    static Fin<PbrStage> Row(PbrStageWire wire, Op key) =>
+    static Fin<PbrStage> Row(PbrStageWire wire) =>
         wire switch {
             PbrStageWire.Delight => PbrStage.Delight,
             PbrStageWire.Albedo => PbrStage.Albedo,
@@ -949,42 +949,42 @@ public static class StageWire {
             PbrStageWire.SpectralReflectance => PbrStage.SpectralReflectance,
             PbrStageWire.SuperResolve => PbrStage.SuperResolve,
             PbrStageWire.Tileability => PbrStage.Tileability,
-            _ => Refused<PbrStage>(key, "stage", wire.ToString()),
+            _ => Refused<PbrStage>("stage", wire.ToString()),
         };
 
-    static Fin<InferenceProvider> Row(InferenceProviderWire wire, Op key) =>
+    static Fin<InferenceProvider> Row(InferenceProviderWire wire) =>
         wire switch {
             InferenceProviderWire.Cpu => InferenceProvider.Cpu,
             InferenceProviderWire.CoreMl => InferenceProvider.CoreMl,
             InferenceProviderWire.WebGpu => InferenceProvider.WebGpu,
-            _ => Refused<InferenceProvider>(key, "provider", wire.ToString()),
+            _ => Refused<InferenceProvider>("provider", wire.ToString()),
         };
 
-    static Fin<PriorField> Row(PriorFieldWire wire, Op key) =>
+    static Fin<PriorField> Row(PriorFieldWire wire) =>
         wire switch {
             PriorFieldWire.Delit => PriorField.Delit,
             PriorFieldWire.Depth => PriorField.Depth,
             PriorFieldWire.Spectral => PriorField.Spectral,
-            _ => Refused<PriorField>(key, "prior", wire.ToString()),
+            _ => Refused<PriorField>("prior", wire.ToString()),
         };
 
-    static Fin<ScoreField> Row(ScoreFieldWire wire, Op key) =>
+    static Fin<ScoreField> Row(ScoreFieldWire wire) =>
         wire switch {
             ScoreFieldWire.Tileability => ScoreField.Tileability,
-            _ => Refused<ScoreField>(key, "score", wire.ToString()),
+            _ => Refused<ScoreField>("score", wire.ToString()),
         };
 
-    static Fin<PlaneTransfer> Row(PlaneTransferWire wire, Op key) =>
+    static Fin<PlaneTransfer> Row(PlaneTransferWire wire) =>
         wire switch {
             PlaneTransferWire.Linear => PlaneTransfer.Linear,
             PlaneTransferWire.Srgb => PlaneTransfer.Srgb,
             PlaneTransferWire.Raw => PlaneTransfer.Raw,
             PlaneTransferWire.Pq => PlaneTransfer.Pq,
             PlaneTransferWire.Hlg => PlaneTransfer.Hlg,
-            _ => Refused<PlaneTransfer>(key, "transfer", wire.ToString()),
+            _ => Refused<PlaneTransfer>("transfer", wire.ToString()),
         };
 
-    static Fin<PlaneFormat> Row(PlaneFormatWire wire, Op key) =>
+    static Fin<PlaneFormat> Row(PlaneFormatWire wire) =>
         wire switch {
             PlaneFormatWire.R8 => PlaneFormat.R8,
             PlaneFormatWire.R16 => PlaneFormat.R16,
@@ -998,12 +998,12 @@ public static class StageWire {
             PlaneFormatWire.Rgba16 => PlaneFormat.Rgba16,
             PlaneFormatWire.Rgba16F => PlaneFormat.Rgba16F,
             PlaneFormatWire.Rgba32F => PlaneFormat.Rgba32F,
-            _ => Refused<PlaneFormat>(key, "format", wire.ToString()),
+            _ => Refused<PlaneFormat>("format", wire.ToString()),
         };
 
-    static MaterialFault Refused(Op key, string axis, string value) => new MaterialFault.Graph(key, $"<stage-result-unknown-{axis}:{value}>");
+    static MaterialFault Refused(string axis, string value) => new MaterialFault.Graph($"<stage-result-unknown-{axis}:{value}>");
 
-    static Fin<T> Refused<T>(Op key, string axis, string value) => Fin.Fail<T>(Refused(key, axis, value));
+    static Fin<T> Refused<T>(string axis, string value) => Fin.Fail<T>(Refused(axis, value));
 }
 
 public static partial class AppearanceWireMap {
@@ -1020,7 +1020,7 @@ public static partial class AppearanceWireMap {
     [MapProperty(nameof(StageRequest.Overlap), nameof(StageRequestWire.Overlap), Use = nameof(Unsigned))]
     [MapProperty(nameof(StageRequest.Provider), nameof(StageRequestWire.Provider), Use = nameof(Provider))]
     [MapProperty(nameof(StageRequest.Precision), nameof(StageRequestWire.Precision), Use = nameof(Precision))]
-    [MapProperty(nameof(StageRequest.Op), nameof(StageRequestWire.Op), Use = nameof(OpKey))]
+    [MapProperty(nameof(), nameof(), Use = nameof(OpKey))]
     [MapperIgnoreSource(nameof(StageRequest.Inputs))]
     [MapperIgnoreSource(nameof(StageRequest.Artefact))]
     [MapperIgnoreSource(nameof(StageRequest.Bucket))]
@@ -1032,7 +1032,7 @@ public static partial class AppearanceWireMap {
     [MapperIgnoreTarget(nameof(StageRequestWire.Pad))]
     public static partial StageRequestWire ToWire(StageRequest request);
 
-    static string OpKey(Op op) => op.ToString();
+    static string OpKey() => op.ToString();
 
     // --- [STAGE_VOCABULARY]
     [UserMapping] static PbrStageWire Stage(PbrStage row) => row.Map(

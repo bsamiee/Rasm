@@ -121,7 +121,7 @@ public sealed partial class QuantityFamily {
 
     public Tolerance Tolerance { get; }
 
-    private QuantityFamily(string key, QuantityInfo info, ImmutableArray<int> dimension, Tolerance tolerance, Enum? display = null) : this(key) {
+    private QuantityFamily(string key, QuantityInfo info, ImmutableArray<int> dimension, Tolerance tolerance, Enum? display = null) : this() {
         Info = info;
         Dimension = Dimension.Create(dimension[0], dimension[1], dimension[2], dimension[3], dimension[4], dimension[5], dimension[6]);
         Canonical = info.BaseUnitInfo.Value;

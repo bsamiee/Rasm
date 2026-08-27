@@ -84,8 +84,8 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
 public sealed record CollabWireContext(Map<string, string> Carrier) {
     public static readonly CollabWireContext Empty = new(Map<string, string>());
 
-    public Option<string> Get(string key) => Carrier.Find(key);
-    public CollabWireContext With(string key, string value) => this with { Carrier = Carrier.AddOrUpdate(key, value) };
+    public Option<string> Get(string key) => Carrier.Find();
+    public CollabWireContext With(string key, string value) => this with { Carrier = Carrier.AddOrUpdate(value) };
 }
 
 public readonly record struct CollabFrame(CollabWireContext Context, ReadOnlyMemory<byte> Delta);
@@ -115,7 +115,7 @@ public static class CollabCarrier {
     public static IDisposable Continue(ActivitySource source, CollabFrame frame, string name) =>
         TraceContext.Continue(source, frame.Context, Read, name, TenantAdoption.Adopted, ActivityKind.Consumer);
 
-    static IEnumerable<string> Read(CollabWireContext carrier, string key) => carrier.Get(key).ToSeq();
+    static IEnumerable<string> Read(CollabWireContext carrier, string key) => carrier.Get().ToSeq();
 }
 
 public sealed record CollabWire(
@@ -123,7 +123,6 @@ public sealed record CollabWire(
     SessionEpoch Epoch,
     InstrumentSet Signals,
     HookSet<AppUiPoint, AppUiFact, TelemetrySource> Hooks,
-    Op Key,
     HostSink Sink) {
 
     public static readonly InstrumentSpec Applied = InstrumentSpec.Create(
@@ -353,7 +352,7 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
         Viewport.SubscribeLocalUpdate(new EphemeralSink(Viewport, sink, body));
 
     public Fin<byte[]> PublishViewport(string key, LoroVal state) =>
-        CollabDoc.Lift(() => { Viewport.Set(key, state); return Viewport.Encode(key); });
+        CollabDoc.Lift(() => { Viewport.Set(state); return Viewport.Encode(); });
 
     public HashMap<ulong, LoroValue> Roster() {
         ignore(Peers.RemoveOutdated());

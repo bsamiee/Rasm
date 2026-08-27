@@ -11,7 +11,7 @@ THE UV-AND-SOLID SAMPLING ENGINE. One `TextureUv` static sampling fold over the 
 
 - Owner: `TextureUv` static sampling fold; `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` `[SmartEnum<int>]` bands; `ShadeVec4` field register; `SamplerState` with its `UvFrame` per-bind transform; `ProceduralNoise` author-kernel; `TextureSource` `[Union]`.
 - Cases: address {`Repeat`, `Clamp`, `Mirror`} · filter {`Nearest`, `Bilinear`, `Bicubic`, `Trilinear`} · noise-basis {`Perlin`, `Simplex`, `Value`, `Worley`} (fBm is octave-summation over a basis, `Octaves > 1`, never a fifth basis; `Wrappable` is the per-row periodic-lattice column) · fractal {`FBm`, `Ridged`, `PingPong`} · cellular-distance {`EuclideanSq`, `Euclidean`, `Manhattan`, `Hybrid`} · cellular-return {`CellValue`, `Distance`, `Distance2`, `Distance2Sub`, `Distance2Add`, `Distance2Mul`, `Distance2Div`} · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
-- Entry: `public static Fin<Noise> Noise.Of(NoiseBasis basis, double frequency, Op key, …)` is the noise-source MINT the lattice period exists for and the only way a `Noise` value comes into being — the constructor is private and every column get-only, so the sampler dispatches on a union case carrying its own proof instead of screening a value a public constructor could always have forged. An aperiodic draft passes on one predicate; a periodic one proves its basis wrappable, its lacunarity and frequency integral against the period, and its warp frequency integral, so a source seaming at the tile edge is unrepresentable rather than rendered — and `Checker.Of`, `Gradient.Of`, and `Triplanar.Of` seal their cases the same way (repeats, stops, scale, and blend sharpness prove at the mint), so no union case admits a bare `new`; `public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key)` is the deep field result and `public static Func<double, double, Option<double>, PortValue> Port(TextureSource source, UvSample anchor, SamplerState sampler, Channel channel, Op key)` is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture` bridge — `Port` captures the source/sampler/key and returns the TOTAL `(u,v,parameter)→PortValue` closure the node fold reads, its third lane the DRIVEN `UvSample.Parameter` a node's own `Parameter` port resolves so a field-driven ramp needs no second bridge (`Channel` projects the field to `PortValue.Color`, `.Scalar` (luminance), `.Scalar` mask (`W`), or `.Vector`), an empty-pyramid/degenerate-normal/non-finite-field sample folding to the channel's neutral `PortValue` so the graph arm stays total while the deep `Sample` result carries the `Op key`-correlated `MaterialFault` — the UV lanes themselves are `UnitInterval` value-objects, finite-in-[0,1] by construction, so no interior re-validation exists on the coordinate path; arity is one — a texture variation discriminates on the `TextureSource` union case and a sample modality on `Channel`, never on a sibling sampler method.
+- Entry: `public static Fin<Noise> Noise.Of(NoiseBasis basis, double frequency, …)` is the noise-source MINT the lattice period exists for and the only way a `Noise` value comes into being — the constructor is private and every column get-only, so the sampler dispatches on a union case carrying its own proof instead of screening a value a public constructor could always have forged. An aperiodic draft passes on one predicate; a periodic one proves its basis wrappable, its lacunarity and frequency integral against the period, and its warp frequency integral, so a source seaming at the tile edge is unrepresentable rather than rendered — and `Checker.Of`, `Gradient.Of`, and `Triplanar.Of` seal their cases the same way (repeats, stops, scale, and blend sharpness prove at the mint), so no union case admits a bare `new`; `public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler)` is the deep field result and `public static Func<double, double, Option<double>, PortValue> Port(TextureSource source, UvSample anchor, SamplerState sampler, Channel channel)` is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture` bridge — `Port` captures the source/sampler/key and returns the TOTAL `(u,v,parameter)→PortValue` closure the node fold reads, its third lane the DRIVEN `UvSample.Parameter` a node's own `Parameter` port resolves so a field-driven ramp needs no second bridge (`Channel` projects the field to `PortValue.Color`, `.Scalar` (luminance), `.Scalar` mask (`W`), or `.Vector`), an empty-pyramid/degenerate-normal/non-finite-field sample folding to the channel's neutral `PortValue` so the graph arm stays total while the deep `Sample` result carries the `Op key`-correlated `MaterialFault` — the UV lanes themselves are `UnitInterval` value-objects, finite-in-[0,1] by construction, so no interior re-validation exists on the coordinate path; arity is one — a texture variation discriminates on the `TextureSource` union case and a sample modality on `Channel`, never on a sibling sampler method.
 - Packages: Rasm.Materials.Appearance.Bsdf (`MaterialFault` band-2450), Rasm (project — `UnitInterval`/`Dimension`, and the `Numerics/atoms#SCALAR_FLOOR` `PerceptualColor`/`BlendPath.Oklch()`/`RgbProfile.Acescg`/`GamutPolicy.Perceptual` perceptual owner the gradient resolve composes), Rhino.Geometry (`Vector3d`/`Point3d` at the shading edge, the graph-page host-geometry convention), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]` at the deepest surface — generated total `Switch`, `[UseDelegateFromConstructor]` behavior columns), LanguageExt.Core (`Fin`/`Seq`/`Bind`/`Fold`/`Traverse`), Wacton.Unicolour (scene-linear color owner — the authored-stop and literal carrier), CommunityToolkit.HighPerformance (`ReadOnlyMemory2D<ShadeVec4>`/`ReadOnlySpan2D` — the mip-plane owner, admitted once per level through `AsMemory2D(height, width)`), BCL inbox.
 - Law: `ProceduralNoise` holds EVERY published FastNoiseLite anchor as a named `internal const` and no kernel on this page spells one inline — the lattice primes, the hash multiplier, the `ValCoord` projection scale, the 2D skew/unskew pair, both Perlin normalizers, both simplex bounds, the 3D rotation, both cellular jitter radii, the warp decorrelation offset, and the two defining gradient angles. INTERNAL is the load-bearing part: `Raster/gpu#WGSL_KERNEL` `Wgsl.NoiseConsts` INTERPOLATES these members into its shader prelude, so one declaration serves two emissions and a re-typed literal on either side is the deleted form the branch ruling names. A private anchor is a value the GPU page must transcribe, which is exactly the fork the interpolation closes; a new anchor lands one member here and one interpolated row there, never a value that page decides.
 - Law: `Directions2D` stays a VERBATIM transcription while `GradientAngle0`/`GradientAngleStep` state its DEFINITION, and the two are not redundant. `Math.Cos` over those angles agrees with the published decimals only to within an ulp, so the CPU cannot generate the table without forfeiting the byte-parity claim this family exists for; the shader carries no table blob at all and must generate. Declaring the angles beside the transcription is what lets both sides share one definition of the cycle where their bytes cannot agree, and the `PressGpuParity` workload grades that divergence rather than asserting texel equality.
@@ -177,7 +177,7 @@ public abstract partial record TextureSource {
         public Unicolour High { get; }
 
         public static Fin<Noise> Of(
-            NoiseBasis basis, double frequency, Op key,
+            NoiseBasis basis, double frequency,
             int octaves = 1, double lacunarity = 2.0, double gain = 0.5, int seed = 1337,
             FractalMode? fractal = null, double weightedStrength = 0.0, double pingPongStrength = 2.0,
             CellularParams? cellular = null, DomainWarp? warp = null, bool solid = false,
@@ -196,18 +196,18 @@ public abstract partial record TextureSource {
                        && double.IsFinite(candidate.Cellular.Jitter) && candidate.Cellular.Jitter is >= 0.0 and <= 1.0
                        && double.IsFinite(candidate.Warp.Amplitude) && candidate.Warp.Amplitude >= 0.0
                        && double.IsFinite(candidate.Warp.Frequency),
-                       new MaterialFault.Parameter(key, $"<noise-column-out-of-domain:{candidate.Base.MtlxNode}>"))
-                   from admitted in candidate.Period.Periodic ? Periodic(candidate, key) : Fin.Succ(candidate)
+                       new MaterialFault.Parameter($"<noise-column-out-of-domain:{candidate.Base.MtlxNode}>"))
+                   from admitted in candidate.Period.Periodic ? Periodic(candidate) : Fin.Succ(candidate)
                    select admitted;
         }
 
-        static Fin<Noise> Periodic(Noise candidate, Op key) =>
-            from _ in guard(candidate.Base.Wrappable, new MaterialFault.Parameter(key, $"<noise-period-unwrappable-basis:{candidate.Base.MtlxNode}>"))
-            from __ in guard(Integral(candidate.Lacunarity), new MaterialFault.Parameter(key, $"<noise-period-fractional-lacunarity:{candidate.Lacunarity:R}>"))
+        static Fin<Noise> Periodic(Noise candidate) =>
+            from _ in guard(candidate.Base.Wrappable, new MaterialFault.Parameter($"<noise-period-unwrappable-basis:{candidate.Base.MtlxNode}>"))
+            from __ in guard(Integral(candidate.Lacunarity), new MaterialFault.Parameter($"<noise-period-fractional-lacunarity:{candidate.Lacunarity:R}>"))
             from ___ in guard(Integral(candidate.Frequency) && (int)candidate.Frequency % candidate.Period.Value is 0,
-                    new MaterialFault.Parameter(key, $"<noise-period-frequency-not-multiple:{candidate.Frequency:R}:{candidate.Period.Value}>"))
+                    new MaterialFault.Parameter($"<noise-period-frequency-not-multiple:{candidate.Frequency:R}:{candidate.Period.Value}>"))
             from ____ in guard(candidate.Warp.Amplitude <= 0.0 || Integral(candidate.Warp.Frequency),
-                    new MaterialFault.Parameter(key, $"<noise-period-fractional-warp-frequency:{candidate.Warp.Frequency:R}>"))
+                    new MaterialFault.Parameter($"<noise-period-fractional-warp-frequency:{candidate.Warp.Frequency:R}>"))
             select candidate;
 
         static bool Integral(double v) => double.IsInteger(v) && v is > 0.0 and <= int.MaxValue;
@@ -220,10 +220,10 @@ public abstract partial record TextureSource {
         public Unicolour Even { get; }
         public Unicolour Odd { get; }
 
-        public static Fin<Checker> Of(int repeats, Unicolour even, Unicolour odd, Op key) =>
+        public static Fin<Checker> Of(int repeats, Unicolour even, Unicolour odd) =>
             repeats >= 1
                 ? Fin.Succ(new Checker(repeats, even, odd))
-                : new MaterialFault.Parameter(key, $"<checker-repeats-out-of-domain:{repeats}>");
+                : new MaterialFault.Parameter($"<checker-repeats-out-of-domain:{repeats}>");
     }
 
     public sealed record Gradient : TextureSource {
@@ -236,18 +236,18 @@ public abstract partial record TextureSource {
         public Seq<(UnitInterval At, Unicolour Color)> Stops { get; }
         public Seq<ShadeVec4> Lut { get; }
 
-        public static Fin<Gradient> Of(bool vertical, Seq<(UnitInterval At, Unicolour Color)> stops, Op key) {
-            if (stops.IsEmpty) { return new MaterialFault.Parameter(key, "<gradient-no-stops>"); }
+        public static Fin<Gradient> Of(bool vertical, Seq<(UnitInterval At, Unicolour Color)> stops) {
+            if (stops.IsEmpty) { return new MaterialFault.Parameter("<gradient-no-stops>"); }
             Seq<(UnitInterval At, Unicolour Color)> sorted = toSeq(stops.OrderBy(static s => s.At.Value));
             return sorted
-                .TraverseM(stop => Admit(stop.Color, key).Map(colour => (stop.At, Colour: colour))).As()
+                .TraverseM(stop => Admit(stop.Color).Map(colour => (stop.At, Colour: colour))).As()
                 .Map(admitted => new Gradient(vertical, sorted,
                     toSeq(Enumerable.Range(0, LutTexels)).Map(i => Resolve(admitted, i / (LutTexels - 1.0)))));
         }
 
-        static Fin<PerceptualColor> Admit(Unicolour colour, Op key) =>
+        static Fin<PerceptualColor> Admit(Unicolour colour) =>
             colour.RgbLinear.Triplet switch {
-                { } lin => PerceptualColor.OfRgb(lin.First, lin.Second, lin.Third, RgbProfile.Acescg, key: key),
+                { } lin => PerceptualColor.OfRgb(lin.First, lin.Second, lin.Third, RgbProfile.Acescg),
             };
 
         static ShadeVec4 Resolve(Seq<(UnitInterval At, PerceptualColor Colour)> stops, double t) {
@@ -272,14 +272,14 @@ public abstract partial record TextureSource {
     }
 
     public sealed record Image(Seq<ReadOnlyMemory2D<ShadeVec4>> Levels) : TextureSource {
-        public static Fin<Image> Of(Dimension width, Dimension height, Seq<ReadOnlyMemory<ShadeVec4>> levels, Op key) =>
+        public static Fin<Image> Of(Dimension width, Dimension height, Seq<ReadOnlyMemory<ShadeVec4>> levels) =>
             levels.IsEmpty
-                ? new MaterialFault.Parameter(key, "<texture-image-empty>")
+                ? new MaterialFault.Parameter("<texture-image-empty>")
                 : levels.Map((flat, index) => {
                       int w = Math.Max(1, width.Value >> index), h = Math.Max(1, height.Value >> index);
                       return flat.Length == w * h
                           ? Fin.Succ(flat.AsMemory2D(h, w))
-                          : Fin.Fail<ReadOnlyMemory2D<ShadeVec4>>(new MaterialFault.Parameter(key, $"<texture-level-extent:{index}:{flat.Length}!={w * h}>"));
+                          : Fin.Fail<ReadOnlyMemory2D<ShadeVec4>>(new MaterialFault.Parameter($"<texture-level-extent:{index}:{flat.Length}!={w * h}>"));
                   }).Traverse(identity).As().Map(static planes => new Image(planes));
     }
 
@@ -290,10 +290,10 @@ public abstract partial record TextureSource {
         public double Scale { get; }
         public double BlendSharpness { get; }
 
-        public static Fin<Triplanar> Of(TextureSource projected, double scale, double blendSharpness, Op key) =>
+        public static Fin<Triplanar> Of(TextureSource projected, double scale, double blendSharpness) =>
             double.IsFinite(scale) && scale > 0.0 && double.IsFinite(blendSharpness) && blendSharpness > 0.0
                 ? Fin.Succ(new Triplanar(projected, scale, blendSharpness))
-                : new MaterialFault.Parameter(key, $"<triplanar-out-of-domain:{scale:R},{blendSharpness:R}>");
+                : new MaterialFault.Parameter($"<triplanar-out-of-domain:{scale:R},{blendSharpness:R}>");
     }
 
     public string MtlxCategory => Switch(
@@ -378,19 +378,19 @@ public readonly record struct ShadeVec4(double X, double Y, double Z, double W) 
         return new(lin.First, lin.Second, lin.Third, 1.0);
     }
 
-    public Fin<Unicolour> AsColor(Op key) =>
+    public Fin<Unicolour> AsColor() =>
         IsFinite
             ? Fin.Succ(AsColorUnchecked())
-            : new MaterialFault.Gamut(key, $"<texture-non-finite-field:{X:R},{Y:R},{Z:R},{W:R}>");
+            : new MaterialFault.Gamut($"<texture-non-finite-field:{X:R},{Y:R},{Z:R},{W:R}>");
     public Unicolour AsColorUnchecked() => new(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z);
 }
 
 public readonly record struct UvSample(UnitInterval U, UnitInterval V, Vector3d World, Vector3d Normal, double MipLevel) {
     public Option<double> Parameter { get; init; }
 
-    public static Fin<UvSample> Of(double u, double v, Op key) =>
-        from cu in key.AcceptValidated<UnitInterval>(candidate: u)
-        from cv in key.AcceptValidated<UnitInterval>(candidate: v)
+    public static Fin<UvSample> Of(double u, double v) =>
+        from cu in FactoryBridge.Accept<UnitInterval>(candidate: u)
+        from cv in FactoryBridge.Accept<UnitInterval>(candidate: v)
         select new UvSample(cu, cv, Vector3d.Zero, Vector3d.ZAxis, 0.0);
 
     public UvSample At(double u, double v) => this with { U = UnitInterval.Create(Math.Clamp(u, 0.0, 1.0)), V = UnitInterval.Create(Math.Clamp(v, 0.0, 1.0)) };
@@ -686,27 +686,27 @@ public readonly record struct LatticeTables(double[] RandVecs2D, double[] RandVe
     public static readonly LatticeAsset Vecs2D = new("fnl-randvecs-2d", Entries: 256, Lanes: 2, Pin: Option<ContentAddress>.None);
     public static readonly LatticeAsset Vecs3D = new("fnl-randvecs-3d", Entries: 256, Lanes: 4, Pin: Option<ContentAddress>.None);
 
-    public static Fin<LatticeTables> Of(ReadOnlyMemory<byte> vecs2D, ReadOnlyMemory<byte> vecs3D, Op key) =>
-        from a in Admit(Vecs2D, vecs2D, key)
-        from b in Admit(Vecs3D, vecs3D, key)
+    public static Fin<LatticeTables> Of(ReadOnlyMemory<byte> vecs2D, ReadOnlyMemory<byte> vecs3D) =>
+        from a in Admit(Vecs2D, vecs2D)
+        from b in Admit(Vecs3D, vecs3D)
         select new LatticeTables(a, b);
 
-    static Fin<double[]> Admit(LatticeAsset asset, ReadOnlyMemory<byte> payload, Op key) =>
-        from pin in asset.Pin.ToFin(new MaterialFault.Parameter(key, $"<lattice-asset-unpinned:{asset.Name}>"))
+    static Fin<double[]> Admit(LatticeAsset asset, ReadOnlyMemory<byte> payload) =>
+        from pin in asset.Pin.ToFin(new MaterialFault.Parameter($"<lattice-asset-unpinned:{asset.Name}>"))
         from _ in guard(payload.Length == asset.Entries * asset.Lanes * sizeof(double),
-                new MaterialFault.Parameter(key, $"<lattice-asset-extent:{asset.Name}:{payload.Length}>"))
+                new MaterialFault.Parameter($"<lattice-asset-extent:{asset.Name}:{payload.Length}>"))
         from __ in guard(ContentAddress.Of(payload.Span) == pin,
-                new MaterialFault.Parameter(key, $"<lattice-asset-digest:{asset.Name}>"))
+                new MaterialFault.Parameter($"<lattice-asset-digest:{asset.Name}>"))
         select MemoryMarshal.Cast<byte, double>(payload.Span).ToArray();
 }
 
 public static class TextureUv {
-    public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key) =>
-        Sampled(source, point, point.U.Value, point.V.Value, sampler, key);
+    public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler) =>
+        Sampled(source, point, point.U.Value, point.V.Value, sampler);
 
-    static Fin<ShadeVec4> Sampled(TextureSource source, UvSample point, double u, double v, SamplerState sampler, Op key) =>
+    static Fin<ShadeVec4> Sampled(TextureSource source, UvSample point, double u, double v, SamplerState sampler) =>
         source.Switch(
-            state:     (Point: Anchored(point, u, v, sampler), sampler, key),
+            state:     (Point: Anchored(point, u, v, sampler), sampler),
             noise:     static (s, n) => Fin.Succ(SampleNoise(n, s.Point.U.Value, s.Point.V.Value, s.Point)),
             checker:   static (s, c) => Fin.Succ(SampleChecker(c, s.Point.U.Value, s.Point.V.Value)),
             gradient:  static (s, g) => Fin.Succ(SampleGradient(g, s.Point)),
@@ -719,8 +719,8 @@ public static class TextureUv {
         };
 
     public static Func<double, double, Option<double>, PortValue> Port(
-        TextureSource source, UvSample anchor, SamplerState sampler, Channel channel, Op key) =>
-        (u, v, parameter) => Sampled(source, anchor with { Parameter = parameter }, u, v, sampler, key)
+        TextureSource source, UvSample anchor, SamplerState sampler, Channel channel) =>
+        (u, v, parameter) => Sampled(source, anchor with { Parameter = parameter }, u, v, sampler)
             .Match(Succ: field => field.IsFinite ? channel.Project(field) : channel.Neutral(), Fail: _ => channel.Neutral());
 
     private static ShadeVec4 SampleNoise(TextureSource.Noise n, double u, double v, UvSample point) {
@@ -742,8 +742,8 @@ public static class TextureUv {
         return lo >= g.Lut.Count - 1 ? g.Lut[g.Lut.Count - 1] : ShadeVec4.Lerp(g.Lut[lo], g.Lut[lo + 1], t - lo);
     }
 
-    private static Fin<ShadeVec4> SampleImage(TextureSource.Image img, UvSample point, SamplerState sampler, Op key) {
-        if (img.Levels.IsEmpty) { return new MaterialFault.Parameter(key, "<texture-image-empty>"); }
+    private static Fin<ShadeVec4> SampleImage(TextureSource.Image img, UvSample point, SamplerState sampler) {
+        if (img.Levels.IsEmpty) { return new MaterialFault.Parameter("<texture-image-empty>"); }
         double u = point.U.Value, v = point.V.Value;
         double level = Math.Clamp(double.IsFinite(point.MipLevel) ? point.MipLevel : 0.0, 0.0, img.Levels.Count - 1.0);
         if (sampler.Filter != FilterMode.Trilinear) { return Fin.Succ(ReconstructLevel(img.Levels[(int)Math.Floor(level + 0.5)], u, v, sampler, sampler.Filter)); }
@@ -793,13 +793,13 @@ public static class TextureUv {
         return p0 * w0 + p1 * w1 + p2 * w2 + p3 * w3;
     }
 
-    private static Fin<ShadeVec4> SampleTriplanar(TextureSource.Triplanar t, UvSample point, SamplerState sampler, Op key) {
+    private static Fin<ShadeVec4> SampleTriplanar(TextureSource.Triplanar t, UvSample point, SamplerState sampler) {
         Vector3d n = point.Normal;
         double ax = Math.Pow(Math.Abs(n.X), t.BlendSharpness), ay = Math.Pow(Math.Abs(n.Y), t.BlendSharpness), az = Math.Pow(Math.Abs(n.Z), t.BlendSharpness);
         double sum = ax + ay + az;
-        if (sum <= double.Epsilon) { return new MaterialFault.Parameter(key, "<triplanar-degenerate-normal>"); }
+        if (sum <= double.Epsilon) { return new MaterialFault.Parameter("<triplanar-degenerate-normal>"); }
         Vector3d p = point.World * t.Scale;
-        Fin<ShadeVec4> Plane(double a, double b) => Sampled(t.Projected, point with { World = p }, a, b, sampler, key);
+        Fin<ShadeVec4> Plane(double a, double b) => Sampled(t.Projected, point with { World = p }, a, b, sampler);
         return from x in Plane(p.Y, p.Z)
                from y in Plane(p.Z, p.X)
                from z in Plane(p.X, p.Y)
@@ -812,7 +812,7 @@ public static class TextureUv {
 
 - Owner: `PeriodOracle` the per-source fixture row; `PeriodProof` the fixture table and its one verdict fold.
 - Cases: `Admitted` carries the shift at which its field must repeat; `Refused` carries the reason token `Noise.Of` must produce. One table, two CASES, so a refusal fixture cannot drift into a second roster nobody iterates and cannot carry a measurement column it never fills.
-- Entry: `public static Fin<Unit> Prove(PeriodOracle row, Op key)` runs the row's own verdict — admit-then-shift or refuse-with-reason — and `PeriodProof.All` is the roster the proof suite and the `Projection/benchmarks#WORKLOAD_ROWS` parity read both iterate, so a new periodic capability reaches both with no further edit.
+- Entry: `public static Fin<Unit> Prove(PeriodOracle row)` runs the row's own verdict — admit-then-shift or refuse-with-reason — and `PeriodProof.All` is the roster the proof suite and the `Projection/benchmarks#WORKLOAD_ROWS` parity read both iterate, so a new periodic capability reaches both with no further edit.
 - Law: `PeriodOracle` asserts the SHIFT EQUALITY itself, never a transcribed constant — `f(u + Δ, v) = f(u, v)` is exactly what periodicity means, so a regenerated gradient table, a re-tuned normalizer, or a widened basis roster cannot invalidate the fixture while a real seam always breaks it. `Tolerance` rides as an `Admitted` column reading the one `PeriodProof.SeamTolerance` floor, which is arithmetic rather than algorithmic: the shift adds a whole number of lattice units to a coordinate whose fractional part then re-derives at a larger exponent, so the interpolant's own input loses low mantissa bits even where the wrapped cell index is bit-identical. Exact equality asserts a property IEEE arithmetic does not have.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new periodic capability is one admitted row; a new admission gate is one refused row carrying its reason token — never a second proof entry and never a fixture file, since every row's source is authored inline from its own columns.
@@ -823,23 +823,23 @@ public static class TextureUv {
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PeriodOracle {
-    private PeriodOracle(string name, Func<Op, Fin<TextureSource.Noise>> mint) => (Name, Mint) = (name, mint);
+    private PeriodOracle(string name, Func< Fin<TextureSource.Noise>> mint) => (Name, Mint) = (name, mint);
 
     public string Name { get; }
-    public Func<Op, Fin<TextureSource.Noise>> Mint { get; }
+    public Func< Fin<TextureSource.Noise>> Mint { get; }
 
     public sealed record Admitted(
-        string Name, Func<Op, Fin<TextureSource.Noise>> Mint, double ShiftU, double ShiftV, int Samples, double Tolerance)
+        string Name, Func< Fin<TextureSource.Noise>> Mint, double ShiftU, double ShiftV, int Samples, double Tolerance)
         : PeriodOracle(Name, Mint);
-    public sealed record Refused(string Name, Func<Op, Fin<TextureSource.Noise>> Mint, string Reason)
+    public sealed record Refused(string Name, Func< Fin<TextureSource.Noise>> Mint, string Reason)
         : PeriodOracle(Name, Mint);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PeriodProof {
-    static Func<Op, Fin<TextureSource.Noise>> Row(NoiseBasis basis, double frequency, int octaves, double lacunarity, int period,
+    static Func< Fin<TextureSource.Noise>> Row(NoiseBasis basis, double frequency, int octaves, double lacunarity, int period,
         FractalMode? fractal = null, CellularParams? cellular = null, DomainWarp? warp = null, bool solid = false) =>
-        key => TextureSource.Noise.Of(basis, frequency, key,
+        key => TextureSource.Noise.Of(basis, frequency,
             octaves: octaves, lacunarity: lacunarity, fractal: fractal, cellular: cellular, warp: warp, solid: solid,
             period: NoisePeriod.Create(period));
 
@@ -859,7 +859,7 @@ public static class PeriodProof {
         new PeriodOracle.Refused("refuse.frequency",   Row(NoiseBasis.Perlin, frequency: 6.0, octaves: 1, lacunarity: 2.0, period: 4), "<noise-period-frequency-not-multiple"),
         new PeriodOracle.Refused("refuse.warpfreq",    Row(NoiseBasis.Perlin, frequency: 4.0, octaves: 1, lacunarity: 2.0, period: 4, warp: new DomainWarp(0.35, 1.5, 99)), "<noise-period-fractional-warp-frequency"));
 
-    public static Fin<Unit> Prove(PeriodOracle row, Op key) =>
+    public static Fin<Unit> Prove(PeriodOracle row) =>
         row.Switch(
             state:    key,
             admitted: static (k, a) => a.Mint(k).Bind(source => Shifted(source, a, k)),
@@ -870,15 +870,14 @@ public static class PeriodProof {
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-oracle-wrong-refusal:{r.Name}:{error.Code}>"))));
 
-    static Fin<Unit> Shifted(TextureSource.Noise source, PeriodOracle.Admitted row, Op key) =>
-        from seam in Tolerance.Of(ToleranceLane.Residual, row.Tolerance, key)
+    static Fin<Unit> Shifted(TextureSource.Noise source, PeriodOracle.Admitted row) =>
+        from seam in Tolerance.Of(ToleranceLane.Residual, row.Tolerance)
         from _ in toSeq(Enumerable.Range(0, row.Samples))
             .Map(i => (U: (i + 0.5) / row.Samples, V: ((i * 7919) % row.Samples + 0.5) / row.Samples))
             .Map(at => (At: at, Delta: Math.Abs(Field(source, at.U, at.V) - Field(source, at.U + row.ShiftU, at.V + row.ShiftV))))
             .Filter(probe => !(probe.Delta <= seam.Value))
             .Head
-            .TraverseM(probe => Fin.Fail<Unit>(new MaterialFault.Parameter(key,
-                $"<period-oracle-seam:{row.Name}:{seam.Lane.Key}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>"))).As()
+            .TraverseM(probe => Fin.Fail<Unit>(new MaterialFault.Parameter($"<period-oracle-seam:{row.Name}:{seam.Lane.Key}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>"))).As()
         select unit;
 
     static double Field(TextureSource.Noise source, double u, double v) =>

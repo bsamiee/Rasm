@@ -854,7 +854,7 @@ public sealed partial class Machine {
         ref KinematicClass topology,
         ref Set<CoolantDelivery> coolant,
         ref Seq<MachineCapacity> capacities) {
-        if (!(Witness.Keyed(key)
+        if (!(Witness.Keyed()
             && !processes.IsEmpty
             && !axes.IsEmpty
             && axes.Count >= topology.MinAxes
@@ -874,13 +874,13 @@ public sealed partial class Machine {
             out Machine machine).Admitted(machine);
 
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out Machine? item) {
-        item = Optional(value).Bind(key => Registry.Value.Find(key)).Match<Machine?>(static machine => machine, static () => null);
+        item = Optional(value).Bind(key => Registry.Value.Find()).Match<Machine?>(static machine => machine, static () => null);
         return item is null ? new ValidationError("machine:unknown") : null;
     }
 
-    public static Fin<Machine> Resolve(string key) => Optional(key)
+    public static Fin<Machine> Resolve(string key) => Optional()
         .Bind(value => Registry.Value.Find(value))
-        .ToFin(new FabricationFault.UnknownAxis(nameof(Machine), key));
+        .ToFin(new FabricationFault.UnknownAxis(nameof(Machine)));
 
     public string ToValue() => Key;
 

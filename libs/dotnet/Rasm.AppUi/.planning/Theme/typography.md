@@ -204,7 +204,7 @@ public sealed partial class TypographyRole {
     private static TypographyRole Row(
         string key, Rasm.Contracts.Ui.TypographyRole wire, int size, LeadingClass leading, int rung, TrimPolicy trim,
         FeatureFacet? numerals = null, FeatureFacet? casing = null, FamilyLane? lane = null, double trackingBias = 0d, int? heading = null) =>
-        new(key, wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
+        new(wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
             lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
 
     static partial void ValidateConstructorArguments(
@@ -462,7 +462,6 @@ public sealed partial class FontChain {
 }
 
 public sealed class FaceInstance : IDisposable {
-    static readonly Op OpenOp = Op.Of(name: "typography.face.open");
 
     readonly Blob blob;
     readonly Face face;
@@ -489,7 +488,7 @@ public sealed class FaceInstance : IDisposable {
     public static Fin<FaceInstance> Open(SKTypeface resolved, FaceRequest request) {
         SKTypeface instanced = Instanced(resolved, request);
         SKStreamAsset? stream = null; Blob? blob = null; Face? face = null; Font? font = null; SKTypeface? palettized = null;
-        return OpenOp.Catch(() => {
+        return Try.lift(() => {
             stream = instanced.OpenStream(out int ttcIndex);
             blob = stream.ToHarfBuzzBlob();
             face = new Face(blob, ttcIndex);
@@ -501,7 +500,7 @@ public sealed class FaceInstance : IDisposable {
             palettized = palette.Match(Some: index => instanced.Clone(index), None: () => instanced);
             Option<SKTypeface> superseded = ReferenceEquals(palettized, instanced) ? None : Some(instanced);
             return Probe(font).Map(admitted => new FaceInstance(stream, blob, face, font, palettized, superseded, palette, admitted));
-        })
+        }).Run().Bind(static inner => inner)
         .Rollback(font, face, blob, stream, ReferenceEquals(palettized, instanced) ? null : palettized, instanced);
     }
 
@@ -549,7 +548,6 @@ public sealed class FaceInstance : IDisposable {
 }
 
 public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
-    static readonly Op LeaseOp = Op.Of(name: "typography.face.lease");
     readonly Atom<HashMap<FaceKey, FaceInstance>> instances = Atom(HashMap<FaceKey, FaceInstance>());
 
     public readonly record struct FaceKey(string Family, int Weight, SKFontStyleWidth Width, TypeSlant Slant, double Size, PalettePosture Palette);
@@ -563,13 +561,13 @@ public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
     Fin<FaceInstance> Leased(SKTypeface typeface, FaceRequest request) =>
         new FaceKey(typeface.FamilyName, request.Weight, request.Width, request.Slant,
             typeface.VariationDesignParameterCount > 0 ? request.Size : 0d, request.Palette) switch {
-            var key => instances.Value.Find(key).Match(
+            var key => instances.Value.Find().Match(
                 Some: Fin.Succ,
                 None: () => FaceInstance.Open(typeface, request).Bind(opened =>
-                    Cell.Step(instances, map => map.ContainsKey(key) ? None : Some(map.Add(key, opened)), LeaseOp.InvalidResult()) switch {
+                    Cell.Step(instances, map => map.ContainsKey() ? None : Some(map.Add(opened)), new KernelFault.InvalidResult()) switch {
                         Transition<HashMap<FaceKey, FaceInstance>>.Committed => Fin.Succ(opened),
-                        Transition<HashMap<FaceKey, FaceInstance>> settled => (fun(opened.Dispose)(), settled.Current.Find(key)).Item2
-                            .ToFin(Fail: LeaseOp.InvalidResult()),
+                        Transition<HashMap<FaceKey, FaceInstance>> settled => (fun(opened.Dispose)(), settled.Current.Find()).Item2
+                            .ToFin(Fail: new KernelFault.InvalidResult()),
                     })),
         };
 
@@ -599,7 +597,7 @@ public static class FontAdmission {
 - Owner: `RunSpec` the paragraph-level segment policy; `TextSegment` the itemized run; `TextItemizer` the segmentation fold; `ClusterMark` the per-cluster source, pen, and shaper-flag record; `BreakClass` the break vocabulary over the `BreakStrength` ordinal; `RasterTrait` the host font knobs a `RenderPosture` row grants; `ShapedRun` and `ShapedText` the shaped products; `TextLine` with `LineEnd` the laid line; `FeatureAdmission` the one tag mint; `ShapeKey` the complete cache determinant; `RenderPosture` the declared per-surface-class font posture; `LineBreaker` the three trim-row folds; `ShapingSurface` the one shape-then-lay-then-draw fold.
 - Cases: `RenderPosture` = live | capture | paged | layer; `BreakClass` = none | space | hyphen | ideograph | mandatory; `BreakStrength` = none | opportunity | mandatory; `RasterTrait` = subpixel | linear-metrics | baseline-snap; `LineEnd` = wrapped | elided | clipped | final.
 - Law: shaping precedes drawing for every Skia-rendered glyph, and itemization precedes shaping. A segment is a maximal run of one script, one direction, and one face instance; an uncovered or ill-formed codepoint refuses the whole itemization. A shaped text is a cache LEASE — the `BudgetedCache` at `Theme/assets#ASSET_CACHE` is the sole owner of every blob it holds under the `Generation` retention posture, so disposing a leased text at a call site is the deleted form. Every host-variable font knob is a `RasterTrait` grant on a declared posture per surface class.
-- Entry: `ShapingSurface.Cache(long ceiling, Op key)` — mints the shaped-run lease over the folder cache owner with this page's cost and release; `ShapingSurface.Shape(text, style, spec, request, cabinet, posture, cache)` — the one shaping fold, itemizing then shaping then leasing; `ShapingSurface.Layout(ShapedText text, string source, double width, Func<Rune, BreakClass>? oracle = null)` — the trim-row line fold with every baseline populated off the metrics policy; `ShapingSurface.DrawLabel(canvas, text, paint, x, y)` — the one draw; `TextItemizer.Itemize(text, spec, request, cabinet)`; `FeatureAdmission.Admit(string tag, uint value = 1u, Option<(uint Start, uint End)> range = default)`.
+- Entry: `ShapingSurface.Cache(long ceiling)` — mints the shaped-run lease over the folder cache owner with this page's cost and release; `ShapingSurface.Shape(text, style, spec, request, cabinet, posture, cache)` — the one shaping fold, itemizing then shaping then leasing; `ShapingSurface.Layout(ShapedText text, string source, double width, Func<Rune, BreakClass>? oracle = null)` — the trim-row line fold with every baseline populated off the metrics policy; `ShapingSurface.DrawLabel(canvas, text, paint, x, y)` — the one draw; `TextItemizer.Itemize(text, spec, request, cabinet)`; `FeatureAdmission.Admit(string tag, uint value = 1u, Option<(uint Start, uint End)> range = default)`.
 - Evidence: `Buffer.SerializeGlyphs(Font, SerializeFormat.Json, SerializeFlag.GlyphFlags)` is the shaping channel the proof lane diffs beside the frame hash.
 - Packages: SkiaSharp.HarfBuzz, SkiaSharp, HarfBuzzSharp, LanguageExt.Core, Rasm (kernel `CapabilitySet`), BCL inbox
 - Growth: a new script is one segmentation outcome on the same fold; a new surface class is one `RenderPosture` row; a new break rule is one `BreakClass` row or one composition-supplied oracle; a new trim behaviour is one `TrimPolicy` row carrying its fold; zero new surface.
@@ -809,14 +807,11 @@ public static class TextItemizer {
 }
 
 public static class ShapingSurface {
-    static readonly Op ShapeOp = Op.Of(name: "typography.shape");
-    static readonly Op DrawOp = Op.Of(name: "typography.draw");
-    public static Fin<BudgetedCache<ShapeKey, ShapedText>> Cache(long ceiling, Op key) =>
+    public static Fin<BudgetedCache<ShapeKey, ShapedText>> Cache(long ceiling) =>
         BudgetedCache<ShapeKey, ShapedText>.Of(
             ceiling, RetentionPosture.Generation,
             bytes: static text => text.Bytes, release: static text => text.Dispose(),
-            refuse: static (shape, cost) => new ThemeFault.ShapingRejected($"<shape-over-budget:{shape.Style}:{cost}>"),
-            key: key);
+            refuse: static (shape, cost) => new ThemeFault.ShapingRejected($"<shape-over-budget:{shape.Style}:{cost}>"));
 
     public static Fin<ShapedText> Shape(
         string text, TextStyleRow style, RunSpec spec, FaceRequest request, FaceCabinet cabinet, RenderPosture posture,
@@ -843,7 +838,7 @@ public static class ShapingSurface {
 
     static Fin<ShapedRun> Native(
         string text, TextStyleRow style, RunSpec spec, RenderPosture posture, TextSegment segment, SKPoint origin, Feature[] features) =>
-        ShapeOp.Catch(() => {
+        Try.lift(() => {
             using SKFont raster = posture.Raster(segment.Face, style);
             using Buffer buffer = new();
             buffer.AddUtf16(text, segment.Start, segment.Length);
@@ -868,7 +863,7 @@ public static class ShapingSurface {
                 cursor = new SKPoint(cursor.X + (positions[i].XAdvance * horizontal) + tracking, cursor.Y - (positions[i].YAdvance * unit));
             }
             return Fin.Succ((Blob: Optional(builder.Build()), Cursor: cursor, Clusters: clusters.MoveToImmutable(), Metrics: raster.Metrics));
-        })
+        }).Run().Bind(static inner => inner)
         .Bind(shaped => shaped.Blob
             .Map(blob => new ShapedRun(blob, origin, shaped.Cursor, shaped.Clusters, segment.Face, shaped.Metrics))
             .ToFin(Fail: new ThemeFault.ShapingRejected($"empty run at {segment.Start}")));
@@ -882,7 +877,7 @@ public static class ShapingSurface {
             });
 
     public static Fin<Unit> DrawLabel(SKCanvas canvas, ShapedText text, SKPaint paint, float x, float y) =>
-        DrawOp.Catch(() => Fin.Succ(text.Runs.Iter(run => canvas.DrawText(run.Blob, x + run.Origin.X, y + run.Origin.Y, paint))));
+        Try.lift(() => Fin.Succ(text.Runs.Iter(run => canvas.DrawText(run.Blob, x + run.Origin.X, y + run.Origin.Y, paint)))).Run().Bind(static inner => inner);
 
     public static string Evidence(string text, RunSpec spec, TextSegment segment) {
         using Buffer buffer = new();

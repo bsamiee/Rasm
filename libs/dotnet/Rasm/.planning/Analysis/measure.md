@@ -58,37 +58,34 @@ public abstract partial record Measure {
         centerCase: static _ => Center<TGeometry, TOut>(),
         massPropertyCase: static p => Mass<TGeometry, TOut>(mass: p.Mass, property: p.Property));
 
-    private static readonly Op LengthKey = Op.Of(name: nameof(Length)), CenterKey = Op.Of(name: nameof(Center));
 
     private static Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TOut) == typeof(double) && Capability.CurveForm.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, double>.Build(key: LengthKey, requirement: Some(Requirement.CurveLength), requiresContext: true, state: LengthKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from length in MassKind.LengthOf(geometry: geometry, context: context, op: op).ToEff()
-                    from result in op.Accept(value: length).ToEff()
+                    from length in MassKind.LengthOf(geometry: geometry, context: context).ToEff()
+                    from result in Acceptance.Rows(value: length).ToEff()
                     select result).As<TGeometry, TOut>(key: LengthKey)
-            : LengthKey.Unsupported<TGeometry, TOut>();
+            : new KernelFault.Unsupported();
     private static Operation<TGeometry, TOut> Center<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TOut) == typeof(Point3d) && Capability.Bound.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(key: CenterKey, requiresContext: true, state: CenterKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from center in MassKind.CentroidOf(geometry: geometry, context: context, op: op).ToEff()
-                    from result in op.Accept(value: center).ToEff()
+                    from center in MassKind.CentroidOf(geometry: geometry, context: context).ToEff()
+                    from result in Acceptance.Rows(value: center).ToEff()
                     select result).As<TGeometry, TOut>(key: CenterKey)
-            : CenterKey.Unsupported<TGeometry, TOut>();
+            : new KernelFault.Unsupported();
     private static Operation<TGeometry, TOut> Mass<TGeometry, TOut>(MassKind mass, MassProperty property) where TGeometry : notnull {
-        Op key = Op.Of(name: $"{mass.Key}{property.Key}");
         return property.Output.Serves<TOut>()
-            ? Analysis.Operation<TGeometry, TOut>.Aggregate(
-                key: key, requirement: Some(mass.Requirement), requiresContext: true,
+            ? Analysis.Operation<TGeometry, TOut>.Aggregate(requirement: Some(mass.Requirement), requiresContext: true,
                 project: geometry =>
                     from context in Env.Asks
-                    from summed in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, demands: property.Demands(mass: mass), op: key).ToEff()
-                    from values in new Lease<IDisposable>.Owned(Value: summed).Use(handle => property.Extract<TOut>(key: key, mass: mass, handle: handle)).ToEff()
+                    from summed in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, demands: property.Demands(mass: mass)).ToEff()
+                    from values in new Lease<IDisposable>.Owned(Value: summed).Use(handle => property.Extract<TOut>(mass: mass, handle: handle)).ToEff()
                     select values)
-            : key.Unsupported<TGeometry, TOut>();
+            : new KernelFault.Unsupported();
     }
 }
 
@@ -97,41 +94,38 @@ public sealed partial class MassKind : ICapability<MassKind> {
     public static readonly MassKind Length = new(key: nameof(Length), requirement: Requirement.CurveLength,
         escalation: CapabilitySet<MomentDemand>.Of(MomentDemand.Second), compute: LengthMass, aggregate: LengthBatch,
         centroidOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Map(static held => held.Centroid),
-        axesOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(key: key,
-            solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+        axesOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
             x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis)),
         momentsOf: static (handle, key) => Held<LengthMassProperties>(handle: handle, key: key).Map(static held => new MassMoments(
             Magnitude: held.Length, MagnitudeError: held.LengthError, Centroid: held.Centroid, CentroidError: held.CentroidError,
             Radii: held.CentroidCoordinatesRadiiOfGyration, Inertia: held.WorldCoordinatesMomentsOfInertia, Products: held.WorldCoordinatesProductMoments)));
     public static readonly MassKind Area = new(key: nameof(Area), requirement: Requirement.AreaMass,
         escalation: CapabilitySet<MomentDemand>.None, compute: AreaMass,
-        aggregate: static (geometry, context, demands, op) => SumBatch<AreaMassProperties>(geometry: geometry, context: context, compute: AreaMass, demands: demands, op: op, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
+        aggregate: static (geometry, context, demands, op) => SumBatch<AreaMassProperties>(geometry: geometry, context: context, compute: AreaMass, demands: demands, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
         centroidOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Map(static held => held.Centroid),
-        axesOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(key: key,
-            solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+        axesOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
             x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis)),
         momentsOf: static (handle, key) => Held<AreaMassProperties>(handle: handle, key: key).Map(static held => new MassMoments(
             Magnitude: held.Area, MagnitudeError: held.AreaError, Centroid: held.Centroid, CentroidError: held.CentroidError,
             Radii: held.CentroidCoordinatesRadiiOfGyration, Inertia: held.WorldCoordinatesMomentsOfInertia, Products: held.WorldCoordinatesProductMoments)));
     public static readonly MassKind Volume = new(key: nameof(Volume), requirement: Requirement.VolumeMass,
         escalation: CapabilitySet<MomentDemand>.None, compute: VolumeMass,
-        aggregate: static (geometry, context, demands, op) => SumBatch<VolumeMassProperties>(geometry: geometry, context: context, compute: VolumeMass, demands: demands, op: op, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
+        aggregate: static (geometry, context, demands, op) => SumBatch<VolumeMassProperties>(geometry: geometry, context: context, compute: VolumeMass, demands: demands, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
         centroidOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Map(static held => held.Centroid),
-        axesOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(key: key,
-            solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+        axesOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Bind(held => AxesFrom(solved: held.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
             x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis)),
         momentsOf: static (handle, key) => Held<VolumeMassProperties>(handle: handle, key: key).Map(static held => new MassMoments(
             Magnitude: held.Volume, MagnitudeError: held.VolumeError, Centroid: held.Centroid, CentroidError: held.CentroidError,
             Radii: held.CentroidCoordinatesRadiiOfGyration, Inertia: held.WorldCoordinatesMomentsOfInertia, Products: held.WorldCoordinatesProductMoments)));
     internal Requirement Requirement { get; }
     internal CapabilitySet<MomentDemand> Escalation { get; }
-    [UseDelegateFromConstructor] internal partial Fin<IDisposable> Compute(object geometry, Context context, CapabilitySet<MomentDemand> demands, Op op);
-    [UseDelegateFromConstructor] internal partial Fin<IDisposable> Aggregate(IEnumerable<object> geometry, Context context, CapabilitySet<MomentDemand> demands, Op op);
-    [UseDelegateFromConstructor] internal partial Fin<Point3d> CentroidOf(IDisposable handle, Op key);
-    [UseDelegateFromConstructor] internal partial Fin<Seq<(double Moment, Vector3d Axis)>> AxesOf(IDisposable handle, Op key);
-    [UseDelegateFromConstructor] internal partial Fin<MassMoments> MomentsOf(IDisposable handle, Op key);
-    private static Fin<TMass> Held<TMass>(IDisposable handle, Op key) where TMass : class, IDisposable =>
-        Optional(handle as TMass).ToFin(key.InvalidResult(detail: typeof(TMass).Name));
+    [UseDelegateFromConstructor] internal partial Fin<IDisposable> Compute(object geometry, Context context, CapabilitySet<MomentDemand> demands);
+    [UseDelegateFromConstructor] internal partial Fin<IDisposable> Aggregate(IEnumerable<object> geometry, Context context, CapabilitySet<MomentDemand> demands);
+    [UseDelegateFromConstructor] internal partial Fin<Point3d> CentroidOf(IDisposable handle);
+    [UseDelegateFromConstructor] internal partial Fin<Seq<(double Moment, Vector3d Axis)>> AxesOf(IDisposable handle);
+    [UseDelegateFromConstructor] internal partial Fin<MassMoments> MomentsOf(IDisposable handle);
+    private static Fin<TMass> Held<TMass>(IDisposable handle) where TMass : class, IDisposable =>
+        Optional(handle as TMass).ToFin(new KernelFault.InvalidResult(Detail: Some(typeof(TMass).Name)));
     internal static Option<MassKind> KindOf(GeometryBase geometry) => geometry switch {
         Curve => Some(Length),
         Brep brep => Some(brep.IsSolid ? Volume : Area),
@@ -140,32 +134,32 @@ public sealed partial class MassKind : ICapability<MassKind> {
         Surface surface => Some(surface.IsSolid ? Volume : Area),
         _ => Option<MassKind>.None,
     };
-    internal static Fin<Plane> PrincipalFrameOf(GeometryBase geometry, Context context, Op key) =>
-        KindOf(geometry: geometry).ToFin(key.Unsupported(inputType: geometry.GetType(), outputType: typeof(Plane)))
-            .Bind(kind => kind.Compute(geometry: geometry, context: context, demands: CapabilitySet<MomentDemand>.All, op: key)
-                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => kind.PrincipalFrameOf(handle: mass, key: key))));
-    internal Fin<Plane> PrincipalFrameOf(IDisposable handle, Op key) =>
-        from centroid in CentroidOf(handle: handle, key: key)
-        from axes in AxesOf(handle: handle, key: key)
+    internal static Fin<Plane> PrincipalFrameOf(GeometryBase geometry, Context context) =>
+        KindOf(geometry: geometry).ToFin(new KernelFault.Unsupported(InputType: geometry.GetType(), OutputType: typeof(Plane)))
+            .Bind(kind => kind.Compute(geometry: geometry, context: context, demands: CapabilitySet<MomentDemand>.All)
+                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => kind.PrincipalFrameOf(handle: mass))));
+    internal Fin<Plane> PrincipalFrameOf(IDisposable handle) =>
+        from centroid in CentroidOf(handle: handle)
+        from axes in AxesOf(handle: handle)
         from frame in (axes.Count, centroid.IsValid) switch {
-            ( >= 2, true) => key.AcceptValue(value: new Plane(origin: centroid, xDirection: axes[0].Axis, yDirection: axes[1].Axis)),
-            _ => Fin.Fail<Plane>(key.InvalidResult()),
+            ( >= 2, true) => Acceptance.Value(value: new Plane(origin: centroid, xDirection: axes[0].Axis, yDirection: axes[1].Axis)),
+            _ => Fin.Fail<Plane>(new KernelFault.InvalidResult()),
         }
         select frame;
-    internal static Fin<double> LengthOf<TGeometry>(TGeometry geometry, Context context, Op op) where TGeometry : notnull =>
+    internal static Fin<double> LengthOf<TGeometry>(TGeometry geometry, Context context) where TGeometry : notnull =>
         geometry switch {
             Line line => Fin.Succ(line.Length),
             Polyline polyline => Fin.Succ(polyline.Length),
             Circle circle => Fin.Succ(circle.Circumference),
             Arc arc => Fin.Succ(arc.Length),
-            Ellipse ellipse => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Bind(curve => new Lease<Curve>.Owned(Value: curve).Use(native => LengthOf(geometry: native, context: context, op: op))),
+            Ellipse ellipse => Optional(ellipse.ToNurbsCurve()).ToFin(new KernelFault.InvalidResult()).Bind(curve => new Lease<Curve>.Owned(Value: curve).Use(native => LengthOf(geometry: native, context: context))),
             Curve curve => curve.GetLength(context.Fractional) switch {
                 double length when ValidityClaim.Nonnegative(length).Holds => Fin.Succ(length),
-                _ => Fin.Fail<double>(op.InvalidResult()),
+                _ => Fin.Fail<double>(new KernelFault.InvalidResult()),
             },
-            _ => Fin.Fail<double>(op.Unsupported(geometry.GetType(), typeof(double))),
+            _ => Fin.Fail<double>(new KernelFault.Unsupported(geometry.GetType(), typeof(double))),
         };
-    internal static Fin<Point3d> CentroidOf<TGeometry>(TGeometry geometry, Context context, Op op) where TGeometry : notnull =>
+    internal static Fin<Point3d> CentroidOf<TGeometry>(TGeometry geometry, Context context) where TGeometry : notnull =>
         geometry switch {
             Point3d point => Fin.Succ(point),
             Point point => Fin.Succ(point.Location),
@@ -174,56 +168,56 @@ public sealed partial class MassKind : ICapability<MassKind> {
             BoundingBox box => Fin.Succ(box.Center),
             Box box => Fin.Succ(box.Center),
             Curve curve => (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value)) switch {
-                (false, _) => Optional(LengthMassProperties.Compute(curve)).ToFin(op.InvalidResult()).Map(static m => new Lease<LengthMassProperties>.Owned(Value: m).Use(static handle => handle.Centroid)),
-                (true, true) => Optional(AreaMassProperties.Compute(curve, context.Absolute.Value)).ToFin(op.InvalidResult()).Map(static m => new Lease<AreaMassProperties>.Owned(Value: m).Use(static handle => handle.Centroid)),
-                _ => Fin.Fail<Point3d>(op.InvalidResult()),
+                (false, _) => Optional(LengthMassProperties.Compute(curve)).ToFin(new KernelFault.InvalidResult()).Map(static m => new Lease<LengthMassProperties>.Owned(Value: m).Use(static handle => handle.Centroid)),
+                (true, true) => Optional(AreaMassProperties.Compute(curve, context.Absolute.Value)).ToFin(new KernelFault.InvalidResult()).Map(static m => new Lease<AreaMassProperties>.Owned(Value: m).Use(static handle => handle.Centroid)),
+                _ => Fin.Fail<Point3d>(new KernelFault.InvalidResult()),
             },
-            SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Bind(brep => new Lease<Brep>.Owned(Value: brep).Use(owned => MassCentroid(geometry: owned, context: context, op: op))),
-            GeometryBase native when KindOf(geometry: native).IsSome => MassCentroid(geometry: native, context: context, op: op),
-            _ => Fin.Fail<Point3d>(op.Unsupported(geometry.GetType(), typeof(Point3d))),
+            SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(new KernelFault.InvalidResult()).Bind(brep => new Lease<Brep>.Owned(Value: brep).Use(owned => MassCentroid(geometry: owned, context: context))),
+            GeometryBase native when KindOf(geometry: native).IsSome => MassCentroid(geometry: native, context: context),
+            _ => Fin.Fail<Point3d>(new KernelFault.Unsupported(geometry.GetType(), typeof(Point3d))),
         };
-    private static Fin<Seq<(double Moment, Vector3d Axis)>> AxesFrom(Op key, bool solved, double x, Vector3d xAxis, double y, Vector3d yAxis, double z, Vector3d zAxis) =>
+    private static Fin<Seq<(double Moment, Vector3d Axis)>> AxesFrom(bool solved, double x, Vector3d xAxis, double y, Vector3d yAxis, double z, Vector3d zAxis) =>
         solved
             ? Fin.Succ(Seq((Moment: x, Axis: xAxis), (Moment: y, Axis: yAxis), (Moment: z, Axis: zAxis)))
-            : Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(key.InvalidResult());
-    private static Fin<Point3d> MassCentroid(GeometryBase geometry, Context context, Op op) =>
-        KindOf(geometry: geometry).ToFin(op.Unsupported(inputType: geometry.GetType(), outputType: typeof(Point3d)))
-            .Bind(kind => kind.Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.Of(MomentDemand.First), op: op)
-                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(owned => kind.CentroidOf(handle: owned, key: op))));
-    private static Fin<IDisposable> AdmitHandle<TMass>(TMass? mass, Op op) where TMass : class, IDisposable =>
-        Optional(mass).ToFin(op.InvalidResult(detail: $"mass properties unavailable for {typeof(TMass).Name}")).Map(static handle => (IDisposable)handle);
-    private static Fin<IDisposable> LengthMass(object geometry, Context _, CapabilitySet<MomentDemand> demands, Op op) =>
-        Normalization.CurveForm(source: geometry, key: op).Bind(lease => lease.Use(curve =>
-            AdmitHandle(LengthMassProperties.Compute(curve, length: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)), op: op)));
-    private static Fin<IDisposable> AreaMass(object geometry, Context context, CapabilitySet<MomentDemand> demands, Op op) => geometry switch {
-        Mesh mesh => AdmitHandle(AreaMassProperties.Compute(mesh, area: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)), op: op),
-        Curve curve => AdmitHandle(AreaMassProperties.Compute(curve, context.Absolute.Value), op: op),
-        object curveLike when Capability.CurveForm.Admits(type: curveLike.GetType()) => Normalization.CurveForm(source: curveLike, key: op).Bind(lease => lease.Use(curve => AreaMass(geometry: curve, context: context, demands: demands, op: op))),
-        Brep brep => AdmitHandle(AreaMassProperties.Compute(brep, area: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product), relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value), op: op),
-        Surface surface => AdmitHandle(AreaMassProperties.Compute(surface, area: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)), op: op),
+            : Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(new KernelFault.InvalidResult());
+    private static Fin<Point3d> MassCentroid(GeometryBase geometry, Context context) =>
+        KindOf(geometry: geometry).ToFin(new KernelFault.Unsupported(InputType: geometry.GetType(), OutputType: typeof(Point3d)))
+            .Bind(kind => kind.Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.Of(MomentDemand.First))
+                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(owned => kind.CentroidOf(handle: owned))));
+    private static Fin<IDisposable> AdmitHandle<TMass>(TMass? mass) where TMass : class, IDisposable =>
+        Optional(mass).ToFin(new KernelFault.InvalidResult(Detail: Some($"mass properties unavailable for {typeof(TMass).Name}"))).Map(static handle => (IDisposable)handle);
+    private static Fin<IDisposable> LengthMass(object geometry, Context _, CapabilitySet<MomentDemand> demands) =>
+        Normalization.CurveForm(source: geometry).Bind(lease => lease.Use(curve =>
+            AdmitHandle(LengthMassProperties.Compute(curve, length: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)))));
+    private static Fin<IDisposable> AreaMass(object geometry, Context context, CapabilitySet<MomentDemand> demands) => geometry switch {
+        Mesh mesh => AdmitHandle(AreaMassProperties.Compute(mesh, area: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product))),
+        Curve curve => AdmitHandle(AreaMassProperties.Compute(curve, context.Absolute.Value)),
+        object curveLike when Capability.CurveForm.Admits(type: curveLike.GetType()) => Normalization.CurveForm(source: curveLike).Bind(lease => lease.Use(curve => AreaMass(geometry: curve, context: context, demands: demands))),
+        Brep brep => AdmitHandle(AreaMassProperties.Compute(brep, area: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product), relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
+        Surface surface => AdmitHandle(AreaMassProperties.Compute(surface, area: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product))),
         GeometryBase { HasBrepForm: true } or Box or BoundingBox or Sphere or Cylinder or Cone or Torus =>
-            Normalization.BrepForm(source: geometry, key: op).Bind(lease => lease.Use(brep => AreaMass(geometry: brep, context: context, demands: demands, op: op))),
-        _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(AreaMassProperties))),
+            Normalization.BrepForm(source: geometry).Bind(lease => lease.Use(brep => AreaMass(geometry: brep, context: context, demands: demands))),
+        _ => Fin.Fail<IDisposable>(new KernelFault.Unsupported(geometry.GetType(), typeof(AreaMassProperties))),
     };
-    private static Fin<IDisposable> VolumeMass(object geometry, Context context, CapabilitySet<MomentDemand> demands, Op op) => geometry switch {
-        Mesh mesh => AdmitHandle(VolumeMassProperties.Compute(mesh, volume: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)), op: op),
-        Brep brep => AdmitHandle(VolumeMassProperties.Compute(brep, volume: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product), relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value), op: op),
-        Surface surface => AdmitHandle(VolumeMassProperties.Compute(surface, volume: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)), op: op),
+    private static Fin<IDisposable> VolumeMass(object geometry, Context context, CapabilitySet<MomentDemand> demands) => geometry switch {
+        Mesh mesh => AdmitHandle(VolumeMassProperties.Compute(mesh, volume: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product))),
+        Brep brep => AdmitHandle(VolumeMassProperties.Compute(brep, volume: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product), relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
+        Surface surface => AdmitHandle(VolumeMassProperties.Compute(surface, volume: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product))),
         GeometryBase { HasBrepForm: true } or Box or BoundingBox or Sphere or Cylinder or Cone or Torus =>
-            Normalization.BrepForm(source: geometry, key: op).Bind(lease => lease.Use(brep => VolumeMass(geometry: brep, context: context, demands: demands, op: op))),
-        _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(VolumeMassProperties))),
+            Normalization.BrepForm(source: geometry).Bind(lease => lease.Use(brep => VolumeMass(geometry: brep, context: context, demands: demands))),
+        _ => Fin.Fail<IDisposable>(new KernelFault.Unsupported(geometry.GetType(), typeof(VolumeMassProperties))),
     };
-    private static Fin<IDisposable> LengthBatch(IEnumerable<object> geometry, Context context, CapabilitySet<MomentDemand> demands, Op op) =>
+    private static Fin<IDisposable> LengthBatch(IEnumerable<object> geometry, Context context, CapabilitySet<MomentDemand> demands) =>
         toSeq(geometry) switch {
             Seq<object> items when items.ForAll(static item => item is Curve) =>
-                AdmitHandle(LengthMassProperties.Compute(curves: items.AsIterable().Cast<Curve>(), length: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product)), op: op),
-            Seq<object> items => SumBatch<LengthMassProperties>(geometry: items.AsIterable(), context: context, compute: LengthMass, demands: demands, op: op, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
+                AdmitHandle(LengthMassProperties.Compute(curves: items.AsIterable().Cast<Curve>(), length: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product))),
+            Seq<object> items => SumBatch<LengthMassProperties>(geometry: items.AsIterable(), context: context, compute: LengthMass, demands: demands, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
         };
-    private static Fin<IDisposable> SumBatch<TMass>(IEnumerable<object> geometry, Context context, Func<object, Context, CapabilitySet<MomentDemand>, Op, Fin<IDisposable>> compute, CapabilitySet<MomentDemand> demands, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable {
+    private static Fin<IDisposable> SumBatch<TMass>(IEnumerable<object> geometry, Context context, Func<object, Context, CapabilitySet<MomentDemand>, Fin<IDisposable>> compute, CapabilitySet<MomentDemand> demands, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable {
         Atom<Option<IDisposable>> transferred = Atom(value: Option<IDisposable>.None);
-        return IO.lift(() => Acquire(geometry: geometry, context: context, compute: compute, demands: demands, op: op))
+        return IO.lift(() => Acquire(geometry: geometry, context: context, compute: compute, demands: demands))
             .Bracket(
-                Use: batch => IO.lift(() => Summed(batch: batch, op: op, sum: sum)
+                Use: batch => IO.lift(() => Summed(batch: batch, sum: sum)
                     .Map(active => { _ = transferred.Swap(f: _ => Some(active)); return active; })),
                 Catch: static (Error error) => IO.fail<IDisposable>(error),
                 Fin: batch => IO.lift(() => {
@@ -234,22 +228,22 @@ public sealed partial class MassKind : ICapability<MassKind> {
                 }))
             .Run();
     }
-    private static (Seq<IDisposable> Owned, Option<Error> Refused) Acquire(IEnumerable<object> geometry, Context context, Func<object, Context, CapabilitySet<MomentDemand>, Op, Fin<IDisposable>> compute, CapabilitySet<MomentDemand> demands, Op op) =>
+    private static (Seq<IDisposable> Owned, Option<Error> Refused) Acquire(IEnumerable<object> geometry, Context context, Func<object, Context, CapabilitySet<MomentDemand>, Fin<IDisposable>> compute, CapabilitySet<MomentDemand> demands) =>
         toSeq(geometry).Fold(
             (Owned: Seq<IDisposable>(), Refused: Option<Error>.None),
             (state, item) => state.Refused.IsSome
                 ? state
-                : compute(item, context, demands, op).Match(
+                : compute(item, context, demands).Match(
                     Succ: computed => state with { Owned = state.Owned.Add(computed) },
                     Fail: error => state with { Refused = Some(error) }));
-    private static Fin<IDisposable> Summed<TMass>((Seq<IDisposable> Owned, Option<Error> Refused) batch, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable =>
+    private static Fin<IDisposable> Summed<TMass>((Seq<IDisposable> Owned, Option<Error> Refused) batch, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable =>
         batch.Refused.Match(
             Some: Fin.Fail<IDisposable>,
             None: () => toSeq(batch.Owned.AsIterable().Cast<TMass>()) switch {
-                { Count: 0 } => Fin.Fail<IDisposable>(op.InvalidInput(axis: "geometry")),
+                { Count: 0 } => Fin.Fail<IDisposable>(new KernelFault.InvalidInput(Axis: Some("geometry"))),
                 { Count: 1 } single => Fin.Succ<IDisposable>(single[0]),
                 Seq<TMass> masses when sum(arg1: masses[0], arg2: masses.Tail.AsIterable()) => Fin.Succ<IDisposable>(masses[0]),
-                _ => Fin.Fail<IDisposable>(op.InvalidResult(detail: typeof(TMass).Name)),
+                _ => Fin.Fail<IDisposable>(new KernelFault.InvalidResult(Detail: Some(typeof(TMass).Name))),
             });
 }
 
@@ -282,12 +276,12 @@ public sealed partial class MassProperty {
     public OutputBinding Output { get; }
     internal CapabilitySet<MomentDemand> BaseDemands { get; }
     internal CapabilitySet<MomentDemand> Escalates { get; }
-    [UseDelegateFromConstructor] private partial Fin<Seq<object>> Project(MassKind mass, IDisposable handle, Op key);
+    [UseDelegateFromConstructor] private partial Fin<Seq<object>> Project(MassKind mass, IDisposable handle);
     internal CapabilitySet<MomentDemand> Demands(MassKind mass) =>
         mass.Escalation.Held.Where(demand => Escalates.Admits(capability: demand))
             .Aggregate(seed: BaseDemands, func: static (set, demand) => set.With(capability: demand));
-    internal Fin<Seq<TValue>> Extract<TValue>(Op key, MassKind mass, IDisposable handle) =>
-        Project(mass: mass, handle: handle, key: key).Bind(values => Output.Admit<TValue>(values: values, key: key));
+    internal Fin<Seq<TValue>> Extract<TValue>(MassKind mass, IDisposable handle) =>
+        Project(mass: mass, handle: handle).Bind(values => Output.Admit<TValue>(values: values));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -310,14 +304,13 @@ public readonly record struct GeometryMeasures(
         ValidityClaim.Finite(InertiaProducts),
         PrincipalFrame.IsValid);
 
-    public static Fin<GeometryMeasures> Of(GeometryBase geometry, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return MassKind.KindOf(geometry: geometry).ToFin(op.Unsupported(inputType: geometry.GetType(), outputType: typeof(GeometryMeasures)))
-            .Bind(kind => kind.Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.All, op: op)
+    public static Fin<GeometryMeasures> Of(GeometryBase geometry, Context context) {
+        return MassKind.KindOf(geometry: geometry).ToFin(new KernelFault.Unsupported(InputType: geometry.GetType(), OutputType: typeof(GeometryMeasures)))
+            .Bind(kind => kind.Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.All)
                 .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass =>
-                    from moments in kind.MomentsOf(handle: mass, key: op)
-                    from frame in kind.PrincipalFrameOf(handle: mass, key: op)
-                    from bundle in op.AcceptValue(value: new GeometryMeasures(
+                    from moments in kind.MomentsOf(handle: mass)
+                    from frame in kind.PrincipalFrameOf(handle: mass)
+                    from bundle in Acceptance.Value(value: new GeometryMeasures(
                         Kind: kind, Magnitude: moments.Magnitude, MagnitudeError: moments.MagnitudeError,
                         Centroid: moments.Centroid, Radii: moments.Radii, Inertia: moments.Inertia,
                         InertiaProducts: moments.Products, PrincipalFrame: frame))
@@ -334,18 +327,17 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
         Measures.Map(static row => row.Kind).Distinct().Count == Measures.Count,
         Measures.ForAll(static row => row.Kind is not null && ValidityClaim.Nonnegative(row.Magnitude).Holds));
 
-    public static Fin<MeasureBundle> Of(Seq<(MassKind Kind, double Magnitude)> measures, Op? key = null) =>
+    public static Fin<MeasureBundle> Of(Seq<(MassKind Kind, double Magnitude)> measures) =>
         key.OrDefault().AcceptValue(value: new MeasureBundle(Measures: measures));
 
-    public static Fin<MeasureBundle> Of(GeometryBase geometry, CapabilitySet<MassKind> kinds, Context context, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<MeasureBundle> Of(GeometryBase geometry, CapabilitySet<MassKind> kinds, Context context) {
         return toSeq(MassKind.Items).Filter(kinds.Admits)
             .TraverseM(kind => kind
-                .Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.None, op: op)
-                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => kind.MomentsOf(handle: mass, key: op).Map(static moments => moments.Magnitude)))
+                .Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.None)
+                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => kind.MomentsOf(handle: mass).Map(static moments => moments.Magnitude)))
                 .Map(magnitude => (kind, magnitude)))
             .As()
-            .Bind(rows => Of(measures: rows, key: op));
+            .Bind(rows => Of(measures: rows));
     }
 }
 ```
@@ -400,42 +392,41 @@ public abstract partial record Bounds {
     public static Bounds Corners(Option<CornerSet> set = default) => new CornersCase(Set: set.IfNone(CornerSet.All));
 
     private static bool BoxValue(Type type) => type == typeof(BoundingBox) || type == typeof(Box);
-    private static Operation<TGeometry, TOut> Admit<TGeometry, TOut>(string caseName, Func<Type, bool> ingress, Func<Op, Operation<TGeometry, TOut>> build) where TGeometry : notnull {
-        Op key = Op.Of(name: caseName[..^"Case".Length]);
-        return ingress(arg: typeof(TGeometry)) ? build(arg: key) : key.Unsupported<TGeometry, TOut>();
+    private static Operation<TGeometry, TOut> Admit<TGeometry, TOut>(string caseName, Func<Type, bool> ingress, Func< Operation<TGeometry, TOut>> build) where TGeometry : notnull {
+        return ingress(arg: typeof(TGeometry)) ? build(arg: key) : new KernelFault.Unsupported();
     }
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         axisAlignedCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(AxisAlignedCase), ingress: static type => Capability.Bound.Admits(type: type), build: static key =>
-            Analysis.Operation<TGeometry, BoundingBox>.Build(key: key, state: key,
-                evaluator: static (op, geometry) => geometry.BoundsOf(key: op).Bind(box => op.Accept(value: box)).ToEff()).As<TGeometry, TOut>(key: key)),
+            Analysis.Operation<TGeometry, BoundingBox>.Build(state: key,
+                evaluator: static (op, geometry) => geometry.BoundsOf().Bind(box => Acceptance.Rows(value: box)).ToEff()).As<TGeometry, TOut>()),
         orientedCase: static p => Admit<TGeometry, TOut>(caseName: nameof(OrientedCase), ingress: static type => typeof(GeometryBase).IsAssignableFrom(c: type), build: key =>
-            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, Box, (Op Key, Plane Plane)>(key: key, state: (key, p.Plane),
-                project: static (state, native) => state.Key.Accept(value: new Box(state.Plane, native)).ToEff())),
+            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, Box, (Plane Plane)>(state: (p.Plane),
+                project: static (state, native) => Acceptance.Rows(value: new Box(state.Plane, native)).ToEff())),
         transformedCase: static t => Admit<TGeometry, TOut>(caseName: nameof(TransformedCase), ingress: static type => typeof(GeometryBase).IsAssignableFrom(c: type), build: key =>
-            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, BoundingBox, (Op Key, Transform Xform)>(key: key, state: (Key: key, t.Xform),
-                project: static (state, native) => state.Key.Accept(value: native.GetBoundingBox(xform: state.Xform)).ToEff())),
+            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, BoundingBox, (Transform Xform)>(state: (t.Xform),
+                project: static (state, native) => Acceptance.Rows(value: native.GetBoundingBox(xform: state.Xform)).ToEff())),
         principalFrameCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(PrincipalFrameCase), ingress: static type => Capability.OrientedBound.Admits(type: type), build: static key =>
-            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, Box, Op>(key: key, state: key, requirement: Some(Requirement.Basic),
+            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, Box>(state: key, requirement: Some(Requirement.Basic),
                 project: static (state, native) =>
                     from context in Env.Asks
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
-                    from box in state.AcceptValue(value: new Box(frame, native)).ToEff()
-                    from result in state.Accept(value: box).ToEff()
+                    from box in Acceptance.Value(value: new Box(frame, native)).ToEff()
+                    from result in Acceptance.Rows(value: box).ToEff()
                     select result)),
         centerCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(CenterCase), ingress: static type => Capability.Bound.Admits(type: type), build: static key =>
-            Analysis.Operation<TGeometry, Point3d>.Build(key: key, state: key,
-                evaluator: static (op, geometry) => geometry.BoundsOf(key: op).Bind(box => op.Accept(value: box.Center)).ToEff()).As<TGeometry, TOut>(key: key)),
+            Analysis.Operation<TGeometry, Point3d>.Build(state: key,
+                evaluator: static (geometry) => geometry.BoundsOf().Bind(box => Acceptance.Rows(value: box.Center)).ToEff()).As<TGeometry, TOut>()),
         cornersCase: static c => Admit<TGeometry, TOut>(caseName: nameof(CornersCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
-            Analysis.Operation<TGeometry, Point3d>.Build(key: key, requiresContext: true, state: (Key: key, c.Set),
+            Analysis.Operation<TGeometry, Point3d>.Build(requiresContext: true, state: (c.Set),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from box in geometry.BoundsOf(key: state.Key).ToEff()
-                    from result in state.Key.Accept(values: state.Set.Read(box: box, band: context.For(lane: ToleranceLane.Weld))).ToEff()
-                    select result).As<TGeometry, TOut>(key: key)),
+                    from box in geometry.BoundsOf().ToEff()
+                    from result in Acceptance.Rows(values: state.Set.Read(box: box, band: context.For(lane: ToleranceLane.Weld))).ToEff()
+                    select result).As<TGeometry, TOut>()),
         edgesCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(EdgesCase), ingress: static type => type == typeof(BoundingBox), build: static key =>
-            Analysis.Operation<BoundingBox, Line>.Build(key: key, state: key,
-                evaluator: static (op, geometry) => op.Accept(values: geometry.GetEdges()).ToEff()).As<TGeometry, TOut>(key: key)),
+            Analysis.Operation<BoundingBox, Line>.Build(state: key,
+                evaluator: static (geometry) => Acceptance.Rows(values: geometry.GetEdges()).ToEff()).As<TGeometry, TOut>()),
         areaCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(AreaCase), boundingBox: static (box, _) => box.Area, box: static (box, _) => box.Area),
         volumeCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(VolumeCase), boundingBox: static (box, _) => box.Volume, box: static (box, _) => box.Volume),
         diagonalCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(DiagonalCase), boundingBox: static (box, _) => box.Diagonal.Length, box: static (box, _) => box.BoundingBox.Diagonal.Length),
@@ -443,75 +434,75 @@ public abstract partial record Bounds {
             boundingBox: static (box, band) => AspectOf(extents: box.Diagonal, band: band),
             box: static (box, band) => AspectOf(extents: new Vector3d(box.X.Length, box.Y.Length, box.Z.Length), band: band)),
         tightnessCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(TightnessCase), ingress: static type => Capability.OrientedBound.Admits(type: type) && typeof(GeometryBase).IsAssignableFrom(c: type), build: static key =>
-            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, double, Op>(key: key, state: key, requirement: Some(Requirement.Basic),
+            Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, double>(state: key, requirement: Some(Requirement.Basic),
                 project: static (state, native) =>
                     from context in Env.Asks
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
-                    from obb in state.AcceptValue(value: new Box(frame, native)).ToEff()
+                    from obb in Acceptance.Value(value: new Box(frame, native)).ToEff()
                     from aabb in native.BoundsOf(key: state).ToEff()
                     let floor = Math.Pow(x: context.For(lane: ToleranceLane.Length).Value, y: 3.0)
-                    from result in (obb.Volume > floor ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
+                    from result in (obb.Volume > floor ? Acceptance.Rows(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(new KernelFault.InvalidResult())).ToEff()
                     select result)),
         enclosingSphereCase: static s => Admit<TGeometry, TOut>(caseName: nameof(EnclosingSphereCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
-            Analysis.Operation<TGeometry, Sphere>.Build(key: key, requiresContext: true, state: (Key: key, s.Count, s.Fallback),
+            Analysis.Operation<TGeometry, Sphere>.Build(requiresContext: true, state: (s.Count, s.Fallback),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context, key: state.Key).ToEff()
-                    from result in RitterFit(samples: sites, key: state.Key,
-                        construct: (center, radius) => state.Key.AcceptValue(value: new Sphere(center: center, radius: radius))).ToEff()
-                    from accepted in state.Key.Accept(value: result).ToEff()
-                    select accepted).As<TGeometry, TOut>(key: key)),
+                    from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context).ToEff()
+                    from result in RitterFit(samples: sites,
+                        construct: (center, radius) => Acceptance.Value(value: new Sphere(center: center, radius: radius))).ToEff()
+                    from accepted in Acceptance.Rows(value: result).ToEff()
+                    select accepted).As<TGeometry, TOut>()),
         enclosingCircleCase: static c => Admit<TGeometry, TOut>(caseName: nameof(EnclosingCircleCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
-            Analysis.Operation<TGeometry, Circle>.Build(key: key, requiresContext: true, state: (Key: key, c.Plane, c.Count, c.Fallback),
+            Analysis.Operation<TGeometry, Circle>.Build(requiresContext: true, state: (c.Plane, c.Count, c.Fallback),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context, key: state.Key).ToEff()
+                    from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context).ToEff()
                     from projected in Fin.Succ(sites.Choose(p => state.Plane.ClosestParameter(testPoint: p, s: out double s, t: out double t) ? Some(new Point2d(x: s, y: t)) : Option<Point2d>.None)).ToEff()
                     from result in ((projected.Count, Circle.TrySmallestEnclosingCircle(points: projected.AsIterable(), tolerance: context.For(lane: ToleranceLane.Match).Value, circle: out Circle circle, indicesOnCircle: out int[] _), circle) switch {
                         ( > 0, true, { IsValid: true } planar) => Fin.Succ(new Circle(plane: new Plane(origin: state.Plane.PointAt(u: planar.Center.X, v: planar.Center.Y), xDirection: state.Plane.XAxis, yDirection: state.Plane.YAxis), radius: planar.Radius)),
-                        _ => Fin.Fail<Circle>(state.Key.InvalidResult()),
+                        _ => Fin.Fail<Circle>(new KernelFault.InvalidResult()),
                     }).ToEff()
-                    from accepted in state.Key.Accept(value: result).ToEff()
-                    select accepted).As<TGeometry, TOut>(key: key)),
+                    from accepted in Acceptance.Rows(value: result).ToEff()
+                    select accepted).As<TGeometry, TOut>()),
         enclosingCylinderCase: static cy => Admit<TGeometry, TOut>(caseName: nameof(EnclosingCylinderCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
-            Analysis.Operation<TGeometry, Cylinder>.Build(key: key, requiresContext: true, state: (Key: key, cy.Axis, cy.Count, cy.Fallback),
+            Analysis.Operation<TGeometry, Cylinder>.Build(requiresContext: true, state: (cy.Axis, cy.Count, cy.Fallback),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from axis in Rasm.Numerics.Direction.Of(value: state.Axis, context: context, key: state.Key).Map(static direction => direction.Value).ToEff()
-                    from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context, key: state.Key).ToEff()
+                    from axis in Rasm.Numerics.Direction.Of(value: state.Axis, context: context).Map(static direction => direction.Value).ToEff()
+                    from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context).ToEff()
                     let plane = new Plane(origin: Point3d.Origin, normal: axis)
                     from projected in Fin.Succ(sites.Map(plane.ClosestPoint)).ToEff()
-                    from disc in RitterFit(samples: projected, key: state.Key,
+                    from disc in RitterFit(samples: projected,
                         construct: static (center, radius) => Fin.Succ((Center: center, Radius: radius))).ToEff()
                     let extent = sites.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity, Axis: axis), f: static (s, p) => ((p - Point3d.Origin) * s.Axis) switch {
                         double d => (Min: Math.Min(val1: s.Min, val2: d), Max: Math.Max(val1: s.Max, val2: d), s.Axis),
                     })
-                    from result in state.Key.Accept(value: new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min)).ToEff()
-                    select result).As<TGeometry, TOut>(key: key)));
+                    from result in Acceptance.Rows(value: new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min)).ToEff()
+                    select result).As<TGeometry, TOut>()));
 
     private static Operation<TGeometry, TOut> Metric<TGeometry, TOut>(string caseName, Func<BoundingBox, Tolerance, double> boundingBox, Func<Box, Tolerance, double> box) where TGeometry : notnull =>
         Admit<TGeometry, TOut>(caseName: caseName, ingress: BoxValue, build: key => typeof(TGeometry) == typeof(BoundingBox)
-            ? Analysis.Operation<BoundingBox, double>.Build(key: key, requiresContext: true, state: (Key: key, Project: boundingBox),
+            ? Analysis.Operation<BoundingBox, double>.Build(requiresContext: true, state: (Key: key, Project: boundingBox),
                 evaluator: static (state, value) =>
                     from context in Env.Asks
-                    from validated in state.Key.AcceptValue(value: value).ToEff()
-                    from result in state.Key.Accept(value: state.Project(arg1: validated, arg2: context.For(lane: ToleranceLane.Length))).ToEff()
-                    select result).As<TGeometry, TOut>(key: key)
-            : Analysis.Operation<Box, double>.Build(key: key, requiresContext: true, state: (Key: key, Project: box),
+                    from validated in Acceptance.Value(value: value).ToEff()
+                    from result in Acceptance.Rows(value: state.Project(arg1: validated, arg2: context.For(lane: ToleranceLane.Length))).ToEff()
+                    select result).As<TGeometry, TOut>()
+            : Analysis.Operation<Box, double>.Build(requiresContext: true, state: (Key: key, Project: box),
                 evaluator: static (state, value) =>
                     from context in Env.Asks
-                    from validated in state.Key.AcceptValue(value: value).ToEff()
-                    from result in state.Key.Accept(value: state.Project(arg1: validated, arg2: context.For(lane: ToleranceLane.Length))).ToEff()
-                    select result).As<TGeometry, TOut>(key: key));
+                    from validated in Acceptance.Value(value: value).ToEff()
+                    from result in Acceptance.Rows(value: state.Project(arg1: validated, arg2: context.For(lane: ToleranceLane.Length))).ToEff()
+                    select result).As<TGeometry, TOut>());
     private static double AspectOf(Vector3d extents, Tolerance band) {
         double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
         return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), band.Value);
     }
     private const int SampleFloor = 4, SampleCeiling = 4096;
-    private static Fin<Seq<Point3d>> Enclosing<TGeometry>(TGeometry geometry, Option<int> count, Option<CornerSet> fallback, Context context, Op key) where TGeometry : notnull =>
-        geometry.BoundsOf(key: key)
-            .Bind(box => guard(box.IsValid, key.InvalidInput()).ToFin().Map(_ => box))
-            .Bind(box => geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: count.IfNone(() => (int)Math.Clamp(value: Math.Ceiling(a: box.Diagonal.Length / context.For(lane: ToleranceLane.Chord).Value), min: SampleFloor, max: SampleCeiling))), Model: context), key: key)
+    private static Fin<Seq<Point3d>> Enclosing<TGeometry>(TGeometry geometry, Option<int> count, Option<CornerSet> fallback, Context context) where TGeometry : notnull =>
+        geometry.BoundsOf()
+            .Bind(box => guard(box.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => box))
+            .Bind(box => geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: count.IfNone(() => (int)Math.Clamp(value: Math.Ceiling(a: box.Diagonal.Length / context.For(lane: ToleranceLane.Chord).Value), min: SampleFloor, max: SampleCeiling))), Model: context))
                 .BindFail(error => (error, fallback.Case) switch {
                     (KernelFault.Unsupported, CornerSet set) => Fin.Succ(set.Read(box: box, band: context.For(lane: ToleranceLane.Weld))),
                     _ => Fin.Fail<Seq<Point3d>>(error),
@@ -523,9 +514,9 @@ public abstract partial record Bounds {
                 double sq when sq > state.SqDist => state with { Best = p, SqDist = sq },
                 _ => state,
             }).Best;
-    private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Op key, Func<Point3d, double, Fin<T>> construct) =>
+    private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Func<Point3d, double, Fin<T>> construct) =>
         (samples.Count switch {
-            0 => Fin.Fail<(Point3d Center, double Radius)>(key.InvalidResult()),
+            0 => Fin.Fail<(Point3d Center, double Radius)>(new KernelFault.InvalidResult()),
             1 => Fin.Succ((Center: samples[0], Radius: 0.0)),
             _ => Fin.Succ(FarthestFrom(samples: samples, anchor: samples[0]) switch {
                 Point3d p1 => FarthestFrom(samples: samples, anchor: p1) switch {
@@ -580,26 +571,26 @@ public sealed partial class ConformanceMetric {
     public static readonly ConformanceMetric Distance = new(key: 0, output: OutputBinding.Of<double>(), traits: CapabilitySet<ResidualTrait>.None,
         reduce: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample.Distance)));
     public static readonly ConformanceMetric Rms = new(key: 1, output: OutputBinding.Of<double>(), traits: CapabilitySet<ResidualTrait>.None,
-        reduce: static (residuals, _, band, key) => Moments(samples: residuals, band: band, key: key).Map(static stat => Seq((object)stat.Rms)));
+        reduce: static (residuals, _, band, key) => Moments(samples: residuals, band: band).Map(static stat => Seq((object)stat.Rms)));
     public static readonly ConformanceMetric WithinTolerance = new(key: 2, output: OutputBinding.Of<bool>(), traits: CapabilitySet<ResidualTrait>.Of(ResidualTrait.Exact),
-        reduce: static (residuals, _, band, key) => Moments(samples: residuals, band: band, key: key).Map(static stat => Seq((object)stat.WithinBand.Holds)));
+        reduce: static (residuals, _, band, key) => Moments(samples: residuals, band: band).Map(static stat => Seq((object)stat.WithinBand.Holds)));
     public static readonly ConformanceMetric Summary = new(key: 3, output: OutputBinding.Of<Stat<Scalar>>(), traits: CapabilitySet<ResidualTrait>.None,
-        reduce: static (residuals, _, band, key) => Moments(samples: residuals, band: band, key: key).Map(static stat => Seq((object)stat)));
+        reduce: static (residuals, _, band, key) => Moments(samples: residuals, band: band).Map(static stat => Seq((object)stat)));
     public static readonly ConformanceMetric Maximum = new(key: 4, output: OutputBinding.Of<ResidualSample>(), traits: CapabilitySet<ResidualTrait>.Of(ResidualTrait.Exact),
         reduce: static (residuals, _, band, key) =>
             Stat.Extrema(items: residuals, projection: static sample => Math.Abs(sample.Distance), band: band, direction: ExtremumDirection.Maximum)
-                .Head.ToFin(key.InvalidResult()).Map(static sample => Seq((object)sample)));
+                .Head.ToFin(new KernelFault.InvalidResult()).Map(static sample => Seq((object)sample)));
     public static readonly ConformanceMetric SignedResidual = new(key: 5, output: OutputBinding.Of<ResidualSample>(), traits: CapabilitySet<ResidualTrait>.Of(ResidualTrait.Signed),
         reduce: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample)));
     public static readonly ConformanceMetric Containment = new(key: 6, output: OutputBinding.Of<ResidualSample>(), traits: CapabilitySet<ResidualTrait>.Of(ResidualTrait.Signed, ResidualTrait.Containment),
         reduce: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample)));
     public static readonly ConformanceMetric Distribution = new(key: 7, output: OutputBinding.Of<Distribution<Scalar>>(), traits: CapabilitySet<ResidualTrait>.None,
         reduce: static (residuals, percentiles, band, key) =>
-            Distribution<Scalar>.Of(values: residuals.Map(static sample => (Scalar)sample.Distance), percentiles: percentiles, key: key, context: Some((StatContext)band))
+            Distribution<Scalar>.Of(values: residuals.Map(static sample => (Scalar)sample.Distance), percentiles: percentiles, context: Some((StatContext)band))
                 .Map(static result => Seq((object)result)));
     public OutputBinding Output { get; }
     internal CapabilitySet<ResidualTrait> Traits { get; }
-    [UseDelegateFromConstructor] private partial Fin<Seq<object>> Reduce(Seq<ResidualSample> residuals, Seq<double> percentiles, Tolerance band, Op key);
+    [UseDelegateFromConstructor] private partial Fin<Seq<object>> Reduce(Seq<ResidualSample> residuals, Seq<double> percentiles, Tolerance band);
     internal bool Admits(Type geometry, Type target) =>
         Capability.Universal(type: geometry) || Capability.Universal(type: target)
         || ((Capability.CurveForm.Admits(type: geometry) || Capability.SurfaceForm.Admits(type: geometry))
@@ -609,68 +600,66 @@ public sealed partial class ConformanceMetric {
                     || (Capability.CurveForm.Admits(type: geometry) && Capability.CurveForm.Admits(type: target))))));
     internal Requirement TargetRequirement(Kind kind) =>
         Traits.Admits(ResidualTrait.Containment) && (kind.Topology == Topology.Brep || kind.Topology == Topology.Mesh) ? Requirement.SolidTopology : Requirement.None;
-    internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Seq<double> percentiles, Op key) =>
-        residuals.TraverseM(sample => key.AcceptValue(value: sample)).As()
+    internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Seq<double> percentiles) =>
+        residuals.TraverseM(sample => Acceptance.Value(value: sample)).As()
             .Bind(admitted => admitted.Map(static sample => sample.Band).Distinct() switch {
-                Seq<Tolerance> bands when bands.Count == 1 => Reduce(residuals: admitted, percentiles: percentiles, band: bands[0], key: key),
-                _ => Fin.Fail<Seq<object>>(key.InvalidInput()),
+                Seq<Tolerance> bands when bands.Count == 1 => Reduce(residuals: admitted, percentiles: percentiles, band: bands[0]),
+                _ => Fin.Fail<Seq<object>>(new KernelFault.InvalidInput()),
             })
-            .Bind(values => Output.Admit<TOut>(values: values, key: key));
+            .Bind(values => Output.Admit<TOut>(values: values));
 
-    internal static Operation<(TGeometry Geometry, TTarget Target), TOut> Sampled<TGeometry, TTarget, TOut>(ConformanceMetric metric, Option<Dimension> count, Seq<double> percentiles, Op key) where TGeometry : notnull where TTarget : notnull =>
+    internal static Operation<(TGeometry Geometry, TTarget Target), TOut> Sampled<TGeometry, TTarget, TOut>(ConformanceMetric metric, Option<Dimension> count, Seq<double> percentiles) where TGeometry : notnull where TTarget : notnull =>
         (count.Case, metric.Admits(geometry: typeof(TGeometry), target: typeof(TTarget)) && metric.Output.Serves<TOut>()) switch {
-            (Dimension budget, true) => Build<TGeometry, TTarget, TOut>(metric: metric, count: budget, percentiles: percentiles, key: key),
-            (not Dimension, _) => Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (Dimension budget, true) => Build<TGeometry, TTarget, TOut>(metric: metric, count: budget, percentiles: percentiles),
+            (not Dimension, _) => Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(fault: new KernelFault.InvalidInput()),
             _ => key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
-    internal static Operation<TGeometry, TOut> Measured<TGeometry, TOut>(ConformanceMetric metric, Seq<double> percentiles, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Measured<TGeometry, TOut>(ConformanceMetric metric, Seq<double> percentiles) where TGeometry : notnull =>
         (typeof(TGeometry) == typeof(ResidualSample) && metric.Output.Serves<TOut>())
-            ? Analysis.Operation<ResidualSample, TOut>.Aggregate(key: key,
-                project: samples => metric.Project<TOut>(residuals: samples, percentiles: percentiles, key: key).ToEff())
-                .As<TGeometry, TOut>(key: key)
-            : key.Unsupported<TGeometry, TOut>();
+            ? Analysis.Operation<ResidualSample, TOut>.Aggregate(project: samples => metric.Project<TOut>(residuals: samples, percentiles: percentiles).ToEff())
+                .As<TGeometry, TOut>()
+            : new KernelFault.Unsupported();
 
-    private static Fin<Stat<Scalar>> Moments(Seq<ResidualSample> samples, Tolerance band, Op key) =>
-        Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), key: key, context: Some((StatContext)band));
-    private static Fin<double> DistanceTo(ConformanceMetric metric, object target, Point3d point, Context context, Op key) =>
-        from space in SupportSpace.Of(value: target, key: key)
+    private static Fin<Stat<Scalar>> Moments(Seq<ResidualSample> samples, Tolerance band) =>
+        Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), context: Some((StatContext)band));
+    private static Fin<double> DistanceTo(ConformanceMetric metric, object target, Point3d point, Context context) =>
+        from space in SupportSpace.Of(value: target)
         let projection = metric.Traits.Admits(ResidualTrait.Containment) ? SupportProjection.ContainmentDistance
             : metric.Traits.Admits(ResidualTrait.Signed) ? SupportProjection.SignedDistance
             : SupportProjection.Distance
-        from hit in space.Closest(sample: point, key: key)
-        from distance in projection.Project<double>(space: space, hit: hit, sample: point, context: context, key: key)
+        from hit in space.Closest(sample: point)
+        from distance in projection.Project<double>(space: space, hit: hit, sample: point, context: context)
         select distance;
-    private static Fin<Seq<ResidualSample>> Residuals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Op key, CancellationToken cancel, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
+    private static Fin<Seq<ResidualSample>> Residuals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, CancellationToken cancel, Func<TGeometry, int, Context, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: key)
             .Bind(points => points.Map((p, i) => cancel.IsCancellationRequested
                 ? Fin.Fail<ResidualSample>(Errors.Cancelled)
                 : distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(Index: i, Location: p, Distance: d, Band: context.For(lane: ToleranceLane.Deviation)))).TraverseM(identity).As());
-    private static Fin<Seq<ResidualSample>> Sample<TGeometry, TTarget>(ConformanceMetric metric, int count, TGeometry geometry, TTarget target, Context context, Op key, CancellationToken cancel) where TGeometry : notnull where TTarget : notnull =>
+    private static Fin<Seq<ResidualSample>> Sample<TGeometry, TTarget>(ConformanceMetric metric, int count, TGeometry geometry, TTarget target, Context context, CancellationToken cancel) where TGeometry : notnull where TTarget : notnull =>
         (geometry, target) switch {
             (object curveLike, object targetCurveLike) when Capability.CurveForm.Admits(type: curveLike.GetType()) && Capability.CurveForm.Admits(type: targetCurveLike.GetType()) && metric.Traits.Admits(ResidualTrait.Exact) =>
-                Normalization.CurveForm(source: curveLike, key: key).Bind(leftLease => Normalization.CurveForm(source: targetCurveLike, key: key).Bind(rightLease => leftLease.Use(left => rightLease.Use(right =>
-                    Relations.DeviationOf(left: left, right: right, context: context, op: key)
+                Normalization.CurveForm(source: curveLike).Bind(leftLease => Normalization.CurveForm(source: targetCurveLike).Bind(rightLease => leftLease.Use(left => rightLease.Use(right =>
+                    Relations.DeviationOf(left: left, right: right, context: context)
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Band: d.Band))))))),
             (object curveLike, _) when Capability.CurveForm.Admits(type: curveLike.GetType()) =>
-                Normalization.CurveForm(source: curveLike, key: key).Bind(lease => lease.Use(curve => Residuals(curve, target, count, context, key, cancel,
+                Normalization.CurveForm(source: curveLike).Bind(lease => lease.Use(curve => Residuals(curve, target, count, context, cancel,
                     sampler: static (c, n, ctx, op) => c.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: n), Model: ctx), key: op),
-                    distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model, key: key)))),
+                    distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model)))),
             (object surfaceLike, _) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
-                Normalization.SurfaceForm(source: surfaceLike, key: key).Bind(lease => lease.Use(surface => Residuals(surface, target, count, context, key, cancel,
+                Normalization.SurfaceForm(source: surfaceLike).Bind(lease => lease.Use(surface => Residuals(surface, target, count, context, cancel,
                     sampler: static (s, n, ctx, op) => s.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: Dimension.Create(value: n), Model: ctx), key: op),
-                    distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model, key: key)))),
-            _ => Fin.Fail<Seq<ResidualSample>>(key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
+                    distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model)))),
+            _ => Fin.Fail<Seq<ResidualSample>>(new KernelFault.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
-    private static Operation<(TGeometry Geometry, TTarget Target), TValue> Build<TGeometry, TTarget, TValue>(ConformanceMetric metric, Dimension count, Seq<double> percentiles, Op key) where TGeometry : notnull where TTarget : notnull =>
-        Analysis.Operation<(TGeometry Geometry, TTarget Target), TValue>.Build(
-            key: key, requiresContext: true, state: (Metric: metric, Count: count, Percentiles: percentiles, Key: key),
+    private static Operation<(TGeometry Geometry, TTarget Target), TValue> Build<TGeometry, TTarget, TValue>(ConformanceMetric metric, Dimension count, Seq<double> percentiles) where TGeometry : notnull where TTarget : notnull =>
+        Analysis.Operation<(TGeometry Geometry, TTarget Target), TValue>.Build(requiresContext: true, state: (Metric: metric, Count: count, Percentiles: percentiles),
             evaluator: static (state, pair) =>
                 from runtime in Env.EnvAsks
-                from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: state.Key, requirements: (op, kindG, kindT) =>
-                    guard(kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface, op.Unsupported(inputType: kindG.Type, outputType: typeof(ResidualSample))).ToFin()
+                from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, requirements: (op, kindG, kindT) =>
+                    guard(kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface, new KernelFault.Unsupported(InputType: kindG.Type, OutputType: typeof(ResidualSample))).ToFin()
                         .Map(_ => (A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT))), cancel: runtime.Cancellation).ToFin().ToEff()
-                from residuals in Sample(metric: state.Metric, count: state.Count.Value, geometry: resolved.A, target: resolved.B, context: runtime.Context, key: state.Key, cancel: runtime.Cancellation).ToEff()
-                from result in state.Metric.Project<TValue>(residuals: residuals, percentiles: state.Percentiles, key: state.Key).ToEff()
+                from residuals in Sample(metric: state.Metric, count: state.Count.Value, geometry: resolved.A, target: resolved.B, context: runtime.Context, cancel: runtime.Cancellation).ToEff()
+                from result in state.Metric.Project<TValue>(residuals: residuals, percentiles: state.Percentiles).ToEff()
                 select result);
 }
 

@@ -48,8 +48,8 @@ public sealed partial class DocumentTier {
 
 [SmartEnum<int>]
 public sealed partial class MarkPosture {
-    public static readonly MarkPosture Dirty = new(key: 0, stamp: static document => Op.Side(action: document.Modify));
-    public static readonly MarkPosture Clean = new(key: 1, stamp: static document => Op.Side(action: document.Unmodify));
+    public static readonly MarkPosture Dirty = new(key: 0, stamp: static document => HostEdge.Side(action: document.Modify));
+    public static readonly MarkPosture Clean = new(key: 1, stamp: static document => HostEdge.Side(action: document.Unmodify));
     [UseDelegateFromConstructor] internal partial Unit Stamp(HostDocument document);
 }
 
@@ -143,38 +143,36 @@ public abstract partial record GateOutcome {
 public static class DocumentGate {
     public static Fin<GateOutcome> Run(
         Option<HostDocument> graph,
-        Func<HostDocument, Fin<GateOutcome>> body,
-        Op key) => Resolve(graph: graph, key: key, body: body);
+        Func<HostDocument, Fin<GateOutcome>> body) => Resolve(graph: graph, body: body);
 
-    internal static Fin<TOut> Resolve<TOut>(Option<HostDocument> graph, Op key, Func<HostDocument, Fin<TOut>> body) =>
+    internal static Fin<TOut> Resolve<TOut>(Option<HostDocument> graph, Func<HostDocument, Fin<TOut>> body) =>
         graph.Match(
             Some: chosen => UiThread.Run(
-                new UiDispatch<TOut>.Blocking(() => body(chosen)), DispatchLane.Interactive, key),
+                new UiDispatch<TOut>.Blocking(() => body(chosen)), DispatchLane.Interactive),
             None: () => GhSession.Run(
                 target: ScopeTarget.DocumentHost,
-                project: scope => scope.Document.ToFin(key.MissingContext()).Bind(body),
-                key: key));
+                project: scope => scope.Document.ToFin(new KernelFault.MissingContext()).Bind(body)));
 }
 
 public static partial class DocumentScope {
-    public static Fin<HostDocument> Mint(DocumentTier tier, Op? key = null);
-    public static Fin<HostDocument> Load(IReader reader, Op? key = null);
+    public static Fin<HostDocument> Mint(DocumentTier tier);
+    public static Fin<HostDocument> Load(IReader reader);
 
-    public static Fin<Option<T>> ReadProbe<T>(IReader reader, string name, Op? key = null) where T : IStorable;
+    public static Fin<Option<T>> ReadProbe<T>(IReader reader, string name) where T : IStorable;
 
-    public static Fin<DocumentAnswer> Read(DocumentFacet facet, Option<HostDocument> graph = default, Op? key = null);
+    public static Fin<DocumentAnswer> Read(DocumentFacet facet, Option<HostDocument> graph = default);
 
-    public static Fin<Option<T>> Recall<T>(string name, Option<HostDocument> graph = default, Op? key = null);
+    public static Fin<Option<T>> Recall<T>(string name, Option<HostDocument> graph = default);
 
-    public static Fin<Seq<HostDocument>> Roster(Op? key = null);
+    public static Fin<Seq<HostDocument>> Roster();
 }
 ```
 
 ## [03]-[TRANSACT]
 
 - Owner: `SelectionTarget` `[Union]` — selection-scope discriminant, read by every scoped verb: `Selected` names the live selection and `Explicit(Seq<IDocumentObject>)` a computed set riding the host's `*Objects` twin. GAIN over the deleted `Seq`-emptiness convention: a computed EMPTY set no longer silently means "the whole selection" — it is an explicit set that touches nothing. `SelectionSweep` names the 8-row sweep family; `SelectionPosture` the 9-row posture family whose explicit twin is an `Option` column (the four pin-side reveals carry `None` and the gate refuses an explicit target on them typed); `DeleteDepth` the 2-row depth family; `IsolationAxis` `[SmartEnum<string>]` realizing `ICapability` — three axes the host names by what each KEEPS reachable, carried as `CapabilitySet<IsolationAxis>` and read per named position at the one host call (the `[Flags]` enum with its `HasFlag` reads deletes; that change also lands `Document/graph.md`'s two flag enums).
-- Owner: `DocumentAct` `[Union]` `[GenerateUnionOps]` — THE one command union: the five lifecycle/shelf cases (`CloseCase`, `StoreCase`, `MarkCase`, `StashCase`, `ForgetCase` — the former `DocumentGate` union, merged: two gates over one result were arity twins) beside the seventeen graph cases (`SweepCase`, the clipboard three, the wrapper three, `DeleteCase(DeleteDepth, SelectionTarget, Seq<WireEnds>)`, `DropCase`, `SnippetCase`, `NudgeCase`, `PostureCase(SelectionPosture, SelectionTarget)`, `DressCase(PerceptualColor, SelectionTarget)`, `IsolateCase(IDocumentObject, CapabilitySet<IsolationAxis>)`, `MigrateCase`, `DependencyCase`, `RevealDependenciesCase`). Host discriminants (`ClipboardKind`, `PasteBehaviour`, `OpenColor.Family`) ride case payloads unchanged because this package IS the boundary; the colour override crosses as the KERNEL `PerceptualColor` and projects to the host colour at its one write arm.
-- Entry: `DocumentScope.Transact(Option<VerbNoun> label, DocumentAct op, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateOutcome>` — the ONE gate; a sealing case with an absent label refuses typed, and a non-sealing case ignores it.
+- Owner: `DocumentAct` `[Union]` `` — THE one command union: the five lifecycle/shelf cases (`CloseCase`, `StoreCase`, `MarkCase`, `StashCase`, `ForgetCase` — the former `DocumentGate` union, merged: two gates over one result were arity twins) beside the seventeen graph cases (`SweepCase`, the clipboard three, the wrapper three, `DeleteCase(DeleteDepth, SelectionTarget, Seq<WireEnds>)`, `DropCase`, `SnippetCase`, `NudgeCase`, `PostureCase(SelectionPosture, SelectionTarget)`, `DressCase(PerceptualColor, SelectionTarget)`, `IsolateCase(IDocumentObject, CapabilitySet<IsolationAxis>)`, `MigrateCase`, `DependencyCase`, `RevealDependenciesCase`). Host discriminants (`ClipboardKind`, `PasteBehaviour`, `OpenColor.Family`) ride case payloads unchanged because this package IS the boundary; the colour override crosses as the KERNEL `PerceptualColor` and projects to the host colour at its one write arm.
+- Entry: `DocumentScope.Transact(Option<VerbNoun> label, DocumentAct op, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Option<HostDocument> graph = default)` → `Fin<GateOutcome>` — the ONE gate; a sealing case with an absent label refuses typed, and a non-sealing case ignores it.
 - Law: the `document.mutate` veto fires HERE — a mutating case fires `hooks.Fire(at: GrasshopperPoint.DocumentMutate, fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)), key: key)` before its verb, and a `Fail` verdict refuses the transaction with nothing mutated; absent hooks dispatch ungoverned (the test-host arm). This is the fire-site producer the hook census names.
 - Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `HistoryLedger.Seal` under the caller's `VerbNoun`. `DocumentMethods` call outside this gate is the deleted form.
 - Law: each arm returns what the HOST answered through its `GateOutcome` case; chain and cluster wraps preflight through the host's own `CanCreate*` verdict on the same roster the mint consumes, with refusal returning `RefusedCase(whyNot)`.
@@ -277,7 +275,6 @@ public sealed partial class IsolationAxis : ICapability<IsolationAxis> {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record DocumentAct {
     private DocumentAct() { }
     public sealed record CloseCase : DocumentAct;
@@ -310,14 +307,13 @@ public static partial class DocumentScope {
         Option<VerbNoun> label,
         DocumentAct op,
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default,
-        Option<HostDocument> graph = default,
-        Op? key = null);
+        Option<HostDocument> graph = default);
 
     private static Fin<GateOutcome> Wrap(
-        HostDocument document, Op caseOp, SelectionTarget target,
+        HostDocument document, SelectionTarget target,
         Func<DocumentMethods, IDocumentObject[], (bool Can, string WhyNot)> preflight,
         Func<DocumentMethods, IDocumentObject[], ActionList, Guid> mint,
-        VerbNoun label, Op key);
+        VerbNoun label);
 }
 ```
 

@@ -14,7 +14,7 @@ Everything here is host-light: `LifecycleGate`, `Subscription`, and `Reentrancy`
 
 - Owner: `LifecycleGate` — the package's ONE claims/close/retry lifecycle capsule; `LeaseState` its closed four-state custody union. Every bounded-settle lease across the boundary composes it from this namespace, and a sibling hand-rolling a `lock`/`Monitor` lifecycle machine beside it is the collapsed form.
 - Cases: `Open(Claims)` admits work, `Closing` drains it under a one-owner token, `Reopenable(Claims)` is a close whose settle refused and may be re-driven, `Closed` is terminal. `Reopenable` — never `Retryable`: the branch makes `Retriability`/`Redrive` the ONE retry vocabulary, and a close-state case wearing that word reads as a retry capsule where none exists.
-- Entry: `Of(settleWithin, key)` admits the drain bound; `Within(body, refused, key)` claims, runs, and releases; `Close(stop, settle, key)` is the blocking one-owner close; `Begin(stop, settle, key)` arms the close and hands back the completion for an owner that must not block its own callback thread.
+- Entry: `Of(settleWithin)` admits the drain bound; `Within(body, refused)` claims, runs, and releases; `Close(stop, settle)` is the blocking one-owner close; `Begin(stop, settle)` arms the close and hands back the completion for an owner that must not block its own callback thread.
 - Law: a claim runs to completion on the thread that took it, so a close issued from a thread already inside a claim would wait on its own release forever — the claiming-thread set is the structural refusal for that re-entrancy, and it is what keeps a bounded blocking close safe on the host callback thread.
 - Law: the drain is bounded but still BLOCKING, so it never rides the closing caller's thread: `Begin` arms the close, runs `stop` on the caller's own thread so a marshalled arm keeps its affinity, and hands back the completion — a host UI-thread owner settles that completion off-thread, because blocking there stalls the very callbacks the drain waits to see released.
 - Law: the owning close alone drives the drain, and it drives it as a scheduler continuation: `stop` runs inline on the caller's thread, then the bounded wait and the settle ride the pool; concurrent closers join the in-flight completion rather than double-driving it.
@@ -48,19 +48,19 @@ internal sealed class LifecycleGate {
     private readonly Atom<Set<int>> claiming = Atom(Set<int>());
     private readonly TimeSpan settleWithin;
     private LifecycleGate(TimeSpan settleWithin) => this.settleWithin = settleWithin;
-    internal static Fin<LifecycleGate> Of(TimeSpan settleWithin, Op key) =>
-        guard(settleWithin > TimeSpan.Zero, key.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
+    internal static Fin<LifecycleGate> Of(TimeSpan settleWithin) =>
+        guard(settleWithin > TimeSpan.Zero, new KernelFault.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
 
-    internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
+    internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused) =>
         TryClaim()
-            ? Marked(body, key).Settled(release: () => Fin.Succ(Release()), key: key)
-            : key.Catch(refused);
+            ? Marked(body).Settled(release: () => Fin.Succ(Release()))
+            : Try.lift(refused).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) =>
-        Begin(stop, settle, key).Bind(completion => Await(completion, key)).Bind(static outcome => outcome);
+    internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle) =>
+        Begin(stop, settle).Bind(completion => Await(completion)).Bind(static outcome => outcome);
 
-    internal Fin<Task<Fin<Unit>>> Begin(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
-        if (claiming.Value.Contains(Environment.CurrentManagedThreadId)) { return Fin.Fail<Task<Fin<Unit>>>(key.InvalidContext()); }
+    internal Fin<Task<Fin<Unit>>> Begin(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle) {
+        if (claiming.Value.Contains(Environment.CurrentManagedThreadId)) { return Fin.Fail<Task<Fin<Unit>>>(new KernelFault.InvalidContext()); }
         Guid token = Guid.NewGuid();
         TaskCompletionSource<Unit> quiesced = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource<Fin<Unit>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -71,12 +71,12 @@ internal sealed class LifecycleGate {
             reopenable: static (ctx, row) => new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
             closed: static (_, row) => row));
         return next.Switch(
-            (Gate: this, Token: token, Stop: stop, Settle: settle, Key: key),
-            open: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(ctx.Key.InvalidContext()),
+            (Gate: this, Token: token, Stop: stop, Settle: settle),
+            open: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(new KernelFault.InvalidContext()),
             closing: static (ctx, row) => Fin.Succ(row.Token == ctx.Token
-                ? ctx.Gate.Drain(row, ctx.Stop, ctx.Settle, ctx.Key)
+                ? ctx.Gate.Drain(row, ctx.Stop, ctx.Settle)
                 : row.Completed.Task),
-            reopenable: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(ctx.Key.InvalidContext()),
+            reopenable: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(new KernelFault.InvalidContext()),
             closed: static (_, _) => Fin.Succ(Task.FromResult(Fin.Succ(unit))));
     }
 
@@ -90,10 +90,10 @@ internal sealed class LifecycleGate {
             reopenable: static _ => false,
             closed: static _ => false);
 
-    private Fin<T> Marked<T>(Func<Fin<T>> body, Op key) {
+    private Fin<T> Marked<T>(Func<Fin<T>> body) {
         int thread = Environment.CurrentManagedThreadId;
         _ = claiming.Swap(rows => rows.Add(thread));
-        try { return key.Catch(body); }
+        try { return Try.lift(body).Run().Bind(static inner => inner); }
         finally { _ = claiming.Swap(rows => rows.Remove(thread)); }
     }
 
@@ -103,28 +103,27 @@ internal sealed class LifecycleGate {
         reopenable: static row => new LeaseState.Reopenable(row.Claims - 1),
         closed: static row => row)).Switch(
             open: static _ => unit,
-            closing: static row => Op.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
+            closing: static row => HostEdge.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
             reopenable: static _ => unit,
             closed: static _ => unit);
 
-    private Task<Fin<Unit>> Drain(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
-        Fin<Unit> stopped = key.Catch(stop);
-        _ = Op.SideWhen(row.Claims == 0, () => ignore(row.Quiesced.TrySetResult(unit)));
+    private Task<Fin<Unit>> Drain(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle) {
+        Fin<Unit> stopped = Try.lift(stop).Run().Bind(static inner => inner);
+        _ = HostEdge.SideWhen(row.Claims == 0, () => ignore(row.Quiesced.TrySetResult(unit)));
         return row.Quiesced.Task.WaitAsync(settleWithin).ContinueWith(
             drained => Conclude(
                 row,
                 stopped,
-                drained.Status == TaskStatus.RanToCompletion ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidContext()),
-                settle,
-                key),
+                drained.Status == TaskStatus.RanToCompletion ? Fin.Succ(unit) : Fin.Fail<Unit>(new KernelFault.InvalidContext()),
+                settle),
             CancellationToken.None,
             TaskContinuationOptions.RunContinuationsAsynchronously,
             TaskScheduler.Default);
     }
 
-    private Fin<Unit> Conclude(LeaseState.Closing row, Fin<Unit> stopped, Fin<Unit> drained, Func<Fin<Unit>> settle, Op key) {
+    private Fin<Unit> Conclude(LeaseState.Closing row, Fin<Unit> stopped, Fin<Unit> drained, Func<Fin<Unit>> settle) {
         Fin<Unit> settled = drained.Match(
-            Succ: _ => key.Catch(settle),
+            Succ: _ => Try.lift(settle).Run().Bind(static inner => inner),
             Fail: static _ => Fin.Succ(unit));
         Seq<Error> trouble = Seq(
                 stopped,
@@ -147,8 +146,8 @@ internal sealed class LifecycleGate {
         return outcome;
     }
 
-    private Fin<T> Await<T>(Task<T> signal, Op key) => key.Catch(() =>
-        signal.Wait(settleWithin) ? Fin.Succ(signal.Result) : Fin.Fail<T>(key.InvalidContext()));
+    private Fin<T> Await<T>(Task<T> signal) => Try.lift(() =>
+        signal.Wait(settleWithin) ? Fin.Succ(signal.Result) : Fin.Fail<T>(new KernelFault.InvalidContext())).Run().Bind(static inner => inner);
 }
 ```
 
@@ -201,17 +200,15 @@ public sealed class Subscription : IDisposable {
 
     public static Fin<Subscription> Attach<THandler>(Action<THandler> subscribe, Action<THandler> unsubscribe, THandler handler)
         where THandler : Delegate {
-        Op key = Op.Of(name: nameof(Subscription));
-        return key.Catch(() => { subscribe(obj: handler); return Fin.Succ(value: Of(detach: () => unsubscribe(obj: handler))); })
-            .Rollback(release: () => key.Catch(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); }), key: key);
+        return Try.lift(() => { subscribe(obj: handler); return Fin.Succ(value: Of(detach: () => unsubscribe(obj: handler))); }).Run().Bind(static inner => inner)
+            .Rollback(release: () => Try.lift(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner), key: key);
     }
 
     public static Fin<Subscription> Acquire(Action acquire, Action release) {
         ArgumentNullException.ThrowIfNull(acquire);
         ArgumentNullException.ThrowIfNull(release);
-        Op key = Op.Of(name: nameof(Subscription));
-        return key.Catch(() => { acquire(); return Fin.Succ(value: Of(detach: release)); })
-            .Rollback(release: () => key.Catch(() => { release(); return Fin.Succ(value: unit); }), key: key);
+        return Try.lift(() => { acquire(); return Fin.Succ(value: Of(detach: release)); }).Run().Bind(static inner => inner)
+            .Rollback(release: () => Try.lift(() => { release(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner), key: key);
     }
 
     public static Fin<Subscription> AttachAll(Seq<Func<Fin<Subscription>>> attach) =>
@@ -352,13 +349,13 @@ internal sealed class Reentrancy {
 
     internal bool Active => depth.Value > 0;
 
-    internal Option<Fin<Unit>> Guarded(Op key, Func<Fin<Unit>> run) {
+    internal Option<Fin<Unit>> Guarded(Func<Fin<Unit>> run) {
         if (Active) {
             return Option<Fin<Unit>>.None;
         }
         depth.Value++;
         try {
-            return Some(key.Catch(run));
+            return Some(Try.lift(run).Run().Bind(static inner => inner));
         } finally {
             depth.Value--;
         }
@@ -369,7 +366,7 @@ internal sealed class Reentrancy {
 ## [04]-[PUMP]
 
 - Owner: `IdlePump<TTag>` — the bounded idle-deferred pump: work parks tagged until the host's next quiet moment, the pending queue is capacity-bounded, every loss is a typed row the owner's own callback records, and the drain crosses the kernel dispatch on the deferred lane so idle work spends a gauged frame budget; `PumpLoss` the two-row loss vocabulary.
-- Entry: `Open(capacity, lost, key)` attaches the one `RhinoApp.Idle` hook and admits the bound; `Enqueue(tag, alive, run)` parks one unit of work; `Close` cancels the pending roster, reports each as `Cancelled`, and detaches the hook.
+- Entry: `Open(capacity, lost)` attaches the one `RhinoApp.Idle` hook and admits the bound; `Enqueue(tag, alive, run)` parks one unit of work; `Close` cancels the pending roster, reports each as `Cancelled`, and detaches the hook.
 - Law: the pump is GENERIC over the tag its loss callback names, so the delivery owner instantiates it over its own origin vocabulary and the pump holds no journal, no fact shape, and no event type — a pump that posted for its caller would couple every deferred consumer to one journal.
 - Law: admission is a guarded step whose verdict rides the transition — a full queue DECLINES and the loss callback records `Overflow`, a closed pump records `Cancelled`, and neither outcome is inferred from a count read beside the swap.
 - Law: the drain is take-and-clear through the kernel `Cell.Take`, so the drained roster is the `Committed` payload of one transition and a batch enqueued during the drain waits for the next idle tick rather than racing the sweep.
@@ -401,14 +398,13 @@ internal sealed class IdlePump<TTag> : IDisposable {
     private readonly Atom<bool> open = Atom(true);
     private readonly Rasm.Numerics.Dimension capacity;
     private readonly Action<PumpLoss, TTag> lost;
-    private readonly Op key;
     private Subscription? subscription;
 
-    private IdlePump(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost, Op key) =>
-        (this.capacity, this.lost, this.key) = (capacity, lost, key);
+    private IdlePump(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost) =>
+        (this.capacity, this.lost, this.key) = (capacity, lost);
 
-    internal static Fin<IdlePump<TTag>> Open(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost, Op key) {
-        IdlePump<TTag> pump = new(capacity: capacity, lost: lost, key: key);
+    internal static Fin<IdlePump<TTag>> Open(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost) {
+        IdlePump<TTag> pump = new(capacity: capacity, lost: lost);
         return Subscription.Attach<EventHandler>(
                 subscribe: handler => RhinoApp.Idle += handler,
                 unsubscribe: handler => RhinoApp.Idle -= handler,
@@ -421,19 +417,19 @@ internal sealed class IdlePump<TTag> : IDisposable {
 
     internal Fin<Unit> Enqueue(TTag tag, Func<bool> alive, Func<Fin<Unit>> run) {
         if (!open.Value) {
-            return Fin.Succ(Op.Side(() => lost(PumpLoss.Cancelled, tag)));
+            return Fin.Succ(HostEdge.Side(() => lost(PumpLoss.Cancelled, tag)));
         }
         PumpWork work = new(Tag: tag, Alive: alive, Run: run);
         return Cell.Step(
                 cell: pending,
                 step: rows => rows.Count < capacity.Value ? Some(rows.Add(work)) : None,
-                declined: key.InvalidResult())
+                declined: new KernelFault.InvalidResult())
             .Switch(
                 state: (Lost: lost, Tag: tag),
                 committed: static (_, _) => Fin.Succ(unit),
-                ceded: static (ctx, _) => Fin.Succ(Op.Side(() => ctx.Lost(PumpLoss.Overflow, ctx.Tag))),
-                refused: static (ctx, _) => Fin.Succ(Op.Side(() => ctx.Lost(PumpLoss.Overflow, ctx.Tag))),
-                contended: static (ctx, _) => Fin.Succ(Op.Side(() => ctx.Lost(PumpLoss.Overflow, ctx.Tag))));
+                ceded: static (ctx, _) => Fin.Succ(HostEdge.Side(() => ctx.Lost(PumpLoss.Overflow, ctx.Tag))),
+                refused: static (ctx, _) => Fin.Succ(HostEdge.Side(() => ctx.Lost(PumpLoss.Overflow, ctx.Tag))),
+                contended: static (ctx, _) => Fin.Succ(HostEdge.Side(() => ctx.Lost(PumpLoss.Overflow, ctx.Tag))));
     }
 
     internal SubscriptionRelease Close() {
@@ -453,8 +449,7 @@ internal sealed class IdlePump<TTag> : IDisposable {
         }
         Fin<Unit> crossed = UiThread.Run(
             new UiDispatch<Unit>.Blocking(() => Fin.Succ(RunAll(works))),
-            DispatchLane.Deferred,
-            key);
+            DispatchLane.Deferred);
         _ = crossed.IfFail(_ => RunAll(works));
     }
 
@@ -464,8 +459,8 @@ internal sealed class IdlePump<TTag> : IDisposable {
     };
 
     private Unit RunAll(Seq<PumpWork> works) => works.Fold(unit, (_, work) => work.Alive()
-        ? ignore(key.Catch(work.Run))
-        : Op.Side(() => lost(PumpLoss.Cancelled, work.Tag)));
+        ? ignore(Try.lift(work.Run).Run().Bind(static inner => inner))
+        : HostEdge.Side(() => lost(PumpLoss.Cancelled, work.Tag)));
 
     private readonly record struct PumpWork(TTag Tag, Func<bool> Alive, Func<Fin<Unit>> Run);
 }

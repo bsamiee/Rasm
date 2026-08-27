@@ -61,13 +61,13 @@ public sealed class Session : IDisposable {
 
     public static Fin<Session> Open(EnginePosture posture) {
         DuckDBConnection? pending = null;
-        return Op.Of().Catch(() => {
+        return Try.lift(() => {
             pending = new DuckDBConnection(posture.Composed);
             pending.Open();
             Session admitted = new(pending);
             pending = null;
             return Fin.Succ(admitted);
-        }).Rollback(pending);
+        }).Run().Bind(static inner => inner).Rollback(pending);
     }
 
     public Fin<Unit> Mount(string alias, string store) => Run($"ATTACH IF NOT EXISTS '{store}' AS {alias} (READ_ONLY)");
@@ -76,12 +76,12 @@ public sealed class Session : IDisposable {
     public Option<double> Progress() => anchor.GetQueryProgress() is { Percentage: >= 0 and double alive } ? Some(alive) : None;
     public void Dispose() => anchor.Dispose();
 
-    Fin<Unit> Run(string sql) => Op.Of().Catch(() => {
+    Fin<Unit> Run(string sql) => Try.lift(() => {
         using DuckDBCommand command = anchor.CreateCommand();
         command.CommandText = sql;
         _ = command.ExecuteNonQuery();
         return Fin.Succ(unit);
-    });
+    }).Run().Bind(static inner => inner);
 }
 ```
 
@@ -109,16 +109,16 @@ public sealed class SampleMap : DuckDBAppenderMap<Sample> {
 public static class BulkLane {
     public static Fin<int> Commit(DuckDBConnection lane, Seq<Sample> batch) {
         ArgumentNullException.ThrowIfNull(lane);
-        return Op.Of().Catch(() => {
+        return Try.lift(() => {
             using DuckDBMappedAppender<Sample, SampleMap> bulk = lane.CreateAppender<Sample, SampleMap>("<table-a>");
             bulk.AppendRecords(batch);
             bulk.Close();
             return Fin.Succ(batch.Count);
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     public static Fin<Seq<Sample>> Drain(DuckDBConnection lane, string projection) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using DuckDBCommand command = lane.CreateCommand();
             (command.CommandText, command.UseStreamingMode) = (projection, true);
             using DuckDBDataReader stream = command.ExecuteReader();
@@ -128,7 +128,7 @@ public static class BulkLane {
                     stream.GetFieldValue<string>(0), stream.GetFieldValue<double>(1), stream.GetFieldValue<DateOnly>(2)));
             }
             return Fin.Succ(toSeq(drained));
-        });
+        }).Run().Bind(static inner => inner);
 }
 ```
 
@@ -180,20 +180,20 @@ public sealed record ArtifactClass(string Name, Format Format, Codec Codec, int 
 
 public static class ProjectionPipeline {
     public static Fin<Unit> Publish(DuckDBConnection lane, ArtifactClass artifact, string projection, string destination, string stamp) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = artifact.Egress(projection, destination, stamp);
             _ = command.ExecuteNonQuery();
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 
     public static Fin<string> StampOf(DuckDBConnection lane, string artifact) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode(key) = 'stamp'";
             command.Parameters.Add(new DuckDBParameter("path", artifact));
             return Fin.Succ(Optional(command.ExecuteScalar()).Map(static held => (string)held));
-        })
+        }).Run().Bind(static inner => inner)
           .Bind(static held => held.ToFin(Error.New(8105, "<unstamped-artifact>")));
 }
 ```
@@ -379,10 +379,10 @@ public sealed record GeoProfile(double Precision, bool WriteBBox, string IdPrope
 
 public static class GeoBoundary {
     public static Fin<Option<Geometry>> Admit(JsonSerializerOptions wire, string payload) =>
-        Op.Of().Catch(() => Fin.Succ(Optional(JsonSerializer.Deserialize<Geometry>(payload, wire))));
+        Try.lift(() => Fin.Succ(Optional(JsonSerializer.Deserialize<Geometry>(payload, wire)))).Run().Bind(static inner => inner);
 
     public static Fin<string> Emit(JsonSerializerOptions wire, Geometry admitted) =>
-        Op.Of().Catch(() => Fin.Succ(JsonSerializer.Serialize(admitted, wire)));
+        Try.lift(() => Fin.Succ(JsonSerializer.Serialize(admitted, wire))).Run().Bind(static inner => inner);
 }
 ```
 
@@ -408,17 +408,17 @@ public static class BlobGate {
 
     public static Fin<Geometry> Admit(BlobCodec codec, byte[] blob, int declaredSrid) =>
         blob.AsSpan().StartsWith(Magic)
-            ? Op.Of().Catch(() => Fin.Succ(codec.Reader.Read(blob)))
+            ? Try.lift(() => Fin.Succ(codec.Reader.Read(blob))).Run().Bind(static inner => inner)
                 .Bind(decoded => decoded.SRID == declaredSrid
                     ? Fin.Succ(decoded)
                     : Fin.Fail<Geometry>(Error.New(8312, $"<srid-disagreement:{declaredSrid}:{decoded.SRID}>")))
             : Fin.Fail<Geometry>(Error.New(8313, "<not-a-geopackage-blob>"));
 
     public static Fin<byte[]> Emit(BlobCodec codec, Geometry admitted) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using MemoryStream sink = new();
             codec.Writer.Write(admitted, sink);
             return Fin.Succ(sink.ToArray());
-        });
+        }).Run().Bind(static inner => inner);
 }
 ```

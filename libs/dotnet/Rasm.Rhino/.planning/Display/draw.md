@@ -92,7 +92,7 @@ public sealed partial class BlendUse {
     public static readonly BlendUse InverseDestinationColor = Row(9, BlendMode.OneMinusDestinationColor);
     public static readonly BlendUse SaturatedSourceAlpha = Row(10, BlendMode.SourceAlphaSaturate);
 
-    private static BlendUse Row(int key, BlendMode native) => new(key, native);
+    private static BlendUse Row(int key, BlendMode native) => new(native);
 
     internal BlendMode Native { get; }
 }
@@ -173,23 +173,21 @@ public sealed record Stroke {
         Dash dash,
         Option<PenDecoration> decoration = default,
         Option<PatternLaw> pattern = default,
-        float miter = 10f,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        float miter = 10f) {
         return (
                 (float.IsFinite(miter) && miter >= 1f
                     ? Validation<Error, float>.Success(miter)
-                    : Validation<Error, float>.Fail(op.InvalidInput(axis: nameof(miter)))),
-                PenRhythm.Admit(dash: dash, key: op).ToValidation())
+                    : Validation<Error, float>.Fail(new KernelFault.InvalidInput(Axis: Some(nameof(miter))))),
+                PenRhythm.Admit(dash: dash).ToValidation())
             .Apply((admittedMiter, admittedDash) => new Stroke(
                 colour, width, space, cap, join, admittedDash,
                 decoration.IfNone(PenDecoration.Bare), pattern.IfNone(PatternLaw.Portable), admittedMiter))
             .As().ToFin();
     }
 
-    internal Fin<DisplayPen> Mint(Op key) =>
-        from ink in Colour.ToDrawing(key: key)
-        from halo in Decoration.Halo.Traverse(row => row.Colour.ToDrawing(key: key).Map(quantized => (Row: row, Ink: quantized))).As()
+    internal Fin<DisplayPen> Mint() =>
+        from ink in Colour.ToDrawing()
+        from halo in Decoration.Halo.Traverse(row => row.Colour.ToDrawing().Map(quantized => (Row: row, Ink: quantized))).As()
         select Seat(ink: ink, halo: halo);
 
     private DisplayPen Seat(System.Drawing.Color ink, Option<(PenHalo Row, System.Drawing.Color Ink)> halo) {
@@ -203,7 +201,7 @@ public sealed record Stroke {
         _ = halo.Iter(row => (pen.HaloColor, pen.HaloThickness) = (row.Ink, (float)row.Row.Width.Value));
         _ = Decoration.Taper.Iter(row => pen.SetTaper((float)row.Start.Value, (float)row.End.Value, new Point2f((float)row.At.X, (float)row.At.Y)));
         Seq<float> gaps = PenRhythm.Table(dash: Dash);
-        _ = Op.SideWhen(!gaps.IsEmpty, () => {
+        _ = HostEdge.SideWhen(!gaps.IsEmpty, () => {
             pen.SetPattern(gaps.Map(gap => gap * (float)Width.Value).AsEnumerable());
             (pen.PatternAutoscale, pen.PatternScale, pen.PatternOffset, pen.PatternBySegment, pen.PatternLengthInWorldUnits) = (
                 Pattern.Traits.Admits(PatternTrait.Autoscale),
@@ -227,12 +225,12 @@ public sealed record Stroke {
 internal static class PenRhythm {
     private const int MaxIntervals = 8;
 
-    internal static Fin<Dash> Admit(Dash dash, Op key) => dash is Dash.PatternedCase row
+    internal static Fin<Dash> Admit(Dash dash) => dash is Dash.PatternedCase row
         ? !row.Intervals.IsEmpty
             && row.Intervals.Count <= MaxIntervals
             && row.Intervals.ForAll(static gap => float.IsFinite(gap) && gap > 0f)
             ? Fin.Succ(dash)
-            : Fin.Fail<Dash>(key.InvalidInput(axis: nameof(Dash.PatternedCase.Intervals)))
+            : Fin.Fail<Dash>(new KernelFault.InvalidInput(Axis: Some(nameof(Dash.PatternedCase.Intervals))))
         : Fin.Succ(dash);
 
     internal static Seq<float> Table(Dash dash) => dash.Switch(
@@ -266,19 +264,19 @@ public sealed partial class ShadedFace {
             ? null
             : new ValidationError(message: "Shaded face shine or transparency leaves the unit interval.");
 
-    internal Validation<Error, (System.Drawing.Color Diffuse, System.Drawing.Color Specular, System.Drawing.Color Ambient, System.Drawing.Color Emission)> Quantized(Op key) =>
-        (Diffuse.ToDrawing(key: key).ToValidation(),
-         Specular.ToDrawing(key: key).ToValidation(),
-         Ambient.ToDrawing(key: key).ToValidation(),
-         Emission.ToDrawing(key: key).ToValidation())
+    internal Validation<Error, (System.Drawing.Color Diffuse, System.Drawing.Color Specular, System.Drawing.Color Ambient, System.Drawing.Color Emission)> Quantized() =>
+        (Diffuse.ToDrawing().ToValidation(),
+         Specular.ToDrawing().ToValidation(),
+         Ambient.ToDrawing().ToValidation(),
+         Emission.ToDrawing().ToValidation())
         .Apply(static (diffuse, specular, ambient, emission) => (diffuse, specular, ambient, emission)).As();
 }
 
 public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
-    internal Fin<TResult> Use<TResult>(Func<DisplayMaterial, Fin<TResult>> project, Op key) =>
-        from front in Front.Quantized(key: key).ToFin()
-        from back in Back.Traverse(face => face.Quantized(key: key).ToFin().Map(channels => (Face: face, Channels: channels))).As()
-        from projected in key.Catch(() => {
+    internal Fin<TResult> Use<TResult>(Func<DisplayMaterial, Fin<TResult>> project) =>
+        from front in Front.Quantized().ToFin()
+        from back in Back.Traverse(face => face.Quantized().ToFin().Map(channels => (Face: face, Channels: channels))).As()
+        from projected in Try.lift(() => {
             using DisplayMaterial native = new(
                 diffuse: front.Diffuse, specular: front.Specular, ambient: front.Ambient, emission: front.Emission,
                 shine: Front.Shine, transparency: Front.Transparency);
@@ -289,7 +287,7 @@ public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
                 (native.BackShine, native.BackTransparency) = (row.Face.Shine, row.Face.Transparency);
             });
             return project(native);
-        })
+        }).Run().Bind(static inner => inner)
         select projected;
 }
 ```
@@ -332,35 +330,35 @@ public abstract partial record PathPrimitive {
             row.RadiusX,
             row.RadiusY).ToNurbsCurve());
 
-    internal static Fin<Seq<PathPrimitive>> Lower(PathSpec spec, Op key) => spec.Switch(
+    internal static Fin<Seq<PathPrimitive>> Lower(PathSpec spec) => spec.Switch(
         state: key,
         lineCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
         polylineCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: false)),
         polygonCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: true)),
         rectCase: static (_, row) => Fin.Succ(Edges(row.Frame)),
-        roundRectCase: static (op, row) => Outlined(new ParametricOp.RoundedRectangle(
+        roundRectCase: static (row) => Outlined(new ParametricOp.RoundedRectangle(
             Frame: Plane.WorldXY,
             X: new Interval(row.Frame.X, row.Frame.X + row.Frame.Width),
             Y: new Interval(row.Frame.Y, row.Frame.Y + row.Frame.Height),
-            NW: row.NW, NE: row.NE, SE: row.SE, SW: row.SW), op),
+            NW: row.NW, NE: row.NE, SE: row.SE, SW: row.SW)),
         ellipseCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Ellipse(
             new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
             row.Frame.Width / 2.0,
             row.Frame.Height / 2.0))),
-        arcCase: static (op, row) => Math.Abs(row.Frame.Width - row.Frame.Height) <= float.Epsilon
+        arcCase: static (row) => Math.Abs(row.Frame.Width - row.Frame.Height) <= float.Epsilon
             ? Fin.Succ(Seq<PathPrimitive>(new Arc(
                 new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
                 row.Frame.Width / 2.0,
                 row.Start,
                 row.Sweep)))
-            : Fin.Fail<Seq<PathPrimitive>>(op.Unsupported(typeof(PathSpec.ArcCase), typeof(DisplayPipeline))),
+            : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.Unsupported(typeof(PathSpec.ArcCase), typeof(DisplayPipeline))),
         bezierCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Bezier(P(row.From), P(row.ControlA), P(row.ControlB), P(row.To)))),
-        curveCase: static (op, row) => Outlined(new ParametricOp.CardinalSpline(
+        curveCase: static (row) => Outlined(new ParametricOp.CardinalSpline(
             Frame: Plane.WorldXY,
             Points: new Arr<Point2d>([.. toSeq(row.Points).Map(P)]),
             Tension: row.Tension,
-            Closed: false), op),
-        compositeCase: static (op, row) => row.Figures.TraverseM(figure => Lower(spec: figure, key: op)).As()
+            Closed: false)),
+        compositeCase: static (row) => row.Figures.TraverseM(figure => Lower(spec: figure)).As()
             .Map(static lowered => lowered.Bind(static run => run).Strict()));
 
     private static Point2d P(Eto.Drawing.PointF at) => new(at.X, at.Y);
@@ -377,10 +375,10 @@ public abstract partial record PathPrimitive {
         new Line(new Point2d(frame.X + frame.Width, frame.Y + frame.Height), new Point2d(frame.X, frame.Y + frame.Height)),
         new Line(new Point2d(frame.X, frame.Y + frame.Height), new Point2d(frame.X, frame.Y)));
 
-    private static Fin<Seq<PathPrimitive>> Outlined(ParametricOp op, Op key) =>
-        Parametric.Apply(op, key).Bind(result => result is ParametricResult.Outline outline
+    private static Fin<Seq<PathPrimitive>> Outlined(ParametricOp op) =>
+        Parametric.Apply().Bind(result => result is ParametricResult.Outline outline
             ? Fin.Succ(toSeq(outline.Run).Map(Planar).Strict())
-            : Fin.Fail<Seq<PathPrimitive>>(key.InvalidResult(detail: result.GetType().Name)));
+            : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.InvalidResult(Detail: Some(result.GetType().Name))));
 
     private static PathPrimitive Planar(PlanarPrimitive primitive) => primitive.Switch(
         segment: static row => (PathPrimitive)new Line(row.From, row.To),
@@ -410,7 +408,7 @@ public sealed partial class PointUse {
     public static readonly PointUse RoundDot = Row(17, PointStyle.RoundDot);
     public static readonly PointUse None = Row(18, PointStyle.None);
 
-    private static PointUse Row(int key, PointStyle native) => new(key, native);
+    private static PointUse Row(int key, PointStyle native) => new(native);
 
     internal PointStyle Native { get; }
 }
@@ -448,7 +446,7 @@ public sealed partial class IsoMode {
     public static readonly IsoMode Distance = Row(12, IsoDrawMode.DirectionalDistance);
     public static readonly IsoMode DistanceCamera = Row(13, IsoDrawMode.DirectionalDistanceCamera);
 
-    private static IsoMode Row(int key, IsoDrawMode native) => new(key, native);
+    private static IsoMode Row(int key, IsoDrawMode native) => new(native);
 
     internal IsoDrawMode Native { get; }
 }
@@ -465,7 +463,7 @@ public abstract partial record IsoGap {
 }
 
 public interface ISpriteFiles {
-    Fin<ReadOnlyMemory<byte>> Read(string asset, Op key);
+    Fin<ReadOnlyMemory<byte>> Read(string asset);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -478,24 +476,21 @@ public abstract partial record SpriteSource {
         bytes: static row => !row.Value.IsEmpty,
         file: static row => row.Files is not null && !string.IsNullOrWhiteSpace(row.Asset));
 
-    internal Fin<ReadOnlyMemory<byte>> Read(Op key) => Switch(
-        key,
-        bytes: static (_, row) => Fin.Succ(row.Value),
-        file: static (op, row) => op.Catch(() => row.Files.Read(row.Asset, op)));
+    internal Fin<ReadOnlyMemory<byte>> Read() => Switch(bytes: static (_, row) => Fin.Succ(row.Value),
+        file: static (op, row) => Try.lift(() => row.Files.Read(row.Asset)).Run().Bind(static inner => inner));
 }
 
 public sealed record SpriteRef {
-    private SpriteRef(string key, ReadOnlyMemory<byte> content) => (Key, Content) = (key, content);
+    private SpriteRef(string key, ReadOnlyMemory<byte> content) => (Key, Content) = (content);
     public string Key { get; }
     internal ReadOnlyMemory<byte> Content { get; }
 
-    public static Fin<SpriteRef> Of(SpriteSource source, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(source is not null && source.Valid, op.InvalidInput()).ToFin()
-            .Bind(_ => source.Read(op))
+    public static Fin<SpriteRef> Of(SpriteSource source) {
+        return guard(source is not null && source.Valid, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => source.Read())
             .Bind(content => {
                 ReadOnlyMemory<byte> owned = content.ToArray();
-                return guard(!owned.IsEmpty, op.InvalidInput()).ToFin()
+                return guard(!owned.IsEmpty, new KernelFault.InvalidInput()).ToFin()
                     .Map(_ => new SpriteRef(ContentHash.Hex(ContentHash.Of(owned.Span)), owned));
             });
     }
@@ -522,15 +517,15 @@ public sealed record IsoBanding(
         && Bands.Value is > 0 and <= 10
         && Gap.Match(Some: static row => row.Valid, None: static () => true);
 
-    internal Fin<IsoDrawEffect> Mint(Op key) =>
-        from _ in guard(Valid, key.InvalidInput()).ToFin()
-        from ramp in From.Ramp(To, Bands).Traverse(colour => colour.ToDrawing(key: key)).As()
+    internal Fin<IsoDrawEffect> Mint() =>
+        from _ in guard(Valid, new KernelFault.InvalidInput()).ToFin()
+        from ramp in From.Ramp(To, Bands).Traverse(colour => colour.ToDrawing()).As()
         from gap in Gap.Traverse(row => row switch {
-            IsoGap.Painted painted => painted.Colour.ToDrawing(key: key).Map(ink => (Ink: Some(ink), painted.Size, Discard: false)),
+            IsoGap.Painted painted => painted.Colour.ToDrawing().Map(ink => (Ink: Some(ink), painted.Size, Discard: false)),
             IsoGap.Discarded cut => Fin.Succ((Ink: Option<System.Drawing.Color>.None, cut.Size, Discard: true)),
-            _ => Fin.Fail<(Option<System.Drawing.Color>, double, bool)>(key.InvalidInput()),
+            _ => Fin.Fail<(Option<System.Drawing.Color>, double, bool)>(new KernelFault.InvalidInput()),
         }).As()
-        from effect in key.Catch(() => {
+        from effect in Try.lift(() => {
             IsoDrawEffect value = new() { DrawMode = Mode.Native, Direction = Direction, Point = Anchor, Frequency = Frequency, RotationRadians = Rotation, Falloff = Falloff, UsedBandColorCount = Bands.Value };
             _ = gap.Iter(row => {
                 _ = row.Ink.Iter(ink => value.GapColor = ink);
@@ -538,7 +533,7 @@ public sealed record IsoBanding(
             });
             _ = ramp.Map(static (ink, index) => (ink, index)).Iter(row => ignore(value.SetBandColor(row.index, row.ink)));
             return Fin.Succ(value);
-        })
+        }).Run().Bind(static inner => inner)
         select effect;
 }
 
@@ -553,77 +548,73 @@ public sealed class SpriteSheet : IDisposable {
     internal Fin<TResult> Use<TResult>(
         SpriteRef sprite,
         BlendPair blend,
-        Func<DisplayBitmap, Fin<TResult>> use,
-        Op key) =>
-        Cell.Step(gate, static held => held.Phase is SheetPhase.Open ? Some(held with { Active = held.Active + 1 }) : None, key.InvalidContext())
+        Func<DisplayBitmap, Fin<TResult>> use) =>
+        Cell.Step(gate, static held => held.Phase is SheetPhase.Open ? Some(held with { Active = held.Active + 1 }) : None, new KernelFault.InvalidContext())
             .Switch(
-                state: (Self: this, Sprite: sprite, Blend: blend, Use: use, Key: key),
+                state: (Self: this, Sprite: sprite, Blend: blend, Use: use),
                 committed: static (ctx, _) => ctx.Self.Borrowed(ctx.Sprite, ctx.Blend, ctx.Use, ctx.Key),
-                ceded: static (ctx, _) => Fin.Fail<TResult>(ctx.Key.InvalidContext()),
+                ceded: static (ctx, _) => Fin.Fail<TResult>(new KernelFault.InvalidContext()),
                 refused: static (_, row) => Fin.Fail<TResult>(row.Cause),
-                contended: static (ctx, _) => Fin.Fail<TResult>(ctx.Key.InvalidResult()));
+                contended: static (ctx, _) => Fin.Fail<TResult>(new KernelFault.InvalidResult()));
 
-    private Fin<TResult> Borrowed<TResult>(SpriteRef sprite, BlendPair blend, Func<DisplayBitmap, Fin<TResult>> use, Op key) {
-        Fin<TResult> primary = key.Catch(() => {
+    private Fin<TResult> Borrowed<TResult>(SpriteRef sprite, BlendPair blend, Func<DisplayBitmap, Fin<TResult>> use) {
+        Fin<TResult> primary = Try.lift(() => {
             Lazy<Fin<DisplayBitmap>> cached = cache.GetOrAdd(
                 (sprite.Key, blend.Source.Native, blend.Destination.Native),
                 _ => new Lazy<Fin<DisplayBitmap>>(
-                    () => Load(sprite: sprite, blend: blend, key: key),
+                    () => Load(sprite: sprite, blend: blend),
                     LazyThreadSafetyMode.ExecutionAndPublication));
             return cached.Value.Match(
-                Succ: bitmap => key.Catch(() => use(bitmap)),
+                Succ: bitmap => Try.lift(() => use(bitmap)).Run().Bind(static inner => inner),
                 Fail: failure => (
                     cache.TryRemove(new KeyValuePair<(string, BlendMode, BlendMode), Lazy<Fin<DisplayBitmap>>>((sprite.Key, blend.Source.Native, blend.Destination.Native), cached)),
                     Fin.Fail<TResult>(failure)).Item2);
-        });
-        return primary.Settled(held: Seq(unit), release: _ => Leave(key), key: key);
+        }).Run().Bind(static inner => inner);
+        return primary.Settled(held: Seq(unit), release: _ => Leave());
     }
 
-    private Fin<Unit> Leave(Op key) => key.Catch(() => {
+    private Fin<Unit> Leave() => Try.lift(() => {
         Transition<SheetGate> left = Cell.Commit(gate, static held => held with { Active = held.Active - 1 });
-        return left.Current is { Active: 0, Phase: SheetPhase.Draining } ? Drain(key) : Fin.Succ(unit);
-    });
+        return left.Current is { Active: 0, Phase: SheetPhase.Draining } ? Drain() : Fin.Succ(unit);
+    }).Run().Bind(static inner => inner);
 
-    private Fin<Unit> Drain(Op key) =>
+    private Fin<Unit> Drain() =>
         Cell.Step(gate, static held => held.Phase is SheetPhase.Draining ? Some(held with { Phase = SheetPhase.Released }) : None, Errors.None)
             .Switch(
-                state: (Self: this, Key: key),
+                state: this,
                 committed: static (context, _) => Custody.Release(
-                    held: toSeq(context.Self.cache.Values)
+                    held: toSeq(context.cache.Values)
                         .Filter(static bitmap => bitmap.IsValueCreated)
                         .Choose(static bitmap => bitmap.Value.ToOption()),
-                    release: bitmap => context.Key.Catch(() => Fin.Succ(value: Op.Side(bitmap.Dispose))),
-                    key: context.Key).Map(_ => Op.Side(context.Self.cache.Clear)),
+                    release: bitmap => Try.lift(() => Fin.Succ(value: HostEdge.Side(bitmap.Dispose))).Run().Bind(static inner => inner)).Map(_ => HostEdge.Side(context.cache.Clear)),
                 ceded: static (_, _) => Fin.Succ(unit),
                 refused: static (_, _) => Fin.Succ(unit),
                 contended: static (_, _) => Fin.Succ(unit));
 
-    private static Fin<DisplayBitmap> Load(SpriteRef sprite, BlendPair blend, Op key) =>
-        key.Catch(() => Fin.Succ(value: new System.IO.MemoryStream(sprite.Content.ToArray())))
+    private static Fin<DisplayBitmap> Load(SpriteRef sprite, BlendPair blend) =>
+        Try.lift(() => Fin.Succ(value: new System.IO.MemoryStream(sprite.Content.ToArray()))).Run().Bind(static inner => inner)
             .Bind(stream => new Lease<System.IO.MemoryStream>.Owned(Value: stream).Use(
-                body: input => key.Catch(() => Fin.Succ(value: new System.Drawing.Bitmap(input)))
+                body: input => Try.lift(() => Fin.Succ(value: new System.Drawing.Bitmap(input))).Run().Bind(static inner => inner)
                     .Bind(encoded => new Lease<System.Drawing.Bitmap>.Owned(Value: encoded).Use(
-                        body: source => key.Catch(() => Fin.Succ(value: new System.Drawing.Bitmap(source)))
+                        body: source => Try.lift(() => Fin.Succ(value: new System.Drawing.Bitmap(source))).Run().Bind(static inner => inner)
                             .Bind(bitmap => new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap).Use(
-                                body: copy => key.Catch(() => Fin.Succ(value: new DisplayBitmap(copy)))
-                                    .Bind(loaded => key.Catch(() => Fin.Succ(value: Op.Side(() =>
-                                            loaded.SetBlendFunction(blend.Source.Native, blend.Destination.Native))))
+                                body: copy => Try.lift(() => Fin.Succ(value: new DisplayBitmap(copy))).Run().Bind(static inner => inner)
+                                    .Bind(loaded => Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
+                                            loaded.SetBlendFunction(blend.Source.Native, blend.Destination.Native)))).Run().Bind(static inner => inner)
                                         .Map(_ => loaded)
                                         .Rollback(
-                                            release: () => key.Catch(() => Fin.Succ(value: Op.Side(loaded.Dispose))),
+                                            release: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(loaded.Dispose))).Run().Bind(static inner => inner),
                                             key: key)),
                                 key: key)),
-                        key: key)),
-                key: key));
+                        key: key))));
 
-    public Fin<Unit> Release(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Unit> Release() {
         Transition<SheetGate> closing = Cell.Step(
             gate,
             static held => held.Phase is SheetPhase.Open ? Some(held with { Phase = SheetPhase.Draining }) : None,
             Errors.None);
         return closing is Transition<SheetGate>.Committed { State.Active: 0 }
-            ? Drain(op)
+            ? Drain()
             : Fin.Succ(unit);
     }
 
@@ -750,193 +741,190 @@ public readonly record struct DrawTally(Rasm.Numerics.Dimension Drawn, Rasm.Nume
 public static class Marks {
     private enum Outcome { Drawn, Culled }
 
-    public static Fin<DrawTally> Paint(Canvas canvas, Seq<DisplayMark> marks, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<DrawTally> Paint(Canvas canvas, Seq<DisplayMark> marks) {
         return guard(canvas is not null && canvas.Valid
-                && marks.ForAll(static mark => mark is not null && mark.Valid), op.InvalidInput()).ToFin()
+                && marks.ForAll(static mark => mark is not null && mark.Valid), new KernelFault.InvalidInput()).ToFin()
             .Bind(_ => canvas.Switch(
-                (Marks: marks, Op: op),
-                pipeline: static (ctx, backend) => Immediate(ctx.Marks, ctx.Op, mark =>
-                    PipelineArm(backend.Frame, backend.Sprites, mark, ctx.Op)),
-                retained: static (ctx, backend) => Immediate(ctx.Marks, ctx.Op, mark =>
-                    RetainedArm(backend.Display, mark, ctx.Op)),
+                marks,
+                pipeline: static (ctx, backend) => Immediate(ctx, mark =>
+                    PipelineArm(backend.Frame, backend.Sprites, mark)),
+                retained: static (ctx, backend) => Immediate(ctx, mark =>
+                    RetainedArm(backend.Display, mark)),
                 surface: static (ctx, backend) => Replayed(
-                    ctx.Marks, backend.Target, backend.Policy, backend.Stock, backend.Clock, ctx.Op),
+                    ctx, backend.Target, backend.Policy, backend.Stock, backend.Clock),
                 page: static (ctx, backend) => Replayed(
-                    ctx.Marks, backend.Target, ScenePolicy.Fidelity, backend.Stock, backend.Clock, ctx.Op)));
+                    ctx, backend.Target, ScenePolicy.Fidelity, backend.Stock, backend.Clock)));
     }
 
     private static Fin<DrawTally> Immediate(
-        Seq<DisplayMark> marks, Op op, Func<DisplayMark, Fin<Either<Error, Outcome>>> arm) =>
+        Seq<DisplayMark> marks, Func<DisplayMark, Fin<Either<Error, Outcome>>> arm) =>
         marks.TraverseM(arm).As().Map(outcomes => new DrawTally(
             Drawn: Rasm.Numerics.Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Drawn))),
             Culled: Rasm.Numerics.Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Culled))),
             Refused: outcomes.Choose(static row => row.Match(Left: Some, Right: static _ => Option<Error>.None))));
 
     private static Fin<DrawTally> Replayed(
-        Seq<DisplayMark> marks, Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, Op op) {
+        Seq<DisplayMark> marks, Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock) {
         Seq<Mark> screen = marks.Choose(static mark => mark is DisplayMark.Screen row ? Some(row.Value) : None);
         Seq<Error> refused = marks.Choose(mark => mark switch {
-            DisplayMark.World row => Some((Error)op.Unsupported(row.Value.GetType(), typeof(Graphics))),
-            DisplayMark.Sprite => Some((Error)op.Unsupported(typeof(SpriteMark), typeof(Graphics))),
+            DisplayMark.World row => Some((Error)new KernelFault.Unsupported(row.Value.GetType(), typeof(Graphics))),
+            DisplayMark.Sprite => Some((Error)new KernelFault.Unsupported(typeof(SpriteMark), typeof(Graphics))),
             _ => Option<Error>.None,
         });
-        return PaintProgram.Of(marks: screen, key: op)
-            .Bind(program => program.Replay(target: target, policy: policy, stock: stock, clock: clock, lane: DispatchLane.Paced, key: op))
+        return PaintProgram.Of(marks: screen)
+            .Bind(program => program.Replay(target: target, policy: policy, stock: stock, clock: clock, lane: DispatchLane.Paced))
             .Map(tally => new DrawTally(Drawn: tally.Drawn, Culled: tally.Culled, Refused: refused));
     }
 
     // --- [PIPELINE_ARM]
-    private static Fin<Either<Error, Outcome>> PipelineArm(ConduitFrame frame, SpriteSheet sprites, DisplayMark mark, Op op) => mark.Switch(
-        (Frame: frame, Sprites: sprites, Op: op),
+    private static Fin<Either<Error, Outcome>> PipelineArm(ConduitFrame frame, SpriteSheet sprites, DisplayMark mark) => mark.Switch(
+        (Frame: frame, Sprites: sprites),
         screen: static (ctx, row) => PipelineScope.With(
             ctx.Frame.Pipeline,
             [new RenderAspect.Screen()],
-            () => ScreenProjection(ctx.Frame, row.Value, ctx.Op),
-            ctx.Op),
-        world: static (ctx, row) => WorldPipeline(ctx.Frame, row.Value, ctx.Op).Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
-        sprite: static (ctx, row) => SpritePipeline(ctx.Frame, ctx.Sprites, row.Value, ctx.Op));
+            () => ScreenProjection(ctx.Frame, row.Value)),
+        world: static (ctx, row) => WorldPipeline(ctx.Frame, row.Value).Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
+        sprite: static (ctx, row) => SpritePipeline(ctx.Frame, ctx.Sprites, row.Value));
 
-    private static Fin<Either<Error, Outcome>> ScreenProjection(ConduitFrame frame, Mark mark, Op op) => mark switch {
+    private static Fin<Either<Error, Outcome>> ScreenProjection(ConduitFrame frame, Mark mark) => mark switch {
         Mark.StrokeCase row =>
-            (from primitives in PathPrimitive.Lower(spec: row.Path, key: op)
+            (from primitives in PathPrimitive.Lower(spec: row.Path)
              from stroke in Stroke.Of(
                  colour: row.Stroke.Colour,
                  width: row.Stroke.Width,
                  space: WidthSpace.Screen,
                  cap: StrokeCap.For(row.Stroke.Cap),
                  join: StrokeJoin.For(row.Stroke.Join),
-                 dash: row.Stroke.Dash,
-                 key: op)
-             from pen in stroke.Mint(key: op)
-             from drawn in op.Catch(() => Fin.Succ(primitives.Iter(primitive => {
+                 dash: row.Stroke.Dash)
+             from pen in stroke.Mint()
+             from drawn in Try.lift(() => Fin.Succ(primitives.Iter(primitive => {
                  using global::Rhino.Geometry.Curve curve = primitive.Mint();
                  frame.Pipeline.DrawCurve(curve, pen);
-             })))
+             }))).Run().Bind(static inner => inner)
              select Either.Right<Error, Outcome>(Outcome.Drawn)),
         Mark.TextCase { Face.Source: TypeSource.FamilyCase family } row =>
-            from ink in row.Ink.ToDrawing(key: op)
-            from drawn in op.Catch(() => Fin.Succ(Op.Side(() => frame.Pipeline.Draw2dText(
+            from ink in row.Ink.ToDrawing()
+            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => frame.Pipeline.Draw2dText(
                 row.Text,
                 ink,
                 new Point2d(row.At.X, row.At.Y),
                 row.Block.Map(static block => block.Align == Eto.Drawing.FormattedTextAlignment.Center).IfNone(false),
                 (int)row.Face.Size.Map(static size => size.Value).IfNone(12d),
-                family.Family.Value))))
+                family.Family.Value)))).Run().Bind(static inner => inner)
             select Either.Right<Error, Outcome>(Outcome.Drawn),
-        _ => Fin.Succ(Either.Left<Error, Outcome>(op.Unsupported(mark.GetType(), typeof(DisplayPipeline)))),
+        _ => Fin.Succ(Either.Left<Error, Outcome>(new KernelFault.Unsupported(mark.GetType(), typeof(DisplayPipeline)))),
     };
 
-    private static Fin<Either<Error, Outcome>> SpritePipeline(ConduitFrame frame, SpriteSheet sprites, SpriteMark mark, Op op) =>
+    private static Fin<Either<Error, Outcome>> SpritePipeline(ConduitFrame frame, SpriteSheet sprites, SpriteMark mark) =>
         sprites.Use(mark.Sprite, mark.Blend, bitmap => mark.Anchor.Switch(
-            (Frame: frame, Bitmap: bitmap, Op: op),
-            screen: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
-                ctx.Frame.Pipeline.DrawSprite(ctx.Bitmap, new Point2d(row.At.X, row.At.Y), row.Extent.Width, row.Extent.Height)))),
+            (Frame: frame, Bitmap: bitmap),
+            screen: static (ctx, row) => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                ctx.Frame.Pipeline.DrawSprite(ctx.Bitmap, new Point2d(row.At.X, row.At.Y), row.Extent.Width, row.Extent.Height)))).Run().Bind(static inner => inner),
             world: static (ctx, row) =>
-                from tint in row.Tint.Traverse(colour => colour.ToDrawing(key: ctx.Op)).As()
-                from drawn in ctx.Op.Catch(() => Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.DrawSprite(
+                from tint in row.Tint.Traverse(colour => colour.ToDrawing()).As()
+                from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => ctx.Frame.Pipeline.DrawSprite(
                     ctx.Bitmap, row.At, (float)row.Size.Value,
                     tint.IfNone(System.Drawing.Color.White),
-                    row.Sizing == WidthSpace.World))))
+                    row.Sizing == WidthSpace.World)))).Run().Bind(static inner => inner)
                 select drawn,
             cloud: static (ctx, row) =>
-                from inks in row.Colours.Traverse(colours => colours.Traverse(colour => colour.ToDrawing(key: ctx.Op)).As()).As()
-                from drawn in ctx.Op.Catch(() => {
+                from inks in row.Colours.Traverse(colours => colours.Traverse(colour => colour.ToDrawing()).As()).As()
+                from drawn in Try.lift(() => {
                     DisplayBitmapDrawList list = new();
                     _ = inks.Match(
-                        Some: colours => Op.Side(() => list.SetPoints(row.Points.AsEnumerable(), colours.AsEnumerable())),
-                        None: () => Op.Side(() => list.SetPoints(row.Points.AsEnumerable())));
+                        Some: colours => HostEdge.Side(() => list.SetPoints(row.Points.AsEnumerable(), colours.AsEnumerable())),
+                        None: () => HostEdge.Side(() => list.SetPoints(row.Points.AsEnumerable())));
                     ctx.Frame.Pipeline.DrawSprites(ctx.Bitmap, list, (float)row.Size.Value, row.Sizing == WidthSpace.World);
                     return Fin.Succ(unit);
-                })
-                select drawn), op)
+                }).Run().Bind(static inner => inner)
+                select drawn))
         .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn));
 
-    private static Fin<Unit> WorldPipeline(ConduitFrame frame, WorldMark mark, Op key) => mark.Switch(
-        (Frame: frame, Op: key),
-        curve: static (ctx, row) => row.Stroke.Mint(key: ctx.Op)
-            .Bind(pen => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurve(row.Value, pen))),
+    private static Fin<Unit> WorldPipeline(ConduitFrame frame, WorldMark mark) => mark.Switch(
+        frame,
+        curve: static (ctx, row) => row.Stroke.Mint()
+            .Bind(pen => Try.lift(() => ctx.Pipeline.DrawCurve(row.Value, pen)).Run().Bind(static inner => inner)),
         meshShaded: static (ctx, row) => row.Material.Use(
-            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshShaded(row.Value, material)), ctx.Op),
+            material => Try.lift(() => ctx.Pipeline.DrawMeshShaded(row.Value, material)).Run().Bind(static inner => inner)),
         meshBanded: static (ctx, row) =>
-            from ink in row.Colour.ToDrawing(key: ctx.Op)
-            from effect in row.Banding.Mint(ctx.Op)
-            from drawn in ctx.Op.Catch(() => Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.DrawMeshShaded(row.Value, ink, effect))))
+            from ink in row.Colour.ToDrawing()
+            from effect in row.Banding.Mint()
+            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => ctx.Pipeline.DrawMeshShaded(row.Value, ink, effect)))).Run().Bind(static inner => inner)
             select drawn,
-        meshFalseColors: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshFalseColors(row.Value)),
+        meshFalseColors: static (ctx, row) => Try.lift(() => ctx.Pipeline.DrawMeshFalseColors(row.Value)).Run().Bind(static inner => inner),
         subDShaded: static (ctx, row) => row.Material.Use(
-            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDShaded(row.Value, material)), ctx.Op),
-        subDWires: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDWires(row.Value, ink, row.Width))),
+            material => Try.lift(() => ctx.Pipeline.DrawSubDShaded(row.Value, material)).Run().Bind(static inner => inner)),
+        subDWires: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawSubDWires(row.Value, ink, row.Width)).Run().Bind(static inner => inner)),
         brepShaded: static (ctx, row) => row.Material.Use(
-            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepShaded(row.Value, material)), ctx.Op),
-        brepWires: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepWires(row.Value, ink, row.Density))),
+            material => Try.lift(() => ctx.Pipeline.DrawBrepShaded(row.Value, material)).Run().Bind(static inner => inner)),
+        brepWires: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawBrepWires(row.Value, ink, row.Density)).Run().Bind(static inner => inner)),
         block: static (ctx, row) => row.Material.Use(
-            material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(row.Definition, material, row.Placement)), ctx.Op),
-        clipping: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawClippingPlaneWires(row.Value, ink))),
+            material => Try.lift(() => ctx.Pipeline.DrawInstanceDefinitionShaded(row.Definition, material, row.Placement)).Run().Bind(static inner => inner)),
+        clipping: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawClippingPlaneWires(row.Value, ink)).Run().Bind(static inner => inner)),
         hatch: static (ctx, row) =>
-            from lines in row.Lines.ToDrawing(key: ctx.Op)
-            from fill in row.Fill.ToDrawing(key: ctx.Op)
-            from drawn in ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawHatch(row.Value, lines, fill))
+            from lines in row.Lines.ToDrawing()
+            from fill in row.Fill.ToDrawing()
+            from drawn in Try.lift(() => ctx.Pipeline.DrawHatch(row.Value, lines, fill)).Run().Bind(static inner => inner)
             select drawn,
-        text: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawText(row.Value, ink))),
-        annotation: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotation(row.Value, row.Owner, ink))),
-        arrowhead: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotationArrowhead(row.Value, row.Placement, ink))),
-        direction: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSurfaceDirectionIndicators(row.Value)),
-        curvature: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurvaturePreview(row.Value, ink))),
-        draft: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawDraftAnglePreview(row.Value, ink))),
-        points: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
-                ctx.Frame.Pipeline.DrawPoints(row.Values.AsEnumerable(), row.Style.Native, row.Radius.Value, ink))))),
-        vector: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => Fin.Succ(Op.Side(() => {
-                ctx.Frame.Pipeline.DrawArrow(new Line(row.Anchor, row.Anchor + row.Span), ink);
-                _ = Op.SideWhen(row.Tip.Dot, () => ctx.Frame.Pipeline.DrawPoint(row.Anchor, ink));
-            })))),
+        text: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawText(row.Value, ink)).Run().Bind(static inner => inner)),
+        annotation: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawAnnotation(row.Value, row.Owner, ink)).Run().Bind(static inner => inner)),
+        arrowhead: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawAnnotationArrowhead(row.Value, row.Placement, ink)).Run().Bind(static inner => inner)),
+        direction: static (ctx, row) => Try.lift(() => ctx.Pipeline.DrawSurfaceDirectionIndicators(row.Value)).Run().Bind(static inner => inner),
+        curvature: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawCurvaturePreview(row.Value, ink)).Run().Bind(static inner => inner)),
+        draft: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => ctx.Pipeline.DrawDraftAnglePreview(row.Value, ink)).Run().Bind(static inner => inner)),
+        points: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                ctx.Pipeline.DrawPoints(row.Values.AsEnumerable(), row.Style.Native, row.Radius.Value, ink)))).Run().Bind(static inner => inner)),
+        vector: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() => {
+                ctx.Pipeline.DrawArrow(new Line(row.Anchor, row.Anchor + row.Span), ink);
+                _ = HostEdge.SideWhen(row.Tip.Dot, () => ctx.Pipeline.DrawPoint(row.Anchor, ink));
+            }))).Run().Bind(static inner => inner)),
         polygon: static (ctx, row) =>
-            from fill in row.Fill.ToDrawing(key: ctx.Op)
-            from edge in row.Edge.ToDrawing(key: ctx.Op)
-            from drawn in ctx.Op.Catch(() => Fin.Succ(Op.Side(() => {
-                _ = Op.SideWhen(row.Paint.Fill, () => ctx.Frame.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), fill, filled: true));
-                _ = Op.SideWhen(row.Paint.Edge, () => ctx.Frame.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), edge, filled: false));
-            })))
+            from fill in row.Fill.ToDrawing()
+            from edge in row.Edge.ToDrawing()
+            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => {
+                _ = HostEdge.SideWhen(row.Paint.Fill, () => ctx.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), fill, filled: true));
+                _ = HostEdge.SideWhen(row.Paint.Edge, () => ctx.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), edge, filled: false));
+            }))).Run().Bind(static inner => inner)
             select drawn,
-        label3d: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
-            .Bind(ink => ctx.Op.Catch(() => Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.Draw3dText(row.Value, ink))))));
+        label3d: static (ctx, row) => row.Colour.ToDrawing()
+            .Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() => ctx.Pipeline.Draw3dText(row.Value, ink)))).Run().Bind(static inner => inner)));
 
     // --- [RETAINED_ARM]
-    private static Fin<Either<Error, Outcome>> RetainedArm(CustomDisplay display, DisplayMark mark, Op op) => mark switch {
+    private static Fin<Either<Error, Outcome>> RetainedArm(CustomDisplay display, DisplayMark mark) => mark switch {
         DisplayMark.World { Value: WorldMark.Points row } =>
-            row.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
-                display.AddPoints(row.Values.AsEnumerable(), ink, row.Style.Native, row.Radius.Value)))))
+            row.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                display.AddPoints(row.Values.AsEnumerable(), ink, row.Style.Native, row.Radius.Value)))).Run().Bind(static inner => inner))
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         DisplayMark.World { Value: WorldMark.Vector row } =>
-            row.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
-                display.AddVector(row.Anchor, row.Span, ink, row.Tip.Dot)))))
+            row.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                display.AddVector(row.Anchor, row.Span, ink, row.Tip.Dot)))).Run().Bind(static inner => inner))
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         DisplayMark.World { Value: WorldMark.Polygon row } =>
-            from fill in row.Fill.ToDrawing(key: op)
-            from edge in row.Edge.ToDrawing(key: op)
-            from drawn in op.Catch(() => Fin.Succ(Op.Side(() =>
-                display.AddPolygon(row.Ring.AsEnumerable(), fill, edge, row.Paint.Fill, row.Paint.Edge))))
+            from fill in row.Fill.ToDrawing()
+            from edge in row.Edge.ToDrawing()
+            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                display.AddPolygon(row.Ring.AsEnumerable(), fill, edge, row.Paint.Fill, row.Paint.Edge)))).Run().Bind(static inner => inner)
             select Either.Right<Error, Outcome>(Outcome.Drawn),
         DisplayMark.World { Value: WorldMark.Curve { Stroke.Decoration: var decoration } row }
             when decoration == PenDecoration.Bare =>
-            row.Stroke.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
-                display.AddCurve(row.Value, ink, (int)Math.Max(1d, row.Stroke.Width.Value))))))
+            row.Stroke.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                display.AddCurve(row.Value, ink, (int)Math.Max(1d, row.Stroke.Width.Value))))).Run().Bind(static inner => inner))
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         DisplayMark.World { Value: WorldMark.Label3d row } =>
-            row.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
-                display.AddText(row.Value, ink)))))
+            row.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+                display.AddText(row.Value, ink)))).Run().Bind(static inner => inner))
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
-        _ => Fin.Succ(Either.Left<Error, Outcome>(op.Unsupported(mark.GetType(), typeof(CustomDisplay)))),
+        _ => Fin.Succ(Either.Left<Error, Outcome>(new KernelFault.Unsupported(mark.GetType(), typeof(CustomDisplay)))),
     };
 }
 ```

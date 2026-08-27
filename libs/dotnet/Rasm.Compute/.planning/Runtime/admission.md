@@ -86,7 +86,6 @@ public sealed record AdmittedIntent {
 
     public CancelScope Scope { get; }
 
-    private static readonly Op Segment = Op.Of(nameof(AdmittedIntent));
 
     public static Fin<AdmittedIntent> Admit(
         ComputeIntent intent,
@@ -100,7 +99,7 @@ public sealed record AdmittedIntent {
         from allocation in Keyed<AllocationClass>(nameof(Spec.Allocation), spec.Allocation)
         from cache in Keyed<CachePolicy>(nameof(Spec.Cache), spec.Cache)
         from forced in spec.Forced.Match(
-            Some: static key => Substrate.Admit(key).Map(Some),
+            Some: static key => Substrate.Admit().Map(Some),
             None: static () => Fin.Succ(Option<Substrate>.None))
         select new AdmittedIntent(
             intent,
@@ -116,9 +115,9 @@ public sealed record AdmittedIntent {
 
     private static Fin<T> Keyed<T>(string axis, string key)
         where T : IObjectFactory<T, string, ValidationError> =>
-        T.Validate(key, provider: null, out T? row) is null && row is { } admitted
+        T.Validate(provider: null, out T? row) is null && row is { } admitted
             ? Fin.Succ(admitted)
-            : Fin.Fail<T>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(axis, key))));
+            : Fin.Fail<T>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(axis))));
 
     private static Fin<Duration> Budgeted(Spec spec) =>
         spec.Budget.Match(
@@ -166,30 +165,30 @@ public sealed record AdmittedIntent {
             : Fin.Fail<long>(new ComputeFault.PayloadOverBounds($"<shape-axis-non-positive:{dimension}>")).ToValidation();
 
     private static Fin<(long Bytes, long Elements)> Counted(int bytes, Seq<long> axes) =>
-        Op.Of(name: "admission.shape-product").Catch(() => Fin.Succ((
+        Try.lift(() => Fin.Succ((
             Bytes: (long)bytes,
-            Elements: axes.Fold(1L, static (product, dimension) => checked(product * dimension)))))
+            Elements: axes.Fold(1L, static (product, dimension) => checked(product * dimension))))).Run().Bind(static inner => inner)
             .MapFail(static _ => new ComputeFault.PayloadOverBounds("<shape-overflow>"));
 
     private static Fin<(long Bytes, long Elements)> Summed(Seq<(long Bytes, long Elements)> measured) =>
-        Op.Of(name: "admission.pipeline-sum").Catch(() => Fin.Succ(measured.Fold(
+        Try.lift(() => Fin.Succ(measured.Fold(
             (Bytes: 0L, Elements: 0L),
-            static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements)))))
+            static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements))))).Run().Bind(static inner => inner)
             .MapFail(static _ => new ComputeFault.PayloadOverBounds("<pipeline-overflow>"));
 
     private static UInt128 Derived(ComputeIntent intent) =>
         intent.Switch(
-            tensorOp: static op => ContentHash.Of(op, static (o, w) => w.String(o.Family.Key).Raw(o.Operands.Span)),
-            modelInfer: static op => ContentHash.Of(op, static (o, w) => w.U128(o.Model).Raw(o.Input.Span)),
-            remoteCall: static op => ContentHash.Of(op, static (o, w) => w.String(o.Method).Raw(o.Payload.Span)),
-            unitProject: static op => ContentHash.Of(op, static (o, w) =>
+            tensorOp: static op => ContentHash.Of(static (o, w) => w.String(o.Family.Key).Raw(o.Operands.Span)),
+            modelInfer: static op => ContentHash.Of(static (o, w) => w.U128(o.Model).Raw(o.Input.Span)),
+            remoteCall: static op => ContentHash.Of(static (o, w) => w.String(o.Method).Raw(o.Payload.Span)),
+            unitProject: static op => ContentHash.Of(static (o, w) =>
                 w.String(o.Family.Key).String(o.Unit).String(o.TargetUnit).Bits(o.Value)),
-            symbolicProject: static op => ContentHash.Of(op, static (o, w) => w
+            symbolicProject: static op => ContentHash.Of(static (o, w) => w
                 .U128(o.Formula.ContentKey)
                 .Sorted(toSeq(o.Dimensions), static d => d.Key, StringComparer.Ordinal, static (d, x) => x.String(d.Key).String(d.Value))
                 .String(o.TargetUnit)
                 .Sorted(toSeq(o.Bindings), static b => b.Key, StringComparer.Ordinal, static (b, x) => x.String(b.Key).Bits(b.Value))),
-            generate: static op => ContentHash.Of(op, static (o, w) => w.U128(o.Model).String(o.Prompt)),
+            generate: static op => ContentHash.Of(static (o, w) => w.U128(o.Model).String(o.Prompt)),
             sensorAdmit: static op => ContentHash.Of(op.Reading.Data, static (d, w) => w
                 .String(d.SignalId).I64(d.At.ToUnixTimeTicks()).Doubles(d.OperatingPoint.AsSpan()).Bits(d.Measured)),
             pipeline: static line => ContentHash.Of(line.Stages.Map(Derived), static (digests, w) =>
@@ -270,7 +269,7 @@ public sealed partial class Substrate {
     public Option<long> PayloadCap { get; }
 
     public static Fin<Substrate> Admit(string key) =>
-        TryGet(key, out Substrate? row) && row is { } admitted
+        TryGet(out Substrate? row) && row is { } admitted
             ? Fin.Succ(admitted)
             : Fin.Fail<Substrate>(new ComputeFault.SubstrateUnavailable($"<substrate-unrostered:{key}>"));
 

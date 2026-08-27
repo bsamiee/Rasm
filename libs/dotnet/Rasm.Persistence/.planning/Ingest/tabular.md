@@ -327,7 +327,7 @@ public static class TabularSource {
                 stream: s => s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()))));
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).MapFail(TabularFault.Lift).ToValidation();
+        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).MapFail(TabularFault.Lift).ToValidation();
 
     static object Redact(object value, RedactionPlan plan) => value switch {
         DataTable table => table.Rows.Cast<DataRow>().Select(row => table.Columns.Cast<DataColumn>()
@@ -358,8 +358,8 @@ public static class TabularWire {
         Contract<T>(rows).Bind(_ => rows.Traverse(Bind<T>).As());
 
     public static Validation<Error, T> Bind<T>(TabularRow row) =>
-        Op.Of().Catch(() => Fin.Succ(JsonSerializer.Deserialize<T>(
-                JsonSerializer.SerializeToUtf8Bytes(row.Cells.ToDictionary(static cell => cell.Key, static cell => cell.Value), Options), Options)))
+        Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<T>(
+                JsonSerializer.SerializeToUtf8Bytes(row.Cells.ToDictionary(static cell => cell.Key, static cell => cell.Value), Options), Options))).Run().Bind(static inner => inner)
             .MapFail(TabularFault.Lift)
             .ToValidation()
             .Bind(bound => Optional(bound).ToValidation(
@@ -459,7 +459,12 @@ public readonly record struct DelimitedSpec(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DelimitedSource {
     public static IO<Validation<Error, Seq<T>>> Read<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape) =>
-        IO.lift(() => TabularSource.Capture(() => {
+        IO.lift(() => Error.New(() => {
+            using SepReader reader = Open(spec, source);
+            return (spec.Parallelism > 1
+                ? toSeq(reader.ParallelEnumerate(shape, spec.Parallelism))
+                : toSeq(reader.Enumerate(shape))).Strict();
+        }.Message, () => {
             using SepReader reader = Open(spec, source);
             return (spec.Parallelism > 1
                 ? toSeq(reader.ParallelEnumerate(shape, spec.Parallelism))
@@ -474,7 +479,23 @@ public static class DelimitedSource {
     }
 
     public static IO<Validation<Error, long>> Project(DelimitedSpec spec, Origin source, Origin target, RedactionPlan plan) =>
-        IO.lift(() => TabularSource.Capture(() => {
+        IO.lift(() => Error.New(() => {
+            using SepReader reader = Open(spec, source);
+            using SepWriter writer = target.Read(
+                path: p => spec.Writer().ToFile(p),
+                stream: s => spec.Writer().To(s));
+            long rows = 0;
+            foreach (SepReader.Row row in reader) {
+                using SepWriter.Row emit = writer.NewRow();
+                for (int i = 0; i < row.ColCount; i++) {
+                    string name = reader.Header.ColNames[i];
+                    if (plan.Columns.ContainsKey(name)) { emit[name].Set(plan.Cell(name, row[i].Span)); }
+                    else { emit[name].Set(row[i].Span); }
+                }
+                rows++;
+            }
+            return rows;
+        }.Message, () => {
             using SepReader reader = Open(spec, source);
             using SepWriter writer = target.Read(
                 path: p => spec.Writer().ToFile(p),
@@ -531,8 +552,8 @@ public static class TabularBulk {
         new(BulkCopyType: BulkCopyType.ProviderSpecific, KeepIdentity: true, MaxBatchSize: batch.ToNullable());
 
     static IO<Validation<Error, BulkCopyRowsCopied>> Copied(Func<Task<BulkCopyRowsCopied>> copy) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ =>
-            Fin.Succ(await copy().ConfigureAwait(false))).ConfigureAwait(false))
+        IO.liftAsync(async () => (await Try.lift(async _ =>
+            Fin.Succ(await copy().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
             .MapFail(static error => new TabularFault.BulkRefused(error))
             .ToValidation());
 }

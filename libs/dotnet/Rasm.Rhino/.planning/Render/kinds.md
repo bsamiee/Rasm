@@ -72,9 +72,9 @@ public abstract partial record MaterialMint {
     public static MaterialMint Imported(int materialIndex, MaterialResidency residency) =>
         new ImportedCase(MaterialIndex: materialIndex, Residency: residency);
 
-    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document, Op key) =>
+    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
+            state: document,
             directCase: static (ctx, mint) => Minted(ctx, mint.MaterialIndex,
                 static (source, document) => RenderMaterial.FromMaterial(material: source, doc: document)),
             basicCase: static (ctx, mint) => Minted(ctx, mint.MaterialIndex,
@@ -84,10 +84,10 @@ public abstract partial record MaterialMint {
                     material: source, doc: document, reference: mint.Residency.Key)));
 
     private static Fin<Lease<RenderContent>> Minted(
-        (RhinoDoc Document, Op Op) ctx, int index, Func<Material, RhinoDoc, RenderContent?> route) =>
-        from _index in guard(index >= 0 && index < ctx.Document.Materials.Count, ctx.Op.InvalidInput()).ToFin()
-        from source in ctx.Op.Catch(() => Optional(ctx.Document.Materials[index]).ToFin(Fail: ctx.Op.MissingContext()))
-        from minted in Bridge.Minted(mint: () => route(source, ctx.Document), key: ctx.Op)
+        (RhinoDoc Document) ctx, int index, Func<Material, RhinoDoc, RenderContent?> route) =>
+        from _index in guard(index >= 0 && index < ctx.Document.Materials.Count, new KernelFault.InvalidInput()).ToFin()
+        from source in Try.lift(() => Optional(ctx.Document.Materials[index]).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner)
+        from minted in Bridge.Minted(mint: () => route(source, ctx.Document))
         select minted;
 }
 
@@ -103,9 +103,9 @@ public sealed partial class ScentForm : ICapability<ScentForm> {
     private static readonly Lazy<CapabilityLaw<ScentForm>> law = new(static () =>
         CapabilityLaw<ScentForm>.Forbidden(barred: Seq(CapabilitySet<ScentForm>.None)));
 
-    internal static Fin<CapabilitySet<ScentForm>> Of(bool plain, bool textured, Op key) =>
+    internal static Fin<CapabilitySet<ScentForm>> Of(bool plain, bool textured) =>
         CapabilitySet<ScentForm>
-            .OfMask(mask: (plain ? Plain.Bit : 0) | (textured ? Textured.Bit : 0), bit: static row => row.Bit, key: key)
+            .OfMask(mask: (plain ? Plain.Bit : 0) | (textured ? Textured.Bit : 0), bit: static row => row.Bit)
             .Bind(held => Law.Admit(held: held));
 }
 
@@ -124,11 +124,10 @@ public sealed partial class MaterialScent {
     [UseDelegateFromConstructor]
     private partial bool Textured(RenderMaterial material);
 
-    internal static ScentCensus CensusOf(RenderMaterial material, Seq<MaterialScent> wanted = default, Op? key = null) {
-        Op op = key.OrDefault();
+    internal static ScentCensus CensusOf(RenderMaterial material, Seq<MaterialScent> wanted = default) {
         return new ScentCensus(Rows: (wanted.IsEmpty ? toSeq(Items) : wanted.Distinct())
             .Map(row => ScentForm
-                .Of(plain: row.Plain(material: material), textured: row.Textured(material: material), key: op)
+                .Of(plain: row.Plain(material: material), textured: row.Textured(material: material))
                 .Map(held => new ScentMark(Scent: row, Forms: held))
                 .ToOption())
             .Somes()
@@ -150,31 +149,31 @@ public readonly record struct SlotUsage(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterialBridge {
     internal static Fin<TOut> Bake<TOut>(
-        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow, Op key) =>
-        key.Catch(() => {
+        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow) =>
+        Try.lift(() => {
             using Material baked = material.ToMaterial(tg: generation);
-            return Optional(baked).ToFin(Fail: key.InvalidResult()).Bind(borrow);
-        });
+            return Optional(baked).ToFin(Fail: new KernelFault.InvalidResult()).Bind(borrow);
+        }).Run().Bind(static inner => inner);
 
     internal static Fin<TOut> Pbr<TOut>(
-        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<global::Rhino.DocObjects.PhysicallyBasedMaterial, Fin<TOut>> borrow, Op key) =>
-        key.Catch(() => {
+        RenderMaterial material, RenderTexture.TextureGeneration generation, Func<global::Rhino.DocObjects.PhysicallyBasedMaterial, Fin<TOut>> borrow) =>
+        Try.lift(() => {
             global::Rhino.DocObjects.PhysicallyBasedMaterial projected = material.ConvertToPhysicallyBased(tg: generation);
-            return Optional(projected).ToFin(Fail: key.InvalidResult()).Bind(active => {
+            return Optional(projected).ToFin(Fail: new KernelFault.InvalidResult()).Bind(active => {
                 using Material backing = active.Material;
                 return borrow(active);
             });
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<SlotUsage> Usage(RenderMaterial material, RenderMaterial.StandardChildSlots slot, Op key) =>
-        key.Catch(() => Fin.Succ(value: new SlotUsage(
+    internal static Fin<SlotUsage> Usage(RenderMaterial material, RenderMaterial.StandardChildSlots slot) =>
+        Try.lift(() => Fin.Succ(value: new SlotUsage(
             Slot: slot,
             TextureType: RenderMaterial.TextureTypeFromSlot(slot: slot),
             Grant: Optional(material.GetTextureFromUsage(slot: slot)).Map(texture => (
                 Texture: texture.Id,
                 Posture: UsagePosture.Of(native: material.GetTextureOnFromUsage(slot: slot)),
                 Amount: material.GetTextureAmountFromUsage(slot: slot))),
-            SlotName: material.TextureChildSlotName(slot: slot))));
+            SlotName: material.TextureChildSlotName(slot: slot)))).Run().Bind(static inner => inner);
 }
 ```
 
@@ -188,7 +187,7 @@ public static class MaterialBridge {
 - Law: read-only `LocalMappingTransform` and `OriginalFilename` never enter writable state; local mapping reconstructs from the admitted UVW fields, while original filename remains observation-only host provenance.
 - Law: `EnvironmentProjection` closes the eight host projection modes that name an environment mapping, and the simulated `Emap` posture is the one fallback row the key column cannot carry — it reads the OTHER host enum, so it stays the named `else` inside the one owner rather than an inline arm at the call site. Unrostered projections read as legal absence, not a fault, so this correspondence answers `Option` and takes no row-read result.
 - Boundary: live evaluation (`CreateEvaluator`) and the bake gate (`SimulateTexture`) are the Display render page's `TextureBake` owner; this page configures the content, that one evaluates it, and the two never merge.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderTexture` get/set pairs for projection, wrap, repeat, offset, rotation, mapping channel, environment mode, graph info, preview and viewport flags; `PixelSize2`, `LocalMappingTransform`, `GetLocalMappingType`, `GetInternalEnvironmentMappingMode`, `IsHdrCapable`/`IsLinear`/`IsNormalMap`/`IsImageBased`, `NewBitmapTexture` both arities, `SaveAsImage`, `SimulatedTexture` writable axes, `SetMappingChannelAndProjectionMode`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Transform`); `api-rhinocommon-display.md` (`Color4f`); kernel `Domain/results` (`Op.Catch`, `Op.Side`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `ISmartEnum`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `MapFail`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderTexture` get/set pairs for projection, wrap, repeat, offset, rotation, mapping channel, environment mode, graph info, preview and viewport flags; `PixelSize2`, `LocalMappingTransform`, `GetLocalMappingType`, `GetInternalEnvironmentMappingMode`, `IsHdrCapable`/`IsLinear`/`IsNormalMap`/`IsImageBased`, `NewBitmapTexture` both arities, `SaveAsImage`, `SimulatedTexture` writable axes, `SetMappingChannelAndProjectionMode`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Transform`); `api-rhinocommon-display.md` (`Color4f`); kernel `Domain/results` (`Op.Catch`, `HostEdge.Side`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `ISmartEnum`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `MapFail`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -239,31 +238,31 @@ public sealed partial class FacsimileTrait : ICapability<FacsimileTrait> {
 [SmartEnum<string>]
 public sealed partial class TextureAxis {
     public static readonly TextureAxis Projection = new("projection",
-        static (texture, state, reason) => Op.Side(() => texture.SetProjectionMode(state.Projection, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetProjectionMode(state.Projection, reason)));
     public static readonly TextureAxis Wrap = new("wrap",
-        static (texture, state, reason) => Op.Side(() => texture.SetWrapType(state.Wrap, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetWrapType(state.Wrap, reason)));
     public static readonly TextureAxis Repeat = new("repeat",
-        static (texture, state, reason) => Op.Side(() => texture.SetRepeat(state.Repeat, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetRepeat(state.Repeat, reason)));
     public static readonly TextureAxis RepeatLocked = new("repeat-locked",
-        static (texture, state, reason) => Op.Side(() => texture.SetRepeatLocked(state.Toggles.Admits(TextureToggle.RepeatLocked), reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetRepeatLocked(state.Toggles.Admits(TextureToggle.RepeatLocked), reason)));
     public static readonly TextureAxis Offset = new("offset",
-        static (texture, state, reason) => Op.Side(() => texture.SetOffset(state.Offset, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetOffset(state.Offset, reason)));
     public static readonly TextureAxis OffsetLocked = new("offset-locked",
-        static (texture, state, reason) => Op.Side(() => texture.SetOffsetLocked(state.Toggles.Admits(TextureToggle.OffsetLocked), reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetOffsetLocked(state.Toggles.Admits(TextureToggle.OffsetLocked), reason)));
     public static readonly TextureAxis Rotation = new("rotation",
-        static (texture, state, reason) => Op.Side(() => texture.SetRotation(state.Rotation, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetRotation(state.Rotation, reason)));
     public static readonly TextureAxis MappingChannel = new("mapping-channel",
-        static (texture, state, reason) => Op.Side(() => texture.SetMappingChannel(state.Channel, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetMappingChannel(state.Channel, reason)));
     public static readonly TextureAxis EnvironmentMode = new("environment-mode",
-        static (texture, state, reason) => Op.Side(() => texture.SetEnvironmentMappingMode(state.EnvironmentMode, reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetEnvironmentMappingMode(state.EnvironmentMode, reason)));
     public static readonly TextureAxis Graph = new("graph",
-        static (texture, state, _) => Op.Side(() => texture.SetGraphInfo(state.Graph)));
+        static (texture, state, _) => HostEdge.Side(() => texture.SetGraphInfo(state.Graph)));
     public static readonly TextureAxis PreviewIn3D = new("preview-3d",
-        static (texture, state, reason) => Op.Side(() => texture.SetPreviewIn3D(state.Toggles.Admits(TextureToggle.PreviewIn3D), reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetPreviewIn3D(state.Toggles.Admits(TextureToggle.PreviewIn3D), reason)));
     public static readonly TextureAxis PreviewLocalMapping = new("preview-local-mapping",
-        static (texture, state, reason) => Op.Side(() => texture.SetPreviewLocalMapping(state.Toggles.Admits(TextureToggle.PreviewLocalMapping), reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetPreviewLocalMapping(state.Toggles.Admits(TextureToggle.PreviewLocalMapping), reason)));
     public static readonly TextureAxis DisplayInViewport = new("display-in-viewport",
-        static (texture, state, reason) => Op.Side(() => texture.SetDisplayInViewport(state.Toggles.Admits(TextureToggle.DisplayInViewport), reason)));
+        static (texture, state, reason) => HostEdge.Side(() => texture.SetDisplayInViewport(state.Toggles.Admits(TextureToggle.DisplayInViewport), reason)));
 
     [UseDelegateFromConstructor]
     internal partial Unit Write(RenderTexture texture, TextureConfig state, RenderContent.ChangeContexts reason);
@@ -272,21 +271,21 @@ public sealed partial class TextureAxis {
 [SmartEnum<string>]
 public sealed partial class FacsimileAxis {
     public static readonly FacsimileAxis Filename = new("filename",
-        static (simulated, state) => Op.Side(() => simulated.Filename = state.Filename.IfNone(string.Empty)));
+        static (simulated, state) => HostEdge.Side(() => simulated.Filename = state.Filename.IfNone(string.Empty)));
     public static readonly FacsimileAxis Repeat = new("repeat",
-        static (simulated, state) => Op.Side(() => simulated.Repeat = state.Repeat));
+        static (simulated, state) => HostEdge.Side(() => simulated.Repeat = state.Repeat));
     public static readonly FacsimileAxis Offset = new("offset",
-        static (simulated, state) => Op.Side(() => simulated.Offset = state.Offset));
+        static (simulated, state) => HostEdge.Side(() => simulated.Offset = state.Offset));
     public static readonly FacsimileAxis Rotation = new("rotation",
-        static (simulated, state) => Op.Side(() => simulated.Rotation = state.Rotation));
+        static (simulated, state) => HostEdge.Side(() => simulated.Rotation = state.Rotation));
     public static readonly FacsimileAxis Repeating = new("repeating",
-        static (simulated, state) => Op.Side(() => simulated.Repeating = state.Traits.Admits(FacsimileTrait.Repeating)));
+        static (simulated, state) => HostEdge.Side(() => simulated.Repeating = state.Traits.Admits(FacsimileTrait.Repeating)));
     public static readonly FacsimileAxis Mapping = new("mapping",
         static (simulated, state) => state.Mapping.Apply(texture: simulated));
     public static readonly FacsimileAxis Filtered = new("filtered",
-        static (simulated, state) => Op.Side(() => simulated.Filtered = state.Traits.Admits(FacsimileTrait.Filtered)));
+        static (simulated, state) => HostEdge.Side(() => simulated.Filtered = state.Traits.Admits(FacsimileTrait.Filtered)));
     public static readonly FacsimileAxis Transparency = new("transparency",
-        static (simulated, state) => Op.Side(() => {
+        static (simulated, state) => HostEdge.Side(() => {
             simulated.HasTransparentColor = state.Transparency.IsSome;
             _ = state.Transparency.Iter(row => {
                 simulated.TransparentColor = row.Color;
@@ -300,10 +299,10 @@ public sealed partial class FacsimileAxis {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class AxisFold {
-    internal static Fin<Unit> Apply<TRow, TTarget, TState>(TTarget target, TState state, Func<TRow, TTarget, TState, Unit> write, Op key)
+    internal static Fin<Unit> Apply<TRow, TTarget, TState>(TTarget target, TState state, Func<TRow, TTarget, TState, Unit> write)
         where TRow : class, ISmartEnum<string, TRow, ValidationError> =>
         toSeq(TRow.Items)
-            .TraverseM(row => key.Catch(() => Fin.Succ(value: write(arg1: row, arg2: target, arg3: state))))
+            .TraverseM(row => Try.lift(() => Fin.Succ(value: write(arg1: row, arg2: target, arg3: state))).Run().Bind(static inner => inner))
             .As()
             .Map(static _ => unit);
 }
@@ -319,7 +318,7 @@ public sealed record TextureConfig(
     TextureEnvironmentMappingMode EnvironmentMode,
     TextureGraphInfo Graph,
     CapabilitySet<TextureToggle> Toggles) : IDetachedDocumentResult {
-    public static Fin<TextureConfig> Of(RenderTexture texture, Op key) => key.Catch(() => {
+    public static Fin<TextureConfig> Of(RenderTexture texture) => Try.lift(() => {
         TextureGraphInfo graph = new();
         texture.GraphInfo(ref graph);
         return Fin.Succ(value: new TextureConfig(
@@ -332,16 +331,15 @@ public sealed record TextureConfig(
             EnvironmentMode: texture.GetEnvironmentMappingMode(),
             Graph: graph,
             Toggles: TextureToggle.Of(texture: texture)));
-    });
+    }).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Apply(RenderTexture texture, ChangeReason reason, Op key) {
+    internal Fin<Unit> Apply(RenderTexture texture, ChangeReason reason) {
         TextureConfig self = this;
-        return ChangeScope.Write(content: texture, reason: reason, key: key, body: _ =>
+        return ChangeScope.Write(content: texture, reason: reason, body: _ =>
             AxisFold.Apply<TextureAxis, RenderTexture, (TextureConfig State, RenderContent.ChangeContexts Reason)>(
                 target: texture,
                 state: (State: self, Reason: reason.Native),
-                write: static (row, target, state) => row.Write(texture: target, state: state.State, reason: state.Reason),
-                key: key));
+                write: static (row, target, state) => row.Write(texture: target, state: state.State, reason: state.Reason)));
     }
 }
 
@@ -388,34 +386,31 @@ public abstract partial record SimulatedMapping {
     public static Fin<SimulatedMapping> Of(
         SimulatedTexture.ProjectionModes projection,
         int channel,
-        Option<SimulatedTexture.EnvironmentMappingModes> environment = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(channel >= 0, op.InvalidInput()).ToFin()
+        Option<SimulatedTexture.EnvironmentMappingModes> environment = default) {
+        return from _ in guard(channel >= 0, new KernelFault.InvalidInput()).ToFin()
                select environment.Match(
                    Some: mode => (SimulatedMapping)new EnvironmentCase(
                        Projection: projection, Channel: channel, Environment: mode),
                    None: () => new DirectCase(Projection: projection, Channel: channel));
     }
 
-    internal static Fin<SimulatedMapping> Capture(SimulatedTexture texture, Op key) {
+    internal static Fin<SimulatedMapping> Capture(SimulatedTexture texture) {
         using Texture projected = texture.Texture();
         return Of(
             projection: texture.ProjectionMode,
             channel: texture.MappingChannel,
             environment: EnvironmentProjection.Of(
-                projection: projected.ProjectionMode, simulated: texture.ProjectionMode),
-            key: key);
+                projection: projected.ProjectionMode, simulated: texture.ProjectionMode));
     }
 
     internal Unit Apply(SimulatedTexture texture) =>
         Switch(
             state: texture,
-            directCase: static (target, mapping) => Op.Side(() => {
+            directCase: static (target, mapping) => HostEdge.Side(() => {
                 target.ProjectionMode = mapping.Projection;
                 target.MappingChannel = mapping.Channel;
             }),
-            environmentCase: static (target, mapping) => Op.Side(() =>
+            environmentCase: static (target, mapping) => HostEdge.Side(() =>
                 target.SetMappingChannelAndProjectionMode(mapping.Projection, mapping.Channel, mapping.Environment)));
 }
 
@@ -426,13 +421,13 @@ public readonly record struct TextureTraits(
     RenderTexture.eLocalMappingType LocalMappingType,
     TextureEnvironmentMappingMode InternalEnvironmentMode,
     CapabilitySet<TextureTrait> Traits) : IDetachedDocumentResult {
-    public static Fin<TextureTraits> Of(RenderTexture texture, Op key) =>
-        key.Catch(() => Fin.Succ(value: new TextureTraits(
+    public static Fin<TextureTraits> Of(RenderTexture texture) =>
+        Try.lift(() => Fin.Succ(value: new TextureTraits(
             Texels: Optional(texture.PixelSize2),
             LocalTransform: texture.LocalMappingTransform,
             LocalMappingType: texture.GetLocalMappingType(),
             InternalEnvironmentMode: texture.GetInternalEnvironmentMappingMode(),
-            Traits: TextureTrait.Of(texture: texture))));
+            Traits: TextureTrait.Of(texture: texture)))).Run().Bind(static inner => inner);
 }
 
 public sealed record TextureFacsimile(
@@ -445,10 +440,10 @@ public sealed record TextureFacsimile(
     SimulatedMapping Mapping,
     Option<(Color4f Color, double Sensitivity)> Transparency,
     CapabilitySet<FacsimileTrait> Traits) : IDetachedDocumentResult {
-    internal static Fin<TextureFacsimile> Of(SimulatedTexture simulated, Op key) =>
-        SimulatedMapping.Capture(texture: simulated, key: key).Map(mapping => new TextureFacsimile(
-            Filename: Op.Text(simulated.Filename),
-            OriginalFilename: Op.Text(simulated.OriginalFilename),
+    internal static Fin<TextureFacsimile> Of(SimulatedTexture simulated) =>
+        Error.New(texture: simulated.Message, texture: simulated).Map(mapping => new TextureFacsimile(
+            Filename: HostEdge.Text(simulated.Filename),
+            OriginalFilename: HostEdge.Text(simulated.OriginalFilename),
             LocalTransform: simulated.LocalMappingTransform,
             Repeat: simulated.Repeat,
             Offset: simulated.Offset,
@@ -459,13 +454,12 @@ public sealed record TextureFacsimile(
                 : Option<(Color4f, double)>.None,
             Traits: FacsimileTrait.Of(simulated: simulated)));
 
-    internal Fin<Unit> Apply(SimulatedTexture simulated, Op key) {
+    internal Fin<Unit> Apply(SimulatedTexture simulated) {
         TextureFacsimile self = this;
         return AxisFold.Apply<FacsimileAxis, SimulatedTexture, TextureFacsimile>(
             target: simulated,
             state: self,
-            write: static (row, target, state) => row.Write(simulated: target, state: state),
-            key: key);
+            write: static (row, target, state) => row.Write(simulated: target, state: state));
     }
 }
 
@@ -476,30 +470,30 @@ public abstract partial record TextureMint {
     private sealed record BitmapCase(System.Drawing.Bitmap Value) : TextureMint;
     private sealed record SimulatedCase(TextureFacsimile Value) : TextureMint;
 
-    public static Fin<TextureMint> From(System.Drawing.Bitmap value, Op? key = null) =>
+    public static Fin<TextureMint> From(System.Drawing.Bitmap value) =>
         key.OrDefault().Need(value).Map(static admitted => (TextureMint)new BitmapCase(Value: admitted));
 
-    public static Fin<TextureMint> From(TextureFacsimile value, Op? key = null) =>
+    public static Fin<TextureMint> From(TextureFacsimile value) =>
         key.OrDefault().Need(value).Map(static admitted => (TextureMint)new SimulatedCase(Value: admitted));
 
-    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document, Op key) =>
+    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
+            state: document,
             bitmapCase: static (ctx, mint) =>
-                Bridge.Minted(mint: () => RenderTexture.NewBitmapTexture(bitmap: mint.Value, doc: ctx.Document), key: ctx.Op),
-            simulatedCase: static (ctx, mint) => ctx.Op.Catch(() => {
-                using SimulatedTexture carrier = new(ctx.Document);
-                return mint.Value.Apply(simulated: carrier, key: ctx.Op)
+                Bridge.Minted(mint: () => RenderTexture.NewBitmapTexture(bitmap: mint.Value, doc: ctx)),
+            simulatedCase: static (ctx, mint) => Try.lift(() => {
+                using SimulatedTexture carrier = new(ctx);
+                return mint.Value.Apply(simulated: carrier)
                     .Bind(_ => Bridge.Minted(
-                        mint: () => RenderTexture.NewBitmapTexture(texture: carrier, doc: ctx.Document), key: ctx.Op));
-            }));
+                        mint: () => RenderTexture.NewBitmapTexture(texture: carrier, doc: ctx)));
+            }).Run().Bind(static inner => inner));
 }
 
 public static class TextureExport {
-    internal static Fin<Unit> Export(RenderTexture texture, string path, int width, int height, int depth, Op key) =>
-        from admitted in key.AcceptText(value: path)
-        from _ in guard(width > 0 && height > 0 && depth > 0, key.InvalidInput())
-        from confirmed in key.Catch(() => key.Confirm(success: texture.SaveAsImage(admitted, width, height, depth)))
+    internal static Fin<Unit> Export(RenderTexture texture, string path, int width, int height, int depth) =>
+        from admitted in Acceptance.Text(value: path)
+        from _ in guard(width > 0 && height > 0 && depth > 0, new KernelFault.InvalidInput())
+        from confirmed in Try.lift(() => Admit.Confirm(success: texture.SaveAsImage(admitted, width, height, depth))).Run().Bind(static inner => inner)
         select unit;
 }
 ```
@@ -527,51 +521,51 @@ public sealed record EnvironmentState(
     PerceptualColor Background,
     SimulatedEnvironment.BackgroundProjections Projection,
     Option<TextureFacsimile> Image) : IDetachedDocumentResult {
-    internal static Fin<EnvironmentState> Bake(RenderEnvironment environment, BakeScope scope, Op key) =>
-        key.Catch(() => {
+    internal static Fin<EnvironmentState> Bake(RenderEnvironment environment, BakeScope scope) =>
+        Try.lift(() => {
             using SimulatedEnvironment simulated = environment.SimulateEnvironment(isForDataOnly: scope.Key);
-            return Optional(simulated).ToFin(Fail: key.InvalidResult()).Bind(active => {
+            return Optional(simulated).ToFin(Fail: new KernelFault.InvalidResult()).Bind(active => {
                 using SimulatedTexture image = active.BackgroundImage;
                 Fin<Option<TextureFacsimile>> detached = image.ConstPointer() == IntPtr.Zero
                     ? Fin.Succ(Option<TextureFacsimile>.None)
-                    : TextureFacsimile.Of(simulated: image, key: key).Map(static value => Some(value));
+                    : TextureFacsimile.Of(simulated: image).Map(static value => Some(value));
                 return from detachedImage in detached
-                       from background in PerceptualColor.OfHost(host: active.BackgroundColor, key: key)
+                       from background in PerceptualColor.OfHost(host: active.BackgroundColor)
                        select new EnvironmentState(
                            Background: background,
                            Projection: active.BackgroundProjection,
                            Image: detachedImage);
             });
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document, Op key) {
+    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document) {
         EnvironmentState self = this;
-        return key.Catch(() => {
+        return Try.lift(() => {
             using SimulatedEnvironment simulated = new();
-            return from background in self.Background.ToDrawing(key: key)
-                   from _ in key.Catch(() => {
+            return from background in self.Background.ToDrawing()
+                   from _ in Try.lift(() => {
                        simulated.BackgroundColor = background;
                        simulated.BackgroundProjection = self.Projection;
                        return Fin.Succ(value: unit);
-                   })
+                   }).Run().Bind(static inner => inner)
                    from minted in self.Image.Match(
-                       Some: facsimile => Imaged(facsimile: facsimile, simulated: simulated, document: document, key: key),
-                       None: () => Basic(simulated: simulated, document: document, key: key))
+                       Some: facsimile => Imaged(facsimile: facsimile, simulated: simulated, document: document),
+                       None: () => Basic(simulated: simulated, document: document))
                    select minted;
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     private static Fin<Lease<RenderContent>> Imaged(
-        TextureFacsimile facsimile, SimulatedEnvironment simulated, RhinoDoc document, Op key) {
+        TextureFacsimile facsimile, SimulatedEnvironment simulated, RhinoDoc document) {
         using SimulatedTexture reconstructed = new(document);
-        return from _ in facsimile.Apply(simulated: reconstructed, key: key)
-               from __ in key.Catch(() => { simulated.BackgroundImage = reconstructed; return Fin.Succ(value: unit); })
-               from minted in Basic(simulated: simulated, document: document, key: key)
+        return from _ in facsimile.Apply(simulated: reconstructed)
+               from __ in Try.lift(() => { simulated.BackgroundImage = reconstructed; return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)
+               from minted in Basic(simulated: simulated, document: document)
                select minted;
     }
 
-    private static Fin<Lease<RenderContent>> Basic(SimulatedEnvironment simulated, RhinoDoc document, Op key) =>
-        Bridge.Minted(mint: () => RenderEnvironment.NewBasicEnvironment(environment: simulated, doc: document), key: key);
+    private static Fin<Lease<RenderContent>> Basic(SimulatedEnvironment simulated, RhinoDoc document) =>
+        Bridge.Minted(mint: () => RenderEnvironment.NewBasicEnvironment(environment: simulated, doc: document));
 }
 ```
 
@@ -600,9 +594,8 @@ public sealed partial class PhotometricDialect {
 
     internal string Description { get; }
 
-    internal static Fin<PhotometricDialect> OfPath(FileLocation path, Op key) =>
-        key.Catch(() => key.Row<string, PhotometricDialect>(
-            System.IO.Path.GetExtension(path.Value).ToLowerInvariant()));
+    internal static Fin<PhotometricDialect> OfPath(FileLocation path) =>
+        Try.lift(() => key.Row<string).Run().Bind(static inner => inner);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -620,42 +613,40 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
             ? null
             : new ValidationError(string.Join(" | ", new object?[] { nameof(PhotometricFile) }));
 
-    public static Fin<PhotometricFile> Of(string path, Op? key = null) {
-        Op op = key.OrDefault();
-        return from location in op.AcceptValidated<FileLocation>(path)
-               from dialect in PhotometricDialect.OfPath(path: location, key: op)
-               from admitted in op.AcceptValidated<PhotometricFile>(
+    public static Fin<PhotometricFile> Of(string path) {
+        return from location in FactoryBridge.Accept<FileLocation>(path)
+               from dialect in PhotometricDialect.OfPath(path: location)
+               from admitted in FactoryBridge.Accept<PhotometricFile>(
                    Validate(location, dialect, out PhotometricFile? created), created)
                select admitted;
     }
 
-    internal Fin<ContentRef> AttachTo(RenderContent parent, string childSlot, PhotometricPress press, ChangeReason reason, Op key) {
+    internal Fin<ContentRef> AttachTo(RenderContent parent, string childSlot, PhotometricPress press, ChangeReason reason) {
         PhotometricFile self = this;
-        return from slot in key.AcceptText(value: childSlot)
-               from lease in press.Materialize(file: self, key: key)
-               from custody in PhotometricPress.Custody(lease: lease, key: key)
+        return from slot in Acceptance.Text(value: childSlot)
+               from lease in press.Materialize(file: self)
+               from custody in PhotometricPress.Custody(lease: lease)
                from seated in custody.Lease.Use(
-                   body: transfer => ChangeScope.Write(content: parent, reason: reason, key: key, body: live =>
-                       from prior in key.Catch(() => Fin.Succ(value: live.ChildSlotOn(childSlotName: slot)))
-                       from taken in key.Catch(() => {
+                   body: transfer => ChangeScope.Write(content: parent, reason: reason, body: live =>
+                       from prior in Try.lift(() => Fin.Succ(value: live.ChildSlotOn(childSlotName: slot))).Run().Bind(static inner => inner)
+                       from taken in Try.lift(() => {
                                live.SetChildSlotOn(childSlotName: slot, bOn: true, cc: reason.Native);
-                               return key.Confirm(success: live.SetChild(renderContent: custody.Content, childSlotName: slot));
-                           })
-                           .Bind(_ => transfer.Take(key: key))
+                               return Admit.Confirm(success: live.SetChild(renderContent: custody.Content, childSlotName: slot));
+                           }).Run().Bind(static inner => inner)
+                           .Bind(_ => transfer.Take())
                            .MapFail(fault => Restored(
-                               parent: live, slot: slot, prior: prior, reason: reason, primary: fault, key: key))
-                       select taken),
-                   key: key)
-               from address in ContentRef.Of(id: seated.Id, key: key)
+                               parent: live, slot: slot, prior: prior, reason: reason, primary: fault))
+                       select taken))
+               from address in ContentRef.Of(id: seated.Id)
                select address;
     }
 
     private static Error Restored(
-        RenderContent parent, string slot, bool prior, ChangeReason reason, Error primary, Op key) =>
-        key.Catch(() => {
+        RenderContent parent, string slot, bool prior, ChangeReason reason, Error primary) =>
+        Try.lift(() => {
                 parent.SetChildSlotOn(childSlotName: slot, bOn: prior, cc: reason.Native);
                 return Fin.Succ(value: unit);
-            })
+            }).Run().Bind(static inner => inner)
             .Map(_ => primary)
             .IfFail(restore => primary + restore);
 
@@ -665,54 +656,52 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease<RenderContent>>> Reader) {
-    internal Fin<Lease<RenderContent>> Materialize(PhotometricFile file, Op key, RhinoDoc? document = null) =>
-        key.Catch(() => Reader(file, document));
+    internal Fin<Lease<RenderContent>> Materialize(PhotometricFile file, RhinoDoc? document = null) =>
+        Try.lift(() => Reader(file, document)).Run().Bind(static inner => inner);
 
     public Fin<Seq<RenderContentSerializer>> Serializers(
         RetentionPolicy retention,
-        Action<Error> record,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Action<Error> record) {
         PhotometricPress self = this;
-        return from activeRetention in op.Need(retention)
-               from activeRecord in op.Need(record)
+        return from activeRetention in Admit.Need(retention)
+               from activeRecord in Admit.Need(record)
                from rows in toSeq(PhotometricDialect.Items).TraverseM(dialect =>
-                   from extension in ContentExtension.Of(value: dialect.Key, key: op)
+                   from extension in ContentExtension.Of(value: dialect.Key)
                    from serializer in ContentSerializer.Of(program: new SerializerProgram(
                        FileExtension: extension,
                        Kind: ContentKind.Texture,
                        Read: Some<Func<string, Fin<ContentTransfer>>>(path =>
-                           self.Read(path: path, record: activeRecord, key: op)),
+                           self.Read(path: path, record: activeRecord)),
                        Write: None,
                        LoadMultiple: None,
                        Retention: activeRetention,
                        EnglishDescription: dialect.Description,
-                       LocalDescription: dialect.Description), key: op)
+                       LocalDescription: dialect.Description))
                    select (RenderContentSerializer)serializer).As()
                select rows;
     }
 
-    private Fin<ContentTransfer> Read(string path, Action<Error> record, Op key) =>
-        (from file in PhotometricFile.Of(path: path, key: key)
-         from lease in Materialize(file: file, key: key)
-         from transfer in Transfer(lease: lease, key: key)
+    private Fin<ContentTransfer> Read(string path, Action<Error> record) =>
+        (from file in PhotometricFile.Of(path: path)
+         from lease in Materialize(file: file)
+         from transfer in Transfer(lease: lease)
          select transfer).MapFail(failure => {
              record(failure);
              return failure;
          });
 
-    private static Fin<Lease<RenderContent>.Owned> Held(Lease<RenderContent> lease, Op key) =>
+    private static Fin<Lease<RenderContent>.Owned> Held(Lease<RenderContent> lease) =>
         lease is Lease<RenderContent>.Owned owned
             ? Fin.Succ(value: owned)
             : Fin.Fail<Lease<RenderContent>.Owned>(
-                error: key.InvalidResult(detail: nameof(Lease<RenderContent>.Borrowed)));
+                error: new KernelFault.InvalidResult(Detail: Some(nameof(Lease<RenderContent>.Borrowed))));
 
-    internal static Fin<ContentTransfer> Transfer(Lease<RenderContent> lease, Op key) =>
-        Held(lease: lease, key: key).Bind(owned => key.Catch(() => Fin.Succ(value: new ContentTransfer(owned: owned))));
+    internal static Fin<ContentTransfer> Transfer(Lease<RenderContent> lease) =>
+        Held(lease: lease).Bind(owned => Try.lift(() => Fin.Succ(value: new ContentTransfer(owned: owned))).Run().Bind(static inner => inner));
 
-    internal static Fin<(RenderContent Content, Lease<ContentTransfer> Lease)> Custody(Lease<RenderContent> lease, Op key) =>
-        Held(lease: lease, key: key).Bind(owned =>
-            Lease<ContentTransfer>.Acquire(mint: () => new ContentTransfer(owned: owned), key: key)
+    internal static Fin<(RenderContent Content, Lease<ContentTransfer> Lease)> Custody(Lease<RenderContent> lease) =>
+        Held(lease: lease).Bind(owned =>
+            Lease<ContentTransfer>.Acquire(mint: () => new ContentTransfer(owned: owned))
                 .Map(held => (Content: owned.Value, Lease: held)));
 }
 ```
@@ -728,12 +717,12 @@ public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease
 |  [05]   | texture configuration  | `TextureConfig`         | total replayable state, toggles as one column     | `Of` / `Apply(texture, reason)`  |
 |  [06]   | texture write roster   | `TextureAxis`           | one row per writable host axis                    | `Write` / `Items`                |
 |  [07]   | roster fold            | `AxisFold`              | the branch's one keyed write traverse             | `Apply(target, state, write)`    |
-|  [08]   | texture classification | `TextureTraits`         | detached local mapping and capability column      | `Of(texture, key)`               |
+|  [08]   | texture classification | `TextureTraits`         | detached local mapping and capability column      | `Of(texture)`               |
 |  [09]   | baked-texture crossing | `TextureFacsimile`      | replayable facsimile state                        | `Of` / `Apply`                   |
 |  [10]   | facsimile write roster | `FacsimileAxis`         | one row per simulated axis, option as predicate   | `Write` / `Items`                |
 |  [11]   | environment projection | `EnvironmentProjection` | host projection keyed, simulated `Emap` fallback  | `Of(projection, simulated)`      |
 |  [12]   | texture mint/export    | `TextureMint`           | admitted leased texture lifecycle                 | `From` / `Mint`                  |
-|  [13]   | environment bake/mint  | `EnvironmentState`      | detached state and document-aware leased mint     | `Bake` / `Mint(document, key)`   |
+|  [13]   | environment bake/mint  | `EnvironmentState`      | detached state and document-aware leased mint     | `Bake` / `Mint(document)`   |
 |  [14]   | photometric payload    | `PhotometricFile`       | dialect-admitted attachment answering its address | `Of` / `AttachTo`                |
 |  [15]   | photometric readers    | `PhotometricPress`      | declarative registry serializer roster            | `Serializers(retention, record)` |
 

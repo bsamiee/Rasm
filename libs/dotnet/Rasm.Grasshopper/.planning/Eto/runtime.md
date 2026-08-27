@@ -11,7 +11,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 
 ## [02]-[TIMER]
 
-- Owner: `EtoTimer` — the one `UITimer` supplier: `Drive(PositiveMagnitude cadence, Action tick, FaultCell faults, Op? key = null)` → `Fin<Lease<TimerHold>>` mints the timer at the admitted cadence, wires `Elapsed` to the supplied tick, starts it, and returns `Owned` over the `TimerHold` capsule; `TimerHold.Dispose` stops the timer, detaches the handler, and disposes — construction and release each marshal through the kernel `UiThread.Run` blocking arity because `UITimer` is UI-affine.
+- Owner: `EtoTimer` — the one `UITimer` supplier: `Drive(PositiveMagnitude cadence, Action tick, FaultCell faults)` → `Fin<Lease<TimerHold>>` mints the timer at the admitted cadence, wires `Elapsed` to the supplied tick, starts it, and returns `Owned` over the `TimerHold` capsule; `TimerHold.Dispose` stops the timer, detaches the handler, and disposes — construction and release each marshal through the kernel `UiThread.Run` blocking arity because `UITimer` is UI-affine.
 - Law: the lease's `Owned` case carries a VALUE alone, so the release lives on the leased type — `TimerHold` is the UI-affine capsule holding the timer, the handler it must detach, and the mint key its release marshal reuses; a lease taken over the bare timer cannot detach the handler, because the handler is not recoverable from the `UITimer` it was attached to.
 - Law: a release refusal PARKS on the composition's `FaultCell` under the capsule's own point id — the cell's `Parked`/`Lost` gauges are the telemetry root's reads, so a still-attached handler is counted evidence, never an invisible discard; a capsule-local `Atom<Seq<Error>>` ledger nothing read was the deleted FaultCell twin.
 - Law: identity lives in the KERNEL clock — the tick this timer drives is `UiClock`'s own; drift, misses, ordinals, postures, observers, and fault custody are the kernel's, and a body here that computes any of them re-derives what the beat already carries. This page supplies the platform lease and NOTHING else, per the kernel clock boundary law.
@@ -21,7 +21,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 
 ## [03]-[PACE]
 
-- Owner: `FrameTune` — the pace producer: `Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default, Op? key = null)` → `Fin<Unit>` scales the kernel `PaceBand` to the measured minimum refresh interval and seats `UiThread.Tune(new StallPolicy(Pace: scaled, Stretch: ...), clock, key)`; the per-lane stretch map stays kernel-default empty unless a measured host pathology earns a named override row.
+- Owner: `FrameTune` — the pace producer: `Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default)` → `Fin<Unit>` scales the kernel `PaceBand` to the measured minimum refresh interval and seats `UiThread.Tune(new StallPolicy(Pace: scaled, Stretch: ...), clock)`; the per-lane stretch map stays kernel-default empty unless a measured host pathology earns a named override row.
 - Law: the interval is MEASURED, never declared — `Platform/native.md`'s display-link measurement produces it on macOS and the display metadata read is the fallback; the kernel seeds `StallPolicy.Portable` so an untuned floor over-reports a stall and never hides one, and this producer only ever tightens toward the real display.
 - Law: the seat transition is the kernel's — `Tune` answers the kernel `Transition<StallPolicy>` semantics, so a tune that lost a race under contention is a read case, never an assumed swap; this producer retries nothing and reports the refusal.
 - Boundary: WHO calls `Feed` is `Platform/composition.md`'s load roster (the pacer row) and `Platform/native.md`'s re-measure on display change; this page owns the producer spelling alone.
@@ -41,60 +41,57 @@ namespace Rasm.Grasshopper.Eto;
 public sealed class TimerHold : IDisposable {
     private readonly Lazy<Unit> release;
 
-    internal TimerHold(UITimer timer, EventHandler<EventArgs> handler, FaultCell faults, HookId point, Op key) =>
+    internal TimerHold(UITimer timer, EventHandler<EventArgs> handler, FaultCell faults, HookId point) =>
         release = new Lazy<Unit>(() => UiThread.Run(
-                new UiDispatch<Unit>.Blocking(() => Release(timer, handler, key)), DispatchLane.Interactive, key)
+                new UiDispatch<Unit>.Blocking(() => Release(timer, handler)), DispatchLane.Interactive)
                 .IfFail(fault => ignore(faults.Park(point: point, cause: fault))),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
     public void Dispose() => ignore(release.Value);
 
-    internal static Fin<Unit> Release(UITimer timer, EventHandler<EventArgs> handler, Op key) =>
+    internal static Fin<Unit> Release(UITimer timer, EventHandler<EventArgs> handler) =>
         Custody.Release(Seq<Func<Fin<Unit>>>(
             () => { timer.Stop(); return Fin.Succ(unit); },
             () => { timer.Elapsed -= handler; return Fin.Succ(unit); },
-            () => { timer.Dispose(); return Fin.Succ(unit); }), key);
+            () => { timer.Dispose(); return Fin.Succ(unit); }));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EtoTimer {
     private static readonly HookId Hook = HookId.Create(value: "rasm.grasshopper.eto.timer");
 
-    public static Fin<Lease<TimerHold>> Drive(PositiveMagnitude cadence, Action tick, FaultCell faults, Op? key = null) {
-        Op op = key.OrDefault();
-        return from body in op.Need(tick)
+    public static Fin<Lease<TimerHold>> Drive(PositiveMagnitude cadence, Action tick, FaultCell faults) {
+        return from body in Admit.Need(tick)
                from minted in UiThread.Run(new UiDispatch<(UITimer Timer, EventHandler<EventArgs> Handler)>.Blocking(() => {
                        UITimer? native = null;
                        EventHandler<EventArgs>? handler = null;
-                       Fin<(UITimer Timer, EventHandler<EventArgs> Handler)> opened = op.Catch(body: () => {
+                       Fin<(UITimer Timer, EventHandler<EventArgs> Handler)> opened = Try.lift(() => {
                            native = new UITimer { Interval = (double)cadence };
-                           handler = (_, _) => op.Catch(body)
+                           handler = (_, _) => Try.lift(body).Run().Bind(static inner => inner)
                                .IfFail(fault => ignore(faults.Park(point: Hook, cause: fault)));
                            native.Elapsed += handler;
                            native.Start();
                            return Fin.Succ((Timer: native, Handler: handler));
-                       });
+                       }).Run().Bind(static inner => inner);
                        return opened.Rollback(
                            release: () => native is not null && handler is not null
-                               ? TimerHold.Release(native, handler, op)
+                               ? TimerHold.Release(native, handler)
                                : Fin.Succ(unit),
                            key: op);
-                   }), DispatchLane.Interactive, op)
+                   }), DispatchLane.Interactive)
                select (Lease<TimerHold>)new Lease<TimerHold>.Owned(
                    Value: new TimerHold(
-                       timer: minted.Timer, handler: minted.Handler, faults: faults, point: Hook, key: op));
+                       timer: minted.Timer, handler: minted.Handler, faults: faults, point: Hook));
     }
 }
 
 public static class FrameTune {
-    public static Fin<Unit> Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from ceiling in op.AcceptValidated<PositiveMagnitude>(candidate: 1.0 / interval.Value)
-               from scaled in PaceBand.Portable.ScaleTo(ceiling: ceiling, key: op)
+    public static Fin<Unit> Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default) {
+        return from ceiling in FactoryBridge.Accept<PositiveMagnitude>(candidate: 1.0 / interval.Value)
+               from scaled in PaceBand.Portable.ScaleTo(ceiling: ceiling)
                from seated in UiThread.Tune(
                    policy: new StallPolicy(Pace: scaled, Stretch: HashMap<DispatchLane, double>()),
-                   clock: clock,
-                   key: op)
+                   clock: clock)
                select seated;
     }
 }

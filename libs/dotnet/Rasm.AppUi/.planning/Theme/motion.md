@@ -677,7 +677,7 @@ public sealed partial class MotionDecay {
 
     public double Retention { get; }
 
-    public Fin<DecayShape> Shape => Op.Of(name: nameof(Shape)).AcceptValidated<DecayShape>(candidate: Retention);
+    public Fin<DecayShape> Shape => FactoryBridge.Accept<DecayShape>(candidate: Retention);
 
     public Fin<double> Project(double velocity) =>
         Shape.Bind(shape => shape.Project(
@@ -836,7 +836,7 @@ flowchart LR
 
 - Owner: `ReducedMotion` — the one degrade switch AND the Avalonia producer of the kernel `CapabilitySet<Accessibility>`.
 - Law: reduced motion is a HOST PREFERENCE, not a motion-local fact. The switch reads `PreferenceRow.ReducedMotion` through the one `PreferenceCell` every preference consumer binds, so a host flip re-derives motion, variant, translucency, and text scale in one resolve and a second probe path for motion alone cannot exist to disagree with it.
-- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Granted` — the `CapabilitySet<Accessibility>` producer for any consumer stepping kernel drives, filled from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace, with pace staying on the clock that owns it; `ReducedMotion.Conformance(HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — the headless sweep firing each resolved token through the AppUi motion point.
+- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Granted` — the `CapabilitySet<Accessibility>` producer for any consumer stepping kernel drives, filled from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace, with pace staying on the clock that owns it; `ReducedMotion.Conformance(HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` — the headless sweep firing each resolved token through the AppUi motion point.
 - Auto: the cell's own `Track` subscription carries a host reduced-motion flip to the same swap that re-resolves the token catalogue, so every subsequent `Select` resolves the reduced pair globally with no per-animation re-check; a proof lane fixes the state through `PreferenceCell.Pin(PreferenceRow.ReducedMotion, new PreferenceValue.Flag(true))`, whose disposal restores the host read.
 - Packages: Rasm (project — `Rasm.Interaction` `Accessibility`, `CapabilitySet`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new host reduced-motion source is one column on the preference family at `tokens#VARIANT_AXIS`; a new concession correspondence is one row in the `Concessions` table below; this page grows nothing else.
@@ -869,14 +869,12 @@ public static class ReducedMotion {
     }
 
     public static Fin<Unit> Conformance(
-        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        Op key) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         toSeq(MotionToken.Items)
             .TraverseM(token => Select(token) switch {
                 var resolved => hooks.Fire(
                     at: AppUiPoint.Motion,
-                    fact: new AppUiFact.Motion(token.Key, resolved.Key, Active),
-                    key: key),
+                    fact: new AppUiFact.Motion(token.Key, resolved.Key, Active)),
             })
             .As()
             .Map(static _ => unit);

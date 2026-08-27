@@ -254,8 +254,8 @@ public sealed record EffectTokens(int Generation, ResolvedTheme Theme, VisualCod
         new(generation, theme, policy, policy.Working.Space());
 
     public Fin<SKColorF> Pigment(TokenKey key) =>
-        (Theme.Paints.TryGetValue(key, out Color token) ? Some(token) : Option<Color>.None)
-            .ToFin(new VisualFault.CatalogMiss(new CatalogAddress.Pigment(key)))
+        (Theme.Paints.TryGetValue(out Color token) ? Some(token) : Option<Color>.None)
+            .ToFin(new VisualFault.CatalogMiss(new CatalogAddress.Pigment()))
             .Bind(Policy.Resolve);
 }
 
@@ -296,7 +296,7 @@ public sealed class PaintCatalog : IDisposable {
         ignore(effects.Swap(static _ => HashMap<FxKey, FxEffect>()));
     }
 
-    private Unit Bind(FxKey key, FxEffect effect) => ignore(effects.Swap(map => map.AddOrUpdate(key, effect)));
+    private Unit Bind(FxKey key, FxEffect effect) => ignore(effects.Swap(map => map.AddOrUpdate(effect)));
 
     private Fin<Unit> Mint(PaintSpec spec) =>
         Tokens.Pigment(spec.Pigment).Bind(pigment => {
@@ -457,7 +457,7 @@ public sealed record PreviewRow<TValue>(
         });
 
     public ThumbnailRow Row(string key, ThumbnailSource source, TValue value, PaintCatalog paints, EncodeRow encode, DataClassification classification) =>
-        new(key, source,
+        new(source,
             variant => IO.lift(() => Render(paints, value, Info(paints, variant))),
             encode, classification, PlaceholderKey: $"{Key}/placeholder", ErrorKey: $"{Key}/error");
 
@@ -477,7 +477,6 @@ public sealed record VisualRuntime(
     Func<string, IO<Option<ReadOnlyMemory<byte>>>> BlobRead,
     Func<string, DataClassification, ReadOnlyMemory<byte>, IO<string>> BundleWrite,
     HookSet<AppUiPoint, AppUiFact, TelemetrySource> Facts,
-    Op FactOp,
     Func<InstrumentSpec, string, Duration, IO<Unit>> Measure) {
     public IO<VisualArtifact> Publish(VisualArtifact artifact) =>
         IO.lift(() => Facts.Fire(
@@ -595,10 +594,10 @@ public sealed record PixelIdentity {
     public int Height { get; }
     public UInt128 Hash { get; }
 
-    public static Fin<PixelIdentity> Admit(int width, int height, UInt128 hash, Op key) =>
+    public static Fin<PixelIdentity> Admit(int width, int height, UInt128 hash) =>
         width > 0 && height > 0
             ? Fin.Succ(new PixelIdentity(width, height, hash))
-            : Fin.Fail<PixelIdentity>(key.InvalidInput($"canonical pixel extent {width}x{height}"));
+            : Fin.Fail<PixelIdentity>(new KernelFault.InvalidInput(Axis: Some($"canonical pixel extent {width}x{height}")));
 
     public static Fin<PixelIdentity> Of(SKImage image) {
         using SKColorSpace srgb = SKColorSpace.CreateSrgb();
@@ -627,8 +626,6 @@ public sealed record NativeAssetFact(string Library, Option<string> Version, str
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class VisualCodec {
-    static readonly Op EncodeOp = Op.Of(name: "appui.visuals.encode");
-    static readonly Op DecodeOp = Op.Of(name: "appui.visuals.decode");
 
     public static readonly EncodeRow Png = new("png", SKEncodedImageFormat.Png, 100, ColorPolicy.Display);
     public static readonly EncodeRow Jpeg = new("jpeg", SKEncodedImageFormat.Jpeg, 90, ColorPolicy.Display);
@@ -711,9 +708,8 @@ public static class VisualCodec {
             ReadOnlyMemory<byte> bytes = profile.ToArray();
             using SKColorSpace? probe = SKColorSpace.CreateIcc(bytes.Span);
             return probe is null
-                ? Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid(key))
-                : Fin.Succ(new ColorPolicy(
-                    key, new ColorFrame.Icc(bytes), new ColorFrame.Icc(bytes), GamutPolicy.Perceptual, surface, None));
+                ? Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid())
+                : Fin.Succ(new ColorPolicy(new ColorFrame.Icc(bytes), new ColorFrame.Icc(bytes), GamutPolicy.Perceptual, surface, None));
         }
 
         public Fin<Option<SKImage>> Reproject(SKImage image) {
@@ -764,7 +760,7 @@ public static class VisualCodec {
 
     // --- [OPERATIONS] ------------------------------------------------------------------
     public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload, Option<int> frame = default) =>
-        IO.lift(() => DecodeOp.Catch(() => Admitted(payload, frame)));
+        IO.lift(() => Try.lift(() => Admitted(payload, frame)).Run().Bind(static inner => inner));
 
     static Fin<SKImage> Admitted(ReadOnlyMemory<byte> payload, Option<int> frame) {
         using MemoryStream stream = new(payload.ToArray());
@@ -803,11 +799,11 @@ public static class VisualCodec {
         });
 
     public static IO<VisualArtifact> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, ArtifactKind kind, string key, Option<SKPicture> record = default) =>
-        from opened in IO.lift(() => runtime.Line.Capture(EncodeOp))
-        from pixels in IO.lift(() => EncodeOp.Catch(() => PixelIdentity.Of(image)))
+        from opened in IO.lift(() => Error.New(EncodeOp.Message, EncodeOp))
+        from pixels in IO.lift(() => Try.lift(() => PixelIdentity.Of(image)).Run().Bind(static inner => inner))
         from bytes in IO.lift(() => Encoded(image, row))
-        from destination in Redrive.Run(runtime.Redrive, runtime.BlobWrite(key, bytes))
-        from closed in IO.lift(() => runtime.Line.Capture(EncodeOp))
+        from destination in Redrive.Run(runtime.Redrive, runtime.BlobWrite(bytes))
+        from closed in IO.lift(() => Error.New(EncodeOp.Message, EncodeOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, EncodeOp))
         let artifact = VisualArtifact.Of(
             kind, row.Key, bytes, DrawOf(record), Some(pixels),
@@ -816,7 +812,7 @@ public static class VisualCodec {
         select published;
 
     static Fin<byte[]> Encoded(SKImage image, EncodeRow row) =>
-        EncodeOp.Catch(() => row.Color.Reproject(image).Bind(minted => {
+        Try.lift(() => row.Color.Reproject(image).Bind(minted => {
             try {
                 using SKData? encoded = minted.IfNone(image).Encode(row.Format, row.Quality);
                 return encoded is null
@@ -824,7 +820,7 @@ public static class VisualCodec {
                     : Fin.Succ(encoded.ToArray());
             }
             finally { minted.Iter(static owned => owned.Dispose()); }
-        }));
+        })).Run().Bind(static inner => inner);
 }
 ```
 
@@ -857,7 +853,6 @@ public sealed partial class PrintFormat {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SheetPage(SKCanvas Canvas, PlotPolicy Plot, SKRect Frame, double PointsPerMillimetre) {
-    static readonly Op PageOp = Op.Of(name: "appui.visuals.sheet-page");
 
     public float Stroke(PenCode pen) => (float)(LineWidth.For(pen).Width.Millimeters * PointsPerMillimetre);
 
@@ -873,14 +868,13 @@ public sealed record VisualExportSpec(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class VisualExport {
-    static readonly Op ExportOp = Op.Of(name: "appui.visuals.export");
     public static readonly VisualFault XpsUnavailable = new VisualFault.XpsUnavailable();
 
     public static IO<VisualArtifact> Export(VisualRuntime runtime, VisualExportSpec spec) =>
-        from opened in IO.lift(() => runtime.Line.Capture(ExportOp))
-        from payload in IO.lift(() => ExportOp.Catch(() => Paged(spec)))
+        from opened in IO.lift(() => Error.New(ExportOp.Message, ExportOp))
+        from payload in IO.lift(() => Try.lift(() => Paged(spec)).Run().Bind(static inner => inner))
         from destination in Redrive.Run(runtime.Redrive, ExportDelivery.Deliver(runtime, spec.Destination, payload))
-        from closed in IO.lift(() => runtime.Line.Capture(ExportOp))
+        from closed in IO.lift(() => Error.New(ExportOp.Message, ExportOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, ExportOp))
         let artifact = VisualArtifact.Of(
             ArtifactKind.Document, spec.Format.Key, payload, None, None,
@@ -960,9 +954,6 @@ public sealed record VideoEncodeRow(string Key, AVCodecID Codec, AVPixelFormat P
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed unsafe class ClipMuxer : IDisposable {
-    private static readonly Op OpenOp = Op.Of(name: "appui.visuals.clip-open");
-    private static readonly Op PushOp = Op.Of(name: "appui.visuals.clip-push");
-    private static readonly Op CloseOp = Op.Of(name: "appui.visuals.clip-close");
 
     private readonly VideoEncodeRow row;
     private readonly int width;
@@ -984,7 +975,7 @@ public sealed unsafe class ClipMuxer : IDisposable {
     public static Fin<ClipMuxer> Open(VideoEncodeRow row, SKImage first) =>
         VideoEncodeRow.SourceOf(first.ColorType).Bind(source => {
             ClipMuxer held = new(row, first.Width, first.Height, first.ColorType, source);
-            return OpenOp.Catch(held.Allocate).Match(
+            return Try.lift(held.Allocate).Run().Bind(static inner => inner).Match(
                 Succ: _ => Fin.Succ(held),
                 Fail: error => { held.Dispose(); return Fin.Fail<ClipMuxer>(error); });
         });
@@ -993,9 +984,9 @@ public sealed unsafe class ClipMuxer : IDisposable {
         (Admit(image.Width == width && image.Height == height, $"frame-shape: {image.Width}x{image.Height} against {width}x{height}"),
          Admit(image.ColorType == admitted, $"frame-format: {image.ColorType} against {admitted}"))
             .Apply(static (_, _) => unit).As()
-            .Bind(_ => PushOp.Catch(() => Convert(image)));
+            .Bind(_ => Try.lift(() => Convert(image)).Run().Bind(static inner => inner));
 
-    public Fin<byte[]> Close() => CloseOp.Catch(Closed);
+    public Fin<byte[]> Close() => Try.lift(Closed).Run().Bind(static inner => inner);
 
     public void Dispose() {
         if (sws is not null) { ffmpeg.sws_freeContext(sws); sws = null; }
@@ -1132,7 +1123,6 @@ public sealed unsafe class ClipMuxer : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ClipEncoder {
-    static readonly Op MuxOp = Op.Of(name: "appui.visuals.mux");
 
     public static IO<VisualArtifact> Mux(
         VisualRuntime runtime,
@@ -1140,10 +1130,10 @@ public static class ClipEncoder {
         IAsyncEnumerable<Fin<SKImage>> frames,
         VisualDestination destination,
         CancellationToken cancel = default) =>
-        from opened in IO.lift(() => runtime.Line.Capture(MuxOp))
+        from opened in IO.lift(() => Error.New(MuxOp.Message, MuxOp))
         from payload in Drained(row, frames, cancel)
         from delivered in Redrive.Run(runtime.Redrive, ExportDelivery.Deliver(runtime, destination, payload))
-        from closed in IO.lift(() => runtime.Line.Capture(MuxOp))
+        from closed in IO.lift(() => Error.New(MuxOp.Message, MuxOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, MuxOp))
         let artifact = VisualArtifact.Of(
             ArtifactKind.Clip, row.Key, payload, None, None,
@@ -1152,7 +1142,7 @@ public static class ClipEncoder {
         select published;
 
     static IO<byte[]> Drained(VideoEncodeRow row, IAsyncEnumerable<Fin<SKImage>> frames, CancellationToken cancel) =>
-        IO.liftVAsync(() => MuxOp.Catch(async token => {
+        IO.liftVAsync(() => Try.lift(async token => {
                 ClipMuxer? held = null;
                 try {
                     await foreach (Fin<SKImage> landed in frames.WithCancellation(token).ConfigureAwait(false)) {
@@ -1174,7 +1164,7 @@ public static class ClipEncoder {
                         : held.Close();
                 }
                 finally { held?.Dispose(); }
-            }, cancel))
+            }).Run().Bind(static inner => inner))
             .Bind(static settled => IO.lift(settled));
 }
 ```

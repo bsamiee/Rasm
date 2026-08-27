@@ -106,10 +106,10 @@ public sealed partial class ArtifactKey {
 
     const string AbsentValue = "<absent>";
 
-    public static Fin<ArtifactKey> Admit(string? value, Op key) =>
+    public static Fin<ArtifactKey> Admit(string? value) =>
         Optional(value)
             .Bind(static text => TryCreate(text, out ArtifactKey? row) && row is { } admitted ? Some(admitted) : None)
-            .ToFin(new BimFault.Refused(key, BimScope.Events, BimReason.Codec,
+            .ToFin(new BimFault.Refused(BimScope.Events, BimReason.Codec,
                 string.Join(':', new object?[] { "event-artifact-key-malformed", Optional(value).IfNone(AbsentValue) })));
 }
 
@@ -156,8 +156,8 @@ public abstract partial record EnergyOp {
     private EnergyOp() { }
 
     public sealed record Raise(EnergyDoc Source, ElementGraph Seed, ProjectionContext Ctx) : EnergyOp;
-    public sealed record Lower(ElementGraph Graph, InterchangeFormat Target, EnergyScope Scope, GeometrySource Geometry, Instant At, Op Key) : EnergyOp;
-    public sealed record Translate(EnergyDoc Source, InterchangeFormat Target, Instant At, Op Key, TranslateLane Lane) : EnergyOp;
+    public sealed record Lower(ElementGraph Graph, InterchangeFormat Target, EnergyScope Scope, GeometrySource Geometry, Instant At) : EnergyOp;
+    public sealed record Translate(EnergyDoc Source, InterchangeFormat Target, Instant At, TranslateLane Lane) : EnergyOp;
 }
 
 public static class EnergyExchange {

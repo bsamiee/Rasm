@@ -86,9 +86,9 @@ public abstract partial record HealOp {
 
     public HealStage Stage { get; }
 
-    internal Fin<RepairEdit> Apply(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key, Option<Incidence> incidence) =>
+    internal Fin<RepairEdit> Apply(MeshEdit edit, MeshSpace current, RepairPolicy policy, Option<Incidence> incidence) =>
         Switch(
-            state: (Edit: edit, Current: current, Policy: policy, Key: key, Incidence: incidence),
+            state: (Edit: edit, Current: current, Policy: policy, Incidence: incidence),
             weld:          static (s, _) => Fin.Succ<RepairEdit>((s.Edit.Weld(), None, None)),
             degenerate:    static (s, _) => Heal.Collapse(s.Edit, s.Policy),
             gap:           static (s, _) => Heal.Close(s.Edit, s.Policy, s.Key, s.Incidence),
@@ -136,12 +136,11 @@ public static class Heal {
 
     public static Fin<HealSession> Repair(
         MeshSpace input, Option<Seq<HealOp>> ops = default,
-        Option<RepairPolicy> policy = default, Op? key = null) {
-        Op op = key.OrDefault();
+        Option<RepairPolicy> policy = default) {
         Seq<HealOp> sequence = ops.IfNone(() => Standard);
         RepairPolicy repair = policy.IfNone(RepairPolicy.Canonical);
-        return from space in op.AcceptInput(input)
-               from _ in guard(!sequence.IsEmpty, op.InvalidInput())
+        return from space in Acceptance.Input(input)
+               from _ in guard(!sequence.IsEmpty, new KernelFault.InvalidInput())
                from session in Run(space)
                select session;
 
@@ -152,7 +151,7 @@ public static class Heal {
                     sequence.Fold(
                         Fin.Succ((Space: admitted, Status: first, Steps: Seq<HealStep>(), Incidence: Option<Incidence>.None)),
                         (acc, heal) => acc.Bind(state =>
-                            from edit in heal.Apply(live, state.Space, repair, op, state.Incidence)
+                            from edit in heal.Apply(live, state.Space, repair, state.Incidence)
                             from space in Publish(edit)
                             from after in MeshKernel.TopologyDetailed(space)
                             select (Space: space, Status: after, Steps: state.Steps.Add(Step(heal, edit, state.Status, after)), edit.Incidence)))
@@ -162,7 +161,7 @@ public static class Heal {
 
             Fin<MeshSpace> Publish(RepairEdit edit) {
                 if (!ReferenceEquals(edit.Edit, live)) { live.Dispose(); live = edit.Edit; }
-                return live.ToSpace(op);
+                return live.ToSpace();
             }
 
             HealStep Step(HealOp heal, RepairEdit edit, Topology before, Topology after) {
@@ -204,15 +203,15 @@ public static class Heal {
     }
 
     // --- [GAP_CLOSE]
-    internal static Fin<RepairEdit> Close(MeshEdit edit, RepairPolicy policy, Op key, Option<Incidence> carried) {
+    internal static Fin<RepairEdit> Close(MeshEdit edit, RepairPolicy policy, Option<Incidence> carried) {
         Incidence incidence = carried.IfNone(() => Incidence.Of(edit));
         Arr<(int Tail, int Head)> rim = incidence.Boundary(edit);
         if (rim.Count < 2) return Fin.Succ<RepairEdit>((edit, None, Some(incidence)));
         double span = edit.Tolerance.For(policy.Gap).Value;
         Point3d[] heads = [.. rim.Map(h => edit.Position(h.Head))];
-        return NeighborIndex.Of(new NeighborSource.PointsCase(toSeq(rim.Map(h => edit.Position(h.Tail)))), key)
-            .Bind(index => key.AcceptValidated<PositiveMagnitude>(candidate: span)
-                .Bind(reach => NeighborKernel.GraphOf(index: index, needles: heads, count: Option<Dimension>.None, radius: Some(reach), key: key)))
+        return NeighborIndex.Of(new NeighborSource.PointsCase(toSeq(rim.Map(h => edit.Position(h.Tail)))))
+            .Bind(index => FactoryBridge.Accept<PositiveMagnitude>(candidate: span)
+                .Bind(reach => NeighborKernel.GraphOf(index: index, needles: heads, count: Option<Dimension>.None, radius: Some(reach))))
             .Map(RepairEdit (graph) => {
                 List<(int I, int J, double Gap)> pairs = new();
                 for (int i = 0; i < rim.Count; i++) {
@@ -291,12 +290,12 @@ public static class Heal {
     }
 
     // --- [SELF_INTERSECT_RESOLVE]
-    internal static Fin<RepairEdit> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key) {
-        return Intersection.Apply(new IntersectOp.SelfMesh(current, policy.Intersection), key)
+    internal static Fin<RepairEdit> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy) {
+        return Intersection.Apply(new IntersectOp.SelfMesh(current, policy.Intersection))
             .Bind(result => result.Switch(
                 state: key,
-                points:   static (site, _) => Fin.Fail<CrossTable>(site.InvalidResult()),
-                segments: static (site, _) => Fin.Fail<CrossTable>(site.InvalidResult()),
+                points:   static (site, _) => Fin.Fail<CrossTable>(new KernelFault.InvalidResult()),
+                segments: static (site, _) => Fin.Fail<CrossTable>(new KernelFault.InvalidResult()),
                 chains:   static (_, hit) => Fin.Succ(hit.Table)))
             .Bind(table => table.Segments.Count == 0 && table.Coplanar.Count == 0
                 ? Fin.Succ<RepairEdit>((edit, None, None))
@@ -332,7 +331,7 @@ public static class Heal {
                 (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(s0), soup.Position(s1), soup.Position(s2));
                 List<Implicit> rows = new(3 + cuts.Count) { new(pa), new(pb), new(pc) };
                 Dictionary<CrossKey, int> slotOf = new();
-                return Axis.DominantOf(pa, pb, pc, key).Bind(plane => {
+                return Axis.DominantOf(pa, pb, pc).Bind(plane => {
                     Vector3d normal = Vector3d.CrossProduct(pb - pa, pc - pa);
                     Vector3d lift = plane.Basis;
                     bool mirrored = plane.Along(normal) < 0.0;
@@ -383,16 +382,16 @@ public static class Heal {
     }
 
     // --- [BOOLEAN]
-    internal static Fin<RepairEdit> Boolean(HealOp.Boolean op, MeshSpace current, RepairPolicy policy, Op key) =>
-        Arrangement.Apply(new ArrangementOp.MeshBoolean(Seq(current, op.Tool), op.Op, policy.Arrangement), key)
+    internal static Fin<RepairEdit> Boolean(HealOp.Boolean op, MeshSpace current, RepairPolicy policy) =>
+        Arrangement.Apply(new ArrangementOp.MeshBoolean(Seq(current, op.Tool), policy.Arrangement))
             .Bind(result => result.Switch(
                 state: (Op: op.Op, Policy: policy, Key: key),
                 boolean: static (state, merged) => merged.Shells is [MeshSpace solid]
-                    ? Fin.Succ<RepairEdit>((MeshEdit.Of(solid, state.Policy.Arena), Some((state.Op, merged.Census)), None))
+                    ? Fin.Succ<RepairEdit>((MeshEdit.Of(solid, state.Policy.Arena), Some((merged.Census)), None))
                     : Fin.Fail<RepairEdit>(new GeometryFault.UnrepairableMesh(
                         HealStage.Boolean, Option<Dimension>.None, merged.Shells.Count)),
-                overlay: static (state, _) => Fin.Fail<RepairEdit>(state.Key.InvalidResult()),
-                complex: static (state, _) => Fin.Fail<RepairEdit>(state.Key.InvalidResult())));
+                overlay: static (state, _) => Fin.Fail<RepairEdit>(new KernelFault.InvalidResult()),
+                complex: static (state, _) => Fin.Fail<RepairEdit>(new KernelFault.InvalidResult())));
 }
 ```
 

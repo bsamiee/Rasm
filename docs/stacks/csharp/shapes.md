@@ -1,6 +1,6 @@
 # [CSHARP_SHAPES]
 
-Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (key, structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). That selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant.
+Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). That selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant.
 
 These same discriminants close the shape budget: an owner absorbs a sibling shape the moment they share an identity regime, an admission path, a payload timing, or a consumer, and a shape survives only on a genuinely distinct discriminant — the generated family, with its source-generated case families, delegate rows, and validation partials, absorbs what record and class spam scatters, so a flat record beside a generated owner that shares its discriminants is the deleted form, never a tolerated neighbor.
 
@@ -42,7 +42,7 @@ When a concept matches several signatures, the most specific row wins.
 
 [BEHAVIOR_FUNCTIONS]:
 - `PlaceBehavior(selector)`: use generated `Switch` for call-site variation and behavior columns or case members for family-owned policy; materialize an index only for repeated lookup by a foreign or non-derivable key, and a product table only when each cell owns irreducible pair-specific policy.
-- `RejectExternalDictionary(key)`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or direct derivation; retained indexes prove repeated foreign-key lookup, and retained product tables prove cell-specific policy plus startup totality.
+- `RejectExternalDictionary()`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or direct derivation; retained indexes prove repeated foreign-key lookup, and retained product tables prove cell-specific policy plus startup totality.
 
 [CHANGE_FUNCTIONS]:
 - `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key moves to conversion and wire boundaries.
@@ -84,7 +84,7 @@ public readonly partial struct FieldKey;
 
 public static class FieldRanks {
     public static ImmutableSortedDictionary<FieldKey, int> From(string rawBound, IEnumerable<FieldKey> keys) =>
-        keys.Where(key => key > rawBound).Distinct().Order().Select(static (key, rank) => (key, rank))
+        keys.Where(key => key > rawBound).Distinct().Order().Select(static (key, rank) => (rank))
             .ToImmutableSortedDictionary(static row => row.key, static row => row.rank);
 }
 ```
@@ -380,10 +380,10 @@ public abstract partial record LaneFault : Fault {
     public sealed override string Message => Detail;
 
     [FaultCase(0)]
-    public sealed partial record Rejected(Op Operation, LaneReason Reason) : LaneFault($"lane rejected: {Operation.Key}:{Reason.Key}");
+    public sealed partial record Rejected(LaneReason Reason) : LaneFault($"lane rejected: {Operation.Key}:{Reason.Key}");
 
     [FaultCase(1)]
-    public sealed partial record Shed(Op Operation, int QueueDepth) : LaneFault($"lane shed: {Operation.Key}:depth={QueueDepth}") {
+    public sealed partial record Shed(int QueueDepth) : LaneFault($"lane shed: {Operation.Key}:depth={QueueDepth}") {
         public override Retriability Retriability => Retriability.Transient;
     }
 }

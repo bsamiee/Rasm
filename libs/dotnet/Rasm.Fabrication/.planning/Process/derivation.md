@@ -221,9 +221,8 @@ public sealed partial class WorkAxis {
         Func<CanonicalWriter, TWork, CanonicalWriter> project,
         Func<TWork, Option<int>>? connection = null)
         where TWork : WorkKind =>
-        new(key,
-            work => work is TWork typed && admits(typed),
-            (sink, work) => work is TWork typed ? project(sink.String(key), typed) : sink,
+        new(work => work is TWork typed && admits(typed),
+            (sink, work) => work is TWork typed ? project(sink.String(), typed) : sink,
             work => work is TWork typed ? (connection?.Invoke(typed) ?? None) : None);
 
     private static bool Named(string value) => !string.IsNullOrWhiteSpace(value);
@@ -613,8 +612,8 @@ public static class Derivation {
         Seq<MachineMatch> matches,
         Map<UInt128, Instant> predecessorCompletion) =>
         from completed in lot.Predecessors
-            .TraverseM(key => predecessorCompletion.Find(key)
-                .ToFin(Reject(new DeriveWitness.PredecessorLotMissing(key), DerivationStage.Operations)))
+            .TraverseM(key => predecessorCompletion.Find()
+                .ToFin(Reject(new DeriveWitness.PredecessorLotMissing(), DerivationStage.Operations)))
             .As()
         let available = completed.Map(predecessor => predecessor + lot.TransferBuffer)
             .Fold(lot.Release, static (current, transferred) => transferred > current ? transferred : current)
@@ -788,12 +787,10 @@ public static class Derivation {
             draft.LotSchedule,
             draft.Capability,
             draft.RequestedArtifacts,
-            draft.Consumed,
-            key));
+            draft.Consumed));
 
     private const double ExactGrid = 0.0;
 
-    private static readonly Op Key = Op.Of(name: nameof(Derivation));
 
     private static Fin<Seq<PlannedStep>> StepsOf(
         AdmittedComponent component,
@@ -935,7 +932,7 @@ public static class Derivation {
             .Ordinal(step.Operations.Count);
         foreach (int operation in step.Operations.Order()) writer.Ordinal(operation);
         Framed(writer, step.Instance, static (sink, instance) => sink.String(instance.ToValue()));
-        Framed(writer, step.Program, static (sink, key) => { Write(sink, key); return sink; });
+        Framed(writer, step.Program, static (sink, key) => { Write(sink); return sink; });
     }
 
     internal static void Write(CanonicalWriter writer, MachineMatch route) {
@@ -957,7 +954,7 @@ public static class Derivation {
     }
 
     internal static void Write(CanonicalWriter writer, ContentKey key) =>
-        ignore(writer.String(key.Kind.Key).U128(key.Digest));
+        ignore(writer.String().U128(key.Digest));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -1150,19 +1147,19 @@ internal sealed class FabricationElementProjection(Seq<(NodeId Element, Fabricat
 
     private static class Facts<TSource> {
         public static Fact<TSource> Integer(string key, Func<TSource, long> read) =>
-            new(key, row => new PropertyValue.Integer(read(row)));
+            new(row => new PropertyValue.Integer(read(row)));
 
         public static Fact<TSource> Number(string key, Func<TSource, double> read) =>
-            new(key, row => new PropertyValue.Number(read(row)));
+            new(row => new PropertyValue.Number(read(row)));
 
         public static Fact<TSource> Flag(string key, Func<TSource, bool> read) =>
-            new(key, row => new PropertyValue.Boolean(read(row)));
+            new(row => new PropertyValue.Boolean(read(row)));
 
         public static Fact<TSource> Token(string key, Func<TSource, string> read) =>
-            new(key, row => new PropertyValue.Text(read(row)));
+            new(row => new PropertyValue.Text(read(row)));
 
         public static Fact<TSource> Key(string key, Func<TSource, ContentKey> read) =>
-            new(key, row => {
+            new(row => {
                 ContentKey content = read(row);
                 return Complex("ContentKey", Seq(
                     ("Kind", (PropertyValue)new PropertyValue.Text(content.Kind.Key)),
@@ -1170,18 +1167,18 @@ internal sealed class FabricationElementProjection(Seq<(NodeId Element, Fabricat
             });
 
         public static Fact<TSource> Tokens(string key, Func<TSource, Seq<string>> read) =>
-            new(key, row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Text(value))));
+            new(row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Text(value))));
 
         public static Fact<TSource> Ordinals(string key, Func<TSource, Seq<int>> read) =>
-            new(key, row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Integer(value))));
+            new(row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Integer(value))));
 
         public static Fact<TSource> Rows<TRow>(
             string key, string usage, Seq<Fact<TRow>> columns, Func<TSource, Seq<TRow>> read) =>
-            new(key, row => new PropertyValue.List(
+            new(row => new PropertyValue.List(
                 read(row).Map(element => Complex(usage, Render(columns, element)))));
 
         public static Measure<TSource> Quantity(string key, Dimension dimension, Func<TSource, double> si) =>
-            new(key, dimension, si);
+            new(dimension, si);
     }
 
     private static Seq<(string Key, PropertyValue Value)> Render<TSource>(Seq<Fact<TSource>> table, TSource source) =>

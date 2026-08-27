@@ -123,8 +123,8 @@ public sealed partial class DesignCode {
         StringComparer.Ordinal);
 
     public static Fin<Unit> Probe() {
-        Seq<string> unbased = toSeq(Items).Map(static code => code.Key).Filter(static key => !BasisKeys.Contains(key));
-        Seq<string> unrouted = toSeq(BasisKeys).Filter(static key => !TryGet(key, out _));
+        Seq<string> unbased = toSeq(Items).Map(static code => code.Key).Filter(static key => !BasisKeys.Contains());
+        Seq<string> unrouted = toSeq(BasisKeys).Filter(static key => !TryGet(out _));
         return unbased.IsEmpty && unrouted.IsEmpty
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing(
@@ -404,7 +404,6 @@ public static partial class StructuralAnalysis {
             None: () => PlainShear(c, shearAreaSi));
 
     // --- [GOVERNING] -------------------------------------------------------------------
-    static readonly Op StaticKey = Op.Of(name: nameof(Run));
 
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         from code   in DesignCode.For(request.Route)
@@ -457,7 +456,7 @@ public static partial class StructuralAnalysis {
             select new MemberCapacity(tension, compression, flexureMajor, flexureMinor);
         return toSeq(LimitState.Items).Filter(state => state.Applies(code)).Map(state => {
             Option<double> capacity = Capacity(code, state, ctx);
-            Option<double> demand = state.Demand(response);
+            Option<double> demand = Admit.Demand(response);
             Option<double> util =
                 state == LimitState.Combined ? caps.Map(operands => Math.Max(
                     code.Interaction(response.TensionCorner, operands, ctx), code.Interaction(response.CompressionCorner, operands, ctx)))
@@ -642,8 +641,6 @@ public static partial class StructuralAnalysis {
     const string ReductionFact    = "modal-reduction-residual";
     const string ConditioningFact = "modal-pencil-conditioning";
     const string ExcitationFact   = "modal-excitation-axis";
-
-    static readonly Op SeismicKey = Op.Of(name: nameof(SeismicSpec));
 
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Seismic request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         from ground    in request.Spec.Spectrum.Admit(request.Spec.Policy)

@@ -106,25 +106,25 @@ public sealed record BenchWorkload(BenchKernel Kernel, BenchInput Input, UInt128
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BenchPin {
-    public static Fin<ComponentRow> CatalogueLeast(ComponentCatalogue catalogue, string familyKey, Op key) =>
+    public static Fin<ComponentRow> CatalogueLeast(ComponentCatalogue catalogue, string familyKey) =>
         ComponentFamily.TryGet(familyKey, out ComponentFamily? family)
             ? toSeq(catalogue.Rows.Filter(row => row.Item.Family == family! && row.Sectioned)
                     .OrderBy(static row => row.Item.Designation.Value, StringComparer.Ordinal))
                 .Head
-                .ToFin(new ProjectionFault.Unresolved(key, $"<bench-catalogue-least-empty:{familyKey}>"))
-            : new ProjectionFault.Unresolved(key, $"<bench-family-unknown:{familyKey}>");
+                .ToFin(new ProjectionFault.Unresolved($"<bench-catalogue-least-empty:{familyKey}>"))
+            : new ProjectionFault.Unresolved($"<bench-family-unknown:{familyKey}>");
 
-    public static Fin<Seq<BrdfSample>> SyntheticGrid(BenchInput.Synthetic pin, Op key) =>
-        Acquisition.SyntheticGrid(pin.Seed, pin.Count, key);
+    public static Fin<Seq<BrdfSample>> SyntheticGrid(BenchInput.Synthetic pin) =>
+        Acquisition.SyntheticGrid(pin.Seed, pin.Count);
 
-    public static Fin<Seq<OracleVector>> Oracle(Op key) =>
+    public static Fin<Seq<OracleVector>> Oracle() =>
         Raster.Oracle.All is { IsEmpty: false } fixtures
             ? Fin.Succ(fixtures)
-            : new ProjectionFault.Unresolved(key, "<bench-oracle-roster-empty>");
+            : new ProjectionFault.Unresolved("<bench-oracle-roster-empty>");
 
-    public static Fin<ProgramPin> Program(ProgramPin program, Func<string, Op, Fin<Unit>> library, Op key) =>
+    public static Fin<ProgramPin> Program(ProgramPin program, Func<string, Fin<Unit>> library) =>
         program.Switch(
-            library:   p => library(p.MaterialKey, key).Map(_ => program),
+            library:   p => library(p.MaterialKey).Map(_ => program),
             container: _ => Fin.Succ(program),
             tiling:    _ => Fin.Succ(program),
             height:    _ => Fin.Succ(program));
@@ -196,8 +196,8 @@ public static class MaterialsBench {
         Benchmark.Of(suite: workload.Kernel.Suite, @case: CaseOf(workload),
             corpus: Some(workload.ContentKey), measured: measured, stamps: stamps);
 
-    public static Fin<PressRun> Parity(PressProduct.Minted minted, PressProduct.Preview preview, Op key) =>
-        PressProduct.Parity(minted, preview, key);
+    public static Fin<PressRun> Parity(PressProduct.Minted minted, PressProduct.Preview preview) =>
+        PressProduct.Parity(minted, preview);
 
     public static IO<Seq<Validation<Error, Benchmark>>> Gate(
         InstrumentSet signals,
@@ -205,11 +205,10 @@ public static class MaterialsBench {
         Func<BenchWorkload, BenchMeasurement> harness,
         Func<BenchWorkload, Option<Benchmark>> claim,
         FrozenDictionary<string, string> stamps,
-        GatePolicy policy,
-        Op key) =>
+        GatePolicy policy) =>
         Corpus(contentKey)
             .Traverse(workload => BenchmarkGate.Gate(
-                signals, Fresh(workload, harness(workload), stamps), claim(workload), policy, key))
+                signals, Fresh(workload, harness(workload), stamps), claim(workload), policy))
             .As();
 }
 ```

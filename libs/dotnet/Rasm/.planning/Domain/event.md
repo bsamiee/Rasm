@@ -152,7 +152,7 @@ public sealed partial class DataGrade {
 - Auto: `CloudEvent.Validate()` throws on a malformed envelope, so construction, projected extension writes, and validation funnel through one `Op.Catch`; the first refused field is the verdict and no partly stamped instance escapes.
 - Law: the SDK indexer stamps IN PLACE, so a refused write leaves the instance partly stamped; what the result guarantees is that such an instance is UNREACHABLE — `Mint` holds the only reference until `Validate()` returns it, and a refusal returns no envelope at all. A result claiming the stronger "no half-stamped envelope exists" would be a law with no producer.
 - Law: the creation-time trace is the generated `event.Extensions` `traceparent`/`tracestate`/`baggage` triplet, stamped ONCE at `Publish` from the live span's `TraceCarrier` and projected descriptor-total by `EventExtensionContract<T>`; `sequence` carries the stamp's logical half and `recordedtime` the wall instant the mint read. The transport carrier remains the current-hop context, and no ingress re-stamps a creation-time slot — `Stamp` resolves each slot through `Descriptor.FindFieldByName`, so a generated contract missing one refuses typed instead of dropping the frame.
-- Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot through the shared `Op.ToHostSlot`/`Op.ToHostNullable` projection at this one crossing, exactly as optional `subject` does.
+- Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot through the shared `HostEdge.Slot`/`HostEdge.Nullable` projection at this one crossing, exactly as optional `subject` does.
 - Law: `time` is the occurrence stamp — the HLC physical half on every published profile event, so `(time, sequence)` IS the causal order — and `recordedtime` is when the producer created the CloudEvent. A receiver preserves both, records its own arrival time only in its interior delivery carrier, and measures skew from `recordedtime` against that arrival; re-stamping `recordedtime` at ingress erases the producer-to-receiver interval and violates the extension.
 - Law: the SDK's `DateTimeOffset` timestamp surface resolves 100-nanosecond ticks. Mint refuses a finer `Instant`, and descriptor projection refuses a generated `Timestamp` whose nanos are not tick-aligned; admission never rounds producer time silently.
 - Law: `subject` is OPTIONAL under a non-empty validator, so a fact whose payload carries no content key omits the slot — a required slot makes every lifecycle and topic producer fabricate an address, and the empty string such a producer reaches for is the one value the specification's own validator refuses.
@@ -225,62 +225,60 @@ public sealed record EventExtensionContract<TExtensions>(
     Validator Validator)
     where TExtensions : class, IMessage<TExtensions> {
 
-    public Fin<Seq<CloudEventAttribute>> Declarations(Op key) => key.Catch(() => Fin.Succ(
-        toSeq(Descriptor.Fields.InFieldNumberOrder()).Map(Declare)));
+    public Fin<Seq<CloudEventAttribute>> Declarations() => Try.lift(() => Fin.Succ(
+        toSeq(Descriptor.Fields.InFieldNumberOrder()).Map(Declare))).Run().Bind(static inner => inner);
 
-    public Fin<Seq<EventField>> Project(TExtensions message, Op key) =>
+    public Fin<Seq<EventField>> Project(TExtensions message) =>
         message.Descriptor == Descriptor
-            ? Valid(message, key).Bind(_ => toSeq(Descriptor.Fields.InFieldNumberOrder())
+            ? Valid(message).Bind(_ => toSeq(Descriptor.Fields.InFieldNumberOrder())
                 .Filter(field => field.Accessor.HasValue(message))
-                .Traverse(field => Project(field: field, value: field.Accessor.GetValue(message), key: key)).As())
+                .Traverse(field => Project(field: field, value: field.Accessor.GetValue(message))).As())
             : Fin.Fail<Seq<EventField>>(new KernelFault.InvalidValue(
-                Label: message.Descriptor.FullName, Requirement: Descriptor.FullName, Key: Some(key)));
+                Label: message.Descriptor.FullName, Requirement: Descriptor.FullName));
 
-    public Fin<TExtensions> Admit(CloudEvent envelope, Op key) => key.Catch(() => {
+    public Fin<TExtensions> Admit(CloudEvent envelope) => Try.lift(() => {
         TExtensions message = Parser.ParseFrom(ByteString.Empty);
         if (message.Descriptor != Descriptor) {
             return Fin.Fail<TExtensions>(new KernelFault.InvalidValue(
-                Label: message.Descriptor.FullName, Requirement: Descriptor.FullName, Key: Some(key)));
+                Label: message.Descriptor.FullName, Requirement: Descriptor.FullName));
         }
         foreach (FieldDescriptor field in Descriptor.Fields.InFieldNumberOrder()) {
             CloudEventAttribute attribute = Declare(field);
             object? held = envelope[attribute];
             if (held is not null) field.Accessor.SetValue(message, ToGenerated(field: field, value: held));
         }
-        return Valid(message, key).Map(_ => message);
-    });
+        return Valid(message).Map(_ => message);
+    }).Run().Bind(static inner => inner);
 
-    public Fin<TExtensions> Stamp(TExtensions message, CausalStamp stamp, Op key) => key.Catch(() => {
+    public Fin<TExtensions> Stamp(TExtensions message, CausalStamp stamp) => Try.lift(() => {
         TExtensions stamped = message.Clone();
         foreach ((string slot, Option<object> value) in stamp.Slots) {
             FieldDescriptor? field = Descriptor.FindFieldByName(slot);
             if (field is null) {
                 return Fin.Fail<TExtensions>(new KernelFault.InvalidValue(
-                    Label: slot, Requirement: $"a {Descriptor.FullName} field carrying the causal slot", Key: Some(key)));
+                    Label: slot, Requirement: $"a {Descriptor.FullName} field carrying the causal slot"));
             }
             value.Iter(held => field.Accessor.SetValue(stamped, ToGenerated(field: field, value: held)));
         }
         return Fin.Succ(stamped);
-    });
+    }).Run().Bind(static inner => inner);
 
-    private Fin<Unit> Valid(TExtensions message, Op key) => key.Catch(() => {
+    private Fin<Unit> Valid(TExtensions message) => Try.lift(() => {
         IReadOnlyList<Violation> violations = Validator.Validate(message);
         return violations.Count == 0
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue(
                 Label: Descriptor.FullName,
-                Requirement: string.Join("; ", violations.Select(static violation => $"{violation.RuleId}: {violation.Message}")),
-                Key: Some(key)));
-    });
+                Requirement: string.Join("; ", violations.Select(static violation => $"{violation.RuleId}: {violation.Message}"))));
+    }).Run().Bind(static inner => inner);
 
-    private static Fin<EventField> Project(FieldDescriptor field, object value, Op key) =>
+    private static Fin<EventField> Project(FieldDescriptor field, object value) =>
         value is Timestamp stamp && stamp.Nanos % TimeSpan.NanosecondsPerTick != 0
             ? Fin.Fail<EventField>(new KernelFault.InvalidValue(
                 Label: field.FullName,
-                Requirement: "a timestamp aligned to the CloudEvents SDK's 100-nanosecond instant",
-                Key: Some(key)))
-            : key.Catch(() => Fin.Succ(new EventField(
-                Attribute: Declare(field), Value: ToEnvelope(field: field, value: value))));
+                Requirement: "a timestamp aligned to the CloudEvents SDK's 100-nanosecond instant"))
+            : Try.lift(() => Fin.Succ(new EventField(
+                Attribute: Declare(field), Value: ToEnvelope(field: field, value: value)))).Run().Bind(static inner => inner);
 
     private static CloudEventAttribute Declare(FieldDescriptor field) =>
         EventField.Declare(field.JsonName, AttributeType(field));
@@ -328,49 +326,47 @@ public sealed record EventExtensionContract<TExtensions>(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class EventEnvelope {
-    public static Fin<CloudEvent> Mint(CloudEventMint request, Op key) =>
+    public static Fin<CloudEvent> Mint(CloudEventMint request) =>
         from _time in request.Time.Traverse(value => guard(
             Instant.FromDateTimeOffset(value.ToDateTimeOffset()) == value,
             new KernelFault.InvalidValue(
                 Label: nameof(CloudEvent.Time),
-                Requirement: "an instant aligned to the CloudEvents SDK's 100-nanosecond precision",
-                Key: Some(key))).ToFin()).As()
-        from envelope in key.Catch(() => Fin.Succ(new CloudEvent(
+                Requirement: "an instant aligned to the CloudEvents SDK's 100-nanosecond precision")).ToFin()).As()
+        from envelope in Try.lift(() => Fin.Succ(new CloudEvent(
             CloudEventsSpecVersion.V1_0,
             request.Extensions.Map(static field => field.Attribute)) {
             Id = request.Id,
             Source = request.Source,
             Type = request.Type,
-            Subject = Op.ToHostSlot(request.Subject),
-            Time = Op.ToHostNullable(request.Time.Map(static value => value.ToDateTimeOffset())),
-            DataSchema = Op.ToHostSlot(request.DataSchema),
-            DataContentType = Op.ToHostSlot(request.DataContentType),
+            Subject = HostEdge.Slot(request.Subject),
+            Time = HostEdge.Nullable(request.Time.Map(static value => value.ToDateTimeOffset())),
+            DataSchema = HostEdge.Slot(request.DataSchema),
+            DataContentType = HostEdge.Slot(request.DataContentType),
             Data = request.Data,
-        }))
-        from _extensions in request.Extensions.TraverseM(field => key.Catch(() =>
-            Fin.Succ(envelope[field.Attribute] = field.Value)).Map(static _ => unit)).As()
-        from validated in key.Catch(() => Fin.Succ(envelope.Validate()))
+        })).Run().Bind(static inner => inner)
+        from _extensions in request.Extensions.TraverseM(field => Try.lift(() =>
+            Fin.Succ(envelope[field.Attribute] = field.Value)).Run().Bind(static inner => inner).Map(static _ => unit)).As()
+        from validated in Try.lift(() => Fin.Succ(envelope.Validate())).Run().Bind(static inner => inner)
         select validated;
 
-    public static Fin<CloudEvent> Admit(CloudEvent envelope, Op key) =>
-        key.Catch(() => Fin.Succ(envelope.Validate()));
+    public static Fin<CloudEvent> Admit(CloudEvent envelope) =>
+        Try.lift(() => Fin.Succ(envelope.Validate())).Run().Bind(static inner => inner);
 
     public static Fin<CloudEvent> Raise(
         Seq<(string Name, string Value)> attributes,
         Seq<CloudEventAttribute> declared,
         ReadOnlyMemory<byte> data,
-        Option<ContentType> dataType,
-        Op key) =>
+        Option<ContentType> dataType) =>
         attributes.Select(static row => row.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != attributes.Count
             ? Fin.Fail<CloudEvent>(new KernelFault.InvalidValue(
-                Label: nameof(attributes), Requirement: "one value per CloudEvents attribute name", Key: Some(key)))
-            : key.Catch(() => Fin.Succ(attributes.Fold(
+                Label: nameof(attributes), Requirement: "one value per CloudEvents attribute name"))
+            : Try.lift(() => Fin.Succ(attributes.Fold(
             new CloudEvent(CloudEventsSpecVersion.V1_0, declared) {
                 Data = data,
-                DataContentType = Op.ToHostSlot(dataType.Map(static type => type.ToString())),
+                DataContentType = HostEdge.Slot(dataType.Map(static type => type.ToString())),
             },
-            static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value))))
-            .Bind(envelope => Admit(envelope, key));
+            static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value)))).Run().Bind(static inner => inner)
+            .Bind(envelope => Admit(envelope));
 
     private static CloudEvent Admitted(CloudEvent envelope, string name, string value) {
         if (name == CloudEventsSpecVersion.SpecVersionAttribute.Name) {
@@ -393,22 +389,20 @@ public static class RasmEventEnvelope {
     public static Fin<CloudEvent> Publish<TExtensions>(
         RasmEventMint<TExtensions> request,
         EventExtensionContract<TExtensions> contract,
-        Hlc clock,
-        Op key)
+        Hlc clock)
         where TExtensions : class, IMessage<TExtensions> {
         CausalStamp stamp = CausalStamp.Now(clock);
-        return contract.Stamp(message: request.Extensions, stamp: stamp, key: key)
-            .Bind(stamped => Mint(request with { Time = stamp.Clock.Physical, Extensions = stamped }, contract, key));
+        return contract.Stamp(message: request.Extensions, stamp: stamp)
+            .Bind(stamped => Mint(request with { Time = stamp.Clock.Physical, Extensions = stamped }, contract));
     }
 
     public static Fin<CloudEvent> Mint<TExtensions>(
         RasmEventMint<TExtensions> request,
-        EventExtensionContract<TExtensions> contract,
-        Op key)
+        EventExtensionContract<TExtensions> contract)
         where TExtensions : class, IMessage<TExtensions> =>
         from _domain in guard(request.Source.Domain == request.Type.Domain, new KernelFault.InvalidValue(
-            Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key))).ToFin()
-        from extensions in contract.Project(message: request.Extensions, key: key)
+            Label: nameof(EventSource), Requirement: "the same domain as EventType")).ToFin()
+        from extensions in contract.Project(message: request.Extensions)
         from envelope in EventEnvelope.Mint(new CloudEventMint(
             Type: request.Type.ToString(),
             Source: request.Source.Reference,
@@ -418,43 +412,40 @@ public static class RasmEventEnvelope {
             DataSchema: request.DataSchema,
             DataContentType: request.DataContentType,
             Data: request.Data,
-            Extensions: extensions), key)
+            Extensions: extensions))
         select envelope;
 
     public static Fin<RasmEvent<TExtensions>> Raise<TExtensions>(
         Seq<(string Name, string Value)> attributes,
         EventExtensionContract<TExtensions> contract,
         ReadOnlyMemory<byte> data,
-        Option<ContentType> dataType,
-        Op key)
+        Option<ContentType> dataType)
         where TExtensions : class, IMessage<TExtensions> =>
-        from declared in contract.Declarations(key)
+        from declared in contract.Declarations()
         from envelope in EventEnvelope.Raise(
-            attributes: attributes, declared: declared, data: data, dataType: dataType, key: key)
-        from admitted in Admit(envelope: envelope, contract: contract, key: key)
+            attributes: attributes, declared: declared, data: data, dataType: dataType)
+        from admitted in Admit(envelope: envelope, contract: contract)
         select admitted;
 
     public static Fin<RasmEvent<TExtensions>> Admit<TExtensions>(
         CloudEvent envelope,
-        EventExtensionContract<TExtensions> contract,
-        Op key)
+        EventExtensionContract<TExtensions> contract)
         where TExtensions : class, IMessage<TExtensions> =>
-        from admitted in EventEnvelope.Admit(envelope: envelope, key: key)
-        from type in key.AcceptValidated<EventType>(admitted.Type!).MapFail(_ => new KernelFault.InvalidValue(
-            Label: nameof(EventType), Requirement: "the generated EventType admission", Key: Some(key)))
-        from source in key.AcceptValidated<EventSource>(admitted.Source!.ToString()).MapFail(_ => new KernelFault.InvalidValue(
-            Label: nameof(EventSource), Requirement: "the generated EventSource admission", Key: Some(key)))
-        from id in key.AcceptValidated<EventId>(admitted.Id!)
+        from admitted in EventEnvelope.Admit(envelope: envelope)
+        from type in FactoryBridge.Accept<EventType>(admitted.Type!).MapFail(_ => new KernelFault.InvalidValue(
+            Label: nameof(EventType), Requirement: "the generated EventType admission"))
+        from source in FactoryBridge.Accept<EventSource>(admitted.Source!.ToString()).MapFail(_ => new KernelFault.InvalidValue(
+            Label: nameof(EventSource), Requirement: "the generated EventSource admission"))
+        from id in FactoryBridge.Accept<EventId>(admitted.Id!)
         from _domain in guard(source.Domain == type.Domain, new KernelFault.InvalidValue(
-            Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key)))
-        from subject in Optional(admitted.Subject).Traverse(value => ContentHash.Admit(hex: value, key: key)
+            Label: nameof(EventSource), Requirement: "the same domain as EventType"))
+        from subject in Optional(admitted.Subject).Traverse(value => ContentHash.Admit(hex: value)
             .MapFail(_ => new KernelFault.InvalidValue(
                 Label: nameof(CloudEvent.Subject),
-                Requirement: "thirty-two lowercase hex digits round-tripping ContentHash.Hex",
-                Key: Some(key)))).As()
+                Requirement: "thirty-two lowercase hex digits round-tripping ContentHash.Hex"))).As()
         from time in Optional(admitted.Time).ToFin(new KernelFault.InvalidValue(
-            Label: nameof(CloudEvent.Time), Requirement: "a present occurrence instant", Key: Some(key)))
-        from extensions in contract.Admit(envelope: admitted, key: key)
+            Label: nameof(CloudEvent.Time), Requirement: "a present occurrence instant"))
+        from extensions in contract.Admit(envelope: admitted)
         select new RasmEvent<TExtensions>(
             Envelope: admitted,
             Type: type,
@@ -485,7 +476,7 @@ public static class EventCarrier {
 
 - Owner: `EventFormat` the closed row family over the three admitted event formats, each carrying its batch reach and the one formatter instance every binding shares, and the seat of the one JSON serializer options identity `EventFormat.JsonOptions`; `EventFrame` carries encoded bytes beside framing; `EventEnvelope` owns bytes and official protobuf message crossings.
 - Cases: JSON and Protobuf each define a structured envelope and a distinct batch envelope; Avro defines structured mode alone. A protocol binding owns binary mode, where attributes ride transport metadata and already-encoded data rides the body; the formatter's binary-data helper is package mechanics rather than an event-format capability. Framing derives from `MimeUtilities.MediaType` and `BatchMediaType` with `+` and the row's key, so no literal media type or suffix is spelled anywhere.
-- Entry: `EventEnvelope.Encode(format, key, envelopes)` discriminates on arity; generic `.Decode(frame, declared, key)` takes SDK declarations while the profile overload takes `EventExtensionContract<T>` and returns typed admitted extensions. `EventEnvelope.ToProtobuf` and `EventEnvelope.FromProtobuf` expose the formatter's official `CloudEvent` and `CloudEventBatch` messages for registry-framed legs.
+- Entry: `EventEnvelope.Encode(format, envelopes)` discriminates on arity; generic `.Decode(frame, declared)` takes SDK declarations while the profile overload takes `EventExtensionContract<T>` and returns typed admitted extensions. `EventEnvelope.ToProtobuf` and `EventEnvelope.FromProtobuf` expose the formatter's official `CloudEvent` and `CloudEventBatch` messages for registry-framed legs.
 - Auto: the local encode convenience refuses an empty span because it carries no send intent. Decode preserves the specification's zero-or-more batch semantics for every batching format, so both JSON `[]` and an empty official protobuf `CloudEventBatch` return an empty sequence.
 - Law: structured Protobuf selects its official data `oneof` from the admitted SDK value: string to `text_data`, bytes to `binary_data`, and `IMessage` to `proto_data` packed as `Any`. Binary-mode bindings carry explicitly encoded body bytes and never ask an event-format row to decide transport placement.
 - Law: ONE formatter instance per row is the codec identity every transport binding, every mint, and every decode shares — serializer options fix at construction, never per event, and a per-transport or per-event formatter is the rejected form; the JSON row's options identity registers the branch's own converters so a typed payload carrying instants, generated owners, or functional carriers round-trips through the same handle a raw `JsonElement` crosses.
@@ -559,84 +550,79 @@ public readonly record struct EventFrame(ReadOnlyMemory<byte> Body, ContentType 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class EventEnvelope {
-    public static Fin<EventFrame> Encode(EventFormat format, Op key, params ReadOnlySpan<CloudEvent> envelopes) =>
+    public static Fin<EventFrame> Encode(EventFormat format, params ReadOnlySpan<CloudEvent> envelopes) =>
         envelopes switch {
             [] => Fin.Fail<EventFrame>(new KernelFault.InvalidValue(
-                Label: format.Key, Requirement: "at least one envelope to frame", Key: Some(key))),
+                Label: format.Key, Requirement: "at least one envelope to frame")),
             [_, _, ..] when !format.Batches => Fin.Fail<EventFrame>(new KernelFault.InvalidValue(
-                Label: format.Key, Requirement: "a batching event format", Key: Some(key))),
-            _ => toSeq(envelopes.ToArray()).TraverseM(envelope => Admit(envelope, key)).As()
-                .Bind(admitted => key.Catch(() => {
+                Label: format.Key, Requirement: "a batching event format")),
+            _ => toSeq(envelopes.ToArray()).TraverseM(envelope => Admit(envelope)).As()
+                .Bind(admitted => Try.lift(() => {
                     CloudEvent[] rows = admitted.ToArray();
                     ContentType framing;
                     ReadOnlyMemory<byte> body = rows is [CloudEvent single]
                         ? format.Formatter.EncodeStructuredModeMessage(single, out framing)
                         : format.Formatter.EncodeBatchModeMessage(rows, out framing);
                     return Fin.Succ(new EventFrame(Body: body, Framing: framing));
-                })),
+                }).Run().Bind(static inner => inner)),
         };
 
-    public static Fin<Seq<CloudEvent>> Decode(EventFrame frame, Seq<CloudEventAttribute> declared, Op key) =>
+    public static Fin<Seq<CloudEvent>> Decode(EventFrame frame, Seq<CloudEventAttribute> declared) =>
         EventFormat.Of(frame.Framing)
-            .ToFin(new KernelFault.InvalidValue(Label: frame.Framing.MediaType, Requirement: "an admitted event format", Key: Some(key)))
-            .Bind(format => key.Catch(() => Fin.Succ(string.Equals(frame.Framing.MediaType, format.Batch, StringComparison.OrdinalIgnoreCase)
+            .ToFin(new KernelFault.InvalidValue(Label: frame.Framing.MediaType, Requirement: "an admitted event format"))
+            .Bind(format => Try.lift(() => Fin.Succ(string.Equals(frame.Framing.MediaType, format.Batch, StringComparison.OrdinalIgnoreCase)
                     ? toSeq(format.Formatter.DecodeBatchModeMessage(frame.Body, frame.Framing, declared))
-                    : Seq(format.Formatter.DecodeStructuredModeMessage(frame.Body, frame.Framing, declared))))
-                .Bind(rows => rows.TraverseM(envelope => Admit(envelope, key)).As()));
+                    : Seq(format.Formatter.DecodeStructuredModeMessage(frame.Body, frame.Framing, declared)))).Run().Bind(static inner => inner)
+                .Bind(rows => rows.TraverseM(envelope => Admit(envelope)).As()));
 
     public static Fin<Seq<RasmEvent<TExtensions>>> Decode<TExtensions>(
         EventFrame frame,
-        EventExtensionContract<TExtensions> contract,
-        Op key)
+        EventExtensionContract<TExtensions> contract)
         where TExtensions : class, IMessage<TExtensions> =>
-        from declared in contract.Declarations(key)
-        from envelopes in Decode(frame: frame, declared: declared, key: key)
+        from declared in contract.Declarations()
+        from envelopes in Decode(frame: frame, declared: declared)
         from admitted in envelopes.TraverseM(envelope => RasmEventEnvelope.Admit(
-            envelope: envelope, contract: contract, key: key)).As()
+            envelope: envelope, contract: contract)).As()
         select admitted;
 
-    public static Fin<ProtoCloudEvent> ToProtobuf(CloudEvent envelope, Op key) =>
-        Admit(envelope: envelope, key: key).Bind(admitted => key.Catch(() =>
-            Fin.Succ(((ProtobufEventFormatter)EventFormat.Protobuf.Formatter).ConvertToProto(admitted))));
+    public static Fin<ProtoCloudEvent> ToProtobuf(CloudEvent envelope) =>
+        Admit(envelope: envelope).Bind(admitted => Try.lift(() =>
+            Fin.Succ(((ProtobufEventFormatter)EventFormat.Protobuf.Formatter).ConvertToProto(admitted))).Run().Bind(static inner => inner));
 
-    public static Fin<ProtoCloudEventBatch> ToProtobuf(Seq<CloudEvent> envelopes, Op key) =>
+    public static Fin<ProtoCloudEventBatch> ToProtobuf(Seq<CloudEvent> envelopes) =>
         envelopes.IsEmpty
             ? Fin.Fail<ProtoCloudEventBatch>(new KernelFault.InvalidValue(
-                Label: EventFormat.Protobuf.Key, Requirement: "at least one envelope to frame", Key: Some(key)))
-            : envelopes.TraverseM(envelope => ToProtobuf(envelope: envelope, key: key)).As()
+                Label: EventFormat.Protobuf.Key, Requirement: "at least one envelope to frame"))
+            : envelopes.TraverseM(envelope => ToProtobuf(envelope: envelope)).As()
                 .Map(rows => new ProtoCloudEventBatch { Events = { rows } });
 
     public static Fin<CloudEvent> FromProtobuf(
         ProtoCloudEvent wire,
-        Seq<CloudEventAttribute> declared,
-        Op key) => key.Catch(() => Fin.Succ(
-            ((ProtobufEventFormatter)EventFormat.Protobuf.Formatter).ConvertFromProto(wire, declared)))
-            .Bind(envelope => Admit(envelope: envelope, key: key));
+        Seq<CloudEventAttribute> declared) => Try.lift(() => Fin.Succ(
+            ((ProtobufEventFormatter)EventFormat.Protobuf.Formatter).ConvertFromProto(wire, declared))).Run().Bind(static inner => inner)
+            .Bind(envelope => Admit(envelope: envelope));
 
     public static Fin<Seq<CloudEvent>> FromProtobuf(
         ProtoCloudEventBatch wire,
-        Seq<CloudEventAttribute> declared,
-        Op key) => toSeq(wire.Events).TraverseM(row => FromProtobuf(wire: row, declared: declared, key: key)).As();
+        Seq<CloudEventAttribute> declared) => toSeq(wire.Events).TraverseM(row => FromProtobuf(wire: row, declared: declared)).As();
 
     public static Fin<RasmEvent<TExtensions>> FromProtobuf<TExtensions>(
         ProtoCloudEvent wire,
-        EventExtensionContract<TExtensions> contract,
-        Op key)
+        EventExtensionContract<TExtensions> contract)
         where TExtensions : class, IMessage<TExtensions> =>
-        from declared in contract.Declarations(key)
-        from envelope in FromProtobuf(wire: wire, declared: declared, key: key)
-        from admitted in RasmEventEnvelope.Admit(envelope: envelope, contract: contract, key: key)
+        from declared in contract.Declarations()
+        from envelope in FromProtobuf(wire: wire, declared: declared)
+        from admitted in RasmEventEnvelope.Admit(envelope: envelope, contract: contract)
         select admitted;
 
     public static Fin<Seq<RasmEvent<TExtensions>>> FromProtobuf<TExtensions>(
         ProtoCloudEventBatch wire,
-        EventExtensionContract<TExtensions> contract,
-        Op key)
+        EventExtensionContract<TExtensions> contract)
         where TExtensions : class, IMessage<TExtensions> =>
-        from declared in contract.Declarations(key)
-        from envelopes in FromProtobuf(wire: wire, declared: declared, key: key)
+        from declared in contract.Declarations()
+        from envelopes in FromProtobuf(wire: wire, declared: declared)
         from admitted in envelopes.TraverseM(envelope => RasmEventEnvelope.Admit(
-            envelope: envelope, contract: contract, key: key)).As()
+            envelope: envelope, contract: contract)).As()
         select admitted;
 }
 ```

@@ -92,33 +92,33 @@ internal sealed class HookPoint<TFact>(HookId id, CapabilitySet<HookModality> mo
     public HookId Id { get; } = id;
     public CapabilitySet<HookModality> Modalities { get; } = modalities;
 
-    public Fin<TFact> Fire(TFact fact, Op key) => Fire(fact: fact, key: key, body: Fin.Succ);
+    public Fin<TFact> Fire(TFact fact) => Fire(fact: fact, body: Fin.Succ);
 
-    public Fin<T> Fire<T>(TFact fact, Op key, Func<TFact, Fin<T>> body) =>
-        from guarded in key.Need(body)
+    public Fin<T> Fire<T>(TFact fact, Func<TFact, Fin<T>> body) =>
+        from guarded in Admit.Need(body)
         from _ in Fin.Succ(Retain(fact: fact))
-        from admitted in Admitted(fact: fact, key: key)
+        from admitted in Admitted(fact: fact)
         from value in guarded(admitted)
-        select (taps.Value.Iter(tap => Forked(fact: admitted, tap: tap, key: key)), value).Item2;
+        select (taps.Value.Iter(tap => Forked(fact: admitted, tap: tap)), value).Item2;
 
-    public Fin<IDisposable> Veto(Func<TFact, Fin<TFact>> gate, Op key) =>
-        from admitted in key.Need(gate)
+    public Fin<IDisposable> Veto(Func<TFact, Fin<TFact>> gate) =>
+        from admitted in Admit.Need(gate)
         from _ in guard(Modalities.Held.Exists(static row => row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "a veto-capable point"))
         select Attach(cell: vetoes, row: admitted);
 
-    public Fin<IDisposable> Observe(Func<TFact, IO<Unit>> tap, Op key) =>
-        from admitted in key.Need(tap)
+    public Fin<IDisposable> Observe(Func<TFact, IO<Unit>> tap) =>
+        from admitted in Admit.Need(tap)
         from _ in guard(Modalities.Held.Exists(static row => !row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "an observable point"))
         select (Attach(cell: taps, row: admitted),
-            buffer.Value.Iter(held => Forked(fact: held, tap: admitted, key: key))).Item1;
+            buffer.Value.Iter(held => Forked(fact: held, tap: admitted))).Item1;
 
-    public Fin<IDisposable> Observe(Func<TFact, Fin<Unit>> arm, Op key) =>
-        Observe(tap: fact => IO.lift(() => arm(fact)), key: key);
+    public Fin<IDisposable> Observe(Func<TFact, Fin<Unit>> arm) =>
+        Observe(tap: fact => IO.lift(() => arm(fact)));
 
     public Seq<TFact> Drain() => buffer.Value;
 
-    private Fin<TFact> Admitted(TFact fact, Op key) =>
-        vetoes.Value.Fold(Fin.Succ(fact), (state, veto) => state.Bind(admitted => key.Catch(() => veto(admitted))))
+    private Fin<TFact> Admitted(TFact fact) =>
+        vetoes.Value.Fold(Fin.Succ(fact), (state, veto) => state.Bind(admitted => Try.lift(() => veto(admitted)).Run().Bind(static inner => inner)))
             .MapFail(refusal => (faults.Park(point: Id, cause: refusal), refusal).Item2);
 
     private Unit Retain(TFact fact) =>
@@ -127,10 +127,10 @@ internal sealed class HookPoint<TFact>(HookId id, CapabilitySet<HookModality> mo
                 ? next.Skip(next.Count - depth.Value).Strict()
                 : next)));
 
-    private Unit Forked(TFact fact, Func<TFact, IO<Unit>> tap, Op key) =>
-        key.Catch(() => IO.lift(() => key.Catch(() => tap(fact).Run())
+    private Unit Forked(TFact fact, Func<TFact, IO<Unit>> tap) =>
+        Try.lift(() => IO.lift(() => Try.lift(() => tap(fact).Run()).Run().Bind(static inner => inner)
                 .IfFail(cause => ignore(faults.Park(point: Id, cause: cause))))
-            .Fork(None).Run().Map(static _ => unit))
+            .Fork(None).Run().Map(static _ => unit)).Run().Bind(static inner => inner)
         .IfFail(cause => ignore(faults.Park(point: Id, cause: cause)));
 
     private static IDisposable Attach<T>(Atom<Seq<T>> cell, T row) {
@@ -144,7 +144,7 @@ internal sealed class HookPoint<TFact>(HookId id, CapabilitySet<HookModality> mo
 
 - Owner: `IHookRoster<TSelf>` is what a folder's `<Package>Point` vocabulary realizes, so the bus takes the roster as a TYPE PARAMETER and seats mint from `TPoint.Items` alone; `IHookSpan` is the open bracket floor the signal capsule conforms to; `HookGate` and `HookTap` are the subscriber rows; `Ring<T>` is the ONE versioned bounded oldest-out ring, `RingSettlement<T>` its park-and-cleanup settlement, and `FaultCell` its isolated-fault instance with the stamp clock; `HookSet<TPoint,TFact,TOwner>` is the one bus per composition, roster, and owner key.
 - Cases: `RingSettlement<T>` is `Landed` with settled state and cleanup fold, `Ceded` when another writer moved the ring, or `Refused` when no candidate exists; `TOwner` is the identity a subscription and a rider belong to — `TelemetrySource` inside a library tier, `PluginKey` at the Rhino boundary, `HookScope` at the Grasshopper boundary — so scoped release is one shape at every stratum and a collectible load context drops exactly its own subscriptions.
-- Entry: `Ring.Park(item)` lands an ordinary row and `Park(item, release, key)` a custodial row; `Of` mints the bus from its gate and tap rows, an optional span floor, and the composition's own evidence cell; `Fire` is the ONE raise in both arities; `Drain` reads a retaining point's held window; `Replay` RE-FIRES a captured window through `TraverseM` over `Fire`, refusing on a point whose roster row does not retain; `Detach` tears the whole bus down in reverse registration order; `Release` drops one owner's subscriptions.
+- Entry: `Ring.Park(item)` lands an ordinary row and `Park(item, release)` a custodial row; `Of` mints the bus from its gate and tap rows, an optional span floor, and the composition's own evidence cell; `Fire` is the ONE raise in both arities; `Drain` reads a retaining point's held window; `Replay` RE-FIRES a captured window through `TraverseM` over `Fire`, refusing on a point whose roster row does not retain; `Detach` tears the whole bus down in reverse registration order; `Release` drops one owner's subscriptions.
 - Auto: `Points` is the census a `HookRegistry` freezes, derived from `TPoint.Items` so a point outside the roster is unrepresentable rather than merely undeclared. Taps naming a `Scope` pay nothing on the fires they ignore. `Replay` is a re-fire with a verdict result, never a buffer read — the six per-folder `Admitted`/`Settled`/`Planned`/`Ran`/`Marked` members those folders declare become call sites of `Fire`.
 - Law: the bus composes tracing through `IHookSpan` and never through the signal capsule's own type, so this page depends downward and the capsule conforms upward — an `Option<SpanBand>` parameter here inverts the dependency the telemetry split exists to straighten. `IHookSpan` takes the PLANE as an argument because the roster row already carries it: the bus reads `TPoint.Plane` at the fire site, so one band serves every plane a composition mounts and a per-plane band roster never appears.
 - Law: the evidence cell arrives WHOLE from the composition, never as a clock beside a cap — one `FaultCell` carries the stamp source and the ceiling together, so the tenancy stamp, the interaction shield, and every bus in one process park on one ring and a composition replaying under a fake `TimeProvider` reads deterministic evidence at all three.
@@ -155,7 +155,7 @@ internal sealed class HookPoint<TFact>(HookId id, CapabilitySet<HookModality> mo
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`TimeProvider`).
 - Growth: a new subscriber kind is one row type composed into `Of`; a new folder is one roster realizing `IHookRoster<TSelf>` with one closed fact union realizing `IHookFact<TPoint>` — its `Seats` a one-line derivation from the union's own fact→point map — and zero bus members.
 - Law: `Seats` is the fact union's OWN declared correspondence and `Fire` gates on it twice — at entry (an emitter pairing a fact with a foreign point refuses before any veto runs) and on the veto fold's product (a gate rewriting to a sibling case that does not seat at the point refuses before the body or any tap). A 1:1 union derives `Seats` from its `At`/`Point` map; a broadcast fact answers the point set it lawfully fans to; a case entering only through `Replay` seats at its journal points and says so.
-- Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder buses onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one bus every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookSet<BimPoint, BimFact, TelemetrySource>.Of(key, taps: taps)`.
+- Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder buses onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one bus every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookSet<BimPoint, BimFact, TelemetrySource>.Of(taps: taps)`.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -176,7 +176,7 @@ public interface IHookFact<TPoint> where TPoint : IHookRoster<TPoint> {
 }
 
 public interface IHookSpan {
-    Fin<T> Traced<T>(TraceScope plane, Op key, Func<Fin<T>> body);
+    Fin<T> Traced<T>(TraceScope plane, Func<Fin<T>> body);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -184,7 +184,7 @@ public sealed record HookGate<TPoint, TFact, TOwner>(TPoint Point, Func<TFact, F
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull;
 
-public sealed record HookTap<TPoint, TFact, TOwner>(Op Name, Func<TFact, Fin<Unit>> Observe, Option<Seq<TPoint>> Scope = default, Option<TOwner> Owner = default)
+public sealed record HookTap<TPoint, TFact, TOwner>(Func<TFact, Fin<Unit>> Observe, Option<Seq<TPoint>> Scope = default, Option<TOwner> Owner = default)
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull;
 
@@ -200,7 +200,6 @@ public abstract partial record RingSettlement<T> {
 public sealed class Ring<T>(Dimension cap) {
     private sealed record RingState(long Version, Seq<T> Items);
 
-    private static readonly Op Boundary = Op.Of(name: nameof(Ring<T>));
     private readonly Atom<RingState> held = Atom(new RingState(Version: 0L, Items: Seq<T>()));
     private readonly Atom<long> shed = Atom(0L);
     private readonly Atom<long> lost = Atom(0L);
@@ -209,14 +208,14 @@ public sealed class Ring<T>(Dimension cap) {
     public long Shed => shed.Value;
     public long Lost => lost.Value;
 
-    public RingSettlement<T> Park(T item) => Park(item: item, release: None, key: Boundary);
+    public RingSettlement<T> Park(T item) => Park(item: item, release: None);
 
-    public RingSettlement<T> Park(T item, Func<T, Fin<Unit>> release, Op key) {
+    public RingSettlement<T> Park(T item, Func<T, Fin<Unit>> release) {
         ArgumentNullException.ThrowIfNull(release);
-        return Park(item: item, release: Some(release), key: key);
+        return Park(item: item, release: Some(release));
     }
 
-    private RingSettlement<T> Park(T item, Option<Func<T, Fin<Unit>>> release, Op key) {
+    private RingSettlement<T> Park(T item, Option<Func<T, Fin<Unit>>> release) {
         Seq<T> evicted = Seq<T>();
         Transition<RingState> transition = Cell.Step(
             cell: held,
@@ -229,7 +228,7 @@ public sealed class Ring<T>(Dimension cap) {
                     Items: standing.Items.Skip(dropped).Add(item).Strict()));
             },
             declined: new KernelFault.InvalidValue(
-                Label: nameof(Ring<T>), Requirement: "a ring version below Int64.MaxValue", Key: Some(key)));
+                Label: nameof(Ring<T>), Requirement: "a ring version below Int64.MaxValue"));
 
         static RingSettlement<T> Missed(Atom<long> lost, RingSettlement<T> settlement) {
             ignore(lost.Swap(static count => Saturating(count: count, delta: 1L)));
@@ -237,11 +236,11 @@ public sealed class Ring<T>(Dimension cap) {
         }
 
         return transition.Switch(
-            state: (Evicted: evicted, Release: release, Key: key, Shed: shed, Lost: lost),
+            state: (Evicted: evicted, Release: release, Shed: shed, Lost: lost),
             committed: static (state, committed) => {
                 ignore(state.Shed.Swap(count => Saturating(count: count, delta: state.Evicted.Count)));
                 Fin<Unit> cleanup = state.Release.Match(
-                    Some: dispose => Custody.Release(held: state.Evicted, release: dispose, key: state.Key),
+                    Some: dispose => Custody.Release(held: state.Evicted, release: dispose),
                     None: static () => Fin.Succ(unit));
                 return (RingSettlement<T>)new RingSettlement<T>.Landed(State: committed.State.Items, Cleanup: cleanup);
             },
@@ -277,9 +276,7 @@ public sealed class HookSet<TPoint, TFact, TOwner>
     private HookSet(HashMap<TPoint, HookPoint<TFact>> seats, FaultCell faults, Option<IHookSpan> span) =>
         (this.seats, Faults, this.span) = (seats, faults, span);
 
-    public static Fin<HookSet<TPoint, TFact, TOwner>> Of(
-        Op key,
-        Seq<HookGate<TPoint, TFact, TOwner>> gates = default,
+    public static Fin<HookSet<TPoint, TFact, TOwner>> Of(Seq<HookGate<TPoint, TFact, TOwner>> gates = default,
         Seq<HookTap<TPoint, TFact, TOwner>> taps = default,
         Option<IHookSpan> span = default,
         Option<FaultCell> cell = default) {
@@ -288,53 +285,53 @@ public sealed class HookSet<TPoint, TFact, TOwner>
             seats: toSeq(TPoint.Items).ToHashMap(static row => row, row => new HookPoint<TFact>(id: row.Id, modalities: row.Modalities, faults: faults)),
             faults: faults, span: span);
         Seq<(Option<TOwner> Owner, Func<Fin<IDisposable>> Attach)> plan =
-            gates.Map(gate => (gate.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: gate.Point, key: key).Bind(seat => seat.Veto(gate: gate.Admit, key: key)))))
+            gates.Map(gate => (gate.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: gate.Point).Bind(seat => seat.Veto(gate: gate.Admit)))))
             + taps.Bind(tap => tap.Scope.IfNone(toSeq(TPoint.Items)).Map(point =>
-                (tap.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: point, key: key).Bind(seat => seat.Observe(arm: tap.Observe, key: tap.Name))))));
+                (tap.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: point).Bind(seat => seat.Observe(arm: tap.Observe, key: tap.Name))))));
         return plan.Fold(Fin.Succ(Seq<(Option<TOwner> Owner, IDisposable Detach)>()), (held, row) => held.Bind(taken =>
                 row.Attach().Match(
                     Succ: detach => Fin.Succ(taken.Add((row.Owner, detach))),
                     Fail: refusal => Fin.Fail<Seq<(Option<TOwner> Owner, IDisposable Detach)>>(refusal)
-                        .Rollback(held: taken, release: static row => { row.Detach.Dispose(); return Fin.Succ(unit); }, key: key))))
+                        .Rollback(held: taken, release: static row => { row.Detach.Dispose(); return Fin.Succ(unit); }))))
             .Map(taken => (ignore(hooks.subscriptions.Swap(_ => taken)), hooks).Item2);
     }
 
     public Seq<IHookPoint> Points => toSeq(TPoint.Items).Map(row => (IHookPoint)seats[row]);
     public FaultCell Faults { get; }
 
-    public Fin<TFact> Fire(TPoint at, TFact fact, Op key) => Fire(at: at, fact: fact, key: key, body: Fin.Succ);
-    public Fin<T> Fire<T>(TPoint at, TFact fact, Op key, Func<TFact, Fin<T>> body) =>
-        Seated(at: at, fact: fact, key: key).Bind(_ => Seat(at: at, key: key).Bind(seat =>
-            Traced(at: at, key: key, body: () => seat.Fire(fact: fact, key: key, body: admitted => Seated(at: at, fact: admitted, key: key).Bind(body)))));
+    public Fin<TFact> Fire(TPoint at, TFact fact) => Fire(at: at, fact: fact, body: Fin.Succ);
+    public Fin<T> Fire<T>(TPoint at, TFact fact, Func<TFact, Fin<T>> body) =>
+        Seated(at: at, fact: fact).Bind(_ => Seat(at: at).Bind(seat =>
+            Traced(at: at, body: () => seat.Fire(fact: fact, body: admitted => Seated(at: at, fact: admitted).Bind(body)))));
 
     public Seq<TFact> Drain(TPoint at) => seats.Find(at).Map(static seat => seat.Drain()).IfNone(Seq<TFact>());
 
-    public Fin<Unit> Replay(TPoint at, Seq<TFact> captured, Op key) =>
+    public Fin<Unit> Replay(TPoint at, Seq<TFact> captured) =>
         at.Modalities.Held.Exists(static row => row.Retention.IsSome)
-            ? captured.TraverseM(fact => Fire(at: at, fact: fact, key: key)).As().Map(static _ => unit)
+            ? captured.TraverseM(fact => Fire(at: at, fact: fact)).As().Map(static _ => unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: at.Id.ToValue(), Requirement: "a retaining point"));
 
     public Fin<Unit> Detach() =>
         Unwind(taken: Cell.Take(cell: subscriptions).Current, key: Op.Of());
 
-    public Fin<Unit> Release(TOwner scope, Op key) {
+    public Fin<Unit> Release(TOwner scope) {
         Seq<(Option<TOwner> Owner, IDisposable Detach)> mine = subscriptions.Value.Filter(row => row.Owner.Exists(owner => owner.Equals(scope))).Strict();
         if (mine.IsEmpty) { return Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: scope.ToString() ?? nameof(scope), Requirement: "an owner holding at least one subscription")); }
-        Fin<Unit> released = Unwind(taken: mine, key: key);
+        Fin<Unit> released = Unwind(taken: mine);
         ignore(subscriptions.Swap(held => held.Filter(row => !mine.Exists(taken => ReferenceEquals(taken.Detach, row.Detach))).Strict()));
         return released;
     }
 
-    private Fin<HookPoint<TFact>> Seat(TPoint at, Op key) => seats.Find(at).ToFin(key.InvalidInput());
-    private static Fin<TFact> Seated(TPoint at, TFact fact, Op key) =>
-        fact.Seats(at) ? Fin.Succ(fact) : Fin.Fail<TFact>(key.InvalidInput(at.Id.ToValue()));
-    private Fin<T> Traced<T>(TPoint at, Op key, Func<Fin<T>> body) =>
+    private Fin<HookPoint<TFact>> Seat(TPoint at) => seats.Find(at).ToFin(new KernelFault.InvalidInput());
+    private static Fin<TFact> Seated(TPoint at, TFact fact) =>
+        fact.Seats(at) ? Fin.Succ(fact) : Fin.Fail<TFact>(new KernelFault.InvalidInput(Axis: Some(at.Id.ToValue())));
+    private Fin<T> Traced<T>(TPoint at, Func<Fin<T>> body) =>
         (span, at.Plane) switch {
-            ({ IsSome: true, Case: IHookSpan bracket }, { IsSome: true, Case: TraceScope plane }) => bracket.Traced(plane: plane, key: key, body: body),
+            ({ IsSome: true, Case: IHookSpan bracket }, { IsSome: true, Case: TraceScope plane }) => bracket.Traced(plane: plane, body: body),
             _ => body(),
         };
-    private static Fin<Unit> Unwind(Seq<(Option<TOwner> Owner, IDisposable Detach)> taken, Op key) =>
-        Custody.Release(held: taken, release: static row => { row.Detach.Dispose(); return Fin.Succ(unit); }, key: key);
+    private static Fin<Unit> Unwind(Seq<(Option<TOwner> Owner, IDisposable Detach)> taken) =>
+        Custody.Release(held: taken, release: static row => { row.Detach.Dispose(); return Fin.Succ(unit); });
 }
 ```
 
@@ -360,14 +357,14 @@ public interface IHookBinding<TPoint, TOwner>
     where TOwner : notnull {
     TPoint Point { get; }
     TOwner Owner { get; }
-    Fin<Lease<IDisposable>> Mount(HookMounts<TPoint, TOwner> mounts, Op key);
+    Fin<Lease<IDisposable>> Mount(HookMounts<TPoint, TOwner> mounts);
 }
 
 public sealed record HookBinding<TPoint, TOwner, TAsk, TGrant>(TPoint Point, TOwner Owner, Func<TAsk, Fin<TGrant>> Bind)
     : IHookBinding<TPoint, TOwner>
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull {
-    Fin<Lease<IDisposable>> IHookBinding<TPoint, TOwner>.Mount(HookMounts<TPoint, TOwner> mounts, Op key) => mounts.Mount(binding: this, key: key);
+    Fin<Lease<IDisposable>> IHookBinding<TPoint, TOwner>.Mount(HookMounts<TPoint, TOwner> mounts) => mounts.Mount(binding: this);
 }
 
 public sealed class HookMounts<TPoint, TOwner>
@@ -381,20 +378,20 @@ public sealed class HookMounts<TPoint, TOwner>
     public Seq<(TPoint Point, Seq<TOwner> Riders)> Riders =>
         toSeq(TPoint.Items).Map(point => (Point: point, Riders: Census.Filter(row => row.Point.Equals(point)).Map(static row => row.Owner).Strict()));
 
-    public Fin<Lease<IDisposable>> Mount<TAsk, TGrant>(HookBinding<TPoint, TOwner, TAsk, TGrant> binding, Op key) =>
+    public Fin<Lease<IDisposable>> Mount<TAsk, TGrant>(HookBinding<TPoint, TOwner, TAsk, TGrant> binding) =>
         Cell.Claim(cell: seats, key: (binding.Point, binding.Owner), mint: () => (Ordinal: minted.Swap(static n => n + 1), Binding: (IHookBinding<TPoint, TOwner>)binding)) is Transition<HashMap<(TPoint Point, TOwner Owner), (long Ordinal, IHookBinding<TPoint, TOwner> Binding)>>.Committed
             ? Fin.Succ<Lease<IDisposable>>(new Lease<IDisposable>.Owned(new HookDetacher(Detach: () => ignore(seats.Swap(held => held.Remove((binding.Point, binding.Owner)))))))
             : Fin.Fail<Lease<IDisposable>>(new KernelFault.InvalidValue(Label: $"{binding.Point.Id}/{binding.Owner}", Requirement: "an unclaimed seat"));
 
-    public Fin<Seq<Lease<IDisposable>>> MountAll(Seq<IHookBinding<TPoint, TOwner>> bindings, Op key) =>
+    public Fin<Seq<Lease<IDisposable>>> MountAll(Seq<IHookBinding<TPoint, TOwner>> bindings) =>
         bindings.Fold(Fin.Succ(Seq<Lease<IDisposable>>()), (held, binding) => held.Bind(taken =>
-            binding.Mount(mounts: this, key: key).Match(
+            binding.Mount(mounts: this).Match(
                 Succ: lease => Fin.Succ(taken.Add(lease)),
                 Fail: refusal => Fin.Fail<Seq<Lease<IDisposable>>>(refusal)
-                    .Rollback(held: taken, release: static lease => Fin.Succ(lease.Dispose()), key: key))));
+                    .Rollback(held: taken, release: static lease => Fin.Succ(lease.Dispose())))));
 
-    public Fin<TGrant> Bind<TAsk, TGrant>(TPoint point, TOwner owner, TAsk ask, Op key) =>
-        seats.Value.Find((point, owner)).Map(static row => row.Binding).ToFin(key.InvalidInput()).Bind(row => row switch {
+    public Fin<TGrant> Bind<TAsk, TGrant>(TPoint point, TOwner owner, TAsk ask) =>
+        seats.Value.Find((point, owner)).Map(static row => row.Binding).ToFin(new KernelFault.InvalidInput()).Bind(row => row switch {
             HookBinding<TPoint, TOwner, TAsk, TGrant> typed => typed.Bind(arg: ask),
             _ => Fin.Fail<TGrant>(new KernelFault.InvalidValue(Label: $"{point.Id}/{owner}", Requirement: $"a binding from {typeof(TAsk).Name} to {typeof(TGrant).Name}")),
         });

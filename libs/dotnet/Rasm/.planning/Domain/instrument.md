@@ -160,7 +160,7 @@ public sealed partial class InstrumentSpec {
         ref string name, ref InstrumentKind kind, ref MeasureForm form, ref string unit, ref string description,
         ref Seq<string> dimensions, ref Option<Buckets> bounds, ref Option<string> tag, ref Option<int> ceiling) {
         dimensions = tag.Match(
-            Some: key => key.Cons(dimensions.Filter(row => !string.Equals(row, key, StringComparison.Ordinal))).Strict(),
+            Some: key => key.Cons(dimensions.Filter(row => !string.Equals(row, StringComparison.Ordinal))).Strict(),
             None: () => dimensions);
         validationError =
             !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(unit) && !string.IsNullOrWhiteSpace(description)
@@ -226,17 +226,16 @@ public static class TelemetryIdentity {
 internal sealed record LevelProbe(KeyValuePair<string, object?>[] Tags, Func<double> Read);
 
 public sealed class LevelCells {
-    private static readonly Op PullOp = Op.Of(name: "instrument.pull");
     private readonly AtomHashMap<(InstrumentSpec Row, Option<string> Key), double> cells =
         AtomHashMap(HashMap<(InstrumentSpec Row, Option<string> Key), double>());
     private readonly AtomHashMap<InstrumentSpec, Seq<LevelProbe>> probes =
         AtomHashMap(HashMap<InstrumentSpec, Seq<LevelProbe>>());
     private readonly AtomHashMap<InstrumentSpec, Error> raised = AtomHashMap(HashMap<InstrumentSpec, Error>());
 
-    internal Unit Level(InstrumentSpec row, Option<string> key, double value) => cells.AddOrUpdate((row, key), value);
+    internal Unit Level(InstrumentSpec row, Option<string> key, double value) => cells.AddOrUpdate((row), value);
 
-    internal Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, KeyValuePair<string, object?>[] tags, Op key) =>
-        key.Need(read).Map(admitted => {
+    internal Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, KeyValuePair<string, object?>[] tags) =>
+        Admit.Need(read).Map(admitted => {
             LevelProbe probe = new(Tags: tags, Read: admitted);
             probes.AddOrUpdate(row, live => live.Add(probe), () => Seq(probe));
             return (IDisposable)new HookDetacher(Detach: () => probes.SwapKey(row, live => live
@@ -253,7 +252,7 @@ public sealed class LevelCells {
                 .Filter(pair => pair.Key.Row.Equals(row))
                 .Map(pair => pair.Key.Key.Match(
                     Some: key => new Measurement<T>(
-                        T.CreateSaturating(pair.Value), new KeyValuePair<string, object?>(tag, key)),
+                        T.CreateSaturating(pair.Value), new KeyValuePair<string, object?>(tag)),
                     None: () => new Measurement<T>(T.CreateSaturating(pair.Value))))
                 .ToSeq() + probes.Find(row)
                     .Map(live => Probed<T>(row, live)).IfNone(Seq<Measurement<T>>()),
@@ -263,8 +262,8 @@ public sealed class LevelCells {
                     .Map(held => new Measurement<T>(T.CreateSaturating(held))).ToSeq()));
 
     private Seq<Measurement<T>> Probed<T>(InstrumentSpec row, Seq<LevelProbe> live) where T : struct, INumberBase<T> =>
-        live.Bind(probe => PullOp.Catch(() =>
-                Fin.Succ(Seq(new Measurement<T>(T.CreateSaturating(probe.Read()), probe.Tags))))
+        live.Bind(probe => Try.lift(() =>
+                Fin.Succ(Seq(new Measurement<T>(T.CreateSaturating(probe.Read()), probe.Tags)))).Run().Bind(static inner => inner)
             .IfFail(cause => (raised.AddOrUpdate(row, seat => seat + cause, () => cause),
                 Seq<Measurement<T>>()).Item2)).Strict();
 }
@@ -328,12 +327,12 @@ public sealed record InstrumentSet(Seq<(InstrumentSpec Row, Instrument Handle)> 
                 real: static bind => Pushed(bind.Seat, bind.Value, in bind.Tags));
 
     public Fin<Unit> Level(InstrumentSpec row, double value, Option<string> key = default) =>
-        Pulled(row, key).Map(admitted => Cells.Level(admitted, key, value));
+        Pulled(row).Map(admitted => Cells.Level(admitted, value));
 
-    public Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, Op key, in TagList tags = default) {
+    public Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, in TagList tags = default) {
         KeyValuePair<string, object?>[] stamped = [.. tags];
         return Pulled(row, toSeq(stamped).Map(static tag => tag.Key).Head)
-            .Bind(admitted => Cells.Bind(admitted, read, stamped, key));
+            .Bind(admitted => Cells.Bind(admitted, read, stamped));
     }
 
     public bool Enabled(Seq<InstrumentSpec> rows) =>
@@ -417,15 +416,15 @@ public readonly record struct ReadingCell(
     Seq<KeyValuePair<string, object?>> Tags, Stat<Scalar> Summary, double Sum, double Last) {
     internal static Fin<ReadingCell> Advance(
         Option<ReadingCell> prior, Seq<KeyValuePair<string, object?>> tags,
-        double measurement, InstrumentKind kind, Op key) =>
+        double measurement, InstrumentKind kind) =>
         Scalar.From(measurement).Bind(sample => prior.Match(
-            Some: cell => Stat<Scalar>.Update(prior: cell.Summary, sample: sample, key: key)
+            Some: cell => Stat<Scalar>.Update(prior: cell.Summary, sample: sample)
                 .Map(summary => cell with {
                     Summary = summary,
                     Sum = kind.Pulled ? measurement : cell.Sum + measurement,
                     Last = measurement,
                 }),
-            None: () => Stat<Scalar>.Of(values: Seq(sample), key: key)
+            None: () => Stat<Scalar>.Of(values: Seq(sample))
                 .Map(summary => new ReadingCell(Tags: tags, Summary: summary, Sum: measurement, Last: measurement))));
 }
 
@@ -438,7 +437,6 @@ internal readonly record struct TallyState(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class InstrumentTally : IDisposable {
-    private static readonly Op TallyOp = Op.Of(name: "instrument.tally");
     public const string OverflowSlot = "otel.metric.overflow";
 
     private static readonly Seq<KeyValuePair<string, object?>> Overflow =
@@ -467,9 +465,9 @@ public sealed class InstrumentTally : IDisposable {
         return tally;
     }
 
-    public Fin<Seq<InstrumentReading>> Read(Op key) {
+    public Fin<Seq<InstrumentReading>> Read() {
         TallyState settled = plane.Value;
-        return key.Catch(listener.RecordObservableInstruments)
+        return Try.lift(listener.RecordObservableInstruments).Run().Bind(static inner => inner)
             .MapFail(cause => (ignore(plane.Swap(_ => settled)), cause).Item2)
             .Map(_ => {
                 TallyState held = plane.Value;
@@ -506,11 +504,11 @@ public sealed class InstrumentTally : IDisposable {
         bool seatable = held.Cells.Count < ceiling && held.Census.Find(at.Row).IfNone(0) < at.Row.Ceiling.IfNone(ceiling);
         (InstrumentSpec Row, UInt128 Key) key = standing || seatable ? at : (at.Row, OverflowKey);
         return ReadingCell.Advance(
-                prior: held.Cells.Find(key), tags: standing || seatable ? tags : Overflow,
+                prior: held.Cells.Find(), tags: standing || seatable ? tags : Overflow,
                 measurement: measurement, kind: key.Row.Kind, key: TallyOp)
             .Match(
                 Succ: cell => held with {
-                    Cells = held.Cells.AddOrUpdate(key, cell),
+                    Cells = held.Cells.AddOrUpdate(cell),
                     Census = standing ? held.Census : held.Census.AddOrUpdate(key.Row, static seats => seats + 1, static () => 1),
                 },
                 Fail: cause => held with {

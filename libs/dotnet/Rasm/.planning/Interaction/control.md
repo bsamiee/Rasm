@@ -53,11 +53,11 @@ public readonly partial struct ElementKey {
 [SmartEnum<int>]
 public sealed partial class ElementState {
     public static readonly ElementState Active = new(key: 0,
-        seat: static control => Op.Side(() => (control.Visible, control.Enabled) = (true, true)));
+        seat: static control => HostEdge.Side(() => (control.Visible, control.Enabled) = (true, true)));
     public static readonly ElementState Disabled = new(key: 1,
-        seat: static control => Op.Side(() => (control.Visible, control.Enabled) = (true, false)));
+        seat: static control => HostEdge.Side(() => (control.Visible, control.Enabled) = (true, false)));
     public static readonly ElementState Hidden = new(key: 2,
-        seat: static control => Op.Side(() => (control.Visible, control.Enabled) = (false, false)));
+        seat: static control => HostEdge.Side(() => (control.Visible, control.Enabled) = (false, false)));
 
     [UseDelegateFromConstructor] internal partial Unit Seat(Control control);
 }
@@ -128,7 +128,7 @@ public sealed record ElementSpec(
     Option<StyleKey> Style,
     Seq<IBindingPlan> Bindings) {
     public static ElementSpec Of(ElementKey key) =>
-        new(Key: key, State: ElementState.Active, ToolTip: None, Style: None, Bindings: Seq<IBindingPlan>());
+        new(State: ElementState.Active, ToolTip: None, Style: None, Bindings: Seq<IBindingPlan>());
 }
 
 public sealed record ElementRuntime(ThemePort Themes, IntentTable Intents);
@@ -142,7 +142,7 @@ public sealed record ElementRuntime(ThemePort Themes, IntentTable Intents);
 - Auto: the two budgets on the tree case are one value type read on two axes — a node budget caps what the whole expansion admits and a depth budget caps how far one path descends, and a linear chain inside the node budget still overflows the runtime stack, which is the one failure no result catches.
 - Law: a knob set with two or more independent presence bits rides a `CapabilitySet<TCapability>` over a named vocabulary, never a bool blob. `EditTrait` (editable, wrapping, spelling, return, tab) replaces Grasshopper's five text bools AND Rhino's two two-row access and wrap rosters; `ScrollAxis` replaces the expand-width and expand-height pair; `ColumnTrait` replaces Grasshopper's five column bools and absorbs Rhino's column feature set; `GridTrait` replaces Grasshopper's three grid bools and Rhino's chrome and selection rosters together. Every corner of all four is legal, and each vocabulary DECLARES that as a `CapabilityLaw` its owner admits through — `TextPolicy`, `ColumnPlan`, `GridPlan`, and the `Scroll` case each gate their held set at construction, so a later closed law binds at one site and every holder starts refusing with no reader edited. A prose claim beside a roster no gate reads is the form this replaces.
 - Law: NAMED LOSS on `GridTrait` — Rhino's four named selection corners lose their names, and a reader of a plan reads a set rather than `MultipleOptional`. Bought back by the vocabulary's wire text and by growth: a fifth grid posture is one vocabulary row rather than a doubled roster. Witness: `Rhino Eto/elements.md:821 GridSelection` (four rows over two bool columns) becomes `CapabilitySet<GridTrait>.Of(GridTrait.Multiple, GridTrait.Empty)`.
-- Law: the tri-state seed crosses as `Op.ToHostNullable`, the one place a `null` is a legal spelling — a host slot the domain never reads back; a hand-spelled `Match` onto `null` puts that projection at every row instead of at its one owner.
+- Law: the tri-state seed crosses as `HostEdge.Nullable`, the one place a `null` is a legal spelling — a host slot the domain never reads back; a hand-spelled `Match` onto `null` puts that projection at every row instead of at its one owner.
 - Law: a genuinely independent single bit stays a bool and says so — `NumberPolicy.Wrap` (the value wraps at its bounds), `SliderPolicy.Snap`, `Expander.Expanded`, `Documents.Reorder`, `DocumentPlan.Closable`, and `InspectorSkin.Themed.Description` each name one axis with no legal-corner law over a second.
 - Law: declarative cells are ROWS and callback-bearing cells are CASES. The discriminant is whether the cell carries a consumer callback the fold must guard: a bound cell has none and is fully described by its kind and policy, while a custom or drawn cell needs its raises routed to the plan's failure sink. Rhino spelled eight cases and Grasshopper eight rows; six of the eight were the same declarative cells on both sides.
 - Law: `TextRole.Rich` reads back markup while every other text row reads plain text, so the read column is per-row rather than role-invariant. A single shared read would silently return a rich editor's plain projection and lose its formatting.
@@ -348,7 +348,7 @@ public sealed partial class FlagRole {
         mint: static (seed, caption) => new CheckBox {
             Text = caption,
             ThreeState = true,
-            Checked = Op.ToHostNullable(seed),
+            Checked = HostEdge.Nullable(seed),
         },
         read: static control => new FieldValue.Flag(Value: Optional(control.Checked)));
 
@@ -425,7 +425,7 @@ public sealed partial class MomentRole {
 
     private static Control Stamped(
         DateTimePickerMode mode, Option<DateTime> seed, Option<DateTime> floor, Option<DateTime> ceiling) {
-        DateTimePicker picker = new() { Mode = mode, Value = Op.ToHostNullable(seed) };
+        DateTimePicker picker = new() { Mode = mode, Value = HostEdge.Nullable(seed) };
         floor.Iter(at => picker.MinDate = at);
         ceiling.Iter(at => picker.MaxDate = at);
         return picker;
@@ -463,9 +463,9 @@ public sealed partial class CellKind {
 [SmartEnum<int>]
 public sealed partial class AlphaMode {
     public static readonly AlphaMode Opaque = new(key: 0,
-        seat: static picker => Op.Side(() => picker.AllowAlpha = false));
+        seat: static picker => HostEdge.Side(() => picker.AllowAlpha = false));
     public static readonly AlphaMode Alpha = new(key: 1,
-        seat: static picker => Op.Side(() => picker.AllowAlpha = true));
+        seat: static picker => HostEdge.Side(() => picker.AllowAlpha = true));
 
     [UseDelegateFromConstructor] internal partial Unit Seat(ColorPicker picker);
 }
@@ -473,9 +473,9 @@ public sealed partial class AlphaMode {
 [SmartEnum<int>]
 public sealed partial class InspectorMode {
     public static readonly InspectorMode Flat = new(key: 0,
-        seat: static grid => Op.Side(() => grid.ShowCategories = false));
+        seat: static grid => HostEdge.Side(() => grid.ShowCategories = false));
     public static readonly InspectorMode Grouped = new(key: 1,
-        seat: static grid => Op.Side(() => grid.ShowCategories = true));
+        seat: static grid => HostEdge.Side(() => grid.ShowCategories = true));
 
     [UseDelegateFromConstructor] internal partial Unit Seat(PropertyGrid grid);
 }
@@ -483,11 +483,11 @@ public sealed partial class InspectorMode {
 [SmartEnum<int>]
 public sealed partial class Stretch {
     public static readonly Stretch Fixed = new(key: 0,
-        stack: static item => Op.Side(() => item.Expand = false),
-        slot: static cell => Op.Side(() => cell.ScaleWidth = false));
+        stack: static item => HostEdge.Side(() => item.Expand = false),
+        slot: static cell => HostEdge.Side(() => cell.ScaleWidth = false));
     public static readonly Stretch Fill = new(key: 1,
-        stack: static item => Op.Side(() => item.Expand = true),
-        slot: static cell => Op.Side(() => cell.ScaleWidth = true));
+        stack: static item => HostEdge.Side(() => item.Expand = true),
+        slot: static cell => HostEdge.Side(() => cell.ScaleWidth = true));
 
     [UseDelegateFromConstructor] internal partial Unit Stack(StackLayoutItem item);
     [UseDelegateFromConstructor] internal partial Unit Slot(TableCell cell);
@@ -507,14 +507,14 @@ public abstract partial record CellSpec {
     public sealed record Custom(Func<CellEventArgs, Control> Create, Option<Action<CellEventArgs, Control>> Configure) : CellSpec;
     public sealed record Drawn(Action<CellPaintEventArgs> Paint) : CellSpec;
 
-    internal Cell Mint(int column, FaultCell faults, Op key) => Switch(
-        state: (Column: column, Faults: faults, Key: key),
+    internal Cell Mint(int column, FaultCell faults) => Switch(
+        state: (Column: column, Faults: faults),
         bound: static (held, cell) => cell.Kind.Mint(column: held.Column, policy: cell.Policy),
         custom: static (held, cell) => Templated(cell, held.Faults, held.Key),
         drawn: static (held, cell) => Painted(cell, held.Faults, held.Key));
 
-    private static CustomCell Templated(Custom cell, FaultCell faults, Op key);
-    private static DrawableCell Painted(Drawn cell, FaultCell faults, Op key);
+    private static CustomCell Templated(Custom cell, FaultCell faults);
+    private static DrawableCell Painted(Drawn cell, FaultCell faults);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -604,7 +604,7 @@ public sealed record TableSlot(Option<ControlSpec> Item, Stretch Stretch);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface IGridPlan {
-    Fin<ControlMint> Realize(Op key);
+    Fin<ControlMint> Realize();
     Seq<IsolatedFault> Failures { get; }
 }
 
@@ -627,7 +627,7 @@ public sealed class GridPlan<TRow>(
         from held in Columns.Traverse(column => ColumnTrait.Law.Admit(held: column.Traits)).As()
         select unit;
 
-    public Fin<ControlMint> Realize(Op key);
+    public Fin<ControlMint> Realize();
 }
 ```
 
@@ -691,7 +691,7 @@ public sealed record FieldGuard(Func<FieldValue, Fin<FieldValue>> Admit);
 
 public sealed record FieldPort(FieldTag Tag, Control Editor, Func<Fin<FieldValue>> Pick, Option<FieldGuard> Guard);
 
-public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Values, HashMap<FieldTag, FieldGuard> Guards) : IValidityEvidence {
+public sealed record FieldReport(HashMap<FieldTag, FieldValue> Values, HashMap<FieldTag, FieldGuard> Guards) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Guards.ForAll((tag, guard) =>
         Values.Find(tag).Exists(value => guard.Admit(value).IsSucc)));
 
@@ -738,16 +738,15 @@ public readonly record struct ControlMint(
         Host: new Lease<Control>.Owned(host),
         Resources: Seq<Lease<IDisposable>>(), Children: Seq<ControlMint>(), Pick: Some(pick));
 
-    internal Fin<Unit> Drain(Op key);
+    internal Fin<Unit> Drain();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class UiLease : IMount, IDisposable {
-    protected UiLease(Op key);
-    public Op Key { get; }
+    protected UiLease();
     public Seq<Error> ReleaseFaults { get; }
-    protected Fin<Unit> Accrue(Func<Fin<Unit>> arm, Op key);
-    public Fin<Unit> Release(Op key);
+    protected Fin<Unit> Accrue(Func<Fin<Unit>> arm);
+    public Fin<Unit> Release();
     public void Dispose();
 }
 
@@ -762,25 +761,25 @@ public sealed class ElementMount : UiLease {
     public Seq<FieldPort> Ports { get; }
 
     internal static Fin<ElementMount> Create(
-        ControlMint mint, ElementSpec spec, ElementRuntime runtime, Seq<ElementMount> children, Op key);
+        ControlMint mint, ElementSpec spec, ElementRuntime runtime, Seq<ElementMount> children);
 
     internal static Fin<ElementMount> Mint(
-        Func<Fin<ControlMint>> mint, ElementSpec spec, ElementRuntime runtime, Seq<ElementMount> children, Op key);
+        Func<Fin<ControlMint>> mint, ElementSpec spec, ElementRuntime runtime, Seq<ElementMount> children);
 
-    internal static Fin<Seq<ElementMount>> Gather(Seq<ControlSpec> nodes, ElementRuntime runtime, Op key);
+    internal static Fin<Seq<ElementMount>> Gather(Seq<ControlSpec> nodes, ElementRuntime runtime);
 
-    public Fin<FieldReport> Harvest(Op key);
+    public Fin<FieldReport> Harvest();
 
-    public Fin<ViewEcho> Drive(Grid view, ViewVerb verb, Op? key = null);
+    public Fin<ViewEcho> Drive(Grid view, ViewVerb verb);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ControlForge {
-    public static Fin<Lease<ElementMount>> Realize(ControlSpec spec, ElementRuntime runtime, Op? key = null);
+    public static Fin<Lease<ElementMount>> Realize(ControlSpec spec, ElementRuntime runtime);
 
-    public static Fin<ElementMount> Grow(ControlSpec spec, ElementRuntime runtime, Op key);
+    public static Fin<ElementMount> Grow(ControlSpec spec, ElementRuntime runtime);
 
-    public static Fin<Seq<ElementMount>> GrowAll(Seq<ControlSpec> specs, ElementRuntime runtime, Op key);
+    public static Fin<Seq<ElementMount>> GrowAll(Seq<ControlSpec> specs, ElementRuntime runtime);
 }
 ```
 
@@ -849,7 +848,7 @@ public sealed record NoticeChoice<TResult>(string Caption, TResult Result, Notic
 
 public sealed record ThemedNotice<TResult>(
     string Text, TextAlignment Alignment, Option<Lease<EtoImage>> Badge, Seq<NoticeChoice<TResult>> Choices) {
-    public Fin<Lease<NoticeMount<TResult>>> Mint(Op? key = null);
+    public Fin<Lease<NoticeMount<TResult>>> Mint();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

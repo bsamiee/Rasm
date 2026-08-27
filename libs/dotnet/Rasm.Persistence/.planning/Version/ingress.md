@@ -143,26 +143,26 @@ public static class CdcIngress {
         TimeSpan budget = source.PollInterval.ToTimeSpan() / ResolveHeadroom;
         IConsumer<string, byte[]> consumer = new ConsumerBuilder<string, byte[]>(config)
             .AsInstrumentedConsumerBuilder(new ConfluentKafkaInstrumentedConsumerBuilderOptions { EnableTraces = true, EnableMetrics = true })
-            .SetPartitionsAssignedHandler((client, held) => Resolve(client, held, source.Resume, budget, Op.Of()))
+            .SetPartitionsAssignedHandler((client, held) => Resolve(client, held, source.Resume, budget))
             .Build();
         consumer.Subscribe(source.Topic);
         return consumer;
     }
 
     static IEnumerable<TopicPartitionOffset> Resolve(IConsumer<string, byte[]> client, List<TopicPartition> held,
-        ResumeOrigin origin, TimeSpan budget, Op key) =>
+        ResumeOrigin origin, TimeSpan budget) =>
         origin.Switch(
             committed: _ => Stored(held),
-            atTime:    at => Timed(client, held, at.Wall, budget, key));
+            atTime:    at => Timed(client, held, at.Wall, budget));
 
     static List<TopicPartitionOffset> Stored(List<TopicPartition> held) =>
         held.ConvertAll(partition => new TopicPartitionOffset(partition, Offset.Stored));
 
     static List<TopicPartitionOffset> Timed(IConsumer<string, byte[]> client, List<TopicPartition> held,
-        Instant wall, TimeSpan budget, Op key) {
+        Instant wall, TimeSpan budget) {
         Timestamp at = new(wall.ToDateTimeUtc(), TimestampType.CreateTime);
-        return key.Catch(() => Fin.Succ(client.OffsetsForTimes(
-                held.ConvertAll(partition => new TopicPartitionTimestamp(partition, at)), budget)))
+        return Try.lift(() => Fin.Succ(client.OffsetsForTimes(
+                held.ConvertAll(partition => new TopicPartitionTimestamp(partition, at)), budget))).Run().Bind(static inner => inner)
             .IfFail(_ => Stored(held));
     }
 
@@ -172,24 +172,24 @@ public static class CdcIngress {
         return unit;
     }
 
-    public static IO<Fin<Unit>> Close(IConsumer<string, byte[]> consumer, IngressSource source, Op key) =>
-        IO.lift<Fin<Unit>>(() => key.Catch(() => { consumer.Close(); return Fin.Succ(unit); })
+    public static IO<Fin<Unit>> Close(IConsumer<string, byte[]> consumer, IngressSource source) =>
+        IO.lift<Fin<Unit>>(() => Try.lift(() => { consumer.Close(); return Fin.Succ(unit); }).Run().Bind(static inner => inner)
             .MapFail(error => IngressFault.Lift(error,
                 static raised => raised is KafkaException or ObjectDisposedException,
                 cause => new IngressFault.CloseAbandoned(source.Group, cause))));
 
     public static IO<Fin<IngressTally>> Consume(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
         ProjectionContext frame, CancellationToken token = default) =>
-        ConsumeAdmitted(consumer, source, ports, frame, Op.Of(), token);
+        ConsumeAdmitted(consumer, source, ports, frame, token);
 
     static IO<Fin<IngressTally>> ConsumeAdmitted(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
-        ProjectionContext frame, Op key, CancellationToken token) =>
+        ProjectionContext frame, CancellationToken token) =>
         from folded in Range(0, source.Batch.Value).FoldM(IngressTally.Zero, (tally, _) => IO.liftAsync(async () =>
-            (await key.Catch(async _ => {
+            (await Try.lift(async _ => {
             Option<Error> refused = None;
             Option<IngressOutcome> settled = None;
             ConsumeResult<string, byte[]>? offered = await consumer.ConsumeAndProcessMessageAsync(async (result, _, processingToken) => {
-                (await Settle(result.Message, source, ports, key, processingToken).ConfigureAwait(false)).Match(
+                (await Settle(result.Message, source, ports, processingToken).ConfigureAwait(false)).Match(
                     Succ: outcome => {
                         processingToken.ThrowIfCancellationRequested();
                         settled = Some(outcome);
@@ -204,12 +204,12 @@ public static class CdcIngress {
             return refused.Match(
                 Some: Fin<IngressTally>.Fail,
                 None: () => Fin.Succ(settled.IfNone(() => Positioned(offered)).Count(tally)));
-        }).ConfigureAwait(false)).MapFail(error => IngressFault.Lift(error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => IngressFault.Lift(error,
             static raised => raised is KafkaException,
             cause => new IngressFault.EnvelopeRejected(None, cause))))).Bind(IO.lift)).As()
         from committed in IO.lift(() => {
             token.ThrowIfCancellationRequested();
-            return key.Catch(() => { consumer.Commit(); return Fin.Succ(unit); })
+            return Try.lift(() => { consumer.Commit(); return Fin.Succ(unit); }).Run().Bind(static inner => inner)
                 .MapFail(error => IngressFault.Lift(error,
                     static raised => raised is KafkaException,
                     cause => new IngressFault.CommitRegressed(source.Topic, cause)));
@@ -220,29 +220,29 @@ public static class CdcIngress {
         offered is { IsPartitionEOF: true } ? IngressOutcome.AtEdge : IngressOutcome.Absent;
 
     static async ValueTask<Fin<IngressOutcome>> Settle(Message<string, byte[]> message, IngressSource source,
-        IngressPorts ports, Op key, CancellationToken token) =>
-        await Admit(message, source, key).Match(
-            Succ: admitted => Applied(admitted, ports, source.Topic, key, token),
+        IngressPorts ports, CancellationToken token) =>
+        await Admit(message, source).Match(
+            Succ: admitted => Applied(admitted, ports, source.Topic, token),
             Fail: fault => Dead(ports, fault, source.Topic, token)).ConfigureAwait(false);
 
-    static Fin<AdmittedRecord> Admit(Message<string, byte[]> message, IngressSource source, Op key) =>
-        from envelope in Decoded(message, key)
-        from extensions in EgressEventExtensions.Contract.Admit(envelope, key)
+    static Fin<AdmittedRecord> Admit(Message<string, byte[]> message, IngressSource source) =>
+        from envelope in Decoded(message)
+        from extensions in EgressEventExtensions.Contract.Admit(envelope)
             .MapFail(error => new IngressFault.EnvelopeRejected(Optional(envelope.Id), error))
         from origin in Admitted(envelope, source)
-        from id in Identified(envelope, key)
+        from id in Identified(envelope)
         from subject in Optional(envelope.Subject)
             .ToFin(new IngressFault.InvalidEnvelope(Optional(envelope.Id), "<absent-content-key>"))
-        from content in ContentHash.Admit(hex: subject, key: key)
+        from content in ContentHash.Admit(hex: subject)
             .MapFail(error => new IngressFault.EnvelopeRejected(Some(id.ToString()), error))
-        from payload in Payload(envelope, extensions, id.ToString(), key)
+        from payload in Payload(envelope, extensions, id.ToString())
         select new AdmittedRecord(new Uniqueness(origin, id.ToString()), content, envelope, extensions, payload);
 
-    static Fin<CloudEvent> Decoded(Message<string, byte[]> message, Op key) =>
+    static Fin<CloudEvent> Decoded(Message<string, byte[]> message) =>
         message.IsCloudEvent()
-            ? from declared in EgressEventExtensions.Contract.Declarations(key)
-              from envelope in key.Catch(() => Fin.Succ(message.ToCloudEvent(EventFormat.Json.Formatter, declared)))
-                  .Bind(admitted => EventEnvelope.Admit(admitted, key))
+            ? from declared in EgressEventExtensions.Contract.Declarations()
+              from envelope in Try.lift(() => Fin.Succ(message.ToCloudEvent(EventFormat.Json.Formatter, declared))).Run().Bind(static inner => inner)
+                  .Bind(admitted => EventEnvelope.Admit(admitted))
                   .MapFail(error => IngressFault.Lift(error,
                       static raised => raised is ArgumentException or JsonException,
                       cause => new IngressFault.EnvelopeRejected(None, cause)))
@@ -255,14 +255,14 @@ public static class CdcIngress {
             .ToFin(new IngressFault.ForeignSource(Optional(envelope.Id), named));
     }
 
-    static Fin<EventId> Identified(CloudEvent envelope, Op key) =>
+    static Fin<EventId> Identified(CloudEvent envelope) =>
         Optional(envelope.Id)
             .ToFin(new IngressFault.InvalidEnvelope(None, "<absent-operation-id>"))
-            .Bind(id => key.AcceptValidated<EventId>(id));
+            .Bind(id => FactoryBridge.Accept<EventId>(id));
 
     static Fin<IngressPayload> Payload(
-        CloudEvent envelope, global::Rasm.Contracts.Event.Extensions extensions, string id, Op key) =>
-        key.Catch(() => {
+        CloudEvent envelope, global::Rasm.Contracts.Event.Extensions extensions, string id) =>
+        Try.lift(() => {
             Option<Uri> reference = extensions.HasDataref
                 ? Some(new Uri(extensions.Dataref, UriKind.RelativeOrAbsolute))
                 : None;
@@ -275,17 +275,15 @@ public static class CdcIngress {
                     .ToFin(new IngressFault.InvalidEnvelope(Some(id), "<absent-data-and-dataref>")),
                 _ => Fin<IngressPayload>.Fail(new IngressFault.InvalidEnvelope(Some(id), "<unsupported-cloudevent-data>")),
             };
-        }).MapFail(error => IngressFault.Lift(error,
+        }).Run().Bind(static inner => inner).MapFail(error => IngressFault.Lift(error,
                 static raised => raised is IOException or UriFormatException,
                 cause => new IngressFault.EnvelopeRejected(Some(id), cause))));
 
-    static async ValueTask<Fin<IngressOutcome>> Applied(AdmittedRecord admitted, IngressPorts ports, string topic,
-        Op key, CancellationToken token) {
+    static async ValueTask<Fin<IngressOutcome>> Applied(AdmittedRecord admitted, IngressPorts ports, string topic, CancellationToken token) {
         Fin<ReadOnlyMemory<byte>> acquired = await Acquire(admitted.Payload, ports, token).RunAsync(token).ConfigureAwait(false);
         Fin<bool> outcome = await acquired.Bind(payload => Verified(payload, admitted.ContentKey, admitted.Key.Id))
             .Match(
-                Succ: payload => key.Catch(() => ports.TryApply(
-                    admitted.Key, admitted.ContentKey, admitted.Envelope, admitted.Extensions, payload, token).RunAsync(token)),
+                Succ: payload => Try.lift(() => ports.TryApply(admitted.ContentKey, admitted.Envelope, admitted.Extensions, payload, token).RunAsync(token)).Run().Bind(static inner => inner),
                 Fail: error => ValueTask.FromResult(Fin<bool>.Fail(error)))
             .ConfigureAwait(false);
         return await outcome

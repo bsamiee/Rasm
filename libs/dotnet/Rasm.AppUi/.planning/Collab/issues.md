@@ -261,23 +261,23 @@ public static class CommentLens {
 
     static Seq<CommentEntry> ReadEntries(LoroMap thread) =>
         toSeq(thread.Keys())
-            .Map(key => Read(thread, key))
+            .Map(key => Read(thread))
             .Somes();
 
     static Option<CommentEntry> Read(LoroMap thread, string key) =>
-        thread.Level(key, live => EntryOf(thread, key, live));
+        thread.Level(live => EntryOf(thread, live));
 
     static Option<CommentEntry> EntryOf(LoroMap thread, string key, LoroMap row) =>
         (row.Read(CollabColumn.Author, static leaf => leaf.Text),
          row.Read(CollabColumn.Body, static leaf => leaf.Text),
          row.Read(CollabColumn.At, static leaf => leaf.Stamp)).Apply((author, body, at) =>
             new CommentEntry(
-                System.Guid.ParseExact(key, "N").ToString(), author, body,
+                System.Guid.ParseExact("N").ToString(), author, body,
                 row.Read(CollabColumn.Viewpoint, static leaf => leaf.Text),
                 row.Read(CollabColumn.Resolved, static leaf => leaf.Flag).IfNone(false), at,
                 row.Read(CollabColumn.EditedAt, static leaf => leaf.Stamp),
                 row.Read(CollabColumn.EditedBy, static leaf => leaf.Text),
-                Optional(thread.GetLastEditor(key))));
+                Optional(thread.GetLastEditor())));
 }
 
 public readonly record struct CommentNotice(Guid CommentId, string TopicId, Instant At);
@@ -304,11 +304,11 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
         doc.Read(
             CollabPath.Root(CollabRoot.Notifications).Key(ContainerKey.Of(peer)),
             Seq<CommentNotice>(),
-            inbox => CollabDoc.Lift(() => toSeq(inbox.Keys()).Choose(key => Notice(inbox, key))));
+            inbox => CollabDoc.Lift(() => toSeq(inbox.Keys()).Choose(key => Notice(inbox))));
 
     static Option<CommentNotice> Notice(LoroMap inbox, string key) =>
-        Guid.TryParseExact(key, "N", out Guid comment)
-            ? inbox.Read(key, static row => (row.Field(CollabColumn.Topic, static leaf => leaf.Text),
+        Guid.TryParseExact("N", out Guid comment)
+            ? inbox.Read(static row => (row.Field(CollabColumn.Topic, static leaf => leaf.Text),
                                              row.Field(CollabColumn.At, static leaf => leaf.Stamp))
                 .Apply((topic, at) => new CommentNotice(comment, topic, at)))
             : None;
@@ -411,7 +411,7 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
 
 - Owner: `IssueOp` `[Union]` the closed board-triage verb family; `IssueTriage` the decoded live-column row; `IssueRegister` the ONE durable triage writer, its `Read` projection, and the `Govern`-shaped commit ingress.
 - Cases: `IssueOp` = Transition | Assign | LabelApply | LabelClear | Rank | Attach — apply and clear are two VERBS, never one verb behind a mode bool, so the write law and the capability fold address each without a flag read.
-- Entry: `Commit(doc, ledger, issueGuid, op)` — the ONE write ingress, minting the verb's `EditIntent.IssueCommit` row through `IntentLedger.Commit` under `BoardOrigin`; `Apply(doc, issueGuid, op)` — the DECODE-side write law, reached only from `Collab/sync#DURABLE_INTENT`'s issue arm; `Read(doc, guid)` — the live-column read `TriageBoard.Synced` folds.
+- Entry: `Commit(doc, ledger, issueGuid, op)` — the ONE write ingress, minting the verb's `EditIntent.IssueCommit` row through `IntentLedger.Commit` under `BoardOrigin`; `Apply(doc, issueGuid)` — the DECODE-side write law, reached only from `Collab/sync#DURABLE_INTENT`'s issue arm; `Read(doc, guid)` — the live-column read `TriageBoard.Synced` folds.
 - Auto: the write splits into an ingress and a decode arm exactly as every other collaborative surface's does; each issue is one `ContainerKey.Of(identity)`-keyed mergeable map under the `CollabRoot.Issues` root; the label SET is its own keyed mergeable level so adding and removing different labels merges rather than replacing a list; an unassignment ERASES its column rather than writing a blank; `IssueTriage.Onto` folds the live columns over the BCF-derived ones PER COLUMN; the transition arm composes the Bim `SignOff` lifecycle — the destination grades against the register's own prior through `SignOff.Advance`, so a `Closed → InProgress` skip refuses TYPED on the Bim band instead of landing a status the exchange would reject.
 - Boundary: a triage change is an `EditIntent` on the one durable union and adds no parallel result family.
 - Packages: LoroCs (via `Collab/sync.md` owners), Rasm (project — `Op`), Rasm.Bim (project — `SignOff`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -454,10 +454,9 @@ public readonly record struct IssueTriage(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IssueRegister {
     public const string BoardOrigin = "board";
-    static readonly Op TransitionOp = Op.Of(name: "appui.issue.transition");
 
     public static IO<Fin<Unit>> Commit(CollabDoc doc, IntentLedger ledger, System.Guid issueGuid, IssueOp op) =>
-        ledger.Commit(doc, new EditIntent.IssueCommit(doc.Key, issueGuid, op), BoardOrigin);
+        ledger.Commit(doc, new EditIntent.IssueCommit(issueGuid), BoardOrigin);
 
     public static Fin<Unit> Apply(CollabDoc doc, System.Guid issueGuid, IssueOp op) => op.Switch(
         state: (Doc: doc, Guid: issueGuid),
@@ -499,7 +498,7 @@ public static class IssueRegister {
 
     static IssueTriage Triage(LoroMap row) => new(
         row.Read(CollabColumn.Status, static leaf => leaf.Text).Bind(static key =>
-            IssueStatus.TryGet(key, out IssueStatus? held) ? Some(held) : None),
+            IssueStatus.TryGet(out IssueStatus? held) ? Some(held) : None),
         row.Read(CollabColumn.Assignee, static leaf => leaf.Text),
         Labels(row),
         row.Read(CollabColumn.Priority, static leaf => leaf.Text),
@@ -576,9 +575,9 @@ public static class BoardSchema {
     static string Key(string member) => member.ToLowerInvariant();
 
     static FilterField<IssueTile> Field(string key, FilterKind kind, Seq<FilterValue> domain, Func<IssueTile, Seq<FilterValue>> read) =>
-        new(new FilterProperty(key, $"issue.filter.{key}", kind, domain), read);
+        new(new FilterProperty($"issue.filter.{key}", kind, domain), read);
 
-    static Seq<FilterValue> Members(Seq<string> keys) => keys.Map(static key => (FilterValue)new FilterValue.Member(key));
+    static Seq<FilterValue> Members(Seq<string> keys) => keys.Map(static key => (FilterValue)new FilterValue.Member());
 }
 
 public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Schema, BoardView View) {
@@ -642,7 +641,7 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
 
 - Owner: `ToolTrait` the tool-capability vocabulary with its `CapabilityLaw` legal corners; `RedlineTool` `[SmartEnum<string>]` the closed tool family whose rows carry a trait SET, default weight, paint role, and the markup leg they elect; `MarkupLeg` `[SmartEnum<string>]` the exchange-projection axis whose rows carry their own projection body; `RedlineToolState` the active tool, weight, and pending caption; `RedlineStroke` the captured pressure-weighted path; `RedlinePlacement` the raster leg's whole world-and-raster boundary; `StrokeCapture` the pen fold, the one markup ingress, and the one board commit; `ViewpointMarkup` the closed BCF authoring family.
 - Cases: `RedlineTool` = pen | highlighter | shape | text | eraser; `ToolTrait` = Pressured | Erases | Captioned, legal corners `{}`, `{Pressured}`, `{Erases}`, `{Captioned}` — a pressured caption tool is unconstructible, the law refusing it where the row mints; `MarkupLeg` = line | raster.
-- Entry: `StrokeCapture.Capture(state, samples, author, IClock clock)` — the pressure-aware fold over the landed pen rows, routing an eraser-channel stroke to removal regardless of the selected tool; `RedlineToolState.Select`/`Weigh`/`Caption` — the tool-state edits, `Weigh` admitting through the kernel `PositiveMagnitude` gate; `StrokeCapture.ToMarkup(stroke, placement)` — the ONE markup ingress dispatching onto the stroke's own tool row's elected leg; `StrokeCapture.Commit(board, issueGuid, viewpointGuid, stroke, placement)` — the one committed entry composing `ToMarkup` with `TriageBoard.Markup`, so a captured stroke that never lands on the board has no second path to try.
+- Entry: `Error.New(state.Message, state)` — the pressure-aware fold over the landed pen rows, routing an eraser-channel stroke to removal regardless of the selected tool; `RedlineToolState.Select`/`Weigh`/`Caption` — the tool-state edits, `Weigh` admitting through the kernel `PositiveMagnitude` gate; `StrokeCapture.ToMarkup(stroke, placement)` — the ONE markup ingress dispatching onto the stroke's own tool row's elected leg; `StrokeCapture.Commit(board, issueGuid, viewpointGuid, stroke, placement)` — the one committed entry composing `ToMarkup` with `TriageBoard.Markup`, so a captured stroke that never lands on the board has no second path to try.
 - Auto: the tool family is ROW DATA — pressure consumption, erase routing, and caption admission are ONE `CapabilitySet<ToolTrait>` column the capture fold reads through `Admits`, and the erase answer derives from the tool row so no stroke column re-states it; pressure rides the LANDED `Shell/input#POINTER_GESTURES` rows whole; the AUTHORED roster and the EXCHANGE roster close against each other because the leg is a tool-row column; the raster leg rasters through the ONE `Render/capture#DRAW_CAPSULE` owned capsule, shapes captions through the `Theme/typography#TEXT_SHAPING`, encodes through the settled `Render/capture#ENCODE_IDENTITY` row under its own declared `ArtifactKind`, and places the result on the world plane the viewpoint's own camera faces; ONE captured stroke feeds BOTH commit legs — the viewport leg through `Commit` and the basemap leg onto the `Charts/basemap#REDLINE` `RedlineVerb.Commit` payload; history binding is the ONE revert vocabulary on every plane; review-posture attribution reads `PeerTint`, unconditionally — author colour and caret colour are one value.
 - Boundary: the raster leg consumes the `VisualArtifact` its encode returns, so a placed mark's provenance stays on the canonical capture result.
 - Packages: SkiaSharp, Avalonia, Rasm (project — `CapabilitySet`, `CapabilityLaw`, `Custody`, `Op`, `PositiveMagnitude`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
@@ -719,13 +718,13 @@ public sealed partial class MarkupLeg {
          from key in FinT.liftIO<IO, string>(IO.lift(static () => $"{RasterPrefix}{Guid.CreateVersion7():N}"))
          from image in FinT.lift<IO, SKImage>(placement.Raster(stroke, seat))
          from artifact in FinT.liftIO<IO, VisualArtifact>(
-             VisualCodec.Encode(placement.Runtime, image, placement.Encode, RasterKind, key))
+             VisualCodec.Encode(placement.Runtime, image, placement.Encode, RasterKind))
          from source in FinT.lift<IO, string>(artifact.Destination.ToFin(
              new IssueFault.Unwritten($"redline/unwritten-raster:{key}")))
          select Seq<ViewpointMarkup>(new ViewpointMarkup.Bitmap(
              new Rasm.Bim.Coordination.BcfBitmap(
-                 artifact.Format, key, seat.Origin, placement.Facing, placement.Up, seat.Height),
-             new MediaSurface.Image(key, source, Stretch.Uniform)))).runFin.As();
+                 artifact.Format, seat.Origin, placement.Facing, placement.Up, seat.Height),
+             new MediaSurface.Image(source, Stretch.Uniform)))).runFin.As();
 
     public static readonly ArtifactKind RasterKind = ArtifactKind.Create("redline");
 
@@ -764,7 +763,6 @@ public sealed record RedlinePlacement(
     FontChain Chain,
     PalettePosture Palette,
     double Scale) {
-    static readonly Op RasterOp = Op.Of(name: "appui.redline.raster");
 
     public Vector3 Facing =>
         Vector3.Normalize(Camera.Frame.Eye - Camera.Frame.Target);
@@ -788,12 +786,12 @@ public sealed record RedlinePlacement(
             key: RasterOp);
 
     Fin<Unit> Painted(SKCanvas canvas, RedlineStroke stroke, RedlineSeat seat, SKPaint paint) =>
-        RasterOp.Catch(() => {
+        Try.lift(() => {
             using SKPath path = new();
             path.AddPoly([.. stroke.Points.Map(seat.Local)], close: false);
             canvas.DrawPath(path, paint);
             return Fin.Succ(unit);
-        })
+        }).Run().Bind(static inner => inner)
         .Bind(_ => stroke.Caption.Match(
             Some: text => Lettered(canvas, text, paint),
             None: static () => Fin.Succ(unit)));
@@ -819,13 +817,11 @@ public sealed record RedlinePlacement(
 public sealed record RedlineToolState(RedlineTool Tool, double Weight, Option<string> Caption) {
     public static readonly RedlineToolState Ready = new(RedlineTool.Pen, RedlineTool.Pen.Weight, None);
 
-    static readonly Op WeighOp = Op.Of(name: "appui.redline.weight");
-
     public RedlineToolState Select(RedlineTool tool) =>
         this with { Tool = tool, Weight = tool.Weight, Caption = tool.Traits.Admits(ToolTrait.Captioned) ? Caption : None };
 
     public Fin<RedlineToolState> Weigh(double weight) =>
-        WeighOp.AcceptValidated<PositiveMagnitude>(candidate: weight)
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: weight)
             .MapFail(_ => (Error)new IssueFault.ToolRefused($"redline/weight:{weight}"))
             .Map(admitted => this with { Weight = admitted.Value });
 

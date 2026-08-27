@@ -499,7 +499,6 @@ internal static partial class DstvMap {
 public static class SteelImport {
     private const int HeaderLine = 1;
     private const int FirstFeatureLine = HeaderLine + 1;
-    private static readonly Op ReadOp = Op.Of();
 
     public static Eff<ImportedSteel> Read(
         SteelSource source, SteelContourPolicy policy) =>
@@ -510,20 +509,18 @@ public static class SteelImport {
 
     private static Eff<byte[]> Payload(SteelSource source) =>
         source.Switch(
-                path: static path => liftEff(() => ReadOp.Catch(
-                    async execution => Fin.Succ(
-                        await File.ReadAllBytesAsync(path.Value, execution).ConfigureAwait(false)),
-                    token: path.Cancellation).AsTask())
+                path: static path => liftEff(() => Try.lift(async execution => Fin.Succ(
+                        await File.ReadAllBytesAsync(path.Value, execution).ConfigureAwait(false))).Run().Bind(static inner => inner).AsTask())
                     .MapFail(error => Classify(Path.GetFileName(path.Value), error)),
                 text: static text => Eff.lift(() => Encoding.UTF8.GetBytes(text.Value)),
                 bytes: static bytes => Eff.lift(() => bytes.Value.ToArray()));
 
     private static Eff<IDstv> Parse(byte[] bytes) =>
-        liftEff(() => ReadOp.Catch(async _ => {
+        liftEff(() => Try.lift(async _ => {
             using MemoryStream stream = new(bytes, writable: false);
             using TextReader reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
             return Fin.Succ<IDstv>(await new DstvReader().ParseAsync(reader).ConfigureAwait(false));
-        }).AsTask()).MapFail(static error => error.Exception
+        }).Run().Bind(static inner => inner).AsTask()).MapFail(static error => error.Exception
             .Bind(static exception => Optional(exception as ParseException))
             .Match(
                 Some: parsed => Fault(SteelParseKind.Classify(parsed).Key, parsed.LineNumber ?? HeaderLine, error),
@@ -539,7 +536,7 @@ public static class SteelImport {
         select new ImportedSteel(part, ContentKey.Of(EgressKind.Nc1, bytes));
 
     private static Fin<SteelHeader> Header(IDstvHeader source, NamingStandard drawings) =>
-        Op.Of(name: "steel:header").Catch(() => Fin.Succ(DstvMap.Header(source)))
+        Try.lift(() => Fin.Succ(DstvMap.Header(source))).Run().Bind(static inner => inner)
             .Bind(row => SteelHeader.Admit(row, drawings));
 
     private static Fin<RegionTopology> TopologyOf(Seq<SteelFeature> features) {
@@ -580,7 +577,7 @@ public static class SteelImport {
         };
 
     private static Fin<SteelFeature> Capture(Func<SteelFeature> mapping, SteelBlockKind block, int line, SteelHeader header) =>
-        Op.Of(name: block.Key).Catch(() => Fin.Succ(mapping()))
+        Try.lift(() => Fin.Succ(mapping())).Run().Bind(static inner => inner)
             .Bind(feature => Valid(feature, block, line, header));
 
     private static Fin<SteelFeature> Valid(SteelFeature feature, SteelBlockKind block, int line, SteelHeader header) =>
@@ -606,7 +603,7 @@ public static class SteelImport {
         int line,
         SteelHeader header,
         SteelContourPolicy policy) =>
-        SteelFace.Of(contour.FlCode).ToFin(Fault(block.Key, line, "steel-contour:face")).Bind(face => Op.Of(name: block.Key).Catch(() => Fin.Succ((
+        SteelFace.Of(contour.FlCode).ToFin(Fault(block.Key, line, "steel-contour:face")).Bind(face => Try.lift(() => Fin.Succ((
             Face: face,
             Vertices: toSeq(contour.Points).Map(static point => point switch {
                 DstvSkewedPoint skew => DstvMap.Vertex(skew) with {
@@ -615,7 +612,7 @@ public static class SteelImport {
                         DstvMap.Degrees(skew.SecondAngle), DstvMap.Millimeters(skew.SecondBlunting))),
                 },
                 _ => DstvMap.Vertex(point),
-            }).ToArr())))
+            }).ToArr()))).Run().Bind(static inner => inner)
         .Bind(active => Faced(header, active.Face)
             ? Rounded(active.Vertices, policy, block, line)
                 .Map(loop => block.TopologySign > 0 ? loop.AsCcw() : loop)

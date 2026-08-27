@@ -76,14 +76,13 @@ public sealed record ParamPolicy {
     public static Fin<ParamPolicy> Of(
         Option<double> residualTolerance = default, Option<double> creaseDihedral = default,
         Option<Dimension> maxIterations = default, Option<Dimension> eigenBudget = default,
-        Option<Dimension> parallelFloor = default, Op? key = null) {
-        Op op = key.OrDefault();
+        Option<Dimension> parallelFloor = default) {
         return from residual in residualTolerance.TraverseM(
-                   value => op.AcceptValidated<PositiveMagnitude>(candidate: value)).As()
+                   value => FactoryBridge.Accept<PositiveMagnitude>(candidate: value)).As()
                from crease in creaseDihedral.TraverseM(
-                   value => op.AcceptValidated<VectorAngle>(candidate: value)).As()
+                   value => FactoryBridge.Accept<VectorAngle>(candidate: value)).As()
                let angle = crease.IfNone(Canonical.CreaseDihedral)
-               from _ in guard(angle.Value < Math.PI, op.InvalidInput())
+               from _ in guard(angle.Value < Math.PI, new KernelFault.InvalidInput())
                select new ParamPolicy(residual.IfNone(Canonical.ResidualTolerance),
                    maxIterations.IfNone(Canonical.MaxIterations), eigenBudget.IfNone(Canonical.EigenBudget),
                    angle, parallelFloor.IfNone(Canonical.ParallelFloor));
@@ -92,8 +91,7 @@ public sealed record ParamPolicy {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Uv) {
-    public Fin<Seq<Chain>> Boundary(Context context, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Seq<Chain>> Boundary(Context context) {
         double weld = context.For(ToleranceLane.Weld).Value;
         Dictionary<int, int> local = new(Vertices.Count);
         for (int i = 0; i < Vertices.Count; i++) local[Vertices[i]] = i;
@@ -123,7 +121,7 @@ public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int 
                 points.Add(points[0]);
                 return Fin.Succ(new Chain(points));
             }).As())
-            .Bind(chains => op.AcceptValue(value: chains.Strict()));
+            .Bind(chains => Acceptance.Value(value: chains.Strict()));
     }
 }
 
@@ -141,16 +139,16 @@ public sealed record Distortion(
     Option<double> LscmEigenvalue);
 
 public sealed record ChartAtlas(MeshSpace Source, Seq<UvIsland> Islands, Seq<FeatureEdge> Cuts, Distortion Distortion) {
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         ChartAtlas self = this;
-        return ResultProjection.Rows<ChartAtlas, TOut>(self: self, key: key,
+        return ResultProjection.Rows<ChartAtlas, TOut>(self: self,
             ProjectionRow.Of<Seq<UvIsland>>(() => Fin.Succ(self.Islands)),
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Cuts)),
             ProjectionRow.Of<Distortion>(() => Fin.Succ(self.Distortion)),
-            ProjectionRow.Of<MeshSpace>(() => self.ToMesh(key)));
+            ProjectionRow.Of<MeshSpace>(() => self.ToMesh()));
     }
 
-    public Fin<MeshSpace> ToMesh(Op? key = null) {
+    public Fin<MeshSpace> ToMesh() {
         using MeshEdit edit = MeshEdit.Of(Source);
         Dictionary<(int, int, int), int> faceAt = new(edit.FaceCount);
         for (int f = 0; f < edit.FaceCount; f++) { faceAt[Cyclic(edit.Face(f))] = f; }
@@ -160,13 +158,13 @@ public sealed record ChartAtlas(MeshSpace Source, Seq<UvIsland> Islands, Seq<Fea
             foreach ((int a, int b, int c) in island.Faces)
                 edit.SetCornerUv(faceAt[Cyclic((a, b, c))], island.Uv[at[a]], island.Uv[at[b]], island.Uv[at[c]]);
         }
-        return edit.ToSpace(key.OrDefault());
+        return edit.ToSpace();
     }
 
     private static (int, int, int) Cyclic((int A, int B, int C) t) =>
         t.A <= t.B && t.A <= t.C ? (t.A, t.B, t.C) : t.B <= t.C ? (t.B, t.C, t.A) : (t.C, t.A, t.B);
 
-    public Fin<MeshSpace> ToTextureMesh(Op? key = null) {
+    public Fin<MeshSpace> ToTextureMesh() {
         List<Point3d> vertices = new();
         List<(int A, int B, int C)> faces = new();
         foreach (UvIsland island in Islands) {
@@ -178,7 +176,7 @@ public sealed record ChartAtlas(MeshSpace Source, Seq<UvIsland> Islands, Seq<Fea
             foreach ((int a, int b, int c) in island.Faces) faces.Add((remap[a], remap[b], remap[c]));
         }
         using MeshEdit edit = MeshEdit.Of(CollectionsMarshal.AsSpan(vertices), CollectionsMarshal.AsSpan(faces), Source.Tolerance);
-        return edit.ToSpace(key.OrDefault());
+        return edit.ToSpace();
     }
 }
 
@@ -200,8 +198,7 @@ public static class Flatten {
         ReferenceLane: "scalar element loops over the same planes",
         SpeedupFloor: 1.0);
 
-    public static Fin<ChartAtlas> Apply(ParamOp op, Op? key = null) {
-        Op token = key.OrDefault();
+    public static Fin<ChartAtlas> Apply(ParamOp op) {
         (MeshSpace chart, ParamPolicy policy) = op.Switch(
             harmonic: static value => (value.Chart, value.Policy),
             lscm: static value => (value.Chart, value.Policy),
@@ -218,30 +215,30 @@ public static class Flatten {
     }
 
     // --- [FLATTEN]
-    static Fin<Solved> FlattenHarmonic(ParamOp.Harmonic op, MeshDec dec, Op key) =>
+    static Fin<Solved> FlattenHarmonic(ParamOp.Harmonic op, MeshDec dec) =>
         dec.Disk().Bind(loop => op.Boundary.Match(
             Some: boundary => boundary.Count >= 2 && boundary.Length > 0.0
                 ? Fin.Succ(Resample(boundary, loop.Length))
                 : Fin.Fail<Point2d[]>(new GeometryFault.DegenerateInput(Kind.Curve, boundary.Count, "harmonic pin: degenerate boundary polyline")),
             None: () => Fin.Succ(UnitCircle(loop.Length)))
-            .Bind(pinned => FlattenBoundary(dec, loop, pinned, key)));
+            .Bind(pinned => FlattenBoundary(dec, loop, pinned)));
 
     const int GaugeModes = 2;
 
-    static Fin<Solved> FlattenLscm(MeshDec dec, ParamPolicy policy, Op key) =>
+    static Fin<Solved> FlattenLscm(MeshDec dec, ParamPolicy policy) =>
         dec.Loops.Length == 0
             ? Fin.Fail<Solved>(new GeometryFault.InvalidChartBoundary(0, None))
-            : SparseMatrix.FromTriplets(Dimension.Create(2 * dec.VertexCount), Dimension.Create(2 * dec.VertexCount), dec.ConformalTriplets(), key)
-                .Bind(conformal => conformal.SmallestEigenpairsDetailed(k: GaugeModes + 1, tolerance: policy.ResidualTolerance.Value, budget: policy.EigenBudget, key: key))
-                .Bind(eigen => eigen.PairsIn(expected: EigenOrder.Ascending, key: key).Bind(pairs => pairs.Count > GaugeModes
+            : SparseMatrix.FromTriplets(Dimension.Create(2 * dec.VertexCount), Dimension.Create(2 * dec.VertexCount), dec.ConformalTriplets())
+                .Bind(conformal => conformal.SmallestEigenpairsDetailed(k: GaugeModes + 1, tolerance: policy.ResidualTolerance.Value, budget: policy.EigenBudget))
+                .Bind(eigen => eigen.PairsIn(expected: EigenOrder.Ascending).Bind(pairs => pairs.Count > GaugeModes
                     ? Fin.Succ(SplitComplex(dec, pairs[GaugeModes], eigen.Evidence.Iterations.IfNone(0), eigen.MaxResidual))
                     : Fin.Fail<Solved>(new GeometryFault.IncompleteParameterizationSpectrum(GaugeModes + 1, pairs.Count))));
 
-    static Fin<Solved> FlattenArap(MeshDec dec, ParamPolicy policy, Op key) =>
-        FlattenLscm(dec, policy, key).Bind(seed => {
+    static Fin<Solved> FlattenArap(MeshDec dec, ParamPolicy policy) =>
+        FlattenLscm(dec, policy).Bind(seed => {
             int[] gauge = [dec.Loops[0][0]];
             double tolerance = policy.ResidualTolerance.Value;
-            return dec.Reduced(gauge, key).Bind(system => {
+            return dec.Reduced(gauge).Bind(system => {
                 using MemoryOwner<double> gradientU = MemoryOwner<double>.Allocate(dec.VertexCount, AllocationMode.Clear);
                 using MemoryOwner<double> gradientV = MemoryOwner<double>.Allocate(dec.VertexCount, AllocationMode.Clear);
                 Atom<Fin<Solved>> cell = Atom(value: Fin.Succ(seed));
@@ -250,7 +247,7 @@ public static class Flatten {
                     step: state => Some(state.Bind(active => Settled(active.Delta) ? Fin.Succ(active) : Step(active))),
                     settled: state => state.Match(Succ: active => Settled(active.Delta), Fail: static _ => true),
                     budget: policy.MaxIterations,
-                    declined: key.InvalidResult());
+                    declined: new KernelFault.InvalidResult());
                 return driven.Current.Bind(state => Settled(state.Delta)
                     ? Fin.Succ(state)
                     : Fin.Fail<Solved>(new GeometryFault.ParameterizationUnconverged(state.Delta, state.Iterations)));
@@ -258,11 +255,11 @@ public static class Flatten {
                 bool Settled(Option<double> delta) => delta.Exists(value => value <= tolerance);
 
                 Fin<Solved> Step(Solved state) =>
-                    dec.LocalRotations(state.U, state.V, key).Bind(rotations => {
+                    dec.LocalRotations(state.U, state.V).Bind(rotations => {
                         dec.RotatedGradient(rotations, axis: 0, sink: gradientU.Memory);
                         dec.RotatedGradient(rotations, axis: 1, sink: gradientV.Memory);
-                        return (from solvedU in system.Solve(k => state.U[gauge[k]], key, Some<ReadOnlyMemory<double>>(gradientU.Memory))
-                                from solvedV in system.Solve(k => state.V[gauge[k]], key, Some<ReadOnlyMemory<double>>(gradientV.Memory))
+                        return (from solvedU in system.Solve(k => state.U[gauge[k]], Some<ReadOnlyMemory<double>>(gradientU.Memory))
+                                from solvedV in system.Solve(k => state.V[gauge[k]], Some<ReadOnlyMemory<double>>(gradientV.Memory))
                                 select (U: solvedU, V: solvedV)).Map(solved => {
                             double[] nextU = system.Scatter(gauge, k => state.U[gauge[k]], solved.U.Solution);
                             double[] nextV = system.Scatter(gauge, k => state.V[gauge[k]], solved.V.Solution);
@@ -278,19 +275,19 @@ public static class Flatten {
             });
         });
 
-    static Fin<Solved> FlattenTurning(ParamOp.Turning op, MeshDec dec, Op key) =>
+    static Fin<Solved> FlattenTurning(ParamOp.Turning op, MeshDec dec) =>
         dec.Disk().Bind(loop => {
             Arr<double> turning = op.TurningAngles.IfNone(() =>
                 new Arr<double>([.. Enumerable.Repeat(2.0 * Math.PI / loop.Length, loop.Length)]));
             return turning.Count != loop.Length || !turning.ForAll(static angle => ValidityClaim.Finite(value: angle))
                 ? Fin.Fail<Solved>(new GeometryFault.DegenerateInput(Kind.Mesh, turning.Count, "boundary turning: finite angle per boundary vertex"))
-                : FlattenBoundary(dec, loop, dec.IntegrateBoundary(loop, turning), key);
+                : FlattenBoundary(dec, loop, dec.IntegrateBoundary(loop, turning));
         });
 
-    static Fin<Solved> FlattenBoundary(MeshDec dec, int[] loop, Point2d[] pinned, Op key) =>
-        dec.Reduced(loop, key).Bind(system =>
-            from solvedU in system.Solve(k => pinned[k].X, key)
-            from solvedV in system.Solve(k => pinned[k].Y, key)
+    static Fin<Solved> FlattenBoundary(MeshDec dec, int[] loop, Point2d[] pinned) =>
+        dec.Reduced(loop).Bind(system =>
+            from solvedU in system.Solve(k => pinned[k].X)
+            from solvedV in system.Solve(k => pinned[k].Y)
             select new Solved(
                 system.Scatter(loop, k => pinned[k].X, solvedU.Solution),
                 system.Scatter(loop, k => pinned[k].Y, solvedV.Solution),
@@ -306,7 +303,7 @@ public static class Flatten {
     }
 
     // --- [SCORE_AND_ASSEMBLE]
-    static Fin<ChartAtlas> Assemble(Solved solved, MeshSpace chartSpace, ParamPolicy policy, MeshDec dec, Op key) {
+    static Fin<ChartAtlas> Assemble(Solved solved, MeshSpace chartSpace, ParamPolicy policy, MeshDec dec) {
         int vertices = dec.VertexCount, faces = dec.FaceCount;
         using MemoryOwner<double> planes = MemoryOwner<double>.Allocate((2 * vertices) + (3 * faces), AllocationMode.Clear);
         using MemoryOwner<bool> verdicts = MemoryOwner<bool>.Allocate(2 * faces, AllocationMode.Clear);
@@ -438,7 +435,7 @@ file sealed record ReducedSystem(CholeskySparse Factor, int[] Map, (int Interior
     public int FactorNonZeros => Factor.FactorNonZeros;
 
     public Fin<LinearSolution> Solve(
-        Func<int, double> pinnedValue, Op key, Option<ReadOnlyMemory<double>> source = default) {
+        Func<int, double> pinnedValue, Option<ReadOnlyMemory<double>> source = default) {
         double[] rhs = new double[InteriorCount];
         source.Iter(memory => {
             ReadOnlySpan<double> plane = memory.Span;
@@ -446,7 +443,7 @@ file sealed record ReducedSystem(CholeskySparse Factor, int[] Map, (int Interior
                 if (Map[vertex] >= 0) rhs[Map[vertex]] = plane[vertex];
         });
         foreach ((int i, int slot, double w) in Couplings) rhs[i] += w * pinnedValue(slot);
-        return Factor.SolveDetailed(new Arr<double>(rhs), key);
+        return Factor.SolveDetailed(new Arr<double>(rhs));
     }
 
     public double[] Scatter(int[] pinned, Func<int, double> pinnedValue, Arr<double> interior) {
@@ -476,11 +473,11 @@ file sealed class MeshDec {
     public double AreaFloor => Tolerance.For(ToleranceLane.Area).Value;
     public double CollapseFloor => Tolerance.For(ToleranceLane.Collapse).Value;
 
-    public static Fin<MeshDec> Of(MeshSpace chart, ParamPolicy policy, Op key) =>
-        from snapshot in MeshAdjointSnapshot.Of(chart, key)
+    public static Fin<MeshDec> Of(MeshSpace chart, ParamPolicy policy) =>
+        from snapshot in MeshAdjointSnapshot.Of(chart)
         from _ in guard(snapshot.FaceCount > 0, new GeometryFault.DegenerateInput(Kind.Mesh, snapshot.FaceCount, "parameterization: faceless chart"))
-        from featurePolicy in MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedral.Value, space: chart, faceRegions: Option<Arr<int>>.None, key: key)
-        from features in SegmentKernel.DetectFeatureEdgesDetailed(space: chart, policy: featurePolicy, key: key)
+        from featurePolicy in MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedral.Value, space: chart, faceRegions: Option<Arr<int>>.None)
+        from features in SegmentKernel.DetectFeatureEdgesDetailed(space: chart, policy: featurePolicy)
         let native = chart.DuplicateNative()
         let cuts = features.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary))
         let cutEdges = cuts.Map(static e => Order(e.A, e.B)).ToHashSet()
@@ -492,7 +489,7 @@ file sealed class MeshDec {
             ? Fin.Succ(Loops[0])
             : Fin.Fail<int[]>(new GeometryFault.InvalidChartBoundary(Loops.Length, Loops.Length == 1 ? Some(Loops[0].Length) : None));
 
-    public Fin<ReducedSystem> Reduced(int[] pinned, Op key) {
+    public Fin<ReducedSystem> Reduced(int[] pinned) {
         if (reduced.Filter(held => held.Pins.AsSpan().SequenceEqual(pinned)).Map(static held => held.System).Case is ReducedSystem hit) {
             return Fin.Succ(hit);
         }
@@ -514,8 +511,8 @@ file sealed class MeshDec {
             else if (rj >= 0) couplings.Add((rj, slot[i], w));
         }
         for (int d = 0; d < interior; d++) triplets.Add((d, d, diagonal[d]));
-        return SparseMatrix.FromTriplets(Dimension.Create(interior), Dimension.Create(interior), triplets, key)
-            .Bind(stiffness => CholeskySparse.Of(stiffness, key: key))
+        return SparseMatrix.FromTriplets(Dimension.Create(interior), Dimension.Create(interior), triplets)
+            .Bind(stiffness => CholeskySparse.Of(stiffness))
             .Map(factor => {
                 ReducedSystem system = new(factor, map, [.. couplings], interior);
                 reduced = Some(([.. pinned], system));
@@ -547,7 +544,7 @@ file sealed class MeshDec {
         }
     }
 
-    public Fin<Matrix2[]> LocalRotations(double[] u, double[] v, Op key) {
+    public Fin<Matrix2[]> LocalRotations(double[] u, double[] v) {
         MeshDec self = this;
         return toSeq(Enumerable.Range(start: 0, count: FaceCount))
             .TraverseM(f => {

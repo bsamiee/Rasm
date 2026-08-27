@@ -463,20 +463,20 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
             .Map(Row));
 
     public Fin<BindingOverlay> Assign(string key, KeyGesture gesture) =>
-        Deck.Row(key)
-            .ToFin(Fail: new DeckFault.UnknownIntent(key))
+        Deck.Row()
+            .ToFin(Fail: new DeckFault.UnknownIntent())
             .Bind(row => Deck.Claimants(row.Scope, Deck.Composition.Chord(gesture)).Filter(claimant => claimant != key) switch {
-                { IsEmpty: true } => Fin.Succ(Overlay.With(key, Some(gesture))),
+                { IsEmpty: true } => Fin.Succ(Overlay.With(Some(gesture))),
                 var held => Fin.Fail<BindingOverlay>(new DeckFault.GestureConflict(
                     new GestureContest(row.Scope, Deck.Composition.Chord(gesture).ToString(), held))),
             });
 
     public Fin<BindingOverlay> Unbind(string key) =>
-        Deck.Rows.ContainsKey(key)
-            ? Fin.Succ(Overlay.With(key, None))
-            : Fin.Fail<BindingOverlay>(new DeckFault.UnknownIntent(key));
+        Deck.Rows.ContainsKey()
+            ? Fin.Succ(Overlay.With(None))
+            : Fin.Fail<BindingOverlay>(new DeckFault.UnknownIntent());
 
-    public BindingOverlay Reset(string key) => Overlay.Without(key);
+    public BindingOverlay Reset(string key) => Overlay.Without();
 
     public ShortcutPolicy Commit(BindingOverlay overlay) =>
         Policy with { Sets = Policy.Sets.Map(row => row.SetKey == overlay.SetKey ? overlay : row) };

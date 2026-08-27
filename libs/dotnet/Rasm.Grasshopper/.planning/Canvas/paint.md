@@ -15,8 +15,8 @@ Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSp
 - Owner: `Mounted<TFacts>` — the Canvas sub-domain's ONE release capsule: the latest facts cell, the composition's bounded `FaultCell`, and a release that PARKS its refusal and stays redrivable — the latch seats only on a settled release, so a failed teardown is retryable by policy rather than by a hand `0/1/2` integer ladder. `Canvas/interaction.md`'s mounts and `Canvas/wires.md`'s route custody compose this capsule; the three byte-twin capsules the fan carried are this one type.
 - Owner: `PaintPhase` `[SmartEnum<int>]` — the ordered before/after rows for background, groups, wires, and objects, each carrying its exact installed host delegate family as row data (the two background rows mirror `event CanvasBackgroundPaintEventArgs` with the `OverrideDefaultPainting` suppression action; the six layer rows mirror `event CanvasPaintEventArgs`), so a wrong wire is a compile failure and the attach returns its exact inverse.
 - Owner: `PaintFrame` readonly record struct — declarative snapshot data: the interpolated `Skin`, admitted content-frame `Visible` bounds, the raising graphics' `PointsPerPixel`, and the `AppearanceRow` the skin identity resolves (`Platform/native.md`'s two-row vocabulary — a bare bool cannot grow the host's high-contrast appearance). `PaintScene` sealed `IDisposable` — the raw event capability over the raising canvas; every live read is a `Fin` refusing `UiFault.Released` on a closed scene, and disposal clears every reference and action — the two `ObjectDisposedException` throws are unspellable on this shape.
-- Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, GhPlan> plan, MonotonicTimeline clock, FaultCell faults, Op? key = null)` → `Fin<Lease<Mounted<PaintPass>>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults, Op? key = null)` — the raw window takes no clock and settles no pass, so raw draws are budget-invisible by declaration and a painter needing the `paint.pass` judgment mounts the planned form. Clock is the session's injected timeline (folder RULINGS `[02]`).
-- Law: the hook raise is this page's — the two BACKGROUND fences fire `hooks.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)` inside the contained callback before the plan executes (`PaintAnchor.Herald`), and a `Fail` verdict suppresses the host default through the scene's `SuppressDefault`; the hooks arrive as a required mount parameter. Layer fences raise NOTHING — post-facto paint cadence is the kernel drain's `CanvasSignal.Draw` row or the plugin's own mount, never hook governance (`Shell/hooks.md` named loss).
+- Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, GhPlan> plan, MonotonicTimeline clock, FaultCell faults)` → `Fin<Lease<Mounted<PaintPass>>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults)` — the raw window takes no clock and settles no pass, so raw draws are budget-invisible by declaration and a painter needing the `paint.pass` judgment mounts the planned form. Clock is the session's injected timeline (folder RULINGS `[02]`).
+- Law: the hook raise is this page's — the two BACKGROUND fences fire `hooks.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None))` inside the contained callback before the plan executes (`PaintAnchor.Herald`), and a `Fail` verdict suppresses the host default through the scene's `SuppressDefault`; the hooks arrive as a required mount parameter. Layer fences raise NOTHING — post-facto paint cadence is the kernel drain's `CanvasSignal.Draw` row or the plugin's own mount, never hook governance (`Shell/hooks.md` named loss).
 - Law: device-pixel ratio is frame data read once per raise off the raising graphics; the kernel replay reads density off its target and takes none, so only the off-graphics probes carry the frame's measured value.
 - Law: the appearance flag selects the skin, never a palette — `Canvas.SkinLit`/`SkinDim` are the host's two palettes, chosen by the per-view effective-appearance read `Platform/native.md`'s workspace lease republishes; no painter caches a swatch across a flip, and an OS chrome swatch is the kernel `ChromeRole.Sample` read.
 - Law: attachment and release are UI-affine — a subscription established before mount construction completes rolls back through the same inverse, its refusal AGGREGATING with the construction fault through `Error.Many` (the ruled disposal posture); release owns only the exact inverse and, on a detachment failure, emits `PaintLog.HookReleaseFault` then parks the typed fault on the capsule's cell — the emit-then-park form every log partial's parks take.
@@ -49,7 +49,7 @@ public sealed partial class PaintPhase {
     public static readonly PaintPhase AfterObjects = Fence(key: 7, attach: static (s, h) => s.AfterPaintObjects += h, detach: static (s, h) => s.AfterPaintObjects -= h);
 
     [UseDelegateFromConstructor]
-    internal partial Action Hook(HostCanvas surface, Func<PaintScene, Fin<Unit>> body, Op operation, FaultCell faults);
+    internal partial Action Hook(HostCanvas surface, Func<PaintScene, Fin<Unit>> body, FaultCell faults);
 
     private static PaintPhase BackgroundFence(
         int key,
@@ -76,15 +76,15 @@ public sealed class PaintScene : IDisposable {
 
     public PaintFrame Frame { get; }
 
-    public Fin<HostCanvas> Surface(Op? key = null);
-    public Fin<ControlGraphics> Graphics(Op? key = null);
+    public Fin<HostCanvas> Surface();
+    public Fin<ControlGraphics> Graphics();
 
-    public Fin<Unit> SuppressDefault(Op? key = null);
+    public Fin<Unit> SuppressDefault();
 
     public void Dispose();
 
-    private Fin<T> Read<T>(T? held, Op op) where T : class =>
-        live.Value && held is not null ? Fin.Succ(held) : Fin.Fail<T>(new UiFault.Released(Key: op));
+    private Fin<T> Read<T>(T? held) where T : class =>
+        live.Value && held is not null ? Fin.Succ(held) : Fin.Fail<T>(new UiFault.Released());
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -93,23 +93,22 @@ public sealed class Mounted<TFacts> : IDisposable {
     private readonly Atom<bool> released = Atom(false);
     private readonly FaultCell faults;
     private readonly Func<Fin<Unit>> release;
-    private readonly Op operation;
 
-    internal Mounted(Func<Fin<Unit>> release, FaultCell faults, Op operation);
+    internal Mounted(Func<Fin<Unit>> release, FaultCell faults);
 
     public Option<TFacts> Latest => facts.Value;
     public bool IsReleased => released.Value;
 
     internal Transition<Option<TFacts>> Record(TFacts value) => Cell.Commit(facts, _ => Some(value));
 
-    public Fin<Unit> Release(Op? key = null);
+    public Fin<Unit> Release();
     public void Dispose() => _ = Release();
 }
 
 internal static partial class PaintLog {
     internal const int CallbackFault = 4701;
     internal const int ReleaseFault = 4703;
-    static PaintLog() => Op.SideWhen(
+    static PaintLog() => HostEdge.SideWhen(
         condition: CallbackFault != FaultBand.GrasshopperLog.Code(offset: 1) || ReleaseFault != FaultBand.GrasshopperLog.Code(offset: 3),
         action: static () => throw new InvalidOperationException("PaintLog ids drifted from FaultBand.GrasshopperLog."));
 
@@ -127,15 +126,14 @@ public static class PaintAnchor {
         Func<PaintFrame, GhPlan> plan,
         MonotonicTimeline clock,
         HookSet<GrasshopperPoint, HookSignal, HookScope> hooks,
-        FaultCell faults,
-        Op? key = null);
+        FaultCell faults);
 
     private static Fin<HookSignal> Herald(
-        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, Op key) =>
-        hooks.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key);
+        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks) =>
+        hooks.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None));
 
     public static Fin<Lease<Mounted<PaintPass>>> MountRaw(
-        PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults, Op? key = null);
+        PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults);
 }
 ```
 
@@ -143,7 +141,7 @@ public static class PaintAnchor {
 
 - Owner: `GhMark` `[Union]` — the host mark band: `Kernel(Mark)` carries the kernel vocabulary (every stroke, fill, text, glyph, image, clip, and pose case), and the host cases only GH2 can draw carry the host renderer's own payloads — `IconCase` an `IIcon` rasterized through the host, `CapsuleCase` a `Capsule` with its `Shade` and optional `Parts` drawn by the host skin, `WireGhostCase` a `WireShape` preview stroked by the host route renderer, `WireCase` the wire pass row drawn per edge under the pass-scoped pen stock. `GhPlan` — the ordered run. `GhPaint` — the one execution fold.
 - Law: the kernel leg BATCHES — maximal `Kernel` runs fold into one `PaintProgram` replayed once through the kernel executor, so culling, the leased spec-to-resource stock, redundant-identity skips, and the accountability tally all arrive from the kernel and no local walk re-rolls them. Host leg draws per case with its own conservative cull (`Capsule.Bounds`, the icon frame, `WireShape.Bounds` inflated by the stroke) and every raise contained by `Op.Catch`.
-- Law: `[GenerateUnionOps]` rides the band — the folder's own rung-3 proof — and the total generated `Switch` is the executor's dispatch, so a fifth host case breaks it loudly.
+- Law: `` rides the band — the folder's own rung-3 proof — and the total generated `Switch` is the executor's dispatch, so a fifth host case breaks it loudly.
 - Law: the ghost pen is the ONE host-side pen mint, from the kernel `StrokeSpec`'s admitted columns through `PaintColor.ToEto` — a ghost draws once per drag frame for one wire, never per wire per layer, so it earns no stock seat; the wire PASS itself is `Canvas/wires.md`'s `Seq<Mark>` producer over the kernel program, where the stock does serve every wire.
 - Law: the settled pass is `PaintPass(Tally, Settled, Refused)`: `Tally` is ONE kernel `PaintTally` (kernel segments + settled host tallies, span gauged whole by the injected timeline) whose `Drawn + Culled == Marks` fold counts only marks that SETTLED, `Settled` is the timeline stamp captured after `Graphics.Flush` so latency covers raster completion and `Platform/capture.md`'s proof orders frames against it, and `Refused` is the typed host-case refusal lane riding BESIDE the kernel fold — a refused mark is never misfiled as `Culled`, so the silently-skipped-mark guarantee survives the partial-success posture. `Execute` writes `GhInstruments.Painted` for the raising canvas's document once the pass settles, so `paint.duration` and `paint.marks` land at the one site that holds the tally.
 - Law: partial success is the producer posture — a refused host case lands on `PaintPass.Refused` AND parks on the capsule's cell, and the pass continues (the per-row `(Accepted, Refused)` folder ruling); only a refused kernel segment fails the pass, because the kernel replay is one atomic run.
@@ -163,7 +161,6 @@ namespace Rasm.Grasshopper.Canvas;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
-[GenerateUnionOps]
 public abstract partial record GhMark {
     private GhMark() { }
     public sealed record Kernel(Mark Value) : GhMark;
@@ -183,20 +180,20 @@ public readonly record struct PaintPass(PaintTally Tally, MonotonicStamp Settled
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GhPaint {
-    internal static Fin<Seq<Either<PaintProgram, GhMark>>> Runs(GhPlan plan, Op key);
+    internal static Fin<Seq<Either<PaintProgram, GhMark>>> Runs(GhPlan plan);
 
     internal static Fin<PaintPass> Execute(
-        PaintScene scene, GhPlan plan, MonotonicTimeline clock, FaultCell faults, Op key);
+        PaintScene scene, GhPlan plan, MonotonicTimeline clock, FaultCell faults);
 
     public static Fin<Option<GhMark>> Probe(
-        GhPlan plan, PointF at, PaintStock stock, PositiveMagnitude density, Op? key = null);
+        GhPlan plan, PointF at, PaintStock stock, PositiveMagnitude density);
 }
 ```
 
 ## [04]-[OVERLAY]
 
 - Owner: `OverlayNode` `[Union]` — the canvas decoration vocabulary: `PanelCase` a framed fill-and-border panel, `StrokeCase` a kernel `PathSpec` with perceptual fill and stroke; both nest children and both carry their style bits as `CapabilitySet<LayerTrait>` (`Platform/layers.md`'s vocabulary — `Clip` and `Rounded` are the same two axes, so no overlay-local trait roster exists). `CanvasOverlay` — the mounted composer projecting the tree into `Platform/layers.md`'s `LayerNode` through `LayerPaint`, anchored on the live canvas, holding the `Lease<LayerMount>` with per-ordinal glide, halt, and re-frame reach.
-- Entry: `CanvasOverlay.Mount(OverlayNode root, Op? key = null)` → `Fin<Lease<CanvasOverlay>>`; `Glide(int ordinal, GlidePlan plan, …)` / `Halt(int ordinal, GlideKey glide, …)` / `Reframe(int ordinal, RectangleF frame, …)` → `Fin<Unit>`. Composition root's canvas mount roster row reaches this owner.
+- Entry: `CanvasOverlay.Mount(OverlayNode root)` → `Fin<Lease<CanvasOverlay>>`; `Glide(int ordinal, GlidePlan plan, …)` / `Halt(int ordinal, GlideKey glide, …)` / `Reframe(int ordinal, RectangleF frame, …)` → `Fin<Unit>`. Composition root's canvas mount roster row reaches this owner.
 - Law: compositor placement is live-proven — a mounted decoration survives the host's paint and a compositor-run glide advances its presentation layer with ZERO canvas paint events, so decoration motion costs no mark walk, enters no tally, and never touches the `paint.pass` budget.
 - Law: the strata edge points DOWN — this S2 composer consumes S1 `Compose.Mount`/`LayerPaint`/`Glides`/`MacAnchor` and hands them canvas vocabulary (kernel `PathSpec`, `PerceptualColor`); a Platform-side canvas composer inverts the one forbidden direction.
 - Law: the path hand-off is a two-lease bracket — the kernel `PathSpec.Build` mints an owned Eto path lease, `LayerPaint.Stroked` converts it into an owned `Lease<CGPath>`, and the composer releases the Eto lease the moment `Stroked` returns; the `FillMode` argument is inert on a stroke projection and passes `Winding` by declaration.
@@ -233,15 +230,15 @@ public abstract partial record OverlayNode {
 public sealed class CanvasOverlay : IDisposable {
     private readonly Lease<LayerMount> mount;
 
-    public static Fin<Lease<CanvasOverlay>> Mount(OverlayNode root, Op? key = null);
+    public static Fin<Lease<CanvasOverlay>> Mount(OverlayNode root);
 
-    public Fin<Unit> Glide(int ordinal, GlidePlan plan, Op? key = null);
-    public Fin<Unit> Halt(int ordinal, GlideKey glide, Op? key = null);
-    public Fin<Unit> Reframe(int ordinal, RectangleF frame, Op? key = null);
+    public Fin<Unit> Glide(int ordinal, GlidePlan plan);
+    public Fin<Unit> Halt(int ordinal, GlideKey glide);
+    public Fin<Unit> Reframe(int ordinal, RectangleF frame);
 
     public void Dispose() => mount.Dispose();
 
-    private static Fin<LayerNode> Project(OverlayNode node, Op op);
+    private static Fin<LayerNode> Project(OverlayNode node);
 }
 ```
 

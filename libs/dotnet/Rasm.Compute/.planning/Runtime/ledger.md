@@ -115,7 +115,7 @@ public sealed partial class CostPolicy {
 ## [04]-[CHARGEBACK_EGRESS]
 
 - Owner: `Charge` the priced charge of one execution or one staging grant — the `data` of the `rasm.compute.charge.priced` CloudEvent; `Charges` the ONE settle door binding the rate table, the event contract, and the kernel clock at composition; `ChargebackRow` the per-`(tenant, route)` billing row; `ChargebackDataset` the windowed, ordered, content-keyed billing egress over the landed charge journal.
-- Entry: `Charges.Settle(Charge charge, Op key)` — writes `rasm.compute.cost.units` under the tenant and substrate tags and publishes the charge through `RasmEventEnvelope.Publish`, returning the minted envelope; a zero-priced charge writes nothing and publishes nothing. `ChargebackDataset.Of(Instant windowStart, Instant windowEnd, Seq<(TenantContext Tenant, Charge Charge)> journal)` folds the landed journal into ordered per-`(tenant, route)` rows and mints the content key.
+- Entry: `Charges.Settle(Charge charge)` — writes `rasm.compute.cost.units` under the tenant and substrate tags and publishes the charge through `RasmEventEnvelope.Publish`, returning the minted envelope; a zero-priced charge writes nothing and publishes nothing. `ChargebackDataset.Of(Instant windowStart, Instant windowEnd, Seq<(TenantContext Tenant, Charge Charge)> journal)` folds the landed journal into ordered per-`(tenant, route)` rows and mints the content key.
 - Auto: the publish door stamps tenant as `rasm.tenant` baggage, correlation as `traceparent`, and order as `time`/`sequence` off the composition `Hlc`, so a charge carries no correlation, tenant, or stamp column of its own; grouping composes the BCL `AggregateBy` keyed fold; ordering is ordinal by tenant slug then route key, so the key is order-stable; the content key folds window, tenant slug, route, vector lanes, and charge counts through the kernel canonical writer so a re-derived dataset over identical evidence re-keys identically on every runtime.
 - Growth: a new billing column is one `ChargebackRow` member folded into the canonical preimage; a new charge site is one `Settle` call at the producing owner; zero new surface.
 - Law: the CloudEvent is the billing truth — the in-process journal plane records the published events, the `EVIDENCE_STORE` custodian lands them, and the dataset folds the landed rows the envelope owner already partitioned by `rasm.tenant`.
@@ -132,16 +132,16 @@ public sealed class Charges(CostPolicy rates, EventExtensionContract<Extensions>
 
     public CostPolicy Rates => rates;
 
-    public Fin<Option<CloudEvent>> Settle(Charge charge, Op key) =>
+    public Fin<Option<CloudEvent>> Settle(Charge charge) =>
         charge.Vector.Total > 0d
-            ? key.AcceptValidated<EventId>(key.ToString())
+            ? FactoryBridge.Accept<EventId>(key.ToString())
                 .Bind(id => RasmEventEnvelope.Publish(
                     new RasmEventMint<Extensions>(
                         Type: Priced, Source: Source, Id: id, Subject: None, Time: clock.Wall,
                         DataSchema: None, DataContentType: Some(MediaTypeNames.Application.Json),
                         Data: JsonSerializer.SerializeToUtf8Bytes(charge, wire.Charge),
                         Extensions: new Extensions()),
-                    contract, clock, key))
+                    contract, clock))
                 .Map(Some)
             : Fin.Succ(Option<CloudEvent>.None);
 }

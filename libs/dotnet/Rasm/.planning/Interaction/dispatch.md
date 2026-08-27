@@ -16,7 +16,7 @@ Both host boundaries reach this owner directly and neither adapts it: the Rhino 
 - Owner: `UiDispatch<T>` the closed crossing family, every case carrying the `Func<Fin<T>>` body it marshals; `ISyncCrossing<T>` and `IAsyncCrossing<T>` the two return-shape markers a case declares; `DispatchLane` the `[SmartEnum<int>]` gauge roster realizing `IGaugeLane<DispatchLane>`, whose column is a FRAME MULTIPLE rather than a wall-clock span, so one roster serves a sixty-hertz display and a portable panel without a second table.
 - Cases: `Current` asserts affinity and refuses off-thread; `Blocking` runs in-frame when already on the marshal and invokes otherwise; `Awaited` marshals and awaits the result; `Queued` posts and publishes a `DispatchEcho` when the body settles; `Pumped` runs one application iteration so a modal wait can drain without re-entering the marshal.
 - Cases: `DispatchLane` carries six rows — `Immediate`, `Interactive`, `Deferred`, `Modal`, `Background`, and `Paced`, whose one-frame multiple against the pace band's `Period` makes it the display-link tick's own budget without a seventh number anywhere.
-- Entry: `UiThread.Run(crossing, lane, key)` is the ONE entry name; the CASE's static type selects the arity, so a `Current`, `Blocking`, or `Pumped` crossing lands `Fin<T>` inside the caller's own LINQ query and an `Awaited` or `Queued` crossing lands `ValueTask<Fin<T>>`. A caller holding an erased `UiDispatch<T>` switches, because the return shape genuinely differs and a uniform `ValueTask` over a synchronous crossing forces every host gate to block on a completed task.
+- Entry: `UiThread.Run(crossing, lane)` is the ONE entry name; the CASE's static type selects the arity, so a `Current`, `Blocking`, or `Pumped` crossing lands `Fin<T>` inside the caller's own LINQ query and an `Awaited` or `Queued` crossing lands `ValueTask<Fin<T>>`. A caller holding an erased `UiDispatch<T>` switches, because the return shape genuinely differs and a uniform `ValueTask` over a synchronous crossing forces every host gate to block on a completed task.
 - Auto: the lane's `Bound` derives as `Pace.Period × Frames × Stretch`, so the frame period has ONE owner — the seated `PaceBand` — and a host widening one lane states a dimensionless multiple rather than a second millisecond table. The two hand-written millisecond tables both boundaries carry today have no place to reappear.
 - Law: a marker interface is implemented by union cases alone and its `Crossing` member is answered ONCE on the root — the projection is the same identity at every case, so a case declares its arity and no body. The root constructor is private, so no foreign implementor can produce a value the total `Switch` does not already own, and the arity split costs no openness.
 - Law: `Queued` returns the same shape every other asynchronous case returns. NAMED LOSS: the Grasshopper form returned queue-ADMISSION alone, so a caller could not distinguish "accepted for later" from "ran and succeeded". That distinction survives as the `DispatchEcho` tap rather than as a different return type, because a return shape that differs per case is exactly what makes the modality unrecoverable from the value.
@@ -76,7 +76,7 @@ public sealed partial class DispatchLane : IGaugeLane<DispatchLane> {
 
 - Owner: `UiThread` — the one marshal surface: the two crossing arities, the affinity probe, the gauge tune, and the two observer taps.
 - Entry: `Run` dispatches the crossing case, brackets the body in the lane's gauged span, and lands the arity the case's marker declares; `OnMarshal` is the PUBLISHED affinity probe so no consumer inlines `Application.Instance.IsUIThread` and no consumer reads an absent instance as "not on the thread"; `Tune` seats the pace and the gauge clock; `Watch` and `Tap` lease the pulse and echo observers.
-- Auto: every entry admits the application through `Optional(Application.Instance).ToFin(key.MissingContext())`, so a headless process — a test host, a compute node, a CLI — refuses TYPED at the entry rather than blocking on a marshal that will never run. That refusal is the reason the probe is published: an affinity test that answers `false` in a headless process is indistinguishable from one that answers `false` on a worker thread, and only one of them is recoverable.
+- Auto: every entry admits the application through `Optional(Application.Instance).ToFin(new KernelFault.MissingContext())`, so a headless process — a test host, a compute node, a CLI — refuses TYPED at the entry rather than blocking on a marshal that will never run. That refusal is the reason the probe is published: an affinity test that answers `false` in a headless process is indistinguishable from one that answers `false` on a worker thread, and only one of them is recoverable.
 - Auto: the gauged bracket is `MonotonicTimeline.Gauged<T, DispatchLane>`, which takes NO bound — the lane row owns it — and answers `(Fin<T> Value, GaugedSpan<DispatchLane> Span)`, so the span lands on a refused body too and the pulse publishes from every crossing rather than from the settled ones alone.
 - Law: the marshal is the only site that names an Eto application — every interior owner on this sub-domain takes admitted values and returns results, so the host surface is one page wide.
 - Law: a crossing never swallows: a body's `Fin` failure rides out unchanged, and only the CROSSING itself — a dead context, a refused post, a headless entry — becomes a `UiFault`.
@@ -96,15 +96,15 @@ namespace Rasm.Interaction;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class UiThread {
-    public static Fin<T> Run<T>(ISyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
-    public static ValueTask<Fin<T>> Run<T>(IAsyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
+    public static Fin<T> Run<T>(ISyncCrossing<T> crossing, DispatchLane lane);
+    public static ValueTask<Fin<T>> Run<T>(IAsyncCrossing<T> crossing, DispatchLane lane);
 
-    public static Fin<bool> OnMarshal(Op? key = null);
+    public static Fin<bool> OnMarshal();
 
-    public static Fin<Unit> Tune(StallPolicy policy, Option<MonotonicTimeline> clock = default, Op? key = null);
+    public static Fin<Unit> Tune(StallPolicy policy, Option<MonotonicTimeline> clock = default);
 
-    public static Fin<Lease<IDisposable>> Watch(Action<DispatchPulse> observer, Op? key = null);
-    public static Fin<Lease<IDisposable>> Tap(Action<DispatchEcho> observer, Op? key = null);
+    public static Fin<Lease<IDisposable>> Watch(Action<DispatchPulse> observer);
+    public static Fin<Lease<IDisposable>> Tap(Action<DispatchEcho> observer);
 
     public static Option<DispatchPulse> LastPulse { get; }
     public static Option<DispatchPulse> LastStall { get; }
@@ -148,7 +148,6 @@ public sealed record StallPolicy(PaceBand Pace, HashMap<DispatchLane, double> St
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DispatchPulse(GaugedSpan<DispatchLane> Span) : IValidityEvidence {
-    public Op Operation => Span.Work;
     public DispatchLane Lane => Span.Lane;
     public TimeSpan Elapsed => Span.Elapsed;
     public bool Breached => Span.Breached;
@@ -156,7 +155,7 @@ public readonly record struct DispatchPulse(GaugedSpan<DispatchLane> Span) : IVa
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DispatchEcho(Op Operation, Fin<Unit> Outcome);
+public readonly record struct DispatchEcho(Fin<Unit> Outcome);
 ```
 
 ## [05]-[FAULT]
@@ -216,16 +215,16 @@ public abstract partial record UiFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Interaction;
     private UiFault() { }
 
-    [FaultCase(0)] public sealed partial record Dismissed(Op Key) : UiFault;
-    [FaultCase(1)] public sealed partial record Cancelled(Op Key) : UiFault;
-    [FaultCase(2)] public sealed partial record Unavailable(Op Key, PlatformCapability Capability) : UiFault;
-    [FaultCase(3)] public sealed partial record OffThread(Op Key) : UiFault;
-    [FaultCase(4)] public sealed partial record Rejected(Op Key, FieldTag Field, RejectReason Reason) : UiFault;
-    [FaultCase(5)] public sealed partial record AbsentPayload(Op Key, Mime Wanted) : UiFault;
-    [FaultCase(6)] public sealed partial record HostRejected(Op Key, Error Cause) : UiFault, ICausedFault;
-    [FaultCase(7)] public sealed partial record Released(Op Key) : UiFault;
-    [FaultCase(8)] public sealed partial record Headless(Op Key) : UiFault;
-    [FaultCase(9)] public sealed partial record Absent(Op Key, string Member) : UiFault;
+    [FaultCase(0)] public sealed partial record Dismissed() : UiFault;
+    [FaultCase(1)] public sealed partial record Cancelled() : UiFault;
+    [FaultCase(2)] public sealed partial record Unavailable(PlatformCapability Capability) : UiFault;
+    [FaultCase(3)] public sealed partial record OffThread() : UiFault;
+    [FaultCase(4)] public sealed partial record Rejected(FieldTag Field, RejectReason Reason) : UiFault;
+    [FaultCase(5)] public sealed partial record AbsentPayload(Mime Wanted) : UiFault;
+    [FaultCase(6)] public sealed partial record HostRejected(Error Cause) : UiFault, ICausedFault;
+    [FaultCase(7)] public sealed partial record Released() : UiFault;
+    [FaultCase(8)] public sealed partial record Headless() : UiFault;
+    [FaultCase(9)] public sealed partial record Absent(string Member) : UiFault;
 
     public sealed override string Message => Switch(
         dismissed:     static fault => $"Interaction operation '{fault.Key}' was dismissed.",
@@ -244,13 +243,11 @@ public abstract partial record UiFault : Fault {
 public static class FaultGate {
     private static readonly HookId Point = HookId.Create(value: "rasm.kernel.interaction.dispatch");
 
-    public static Fin<T> Host<T>(Func<Fin<T>> body, Op key) =>
-        key.Catch<T, UiFault.HostRejected>(
-            body: body,
-            provider: cause => Some(new UiFault.HostRejected(Key: key, Cause: cause)));
+    public static Fin<T> Host<T>(Func<Fin<T>> body) =>
+        Try.lift(body).Run().Bind(static inner => inner);
 
-    public static Unit Isolate(FaultCell faults, Action publish, Op key) =>
-        key.Catch(publish).Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
+    public static Unit Isolate(FaultCell faults, Action publish) =>
+        Try.lift(publish).Run().Bind(static inner => inner).Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
 }
 ```
 

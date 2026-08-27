@@ -247,7 +247,7 @@ public sealed partial class SurfaceLaw {
 
     public Fin<SurfaceLayoutKind> Kernel(CutStrategy strategy) =>
         LayoutKeys.Find(strategy)
-            .Map(static key => (SurfaceLayoutKind)new SurfaceLayoutKind.Kernel(key))
+            .Map(static key => (SurfaceLayoutKind)new SurfaceLayoutKind.Kernel())
             .ToFin(new KernelFault.InvalidValue("motion", $"surface-law:layout-key:{strategy.Key}"));
 }
 
@@ -1521,25 +1521,25 @@ public static class Cam {
 
     private static Fin<CutElement> AtDepth(CutElement element, double depth) {
         string key = DepthKey(element.Key, depth);
-        return AtDepth(element.Entry, depth, key)
-            .Bind(entry => CutElement.Admit(key, element.ToolKey, element.WorkOffset, entry));
+        return AtDepth(element.Entry, depth)
+            .Bind(entry => CutElement.Admit(element.ToolKey, element.WorkOffset, entry));
     }
 
     private static string DepthKey(string key, double depth) =>
-        FabricationCanon.Ordered(0.0, writer => writer.String("depth").String(key).Double(depth))
+        FabricationCanon.Ordered(0.0, writer => writer.String("depth").String().Double(depth))
             .ToString("x32", CultureInfo.InvariantCulture);
 
     private static Fin<EntryFamily> AtDepth(EntryFamily entry, double depth, string key) =>
         entry.Switch(
-            @fixed: row => AtDepth(row.Variant, depth, key).Map(static variant => (EntryFamily)new EntryFamily.Fixed(variant)),
+            @fixed: row => AtDepth(row.Variant, depth).Map(static variant => (EntryFamily)new EntryFamily.Fixed(variant)),
             reversible: row =>
-                from forward in AtDepth(row.Forward, depth, key)
-                from reverse in AtDepth(row.Reverse, depth, key)
+                from forward in AtDepth(row.Forward, depth)
+                from reverse in AtDepth(row.Reverse, depth)
                 select (EntryFamily)new EntryFamily.Reversible(forward, reverse),
             cyclic: row => Fin.Succ<EntryFamily>(new EntryFamily.Cyclic(
                 row.Boundary,
                 row.Samples,
-                point => row.AtPoint(point).Bind(variant => AtDepth(variant, depth, key)))));
+                point => row.AtPoint(point).Bind(variant => AtDepth(variant, depth)))));
 
     private static Fin<ElementVariant> AtDepth(ElementVariant variant, double depth, string key) =>
         AtDepth(variant.Moves, depth).Map(moves => variant with {
@@ -1558,11 +1558,9 @@ public static class Cam {
             occurrence,
             CutSignature.Of(
                 run.Pair.Strategy, run.ToolKey, run.Engagement.Route.WorkOffset, run.Policy.Cutter, moves)))
-        from element in CutElement.Admit(
-            key,
-            run.ToolKey,
+        from element in CutElement.Admit(run.ToolKey,
             run.Engagement.Route.WorkOffset,
-            new EntryFamily.Fixed(ElementVariant.Of(key, moves, run.Pair.Modality, directives)))
+            new EntryFamily.Fixed(ElementVariant.Of(moves, run.Pair.Modality, directives)))
         select element;
 
     internal static Fin<Seq<Move>> Trail(params ReadOnlySpan<Fin<Move>> steps) =>

@@ -220,8 +220,7 @@ public sealed class Governor {
         PerfBudget policy,
         PerfSample sample,
         InstrumentSet signals,
-        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        Op key) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         (Cell.Step(
             cell,
             held => held.State.LastAt.Exists(accepted => sample.At <= accepted)
@@ -241,7 +240,6 @@ public sealed class Governor {
                     verdict.Tier.Motion.Key,
                     checked((uint)verdict.Tier.FoveationLevel),
                     verdict.Tier.RefreshHz),
-                key,
                 body: _ => Fin.Succ(verdict))));
 
     public GovernorReadout Readout(PerfBudget policy, PerfSample sample) =>
@@ -419,8 +417,7 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
     public Fin<FrameRender> Deepen(
         FrameRender frame,
         InstrumentSet signals,
-        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        Op key) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         Observe(signals).Bind(_ =>
             (FullyResolved
                 ? frame with { Gpu = MeasuredGpu, Passes = Passes.Map(static pass => (pass.Pass, pass.Resolved)) }
@@ -432,7 +429,6 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
                             checked((uint)Passes.Count),
                             checked((uint)Passes.Filter(static pass => pass.Measured.IsNone).Count),
                             checked((ulong)MeasuredGpu.ToInt64Nanoseconds())),
-                        key,
                         body: _ => Fin.Succ(deepened)),
                 });
 }

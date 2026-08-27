@@ -98,7 +98,7 @@ public readonly partial struct SymbolicExpr {
     internal static SymbolicExpr Of(Entity entity) => Create(entity, string.Empty, default);
 
     internal static Fin<SymbolicExpr> Admit(Entity tree) =>
-        Op.Of(name: nameof(Admit)).AcceptValidated<SymbolicExpr>(Validate(tree, string.Empty, default, out SymbolicExpr admitted), admitted);
+        FactoryBridge.Accept<SymbolicExpr>(Validate(tree, string.Empty, default, out SymbolicExpr admitted), admitted);
 
     public Fin<Entity> Tree =>
         this.Entity is not null
@@ -181,7 +181,7 @@ public abstract partial record ComputeFault {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Captured {
-    public static Fin<T> Of<T>(Func<Fin<T>> operation) => Op.Of(name: "symbolic.capture").Catch(operation);
+    public static Fin<T> Of<T>(Func<Fin<T>> operation) => Try.lift(operation).Run().Bind(static inner => inner);
 }
 
 public static class SymbolicBuild {

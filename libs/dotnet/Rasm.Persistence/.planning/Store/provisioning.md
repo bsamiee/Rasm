@@ -160,13 +160,13 @@ public sealed partial class RestartClass {
 public sealed partial class FailureRank {
     public static readonly FailureRank Required = new(
         "required",
-        static (_, key) => Fin.Fail<Seq<Error>>(new ServerFault.RequiredAbsent(key)));
+        static (_, key) => Fin.Fail<Seq<Error>>(new ServerFault.RequiredAbsent()));
     public static readonly FailureRank Degradable = new(
         "degradable",
-        static (faults, key) => Fin.Succ(faults.Add(new ServerFault.LaneFolded(key))));
+        static (faults, key) => Fin.Succ(faults.Add(new ServerFault.LaneFolded())));
     public static readonly FailureRank Observational = new(
         "observational",
-        static (faults, key) => Fin.Succ(faults.Add(new ServerFault.Evidence(key, "<absent>"))));
+        static (faults, key) => Fin.Succ(faults.Add(new ServerFault.Evidence("<absent>"))));
 
     [UseDelegateFromConstructor]
     public partial Fin<Seq<Error>> Absorb(Seq<Error> faults, string extensionKey);
@@ -306,7 +306,7 @@ public sealed partial class RollingWindow {
         (Period, Ahead, Aged) = (period, ahead, aged);
 
     public StoreOptions Declare<T>(StoreOptions opts, Expression<Func<T, DateTimeOffset>> key) where T : notnull {
-        opts.Schema.For<T>().PartitionOn(key, x => x.ByRollingRange(Managed, Period, Ahead, Aged));
+        opts.Schema.For<T>().PartitionOn(x => x.ByRollingRange(Managed, Period, Ahead, Aged));
         return opts;
     }
 }
@@ -426,7 +426,7 @@ public static class ClusterProvision {
         demand.Epoch);
 
     public static IO<ProvisionVerdict> Verify(NpgsqlDataSource source, ClusterDemand demand) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async token => {
+        IO.liftAsync(async () => await Try.lift(async token => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = connection.CreateBatch();
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT current_setting('shared_preload_libraries')"));
@@ -453,7 +453,7 @@ public static class ClusterProvision {
                 Settings: toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false)),
                 SlotLag: await NextScalar(reader, static row => row.GetInt64(0), "slot-lag").ConfigureAwait(false),
                 InvalidIndexes: await NextScalar(reader, static row => row.GetInt64(0), "invalid-indexes").ConfigureAwait(false)));
-        }).ConfigureAwait(false)).Bind(IO.lift)
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift)
         | @catch<IO, ProvisionVerdict>(static _ => true,
             error => IO.pure((ProvisionVerdict)new ProvisionVerdict.Faulted(ServerFault.Lift(error), demand.Epoch)));
 
@@ -511,10 +511,10 @@ public static class ClusterProvision {
                 : Some(new ServerFault.Ungated(extension.Key)));
 
     public static IO<Unit> Reload(NpgsqlDataSource source) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             await source.ReloadTypesAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(ServerFault.Lift))
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(ServerFault.Lift))
         .Bind(IO.lift);
 
     public static IO<Fin<Unit>> Register(StoreProfile profile, IDocumentSession session, MaintenanceJob job, ProvisionVerdict.Provisioned cluster) =>
@@ -526,11 +526,11 @@ public static class ClusterProvision {
     static IO<Fin<Unit>> Queued(IDocumentSession session, string sql, Option<ServerFault> refusal) =>
         refusal.Match(
             Some: fault => IO.pure(Fin<Unit>.Fail(fault)),
-            None: () => IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+            None: () => IO.liftAsync(async () => (await Try.lift(async token => {
                 session.QueueSqlCommand(sql);
                 await session.SaveChangesAsync(token).ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }).ConfigureAwait(false)).MapFail(ServerFault.Lift)));
+            }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(ServerFault.Lift)));
 
     public static NpgsqlDataSource Source(string dsn, string name, SourceWire wire) {
         NpgsqlDataSourceBuilder builder = new(dsn) { Name = name };
@@ -555,7 +555,7 @@ public static class ClusterProvision {
             : schema.Parsed.Evaluate(instance, new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid);
 
     internal static Fin<T> Lifted<T>(Func<T> crossing) =>
-        Op.Of().Catch(() => Fin.Succ(crossing())).MapFail(static error => ServerFault.Lift(error));
+        Try.lift(() => Fin.Succ(crossing())).Run().Bind(static inner => inner).MapFail(static error => ServerFault.Lift(error));
 
     static async Task<Seq<T>> Next<T>(NpgsqlDataReader reader, Func<NpgsqlDataReader, T> read) {
         await reader.NextResultAsync().ConfigureAwait(false);
@@ -645,7 +645,7 @@ public sealed record EmbeddedRitual(
             ("<uuid7>", static store => { store.CreateFunction("uuid7", static () => Guid.CreateVersion7().ToString("N"), isDeterministic: false); return Fin.Succ(unit); }),
             ("<xxh128>", static store => { store.CreateFunction("xxh128", static (byte[] bytes) => {
                 byte[] key = new byte[16];
-                System.Buffers.Binary.BinaryPrimitives.WriteUInt128BigEndian(key, System.IO.Hashing.XxHash128.HashToUInt128(bytes));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt128BigEndian(System.IO.Hashing.XxHash128.HashToUInt128(bytes));
                 return key;
             }, isDeterministic: true); return Fin.Succ(unit); }),
             ("<instant-iso>", static store => { store.CreateCollation("instant_iso", static (left, right) => string.CompareOrdinal(left, right)); return Fin.Succ(unit); }),
@@ -675,7 +675,7 @@ public static class EmbeddedStore {
                 facts += ritual.ConnectionRows.Map(row => new RitualStep(row.Row, Some(Execute(store, row.Sql))));
                 _ = raw.sqlite3_extended_result_codes(handle, 1);
                 facts += ritual.DbConfig.Map(row => new RitualStep(row.Row,
-                    raw.sqlite3_db_config(handle, row.Op, row.Value, out int applied) == raw.SQLITE_OK ? Some((long)applied) : None));
+                    raw.sqlite3_db_config(handle, row.Value, out int applied) == raw.SQLITE_OK ? Some((long)applied) : None));
                 using SqliteTransaction gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
                 long held = Scalar(store, "PRAGMA user_version", gate);
                 if (held > ritual.CompiledEpoch) {
@@ -873,7 +873,7 @@ public sealed partial class KvSpace {
     public KvSeal Seal { get; }
     public ColumnFamilyOptions Family { get; }
     public DatabaseConfiguration Database { get; }
-    private KvSpace(string key, KvLayout layout, KvOrder order, KvDurability durability, KvSeal seal, Compaction compaction) : this(key) {
+    private KvSpace(string key, KvLayout layout, KvOrder order, KvDurability durability, KvSeal seal, Compaction compaction) : this() {
         (Layout, Order, Durability, Seal) = (layout, order, durability, seal);
         Family = layout.Operator.Match(
             Some: merge => new ColumnFamilyOptions().SetCompactionStyle(compaction).SetMergeOperator(merge),
@@ -929,7 +929,7 @@ public sealed class KvVault : IDisposable {
         if (!space.Seal.Seals) { return value; }
         byte[] frame = new byte[NonceWidth + TagWidth + value.Length];
         RandomNumberGenerator.Fill(frame.AsSpan(0, NonceWidth));
-        cipher.Encrypt(frame.AsSpan(0, NonceWidth), value.Span, frame.AsSpan(NonceWidth + TagWidth), frame.AsSpan(NonceWidth, TagWidth), Aad(space, key));
+        cipher.Encrypt(frame.AsSpan(0, NonceWidth), value.Span, frame.AsSpan(NonceWidth + TagWidth), frame.AsSpan(NonceWidth, TagWidth), Aad(space));
         return frame;
     }
 
@@ -937,12 +937,10 @@ public sealed class KvVault : IDisposable {
         if (!space.Seal.Seals) { return Fin.Succ(frame); }
         if (frame.Length < NonceWidth + TagWidth) { return Fin.Fail<ReadOnlyMemory<byte>>(new EmbeddedFault.Kv("seal", "<frame-short>", space.Key, RetryShape.Terminal)); }
         byte[] value = new byte[frame.Length - NonceWidth - TagWidth];
-        return Op.Of().Catch(() => {
-            cipher.Decrypt(frame.Span[..NonceWidth], frame.Span[(NonceWidth + TagWidth)..], frame.Span.Slice(NonceWidth, TagWidth), value, Aad(space, key));
+        return Try.lift(() => {
+            cipher.Decrypt(frame.Span[..NonceWidth], frame.Span[(NonceWidth + TagWidth)..], frame.Span.Slice(NonceWidth, TagWidth), value, Aad(space));
             return Fin.Succ((ReadOnlyMemory<byte>)value);
-        }, error => error.Exception.Case is AuthenticationTagMismatchException
-            ? Some(new EmbeddedFault.ProviderKv("seal", "<tag-mismatch>", space.Key, RetryShape.Terminal, error))
-            : None);
+        }).Run().Bind(static inner => inner);
     }
 
     static byte[] Aad(KvSpace space, ReadOnlySpan<byte> key) {
@@ -1070,7 +1068,7 @@ public static class HandleBridge {
         store.Handle is { } handle ? Fin.Succ(handle) : Fin.Fail<sqlite3>(new EmbeddedFault.Refused("<no-handle>"));
 
     public static Fin<T> Lifted<T>(Func<T> crossing) =>
-        Op.Of().Catch(() => Fin.Succ(crossing())).MapFail(static error => EmbeddedFault.Lift(error));
+        Try.lift(() => Fin.Succ(crossing())).Run().Bind(static inner => inner).MapFail(static error => EmbeddedFault.Lift(error));
 
     public static Fin<T> Crossed<T>(SqliteConnection store, Func<sqlite3, Fin<T>> crossing) =>
         Of(store).Bind(handle => Lifted(() => crossing(handle)).Bind(static held => held));
@@ -1225,7 +1223,7 @@ public static class KvFloor {
         }).Bind(static opened => opened));
 
     public static Fin<Unit> Put(KvEngine engine, KvSpace space, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value) => engine.Switch(
-        state: (Space: space, Key: key, Value: value),
+        state: (Space: space, Value: value),
         lsm: static (s, l) => Guarded(() => {
             l.Store.Put(s.Key.Span, l.Keys.Wrap(s.Space, s.Key.Span, s.Value).Span, Cf(l, s.Space), s.Space.Durability.Writes);
             return unit;
@@ -1240,14 +1238,14 @@ public static class KvFloor {
         space.Layout is not KvLayout.Single
             ? Fin.Fail<Option<ReadOnlyMemory<byte>>>(new EmbeddedFault.Kv("kv", "<accrued-point-read>", space.Key, RetryShape.Terminal))
             : engine.Switch(
-                state: (Space: space, Key: key),
-                lsm: static (s, l) => Guarded(() => Optional(l.Store.Get(s.Key.Span, Cf(l, s.Space))))
-                    .Bind(held => Opened(l.Keys, s.Space, s.Key, held)),
+                state: space,
+                lsm: static (s, l) => Guarded(() => Optional(l.Store.Get(s.Key.Span, Cf(l, s))))
+                    .Bind(held => Opened(l.Keys, s, s.Key, held)),
                 mmap: static (s, m) => Guarded(() => {
                     using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
-                    (MDBResultCode code, _, MDBValue value) = transaction.Get(Db(m, s.Space), s.Key.Span);
+                    (MDBResultCode code, _, MDBValue value) = transaction.Get(Db(m, s), s.Key.Span);
                     return code switch {
-                        MDBResultCode.Success => m.Keys.Unwrap(s.Space, s.Key.Span, value.CopyToNewArray()).Map(static opened => Some(opened)),
+                        MDBResultCode.Success => m.Keys.Unwrap(s, s.Key.Span, value.CopyToNewArray()).Map(static opened => Some(opened)),
                         MDBResultCode.NotFound => Fin.Succ<Option<ReadOnlyMemory<byte>>>(None),
                         _ => Mdb(code).Map(static _ => Option<ReadOnlyMemory<byte>>.None),
                     };
@@ -1306,7 +1304,7 @@ public static class KvFloor {
                     if (cursor.SetRange(s.Bound.Span) == MDBResultCode.Success) {
                         for ((MDBResultCode code, MDBValue key, MDBValue value) = cursor.GetCurrent();
                              code == MDBResultCode.Success && key.AsSpan().StartsWith(s.Bound.Span);
-                             (code, key, value) = cursor.Next()) {
+                             (code, value) = cursor.Next()) {
                             rows = rows.Add(((ReadOnlyMemory<byte>)key.CopyToNewArray(), (ReadOnlyMemory<byte>)value.CopyToNewArray()));
                         }
                     }
@@ -1317,20 +1315,20 @@ public static class KvFloor {
         space.Layout is KvLayout.Single
             ? Fin.Fail<Seq<ReadOnlyMemory<byte>>>(new EmbeddedFault.Kv("kv", "<members-unaccrued>", space.Key, RetryShape.Terminal))
             : engine.Switch(
-                state: (Space: space, Key: key),
-                lsm: static (s, l) => s.Space.Layout.Operator.IsSome
-                    ? Guarded(() => Optional(l.Store.Get(s.Key.Span, Cf(l, s.Space))))
+                state: space,
+                lsm: static (s, l) => s.Layout.Operator.IsSome
+                    ? Guarded(() => Optional(l.Store.Get(s.Key.Span, Cf(l, s))))
                         .Bind(held => held.Match(
-                            Some: frame => SpoolAccrual.Members(frame).Bind(members => Opened(l.Keys, s.Space, s.Key, members)),
+                            Some: frame => SpoolAccrual.Members(frame).Bind(members => Opened(l.Keys, s, s.Key, members)),
                             None: () => Fin.Succ(Seq<ReadOnlyMemory<byte>>())))
-                    : Scan(new KvEngine.Lsm(l.Store, l.Spaces, l.Keys), s.Space, s.Key).Map(static rows => rows.Map(static row => row.Value)),
+                    : Scan(new KvEngine.Lsm(l.Store, l.Spaces, l.Keys), s, s.Key).Map(static rows => rows.Map(static row => row.Value)),
                 mmap: static (s, m) => Guarded(() => {
                     using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
-                    using LightningCursor cursor = transaction.CreateCursor(Db(m, s.Space));
-                    return s.Space.Layout.Width.Match(
+                    using LightningCursor cursor = transaction.CreateCursor(Db(m, s));
+                    return s.Layout.Width.Match(
                         Some: width => Paged(cursor, s.Key, width),
                         None: () => toSeq(cursor.AllValuesFor(s.Key.ToArray())).Map(static value => (ReadOnlyMemory<byte>)value.CopyToNewArray()));
-                }).Bind(members => Opened(m.Keys, s.Space, s.Key, members)));
+                }).Bind(members => Opened(m.Keys, s, s.Key, members)));
 
     public static Fin<Seq<(ulong Sequence, ReadOnlyMemory<byte> Batch)>> Since(KvEngine engine, ulong sequence) => engine.Switch(
         state: sequence,
@@ -1379,7 +1377,7 @@ public static class KvFloor {
         EmbeddedFault.OfLmdb(status).Match(Some: Fin.Fail<Unit>, None: static () => Fin.Succ(unit));
 
     static Fin<T> Guarded<T>(Func<T> call) =>
-        Op.Of().Catch(() => Fin.Succ(call())).MapFail(EmbeddedFault.Lift);
+        Try.lift(() => Fin.Succ(call())).Run().Bind(static inner => inner).MapFail(EmbeddedFault.Lift);
 }
 ```
 

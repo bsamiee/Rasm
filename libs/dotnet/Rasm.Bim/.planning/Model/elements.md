@@ -10,7 +10,7 @@
 ## [02]-[IFC_CLASS]
 
 - Owner: `IfcClass` the generated closed buildingSMART entity-class vocabulary keyed on the IFC entity-type string, each row carrying its `IfcDomain` discipline, its contract-owned `SchemaSpan` class window (`Graph/element#NODE_MODEL` — the SAME window record the projector stamps onto a node at ingress, never a parallel Bim copy) [H8], its `EgressEligibility` verdict, and its `Seq<PredefinedRow>` token set. `IfcDomain` is the IFC SCHEMA-domain partition — the buildingSMART domains the emitter's inheritance DAG resolves — and each row composes the kernel `Rasm.Drawing` `DisciplineDesignator` so a discipline reaches its NCS sheet letter without a second discipline vocabulary. `IfcSchema` owns the ONE release table both the `Covers` window gate and the per-token rank read, derived from the shared `ReleaseVersion` roster's own declaration order. `ReleaseMap` is the ONE GG-to-contract release correspondence, `Lower` the fold and `Raise` its underscore-erased exact-name preimage.
-- Entry: `IfcClass.Resolve(string entityType, Op key)` is the strict ingress the projector composes — `Canonical` folds the IFC4-deprecated `*StandardCase`/`*ElementedCase` subtypes onto their base row, then the entity-type string resolves to the row supplying the generic `Classification(System, Key)` the shared `Object` node carries, faulting `element-class-miss` on a class the roster omits; `IfcClass.EntityClass` is that value DERIVED once per row through the contract's ONE `Classification.Of` admission, so a result-free authoring helper reads the admitted pair rather than re-minting it per element or reaching a throwing `Classification.Create`. A projector preferring a permissive ingress reads `TryGet(entityType).IfNone(BuildingElementProxy)` through the SAME Option-lift, so an unrostered future-schema leaf lands the proxy row rather than aborting the import. `AdmitPredefined(string token, string objectType, ReleaseVersion schema, Op key)` is the egress gate: `Admits` decides the class against the target schema, `PredefinedToken.Admit` admits the raw token ONCE into its typed case, and the `Named` arm gates on the token's own `IntroducedIn` rank.
+- Entry: `IfcClass.Resolve(string entityType)` is the strict ingress the projector composes — `Canonical` folds the IFC4-deprecated `*StandardCase`/`*ElementedCase` subtypes onto their base row, then the entity-type string resolves to the row supplying the generic `Classification(System, Key)` the shared `Object` node carries, faulting `element-class-miss` on a class the roster omits; `IfcClass.EntityClass` is that value DERIVED once per row through the contract's ONE `Classification.Of` admission, so a result-free authoring helper reads the admitted pair rather than re-minting it per element or reaching a throwing `Classification.Create`. A projector preferring a permissive ingress reads `TryGet(entityType).IfNone(BuildingElementProxy)` through the SAME Option-lift, so an unrostered future-schema leaf lands the proxy row rather than aborting the import. `AdmitPredefined(string token, string objectType, ReleaseVersion schema)` is the egress gate: `Admits` decides the class against the target schema, `PredefinedToken.Admit` admits the raw token ONCE into its typed case, and the `Named` arm gates on the token's own `IntroducedIn` rank.
 - Cases: `EgressEligibility` names the two states the published roster carries — `Authorable`, whose gate is the class window, and `Vocabulary`, the EXPRESS-abstract supertypes that classify and never author, whose refusal is release-independent. A draft arm is unreachable by construction: the emitter's published-membership gate drops draft surface before a row commits. `PredefinedToken` names the three shapes a raw token admits to — `Canonical` (the empty and `NOTDEFINED` spellings), `UserDefined` carrying the required label, and `Named` carrying a schema token the row's set decides.
 - Auto: `Resolve` reads the generated `TryGet` by key; the projector folds its result into the generic `Classification` value-object so the graph node carries a `(system, code)` pair rather than the `IfcClass` type itself, keeping the shared IFC-schema-free. `AdmitPredefined` admits the token once at the boundary — `USERDEFINED` requires a non-empty `objectType` label (the projector authors the IFC `ObjectType` from it; there is no `OBJECTTYPE` token), an empty token set constrains nothing, and a set member passes only when the target schema ranks at or past the token's own `IntroducedIn`, so `WAVEWALL` against an IFC2x3 emit faults `predefined-out-of-schema` where the retired class-level gate wrongly passed it [H8]. The admitted token folds into the graph node content hash through `Node.ToCanonicalBytes` [PREDEFINED_TOKEN_RULING].
 - Packages: GeometryGymIFC_Core, `Rasm` (the kernel `Op`; `Rasm.Drawing` `DisciplineDesignator`), Rasm.Element (the shared `SchemaSpan`/`ReleaseVersion`/`PredefinedType`/`Classification`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[Union]`, `[UseDelegateFromConstructor]`), LanguageExt.Core
@@ -29,7 +29,6 @@ using Rasm.Element.Graph;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using GGRelease = GeometryGym.Ifc.ReleaseVersion;
-using Op = Rasm.Domain.Op;
 using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim.Model;
@@ -56,13 +55,13 @@ public sealed partial class EgressEligibility {
     public static readonly EgressEligibility Authorable = new("authorable",
         gate: static (window, schema, cls, key) => window.Covers(schema)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "class-out-of-schema", cls, schema.Key }))));
+            : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "class-out-of-schema", cls, schema.Key }))));
 
     public static readonly EgressEligibility Vocabulary = new("vocabulary",
-        gate: static (_, _, cls, key) => Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "abstract-class-at-egress", cls }))));
+        gate: static (_, _, cls, key) => Fin.Fail<Unit>(new BimFault.Refused(BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "abstract-class-at-egress", cls }))));
 
     [UseDelegateFromConstructor]
-    public partial Fin<Unit> Gate(SchemaSpan window, ReleaseVersion schema, string cls, Op key);
+    public partial Fin<Unit> Gate(SchemaSpan window, ReleaseVersion schema, string cls);
 }
 
 [Union]
@@ -73,12 +72,12 @@ public abstract partial record PredefinedToken {
     public sealed record UserDefined(string Label) : PredefinedToken;
     public sealed record Named(string Token) : PredefinedToken;
 
-    public static Fin<PredefinedToken> Admit(string token, string objectType, string cls, Op key) =>
+    public static Fin<PredefinedToken> Admit(string token, string objectType, string cls) =>
         token.Trim().ToUpperInvariant() switch {
             "" or "NOTDEFINED" => Fin.Succ<PredefinedToken>(new Canonical()),
             "USERDEFINED"      => objectType.Trim() is { Length: > 0 } label
                                       ? Fin.Succ<PredefinedToken>(new UserDefined(label))
-                                      : Fin.Fail<PredefinedToken>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-objecttype-miss", cls }))),
+                                      : Fin.Fail<PredefinedToken>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-objecttype-miss", cls }))),
             var value          => Fin.Succ<PredefinedToken>(new Named(value)),
         };
 }
@@ -130,7 +129,6 @@ public sealed partial class IfcClass {
     public EgressEligibility Eligibility { get; }
     public Seq<PredefinedRow> ValidPredefined { get; }
 
-    private static readonly Op Seat = Op.Of(name: nameof(IfcClass));
 
     private static readonly FrozenDictionary<IfcClass, Classification> EntityClasses =
         Items.ToFrozenDictionary(static row => row, static row => Classification.Of(System, row.Key, Seat).ThrowIfFail());
@@ -140,8 +138,8 @@ public sealed partial class IfcClass {
     public static Option<IfcClass> TryGet(string entityType) =>
         TryGet(entityType, out IfcClass? row) && row is { } hit ? Some(hit) : None;
 
-    public static Fin<IfcClass> Resolve(string entityType, Op key) =>
-        TryGet(Canonical(entityType)).ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "element-class-miss", entityType })));
+    public static Fin<IfcClass> Resolve(string entityType) =>
+        TryGet(Canonical(entityType)).ToFin(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "element-class-miss", entityType })));
 
     private static readonly FrozenSet<string> CaseSuffixes =
         new[] { "StandardCase", "ElementedCase" }.ToFrozenSet(StringComparer.Ordinal);
@@ -151,25 +149,25 @@ public sealed partial class IfcClass {
             .Find(suffix => entityType.EndsWith(suffix, StringComparison.Ordinal))
             .Match(Some: suffix => entityType[..^suffix.Length], None: () => entityType);
 
-    public Fin<Unit> Admits(ReleaseVersion schema, Op key) => Eligibility.Gate(Span, schema, Key, key);
+    public Fin<Unit> Admits(ReleaseVersion schema) => Eligibility.Gate(Span, schema, Key);
 
-    public Fin<string> AdmitPredefined(string token, string objectType, ReleaseVersion schema, Op key) =>
-        Admits(schema, key)
-            .Bind(_ => PredefinedToken.Admit(token, objectType, Key, key))
+    public Fin<string> AdmitPredefined(string token, string objectType, ReleaseVersion schema) =>
+        Admits(schema)
+            .Bind(_ => PredefinedToken.Admit(token, objectType, Key))
             .Bind(admitted => admitted.Switch(
-                state: (Row: this, schema, key),
+                state: (Row: this, schema),
                 canonical:   static (_, _) => Fin.Succ(PredefinedType.NotDefined.Token),
                 userDefined: static (_, _) => Fin.Succ("USERDEFINED"),
                 named:       static (s, n) => s.Row.Ranked(n.Token, s.schema, s.key)));
 
-    private Fin<string> Ranked(string token, ReleaseVersion schema, Op key) =>
+    private Fin<string> Ranked(string token, ReleaseVersion schema) =>
         ValidPredefined.IsEmpty
             ? Fin.Succ(token)
             : ValidPredefined.Find(row => row.Token == token).Match(
                 Some: row => IfcSchema.Rank(schema) >= IfcSchema.Rank(row.IntroducedIn)
                     ? Fin.Succ(token)
-                    : Fin.Fail<string>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-out-of-schema", Key, token, schema.Key }))),
-                None: () => Fin.Fail<string>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-reject", Key, token }))));
+                    : Fin.Fail<string>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-out-of-schema", Key, token, schema.Key }))),
+                None: () => Fin.Fail<string>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-reject", Key, token }))));
 }
 ```
 

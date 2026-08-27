@@ -48,13 +48,13 @@ public static class RenderCapsule {
     public static Fin<SKPicture> Record(RenderPolicy policy, SKRect cull, Action<SKCanvas> scene) {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(scene);
-        return Op.Of().Catch(() => {
+        return Try.lift(() => {
             using SKPictureRecorder recorder = new SKPictureRecorder();
             scene(recorder.BeginRecording(cull, useRTree: true));
             return recorder.EndRecording() is SKPicture recorded && recorded.ApproximateOperationCount <= policy.OpCeiling
                 ? Fin.Succ(recorded)
                 : (fun(recorded.Dispose)(), Fin.Fail<SKPicture>(Error.New(7801, $"<op-budget:{recorded.ApproximateOperationCount}:{policy.OpCeiling}>"))).Item2;
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     public static Fin<RenderedFrame> Project(Target target, RenderPolicy policy, SKPicture scene) {
@@ -70,7 +70,7 @@ public static class RenderCapsule {
 
     static Fin<RenderedFrame> Raster(SKImageInfo info, RenderPolicy policy, SKPicture scene, float scale) {
         if (info.BytesSize64 > policy.ByteCeiling) { return Fin.Fail<RenderedFrame>(Error.New(7802, $"<byte-gate:{info.BytesSize64}>")); }
-        return Op.Of().Catch(() => {
+        return Try.lift(() => {
             using SKSurface surface = SKSurface.Create(info, policy.Props);
             surface.Canvas.Clear(SKColors.Transparent);
             surface.Canvas.Scale(scale);
@@ -79,7 +79,7 @@ public static class RenderCapsule {
             return Fin.Succ(new RenderedFrame(
                 Some(XxHash3.HashToUInt64(pixels.GetPixelSpan()).ToString("x16", CultureInfo.InvariantCulture)),
                 info, new NativeFormat(info.ColorType, info.AlphaType), scene.ApproximateOperationCount));
-        });
+        }).Run().Bind(static inner => inner);
     }
 }
 ```
@@ -122,22 +122,21 @@ public static class DocumentExport {
     public static Fin<ExportResult> Commit(DocumentFormat format, Stream sink, Seq<PageSpec> pages, RenderPolicy evidence, DateTime stamp) {
         ArgumentNullException.ThrowIfNull(format);
         ArgumentNullException.ThrowIfNull(sink);
-        Op key = Op.Of();
-        return key.Catch(() => {
+        return Try.lift(() => {
             using SKDocument document = format.Open(sink, stamp);
             return pages.Map((page, index) => Emit(document, evidence, index, page))
                 .TraverseM(identity).As()
-                .Bind(results => key.Catch(() => {
+                .Bind(results => Try.lift(() => {
                     document.Close();
                     return Fin.Succ(new ExportResult(results.Strict(), sink.Length));
-                }))
-                .BindFail(primary => key.Catch(() => {
+                }).Run().Bind(static inner => inner))
+                .BindFail(primary => Try.lift(() => {
                     document.Abort();
                     return Fin.Succ(unit);
-                }).Match(
+                }).Run().Bind(static inner => inner).Match(
                     Succ: _ => Fin.Fail<ExportResult>(primary),
                     Fail: cleanup => Fin.Fail<ExportResult>(primary + cleanup)));
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     static Fin<PageEvidence> Emit(SKDocument document, RenderPolicy evidence, int index, PageSpec page) {
@@ -241,13 +240,13 @@ public static class VectorAssets {
     public static Fin<SKSvg> Admit(Stream source) {
         ArgumentNullException.ThrowIfNull(source);
         SKSvg? owner = null;
-        return Op.Of().Catch(() => {
+        return Try.lift(() => {
             owner = new SKSvg();
             if (owner.Load(source) is null) { return Fin.Fail<SKSvg>(Error.New(7821, "<parse-failure>")); }
             SKSvg admitted = owner;
             owner = null;
             return Fin.Succ(admitted);
-        }).Rollback(owner);
+        }).Run().Bind(static inner => inner).Rollback(owner);
     }
 
     public static Option<SKRect> Intrinsic(SKSvg owner) {
@@ -257,11 +256,11 @@ public static class VectorAssets {
 
     public static Fin<SKPicture> Variant(SKSvg owner, VariantKey key, string css) {
         ArgumentNullException.ThrowIfNull(owner);
-        return Matrix.Value.Find(key) is { IsSome: true, Case: SKPicture held }
+        return Matrix.Value.Find() is { IsSome: true, Case: SKPicture held }
             ? Fin.Succ(held)
             : Optional(owner.ReLoad(new SvgParameters(null, css)))
                 .ToFin(Error.New(7822, $"<restyle-failure:{key.Variant}>"))
-                .Map(picture => Matrix.Swap(m => m.TryAdd(key, picture)).Find(key).IfNone(picture));
+                .Map(picture => Matrix.Swap(m => m.TryAdd(picture)).Find().IfNone(picture));
     }
 }
 ```
@@ -349,7 +348,7 @@ public sealed record Catalog<TPayload>(
         Seq<string> roles, Seq<string> variants, Seq<string> densities,
         Func<(string Role, string Variant, string Density), Option<TPayload>> mint) =>
         roles.Bind(role => variants.Bind(variant => densities.Map(density => (Role: role, Variant: variant, Density: density))))
-            .TraverseM(key => mint(key).ToFin(Error.New(7841, $"<missing-cell:{key}>")).Map(payload => (key, payload))).As()
+            .TraverseM(key => mint().ToFin(Error.New(7841, $"<missing-cell:{key}>")).Map(payload => (payload))).As()
             .Map(cells => new Catalog<TPayload>(
                 cells.AsEnumerable().ToFrozenDictionary(static cell => cell.key, static cell => cell.payload), roles));
 
@@ -367,7 +366,7 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
         (HashMap<string, TPayload> next, Resolved<TPayload> prior) = (catalog.Resolve(nextVariant, nextDensity), Current);
         int generation = cell.Swap(held => new Resolved<TPayload>((prior = held).Generation + 1, axis, next)).Generation;
         Seq<string> changed = toSeq(next.Filter((key, value) =>
-            prior.Artifacts.Find(key).Map(was => !value.Equals(was)).IfNone(true)).Keys);
+            prior.Artifacts.Find().Map(was => !value.Equals(was)).IfNone(true)).Keys);
         return (generation, changed, axis);
     }
 }

@@ -114,7 +114,7 @@ public sealed partial record CoverageCensus(
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-public readonly record struct AuditRun(ElementGraph Graph, Op Key, CoverageCensus Census, AuditThresholds Policy);
+public readonly record struct AuditRun(ElementGraph Graph, CoverageCensus Census, AuditThresholds Policy);
 
 [SmartEnum<string>]
 public sealed partial class AuditCategory {
@@ -165,7 +165,7 @@ public readonly record struct AuditTally(AuditCategory Category, ConstraintSever
 - Owner: `AuditThresholds` the delivery-gate policy row (the `CoverageAxis`-projected structural floors, a per-`Discipline` assessed-share map, and a blocking-count ceiling); `ModelAudit` the `[Equatable]` graded value over one frozen snapshot (STORED on the Bim `ModelHealth`), carrying the census, the ordered finding stream, and the policy it was graded under.
 - Law: the audit holds ZERO authority — it mutates nothing, mints no node, and produces no result failure of its own. Blocking findings are DATA on the audit, never a `Fin.Fail`: an audit refusing to report on a broken model fails exactly where it is needed, and a consumer wanting a hard stop reads `Clears` and decides. `Fin` is the return so the entry sits on the contract's one result like every other entrypoint and the `Projection/observe#HOOKS` timed decoration binds it unchanged.
 - Law: the audit carries its own `AuditThresholds`, so a stored audit is re-readable against the policy it was graded under; re-evaluating a persisted audit against today's floors silently re-verdicts yesterday's delivery.
-- Entry: `ModelAudit.Of(ElementGraph graph, Op key, Option<AuditThresholds> thresholds = default)` runs the whole grade — one occurrence fold, then ONE fold over the `AuditCategory` roster where each row runs its own `Sweep(run)` — defaulting to `AuditThresholds.Structural`; `Blocking` and `Tallies` derive from one memoized pass, and `Clears` is the ONE delivery predicate folding the same `CoverageAxis` roster the census and the shortfall projection read.
+- Entry: `ModelAudit.Of(ElementGraph graph, Option<AuditThresholds> thresholds = default)` runs the whole grade — one occurrence fold, then ONE fold over the `AuditCategory` roster where each row runs its own `Sweep(run)` — defaulting to `AuditThresholds.Structural`; `Blocking` and `Tallies` derive from one memoized pass, and `Clears` is the ONE delivery predicate folding the same `CoverageAxis` roster the census and the shortfall projection read.
 - Auto: the coverage fold reads each `CoverageAxis` row's own `Covered` predicate and rides ONE pass over the occurrence population with the bake verdicts; the `BakeRejected` row contributes its empty sweep because those population verdicts are already present, while the remaining sweeps run over the already-frozen node, edge, and view structures the snapshot built once. Coverage shortfalls project into the SAME finding stream as the integrity rows, so a report reads one shape and a dashboard bands one series. `ContentAddress.OfGraph` supplies the snapshot address, so an audit pins to exactly the content it graded.
 - Output: `ModelAudit` is what a delivery gate, a QA report, and the audit instrument series all read — the graded snapshot address, the coverage census, the finding stream, and the policy, with `Clears` the single predicate a gate evaluates.
 - Packages: LanguageExt.Core (`Seq`/`HashMap`/`Option`/`Fin` + the `Fold` state thread and the `ManyErrors` unpack), `Rasm` (the kernel `Op` op-key), `Projection/projection#PROJECTION_CONTRACT` (`ConstraintSeverity` the shared grade), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph` the snapshot identity, `Verify` the drift census), `Graph/element#ELEMENT_GRAPH` (the accessor family and the memoized `Bake`).
@@ -217,9 +217,9 @@ public sealed partial record ModelAudit {
     double AssessedShare(Discipline discipline) =>
         Coverage.ByDiscipline.Find(discipline).Map(static row => row.Assessed).IfNone(CoverageRatio.Vacuous).Share;
 
-    public static Fin<ModelAudit> Of(ElementGraph graph, Op key, Option<AuditThresholds> thresholds = default) =>
-        (Policy: thresholds.IfNone(AuditThresholds.Structural), Pass: Population(graph, key)) switch {
-            var grade => new AuditRun(graph, key, grade.Pass.Census, grade.Policy) switch {
+    public static Fin<ModelAudit> Of(ElementGraph graph, Option<AuditThresholds> thresholds = default) =>
+        (Policy: thresholds.IfNone(AuditThresholds.Structural), Pass: Population(graph)) switch {
+            var grade => new AuditRun(graph, grade.Pass.Census, grade.Policy) switch {
                 var run => Fin.Succ(new ModelAudit(
                     ContentAddress.OfGraph(graph),
                     run.Census,
@@ -229,11 +229,11 @@ public sealed partial record ModelAudit {
         };
 
     // --- [OCCURRENCE_PASS]
-    static (CoverageCensus Census, Seq<AuditFinding> Verdicts) Population(ElementGraph graph, Op key) =>
+    static (CoverageCensus Census, Seq<AuditFinding> Verdicts) Population(ElementGraph graph) =>
         toSeq(graph.ObjectNodes)
             .Filter(static o => o.Kind == ObjectKind.Occurrence)
             .Fold((Census: CoverageCensus.Empty, Verdicts: Seq<AuditFinding>()), (state, occurrence) =>
-                graph.Bake(occurrence.Id, key).Match(
+                graph.Bake(occurrence.Id).Match(
                     Succ: element => (state.Census.Fold(element), state.Verdicts),
                     Fail: error => (state.Census, state.Verdicts.Add(
                         AuditFinding.Of(AuditCategory.BakeRejected, error, Some(occurrence.Id))))));
@@ -277,8 +277,8 @@ public sealed partial record ModelAudit {
             .Map(static a => AuditFinding.Of(
                 AuditCategory.AssessmentStale, $"<assessment-{a.Payload.Outcome.Key}:{a.Id.ToValue()}>", Some(a.Id)));
 
-    internal static Seq<AuditFinding> Drift(ElementGraph graph, Op key) =>
-        ContentAddress.Verify(graph, key).Match(
+    internal static Seq<AuditFinding> Drift(ElementGraph graph) =>
+        ContentAddress.Verify(graph).Match(
             Succ: static _ => Seq<AuditFinding>(),
             Fail: static error => Unpack(error)
                 .Map(static drift => AuditFinding.Of(AuditCategory.AddressDrift, drift)));

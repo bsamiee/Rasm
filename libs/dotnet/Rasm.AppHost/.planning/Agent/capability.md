@@ -182,7 +182,6 @@ public static class TensorProjection {
     static CapabilityDescriptor Row(TensorOpFamily family, Func<TensorOpFamily, JsonTypeInfo> argumentsOf, Func<TensorOpFamily, JsonElement, Fin<CommandBody>> compileOf) =>
         CapabilityDescriptor.Of(
             surface: nameof(TensorOpFamily),
-            op: family.Key,
             arguments: new ArgumentContract.Native(argumentsOf(family)),
             effect: EffectClass.Pure,
             idempotency: Idempotency.Idempotent,

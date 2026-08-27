@@ -58,8 +58,7 @@ public readonly partial struct MeshDescriptor {
     public static Fin<MeshDescriptor> Spectral(
         SpectralFilter filter,
         Option<Seq<int>> sources = default,
-        Option<SpectralDescriptorPolicy> policy = default,
-        Op? key = null) =>
+        Option<SpectralDescriptorPolicy> policy = default) =>
         key.OrDefault().AcceptValidated<MeshDescriptor>(
             Validate(filter, sources, policy.IfNone(SpectralDescriptorPolicy.Raw), out MeshDescriptor value),
             value);
@@ -93,79 +92,77 @@ public readonly record struct SamplingSpectrum(
 public readonly record struct SpectrumPolicy(UnitInterval LowFrequencyCeiling, Dimension BasisCap, Dimension LowModeCount) {
     public static readonly SpectrumPolicy Default = new(
         LowFrequencyCeiling: UnitInterval.Create(value: 0.5), BasisCap: Dimension.Create(value: 8), LowModeCount: Dimension.Create(value: 3));
-    public static Fin<SpectrumPolicy> Of(double lowFrequencyCeiling, int basisCap, int lowModeCount, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => from ceiling in op.AcceptValidated<UnitInterval>(candidate: lowFrequencyCeiling)
-                     from basis in op.AcceptValidated<Dimension>(candidate: basisCap)
-                     from modes in op.AcceptValidated<Dimension>(candidate: lowModeCount)
-                     from _ in guard(modes.Value <= basis.Value, op.InvalidInput())
-                     select new SpectrumPolicy(LowFrequencyCeiling: ceiling, BasisCap: basis, LowModeCount: modes),
-        };
+    public static Fin<SpectrumPolicy> Of(double lowFrequencyCeiling, int basisCap, int lowModeCount) =>
+        from ceiling in FactoryBridge.Accept<UnitInterval>(candidate: lowFrequencyCeiling)
+                     from basis in FactoryBridge.Accept<Dimension>(candidate: basisCap)
+                     from modes in FactoryBridge.Accept<Dimension>(candidate: lowModeCount)
+                     from _ in guard(modes.Value <= basis.Value, new KernelFault.InvalidInput())
+                     select new SpectrumPolicy(LowFrequencyCeiling: ceiling, BasisCap: basis, LowModeCount: modes);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class SegmentKernel {
-    internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor spec, int eigenpairs, Op key) =>
-        from result in DescribeSpectralShape(space, spec, eigenpairs, key)
-        from output in ResultProjection.Rows<DescriptorResult, TOut>(self: result, key: key, owner: typeof(MeshDescriptor),
+    internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor spec, int eigenpairs) =>
+        from result in DescribeSpectralShape(space, spec, eigenpairs)
+        from output in ResultProjection.Rows<DescriptorResult, TOut>(self: result, owner: typeof(MeshDescriptor),
             ProjectionRow.Of<DescriptorSolve>(() => Fin.Succ(result.Solve)),
             ProjectionRow.Of<SpectralDescriptor>(() => Fin.Succ(new SpectralDescriptor(result.Values, result.Solve.Spectral))),
             ProjectionRow.Of<DescriptorProfile>(() => Fin.Succ(result.Solve.Spectral)),
             ProjectionRow.Of<Arr<double>>(() => Fin.Succ(result.Values)))
         select output;
-    internal static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor spec, int eigenpairs, Op key) =>
-        from bundle in space.Cache.SpectralBasisBundleOf(Dimension.Create(eigenpairs), key)
-        from spectral in spec.Filter.Evaluate(bundle.Basis, spec.Sources, spec.Policy, key)
+    internal static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor spec, int eigenpairs) =>
+        from bundle in space.Cache.SpectralBasisBundleOf(Dimension.Create(eigenpairs))
+        from spectral in spec.Filter.Evaluate(bundle.Basis, spec.Sources, spec.Policy)
         select new DescriptorResult(spectral.Values,
             new DescriptorSolve(spectral.Profile, bundle.Eigen, bundle.Cached, bundle.SkippedDegenerateFaces));
 
-    internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
-        from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: pairs), key: key)
-        from descriptor in filter.Evaluate(basis: bundle.Basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources), key: key)
-        from interpolated in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: descriptor.Values, key: key)
+    internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample) =>
+        from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: pairs))
+        from descriptor in filter.Evaluate(basis: bundle.Basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources))
+        from interpolated in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: descriptor.Values)
         select interpolated;
 
-    internal static Fin<SampleKernel.Result> ValidateSamplingSpectrum(MeshSpace space, SampleKernel.Result result, Op key, Option<SpectrumPolicy> policy = default) =>
+    internal static Fin<SampleKernel.Result> ValidateSamplingSpectrum(MeshSpace space, SampleKernel.Result result, Option<SpectrumPolicy> policy = default) =>
         result.Points.IsEmpty || space.Native.Vertices.Count < 3
             ? Fin.Succ(result)
             : policy.IfNone(SpectrumPolicy.Default) switch {
                 SpectrumPolicy active =>
-                    from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: Math.Min(val1: active.BasisCap.Value, val2: Math.Max(val1: 1, val2: space.Native.Vertices.Count - 1))), key: key)
-                    from spectrum in SamplingSpectrumOf(space: space, points: result.Points, basis: bundle.Basis, policy: active, key: key)
+                    from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: Math.Min(val1: active.BasisCap.Value, val2: Math.Max(val1: 1, val2: space.Native.Vertices.Count - 1))))
+                    from spectrum in SamplingSpectrumOf(space: space, points: result.Points, basis: bundle.Basis, policy: active)
                     select result with { Tally = result.Tally with { Algorithm = result.Tally.Algorithm with {
                         Assurances = spectrum.Validated ? result.Tally.Algorithm.Assurances.With(SampleAssurance.MeshSpectrum) : result.Tally.Algorithm.Assurances,
                         Spectrum = Some(spectrum) } } },
             };
-    private static Fin<SamplingSpectrum> SamplingSpectrumOf(MeshSpace space, Seq<Point3d> points, SpectralBasis basis, SpectrumPolicy policy, Op key) {
+    private static Fin<SamplingSpectrum> SamplingSpectrumOf(MeshSpace space, Seq<Point3d> points, SpectralBasis basis, SpectrumPolicy policy) {
         int vertexCount = space.Native.Vertices.Count;
-        if (basis.Eigenvectors.Count == 0 || points.IsEmpty) return Fin.Fail<SamplingSpectrum>(key.InvalidInput());
+        if (basis.Eigenvectors.Count == 0 || points.IsEmpty) return Fin.Fail<SamplingSpectrum>(new KernelFault.InvalidInput());
         double[] indicator = new double[vertexCount];
-        return from _ in points.TraverseM(point => MeshProbe.ClosestFace(space: space, sample: point, key: key, project: (_, face, weights, _) => {
+        return from _ in points.TraverseM(point => MeshProbe.ClosestFace(space: space, sample: point, project: (_, face, weights, _) => {
                    indicator[face.A] += weights[0]; indicator[face.B] += weights[1]; indicator[face.C] += weights[2];
                    if (face.IsQuad) indicator[face.D] += weights[3];
                    return Fin.Succ(unit);
                })).As()
-               from bands in SpectralEnergy(basis: basis, indicator: indicator, vertexCount: vertexCount, lowModes: policy.LowModeCount.Value, key: key)
+               from bands in SpectralEnergy(basis: basis, indicator: indicator, vertexCount: vertexCount, lowModes: policy.LowModeCount.Value)
                from ratio in bands.Total > EpsilonPolicy.SqrtEpsilon
-                   ? key.AcceptValue(value: bands.Low / bands.Total)
-                   : Fin.Fail<double>(key.InvalidResult())
+                   ? Acceptance.Value(value: bands.Low / bands.Total)
+                   : Fin.Fail<double>(new KernelFault.InvalidResult())
                from spectrum in Fin.Succ(new SamplingSpectrum(
                    VertexCount: vertexCount, SampleCount: points.Count, EigenpairCount: basis.Eigenvectors.Count,
                    LowFrequencyEnergy: bands.Low, TotalEnergy: bands.Total,
                    SuppressionRatio: UnitInterval.Create(value: Math.Max(val1: 0.0, val2: Math.Min(val1: 1.0, val2: ratio))),
                    ValidationThreshold: policy.LowFrequencyCeiling))
-               from admitted in spectrum.IsValid ? Fin.Succ(spectrum) : Fin.Fail<SamplingSpectrum>(key.InvalidResult())
+               from admitted in spectrum.IsValid ? Fin.Succ(spectrum) : Fin.Fail<SamplingSpectrum>(new KernelFault.InvalidResult())
                select admitted;
     }
-    private static Fin<(double Low, double Total)> SpectralEnergy(SpectralBasis basis, double[] indicator, int vertexCount, int lowModes, Op key) {
+    private static Fin<(double Low, double Total)> SpectralEnergy(SpectralBasis basis, double[] indicator, int vertexCount, int lowModes) {
         int lowLimit = Math.Min(val1: lowModes, val2: basis.Eigenvectors.Count);
         double low = 0.0, total = 0.0;
         for (int mode = 0; mode < basis.Eigenvectors.Count; mode++) {
             Arr<double> eigenvector = basis.Eigenvectors[index: mode];
-            if (eigenvector.Count != vertexCount) return Fin.Fail<(double, double)>(key.InvalidResult());
+            if (eigenvector.Count != vertexCount) return Fin.Fail<(double, double)>(new KernelFault.InvalidResult());
             double coefficient = TensorPrimitives.Dot<double>(indicator, [.. eigenvector.AsIterable()]);
             double energy = coefficient * coefficient;
-            if (!double.IsFinite(x: energy)) return Fin.Fail<(double, double)>(key.InvalidResult());
+            if (!double.IsFinite(x: energy)) return Fin.Fail<(double, double)>(new KernelFault.InvalidResult());
             total += energy;
             if (mode < lowLimit) low += energy;
         }
@@ -216,9 +213,9 @@ public readonly record struct FeatureEdges(
         ValidityClaim.Nonnegative(value: SmoothingScale),
         ValidityClaim.CountExactly(count: Edges.Count, expected: Census.Values.Sum()),
         ValidityClaim.CountExactly(count: TopologyEdgeCount, expected: Edges.Count + UnclassifiedEdges));
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         FeatureEdges self = this;
-        return ResultProjection.Rows<FeatureEdges, TOut>(self: self, key: key,
+        return ResultProjection.Rows<FeatureEdges, TOut>(self: self,
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Edges)),
             ProjectionRow.Of<Seq<(int A, int B)>>(() => Fin.Succ(toSeq(self.Edges.AsIterable()
                 .Where(static edge => !edge.Kind.Equals(MeshFeatureKind.NgonInterior))
@@ -228,31 +225,31 @@ public readonly record struct FeatureEdges(
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, PositiveMagnitude CurvatureThreshold, PositiveMagnitude SmoothingScale, Option<Arr<int>> FaceRegions) {
-    internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions, Op key) =>
-        from dihedral in key.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
-        from _ in guard(dihedral.Value > EpsilonPolicy.ZeroTolerance, key.InvalidInput())
+    internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions) =>
+        from dihedral in FactoryBridge.Accept<VectorAngle>(candidate: dihedralRadians)
+        from _ in guard(dihedral.Value > EpsilonPolicy.ZeroTolerance, new KernelFault.InvalidInput())
         let meanEdge = space.Cache.MeanEdgeLength
-        from curvature in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0 / Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
-        from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
-        from policy in new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: faceRegions).Admit(space: space, key: key)
+        from curvature in FactoryBridge.Accept<PositiveMagnitude>(candidate: 1.0 / Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
+        from smooth in FactoryBridge.Accept<PositiveMagnitude>(candidate: Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
+        from policy in new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: faceRegions).Admit(space: space)
         select policy;
-    internal Fin<MeshFeaturePolicy> Admit(MeshSpace space, Op key) {
+    internal Fin<MeshFeaturePolicy> Admit(MeshSpace space) {
         MeshFeaturePolicy self = this;
-        return (from dihedral in key.AcceptValidated<VectorAngle>(candidate: self.DihedralThreshold.Value)
-                from _ in guard(dihedral.Value > EpsilonPolicy.ZeroTolerance, key.InvalidInput())
-                from curvature in key.AcceptValidated<PositiveMagnitude>(candidate: self.CurvatureThreshold.Value)
-                from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: self.SmoothingScale.Value)
+        return (from dihedral in FactoryBridge.Accept<VectorAngle>(candidate: self.DihedralThreshold.Value)
+                from _ in guard(dihedral.Value > EpsilonPolicy.ZeroTolerance, new KernelFault.InvalidInput())
+                from curvature in FactoryBridge.Accept<PositiveMagnitude>(candidate: self.CurvatureThreshold.Value)
+                from smooth in FactoryBridge.Accept<PositiveMagnitude>(candidate: self.SmoothingScale.Value)
                 select new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: self.FaceRegions))
             .Bind(policy => policy.FaceRegions.Match(
-                Some: active => guard(active.Count == space.Native.Faces.Count, key.InvalidInput()).ToFin().Map(_ => policy),
+                Some: active => guard(active.Count == space.Native.Faces.Count, new KernelFault.InvalidInput()).ToFin().Map(_ => policy),
                 None: () => Fin.Succ(policy)));
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class SegmentKernel {
-    internal static Fin<FeatureEdges> DetectFeatureEdgesDetailed(MeshSpace space, MeshFeaturePolicy policy, Op key) =>
-        space.FaceNormals(key: key).Map(faceNormals => {
+    internal static Fin<FeatureEdges> DetectFeatureEdgesDetailed(MeshSpace space, MeshFeaturePolicy policy) =>
+        space.FaceNormals().Map(faceNormals => {
             Mesh mesh = space.Native;
             (Arr<Option<double>> Edge, int FiniteVertices) curvature = EdgeCurvatureSignals(mesh: mesh, faceNormals: faceNormals, smoothingScale: policy.SmoothingScale.Value);
             List<FeatureEdge> features = new(capacity: mesh.TopologyEdges.Count);
@@ -342,11 +339,11 @@ public abstract partial record MeshScalars {
     private MeshScalars() { }
     public sealed record PerVertexCase(Arr<double> Values) : MeshScalars;
     public sealed record PerFaceCase(Arr<double> Values) : MeshScalars;
-    public static Fin<MeshScalars> PerVertex(Arr<double> values, Op? key = null) => Admit(values, key.OrDefault()).Map(static admitted => (MeshScalars)new PerVertexCase(Values: admitted));
-    public static Fin<MeshScalars> PerFace(Arr<double> values, Op? key = null) => Admit(values, key.OrDefault()).Map(static admitted => (MeshScalars)new PerFaceCase(Values: admitted));
-    private static Fin<Arr<double>> Admit(Arr<double> values, Op key) =>
+    public static Fin<MeshScalars> PerVertex(Arr<double> values) => Admit(values).Map(static admitted => (MeshScalars)new PerVertexCase(Values: admitted));
+    public static Fin<MeshScalars> PerFace(Arr<double> values) => Admit(values).Map(static admitted => (MeshScalars)new PerFaceCase(Values: admitted));
+    private static Fin<Arr<double>> Admit(Arr<double> values) =>
         values.Count == 0 || !values.AsIterable().Any(double.IsFinite)
-            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            ? Fin.Fail<Arr<double>>(new KernelFault.InvalidInput())
             : Fin.Succ(values);
 }
 
@@ -359,21 +356,21 @@ public abstract partial record MeshSegmentation {
     public sealed record DescriptorClustersCase(MeshDescriptor Descriptor, Dimension Eigenpairs, Dimension RegionCount, Dimension MaxIterations, PositiveMagnitude Tolerance) : MeshSegmentation;
     public sealed record WatershedCase(MeshScalars Values, PositiveMagnitude MergeTolerance) : MeshSegmentation;
     public sealed record NormalizedCutCase(MeshScalars Values, Dimension MaxIterations, PositiveMagnitude Tolerance) : MeshSegmentation;
-    public static Fin<MeshSegmentation> ScalarThreshold(MeshScalars values, double threshold, Option<ExtremumDirection> direction = default, Op? key = null) =>
-        key.OrDefault() switch { Op op => from _ in op.Finite(value: threshold)
-                                          select (MeshSegmentation)new ScalarThresholdCase(Values: values, Threshold: threshold, Direction: direction.IfNone(ExtremumDirection.Maximum)) };
-    public static Fin<MeshSegmentation> ScalarBands(MeshScalars values, int bandCount, Op? key = null) =>
-        key.OrDefault() switch { Op op => from count in op.AcceptValidated<Dimension>(candidate: bandCount) from _ in guard(bandCount > 1, op.InvalidInput()) select (MeshSegmentation)new ScalarBandsCase(Values: values, BandCount: count) };
-    public static Fin<MeshSegmentation> SeededRegionGrow(MeshScalars values, Seq<int> seedFaces, double tolerance, int maxIterations, Op? key = null) =>
-        key.OrDefault() switch { Op op => from _ in guard(!seedFaces.IsEmpty, op.InvalidInput()) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) select (MeshSegmentation)new SeededRegionGrowCase(Values: values, SeedFaces: seedFaces, Tolerance: eps, MaxIterations: cap) };
-    public static Fin<MeshSegmentation> DescriptorClusters(MeshDescriptor descriptor, int eigenpairs, int regionCount, int maxIterations, double tolerance, Op? key = null) =>
-        key.OrDefault() switch { Op op => from active in Optional(descriptor).ToFin(op.InvalidInput()) from _ in guard(active.IsValid, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from __ in guard(regionCount > 1, op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new DescriptorClustersCase(Descriptor: active, Eigenpairs: pairs, RegionCount: regions, MaxIterations: cap, Tolerance: eps) };
-    public static Fin<MeshSegmentation> Watershed(MeshScalars values, double mergeTolerance, Op? key = null) =>
-        key.OrDefault() switch { Op op => from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: mergeTolerance) select (MeshSegmentation)new WatershedCase(Values: values, MergeTolerance: tolerance) };
-    public static Fin<MeshSegmentation> NormalizedCut(MeshScalars values, int maxIterations, double tolerance, Op? key = null) =>
-        key.OrDefault() switch { Op op => from cap in op.AcceptValidated<Dimension>(maxIterations)
-                                          from eps in op.AcceptValidated<PositiveMagnitude>(tolerance)
-                                          select (MeshSegmentation)new NormalizedCutCase(values, cap, eps) };
+    public static Fin<MeshSegmentation> ScalarThreshold(MeshScalars values, double threshold, Option<ExtremumDirection> direction = default) =>
+        from _ in Admit.Finite(value: threshold)
+                                          select (MeshSegmentation)new ScalarThresholdCase(Values: values, Threshold: threshold, Direction: direction.IfNone(ExtremumDirection.Maximum));
+    public static Fin<MeshSegmentation> ScalarBands(MeshScalars values, int bandCount) =>
+        from count in FactoryBridge.Accept<Dimension>(candidate: bandCount) from _ in guard(bandCount > 1, new KernelFault.InvalidInput()) select (MeshSegmentation)new ScalarBandsCase(Values: values, BandCount: count);
+    public static Fin<MeshSegmentation> SeededRegionGrow(MeshScalars values, Seq<int> seedFaces, double tolerance, int maxIterations) =>
+        from _ in guard(!seedFaces.IsEmpty, new KernelFault.InvalidInput()) from eps in FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance) from cap in FactoryBridge.Accept<Dimension>(candidate: maxIterations) select (MeshSegmentation)new SeededRegionGrowCase(Values: values, SeedFaces: seedFaces, Tolerance: eps, MaxIterations: cap);
+    public static Fin<MeshSegmentation> DescriptorClusters(MeshDescriptor descriptor, int eigenpairs, int regionCount, int maxIterations, double tolerance) =>
+        from active in Optional(descriptor).ToFin(new KernelFault.InvalidInput()) from _ in guard(active.IsValid, new KernelFault.InvalidInput()) from pairs in FactoryBridge.Accept<Dimension>(candidate: eigenpairs) from regions in FactoryBridge.Accept<Dimension>(candidate: regionCount) from __ in guard(regionCount > 1, new KernelFault.InvalidInput()) from cap in FactoryBridge.Accept<Dimension>(candidate: maxIterations) from eps in FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new DescriptorClustersCase(Descriptor: active, Eigenpairs: pairs, RegionCount: regions, MaxIterations: cap, Tolerance: eps);
+    public static Fin<MeshSegmentation> Watershed(MeshScalars values, double mergeTolerance) =>
+        from tolerance in FactoryBridge.Accept<PositiveMagnitude>(candidate: mergeTolerance) select (MeshSegmentation)new WatershedCase(Values: values, MergeTolerance: tolerance);
+    public static Fin<MeshSegmentation> NormalizedCut(MeshScalars values, int maxIterations, double tolerance) =>
+        from cap in FactoryBridge.Accept<Dimension>(maxIterations)
+                                          from eps in FactoryBridge.Accept<PositiveMagnitude>(tolerance)
+                                          select (MeshSegmentation)new NormalizedCutCase(values, cap, eps);
 }
 
 [ValueObject<int>]
@@ -406,67 +403,67 @@ public readonly record struct Segmentation(
 internal static partial class SegmentKernel {
     private const int UnassignedRegion = -1;
 
-    internal static Fin<TOut> Segment<TOut>(MeshSpace space, MeshSegmentation kind, Op key) =>
+    internal static Fin<TOut> Segment<TOut>(MeshSpace space, MeshSegmentation kind) =>
         kind.Switch(
-            state: (Space: space, Key: key),
+            state: space,
             scalarThresholdCase: static (state, threshold) =>
-                from scalars in SegmentationScalarsOf(mesh: state.Space.Native, scalars: threshold.Values, key: state.Key)
-                from adjacency in FaceAdjacency(space: state.Space, key: state.Key)
-                select ComponentsOf(mesh: state.Space.Native, adjacency: adjacency, scalars: scalars, bucket: value => threshold.Direction.Within(candidate: value, best: threshold.Threshold, band: 0.0) ? 0 : UnassignedRegion,
+                from scalars in SegmentationScalarsOf(mesh: state.Native, scalars: threshold.Values)
+                from adjacency in FaceAdjacency(space: state)
+                select ComponentsOf(mesh: state.Native, adjacency: adjacency, scalars: scalars, bucket: value => threshold.Direction.Within(candidate: value, best: threshold.Threshold, band: 0.0) ? 0 : UnassignedRegion,
                     draft: new Segmentation(Request: threshold, RegionCount: 0, SeedCount: None, AssignedFaceCount: 0, UnassignedFaceCount: 0, SkippedDegenerateFaces: 0, SkippedNonFiniteValues: 0, Iterations: None)),
             scalarBandsCase: static (state, bands) =>
-                from scalars in SegmentationScalarsOf(mesh: state.Space.Native, scalars: bands.Values, key: state.Key)
-                from band in scalars.Band.ToFin(state.Key.InvalidInput())
-                from adjacency in FaceAdjacency(space: state.Space, key: state.Key)
-                select ComponentsOf(mesh: state.Space.Native, adjacency: adjacency, scalars: scalars,
+                from scalars in SegmentationScalarsOf(mesh: state.Native, scalars: bands.Values)
+                from band in scalars.Band.ToFin(new KernelFault.InvalidInput())
+                from adjacency in FaceAdjacency(space: state)
+                select ComponentsOf(mesh: state.Native, adjacency: adjacency, scalars: scalars,
                     bucket: value => Math.Abs(value: band.Max - band.Min) <= EpsilonPolicy.SqrtEpsilon ? 0 : Math.Min(val1: bands.BandCount.Value - 1, val2: Math.Max(val1: 0, val2: (int)Math.Floor(d: (value - band.Min) / ((band.Max - band.Min) / bands.BandCount.Value)))),
                     draft: new Segmentation(Request: bands, RegionCount: 0, SeedCount: None, AssignedFaceCount: 0, UnassignedFaceCount: 0, SkippedDegenerateFaces: 0, SkippedNonFiniteValues: 0, Iterations: None)),
             seededRegionGrowCase: static (state, grow) =>
-                from scalars in SegmentationScalarsOf(mesh: state.Space.Native, scalars: grow.Values, key: state.Key)
-                from adjacency in FaceAdjacency(space: state.Space, key: state.Key)
-                from labels in RegionGrowLabels(mesh: state.Space.Native, adjacency: adjacency, scalars: scalars.FaceValues, seeds: grow.SeedFaces, tolerance: grow.Tolerance.Value, budget: grow.MaxIterations, key: state.Key)
-                select ResultOf(mesh: state.Space.Native, faceRegions: labels.Regions, scalars: scalars,
+                from scalars in SegmentationScalarsOf(mesh: state.Native, scalars: grow.Values)
+                from adjacency in FaceAdjacency(space: state)
+                from labels in RegionGrowLabels(mesh: state.Native, adjacency: adjacency, scalars: scalars.FaceValues, seeds: grow.SeedFaces, tolerance: grow.Tolerance.Value, budget: grow.MaxIterations)
+                select ResultOf(mesh: state.Native, faceRegions: labels.Regions, scalars: scalars,
                     draft: new Segmentation(Request: grow, RegionCount: 0, SeedCount: Some(labels.SeedCount), AssignedFaceCount: 0, UnassignedFaceCount: 0, SkippedDegenerateFaces: 0, SkippedNonFiniteValues: 0, Iterations: Some(labels.Iterations))),
             descriptorClustersCase: static (state, clusters) =>
-                from descriptor in DescribeSpectralShape(space: state.Space, spec: clusters.Descriptor, eigenpairs: clusters.Eigenpairs.Value, key: state.Key)
-                from field in MeshScalars.PerVertex(values: descriptor.Values, key: state.Key)
-                from scalars in SegmentationScalarsOf(mesh: state.Space.Native, scalars: field, key: state.Key)
-                from kmeans in ClusterLabels(values: scalars.FaceValues, count: clusters.RegionCount.Value, maxIterations: clusters.MaxIterations, tolerance: clusters.Tolerance.Value, key: state.Key)
-                from adjacency in FaceAdjacency(space: state.Space, key: state.Key)
+                from descriptor in DescribeSpectralShape(space: state, spec: clusters.Descriptor, eigenpairs: clusters.Eigenpairs.Value)
+                from field in MeshScalars.PerVertex(values: descriptor.Values)
+                from scalars in SegmentationScalarsOf(mesh: state.Native, scalars: field)
+                from kmeans in ClusterLabels(values: scalars.FaceValues, count: clusters.RegionCount.Value, maxIterations: clusters.MaxIterations, tolerance: clusters.Tolerance.Value)
+                from adjacency in FaceAdjacency(space: state)
                 let labels = ConnectedComponents(adjacency: adjacency, buckets: kmeans.Labels)
-                select ResultOf(mesh: state.Space.Native, faceRegions: labels, scalars: scalars,
+                select ResultOf(mesh: state.Native, faceRegions: labels, scalars: scalars,
                     draft: new Segmentation(Request: clusters, RegionCount: 0, SeedCount: None, AssignedFaceCount: 0, UnassignedFaceCount: 0, SkippedDegenerateFaces: 0, SkippedNonFiniteValues: 0, Iterations: Some(kmeans.Iterations), DescriptorSolve: Some(descriptor.Solve))),
             watershedCase: static (state, watershed) =>
-                from scalars in SegmentationScalarsOf(mesh: state.Space.Native, scalars: watershed.Values, key: state.Key)
-                from _ in guard(scalars.FiniteCount > 0, state.Key.InvalidInput())
-                from adjacency in FaceAdjacency(space: state.Space, key: state.Key)
-                let basins = WatershedLabels(faceCount: state.Space.Native.Faces.Count, adjacency: adjacency, scalars: scalars.FaceValues, mergeTolerance: watershed.MergeTolerance.Value)
-                select ResultOf(mesh: state.Space.Native, faceRegions: basins.Regions, scalars: scalars,
+                from scalars in SegmentationScalarsOf(mesh: state.Native, scalars: watershed.Values)
+                from _ in guard(scalars.FiniteCount > 0, new KernelFault.InvalidInput())
+                from adjacency in FaceAdjacency(space: state)
+                let basins = WatershedLabels(faceCount: state.Native.Faces.Count, adjacency: adjacency, scalars: scalars.FaceValues, mergeTolerance: watershed.MergeTolerance.Value)
+                select ResultOf(mesh: state.Native, faceRegions: basins.Regions, scalars: scalars,
                     draft: new Segmentation(Request: watershed, RegionCount: 0, SeedCount: Some(basins.SeedCount), AssignedFaceCount: 0, UnassignedFaceCount: 0, SkippedDegenerateFaces: 0, SkippedNonFiniteValues: 0, Iterations: None, WatershedSaddleCount: Some(basins.SaddleCount))),
             normalizedCutCase: static (state, cut) =>
-                from scalars in SegmentationScalarsOf(mesh: state.Space.Native, scalars: cut.Values, key: state.Key)
-                from _ in guard(scalars.FiniteCount >= 2, state.Key.InvalidInput())
-                from adjacency in FaceAdjacency(state.Space, state.Key)
+                from scalars in SegmentationScalarsOf(mesh: state.Native, scalars: cut.Values)
+                from _ in guard(scalars.FiniteCount >= 2, new KernelFault.InvalidInput())
+                from adjacency in FaceAdjacency(state, state.Key)
                 from system in NormalizedCutSystemOf(adjacency, scalars.FaceValues, cut.Tolerance.Value, state.Key)
-                from eigen in MatrixKernel.GeneralizedEigenpairsDetailed(system.Laplacian, system.Degree, k: 2, key: state.Key)
+                from eigen in MatrixKernel.GeneralizedEigenpairsDetailed(system.Laplacian, system.Degree, k: 2)
                 from projection in eigen.PairsIn(EigenOrder.Ascending, state.Key).Bind(pairs =>
                     pairs.Count >= 2 && pairs[1].Eigenvector.Count == scalars.FaceValues.Count && pairs[1].Eigenvector.ForAll(double.IsFinite)
                         ? Fin.Succ(pairs[1].Eigenvector)
-                        : Fin.Fail<Arr<double>>(state.Key.InvalidResult()))
+                        : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()))
                 from kmeans in ClusterLabels(
                     values: new Arr<double>([.. Enumerable.Range(0, projection.Count)
                         .Select(index => double.IsFinite(scalars.FaceValues[index]) ? projection[index] : double.NaN)]),
-                    count: 2, maxIterations: cut.MaxIterations, tolerance: cut.Tolerance.Value, key: state.Key)
+                    count: 2, maxIterations: cut.MaxIterations, tolerance: cut.Tolerance.Value)
                 let labels = ConnectedComponents(adjacency: adjacency, buckets: kmeans.Labels)
-                select ResultOf(mesh: state.Space.Native, faceRegions: labels, scalars: scalars,
+                select ResultOf(mesh: state.Native, faceRegions: labels, scalars: scalars,
                     draft: new Segmentation(Request: cut, RegionCount: 0, SeedCount: None, AssignedFaceCount: 0, UnassignedFaceCount: 0, SkippedDegenerateFaces: 0, SkippedNonFiniteValues: 0, Iterations: Some(kmeans.Iterations),
                         NormalizedCutValue: NormalizedCutValue(adjacency: adjacency, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma), AffinityNonZeros: Some(system.AffinityNonZeros), Eigen: Some(eigen))))
-            .Bind(result => ResultProjection.Rows<MeshSegmentationResult, TOut>(self: result, key: key, owner: typeof(MeshSegmentation),
+            .Bind(result => ResultProjection.Rows<MeshSegmentationResult, TOut>(self: result, owner: typeof(MeshSegmentation),
                 ProjectionRow.Of<Segmentation>(() => Fin.Succ(result.Segmentation)),
                 ProjectionRow.Of<Arr<Option<RegionLabel>>>(() => Fin.Succ(result.FaceRegions))));
 
     // --- [FACE_ADJACENCY]
-    private static Fin<ArrayUndirectedGraph<int, SEdge<int>>> FaceAdjacency(MeshSpace space, Op key) =>
+    private static Fin<ArrayUndirectedGraph<int, SEdge<int>>> FaceAdjacency(MeshSpace space) =>
         space.Cache.Memoized(probe: unit, compute: () => {
             Mesh mesh = space.Native;
             UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
@@ -484,9 +481,9 @@ internal static partial class SegmentKernel {
 
     // --- [SCALARS_AND_COMPONENTS]
     private static Fin<(Arr<double> FaceValues, int SkippedDegenerateFaces, int SkippedNonFiniteValues, int FiniteCount, Option<(double Min, double Max)> Band)>
-        SegmentationScalarsOf(Mesh mesh, MeshScalars scalars, Op key) {
+        SegmentationScalarsOf(Mesh mesh, MeshScalars scalars) {
         Fin<(Arr<double>, int, int, int, Option<(double, double)>)> Build(Arr<double> values, int expected, Func<MeshFace, int, double> read) {
-            if (values.Count != expected) return Fin.Fail<(Arr<double>, int, int, int, Option<(double, double)>)>(key.InvalidInput());
+            if (values.Count != expected) return Fin.Fail<(Arr<double>, int, int, int, Option<(double, double)>)>(new KernelFault.InvalidInput());
             double[] faceValues = new double[mesh.Faces.Count];
             System.Array.Fill(array: faceValues, value: double.NaN);
             int skippedDegenerate = 0, skippedNonFinite = 0, finite = 0;
@@ -572,15 +569,15 @@ internal static partial class SegmentKernel {
     }
 
     // --- [REGION_GROW]
-    private static Fin<(int[] Regions, int Iterations, int SeedCount)> RegionGrowLabels(Mesh mesh, IUndirectedGraph<int, SEdge<int>> adjacency, Arr<double> scalars, Seq<int> seeds, double tolerance, Dimension budget, Op key) {
+    private static Fin<(int[] Regions, int Iterations, int SeedCount)> RegionGrowLabels(Mesh mesh, IUndirectedGraph<int, SEdge<int>> adjacency, Arr<double> scalars, Seq<int> seeds, double tolerance, Dimension budget) {
         int faceCount = mesh.Faces.Count;
         int[] seedArray = [.. seeds.AsIterable()];
-        if (seedArray.Any(seed => seed < 0 || seed >= faceCount || !double.IsFinite(x: scalars[index: seed]))) return Fin.Fail<(int[], int, int)>(key.InvalidInput());
+        if (seedArray.Any(seed => seed < 0 || seed >= faceCount || !double.IsFinite(x: scalars[index: seed]))) return Fin.Fail<(int[], int, int)>(new KernelFault.InvalidInput());
         int[] seeded = [.. Enumerable.Repeat(element: UnassignedRegion, count: faceCount)];
         List<double> anchors = new(capacity: seedArray.Length);
         for (int s = 0; s < seedArray.Length; s++)
             if (seeded[seedArray[s]] < 0) { seeded[seedArray[s]] = anchors.Count; anchors.Add(item: scalars[index: seedArray[s]]); }
-        if (anchors.Count == 0) return Fin.Fail<(int[], int, int)>(key.InvalidInput());
+        if (anchors.Count == 0) return Fin.Fail<(int[], int, int)>(new KernelFault.InvalidInput());
         bool Admits(int face, int region) =>
             seeded[face] < 0 && double.IsFinite(x: scalars[index: face]) && Math.Abs(value: scalars[index: face] - anchors[index: region]) <= tolerance;
         (int[] Regions, int Iterations, bool Converged) Round((int[] Regions, int Iterations, bool Converged) state) {
@@ -602,19 +599,19 @@ internal static partial class SegmentKernel {
         return Cell.Converge(
                 cell: Atom(value: (Regions: seeded, Iterations: 0, Converged: false)),
                 step: state => Some(Round(state)), settled: static state => state.Converged,
-                budget: budget, declined: key.InvalidResult())
+                budget: budget, declined: new KernelFault.InvalidResult())
             .Switch(
                 state: (Key: key, SeedCount: anchors.Count),
                 committed: static (s, row) => Fin.Succ((row.State.Regions, row.State.Iterations, s.SeedCount)),
-                ceded: static (s, _) => Fin.Fail<(int[], int, int)>(s.Key.InvalidResult()),
+                ceded: static (s, _) => Fin.Fail<(int[], int, int)>(new KernelFault.InvalidResult()),
                 refused: static (_, row) => Fin.Fail<(int[], int, int)>(row.Cause),
-                contended: static (s, _) => Fin.Fail<(int[], int, int)>(s.Key.InvalidResult()));
+                contended: static (s, _) => Fin.Fail<(int[], int, int)>(new KernelFault.InvalidResult()));
     }
 
     // --- [CLUSTERING]
-    private static Fin<(int[] Labels, double[] Centers, int Iterations, bool Converged)> ClusterLabels(Arr<double> values, int count, Dimension maxIterations, double tolerance, Op key) {
+    private static Fin<(int[] Labels, double[] Centers, int Iterations, bool Converged)> ClusterLabels(Arr<double> values, int count, Dimension maxIterations, double tolerance) {
         int[] valid = [.. Enumerable.Range(start: 0, count: values.Count).Where(i => double.IsFinite(x: values[index: i]))];
-        if (valid.Length < count) return Fin.Fail<(int[], double[], int, bool)>(key.InvalidInput());
+        if (valid.Length < count) return Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidInput());
         double[] centers = new double[count];
         centers[0] = valid.Min(i => values[index: i]);
         for (int c = 1; c < count; c++) {
@@ -645,17 +642,17 @@ internal static partial class SegmentKernel {
         return Cell.Converge(
                 cell: Atom(value: (Labels: unlabeled, Centers: centers, Iterations: 0, Converged: false)),
                 step: state => Some(Round(state)), settled: static state => state.Converged,
-                budget: maxIterations, declined: key.InvalidResult())
+                budget: maxIterations, declined: new KernelFault.InvalidResult())
             .Switch(
                 state: key,
-                committed: static (k, row) => row.State.Labels.Any(static label => label >= 0) ? Fin.Succ(row.State) : Fin.Fail<(int[], double[], int, bool)>(k.InvalidResult()),
-                ceded: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(k.InvalidResult()),
+                committed: static (k, row) => row.State.Labels.Any(static label => label >= 0) ? Fin.Succ(row.State) : Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
+                ceded: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
                 refused: static (_, row) => Fin.Fail<(int[], double[], int, bool)>(row.Cause),
-                contended: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(k.InvalidResult()));
+                contended: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()));
     }
 
     // --- [NORMALIZED_CUT]
-    private static Fin<(SparseMatrix Laplacian, SparseMatrix Degree, int AffinityNonZeros, double Sigma)> NormalizedCutSystemOf(IUndirectedGraph<int, SEdge<int>> adjacency, Arr<double> scalars, double tolerance, Op key) {
+    private static Fin<(SparseMatrix Laplacian, SparseMatrix Degree, int AffinityNonZeros, double Sigma)> NormalizedCutSystemOf(IUndirectedGraph<int, SEdge<int>> adjacency, Arr<double> scalars, double tolerance) {
         int faceCount = adjacency.VertexCount;
         double[] degree = new double[faceCount];
         Option<(double Min, double Max)> band = None;
@@ -689,9 +686,9 @@ internal static partial class SegmentKernel {
         }
         Dimension dim = Dimension.Create(value: faceCount);
         return affinities == 0
-            ? Fin.Fail<(SparseMatrix, SparseMatrix, int, double)>(key.InvalidInput())
-            : from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: laplacian, key: key)
-              from degreeMatrix in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: mass, key: key)
+            ? Fin.Fail<(SparseMatrix, SparseMatrix, int, double)>(new KernelFault.InvalidInput())
+            : from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: laplacian)
+              from degreeMatrix in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: mass)
               select (Laplacian: stiffness, Degree: degreeMatrix, AffinityNonZeros: affinities, Sigma: sigma);
     }
     private static Option<double> NormalizedCutValue(IUndirectedGraph<int, SEdge<int>> adjacency, Arr<double> scalars, int[] labels, double sigma) {
@@ -772,18 +769,18 @@ internal readonly record struct CrossFieldKey(RosyOrder Order, Option<Arr<(int V
 
 internal static partial class SegmentKernel {
     // --- [CROSS_FIELD]
-    internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, RosyOrder order, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Point3d sample, Op key) =>
+    internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, RosyOrder order, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Point3d sample) =>
         from cached in space.Cache.Memoized(probe: CrossFieldKey.Of(order, constraints, cones), compute: () =>
             from adjustment in cones.TraverseM(values =>
-                from mesh in space.Cache.IntrinsicMeshSnapshot(key)
+                from mesh in space.Cache.IntrinsicMeshSnapshot()
                 from result in DecAssembly.DistributeHolonomy(space, mesh,
-                    values.Map(c => (c.Vertex, ConeIndex: c.HolonomyDeficit / (2.0 * Math.PI))), key)
+                    values.Map(c => (c.Vertex, ConeIndex: c.HolonomyDeficit / (2.0 * Math.PI))))
                 select result).As()
             from field in constraints.Match(
-                Some: hints => SolveConstrainedCrossField(space, order, hints, adjustment, key),
-                None: () => SolveSmoothestCrossField(space, order, adjustment, key))
+                Some: hints => SolveConstrainedCrossField(space, order, hints, adjustment),
+                None: () => SolveSmoothestCrossField(space, order, adjustment))
             select field)
-        from value in MeshProbe.ComplexBlend(space: space, sample: sample, perVertex: cached, key: key,
+        from value in MeshProbe.ComplexBlend(space: space, sample: sample, perVertex: cached,
             decode: (value, x, y) => {
                 double angle = Math.Atan2(y: value.Imaginary, x: value.Real) / order.Key;
                 Vector3d direction = (Math.Cos(d: angle) * x) + (Math.Sin(a: angle) * y);
@@ -791,36 +788,35 @@ internal static partial class SegmentKernel {
                 return direction;
             })
         select value;
-    private static Fin<Complex[]> SolveSmoothestCrossField(MeshSpace space, RosyOrder order, Option<Arr<double>> edgeAdjustment, Op key) =>
-        BuildConnectionLaplacian(space: space, order: order, edgeAdjustment: edgeAdjustment, key: key)
+    private static Fin<Complex[]> SolveSmoothestCrossField(MeshSpace space, RosyOrder order, Option<Arr<double>> edgeAdjustment) =>
+        BuildConnectionLaplacian(space: space, order: order, edgeAdjustment: edgeAdjustment)
             .Bind(connection => connection.SmallestEigenpairsDetailed(
                     k: 1,
                     tolerance: EpsilonPolicy.SqrtEpsilon * connection.FrobeniusScale,
-                    budget: KrylovPolicy.BlockBudget(order: connection.Order, blocks: 1),
-                    key: key)
-                .Bind(eigen => eigen.Stop.Equals(EigenSolveStop.ResidualConverged) ? Fin.Succ(eigen.Pairs) : Fin.Fail<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>>(key.InvalidResult())))
-            .Bind(pairs => pairs.Count > 0 ? Fin.Succ(pairs[index: 0]) : Fin.Fail<(double Eigenvalue, Arr<Complex> Eigenvector)>(error: key.InvalidResult()))
+                    budget: KrylovPolicy.BlockBudget(order: connection.Order, blocks: 1))
+                .Bind(eigen => eigen.Stop.Equals(EigenSolveStop.ResidualConverged) ? Fin.Succ(eigen.Pairs) : Fin.Fail<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>>(new KernelFault.InvalidResult())))
+            .Bind(pairs => pairs.Count > 0 ? Fin.Succ(pairs[index: 0]) : Fin.Fail<(double Eigenvalue, Arr<Complex> Eigenvector)>(error: new KernelFault.InvalidResult()))
             .Map(head => NormalizePhases(eigenvector: head.Eigenvector));
-    private static Fin<SparseHermitian> BuildConnectionLaplacian(MeshSpace space, RosyOrder order, Option<Arr<double>> edgeAdjustment, Op key) =>
-        from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
-        from entries in MeshKernel.ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: edgeAdjustment, policy: SignpostPolicy.Default, key: key)
-        from result in SparseHermitian.FromTriplets(order: Dimension.Create(value: space.Native.Vertices.Count), key: key,
+    private static Fin<SparseHermitian> BuildConnectionLaplacian(MeshSpace space, RosyOrder order, Option<Arr<double>> edgeAdjustment) =>
+        from imesh in space.Cache.IntrinsicMeshSnapshot()
+        from entries in MeshKernel.ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: edgeAdjustment, policy: SignpostPolicy.Default)
+        from result in SparseHermitian.FromTriplets(order: Dimension.Create(value: space.Native.Vertices.Count),
             upperTriplets: entries.Rows.Bind(Seq<(int Row, int Col, Complex Value)> (row) => [
                 (row.I, row.I, new Complex(real: row.Weight, imaginary: 0.0)),
                 (row.J, row.J, new Complex(real: row.Weight, imaginary: 0.0)),
                 (row.I, row.J, -row.Weight * Complex.FromPolarCoordinates(magnitude: 1.0, phase: order.Key * row.Rho))]))
         select result;
-    private static Fin<Complex[]> SolveConstrainedCrossField(MeshSpace space, RosyOrder order, Seq<(int Vertex, Direction Hint)> hints, Option<Arr<double>> edgeAdjustment, Op key) {
+    private static Fin<Complex[]> SolveConstrainedCrossField(MeshSpace space, RosyOrder order, Seq<(int Vertex, Direction Hint)> hints, Option<Arr<double>> edgeAdjustment) {
         int n = space.Native.Vertices.Count;
         return from frames in FrameBundle.Of(space: space)
-               from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+               from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay)
                let qHat = EncodeAndRescaleHints(n: n, hints: hints, frames: frames, order: order, mass: laplacian.MassLumped)
                let rhs = new Arr<double>([
                    .. Enumerable.Range(start: 0, count: n).Select(v => (laplacian.MassLumped[index: v] * qHat[v]).Real),
                    .. Enumerable.Range(start: 0, count: n).Select(v => (laplacian.MassLumped[index: v] * qHat[v]).Imaginary)])
-               from connection in BuildConnectionLaplacian(space: space, order: order, edgeAdjustment: edgeAdjustment, key: key)
-               from factor in space.Cache.ConnectionCholesky(symmetry: order.Key, time: connection.FrobeniusScale / EpsilonPolicy.SqrtEpsilon, edgeAdjustment: edgeAdjustment, key: key)
-               from solution in GeodesicKernel.Solved(factor.SolveDetailed(rhs: rhs, key: key), key: key)
+               from connection in BuildConnectionLaplacian(space: space, order: order, edgeAdjustment: edgeAdjustment)
+               from factor in space.Cache.ConnectionCholesky(symmetry: order.Key, time: connection.FrobeniusScale / EpsilonPolicy.SqrtEpsilon, edgeAdjustment: edgeAdjustment)
+               from solution in GeodesicKernel.Solved(factor.SolveDetailed(rhs: rhs, key: key))
                select NormalizePhases(eigenvector: new Arr<Complex>([.. Enumerable.Range(start: 0, count: n).Select(v => new Complex(real: solution[index: v], imaginary: solution[index: v + n]))]));
     }
     private static Complex[] EncodeAndRescaleHints(int n, Seq<(int Vertex, Direction Hint)> hints, FrameBundle frames, RosyOrder order, Arr<double> mass) {
@@ -849,16 +845,16 @@ internal static partial class SegmentKernel {
         return result;
     }
     // --- [STRIPE_PATTERN]
-    internal static Fin<double> StripeAt(MeshSpace space, VectorField crossField, double frequency, Point3d sample, Op key) =>
-        from _ in guard(double.IsFinite(frequency) && frequency > 0.0, key.InvalidInput())
-        from cross in crossField.SampleVector(sample: sample, context: space.Tolerance, key: key)
+    internal static Fin<double> StripeAt(MeshSpace space, VectorField crossField, double frequency, Point3d sample) =>
+        from _ in guard(double.IsFinite(frequency) && frequency > 0.0, new KernelFault.InvalidInput())
+        from cross in crossField.SampleVector(sample: sample, context: space.Tolerance)
         from frames in FrameBundle.Of(space: space)
-        from value in MeshProbe.ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => {
+        from value in MeshProbe.ClosestFace(space: space, sample: sample, project: (_, face, weights, _) => {
             Vector3d frameX = MeshProbe.BarycentricVector(face: face, weights: weights, at: vertex => frames.X[vertex]);
             Vector3d frameY = MeshProbe.BarycentricVector(face: face, weights: weights, at: vertex => frames.Y[vertex]);
             _ = frameX.Unitize(); _ = frameY.Unitize();
             double angle = Math.Atan2(y: cross * frameY, x: cross * frameX);
-            return key.AcceptValue(value: Math.Cos(d: frequency * angle));
+            return Acceptance.Value(value: Math.Cos(d: frequency * angle));
         })
         select value;
 }
@@ -892,10 +888,10 @@ public abstract partial record QuadTarget {
     private QuadTarget() { }
     public sealed record EdgeLengthCase(PositiveMagnitude Length) : QuadTarget;
     public sealed record QuadCountCase(Dimension Count, UnitInterval AdaptiveSize, bool AdaptiveQuadCount) : QuadTarget;
-    public static Fin<QuadTarget> EdgeLength(double length, Op? key = null) =>
+    public static Fin<QuadTarget> EdgeLength(double length) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: length).Map(static value => (QuadTarget)new EdgeLengthCase(Length: value));
-    public static Fin<QuadTarget> QuadCount(int count, double adaptiveSize, bool adaptiveQuadCount = true, Op? key = null) =>
-        key.OrDefault() switch { Op op => from quads in op.AcceptValidated<Dimension>(candidate: count) from size in op.AcceptValidated<UnitInterval>(candidate: adaptiveSize) select (QuadTarget)new QuadCountCase(Count: quads, AdaptiveSize: size, AdaptiveQuadCount: adaptiveQuadCount) };
+    public static Fin<QuadTarget> QuadCount(int count, double adaptiveSize, bool adaptiveQuadCount = true) =>
+        from quads in FactoryBridge.Accept<Dimension>(candidate: count) from size in FactoryBridge.Accept<UnitInterval>(candidate: adaptiveSize) select (QuadTarget)new QuadCountCase(Count: quads, AdaptiveSize: size, AdaptiveQuadCount: adaptiveQuadCount);
 }
 
 [Union]
@@ -903,17 +899,13 @@ public abstract partial record RemeshKind {
     private RemeshKind() { }
     public sealed record QuadCase(QuadTarget Target, bool DetectHardEdges, QuadGuideInfluence GuideInfluence, QuadPreserveEdges PreserveEdges, QuadRemeshSymmetryAxis SymmetryAxis, Arr<Curve> GuideCurves, Arr<int> FaceBlocks) : RemeshKind;
     public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
-    public static Fin<RemeshKind> Quad(QuadTarget target, bool detectHardEdges = true, Option<QuadGuideInfluence> guideInfluence = default, Option<QuadPreserveEdges> preserveEdges = default, QuadRemeshSymmetryAxis symmetryAxis = QuadRemeshSymmetryAxis.None, Seq<Curve> guideCurves = default, Seq<int> faceBlocks = default, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => from curves in guideCurves.IsEmpty ? Fin.Succ(Arr<Curve>.Empty) : guideCurves.AsIterable().All(static curve => curve is { IsValid: true }) ? Fin.Succ(new Arr<Curve>([.. guideCurves.AsIterable()])) : Fin.Fail<Arr<Curve>>(op.InvalidInput())
-                     from blocks in faceBlocks.IsEmpty ? Fin.Succ(Arr<int>.Empty) : faceBlocks.AsIterable().All(static index => index >= 0) ? Fin.Succ(new Arr<int>([.. faceBlocks.AsIterable()])) : Fin.Fail<Arr<int>>(op.InvalidInput())
-                     select (RemeshKind)new QuadCase(Target: target, DetectHardEdges: detectHardEdges, GuideInfluence: guideInfluence.IfNone(QuadGuideInfluence.Approximate), PreserveEdges: preserveEdges.IfNone(QuadPreserveEdges.Off), SymmetryAxis: symmetryAxis, GuideCurves: curves, FaceBlocks: blocks),
-        };
-    public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => Optional(parameters).ToFin(op.InvalidInput())
-                .Bind(active => guard(active.DesiredPolygonCount >= 1, op.InvalidInput()).Bind(_ => Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active)))),
-        };
+    public static Fin<RemeshKind> Quad(QuadTarget target, bool detectHardEdges = true, Option<QuadGuideInfluence> guideInfluence = default, Option<QuadPreserveEdges> preserveEdges = default, QuadRemeshSymmetryAxis symmetryAxis = QuadRemeshSymmetryAxis.None, Seq<Curve> guideCurves = default, Seq<int> faceBlocks = default) =>
+        from curves in guideCurves.IsEmpty ? Fin.Succ(Arr<Curve>.Empty) : guideCurves.AsIterable().All(static curve => curve is { IsValid: true }) ? Fin.Succ(new Arr<Curve>([.. guideCurves.AsIterable()])) : Fin.Fail<Arr<Curve>>(new KernelFault.InvalidInput())
+                     from blocks in faceBlocks.IsEmpty ? Fin.Succ(Arr<int>.Empty) : faceBlocks.AsIterable().All(static index => index >= 0) ? Fin.Succ(new Arr<int>([.. faceBlocks.AsIterable()])) : Fin.Fail<Arr<int>>(new KernelFault.InvalidInput())
+                     select (RemeshKind)new QuadCase(Target: target, DetectHardEdges: detectHardEdges, GuideInfluence: guideInfluence.IfNone(QuadGuideInfluence.Approximate), PreserveEdges: preserveEdges.IfNone(QuadPreserveEdges.Off), SymmetryAxis: symmetryAxis, GuideCurves: curves, FaceBlocks: blocks);
+    public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters) =>
+        Optional(parameters).ToFin(new KernelFault.InvalidInput())
+                .Bind(active => guard(active.DesiredPolygonCount >= 1, new KernelFault.InvalidInput()).Bind(_ => Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active))));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -934,10 +926,10 @@ public readonly record struct RemeshCapture(
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct RestructureResult(Mesh Mesh, RemeshCapture Capture) {
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         RestructureResult self = this;
-        return ResultProjection.Rows<RestructureResult, TOut>(self: self, key: key,
-            ProjectionRow.Of<Mesh>(() => key.AcceptValue(value: self.Mesh)),
+        return ResultProjection.Rows<RestructureResult, TOut>(self: self,
+            ProjectionRow.Of<Mesh>(() => Acceptance.Value(value: self.Mesh)),
             ProjectionRow.Of<RemeshCapture>(() => Fin.Succ(self.Capture)));
     }
 }
@@ -953,13 +945,13 @@ public readonly record struct FlattenCapture(
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct FlattenResult(Mesh Mesh, FlattenCapture Capture) {
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         FlattenResult self = this;
-        return ResultProjection.Rows<FlattenResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<FlattenResult, TOut>(self: self,
             ProjectionRow.Of<Arr<Point2d>>(() => Fin.Succ(new Arr<Point2d>(
                 [.. self.Mesh.TextureCoordinates.Select(static uv => new Point2d(uv.X, uv.Y))]))),
             ProjectionRow.Of<FlattenCapture>(() => Fin.Succ(self.Capture)),
-            ProjectionRow.Of<Mesh>(() => key.AcceptValue(value: self.Mesh)));
+            ProjectionRow.Of<Mesh>(() => Acceptance.Value(value: self.Mesh)));
     }
 }
 
@@ -967,10 +959,10 @@ public readonly record struct FlattenResult(Mesh Mesh, FlattenCapture Capture) {
 internal static partial class SegmentKernel {
     private const double NativeAdaptiveScale = 100.0;
 
-    internal static Fin<RestructureResult> ApplyRemeshDetailed(RemeshKind kind, MeshSpace space, Op key) =>
+    internal static Fin<RestructureResult> ApplyRemeshDetailed(RemeshKind kind, MeshSpace space) =>
         kind.Switch(
             state: (Space: space, Key: key),
-            quadCase: static (state, quad) => state.Key.Catch(() => {
+            quadCase: static (state, quad) => Try.lift(() => {
                 QuadRemeshParameters parameters = new() {
                     DetectHardEdges = quad.DetectHardEdges, GuideCurveInfluence = quad.GuideInfluence.Key,
                     PreserveMeshArrayEdgesMode = quad.PreserveEdges.Key, SymmetryAxis = quad.SymmetryAxis,
@@ -984,33 +976,22 @@ internal static partial class SegmentKernel {
                 if (result is { IsValid: true })
                     return Fin.Succ(new RestructureResult(Mesh: result, Capture: TopologyOf(kind: quad, source: state.Space.Native, output: result)));
                 result?.Dispose();
-                return Fin.Fail<RestructureResult>(error: state.Key.InvalidResult());
-            },
-            simplifyCase: static (state, simplify) => state.Key.Catch(() => {
-                Mesh clone = state.Space.Native.DuplicateMesh();
-                if (clone.Reduce(parameters: simplify.Parameters) && clone.IsValid)
-                    return Fin.Succ(new RestructureResult(Mesh: clone, Capture: TopologyOf(kind: simplify, source: state.Space.Native, output: clone) with {
-                        DesiredPolygonCount = Some(simplify.Parameters.DesiredPolygonCount), AllowDistortion = Some(simplify.Parameters.AllowDistortion),
-                        Accuracy = Some(simplify.Parameters.Accuracy), NormalizeMeshSize = Some(simplify.Parameters.NormalizeMeshSize),
-                        FaceTagCount = simplify.Parameters.FaceTags?.Length ?? 0, LockedComponentCount = simplify.Parameters.LockedComponents?.Length ?? 0,
-                    }));
-                clone.Dispose();
-                return Fin.Fail<RestructureResult>(error: state.Key.InvalidResult(detail: Optional(simplify.Parameters.Error).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).Case as string));
-            }));
+                return Fin.Fail<RestructureResult>(error: new KernelFault.InvalidResult());
+            }).Run().Bind(static inner => inner);
     private static RemeshCapture TopologyOf(RemeshKind kind, Mesh source, Mesh output) =>
         new(Request: kind, PreVertexCount: source.Vertices.Count, PreFaceCount: source.Faces.Count, PostVertexCount: output.Vertices.Count, PostFaceCount: output.Faces.Count);
 
     // --- [FLATTEN]
-    internal static Fin<Seq<FlattenResult>> ParameterizeFlattenDetailed(Seq<MeshSpace> spaces, Op key, Option<MeshUnwrapMethod> method = default, Option<Plane> symmetryPlane = default) => key.Catch(() => {
+    internal static Fin<Seq<FlattenResult>> ParameterizeFlattenDetailed(Seq<MeshSpace> spaces, Option<MeshUnwrapMethod> method = default, Option<Plane> symmetryPlane = default) => Try.lift(() => {
         MeshUnwrapMethod unwrapMethod = method.IfNone(MeshUnwrapMethod.LSCM);
         if (spaces.IsEmpty || symmetryPlane.Exists(static plane => !plane.IsValid))
-            return Fin.Fail<Seq<FlattenResult>>(error: key.InvalidInput());
+            return Fin.Fail<Seq<FlattenResult>>(error: new KernelFault.InvalidInput());
         Mesh[] meshes = [.. spaces.Map(static part => part.Native.DuplicateMesh())];
         try {
             using MeshUnwrapper unwrapper = new(meshes);
             symmetryPlane.IfSome(plane => unwrapper.SymmetryPlane = plane);
             return !unwrapper.Unwrap(method: unwrapMethod) || meshes.Any(static part => part.TextureCoordinates.Count != part.Vertices.Count)
-                ? Fin.Fail<Seq<FlattenResult>>(error: key.InvalidResult())
+                ? Fin.Fail<Seq<FlattenResult>>(error: new KernelFault.InvalidResult())
                 : toSeq(meshes).TraverseM(part => {
                     Option<double> UvEdge(int faceIndex, IndexPair pair) {
                         int[] topology = part.TopologyVertices.IndicesFromFace(faceIndex: faceIndex);
@@ -1052,14 +1033,14 @@ internal static partial class SegmentKernel {
                             ? Some(value)
                             : Option<double>.None;
                     Mesh output = part.DuplicateMesh();
-                    if (!output.IsValid) { output.Dispose(); return Fin.Fail<FlattenResult>(error: key.InvalidResult()); }
+                    if (!output.IsValid) { output.Dispose(); return Fin.Fail<FlattenResult>(error: new KernelFault.InvalidResult()); }
                     return Fin.Succ(new FlattenResult(Mesh: output, Capture: new FlattenCapture(
                         VertexCount: output.Vertices.Count, BoundaryComponents: output.GetNakedEdges()?.Length ?? 0,
                         Method: unwrapMethod, SymmetryPlane: symmetryPlane, EdgeLengthDistortionRms: rms)));
                 }).As();
         }
         finally { foreach (Mesh part in meshes) part.Dispose(); }
-    });
+    }).Run().Bind(static inner => inner);
 }
 ```
 

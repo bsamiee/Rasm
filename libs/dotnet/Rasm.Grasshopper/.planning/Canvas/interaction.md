@@ -41,10 +41,10 @@ public sealed partial class VerdictPort {
 
     public static Response ToHost(InputVerdict verdict) => Rows.Value[verdict].Host;
 
-    public static Fin<InputVerdict> Of(Response response, Op key) =>
+    public static Fin<InputVerdict> Of(Response response) =>
         TryGet((int)response, out VerdictPort? row)
             ? Fin.Succ(row.Verdict)
-            : Fin.Fail<InputVerdict>(key.InvalidInput(axis: nameof(Response)));
+            : Fin.Fail<InputVerdict>(new KernelFault.InvalidInput(Axis: Some(nameof(Response))));
 
     private static readonly Lazy<System.Collections.Frozen.FrozenDictionary<InputVerdict, VerdictPort>> Rows =
         new(static () => {
@@ -58,8 +58,8 @@ public sealed partial class VerdictPort {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 internal static partial class InputMap {
-    internal static Fin<PointerFact> Fact(ResponseMouseArgs args, Control source, Op key) =>
-        PointerFact.Of(args: args.UnderlyingEtoEventArgs, source: source, key: key)
+    internal static Fin<PointerFact> Fact(ResponseMouseArgs args, Control source) =>
+        PointerFact.Of(args: args.UnderlyingEtoEventArgs, source: source)
             .Map(fact => fact with { Content = args.ContentLocation });
 
     [MapProperty(nameof(PopulateContextMenuEventArgs.Control), nameof(MenuMoment.Surface))]
@@ -79,7 +79,7 @@ internal static partial class InputMap {
 - Owner: `GhResponder` — the kernel `ResponderSpec` beside the columns only GH2 names: the `CoordinateSystem` frame the host adapter constructs under, the optional rectangular `Boundary` (the host's own `RegionBoundary` fast path beside the kernel's predicate region), the rotation-gesture slot (`ResponseRotationArgs` is a GH2 surface no kernel phase carries), and the `HadEffect` probe (the host's transient-gesture pull contract, distinct from the kernel's post-dispatch `Effected` observer). Composition, never a forward: the kernel value IS the slot authority and the residue rides beside it.
 - Owner: `SpecResponder` internal sealed — the ONE host adapter over `Responses`/`IResponsive`. Ten pointer overrides are ten one-line relays into one `Answer` fold keyed by the kernel `PointerPhase` row — the slot map replaces the ten near-identical override bodies — and every arm ends in the base member, so a plug-in subscriber on the same responder still gets its first-non-`Ignored` turn wherever a slot key is absent or answers `Ignored`. Every callback runs inside the raising `Op.Catch`; faults park on the mount's cell and settle `Release` while focused, `Ignored` while unfocused, so an extension raise never escapes into the Eto pump or strands capture.
 - Owner: `Attachment` — the ONE attach-verify-detach fold: attach, verify the host table took it, answer the marshalled release that detaches and verifies removal; a failed verify rolls the attach back with the rollback refusal AGGREGATED. Three hand spellings (register/verify/unregister, push/verify/pop, subscribe/unsubscribe) and their five `ReferenceEquals` probes are this one fold's arms.
-- Entry: `Dispatch.Mount(FlexControl surface, GhResponder responder, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Op? key = null)` → `Fin<Lease<Mounted<Unit>>>`; `Dispatch.Hold(FlexControl surface, IResponsive target, Op? key = null)` → `Fin<Lease<Mounted<Unit>>>`; `Dispatch.Roster(IFlexControl surface, Op? key = null)` → `Fin<Seq<IResponsive>>`.
+- Entry: `Dispatch.Mount(FlexControl surface, GhResponder responder, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default)` → `Fin<Lease<Mounted<Unit>>>`; `Dispatch.Hold(FlexControl surface, IResponsive target)` → `Fin<Lease<Mounted<Unit>>>`; `Dispatch.Roster(IFlexControl surface)` → `Fin<Seq<IResponsive>>`.
 - Law: the hover pair is unconditional by host contract — a supplied `Over` or `Leave` key runs the slot AND the base relay, never instead of it; `HadEffect` returning false downgrades this responder's `Release` to `Ignored` so a no-drag right click still reaches context-menu population, and the absent probe inherits the host's `true`.
 - Law: supplied hooks make the responder the `interaction.verdict` fire site — a slot-answered verdict fires the veto point before the host edge, so a governance subscriber can refuse a capture; absent hooks dispatch ungoverned, which is the default a bare mount wants.
 - Law: registration order is dispatch order (`ResponsivesForwards`) and focus preempts it; `Hold` refuses to claim an already-focused target, and the host focus stack pops only the NAMED target — the mount records no prior-focus column, because the host restores its own head and a stored copy was written and never read.
@@ -114,21 +114,19 @@ internal sealed class SpecResponder : Responses, IResponsive {
     private readonly FlexControl surface;
     private readonly Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks;
     private readonly FaultCell faults;
-    private readonly Op operation;
 
     internal SpecResponder(
         GhResponder responder,
         FlexControl surface,
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks,
-        FaultCell faults,
-        Op operation) : base(responder.Frame) {
+        FaultCell faults) : base(responder.Frame) {
         (this.responder, this.surface, this.hooks, this.faults, this.operation) = (responder, surface, hooks, faults, operation);
         responder.Boundary.Iter(region => RegionBoundary = region);
         responder.Spec.Filter.Iter(filter => RegionFilter = point => Guarded(filter: filter, point: point));
     }
 
     public override bool HadEffect => responder.HadEffect.Match(
-        Some: probe => operation.Catch(() => Fin.Succ(probe())).IfFail(cause => (Park(cause), true).Item2),
+        Some: probe => Try.lift(() => Fin.Succ(probe())).Run().Bind(static inner => inner).IfFail(cause => (Park(cause), true).Item2),
         None: () => base.HadEffect);
 
     public override void MouseOver(ResponseMouseArgs e) => Beside(PointerPhase.Over, e, () => base.MouseOver(e));
@@ -145,11 +143,11 @@ internal sealed class SpecResponder : Responses, IResponsive {
     public override Response Rotation(ResponseRotationArgs e) => Slotted(responder.Rotation, e, () => base.Rotation(e));
 
     private Response Answer(PointerPhase phase, ResponseMouseArgs e, Func<Response> inherited) => Settle(
-        operation.Catch(() => responder.Spec.Pointer.Find(phase).Match(
+        Try.lift(() => responder.Spec.Pointer.Find(phase).Match(
             Some: handle => InputMap.Fact(args: e, source: surface, key: operation)
                 .Map(handle)
                 .Bind(verdict => Governed(verdict: verdict)),
-            None: () => VerdictPort.Of(response: inherited(), key: operation))));
+            None: () => VerdictPort.Of(response: inherited(), key: operation))).Run().Bind(static inner => inner));
 
     private Response Keyed(KeyPhase phase, KeyEventArgs e, Func<Response> inherited);
     private Response Slotted<TEvent>(Option<Func<TEvent, InputVerdict>> slot, TEvent e, Func<Response> inherited) where TEvent : class;
@@ -180,7 +178,7 @@ internal sealed class SpecResponder : Responses, IResponsive {
 
 internal static partial class InteractionLog {
     internal const int ResponderFaulted = 4714;
-    static InteractionLog() => Op.SideWhen(
+    static InteractionLog() => HostEdge.SideWhen(
         condition: ResponderFaulted != FaultBand.GrasshopperLog.Code(offset: 14),
         action: static () => throw new InvalidOperationException("InteractionLog ids drifted from FaultBand.GrasshopperLog."));
 
@@ -190,17 +188,17 @@ internal static partial class InteractionLog {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Attachment {
-    internal static Fin<Func<Fin<Unit>>> Of(Action attach, Func<bool> verify, Action detach, Op key);
+    internal static Fin<Func<Fin<Unit>>> Of(Action attach, Func<bool> verify, Action detach);
 }
 
 public static class Dispatch {
     public static Fin<Lease<Mounted<Unit>>> Mount(
         FlexControl surface, GhResponder responder,
-        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Op? key = null);
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default);
 
-    public static Fin<Lease<Mounted<Unit>>> Hold(FlexControl surface, IResponsive target, Op? key = null);
+    public static Fin<Lease<Mounted<Unit>>> Hold(FlexControl surface, IResponsive target);
 
-    public static Fin<Seq<IResponsive>> Roster(IFlexControl surface, Op? key = null);
+    public static Fin<Seq<IResponsive>> Roster(IFlexControl surface);
 }
 ```
 
@@ -212,7 +210,7 @@ public static class Dispatch {
 - Law: admission ACCUMULATES — `EdgeResize.Of`'s eight bound clauses land as labeled `Validation` rows, so a caller with an inverted min/max AND a non-finite frame reads both refusals, not `InvalidInput` once.
 - Law: both capsules are gesture-scoped and never cached across gestures; snap actions are per-drag host feedback, so `End` clears both snap axes — null is their rest state between drags. Pass-through `Original`/`Resized` mirrors are deleted: `Track` answers the resized frame and the caller holds what it passed to `Of`.
 - Boundary: the component-attribute resize policy capsule (`Components/attributes.md`) composes the same host `ResizingFrame` under its own snap-restoration window; this owner is the canvas-general capsule and carries no component policy.
-- Packages: Grasshopper2 (`ObjectDragInteraction`, `ResizingFrame`, `Canvas.SnapXAction`/`SnapYAction`, `SnappingConstraints`, `SnappingSettings`), `Rasm.Interaction` (`EdgeGrip`, `GripEdge`, `GripCorner`, `UiClaim`, `Op.ToHostSlot`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md`.
+- Packages: Grasshopper2 (`ObjectDragInteraction`, `ResizingFrame`, `Canvas.SnapXAction`/`SnapYAction`, `SnappingConstraints`, `SnappingSettings`), `Rasm.Interaction` (`EdgeGrip`, `GripEdge`, `GripCorner`, `UiClaim`, `HostEdge.Slot`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md`.
 - Growth: a new gesture capsule is one sealed owner over its host interaction class; evidence rows widen by field, never by sibling record.
 
 ```csharp
@@ -235,11 +233,11 @@ public sealed class DragSession : IDisposable {
 
     internal ObjectDragInteraction Interaction { get; }
 
-    public static Fin<Lease<DragSession>> Begin(Document graph, PointF anchor, Op? key = null);
+    public static Fin<Lease<DragSession>> Begin(Document graph, PointF anchor);
 
-    public Fin<DragFacts> Poll(Op key) =>
-        from live in guard(!focus.Resource.IsReleased, key.InvalidInput(axis: nameof(focus))).ToFin()
-        from facts in key.AcceptValue(value: InputMap.Facts(interaction: Interaction))
+    public Fin<DragFacts> Poll() =>
+        from live in guard(!focus.Resource.IsReleased, new KernelFault.InvalidInput(Axis: Some(nameof(focus)))).ToFin()
+        from facts in Acceptance.Value(value: InputMap.Facts(interaction: Interaction))
         select facts;
 
     public void Dispose() => ignore(focus.Dispose());
@@ -251,13 +249,13 @@ public sealed class EdgeResize {
 
     public static Fin<EdgeResize> Of(
         RectangleF original, SizeF min, SizeF max,
-        Option<SnappingConstraints> constraints = default, Option<SnappingSettings> settings = default, Op? key = null);
+        Option<SnappingConstraints> constraints = default, Option<SnappingSettings> settings = default);
 
-    public Fin<Option<EdgeGrip>> Begin(PointF mouse, Padding edges, Op key);
-    public Fin<RectangleF> Track(PointF mouse, Op key);
-    public Fin<Cursor> CursorAt(PointF mouse, Padding edges, Op key);
+    public Fin<Option<EdgeGrip>> Begin(PointF mouse, Padding edges);
+    public Fin<RectangleF> Track(PointF mouse);
+    public Fin<Cursor> CursorAt(PointF mouse, Padding edges);
 
-    public Fin<Unit> End(Op? key = null) =>
+    public Fin<Unit> End() =>
         Cell.Step(cell: engaged, step: static held => held.Map(static _ => Option<EdgeGrip>.None),
             declined: key.OrDefault().InvalidContext()) switch {
             Transition<Option<EdgeGrip>>.Refused row => Fin.Fail<Unit>(row.Cause),
@@ -308,7 +306,7 @@ public readonly record struct MenuMoment(IFlexControl Surface, MouseEventArgs Ca
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MenuMount {
     public static Fin<Lease<Mounted<Unit>>> Mount(
-        Func<MenuMoment, Seq<MenuNode>> fill, IntentTable table, FaultCell faults, Op? key = null);
+        Func<MenuMoment, Seq<MenuNode>> fill, IntentTable table, FaultCell faults);
 }
 ```
 

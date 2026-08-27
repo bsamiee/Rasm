@@ -12,7 +12,7 @@
 - Cases: each `EncodeForm` stream freezes its own canonical order — a `ClusterCase` sorts vertices lexicographically and hashes any mass column as content, a `PolylineCase` stores order as content, a `RingCase` rotates to its least rotation with winding preserved under the rotation law the mesh face cycles carry, and `Parametric` takes the direction count as the curve/surface/volume generator. Each cloud stream leads with the frozen wire ordinal its generated `VectorCloud` arm names — cluster `0`, polyline `1`, ring `2` — so the discriminant sits on the exhaustive dispatch that owns the wire. `CanonicalTopology.OfMesh` is the one native admission.
 - Entry: `EncodeForm.Of` discriminates admission on input shape, its raw-array parametric head the one validated ingress; that head CANONICALIZES each direction's knots onto `[0,1]` before it gates, so a producer's divide-normalized vector admits instead of forking identical geometry out of the corpus, and a refusal routes an `Op`-keyed admission fault rather than throwing.
 - Auto: `Mesh` encoding re-hashes identically under a morph and distinctly under a topology break; every arm gates input and answer through the acceptance oracle, so consumers never re-check the `IValidityEvidence` claims.
-- Law: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `OpAcceptance.ValidityOf` oracle like every kernel result — no parallel reconciliation ledger. Its `IsValid` claims the one law an instance can witness alone: `Addresses` is a BIJECTION, the map key holding name→content and the claim holding content→name, so a content key two names address refuses at `AcceptValue` — the survived-plus-born twin of the `NameCollision` the naming owner refuses on the born path. Every other construction fact — each content key present in the rebuilt roster, one row per prior entry, `Whole` the rebuilt digest — is proved by the reconcile arm and never restated as a claim.
+- Law: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `Acceptance.ValidityOf` oracle like every kernel result — no parallel reconciliation ledger. Its `IsValid` claims the one law an instance can witness alone: `Addresses` is a BIJECTION, the map key holding name→content and the claim holding content→name, so a content key two names address refuses at `AcceptValue` — the survived-plus-born twin of the `NameCollision` the naming owner refuses on the born path. Every other construction fact — each content key present in the rebuilt roster, one row per prior entry, `Whole` the rebuilt digest — is proved by the reconcile arm and never restated as a claim.
 - Law: `RebuiltEntity.Canonical` is a run of int WORDS, never a pre-serialized block, so the framing decision stays at `CanonicalWriter` and the entity keeps structural equality — a `byte[]` column compared by reference, which is precisely what a record whose identity IS its content cannot afford. Three `EncodeForm` streams stay BYTE-UNCHANGED under the writer, and the correspondence is member-for-member: `Word` was int32-LE and `Ordinal` is; `Real` wrote the raw IEEE754 pattern little-endian and `Bits` writes exactly that pattern, never `Double`, whose quantization is a different identity space; and every hand `Word(count)` preceding a run is precisely the count frame `Rows` writes, so the mesh-adjacency digest and the python/ts `XxHash128` peers agree unchanged — the digest rides `Digest(EncodeForm)`'s mesh arm, which no member below touched. RIPPLE: the per-entity `Content` key gains the count frame `Rows` writes ahead of its word run, so `NamingHash.Addresses` and the `Rasm.Persistence` structural merge re-baseline their stored per-node keys once. Cross-runtime agreement is the proof — one mesh encoded through the peer writers digests identically, so a divergence names the member that broke framing rather than a baseline anyone may move. NAMED LOSS: the deleted `Real` collapsed `-0.0` to `+0.0` and `Bits` writes the pattern it is handed, so a `-0.0` coordinate addresses a distinct key (escalated to `Domain/identity.md`).
 - Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of`, the `CanonicalWriter` framing, and the `Op`/`IValidityEvidence` types, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`.
 - Growth: a new geometry modality is one `EncodeForm` case with its own frozen stream, its wire ordinal named on the dispatch arm where it needs a discriminant; a new per-case content column is one counted layout block on the owning case's stream, the cluster mass block the precedent; a new reconciliation projection is one column on the `NamingHash.Addresses` value tuple; a native-brep adjacency source is one `CanonicalTopology.Of*` factory under the same canonical-order law.
@@ -67,8 +67,7 @@ public abstract partial record EncodeForm : IValidityEvidence {
     public static EncodeForm Of(VectorCloud cloud) => new Cloud(cloud);
 
     public static Fin<EncodeForm> Of(Arr<(int Degree, Arr<double> Knots)> directions,
-        Arr<double> weights, Arr<Point3d> controlNet, Op? key = null) {
-        Op op = key.OrDefault();
+        Arr<double> weights, Arr<Point3d> controlNet) {
         return directions.Count is >= 1 and <= 3
             ? toSeq(directions.AsIterable()).TraverseM(direction => {
                 (int degree, Arr<double> knots) = direction;
@@ -76,10 +75,10 @@ public abstract partial record EncodeForm : IValidityEvidence {
                     && knots.All(static knot => ValidityClaim.Finite(knot))
                     && Enumerable.Range(1, knots.Count - 1).All(i => knots[i - 1] <= knots[i]);
                 double span = shaped ? knots[^1] - knots[0] : 0.0;
-                return guard(shaped && ValidityClaim.Positive(span), op.InvalidInput()).ToFin()
+                return guard(shaped && ValidityClaim.Positive(span), new KernelFault.InvalidInput()).ToFin()
                     .Map(_ => new Arr<double>([.. knots.AsIterable().Select(knot => (knot - knots[0]) / span)]))
                     .Bind(normalized => guard(Enumerable.Range(0, degree + 1).All(i =>
-                            normalized[i] == 0.0 && normalized[normalized.Count - 1 - i] == 1.0), op.InvalidInput()).ToFin()
+                            normalized[i] == 0.0 && normalized[normalized.Count - 1 - i] == 1.0), new KernelFault.InvalidInput()).ToFin()
                         .Map(_ => (Degree: degree, Knots: normalized)));
             }).As().Bind(admitted => {
                 long controls = admitted.Fold(1L, (product, direction) => {
@@ -88,10 +87,10 @@ public abstract partial record EncodeForm : IValidityEvidence {
                 });
                 return guard(controls == controlNet.Count && weights.Count == controlNet.Count
                         && weights.All(static w => ValidityClaim.Positive(w)) && controlNet.All(static p => ValidityClaim.Finite(p)),
-                    op.InvalidInput()).ToFin()
+                    new KernelFault.InvalidInput()).ToFin()
                     .Map(_ => (EncodeForm)new Parametric(
                         new Arr<(int Degree, Arr<double> Knots)>([.. admitted]), weights, controlNet));
-            }) : Fin.Fail<EncodeForm>(op.InvalidInput());
+            }) : Fin.Fail<EncodeForm>(new KernelFault.InvalidInput());
     }
 }
 
@@ -204,12 +203,12 @@ public abstract partial record ReconcileAnswer : IValidityEvidence {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Reconciliation {
-    public static Fin<ReconcileAnswer> Apply(ReconcileOp op, Op? key = null) => op.Switch(
+    public static Fin<ReconcileAnswer> Apply(ReconcileOp op) => op.Switch(
         state: key.OrDefault(),
-        encode: static (k, e) => k.AcceptInput(e.Form)
+        encode: static (k, e) => Acceptance.Input(e.Form)
             .Map(static form => (ReconcileAnswer)new ReconcileAnswer.Digest(Digest(form)))
-            .Bind(answer => k.AcceptValue(answer)),
-        reconcile: static (k, r) => (k.AcceptInput(r.Prior), k.AcceptInput(r.Rebuilt))
+            .Bind(answer => Acceptance.Value(answer)),
+        reconcile: static (k, r) => (Acceptance.Input(r.Prior), Acceptance.Input(r.Rebuilt))
             .Apply(static (prior, rebuilt) => (Prior: prior, Rebuilt: rebuilt)).As()
             .Bind(admitted => {
                 Set<GeometryHash> live = admitted.Rebuilt.Entities.Fold(Set<GeometryHash>(),
@@ -226,7 +225,7 @@ public static class Reconciliation {
                     rows.Fold(HashMap<TopoName, (EntityKind Kind, GeometryHash ContentHash)>(),
                         static (map, row) => map.AddOrUpdate(row.Name, (row.Kind, row.ContentHash)))))).ToFin();
             })
-            .Bind(answer => k.AcceptValue(answer)));
+            .Bind(answer => Acceptance.Value(answer)));
 
     static GeometryHash Content(EntityKind kind, Arr<int> canonical) =>
         GeometryHash.Create(ContentHash.Of(state: (Kind: kind, Canonical: canonical),

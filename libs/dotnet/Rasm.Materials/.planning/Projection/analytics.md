@@ -295,7 +295,7 @@ public static class AnalyticsProjection {
 
     public static Fin<Seq<LibrarySummaryRow>> Library(
         Seq<MaterialId> materials, ProjectionContext frame,
-        Func<MaterialId, Op, Fin<AppearanceSummary>> lookup) =>
+        Func<MaterialId, Fin<AppearanceSummary>> lookup) =>
         materials.TraverseM(id => lookup(id, frame.Key).Map(summary =>
             new LibrarySummaryRow(
                 id.ToValue(), summary.AppearanceKey.ToString("X32"), summary.BaseColorR, summary.BaseColorG,
@@ -304,16 +304,16 @@ public static class AnalyticsProjection {
 
     sealed record SurfaceProjection(Wire.Set Set, Wire.SurfaceSet Surface, Option<Wire.BakedSet> Baked);
 
-    static Fin<Option<SurfaceProjection>> Surface(Wire.Set set, Op key) => set.ProductCase switch {
+    static Fin<Option<SurfaceProjection>> Surface(Wire.Set set) => set.ProductCase switch {
         Wire.Set.ProductOneofCase.Pbr => Fin.Succ(Some(new SurfaceProjection(set, set.Pbr, None))),
         Wire.Set.ProductOneofCase.Baked => Fin.Succ(Some(new SurfaceProjection(set, set.Baked.Surface, Some(set.Baked)))),
         Wire.Set.ProductOneofCase.Environment => Fin.Succ(Option<SurfaceProjection>.None),
-        Wire.Set.ProductOneofCase.None or _ => Fin.Fail<Option<SurfaceProjection>>(key.InvalidInput()),
+        Wire.Set.ProductOneofCase.None or _ => Fin.Fail<Option<SurfaceProjection>>(new KernelFault.InvalidInput()),
     };
 
     public static Fin<Seq<TextureChannelAnalyticsRow>> Textures(
-        Seq<Wire.Set> sets, ProjectionContext frame, Op key) =>
-        sets.Traverse(set => Surface(set, key).Map(surface => surface
+        Seq<Wire.Set> sets, ProjectionContext frame) =>
+        sets.Traverse(set => Surface(set).Map(surface => surface
                 .Map(value => TextureRows(value, frame))
                 .IfNone(Seq<TextureChannelAnalyticsRow>())))
             .As()
@@ -358,8 +358,8 @@ public static class AnalyticsProjection {
                 check.Elapsed.TotalSeconds, frame.At));
 
     public static Fin<Seq<TextureSetAnalyticsRow>> TextureSets(
-        Seq<(Wire.Set Set, Option<TileRun> Tile)> sets, ProjectionContext frame, Op key) =>
-        sets.Traverse(entry => Surface(entry.Set, key).Map(surface => surface.Map(value => {
+        Seq<(Wire.Set Set, Option<TileRun> Tile)> sets, ProjectionContext frame) =>
+        sets.Traverse(entry => Surface(entry.Set).Map(surface => surface.Map(value => {
             Option<TileScore> score = entry.Tile.Bind(static run => run.Score.Value());
             Option<Wire.Press> press = value.Baked.Bind(static baked => Optional(baked.Press));
             return new TextureSetAnalyticsRow(
@@ -378,15 +378,15 @@ public static class AnalyticsProjection {
         }))).As().Map(static rows => rows.Choose(static row => row));
 
     public static Fin<Seq<EnvironmentProductRow>> Environments(
-        Seq<Wire.Set> sets, ProjectionContext frame, Op key) =>
-        sets.Traverse(set => EnvironmentRows(set, frame, key)).As()
+        Seq<Wire.Set> sets, ProjectionContext frame) =>
+        sets.Traverse(set => EnvironmentRows(set, frame)).As()
             .Map(static rows => rows.Bind(static row => row));
 
-    static Fin<Seq<EnvironmentProductRow>> EnvironmentRows(Wire.Set set, ProjectionContext frame, Op key) =>
+    static Fin<Seq<EnvironmentProductRow>> EnvironmentRows(Wire.Set set, ProjectionContext frame) =>
         set.ProductCase switch {
             Wire.Set.ProductOneofCase.Pbr or Wire.Set.ProductOneofCase.Baked =>
                 Fin.Succ(Seq<EnvironmentProductRow>()),
-            Wire.Set.ProductOneofCase.Environment => Products(set.Environment, key).Map(products =>
+            Wire.Set.ProductOneofCase.Environment => Products(set.Environment).Map(products =>
                 products.Map(product => new EnvironmentProductRow(
                     Set: Hex(set.Key), Product: product.Product, Level: product.Level,
                     Container: product.Plane.Container.ToString(), Format: product.Plane.Format.ToString(),
@@ -394,11 +394,11 @@ public static class AnalyticsProjection {
                     Depth: product.Plane.Depth.ToString(), Layers: checked((int)product.Plane.Layers),
                     Mips: checked((int)product.Plane.Mips), Blob: Hex(product.Plane.Plane.Digest),
                     ByteLength: checked((long)product.Plane.Plane.ByteLength), Observed: frame.At))),
-            Wire.Set.ProductOneofCase.None or _ => Fin.Fail<Seq<EnvironmentProductRow>>(key.InvalidInput()),
+            Wire.Set.ProductOneofCase.None or _ => Fin.Fail<Seq<EnvironmentProductRow>>(new KernelFault.InvalidInput()),
         };
 
     static Fin<Seq<(string Product, int Level, Wire.EnvironmentPlane Plane)>> Products(
-        Wire.EnvironmentSet environment, Op key) => environment.ProductCase switch {
+        Wire.EnvironmentSet environment) => environment.ProductCase switch {
             Wire.EnvironmentSet.ProductOneofCase.Hdri => Fin.Succ(SourceProducts(environment.Hdri.Source)),
             Wire.EnvironmentSet.ProductOneofCase.Ibl => Fin.Succ(
                 SourceProducts(environment.Ibl.Source)
@@ -408,7 +408,7 @@ public static class AnalyticsProjection {
                     .Map(static plane => Seq(("luminanceCdf", 0, plane)))
                     .IfNone(Seq<(string, int, Wire.EnvironmentPlane)>())),
             Wire.EnvironmentSet.ProductOneofCase.None or _ =>
-                Fin.Fail<Seq<(string, int, Wire.EnvironmentPlane)>>(key.InvalidInput()),
+                Fin.Fail<Seq<(string, int, Wire.EnvironmentPlane)>>(new KernelFault.InvalidInput()),
         };
 
     static Seq<(string Product, int Level, Wire.EnvironmentPlane Plane)> SourceProducts(Wire.EnvironmentSource source) =>

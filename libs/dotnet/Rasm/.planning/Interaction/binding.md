@@ -109,7 +109,7 @@ public abstract partial record Cadence {
 - Law: every atom transition returns a `Transition<TState>` verdict. `Mutate` is a public unmarshalled entry, so a compute lane may drive it; the marshal sits in the change ADAPTER, where the host handler is raised, and the mutation itself carries no affinity requirement.
 - Law: the cell carries its OWN `FaultCell`, because both host hooks it wires are `void`. A `void` delegate licenses no discard — a refused write and a raised change notification are facts that vanish otherwise — so the setter's verdict and the adapter's crossing both PARK, and `Faults` is where a consumer reads what the gate could not carry outward. All four transition arms are spelled, so no case reaches `ignore`.
 - Law: every compare-and-swap on this page takes the kernel default `Cell.SwapBudget` (branch RULINGS `[02]`). This page measures no lane whose contention differs from the kernel's, so a page-local budget shell would be an unanchored second ceiling.
-- Law: the absent setter crosses as `Op.ToHostSlot`, the one place a `null` is a legal spelling — a host slot the domain never reads back. A hand-spelled `Match` onto `null` is the deleted form, because it puts the projection at every call site instead of at its one owner.
+- Law: the absent setter crosses as `HostEdge.Slot`, the one place a `null` is a legal spelling — a host slot the domain never reads back. A hand-spelled `Match` onto `null` is the deleted form, because it puts the projection at every call site instead of at its one owner.
 - Law: the lens write executes INSIDE the compare-and-swap, so `Put` stays pure — the swap retries under contention and a `Put` carrying an effect runs that effect once per attempt.
 - Law: the change-adapter map is keyed on the host handler the binding machinery hands in and removal reads the stored adapter, so an add and a remove of one handler cancel exactly. A re-derived adapter closure compares unequal and leaves the atom subscribed to a released control.
 - Growth: a new access shape is one case with one `Lower` arm; the family's recursion is CASE-owned, so a deeper drill costs no consumer an edit.
@@ -149,12 +149,11 @@ public abstract partial record BindSource<TValue> {
     public static BindSource<TValue> Path<TContext>(Expression<Func<TContext, TValue>> path) =>
         new FromContext(Path: Binding.Property(path));
 
-    public static BindSource<TValue> State<TState>(StateCell<TState> cell, Lens<TState, TValue> lens, Op key) =>
-        new FromState(Channel: cell.Channel(lens, key));
+    public static BindSource<TValue> State<TState>(StateCell<TState> cell, Lens<TState, TValue> lens) =>
+        new FromState(Channel: cell.Channel(lens));
 
-    public Fin<BindSource<TNext>> Drill<TNext>(Expression<Func<TValue, TNext>> path, Op key) => Lower()
-        .ToFin(new UiFault.Rejected(
-            Key: key, Field: FieldTag.Create(value: nameof(path)), Reason: RejectReason.NoChildPath))
+    public Fin<BindSource<TNext>> Drill<TNext>(Expression<Func<TValue, TNext>> path) => Lower()
+        .ToFin(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(path)), Reason: RejectReason.NoChildPath))
         .Map(parent => (BindSource<TNext>)new BindSource<TNext>.FromContext(Path: parent.Child(path)));
 
     internal Option<IndirectBinding<TValue>> Lower() => Switch(
@@ -165,11 +164,11 @@ public abstract partial record BindSource<TValue> {
         delegated: static source => Some(source.Notify.Match<IndirectBinding<TValue>>(
             Some: notify => new DelegateBinding<object, TValue>(
                 getValue: source.Get,
-                setValue: Op.ToHostSlot(source.Put),
+                setValue: HostEdge.Slot(source.Put),
                 notifyProperty: notify),
             None: () => new DelegateBinding<object, TValue>(
                 getValue: source.Get,
-                setValue: Op.ToHostSlot(source.Put)))),
+                setValue: HostEdge.Slot(source.Put)))),
         child: static source => (source.Parent.Lower(), source.Member.Lower())
             .Apply(static (parent, member) => parent.Child(binding: member))
             .As());
@@ -191,16 +190,15 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 
     public Transition<TState> Mutate(Func<TState, TState> transition) => Cell.Commit(state, transition);
 
-    public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens, Op op) {
+    public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens) {
         ConcurrentDictionary<EventHandler<EventArgs>, AtomChangedEvent<TState>> adapters = new();
         return Binding.Delegate<TValue>(
             getValue: () => lens.Get(state.Value),
-            setValue: value => Park(Cell.Commit(state, held => lens.Put(held, value)), op),
+            setValue: value => Park(Cell.Commit(state, held => lens.Put(held, value))),
             addChangeEvent: handler => {
                 AtomChangedEvent<TState> adapter = _ => Park(UiThread.Run(
-                    new UiDispatch<Unit>.Blocking(() => op.Catch(() => handler(this, EventArgs.Empty))),
-                    DispatchLane.Immediate,
-                    op));
+                    new UiDispatch<Unit>.Blocking(() => Try.lift(() => handler(this, EventArgs.Empty)).Run().Bind(static inner => inner)),
+                    DispatchLane.Immediate));
                 if (adapters.TryAdd(handler, adapter)) { state.Change += adapter; }
             },
             removeChangeEvent: handler => {
@@ -208,14 +206,14 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
             });
     }
 
-    private Unit Park(Transition<TState> verdict, Op op) => verdict.Switch(
+    private Unit Park(Transition<TState> verdict) => verdict.Switch(
         state: op,
         committed: static (_, _) => unit,
         ceded: static (_, _) => unit,
         refused: (_, row) => ignore(faults.Park(point: Point, cause: row.Cause)),
-        contended: (key, _) => ignore(faults.Park(point: Point, cause: key.InvalidResult())));
+        contended: (key, _) => ignore(faults.Park(point: Point, cause: new KernelFault.InvalidResult())));
 
-    private Unit Park(Fin<Unit> crossing, Op op) => crossing.Match(
+    private Unit Park(Fin<Unit> crossing) => crossing.Match(
         Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
 }
 ```
@@ -260,9 +258,9 @@ public abstract partial record GatePolicy<TModel> {
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ValueGate<TRaw, TModel>(Func<TModel, TRaw> Render, Func<TRaw, Fin<TModel>> Admit) {
-    public static Fin<ValueGate<TRaw, TModel>> Of(Func<TModel, TRaw> render, Func<TRaw, Fin<TModel>> admit, Op op) {
-        return from rendered in op.Need(render)
-               from admitted in op.Need(admit)
+    public static Fin<ValueGate<TRaw, TModel>> Of(Func<TModel, TRaw> render, Func<TRaw, Fin<TModel>> admit) {
+        return from rendered in Admit.Need(render)
+               from admitted in Admit.Need(admit)
                select new ValueGate<TRaw, TModel>(Render: rendered, Admit: admitted);
     }
 }
@@ -304,18 +302,17 @@ public static class BindLaw {
          where toSeq(FusionLaw.Items).ForAll(law => law.Admits(fusion))
          select fusion).ToFrozenSet());
 
-    public static Fin<BindFusion> Admit(BindFusion fusion, BindingKey key, Op op) => Legal.Contains(fusion)
+    public static Fin<BindFusion> Admit(BindFusion fusion, BindingKey key) => Legal.Contains(fusion)
         ? Fin.Succ(fusion)
         : Fin.Fail<BindFusion>(Error.Many(toSeq(FusionLaw.Items)
             .Filter(law => !law.Admits(fusion))
-            .Map(law => (Error)new UiFault.Rejected(
-                Key: op, Field: FieldTag.Create(value: key.Value), Reason: law.Reason))));
+            .Map(law => (Error)new UiFault.Rejected(Field: FieldTag.Create(value: key.Value), Reason: law.Reason))));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface IBindingPlan {
     BindingKey Key { get; }
-    Fin<Lease<BindLink>> Rig(Control control, Op key);
+    Fin<Lease<BindLink>> Rig(Control control);
 }
 
 public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where TControl : Control {
@@ -327,7 +324,7 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
         Cadence cadence,
         Option<(ValueGate<TValue, TModel> Gate, GatePolicy<TModel> Policy)> gate,
         BindLedger ledger) =>
-        (Key, Select, Source, Fusion, Cadence, Gate, Ledger) = (key, select, source, fusion, cadence, gate, ledger);
+        (Key, Select, Source, Fusion, Cadence, Gate, Ledger) = (select, source, fusion, cadence, gate, ledger);
 
     public BindingKey Key { get; }
     public Func<TControl, BindableBinding<TControl, TValue>> Select { get; }
@@ -344,42 +341,37 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
         FlowMode flow,
         Cadence cadence,
         Option<(ValueGate<TValue, TModel> Gate, GatePolicy<TModel> Policy)> gate,
-        BindLedger ledger,
-        Op op) {
-        return (op.Need(value: select).ToValidation(),
-                op.Need(value: source).ToValidation(),
-                op.Need(value: flow).ToValidation(),
-                op.Need(value: cadence).ToValidation(),
-                op.Need(value: ledger).ToValidation())
+        BindLedger ledger) {
+        return (Admit.Need(value: select).ToValidation(),
+                Admit.Need(value: source).ToValidation(),
+                Admit.Need(value: flow).ToValidation(),
+                Admit.Need(value: cadence).ToValidation(),
+                Admit.Need(value: ledger).ToValidation())
             .Apply(static (chosen, admitted, mode, timing, book) =>
                 (Select: chosen, Source: admitted, Flow: mode, Cadence: timing, Ledger: book))
             .As()
             .ToFin()
             .Bind(held => BindLaw
-                .Admit(new BindFusion(Source: held.Source.Kind, Flow: held.Flow, Timing: held.Cadence.Kind), key, op)
-                .Map(fusion => new BindingPlan<TControl, TValue, TModel>(
-                    key, held.Select, held.Source, fusion, held.Cadence, gate, held.Ledger)));
+                .Admit(new BindFusion(Source: held.Source.Kind, Flow: held.Flow, Timing: held.Cadence.Kind))
+                .Map(fusion => new BindingPlan<TControl, TValue, TModel>(held.Select, held.Source, fusion, held.Cadence, gate, held.Ledger)));
     }
 
-    public Fin<Lease<BindLink>> Rig(Control control, Op key) =>
+    public Fin<Lease<BindLink>> Rig(Control control) =>
         from typed in control is TControl accepted
             ? Fin.Succ(accepted)
-            : Fin.Fail<TControl>(new UiFault.Rejected(
-                Key: key, Field: FieldTag.Create(value: Key.Value), Reason: RejectReason.ControlType))
+            : Fin.Fail<TControl>(new UiFault.Rejected(Field: FieldTag.Create(value: Key.Value), Reason: RejectReason.ControlType))
         from link in UiThread.Run(
-            new UiDispatch<BindLink>.Blocking(() => key.Catch(() => Wire(typed, key))),
-            DispatchLane.Immediate,
-            key)
+            new UiDispatch<BindLink>.Blocking(() => Try.lift(() => Wire(typed)).Run().Bind(static inner => inner)),
+            DispatchLane.Immediate)
         select (Lease<BindLink>)new Lease<BindLink>.Owned(link);
 
-    private Fin<BindLink> Wire(TControl control, Op key);
+    private Fin<BindLink> Wire(TControl control);
 }
 
 internal sealed class CommitLatch<TPayload> : IDisposable {
     private readonly Atom<Option<TPayload>> gate = Atom(Option<TPayload>.None);
-    private readonly Op key;
 
-    internal static Fin<CommitLatch<TPayload>> Arm(Control control, Action<TPayload> commit, Op key);
+    internal static Fin<CommitLatch<TPayload>> Arm(Control control, Action<TPayload> commit);
 
     internal Transition<Option<TPayload>> Offer(TPayload value) =>
         Cell.Commit(gate, _ => Some(value));
@@ -387,7 +379,7 @@ internal sealed class CommitLatch<TPayload> : IDisposable {
     internal Transition<Option<TPayload>> Drain() => Cell.Step(
         gate,
         static held => held.IsSome ? Some(Option<TPayload>.None) : Option<Option<TPayload>>.None,
-        new UiFault.Rejected(Key: key, Field: FieldTag.Create(value: nameof(Drain)), Reason: RejectReason.EmptyLatch));
+        new UiFault.Rejected(Field: FieldTag.Create(value: nameof(Drain)), Reason: RejectReason.EmptyLatch));
 
     public void Dispose();
 }
@@ -438,38 +430,36 @@ public sealed class BindLedger {
         state = Atom(new BindLedgerState(Next: 0L, History: Seq<BindLedgerEntry>(), Current: HashMap<BindingKey, UiFault>()));
     }
 
-    public static Fin<BindLedger> Admitted(LedgerCapacity capacity, Op key) => capacity.Value > 0
+    public static Fin<BindLedger> Admitted(LedgerCapacity capacity) => capacity.Value > 0
         ? Fin.Succ(new BindLedger(capacity))
-        : Fin.Fail<BindLedger>(new UiFault.Rejected(
-            Key: key, Field: FieldTag.Create(value: nameof(capacity)), Reason: RejectReason.Capacity));
+        : Fin.Fail<BindLedger>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(capacity)), Reason: RejectReason.Capacity));
 
     public Seq<BindLedgerEntry> History => state.Value.History;
     public HashMap<BindingKey, UiFault> Current => state.Value.Current;
 
-    public Option<UiFault> Holds(BindingKey key) => state.Value.Current.Find(key);
+    public Option<UiFault> Holds(BindingKey key) => state.Value.Current.Find();
 
     public Transition<BindLedgerState> Reject(BindingKey key, UiFault fault) => Cell.Commit(
         state,
         held => {
-            BindLedgerEntry entry = new(Ordinal: held.Next + 1L, Key: key, Fault: fault);
+            BindLedgerEntry entry = new(Ordinal: held.Next + 1L, Fault: fault);
             Seq<BindLedgerEntry> history = held.History.Add(entry);
             return new BindLedgerState(
                 Next: entry.Ordinal,
                 History: history.Count > capacity.Value ? history.Skip(history.Count - capacity.Value) : history,
-                Current: held.Current.AddOrUpdate(key, fault));
+                Current: held.Current.AddOrUpdate(fault));
         });
 
     public Transition<BindLedgerState> Accept(BindingKey key) =>
-        Cell.Commit(state, held => held with { Current = held.Current.Remove(key) });
+        Cell.Commit(state, held => held with { Current = held.Current.Remove() });
 }
 
 public sealed class BindLink : IDisposable, IValidityEvidence {
     private readonly BindLedger ledger;
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
     private readonly Atom<bool> released = Atom(false);
-    private readonly Op key;
 
-    internal BindLink(BindingKey identity, BindLedger ledger, Op key, Func<Fin<Unit>> refresh, Func<Fin<Unit>> unbind);
+    internal BindLink(BindingKey identity, BindLedger ledger, Func<Fin<Unit>> refresh, Func<Fin<Unit>> unbind);
 
     public BindingKey Identity { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
@@ -485,7 +475,7 @@ public sealed class BindLink : IDisposable, IValidityEvidence {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DataScope {
-    public static Fin<Unit> Assign(IBindable root, object model, Op? key = null);
+    public static Fin<Unit> Assign(IBindable root, object model);
 }
 ```
 
@@ -493,7 +483,7 @@ public static class DataScope {
 
 - Owner: `StoreRow<T>` the collection carrier family; `StoreItemLens` the list display and key projections; `TreeStore<T>` the tree carrier with its element projection; `StoreSink<T>` the closed mount destination family, every case carrying its own store; `StoreGate` the one mount gate.
 - Cases: `StoreRow` is `Eager` over a fully materialized observable source whose mutations refresh the bound view, or `Virtual` over a random-access window contract adapted at mount. `StoreSink<T>` is `Grid` and `List` each carrying their `StoreRow<T>`, or `Tree` carrying its `TreeStore<T>` — the tree's item contract, not the element type, is what discriminates it.
-- Entry: `StoreGate.Mount(sink, key)` is the ONE gate; every case carries the store it mounts, so the gate takes no second carrier.
+- Entry: `StoreGate.Mount(sink)` is the ONE gate; every case carries the store it mounts, so the gate takes no second carrier.
 - Law: the store rides its CASE. NAMED LOSS: the mount's `Option<StoreRow<T>>` arity, whose tree case demanded absence and whose two other cases demanded presence — a pairing every call site had to know and no signature stated. The tree-with-rows and the grid-without-rows corners are now unrepresentable rather than refusable. Witness: `StoreGate.Mount(new StoreSink.Tree(view, store), Some(rows), key)` no longer compiles, where before it type-checked and refused at runtime.
 - Law: `TreeStore<T>` carries its element projection beside the host store, so the type parameter is RECOVERABLE — a selection read off a tree view answers `Option<T>` rather than the `ITreeGridItem` the host sink erased it to. A carrier branded by a parameter nothing reads is the decorative form this column forecloses.
 - Auto: both carriers project through one `Carrier` dispatch onto the enumerable the host view demands, so a virtualized window never reaches a view unadapted and an enumerable source is never wrapped in an adapter its view already accepts.
@@ -541,7 +531,7 @@ public sealed record StoreItemLens(Option<IIndirectBinding<string>> Text, Option
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StoreGate {
-    public static Fin<Unit> Mount<T>(StoreSink<T> sink, Op? key = null) where T : class;
+    public static Fin<Unit> Mount<T>(StoreSink<T> sink) where T : class;
 }
 ```
 

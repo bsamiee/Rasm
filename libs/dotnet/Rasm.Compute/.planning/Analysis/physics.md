@@ -57,14 +57,14 @@ public static class RouteTable {
 
     public static Fin<AssessmentResult> Run<TRequest>(
         FrozenDictionary<AssessmentRoute, TargetFold<TRequest>> routes, ElementGraph graph, TRequest request,
-        AssessmentRoute route, Seq<NodeId> targets, Op key, IClock clock) =>
+        AssessmentRoute route, Seq<NodeId> targets, IClock clock) =>
         (routes.TryGetValue(route, out TargetFold<TRequest> arm)
             ? Fin.Succ(arm)
             : Fin.Fail<TargetFold<TRequest>>(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.RouteUnrouted, route.Key)))
         .Bind(fold => targets.Fold(
             Fin.Succ((Facts: Seq<AssessmentFact>(), Governing: 0.0)),
             (acc, id) => acc.Bind(state => fold(graph, request, id, state))))
-        .Bind(state => AssessmentResult.Of(route, state.Facts, Some(state.Governing), clock.GetCurrentInstant(), key));
+        .Bind(state => AssessmentResult.Of(route, state.Facts, Some(state.Governing), clock.GetCurrentInstant()));
 }
 
 public static partial class BuildingPhysics {
@@ -75,8 +75,6 @@ public static partial class BuildingPhysics {
     static readonly Dimension PerLengthDim = Dimension.Dimensionless.Divide(Dimension.LengthDim);
     static readonly Dimension VapourFluxDim = Dimension.MassDim.Divide(Dimension.AreaDim).Divide(Dimension.DurationDim);
     static readonly Dimension EdgeBridgeDim = Dimension.ThermalTransmittanceDim.Multiply(Dimension.AreaDim);
-
-    static readonly Op ThermalKey = Op.Of(name: nameof(RunThermal));
 
     static readonly FrozenDictionary<AssessmentRoute, TargetFold<AssessmentRequest.Thermal>> ThermalRoutes =
         RouteTable.Of<AssessmentRequest.Thermal>((AssessmentRoute.Iso6946, Thermal), (AssessmentRoute.En13788, Thermal));
@@ -265,8 +263,6 @@ public static partial class BuildingPhysics {
 public static partial class BuildingPhysics {
     const double SabineConstant = 0.161;
 
-    static readonly Op AcousticKey = Op.Of(name: nameof(RunAcoustic));
-
     static readonly FrozenDictionary<AssessmentRoute, TargetFold<AssessmentRequest.Acoustic>> AcousticRoutes = RouteTable.Of<AssessmentRequest.Acoustic>(
         (AssessmentRoute.Iso12354, Transmission), (AssessmentRoute.Iso3382, Room));
 
@@ -395,8 +391,6 @@ public static partial class BuildingPhysics {
     const double RhoSteel = 7850.0;
     const double StepSeconds = 5.0;
     const double CapMarginMinutes = 30.0;
-
-    static readonly Op FireKey = Op.Of(name: nameof(RunFire));
 
     static readonly ImmutableArray<(double UpperC, Func<double, double> Heat)> SpecificHeatBands = [
         (600.0,           static t => 425.0 + (0.773 * t) - (1.69e-3 * t * t) + (2.22e-6 * t * t * t)),

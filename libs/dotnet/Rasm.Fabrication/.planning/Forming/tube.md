@@ -283,7 +283,6 @@ public sealed partial class TubeSection {
     private static Validation<Error, MeasureValue> Measured(double millimetres) =>
         MeasureValue.Of(millimetres, LengthUnit.Millimeter, Key, Some(QuantityType.Length)).ToValidation();
 
-    private static readonly Op Key = Op.Of(name: nameof(TubeSection));
 }
 
 [ComplexValueObject]
@@ -329,7 +328,7 @@ public sealed partial class TubeTool {
         ref double capacityKn,
         ref double qualifiedOvality,
         ref double qualifiedThinning) =>
-        validationError = !string.IsNullOrWhiteSpace(key) && !processes.IsEmpty && !sections.IsEmpty && !materials.IsEmpty && mandrel is not null
+        validationError = !string.IsNullOrWhiteSpace() && !processes.IsEmpty && !sections.IsEmpty && !materials.IsEmpty && mandrel is not null
             && processes.ForAll(static process => process is not null)
             && sections.ForAll(static section => section is not null)
             && materials.ForAll(static material => material is not null)
@@ -525,7 +524,7 @@ public sealed partial class RollSection {
         ref Loop profile,
         ref SectionProperties properties,
         ref double governingThicknessMm) =>
-        validationError = !string.IsNullOrWhiteSpace(key) && kind is not null && profile is not null
+        validationError = !string.IsNullOrWhiteSpace() && kind is not null && profile is not null
             && (kind == RollSectionKind.Open ? !profile.Closed : profile.Closed)
             && double.IsFinite(governingThicknessMm) && governingThicknessMm > 0.0
                 ? null
@@ -537,9 +536,7 @@ public sealed partial class RollSection {
         Loop profile,
         SectionProperties properties,
         Length governingThickness) =>
-        RollSection.Validate(
-            key,
-            kind,
+        RollSection.Validate(kind,
             profile,
             properties,
             governingThickness.Millimeters,
@@ -885,7 +882,7 @@ public static class TubeProgram {
             nominal,
             cut - run.LeadAllowanceMm - run.TailAllowanceMm,
             cut);
-        return Canonical(evidence).Map(key => new BendProgram(evidence, key));
+        return Canonical(evidence).Map(key => new BendProgram(evidence));
     }
 
     private static Fin<RollSchedule> Roll(RollRun run, ProcessEnvelope.Roll machine) =>
@@ -951,7 +948,7 @@ public static class TubeProgram {
                   maximumDistortion,
                   machine.Torque.NewtonMeters - peakTorque)
               from key in Canonical(evidence)
-              select new RollSchedule(evidence, key);
+              select new RollSchedule(evidence);
 
     private static Fin<double> CommandCurvature(
         double outputCurvature,
@@ -1009,7 +1006,7 @@ public static class TubeProgram {
                from loop in Loop.Admit(points.ToArr(), closed: true, Arr<double>(), source.Tolerance)
                let evidence = new CopeEvidence(samples, samples, Seq<CopeProjection>(), None)
                from key in Canonical(Seq(loop), evidence, source.Tolerance)
-               select new CopePattern(Seq(loop), evidence, key);
+               select new CopePattern(Seq(loop), evidence);
     }
 
     private static Fin<CopePattern> SectionedCope(CopeSource.Sectioned source) =>
@@ -1032,7 +1029,7 @@ public static class TubeProgram {
             edges.Bind(static edge => Seq(edge.A, edge.B)),
             Some(unrolled.Atlas.Distortion))
         from key in Canonical(loops, evidence, source.Part.Mesh.Tolerance)
-        select new CopePattern(loops, evidence, key);
+        select new CopePattern(loops, evidence);
 
     private sealed record DevelopedEdge(int CrossingA, int CrossingB, CopeProjection A, CopeProjection B);
     private sealed record DevelopedRun(ChartId Chart, Seq<Point2d> Points);
@@ -1330,7 +1327,6 @@ public static class TubeProgram {
             .Double(form.Major.Millimetres()).Double(form.Minor.Millimetres())
             .Ordinal(form.VertexCount).Ordinal(form.CurvedEdges).Double(form.RadialRatio));
 
-    private static readonly Op Key = Op.Of(name: nameof(TubeProgram));
 }
 ```
 

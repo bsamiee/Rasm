@@ -76,7 +76,7 @@ public abstract partial record Dash {
     public sealed record DashDotDotCase : Dash;
     public sealed record PatternedCase(float Offset, Seq<float> Intervals) : Dash;
 
-    public static Fin<Dash> Of(float offset, Seq<float> intervals, Op? key = null);
+    public static Fin<Dash> Of(float offset, Seq<float> intervals);
     internal EtoDash Mint();
 }
 
@@ -94,10 +94,10 @@ public abstract partial record PathSpec {
     public sealed record CurveCase(Seq<EtoPointF> Points, UnitInterval Tension) : PathSpec;
     public sealed record CompositeCase(Seq<PathSpec> Figures, bool Connect) : PathSpec;
 
-    public static Fin<PathSpec> Admit(PathSpec spec, Op? key = null);
-    internal Fin<Lease<IGraphicsPath>> Build(FillMode rule, Op key);
+    public static Fin<PathSpec> Admit(PathSpec spec);
+    internal Fin<Lease<IGraphicsPath>> Build(FillMode rule);
     internal Option<EtoRectangleF> Extent { get; }
-    internal Fin<bool> Hits(EtoPointF at, FillMode rule, Option<StrokeSpec> edge, Op key);
+    internal Fin<bool> Hits(EtoPointF at, FillMode rule, Option<StrokeSpec> edge);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -110,7 +110,7 @@ public abstract partial record FillSource {
     [Equatable]
     public sealed partial record TextureCase([property: ReferenceEquality] EtoImage Source, UnitInterval Opacity, Option<EtoMatrix> Warp) : FillSource;
 
-    internal Fin<Lease<EtoBrush>> Mint(Op key);
+    internal Fin<Lease<EtoBrush>> Mint();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -125,8 +125,8 @@ public abstract partial record PosePlan {
     public sealed record StackedCase(Seq<PosePlan> Poses) : PosePlan;
     public sealed record InvertedCase(PosePlan Body) : PosePlan;
 
-    internal Fin<Lease<EtoMatrix>> Mint(Op key);
-    internal Fin<Lease<EtoMatrix>> Inverse(Op key);
+    internal Fin<Lease<EtoMatrix>> Mint();
+    internal Fin<Lease<EtoMatrix>> Inverse();
 }
 
 [SmartEnum<int>]
@@ -144,7 +144,7 @@ public sealed partial class TypeRole {
     public static readonly TypeRole UserText = new(key: 10, resolve: static (size, decoration) => SystemFonts.User(size: Host(size), decoration: decoration));
 
     private static float? Host(Option<PositiveMagnitude> size) =>
-        Op.ToHostNullable(size.Map(static magnitude => (float)magnitude.Value));
+        HostEdge.Nullable(size.Map(static magnitude => (float)magnitude.Value));
 
     [UseDelegateFromConstructor]
     internal partial EtoFont Resolve(Option<PositiveMagnitude> size, FontDecoration decoration);
@@ -179,9 +179,9 @@ public abstract partial record Mark {
     public sealed record ClipCase(PathSpec Region, FillMode Rule, Seq<Mark> Children) : Mark;
     public sealed record PoseCase(PosePlan Pose, Seq<Mark> Children) : Mark;
 
-    internal Fin<Option<EtoRectangleF>> Extent(PaintStock stock, PositiveMagnitude density, Op key);
-    internal Fin<bool> Hits(EtoPointF at, PaintStock stock, PositiveMagnitude density, Op key);
-    internal Fin<Dimension> Draw(Graphics target, PaintStock stock, Op key);
+    internal Fin<Option<EtoRectangleF>> Extent(PaintStock stock, PositiveMagnitude density);
+    internal Fin<bool> Hits(EtoPointF at, PaintStock stock, PositiveMagnitude density);
+    internal Fin<Dimension> Draw(Graphics target, PaintStock stock);
     internal static void Write(Mark mark, CanonicalWriter writer);
 }
 
@@ -193,14 +193,14 @@ public sealed partial record StrokeSpec(
     PenLineCap Cap,
     PenLineJoin Join,
     Dash Dash) {
-    public static Fin<StrokeSpec> Hairline(PerceptualColor colour, Lease<Graphics> target, Op? key = null);
-    internal Fin<Lease<EtoPen>> Mint(Op key);
+    public static Fin<StrokeSpec> Hairline(PerceptualColor colour, Lease<Graphics> target);
+    internal Fin<Lease<EtoPen>> Mint();
 }
 
 [Equatable]
 public sealed partial record TypeFace(TypeSource Source, Option<PositiveMagnitude> Size, FontStyle Style, FontDecoration Decoration) {
     public static TypeFace Of(TypeRole role);
-    internal Fin<Lease<EtoFont>> Mint(Op key);
+    internal Fin<Lease<EtoFont>> Mint();
 }
 
 [Equatable]
@@ -213,19 +213,17 @@ public sealed partial record BlockSpec(
 }
 
 public sealed class GlyphBlock {
-    public static Fin<GlyphBlock> Of(string text, TypeFace face, BlockSpec block, Option<PerceptualColor> ink = default, Op? key = null);
+    public static Fin<GlyphBlock> Of(string text, TypeFace face, BlockSpec block, Option<PerceptualColor> ink = default);
     public string Text { get; }
     public TypeFace Face { get; }
     public BlockSpec Block { get; }
     public Option<PerceptualColor> Ink { get; }
-    public Fin<EtoSizeF> Measure(Op? key = null);
-    internal Fin<Unit> Draw(Graphics target, EtoPointF at, PaintStock stock, Op key);
+    public Fin<EtoSizeF> Measure();
+    internal Fin<Unit> Draw(Graphics target, EtoPointF at, PaintStock stock);
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PaintTally(
-    Op Operation,
-    Dimension Marks,
+public readonly record struct PaintTally(Dimension Marks,
     Dimension Drawn,
     Dimension Culled,
     GaugedSpan<DispatchLane> Span) : IValidityEvidence {
@@ -243,14 +241,14 @@ public sealed record PaintProgram {
 
     public UInt128 Identity { get; }
 
-    public static Fin<PaintProgram> Of(Seq<Mark> marks, Op? key = null);
+    public static Fin<PaintProgram> Of(Seq<Mark> marks);
 
-    public Fin<Option<EtoRectangleF>> Bounds(PaintStock stock, PositiveMagnitude density, Op? key = null);
+    public Fin<Option<EtoRectangleF>> Bounds(PaintStock stock, PositiveMagnitude density);
 
-    public Fin<Seq<int>> Hit(EtoPointF at, PaintStock stock, PositiveMagnitude density, Op? key = null);
+    public Fin<Seq<int>> Hit(EtoPointF at, PaintStock stock, PositiveMagnitude density);
 
     public Fin<PaintTally> Replay(
-        Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, DispatchLane lane, Op? key = null);
+        Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, DispatchLane lane);
 
     internal static void Write(PaintProgram program, CanonicalWriter writer) =>
         writer.Rows(rows: program.Marks, field: Mark.Write);
@@ -258,15 +256,15 @@ public sealed record PaintProgram {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PaintStock : IDisposable {
-    public static Fin<Lease<PaintStock>> Open(Op? key = null);
+    public static Fin<Lease<PaintStock>> Open();
 
     public Seq<Error> Faults { get; }
 
-    internal Fin<EtoBrush> Brush(FillSource source, Op key);
-    internal Fin<EtoPen> Pen(StrokeSpec stroke, Op key);
-    internal Fin<EtoFont> Face(TypeFace face, Op key);
+    internal Fin<EtoBrush> Brush(FillSource source);
+    internal Fin<EtoPen> Pen(StrokeSpec stroke);
+    internal Fin<EtoFont> Face(TypeFace face);
 
-    private Fin<TResource> Seat<TSpec, TResource>(TSpec spec, Func<TSpec, Op, Fin<Lease<TResource>>> mint, Op key)
+    private Fin<TResource> Seat<TSpec, TResource>(TSpec spec, Func<TSpec, Fin<Lease<TResource>>> mint)
         where TSpec : notnull
         where TResource : class, IDisposable;
 
@@ -281,7 +279,7 @@ public static class Tween {
     public static EtoPointF Between(EtoPointF from, EtoPointF to, UnitInterval at);
     public static EtoSizeF Between(EtoSizeF from, EtoSizeF to, UnitInterval at);
     public static EtoRectangleF Between(EtoRectangleF from, EtoRectangleF to, UnitInterval at);
-    public static Fin<PerceptualColor> Between(PerceptualColor from, PerceptualColor to, UnitInterval at, Option<BlendPath> path = default, Op? key = null);
+    public static Fin<PerceptualColor> Between(PerceptualColor from, PerceptualColor to, UnitInterval at, Option<BlendPath> path = default);
 }
 ```
 
@@ -400,27 +398,27 @@ public sealed record SurfaceSpec(
     FocusPolicy Focus,
     FaultCell Faults) {
     public static SurfaceSpec Of(PaintProgram initial, FaultCell faults);
-    internal Fin<SurfaceSpec> Admit(Op key);
+    internal Fin<SurfaceSpec> Admit();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Surface : IDisposable {
-    public static Fin<Lease<Surface>> Mount(SurfaceSpec spec, Op? key = null);
+    public static Fin<Lease<Surface>> Mount(SurfaceSpec spec);
 
     public static Option<Surface> Of(Drawable host);
 
     public Drawable Host { get; }
     public PaintProgram Program { get; }
 
-    public Fin<Unit> Swap(Func<PaintProgram, PaintProgram> next, Redraw redraw, Op? key = null);
+    public Fin<Unit> Swap(Func<PaintProgram, PaintProgram> next, Redraw redraw);
 
-    public Fin<Seq<int>> HitTest(EtoPointF at, Op? key = null);
+    public Fin<Seq<int>> HitTest(EtoPointF at);
 
     public Fin<OffscreenDraw<TResult>> Acquire<TResult>(
-        Func<Lease<Graphics>, Fin<TResult>> draw, Redraw fallback, Op? key = null);
+        Func<Lease<Graphics>, Fin<TResult>> draw, Redraw fallback);
 
-    public Fin<Unit> CancelComposition(Op? key = null);
-    public Fin<Unit> CommitComposition(Op? key = null);
+    public Fin<Unit> CancelComposition();
+    public Fin<Unit> CommitComposition();
 
     public void Dispose();
 }
@@ -430,29 +428,29 @@ public static class PixelLease {
     public delegate TResult PixelRead<out TResult>(scoped in EtoPixels window, AlphaLayout layout);
     public delegate TResult GdiRead<out TResult>(scoped in GdiPixels window);
 
-    public static Fin<TResult> Locked<TResult>(EtoBitmap bitmap, PixelRead<TResult> read, Op? key = null)
+    public static Fin<TResult> Locked<TResult>(EtoBitmap bitmap, PixelRead<TResult> read)
         where TResult : struct;
 
-    public static Fin<TResult> Locked<TResult>(GdiBitmap bitmap, AlphaLayout layout, GdiRead<TResult> read, Op? key = null)
+    public static Fin<TResult> Locked<TResult>(GdiBitmap bitmap, AlphaLayout layout, GdiRead<TResult> read)
         where TResult : struct;
 
-    public static Fin<PerceptualColor> Sample(EtoBitmap bitmap, EtoPoint at, Op? key = null);
-    public static Fin<PerceptualColor> Sample(GdiBitmap bitmap, GdiPoint at, Op? key = null);
+    public static Fin<PerceptualColor> Sample(EtoBitmap bitmap, EtoPoint at);
+    public static Fin<PerceptualColor> Sample(GdiBitmap bitmap, GdiPoint at);
 
-    public static Fin<Unit> Write(EtoBitmap bitmap, EtoPoint at, PerceptualColor colour, Op? key = null);
-    public static Fin<Unit> Write(GdiBitmap bitmap, GdiPoint at, PerceptualColor colour, Op? key = null);
+    public static Fin<Unit> Write(EtoBitmap bitmap, EtoPoint at, PerceptualColor colour);
+    public static Fin<Unit> Write(GdiBitmap bitmap, GdiPoint at, PerceptualColor colour);
 
-    public static Fin<Unit> WriteLocked(EtoBitmap bitmap, Seq<(EtoPoint At, PerceptualColor Colour)> pixels, Op? key = null);
-    public static Fin<Unit> WriteLocked(GdiBitmap bitmap, Seq<(GdiPoint At, PerceptualColor Colour)> pixels, Op? key = null);
+    public static Fin<Unit> WriteLocked(EtoBitmap bitmap, Seq<(EtoPoint At, PerceptualColor Colour)> pixels);
+    public static Fin<Unit> WriteLocked(GdiBitmap bitmap, Seq<(GdiPoint At, PerceptualColor Colour)> pixels);
 
-    public static Fin<Arr<byte>> Bytes(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
-    public static Fin<Arr<byte>> Bytes(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
+    public static Fin<Arr<byte>> Bytes(EtoBitmap bitmap, Option<EtoRectangle> region = default);
+    public static Fin<Arr<byte>> Bytes(GdiBitmap bitmap, Option<GdiRectangle> region = default);
 
-    public static Fin<ReadOnlyMemory<byte>> Encode(EtoBitmap bitmap, ImageFormat format, Op? key = null);
-    public static Fin<ReadOnlyMemory<byte>> Encode(GdiBitmap bitmap, GdiFormat format, Op? key = null);
+    public static Fin<ReadOnlyMemory<byte>> Encode(EtoBitmap bitmap, ImageFormat format);
+    public static Fin<ReadOnlyMemory<byte>> Encode(GdiBitmap bitmap, GdiFormat format);
 
-    public static Fin<Lease<EtoBitmap>> Clone(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
-    public static Fin<Lease<GdiBitmap>> Clone(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
+    public static Fin<Lease<EtoBitmap>> Clone(EtoBitmap bitmap, Option<EtoRectangle> region = default);
+    public static Fin<Lease<GdiBitmap>> Clone(GdiBitmap bitmap, Option<GdiRectangle> region = default);
 }
 ```
 
@@ -495,13 +493,13 @@ public sealed partial class ChromeRole {
     [UseDelegateFromConstructor]
     internal partial EtoColor Read();
 
-    public Fin<PerceptualColor> Sample(Op? key = null) => PerceptualColor.OfHost(host: Read(), key: key);
+    public Fin<PerceptualColor> Sample() => PerceptualColor.OfHost(host: Read());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PaintColor {
     extension(PerceptualColor colour) {
-        public static Fin<PerceptualColor> OfHost(EtoColor host, Op? key = null);
+        public static Fin<PerceptualColor> OfHost(EtoColor host);
         public Fin<EtoColor> ToEto(Option<GamutPolicy> gamut = default);
     }
 }
@@ -577,8 +575,8 @@ public sealed partial class SpaceRole {
     public int Rank { get; }
     public double Step { get; }
 
-    internal Fin<PositiveMagnitude> Of(PositiveMagnitude root, Op key) =>
-        key.AcceptValidated<PositiveMagnitude>(candidate: root.Value * Step);
+    internal Fin<PositiveMagnitude> Of(PositiveMagnitude root) =>
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: root.Value * Step);
 }
 
 [SmartEnum<string>]
@@ -596,10 +594,9 @@ public sealed partial class TypeSlot {
     public int Rank { get; }
     public TextHeight Rung { get; }
 
-    internal Fin<TypeFace> Of(TypeFace root, Op key) =>
-        from seat in root.Size.ToFin(new UiFault.Rejected(
-            Key: key, Field: FieldTag.Create(value: nameof(TypeFace.Size)), Reason: RejectReason.RootFaceSize))
-        from size in key.AcceptValidated<PositiveMagnitude>(candidate: seat.Value * (Rung.Height / Body.Rung.Height))
+    internal Fin<TypeFace> Of(TypeFace root) =>
+        from seat in root.Size.ToFin(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(TypeFace.Size)), Reason: RejectReason.RootFaceSize))
+        from size in FactoryBridge.Accept<PositiveMagnitude>(candidate: seat.Value * (Rung.Height / Body.Rung.Height))
         select root with { Size = Some(size) };
 }
 
@@ -637,7 +634,7 @@ public sealed record ThemeProgram(
     Func<PaletteRole, ThemeVariant, PerceptualColor> Paint,
     Func<ThemeVariant, PositiveMagnitude> Base,
     Func<ThemeVariant, TypeFace> Root) {
-    internal Validation<Error, ThemeSnapshot> Cells(ThemeVariant variant, MonotonicStamp generation, Op key);
+    internal Validation<Error, ThemeSnapshot> Cells(ThemeVariant variant, MonotonicStamp generation);
 }
 
 public sealed record ThemeSnapshot(
@@ -666,11 +663,11 @@ public readonly record struct ThemeChange(
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ThemeGrid {
     public static Validation<Error, ThemeGrid> Freeze(
-        ThemeProgram program, ThemeVariant initial, Seq<ContrastRule> contrast, MonotonicTimeline clock, Op? key = null);
+        ThemeProgram program, ThemeVariant initial, Seq<ContrastRule> contrast, MonotonicTimeline clock);
 
     public ThemeSnapshot Current { get; }
 
-    public Fin<ThemeChange> Swap(ThemeShift shift, Op? key = null);
+    public Fin<ThemeChange> Swap(ThemeShift shift);
 }
 ```
 

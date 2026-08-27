@@ -76,7 +76,6 @@ public readonly record struct EgressFinding(NodeId Space, double TravelM, NodeId
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CirculationAnalysis {
-    static readonly Op RunKey = Op.Of(name: nameof(Run));
 
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Circulation request, GeometrySource geometry, IClock clock) =>
         from frame in Context.Of(LengthUnit.Meter).As().ToFin()

@@ -14,7 +14,7 @@ Wire posture is HOST-LOCAL, envelope-only: the `CloudNative.CloudEvents` envelop
 
 - Owner: `BimAnnounce` the closed `[SmartEnum<string>]` roster over the facts this package announces, each row carrying its kernel `EventType` and the hook point it observes; `BimEventPort` the composition contract carrying the producing `EventSource`, the handling grade, and the sink a minted envelope leaves through; `BimEventing` the projection owner — `Observe` the subscription set, `Mint` the total `BimFact`-to-envelope projection, and `Admit` its inverse; `BimEventExtensions` the one generated-message contract and value constructor; `BimEventContext` the source-generated STJ context over the flat wire payload records; `BimEventWire` the Mapperly outbound shape half beside `EventCodec`, its per-type converter set — named for the MESSAGE roster it serves, the codec mechanism staying the shared `Rasm.Element/Graph/wire#WIRE_CODEC` owner's (E-B4).
 - Cases: five announced rows over the fourteen-case fact family — `committed` off `BimPoint.Committed`, `issue-mutated` off `BimPoint.IssueMutated`, `verdict-issued` off `BimPoint.Verdict`, `artifact-minted` off `BimPoint.Exported`, and `energy-minted` off `BimPoint.Emitted`. Every remaining case answers `None` on the same total projection: the three `Progress` streams are in-flight operator feedback rather than settled facts, the two veto points are decisions still under consultation, and `Imported`, `Lowered`, `Textured`, and `Degraded` are local-quality evidence whose consumer is the meter beside them — an announcement over any of them publishes a fact no peer acts on and no settled result stands behind.
-- Entry: `BimEventing.Observe(BimEventPort port, IClock clock)` returns the ONE kernel `HookTap` row a composition hands `BimHooks.Live`, its `Scope` column naming the five announced seats so the dispatcher attaches them ahead of the first fire and its own detach custody closes what the composition opened, the clock threaded so a fake-clock composition stamps deterministically; `BimEventing.Mint(BimFact fact, BimEventPort port, Instant at)` returns `Fin<Option<CloudEvent>>` — total over the family, an announced case projecting one typed `RasmEventMint<Extensions>` through `RasmEventEnvelope.Mint` and every other answering `None`; `BimEventing.Admit(CloudEvent envelope, Op key)` returns `Fin<BimFact>` — the inverse re-enters through `RasmEventEnvelope.Admit`, dispatches on the admitted profile type, re-admits every body slot through its canonical gate, and re-proves the subject against the normalized body content, landing the SAME case a fire produced because every wire record carries every slot its case holds.
+- Entry: `BimEventing.Observe(BimEventPort port, IClock clock)` returns the ONE kernel `HookTap` row a composition hands `BimHooks.Live`, its `Scope` column naming the five announced seats so the dispatcher attaches them ahead of the first fire and its own detach custody closes what the composition opened, the clock threaded so a fake-clock composition stamps deterministically; `BimEventing.Mint(BimFact fact, BimEventPort port, Instant at)` returns `Fin<Option<CloudEvent>>` — total over the family, an announced case projecting one typed `RasmEventMint<Extensions>` through `RasmEventEnvelope.Mint` and every other answering `None`; `BimEventing.Admit(CloudEvent envelope)` returns `Fin<BimFact>` — the inverse re-enters through `RasmEventEnvelope.Admit`, dispatches on the admitted profile type, re-admits every body slot through its canonical gate, and re-proves the subject against the normalized body content, landing the SAME case a fire produced because every wire record carries every slot its case holds.
 - Auto: `BimEventExtensions.Contract` delegates declaration, descriptor-total projection, inverse reconstruction, and generated-rule admission to `EventExtensionContract<Extensions>`. `BimEventExtensions.Of` contributes only the creation-time trace, `recordedtime`, and deployment grade to the whole generated message. Verdict severity stays in the Bim body because no transport processor reads it. Mapperly still proves the outbound body correspondence while the inbound half retains its typed admission gates.
 - Law: `id` derives the port source's capability namespace over UUIDv7 and mints once when the hook projects the settled fact. Retries retain the envelope; a replay mints a new announcement. A content digest would collapse distinct announcements of one payload.
 - Law: `subject` is the content key of the normalized source-generated JSON body for every announcement. Entity, commit, model, and artifact identifiers remain typed body fields; none aliases the payload identity or creates a second subject grammar. Admission reserializes the admitted fact through the same generated shape before comparing the digest, so insignificant input formatting cannot re-key the fact.
@@ -153,7 +153,7 @@ public static class EventCodec {
     public static string Hex(UInt128 contentKey) => ContentHash.Hex(contentKey);
     public static string Hex(ContentAddress content) => ContentHash.Hex(content.ToValue());
     public static string Key(BimIssueMutation mutation) => mutation.Key;
-    public static string? Text(Option<string> value) => Op.ToHostSlot(value);
+    public static string? Text(Option<string> value) => HostEdge.Slot(value);
     public static ImmutableArray<string> Keys(ContentKeySet keys) => [.. keys.Value.Map(Hex)];
     public static ImmutableArray<string> Texts(GlobalIdSet values) => [.. values.Value];
     public static long Nanos(Duration elapsed) => elapsed.ToInt64Nanoseconds();
@@ -196,8 +196,7 @@ public static class BimEventing {
         Instant at,
         Fin<(JsonElement Data, UInt128 Content)> body) =>
         from normalized in body
-        from id in fact.Key.AcceptValidated<EventId>(
-            Guid.CreateVersion7(at.ToDateTimeOffset()).ToString("N", CultureInfo.InvariantCulture))
+        from id in FactoryBridge.Accept<EventId>(Guid.CreateVersion7(at.ToDateTimeOffset()).ToString("N", CultureInfo.InvariantCulture))
         from envelope in RasmEventEnvelope.Mint(
             new RasmEventMint<global::Rasm.Contracts.Event.Extensions>(
                 Type: row.Type,
@@ -212,18 +211,17 @@ public static class BimEventing {
                     TraceCarrier.Of(Activity.Current),
                     port.Grade,
                     at)),
-            contract: BimEventExtensions.Contract,
-            key: fact.Key)
+            contract: BimEventExtensions.Contract)
         select Some(envelope);
 
-    static Fin<(JsonElement Data, UInt128 Content)> Body<T>(T wire, JsonTypeInfo<T> shape, Op key) =>
-        key.Catch(() => {
+    static Fin<(JsonElement Data, UInt128 Content)> Body<T>(T wire, JsonTypeInfo<T> shape) =>
+        Try.lift(() => {
             byte[] normalized = JsonSerializer.SerializeToUtf8Bytes(wire, shape);
             using JsonDocument document = JsonDocument.Parse(normalized);
             return Fin.Succ((Data: document.RootElement.Clone(), Content: ContentHash.Of(normalized)));
-        });
+        }).Run().Bind(static inner => inner);
 
-    static Fin<Option<UInt128>> Content(BimFact fact, Op key) => fact.Switch(
+    static Fin<Option<UInt128>> Content(BimFact fact) => fact.Switch(
         state:         key,
         progress:      static (_, _) => Fin.Succ(Option<UInt128>.None),
         imported:      static (_, _) => Fin.Succ(Option<UInt128>.None),
@@ -232,44 +230,35 @@ public static class BimEventing {
         egress:        static (_, _) => Fin.Succ(Option<UInt128>.None),
         textured:      static (_, _) => Fin.Succ(Option<UInt128>.None),
         degraded:      static (_, _) => Fin.Succ(Option<UInt128>.None),
-        committed:     static (op, c) => Body(BimEventWire.Wire(c), BimEventContext.Default.CommittedWire, op).Map(body => Some(body.Content)),
-        issueMutated:  static (op, i) => Body(BimEventWire.Wire(i), BimEventContext.Default.IssueMutatedWire, op).Map(body => Some(body.Content)),
-        verdict:       static (op, v) => Body(BimEventWire.Wire(v), BimEventContext.Default.VerdictIssuedWire, op).Map(body => Some(body.Content)),
-        exported:      static (op, e) => Body(BimEventWire.Wire(e), BimEventContext.Default.ArtifactMintedWire, op).Map(body => Some(body.Content)),
-        emitted:       static (op, m) => Body(BimEventWire.Wire(m), BimEventContext.Default.EnergyMintedWire, op).Map(body => Some(body.Content)));
+        committed:     static (c) => Body(BimEventWire.Wire(c), BimEventContext.Default.CommittedWire).Map(body => Some(body.Content)),
+        issueMutated:  static (i) => Body(BimEventWire.Wire(i), BimEventContext.Default.IssueMutatedWire).Map(body => Some(body.Content)),
+        verdict:       static (v) => Body(BimEventWire.Wire(v), BimEventContext.Default.VerdictIssuedWire).Map(body => Some(body.Content)),
+        exported:      static (e) => Body(BimEventWire.Wire(e), BimEventContext.Default.ArtifactMintedWire).Map(body => Some(body.Content)),
+        emitted:       static (m) => Body(BimEventWire.Wire(m), BimEventContext.Default.EnergyMintedWire).Map(body => Some(body.Content)));
 
-    public static Fin<BimFact> Admit(CloudEvent envelope, Op key) =>
+    public static Fin<BimFact> Admit(CloudEvent envelope) =>
         from admitted in RasmEventEnvelope.Admit(
             envelope: envelope,
-            contract: BimEventExtensions.Contract,
-            key: key)
-        from fact in Admit(admitted.Type, admitted.Subject, admitted.Data, key)
+            contract: BimEventExtensions.Contract)
+        from fact in Admit(admitted.Type, admitted.Subject, admitted.Data)
         select fact;
 
-    static Fin<BimFact> Admit(EventType type, Option<UInt128> subject, object? body, Op key) =>
-        from row in BimAnnounce.Resolve(type.ToString()).ToFin(new BimFault.Refused(
-            key,
-            BimScope.Events,
+    static Fin<BimFact> Admit(EventType type, Option<UInt128> subject, object? body) =>
+        from row in BimAnnounce.Resolve(type.ToString()).ToFin(new BimFault.Refused(BimScope.Events,
             BimReason.Codec,
             string.Join(':', new object?[] { "event-type-miss", type.ToString() })))
         from fact in body is JsonElement data
-            ? Admitted(row, data, key)
-            : Fin.Fail<BimFact>(new BimFault.Refused(
-                key,
-                BimScope.Events,
+            ? Admitted(row, data)
+            : Fin.Fail<BimFact>(new BimFault.Refused(BimScope.Events,
                 BimReason.Codec,
                 string.Join(':', new object?[] { "event-body-miss", type.ToString() })))
-        from content in Content(fact, key)
-        from expected in content.ToFin(new BimFault.Refused(
-            key,
-            BimScope.Events,
+        from content in Content(fact)
+        from expected in content.ToFin(new BimFault.Refused(BimScope.Events,
             BimReason.Codec,
             string.Join(':', new object?[] { "event-type-unannounced", type.ToString() })))
         from _subject in subject == Some(expected)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new BimFault.Refused(
-                key,
-                BimScope.Events,
+            : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Events,
                 BimReason.Codec,
                 string.Join(':', new object?[] {
                     "event-subject-mismatch",
@@ -278,21 +267,21 @@ public static class BimEventing {
                 })))
         select fact;
 
-    static Fin<BimFact> Admitted(BimAnnounce row, JsonElement data, Op key) => row.Switch(
-        state: (Data: data, Key: key),
-        committed: static s => Wire(s.Data, BimEventContext.Default.CommittedWire, s.Key).Bind(w =>
-            from commit in ContentHash.Admit(hex: w.CommitKey, key: s.Key)
+    static Fin<BimFact> Admitted(BimAnnounce row, JsonElement data) => row.Switch(
+        state: data,
+        committed: static s => Wire(s, BimEventContext.Default.CommittedWire, s.Key).Bind(w =>
+            from commit in ContentHash.Admit(hex: w.CommitKey)
             from parents in ContentKeys(w.Parents, "parents", s.Key)
             from branch in Required(w.Branch, "branch", s.Key)
             from elements in NonNegative(w.Elements, "elements", s.Key)
             select (BimFact)new BimFact.Committed(s.Key, commit, parents, branch, elements)),
-        issueMutated: static s => Wire(s.Data, BimEventContext.Default.IssueMutatedWire, s.Key).Bind(w =>
-            from topic in GuidText(w.Topic, "topic", s.Key)
+        issueMutated: static s => Wire(s, BimEventContext.Default.IssueMutatedWire, s.Key).Bind(w =>
+            from topic in GuidText(w.Topic, "topic")
             from mutation in IssueMutation(w.Mutation, s.Key)
             from comment in OptionalGuid(w.Comment, "comment", s.Key)
             from globalIds in GlobalIdSet.Admit(w.GlobalIds, s.Key)
-            select (BimFact)new BimFact.IssueMutated(s.Key, topic, mutation, comment, globalIds)),
-        verdictIssued: static s => Wire(s.Data, BimEventContext.Default.VerdictIssuedWire, s.Key).Bind(w =>
+            select (BimFact)new BimFact.IssueMutated(topic, mutation, comment, globalIds)),
+        verdictIssued: static s => Wire(s, BimEventContext.Default.VerdictIssuedWire, s.Key).Bind(w =>
             from specification in Required(w.Specification, "specification", s.Key)
             from spec in NonNegative(w.Spec, "spec", s.Key)
             from model in Address(w.Model, s.Key)
@@ -303,15 +292,15 @@ public static class BimEventing {
             from globalIds in GlobalIdSet.Admit(w.GlobalIds, s.Key)
             select (BimFact)new BimFact.Verdict(
                 s.Key, specification, spec, model, tier, outcome.Key, severity.Key, findings, globalIds)),
-        artifactMinted: static s => Wire(s.Data, BimEventContext.Default.ArtifactMintedWire, s.Key).Bind(w =>
-            from content in ContentHash.Admit(hex: w.ContentKey, key: s.Key)
+        artifactMinted: static s => Wire(s, BimEventContext.Default.ArtifactMintedWire, s.Key).Bind(w =>
+            from content in ContentHash.Admit(hex: w.ContentKey)
             from spelled in Required(w.Format, "format", s.Key)
             from format in InterchangeFormat.Detect(spelled, s.Key)
             from bytes in NonNegative(w.Bytes, "bytes", s.Key)
             from elapsed in NonNegative(w.ElapsedNanoseconds, "elapsed", s.Key)
             select (BimFact)new BimFact.Exported(
                 s.Key, content, format.Key, bytes, Duration.FromNanoseconds(elapsed))),
-        energyMinted: static s => Wire(s.Data, BimEventContext.Default.EnergyMintedWire, s.Key).Bind(w =>
+        energyMinted: static s => Wire(s, BimEventContext.Default.EnergyMintedWire, s.Key).Bind(w =>
             from artifact in ArtifactKey.Admit(w.ArtifactKey, s.Key)
             from leg in Required(w.Leg, "leg", s.Key)
             from spelled in Required(w.Format, "format", s.Key)
@@ -320,63 +309,62 @@ public static class BimEventing {
             from warnings in NonNegative(w.Warnings, "warnings", s.Key)
             select (BimFact)new BimFact.Emitted(s.Key, artifact.Value, leg, format.Key, warnings)));
 
-    static Fin<Unit> ArtifactFormat(ArtifactKey artifact, InterchangeFormat format, Op key) =>
+    static Fin<Unit> ArtifactFormat(ArtifactKey artifact, InterchangeFormat format) =>
         StringComparer.Ordinal.Equals(artifact.FormatKey, format.Key)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new BimFault.Refused(
-                key, BimScope.Events, BimReason.Codec,
+            : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Events, BimReason.Codec,
                 string.Join(':', new object?[] { "event-artifact-format-mismatch", artifact.FormatKey, format.Key })));
 
-    static Fin<IdsOutcome> VerdictOutcome(string? value, Op key) =>
+    static Fin<IdsOutcome> VerdictOutcome(string? value) =>
         value is not null && IdsOutcome.TryGet(value, out var outcome)
             ? Fin.Succ(outcome)
-            : Fin.Fail<IdsOutcome>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", "outcome" })));
+            : Fin.Fail<IdsOutcome>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", "outcome" })));
 
-    static Fin<RuleSeverity> Severity(string? value, Op key) =>
+    static Fin<RuleSeverity> Severity(string? value) =>
         value is not null && RuleSeverity.TryGet(value, out var severity)
             ? Fin.Succ(severity)
-            : Fin.Fail<RuleSeverity>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", "severity" })));
+            : Fin.Fail<RuleSeverity>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", "severity" })));
 
-    static Fin<T> Wire<T>(JsonElement data, JsonTypeInfo<T> shape, Op key) where T : class =>
-        key.Catch(() => data.Deserialize(shape))
+    static Fin<T> Wire<T>(JsonElement data, JsonTypeInfo<T> shape) where T : class =>
+        Try.lift(() => data.Deserialize(shape)).Run().Bind(static inner => inner)
             .Bind(wire => wire is null
-                ? Fin.Fail<T>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-body-miss", "payload-null" })))
+                ? Fin.Fail<T>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-body-miss", "payload-null" })))
                 : Fin.Succ(wire));
 
-    static Fin<BimIssueMutation> IssueMutation(string? value, Op key) =>
+    static Fin<BimIssueMutation> IssueMutation(string? value) =>
         value is not null && BimIssueMutation.TryGet(value, out var mutation)
             ? Fin.Succ(mutation)
-            : Fin.Fail<BimIssueMutation>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-mutation-miss", value ?? "" })));
+            : Fin.Fail<BimIssueMutation>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-mutation-miss", value ?? "" })));
 
-    static Fin<string> Required(string? value, string slot, Op key) =>
+    static Fin<string> Required(string? value, string slot) =>
         value?.Trim() is { Length: > 0 } trimmed
             ? Fin.Succ(trimmed)
-            : Fin.Fail<string>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", slot })));
+            : Fin.Fail<string>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", slot })));
 
-    static Fin<T> NonNegative<T>(T value, string slot, Op key) where T : INumber<T> => value >= T.Zero
+    static Fin<T> NonNegative<T>(T value, string slot) where T : INumber<T> => value >= T.Zero
         ? Fin.Succ(value)
-        : Fin.Fail<T>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-negative", slot, value.ToString() ?? "" })));
+        : Fin.Fail<T>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-negative", slot, value.ToString() ?? "" })));
 
-    static Fin<string> GuidText(string? value, string slot, Op key) =>
+    static Fin<string> GuidText(string? value, string slot) =>
         value is not null
         && Guid.TryParseExact(value, "D", out Guid parsed)
         && StringComparer.Ordinal.Equals(value, parsed.ToString("D"))
             ? Fin.Succ(value)
-            : Fin.Fail<string>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", slot, value ?? "" })));
+            : Fin.Fail<string>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-slot-malformed", slot, value ?? "" })));
 
-    static Fin<Option<string>> OptionalGuid(string? value, string slot, Op key) => value is null
+    static Fin<Option<string>> OptionalGuid(string? value, string slot) => value is null
         ? Fin.Succ(Option<string>.None)
-        : GuidText(value, slot, key).Map(Some);
+        : GuidText(value, slot).Map(Some);
 
-    static Fin<ContentKeySet> ContentKeys(ImmutableArray<string> values, string slot, Op key) =>
+    static Fin<ContentKeySet> ContentKeys(ImmutableArray<string> values, string slot) =>
         WireSet.Ordered(values)
-            ? toSeq(values).TraverseM(value => ContentHash.Admit(hex: value, key: key)).As().Map(ContentKeySet.Create)
-            : Fin.Fail<ContentKeySet>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-set-malformed", slot })));
+            ? toSeq(values).TraverseM(value => ContentHash.Admit(hex: value)).As().Map(ContentKeySet.Create)
+            : Fin.Fail<ContentKeySet>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-set-malformed", slot })));
 
-    static Fin<ContentAddress> Address(string? hex, Op key) =>
+    static Fin<ContentAddress> Address(string? hex) =>
         ContentAddress.Validate(hex, CultureInfo.InvariantCulture, out ContentAddress? address) is null
             ? Fin.Succ(address!)
-            : Fin.Fail<ContentAddress>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-key-malformed", hex ?? "" })));
+            : Fin.Fail<ContentAddress>(new BimFault.Refused(BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-key-malformed", hex ?? "" })));
 }
 ```
 

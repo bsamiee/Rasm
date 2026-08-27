@@ -81,13 +81,13 @@ public sealed partial class LinkSubject {
         ref bool skipNested) =>
         validationError = mode is not null && style is not null
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkSubject), "an admitted source mode and update style", Option<Op>.None }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkSubject), "an admitted source mode and update style", Option<>.None }));
 
-    public static Fin<LinkSubject> Of(InstanceDefinition definition, RhinoDoc document, Op key) =>
-        from mode in SourceMode.Of(update: definition.UpdateType, key: key)
-        from style in key.Row<LinkedInstanceDefinitionUpdateStyle, UpdateStyle>(document.LinkedInstanceDefinitionUpdate)
+    public static Fin<LinkSubject> Of(InstanceDefinition definition, RhinoDoc document) =>
+        from mode in SourceMode.Of(update: definition.UpdateType)
+        from style in FactoryBridge.Row<LinkedInstanceDefinitionUpdateStyle, UpdateStyle>(document.LinkedInstanceDefinitionUpdate)
         let health = SourceHealth.Of(status: definition.ArchiveFileStatus)
-        from admitted in key.AcceptValidated<LinkSubject>(
+        from admitted in FactoryBridge.Accept<LinkSubject>(
             fault: Validate(mode, style, health, definition.SkipNestedLinkedDefinitions, out LinkSubject? subject),
             admitted: subject)
         select admitted;
@@ -116,9 +116,9 @@ public sealed partial class LinkWatchPolicy {
         ref StreamPolicy stream) =>
         validationError = debounce >= Duration.Zero && stream is not null
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkWatchPolicy), "a non-negative debounce and a facts bound", Option<Op>.None }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkWatchPolicy), "a non-negative debounce and a facts bound", Option<>.None }));
 
-    public static Fin<LinkWatchPolicy> Of(Duration debounce, StreamPolicy stream, Op? key = null) =>
+    public static Fin<LinkWatchPolicy> Of(Duration debounce, StreamPolicy stream) =>
         key.OrDefault().AcceptValidated<LinkWatchPolicy>(
             fault: Validate(debounce, stream, out LinkWatchPolicy? policy),
             admitted: policy);
@@ -223,30 +223,23 @@ public sealed class PreviewGrant : IDisposable {
         int version,
         Lease<GdiBitmap> image,
         Seq<Error> cleanupFaults,
-        Func<Seq<Error>> release,
-        Op op) =>
-        LifecycleGate.Of(settleWithin: BlockVault.GrantSettle.ToTimeSpan(), key: op).Map(gate => new PreviewGrant(
-            key: key,
-            version: version,
+        Func<Seq<Error>> release) =>
+        LifecycleGate.Of(settleWithin: BlockVault.GrantSettle.ToTimeSpan()).Map(gate => new PreviewGrant(version: version,
             gate: gate,
             image: image,
             cleanupFaults: cleanupFaults,
             release: release));
 
-    public Fin<T> Use<T>(Func<GdiBitmap, Fin<T>> body, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(body).Bind(run => gate.Within(
+    public Fin<T> Use<T>(Func<GdiBitmap, Fin<T>> body) {
+        return Admit.Need(body).Bind(run => gate.Within(
             body: () => run(arg: image.Resource),
-            refused: () => Fin.Fail<T>(error: op.InvalidContext()),
-            key: op));
+            refused: () => Fin.Fail<T>(error: new KernelFault.InvalidContext())));
     }
 
     public void Dispose() {
-        Op op = Op.Of(name: nameof(Dispose));
         _ = gate.Close(
             stop: static () => Fin.Succ(value: unit),
-            settle: () => BlockVault.Lowered(faults: release()),
-            key: op).Match(
+            settle: () => BlockVault.Lowered(faults: release())).Match(
                 Succ: static _ => unit,
                 Fail: error => ignore(cleanupFaults.Swap(f: held => held.Add(value: error))));
     }
@@ -287,7 +280,7 @@ public sealed class BlockVault {
 
     public static BlockVault Of() => new();
 
-    internal Fin<DocSeal> Enrol(DocumentSession owner, RefreshPolicy policy, Op op) =>
+    internal Fin<DocSeal> Enrol(DocumentSession owner, RefreshPolicy policy) =>
         from watch in DocumentStream.Observe(request: new Observation.Host(
             Scope: new EventScope.Document(Key: owner.Key),
             Families: Seq(
@@ -298,76 +291,73 @@ public sealed class BlockVault {
             Policy: StreamPolicy.Operational))
         let seal = new DocSeal(Value: Cell.Commit(seals, static held => held + 1L).Current)
         from seated in Cell.Claim(enrolled, owner.Key, () => new DocEnrolment(Seal: seal, Observation: watch)).Switch(
-            state: (Watch: watch, Op: op),
+            state: watch,
             committed: (held, row) => row.State.Find(owner.Key)
                 .Map(static entry => entry.Seal)
-                .ToFin(Fail: held.Op.InvalidResult()),
+                .ToFin(Fail: new KernelFault.InvalidResult()),
             ceded: (held, row) => row.State.Find(owner.Key)
                 .Map(static entry => entry.Seal)
-                .ToFin(Fail: held.Op.InvalidResult())
-                .Bind(seated => Closed(watch: held.Watch, op: held.Op).Map(_ => seated)),
+                .ToFin(Fail: new KernelFault.InvalidResult())
+                .Bind(seated => Closed(watch: held).Map(_ => seated)),
             refused: static (held, row) => Fin.Fail<DocSeal>(error: row.Cause),
-            contended: static (held, _) => Fin.Fail<DocSeal>(error: held.Op.InvalidResult()))
+            contended: static (held, _) => Fin.Fail<DocSeal>(error: new KernelFault.InvalidResult()))
         select seated;
 
-    internal Fin<DocSeal> Engage(DocumentSession session, RefreshPolicy policy, Op op) =>
-        from owner in op.Need(session)
-        from active in op.Need(policy)
-        from seal in enrolled.Value.Find(key: owner.Key).Match(
+    internal Fin<DocSeal> Engage(DocumentSession session, RefreshPolicy policy) =>
+        from owner in Admit.Need(session)
+        from active in Admit.Need(policy)
+        from seal in enrolled.Value.Find().Match(
             Some: static held => Fin.Succ(value: held.Seal),
-            None: () => Enrol(owner: owner, policy: active, op: op))
+            None: () => Enrol(owner: owner, policy: active))
         select seal;
 
-    private static Fin<Unit> Closed(Watch watch, Op op) => op.Catch(() =>
+    private static Fin<Unit> Closed(Watch watch) => Try.lift(() =>
         watch.Close() is SubscriptionRelease.Faulted faulted
             ? Lowered(faults: faulted.Errors)
-            : Fin.Succ(value: unit));
+            : Fin.Succ(value: unit)).Run().Bind(static inner => inner);
 
     private Fin<Unit> Delivered(DocEvent fact, DocumentSession owner, RefreshPolicy policy) {
-        Op key = Op.Of(name: nameof(Engage));
         return fact.Origin switch {
             EventOrigin.Host { Family: var family } when family == EventFamily.Closed => Evict(document: owner.Key, op: key),
             EventOrigin.Host { Family: var family }
                 when family == EventFamily.InstanceDefinitionTable || family == EventFamily.WorksessionFile =>
-                Invalidate(document: owner.Key, policy: policy, session: Some(owner), op: key),
+                Invalidate(document: owner.Key, policy: policy, session: Some(owner)),
             _ => Fin.Succ(value: unit),
         };
     }
 
-    internal Fin<PreviewGrant> Lease(DocumentSession owner, ResourceRef address, BlockPreview request, Op op) =>
-        from seal in Engage(session: owner, policy: RefreshPolicy.Lazy, op: op)
+    internal Fin<PreviewGrant> Lease(DocumentSession owner, ResourceRef address, BlockPreview request) =>
+        from seal in Engage(session: owner, policy: RefreshPolicy.Lazy)
         from key in owner.Demand(
-            use: document => Definitions.Resolve(target: address, document: document, key: op)
+            use: document => Definitions.Resolve(target: address, document: document)
                 .Map(definition => new PreviewKey(
                     seal: seal,
                     document: owner.Key,
                     definition: definition.Id,
                     spec: request)),
-            key: op,
             needs: [SessionNeed.Read])
-        from cached in TryGrant(key: key, op: op)
+        from cached in TryGrant()
         from grant in cached.Match(
             Some: static held => Fin.Succ(value: held),
-            None: () => Render(session: owner, target: address, key: key, op: op))
+            None: () => Render(session: owner, target: address))
         select grant;
 
-    internal Fin<Unit> Evict(DocKey document, Op op) =>
+    internal Fin<Unit> Evict(DocKey document) =>
         from _ in Invalidate(
             document: document,
             policy: RefreshPolicy.Drop,
-            session: Option<DocumentSession>.None,
-            op: op)
+            session: Option<DocumentSession>.None)
         from discharged in Cell.Step(
                 enrolled,
                 held => held.Find(document).Map(_ => held.Remove(key: document)),
-                op.InvalidResult()).Switch(
-            state: (Entry: enrolled.Value.Find(document), Op: op),
-            committed: static (held, _) => Fin.Succ(value: held.Entry),
-            ceded: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()),
+                new KernelFault.InvalidResult()).Switch(
+            state: enrolled.Value.Find(document),
+            committed: static (held, _) => Fin.Succ(value: held),
+            ceded: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: new KernelFault.InvalidResult()),
             refused: static (_, _) => Fin.Succ(Option<DocEnrolment>.None),
-            contended: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()))
+            contended: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: new KernelFault.InvalidResult()))
         from closed in discharged
-            .TraverseM(held => Closed(watch: held.Observation, op: op)).As()
+            .TraverseM(held => Closed(watch: held.Observation)).As()
             .Map(static _ => unit)
         select unit;
 
@@ -376,8 +366,7 @@ public sealed class BlockVault {
         ResourceRef address,
         string source,
         LinkWatchPolicy active,
-        Option<TimeProvider> clock,
-        Op op) =>
+        Option<TimeProvider> clock) =>
         DocumentStream.Observe(request: new Observation.File(
             Path: source,
             Debounce: active.Debounce.ToTimeSpan(),
@@ -394,9 +383,8 @@ public sealed class BlockVault {
     private Fin<Unit> Invalidate(
         DocKey document,
         RefreshPolicy policy,
-        Option<DocumentSession> session,
-        Op op) =>
-        Resolved(document: document, requested: policy, session: session, op: op).Bind(resolved =>
+        Option<DocumentSession> session) =>
+        Resolved(document: document, requested: policy, session: session).Bind(resolved =>
         Commit(transition: state => {
             Seq<(PreviewKey Key, PreviewEntry Entry)> hit = state.Live.AsIterable()
                 .Filter(pair => pair.Key.Document == document)
@@ -415,11 +403,11 @@ public sealed class BlockVault {
             VaultState next = rows.Fold(
                 state,
                 (fold, row) => row.Action == SweepAction.Freed
-                    ? fold with { Live = fold.Live.Remove(key: row.Key) }
+                    ? fold with { Live = fold.Live.Remove() }
                     : row.Action == SweepAction.Retired
                         ? fold.Live.Find(row.Key).Match(
                             Some: entry => fold with {
-                                Live = fold.Live.Remove(key: row.Key),
+                                Live = fold.Live.Remove(),
                                 Retired = fold.Retired.AddOrUpdate(key: (row.Key, entry.Version), value: entry),
                             },
                             None: () => fold)
@@ -429,16 +417,15 @@ public sealed class BlockVault {
                             },
                             None: () => fold));
             return (next, new VaultOutcome.Swept(Rows: rows));
-        }, op: op).Bind(outcome => outcome.SwitchPartially(
-            state: (Session: session, Op: op, Cell: this),
-            @default: static (held, _) => Fin.Fail<Unit>(error: held.Op.InvalidResult()),
-            swept: (held, swept) => Attempted(held.Op,
-                    () => Lowered(faults: ReleaseAll(
+        }).Bind(outcome => outcome.SwitchPartially(
+            state: (Session: session, Cell: this),
+            @default: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()),
+            swept: (held, swept) => Attempted(() => Lowered(faults: ReleaseAll(
                         images: swept.Rows.Choose(static row => row.Closing),
                         op: held.Op)),
                     () => swept.Rows
                         .Filter(static row => row.Action == SweepAction.Rerender)
-                        .Traverse(row => held.Session.ToFin(Fail: held.Op.MissingContext())
+                        .Traverse(row => held.Session.ToFin(Fail: new KernelFault.MissingContext())
                             .Bind(active => Rerendered(session: active, key: row.Key, op: held.Op))
                             .ToValidation())
                         .As()
@@ -448,14 +435,13 @@ public sealed class BlockVault {
     private Fin<HashMap<Guid, RefreshPolicy>> Resolved(
         DocKey document,
         RefreshPolicy requested,
-        Option<DocumentSession> session,
-        Op op) =>
+        Option<DocumentSession> session) =>
         session.Match(
             None: () => Fin.Succ(vault.Value.Live.AsIterable()
                 .Filter(pair => pair.Key.Document == document)
                 .Map(pair => (pair.Key.Definition, requested))
                 .ToHashMap()),
-            Some: active => active.Demand(
+            Some: active => Admit.Demand(
                 use: held => vault.Value.Live.AsIterable()
                     .Filter(pair => pair.Key.Document == document)
                     .Map(static pair => pair.Key.Definition)
@@ -463,33 +449,32 @@ public sealed class BlockVault {
                     .ToSeq()
                     .Traverse(definition => (
                         from target in ResourceRef.Of(id: definition)
-                        from resolved in Definitions.Resolve(target: target, document: held, key: op)
-                        from subject in LinkSubject.Of(definition: resolved, document: held, key: op)
+                        from resolved in Definitions.Resolve(target: target, document: held)
+                        from subject in LinkSubject.Of(definition: resolved, document: held)
                         let effective = RefreshPolicy.Of(subject: subject, requested: requested)
                         select (Definition: definition, Effective: effective)).ToValidation())
                     .As()
                     .ToFin()
                     .Map(static rows => rows.Map(static row => (row.Definition, row.Effective)).ToHashMap()),
-                key: op,
                 needs: [SessionNeed.Read]));
 
-    private Fin<Unit> Rerendered(DocumentSession session, PreviewKey key, Op op) =>
+    private Fin<Unit> Rerendered(DocumentSession session, PreviewKey key) =>
         ResourceRef.Of(id: key.Definition)
-            .Bind(target => Render(session: session, target: target, key: key, op: op))
-            .Bind(grant => op.Catch(() => {
+            .Bind(target => Render(session: session, target: target))
+            .Bind(grant => Try.lift(() => {
                 grant.Dispose();
                 return Lowered(faults: grant.CleanupFaults);
-            }));
+            }).Run().Bind(static inner => inner));
 
-    private Fin<PreviewGrant> Render(DocumentSession session, ResourceRef target, PreviewKey key, Op op) =>
+    private Fin<PreviewGrant> Render(DocumentSession session, ResourceRef target, PreviewKey key) =>
         Blocks.Ask(session: session, request: new BlockAsk.Preview(Target: target, Spec: key.Spec)).Bind(answer =>
             answer is BlockAnswer.Rendered rendered
-                ? Committed(key: key, image: rendered.Preview, op: op)
-                : Fin.Fail<PreviewGrant>(error: op.InvalidResult()));
+                ? Committed(image: rendered.Preview)
+                : Fin.Fail<PreviewGrant>(error: new KernelFault.InvalidResult()));
 
-    private Fin<PreviewGrant> Committed(PreviewKey key, Lease<GdiBitmap> image, Op op) =>
+    private Fin<PreviewGrant> Committed(PreviewKey key, Lease<GdiBitmap> image) =>
         Commit(transition: state => {
-                Option<PreviewEntry> prior = state.Live.Find(key: key);
+                Option<PreviewEntry> prior = state.Live.Find();
                 int liveVersion = prior.Map(static held => held.Version).IfNone(noneValue: 0);
                 int retiredVersion = state.Retired.AsIterable()
                     .Filter(pair => pair.Key.Key == key)
@@ -501,75 +486,61 @@ public sealed class BlockVault {
                     .IfNone(Seq<Lease<GdiBitmap>>());
                 PreviewEntry next = new(Version: version, Image: image, Grants: 1, Stale: false);
                 VaultState changed = state with {
-                    Live = state.Live.AddOrUpdate(key: key, value: next),
+                    Live = state.Live.AddOrUpdate(value: next),
                     Retired = prior.Filter(static held => held.Grants > 0)
-                        .Map(held => state.Retired.AddOrUpdate(key: (key, held.Version), value: held))
+                        .Map(held => state.Retired.AddOrUpdate(key: (held.Version), value: held))
                         .IfNone(state.Retired),
                 };
                 return (changed, new VaultOutcome.Committed(Version: version, Image: image, Closing: closing));
-            }, op: op)
+            })
             .Bind(outcome => outcome.SwitchPartially(
                 state: (Key: key, Op: op, Cell: this),
-                @default: static (held, _) => Fin.Fail<PreviewGrant>(error: held.Op.InvalidResult()),
-                committed: (held, committed) => Granted(
-                    key: held.Key,
-                    version: committed.Version,
+                @default: static (held, _) => Fin.Fail<PreviewGrant>(error: new KernelFault.InvalidResult()),
+                committed: (held, committed) => Granted(version: committed.Version,
                     image: committed.Image,
-                    cleanupFaults: ReleaseAll(images: committed.Closing, op: held.Op),
-                    op: held.Op)))
-            .Rollback(release: () => Lowered(faults: ReleaseAll(images: Seq(image), op: op)), key: op);
+                    cleanupFaults: ReleaseAll(images: committed.Closing))))
+            .Rollback(release: () => Lowered(faults: ReleaseAll(images: Seq(image))));
 
-    private Fin<Option<PreviewGrant>> TryGrant(PreviewKey key, Op op) =>
-        Commit(transition: state => state.Live.Find(key: key).Case switch {
+    private Fin<Option<PreviewGrant>> TryGrant(PreviewKey key) =>
+        Commit(transition: state => state.Live.Find().Case switch {
             PreviewEntry { Stale: false } current => (
                 state with {
-                    Live = state.Live.AddOrUpdate(
-                        key: key,
-                        value: current with { Grants = current.Grants + 1 }),
+                    Live = state.Live.AddOrUpdate(value: current with { Grants = current.Grants + 1 }),
                 },
                 new VaultOutcome.Granted(Version: current.Version, Image: current.Image)),
             _ => (state, new VaultOutcome.Miss()),
-        }, op: op).Bind(outcome => outcome.SwitchPartially(
+        }).Bind(outcome => outcome.SwitchPartially(
             state: (Key: key, Op: op, Cell: this),
             @default: static (_, _) => Fin.Succ(Option<PreviewGrant>.None),
-            granted: (held, granted) => Granted(
-                    key: held.Key,
-                    version: granted.Version,
+            granted: (held, granted) => Granted(version: granted.Version,
                     image: granted.Image,
-                    cleanupFaults: Seq<Error>(),
-                    op: held.Op)
+                    cleanupFaults: Seq<Error>())
                 .Map(Some)));
 
     private Fin<PreviewGrant> Granted(
         PreviewKey key,
         int version,
         Lease<GdiBitmap> image,
-        Seq<Error> cleanupFaults,
-        Op op) =>
-        PreviewGrant.Of(
-            key: key,
-            version: version,
+        Seq<Error> cleanupFaults) =>
+        PreviewGrant.Of(version: version,
             image: image,
             cleanupFaults: cleanupFaults,
-            release: () => Release(key: key, version: version),
-            op: op);
+            release: () => Release(version: version));
 
-    private static Seq<Error> ReleaseAll(Seq<Lease<GdiBitmap>> images, Op op) =>
+    private static Seq<Error> ReleaseAll(Seq<Lease<GdiBitmap>> images) =>
         Custody.Release(
                 held: images,
-                release: image => op.Catch(() => { image.Dispose(); return Fin.Succ(value: unit); }),
-                key: op)
+                release: image => Try.lift(() => { image.Dispose(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner))
             .Match(Succ: static _ => Seq<Error>(), Fail: static error => Seq(error));
 
     internal static Fin<Unit> Lowered(Seq<Error> faults) =>
         faults.IsEmpty ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Error.Many(faults));
 
-    private static Fin<Unit> Attempted(Op op, params ReadOnlySpan<Func<Fin<Unit>>> attempts) =>
-        Custody.Release(releases: toSeq(attempts.ToArray()), key: op);
+    private static Fin<Unit> Attempted(params ReadOnlySpan<Func<Fin<Unit>>> attempts) =>
+        Custody.Release(releases: toSeq(attempts.ToArray()));
 
     private Seq<Error> Release(PreviewKey key, int version) {
-        Op op = Op.Of(name: nameof(Release));
-        return Commit(transition: state => state.Live.Find(key: key).Case switch {
+        return Commit(transition: state => state.Live.Find().Case switch {
                 PreviewEntry current when current.Version == version => (
                     state with {
                         Live = state.Live.AddOrUpdate(
@@ -577,76 +548,71 @@ public sealed class BlockVault {
                             value: current with { Grants = int.Max(current.Grants - 1, 0) }),
                     },
                     VaultOutcome.Clean),
-                _ => state.Retired.Find(key: (key, version)).Case switch {
+                _ => state.Retired.Find(key: (version)).Case switch {
                     PreviewEntry parked when parked.Grants <= 1 => (
-                        state with { Retired = state.Retired.Remove(key: (key, version)) },
+                        state with { Retired = state.Retired.Remove(key: (version)) },
                         (VaultOutcome)new VaultOutcome.Swept(
-                            Rows: Seq((key, SweepAction.Freed, Some(parked.Image))))),
+                            Rows: Seq((SweepAction.Freed, Some(parked.Image))))),
                     PreviewEntry parked => (
                         state with {
                             Retired = state.Retired.AddOrUpdate(
-                                key: (key, version),
+                                key: (version),
                                 value: parked with { Grants = parked.Grants - 1 }),
                         },
                         VaultOutcome.Clean),
                     _ => (state, VaultOutcome.Clean),
                 },
-            }, op: op)
+            })
             .Match(
                 Succ: outcome => outcome is VaultOutcome.Swept swept
-                    ? ReleaseAll(images: swept.Rows.Choose(static row => row.Closing), op: op)
+                    ? ReleaseAll(images: swept.Rows.Choose(static row => row.Closing))
                     : Seq<Error>(),
                 Fail: static error => Seq(error));
     }
 
     private Fin<VaultOutcome> Commit(
-        Func<VaultState, (VaultState State, VaultOutcome Outcome)> transition,
-        Op op) => op.Catch(() =>
+        Func<VaultState, (VaultState State, VaultOutcome Outcome)> transition) => Try.lift(() =>
         Cell.Commit(vault, state => {
             (VaultState next, VaultOutcome outcome) = transition(arg: state);
             return next with { LastOutcome = outcome };
         }).Switch(
             state: op,
             committed: static (_, row) => Fin.Succ(value: row.State.LastOutcome),
-            ceded: static (key, _) => Fin.Fail<VaultOutcome>(error: key.InvalidResult()),
+            ceded: static (_) => Fin.Fail<VaultOutcome>(error: new KernelFault.InvalidResult()),
             refused: static (_, row) => Fin.Fail<VaultOutcome>(error: row.Cause),
-            contended: static (key, _) => Fin.Fail<VaultOutcome>(error: key.InvalidResult())));
+            contended: static (_) => Fin.Fail<VaultOutcome>(error: new KernelFault.InvalidResult()))).Run().Bind(static inner => inner);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class BlockLifecycle {
     private static readonly Atom<Option<BlockVault>> Seat = Atom(Option<BlockVault>.None);
 
-    public static Fin<Unit> Mount(BlockVault vault, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Unit> Mount(BlockVault vault) {
         return Cell.Seat(Seat, () => vault).Switch(
             state: op,
             committed: static (_, _) => Fin.Succ(value: unit),
-            ceded: static (held, _) => Fin.Fail<Unit>(error: held.InvalidContext()),
+            ceded: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
             refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
-            contended: static (held, _) => Fin.Fail<Unit>(error: held.InvalidResult()));
+            contended: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()));
     }
 
-    private static Fin<BlockVault> Mounted(Op op) => Seat.Value.ToFin(Fail: op.MissingContext());
+    private static Fin<BlockVault> Mounted() => Seat.Value.ToFin(Fail: new KernelFault.MissingContext());
 
     public static Fin<DocSeal> Engage(DocumentSession session, RefreshPolicy policy) {
-        Op op = Op.Of();
-        return Mounted(op: op).Bind(vault => vault.Engage(session: session, policy: policy, op: op));
+        return Mounted().Bind(vault => vault.Engage(session: session, policy: policy));
     }
 
     public static Fin<PreviewGrant> Lease(DocumentSession session, ResourceRef target, BlockPreview spec) {
-        Op op = Op.Of();
-        return from vault in Mounted(op: op)
-               from owner in op.Need(session)
-               from address in op.Need(target)
-               from request in op.Need(spec)
-               from grant in vault.Lease(owner: owner, address: address, request: request, op: op)
+        return from vault in Mounted()
+               from owner in Admit.Need(session)
+               from address in Admit.Need(target)
+               from request in Admit.Need(spec)
+               from grant in vault.Lease(owner: owner, address: address, request: request)
                select grant;
     }
 
     public static Fin<Unit> Evict(DocKey document) {
-        Op op = Op.Of();
-        return Mounted(op: op).Bind(vault => vault.Evict(document: document, op: op));
+        return Mounted().Bind(vault => vault.Evict(document: document));
     }
 
     public static Fin<Watch> WatchLinked(
@@ -655,14 +621,13 @@ public static class BlockLifecycle {
         string path,
         LinkWatchPolicy policy,
         Option<TimeProvider> clock = default) {
-        Op op = Op.Of();
-        return from vault in Mounted(op: op)
-               from owner in op.Need(session)
-               from address in op.Need(target)
-               from active in op.Need(policy)
-               from source in op.AcceptText(value: path)
+        return from vault in Mounted()
+               from owner in Admit.Need(session)
+               from address in Admit.Need(target)
+               from active in Admit.Need(policy)
+               from source in Acceptance.Text(value: path)
                from watch in vault.WatchLinked(
-                   owner: owner, address: address, source: source, active: active, clock: clock, op: op)
+                   owner: owner, address: address, source: source, active: active, clock: clock)
                select watch;
     }
 }

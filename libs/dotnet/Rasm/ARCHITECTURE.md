@@ -10,7 +10,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Results.cs         # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor
 │   ├── Context.cs         # ToleranceLane rows bind Band and BaseDimensions; Context.For(lane) is the one read every gate threads
 │   ├── Identity.cs        # CanonicalWriter, XXH ContentHash, SHA-256 ArtifactContent, and deterministic derivation
-│   ├── Validation.cs      # OpAcceptance.ValidityOf single validity oracle; CapabilitySet<TCapability> the one capability column
+│   ├── Validation.cs      # Acceptance.ValidityOf single validity oracle; CapabilitySet<TCapability> the one capability column
 │   ├── Normalization.cs   # Erased-geometry conversion owner: Lease<GeometryBase> admission and the typed coercion table
 │   ├── Evaluation.cs      # ClosestHit over Rhino.Geometry values alone; document or view reach is the boundary violation
 │   ├── Stats.cs           # One Welford four-moment recurrence and one order-statistic reader serve every measured carrier
@@ -18,7 +18,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Frame.cs           # TelemetrySource, CorrelationId, TenantContext, the Hlc stamp cell and CausalStamp, session-GUC namespace
 │   ├── Instrument.cs      # Declaration rows bind meters at mount; the backend-free tally answers a doctor verb with no exporter or store
 │   ├── Objective.cs       # Sli family, burn rows, AlertSeverity ladder, PanelSpec, BoardPack, and BenchClaim as policy data
-│   ├── Telemetry.cs       # FaultObservation, SignalFact, SpanBand, OpCost, and TelemetryContributorPort; wire-neutral evidence, no messages
+│   ├── Telemetry.cs       # FaultObservation, SignalFact, SpanBand, Cost, and TelemetryContributorPort; wire-neutral evidence, no messages
 │   └── Event.cs           # Branch's one message-envelope algebra every stratum composes; announcements gain no authority over facts
 ├── Numerics/              # Exact-predicate floor and host-neutral-shaped numerics
 │   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission boundary

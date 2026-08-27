@@ -359,8 +359,8 @@ public readonly record struct InclusionProof(int Leaf, int Size, Seq<(int Level,
 public readonly record struct ConsistencyProof(int OldSize, int NewSize, UInt128 OldRoot, UInt128 NewRoot);
 
 public readonly record struct WitnessedHead(UInt128 Root, int Leaves, Option<SignedAuthorship> Signature, Instant At) {
-    public static Fin<ReadOnlyMemory<byte>> Canonical(UInt128 root, int leaves, Instant at, Op key) =>
-        CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance).U128(root).Ordinal(leaves).I64(at.ToUnixTimeTicks()).ToBytes(key);
+    public static Fin<ReadOnlyMemory<byte>> Canonical(UInt128 root, int leaves, Instant at) =>
+        CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance).U128(root).Ordinal(leaves).I64(at.ToUnixTimeTicks()).ToBytes();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -437,7 +437,7 @@ public static class AttestedLedger {
         new(older.Leaves, newer.Leaves, older.Root, newer.Root);
 
     public static IO<WitnessedHead> Witness(MerkleAudit audit, Func<ReadOnlyMemory<byte>, IO<Option<SignedAuthorship>>> sign, Instant at) =>
-        IO.lift(WitnessedHead.Canonical(audit.Root, audit.Leaves, at, Op.Of()))
+        IO.lift(WitnessedHead.Canonical(audit.Root, audit.Leaves, at))
             .Bind(sign)
             .Map(signature => new WitnessedHead(audit.Root, audit.Leaves, signature, at));
 

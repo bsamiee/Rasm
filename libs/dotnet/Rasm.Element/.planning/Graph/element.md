@@ -25,7 +25,7 @@ PHASE splits the graph: live authoring rides the `TrackingHashMap` HAMT `Graph/d
 - Auto: each case carries `NodeId Id` as a positional override of the union's abstract `Id`, so `node.Id` reads without a switch; `CanonicalBytes` dispatches the generated total `Switch` writing each case's semantic content (an `Object` its kind/classification/predefined/name/tag/representations/span; a `Material` its key/composition/properties; a bag its set name, inheritance key, and count-prefixed sorted name→value entries, a quantity bag its count-prefixed sorted `GroupIdentity` run beside them; a measure quantized to the tolerance) into the kernel `CanonicalWriter` under the `Projection/address#IMPLEMENTATION_LAW` codec, the id excluded so a non-rooted node's id derives from its own bytes without circularity; a rooted `Object` mints its id once at authoring — an OCCURRENCE its Guid-v7 placement identity, a TYPE its DETERMINISTIC mint over the `WriteIdentity` segments (the volatile `Representations` AND secondary `Classifications` excluded so a later geometry attach or standard-classification stamp never re-keys the Type and identical `Component`s dedup to one Type) — the IFC GlobalId staying a Bim-stored projection attribute re-emitted at `Emit`.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`IObjectFactory`), LanguageExt.Core (`Option`/`Seq`/`Map`), NodaTime (`Instant`), `Rasm` (the kernel `Op` op-key + the `Domain.ContentHash` seed-zero content-hash entry the `NodeSeed.Content` mint composes). `Rasm.Element.Graph` OWNS the neutral `Vector3` the `AxisCurve`/`FootprintPolygon` analytical shapes carry (the kernel `Rasm.Numerics` coordinate is the host `Vector3d` the contract Boundary forbids; no neutral kernel triple exists), so the contract mints its own host-free coordinate AND its full vector algebra (`Length`/`Distance`/`Dot`/`Cross`/`Unit` + the `UnitX`/`UnitY`/`UnitZ`/`Zero` constants + the `+`/`-`/`*` operators) — the `Rasm.Bim` scan-to-BIM orientation classifier (`Vector3.Dot(normal.Unit, Vector3.UnitZ)`) and the `Rasm.Compute` structural load-vector folds compose THIS one coordinate rather than a kernel/host vector, so a phantom kernel `Vector3` or a `System.Numerics.Vector3` crossing the analytical-shape math is the deleted host leak.
 - Growth: a new node concept is one `Node` case carrying its payload type, the payload owning its own `CanonicalBytes` contribution so the arm is one ordinal and one delegation (the `Observation` series landed exactly this way; a `Schedule`/`Task` node lands here only if 4D becomes a real target); a new object axis is one column on the `Object` case; a new node-payload component is one type on its owning sibling page; never a parallel node family and never a second identity scheme — the `NodeId` is the one owner, `MaterialId` a node attribute, not a parallel key. New object columns land with their wire field and their presence-delimited `CanonicalBytes` contribution in one edit under the additive contract-evolution law — `ObjectType` is the landed instance, carrying the IFC-canonical `(PredefinedType = USERDEFINED, ObjectType = label)` designation for BOTH object kinds — the Bim `Projection/semantic` `UserLabel` ingress reads it off `IfcObject.ObjectType` or `IfcElementType.ElementType` and `Projection/egress` `StampPredefined` re-stamps the matching slot, one column for the exact round-trip.
-- Boundary: `NodeId` is the ONE identity owner: occurrence roots use Guid-v7 placement identity, type roots hash the representation-excluded type seed, and non-rooted nodes hash full canonical content. `Object` carries the primary and co-applied classifications, `PredefinedType`, content-keyed representations, owner history, and schema span; geometry stays behind `GeometrySource`, model georeferencing stays on `Header`, and IFC rosters stay in the Bim projector. `CanonicalBytes(w)` is the shared id/diff projection, and bag source rank participates in property/quantity node identity. `AppearanceSummary` is FROZEN at its seven-value preimage, carried as ONE `AppearanceVector` admitted through `Of(vector, key) -> Fin<AppearanceSummary>`: a peer carrying a richer appearance fact — a baked texture-set key, an environment binding, a UV transform, a measured refractive index — hangs it behind the `AppearanceKey` on its own wire, because an eighth column re-keys every stored `Node.Appearance` and forks the Bim dedup key in the same edit.
+- Boundary: `NodeId` is the ONE identity owner: occurrence roots use Guid-v7 placement identity, type roots hash the representation-excluded type seed, and non-rooted nodes hash full canonical content. `Object` carries the primary and co-applied classifications, `PredefinedType`, content-keyed representations, owner history, and schema span; geometry stays behind `GeometrySource`, model georeferencing stays on `Header`, and IFC rosters stay in the Bim projector. `CanonicalBytes(w)` is the shared id/diff projection, and bag source rank participates in property/quantity node identity. `AppearanceSummary` is FROZEN at its seven-value preimage, carried as ONE `AppearanceVector` admitted through `Of(vector) -> Fin<AppearanceSummary>`: a peer carrying a richer appearance fact — a baked texture-set key, an environment binding, a UV transform, a measured refractive index — hangs it behind the `AppearanceKey` on its own wire, because an eighth column re-keys every stored `Node.Appearance` and forks the Bim dedup key in the same edit.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -219,11 +219,11 @@ public readonly record struct GeometrySource(
     public Option<AxisCurve> Axis(RepresentationContentHash representations) => representations.At(RepresentationSlot.Axis).Bind(ResolveAxis);
     public Option<FootprintPolygon> Footprint(RepresentationContentHash representations) => representations.At(RepresentationSlot.FootPrint).Bind(ResolveFootprint);
 
-    public Fin<Representation> ResolveRepresentation(Node.Object node, RepresentationSlot slot, Op key) =>
+    public Fin<Representation> ResolveRepresentation(Node.Object node, RepresentationSlot slot) =>
         node.Representations.At(slot)
-            .ToFin(new ElementFault.ValueRejected(key, $"<representation-absent:{slot.Key}:{node.Id.ToValue()}>"))
+            .ToFin(new ElementFault.ValueRejected($"<representation-absent:{slot.Key}:{node.Id.ToValue()}>"))
             .Bind(hash => slot.Decode(this, hash)
-                .ToFin(new ElementFault.ValueRejected(key, $"<representation-unresolvable:{slot.Key}:{node.Id.ToValue()}>")));
+                .ToFin(new ElementFault.ValueRejected($"<representation-unresolvable:{slot.Key}:{node.Id.ToValue()}>")));
 }
 
 [ComplexValueObject]
@@ -253,18 +253,18 @@ public sealed record AppearanceSummary {
     public double Opacity => Vector.Opacity;
     public bool Transmissive => Vector.Transmissive;
 
-    public static Fin<AppearanceSummary> Of(AppearanceVector vector, Op key) =>
+    public static Fin<AppearanceSummary> Of(AppearanceVector vector) =>
         Indexed(
             [vector.BaseColorR, vector.BaseColorG, vector.BaseColorB, vector.Metallic, vector.Roughness, vector.Opacity],
-            static channel => channel is >= 0.0 and <= 1.0, key, "appearance-channel")
+            static channel => channel is >= 0.0 and <= 1.0, "appearance-channel")
          .Map(_ => Minted(vector))
          .ToFin();
 
-    public static Fin<AppearanceSummary> Rehydrate(UInt128 appearanceKey, AppearanceVector vector, Op key) =>
-        Of(vector, key).Bind(summary =>
+    public static Fin<AppearanceSummary> Rehydrate(UInt128 appearanceKey, AppearanceVector vector) =>
+        Of(vector).Bind(summary =>
             summary.AppearanceKey == appearanceKey
                 ? Fin.Succ(summary)
-                : new ElementFault.AddressUnstable(key, "<appearance-key-mismatch>"));
+                : new ElementFault.AddressUnstable("<appearance-key-mismatch>"));
 
     private static AppearanceSummary Minted(AppearanceVector vector) =>
         new(ContentAddress.Of(vector, 0.0, static (v, w) =>
@@ -399,10 +399,10 @@ public abstract partial class Node {
 ## [03]-[ELEMENT_GRAPH]
 
 - Owner: `Header` the model header (`ReleaseVersion` + `ModelView` + `Geospatial/reference#GEO_REFERENCE` `GeoReference` + `Tolerance` + `Instant` + `StepHeader` + the `Properties/quantity#MEASURE_VALUE` `UnitScheme` presentation declaration) carrying the ONE semantic-header `CanonicalBytes` projection both the `Projection/address#CONTENT_ADDRESS` `OfGraph` snapshot key and the `Graph/delta#GRAPH_DELTA` `GraphDelta.Address` header contribution compose (the projection owned once, never re-spelled per call site) and the `SameGrid` bitwise-tolerance law every grid gate reads; `ElementGraph` the frozen read snapshot carrying the nodes, edges, the built-once incidence index, the `(EdgeFilter, EdgeOrientation)`-keyed view cache, and the memoized `Bake`; `Element` the derived-fold "has it all" result; `BakedMaterial` the material-plus-usage pair `Bake` folds from an `Associate` edge (the occurrence's own AND, via the named inheritance, the `Component`'s, unioned by `MaterialKey`); `TypeBinding` the named type→occurrence inheritance carrier `Bake` produces from the `Assign.TypeDefinition` resolution (the type id + the inherited `BakedMaterial` set / resolved `SectionProperties` / secondary `Classification`s), surfaced as `Element.Type` so `Element.TypeId` recovers which `Component` a piece realizes.
-- Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by every node its `Members` touch, the `MaterialId`-keyed material index, the demand-built `(EdgeFilter, EdgeOrientation)`-keyed `QuikGraph` view cache over `TypedEdge` legs, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto; `Apply(delta, key)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry), `Fin<T>` refusing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent member — either binary endpoint or a `Connect`'s realizing intermediary, the full `Relationship.Members` closure.
+- Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by every node its `Members` touch, the `MaterialId`-keyed material index, the demand-built `(EdgeFilter, EdgeOrientation)`-keyed `QuikGraph` view cache over `TypedEdge` legs, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto; `Apply(delta)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry), `Fin<T>` refusing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent member — either binary endpoint or a `Connect`'s realizing intermediary, the full `Relationship.Members` closure.
 - Entry: `Bake(objectId, key)` folds the reachable subgraph from an `Object` node into an `Element`, memoized by `objectId` within the snapshot (a new snapshot from a `Graph/delta#GRAPH_DELTA` carries a fresh memo), `Fin<T>` refusing `ElementFault.NodeAbsent` on an absent root and `ElementFault.RelationshipInvalid` on a cyclic `Compose` chain (a `Compose` ancestry set threaded through the fold); `View(filter, orientation)` is the ONE kind-and-orientation scope — memoized per row pair, `TypedEdge` legs carrying the edge so a kind-aware traversal reads it off the leg — with `Topology()` its `(All, Forward)` one-hop; a `Func`-predicate scope died because it could never KEY the cache Persistence's `TopologyView` and Bim's `SpatialStructure` demand; rooted spatial ancestry is Bim `Model/spatial` `SpatialStructure.Ancestry`'s alone (E-E9) — the `Compose` graph is MULTI-PARENT and the real law is Contain-then-Aggregate precedence, which the contract's deleted `ContainmentPath` contradicted.
 - Entry: the read accessors `ObjectNodes`/`Find`/`Find<T>`/`Material(MaterialId)`/`MaterialsOf`/`CompositionOf`/`PropertiesOf`/`SectionOf` enumerate the object roots and resolve a node (raw or typed by case) and the material/composition/property/section subgraph a member binds — `MaterialsOf` carrying the one-hop type-resolved fallback the other three compose (an occurrence with no own material/profile reads its `Component`'s), the Op-FREE `SectionOf(member)` signature FROZEN.
-- Entry: the group family `GroupsOf`/`MembersOf` resolves the `Assign.Group` memberships (every element in system X, the zones a space belongs to) as Op-free incidence reads, and `ObservationsUnder(root, key)` rolls the measured series over the same OWNING `Compose` closure `BakeParts` recurses so a whole answers for its parts' sensors — together the polymorphic surface a `Rasm.Compute` analysis route, a Persistence index pass, and an AppUi model tree read the concrete graph through, the discipline reads (loads/supports/spaces/areas) composing in Compute from these primitives.
+- Entry: the group family `GroupsOf`/`MembersOf` resolves the `Assign.Group` memberships (every element in system X, the zones a space belongs to) as Op-free incidence reads, and `ObservationsUnder(root)` rolls the measured series over the same OWNING `Compose` closure `BakeParts` recurses so a whole answers for its parts' sensors — together the polymorphic surface a `Rasm.Compute` analysis route, a Persistence index pass, and an AppUi model tree read the concrete graph through, the discipline reads (loads/supports/spaces/areas) composing in Compute from these primitives.
 - Auto: `Of` builds the incidence index, the `MaterialId`-keyed material index the `Material(key)` read serves off, and a topology containing every node, including isolated vertices. `Bake` folds one root's incidence: property definitions become bags, assessments land flat, observations become measured series off the occurrence alone, associations become material/appearance/coverage values, owning compositions recurse into parts, and `Assign.TypeDefinition` applies the named type inheritance once. Topology and memo ride the sealed `ElementGraph` as lazy equality-excluded caches; only `Of`, `Genesis`, and `Apply` mint snapshots.
 - Output: the `Element` is the one flat record a consumer reads — `element.Properties.Find(name)`, `element.Materials`, `element.Assessments`, `element.Observations`, `element.Appearance`, `element.Coverages`, `element.Parts`, and `element.TypeId` (the inherited `Component`, the generator's type-representation recovery key), with `ObservationsUnder` the whole-over-parts measured rollup beside them — "has it all" in one `Bake`, never a join across the graph, and the computed-versus-measured commissioning read is `element.Assessments` beside `element.Observations` off one baked root rather than a historian join; the `ElementGraph` is the immutable read snapshot Persistence persists and the projectors assemble onto, its `Generator.Equals` structural equality and `Inequalities` member diff feeding the Persistence 3-way `StructuralMerge`; the keyed `View` cache answers reachability and topological order for a consumer without a second graph; the containment breadcrumb is Bim `SpatialStructure.Ancestry`'s (E-E9).
 - Packages: `Generator.Equals` (`[Equatable]` snapshot equality, `[StringEquality]`/`[UnorderedEquality]`/`[IgnoreEquality]` member policies, `Inequalities` diff, and the generated `EqualityComparer.Default` reused as the LINQ/`HashSet` key comparer outside generated code), QuikGraph (`BidirectionalGraph` over the shared `TypedEdge`, `AlgorithmExtensions`; kind scoping is the `EdgeFilter`-keyed view cache, so no per-call predicate wrapper materializes), LanguageExt.Core (`Seq`/`Map`/`Option`/`Fin`), System.Collections.Frozen/Immutable, NodaTime (`Instant`), `Rasm` (the kernel `Op` op-key).
@@ -525,13 +525,13 @@ public sealed partial class ElementGraph {
 
     public static ElementGraph Genesis(Header header) => Of(header, FrozenDictionary<NodeId, Node>.Empty, []);
 
-    public Fin<ElementGraph> Apply(GraphDelta delta, Op key) {
+    public Fin<ElementGraph> Apply(GraphDelta delta) {
     ElementGraph next = delta.ReplayOnto(this);
     return delta.AddedEdges
     .Choose(e => e.Members.Find(m => !next.Nodes.ContainsKey(m)))
     .Head
     .Match(
-    Some: member => new ElementFault.NodeAbsent(key, $"<replay-edge-member-absent:{member.ToValue()}>"),
+    Some: member => new ElementFault.NodeAbsent($"<replay-edge-member-absent:{member.ToValue()}>"),
     None: () => Fin.Succ(next));
     }
 
@@ -558,7 +558,7 @@ public sealed partial class ElementGraph {
     public Option<T> Find<T>(NodeId id) where T : Node => Find(id).Bind(static n => n is T t ? Some(t) : None);
 
     public Option<Node.Material> Material(MaterialId key) =>
-    materials.TryGetValue(key, out Node.Material? m) ? Some(m) : None;
+    materials.TryGetValue(out Node.Material? m) ? Some(m) : None;
 
     Seq<Node.Material> DirectMaterialsOf(NodeId node) =>
     toSeq(EdgesAt(node)).Choose(e => e is Relationship.Associate r && r.Subject == node ? Find<Node.Material>(r.Resource) : None);
@@ -586,25 +586,25 @@ public sealed partial class ElementGraph {
     public Seq<NodeId> MembersOf(NodeId group) =>
     toSeq(EdgesAt(group)).Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.Group && a.Definition == group ? Some(a.Subject) : None);
 
-    public Fin<Seq<ObservationSeries>> ObservationsUnder(NodeId root, Op key) =>
-    Bake(root, key).Map(static element => Rollup(element));
+    public Fin<Seq<ObservationSeries>> ObservationsUnder(NodeId root) =>
+    Bake(root).Map(static element => Rollup(element));
 
     static Seq<ObservationSeries> Rollup(Element element) =>
     element.Parts.Fold(element.Observations, static (series, part) => series + Rollup(part));
 
     // --- [BAKE] ------------------------------------------------------------------------
-    public Fin<Element> Bake(NodeId objectId, Op key) => Bake(objectId, key, ImmutableHashSet<NodeId>.Empty);
+    public Fin<Element> Bake(NodeId objectId) => Bake(objectId, ImmutableHashSet<NodeId>.Empty);
 
-    Fin<Element> Bake(NodeId objectId, Op key, ImmutableHashSet<NodeId> ancestry) =>
+    Fin<Element> Bake(NodeId objectId, ImmutableHashSet<NodeId> ancestry) =>
     ancestry.Contains(objectId)
-    ? new ElementFault.RelationshipInvalid(key, $"<bake-compose-cycle:{objectId.ToValue()}>")
+    ? new ElementFault.RelationshipInvalid($"<bake-compose-cycle:{objectId.ToValue()}>")
     : bakeMemo.TryGetValue(objectId, out Element? cached)
     ? Fin.Succ(cached)
     : Find<Node.Object>(objectId)
-    .ToFin(new ElementFault.NodeAbsent(key, $"<bake-root-absent:{objectId.ToValue()}>"))
-    .Bind(root => BakeObject(root, key, ancestry.Add(objectId)).Map(element => { bakeMemo[objectId] = element; return element; }));
+    .ToFin(new ElementFault.NodeAbsent($"<bake-root-absent:{objectId.ToValue()}>"))
+    .Bind(root => BakeObject(root, ancestry.Add(objectId)).Map(element => { bakeMemo[objectId] = element; return element; }));
 
-    Fin<Element> BakeObject(Node.Object root, Op key, ImmutableHashSet<NodeId> ancestry) {
+    Fin<Element> BakeObject(Node.Object root, ImmutableHashSet<NodeId> ancestry) {
     Gathered own = Gather(root.Id, GatherFamily.Occurrence);
     Option<(Node.Object Type, Gathered Data)> typeFold = TypeResolutionOf(root.Id);
     Seq<PropertyBag> properties = MergeBagSets(typeFold.Map(static t => t.Data.Properties).IfNone(Seq<PropertyBag>()), own.Properties);
@@ -624,7 +624,7 @@ public sealed partial class ElementGraph {
     t.Type.Id, t.Data.Materials,
     t.Data.Materials.Choose(static m => m.Material.Composition is MaterialComposition.ProfileSet { Section: var s } ? s : Option<SectionProperties>.None).Head,
     t.Type.Classifications));
-    return BakeParts(root.Id, key, ancestry).Map(parts => new Element(
+    return BakeParts(root.Id, ancestry).Map(parts => new Element(
     root.Id, root.Kind, root.ExternalId, root.Classification, predefinedType, name, root.Tag, representations,
     materials, properties, quantities, assessments, resolvedAppearance,
     own.Coverages, own.Observations, parts, typeBinding, root.History, classifications));
@@ -663,16 +663,16 @@ public sealed partial class ElementGraph {
     + type.Filter(t => !occurrence.Exists(o => o.SetName == t.SetName));
 
     static Seq<T> UnionBy<T, K>(Seq<T> occurrence, Seq<T> type, Func<T, K> key, IEqualityComparer<K>? comparer = null) =>
-    toSeq((occurrence + type).AsEnumerable().DistinctBy(key, comparer));
+    toSeq((occurrence + type).AsEnumerable().DistinctBy(comparer));
 
     static Seq<T> Inherit<T, K>(Seq<T> own, Option<(Node.Object Type, Gathered Data)> typeFold, Func<Gathered, Seq<T>> family, Func<T, K> key) =>
-    UnionBy(own, typeFold.Map(t => family(t.Data)).IfNone(Seq<T>()), key);
+    UnionBy(own, typeFold.Map(t => family(t.Data)).IfNone(Seq<T>()));
 
-    Fin<Seq<Element>> BakeParts(NodeId whole, Op key, ImmutableHashSet<NodeId> ancestry) =>
+    Fin<Seq<Element>> BakeParts(NodeId whole, ImmutableHashSet<NodeId> ancestry) =>
     toSeq(toSeq(EdgesAt(whole))
     .Choose(e => e is Relationship.Compose c && c.Whole == whole && c.SubKind != ComposeKind.Reference ? Some((c.Part, c.Ordinal)) : None)
     .OrderBy(static p => p.Ordinal.IsSome ? 0 : 1).ThenBy(static p => p.Ordinal.IfNone(0)).ThenBy(static p => p.Part.ToValue(), StringComparer.Ordinal))
-    .TraverseM(p => Bake(p.Part, key, ancestry)).As().Map(static parts => parts.ToSeq());
+    .TraverseM(p => Bake(p.Part, ancestry)).As().Map(static parts => parts.ToSeq());
 }
 ```
 
@@ -680,9 +680,9 @@ public sealed partial class ElementGraph {
 
 - Owner: `ElementGraph.Federate` the static cross-model union over a tagged source set under one caller-supplied coordination `Header`; `ElementGraph.Extract` the instance slice over a root set; `FederationCensus` the per-source `FederationSource` rows beside the union totals and the merged tally.
 - Entry: `Federate(sources, coordination, key)` takes `Seq<(string Source, ElementGraph Graph)>` — the source tag being the caller's own model label, never a contract-minted id — one coordination `Header`, and the kernel `Op`, returning `Fin<(ElementGraph Graph, FederationCensus Census)>`.
-- Entry: `Extract(roots, key)` takes `Seq<NodeId>` and the kernel `Op`, returning `Fin<ElementGraph>` under the SOURCE `Header` unchanged — a slice is the same model narrowed, never a re-coordinated one.
+- Entry: `Extract(roots)` takes `Seq<NodeId>` and the kernel `Op`, returning `Fin<ElementGraph>` under the SOURCE `Header` unchanged — a slice is the same model narrowed, never a re-coordinated one.
 - Auto: every refusal accumulates through the kernel admission-slot algebra over `Validation<Error,_>` and collapses to `Fin<T>` once at the return, so a federation attempt reports every divergent source and every colliding id in ONE failure rather than the first it meets.
-- Auto: both entries mint through ONE `GraphDelta` carrying the union (or slice) as `AddedNodes`/`AddedEdges` with a `Reheader`, run through `AdmitOnto(Genesis(header), key)` — the sanctioned validating mint, so `LegalLink` re-crosses every foreign edge; a raw `ElementGraph.Of` over foreign edges is the deleted form, because it freezes a topology no structural law admitted.
+- Auto: both entries mint through ONE `GraphDelta` carrying the union (or slice) as `AddedNodes`/`AddedEdges` with a `Reheader`, run through `AdmitOnto(Genesis(header))` — the sanctioned validating mint, so `LegalLink` re-crosses every foreign edge; a raw `ElementGraph.Of` over foreign edges is the deleted form, because it freezes a topology no structural law admitted.
 - Law: the three refusal axes are the source set being EMPTY, a source `Header.Tolerance` differing BITWISE from the coordination tolerance, and a source `Header.Reference` differing STRUCTURALLY from the coordination reference under `GeoReference`'s own value equality; each fault detail names the source tag and both sides' values.
 - Law: id collision discriminates by MINTING REGIME, not by payload alone — a rooted OCCURRENCE id (`Node.Object { Kind: Occurrence }`) shared across two sources is ALWAYS `DeltaConflict`, because a Guid-v7 placement identity carries no content preimage and a repeat is corruption; a content-derived or type-derived id repeats legitimately, so equal payloads under `EqualityComparer<Node>.Default` merge as the dedup the id regime exists for and unequal payloads fault naming the id and both source tags.
 - Law: an edge JOINS an `Extract` slice only when EVERY id in its `Members` is inside the closure, and the closure is what guarantees it: expansion follows `DirectedPairs` DOWNWARD (whole→part, subject→definition, from→to) and pulls in each reached edge's FULL `Members`, so a buried `PropertyValue.Reference` target and a `Connect`'s realizing intermediary ride in with the edge and no slice can dangle.
@@ -703,42 +703,42 @@ public sealed record FederationCensus(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed partial class ElementGraph {
     public static Fin<(ElementGraph Graph, FederationCensus Census)> Federate(
-    Seq<(string Source, ElementGraph Graph)> sources, Header coordination, Op key) =>
-    Admitted(sources, coordination, key).ToFin().Bind(union =>
+    Seq<(string Source, ElementGraph Graph)> sources, Header coordination) =>
+    Admitted(sources, coordination).ToFin().Bind(union =>
     (GraphDelta.Empty with { AddedNodes = union.Nodes, AddedEdges = union.Edges })
     .Reheader(coordination)
-    .AdmitOnto(Genesis(coordination), key)
+    .AdmitOnto(Genesis(coordination))
     .Map(step => (Graph: step.Graph, Census: CensusOf(sources, union.Nodes, union.Edges))));
 
     static Validation<Error, (Seq<Node> Nodes, Seq<Relationship> Edges)> Admitted(
-    Seq<(string Source, ElementGraph Graph)> sources, Header coordination, Op key) =>
-    (Gate(sources.Count > 0, key, "<federate-empty-source-set>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-     Accumulate(sources.Map(source => Aligned(source, coordination, key))),
-     Unified(sources, key))
+    Seq<(string Source, ElementGraph Graph)> sources, Header coordination) =>
+    (Gate(sources.Count > 0, "<federate-empty-source-set>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+     Accumulate(sources.Map(source => Aligned(source, coordination))),
+     Unified(sources))
     .Apply(static (_, _, union) => union).As();
 
-    static Validation<Error, Unit> Aligned((string Source, ElementGraph Graph) source, Header coordination, Op key) =>
+    static Validation<Error, Unit> Aligned((string Source, ElementGraph Graph) source, Header coordination) =>
     Accumulate(Seq(
-    Gate(source.Graph.Header.SameGrid(coordination), key,
+    Gate(source.Graph.Header.SameGrid(coordination),
     $"<federate-tolerance-divergent:{source.Source}:{source.Graph.Header.Tolerance:R}:{coordination.Tolerance:R}>",
     static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Gate(source.Graph.Header.Reference.Equals(coordination.Reference), key,
+    Gate(source.Graph.Header.Reference.Equals(coordination.Reference),
     $"<federate-reference-divergent:{source.Source}:{source.Graph.Header.Reference.Resolution.Key}:{coordination.Reference.Resolution.Key}>",
     static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
 
     static Validation<Error, (Seq<Node> Nodes, Seq<Relationship> Edges)> Unified(
-    Seq<(string Source, ElementGraph Graph)> sources, Op key) =>
+    Seq<(string Source, ElementGraph Graph)> sources) =>
     toSeq(sources.Bind(static source => toSeq(source.Graph.Nodes.Values).Map(node => (Tag: source.Source, Node: node)))
     .AsEnumerable()
     .GroupBy(static claim => claim.Node.Id))
-    .Traverse(group => Unify(group.Key, toSeq(group), key))
+    .Traverse(group => Unify(toSeq(group)))
     .As()
     .Map(nodes => (Nodes: nodes.Strict(), Edges: Edged(sources)));
 
-    static Validation<Error, Node> Unify(NodeId id, Seq<(string Tag, Node Node)> claims, Op key) =>
+    static Validation<Error, Node> Unify(NodeId id, Seq<(string Tag, Node Node)> claims) =>
     claims.Tail.Find(claim => Collides(claims[0].Node, claim.Node)).Map(static claim => claim.Tag)
     is { IsSome: true, Case: string rival }
-    ? new ElementFault.DeltaConflict(key, $"<federate-node-collision:{id.ToValue()}:{claims[0].Tag}:{rival}>")
+    ? new ElementFault.DeltaConflict($"<federate-node-collision:{id.ToValue()}:{claims[0].Tag}:{rival}>")
     : claims[0].Node;
 
     static bool Collides(Node held, Node rival) => Replayed(held) || Diverged(held, rival);
@@ -771,19 +771,19 @@ public sealed partial class ElementGraph {
     MergedEdges: rows.Fold(0, static (sum, row) => sum + row.EdgeCount) - edges.Count);
     }
 
-    public Fin<ElementGraph> Extract(Seq<NodeId> roots, Op key) =>
+    public Fin<ElementGraph> Extract(Seq<NodeId> roots) =>
     roots.Find(root => !Nodes.ContainsKey(root)) is { IsSome: true, Case: NodeId absent }
-    ? new ElementFault.NodeAbsent(key, $"<extract-root-absent:{absent.ToValue()}>")
-    : Sliced(roots, key);
+    ? new ElementFault.NodeAbsent($"<extract-root-absent:{absent.ToValue()}>")
+    : Sliced(roots);
 
-    Fin<ElementGraph> Sliced(Seq<NodeId> roots, Op key) {
+    Fin<ElementGraph> Sliced(Seq<NodeId> roots) {
     ImmutableHashSet<NodeId> closure = Closure(ImmutableHashSet.CreateRange(roots), roots.Distinct());
     return (GraphDelta.Empty with {
     AddedNodes = toSeq(closure).Choose(id => Find(id)),
     AddedEdges = toSeq(Edges).Filter(edge => edge.Members.ForAll(closure.Contains)),
     })
     .Reheader(Header)
-    .AdmitOnto(Genesis(Header), key)
+    .AdmitOnto(Genesis(Header))
     .Map(static step => step.Graph);
     }
 

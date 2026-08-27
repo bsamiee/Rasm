@@ -451,7 +451,7 @@ public static class EstimatorKernels {
         ctx.Supervised().Bind(y => {
             double[] x = ctx.Design.Features.Column(0).AsArray() ?? ctx.Design.Features.Column(0).ToArray();
             double[] observed = y.AsArray() ?? y.ToArray();
-            return Op.Of(name: "stats.curve-fit").Catch(() => Fin.Succ(spec.Form.Fit(spec, x, observed)))
+            return Try.lift(() => Fin.Succ(spec.Form.Fit(spec, x, observed))).Run().Bind(static inner => inner)
                 .Bind(coefficients => coefficients.Length == spec.Terms && TensorPrimitives.IsFiniteAll<double>(coefficients)
                     ? Fin.Succ(Vector<double>.Build.DenseOfArray(coefficients))
                     : Fin.Fail<Vector<double>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Count(coefficients.Length, spec.Terms)))))
@@ -741,7 +741,6 @@ public static class EstimatorKernels {
             Matrix<double> x = ctx.Design.Features;
             int dim = x.ColumnCount;
             int[] classes = [.. y.Select(static v => (int)v).Distinct().Order()];
-            Op key = Op.Of(name: nameof(GaussianBayes));
             Matrix<double> means = Matrix<double>.Build.Dense(classes.Length, dim);
             Matrix<double> variances = Matrix<double>.Build.Dense(classes.Length, dim);
             Vector<double> priors = Vector<double>.Build.Dense(classes.Length);
@@ -749,7 +748,7 @@ public static class EstimatorKernels {
                 int[] rows = [.. Enumerable.Range(0, x.RowCount).Where(i => (int)y[i] == classes[k])];
                 priors[k] = rows.Length / (double)x.RowCount;
                 return toSeq(Enumerable.Range(0, dim)).TraverseM(f =>
-                    Stat<Scalar>.Of(toSeq(rows.Select(i => (Scalar)x[i, f])), key).Map(stat => {
+                    Stat<Scalar>.Of(toSeq(rows.Select(i => (Scalar)x[i, f]))).Map(stat => {
                         means[k, f] = stat.Mean;
                         variances[k, f] = Math.Max(EstimatorFold.VarianceFloor, stat.Variance(MomentNormalizer.Sample));
                         return unit;

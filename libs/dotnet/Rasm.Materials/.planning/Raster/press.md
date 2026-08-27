@@ -17,7 +17,7 @@ Persisted plane bytes are ALWAYS CPU-minted. The `PressBackend.WebGpu` row is an
 - Law: binding ORDER is derived, never authored — `Of` sorts bindings by `TextureChannel.Origin` depth, then by pair dependency, then by `TextureChannel.Ordinal`, so every `Shaded` and `Geometric` channel seats before any `Derived` one, a normal seats before the roughness whose mip fold consumes its variance, and a plan requesting `occlusion` without `height` produces `height` as an intermediate rather than refusing. A caller never sequences the fold.
 - Law: spatial cavity evidence enters the press as its OWN field, never as a derived channel. A `Slab` subject's own `occlusion` chain derives from `height`, which derives from `geometry_normal`, whose origin is a CONSTANT the shade point never reaches — so a slab press solves a flat height field and produces a uniform-1.0 occlusion plane by construction, and no binding order could rescue it because `Compile` is the first generator of the fold and nothing is landed when the ladder is read.
 - Law: the cavity field carries the CAVITY scalar — `1.0` the fully occluded crevice — while the `set#TEXTURE_SET` `occlusion` channel stores VISIBILITY (`filter#PLANE_OP` deposits `open/rays` and the row's own neutral is `1.0` unoccluded), so an occlusion plane crosses into a cavity field through the landed `RemapCurve.Levels.Invert` row and never by a raw bind; the raw bind ages every `Crevice` effect on the open face and reads as a plausible plane rather than as a fault. An ABSENT cavity field reads `1.0` because a `Crevice` effect with no cavity evidence is the uniform aging the ladder already spells, while `0.0` would silently delete every crevice effect and run every exposed one at full age.
-- Entry: `public static Fin<PressPlan> Of(PressPlanDraft draft, PressSubject subject, Op key)` is the ONE plan admission — extent, layer law, binding uniqueness, pack membership, format width, display egress, ladder rungs, subject arity, ladder cell budget, tile-guide coverage, and backend lowerability all gate here so the bake fold itself carries no re-check; the subject enters the admission because arity, cell budget, and lowerability are facts of the SUBJECT against the bindings, and deferring them to dispatch means a caller learns the veto after renting a device; a cyclic `Derived.From` chain refuses here through the roster-bounded depth walk, so the bake fold recurses on a proven-acyclic roster. `PlanKey` is the canonical content key the run records and the cache keys on.
+- Entry: `public static Fin<PressPlan> Of(PressPlanDraft draft, PressSubject subject)` is the ONE plan admission — extent, layer law, binding uniqueness, pack membership, format width, display egress, ladder rungs, subject arity, ladder cell budget, tile-guide coverage, and backend lowerability all gate here so the bake fold itself carries no re-check; the subject enters the admission because arity, cell budget, and lowerability are facts of the SUBJECT against the bindings, and deferring them to dispatch means a caller learns the veto after renting a device; a cyclic `Derived.From` chain refuses here through the roster-bounded depth walk, so the bake fold recurses on a proven-acyclic roster. `PlanKey` is the canonical content key the run records and the cache keys on.
 - Packages: `set#TEXTURE_SET` (composed — `TextureChannel`/`ChannelPack`/`LayerLaw`/`TextureSet`/`SinkSlot`), `plane#TEXTURE_PLANE` (composed — `PlaneFormat`/`PlaneQuantity`/`MipPolicy`/`AlphaMode`), `filter#PLANE_OP` (composed — `PlaneOp` the post chain), `tile#TILE_SYNTH` (composed — `TilePolicy` the in-fold tiling request), `Rasm.Materials.Appearance.Graph` (composed — `MaterialGraph`/`MaterialParameters`), `Rasm.Materials.Appearance.Surface` (composed — `ConductorMetal`, `ToneOperator`/`DisplayEncoding` the display egress rows), `Rasm.Materials.Appearance.Texture` (composed — `TextureSource`/`SamplerState`/`UvFrame`), `Rasm.Materials.Appearance.Weathering` (composed — `WeatheringDose`/`AgeParameter`), `Rasm.Materials.Appearance.Finish` (composed — `FinishKind`/`FinishLayer`/`Pigment` the mix subject's own vocabulary), `Rasm.Element.Composition` (the CONTRACT `MaterialId`), `Rasm` (project — `ContentHash.Of` the one identity entry, `Dimension`, `UnitInterval`, `Op`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new bake subject is one `PressSubject` case with its `PressProgram` arm; a new execution lane is one `PressBackend` row carrying its authority column; a new per-channel request knob is one `ChannelBinding` column; a new quantized axis is one `LadderRungs` column read by the ladder that owns it, priced against the cell product it multiplies. There is NO `BakeGraph`/`BakeField`/`BakeSlab`/`BakeMix` family — the subject's own case discriminates, and a caller holding a subject calls one entry, which is why a dome and a chart set land as cases rather than as a second engine each.
 - Boundary: `PressBackend` carries `ContentAuthoritative` as a ROW COLUMN rather than as a caller flag, so the content-identity law is data the plan admission reads and `[04]-[PRESS_PRODUCT]` enforces at the type level. Mip policy is a per-binding `Option<MipPolicy>` defaulting to the channel row's own law and spelling `MipPolicy.None` for a single-level plane — a plan-level `Mips` boolean beside a per-binding override is one knob selecting between two bodies, and the row already carries the answer. The plan key is `ContentHash.Of` over the plan's canonical bytes — extent, layer law, the ordered binding rows with their channels, formats, resolved mip policies, pack keys, post chains, and display egress rows, the backend key, the seed, the alpha mode, the height scale, the three `LadderRungs` columns, the tile policy, and the subject's own `UvFrame` digest — and it EXCLUDES the material id and the conductor, which name the subject rather than the bake, so two materials pressed under one plan share a plan key and the run separates them by graph key. The UV frame is the one subject-borne column the key ADMITS, and the discriminant is what the column does: a material id and a conductor NAME the subject, while a `UvFrame` offset, scale, or rotation SHAPES the bake — `texture#TEXTURE_UV` `TextureUv.Sample` applies it before the source dispatch, so a re-tiled bake is different bytes, and a frame outside the preimage is a cached plane a second tiling silently inherits. `UvFrame.Digest` reads EMPTY at identity by its owner's construction, so an untransformed bind keys byte-identically to a plan that never knew the axis existed and landing the column re-keys no blob already addressed. `Layers` and `LayerLaw` ride the plan so a cube map, a flipbook, and a volume are one bake shape at different rows; a UDIM set is N plans sharing a key, never one plan carrying a tile list, because a UDIM tile is an independent extent whose planes address independently — the per-tile products assemble at `set#TEXTURE_SET` `UdimSheet.Of`, the one owner proving the tiles agree. A binding naming a channel already inside a requested pack REFUSES at admission — the pack owns those slots and a standalone duplicate keys the set twice for one field — and a binding whose `Format` carries fewer components than its channel declares refuses for the same reason `set#TEXTURE_SET` refuses it later: a three-component normal in a two-component plane is a reconstruction the sampler cannot invert without evidence the plane does not carry. A `Source` subject binds EXACTLY ONE channel, because a procedural field has one value and a second bound channel would silently receive its neutral; a `Mix` subject binds one weight field PER PIGMENT, because a mix whose simplex is short one axis resolves a pigment nothing weights; a `Tile` policy whose guide channel no binding produces refuses, because the synthesizer would fail on a set that admitted cleanly. A binding whose channel carries an OPEN photometric scale — `PlaneQuantity.Light` beside a `ChannelUnit` other than `none`, which is `emission_luminance` alone on the landed roster — stored in a `PlaneFormat` the plane page reports `Normalized` with NO `Display` egress refuses at admission: an unbounded cd/m² value hard-clips at unity in a unorm lane with no tone curve, and a clipped emission plane is indistinguishable from an authored one downstream. The lane test reads `plane#PLANE_FORMAT` `Normalized`, the module's one unorm-versus-float discriminant, because the kernel `ChannelDtype` roster the format seats onto carries no normalization column of its own. The `webgpu` backend gates TWO independent facts at admission, not at dispatch, and the split is what keeps each honest: the SUBJECT's lowerability is a fact of the subject alone, and the EXTENT is measured against `PressBackend.TexelCeiling`, the conformance FLOOR every device grants, so a bake no device could run refuses before one is rented. That ceiling is arithmetic, not a guess: `134217728` is exactly the guaranteed minimum for `maxStorageBufferBindingSize`, the lane binds ONE storage buffer per plane, and `134217728 / 16 = 8388608` texels — so a square accelerator preview tops out at `2048²` and a `4096²` request refuses at admission rather than at dispatch. A plan clearing the floor can still exceed what a particular adapter negotiated, and that refusal belongs at `gpu#PRESS_DEVICE`'s dispatch gate, which reads the device's own `DeviceGetLimits` block and quotes the granted value; collapsing the two would either rent a device to answer a plan question or assert a ceiling nothing measured. Lowerability itself: a `Source` subject over an `Image` case or a `Triplanar` whose projected source is not a solid `Noise` (the three-plane 2D blend has no kernel arm), or a `Slab`, `Mix`, or `MeshSpace` subject, has no kernel row on `gpu#WGSL_KERNEL` and refuses with the offending case named, so a caller learns the veto before renting a device rather than after. A `Graph` subject LOWERS as a KERNEL CHAIN — one dispatch per node in the compiled topological order over `gpu#KERNEL_CHAIN`'s ping-ponged slot pool, a field kernel per procedural `Texture` node, `mathFold` per `Math` node, `mixFold` per `Mix` node — and its verdict is the ALLOCATOR's rather than a case test: the chain plans by linear-scan live-range analysis over that order, its slot count is the DAG's maximum live width, and `slots × extent × 16` admits against the declared footprint or the accelerator refuses with the slot count and the budget named. Its refusals are NODE-grained, so a caller learns which node vetoed rather than that "the graph" did, and a refused chain refuses the accelerator alone — the CPU lane is content-authoritative anyway, so the recourse costs throughput and nothing else. The two LADDER subjects sit outside the question entirely: each compiles CPU-admitted cells a GPU arm could only rebuild at `f32`, forking the key the veto holds. A `Noise` source — planar OR solid — and a `Triplanar` over a solid `Noise` lower to `noiseField`: the solid family rides the row's `dimension` column, a triplanar's three planes sample one world point for a solid projected noise so the blend IS the 3D field and the world scale folds into the frequency word, and the widening moves no identity law — the accelerator product stays a `Preview`, CPU bytes stay canonical.
@@ -138,8 +138,8 @@ public sealed record PressPlan(
     PressBackend Backend, ulong Seed, AlphaMode Alpha, Option<double> HeightScaleMm, LadderRungs Rungs,
     Option<TilePolicy> Tile, Option<MaterialId> Material, Option<ConductorMetal> Conductor, UInt128 PlanKey) {
 
-    public static Fin<PressPlan> Of(PressPlanDraft draft, PressSubject subject, Op key) =>
-        Gates(draft, subject, key)
+    public static Fin<PressPlan> Of(PressPlanDraft draft, PressSubject subject) =>
+        Gates(draft, subject)
             .TraverseM(static gate => gate()).As()
             .Map(_ => Order(draft.Bindings))
             .Map(ordered => new PressPlan(draft.Width, draft.Height, draft.Layers, draft.Law, ordered, draft.Backend,
@@ -147,66 +147,66 @@ public sealed record PressPlan(
                 Mint(draft, ordered, subject)));
 
     // --- [PLAN_ADMISSION]
-    static Seq<Func<Fin<Unit>>> Gates(PressPlanDraft draft, PressSubject subject, Op key) =>
+    static Seq<Func<Fin<Unit>>> Gates(PressPlanDraft draft, PressSubject subject) =>
         Seq<Func<Fin<Unit>>>(
-            () => guard(!draft.Bindings.IsEmpty, new MaterialFault.Parameter(key, "<press-plan-no-bindings>")),
-            () => guard(draft.Law.Admits(draft.Layers.Value), new MaterialFault.Parameter(key, $"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>")),
-            () => guard(draft.Bindings.Map(static b => b.Channel).Distinct().Count() == draft.Bindings.Count, new MaterialFault.Parameter(key, "<press-binding-duplicate-channel>")),
+            () => guard(!draft.Bindings.IsEmpty, new MaterialFault.Parameter("<press-plan-no-bindings>")),
+            () => guard(draft.Law.Admits(draft.Layers.Value), new MaterialFault.Parameter($"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>")),
+            () => guard(draft.Bindings.Map(static b => b.Channel).Distinct().Count() == draft.Bindings.Count, new MaterialFault.Parameter("<press-binding-duplicate-channel>")),
             () => draft.Rungs.Degenerate
-                .TraverseM(bad => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<ladder-degenerate:{bad.Axis}:{bad.Rungs}>"))).As()
+                .TraverseM(bad => Fin.Fail<Unit>(new MaterialFault.Parameter($"<ladder-degenerate:{bad.Axis}:{bad.Rungs}>"))).As()
                 .Map(_ => unit),
-            () => guard(draft.Bindings.ForAll(static b => Depth(b.Channel) >= 0), new MaterialFault.Parameter(key, "<derived-origin-cycle>")),
-            () => AdmitSubject(draft, subject, key),
+            () => guard(draft.Bindings.ForAll(static b => Depth(b.Channel) >= 0), new MaterialFault.Parameter("<derived-origin-cycle>")),
+            () => AdmitSubject(draft, subject),
             () => draft.Tile
-                .TraverseM(policy => guard(draft.Bindings.Exists(b => b.Channel == policy.Guide), new MaterialFault.Parameter(key, $"<tile-guide-unbound:{policy.Guide.Key}>")).ToFin()).As()
+                .TraverseM(policy => guard(draft.Bindings.Exists(b => b.Channel == policy.Guide), new MaterialFault.Parameter($"<tile-guide-unbound:{policy.Guide.Key}>")).ToFin()).As()
                 .Map(_ => unit),
-            () => draft.Bindings.TraverseM(binding => AdmitBinding(draft, binding, key)).As().Map(static _ => unit),
-            () => AdmitLane(draft, subject, key));
+            () => draft.Bindings.TraverseM(binding => AdmitBinding(draft, binding)).As().Map(static _ => unit),
+            () => AdmitLane(draft, subject));
 
-    static Fin<Unit> AdmitLane(PressPlanDraft draft, PressSubject subject, Op key) =>
+    static Fin<Unit> AdmitLane(PressPlanDraft draft, PressSubject subject) =>
         draft.Backend.ContentAuthoritative
             ? Fin.Succ(unit)
             : !Lowerable(subject)
-                ? Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<gpu-unlowerable-subject:{subject.Case}>"))
+                ? Fin.Fail<Unit>(new MaterialFault.Parameter($"<gpu-unlowerable-subject:{subject.Case}>"))
                 : (long)draft.Width.Value * draft.Height.Value * draft.Layers.Value is var texels && texels > draft.Backend.TexelCeiling
-                    ? Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<gpu-extent-over-floor:{texels}:{draft.Backend.TexelCeiling}>"))
+                    ? Fin.Fail<Unit>(new MaterialFault.Parameter($"<gpu-extent-over-floor:{texels}:{draft.Backend.TexelCeiling}>"))
                     : subject is PressSubject.Graph graph
-                        ? AdmitChain(draft, graph, key)
+                        ? AdmitChain(draft, graph)
                         : Fin.Succ(unit);
 
-    static Fin<Unit> AdmitSubject(PressPlanDraft draft, PressSubject subject, Op key) =>
+    static Fin<Unit> AdmitSubject(PressPlanDraft draft, PressSubject subject) =>
         subject.Switch(
-            state:  (Draft: draft, Key: key),
+            state:  draft,
             graph:  static (s, _) => Fin.Succ(unit),
             slab:   static (s, _) => Fin.Succ(unit),
-            source: static (s, f) => s.Draft.Bindings.Count is 1 && s.Draft.Bindings[0].Channel == f.Target
+            source: static (s, f) => s.Bindings.Count is 1 && s.Bindings[0].Channel == f.Target
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<source-subject-binds-one-channel:{f.Target.Key}>")),
-            sky:    static (s, k) => s.Draft.Bindings.Count is 1 && s.Draft.Bindings[0].Channel == k.Target
-                ? guard(s.Draft.Law == LayerLaw.CubeFaces,
-                    new MaterialFault.Parameter(s.Key, $"<sky-subject-layer-law:{s.Draft.Law.Key}>")).ToFin()
+            sky:    static (s, k) => s.Bindings.Count is 1 && s.Bindings[0].Channel == k.Target
+                ? guard(s.Law == LayerLaw.CubeFaces,
+                    new MaterialFault.Parameter(s.Key, $"<sky-subject-layer-law:{s.Law.Key}>")).ToFin()
                 : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<sky-subject-binds-one-channel:{k.Target.Key}>")),
-            meshSpace: static (s, m) => (long)m.Charts.Length == (long)s.Draft.Width.Value * s.Draft.Height.Value
-                && m.ChartWidth == s.Draft.Width
+            meshSpace: static (s, m) => (long)m.Charts.Length == (long)s.Width.Value * s.Height.Value
+                && m.ChartWidth == s.Width
                 ? guard(m.Rays > 0 && m.RayDistance > 0.0 && m.GutterRings > 0,
                     new MaterialFault.Parameter(s.Key, $"<mesh-space-cast:{m.Rays}:{m.RayDistance:R}:{m.GutterRings}>")).ToFin()
                 : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<mesh-space-chart-extent:{m.Charts.Length}>")),
             mix:    static (s, m) => m.Pigments.IsEmpty || m.Pigments.Count != m.WeightFields.Count
                 ? Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<mix-subject-weight-arity:{m.Pigments.Count}!={m.WeightFields.Count}>"))
-                : MixLadder.Budget(s.Draft.Rungs.Mix, m.Pigments.Count) is var cells && cells <= MixLadder.CellCeiling
+                : MixLadder.Budget(s.Rungs.Mix, m.Pigments.Count) is var cells && cells <= MixLadder.CellCeiling
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<mix-ladder-over-budget:{cells}:{MixLadder.CellCeiling}>")));
 
-    static Fin<Unit> AdmitBinding(PressPlanDraft draft, ChannelBinding binding, Op key) =>
-        from _ in guard(binding.Format.Components >= binding.Channel.Components, new MaterialFault.Parameter(key, $"<binding-format-narrow:{binding.Channel.Key}>"))
-        from __ in guard(binding.Pack.Map(p => p.Slots.Contains(binding.Channel)).IfNone(true), new MaterialFault.Parameter(key, $"<binding-pack-foreign:{binding.Channel.Key}>"))
+    static Fin<Unit> AdmitBinding(PressPlanDraft draft, ChannelBinding binding) =>
+        from _ in guard(binding.Format.Components >= binding.Channel.Components, new MaterialFault.Parameter($"<binding-format-narrow:{binding.Channel.Key}>"))
+        from __ in guard(binding.Pack.Map(p => p.Slots.Contains(binding.Channel)).IfNone(true), new MaterialFault.Parameter($"<binding-pack-foreign:{binding.Channel.Key}>"))
         from ___ in guard(binding.Pack.IsSome || !draft.Bindings.Exists(other => other.Pack.Map(p => p.Slots.Contains(binding.Channel)).IfNone(false)),
-                          new MaterialFault.Parameter(key, $"<binding-both-packed-and-standalone:{binding.Channel.Key}>"))
+                          new MaterialFault.Parameter($"<binding-both-packed-and-standalone:{binding.Channel.Key}>"))
         from ____ in guard(binding.Display.IsSome
                            || binding.Channel.Transfer.Quantity != PlaneQuantity.Light
                            || binding.Channel.Unit == ChannelUnit.None
                            || !binding.Format.Normalized,
-                          new MaterialFault.Parameter(key, $"<binding-open-light-clipped:{binding.Channel.Key}:{binding.Format.Key}>"))
+                          new MaterialFault.Parameter($"<binding-open-light-clipped:{binding.Channel.Key}:{binding.Format.Key}>"))
         select unit;
 
     static bool Lowerable(PressSubject subject) =>
@@ -217,24 +217,24 @@ public sealed record PressPlan(
             _ => false,
         });
 
-    static Fin<Unit> AdmitChain(PressPlanDraft draft, PressSubject.Graph subject, Op key) =>
-        ChainNodes(subject, key)
-            .Bind(nodes => ChainPlan.Of(nodes, key))
-            .Bind(plan => plan.Admits((long)draft.Width.Value * draft.Height.Value * draft.Layers.Value, key));
+    static Fin<Unit> AdmitChain(PressPlanDraft draft, PressSubject.Graph subject) =>
+        ChainNodes(subject)
+            .Bind(nodes => ChainPlan.Of(nodes))
+            .Bind(plan => plan.Admits((long)draft.Width.Value * draft.Height.Value * draft.Layers.Value));
 
-    static Fin<Seq<ChainNode>> ChainNodes(PressSubject.Graph subject, Op key) =>
-        subject.Program.Compile(key).Bind(compiled =>
-            compiled.Order.TraverseM(node => ChainKernel(node, key)
+    static Fin<Seq<ChainNode>> ChainNodes(PressSubject.Graph subject) =>
+        subject.Program.Compile().Bind(compiled =>
+            compiled.Order.TraverseM(node => ChainKernel(node)
                 .Map(kernel => new ChainNode(kernel, compiled.Operands(node), ChainWords(node, kernel)))).As());
 
-    static Fin<WgslKernel> ChainKernel(AppearanceNode node, Op key) =>
+    static Fin<WgslKernel> ChainKernel(AppearanceNode node) =>
         node switch {
             AppearanceNode.Texture { Source: TextureSource.Noise } => Fin.Succ(WgslKernel.NoiseField),
             AppearanceNode.Texture { Source: TextureSource.Checker } => Fin.Succ(WgslKernel.CheckerField),
             AppearanceNode.Texture { Source: TextureSource.Gradient } => Fin.Succ(WgslKernel.GradientField),
             AppearanceNode.Math => Fin.Succ(WgslKernel.MathFold),
             AppearanceNode.Mix => Fin.Succ(WgslKernel.MixFold),
-            _ => new MaterialFault.Parameter(key, $"<graph-node-unlowerable:{node.Kind}>"),
+            _ => new MaterialFault.Parameter($"<graph-node-unlowerable:{node.Kind}>"),
         };
 
     static ReadOnlyMemory<uint> ChainWords(AppearanceNode node, WgslKernel kernel);
@@ -279,7 +279,7 @@ public sealed record PressPlan(
 ## [03]-[TEXTURE_PRESS]
 
 - Owner: `TexturePress` the bake fold; `PressProgram` `[Union]` the compiled subject; `AgeLadder` the two-dimensional aged-vector table the `Slab` program reads; `MixLadder` the barycentric weight-simplex table the `Mix` program reads; `PressRows` the struct `IAction` band partition.
-- Entry: `public static Fin<PressProduct> Press(PressSubject subject, PressPlan plan, Op key, TimeProvider? clock = null, BakeGovernance governance = default)` is the ONE bake — it compiles the subject once, folds every direct binding, applies each binding's post chain, derives every derived channel from its landed source through the channel's OWN declared fold, composes every requested pack from the landed chains, builds the mip chains against their paired companions, tiles when the plan requests it, and admits the result through `set#TEXTURE_SET` `TextureSet.Of`; the caller composes a `PressProduct` and never orchestrates a stage, and the token cancels between bindings and inside every band onto the kernel cancel channel.
+- Entry: `public static Fin<PressProduct> Press(PressSubject subject, PressPlan plan, TimeProvider? clock = null, BakeGovernance governance = default)` is the ONE bake — it compiles the subject once, folds every direct binding, applies each binding's post chain, derives every derived channel from its landed source through the channel's OWN declared fold, composes every requested pack from the landed chains, builds the mip chains against their paired companions, tiles when the plan requests it, and admits the result through `set#TEXTURE_SET` `TextureSet.Of`; the caller composes a `PressProduct` and never orchestrates a stage, and the token cancels between bindings and inside every band onto the kernel cancel channel.
 - Packages: `graph#MATERIAL_GRAPH` (composed — `MaterialGraph.Compile` ONCE per press, `CompiledGraph.ShadeSpan` the batched evaluator, `CompiledGraph.ScratchWidth` the per-band scratch the fold rents against, `ShadePoint`, `Context.Canonical`), CommunityToolkit.HighPerformance (`ParallelHelper.For<TAction>(int, int, in TAction)` over a SEEDED `struct IAction` so the partition allocates nothing, inlines, clamps to the processor count, and carries its state — the unseeded overload default-constructs the action and would lose every field the fold needs; `ParallelHelper.ForEach<TItem, TAction>(Memory<T>, in TAction, minimumActionsPerThread)` over a seeded `struct IRefAction<T>` the pack composition's per-level item fold rides, each worker taking its own `ref` job; `MemoryOwner<T>.Allocate` the per-binding staging arena, `SpanOwner<T>.Allocate` the per-band point/scratch/shade rentals, `Memory2D<T>`/`Span2D<T>` the plane views), `Rasm` (project — `Deterministic.Stream`/`NextUnit` the lane-exact coordinate-keyed per-texel draw), `set#TEXTURE_SET` (composed — `SinkSlot.Read` the per-slot `SurfaceShade` column reader, `ChannelOrigin` the per-channel production law), `filter#PLANE_OP` (composed — `PlaneOp.Apply(TexturePlane, Seq<PlaneOp>, Op, TimeProvider?)` and its `PlaneTrace`, for every post chain and every derived channel), `tile#TILE_SYNTH` (composed — `TileSynth.Tileify` when the plan carries a policy), `gpu#PRESS_DEVICE` (composed — `PressDevice.Acquire`/`Dispatch` on the accelerator arm), `weathering#WEATHERING` (composed — `Weathering.Apply` at each cell of the age ladder, taking the cell's own `AgeParameter` and `UnitInterval` cavity scalar), `finish#FINISH` (composed — `FinishMix.Of` and `Finish.Resolve` at each cell of the mix ladder), `surface#OPENPBR_SLAB` (composed — `ToneMap.Apply`/`ToneMap.Encode` the one display egress a binding declares).
 - Growth: a new evaluation shape is one `PressSubject` case and one `PressProgram` arm; a new post-processing step is one `filter#PLANE_OP` `PlaneOp` on a binding's chain; a new derived channel is one `ChannelOrigin.Derived` row on `set#TEXTURE_CHANNEL` carrying its own fold — the press discovers both the dependency and the operation from the roster and needs no edit.
 - Law: the subject compiles ONCE into a `PressProgram` — a graph resolves its topological order into a frozen `CompiledGraph` and its constant OpenPBR vector, a slab builds its whole age ladder, a mix builds its whole simplex ladder, a field captures its sampler, a dome captures its radiance closure, a mesh-space subject resolves its per-channel measure — and the BAND kernel dispatches on that program once per PARTITION rather than once per texel, so a four-thousand-square plane pays four dispatches per core instead of sixteen million. `ShadeSpan` re-enters over the compiled order with the port environment resolved into an INDEX-ADDRESSED scratch whose slot order is that sort, so a plane costs one allocation-free pass per row instead of one immutable-map rebuild per node per texel; the integrator's per-point `Shade` re-enters this same path over a one-element window, one evaluation law at two grains.
@@ -320,14 +320,13 @@ public abstract partial record PressProgram {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record AgeLadder(Seq<OpenPbrSurface> Cells, int AgeRungs, int CavityRungs, int CurvatureRungs) {
     public static Fin<AgeLadder> Of(
-        MaterialParameters row, ConductorMetal conductor, Seq<WeatheringDose> aging, LadderRungs rungs, Op key) =>
+        MaterialParameters row, ConductorMetal conductor, Seq<WeatheringDose> aging, LadderRungs rungs) =>
         toSeq(Enumerable.Range(0, checked((int)rungs.AgeCells)))
             .TraverseM(cell => Weathering.Apply(row, aging,
                         AgeParameter.Create((cell % rungs.Age) / (double)(rungs.Age - 1)),
                         new SurfaceExposure(
                             UnitInterval.Create(((cell / rungs.Age) % rungs.Cavity) / (double)(rungs.Cavity - 1)),
-                            rungs.Curvature is 1 ? 0.0 : (((cell / rungs.Age) / rungs.Cavity) / (double)(rungs.Curvature - 1) * 2.0) - 1.0),
-                        key)
+                            rungs.Curvature is 1 ? 0.0 : (((cell / rungs.Age) / rungs.Cavity) / (double)(rungs.Curvature - 1) * 2.0) - 1.0))
                     .Map(aged => OpenPbrSurface.Of(aged, conductor))).As()
             .Map(cells => new AgeLadder(cells, rungs.Age, rungs.Cavity, rungs.Curvature));
 
@@ -357,20 +356,20 @@ public sealed record MixLadder(Seq<OpenPbrSurface> Cells, int Pigments, int Rung
         return (int)count;
     }
 
-    public static Fin<MixLadder> Of(PressSubject.Mix mix, LadderRungs rungs, Op key) {
+    public static Fin<MixLadder> Of(PressSubject.Mix mix, LadderRungs rungs) {
         int parts = mix.Pigments.Count, units = rungs.Mix - 1;
         int[] counts = new int[parts];
         counts[parts - 1] = units;
         Fin<Seq<OpenPbrSurface>> built = Fin.Succ(Seq<OpenPbrSurface>());
         do {
-            built = built.Bind(cells => Resolve(mix, counts, key).Map(cells.Add));
+            built = built.Bind(cells => Resolve(mix, counts).Map(cells.Add));
         } while (built.IsSucc && Advance(counts, units));
         return built.Map(cells => new MixLadder(cells, parts, rungs.Mix));
     }
 
-    static Fin<OpenPbrSurface> Resolve(PressSubject.Mix mix, int[] counts, Op key) =>
-        FinishMix.Of(mix.Pigments, toSeq(counts).Map(static c => (double)c), key)
-            .Bind(admitted => Finish.Resolve(mix.Kind, admitted, mix.Stack, key, mix.Substrate))
+    static Fin<OpenPbrSurface> Resolve(PressSubject.Mix mix, int[] counts) =>
+        FinishMix.Of(mix.Pigments, toSeq(counts).Map(static c => (double)c))
+            .Bind(admitted => Finish.Resolve(mix.Kind, admitted, mix.Stack, mix.Substrate))
             .Map(resolved => OpenPbrSurface.Of(resolved.Row, mix.Conductor));
 
     static bool Advance(Span<int> counts, int units) {
@@ -472,40 +471,40 @@ public sealed class LadderCoverage(LadderRungs rungs) {
 public static class TexturePress {
     const int BandFloor = 16;
 
-    public static Fin<PressProduct> Press(PressSubject subject, PressPlan plan, Op key, TimeProvider? clock = null, BakeGovernance governance = default) {
+    public static Fin<PressProduct> Press(PressSubject subject, PressPlan plan, TimeProvider? clock = null, BakeGovernance governance = default) {
         TimeProvider ticks = clock ?? TimeProvider.System;
         long opened = ticks.GetTimestamp();
         return plan.Backend.ContentAuthoritative
-            ? Mint(subject, plan, key, ticks, opened, governance)
-            : Accelerate(subject, plan, key, ticks, opened, governance);
+            ? Mint(subject, plan, ticks, opened, governance)
+            : Accelerate(subject, plan, ticks, opened, governance);
     }
 
     static Fin<T> Staged<T>(BakeGovernance governance, int done, int total, HashMap<TextureChannel, TexturePyramid> landed, Func<Fin<T>> body) =>
         governance.Opened(total <= 0 ? 1.0 : done / (double)total).Map(_ => Surrender<T>(landed)).IfNone(body);
 
-    static Fin<PressProduct> Mint(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
-        from program in Compile(subject, plan, key)
+    static Fin<PressProduct> Mint(PressSubject subject, PressPlan plan, TimeProvider ticks, long opened, BakeGovernance governance) =>
+        from program in Compile(subject, plan)
         from folded in plan.Bindings.Filter(b => Direct(program, b))
             .FoldM((Planes: HashMap<TextureChannel, TexturePyramid>(), Evidence: HashMap<TextureChannel, PlaneTrace>(), Downgraded: Seq<TextureChannel>(), Faulted: HashMap<TextureChannel, ulong>(), Done: 0), (carried, binding) =>
                 Staged(governance, carried.Done, plan.Bindings.Count, carried.Planes, () =>
-                    Land(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), key, ticks, governance.Cancel)
+                    Land(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), ticks, governance.Cancel)
                         .Map(next => (next.Planes, next.Evidence, next.Downgraded, next.Faulted, Done: carried.Done + 1))
                         .Rollback([.. carried.Planes.Values])))
             .As()
         from derived in plan.Bindings.Filter(b => !Direct(program, b))
             .FoldM(folded, (carried, binding) =>
                 Staged(governance, carried.Done, plan.Bindings.Count, carried.Planes, () =>
-                    Derive(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), key, ticks, governance.Cancel)
+                    Derive(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), ticks, governance.Cancel)
                         .Map(next => (next.Planes, next.Evidence, next.Downgraded, next.Faulted, Done: carried.Done + 1))
                         .Rollback([.. carried.Planes.Values])))
             .As()
-        from packed in Packed(plan, derived.Planes, key, governance.Cancel).Rollback([.. derived.Planes.Values])
+        from packed in Packed(plan, derived.Planes, governance.Cancel).Rollback([.. derived.Planes.Values])
         from set in TextureSet.Of(new TextureSetDraft(plan.Width, plan.Height, plan.Layers, plan.Law,
             NormalConvention.Gl, plan.Alpha, plan.HeightScaleMm, new Evidence<TileProof>.Absent(), Seq<UdimTile>(),
             packed.Channels.Filter((c, _) => plan.Bindings.Exists(b => b.Channel == c && b.Pack.IsNone)), packed.Packs,
-            plan.Conductor, plan.Material), key).Rollback([.. derived.Planes.Values])
+            plan.Conductor, plan.Material)).Rollback([.. derived.Planes.Values])
         from tiled in plan.Tile
-            .TraverseM(policy => TileSynth.Tileify(set, policy, key, ticks).Map(static pair => pair.Set)).As()
+            .TraverseM(policy => TileSynth.Tileify(set, policy, ticks).Map(static pair => pair.Set)).As()
             .Map(tiled => tiled.IfNone(set))
         select (PressProduct)new PressProduct.Minted(tiled, new PressRun(plan.Backend, plan.PlanKey,
             GraphKey(program), plan.Seed, Texels(tiled), ticks.GetElapsedTime(opened).TotalMilliseconds,
@@ -521,13 +520,12 @@ public static class TexturePress {
 
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted)> Land(
         PressProgram program, PressPlan plan, ChannelBinding binding,
-        (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried,
-        Op key, TimeProvider ticks, CancellationToken cancel) =>
-        Fold(program, plan, binding, key, cancel).Bind(fold =>
+        (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried, TimeProvider ticks, CancellationToken cancel) =>
+        Fold(program, plan, binding, cancel).Bind(fold =>
             Custody.Bracket(
                 () => cancel.IsCancellationRequested
                     ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, HashMap<TextureChannel, PlaneTrace>, Seq<TextureChannel>, HashMap<TextureChannel, ulong>)>(Errors.Cancelled)
-                    : Finish(plan, binding, fold.Arena.Memory.AsMemory2D(plan.Height.Value * plan.Layers.Value, plan.Width.Value), carried.Planes, key, ticks)
+                    : Finish(plan, binding, fold.Arena.Memory.AsMemory2D(plan.Height.Value * plan.Layers.Value, plan.Width.Value), carried.Planes, ticks)
                         .Map(built => (
                             carried.Planes.Add(binding.Channel, built.Pyramid),
                             carried.Evidence.Add(binding.Channel, built.Trace),
@@ -539,7 +537,7 @@ public static class TexturePress {
         Fin.Fail<T>(Errors.Cancelled).Rollback([.. landed.Values]);
 
     static Fin<(HashMap<TextureChannel, TexturePyramid> Channels, Seq<ChannelPackPlane> Packs)> Packed(
-        PressPlan plan, HashMap<TextureChannel, TexturePyramid> landed, Op key, CancellationToken cancel) =>
+        PressPlan plan, HashMap<TextureChannel, TexturePyramid> landed, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, Seq<ChannelPackPlane>)>(Errors.Cancelled)
             : toSeq(plan.Bindings.Choose(static b => b.Pack).Distinct())
@@ -548,37 +546,37 @@ public static class TexturePress {
                     Seq<int> depths = toSeq(present.Choose(slot => carried.Channels.Find(slot)).Map(static c => c.Levels.Count).Distinct());
                     ChannelDtype depth = plan.Bindings.Filter(b => b.Pack == Some(pack)).Map(static b => b.Format.Depth).Head.IfNone(ChannelDtype.Unorm8);
                     return present.IsEmpty
-                        ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, Seq<ChannelPackPlane>)>(new MaterialFault.Parameter(key, $"<pack-no-landed-slot:{pack.Key}>"))
+                        ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, Seq<ChannelPackPlane>)>(new MaterialFault.Parameter($"<pack-no-landed-slot:{pack.Key}>"))
                         : depths.Count > 1
-                            ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, Seq<ChannelPackPlane>)>(new MaterialFault.Parameter(key, $"<pack-slot-mip-divergent:{pack.Key}>"))
-                            : from format in PlaneFormat.For(4, depth).ToFin(new MaterialFault.Parameter(key, $"<pack-format-unresolved:{pack.Key}:{depth.Key}>"))
-                              from levels in Compose(pack, carried.Channels, depths.Head.IfNone(1), format, key, cancel)
+                            ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, Seq<ChannelPackPlane>)>(new MaterialFault.Parameter($"<pack-slot-mip-divergent:{pack.Key}>"))
+                            : from format in PlaneFormat.For(4, depth).ToFin(new MaterialFault.Parameter($"<pack-format-unresolved:{pack.Key}:{depth.Key}>"))
+                              from levels in Compose(pack, carried.Channels, depths.Head.IfNone(1), format, cancel)
                               select (
                                   carried.Channels.Filter((c, _) => !pack.Slots.Contains(c)),
                                   carried.Packs.Add(new ChannelPackPlane(pack, new TexturePyramid(levels, MipPolicy.Box, Coupled: false), present)));
                 }).As();
 
     static Fin<Seq<TexturePlane>> Compose(
-        ChannelPack pack, HashMap<TextureChannel, TexturePyramid> landed, int depth, PlaneFormat format, Op key, CancellationToken cancel) {
+        ChannelPack pack, HashMap<TextureChannel, TexturePyramid> landed, int depth, PlaneFormat format, CancellationToken cancel) {
         Option<TexturePyramid> reference = pack.Slots.Choose(slot => landed.Find(slot)).Head;
-        return reference.ToFin(new MaterialFault.Parameter(key, $"<pack-no-landed-slot:{pack.Key}>")).Bind(head =>
+        return reference.ToFin(new MaterialFault.Parameter($"<pack-no-landed-slot:{pack.Key}>")).Bind(head =>
             toSeq(Enumerable.Range(0, depth)).FoldM(Seq<PackLevelJob>(), (jobs, levelIndex) => {
                     TexturePlane extent = head.Levels[levelIndex];
-                    return TexturePlane.Of(format, extent.Width, extent.Height, PlaneTransfer.Raw, AlphaMode.None, key, Some(extent.Layers))
+                    return TexturePlane.Of(format, extent.Width, extent.Height, PlaneTransfer.Raw, AlphaMode.None, Some(extent.Layers))
                         .Map(target => jobs.Add(new PackLevelJob(
                             target,
                             [.. pack.Slots.Map(slot => landed.Find(slot).Case is TexturePyramid chain ? chain.Levels[levelIndex] : null)],
                             [.. pack.Slots.Map(static slot => slot.Neutral.X)])))
                         .Rollback([.. jobs.Map(static job => job.Target)]);
                 }).As())
-            .Bind(jobs => key.Catch(() => {
+            .Bind(jobs => Try.lift(() => {
                     PackLevelJob[] roster = [.. jobs];
                     PackCompose fold = new(cancel);
                     ParallelHelper.ForEach<PackLevelJob, PackCompose>(roster.AsMemory(), in fold, minimumActionsPerThread: 1);
                     return cancel.IsCancellationRequested
                         ? Fin.Fail<Seq<TexturePlane>>(Errors.Cancelled)
                         : Fin.Succ(toSeq(roster).Map(static job => job.Target));
-                })
+                }).Run().Bind(static inner => inner)
                 .Rollback([.. jobs.Map(static job => job.Target)]));
     }
 
@@ -609,9 +607,9 @@ public static class TexturePress {
     static ShadeVec4 Seat(ShadeVec4 texel, int lane, double value) =>
         lane switch { 0 => texel with { X = value }, 1 => texel with { Y = value }, _ => texel with { Z = value } };
 
-    static Fin<PressProduct> Accelerate(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
-        from lease in PressDevice.Acquire(DevicePolicy.Default, key)
-        from planes in lease.Use((Subject: subject, Plan: plan, Key: key, Governance: governance), static (state, device) =>
+    static Fin<PressProduct> Accelerate(PressSubject subject, PressPlan plan, TimeProvider ticks, long opened, BakeGovernance governance) =>
+        from lease in PressDevice.Acquire(DevicePolicy.Default)
+        from planes in lease.Use((Subject: subject, Plan: plan, Governance: governance), static (state, device) =>
             state.Plan.Bindings.FoldM((Rows: HashMap<TextureChannel, TexturePyramid>(), Done: 0), (carried, binding) =>
                 Staged(state.Governance, carried.Done, state.Plan.Bindings.Count, carried.Rows, () =>
                     Lower(state.Subject, binding, state.Key)
@@ -626,23 +624,23 @@ public static class TexturePress {
             HashMap<TextureChannel, PlaneTrace>(), Seq<TextureChannel>(), HashMap<TextureChannel, ulong>(),
             GpuDeltaMax: Option<double>.None, Aging: Option<AgeCoverage>.None));
 
-    static Fin<PressProgram> Compile(PressSubject subject, PressPlan plan, Op key) =>
+    static Fin<PressProgram> Compile(PressSubject subject, PressPlan plan) =>
         subject.Switch(
-            state:  (Plan: plan, Key: key),
+            state:  plan,
             graph:  static (s, g) => g.Program.Compile(s.Key).Map(compiled => (PressProgram)new PressProgram.Shaded(compiled, g.Row, OpenPbrSurface.Of(g.Row, g.Conductor))),
             source: static (_, f) => Fin.Succ<PressProgram>(new PressProgram.Field(f.Field, f.Sampler, f.Target)),
-            slab:   static (s, b) => AgeLadder.Of(b.Row, b.Conductor, b.Aging, s.Plan.Rungs, s.Key)
+            slab:   static (s, b) => AgeLadder.Of(b.Row, b.Conductor, b.Aging, s.Rungs, s.Key)
                 .Map(ladder => (PressProgram)new PressProgram.Aged(
-                    ladder, b.AgeField, b.CavityField, b.CurvatureField, b.Sampler, new LadderCoverage(s.Plan.Rungs).Seeded())),
-            mix:    static (s, m) => MixLadder.Of(m, s.Plan.Rungs, s.Key)
+                    ladder, b.AgeField, b.CavityField, b.CurvatureField, b.Sampler, new LadderCoverage(s.Rungs).Seeded())),
+            mix:    static (s, m) => MixLadder.Of(m, s.Rungs, s.Key)
                 .Map(ladder => (PressProgram)new PressProgram.Mixed(ladder, m.WeightFields, m.Sampler)),
             sky:    static (_, k) => Fin.Succ<PressProgram>(new PressProgram.Dome(k.Radiance, k.Target)),
-            meshSpace: static (s, m) => GeometricMeasure(m, s.Plan.Bindings, s.Key)
+            meshSpace: static (s, m) => GeometricMeasure(m, s.Bindings, s.Key)
                 .Map(measure => (PressProgram)new PressProgram.Surface(
                     m.Charts, m.Row, OpenPbrSurface.Of(m.Row, m.Conductor), measure, m.GutterRings)));
 
     static Fin<Func<ChartTexel, TextureChannel, ShadeVec4>> GeometricMeasure(
-        PressSubject.MeshSpace subject, Seq<ChannelBinding> bindings, Op key) =>
+        PressSubject.MeshSpace subject, Seq<ChannelBinding> bindings) =>
         bindings.Exists(static b => b.Channel.Origin is ChannelOrigin.Geometric or ChannelOrigin.Derived)
             ? Fin.Succ<Func<ChartTexel, TextureChannel, ShadeVec4>>((texel, channel) => Measured(subject, texel, channel))
             : Fin.Succ<Func<ChartTexel, TextureChannel, ShadeVec4>>(static (_, channel) => channel.Neutral);
@@ -655,29 +653,29 @@ public static class TexturePress {
 
     static ShadeVec4 Scalar(double value) => new(value, 0.0, 0.0, 1.0);
 
-    static Fin<(MemoryOwner<ShadeVec4> Arena, ulong Faulted)> Fold(PressProgram program, PressPlan plan, ChannelBinding binding, Op key, CancellationToken cancel) =>
-        key.Catch(() => ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Some(Vector3d.XAxis), 0.0, 0.0, Context.Canonical, key)
+    static Fin<(MemoryOwner<ShadeVec4> Arena, ulong Faulted)> Fold(PressProgram program, PressPlan plan, ChannelBinding binding, CancellationToken cancel) =>
+        Try.lift(() => ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Some(Vector3d.XAxis), 0.0, 0.0, Context.Canonical)
             .Bind(anchor => {
                 int rows = plan.Height.Value * plan.Layers.Value;
                 MemoryOwner<ShadeVec4> arena = MemoryOwner<ShadeVec4>.Allocate(plan.Width.Value * rows, AllocationMode.Default);
                 ulong[] faulted = new ulong[1];
                 int band = Math.Max(BandFloor, rows / (Environment.ProcessorCount * 4));
-                return key.Catch(() => {
+                return Try.lift(() => {
                     ParallelHelper.For(0, (rows + band - 1) / band,
-                        in new PressRows(program, plan, binding.Channel, anchor, arena.Memory.AsMemory2D(rows, plan.Width.Value), band, rows, faulted, cancel, key));
+                        in new PressRows(program, plan, binding.Channel, anchor, arena.Memory.AsMemory2D(rows, plan.Width.Value), band, rows, faulted, cancel));
                     return Fin.Succ((arena, faulted[0]));
-                }).Rollback(arena);
-            }));
+                }).Run().Bind(static inner => inner).Rollback(arena);
+            })).Run().Bind(static inner => inner);
 
     static Fin<(TexturePyramid Pyramid, PlaneTrace Trace, bool Downgraded)> Finish(
-        PressPlan plan, ChannelBinding binding, Memory2D<ShadeVec4> staging, HashMap<TextureChannel, TexturePyramid> landed, Op key, TimeProvider ticks) =>
+        PressPlan plan, ChannelBinding binding, Memory2D<ShadeVec4> staging, HashMap<TextureChannel, TexturePyramid> landed, TimeProvider ticks) =>
         from blank in TexturePlane.Of(binding.Format, plan.Width, plan.Height, binding.Channel.Transfer,
-            binding.Format.Alpha.Carries ? plan.Alpha : AlphaMode.None, key, Some(plan.Layers))
+            binding.Format.Alpha.Carries ? plan.Alpha : AlphaMode.None, Some(plan.Layers))
         let filled = Fill(blank, staging, binding.Display)
-        from posted in PlaneOp.Apply(filled, binding.Post, key, ticks)
+        from posted in PlaneOp.Apply(filled, binding.Post, ticks)
         let paired = Companion(binding.Channel, landed)
         let policy = binding.Policy.Coupled && paired.IsNone ? MipPolicy.Box : binding.Policy
-        from chain in TexturePyramid.Of(posted.Plane, policy, key, paired)
+        from chain in TexturePyramid.Of(posted.Plane, policy, paired)
         select (chain, posted.Trace, policy != binding.Policy);
 
     static Option<TexturePyramid> Companion(TextureChannel channel, HashMap<TextureChannel, TexturePyramid> landed) =>
@@ -715,38 +713,36 @@ public static class TexturePress {
 
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted)> Derive(
         PressProgram program, PressPlan plan, ChannelBinding binding,
-        (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried,
-        Op key, TimeProvider ticks, CancellationToken cancel) =>
+        (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried, TimeProvider ticks, CancellationToken cancel) =>
         binding.Channel.Origin is ChannelOrigin.Derived derived && TextureChannel.TryGet(derived.From, out TextureChannel? from)
-            ? from sourced in Ensure(program, plan, from!, carried, key, ticks, cancel)
-              from source in sourced.Planes.Find(from!).ToFin(new MaterialFault.Parameter(key, $"<derived-source-absent:{binding.Channel.Key}:{derived.From}>"))
-              from folded in PlaneOp.Apply(source.Base, derived.Fold.Cons(binding.Post), key, ticks)
+            ? from sourced in Ensure(program, plan, from!, carried, ticks, cancel)
+              from source in sourced.Planes.Find(from!).ToFin(new MaterialFault.Parameter($"<derived-source-absent:{binding.Channel.Key}:{derived.From}>"))
+              from folded in PlaneOp.Apply(source.Base, derived.Fold.Cons(binding.Post), ticks)
               let paired = Companion(binding.Channel, sourced.Planes)
               let policy = binding.Policy.Coupled && paired.IsNone ? MipPolicy.Box : binding.Policy
-              from chain in TexturePyramid.Of(folded.Plane, policy, key, paired)
+              from chain in TexturePyramid.Of(folded.Plane, policy, paired)
               select (sourced.Planes.Add(binding.Channel, chain),
                       sourced.Evidence.Add(binding.Channel, folded.Trace),
                       policy != binding.Policy ? sourced.Downgraded.Add(binding.Channel) : sourced.Downgraded,
                       sourced.Faulted)
             : Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, HashMap<TextureChannel, PlaneTrace>, Seq<TextureChannel>, HashMap<TextureChannel, ulong>)>(
-                new MaterialFault.Parameter(key, $"<derived-origin-unresolved:{binding.Channel.Key}>"));
+                new MaterialFault.Parameter($"<derived-origin-unresolved:{binding.Channel.Key}>"));
 
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted)> Ensure(
         PressProgram program, PressPlan plan, TextureChannel channel,
-        (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried,
-        Op key, TimeProvider ticks, CancellationToken cancel) =>
+        (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneTrace> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried, TimeProvider ticks, CancellationToken cancel) =>
         carried.Planes.ContainsKey(channel)
             ? Fin.Succ(carried)
             : from format in PlaneFormat.For(channel.Components, ChannelDtype.Float32)
-                  .ToFin(new MaterialFault.Parameter(key, $"<implicit-format-absent:{channel.Key}:{channel.Components}>"))
+                  .ToFin(new MaterialFault.Parameter($"<implicit-format-absent:{channel.Key}:{channel.Components}>"))
               let implicitBinding = new ChannelBinding(channel, format, Some(MipPolicy.None),
                   Option<ChannelPack>.None, Seq<PlaneOp>(), Option<DisplayEgress>.None)
               from landed in channel.Origin is ChannelOrigin.Derived
-                  ? Derive(program, plan, implicitBinding, carried, key, ticks, cancel)
-                  : Land(program, plan, implicitBinding, carried, key, ticks, cancel)
+                  ? Derive(program, plan, implicitBinding, carried, ticks, cancel)
+                  : Land(program, plan, implicitBinding, carried, ticks, cancel)
               select landed;
 
-    static Fin<(WgslKernel Kernel, TextureSource Field)> Lower(PressSubject subject, ChannelBinding binding, Op key) =>
+    static Fin<(WgslKernel Kernel, TextureSource Field)> Lower(PressSubject subject, ChannelBinding binding) =>
         subject is PressSubject.Source source
             ? source.Field switch {
                 TextureSource.Noise noise       => Fin.Succ((WgslKernel.NoiseField, (TextureSource)noise)),
@@ -754,9 +750,9 @@ public static class TexturePress {
                 TextureSource.Gradient gradient => Fin.Succ((WgslKernel.GradientField, (TextureSource)gradient)),
                 TextureSource.Triplanar { Projected: TextureSource.Noise { Solid: true } } triplanar =>
                     Fin.Succ((WgslKernel.NoiseField, (TextureSource)triplanar)),
-                _ => Fin.Fail<(WgslKernel, TextureSource)>(new RasterFault.Device(key, $"<gpu-unlowerable-source:{binding.Channel.Key}>")),
+                _ => Fin.Fail<(WgslKernel, TextureSource)>(new RasterFault.Device($"<gpu-unlowerable-source:{binding.Channel.Key}>")),
             }
-            : Fin.Fail<(WgslKernel, TextureSource)>(new RasterFault.Device(key, $"<gpu-unlowerable-subject:{binding.Channel.Key}>"));
+            : Fin.Fail<(WgslKernel, TextureSource)>(new RasterFault.Device($"<gpu-unlowerable-subject:{binding.Channel.Key}>"));
 
     static KernelBinding Stage(PressPlan plan, WgslKernel kernel, TextureSource field) =>
         Seat(plan, kernel, Words(plan, field), Reads(field), kernel.Groups(plan.Width, plan.Height, plan.Layers));
@@ -799,11 +795,11 @@ public static class TexturePress {
         return Seq<ReadOnlyMemory<float>>(lut);
     }
 
-    static Fin<TexturePyramid> Lift(PressPlan plan, ChannelBinding binding, KernelReadback readback, Op key) {
+    static Fin<TexturePyramid> Lift(PressPlan plan, ChannelBinding binding, KernelReadback readback) {
         int rows = plan.Height.Value * plan.Layers.Value;
         long texels = (long)plan.Width.Value * rows;
         if (readback.Output.Length < texels * 4) {
-            return Fin.Fail<TexturePyramid>(new RasterFault.Device(key, $"<gpu-readback-short:{binding.Channel.Key}:{readback.Output.Length}<{texels * 4}>"));
+            return Fin.Fail<TexturePyramid>(new RasterFault.Device($"<gpu-readback-short:{binding.Channel.Key}:{readback.Output.Length}<{texels * 4}>"));
         }
         using MemoryOwner<ShadeVec4> staging = MemoryOwner<ShadeVec4>.Allocate(checked((int)texels), AllocationMode.Default);
         ReadOnlySpan<float> lanes = readback.Output.Span;
@@ -813,9 +809,9 @@ public static class TexturePress {
             decoded[texel] = new ShadeVec4(lanes[at], lanes[at + 1], lanes[at + 2], lanes[at + 3]);
         }
         return TexturePlane.Of(binding.Format, plan.Width, plan.Height, binding.Channel.Transfer,
-                binding.Format.Alpha.Carries ? plan.Alpha : AlphaMode.None, key, Some(plan.Layers))
+                binding.Format.Alpha.Carries ? plan.Alpha : AlphaMode.None, Some(plan.Layers))
             .Map(blank => Fill(blank, staging.Memory.AsMemory2D(rows, plan.Width.Value), binding.Display))
-            .Bind(filled => TexturePyramid.Of(filled, binding.Policy.Coupled ? MipPolicy.Box : binding.Policy, key));
+            .Bind(filled => TexturePyramid.Of(filled, binding.Policy.Coupled ? MipPolicy.Box : binding.Policy));
     }
 
     static Option<UInt128> GraphKey(PressProgram program) =>
@@ -846,7 +842,7 @@ public static class TexturePress {
 
 internal readonly struct PressRows(
     PressProgram program, PressPlan plan, TextureChannel channel, ShadePoint anchor,
-    Memory2D<ShadeVec4> target, int band, int rows, ulong[] faulted, CancellationToken cancel, Op key) : IAction {
+    Memory2D<ShadeVec4> target, int band, int rows, ulong[] faulted, CancellationToken cancel) : IAction {
     public void Invoke(int slice) {
         int start = slice * band, end = Math.Min(rows, start + band);
         if (start >= end || cancel.IsCancellationRequested) { return; }
@@ -904,7 +900,7 @@ internal readonly struct PressRows(
         for (int line = start; line < end && !cancel.IsCancellationRequested; line++) {
             Points(line, points);
             if (slot is not null) {
-                if (shaded.Graph.ShadeSpan(points, shaded.Row, scratch.Span, shades.Span, key).IsSucc) {
+                if (shaded.Graph.ShadeSpan(points, shaded.Row, scratch.Span, shades.Span).IsSucc) {
                     for (int x = 0; x < write.Length; x++) { write[x] = slot.Read(shades.Span[x]); }
                 } else {
                     write.Fill(channel.Neutral);
@@ -925,7 +921,7 @@ internal readonly struct PressRows(
             ulong faults = 0;
             for (int x = 0; x < write.Length; x++) {
                 if (targeted) {
-                    Fin<ShadeVec4> sampled = TextureUv.Sample(field.Source, Sample(points[x], 0.0), field.Sampler, key);
+                    Fin<ShadeVec4> sampled = TextureUv.Sample(field.Source, Sample(points[x], 0.0), field.Sampler);
                     if (sampled.Case is ShadeVec4 texel) { write[x] = texel; } else { write[x] = channel.Neutral; faults++; }
                 } else {
                     write[x] = channel.Origin is ChannelOrigin.Geometric geometric ? geometric.Read(points[x]) : channel.Neutral;
@@ -977,7 +973,7 @@ internal readonly struct PressRows(
 
     double Field(Option<TextureSource> source, SamplerState sampler, ShadePoint point, double fallback, ref ulong faults) {
         if (source.Case is not TextureSource field) { return fallback; }
-        Fin<ShadeVec4> sampled = TextureUv.Sample(field, Sample(point, 0.0), sampler, key);
+        Fin<ShadeVec4> sampled = TextureUv.Sample(field, Sample(point, 0.0), sampler);
         if (sampled.Case is ShadeVec4 texel) { return texel.Luminance; }
         faults++;
         return fallback;
@@ -1050,20 +1046,20 @@ public abstract partial record PressProduct {
 
     public PressRun Run => Switch(minted: static m => m.Run, preview: static p => p.Run);
 
-    public static Fin<PressRun> Parity(Minted minted, Preview preview, Op key) =>
+    public static Fin<PressRun> Parity(Minted minted, Preview preview) =>
         minted.Run.PlanKey != preview.Run.PlanKey
-            ? new MaterialFault.Parameter(key, $"<parity-plan-mismatch:{minted.Run.PlanKey:x}:{preview.Run.PlanKey:x}>")
+            ? new MaterialFault.Parameter($"<parity-plan-mismatch:{minted.Run.PlanKey:x}:{preview.Run.PlanKey:x}>")
             : toSeq(preview.Planes.AsIterable())
                 .FoldM(Option<double>.None, (carried, entry) =>
                     minted.Set.Channels.Find(entry.Key)
-                        .Map(cpu => Divergence(cpu.Base, entry.Value.Base, key)
+                        .Map(cpu => Divergence(cpu.Base, entry.Value.Base)
                             .Map(delta => Some(carried.Map(seen => Math.Max(seen, delta)).IfNone(delta))))
                         .IfNone(Fin.Succ(carried))).As()
                 .Map(delta => minted.Run with { GpuDeltaMax = delta });
 
-    static Fin<double> Divergence(TexturePlane cpu, TexturePlane gpu, Op key) {
+    static Fin<double> Divergence(TexturePlane cpu, TexturePlane gpu) {
         if (cpu.Width != gpu.Width || cpu.Height != gpu.Height || cpu.Layers != gpu.Layers || cpu.Lanes != gpu.Lanes) {
-            return new MaterialFault.Parameter(key, $"<parity-extent-mismatch:{cpu.Width.Value}x{cpu.Height.Value}x{cpu.Layers.Value}:{gpu.Width.Value}x{gpu.Height.Value}x{gpu.Layers.Value}>");
+            return new MaterialFault.Parameter($"<parity-extent-mismatch:{cpu.Width.Value}x{cpu.Height.Value}x{cpu.Layers.Value}:{gpu.Width.Value}x{gpu.Height.Value}x{gpu.Layers.Value}>");
         }
         using SpanOwner<double> left = SpanOwner<double>.Allocate(cpu.RowScalars);
         using SpanOwner<double> right = SpanOwner<double>.Allocate(gpu.RowScalars);

@@ -18,7 +18,7 @@ Uniform blocks cross as WORDS, never floats. Every kernel's `Params` struct inte
 - Cases: buffer {`Uniform` (a read-only constant block of WGSL words), `Read` (a read-only `f32` storage input), `Write` (a device-written storage output the fold reads back)}.
 - Law: buffer POSITION is the WGSL `@binding` index — a request's buffer sequence IS the layout, so a kernel row's declared roster and a caller's request cannot disagree without failing the roster gate loudly rather than reading a wrong slot silently.
 - Law: a uniform block is a WORD sequence, not a float array. Every `Params` struct on `[03]` interleaves `f32`, `u32`, and `i32` members, so a float-typed carrier writing `4f` into a `u32` slot hands the shader `0x40000000` read as `1073741824` — a wrong texel no validation layer reports, on every kernel that carries an extent, an octave count, a seed, or an op code.
-- Entry: `public static Fin<Lease<PressDevice>> Acquire(DevicePolicy policy, Op key)` mints the headless device on the `Lease<T>` resource carrier so the `Owned` case disposes every native handle at the projection's close; `public Fin<KernelReadback> Dispatch(WgslKernel kernel, KernelBinding binding, Op key)` is the ONE dispatch — it compiles or reuses the pipeline, uploads, records, submits, drains on the submission index, reads back, applies the row's own host reduction, and pops the error scope, so a caller composes an outcome and never sequences the device's internals.
+- Entry: `public static Fin<Lease<PressDevice>> Acquire(DevicePolicy policy)` mints the headless device on the `Lease<T>` resource carrier so the `Owned` case disposes every native handle at the projection's close; `public Fin<KernelReadback> Dispatch(WgslKernel kernel, KernelBinding binding)` is the ONE dispatch — it compiles or reuses the pipeline, uploads, records, submits, drains on the submission index, reads back, applies the row's own host reduction, and pops the error scope, so a caller composes an outcome and never sequences the device's internals.
 - Packages: Silk.NET.WebGPU (composed — `WebGPU.GetApi()` the function-table root, `CreateInstance`, `InstanceRequestAdapter` with a NULL `RequestAdapterOptions.CompatibleSurface`, `AdapterRequestDevice` over a `DeviceDescriptor.RequiredLimits` chaining the adapter's own `SupportedLimits.Limits`, `DeviceGetQueue`, `InstanceProcessEvents`, `DeviceCreateShaderModule` over the `ShaderModuleWGSLDescriptor` chain at `SType.ShaderModuleWgslDescriptor`, `DeviceCreateComputePipeline`, `ComputePipelineGetBindGroupLayout`, `DeviceCreateBindGroup`, `DeviceCreateBuffer`, `QueueWriteBuffer`, `DeviceCreateCommandEncoder`, `CommandEncoderBeginComputePass`, `ComputePassEncoderSetPipeline`/`SetBindGroup`/`DispatchWorkgroups`/`End`, `CommandEncoderCopyBufferToBuffer`, `CommandEncoderFinish`, `BufferMapAsync`, `BufferGetMapState`, `BufferGetMappedRange`, `BufferUnmap`, `DevicePushErrorScope`/`DevicePopErrorScope`, `DeviceCreateQuerySet` and `CommandEncoderWriteTimestamp`/`CommandEncoderResolveQuerySet` gated on `AdapterHasFeature(FeatureName.TimestampQuery)`, `AdapterGetLimits(Adapter*, SupportedLimits*) -> Bool32` and `DeviceGetLimits(Device*, SupportedLimits*) -> Bool32` — both answers fail, the DEVICE's block feeding the `Limits.MaxComputeWorkgroupsPerDimension`/`MaxComputeInvocationsPerWorkgroup`/`MaxStorageBufferBindingSize` ceilings the dispatch gate reads — and the void `XxxRelease` pairs including `QueueRelease`/`DeviceRelease`/`AdapterRelease`/`InstanceRelease`), Silk.NET.WebGPU.Extensions.WGPU (composed — `WebGPU.TryGetDeviceExtension<Wgpu>` the loader, `InstanceExtras` chained onto `InstanceDescriptor.NextInChain` at `NativeSType.STypeInstanceExtras` carrying the `InstanceBackend` mask and the `InstanceFlag` word, `Wgpu.QueueSubmitForIndex(Queue*, nuint, CommandBuffer**) -> ulong` the submission-index mint, `Wgpu.DevicePoll(Device*, Bool32, WrappedSubmissionIndex*) -> Bool32` the DETERMINISTIC drain a surfaceless device closes its readback on, `Wgpu.SetLogLevel`/`SetLogCallback` routing the native diagnostic stream into the `diagnostic` `NativeSlot` capture), `Rasm` (project — `Lease<T>`, `Op`, `ValidityClaim`, `IValidityEvidence`), `codec#RASTER_FAULT` (composed — `RasterFault` band 2460), BCL inbox (`Marshal.StringToCoTaskMemUTF8`/`FreeCoTaskMem` the one UTF-8 marshalling owner, `MemoryMarshal.CreateReadOnlySpanFromNullTerminated(byte*)` the terminator scan the slot copy folds through, `Encoding.UTF8.GetString(byte*, int)` the native-message projection, `TensorPrimitives.Add` the reduction row's per-stride accumulate, `string.Create(IFormatProvider, …)` the invariant-culture projection the derived WGSL constant block emits through, `UnmanagedCallersOnly` over `CallConvCdecl` the thunk-free completion shape, `MemoryHandle` the upload pin, `ConcurrentDictionary` the pipeline cache, `BitConverter.SingleToUInt32Bits` the uniform word projection).
 - Growth: a new kernel is one `WgslKernel` row; a new acquisition ARM is one `DeviceArm` row the policy's `CapabilitySet` column carries, and a new acquisition constraint that is not an arm is one `DevicePolicy` column; a new binding kind is one `KernelBuffer` case; a new uniform member type is one `KernelUniform` append. There is NO per-kernel device, NO managed wrapper renaming the native surface, and NO second `Dispatch` overload — arity and modality both ride the request's own buffer sequence.
 - Boundary: the adapter request passes a NULL `CompatibleSurface`, so the same lifecycle yields a device with no window; a bake never opens a viewport to obtain a device, and a folder already holding a device never re-requests one. Because there is no present to pump the event loop, the readback closes on the SUBMISSION INDEX rather than on a spin: `Wgpu.QueueSubmitForIndex` mints the index for the exact submission and `Wgpu.DevicePoll(device, wait: true, &index)` blocks until that submission retires and its map callback has run, so the fold reaches `BufferGetMapState` already `Mapped`. A `wait: false` poll loop around `BufferGetMapState` is the frame-driven form a presented plane uses because it must not block its own frame; a bake has no frame, so the loop only burns a core waiting for the answer the index already names. Readback is two-phase and BUFFER-SHAPED throughout: `CommandEncoderCopyBufferToBuffer` lands the device result in a `MapRead | CopyDst` staging buffer, and a buffer copy carries no row pitch, so the mapped range reads as one flat `f32` run. The 256-byte `ImageCopyBuffer.Layout.BytesPerRow` alignment a host un-pads row-wise belongs to `CommandEncoderCopyTextureToBuffer`, and this device allocates no texture — that padding becomes real the day a kernel row declares a storage-texture binding, which is the declared growth leg and not a cost paid today. Validation is a POLICY ARM, not an unconditional bracket, and it arms BOTH halves from one row: `DeviceArm.Validation` in `DevicePolicy.Arms` sets `InstanceFlag.Validation` in the chained `InstanceExtras` so the native layer runs at all, and arms `DevicePushErrorScope(ErrorFilter.Validation)` around the pass, whose `DevicePopErrorScope` drains that layer's verdict into a `RasterFault.Device` with the native message preserved — a proving run pays both and a throughput run neither, where a scope armed over an unarmed layer would drain clean on a malformed dispatch. Backend selection is likewise INSTANCE state: `DevicePolicy.Backends` rides `InstanceExtras.Backends` as a flags MASK constraining which backends the instance builds, which is strictly more than the single `RequestAdapterOptions.BackendType` narrowing one request against an instance that already built them all. `Wgpu.SetLogCallback` routes adapter selection and device-lost onto the same sink unconditionally because a lost device is never optional evidence. The error scope IS the compile-diagnostics channel: `wgpuShaderModuleGetCompilationInfo` is UNIMPLEMENTED in wgpu-native and ABORTS the process — a non-unwinding panic, never a failed call — so a WGSL refusal reaches the host through the `DevicePushErrorScope`/`DevicePopErrorScope` pair and the log sink alone, and no fence on this page spells `GetCompilationInfo`. Timing is OPTIONAL EVIDENCE: `FeatureName.TimestampQuery` is probed on the adapter before the device requires it — requiring a feature the adapter lacks refuses the whole device and trades every dispatch for one timing column — and an absent feature leaves `KernelReadback.GpuNanos` as a typed ABSENCE rather than a zero, because a fabricated zero and an unmeasured pass are the two states a parity benchmark must keep apart. Resolved query values are NANOSECONDS and this binding exposes no tick period to convert against — `Limits` carries dispatch ceilings alone and no period member — so the resolved delta IS the readback column and no conversion step exists to get wrong. Limits are negotiated in BOTH directions and read at BOTH subjects for different reasons: the adapter's `SupportedLimits.Limits` chains back as the `DeviceDescriptor.RequiredLimits` requirement, because an unset requirement asks for the specification's conservative defaults rather than the hardware's headroom, and the DEVICE's own `DeviceGetLimits` block is what the dispatch gate compares against, because a device grants at or below what it was asked. Both reads answer `Bool32` and both answers fail, since a false answer leaves the struct zeroed and a zero ceiling refuses every dispatch as a breach rather than as the unread block it is. The pipeline cache is CONCURRENT because one leased device serves every binding of a press and a caller may fan them; a `FrozenDictionary` cannot admit a compile and a plain `Dictionary` tears under two. Every native handle releases through its own `XxxRelease` inside the `Lease<T>` projection window, and every per-dispatch handle releases in the recording fold's `finally` on the refusal path as much as the success one; `PressDevice` implements `IDisposable` solely so the kernel resource carrier can carry it, and the `Owned` case's `using` is the platform-forced disposal boundary this page declares. Native completions are `[UnmanagedCallersOnly]` over `CallConvCdecl` writing the CALLER's own stack slot, never `Pfn…Callback.From(delegate)`: the managed-delegate form mints one pinned `SilkMarshal` thunk per construction, so a device brought once per press with a map callback per binding leaks one thunk per dispatch. The slot copies the native message INLINE because the `byte*` a callback receives dies with the call and an unmanaged callee cannot hand a managed string back through a field; a slot storing that pointer renders freed bytes into a fault detail — and the copy is `MemoryMarshal.CreateReadOnlySpanFromNullTerminated` plus one `CopyTo`, so the terminator scan and the byte walk are BCL folds rather than two index loops each restating the cap. The `[EXPRESSION_SPINE]` exemption is the unsafe marshalling spine — descriptor construction, pointer plumbing, the uniform word append, and the recording fold — which is platform-forced; every admission, dispatch selection, and egress surface is expression-bodied.
@@ -136,10 +136,10 @@ public sealed unsafe class PressDevice : IDisposable {
         (this.api, this.vendor, this.instance, this.adapter, this.device, this.queue, this.policy, this.timestamps, this.limits) =
         (api, vendor, instance, adapter, device, queue, policy, timestamps, limits);
 
-    public static Fin<Lease<PressDevice>> Acquire(DevicePolicy policy, Op key) =>
-        Bring(policy, key).Map(static device => (Lease<PressDevice>)new Lease<PressDevice>.Owned(device));
+    public static Fin<Lease<PressDevice>> Acquire(DevicePolicy policy) =>
+        Bring(policy).Map(static device => (Lease<PressDevice>)new Lease<PressDevice>.Owned(device));
 
-    static Fin<PressDevice> Bring(DevicePolicy policy, Op key) {
+    static Fin<PressDevice> Bring(DevicePolicy policy) {
         const int PumpBound = 1024;
         WebGPU api = WebGPU.GetApi();
         InstanceExtras extras = new() {
@@ -149,7 +149,7 @@ public sealed unsafe class PressDevice : IDisposable {
         };
         InstanceDescriptor instanceDescriptor = new() { NextInChain = (ChainedStruct*)&extras };
         Instance* instance = api.CreateInstance(&instanceDescriptor);
-        if (instance is null) { return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<wgpu-instance-null:{Diagnostic()}>")); }
+        if (instance is null) { return Fin.Fail<PressDevice>(new RasterFault.Device($"<wgpu-instance-null:{Diagnostic()}>")); }
 
         NativeSlot slot = default;
         RequestAdapterOptions options = new() { CompatibleSurface = null, PowerPreference = policy.Power };
@@ -158,14 +158,14 @@ public sealed unsafe class PressDevice : IDisposable {
         Adapter* adapter = (Adapter*)slot.Handle;
         if (adapter is null) {
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<wgpu-adapter:{(RequestAdapterStatus)slot.Status}:{Detail(&slot)}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device($"<wgpu-adapter:{(RequestAdapterStatus)slot.Status}:{Detail(&slot)}>"));
         }
 
         SupportedLimits supported = default;
         if (!api.AdapterGetLimits(adapter, &supported)) {
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<adapter-limits-unread:{Diagnostic()}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device($"<adapter-limits-unread:{Diagnostic()}>"));
         }
         bool timestamps = policy.Arms.Admits(DeviceArm.Timestamps) && api.AdapterHasFeature(adapter, FeatureName.TimestampQuery);
 
@@ -183,7 +183,7 @@ public sealed unsafe class PressDevice : IDisposable {
         if (device is null) {
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<wgpu-device:{(RequestDeviceStatus)slot.Status}:{Detail(&slot)}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device($"<wgpu-device:{(RequestDeviceStatus)slot.Status}:{Detail(&slot)}>"));
         }
 
         SupportedLimits negotiated = default;
@@ -191,33 +191,32 @@ public sealed unsafe class PressDevice : IDisposable {
             api.DeviceRelease(device);
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<device-limits-unread:{Diagnostic()}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device($"<device-limits-unread:{Diagnostic()}>"));
         }
 
         if (!api.TryGetDeviceExtension(device, out Wgpu vendor)) {
             api.DeviceRelease(device);
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(new RasterFault.Device(key, "<wgpu-vendor-extension-absent>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device("<wgpu-vendor-extension-absent>"));
         }
         vendor.SetLogLevel(LogLevel.Warn);
         vendor.SetLogCallback(new PfnLogCallback(&OnLog), null);
         return Fin.Succ(new PressDevice(api, vendor, instance, adapter, device, api.DeviceGetQueue(device), policy, timestamps, negotiated.Limits));
     }
 
-    public Fin<KernelReadback> Dispatch(WgslKernel kernel, KernelBinding binding, Op key) =>
-        from _ in WgslOpCode.Total(key)
-        from __ in Guard(kernel, binding, key)
-        from pipeline in Pipeline(kernel, key)
-        from output in Run(kernel, pipeline, binding, key)
+    public Fin<KernelReadback> Dispatch(WgslKernel kernel, KernelBinding binding) =>
+        from _ in WgslOpCode.Total()
+        from __ in Guard(kernel, binding)
+        from pipeline in Pipeline(kernel)
+        from output in Run(kernel, pipeline, binding)
         select output;
 
-    Fin<Unit> Guard(WgslKernel kernel, KernelBinding binding, Op key) =>
+    Fin<Unit> Guard(WgslKernel kernel, KernelBinding binding) =>
         binding.Buffers.Count != kernel.Layout.Count || !binding.Buffers.Zip(kernel.Layout).ForAll(static pair => pair.Item1.Kind == pair.Item2)
-            ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<kernel-layout-mismatch:{kernel.Key}>"))
+            ? Fin.Fail<Unit>(new RasterFault.Device($"<kernel-layout-mismatch:{kernel.Key}>"))
             : Ceilings(kernel, binding).Find(static ceiling => ceiling.Reached > ceiling.Granted)
-                .TraverseM(ceiling => Fin.Fail<Unit>(new RasterFault.Device(key,
-                    $"<{ceiling.Name}-ceiling:{kernel.Key}:{ceiling.Reached}:{ceiling.Granted}>"))).As()
+                .TraverseM(ceiling => Fin.Fail<Unit>(new RasterFault.Device($"<{ceiling.Name}-ceiling:{kernel.Key}:{ceiling.Reached}:{ceiling.Granted}>"))).As()
                 .Map(static _ => unit);
 
     // --- [DISPATCH_CEILING]
@@ -227,7 +226,7 @@ public sealed unsafe class PressDevice : IDisposable {
             ("storage",    binding.Buffers.Filter(static buffer => buffer.Kind != BindingKind.Uniform)
                                           .Fold(0UL, static (widest, buffer) => Math.Max(widest, (ulong)buffer.ByteLength)), limits.MaxStorageBufferBindingSize));
 
-    Fin<nint> Pipeline(WgslKernel kernel, Op key) {
+    Fin<nint> Pipeline(WgslKernel kernel) {
         if (pipelines.TryGetValue(kernel.Key, out nint cached)) { return Fin.Succ(cached); }
         nint source = Marshal.StringToCoTaskMemUTF8(kernel.Source);
         nint entry = Marshal.StringToCoTaskMemUTF8("main");
@@ -238,14 +237,14 @@ public sealed unsafe class PressDevice : IDisposable {
             };
             ShaderModuleDescriptor moduleDescriptor = new() { NextInChain = (ChainedStruct*)&wgsl };
             ShaderModule* module = api.DeviceCreateShaderModule(device, &moduleDescriptor);
-            if (module is null) { return Fin.Fail<nint>(new RasterFault.Device(key, $"<wgsl-compile:{kernel.Key}:{Diagnostic()}>")); }
+            if (module is null) { return Fin.Fail<nint>(new RasterFault.Device($"<wgsl-compile:{kernel.Key}:{Diagnostic()}>")); }
             ComputePipelineDescriptor descriptor = new() {
                 Layout = null,
                 Compute = new ProgrammableStageDescriptor { Module = module, EntryPoint = (byte*)entry },
             };
             ComputePipeline* pipeline = api.DeviceCreateComputePipeline(device, &descriptor);
             api.ShaderModuleRelease(module);
-            if (pipeline is null) { return Fin.Fail<nint>(new RasterFault.Device(key, $"<compute-pipeline:{kernel.Key}:{Diagnostic()}>")); }
+            if (pipeline is null) { return Fin.Fail<nint>(new RasterFault.Device($"<compute-pipeline:{kernel.Key}:{Diagnostic()}>")); }
             if (pipelines.TryAdd(kernel.Key, (nint)pipeline)) { return Fin.Succ((nint)pipeline); }
             api.ComputePipelineRelease(pipeline);
             return Fin.Succ(pipelines[kernel.Key]);
@@ -255,7 +254,7 @@ public sealed unsafe class PressDevice : IDisposable {
         }
     }
 
-    Fin<KernelReadback> Run(WgslKernel kernel, nint pipeline, KernelBinding binding, Op key) {
+    Fin<KernelReadback> Run(WgslKernel kernel, nint pipeline, KernelBinding binding) {
         const uint TimestampQueries = 2;
         const ulong TimestampBytes = TimestampQueries * sizeof(ulong);
         int slots = binding.Buffers.Count;
@@ -274,7 +273,7 @@ public sealed unsafe class PressDevice : IDisposable {
                 ulong bytes = (ulong)request.ByteLength;
                 BufferDescriptor descriptor = new() { Usage = request.Kind.Usage, Size = bytes, MappedAtCreation = false };
                 Buffer* handle = api.DeviceCreateBuffer(device, &descriptor);
-                if (handle is null) { return Refuse(key, $"<buffer-alloc:{kernel.Key}:{slot}:{bytes}>"); }
+                if (handle is null) { return Refuse($"<buffer-alloc:{kernel.Key}:{slot}:{bytes}>"); }
                 resources[slot] = (nint)handle;
                 entries[slot] = new BindGroupEntry { Binding = (uint)slot, Buffer = handle, Offset = 0, Size = bytes };
                 switch (request) {
@@ -291,11 +290,11 @@ public sealed unsafe class PressDevice : IDisposable {
                     default: (writeSlot, writeBytes) = (slot, bytes); break;
                 }
             }
-            if (writeSlot < 0 || writeBytes is 0) { return Refuse(key, $"<kernel-no-write:{kernel.Key}>"); }
+            if (writeSlot < 0 || writeBytes is 0) { return Refuse($"<kernel-no-write:{kernel.Key}>"); }
 
             BufferDescriptor stagingDescriptor = new() { Usage = BufferUsage.MapRead | BufferUsage.CopyDst, Size = writeBytes };
             Buffer* stagingBuffer = api.DeviceCreateBuffer(device, &stagingDescriptor);
-            if (stagingBuffer is null) { return Refuse(key, $"<staging-alloc:{writeBytes}>"); }
+            if (stagingBuffer is null) { return Refuse($"<staging-alloc:{writeBytes}>"); }
             staging = (nint)stagingBuffer;
 
             BindGroupLayout* groupLayout = api.ComputePipelineGetBindGroupLayout((ComputePipeline*)pipeline, 0);
@@ -303,7 +302,7 @@ public sealed unsafe class PressDevice : IDisposable {
             fixed (BindGroupEntry* seated = entries) {
                 BindGroupDescriptor groupDescriptor = new() { Layout = groupLayout, EntryCount = (nuint)slots, Entries = seated };
                 BindGroup* bound = api.DeviceCreateBindGroup(device, &groupDescriptor);
-                if (bound is null) { return Refuse(key, $"<bind-group:{kernel.Key}>"); }
+                if (bound is null) { return Refuse($"<bind-group:{kernel.Key}>"); }
                 group = (nint)bound;
             }
 
@@ -342,7 +341,7 @@ public sealed unsafe class PressDevice : IDisposable {
             api.BufferMapAsync(stagingBuffer, MapMode.Read, 0, (nuint)writeBytes, new PfnBufferMapCallback(&OnMap), &mapped);
             vendor.DevicePoll(device, true, &wrapped);
             if (api.BufferGetMapState(stagingBuffer) != BufferMapState.Mapped) {
-                return Refuse(key, $"<readback-unmapped:{kernel.Key}:{(BufferMapAsyncStatus)mapped.Status}:{Diagnostic()}>");
+                return Refuse($"<readback-unmapped:{kernel.Key}:{(BufferMapAsyncStatus)mapped.Status}:{Diagnostic()}>");
             }
             float[] raw = new float[writeBytes / sizeof(float)];
             new ReadOnlySpan<float>(api.BufferGetMappedRange(stagingBuffer, 0, (nuint)writeBytes), raw.Length).CopyTo(raw);
@@ -365,7 +364,7 @@ public sealed unsafe class PressDevice : IDisposable {
                 api.DevicePopErrorScope(device, new PfnErrorCallback(&OnError), &scope);
                 vendor.DevicePoll(device, true, null);
                 if (scope.Fired is not 0 && scope.Status != (int)ErrorType.NoError) {
-                    return Refuse(key, $"<validation:{(ErrorType)scope.Status}:{Detail(&scope)}>");
+                    return Refuse($"<validation:{(ErrorType)scope.Status}:{Detail(&scope)}>");
                 }
             }
             return Fin.Succ(new KernelReadback(kernel, kernel.Reduce.Fold(raw, kernel.Reduce.Stride), nanos, Dispatches: 1u));
@@ -396,7 +395,7 @@ public sealed unsafe class PressDevice : IDisposable {
         api.InstanceRelease(instance);
     }
 
-    static Fin<KernelReadback> Refuse(Op key, string detail) => Fin.Fail<KernelReadback>(new RasterFault.Device(key, detail));
+    static Fin<KernelReadback> Refuse(string detail) => Fin.Fail<KernelReadback>(new RasterFault.Device(detail));
 
     // --- [CALLBACKS]
     static void Capture(NativeSlot* slot, int status, nint handle, byte* message) {
@@ -521,7 +520,7 @@ public static class WgslOpCode {
         ? Fin.Succ(unit)
         : Fin.Fail<Unit>(new RasterFault.Device(Op.Of(name: nameof(WgslOpCode)), $"<wgsl-op-roster-drift:{string.Join(',', Uncovered)}>"));
 
-    public static Fin<Unit> Total(Op key) => Verdict;
+    public static Fin<Unit> Total() => Verdict;
 
     public static uint Of(MathOp op) => MathCodes[op];
     public static uint Of(MixOp op) => MixCodes[op];
@@ -1275,7 +1274,7 @@ internal static class Wgsl {
 - Owner: `OracleVector` the per-kernel fixture row; `Oracle` the fixture table.
 - Law: every expected value is EXACTLY COMPUTABLE from the algorithm's own definition — INCLUDING its own quadrature where the kernel integrates. A Perlin lattice node is exactly zero because both corner displacement vectors vanish there; a checker parity is an integer; a two-texel LUT midpoint is exactly the mean; the constant-radiance SH projection is the closed-form midpoint sum — `sh_0 = K · (2π²/h) · csc(π/2h)`, whose limit is the analytic `2√π` and whose gap IS the midpoint-rule error the resolution fixes, and `sh_6 = K₆ · 2π · (π/h) · ((3/4)csc(3π/2h) − (1/4)csc(π/2h))`, the ONE band whose quadrature residue does not cancel, derived from `(3cos²θ−1)sinθ = (3/4)sin3θ − (1/4)sinθ` — while every azimuth-dependent band cancels exactly on the uniform φ grid; a constant environment prefilters to itself at every roughness because the weight sum normalizes; a one-tap visible-normal draw lands the (8, 15, 17) triple in exact binary, so the prefiltered value IS the source texel that one direction addresses. A property EVERY candidate algorithm satisfies proves the WEIGHT and nothing else, so a kernel whose algorithm is settled carries a second fixture keyed on the draw itself — the invariant fixture and the draw fixture are a deliberate pair, never two similar cases. A transcribed decimal nobody can re-derive is the deleted form, an ANALYTIC value asserted against a DISCRETE kernel at a tolerance the quadrature cannot reach is the same defect wearing a derivation, and a ZERO asserted where the quadrature legitimately leaves a residue is its twin — each fails a CORRECT kernel and passes only after someone loosens it.
 - Law: a fixture's `Input` supplies every READ buffer the kernel's `Layout` declares. A sampling kernel whose fixture supplies no input reads an unbound or zero buffer, so its expected value describes a dispatch that never happened.
-- Entry: `public static Fin<Unit> Prove(PressDevice device, WgslKernel kernel, Op key)` runs the op-code totality gate, then dispatches EVERY fixture on the row's own `Oracle` sequence and compares each reduced output's leading `Expected.Length` elements against the fixture's tolerance; `Oracle.All` DERIVES from `WgslKernel.Items` — the `Projection/benchmarks` parity workload and the proof suite iterate one public projection, and no hand-maintained second roster exists to drift.
+- Entry: `public static Fin<Unit> Prove(PressDevice device, WgslKernel kernel)` runs the op-code totality gate, then dispatches EVERY fixture on the row's own `Oracle` sequence and compares each reduced output's leading `Expected.Length` elements against the fixture's tolerance; `Oracle.All` DERIVES from `WgslKernel.Items` — the `Projection/benchmarks` parity workload and the proof suite iterate one public projection, and no hand-maintained second roster exists to drift.
 - Packages: `[02]-[PRESS_DEVICE]` and `[03]-[WGSL_KERNEL]` (the device and table this proves), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new kernel's fixtures are the `oracle:` sequence on its own row — a kernel without at least one cannot be declared, because the row's constructor takes the sequence, and a kernel whose law spans several conventions proves each under its OWN dispatch (a single-op uniform cannot exercise three ops in one pass).
 - Boundary: the comparison is a PREFIX read of the reduced output, because a fixture pins the texels its dispatch determines and a full-plane expectation would restate the kernel; the row declares the extent that makes the prefix meaningful, so `Expected` and `Uniform` are read together or not at all. Tolerance is per-fixture: `1e-6` ABSOLUTE for the exactly-zero, integer, and single-tap cases — a one-tap dispatch normalizes by its own weight, so the answer is the source texel to within one rounding and a quadrature bound is slack the fixture never needs — and per-band ABSOLUTE sized to the accumulation error where a reduction sums thousands of `f32` terms — the irradiance row's `1e-4` sits three orders below both of its non-zero values, so a band-order swap, a normalization slip, and a fake zero all still fail while a correct kernel passes; a tolerance loose enough to hide a wrong gradient table is worse than no fixture. The irradiance vector doubles as the AXIS discriminator: the companion `L(ω) = ω·ẑ` case places its single non-zero coefficient at `sh_2`, and a `+Y`-up implementation places it at `sh_1` or `sh_3` and fails — which is the one check that catches an up-axis fork every visual comparison passes. The cube fixture paints SIX DISTINCT probes — four single-texel equator probes pinning the azimuth origin and every equator-face permutation outright, two whole-row pole probes pinning the up axis without reading `u` at the pole, where `atan2(0, 0)` is indeterminate and a single-texel probe would pin an implementation detail; the per-face `(s, t)` axis signs ride the frozen `faceDir` text alone, with the off-centre edge-≥2 fixture the declared growth leg. Oracle divergence fails `RasterFault.Device` naming the kernel, the fixture, and the divergent index, and it is a HARD failure rather than a telemetry row: the CPU-versus-GPU divergence a press measures is telemetry precisely because the CPU result is authoritative there, whereas a kernel disagreeing with its own closed-form answer is a broken kernel.
@@ -1407,11 +1406,11 @@ public static class Oracle {
 
     public static Seq<OracleVector> All => toSeq(WgslKernel.Items).Bind(static kernel => kernel.Oracle);
 
-    public static Fin<Unit> Prove(PressDevice device, WgslKernel kernel, Op key) =>
-        WgslOpCode.Total(key).Bind(_ =>
+    public static Fin<Unit> Prove(PressDevice device, WgslKernel kernel) =>
+        WgslOpCode.Total().Bind(_ =>
             kernel.Oracle
-                .TraverseM(fixture => device.Dispatch(kernel, Bind(kernel, fixture, kernel.Groups(fixture.Width, fixture.Height, fixture.Layers)), key)
-                    .Bind(readback => Compare(kernel, fixture, readback, key)))
+                .TraverseM(fixture => device.Dispatch(kernel, Bind(kernel, fixture, kernel.Groups(fixture.Width, fixture.Height, fixture.Layers)))
+                    .Bind(readback => Compare(kernel, fixture, readback)))
                 .As()
                 .Map(static _ => unit));
 
@@ -1420,13 +1419,13 @@ public static class Oracle {
                 .Add(new KernelBuffer.Write(kernel.WriteElements(fixture.Width, fixture.Height, fixture.Layers))),
             groups.X, groups.Y, groups.Z);
 
-    static Fin<Unit> Compare(WgslKernel kernel, OracleVector fixture, KernelReadback readback, Op key) {
+    static Fin<Unit> Compare(WgslKernel kernel, OracleVector fixture, KernelReadback readback) {
         ReadOnlySpan<float> expected = fixture.Expected.Span;
         ReadOnlySpan<float> actual = readback.Output.Span;
-        if (actual.Length < expected.Length) { return Fin.Fail<Unit>(new RasterFault.Device(key, $"<oracle-output-short:{kernel.Key}:{actual.Length}<{expected.Length}>")); }
+        if (actual.Length < expected.Length) { return Fin.Fail<Unit>(new RasterFault.Device($"<oracle-output-short:{kernel.Key}:{actual.Length}<{expected.Length}>")); }
         for (int i = 0; i < expected.Length; i++) {
             double bound = fixture.Band.Lane == ToleranceLane.Relative ? fixture.Band.Value * Math.Max(EpsilonPolicy.ZeroTolerance, Math.Abs(expected[i])) : fixture.Band.Value;
-            if (Math.Abs(actual[i] - expected[i]) > bound) { return Fin.Fail<Unit>(new RasterFault.Device(key, $"<oracle-divergence:{fixture.Name}:{i}:{actual[i]:R}!={expected[i]:R}>")); }
+            if (Math.Abs(actual[i] - expected[i]) > bound) { return Fin.Fail<Unit>(new RasterFault.Device($"<oracle-divergence:{fixture.Name}:{i}:{actual[i]:R}!={expected[i]:R}>")); }
         }
         return Fin.Succ(unit);
     }
@@ -1460,7 +1459,7 @@ public static class Oracle {
 - Law: ASSIGN BEFORE RETIRE, and the order is CORRECTNESS rather than taste. A node's operands are bound as READS in the very dispatch that writes its output, and one bind group may not alias a buffer as both a read and a write. Retiring an operand whose last use is this step BEFORE assigning this step's own slot would hand the node the buffer it is reading — a data race a strict driver reports as an aliasing error and a lax one silently miscomputes into a plausible plane. The TERMINAL never retires at all, because the readback is its consumer.
 - Law: THREE CEILINGS, each answering a different question and none standing for another. PER-BUFFER: one slot holds one plane, so a plane must fit `maxStorageBufferBindingSize`'s conformance minimum — the same floor the single-dispatch lane takes, read here per slot, which is why a chain's extent ceiling is identical to a single kernel's. PER-STAGE: a step binds its operands plus its own output, so an operand arity above seven exceeds the conformance minimum storage-binding count, and the structural gate refuses it before the scan. AGGREGATE: the whole slot pool is resident at once, and WebGPU publishes NO conformance minimum for total device allocation — so that bound is a MODULE DECLARATION rather than a floor and is stated as one. A device granting less than the declaration refuses at `[02]`'s own dispatch gate against its granted limits, exactly as an over-floor extent does.
 - Law: A REFUSED CHAIN REFUSES THE ACCELERATOR, never the bake. `press#PRESS_PLAN` reads this admission as the `Graph` subject's lowerability arm, and its recourse is the CPU lane — which is content-authoritative anyway, so the fallback loses throughput and nothing else. A chain product is a `Preview` like every other accelerator product: it carries no `TextureSet` and therefore no key, so the content-identity veto needs no new statement here.
-- Entry: `ChainPlan.Of(Seq<ChainNode> nodes, Op key)` is the ONE planner — it gates the sequence structurally, scans the live ranges, and answers the assignment with its slot count and terminal slot; `ChainPlan.Admits(long texels, Op key)` is the ONE footprint gate a plan admission reads; `PressDevice.Dispatch(ChainPlan plan, Dimension width, Dimension height, Dimension layers, Op key)` executes it against a pool allocated once.
+- Entry: `ChainPlan.Of(Seq<ChainNode> nodes)` is the ONE planner — it gates the sequence structurally, scans the live ranges, and answers the assignment with its slot count and terminal slot; `ChainPlan.Admits(long texels)` is the ONE footprint gate a plan admission reads; `PressDevice.Dispatch(ChainPlan plan, Dimension width, Dimension height, Dimension layers)` executes it against a pool allocated once.
 - Packages: Silk.NET.WebGPU (`DeviceCreateBuffer` the slot pool, `DeviceCreateBindGroup` per step over the pipeline's own auto-derived layout, `ComputePassEncoderSetPipeline`/`SetBindGroup`/`DispatchWorkgroups`, `CommandEncoderCopyBufferToBuffer` the ONE terminal readback, `QueueSubmit`), `Rasm.Numerics` (`Dimension`), `codec#RASTER_FAULT` (`RasterFault.Device`), LanguageExt.Core.
 - Growth: a new lowerable node class is one `WgslKernel` row plus one lowering arm at the CALLER — the planner reads `Reads` off the row and needs no edit. A different allocation policy is a different scan over the same live-range table; the table itself is the derivation every policy would share.
 - Boundary: the plan is CPU-SIDE PLANNING DATA and holds no device handle — it is derived once from the compiled order and is reusable across extents, which is what lets the footprint gate answer a plan question without renting a device. The pool is allocated per EXECUTION and released at its close, so a plan outlives a device and a device outlives no plan. Every step records into ONE encoder and the whole chain submits ONCE, so the submission-index drain and the error scope that `[02]` owns wrap the chain exactly as they wrap a single dispatch. The `[EXPRESSION_SPINE]` exemptions here are the two scans — the live-range pass and the allocation walk — which are fixed-extent index folds over caller-owned arrays.
@@ -1480,19 +1479,19 @@ public sealed record ChainPlan(Seq<ChainStep> Steps, int Slots, int Terminal) {
 
     public long Bytes(long texels) => Slots * texels * BytesPerTexel;
 
-    public static Fin<ChainPlan> Of(Seq<ChainNode> nodes, Op key) {
-        if (nodes.IsEmpty) { return new RasterFault.Device(key, "<chain-empty>"); }
+    public static Fin<ChainPlan> Of(Seq<ChainNode> nodes) {
+        if (nodes.IsEmpty) { return new RasterFault.Device("<chain-empty>"); }
         int count = nodes.Count;
         for (int at = 0; at < count; at++) {
             ChainNode node = nodes[at];
             if (node.Operands.Count != node.Kernel.Reads) {
-                return new RasterFault.Device(key, $"<chain-operand-arity:{at}:{node.Kernel.Key}:{node.Operands.Count}!={node.Kernel.Reads}>");
+                return new RasterFault.Device($"<chain-operand-arity:{at}:{node.Kernel.Key}:{node.Operands.Count}!={node.Kernel.Reads}>");
             }
             if (node.Kernel.Reads + 1 > StorageBindingsPerStage) {
-                return new RasterFault.Device(key, $"<chain-step-bindings:{node.Kernel.Key}:{node.Kernel.Reads + 1}:{StorageBindingsPerStage}>");
+                return new RasterFault.Device($"<chain-step-bindings:{node.Kernel.Key}:{node.Kernel.Reads + 1}:{StorageBindingsPerStage}>");
             }
             foreach (int operand in node.Operands) {
-                if (operand < 0 || operand >= at) { return new RasterFault.Device(key, $"<chain-operand-order:{at}:{operand}>"); }
+                if (operand < 0 || operand >= at) { return new RasterFault.Device($"<chain-operand-order:{at}:{operand}>"); }
             }
         }
 
@@ -1521,11 +1520,11 @@ public sealed record ChainPlan(Seq<ChainStep> Steps, int Slots, int Terminal) {
             minted, slotOf[count - 1]));
     }
 
-    public Fin<Unit> Admits(long texels, Op key) =>
+    public Fin<Unit> Admits(long texels) =>
         texels * BytesPerTexel > BindingFloor
-            ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<chain-slot-over-binding-floor:{texels * BytesPerTexel}:{BindingFloor}>"))
+            ? Fin.Fail<Unit>(new RasterFault.Device($"<chain-slot-over-binding-floor:{texels * BytesPerTexel}:{BindingFloor}>"))
             : Bytes(texels) > Footprint
-                ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<chain-footprint:{Slots}:{Bytes(texels)}:{Footprint}>"))
+                ? Fin.Fail<Unit>(new RasterFault.Device($"<chain-footprint:{Slots}:{Bytes(texels)}:{Footprint}>"))
                 : Fin.Succ(unit);
 }
 ```
@@ -1535,26 +1534,26 @@ public sealed record ChainPlan(Seq<ChainStep> Steps, int Slots, int Terminal) {
 namespace Rasm.Materials.Raster;
 
 public sealed partial class PressDevice {
-    public Fin<KernelReadback> Dispatch(ChainPlan plan, Dimension width, Dimension height, Dimension layers, Op key) =>
-        from _ in WgslOpCode.Total(key)
-        from __ in plan.Admits((long)width.Value * height.Value * layers.Value, key)
-        from pipelines in plan.Steps.TraverseM(step => Pipeline(step.Kernel, key)).As()
-        from output in RunChain(plan, pipelines, width, height, layers, key)
+    public Fin<KernelReadback> Dispatch(ChainPlan plan, Dimension width, Dimension height, Dimension layers) =>
+        from _ in WgslOpCode.Total()
+        from __ in plan.Admits((long)width.Value * height.Value * layers.Value)
+        from pipelines in plan.Steps.TraverseM(step => Pipeline(step.Kernel)).As()
+        from output in RunChain(plan, pipelines, width, height, layers)
         select output;
 
-    Fin<KernelReadback> RunChain(ChainPlan plan, Seq<nint> pipelines, Dimension width, Dimension height, Dimension layers, Op key) =>
-        Pooled(plan, width, height, layers, key, (pool, encoder) =>
+    Fin<KernelReadback> RunChain(ChainPlan plan, Seq<nint> pipelines, Dimension width, Dimension height, Dimension layers) =>
+        Pooled(plan, width, height, layers, (pool, encoder) =>
             plan.Steps
-                .FoldM(0, (index, step) => Record(pool, encoder, pipelines[index], step, width, height, layers, key).Map(_ => index + 1))
+                .FoldM(0, (index, step) => Record(pool, encoder, pipelines[index], step, width, height, layers).Map(_ => index + 1))
                 .As());
 
     Fin<KernelReadback> Pooled(
-        ChainPlan plan, Dimension width, Dimension height, Dimension layers, Op key,
+        ChainPlan plan, Dimension width, Dimension height, Dimension layers,
         Func<Seq<nint>, nint, Fin<int>> body);
 
     Fin<Unit> Record(
         Seq<nint> pool, nint encoder, nint pipeline, ChainStep step,
-        Dimension width, Dimension height, Dimension layers, Op key);
+        Dimension width, Dimension height, Dimension layers);
 }
 ```
 

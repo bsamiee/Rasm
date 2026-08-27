@@ -12,7 +12,7 @@ Every native-unit magnitude crossing this projector rides the ONE `Projection/va
 ## [02]-[MATERIAL_COMPOSITION]
 
 - Owner: `MaterialProjection` the static BIDIRECTIONAL GeometryGym↔shared material projector, this cluster owning its `Project` ingress — folding one `IfcMaterialSelect` runtime entity into one shared `Node.Material` (discriminating the entity, building the shared `MaterialComposition` through the shared smart-constructors, minting the content-keyed node id) — beside `MaterialShape` the `[Mapper]` boundary transcription owning the mechanical column crossings BOTH halves compose (the `IfcMaterial`→`MaterialId` substance carrier over the ONE `Key` nullable-name admission, the `int.MinValue`→`Option<int>` junction sentinel, the `IfcLogicalEnum`→`Option<bool>` ventilation narrowing, and the whole `IfcMaterialConstituent`→`MaterialConstituent` row). `Rasm.Element` owns the `MaterialComposition` `[Union]`, the `MaterialLayer`/`MaterialConstituent`/`MaterialProfile` rows, the `ProfileRef`, the `Relations/relation#EDGE_ALGEBRA` `MaterialUsage`, the `ValueBag<V>` bag an imported Pset lands in, and the `MaterialPropertySet` engineering-property family; this page declares NONE of them — it composes the contract vocabulary, mapping the GeometryGym material-assembly entities onto it and back.
-- Entry: `MaterialProjection.Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, UnitScheme scale, Op key)` is the live-entity promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes when folding an `IfcRelAssociatesMaterial.RelatingMaterial` (the parameter IS the typed `IfcMaterialSelect` the property carries — a `BaseClassIfc` admission is the deleted weak form) — dispatching the runtime entity onto ONE builder per shared union arm (`IfcMaterialLayerSetUsage` unwraps its `ForLayerSet` and `IfcMaterialProfileSetUsage` its `ForProfileSet` into the same two set builders the bare sets reach, the usage payload riding the `Associate` edge not this node; `ConstituentSetOf` folds `MaterialConstituents.Values`; `SingleOf` reads the bare substance once for both the node key and the `Single` case) — and returns one content-keyed shared `Node.Material`; `MaterialProjection.ImportedPsets(definition, rooted, scale, templates, key)` is the peer ingress reading the imported `HasProperties` material Psets as neutral shared `PropertyBag`s on the `Projection/fidelity#FIDELITY_LEDGER` `WriterT<FidelityLog, Fin, A>` carrier, the narrowing's own drops returned beside the bags, the `Projection/semantic#SEMANTIC_PROJECTOR` `Materials` fold content-minting each bag as a `Node.PropertySet` node the `Projection/relations#RELATION_ALGEBRA` `MaterialEdges` fold binds by one `Assign.PropertyDefinition` edge; `Fin<T>` aborts on an unresolvable material-select entity (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) and the shared `MaterialComposition` admission aborts a degenerate set (`ElementFault.ValueRejected`), each lifting BARE (the band owns the generated `Code`; no `.ToError()` hop).
+- Entry: `MaterialProjection.Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, UnitScheme scale)` is the live-entity promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes when folding an `IfcRelAssociatesMaterial.RelatingMaterial` (the parameter IS the typed `IfcMaterialSelect` the property carries — a `BaseClassIfc` admission is the deleted weak form) — dispatching the runtime entity onto ONE builder per shared union arm (`IfcMaterialLayerSetUsage` unwraps its `ForLayerSet` and `IfcMaterialProfileSetUsage` its `ForProfileSet` into the same two set builders the bare sets reach, the usage payload riding the `Associate` edge not this node; `ConstituentSetOf` folds `MaterialConstituents.Values`; `SingleOf` reads the bare substance once for both the node key and the `Single` case) — and returns one content-keyed shared `Node.Material`; `MaterialProjection.ImportedPsets(definition, rooted, scale, templates)` is the peer ingress reading the imported `HasProperties` material Psets as neutral shared `PropertyBag`s on the `Projection/fidelity#FIDELITY_LEDGER` `WriterT<FidelityLog, Fin, A>` carrier, the narrowing's own drops returned beside the bags, the `Projection/semantic#SEMANTIC_PROJECTOR` `Materials` fold content-minting each bag as a `Node.PropertySet` node the `Projection/relations#RELATION_ALGEBRA` `MaterialEdges` fold binds by one `Assign.PropertyDefinition` edge; `Fin<T>` aborts on an unresolvable material-select entity (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) and the shared `MaterialComposition` admission aborts a degenerate set (`ElementFault.ValueRejected`), each lifting BARE (the band owns the generated `Code`; no `.ToError()` hop).
 - Auto: `Project` reads the `IfcMaterialSelect` runtime type and builds the shared `MaterialComposition` through the shared `Of`-prefixed smart-constructors (the `Fin`-returning `MaterialComposition.OfLayerSet`/`OfConstituentSet` owning the empty-set / non-positive-thickness / unnormalized-fraction admission, the total `OfSingle`/`OfProfileSet` lifted into `Fin` for the `Mint` fold), then mints the shared `Node.Material` whose id is the kernel seed-zero `XxHash128` over the shared `Node.ToCanonicalBytes` (id excluded) so two structurally-identical materials dedup to one node; `LayersOf` folds each `IfcMaterialLayer` onto a shared `MaterialLayer` carrying its `MaterialId`, a `MeasureValue` thickness whose native `LayerThickness` coerces to SI metres through `UnitScheme.Coerce` over the length axis and admits through the QTO-identity `MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, …)` (a layer build-up thickness IS a length takeoff the `Semantics/properties#BASE_QUANTITIES` fold reads, so a dimension-anonymous admit strips the QTO read off every derived-wins row), and its layer name; `MaterialShape.Row` transcribes each `IfcMaterialConstituent` (read through the `Dictionary.Values`) onto a shared `MaterialConstituent` carrying its `MaterialId`, category, `Fraction`, and part name; `ProfileRefOf` projects the KEYED section — the set's declared `IfcCompositeProfileDef` `CompositeProfile` when a compound set carries one (the combined built-up geometry, decompile-confirmed settable), else the primary row's `Profile` — onto a neutral `ProfileRef` whose `ContentKey` is the kernel seed-zero `XxHash128` `ContentHash.Of` over the tag-namespaced `IfcProfileDef` STEP (the full parametric section preserved in the content-addressed store; the ONE kernel hasher the `Model/elements#REPRESENTATION_KEYS` keyer also composes, never the up-stratum `Rasm.Compute` `InterchangeIdentity` [H7]), the `Designation` the row profile's name, the `Standard` left to the one-hop catalog resolution; `ProfilesOf` folds EVERY `IfcMaterialProfile` row onto a shared `MaterialProfile` — its own material under the row-then-set name fallback the one `MaterialShape.Key` admission owns, its own content-keyed `ProfileRef`, its `[0,100]` junction `Priority` through `MaterialShape.Junction`, its function `Category`, and its `IfcMaterialProfileWithOffsets.OffsetValues` reference-axis offsets SI-coerced through the same `UnitScheme` entry — and `CompositeOf` preserves the set's declared `IfcCompositeProfileDef` as the shared `Composite`, so a built-up compound keeps every plate where the primary-only read kept one; `MaterialShape.Junction` is the `[SENTINEL_PROJECTION]` site retiring GeometryGym's `int.MinValue` unset priority to `None`, and `MaterialShape.Ventilation` narrows the three-state `IfcLogicalEnum` onto the shared `Option<bool>` so an `UNKNOWN` ventilation never reads as `FALSE` (the EN ISO 6946 falsification); the row `Description` is the one IFC annotation column the contract declines, carrying no analytical read where `Category` drives the assembly fold. Typed engineering property sets stay the AUTHORED lane's (the `Rasm.Materials` `ComponentProjector` lowers its catalog-backed `MaterialPropertySet` rows), so the IFC-ingest `Node.Material` carries an empty `Seq<MaterialPropertySet>` and `ImportedPsets` lands the imported `IfcMaterialDefinition.HasProperties` sets as NEUTRAL shared `PropertyBag`s instead — foreign set name, `EvidenceGrade.Import` rank, `PropertyInheritance.ModeOf` precedence, values narrowed through the one `PropertyLowering.Lower` — because a partial imported Pset folded onto a full-vector typed case fabricates every undeclared column.
 - Output: the shared `Node.Material` is the material evidence the `Projection/semantic#SEMANTIC_PROJECTOR` projector lands and the `Graph/element#ELEMENT_GRAPH` `Bake` fold reads through the `Associate` edge into `element.Materials` (a `BakedMaterial` carrying the node with its occurrence `MaterialUsage` — the shared Bake-folded accessor, DISTINCT from the `Rasm.Materials` projection-input `MaterialBinding` and the type→occurrence `TypeBinding`), the `Model/query#ELEMENT_SET` material predicate matches by `MaterialId` or composition modality, the `Review/validation#IDS_FACETS` Material facet matches against, and the `Semantics/properties#BASE_QUANTITIES` layered-volume takeoff reads from the `LayerSet` thicknesses; the imported-Pset lowering returns its own `FidelityLog` on the writer carrier as well, so which foreign values narrowed is per-exchange evidence rather than a silent read; the layer build-up, the section material, and the constituent mix each carry their real composition on one graph node, never a parallel layer/profile/constituent record family.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Rasm, Riok.Mapperly, LanguageExt.Core, NodaTime
@@ -66,80 +66,80 @@ public static partial class MaterialShape {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class MaterialProjection {
-    public static Fin<Node.Material> Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, UnitScheme scale, Op key) =>
+    public static Fin<Node.Material> Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, UnitScheme scale) =>
         relatingMaterial switch {
-            IfcMaterialLayerSetUsage u    => Optional(u.ForLayerSet).ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "layer-set" }))).Bind(set => LayerSetOf(set, tolerance, scale, key)),
-            IfcMaterialProfileSetUsage u  => Optional(u.ForProfileSet).ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "profile-set" }))).Bind(set => ProfileSetOf(set, tolerance, profiles, scale, key)),
-            IfcMaterialLayerSet set       => LayerSetOf(set, tolerance, scale, key),
-            IfcMaterialProfileSet set     => ProfileSetOf(set, tolerance, profiles, scale, key),
-            IfcMaterialConstituentSet set => ConstituentSetOf(set, tolerance, key),
+            IfcMaterialLayerSetUsage u    => Optional(u.ForLayerSet).ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "layer-set" }))).Bind(set => LayerSetOf(set, tolerance, scale)),
+            IfcMaterialProfileSetUsage u  => Optional(u.ForProfileSet).ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "profile-set" }))).Bind(set => ProfileSetOf(set, tolerance, profiles, scale)),
+            IfcMaterialLayerSet set       => LayerSetOf(set, tolerance, scale),
+            IfcMaterialProfileSet set     => ProfileSetOf(set, tolerance, profiles, scale),
+            IfcMaterialConstituentSet set => ConstituentSetOf(set, tolerance),
             IfcMaterial material          => SingleOf(material, tolerance),
-            _                             => Fin.Fail<Node.Material>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-select-unresolved", relatingMaterial.GetType().Name }))),
+            _                             => Fin.Fail<Node.Material>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-select-unresolved", relatingMaterial.GetType().Name }))),
         };
 
-    static Fin<Node.Material> LayerSetOf(IfcMaterialLayerSet set, double tolerance, UnitScheme scale, Op key) =>
-        LayersOf(set, scale, key).Bind(layers => Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfLayerSet(layers, key)));
+    static Fin<Node.Material> LayerSetOf(IfcMaterialLayerSet set, double tolerance, UnitScheme scale) =>
+        LayersOf(set, scale).Bind(layers => Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfLayerSet(layers)));
 
-    static Fin<Node.Material> ProfileSetOf(IfcMaterialProfileSet set, double tolerance, IIfcProfileStore profiles, UnitScheme scale, Op key) =>
-        from rows in ProfilesOf(set, profiles, scale, key)
-        from material in Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfProfileSet(rows, key, CompositeOf(set, profiles, key)))
+    static Fin<Node.Material> ProfileSetOf(IfcMaterialProfileSet set, double tolerance, IIfcProfileStore profiles, UnitScheme scale) =>
+        from rows in ProfilesOf(set, profiles, scale)
+        from material in Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfProfileSet(rows, CompositeOf(set, profiles)))
         select material;
 
-    static Fin<Node.Material> ConstituentSetOf(IfcMaterialConstituentSet set, double tolerance, Op key) =>
+    static Fin<Node.Material> ConstituentSetOf(IfcMaterialConstituentSet set, double tolerance) =>
         Mint(MaterialShape.Key(set.Name), tolerance, MaterialComposition.OfConstituentSet(
-            set.MaterialConstituents.Values.AsIterable().Map(MaterialShape.Row).ToSeq(), key));
+            set.MaterialConstituents.Values.AsIterable().Map(MaterialShape.Row).ToSeq()));
 
     static Fin<Node.Material> SingleOf(IfcMaterial material, double tolerance) {
         MaterialId id = MaterialShape.Substance(material);
         return Mint(id, tolerance, Fin.Succ<MaterialComposition>(MaterialComposition.OfSingle(id)));
     }
 
-    static Fin<Seq<MaterialLayer>> LayersOf(IfcMaterialLayerSet set, UnitScheme scale, Op key) =>
+    static Fin<Seq<MaterialLayer>> LayersOf(IfcMaterialLayerSet set, UnitScheme scale) =>
         set.MaterialLayers.AsIterable()
             .ToSeq()
-            .TraverseM(layer => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, scale.Coerce(layer.LayerThickness, QuantityType.Length, Dimension.LengthDim), key: key)
+            .TraverseM(layer => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, scale.Coerce(layer.LayerThickness, QuantityType.Length, Dimension.LengthDim))
                 .Map(thickness => new MaterialLayer(
                     MaterialShape.Substance(layer.Material), thickness, MaterialShape.Label(layer.Name),
                     MaterialShape.Junction(layer.Priority), MaterialShape.Label(layer.Category), MaterialShape.Ventilation(layer.IsVentilated))))
             .As();
 
-    static Fin<Seq<MaterialProfile>> ProfilesOf(IfcMaterialProfileSet set, IIfcProfileStore profiles, UnitScheme scale, Op key) =>
+    static Fin<Seq<MaterialProfile>> ProfilesOf(IfcMaterialProfileSet set, IIfcProfileStore profiles, UnitScheme scale) =>
         set.MaterialProfiles.AsIterable()
             .ToSeq()
             .TraverseM(row => Optional(row.Profile)
-                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-profile-missing", set.Name, row.Name })))
-                .Bind(profile => OffsetsOf(row, scale, key)
+                .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-profile-missing", set.Name, row.Name })))
+                .Bind(profile => OffsetsOf(row, scale)
                     .Map(offsets => new MaterialProfile(
                         MaterialShape.Key(row.Material?.Name, set.Name),
-                        profiles.Preserve(profile, key),
+                        profiles.Preserve(profile),
                         MaterialShape.Junction(row.Priority), MaterialShape.Label(row.Category), offsets))))
             .As();
 
-    static Option<ProfileRef> CompositeOf(IfcMaterialProfileSet set, IIfcProfileStore profiles, Op key) =>
-        Optional(set.CompositeProfile).Map(composite => profiles.Preserve(composite, key));
+    static Option<ProfileRef> CompositeOf(IfcMaterialProfileSet set, IIfcProfileStore profiles) =>
+        Optional(set.CompositeProfile).Map(composite => profiles.Preserve(composite));
 
-    static Fin<Seq<MeasureValue>> OffsetsOf(IfcMaterialProfile row, UnitScheme scale, Op key) =>
+    static Fin<Seq<MeasureValue>> OffsetsOf(IfcMaterialProfile row, UnitScheme scale) =>
         row is IfcMaterialProfileWithOffsets offsets
-            ? toSeq(offsets.OffsetValues).TraverseM(value => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, scale.Coerce(value, QuantityType.Length, Dimension.LengthDim), key: key)).As()
+            ? toSeq(offsets.OffsetValues).TraverseM(value => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, scale.Coerce(value, QuantityType.Length, Dimension.LengthDim))).As()
             : Fin.Succ(Seq<MeasureValue>());
 
     static Fin<Node.Material> Mint(MaterialId key, double tolerance, Fin<MaterialComposition> composition) =>
         composition.Map(c => {
-            var draft = new Node.Material(NodeId.Of(new NodeSeed.Placement()), key, c, Seq<MaterialPropertySet>());
+            var draft = new Node.Material(NodeId.Of(new NodeSeed.Placement()), c, Seq<MaterialPropertySet>());
             return (Node.Material)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tolerance)));
         });
 
     public static WriterT<FidelityLog, Fin, Seq<PropertyBag>> ImportedPsets(
-        IfcMaterialDefinition definition, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates, Op key) =>
+        IfcMaterialDefinition definition, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates) =>
         definition.HasProperties.AsIterable().ToSeq()
-            .Traverse(pset => Bag(pset, rooted, scale, templates, key))
+            .Traverse(pset => Bag(pset, rooted, scale, templates))
             .As();
 
     static WriterT<FidelityLog, Fin, PropertyBag> Bag(
-        IfcMaterialProperties pset, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates, Op key) {
+        IfcMaterialProperties pset, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates) {
         string name = MaterialShape.Label(pset.Name);
         return pset.Properties.Values.AsIterable().ToSeq()
-            .Traverse(property => PropertyLowering.Lower(property, rooted, scale, key)
+            .Traverse(property => PropertyLowering.Lower(property, rooted, scale)
                 .Map(value => (Name: PropertyCategory.Neutral.Row(MaterialShape.Label(property.Name)), Value: value)))
             .As()
             .Map(rows => new PropertyBag(
@@ -169,7 +169,7 @@ public sealed class EmitMemo<TKey, TValue>
     readonly ConditionalWeakTable<DatabaseIfc, ConcurrentDictionary<TKey, TValue>> tables = new();
 
     public TValue Of(DatabaseIfc db, TKey key, Func<TKey, TValue> mint) =>
-        tables.GetValue(db, static _ => new ConcurrentDictionary<TKey, TValue>()).GetOrAdd(key, mint);
+        tables.GetValue(db, static _ => new ConcurrentDictionary<TKey, TValue>()).GetOrAdd(mint);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -177,7 +177,6 @@ readonly record struct MaterialColumn(string Set, string Name, Func<MaterialProp
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class MaterialProjection {
-    static readonly Op Egress = Op.Of(name: nameof(MaterialProjection));
 
     static readonly EmitMemo<string, IfcMaterial> Materials = new();
 
@@ -192,7 +191,7 @@ public static partial class MaterialProjection {
             single:        s => Fin.Succ<IfcMaterialDefinition>(MaterialOf(db, s.Material.ToValue())),
             layerSet:      s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialLayerSet(
                                     s.Layers.Map(l => Layer(db, l, scale)), key.Value)),
-            profileSet:    s => Rows(db, s, profiles, profileSubtype, scale).Map(rows => AuthorProfileSet(key, rows, s, profiles)),
+            profileSet:    s => Rows(db, s, profiles, profileSubtype, scale).Map(rows => AuthorProfileSet(rows, s, profiles)),
             constituentSet: s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialConstituentSet(key.Value,
                                     s.Constituents.Map(c => new IfcMaterialConstituent(
                                         string.IsNullOrEmpty(c.PartName) ? c.Material.ToValue() : c.PartName,

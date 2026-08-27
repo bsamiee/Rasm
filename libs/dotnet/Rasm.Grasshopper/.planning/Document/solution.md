@@ -11,8 +11,8 @@
 
 ## [02]-[CONTROL]
 
-- Owner: `MarshalLane` `[SmartEnum<int>]` — the thread-custody vocabulary: `Window` (the case runs inside the shared marshal window) and `Worker` (the case blocks the caller's own thread and must NOT hold the marshal); the lane is a COLUMN on `SolutionCommand`, derived from the case itself, so the dispatch reads custody off the value and no `is`-ladder at the gate re-derives it. `WaitPosture` `[ValueObject<TimeSpan>]` — the REQUIRED wait budget of a blocking await, positive by construction; an unbounded block on a live UI application is the hazard the budget deletes, and exhaustion is a typed refusal, never a hang. `SolutionCommand` `[Union]` `[GenerateUnionOps]` — the closed execution vocabulary. `LaunchCase(SolutionMode, Option<CancellationTokenSource>)` discriminates the two start shapes on payload presence — a bare mode rides `SolutionServer.Start(SolutionMode)`, a bridled launch rides `Start(CancellationTokenSource, SolutionMode)` — and returns the moment the run is dispatched; `AwaitCase(SolutionMode, CancellationTokenSource, WaitPosture)` drives the same `Start` and blocks the caller's own thread on the `Task<Solution>` it hands back, at most the posture's budget; `HaltCase` stops the server; `CancelCase(Solution)` cancels one in-flight run cooperatively through `Solution.Cancel`; `DeferCase(IDocumentObject)` queues deferred expiry through `SolutionServer.DelayedExpire`; `ExpireCase(Seq<IDocumentObject>)` expires an explicit object set through each subject's own `IDocumentObject.Expire`. Awaited runs answer `GateOutcome.RunCase` with the final pulse.
-- Entry: `SolutionControl.Drive(SolutionCommand op, Option<HostDocument> graph = default, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Op? key = null)` → `Fin<GateOutcome>` — the one execution gate; `SolutionControl.Watch(EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default, Op? key = null)` → `Fin<Lease<UiSubscription<GhFact>>>` — the whole six-row lifecycle family attached transactionally through the kernel `UiEvents.Observe` over `GhSource.Of(document.Solution)`, the subscription's lifetime the kernel lease.
+- Owner: `MarshalLane` `[SmartEnum<int>]` — the thread-custody vocabulary: `Window` (the case runs inside the shared marshal window) and `Worker` (the case blocks the caller's own thread and must NOT hold the marshal); the lane is a COLUMN on `SolutionCommand`, derived from the case itself, so the dispatch reads custody off the value and no `is`-ladder at the gate re-derives it. `WaitPosture` `[ValueObject<TimeSpan>]` — the REQUIRED wait budget of a blocking await, positive by construction; an unbounded block on a live UI application is the hazard the budget deletes, and exhaustion is a typed refusal, never a hang. `SolutionCommand` `[Union]` `` — the closed execution vocabulary. `LaunchCase(SolutionMode, Option<CancellationTokenSource>)` discriminates the two start shapes on payload presence — a bare mode rides `SolutionServer.Start(SolutionMode)`, a bridled launch rides `Start(CancellationTokenSource, SolutionMode)` — and returns the moment the run is dispatched; `AwaitCase(SolutionMode, CancellationTokenSource, WaitPosture)` drives the same `Start` and blocks the caller's own thread on the `Task<Solution>` it hands back, at most the posture's budget; `HaltCase` stops the server; `CancelCase(Solution)` cancels one in-flight run cooperatively through `Solution.Cancel`; `DeferCase(IDocumentObject)` queues deferred expiry through `SolutionServer.DelayedExpire`; `ExpireCase(Seq<IDocumentObject>)` expires an explicit object set through each subject's own `IDocumentObject.Expire`. Awaited runs answer `GateOutcome.RunCase` with the final pulse.
+- Entry: `SolutionControl.Drive(SolutionCommand op, Option<HostDocument> graph = default, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default)` → `Fin<GateOutcome>` — the one execution gate; `SolutionControl.Watch(EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default)` → `Fin<Lease<UiSubscription<GhFact>>>` — the whole six-row lifecycle family attached transactionally through the kernel `UiEvents.Observe` over `GhSource.Of(document.Solution)`, the subscription's lifetime the kernel lease.
 - Law: the gate is the `solution.lifecycle` fire site — every command heralds `GrasshopperPoint.SolutionLifecycle` (`Observe` modality) on the injected hooks with its own op and the document identity before the host verb runs, because the host's `SolutionEventArgs` carries no cancellation and observers therefore attach to the GATES, not the events; absent hooks drive unobserved.
 - Law: `Worker` custody BYPASSES the marshal, and that bypass is what makes the blocking posture satisfiable. `SolutionServer.Start` runs the whole solve on a threadpool worker and hands back its `Task<Solution>`, so the run settles independently of the UI idle loop and the only thread that blocks is the caller's own. Routing the await through the marshal like every `Window` case posts the block ONTO the idle loop the run does not need but every other gate does, which is the starvation the marshal law names; the worker path therefore probes the kernel's `UiThread.OnMarshal` and refuses with `KernelFault.InvalidContext` when the caller already holds the UI thread. Host's own `StartWait` is that same deadlock as a member and never enters the gate.
 - Law: the wait is BOUNDED — the worker path waits `Task.Wait(posture, bridle.Token)` and a budget that lapses refuses with the folder's typed overdue fault carrying the budget it exhausted; the dispatched run keeps running (the bridle, not the wait, owns cancellation), so a caller that wants the run dead on timeout cancels its own `CancellationTokenSource` on the refusal.
@@ -49,7 +49,6 @@ public readonly partial struct WaitPosture {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record SolutionCommand {
     private SolutionCommand() { }
     public MarshalLane Lane => this is AwaitCase ? MarshalLane.Worker : MarshalLane.Window;
@@ -66,27 +65,25 @@ public static partial class SolutionControl {
     public static Fin<GateOutcome> Drive(
         SolutionCommand op,
         Option<HostDocument> graph = default,
-        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default,
-        Op? key = null) {
-        Op active = key.OrDefault();
-        return Optional(op).ToFin(active.InvalidInput()).Bind(valid => valid.Lane == MarshalLane.Worker
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default) {
+        return Optional().ToFin(new KernelFault.InvalidInput()).Bind(valid => valid.Lane == MarshalLane.Worker
             ? Blocked(command: (SolutionCommand.AwaitCase)valid, graph: graph, hooks: hooks, key: active)
             : DocumentGate.Run(
                 graph: graph, key: active,
-                body: document => Heralded(hooks: hooks, op: valid.SelfOp, subject: Some(document.Identity), key: active)
+                body: document => Heralded(hooks: hooks, subject: Some(document.Identity), key: active)
                     .Bind(_ => valid.Switch(
                 state: (Key: active, Server: document.Solution),
                 launchCase: static (frame, c) => Settle(frame.Key, () =>
-                    (Op.Side(action: () => ignore(c.Bridle.Match(
+                    (HostEdge.Side(action: () => ignore(c.Bridle.Match(
                         Some: bridle => frame.Server.Start(bridle, c.Mode),
                         None: () => frame.Server.Start(c.Mode)))), (GateOutcome)new GateOutcome.SettledCase()).Item2),
-                awaitCase: static (frame, _) => Fin.Fail<GateOutcome>(frame.Key.InvalidContext()),
-                haltCase: static (frame, c) => Settle(frame.Key, () =>
-                    (Op.Side(action: frame.Server.Stop), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                awaitCase: static (frame, _) => Fin.Fail<GateOutcome>(new KernelFault.InvalidContext()),
+                haltCase: static (frame, c) => Settle(() =>
+                    (HostEdge.Side(action: frame.Server.Stop), (GateOutcome)new GateOutcome.SettledCase()).Item2),
                 cancelCase: static (frame, c) => Settle(frame.Key, () =>
-                    (Op.Side(action: c.Run.Cancel), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                    (HostEdge.Side(action: c.Run.Cancel), (GateOutcome)new GateOutcome.SettledCase()).Item2),
                 deferCase: static (frame, c) => Settle(frame.Key, () =>
-                    (Op.Side(action: () => frame.Server.DelayedExpire(c.Subject)), (GateOutcome)new GateOutcome.SettledCase()).Item2),
+                    (HostEdge.Side(action: () => frame.Server.DelayedExpire(c.Subject)), (GateOutcome)new GateOutcome.SettledCase()).Item2),
                 expireCase: static (frame, c) => Settle(frame.Key, () =>
                     (c.Subjects.Iter(static subject => subject.Expire()),
                      (GateOutcome)new GateOutcome.CountCase(Touched: c.Subjects.Count)).Item2))));
@@ -95,38 +92,35 @@ public static partial class SolutionControl {
     private static Fin<GateOutcome> Blocked(
         SolutionCommand.AwaitCase command,
         Option<HostDocument> graph,
-        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks,
-        Op key) =>
-        from onMarshal in UiThread.OnMarshal(key: key)
-        from _ in guard(!onMarshal, (Error)key.InvalidContext())
-        from seat in DocumentGate.Resolve(graph: graph, key: key,
-            body: document => key.Catch(body: () => Fin.Succ((document.Identity, Server: document.Solution))))
-        from heralded in Heralded(hooks: hooks, op: command.SelfOp, subject: Some(seat.Identity), key: key)
-        from run in key.Catch(body: () => {
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks) =>
+        from onMarshal in UiThread.OnMarshal()
+        from _ in guard(!onMarshal, (Error)new KernelFault.InvalidContext())
+        from seat in DocumentGate.Resolve(graph: graph,
+            body: document => Try.lift(() => Fin.Succ((document.Identity, Server: document.Solution))).Run().Bind(static inner => inner))
+        from heralded in Heralded(hooks: hooks, subject: Some(seat.Identity))
+        from run in Try.lift(() => {
             Task<Solution> task = seat.Server.Start(command.Bridle, command.Mode);
             return task.Wait((TimeSpan)command.Wait, command.Bridle.Token)
                 ? Fin.Succ(task.Result)
-                : Fin.Fail<Solution>(new GhFault.Overdue(Key: key, Detail: $"solution wait budget {command.Wait} lapsed"));
-        }, token: command.Bridle.Token)
+                : Fin.Fail<Solution>(new GhFault.Overdue(Detail: $"solution wait budget {command.Wait} lapsed"));
+        }).Run().Bind(static inner => inner)
         select (GateOutcome)new GateOutcome.RunCase(Pulse: SolutionMap.Pulse(run: run));
 
     private static Fin<Unit> Heralded(
-        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Op op, Option<Guid> subject, Op key) =>
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Option<Guid> subject) =>
         hooks
             .TraverseM(live => live.Fire(
                 at: GrasshopperPoint.SolutionLifecycle,
-                fact: new HookSignal.IntentCase(Operation: op, DocumentId: subject),
-                key: key))
+                fact: new HookSignal.IntentCase(Operation: op, DocumentId: subject)))
             .As()
             .Map(static _ => unit);
 
-    private static Fin<GateOutcome> Settle(Op key, Func<GateOutcome> settle) =>
-        key.Catch(body: () => Fin.Succ(settle()));
+    private static Fin<GateOutcome> Settle(Func<GateOutcome> settle) =>
+        Try.lift(() => Fin.Succ(settle())).Run().Bind(static inner => inner);
 
     public static Fin<Lease<UiSubscription<GhFact>>> Watch(
-        EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default, Op? key = null) {
-        Op active = key.OrDefault();
-        return Optional(drain).ToFin(active.InvalidInput())
+        EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default) {
+        return Optional(drain).ToFin(new KernelFault.InvalidInput())
             .Bind(sink => DocumentGate.Resolve(graph: graph, key: active, body: document =>
                 UiEvents.Observe(
                     anchor: EventAnchor.Ambient,
@@ -141,7 +135,7 @@ public static partial class SolutionControl {
 ## [03]-[EVIDENCE]
 
 - Owner: `RunPulse` — the in-flight inspection over one live `Solution` (`Document/document.md`'s payload record beside the spine, projected here): the typed `SolutionId`, the `SolutionPhase` the run holds at the read, the `SolutionMode` it launched under, its computable and invalid-parameter counts, its overall progress, and its age, every field detached at read time so a stale pulse can never hand out run internals. `SolutionAudit` — the completion audit over one `SolutionRecord`: the run id, the `SolutionPhase` it culminated in, and the start/end window with its derived duration (renamed from the evidence-noun the fabrication branch owns — `RunEvidence@Rasm.Fabrication` — so one name means one thing across the repo). `SolutionTrace` — the phase-timeline fold over a drain's captured `UiEvent<GhFact>` sequence: each solution fact projects to its signal row, its run id, and its drain-minted ordinal; validity claims the ordinals are monotone AND every identified pulse names ONE run, so a trace that interleaved two runs' events fails its own evidence instead of reading as a single timeline. `SolutionMap` — the one Mapperly mapper projecting both detached values, so the field correspondence is generated, inspectable, and single-sourced.
-- Entry: `SolutionControl.Probe(Solution run, Guid document, Op? key = null)` → `Fin<RunPulse>`; `SolutionControl.Audit(SolutionRecord record, Guid document, Op? key = null)` → `Fin<SolutionAudit>`; `SolutionControl.Trace(Seq<UiEvent<GhFact>> observed, Guid document)` → `Fin<SolutionTrace>` — a pure fold, no marshal, because the events are already detached evidence; the document identity is the `gh.doc` attribution each write carries.
+- Entry: `SolutionControl.Probe(Solution run, Guid document)` → `Fin<RunPulse>`; `SolutionControl.Audit(SolutionRecord record, Guid document)` → `Fin<SolutionAudit>`; `SolutionControl.Trace(Seq<UiEvent<GhFact>> observed, Guid document)` → `Fin<SolutionTrace>` — a pure fold, no marshal, because the events are already detached evidence; the document identity is the `gh.doc` attribution each write carries.
 - Law: `SolutionMap.Pulse` is the pure projection and every reader composes it — `Probe` marshals it over a live run and the awaited drive folds it into its own outcome, so the in-flight snapshot has one spelling regardless of which gate asks.
 - Law: the three readers write their own rows — `Probe` writes `GhInstruments.Probed`, `Audit` writes `GhInstruments.Ran`, and `Trace` writes `GhInstruments.Chronicled`, each for the run's document, so `solution.invalid`, `solution.runs`, and `solution.pulses` land where the value settles and nowhere else.
 - Law: the audit publishes only what the host measures — `SolutionRecord`'s `ExpiredCount`, `SolvedCount`, and `Progress` are auto-properties its one constructor never assigns, so every completed record reads them as a structural zero no run produced; carrying them fabricates a measurement, and the per-object counts a consumer wants ride the `Watch` stream's own object rows instead.
@@ -197,19 +191,17 @@ public static partial class SolutionMap {
 }
 
 public static partial class SolutionControl {
-    public static Fin<RunPulse> Probe(Solution run, Guid document, Op? key = null) {
-        Op active = key.OrDefault();
-        return Optional(run).ToFin(active.InvalidInput())
+    public static Fin<RunPulse> Probe(Solution run, Guid document) {
+        return Optional(run).ToFin(new KernelFault.InvalidInput())
             .Bind(live => UiThread.Run(
-                new UiDispatch<RunPulse>.Blocking(() => active.Catch(body: () => Fin.Succ(SolutionMap.Pulse(run: live)))),
+                new UiDispatch<RunPulse>.Blocking(() => Try.lift(() => Fin.Succ(SolutionMap.Pulse(run: live))).Run().Bind(static inner => inner)),
                 DispatchLane.Interactive, active))
             .Bind(pulse => GhInstruments.Probed(document: document, pulse: pulse).Map(_ => pulse));
     }
 
-    public static Fin<SolutionAudit> Audit(SolutionRecord record, Guid document, Op? key = null) {
-        Op active = key.OrDefault();
-        return Optional(record).ToFin(active.InvalidInput())
-            .Bind(done => active.Catch(body: () => Fin.Succ(SolutionMap.Audit(record: done))))
+    public static Fin<SolutionAudit> Audit(SolutionRecord record, Guid document) {
+        return Optional(record).ToFin(new KernelFault.InvalidInput())
+            .Bind(done => Try.lift(() => Fin.Succ(SolutionMap.Audit(record: done))).Run().Bind(static inner => inner))
             .Bind(audit => GhInstruments.Ran(document: document, audit: audit).Map(_ => audit));
     }
 

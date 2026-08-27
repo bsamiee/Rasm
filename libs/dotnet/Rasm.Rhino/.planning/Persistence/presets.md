@@ -31,10 +31,10 @@ public abstract partial record PersistenceFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostPersistence;
     private PersistenceFault() { }
 
-    [FaultCase(0)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : PersistenceFault;
-    [FaultCase(1)] public sealed partial record Diverged(Op Key, string Subject, string Expected, string Observed) : PersistenceFault;
-    [FaultCase(2)] public sealed partial record AbsentEntry(Op Key, string Table, string Entry) : PersistenceFault;
-    [FaultCase(3)] public sealed partial record Resident(Op Key, string Subject) : PersistenceFault;
+    [FaultCase(0)] public sealed partial record HostRefused(string Member, string Detail) : PersistenceFault;
+    [FaultCase(1)] public sealed partial record Diverged(string Subject, string Expected, string Observed) : PersistenceFault;
+    [FaultCase(2)] public sealed partial record AbsentEntry(string Table, string Entry) : PersistenceFault;
+    [FaultCase(3)] public sealed partial record Resident(string Subject) : PersistenceFault;
 
     public sealed override string Message => Switch(
         hostRefused: static fault => $"Persistence host member '{fault.Member}' refused '{fault.Key}': {fault.Detail}",
@@ -115,7 +115,6 @@ public sealed partial record CPlaneGrid(
         ref int lineCount,
         ref int thickFrequency,
         ref CapabilitySet<CPlaneTrait> traits) {
-        Op op = Op.Of();
         (double pitch, double quantum, int count, int frequency) = (spacing, snap, lineCount, thickFrequency);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (!ValidityClaim.Positive(value: pitch),
@@ -133,36 +132,32 @@ public sealed partial record CPlaneGrid(
         double snap,
         int lineCount,
         int thickFrequency,
-        CapabilitySet<CPlaneTrait> traits,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        CapabilitySet<CPlaneTrait> traits) {
         return from admitted in CPlaneTrait.Law.Admit(held: traits)
-               from grid in op.AcceptValidated<CPlaneGrid>(
+               from grid in FactoryBridge.Accept<CPlaneGrid>(
                    Validate(spacing, snap, lineCount, thickFrequency, admitted, out CPlaneGrid? value),
                    value)
                select grid;
     }
 
-    public static Fin<CPlaneGrid> Read(ConstructionPlane source, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: source).Bind(plane => op.Catch(() => Of(
+    public static Fin<CPlaneGrid> Read(ConstructionPlane source) {
+        return Admit.Need(value: source).Bind(plane => Try.lift(() => Of(
             spacing: plane.GridSpacing,
             snap: plane.SnapSpacing,
             lineCount: plane.GridLineCount,
             thickFrequency: plane.ThickLineFrequency,
-            traits: CPlaneTrait.Of(source: plane),
-            key: op)));
+            traits: CPlaneTrait.Of(source: plane))).Run().Bind(static inner => inner));
     }
 
-    internal Fin<Unit> Apply(ConstructionPlane target, Op key) {
+    internal Fin<Unit> Apply(ConstructionPlane target) {
         CPlaneGrid self = this;
-        return key.Need(value: target).Bind(plane => key.Catch(() => {
+        return Admit.Need(value: target).Bind(plane => Try.lift(() => {
             plane.GridSpacing = self.Spacing;
             plane.SnapSpacing = self.Snap;
             plane.GridLineCount = self.LineCount;
             plane.ThickLineFrequency = self.ThickFrequency;
             return Fin.Succ(value: CPlaneTrait.Apply(held: self.Traits, target: plane));
-        }));
+        }).Run().Bind(static inner => inner));
     }
 }
 
@@ -173,39 +168,38 @@ public sealed partial record CPlanePalette(
     PerceptualColor GridX,
     PerceptualColor GridY,
     PerceptualColor GridZ) {
-    public static Fin<CPlanePalette> Read(ConstructionPlane source, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: source).Bind(plane => (
-                PerceptualColor.OfHost(host: plane.ThinLineColor, key: op).ToValidation(),
-                PerceptualColor.OfHost(host: plane.ThickLineColor, key: op).ToValidation(),
-                PerceptualColor.OfHost(host: plane.GridXColor, key: op).ToValidation(),
-                PerceptualColor.OfHost(host: plane.GridYColor, key: op).ToValidation(),
-                PerceptualColor.OfHost(host: plane.GridZColor, key: op).ToValidation())
+    public static Fin<CPlanePalette> Read(ConstructionPlane source) {
+        return Admit.Need(value: source).Bind(plane => (
+                PerceptualColor.OfHost(host: plane.ThinLineColor).ToValidation(),
+                PerceptualColor.OfHost(host: plane.ThickLineColor).ToValidation(),
+                PerceptualColor.OfHost(host: plane.GridXColor).ToValidation(),
+                PerceptualColor.OfHost(host: plane.GridYColor).ToValidation(),
+                PerceptualColor.OfHost(host: plane.GridZColor).ToValidation())
             .Apply(static (thin, thick, x, y, z) => new CPlanePalette(
                 ThinLine: thin, ThickLine: thick, GridX: x, GridY: y, GridZ: z))
             .As()
             .ToFin());
     }
 
-    internal Fin<Unit> Apply(ConstructionPlane target, Op key) {
+    internal Fin<Unit> Apply(ConstructionPlane target) {
         CPlanePalette self = this;
-        return key.Need(value: target).Bind(plane => (
-                self.ThinLine.ToDrawing(key: key).ToValidation(),
-                self.ThickLine.ToDrawing(key: key).ToValidation(),
-                self.GridX.ToDrawing(key: key).ToValidation(),
-                self.GridY.ToDrawing(key: key).ToValidation(),
-                self.GridZ.ToDrawing(key: key).ToValidation())
+        return Admit.Need(value: target).Bind(plane => (
+                self.ThinLine.ToDrawing().ToValidation(),
+                self.ThickLine.ToDrawing().ToValidation(),
+                self.GridX.ToDrawing().ToValidation(),
+                self.GridY.ToDrawing().ToValidation(),
+                self.GridZ.ToDrawing().ToValidation())
             .Apply(static (thin, thick, x, y, z) => (Thin: thin, Thick: thick, X: x, Y: y, Z: z))
             .As()
             .ToFin()
-            .Bind(inks => key.Catch(() => {
+            .Bind(inks => Try.lift(() => {
                 plane.ThinLineColor = inks.Thin;
                 plane.ThickLineColor = inks.Thick;
                 plane.GridXColor = inks.X;
                 plane.GridYColor = inks.Y;
                 plane.GridZColor = inks.Z;
                 return Fin.Succ(value: unit);
-            })));
+            }).Run().Bind(static inner => inner)));
     }
 }
 
@@ -222,7 +216,6 @@ public sealed partial record CPlaneModel(
         ref Plane plane,
         ref CPlaneGrid grid,
         ref CPlanePalette palette) {
-        Op op = Op.Of();
         (Plane frame, CPlaneGrid metrics, CPlanePalette inks) = (plane, grid, palette);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (!ValidityClaim.All(frame.IsValid),
@@ -231,28 +224,28 @@ public sealed partial record CPlaneModel(
                 (inks is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Palette) })))));
     }
 
-    public static Fin<CPlaneModel> Of(PresetName name, Plane plane, CPlaneGrid grid, CPlanePalette palette, Op? key = null) =>
+    public static Fin<CPlaneModel> Of(PresetName name, Plane plane, CPlaneGrid grid, CPlanePalette palette) =>
         key.OrDefault().AcceptValidated<CPlaneModel>(
             Validate(name, plane, grid, palette, out CPlaneModel? value),
             value);
 
-    internal static Fin<CPlaneModel> Read(ConstructionPlane source, Op key) =>
-        from plane in key.Need(value: source)
-        from name in key.AcceptValidated<PresetName>(candidate: plane.Name)
+    internal static Fin<CPlaneModel> Read(ConstructionPlane source) =>
+        from plane in Admit.Need(value: source)
+        from name in FactoryBridge.Accept<PresetName>(candidate: plane.Name)
         from parts in (
-                CPlaneGrid.Read(source: plane, key: key).ToValidation(),
-                CPlanePalette.Read(source: plane, key: key).ToValidation())
+                CPlaneGrid.Read(source: plane).ToValidation(),
+                CPlanePalette.Read(source: plane).ToValidation())
             .Apply(static (grid, palette) => (Grid: grid, Palette: palette))
             .As()
             .ToFin()
-        from model in Of(name: name, plane: plane.Plane, grid: parts.Grid, palette: parts.Palette, key: key)
+        from model in Of(name: name, plane: plane.Plane, grid: parts.Grid, palette: parts.Palette)
         select model;
 
-    internal Fin<ConstructionPlane> Native(Op key) {
+    internal Fin<ConstructionPlane> Native() {
         CPlaneModel self = this;
-        return from plane in key.Catch(() => Fin.Succ(value: new ConstructionPlane { Name = self.Name.Value, Plane = self.Plane }))
-               from _grid in self.Grid.Apply(target: plane, key: key)
-               from _palette in self.Palette.Apply(target: plane, key: key)
+        return from plane in Try.lift(() => Fin.Succ(value: new ConstructionPlane { Name = self.Name.Value, Plane = self.Plane })).Run().Bind(static inner => inner)
+               from _grid in self.Grid.Apply(target: plane)
+               from _palette in self.Palette.Apply(target: plane)
                select plane;
     }
 }
@@ -290,7 +283,6 @@ namespace Rasm.Rhino.Persistence;
 [ValidationError]
 public readonly partial struct PresetName : IDisallowDefaultValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        Op op = Op.Of();
         string candidate = value ?? string.Empty;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (string.IsNullOrWhiteSpace(candidate), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PresetName) }))),
@@ -332,8 +324,7 @@ public abstract partial record LayerRestore {
 
     public static LayerRestore All() => new AllCase();
 
-    public static Fin<LayerRestore> Selected(CapabilitySet<LayerFacet> facets, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<LayerRestore> Selected(CapabilitySet<LayerFacet> facets) {
         return from admitted in LayerFacet.Law.Admit(held: facets)
                from _held in guard(!admitted.Held.IsEmpty,
                    (Error)new KernelFault.InvalidValue(nameof(LayerRestore), string.Join(" | ", new object?[] { op, "at least one restored property group" })))
@@ -352,10 +343,10 @@ public abstract partial record PositionRef {
     internal sealed record IdCase(ResourceId Id) : PositionRef;
     internal sealed record NameCase(PresetName Name) : PositionRef;
 
-    public static Fin<PositionRef> Of(Guid id, Op? key = null) =>
+    public static Fin<PositionRef> Of(Guid id) =>
         ResourceId.Admit(value: id, key: key.OrDefault()).Map<PositionRef>(static admitted => new IdCase(Id: admitted));
 
-    public static Fin<PositionRef> Of(string name, Op? key = null) =>
+    public static Fin<PositionRef> Of(string name) =>
         key.OrDefault().AcceptValidated<PresetName>(candidate: name)
             .Map<PositionRef>(static admitted => new NameCase(Name: admitted));
 }
@@ -422,9 +413,8 @@ public abstract partial record PresetQuery {
 
     public static PresetQuery Census() => new CensusCase();
 
-    public static Fin<PresetQuery> Transform(PositionRef position, Guid objectId, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.Need(value: position).ToValidation(), ResourceId.Admit(value: objectId, key: op).ToValidation())
+    public static Fin<PresetQuery> Transform(PositionRef position, Guid objectId) {
+        return (Admit.Need(value: position).ToValidation(), ResourceId.Admit(value: objectId).ToValidation())
             .Apply(static (address, id) => (PresetQuery)new TransformCase(Position: address, ObjectId: id))
             .As()
             .ToFin();
@@ -448,77 +438,69 @@ public abstract partial record PresetOperation {
     internal sealed record DeleteLayerStateCase(PresetName Name) : PresetOperation;
     internal sealed record ImportLayerStatesCase(DocumentPath Path) : PresetOperation;
 
-    public static Fin<PresetOperation> PutCPlane(CPlaneModel model, Op? key = null) =>
+    public static Fin<PresetOperation> PutCPlane(CPlaneModel model) =>
         key.OrDefault().Need(value: model).Map<PresetOperation>(static admitted => new PutCPlaneCase(Model: admitted));
 
-    public static Fin<PresetOperation> DeleteCPlane(string name, Op? key = null) =>
-        Named(name: name, key: key).Map<PresetOperation>(static admitted => new DeleteCPlaneCase(Name: admitted));
+    public static Fin<PresetOperation> DeleteCPlane(string name) =>
+        Named(name: name).Map<PresetOperation>(static admitted => new DeleteCPlaneCase(Name: admitted));
 
     public static Fin<PresetOperation> SavePosition(string name, params ReadOnlySpan<Guid> objectIds) {
-        Op op = Op.Of();
         return (Named(name: name, key: op).ToValidation(), Participants(ids: objectIds, key: op).ToValidation())
             .Apply(static (admitted, ids) => (PresetOperation)new SavePositionCase(Name: admitted, ObjectIds: ids))
             .As()
             .ToFin();
     }
 
-    public static Fin<PresetOperation> ApplyPosition(PositionRef position, PositionVerb verb, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.Need(value: position).ToValidation(), op.Need(value: verb).ToValidation())
+    public static Fin<PresetOperation> ApplyPosition(PositionRef position, PositionVerb verb) {
+        return (Admit.Need(value: position).ToValidation(), Admit.Need(value: verb).ToValidation())
             .Apply(static (address, row) => (PresetOperation)new ApplyPositionCase(Position: address, Verb: row))
             .As()
             .ToFin();
     }
 
     public static Fin<PresetOperation> AppendPosition(PositionRef position, params ReadOnlySpan<Guid> objectIds) {
-        Op op = Op.Of();
-        return (op.Need(value: position).ToValidation(), Participants(ids: objectIds, key: op).ToValidation())
+        return (Admit.Need(value: position).ToValidation(), Participants(ids: objectIds, key: op).ToValidation())
             .Apply(static (address, ids) => (PresetOperation)new AppendPositionCase(Position: address, ObjectIds: ids))
             .As()
             .ToFin();
     }
 
-    public static Fin<PresetOperation> RenamePosition(PositionRef position, string name, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.Need(value: position).ToValidation(), Named(name: name, key: op).ToValidation())
+    public static Fin<PresetOperation> RenamePosition(PositionRef position, string name) {
+        return (Admit.Need(value: position).ToValidation(), Named(name: name).ToValidation())
             .Apply(static (address, admitted) => (PresetOperation)new RenamePositionCase(Position: address, Name: admitted))
             .As()
             .ToFin();
     }
 
-    public static Fin<PresetOperation> DeletePosition(PositionRef position, Op? key = null) =>
+    public static Fin<PresetOperation> DeletePosition(PositionRef position) =>
         key.OrDefault().Need(value: position).Map<PresetOperation>(static address => new DeletePositionCase(Position: address));
 
-    public static Fin<PresetOperation> SaveLayerState(string name, Option<Guid> viewportId = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return (Named(name: name, key: op).ToValidation(), Viewport(viewport: viewportId, key: op).ToValidation())
+    public static Fin<PresetOperation> SaveLayerState(string name, Option<Guid> viewportId = default) {
+        return (Named(name: name).ToValidation(), Viewport(viewport: viewportId).ToValidation())
             .Apply(static (admitted, view) => (PresetOperation)new SaveLayerStateCase(Name: admitted, ViewportId: view))
             .As()
             .ToFin();
     }
 
-    public static Fin<PresetOperation> RestoreLayerState(string name, LayerRestore properties, Option<Guid> viewportId = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return (Named(name: name, key: op).ToValidation(), op.Need(value: properties).ToValidation(), Viewport(viewport: viewportId, key: op).ToValidation())
+    public static Fin<PresetOperation> RestoreLayerState(string name, LayerRestore properties, Option<Guid> viewportId = default) {
+        return (Named(name: name).ToValidation(), Admit.Need(value: properties).ToValidation(), Viewport(viewport: viewportId).ToValidation())
             .Apply(static (admitted, scope, view) => (PresetOperation)new RestoreLayerStateCase(Name: admitted, Properties: scope, ViewportId: view))
             .As()
             .ToFin();
     }
 
-    public static Fin<PresetOperation> RenameLayerState(string current, string next, Op? key = null) {
-        Op op = key.OrDefault();
-        return (Named(name: current, key: op).ToValidation(), Named(name: next, key: op).ToValidation())
+    public static Fin<PresetOperation> RenameLayerState(string current, string next) {
+        return (Named(name: current).ToValidation(), Named(name: next).ToValidation())
             .Apply(static (from, to) => (PresetOperation)new RenameLayerStateCase(Current: from, Next: to))
             .As()
             .ToFin();
     }
 
-    public static Fin<PresetOperation> DeleteLayerState(string name, Op? key = null) =>
-        Named(name: name, key: key).Map<PresetOperation>(static admitted => new DeleteLayerStateCase(Name: admitted));
+    public static Fin<PresetOperation> DeleteLayerState(string name) =>
+        Named(name: name).Map<PresetOperation>(static admitted => new DeleteLayerStateCase(Name: admitted));
 
-    public static Fin<PresetOperation> ImportLayerStates(string path, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in DocumentPath.Of(value: path, key: op)
+    public static Fin<PresetOperation> ImportLayerStates(string path) {
+        return from admitted in DocumentPath.Of(value: path)
                from _archive in guard(
                    string.Equals(Path.GetExtension(admitted.Value), ".3dm", StringComparison.OrdinalIgnoreCase),
                    (Error)new KernelFault.InvalidValue(nameof(ImportLayerStates), string.Join(" | ", new object?[] { op, "an absolute .3dm archive path" })))
@@ -539,12 +521,12 @@ public abstract partial record PresetOperation {
         deleteLayerStateCase:   static _ => PresetExecution.Mutate,
         importLayerStatesCase:  static _ => PresetExecution.Mutate);
 
-    private static Fin<PresetName> Named(string name, Op? key = null) =>
+    private static Fin<PresetName> Named(string name) =>
         key.OrDefault().AcceptValidated<PresetName>(candidate: name);
 
-    private static Fin<Seq<ResourceId>> Participants(ReadOnlySpan<Guid> ids, Op key) =>
+    private static Fin<Seq<ResourceId>> Participants(ReadOnlySpan<Guid> ids) =>
         from admitted in toSeq(ids.ToArray())
-            .Traverse(id => ResourceId.Admit(value: id, key: key).ToValidation())
+            .Traverse(id => ResourceId.Admit(value: id).ToValidation())
             .As()
             .ToFin()
         from _distinct in guard(
@@ -552,8 +534,8 @@ public abstract partial record PresetOperation {
             (Error)new KernelFault.InvalidValue("ObjectIds", string.Join(" | ", new object?[] { key, "a non-empty roster of distinct object ids" })))
         select admitted;
 
-    private static Fin<Option<Guid>> Viewport(Option<Guid> viewport, Op key) =>
-        viewport.Traverse(id => ResourceId.Admit(value: id, key: key)).As().Map(static held => held.Map(static row => row.Value));
+    private static Fin<Option<Guid>> Viewport(Option<Guid> viewport) =>
+        viewport.Traverse(id => ResourceId.Admit(value: id)).As().Map(static held => held.Map(static row => row.Value));
 }
 ```
 
@@ -563,10 +545,10 @@ public abstract partial record PresetOperation {
 - Entry: `Presets.Read(DocumentSession, PresetQuery, Op?)`; `Presets.Commit(DocumentSession, Op?, params ReadOnlySpan<PresetOperation>)`. The key precedes the span because an optional parameter after `params` forecloses the positional spread.
 - Auto: the program's session needs and redraw policy DERIVE from `PresetExecution.Strongest` over the operations' own posture rows — a program mixing a layer-state restore with a rename is framed once, under the restore's continuous redraw, rather than opening two brackets or silently using the first operation's posture.
 - Law: the commit is one envelope over the whole program, so a caller applies construction-plane, position, and layer-state changes in one undo step.
-- Law: every host mutation settles on EVIDENCE, never on the returned `bool` alone: `Add` and `Save` refuse a negative index or an empty guid, the `bool` results go through `Op.Confirm`, and the `ref`-parameter transform read rides `Op.Probe` so the host's seed-and-check idiom appears once. A member that answers `-1` or `Guid.Empty` on rejection is exactly a member whose success value is indistinguishable from its failure value, which is why the admission is typed at the boundary.
+- Law: every host mutation settles on EVIDENCE, never on the returned `bool` alone: `Add` and `Save` refuse a negative index or an empty guid, the `bool` results go through `Op.Confirm`, and the `ref`-parameter transform read rides `HostEdge.Probe` so the host's seed-and-check idiom appears once. A member that answers `-1` or `Guid.Empty` on rejection is exactly a member whose success value is indistinguishable from its failure value, which is why the admission is typed at the boundary.
 - Law: name resolution is TOTAL for both address forms — an id resolves by membership in `Ids` and a name resolves through `Id(name)` and then by the same membership test — so an absent preset is a typed `AbsentEntry` naming the table and the entry, and the host's empty-guid miss never reaches a mutation.
 - Boundary: Rhino's table mutation, its `ref`-parameter transform read, and its undo and redraw calls form the platform-forced statement block. `Presets` composes `DocumentSession` and `DocumentCommit` directly and holds no host handle beyond the demand window.
-- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `Op.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
+- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `HostEdge.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -590,30 +572,27 @@ public abstract partial record PresetAnswer : IDetachedDocumentResult {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Presets {
-    public static Fin<PresetAnswer> Read(DocumentSession session, PresetQuery query, Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in op.Need(value: session)
-               from request in op.Need(value: query)
+    public static Fin<PresetAnswer> Read(DocumentSession session, PresetQuery query) {
+        return from owner in Admit.Need(value: session)
+               from request in Admit.Need(value: query)
                from answer in owner.Demand(
-                   use: document => request.Switch<(RhinoDoc Document, Op Op), Fin<PresetAnswer>>(
-                       state: (document, op),
-                       censusCase: static (state, _) => Census(document: state.Document, key: state.Op)
+                   use: document => request.Switch<(RhinoDoc Document), Fin<PresetAnswer>>(
+                       state: (document),
+                       censusCase: static (state, _) => Census(document: state.Document)
                            .Map<PresetAnswer>(static value => new PresetAnswer.CensusCase(Snapshot: value)),
                        transformCase: static (state, read) =>
-                           from id in Resolve(table: state.Document.NamedPositions, position: read.Position, key: state.Op)
-                           from transform in Stored(table: state.Document.NamedPositions, id: id, objectId: read.ObjectId, key: state.Op)
+                           from id in Resolve(table: state.Document.NamedPositions, position: read.Position)
+                           from transform in Stored(table: state.Document.NamedPositions, id: id, objectId: read.ObjectId)
                            select (PresetAnswer)new PresetAnswer.TransformCase(
                                Object: new PositionObject(ObjectId: read.ObjectId, Transform: transform))),
-                   key: op,
                    needs: [SessionNeed.Read])
                select answer;
     }
 
-    public static Fin<Unit> Commit(DocumentSession session, Op? key = null, params ReadOnlySpan<PresetOperation> operations) {
-        Op op = key.OrDefault();
-        return from owner in op.Need(value: session)
+    public static Fin<Unit> Commit(DocumentSession session, params ReadOnlySpan<PresetOperation> operations) {
+        return from owner in Admit.Need(value: session)
                from program in toSeq(operations.ToArray())
-                   .Traverse(value => op.Need(value: value).ToValidation())
+                   .Traverse(value => Admit.Need(value: value).ToValidation())
                    .As()
                    .ToFin()
                from _nonempty in guard(!program.IsEmpty,
@@ -625,173 +604,159 @@ public static class Presets {
                        name: nameof(Commit),
                        recordsUndo: true,
                        redraw: posture.Redraw,
-                       run: () => Run(document: document, program: program, key: op),
-                       project: Fin.Succ,
-                       op: op),
-                   key: op,
+                       run: () => Run(document: document, program: program),
+                       project: Fin.Succ),
                    needs: posture.Needs().ToArray())
                select completed;
     }
 
-    private static Fin<Unit> Run(RhinoDoc document, Seq<PresetOperation> program, Op key) =>
+    private static Fin<Unit> Run(RhinoDoc document, Seq<PresetOperation> program) =>
         program
-            .TraverseM(operation => Apply(document: document, operation: operation, key: key))
+            .TraverseM(operation => Apply(document: document, operation: operation))
             .As()
             .Map(static _ => unit);
 
-    private static Fin<Unit> Apply(RhinoDoc document, PresetOperation operation, Op key) =>
-        operation.Switch<(RhinoDoc Document, Op Op), Fin<Unit>>(
-            state: (document, key),
+    private static Fin<Unit> Apply(RhinoDoc document, PresetOperation operation) =>
+        operation.Switch<(RhinoDoc Document), Fin<Unit>>(
+            state: (document),
             putCPlaneCase: static (state, put) =>
-                from native in put.Model.Native(key: state.Op)
-                from index in state.Op.Catch(() => Fin.Succ(value: state.Document.NamedConstructionPlanes.Add(native)))
-                from _added in Landed(accepted: index >= 0, member: "NamedConstructionPlaneTable.Add", detail: put.Model.Name.Value, key: state.Op)
+                from native in put.Model.Native()
+                from index in Try.lift(() => Fin.Succ(value: state.Document.NamedConstructionPlanes.Add(native))).Run().Bind(static inner => inner)
+                from _added in Landed(accepted: index >= 0, member: "NamedConstructionPlaneTable.Add", detail: put.Model.Name.Value)
                 select unit,
             deleteCPlaneCase: static (state, delete) => Confirmed(
                     mutate: () => state.Document.NamedConstructionPlanes.Delete(delete.Name.Value),
                     member: "NamedConstructionPlaneTable.Delete",
-                    detail: delete.Name.Value,
-                    key: state.Op),
+                    detail: delete.Name.Value),
             savePositionCase: static (state, save) =>
-                from raw in state.Op.Catch(() => Fin.Succ(value: state.Document.NamedPositions.Save(
+                from raw in Try.lift(() => Fin.Succ(value: state.Document.NamedPositions.Save(
                     save.Name.Value,
-                    save.ObjectIds.Map(static id => id.Value))))
-                from _id in ResourceId.Admit(value: raw, key: state.Op)
+                    save.ObjectIds.Map(static id => id.Value)))).Run().Bind(static inner => inner)
+                from _id in ResourceId.Admit(value: raw)
                 select unit,
             applyPositionCase: static (state, apply) =>
-                from id in Resolve(table: state.Document.NamedPositions, position: apply.Position, key: state.Op)
-                from name in Named(table: state.Document.NamedPositions, id: id, key: state.Op)
+                from id in Resolve(table: state.Document.NamedPositions, position: apply.Position)
+                from name in Named(table: state.Document.NamedPositions, id: id)
                 from _applied in Confirmed(
                     mutate: () => apply.Verb.Apply(table: state.Document.NamedPositions, id: id.Value),
                     member: $"NamedPositionTable.{apply.Verb.Key}",
-                    detail: name.Value,
-                    key: state.Op)
+                    detail: name.Value)
                 select unit,
             appendPositionCase: static (state, append) =>
-                from id in Resolve(table: state.Document.NamedPositions, position: append.Position, key: state.Op)
-                from name in Named(table: state.Document.NamedPositions, id: id, key: state.Op)
+                from id in Resolve(table: state.Document.NamedPositions, position: append.Position)
+                from name in Named(table: state.Document.NamedPositions, id: id)
                 from _appended in Confirmed(
                     mutate: () => state.Document.NamedPositions.Append(id.Value, append.ObjectIds.Map(static value => value.Value)),
                     member: "NamedPositionTable.Append",
-                    detail: name.Value,
-                    key: state.Op)
+                    detail: name.Value)
                 select unit,
             renamePositionCase: static (state, rename) =>
-                from id in Resolve(table: state.Document.NamedPositions, position: rename.Position, key: state.Op)
+                from id in Resolve(table: state.Document.NamedPositions, position: rename.Position)
                 from _renamed in Confirmed(
                     mutate: () => state.Document.NamedPositions.Rename(id.Value, rename.Name.Value),
                     member: "NamedPositionTable.Rename",
-                    detail: rename.Name.Value,
-                    key: state.Op)
+                    detail: rename.Name.Value)
                 select unit,
             deletePositionCase: static (state, delete) =>
-                from id in Resolve(table: state.Document.NamedPositions, position: delete.Position, key: state.Op)
-                from name in Named(table: state.Document.NamedPositions, id: id, key: state.Op)
+                from id in Resolve(table: state.Document.NamedPositions, position: delete.Position)
+                from name in Named(table: state.Document.NamedPositions, id: id)
                 from _deleted in Confirmed(
                     mutate: () => state.Document.NamedPositions.Delete(id.Value),
                     member: "NamedPositionTable.Delete",
-                    detail: name.Value,
-                    key: state.Op)
+                    detail: name.Value)
                 select unit,
             saveLayerStateCase: static (state, save) =>
-                from index in state.Op.Catch(() => Fin.Succ(value: save.ViewportId.Match(
+                from index in Try.lift(() => Fin.Succ(value: save.ViewportId.Match(
                     Some: viewport => state.Document.NamedLayerStates.Save(save.Name.Value, viewport),
-                    None: () => state.Document.NamedLayerStates.Save(save.Name.Value))))
-                from _saved in Landed(accepted: index >= 0, member: "NamedLayerStateTable.Save", detail: save.Name.Value, key: state.Op)
+                    None: () => state.Document.NamedLayerStates.Save(save.Name.Value)))).Run().Bind(static inner => inner)
+                from _saved in Landed(accepted: index >= 0, member: "NamedLayerStateTable.Save", detail: save.Name.Value)
                 select unit,
             restoreLayerStateCase: static (state, restore) => Confirmed(
                     mutate: () => restore.ViewportId.Match(
                         Some: viewport => state.Document.NamedLayerStates.Restore(restore.Name.Value, restore.Properties.ToNative(), viewport),
                         None: () => state.Document.NamedLayerStates.Restore(restore.Name.Value, restore.Properties.ToNative())),
                     member: "NamedLayerStateTable.Restore",
-                    detail: restore.Name.Value,
-                    key: state.Op),
+                    detail: restore.Name.Value),
             renameLayerStateCase: static (state, rename) => Confirmed(
                     mutate: () => state.Document.NamedLayerStates.Rename(rename.Current.Value, rename.Next.Value),
                     member: "NamedLayerStateTable.Rename",
-                    detail: rename.Next.Value,
-                    key: state.Op),
+                    detail: rename.Next.Value),
             deleteLayerStateCase: static (state, delete) => Confirmed(
                     mutate: () => state.Document.NamedLayerStates.Delete(delete.Name.Value),
                     member: "NamedLayerStateTable.Delete",
-                    detail: delete.Name.Value,
-                    key: state.Op),
+                    detail: delete.Name.Value),
             importLayerStatesCase: static (state, import) =>
-                from count in state.Op.Catch(() => Fin.Succ(value: state.Document.NamedLayerStates.Import(import.Path.Value)))
-                from _imported in Landed(accepted: count >= 0, member: "NamedLayerStateTable.Import", detail: import.Path.Value, key: state.Op)
+                from count in Try.lift(() => Fin.Succ(value: state.Document.NamedLayerStates.Import(import.Path.Value))).Run().Bind(static inner => inner)
+                from _imported in Landed(accepted: count >= 0, member: "NamedLayerStateTable.Import", detail: import.Path.Value)
                 select unit);
 
-    private static Fin<PresetSnapshot> Census(RhinoDoc document, Op key) =>
+    private static Fin<PresetSnapshot> Census(RhinoDoc document) =>
         from planes in Project(
             source: () => document.NamedConstructionPlanes,
-            project: value => CPlaneModel.Read(source: value, key: key),
-            key: key)
+            project: value => CPlaneModel.Read(source: value, key: key))
         from positions in Project(
             source: () => document.NamedPositions.Ids,
-            project: id => Captured(table: document.NamedPositions, id: id, key: key),
-            key: key)
-        from states in Names(source: () => document.NamedLayerStates.Names, key: key)
+            project: id => Captured(table: document.NamedPositions, id: id))
+        from states in Names(source: () => document.NamedLayerStates.Names)
         select new PresetSnapshot(
             ConstructionPlanes: planes,
             Positions: positions,
             LayerStates: new LayerStateSnapshot(Names: states));
 
-    private static Fin<PositionSnapshot> Captured(NamedPositionTable table, Guid id, Op key) =>
-        from address in ResourceId.Admit(value: id, key: key)
-        from name in Named(table: table, id: address, key: key)
+    private static Fin<PositionSnapshot> Captured(NamedPositionTable table, Guid id) =>
+        from address in ResourceId.Admit(value: id)
+        from name in Named(table: table, id: address)
         from objects in Project(
             source: () => table.ObjectIds(id),
             project: objectId => ResourceId.Admit(value: objectId, key: key)
-                .Bind(participant => Stored(table: table, id: address, objectId: participant, key: key)
-                    .Map(transform => new PositionObject(ObjectId: participant, Transform: transform))),
-            key: key)
+                .Bind(participant => Stored(table: table, id: address, objectId: participant)
+                    .Map(transform => new PositionObject(ObjectId: participant, Transform: transform))))
         select new PositionSnapshot(Id: address, Name: name, Objects: objects);
 
-    private static Fin<Transform> Stored(NamedPositionTable table, ResourceId id, ResourceId objectId, Op key) =>
-        key.Catch(() => key.Probe(
+    private static Fin<Transform> Stored(NamedPositionTable table, ResourceId id, ResourceId objectId) =>
+        Try.lift(() => Admit.Probe(
             probe: () => {
                 Transform stored = Transform.Unset;
                 return (table.ObjectXform(id.Value, objectId.Value, ref stored) && stored.IsValid, stored);
             },
             label: nameof(NamedPositionTable.ObjectXform),
-            key: $"{id.Value}/{objectId.Value}"));
+            key: $"{id.Value}/{objectId.Value}")).Run().Bind(static inner => inner);
 
-    private static Fin<ResourceId> Resolve(NamedPositionTable table, PositionRef position, Op key) =>
-        from candidate in position.Switch<(NamedPositionTable Table, Op Op), Fin<Guid>>(
-            state: (table, key),
+    private static Fin<ResourceId> Resolve(NamedPositionTable table, PositionRef position) =>
+        from candidate in position.Switch<(NamedPositionTable Table), Fin<Guid>>(
+            state: (table),
             idCase: static (_, address) => Fin.Succ(address.Id.Value),
-            nameCase: static (state, named) => state.Op.Catch(() => Fin.Succ(value: state.Table.Id(named.Name.Value))))
-        from present in key.Catch(() => Fin.Succ(value: table.Ids.Contains(candidate)))
+            nameCase: static (state, named) => Try.lift(() => Fin.Succ(value: state.Table.Id(named.Name.Value))).Run().Bind(static inner => inner))
+        from present in Try.lift(() => Fin.Succ(value: table.Ids.Contains(candidate))).Run().Bind(static inner => inner)
         from _member in guard(present,
-            (Error)new PersistenceFault.AbsentEntry(Key: key, Table: nameof(NamedPositionTable), Entry: candidate.ToString()))
-        from admitted in ResourceId.Admit(value: candidate, key: key)
+            (Error)new PersistenceFault.AbsentEntry(Table: nameof(NamedPositionTable), Entry: candidate.ToString()))
+        from admitted in ResourceId.Admit(value: candidate)
         select admitted;
 
-    private static Fin<PresetName> Named(NamedPositionTable table, ResourceId id, Op key) =>
-        from raw in key.Catch(() => Fin.Succ(value: Op.Text(value: table.Name(id.Value))))
-        from present in raw.ToFin(Fail: new PersistenceFault.AbsentEntry(Key: key, Table: nameof(NamedPositionTable), Entry: id.Value.ToString()))
-        from admitted in key.AcceptValidated<PresetName>(candidate: present)
+    private static Fin<PresetName> Named(NamedPositionTable table, ResourceId id) =>
+        from raw in Try.lift(() => Fin.Succ(value: HostEdge.Text(value: table.Name(id.Value)))).Run().Bind(static inner => inner)
+        from present in raw.ToFin(Fail: new PersistenceFault.AbsentEntry(Table: nameof(NamedPositionTable), Entry: id.Value.ToString()))
+        from admitted in FactoryBridge.Accept<PresetName>(candidate: present)
         select admitted;
 
-    private static Fin<Seq<PresetName>> Names(Func<IEnumerable<string>> source, Op key) =>
-        Project(source: source, project: name => key.AcceptValidated<PresetName>(candidate: name), key: key)
+    private static Fin<Seq<PresetName>> Names(Func<IEnumerable<string>> source) =>
+        Project(source: source, project: name => FactoryBridge.Accept<PresetName>(candidate: name))
             .Map(static values => toSeq(values.OrderBy(static value => value.Value, StringComparer.Ordinal)));
 
     private static Fin<Seq<TResult>> Project<TSource, TResult>(
         Func<IEnumerable<TSource>> source,
-        Func<TSource, Fin<TResult>> project,
-        Op key) =>
-        key.Catch(() => toSeq(source())
+        Func<TSource, Fin<TResult>> project) =>
+        Try.lift(() => toSeq(source())
             .Traverse(value => project(arg: value).ToValidation())
             .As()
-            .ToFin());
+            .ToFin()).Run().Bind(static inner => inner);
 
-    private static Fin<Unit> Confirmed(Func<bool> mutate, string member, string detail, Op key) =>
-        key.Catch(() => Fin.Succ(value: mutate()))
-            .Bind(accepted => Landed(accepted: accepted, member: member, detail: detail, key: key));
+    private static Fin<Unit> Confirmed(Func<bool> mutate, string member, string detail) =>
+        Try.lift(() => Fin.Succ(value: mutate())).Run().Bind(static inner => inner)
+            .Bind(accepted => Landed(accepted: accepted, member: member, detail: detail));
 
-    private static Fin<Unit> Landed(bool accepted, string member, string detail, Op key) => accepted
+    private static Fin<Unit> Landed(bool accepted, string member, string detail) => accepted
         ? Fin.Succ(value: unit)
-        : Fin.Fail<Unit>(error: new PersistenceFault.HostRefused(Key: key, Member: member, Detail: detail));
+        : Fin.Fail<Unit>(error: new PersistenceFault.HostRefused(Member: member, Detail: detail));
 }
 ```

@@ -51,10 +51,10 @@ public abstract partial record NeighborQuery {
     public sealed record BallCase(Sphere Ball) : NeighborQuery;
     public sealed record OverlapsCase(NeighborIndex Other, Tolerance Band) : NeighborQuery;
     public sealed record PairsCase(Seq<Point3d> Needles, NeighborQuery Probe) : NeighborQuery;
-    public static Fin<NeighborQuery> Nearest(int k, Option<NeighborMetric> metric = default, Op? key = null) =>
+    public static Fin<NeighborQuery> Nearest(int k, Option<NeighborMetric> metric = default) =>
         key.OrDefault().AcceptValidated<Dimension>(k)
             .Map(count => (NeighborQuery)new NearestCase(count, metric.IfNone(NeighborMetric.Euclidean)));
-    public static Fin<NeighborQuery> Radius(double r, Option<int> cap = default, Option<NeighborMetric> metric = default, Op? key = null) =>
+    public static Fin<NeighborQuery> Radius(double r, Option<int> cap = default, Option<NeighborMetric> metric = default) =>
         from magnitude in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: r)
         from bound in cap.TraverseM(c => key.OrDefault().AcceptValidated<Dimension>(candidate: c)).As()
         select (NeighborQuery)new RadiusCase(R: magnitude, Cap: bound, Metric: metric.IfNone(NeighborMetric.Euclidean));
@@ -121,95 +121,94 @@ public abstract partial record NeighborIndex {
     public sealed record MeshFacesCase(Mesh Source, RTree Tree) : NeighborIndex;
     public sealed record BoundsCase(RTree Tree, int Count) : NeighborIndex;
 
-    public static Fin<NeighborIndex> Of(NeighborSource source, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<NeighborIndex> Of(NeighborSource source) {
         return source.Switch(
             state: op,
             clusterCase: static (k, c) => Fin.Succ((NeighborIndex)new CloudCase(Source: c.Cloud)),
             pointsCase: static (k, p) =>
-                from points in p.Values.TraverseM(v => k.AcceptValue(v)).As().Map(static vs => vs.ToArray())
-                from _ in guard(points.Length > 0, k.InvalidInput())
+                from points in p.Values.TraverseM(v => Acceptance.Value(v)).As().Map(static vs => vs.ToArray())
+                from _ in guard(points.Length > 0, new KernelFault.InvalidInput())
                 let coordinates = points.Select(IReadOnlyList<double> (v) => [v.X, v.Y, v.Z]).ToArray()
                 let payloads = Enumerable.Range(0, points.Length).ToArray()
-                from trees in k.Catch(() => Fin.Succ(NeighborMetric.Items.ToFrozenDictionary(
-                    static row => row, row => KDTree.Create(coordinates, payloads, row.Metric))))
+                from trees in Try.lift(() => Fin.Succ(NeighborMetric.Items.ToFrozenDictionary(
+                    static row => row, row => KDTree.Create(coordinates, payloads, row.Metric)))).Run().Bind(static inner => inner)
                 select (NeighborIndex)new PointsCase(points, trees),
             meshCase: static (k, m) =>
-                from valid in guard(m.Source.IsValid, k.InvalidInput())
-                from tree in Optional(RTree.CreateMeshFaceTree(mesh: m.Source)).ToFin(k.InvalidResult())
+                from valid in guard(m.Source.IsValid, new KernelFault.InvalidInput())
+                from tree in Optional(RTree.CreateMeshFaceTree(mesh: m.Source)).ToFin(new KernelFault.InvalidResult())
                 select (NeighborIndex)new MeshFacesCase(Source: m.Source, Tree: tree),
             boundsCase: static (k, b) => b.Boxes
                 .Map(static (box, index) => (Box: box, Index: index))
                 .Fold(Fin.Succ(new RTree()), (acc, item) => acc.Bind(tree =>
                     item.Box.IsValid && tree.Insert(box: item.Box, elementId: item.Index)
                         ? Fin.Succ(tree)
-                        : new Lease<RTree>.Owned(Value: tree).Use(_ => Fin.Fail<RTree>(k.InvalidResult()))))
+                        : new Lease<RTree>.Owned(Value: tree).Use(_ => Fin.Fail<RTree>(new KernelFault.InvalidResult()))))
                 .Map(tree => (NeighborIndex)new BoundsCase(Tree: tree, Count: b.Boxes.Count)));
     }
 
-    internal Fin<NeighborAnswer> Query(NeighborQuery query, Point3d anchor, Op key, CancellationToken cancel = default) {
+    internal Fin<NeighborAnswer> Query(NeighborQuery query, Point3d anchor, CancellationToken cancel = default) {
         NeighborIndex self = this;
         return cancel.IsCancellationRequested
             ? Fin.Fail<NeighborAnswer>(error: Errors.Cancelled)
             : query.Switch(
-                state: (Self: self, Anchor: anchor, Key: key, Cancel: cancel),
+                state: (Self: self, Anchor: anchor, Cancel: cancel),
                 nearestCase: static (s, q) =>
-                    from _ in s.Key.AcceptValue(value: s.Anchor)
-                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: Some(q.Count), radius: Option<PositiveMagnitude>.None, key: s.Key, metric: Some(q.Metric))
+                    from _ in Acceptance.Value(value: s.Anchor)
+                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: Some(q.Count), radius: Option<PositiveMagnitude>.None, metric: Some(q.Metric))
                     select (NeighborAnswer)new NeighborAnswer.Graph(Value: graph),
                 radiusCase: static (s, q) =>
-                    from _ in s.Key.AcceptValue(value: s.Anchor)
-                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: q.Cap, radius: Some(q.R), key: s.Key, metric: Some(q.Metric))
+                    from _ in Acceptance.Value(value: s.Anchor)
+                    from graph in NeighborKernel.GraphOf(index: s.Self, needles: [s.Anchor], count: q.Cap, radius: Some(q.R), metric: Some(q.Metric))
                     select (NeighborAnswer)new NeighborAnswer.Graph(Value: graph),
                 boxCase: static (s, q) =>
-                    from _ in guard(q.Bounds.IsValid, s.Key.InvalidInput()).ToFin()
-                    from hits in s.Self.WithTree(key: s.Key, run: tree => SearchCapsule<NeighborHit>(
+                    from _ in guard(q.Bounds.IsValid, new KernelFault.InvalidInput()).ToFin()
+                    from hits in s.Self.WithTree(run: tree => SearchCapsule<NeighborHit>(
                         run: buffer => tree.Search(box: q.Bounds, callback: (sender, args) => { if (NeighborHit.TryCreate(args.Id, out NeighborHit hit)) { buffer.Add(hit); } args.Cancel = s.Cancel.IsCancellationRequested; }),
-                        order: static (left, right) => left.Id.CompareTo(right.Id), cancel: s.Cancel, key: s.Key))
+                        order: static (left, right) => left.Id.CompareTo(right.Id), cancel: s.Cancel))
                     select (NeighborAnswer)new NeighborAnswer.Hits(Values: hits),
                 ballCase: static (s, q) =>
-                    from _ in guard(q.Ball.IsValid, s.Key.InvalidInput()).ToFin()
-                    from hits in s.Self.WithTree(key: s.Key, run: tree => SearchCapsule<NeighborHit>(
+                    from _ in guard(q.Ball.IsValid, new KernelFault.InvalidInput()).ToFin()
+                    from hits in s.Self.WithTree(run: tree => SearchCapsule<NeighborHit>(
                         run: buffer => tree.Search(sphere: q.Ball, callback: (sender, args) => { if (NeighborHit.TryCreate(args.Id, out NeighborHit hit)) { buffer.Add(hit); } args.Cancel = s.Cancel.IsCancellationRequested; }),
-                        order: static (left, right) => left.Id.CompareTo(right.Id), cancel: s.Cancel, key: s.Key))
+                        order: static (left, right) => left.Id.CompareTo(right.Id), cancel: s.Cancel))
                     select (NeighborAnswer)new NeighborAnswer.Hits(Values: hits),
                 overlapsCase: static (s, q) =>
-                    from pairs in s.Self.WithTree(key: s.Key, run: mine => q.Other.WithTree(key: s.Key, run: theirs => SearchCapsule<NeighborPair>(
+                    from pairs in s.Self.WithTree(run: mine => q.Other.WithTree(key: s.Key, run: theirs => SearchCapsule<NeighborPair>(
                         run: buffer => RTree.SearchOverlaps(treeA: mine, treeB: theirs, tolerance: q.Band.Value,
                             callback: (sender, args) => { if (NeighborPair.TryCreate(args.Id, args.IdB, out NeighborPair? pair)) { buffer.Add(pair!); } args.Cancel = s.Cancel.IsCancellationRequested; }),
-                        order: static (left, right) => left.A != right.A ? left.A.CompareTo(right.A) : left.B.CompareTo(right.B), cancel: s.Cancel, key: s.Key)))
+                        order: static (left, right) => left.A != right.A ? left.A.CompareTo(right.A) : left.B.CompareTo(right.B), cancel: s.Cancel)))
                     select (NeighborAnswer)new NeighborAnswer.PairsFound(Values: pairs),
                 pairsCase: static (s, q) =>
-                    from needles in q.Needles.TraverseM(v => s.Key.AcceptValue(value: v)).As().Map(static vs => vs.ToArray())
+                    from needles in q.Needles.TraverseM(v => Acceptance.Value(value: v)).As().Map(static vs => vs.ToArray())
                     from graph in q.Probe.SwitchPartially(
                         state: (s.Self, Needles: needles, s.Key),
-                        @default: static (p, _) => Fin.Fail<NeighborhoodGraph>(p.Key.InvalidInput()),
-                        nearestCase: static (p, n) => NeighborKernel.GraphOf(index: p.Self, needles: p.Needles, count: Some(n.Count), radius: Option<PositiveMagnitude>.None, key: p.Key, metric: Some(n.Metric)),
-                        radiusCase: static (p, r) => NeighborKernel.GraphOf(index: p.Self, needles: p.Needles, count: r.Cap, radius: Some(r.R), key: p.Key, metric: Some(r.Metric)))
+                        @default: static (p, _) => Fin.Fail<NeighborhoodGraph>(new KernelFault.InvalidInput()),
+                        nearestCase: static (p, n) => NeighborKernel.GraphOf(index: p.Self, needles: p.Needles, count: Some(n.Count), radius: Option<PositiveMagnitude>.None, metric: Some(n.Metric)),
+                        radiusCase: static (p, r) => NeighborKernel.GraphOf(index: p.Self, needles: p.Needles, count: r.Cap, radius: Some(r.R), metric: Some(r.Metric)))
                     let pairs = toSeq(graph.Ids
                         .SelectMany(static (row, needle) => row.Select(id => NeighborPair.Create(needle, id)))
                         .OrderBy(static p => p.A).ThenBy(static p => p.B))
                     select (NeighborAnswer)new NeighborAnswer.PairsFound(Values: pairs));
     }
 
-    private Fin<TOut> WithTree<TOut>(Op key, Func<RTree, Fin<TOut>> run) => Switch(
+    private Fin<TOut> WithTree<TOut>(Func<RTree, Fin<TOut>> run) => Switch(
         state: (Key: key, Run: run),
-        cloudCase: static (s, c) => c.Source.UseIndex(key: s.Key, project: cloud =>
-            Optional(RTree.CreatePointCloudTree(cloud: cloud)).ToFin(s.Key.InvalidResult())
+        cloudCase: static (s, c) => c.Source.UseIndex(project: cloud =>
+            Optional(RTree.CreatePointCloudTree(cloud: cloud)).ToFin(new KernelFault.InvalidResult())
                 .Bind(tree => new Lease<RTree>.Owned(Value: tree).Use(s.Run))),
-        pointsCase: static (s, p) => Optional(RTree.CreateFromPointArray(p.Points)).ToFin(s.Key.InvalidResult())
+        pointsCase: static (s, p) => Optional(RTree.CreateFromPointArray(p.Points)).ToFin(new KernelFault.InvalidResult())
             .Bind(tree => new Lease<RTree>.Owned(tree).Use(s.Run)),
         meshFacesCase: static (s, m) => s.Run(m.Tree),
         boundsCase: static (s, b) => s.Run(b.Tree));
 
-    private static Fin<Seq<TItem>> SearchCapsule<TItem>(Func<List<TItem>, bool> run, Comparison<TItem> order, CancellationToken cancel, Op key) {
+    private static Fin<Seq<TItem>> SearchCapsule<TItem>(Func<List<TItem>, bool> run, Comparison<TItem> order, CancellationToken cancel) {
         List<TItem> buffer = [];
         bool completed = run(buffer);
         buffer.Sort(comparison: order);
         return (completed, cancel.IsCancellationRequested) switch {
             (_, true) => Fin.Fail<Seq<TItem>>(error: Errors.Cancelled),
             (true, _) => Fin.Succ(toSeq(buffer)),
-            _ => Fin.Fail<Seq<TItem>>(error: key.InvalidResult()),
+            _ => Fin.Fail<Seq<TItem>>(error: new KernelFault.InvalidResult()),
         };
     }
 }
@@ -230,15 +229,15 @@ public abstract partial record NeighborIndex {
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodPolicy(Dimension NeighborCount, Option<PositiveMagnitude> Radius, PositiveMagnitude EigenGapTolerance, PositiveMagnitude FitResidualTolerance, UnitInterval SphereLikenessBand) {
-    internal static Fin<NeighborhoodPolicy> Of(Context context, Op key, Option<Dimension> neighbors = default, Option<PositiveMagnitude> radius = default) =>
-        from count in neighbors.Match(Some: Fin.Succ, None: () => key.AcceptValidated<Dimension>(candidate: 10))
-        from gap in key.AcceptValidated<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Svd).Value)
-        from residual in key.AcceptValidated<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Residual).Value)
-        from band in key.AcceptValidated<UnitInterval>(candidate: 0.35)
+    internal static Fin<NeighborhoodPolicy> Of(Context context, Option<Dimension> neighbors = default, Option<PositiveMagnitude> radius = default) =>
+        from count in neighbors.Match(Some: Fin.Succ, None: () => FactoryBridge.Accept<Dimension>(candidate: 10))
+        from gap in FactoryBridge.Accept<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Svd).Value)
+        from residual in FactoryBridge.Accept<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Residual).Value)
+        from band in FactoryBridge.Accept<UnitInterval>(candidate: 0.35)
         select new NeighborhoodPolicy(NeighborCount: count, Radius: radius, EigenGapTolerance: gap, FitResidualTolerance: residual, SphereLikenessBand: band);
-    internal Fin<NeighborhoodPolicy> Admit(Op key) {
+    internal Fin<NeighborhoodPolicy> Admit() {
         NeighborhoodPolicy self = this;
-        return guard(self.NeighborCount.Value >= 3, key.InvalidInput()).ToFin().Map(_ => self);
+        return guard(self.NeighborCount.Value >= 3, new KernelFault.InvalidInput()).ToFin().Map(_ => self);
     }
 }
 
@@ -349,42 +348,42 @@ public readonly record struct CurvatureResult(Seq<CurvatureSample> Samples, Curv
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class NeighborKernel {
-    internal static Fin<NeighborhoodGraph> GraphOf(NeighborIndex index, Point3d[] needles, NeighborhoodPolicy policy, Op key) =>
-        policy.Admit(key: key).Bind(admitted => GraphOf(index: index, needles: needles,
-            count: Some(admitted.NeighborCount), radius: admitted.Radius, key: key));
+    internal static Fin<NeighborhoodGraph> GraphOf(NeighborIndex index, Point3d[] needles, NeighborhoodPolicy policy) =>
+        policy.Admit().Bind(admitted => GraphOf(index: index, needles: needles,
+            count: Some(admitted.NeighborCount), radius: admitted.Radius));
 
     internal static Fin<NeighborhoodGraph> GraphOf(
-        NeighborIndex index, Point3d[] needles, Option<Dimension> count, Option<PositiveMagnitude> radius, Op key,
+        NeighborIndex index, Point3d[] needles, Option<Dimension> count, Option<PositiveMagnitude> radius,
         Option<NeighborMetric> metric = default) =>
-        from _ in guard(needles.Length > 0 && (count.IsSome || radius.IsSome), key.InvalidInput()).ToFin()
+        from _ in guard(needles.Length > 0 && (count.IsSome || radius.IsSome), new KernelFault.InvalidInput()).ToFin()
         from graph in index.Switch(
-            state: (Needles: needles, Count: count, Radius: radius, Metric: metric, Key: key),
+            state: (Needles: needles, Count: count, Radius: radius, Metric: metric),
             cloudCase: static (s, c) =>
-                guard(s.Metric.IfNone(NeighborMetric.Euclidean) == NeighborMetric.Euclidean, s.Key.Unsupported(inputType: typeof(NeighborIndex.CloudCase), outputType: typeof(NeighborMetric))).ToFin()
-                    .Bind(_ => c.Source.UseIndex(key: s.Key, project: cloud => Batch(needles: s.Needles, count: s.Count, radius: s.Radius, key: s.Key,
+                guard(s.Metric.IfNone(NeighborMetric.Euclidean) == NeighborMetric.Euclidean, new KernelFault.Unsupported(InputType: typeof(NeighborIndex.CloudCase), OutputType: typeof(NeighborMetric))).ToFin()
+                    .Bind(_ => c.Source.UseIndex(project: cloud => Batch(needles: s.Needles, count: s.Count, radius: s.Radius,
                         hayCount: c.Source.Vertices.Count, hayAt: i => c.Source.Vertices[i], usesKdTree: false,
                         knn: k => RTree.PointCloudKNeighbors(pointcloud: cloud, needlePts: s.Needles, amount: k),
                         radial: (r, _) => RTree.PointCloudClosestPoints(pointcloud: cloud, needlePts: s.Needles, limitDistance: r)))),
             pointsCase: static (s, p) => {
                 NeighborMetric row = s.Metric.IfNone(NeighborMetric.Euclidean);
                 KDTree<double, double, int> tree = p.Trees[row];
-                return Batch(needles: s.Needles, count: s.Count, radius: s.Radius, key: s.Key,
+                return Batch(needles: s.Needles, count: s.Count, radius: s.Radius,
                     hayCount: p.Points.Length, hayAt: i => p.Points[i], usesKdTree: true,
                     knn: k => s.Needles.Select(needle => tree.NearestNeighbors(point: Coordinate(needle), numNeighbors: k).Select(static hit => hit.Item2).ToArray()),
                     radial: (r, cap) => s.Needles.Select(needle => tree.RadialSearch(center: Coordinate(needle), radius: row.SearchRadius(r), numNeighbors: cap).Select(static hit => hit.Item2).ToArray()));
             },
-            meshFacesCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(s.Key.Unsupported(inputType: typeof(NeighborIndex.MeshFacesCase), outputType: typeof(NeighborhoodGraph))),
-            boundsCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(s.Key.Unsupported(inputType: typeof(NeighborIndex.BoundsCase), outputType: typeof(NeighborhoodGraph))))
+            meshFacesCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(new KernelFault.Unsupported(InputType: typeof(NeighborIndex.MeshFacesCase), OutputType: typeof(NeighborhoodGraph))),
+            boundsCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(new KernelFault.Unsupported(InputType: typeof(NeighborIndex.BoundsCase), OutputType: typeof(NeighborhoodGraph))))
         select graph;
 
-    internal static Fin<NeighborhoodPcaResult> PcaOf(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key);
+    internal static Fin<NeighborhoodPcaResult> PcaOf(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy);
 
-    internal static Fin<Arr<Vector3d>> EstimateNormals(VectorCloud.ClusterCase cluster, NeighborhoodGraph graph, NeighborhoodPolicy policy, Op key);
+    internal static Fin<Arr<Vector3d>> EstimateNormals(VectorCloud.ClusterCase cluster, NeighborhoodGraph graph, NeighborhoodPolicy policy);
 
-    internal static Fin<Seq<Vector3d>> OrientNormals(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
-        from graph in GraphOf(index: new NeighborIndex.CloudCase(Source: cluster), needles: [.. cluster.Vertices.AsIterable()], policy: policy, key: key)
-        from normals in EstimateNormals(cluster: cluster, graph: graph, policy: policy, key: key)
-        from oriented in key.Catch(() => {
+    internal static Fin<Seq<Vector3d>> OrientNormals(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy) =>
+        from graph in GraphOf(index: new NeighborIndex.CloudCase(Source: cluster), needles: [.. cluster.Vertices.AsIterable()], policy: policy)
+        from normals in EstimateNormals(cluster: cluster, graph: graph, policy: policy)
+        from oriented in Try.lift(() => {
             UndirectedGraph<int, SEdge<int>> knn = new(allowParallelEdges: false);
             _ = knn.AddVertexRange(Enumerable.Range(0, normals.Count));
             _ = knn.AddEdgeRange(graph.Ids.SelectMany((row, i) =>
@@ -401,15 +400,15 @@ internal static partial class NeighborKernel {
             foreach (SEdge<int> edge in visited.Edges) {
                 if (field[edge.Source] * field[edge.Target] < 0.0) { field[edge.Target] = -field[edge.Target]; }
             }
-            return key.Accept(values: toSeq(field));
-        })
+            return Acceptance.Rows(values: toSeq(field));
+        }).Run().Bind(static inner => inner)
         select oriented;
 
-    internal static Fin<CurvatureResult> PrincipalCurvatures(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
-        from _ in guard(policy.NeighborCount.Value >= QuadricUnknowns, key.InvalidInput()).ToFin()
-        from graph in GraphOf(index: new NeighborIndex.CloudCase(Source: cluster), needles: [.. cluster.Vertices.AsIterable()], policy: policy, key: key)
+    internal static Fin<CurvatureResult> PrincipalCurvatures(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy) =>
+        from _ in guard(policy.NeighborCount.Value >= QuadricUnknowns, new KernelFault.InvalidInput()).ToFin()
+        from graph in GraphOf(index: new NeighborIndex.CloudCase(Source: cluster), needles: [.. cluster.Vertices.AsIterable()], policy: policy)
         from attempts in toSeq(graph.Ids.Select(static (row, index) => (Row: row, Index: index)))
-            .TraverseM(vertex => AttemptOf(cluster: cluster, index: vertex.Index, row: vertex.Row, policy: policy, key: key)).As()
+            .TraverseM(vertex => AttemptOf(cluster: cluster, index: vertex.Index, row: vertex.Row, policy: policy)).As()
         let census = attempts.Fold((Accepted: Seq<CurvatureSample>(), Rank: 0, Residual: 0, Solve: 0), static (held, attempt) => attempt.Switch(
             state: held,
             fitted: static (h, f) => (h.Accepted.Add(f.Sample), h.Rank, h.Residual, h.Solve),
@@ -418,8 +417,8 @@ internal static partial class NeighborKernel {
             solveRefused: static (h, _) => (h.Accepted, h.Rank, h.Residual, h.Solve + 1)))
         from residuals in census.Accepted.IsEmpty
             ? Fin.Succ(Option<Stat<Scalar>>.None)
-            : Stat<Scalar>.Of(values: census.Accepted.Map(static s => (Scalar)s.Residual), key: key).Map(Some)
-        from range in RangeOf(samples: census.Accepted, band: policy.SphereLikenessBand.Value, key: key)
+            : Stat<Scalar>.Of(values: census.Accepted.Map(static s => (Scalar)s.Residual)).Map(Some)
+        from range in RangeOf(samples: census.Accepted, band: policy.SphereLikenessBand.Value)
         let tally = new CurvatureCensus(
             RequestedNeighborCount: policy.NeighborCount.Value,
             RankRejectedCount: census.Rank, ResidualRejectedCount: census.Residual, SolveRejectedCount: census.Solve,
@@ -428,17 +427,17 @@ internal static partial class NeighborKernel {
             SphereLikenessBand: policy.SphereLikenessBand.Value, Neighborhood: graph.Census, Range: range)
         from result in tally.IsValid
             ? Fin.Succ(new CurvatureResult(Samples: census.Accepted, Census: tally))
-            : Fin.Fail<CurvatureResult>(key.InvalidResult())
+            : Fin.Fail<CurvatureResult>(new KernelFault.InvalidResult())
         select result;
 
     internal static Fin<Seq<double>> Project(
-        CurvatureAxis axis, VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
-        PrincipalCurvatures(cluster, policy, key).Map(r => r.Samples.Map(axis.Project));
+        CurvatureAxis axis, VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy) =>
+        PrincipalCurvatures(cluster, policy).Map(r => r.Samples.Map(axis.Project));
 
-    private static Fin<NeighborhoodGraph> Batch(Point3d[] needles, Option<Dimension> count, Option<PositiveMagnitude> radius, Op key,
+    private static Fin<NeighborhoodGraph> Batch(Point3d[] needles, Option<Dimension> count, Option<PositiveMagnitude> radius,
         int hayCount, Func<int, Point3d> hayAt, bool usesKdTree,
         Func<int, IEnumerable<int[]>> knn, Func<double, int, IEnumerable<int[]>> radial) =>
-        guard(hayCount > 0, key.InvalidInput()).ToFin().Bind(_ => key.Catch(() => {
+        guard(hayCount > 0, new KernelFault.InvalidInput()).ToFin().Bind(_ => Try.lift(() => {
             int requested = Math.Min(count.Map(static c => c.Value).IfNone(hayCount), hayCount);
             IEnumerable<int[]> batch = radius.Match(
                 Some: r => radial(r.Value, requested), None: () => knn(requested));
@@ -447,7 +446,7 @@ internal static partial class NeighborKernel {
                 ? [.. batch.Select((row, i) => row.OrderBy(id => needles[i].DistanceToSquared(hayAt(id))).Take(requested).ToArray())]
                 : [.. batch];
             double[] returned = [.. ids.Select(static row => (double)row.Length)];
-            return Stat<Scalar>.Of(plane: returned, key: key).Bind(spread => {
+            return Stat<Scalar>.Of(plane: returned).Bind(spread => {
                 NeighborhoodCensus census = new(
                     InputCount: hayCount, QueryCount: needles.Length, RequestedNeighborCount: requested,
                     UsesKdTree: usesKdTree, Radius: radius,
@@ -457,50 +456,50 @@ internal static partial class NeighborKernel {
                     Returned: spread);
                 return ids.Length == needles.Length && census.IsValid
                     ? Fin.Succ(new NeighborhoodGraph(Ids: ids, Census: census))
-                    : Fin.Fail<NeighborhoodGraph>(key.InvalidResult());
+                    : Fin.Fail<NeighborhoodGraph>(new KernelFault.InvalidResult());
             });
-        }));
+        }).Run().Bind(static inner => inner));
 
     internal const int QuadricUnknowns = 6;
 
-    private static Fin<QuadricAttempt> AttemptOf(VectorCloud.ClusterCase cluster, int index, int[] row, NeighborhoodPolicy policy, Op key) =>
+    private static Fin<QuadricAttempt> AttemptOf(VectorCloud.ClusterCase cluster, int index, int[] row, NeighborhoodPolicy policy) =>
         row.Length < QuadricUnknowns
             ? Fin.Succ((QuadricAttempt)new QuadricAttempt.RankRefused())
-            : from stats in CloudKernel.CovarianceOf(points: toSeq(row.Select(id => cluster.Vertices[id])), mass: Option<Arr<double>>.None, key: key)
-              from eigen in stats.Cov.DecomposeEigenDetailed(key: key).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key))
+            : from stats in CloudKernel.CovarianceOf(points: toSeq(row.Select(id => cluster.Vertices[id])), mass: Option<Arr<double>>.None)
+              from eigen in stats.Cov.DecomposeEigenDetailed().Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude))
               let frame = (U: AxisOf(eigen[0].Eigenvector), V: AxisOf(eigen[1].Eigenvector), N: AxisOf(eigen[2].Eigenvector))
               let center = cluster.Vertices[index]
               let local = row.Select(id => cluster.Vertices[id] - center).Select(d => (U: d * frame.U, V: d * frame.V, N: d * frame.N)).ToArray()
-              from rows in key.AcceptValidated<Dimension>(candidate: local.Length)
-              from cols in key.AcceptValidated<Dimension>(candidate: QuadricUnknowns)
-              from design in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. local.SelectMany(static q => (double[])[q.U * q.U, q.U * q.V, q.V * q.V, q.U, q.V, 1.0])]), key: key)
-              from attempt in design.LeastSquaresDetailed(rhs: new Arr<double>([.. local.Select(static q => q.N)]), key: key).Match(
+              from rows in FactoryBridge.Accept<Dimension>(candidate: local.Length)
+              from cols in FactoryBridge.Accept<Dimension>(candidate: QuadricUnknowns)
+              from design in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. local.SelectMany(static q => (double[])[q.U * q.U, q.U * q.V, q.V * q.V, q.U, q.V, 1.0])]))
+              from attempt in design.LeastSquaresDetailed(rhs: new Arr<double>([.. local.Select(static q => q.N)])).Match(
                   Succ: fit => !fit.Stop.IsUsable
                       ? Fin.Succ((QuadricAttempt)new QuadricAttempt.RankRefused())
                       : fit.Residual > policy.FitResidualTolerance.Value
                           ? Fin.Succ((QuadricAttempt)new QuadricAttempt.ResidualRefused(Residual: fit.Residual))
-                          : SampleOf(index: index, point: center, frame: (frame.U, frame.V), fit: fit, neighborCount: row.Length, context: cluster.Tolerance, key: key)
+                          : SampleOf(index: index, point: center, frame: (frame.U, frame.V), fit: fit, neighborCount: row.Length, context: cluster.Tolerance)
                               .Map(static sample => (QuadricAttempt)new QuadricAttempt.Fitted(Sample: sample)),
                   Fail: cause => Fin.Succ((QuadricAttempt)new QuadricAttempt.SolveRefused(Cause: cause)))
               select attempt;
 
-    private static Fin<CurvatureSample> SampleOf(int index, Point3d point, (Vector3d U, Vector3d V) frame, LinearSolution fit, int neighborCount, Context context, Op key) =>
-        from dim in key.AcceptValidated<Dimension>(candidate: 2)
-        from shape in SymmetricMatrix.Of(dim: dim, upper: new Arr<double>([2.0 * fit.Solution[0], fit.Solution[1], 2.0 * fit.Solution[2]]), key: key)
-        from pairs in shape.DecomposeEigenDetailed(key: key).Map(static solved => solved.Pairs)
+    private static Fin<CurvatureSample> SampleOf(int index, Point3d point, (Vector3d U, Vector3d V) frame, LinearSolution fit, int neighborCount, Context context) =>
+        from dim in FactoryBridge.Accept<Dimension>(candidate: 2)
+        from shape in SymmetricMatrix.Of(dim: dim, upper: new Arr<double>([2.0 * fit.Solution[0], fit.Solution[1], 2.0 * fit.Solution[2]]))
+        from pairs in shape.DecomposeEigenDetailed().Map(static solved => solved.Pairs)
         let ordered = pairs[0].Eigenvalue >= pairs[1].Eigenvalue ? (Max: pairs[0], Min: pairs[1]) : (Max: pairs[1], Min: pairs[0])
-        from e1 in Direction.Of(value: (ordered.Max.Eigenvector[0] * frame.U) + (ordered.Max.Eigenvector[1] * frame.V), context: context, key: key)
-        from e2 in Direction.Of(value: (ordered.Min.Eigenvector[0] * frame.U) + (ordered.Min.Eigenvector[1] * frame.V), context: context, key: key)
+        from e1 in Direction.Of(value: (ordered.Max.Eigenvector[0] * frame.U) + (ordered.Max.Eigenvector[1] * frame.V), context: context)
+        from e2 in Direction.Of(value: (ordered.Min.Eigenvector[0] * frame.U) + (ordered.Min.Eigenvector[1] * frame.V), context: context)
         select new CurvatureSample(Index: index, Point: point, K1: ordered.Max.Eigenvalue, K2: ordered.Min.Eigenvalue, E1: e1, E2: e2, Residual: fit.Residual, NeighborCount: neighborCount);
 
-    private static Fin<CurvatureRange> RangeOf(Seq<CurvatureSample> samples, double band, Op key) {
+    private static Fin<CurvatureRange> RangeOf(Seq<CurvatureSample> samples, double band) {
         HashMap<CurvatureRangeKind, int> tally = samples.Fold(HashMap<CurvatureRangeKind, int>(),
             (held, sample) => held.AddOrUpdate(CurvatureRangeKind.Items.First(row => row.Admits(sample, band)), static n => n + 1, 1));
         int Counted(CurvatureRangeKind row) => tally.Find(row).IfNone(0);
         return (samples.IsEmpty
                 ? Fin.Succ(Option<Arr<(CurvatureAxis Axis, Stat<Scalar> Spread)>>.None)
                 : CurvatureAxis.Items.AsIterable().Traverse(axis =>
-                        Stat<Scalar>.Of(values: samples.Map(sample => (Scalar)axis.Project(sample: sample)), key: key)
+                        Stat<Scalar>.Of(values: samples.Map(sample => (Scalar)axis.Project(sample: sample)))
                             .Map(spread => (Axis: axis, Spread: spread)))
                     .Map(bands => Some(new Arr<(CurvatureAxis Axis, Stat<Scalar> Spread)>([.. bands]))))
             .Map(bands => new CurvatureRange(
@@ -535,22 +534,22 @@ internal static partial class NeighborKernel {
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class NeighborKernel {
-    internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key) => cloud.Switch(
+    internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud) => cloud.Switch(
         state: key,
         ringCase: static (k, r) =>
             from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance, key: k)
             from chain in BishopChain(points: r.Vertices, initialNormal: seed, isClosed: true, context: r.Tolerance, key: k)
             select chain,
         polylineCase: static (k, p) =>
-            from _ in guard(p.Vertices.Count >= 2, k.InvalidInput()).ToFin()
+            from _ in guard(p.Vertices.Count >= 2, new KernelFault.InvalidInput()).ToFin()
             from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
             from chain in BishopChain(points: p.Vertices, initialNormal: seed, isClosed: false, context: p.Tolerance, key: k)
             select chain,
-        clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(k.Unsupported(inputType: typeof(VectorCloud.ClusterCase), outputType: typeof(Seq<Plane>))));
+        clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(new KernelFault.Unsupported(InputType: typeof(VectorCloud.ClusterCase), OutputType: typeof(Seq<Plane>))));
 
-    internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context, Op key) =>
-        from _ in guard(points.Count >= 2, key.InvalidInput()).ToFin()
-        from columns in key.Catch(() => {
+    internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context) =>
+        from _ in guard(points.Count >= 2, new KernelFault.InvalidInput()).ToFin()
+        from columns in Try.lift(() => {
             Point3d[] p = [.. points];
             double step = context.For(lane: ToleranceLane.Collapse).Value;
             double floor = step * step;
@@ -578,10 +577,10 @@ internal static partial class NeighborKernel {
                 }
             }
             return Fin.Succ((Points: p, Tangents: tangents, References: reference));
-        })
+        }).Run().Bind(static inner => inner)
         from frames in toSeq(Enumerable.Range(0, columns.Points.Length))
             .TraverseM(i => VectorFrame.Of(origin: columns.Points[i], normal: columns.Tangents[i],
-                xHint: Some(columns.References[i]), context: context, key: key).Map(static frame => frame.Value)).As()
+                xHint: Some(columns.References[i]), context: context).Map(static frame => frame.Value)).As()
         select frames;
 
     private static Vector3d Transported(Vector3d reference, Vector3d tangent, Vector3d next, Vector3d chord, double floor) {

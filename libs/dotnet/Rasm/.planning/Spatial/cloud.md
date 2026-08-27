@@ -61,17 +61,17 @@ public abstract partial class VectorCloud : IDisposable {
         public Option<Arr<double>> Mass { get; }
         public CloudAdmission Admission { get; }
 
-        internal Fin<T> UseIndex<T>(Op key, Func<PointCloud, Fin<T>> project) {
-            lock (gate) return disposed ? Fin.Fail<T>(key.InvalidContext()) : project(index.Resource);
+        internal Fin<T> UseIndex<T>(Func<PointCloud, Fin<T>> project) {
+            lock (gate) return disposed ? Fin.Fail<T>(new KernelFault.InvalidContext()) : project(index.Resource);
         }
 
-        internal Fin<ClosestHit> ClosestVertex(Point3d sample, Op key) =>
-            UseIndex(key: key, project: indexed => key.Catch(() => indexed.ClosestPoint(testPoint: sample) switch {
-                    int idx when idx >= 0 && idx < Vertices.Count => key.AcceptValue(value: ClosestHit.At(
+        internal Fin<ClosestHit> ClosestVertex(Point3d sample) =>
+            UseIndex(project: indexed => Try.lift(() => indexed.ClosestPoint(testPoint: sample) switch {
+                    int idx when idx >= 0 && idx < Vertices.Count => Acceptance.Value(value: ClosestHit.At(
                         target: sample, point: indexed.PointAt(index: idx),
                         component: Some(new ComponentIndex(type: ComponentIndexType.PointCloudPoint, index: idx)))),
-                    _ => Fin.Fail<ClosestHit>(error: key.InvalidResult()),
-                }));
+                    _ => Fin.Fail<ClosestHit>(error: new KernelFault.InvalidResult()),
+                }).Run().Bind(static inner => inner));
 
         internal Unit Release() {
             lock (gate) {
@@ -84,46 +84,46 @@ public abstract partial class VectorCloud : IDisposable {
     public abstract Seq<Point3d> Vertices { get; }
     public abstract Context Tolerance { get; }
 
-    public static Fin<VectorCloud> Ring(Seq<Point3d> points, Context context, Op? key = null) =>
-        from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 3)
+    public static Fin<VectorCloud> Ring(Seq<Point3d> points, Context context) =>
+        from admitted in AdmitPoints(points: points, context: context, minimum: 3)
         let closure = admitted.Context.For(lane: ToleranceLane.Closure).Value
         let closed = admitted.Points.Count > 1 && admitted.Points[0].EpsilonEquals(other: admitted.Points[^1], epsilon: closure)
         let vertices = closed ? admitted.Points.Init : admitted.Points
-        from _ in guard(vertices.Count >= 3, admitted.Key.InvalidInput())
+        from _ in guard(vertices.Count >= 3, new KernelFault.InvalidInput())
         let native = new Polyline([.. vertices.AsIterable(), vertices[0]])
-        from ringClosed in guard(native.IsValid && native.IsClosedWithinTolerance(closure) && native.SegmentCount >= 3, admitted.Key.InvalidInput())
-        from simple in Optional(native.ToPolylineCurve()).ToFin(admitted.Key.InvalidResult())
+        from ringClosed in guard(native.IsValid && native.IsClosedWithinTolerance(closure) && native.SegmentCount >= 3, new KernelFault.InvalidInput())
+        from simple in Optional(native.ToPolylineCurve()).ToFin(new KernelFault.InvalidResult())
             .Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: (admitted.Context, admitted.Key),
                 project: static (s, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: s.Context.For(lane: ToleranceLane.Join).Value))
-                    .ToFin(s.Key.InvalidResult())
-                    .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(s.Key.InvalidInput()))))
+                    .ToFin(new KernelFault.InvalidResult())
+                    .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(new KernelFault.InvalidInput()))))
         select (VectorCloud)new RingCase(Vertices: vertices, Native: native, Tolerance: admitted.Context);
 
-    public static Fin<VectorCloud> Polyline(Seq<Point3d> points, Context context, Op? key = null) =>
-        AdmitPoints(points: points, context: context, key: key, minimum: 2)
+    public static Fin<VectorCloud> Polyline(Seq<Point3d> points, Context context) =>
+        AdmitPoints(points: points, context: context, minimum: 2)
             .Map(static a => (VectorCloud)new PolylineCase(Vertices: a.Points, Tolerance: a.Context));
 
-    public static Fin<VectorCloud> Cluster(Seq<Point3d> points, Context context, Option<CloudAdmissionPolicy> admission = default, Option<Arr<double>> mass = default, Op? key = null) =>
-        from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 1)
+    public static Fin<VectorCloud> Cluster(Seq<Point3d> points, Context context, Option<CloudAdmissionPolicy> admission = default, Option<Arr<double>> mass = default) =>
+        from admitted in AdmitPoints(points: points, context: context, minimum: 1)
         from policy in admission.Match(
-            Some: candidate => candidate.Admit(key: admitted.Key),
-            None: () => CloudAdmissionPolicy.Of(context: admitted.Context, key: admitted.Key))
-        from fold in CloudKernel.AdmitCluster(points: admitted.Points, mass: mass, policy: policy, key: admitted.Key)
-        from indexed in admitted.Key.Catch(() => {
+            Some: candidate => candidate.Admit(),
+            None: () => CloudAdmissionPolicy.Of(context: admitted.Context))
+        from fold in CloudKernel.AdmitCluster(points: admitted.Points, mass: mass, policy: policy)
+        from indexed in Try.lift(() => {
             PointCloud native = [];
             native.AddRange(points: fold.Points.AsIterable());
             return Fin.Succ(native);
-        })
+        }).Run().Bind(static inner => inner)
         select (VectorCloud)new ClusterCase(Vertices: fold.Points, Tolerance: admitted.Context, Mass: fold.Mass, Indexed: new Lease<PointCloud>.Owned(Value: indexed), Admission: fold.Admission);
 
-    internal Fin<VectorCloud> Admit(Op key) => Switch(
+    internal Fin<VectorCloud> Admit() => Switch(
         state: key,
-        ringCase: static (op, ring) => Ring(points: ring.Vertices, context: ring.Tolerance, key: op),
-        polylineCase: static (op, poly) => Polyline(points: poly.Vertices, context: poly.Tolerance, key: op),
-        clusterCase: static (op, cluster) =>
-            from policy in CloudAdmissionPolicy.Of(context: cluster.Tolerance, key: op)
+        ringCase: static (ring) => Ring(points: ring.Vertices, context: ring.Tolerance),
+        polylineCase: static (poly) => Polyline(points: poly.Vertices, context: poly.Tolerance),
+        clusterCase: static (cluster) =>
+            from policy in CloudAdmissionPolicy.Of(context: cluster.Tolerance)
             from readmitted in Cluster(points: cluster.Vertices, context: cluster.Tolerance,
-                admission: Some(policy with { Dedup = CloudDedup.Preserve }), mass: cluster.Mass, key: op)
+                admission: Some(policy with { Dedup = CloudDedup.Preserve }), mass: cluster.Mass)
             select readmitted);
 
     public void Dispose() => Switch(
@@ -131,12 +131,11 @@ public abstract partial class VectorCloud : IDisposable {
         polylineCase: static _ => { },
         clusterCase: static cluster => { _ = cluster.Release(); });
 
-    private static Fin<(Seq<Point3d> Points, Context Context, Op Key)> AdmitPoints(Seq<Point3d> points, Context context, Op? key, int minimum) {
-        Op op = key.OrDefault();
-        return from model in Optional(context).ToFin(op.MissingContext())
-               from _ in points.TraverseM(p => op.AcceptValue(value: p)).As()
-               from count in guard(points.Count >= minimum, op.InvalidInput())
-               select (Points: points, Context: model, Key: op);
+    private static Fin<(Seq<Point3d> Points, Context Context)> AdmitPoints(Seq<Point3d> points, Context context, int minimum) {
+        return from model in Optional(context).ToFin(new KernelFault.MissingContext())
+               from _ in points.TraverseM(p => Acceptance.Value(value: p)).As()
+               from count in guard(points.Count >= minimum, new KernelFault.InvalidInput())
+               select (Points: points, Context: model);
     }
 }
 
@@ -144,14 +143,14 @@ public abstract partial class VectorCloud : IDisposable {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionPolicy(
     CloudDedup Dedup, Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance) {
-    internal static Fin<CloudAdmissionPolicy> Of(Context context, Op key, Option<PositiveMagnitude> tolerance = default) =>
-        from conservation in key.AcceptValidated<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Conservation).Value)
+    internal static Fin<CloudAdmissionPolicy> Of(Context context, Option<PositiveMagnitude> tolerance = default) =>
+        from conservation in FactoryBridge.Accept<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Conservation).Value)
         select new CloudAdmissionPolicy(Dedup: CloudDedup.Merge, Tolerance: tolerance, ConservationTolerance: conservation);
-    internal Fin<CloudAdmissionPolicy> Admit(Op key) {
+    internal Fin<CloudAdmissionPolicy> Admit() {
         CloudAdmissionPolicy self = this;
         return guard(ValidityClaim.All(
                 self.Tolerance.Map(static tolerance => ValidityClaim.Positive(tolerance.Value).Holds).IfNone(true),
-                ValidityClaim.Positive(self.ConservationTolerance.Value)), key.InvalidInput())
+                ValidityClaim.Positive(self.ConservationTolerance.Value)), new KernelFault.InvalidInput())
             .ToFin().Map(_ => self);
     }
     internal bool Equivalent(Point3d left, Point3d right) => Dedup.Equivalent(left: left, right: right, tolerance: Tolerance);
@@ -198,15 +197,15 @@ public readonly record struct CloudAdmission(
 [SmartEnum]
 public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric Normal = Ring(measure: static (c, k) => CloudKernel.RingNormalOf(ring: c, key: k)),
-        Area = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.Area), key: k)),
-        Perimeter = Ring(measure: static (c, k) => k.AcceptValue(value: c.Native.Length)),
+        Area = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => Acceptance.Value(value: props.Area), key: k)),
+        Perimeter = Ring(measure: static (c, k) => Acceptance.Value(value: c.Native.Length)),
         EdgeAspect = Ring(measure: static (c, k) => CloudKernel.EdgeAspectOf(native: c.Native, context: c.Tolerance, key: k)),
         Skewness = Ring(measure: static (c, k) => CloudKernel.RingSkewnessOf(ring: c, key: k)),
         Compactness = Ring(measure: static (c, k) => CloudKernel.RingCompactnessOf(ring: c, key: k)),
         MomentAnisotropy = Ring(measure: static (c, k) => CloudKernel.RingMomentAnisotropyOf(ring: c, key: k)),
-        RadiiOfGyration = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.CentroidCoordinatesRadiiOfGyration), key: k)),
-        AreaError = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.AreaError), key: k)),
-        CentroidError = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.CentroidError), key: k));
+        RadiiOfGyration = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => Acceptance.Value(value: props.CentroidCoordinatesRadiiOfGyration), key: k)),
+        AreaError = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => Acceptance.Value(value: props.AreaError), key: k)),
+        CentroidError = Ring(measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => Acceptance.Value(value: props.CentroidError), key: k));
     public static readonly VectorCloudMetric Centroid = All(measure: static (c, k) => CloudKernel.CentroidOf(cloud: c, key: k)),
         BestFitPlane = All(measure: static (c, k) => CloudKernel.BestFitPlaneOf(cloud: c, key: k)),
         PrincipalAxes = All(measure: static (c, k) => CloudKernel.PrincipalAxesOf(cloud: c, key: k)),
@@ -218,9 +217,9 @@ public sealed partial class VectorCloudMetric {
         EdgeCurvatures = Chain(measure: static (cloud, k) => CloudKernel.EdgeCurvaturesOf(points: cloud.Vertices, key: k)),
         OpenLength = Chain(measure: static (cloud, k) => CloudKernel.OpenLengthOf(points: cloud.Vertices, key: k));
     public static readonly VectorCloudMetric Covariance = Cluster(measure: static (c, _, k) => CloudKernel.CovarianceOf(cluster: c, key: k).Map(static v => v.Cov)),
-        PrincipalDirection = Cluster(measure: static (c, _, k) => CloudKernel.PrincipalStatsOf(cluster: c, key: k).Bind(s => k.AcceptValue(value: CloudKernel.AsVector3d(v: s.Eigen[0].Eigenvector)))),
+        PrincipalDirection = Cluster(measure: static (c, _, k) => CloudKernel.PrincipalStatsOf(cluster: c, key: k).Bind(s => Acceptance.Value(value: CloudKernel.AsVector3d(v: s.Eigen[0].Eigenvector)))),
         Spread = Cluster(measure: static (c, _, k) => CloudKernel.PrincipalStatsOf(cluster: c, key: k)
-            .Bind(s => k.AcceptValue(value: new Vector3d(s.Eigen[0].Eigenvalue, s.Eigen[1].Eigenvalue, s.Eigen[2].Eigenvalue)))),
+            .Bind(s => Acceptance.Value(value: new Vector3d(s.Eigen[0].Eigenvalue, s.Eigen[1].Eigenvalue, s.Eigen[2].Eigenvalue)))),
         OrientedNormals = Cluster(measure: static (c, p, k) => NeighborKernel.OrientNormals(cluster: c, policy: p, key: k)),
         PrincipalCurvature = Cluster(measure: static (c, p, k) => NeighborKernel.PrincipalCurvatures(cluster: c, policy: p, key: k)),
         Curvedness = Cluster(measure: static (c, p, k) => NeighborKernel.Project(CurvatureAxis.Curvedness, cluster: c, policy: p, key: k)),
@@ -231,25 +230,25 @@ public sealed partial class VectorCloudMetric {
 
     public Type Output { get; }
     [UseDelegateFromConstructor] internal partial bool AdmitsCase(VectorCloud cloud);
-    [UseDelegateFromConstructor] private partial Fin<object> Measure(VectorCloud cloud, NeighborhoodPolicy policy, Op key);
+    [UseDelegateFromConstructor] private partial Fin<object> Measure(VectorCloud cloud, NeighborhoodPolicy policy);
 
-    private static VectorCloudMetric Ring<TValue>(Func<VectorCloud.RingCase, Op, Fin<TValue>> measure);
-    private static VectorCloudMetric All<TValue>(Func<VectorCloud, Op, Fin<TValue>> measure);
-    private static VectorCloudMetric Chain<TValue>(Func<VectorCloud, Op, Fin<TValue>> measure);
-    private static VectorCloudMetric Cluster<TValue>(Func<VectorCloud.ClusterCase, NeighborhoodPolicy, Op, Fin<TValue>> measure);
+    private static VectorCloudMetric Ring<TValue>(Func<VectorCloud.RingCase, Fin<TValue>> measure);
+    private static VectorCloudMetric All<TValue>(Func<VectorCloud, Fin<TValue>> measure);
+    private static VectorCloudMetric Chain<TValue>(Func<VectorCloud, Fin<TValue>> measure);
+    private static VectorCloudMetric Cluster<TValue>(Func<VectorCloud.ClusterCase, NeighborhoodPolicy, Fin<TValue>> measure);
 
-    internal Fin<TOut> Project<TOut>(VectorCloud cloud, Option<NeighborhoodPolicy> policy, Op key) =>
+    internal Fin<TOut> Project<TOut>(VectorCloud cloud, Option<NeighborhoodPolicy> policy) =>
         from active in policy.Match(
-            Some: candidate => candidate.Admit(key: key),
-            None: () => NeighborhoodPolicy.Of(context: cloud.Tolerance, key: key))
+            Some: candidate => candidate.Admit(),
+            None: () => NeighborhoodPolicy.Of(context: cloud.Tolerance))
         from output in (AdmitsCase(cloud: cloud), Output == typeof(TOut)) switch {
-            (false, _) => Fin.Fail<TOut>(key.Unsupported(inputType: cloud.GetType(), outputType: typeof(TOut))),
-            (_, false) => Fin.Fail<TOut>(key.Unsupported(inputType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
-            _ => Measure(cloud: cloud, policy: active, key: key).Bind(value => value switch {
-                Seq<Vector3d> values => ResultProjection.Values<Vector3d, TOut>(values: values, key: key, owner: typeof(VectorCloudMetric)),
-                Seq<double> values => ResultProjection.Values<double, TOut>(values: values, key: key, owner: typeof(VectorCloudMetric)),
-                Seq<Plane> values => ResultProjection.Values<Plane, TOut>(values: values, key: key, owner: typeof(VectorCloudMetric)),
-                _ => key.AcceptValue(value: value).Map(static admitted => (TOut)admitted),
+            (false, _) => Fin.Fail<TOut>(new KernelFault.Unsupported(InputType: cloud.GetType(), OutputType: typeof(TOut))),
+            (_, false) => Fin.Fail<TOut>(new KernelFault.Unsupported(InputType: typeof(VectorCloudMetric), OutputType: typeof(TOut))),
+            _ => Measure(cloud: cloud, policy: active).Bind(value => value switch {
+                Seq<Vector3d> values => ResultProjection.Values<Vector3d, TOut>(values: values, owner: typeof(VectorCloudMetric)),
+                Seq<double> values => ResultProjection.Values<double, TOut>(values: values, owner: typeof(VectorCloudMetric)),
+                Seq<Plane> values => ResultProjection.Values<Plane, TOut>(values: values, owner: typeof(VectorCloudMetric)),
+                _ => Acceptance.Value(value: value).Map(static admitted => (TOut)admitted),
             })
         }
         select output;
@@ -279,60 +278,60 @@ public readonly record struct VectorCloudShape(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class CloudKernel {
     internal static Fin<(Seq<Point3d> Points, Option<Arr<double>> Mass, CloudAdmission Admission)> AdmitCluster(
-        Seq<Point3d> points, Option<Arr<double>> mass, CloudAdmissionPolicy policy, Op key);
+        Seq<Point3d> points, Option<Arr<double>> mass, CloudAdmissionPolicy policy);
 
-    internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Option<Arr<double>> mass, Op key) =>
-        from moment in SampleMoment.Of(rows: points.Map(static p => Seq(p.X, p.Y, p.Z)), key: key,
+    internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Option<Arr<double>> mass) =>
+        from moment in SampleMoment.Of(rows: points.Map(static p => Seq(p.X, p.Y, p.Z)),
             weights: mass.Map(static m => toSeq(m.AsIterable())))
-        from cov in SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: moment.UpperCovariance, key: key)
+        from cov in SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: moment.UpperCovariance)
         select (Mean: AsVector3d(v: moment.Mean), Cov: cov);
-    internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(VectorCloud.ClusterCase cluster, Op key) =>
+    internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(VectorCloud.ClusterCase cluster) =>
         cluster.Mass.Match(
-            Some: mass => MassOf(mass: mass, count: cluster.Vertices.Count, key: key)
-                .Bind(normalized => CovarianceOf(points: cluster.Vertices, mass: Some(normalized), key: key)),
-            None: () => CovarianceOf(points: cluster.Vertices, mass: Option<Arr<double>>.None, key: key));
-    internal static Fin<Arr<double>> MassOf(VectorCloud.ClusterCase cluster, Op key) =>
-        MassOf(mass: cluster.Mass.IfNone(() => new Arr<double>([.. Enumerable.Repeat(1.0 / cluster.Vertices.Count, cluster.Vertices.Count)])), count: cluster.Vertices.Count, key: key);
-    internal static Fin<Arr<double>> MassOf(Arr<double> mass, int count, Op key) =>
-        from _ in guard(mass.Count == count && mass.ForAll(static w => double.IsFinite(w) && w > 0.0), key.InvalidInput())
+            Some: mass => MassOf(mass: mass, count: cluster.Vertices.Count)
+                .Bind(normalized => CovarianceOf(points: cluster.Vertices, mass: Some(normalized))),
+            None: () => CovarianceOf(points: cluster.Vertices, mass: Option<Arr<double>>.None));
+    internal static Fin<Arr<double>> MassOf(VectorCloud.ClusterCase cluster) =>
+        MassOf(mass: cluster.Mass.IfNone(() => new Arr<double>([.. Enumerable.Repeat(1.0 / cluster.Vertices.Count, cluster.Vertices.Count)])), count: cluster.Vertices.Count);
+    internal static Fin<Arr<double>> MassOf(Arr<double> mass, int count) =>
+        from _ in guard(mass.Count == count && mass.ForAll(static w => double.IsFinite(w) && w > 0.0), new KernelFault.InvalidInput())
         from total in mass.Fold(0.0, static (s, w) => s + w) switch {
             double sum when double.IsFinite(sum) && sum > 0.0 => Fin.Succ(sum),
-            _ => Fin.Fail<double>(key.InvalidInput()),
+            _ => Fin.Fail<double>(new KernelFault.InvalidInput()),
         }
         select new Arr<double>([.. mass.AsIterable().Select(w => w / total)]);
 
     internal static Fin<(Vector3d Mean, Seq<(double Eigenvalue, Arr<double> Eigenvector)> Eigen)>
-        PrincipalStatsOf(VectorCloud.ClusterCase cluster, Op key) =>
-        from stats in CovarianceOf(cluster: cluster, key: key)
-        from eigen in stats.Cov.DecomposeEigenDetailed(key: key).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key))
+        PrincipalStatsOf(VectorCloud.ClusterCase cluster) =>
+        from stats in CovarianceOf(cluster: cluster)
+        from eigen in stats.Cov.DecomposeEigenDetailed().Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude))
         from full in eigen.Count >= 3
             ? Fin.Succ((Mean: stats.Mean, Eigen: eigen))
-            : Fin.Fail<(Vector3d, Seq<(double, Arr<double>)>)>(key.InvalidResult())
+            : Fin.Fail<(Vector3d, Seq<(double, Arr<double>)>)>(new KernelFault.InvalidResult())
         select full;
     internal static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
 
-    internal static Fin<T> WithMassProperties<T>(VectorCloud.RingCase ring, Func<Op, AreaMassProperties, Fin<T>> project, Op key);
-    internal static Fin<Vector3d> RingNormalOf(VectorCloud.RingCase ring, Op key);
-    internal static Fin<double> EdgeAspectOf(Polyline native, Context context, Op key);
-    internal static Fin<double> RingSkewnessOf(VectorCloud.RingCase ring, Op key);
-    internal static Fin<double> RingCompactnessOf(VectorCloud.RingCase ring, Op key);
-    internal static Fin<double> RingMomentAnisotropyOf(VectorCloud.RingCase ring, Op key);
+    internal static Fin<T> WithMassProperties<T>(VectorCloud.RingCase ring, Func< AreaMassProperties, Fin<T>> project);
+    internal static Fin<Vector3d> RingNormalOf(VectorCloud.RingCase ring);
+    internal static Fin<double> EdgeAspectOf(Polyline native, Context context);
+    internal static Fin<double> RingSkewnessOf(VectorCloud.RingCase ring);
+    internal static Fin<double> RingCompactnessOf(VectorCloud.RingCase ring);
+    internal static Fin<double> RingMomentAnisotropyOf(VectorCloud.RingCase ring);
 
-    internal static Fin<Point3d> CentroidOf(VectorCloud cloud, Op key);
-    internal static Fin<Plane> BestFitPlaneOf(VectorCloud cloud, Op key);
-    internal static Fin<Seq<(double Moment, Vector3d Axis)>> PrincipalAxesOf(VectorCloud cloud, Op key);
-    internal static Fin<Plane> PrincipalFrameOf(VectorCloud cloud, Op key);
-    internal static Fin<VectorCloudShape> ShapeOf(VectorCloud cloud, Op key);
+    internal static Fin<Point3d> CentroidOf(VectorCloud cloud);
+    internal static Fin<Plane> BestFitPlaneOf(VectorCloud cloud);
+    internal static Fin<Seq<(double Moment, Vector3d Axis)>> PrincipalAxesOf(VectorCloud cloud);
+    internal static Fin<Plane> PrincipalFrameOf(VectorCloud cloud);
+    internal static Fin<VectorCloudShape> ShapeOf(VectorCloud cloud);
 
-    internal static Fin<Seq<Vector3d>> TangentFlowOf(Seq<Point3d> points, Op key);
-    internal static Fin<Seq<double>> CumulativeArcLengthOf(Seq<Point3d> points, Op key);
-    internal static Fin<Seq<double>> EdgeCurvaturesOf(Seq<Point3d> points, Op key);
-    internal static Fin<double> OpenLengthOf(Seq<Point3d> points, Op key);
+    internal static Fin<Seq<Vector3d>> TangentFlowOf(Seq<Point3d> points);
+    internal static Fin<Seq<double>> CumulativeArcLengthOf(Seq<Point3d> points);
+    internal static Fin<Seq<double>> EdgeCurvaturesOf(Seq<Point3d> points);
+    internal static Fin<double> OpenLengthOf(Seq<Point3d> points);
 
-    internal static Fin<int> PlanarWindingOf(Seq<Point3d> ring, Vector3d planeNormal, Point3d query, Op key) =>
+    internal static Fin<int> PlanarWindingOf(Seq<Point3d> ring, Vector3d planeNormal, Point3d query) =>
         ring.Count < 3
-            ? Fin.Fail<int>(key.InvalidInput())
-            : key.AcceptValue(value: (int)Math.Round(
+            ? Fin.Fail<int>(new KernelFault.InvalidInput())
+            : Acceptance.Value(value: (int)Math.Round(
                 ring.Map((v, i) => (V0: v - query, V1: ring[(i + 1) % ring.Count] - query))
                     .Fold(0.0, (sum, pair) => sum + Vector3d.VectorAngle(v1: pair.V0, v2: pair.V1, vNormal: planeNormal)) / (2.0 * Math.PI),
                 MidpointRounding.ToEven));
@@ -384,9 +383,9 @@ public sealed partial class CloudHullRejection {
     public static readonly CloudHullRejection MixedDimension = new(key: (int)ConvexHullCreationResultOutcome.NonUniformDimension);
     public static readonly CloudHullRejection Degenerate = new(key: (int)ConvexHullCreationResultOutcome.DegenerateData);
     public static readonly CloudHullRejection Unknown = new(key: (int)ConvexHullCreationResultOutcome.UnknownError);
-    internal static Fin<Option<CloudHullRejection>> Of(ConvexHullCreationResultOutcome outcome, Op key) =>
+    internal static Fin<Option<CloudHullRejection>> Of(ConvexHullCreationResultOutcome outcome) =>
         outcome is ConvexHullCreationResultOutcome.Success ? Fin.Succ(Option<CloudHullRejection>.None)
-        : key.Row<int, CloudHullRejection>((int)outcome).Map(Some).MapFail(_ => key.InvalidResult());
+        : FactoryBridge.Row<int, CloudHullRejection>((int)outcome).Map(Some).MapFail(_ => new KernelFault.InvalidResult());
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -394,18 +393,18 @@ public sealed partial class CloudHullRejection {
 public readonly record struct CloudHullPolicy(
     PositiveMagnitude Tolerance, VectorAngle AngleTolerance,
     Option<PositiveMagnitude> Alpha, Option<PositiveMagnitude> Lambda) {
-    internal static Fin<CloudHullPolicy> AdmitOrDefault(Option<CloudHullPolicy> policy, Context context, Op key) {
+    internal static Fin<CloudHullPolicy> AdmitOrDefault(Option<CloudHullPolicy> policy, Context context) {
         (double tolerance, double angle, Option<PositiveMagnitude> alpha, Option<PositiveMagnitude> lambda) = policy.Match(
             Some: static candidate => (candidate.Tolerance.Value, candidate.AngleTolerance.Value, candidate.Alpha, candidate.Lambda),
             None: () => (context.For(lane: ToleranceLane.Deviation).Value, context.Angle.Value, Option<PositiveMagnitude>.None, Option<PositiveMagnitude>.None));
-        return from admittedTolerance in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               from admittedAngle in key.AcceptValidated<VectorAngle>(candidate: angle)
-               from admittedAlpha in AdmitMagnitude(value: alpha, key: key)
-               from admittedLambda in AdmitMagnitude(value: lambda, key: key)
+        return from admittedTolerance in FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance)
+               from admittedAngle in FactoryBridge.Accept<VectorAngle>(candidate: angle)
+               from admittedAlpha in AdmitMagnitude(value: alpha)
+               from admittedLambda in AdmitMagnitude(value: lambda)
                select new CloudHullPolicy(Tolerance: admittedTolerance, AngleTolerance: admittedAngle, Alpha: admittedAlpha, Lambda: admittedLambda);
     }
-    private static Fin<Option<PositiveMagnitude>> AdmitMagnitude(Option<PositiveMagnitude> value, Op key) =>
-        value.TraverseM(magnitude => key.AcceptValidated<PositiveMagnitude>(candidate: magnitude.Value)).As();
+    private static Fin<Option<PositiveMagnitude>> AdmitMagnitude(Option<PositiveMagnitude> value) =>
+        value.TraverseM(magnitude => FactoryBridge.Accept<PositiveMagnitude>(candidate: magnitude.Value)).As();
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -448,17 +447,17 @@ public readonly record struct CloudHullResult(
         Rejection.IsSome || OutputVertexCount >= 3,
         Mesh.IsSome || Solid.IsSome || Rejection.IsSome);
 
-    internal Fin<TOut> Project<TOut>(Context context, Op key) {
+    internal Fin<TOut> Project<TOut>(Context context) {
         CloudHullResult self = this;
-        return ResultProjection.Rows<CloudHullResult, TOut>(self: self, key: key,
-            ProjectionRow.Of<CloudSolid>(() => self.Solid.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(CloudSolid)))),
+        return ResultProjection.Rows<CloudHullResult, TOut>(self: self,
+            ProjectionRow.Of<CloudSolid>(() => self.Solid.ToFin(new KernelFault.Unsupported(InputType: typeof(CloudHullResult), OutputType: typeof(CloudSolid)))),
             ProjectionRow.Of<Seq<CloudFacet>>(() => self.Solid.Map(static solid => solid.Facets)
-                .ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(Seq<CloudFacet>)))),
-            ProjectionRow.Of<Mesh>(() => self.Mesh.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(Mesh)))
-                .Bind(mesh => key.AcceptValue(value: mesh))),
-            ProjectionRow.Of<VectorCloud>(() => self.Mesh.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(VectorCloud)))
+                .ToFin(new KernelFault.Unsupported(InputType: typeof(CloudHullResult), OutputType: typeof(Seq<CloudFacet>)))),
+            ProjectionRow.Of<Mesh>(() => self.Mesh.ToFin(new KernelFault.Unsupported(InputType: typeof(CloudHullResult), OutputType: typeof(Mesh)))
+                .Bind(mesh => Acceptance.Value(value: mesh))),
+            ProjectionRow.Of<VectorCloud>(() => self.Mesh.ToFin(new KernelFault.Unsupported(InputType: typeof(CloudHullResult), OutputType: typeof(VectorCloud)))
                 .Bind(mesh => VectorCloud.Cluster(
-                    points: toSeq(mesh.Vertices.AsIterable().Select(static v => (Point3d)v)), context: context, key: key))));
+                    points: toSeq(mesh.Vertices.AsIterable().Select(static v => (Point3d)v)), context: context))));
     }
 }
 
@@ -476,13 +475,13 @@ internal sealed class CloudVertex : IVertex, IVertex2D {
 
 internal static partial class CloudKernel {
     internal static Fin<CloudHullResult> ComputeHullDetailed(
-        VectorCloud.ClusterCase cluster, CloudHullKind kind, CloudHullPolicy policy, Op key);
+        VectorCloud.ClusterCase cluster, CloudHullKind kind, CloudHullPolicy policy);
 
-    internal static Fin<Option<CloudSolid>> SolidOf(Point3d[] points, double tolerance, Op key) {
+    internal static Fin<Option<CloudSolid>> SolidOf(Point3d[] points, double tolerance) {
         ConvexHullCreationResult<CloudVertex, CloudFace> hull = ConvexHull.Create<CloudVertex>(
             data: [.. points.Select(static (p, i) => new CloudVertex(index: i, x: p.X, y: p.Y, z: p.Z))],
             tolerance: tolerance);
-        return CloudHullRejection.Of(outcome: hull.Outcome, key: key).Bind(rejection => {
+        return CloudHullRejection.Of(outcome: hull.Outcome).Bind(rejection => {
             if (rejection.IsSome) return Fin.Succ(Option<CloudSolid>.None);
             Point3d anchor = points.Aggregate(Point3d.Origin, static (sum, p) => sum + p) / points.Length;
             Seq<CloudFace> faces = toSeq(hull.Result.Faces);
@@ -502,10 +501,10 @@ internal static partial class CloudKernel {
                         Vertices: new Arr<int>([.. face.Vertices.Select(static corner => corner.Index)]),
                         Adjacency: new Arr<int>([.. slots]),
                         Normal: new Vector3d(x: face.Normal[0], y: face.Normal[1], z: face.Normal[2]))))
-                .ToFin(key.InvalidResult())
+                .ToFin(new KernelFault.InvalidResult())
                 .Bind(facets => new CloudSolid(Volume: volume, Centroid: anchor + (moment / volume), Facets: facets) switch {
                     CloudSolid solid when solid.IsValid => Fin.Succ(Some(solid)),
-                    _ => Fin.Fail<Option<CloudSolid>>(key.InvalidResult()),
+                    _ => Fin.Fail<Option<CloudSolid>>(new KernelFault.InvalidResult()),
                 });
         });
     }
@@ -585,32 +584,31 @@ public readonly record struct CloudVoronoiResult(
         Skeleton.ForAll(edge => edge.Tail < Vertices.Count && edge.Head < Vertices.Count),
         ValidityClaim.Evidence(Some(Census)));
 
-    internal Fin<TOut> Project<TOut>(Context context, Op key) {
+    internal Fin<TOut> Project<TOut>(Context context) {
         CloudVoronoiResult self = this;
-        return ResultProjection.Rows<CloudVoronoiResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<CloudVoronoiResult, TOut>(self: self,
             ProjectionRow.Of<CloudVoronoiCensus>(() => Fin.Succ(self.Census)),
             ProjectionRow.Of<Seq<CloudVoronoiCell>>(() => Fin.Succ(self.Cells)),
             ProjectionRow.Of<Seq<Line>>(() => Fin.Succ(toSeq(self.Skeleton.AsIterable()
                 .Select(edge => new Line(from: self.Vertices[edge.Tail], to: self.Vertices[edge.Head]))))),
             ProjectionRow.Of<VectorCloud>(() => VectorCloud.Cluster(
-                points: toSeq(self.Vertices.AsIterable()), context: context, key: key)));
+                points: toSeq(self.Vertices.AsIterable()), context: context)));
     }
 
     public static Fin<CloudVoronoiResult> Of(
-        VectorCloud source, Option<PositiveMagnitude> tolerance = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from cloud in Admit.NotNull(value: source, key: op)
+        VectorCloud source, Option<PositiveMagnitude> tolerance = default) {
+        return from cloud in Admit.NotNull(value: source)
                from cluster in cloud is VectorCloud.ClusterCase active
                    ? Fin.Succ(active)
-                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(inputType: cloud.GetType(), outputType: typeof(CloudVoronoiResult)))
+                   : Fin.Fail<VectorCloud.ClusterCase>(new KernelFault.Unsupported(InputType: cloud.GetType(), OutputType: typeof(CloudVoronoiResult)))
                from distance in tolerance.Match(
                    Some: static supplied => Fin.Succ(supplied),
-                   None: () => op.AcceptValidated<PositiveMagnitude>(candidate: cluster.Tolerance.For(lane: ToleranceLane.Deviation).Value))
-               from _ in guard(cluster.Vertices.Count >= 4, op.InvalidInput()).ToFin()
+                   None: () => FactoryBridge.Accept<PositiveMagnitude>(candidate: cluster.Tolerance.For(lane: ToleranceLane.Deviation).Value))
+               from _ in guard(cluster.Vertices.Count >= 4, new KernelFault.InvalidInput()).ToFin()
                let sites = cluster.Vertices.Map(static (point, index) => new CloudVertex(index: index, x: point.X, y: point.Y, z: point.Z)).ToArray()
-               from result in op.Catch(() => CloudKernel.CensusOf(
-                   sites: sites, tolerance: distance, key: op,
-                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: sites, PlaneDistanceTolerance: distance.Value)))
+               from result in Try.lift(() => CloudKernel.CensusOf(
+                   sites: sites, tolerance: distance,
+                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: sites, PlaneDistanceTolerance: distance.Value))).Run().Bind(static inner => inner)
                select result;
     }
 }
@@ -618,7 +616,7 @@ public readonly record struct CloudVoronoiResult(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class CloudKernel {
     internal static Fin<CloudVoronoiResult> CensusOf(
-        CloudVertex[] sites, VoronoiMesh<CloudVertex, CloudCell, CloudEdge> complex, PositiveMagnitude tolerance, Op key) {
+        CloudVertex[] sites, VoronoiMesh<CloudVertex, CloudCell, CloudEdge> complex, PositiveMagnitude tolerance) {
         double epsilon = tolerance.Value;
         CloudCell[] cells = [.. complex.Vertices];
         FrozenDictionary<CloudCell, (Point3d Center, double Radius)> spheres = cells
@@ -626,10 +624,10 @@ internal static partial class CloudKernel {
             .Where(static row => row.Sphere.IsSome)
             .ToFrozenDictionary(static row => row.Cell,
                 static row => row.Sphere.IfNone(default((Point3d Center, double Radius))));
-        return from hull in SolidOf(points: [.. sites.Select(PointOf)], tolerance: epsilon, key: key)
+        return from hull in SolidOf(points: [.. sites.Select(PointOf)], tolerance: epsilon)
                let open = hull.Map(static solid => solid.Facets.Fold(Set<int>(),
                    static (acc, facet) => facet.Vertices.Fold(acc, static (set, corner) => set.Add(corner)))).IfNone(Set<int>())
-               from rows in CellRows(cells: cells, complex: complex, spheres: spheres, open: open, sites: sites, tolerance: epsilon, key: key)
+               from rows in CellRows(cells: cells, complex: complex, spheres: spheres, open: open, sites: sites, tolerance: epsilon)
                let tally = rows.Cells.Fold((Bounded: 0, Unbounded: 0, Degenerate: 0, Volume: 0.0), static (acc, cell) => cell.Measure.Switch(
                    state: acc,
                    bounded: static (t, measured) => (t.Bounded + 1, t.Unbounded, t.Degenerate, t.Volume + measured.Volume),
@@ -641,11 +639,11 @@ internal static partial class CloudKernel {
                    BoundedCellCount: tally.Bounded, UnboundedCellCount: tally.Unbounded, DegenerateCellCount: tally.Degenerate,
                    BoundedVolumeTotal: tally.Bounded > 0 ? Some(tally.Volume) : Option<double>.None,
                    HullVolume: hull.Map(static solid => solid.Volume))
-               from verified in census.IsValid ? Fin.Succ(census) : Fin.Fail<CloudVoronoiCensus>(key.InvalidResult())
+               from verified in census.IsValid ? Fin.Succ(census) : Fin.Fail<CloudVoronoiCensus>(new KernelFault.InvalidResult())
                from verifiedResult in new CloudVoronoiResult(Cells: rows.Cells, Vertices: rows.Vertices, Skeleton: rows.Skeleton,
                        Census: verified) switch {
                    CloudVoronoiResult whole when whole.IsValid => Fin.Succ(whole),
-                   _ => Fin.Fail<CloudVoronoiResult>(key.InvalidResult()),
+                   _ => Fin.Fail<CloudVoronoiResult>(new KernelFault.InvalidResult()),
                }
                select verifiedResult;
     }
@@ -653,7 +651,7 @@ internal static partial class CloudKernel {
     private static Fin<(Seq<CloudVoronoiCell> Cells, Arr<Point3d> Vertices, Arr<(int Tail, int Head)> Skeleton)> CellRows(
         CloudCell[] cells, VoronoiMesh<CloudVertex, CloudCell, CloudEdge> complex,
         FrozenDictionary<CloudCell, (Point3d Center, double Radius)> spheres, Set<int> open,
-        CloudVertex[] sites, double tolerance, Op key);
+        CloudVertex[] sites, double tolerance);
 
     private static Option<(Point3d Center, double Radius)> Circumsphere(CloudCell cell, double tolerance) {
         if (cell.Vertices is not [CloudVertex c0, CloudVertex c1, CloudVertex c2, CloudVertex c3]) {
@@ -681,11 +679,11 @@ public sealed class NaturalNeighborField {
         this.volumes = volumes; this.sites = sites; this.tolerance = tolerance;
     }
 
-    internal static Fin<NaturalNeighborField> Of(Seq<Point3d> sites, PositiveMagnitude tolerance, Op key) {
+    internal static Fin<NaturalNeighborField> Of(Seq<Point3d> sites, PositiveMagnitude tolerance) {
         CloudVertex[] seeds = sites.Map(static (p, i) => new CloudVertex(index: i, x: p.X, y: p.Y, z: p.Z)).ToArray();
-        return from _ in guard(sites.Count >= 4, key.InvalidInput()).ToFin()
-               from dual in key.Catch(() => CloudKernel.CensusOf(sites: seeds, tolerance: tolerance, key: key,
-                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: seeds, PlaneDistanceTolerance: tolerance.Value)))
+        return from _ in guard(sites.Count >= 4, new KernelFault.InvalidInput()).ToFin()
+               from dual in Try.lift(() => CloudKernel.CensusOf(sites: seeds, tolerance: tolerance,
+                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: seeds, PlaneDistanceTolerance: tolerance.Value))).Run().Bind(static inner => inner)
                let volumes = dual.Cells.Bind(cell => cell.Measure.Switch(
                    bounded: measured => Seq((Site: cell.Site, Volume: measured.Volume)),
                    unbounded: static _ => Seq<(int Site, double Volume)>(),
@@ -694,17 +692,17 @@ public sealed class NaturalNeighborField {
                select new NaturalNeighborField(volumes: volumes, sites: seeds, tolerance: tolerance);
     }
 
-    internal Fin<Seq<(int Site, double Weight)>> Weights(Point3d query, Op key) {
+    internal Fin<Seq<(int Site, double Weight)>> Weights(Point3d query) {
         CloudVertex[] after = [
             .. sites,
             new CloudVertex(index: sites.Length, x: query.X, y: query.Y, z: query.Z)];
-        return from inserted in key.Catch(() => CloudKernel.CensusOf(sites: after, tolerance: tolerance, key: key,
-                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: after, PlaneDistanceTolerance: tolerance.Value)))
-               from cell in inserted.Cells.Find(row => row.Site == sites.Length).ToFin(key.InvalidInput())
+        return from inserted in Try.lift(() => CloudKernel.CensusOf(sites: after, tolerance: tolerance,
+                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: after, PlaneDistanceTolerance: tolerance.Value))).Run().Bind(static inner => inner)
+               from cell in inserted.Cells.Find(row => row.Site == sites.Length).ToFin(new KernelFault.InvalidInput())
                from _support in cell.Measure.Switch(
                    bounded: static _ => Fin.Succ(unit),
-                   unbounded: _ => Fin.Fail<Unit>(key.InvalidInput()),
-                   degenerate: _ => Fin.Fail<Unit>(key.InvalidInput()))
+                   unbounded: _ => Fin.Fail<Unit>(new KernelFault.InvalidInput()),
+                   degenerate: _ => Fin.Fail<Unit>(new KernelFault.InvalidInput()))
                from losses in toSeq(cell.Neighbors.AsIterable().Filter(site => site != sites.Length))
                    .TraverseM(site =>
                        (from was in volumes.TryGetValue(site, out double volume) ? Some(volume) : Option<double>.None
@@ -712,10 +710,10 @@ public sealed class NaturalNeighborField {
                             bounded: static measured => Some(measured.Volume),
                             unbounded: static _ => Option<double>.None,
                             degenerate: static _ => Option<double>.None))
-                        select (Site: site, Loss: was - now)).ToFin(key.InvalidInput())).As()
+                        select (Site: site, Loss: was - now)).ToFin(new KernelFault.InvalidInput())).As()
                let positive = losses.Filter(static row => row.Loss > 0.0)
                let total = positive.Sum(static row => row.Loss)
-               from _unity in guard(positive.Count >= 1 && double.IsFinite(total) && total > 0.0, key.InvalidResult())
+               from _unity in guard(positive.Count >= 1 && double.IsFinite(total) && total > 0.0, new KernelFault.InvalidResult())
                select positive.Map(row => (row.Site, Weight: row.Loss / total));
     }
 }

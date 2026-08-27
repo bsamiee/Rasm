@@ -90,9 +90,9 @@ public sealed class MeshDraft : IDisposable {
     public Seq<MeshBlockRange> Blocks { get; }
     public Seq<(int Block, Transform Placement)> Instances { get; }
     public Fin<int> Append(long count, Seq<(EncodingChannel Channel, float[] Values)> lanes,
-        ReadOnlySpan<long> corners, Op key, Option<string> material = default);
+        ReadOnlySpan<long> corners, Option<string> material = default);
     public Fin<Unit> Place(int block, Transform placement);
-    public Fin<(EncodedGeometry Lanes, ImmutableArray<long> Corners, Seq<MeshBlockRange> Blocks)> Close(Op key);
+    public Fin<(EncodedGeometry Lanes, ImmutableArray<long> Corners, Seq<MeshBlockRange> Blocks)> Close();
     public void Dispose();
 }
 
@@ -101,7 +101,7 @@ public sealed record SceneWalk<TNode>(
     Func<TNode, bool> Excluded,
     Func<TNode, Transform, Seq<Transform>> Placements,
     Func<TNode, MeshDraft, Fin<Seq<int>>> Blocks) where TNode : notnull {
-    public Fin<MeshDraft> Accrue(TNode root, MeshDraft draft, Op key) {
+    public Fin<MeshDraft> Accrue(TNode root, MeshDraft draft) {
         DelegateIncidenceGraph<TNode, SEquatableEdge<TNode>> scene = new(
             (TNode node, out IEnumerable<SEquatableEdge<TNode>> children) => {
                 children = Excluded(node) ? [] : Flatten(node).Map(child => new SEquatableEdge<TNode>(node, child));
@@ -111,7 +111,7 @@ public sealed record SceneWalk<TNode>(
         Fin<Set<int>> referenced = Fin.Succ(Set<int>());
         ImplicitDepthFirstSearchAlgorithm<TNode, SEquatableEdge<TNode>> walk = new(visitedGraph: scene);
         walk.TreeEdge += edge => referenced = referenced.Bind(seen => {
-            if (frames.Find(key: edge.Source).Case is not Transform parent) { return Fin.Fail<Set<int>>(key.InvalidResult(detail: "scene-frame")); }
+            if (frames.Find(key: edge.Source).Case is not Transform parent) { return Fin.Fail<Set<int>>(new KernelFault.InvalidResult(Detail: Some("scene-frame"))); }
             frames = frames.AddOrUpdate(key: edge.Target, value: parent);
             return Fin.Succ(seen);
         });
@@ -119,7 +119,7 @@ public sealed record SceneWalk<TNode>(
             if (referenced.IsFail) { walk.Abort(); return; }
             if (Excluded(node)) { return; }
             referenced = referenced.Bind(seen => {
-                if (frames.Find(key: node).Case is not Transform parent) { return Fin.Fail<Set<int>>(key.InvalidResult(detail: "scene-frame")); }
+                if (frames.Find(key: node).Case is not Transform parent) { return Fin.Fail<Set<int>>(new KernelFault.InvalidResult(Detail: Some("scene-frame"))); }
                 Seq<Transform> places = Placements(node, parent);
                 frames = frames.AddOrUpdate(key: node, value: places.Head.IfNone(noneValue: parent));
                 return Blocks(node, draft).Bind(ordinals =>
@@ -142,30 +142,29 @@ public readonly record struct MeshSpace {
     private MeshSpace(Mesh snapshot, MeshSource source, Context tolerance, MeshAssemblyPolicy assembly) {
         (Native, Source, Tolerance, Assembly) = (snapshot, source, tolerance, assembly);
     }
-    public static Fin<MeshSpace> Of(Mesh native, Context context, Option<MeshAssemblyPolicy> assembly = default, Op? key = null) =>
-        Of(source: new MeshSource.Native(Value: native), context: context, assembly: assembly, key: key);
-    public static Fin<MeshSpace> Of(MeshSource source, Context context, Option<MeshAssemblyPolicy> assembly = default, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<MeshSpace> Of(Mesh native, Context context, Option<MeshAssemblyPolicy> assembly = default) =>
+        Of(source: new MeshSource.Native(Value: native), context: context, assembly: assembly);
+    public static Fin<MeshSpace> Of(MeshSource source, Context context, Option<MeshAssemblyPolicy> assembly = default) {
         return source.Switch(
-            state: (Context: context, Assembly: assembly, Key: op),
+            state: (Context: context, Assembly: assembly),
             native: static (s, arm) => Admit(arm.Value, static snapshot => new MeshSource.Native(snapshot), s.Context, s.Assembly, s.Key),
             arena: static (s, arm) => LiftArena(arm.Lanes, arm.Corners, s.Key)
                 .Bind(mesh => Admit(mesh, _ => arm, s.Context, s.Assembly, s.Key)),
-            volume: static (s, arm) => LiftVolume(arm.Lanes, arm.Cells, arm.Topology, s.Key)
+            volume: static (s, arm) => LiftVolume(arm.Lanes, arm.Cells, arm.Topology)
                 .Bind(mesh => Admit(mesh, _ => arm, s.Context, s.Assembly, s.Key)));
     }
-    public static Fin<MeshSpace> Accrue(MeshDraft draft, Context context, Option<MeshAssemblyPolicy> assembly = default, Op? key = null) =>
-        draft.Close(key.OrDefault()) >> (closed =>
-            Of(new MeshSource.Arena(closed.Lanes, closed.Corners), context, assembly, key.OrDefault()));
-    private static Fin<MeshSpace> Admit(Mesh native, Func<Mesh, MeshSource> provenance, Context context, Option<MeshAssemblyPolicy> assembly, Op key) =>
-        from active in Optional(native).ToFin(key.InvalidInput())
-        from ctx in Optional(context).ToFin(key.MissingContext())
-        from _ in guard(active.IsValid, key.InvalidInput())
+    public static Fin<MeshSpace> Accrue(MeshDraft draft, Context context, Option<MeshAssemblyPolicy> assembly = default) =>
+        draft.Close() >> (closed =>
+            Of(new MeshSource.Arena(closed.Lanes, closed.Corners), context, assembly));
+    private static Fin<MeshSpace> Admit(Mesh native, Func<Mesh, MeshSource> provenance, Context context, Option<MeshAssemblyPolicy> assembly) =>
+        from active in Optional(native).ToFin(new KernelFault.InvalidInput())
+        from ctx in Optional(context).ToFin(new KernelFault.MissingContext())
+        from _ in guard(active.IsValid, new KernelFault.InvalidInput())
         let snapshot = active.DuplicateMesh()
         select new MeshSpace(snapshot: snapshot, source: provenance(snapshot), tolerance: ctx,
             assembly: assembly.IfNone(noneValue: MeshAssemblyPolicy.Default));
-    private static Fin<Mesh> LiftArena(EncodedGeometry lanes, ImmutableArray<long> corners, Op key);
-    private static Fin<Mesh> LiftVolume(EncodedGeometry lanes, ImmutableArray<long> cells, CellTopology topology, Op key);
+    private static Fin<Mesh> LiftArena(EncodedGeometry lanes, ImmutableArray<long> corners);
+    private static Fin<Mesh> LiftVolume(EncodedGeometry lanes, ImmutableArray<long> cells, CellTopology topology);
     public MeshSource Source { get; }
     public Context Tolerance { get; }
     public MeshAssemblyPolicy Assembly { get; }
@@ -173,17 +172,17 @@ public readonly record struct MeshSpace {
     internal LaplacianCache Cache => LaplacianCache.For(space: this);
     public Mesh DuplicateNative() => Native.DuplicateMesh();
     public BoundingBox Bounds => Cache.Bounds;
-    public Fin<SpatialIndex> Index(Op? key = null) => Cache.Index(key: key.OrDefault());
-    public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) {
-        (MeshSpace self, Op op) = (this, key.OrDefault());
-        return from active in Optional(kind).ToFin(op.InvalidInput())
+    public Fin<SpatialIndex> Index() => Cache.Index();
+    public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind) {
+        (MeshSpace self) = ();
+        return from active in Optional(kind).ToFin(new KernelFault.InvalidInput())
                from _ in active.RequiresQualityGate
-                   ? MeshKernel.AspectRatioGuard(self.Native, self.Assembly.AspectRatioCeiling, op)
+                   ? MeshKernel.AspectRatioGuard(self.Native, self.Assembly.AspectRatioCeiling)
                    : Fin.Succ(unit)
-               from result in active.Select(self.Cache, op)
+               from result in active.Select(self.Cache)
                select result;
     }
-    public Fin<Arr<Vector3d>> FaceNormals(Op? key = null) => Cache.FaceNormals(key: key.OrDefault());
+    public Fin<Arr<Vector3d>> FaceNormals() => Cache.FaceNormals();
 }
 
 ```
@@ -226,17 +225,17 @@ namespace Rasm.Meshing;
 [SmartEnum<int>]
 public sealed partial class MeshLaplacian {
     public static readonly MeshLaplacian Cotangent = new(key: 0, requiresQualityGate: true,
-        select: static (cache, key) => cache.Cotangent(key),
-        snapshot: static (cache, key) => cache.InputIntrinsicSnapshot(key));
+        select: static (cache, key) => cache.Cotangent(),
+        snapshot: static (cache, key) => cache.InputIntrinsicSnapshot());
     public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, requiresQualityGate: false,
-        select: static (cache, key) => cache.IntrinsicDelaunay(key),
-        snapshot: static (cache, key) => cache.IntrinsicMeshSnapshot(key));
+        select: static (cache, key) => cache.IntrinsicDelaunay(),
+        snapshot: static (cache, key) => cache.IntrinsicMeshSnapshot());
     public static readonly MeshLaplacian TuftedIntrinsic = new(key: 2, requiresQualityGate: false,
         select: static (cache, key) => cache.TuftedIntrinsic(policy: TuftedCoverPolicy.Default, key: key),
-        snapshot: static (cache, key) => cache.TuftedIntrinsicMeshSnapshot(key));
+        snapshot: static (cache, key) => cache.TuftedIntrinsicMeshSnapshot());
     internal bool RequiresQualityGate { get; }
-    [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key);
-    [UseDelegateFromConstructor] internal partial Fin<MeshKernel.IntrinsicMesh> Snapshot(LaplacianCache cache, Op key);
+    [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache);
+    [UseDelegateFromConstructor] internal partial Fin<MeshKernel.IntrinsicMesh> Snapshot(LaplacianCache cache);
 }
 
 [SmartEnum<string>]
@@ -296,7 +295,7 @@ public readonly record struct TuftedCoverPolicy(
         MaxFlipsPerEdge: Dimension.Create(value: 16), EnergyScaleFactor: UnitInterval.Create(value: 0.5),
         Substitute: CapabilitySet<CoverSubstitution>.All);
     public static Fin<TuftedCoverPolicy> Of(Option<ToleranceLane> mollify, ToleranceLane delaunayBand, int maxFlipsPerEdge,
-        double energyScaleFactor, CapabilitySet<CoverSubstitution> substitute, Op? key = null);
+        double energyScaleFactor, CapabilitySet<CoverSubstitution> substitute);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -309,14 +308,14 @@ public readonly record struct SignpostPolicy(
         RescaleFloor: ToleranceLane.Collinear, ReferenceDirectionGauge: SignpostGauge.LowestVertexNeighbor,
         TriangulateOverlay: true);
     public static Fin<SignpostPolicy> Of(CapabilitySet<TransportHalf> halves, int traceMaxIters, int traceCapPerEdge,
-        ToleranceLane rescaleFloor, SignpostGauge referenceDirectionGauge, bool triangulateOverlay, Op? key = null);
+        ToleranceLane rescaleFloor, SignpostGauge referenceDirectionGauge, bool triangulateOverlay);
 }
 
 internal readonly record struct PowerClipPolicy(
     double ClipBand, double DenomFloor, double AreaFloor, double EdgeBand,
     int KNearest, int MinPolygonVertices, Option<Dimension> DensityQuadrature) {
     internal static Fin<PowerClipPolicy> Of(
-        double diagonal, double meanEdge, Option<Dimension> densityQuadrature, Op key);
+        double diagonal, double meanEdge, Option<Dimension> densityQuadrature);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -363,7 +362,7 @@ internal readonly record struct TuftedBaseFaces(Mesh Triangulated, int TriangleC
         Triangulated is { IsValid: true },
         ValidityClaim.CountAtLeast(count: TriangleCount, floor: 1),
         ValidityClaim.CountAtLeast(count: DroppedNonTriangleFaces, floor: 0));
-    internal static Fin<TuftedBaseFaces> Of(Mesh source, Op key);
+    internal static Fin<TuftedBaseFaces> Of(Mesh source);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -373,11 +372,11 @@ public readonly record struct Topology(
     int EulerCharacteristic, Option<int> Genus) {
     public bool Watertight =>
         Traits.AdmitsAll(CapabilitySet<MeshTrait>.Of(MeshTrait.Closed, MeshTrait.Solid, MeshTrait.Manifold)) && NonManifoldEdges == 0;
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         Topology self = this;
-        return ResultProjection.Rows<Topology, TOut>(self: self, key: key,
+        return ResultProjection.Rows<Topology, TOut>(self: self,
             ProjectionRow.Of<(int Euler, int Genus, int BoundaryComponents)>(() => self.Genus
-                .ToFin(key.InvalidResult())
+                .ToFin(new KernelFault.InvalidResult())
                 .Map(genus => (self.EulerCharacteristic, genus, self.BoundaryComponents))),
             ProjectionRow.Of<(int Euler, int BoundaryComponents, CapabilitySet<MeshTrait> Traits, int NonManifoldEdges, Option<int> Genus)>(() =>
                 Fin.Succ((self.EulerCharacteristic, self.BoundaryComponents, self.Traits, self.NonManifoldEdges, self.Genus))));
@@ -385,8 +384,8 @@ public readonly record struct Topology(
 }
 
 public sealed record MeshAdjointSnapshot(DiscreteCalculus Calculus, int VertexCount, int EdgeCount, int FaceCount) {
-    public static Fin<MeshAdjointSnapshot> Of(MeshSpace space, Op key) =>
-        space.Cache.Calculus(key: key)
+    public static Fin<MeshAdjointSnapshot> Of(MeshSpace space) =>
+        space.Cache.Calculus()
             .Map(dec => new MeshAdjointSnapshot(Calculus: dec,
                 VertexCount: dec.D0.Cols.Value, EdgeCount: dec.D0.Rows.Value, FaceCount: dec.D1.Rows.Value));
 }
@@ -482,9 +481,9 @@ public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<P
         ValidityClaim.CountExactly(count: Cells.Filter(static cell => cell.Empty).Count, expected: Census.EmptyCellCount),
         ValidityClaim.CountExactly(count: Facets.Count, expected: Census.NeighborFacetCount),
         ValidityClaim.Evidence(Census));
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         RestrictedPowerDiagram self = this;
-        return ResultProjection.Rows<RestrictedPowerDiagram, TOut>(self: self, key: key,
+        return ResultProjection.Rows<RestrictedPowerDiagram, TOut>(self: self,
             ProjectionRow.Of<Arr<PowerCell>>(() => Fin.Succ(self.Cells)),
             ProjectionRow.Of<Arr<PowerFacet>>(() => Fin.Succ(self.Facets)),
             ProjectionRow.Of<PowerCensus>(() => Fin.Succ(self.Census)),
@@ -528,45 +527,45 @@ internal sealed class LaplacianCache {
     internal BoundingBox Bounds => bounds.Value;
     internal double SpdMassShift =>
         Math.Max(MeanEdgeLength, EpsilonPolicy.ZeroTolerance) * Math.Max(MeanEdgeLength, EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
-    internal Fin<Arr<Vector3d>> FaceNormals(Op key) =>
-        faceNormals.Of(probe: unit, compute: () => MeshKernel.FaceNormalsOf(mesh: space.Native, key: key));
-    internal Fin<SpatialIndex> Index(Op key) =>
-        index.Of(probe: unit, compute: () => MeshKernel.FaceIndexOf(mesh: space.Native, key: key));
-    internal Fin<SparseLaplacian> Cotangent(Op key) =>
-        cotangent.Of(probe: unit, compute: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: key));
-    internal Fin<SparseLaplacian> IntrinsicDelaunay(Op key) =>
+    internal Fin<Arr<Vector3d>> FaceNormals() =>
+        faceNormals.Of(probe: unit, compute: () => MeshKernel.FaceNormalsOf(mesh: space.Native));
+    internal Fin<SpatialIndex> Index() =>
+        index.Of(probe: unit, compute: () => MeshKernel.FaceIndexOf(mesh: space.Native));
+    internal Fin<SparseLaplacian> Cotangent() =>
+        cotangent.Of(probe: unit, compute: () => MeshKernel.AssembleCotangent(mesh: space.Native));
+    internal Fin<SparseLaplacian> IntrinsicDelaunay() =>
         intrinsicDelaunay.Of(probe: unit, compute: () =>
-            from imesh in IntrinsicMeshSnapshot(key: key)
-            from laplacian in MeshKernel.AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
+            from imesh in IntrinsicMeshSnapshot()
+            from laplacian in MeshKernel.AssembleCotangentFromIntrinsic(imesh: imesh)
             select laplacian);
-    internal Fin<SparseLaplacian> TuftedIntrinsic(TuftedCoverPolicy policy, Op key) =>
+    internal Fin<SparseLaplacian> TuftedIntrinsic(TuftedCoverPolicy policy) =>
         tuftedIntrinsic.Of(probe: policy, compute: () =>
-            from imesh in TuftedIntrinsicMeshSnapshot(key: key)
-            from cover in MeshKernel.TuftedCoverMesh.Construct(imesh, space, policy, key)
-            from laplacian in cover.Assemble(space, policy, key)
+            from imesh in TuftedIntrinsicMeshSnapshot()
+            from cover in MeshKernel.TuftedCoverMesh.Construct(imesh, space, policy)
+            from laplacian in cover.Assemble(space, policy)
             select laplacian);
-    internal Fin<CholeskySparse> Cholesky(Op key) =>
+    internal Fin<CholeskySparse> Cholesky() =>
         cholesky.Of(probe: unit, compute: () =>
-            from laplacian in IntrinsicDelaunay(key: key)
-            from spd in MeshKernel.AssembleMassStiffnessSystem(laplacian: laplacian, massScale: SpdMassShift, stiffnessScale: 1.0, key: key)
-            from factor in CholeskySparse.Of(symmetric: spd, key: key)
+            from laplacian in IntrinsicDelaunay()
+            from spd in MeshKernel.AssembleMassStiffnessSystem(laplacian: laplacian, massScale: SpdMassShift, stiffnessScale: 1.0)
+            from factor in CholeskySparse.Of(symmetric: spd)
             select factor);
-    internal Fin<DiscreteCalculus> Calculus(Op key) =>
-        calculus.Of(probe: unit, compute: () => DecAssembly.Build(space: space, key: key));
-    internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot(Op key) =>
-        intrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, assembly: space.Assembly, key: key));
-    internal Fin<MeshKernel.IntrinsicMesh> TuftedIntrinsicMeshSnapshot(Op key) =>
+    internal Fin<DiscreteCalculus> Calculus() =>
+        calculus.Of(probe: unit, compute: () => DecAssembly.Build(space: space));
+    internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot() =>
+        intrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, assembly: space.Assembly));
+    internal Fin<MeshKernel.IntrinsicMesh> TuftedIntrinsicMeshSnapshot() =>
         tuftedIntrinsicMesh.Of(probe: unit, compute: () =>
-            from baseFaces in TuftedBaseFaces.Of(source: space.Native, key: key)
-            from imesh in MeshKernel.BuildIntrinsicMesh(mesh: baseFaces.Triangulated, assembly: space.Assembly, key: key)
+            from baseFaces in TuftedBaseFaces.Of(source: space.Native)
+            from imesh in MeshKernel.BuildIntrinsicMesh(mesh: baseFaces.Triangulated, assembly: space.Assembly)
             select imesh);
-    internal Fin<MeshKernel.IntrinsicMesh> InputIntrinsicSnapshot(Op key) =>
+    internal Fin<MeshKernel.IntrinsicMesh> InputIntrinsicSnapshot() =>
         inputIntrinsic.Of(probe: unit, compute: () =>
-            MeshKernel.IntrinsicMesh.FromMesh(mesh: space.Native, key: key).Map(static source => source.Freeze()));
-    internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(Dimension k, Op key);
-    internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment, Op key);
-    internal Fin<CholeskySparse> ScalarHeatCholesky(double time, Op key);
-    internal Fin<(CholeskySparse Factor, SpectralAssembly Assembly)> EdgeConnectionCholeskyDetailed(double time, Op key);
+            MeshKernel.IntrinsicMesh.FromMesh(mesh: space.Native).Map(static source => source.Freeze()));
+    internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(Dimension k);
+    internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment);
+    internal Fin<CholeskySparse> ScalarHeatCholesky(double time);
+    internal Fin<(CholeskySparse Factor, SpectralAssembly Assembly)> EdgeConnectionCholeskyDetailed(double time);
     internal Fin<T> Memoized<TKey, T>(TKey probe, Func<Fin<T>> compute) where TKey : notnull =>
         ((Memo<TKey, T>)solverSlots.GetOrAdd(key: (typeof(TKey), typeof(T)), valueFactory: static _ => new Memo<TKey, T>()))
             .Of(probe: probe, compute: compute);
@@ -621,7 +620,7 @@ internal static class MeshKernel {
         internal int SkippedDegenerateFaces;
         internal int NegativeCotangentCount;
         internal void AddTriangle(int va, int vb, int vc, double area, double cotA, double cotB, double cotC);
-        internal Fin<SparseLaplacian> Build(Op key);
+        internal Fin<SparseLaplacian> Build();
     }
 
     // --- [QUAD_DIAGONAL]
@@ -630,37 +629,37 @@ internal static class MeshKernel {
         && Predicate.Orient2D(a, c, b, axis).Times(Predicate.Orient2D(a, c, d, axis)) == Sign.Negative;
 
     // --- [SELECTION_SPD]
-    internal static Fin<SparseMatrix> AssembleMassStiffnessSystem(SparseLaplacian laplacian, double stiffnessScale, Op key, double massScale = 1.0) {
+    internal static Fin<SparseMatrix> AssembleMassStiffnessSystem(SparseLaplacian laplacian, double stiffnessScale, double massScale = 1.0) {
         int n = laplacian.Stiffness.Rows.Value;
-        if (n == 0) return Fin.Fail<SparseMatrix>(key.InvalidInput());
+        if (n == 0) return Fin.Fail<SparseMatrix>(new KernelFault.InvalidInput());
         List<(int Row, int Col, double Value)> triplets = MatrixKernel.SparseTripletsOf(matrix: laplacian.Stiffness, capacityBonus: n, scale: stiffnessScale);
         for (int i = 0; i < n; i++) triplets.Add(item: (i, i, massScale * laplacian.MassLumped[index: i]));
         Dimension dim = Dimension.Create(value: n);
-        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key);
+        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets);
     }
-    internal static Fin<Unit> AspectRatioGuard(Mesh mesh, PositiveMagnitude ceiling, Op key) =>
-        key.Catch(() => {
+    internal static Fin<Unit> AspectRatioGuard(Mesh mesh, PositiveMagnitude ceiling) =>
+        Try.lift(() => {
             for (int face = 0; face < mesh.Faces.Count; face++) {
                 double ratio = mesh.Faces.GetFaceAspectRatio(index: face);
-                if (!double.IsFinite(ratio) || ratio <= 0.0) { return Fin.Fail<Unit>(key.InvalidResult()); }
+                if (!double.IsFinite(ratio) || ratio <= 0.0) { return Fin.Fail<Unit>(new KernelFault.InvalidResult()); }
                 if (ratio > ceiling.Value) {
                     return Fin.Fail<Unit>(new GeometryFault.CotangentQuality(
                         Face: face, Ratio: PositiveMagnitude.Create(value: ratio), Ceiling: ceiling));
                 }
             }
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 
     // --- [COTANGENT_ASSEMBLY]
-    internal static Fin<SparseLaplacian> AssembleCotangent(Mesh mesh, Op key) {
+    internal static Fin<SparseLaplacian> AssembleCotangent(Mesh mesh) {
         using Mesh active = mesh.DuplicateMesh();
         for (int f = 0; f < active.Faces.Count; f++) {
             MeshFace quad = active.Faces[index: f];
             if (!quad.IsQuad) continue;
             (Point3d qa, Point3d qb, Point3d qc, Point3d qd) = (active.Vertices[index: quad.A], active.Vertices[index: quad.B], active.Vertices[index: quad.C], active.Vertices[index: quad.D]);
             bool ac = MeshKernel.QuadDiagonal(a: qa, b: qb, c: qc, d: qd);
-            if (!active.Faces.SetFace(index: f, vertex1: quad.A, vertex2: quad.B, vertex3: ac ? quad.C : quad.D)) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
-            if (active.Faces.AddFace(vertex1: ac ? quad.A : quad.B, vertex2: quad.C, vertex3: quad.D) < 0) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
+            if (!active.Faces.SetFace(index: f, vertex1: quad.A, vertex2: quad.B, vertex3: ac ? quad.C : quad.D)) return Fin.Fail<SparseLaplacian>(new KernelFault.InvalidResult());
+            if (active.Faces.AddFace(vertex1: ac ? quad.A : quad.B, vertex2: quad.C, vertex3: quad.D) < 0) return Fin.Fail<SparseLaplacian>(new KernelFault.InvalidResult());
         }
         LaplacianTriplets triplets = new(vertexCount: active.Vertices.Count);
         double floor = DegenerateAreaFloorOf(scale: MeanEdgeLengthOf(mesh: active));
@@ -678,9 +677,9 @@ internal static class MeshKernel {
             triplets.NegativeCotangentCount += (cotA < 0.0 ? 1 : 0) + (cotB < 0.0 ? 1 : 0) + (cotC < 0.0 ? 1 : 0);
             triplets.AddTriangle(va: face.A, vb: face.B, vc: face.C, area: area, cotA: cotA, cotB: cotB, cotC: cotC);
         }
-        return triplets.Build(key: key);
+        return triplets.Build();
     }
-    internal static Fin<SparseLaplacian> AssembleCotangentFromIntrinsic(IntrinsicMesh imesh, Op key) {
+    internal static Fin<SparseLaplacian> AssembleCotangentFromIntrinsic(IntrinsicMesh imesh) {
         LaplacianTriplets triplets = new(vertexCount: imesh.VertexCount);
         double mean = Enumerable.Range(start: 0, count: imesh.EdgeCount).Average(selector: i => imesh.EdgeAt(index: i).Length);
         double floor = DegenerateAreaFloorOf(scale: mean);
@@ -695,22 +694,22 @@ internal static class MeshKernel {
             triplets.NegativeCotangentCount += (cotA < 0.0 ? 1 : 0) + (cotB < 0.0 ? 1 : 0) + (cotC < 0.0 ? 1 : 0);
             triplets.AddTriangle(va: a, vb: b, vc: c, area: area, cotA: cotA, cotB: cotB, cotC: cotC);
         }
-        return triplets.Build(key: key);
+        return triplets.Build();
     }
 
     // --- [IDT_AND_INTRINSIC]
-    internal static Fin<IntrinsicMesh> BuildIntrinsicMesh(Mesh mesh, MeshAssemblyPolicy assembly, Op key) =>
-        from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key)
-        from flipped in SettleFlips(imesh: source, cap: assembly.FlipCapPerEdge, key: key)
+    internal static Fin<IntrinsicMesh> BuildIntrinsicMesh(Mesh mesh, MeshAssemblyPolicy assembly) =>
+        from source in IntrinsicMesh.FromMesh(mesh: mesh)
+        from flipped in SettleFlips(imesh: source, cap: assembly.FlipCapPerEdge)
         select flipped.Freeze();
 
-    internal static Fin<IntrinsicMesh> SettleFlips(IntrinsicMesh imesh, Dimension cap, Op key) {
+    internal static Fin<IntrinsicMesh> SettleFlips(IntrinsicMesh imesh, Dimension cap) {
         imesh.FlipBudgetExhaustedEdges = FlipFrontier.Settle(
             seeds: imesh.InteriorEdges(), cap: cap,
             interior: imesh.IsInterior, settled: imesh.IsDelaunay, flip: imesh.Flip).BudgetExhaustedEdges;
         return imesh.ParityErrorCount is 0
             ? Fin.Succ(imesh)
-            : Fin.Fail<IntrinsicMesh>(key.InvalidResult(detail: $"idt-parity:{imesh.ParityErrorCount}"));
+            : Fin.Fail<IntrinsicMesh>(new KernelFault.InvalidResult(Detail: Some($"idt-parity:{imesh.ParityErrorCount}")));
     }
 
     [StructLayout(LayoutKind.Auto)]
@@ -748,7 +747,7 @@ internal static class MeshKernel {
         internal int LiveFaceCount { get; }
         internal int SumNormalCoordinates { get; }
         internal int TransverseEdgeCount { get; }
-        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh, Op key);
+        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh);
         internal int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC, int normalAB = -1, int normalBC = -1, int normalCA = -1);
         internal IntrinsicMesh Freeze();
         internal IntrinsicEdge EdgeAt(int index);
@@ -862,14 +861,14 @@ internal static class MeshKernel {
     }
 
     internal sealed class TuftedCoverMesh {
-        internal static Fin<TuftedCoverMesh> Construct(IntrinsicMesh imesh, MeshSpace space, TuftedCoverPolicy policy, Op key);
-        internal Fin<SparseLaplacian> Assemble(MeshSpace space, TuftedCoverPolicy policy, Op key);
+        internal static Fin<TuftedCoverMesh> Construct(IntrinsicMesh imesh, MeshSpace space, TuftedCoverPolicy policy);
+        internal Fin<SparseLaplacian> Assemble(MeshSpace space, TuftedCoverPolicy policy);
     }
 
     // --- [METRICS]
     internal static double MeanEdgeLengthOf(Mesh mesh);
-    internal static Fin<Arr<Vector3d>> FaceNormalsOf(Mesh mesh, Op key);
-    internal static Fin<SpatialIndex> FaceIndexOf(Mesh mesh, Op key);
+    internal static Fin<Arr<Vector3d>> FaceNormalsOf(Mesh mesh);
+    internal static Fin<SpatialIndex> FaceIndexOf(Mesh mesh);
     internal static double DegenerateAreaFloorOf(double scale) =>
         Math.Max(scale, EpsilonPolicy.ZeroTolerance) * Math.Max(scale, EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
     internal static Fin<Topology> TopologyDetailed(MeshSpace space) {
@@ -906,7 +905,7 @@ internal static class MeshKernel {
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct TransportFrames(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostFrameFacts Facts);
 
-    private static Fin<TransportFrames> TransportFramesOf(IntrinsicMesh imesh, Context context, SignpostPolicy policy, Op key) {
+    private static Fin<TransportFrames> TransportFramesOf(IntrinsicMesh imesh, Context context, SignpostPolicy policy) {
         double floor = context.For(policy.RescaleFloor).Value;
         List<(int I, int J, double Weight, double Rho)> rows = new(capacity: imesh.EdgeCount);
         (int fallback, int missing, double maxAngle, double maxLength) = (0, 0, 0.0, 0.0);
@@ -928,7 +927,7 @@ internal static class MeshKernel {
                 ? Math.Abs(value: imesh.Positions[edge.Lo].DistanceTo(other: imesh.Positions[edge.Hi]) - edge.Length) : 0.0);
         }
         return rows.Count == 0 && imesh.EdgeCount > 0
-            ? Fin.Fail<TransportFrames>(key.InvalidResult(detail: $"signpost-frames:{missing}"))
+            ? Fin.Fail<TransportFrames>(new KernelFault.InvalidResult(Detail: Some($"signpost-frames:{missing}")))
             : Fin.Succ(new TransportFrames(Rows: toSeq(rows),
                 Facts: new SignpostFrameFacts(TransportedEdgeCount: rows.Count, ChordFallbackEdges: fallback,
                     MissingFrameEdges: missing, MaxAngleRadians: maxAngle, MaxLengthResidual: maxLength,
@@ -936,14 +935,14 @@ internal static class MeshKernel {
     }
     private static double ChordAngleOf(IntrinsicMesh imesh, int tail, int tip, SignpostPolicy policy);
 
-    private static Fin<(Option<TransportFrames> Frames, SignpostTransport Transport)> TransportOf(MeshSpace space, IntrinsicMesh imesh, SignpostPolicy policy, Op key) =>
-        from _ in guard(imesh is { IsFrozen: true, SignpostAngle: not null }, key.InvalidInput())
+    private static Fin<(Option<TransportFrames> Frames, SignpostTransport Transport)> TransportOf(MeshSpace space, IntrinsicMesh imesh, SignpostPolicy policy) =>
+        from _ in guard(imesh is { IsFrozen: true, SignpostAngle: not null }, new KernelFault.InvalidInput())
         from halves in TransportHalf.Law.Admit(policy.Halves)
         from frames in halves.Admits(TransportHalf.Frames)
-            ? TransportFramesOf(imesh: imesh, context: space.Tolerance, policy: policy, key: key).Map(Some)
+            ? TransportFramesOf(imesh: imesh, context: space.Tolerance, policy: policy).Map(Some)
             : Fin.Succ(Option<TransportFrames>.None)
         from overlay in halves.Admits(TransportHalf.Overlay)
-            ? BuildCommonSubdivision(space: space, imesh: imesh, policy: policy, key: key).Map(Some)
+            ? BuildCommonSubdivision(space: space, imesh: imesh, policy: policy).Map(Some)
             : Fin.Succ(Option<CommonSubdivision>.None)
         select (frames, new SignpostTransport(
             Halves: halves, VertexCount: imesh.VertexCount, IntrinsicEdgeCount: imesh.EdgeCount,
@@ -952,15 +951,15 @@ internal static class MeshKernel {
             SumNormalCoordinates: imesh.SumNormalCoordinates,
             Frames: frames.Map(static f => f.Facts),
             Subdivision: overlay));
-    internal static Fin<SignpostTransport> SignpostTransportOf(MeshSpace space, IntrinsicMesh imesh, Op key, Option<SignpostPolicy> policy = default) =>
-        TransportOf(space: space, imesh: imesh, policy: policy.IfNone(noneValue: SignpostPolicy.Default), key: key)
+    internal static Fin<SignpostTransport> SignpostTransportOf(MeshSpace space, IntrinsicMesh imesh, Option<SignpostPolicy> policy = default) =>
+        TransportOf(space: space, imesh: imesh, policy: policy.IfNone(noneValue: SignpostPolicy.Default))
             .Map(static pair => pair.Transport);
     [StructLayout(LayoutKind.Auto)] internal readonly record struct ConnectionEntries(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostTransport Transport);
-    internal static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, SignpostPolicy policy, Op key) =>
-        from transport in TransportOf(space: space, imesh: imesh, policy: policy, key: key)
-        from frames in transport.Frames.ToFin(key.Unsupported(inputType: typeof(TransportHalf), outputType: typeof(ConnectionEntries)))
+    internal static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, SignpostPolicy policy) =>
+        from transport in TransportOf(space: space, imesh: imesh, policy: policy)
+        from frames in transport.Frames.ToFin(new KernelFault.Unsupported(InputType: typeof(TransportHalf), OutputType: typeof(ConnectionEntries)))
         from adjusted in edgeAdjustment.Match(
-            Some: shift => guard(shift.Count == frames.Rows.Count, key.InvalidInput()).ToFin().Map(_ => frames.Rows.Map(
+            Some: shift => guard(shift.Count == frames.Rows.Count, new KernelFault.InvalidInput()).ToFin().Map(_ => frames.Rows.Map(
                 (row, index) => (row.I, row.J, row.Weight, Rho: row.Rho + shift[index: index]))),
             None: () => Fin.Succ(frames.Rows))
         select new ConnectionEntries(Rows: adjusted, Transport: transport.Transport);
@@ -973,7 +972,7 @@ internal static class MeshKernel {
         internal sealed record CrossingCase(int TailA, int TipA, double ParameterA, int EdgeB, double ParameterB) : OverlayPoint;
     }
 
-    private static Fin<CommonSubdivision> BuildCommonSubdivision(MeshSpace space, IntrinsicMesh imesh, SignpostPolicy policy, Op key) {
+    private static Fin<CommonSubdivision> BuildCommonSubdivision(MeshSpace space, IntrinsicMesh imesh, SignpostPolicy policy) {
         List<OverlayPoint> points = [.. Enumerable.Range(start: 0, count: imesh.VertexCount)
             .Select(static v => (OverlayPoint)new OverlayPoint.SharedCase(Vertex: v))];
         OverlayPoint?[][] alongB = new OverlayPoint?[imesh.EdgeCount][];
@@ -992,7 +991,7 @@ internal static class MeshKernel {
             GeodesicKernel.WalkTrace walk = GeodesicKernel.WalkChart(imesh: imesh, startFace: face, va: va, vb: vb, vc: vc,
                 seatAngle: seatAngle, seatedWorldDir: Vector3d.Unset, traceLength: seed.Length, coneAngles: coneAngles,
                 mode: GeodesicKernel.GeodesicWalkMode.EdgeOverlay, stopAtVertex: pair.Hi, policy: trace);
-            if (walk.Stop != GeodesicStop.TargetReached) return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-trace:{pair.Lo}-{pair.Hi}"));
+            if (walk.Stop != GeodesicStop.TargetReached) return Fin.Fail<CommonSubdivision>(new KernelFault.InvalidResult(Detail: Some($"overlay-trace:{pair.Lo}-{pair.Hi}")));
             Arr<double> tA = RecoverTraceParameters(walk: walk, imesh: imesh);
             for (int iC = 0; iC < walk.Crossings.Count; iC++) {
                 (int cutEdge, double u) = walk.Crossings[index: iC];
@@ -1002,14 +1001,14 @@ internal static class MeshKernel {
         }
         foreach ((int edge, double _, OverlayPoint point) in crossings.OrderBy(static row => row.Edge).ThenBy(static row => row.Parameter)) {
             int slot = System.Array.FindIndex(array: alongB[edge], startIndex: 1, match: static occupant => occupant is null);
-            if (slot < 1 || slot > imesh.EdgeAt(index: edge).Crossings) return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-slot:{edge}"));
+            if (slot < 1 || slot > imesh.EdgeAt(index: edge).Crossings) return Fin.Fail<CommonSubdivision>(new KernelFault.InvalidResult(Detail: Some($"overlay-slot:{edge}")));
             alongB[edge][slot] = point;
             points.Add(item: point);
         }
         for (int e = 0; e < alongB.Length; e++)
             for (int slot = 0; slot < alongB[e].Length; slot++)
                 if (alongB[e][slot] is null || (slot > 0 && slot < alongB[e].Length - 1 && alongB[e][slot] is OverlayPoint.SharedCase))
-                    return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-incomplete:{e}:{slot}"));
+                    return Fin.Fail<CommonSubdivision>(new KernelFault.InvalidResult(Detail: Some($"overlay-incomplete:{e}:{slot}")));
         (List<int[]> faces, Arr<int> sourceB, int cornerSum) = SliceFaces(imesh: imesh, alongB: alongB, points: points);
         Arr<int> sourceA = RecoverSourceFacesA(space: space, imesh: imesh, faces: faces, points: points);
         (List<int[]> emitted, Arr<int> emittedA, Arr<int> emittedB) = policy.TriangulateOverlay
@@ -1017,14 +1016,14 @@ internal static class MeshKernel {
             : (faces, sourceA, sourceB);
         return from a in InterpolationOf(points: points, columnCount: imesh.VertexCount, row: static point => point.Switch(
                        sharedCase: static c => Seq((c.Vertex, 1.0)),
-                       crossingCase: static c => Seq((c.TailA, 1.0 - c.ParameterA), (c.TipA, c.ParameterA))), key: key)
+                       crossingCase: static c => Seq((c.TailA, 1.0 - c.ParameterA), (c.TipA, c.ParameterA))))
                from b in InterpolationOf(points: points, columnCount: imesh.VertexCount, row: point => point.Switch(
                        state: imesh,
                        sharedCase: static (_, c) => Seq((c.Vertex, 1.0)),
                        crossingCase: static (m, c) => {
                            IntrinsicEdge edge = m.EdgeAt(index: c.EdgeB);
                            return Seq((edge.Lo, 1.0 - c.ParameterB), (edge.Hi, c.ParameterB));
-                       }), key: key)
+                       }))
                select new CommonSubdivision(
                    SourceVertexCount: imesh.VertexCount, SourceEdgeCount: imesh.SeedHalfedges.Count,
                    SourceFaceCount: imesh.LiveFaceCount, SumNormalCoordinates: imesh.SumNormalCoordinates,
@@ -1042,21 +1041,21 @@ internal static class MeshKernel {
     private static Arr<int> RecoverSourceFacesA(MeshSpace space, IntrinsicMesh imesh, List<int[]> faces, List<OverlayPoint> points);
     private static (List<int[]> Faces, Arr<int> SourceFaceA, Arr<int> SourceFaceB) TriangulateOverlay(List<int[]> faces, Arr<int> sourceA, Arr<int> sourceB);
     private static Fin<(SparseMatrix Matrix, double RowSumResidual)> InterpolationOf(
-        List<OverlayPoint> points, int columnCount, Func<OverlayPoint, Seq<(int Column, double Weight)>> row, Op key);
+        List<OverlayPoint> points, int columnCount, Func<OverlayPoint, Seq<(int Column, double Weight)>> row);
     private static double EdgeLengthDisagreementOf(List<OverlayPoint> points, List<int[]> faces, MeshSpace space, IntrinsicMesh imesh);
 
     // --- [POWER_CELLS]
-    internal static Fin<RestrictedPowerDiagram> RestrictedPowerCells(MeshSpace space, Seq<Point3d> sites, Option<Arr<double>> weights, Option<ScalarField> density, Op key) {
+    internal static Fin<RestrictedPowerDiagram> RestrictedPowerCells(MeshSpace space, Seq<Point3d> sites, Option<Arr<double>> weights, Option<ScalarField> density) {
         BoundingBox box = space.Bounds;
         return !box.IsValid || box.Diagonal.Length <= EpsilonPolicy.ZeroTolerance || sites.Count < 1
-            ? Fin.Fail<RestrictedPowerDiagram>(key.InvalidInput())
-            : from weightsActive in AdmitPowerWeights(sites: sites, weights: weights, key: key)
+            ? Fin.Fail<RestrictedPowerDiagram>(new KernelFault.InvalidInput())
+            : from weightsActive in AdmitPowerWeights(sites: sites, weights: weights)
               from policy in PowerClipPolicy.Of(diagonal: box.Diagonal.Length, meanEdge: space.Cache.MeanEdgeLength,
-                  densityQuadrature: density.Map(static _ => Dimension.Create(value: 3)), key: key)
-              from diagram in PowerDiagramRun(space: space, sites: sites, weights: weightsActive, density: density, center: box.Center, policy: policy, key: key)
+                  densityQuadrature: density.Map(static _ => Dimension.Create(value: 3)))
+              from diagram in PowerDiagramRun(space: space, sites: sites, weights: weightsActive, density: density, center: box.Center, policy: policy)
               select diagram;
     }
-    private static Fin<Arr<double>> AdmitPowerWeights(Seq<Point3d> sites, Option<Arr<double>> weights, Op key);
+    private static Fin<Arr<double>> AdmitPowerWeights(Seq<Point3d> sites, Option<Arr<double>> weights);
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct PowerSite(Point3d Shifted, double Weight, double SquareLength);
@@ -1067,12 +1066,12 @@ internal static class MeshKernel {
             Constant: (to.SquareLength - from.SquareLength) - (to.Weight - from.Weight));
 
 
-    private static Fin<RestrictedPowerDiagram> PowerDiagramRun(MeshSpace space, Seq<Point3d> sites, Arr<double> weights, Option<ScalarField> density, Point3d center, PowerClipPolicy policy, Op key);
+    private static Fin<RestrictedPowerDiagram> PowerDiagramRun(MeshSpace space, Seq<Point3d> sites, Arr<double> weights, Option<ScalarField> density, Point3d center, PowerClipPolicy policy);
     private static int[][] PowerSiteNeighbours(Point3d[] sites, int kNearest);
     private static int[] NearestSitePerFace(Mesh triangulated, PowerSite[] powerSites, Vector3d shift);
     private static bool ListProvablyComplete(PowerSite site, PowerSite farthest, double radius);
-    private static (double Mass, Vector3d MomentSum, int Rejected) AccumulateFragment(Point3d[] polygon, int count, Vector3d normal, Option<ScalarField> density, PowerClipPolicy policy, Context context, Op key);
-    private static double TransportCostOf(Point3d[] polygon, int count, PowerSite site, Vector3d normal, Option<ScalarField> density, Context context, Op key);
+    private static (double Mass, Vector3d MomentSum, int Rejected) AccumulateFragment(Point3d[] polygon, int count, Vector3d normal, Option<ScalarField> density, PowerClipPolicy policy, Context context);
+    private static double TransportCostOf(Point3d[] polygon, int count, PowerSite site, Vector3d normal, Option<ScalarField> density, Context context);
     private static (Arr<PowerFacet> Facets, int IncidentPairCount) EmitFacets(Point3d[] polygon, int[] outLabel, int count, PowerSite[] powerSites, PowerClipPolicy policy);
     private static bool[] BoundaryFacesOf(Mesh mesh);
 }

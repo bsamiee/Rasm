@@ -183,10 +183,10 @@ public sealed record PluginProtection(PluginKey Plugin, LoadProtection Behavior)
 - Law: the two tables split on PAYLOAD, not on answer — `PluginRead` rows take an admitted `PluginKey` and `PluginLookup` rows take admitted text, which is exactly the admission each needs; a single table would carry a payload half its rows cannot use.
 - Owner: `PluginQuery` closes every registry read in six cases where fourteen stood, because eleven of them differed only in which host static an arm called.
 - Law: admission runs before any host call — text coordinates pass `Op.AcceptText`, identity coordinates pass `PluginKey.Admit`, and the kind filter passes `PluginKind.Law.Admit`, so a query that cannot resolve never reaches the native manager. The roster case's three independent columns ACCUMULATE, so a caller learns every absent column at once.
-- Law: an unresolved identity or path is `None`, not a fault — the host answers `Guid.Empty` or an empty string for an unknown coordinate, and those sentinels are projected away by `PluginKey.Maybe` and `Op.Text` at the row rather than surfacing as a value.
+- Law: an unresolved identity or path is `None`, not a fault — the host answers `Guid.Empty` or an empty string for an unknown coordinate, and those sentinels are projected away by `PluginKey.Maybe` and `HostEdge.Text` at the row rather than surfacing as a value.
 - Law: an answer names the request it answers where the payload alone cannot — `PluginAnswer.Names` carries its `NameSource`, because a command roster, an installed-name roster, and a folder roster are three questions with one payload shape (folder RULINGS `[02]`).
 - Boundary: the descriptor row is the ONE read that touches `PlugInInfo`; every other row reads a free-standing static, so the native record's lifetime never spans two reads.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Op.AcceptText`, `Op.Text`, `Op.Need`, `Op.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Op.AcceptText`, `HostEdge.Text`, `Op.Need`, `HostEdge.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -200,17 +200,17 @@ public sealed partial class PluginRead {
         Probed(plugin: plugin, op: op).Map<PluginAnswer>(static row => new PluginAnswer.Presence(Value: row)));
     public static readonly PluginRead Protection = new(key: "protection", read: Guarded);
     public static readonly PluginRead Commands = new(key: "commands", read: static (plugin, op) =>
-        op.Catch(() => Fin.Succ<PluginAnswer>(value: new PluginAnswer.Names(
+        Try.lift(() => Fin.Succ<PluginAnswer>(value: new PluginAnswer.Names(
             Source: NameSource.Commands,
-            Value: toSeq(PlugIn.GetEnglishCommandNames(pluginId: plugin.ToValue())).Strict()))));
+            Value: toSeq(PlugIn.GetEnglishCommandNames(pluginId: plugin.ToValue())).Strict()))).Run().Bind(static inner => inner));
 
-    [UseDelegateFromConstructor] internal partial Fin<PluginAnswer> Read(PluginKey plugin, Op op);
+    [UseDelegateFromConstructor] internal partial Fin<PluginAnswer> Read(PluginKey plugin);
 
-    internal static Fin<PluginAnswer> Named(Func<string> read, Op op) => op.Catch(() =>
-        Fin.Succ<PluginAnswer>(value: new PluginAnswer.Text(Value: Op.Text(read()))));
+    internal static Fin<PluginAnswer> Named(Func<string> read) => Try.lift(() =>
+        Fin.Succ<PluginAnswer>(value: new PluginAnswer.Text(Value: HostEdge.Text(read())))).Run().Bind(static inner => inner);
 
-    internal static Fin<PluginPresence> Probed(PluginKey plugin, Op op) => op.Catch(() => Fin.Succ(
-        value: Op.Probe(() => {
+    internal static Fin<PluginPresence> Probed(PluginKey plugin) => Try.lift(() => Fin.Succ(
+        value: Admit.Probe(() => {
             bool installed = PlugIn.PlugInExists(
                 id: plugin.ToValue(), loaded: out bool loaded, loadProtected: out bool guarded);
             return (Ok: installed, Value: (Loaded: loaded, Guarded: guarded));
@@ -220,35 +220,34 @@ public sealed partial class PluginRead {
                 States: CapabilitySet<PluginState>.Of(toSeq(PluginState.Items)
                     .Filter(row => row.Holds(loaded: slots.Loaded, guarded: slots.Guarded))
                     .ToArray())),
-            None: () => new PluginPresence.Absent(Plugin: plugin))));
+            None: () => new PluginPresence.Absent(Plugin: plugin)))).Run().Bind(static inner => inner);
 
-    private static Fin<PluginAnswer> Guarded(PluginKey plugin, Op op) => op.Catch(() =>
-        Op.Probe<bool>(probe: (out bool silent) =>
+    private static Fin<PluginAnswer> Guarded(PluginKey plugin) => Try.lift(() =>
+        Admit.Probe<bool>(probe: (out bool silent) =>
                 PlugIn.GetLoadProtection(pluginId: plugin.ToValue(), loadSilently: out silent))
             .Map(static silent => silent ? LoadProtection.Silent : LoadProtection.Prompted)
-            .ToFin(Fail: new PluginFault.HostRefused(
-                Key: op, Member: nameof(PlugIn.GetLoadProtection), Detail: plugin.ToValue().ToString()))
+            .ToFin(Fail: new PluginFault.HostRefused(Member: nameof(PlugIn.GetLoadProtection), Detail: plugin.ToValue().ToString()))
             .Map<PluginAnswer>(behavior => new PluginAnswer.Protection(
-                Value: new PluginProtection(Plugin: plugin, Behavior: behavior))));
+                Value: new PluginProtection(Plugin: plugin, Behavior: behavior)))).Run().Bind(static inner => inner);
 
-    internal static Fin<PlugInInfo> Handle(PluginKey plugin, Op op) => op.Catch(() =>
+    internal static Fin<PlugInInfo> Handle(PluginKey plugin) => Try.lift(() =>
         Optional(PlugIn.GetPlugInInfo(pluginId: plugin.ToValue())).ToFin(
-            Fail: new PluginFault.Unbound(Key: op, Member: nameof(PlugIn.GetPlugInInfo))));
+            Fail: new PluginFault.Unbound(Member: nameof(PlugIn.GetPlugInInfo)))).Run().Bind(static inner => inner);
 
-    private static Fin<PluginAnswer> Detached(PluginKey plugin, Op op) =>
-        from record in Handle(plugin: plugin, op: op)
-        from presence in Probed(plugin: plugin, op: op)
+    private static Fin<PluginAnswer> Detached(PluginKey plugin) =>
+        from record in Handle(plugin: plugin)
+        from presence in Probed(plugin: plugin)
         from info in op.Catch(() =>
-            from name in op.AcceptText(value: record.Name)
-            from kind in op.Row<PlugInType, PluginKind>(record.PlugInType)
-            from schedule in op.Row<PlugInLoadTime, PluginSchedule>(record.PlugInLoadTime)
+            from name in Acceptance.Text(value: record.Name)
+            from kind in FactoryBridge.Row<PlugInType, PluginKind>(record.PlugInType)
+            from schedule in FactoryBridge.Row<PlugInLoadTime, PluginSchedule>(record.PlugInLoadTime)
             select new PluginInfo(
                 Plugin: plugin,
                 Name: name,
-                Description: Op.Text(record.Description),
-                Version: Op.Text(record.Version),
-                FileName: Op.Text(record.FileName),
-                RegistryPath: Op.Text(record.RegistryPath),
+                Description: HostEdge.Text(record.Description),
+                Version: HostEdge.Text(record.Version),
+                FileName: HostEdge.Text(record.FileName),
+                RegistryPath: HostEdge.Text(record.RegistryPath),
                 Kind: kind,
                 Schedule: schedule,
                 Presence: presence,
@@ -256,14 +255,14 @@ public sealed partial class PluginRead {
                     .Filter(row => row.Reads(value: record))
                     .ToArray()),
                 Contact: new PluginContact(
-                    Organization: Op.Text(record.Organization),
-                    Address: Op.Text(record.Address),
-                    Country: Op.Text(record.Country),
-                    Email: Op.Text(record.Email),
-                    Phone: Op.Text(record.Phone),
-                    Fax: Op.Text(record.Fax),
-                    WebSite: Op.Text(record.WebSite),
-                    UpdateUrl: Op.Text(record.UpdateUrl)),
+                    Organization: HostEdge.Text(record.Organization),
+                    Address: HostEdge.Text(record.Address),
+                    Country: HostEdge.Text(record.Country),
+                    Email: HostEdge.Text(record.Email),
+                    Phone: HostEdge.Text(record.Phone),
+                    Fax: HostEdge.Text(record.Fax),
+                    WebSite: HostEdge.Text(record.WebSite),
+                    UpdateUrl: HostEdge.Text(record.UpdateUrl)),
                 CommandNames: toSeq(record.CommandNames).Strict(),
                 FileTypeDescriptions: toSeq(record.FileTypeDescriptions).Strict(),
                 FileTypeExtensions: toSeq(record.FileTypeExtensions).Strict()))
@@ -284,10 +283,10 @@ public sealed partial class PluginLookup {
     public static readonly PluginLookup PathOfName = new(key: "path-of-name", read: static (value, op) =>
         PluginRead.Named(read: () => PlugIn.PathFromName(pluginName: value), op: op));
 
-    [UseDelegateFromConstructor] internal partial Fin<PluginAnswer> Read(string value, Op op);
+    [UseDelegateFromConstructor] internal partial Fin<PluginAnswer> Read(string value);
 
-    private static Fin<PluginAnswer> Resolved(Func<Guid> read, Op op) => op.Catch(() =>
-        Fin.Succ<PluginAnswer>(value: new PluginAnswer.Identity(Value: PluginKey.Maybe(read()))));
+    private static Fin<PluginAnswer> Resolved(Func<Guid> read) => Try.lift(() =>
+        Fin.Succ<PluginAnswer>(value: new PluginAnswer.Identity(Value: PluginKey.Maybe(read())))).Run().Bind(static inner => inner);
 }
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -302,16 +301,14 @@ public abstract partial record PluginQuery {
     public sealed record Folders : PluginQuery;
     public sealed record Tally : PluginQuery;
 
-    internal Fin<PluginQuery> Admit(Op op) => Switch(
-        op,
-        keyed: static (key, row) => key.Need(row.Read).Bind(_ => row.Plugin.Admit(key)).Map<PluginQuery>(_ => row),
-        text: static (key, row) => key.Need(row.Read)
-            .Bind(_ => key.AcceptText(value: row.Value))
+    internal Fin<PluginQuery> Admit() => Switch(keyed: static (key, row) => Admit.Need(row.Read).Bind(_ => row.Plugin.Admit()).Map<PluginQuery>(_ => row),
+        text: static (key, row) => Admit.Need(row.Read)
+            .Bind(_ => Acceptance.Text(value: row.Value))
             .Map<PluginQuery>(value => new Text(Read: row.Read, Value: value)),
-        installed: static (key, row) => key.Need(row.Naming).Map<PluginQuery>(_ => row),
+        installed: static (key, row) => Admit.Need(row.Naming).Map<PluginQuery>(_ => row),
         installedNames: static (key, row) => (
-                key.Need(row.Roster).ToValidation(),
-                key.Need(row.Naming).ToValidation(),
+                Admit.Need(row.Roster).ToValidation(),
+                Admit.Need(row.Naming).ToValidation(),
                 PluginKind.Law.Admit(held: row.Kinds).ToValidation())
             .Apply(static (_, _, _) => unit)
             .As()
@@ -333,9 +330,7 @@ public abstract partial record PluginAnswer {
     public sealed record Names(NameSource Source, Seq<string> Value) : PluginAnswer;
     public sealed record Tally(int Value) : PluginAnswer;
 
-    public Fin<PluginPresence> Presence(Op key) => Switch(
-        key,
-        identity: static (held, _) => Elsewhere(held),
+    public Fin<PluginPresence> Presence() => Switch(identity: static (held, _) => Elsewhere(held),
         text: static (held, _) => Elsewhere(held),
         descriptor: static (_, row) => Fin.Succ(value: row.Value.Presence),
         presence: static (_, row) => Fin.Succ(value: row.Value),
@@ -344,7 +339,7 @@ public abstract partial record PluginAnswer {
         names: static (held, _) => Elsewhere(held),
         tally: static (held, _) => Elsewhere(held));
 
-    private static Fin<PluginPresence> Elsewhere(Op key) => Fin.Fail<PluginPresence>(
+    private static Fin<PluginPresence> Elsewhere() => Fin.Fail<PluginPresence>(
         error: new KernelFault.InvalidValue(nameof(PluginPresence), "a presence or descriptor read"));
 }
 ```
@@ -355,51 +350,47 @@ public abstract partial record PluginAnswer {
 - Law: the descriptor's kind and schedule project through `Op.Row` against the host value; an ordinal the vocabulary does not carry refuses typed rather than defaulting to a row the registry never reported.
 - Law: the kind filter leaves the capability owner ONCE, at the one host member that takes the raw flag word, so the OR-fold has a single spelling and no caller re-derives it.
 - Law: `Icon` is a separate leased entry, not a `PluginInfo` field, because a raster is caller-disposed custody and a record field would make its lifetime ambient; it answers the kernel `AssetOrigin.Raster` over an `AssetRaster.Gdi` scale row, so a consumer receives extent and scale rather than an unlabelled bitmap and composes `AssetOrigin.Resolve` for any other product shape.
-- Boundary: every native string crosses through `Op.Text` and every registry identity through `PluginKey.Maybe`, so a host null, an empty string, and a `Guid.Empty` are each the same typed absence.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`Op`, `Op.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
+- Boundary: every native string crosses through `HostEdge.Text` and every registry identity through `PluginKey.Maybe`, so a host null, an empty string, and a `Guid.Empty` are each the same typed absence.
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`Op`, `HostEdge.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginCensus {
-    public static Fin<PluginAnswer> Ask(PluginQuery query, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(query)
-            .Bind(request => request.Admit(op))
-            .Bind(request => request.Switch(
-                op,
-                keyed: static (held, row) => row.Read.Read(plugin: row.Plugin, op: held),
+    public static Fin<PluginAnswer> Ask(PluginQuery query) {
+        return Admit.Need(query)
+            .Bind(request => request.Admit())
+            .Bind(request => request.Switch(keyed: static (held, row) => row.Read.Read(plugin: row.Plugin, op: held),
                 text: static (held, row) => row.Read.Read(value: row.Value, op: held),
-                installed: static (held, row) => held.Catch(() =>
+                installed: static (held, row) => Try.lift(() =>
                     toSeq(PlugIn.GetInstalledPlugIns(localizedPlugInName: row.Naming))
                         .Traverse(entry => PluginKey.Maybe(entry.Key)
                             .ToFin(Fail: new PluginFault.HostRefused(
                                 Key: held, Member: nameof(PlugIn.GetInstalledPlugIns), Detail: nameof(PluginRollRow)))
-                            .Map(plugin => new PluginRollRow(Plugin: plugin, Name: Op.Text(entry.Value))))
+                            .Map(plugin => new PluginRollRow(Plugin: plugin, Name: HostEdge.Text(entry.Value))))
                         .As()
-                        .Map<PluginAnswer>(static rows => new PluginAnswer.Roll(Value: rows.Strict()))),
-                installedNames: static (held, row) => held.Catch(() => Fin.Succ<PluginAnswer>(
+                        .Map<PluginAnswer>(static rows => new PluginAnswer.Roll(Value: rows.Strict()))).Run().Bind(static inner => inner),
+                installedNames: static (held, row) => Try.lift(() => Fin.Succ<PluginAnswer>(
                     value: new PluginAnswer.Names(
                         Source: NameSource.Installed,
                         Value: toSeq(PlugIn.GetInstalledPlugInNames(
                             typeFilter: (PlugInType)row.Kinds.Mask(bit: static kind => (int)kind.Key),
                             loaded: row.Roster.IsLoaded,
                             unloaded: row.Roster.IsUnloaded,
-                            localizedPlugInName: row.Naming)).Strict()))),
-                folders: static (held, _) => held.Catch(() => Fin.Succ<PluginAnswer>(
+                            localizedPlugInName: row.Naming)).Strict()))).Run().Bind(static inner => inner),
+                folders: static (held, _) => Try.lift(() => Fin.Succ<PluginAnswer>(
                     value: new PluginAnswer.Names(
                         Source: NameSource.Folders,
-                        Value: toSeq(PlugIn.GetInstalledPlugInFolders()).Strict()))),
-                tally: static (held, _) => held.Catch(() => Fin.Succ<PluginAnswer>(
-                    value: new PluginAnswer.Tally(Value: PlugIn.InstalledPlugInCount)))));
+                        Value: toSeq(PlugIn.GetInstalledPlugInFolders()).Strict()))).Run().Bind(static inner => inner),
+                tally: static (held, _) => Try.lift(() => Fin.Succ<PluginAnswer>(
+                    value: new PluginAnswer.Tally(Value: PlugIn.InstalledPlugInCount))).Run().Bind(static inner => inner)));
     }
 
-    public static Fin<AssetOrigin> Icon(PluginKey plugin, AssetExtent extent, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in plugin.Admit(op)
-               from record in PluginRead.Handle(plugin: plugin, op: op)
-               from bitmap in op.Catch(() => Optional(record.Icon(
+    public static Fin<AssetOrigin> Icon(PluginKey plugin, AssetExtent extent) {
+        return from _ in plugin.Admit()
+               from record in PluginRead.Handle(plugin: plugin)
+               from bitmap in Try.lift(() => Optional(record.Icon(
                        size: new GdiSize(width: extent.PixelWidth, height: extent.PixelHeight)))
-                   .ToFin(Fail: new PluginFault.Unbound(Key: op, Member: nameof(PlugInInfo.Icon))))
+                   .ToFin(Fail: new PluginFault.Unbound(Member: nameof(PlugInInfo.Icon)))).Run().Bind(static inner => inner)
                select (AssetOrigin)new AssetOrigin.Raster(Scales: Seq<AssetRaster>(
                    new AssetRaster.Gdi(Scale: extent.Scale, Bitmap: new Lease<GdiBitmap>.Owned(Value: bitmap))));
     }
@@ -414,7 +405,7 @@ public static class PluginCensus {
 - Law: identity-keyed load answers a bare `bool`, so a false answer refuses typed with the requested key as detail; the host publishes no richer reason on that overload.
 - Law: `SetLoadProtection` returns nothing and the host publishes no failure signal, so `PluginOutcome.Protected` reports the assignment the boundary made and a caller wanting the settled state re-reads `PluginRead.Protection`.
 - Boundary: loading a plug-in runs its `OnLoad` inside this call, so a `Commit` is a host lifecycle event, never a query — this is exactly why the read family carries no load flag.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `HostEdge.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -432,15 +423,13 @@ public abstract partial record PluginAct {
     public sealed record LoadKey(PluginKey Plugin, LoadNotice Notice, LoadForce Force) : PluginAct;
     public sealed record Protect(PluginKey Plugin, LoadProtection Behavior) : PluginAct;
 
-    internal Fin<PluginAct> Admit(Op op) => Switch(
-        op,
-        loadPath: static (key, row) => key.AcceptText(value: row.Path).Map<PluginAct>(path => new LoadPath(Path: path)),
-        loadKey: static (key, row) => row.Plugin.Admit(key)
-            .Bind(_ => key.Need(row.Notice))
-            .Bind(_ => key.Need(row.Force))
+    internal Fin<PluginAct> Admit() => Switch(loadPath: static (key, row) => Acceptance.Text(value: row.Path).Map<PluginAct>(path => new LoadPath(Path: path)),
+        loadKey: static (key, row) => row.Plugin.Admit()
+            .Bind(_ => Admit.Need(row.Notice))
+            .Bind(_ => Admit.Need(row.Force))
             .Map<PluginAct>(_ => row),
-        protect: static (key, row) => row.Plugin.Admit(key)
-            .Bind(_ => key.Need(row.Behavior))
+        protect: static (key, row) => row.Plugin.Admit()
+            .Bind(_ => Admit.Need(row.Behavior))
             .Map<PluginAct>(_ => row));
 }
 
@@ -455,27 +444,23 @@ public abstract partial record PluginOutcome {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginRegistry {
-    public static Fin<PluginOutcome> Commit(PluginAct act, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(act)
-            .Bind(request => request.Admit(op))
-            .Bind(request => request.Switch(
-                op,
-                loadPath: static (held, row) => held.Catch(() => {
+    public static Fin<PluginOutcome> Commit(PluginAct act) {
+        return Admit.Need(act)
+            .Bind(request => request.Admit())
+            .Bind(request => request.Switch(loadPath: static (held, row) => Try.lift(() => {
                     LoadPlugInResult native = PlugIn.LoadPlugIn(path: row.Path, plugInId: out Guid loaded);
-                    return held.Row<LoadPlugInResult, PathLoadVerdict>(native).Map<PluginOutcome>(verdict =>
+                    return FactoryBridge.Row<LoadPlugInResult, PathLoadVerdict>(native).Map<PluginOutcome>(verdict =>
                         new PluginOutcome.PathLoaded(Verdict: verdict, Plugin: PluginKey.Maybe(loaded)));
-                }),
-                loadKey: static (held, row) => held.Catch(() => PlugIn.LoadPlugIn(
+                }).Run().Bind(static inner => inner),
+                loadKey: static (held, row) => Try.lift(() => PlugIn.LoadPlugIn(
                         pluginId: row.Plugin.ToValue(),
                         loadQuietly: row.Notice,
                         forceLoad: row.Force)
                     ? Fin.Succ<PluginOutcome>(value: new PluginOutcome.KeyLoaded(Plugin: row.Plugin))
                     : Fin.Fail<PluginOutcome>(error: new PluginFault.HostRefused(
-                        Key: held, Member: nameof(PlugIn.LoadPlugIn), Detail: row.Plugin.ToValue().ToString()))),
-                protect: static (held, row) => held
-                    .Catch(() => PlugIn.SetLoadProtection(
-                        pluginId: row.Plugin.ToValue(), loadSilently: row.Behavior))
+                        Key: held, Member: nameof(PlugIn.LoadPlugIn), Detail: row.Plugin.ToValue().ToString()))).Run().Bind(static inner => inner),
+                protect: static (held, row) => Try.lift(() => PlugIn.SetLoadProtection(
+                        pluginId: row.Plugin.ToValue(), loadSilently: row.Behavior)).Run().Bind(static inner => inner)
                     .Map<PluginOutcome>(_ => new PluginOutcome.Protected(
                         Plugin: row.Plugin, Behavior: row.Behavior))));
     }
@@ -486,7 +471,7 @@ public static class PluginRegistry {
 
 | [INDEX] | [OWNER]          | [INGRESS]                    | [STATE]                             | [EGRESS]                             |
 | :-----: | :--------------- | :--------------------------- | :---------------------------------- | :----------------------------------- |
-|  [01]   | `PluginCensus`   | `Ask` · `Icon(key, extent)`  | none — every read is a host static  | `PluginAnswer` · `AssetOrigin`       |
+|  [01]   | `PluginCensus`   | `Ask` · `Icon(extent)`  | none — every read is a host static  | `PluginAnswer` · `AssetOrigin`       |
 |  [02]   | `PluginRegistry` | `Commit(PluginAct)`          | the host registry itself            | `PluginOutcome`                      |
 |  [03]   | `PluginRead`     | admitted `PluginKey`         | row-owned host read                 | `PluginAnswer` per row               |
 |  [04]   | `PluginLookup`   | admitted text                | row-owned host read                 | `PluginAnswer.Identity`/`.Text`      |

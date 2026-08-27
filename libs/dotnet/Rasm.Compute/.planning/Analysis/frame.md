@@ -226,17 +226,17 @@ public sealed record SiteActionPolicy(
     public static Validation<Error, SiteActionPolicy> Of(
         double basicWindSpeedMPerS, WindExposureClass exposure, double kzt, double kd, double gcpNet,
         Option<double> groundSnowPa, double ce, double ct, double snowImportance, double roofSlopeFactor,
-        LiveLoadClass liveLoad, double tributaryWidthM, Option<double> roofBandM, Op key) =>
-        (Magnitude(basicWindSpeedMPerS, key), Magnitude(kzt, key), Magnitude(kd, key), Magnitude(gcpNet, key),
-         groundSnowPa.Traverse(value => Magnitude(value, key)).As(), Magnitude(ce, key), Magnitude(ct, key),
-         Magnitude(snowImportance, key), key.AcceptValidated<UnitInterval>(candidate: roofSlopeFactor).ToValidation(),
-         Magnitude(tributaryWidthM, key), roofBandM.Traverse(value => Magnitude(value, key)).As())
+        LiveLoadClass liveLoad, double tributaryWidthM, Option<double> roofBandM) =>
+        (Magnitude(basicWindSpeedMPerS), Magnitude(kzt), Magnitude(kd), Magnitude(gcpNet),
+         groundSnowPa.Traverse(value => Magnitude(value)).As(), Magnitude(ce), Magnitude(ct),
+         Magnitude(snowImportance), FactoryBridge.Accept<UnitInterval>(candidate: roofSlopeFactor).ToValidation(),
+         Magnitude(tributaryWidthM), roofBandM.Traverse(value => Magnitude(value)).As())
         .Apply((wind, kzt, kd, gcp, snow, ce, ct, importance, slope, width, band) =>
             new SiteActionPolicy(wind, exposure, kzt, kd, gcp, snow, ce, ct, importance, slope, liveLoad, width, band))
         .As();
 
-    static Validation<Error, PositiveMagnitude> Magnitude(double value, Op key) =>
-        key.AcceptValidated<PositiveMagnitude>(candidate: value).ToValidation();
+    static Validation<Error, PositiveMagnitude> Magnitude(double value) =>
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: value).ToValidation();
 
     public static readonly Validation<Error, SiteActionPolicy> Canonical = Of(
         basicWindSpeedMPerS: 51.0, WindExposureClass.C, kzt: 1.0, kd: 0.85, gcpNet: 0.8,
@@ -286,8 +286,6 @@ public static partial class StructuralAnalysis {
             .Map(members => DeriveAbsent(members, inputs.Site))
             .Bind(members => Tolerance.Of(ToleranceLane.Joint, graph.Header.Tolerance, ProjectKey)
                 .Map(joint => new FrameModel(members, inputs.Combinations, inputs.Policy, joint)));
-
-    static readonly Op ProjectKey = Op.Of(name: nameof(Project));
 
     static Seq<StructuralMember> DeriveAbsent(Seq<StructuralMember> members, Option<SiteActionPolicy> declared) =>
         declared.Match(
@@ -454,7 +452,6 @@ public readonly record struct MemberResponse(SectionDemand Min, SectionDemand Ma
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class StructuralAnalysis {
-    static readonly Op SolveKey = Op.Of(name: nameof(Solve));
 
     public static Fin<FrozenDictionary<NodeId, MemberResponse>> Solve(FrameModel model, IClock clock, Option<SolveSession> session = default) =>
         model.Members.IsEmpty
@@ -529,7 +526,7 @@ public static partial class StructuralAnalysis {
                     (acc, p) => acc.Map.ContainsKey(Quantized(p, model.Joint))
                         ? acc
                         : (acc.Order.Add(p), acc.Map.Add(Quantized(p, model.Joint), acc.Order.Count)));
-            return (index.Order, key => index.Map.Find(key).ToFin(
+            return (index.Order, key => index.Map.Find().ToFin(
                 new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<frame-joint-unmerged:{key}>")));
         }
 

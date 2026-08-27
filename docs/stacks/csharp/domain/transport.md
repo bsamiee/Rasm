@@ -172,7 +172,7 @@ public static class CallBoundary {
     }
 
     private static Error Fold(RpcException wire, Func<FaultDetail, string, Error> remote, CancellationToken caller, Error cause) =>
-        Op.Of().Catch(() => Fin.Succ(Optional(wire.GetRpcStatus())))
+        Try.lift(() => Fin.Succ(Optional(wire.GetRpcStatus()))).Run().Bind(static inner => inner)
             .Match(
                 Succ: status => status
                     .Bind(held => toSeq(held.Details).Filter(static any => any.Is(FaultDetail.Descriptor)) is [Any only]
@@ -251,11 +251,7 @@ public static class TemporalBridge {
         wire is DayOfWeek.Unspecified ? new Fault.Absent(Detail: nameof(DayOfWeek)) : wire.ToIsoDayOfWeek();
 
     private static Validation<Error, T> Ranged<T>(int code, Func<T> read) =>
-        Op.Of().Catch(
-            () => Fin.Succ(read()),
-            captured => captured.Exception.Case is ArgumentOutOfRangeException
-                ? Some(new Fault.Bounds(Detail: $"<temporal-range:{code}>", Cause: captured))
-                : None)
+        Try.lift(() => Fin.Succ(read())).Run().Bind(static inner => inner)
         .ToValidation();
 }
 ```
@@ -329,38 +325,32 @@ public static class Endpoint {
     private const string Name = "manifest.json";
 
     public static Fin<Unit> Publish(Manifest manifest, string directory) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             _ = Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             string staged = Path.Join(directory, $"{Name}.{manifest.Epoch}.staged");
             File.WriteAllBytes(staged, JsonSerializer.SerializeToUtf8Bytes(manifest, ManifestContext.Default.Manifest));
             File.Move(staged, Path.Join(directory, Name), overwrite: true);
             return Fin.Succ(unit);
-        }, static captured => captured.Exception.Case is IOException or UnauthorizedAccessException
-            ? Some(new TransportFault.Publish(captured))
-            : None);
+        }).Run().Bind(static inner => inner);
 
     public static Fin<Manifest> Attach(string directory) =>
-        Op.Of().Catch(
-                () => Fin.Succ(JsonSerializer.Deserialize(File.ReadAllBytes(Path.Join(directory, Name)), ManifestContext.Default.Manifest)),
-                static captured => captured.Exception.Case is IOException or UnauthorizedAccessException or JsonException
-                    ? Some(new TransportFault.Unpublished(captured))
-                    : None)
+        Try.lift(() => Fin.Succ(JsonSerializer.Deserialize(File.ReadAllBytes(Path.Join(directory, Name)), ManifestContext.Default.Manifest))).Run().Bind(static inner => inner)
             .Bind(static held => Optional(held).ToFin(new Fault.Absent(Detail: nameof(Manifest))))
             .Bind(static manifest => AdvisoryDead(manifest).Bind(dead => ConnectRefused(manifest.SocketPath).Bind(refused =>
                 dead && refused ? Fin.Fail<Manifest>(new TransportFault.Stale(manifest.Epoch)) : Fin.Succ(manifest))));
 
     private static Fin<bool> AdvisoryDead(Manifest manifest) =>
-        Op.Of().Catch(() => Fin.Succ(Process.GetProcessById(manifest.Pid).StartTime.ToUniversalTime().Ticks != manifest.StartStamp))
+        Try.lift(() => Fin.Succ(Process.GetProcessById(manifest.Pid).StartTime.ToUniversalTime().Ticks != manifest.StartStamp)).Run().Bind(static inner => inner)
             .BindFail(static captured => captured.Exception.Case is ArgumentException
                 ? Fin.Succ(true)
                 : Fin.Fail<bool>(captured));
 
     private static Fin<bool> ConnectRefused(string socketPath) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using Socket probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
             probe.Connect(new UnixDomainSocketEndPoint(socketPath));
             return Fin.Succ(false);
-        }).BindFail(static captured => captured.Exception.Case is SocketException
+        }).Run().Bind(static inner => inner).BindFail(static captured => captured.Exception.Case is SocketException
             ? Fin.Succ(true)
             : Fin.Fail<bool>(captured));
 }
@@ -404,7 +394,7 @@ public static class Corridor {
 
     public static async Task<Fin<Admitted<T>>> Admit<T>(Stream lane, MessageParser<T> parser, Manifest manifest, CancellationToken token) where T : class, IMessage<T> {
         ArgumentNullException.ThrowIfNull(lane);
-        return await Op.Of().Catch(async ct => {
+        return await Try.lift(async ct => {
             byte[] header = new byte[HeaderSize];
             try { await lane.ReadExactlyAsync(header, ct).ConfigureAwait(false); }
             catch (EndOfStreamException shortRead) {
@@ -419,11 +409,7 @@ public static class Corridor {
                 await lane.ReadExactlyAsync(body.AsMemory(0, length), ct).ConfigureAwait(false);
                 return Crc32.HashToUInt32(body.AsSpan(0, length)) != BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(6))
                     ? Fin.Fail<Admitted<T>>(new TransportFault.Corrupt())
-                    : Op.Of().Catch(
-                        () => Fin.Succ(parser.ParseFrom(new ReadOnlySequence<byte>(body, 0, length))),
-                        static captured => captured.Exception.Case is InvalidProtocolBufferException
-                            ? Some(new TransportFault.Undecodable(captured))
-                            : None)
+                    : Try.lift(() => Fin.Succ(parser.ParseFrom(new ReadOnlySequence<byte>(body, 0, length)))).Run().Bind(static inner => inner)
                         .Map(payload => new Admitted<T>(payload, ContentHash.Of(body.AsSpan(0, length))));
             }
             catch (EndOfStreamException shortRead) {
@@ -431,7 +417,7 @@ public static class Corridor {
                 return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("body", Error.New(raised.Message, raised)));
             }
             finally { ArrayPool<byte>.Shared.Return(body); }
-        }, token).ConfigureAwait(false);
+        }).Run().Bind(static inner => inner).ConfigureAwait(false);
     }
 }
 ```

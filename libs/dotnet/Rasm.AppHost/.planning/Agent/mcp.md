@@ -297,14 +297,14 @@ public sealed record McpRound(string State, CorrelationId Correlation, Option<Co
     public static Option<McpRound> Of(string? state, IDictionary<string, InputResponse>? answers, JsonSerializerOptions wire) =>
         Optional(state)
             .Bind(token => Base64Url.IsValid(token)
-                ? Op.Of().Catch(() => Fin.Succ(JsonSerializer.Deserialize<CorrelationId>(Base64Url.DecodeFromChars(token), wire))).ToOption()
+                ? Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<CorrelationId>(Base64Url.DecodeFromChars(token), wire))).Run().Bind(static inner => inner).ToOption()
                 : None)
             .Map(correlation => new McpRound(
                 state!,
                 correlation,
                 Optional(answers).Bind(set => set.TryGetValue(ServerInitiated.CostAsk, out InputResponse? answer)
-                    ? Op.Of().Catch(() => Fin.Succ(answer.Deserialize(
-                            (JsonTypeInfo<CostApproval>)wire.GetTypeInfo(typeof(CostApproval)))))
+                    ? Try.lift(() => Fin.Succ(answer.Deserialize(
+                            (JsonTypeInfo<CostApproval>)wire.GetTypeInfo(typeof(CostApproval))))).Run().Bind(static inner => inner)
                         .ToOption().Bind(Optional)
                     : None)));
 }

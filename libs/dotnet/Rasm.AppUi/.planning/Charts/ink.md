@@ -305,7 +305,7 @@ public static class ChartPigment {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ChartComposition {
     public static Fin<Unit> Register(ChartInk ink, MotionPlan motion, TypographyRole label, SKTypeface typeface) =>
-        Op.Of(name: "appui.chart.register").Catch(() => {
+        Try.lift(() => {
             LiveCharts.Configure(settings => settings
                 .AddSkiaSharp()
                 .AddDefaultMappers()
@@ -320,7 +320,7 @@ public static class ChartComposition {
                     rendering.ShowFPS = false;
                 }));
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 
     static void Seed(Theme theme, ChartInk ink, TypographyRole label) {
         theme.Colors = ink.Palette;

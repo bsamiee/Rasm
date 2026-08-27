@@ -99,7 +99,7 @@ public static class PgStatHarvest {
         });
 
     static IO<T> Captured<T>(string engine, Func<Task<T>> crossing) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+        IO.liftAsync(async () => (await Try.lift(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
             .MapFail(error => StatFault.Lift(engine, error, static raised => raised is NpgsqlException)))
         .Bind(IO.lift);
 }
@@ -124,7 +124,7 @@ public sealed record DuckProfile(
 
 public static class DuckProfileHarvest {
     public static IO<DuckProfile> Profiled(DuckDBConnection connection, string sql, string outputPath, ProjectionContext context) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             var output = Path.GetFullPath(outputPath);
             var escapedOutput = output.Replace("'", "''", StringComparison.Ordinal);
             var armed = false;
@@ -152,7 +152,7 @@ public static class DuckProfileHarvest {
                     File.Delete(output);
                 }
             }
-        }).ConfigureAwait(false)).MapFail(error => StatFault.Lift("duckdb-profile", error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => StatFault.Lift("duckdb-profile", error,
             static raised => raised is DuckDBException or IOException or JsonException)))
         .Bind(IO.lift);
 
@@ -223,7 +223,7 @@ public static class SqliteStatHarvest {
     }
 
     static int Gauge(sqlite3 db, int op) {
-        ignore(raw.sqlite3_db_status(db, op, out var current, out _, 0));
+        ignore(raw.sqlite3_db_status(db, out var current, out _, 0));
         return current;
     }
 }
@@ -233,7 +233,7 @@ public static class SqliteStatHarvest {
 
 - Owner: `PlanProfile` captures plan shapes across the three engines; `PlanSubject` discriminates the engine by value shape, `PlanBaselineRow` persists the statement-keyed baseline, and `PlanVerdict` closes the comparison outcome.
 - Cases: `PlanSubject` is `Postgres(NpgsqlDataSource, string, Option<long>) | Duck(DuckDBConnection, string) | Sqlite(SqliteConnection, string)`; `PlanVerdict` is `Baselined | Unchanged | Drifted` — a first sighting persists its shape through the injected `baseline` arrow and reads `Baselined`, a match reads `Unchanged`, a moved digest reads `Drifted` carrying both shapes; `PlanRule` mirrors those three outcomes as rows whose `Stable` column marks the two that hold a plan.
-- Entry: `PlanProfile.Capture(PlanSubject subject, held, baseline, frame)` returns `PlanVerdict`; `held` and `baseline` are identity-tier arrows filled at composition.
+- Entry: `Error.New(PlanSubject subject.Message, PlanSubject subject)` returns `PlanVerdict`; `held` and `baseline` are identity-tier arrows filled at composition.
 - Auto: each leg folds its engine's plan artifact to a SHAPE-ONLY digest — node kinds, join types, relation and index names for PostgreSQL, the physical-operator tree for DuckDB, the `EXPLAIN QUERY PLAN` detail rows for SQLite — so the digest is run-stable: a flipped join order or a lost index moves it, a slow run does not; statement identity is the pg `queryid` when the `compute_query_id` posture supplies one, else the invariant hash of the statement text.
 - Packages: Npgsql, DuckDB.NET.Data.Full, Microsoft.Data.Sqlite, System.IO.Hashing, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a fourth engine is one `PlanSubject` case and one leg; a fourth compare outcome is one `PlanVerdict` case beside one `PlanRule` row whose `Stable` column re-derives the stability share's good half with no pack edit; a richer shape facet is one row in the pg facet list or one decode line; zero new surface — a per-engine capture service or a timing-bearing digest is the deleted form.
@@ -350,7 +350,7 @@ public static class PlanProfile {
         });
 
     static IO<T> Captured<T>(string engine, Func<Exception, bool> recognizes, Func<Task<T>> crossing) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+        IO.liftAsync(async () => (await Try.lift(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
             .MapFail(error => StatFault.Lift(engine, error, recognizes)))
         .Bind(IO.lift);
 

@@ -254,7 +254,7 @@ public sealed record RecordAttestation(
         Func<EvidenceRef.Personnel, AttestationRole, EvidenceRef.Certificate, X509Certificate2, Fin<Unit>> trust) =>
         from payload in QualityReport.Payload(
             new AttestationPayload(canonicalBody, Signer, Role, Credential, SignedAt))
-        from verified in QualityEvidence.RecordOp.Catch(() => {
+        from verified in Try.lift(() => {
             using X509Certificate2 certificate = X509Certificate2.CreateFromPem(CertificatePem);
             using ECDsa? key = certificate.GetECDsaPublicKey();
             return from _ in trust(Signer, Role, Credential, certificate)
@@ -264,7 +264,7 @@ public sealed record RecordAttestation(
                        HashAlgorithmName.SHA384,
                        DSASignatureFormat.Rfc3279DerSequence), QualityEvidence.Refused(RecordRefusal.Signature))
                    select unit;
-        })
+        }).Run().Bind(static inner => inner)
         select verified;
 }
 
@@ -310,7 +310,7 @@ public static class QualityReport {
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
     public static Fin<SealedRecord> Seal(QualityReportRequest request, Option<InstrumentSet> set = default) =>
-        from admitted in QualityEvidence.RecordOp.Need(request)
+        from admitted in Admit.Need(request)
         from _request in (
             AdmissionSlots.Gate(!admitted.Records.IsEmpty, QualityEvidence.Refused(RecordRefusal.Source)),
             AdmissionSlots.Gate(admitted.Scope is not null, QualityEvidence.Refused(RecordRefusal.Scope)),
@@ -409,12 +409,12 @@ public static class QualityReport {
         Instant signedAt) =>
         from payload in Payload(new AttestationPayload(
             canonicalBody, credential.Signer, credential.Role, credential.Credential, signedAt))
-        from signature in QualityEvidence.RecordOp.Catch(() => {
+        from signature in Try.lift(() => {
             using ECDsa? key = credential.Certificate.GetECDsaPrivateKey();
             return Fin.Succ(key is null
                 ? Option<byte[]>.None
                 : Some(key.SignData(payload.Span, HashAlgorithmName.SHA384, DSASignatureFormat.Rfc3279DerSequence)));
-        })
+        }).Run().Bind(static inner => inner)
         from bytes in signature.ToFin(QualityEvidence.Refused(RecordRefusal.SigningKey))
         select new RecordAttestation(
             credential.Signer,
@@ -457,8 +457,8 @@ public static class QualityReport {
                 repairability: static (inner, value) => inner.Amount(value.Value),
                 durability: static (inner, value) => inner.I64(value.Value.BclCompatibleTicks))
                 .Reference(measure.Provenance.Source).Window(measure.Provenance.Period))
-            .Rows(evidence.ServiceHistory, static (row, key) => row.Key(key))
-            .Rows(evidence.RepairHistory, static (row, key) => row.Key(key))
+            .Rows(evidence.ServiceHistory, static (row, key) => row.Key())
+            .Rows(evidence.RepairHistory, static (row, key) => row.Key())
             .Moment(evidence.ManufacturedAt)
             .Maybe(evidence.RetiredAt, static (row, at) => row.Moment(at));
     }

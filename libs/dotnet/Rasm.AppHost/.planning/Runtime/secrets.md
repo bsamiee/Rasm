@@ -224,9 +224,9 @@ public static class CredentialPublic {
             .MapFail(static error => (Error)new PemFault.SpkiRejected(error));
 
     static Der Admit(ReadOnlySpan<byte> key) {
-        _ = PublicKey.CreateFromSubjectPublicKeyInfo(key, out int read);
+        _ = PublicKey.CreateFromSubjectPublicKeyInfo(out int read);
         return read == key.Length
-            ? Der.Of(key)
+            ? Der.Of()
             : throw new CryptographicException("trailing octets after subject public key info");
     }
 

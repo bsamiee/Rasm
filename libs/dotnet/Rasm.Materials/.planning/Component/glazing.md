@@ -218,14 +218,14 @@ public readonly record struct MoisturePenetration(double InitialFraction, double
     public double Index => (FinalFraction - InitialFraction) / (CapacityFraction - InitialFraction);
     public bool Conforms => Index <= IndividualCeiling;
 
-    public static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, Desiccant desiccant, Op key) =>
-        Of(initialFraction, finalFraction, desiccant.CapacityFraction, key);
+    public static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, Desiccant desiccant) =>
+        Of(initialFraction, finalFraction, desiccant.CapacityFraction);
 
-    static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, double capacityFraction, Op key) =>
+    static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, double capacityFraction) =>
         from finite in guard(double.IsFinite(initialFraction) && double.IsFinite(finalFraction) && double.IsFinite(capacityFraction),
-            new KernelFault.InvalidValue(nameof(MoisturePenetration), "finite fractions", Some(key)))
+            new KernelFault.InvalidValue(nameof(MoisturePenetration), "finite fractions"))
         from ordered in guard(initialFraction >= 0.0 && initialFraction < capacityFraction && finalFraction >= initialFraction,
-            new KernelFault.InvalidValue(nameof(MoisturePenetration), "ordered non-negative fractions below capacity", Some(key)))
+            new KernelFault.InvalidValue(nameof(MoisturePenetration), "ordered non-negative fractions below capacity"))
         select new MoisturePenetration(initialFraction, finalFraction, capacityFraction);
 }
 
@@ -260,7 +260,7 @@ public static class GlazingThermal {
     const double FreeMolecularConductanceAirPerPa = 1.2;
     const double ThermalModelRelativeUncertainty = 0.05;
 
-    internal static Fin<GlazingPerformance> Evaluate(Seq<Pane> panes, Seq<Cavity> cavities, CavityTilt tilt, Op key) {
+    internal static Fin<GlazingPerformance> Evaluate(Seq<Pane> panes, Seq<Cavity> cavities, CavityTilt tilt) {
         double[] rPane = panes.Map(PaneConductiveResistance).ToArray();
         double[] rCav = new double[cavities.Count];
         for (int i = 0; i < cavities.Count; i++) rCav[i] = 1.0 / CavityConductance(panes, cavities, i, tilt);
@@ -274,11 +274,11 @@ public static class GlazingThermal {
         return from ugMeasure in QuantityRow.HeatTransferCoefficient.OfNative(ug)
                from ugBand in MeasureBand.Admit(UncertaintyKind.Relative,
                    ugUncertainty.LowerBound.WattsPerSquareMeterKelvin, ugUncertainty.UpperBound.WattsPerSquareMeterKelvin,
-                   Option<double>.None, Option<double>.None, key)
-               from ugBanded in ugMeasure.WithUncertainty(ugBand, key)
-               from acoustic in MassLawSpectrum(panes, cavities, key)
-               from solarG in MeasureValue.Of(g, UnitsNet.Units.RatioUnit.DecimalFraction, key)
-               from lightTv in MeasureValue.Of(tv, UnitsNet.Units.RatioUnit.DecimalFraction, key)
+                   Option<double>.None, Option<double>.None)
+               from ugBanded in ugMeasure.WithUncertainty(ugBand)
+               from acoustic in MassLawSpectrum(panes, cavities)
+               from solarG in MeasureValue.Of(g, UnitsNet.Units.RatioUnit.DecimalFraction)
+               from lightTv in MeasureValue.Of(tv, UnitsNet.Units.RatioUnit.DecimalFraction)
                select new GlazingPerformance(ugBanded, solarG, lightTv, acoustic, EvidenceGrade.Defined);
     }
 
@@ -349,7 +349,7 @@ public static class GlazingThermal {
     static (double T, double Rf, double Rb) Span(Seq<Pane> panes, int lo, int hi, Func<Pane, (double T, double Rf, double Rb)> optics) =>
         panes.Skip(lo).Take(hi - lo).Fold((T: 1.0, Rf: 0.0, Rb: 0.0), (acc, pane) => Combine(acc, optics(pane)));
 
-    static Fin<Acoustic> MassLawSpectrum(Seq<Pane> panes, Seq<Cavity> cavities, Op key) {
+    static Fin<Acoustic> MassLawSpectrum(Seq<Pane> panes, Seq<Cavity> cavities) {
         double areal = panes.Sum(static p => p.Glass.DensityKgM3 * p.GlassThicknessMm / 1000.0 + p.Interlayer.DensityKgM3 * p.InterlayerThicknessMm / 1000.0);
         double bonus = panes.Fold(0.0, static (acc, p) => Math.Max(acc, p.Interlayer.AcousticDampingDb)) + (Asymmetric(panes) ? 2.0 : 0.0);
         Seq<double> resonances = cavities.Map((cavity, index) => {
@@ -364,7 +364,7 @@ public static class GlazingThermal {
             sri[band.Key] = Math.Max(0.0, 20.0 * Math.Log10(Math.Max(areal, 1e-9) * band.CenterHz) - MassLawOffsetDb + bonus - resonanceDip);
             absorption[band.Key] = 0.03;
         }
-        return Acoustic.Of(absorption, sri, key);
+        return Acoustic.Of(absorption, sri);
     }
 
     static double PaneArealMass(Pane pane) =>
@@ -413,12 +413,12 @@ public static class GlazingStructural {
 
     public static Fin<GlassCapacity> Capacity(
         Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double loadDurationS,
-        GlassBasis basis, double edgeFactor, Op key) =>
-        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes, key)
+        GlassBasis basis, double edgeFactor) =>
+        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes)
         from timed in guard(double.IsFinite(loadDurationS) && loadDurationS > 0.0,
-            new KernelFault.OutOfRange(nameof(loadDurationS), loadDurationS, "finite and positive", Some(key)))
+            new KernelFault.OutOfRange(nameof(loadDurationS), loadDurationS, "finite and positive"))
         from edged in guard(double.IsFinite(edgeFactor) && edgeFactor is > 0.0 and <= 1.0,
-            new KernelFault.OutOfRange(nameof(edgeFactor), edgeFactor, "inside (0, 1]", Some(key)))
+            new KernelFault.OutOfRange(nameof(edgeFactor), edgeFactor, "inside (0, 1]", Some()))
         let kmod = Math.Clamp(KmodCoefficient * Math.Pow(loadDurationS / 3600.0, -1.0 / StressCorrosionExponent), KmodFloor, 1.0)
         let shares = LoadShare(panes)
         select panes.Map((pane, index) => PaneCapacity(pane, basis, kmod, edgeFactor, shares[index]))
@@ -453,15 +453,15 @@ public static class GlazingLifetime {
     const double RsiCondensationM2KPerW = 0.25;
     const double GasRetentionPerYear = 0.99;
 
-    public static Fin<GlazingService> AtYears(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double years, CavityTilt tilt, Op key) =>
-        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes, key)
+    public static Fin<GlazingService> AtYears(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double years, CavityTilt tilt) =>
+        from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes)
         from aged in guard(double.IsFinite(years) && years >= 0.0,
-            new KernelFault.OutOfRange(nameof(years), years, "finite and non-negative", Some(key)))
+            new KernelFault.OutOfRange(nameof(years), years, "finite and non-negative"))
         let retention = Math.Pow(GasRetentionPerYear, years)
         let decayed = cavities.Map(c => c.Fill is CavityFill.GasFill gas
             ? c with { Fill = new CavityFill.GasFill(gas.Gas, gas.FillFraction * retention, gas.Balance) }
             : c)
-        from perf in GlazingThermal.Evaluate(panes, decayed, tilt, key)
+        from perf in GlazingThermal.Evaluate(panes, decayed, tilt)
         select new GlazingService(
             perf,
             1.0 - perf.UgCenterOfGlass.Si * RsiCondensationM2KPerW,
@@ -473,26 +473,26 @@ public static class GlazingDetail {
 
     static readonly PropertyEvidence GenericEpd = new("epd", "en 15804 generic insulating glass unit", Option<LocalDate>.None);
 
-    internal static Validation<Error, Unit> Stack(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, Op key) =>
+    internal static Validation<Error, Unit> Stack(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 !panes.IsEmpty && cavities.Count == panes.Count - 1,
-                new KernelFault.InvalidValue(nameof(GlazingDetail), "one fewer cavity than panes", Some(key))),
+                new KernelFault.InvalidValue(nameof(GlazingDetail), "one fewer cavity than panes")),
             AdmissionSlots.Gate(
                 !panes.IsEmpty && GlazingBuild.OfPaneCount(panes.Count).IsSome,
-                new KernelFault.InvalidValue(nameof(GlazingBuild), "a published pane-count build", Some(key))),
+                new KernelFault.InvalidValue(nameof(GlazingBuild), "a published pane-count build")),
             AdmissionSlots.Gate(
                 fireEiMinutes >= 0,
-                new KernelFault.OutOfRange(nameof(fireEiMinutes), fireEiMinutes, "non-negative", Some(key))),
+                new KernelFault.OutOfRange(nameof(fireEiMinutes), fireEiMinutes, "non-negative")),
             AdmissionSlots.Gate(
                 panes.ForAll(Coherent),
-                new KernelFault.InvalidValue(nameof(panes), "coherent pane and interlayer declarations", Some(key))),
+                new KernelFault.InvalidValue(nameof(panes), "coherent pane and interlayer declarations")),
             AdmissionSlots.Gate(
                 cavities.ForAll(Sane),
-                new KernelFault.InvalidValue(nameof(cavities), "admitted cavity width and fill fractions", Some(key)))));
+                new KernelFault.InvalidValue(nameof(cavities), "admitted cavity width and fill fractions"))));
 
-    internal static Fin<Unit> Admit(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, Op key) =>
-        Stack(panes, cavities, fireEiMinutes, key).ToFin();
+    internal static Fin<Unit> Admit(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes) =>
+        Stack(panes, cavities, fireEiMinutes).ToFin();
 
     static bool Coherent(Pane p) =>
         double.IsFinite(p.InterlayerThicknessMm)
@@ -509,36 +509,35 @@ public static class GlazingDetail {
 
     public static Fin<Seq<MaterialPropertySet>> Properties(
         Seq<Pane> panes, Seq<Cavity> cavities, EdgeSeal seal, SpacerType spacer, double perimeterToAreaRatio,
-        int fireEiMinutes, CavityTilt tilt, Op key, Option<double> serviceYears = default) =>
-        from service in GlazingLifetime.AtYears(panes, cavities, fireEiMinutes, serviceYears.IfNone(0.0), tilt, key)
+        int fireEiMinutes, CavityTilt tilt, Option<double> serviceYears = default) =>
+        from service in GlazingLifetime.AtYears(panes, cavities, fireEiMinutes, serviceYears.IfNone(0.0), tilt)
         let perf = service.Aged
         from thermal in MaterialPropertySet.OfThermal(
             conductivity: GlassConductivity(panes),
             specificHeat: GlassSpecificHeat(panes),
             uValue: perf.UgCenterOfGlass.Si,
-            vapourResistanceFactor: 1.0e6,
-            key)
+            vapourResistanceFactor: 1.0e6)
         from environmental in MaterialPropertySet.OfEnvironmental(
             MeasurementBasis.PerM2,
             MaterialPropertySet.Environmental.CarbonMatrix(GlazingGwp.StagesPerM2(panes, seal, spacer, perimeterToAreaRatio)),
-            recycledContent: None, endOfLifeRecovery: None, key, evidence: GenericEpd)
+            recycledContent: None, endOfLifeRecovery: None, evidence: GenericEpd)
         from fire in fireEiMinutes > 0
-            ? FireResistance.Of(FireCoverage.Ei, fireEiMinutes, key).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
+            ? FireResistance.Of(FireCoverage.Ei, fireEiMinutes).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
             : Fin.Succ(Seq<MaterialPropertySet>())
         let acoustic = MaterialPropertySet.OfAcoustic(perf.Acoustic)
         select Seq(thermal, acoustic, environmental) + fire;
 
-    internal static Fin<Seq<Ply>> Plies(Seq<Pane> panes, Seq<Cavity> cavities, Op key) =>
+    internal static Fin<Seq<Ply>> Plies(Seq<Pane> panes, Seq<Cavity> cavities) =>
         toSeq(Enumerable.Range(0, panes.Count + cavities.Count))
             .Traverse(slot => (slot & 1) == 0
-                ? PanePlies(panes[slot / 2], key)
+                ? PanePlies(panes[slot / 2])
                 : Fin.Succ(Seq(new Ply(MaterialId.Create("gas.cavity"), cavities[slot / 2].WidthMm, PlyRole.Cavity)))).As()
             .Map(static plies => plies.Bind(static p => p));
 
-    static Fin<Seq<Ply>> PanePlies(Pane pane, Op key) =>
+    static Fin<Seq<Ply>> PanePlies(Pane pane) =>
         pane.IsLaminated
-            ? from half in key.AcceptValidated<PositiveMagnitude>(candidate: pane.GlassThicknessMm / 2.0)
-              from inter in key.AcceptValidated<PositiveMagnitude>(candidate: pane.InterlayerThicknessMm)
+            ? from half in FactoryBridge.Accept<PositiveMagnitude>(candidate: pane.GlassThicknessMm / 2.0)
+              from inter in FactoryBridge.Accept<PositiveMagnitude>(candidate: pane.InterlayerThicknessMm)
               select Seq(
                   new Ply(pane.Glass.Appearance, half, PlyRole.Pane),
                   new Ply(MaterialId.Create("glass.crown"), inter, PlyRole.Interlayer),
@@ -671,8 +670,8 @@ public static class GlazingSeed {
     public static readonly Lazy<Fin<FrozenDictionary<ComponentId, GlazingRow>>> Table =
         SeedJoin.Of(Roster, static r => r.Designation);
 
-    public static Fin<GlazingRow> Resolve(Component component, Op key) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+    public static Fin<GlazingRow> Resolve(Component component) =>
+        SeedJoin.Resolve(Table, component.Designation);
 
     public static readonly SeedLaw<GlazingRow> Law = SeedLaw<GlazingRow>.Of(
         family: ComponentFamily.Glazing,
@@ -682,33 +681,33 @@ public static class GlazingSeed {
         substance: static r => r.Panes[0].Glass.Substance,
         source: static r => r.Source,
         standard: static _ => IguStandard,
-        detail: Some<Func<GlazingRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<GlazingRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static r => r.Panes[0].Glass.Appearance);
 
-    static Validation<Error, Unit> Coherence(GlazingRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(GlazingRow r) =>
         AdmissionSlots.Accumulate(Seq(
-            GlazingDetail.Stack(r.Panes, r.Cavities, r.FireResistanceEiMinutes, key),
+            GlazingDetail.Stack(r.Panes, r.Cavities, r.FireResistanceEiMinutes),
             AdmissionSlots.Gate(
                 r.Muntin.ForAll(static m => m.HorizontalBars >= 0 && m.VerticalBars >= 0 && m.HorizontalBars + m.VerticalBars > 0),
-                new KernelFault.InvalidValue(nameof(r.Muntin), "non-negative bars with at least one muntin", Some(key)))));
+                new KernelFault.InvalidValue(nameof(r.Muntin), "non-negative bars with at least one muntin"))));
 
-    static Fin<SectionProfile> Profile(GlazingRow r, Op key) =>
-        from plies in GlazingDetail.Plies(r.Panes, r.Cavities, key)
+    static Fin<SectionProfile> Profile(GlazingRow r) =>
+        from plies in GlazingDetail.Plies(r.Panes, r.Cavities)
         let overallMm = r.Panes.Sum(static p => p.ThicknessMm.Value) + r.Cavities.Sum(static c => c.WidthMm.Value)
-        from profile in SectionProfile.Layered.Of(plies, overallMm: overallMm, widthMm: overallMm, key)
+        from profile in SectionProfile.Layered.Of(plies, overallMm: overallMm, widthMm: overallMm)
         select profile;
 
-    static Fin<PropertyBag> Detail(GlazingRow r, SectionProfile profile, Op key) =>
-        from performance in GlazingThermal.Evaluate(r.Panes, r.Cavities, CavityTilt.Vertical, key)
+    static Fin<PropertyBag> Detail(GlazingRow r, SectionProfile profile) =>
+        from performance in GlazingThermal.Evaluate(r.Panes, r.Cavities, CavityTilt.Vertical)
         from bag in GlazingDetail.Bag(r.Panes, r.Cavities, r.Spacer, r.EdgeSeal, r.Muntin, r.FireResistanceEiMinutes, r.Source)
         select bag;
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in Resolve(component, key)
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from row in Resolve(component)
         from capacity in GlazingStructural.Capacity(
             row.Panes, row.Cavities, row.FireResistanceEiMinutes, placement.GlassLoadDurationS,
-            placement.GlassBasis, placement.GlassEdgeFactor, key)
-        from lifted in SectionCapacity.Lift(new CapacityLift.Glass(component.Designation, capacity), key)
+            placement.GlassBasis, placement.GlassEdgeFactor)
+        from lifted in SectionCapacity.Lift(new CapacityLift.Glass(component.Designation, capacity))
         select lifted;
 }
 ```

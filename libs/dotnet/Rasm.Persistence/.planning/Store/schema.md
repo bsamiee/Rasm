@@ -185,7 +185,7 @@ public static class ContractComposition {
         Proof(admitted).ToFin().Bind(_ => Mint(admitted));
 
     static Fin<SchemaContract> Admit(Parity.Backend document) =>
-        WireAdmission.Admit(document, WireBoundary.OutboundPayload, Op.Of())
+        WireAdmission.Admit(document, WireBoundary.OutboundPayload)
             .MapFail(static error => (Error)new ContractFault.InvalidProjection(error))
             .Bind(Project);
 
@@ -229,10 +229,10 @@ public static class ContractComposition {
         Func<TRow, TRow, bool> same)
         where TRow : class {
         Seq<string> keys = toSeq(rows
-            .GroupBy(key, StringComparer.Ordinal)
+            .GroupBy(StringComparer.Ordinal)
             .Where(group => group.Skip(1).Any(row => !same(group.First(), row)))
             .Select(static group => group.Key));
-        return keys.Traverse(key => (Validation<Error, Unit>)new ContractFault.ContributionCollision(key))
+        return keys.Traverse(key => (Validation<Error, Unit>)new ContractFault.ContributionCollision())
             .As().Map(static _ => unit);
     }
 
@@ -392,10 +392,10 @@ public static class BackendAdmission {
         Seq<string> requiredCapabilities = toSeq(expected.Document.Capabilities
             .Where(static row => row.FailureRank == Parity.FailureRank.Required)
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldCapabilities.Admits(key)));
+            .Where(key => !observed.HeldCapabilities.Admits()));
         Seq<string> requiredArtifacts = toSeq(expected.Document.Artifacts
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldArtifacts.Contains(key)));
+            .Where(key => !observed.HeldArtifacts.Contains()));
         Seq<RecoveryReading> breaches = observed.Window.Exceeding(objective);
         Seq<string> undescribable = toSeq(observed.HeldArtifacts)
             .Filter(key => !expected.Document.Artifacts.Any(row => row.Key == key));
@@ -429,14 +429,14 @@ public static class BackendConformance {
     const int DocumentCeiling = 512 * 1024;
 
     public static Fin<ReadOnlyMemory<byte>> Emit(SchemaContract contract) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using var sink = new MemoryStream();
             WireJson.Write(contract.Document, sink);
             ReadOnlyMemory<byte> document = sink.ToArray();
             return document.Length <= DocumentCeiling
                 ? Fin.Succ<ReadOnlyMemory<byte>>(document)
                 : throw new InvalidDataException($"backend contract exceeds {DocumentCeiling} bytes");
-        }).MapFail(static error => (Error)new ContractFault.InvalidProjection(error));
+        }).Run().Bind(static inner => inner).MapFail(static error => (Error)new ContractFault.InvalidProjection(error));
 
     public static Fin<SchemaContract> Project(ReadOnlyMemory<byte> protoJson) {
         if (protoJson.Length > DocumentCeiling) {
@@ -444,7 +444,7 @@ public static class BackendConformance {
                 $"<contract-document-ceiling:{protoJson.Length}:{DocumentCeiling}>"));
         }
         using var source = new MemoryStream(protoJson.ToArray(), writable: false);
-        return WireJson.Read<Parity.Backend>(source, Op.Of())
+        return WireJson.Read<Parity.Backend>(source)
             .MapFail(static error => (Error)new ContractFault.InvalidProjection(error))
             .Bind(ContractComposition.Project);
     }

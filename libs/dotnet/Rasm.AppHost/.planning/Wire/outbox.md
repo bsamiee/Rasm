@@ -53,14 +53,14 @@ public abstract partial record RelayState {
 
 [ValueObject<ulong>(KeyMemberName = "Value")]
 public sealed partial class OutboxOrdinal {
-    public static Fin<OutboxOrdinal> Admit(string text, Op key) =>
+    public static Fin<OutboxOrdinal> Admit(string text) =>
         ulong.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out ulong held)
             && StringComparer.Ordinal.Equals(text, held.ToString("D20", CultureInfo.InvariantCulture))
-            ? Admit(held, key)
-            : Fin.Fail<OutboxOrdinal>(key.InvalidInput(nameof(OutboxOrdinal)));
+            ? Admit(held)
+            : Fin.Fail<OutboxOrdinal>(new KernelFault.InvalidInput(Axis: Some(nameof(OutboxOrdinal))));
 
-    public static Fin<OutboxOrdinal> Admit(ulong ordinal, Op key) =>
-        key.AcceptValidated<OutboxOrdinal, ulong>(ordinal);
+    public static Fin<OutboxOrdinal> Admit(ulong ordinal) =>
+        FactoryBridge.Accept<OutboxOrdinal, ulong>(ordinal);
 
     public long Sequence => checked((long)Value);
 
@@ -128,8 +128,8 @@ public static class OutboxEventExtensions {
             global::Rasm.Contracts.Event.EventReflection.Descriptor,
         ]));
 
-    public static Fin<RasmEvent<global::Rasm.Contracts.Event.Extensions>> Admit(CloudEvent envelope, Op key) =>
-        RasmEventEnvelope.Admit(envelope, Contract, key);
+    public static Fin<RasmEvent<global::Rasm.Contracts.Event.Extensions>> Admit(CloudEvent envelope) =>
+        RasmEventEnvelope.Admit(envelope, Contract);
 
     public static TraceCarrier Trace(global::Rasm.Contracts.Event.Extensions message) =>
         TraceCarrier.Admit(
@@ -155,26 +155,26 @@ public sealed record RelayEntry(
 
     public string Dedup => $"{Envelope.Source}\0{Envelope.Id}";
 
-    public static Fin<RelayEntry> Admit(PendingRelay pending, Op key) =>
+    public static Fin<RelayEntry> Admit(PendingRelay pending) =>
         from state in pending.State.Switch(
             pending: state => state.Attempt == 0
                 ? Fin.Succ<RelayState>(state)
-                : Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))),
+                : Fin.Fail<RelayState>(new KernelFault.InvalidInput(Axis: Some(nameof(PendingRelay.State)))),
             deferred: state => state.Attempt > 0
                 ? Fin.Succ<RelayState>(state)
-                : Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))),
-            deadLettered: _ => Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))))
-        from admitted in OutboxEventExtensions.Admit(pending.Envelope, key)
+                : Fin.Fail<RelayState>(new KernelFault.InvalidInput(Axis: Some(nameof(PendingRelay.State)))),
+            deadLettered: _ => Fin.Fail<RelayState>(new KernelFault.InvalidInput(Axis: Some(nameof(PendingRelay.State)))))
+        from admitted in OutboxEventExtensions.Admit(pending.Envelope)
         let extensions = admitted.Extensions
         from sequence in extensions.HasSequence
             ? Fin.Succ(extensions.Sequence)
-            : Fin.Fail<string>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.Extensions.Sequence)))
-        from ordinal in OutboxOrdinal.Admit(sequence, key)
+            : Fin.Fail<string>(new KernelFault.InvalidInput(Axis: Some(nameof(global::Rasm.Contracts.Event.Extensions.Sequence))))
+        from ordinal in OutboxOrdinal.Admit(sequence)
         from grade in DataGrade.Validate(
                 extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
                 && admittedGrade is { } handling
             ? Fin.Succ(handling)
-            : Fin.Fail<DataGrade>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.Extensions.Dataclassification)))
+            : Fin.Fail<DataGrade>(new KernelFault.InvalidInput(Axis: Some(nameof(global::Rasm.Contracts.Event.Extensions.Dataclassification))))
         select new RelayEntry(
             admitted.Envelope, state, ordinal, admitted.Time, grade,
             OutboxEventExtensions.Trace(extensions));
@@ -242,9 +242,9 @@ public static class OutboxRelay {
 
     public static IO<Fin<OutboxOrdinal>> Sweep(Runtime runtime, TenantContext tenant, OutboxOrdinal watermark) =>
         runtime.Pending(runtime.Consumer, watermark.Sequence, runtime.Batch).Match(
-            Succ: pending => pending.Traverse(row => RelayEntry.Admit(row, Op.Of())).As().Match(
+            Succ: pending => pending.Traverse(row => RelayEntry.Admit(row)).As().Match(
                 Succ: rows => runtime.Band.Match(
-                        Some: band => band.Traced(Scope, Op.Of(), _ => Drain(runtime, tenant, rows, watermark), Edges(runtime, rows)),
+                        Some: band => band.Traced(Scope, _ => Drain(runtime, tenant, rows, watermark), Edges(runtime, rows)),
                         None: () => Drain(runtime, tenant, rows, watermark))
                     .Map(Fin.Succ),
                 Fail: fault => IO.pure(Fin.Fail<OutboxOrdinal>(
@@ -269,7 +269,7 @@ public static class OutboxRelay {
         .As()
         .Map(state => OutboxOrdinal
             .Admit(state.Results.Choose(static result => result.Cursor).Strict()
-                .Fold(watermark.Value, static (held, cursor) => ulong.Max(held, cursor.Value)), Op.Of())
+                .Fold(watermark.Value, static (held, cursor) => ulong.Max(held, cursor.Value)))
             .IfFail(watermark));
 
     static IO<RelayResult> Relay(Runtime runtime, TenantContext tenant, RelayEntry row) =>

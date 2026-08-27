@@ -299,7 +299,7 @@ public sealed partial class CuttingKey {
         ref MaterialCutSpec material, ref CutterFamily form, ref Operation operation) { }
 
     public static Fin<CuttingKey> Admit(MaterialCutSpec material, CutterFamily form, Operation operation) =>
-        Validate(material, form, operation, out CuttingKey key).Admitted(key);
+        Validate(material, form, operation, out CuttingKey key).Admitted();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -354,7 +354,7 @@ public sealed partial class CuttingRow {
 
     public static Fin<CuttingRow> Admit(CuttingKey key, Pressure kc11, double mc, CutRegime regime,
         KienzleCorrection correction, double feedForceRatio, double passiveForceRatio, CuttingEvidence evidence) =>
-        Validate(key, kc11, mc, regime, correction, feedForceRatio, passiveForceRatio, evidence,
+        Validate(kc11, mc, regime, correction, feedForceRatio, passiveForceRatio, evidence,
             out CuttingRow row).Admitted(row);
 }
 
@@ -628,7 +628,7 @@ public sealed partial class CuttingData {
         OperationTrait operation, CuttingTable table, Option<CorrectionInputs> correction) =>
         CuttingKey.Admit(material, form.Family, operation.Operation)
             .ToOption()
-            .Bind(key => table.Exact.Find(key))
+            .Bind(key => table.Exact.Find())
             .Match(
                 Some: static row => Admit(CuttingDataMap.FromRow(row)),
                 None: () => Generate(material, operation, table, correction));

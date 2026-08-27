@@ -182,7 +182,7 @@ public abstract partial record ColumnCell {
 
     public static byte[] Packed(UInt128 key) {
         byte[] bytes = new byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(bytes, key);
+        BinaryPrimitives.WriteUInt128BigEndian(bytes);
         return bytes;
     }
 }
@@ -239,7 +239,7 @@ public abstract partial record ColumnShape {
         map:        static (c, s) => c is ColumnCell.Tags tags && tags.Element == ColumnType.Utf8 && s.Value is Scalar { Type.Key: "utf8" }
             ? tags.Pairs.Map(static pair => pair.Key).Distinct().Count == tags.Pairs.Count
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, "<map-duplicate-key>"))
+                : Fin.Fail<Unit>(new BackendFault.Unwritable("<map-duplicate-key>"))
             : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, "<map-value>")));
 
     public IArrowArray Column(Seq<ColumnCell> cells, MemoryAllocator? arena) => Switch(
@@ -586,7 +586,7 @@ public static class AnalyticsGate {
                 backend.Cap ? Some(backend.Degrade) : None));
 
     static Validation<Error, TimeSpine> Category(string token) =>
-        Op.Of().Row<string, TimeSpine>(token).ToValidation();
+        FactoryBridge.Row<string, TimeSpine>(token).ToValidation();
 
     static Validation<Error, AnalyticsSchema> Spined(
         string dataset, TimeSpine spine, Seq<ColumnRow> rows, Seq<Identifier> keys,
@@ -595,10 +595,10 @@ public static class AnalyticsGate {
         Seq<Identifier> key = keys.Filter(static name => name != Backend.TenantColumn);
         return at.Match(
             Some: named => spine == TimeSpine.Event
-                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, key, supplied, named, spine, measure))
+                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, supplied, named, spine, measure))
                 : Fail<Error, AnalyticsSchema>(new BackendFault.Unprovisioned($"<schema-spine:{dataset}:landing-names-clock>")),
             None: () => spine == TimeSpine.Landing
-                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, key,
+                ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset,
                     supplied + Seq(new ColumnRow(LandedColumn, ColumnType.Timestamp, Nullable: false)), LandedColumn, spine, measure))
                 : Fail<Error, AnalyticsSchema>(new BackendFault.Unprovisioned($"<schema-spine:{dataset}:event-names-no-clock>")));
     }
@@ -609,7 +609,7 @@ public static class AnalyticsGate {
                 ? Success<Error, Identifier>(name)
                 : Fail<Error, Identifier>(new BackendFault.Unprovisioned($"<schema-undeclared:{schema.Dataset}.{(string)name}>"))).As(),
         Unique(schema.Dataset, "columns", schema.Columns.Map(static column => column.Name)),
-        Unique(schema.Dataset, "key", schema.Key))
+        Unique(schema.Dataset, "key"))
             .Apply(static (_, _, _) => unit).As()
             .Map(_ => schema);
 
@@ -622,7 +622,7 @@ public static class AnalyticsGate {
         (Trusted(row.Name), Admitted(row.Type)).Apply((name, type) => new ColumnRow(name, type, row.Nullable)).As();
 
     static Validation<Error, Identifier> Trusted(string raw) =>
-        Op.Of().AcceptValidated<Identifier>(raw).ToValidation();
+        FactoryBridge.Accept<Identifier>(raw).ToValidation();
 
     static Validation<Error, ColumnShape> Admitted(string token) =>
         Wrapped(token, "list<") is { } element ? Admitted(element).Map(static shape => (ColumnShape)new ColumnShape.List(shape))
@@ -637,7 +637,7 @@ public static class AnalyticsGate {
     static Validation<Error, ColumnShape> Pair(string body) =>
         body.IndexOf(',', StringComparison.Ordinal) is int cut && cut > 0
             ? (Scalar(body[..cut]), Admitted(body[(cut + 1)..]))
-                .Apply(static (key, value) => (ColumnShape)new ColumnShape.Map(key, value)).As()
+                .Apply(static (key, value) => (ColumnShape)new ColumnShape.Map(value)).As()
             : Fail<Error, ColumnShape>(new BackendFault.Unprovisioned($"<column-type:map<{body}>>"));
 
     static Validation<Error, ColumnShape> Fixed(string body) =>
@@ -647,7 +647,7 @@ public static class AnalyticsGate {
             : Fail<Error, ColumnShape>(new BackendFault.Unprovisioned($"<column-type:fixed<{body}>>"));
 
     static Validation<Error, ColumnType> Scalar(string token) =>
-        Op.Of().Row<string, ColumnType>(token)
+        FactoryBridge.Row<string, ColumnType>(token)
             .MapFail(_ => new BackendFault.Unprovisioned($"<column-type:{token}>"))
             .ToValidation();
 }

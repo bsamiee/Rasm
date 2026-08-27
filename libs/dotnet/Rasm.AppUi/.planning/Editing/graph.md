@@ -340,8 +340,7 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
                 && Repeated(node.Pins.Map(static pin => pin.Key)).IsNone
                 && node.Pins.ForAll(static pin => !string.IsNullOrWhiteSpace(pin.Key)
                     && !string.IsNullOrWhiteSpace(pin.Name)
-                    && pin.BusWidth > 0),
-                node.Key, "key, extent, rotation, pin keys, and bus widths must be admitted",
+                    && pin.BusWidth > 0), "key, extent, rotation, pin keys, and bus widths must be admitted",
                 static (concern, detail) => (Error)new CanvasFault.ModelRejected($"{concern}: {detail}")))));
 
     static Validation<Error, Unit> Containment(Seq<GraphNodeRow> nodes) =>
@@ -578,7 +577,7 @@ public sealed class GraphCamera(ZoomBorder border) {
     }
 
     public IO<Fin<Unit>> Navigate(GraphNav verb) =>
-        IO.lift<Fin<Unit>>(() => Admit(verb).Bind(admitted => Op.Of(name: "appui.graph.navigate").Catch(() => Fin.Succ(ignore(admitted.Switch(
+        IO.lift<Fin<Unit>>(() => Admit(verb).Bind(admitted => Try.lift(() => Fin.Succ(ignore(admitted.Switch(
                 state: this,
                 fit: static (camera, _) => fun(() => camera.Border.Uniform(false))(),
                 fitTo: static (camera, v) => fun(() => camera.Border.ZoomToRectangle(v.Content, null, true))(),
@@ -598,7 +597,7 @@ public sealed class GraphCamera(ZoomBorder border) {
                     restore: static s => fun(() => ignore(s.Camera.bookmarks.Value.Find(s.Name)
                         .Iter(state => s.Camera.Border.ImportState(state, animate: true))))(),
                     drop: static s => fun(() => ignore(s.Camera.bookmarks.Swap(roster => roster.Remove(s.Name))))()),
-                reset: static (camera, _) => fun(() => camera.Border.ResetMatrix())()))))));
+                reset: static (camera, _) => fun(() => camera.Border.ResetMatrix())())))).Run().Bind(static inner => inner)));
 
     Fin<GraphNav> Admit(GraphNav verb) => verb.Switch(
         state: (Row: verb, Roster: bookmarks.Value),
@@ -794,7 +793,7 @@ public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes)
     public IO<Fin<Unit>> Frame() =>
         state.Value switch {
             var held when held.Cursor >= 0 => held.Hits[held.Cursor].Member
-                .Bind(key => Nodes().Find(row => StringComparer.Ordinal.Equals(row.Key, key)))
+                .Bind(key => Nodes().Find(row => StringComparer.Ordinal.Equals()))
                 .Match(
                     Some: row => Camera.Navigate(new GraphNav.Locate(new Point(row.X + (row.Width / 2d), row.Y + (row.Height / 2d)))),
                     None: () => IO.pure(Fin.Succ(unit))),
@@ -828,7 +827,7 @@ public sealed record GraphView(GraphCamera Camera) {
 
     public Fin<Unit> Import(Option<string> state) =>
         state.Filter(static payload => !string.IsNullOrWhiteSpace(payload)).Match(
-            Some: payload => Op.Of(name: "appui.graph.viewport-decode").Catch(() => Fin.Succ(JsonSerializer.Deserialize<GraphViewport>(payload, EvidenceOps.Wire)))
+            Some: payload => Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<GraphViewport>(payload, EvidenceOps.Wire))).Run().Bind(static inner => inner)
                 .Bind(decoded => Optional(decoded)
                     .ToFin(Fail: (Error)new CanvasFault.CameraRejected("viewport state decoded to nothing"))
                     .Map(admitted => ViewportMap.FromWire(admitted) switch {
@@ -971,7 +970,7 @@ public sealed class GraphBinding(
             : string.IsNullOrWhiteSpace(origin)
                 ? IO.pure(Fin.Fail<Unit>(new CanvasFault.ModelRejected("origin is required")))
                 : owner.Gate.Admitted(nodes, edges).Match(
-                    Succ: _ => owner.Ledger.Commit(doc, new EditIntent.GraphStructure(doc.Key, op), origin),
+                    Succ: _ => owner.Ledger.Commit(doc, new EditIntent.GraphStructure(), origin),
                     Fail: error => IO.pure(Fin.Fail<Unit>(error)));
 
     public void OnDiff(DiffEvent diff) {

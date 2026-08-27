@@ -952,7 +952,7 @@ public static class Bevel {
     }
 
     private static Fin<T> Invoke<T>(Func<Fin<T>> callback, string slot) =>
-        Op.Of(name: slot).Catch(callback);
+        Try.lift(callback).Run().Bind(static inner => inner);
 
     private static double Tilt(PrepLaw law, double station, double through, double delta) {
         double from = Math.Max(0.0, through - delta);

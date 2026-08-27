@@ -47,49 +47,49 @@ public sealed partial class WhitespaceMark : ICapability<WhitespaceMark> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EditorInk {
     public static readonly EditorInk Surface = new("editor.background", PaintRole.Well, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor, TemplatedControl.BackgroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TemplatedControl.BackgroundProperty),
         lit: static _ => true);
     public static readonly EditorInk Ink = new("editor.foreground", PaintRole.Text, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor, TemplatedControl.ForegroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TemplatedControl.ForegroundProperty),
         lit: static _ => true);
     public static readonly EditorInk CurrentLine = new("editor.lineHighlightBackground", PaintRole.Surface, rung: 1,
-        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.CurrentLineBackgroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.CurrentLineBackgroundProperty),
         lit: static options => options.Affordances.Admits(EditorAffordance.CurrentLine));
     public static readonly EditorInk CurrentLineEdge = new("editor.lineHighlightBorder", PaintRole.Border, rung: 0,
-        attach: static (editor, key) => Stroked(editor.TextArea.TextView, TextView.CurrentLineBorderProperty, key, static pen => (IPen)pen),
+        attach: static (editor, key) => Stroked(editor.TextArea.TextView, TextView.CurrentLineBorderProperty, static pen => (IPen)pen),
         lit: static options => options.Affordances.Admits(EditorAffordance.CurrentLine));
     public static readonly EditorInk Selection = new("editor.selectionBackground", PaintRole.Selection, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.SelectionBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.SelectionBrushProperty),
         lit: static _ => true);
     public static readonly EditorInk SelectionInk = new("editor.selectionForeground", PaintRole.SelectionText, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.SelectionForegroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.SelectionForegroundProperty),
         lit: static _ => true);
     public static readonly EditorInk SelectionEdge = new("editor.selectionHighlightBorder", PaintRole.Focus, rung: 0,
-        attach: static (editor, key) => Stroked(editor.TextArea, TextArea.SelectionBorderProperty, key, static pen => pen),
+        attach: static (editor, key) => Stroked(editor.TextArea, TextArea.SelectionBorderProperty, static pen => pen),
         lit: static _ => true);
     public static readonly EditorInk Caret = new("editorCursor.foreground", PaintRole.Text, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.CaretBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.CaretBrushProperty),
         lit: static _ => true);
     public static readonly EditorInk LineNumbers = new("editorLineNumber.foreground", PaintRole.TextFaint, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor, TextEditor.LineNumbersForegroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TextEditor.LineNumbersForegroundProperty),
         lit: static _ => true);
     public static readonly EditorInk Ruler = new("editorRuler.foreground", PaintRole.Separator, rung: 0,
-        attach: static (editor, key) => Stroked(editor.TextArea.TextView, TextView.ColumnRulerPenProperty, key, static pen => (IPen)pen),
+        attach: static (editor, key) => Stroked(editor.TextArea.TextView, TextView.ColumnRulerPenProperty, static pen => (IPen)pen),
         lit: static options => options.Affordances.Admits(EditorAffordance.Rulers));
     public static readonly EditorInk Whitespace = new("editorWhitespace.foreground", PaintRole.TextFaint, rung: 1,
-        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.NonPrintableCharacterBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.NonPrintableCharacterBrushProperty),
         lit: static options => toSeq(WhitespaceMark.Items).Exists(options.Marks.Admits));
     public static readonly EditorInk Link = new("textLink.foreground", PaintRole.Link, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.LinkTextForegroundBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.LinkTextForegroundBrushProperty),
         lit: static options => options.Affordances.Admits(EditorAffordance.Hyperlinks));
     public static readonly EditorInk Match = new("editor.findMatchHighlightBackground", PaintRole.Highlight, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor, TextEditor.SearchResultsBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TextEditor.SearchResultsBrushProperty),
         lit: static _ => true);
     public static readonly EditorInk FoldMarker = new("editorGutter.foldingControlForeground", PaintRole.TextMuted, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor, FoldingMargin.FoldingMarkerBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, FoldingMargin.FoldingMarkerBrushProperty),
         lit: static _ => true);
     public static readonly EditorInk FoldMarkerFill = new("editorGutter.background", PaintRole.Panel, rung: 0,
-        attach: static (editor, key) => ThemeGate.Bind(editor, FoldingMargin.FoldingMarkerBackgroundBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, FoldingMargin.FoldingMarkerBackgroundBrushProperty),
         lit: static _ => true);
     public static readonly EditorInk IndentGuide = new("editorIndentGuide.background", PaintRole.Separator, rung: 0,
         attach: static (editor, _) => IndentGuides.Mount(editor.TextArea.TextView),
@@ -509,7 +509,7 @@ public sealed record CodePane(
             IDisposable? foldingScope = null;
             IDisposable? inks = null;
             IDisposable? behaviors = null;
-            Fin<CodeSession> mounted = Op.Of(name: "appui.codepane.open").Catch(() => {
+            Fin<CodeSession> mounted = Try.lift(() => {
                 editor.IsReadOnly = !Affordances.Admits(PaneAffordance.Editable);
                 editor.ShowLineNumbers = Affordances.Admits(PaneAffordance.LineNumbers);
                 editor.WordWrap = false;
@@ -533,7 +533,7 @@ public sealed record CodePane(
                 behaviors = Disposable.Create(() => editor.TextArea.TextEntered -= closing);
                 return Fin.Succ(new CodeSession(grammar, folding, search, plan, editor, segments,
                     new CompositeDisposable(behaviors, inks, foldingScope, searchScope, grammar)));
-            });
+            }).Run().Bind(static inner => inner);
             return mounted.Rollback(behaviors, inks, foldingScope, searchScope, grammar);
         });
 

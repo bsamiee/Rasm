@@ -110,19 +110,18 @@ public sealed record ElementSubject(NodeId Id, ElementPayload Payload);
 public sealed partial class ElementSource {
     public ElementGraph Graph { get; }
     public Seq<ElementSubject> Subjects { get; }
-    public Op Key { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ElementGraph graph,
         ref Seq<ElementSubject> subjects,
-        ref Op key) {
+        ref ) {
         if (subjects.IsEmpty || subjects.Map(static subject => subject.Id.ToValue()).Distinct().Count != subjects.Count)
             validationError = new ValidationError("element-source:subjects");
     }
 
-    public static Fin<ElementSource> Admit(ElementGraph graph, Seq<ElementSubject> subjects, Op key) =>
-        Validate(graph, subjects, key, out ElementSource source).Admitted(source);
+    public static Fin<ElementSource> Admit(ElementGraph graph, Seq<ElementSubject> subjects) =>
+        Validate(graph, subjects, out ElementSource source).Admitted(source);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -613,14 +612,14 @@ public static class ElementImport {
             component: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Component(state.Component)),
             topology: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Topology(state.Topology)),
             facts: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Facts(state.Facts)),
-            canonicalProperties: static (state, request) => Op.Of(name: "element:projection").Catch(() => {
+            canonicalProperties: static (state, request) => Try.lift(() => {
                 int before = request.Destination.WrittenCount;
                 request.Destination.Write(state.CanonicalProperties.Span);
                 return Fin.Succ<ElementProjection>(new ElementProjection.Written(request.Destination.WrittenCount - before));
-            }));
+            }).Run().Bind(static inner => inner));
 
-    private static Fin<AdmittedElement> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
-        from baked in graph.Bake(subject.Id, key)
+    private static Fin<AdmittedElement> AdmitOne(ElementGraph graph, ElementSubject subject) =>
+        from baked in graph.Bake(subject.Id)
         let topology = Ordered(graph.EdgesAt(baked.Id))
         let tolerance = graph.Header.Tolerance
         let locus = LocusOf(baked.Id, FactScope.Root.Row(nameof(Element)), tolerance)
@@ -637,14 +636,14 @@ public static class ElementImport {
             connections,
             facts.Quantities,
             facts.Properties)
-        from properties in CanonicalProperties(graph, baked, key)
+        from properties in CanonicalProperties(graph, baked)
         from result in AdmittedElement.Admit(component, topology, facts, properties, locus)
         select result;
 
     private static Fin<UInt128> Resolve(Element baked, ElementPayload payload, double tolerance, Error fault) =>
         payload.Parts
             .Traverse(part => baked.Representations.At(part.Slot)
-                .Map(key => (Slot: part.Slot.Key, Key: key))
+                .Map(key => part.Key)
                 .ToValidation(fault))
             .As()
             .ToFin()
@@ -734,7 +733,7 @@ public static class ElementImport {
 
     private static Seq<ElementFact> MaterialRows(BakedMaterial material) {
         string key = material.Material.MaterialKey.ToValue();
-        FactScope root = FactScope.Root.Then("Material").Then(key);
+        FactScope root = FactScope.Root.Then("Material").Then();
         FactScope composition = root.Then("Composition");
         return material.Material.Composition.Switch(
             state: composition,
@@ -749,7 +748,7 @@ public static class ElementImport {
                     ElementColumns.Constituent.Emit(scope.Then("Constituent", index), constituent)).Bind(identity))
             + material.Material.Properties.Bind(property => PropertySetRows(root, property))
             + SectionRows(root, material.Material.Composition)
-            + UsageRows(FactScope.Root.Then("Usage").Then(key), material.Usage);
+            + UsageRows(FactScope.Root.Then("Usage").Then(), material.Usage);
     }
 
     private static Seq<ElementFact> PropertySetRows(FactScope root, MaterialPropertySet property) {
@@ -853,7 +852,7 @@ public static class ElementImport {
     private static Seq<ElementFact> Kind(FactScope scope, string discriminant) =>
         Seq<ElementFact>(new ElementFact(scope.Row("Kind"), new FactValue.Text(discriminant)));
 
-    private static Fin<ReadOnlyMemory<byte>> CanonicalProperties(ElementGraph graph, Element baked, Op key) {
+    private static Fin<ReadOnlyMemory<byte>> CanonicalProperties(ElementGraph graph, Element baked) {
         CanonicalWriter writer = CanonicalWriter.Retaining(graph.Header.Tolerance);
         Seq<PropertyBag> bags = toSeq(baked.Properties.OrderBy(static bag => bag.SetName, StringComparer.Ordinal));
         writer.Ordinal(bags.Count);
@@ -864,7 +863,7 @@ public static class ElementImport {
                 value.CanonicalBytes(writer);
             }
         }
-        return writer.ToBytes(key);
+        return writer.ToBytes();
     }
 
     private static Error Translation(UInt128 locus, string detail) =>

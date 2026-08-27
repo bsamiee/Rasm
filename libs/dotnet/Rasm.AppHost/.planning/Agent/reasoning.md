@@ -579,8 +579,7 @@ public static class ModelGovernance {
             cost: CostModel.Constant(cost),
             permission: new PermissionShape(FrozenSet<string>.Empty, EffectClass.External, DataClassification.Operational),
             progress: None,
-            compile: static _ => Fin.Fail<CommandBody>(new KernelFault.InvalidResult(
-                Op.Of(), Some("<model-draw-is-not-a-dispatched-body>"))));
+            compile: static _ => Fin.Fail<CommandBody>(new KernelFault.InvalidResult(Some("<model-draw-is-not-a-dispatched-body>"))));
 }
 ```
 

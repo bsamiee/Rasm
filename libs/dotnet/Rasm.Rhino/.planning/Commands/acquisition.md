@@ -111,32 +111,31 @@ public sealed record RulePlan<TRule, TSlot>(Seq<TRule> Rules)
     where TSlot : notnull {
     public static Fin<RulePlan<TRule, TSlot>> Of(
         Seq<TRule> rules,
-        Func<TRule, Op, Fin<Unit>> admit,
-        Op key,
+        Func<TRule, Fin<Unit>> admit,
         Option<Func<TRule, bool>> slotExempt = default) {
         Func<TRule, bool> exempt = slotExempt.IfNone(static _ => false);
         Seq<TRule> slotted = rules.Filter(rule => rule is not null && !exempt(rule));
-        return from _ in guard(rules.ForAll(static rule => rule is not null), key.InvalidInput()).ToFin()
+        return from _ in guard(rules.ForAll(static rule => rule is not null), new KernelFault.InvalidInput()).ToFin()
                from __ in guard(
                    slotted.Map(static rule => rule.SlotKey).Distinct().Count == slotted.Count,
-                   key.InvalidInput())
-               from ___ in rules.TraverseM(rule => admit(rule, key)).As()
+                   new KernelFault.InvalidInput())
+               from ___ in rules.TraverseM(rule => admit(rule)).As()
                select new RulePlan<TRule, TSlot>(Rules: rules);
     }
 
-    public Fin<Unit> Apply<TTarget>(TTarget target, Func<TRule, TTarget, Op, Fin<Unit>> apply, Op key) =>
-        Rules.TraverseM(rule => apply(rule, target, key)).As().Map(static _ => unit);
+    public Fin<Unit> Apply<TTarget>(TTarget target, Func<TRule, TTarget, Fin<Unit>> apply) =>
+        Rules.TraverseM(rule => apply(rule, target)).As().Map(static _ => unit);
 
     public bool Holds(Func<TRule, bool> probe) => Rules.Exists(probe);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Slots {
-    internal static Fin<PerceptualColor> Shade(System.Drawing.Color color, Op key) =>
-        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
+    internal static Fin<PerceptualColor> Shade(System.Drawing.Color color) =>
+        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A);
 
-    internal static Fin<System.Drawing.Color> Rgb(PerceptualColor shade, Op key) =>
-        shade.ToDrawing(key: key);
+    internal static Fin<System.Drawing.Color> Rgb(PerceptualColor shade) =>
+        shade.ToDrawing();
 }
 ```
 
@@ -199,15 +198,15 @@ public abstract partial record AcceptRule : ISlotted<AcceptSlot> {
         transparent: static _ => Option<GetResult>.None,
         waitFor: static _ => Option<GetResult>.None);
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         state: key,
-        allowed: static (op, rule) => guard(rule.Gate is not null, op.InvalidInput()).ToFin(),
+        allowed: static (rule) => guard(rule.Gate is not null, new KernelFault.InvalidInput()).ToFin(),
         number: static (_, _) => Fin.Succ(unit),
         zero: static (_, _) => Fin.Succ(unit),
         transparent: static (_, _) => Fin.Succ(unit),
-        waitFor: static (op, rule) => guard(
+        waitFor: static (rule) => guard(
             rule.Window > Duration.Zero && rule.Window.TotalMilliseconds <= int.MaxValue,
-            op.InvalidInput()).ToFin());
+            new KernelFault.InvalidInput()).ToFin());
 }
 
 [ComplexValueObject]
@@ -221,16 +220,15 @@ public sealed partial class AcceptPlan {
         ref RulePlan<AcceptRule, AcceptSlot> plan,
         ref int optionBudget) =>
         validationError = plan is null || optionBudget < 0 || optionBudget > 4096
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(OptionBudget), optionBudget, "a budget in [0, 4096]" }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(OptionBudget), optionBudget, "a budget in [0, 4096]" }))
             : plan.Holds(static rule => rule is AcceptRule.Zero)
                 && !plan.Holds(static rule => rule is AcceptRule.Number)
-                ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(AcceptRule.Zero), "zero acceptance only beside numeric acceptance" }))
+                ? new ValidationError(string.Join(" | ", new object?[] { nameof(AcceptRule.Zero), "zero acceptance only beside numeric acceptance" }))
                 : null;
 
-    public static Fin<AcceptPlan> Of(Seq<AcceptRule> rules, int optionBudget, Op? key = null) {
-        Op op = key.OrDefault();
-        return RulePlan<AcceptRule, AcceptSlot>.Of(rules: rules, admit: static (rule, k) => rule.Admit(k), key: op)
-            .Bind(plan => op.AcceptValidated<AcceptPlan>(
+    public static Fin<AcceptPlan> Of(Seq<AcceptRule> rules, int optionBudget) {
+        return RulePlan<AcceptRule, AcceptSlot>.Of(rules: rules, admit: static (rule, k) => rule.Admit(k))
+            .Bind(plan => FactoryBridge.Accept<AcceptPlan>(
                 fault: Validate(plan, optionBudget, out AcceptPlan? admitted), admitted: admitted));
     }
 
@@ -238,17 +236,17 @@ public sealed partial class AcceptPlan {
 
     internal bool AcceptsNothing => Plan.Holds(static rule => rule is AcceptRule.Allowed { Gate.Slot.Key: 0 });
 
-    internal Fin<AcceptPlan> Requiring(Seq<GetResult> terminals, Op key) {
+    internal Fin<AcceptPlan> Requiring(Seq<GetResult> terminals) {
         Seq<AcceptRule> missing = terminals
             .Choose(Derived)
             .Distinct()
             .Filter(row => !Rules.Exists(held => held.SlotKey == row.SlotKey));
-        return missing.IsEmpty ? Fin.Succ(value: this) : Of(rules: Rules + missing, optionBudget: OptionBudget, key: key);
+        return missing.IsEmpty ? Fin.Succ(value: this) : Of(rules: Rules + missing, optionBudget: OptionBudget);
     }
 
-    internal Fin<Unit> Apply(GetBaseClass getter, Op key) => Plan.Apply(
+    internal Fin<Unit> Apply(GetBaseClass getter) => Plan.Apply(
         target: getter,
-        apply: (rule, target, op) => op.Catch(() => {
+        apply: (rule, target, op) => Try.lift(() => {
             rule.Switch(
                 state: (Target: target, Zero: Plan.Holds(static held => held is AcceptRule.Zero)),
                 allowed: static (held, row) => { row.Gate.Enable(held.Target); return unit; },
@@ -260,8 +258,7 @@ public sealed partial class AcceptPlan {
                     return unit;
                 });
             return Fin.Succ(unit);
-        }),
-        key: key);
+        }).Run().Bind(static inner => inner));
 
     private static Option<AcceptRule> Derived(GetResult terminal) => terminal switch {
         GetResult.Number => Some((AcceptRule)new AcceptRule.Number()),
@@ -304,7 +301,7 @@ public abstract partial record PointConstraint {
     public sealed record OnTargetPlane : PointConstraint;
     public sealed record OnCPlaneIntersection(Plane Value) : PointConstraint;
 
-    internal Fin<Unit> Admit(Op key) => key.Catch(() => AdmitGeometry(key, Switch(
+    internal Fin<Unit> Admit() => Try.lift(() => AdmitGeometry(Switch(
         onSegment: static row => row.From.IsValid && row.To.IsValid,
         onLine: static row => row.Value.IsValid,
         onArc: static row => row.Value.IsValid,
@@ -321,33 +318,33 @@ public abstract partial record PointConstraint {
         onMesh: static row => row.Value is { } value && value.IsValidWithLog(out _),
         onConstructionPlane: static _ => true,
         onTargetPlane: static _ => true,
-        onCPlaneIntersection: static row => row.Value.IsValid)));
+        onCPlaneIntersection: static row => row.Value.IsValid))).Run().Bind(static inner => inner);
 
-    internal static Fin<Unit> AdmitGeometry(Op key, params ReadOnlySpan<bool> validity) =>
-        guard(flag: validity.IndexOf(false) < 0, False: key.InvalidInput()).ToFin();
+    internal static Fin<Unit> AdmitGeometry(params ReadOnlySpan<bool> validity) =>
+        guard(flag: validity.IndexOf(false) < 0, False: new KernelFault.InvalidInput()).ToFin();
 
-    internal Fin<Unit> Apply(GetPoint getter, Op key) => key.Catch(() => Switch(
-        state: (Getter: getter, Op: key),
-        onSegment: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.From, rule.To)),
-        onLine: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value)),
-        onArc: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value)),
-        onCircle: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value)),
-        onPlane: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value, rule.AllowElevator)),
-        onSphere: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value)),
-        onCylinder: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value)),
-        onCurve: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value, rule.Pick.Key)),
-        onSurface: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value, rule.Pick.Key)),
-        onBrep: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(
+    internal Fin<Unit> Apply(GetPoint getter) => Try.lift(() => Switch(
+        state: getter,
+        onSegment: static (held, rule) => Admit.Confirm(held.Constrain(rule.From, rule.To)),
+        onLine: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value)),
+        onArc: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value)),
+        onCircle: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value)),
+        onPlane: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value, rule.AllowElevator)),
+        onSphere: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value)),
+        onCylinder: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value)),
+        onCurve: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value, rule.Pick.Key)),
+        onSurface: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value, rule.Pick.Key)),
+        onBrep: static (held, rule) => Admit.Confirm(held.Constrain(
             rule.Value, rule.WireDensity, rule.FaceIndex, rule.Pick.Key)),
-        onMesh: static (held, rule) => held.Op.Confirm(held.Getter.Constrain(rule.Value, rule.Pick.Key)),
-        onConstructionPlane: static (held, rule) => held.Op.Confirm(
-            held.Getter.ConstrainToConstructionPlane(rule.ThroughBasePoint)),
-        onTargetPlane: static (held, _) => held.Op.Catch(() => {
-            held.Getter.ConstrainToTargetPlane();
+        onMesh: static (held, rule) => Admit.Confirm(held.Constrain(rule.Value, rule.Pick.Key)),
+        onConstructionPlane: static (held, rule) => Admit.Confirm(
+            held.ConstrainToConstructionPlane(rule.ThroughBasePoint)),
+        onTargetPlane: static (held, _) => Try.lift(() => {
+            held.ConstrainToTargetPlane();
             return Fin.Succ(unit);
-        }),
-        onCPlaneIntersection: static (held, rule) => held.Op.Confirm(
-            held.Getter.ConstrainToVirtualCPlaneIntersection(rule.Value))));
+        }).Run().Bind(static inner => inner),
+        onCPlaneIntersection: static (held, rule) => Admit.Confirm(
+            held.ConstrainToVirtualCPlaneIntersection(rule.Value)))).Run().Bind(static inner => inner);
 }
 
 [SmartEnum<string>]
@@ -464,59 +461,59 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
         directionArrow: static _ => PointSlot.Arrow,
         onMouseUp: static _ => PointSlot.MouseUp);
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         state: key,
-        constrained: static (op, rule) => op.Need(rule.Value).Bind(value => value.Admit(op)),
-        snaps: static (op, rule) => guard(!rule.Values.IsEmpty, op.InvalidInput()).ToFin()
-            .Bind(_ => PointConstraint.AdmitGeometry(op, [.. rule.Values.Map(static point => point.IsValid)])),
-        constructionPoints: static (op, rule) => guard(!rule.Values.IsEmpty, op.InvalidInput()).ToFin()
-            .Bind(_ => PointConstraint.AdmitGeometry(op, [.. rule.Values.Map(static point => point.IsValid)])),
-        basedAt: static (op, rule) => PointConstraint.AdmitGeometry(op, rule.Value.IsValid),
-        radial: static (op, rule) => ValidityClaim.Finite(value: rule.Distance).Holds && rule.Distance >= 0.0
+        constrained: static (rule) => Admit.Need(rule.Value).Bind(value => value.Admit()),
+        snaps: static (rule) => guard(!rule.Values.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => PointConstraint.AdmitGeometry([.. rule.Values.Map(static point => point.IsValid)])),
+        constructionPoints: static (rule) => guard(!rule.Values.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => PointConstraint.AdmitGeometry([.. rule.Values.Map(static point => point.IsValid)])),
+        basedAt: static (rule) => PointConstraint.AdmitGeometry(rule.Value.IsValid),
+        radial: static (rule) => ValidityClaim.Finite(value: rule.Distance).Holds && rule.Distance >= 0.0
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(op.InvalidInput()),
-        cursor: static (op, rule) => guard(
+            : Fin.Fail<Unit>(new KernelFault.InvalidInput()),
+        cursor: static (rule) => guard(
             rule.Value is not null && PointerShape.Items.Contains(rule.Value),
-            op.InvalidInput()).ToFin(),
-        elevatorMode: static (op, rule) => guard(rule.Mode >= 0, op.InvalidInput()).ToFin(),
-        gates: static (op, rule) => guard(
+            new KernelFault.InvalidInput()).ToFin(),
+        elevatorMode: static (rule) => guard(rule.Mode >= 0, new KernelFault.InvalidInput()).ToFin(),
+        gates: static (rule) => guard(
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),
-            op.InvalidInput()).ToFin(),
-        snapBar: static (op, rule) => guard(rule.Axis is not null && rule.Span is not null, op.InvalidInput()).ToFin(),
-        directionArrow: static (op, rule) => guard(rule.Sense is not null, op.InvalidInput()).ToFin(),
+            new KernelFault.InvalidInput()).ToFin(),
+        snapBar: static (rule) => guard(rule.Axis is not null && rule.Span is not null, new KernelFault.InvalidInput()).ToFin(),
+        directionArrow: static (rule) => guard(rule.Sense is not null, new KernelFault.InvalidInput()).ToFin(),
         onMouseUp: static (_, _) => Fin.Succ(unit));
 
-    internal Fin<Unit> Apply(GetPoint getter, Op key) => Switch(
-        state: (Getter: getter, Op: key),
-        constrained: static (held, rule) => rule.Value.Apply(held.Getter, held.Op),
-        snaps: static (held, rule) => held.Op.Catch(() => Fin.Succ(ignore(
-            held.Getter.AddSnapPoints(points: [.. rule.Values])))),
-        constructionPoints: static (held, rule) => held.Op.Catch(() => Fin.Succ(ignore(
-            held.Getter.AddConstructionPoints(points: [.. rule.Values])))),
-        basedAt: static (held, rule) => held.Op.Catch(() => {
+    internal Fin<Unit> Apply(GetPoint getter) => Switch(
+        state: getter,
+        constrained: static (held, rule) => rule.Value.Apply(held),
+        snaps: static (held, rule) => Try.lift(() => Fin.Succ(ignore(
+            held.AddSnapPoints(points: [.. rule.Values])))).Run().Bind(static inner => inner),
+        constructionPoints: static (held, rule) => Try.lift(() => Fin.Succ(ignore(
+            held.AddConstructionPoints(points: [.. rule.Values])))).Run().Bind(static inner => inner),
+        basedAt: static (held, rule) => Try.lift(() => {
             bool distance = rule.Traits.Admits(capability: BaseTrait.ShowDistance);
-            held.Getter.SetBasePoint(rule.Value, distance);
+            held.SetBasePoint(rule.Value, distance);
             bool line = rule.Traits.Admits(capability: BaseTrait.DrawLine);
-            held.Getter.EnableDrawLineFromPoint(line);
-            if (line) held.Getter.DrawLineFromPoint(rule.Value, distance);
+            held.EnableDrawLineFromPoint(line);
+            if (line) held.DrawLineFromPoint(rule.Value, distance);
             return Fin.Succ(unit);
-        }),
-        radial: static (held, rule) => held.Op.Catch(() => {
-            held.Getter.ConstrainDistanceFromBasePoint(rule.Distance);
+        }).Run().Bind(static inner => inner),
+        radial: static (held, rule) => Try.lift(() => {
+            held.ConstrainDistanceFromBasePoint(rule.Distance);
             return Fin.Succ(unit);
-        }),
-        cursor: static (held, rule) => held.Op.Catch(() => { held.Getter.SetCursor(rule.Value.Native); return Fin.Succ(unit); }),
-        elevatorMode: static (held, rule) => held.Op.Catch(() => { held.Getter.PermitElevatorMode(rule.Mode); return Fin.Succ(unit); }),
-        gates: static (held, rule) => held.Op.Catch(() => {
-            rule.Enabled.Held.Iter(row => row.Set(held.Getter, enabled: true));
-            rule.Disabled.Held.Iter(row => row.Set(held.Getter, enabled: false));
+        }).Run().Bind(static inner => inner),
+        cursor: static (held, rule) => Try.lift(() => { held.SetCursor(rule.Value.Native); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
+        elevatorMode: static (held, rule) => Try.lift(() => { held.PermitElevatorMode(rule.Mode); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
+        gates: static (held, rule) => Try.lift(() => {
+            rule.Enabled.Held.Iter(row => row.Set(held, enabled: true));
+            rule.Disabled.Held.Iter(row => row.Set(held, enabled: false));
             return Fin.Succ(unit);
-        }),
-        snapBar: static (held, rule) => held.Op.Catch(() => { rule.Axis.Set(held.Getter, rule.Span); return Fin.Succ(unit); }),
-        directionArrow: static (held, rule) => held.Op.Catch(() => {
-            held.Getter.EnableCurveSnapArrow(rule.Sense.Enabled, rule.Sense.Reverse);
+        }).Run().Bind(static inner => inner),
+        snapBar: static (held, rule) => Try.lift(() => { rule.Axis.Set(held, rule.Span); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
+        directionArrow: static (held, rule) => Try.lift(() => {
+            held.EnableCurveSnapArrow(rule.Sense.Enabled, rule.Sense.Reverse);
             return Fin.Succ(unit);
-        }),
+        }).Run().Bind(static inner => inner),
         onMouseUp: static (_, _) => Fin.Succ(unit));
 }
 
@@ -542,12 +539,12 @@ public abstract partial record PointFeedback {
     public sealed record PostDraw(Func<DrawEventArgs, Fin<Unit>> Sink) : PointFeedback;
     public sealed record Pose(Func<GetPointFact, Fin<Transform>> Sink) : PointFeedback;
 
-    internal Fin<Unit> Admit(Op key) => Switch(
-        mouseMove: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
-        mouseDown: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
-        dynamicDraw: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
-        postDraw: row => guard(row.Sink is not null, key.InvalidInput()).ToFin(),
-        pose: row => guard(row.Sink is not null, key.InvalidInput()).ToFin());
+    internal Fin<Unit> Admit() => Switch(
+        mouseMove: row => guard(row.Sink is not null, new KernelFault.InvalidInput()).ToFin(),
+        mouseDown: row => guard(row.Sink is not null, new KernelFault.InvalidInput()).ToFin(),
+        dynamicDraw: row => guard(row.Sink is not null, new KernelFault.InvalidInput()).ToFin(),
+        postDraw: row => guard(row.Sink is not null, new KernelFault.InvalidInput()).ToFin(),
+        pose: row => guard(row.Sink is not null, new KernelFault.InvalidInput()).ToFin());
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -568,14 +565,12 @@ public sealed record PointPlan {
     public Seq<PointRule> Rules => Plan.Rules;
     public static PointPlan Free { get; } = new(plan: new RulePlan<PointRule, PointSlot>(Rules: []), feedback: []);
 
-    public static Fin<PointPlan> Of(Seq<PointFeedback> feedback, Op? key = null, params ReadOnlySpan<PointRule> rules) {
-        Op op = key.OrDefault();
+    public static Fin<PointPlan> Of(Seq<PointFeedback> feedback, params ReadOnlySpan<PointRule> rules) {
         return from admitted in RulePlan<PointRule, PointSlot>.Of(
                    rules: toSeq(rules.ToArray()),
                    admit: static (rule, k) => rule.Admit(k),
-                   key: op,
                    slotExempt: Some<Func<PointRule, bool>>(static rule => rule is PointRule.Constrained))
-               from _ in feedback.TraverseM(row => row.Admit(op)).As()
+               from _ in feedback.TraverseM(row => row.Admit()).As()
                select new PointPlan(plan: admitted, feedback: feedback);
     }
 
@@ -599,21 +594,21 @@ The point getter lends `PickContext` and `GetPoint` to `GumballRig.Pick`; move a
 public sealed partial class TextMeaning {
     public static readonly TextMeaning Literal = new(key: 0, parse: static (text, _, _) =>
         Fin.Succ<Acquired>(new Acquired.Text(Value: text)));
-    public static readonly TextMeaning Number = new(key: 1, parse: static (text, _, key) => key.Catch(() => {
+    public static readonly TextMeaning Number = new(key: 1, parse: static (text, _, key) => Try.lift(() => {
         StringParserSettings output = StringParserSettings.ParseSettingsDoubleNumber;
         int consumed = StringParser.ParseNumber(
             text, 0, StringParserSettings.ParseSettingsDoubleNumber, ref output, out double value);
         return consumed == text.Length && ValidityClaim.Finite(value: value).Holds
             ? Fin.Succ<Acquired>(new Acquired.Number(Value: value))
-            : Fin.Fail<Acquired>(key.InvalidInput());
-    }));
+            : Fin.Fail<Acquired>(new KernelFault.InvalidInput());
+    }).Run().Bind(static inner => inner));
     public static readonly TextMeaning Length = new(key: 2, parse: static (text, document, key) =>
         from regime in DocumentSpace.Model.Read(document: document, op: key)
         from encoded in UnitText.Length(text: text, key: key)
         from crossed in encoded.Cross(regime: regime, key: key)
         from measured in crossed is UnitText.LengthValueCase value
             ? Fin.Succ<Acquired>(value: new Acquired.Distance(Value: value.Value, Unit: value.Unit))
-            : Fin.Fail<Acquired>(error: key.InvalidResult())
+            : Fin.Fail<Acquired>(error: new KernelFault.InvalidResult())
         select measured);
     public static readonly TextMeaning AngleDegrees = new(key: 3, parse: static (text, _, key) =>
         AngleGrammar.Degrees.Parse(text: text, op: key)
@@ -623,7 +618,7 @@ public sealed partial class TextMeaning {
             .Map(static radians => (Acquired)new Acquired.Angle(Radians: radians)));
 
     [UseDelegateFromConstructor]
-    public partial Fin<Acquired> Parse(string text, RhinoDoc document, Op key);
+    public partial Fin<Acquired> Parse(string text, RhinoDoc document);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -644,7 +639,7 @@ public abstract partial record PromptCase {
         textValue: static _ => GetResult.String,
         paintValue: static _ => GetResult.Color);
 
-    internal Fin<Unit> Admit(Op key) => guard(this is not TextValue { Meaning: null }, key.InvalidInput()).ToFin();
+    internal Fin<Unit> Admit() => guard(this is not TextValue { Meaning: null }, new KernelFault.InvalidInput()).ToFin();
 
     internal bool Accepts(InputDefault value) => (this, value) switch {
         (Point3, InputDefault.PointValue) => true,
@@ -655,8 +650,8 @@ public abstract partial record PromptCase {
         _ => false,
     };
 
-    internal Fin<Acquired> Project(GetPoint getter, RhinoDoc document, Op key) => Switch(
-        state: (Getter: getter, Document: document, Op: key),
+    internal Fin<Acquired> Project(GetPoint getter, RhinoDoc document) => Switch(
+        state: (Getter: getter, Document: document),
         point3: static (held, _) => {
             Point3d value = held.Getter.Point();
             return Fin.Succ<Acquired>(new Acquired.Point(
@@ -671,14 +666,14 @@ public abstract partial record PromptCase {
         point2: static (held, _) => Fin.Succ<Acquired>(new Acquired.ScreenPoint(Value: held.Getter.Point2d())),
         numberValue: static (held, rule) => held.Getter.Number() is var value && rule.Band.Contains(value)
             ? Fin.Succ<Acquired>(new Acquired.Number(Value: value))
-            : Fin.Fail<Acquired>(held.Op.InvalidInput()),
+            : Fin.Fail<Acquired>(new KernelFault.InvalidInput()),
         countValue: static (held, rule) => held.Getter.Number() is var raw
             && raw == Math.Truncate(raw) && raw >= int.MinValue && raw <= int.MaxValue && rule.Band.Contains((int)raw)
             ? Fin.Succ<Acquired>(new Acquired.Count(Value: (int)raw))
-            : Fin.Fail<Acquired>(held.Op.InvalidInput()),
+            : Fin.Fail<Acquired>(new KernelFault.InvalidInput()),
         textValue: static (held, rule) => rule.Meaning.Parse(
-            text: held.Getter.StringResult(), document: held.Document, key: held.Op),
-        paintValue: static (held, _) => Slots.Shade(color: held.Getter.Color(), key: held.Op)
+            text: held.Getter.StringResult(), document: held.Document),
+        paintValue: static (held, _) => Slots.Shade(color: held.Getter.Color())
             .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
 }
 
@@ -714,15 +709,15 @@ public abstract partial record ObjectRule : ISlotted<ObjectSlot> {
         gates: static _ => ObjectSlot.Gates,
         filter: static _ => ObjectSlot.Filter);
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         state: key,
         preSelect: static (_, _) => Fin.Succ(unit),
-        gates: static (op, rule) => guard(
+        gates: static (rule) => guard(
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),
-            op.InvalidInput()).ToFin(),
-        filter: static (op, rule) => guard(rule.Value is not null, op.InvalidInput()).ToFin());
+            new KernelFault.InvalidInput()).ToFin(),
+        filter: static (rule) => guard(rule.Value is not null, new KernelFault.InvalidInput()).ToFin());
 
-    internal Fin<Unit> Apply(GetObject getter, Op key) => key.Catch(() => {
+    internal Fin<Unit> Apply(GetObject getter) => Try.lift(() => {
         Switch(
             state: getter,
             preSelect: static (target, rule) => { target.EnablePreSelect(rule.Enabled, rule.IgnoreUnacceptable); return unit; },
@@ -733,7 +728,7 @@ public abstract partial record ObjectRule : ISlotted<ObjectSlot> {
             },
             filter: static (target, rule) => { target.SetCustomGeometryFilter(rule.Value); return unit; });
         return Fin.Succ(unit);
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 [ComplexValueObject]
@@ -749,13 +744,12 @@ public sealed partial class ObjectPlan {
         ref int maximum,
         ref RulePlan<ObjectRule, ObjectSlot> plan) =>
         validationError = plan is null || minimum < 0 || maximum < 0 || (maximum is not 0 && maximum < minimum)
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(ObjectPlan), "a rule plan with non-negative bounds whose maximum is zero or at least the minimum" }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(ObjectPlan), "a rule plan with non-negative bounds whose maximum is zero or at least the minimum" }))
             : null;
 
-    public static Fin<ObjectPlan> Of(int minimum, int maximum, Seq<ObjectRule> rules, Op? key = null) {
-        Op op = key.OrDefault();
-        return RulePlan<ObjectRule, ObjectSlot>.Of(rules: rules, admit: static (rule, k) => rule.Admit(k), key: op)
-            .Bind(plan => op.AcceptValidated<ObjectPlan>(
+    public static Fin<ObjectPlan> Of(int minimum, int maximum, Seq<ObjectRule> rules) {
+        return RulePlan<ObjectRule, ObjectSlot>.Of(rules: rules, admit: static (rule, k) => rule.Admit(k))
+            .Bind(plan => FactoryBridge.Accept<ObjectPlan>(
                 fault: Validate(minimum, maximum, plan, out ObjectPlan? admitted), admitted: admitted));
     }
 
@@ -784,31 +778,31 @@ public sealed partial class DragSelection {
         ref DragScope scope) =>
         validationError = !string.IsNullOrWhiteSpace(prompt) && selection is not null && scope is not null && selection.Minimum >= 1
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DragSelection), "a prompt, a scope, and a selection admitting at least one object" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(DragSelection), "a prompt, a scope, and a selection admitting at least one object" }));
 }
 
 [SmartEnum<int>]
 public sealed partial class ShapeAsk {
     public static readonly ShapeAsk Segment = new(key: 0, run: static op =>
-        Recovered(RhinoGet.GetLine(out Line value), () => new LineCurve(value).GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetLine(out Line value), () => new LineCurve(value).GeometryForm()));
     public static readonly ShapeAsk Chain = new(key: 1, run: static op =>
-        Recovered(RhinoGet.GetPolyline(out Polyline value), () => value.ToPolylineCurve().GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetPolyline(out Polyline value), () => value.ToPolylineCurve().GeometryForm()));
     public static readonly ShapeAsk ArcShape = new(key: 2, run: static op =>
-        Recovered(RhinoGet.GetArc(out Arc value), () => value.GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetArc(out Arc value), () => value.GeometryForm()));
     public static readonly ShapeAsk CircleShape = new(key: 3, run: static op =>
-        Recovered(RhinoGet.GetCircle(out Circle value), () => value.GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetCircle(out Circle value), () => value.GeometryForm()));
     public static readonly ShapeAsk PlaneShape = new(key: 4, run: static op =>
-        Recovered(RhinoGet.GetPlane(out Plane value), () => value.GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetPlane(out Plane value), () => value.GeometryForm()));
     public static readonly ShapeAsk RectangleShape = new(key: 5, run: static op =>
-        Recovered(RhinoGet.GetRectangle(out Point3d[] value), () => new Polyline([.. value, value[0]]).ToPolylineCurve().GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetRectangle(out Point3d[] value), () => new Polyline([.. value, value[0]]).ToPolylineCurve().GeometryForm()));
     public static readonly ShapeAsk BoxShape = new(key: 6, run: static op =>
-        Recovered(RhinoGet.GetBox(out Box value), () => value.GeometryForm(key: op), op));
+        Recovered(RhinoGet.GetBox(out Box value), () => value.GeometryForm()));
 
     [UseDelegateFromConstructor]
-    internal partial (Result Native, Func<Fin<Acquired>> Project) Run(Op op);
+    internal partial (Result Native, Func<Fin<Acquired>> Project) Run();
 
     private static (Result Native, Func<Fin<Acquired>> Project) Recovered(
-        Result native, Func<Fin<Lease<GeometryBase>>> recover, Op op) =>
+        Result native, Func<Fin<Lease<GeometryBase>>> recover) =>
         (native, () => recover().Map(static form => (Acquired)new Acquired.Shape(Form: form)));
 }
 
@@ -849,14 +843,14 @@ public abstract partial record ModalInput {
     public sealed record Viewports(Func<Seq<ViewportFact>, Fin<Acquired>> Project) : ModalInput;
     public sealed record File(FileAsk Ask, string DefaultName, Option<string> Title) : ModalInput;
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         point: static _ => Fin.Succ(unit),
-        oneObject: row => Optional(row.Filter).Map(static _ => unit).ToFin(Fail: key.InvalidInput()),
-        manyObjects: row => Optional(row.Filter).Map(static _ => unit).ToFin(Fail: key.InvalidInput()),
-        text: row => Optional(row.Seed).Map(static _ => unit).ToFin(Fail: key.InvalidInput()),
-        toggle: row => from _ in key.AcceptText(row.Off)
-                       from __ in key.AcceptText(row.On)
-                       from ___ in guard(!string.Equals(row.Off, row.On, StringComparison.OrdinalIgnoreCase), key.InvalidInput())
+        oneObject: row => Optional(row.Filter).Map(static _ => unit).ToFin(Fail: new KernelFault.InvalidInput()),
+        manyObjects: row => Optional(row.Filter).Map(static _ => unit).ToFin(Fail: new KernelFault.InvalidInput()),
+        text: row => Optional(row.Seed).Map(static _ => unit).ToFin(Fail: new KernelFault.InvalidInput()),
+        toggle: row => from _ in Acceptance.Text(row.Off)
+                       from __ in Acceptance.Text(row.On)
+                       from ___ in guard(!string.Equals(row.Off, row.On, StringComparison.OrdinalIgnoreCase), new KernelFault.InvalidInput())
                        select unit,
         number: row => guard(
             ValidityClaim.All(
@@ -865,17 +859,17 @@ public abstract partial record ModalInput {
                 ValidityClaim.Finite(value: row.Upper),
                 row.Lower <= row.Seed,
                 row.Seed <= row.Upper),
-            key.InvalidInput()).ToFin(),
-        count: row => guard(row.Lower <= row.Seed && row.Seed <= row.Upper, key.InvalidInput()).ToFin(),
-        paint: row => key.Need(row.Seed).Map(static _ => unit),
+            new KernelFault.InvalidInput()).ToFin(),
+        count: row => guard(row.Lower <= row.Seed && row.Seed <= row.Upper, new KernelFault.InvalidInput()).ToFin(),
+        paint: row => Admit.Need(row.Seed).Map(static _ => unit),
         distance: row => guard(
             ValidityClaim.All(ValidityClaim.Finite(value: row.Seed), row.Seed >= 0.0),
-            key.InvalidInput()).ToFin(),
-        shape: row => guard(row.Ask is not null, key.InvalidInput()).ToFin(),
-        view: row => guard(row.Project is not null, key.InvalidInput()).ToFin(),
-        viewports: row => guard(row.Project is not null, key.InvalidInput()).ToFin(),
-        file: row => from _ in guard(row.Ask is not null && row.DefaultName is not null, key.InvalidInput()).ToFin()
-                     from __ in row.Title.Traverse(caption => key.AcceptText(caption)).As()
+            new KernelFault.InvalidInput()).ToFin(),
+        shape: row => guard(row.Ask is not null, new KernelFault.InvalidInput()).ToFin(),
+        view: row => guard(row.Project is not null, new KernelFault.InvalidInput()).ToFin(),
+        viewports: row => guard(row.Project is not null, new KernelFault.InvalidInput()).ToFin(),
+        file: row => from _ in guard(row.Ask is not null && row.DefaultName is not null, new KernelFault.InvalidInput()).ToFin()
+                     from __ in row.Title.Traverse(caption => Acceptance.Text(caption)).As()
                      select unit);
 
     internal bool Accepts(AcceptRule rule) =>
@@ -925,17 +919,17 @@ public abstract partial record AcquireIntent {
         transform: static (accept, _) => accept.Terminal.IsNone,
         modal: static (accept, row) => row.Input.Accepts(accept));
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         interactive: row => from _ in guard(!row.Cases.IsEmpty
                                && row.Cases.ForAll(static value => value is not null)
                                && row.Cases.Map(static value => value.Terminal).Distinct().Count == row.Cases.Count,
-                               key.InvalidInput()).ToFin()
-                            from __ in guard(row.Point is not null, key.InvalidInput())
-                            from ____ in row.Cases.TraverseM(value => value.Admit(key)).As()
+                               new KernelFault.InvalidInput()).ToFin()
+                            from __ in guard(row.Point is not null, new KernelFault.InvalidInput())
+                            from ____ in row.Cases.TraverseM(value => value.Admit()).As()
                             select unit,
-        objects: row => guard(row.Plan is not null, key.InvalidInput()).ToFin(),
-        transform: row => guard(row.Calculate is not null, key.InvalidInput()).ToFin(),
-        modal: row => key.Need(row.Input).Bind(value => value.Admit(key)));
+        objects: row => guard(row.Plan is not null, new KernelFault.InvalidInput()).ToFin(),
+        transform: row => guard(row.Calculate is not null, new KernelFault.InvalidInput()).ToFin(),
+        modal: row => Admit.Need(row.Input).Bind(value => value.Admit()));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -947,21 +941,21 @@ public abstract partial record InputDefault {
     public sealed record TextValue(string Value) : InputDefault;
     public sealed record PaintValue(PerceptualColor Value) : InputDefault;
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         pointValue: static _ => Fin.Succ(unit),
-        numberValue: row => guard(ValidityClaim.Finite(value: row.Value).Holds, key.InvalidInput()).ToFin(),
+        numberValue: row => guard(ValidityClaim.Finite(value: row.Value).Holds, new KernelFault.InvalidInput()).ToFin(),
         countValue: static _ => Fin.Succ(unit),
-        textValue: row => key.AcceptText(row.Value).Map(static _ => unit),
-        paintValue: row => key.Need(row.Value).Map(static _ => unit));
+        textValue: row => Acceptance.Text(row.Value).Map(static _ => unit),
+        paintValue: row => Admit.Need(row.Value).Map(static _ => unit));
 
-    internal Fin<Unit> Apply(GetBaseClass getter, Op key) => Switch(
-        state: (Getter: getter, Op: key),
-        pointValue: static (held, value) => Fin.Succ(Op.Side(() => held.Getter.SetDefaultPoint(value.Value))),
-        numberValue: static (held, value) => Fin.Succ(Op.Side(() => held.Getter.SetDefaultNumber(value.Value))),
-        countValue: static (held, value) => Fin.Succ(Op.Side(() => held.Getter.SetDefaultInteger(value.Value))),
-        textValue: static (held, value) => Fin.Succ(Op.Side(() => held.Getter.SetDefaultString(value.Value))),
-        paintValue: static (held, value) => Slots.Rgb(shade: value.Value, key: held.Op)
-            .Map(color => Op.Side(() => held.Getter.SetDefaultColor(color))));
+    internal Fin<Unit> Apply(GetBaseClass getter) => Switch(
+        state: getter,
+        pointValue: static (held, value) => Fin.Succ(HostEdge.Side(() => held.SetDefaultPoint(value.Value))),
+        numberValue: static (held, value) => Fin.Succ(HostEdge.Side(() => held.SetDefaultNumber(value.Value))),
+        countValue: static (held, value) => Fin.Succ(HostEdge.Side(() => held.SetDefaultInteger(value.Value))),
+        textValue: static (held, value) => Fin.Succ(HostEdge.Side(() => held.SetDefaultString(value.Value))),
+        paintValue: static (held, value) => Slots.Rgb(shade: value.Value)
+            .Map(color => HostEdge.Side(() => held.SetDefaultColor(color))));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1020,25 +1014,23 @@ public sealed record Acquire {
         Option<string> promptDefault = default,
         Option<InputDefault> @default = default,
         Option<OptionSet> options = default,
-        Option<DragSelection> drag = default,
-        Op? key = null) {
-        Op op = key.OrDefault(name: nameof(Acquire));
-        return from admittedIntent in op.Need(intent)
-               from admittedAccept in op.Need(accept)
-               from admittedPrompt in op.AcceptText(prompt)
-               from _ in admittedIntent.Admit(op)
-               from __ in guard(options.IsNone || admittedIntent.Admits(RequestColumn.Options), op.InvalidInput())
-               from ___ in guard(promptDefault.IsNone || admittedIntent.Admits(RequestColumn.PromptDefault), op.InvalidInput())
+        Option<DragSelection> drag = default) {
+        return from admittedIntent in Admit.Need(intent)
+               from admittedAccept in Admit.Need(accept)
+               from admittedPrompt in Acceptance.Text(prompt)
+               from _ in admittedIntent.Admit()
+               from __ in guard(options.IsNone || admittedIntent.Admits(RequestColumn.Options), new KernelFault.InvalidInput())
+               from ___ in guard(promptDefault.IsNone || admittedIntent.Admits(RequestColumn.PromptDefault), new KernelFault.InvalidInput())
                from ____ in guard(
                    (drag.IsNone || admittedIntent.Admits(RequestColumn.Drag)) && (!admittedIntent.NeedsDrag || drag.IsSome),
-                   op.InvalidInput())
-               from _____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), op.InvalidInput())
-               from ______ in promptDefault.TraverseM(value => op.AcceptText(value).Map(static _ => unit)).As()
+                   new KernelFault.InvalidInput())
+               from _____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), new KernelFault.InvalidInput())
+               from ______ in promptDefault.TraverseM(value => Acceptance.Text(value).Map(static _ => unit)).As()
                    .Map(static _ => unit)
-               from _______ in @default.TraverseM(value => value.Admit(op)
-                       .Bind(_ => guard(admittedIntent.Accepts(value), op.InvalidInput()).ToFin())).As()
+               from _______ in @default.TraverseM(value => value.Admit()
+                       .Bind(_ => guard(admittedIntent.Accepts(value), new KernelFault.InvalidInput()).ToFin())).As()
                    .Map(static _ => unit)
-               from complete in admittedAccept.Requiring(terminals: admittedIntent.Terminals, key: op)
+               from complete in admittedAccept.Requiring(terminals: admittedIntent.Terminals)
                select new Acquire(
                    admittedIntent, admittedPrompt, complete, promptDefault, @default, options, drag);
     }
@@ -1078,19 +1070,17 @@ internal sealed record GetterCycle(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Acquisition {
-    public static Fin<AcquireOutcome> Get(DocumentSession session, Acquire request, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
-               from target in op.Need(session)
-               from active in op.Need(request)
+    public static Fin<AcquireOutcome> Get(DocumentSession session, Acquire request) {
+        return from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
+               from target in Admit.Need(session)
+               from active in Admit.Need(request)
                from outcome in target.Demand(
                    use: document => active.Intent.Switch(
-                       state: (Request: active, Document: document, Op: op),
-                       interactive: static (held, intent) => Interactive(held.Request, intent, held.Document, held.Op),
-                       objects: static (held, intent) => Objects(held.Request, intent.Plan, held.Op),
-                       transform: static (held, intent) => Transform(held.Request, intent.Calculate, held.Op),
-                       modal: static (held, intent) => Modal(held.Request, intent.Input, held.Document, held.Op)),
-                   key: op,
+                       state: (Request: active, Document: document),
+                       interactive: static (held, intent) => Interactive(held.Request, intent, held.Document),
+                       objects: static (held, intent) => Objects(held.Request, intent.Plan),
+                       transform: static (held, intent) => Transform(held.Request, intent.Calculate),
+                       modal: static (held, intent) => Modal(held.Request, intent.Input, held.Document)),
                    needs: [SessionNeed.Acquire])
                select outcome;
     }
@@ -1098,14 +1088,13 @@ public static class Acquisition {
     private static Fin<AcquireOutcome> Interactive(
         Acquire request,
         AcquireIntent.Interactive intent,
-        RhinoDoc document,
-        Op op) =>
+        RhinoDoc document) =>
         GetterDrive.Run(
             request: request,
             create: static () => new GetPoint(),
             prepare: getter => intent.Point.Plan.Apply(
-                target: getter, apply: static (rule, target, k) => rule.Apply(target, k), key: op),
-            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging, op).Bind(callbacks => {
+                target: getter, apply: static (rule, target, k) => rule.Apply(target, k)),
+            receive: (getter, dragging) => PointFeedbackLease.Attach(getter, intent.Point.Feedback, dragging).Bind(callbacks => {
                 GetResult raw;
                 using (callbacks) {
                     raw = getter.Get(
@@ -1117,127 +1106,120 @@ public static class Acquisition {
                     None: () => Fin.Succ(raw));
             }),
             project: (getter, raw) => intent.Cases.Find(row => row.Terminal == raw)
-                .ToFin(Fail: op.InvalidResult(detail: raw.ToString()))
-                .Bind(row => row.Project(getter, document, op)),
-            op: op);
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(raw.ToString())))
+                .Bind(row => row.Project(getter, document)));
 
-    private static Fin<AcquireOutcome> Objects(Acquire request, ObjectPlan plan, Op op) => GetterDrive.Run(
+    private static Fin<AcquireOutcome> Objects(Acquire request, ObjectPlan plan) => GetterDrive.Run(
         request: request,
         create: static () => new GetObject(),
         prepare: getter => plan.Plan.Apply(
-            target: getter, apply: static (rule, target, k) => rule.Apply(target, k), key: op),
-        receive: (getter, _) => op.Catch(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))),
+            target: getter, apply: static (rule, target, k) => rule.Apply(target, k)),
+        receive: (getter, _) => Try.lift(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))).Run().Bind(static inner => inner),
         project: (getter, raw) => raw is GetResult.Object
             ? Picks.CaptureOwned(references: getter.Objects(), key: op)
                 .Map(static picked => (Acquired)new Acquired.Objects(Picked: picked))
-            : Fin.Fail<Acquired>(op.InvalidResult(detail: raw.ToString())),
-        op: op);
+            : Fin.Fail<Acquired>(new KernelFault.InvalidResult(Detail: Some(raw.ToString()))));
 
     private static Fin<AcquireOutcome> Transform(
         Acquire request,
-        Func<RhinoViewport, Point3d, Transform> calculate,
-        Op op) => GetterDrive.Run(
+        Func<RhinoViewport, Point3d, Transform> calculate) => GetterDrive.Run(
         request: request,
         create: () => new TransformGetter(calculate),
         prepare: static _ => Fin.Succ(unit),
-        receive: (getter, _) => op.Catch(() => Fin.Succ(getter.GetXform())),
+        receive: (getter, _) => Try.lift(() => Fin.Succ(getter.GetXform())).Run().Bind(static inner => inner),
         project: (getter, raw) => getter.Fault.Match(
             Some: Fin.Fail<Acquired>,
             None: () => getter.Calculated
                 .Map(static value => (Acquired)new Acquired.Xform(Value: value))
-                .ToFin(Fail: op.InvalidResult(detail: raw.ToString()))),
-        op: op);
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(raw.ToString())))));
 
     private static Fin<AcquireOutcome> Modal(
         Acquire request,
         ModalInput input,
-        RhinoDoc document,
-        Op op) => input.Switch(
-        state: (Request: request, Document: document, Op: op),
-        point: static (held, _) => ModalResult(held.Op, () => {
+        RhinoDoc document) => input.Switch(
+        state: (Request: request, Document: document),
+        point: static (held, _) => ModalResult(() => {
             Result native = RhinoGet.GetPoint(held.Request.Prompt, held.Request.Accept.AcceptsNothing, out Point3d value);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Point(
                 Value: value,
                 Evidence: new PointEvidence(None, None, None, [], []))));
         }),
-        oneObject: static (held, modal) => ModalResult(held.Op, () => {
+        oneObject: static (held, modal) => ModalResult(() => {
             Result native = RhinoGet.GetOneObject(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Filter.Mask, out ObjRef reference);
-            return (native, () => Picks.CaptureOwned([reference], held.Op)
+            return (native, () => Picks.CaptureOwned([reference])
                 .Map(static picked => (Acquired)new Acquired.Objects(Picked: picked)));
         }),
-        manyObjects: static (held, modal) => ModalResult(held.Op, () => {
+        manyObjects: static (held, modal) => ModalResult(() => {
             Result native = RhinoGet.GetMultipleObjects(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Filter.Mask, out ObjRef[] references);
-            return (native, () => Picks.CaptureOwned(references, held.Op)
+            return (native, () => Picks.CaptureOwned(references)
                 .Map(static picked => (Acquired)new Acquired.Objects(Picked: picked)));
         }),
-        text: static (held, modal) => ModalResult(held.Op, () => {
+        text: static (held, modal) => ModalResult(() => {
             string value = modal.Seed;
             Result native = RhinoGet.GetString(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Text(Value: value)));
         }),
-        toggle: static (held, modal) => ModalResult(held.Op, () => {
+        toggle: static (held, modal) => ModalResult(() => {
             bool value = modal.Seed;
             Result native = RhinoGet.GetBool(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, modal.Off, modal.On, ref value);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Toggle(Value: value)));
         }),
-        number: static (held, modal) => ModalResult(held.Op, () => {
+        number: static (held, modal) => ModalResult(() => {
             double value = modal.Seed;
             Result native = RhinoGet.GetNumber(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value, modal.Lower, modal.Upper);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Number(Value: value)));
         }),
-        count: static (held, modal) => ModalResult(held.Op, () => {
+        count: static (held, modal) => ModalResult(() => {
             int value = modal.Seed;
             Result native = RhinoGet.GetInteger(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value, modal.Lower, modal.Upper);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Count(Value: value)));
         }),
-        paint: static (held, modal) => Slots.Rgb(shade: modal.Seed, key: held.Op).Bind(seed => ModalResult(held.Op, () => {
+        paint: static (held, modal) => Slots.Rgb(shade: modal.Seed).Bind(seed => ModalResult(() => {
             System.Drawing.Color value = seed;
             Result native = RhinoGet.GetColor(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value);
             return (native, () => Slots.Shade(color: value, key: held.Op)
                 .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
         })),
-        distance: static (held, modal) => ModalResult(held.Op, () => {
+        distance: static (held, modal) => ModalResult(() => {
             Result native = RhinoGet.GetDistance(held.Request.Prompt, modal.Seed, out double value);
             return (native, () => DocumentSpace.Model.Read(document: held.Document, op: held.Op)
                 .Map(regime => (Acquired)new Acquired.Distance(Value: value, Unit: regime.Unit)));
         }),
-        shape: static (held, modal) => ModalResult(held.Op, () => modal.Ask.Run(held.Op)),
-        view: static (held, modal) => ModalResult(held.Op, () => {
+        shape: static (held, modal) => ModalResult(() => modal.Ask.Run()),
+        view: static (held, modal) => ModalResult(() => {
             Result native = RhinoGet.GetView(held.Request.Prompt, out RhinoView value);
             return (native, () => modal.Project(InputMap.Fact(value)));
         }),
-        viewports: static (held, modal) => ModalResult(held.Op, () => {
+        viewports: static (held, modal) => ModalResult(() => {
             Result native = RhinoGet.GetViewports(held.Request.Prompt, out RhinoViewport[] value);
             return (native, () => modal.Project(toSeq(value).Map(static row => InputMap.Fact(row)).Strict()));
         }),
-        file: static (held, modal) => held.Op.Catch(() => {
+        file: static (held, modal) => Try.lift(() => {
             string value = modal.Title.Match(
                 Some: caption => RhinoGet.GetFileName(modal.Ask.Key, modal.DefaultName, caption, parent: null),
                 None: () => RhinoGet.GetFileNameScripted(modal.Ask.Key, modal.DefaultName));
             return string.IsNullOrWhiteSpace(value)
                 ? Fin.Succ(Outcome(new AcquireTerminal.Cancelled()))
                 : Fin.Succ(Outcome(new AcquireTerminal.Value(new Acquired.FileName(Value: value))));
-        }));
+        }).Run().Bind(static inner => inner));
 
-    private static Fin<AcquireOutcome> ModalResult(
-        Op op,
-        Func<(Result Native, Func<Fin<Acquired>> Project)> run) => op.Catch(() => {
+    private static Fin<AcquireOutcome> ModalResult(Func<(Result Native, Func<Fin<Acquired>> Project)> run) => Try.lift(() => {
         (Result native, Func<Fin<Acquired>> project) = run();
         return native switch {
             Result.Success => project().Map(payload => Outcome(new AcquireTerminal.Value(Payload: payload))),
             Result.Cancel => Fin.Succ(Outcome(new AcquireTerminal.Cancelled())),
             Result.Nothing => Fin.Succ(Outcome(new AcquireTerminal.Nothing())),
             Result.ExitRhino => Fin.Succ(Outcome(new AcquireTerminal.Exit())),
-            _ => Fin.Fail<AcquireOutcome>(op.InvalidResult(detail: native.ToString())),
+            _ => Fin.Fail<AcquireOutcome>(new KernelFault.InvalidResult(Detail: Some(native.ToString()))),
         };
-    });
+    }).Run().Bind(static inner => inner);
 
     private static AcquireOutcome Outcome(AcquireTerminal terminal) =>
         new(Terminal: terminal, Options: [], Settled: [], GotDefault: false, Dragged: None);
@@ -1249,47 +1231,43 @@ internal static class GetterDrive {
         Func<TGetter> create,
         Func<TGetter, Fin<Unit>> prepare,
         Func<TGetter, Option<DragBuffer>, Fin<GetResult>> receive,
-        Func<TGetter, GetResult, Fin<Acquired>> project,
-        Op op)
-        where TGetter : GetBaseClass => op.Catch(() => {
+        Func<TGetter, GetResult, Fin<Acquired>> project)
+        where TGetter : GetBaseClass => Try.lift(() => {
             TGetter getter = create();
             Fin<AcquireOutcome> outcome =
-                (from _ in op.Catch(() => {
+                (from _ in Try.lift(() => {
                      getter.SetCommandPrompt(request.Prompt);
                      _ = request.PromptDefault.Iter(value => getter.SetCommandPromptDefault(value));
                      return Fin.Succ(unit);
-                 })
+                 }).Run().Bind(static inner => inner)
                  from __ in request.Default
-                     .TraverseM(value => value.Apply(getter, op))
+                     .TraverseM(value => value.Apply(getter))
                      .As()
                      .Map(static _ => unit)
-                 from ___ in request.Accept.Apply(getter, op)
+                 from ___ in request.Accept.Apply(getter)
                  from ____ in prepare(getter)
-                 from outcome in Dragged(request.Drag, op, dragging =>
+                 from outcome in Dragged(request.Drag, dragging =>
                      dragging.Map(buffer => buffer.Bind(getter)).IfNone(Fin.Succ(unit))
                          .Bind(_ => request.Options.Match(
-                             Some: options => options.Bind(getter, op),
+                             Some: options => options.Bind(getter),
                              None: static () => Fin.Succ(new OptionLease())))
-                         .Bind(lease => Cycle(request, getter, dragging, receive, project, lease, op)
-                             .Settled(held: Seq(lease), release: held => held.Release(op), key: op)))
+                         .Bind(lease => Cycle(request, getter, dragging, receive, project, lease)
+                             .Settled(held: Seq(lease), release: held => held.Release())))
                  select outcome)
                 .Settled(
                     held: Seq(getter),
-                    release: held => op.Catch(() => { held.Dispose(); return Fin.Succ(unit); }),
-                    key: op);
+                    release: held => Try.lift(() => { held.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner));
             return outcome;
-        });
+        }).Run().Bind(static inner => inner);
 
     private static Fin<AcquireOutcome> Dragged(
         Option<DragSelection> plan,
-        Op op,
         Func<Option<DragBuffer>, Fin<AcquireOutcome>> body) => plan.Match(
-        Some: row => DragBuffer.Of(row, op).Bind(buffer =>
+        Some: row => DragBuffer.Of(row).Bind(buffer =>
             body(Some(buffer))
                 .Settled(
                     held: Seq(buffer),
-                    release: held => op.Catch(() => { held.Dispose(); return Fin.Succ(unit); }),
-                    key: op)),
+                    release: held => Try.lift(() => { held.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))),
         None: () => body(None));
 
     private static Fin<AcquireOutcome> Cycle<TGetter>(
@@ -1298,33 +1276,31 @@ internal static class GetterDrive {
         Option<DragBuffer> dragging,
         Func<TGetter, Option<DragBuffer>, Fin<GetResult>> receive,
         Func<TGetter, GetResult, Fin<Acquired>> project,
-        OptionLease lease,
-        Op op)
+        OptionLease lease)
         where TGetter : GetBaseClass =>
         Prelude.Range(0, request.Accept.OptionBudget + 1)
             .FoldUntil(
                 Fin.Succ(new GetterCycle(Choices: [], Terminal: None)),
                 (state, _) => state.Bind(cycle => receive(getter, dragging).Bind(raw => raw is GetResult.Option
-                    ? lease.Selected(getter, op).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
+                    ? lease.Selected(getter).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
                     : Fin.Succ(cycle with { Terminal = Some(raw) }))),
                 pair => pair.State.Match(Succ: static cycle => cycle.Terminal.IsSome, Fail: static _ => true))
-            .Bind(cycle => cycle.Terminal.ToFin(Fail: op.InvalidResult(detail: nameof(AcceptPlan.OptionBudget)))
+            .Bind(cycle => cycle.Terminal.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(AcceptPlan.OptionBudget))))
                 .Bind(raw => TerminalRow.TryGet(raw, out TerminalRow? row)
-                    ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging, op)
+                    ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging)
                     : raw is GetResult.NoResult or GetResult.Miss
-                        ? Fin.Fail<AcquireOutcome>(op.InvalidResult(detail: raw.ToString()))
+                        ? Fin.Fail<AcquireOutcome>(new KernelFault.InvalidResult(Detail: Some(raw.ToString())))
                         : project(getter, raw).Bind(payload => Sealed(
-                            new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging, op))));
+                            new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging))));
 
     private static Fin<AcquireOutcome> Sealed(
         AcquireTerminal terminal,
         GetBaseClass getter,
         Seq<OptionChoice> choices,
         OptionLease lease,
-        Option<DragBuffer> dragging,
-        Op op) =>
-        from settled in lease.Snapshot(op)
-        from census in dragging.TraverseM(buffer => buffer.Census(op)).As()
+        Option<DragBuffer> dragging) =>
+        from settled in lease.Snapshot()
+        from census in dragging.TraverseM(buffer => buffer.Census()).As()
         select new AcquireOutcome(
             Terminal: terminal,
             Options: choices,
@@ -1343,42 +1319,41 @@ internal static class GetterDrive {
 internal sealed class DragBuffer : IDisposable {
     private readonly TransformObjectList buffer;
     private readonly DragScope scope;
-    private readonly Op op;
     private readonly Atom<int> poses = Atom(0);
 
-    private DragBuffer(TransformObjectList buffer, DragScope scope, Op op) {
+    private DragBuffer(TransformObjectList buffer, DragScope scope) {
         this.buffer = buffer;
         this.scope = scope;
         this.op = op;
     }
 
-    internal static Fin<DragBuffer> Of(DragSelection plan, Op op) => op.Catch(() => {
+    internal static Fin<DragBuffer> Of(DragSelection plan) => Try.lift(() => {
         using GetObject selection = new();
         selection.SetCommandPrompt(plan.Prompt);
         return plan.Selection.Plan.Apply(
-                target: selection, apply: static (rule, target, k) => rule.Apply(target, k), key: op)
+                target: selection, apply: static (rule, target, k) => rule.Apply(target, k))
             .Bind(_ => selection.GetMultiple(plan.Selection.Minimum, plan.Selection.Maximum) is GetResult.Object
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(op.InvalidResult(detail: nameof(DragSelection.Selection))))
-            .Bind(_ => Minted(selection, plan.Scope, op));
-    });
+                : Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some(nameof(DragSelection.Selection)))))
+            .Bind(_ => Minted(selection, plan.Scope));
+    }).Run().Bind(static inner => inner);
 
-    private static Fin<DragBuffer> Minted(GetObject selection, DragScope scope, Op op) {
+    private static Fin<DragBuffer> Minted(GetObject selection, DragScope scope) {
         TransformObjectList buffer = new();
-        return op.Confirm(buffer.AddObjects(selection, scope.Grips) > 0)
-            .Map(_ => new DragBuffer(buffer, scope, op))
-            .Rollback(release: () => op.Catch(() => { buffer.Dispose(); return Fin.Succ(unit); }), key: op);
+        return Admit.Confirm(buffer.AddObjects(selection, scope.Grips) > 0)
+            .Map(_ => new DragBuffer(buffer, scope))
+            .Rollback(release: () => Try.lift(() => { buffer.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner));
     }
 
-    internal Fin<Unit> Bind(GetBaseClass getter) => op.Catch(() => Fin.Succ(getter switch {
-        GetTransform target => Op.Side(() => target.AddTransformObjects(buffer)),
-        _ => Op.Side(() => buffer.DisplayFeedbackEnabled = true),
-    }));
+    internal Fin<Unit> Bind(GetBaseClass getter) => Try.lift(() => Fin.Succ(getter switch {
+        GetTransform target => HostEdge.Side(() => target.AddTransformObjects(buffer)),
+        _ => HostEdge.Side(() => buffer.DisplayFeedbackEnabled = true),
+    })).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Pose(Transform xform) => op.Confirm(buffer.UpdateDisplayFeedbackTransform(xform))
+    internal Fin<Unit> Pose(Transform xform) => Admit.Confirm(buffer.UpdateDisplayFeedbackTransform(xform))
         .Map(_ => ignore(Cell.Commit(poses, static held => held + 1)));
 
-    internal Fin<DragCensus> Census(Op key) => key.Catch(() => Fin.Succ(new DragCensus(
+    internal Fin<DragCensus> Census() => Try.lift(() => Fin.Succ(new DragCensus(
         Objects: toSeq(buffer.ObjectArray()).Map(static row => row.Id),
         Grips: toSeq(buffer.GripArray()).Map(static row => row.Id),
         GripOwners: toSeq(buffer.GripOwnerArray()).Map(static row => row.Id),
@@ -1386,7 +1361,7 @@ internal sealed class DragBuffer : IDisposable {
         GripCount: buffer.GripCount,
         GripOwnerCount: buffer.GripOwnerCount,
         Extent: buffer.GetBoundingBox(regularObjects: true, grips: scope.Grips),
-        Poses: poses.Value)));
+        Poses: poses.Value))).Run().Bind(static inner => inner);
 
     public void Dispose() => buffer.Dispose();
 }
@@ -1394,11 +1369,10 @@ internal sealed class DragBuffer : IDisposable {
 internal sealed class PointFeedbackLease : IDisposable {
     private readonly GetPoint getter;
     private readonly Option<DragBuffer> dragging;
-    private readonly Op op;
     private readonly Atom<Option<Error>> fault = Atom(Option<Error>.None);
     private readonly Atom<Option<Subscription>> observation = Atom(Option<Subscription>.None);
 
-    private PointFeedbackLease(GetPoint getter, Option<DragBuffer> dragging, Op op) {
+    private PointFeedbackLease(GetPoint getter, Option<DragBuffer> dragging) {
         this.getter = getter;
         this.dragging = dragging;
         this.op = op;
@@ -1409,9 +1383,8 @@ internal sealed class PointFeedbackLease : IDisposable {
     internal static Fin<PointFeedbackLease> Attach(
         GetPoint getter,
         Seq<PointFeedback> feedback,
-        Option<DragBuffer> dragging,
-        Op op) {
-        PointFeedbackLease lease = new(getter, dragging, op);
+        Option<DragBuffer> dragging) {
+        PointFeedbackLease lease = new(getter, dragging);
         return Subscription.AttachAll(feedback.Map(row => (Func<Fin<Subscription>>)(() => lease.Wire(row))))
             .Map(attached => {
                 _ = Cell.Seat(lease.observation, () => attached);
@@ -1419,7 +1392,7 @@ internal sealed class PointFeedbackLease : IDisposable {
             });
     }
 
-    private Fin<Subscription> Wire(PointFeedback feedback) => op.Catch(() =>
+    private Fin<Subscription> Wire(PointFeedback feedback) => Try.lift(() =>
         feedback.Switch(
             state: this,
             mouseMove: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(
@@ -1437,11 +1410,11 @@ internal sealed class PointFeedbackLease : IDisposable {
             },
             pose: static (lease, row) => lease.Hook<GetPointMouseEventArgs>(
                 args => row.Sink(InputMap.Fact(args)).Bind(lease.Reposed),
-                handler => lease.getter.MouseMove += handler, handler => lease.getter.MouseMove -= handler)));
+                handler => lease.getter.MouseMove += handler, handler => lease.getter.MouseMove -= handler))).Run().Bind(static inner => inner);
 
     private Fin<Unit> Reposed(Transform xform) => dragging.Match(
         Some: buffer => buffer.Pose(xform),
-        None: () => Fin.Fail<Unit>(op.InvalidContext()));
+        None: () => Fin.Fail<Unit>(new KernelFault.InvalidContext()));
 
     private Fin<Subscription> Hook<TArgs>(
         Func<TArgs, Fin<Unit>> sink,
@@ -1453,10 +1426,10 @@ internal sealed class PointFeedbackLease : IDisposable {
 
     private void Deliver(Func<Fin<Unit>> effect) {
         if (fault.Value.IsSome) return;
-        _ = op.Catch(effect).Match(
+        _ = Try.lift(effect).Run().Bind(static inner => inner).Match(
             Succ: static _ => unit,
             Fail: error => {
-                Fin<Unit> interrupted = op.Catch(() => Fin.Succ(ignore(getter.InterruptMouseMove())));
+                Fin<Unit> interrupted = Try.lift(() => Fin.Succ(ignore(getter.InterruptMouseMove()))).Run().Bind(static inner => inner);
                 Error seated = interrupted.Match(
                     Succ: _ => error,
                     Fail: interrupt => error + interrupt);
@@ -1485,11 +1458,10 @@ internal sealed class TransformGetter(Func<RhinoViewport, Point3d, Transform> ca
 
     public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) {
         if (Fault.IsSome) return Transform.Unset;
-        Op op = Op.Of(name: nameof(CalculateTransform));
-        return op.Catch(() => Fin.Succ(calculate(viewport, point))).Match(
+        return Try.lift(() => Fin.Succ(calculate(viewport, point))).Run().Bind(static inner => inner).Match(
             Succ: value => {
                 if (!value.IsValid) {
-                    Fault = Some(op.InvalidResult(detail: nameof(Transform)));
+                    Fault = Some(new KernelFault.InvalidResult(Detail: Some(nameof(Transform))));
                     return Transform.Unset;
                 }
                 Calculated = Some(value);

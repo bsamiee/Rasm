@@ -130,7 +130,7 @@ public static class CommitGraph {
 
     internal static void Fields(CommitNode node, CanonicalWriter w) {
         w.Rows(node.Parents, static (parent, x) => { x.U128(parent); })
-         .Rows(node.OpKeys, static (key, x) => { x.U128(key); })
+         .Rows(node.OpKeys, static (key, x) => { x.U128(); })
          .String(node.Branch);
         node.Vector.CanonicalBytes(w);
         w.String(node.Actor);
@@ -166,7 +166,7 @@ public static class CommitGraph {
             cherryPick: c => Transplanted(ports, c.Pick, onto, head, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message).Map(Seq),
             rebase: rb => rb.Chain.FoldM(
                 (Onto: rb.NewBase, Vector: head, Minted: Seq<CommitNode>()),
-                (acc, key) => Transplanted(ports, key, acc.Onto, acc.Vector, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message)
+                (acc, key) => Transplanted(ports, acc.Onto, acc.Vector, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message)
                     .Map(minted => (minted.ContentKey, minted.Vector, acc.Minted.Add(minted))))
                 .Map(static final => final.Minted).As());
 
@@ -188,7 +188,7 @@ public static class CommitGraph {
     }
 
     public static MerkleRange Of(Seq<UInt128> sortedKeys) {
-        UInt128 address = ContentHash.Of(sortedKeys, static (keys, writer) => writer.Rows(keys, static (key, framed) => framed.U128(key)));
+        UInt128 address = ContentHash.Of(sortedKeys, static (keys, writer) => writer.Rows(keys, static (key, framed) => framed.U128()));
         return sortedKeys.IsEmpty
             ? new MerkleRange.Empty(address)
             : new MerkleRange.Bounded(sortedKeys[0], sortedKeys[sortedKeys.Count - 1], address, sortedKeys.Count);
@@ -218,8 +218,8 @@ public static class CommitGraph {
         System.Collections.Generic.HashSet<UInt128> seen = [];
         System.Collections.Generic.Queue<UInt128> queue = new(frontier);
         while (queue.TryDequeue(out UInt128 key))
-            if (seen.Add(key))
-                resolve(key).Iter(node => node.Parents.Iter(queue.Enqueue));
+            if (seen.Add())
+                resolve().Iter(node => node.Parents.Iter(queue.Enqueue));
         return toSet(seen);
     }
 }
@@ -237,7 +237,7 @@ public static class CommitGraph {
 
 - Owner: `CrdtField` `[Union]` the convergent op-based/delta-state field family carrying the six replicated data types; `CrdtOp` the delta payload a changefeed entry carries; `RgaCell` the one growable-array element; `Crdt` the merge-fold surface whose `Merge` is commutative, associative, and idempotent over the op multiset, with the version-vector-gated tombstone compaction.
 - Cases: `LwwRegister`, `MvRegister`, `OrSet`, `PnCounter`, `RgaSequence`, `EphemeralMap` on `CrdtField`; `Set | Write | Add | Remove | Increment | InsertAfter | Delete | Maintain | Beat | Leave` on `CrdtOp`.
-- Entry: `Crdt.Merge(left, right)` joins matching family states and refuses a family mismatch; `Apply(state, id, op)` keeps the outer operation dot beside the generated delta through the fold; `Seed(op)` materializes a fresh cell only for a family-identifying op and refuses an unseated `Maintain`; `Law(op)` returns the arm's commutation row consumed by `Version/ledger#MERGE_LAW`.
+- Entry: `Crdt.Merge(left, right)` joins matching family states and refuses a family mismatch; `Apply(state, id)` keeps the outer operation dot beside the generated delta through the fold; `Seed()` materializes a fresh cell only for a family-identifying op and refuses an unseated `Maintain`; `Law()` returns the arm's commutation row consumed by `Version/ledger#MERGE_LAW`.
 - Auto: `SyncMerge.Apply` carries the admitted entry's `OperationId` into `Crdt.Apply`; this owner claims no op-log producer. OR-set live tags and tombstones remain keyed by the same element. RGA compaction clears retired value bytes while retaining identity, predecessor, value identity, and child routing. PN buckets accept only monotone cumulative halves and refuse equal-sequence forks. MV-register entries retain the outer dot separately from the register-specific causal context. Presence retains stamped live/left cells plus a monotone physical maintenance horizon.
 - Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, Generator.Equals, BCL inbox. Retired RGA values keep the kernel `ContentHash.Of` identity already owned by the suite; no CRDT-local hasher or package is admitted.
 - Growth: a new replicated type is one `CrdtField` case, one `CrdtOp` arm, one `Merge`/`Apply` arm, and one `Seed`/`Law` pair the generated total `Switch` forces; zero new surface — a per-type merge service, a second convergence engine, or an op-transform rebase is the deleted form because the join-semilattice subsumes idempotency, commutativity, and reorder tolerance.
@@ -367,7 +367,7 @@ public static class Crdt {
         _ => Drift($"family-merge:{left.GetType().Name}:{right.GetType().Name}"),
     };
 
-    public static Fin<CrdtField> Apply(CrdtField state, OperationId identity, CrdtOp op) => (state, op) switch {
+    public static Fin<CrdtField> Apply(CrdtField state, OperationId identity, CrdtOp op) => (state) switch {
         (CrdtField.LwwRegister register, CrdtOp.Set set) =>
             Register(register, new CrdtField.LwwRegister(set.Value, set.Cell, set.Origin))
                 .Map<CrdtField>(static held => held),
@@ -594,7 +594,7 @@ Merge policy per mutation kind — `Crdt.Law` returns column three, and `Version
 
 - Owner: `Hlc` the hybrid-logical-clock stamp the Marten event `Timestamp`, the changefeed projection, the CRDT merge, the commit cell, and the generated wire all read; corpus `CrdtOpWire` the ONE ten-arm wire vocabulary; `CrdtOpMapper` the projection between that generated oneof and the domain union; `CommitFault` the closed `[Union]` fault family over the KERNEL `Rasm.Domain.Fault` in the 8260 band; `CrdtWire` the static bounded proto-binary codec; `ParitySlot` the corpus-leg axis carrying its producer-owner label; `ParityVector` the one fixture carrier whose digest ALWAYS derives through the kernel `ContentHash.Of` at mint; `ContentParityCorpus` the surface minting this package's parity legs and reconciling a local corpus against the peer one.
 - Cases: the generated required oneof closes at `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave`; `field` sits once on the root, the generated arm owns every variant-only member, and `beat`/`leave` carry the presence delta. Every `ParitySlot` row names its producer owner beside a `MintedHere` stance the `Mint`/`Contribute` split reads: a minted-here row derives from this owner's own writers, a contributed row flows in one-directionally, and the roster alone fixes membership so a new leg falsifies no sentence. Row `elementset` has its `Query/lane#ELEMENT_SET_ALGEBRA` owner call `Contribute` with its own framed preimage, so the Version owner freezes the foreign byte shape but never reaches back into Query to re-derive it.
-- Entry: `CrdtWire.Encode(op)` maps onto the generated message, validates the descriptor rules plus strict causal-row order, and emits proto-binary bytes; `ContentKey(payload)` hashes THOSE held bytes without re-encoding; `CrdtWire.Decode(payload)` bounds extent, parses, validates, and maps one generated arm, failing `CommitFault.DecodeDrift` on malformed, unset, unknown, or non-canonical input. `ContentParityCorpus.Mint(...)` mints every minted-here vector over this page's own writers and folds in the contributed ones; `Contribute(slot, canonical)` is the contribution port a foreign producer calls, failing `OwnerMinted` on an owner-minted slot; `Reconcile(local, peer)` accumulates every `ParityDrift` the cross-runtime harness finds.
+- Entry: `CrdtWire.Encode()` maps onto the generated message, validates the descriptor rules plus strict causal-row order, and emits proto-binary bytes; `ContentKey(payload)` hashes THOSE held bytes without re-encoding; `CrdtWire.Decode(payload)` bounds extent, parses, validates, and maps one generated arm, failing `CommitFault.DecodeDrift` on malformed, unset, unknown, or non-canonical input. `ContentParityCorpus.Mint(...)` mints every minted-here vector over this page's own writers and folds in the contributed ones; `Contribute(slot, canonical)` is the contribution port a foreign producer calls, failing `OwnerMinted` on an owner-minted slot; `Reconcile(local, peer)` accumulates every `ParityDrift` the cross-runtime harness finds.
 - Auto: `Hlc.Observe` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter; `CrdtWire.Encode` supplies the raw `OpLogEntry.Payload` only for the `crdt` family, while every other family retains its existing payload codec and the positional envelope stays unchanged. The generated oneof is the case authority and each adapter dispatch reads it directly; no `[MessagePack.Union]`, msgspec arm hierarchy, or TypeScript positional arm schema survives. `ContentParityCorpus.Mint` retains the actual proto payload bytes the live key consumed; semantic parity compares decoded generated values because protobuf serialization is not the cross-runtime canonical preimage.
 - Growth: a new op is one corpus oneof arm plus its typed message, one `CrdtOp` arm, and the generated-arm/domain adapter pair; every peer regenerates from the same descriptor and no peer authors a wire case. A new parity leg is one `ParitySlot` row with one `Mint` or `Contribute` vector, never a second corpus store or a per-fixture expected-bytes constant family; zero new surface.
 - Boundary: `CrdtOpWire` is generated proto-binary under ONE family-derived discriminant: only `ColumnFamily.Crdt` decodes `OpLogEntry.Payload` as that message. The thirteen-slot MessagePack `OpLogEntry` envelope remains positional and its payload remains raw, so scalar, geometry, presence, commit, branch, and attest entries cross byte-identically without an `Any` or a fabricated CRDT arm. LWW `Adjudicate` survives only as the generated `set` arm reconstructing `LwwRegister`; an unset or unknown generated arm refuses typed.
@@ -661,7 +661,7 @@ public static class CrdtWire {
     public static UInt128 ContentKey(ReadOnlyMemory<byte> payload) => ContentHash.Of(payload.Span);
 
     public static Fin<ReadOnlyMemory<byte>> Encode(CrdtOp op) =>
-        Op.Of().Catch(() => CrdtOpMapper.Wire(op))
+        Try.lift(() => CrdtOpMapper.Wire()).Run().Bind(static inner => inner)
             .MapFail(static error => new CommitFault.EncodeDrift(error))
             .Bind(static wire => Lawful(wire)
                 ? Fin.Succ(wire)
@@ -674,12 +674,12 @@ public static class CrdtWire {
     public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload) =>
         payload.Length > PayloadLimit
             ? Fin.Fail<CrdtOp>(new CommitFault.DecodeDrift(Error.New($"<crdt-payload-overrun:{payload.Length}:{PayloadLimit}>")))
-            : Op.Of().Catch(() => Fin.Succ(CrdtOpWire.Parser.ParseFrom(payload.Span)))
+            : Try.lift(() => Fin.Succ(CrdtOpWire.Parser.ParseFrom(payload.Span))).Run().Bind(static inner => inner)
                 .MapFail(static error => error.Exception.Case is InvalidProtocolBufferException
                     ? (Error)new CommitFault.DecodeDrift(error)
                     : error)
                 .Bind(Admit)
-                .Bind(CrdtOpMapper.Op);
+                .Bind();
 
     static Fin<CrdtOpWire> Admit(CrdtOpWire wire) =>
         Lawful(wire)
@@ -718,7 +718,7 @@ public static class CrdtOpMapper {
     };
 
     static Fin<CrdtOp> Mapped(Func<CrdtOp> map) =>
-        Op.Of().Catch(map).MapFail(static error => new CommitFault.DecodeDrift(error));
+        Try.lift(map).Run().Bind(static inner => inner).MapFail(static error => new CommitFault.DecodeDrift(error));
 
     public static bool Ordered(CrdtOpWire wire) => wire.ArmCase switch {
         CrdtOpWire.ArmOneofCase.Write => Ordered(wire.Write.Context),
@@ -782,7 +782,7 @@ public static class ContentParityCorpus {
     static Fin<ParityVector> Retained<TState>(ParitySlot slot, TState state, Action<TState, CanonicalWriter> fields) {
         CanonicalWriter writer = CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance);
         fields(state, writer);
-        return writer.ToBytes(Op.Of(name: slot.Key)).Map(bytes => ParityVector.Of(slot, bytes));
+        return writer.ToBytes().Map(bytes => ParityVector.Of(slot, bytes));
     }
 
     public static Fin<ParityVector> Cell(Hlc cell) =>
@@ -792,19 +792,19 @@ public static class ContentParityCorpus {
         Retained(ParitySlot.CommitKey, CommitGraph.Unkeyed(parents, opKeys, branch, vector, actor, cell, message), CommitGraph.Fields);
 
     public static Fin<ParityVector> Op(CrdtOp op) =>
-        CrdtWire.Encode(op).Map(static bytes => ParityVector.Of(ParitySlot.CrdtOp, bytes));
+        CrdtWire.Encode().Map(static bytes => ParityVector.Of(ParitySlot.CrdtOp, bytes));
 
     public static Fin<ParityVector> OpSet(Seq<(OperationId Id, CrdtOp Op)> ops) =>
         ops.IsEmpty
-            ? Fin.Fail<ParityVector>(new CommitFault.ParityDrift(ParitySlot.CrdtOpSet.Key, "<empty-op-set>"))
+            ? Fin.Fail<ParityVector>(new CommitFault.ParityDrift("<empty-op-set>"))
             : Permutations(ops)
                 .TraverseM(order => Crdt.Seed(ops[0].Op)
                     .Bind(seed => order.Fold(
                         Fin.Succ(seed),
-                        (acc, row) => acc.Bind(state => Crdt.Apply(state, row.Id, row.Op)))
+                        (acc, row) => acc.Bind(state => Crdt.Apply(state, row.Id)))
                         .Bind(state => order.Fold(
                             Fin.Succ(state),
-                            (acc, row) => acc.Bind(held => Crdt.Apply(held, row.Id, row.Op)))))
+                            (acc, row) => acc.Bind(held => Crdt.Apply(held, row.Id)))))
                     .Bind(state => Retained(ParitySlot.CrdtOpSet, state, Canonical)))
                 .As()
                 .Bind(folds => folds.Map(static vector => vector.Digest).Distinct().Count() == 1
@@ -897,7 +897,7 @@ public static class ContentParityCorpus {
     public static Fin<HashMap<ParitySlot, ParityVector>> Mint(Hlc cell, Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, CommitMessage message, CrdtOp op, params ReadOnlySpan<ParityVector> contributed) {
         HashMap<ParitySlot, ParityVector> foreign = LanguageExt.Iterable<ParityVector>.FromSpan(contributed)
             .Fold(HashMap<ParitySlot, ParityVector>(), static (corpus, vector) => corpus.AddOrUpdate(vector.Slot, vector));
-        return (Cell(cell), CommitPreimage(parents, opKeys, branch, vector, actor, cell, message), Op(op))
+        return (Cell(cell), CommitPreimage(parents, opKeys, branch, vector, actor, cell, message), Op())
             .Apply((hlc, commit, encoded) => foreign.Fold(
                 HashMap((ParitySlot.HlcCell, hlc), (ParitySlot.CommitKey, commit), (ParitySlot.CrdtOp, encoded)),
                 static (corpus, contributedVector) => corpus.AddOrUpdate(contributedVector.Key, contributedVector.Value)))

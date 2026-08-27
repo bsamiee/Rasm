@@ -43,43 +43,41 @@ public abstract partial record SettingsSource : IDisposable {
     public sealed record Archived(File3dm Archive) : SettingsSource;
     private sealed record Detached(Lease<RenderSettings> Settings) : SettingsSource;
 
-    public static Fin<SettingsSource> Free(Op? key = null) {
-        Op op = key.OrDefault();
-        return Lease<RenderSettings>.Acquire(mint: static () => new RenderSettings(), key: op)
+    public static Fin<SettingsSource> Free() {
+        return Lease<RenderSettings>.Acquire(mint: static () => new RenderSettings())
             .Map(static lease => (SettingsSource)new Detached(Settings: lease));
     }
 
-    internal Fin<TOut> Use<TOut>(Func<RenderSettings, Fin<TOut>> borrow, Op key)
+    internal Fin<TOut> Use<TOut>(Func<RenderSettings, Fin<TOut>> borrow)
         where TOut : IDetachedDocumentResult =>
         Switch(
-            context: (Borrow: borrow, Op: key),
+            context: borrow,
             live: static (ctx, source) =>
-                from session in ctx.Op.Need(source.Session)
+                from session in Admit.Need(source.Session)
                 from result in session.Demand(
                     use: document =>
-                        from settings in Optional(document.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
-                        from output in ctx.Borrow(settings)
+                        from settings in Optional(document.RenderSettings).ToFin(Fail: new KernelFault.MissingContext())
+                        from output in ctx(settings)
                         select output,
-                    key: ctx.Op,
                     needs: [SessionNeed.Read])
                 select result,
             archived: static (ctx, source) =>
-                from archive in ctx.Op.Need(source.Archive)
-                from result in ctx.Op.Catch(() =>
-                    from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
-                    from output in ctx.Borrow(settings)
-                    select output)
+                from archive in Admit.Need(source.Archive)
+                from result in Try.lift(() =>
+                    from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: new KernelFault.MissingContext())
+                    from output in ctx(settings)
+                    select output).Run().Bind(static inner => inner)
                 select result,
             detached: static (ctx, source) =>
-                from settings in ctx.Op.Need(source.Settings)
-                from result in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
+                from settings in Admit.Need(source.Settings)
+                from result in Try.lift(() => ctx(settings.Resource)).Run().Bind(static inner => inner)
                 select result);
 
-    internal Fin<Unit> Mutate(string name, Func<RenderSettings, Fin<Unit>> borrow, Op key) =>
+    internal Fin<Unit> Mutate(string name, Func<RenderSettings, Fin<Unit>> borrow) =>
         Switch(
-            context: (Name: name, Borrow: borrow, Op: key),
+            context: (Name: name, Borrow: borrow),
             live: static (ctx, source) =>
-                from session in ctx.Op.Need(source.Session)
+                from session in Admit.Need(source.Session)
                 from changed in session.Demand(
                     use: document => DocumentCommit.Sealed(
                         document: document,
@@ -87,24 +85,22 @@ public abstract partial record SettingsSource : IDisposable {
                         recordsUndo: true,
                         redraw: RedrawPolicy.None,
                         run: () =>
-                            from settings in Optional(document.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
+                            from settings in Optional(document.RenderSettings).ToFin(Fail: new KernelFault.MissingContext())
                             from applied in ctx.Borrow(settings)
                             select applied,
-                        project: Fin.Succ,
-                        op: ctx.Op),
-                    key: ctx.Op,
+                        project: Fin.Succ),
                     needs: SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None).ToArray())
                 select changed,
             archived: static (ctx, source) =>
-                from archive in ctx.Op.Need(source.Archive)
-                from changed in ctx.Op.Catch(() =>
-                    from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
+                from archive in Admit.Need(source.Archive)
+                from changed in Try.lift(() =>
+                    from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: new KernelFault.MissingContext())
                     from applied in ctx.Borrow(settings)
-                    select applied)
+                    select applied).Run().Bind(static inner => inner)
                 select changed,
             detached: static (ctx, source) =>
-                from settings in ctx.Op.Need(source.Settings)
-                from changed in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
+                from settings in Admit.Need(source.Settings)
+                from changed in Try.lift(() => ctx.Borrow(settings.Resource)).Run().Bind(static inner => inner)
                 select changed);
 
     public void Dispose() =>
@@ -130,7 +126,7 @@ public abstract partial record SettingsSource : IDisposable {
 - Law: `EnvironmentRole` and `EnvironmentView` close the usage-purpose product; `RenderConfig` writes one binding per role and `EnvironmentBindingState.Resolve` reads both purposes without leaking host enums.
 - Law: a host-identity roster keys on its OWN host ordinal — `SunAccuracy`, `DitherMethod`, `EnvironmentRole`, and `EnvironmentView` are one-to-one renamings of a host enum, so the ordinal IS the key, `Native` derives from it, and the read is the kernel host-enum row arm. A string key beside a stored native column was two authorities for one value and the read it forced has no landed arity.
 - Growth: a new host switch is one vocabulary row; a new sub-owner property is one record field read and asserted in the same pass; a new sub-owner is one state record, one `SettingsBody` case, and one `RenderState` column.
-- Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/results` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/results` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/results` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `HostEdge.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/results` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -158,18 +154,17 @@ public sealed record SubOwners {
     internal SafeFrame Guides { get; }
     internal RenderChannels Channels { get; }
 
-    internal static Fin<TOut> Within<TOut>(RenderSettings settings, Func<SubOwners, Fin<TOut>> borrow, Op key) =>
-        from active in key.Need(settings)
-        from activeBorrow in key.Need(borrow)
-        from owners in key.Catch(() => Fin.Succ(value: new SubOwners(settings: active)))
-        from result in key.Catch(() => activeBorrow(owners))
-            .Settled(held: Seq(owners), release: window => window.Release(key), key: key)
+    internal static Fin<TOut> Within<TOut>(RenderSettings settings, Func<SubOwners, Fin<TOut>> borrow) =>
+        from active in Admit.Need(settings)
+        from activeBorrow in Admit.Need(borrow)
+        from owners in Try.lift(() => Fin.Succ(value: new SubOwners(settings: active))).Run().Bind(static inner => inner)
+        from result in Try.lift(() => activeBorrow(owners)).Run().Bind(static inner => inner)
+            .Settled(held: Seq(owners), release: window => window.Release())
         select result;
 
-    private Fin<Unit> Release(Op key) => Custody.Release(
+    private Fin<Unit> Release() => Custody.Release(
         held: held,
-        release: owner => key.Catch(() => Fin.Succ(value: Op.Side(owner.Dispose))),
-        key: key);
+        release: owner => Try.lift(() => Fin.Succ(value: HostEdge.Side(owner.Dispose))).Run().Bind(static inner => inner));
 }
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -302,7 +297,7 @@ public sealed partial class GuideZone {
             Traits: Band(shown: frame.ActionFrameOn, linked: frame.ActionFrameLinked),
             XScale: frame.ActionFrameXScale,
             YScale: frame.ActionFrameYScale),
-        seats: static (frame, band) => Op.Side(() => {
+        seats: static (frame, band) => HostEdge.Side(() => {
             frame.ActionFrameOn = band.Traits.Admits(capability: GuideBandTrait.Shown);
             frame.ActionFrameLinked = band.Traits.Admits(capability: GuideBandTrait.Linked);
             frame.ActionFrameXScale = band.XScale;
@@ -314,7 +309,7 @@ public sealed partial class GuideZone {
             Traits: Band(shown: frame.TitleFrameOn, linked: frame.TitleFrameLinked),
             XScale: frame.TitleFrameXScale,
             YScale: frame.TitleFrameYScale),
-        seats: static (frame, band) => Op.Side(() => {
+        seats: static (frame, band) => HostEdge.Side(() => {
             frame.TitleFrameOn = band.Traits.Admits(capability: GuideBandTrait.Shown);
             frame.TitleFrameLinked = band.Traits.Admits(capability: GuideBandTrait.Linked);
             frame.TitleFrameXScale = band.XScale;
@@ -342,8 +337,8 @@ public sealed partial class SunAccuracy {
 
     internal global::Rhino.Render.Sun.Accuracies Native => (global::Rhino.Render.Sun.Accuracies)Key;
 
-    internal static Fin<SunAccuracy> Of(global::Rhino.Render.Sun.Accuracies native, Op key) =>
-        key.Row<global::Rhino.Render.Sun.Accuracies, SunAccuracy>(native, static value => (int)value);
+    internal static Fin<SunAccuracy> Of(global::Rhino.Render.Sun.Accuracies native) =>
+        FactoryBridge.Row<global::Rhino.Render.Sun.Accuracies, SunAccuracy>(native, static value => (int)value);
 }
 
 [SmartEnum<int>]
@@ -354,8 +349,8 @@ public sealed partial class DitherMethod {
 
     internal Dithering.Methods Native => (Dithering.Methods)Key;
 
-    internal static Fin<DitherMethod> Of(Dithering.Methods native, Op key) =>
-        key.Row<Dithering.Methods, DitherMethod>(native, static value => (int)value);
+    internal static Fin<DitherMethod> Of(Dithering.Methods native) =>
+        FactoryBridge.Row<Dithering.Methods, DitherMethod>(native, static value => (int)value);
 }
 
 [SmartEnum<int>]
@@ -366,8 +361,8 @@ public sealed partial class EnvironmentRole {
 
     internal RenderSettings.EnvironmentUsage Native => (RenderSettings.EnvironmentUsage)Key;
 
-    internal static Fin<EnvironmentRole> Of(RenderSettings.EnvironmentUsage native, Op key) =>
-        key.Row<RenderSettings.EnvironmentUsage, EnvironmentRole>(native, static value => (int)value);
+    internal static Fin<EnvironmentRole> Of(RenderSettings.EnvironmentUsage native) =>
+        FactoryBridge.Row<RenderSettings.EnvironmentUsage, EnvironmentRole>(native, static value => (int)value);
 }
 
 [SmartEnum<int>]
@@ -432,10 +427,10 @@ public sealed record GroundPlaneState(
         TextureSize.IsValid,
         ValidityClaim.Finite(value: TextureRotation));
 
-    internal static Fin<GroundPlaneState> Of(GroundPlane ground, Op key) =>
+    internal static Fin<GroundPlaneState> Of(GroundPlane ground) =>
         from material in Optional(ground.MaterialInstanceId)
             .Filter(static id => id != Guid.Empty)
-            .Traverse(id => ResourceId.Admit(value: id, key: key))
+            .Traverse(id => ResourceId.Admit(value: id))
             .As()
         select new GroundPlaneState(
             Traits: GroundTrait.Of(ground: ground),
@@ -445,17 +440,17 @@ public sealed record GroundPlaneState(
             TextureSize: ground.TextureSize,
             TextureRotation: ground.TextureRotation);
 
-    internal Fin<Unit> Apply(GroundPlane ground, Op key) {
+    internal Fin<Unit> Apply(GroundPlane ground) {
         GroundPlaneState self = this;
-        return from _ in guard(self.IsValid, key.InvalidInput()).ToFin()
-               from applied in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+        return from _ in guard(self.IsValid, new KernelFault.InvalidInput()).ToFin()
+               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
                    ignore(GroundTrait.Apply(ground: ground, traits: self.Traits));
                    ground.Altitude = self.Altitude;
                    ground.MaterialInstanceId = self.Material.Map(static id => id.ToValue()).IfNone(Guid.Empty);
                    ground.TextureOffset = self.TextureOffset;
                    ground.TextureSize = self.TextureSize;
                    ground.TextureRotation = self.TextureRotation;
-               })))
+               }))).Run().Bind(static inner => inner)
                select applied;
     }
 }
@@ -463,24 +458,24 @@ public sealed record GroundPlaneState(
 public readonly record struct SkylightState(bool Enabled, double ShadowIntensity) : IDetachedDocumentResult {
     internal static SkylightState Of(Skylight sky) => new(Enabled: sky.Enabled, ShadowIntensity: sky.ShadowIntensity);
 
-    internal Fin<Unit> Apply(Skylight sky, Op key) {
+    internal Fin<Unit> Apply(Skylight sky) {
         SkylightState self = this;
-        return from _ in guard(ValidityClaim.Nonnegative(value: self.ShadowIntensity), key.InvalidInput()).ToFin()
-               from applied in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+        return from _ in guard(ValidityClaim.Nonnegative(value: self.ShadowIntensity), new KernelFault.InvalidInput()).ToFin()
+               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
                    sky.Enabled = self.Enabled;
                    sky.ShadowIntensity = self.ShadowIntensity;
-               })))
+               }))).Run().Bind(static inner => inner)
                select applied;
     }
 }
 
 public sealed record SunEvidence(Vector3d Vector, uint Hash, Lease<Light> Light)
     : IDisposable, IDetachedDocumentResult {
-    internal static Fin<SunEvidence> Of(global::Rhino.Render.Sun sun, Op key) => key.Catch(() =>
-        Optional(sun.Light).ToFin(Fail: key.InvalidResult()).Map(light => new SunEvidence(
+    internal static Fin<SunEvidence> Of(global::Rhino.Render.Sun sun) => Try.lift(() =>
+        Optional(sun.Light).ToFin(Fail: new KernelFault.InvalidResult()).Map(light => new SunEvidence(
             Vector: sun.Vector,
             Hash: sun.Hash,
-            Light: new Lease<Light>.Owned(Value: light))));
+            Light: new Lease<Light>.Owned(Value: light)))).Run().Bind(static inner => inner);
 
     public void Dispose() => ignore(Light.Dispose());
 }
@@ -509,27 +504,27 @@ public sealed partial class SunState : IDetachedDocumentResult {
             : new ValidationError(message: "sun state is invalid");
     }
 
-    internal static Fin<SunState> Of(global::Rhino.Render.Sun sun, Op key) =>
-        from accuracy in SunAccuracy.Of(sun.Accuracy, key)
+    internal static Fin<SunState> Of(global::Rhino.Render.Sun sun) =>
+        from accuracy in SunAccuracy.Of(sun.Accuracy)
         let placement = sun.ManualControlOn
                 ? (SunPlacement)new SunPlacement.ManualAngles(Azimuth: sun.Azimuth, Altitude: sun.Altitude)
                 : new SunPlacement.Automatic(
                     Latitude: sun.Latitude, Longitude: sun.Longitude, TimeZone: sun.TimeZone,
                     DaylightSaving: sun.DaylightSavingOn ? Some(sun.DaylightSavingMinutes) : None,
                     Moment: sun.GetDateTime(DateTimeKind.Local))
-        from state in key.AcceptValidated(
+        from state in FactoryBridge.Accept(
             Validate(sun.Enabled, sun.Intensity, accuracy, sun.North, placement, out SunState? value), value)
         select state;
 
-    internal Fin<Unit> Apply(global::Rhino.Render.Sun sun, Op key) {
+    internal Fin<Unit> Apply(global::Rhino.Render.Sun sun) {
         SunState self = this;
-        return key.Catch(() => Fin.Succ(value: Op.Side(() => {
+        return Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
             sun.Enabled = self.Enabled;
             sun.Intensity = self.Intensity;
             sun.Accuracy = self.Accuracy.Native;
             sun.North = self.North;
             ignore(self.Placement.Switch(
-                automatic: placement => Op.Side(() => {
+                automatic: placement => HostEdge.Side(() => {
                     sun.Latitude = placement.Latitude;
                     sun.Longitude = placement.Longitude;
                     sun.TimeZone = placement.TimeZone;
@@ -538,15 +533,15 @@ public sealed partial class SunState : IDetachedDocumentResult {
                     sun.SetDateTime(placement.Moment, placement.Moment.Kind);
                     sun.ManualControlOn = false;
                 }),
-                manualAngles: placement => Op.Side(() => {
+                manualAngles: placement => HostEdge.Side(() => {
                     sun.ManualControlOn = true;
                     sun.SetPosition(azimuthDegrees: placement.Azimuth, altitudeDegrees: placement.Altitude);
                 }),
-                manualVector: placement => Op.Side(() => {
+                manualVector: placement => HostEdge.Side(() => {
                     sun.ManualControlOn = true;
                     sun.Vector = placement.Value;
                 })));
-        })));
+        }))).Run().Bind(static inner => inner);
     }
 }
 
@@ -564,13 +559,13 @@ public sealed partial class PostGamma {
             : new ValidationError(message: "post-process gamma is invalid");
     }
 
-    internal static Fin<PostGamma> Of(LinearWorkflow workflow, Op key) =>
-        key.AcceptValidated(
+    internal static Fin<PostGamma> Of(LinearWorkflow workflow) =>
+        FactoryBridge.Accept(
             Validate(workflow.PostProcessGammaOn ? GammaMode.On : GammaMode.Off, workflow.PostProcessGamma,
                 out PostGamma? value),
             value);
 
-    internal Unit Apply(LinearWorkflow workflow) => Op.Side(() => {
+    internal Unit Apply(LinearWorkflow workflow) => HostEdge.Side(() => {
         workflow.PostProcessGamma = Gamma;
         workflow.PostProcessGammaOn = Mode.Key;
     });
@@ -578,22 +573,22 @@ public sealed partial class PostGamma {
 
 public readonly record struct WorkflowState(
     CapabilitySet<WorkflowStage> Stages, float PreProcessGamma, PostGamma PostGamma) : IDetachedDocumentResult {
-    internal static Fin<WorkflowState> Of(LinearWorkflow workflow, Op key) =>
-        PostGamma.Of(workflow, key).Map(postGamma => new WorkflowState(
+    internal static Fin<WorkflowState> Of(LinearWorkflow workflow) =>
+        PostGamma.Of(workflow).Map(postGamma => new WorkflowState(
             Stages: WorkflowStage.Of(workflow: workflow),
             PreProcessGamma: workflow.PreProcessGamma,
             PostGamma: postGamma));
 
-    internal Fin<Unit> Apply(LinearWorkflow workflow, Op key) {
+    internal Fin<Unit> Apply(LinearWorkflow workflow) {
         WorkflowState self = this;
         return from _ in guard(
                    ValidityClaim.All(ValidityClaim.Positive(value: self.PreProcessGamma), self.PostGamma is not null),
-                   key.InvalidInput()).ToFin()
-               from applied in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+                   new KernelFault.InvalidInput()).ToFin()
+               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
                    ignore(WorkflowStage.Apply(workflow: workflow, stages: self.Stages));
                    workflow.PreProcessGamma = self.PreProcessGamma;
                    ignore(self.PostGamma.Apply(workflow));
-               })))
+               }))).Run().Bind(static inner => inner)
                select applied;
     }
 }
@@ -604,16 +599,16 @@ public readonly record struct WorkflowEvidence(float PostGammaReciprocal, uint H
 }
 
 public readonly record struct DitherState(DitherMethod Method, bool Enabled) : IDetachedDocumentResult {
-    internal static Fin<DitherState> Of(Dithering dither, Op key) =>
-        DitherMethod.Of(dither.Method, key).Map(method => new DitherState(Method: method, Enabled: dither.Enabled));
+    internal static Fin<DitherState> Of(Dithering dither) =>
+        DitherMethod.Of(dither.Method).Map(method => new DitherState(Method: method, Enabled: dither.Enabled));
 
-    internal Fin<Unit> Apply(Dithering dither, Op key) {
+    internal Fin<Unit> Apply(Dithering dither) {
         DitherState self = this;
-        return from _ in guard(self.Method is not null, key.InvalidInput()).ToFin()
-               from applied in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+        return from _ in guard(self.Method is not null, new KernelFault.InvalidInput()).ToFin()
+               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
                    dither.Method = self.Method.Native;
                    dither.Enabled = self.Enabled;
-               })))
+               }))).Run().Bind(static inner => inner)
                select applied;
     }
 }
@@ -627,14 +622,14 @@ public sealed record SafeFrameState(
         Action: GuideZone.Action.Reads(frame: frame),
         Title: GuideZone.Title.Reads(frame: frame));
 
-    internal Fin<Unit> Apply(SafeFrame frame, Op key) {
+    internal Fin<Unit> Apply(SafeFrame frame) {
         SafeFrameState self = this;
-        return from _ in guard(self.IsValid, key.InvalidInput()).ToFin()
-               from applied in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+        return from _ in guard(self.IsValid, new KernelFault.InvalidInput()).ToFin()
+               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
                    ignore(GuideTrait.Apply(frame: frame, traits: self.Traits));
                    ignore(GuideZone.Action.Seats(frame: frame, band: self.Action));
                    ignore(GuideZone.Title.Seats(frame: frame, band: self.Title));
-               })))
+               }))).Run().Bind(static inner => inner)
                select applied;
     }
 }
@@ -652,32 +647,32 @@ public abstract partial record ChannelState : IDetachedDocumentResult {
             ValidityClaim.CountAtLeast(count: value.Values.Count, floor: 1),
             ValidityClaim.CountExactly(count: value.Values.Distinct().Count, expected: value.Values.Count)));
 
-    internal static Fin<ChannelState> Of(RenderChannels channels, Op key) => channels.Mode switch {
+    internal static Fin<ChannelState> Of(RenderChannels channels) => channels.Mode switch {
         RenderChannels.Modes.Automatic => Fin.Succ<ChannelState>(new Automatic()),
         RenderChannels.Modes.Custom =>
             from admitted in toSeq(channels.CustomList)
-                .Traverse(id => ResourceId.Admit(value: id, key: key).ToValidation())
+                .Traverse(id => ResourceId.Admit(value: id).ToValidation())
                 .As()
                 .ToFin()
             from state in Fin.Succ<ChannelState>(new Custom(Values: admitted))
-            from _ in guard(state.IsValid, key.InvalidResult())
+            from _ in guard(state.IsValid, new KernelFault.InvalidResult())
             select state,
-        _ => Fin.Fail<ChannelState>(key.InvalidResult()),
+        _ => Fin.Fail<ChannelState>(new KernelFault.InvalidResult()),
     };
 
-    internal Fin<Unit> Apply(RenderChannels channels, Op key) {
+    internal Fin<Unit> Apply(RenderChannels channels) {
         ChannelState self = this;
-        return from _ in guard(self.IsValid, key.InvalidInput()).ToFin()
-               from applied in key.Catch(() => self.Switch(
+        return from _ in guard(self.IsValid, new KernelFault.InvalidInput()).ToFin()
+               from applied in Try.lift(() => self.Switch(
             context: channels,
-            automatic: static (state, _) => Fin.Succ(value: Op.Side(() => {
+            automatic: static (state, _) => Fin.Succ(value: HostEdge.Side(() => {
                 state.CustomList = [];
                 state.Mode = RenderChannels.Modes.Automatic;
             })),
-            custom: static (state, value) => Fin.Succ(value: Op.Side(() => {
+            custom: static (state, value) => Fin.Succ(value: HostEdge.Side(() => {
                 state.CustomList = value.Values.Distinct().Map(static id => id.ToValue()).ToArray();
                 state.Mode = RenderChannels.Modes.Custom;
-            }))))
+            })))).Run().Bind(static inner => inner)
                select applied;
     }
 }
@@ -696,33 +691,33 @@ public abstract partial record RenderSource {
         namedView: static source => !string.IsNullOrWhiteSpace(source.Name),
         snapshot: static source => !string.IsNullOrWhiteSpace(source.Name));
 
-    internal static Fin<RenderSource> Of(RenderSettings settings, Op key) => settings.RenderSource switch {
+    internal static Fin<RenderSource> Of(RenderSettings settings) => settings.RenderSource switch {
         RenderSettings.RenderingSources.ActiveViewport => Fin.Succ<RenderSource>(new ActiveViewport()),
         RenderSettings.RenderingSources.SpecificViewport => Named(
-            settings.SpecificViewport, key, static name => new SpecificViewport(name)),
-        RenderSettings.RenderingSources.NamedView => Named(settings.NamedView, key, static name => new NamedView(name)),
-        RenderSettings.RenderingSources.SnapShot => Named(settings.Snapshot, key, static name => new Snapshot(name)),
-        _ => Fin.Fail<RenderSource>(key.InvalidResult()),
+            settings.SpecificViewport, static name => new SpecificViewport(name)),
+        RenderSettings.RenderingSources.NamedView => Named(settings.NamedView, static name => new NamedView(name)),
+        RenderSettings.RenderingSources.SnapShot => Named(settings.Snapshot, static name => new Snapshot(name)),
+        _ => Fin.Fail<RenderSource>(new KernelFault.InvalidResult()),
     };
 
     internal Unit Apply(RenderSettings settings) => Switch(
         context: settings,
-        activeViewport: static (state, _) => Op.Side(() => state.RenderSource = RenderSettings.RenderingSources.ActiveViewport),
-        specificViewport: static (state, source) => Op.Side(() => {
+        activeViewport: static (state, _) => HostEdge.Side(() => state.RenderSource = RenderSettings.RenderingSources.ActiveViewport),
+        specificViewport: static (state, source) => HostEdge.Side(() => {
             state.SpecificViewport = source.Name;
             state.RenderSource = RenderSettings.RenderingSources.SpecificViewport;
         }),
-        namedView: static (state, source) => Op.Side(() => {
+        namedView: static (state, source) => HostEdge.Side(() => {
             state.NamedView = source.Name;
             state.RenderSource = RenderSettings.RenderingSources.NamedView;
         }),
-        snapshot: static (state, source) => Op.Side(() => {
+        snapshot: static (state, source) => HostEdge.Side(() => {
             state.Snapshot = source.Name;
             state.RenderSource = RenderSettings.RenderingSources.SnapShot;
         }));
 
-    private static Fin<RenderSource> Named<T>(string value, Op key, Func<string, T> project) where T : RenderSource =>
-        key.AcceptText(value: value).Map(text => (RenderSource)project(text));
+    private static Fin<RenderSource> Named<T>(string value, Func<string, T> project) where T : RenderSource =>
+        Acceptance.Text(value: value).Map(text => (RenderSource)project(text));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -737,38 +732,37 @@ public abstract partial record RenderOutput {
     public static RenderOutput Viewport(bool scaleBackgroundToFit) => new ViewportCase(Scaled: scaleBackgroundToFit);
 
     public static Fin<RenderOutput> Fixed(
-        Size2i size, double dpi, ModelUnit units, bool scaleBackgroundToFit, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admittedSize in Size2i.Of(width: size.Width, height: size.Height, key: op)
-               from admittedDpi in op.Positive(value: dpi)
-               from admittedUnits in op.Need(units)
+        Size2i size, double dpi, ModelUnit units, bool scaleBackgroundToFit) {
+        return from admittedSize in Size2i.Of(width: size.Width, height: size.Height)
+               from admittedDpi in Admit.Positive(value: dpi)
+               from admittedUnits in Admit.Need(units)
                select (RenderOutput)new FixedCase(
                    Size: admittedSize, Dpi: admittedDpi, Units: admittedUnits, Scaled: scaleBackgroundToFit);
     }
 
-    internal Fin<RenderOutput> Admit(Op key) => Switch(
+    internal Fin<RenderOutput> Admit() => Switch(
         context: key,
         viewportCase: static (_, output) => Fin.Succ<RenderOutput>(output),
-        fixedCase: static (op, output) => Fixed(
+        fixedCase: static (output) => Fixed(
             size: output.Size, dpi: output.Dpi, units: output.Units,
-            scaleBackgroundToFit: output.ScaleBackgroundToFit, key: op));
+            scaleBackgroundToFit: output.ScaleBackgroundToFit));
 
-    internal static Fin<RenderOutput> Of(RenderSettings settings, Op key) => settings.UseViewportSize
+    internal static Fin<RenderOutput> Of(RenderSettings settings) => settings.UseViewportSize
         ? Fin.Succ(Viewport(scaleBackgroundToFit: settings.ScaleBackgroundToFit))
-        : from size in Size2i.Of(width: settings.ImageSize.Width, height: settings.ImageSize.Height, key: key)
-          from units in ModelUnit.Of(value: settings.ImageUnitSystem, key: key)
+        : from size in Size2i.Of(width: settings.ImageSize.Width, height: settings.ImageSize.Height)
+          from units in ModelUnit.Of(value: settings.ImageUnitSystem)
           from output in Fixed(
               size: size, dpi: settings.ImageDpi, units: units,
-              scaleBackgroundToFit: settings.ScaleBackgroundToFit, key: key)
+              scaleBackgroundToFit: settings.ScaleBackgroundToFit)
           select output;
 
     internal Unit Apply(RenderSettings settings) => Switch(
         context: settings,
-        viewportCase: static (state, output) => Op.Side(() => {
+        viewportCase: static (state, output) => HostEdge.Side(() => {
             state.UseViewportSize = true;
             state.ScaleBackgroundToFit = output.ScaleBackgroundToFit;
         }),
-        fixedCase: static (state, output) => Op.Side(() => {
+        fixedCase: static (state, output) => HostEdge.Side(() => {
             state.UseViewportSize = false;
             state.ImageSize = output.Size.Native;
             state.ImageDpi = output.Dpi;
@@ -787,7 +781,7 @@ public readonly partial struct BackgroundMode {
 
     internal BackgroundStyle Native => (BackgroundStyle)Value;
 
-    internal static Fin<BackgroundMode> Of(BackgroundStyle value, Op key) => key.AcceptValidated<BackgroundMode>((int)value);
+    internal static Fin<BackgroundMode> Of(BackgroundStyle value) => FactoryBridge.Accept<BackgroundMode>((int)value);
 }
 
 [ValueObject<int>]
@@ -800,7 +794,7 @@ public readonly partial struct AntialiasPolicy {
 
     internal AntialiasLevel Native => (AntialiasLevel)Value;
 
-    internal static Fin<AntialiasPolicy> Of(AntialiasLevel value, Op key) => key.AcceptValidated<AntialiasPolicy>((int)value);
+    internal static Fin<AntialiasPolicy> Of(AntialiasLevel value) => FactoryBridge.Accept<AntialiasPolicy>((int)value);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -813,25 +807,23 @@ public sealed record EnvironmentBindingState {
 
     public Seq<(EnvironmentRole Role, EnvironmentBinding Binding)> Rows => rows;
 
-    public static Fin<EnvironmentBindingState> Of(
-        Op? key = null, params ReadOnlySpan<(EnvironmentRole Role, EnvironmentBinding Binding)> rows) {
-        Op op = key.OrDefault();
+    public static Fin<EnvironmentBindingState> Of(params ReadOnlySpan<(EnvironmentRole Role, EnvironmentBinding Binding)> rows) {
         Seq<(EnvironmentRole Role, EnvironmentBinding Binding)> admitted = toSeq(rows.ToArray());
         return guard(
                 ValidityClaim.All(
                     ValidityClaim.CountExactly(count: admitted.Count, expected: EnvironmentRole.Items.Count),
                     toSeq(EnvironmentRole.Items).ForAll(role => admitted.Count(row => row.Role == role) == 1)),
-                op.InvalidInput())
+                new KernelFault.InvalidInput())
             .ToFin()
             .Map(_ => new EnvironmentBindingState(rows: admitted));
     }
 
-    internal static Fin<EnvironmentBindingState> Of(RenderSettings settings, Op key) =>
+    internal static Fin<EnvironmentBindingState> Of(RenderSettings settings) =>
         toSeq(EnvironmentRole.Items)
             .Traverse(role =>
                 (from content in Optional(settings.RenderEnvironmentId(role.Native, EnvironmentView.Standard.Native))
                     .Filter(static id => id != Guid.Empty)
-                    .Traverse(id => ResourceId.Admit(value: id, key: key))
+                    .Traverse(id => ResourceId.Admit(value: id))
                     .As()
                  select (Role: role, Binding: new EnvironmentBinding(
                      Content: content, Override: settings.RenderEnvironmentOverride(role.Native)))).ToValidation())
@@ -840,19 +832,19 @@ public sealed record EnvironmentBindingState {
             .Map(static admitted => new EnvironmentBindingState(rows: admitted));
 
     internal static Fin<Seq<(EnvironmentRole Role, EnvironmentView View, Option<Guid> Content)>> Resolve(
-        RenderSettings settings, Op key) =>
-        key.Catch(() => Fin.Succ(toSeq(EnvironmentRole.Items).Bind(role => toSeq(EnvironmentView.Items).Map(view => (
+        RenderSettings settings) =>
+        Try.lift(() => Fin.Succ(toSeq(EnvironmentRole.Items).Bind(role => toSeq(EnvironmentView.Items).Map(view => (
             Role: role,
             View: view,
             Content: Optional(settings.RenderEnvironmentId(role.Native, view.Native))
-                .Filter(static id => id != Guid.Empty))))));
+                .Filter(static id => id != Guid.Empty)))))).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Apply(RenderSettings settings, Op key) {
+    internal Fin<Unit> Apply(RenderSettings settings) {
         EnvironmentBindingState self = this;
-        return key.Catch(() => Fin.Succ(value: self.rows.Iter(row => {
+        return Try.lift(() => Fin.Succ(value: self.rows.Iter(row => {
             settings.SetRenderEnvironmentId(row.Role.Native, row.Binding.Content.Map(static id => id.ToValue()).IfNone(Guid.Empty));
             settings.SetRenderEnvironmentOverride(row.Role.Native, row.Binding.Override);
-        })));
+        }))).Run().Bind(static inner => inner);
     }
 }
 
@@ -868,35 +860,35 @@ public sealed record RenderConfig(
     RenderSource Source,
     EnvironmentBindingState Environments) : IDetachedDocumentResult {
 
-    internal static Fin<RenderConfig> Of(RenderSettings settings, Op key) =>
-        key.Catch(() =>
-            from ambient in PerceptualColor.OfHost(host: settings.AmbientLight, key: key)
-            from top in PerceptualColor.OfHost(host: settings.BackgroundColorTop, key: key)
-            from bottom in PerceptualColor.OfHost(host: settings.BackgroundColorBottom, key: key)
-            from background in BackgroundMode.Of(settings.BackgroundStyle, key)
-            from antialias in AntialiasPolicy.Of(settings.AntialiasLevel, key)
-            from output in RenderOutput.Of(settings, key)
-            from source in RenderSource.Of(settings, key)
-            from environments in EnvironmentBindingState.Of(settings: settings, key: key)
+    internal static Fin<RenderConfig> Of(RenderSettings settings) =>
+        Try.lift(() =>
+            from ambient in PerceptualColor.OfHost(host: settings.AmbientLight)
+            from top in PerceptualColor.OfHost(host: settings.BackgroundColorTop)
+            from bottom in PerceptualColor.OfHost(host: settings.BackgroundColorBottom)
+            from background in BackgroundMode.Of(settings.BackgroundStyle)
+            from antialias in AntialiasPolicy.Of(settings.AntialiasLevel)
+            from output in RenderOutput.Of(settings)
+            from source in RenderSource.Of(settings)
+            from environments in EnvironmentBindingState.Of(settings: settings)
             select new RenderConfig(
                 Ambient: ambient, BackgroundTop: top, BackgroundBottom: bottom,
                 BackgroundStyle: background, Antialias: antialias, ShadowmapLevel: settings.ShadowmapLevel,
                 Traits: RenderTrait.Of(settings: settings),
-                Output: output, Source: source, Environments: environments));
+                Output: output, Source: source, Environments: environments)).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Apply(RenderSettings settings, Op key) {
+    internal Fin<Unit> Apply(RenderSettings settings) {
         RenderConfig self = this;
-        return from output in key.Need(self.Output).Bind(value => value.Admit(key))
+        return from output in Admit.Need(self.Output).Bind(value => value.Admit())
                from _ in guard(
                    ValidityClaim.All(
                        self.Source is { IsValid.Holds: true },
                        self.Environments is not null,
                        ValidityClaim.CountAtLeast(count: self.ShadowmapLevel, floor: 0)),
-                   key.InvalidInput())
-               from ambient in self.Ambient.ToDrawing(key: key)
-               from top in self.BackgroundTop.ToDrawing(key: key)
-               from bottom in self.BackgroundBottom.ToDrawing(key: key)
-               from applied in key.Catch(() => {
+                   new KernelFault.InvalidInput())
+               from ambient in self.Ambient.ToDrawing()
+               from top in self.BackgroundTop.ToDrawing()
+               from bottom in self.BackgroundBottom.ToDrawing()
+               from applied in Try.lift(() => {
                    settings.AmbientLight = ambient;
                    settings.BackgroundColorTop = top;
                    settings.BackgroundColorBottom = bottom;
@@ -906,8 +898,8 @@ public sealed record RenderConfig(
                    ignore(RenderTrait.Apply(settings: settings, traits: self.Traits));
                    ignore(output.Apply(settings));
                    ignore(self.Source.Apply(settings));
-                   return self.Environments.Apply(settings: settings, key: key);
-               })
+                   return self.Environments.Apply(settings: settings);
+               }).Run().Bind(static inner => inner)
                select applied;
     }
 }
@@ -1020,24 +1012,23 @@ public sealed partial class SolarFrame {
 
 public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double IntensityScale)
     : IDetachedDocumentResult {
-    public static Fin<SceneSun> Of(SunState state, double elevationMetres, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(state)
-               from derivation in Derive(state: active, elevationMetres: elevationMetres, key: op)
+    public static Fin<SceneSun> Of(SunState state, double elevationMetres) {
+        return from active in Admit.Need(state)
+               from derivation in Derive(state: active, elevationMetres: elevationMetres)
                select new SceneSun(Derivation: derivation, Enabled: active.Enabled, IntensityScale: active.Intensity);
     }
 
-    private static Fin<SunDerivation> Derive(SunState state, double elevationMetres, Op key) =>
+    private static Fin<SunDerivation> Derive(SunState state, double elevationMetres) =>
         state.Placement.Switch(
-            context: (State: state, Elevation: elevationMetres, Op: key),
+            context: (State: state, Elevation: elevationMetres),
             automatic: static (context, placement) =>
-                from site in context.Op.AcceptValidated(SolarSite.Validate(
+                from site in FactoryBridge.Accept(SolarSite.Validate(
                     latitudeDeg: placement.Latitude,
                     longitudeDeg: placement.Longitude,
                     standardOffset: Offset.FromTicks((long)(placement.TimeZone * NodaConstants.TicksPerHour)),
                     elevationM: context.Elevation,
                     out SolarSite? admitted), admitted)
-                from frame in context.Op.AcceptValidated(SolarFrame.Validate(
+                from frame in FactoryBridge.Accept(SolarFrame.Validate(
                     site: site,
                     northAxisDegrees: context.State.North,
                     daylightSavingMinutes: placement.DaylightSaving.IfNone(0),
@@ -1052,7 +1043,7 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
                 Surveyed(hostVector: placement.Value, northDegrees: context.State.North)
                     .Bind(SunPosition.OfDirection)
                     .Map(static angles => (SunDerivation)new SunDerivation.Authored(Angles: angles))
-                    .ToFin(Fail: context.Op.InvalidInput()));
+                    .ToFin(Fail: new KernelFault.InvalidInput()));
 
     private static Option<Vector3d> Surveyed(Vector3d hostVector, double northDegrees) {
         Vector3d ray = -hostVector;
@@ -1073,16 +1064,15 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SunSolver {
-    public static Fin<SunSolution> Solve(SunProblem problem, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(problem)
-               from _ in guard(active.IsValid, op.InvalidInput())
+    public static Fin<SunSolution> Solve(SunProblem problem) {
+        return from active in Admit.Need(problem)
+               from _ in guard(active.IsValid, new KernelFault.InvalidInput())
                from solution in active.Switch(
             context: op,
-            direction: static (state, query) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Vector(
+            direction: static (state, query) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Vector(
                 global::Rhino.Render.Sun.SunDirection(
-                    latitude: query.Latitude, longitude: query.Longitude, when: query.Moment)))),
-            altitude: static (state, query) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
+                    latitude: query.Latitude, longitude: query.Longitude, when: query.Moment)))).Run().Bind(static inner => inner),
+            altitude: static (state, query) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
                 global::Rhino.Render.Sun.AltitudeFromValues(
                     latitude: query.Latitude,
                     longitude: query.Longitude,
@@ -1090,22 +1080,22 @@ public static class SunSolver {
                     daylightMinutes: query.DaylightMinutes,
                     when: query.Moment,
                     hours: query.Hours,
-                    fast: query.Mode.Key)))),
-            julian: static (state, query) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
+                    fast: query.Mode.Key)))).Run().Bind(static inner => inner),
+            julian: static (state, query) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
                 global::Rhino.Render.Sun.JulianDay(
                     timezoneHours: query.TimeZoneHours,
                     daylightMinutes: query.DaylightMinutes,
                     when: query.Moment,
-                    hours: query.Hours)))),
-            twilight: static (state, _) => state.Catch(() => Fin.Succ<SunSolution>(
-                new SunSolution.Scalar(global::Rhino.Render.Sun.TwilightZone()))),
-            color: static (state, query) => state.Catch(() =>
+                    hours: query.Hours)))).Run().Bind(static inner => inner),
+            twilight: static (state, _) => Try.lift(() => Fin.Succ<SunSolution>(
+                new SunSolution.Scalar(global::Rhino.Render.Sun.TwilightZone()))).Run().Bind(static inner => inner),
+            color: static (state, query) => Try.lift(() =>
                 PerceptualColor.OfHost(host: global::Rhino.Render.Sun.ColorFromAltitude(query.AltitudeDegrees), key: state)
-                    .Map(static value => (SunSolution)new SunSolution.Color(value))),
-            here: static (state, _) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Location(
+                    .Map(static value => (SunSolution)new SunSolution.Color(value))).Run().Bind(static inner => inner),
+            here: static (state, _) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Location(
                 global::Rhino.Render.Sun.Here(out double latitude, out double longitude)
                     ? Some((latitude, longitude))
-                    : Option<(double, double)>.None))))
+                    : Option<(double, double)>.None))).Run().Bind(static inner => inner))
                select solution;
     }
 }
@@ -1121,7 +1111,7 @@ public static class SunSolver {
 - Law: a failed mutation restores the pre-borrow `RenderState` before the fault leaves, with the live bracket's undo rollback layered above it; a restore failure appends onto the primary fault, never replaces it.
 - Boundary: `RenderSettings.PostEffects : PostEffectCollection` is a separate host sub-owner whose configuration rows belong to the Display render page.
 - Growth: a new writable axis is one `SettingsBody` case and one typed `RenderState` column with its capture and apply paths.
-- Packages: kernel `Domain/results` (`Custody.Settled`, `Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: kernel `Domain/results` (`Custody.Settled`, `Op`, `HostEdge.Side`); LanguageExt.Core (`Fin`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1136,22 +1126,22 @@ public abstract partial record SettingsBody {
     public sealed record Guides(SafeFrameState State) : SettingsBody;
     public sealed record Channels(ChannelState State) : SettingsBody;
 
-    internal Fin<Unit> Apply(SubOwners owners, Op op) =>
+    internal Fin<Unit> Apply(SubOwners owners) =>
         Switch(
-            context: (Owners: owners, Op: op),
-            frame: static (context, body) => context.Op.Need(body.Config)
-                .Bind(config => config.Apply(settings: context.Owners.Settings, key: context.Op)),
-            ground: static (context, body) => context.Op.Need(body.State)
-                .Bind(state => state.Apply(ground: context.Owners.Ground, key: context.Op)),
-            sky: static (context, body) => body.State.Apply(sky: context.Owners.Sky, key: context.Op),
-            daylight: static (context, body) => context.Op.Need(body.State)
-                .Bind(state => state.Apply(sun: context.Owners.Daylight, key: context.Op)),
-            workflow: static (context, body) => body.State.Apply(workflow: context.Owners.Workflow, key: context.Op),
-            dither: static (context, body) => body.State.Apply(dither: context.Owners.Dither, key: context.Op),
-            guides: static (context, body) => context.Op.Need(body.State)
-                .Bind(state => state.Apply(frame: context.Owners.Guides, key: context.Op)),
-            channels: static (context, body) => context.Op.Need(body.State)
-                .Bind(state => state.Apply(channels: context.Owners.Channels, key: context.Op)));
+            context: owners,
+            frame: static (context, body) => Admit.Need(body.Config)
+                .Bind(config => config.Apply(settings: context.Settings)),
+            ground: static (context, body) => Admit.Need(body.State)
+                .Bind(state => state.Apply(ground: context.Ground)),
+            sky: static (context, body) => body.State.Apply(sky: context.Sky),
+            daylight: static (context, body) => Admit.Need(body.State)
+                .Bind(state => state.Apply(sun: context.Daylight)),
+            workflow: static (context, body) => body.State.Apply(workflow: context.Workflow),
+            dither: static (context, body) => body.State.Apply(dither: context.Dither),
+            guides: static (context, body) => Admit.Need(body.State)
+                .Bind(state => state.Apply(frame: context.Guides)),
+            channels: static (context, body) => Admit.Need(body.State)
+                .Bind(state => state.Apply(channels: context.Channels)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1185,17 +1175,17 @@ public sealed record RenderState(
     WorkflowEvidence WorkflowEvidence,
     Seq<(EnvironmentRole Role, EnvironmentView View, Option<Guid> Content)> EnvironmentResolution)
     : IDisposable, IDetachedDocumentResult {
-    internal static Fin<RenderState> Of(SubOwners owners, Op key) =>
-        from frame in RenderConfig.Of(settings: owners.Settings, key: key)
-        from ground in GroundPlaneState.Of(ground: owners.Ground, key: key)
-        from sky in key.Catch(() => Fin.Succ(value: SkylightState.Of(sky: owners.Sky)))
-        from daylight in SunState.Of(sun: owners.Daylight, key: key)
-        from workflow in WorkflowState.Of(workflow: owners.Workflow, key: key)
-        from dither in DitherState.Of(dither: owners.Dither, key: key)
-        from guides in key.Catch(() => Fin.Succ(value: SafeFrameState.Of(frame: owners.Guides)))
-        from channels in ChannelState.Of(channels: owners.Channels, key: key)
-        from environments in EnvironmentBindingState.Resolve(settings: owners.Settings, key: key)
-        from evidence in SunEvidence.Of(sun: owners.Daylight, key: key)
+    internal static Fin<RenderState> Of(SubOwners owners) =>
+        from frame in RenderConfig.Of(settings: owners.Settings)
+        from ground in GroundPlaneState.Of(ground: owners.Ground)
+        from sky in Try.lift(() => Fin.Succ(value: SkylightState.Of(sky: owners.Sky))).Run().Bind(static inner => inner)
+        from daylight in SunState.Of(sun: owners.Daylight)
+        from workflow in WorkflowState.Of(workflow: owners.Workflow)
+        from dither in DitherState.Of(dither: owners.Dither)
+        from guides in Try.lift(() => Fin.Succ(value: SafeFrameState.Of(frame: owners.Guides))).Run().Bind(static inner => inner)
+        from channels in ChannelState.Of(channels: owners.Channels)
+        from environments in EnvironmentBindingState.Resolve(settings: owners.Settings)
+        from evidence in SunEvidence.Of(sun: owners.Daylight)
         select new RenderState(
             Frame: frame,
             Ground: ground,
@@ -1209,22 +1199,22 @@ public sealed record RenderState(
             WorkflowEvidence: WorkflowEvidence.Of(workflow: owners.Workflow),
             EnvironmentResolution: environments);
 
-    internal Fin<Unit> Apply(SubOwners owners, Op key) =>
-        from frame in key.Need(Frame).Bind(value => value.Apply(settings: owners.Settings, key: key))
-        from ground in key.Need(Ground).Bind(value => value.Apply(ground: owners.Ground, key: key))
-        from sky in Sky.Apply(sky: owners.Sky, key: key)
-        from daylight in key.Need(Daylight).Bind(value => value.Apply(sun: owners.Daylight, key: key))
-        from workflow in Workflow.Apply(workflow: owners.Workflow, key: key)
-        from dither in Dither.Apply(dither: owners.Dither, key: key)
-        from guides in key.Need(Guides).Bind(value => value.Apply(frame: owners.Guides, key: key))
-        from channels in key.Need(Channels).Bind(value => value.Apply(channels: owners.Channels, key: key))
+    internal Fin<Unit> Apply(SubOwners owners) =>
+        from frame in Admit.Need(Frame).Bind(value => value.Apply(settings: owners.Settings))
+        from ground in Admit.Need(Ground).Bind(value => value.Apply(ground: owners.Ground))
+        from sky in Sky.Apply(sky: owners.Sky)
+        from daylight in Admit.Need(Daylight).Bind(value => value.Apply(sun: owners.Daylight))
+        from workflow in Workflow.Apply(workflow: owners.Workflow)
+        from dither in Dither.Apply(dither: owners.Dither)
+        from guides in Admit.Need(Guides).Bind(value => value.Apply(frame: owners.Guides))
+        from channels in Admit.Need(Channels).Bind(value => value.Apply(channels: owners.Channels))
         select unit;
 
-    internal Fin<T> Use<T>(Func<RenderState, Fin<T>> borrow, Op key) {
+    internal Fin<T> Use<T>(Func<RenderState, Fin<T>> borrow) {
         RenderState self = this;
-        return key.Need(borrow)
-            .Bind(active => key.Catch(() => active(self)))
-            .Settled(held: Seq(self), release: static state => Fin.Succ(value: Op.Side(state.Dispose)), key: key);
+        return Admit.Need(borrow)
+            .Bind(active => Try.lift(() => active(self)).Run().Bind(static inner => inner))
+            .Settled(held: Seq(self), release: static state => Fin.Succ(value: HostEdge.Side(state.Dispose)));
     }
 
     public void Dispose() => DaylightEvidence.Dispose();
@@ -1232,52 +1222,45 @@ public sealed record RenderState(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Settings {
-    public static Fin<SettingsResult> Run(SettingsSource source, SettingsRequest request, Op? key = null) {
-        Op op = key.OrDefault();
-        return from activeSource in op.Need(source)
-               from activeRequest in op.Need(request)
+    public static Fin<SettingsResult> Run(SettingsSource source, SettingsRequest request) {
+        return from activeSource in Admit.Need(source)
+               from activeRequest in Admit.Need(request)
                from result in activeRequest.Switch(
-                   context: (Source: activeSource, Op: op),
-                   read: static (state, _) => state.Source.Use(
+                   context: activeSource,
+                   read: static (state, _) => state.Use(
                        borrow: settings => SubOwners.Within(
                            settings: settings,
                            borrow: owners => RenderState.Of(owners: owners, key: state.Op)
-                               .Map(static value => (SettingsResult)new SettingsResult.State(value)),
-                           key: state.Op),
-                       key: state.Op),
-                   edit: static (state, command) => Commit(state.Source, command.Change, state.Op)
+                               .Map(static value => (SettingsResult)new SettingsResult.State(value)))),
+                   edit: static (state, command) => Commit(state, command.Change)
                        .Map(static _ => (SettingsResult)new SettingsResult.Changed()),
-                   copyTo: static (state, command) => Copy(state.Source, command.Target, state.Op)
+                   copyTo: static (state, command) => Copy(state, command.Target)
                        .Map(static _ => (SettingsResult)new SettingsResult.Changed()))
                select result;
     }
 
-    private static Fin<Unit> Commit(SettingsSource source, SettingsBody change, Op op) =>
-        from active in op.Need(change)
+    private static Fin<Unit> Commit(SettingsSource source, SettingsBody change) =>
+        from active in Admit.Need(change)
         from changed in source.Mutate(
             name: nameof(SettingsRequest.Edit),
             borrow: settings => SubOwners.Within(
                 settings: settings,
                 borrow: owners => RenderState.Of(owners: owners, key: op)
                     .Bind(prior => Compensated(
-                        owners, prior, (state, key) => active.Apply(owners: state, op: key), op)),
-                key: op),
-            key: op)
+                        owners, prior, (state, key) => active.Apply(owners: state, op: key)))))
         select changed;
 
     private static Fin<Unit> Compensated(
-        SubOwners owners, RenderState prior, Func<SubOwners, Op, Fin<Unit>> apply, Op op) =>
+        SubOwners owners, RenderState prior, Func<SubOwners, Fin<Unit>> apply) =>
         prior.Use(
-            borrow: record => apply(owners, op)
-                .Rollback(release: () => record.Apply(owners: owners, key: op), key: op),
-            key: op);
+            borrow: record => apply(owners)
+                .Rollback(release: () => record.Apply(owners: owners, key: op), key: op));
 
-    private static Fin<Unit> Copy(SettingsSource source, SettingsSource target, Op op) =>
-        from activeTarget in op.Need(target)
+    private static Fin<Unit> Copy(SettingsSource source, SettingsSource target) =>
+        from activeTarget in Admit.Need(target)
         from state in source.Use(
             borrow: settings => SubOwners.Within(
-                settings: settings, borrow: owners => RenderState.Of(owners: owners, key: op), key: op),
-            key: op)
+                settings: settings, borrow: owners => RenderState.Of(owners: owners, key: op)))
         from changed in state.Use(
             borrow: value => activeTarget.Mutate(
                 name: nameof(SettingsRequest.CopyTo),
@@ -1285,10 +1268,7 @@ public static class Settings {
                     settings: settings,
                     borrow: owners => RenderState.Of(owners: owners, key: op)
                         .Bind(prior => Compensated(
-                            owners, prior, (active, key) => value.Apply(owners: active, key: key), op)),
-                    key: op),
-                key: op),
-            key: op)
+                            owners, prior, (active, key) => value.Apply(owners: active, key: key))))))
         select changed;
 }
 ```
@@ -1346,20 +1326,18 @@ public sealed class AmbientWatch : IDisposable {
     public static Fin<AmbientWatch> Of(
         Seq<AmbientPulse> pulses,
         Rasm.Numerics.Dimension cap,
-        Func<AmbientFact, Fin<Unit>> sink,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Func<AmbientFact, Fin<Unit>> sink) {
         Ring<AmbientFailure> failures = new(cap: cap);
-        return from activeSink in op.Need(sink)
+        return from activeSink in Admit.Need(sink)
                from _ in guard(
                    ValidityClaim.All(
                        ValidityClaim.CountAtLeast(count: pulses.Count, floor: 1),
                        pulses.ForAll(static pulse => pulse is not null)),
-                   op.InvalidInput())
+                   new KernelFault.InvalidInput())
                from attached in Subscription.AttachAll(
                    pulses.Distinct().Map(pulse => (Func<Fin<Subscription>>)(() =>
                        pulse.Bind(handler: (_, args) => ignore(Deliver(
-                           pulse: pulse, args: args, sink: activeSink, failures: failures, op: op))))))
+                           pulse: pulse, args: args, sink: activeSink, failures: failures))))))
                select new AmbientWatch(attached: attached, failures: failures);
     }
 
@@ -1367,23 +1345,22 @@ public sealed class AmbientWatch : IDisposable {
         AmbientPulse pulse,
         RenderPropertyChangedEvent args,
         Func<AmbientFact, Fin<Unit>> sink,
-        Ring<AmbientFailure> failures,
-        Op op) {
+        Ring<AmbientFailure> failures) {
         AmbientFact fallback = new(Pulse: pulse, Key: None, Context: args.Context);
-        return Project(args: args, contextual: fallback, op: op)
-            .BindFail(fault => Park(fact: fallback, fault: fault, failures: failures, op: op))
-            .Bind(fact => op.Catch(() => sink(fact))
-                .BindFail(fault => Park(fact: fact, fault: fault, failures: failures, op: op)));
+        return Project(args: args, contextual: fallback)
+            .BindFail(fault => Park(fact: fallback, fault: fault, failures: failures))
+            .Bind(fact => Try.lift(() => sink(fact)).Run().Bind(static inner => inner)
+                .BindFail(fault => Park(fact: fact, fault: fault, failures: failures)));
     }
 
-    private static Fin<AmbientFact> Project(RenderPropertyChangedEvent args, AmbientFact contextual, Op op) =>
-        op.Catch(() => Optional(args.Document)
-            .TraverseM(document => DocKey.Of(document: document, key: op))
+    private static Fin<AmbientFact> Project(RenderPropertyChangedEvent args, AmbientFact contextual) =>
+        Try.lift(() => Optional(args.Document)
+            .TraverseM(document => DocKey.Of(document: document))
             .As()
-            .Map(key => contextual with { Key = key }));
+            .Map(key => contextual with { Key = key })).Run().Bind(static inner => inner);
 
-    private static Fin<Unit> Park(AmbientFact fact, Error fault, Ring<AmbientFailure> failures, Op op) =>
-        op.Catch(() => Fin.Succ(value: ignore(failures.Park(item: new AmbientFailure(Fact: fact, Fault: fault)))))
+    private static Fin<Unit> Park(AmbientFact fact, Error fault, Ring<AmbientFailure> failures) =>
+        Try.lift(() => Fin.Succ(value: ignore(failures.Park(item: new AmbientFailure(Fact: fact, Fault: fault))))).Run().Bind(static inner => inner)
             .Match(
                 Succ: _ => Fin.Fail<Unit>(error: fault),
                 Fail: retention => Fin.Fail<Unit>(error: fault + retention));

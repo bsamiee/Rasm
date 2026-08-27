@@ -215,7 +215,7 @@ public static class Membership {
                 .Bind(seats => Reseated(runtime, seats)));
 
     public static ScheduleEntry Cadence(Runtime runtime) =>
-        new(Key: LeaseKey.Probe(runtime.Group).Value,
+        new(Key: Admit.Probe(runtime.Group).Value,
             Spec: new OccurrenceSpec.Every(runtime.Cadence),
             Deadline: DeadlineClass.HealthProbe,
             Lease: None,
@@ -374,7 +374,7 @@ public abstract partial record CoordinationFault : Fault {
 
     [FaultCase(2)]
     public sealed partial record LockHeld : CoordinationFault {
-        public LockHeld(string key) : base(key) { }
+        public LockHeld(string key) : base() { }
         public override Retriability Retriability => Retriability.Transient;
     }
 
@@ -414,7 +414,7 @@ public abstract partial record CoordinationFault : Fault {
 public static class DistributedLock {
     public static IO<Validation<Error, FenceHolding<LeaseKey>>> Acquire(
         FencedRuntime runtime, LeaseKey key) =>
-        FencedLease<LeaseKey>.Acquire(runtime, key, Correlation.Mint()).Map(RoleElection.Settled);
+        FencedLease<LeaseKey>.Acquire(runtime, Correlation.Mint()).Map(RoleElection.Settled);
 
     public static IO<Validation<Error, A>> Guard<A>(FencedRuntime runtime, FenceHolding<LeaseKey> held, IO<A> section) =>
         FencedLease<LeaseKey>.Guard(runtime, held, section)

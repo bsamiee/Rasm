@@ -247,8 +247,7 @@ public static partial class Offsetting {
             Switch(edge: static e => e.Time, split: static s => s.Time);
     }
 
-    public static Fin<OffsetResult> Apply(OffsetOp op, Op? key = null) {
-        Op site = key.OrDefault();
+    public static Fin<OffsetResult> Apply(OffsetOp op) {
         return op.Switch(
             skeleton:  s => AdmitRing(s.Ring, s.Policy, site)
                 .Bind(admitted => Propagate(admitted, s.Policy, Arr<double>.Empty))
@@ -270,7 +269,7 @@ public static partial class Offsetting {
     }
 
     static Fin<(Polyline Ring, ClearanceProbe Edges)> AdmitRing(
-        Polyline ring, OffsetPolicy policy, Op key) {
+        Polyline ring, OffsetPolicy policy) {
         if (ring.Count < 4 || !ring.IsClosed) return new GeometryFault.DegenerateOffset(0);
         for (int i = 0; i < ring.Count; i++) {
             if (!ValidityClaim.Finite(ring[i])
@@ -285,7 +284,7 @@ public static partial class Offsetting {
             oriented.Reverse();
         }
         ClearanceProbe edges = EdgesOf(oriented, policy);
-        return SelfCrossing(edges, policy, key).Bind(crossing => crossing.Match(
+        return SelfCrossing(edges, policy).Bind(crossing => crossing.Match(
             Some: vertex => Fin.Fail<(Polyline Ring, ClearanceProbe Edges)>(
                 new GeometryFault.DegenerateOffset(vertex)),
             None: () => Fin.Succ((oriented, edges))));
@@ -295,11 +294,11 @@ public static partial class Offsetting {
         ClearanceProbe.Of(new Arr<Line>([.. Enumerable.Range(0, ring.Count - 1)
             .Select(edge => new Line(ring[edge], ring[edge + 1]))]), policy.NearestCandidates);
 
-    static Fin<Option<int>> SelfCrossing(ClearanceProbe edges, OffsetPolicy policy, Op key) =>
+    static Fin<Option<int>> SelfCrossing(ClearanceProbe edges, OffsetPolicy policy) =>
         toSeq(edges.Overlaps(policy.CollapseBand)
             .Where(pair => pair.J - pair.I >= 2 && (pair.I != 0 || pair.J != edges.Count - 1)))
         .TraverseM(pair => Intersection.Apply(new IntersectOp.SegmentSegment(
-                edges[pair.I], edges[pair.J], Axis.Z), key)
+                edges[pair.I], edges[pair.J], Axis.Z))
             .Map(result => result.Switch(
                 points:   points => points.Hits.IsEmpty ? Option<int>.None : Some(pair.I),
                 segments: segments => segments.Crossings.IsEmpty ? Option<int>.None : Some(pair.I),
@@ -478,26 +477,26 @@ public static partial class Offsetting {
             ? Fin.Succ(Orientation(ring) == Sign.Negative ? rows.Reverse() : rows)
             : Fin.Fail<Arr<double>>(new GeometryFault.DegenerateOffset(rows.Count));
 
-    static Fin<OffsetResult> Snapshot(OffsetOp.Offset op, Op key) =>
+    static Fin<OffsetResult> Snapshot(OffsetOp.Offset op) =>
         op.Reach.Switch(
             state: (Op: op, Key: key, Span: op.Reach.Span),
             uniform: static (s, u) => double.IsFinite(u.Distance)
                 ? s.Op.Path.IsClosed && u.Distance > 0.0
-                    ? AdmitRing(s.Op.Path, s.Op.Policy, s.Key)
+                    ? AdmitRing(s.Op.Path, s.Op.Policy)
                         .Bind(admitted => Propagate(admitted, s.Op.Policy, Arr<double>.Empty, until: u.Distance))
-                        .Map(trace => Rings(trace.Store).Map(loop => Dressed(trace, loop, s.Op, u.Distance)))
+                        .Map(trace => Rings(trace.Store).Map(loop => Dressed(trace, loop, u.Distance)))
                     : s.Op.Path.IsClosed
-                        ? AdmitRing(s.Op.Path, s.Op.Policy, s.Key).Map(admitted => Ribbon(s.Op with { Path = admitted.Ring }, u.Distance))
+                        ? AdmitRing(s.Op.Path, s.Op.Policy).Map(admitted => Ribbon(s.Op with { Path = admitted.Ring }, u.Distance))
                         : AdmitPath(s.Op.Path, s.Op.Policy).Map(path => Ribbon(s.Op with { Path = path }, u.Distance))
                 : Fin.Fail<Seq<Polyline>>(new GeometryFault.DegenerateOffset(0)),
             perEdge: static (s, p) => s.Op.Path.IsClosed
-                ? AdmitRing(s.Op.Path, s.Op.Policy, s.Key)
+                ? AdmitRing(s.Op.Path, s.Op.Policy)
                     .Bind(admitted => EdgeTable(p.Distances, admitted.Edges.Count, s.Op.Path)
                         .Bind(reaches => Propagate(admitted, s.Op.Policy,
                             reaches.Map(reach => reach / s.Span), until: s.Span)))
-                    .Map(trace => Rings(trace.Store).Map(loop => Dressed(trace, loop, s.Op, s.Span)))
+                    .Map(trace => Rings(trace.Store).Map(loop => Dressed(trace, loop, s.Span)))
                 : Fin.Fail<Seq<Polyline>>(new GeometryFault.DegenerateOffset(p.Distances.Count)))
-        .Bind(loops => loops.IsEmpty ? Fin.Succ(Seq<Chain>()) : Resolve(loops, op.Policy, key))
+        .Bind(loops => loops.IsEmpty ? Fin.Succ(Seq<Chain>()) : Resolve(loops, op.Policy))
         .Map(chains => (OffsetResult)chains);
 
     static Seq<int[]> Rings(WavefrontStore store) {
@@ -544,11 +543,11 @@ public static partial class Offsetting {
         int n = path.Count - (ring ? 1 : 0);
         double d = Math.Abs(distance);
         Polyline cycle = new();
-        Emit(cycle, path, n, closed: ring, d, op);
+        Emit(cycle, path, n, closed: ring, d);
         if (!ring) {
             if (!op.End.ClosesRibbon)
                 foreach (Point3d cap in op.End.Cap(path[n - 1], Unit(path[n - 1] - path[n - 2]), d, op.Policy)) cycle.Add(cap);
-            Emit(cycle, Reversed(path), n, closed: false, d, op);
+            Emit(cycle, Reversed(path), n, closed: false, d);
             if (!op.End.ClosesRibbon)
                 foreach (Point3d cap in op.End.Cap(path[0], Unit(path[0] - path[1]), d, op.Policy)) cycle.Add(cap);
         }
@@ -575,11 +574,11 @@ public static partial class Offsetting {
         }
     }
 
-    static Fin<Seq<Chain>> Resolve(Seq<Polyline> loops, OffsetPolicy policy, Op key) =>
-        loops.TraverseM(loop => SelfCrossing(EdgesOf(loop, policy), policy, key)).As()
+    static Fin<Seq<Chain>> Resolve(Seq<Polyline> loops, OffsetPolicy policy) =>
+        loops.TraverseM(loop => SelfCrossing(EdgesOf(loop, policy), policy)).As()
             .Bind(crossings => crossings.Exists(static crossing => crossing.IsSome)
                 ? Arrangement.Apply(new ArrangementOp.PlanarOverlay(
-                        loops, Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
+                        loops, Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical))
                     .Bind(static result => result is ArrangementResult.Overlay overlay
                         ? Fin.Succ(overlay.Loops)
                         : Fin.Fail<Seq<Chain>>(new GeometryFault.DegenerateOffset(0)))
@@ -619,7 +618,7 @@ public static partial class Offsetting {
     }
 
     // --- [MINKOWSKI]
-    static Fin<Seq<Chain>> Convolve(Polyline ring, Polyline element, Op key) {
+    static Fin<Seq<Chain>> Convolve(Polyline ring, Polyline element) {
         Polyline b = element;
         int rn = ring.Count - 1, en = b.Count - 1;
         for (int j = 0; j < en; j++) {
@@ -645,7 +644,7 @@ public static partial class Offsetting {
             cycle.Add(ring[(i + 1) % rn] + (b[to] - Point3d.Origin));
         }
         cycle.Add(cycle[0]);
-        return Arrangement.Apply(new ArrangementOp.PlanarOverlay(Seq(cycle), Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
+        return Arrangement.Apply(new ArrangementOp.PlanarOverlay(Seq(cycle), Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical))
             .Bind(static result => result is ArrangementResult.Overlay overlay
                 ? Fin.Succ(overlay.Loops)
                 : Fin.Fail<Seq<Chain>>(new GeometryFault.DegenerateOffset(0)));

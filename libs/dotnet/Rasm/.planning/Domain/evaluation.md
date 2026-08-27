@@ -63,17 +63,16 @@ public readonly record struct ClosestHit(
         ValidityClaim.WhenPresent(Uv, static uv => uv.IsValid),
         ValidityClaim.WhenPresent(Normal, static n => Sense(value: n).IsSome),
         ValidityClaim.WhenPresent(Component, static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0),
-        ValidityClaim.WhenPresent(MeshPoint, static m => OpAcceptance.ValidityOf(source: m).Exists(static valid => valid)),
+        ValidityClaim.WhenPresent(MeshPoint, static m => Acceptance.ValidityOf(source: m).Exists(static valid => valid)),
         ValidityClaim.WhenPresent(Tangent, static v => Sense(value: v).IsSome),
         ValidityClaim.WhenPresent(Frame, static p => p.IsValid));
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         ClosestHit hit = this;
-        Fin<TValue> Facet<TValue>(Option<TValue> facet) => facet.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptValue(value: value));
+        Fin<TValue> Facet<TValue>(Option<TValue> facet) => facet.ToFin(Fail: new KernelFault.InvalidResult()).Bind(value => Acceptance.Value(value: value));
         return ResultProjection.Rows<ClosestHit, TOut>(
             self: this,
-            key: key,
-            ProjectionRow.Of<ClosestHit>(() => key.AcceptValue(value: hit)),
-            ProjectionRow.Of<Point3d>(() => key.AcceptValue(value: hit.Point)),
+            ProjectionRow.Of<ClosestHit>(() => Acceptance.Value(value: hit)),
+            ProjectionRow.Of<Point3d>(() => Acceptance.Value(value: hit.Point)),
             ProjectionRow.Of<double>(() => Facet(facet: hit.Distance)),
             ProjectionRow.Of<Point2d>(() => Facet(facet: hit.Uv)),
             ProjectionRow.Of<Vector3d>(() => Facet(facet: hit.Normal)),
@@ -125,7 +124,7 @@ internal sealed partial class ClosestForm {
                     point: cloud.PointAt(index: index),
                     normal: ClosestHit.Sense(value: cloud[index].Normal),
                     component: Some(new ComponentIndex(type: ComponentIndexType.PointCloudPoint, index: index)))),
-                _ => Fin.Fail<ClosestHit>(key.InvalidResult()),
+                _ => Fin.Fail<ClosestHit>(new KernelFault.InvalidResult()),
             },
         });
     public static readonly ClosestForm Line = new(
@@ -163,14 +162,14 @@ internal sealed partial class ClosestForm {
                 uv: Some(new Point2d(x: s, y: t)),
                 normal: Some(plane.Normal),
                 frame: ClosestHit.Basis(basis: new Plane(origin: plane.PointAt(u: s, v: t), xDirection: plane.XAxis, yDirection: plane.YAxis)))),
-            _ => Fin.Fail<ClosestHit>(key.InvalidResult()),
+            _ => Fin.Fail<ClosestHit>(new KernelFault.InvalidResult()),
         });
     public static readonly ClosestForm Sphere = new(
         native: typeof(Sphere),
         recover: static (value, target, key) => Normalization.SurfaceForm(source: (Sphere)value, key: key)
-            .Bind(lease => lease.Use((Target: target, Key: key), static (state, surface) =>
-                Of(surface.GetType()).ToFin(state.Key.Unsupported(inputType: surface.GetType(), outputType: typeof(ClosestHit)))
-                    .Bind(row => row.Recover(value: surface, target: state.Target, key: state.Key)))));
+            .Bind(lease => lease.Use(target, static (state, surface) =>
+                Of(surface.GetType()).ToFin(new KernelFault.Unsupported(InputType: surface.GetType(), OutputType: typeof(ClosestHit)))
+                    .Bind(row => row.Recover(value: surface, target: state)))));
     public static readonly ClosestForm Box = new(
         native: typeof(Box),
         recover: static (value, target, _) => Fin.Succ(ClosestHit.At(target: target, point: ((Box)value).ClosestPoint(point: target, includeInterior: false))));
@@ -189,24 +188,24 @@ internal sealed partial class ClosestForm {
                     (true, Plane perpendicular) => ClosestHit.Basis(basis: perpendicular),
                     _ => Option<Plane>.None,
                 })),
-            _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
+            _ => Fin.Fail<ClosestHit>(new KernelFault.InvalidInput()),
         });
     public static readonly ClosestForm Surface = new(
         native: typeof(Surface),
         recover: static (value, target, key) => {
             Fin<ClosestHit> Hit(Surface surface, Point2d uv) =>
-                Evaluation.NormalAt(surface: surface, uv: uv, key: key).Map(normal => ClosestHit.At(
+                Evaluation.NormalAt(surface: surface, uv: uv).Map(normal => ClosestHit.At(
                     target: target, point: surface.PointAt(u: uv.X, v: uv.Y), uv: Some(uv),
                     normal: Some(normal),
                     component: surface is BrepFace { FaceIndex: >= 0 } face
                         ? Some(new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)) : Option<ComponentIndex>.None,
-                    frame: Evaluation.FrameAt(surface: surface, uv: uv, key: key).ToOption()));
+                    frame: Evaluation.FrameAt(surface: surface, uv: uv).ToOption()));
             return ((Surface)value) switch {
                 BrepFace face when face.ClosestPointOnFace(target, out double u, out double v, 0.0) =>
                     Hit(face, new Point2d(x: u, y: v)),
                 Surface surface when surface is not BrepFace && surface.ClosestPoint(target, out double u, out double v) =>
                     Hit(surface, new Point2d(x: u, y: v)),
-                _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
+                _ => Fin.Fail<ClosestHit>(new KernelFault.InvalidInput()),
             };
         });
     public static readonly ClosestForm Brep = new(
@@ -215,13 +214,13 @@ internal sealed partial class ClosestForm {
             Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d hitVector) =>
                 (component, brep) switch {
                     ({ ComponentIndexType: ComponentIndexType.BrepFace, Index: int faceIndex }, Brep owner) when faceIndex >= 0 && faceIndex < owner.Faces.Count =>
-                        Evaluation.NormalAt(surface: owner.Faces[faceIndex], uv: new Point2d(x: u, y: v), key: key).Map(oriented => ClosestHit.At(
+                        Evaluation.NormalAt(surface: owner.Faces[faceIndex], uv: new Point2d(x: u, y: v)).Map(oriented => ClosestHit.At(
                             target: target,
                             point: point,
                             uv: Some(new Point2d(x: u, y: v)),
                             normal: Some(oriented),
                             component: Some(component),
-                            frame: Evaluation.FrameAt(surface: owner.Faces[faceIndex], uv: new Point2d(x: u, y: v), key: key).ToOption())),
+                            frame: Evaluation.FrameAt(surface: owner.Faces[faceIndex], uv: new Point2d(x: u, y: v)).ToOption())),
                     ({ ComponentIndexType: ComponentIndexType.BrepEdge, Index: int edgeIndex }, Brep owner) when edgeIndex >= 0 && edgeIndex < owner.Edges.Count =>
                         Fin.Succ(ClosestHit.At(
                             target: target,
@@ -235,13 +234,13 @@ internal sealed partial class ClosestForm {
                             })),
                     _ => Fin.Succ(ClosestHit.At(target: target, point: point, component: Some(component))),
                 },
-            _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
+            _ => Fin.Fail<ClosestHit>(new KernelFault.InvalidInput()),
         });
     public static readonly ClosestForm Mesh = new(
         native: typeof(Mesh),
         recover: static (value, target, key) => {
             Mesh mesh = (Mesh)value;
-            return Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult()).Map(meshPoint => {
+            return Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(new KernelFault.InvalidResult()).Map(meshPoint => {
                 Option<Vector3d> normal = ClosestHit.Sense(value: mesh.NormalAt(meshPoint: meshPoint));
                 return ClosestHit.At(
                     target: target,
@@ -254,7 +253,7 @@ internal sealed partial class ClosestForm {
         });
     internal Type Native { get; }
     [UseDelegateFromConstructor]
-    internal partial Fin<ClosestHit> Recover(object value, Point3d target, Op key);
+    internal partial Fin<ClosestHit> Recover(object value, Point3d target);
     internal static readonly Func<Type, Option<ClosestForm>> Of =
         memo((Type type) => toSeq(Items).Find(row => row.Native.IsAssignableFrom(c: type)));
 }
@@ -299,49 +298,49 @@ public abstract partial record EvaluationRequest {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Evaluation {
     extension(object? geometry) {
-        public Fin<TOut> Evaluate<TOut>(EvaluationRequest request, Op key) =>
-            from source in Optional(geometry).ToFin(key.InvalidInput())
+        public Fin<TOut> Evaluate<TOut>(EvaluationRequest request) =>
+            from source in Optional(geometry).ToFin(new KernelFault.InvalidInput())
             from result in request.Switch(
-                state: (Source: source, Key: key),
-                closest: static (state, verb) => Closest(source: state.Source, target: verb.Target, key: state.Key).Bind(hit => hit.Project<TOut>(key: state.Key)),
-                signed: static (state, verb) => Signed(source: state.Source, sample: verb.Sample, key: state.Key).Bind(value => ResultProjection.Value<double, TOut>(value, state.Key, typeof(Evaluation))),
-                sample: static (state, verb) => Sampled(source: state.Source, count: verb.Count, context: verb.Model, key: state.Key).Bind(values => ResultProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))),
-                vertices: static (state, _) => Vertices(source: state.Source, key: state.Key).Bind(values => ResultProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))))
+                state: source,
+                closest: static (state, verb) => Closest(source: state, target: verb.Target).Bind(hit => hit.Project<TOut>()),
+                signed: static (state, verb) => Signed(source: state, sample: verb.Sample).Bind(value => ResultProjection.Value<double, TOut>(value, state.Key, typeof(Evaluation))),
+                sample: static (state, verb) => Sampled(source: state, count: verb.Count, context: verb.Model).Bind(values => ResultProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))),
+                vertices: static (state, _) => Vertices(source: state).Bind(values => ResultProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))))
             select result;
     }
-    private static Fin<ClosestHit> Closest(object source, Point3d target, Op key) =>
-        from _ in guard(target.IsValid, key.InvalidInput()).ToFin()
-        from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput())
+    private static Fin<ClosestHit> Closest(object source, Point3d target) =>
+        from _ in guard(target.IsValid, new KernelFault.InvalidInput()).ToFin()
+        from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || Acceptance.ValidityOf(source: source).Exists(static valid => valid), new KernelFault.InvalidInput())
         from hit in ClosestForm.Of(source.GetType()).Case switch {
-            ClosestForm row => row.Recover(value: source, target: target, key: key),
-            _ => Recovered(source: source, key: key, verb: (value, op) => Closest(source: value, target: target, key: op)),
+            ClosestForm row => row.Recover(value: source, target: target),
+            _ => Recovered(source: source, verb: (value, op) => Closest(source: value, target: target)),
         }
         select hit;
-    private static Fin<double> Signed(object source, Point3d sample, Op key) =>
-        from point in key.AcceptValue(value: sample)
+    private static Fin<double> Signed(object source, Point3d sample) =>
+        from point in Acceptance.Value(value: sample)
         from distance in source switch {
-            Plane plane => key.AcceptValue(value: plane.DistanceTo(testPoint: point)),
-            Sphere sphere => key.AcceptValue(value: point.DistanceTo(other: sphere.Center) - sphere.Radius),
-            Box box => key.AcceptValue(value: (box.Contains(point: point, strict: false) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
-            BoundingBox box => key.AcceptValue(value: (box.Contains(point: point) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
+            Plane plane => Acceptance.Value(value: plane.DistanceTo(testPoint: point)),
+            Sphere sphere => Acceptance.Value(value: point.DistanceTo(other: sphere.Center) - sphere.Radius),
+            Box box => Acceptance.Value(value: (box.Contains(point: point, strict: false) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
+            BoundingBox box => Acceptance.Value(value: (box.Contains(point: point) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
             object value when Capability.ClosestNormal.Admits(type: value.GetType()) =>
-                Closest(source: value, target: point, key: key).Bind(hit =>
-                    hit.Distance.ToFin(Fail: key.InvalidResult()).Bind(distance =>
-                        hit.Normal.ToFin(Fail: key.InvalidResult()).Map(normal => ((point - hit.Point) * normal) >= 0.0 ? distance : -distance))),
-            _ => Fin.Fail<double>(key.Unsupported(inputType: source.GetType(), outputType: typeof(double))),
+                Closest(source: value, target: point).Bind(hit =>
+                    hit.Distance.ToFin(Fail: new KernelFault.InvalidResult()).Bind(distance =>
+                        hit.Normal.ToFin(Fail: new KernelFault.InvalidResult()).Map(normal => ((point - hit.Point) * normal) >= 0.0 ? distance : -distance))),
+            _ => Fin.Fail<double>(new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(double))),
         }
         select distance;
-    private static Fin<Seq<Point3d>> Sampled(object source, Dimension count, Context context, Op key) =>
+    private static Fin<Seq<Point3d>> Sampled(object source, Dimension count, Context context) =>
         source switch {
-            Curve curve => CurveSampleParameters(curve: curve, count: count.Value, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
-            Surface surface => SurfaceSampleUv(surface: surface, count: count.Value, context: context, key: key)
+            Curve curve => CurveSampleParameters(curve: curve, count: count.Value, context: context).Map(parameters => parameters.Map(curve.PointAt)),
+            Surface surface => SurfaceSampleUv(surface: surface, count: count.Value, context: context)
                 .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y))),
             object value when Capability.CurveForm.Admits(type: value.GetType()) || Capability.SurfaceForm.Admits(type: value.GetType()) =>
-                Recovered(source: value, key: key, verb: (inner, op) => Sampled(source: inner, count: count, context: context, key: op)),
-            object value when Capability.ReadVertices.Admits(type: value.GetType()) => Vertices(source: value, key: key),
-            _ => Recovered(source: source, key: key, verb: (value, op) => Sampled(source: value, count: count, context: context, key: op)),
+                Recovered(source: value, verb: (inner, op) => Sampled(source: inner, count: count, context: context)),
+            object value when Capability.ReadVertices.Admits(type: value.GetType()) => Vertices(source: value),
+            _ => Recovered(source: source, verb: (value, op) => Sampled(source: value, count: count, context: context)),
         };
-    private static Fin<Seq<Point3d>> Vertices(object source, Op key) =>
+    private static Fin<Seq<Point3d>> Vertices(object source) =>
         source switch {
             Point3d point => Fin.Succ(Seq(point)),
             RhinoPoint point => Fin.Succ(Seq(point.Location)),
@@ -359,29 +358,29 @@ internal static class Evaluation {
             SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold(
                 (SubDVertex?)subd.Vertices.First,
                 static vertex => vertex switch { SubDVertex current => Some((current.ControlNetPoint, (SubDVertex?)current.Next)), _ => None }))),
-            GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native, key: key)
-                .Bind(lease => lease.Use(key, static (op, brep) => Vertices(source: brep, key: op))),
-            _ => Recovered(source: source, key: key, verb: static (value, op) => Vertices(source: value, key: op)),
+            GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native)
+                .Bind(lease => lease.Use(static (op, brep) => Vertices(source: brep, key: op))),
+            _ => Recovered(source: source, verb: static (value, op) => Vertices(source: value, key: op)),
         };
-    private static Fin<T> Recovered<T>(object source, Op key, Func<object, Op, Fin<T>> verb) =>
+    private static Fin<T> Recovered<T>(object source, Func<object, Fin<T>> verb) =>
         source switch {
-            Curve or Surface or Brep => Fin.Fail<T>(key.InvalidInput()),
-            GeometryBase native => Fin.Fail<T>(key.Unsupported(inputType: native.GetType(), outputType: typeof(T))),
+            Curve or Surface or Brep => Fin.Fail<T>(new KernelFault.InvalidInput()),
+            GeometryBase native => Fin.Fail<T>(new KernelFault.Unsupported(InputType: native.GetType(), OutputType: typeof(T))),
             object value when Capability.CurveForm.Admits(type: value.GetType()) =>
-                Normalization.CurveForm(source: value, key: key).Bind(lease => lease.Use((Key: key, Verb: verb), static (state, curve) => state.Verb(arg1: curve, arg2: state.Key))),
+                Normalization.CurveForm(source: value).Bind(lease => lease.Use((Key: key, Verb: verb), static (state, curve) => state.Verb(arg1: curve, arg2: state.Key))),
             object value when Capability.SurfaceForm.Admits(type: value.GetType()) =>
-                Normalization.SurfaceForm(source: value, key: key).Bind(lease => lease.Use((Key: key, Verb: verb), static (state, surface) => state.Verb(arg1: surface, arg2: state.Key))),
-            object value => Fin.Fail<T>(key.Unsupported(inputType: value.GetType(), outputType: typeof(T))),
+                Normalization.SurfaceForm(source: value).Bind(lease => lease.Use((Key: key, Verb: verb), static (state, surface) => state.Verb(arg1: surface, arg2: state.Key))),
+            object value => Fin.Fail<T>(new KernelFault.Unsupported(InputType: value.GetType(), OutputType: typeof(T))),
         };
-    internal static Fin<Seq<double>> CurveSampleParameters(Curve curve, int count, Context context, Op key) =>
-        Fractions(count: count, key: key).Bind(fractions =>
-            Optional(curve.NormalizedLengthParameters([.. fractions.AsIterable()], context.Absolute.Value, context.Fractional)).ToFin(key.InvalidResult()).Map(static p => toSeq(p)));
+    internal static Fin<Seq<double>> CurveSampleParameters(Curve curve, int count, Context context) =>
+        Fractions(count: count).Bind(fractions =>
+            Optional(curve.NormalizedLengthParameters([.. fractions.AsIterable()], context.Absolute.Value, context.Fractional)).ToFin(new KernelFault.InvalidResult()).Map(static p => toSeq(p)));
     internal static Option<(Interval U, Interval V)> SurfaceDomain(Surface surface, Context context) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid && u.Length > context.Absolute.Value && v.Length > context.Absolute.Value => Some((U: u, V: v)),
             _ => Option<(Interval U, Interval V)>.None,
         };
-    internal static Fin<Point2d> SurfaceUv(Surface surface, Point2d uv, Context context, Op key) =>
+    internal static Fin<Point2d> SurfaceUv(Surface surface, Point2d uv, Context context) =>
         SurfaceDomain(surface: surface, context: context)
             .Filter(domain =>
                 uv.IsValid
@@ -389,27 +388,27 @@ internal static class Evaluation {
                 && domain.V.IncludesParameter(uv.Y)
                 && (surface is not BrepFace face || face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: context.Absolute.Value) != PointFaceRelation.Exterior))
             .Map(_ => uv)
-            .ToFin(key.InvalidInput());
-    internal static Fin<Seq<Point2d>> SurfaceSampleUv(Surface surface, int count, Context context, Op key) =>
-        SurfaceDomain(surface: surface, context: context).ToFin(key.InvalidInput()).Bind(domain =>
-            Fractions(count: count, key: key)
+            .ToFin(new KernelFault.InvalidInput());
+    internal static Fin<Seq<Point2d>> SurfaceSampleUv(Surface surface, int count, Context context) =>
+        SurfaceDomain(surface: surface, context: context).ToFin(new KernelFault.InvalidInput()).Bind(domain =>
+            Fractions(count: count)
                 .Map(fractions => fractions.Bind(uf => fractions.Map(vf => new Point2d(x: domain.U.ParameterAt(uf), y: domain.V.ParameterAt(vf)))))
                 .Bind(samples => surface switch {
                     BrepFace face => samples.Choose(uv => PullBack(face: face, uv: uv, tolerance: context.Absolute.Value)) switch {
                         Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid),
-                        _ => Fin.Fail<Seq<Point2d>>(key.InvalidResult()),
+                        _ => Fin.Fail<Seq<Point2d>>(new KernelFault.InvalidResult()),
                     },
                     _ => Fin.Succ(samples),
                 }));
-    internal static Fin<Vector3d> NormalAt(Surface surface, Point2d uv, Op key) =>
+    internal static Fin<Vector3d> NormalAt(Surface surface, Point2d uv) =>
         ClosestHit.Sense(value: surface.NormalAt(u: uv.X, v: uv.Y))
             .Map(normal => surface is BrepFace { OrientationIsReversed: true } ? -normal : normal)
-            .ToFin(key.InvalidResult());
-    internal static Fin<Plane> FrameAt(Surface surface, Point2d uv, Op key) =>
+            .ToFin(new KernelFault.InvalidResult());
+    internal static Fin<Plane> FrameAt(Surface surface, Point2d uv) =>
         (surface.FrameAt(u: uv.X, v: uv.Y, frame: out Plane frame), frame) switch {
-            (true, { IsValid: true } native) => NormalAt(surface: surface, uv: uv, key: key).Bind(normal =>
+            (true, { IsValid: true } native) => NormalAt(surface: surface, uv: uv).Bind(normal =>
                 Fin.Succ((native.ZAxis * normal) >= 0.0 ? native : new Plane(origin: native.Origin, xDirection: native.XAxis, yDirection: -native.YAxis))),
-            _ => Fin.Fail<Plane>(key.InvalidResult()),
+            _ => Fin.Fail<Plane>(new KernelFault.InvalidResult()),
         };
     private static Option<Point2d> PullBack(BrepFace face, Point2d uv, double tolerance) =>
         face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: tolerance) != PointFaceRelation.Exterior
@@ -418,11 +417,11 @@ internal static class Evaluation {
                 && face.IsPointOnFace(u: fu, v: fv, tolerance: tolerance) != PointFaceRelation.Exterior
                 ? Some(new Point2d(x: fu, y: fv))
                 : Option<Point2d>.None;
-    private static Fin<Seq<double>> Fractions(int count, Op key) =>
+    private static Fin<Seq<double>> Fractions(int count) =>
         count switch {
             1 => Fin.Succ(Seq(0.5)),
             > 1 => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: count).Select(i => i / (count - 1.0)))),
-            _ => Fin.Fail<Seq<double>>(key.InvalidInput()),
+            _ => Fin.Fail<Seq<double>>(new KernelFault.InvalidInput()),
         };
 }
 ```

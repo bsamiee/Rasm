@@ -143,7 +143,7 @@ public static class BoardLink {
     static HashMap<string, string> Parsed(string query) =>
         toHashMap(query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Choose(field => field.Split('=', 2) switch {
-                [var key, var value] => Some((Uri.UnescapeDataString(key), Uri.UnescapeDataString(value))),
+                [var key, var value] => Some((Uri.UnescapeDataString(), Uri.UnescapeDataString(value))),
                 _ => None,
             }));
 
@@ -184,7 +184,7 @@ public static class BoardLink {
 
 - Owner: `PlacementGrid` — the column count per breakpoint tier, mintable only through its frozen roster; `SpanPolicy` — equal-weight against fixed-span wrapping; `PlacementFlow` — the ONE placement fold every board layout derives from.
 - Cases: `SpanPolicy` = Equal | Fixed(span).
-- Entry: `PlacementGrid.For(at)` — the tier's grid row; `PlacementFlow.Flow(grid, keys, span, rowSpan, from)` — the one fold; `PlacementFlow.Layout(key, bands, canvasState)` — the whole-board derivation across every tier.
+- Entry: `PlacementGrid.For(at)` — the tier's grid row; `PlacementFlow.Flow(grid, keys, span, rowSpan, from)` — the one fold; `PlacementFlow.Layout(bands, canvasState)` — the whole-board derivation across every tier.
 - Auto: every board layout derives its columns and spans from the grid row for the active breakpoint, so a literal column index, a literal span, and a literal wrap arithmetic are all unspellable; a FACET grid is the same fold at a tile-local grid whose column count is the facet's own declared width — a grid is a grid at every scale.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new responsive tier is one roster row over the settled breakpoint vocabulary; a new spanning posture is one `SpanPolicy` arm; zero new surface.
@@ -224,14 +224,12 @@ public static class PlacementFlow {
             equal: _ => int.Max(1, grid.Columns / keys.Count));
         int perRow = grid.Columns / span;
         return (
-            keys.Map((key, index) => new TilePlacement(
-                key, grid.At, index % perRow * span, from + (index / perRow * rowSpan), span, rowSpan)),
+            keys.Map((key, index) => new TilePlacement(grid.At, index % perRow * span, from + (index / perRow * rowSpan), span, rowSpan)),
             from + (((keys.Count + perRow - 1) / perRow) * rowSpan));
     }
 
     public static Fin<DashboardLayout> Layout(string key, Seq<(Seq<string> Keys, int RowSpan)> bands, Option<string> canvasState = default) =>
-        DashboardLayout.Admit(key,
-            toSeq(PlacementGrid.Rows).Bind(grid =>
+        DashboardLayout.Admit(toSeq(PlacementGrid.Rows).Bind(grid =>
                 bands.Fold((Acc: Seq<TilePlacement>(), Row: 0), (state, band) =>
                     Flow(grid, band.Keys, new SpanPolicy.Equal(), band.RowSpan, state.Row) switch {
                         var laid => (Acc: state.Acc + laid.Placements, Row: laid.Next),
@@ -351,7 +349,7 @@ public sealed record FilterState(
     public static Fin<FilterState> Admit(FilterState candidate) =>
         (Gate(candidate.From.Match(Some: lo => candidate.To.ForAll(hi => lo <= hi), None: static () => true), "window inverted"),
          Gate(candidate.Tags.ForAll(static tag => !string.IsNullOrWhiteSpace(tag)), "blank tag"),
-         Gate(candidate.Highlight.ForAll(static key => !string.IsNullOrWhiteSpace(key)), "blank highlight key"),
+         Gate(candidate.Highlight.ForAll(static key => !string.IsNullOrWhiteSpace()), "blank highlight key"),
          Gate(candidate.Region.ForAll(static region => !string.IsNullOrWhiteSpace(region.DimensionKey)
                  && region.Ring.Count >= 3
                  && region.Ring.ForAll(static point => double.IsFinite(point.X) && double.IsFinite(point.Y))), "degenerate region"),

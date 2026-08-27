@@ -252,10 +252,10 @@ public static class StructuralEdit
     {
         Edit.Bump b when op.Kind.Rank1Edit =>
             op.RankOne(b.Sign, b.Column)
-                ? Fin.Succ(op)
-                : Rebuild(op, edit),
+                ? Fin.Succ()
+                : Rebuild(edit),
         Edit.Revalue r => Fin.Succ(op with { Inner = Refactor(op.Permutation, r.Values) }),
-        Edit structural => Rebuild(op, structural),
+        Edit structural => Rebuild(structural),
     };
 }
 ```
@@ -292,10 +292,10 @@ public static class Iterative
     public static Fin<Vector<double>> Solve(
         Matrix<double> a, Vector<double> b, IIterativeSolver<double> solver,
         IPreconditioner<double> pre, double tol, bool symmetric) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
                 Vector<double> x = Vector<double>.Build.Dense(b.Count);
                 return Fin.Succ((Verdict: a.TrySolveIterative(b, x, solver, Stack(b.Count, tol, symmetric), pre), X: x));
-            })
+            }).Run().Bind(static inner => inner)
             .Bind(t => Witness.Gate($"verdict={t.Verdict}", Witness.Residual(a, t.X, b), tol).Map(_ => t.X));
 }
 ```

@@ -10,7 +10,7 @@ Two READ-ONLY views over historical cuts of one collaborative document, sharing 
 ## [02]-[TIME_TRAVEL]
 
 - Owner: `TimeTravel` the checkout-fork-preview-revert owner; `RevertPlan` the root-keyed inverse-decode table; `CollabUndo` the local-only undo respecting remote ops.
-- Entry: `public IO<Fin<Unit>> Revert(IntentLedger ledger, Frontiers cut, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — the COMMITTED revert: diffs the live cut against the target, inverts each container change through the ONE `IntentLedger.Commit` entry (durable-first, live apply through the same `IntentApply` dispatch replay uses), and fires the settled revert through the AppUi hook dispatch; `public Fin<DiffBatch> Changes(Frontiers from, Frontiers to)` — the typed change-set between two cuts, the revert-preview and audit-inspection read; `public Fin<CollabDoc> Fork(Frontiers cut)` — branches a new independent document from a historical cut; `public Fin<Unit> Undo()` / `Redo()` — drives the local-only `UndoManager` that skips remote ops; `public Fin<Unit> Group(Func<Fin<Unit>> edits)` — brackets a multi-edit transaction so it undoes as one unit.
+- Entry: `public IO<Fin<Unit>> Revert(IntentLedger ledger, Frontiers cut, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` — the COMMITTED revert: diffs the live cut against the target, inverts each container change through the ONE `IntentLedger.Commit` entry (durable-first, live apply through the same `IntentApply` dispatch replay uses), and fires the settled revert through the AppUi hook dispatch; `public Fin<DiffBatch> Changes(Frontiers from, Frontiers to)` — the typed change-set between two cuts, the revert-preview and audit-inspection read; `public Fin<CollabDoc> Fork(Frontiers cut)` — branches a new independent document from a historical cut; `public Fin<Unit> Undo()` / `Redo()` — drives the local-only `UndoManager` that skips remote ops; `public Fin<Unit> Group(Func<Fin<Unit>> edits)` — brackets a multi-edit transaction so it undoes as one unit.
 - Auto: `UndoManager(doc)` is the local-only undo — `AddExcludeOriginPrefix` excludes the programmatic origins (set via `CommitWith(CommitOptions)`) so a user's Ctrl-Z never reverts a peer's concurrent edit, `SetMaxUndoSteps` bounds the window as a policy value, and the group scope coalesces a multi-edit transaction into one undo unit; the committed revert is INVERSE INTENTS through the one commit path — `Diff(live, cut)` names exactly what inverts, the root-keyed plan projects those container diffs onto typed `EditIntent` rows (the same closed family every edit rides, aligned with `Editing/history#REVERT_ALGEBRA`'s inverse algebra), and the fold commits each row durable-first so cold-load replay reproduces the reverted state from the ledger alone; `Checkout(Frontiers)` time-travels the read state to a historical cut for inspection and `CheckoutToLatest` returns, while an edit during checkout faults `EditWhenDetached` so a detached edit is structurally rejected; `ForkAt(Frontiers)` branches an independent document so a what-if exploration never touches the shared timeline; the cut is a `Frontiers` DAG cut (a set of op-ids) read from `OplogFrontiers`, so time-travel keys on the op-log identity the live wire already broadcasts.
 - Packages: LoroCs, Rasm (project — `Custody`, `Cell`/`Transition`), Rasm.Persistence (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new time-travel verb is one operation on this owner; one undo verb is one `CommandRow` row; a new invertible root is one `RevertPlan` leg keyed by its `CollabRoot` row; zero new surface.
@@ -79,16 +79,14 @@ public sealed record TimeTravel(
     public IO<Fin<Unit>> Revert(
         IntentLedger ledger,
         Frontiers cut,
-        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        Op key) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         (from intents in Decoded(cut)
          from applied in intents.TraverseM(intent =>
              new FinT<IO, Unit>(ledger.Commit(Document, intent, RevertOrigin))).As()
          let digest = ContentHash.Of(cut, static (frontier, writer) => writer.String(frontier.ToString()))
          from fired in FinT.lift<IO, AppUiFact>(hooks.Fire(
              at: AppUiPoint.CollabRevert,
-             fact: new AppUiFact.CollabRevert(Document.Key.Value, digest, (uint)applied.Count),
-             key: key))
+             fact: new AppUiFact.CollabRevert(Document.Key.Value, digest, (uint)applied.Count)))
          select unit).runFin.As();
 
     private FinT<IO, Seq<EditIntent>> Decoded(Frontiers cut) =>
@@ -110,7 +108,7 @@ public sealed record TimeTravel(
         from key in Op.Of(name: "appui.compare.branch")
             .AcceptValidated<DocumentKey>($"{Document.Key.Value}/fork/{Guid.CreateVersion7():N}")
         from forked in CollabDoc.Lift(() => Document.Doc.ForkAt(cut))
-        select CollabDoc.Of(forked, key);
+        select CollabDoc.Of(forked);
 }
 ```
 
@@ -288,7 +286,7 @@ public sealed record DiffSurface(
     ControlIntent Transport() =>
         new ControlIntent.Toolbar(
             $"{SessionKey}.transport",
-            Seq(PreviousIntent, NextIntent, LayoutIntent).Map(static key => new ToolbarRow(Verb(key), OverflowMode.Never)),
+            Seq(PreviousIntent, NextIntent, LayoutIntent).Map(static key => new ToolbarRow(Verb(), OverflowMode.Never)),
             Orientation.Horizontal,
             IntentBinding.Of(PaintRole.Panel));
 
@@ -298,8 +296,8 @@ public sealed record DiffSurface(
             None, IntentBinding.Of(PaintRole.Info));
 
     static ControlIntent Verb(string key) =>
-        new ControlIntent.Button(key, $"{key}.label",
-            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some(key) });
+        new ControlIntent.Button($"{key}.label",
+            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some() });
 
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(SessionKey, screen => composition.Diff(screen.Surface).Body(composition.Window));
@@ -409,7 +407,7 @@ public static class ChangeSchema {
         view.Group.IsEmpty ? view with { Group = Seq(ElementClassProperty) } : view;
 
     static FilterField<ChangeRow> Field(string key, FilterKind kind, Seq<FilterValue> domain, Func<ChangeRow, Seq<FilterValue>> read) =>
-        new(new FilterProperty(key, $"compare.filter.{key}", kind, domain), read);
+        new(new FilterProperty($"compare.filter.{key}", kind, domain), read);
 }
 
 public sealed class CompareSession : IDisposable {

@@ -192,7 +192,7 @@ public static class Threads {
             washerInnerIn * ThreadRow.InchToMm, washerOuterIn * ThreadRow.InchToMm, washerThicknessIn * ThreadRow.InchToMm));
 
     static ThreadRow Unc(string key, string tag, double inches, double threadsPerInch, double acrossFlatsIn, Option<HexHardware> hardware) =>
-        new(key, ThreadSeries.UnifiedCoarse, inches * ThreadRow.InchToMm, ThreadRow.InchToMm / threadsPerInch, acrossFlatsIn * ThreadRow.InchToMm, hardware, tag);
+        new(ThreadSeries.UnifiedCoarse, inches * ThreadRow.InchToMm, ThreadRow.InchToMm / threadsPerInch, acrossFlatsIn * ThreadRow.InchToMm, hardware, tag);
 
     public static readonly ThreadRow M6     = new("m6",  ThreadSeries.MetricCoarse,  6.0, 1.00, 10.0, Iso(4.0,  8.74,  6.8,  5.2,  6.4,  12.0, 1.6));
     public static readonly ThreadRow M8     = new("m8",  ThreadSeries.MetricCoarse,  8.0, 1.25, 13.0, Iso(5.3,  11.47, 9.2,  6.8,  8.4,  16.0, 1.6));
@@ -216,23 +216,23 @@ public static class Threads {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Fastening {
-    public static Fin<double> JointFactor(DesignBasis basis, Op key) =>
+    public static Fin<double> JointFactor(DesignBasis basis) =>
         basis.Format == SafetyFormat.LimitState
             ? Fin.Succ(basis.GammaM2)
-            : new ComponentFault.BasisUnsupported(key, basis, ComponentFamily.Fastener);
+            : new ComponentFault.BasisUnsupported(basis, ComponentFamily.Fastener);
 
-    public static Fin<double> ShearResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, ShearPlane plane, DesignBasis basis, Op key) =>
-        from gamma in JointFactor(basis, key)
-        from alphaV in plane.ShearFactor(arm).ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
+    public static Fin<double> ShearResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, ShearPlane plane, DesignBasis basis) =>
+        from gamma in JointFactor(basis)
+        from alphaV in plane.ShearFactor(arm).ToFin(new ComponentFault.GradeBandMissing(ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
         select alphaV * arm.SpecifiedUltimateMpa * plane.ResistanceAreaMm2(thread) / gamma * 1e-3;
 
-    public static Fin<double> TensionResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis, Op key) =>
-        from gamma in JointFactor(basis, key)
-        from tabulated in arm.EurocodeAlphaV.ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
+    public static Fin<double> TensionResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis) =>
+        from gamma in JointFactor(basis)
+        from tabulated in arm.EurocodeAlphaV.ToFin(new ComponentFault.GradeBandMissing(ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
         select head.TensionFactor * arm.SpecifiedUltimateMpa * thread.StressAreaMm2 / gamma * 1e-3;
 
-    public static Fin<double> PunchingResistanceKn(ThreadRow thread, double plyThicknessMm, double plyUltimateMpa, DesignBasis basis, Op key) =>
-        JointFactor(basis, key).Map(gamma => 0.6 * Math.PI * thread.PunchingDiameterMm * plyThicknessMm * plyUltimateMpa / gamma * 1e-3);
+    public static Fin<double> PunchingResistanceKn(ThreadRow thread, double plyThicknessMm, double plyUltimateMpa, DesignBasis basis) =>
+        JointFactor(basis).Map(gamma => 0.6 * Math.PI * thread.PunchingDiameterMm * plyThicknessMm * plyUltimateMpa / gamma * 1e-3);
 
     public readonly record struct ReferenceLengthBand(double LengthCeilingMm, double AdditionMm);
     static readonly ImmutableArray<ReferenceLengthBand> ReferenceLengths = [new(125.0, 6.0), new(200.0, 12.0), new(double.PositiveInfinity, 25.0)];
@@ -253,14 +253,14 @@ public static class Fastening {
     public static Fin<double> TimberDowelShearKn(
         double diameterMm, double fastenerUltimateMpa, double loadToGrainDeg,
         GradeProperties.Timber side1, double t1Mm, GradeProperties.Timber side2, double t2Mm,
-        ServiceClass service, LoadDuration duration, Op key) =>
+        ServiceClass service, LoadDuration duration) =>
         from admitted in AdmissionSlots.Accumulate(Seq(
-            Positive(diameterMm, "d", key),
-            Positive(fastenerUltimateMpa, "fu", key),
-            Positive(t1Mm, "t1", key),
-            Positive(t2Mm, "t2", key),
+            Positive(diameterMm, "d"),
+            Positive(fastenerUltimateMpa, "fu"),
+            Positive(t1Mm, "t1"),
+            Positive(t2Mm, "t2"),
             AdmissionSlots.Gate(double.IsFinite(loadToGrainDeg),
-                new KernelFault.OutOfRange(nameof(loadToGrainDeg), loadToGrainDeg, "finite", Some(key))))).ToFin()
+                new KernelFault.OutOfRange(nameof(loadToGrainDeg), loadToGrainDeg, "finite")))).ToFin()
         let d = diameterMm
         let alpha = loadToGrainDeg * Math.PI / 180.0
         let sin2 = Math.Pow(Math.Sin(alpha), 2.0)
@@ -280,10 +280,10 @@ public static class Fastening {
         let fvk = Seq(fh1 * t1Mm * d, fh2 * t2Mm * d, modeC, modeD, modeE, modeF).Min(double.PositiveInfinity)
         select duration.KmodFor(service) * fvk / TimberPartialFactor.Connection * 1e-3;
 
-    static Validation<Error, Unit> Positive(double value, string label, Op key) =>
+    static Validation<Error, Unit> Positive(double value, string label) =>
         AdmissionSlots.Gate(
             double.IsFinite(value) && value > 0.0,
-            new KernelFault.OutOfRange(label, value, "finite and positive", Some(key)));
+            new KernelFault.OutOfRange(label, value, "finite and positive"));
 }
 
 public static class FastenerDetail {
@@ -367,16 +367,16 @@ public abstract partial record StockRow {
     public Option<MaterialGrade> Grade => Switch(threaded: static row => Some(row.Grade), plain: static _ => Option<MaterialGrade>.None);
     public Option<GradeProperties.Fastener> Arm => Grade.Bind(static grade => grade.FastenerArm);
 
-    public Validation<Error, Unit> Coherence(Op key) => Switch(
+    public Validation<Error, Unit> Coherence() => Switch(
         threaded: row => AdmissionSlots.Accumulate(Seq(
-            AdmissionSlots.Gate(row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a threaded stock kind", Some(key))),
-            AdmissionSlots.Gate(row.Grade.Admits(row.Thread), new KernelFault.InvalidValue(nameof(row.Thread), "a thread admitted by its grade", Some(key))),
-            AdmissionSlots.Gate(row.Grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Fastener)),
-            AdmissionSlots.Gate(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive", Some(key))))),
+            AdmissionSlots.Gate(row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a threaded stock kind")),
+            AdmissionSlots.Gate(row.Grade.Admits(row.Thread), new KernelFault.InvalidValue(nameof(row.Thread), "a thread admitted by its grade")),
+            AdmissionSlots.Gate(row.Grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Fastener)),
+            AdmissionSlots.Gate(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive")))),
         plain: row => AdmissionSlots.Accumulate(Seq(
-            AdmissionSlots.Gate(!row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a plain stock kind", Some(key))),
-            AdmissionSlots.Gate(double.IsFinite(row.DiameterMm) && row.DiameterMm > 0.0, new KernelFault.OutOfRange(nameof(row.DiameterMm), row.DiameterMm, "finite and positive", Some(key))),
-            AdmissionSlots.Gate(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive", Some(key))))));
+            AdmissionSlots.Gate(!row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a plain stock kind")),
+            AdmissionSlots.Gate(double.IsFinite(row.DiameterMm) && row.DiameterMm > 0.0, new KernelFault.OutOfRange(nameof(row.DiameterMm), row.DiameterMm, "finite and positive")),
+            AdmissionSlots.Gate(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive")))));
 }
 
 [Union]
@@ -426,12 +426,12 @@ public static class FastenerSeed {
     public static readonly SeedLaw<StockRow> Law = SeedLaw<StockRow>.Of(
         family: ComponentFamily.Fastener,
         designation: static row => $"fastener.{row.Facts.Kind.Key}-{row.Facts.Designation}",
-        coherence: static (row, key) => row.Coherence(key),
-        profile: static (row, key) => SectionProfile.Circle.Of(row.Facts.DiameterMm, key),
+        coherence: static (row, key) => row.Coherence(),
+        profile: static (row, key) => SectionProfile.Circle.Of(row.Facts.DiameterMm),
         substance: static row => row.Facts.Substance,
         source: static _ => Stock,
         standard: static row => row.Facts.Standard,
-        detail: Some<Func<StockRow, SectionProfile, Op, Fin<PropertyBag>>>(
+        detail: Some<Func<StockRow, SectionProfile, Fin<PropertyBag>>>(
             static (row, _, _) => FastenerDetail.Of(row.Facts.Kind, row.Facts, row.Thread, Stock)),
         appearance: static row => row.Facts.Appearance,
         ifc: static row => row.Facts.Kind.Ifc);
@@ -439,44 +439,44 @@ public static class FastenerSeed {
     static readonly FrozenDictionary<ComponentId, StockRow> Table =
         Roster.ToFrozenDictionary(static row => ComponentId.Create($"fastener.{row.Facts.Kind.Key}-{row.Facts.Designation}"), static row => row);
 
-    public static Fin<StockRow> Resolve(Component component, Op key) =>
+    public static Fin<StockRow> Resolve(Component component) =>
         Table.TryGetValue(component.Designation, out StockRow row)
             ? Fin.Succ(row)
-            : new ComponentFault.ComponentMissing(key, ProfileRef.Of(component.Designation.Value));
+            : new ComponentFault.ComponentMissing(ProfileRef.Of(component.Designation.Value));
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in Resolve(component, key)
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from row in Resolve(component)
         from connection in placement.Fastener.ToFin(
-            new ComponentFault.ConnectionMissing(key, component.Designation))
+            new ComponentFault.ConnectionMissing(component.Designation))
         from lift in connection.Switch(
             bearing: state =>
-                from assembly in Assembly(row, state.Category, FayingSurface.None, state.Head, state.GripPlies, state.ShearPlanes, state.Washer, key)
+                from assembly in Assembly(row, state.Category, FayingSurface.None, state.Head, state.GripPlies, state.ShearPlanes, state.Washer)
                 select (CapacityLift)new CapacityLift.Bolt(component.Designation, assembly, state.Ply, state.Plane),
             slipCritical: state =>
-                from assembly in Assembly(row, state.Category, state.Faying, state.Head, state.GripPlies, state.ShearPlanes, state.Washer, key)
+                from assembly in Assembly(row, state.Category, state.Faying, state.Head, state.GripPlies, state.ShearPlanes, state.Washer)
                 select (CapacityLift)new CapacityLift.SlipCritical(component.Designation, assembly, state.Install),
             timberDowel: state =>
                 from ultimate in row.Facts.UltimateMpa.ToFin(
-                    new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(StockFacts)))
-                from side1 in TimberArm(state.Side1, key)
-                from side2 in TimberArm(state.Side2, key)
+                    new ComponentFault.GradeBandMissing(ComponentFamily.Fastener, typeof(StockFacts)))
+                from side1 in TimberArm(state.Side1)
+                from side2 in TimberArm(state.Side2)
                 from perPlane in Fastening.TimberDowelShearKn(
                     row.Facts.DiameterMm, ultimate, state.LoadToGrainDeg,
-                    side1, state.Thickness1Mm, side2, state.Thickness2Mm, state.Service, state.Duration, key)
+                    side1, state.Thickness1Mm, side2, state.Thickness2Mm, state.Service, state.Duration)
                 select (CapacityLift)new CapacityLift.TimberDowel(component.Designation, perPlane, state.ShearPlanes))
-        from capacity in SectionCapacity.Lift(lift, key)
+        from capacity in SectionCapacity.Lift(lift)
         select capacity;
 
-    static Fin<FastenerAssembly> Assembly(StockRow row, BoltCategory category, FayingSurface faying, HeadForm head, int gripPlies, int shearPlanes, Option<HexHardware> washer, Op key) =>
-        from thread in row.Thread.ToFin(new KernelFault.InvalidValue(nameof(row.Thread), "a threaded stock row", Some(key)))
-        from grade in row.Grade.ToFin(new KernelFault.InvalidValue(nameof(row.Grade), "a threaded stock grade", Some(key)))
-        from assembly in FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer, key)
+    static Fin<FastenerAssembly> Assembly(StockRow row, BoltCategory category, FayingSurface faying, HeadForm head, int gripPlies, int shearPlanes, Option<HexHardware> washer) =>
+        from thread in row.Thread.ToFin(new KernelFault.InvalidValue(nameof(row.Thread), "a threaded stock row"))
+        from grade in row.Grade.ToFin(new KernelFault.InvalidValue(nameof(row.Grade), "a threaded stock grade"))
+        from assembly in FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer)
         select assembly;
 
-    static Fin<GradeProperties.Timber> TimberArm(MaterialGrade grade, Op key) =>
+    static Fin<GradeProperties.Timber> TimberArm(MaterialGrade grade) =>
         grade.Columns is GradeProperties.Timber arm
             ? Fin.Succ(arm)
-            : new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Timber);
+            : new ComponentFault.GradeBodyMissing(grade, ComponentFamily.Timber);
 }
 ```
 
@@ -484,7 +484,7 @@ public static class FastenerSeed {
 
 - Owner: `FastenerAssembly` owns the installed bolt state and its own resistance projections; `BearingDesign` owns the ply the shank bears against and derives its EN 1993-1-8 Table 3.4 factors from the bolt-group geometry; `BoltPosition` and `HoleShape` own the published position and hole-form policy; `FastenerInstallation` admits the shared `(ks, γM3, km)` slip-and-torque policy.
 - Cases: one assembly shape for every modality — a non-preloaded (A/D) assembly resolves `FayingSurface.None` and returns `None` for preload, slip, and tightening torque; a preloaded (B/C/E) assembly requires a named slip class and returns `Some` design values — never a numeric absence sentinel and never a `PreloadedBolt`/`BearingBolt` pair. `BoltPosition` closes the four-cell product of the two independent Table 3.4 discriminants: end-versus-inner along the load path selects α_d, edge-versus-inner across it selects k1.
-- Entry: `FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer, key)` ACCUMULATES its four independent admissions — a system- or size-mismatched thread/grade pair, a missing fastener arm, a preloaded category over a non-preloadable grade, and a preloaded category with `FayingSurface.None` — then admits the two discrete counts, and carries the PROVED arm onto the assembly so no projection re-unwraps it. `BearingDesign.Of` admits the ply and its bolt-group distances once.
+- Entry: `FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer)` ACCUMULATES its four independent admissions — a system- or size-mismatched thread/grade pair, a missing fastener arm, a preloaded category over a non-preloadable grade, and a preloaded category with `FayingSurface.None` — then admits the two discrete counts, and carries the PROVED arm onto the assembly so no projection re-unwraps it. `BearingDesign.Of` admits the ply and its bolt-group distances once.
 - Growth: a new connection modality is a `BoltCategory`/`FayingSurface` row the assembly reads; a new hole form one `HoleShape` row; a new bolt-group position one `BoltPosition` row; the multi-bolt group `ΣFs,Rd`, the long-joint `β`, and the `Fv,Ed/Fv,Rd + Ft,Ed/(1.4·Ft,Rd) ≤ 1` interaction are `Rasm.Compute` consumers over these single-bolt design values.
 - Boundary: `Count` admits the discrete grip and shear-plane columns. `BearingDesign` takes the DISTANCES the code's own formulas consume and derives `k1` and `α_b` from them, so a caller cannot hand the resistance one opaque scalar in which a transposed edge and end distance is invisible; the hole-shape reduction and the countersink thickness deduction are rows the same derivation reads. Every resistance takes the placement's `DesignBasis` and reads γM2 through `Fastening.JointFactor` — this section spells no partial factor either. The preload is bounded by the grade's own yield load, because a pretension above the elastic limit is a tightening method the assembly cannot represent. A washer's ABSENCE is the absence of a washer, so its hardness, outer diameter, and thickness are all `None` together rather than a bool guarding three separate reads.
 
@@ -536,16 +536,16 @@ public readonly partial struct BearingDesign {
 
     public static Fin<BearingDesign> Of(
         double plyThicknessMm, double plyUltimateMpa, double loadwiseDistanceMm, double transverseDistanceMm,
-        double holeDiameterMm, HoleShape hole, BoltPosition position, Op key) =>
-        key.AcceptValidated<BearingDesign>(
+        double holeDiameterMm, HoleShape hole, BoltPosition position) =>
+        FactoryBridge.Accept<BearingDesign>(
             Validate(plyThicknessMm, plyUltimateMpa, loadwiseDistanceMm, transverseDistanceMm, holeDiameterMm, hole, position, out BearingDesign design), design);
 
     public double K1 => Math.Min(Position.K1Raw(TransverseDistanceMm, HoleDiameterMm), 2.5);
     public double AlphaB(GradeProperties.Fastener arm) =>
         Math.Min(Math.Min(Position.AlphaD(LoadwiseDistanceMm, HoleDiameterMm), arm.SpecifiedUltimateMpa / PlyUltimateMpa), 1.0);
 
-    public Fin<double> ResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis, Op key) =>
-        Fastening.JointFactor(basis, key).Map(gamma =>
+    public Fin<double> ResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis) =>
+        Fastening.JointFactor(basis).Map(gamma =>
             Hole.BearingFactor * K1 * AlphaB(arm) * PlyUltimateMpa * thread.MajorMm
                 * (PlyThicknessMm - head.ThicknessDeductionRatio * thread.MajorMm) / gamma * 1e-3);
 }
@@ -561,8 +561,8 @@ public readonly partial struct FastenerInstallation {
             ? null
             : new ValidationError($"Fastener installation factors must be finite and positive; received {ks:R}, {gammaM3:R}, {km:R}.");
 
-    public static Fin<FastenerInstallation> Of(double ks, double gammaM3, double km, Op key) =>
-        key.AcceptValidated<FastenerInstallation>(Validate(ks, gammaM3, km, out FastenerInstallation design), design);
+    public static Fin<FastenerInstallation> Of(double ks, double gammaM3, double km) =>
+        FactoryBridge.Accept<FastenerInstallation>(Validate(ks, gammaM3, km, out FastenerInstallation design), design);
 }
 
 public readonly record struct FastenerAssembly(
@@ -571,16 +571,16 @@ public readonly record struct FastenerAssembly(
 
     public static Fin<FastenerAssembly> Of(
         ThreadRow thread, MaterialGrade grade, BoltCategory category, FayingSurface faying, HeadForm head,
-        int gripPlies, int shearPlanes, Option<HexHardware> washer, Op key) =>
+        int gripPlies, int shearPlanes, Option<HexHardware> washer) =>
         from proven in AdmissionSlots.Accumulate(Seq(
-            AdmissionSlots.Gate(grade.Admits(thread), new KernelFault.InvalidValue(nameof(thread), "a thread admitted by its grade", Some(key))),
-            AdmissionSlots.Gate(grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Fastener)),
-            AdmissionSlots.Gate(!category.Preloaded || grade.FastenerArm.Exists(static a => a.Preloadable), new KernelFault.InvalidValue(nameof(grade), "a preloadable grade for a preloaded connection", Some(key))),
-            AdmissionSlots.Gate(!category.Preloaded || faying != FayingSurface.None, new KernelFault.InvalidValue(nameof(faying), "a faying class for a preloaded connection", Some(key)))))
+            AdmissionSlots.Gate(grade.Admits(thread), new KernelFault.InvalidValue(nameof(thread), "a thread admitted by its grade")),
+            AdmissionSlots.Gate(grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(grade, ComponentFamily.Fastener)),
+            AdmissionSlots.Gate(!category.Preloaded || grade.FastenerArm.Exists(static a => a.Preloadable), new KernelFault.InvalidValue(nameof(grade), "a preloadable grade for a preloaded connection")),
+            AdmissionSlots.Gate(!category.Preloaded || faying != FayingSurface.None, new KernelFault.InvalidValue(nameof(faying), "a faying class for a preloaded connection"))))
             .ToFin()
-        from arm in grade.FastenerArm.ToFin(new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Fastener))
-        from plies in key.AcceptValidated<Count>(candidate: gripPlies)
-        from planes in key.AcceptValidated<Count>(candidate: shearPlanes)
+        from arm in grade.FastenerArm.ToFin(new ComponentFault.GradeBodyMissing(grade, ComponentFamily.Fastener))
+        from plies in FactoryBridge.Accept<Count>(candidate: gripPlies)
+        from planes in FactoryBridge.Accept<Count>(candidate: shearPlanes)
         select new FastenerAssembly(thread, grade, arm, category, category.Preloaded ? faying : FayingSurface.None, head, plies, planes, washer);
 
     public FastenerBand Band => Arm.At(Thread);
@@ -600,12 +600,12 @@ public readonly record struct FastenerAssembly(
     public Option<double> TighteningTorqueNm(FastenerInstallation design) =>
         PreloadKn.Map(preload => design.Km * (Thread.MajorMm * 1e-3) * (preload * 1e3));
 
-    public Fin<double> ShearResistanceKn(ShearPlane plane, DesignBasis basis, Op key) =>
-        Fastening.ShearResistanceKn(Thread, Arm, plane, basis, key).Map(perPlane => perPlane * ShearPlanes.Value);
-    public Fin<double> TensionResistanceKn(DesignBasis basis, Op key) => Fastening.TensionResistanceKn(Thread, Arm, Head, basis, key);
-    public Fin<double> BearingResistanceKn(BearingDesign ply, DesignBasis basis, Op key) => ply.ResistanceKn(Thread, Arm, Head, basis, key);
-    public Fin<double> PunchingResistanceKn(BearingDesign ply, DesignBasis basis, Op key) =>
-        Fastening.PunchingResistanceKn(Thread, ply.PlyThicknessMm, ply.PlyUltimateMpa, basis, key);
+    public Fin<double> ShearResistanceKn(ShearPlane plane, DesignBasis basis) =>
+        Fastening.ShearResistanceKn(Thread, Arm, plane, basis).Map(perPlane => perPlane * ShearPlanes.Value);
+    public Fin<double> TensionResistanceKn(DesignBasis basis) => Fastening.TensionResistanceKn(Thread, Arm, Head, basis);
+    public Fin<double> BearingResistanceKn(BearingDesign ply, DesignBasis basis) => ply.ResistanceKn(Thread, Arm, Head, basis);
+    public Fin<double> PunchingResistanceKn(BearingDesign ply, DesignBasis basis) =>
+        Fastening.PunchingResistanceKn(Thread, ply.PlyThicknessMm, ply.PlyUltimateMpa, basis);
 
     public Option<double> WasherHardnessHv => Washer.Map(_ => Arm.Preloadable ? 300.0 : 200.0);
     public Option<double> WasherOuterMm => Washer.Map(static h => h.WasherOuterMm);

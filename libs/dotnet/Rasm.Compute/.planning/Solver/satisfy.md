@@ -173,7 +173,7 @@ public static partial class RuleSatisfaction {
 
     static Fin<SatisfyVerdict> CheckExact(
         Seq<ComplianceRule> rules, Map<TrackedName, (double Lower, double Upper)> bounds, SatisfyPolicy policy) =>
-        Op.Of(name: "solver.z3-check").Catch(() => {
+        Try.lift(() => {
             using Microsoft.Z3.Context context = new();
             using Microsoft.Z3.Solver solver = context.MkSolver();
             solver.Set("timeout", policy.Milliseconds);
@@ -184,7 +184,7 @@ public static partial class RuleSatisfaction {
             return from _ in Assert(solver, context, variables, rules.Filter(static rule => !rule.Hypothesis), TrackClass.Rule)
                    from verdict in Framed(solver, context, variables, rules, policy)
                    select verdict;
-        });
+        }).Run().Bind(static inner => inner);
 
     static void Boxed(
         Microsoft.Z3.Solver solver, Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables,
@@ -461,7 +461,6 @@ public sealed partial class NodeClassSelector {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class RuleSatisfaction {
-    private static readonly Op GroundKey = Op.Of(name: nameof(Ground));
 
     public static Fin<ComplianceRule> Ground(ElementGraph graph, ComplianceRule template, NodeClassSelector selector) =>
         !template.Grounding.IsEmpty

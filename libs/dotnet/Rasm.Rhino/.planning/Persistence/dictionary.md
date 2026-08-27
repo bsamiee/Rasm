@@ -148,15 +148,15 @@ public sealed partial class ArchiveSlot {
         keys: Seq(typeof(ArchiveMap)),
         reach: CapabilitySet<ArchiveReach>.All,
         admit: static (value, op) => value switch {
-            ArchivableDictionary native => ArchiveMap.Detach(native, op).Map(static map => (object)map),
+            ArchivableDictionary native => ArchiveMap.Detach(native).Map(static map => (object)map),
             ArchiveMap detached => Fin.Succ<object>(value: detached),
-            _ => Fin.Fail<object>(error: op.InvalidInput()),
+            _ => Fin.Fail<object>(error: new KernelFault.InvalidInput()),
         },
         detach: static value => value,
         same: static (left, right) => ((ArchiveMap)left).SameContent((ArchiveMap)right),
         mint: static (target, key, value, op) => ((ArchiveMap)value)
-            .Mint(op)
-            .Bind(native => op.Catch(() => op.Confirm(success: target.Set(key.Value, native)))));
+            .Mint()
+            .Bind(native => Try.lift(() => Admit.Confirm(success: target.Set(key.Value, native))).Run().Bind(static inner => inner)));
 
     public static readonly ArchiveSlot Enumeration = new(
         key: "enum",
@@ -168,12 +168,12 @@ public sealed partial class ArchiveSlot {
             && !char.IsDigit(name[0])
             && name[0] != '-'
                 ? Fin.Succ<object>(value: new Entry(boxed.GetType(), name))
-                : Fin.Fail<object>(error: op.InvalidInput()),
+                : Fin.Fail<object>(error: new KernelFault.InvalidInput()),
         detach: static value => value,
         same: static (left, right) => (Entry)left == (Entry)right,
         mint: static (target, key, value, op) => value is Entry stored
-            ? ArchiveValue.EnumMint(target, nameof(ArchivableDictionary.SetEnumValue), key.Value, (stored.EnumType, stored.Name), op)
-            : Fin.Fail<Unit>(error: op.InvalidInput()));
+            ? ArchiveValue.EnumMint(target, nameof(ArchivableDictionary.SetEnumValue), key.Value, (stored.EnumType, stored.Name))
+            : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()));
 
     public Type Shape { get; }
 
@@ -182,7 +182,7 @@ public sealed partial class ArchiveSlot {
     public CapabilitySet<ArchiveReach> Reach { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<object> Admit(object value, Op op);
+    internal partial Fin<object> Admit(object value);
 
     [UseDelegateFromConstructor]
     internal partial object Detach(object value);
@@ -191,7 +191,7 @@ public sealed partial class ArchiveSlot {
     internal partial bool Same(object left, object right);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Mint(ArchivableDictionary target, ArchiveKey key, object value, Op op);
+    internal partial Fin<Unit> Mint(ArchivableDictionary target, ArchiveKey key, object value);
 
     internal readonly record struct Entry(Type EnumType, string Name);
 
@@ -208,74 +208,64 @@ public sealed partial class ArchiveSlot {
     };
 
     private static readonly Lazy<FrozenDictionary<Type, ArchiveSlot>> Index = new(static () => toSeq(Items)
-        .Bind(static row => row.Keys.Map(key => KeyValuePair.Create(key, row)))
+        .Bind(static row => row.Keys.Map(key => KeyValuePair.Create(row)))
         .ToFrozenDictionary(static row => row.Key, static row => row.Value));
 
     private static bool SameRef(ObjRef left, ObjRef right) =>
         left.ObjectId == right.ObjectId && left.GeometryComponentIndex == right.GeometryComponentIndex;
 
-    private static ArchiveSlot Scalar<T>(string key, Func<ArchivableDictionary, string, T, bool> set) where T : notnull => new(
-        key: key,
-        shape: typeof(T),
+    private static ArchiveSlot Scalar<T>(string key, Func<ArchivableDictionary, string, T, bool> set) where T : notnull => new(shape: typeof(T),
         keys: Seq(typeof(T)),
         reach: CapabilitySet<ArchiveReach>.All,
         admit: static (value, _) => Fin.Succ(value: value),
         detach: static value => value,
         same: static (left, right) => EqualityComparer<T>.Default.Equals((T)left, (T)right),
-        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, (T)value))));
+        mint: (target, key, value, op) => Try.lift(() => Admit.Confirm(success: set(target, key.Value, (T)value))).Run().Bind(static inner => inner));
 
-    private static ArchiveSlot Held<T>(string key) where T : notnull => new(
-        key: key,
-        shape: typeof(T),
+    private static ArchiveSlot Held<T>(string key) where T : notnull => new(shape: typeof(T),
         keys: Seq(typeof(T)),
         reach: CapabilitySet<ArchiveReach>.Of(ArchiveReach.Settings),
         admit: static (value, _) => Fin.Succ(value: value),
         detach: static value => value,
         same: static (left, right) => EqualityComparer<T>.Default.Equals((T)left, (T)right),
-        mint: static (_, _, _, op) => Fin.Fail<Unit>(error: op.Unsupported(
-            inputType: typeof(T), outputType: typeof(ArchivableDictionary))));
+        mint: static (_, _, _, op) => Fin.Fail<Unit>(error: new KernelFault.Unsupported(
+            InputType: typeof(T), OutputType: typeof(ArchivableDictionary))));
 
-    private static ArchiveSlot Rows<T>(string key, Func<ArchivableDictionary, string, Seq<T>, bool> set) => new(
-        key: key,
-        shape: typeof(T[]),
+    private static ArchiveSlot Rows<T>(string key, Func<ArchivableDictionary, string, Seq<T>, bool> set) => new(shape: typeof(T[]),
         keys: Seq(typeof(T[]), typeof(Seq<T>)),
         reach: CapabilitySet<ArchiveReach>.All,
         admit: static (value, _) => Fin.Succ<object>(value: value is T[] host ? toSeq(host) : value),
         detach: static value => value,
         same: static (left, right) => ((Seq<T>)left).SequenceEqual((Seq<T>)right),
-        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, (Seq<T>)value))));
+        mint: (target, key, value, op) => Try.lift(() => Admit.Confirm(success: set(target, key.Value, (Seq<T>)value))).Run().Bind(static inner => inner));
 
     private static ArchiveSlot Copy<T>(
         string key,
         Func<T, T> clone,
         Func<T, T, bool> same,
-        Func<ArchivableDictionary, string, T, bool> set) where T : class => new(
-        key: key,
-        shape: typeof(T),
+        Func<ArchivableDictionary, string, T, bool> set) where T : class => new(shape: typeof(T),
         keys: Seq(typeof(T)),
         reach: CapabilitySet<ArchiveReach>.All,
-        admit: (value, op) => op.Catch(() => Fin.Succ<object>(value: clone((T)value))),
+        admit: (value, op) => Try.lift(() => Fin.Succ<object>(value: clone((T)value))).Run().Bind(static inner => inner),
         detach: value => clone((T)value),
         same: (left, right) => same((T)left, (T)right),
-        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, clone((T)value)))));
+        mint: (target, key, value, op) => Try.lift(() => Admit.Confirm(success: set(target, key.Value, clone((T)value)))).Run().Bind(static inner => inner));
 
     private static ArchiveSlot Copies<T>(
         string key,
         Func<T, T> clone,
         Func<T, T, bool> same,
-        Func<ArchivableDictionary, string, Seq<T>, bool> set) where T : class => new(
-        key: key,
-        shape: typeof(T[]),
+        Func<ArchivableDictionary, string, Seq<T>, bool> set) where T : class => new(shape: typeof(T[]),
         keys: Seq(typeof(T[]), typeof(Seq<T>)),
         reach: CapabilitySet<ArchiveReach>.All,
-        admit: (value, op) => op.Catch(() => Fin.Succ<object>(value: (value is T[] host ? toSeq(host) : (Seq<T>)value).Map(clone))),
+        admit: (value, op) => Try.lift(() => Fin.Succ<object>(value: (value is T[] host ? toSeq(host) : (Seq<T>)value).Map(clone))).Run().Bind(static inner => inner),
         detach: value => ((Seq<T>)value).Map(clone),
         same: (left, right) => {
             Seq<T> first = (Seq<T>)left;
             Seq<T> second = (Seq<T>)right;
             return first.Count == second.Count && first.Zip(second).ForAll(pair => same(pair.First, pair.Second));
         },
-        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, ((Seq<T>)value).Map(clone)))));
+        mint: (target, key, value, op) => Try.lift(() => Admit.Confirm(success: set(target, key.Value, ((Seq<T>)value).Map(clone)))).Run().Bind(static inner => inner));
 }
 
 public sealed record ArchiveValue {
@@ -292,60 +282,59 @@ public sealed record ArchiveValue {
 
     internal bool Same(ArchiveValue other) => ReferenceEquals(Row, other.Row) && Row.Same(Payload, other.Payload);
 
-    internal Fin<ArchiveValue> AdmitArchive(Op op) => Row.Reach.Admits(ArchiveReach.Archive)
+    internal Fin<ArchiveValue> AdmitArchive() => Row.Reach.Admits(ArchiveReach.Archive)
         ? Fin.Succ(value: this)
-        : Fin.Fail<ArchiveValue>(error: op.Unsupported(inputType: Shape, outputType: typeof(ArchivableDictionary)));
+        : Fin.Fail<ArchiveValue>(error: new KernelFault.Unsupported(InputType: Shape, OutputType: typeof(ArchivableDictionary)));
 
-    public static Fin<ArchiveValue> Of<T>(T source, Op? key = null) where T : notnull =>
+    public static Fin<ArchiveValue> Of<T>(T source) where T : notnull =>
         Capture(source: source, op: key.OrDefault());
 
-    internal static Fin<ArchiveValue> Capture(object? source, Op op) =>
+    internal static Fin<ArchiveValue> Capture(object? source) =>
         Optional(source)
-            .ToFin(Fail: op.InvalidInput())
+            .ToFin(Fail: new KernelFault.InvalidInput())
             .Bind(value => ArchiveSlot.Resolve(source: value)
-                .ToFin(Fail: op.Unsupported(inputType: value.GetType(), outputType: typeof(ArchiveValue)))
-                .Bind(row => row.Admit(value, op).Map(payload => new ArchiveValue(row, payload))));
+                .ToFin(Fail: new KernelFault.Unsupported(InputType: value.GetType(), OutputType: typeof(ArchiveValue)))
+                .Bind(row => row.Admit(value).Map(payload => new ArchiveValue(row, payload))));
 
-    internal static Fin<ArchiveValue> Enum(object? source, Op op) => Optional(source)
-        .ToFin(Fail: op.InvalidInput())
-        .Bind(value => value is System.Enum ? Capture(value, op) : Fin.Fail<ArchiveValue>(error: op.InvalidInput()));
+    internal static Fin<ArchiveValue> Enum(object? source) => Optional(source)
+        .ToFin(Fail: new KernelFault.InvalidInput())
+        .Bind(value => value is System.Enum ? Capture(value) : Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidInput()));
 
-    internal static Fin<Unit> EnumMint(object target, string method, string key, (Type EnumType, string Name) entry, Op op) =>
-        Minter(new MintKey(target.GetType(), method, entry.EnumType), op)
-            .Bind(closed => op.Catch(() => op.Confirm(success: closed.Invoke(
+    internal static Fin<Unit> EnumMint(object target, string method, string key, (Type EnumType, string Name) entry) =>
+        Minter(new MintKey(target.GetType(), method, entry.EnumType))
+            .Bind(closed => Try.lift(() => Admit.Confirm(success: closed.Invoke(
                 target,
-                [key, System.Enum.Parse(enumType: entry.EnumType, value: entry.Name, ignoreCase: true)]) is not false)));
+                [key, System.Enum.Parse(enumType: entry.EnumType, value: entry.Name, ignoreCase: true)]) is not false)).Run().Bind(static inner => inner));
 
     private readonly record struct MintKey(Type Host, string Method, Type EnumType);
 
     private static readonly Atom<HashMap<MintKey, MethodInfo>> Minters = Atom(HashMap<MintKey, MethodInfo>());
 
-    private static Fin<MethodInfo> Minter(MintKey row, Op op) =>
+    private static Fin<MethodInfo> Minter(MintKey row) =>
         Minters.Value.Find(row).Match(
             Some: static held => Fin.Succ(value: held),
-            None: () => op.Catch(() => Fin.Succ(value: row.Host
+            None: () => Try.lift(() => Fin.Succ(value: row.Host
                     .GetMethods()
                     .Single(candidate => candidate.Name == row.Method
                         && candidate.IsGenericMethodDefinition
                         && candidate.GetParameters().Length == 2)
-                    .MakeGenericMethod(row.EnumType)))
+                    .MakeGenericMethod(row.EnumType))).Run().Bind(static inner => inner)
                 .Map(minted => Cell.Claim(cell: Minters, key: row, mint: () => minted).Current[row]));
 
-    public Fin<T> Project<T>(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<T> Project<T>() {
         return Payload switch {
             ArchiveSlot.Entry stored => typeof(T) == stored.EnumType
                 && System.Enum.TryParse(enumType: stored.EnumType, value: stored.Name, ignoreCase: true, result: out object? parsed)
                 && parsed is T value
                 ? Fin.Succ(value: value)
-                : Fin.Fail<T>(error: op.Unsupported(inputType: stored.EnumType, outputType: typeof(T))),
+                : Fin.Fail<T>(error: new KernelFault.Unsupported(InputType: stored.EnumType, OutputType: typeof(T))),
             T typed => Fin.Succ(value: (T)Row.Detach(typed)),
-            _ => Fin.Fail<T>(error: op.Unsupported(inputType: Row.Shape, outputType: typeof(T))),
+            _ => Fin.Fail<T>(error: new KernelFault.Unsupported(InputType: Row.Shape, OutputType: typeof(T))),
         };
     }
 
-    internal Fin<Unit> Write(ArchivableDictionary target, ArchiveKey key, Op op) =>
-        AdmitArchive(op).Bind(_ => Row.Mint(target, key, Payload, op));
+    internal Fin<Unit> Write(ArchivableDictionary target, ArchiveKey key) =>
+        AdmitArchive().Bind(_ => Row.Mint(target, Payload));
 }
 ```
 
@@ -385,10 +374,10 @@ public sealed partial class ArchiveMerge {
         "reject-conflict",
         static (current, incoming, op) => current.Same(incoming)
             ? Fin.Succ(value: current)
-            : Fin.Fail<ArchiveValue>(error: op.InvalidResult(detail: "Archive merge conflict.")));
+            : Fin.Fail<ArchiveValue>(error: new KernelFault.InvalidResult(Detail: Some("Archive merge conflict."))));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<ArchiveValue> Resolve(ArchiveValue current, ArchiveValue incoming, Op op);
+    internal partial Fin<ArchiveValue> Resolve(ArchiveValue current, ArchiveValue incoming);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -405,14 +394,12 @@ public sealed record ArchiveMap {
     public static Fin<ArchiveMap> Of(
         int version,
         ArchiveName name,
-        HashMap<ArchiveKey, ArchiveValue> entries,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from admittedName in op.AcceptValidated<ArchiveName>(name.Value)
+        HashMap<ArchiveKey, ArchiveValue> entries) {
+        return from admittedName in FactoryBridge.Accept<ArchiveName>(name.Value)
                from admittedEntries in entries
-                   .Map(row => (from admittedKey in op.AcceptValidated<ArchiveKey>(row.Key.Value)
-                                from admittedValue in op.Need(row.Value)
-                                from archiveValue in admittedValue.AdmitArchive(op)
+                   .Map(row => (from admittedKey in FactoryBridge.Accept<ArchiveKey>(row.Key.Value)
+                                from admittedValue in Admit.Need(row.Value)
+                                from archiveValue in admittedValue.AdmitArchive()
                                 select (Key: admittedKey, Value: archiveValue)).ToValidation())
                    .Traverse(static row => row)
                    .As()
@@ -425,29 +412,28 @@ public sealed record ArchiveMap {
                        static (map, row) => map.Add(row.Key, row.Value)));
     }
 
-    public static Fin<ArchiveMap> Detach(ArchivableDictionary source, Op? key = null) {
-        Op op = key.OrDefault();
-        return from native in op.Catch(() => toSeq(source.Keys)
+    public static Fin<ArchiveMap> Detach(ArchivableDictionary source) {
+        return from native in Try.lift(() => toSeq(source.Keys)
                    .Map(entry => source.TryGetValue(entry, out object? value)
                        ? Fin.Succ(value: (Key: entry, Value: value))
                        : Fin.Fail<(string Key, object? Value)>(
-                           error: op.InvalidResult(detail: $"Archive key '{entry}' disappeared during capture.")))
+                           error: new KernelFault.InvalidResult(Detail: Some($"Archive key '{entry}' disappeared during capture."))))
                    .Traverse(static row => row)
                    .As()
                    .Map(rows => (
                        Version: source.Version,
                        Name: source.Name,
-                       Rows: rows)))
-               from name in op.AcceptValidated<ArchiveName>(native.Name)
+                       Rows: rows))).Run().Bind(static inner => inner)
+               from name in FactoryBridge.Accept<ArchiveName>(native.Name)
                from normalized in native.Rows
-                   .Map(entry => op.AcceptValidated<ArchiveKey>(entry.Key)
+                   .Map(entry => FactoryBridge.Accept<ArchiveKey>(entry.Key)
                        .Map(archiveKey => (Raw: entry.Key, Key: archiveKey, Source: entry.Value)))
                    .Traverse(static row => row)
                let collisions = toSeq(normalized
                    .Fold(
                        HashMap<ArchiveKey, Seq<string>>(),
                        static (groups, row) => groups.Find(row.Key).Match(
-                           Some: keys => groups.SetItem(row.Key, keys.Add(row.Raw)),
+                           Some: keys => groups.SetItem(keys.Add(row.Raw)),
                            None: () => groups.Add(row.Key, Seq(row.Raw))))
                    .AsIterable()
                    .Choose(static row => row.Value.Count > 1 ? Some((row.Key, row.Value)) : None)
@@ -462,48 +448,43 @@ public sealed record ArchiveMap {
                        Requirement: string.Join(
                            "; ",
                            collisions.Map(static collision =>
-                               $"{collision.Key.Value} <= [{string.Join(", ", collision.Keys)}]")),
-                       Key: Some(op)))
+                               $"{collision.Key.Value} <= [{string.Join(", ", collision.Keys)}]"))))
                from rows in normalized
-                   .Map(entry => ArchiveValue.Capture(entry.Source, op)
+                   .Map(entry => Error.New(entry.Source.Message, entry.Source)
                        .Map(captured => (entry.Key, Captured: captured)))
                    .Traverse(static row => row)
                from detached in Of(
                    native.Version,
                    name,
-                   rows.Fold(HashMap<ArchiveKey, ArchiveValue>(), static (map, row) => map.Add(row.Key, row.Captured)),
-                   op)
+                   rows.Fold(HashMap<ArchiveKey, ArchiveValue>(), static (map, row) => map.Add(row.Key, row.Captured)))
                select detached;
     }
 
-    public Option<ArchiveValue> Find(ArchiveKey key) => Entries.Find(key);
+    public Option<ArchiveValue> Find(ArchiveKey key) => Entries.Find();
 
-    public Fin<ArchiveMap> Put(ArchiveKey key, ArchiveValue value, Op? operation = null) {
-        Op op = operation.OrDefault();
-        return from admittedKey in op.AcceptValidated<ArchiveKey>(key.Value)
-               from admittedValue in op.Need(value)
-               from archiveValue in admittedValue.AdmitArchive(op)
+    public Fin<ArchiveMap> Put(ArchiveKey key, ArchiveValue value) {
+        return from admittedKey in FactoryBridge.Accept<ArchiveKey>(key.Value)
+               from admittedValue in Admit.Need(value)
+               from archiveValue in admittedValue.AdmitArchive()
                select this with { Entries = Entries.AddOrUpdate(admittedKey, archiveValue) };
     }
 
-    public Fin<ArchiveMap> Remove(ArchiveKey key, Op? operation = null) =>
+    public Fin<ArchiveMap> Remove(ArchiveKey key) =>
         operation.OrDefault().AcceptValidated<ArchiveKey>(key.Value)
             .Map(admitted => this with { Entries = Entries.Remove(admitted) });
 
-    public Fin<ArchiveMap> Merge(ArchiveMap incoming, ArchiveMerge policy, Op? key = null) {
-        Op op = key.OrDefault();
-        return AdmitSchema(incoming, op).Bind(_ => incoming.Entries
+    public Fin<ArchiveMap> Merge(ArchiveMap incoming, ArchiveMerge policy) {
+        return AdmitSchema(incoming).Bind(_ => incoming.Entries
                 .Fold(
                     Fin.Succ(value: Entries),
                     (state, row) => state.Bind(entries => entries.Find(row.Key).Match(
-                        Some: current => policy.Resolve(current, row.Value, op).Map(resolved => entries.SetItem(row.Key, resolved)),
+                        Some: current => policy.Resolve(current, row.Value).Map(resolved => entries.SetItem(row.Key, resolved)),
                         None: () => Fin.Succ(value: entries.Add(row.Key, row.Value)))))
                 .Map(entries => this with { Entries = entries }));
     }
 
-    public Fin<Seq<ArchiveChange>> Diff(ArchiveMap current, Op? key = null) {
-        Op op = key.OrDefault();
-        return AdmitSchema(current, op).Map(_ => toSeq(Entries.Keys.Union(current.Entries.Keys).OrderBy(static item => item.Value, KeyOrder))
+    public Fin<Seq<ArchiveChange>> Diff(ArchiveMap current) {
+        return AdmitSchema(current).Map(_ => toSeq(Entries.Keys.Union(current.Entries.Keys).OrderBy(static item => item.Value, KeyOrder))
                 .Choose(item => (Entries.Find(item), current.Entries.Find(item)) switch {
                     ({ IsSome: false }, { IsSome: true, Case: ArchiveValue next }) =>
                         Some<ArchiveChange>(new ArchiveChange.AddedCase(item, next)),
@@ -523,27 +504,26 @@ public sealed record ArchiveMap {
             true,
             (same, row) => same && other.Entries.Find(row.Key).Exists(value => row.Value.Same(value)));
 
-    private Fin<Unit> AdmitSchema(ArchiveMap other, Op op) =>
+    private Fin<Unit> AdmitSchema(ArchiveMap other) =>
         Version == other.Version && Name == other.Name
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput());
+            : Fin.Fail<Unit>(error: new KernelFault.InvalidInput());
 
-    public Fin<ArchivableDictionary> Mint(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<ArchivableDictionary> Mint() {
         ArchivableDictionary target = new(Version, Name.Value);
-        return WriteTo(target, op).Map(_ => target);
+        return WriteTo(target).Map(_ => target);
     }
 
-    internal Fin<Unit> WriteTo(ArchivableDictionary target, Op op) =>
+    internal Fin<Unit> WriteTo(ArchivableDictionary target) =>
         toSeq(Entries.AsIterable()
                 .OrderBy(static row => row.Key.Value, KeyOrder)
-                .Select(row => row.Value.Write(target, row.Key, op)))
+                .Select(row => row.Value.Write(target)))
             .Traverse(static write => write)
             .As()
             .Map(static _ => unit);
 
-    public Fin<ArchiveMap> WithEnum<T>(ArchiveKey key, T value, Op? op = null) where T : struct, System.Enum =>
-        ArchiveValue.Enum(value, op.OrDefault()).Bind(enumeration => Put(key, enumeration, op));
+    public Fin<ArchiveMap> WithEnum<T>(ArchiveKey key, T value) where T : struct, System.Enum =>
+        ArchiveValue.Enum(value).Bind(enumeration => Put(enumeration));
 }
 ```
 

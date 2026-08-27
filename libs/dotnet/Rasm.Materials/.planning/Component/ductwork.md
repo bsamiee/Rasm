@@ -184,38 +184,38 @@ public static class DuctworkSeed {
         substance: static _ => Galvanized,
         source: static r => r.Source,
         standard: static _ => UsSmacna,
-        detail: Some<Func<DuctRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<DuctRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static _ => Sheet,
         ifc: static _ => Rigid);
 
-    static Validation<Error, Unit> Coherence(DuctRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(DuctRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 GaugeOf(r).IsSome,
-                new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule", Some(key))),
+                new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule")),
             AdmissionSlots.Gate(
                 r.Shape.Switch(
                     round: static x => double.IsFinite(x.DiameterIn) && x.DiameterIn > 0.0,
                     rectangular: static x => double.IsFinite(x.WidthIn) && x.WidthIn > 0.0 && double.IsFinite(x.DepthIn) && x.DepthIn > 0.0),
-                new KernelFault.InvalidValue(nameof(r.Shape), "positive finite duct dimensions", Some(key)))));
+                new KernelFault.InvalidValue(nameof(r.Shape), "positive finite duct dimensions"))));
 
     static Option<DuctGauge> GaugeOf(DuctRow r) => r.Shape.Switch(
         state: r.Class,
         round: static (@class, x) => DuctSchedule.RoundOf(@class, x.DiameterIn, x.Seam),
         rectangular: static (@class, x) => DuctSchedule.Rect(@class, Math.Max(x.WidthIn, x.DepthIn)));
 
-    static Fin<SectionProfile> Profile(DuctRow r, Op key) =>
-        from gauge in Gauge(r, key)
+    static Fin<SectionProfile> Profile(DuctRow r) =>
+        from gauge in Gauge(r)
         from profile in r.Shape.Switch(
-            state: (Gauge: gauge, Key: key),
-            round: static (x, s) => SectionProfile.CircleHollow.Of(s.DiameterIn * ThreadRow.InchToMm, x.Gauge.ThicknessMm, x.Key),
+            state: gauge,
+            round: static (x, s) => SectionProfile.CircleHollow.Of(s.DiameterIn * ThreadRow.InchToMm, x.ThicknessMm, x.Key),
             rectangular: static (x, s) => SectionProfile.RectangleHollow.Of(
-                s.WidthIn * ThreadRow.InchToMm, s.DepthIn * ThreadRow.InchToMm, x.Gauge.ThicknessMm,
+                s.WidthIn * ThreadRow.InchToMm, s.DepthIn * ThreadRow.InchToMm, x.ThicknessMm,
                 innerFilletMm: 0.0, outerFilletMm: 0.0, x.Key))
         select profile;
 
-    static Fin<PropertyBag> Detail(DuctRow r, SectionProfile profile, Op key) =>
-        from gauge in Gauge(r, key)
+    static Fin<PropertyBag> Detail(DuctRow r, SectionProfile profile) =>
+        from gauge in Gauge(r)
         from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, gauge.ThicknessMm * 1e-3)
         from diameter in r.Shape is DuctShape.Round round
             ? ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, round.DiameterIn * ThreadRow.InchToMm * 1e-3).Map(Some)
@@ -231,11 +231,11 @@ public static class DuctworkSeed {
             .. diameter.ToSeq(),
         ]);
 
-    static Fin<DuctGauge> Gauge(DuctRow r, Op key) =>
-        GaugeOf(r).ToFin(new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule", Some(key)));
+    static Fin<DuctGauge> Gauge(DuctRow r) =>
+        GaugeOf(r).ToFin(new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule"));
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 

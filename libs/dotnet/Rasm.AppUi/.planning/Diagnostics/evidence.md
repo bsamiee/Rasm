@@ -14,7 +14,7 @@ Rasm.AppUi evidence is one stream. Every durable UI fact is one `AppUiFact` case
 ## [02]-[EVIDENCE_UNION]
 
 - Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Effect | Asset | LiveData | CollabSync | CollabRevert | Media | Quality | GpuFrame | Layout | DispatcherLag | PreCommit — one domain case and one `AppUiPoint` row per `EvidenceWire.kind` arm, the row key being that arm's own field name (`surface`, `native_asset`, `live_data`, `collab_sync`, `collab_revert`, `gpu_frame`, `dispatcher_lag`, `pre_commit`, …) and `Probe` proving the three rosters bijective at boot.
-- Entry: `hooks.Fire(at: fact.At, fact: fact, key: key)` — the whole producer spelling on the composition's `HookSet<AppUiPoint, AppUiFact, TelemetrySource>`, so a producer holds the dispatch and an `Op` and nothing else; `Shell/hosts#HOST_AXIS` `SurfaceRuntime.Open` mounts the observe tap in the existing surface lifetime, publishes each fact through `RasmEventEnvelope.Publish`, admits the sealed envelope back as `RasmEvent<Extensions>`, appends that value to the bounded live window, and hands the same value to the composition-bound send leg; `AppUiFact.Event(source, key)` — the fact's own `RasmEventMint<Extensions>` projection; `EvidenceMap.Lower`/`Admit` — the forward and inverse halves of one correspondence on one owner; `EvidenceMap.Decode(row, key)` — the one event-data decode the join, the usage fold, and every dashboard read ride.
+- Entry: `hooks.Fire(at: fact.At, fact: fact, key: key)` — the whole producer spelling on the composition's `HookSet<AppUiPoint, AppUiFact, TelemetrySource>`, so a producer holds the dispatch and an `Op` and nothing else; `Shell/hosts#HOST_AXIS` `SurfaceRuntime.Open` mounts the observe tap in the existing surface lifetime, publishes each fact through `RasmEventEnvelope.Publish`, admits the sealed envelope back as `RasmEvent<Extensions>`, appends that value to the bounded live window, and hands the same value to the composition-bound send leg; `AppUiFact.Event(source)` — the fact's own `RasmEventMint<Extensions>` projection; `EvidenceMap.Lower`/`Admit` — the forward and inverse halves of one correspondence on one owner; `EvidenceMap.Decode(row, key)` — the one event-data decode the join, the usage fold, and every dashboard read ride.
 - Auto: each producing page fires its own case where the fact settles — `Shell/hosts.md` fires Surface and one NativeAssetIdentity per present census row inside the mount transaction, `Shell/screens.md` fires Disposal at the closing disposal, `Shell/commands.md` fires Command from `Seal`, `Editing/inspector.md` and `Editing/history.md` fire Edit at the commit and revert seals, `Render/capture.md` fires Render inside `Artifact.Of`, `Theme/emission.md` fires Theme from `Swap`, `Theme/motion.md` fires Motion per conformance row, `Theme/assets.md` fires Asset per preload row, `Editing/livedata.md` fires LiveData from `Audit`, `Collab/presence.md` and `Collab/compare.md` fire CollabSync and CollabRevert from the merge and the revert, `Document/media.md` fires Media from the mount, `Diagnostics/governor.md` fires Quality and GpuFrame from the verdict and the resolved timeline, `Shell/solver.md` fires Layout from `ArrangeOverride`, `Diagnostics/devloop.md` fires DispatcherLag, Focus, and PreCommit from its probes, and the effect planes (`Vfx/shader.md`, `Vfx/compose.md`, `Vfx/material.md`, `Analysis/layers.md`, `Analysis/compare.md`, `Analysis/context.md`) fire Effect under their own plane literal; every fire is an OBSERVE seat, so no subscriber vetoes a UI fact and the dispatch's `FaultCell` parks a tap refusal without touching the producer's value.
 - Law: the message envelope carries correlation, tenant, order, and stamp and NO case repeats them — `traceparent` from the live span, `rasm.tenant` inside `baggage`, `time` and `sequence` from the composition's one `Hlc`, `recordedtime` the wall instant the mint read — so a fact fired outside any span crosses uncorrelated by construction and joins no timeline. Render keeps artifact `FrameHash`, optional `DrawHash`, and optional canonical `Pixels` distinct, every 16-byte key a `UInt128` in process and `ContentHash.Wire` big-endian bytes on the arm.
 - Law: `type` is `rasm.appui.<subject>.<fact>` with `<subject>` the seat key under the CloudEvents segment alphabet and `<fact>` the seat's past-tense column; `source` is the one `AppUiTelemetry.Capability` context, so twenty families share one `(source, id)` namespace and `id` mints per publish as a fresh v7 identity; `subject` carries the case's own content key where one exists (the render frame, the asset bytes, the revert frontier, a digest measure) and stays absent elsewhere.
@@ -182,8 +182,8 @@ public abstract partial record AppUiFact : IHookFact<AppUiPoint> {
         _ => None,
     };
 
-    public Fin<RasmEventMint<Extensions>> Event(EventSource source, Op key) =>
-        key.AcceptValidated<EventId>(Guid.CreateVersion7().ToString("N", CultureInfo.InvariantCulture)).Map(id =>
+    public Fin<RasmEventMint<Extensions>> Event(EventSource source) =>
+        FactoryBridge.Accept<EventId>(Guid.CreateVersion7().ToString("N", CultureInfo.InvariantCulture)).Map(id =>
             new RasmEventMint<Extensions>(
                 Type: At.Type, Source: source, Id: id, Subject: Subject, Time: Instant.MinValue,
                 DataSchema: None, DataContentType: None, Data: EvidenceMap.Lower(this), Extensions: new Extensions()));
@@ -212,8 +212,8 @@ public static class EvidenceOps {
 
     public static JsonElement Element(IMessage message) => WireJson.Element(message);
 
-    public static Fin<T> Message<T>(JsonElement payload, Op key) where T : IMessage<T>, new() =>
-        WireJson.Read<T>(payload, key);
+    public static Fin<T> Message<T>(JsonElement payload) where T : IMessage<T>, new() =>
+        WireJson.Read<T>(payload);
 
     public static JsonSerializerOptions Wire {
         get => field ?? throw new InvalidOperationException("the app root seats Wire beside the SuiteContracts mint.");
@@ -225,7 +225,6 @@ public static class EvidenceOps {
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class EvidenceMap {
-    static readonly Op DecodeOp = Op.Of(name: "appui.evidence.decode");
 
     public static Wire.EvidenceWire Lower(AppUiFact fact) => fact.Switch(
         surface: static c => new Wire.EvidenceWire { Surface = Surface(c) },
@@ -249,40 +248,40 @@ public static partial class EvidenceMap {
         dispatcherLag: static c => new Wire.EvidenceWire { DispatcherLag = DispatcherLag(c) },
         preCommit: static c => new Wire.EvidenceWire { PreCommit = PreCommit(c) });
 
-    public static Fin<AppUiFact> Admit(Wire.EvidenceWire wire, Op key) => wire.KindCase switch {
+    public static Fin<AppUiFact> Admit(Wire.EvidenceWire wire) => wire.KindCase switch {
         Wire.EvidenceWire.KindOneofCase.Surface => Fin.Succ<AppUiFact>(Surface(wire.Surface)),
         Wire.EvidenceWire.KindOneofCase.Focus => Fin.Succ<AppUiFact>(Focus(wire.Focus)),
-        Wire.EvidenceWire.KindOneofCase.Render => Render(wire.Render, key),
+        Wire.EvidenceWire.KindOneofCase.Render => Render(wire.Render),
         Wire.EvidenceWire.KindOneofCase.Disposal => Fin.Succ<AppUiFact>(Disposal(wire.Disposal)),
         Wire.EvidenceWire.KindOneofCase.Edit => Fin.Succ<AppUiFact>(Edit(wire.Edit)),
-        Wire.EvidenceWire.KindOneofCase.Command => DeckWire.Admit(wire.Command, key).Map(static AppUiFact (outcome) => new AppUiFact.Command(outcome)),
+        Wire.EvidenceWire.KindOneofCase.Command => DeckWire.Admit(wire.Command).Map(static AppUiFact (outcome) => new AppUiFact.Command(outcome)),
         Wire.EvidenceWire.KindOneofCase.NativeAsset => Fin.Succ<AppUiFact>(new AppUiFact.NativeAssetIdentity(NativeAsset(wire.NativeAsset))),
         Wire.EvidenceWire.KindOneofCase.Theme => Fin.Succ<AppUiFact>(Theme(wire.Theme)),
         Wire.EvidenceWire.KindOneofCase.Motion => Fin.Succ<AppUiFact>(Motion(wire.Motion)),
-        Wire.EvidenceWire.KindOneofCase.Effect => Effect(wire.Effect, key),
-        Wire.EvidenceWire.KindOneofCase.Asset => Asset(wire.Asset, key),
+        Wire.EvidenceWire.KindOneofCase.Effect => Effect(wire.Effect),
+        Wire.EvidenceWire.KindOneofCase.Asset => Asset(wire.Asset),
         Wire.EvidenceWire.KindOneofCase.LiveData => Fin.Succ<AppUiFact>(LiveData(wire.LiveData)),
         Wire.EvidenceWire.KindOneofCase.CollabSync => Fin.Succ<AppUiFact>(CollabSync(wire.CollabSync)),
-        Wire.EvidenceWire.KindOneofCase.CollabRevert => CollabRevert(wire.CollabRevert, key),
-        Wire.EvidenceWire.KindOneofCase.Media => Media(wire.Media, key),
+        Wire.EvidenceWire.KindOneofCase.CollabRevert => CollabRevert(wire.CollabRevert),
+        Wire.EvidenceWire.KindOneofCase.Media => Media(wire.Media),
         Wire.EvidenceWire.KindOneofCase.Quality => Fin.Succ<AppUiFact>(Quality(wire.Quality)),
         Wire.EvidenceWire.KindOneofCase.GpuFrame => Fin.Succ<AppUiFact>(GpuFrame(wire.GpuFrame)),
         Wire.EvidenceWire.KindOneofCase.Layout => Fin.Succ<AppUiFact>(Layout(wire.Layout)),
         Wire.EvidenceWire.KindOneofCase.DispatcherLag => Fin.Succ<AppUiFact>(DispatcherLag(wire.DispatcherLag)),
         Wire.EvidenceWire.KindOneofCase.PreCommit => Fin.Succ<AppUiFact>(PreCommit(wire.PreCommit)),
-        Wire.EvidenceWire.KindOneofCase.None or _ => Fin.Fail<AppUiFact>(key.InvalidInput()),
+        Wire.EvidenceWire.KindOneofCase.None or _ => Fin.Fail<AppUiFact>(new KernelFault.InvalidInput()),
     };
 
-    public static Fin<AppUiFact> Decode(RasmEvent<Extensions> row, Op key) =>
+    public static Fin<AppUiFact> Decode(RasmEvent<Extensions> row) =>
         (row.Source.Domain == AppUiPoint.Domain
             ? row.Data switch {
                 Wire.EvidenceWire held => Fin.Succ(held),
-                ReadOnlyMemory<byte> bytes => key.Catch(() => Fin.Succ(Wire.EvidenceWire.Parser.ParseFrom(bytes.Span))),
-                byte[] bytes => key.Catch(() => Fin.Succ(Wire.EvidenceWire.Parser.ParseFrom(bytes))),
-                _ => Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Type.ToString(), Requirement: "EvidenceWire event data", Key: Some(key))),
+                ReadOnlyMemory<byte> bytes => Try.lift(() => Fin.Succ(Wire.EvidenceWire.Parser.ParseFrom(bytes.Span))).Run().Bind(static inner => inner),
+                byte[] bytes => Try.lift(() => Fin.Succ(Wire.EvidenceWire.Parser.ParseFrom(bytes))).Run().Bind(static inner => inner),
+                _ => Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Type.ToString(), Requirement: "EvidenceWire event data")),
             }
-            : Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Source.ToString(), Requirement: $"the {AppUiPoint.Domain} domain", Key: Some(key))))
-        .Bind(wire => Admit(wire, key));
+            : Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Source.ToString(), Requirement: $"the {AppUiPoint.Domain} domain")))
+        .Bind(wire => Admit(wire));
 
     public static Fin<AppUiFact> Decode(RasmEvent<Extensions> row) => Decode(row, DecodeOp);
 
@@ -383,10 +382,10 @@ public static partial class EvidenceMap {
 
     private static partial AppUiFact.Focus Focus(Wire.EvidenceWire.Types.Focus wire);
 
-    private static Fin<AppUiFact> Render(Wire.EvidenceWire.Types.Render wire, Op key) =>
-        (ContentHash.Admit(wire.FrameHash.Span, key).ToValidation(),
-         Presence(wire.HasDrawHash, wire.DrawHash).Traverse(hash => ContentHash.Admit(hash.Span, key).ToValidation()).As(),
-         Optional(wire.Pixels).Traverse(pixels => Pixels(pixels, key).ToValidation()).As())
+    private static Fin<AppUiFact> Render(Wire.EvidenceWire.Types.Render wire) =>
+        (ContentHash.Admit(wire.FrameHash.Span).ToValidation(),
+         Presence(wire.HasDrawHash, wire.DrawHash).Traverse(hash => ContentHash.Admit(hash.Span).ToValidation()).As(),
+         Optional(wire.Pixels).Traverse(pixels => Pixels(pixels).ToValidation()).As())
             .Apply((frame, draw, pixels) => (AppUiFact)new AppUiFact.Render(
                 wire.Slot, wire.Format, frame, draw, pixels, wire.Bytes, wire.Elapsed.ToNodaDuration(), wire.ColorSpace,
                 Presence(wire.HasDestination, wire.Destination)))
@@ -398,16 +397,16 @@ public static partial class EvidenceMap {
         new(wire.Library, Presence(wire.HasVersion, wire.Version), wire.Path, wire.Rid);
     private static partial AppUiFact.Theme Theme(Wire.EvidenceWire.Types.Theme wire);
     private static partial AppUiFact.Motion Motion(Wire.EvidenceWire.Types.Motion wire);
-    private static Fin<AppUiFact> Effect(Wire.EvidenceWire.Types.Effect wire, Op key) =>
-        Measure(wire, key).Map(measure => (AppUiFact)new AppUiFact.Effect(
+    private static Fin<AppUiFact> Effect(Wire.EvidenceWire.Types.Effect wire) =>
+        Measure(wire).Map(measure => (AppUiFact)new AppUiFact.Effect(
             wire.Plane, wire.Key, wire.Outcome, wire.Flag, wire.Count, measure));
 
-    private static Fin<EffectMeasure> Measure(Wire.EvidenceWire.Types.Effect wire, Op key) =>
+    private static Fin<EffectMeasure> Measure(Wire.EvidenceWire.Types.Effect wire) =>
         wire.MeasureCase switch {
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Whole =>
                 Fin.Succ<EffectMeasure>(new EffectMeasure.Whole(wire.Whole)),
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Digest =>
-                ContentHash.Admit(wire.Digest.Span, key)
+                ContentHash.Admit(wire.Digest.Span)
                     .Map(static EffectMeasure (digest) => new EffectMeasure.Digest(digest)),
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Extent =>
                 Fin.Succ<EffectMeasure>(new EffectMeasure.Extent(wire.Extent.Rows, wire.Extent.Columns)),
@@ -416,25 +415,25 @@ public static partial class EvidenceMap {
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.Coordinate =>
                 Fin.Succ<EffectMeasure>(new EffectMeasure.Coordinate(wire.Coordinate)),
             Wire.EvidenceWire.Types.Effect.MeasureOneofCase.None or _ =>
-                Fin.Fail<EffectMeasure>(key.InvalidInput("effect measure")),
+                Fin.Fail<EffectMeasure>(new KernelFault.InvalidInput(Axis: Some("effect measure"))),
         };
 
-    private static Fin<AppUiFact> Asset(Wire.EvidenceWire.Types.Asset wire, Op key) =>
-        ContentHash.Admit(wire.ContentHash.Span, key)
+    private static Fin<AppUiFact> Asset(Wire.EvidenceWire.Types.Asset wire) =>
+        ContentHash.Admit(wire.ContentHash.Span)
             .Map(static AppUiFact (hash) => new AppUiFact.Asset(wire.Key, wire.AssetKind, wire.Origin, wire.Scale, hash));
 
     private static partial AppUiFact.LiveData LiveData(Wire.EvidenceWire.Types.LiveData wire);
     private static partial AppUiFact.CollabSync CollabSync(Wire.EvidenceWire.Types.CollabSync wire);
 
-    private static Fin<AppUiFact> CollabRevert(Wire.EvidenceWire.Types.CollabRevert wire, Op key) =>
-        ContentHash.Admit(wire.FrontierDigest.Span, key)
+    private static Fin<AppUiFact> CollabRevert(Wire.EvidenceWire.Types.CollabRevert wire) =>
+        ContentHash.Admit(wire.FrontierDigest.Span)
             .Map(static AppUiFact (digest) => new AppUiFact.CollabRevert(wire.DocKey, digest, wire.InverseOps));
 
-    private static Fin<AppUiFact> Media(Wire.EvidenceWire.Types.Media wire, Op key) =>
+    private static Fin<AppUiFact> Media(Wire.EvidenceWire.Types.Media wire) =>
         (wire.Outcome, Optional(wire.Fault)) switch {
             (Wire.MediaOutcome.Ready, { IsNone: true }) => Fin.Succ<AppUiFact>(new AppUiFact.Media(wire.Key, wire.Codec, wire.Source, None)),
             (Wire.MediaOutcome.Failed, { IsSome: true } fault) => Fin.Succ<AppUiFact>(new AppUiFact.Media(wire.Key, wire.Codec, wire.Source, fault)),
-            _ => Fin.Fail<AppUiFact>(key.InvalidInput()),
+            _ => Fin.Fail<AppUiFact>(new KernelFault.InvalidInput()),
         };
 
     private static partial AppUiFact.Quality Quality(Wire.EvidenceWire.Types.Quality wire);
@@ -445,13 +444,13 @@ public static partial class EvidenceMap {
     private static AppUiFact.PreCommit PreCommit(Wire.EvidenceWire.Types.PreCommit wire) =>
         new(wire.DocKey, wire.Lamport, wire.Ops, wire.Origin, Presence(wire.HasMessage, wire.Message));
 
-    private static Fin<PixelIdentity> Pixels(Wire.PixelIdentityWire wire, Op key) =>
+    private static Fin<PixelIdentity> Pixels(Wire.PixelIdentityWire wire) =>
         wire.Layout != Wire.PixelLayout.Rgba8SrgbStraightTopLeftV2
-            ? Fin.Fail<PixelIdentity>(key.InvalidInput($"pixel layout {wire.Layout}"))
+            ? Fin.Fail<PixelIdentity>(new KernelFault.InvalidInput(Axis: Some($"pixel layout {wire.Layout}")))
             : wire.Width > int.MaxValue || wire.Height > int.MaxValue
-                ? Fin.Fail<PixelIdentity>(key.InvalidInput($"canonical pixel extent {wire.Width}x{wire.Height}"))
-                : ContentHash.Admit(wire.Hash.Span, key)
-                    .Bind(hash => PixelIdentity.Admit((int)wire.Width, (int)wire.Height, hash, key));
+                ? Fin.Fail<PixelIdentity>(new KernelFault.InvalidInput(Axis: Some($"canonical pixel extent {wire.Width}x{wire.Height}")))
+                : ContentHash.Admit(wire.Hash.Span)
+                    .Bind(hash => PixelIdentity.Admit((int)wire.Width, (int)wire.Height, hash));
 
     // --- [CONVERTERS]
     [UserMapping] private static WkDuration Lapse(Duration span) => span.ToProtobufDuration();
@@ -493,7 +492,7 @@ public partial class AppUiWireContext : JsonSerializerContext;
 ## [03]-[TELEMETRY_SPINE]
 
 - Owner: `AppUiTelemetry` — the AppUi scope identity, the event source every published fact names, the dimension-slot vocabulary every declaration and write keys on, and the contribution and mount surface; `ViewportObjectives` — the viewport reliability rows over the mounted set, which the telemetry board's burn-rate tiles consume. Declaration rows, measurement forms, advice bounds, and level cells are the kernel `InstrumentSpec` mechanism composed whole.
-- Cases: two write modalities — a composition-bound `Observe` projection where the owner holds the typed value in hand, and a level write where the fact is a current level; both land on the kernel `Fin<Unit>`, so the modality decides where the fact enters and never whether a refusal survives. The level modality is ONE entry over the whole pulled space — `InstrumentSet.Level(row, value, key)` — where the trailing optional key names a scalar cell, a family's partitioned entry, or that family's unpartitioned one, and the mounted row decides which of the three the name admits.
+- Cases: two write modalities — a composition-bound `Observe` projection where the owner holds the typed value in hand, and a level write where the fact is a current level; both land on the kernel `Fin<Unit>`, so the modality decides where the fact enters and never whether a refusal survives. The level modality is ONE entry over the whole pulled space — `InstrumentSet.Level(row, value)` — where the trailing optional key names a scalar cell, a family's partitioned entry, or that family's unpartitioned one, and the mounted row decides which of the three the name admits.
 - Entry: `AppUiTelemetry.Contribute(string version, params ReadOnlySpan<InstrumentSpec> rows)` — the one page-side declaration surface every `TelemetryRow` composes, its pack-bearing twin discriminated by the `BoardPack` argument, both declaring the AppUi hook plane on the port's `Planes` column so the composing band admits it; `AppUiTelemetry.Mount(IMeterFactory factory, string version, CorrelationId root, LevelCells cells, Seq<TelemetryContributorPort> contributions)` — mints the AppUi meter through the kernel identity entry, folds each port's `Admit` ahead of that mint so any board pack a page carries proves against its declaring port, and materializes every contributed row into one `InstrumentSet`; `ViewportObjectives.Pack(FrameBudget)` — the one viewport `BoardPack` binding its panels beside its objective rows against a composed frame budget.
 - Law: `Render/pipeline#RENDER_GRAPH` `RenderGraph.TelemetryRow` carries this pack on the port declaring its series.
 - Auto: a declaring page spells one `InstrumentSpec` row per instrument and writes the ROW at the producing site, never a name — the kernel `Write`/`Level`/`Enabled` entries take the declaration, so a write against an undeclared name has no spelling; every producer's `Observe` runs where the typed value is in hand, so wire names meet instrument writes nowhere in this package; a keyed family reads through the kernel `LevelCells.Reader`, projecting each map entry through that entry's OWN key half, so per-key cardinality and a whole-shell composition report the identical series on ONE instrument; a level write carries an `Option<string>` key rather than a fabricated blank, so an absent partition value is the untagged entry and never a cohort a board would render; the highest-cadence writers read `InstrumentSet.Enabled` ahead of their fold, so a shell exporting nothing pays for neither.
@@ -627,12 +626,11 @@ public abstract partial record EvidenceSource {
     public EvidenceSource Narrowed(ActivityTraceId trace) => Switch(
         state:    trace,
         live:     static (_, held) => (EvidenceSource)held,
-        resident: static (key, durable) => new Resident(durable.Read, durable.Scope with { Correlation = Some(key) }));
+        resident: static (key, durable) => new Resident(durable.Read, durable.Scope with { Correlation = Some() }));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EvidenceJoin {
-    static readonly Op JoinOp = Op.Of(name: "appui.evidence.join");
 
     public static IO<Fin<Seq<EvidenceTimeline>>> Correlated(EvidenceSource source) =>
         source.Stream().Map(read => read.Bind(Correlate));
@@ -701,7 +699,6 @@ public sealed record TenantUsage(
 }
 
 public static class TenantUsageFold {
-    static readonly Op UsageOp = Op.Of(name: "appui.evidence.usage");
 
     public static IO<Fin<Seq<TenantUsage>>> Resident(EvidenceSource source, Duration window) =>
         source.Stream().Map(read => read.Bind(events => Fold(events, window)));
@@ -846,8 +843,8 @@ public sealed record StateSeal(StateKey Key, int Generation, StateResidue Residu
         new(StateKey.Of(domain, grain), generation, residue);
 
     public Fin<string> Write<T>(T value) =>
-        Op.Of(name: "appui.state.write").Catch(() =>
-            Fin.Succ(JsonSerializer.Serialize(new StateParcel<T>(Generation, value), EvidenceOps.Wire)));
+        Try.lift(() =>
+            Fin.Succ(JsonSerializer.Serialize(new StateParcel<T>(Generation, value), EvidenceOps.Wire))).Run().Bind(static inner => inner);
 
     public Restored<T> Read<T>(string blob, Func<T, Fin<T>> admit) =>
         (blob.Length > Ceiling

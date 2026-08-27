@@ -34,8 +34,8 @@ namespace Rasm.Numerics;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Nabla {
-    public static Fin<(T X1, T X0, T Y1, T Y0, T Z1, T Z0)> SampleAxes<T>(Func<Point3d, Fin<T>> sampler, Point3d point, double eps, Op key) =>
-        from _ in guard(double.IsFinite(eps) && eps > EpsilonPolicy.ZeroTolerance, key.InvalidInput()).ToFin()
+    public static Fin<(T X1, T X0, T Y1, T Y0, T Z1, T Z0)> SampleAxes<T>(Func<Point3d, Fin<T>> sampler, Point3d point, double eps) =>
+        from _ in guard(double.IsFinite(eps) && eps > EpsilonPolicy.ZeroTolerance, new KernelFault.InvalidInput()).ToFin()
         from xp in sampler(arg: point + (eps * Vector3d.XAxis))
         from xm in sampler(arg: point - (eps * Vector3d.XAxis))
         from yp in sampler(arg: point + (eps * Vector3d.YAxis))
@@ -43,38 +43,38 @@ public static class Nabla {
         from zp in sampler(arg: point + (eps * Vector3d.ZAxis))
         from zm in sampler(arg: point - (eps * Vector3d.ZAxis))
         select (X1: xp, X0: xm, Y1: yp, Y0: ym, Z1: zp, Z0: zm);
-    public static Fin<Vector3d> GradientAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps, Op key) =>
-        from samples in SampleAxes(sampler: sampler, point: point, eps: eps, key: key)
+    public static Fin<Vector3d> GradientAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps) =>
+        from samples in SampleAxes(sampler: sampler, point: point, eps: eps)
         let inv2eps = 1.0 / (2.0 * eps)
         select new Vector3d(x: (samples.X1 - samples.X0) * inv2eps, y: (samples.Y1 - samples.Y0) * inv2eps, z: (samples.Z1 - samples.Z0) * inv2eps);
-    public static Fin<Vector3d> CurlAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps, Op key) =>
-        from samples in SampleAxes(sampler: sampler, point: point, eps: eps, key: key)
+    public static Fin<Vector3d> CurlAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps) =>
+        from samples in SampleAxes(sampler: sampler, point: point, eps: eps)
         let inv2eps = 1.0 / (2.0 * eps)
-        from curl in key.AcceptValue(value: new Vector3d(
+        from curl in Acceptance.Value(value: new Vector3d(
             x: (samples.Y1.Z - samples.Y0.Z - (samples.Z1.Y - samples.Z0.Y)) * inv2eps,
             y: (samples.Z1.X - samples.Z0.X - (samples.X1.Z - samples.X0.Z)) * inv2eps,
             z: (samples.X1.Y - samples.X0.Y - (samples.Y1.X - samples.Y0.X)) * inv2eps))
         select curl;
-    public static Fin<Vector3d> CurlNoiseAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps, Op key) =>
-        from g1 in GradientAt(sampler, point, eps, key)
+    public static Fin<Vector3d> CurlNoiseAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps) =>
+        from g1 in GradientAt(sampler, point, eps)
         let offset = new Vector3d(eps, 1.3 * eps, 0.7 * eps)
-        from g2 in GradientAt(sampler, point + (offset * 137.0), eps, key)
-        from g3 in GradientAt(sampler, point - (offset * 311.0), eps, key)
-        from raw in key.AcceptValue(new Vector3d(g3.Y - g2.Z, g1.Z - g3.X, g2.X - g1.Y))
+        from g2 in GradientAt(sampler, point + (offset * 137.0), eps)
+        from g3 in GradientAt(sampler, point - (offset * 311.0), eps)
+        from raw in Acceptance.Value(new Vector3d(g3.Y - g2.Z, g1.Z - g3.X, g2.X - g1.Y))
         select raw;
-    public static Fin<double> DivergenceAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps, Op key) =>
-        from samples in SampleAxes(sampler: sampler, point: point, eps: eps, key: key)
+    public static Fin<double> DivergenceAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps) =>
+        from samples in SampleAxes(sampler: sampler, point: point, eps: eps)
         let inv2eps = 1.0 / (2.0 * eps)
-        from value in key.AcceptValue(value: (samples.X1.X - samples.X0.X + samples.Y1.Y - samples.Y0.Y + samples.Z1.Z - samples.Z0.Z) * inv2eps)
+        from value in Acceptance.Value(value: (samples.X1.X - samples.X0.X + samples.Y1.Y - samples.Y0.Y + samples.Z1.Z - samples.Z0.Z) * inv2eps)
         select value;
-    public static Fin<double> LaplacianAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps, Op key) =>
-        from samples in SampleAxes(sampler: sampler, point: point, eps: eps, key: key)
+    public static Fin<double> LaplacianAt(Func<Point3d, Fin<double>> sampler, Point3d point, double eps) =>
+        from samples in SampleAxes(sampler: sampler, point: point, eps: eps)
         from center in sampler(arg: point)
         let invEpsSq = 1.0 / (eps * eps)
-        from value in key.AcceptValue(value: (samples.X1 + samples.X0 + samples.Y1 + samples.Y0 + samples.Z1 + samples.Z0 - (6.0 * center)) * invEpsSq)
+        from value in Acceptance.Value(value: (samples.X1 + samples.X0 + samples.Y1 + samples.Y0 + samples.Z1 + samples.Z0 - (6.0 * center)) * invEpsSq)
         select value;
-    public static Fin<double> StrainMagnitudeAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps, Op key) =>
-        from samples in SampleAxes(sampler: sampler, point: point, eps: eps, key: key)
+    public static Fin<double> StrainMagnitudeAt(Func<Point3d, Fin<Vector3d>> sampler, Point3d point, double eps) =>
+        from samples in SampleAxes(sampler: sampler, point: point, eps: eps)
         let inv2eps = 1.0 / (2.0 * eps)
         let sxx = (samples.X1.X - samples.X0.X) * inv2eps
         let syy = (samples.Y1.Y - samples.Y0.Y) * inv2eps
@@ -82,7 +82,7 @@ public static class Nabla {
         let sxy = 0.5 * (samples.Y1.X - samples.Y0.X + samples.X1.Y - samples.X0.Y) * inv2eps
         let sxz = 0.5 * (samples.Z1.X - samples.Z0.X + samples.X1.Z - samples.X0.Z) * inv2eps
         let syz = 0.5 * (samples.Z1.Y - samples.Z0.Y + samples.Y1.Z - samples.Y0.Z) * inv2eps
-        from value in key.AcceptValue(value: Math.Sqrt(d: (sxx * sxx) + (syy * syy) + (szz * szz) + (2.0 * ((sxy * sxy) + (sxz * sxz) + (syz * syz)))))
+        from value in Acceptance.Value(value: Math.Sqrt(d: (sxx * sxx) + (syy * syy) + (szz * szz) + (2.0 * ((sxy * sxy) + (sxz * sxz) + (syz * syz)))))
         select value;
     public static Point3d ToroidalWrap(Point3d sample, Vector3d period) =>
         new(x: Reduce.Centred(value: sample.X, period: period.X),
@@ -90,9 +90,8 @@ public static class Nabla {
             z: Reduce.Centred(value: sample.Z, period: period.Z));
 
     // --- [LATTICE_STENCIL]
-    public static Fin<Unit> AdmitLattice(ReadOnlySpan<double> values, CellLattice grid, Op key) =>
-        Admit.Claims(key,
-            (values.Length == grid.CellCount, "value-extent"),
+    public static Fin<Unit> AdmitLattice(ReadOnlySpan<double> values, CellLattice grid) =>
+        Admit.Claims((values.Length == grid.CellCount, "value-extent"),
             (grid.CellCount >= 1L, "lattice-census"));
 
     private static int Reflect(int index, int count) =>
@@ -156,7 +155,7 @@ public static class Nabla {
 
 - Owner: `KernelProfile` carries value, first and second derivative, and a `KernelStatus` smoothness verdict, so a consumer reads a kernel's derivative off the profile instead of re-differencing; `KernelKind` mints the kernel bases in three bands — compact-support rows, band-limited `Lanczos`/`Jinc` reconstruction rows whose profiles evaluate at 106-bit through the `ddouble` cardinal ladder and narrow once, and globally-supported RBF rows — each row privately carrying whether its normalized profile has compact support, its `Origin` status, `DerivativeSupremum`, its dimensionless slope-bound numerator, and `PolynomialOrder`, the reproduction-tail order the conditionally-positive-definite bases demand; `WeightKernel` mints the reconstruction-weight profiles; `Falloff` the radial-decay `[Union]` whose anisotropic case takes a `SymmetricMatrix` metric sampler driving the Mahalanobis distance.
 - Cases: the `KernelStatus` verdicts, the compact, band-limited, and global `KernelKind` rows, the `WeightKernel` weights including the band-limited interpolating row, and the `Falloff` decay cases including the metric-sampler anisotropic one.
-- Entry: `KernelKind.Profile(distance, radius, key)` returns the full gated profile and `Weight` the bare fast path; each of the three weight owners carries a SPAN arm beside its scalar one — `KernelKind.Weights`, `WeightKernel.Weights`, `Falloff.Weights` — so a tap table or a design matrix fills in one call; `Falloff.Weight` discriminates bare distance, offset vector, and offset-plus-sample-point through one `WeightCore`, and `Falloff.Slope` is the LOCAL slope beside the family-wide `SlopeBound`.
+- Entry: `KernelKind.Profile(distance, radius)` returns the full gated profile and `Weight` the bare fast path; each of the three weight owners carries a SPAN arm beside its scalar one — `KernelKind.Weights`, `WeightKernel.Weights`, `Falloff.Weights` — so a tap table or a design matrix fills in one call; `Falloff.Weight` discriminates bare distance, offset vector, and offset-plus-sample-point through one `WeightCore`, and `Falloff.Slope` is the LOCAL slope beside the family-wide `SlopeBound`.
 - Auto: one `Profiled` body serves both support regimes — the row's private compact-support fact decides the `q = 1` clamp and its `Origin` the q→0 verdict — banded on the dimensionless `q = d/r` so classification is scale-invariant with exact zeros outside support; the profile is gated by `Op.AcceptValue`, whose `IValidityEvidence` arm IS the finiteness proof, so the fold that hand-tested it deletes; the metric falloff proves the sampled tensor definite through `SymmetricMatrix.Definite`, so an indefinite metric fails typed instead of producing `√negative`.
 - Law: `KernelProfile.FirstDerivative` is read by `Falloff.Slope` — the local Lipschitz bound `Spatial/fields` folds where the family-wide `SlopeBound` column answers `None` — and `SecondDerivative` is the profile's complete calculus output with no present consumer; `Rasm.Compute` `Tensor/sampling#RECONSTRUCT` binds the row's `Weight`, `DerivativeSupremum`, and `PolynomialOrder`.
 - Output: `KernelProfile` is the per-evaluation reading — value, both derivatives, and status — proving itself through the `IValidityEvidence` fold. `SpanProfile.Fill` is the ONE span-fill owner both profile families hand their row closure to; the guard, the q normalization, and the finiteness finalize have one seat.
@@ -240,14 +239,14 @@ public sealed partial class KernelKind {
     public int PolynomialOrder { get; }
     [UseDelegateFromConstructor] private partial (double Value, double First, double Second) Shape(double q, double radius);
 
-    public Fin<KernelProfile> Profile(double distance, double radius, Op key) =>
-        from _ in Admit.KernelInput(distance: distance, radius: radius, key: key)
-        from profile in key.AcceptValue(value: Profiled(q: distance / radius, radius: radius))
+    public Fin<KernelProfile> Profile(double distance, double radius) =>
+        from _ in Admit.KernelInput(distance: distance, radius: radius)
+        from profile in Acceptance.Value(value: Profiled(q: distance / radius, radius: radius))
         select profile;
     public double Weight(double distance, PositiveMagnitude radius) =>
         Profiled(q: Math.Max(val1: 0.0, val2: distance) / radius.Value, radius: radius.Value).Value;
-    public Fin<Unit> Weights(ReadOnlySpan<double> distances, double radius, Span<double> destination, Op key) =>
-        SpanProfile.Fill(distances: distances, scale: radius, destination: destination, row: q => Profiled(q: q, radius: radius).Value, key: key);
+    public Fin<Unit> Weights(ReadOnlySpan<double> distances, double radius, Span<double> destination) =>
+        SpanProfile.Fill(distances: distances, scale: radius, destination: destination, row: q => Profiled(q: q, radius: radius).Value);
 
     private KernelProfile Profiled(double q, double radius) =>
         IsCompact && q > 1.0
@@ -279,14 +278,13 @@ public sealed partial class WeightKernel {
     [UseDelegateFromConstructor] private partial double Profile(double t);
     public double Weight(double distance, PositiveMagnitude support) =>
         distance >= support.Value ? 0.0 : Profile(t: Math.Min(val1: Math.Max(val1: 0.0, val2: distance) / support.Value, val2: 1.0));
-    public Fin<Unit> Weights(ReadOnlySpan<double> distances, double support, Span<double> destination, Op key) =>
-        SpanProfile.Fill(distances: distances, scale: support, destination: destination, row: t => t >= 1.0 ? 0.0 : Profile(t: t), key: key);
+    public Fin<Unit> Weights(ReadOnlySpan<double> distances, double support, Span<double> destination) =>
+        SpanProfile.Fill(distances: distances, scale: support, destination: destination, row: t => t >= 1.0 ? 0.0 : Profile(t: t));
 }
 
 internal static class SpanProfile {
-    internal static Fin<Unit> Fill(ReadOnlySpan<double> distances, double scale, Span<double> destination, Func<double, double> row, Op key) {
-        Fin<Unit> admitted = Admit.Claims(key,
-            (distances.Length >= 1 && TensorPrimitives.Min<double>(distances) >= 0.0, "distances"),
+    internal static Fin<Unit> Fill(ReadOnlySpan<double> distances, double scale, Span<double> destination, Func<double, double> row) {
+        Fin<Unit> admitted = Admit.Claims((distances.Length >= 1 && TensorPrimitives.Min<double>(distances) >= 0.0, "distances"),
             (destination.Length >= distances.Length, "destination-extent"),
             (ValidityClaim.Positive(scale), "scale"),
             (ValidityClaim.Finite(distances), "distances-finite"));
@@ -294,7 +292,7 @@ internal static class SpanProfile {
         Span<double> lane = destination[..distances.Length];
         TensorPrimitives.Divide(distances, scale, lane);
         for (int i = 0; i < lane.Length; i++) { lane[i] = row(arg: lane[i]); }
-        return TensorPrimitives.IsFiniteAll<double>(lane) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidResult());
+        return TensorPrimitives.IsFiniteAll<double>(lane) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: new KernelFault.InvalidResult());
     }
 }
 
@@ -309,85 +307,85 @@ public abstract partial record Falloff {
 
     public abstract Option<double> SlopeBound { get; }
     public static Falloff Constant => new ConstantCase();
-    public static Fin<Falloff> Power(double exponent, Op key) =>
-        key.AcceptValue(value: exponent).Map(static value => (Falloff)new PowerCase(Exponent: value));
+    public static Fin<Falloff> Power(double exponent) =>
+        Acceptance.Value(value: exponent).Map(static value => (Falloff)new PowerCase(Exponent: value));
     public static Falloff Inverse => new PowerCase(Exponent: -1.0);
     public static Falloff InverseSquare => new PowerCase(Exponent: -2.0);
-    public static Fin<Falloff> Gaussian(double spread, Op key) =>
-        key.AcceptValidated<PositiveMagnitude>(candidate: spread).Map(static value => (Falloff)new GaussianCase(Spread: value));
-    public static Fin<Falloff> Kernel(KernelKind kind, double radius, Op key) =>
-        from active in Optional(kind).ToFin(key.InvalidInput())
-        from r in key.AcceptValidated<PositiveMagnitude>(candidate: radius)
+    public static Fin<Falloff> Gaussian(double spread) =>
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: spread).Map(static value => (Falloff)new GaussianCase(Spread: value));
+    public static Fin<Falloff> Kernel(KernelKind kind, double radius) =>
+        from active in Optional(kind).ToFin(new KernelFault.InvalidInput())
+        from r in FactoryBridge.Accept<PositiveMagnitude>(candidate: radius)
         select (Falloff)new KernelCase(Kind: active, Radius: r);
-    public static Fin<Falloff> Metric(KernelKind kind, Func<Point3d, Fin<SymmetricMatrix>> metric, double radius, Op key) =>
-        from active in Optional(kind).ToFin(key.InvalidInput())
-        from sampler in Optional(metric).ToFin(key.InvalidInput())
-        from r in key.AcceptValidated<PositiveMagnitude>(candidate: radius)
+    public static Fin<Falloff> Metric(KernelKind kind, Func<Point3d, Fin<SymmetricMatrix>> metric, double radius) =>
+        from active in Optional(kind).ToFin(new KernelFault.InvalidInput())
+        from sampler in Optional(metric).ToFin(new KernelFault.InvalidInput())
+        from r in FactoryBridge.Accept<PositiveMagnitude>(candidate: radius)
         select (Falloff)new MetricCase(Kind: active, Metric: sampler, Radius: r);
-    public Fin<double> Weight(double distance, double tolerance, Op key) =>
-        WeightCore(distance: distance, distanceSquared: distance * distance, offset: Option<(Vector3d Offset, Point3d Sample)>.None, tolerance: tolerance, key: key);
-    public Fin<double> Weight(Vector3d offset, Point3d sample, double tolerance, Op key) =>
-        WeightCore(distance: offset.Length, distanceSquared: offset.SquareLength, offset: Some((Offset: offset, Sample: sample)), tolerance: tolerance, key: key);
-    public Fin<double> Slope(double distance, double tolerance, Op key) =>
-        Admit.FalloffInput(distance: distance, distanceSquared: distance * distance, tolerance: tolerance, key: key).Bind(_ => Switch(
-            state: (Distance: distance, Tolerance: tolerance, Key: key),
+    public Fin<double> Weight(double distance, double tolerance) =>
+        WeightCore(distance: distance, distanceSquared: distance * distance, offset: Option<(Vector3d Offset, Point3d Sample)>.None, tolerance: tolerance);
+    public Fin<double> Weight(Vector3d offset, Point3d sample, double tolerance) =>
+        WeightCore(distance: offset.Length, distanceSquared: offset.SquareLength, offset: Some((Offset: offset, Sample: sample)), tolerance: tolerance);
+    public Fin<double> Slope(double distance, double tolerance) =>
+        Admit.FalloffInput(distance: distance, distanceSquared: distance * distance, tolerance: tolerance).Bind(_ => Switch(
+            state: (Distance: distance, Tolerance: tolerance),
             constantCase: static (_, _) => Fin.Succ(0.0),
             powerCase: static (s, p) => s.Distance > s.Tolerance
-                ? s.Key.AcceptValue(value: Math.Abs(value: p.Exponent) * Math.Pow(x: s.Distance, y: p.Exponent - 1.0))
-                : Fin.Fail<double>(s.Key.InvalidInput()),
-            gaussianCase: static (s, g) => s.Key.AcceptValue(
+                ? Acceptance.Value(value: Math.Abs(value: p.Exponent) * Math.Pow(x: s.Distance, y: p.Exponent - 1.0))
+                : Fin.Fail<double>(new KernelFault.InvalidInput()),
+            gaussianCase: static (s, g) => Acceptance.Value(
                 value: s.Distance * Math.Exp(d: -(s.Distance * s.Distance) / (2.0 * g.Spread.Value * g.Spread.Value)) / (g.Spread.Value * g.Spread.Value)),
             kernelCase: static (s, k) => k.Kind.Profile(s.Distance, k.Radius.Value, s.Key)
                 .Map(static profile => Math.Abs(profile.FirstDerivative)),
-            metricCase: static (s, _) => Fin.Fail<double>(s.Key.Unsupported(inputType: typeof(MetricCase), outputType: typeof(double)))));
-    public Fin<Unit> Weights(ReadOnlySpan<double> distances, double tolerance, Span<double> destination, Op key) {
+            metricCase: static (s, _) => Fin.Fail<double>(new KernelFault.Unsupported(InputType: typeof(MetricCase), OutputType: typeof(double)))));
+    public Fin<Unit> Weights(ReadOnlySpan<double> distances, double tolerance, Span<double> destination) {
         if (!ValidityClaim.All(distances.Length >= 1 && TensorPrimitives.Min<double>(distances) >= 0.0,
                 ValidityClaim.CountAtLeast(destination.Length, distances.Length),
                 ValidityClaim.Nonnegative(tolerance), ValidityClaim.Finite(distances))) {
-            return Fin.Fail<Unit>(error: key.InvalidInput());
+            return Fin.Fail<Unit>(error: new KernelFault.InvalidInput());
         }
         Span<double> lane = destination[..distances.Length];
-        Fin<Unit> filled = Fin.Fail<Unit>(error: key.Unsupported(inputType: GetType(), outputType: typeof(Span<double>)));
+        Fin<Unit> filled = Fin.Fail<Unit>(error: new KernelFault.Unsupported(InputType: GetType(), OutputType: typeof(Span<double>)));
         switch (this) {
             case ConstantCase: lane.Fill(1.0); filled = Fin.Succ(value: unit); break;
             case PowerCase power when TensorPrimitives.Min<double>(distances) > tolerance:
                 TensorPrimitives.Pow(distances, power.Exponent, lane); filled = Fin.Succ(value: unit); break;
-            case PowerCase: filled = Fin.Fail<Unit>(error: key.InvalidInput()); break;
+            case PowerCase: filled = Fin.Fail<Unit>(error: new KernelFault.InvalidInput()); break;
             case GaussianCase gaussian:
                 TensorPrimitives.Multiply(distances, distances, lane);
                 TensorPrimitives.Multiply<double>(lane, -1.0 / (2.0 * gaussian.Spread.Value * gaussian.Spread.Value), lane);
                 TensorPrimitives.Exp<double>(lane, lane); filled = Fin.Succ(value: unit); break;
             case KernelCase kernel:
-                filled = kernel.Kind.Weights(distances: distances, radius: kernel.Radius.Value, destination: lane, key: key); break;
+                filled = kernel.Kind.Weights(distances: distances, radius: kernel.Radius.Value, destination: lane); break;
             case MetricCase:
-                filled = Fin.Fail<Unit>(error: key.Unsupported(inputType: typeof(MetricCase), outputType: typeof(Span<double>))); break;
+                filled = Fin.Fail<Unit>(error: new KernelFault.Unsupported(InputType: typeof(MetricCase), OutputType: typeof(Span<double>))); break;
         }
         bool finite = TensorPrimitives.IsFiniteAll<double>(lane);
-        return filled.Bind(_ => finite ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidResult()));
+        return filled.Bind(_ => finite ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: new KernelFault.InvalidResult()));
     }
-    private Fin<double> WeightCore(double distance, double distanceSquared, Option<(Vector3d Offset, Point3d Sample)> offset, double tolerance, Op key) =>
-        Admit.FalloffInput(distance: distance, distanceSquared: distanceSquared, tolerance: tolerance, key: key).Bind(_ => Switch(
-            state: (Distance: distance, DistanceSquared: distanceSquared, Offset: offset, Tolerance: tolerance, Key: key),
+    private Fin<double> WeightCore(double distance, double distanceSquared, Option<(Vector3d Offset, Point3d Sample)> offset, double tolerance) =>
+        Admit.FalloffInput(distance: distance, distanceSquared: distanceSquared, tolerance: tolerance).Bind(_ => Switch(
+            state: (Distance: distance, DistanceSquared: distanceSquared, Offset: offset, Tolerance: tolerance),
             constantCase: static (_, _) => Fin.Succ(1.0),
             powerCase: static (s, p) => s.Distance > s.Tolerance
-                ? s.Key.AcceptValue(value: Math.Pow(x: s.Distance, y: p.Exponent))
-                : Fin.Fail<double>(s.Key.InvalidInput()),
+                ? Acceptance.Value(value: Math.Pow(x: s.Distance, y: p.Exponent))
+                : Fin.Fail<double>(new KernelFault.InvalidInput()),
             gaussianCase: static (s, g) => Fin.Succ(Math.Exp(-s.DistanceSquared / (2.0 * g.Spread.Value * g.Spread.Value))),
-            kernelCase: static (s, k) => k.Kind.Profile(distance: s.Distance, radius: k.Radius.Value, key: s.Key).Map(static p => p.Value),
+            kernelCase: static (s, k) => k.Kind.Profile(distance: s.Distance, radius: k.Radius.Value).Map(static p => p.Value),
             metricCase: static (s, k) =>
-                from m in s.Offset.ToFin(s.Key.Unsupported(inputType: typeof(MetricCase), outputType: typeof(double)))
+                from m in s.Offset.ToFin(new KernelFault.Unsupported(InputType: typeof(MetricCase), OutputType: typeof(double)))
                 from tensor in k.Metric(arg: m.Sample)
-                from _ in guard(tensor.Dimension.Value == 3, s.Key.InvalidInput())
-                from definite in tensor.Definite(key: s.Key)
+                from _ in guard(tensor.Dimension.Value == 3, new KernelFault.InvalidInput())
+                from definite in tensor.Definite()
                 from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
                     (double x, double y, double z) when
                         (x * ((tensor.At(i: 0, j: 0) * x) + (tensor.At(i: 0, j: 1) * y) + (tensor.At(i: 0, j: 2) * z))) +
                         (y * ((tensor.At(i: 1, j: 0) * x) + (tensor.At(i: 1, j: 1) * y) + (tensor.At(i: 1, j: 2) * z))) +
                         (z * ((tensor.At(i: 2, j: 0) * x) + (tensor.At(i: 2, j: 1) * y) + (tensor.At(i: 2, j: 2) * z))) is double quadratic
-                        && double.IsFinite(quadratic) && quadratic > -EpsilonPolicy.ZeroTolerance => s.Key.AcceptValue(value: Math.Sqrt(d: Math.Max(val1: 0.0, val2: quadratic))),
-                    _ => Fin.Fail<double>(s.Key.InvalidResult()),
+                        && double.IsFinite(quadratic) && quadratic > -EpsilonPolicy.ZeroTolerance => Acceptance.Value(value: Math.Sqrt(d: Math.Max(val1: 0.0, val2: quadratic))),
+                    _ => Fin.Fail<double>(new KernelFault.InvalidResult()),
                 }
-                from profile in k.Kind.Profile(distance: metricDistance, radius: k.Radius.Value, key: s.Key)
+                from profile in k.Kind.Profile(distance: metricDistance, radius: k.Radius.Value)
                 select profile.Value));
 }
 ```

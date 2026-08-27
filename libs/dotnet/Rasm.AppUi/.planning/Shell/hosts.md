@@ -16,7 +16,7 @@ Host identity reaches this page only as `HostDescriptor` columns — `Surface`, 
 
 - Owner: `SurfaceMount` — one `[Union]` mounting-shape axis; `SurfacePort` — the host-delegate column record; `SurfaceRuntime` — the composition-bound timeline, hook dispatch, bounded live-event window, count column, and release boundary; `SurfaceRow` — the resolved policy row; `Surfaces` — the total dispatch and mount surface; `SurfaceFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per host-surface failure; `SurfaceAttach` and `SurfaceSession` — the attach product and leased mount; `MountLane` — the gauge vocabulary both measured legs are judged against; `CaptionCapability` and `WindowRow` — the owned-window caption vocabulary and its rows; `SurfaceMode` — the root policy row pairing chrome, seat leg, and clock admission; `ShellWindow` and `ShellSplash` the two window classes, `WindowTitle` the route-projected caption.
 - Cases: Panel, Modal, Companion, Standalone, Offscreen; `HostSurface` admits Embedded → Panel/Modal/Companion, Windowed → Standalone, Offscreen → Offscreen, None → nothing; `[FaultCase]` = HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity | AxisUnsupported.
-- Entry: `SurfaceRuntime.Open(line, eventCapacity, contract, clock, send, count, span, faults, key)` — the app-root construction edge seating the AppUi-owned observe tap directly in `HookSet.Of`; `SurfaceRuntime.Evidence()` — the current bounded live source `RunQueuePorts.Evidence` binds; `SurfaceRuntime.Release()` and `Dispose()` — idempotent typed release and lifetime projection; `Fin<SurfaceSession> Mount(ConsumptionProfile profile, SurfaceMount mount, SurfacePort port, Control content, SurfaceRuntime runtime)` — `Fin` aborts on unadmitted mount, absent host, an undeclared runtime identifier, rejected mount, missing handle, and thread-affinity violation; `Fin<Unit> Boot(…, SurfaceRuntime runtime, Func<AppBuilder> entry)` — the claim-commit boot edge.
+- Entry: `SurfaceRuntime.Open(line, eventCapacity, contract, clock, send, count, span, faults)` — the app-root construction edge seating the AppUi-owned observe tap directly in `HookSet.Of`; `SurfaceRuntime.Evidence()` — the current bounded live source `RunQueuePorts.Evidence` binds; `SurfaceRuntime.Release()` and `Dispose()` — idempotent typed release and lifetime projection; `Fin<SurfaceSession> Mount(ConsumptionProfile profile, SurfaceMount mount, SurfacePort port, Control content, SurfaceRuntime runtime)` — `Fin` aborts on unadmitted mount, absent host, an undeclared runtime identifier, rejected mount, missing handle, and thread-affinity violation; `Fin<Unit> Boot(…, SurfaceRuntime runtime, Func<AppBuilder> entry)` — the claim-commit boot edge.
 - Auto: one mount transaction replaces every per-host boot program — surface admission, boot-edge transition, builder shaping, native load identity, parent-handle capture, scale capture, disposal registration, and fact emission land in one fold; raw mount keys serialize through the suite wire law as locked kind literals.
 - Evidence: `AppUiFact.Surface` carries the host key, native handle descriptor and value, and scale at `AppUiPoint.Surface`; `SurfaceSession.Assets` carries the mount's `AssetCensus`, whose present half fires `AppUiFact.NativeAssetIdentity` while the absent half counts at the probe; `SurfaceSession.Reach` carries the mount's capability answer into the command deck the same mount freezes, and `SurfaceSession.Displays` carries the live working-area set into the layout restore that clamps against it; every measured leg fires `AppUiFact.DispatcherLag` with its `GaugedSpan<MountLane>` values; `TelemetryRow` contributes the mount-outcome, scale-flip, host-fact, and affinity instruments inward through the AppHost `TelemetryContributorPort`.
 - Growth: a new host substrate is one `HostRows` descriptor row at the AppHost owner and costs zero cases here; a genuinely new mounting shape is one `SurfaceMount` case with one `Admits` arm; a new owned-window class is one `WindowRow` row; a new caption gate is one `CaptionCapability` row carrying its own host write, which `Apply` never edits; one host instrument is one `InstrumentSpec` row on `Surfaces.TelemetryRow`; a new fault is one `[FaultCase]` leaf.
@@ -122,10 +122,8 @@ public sealed class SurfaceRuntime : IDisposable {
         Func<RasmEvent<Rasm.Contracts.Event.Extensions>, Fin<Unit>> send,
         Func<InstrumentSpec, Option<(string Slot, string Value)>, Unit> count,
         Option<IHookSpan> span,
-        FaultCell faults,
-        Op key) {
+        FaultCell faults) {
         var events = new Ring<RasmEvent<Rasm.Contracts.Event.Extensions>>(eventCapacity);
-        Op publish = Op.Of(name: "appui.evidence.publish");
         var tap = new HookTap<AppUiPoint, AppUiFact, TelemetrySource>(
             Name: publish,
             Observe: fact => fact.Event(AppUiTelemetry.Capability, publish)
@@ -134,14 +132,14 @@ public sealed class SurfaceRuntime : IDisposable {
                 .Bind(row => {
                     Fin<Unit> kept = events.Park(row).Switch(
                         landed: settled => settled.Cleanup,
-                        ceded: _ => Fin.Fail<Unit>(publish.InvalidInput()),
+                        ceded: _ => Fin.Fail<Unit>(new KernelFault.InvalidInput()),
                         refused: settled => Fin.Fail<Unit>(settled.Cause));
                     return (kept.ToValidation(), send(row).ToValidation())
                         .Apply(static (_, _) => unit).As().ToFin();
                 }),
             Owner: Some(AppUiTelemetry.Source));
         return HookSet<AppUiPoint, AppUiFact, TelemetrySource>
-            .Of(key: key, taps: Seq(tap), span: span, cell: Some(faults))
+            .Of(taps: Seq(tap), span: span, cell: Some(faults))
             .Map(hooks => new SurfaceRuntime(line, hooks, events, count));
     }
 
@@ -195,8 +193,6 @@ public sealed record SurfaceSession(
 public static class Surfaces {
     private static readonly Atom<BootPhase> Phase = Atom(BootPhase.Unstarted);
 
-    private static readonly Op BootOp = Op.Of(name: "appui.surface.boot");
-    private static readonly Op MountOp = Op.Of(name: "appui.surface.mount");
 
     private static readonly Error InFlight = new SurfaceFault.MountRejected("<boot-in-flight>");
 
@@ -292,7 +288,7 @@ public static class Surfaces {
         return census;
     }
 
-    private static Fin<T> Gauged<T>(SurfaceRuntime runtime, MountLane lane, Op work, Func<Fin<T>> body) =>
+    private static Fin<T> Gauged<T>(SurfaceRuntime runtime, MountLane lane, Func<Fin<T>> body) =>
         runtime.Line.Gauged(lane, work, body).Bind(measured => Measured(runtime, measured));
 
     private static Fin<T> Measured<T>(SurfaceRuntime runtime, (Fin<T> Value, GaugedSpan<MountLane> Span) measured) =>
@@ -543,8 +539,6 @@ public readonly record struct RetainedHandle(long Handle, string Descriptor, boo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class EmbedCapsule : EmbeddableControlRoot {
-    private static readonly Op ReleaseOp = Op.Of(name: "appui.surface.embed.release");
-    private static readonly Op StartOp = Op.Of(name: "appui.surface.embed.start");
 
     public EmbedCapsule(Control content) {
         Content = content;
@@ -569,11 +563,11 @@ public sealed class EmbedCapsule : EmbeddableControlRoot {
                 : SurfaceAttach.Named(handle).Map(descriptor =>
                     new RetainedHandle(handle.Handle.ToInt64(), descriptor, Retained: false)));
 
-    public Fin<Unit> Start() => StartOp.Catch(StartRendering);
+    public Fin<Unit> Start() => Try.lift(StartRendering).Run().Bind(static inner => inner);
 
     private static IDisposable Release(RetainedHandle view, Func<long, IO<Unit>> releaseRetained) =>
         view.Retained
-            ? Disposable.Create(() => ignore(ReleaseOp.Catch(() => releaseRetained(view.Handle).Run())))
+            ? Disposable.Create(() => ignore(Try.lift(() => releaseRetained(view.Handle).Run()).Run().Bind(static inner => inner)))
             : Disposable.Empty;
 }
 ```

@@ -293,7 +293,6 @@ public sealed record EffectCatalog(HashMap<EffectRow, EffectProgram> Programs) :
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UniformValue {
-    static readonly Op Binding = Op.Of(name: "appui.effect.bind");
 
     private UniformValue() { }
     public sealed record Scalar(float Value) : UniformValue;
@@ -321,12 +320,12 @@ public abstract partial record UniformValue {
         pigment: static (_, _) => Fin.Succ(unit),
         child: static (_, _) => Fin.Succ(unit));
 
-    Fin<Unit> Written(SKRuntimeShaderBuilder builder, string name) => Binding.Catch(() => Switch(
+    Fin<Unit> Written(SKRuntimeShaderBuilder builder, string name) => Try.lift(() => Switch(
         state: (Builder: builder, Name: name),
         scalar: static (s, cell) => { s.Builder.Uniforms.Add(s.Name, cell.Value); return Fin.Succ(unit); },
         extent: static (s, cell) => { s.Builder.Uniforms.Add(s.Name, cell.Value); return Fin.Succ(unit); },
         pigment: static (s, cell) => { s.Builder.Uniforms.Add(s.Name, cell.Value); return Fin.Succ(unit); },
-        child: static (s, cell) => { s.Builder.Children.Add(s.Name, cell.Value); return Fin.Succ(unit); }));
+        child: static (s, cell) => { s.Builder.Children.Add(s.Name, cell.Value); return Fin.Succ(unit); })).Run().Bind(static inner => inner);
 }
 
 public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue Value)> Cells) {
@@ -391,7 +390,6 @@ public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue 
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct DashRun {
-    static readonly Op Runs = Op.Of(name: "appui.effect.dash");
 
     DashRun(Seq<PositiveMagnitude> intervals) => Intervals = intervals;
 
@@ -402,7 +400,7 @@ public readonly record struct DashRun {
     public static Fin<DashRun> Of(params ReadOnlySpan<double> spans) =>
         spans.Length >= 2
             ? toSeq(spans.ToArray())
-                .Traverse(span => Runs.AcceptValidated<PositiveMagnitude>(span)).As()
+                .Traverse(span => FactoryBridge.Accept<PositiveMagnitude>(span)).As()
                 .Map(static intervals => new DashRun(intervals))
             : Fin.Fail<DashRun>(new EffectFault.PatternDegenerate(
                 "a dash run alternates at least one on span and one off span"));
@@ -475,7 +473,7 @@ public sealed partial class PatternRow {
 - Cases: `TileSubject` = Pattern | Program; `TileOutcome` = reuse | admit | refuse.
 - Law: retention is the folder's ONE `Theme/assets#ASSET_CACHE` `BudgetedCache` under `RetentionPosture.Bound`, and the generation rides the KEY. A tile recorded under an earlier theme generation is addressed by a key no live caller mints, so a stale cell can never be replayed; the posture's floor then makes it the FIRST thing pressure releases and makes a cell at the live generation unreleasable, which is the RULINGS device-cache law read straight off the owner's row data.
 - Law: every path publishes through the AppUi effect point before returning its shader or refusal, so a refused admission is as visible as a reuse or admit.
-- Entry: `public static Fin<PictureTileCache> Of(long ceilingBytes)` — the mint composition binds; `public Fin<SKShader> Tile(PictureTileKey key, SKRect cull, Func<SKCanvas, Fin<Unit>> record, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — the one admission-and-read; `public long Cycle()` — the theme-generation edge composition binds beside `AssetCache.Cycle`.
+- Entry: `public static Fin<PictureTileCache> Of(long ceilingBytes)` — the mint composition binds; `public Fin<SKShader> Tile(PictureTileKey key, SKRect cull, Func<SKCanvas, Fin<Unit>> record, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` — the one admission-and-read; `public long Cycle()` — the theme-generation edge composition binds beside `AssetCache.Cycle`.
 - Auto: a hatch pattern, a checker backplate, and a recorded wash all replay from one sealed op list instead of re-running their layout per frame; a tile projects to a shader through `SKPicture.ToShader`, so the same record serves a fill without a second raster; the owner's own admission path carries the probe, the build-on-miss, the least-touched pressure release, and the CAS loser releasing its own mint, so this plane spells none of them.
 - Packages: SkiaSharp, NodaTime, LanguageExt.Core, Rasm (`Custody`, `Dimension`, `Op`), Thinktecture.Runtime.Extensions
 - Growth: a new tiled surface is one `TileSubject` case or one row on a roster it already names; zero new surface.
@@ -517,7 +515,6 @@ public sealed record TileCell(SKPicture Picture, SKShader Shader, long Bytes) : 
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PictureTileCache : IDisposable {
-    static readonly Op Tiling = Op.Of(name: "appui.tile.cache");
 
     readonly record struct Stamped(PictureTileKey At, long Generation);
 
@@ -545,11 +542,10 @@ public sealed class PictureTileCache : IDisposable {
         PictureTileKey key,
         SKRect cull,
         Func<SKCanvas, Fin<Unit>> record,
-        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        Op op) {
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) {
         TileCell? minted = null;
         Fin<TileCell> held = cells.Take(
-            new Stamped(key, cells.Generation),
+            new Stamped(cells.Generation),
             () => Record(cull, record).Map(cell => minted = cell));
         CacheSweep sweep = cells.Seal();
         TileOutcome outcome = held.Match(
@@ -559,12 +555,10 @@ public sealed class PictureTileCache : IDisposable {
             at: AppUiPoint.Effect,
             fact: new AppUiFact.Effect(
                 Plane: "tile",
-                Key: key.Key,
                 Outcome: outcome.Key,
                 Flag: sweep.Bytes > ceiling,
                 Count: (uint)sweep.Released,
                 Measure: new EffectMeasure.Whole(sweep.Bytes)),
-            key: op,
             body: _ => held.Map(static cell => cell.Shader));
     }
 

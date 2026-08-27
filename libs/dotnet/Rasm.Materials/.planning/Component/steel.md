@@ -10,7 +10,7 @@ THE STEEL SEED FAMILY GROUNDED IN THE PUBLISHED SECTION DATABASE. `SteelSeed.Ros
 
 - Owner: `SteelTopology` the open/closed/solid discriminant; `SteelClass` the `IfcProfileDef` subtype axis folded onto the published taxonomies, carrying its Table B4.1 row, its §6.3 imperfection factors, and its grade-band thickness selector; `StainlessBands` the EN 10088 published proof-cell registry the stainless `MaterialGrade` rows bind; `SectionDims` the admitted published-dims currency; `SteelShape` the catalogued profile payload; `CompositeDetail` the composite augmentation row; `ColdFormedRow`/`ColdFormedSections` the generated SSMA designation table; `SteelRowSource` the closed profile-origin axis (rolled catalogue · published cold-formed row · fabricated build delegate); `SteelJurisdiction` the basis-keyed classification ladder; `CompactnessClass`/`DesignCapacity`/`SteelFireFacts`/`SteelDesign` the AISC 360 + AISI S100 + EN 1993 projection and the fire facts; `SteelSeed` the roster and the seed law.
 - Cases: class {i-shape (W/M/S/HP + the EN H/I families, open) · u-shape (C/MC/UPE/PFC/UPN/U/CH, open) · l-shape (L, open) · double-angle (2L, open) · hss-rect (closed) · hss-round (round HSS + Pipe, closed) · tee (WT/MT/ST, open) · composite (AISC 360 Ch I, open core) · cold-formed (AISI S100, open) · solid-bar / solid-round (solid stock)} × grade {the nineteen `ComponentFamily.Steel` `MaterialGrade` rows — AISC spec-nominal, EN Table 3.1 registered, EN 10088 published stainless} × topology {open · closed · solid} — a section is one seed row over one published identity; the composite variant is the SAME row with a `Some CompositeDetail` and a reclassed `SteelClass` on its `Rolled` source arm, and the cold-formed stud is the SAME row on its `Formed` source arm over a parametric `ColdFormedC` profile.
-- Entry: `ComponentSeed.Rows(context, SteelSeed.Roster, SteelSeed.Law)` — this page states the roster and the policy, never the fold. `SteelDesign.Capacity` admits the rolled, cold-formed, or deck modality on the shape of its typed input and resolves the REGISTERED yield from the grade's `GradeProperties.Steel` arm at the class's own band thickness — the `CapacityPlacement` `DesignBasis` and `NationalAnnex` cross together, never a caller yield double. `SteelDesign.Fire(section, steelTemperatureC, utilisation, key)` is the ONE EN 1993-1-2 fire entry.
+- Entry: `ComponentSeed.Rows(context, SteelSeed.Roster, SteelSeed.Law)` — this page states the roster and the policy, never the fold. `SteelDesign.Capacity` admits the rolled, cold-formed, or deck modality on the shape of its typed input and resolves the REGISTERED yield from the grade's `GradeProperties.Steel` arm at the class's own band thickness — the `CapacityPlacement` `DesignBasis` and `NationalAnnex` cross together, never a caller yield double. `SteelDesign.Fire(section, steelTemperatureC, utilisation)` is the ONE EN 1993-1-2 fire entry.
 - Packages: VividOrange.Profiles.Catalogue (`CatalogueFactory`, the `American`/`European` identity enums, the `II`/`IIParallelFlange`/`IChannel`/`ITee`/`IAngle`/`IDoubleAngle`/`IRectangularHollow`/`IRoundedRectangularHollow`/`ICircularHollow`+`IHollowStructuralSection` contracts), VividOrange.Materials (`EnSteelMaterial`/`EnSteelFactory.CreateLinearElastic`), VividOrange.Standards (`NationalAnnex`), MathNet.Numerics (`Interpolate.Linear` + `IInterpolation.Interpolate` — `libs/dotnet/.api/api-mathnet-numerics.md` rows `[10]`/`[INTERPOLATION_INTERFACE]`), UnitsNet (`Length` at the admission edge), Rasm.Numerics (`PositiveMagnitude`, `EpsilonPolicy`), Rasm.Domain (`Op`/`Context`/`AcceptValidated`, `ToleranceLane`/`Tolerance`), Rasm.Element (`MaterialId`, `EvidenceGrade`), Rasm.Materials.Component (`component#COMPONENT_OWNER`/`#MATERIAL_GRADE`/`#COMPONENT_SEED`, `capacity#SECTION_CAPACITY` `DesignBasis`/`SafetyFormat`/`CapacityPlacement`, `joint#JOINT_FAMILY` `StudClass`/`StudGroup`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: the seed IS the registered database (the full `American` and `European` identity domains enumerate through `Enum.GetValues` — a stocked subset is a policy filter over the roster, never the hard bound); a new composite variant one `Augmented` row with its detail; a new cold-formed stud one designation triple the `ColdFormedSections` table already generates; a new fabricated section one `Augmented` row over a `SteelRowSource.Plated` build delegate; a new grade one `MaterialGrade` steel row on `component#MATERIAL_GRADE` binding its EN designation or its `StainlessBands` registry row; a new DESIGN CODE one `capacity#SECTION_CAPACITY` `DesignBasis` row plus one `SteelJurisdiction` row and its resistance arm here; a new shape family one `SteelClass` row carrying topology, `FlexureRegime`, `IfcProfileDef` subtype, imperfection factors, band selector and `OfShape` arm, AND the compiler-forced `SectionProfile` arm and `SectionSolver.Solve`/`Forms` arm on `component#SECTION_SOLVER` — never a per-section type, never a transcribed property literal, never a parallel section record.
 - Boundary: `SteelShape.Of` admits raw `VividOrange` geometry once; unsupported catalogue/profile implementations fail `ProfileMismatch`, while published dimensions lift into proven-positive SI `SectionDims` columns.
@@ -90,7 +90,7 @@ public sealed partial class SteelClass {
     static double Flange(SectionDims d) => d.FlangeMm.Value;
     static double Wall(SectionDims d) => d.WebMm.Value;
 
-    public static Fin<SteelClass> OfShape(AmericanShape shape, Op key) => shape switch {
+    public static Fin<SteelClass> OfShape(AmericanShape shape) => shape switch {
         AmericanShape.W or AmericanShape.M or AmericanShape.S or AmericanShape.HP => Fin.Succ(IShape),
         AmericanShape.C or AmericanShape.MC                                       => Fin.Succ(UShape),
         AmericanShape.L                                                           => Fin.Succ(LShape),
@@ -98,16 +98,16 @@ public sealed partial class SteelClass {
         AmericanShape.HSS                                                         => Fin.Succ(HssRect),
         AmericanShape.Pipe                                                        => Fin.Succ(HssRound),
         AmericanShape.WT or AmericanShape.MT or AmericanShape.ST                  => Fin.Succ(Tee),
-        _ => Fin.Fail<SteelClass>(new KernelFault.InvalidValue(nameof(shape), "a declared American steel shape", Some(key))),
+        _ => Fin.Fail<SteelClass>(new KernelFault.InvalidValue(nameof(shape), "a declared American steel shape")),
     };
 
-    public static Fin<SteelClass> OfShape(EuropeanShape shape, Op key) => shape switch {
+    public static Fin<SteelClass> OfShape(EuropeanShape shape) => shape switch {
         EuropeanShape.IPEAA or EuropeanShape.IPEA or EuropeanShape.IPE or EuropeanShape.IPEO or EuropeanShape.IPEV
             or EuropeanShape.HEAA or EuropeanShape.HEA or EuropeanShape.HEB or EuropeanShape.HEC or EuropeanShape.HEM
             or EuropeanShape.HE or EuropeanShape.HL or EuropeanShape.HLZ or EuropeanShape.HD or EuropeanShape.HP
             or EuropeanShape.UBP or EuropeanShape.UB or EuropeanShape.UC or EuropeanShape.IPN or EuropeanShape.J => Fin.Succ(IShape),
         EuropeanShape.UPE or EuropeanShape.PFC or EuropeanShape.UPN or EuropeanShape.U or EuropeanShape.CH        => Fin.Succ(UShape),
-        _ => Fin.Fail<SteelClass>(new KernelFault.InvalidValue(nameof(shape), "a declared European steel shape", Some(key))),
+        _ => Fin.Fail<SteelClass>(new KernelFault.InvalidValue(nameof(shape), "a declared European steel shape")),
     };
 }
 
@@ -133,8 +133,8 @@ public readonly record struct StainlessRow(
         _                       => BarMpa,
     };
 
-    public Fin<double> ProofMpa(StainlessForm form, Op key) =>
-        Cell(form).ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Steel, typeof(StainlessForm)));
+    public Fin<double> ProofMpa(StainlessForm form) =>
+        Cell(form).ToFin(new ComponentFault.GradeBandMissing(ComponentFamily.Steel, typeof(StainlessForm)));
 
     public static StainlessForm FormOf(SectionProfile profile) => profile switch {
         SectionProfile.Catalogued => StainlessForm.Bar,
@@ -154,15 +154,13 @@ public static class StainlessBands {
 
 public partial record GradeProperties {
     public sealed partial record Steel {
-        public Fin<double> DesignYieldMpa(SectionProfile origin, double bandThicknessMm, NationalAnnex annex, Op key) =>
+        public Fin<double> DesignYieldMpa(SectionProfile origin, double bandThicknessMm, NationalAnnex annex) =>
             Stainless.Match(
-                Some: row => row.ProofMpa(StainlessRow.FormOf(origin), key),
+                Some: row => row.ProofMpa(StainlessRow.FormOf(origin)),
                 None: () => EnDesignation.Match(
                     Some: designation => EnSteelMaterial.TryCreateFromDesignition(designation, annex, out EnSteelMaterial material)
-                        ? key.Catch(
-                            () => Fin.Succ(EnSteelFactory.CreateLinearElastic(material, Length.FromMillimeters(bandThicknessMm)).Strength.Megapascals),
-                            cause => EnGrade.GradeRefusal(key, cause))
-                        : Fin.Fail<double>(new ComponentFault.GradeBandMissing(key, ComponentFamily.Steel, typeof(EnSteelMaterial))),
+                        ? Try.lift(() => Fin.Succ(EnSteelFactory.CreateLinearElastic(material, Length.FromMillimeters(bandThicknessMm)).Strength.Megapascals)).Run().Bind(static inner => inner)
+                        : Fin.Fail<double>(new ComponentFault.GradeBandMissing(ComponentFamily.Steel, typeof(EnSteelMaterial))),
                     None: () => Fin.Succ(NominalYieldMpa)));
     }
 }
@@ -178,29 +176,29 @@ public sealed record SteelShape(
     MaterialGrade Grade, ComponentStandard Standard, string Catalogue,
     Option<CompositeDetail> Composite = default) {
 
-    public static Fin<SteelShape> Of(ICatalogue catalogue, MaterialGrade grade, ComponentStandard standard, Op key) =>
-        from outline in Outline(catalogue, key)
-        from cls in ClassOf(catalogue, key)
-        from dims in DimsOf(catalogue, key)
+    public static Fin<SteelShape> Of(ICatalogue catalogue, MaterialGrade grade, ComponentStandard standard) =>
+        from outline in Outline(catalogue)
+        from cls in ClassOf(catalogue)
+        from dims in DimsOf(catalogue)
         select new SteelShape(catalogue.Label, cls, outline, dims, grade, standard, $"{catalogue.Catalogue}");
 
-    static Fin<IProfile> Outline(ICatalogue catalogue, Op key) =>
+    static Fin<IProfile> Outline(ICatalogue catalogue) =>
         catalogue is IProfile profile
             ? Fin.Succ(profile)
-            : new ComponentFault.ProfileMismatch(key, ComponentFamily.Steel, catalogue.GetType());
+            : new ComponentFault.ProfileMismatch(ComponentFamily.Steel, catalogue.GetType());
 
-    static Fin<SteelClass> ClassOf(ICatalogue catalogue, Op key) => catalogue switch {
+    static Fin<SteelClass> ClassOf(ICatalogue catalogue) => catalogue switch {
         ICircularHollow                                           => Fin.Succ(SteelClass.HssRound),
         ICircle when catalogue is not IHollowStructuralSection    => Fin.Succ(SteelClass.SolidRound),
         IRectangle when catalogue is not IHollowStructuralSection => Fin.Succ(SteelClass.SolidBar),
         IRoundedRectangularHollow                                 => Fin.Succ(SteelClass.HssRect),
         IRectangularHollow                                        => Fin.Succ(SteelClass.HssRect),
-        IAmericanCatalogue a                                      => SteelClass.OfShape(a.Shape, key),
-        IEuropeanCatalogue e                                      => SteelClass.OfShape(e.Shape, key),
-        _ => Fin.Fail<SteelClass>(new ComponentFault.ProfileMismatch(key, ComponentFamily.Steel, catalogue.GetType())),
+        IAmericanCatalogue a                                      => SteelClass.OfShape(a.Shape),
+        IEuropeanCatalogue e                                      => SteelClass.OfShape(e.Shape),
+        _ => Fin.Fail<SteelClass>(new ComponentFault.ProfileMismatch(ComponentFamily.Steel, catalogue.GetType())),
     };
 
-    static Fin<SectionDims> DimsOf(ICatalogue catalogue, Op key) =>
+    static Fin<SectionDims> DimsOf(ICatalogue catalogue) =>
         (catalogue switch {
             IIParallelFlange i => Fin.Succ((i.Height.Millimeters, i.Width.Millimeters, i.WebThickness.Millimeters, i.FlangeThickness.Millimeters, i.FilletRadius.Millimeters, 0.0)),
             II i               => Fin.Succ((i.Height.Millimeters, i.Width.Millimeters, i.WebThickness.Millimeters, i.FlangeThickness.Millimeters, 0.0, 0.0)),
@@ -213,13 +211,13 @@ public sealed record SteelShape(
             IRectangularHollow rh when catalogue is IHollowStructuralSection h        => Fin.Succ((rh.Height.Millimeters, rh.Width.Millimeters, h.Thickness.Millimeters, h.Thickness.Millimeters, 0.0, 0.0)),
             ICircle c          => Fin.Succ((c.Diameter.Millimeters, c.Diameter.Millimeters, c.Diameter.Millimeters, c.Diameter.Millimeters, 0.0, 0.0)),
             IRectangle rect    => Fin.Succ((rect.Height.Millimeters, rect.Width.Millimeters, rect.Width.Millimeters, rect.Height.Millimeters, 0.0, 0.0)),
-            _ => Fin.Fail<(double, double, double, double, double, double)>(new ComponentFault.ProfileMismatch(key, ComponentFamily.Steel, catalogue.GetType())),
+            _ => Fin.Fail<(double, double, double, double, double, double)>(new ComponentFault.ProfileMismatch(ComponentFamily.Steel, catalogue.GetType())),
         })
         .Bind(raw =>
-            from depth in key.AcceptValidated<PositiveMagnitude>(candidate: raw.Item1)
-            from width in key.AcceptValidated<PositiveMagnitude>(candidate: raw.Item2)
-            from web in key.AcceptValidated<PositiveMagnitude>(candidate: raw.Item3)
-            from flange in key.AcceptValidated<PositiveMagnitude>(candidate: raw.Item4)
+            from depth in FactoryBridge.Accept<PositiveMagnitude>(candidate: raw.Item1)
+            from width in FactoryBridge.Accept<PositiveMagnitude>(candidate: raw.Item2)
+            from web in FactoryBridge.Accept<PositiveMagnitude>(candidate: raw.Item3)
+            from flange in FactoryBridge.Accept<PositiveMagnitude>(candidate: raw.Item4)
             select new SectionDims(depth, width, web, flange, raw.Item5, raw.Item6));
 }
 
@@ -254,10 +252,10 @@ public sealed partial class SteelJurisdiction {
     [UseDelegateFromConstructor] private partial CompactnessClass Run(SteelClass cls, SectionDims dims, double yieldMpa, double modulusRatio);
     public CompactnessClass Classify(SteelClass cls, SectionDims dims, double yieldMpa) => Run(cls, dims, yieldMpa, EpsilonModulusRatio);
 
-    public static Fin<SteelJurisdiction> Of(DesignBasis basis, Op key) =>
+    public static Fin<SteelJurisdiction> Of(DesignBasis basis) =>
         TryGet(basis.Key, out SteelJurisdiction? row) && row is { } served
             ? Fin.Succ(served)
-            : new ComponentFault.BasisUnsupported(key, basis, ComponentFamily.Steel);
+            : new ComponentFault.BasisUnsupported(basis, ComponentFamily.Steel);
 
     static CompactnessClass Computed(SteelClass cls, SectionDims dims, double yieldMpa, double modulusRatio) => CompactnessClass.Compact;
 
@@ -292,15 +290,15 @@ public static class SteelDesign {
     const double PhiB = 0.90, PhiC = 0.90, PhiV = 0.90;
     internal const double E = 200_000.0, G = 77_200.0;
 
-    public static Fin<DesignCapacity> Capacity(SectionProfile profile, MaterialGrade grade, ComputedSection s, CapacityPlacement placement, Op key) =>
+    public static Fin<DesignCapacity> Capacity(SectionProfile profile, MaterialGrade grade, ComputedSection s, CapacityPlacement placement) =>
         from lengths in guard(
             double.IsFinite(placement.UnbracedLengthMm + placement.EffectiveLengthMm)
                 && placement.UnbracedLengthMm >= 0.0 && placement.EffectiveLengthMm > 0.0,
-            new KernelFault.InvalidValue(nameof(placement), "finite non-negative unbraced length and finite positive effective length", Some(key)))
-        from jurisdiction in SteelJurisdiction.Of(placement.Basis, key)
-        from arm in grade.SteelArm.ToFin(new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Steel))
-        from form in FormOf(profile, key)
-        from yieldMpa in arm.DesignYieldMpa(profile, form.Class.BandThicknessMm(form.Dims), placement.Annex, key)
+            new KernelFault.InvalidValue(nameof(placement), "finite non-negative unbraced length and finite positive effective length"))
+        from jurisdiction in SteelJurisdiction.Of(placement.Basis)
+        from arm in grade.SteelArm.ToFin(new ComponentFault.GradeBodyMissing(grade, ComponentFamily.Steel))
+        from form in FormOf(profile)
+        from yieldMpa in arm.DesignYieldMpa(profile, form.Class.BandThicknessMm(form.Dims), placement.Annex)
         let classification = jurisdiction.Classify(form.Class, form.Dims, yieldMpa)
         select form.Class == SteelClass.ColdFormed
             ? FormedSection(placement.Basis, form.Dims, s, yieldMpa, placement.EffectiveLengthMm)
@@ -317,7 +315,7 @@ public static class SteelDesign {
     static double Resist(DesignBasis basis, double nominal, double phi, double gamma) =>
         basis.Format == SafetyFormat.LimitState ? nominal / gamma : phi * nominal;
 
-    static Fin<(SteelClass Class, SectionDims Dims, Option<CompositeDetail> Composite)> FormOf(SectionProfile profile, Op key) => profile switch {
+    static Fin<(SteelClass Class, SectionDims Dims, Option<CompositeDetail> Composite)> FormOf(SectionProfile profile) => profile switch {
         SectionProfile.Catalogued c        => Fin.Succ((c.Shape.Class, c.Shape.Section, c.Shape.Composite)),
         SectionProfile.IShape i            => Dims(SteelClass.IShape, i.DepthMm, i.WidthMm, i.WebMm, i.FlangeMm, i.FilletMm),
         SectionProfile.AsymmetricIShape a  => Dims(SteelClass.IShape, a.DepthMm, Wider(a.TopFlangeWidthMm, a.BottomFlangeWidthMm), a.WebThicknessMm, Thinner(a.TopFlangeThicknessMm, a.BottomFlangeThicknessMm), a.FilletMm),
@@ -331,7 +329,7 @@ public static class SteelDesign {
         SectionProfile.CircleHollow ch     => Dims(SteelClass.HssRound, ch.DiameterMm, ch.DiameterMm, ch.WallMm, ch.WallMm, 0.0),
         SectionProfile.RoundedRectangle rr => Dims(SteelClass.HssRect, rr.DepthMm, rr.WidthMm, rr.WidthMm, rr.DepthMm, rr.RoundingMm),
         SectionProfile.BuiltUp b           => Dims(SteelClass.IShape, b.GrossRectangleMm.DepthMm, b.GrossRectangleMm.WidthMm, b.GrossRectangleMm.WidthMm, b.GrossRectangleMm.DepthMm, 0.0),
-        _ => Fin.Fail<(SteelClass, SectionDims, Option<CompositeDetail>)>(new ComponentFault.ProfileMismatch(key, ComponentFamily.Steel, profile.GetType())),
+        _ => Fin.Fail<(SteelClass, SectionDims, Option<CompositeDetail>)>(new ComponentFault.ProfileMismatch(ComponentFamily.Steel, profile.GetType())),
     };
 
     static Fin<(SteelClass Class, SectionDims Dims, Option<CompositeDetail> Composite)> Dims(SteelClass cls, PositiveMagnitude depth, PositiveMagnitude width, PositiveMagnitude web, PositiveMagnitude flange, double fillet) =>
@@ -525,10 +523,10 @@ public static class SteelDesign {
         return horizShear * leverArm;
     }
 
-    public static Fin<SteelFireFacts> Fire(ComputedSection s, double steelTemperatureC, double utilisation, Op key) =>
-        from retention in FireRetention.At(steelTemperatureC, key)
+    public static Fin<SteelFireFacts> Fire(ComputedSection s, double steelTemperatureC, double utilisation) =>
+        from retention in FireRetention.At(steelTemperatureC)
         from admitted in guard(double.IsFinite(utilisation) && utilisation is > 0.0 and <= 1.0,
-            new KernelFault.OutOfRange(nameof(utilisation), utilisation, "finite and inside (0, 1]", Some(key)))
+            new KernelFault.OutOfRange(nameof(utilisation), utilisation, "finite and inside (0, 1]", Some()))
         select new SteelFireFacts(
             SectionFactorPerM: s.HeatedPerimeterMm.Value / s.AreaMm2.Value * 1000.0,
             Ky: retention.Ky,
@@ -620,8 +618,8 @@ public static class ColdFormedSections {
 
     const double SeffAgreementBand = 0.02;
 
-    public static Fin<Seq<(string Key, double Published, double Computed, bool Drifts)>> Drift(double yieldMpa, Op key) =>
-        Tolerance.Of(ToleranceLane.Residual, SeffAgreementBand, key).Map(band =>
+    public static Fin<Seq<(string Key, double Published, double Computed, bool Drifts)>> Drift(double yieldMpa) =>
+        Tolerance.Of(ToleranceLane.Residual, SeffAgreementBand).Map(band =>
             toSeq(Rows).Bind(row => row.PublishedSeffRatio
                 .Map(published => (row.Key, Published: published, Computed: row.ComputedSeffRatio(yieldMpa), Drifts: row.Drifts(yieldMpa, band)))
                 .ToSeq()));
@@ -639,10 +637,10 @@ public static class FireRetention {
     static readonly IInterpolation KyCurve = Interpolate.Linear(Rows.Select(static r => r.TemperatureC), Rows.Select(static r => r.Ky));
     static readonly IInterpolation KeCurve = Interpolate.Linear(Rows.Select(static r => r.TemperatureC), Rows.Select(static r => r.KE));
 
-    public static Fin<(double Ky, double KE)> At(double temperatureC, Op key) =>
+    public static Fin<(double Ky, double KE)> At(double temperatureC) =>
         double.IsFinite(temperatureC)
             ? Fin.Succ(Sample(Math.Clamp(temperatureC, Rows[0].TemperatureC, Rows[^1].TemperatureC)))
-            : new KernelFault.OutOfRange(nameof(temperatureC), temperatureC, "finite", Some(key));
+            : new KernelFault.OutOfRange(nameof(temperatureC), temperatureC, "finite");
 
     static (double Ky, double KE) Sample(double temperatureC) => (KyCurve.Interpolate(temperatureC), KeCurve.Interpolate(temperatureC));
 }
@@ -653,7 +651,7 @@ public abstract partial record SteelRowSource {
     private SteelRowSource() { }
     public sealed record Rolled(ICatalogue Catalogue, Option<CompositeDetail> Composite) : SteelRowSource;
     public sealed record Formed(ColdFormedRow Row) : SteelRowSource;
-    public sealed record Plated(Func<Op, Fin<SectionProfile>> Build) : SteelRowSource;
+    public sealed record Plated(Func< Fin<SectionProfile>> Build) : SteelRowSource;
 }
 
 public readonly record struct SteelRowSeed(string Designation, SteelRowSource Source, MaterialGrade Grade);
@@ -683,12 +681,12 @@ public static class SteelSeed {
             MaterialGrade.A992),
         new SteelRowSeed("steel.pg-1200x400-500", new SteelRowSource.Plated(static key => SectionProfile.AsymmetricIShape.Of(
             depthMm: 1200.0, topFlangeWidthMm: 400.0, bottomFlangeWidthMm: 500.0,
-            topFlangeThicknessMm: 25.0, bottomFlangeThicknessMm: 32.0, webThicknessMm: 12.0, filletMm: 0.0, key)), MaterialGrade.S355),
+            topFlangeThicknessMm: 25.0, bottomFlangeThicknessMm: 32.0, webThicknessMm: 12.0, filletMm: 0.0)), MaterialGrade.S355),
         new SteelRowSeed("steel.zed-200x75x25", new SteelRowSource.Plated(static key => SectionProfile.Zed.Of(
             depthMm: 200.0, topFlangeWidthMm: 75.0, bottomFlangeWidthMm: 65.0,
-            thicknessMm: 2.5, topLipMm: 20.0, bottomLipMm: 18.0, innerFilletMm: 3.75, key)), MaterialGrade.A653Gr50),
+            thicknessMm: 2.5, topLipMm: 20.0, bottomLipMm: 18.0, innerFilletMm: 3.75)), MaterialGrade.A653Gr50),
         new SteelRowSeed("steel.pg-ss-800x300", new SteelRowSource.Plated(static key => SectionProfile.IShape.Of(
-            depthMm: 800.0, widthMm: 300.0, webMm: 8.0, flangeMm: 20.0, filletMm: 0.0, flangeToeMm: 20.0, key)), MaterialGrade.Ss14301));
+            depthMm: 800.0, widthMm: 300.0, webMm: 8.0, flangeMm: 20.0, filletMm: 0.0, flangeToeMm: 20.0)), MaterialGrade.Ss14301));
 
     static readonly Seq<SteelRowSeed> Formed =
         toSeq(ColdFormedSections.Rows).Map(static row =>
@@ -711,26 +709,26 @@ public static class SteelSeed {
         substance: static row => row.Grade.Substance,
         source: Source,
         standard: Standard,
-        detail: Some<Func<SteelRowSeed, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<SteelRowSeed, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static _ => MaterialId.Create("metal.iron"));
 
-    static Validation<Error, Unit> Coherence(SteelRowSeed row, Op key) =>
+    static Validation<Error, Unit> Coherence(SteelRowSeed row) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 row.Grade.Family == ComponentFamily.Steel,
-                new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Steel)),
+                new ComponentFault.GradeFamilyMismatch(row.Grade, ComponentFamily.Steel)),
             AdmissionSlots.Gate(
                 row.Grade.SteelArm.IsSome,
-                new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Steel))));
+                new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Steel))));
 
-    static Fin<SectionProfile> ProfileOf(SteelRowSeed seed, Op key) =>
+    static Fin<SectionProfile> ProfileOf(SteelRowSeed seed) =>
         seed.Source.Switch(
-            state: (Seed: seed, Key: key),
-            rolled: static (x, r) => SteelShape.Of(r.Catalogue, x.Seed.Grade, Standard(x.Seed), x.Key)
+            state: seed,
+            rolled: static (x, r) => SteelShape.Of(r.Catalogue, x.Grade, Standard(x), x.Key)
                 .Map(shape => r.Composite.IsSome ? shape with { Class = SteelClass.Composite, Composite = r.Composite } : shape)
                 .Map(shape => (SectionProfile)new SectionProfile.Catalogued(shape)),
-            formed: static (x, f) => x.Seed.Grade.SteelArm
-                .ToFin(new ComponentFault.GradeBodyMissing(x.Key, x.Seed.Grade, ComponentFamily.Steel))
+            formed: static (x, f) => x.Grade.SteelArm
+                .ToFin(new ComponentFault.GradeBodyMissing(x.Key, x.Grade, ComponentFamily.Steel))
                 .Bind(arm => SectionProfile.ColdFormedC.Of(
                     f.Row.DepthMm, f.Row.FlangeMm, f.Row.WallMm, f.Row.LipMm(arm.NominalYieldMpa), f.Row.FilletMm, x.Key)),
             plated: static (x, p) => p.Build(x.Key));
@@ -738,7 +736,7 @@ public static class SteelSeed {
     static ComponentStandard Standard(SteelRowSeed seed) =>
         new(seed.Grade.Authority.Region, StandardJointThicknessMm: 0.0, seed.Grade.Authority);
 
-    static Fin<PropertyBag> Detail(SteelRowSeed seed, SectionProfile profile, Op key) =>
+    static Fin<PropertyBag> Detail(SteelRowSeed seed, SectionProfile profile) =>
         Fin.Succ(ComponentDetail.RealizationRows(
             [ComponentDetail.Token(DetailSchema.ProfileSubtype, SubtypeOf(profile)),
              ComponentDetail.Sourced(Source(seed))]
@@ -757,25 +755,25 @@ public static class SteelSeed {
         _                     => EvidenceGrade.User,
     };
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
-        from grade in GradeOfComponent(component, key)
-        from design in SteelDesign.Capacity(component.Profile, grade, solved, placement, key)
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
+        from grade in GradeOfComponent(component)
+        from design in SteelDesign.Capacity(component.Profile, grade, solved, placement)
         from capacity in placement.FireExposure.Match(
             Some: minutes =>
-                from theta in SteelFire.TemperatureC(solved, minutes, key)
-                from facts in SteelDesign.Fire(solved, theta, SteelFire.DefaultUtilisation, key)
-                from lifted in SectionCapacity.Lift(CapacityLift.Fire(component.Designation, new FireState.Steel(design, facts)), key)
+                from theta in SteelFire.TemperatureC(solved, minutes)
+                from facts in SteelDesign.Fire(solved, theta, SteelFire.DefaultUtilisation)
+                from lifted in SectionCapacity.Lift(CapacityLift.Fire(component.Designation, new FireState.Steel(design, facts)))
                 select lifted,
-            None: () => SectionCapacity.Lift(new CapacityLift.Steel(component.Designation, design), key))
+            None: () => SectionCapacity.Lift(new CapacityLift.Steel(component.Designation, design)))
         select capacity;
 
-    static Fin<MaterialGrade> GradeOfComponent(Component component, Op key) =>
+    static Fin<MaterialGrade> GradeOfComponent(Component component) =>
         component.Profile is SectionProfile.Catalogued c
             ? Fin.Succ(c.Shape.Grade)
             : toSeq(MaterialGrade.Items)
                 .Find(g => g.Family == ComponentFamily.Steel && g.Substance == component.SubstanceId)
-                .ToFin(new ComponentFault.GradeUnavailable(key, ComponentFamily.Steel, component.SubstanceId));
+                .ToFin(new ComponentFault.GradeUnavailable(ComponentFamily.Steel, component.SubstanceId));
 }
 
 public static class SteelFire {
@@ -796,7 +794,7 @@ public static class SteelFire {
         _       => 650.0,
     };
 
-    public static Fin<double> TemperatureC(ComputedSection s, PositiveMagnitude exposureMinutes, Op key) {
+    public static Fin<double> TemperatureC(ComputedSection s, PositiveMagnitude exposureMinutes) {
         double sectionFactor = s.HeatedPerimeterMm.Value / s.AreaMm2.Value * 1000.0;
         int steps = (int)Math.Ceiling(exposureMinutes.Value * 60.0 / StepSeconds);
         double theta = toSeq(Enumerable.Range(1, steps)).Fold(AmbientC, (held, i) => {
@@ -807,7 +805,7 @@ public static class SteelFire {
         });
         return double.IsFinite(theta) && theta >= AmbientC
             ? Fin.Succ(theta)
-            : Fin.Fail<double>(new KernelFault.OutOfRange(nameof(theta), theta, "finite and at least ambient temperature", Some(key)));
+            : Fin.Fail<double>(new KernelFault.OutOfRange(nameof(theta), theta, "finite and at least ambient temperature"));
     }
 }
 ```

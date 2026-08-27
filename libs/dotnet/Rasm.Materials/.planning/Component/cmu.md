@@ -140,14 +140,14 @@ public sealed partial class CmuAggregate {
             ? Some(OneHourMm)
             : Further.Find(cell => cell.Period == period).Map(static cell => cell.Mm);
 
-    public static Fin<double> BlendedThicknessMm(RatingPeriod period, Op key, params ReadOnlySpan<(CmuAggregate Aggregate, double Fraction)> mix) {
+    public static Fin<double> BlendedThicknessMm(RatingPeriod period, params ReadOnlySpan<(CmuAggregate Aggregate, double Fraction)> mix) {
         Seq<(CmuAggregate Aggregate, double Fraction)> blend = toSeq([.. mix]);
         return
-            from closure in Tolerance.Of(ToleranceLane.Conservation, VolumeClosureBand, key)
+            from closure in Tolerance.Of(ToleranceLane.Conservation, VolumeClosureBand)
             from unitVolume in guard(!blend.IsEmpty && Math.Abs(blend.Sum(static m => m.Fraction) - 1.0) <= closure.Value,
-                new KernelFault.OutOfRange(nameof(blend), blend.Sum(static m => m.Fraction), "fractions summing to one", Some(key)))
+                new KernelFault.OutOfRange(nameof(blend), blend.Sum(static m => m.Fraction), "fractions summing to one"))
             from weighted in blend.Traverse(m => m.Aggregate.RequiredThicknessMm(period)
-                .ToFin(new ComponentFault.FireThicknessMissing(key, period))
+                .ToFin(new ComponentFault.FireThicknessMissing(period))
                 .Map(required => required * m.Fraction)).As()
             select weighted.Sum();
     }
@@ -323,87 +323,86 @@ public static class CmuSeed {
         family: ComponentFamily.Cmu,
         designation: static r => r.Designation,
         coherence: Coherence,
-        profile: static (r, key) => SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, Lattice(r), key),
+        profile: static (r, key) => SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, Lattice(r)),
         substance: static _ => ConcreteCmu,
         source: static r => r.Source,
         standard: static r => new ComponentStandard(r.Strength.Authority.Region, CoordinatingJointMm, r.Strength.Authority),
-        detail: Some<Func<CmuRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<CmuRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         voids: static r => CmuPhysics.CoringOf(r.WMm, r.LMm, Lattice(r)));
 
-    static Validation<Error, Unit> Coherence(CmuRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(CmuRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 r.Strength.Family == ComponentFamily.Cmu,
-                new ComponentFault.GradeFamilyMismatch(key, r.Strength, ComponentFamily.Cmu)),
+                new ComponentFault.GradeFamilyMismatch(r.Strength, ComponentFamily.Cmu)),
             AdmissionSlots.Gate(
                 r.Strength.Columns is GradeProperties.Cmu,
-                new ComponentFault.GradeBodyMissing(key, r.Strength, ComponentFamily.Cmu)),
+                new ComponentFault.GradeBodyMissing(r.Strength, ComponentFamily.Cmu)),
             AdmissionSlots.Gate(
                 (r.Grade == CmuGrade.Hollow) == (r.Cells > 0),
-                new KernelFault.InvalidValue(nameof(r.Grade), "hollow exactly when the row declares cells", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.Grade), "hollow exactly when the row declares cells")),
             AdmissionSlots.Gate(
                 r.Cells >= 0
                     && r.GroutedCells >= 0 && r.GroutedCells <= r.Cells
                     && r.ReinforcedCells >= 0 && r.ReinforcedCells <= r.Cells
                     && double.IsFinite(r.RebarBarMm)
                     && (r.ReinforcedCells == 0 ? r.RebarBarMm == 0.0 : r.RebarBarMm > 0.0),
-                new KernelFault.InvalidValue(nameof(r.ReinforcedCells), "cell, fill, and bar declarations that agree", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.ReinforcedCells), "cell, fill, and bar declarations that agree")),
             AdmissionSlots.Gate(
                 r.FaceShellMm >= FaceShellFloorMm(r.WModuleMm)
                     && r.EndWebMm >= WebFloorMm && r.CrossWebMm >= WebFloorMm
                     && r.EffectiveFaceShellMm >= CmuFinish.SplitResidualFloorMm,
-                new KernelFault.InvalidValue(nameof(r.FaceShellMm), "published face-shell and effective-shell floors", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.FaceShellMm), "published face-shell and effective-shell floors")),
             AdmissionSlots.Gate(
                 r.NormalizedWebAreaMm2PerM2.ForAll(static anw => anw >= NormalizedWebAreaFloorMm2PerM2),
-                new KernelFault.InvalidValue(nameof(r.NormalizedWebAreaMm2PerM2), "the published normalized web-area floor", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.NormalizedWebAreaMm2PerM2), "the published normalized web-area floor")),
             AdmissionSlots.Gate(
                 r.Density.Holds(r.Density.OvenDryKgPerM3)
                     && r.Density.OvenDryKgPerM3 >= CmuDensity.PopulationFloorKgPerM3
                     && r.Density.OvenDryKgPerM3 <= CmuDensity.PopulationCeilingKgPerM3,
-                new KernelFault.InvalidValue(nameof(r.Density), "a density inside the published population band", Some(key)))));
+                new KernelFault.InvalidValue(nameof(r.Density), "a density inside the published population band"))));
 
-    static Fin<PropertyBag> Detail(CmuRow r, SectionProfile profile, Op key) =>
+    static Fin<PropertyBag> Detail(CmuRow r, SectionProfile profile) =>
         profile is SectionProfile.CellularRectangle lattice
             ? Fin.Succ(ComponentDetail.RealizationRows(
                 ComponentDetail.Token(DetailSchema.ProfileSubtype, CmuPhysics.IfcSubtypeOf(lattice.Cells)),
                 ComponentDetail.Sourced(r.Source)))
-            : new ComponentFault.ProfileMismatch(key, ComponentFamily.Cmu, profile.GetType());
+            : new ComponentFault.ProfileMismatch(ComponentFamily.Cmu, profile.GetType());
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in SeedJoin.Resolve(Table, component.Designation, key)
-        from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from row in SeedJoin.Resolve(Table, component.Designation)
+        from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
         from lattice in component.Profile is SectionProfile.CellularRectangle cell
             ? Fin.Succ(cell)
-            : Fin.Fail<SectionProfile.CellularRectangle>(new ComponentFault.ProfileMismatch(key, ComponentFamily.Cmu, component.Profile.GetType()))
-        from strength in row.Strength.CmuArm.ToFin(new ComponentFault.GradeBodyMissing(key, row.Strength, ComponentFamily.Cmu))
+            : Fin.Fail<SectionProfile.CellularRectangle>(new ComponentFault.ProfileMismatch(ComponentFamily.Cmu, component.Profile.GetType()))
+        from strength in row.Strength.CmuArm.ToFin(new ComponentFault.GradeBodyMissing(row.Strength, ComponentFamily.Cmu))
         from capacity in SectionCapacity.Lift(row.ReinforcedCells > 0
             ? new CapacityLift.ReinforcedMasonry(component.Designation, strength, solved, placement.HeightMm, placement.Basis, row, placement.BarGrade)
             : new CapacityLift.Masonry(
                 component.Designation, strength, solved, placement.HeightMm, placement.Basis,
                 RuptureModulus.For(component.Profile, placement.Rupture,
                     CmuPhysics.Of(lattice, row.Density, row.Aggregate, row.Special).GroutedCellFraction),
-                placement.Flexural, placement.System, placement.Mortar),
-            key)
+                placement.Flexural, placement.System, placement.Mortar))
         select capacity;
 
     const double ConcreteSpecificHeatJKgK = 1000.0;
     const double ConcreteVapourMu = 6.0;
 
-    public static Fin<Seq<MaterialPropertySet>> Properties(CmuRow row, SectionProfile.CellularRectangle cell, Op key) =>
+    public static Fin<Seq<MaterialPropertySet>> Properties(CmuRow row, SectionProfile.CellularRectangle cell) =>
         from physics in Fin.Succ(CmuPhysics.Of(cell, row.Density, row.Aggregate, row.Special))
         from thermal in MaterialPropertySet.OfThermal(
             conductivity: row.Density.ConductivityWPerMK,
             specificHeat: ConcreteSpecificHeatJKgK,
             uValue: 1.0 / physics.ThermalResistanceM2KPerW,
-            vapourResistanceFactor: ConcreteVapourMu, key)
-        from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2, key)
+            vapourResistanceFactor: ConcreteVapourMu)
+        from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2)
         from fire in physics.FireRating
-            .TraverseM(period => FireResistance.Of(FireCoverage.I, period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
+            .TraverseM(period => FireResistance.Of(FireCoverage.I).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
             .Map(static rows => rows.IfNone(Seq<MaterialPropertySet>()))
         select Seq(thermal, MaterialPropertySet.OfAcoustic(spectrum)) + fire;
 
-    public static Fin<ComponentUnit> Module(CmuRow row, Op key) =>
-        ComponentUnit.Of(row.WMm, row.HMm, row.LMm, row.HMm + CoordinatingJointMm, key);
+    public static Fin<ComponentUnit> Module(CmuRow row) =>
+        ComponentUnit.Of(row.WMm, row.HMm, row.LMm, row.HMm + CoordinatingJointMm);
 
     static Seq<VoidCell> Lattice(CmuRow r) {
         if (r.Cells <= 0) { return Seq<VoidCell>(); }

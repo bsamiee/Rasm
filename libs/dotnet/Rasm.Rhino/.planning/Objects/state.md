@@ -25,7 +25,7 @@
 - Law: history linkage is presence evidence — `ObjectTrait.HistoryRecord` carries `HasHistoryRecord()`, and every linkage read or mutation lives on the history page's `Chronicle`.
 - Law: the snapshot carries no open discriminant. `ObjectType` decomposes through `ObjectKinds.OfMask` because a host row's type word is a MASK, `ActiveSpace` and `ObjectMaterialSource` read their spine and attribute owners, the layer index takes `ResourceIndex.Admit` and the material index takes `ResourceIndex.Maybe` — a live object always holds a layer, while the host's `-1` material spells the ordinary by-layer absence — and the closed-status integer takes the `ClosedStatus` rows — so no consumer re-derives a host contract from a bare number and an unmapped value refuses at the read.
 - Growth: a new host object fact is one snapshot field read in the same pass, or one `ObjectTrait` row where the fact is a condition; a named native grade enters only after its values verify.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `AcceptValidated`), `Domain/results` (`Op`, `Op.Text`, `Op.Catch`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `AcceptValidated`), `Domain/results` (`Op`, `HostEdge.Text`, `Op.Catch`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -58,8 +58,8 @@ public sealed record HighlightState {
     public HighlightGrade Grade { get; }
     public Seq<ComponentIndex> Components { get; }
 
-    internal static Fin<HighlightState> Of(RhinoObject native, Op key) =>
-        key.Row<int, HighlightGrade>(native.IsHighlighted(checkSubObjects: true))
+    internal static Fin<HighlightState> Of(RhinoObject native) =>
+        FactoryBridge.Row<int, HighlightGrade>(native.IsHighlighted(checkSubObjects: true))
             .Map(grade => new HighlightState(
                 grade: grade,
                 components: Optional(native.GetHighlightedSubObjects())
@@ -107,11 +107,11 @@ public sealed partial class GripStance {
     public static readonly GripStance Shown = new(key: 1);
     public static readonly GripStance Selected = new(key: 2);
 
-    internal static Fin<GripStance> Of(RhinoObject native, Op key) => (native.GripsOn, native.GripsSelected) switch {
+    internal static Fin<GripStance> Of(RhinoObject native) => (native.GripsOn, native.GripsSelected) switch {
         (false, false) => Fin.Succ(value: Off),
         (true, false) => Fin.Succ(value: Shown),
         (true, true) => Fin.Succ(value: Selected),
-        _ => Fin.Fail<GripStance>(error: key.InvalidResult(detail: nameof(GripStance))),
+        _ => Fin.Fail<GripStance>(error: new KernelFault.InvalidResult(Detail: Some(nameof(GripStance)))),
     };
 }
 
@@ -143,21 +143,21 @@ public sealed record ObjectSnapshot(
     string Description,
     string ClosedDescription,
     ClosedStatus ClosedStatus) : IDetachedDocumentResult {
-    internal static Fin<ObjectSnapshot> Of(RhinoObject native, Op key) =>
-        from grade in key.Catch(() => key.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true)))
-        from closed in key.Catch(() => Fin.Succ(value: (
+    internal static Fin<ObjectSnapshot> Of(RhinoObject native) =>
+        from grade in Try.lift(() => key.Row<int).Run().Bind(static inner => inner)
+        from closed in Try.lift(() => Fin.Succ(value: (
             Text: native.ShortDescriptionWithClosedStatus(prepend: false, plural: false, status: out int status),
-            Status: status)))
-        from closure in key.Row<int, ClosedStatus>(closed.Status)
-        from kind in ObjectKinds.OfMask(mask: native.ObjectType, key: key)
-        from layer in ResourceIndex.Admit(value: native.Attributes.LayerIndex, key: key)
+            Status: status))).Run().Bind(static inner => inner)
+        from closure in FactoryBridge.Row<int, ClosedStatus>(closed.Status)
+        from kind in ObjectKinds.OfMask(mask: native.ObjectType)
+        from layer in ResourceIndex.Admit(value: native.Attributes.LayerIndex)
         let material = ResourceIndex.Maybe(value: native.Attributes.MaterialIndex)
-        from highlight in key.Catch(() => HighlightState.Of(native: native, key: key))
-        from grips in key.Catch(() => GripStance.Of(native: native, key: key))
-        from snapshot in key.Catch(() => Fin.Succ(value: new ObjectSnapshot(
+        from highlight in Try.lift(() => HighlightState.Of(native: native)).Run().Bind(static inner => inner)
+        from grips in Try.lift(() => GripStance.Of(native: native)).Run().Bind(static inner => inner)
+        from snapshot in Try.lift(() => Fin.Succ(value: new ObjectSnapshot(
             Id: native.Id,
             Serial: native.RuntimeSerialNumber,
-            Name: Op.Text(native.Name),
+            Name: HostEdge.Text(native.Name),
             Kind: kind,
             Space: ActiveSpaceUse.Get(key: native.Attributes.Space),
             Layer: layer,
@@ -172,7 +172,7 @@ public sealed record ObjectSnapshot(
             MemoryBytes: native.MemoryEstimate(),
             Description: native.ShortDescription(plural: false),
             ClosedDescription: closed.Text,
-            ClosedStatus: closure)))
+            ClosedStatus: closure))).Run().Bind(static inner => inner)
         select snapshot;
 }
 ```
@@ -213,11 +213,9 @@ public abstract partial record FrameAsk {
     public sealed record Gumball(GumballAlignment Alignment) : FrameAsk;
     public sealed record Drag : FrameAsk;
 
-    internal Fin<FrameAsk> Admit(Op op) =>
-        Switch(
-            op,
-            anchor: static (key, ask) => key.Need(ask.Scale).Map(_ => (FrameAsk)ask),
-            gumball: static (key, ask) => key.Need(ask.Alignment)
+    internal Fin<FrameAsk> Admit() =>
+        Switch(anchor: static (key, ask) => Admit.Need(ask.Scale).Map(_ => (FrameAsk)ask),
+            gumball: static (key, ask) => Admit.Need(ask.Alignment)
                 .Map(alignment => (FrameAsk)new Gumball(Alignment: alignment)),
             drag: static (_, ask) => Fin.Succ<FrameAsk>(ask));
 
@@ -277,12 +275,10 @@ public abstract partial record Reach {
         parts: static reach => reach.Components,
         everyPart: static _ => Seq<ComponentIndex>());
 
-    internal Fin<Reach> Admit(Op op) =>
-        Switch(
-            op,
-            whole: static (_, reach) => Fin.Succ<Reach>(reach),
+    internal Fin<Reach> Admit() =>
+        Switch(whole: static (_, reach) => Fin.Succ<Reach>(reach),
             part: static (_, reach) => Fin.Succ<Reach>(reach),
-            parts: static (key, reach) => guard(!reach.Components.IsEmpty, key.InvalidInput()).ToFin()
+            parts: static (key, reach) => guard(!reach.Components.IsEmpty, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (Reach)new Parts(Components: reach.Components.Distinct())),
             everyPart: static (_, reach) => Fin.Succ<Reach>(reach));
 }
@@ -300,101 +296,81 @@ public abstract partial record Touch {
         HighlightState Highlight);
 
     public static Fin<Touch> Select(Reach scope, ObjectSignal signal, CapabilitySet<SelectionAxis> policy) {
-        Op op = Op.Of();
-        return from address in op.Need(scope).Bind(value => value.Admit(op: op))
-               from state in op.Need(signal)
-               from _ in guard(address is not Reach.Whole && !(address is Reach.EveryPart && state.On), op.InvalidInput())
+        return from address in Admit.Need(scope).Bind(value => value.Admit())
+               from state in Admit.Need(signal)
+               from _ in guard(address is not Reach.Whole && !(address is Reach.EveryPart && state.On), new KernelFault.InvalidInput())
                select (Touch)new SelectCase(Scope: address, Signal: state, Policy: policy);
     }
 
     public static Fin<Touch> Highlight(Reach scope, ObjectSignal signal) {
-        Op op = Op.Of();
-        return from address in op.Need(scope).Bind(value => value.Admit(op: op))
-               from state in op.Need(signal)
-               from _ in guard(!(address is Reach.EveryPart && state.On), op.InvalidInput())
+        return from address in Admit.Need(scope).Bind(value => value.Admit())
+               from state in Admit.Need(signal)
+               from _ in guard(!(address is Reach.EveryPart && state.On), new KernelFault.InvalidInput())
                select (Touch)new HighlightCase(Scope: address, Signal: state);
     }
 
-    internal Fin<Seq<TouchResult>> Transact(Seq<RhinoObject> natives, Op key) =>
-        natives.TraverseM(native => Capture(native: native, key: key)).As()
-            .Bind(states => ApplyCaptured(states: states, key: key));
+    internal Fin<Seq<TouchResult>> Transact(Seq<RhinoObject> natives) =>
+        natives.TraverseM(native => Capture(native: native)).As()
+            .Bind(states => ApplyCaptured(states: states));
 
-    private Fin<TouchState> Capture(RhinoObject native, Op key) {
+    private Fin<TouchState> Capture(RhinoObject native) {
         Touch self = this;
-        return key.Catch(() =>
-            from selection in key.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true))
-            from _ in self.Switch(
-                (Native: native, Op: key),
-                selectCase: static (context, touch) => touch.Scope.Roster
-                    .TraverseM(component => guard(
-                        !touch.Signal.On || context.Native.IsSubObjectSelectable(
-                            componentIndex: component, ignoreSelectionState: true),
-                        context.Op.InvalidInput()).ToFin())
-                    .As()
-                    .Map(static _ => unit),
-                highlightCase: static (_, _) => Fin.Succ(value: unit))
-            from highlight in HighlightState.Of(native: native, key: key)
-            select new TouchState(
-                Native: native,
-                Selection: selection,
-                Selected: Optional(native.GetSelectedSubObjects())
-                    .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>()),
-                Highlight: highlight));
+        return Try.lift(() =>
+            from selection in key.Row<int).Run().Bind(static inner => inner);
     }
 
-    private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states, Op key) {
+    private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states) {
         Fin<Seq<TouchResult>> primary = states
-            .TraverseM(state => Apply(native: state.Native, key: key))
+            .TraverseM(state => Apply(native: state.Native))
             .As();
-        return primary.Rollback(release: () => Restore(states: states, key: key), key: key);
+        return primary.Rollback(release: () => Restore(states: states, key: key));
     }
 
-    private Fin<TouchResult> Apply(RhinoObject native, Op key) =>
+    private Fin<TouchResult> Apply(RhinoObject native) =>
         Switch(
-            (Native: native, Op: key),
+            native,
             selectCase: static (context, touch) => touch.Scope switch {
-                Reach.EveryPart => context.Op.Catch(() => {
-                    _ = context.Native.UnselectAllSubObjects();
-                    return context.Op.Row<int, SelectionGrade>(context.Native.IsSelected(checkSubObjects: true))
-                        .Map(grade => (TouchResult)new TouchResult.Selected(Id: context.Native.Id, Grade: grade));
-                }),
-                var scoped => scoped.Roster.TraverseM(component => context.Op.Catch(() => {
-                        _ = context.Native.SelectSubObject(
+                Reach.EveryPart => Try.lift(() => {
+                    _ = context.UnselectAllSubObjects();
+                    return FactoryBridge.Row<int, SelectionGrade>(context.IsSelected(checkSubObjects: true))
+                        .Map(grade => (TouchResult)new TouchResult.Selected(Id: context.Id, Grade: grade));
+                }).Run().Bind(static inner => inner),
+                var scoped => scoped.Roster.TraverseM(component => Try.lift(() => {
+                        _ = context.SelectSubObject(
                             componentIndex: component,
                             select: touch.Signal.On,
                             syncHighlight: touch.Policy.Admits(capability: SelectionAxis.SyncHighlight),
                             persistentSelect: touch.Policy.Admits(capability: SelectionAxis.Persistent));
                         return guard(
-                            context.Native.IsSubObjectSelected(componentIndex: component) == touch.Signal.On,
-                            context.Op.InvalidResult()).ToFin();
-                    })).As()
-                    .Bind(_ => context.Op.Row<int, SelectionGrade>(context.Native.IsSelected(checkSubObjects: true)))
-                    .Map(grade => (TouchResult)new TouchResult.Selected(Id: context.Native.Id, Grade: grade)),
+                            context.IsSubObjectSelected(componentIndex: component) == touch.Signal.On,
+                            new KernelFault.InvalidResult()).ToFin();
+                    }).Run().Bind(static inner => inner)).As()
+                    .Bind(_ => FactoryBridge.Row<int, SelectionGrade>(context.IsSelected(checkSubObjects: true)))
+                    .Map(grade => (TouchResult)new TouchResult.Selected(Id: context.Id, Grade: grade)),
             },
             highlightCase: static (context, touch) => touch.Scope switch {
-                Reach.Whole => context.Op.Catch(() => guard(
-                        context.Native.Highlight(enable: touch.Signal.On) == touch.Signal.On,
-                        context.Op.InvalidResult()).ToFin())
-                    .Bind(_ => Highlighted(native: context.Native, key: context.Op)),
-                Reach.EveryPart => context.Op
-                    .Catch(() => Fin.Succ(value: context.Native.UnhighlightAllSubObjects()))
-                    .Bind(_ => Highlighted(native: context.Native, key: context.Op)),
-                var scoped => scoped.Roster.TraverseM(component => context.Op.Catch(() => guard(
-                        context.Native.HighlightSubObject(componentIndex: component, highlight: touch.Signal.On) == touch.Signal.On,
-                        context.Op.InvalidResult()).ToFin())).As()
-                    .Bind(_ => Highlighted(native: context.Native, key: context.Op)),
+                Reach.Whole => Try.lift(() => guard(
+                        context.Highlight(enable: touch.Signal.On) == touch.Signal.On,
+                        new KernelFault.InvalidResult()).ToFin()).Run().Bind(static inner => inner)
+                    .Bind(_ => Highlighted(native: context)),
+                Reach.EveryPart => Try.lift(() => Fin.Succ(value: context.UnhighlightAllSubObjects())).Run().Bind(static inner => inner)
+                    .Bind(_ => Highlighted(native: context)),
+                var scoped => scoped.Roster.TraverseM(component => Try.lift(() => guard(
+                        context.HighlightSubObject(componentIndex: component, highlight: touch.Signal.On) == touch.Signal.On,
+                        new KernelFault.InvalidResult()).ToFin()).Run().Bind(static inner => inner)).As()
+                    .Bind(_ => Highlighted(native: context)),
             });
 
-    private static Fin<TouchResult> Highlighted(RhinoObject native, Op key) =>
-        HighlightState.Of(native: native, key: key)
+    private static Fin<TouchResult> Highlighted(RhinoObject native) =>
+        HighlightState.Of(native: native)
             .Map(state => (TouchResult)new TouchResult.Highlighted(Id: native.Id, State: state));
 
-    private static Fin<Unit> Restore(Seq<TouchState> states, Op key) =>
-        states.Traverse(state => Restore(state: state, key: key).ToValidation()).As()
+    private static Fin<Unit> Restore(Seq<TouchState> states) =>
+        states.Traverse(state => Restore(state: state).ToValidation()).As()
             .ToFin()
             .Map(static _ => unit);
 
-    private static Fin<Unit> Restore(TouchState state, Op key) {
+    private static Fin<Unit> Restore(TouchState state) {
         Seq<Func<Fin<Unit>>> steps = [
             () => {
                 _ = state.Native.UnselectAllSubObjects();
@@ -408,7 +384,7 @@ public abstract partial record Touch {
                     persistentSelect: state.Selection == SelectionGrade.Persistent);
                 return guard(
                     state.Native.IsSubObjectSelected(componentIndex: component),
-                    key.InvalidResult()).ToFin();
+                    new KernelFault.InvalidResult()).ToFin();
             })),
             () => {
                 _ = state.Native.UnhighlightAllSubObjects();
@@ -417,14 +393,14 @@ public abstract partial record Touch {
             .. state.Highlight.Components.Map(component => (Func<Fin<Unit>>)(() =>
                 guard(
                     state.Native.HighlightSubObject(componentIndex: component, highlight: true),
-                    key.InvalidResult()).ToFin()
+                    new KernelFault.InvalidResult()).ToFin()
             )),
             () => guard(
                 state.Native.Highlight(enable: state.Highlight.Grade == HighlightGrade.Whole)
                     == (state.Highlight.Grade == HighlightGrade.Whole),
-                key.InvalidResult()).ToFin(),
+                new KernelFault.InvalidResult()).ToFin(),
         ];
-        return steps.Traverse(step => key.Catch(step).ToValidation())
+        return steps.Traverse(step => Try.lift(step).Run().Bind(static inner => inner).ToValidation())
             .As()
             .ToFin()
             .Map(static _ => unit);
@@ -477,51 +453,48 @@ public abstract partial record SectionCut {
     private sealed record FillCase(Seq<Guid> ClippingPlanes, FillSpan Fills) : SectionCut;
 
     public static Fin<SectionCut> Profile(Plane plane, string name) {
-        Op op = Op.Of();
-        return from frame in op.AcceptInput(value: plane)
-               from label in op.AcceptText(value: name)
+        return from frame in Acceptance.Input(value: plane)
+               from label in Acceptance.Text(value: name)
                select (SectionCut)new ProfileCase(Plane: frame, Name: label);
     }
 
     public static Fin<SectionCut> Slab(Plane center, string name, double thickness) {
-        Op op = Op.Of();
-        return from frame in op.AcceptInput(value: center)
-               from label in op.AcceptText(value: name)
-               from depth in op.Positive(value: thickness)
+        return from frame in Acceptance.Input(value: center)
+               from label in Acceptance.Text(value: name)
+               from depth in Admit.Positive(value: thickness)
                select (SectionCut)new SlabCase(Center: frame, Name: label, Thickness: depth);
     }
 
     public static Fin<SectionCut> Fill(Seq<Guid> clippingPlanes, FillSpan fills) {
-        Op op = Op.Of();
         return from ids in clippingPlanes.TraverseM(id => id != Guid.Empty
                    ? Fin.Succ(value: id)
-                   : Fin.Fail<Guid>(error: op.InvalidInput())).As()
-               from span in op.Need(fills)
-               from _ in guard(!ids.IsEmpty, op.InvalidInput())
+                   : Fin.Fail<Guid>(error: new KernelFault.InvalidInput())).As()
+               from span in Admit.Need(fills)
+               from _ in guard(!ids.IsEmpty, new KernelFault.InvalidInput())
                select (SectionCut)new FillCase(ClippingPlanes: ids.Distinct(), Fills: span);
     }
 
-    internal Fin<Seq<ObjectPiece>> Extract(RhinoDoc document, RhinoObject native, Context domain, Op key) =>
+    internal Fin<Seq<ObjectPiece>> Extract(RhinoDoc document, RhinoObject native, Context domain) =>
         Switch(
-            (Document: document, Native: native, Gate: domain.For(lane: ToleranceLane.PlaneDistance).Value, Op: key),
-            profileCase: static (context, cut) => context.Op.Catch(() => ObjectPiece.Paired(
+            (Document: document, Native: native, Gate: domain.For(lane: ToleranceLane.PlaneDistance).Value),
+            profileCase: static (context, cut) => Try.lift(() => ObjectPiece.Paired(
                 geometry: context.Native.CreateSections(
                     plane: cut.Plane, name: cut.Name, tolerance: context.Gate,
                     objectAttributes: out ObjectAttributes[] attributes),
-                attributes: attributes, key: context.Op)),
-            slabCase: static (context, cut) => context.Op.Catch(() => ObjectPiece.Paired(
+                attributes: attributes)).Run().Bind(static inner => inner),
+            slabCase: static (context, cut) => Try.lift(() => ObjectPiece.Paired(
                 geometry: context.Native.CreateSlices(
                     centerPlane: cut.Center, name: cut.Name, thickness: cut.Thickness, tolerance: context.Gate,
                     objectAttributes: out ObjectAttributes[] attributes),
-                attributes: attributes, key: context.Op)),
+                attributes: attributes)).Run().Bind(static inner => inner),
             fillCase: static (context, cut) =>
                 from planes in cut.ClippingPlanes.TraverseM(id =>
-                    Optional(context.Document.Objects.FindId(id)).ToFin(Fail: context.Op.MissingContext())
-                        .Bind(found => context.Op.Need(found as ClippingPlaneObject))).As()
-                from pieces in context.Op.Catch(() => ObjectPiece.Paired(
+                    Optional(context.Document.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())
+                        .Bind(found => Admit.Need(found as ClippingPlaneObject))).As()
+                from pieces in Try.lift(() => ObjectPiece.Paired(
                     geometry: RhinoObject.GetFillSurfaces(
                         rhinoObject: context.Native, clippingPlaneObjects: planes.AsIterable(), unclippedFills: cut.Fills.Key),
-                    attributes: null, key: context.Op))
+                    attributes: null)).Run().Bind(static inner => inner)
                 select pieces);
 
 }
@@ -529,18 +502,16 @@ public abstract partial record SectionCut {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class ObjectPiece {
 
-    internal static Fin<Seq<ObjectPiece>> Paired(GeometryBase[]? geometry, ObjectAttributes[]? attributes, Op key) {
+    internal static Fin<Seq<ObjectPiece>> Paired(GeometryBase[]? geometry, ObjectAttributes[]? attributes) {
         Fin<Seq<ObjectPiece>> result =
-            from shapes in Optional(geometry).ToFin(Fail: key.InvalidResult()).Map(static values => toSeq(values).Strict())
-            from _ in guard(attributes is null || attributes.Length == shapes.Count, key.InvalidResult())
+            from shapes in Optional(geometry).ToFin(Fail: new KernelFault.InvalidResult()).Map(static values => toSeq(values).Strict())
+            from _ in guard(attributes is null || attributes.Length == shapes.Count, new KernelFault.InvalidResult())
             from pieces in ObjectPiece.DetachAll(
-                rows: shapes.Map((shape, index) => (shape, Optional(attributes).Bind(paired => Optional(paired[index])))),
-                key: key)
+                rows: shapes.Map((shape, index) => (shape, Optional(attributes).Bind(paired => Optional(paired[index])))))
             select pieces;
         return result.Settled(
             held: Seq((Geometry: geometry, Attributes: attributes)),
-            release: row => ObjectPiece.Release(geometry: row.Geometry, attributes: row.Attributes, key: key),
-            key: key);
+            release: row => ObjectPiece.Release(geometry: row.Geometry, attributes: row.Attributes));
     }
     private int released;
 
@@ -552,71 +523,63 @@ public sealed class ObjectPiece {
     public GeometryHandle Geometry { get; }
     public Option<ObjectAttributes> Attributes { get; }
 
-    internal static Fin<ObjectPiece> Detach(GeometryBase geometry, Option<ObjectAttributes> attributes, Op key) =>
-        from handle in GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach, key: key)
-        from metadata in key.Catch(() => Fin.Succ(value: attributes.Map(static value => value.Duplicate())))
+    internal static Fin<ObjectPiece> Detach(GeometryBase geometry, Option<ObjectAttributes> attributes) =>
+        from handle in GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach)
+        from metadata in Try.lift(() => Fin.Succ(value: attributes.Map(static value => value.Duplicate()))).Run().Bind(static inner => inner)
             .Rollback(handle)
         select new ObjectPiece(geometry: handle, attributes: metadata);
 
     private static Fin<Seq<TProduct>> Custody<TSource, TProduct>(
-        Seq<TSource> rows, Func<TSource, Fin<TProduct>> mint, Func<TProduct, Fin<Unit>> release, Op key) =>
+        Seq<TSource> rows, Func<TSource, Fin<TProduct>> mint, Func<TProduct, Fin<Unit>> release) =>
         rows.Fold(
             Fin.Succ(value: Seq<TProduct>()),
             (state, row) => state.Bind(held => mint(arg: row)
                 .Map(held.Add)
-                .Rollback(held: held, release: release, key: key)));
+                .Rollback(held: held, release: release)));
 
     internal static Fin<Seq<ObjectPiece>> DetachAll(
-        Seq<(GeometryBase Shape, Option<ObjectAttributes> Attributes)> rows, Op key) =>
+        Seq<(GeometryBase Shape, Option<ObjectAttributes> Attributes)> rows) =>
         Custody(
             rows: rows,
-            mint: row => Detach(geometry: row.Shape, attributes: row.Attributes, key: key),
-            release: piece => piece.Release(key),
-            key: key);
+            mint: row => Detach(geometry: row.Shape, attributes: row.Attributes),
+            release: piece => piece.Release());
 
     internal static Fin<Seq<(Guid Id, Seq<ObjectPiece> Products)>> Acquire(
         Seq<RhinoObject> natives,
-        Func<RhinoObject, Fin<Seq<ObjectPiece>>> detach,
-        Op key) =>
+        Func<RhinoObject, Fin<Seq<ObjectPiece>>> detach) =>
         Custody(
             rows: natives,
             mint: native => detach(arg: native).Map(products => (native.Id, products)),
             release: row => Custody.Release(
                 held: row.Products,
-                release: piece => piece.Release(key),
-                key: key),
-            key: key);
+                release: piece => piece.Release()));
 
-    internal static Fin<Unit> Release(GeometryBase[]? geometry, ObjectAttributes[]? attributes, Op key) =>
+    internal static Fin<Unit> Release(GeometryBase[]? geometry, ObjectAttributes[]? attributes) =>
         Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
                 () => Custody.Release(
                     held: Optional(attributes).Map(static rows => toSeq(rows).Choose(static row => Optional(row))).IfNone(Seq<ObjectAttributes>()),
-                    release: metadata => key.Catch(() => Fin.Succ(value: Op.Side(metadata.Dispose))),
-                    key: key),
+                    release: metadata => Try.lift(() => Fin.Succ(value: HostEdge.Side(metadata.Dispose))).Run().Bind(static inner => inner)),
                 () => Custody.Release(
                     held: Optional(geometry).Map(static rows => toSeq(rows).Choose(static row => Optional(row))).IfNone(Seq<GeometryBase>()),
-                    release: shape => key.Catch(() => Fin.Succ(value: Op.Side(shape.Dispose))),
-                    key: key)),
-            key: key);
+                    release: shape => Try.lift(() => Fin.Succ(value: HostEdge.Side(shape.Dispose))).Run().Bind(static inner => inner))));
 
-    internal static Fin<Unit> Release(Seq<ObjectPiece> pieces, Op key) =>
-        Custody.Release(held: pieces, release: piece => piece.Release(key), key: key);
+    internal static Fin<Unit> Release(Seq<ObjectPiece> pieces) =>
+        Custody.Release(held: pieces, release: piece => piece.Release());
 
-    internal static Fin<Unit> Release(Seq<(Guid Id, Seq<ObjectPiece> Products)> rows, Op key) =>
-        Release(pieces: rows.Bind(static row => row.Products), key: key);
+    internal static Fin<Unit> Release(Seq<(Guid Id, Seq<ObjectPiece> Products)> rows) =>
+        Release(pieces: rows.Bind(static row => row.Products));
 
-    internal static Fin<Unit> Release(Seq<(Guid Id, ObjectPiece Product)> rows, Op key) =>
-        Release(pieces: rows.Map(static row => row.Product), key: key);
+    internal static Fin<Unit> Release(Seq<(Guid Id, ObjectPiece Product)> rows) =>
+        Release(pieces: rows.Map(static row => row.Product));
 
-    public Fin<Unit> Release(Op key) {
+    public Fin<Unit> Release() {
         if (Interlocked.Exchange(location1: ref released, value: 1) is not 0) { return Fin.Succ(unit); }
         return Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => key.Catch(() => Fin.Succ(value: Op.Side(Geometry.Dispose))),
-                () => Attributes.TraverseM(value => key.Catch(() => Fin.Succ(Op.Side(value.Dispose))))
-                    .As().Map(static _ => unit)),
-            key: key);
+                () => Try.lift(() => Fin.Succ(value: HostEdge.Side(Geometry.Dispose))).Run().Bind(static inner => inner),
+                () => Attributes.TraverseM(value => Try.lift(() => Fin.Succ(HostEdge.Side(value.Dispose))).Run().Bind(static inner => inner))
+                    .As().Map(static _ => unit)));
     }
 
 }
@@ -650,22 +613,20 @@ public abstract partial record StateAsk {
     public sealed record Members : StateAsk;
     public sealed record Cut(SectionCut Section) : StateAsk;
 
-    internal Fin<StateAsk> Admit(Op op) =>
-        Switch(
-            op,
-            snapshot: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            frames: static (key, ask) => key.Need(ask.Frame)
-                .Bind(frame => frame.Admit(key))
+    internal Fin<StateAsk> Admit() =>
+        Switch(snapshot: static (_, ask) => Fin.Succ<StateAsk>(ask),
+            frames: static (key, ask) => Admit.Need(ask.Frame)
+                .Bind(frame => frame.Admit())
                 .Map(frame => (StateAsk)new Frames(Frame: frame)),
             selectedParts: static (_, ask) => Fin.Succ<StateAsk>(ask),
             highlightedParts: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            components: static (key, ask) => key.Need(ask.Scope)
-                .Bind(scope => scope.Admit(key))
-                .Bind(scope => guard(scope is Reach.Part or Reach.Parts, key.InvalidInput()).ToFin().Map(_ => (StateAsk)new Components(scope))),
-            extent: static (key, ask) => ask.Frame.Traverse(frame => key.AcceptInput(value: frame)).As()
+            components: static (key, ask) => Admit.Need(ask.Scope)
+                .Bind(scope => scope.Admit())
+                .Bind(scope => guard(scope is Reach.Part or Reach.Parts, new KernelFault.InvalidInput()).ToFin().Map(_ => (StateAsk)new Components(scope))),
+            extent: static (key, ask) => ask.Frame.Traverse(frame => Acceptance.Input(value: frame)).As()
                 .Map(frame => (StateAsk)new Extent(Frame: frame)),
             members: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            cut: static (key, ask) => key.Need(ask.Section).Map(_ => (StateAsk)ask));
+            cut: static (key, ask) => Admit.Need(ask.Section).Map(_ => (StateAsk)ask));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -679,16 +640,14 @@ public abstract partial record StateAnswer : IDetachedDocumentResult {
     public sealed record Members(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
     public sealed record Sections(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
 
-    public Fin<Unit> Release(Op op) =>
-        Switch(
-            op,
-            states: static (_, _) => Fin.Succ(unit),
+    public Fin<Unit> Release() =>
+        Switch(states: static (_, _) => Fin.Succ(unit),
             posed: static (_, _) => Fin.Succ(unit),
             partRoster: static (_, _) => Fin.Succ(unit),
             partStates: static (_, _) => Fin.Succ(unit),
             extent: static (_, _) => Fin.Succ(unit),
-            members: static (key, answer) => ObjectPiece.Release(answer.Rows, key),
-            sections: static (key, answer) => ObjectPiece.Release(answer.Rows, key));
+            members: static (key, answer) => ObjectPiece.Release(answer.Rows),
+            sections: static (key, answer) => ObjectPiece.Release(answer.Rows));
 }
 
 [ComplexValueObject]
@@ -709,7 +668,6 @@ public sealed partial class PartState {
         ref bool selectable,
         ref bool selectableIgnoringSelection,
         ref bool highlighted) {
-        Op op = Op.Of();
         Guid owner = id;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (owner == Guid.Empty, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Id) })))));
@@ -721,10 +679,9 @@ public sealed partial class PartState {
         bool selected,
         bool selectable,
         bool selectableIgnoringSelection,
-        bool highlighted,
-        Op key) =>
-        from part in key.AcceptValidated<PartIndex, ComponentIndex>(candidate: component)
-        from row in key.AcceptValidated<PartState>(
+        bool highlighted) =>
+        from part in FactoryBridge.Accept<PartIndex, ComponentIndex>(candidate: component)
+        from row in FactoryBridge.Accept<PartState>(
             fault: Validate(
                 id, part, selected, selectable, selectableIgnoringSelection, highlighted,
                 out PartState? admitted),
@@ -742,7 +699,6 @@ public sealed partial class ArchiveExtent {
         ref ValidationError? validationError,
         ref DocumentPath path,
         ref long bytes) {
-        Op op = Op.Of();
         (DocumentPath Path, long Bytes) extent = (path, bytes);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (extent.Path == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Path) }))),
@@ -770,37 +726,36 @@ public sealed record DocumentCensus(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Objects {
     public static Fin<StateAnswer> Ask(DocumentSession session, TableTarget target, StateAsk ask) {
-        Op op = Op.Of();
-        return from active in op.Need(ask).Bind(value => value.Admit(op: op))
+        return from active in Admit.Need(ask).Bind(value => value.Admit())
                from answer in session.Demand(
                    use: document =>
-                       from natives in Resolve(document: document, target: target, key: op)
+                       from natives in Resolve(document: document, target: target)
                        from folded in active.Switch(
-                           (Document: document, Natives: natives, Op: op),
+                           (Document: document, Natives: natives),
                            snapshot: static (ctx, _) => ctx.Natives
                                .TraverseM(native => ObjectSnapshot.Of(native: native, key: ctx.Op)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.States(Rows: rows)),
                            frames: static (ctx, ask) => ctx.Natives
-                               .TraverseM(native => ctx.Op.Catch(() =>
-                                   Fin.Succ(value: (native.Id, ask.Frame.Read(native: native))))).As()
+                               .TraverseM(native => Try.lift(() =>
+                                   Fin.Succ(value: (native.Id, ask.Frame.Read(native: native)))).Run().Bind(static inner => inner)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.Posed(Rows: rows)),
                            selectedParts: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => ctx.Op.Catch(() => Fin.Succ(value: (
+                               .TraverseM(native => Try.lift(() => Fin.Succ(value: (
                                    native.Id,
                                    Optional(native.GetSelectedSubObjects())
                                        .Map(static rows => toSeq(rows))
-                                       .IfNone(Seq<ComponentIndex>()))))).As()
+                                       .IfNone(Seq<ComponentIndex>())))).Run().Bind(static inner => inner)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartRoster(Rows: rows)),
                            highlightedParts: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => ctx.Op.Catch(() => Fin.Succ(value: (
+                               .TraverseM(native => Try.lift(() => Fin.Succ(value: (
                                    native.Id,
                                    Optional(native.GetHighlightedSubObjects())
                                        .Map(static rows => toSeq(rows))
-                                       .IfNone(Seq<ComponentIndex>()))))).As()
+                                       .IfNone(Seq<ComponentIndex>())))).Run().Bind(static inner => inner)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartRoster(Rows: rows)),
                            components: static (ctx, ask) => ctx.Natives
                                .Bind(native => ask.Scope.Roster.Map(component => (Native: native, Component: component)))
-                               .TraverseM(row => ctx.Op.Catch(() => PartState.Of(
+                               .TraverseM(row => Try.lift(() => PartState.Of(
                                    id: row.Native.Id,
                                    component: row.Component,
                                    selected: row.Native.IsSubObjectSelected(componentIndex: row.Component),
@@ -808,10 +763,9 @@ public static class Objects {
                                        componentIndex: row.Component, ignoreSelectionState: false),
                                    selectableIgnoringSelection: row.Native.IsSubObjectSelectable(
                                        componentIndex: row.Component, ignoreSelectionState: true),
-                                   highlighted: row.Native.IsSubObjectHighlighted(componentIndex: row.Component),
-                                   key: ctx.Op))).As()
+                                   highlighted: row.Native.IsSubObjectHighlighted(componentIndex: row.Component))).Run().Bind(static inner => inner)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartStates(Rows: rows)),
-                           extent: static (ctx, ask) => ctx.Op.Catch(() => {
+                           extent: static (ctx, ask) => Try.lift(() => {
                                BoundingBox bounds = BoundingBox.Unset;
                                bool answered = ask.Frame.Case switch {
                                    Plane frame => RhinoObject.GetTightBoundingBox(
@@ -821,76 +775,68 @@ public static class Objects {
                                };
                                return answered && bounds.IsValid
                                    ? Fin.Succ(value: (StateAnswer)new StateAnswer.Extent(Bounds: bounds))
-                                   : Fin.Fail<StateAnswer>(error: ctx.Op.InvalidResult());
-                           }),
+                                   : Fin.Fail<StateAnswer>(error: new KernelFault.InvalidResult());
+                           }).Run().Bind(static inner => inner),
                            members: static (ctx, _) => ObjectPiece.Acquire(
                                natives: ctx.Natives,
-                               detach: native => ctx.Op.Catch(() =>
-                                   Optional(native.GetSubObjects()).ToFin(Fail: ctx.Op.InvalidResult())
-                                       .Bind(parts => DetachMembers(members: parts, key: ctx.Op))),
-                               key: ctx.Op)
+                               detach: native => Try.lift(() =>
+                                   Optional(native.GetSubObjects()).ToFin(Fail: new KernelFault.InvalidResult())
+                                       .Bind(parts => DetachMembers(members: parts, key: ctx.Op))).Run().Bind(static inner => inner))
                                .Map(static rows => (StateAnswer)new StateAnswer.Members(Rows: rows)),
                            cut: static (ctx, ask) =>
                                from domain in Rasm.Domain.Context.Of(doc: ctx.Document).ToFin()
                                from rows in ObjectPiece.Acquire(
                                    natives: ctx.Natives,
                                    detach: native => ask.Section.Extract(
-                                       document: ctx.Document, native: native, domain: domain, key: ctx.Op),
-                                   key: ctx.Op)
+                                       document: ctx.Document, native: native, domain: domain))
                                select (StateAnswer)new StateAnswer.Sections(Rows: rows))
                        select folded,
-                   key: op,
                    needs: [SessionNeed.Read])
                select answer;
     }
 
     public static Fin<Seq<TouchResult>> Touch(DocumentSession session, TableTarget target, Touch touch) {
-        Op op = Op.Of();
-        return from active in op.Need(touch)
+        return from active in Admit.Need(touch)
                from results in session.Demand(
                    use: document =>
-                       from natives in Resolve(document: document, target: target, key: op)
+                       from natives in Resolve(document: document, target: target)
                        from folded in active.Transact(natives: natives, key: op)
                        select folded,
-                   key: op,
                    needs: [SessionNeed.Mutate])
                select results;
     }
 
-    public static Fin<DocumentCensus> Census(DocumentSession session, TableTarget target, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<DocumentCensus> Census(DocumentSession session, TableTarget target) {
         return session.Demand(
-            use: document => CensusPinned(session: session, target: target, document: document, op: op),
-            key: op,
+            use: document => CensusPinned(session: session, target: target, document: document),
             needs: [SessionNeed.Read]);
     }
 
     private static Fin<DocumentCensus> CensusPinned(
         DocumentSession session,
         TableTarget target,
-        RhinoDoc document,
-        Op op) =>
+        RhinoDoc document) =>
         from answer in Ask(session: session, target: target, ask: new StateAsk.Snapshot())
                from usage in answer is StateAnswer.States states
                    ? Fin.Succ(value: states.Rows.Strict())
-                   : Fin.Fail<Seq<ObjectSnapshot>>(error: op.InvalidResult())
-               from path in op.Catch(() => Fin.Succ(value: Op.Text(document.Path)))
-               from tree in Layers.Ask(session: session, key: op)
+                   : Fin.Fail<Seq<ObjectSnapshot>>(error: new KernelFault.InvalidResult())
+               from path in Try.lift(() => Fin.Succ(value: HostEdge.Text(document.Path))).Run().Bind(static inner => inner)
+               from tree in Layers.Ask(session: session)
                let topology = new GraphSource.Live(Session: session)
                from definitions in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Definitions())
                    .Bind(answer => answer is BlockGraphAnswer.Nodes nodes
                        ? Fin.Succ(value: nodes.Values.Count)
-                       : Fin.Fail<int>(error: op.InvalidResult()))
+                       : Fin.Fail<int>(error: new KernelFault.InvalidResult()))
                from placed in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Placed())
                    .Bind(answer => answer is BlockGraphAnswer.Placements placements
                        ? Fin.Succ(value: (Count: placements.Values.Count, Complete: placements.Evidence.IsComplete))
-                       : Fin.Fail<(int, bool)>(error: op.InvalidResult()))
+                       : Fin.Fail<(int, bool)>(error: new KernelFault.InvalidResult()))
                from cycles in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Condensation())
                    .Bind(answer => answer is BlockGraphAnswer.Condensed condensed
                        ? Fin.Succ(value: condensed.Components.Filter(static component => component.Count > 1).Count)
-                       : Fin.Fail<int>(error: op.InvalidResult()))
+                       : Fin.Fail<int>(error: new KernelFault.InvalidResult()))
                from archive in path
-                   .TraverseM(value => OpenArchive(path: value, op: op))
+                   .TraverseM(value => OpenArchive(path: value))
                    .As()
                    .Map(static opened => opened.Bind(static extent => extent))
                select new DocumentCensus(
@@ -916,10 +862,10 @@ public static class Objects {
                    BlockCycleGroups: cycles,
                    Archive: archive);
 
-    private static Fin<Option<ArchiveExtent>> OpenArchive(string path, Op op) =>
-        op.Catch(() => from admitted in DocumentPath.Of(value: path, key: op)
+    private static Fin<Option<ArchiveExtent>> OpenArchive(string path) =>
+        Try.lift(() => from admitted in DocumentPath.Of(value: path)
                        from extent in Fin.Succ(value: OpenLength(path: path))
-                       select Some(ArchiveExtent.Create(path: admitted, bytes: extent)))
+                       select Some(ArchiveExtent.Create(path: admitted, bytes: extent))).Run().Bind(static inner => inner)
             .BindFail(static error =>
             error.Exception.Case is System.IO.FileNotFoundException or System.IO.DirectoryNotFoundException
                 ? Fin.Succ(Option<ArchiveExtent>.None)
@@ -930,39 +876,36 @@ public static class Objects {
         return System.IO.RandomAccess.GetLength(handle: handle);
     }
 
-    internal static Fin<Seq<RhinoObject>> Resolve(RhinoDoc document, TableTarget target, Op key) =>
-        from address in key.Need(target)
-        from ids in address.Resolve(document: document, key: key)
+    internal static Fin<Seq<RhinoObject>> Resolve(RhinoDoc document, TableTarget target) =>
+        from address in Admit.Need(target)
+        from ids in address.Resolve(document: document)
         from natives in ids.TraverseM(id =>
-            Optional(document.Objects.FindId(id)).ToFin(Fail: key.MissingContext())).As()
+            Optional(document.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())).As()
         select natives;
 
-    private static Fin<Seq<ObjectPiece>> DetachMembers(RhinoObject[] members, Op key) {
+    private static Fin<Seq<ObjectPiece>> DetachMembers(RhinoObject[] members) {
         Fin<Seq<ObjectPiece>> result = toSeq(members)
-            .TraverseM(member => Optional(member.Geometry).ToFin(Fail: key.InvalidResult())
+            .TraverseM(member => Optional(member.Geometry).ToFin(Fail: new KernelFault.InvalidResult())
                 .Map(geometry => (geometry, Optional(member.Attributes)))).As()
-            .Bind(rows => ObjectPiece.DetachAll(rows: rows, key: key));
+            .Bind(rows => ObjectPiece.DetachAll(rows: rows));
         return result.Settled(
             held: toSeq(members),
-            release: member => key.Catch(() => Fin.Succ(value: Op.SideWhen(member is not null, member.Dispose))),
-            key: key);
+            release: member => Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(member is not null, member.Dispose))).Run().Bind(static inner => inner));
     }
 }
 
 internal static class ObjectSpine {
     internal static Fin<TResult> Commit<TResult>(
         DocumentSession session, string name, RedrawPolicy redraw,
-        Func<RhinoDoc, Op, Fin<TResult>> run, Op op, bool recordsUndo = true) =>
+        Func<RhinoDoc, Fin<TResult>> run, bool recordsUndo = true) =>
         session.Demand(
             use: document => DocumentCommit.Sealed(
                 document: document,
                 name: name,
                 recordsUndo: recordsUndo,
                 redraw: redraw,
-                run: () => run(document, op),
-                project: Fin.Succ,
-                op: op),
-            key: op,
+                run: () => run(document),
+                project: Fin.Succ),
             needs: SessionNeed.Mutation(undo: recordsUndo, redraw: redraw).ToArray());
 }
 ```

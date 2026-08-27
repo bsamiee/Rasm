@@ -14,10 +14,10 @@ Every fallible read stays on the `Op`-keyed `Fin<T>` result: Rhino-read material
 
 ## [02]-[SELECTORS]
 
-- Owner: `CurveProjection` `[SmartEnum<int>]` — a row vocabulary over one `[UseDelegateFromConstructor]` `Sample(Curve, double, Context, Op)` column, the `Admits` capability column, and the `Raw` type column every row derives from its `Row<TRaw>` factory's type parameter — the one erasure site, so a row spells neither its raw type nor an `(object)` lift — and `Accepts<TOut>()` answers output-shape support off that column through the `Numerics/atoms` `ResultProjection.Accepts` pair predicate before any sample exists. `Vector(key, admits, sample)` owns vector admission, `FrameRow(key, perpendicular, project)` owns moving and sweep-frame recovery with axis projection, `TorsionRow(key, side)` owns third-order Frenet torsion with the kink-evaluation side as its column, the arc-length row owns the domain-length call, and the `Point`/`Parameter` rows surface the evaluated point and the admitted station itself, so a `Parametric/locate` curve read never re-spells `Curve.PointAt` beside the vocabulary.
-- Owner: `SurfaceProjection` `[SmartEnum<int>]` — a row vocabulary over `Sample(Surface, Point2d, Context, Op)` with the same `Row<TRaw>`-derived `Raw` column and `Accepts<TOut>()` gate. `WithCurvature` scopes every disposable `SurfaceCurvature` projection on the `Lease` carrier, `Derivatives(key, project)` derives the first-fundamental forms from one `Surface.Evaluate(u, v, numberDerivatives: 1, ...)` call, and `ShapeOperator` remains the sole second-fundamental-form owner.
+- Owner: `CurveProjection` `[SmartEnum<int>]` — a row vocabulary over one `[UseDelegateFromConstructor]` `Sample(Curve, double, Context, Op)` column, the `Admits` capability column, and the `Raw` type column every row derives from its `Row<TRaw>` factory's type parameter — the one erasure site, so a row spells neither its raw type nor an `(object)` lift — and `Accepts<TOut>()` answers output-shape support off that column through the `Numerics/atoms` `ResultProjection.Accepts` pair predicate before any sample exists. `Vector(admits, sample)` owns vector admission, `FrameRow(perpendicular, project)` owns moving and sweep-frame recovery with axis projection, `TorsionRow(side)` owns third-order Frenet torsion with the kink-evaluation side as its column, the arc-length row owns the domain-length call, and the `Point`/`Parameter` rows surface the evaluated point and the admitted station itself, so a `Parametric/locate` curve read never re-spells `Curve.PointAt` beside the vocabulary.
+- Owner: `SurfaceProjection` `[SmartEnum<int>]` — a row vocabulary over `Sample(Surface, Point2d, Context, Op)` with the same `Row<TRaw>`-derived `Raw` column and `Accepts<TOut>()` gate. `WithCurvature` scopes every disposable `SurfaceCurvature` projection on the `Lease` carrier, `Derivatives(project)` derives the first-fundamental forms from one `Surface.Evaluate(u, v, numberDerivatives: 1, ...)` call, and `ShapeOperator` remains the sole second-fundamental-form owner.
 - Owner: `SurfaceSpace` `readonly record struct` — the validated `Surface` + `Context` capsule: `Of(Surface, Context, Op?)` admits once (context present, surface non-null and `IsValid`), `Sample<TOut>(SurfaceProjection, double u, double v, Op)` delegates to the selector gate with the captured tolerance. `Sample` is internal, so the `Domain/results` threading law requires the key its caller supplies; `Spatial/support` owns `SupportSpace` closest-point over ANY geometry while `SurfaceSpace` owns parameter-addressed evaluation on a typed surface.
-- Entry: each selector exposes exactly one `internal Fin<TOut> Project<TOut>(...)` gate — `CurveProjection.Project<TOut>(Curve, double, Context, Op)` admits the curve (non-null, `IsValid`, `Domain.IncludesParameter`), samples the row, and drains `ResultProjection.Raw<TOut>(raw, Some(context), key, owner: typeof(CurveProjection), admits: Admits)`; `SurfaceProjection.Project<TOut>(Surface, double u, double v, Context, Op)` admits the surface, normalizes `(u,v)` through the `Domain/evaluation` `SurfaceUv`, samples, and drains the same fold. No per-row public methods, no output-type overloads — the raw→typed step is the row's.
+- Entry: each selector exposes exactly one `internal Fin<TOut> Project<TOut>(...)` gate — `CurveProjection.Project<TOut>(Curve, double, Context, Op)` admits the curve (non-null, `IsValid`, `Domain.IncludesParameter`), samples the row, and drains `ResultProjection.Raw<TOut>(raw, Some(context), owner: typeof(CurveProjection), admits: Admits)`; `SurfaceProjection.Project<TOut>(Surface, double u, double v, Context, Op)` admits the surface, normalizes `(u,v)` through the `Domain/evaluation` `SurfaceUv`, samples, and drains the same fold. No per-row public methods, no output-type overloads — the raw→typed step is the row's.
 - Law: magnitude admission is ROW DATA on a `CapabilitySet<RawAdmission>` column, never an identity probe and never a boolean beside the payload: the `ReferenceEquals(this, Curvature)` special case and the `bool admitsVectorMagnitude` knob it fed are both the deleted form, and a second conditional raw arm is one more `RawAdmission` row the same column already carries.
 - Packages: RhinoCommon (`Curve.PointAt`/`TangentAt`/`CurvatureAt`/`FrameAt`/`PerpendicularFrameAt`/`DerivativeAt(t, derivativeCount, CurveEvaluationSide)`/`GetLength(fractionalTolerance, subdomain)`/`Domain.IncludesParameter`; `CurveEvaluationSide.Default`/`Below`/`Above`; `Surface.CurvatureAt`/`PointAt`/`Evaluate`; `SurfaceCurvature.Kappa`/`Direction`/`OsculatingCircle`/`MaximumPrincipalCurvature`/`MinimumPrincipalCurvature`/`IsSet` — an `IDisposable` bundle; `Interval`, `Circle.IsValid`, `Vector3d.CrossProduct`/`IsValid`/`IsTiny`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`/`Option`/`guard`/`Optional`), `Domain/results` (`Op`, `Lease<T>`), `Domain/validation` (`Admit.Plane`, `CapabilitySet<T>`), `Domain/context` (`Context.For`), `Domain/evaluation` (`NormalAt`/`FrameAt`/`SurfaceUv`), `Domain/stats` (`ScalarMetric`), `Numerics/atoms` (`ResultProjection.Raw`, `RawAdmission`, `Direction.Of`, `Dimension`, `EpsilonPolicy`), `Numerics/matrix` (`SymmetricMatrix.Of`, `Matrix.Of`).
 - Growth: a new curve or surface probe is one row through an existing factory fold or a direct constructor where the read is scalar-shaped; a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rows, never a selector edit. Existing selector gates absorb every row extension.
@@ -43,7 +43,7 @@ public sealed partial class CurveProjection {
     public static readonly CurveProjection ArcLength = Row(key: 4, admits: CapabilitySet<RawAdmission>.None,
         sample: static (curve, t, context, key) => curve.GetLength(fractionalTolerance: context.For(lane: ToleranceLane.Fraction).Value, subdomain: new Interval(curve.Domain.T0, t)) switch {
             double length when RhinoMath.IsValidDouble(x: length) && (length > 0.0 || curve.Domain.NormalizedParameterAt(t) <= context.For(lane: ToleranceLane.Fraction).Value) => Fin.Succ(length),
-            _ => Fin.Fail<double>(key.InvalidResult()),
+            _ => Fin.Fail<double>(new KernelFault.InvalidResult()),
         });
     public static readonly CurveProjection FrameNormal = FrameRow(key: 5, perpendicular: false, project: static frame => frame.YAxis);
     public static readonly CurveProjection FrameBinormal = FrameRow(key: 6, perpendicular: false, project: static frame => frame.ZAxis);
@@ -52,86 +52,86 @@ public sealed partial class CurveProjection {
     public static readonly CurveProjection Torsion = TorsionRow(key: 9, side: CurveEvaluationSide.Default);
     public static readonly CurveProjection TorsionBelow = TorsionRow(key: 10, side: CurveEvaluationSide.Below);
     public static readonly CurveProjection TorsionAbove = TorsionRow(key: 11, side: CurveEvaluationSide.Above);
-    public static readonly CurveProjection Point = Row(key: 12, admits: CapabilitySet<RawAdmission>.None, sample: static (curve, t, _, key) => key.AcceptValue(value: curve.PointAt(t: t)));
-    public static readonly CurveProjection Parameter = Row(key: 13, admits: CapabilitySet<RawAdmission>.None, sample: static (_, t, _, key) => key.AcceptValue(value: t));
+    public static readonly CurveProjection Point = Row(key: 12, admits: CapabilitySet<RawAdmission>.None, sample: static (curve, t, _, key) => Acceptance.Value(value: curve.PointAt(t: t)));
+    public static readonly CurveProjection Parameter = Row(key: 13, admits: CapabilitySet<RawAdmission>.None, sample: static (_, t, _, key) => Acceptance.Value(value: t));
 
     public CapabilitySet<RawAdmission> Admits { get; }
     public Type Raw { get; }
-    [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context, Op key);
+    [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context);
 
     internal bool Accepts<TOut>() => ResultProjection.Accepts(raw: Raw, output: typeof(TOut), admits: Admits);
 
-    internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
-        from active in Optional(curve).ToFin(key.InvalidInput())
-        from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), key.InvalidInput())
-        from raw in Sample(curve: active, parameter: parameter, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
-        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), key: key, owner: typeof(CurveProjection), admits: Admits)
+    internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context) =>
+        from active in Optional(curve).ToFin(new KernelFault.InvalidInput())
+        from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), new KernelFault.InvalidInput())
+        from raw in Sample(curve: active, parameter: parameter, context: context).BindFail(_ => Fin.Fail<object>(new KernelFault.InvalidResult()))
+        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), owner: typeof(CurveProjection), admits: Admits)
         select output;
 
     // Row<TRaw> is the ONE erasure — TRaw seats the stored raw type and the (object) lift together, so no row spells either.
-    private static CurveProjection Row<TRaw>(int key, CapabilitySet<RawAdmission> admits, Func<Curve, double, Context, Op, Fin<TRaw>> sample) where TRaw : notnull =>
-        new(key: key, admits: admits, raw: typeof(TRaw), sample: (curve, t, context, op) => sample(arg1: curve, arg2: t, arg3: context, arg4: op).Map(static value => (object)value));
+    private static CurveProjection Row<TRaw>(int key, CapabilitySet<RawAdmission> admits, Func<Curve, double, Context, Fin<TRaw>> sample) where TRaw : notnull =>
+        new(admits: admits, raw: typeof(TRaw), sample: (curve, t, context, op) => sample(arg1: curve, arg2: t, arg3: context, arg4: op).Map(static value => (object)value));
     private static CurveProjection Vector(int key, CapabilitySet<RawAdmission> admits, Func<Curve, double, Vector3d> sample) =>
-        Row(key: key, admits: admits, sample: (curve, t, _, op) => sample(arg1: curve, arg2: t) switch {
+        Row(admits: admits, sample: (curve, t, _, op) => sample(arg1: curve, arg2: t) switch {
             Vector3d vector when vector.IsValid && (admits.Admits(RawAdmission.VectorMagnitude) || !vector.IsTiny()) => Fin.Succ(vector),
-            _ => Fin.Fail<Vector3d>(op.InvalidResult()),
+            _ => Fin.Fail<Vector3d>(new KernelFault.InvalidResult()),
         });
     private static CurveProjection TorsionRow(int key, CurveEvaluationSide side) =>
-        Row(key: key, admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => curve.DerivativeAt(t: t, derivativeCount: 3, side: side) switch {
+        Row(admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => curve.DerivativeAt(t: t, derivativeCount: 3, side: side) switch {
             [_, var d1, var d2, var d3] when Vector3d.CrossProduct(a: d1, b: d2) is var binormal
                 && binormal.SquareLength > EpsilonPolicy.ZeroTolerance =>
                 Fin.Succ((binormal * d3) / binormal.SquareLength),
-            _ => Fin.Fail<double>(op.InvalidResult()),
+            _ => Fin.Fail<double>(new KernelFault.InvalidResult()),
         });
     private static CurveProjection FrameRow<TRaw>(int key, bool perpendicular, Func<Plane, TRaw> project) where TRaw : notnull =>
-        Row(key: key, admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => perpendicular switch {
-            true => curve.PerpendicularFrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<TRaw>(op.InvalidResult()),
-            false => curve.FrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<TRaw>(op.InvalidResult()),
+        Row(admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => perpendicular switch {
+            true => curve.PerpendicularFrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<TRaw>(new KernelFault.InvalidResult()),
+            false => curve.FrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<TRaw>(new KernelFault.InvalidResult()),
         });
 }
 
 [SmartEnum<int>]
 public sealed partial class SurfaceProjection {
-    public static readonly SurfaceProjection PrincipalCurvatures = Row(key: 0, sample: static (surface, uv, _, key) => WithCurvature(surface: surface, uv: uv, key: key, project: static sc => Fin.Succ(Seq(sc.MaximumPrincipalCurvature, sc.MinimumPrincipalCurvature))));
-    public static readonly SurfaceProjection Gaussian = Row(key: 1, sample: static (surface, uv, _, key) => WithCurvature(surface: surface, uv: uv, key: key, project: sc => ScalarMetric.Gaussian.Of(value: sc, key: key)));
-    public static readonly SurfaceProjection Mean = Row(key: 2, sample: static (surface, uv, _, key) => WithCurvature(surface: surface, uv: uv, key: key, project: sc => ScalarMetric.Mean.Of(value: sc, key: key)));
+    public static readonly SurfaceProjection PrincipalCurvatures = Row(key: 0, sample: static (surface, uv, _, key) => WithCurvature(surface: surface, uv: uv, project: static sc => Fin.Succ(Seq(sc.MaximumPrincipalCurvature, sc.MinimumPrincipalCurvature))));
+    public static readonly SurfaceProjection Gaussian = Row(key: 1, sample: static (surface, uv, _, key) => WithCurvature(surface: surface, uv: uv, project: sc => ScalarMetric.Gaussian.Of(value: sc, key: key)));
+    public static readonly SurfaceProjection Mean = Row(key: 2, sample: static (surface, uv, _, key) => WithCurvature(surface: surface, uv: uv, project: sc => ScalarMetric.Mean.Of(value: sc, key: key)));
     public static readonly SurfaceProjection MaximumOsculatingCircle = Osculating(key: 3, direction: 0);
-    public static readonly SurfaceProjection Normal = Row(key: 4, sample: static (surface, uv, _, key) => Evaluation.NormalAt(surface: surface, uv: uv, key: key));
-    public static readonly SurfaceProjection ShapeOperator = Row(key: 5, sample: static (surface, uv, context, key) => WithCurvature(surface: surface, uv: uv, key: key, project: sc => ShapeOperatorOf(curvature: sc, context: context, key: key)));
+    public static readonly SurfaceProjection Normal = Row(key: 4, sample: static (surface, uv, _, key) => Evaluation.NormalAt(surface: surface, uv: uv));
+    public static readonly SurfaceProjection ShapeOperator = Row(key: 5, sample: static (surface, uv, context, key) => WithCurvature(surface: surface, uv: uv, project: sc => ShapeOperatorOf(curvature: sc, context: context)));
     public static readonly SurfaceProjection MinimumOsculatingCircle = Osculating(key: 6, direction: 1);
-    public static readonly SurfaceProjection Point = Row(key: 7, sample: static (surface, uv, _, key) => key.AcceptValue(value: surface.PointAt(u: uv.X, v: uv.Y)));
-    public static readonly SurfaceProjection Frame = Row(key: 8, sample: static (surface, uv, _, key) => Evaluation.FrameAt(surface: surface, uv: uv, key: key));
-    public static readonly SurfaceProjection UvFrame = Derivatives(key: 9, project: static (surface, uv, d, _, key) => OrientedFrame(surface: surface, uv: uv, frame: new Plane(origin: d.Point, xDirection: d.Du, yDirection: d.Dv), key: key));
-    public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, d, _, key) => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z], key: key));
-    public static readonly SurfaceProjection Metric = Derivatives(key: 11, project: static (_, _, d, _, key) => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [d.Du * d.Du, d.Du * d.Dv, d.Dv * d.Dv], key: key));
-    public static readonly SurfaceProjection AreaScale = Derivatives(key: 12, project: static (_, _, d, _, key) => key.AcceptValue(value: Vector3d.CrossProduct(a: d.Du, b: d.Dv).Length));
+    public static readonly SurfaceProjection Point = Row(key: 7, sample: static (surface, uv, _, key) => Acceptance.Value(value: surface.PointAt(u: uv.X, v: uv.Y)));
+    public static readonly SurfaceProjection Frame = Row(key: 8, sample: static (surface, uv, _, key) => Evaluation.FrameAt(surface: surface, uv: uv));
+    public static readonly SurfaceProjection UvFrame = Derivatives(key: 9, project: static (surface, uv, d, _, key) => OrientedFrame(surface: surface, uv: uv, frame: new Plane(origin: d.Point, xDirection: d.Du, yDirection: d.Dv)));
+    public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, d, _, key) => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z]));
+    public static readonly SurfaceProjection Metric = Derivatives(key: 11, project: static (_, _, d, _, key) => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [d.Du * d.Du, d.Du * d.Dv, d.Dv * d.Dv]));
+    public static readonly SurfaceProjection AreaScale = Derivatives(key: 12, project: static (_, _, d, _, key) => Acceptance.Value(value: Vector3d.CrossProduct(a: d.Du, b: d.Dv).Length));
     public static readonly SurfaceProjection MeanCurvatureVector = Row(key: 13, sample: static (surface, uv, _, key) =>
-        WithCurvature(surface: surface, uv: uv, key: key, project: sc => ScalarMetric.Mean.Of(value: sc, key: key)
-            .Bind(mean => Evaluation.NormalAt(surface: surface, uv: uv, key: key).Map(normal => normal * mean))));
+        WithCurvature(surface: surface, uv: uv, project: sc => ScalarMetric.Mean.Of(value: sc, key: key)
+            .Bind(mean => Evaluation.NormalAt(surface: surface, uv: uv).Map(normal => normal * mean))));
 
     public Type Raw { get; }
-    [UseDelegateFromConstructor] private partial Fin<object> Sample(Surface surface, Point2d uv, Context context, Op key);
+    [UseDelegateFromConstructor] private partial Fin<object> Sample(Surface surface, Point2d uv, Context context);
 
     internal bool Accepts<TOut>() => ResultProjection.Accepts(raw: Raw, output: typeof(TOut), admits: CapabilitySet<RawAdmission>.None);
 
-    internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
-        from active in Optional(surface).ToFin(key.InvalidInput())
-        from _ in guard(active.IsValid, key.InvalidInput())
-        from uv in Evaluation.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context, key: key)
-        from raw in Sample(surface: active, uv: uv, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
-        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), key: key, owner: typeof(SurfaceProjection), admits: CapabilitySet<RawAdmission>.None)
+    internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context) =>
+        from active in Optional(surface).ToFin(new KernelFault.InvalidInput())
+        from _ in guard(active.IsValid, new KernelFault.InvalidInput())
+        from uv in Evaluation.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context)
+        from raw in Sample(surface: active, uv: uv, context: context).BindFail(_ => Fin.Fail<object>(new KernelFault.InvalidResult()))
+        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), owner: typeof(SurfaceProjection), admits: CapabilitySet<RawAdmission>.None)
         select output;
 
-    private static Fin<T> WithCurvature<T>(Surface surface, Point2d uv, Op key, Func<SurfaceCurvature, Fin<T>> project) =>
-        Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())
+    private static Fin<T> WithCurvature<T>(Surface surface, Point2d uv, Func<SurfaceCurvature, Fin<T>> project) =>
+        Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(new KernelFault.InvalidResult())
             .Bind(sc => new Lease<SurfaceCurvature>.Owned(Value: sc)
-                .Use(bundle => bundle.IsSet ? project(arg: bundle) : Fin.Fail<T>(key.InvalidResult())));
+                .Use(bundle => bundle.IsSet ? project(arg: bundle) : Fin.Fail<T>(new KernelFault.InvalidResult())));
 
-    private static Fin<SymmetricMatrix> ShapeOperatorOf(SurfaceCurvature curvature, Context context, Op key) {
+    private static Fin<SymmetricMatrix> ShapeOperatorOf(SurfaceCurvature curvature, Context context) {
         double k0 = curvature.Kappa(direction: 0);
         double k1 = curvature.Kappa(direction: 1);
-        return from d0 in Direction.Of(value: curvature.Direction(direction: 0), context: context, key: key)
-               from d1 in Direction.Of(value: curvature.Direction(direction: 1), context: context, key: key)
+        return from d0 in Direction.Of(value: curvature.Direction(direction: 0), context: context)
+               from d1 in Direction.Of(value: curvature.Direction(direction: 1), context: context)
                from matrix in SymmetricMatrix.Of(
                    dim: Dimension.Create(value: 3),
                    upper: [
@@ -141,34 +141,32 @@ public sealed partial class SurfaceProjection {
                        (k0 * d0.Value.Y * d0.Value.Y) + (k1 * d1.Value.Y * d1.Value.Y),
                        (k0 * d0.Value.Y * d0.Value.Z) + (k1 * d1.Value.Y * d1.Value.Z),
                        (k0 * d0.Value.Z * d0.Value.Z) + (k1 * d1.Value.Z * d1.Value.Z),
-                   ],
-                   key: key)
+                   ])
                select matrix;
     }
-    private static Fin<(Point3d Point, Vector3d Du, Vector3d Dv)> SurfaceDerivatives(Surface surface, Point2d uv, Op key) =>
+    private static Fin<(Point3d Point, Vector3d Du, Vector3d Dv)> SurfaceDerivatives(Surface surface, Point2d uv) =>
         surface.Evaluate(u: uv.X, v: uv.Y, numberDerivatives: 1, point: out Point3d point, derivatives: out Vector3d[] derivatives)
         && derivatives is { Length: >= 2 }
-            ? from validPoint in key.AcceptValue(value: point)
-              from du in key.AcceptValue(value: derivatives[0])
-              from dv in key.AcceptValue(value: derivatives[1])
+            ? from validPoint in Acceptance.Value(value: point)
+              from du in Acceptance.Value(value: derivatives[0])
+              from dv in Acceptance.Value(value: derivatives[1])
               select (Point: validPoint, Du: du, Dv: dv)
-            : Fin.Fail<(Point3d Point, Vector3d Du, Vector3d Dv)>(key.InvalidResult());
-    private static Fin<Plane> OrientedFrame(Surface surface, Point2d uv, Plane frame, Op key) =>
-        from basis in Admit.Plane(basis: frame, key: key)
-        from normal in Evaluation.NormalAt(surface: surface, uv: uv, key: key)
+            : Fin.Fail<(Point3d Point, Vector3d Du, Vector3d Dv)>(new KernelFault.InvalidResult());
+    private static Fin<Plane> OrientedFrame(Surface surface, Point2d uv, Plane frame) =>
+        from basis in Admit.Plane(basis: frame)
+        from normal in Evaluation.NormalAt(surface: surface, uv: uv)
         from oriented in Admit.Plane(
-            basis: basis.ZAxis * normal >= 0.0 ? basis : new Plane(origin: basis.Origin, xDirection: basis.XAxis, yDirection: -basis.YAxis),
-            key: key)
+            basis: basis.ZAxis * normal >= 0.0 ? basis : new Plane(origin: basis.Origin, xDirection: basis.XAxis, yDirection: -basis.YAxis))
         select oriented;
-    private static SurfaceProjection Row<TRaw>(int key, Func<Surface, Point2d, Context, Op, Fin<TRaw>> sample) where TRaw : notnull =>
-        new(key: key, raw: typeof(TRaw), sample: (surface, uv, context, op) => sample(arg1: surface, arg2: uv, arg3: context, arg4: op).Map(static value => (object)value));
+    private static SurfaceProjection Row<TRaw>(int key, Func<Surface, Point2d, Context, Fin<TRaw>> sample) where TRaw : notnull =>
+        new(raw: typeof(TRaw), sample: (surface, uv, context, op) => sample(arg1: surface, arg2: uv, arg3: context, arg4: op).Map(static value => (object)value));
     private static SurfaceProjection Osculating(int key, int direction) =>
-        Row(key: key, sample: (surface, uv, _, op) => WithCurvature(surface: surface, uv: uv, key: op, project: sc => sc.OsculatingCircle(direction) switch {
+        Row(key: key, sample: (surface, uv, _, op) => WithCurvature(surface: surface, uv: uv, project: sc => sc.OsculatingCircle(direction) switch {
             Circle circle when circle.IsValid => Fin.Succ(circle),
-            _ => Fin.Fail<Circle>(op.InvalidResult()),
+            _ => Fin.Fail<Circle>(new KernelFault.InvalidResult()),
         }));
-    private static SurfaceProjection Derivatives<TRaw>(int key, Func<Surface, Point2d, (Point3d Point, Vector3d Du, Vector3d Dv), Context, Op, Fin<TRaw>> project) where TRaw : notnull =>
-        Row(key: key, sample: (surface, uv, context, op) => SurfaceDerivatives(surface: surface, uv: uv, key: op).Bind(d => project(arg1: surface, arg2: uv, arg3: d, arg4: context, arg5: op)));
+    private static SurfaceProjection Derivatives<TRaw>(int key, Func<Surface, Point2d, (Point3d Point, Vector3d Du, Vector3d Dv), Context, Fin<TRaw>> project) where TRaw : notnull =>
+        Row(key: key, sample: (surface, uv, context, op) => SurfaceDerivatives(surface: surface, uv: uv).Bind(d => project(arg1: surface, arg2: uv, arg3: d, arg4: context, arg5: op)));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -177,15 +175,14 @@ public readonly record struct SurfaceSpace {
     private SurfaceSpace(Surface native, Context tolerance) { Native = native; Tolerance = tolerance; }
     public Surface Native { get; }
     public Context Tolerance { get; }
-    public static Fin<SurfaceSpace> Of(Surface native, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from ctx in Optional(context).ToFin(op.MissingContext())
-               from active in Optional(native).Filter(static surface => surface.IsValid).ToFin(op.InvalidInput())
+    public static Fin<SurfaceSpace> Of(Surface native, Context context) {
+        return from ctx in Optional(context).ToFin(new KernelFault.MissingContext())
+               from active in Optional(native).Filter(static surface => surface.IsValid).ToFin(new KernelFault.InvalidInput())
                select new SurfaceSpace(native: active, tolerance: ctx);
     }
-    internal Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op key) {
+    internal Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v) {
         (Surface native, Context tolerance) = (Native, Tolerance);
-        return Optional(projection).ToFin(key.InvalidInput()).Bind(mode => mode.Project<TOut>(surface: native, u: u, v: v, context: tolerance, key: key));
+        return Optional(projection).ToFin(new KernelFault.InvalidInput()).Bind(mode => mode.Project<TOut>(surface: native, u: u, v: v, context: tolerance));
     }
 }
 ```
@@ -213,25 +210,25 @@ public sealed partial class MotionInterpolation {
     public static readonly MotionInterpolation Slerp = new(key: 1, combine: static (a, b, t) => Quaternion.Slerp(a: a, b: b, t: t));
     [UseDelegateFromConstructor] private partial Quaternion Combine(Quaternion a, Quaternion b, double t);
 
-    public Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Context context, Op key) =>
-        from left in Admit.Plane(basis: a, key: key)
-        from right in Admit.Plane(basis: b, key: key)
+    public Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Context context) =>
+        from left in Admit.Plane(basis: a)
+        from right in Admit.Plane(basis: b)
         from output in left.EpsilonEquals(other: right, epsilon: context.For(lane: ToleranceLane.PlaneDistance).Value)
             ? Fin.Succ(left)
             : Combine(a: Quaternion.Rotation(plane0: Plane.WorldXY, plane1: left), b: Quaternion.Rotation(plane0: Plane.WorldXY, plane1: right), t: t.Value)
                   .GetRotation(plane: out Plane oriented) && oriented.IsValid
-                ? Admit.Plane(basis: new Plane(origin: left.Origin + ((right.Origin - left.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis), key: key)
-                : Fin.Fail<Plane>(key.InvalidResult())
+                ? Admit.Plane(basis: new Plane(origin: left.Origin + ((right.Origin - left.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis))
+                : Fin.Fail<Plane>(new KernelFault.InvalidResult())
         select output;
 
-    public Fin<Direction> Rotate(Direction a, Direction b, UnitInterval t, Context context, Op key) =>
+    public Fin<Direction> Rotate(Direction a, Direction b, UnitInterval t, Context context) =>
         from rotor in a.Value.IsParallelTo(other: b.Value, angleTolerance: context.For(lane: ToleranceLane.Orientation).Value) switch {
             -1 => Fin.Succ(Quaternion.Rotation(Math.PI, VectorFrame.SeedPerpendicular(axis: a.Value))),
             _ => Transform.Rotation(startDirection: a.Value, endDirection: b.Value, rotationCenter: Point3d.Origin).GetQuaternion(quaternion: out Quaternion target)
                 ? Fin.Succ(target)
-                : Fin.Fail<Quaternion>(key.InvalidResult()),
+                : Fin.Fail<Quaternion>(new KernelFault.InvalidResult()),
         }
-        from rotated in Direction.Of(value: Combine(a: Quaternion.Identity, b: rotor, t: t.Value).Rotate(v: a.Value), context: context, key: key)
+        from rotated in Direction.Of(value: Combine(a: Quaternion.Identity, b: rotor, t: t.Value).Rotate(v: a.Value), context: context)
         select rotated;
 }
 ```
@@ -242,7 +239,7 @@ public sealed partial class MotionInterpolation {
 - Owner: `Easing` `[SmartEnum<int>]` — a family-and-polarity row product over one `[UseDelegateFromConstructor]` `Curve(double)` column. Each named row composes a family kernel with `In`, `Out`, or `InOut`, so polarity behavior remains fold-owned. `Evaluate(UnitInterval t)` is the one read: input arrives admitted, output is unclamped because overshooting kernels legitimately leave the unit band and the consumer's carrier owns its own range semantics.
 - Owner: `BezierEase` readonly record struct — the imported-token easing carrier: `Of(x1, y1, x2, y2, Op?)` admits a CSS-convention cubic Bezier (control abscissae clamped to the unit band so `x(u)` stays monotone and invertible), `Evaluate(UnitInterval t, Op?)` inverts `x(u) = t` through the MathNet bracketed `Brent.TryFindRoot` over the guaranteed `[0, 1]` sign change and reads `y(u)`; the iteration ceiling is owner policy, never a value column, and a non-converged bracket refuses in the result rather than publishing its last iterate.
 - Owner: `CyclePlan` readonly record struct owns repeat arithmetic: `Of(Option<int> count, bool reverses, Op?)` admits the plan (`None` count is unbounded, a bounded count is at least one, `Reverses` mirrors every odd iteration — the yoyo traversal), `Phase(Duration elapsed, Duration period, Op)` folds wall progress onto the sampled unit value and the continuation verdict, and `Terminal` reads the unit value a collapsed or completed run rests at, derived from count parity.
-- Owner: `SpringShape` readonly record struct — the analytic damped-spring owner. `Of(angularFrequency > 0, dampingRatio >= 0)` admits the shape and `OfResponse(response, dampingFraction, key)` is the second admission — the (response, damping-fraction) parameterization design tokens spell, mapping omega = `Math.Tau`/response and zeta = dampingFraction onto the same gate. `Evaluate(origin, target, elapsed, key)` returns the closed-form response the `DampingRegime` row `zeta` resolves to, `Step(origin, target, h, integrator, key)` runs ONE `RungeKuttaIntegrator.Step` over the page-declared `SpringShape.Module` for a driven target the closed form's fixed target does not hold between frames, and `Settle(origin, target, band, key)` projects the duration after which the response stays inside the band's position rung. `SpringState` carries position and velocity as one evidence value.
+- Owner: `SpringShape` readonly record struct — the analytic damped-spring owner. `Of(angularFrequency > 0, dampingRatio >= 0)` admits the shape and `OfResponse(response, dampingFraction)` is the second admission — the (response, damping-fraction) parameterization design tokens spell, mapping omega = `Math.Tau`/response and zeta = dampingFraction onto the same gate. `Evaluate(origin, target, elapsed)` returns the closed-form response the `DampingRegime` row `zeta` resolves to, `Step(origin, target, h, integrator)` runs ONE `RungeKuttaIntegrator.Step` over the page-declared `SpringShape.Module` for a driven target the closed form's fixed target does not hold between frames, and `Settle(origin, target, band, key)` projects the duration after which the response stays inside the band's position rung. `SpringState` carries position and velocity as one evidence value.
 - Owner: `DecayShape` `[ValueObject<double>]` over `Retention` — the inertial twin of the damped spring for motion released into FREE decay with no target: the generated `Create`/`TryCreate`/`Validate` gate admits the fraction of velocity surviving one time unit (`0 < retention < 1`) and `IDisallowDefaultValue` refuses the struct's default ghost, so an instance is its own evidence and no consumer probes an `IsValid`; `Rate` is its continuous decay constant, `Project(velocity, key)` returns the resting displacement a release travels, `Advance(origin, velocity, elapsed, key)` the position under way, and `Settle(velocity, epsilon, key)` the duration until the remaining travel falls inside epsilon. Releases approaching a chosen stop hand their live velocity to `SpringShape`, so the two owners compose as decay-then-approach and neither re-derives the other.
 - Cases: `Easing` 28 rows — the closed CSS `<easing-function>` named set over Robert Penner's equation families (quad, cubic, quint, sine, expo, circ, back, elastic, bounce) crossed with the three polarities, and `Linear`; the upstream is a published vocabulary, so the rows are data and a per-occurrence curve rides `BezierEase` instead of a new row.
 - Law: facing and completion are DERIVED inside `CyclePlan.Phase` — the odd-iteration mirror and the completion clamp live in that one fold and the verdict rides beside the value — so neither a posture roster nor the `reversed ? 1 - local : local` ternary re-appears at a consumer.
@@ -331,24 +328,22 @@ public sealed partial class Easing {
 public readonly record struct BezierEase(double X1, double Y1, double X2, double Y2) {
     private static readonly Dimension Iterations = Dimension.Create(value: 64);
 
-    public static Fin<BezierEase> Of(double x1, double y1, double x2, double y2, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.Finite(x1).ToValidation(), op.Finite(y1).ToValidation(),
-                op.Finite(x2).ToValidation(), op.Finite(y2).ToValidation())
+    public static Fin<BezierEase> Of(double x1, double y1, double x2, double y2) {
+        return (Admit.Finite(x1).ToValidation(), Admit.Finite(y1).ToValidation(),
+                Admit.Finite(x2).ToValidation(), Admit.Finite(y2).ToValidation())
             .Apply(static (a, b, c, d) => new BezierEase(
                 double.Clamp(a, 0.0, 1.0), b, double.Clamp(c, 0.0, 1.0), d))
             .As().ToFin();
     }
 
-    public Fin<double> Evaluate(UnitInterval t, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<double> Evaluate(UnitInterval t) {
         // Struct lambda law: the bracket closure reads locals, never `this`.
         (double x1, double x2, double target) = (X1, X2, t.Value);
         return MathNet.Numerics.RootFinding.Brent.TryFindRoot(
             u => Axis(x1, x2, u) - target,
             0.0, 1.0, EpsilonPolicy.SqrtEpsilon, Iterations.Value, out double u)
-                ? op.Finite(Axis(Y1, Y2, u))
-                : Fin.Fail<double>(op.InvalidResult());
+                ? Admit.Finite(Axis(Y1, Y2, u))
+                : Fin.Fail<double>(new KernelFault.InvalidResult());
     }
 
     private static double Axis(double a, double b, double u) =>
@@ -357,29 +352,28 @@ public readonly record struct BezierEase(double X1, double Y1, double X2, double
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CyclePlan(Option<int> Count, bool Reverses) {
-    public static Fin<CyclePlan> Of(Option<int> count, bool reverses, Op? key = null) {
-        Op op = key.OrDefault();
-        return count.TraverseM(value => guard(value >= 1, op.InvalidInput()).ToFin().Map(_ => value)).As()
+    public static Fin<CyclePlan> Of(Option<int> count, bool reverses) {
+        return count.TraverseM(value => guard(value >= 1, new KernelFault.InvalidInput()).ToFin().Map(_ => value)).As()
             .Map(bounded => new CyclePlan(Count: bounded, Reverses: reverses));
     }
 
     public UnitInterval Terminal => UnitInterval.Create(
         Reverses && Count.Map(static bounded => (bounded & 1) == 0).IfNone(false) ? 0.0 : 1.0);
 
-    public Fin<(UnitInterval Value, bool Continues)> Phase(Duration elapsed, Duration period, Op key) {
+    public Fin<(UnitInterval Value, bool Continues)> Phase(Duration elapsed, Duration period) {
         CyclePlan plan = this;
-        return from time in key.Finite(elapsed.TotalSeconds)
-                   .Bind(value => guard(value >= 0.0, key.InvalidInput()).ToFin().Map(_ => value))
-               from span in key.Positive(period.TotalSeconds)
-               from progress in key.Finite(time / span)
+        return from time in Admit.Finite(elapsed.TotalSeconds)
+                   .Bind(value => guard(value >= 0.0, new KernelFault.InvalidInput()).ToFin().Map(_ => value))
+               from span in Admit.Positive(period.TotalSeconds)
+               from progress in Admit.Finite(time / span)
                let completed = plan.Count.Filter(bounded => progress >= bounded)
                from iteration in completed.Match(
                    Some: bounded => Fin.Succ((long)bounded - 1L),
-                   None: () => guard(double.Floor(progress) < long.MaxValue, key.InvalidResult()).ToFin()
+                   None: () => guard(double.Floor(progress) < long.MaxValue, new KernelFault.InvalidResult()).ToFin()
                        .Map(_ => checked((long)double.Floor(progress))))
                let local = completed.IsSome ? 1.0 : progress - iteration
                let placed = plan.Reverses && (iteration & 1L) == 1L ? 1.0 - local : local
-               from value in key.AcceptValidated<UnitInterval>(candidate: placed)
+               from value in FactoryBridge.Accept<UnitInterval>(candidate: placed)
                select (Value: value, Continues: completed.IsNone);
     }
 }
@@ -400,53 +394,50 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
         Norm: static delta => Math.Max(val1: Math.Abs(value: delta.Position), val2: Math.Abs(value: delta.Velocity)),
         Zero: new SpringState(Position: 0.0, Velocity: 0.0));
 
-    public static Fin<SpringShape> Of(double angularFrequency, double dampingRatio, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.Positive(value: angularFrequency).ToValidation(),
-                op.Finite(value: dampingRatio).Bind(value => guard(value >= 0.0, op.InvalidInput()).ToFin().Map(_ => value)).ToValidation())
+    public static Fin<SpringShape> Of(double angularFrequency, double dampingRatio) {
+        return (Admit.Positive(value: angularFrequency).ToValidation(),
+                Admit.Finite(value: dampingRatio).Bind(value => guard(value >= 0.0, new KernelFault.InvalidInput()).ToFin().Map(_ => value)).ToValidation())
             .Apply(static (omega, zeta) => new SpringShape(AngularFrequency: omega, DampingRatio: zeta)).As().ToFin();
     }
 
-    public static Fin<SpringShape> OfResponse(double response, double dampingFraction, Op? key = null) {
-        Op op = key.OrDefault();
-        return from period in op.Positive(value: response)
-               from shape in Of(angularFrequency: Math.Tau / period, dampingRatio: dampingFraction, key: op)
+    public static Fin<SpringShape> OfResponse(double response, double dampingFraction) {
+        return from period in Admit.Positive(value: response)
+               from shape in Of(angularFrequency: Math.Tau / period, dampingRatio: dampingFraction)
                select shape;
     }
 
-    public Fin<SpringState> Evaluate(SpringState origin, double target, Duration elapsed, Op key) {
+    public Fin<SpringState> Evaluate(SpringState origin, double target, Duration elapsed) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
-        return from time in key.Finite(value: elapsed.TotalSeconds).Bind(value => guard(value >= 0.0, key.InvalidInput()).ToFin().Map(_ => value))
-               from goal in key.Finite(value: target)
-               from settled in key.AcceptValue(value: DampingRegime.Of(zeta: zeta)
+        return from time in Admit.Finite(value: elapsed.TotalSeconds).Bind(value => guard(value >= 0.0, new KernelFault.InvalidInput()).ToFin().Map(_ => value))
+               from goal in Admit.Finite(value: target)
+               from settled in Acceptance.Value(value: DampingRegime.Of(zeta: zeta)
                    .Respond(origin: origin, target: goal, omega: omega, zeta: zeta, t: time))
-               from valid in guard(settled.IsValid, key.InvalidResult()).ToFin().Map(_ => settled)
+               from valid in guard(settled.IsValid, new KernelFault.InvalidResult()).ToFin().Map(_ => settled)
                select valid;
     }
 
-    public Fin<IntegrationStep<SpringState, SpringState>> Step(SpringState origin, double target, Duration h, RungeKuttaIntegrator integrator, Op key) {
+    public Fin<IntegrationStep<SpringState, SpringState>> Step(SpringState origin, double target, Duration h, RungeKuttaIntegrator integrator) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
-        return from active in RungeKuttaIntegrator.Admit(value: integrator, key: key)
-               from span in key.Positive(value: h.TotalSeconds)
+        return from active in RungeKuttaIntegrator.Admit(value: integrator)
+               from span in Admit.Positive(value: h.TotalSeconds)
                from step in active.Step(
                    module: Module,
-                   sample: state => key.AcceptValue(value: new SpringState(
+                   sample: state => Acceptance.Value(value: new SpringState(
                        Position: state.Velocity,
                        Velocity: -(2.0 * zeta * omega * state.Velocity) - (omega * omega * (state.Position - target)))),
                    state: origin,
-                   h: span,
-                   key: key)
+                   h: span)
                select step;
     }
 
-    public Fin<Duration> Settle(SpringState origin, double target, SettleBand band, Op key) {
+    public Fin<Duration> Settle(SpringState origin, double target, SettleBand band) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
-        return from tolerance in key.Positive(value: band.Position)
-               from goal in key.Finite(value: target)
-               from decaying in guard(zeta > 0.0, key.InvalidInput())
+        return from tolerance in Admit.Positive(value: band.Position)
+               from goal in Admit.Finite(value: target)
+               from decaying in guard(zeta > 0.0, new KernelFault.InvalidInput())
                let offset = origin.Position - goal
                let bound = DampingRegime.Of(zeta: zeta).Envelope(offset: offset, velocity: origin.Velocity, omega: omega, zeta: zeta)
-               from seconds in key.Finite(value: Math.Max(
+               from seconds in Admit.Finite(value: Math.Max(
                    val1: 0.0,
                    val2: Math.Log(x: Math.Max(val1: bound.Amplitude, val2: tolerance) / tolerance) / bound.Rate))
                select Duration.FromSeconds(seconds);
@@ -529,24 +520,24 @@ public readonly partial struct DecayShape : IDisallowDefaultValue {
     public double Rate => -Math.Log(Retention);
 
     // Struct lambda law: every closure below reads a hoisted `rate`, never `this`.
-    public Fin<double> Project(double velocity, Op key) {
+    public Fin<double> Project(double velocity) {
         double rate = Rate;
-        return key.Finite(velocity).Map(initial => initial / rate);
+        return Admit.Finite(velocity).Map(initial => initial / rate);
     }
 
-    public Fin<double> Advance(double origin, double velocity, Duration elapsed, Op key) {
+    public Fin<double> Advance(double origin, double velocity, Duration elapsed) {
         double rate = Rate;
-        return (key.Finite(origin).ToValidation(), key.Finite(velocity).ToValidation(),
-                key.Finite(elapsed.TotalSeconds)
-                    .Bind(value => guard(value >= 0.0, key.InvalidInput()).ToFin().Map(_ => value)).ToValidation())
+        return (Admit.Finite(origin).ToValidation(), Admit.Finite(velocity).ToValidation(),
+                Admit.Finite(elapsed.TotalSeconds)
+                    .Bind(value => guard(value >= 0.0, new KernelFault.InvalidInput()).ToFin().Map(_ => value)).ToValidation())
             .Apply((start, initial, time) => start + (initial * (1.0 - Math.Exp(-rate * time)) / rate)).As().ToFin();
     }
 
-    public Fin<Duration> Settle(double velocity, PositiveMagnitude epsilon, Op key) {
+    public Fin<Duration> Settle(double velocity, PositiveMagnitude epsilon) {
         double rate = Rate;
-        return from initial in key.Finite(velocity)
+        return from initial in Admit.Finite(velocity)
                let remaining = Math.Abs(initial) / rate
-               from seconds in key.Finite(Math.Max(0.0, Math.Log(Math.Max(remaining, epsilon.Value) / epsilon.Value) / rate))
+               from seconds in Admit.Finite(Math.Max(0.0, Math.Log(Math.Max(remaining, epsilon.Value) / epsilon.Value) / rate))
                select Duration.FromSeconds(seconds);
     }
 }
@@ -596,7 +587,7 @@ public sealed partial class StampOrder {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct GaugedSpan<TLane>(TLane Lane, Op Work, TimeSpan Elapsed, TimeSpan Bound) : IValidityEvidence
+public readonly record struct GaugedSpan<TLane>(TLane Lane, TimeSpan Elapsed, TimeSpan Bound) : IValidityEvidence
     where TLane : notnull, IGaugeLane<TLane> {
     public bool Breached => Elapsed > Bound;
     public TimeSpan Overrun => Breached ? Elapsed - Bound : TimeSpan.Zero;
@@ -622,10 +613,10 @@ public sealed class MonotonicStamp : IValidityEvidence {
     internal bool SharesTimeline(MonotonicStamp other) =>
         ReferenceEquals(objA: _timeline, objB: other._timeline) && ReferenceEquals(objA: _provider, objB: other._provider);
     internal int CompareCapture(MonotonicStamp other) => _captureOrdinal.CompareTo(value: other._captureOrdinal);
-    internal Fin<TimeSpan> SpanTo(MonotonicStamp end, Op key) =>
-        from active in key.Need(value: end)
-        from owned in guard(IsValid && active.IsValid && SharesTimeline(other: active), key.InvalidInput())
-        from elapsed in key.Catch(body: () => Fin.Succ(_provider.GetElapsedTime(startingTimestamp: _timestamp, endingTimestamp: active._timestamp)))
+    internal Fin<TimeSpan> SpanTo(MonotonicStamp end) =>
+        from active in Admit.Need(value: end)
+        from owned in guard(IsValid && active.IsValid && SharesTimeline(other: active), new KernelFault.InvalidInput())
+        from elapsed in Try.lift(() => Fin.Succ(_provider.GetElapsedTime(startingTimestamp: _timestamp, endingTimestamp: active._timestamp))).Run().Bind(static inner => inner)
         select elapsed;
 }
 
@@ -672,16 +663,16 @@ internal sealed class BeatSequence {
 
     internal bool BelongsTo(MonotonicStamp origin) => ReferenceEquals(objA: _origin, objB: origin);
 
-    internal Fin<long> Advance(MonotonicStamp expected, MonotonicStamp current, TimeSpan delta, PositiveMagnitude cadence, Op key) {
+    internal Fin<long> Advance(MonotonicStamp expected, MonotonicStamp current, TimeSpan delta, PositiveMagnitude cadence) {
         long periods = Math.Max(val1: 1L, val2: (long)Math.Floor(d: delta.TotalSeconds / cadence.Value));
         return Cell.Step(
                 cell: _cell,
                 step: held => ReferenceEquals(objA: held.Tail, objB: expected) && long.MaxValue - periods >= held.NextOrdinal
                     ? Some(new BeatTail(Tail: current, NextOrdinal: held.NextOrdinal + periods))
                     : Option<BeatTail>.None,
-                declined: key.InvalidInput()) switch {
+                declined: new KernelFault.InvalidInput()) switch {
             Transition<BeatTail>.Committed committed => Fin.Succ(committed.State.NextOrdinal - periods),
-            Transition<BeatTail> declined => Fin.Fail<long>(declined is Transition<BeatTail>.Refused refused ? refused.Cause : key.InvalidInput()),
+            Transition<BeatTail> declined => Fin.Fail<long>(declined is Transition<BeatTail>.Refused refused ? refused.Cause : new KernelFault.InvalidInput()),
         };
     }
 }
@@ -692,100 +683,94 @@ public sealed class MonotonicTimeline {
 
     private MonotonicTimeline(TimeProvider provider) => _provider = provider;
 
-    public static Fin<MonotonicTimeline> Of(TimeProvider provider, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(value: provider)
-               from admitted in op.Catch(body: () => active.TimestampFrequency > 0
+    public static Fin<MonotonicTimeline> Of(TimeProvider provider) {
+        return from active in Admit.Need(value: provider)
+               from admitted in Try.lift(() => active.TimestampFrequency > 0
                    ? Fin.Succ(active)
-                   : Fin.Fail<TimeProvider>(op.InvalidInput()))
+                   : Fin.Fail<TimeProvider>(new KernelFault.InvalidInput())).Run().Bind(static inner => inner)
                select new MonotonicTimeline(provider: admitted);
     }
 
-    public Fin<MonotonicStamp> Capture(Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(body: () => {
+    public Fin<MonotonicStamp> Capture() {
+        return Try.lift(() => {
             long timestamp = _provider.GetTimestamp();
             return Cell.Step(
                     cell: _captureOrdinal,
                     step: static held => held == long.MaxValue ? Option<long>.None : Some(held + 1L),
-                    declined: op.InvalidResult()) switch {
+                    declined: new KernelFault.InvalidResult()) switch {
                 Transition<long>.Committed committed =>
                     Fin.Succ(new MonotonicStamp(timeline: this, provider: _provider, timestamp: timestamp, captureOrdinal: committed.State - 1L)),
-                Transition<long> declined => Fin.Fail<MonotonicStamp>(declined is Transition<long>.Refused refused ? refused.Cause : op.InvalidResult()),
+                Transition<long> declined => Fin.Fail<MonotonicStamp>(declined is Transition<long>.Refused refused ? refused.Cause : new KernelFault.InvalidResult()),
             };
-        });
+        }).Run().Bind(static inner => inner);
     }
 
-    public Fin<TimeSpan> Elapsed(MonotonicStamp start, MonotonicStamp end, Op? key = null) {
-        Op op = key.OrDefault();
-        return from left in Admit(stamp: start, key: op)
-               from right in Admit(stamp: end, key: op)
-               from elapsed in Elapsed(start: left, end: right, key: op)
+    public Fin<TimeSpan> Elapsed(MonotonicStamp start, MonotonicStamp end) {
+        return from left in Admit(stamp: start)
+               from right in Admit(stamp: end)
+               from elapsed in Elapsed(start: left, end: right)
                select elapsed;
     }
 
-    public Fin<StampOrder> Order(MonotonicStamp left, MonotonicStamp right, Op? key = null) {
-        Op op = key.OrDefault();
-        return from first in Admit(stamp: left, key: op)
-               from second in Admit(stamp: right, key: op)
-               from delta in first.SpanTo(end: second, key: op)
+    public Fin<StampOrder> Order(MonotonicStamp left, MonotonicStamp right) {
+        return from first in Admit(stamp: left)
+               from second in Admit(stamp: right)
+               from delta in first.SpanTo(end: second)
                select StampOrder.Of(sign: delta == TimeSpan.Zero ? first.CompareCapture(other: second) : TimeSpan.Zero.CompareTo(delta));
     }
 
-    public Fin<(Fin<T> Value, GaugedSpan<TLane> Span)> Gauged<T, TLane>(TLane lane, Op work, Func<Fin<T>> body, Op? key = null)
+    public Fin<(Fin<T> Value, GaugedSpan<TLane> Span)> Gauged<T, TLane>(TLane lane, Func<Fin<T>> body)
         where TLane : notnull, IGaugeLane<TLane> {
-        Op op = key.OrDefault();
-        return from measured in op.Need(value: body)
-               from start in Capture(key: op)
-               let value = op.Catch(measured)
-               from end in Capture(key: op)
-               from elapsed in Elapsed(start: start, end: end, key: op)
+        return from measured in Admit.Need(value: body)
+               from start in Capture()
+               let value = Try.lift(measured).Run().Bind(static inner => inner)
+               from end in Capture()
+               from elapsed in Elapsed(start: start, end: end)
                select (value, new GaugedSpan<TLane>(Lane: lane, Work: work, Elapsed: elapsed, Bound: lane.Bound));
     }
 
-    public Fin<MonotonicBeat> Beat(BeatSeed seed, PositiveMagnitude cadence, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<MonotonicBeat> Beat(BeatSeed seed, PositiveMagnitude cadence) {
         Fin<BeatSeed> activeSeed = seed.IsOrigin || seed.IsPrevious
             ? Fin.Succ(seed)
-            : Fin.Fail<BeatSeed>(op.InvalidInput());
+            : Fin.Fail<BeatSeed>(new KernelFault.InvalidInput());
         Fin<(MonotonicStamp Origin, Option<MonotonicBeat> Previous, BeatSequence Sequence)> cursor = activeSeed.Bind(active => active.Switch(
-            state: (Timeline: this, Key: op),
-            origin: static (state, origin) => state.Timeline.Admit(stamp: origin, key: state.Key)
+            state: this,
+            origin: static (state, origin) => state.Admit(stamp: origin)
                 .Map(static admitted => (Origin: admitted, Previous: Option<MonotonicBeat>.None, Sequence: new BeatSequence(origin: admitted))),
-            previous: static (state, previous) => state.Timeline.Admit(beat: previous, key: state.Key)
+            previous: static (state, previous) => state.Admit(beat: previous)
                 .Map(static admitted => (Origin: admitted.Origin, Previous: Some(admitted), Sequence: admitted.Sequence))));
         return from admitted in cursor
                let start = admitted.Origin
                let prior = admitted.Previous
-               from current in Capture(key: op)
-               from elapsed in Elapsed(start: start, end: current, key: op)
+               from current in Capture()
+               from elapsed in Elapsed(start: start, end: current)
                from delta in prior.Match(
-                   Some: beat => Elapsed(start: beat.Stamp, end: current, key: op),
+                   Some: beat => Elapsed(start: beat.Stamp, end: current),
                    None: () => Fin.Succ(elapsed))
-               from ordered in guard(prior.Map(beat => elapsed >= beat.Elapsed && delta <= elapsed).IfNone(noneValue: true), op.InvalidResult())
+               from ordered in guard(prior.Map(beat => elapsed >= beat.Elapsed && delta <= elapsed).IfNone(noneValue: true), new KernelFault.InvalidResult())
                let expected = prior.Map(static beat => beat.Stamp).IfNone(start)
-               from ordinal in admitted.Sequence.Advance(expected: expected, current: current, delta: delta, cadence: cadence, key: op)
-               from beat in op.AcceptValue(value: new MonotonicBeat(ordinal: ordinal, origin: start, sequence: admitted.Sequence, stamp: current, elapsed: elapsed, delta: delta))
+               from ordinal in admitted.Sequence.Advance(expected: expected, current: current, delta: delta, cadence: cadence)
+               from beat in Acceptance.Value(value: new MonotonicBeat(ordinal: ordinal, origin: start, sequence: admitted.Sequence, stamp: current, elapsed: elapsed, delta: delta))
                select beat;
     }
 
-    private Fin<MonotonicStamp> Admit(MonotonicStamp stamp, Op key) =>
-        from active in key.Need(value: stamp)
-        from owned in guard(active.IsValid && active.BelongsTo(timeline: this), key.InvalidInput())
+    private Fin<MonotonicStamp> Admit(MonotonicStamp stamp) =>
+        from active in Admit.Need(value: stamp)
+        from owned in guard(active.IsValid && active.BelongsTo(timeline: this), new KernelFault.InvalidInput())
         select active;
 
-    private Fin<MonotonicBeat> Admit(MonotonicBeat beat, Op key) =>
-        from active in key.Need(value: beat)
-        from valid in guard(active.IsValid, key.InvalidInput())
-        from origin in Admit(stamp: active.Origin, key: key)
-        from stamp in Admit(stamp: active.Stamp, key: key)
+    private Fin<MonotonicBeat> Admit(MonotonicBeat beat) =>
+        from active in Admit.Need(value: beat)
+        from valid in guard(active.IsValid, new KernelFault.InvalidInput())
+        from origin in Admit(stamp: active.Origin)
+        from stamp in Admit(stamp: active.Stamp)
         select active;
 
     internal bool Owns(TimeProvider provider) => ReferenceEquals(objA: _provider, objB: provider);
 
-    private static Fin<TimeSpan> Elapsed(MonotonicStamp start, MonotonicStamp end, Op key) =>
-        start.SpanTo(end: end, key: key)
-            .Bind(span => span >= TimeSpan.Zero ? Fin.Succ(span) : Fin.Fail<TimeSpan>(key.InvalidResult()));
+    private static Fin<TimeSpan> Elapsed(MonotonicStamp start, MonotonicStamp end) =>
+        start.SpanTo(end: end)
+            .Bind(span => span >= TimeSpan.Zero ? Fin.Succ(span) : Fin.Fail<TimeSpan>(new KernelFault.InvalidResult()));
 }
 ```
 
@@ -825,11 +810,10 @@ public abstract partial record MotionScript {
     public sealed record Sprung(SpringShape Shape, double From, double To, double Velocity, SettleBand Band) : MotionScript;
     public sealed record Glided(DecayShape Decay, double Origin, double Velocity, Duration Bound) : MotionScript;
 
-    public static Fin<MotionScript> Glide(DecayShape decay, double origin, double velocity, PositiveMagnitude epsilon, Op? key = null) {
-        Op op = key.OrDefault();
-        return from start in op.Finite(value: origin)
-               from release in op.Finite(value: velocity)
-               from bound in decay.Settle(velocity: release, epsilon: epsilon, key: op)
+    public static Fin<MotionScript> Glide(DecayShape decay, double origin, double velocity, PositiveMagnitude epsilon) {
+        return from start in Admit.Finite(value: origin)
+               from release in Admit.Finite(value: velocity)
+               from bound in decay.Settle(velocity: release, epsilon: epsilon)
                select (MotionScript)new Glided(Decay: decay, Origin: start, Velocity: release, Bound: bound);
     }
 }
@@ -856,7 +840,7 @@ public sealed partial class PaceBand {
     public TimeSpan Slowest => TimeSpan.FromSeconds(value: 1.0 / Minimum);
     public TimeSpan Period => TimeSpan.FromSeconds(value: 1.0 / Preferred);
 
-    public Fin<PaceBand> ScaleTo(PositiveMagnitude ceiling, Op? key = null) {
+    public Fin<PaceBand> ScaleTo(PositiveMagnitude ceiling) {
         double factor = ceiling.Value / Maximum;
         return key.OrDefault().AcceptValidated<PaceBand>(
             Validate(Minimum * factor, Maximum * factor, Preferred * factor, out PaceBand? scaled), scaled);
@@ -873,40 +857,38 @@ public readonly record struct SettleBand(double Position, double Velocity) : IVa
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MotionDrive {
-    public static Fin<MotionScript> Admit(MotionScript script, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<MotionScript> Admit(MotionScript script) {
         return script.Switch(
             state: op,
-            eased: static (key, row) =>
-                from curve in key.Need(value: row.Curve)
-                from period in key.Positive(value: row.Period.TotalSeconds)
-                from plan in CyclePlan.Of(count: row.Cycle.Count, reverses: row.Cycle.Reverses, key: key)
+            eased: static (row) =>
+                from curve in Admit.Need(value: row.Curve)
+                from period in Admit.Positive(value: row.Period.TotalSeconds)
+                from plan in CyclePlan.Of(count: row.Cycle.Count, reverses: row.Cycle.Reverses)
                 select (MotionScript)row,
-            sprung: static (key, row) =>
-                from shape in guard(row.Shape.IsValid && row.Band.IsValid, key.InvalidInput()).ToFin()
-                from origin in key.Finite(value: row.From)
-                from target in key.Finite(value: row.To)
-                from release in key.Finite(value: row.Velocity)
+            sprung: static (row) =>
+                from shape in guard(row.Shape.IsValid && row.Band.IsValid, new KernelFault.InvalidInput()).ToFin()
+                from origin in Admit.Finite(value: row.From)
+                from target in Admit.Finite(value: row.To)
+                from release in Admit.Finite(value: row.Velocity)
                 select (MotionScript)row,
-            glided: static (key, row) =>
-                from origin in key.Finite(value: row.Origin)
-                from release in key.Finite(value: row.Velocity)
-                from bound in key.Positive(value: row.Bound.TotalSeconds)
+            glided: static (row) =>
+                from origin in Admit.Finite(value: row.Origin)
+                from release in Admit.Finite(value: row.Velocity)
+                from bound in Admit.Positive(value: row.Bound.TotalSeconds)
                 select (MotionScript)row);
     }
 
     public static Fin<(MotionSample Sample, bool Continues)> Step(
-        MotionScript script, MonotonicBeat beat, CapabilitySet<Accessibility> accessibility, Op? key = null) {
-        Op op = key.OrDefault();
-        return from evidence in guard(beat.IsValid, op.InvalidInput()).ToFin()
+        MotionScript script, MonotonicBeat beat, CapabilitySet<Accessibility> accessibility) {
+        return from evidence in guard(beat.IsValid, new KernelFault.InvalidInput()).ToFin()
                from sampled in script.Switch(
                    state: (Elapsed: Duration.FromTimeSpan(beat.Elapsed),
-                           Reduced: accessibility.Admits(Accessibility.ReduceMotion), Key: op),
+                           Reduced: accessibility.Admits(Accessibility.ReduceMotion)),
                    eased: static (state, row) => state.Reduced
-                       ? state.Key.Finite(row.Curve.Evaluate(row.Cycle.Terminal))
+                       ? Admit.Finite(row.Curve.Evaluate(row.Cycle.Terminal))
                            .Map(value => (new MotionSample(value, None), false))
                        : from phase in row.Cycle.Phase(state.Elapsed, row.Period, state.Key)
-                         from value in state.Key.Finite(row.Curve.Evaluate(phase.Value))
+                         from value in Admit.Finite(row.Curve.Evaluate(phase.Value))
                          select (new MotionSample(value, None), phase.Continues),
                    sprung: static (state, row) => state.Reduced
                        ? Fin.Succ((new MotionSample(row.To, Some(0.0)), false))
@@ -922,21 +904,20 @@ public static class MotionDrive {
                select sampled;
     }
 
-    public static Fin<MotionScript> Retarget(MotionScript script, MotionSample from, double to, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<MotionScript> Retarget(MotionScript script, MotionSample from, double to) {
         // `from` is a query keyword inside a query body, so the outer bind is a method chain.
-        return op.Finite(to).Bind(target => script.Switch(
-            state: (Sample: from, Target: target, Key: op),
+        return Admit.Finite(to).Bind(target => script.Switch(
+            state: (Sample: from, Target: target),
             eased: static (state, _) => Fin.Fail<MotionScript>(
-                state.Key.Unsupported(typeof(MotionScript.Eased), typeof(MotionScript.Sprung))),
+                new KernelFault.Unsupported(typeof(MotionScript.Eased), typeof(MotionScript.Sprung))),
             sprung: static (state, row) =>
-                from origin in state.Key.Finite(state.Sample.Value)
-                from velocity in state.Sample.Velocity.ToFin(state.Key.InvalidInput())
-                    .Bind(value => state.Key.Finite(value))
+                from origin in Admit.Finite(state.Sample.Value)
+                from velocity in state.Sample.Velocity.ToFin(new KernelFault.InvalidInput())
+                    .Bind(value => Admit.Finite(value))
                 select (MotionScript)new MotionScript.Sprung(
                     row.Shape, origin, state.Target, velocity, row.Band),
             glided: static (state, _) => Fin.Fail<MotionScript>(
-                state.Key.Unsupported(typeof(MotionScript.Glided), typeof(MotionScript.Sprung)))));
+                new KernelFault.Unsupported(typeof(MotionScript.Glided), typeof(MotionScript.Sprung)))));
     }
 }
 ```

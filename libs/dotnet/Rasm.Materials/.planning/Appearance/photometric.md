@@ -10,7 +10,7 @@ ONE `Photometric` static admission fold over the closed `PhotometricQuantity` ba
 
 - Owner: `Photometric` static admission fold; `PhotometricQuantity` `[SmartEnum<int>]` band owning the radiometric divide over its `Coercion` column; `Coercion` `[Union]` the closed gate-or-rescale discriminant; `MaterialUnits` the in-folder UnitsNet boundary (family-membership gate + `UnitSystem.SI` coercion + `EmissionEvidence`); `EmissionEvidence` the photometric COMPOSITION over the contract `MeasureEvidence` — the ONE conversion evidence carrying the radiometric twin the contract has no column for, never a re-spelling of its columns; `EmissionSpectrum` `[Union]`; `PhotometricPolicy` light→emission record.
 - Cases: quantity {illuminance, luminance, luminous-flux, luminous-intensity, irradiance, radiance, radiant-intensity, radiant-flux}; coercion {`Gated` (a published UnitsNet `QuantityInfo` family), `Borrowed` (a per-steradian row over a borrowed SI-base unit enum)}; emission {`Blackbody` (a CCT source over a `Locus` discriminant — Planckian or CIE Daylight — with the `Duv` planckian-offset column carrying an ANSI C78.377 binned source), `Standard` (a CIE standard illuminant — D-series daylight, A incandescent, F-series fluorescent), `Chromatic` (a datasheet xy chromaticity point plus luminance), `Spectral` (a measured SPD over the folder-root `SpectralCurve` grid), `Constant`}.
-- Entry: `Admit` is the magnitude coercion — `public static Fin<EmissionEvidence> Admit(PhotometricQuantity quantity, double value, Enum unit, Op key, Guid correlation, double efficacyRatio = 1.0)` returning the `EmissionEvidence` whose `Measure.CanonicalValue` is the faithful SI-base UNIT magnitude (lux/cd·m⁻²/lm/cd/W·m⁻²/W) and whose `RadiometricSi` is the radiometric scalar the emission node consumes (luminous rows gated against their UnitsNet family, coerced to SI base through `ToUnit(UnitSystem.SI)`, then divided to their radiometric twin; radiometric rows carry `RadiometricSi == Measure.CanonicalValue`) — the unit-faithful contract evidence and the derived radiometric value kept on distinct fields so neither contradicts the other; `Resolve` is the graph-node entry — `public static Fin<EmissionInput> Resolve(PhotometricQuantity quantity, double value, Enum unit, PhotometricPolicy policy, Op key, Guid correlation)` composing `Admit` with the resolved scene-linear emission color into the canonical `EmissionInput` payload; `public static Fin<MaterialParameters> WithEmission(MaterialParameters row, EmissionInput emission, Op key)` is the row-side terminal writing that payload onto the row's `Emission`/`EmissionLuminance` pair with the WHOLE `EmissionInput` on `EmissionProvenance`, so an ADMITTED emission is a construction rather than two hand-set columns and the full measurement — unit witness, chromaticity readouts, CCT+Duv, measured Y, gamut evidence — survives to `interchange#MATERIAL_WIRE`. The `Op key` correlates the `MaterialFault` channel; the `Guid correlation` threads the `MaterialUnits` evidence's own contract `Correlation` onto the payload — distinct identifiers for distinct channels. Conversion runs exactly once at admission and interior numerics are raw doubles per the BOUNDARY_ADMISSION law.
+- Entry: `Admit` is the magnitude coercion — `public static Fin<EmissionEvidence> Admit(PhotometricQuantity quantity, double value, Enum unit, Guid correlation, double efficacyRatio = 1.0)` returning the `EmissionEvidence` whose `Measure.CanonicalValue` is the faithful SI-base UNIT magnitude (lux/cd·m⁻²/lm/cd/W·m⁻²/W) and whose `RadiometricSi` is the radiometric scalar the emission node consumes (luminous rows gated against their UnitsNet family, coerced to SI base through `ToUnit(UnitSystem.SI)`, then divided to their radiometric twin; radiometric rows carry `RadiometricSi == Measure.CanonicalValue`) — the unit-faithful contract evidence and the derived radiometric value kept on distinct fields so neither contradicts the other; `Resolve` is the graph-node entry — `public static Fin<EmissionInput> Resolve(PhotometricQuantity quantity, double value, Enum unit, PhotometricPolicy policy, Guid correlation)` composing `Admit` with the resolved scene-linear emission color into the canonical `EmissionInput` payload; `public static Fin<MaterialParameters> WithEmission(MaterialParameters row, EmissionInput emission)` is the row-side terminal writing that payload onto the row's `Emission`/`EmissionLuminance` pair with the WHOLE `EmissionInput` on `EmissionProvenance`, so an ADMITTED emission is a construction rather than two hand-set columns and the full measurement — unit witness, chromaticity readouts, CCT+Duv, measured Y, gamut evidence — survives to `interchange#MATERIAL_WIRE`. The `Op key` correlates the `MaterialFault` channel; the `Guid correlation` threads the `MaterialUnits` evidence's own contract `Correlation` onto the payload — distinct identifiers for distinct channels. Conversion runs exactly once at admission and interior numerics are raw doubles per the BOUNDARY_ADMISSION law.
 - Packages: UnitsNet (admitted IN-FOLDER through the `MaterialUnits` owner — `Quantity.TryFrom` the dynamic-quantity construction the family gate inspects, the `QuantityInfo`/`BaseDimensions`/`QuantityInfo.Name` family-membership surface, `ToUnit(UnitSystem.SI)` the one SI-base coercion deriving magnitude AND unit witness for every published family, `UnitConverter.TryConvert` the non-throwing prefix rescale for the borrowed per-steradian rows; catalogued in `libs/dotnet/.api/api-unitsnet.md`), Rasm (project — `Op` boundary key, `MaterialFault` band), Rasm.Element (project — `MeasureEvidence` the ONE conversion evidence this owner composes, `UnitResolution` its posture vocabulary, `QuantityType` the family identity minted from the UnitsNet registry name), Wacton.Unicolour (composed for blackbody/daylight-locus CCT→scene-linear, CIE standard-illuminant→scene-linear, and SPD→XYZ→scene-linear — the config-explicit `new Unicolour(Configuration, double cct, Locus, double luminance)`/`(Configuration, Temperature, double luminance)`/`(Configuration, Chromaticity, double luminance)`/`(Configuration, Spd)` constructors under the Acescg working space; the `Locus.Blackbody`/`Locus.Daylight` temperature loci; the `Illuminant.D65`/`A`/`F2`… statics + `Illuminant.GetWhitePoint(Observer)`/`WhitePoint.Chromaticity` projection; the `Observer.Degree2`/`Degree10` standard observers; the `Temperature` CCT+Duv readout record with `IsValid`/`IsHighAccuracy`; `DominantWavelength`/`ExcitationPurity`/`RelativeLuminance`; `IsInRgbGamut` + `MapToRgbGamut(GamutMap.OklchChromaReduction)` for out-of-working-gamut emission), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new light unit is one `PhotometricQuantity` row binding its `Coercion` case (`Gated` where UnitsNet publishes the quantity — `Illuminance.Info`/`Luminance.Info`/`LuminousFlux.Info`/`LuminousIntensity.Info`/`Irradiance.Info`/`Power.Info`; `Borrowed` for a per-steradian radiance/radiant-intensity row, naming the `IrradianceUnit`/`PowerUnit` SI-base enum the prefix rescale targets since steradian carries no SI prefix), its `Photopic` luminous-twin marker driving the 683 lm/W divide, and its `CanonicalIsRadiance` discriminant (a directly-usable emitted radiance W/(sr·m²) versus a flux/irradiance/power needing area/solid-angle normalization — read through `EmissionInput.Source.CanonicalIsRadiance`) — never a per-unit type, a `LumenToWatt`/`NitToRadiance` helper family, or a parallel `nit` quantity. A sub/multiple of an existing unit is the SAME row called with that unit `Enum` (`Luminance` with `LuminanceUnit.Nit`, `Illuminance` with `IlluminanceUnit.Kilolux`), the SI coercion resolving it — never a parallel alias row. A new emission model is one `EmissionSpectrum` case and a new sampled grid one `SpectralCurve` value; a new temperature locus is one `Locus` value on the `Blackbody` discriminant, a binned off-Planckian source is the `Blackbody` row's `Duv` column (never a parallel LED case), a datasheet xy source is the one `Chromatic` case, a new named illuminant one `Illuminant` static carried on the one `Standard` case, and a new observer policy one `PhotometricPolicy.Observer` value — never a parallel daylight, fluorescent, or wide-field emission case. Time-integrated quantities (luminous energy lm·s, exposure lux·s) are deliberately absent: the band admits steady-state emission, and an integrated row lands only with a consumer that integrates.
 - Law: `PhotometricQuantity`'s `Photopic` and `CanonicalIsRadiance` STAY two `bool` columns, and the kernel `Domain/validation#CAPABILITY` `CapabilitySet` law is what settles it rather than a preference — that law deletes adjacent bools only where a SUBSET of the boolean product's corners is legal, and all four corners here carry a real row (illuminance photopic-and-not-radiance, luminance photopic-and-radiance, irradiance neither, radiance radiometric-radiance). With no legal-corner law to carry, a capability set would publish a set algebra no gate reads over two facts consumed at different sites: `Photopic` drives the 683 lm/W divide inside the row's own `Admit` and `CanonicalIsRadiance` gates the row write at `WithEmission`, neither read reconstructing the other. The kernel law requires the owner to SAY SO where a pair survives, which is what the declaration states.
@@ -44,9 +44,9 @@ public abstract partial record Coercion {
     public sealed record Gated(QuantityInfo Family) : Coercion;
     public sealed record Borrowed(Enum Canonical, string Family) : Coercion;
 
-    internal Fin<EmissionEvidence> Admit(double value, Enum unit, Op key, Guid correlation) =>
+    internal Fin<EmissionEvidence> Admit(double value, Enum unit, Guid correlation) =>
         Switch(
-            state: (Value: value, Unit: unit, Key: key, Correlation: correlation),
+            state: (Value: value, Unit: unit, Correlation: correlation),
             gated:    static (s, g) => MaterialUnits.Admit(g.Family, s.Value, s.Unit, s.Key, s.Correlation),
             borrowed: static (s, b) => MaterialUnits.Coerce(s.Value, s.Unit, b.Canonical, s.Key)
                 .Map(si => EmissionEvidence.Raw(s.Value, s.Unit, si, b.Canonical, b.Family, s.Correlation)));
@@ -70,8 +70,8 @@ public sealed partial class PhotometricQuantity {
 
     public string Ucum { get; }
 
-    internal Fin<EmissionEvidence> Admit(double value, Enum unit, double efficacyRatio, Op key, Guid correlation) =>
-        Coercion.Admit(value, unit, key, correlation)
+    internal Fin<EmissionEvidence> Admit(double value, Enum unit, double efficacyRatio, Guid correlation) =>
+        Coercion.Admit(value, unit, correlation)
             .Map(evidence => evidence with {
                 RadiometricSi = Photopic ? evidence.Measure.CanonicalValue / (Radiometry.LuminousEfficacy * efficacyRatio) : evidence.Measure.CanonicalValue });
 }
@@ -116,15 +116,15 @@ public readonly record struct EmissionEvidence(MeasureEvidence Measure, double R
 }
 
 public static class MaterialUnits {
-    public static Fin<double> Coerce(double value, Enum from, Enum to, Op key) =>
+    public static Fin<double> Coerce(double value, Enum from, Enum to) =>
         UnitConverter.TryConvert(value, from, to, out double converted)
             ? Fin.Succ(converted)
-            : new MaterialFault.Parameter(key, $"<unit-convert:{from}->{to}>");
+            : new MaterialFault.Parameter($"<unit-convert:{from}->{to}>");
 
-    public static Fin<EmissionEvidence> Admit(QuantityInfo family, double value, Enum unit, Op key, Guid correlation) =>
+    public static Fin<EmissionEvidence> Admit(QuantityInfo family, double value, Enum unit, Guid correlation) =>
         Quantity.TryFrom(value, unit, out IQuantity? typed) && typed.QuantityInfo.Name == family.Name && typed.Dimensions.Equals(family.BaseDimensions)
             ? Fin.Succ(EmissionEvidence.From(typed, correlation))
-            : new MaterialFault.Parameter(key, $"<unit-admit:{unit}:outside:{family.Name}>");
+            : new MaterialFault.Parameter($"<unit-admit:{unit}:outside:{family.Name}>");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -154,53 +154,53 @@ public readonly record struct PhotometricPolicy(EmissionSpectrum Spectrum, doubl
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Photometric {
-    public static Fin<EmissionEvidence> Admit(PhotometricQuantity quantity, double value, Enum unit, Op key, Guid correlation, double efficacyRatio = 1.0) =>
+    public static Fin<EmissionEvidence> Admit(PhotometricQuantity quantity, double value, Enum unit, Guid correlation, double efficacyRatio = 1.0) =>
         double.IsFinite(value) && value >= 0.0 && efficacyRatio is > 0.0 and <= 1.0
-            ? quantity.Admit(value, unit, efficacyRatio, key, correlation)
-            : new MaterialFault.Parameter(key, $"<photometric-magnitude:{quantity.Key}:{value:R}@{efficacyRatio:R}>");
+            ? quantity.Admit(value, unit, efficacyRatio, correlation)
+            : new MaterialFault.Parameter($"<photometric-magnitude:{quantity.Key}:{value:R}@{efficacyRatio:R}>");
 
-    public static Fin<EmissionInput> Resolve(PhotometricQuantity quantity, double value, Enum unit, PhotometricPolicy policy, Op key, Guid correlation) =>
+    public static Fin<EmissionInput> Resolve(PhotometricQuantity quantity, double value, Enum unit, PhotometricPolicy policy, Guid correlation) =>
         from _ in guard(double.IsFinite(policy.Exposure) && policy.Exposure >= 0.0,
-            new MaterialFault.Parameter(key, $"<photometric-exposure:{policy.Exposure:R}>"))
-        from canonical in Admit(quantity, value, unit, key, correlation, policy.EfficacyRatio)
-        from resolved in SceneLinear(policy.Spectrum, policy.Observer, key)
+            new MaterialFault.Parameter($"<photometric-exposure:{policy.Exposure:R}>"))
+        from canonical in Admit(quantity, value, unit, correlation, policy.EfficacyRatio)
+        from resolved in SceneLinear(policy.Spectrum, policy.Observer)
         select EmissionInput.Of(resolved.Colour, canonical.RadiometricSi * policy.Exposure, quantity, resolved.Mapped, canonical);
 
-    public static Fin<MaterialParameters> WithEmission(MaterialParameters row, EmissionInput emission, Op key) =>
+    public static Fin<MaterialParameters> WithEmission(MaterialParameters row, EmissionInput emission) =>
         emission.Source.CanonicalIsRadiance
             ? MaterialParameters.Of(
-                row with { Emission = emission.Radiance, EmissionLuminance = emission.Intensity, EmissionProvenance = Some(emission) }, key)
-            : new MaterialFault.Parameter(key, $"<emission-quantity-not-radiance:{emission.Source.Key}:{emission.Source.Ucum}>");
+                row with { Emission = emission.Radiance, EmissionLuminance = emission.Intensity, EmissionProvenance = Some(emission) })
+            : new MaterialFault.Parameter($"<emission-quantity-not-radiance:{emission.Source.Key}:{emission.Source.Ucum}>");
 
     static Configuration WorkingSpace(Observer observer) =>
         observer == Observer.Degree10 ? PortValue.SceneLinearDegree10 : PortValue.SceneLinear;
 
-    static Fin<(Unicolour Colour, bool Mapped)> SceneLinear(EmissionSpectrum spectrum, Observer observer, Op key) =>
+    static Fin<(Unicolour Colour, bool Mapped)> SceneLinear(EmissionSpectrum spectrum, Observer observer) =>
         spectrum.Switch(
-            state: (Observer: observer, Key: key),
+            state: observer,
             blackbody: static (s, bb) =>
                 double.IsFinite(bb.Cct) && bb.Cct > 0.0 && double.IsFinite(bb.Luminance) && bb.Luminance >= 0.0
                     && (bb.Locus != Locus.Daylight || bb.Cct is >= Radiometry.DaylightCctMinKelvin and <= Radiometry.DaylightCctMaxKelvin)
                     && double.IsFinite(bb.Duv) && Math.Abs(bb.Duv) <= Radiometry.DuvValidBound && (bb.Duv == 0.0 || bb.Locus == Locus.Blackbody)
                 ? Gate(bb.Duv == 0.0
-                    ? new Unicolour(WorkingSpace(s.Observer), bb.Cct, bb.Locus, bb.Luminance)
-                    : new Unicolour(WorkingSpace(s.Observer), new Temperature(bb.Cct, bb.Duv), bb.Luminance), s.Key)
+                    ? new Unicolour(WorkingSpace(s), bb.Cct, bb.Locus, bb.Luminance)
+                    : new Unicolour(WorkingSpace(s), new Temperature(bb.Cct, bb.Duv), bb.Luminance), s.Key)
                 : new MaterialFault.Parameter(s.Key, $"<photometric-{(bb.Locus == Locus.Daylight ? "daylight" : "blackbody")}-cct:{bb.Cct:R}@{bb.Luminance:R}:duv={bb.Duv:R}>"),
             standard: static (s, st) => double.IsFinite(st.Luminance) && st.Luminance >= 0.0
-                ? Gate(new Unicolour(WorkingSpace(s.Observer), st.Illuminant.GetWhitePoint(s.Observer).Chromaticity, st.Luminance), s.Key)
+                ? Gate(new Unicolour(WorkingSpace(s), st.Illuminant.GetWhitePoint(s).Chromaticity, st.Luminance), s.Key)
                 : new MaterialFault.Parameter(s.Key, $"<photometric-illuminant-luminance:{st.Luminance:R}>"),
             chromatic: static (s, c) =>
                 double.IsFinite(c.Point.X) && double.IsFinite(c.Point.Y) && c.Point.X >= 0.0 && c.Point.Y > 0.0 && c.Point.X + c.Point.Y <= 1.0
                     && double.IsFinite(c.Luminance) && c.Luminance >= 0.0
-                ? Gate(new Unicolour(WorkingSpace(s.Observer), c.Point, c.Luminance), s.Key)
+                ? Gate(new Unicolour(WorkingSpace(s), c.Point, c.Luminance), s.Key)
                 : new MaterialFault.Parameter(s.Key, $"<photometric-chromaticity:{c.Point.X:R},{c.Point.Y:R}@{c.Luminance:R}>"),
-            spectral: static (s, sp) => Gate(new Unicolour(WorkingSpace(s.Observer), sp.Curve.ToSpd()), s.Key),
+            spectral: static (s, sp) => Gate(new Unicolour(WorkingSpace(s), sp.Curve.ToSpd()), s.Key),
             constant: static (s, c) => Gate(new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, c.R, c.G, c.B), s.Key));
 
-    static Fin<(Unicolour Colour, bool Mapped)> Gate(Unicolour colour, Op key) {
+    static Fin<(Unicolour Colour, bool Mapped)> Gate(Unicolour colour) {
         var rgb = colour.RgbLinear;
         return !double.IsFinite(rgb.R) || !double.IsFinite(rgb.G) || !double.IsFinite(rgb.B)
-            ? new MaterialFault.Gamut(key, "<emission-non-finite-rgb>")
+            ? new MaterialFault.Gamut("<emission-non-finite-rgb>")
             : GamutPolicy.Perceptual.Contains(colour)
                 ? Fin.Succ((colour, Mapped: false))
                 : Fin.Succ((GamutPolicy.Perceptual.Bound(colour), Mapped: true));

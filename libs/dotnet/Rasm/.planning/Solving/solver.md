@@ -66,12 +66,12 @@ public sealed record SolvePolicy(
     PositiveMagnitude ResidualTolerance,
     double StepFloor,
     Dimension MaxIterations) {
-    public static Fin<SolvePolicy> Of(Context context, Op key, Option<Dimension> budget = default) {
+    public static Fin<SolvePolicy> Of(Context context, Option<Dimension> budget = default) {
         double convergence = context.For(lane: ToleranceLane.Convergence).Value;
         double initial = Math.Sqrt(d: convergence);
         double ceiling = 1.0 / convergence;
         int climbs = (int)Math.Ceiling(a: Math.Log(a: ceiling / initial, newBase: LadderFactor));
-        return key.AcceptValidated<PositiveMagnitude>(candidate: ResidualCap.Converged.In(context: Some(context)))
+        return FactoryBridge.Accept<PositiveMagnitude>(candidate: ResidualCap.Converged.In(context: Some(context)))
             .Map(tolerance => new SolvePolicy(
                 InitialLambda: initial,
                 LambdaFloor: convergence * convergence,
@@ -81,12 +81,12 @@ public sealed record SolvePolicy(
                 ResidualTolerance: tolerance,
                 StepFloor: context.For(lane: ToleranceLane.Step).Value,
                 MaxIterations: budget.IfNone(() => Dimension.Create(climbs * climbs))))
-            .Bind(policy => policy.Admit(key: key));
+            .Bind(policy => policy.Admit());
     }
 
     const double LadderFactor = 10.0;
 
-    internal Fin<SolvePolicy> Admit(Op key) {
+    internal Fin<SolvePolicy> Admit() {
         SolvePolicy self = this;
         return guard(
             double.IsFinite(self.InitialLambda)
@@ -97,7 +97,7 @@ public sealed record SolvePolicy(
             && double.IsFinite(self.ResidualTolerance.Value) && self.ResidualTolerance.Value > EpsilonPolicy.ZeroTolerance
             && double.IsFinite(self.StepFloor) && self.StepFloor > 0.0
             && Math.Log(self.LambdaCeiling / self.InitialLambda, self.LambdaUp) < self.MaxIterations.Value,
-            key.InvalidInput()).ToFin().Map(_ => self);
+            new KernelFault.InvalidInput()).ToFin().Map(_ => self);
     }
 }
 
@@ -349,55 +349,54 @@ public interface IDualResidual {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Lm {
-    public static Fin<LmResult> Minimize(ILmModel model, SolvePolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
-        return from activeModel in Admit.NotNull(value: model, key: op)
-               from activePolicy in Admit.NotNull(value: policy, key: op).Bind(active => active.Admit(key: op))
-               from admitted in AdmitModel(model: activeModel, key: op)
-               from norm in Objective(model: activeModel, parameters: admitted.Seed, key: op)
+    public static Fin<LmResult> Minimize(ILmModel model, SolvePolicy policy) {
+        return from activeModel in Admit.NotNull(value: model)
+               from activePolicy in Admit.NotNull(value: policy).Bind(active => active.Admit())
+               from admitted in AdmitModel(model: activeModel)
+               from norm in Objective(model: activeModel, parameters: admitted.Seed)
                from result in Iterate(model: activeModel, dof: admitted.Dof, policy: activePolicy,
-                   seed: new LmState(admitted.Seed, norm, activePolicy.InitialLambda, Iterations: 0, Normal: None), key: op)
+                   seed: new LmState(admitted.Seed, norm, activePolicy.InitialLambda, Iterations: 0, Normal: None))
                select result;
     }
 
-    static Fin<(int Dof, double[] Seed)> AdmitModel(ILmModel model, Op key) => key.Catch(() => {
+    static Fin<(int Dof, double[] Seed)> AdmitModel(ILmModel model) => Try.lift(() => {
         int dof = model.Dof;
         double[]? source = model.Seed;
         return dof >= 0 && source is not null && source.Length == dof && TensorPrimitives.IsFiniteAll(source)
             ? Fin.Succ((Dof: dof, Seed: (double[])source.Clone()))
-            : Fin.Fail<(int Dof, double[] Seed)>(key.InvalidInput());
-    });
+            : Fin.Fail<(int Dof, double[] Seed)>(new KernelFault.InvalidInput());
+    }).Run().Bind(static inner => inner);
 
-    static Fin<LmResult> Iterate(ILmModel model, int dof, SolvePolicy policy, LmState seed, Op key) =>
+    static Fin<LmResult> Iterate(ILmModel model, int dof, SolvePolicy policy, LmState seed) =>
         IO.pure(unit).FoldUntil(
                 schedule: Schedule.recurs(policy.MaxIterations.Value - 1),
                 initialState: Fin.Succ(Next.Loop<LmState, (LmState State, SolveStatus Status)>(seed)),
                 folder: (acc, _) => acc.Bind(next => next.Match(
-                    state => Pass(model, dof, policy, state, key),
+                    state => Pass(model, dof, policy, state),
                     _ => Fin.Succ(next))),
                 stateIs: static state => state.Match(
                     Succ: static next => next.IsDone,
                     Fail: static _ => true))
             .Run()
             .Bind(next => next.Match(
-                state => Result(state, SolveStatus.Exhausted, key),
-                done => Result(done.State, done.Status, key)));
+                state => Result(state, SolveStatus.Exhausted),
+                done => Result(done.State, done.Status)));
 
-    static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Pass(ILmModel model, int dof, SolvePolicy policy, LmState state, Op key) =>
+    static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Pass(ILmModel model, int dof, SolvePolicy policy, LmState state) =>
         state.Norm < policy.ResidualTolerance.Value
             ? Fin.Succ(Next.Done<LmState, (LmState State, SolveStatus Status)>((state, SolveStatus.Converged)))
         : dof == 0
             ? Fin.Succ(Next.Done<LmState, (LmState State, SolveStatus Status)>((state, SolveStatus.Stationary)))
         : from normal in state.Normal.Match(
               Some: static held => Fin.Succ(held),
-              None: () => Linearize(model: model, parameters: state.Parameters, dof: dof, key: key))
+              None: () => Linearize(model: model, parameters: state.Parameters, dof: dof))
           from pass in state.Lambda > policy.LambdaCeiling
-              ? Singular(normal: normal, dof: dof, key: key)
-              : Trial(model: model, dof: dof, policy: policy, state: state, normal: normal, key: key)
+              ? Singular(normal: normal, dof: dof)
+              : Trial(model: model, dof: dof, policy: policy, state: state, normal: normal)
           select pass;
 
     static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Trial(
-        ILmModel model, int dof, SolvePolicy policy, LmState state, (double[] Packed, double[] Gradient) normal, Op key) {
+        ILmModel model, int dof, SolvePolicy policy, LmState state, (double[] Packed, double[] Gradient) normal) {
         double[] damped = (double[])normal.Packed.Clone();
         for (int i = 0; i < dof; i++) {
             int di = SymmetricMatrix.FlatIndex(dof, i, i);
@@ -405,21 +404,21 @@ public static class Lm {
         }
         double[] rhs = new double[dof];
         TensorPrimitives.Negate<double>(normal.Gradient, rhs);
-        return SymmetricMatrix.Of(Dimension.Create(dof), new Arr<double>(damped), key)
-            .Bind(spd => spd.DecomposeCholesky(key))
-            .Bind(chol => chol.SolveDetailed(new Arr<double>(rhs), key))
+        return SymmetricMatrix.Of(Dimension.Create(dof), new Arr<double>(damped))
+            .Bind(spd => spd.DecomposeCholesky())
+            .Bind(chol => chol.SolveDetailed(new Arr<double>(rhs)))
             .Bind(solved => solved.IsValid
                 ? Fin.Succ(solved.Solution)
-                : Fin.Fail<Arr<double>>(key.InvalidResult()))
+                : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()))
             .Match(
-                Succ: delta => Accept(model, policy, state, normal, delta, key),
+                Succ: delta => Accept(model, policy, state, normal, delta),
                 Fail: _ => Fin.Succ(Reject(policy, state, normal)));
     }
 
     static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Accept(
-        ILmModel model, SolvePolicy policy, LmState state, (double[] Packed, double[] Gradient) normal, Arr<double> delta, Op key) =>
-        from trial in Advance(parameters: state.Parameters, delta: delta, key: key)
-        from trialNorm in Objective(model: model, parameters: trial, key: key)
+        ILmModel model, SolvePolicy policy, LmState state, (double[] Packed, double[] Gradient) normal, Arr<double> delta) =>
+        from trial in Advance(parameters: state.Parameters, delta: delta)
+        from trialNorm in Objective(model: model, parameters: trial)
         select trialNorm < state.Norm
             ? Descend(policy: policy, state: state, trial: trial, trialNorm: trialNorm, stepNorm: TensorPrimitives.Norm<double>(delta.AsSpan()))
             : Reject(policy: policy, state: state, normal: normal);
@@ -440,46 +439,46 @@ public static class Lm {
         Next.Loop<LmState, (LmState State, SolveStatus Status)>(
             state with { Lambda = state.Lambda * policy.LambdaUp, Normal = Some(normal) });
 
-    static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Singular((double[] Packed, double[] Gradient) normal, int dof, Op key) =>
-        SymmetricMatrix.Of(Dimension.Create(dof), new Arr<double>(normal.Packed), key)
-            .Bind(matrix => matrix.DecomposeEigenDetailed(key))
+    static Fin<Next<LmState, (LmState State, SolveStatus Status)>> Singular((double[] Packed, double[] Gradient) normal, int dof) =>
+        SymmetricMatrix.Of(Dimension.Create(dof), new Arr<double>(normal.Packed))
+            .Bind(matrix => matrix.DecomposeEigenDetailed())
             .Map(static solved => solved.Pairs.Map(static p => Math.Abs(p.Eigenvalue)))
             .Map(spectrum => spectrum.Fold(0.0, Math.Max) is double radius && radius <= 0.0
                 ? 0
                 : spectrum.Count(v => v > EpsilonPolicy.SqrtEpsilon * radius))
             .Bind(rank => Fin.Fail<Next<LmState, (LmState State, SolveStatus Status)>>(new GeometryFault.SingularSystem(rank, dof)));
 
-    static Fin<(double[] Packed, double[] Gradient)> Linearize(ILmModel model, double[] parameters, int dof, Op key) =>
-        key.Catch(() => {
+    static Fin<(double[] Packed, double[] Gradient)> Linearize(ILmModel model, double[] parameters, int dof) =>
+        Try.lift(() => {
             (double[] packedNormal, double[] gradient) = model.Linearize(parameters);
             long packedLength = (long)dof * (dof + 1L) / 2L;
             return packedLength <= int.MaxValue
                 && packedNormal is not null && packedNormal.Length == packedLength && TensorPrimitives.IsFiniteAll(packedNormal)
                 && gradient is not null && gradient.Length == dof && TensorPrimitives.IsFiniteAll(gradient)
                     ? Fin.Succ((Packed: packedNormal, Gradient: gradient))
-                    : Fin.Fail<(double[] Packed, double[] Gradient)>(key.InvalidResult());
-        });
+                    : Fin.Fail<(double[] Packed, double[] Gradient)>(new KernelFault.InvalidResult());
+        }).Run().Bind(static inner => inner);
 
-    static Fin<ddouble> Objective(ILmModel model, double[] parameters, Op key) =>
-        key.Catch(body: () => model.Norm(parameters) switch {
+    static Fin<ddouble> Objective(ILmModel model, double[] parameters) =>
+        Try.lift(() => model.Norm(parameters) switch {
             ddouble norm when ddouble.IsFinite(norm) && ddouble.Sign(norm) >= 0 => Fin.Succ(norm),
-            _ => Fin.Fail<ddouble>(key.InvalidResult()),
-        });
+            _ => Fin.Fail<ddouble>(new KernelFault.InvalidResult()),
+        }).Run().Bind(static inner => inner);
 
-    static Fin<double[]> Advance(double[] parameters, Arr<double> delta, Op key) {
+    static Fin<double[]> Advance(double[] parameters, Arr<double> delta) {
         double[] next = (double[])parameters.Clone();
         TensorPrimitives.Add<double>(parameters, delta.AsSpan(), next);
         return TensorPrimitives.IsFiniteAll<double>(next)
             ? Fin.Succ(next)
-            : Fin.Fail<double[]>(key.InvalidResult());
+            : Fin.Fail<double[]>(new KernelFault.InvalidResult());
     }
 
-    static Fin<LmResult> Result(LmState state, SolveStatus status, Op key) =>
+    static Fin<LmResult> Result(LmState state, SolveStatus status) =>
         ddouble.IsFinite(state.Norm) && ddouble.Sign(state.Norm) >= 0 && state.Norm <= (ddouble)double.MaxValue
         && TensorPrimitives.IsFiniteAll<double>(state.Parameters)
         && double.IsFinite(state.Lambda) && state.Lambda > 0.0 && state.Iterations >= 0 && status is not null
             ? Fin.Succ(new LmResult(new Arr<double>(state.Parameters), (double)state.Norm, state.Iterations, state.Lambda, status))
-            : Fin.Fail<LmResult>(key.InvalidResult());
+            : Fin.Fail<LmResult>(new KernelFault.InvalidResult());
 }
 
 public sealed class DualModel(IDualResidual residual) : ILmModel {
@@ -532,7 +531,7 @@ public sealed class DualModel(IDualResidual residual) : ILmModel {
 
 - Owner: `SketchEntityKind` `[SmartEnum<int>]` discriminates the parametric primitive, each row carrying its parameter `Arity`, a `Carrier` binding to the `Rasm.Domain` `Kind` so admission faults mint typed discriminants, and the `EndOf`/`RadiusOf` slice accessors answering `Option` for a slot the kind does not carry; `Entity` is one parametric-primitive algebra over every kind, carrying its kind and its `[Offset, Offset+Arity)` slice into the flat parameter vector; `Constraint` the closed relation `[Union]` whose generated-`Switch` `Residual` and `Touches` folds return residual rows with analytic partials and name the incident entities, `Residual(p).Count` the one row-cardinality authority; `ConstraintSystem` the one solver owner — the immutable graph with accumulating `Build` admission, the accessor-backed `Islands` and `SeedVector` lazies, the rank methods the `RankMethod` rows bind, the island-scoped private `Model : ILmModel`, and the island-folded `Solve`; `Determinacy`/`DofReport` the verdict vocabulary and the `IslandVerdict` rows both totals derive from, each row stamped with the `RankMethod` that decided it; `RankMethod` the rank-method roster whose `Analyze` delegate column IS the one determinacy read; `Solution` the one outcome carrier.
 - Cases: `Constraint` is the closed relation `[Union]` the fence rosters; `Ground` is the gauge anchor whose absence leaves the rigid-body freedoms honestly under-constrained, and `Distance`, `Tangent`, and `OnCircle` carry squared residuals staying C¹ at coincident and zero-length configurations where the `√`-form Jacobian is undefined. `Determinacy` adds the witness-numeric `Redundant` row to the three structural verdicts — the redundant-but-consistent system a row count misclassifies as over-constrained — and its key ordinal carries the fold precedence every island roll-up maxes over. `AxisLock` names WHICH component a locked line holds constant, so the horizontal and vertical forms are one offset-addressed residual rather than a bool selecting between two transcriptions of the same difference. `SketchEntityKind` discriminates the parametric primitives, each row carrying its parameter arity.
-- Entry: `ConstraintSystem.Solve(SolvePolicy, Op?)` decomposes into islands, instantiates the private `Model : ILmModel` per island, runs `Lm.Minimize` on each small normal system, scatters the sub-solutions back into one parameter vector, and gates the assembled result: `GeometryFault.OverConstrained` when the witness verdict is over-determined and the global residual stays past tolerance — a redundant-and-inconsistent system has no configuration, its payload carrying the dependent-row count `rows − rank(J)` at the witness — with `GeometryFault.SingularSystem` bubbling from any island's ladder; a well- or under-constrained system always solves, LM finding the nearest point on the manifold to the seed. `RankMethod.Analyze(system, key)` is the ONE determinacy read and the row names which rank it reads — `Count` per-island row cardinality, `Matching` the König refinement, `Witness` the numeric rank — every island verdict carrying the `RankMethod` that actually decided it, so an SVD refusal that fell back to `Count` is legible rather than silent. `ConstraintSystem.Build` is the accumulating admission: every non-finite seed value, seed/arity mismatch, dangling reference (membership tests the full `Entity` value, so a mis-kinded reference at a valid offset is equally dangling), operand-kind mismatch, duplicate constraint, and the empty-system report exit together through one `Validation<Error, T>` traverse.
+- Entry: `ConstraintSystem.Solve(SolvePolicy, Op?)` decomposes into islands, instantiates the private `Model : ILmModel` per island, runs `Lm.Minimize` on each small normal system, scatters the sub-solutions back into one parameter vector, and gates the assembled result: `GeometryFault.OverConstrained` when the witness verdict is over-determined and the global residual stays past tolerance — a redundant-and-inconsistent system has no configuration, its payload carrying the dependent-row count `rows − rank(J)` at the witness — with `GeometryFault.SingularSystem` bubbling from any island's ladder; a well- or under-constrained system always solves, LM finding the nearest point on the manifold to the seed. `RankMethod.Analyze(system)` is the ONE determinacy read and the row names which rank it reads — `Count` per-island row cardinality, `Matching` the König refinement, `Witness` the numeric rank — every island verdict carrying the `RankMethod` that actually decided it, so an SVD refusal that fell back to `Count` is legible rather than silent. `ConstraintSystem.Build` is the accumulating admission: every non-finite seed value, seed/arity mismatch, dangling reference (membership tests the full `Entity` value, so a mis-kinded reference at a valid offset is equally dangling), operand-kind mismatch, duplicate constraint, and the empty-system report exit together through one `Validation<Error, T>` traverse.
 - Auto: `Islands` folds the entity↔constraint incidence through a transient `ForestDisjointSet` — every entity a singleton, every constraint one `Union` per operand past its head, `SetCount` the live island census and `FindSet` the grouping key — so the partition costs one near-constant-time pass and no container is minted for a question union-find answers directly; each component solves on its own `dof_island²` normal matrix instead of `Seed.Count²`, the decomposition that makes a many-sketch document solve at the cost of its largest island; an untouched entity is a zero-row island converging at iteration 0. Per island, `Model` gathers the columns into a compact local vector over a single-writer global scratch (islands are column-disjoint, so the scratch never races), folds `Σr²` at 106-bit `ddouble`, and accumulates packed-upper `JᵀJ` + `Jᵀr` from the analytic partials with global→local remap, so the dense `J` never materializes on the LM lane. Residual scatter accumulates rather than overwrites because an arm can emit one column twice for a shared or self-aliased entity. `RankMethod.Matching` reads `MaximumBipartiteMatchingAlgorithm` cardinality as the König structural rank — row deficiency localizes over-constraint to its island and column surplus under-constraint, the locality a global row count is blind to. `RankMethod.Witness` runs PER ISLAND — `J(seed)` is block-diagonal under the island permutation, so each island's compact `rows_island × dof_island` dense block goes through `DecomposeSvd` and the fold is EQUAL to the global witness at `Σ dof_island²` cost, the same economy the solve fold buys; per island it reads true DOF `dof_island − Rank` and projects the residual onto the left-null space via the `SvdResult.U` tail — a vanishing tail is `Redundant`, redundant constraints that all hold — and island verdicts fold through the system's own `Worst` over the row's key ordinal with dependent rows summed.
 - Output: `Solve` returns `Solution` carrying the converged parameters as `Arr<double>` beside its status, determinacy, residual norm, iteration total, terminal λ, row count, and island count under one `ValidityClaim.All` fold; the terminal λ is the MAX over the islands' measured readings and the status the worst island's key ordinal, so no island's outcome hides behind another's, and an empty island set is unreachable past `Build`. `DofReport` is the diagnosis evidence a sketch UI reads to name which island over-constrains and by which rank method.
 - Packages: `Rhino.Geometry` (`Point3d`/`Vector3d` for entity geometry), `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Matrix`/`SvdResult`/`Dimension`/`PositiveMagnitude` — the `Numerics/matrix` + `Numerics/atoms` owners), QuikGraph (`ForestDisjointSet` the island partition; `AdjacencyGraph` + `MaximumBipartiteMatchingAlgorithm` the structural-rank walk), TYoshimura.DoubleDouble (`ddouble` + `DoubleDoubleEnumerableExpand.Sum`, the 106-bit `Σr²`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`/`[SmartEnum<string>]`/`[UseDelegateFromConstructor]`, generated `Switch`), CommunityToolkit.HighPerformance (`ReadOnlySpan2D` row projection for the U-tail gather), System.Numerics.Tensors (`TensorPrimitives.Dot`/`Norm` on the witness projection), LanguageExt.Core (`Fin`/`Option`/`Arr`/`Validation`/`Seq`, the accumulating `.Traverse` admission and the short-circuiting `Seq.TraverseM` island sequence), BCL inbox.
@@ -594,7 +593,7 @@ public sealed partial class RankMethod {
     public static readonly RankMethod Matching = new(key: "matching", analyze: ConstraintSystem.MatchRank);
     public static readonly RankMethod Witness  = new(key: "witness", analyze: ConstraintSystem.WitnessRank);
 
-    [UseDelegateFromConstructor] public partial DofReport Analyze(ConstraintSystem system, Op key);
+    [UseDelegateFromConstructor] public partial DofReport Analyze(ConstraintSystem system);
 }
 
 [SmartEnum<int>]
@@ -838,7 +837,7 @@ public sealed record ConstraintSystem(
         new(() => Decompose(Entities, Constraints));
 
     public static Fin<ConstraintSystem> Build(
-        Seq<(SketchEntityKind Kind, double[] Initial)> entities, Seq<Constraint> constraints, Op? key = null) {
+        Seq<(SketchEntityKind Kind, double[] Initial)> entities, Seq<Constraint> constraints) {
         List<Entity> placedList = new(entities.Count);
         int offset = 0;
         foreach ((SketchEntityKind Kind, double[] Initial) e in entities) { placedList.Add(new Entity(e.Kind, offset)); offset += e.Kind.Arity; }
@@ -875,13 +874,12 @@ public sealed record ConstraintSystem(
             .ToFin();
     }
 
-    public Fin<Solution> Solve(SolvePolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
-        DofReport report = RankMethod.Witness.Analyze(system: this, key: op);
+    public Fin<Solution> Solve(SolvePolicy policy) {
+        DofReport report = RankMethod.Witness.Analyze(system: this);
         Seq<(Seq<int> Entities, Seq<int> Constraints)> islands = Islands.Value;
         return islands.TraverseM(island =>
-                Model.Of(this, island, SeedVector.Value, op)
-                    .Bind(model => Lm.Minimize(model, policy, op))
+                Model.Of(island, SeedVector.Value)
+                    .Bind(model => Lm.Minimize(model, policy))
                     .Map(result => (Island: island, Result: result)))
             .As()
             .Bind(solved => {
@@ -908,7 +906,7 @@ public sealed record ConstraintSystem(
             });
     }
 
-    internal static DofReport CountRank(ConstraintSystem system, Op key) {
+    internal static DofReport CountRank(ConstraintSystem system) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
             int rows = island.Constraints.Sum(ci => system.Constraints[ci].Residual(system.SeedVector.Value).Count);
             int dofs = island.Entities.Sum(e => system.Entities[e].Arity);
@@ -923,7 +921,7 @@ public sealed record ConstraintSystem(
         return new DofReport(islands.Map(static row => row.Verdict).Fold(Determinacy.Well, Worst), islands);
     }
 
-    internal static DofReport MatchRank(ConstraintSystem system, Op key) {
+    internal static DofReport MatchRank(ConstraintSystem system) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
             Seq<Seq<int>> rowColumns = island.Constraints
                 .Bind(ci => system.Constraints[ci].Residual(system.SeedVector.Value))
@@ -958,12 +956,12 @@ public sealed record ConstraintSystem(
         return new DofReport(islands.Map(static row => row.Verdict).Fold(Determinacy.Well, Worst), islands);
     }
 
-    internal static DofReport WitnessRank(ConstraintSystem system, Op key) {
+    internal static DofReport WitnessRank(ConstraintSystem system) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
-            (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value, key);
+            (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value);
             return rows == 0
                 ? new IslandVerdict(ordinal, dofs > 0 ? Determinacy.Under : Determinacy.Well, dofs, 0, 0, RankMethod.Count)
-                : jacobian.ToFin(key.InvalidResult()).Bind(j => j.DecomposeSvd(key)).Match(
+                : jacobian.ToFin(new KernelFault.InvalidResult()).Bind(j => j.DecomposeSvd()).Match(
                     Succ: svd => rows <= svd.Rank
                         ? new IslandVerdict(ordinal, dofs - svd.Rank > 0 ? Determinacy.Under : Determinacy.Well,
                             dofs - svd.Rank, 0, svd.Rank, RankMethod.Witness)
@@ -1012,7 +1010,7 @@ public sealed record ConstraintSystem(
     }
 
     static (int Rows, double[] Residual, Option<Matrix> Jacobian, int LocalDofs) LinearizeIsland(
-        ConstraintSystem system, (Seq<int> Entities, Seq<int> Constraints) island, double[] parameters, Op key) {
+        ConstraintSystem system, (Seq<int> Entities, Seq<int> Constraints) island, double[] parameters) {
         Dictionary<int, int> local = [];
         int dofs = 0;
         foreach (int ordinal in island.Entities) {
@@ -1028,7 +1026,7 @@ public sealed record ConstraintSystem(
             r[row] = allRows[row].Value;
             foreach ((int column, double partial) in allRows[row].Partials) j[(row * dofs) + local[column]] += partial;
         }
-        return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(dofs), new Arr<double>(j), key).ToOption(), dofs);
+        return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(dofs), new Arr<double>(j)).ToOption(), dofs);
     }
 
     static bool ConsistentAtWitness(SvdResult svd, double[] r, int rows) {
@@ -1062,7 +1060,7 @@ public sealed record ConstraintSystem(
         }
 
         internal static Fin<Model> Of(
-            ConstraintSystem system, (Seq<int> Entities, Seq<int> Constraints) island, double[] current, Op key) {
+            ConstraintSystem system, (Seq<int> Entities, Seq<int> Constraints) island, double[] current) {
             int[] columns = [.. island.Entities.Bind(ordinal => {
                 Entity entity = system.Entities[ordinal];
                 return toSeq(Enumerable.Range(entity.Offset, entity.Arity));
@@ -1073,7 +1071,7 @@ public sealed record ConstraintSystem(
             return island.Constraints.ForAll(ordinal => system.Constraints[ordinal].Residual(current)
                     .ForAll(row => row.Partials.ForAll(partial => local.ContainsKey(partial.Column))))
                 ? Fin.Succ(new Model(system, island, current, columns, local))
-                : Fin.Fail<Model>(key.InvalidInput());
+                : Fin.Fail<Model>(new KernelFault.InvalidInput());
         }
 
         public int Dof => columns.Length;

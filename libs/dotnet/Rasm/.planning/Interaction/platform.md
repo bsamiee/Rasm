@@ -40,29 +40,29 @@ namespace Rasm.Interaction;
 [SmartEnum<int>]
 public sealed partial class HandlerCustody {
     public static readonly HandlerCustody Owned = new(key: 0, release: static (handler, key) =>
-        FaultGate.Host(() => Fin.Succ(Op.Side(() => (handler as IDisposable)?.Dispose())), key));
+        FaultGate.Host(() => Fin.Succ(HostEdge.Side(() => (handler as IDisposable)?.Dispose()))));
     public static readonly HandlerCustody Borrowed = new(key: 1, release: static (_, _) => Fin.Succ(unit));
 
-    [UseDelegateFromConstructor] internal partial Fin<Unit> Release(object handler, Op key);
+    [UseDelegateFromConstructor] internal partial Fin<Unit> Release(object handler);
 }
 
 [SmartEnum<int>]
 public sealed partial class HandlerDemand {
     public static readonly HandlerDemand Create = new(key: 0, custody: HandlerCustody.Owned,
-        mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.Create(type: contract))), key));
+        mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.Create(type: contract)))));
     public static readonly HandlerDemand Shared = new(key: 1, custody: HandlerCustody.Borrowed,
-        mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.CreateShared(type: contract))), key));
+        mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.CreateShared(type: contract)))));
     public static readonly HandlerDemand Registered = new(key: 2, custody: HandlerCustody.Owned,
         mint: static (platform, contract, key) => FaultGate.Host(
-            () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory())), key));
+            () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory()))));
 
     public HandlerCustody Custody { get; }
 
-    [UseDelegateFromConstructor] internal partial Fin<Option<object>> Mint(Platform platform, Type contract, Op key);
+    [UseDelegateFromConstructor] internal partial Fin<Option<object>> Mint(Platform platform, Type contract);
 }
 
 public sealed record HandlerHold<THandler>(HandlerCustody Custody, THandler Handler) where THandler : class {
-    public Fin<Unit> Release(Op? key = null) => Custody.Release(handler: Handler, key: key.OrDefault());
+    public Fin<Unit> Release() => Custody.Release(handler: Handler, key: key.OrDefault());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -73,7 +73,7 @@ public abstract partial record MintFact {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record HandlerRow(Type Contract, Func<Platform, Op, Fin<Unit>> Seat, Func<Platform, Op, Fin<Unit>> Restore) {
+public sealed record HandlerRow(Type Contract, Func<Platform, Fin<Unit>> Seat, Func<Platform, Fin<Unit>> Restore) {
     public static HandlerRow Of<THandler>(Func<THandler> factory) where THandler : class;
 }
 
@@ -95,14 +95,14 @@ public sealed class HandlerSeat : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Handlers {
-    public static Fin<Lease<HandlerSeat>> Seat(Op? key = null, params ReadOnlySpan<HandlerRow> rows);
+    public static Fin<Lease<HandlerSeat>> Seat(params ReadOnlySpan<HandlerRow> rows);
 
-    public static Fin<Option<HandlerHold<THandler>>> Resolve<THandler>(HandlerDemand demand, Op? key = null)
+    public static Fin<Option<HandlerHold<THandler>>> Resolve<THandler>(HandlerDemand demand)
         where THandler : class;
 
-    public static Fin<HandlerIdentity> Identity(Widget widget, Op? key = null);
+    public static Fin<HandlerIdentity> Identity(Widget widget);
 
-    public static Fin<Lease<IDisposable>> Census(Action<MintFact> observe, FaultCell faults, Op? key = null);
+    public static Fin<Lease<IDisposable>> Census(Action<MintFact> observe, FaultCell faults);
 }
 ```
 
@@ -133,12 +133,12 @@ public abstract partial record NativeMount {
     public sealed record Eager(object Native) : NativeMount;
     public sealed record Deferred(Func<object> Supply, FaultCell Faults) : NativeMount;
 
-    public Fin<Control> Realize(Op? key = null);
+    public Fin<Control> Realize();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlatformMount : IDisposable {
-    public static Fin<Lease<PlatformMount>> Attach(NativeMount mount, Op? key = null);
+    public static Fin<Lease<PlatformMount>> Attach(NativeMount mount);
 
     public Control Subject { get; }
     public Seq<Error> Failures { get; }
@@ -151,7 +151,7 @@ public sealed class PlatformMount : IDisposable {
 
 - Owner: `PlatformCapability` the admitted-feature vocabulary; `Accessibility` the host accessibility-display vocabulary every motion, theme, and translucency consumer reads as one `CapabilitySet<Accessibility>`; `FormFactor` the two device postures; `PlatformRow` the backend roster; `PlatformClaim` the one capability demand; `PlatformFact` the ambient snapshot; `HostPlatform` the four ambient entries; `StyleKey` the keyed style identity; `StyleRow`, `StyleContext`, and `StyleSeat` the registration family; `ThemePort` the injection port binding a `ThemeGrid` to the host style registry.
 - Cases: `PlatformRow` carries six rows keyed on the host's own platform identifiers — macOS, WinForms, WPF, GTK, iOS, Android — and `PlatformClaim` is `FeatureCase`, `HandlerCase`, or `RowCase`, three demand shapes behind one gate. `Accessibility` carries five rows — `ReduceMotion`, `IncreaseContrast`, `DifferentiateColour`, `ReduceTransparency`, `InvertColors` — the closed macOS accessibility-display axis set; `CapabilitySet` carries the combination, so the five bool columns three folders declared independently are one canonical key-ordered membership, and only ONE row is a motion fact — the other four are display settings, which is why the roster seats here and not with the motion fold.
-- Entry: `HostPlatform.Snapshot` reads the ambient fact; `Demand` is the ONE capability gate; `Scope(scope, body, key)` is the ONE scoped crossing over the `PlatformScope` row; `ThemePort.Register` claims and seats a style batch, `Wear` assigns a claimed key to a widget, `Change` lands a theme shift, and `Provide` swaps the provider.
+- Entry: `HostPlatform.Snapshot` reads the ambient fact; `Demand` is the ONE capability gate; `Scope(scope, body)` is the ONE scoped crossing over the `PlatformScope` row; `ThemePort.Register` claims and seats a style batch, `Wear` assigns a claimed key to a widget, `Change` lands a theme shift, and `Provide` swaps the provider.
 - Law: form factor is a ROW COLUMN, not a probe pair. Reading `IsDesktop` and `IsMobile` off the live platform and carrying both as bools admits a platform answering neither and a platform answering both; the roster declares each row's factor once and the fact projects it, so the two host predicates are the deleted form and the scattered `IsMac` tests they enabled have no spelling left.
 - Law: bundle validity is an ADMISSION, not a column. Platforms reporting themselves invalid produce no usable fact, so `Snapshot` refuses typed and the `Valid` bool disappears rather than riding out for every reader to re-check. The identity is a `PlatformId`, so the fact carries no evidence fold at all — a one-conjunct claim over an admitted value object measures nothing its own construction did not refuse.
 - Law: capability is a `CapabilitySet<PlatformCapability>` over the host's own feature vocabulary — the upstream is the platform feature flag set and each row names its flag — so a demand is set algebra with an ordinal-key wire rather than a bitwise test, and a claim carrying two required features admits or refuses as one.
@@ -281,29 +281,29 @@ public sealed class StyleSeat : IDisposable {
 }
 
 public sealed class ThemePort {
-    public static Fin<ThemePort> Of(ThemeGrid grid, Op? key = null);
+    public static Fin<ThemePort> Of(ThemeGrid grid);
 
     public ThemeSnapshot Current { get; }
     public Seq<Error> Failures { get; }
 
-    public Fin<Lease<StyleSeat>> Register(TelemetrySource owner, FaultCell faults, Op? key = null, params ReadOnlySpan<StyleRow> rows);
+    public Fin<Lease<StyleSeat>> Register(TelemetrySource owner, FaultCell faults, params ReadOnlySpan<StyleRow> rows);
 
-    public Fin<Unit> Wear(Widget widget, StyleKey style, Op? key = null);
+    public Fin<Unit> Wear(Widget widget, StyleKey style);
 
-    public Fin<Unit> Provide(IStyleProvider provider, Op? key = null);
+    public Fin<Unit> Provide(IStyleProvider provider);
 
     public Unit Track(Control control);
 
-    public Fin<ThemeChange> Change(ThemeShift shift, Op? key = null);
+    public Fin<ThemeChange> Change(ThemeShift shift);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostPlatform {
-    public static Fin<PlatformFact> Snapshot(Op? key = null);
+    public static Fin<PlatformFact> Snapshot();
 
-    public static Fin<Unit> Demand(PlatformClaim claim, Op? key = null);
+    public static Fin<Unit> Demand(PlatformClaim claim);
 
-    public static Fin<TResult> Scope<TResult>(PlatformScope scope, Func<Fin<TResult>> body, Op? key = null);
+    public static Fin<TResult> Scope<TResult>(PlatformScope scope, Func<Fin<TResult>> body);
 }
 ```
 

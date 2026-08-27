@@ -147,9 +147,9 @@ public sealed partial class PostFit {
             validationError = new ValidationError("post-fit-policy");
     }
 
-    public static Fin<PostFit> Admit(FitRaw raw, Op key) =>
+    public static Fin<PostFit> Admit(FitRaw raw) =>
         (PostArrow.Length("post-fit:deviation", raw.Deviation)
-            .Bind(value => Tolerance.Of(ToleranceLane.Deviation, value.Millimeters, key).ToValidation()),
+            .Bind(value => Tolerance.Of(ToleranceLane.Deviation, value.Millimeters).ToValidation()),
          PostArrow.Length("post-fit:minimum-run", raw.MinimumRun),
          PostArrow.Length("post-fit:split-distance", raw.SplitDistance))
         .Apply((deviation, run, split) =>
@@ -262,7 +262,6 @@ public sealed partial class PostPolicy {
         .As().ToFin()
         .Bind(conditioning => Validate(conditioning, raw.Tooling, raw.Setup, raw.Emit, out PostPolicy policy).Admitted(policy));
 
-    private static readonly Op Mint = Op.Of(name: nameof(PostPolicy));
 }
 ```
 

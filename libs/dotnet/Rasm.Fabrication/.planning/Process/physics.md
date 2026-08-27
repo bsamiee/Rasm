@@ -952,9 +952,9 @@ public sealed partial class PhysicsQuantity {
     private delegate bool TryQuantity<T>(string? text, IFormatProvider? provider, out T value);
 
     private static PhysicsQuantity Of<T>(string key, TryQuantity<T> parse, Func<T, double> canonical) =>
-        new(key, text => parse(text, CultureInfo.InvariantCulture, out T value)
+        new(text => parse(text, CultureInfo.InvariantCulture, out T value)
             ? Fin.Succ(canonical(value))
-            : Fin.Fail<double>(FabricationFault.Equipment(new EquipmentWitness.Quantity(key, text))));
+            : Fin.Fail<double>(FabricationFault.Equipment(new EquipmentWitness.Quantity(text))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

@@ -143,13 +143,12 @@ public static partial class ObjectsTelemetry {
     private static readonly Atom<HashMap<PluginKey, ILogger>> Sinks = Atom(HashMap<PluginKey, ILogger>());
     private static readonly Atom<Seq<Error>> EgressFaults = Atom(Seq<Error>());
 
-    public static Fin<IDisposable> Configure(PluginKey plugin, ILogger sink, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in plugin.Admit(op)
-               from row in op.Need(sink)
+    public static Fin<IDisposable> Configure(PluginKey plugin, ILogger sink) {
+        return from _ in plugin.Admit()
+               from row in Admit.Need(sink)
                from seat in Sinks.Swap(held => held.ContainsKey(plugin) ? held : held.Add(plugin, row)).Find(plugin)
                    .Filter(live => ReferenceEquals(live, row))
-                   .ToFin(Fail: op.InvalidContext())
+                   .ToFin(Fail: new KernelFault.InvalidContext())
                select (IDisposable)Subscription.Of(detach: () => ignore(Sinks.Swap(held =>
                    held.Find(plugin).Filter(live => ReferenceEquals(live, row)).Match(
                        Some: _ => held.Remove(plugin),
@@ -220,10 +219,10 @@ public static partial class ObjectsTelemetry {
         Seq<ILogger> live = sinks.IsEmpty ? Seq<ILogger>(NullLogger.Instance) : sinks;
         TelemetryFan settled = live.Fold(
             TelemetryFan.Empty,
-            (held, sink) => Op.Of(name: nameof(ObjectsTelemetry)).Catch(() => {
+            (held, sink) => Try.lift(() => {
                     emit(sink);
                     return Fin.Succ(value: unit);
-                })
+                }).Run().Bind(static inner => inner)
                 .Match(Succ: _ => held.Delivered(), Fail: held.Refused));
         return settled.Faults.IsEmpty
             ? settled
@@ -255,19 +254,18 @@ public sealed class HostTap : IDisposable {
 
     private HostTap(PluginKey plugin) => this.plugin = plugin;
 
-    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in plugin.Admit(op)
+    public static Fin<IDisposable> Mount(PluginKey plugin) {
+        return from _ in plugin.Admit()
                from seat in Seat.Swap(current => current is SeatState.Held held
                        ? held with { Riders = held.Riders.Filter(row => row != plugin).Add(plugin) }
                        : current) is SeatState.Held
                    ? Fin.Succ<IDisposable>(new HostTap(plugin: plugin))
-                   : Claim(plugin: plugin, op: op)
+                   : Claim(plugin: plugin)
                select seat;
     }
 
-    private static Fin<IDisposable> Claim(PluginKey plugin, Op op) =>
-        op.Catch(() => {
+    private static Fin<IDisposable> Claim(PluginKey plugin) =>
+        Try.lift(() => {
             HostUtils.ExceptionReportDelegate reported = static (source, ex) => ignore(ObjectsTelemetry.Publish(
                 site: FaultSite.HostException,
                 source: source ?? nameof(HostUtils),
@@ -279,8 +277,8 @@ public sealed class HostTap : IDisposable {
                         level: level),
                     None: () => ObjectsTelemetry.Publish(
                         site: FaultSite.HostLog,
-                        error: Op.Of(name: nameof(HostTap)).Unsupported(
-                            valueType: typeof(HostUtils.LogMessageType), outputType: typeof(LogLevel)))));
+                        error: new KernelFault.Unsupported(
+                            valueType: typeof(HostUtils.LogMessageType), OutputType: typeof(LogLevel)))));
             HostUtils.OnExceptionReport += reported;
             HostUtils.OnSendLogMessageToCloud += streamed;
             Seq<Action> detachers = Seq<Action>(
@@ -296,7 +294,7 @@ public sealed class HostTap : IDisposable {
                 ? unit
                 : ignore(detachers.Iter(static detach => detach()));
             return Fin.Succ<IDisposable>(new HostTap(plugin: plugin));
-        });
+        }).Run().Bind(static inner => inner);
 
     private static Option<LogLevel> Severity(HostUtils.LogMessageType kind) => kind switch {
         HostUtils.LogMessageType.information => Some(LogLevel.Information),
@@ -333,13 +331,12 @@ public sealed class HostTap : IDisposable {
 }
 
 public static class ObjectsHooks {
-    public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Seq<IDisposable>> Mount(PluginKey plugin) {
         return MountRegistry.MountAll(
             mounts: Seq(
-                Veto(point: RhinoPoint.ObjectsViewable, plugin: plugin, op: op,
+                Veto(point: RhinoPoint.ObjectsViewable, plugin: plugin,
                     carries: static program => program.Viewable.IsSome),
-                Veto(point: RhinoPoint.ObjectsPick, plugin: plugin, op: op,
+                Veto(point: RhinoPoint.ObjectsPick, plugin: plugin,
                     carries: static program => program.Pick.IsSome),
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
@@ -347,7 +344,7 @@ public static class ObjectsHooks {
                         Plugin: plugin,
                         Ask: typeof(GripProgram),
                         Grant: typeof(GripProgram),
-                        Bind: ask => op.Need(ask as GripProgram).Map(static program => (object)program)),
+                        Bind: ask => Admit.Need(ask as GripProgram).Map(static program => (object)program)),
                     key: op)),
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
@@ -355,15 +352,14 @@ public static class ObjectsHooks {
                         Plugin: plugin,
                         Ask: typeof(ILogger),
                         Grant: typeof(IDisposable),
-                        Bind: ask => ObjectsTelemetry.Configure(plugin: plugin, sink: (ILogger)ask, key: op)
+                        Bind: ask => ObjectsTelemetry.Configure(plugin: plugin, sink: (ILogger)ask)
                             .Map(static seat => (object)seat)),
                     key: op)),
-                Tap(point: RhinoPoint.HostException, plugin: plugin, op: op),
-                Tap(point: RhinoPoint.HostCloudLog, plugin: plugin, op: op)),
-            key: op);
+                Tap(point: RhinoPoint.HostException, plugin: plugin),
+                Tap(point: RhinoPoint.HostCloudLog, plugin: plugin)));
     }
 
-    private static Func<Fin<IDisposable>> Veto(RhinoPoint point, PluginKey plugin, Op op, Func<ObjectProgram, bool> carries) =>
+    private static Func<Fin<IDisposable>> Veto(RhinoPoint point, PluginKey plugin, Func<ObjectProgram, bool> carries) =>
         () => MountRegistry.Mount(
             mount: new HookMount(
                 Point: point,
@@ -372,19 +368,17 @@ public static class ObjectsHooks {
                 Grant: typeof(ObjectProgram),
                 Bind: ask => Optional(ask as ObjectProgram)
                     .Filter(carries)
-                    .ToFin(Fail: op.InvalidInput())
-                    .Map(static program => (object)program)),
-            key: op);
+                    .ToFin(Fail: new KernelFault.InvalidInput())
+                    .Map(static program => (object)program)));
 
-    private static Func<Fin<IDisposable>> Tap(RhinoPoint point, PluginKey plugin, Op op) =>
+    private static Func<Fin<IDisposable>> Tap(RhinoPoint point, PluginKey plugin) =>
         () => MountRegistry.Mount(
             mount: new HookMount(
                 Point: point,
                 Plugin: plugin,
                 Ask: typeof(PluginKey),
                 Grant: typeof(IDisposable),
-                Bind: ask => HostTap.Mount(plugin: (PluginKey)ask, key: op).Map(static seat => (object)seat)),
-            key: op);
+                Bind: ask => HostTap.Mount(plugin: (PluginKey)ask, key: op).Map(static seat => (object)seat)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -393,15 +387,14 @@ internal static class HostForward {
         outcome.IfFail(error => ignore(ObjectsTelemetry.Publish(site: site, error: error)));
 
     internal static Unit Run<TArgs>(this Option<Func<TArgs, Fin<Unit>>> hook, TArgs args) =>
-        hook.Map(run => Op.Of(name: nameof(ObjectProgram)).Catch(() => run(args))
+        hook.Map(run => Try.lift(() => run(args)).Run().Bind(static inner => inner)
             .Reported(site: FaultSite.ObjectCallback)).IfNone(noneValue: unit);
 
     internal static Unit Run(this Option<Func<Fin<Unit>>> hook, FaultSite site) =>
-        hook.Map(run => Op.Of(name: nameof(ObjectProgram)).Catch(run).Reported(site: site)).IfNone(noneValue: unit);
+        hook.Map(run => Try.lift(run).Run().Bind(static inner => inner).Reported(site: site)).IfNone(noneValue: unit);
 
-    internal static Fin<T> Attempt<T>(Func<Op, Fin<T>> body) {
-        Op op = Op.Of(name: nameof(ObjectProgram));
-        return op.Catch(() => body(op));
+    internal static Fin<T> Attempt<T>(Func< Fin<T>> body) {
+        return Try.lift(() => body()).Run().Bind(static inner => inner);
     }
 
     internal static T Fallback<T>(Option<Fin<T>> attempted, FaultSite site, T inherited) =>
@@ -419,10 +412,10 @@ internal static class HostForward {
             None: inherited);
 
     private static T Refined<TValue, T>(
-        Option<TValue> slot, FaultSite site, T inherited, Func<TValue, Func<Op, Fin<T>>> body) =>
+        Option<TValue> slot, FaultSite site, T inherited, Func<TValue, Func< Fin<T>>> body) =>
         Fallback(attempted: slot.Map(value => Attempt(body(value))), site: site, inherited: inherited);
 
-    private static Unit Ran<TValue>(Option<TValue> slot, FaultSite site, Func<TValue, Func<Op, Fin<Unit>>> body) =>
+    private static Unit Ran<TValue>(Option<TValue> slot, FaultSite site, Func<TValue, Func< Fin<Unit>>> body) =>
         slot.Map(value => Attempt(body(value)).Reported(site: site)).IfNone(noneValue: unit);
 
     private static Option<TValue> MeshSlot<TValue>(
@@ -435,11 +428,11 @@ internal static class HostForward {
             site: FaultSite.Pick,
             inherited: candidates,
             body: filter => op => candidates
-                .Map((candidate, slot) => Picks.Capture(reference: candidate, key: op)
+                .Map((candidate, slot) => Error.New(reference: candidate.Message, reference: candidate)
                     .Map(capture => new PickCandidate(Slot: slot, Capture: capture)))
                 .TraverseM(identity).As()
                 .Bind(filter)
-                .Bind(slots => guard(slots.ForAll(slot => slot >= 0 && slot < candidates.Count), op.InvalidResult())
+                .Bind(slots => guard(slots.ForAll(slot => slot >= 0 && slot < candidates.Count), new KernelFault.InvalidResult())
                     .ToFin()
                     .Map(_ => slots.Distinct()))
                 .Map(slots => candidates
@@ -460,7 +453,7 @@ internal static class HostForward {
             site: FaultSite.Bounds,
             inherited: inherited,
             body: grow => op => grow(viewport, inherited)
-                .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => answer)));
+                .Bind(answer => guard(answer.IsValid, new KernelFault.InvalidResult()).ToFin().Map(_ => answer)));
 
     internal static bool Tight(this ObjectProgram program, ref BoundingBox box, bool grow, Transform motion, bool inherited) {
         BoundingBox current = box;
@@ -470,7 +463,7 @@ internal static class HostForward {
             inherited: (inherited, current),
             body: refine => op =>
                 refine(new TightExtent(Current: current, Grow: grow, Motion: motion, BaseAnswered: inherited))
-                    .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => (true, answer))));
+                    .Bind(answer => guard(answer.IsValid, new KernelFault.InvalidResult()).ToFin().Map(_ => (true, answer))));
         box = refined.Bounds;
         return refined.Answered;
     }
@@ -480,7 +473,7 @@ internal static class HostForward {
             slot: program.Picked,
             site: FaultSite.Pick,
             body: consume => op => picked
-                .TraverseM(reference => Picks.Capture(reference: reference, key: op)).As()
+                .TraverseM(reference => Error.New(reference: reference.Message, reference: reference)).As()
                 .Bind(consume));
 
     internal static bool Meshable(this ObjectProgram program, MeshKind kind, bool inherited) =>
@@ -497,7 +490,7 @@ internal static class HostForward {
             inherited: inherited,
             body: refine => op => Policy(parameters: parameters, op: op)
                 .Bind(policy => refine(kind, policy, inherited))
-                .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)));
+                .Bind(answer => guard(answer >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => answer)));
 
     internal static int Constructed(this ObjectProgram program, MeshKind kind, MeshingParameters parameters, bool ignore, int inherited) =>
         Refined(
@@ -507,7 +500,7 @@ internal static class HostForward {
             body: refine => op => Policy(parameters: parameters, op: op)
                 .Bind(policy => refine(new RenderMeshBuild(
                     Kind: kind, Policy: policy, IgnoreCustom: ignore, Inherited: inherited)))
-                .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)));
+                .Bind(answer => guard(answer >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => answer)));
 
     internal static Mesh[] Roster(this ObjectProgram program, MeshKind kind, Mesh[] inherited) =>
         Refined(
@@ -522,9 +515,9 @@ internal static class HostForward {
             site: FaultSite.RenderMesh,
             body: run => run(kind));
 
-    private static Fin<Option<RenderMeshPolicy>> Policy(MeshingParameters parameters, Op op) =>
+    private static Fin<Option<RenderMeshPolicy>> Policy(MeshingParameters parameters) =>
         Optional(parameters)
-            .Map(native => RenderMeshPolicy.Capture(native: native, key: op).Map(Some))
+            .Map(native => Error.New(native: native.Message, native: native).Map(Some))
             .IfNone(() => Fin.Succ(value: Option<RenderMeshPolicy>.None));
 }
 ```
@@ -671,11 +664,11 @@ public sealed partial class GripSeed {
             : new ValidationError(message: "grip seed is invalid");
     }
 
-    internal static Fin<Seq<GripSeed>> AdmitRoster(Seq<GripSeed> seeds, Op key) =>
+    internal static Fin<Seq<GripSeed>> AdmitRoster(Seq<GripSeed> seeds) =>
         guard(
             seeds.Map(static seed => seed.Index).Order()
                 .SequenceEqual(Enumerable.Range(start: 0, count: seeds.Count)),
-            key.InvalidInput())
+            new KernelFault.InvalidInput())
         .ToFin()
         .Map(_ => seeds);
 }
@@ -714,7 +707,7 @@ public sealed class RasmGrip : CustomGripObject {
 
     public sealed override void NewLocation() {
         base.NewLocation();
-        _ = locationChanged.Map(run => Op.Of().Catch(() => run(Index, CurrentLocation)).Reported(FaultSite.GripLocation)).IfNone(noneValue: unit);
+        _ = locationChanged.Map(run => Try.lift(() => run(Index, CurrentLocation)).Run().Bind(static inner => inner).Reported(FaultSite.GripLocation)).IfNone(noneValue: unit);
     }
 }
 
@@ -722,16 +715,15 @@ public abstract class RasmGrips : CustomObjectGrips {
     protected abstract GripProgram Program { get; }
 
     protected Fin<Unit> Sow(GeometryBase geometry) {
-        Op op = Op.Of(name: nameof(RasmGrips));
-        return from source in op.Need(geometry)
-               from seeds in op.Catch(() => Program.Seeds(source))
-               from admitted in seeds.Traverse(seed => op.Need(seed).ToValidation()).As().ToFin()
+        return from source in Admit.Need(geometry)
+               from seeds in Try.lift(() => Program.Seeds(source)).Run().Bind(static inner => inner)
+               from admitted in seeds.Traverse(seed => Admit.Need(seed).ToValidation()).As().ToFin()
                from roster in GripSeed.AdmitRoster(seeds: admitted, key: op)
-               from _ in op.Catch(() => roster
+               from _ in Try.lift(() => roster
                    .Map(seed => new RasmGrip(seed: seed, locationChanged: Program.LocationChanged))
                    .Strict()
-                   .TraverseM(grip => op.Catch(() => AddGrip(grip: grip))).As()
-                   .Map(static _ => unit))
+                   .TraverseM(grip => Try.lift(() => AddGrip(grip: grip)).Run().Bind(static inner => inner)).As()
+                   .Map(static _ => unit)).Run().Bind(static inner => inner)
                    .Rollback(release: () => {
                        Dispose();
                        return Fin.Succ(unit);
@@ -741,11 +733,10 @@ public abstract class RasmGrips : CustomObjectGrips {
 
     protected sealed override GeometryBase NewGeometry() {
         GeometryBase inherited = base.NewGeometry();
-        Op op = Op.Of(name: nameof(RasmGrips));
-        return op.Catch(() => Program.Regrow(toSeq(Enumerable.Range(start: 0, count: GripCount))
+        return Try.lift(() => Program.Regrow(toSeq(Enumerable.Range(start: 0, count: GripCount))
                     .Map(index => Grip(index: index))
                     .Map(static grip => (grip.Index, grip.CurrentLocation)))
-                .Bind(grown => Optional(grown).ToFin(Fail: op.InvalidResult())))
+                .Bind(grown => Optional(grown).ToFin(Fail: new KernelFault.InvalidResult()))).Run().Bind(static inner => inner)
             .Match(
                 Succ: static grown => grown,
                 Fail: error => {
@@ -755,7 +746,7 @@ public abstract class RasmGrips : CustomObjectGrips {
     }
 
     protected sealed override void OnDraw(GripsDrawEventArgs args) {
-        _ = Program.Draw.Map(run => Op.Of(name: nameof(RasmGrips)).Catch(() => run(args))
+        _ = Program.Draw.Map(run => Try.lift(() => run(args)).Run().Bind(static inner => inner)
             .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
         base.OnDraw(args);
     }
@@ -772,34 +763,34 @@ public abstract class RasmGrips : CustomObjectGrips {
 
     protected sealed override void OnUpdateMesh(MeshType meshType) {
         base.OnUpdateMesh(meshType);
-        _ = Program.UpdateMesh.Map(run => Op.Of().Catch(() => run(
+        _ = Program.UpdateMesh.Map(run => Try.lift(() => run(
                 MeshKind.Get((int)meshType),
-                new GripMotion(NewLocation: NewLocation, Moved: GripsMoved, Dragging: Dragging())))
+                new GripMotion(NewLocation: NewLocation, Moved: GripsMoved, Dragging: Dragging()))).Run().Bind(static inner => inner)
             .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
         NewLocation = false;
     }
 
     protected sealed override GripObject NeighborGrip(int gripIndex, int dr, int ds, int dt, bool wrap) =>
         HostForward.Probe(
-            attempted: Program.Neighbor.Map(find => Op.Of(name: nameof(RasmGrips)).Catch(() => find(gripIndex, dr, ds, dt, wrap))),
+            attempted: Program.Neighbor.Map(find => Try.lift(() => find(gripIndex, dr, ds, dt, wrap)).Run().Bind(static inner => inner)),
             site: FaultSite.GripTopology,
             inherited: () => base.NeighborGrip(gripIndex, dr, ds, dt, wrap));
 
     protected sealed override GripObject NurbsSurfaceGrip(int i, int j) =>
         HostForward.Probe(
-            attempted: Program.SurfaceGrip.Map(find => Op.Of(name: nameof(RasmGrips)).Catch(() => find(i, j))),
+            attempted: Program.SurfaceGrip.Map(find => Try.lift(() => find(i, j)).Run().Bind(static inner => inner)),
             site: FaultSite.GripTopology,
             inherited: () => base.NurbsSurfaceGrip(i, j));
 
     protected sealed override NurbsSurface NurbsSurface() =>
         HostForward.Probe(
-            attempted: Program.Surface.Map(find => Op.Of(name: nameof(RasmGrips)).Catch(find)),
+            attempted: Program.Surface.Map(find => Try.lift(find).Run().Bind(static inner => inner)),
             site: FaultSite.GripTopology,
             inherited: base.NurbsSurface);
 
     protected sealed override void Dispose(bool disposing) {
         if (disposing) {
-            _ = Program.Disposing.Map(run => Op.Of(name: nameof(RasmGrips)).Catch(() => run(disposing))
+            _ = Program.Disposing.Map(run => Try.lift(() => run(disposing)).Run().Bind(static inner => inner)
                 .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
         }
         base.Dispose(disposing);
@@ -810,32 +801,30 @@ public abstract class RasmGrips : CustomObjectGrips {
 public static class GripRig {
     public static Fin<IDisposable> Register<TGrips>(Func<RhinoObject, Option<TGrips>> mint)
         where TGrips : CustomObjectGrips {
-        Op op = Op.Of(name: nameof(GripRig));
-        return from factory in op.Need(mint)
+        return from factory in Admit.Need(mint)
                from _ in guard(
                    typeof(TGrips).IsDefined(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false),
-                   op.InvalidInput())
-               from seat in op.Catch(() => {
+                   new KernelFault.InvalidInput())
+               from seat in Try.lift(() => {
                    CustomObjectGrips.RegisterGripsEnabler(
                        enabler: candidate => Enable(factory: factory, candidate: candidate),
                        customGripsType: typeof(TGrips));
                    return Fin.Succ<IDisposable>(value: Subscription.Of(detach: () => ignore(
-                       Op.Of(name: nameof(GripRig)).Catch(() => {
+                       Try.lift(() => {
                            CustomObjectGrips.RegisterGripsEnabler(
                                enabler: static _ => { },
                                customGripsType: typeof(TGrips));
                            return Fin.Succ(value: unit);
-                       }))));
-               })
+                       }).Run().Bind(static inner => inner))));
+               }).Run().Bind(static inner => inner)
                select seat;
     }
 
     private static void Enable<TGrips>(Func<RhinoObject, Option<TGrips>> factory, RhinoObject candidate)
         where TGrips : CustomObjectGrips {
-        Op key = Op.Of(name: nameof(GripRig));
-        _ = key.Catch(() => factory(candidate)
-                .TraverseM(grips => key.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
-                    .Rollback(grips)).As().Map(static _ => unit))
+        _ = Try.lift(() => factory(candidate)
+                .TraverseM(grips => Admit.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
+                    .Rollback(grips)).As().Map(static _ => unit)).Run().Bind(static inner => inner)
             .Reported(FaultSite.GripRegistration);
     }
 }
@@ -858,21 +847,19 @@ public abstract partial record GripMove {
     public sealed record Via(Transform Motion) : GripMove;
     public sealed record Back : GripMove;
 
-    internal Fin<GripMove> Admit(Op op) =>
-        Switch(
-            op,
-            to: static (key, move) => key.AcceptInput(value: move.Location).Map(_ => (GripMove)move),
-            by: static (key, move) => key.AcceptInput(value: move.Delta).Map(_ => (GripMove)move),
-            via: static (key, move) => key.AcceptInput(value: move.Motion).Map(_ => (GripMove)move),
+    internal Fin<GripMove> Admit() =>
+        Switch(to: static (key, move) => Acceptance.Input(value: move.Location).Map(_ => (GripMove)move),
+            by: static (key, move) => Acceptance.Input(value: move.Delta).Map(_ => (GripMove)move),
+            via: static (key, move) => Acceptance.Input(value: move.Motion).Map(_ => (GripMove)move),
             back: static (_, move) => Fin.Succ<GripMove>(move));
 
-    internal Fin<Unit> Apply(GripObject grip, Op op) =>
+    internal Fin<Unit> Apply(GripObject grip) =>
         Switch(
-            (Grip: grip, Op: op),
-            to: static (context, move) => context.Op.Catch(() => context.Grip.Move(newLocation: move.Location)),
-            by: static (context, move) => context.Op.Catch(() => context.Grip.Move(delta: move.Delta)),
-            via: static (context, move) => context.Op.Catch(() => context.Grip.Move(xform: move.Motion)),
-            back: static (context, _) => context.Op.Catch(() => context.Grip.UndoMove()));
+            grip,
+            to: static (context, move) => Try.lift(() => context.Move(newLocation: move.Location)).Run().Bind(static inner => inner),
+            by: static (context, move) => Try.lift(() => context.Move(delta: move.Delta)).Run().Bind(static inner => inner),
+            via: static (context, move) => Try.lift(() => context.Move(xform: move.Motion)).Run().Bind(static inner => inner),
+            back: static (context, _) => Try.lift(() => context.UndoMove()).Run().Bind(static inner => inner));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -881,13 +868,11 @@ public abstract partial record GripEdit {
     public sealed record Rig(ObjectSignal Signal) : GripEdit;
     public sealed record Move(Option<int> Index, GripMove Motion) : GripEdit;
 
-    internal Fin<GripEdit> Admit(Op op) =>
-        Switch(
-            op,
-            rig: static (key, edit) => key.Need(edit.Signal).Map(_ => (GripEdit)edit),
+    internal Fin<GripEdit> Admit() =>
+        Switch(rig: static (key, edit) => Admit.Need(edit.Signal).Map(_ => (GripEdit)edit),
             move: static (key, edit) =>
-                from motion in key.Need(edit.Motion).Bind(value => value.Admit(op: key))
-                from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput())
+                from motion in Admit.Need(edit.Motion).Bind(value => value.Admit())
+                from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), new KernelFault.InvalidInput())
                 select (GripEdit)new Move(Index: edit.Index, Motion: motion));
 }
 
@@ -907,8 +892,8 @@ public sealed record GripFacts(
     Option<Point3d> CageUvw,
     Seq<int> CurveCvs,
     Seq<(int I, int J)> SurfaceCvs) : IDetachedDocumentResult {
-    internal static Fin<GripFacts> Of(GripObject grip, Op key) =>
-        key.Catch(() => {
+    internal static Fin<GripFacts> Of(GripObject grip) =>
+        Try.lift(() => {
             bool framed = grip.GetGripDirections(u: out Vector3d u, v: out Vector3d v, normal: out Vector3d normal);
             bool onSurface = grip.GetSurfaceParameters(u: out double su, v: out double sv);
             bool onCurve = grip.GetCurveParameters(t: out double t);
@@ -930,53 +915,49 @@ public sealed record GripFacts(
                 SurfaceCvs: surfaceCount > 0
                     ? toSeq(surfaceCvs).Map(static pair => (pair.Item1, pair.Item2))
                     : Seq<(int, int)>()));
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Grips {
     public static Fin<GripCensus> Census(DocumentSession session, TableTarget target) {
-        Op op = Op.Of();
-        return Optional(session).ToFin(Fail: op.MissingContext()).Bind(owner => owner.Demand(
+        return Optional(session).ToFin(Fail: new KernelFault.MissingContext()).Bind(owner => owner.Demand(
             use: document =>
-                from natives in Objects.Resolve(document: document, target: target, key: op)
-                from rows in natives.TraverseM(native => op.Catch(() =>
+                from natives in Objects.Resolve(document: document, target: target)
+                from rows in natives.TraverseM(native => Try.lift(() =>
                     Optional(native.GetGrips()).Map(static held => toSeq(held)).IfNone(Seq<GripObject>())
                         .TraverseM(grip => GripFacts.Of(grip: grip, key: op)).As()
-                        .Map(facts => (native.Id, facts)))).As()
+                        .Map(facts => (native.Id, facts))).Run().Bind(static inner => inner)).As()
                 select new GripCensus(Rows: rows),
-            key: op,
             needs: [SessionNeed.Read]));
     }
 
     public static Fin<Seq<Guid>> Touch(DocumentSession session, TableTarget target, GripEdit edit) {
-        Op op = Op.Of();
-        return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from active in op.Need(edit).Bind(value => value.Admit(op: op))
+        return from owner in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
+               from active in Admit.Need(edit).Bind(value => value.Admit())
                from touched in owner.Demand(
                    use: document =>
-                       from natives in Objects.Resolve(document: document, target: target, key: op)
+                       from natives in Objects.Resolve(document: document, target: target)
                        from ids in natives.TraverseM(native => active.Switch(
-                           (Native: native, Op: op),
-                           rig: static (ctx, edit) => ctx.Op.Catch(() => {
-                               ctx.Native.GripsOn = edit.Signal.On;
-                               return Fin.Succ(value: ctx.Native.Id);
-                           }),
+                           native,
+                           rig: static (ctx, edit) => Try.lift(() => {
+                               ctx.GripsOn = edit.Signal.On;
+                               return Fin.Succ(value: ctx.Id);
+                           }).Run().Bind(static inner => inner),
                            move: static (ctx, edit) =>
-                               from roster in ctx.Op.Catch(() => Fin.Succ(value: Optional(ctx.Native.GetGrips())
-                                   .Map(static held => toSeq(held)).IfNone(Seq<GripObject>())))
+                               from roster in Try.lift(() => Fin.Succ(value: Optional(ctx.GetGrips())
+                                   .Map(static held => toSeq(held)).IfNone(Seq<GripObject>()))).Run().Bind(static inner => inner)
                                from chosen in edit.Index.Case switch {
                                    int at => roster.Filter(grip => grip.Index == at) switch {
                                        [var only] => Fin.Succ(value: Seq(only)),
-                                       _ => Fin.Fail<Seq<GripObject>>(error: ctx.Op.MissingContext()),
+                                       _ => Fin.Fail<Seq<GripObject>>(error: new KernelFault.MissingContext()),
                                    },
                                    _ => Fin.Succ(value: roster),
                                }
-                               from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext())
+                               from _ in guard(!chosen.IsEmpty, new KernelFault.MissingContext())
                                from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
-                               select ctx.Native.Id)).As()
+                               select ctx.Id)).As()
                        select ids,
-                   key: op,
                    needs: [SessionNeed.Mutate])
                select touched;
     }

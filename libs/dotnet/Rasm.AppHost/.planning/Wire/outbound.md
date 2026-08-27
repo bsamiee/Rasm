@@ -53,7 +53,7 @@ public sealed partial class HopKey {
     public static HopKey Of<TCase>() where TCase : OutboundHop => Create(Head + typeof(TCase).Name);
 
     public static Option<HopKey> Named(string? reported) =>
-        Op.Of().AcceptValidated<HopKey>(reported).ToOption();
+        FactoryBridge.Accept<HopKey>(reported).ToOption();
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (!(value ?? string.Empty).StartsWith(Head, StringComparison.Ordinal)) {
@@ -156,7 +156,7 @@ public abstract partial record HopFault : Fault {
     public sealed partial record OwnerConflict : HopFault {
         public OwnerConflict(HopKey key, RetryOwner incumbent, RetryOwner loser)
             : base($"<owner-conflict:{key.Value}>") =>
-            (Key, Incumbent, Loser) = (key, incumbent, loser);
+            (Key, Incumbent, Loser) = (incumbent, loser);
         public HopKey Key { get; }
         public RetryOwner Incumbent { get; }
         public RetryOwner Loser { get; }
@@ -232,7 +232,7 @@ public abstract partial record HopFault : Fault {
     [FaultCase(14)]
     public sealed partial record Unauthenticated : HopFault {
         public Unauthenticated(string key, string registration)
-            : base($"<unauthenticated:{key}:{registration}>") => (Key, Registration) = (key, registration);
+            : base($"<unauthenticated:{key}:{registration}>") => (Key, Registration) = (registration);
         public string Key { get; }
         public string Registration { get; }
     }
@@ -461,7 +461,7 @@ public sealed record HopEvidence(
         HopRows.Items.ToFrozenDictionary(static row => row.Key, static _ => new CircuitBreakerStateProvider()),
         Faculty.Items.ToFrozenDictionary(static row => row, static _ => new CircuitBreakerManualControl()));
 
-    public Option<CircuitBreakerStateProvider> State(HopKey key) => States.Find(key);
+    public Option<CircuitBreakerStateProvider> State(HopKey key) => States.Find();
     public CircuitBreakerManualControl Breaker(Faculty group) => Controls[group];
 }
 
@@ -763,10 +763,9 @@ public static class OutboundSurface {
             contended: contended => Held(contended.State, row.Key, owner));
 
     static Fin<HopClaim> Held(HashMap<HopKey, HopClaim> seated, HopKey key, RetryOwner owner) =>
-        seated.Find(key) is var held && held.Exists(claim => claim.Owner == owner)
-            ? held.ToFin(new HopFault.OwnerConflict(key, owner, owner))
-            : Fin.Fail<HopClaim>(new HopFault.OwnerConflict(
-                key, held.Map(static claim => claim.Owner).IfNone(RetryOwner.Pipeline), owner));
+        seated.Find() is var held && held.Exists(claim => claim.Owner == owner)
+            ? held.ToFin(new HopFault.OwnerConflict(owner, owner))
+            : Fin.Fail<HopClaim>(new HopFault.OwnerConflict(held.Map(static claim => claim.Owner).IfNone(RetryOwner.Pipeline), owner));
 
     public static Fin<Unit> Seat(OutboundRuntime runtime) =>
         from rows in HopRows.Admitted
@@ -839,7 +838,7 @@ public static class OutboundSurface {
     static IO<HopSettled<T>> Execute<T>(
         OutboundRuntime runtime, HopPolicy row, OutboundHop hop,
         Func<CancellationToken, Task<(HopOutcome Outcome, T Value)>> send, Option<ILatencyContext> latency) =>
-        from start in IO.lift(() => runtime.Clocks.Line.Capture(Op.Of()))
+        from start in IO.lift(() => Error.New(Op.Of().Message))
         from settled in IO.liftAsync(envIO => ValueTask.FromResult(Leased(runtime, row, hop, envIO.Token))).Bracket(
             Use: context => Dialed(runtime, row, context, send).Bind(fold => Sealed(runtime, row, start, context, fold)),
             Catch: error => IO.pure(new HopSettled<T>(
@@ -878,13 +877,13 @@ public static class OutboundSurface {
     static IO<HopSettled<T>> Sealed<T>(
         OutboundRuntime runtime, HopPolicy row, Fin<MonotonicStamp> start, ResilienceContext context,
         (HopOutcome Outcome, Option<T> Value) fold) =>
-        from end in IO.lift(() => runtime.Clocks.Line.Capture(Op.Of()))
+        from end in IO.lift(() => Error.New(Op.Of().Message))
         from span in IO.lift(() =>
             from opened in start
             from closed in end
-            from elapsed in runtime.Clocks.Line.Elapsed(opened, closed, Op.Of())
+            from elapsed in runtime.Clocks.Line.Elapsed(opened, closed)
             select new GaugedSpan<DeadlineClass>(
-                DeadlineClass.HopTotal, Op.Of(), elapsed, runtime.Allotted(DeadlineClass.HopTotal)))
+                DeadlineClass.HopTotal, elapsed, runtime.Allotted(DeadlineClass.HopTotal)))
         select new HopSettled<T>(
             fold.Outcome,
             span.ToOption().Map(measured => new HopMeasure(
@@ -977,7 +976,7 @@ public static class Discovery {
         });
 
     public static Fin<DiscoveryManifest> Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract) =>
-        Op.Of().Catch(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllBytes(ManifestPath(roots, pid)), contract))))
+        Try.lift(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllBytes(ManifestPath(roots, pid)), contract)))).Run().Bind(static inner => inner)
             .MapFail(static error => HopFault.Of(error))
             .Bind(manifest => manifest.ToFin(new HopFault.StaleManifest($"empty manifest: {pid}")))
             .Bind(static manifest => Alive(manifest));
@@ -1020,7 +1019,7 @@ public static class Discovery {
         select new CompanionChild(child, manifest, cancel => drainFan(manifest, cancel));
 
     static IO<Process> Started(ProcessStartInfo spec) =>
-        IO.lift(() => Op.Of().Catch(() => Fin.Succ(Optional(Process.Start(spec))))
+        IO.lift(() => Try.lift(() => Fin.Succ(Optional(Process.Start(spec)))).Run().Bind(static inner => inner)
                 .MapFail(static error => HopFault.Of(error))
                 .Bind(child => child.ToFin(new HopFault.SpawnRejected(spec.FileName))));
 
@@ -1046,8 +1045,7 @@ public static class Discovery {
         await using (channel) {
             try {
                 DrainRuntimeResponse received = await control(channel, token);
-                Op key = Op.Of(ControlVerb.DrainRuntime.Key);
-                return await WireAdmission.Admit(received, WireBoundary.InboundPayload, key).Match(
+                return await WireAdmission.Admit(received, WireBoundary.InboundPayload).Match(
                     Succ: reply => Task.FromResult(reply.FinalPhase == global::Rasm.Contracts.Compute.RuntimePhase.Unloaded
                         ? (HopOutcome)new HopOutcome.Delivered()
                         : new HopOutcome.Faulted(new HopFault.ContractBroken(
@@ -1061,7 +1059,7 @@ public static class Discovery {
     }
 
     static Fin<DiscoveryManifest> Alive(DiscoveryManifest manifest) =>
-        Op.Of().Catch(() => Fin.Succ(Process.GetProcessById(manifest.Pid)))
+        Try.lift(() => Fin.Succ(Process.GetProcessById(manifest.Pid))).Run().Bind(static inner => inner)
             .MapFail(HopFault.Of)
             .Map(_ => manifest);
 }

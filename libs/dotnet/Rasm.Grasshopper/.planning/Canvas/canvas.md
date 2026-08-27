@@ -63,7 +63,7 @@ public abstract partial record PickHit : IValidityEvidence {
         surfaceCase: static hit => hit.Object != Guid.Empty,
         voidCase: static _ => true);
 
-    internal static Fin<PickHit> Of(SelectionResult result, Op key);
+    internal static Fin<PickHit> Of(SelectionResult result);
 }
 
 [SmartEnum<int>]
@@ -163,7 +163,7 @@ public readonly record struct CanvasState(
         ValidityClaim.UnitInterval(value: VariableParameterState),
         ValidityClaim.UnitInterval(value: WireDetailingState));
 
-    internal Validation<Error, CanvasState> Admitted(Op key);
+    internal Validation<Error, CanvasState> Admitted();
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -191,10 +191,9 @@ public abstract partial record RasterPlan : IValidityEvidence {
         sizedCase: static plan => plan.Width.Value >= 1 && plan.Height.Value >= 1,
         pickMapCase: static _ => true);
 
-    public static Fin<RasterPlan> Sized(int width, int height, Option<CapabilitySet<RasterLayer>> layers = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admittedWidth in op.AcceptValidated<Dimension>(candidate: width)
-               from admittedHeight in op.AcceptValidated<Dimension>(candidate: height)
+    public static Fin<RasterPlan> Sized(int width, int height, Option<CapabilitySet<RasterLayer>> layers = default) {
+        return from admittedWidth in FactoryBridge.Accept<Dimension>(candidate: width)
+               from admittedHeight in FactoryBridge.Accept<Dimension>(candidate: height)
                select (RasterPlan)new SizedCase(
                    Width: admittedWidth, Height: admittedHeight,
                    Layers: layers.IfNone(() => CapabilitySet<RasterLayer>.All));
@@ -202,43 +201,42 @@ public abstract partial record RasterPlan : IValidityEvidence {
 }
 
 public sealed record CanvasQuery<TResult> {
-    internal CanvasQuery(Func<HostCanvas, Op, Fin<TResult>> read) => Read = read;
-    internal Func<HostCanvas, Op, Fin<TResult>> Read { get; }
+    internal CanvasQuery(Func<HostCanvas, Fin<TResult>> read) => Read = read;
+    internal Func<HostCanvas, Fin<TResult>> Read { get; }
 }
 
 public static class CanvasQuery {
-    public static Fin<CanvasQuery<PointF>> MapPoint(PointF value, CoordinateSystem from, CoordinateSystem to, Op? key = null);
-    public static Fin<CanvasQuery<RectangleF>> MapFrame(RectangleF value, CoordinateSystem from, CoordinateSystem to, Op? key = null);
+    public static Fin<CanvasQuery<PointF>> MapPoint(PointF value, CoordinateSystem from, CoordinateSystem to);
+    public static Fin<CanvasQuery<RectangleF>> MapFrame(RectangleF value, CoordinateSystem from, CoordinateSystem to);
 
     public static Fin<CanvasQuery<Picked>> Pick(
-        PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from origin in guard(ValidityClaim.Finite(point: at), op.InvalidInput()).ToFin()
+        PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord = default) {
+        return from origin in guard(ValidityClaim.Finite(point: at), new KernelFault.InvalidInput()).ToFin()
                from admitted in CanvasPick.Law.Admit(held: gates)
                select new CanvasQuery<Picked>(read: (surface, o) => Resolve(surface, at, admitted, chord, o));
     }
 
     public static CanvasQuery<CanvasState> State() =>
-        new(read: static (surface, op) => CanvasMap.State(surface: surface).Admitted(key: op).ToFin());
+        new(read: static (surface, op) => CanvasMap.State(surface: surface).Admitted().ToFin());
 
     public static CanvasQuery<FramePulse> Pulse() =>
-        new(read: static (surface, op) => op.AcceptValue(value: CanvasMap.Pulse(surface: surface))
+        new(read: static (surface, op) => Acceptance.Value(value: CanvasMap.Pulse(surface: surface))
             .Bind(pulse => GhInstruments.Pulsed(document: Optional(surface.Document).Map(static graph => graph.Identity), pulse: pulse).Map(_ => pulse)));
 
-    public static Fin<CanvasQuery<Lease<Bitmap>>> Raster(RasterPlan plan, Op? key = null);
+    public static Fin<CanvasQuery<Lease<Bitmap>>> Raster(RasterPlan plan);
 
     private static Fin<Picked> Resolve(
-        HostCanvas surface, PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord, Op key) =>
-        from result in key.Catch(() => Fin.Succ(surface.ResolvePick(
+        HostCanvas surface, PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord) =>
+        from result in Try.lift(() => Fin.Succ(surface.ResolvePick(
                 at,
                 includeGrips: gates.Admits(PickAxis.Grips),
                 includeForeground: gates.Admits(PickAxis.Foreground),
                 includeBackground: gates.Admits(PickAxis.Background),
                 includeWires: gates.Admits(PickAxis.Wires),
-                recursive: gates.Admits(PickAxis.Recursive))))
-            .Bind(active => key.Need(value: active))
-        from hit in PickHit.Of(result: result, key: key)
-        from picked in key.AcceptValue(value: CanvasMap.Picked(result: result, at: result.Point, hit: hit))
+                recursive: gates.Admits(PickAxis.Recursive)))).Run().Bind(static inner => inner)
+            .Bind(active => Admit.Need(value: active))
+        from hit in PickHit.Of(result: result)
+        from picked in Acceptance.Value(value: CanvasMap.Picked(result: result, at: result.Point, hit: hit))
         select picked;
 }
 
@@ -287,13 +285,13 @@ internal static partial class CanvasMap {
 ## [03]-[OPERATOR]
 
 - Owner: `CanvasLane` `[SmartEnum<int>]` realizing `IGaugeLane<CanvasLane>` — the canvas gauge vocabulary; each row's bound DERIVES from the kernel dispatch lane it crosses on, so no millisecond literal exists here and a display migration moves the seated pace, never these rows. Kernel `GaugedSpan<CanvasLane>` IS the command's settlement — entry, settle, latency, and the breach verdict all derive from the span, and the caller already holds the case it applied, so the three stamp-pair carriers the fan once kept and the wrapper that re-carried the case identity beside the span are deleted.
-- Owner: `CanvasOp` `[Union]` `[GenerateUnionOps]` — the closed command family over the host's public navigation, projection, dwell, sparkle, marquee, selection, policy, and inline-editing mutations, each case answering its generated `SelfOp` from the same total dispatch that performs the mutation.
+- Owner: `CanvasOp` `[Union]` `` — the closed command family over the host's public navigation, projection, dwell, sparkle, marquee, selection, policy, and inline-editing mutations, each case answering its generated `SelfOp` from the same total dispatch that performs the mutation.
 - Owner: `NavTarget` `[Union]` — the three `IFlexControl.Navigate` shapes; `SparkleSpec` `[Union]` — the public host sparkle constructors with `Attached` HOISTED to the union base (the four mint cases carried it identically; the bespoke case carries a live `ISparkle` whose attachment is its own and reads the base column never); `ActionGate` `[SmartEnum<int>]` realizing `ICapability<ActionGate>` — the `CanvasActions` vocabulary over paired `Write`/`Read` delegate columns; `InlinePrompt` — the content-frame editor intent whose deferred cancellation callback carries the root fault cell.
-- Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null)` → `Fin<GaugedSpan<CanvasLane>>`; `CanvasOperator.Read<TResult>(CanvasQuery<TResult> query, Op? key = null)` → `Fin<TResult>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null)` → `Fin<Unit>`. Clock is the session's ONE injected timeline (folder RULINGS `[02]`).
-- Law: `Apply` brackets the marshalled case in `clock.Gauged<Op, CanvasLane>(CanvasLane.Command, …)` — the span lands on a refused command too, so the pulse evidence covers every crossing.
-- Law: policy mutation is set-driven — `PolicyCase` folds the TOTAL `ActionGate.Items` roster writing `set.Admits(gate)` per row, so allowance and denial are one membership read and a partial write cannot leave a gate unvisited; a `Some` filters payload writes both predicate slots, every `None` slot clears its live filter through the kernel `Op.ToHostSlot`, and an absent payload leaves both untouched. `CanvasState.Policy` reads the same set, so one projection carries the whole policy.
+- Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline clock)` → `Fin<GaugedSpan<CanvasLane>>`; `CanvasOperator.Read<TResult>(CanvasQuery<TResult> query)` → `Fin<TResult>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default)` → `Fin<Unit>`. Clock is the session's ONE injected timeline (folder RULINGS `[02]`).
+- Law: `Apply` brackets the marshalled case in `clock.Gauged< CanvasLane>(CanvasLane.Command, …)` — the span lands on a refused command too, so the pulse evidence covers every crossing.
+- Law: policy mutation is set-driven — `PolicyCase` folds the TOTAL `ActionGate.Items` roster writing `set.Admits(gate)` per row, so allowance and denial are one membership read and a partial write cannot leave a gate unvisited; a `Some` filters payload writes both predicate slots, every `None` slot clears its live filter through the kernel `HostEdge.Slot`, and an absent payload leaves both untouched. `CanvasState.Policy` reads the same set, so one projection carries the whole policy.
 - Boundary: `IFlexControl` owns navigation, projection, coordinate mapping, and redraw scheduling; canvas motion, layout, and interaction owners compose those values without adding mutation gates here.
-- Packages: Grasshopper2 (`Canvas`, `IFlexControl`, `CanvasActions`, `Projection`, `Duration`, the public sparkle family, `ISparkle`, `IResult`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`, `Op.ToHostSlot`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`, `IGaugeLane`), LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`Canvas`, `IFlexControl`, `CanvasActions`, `Projection`, `Duration`, the public sparkle family, `ISparkle`, `IResult`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`, `HostEdge.Slot`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`, `IGaugeLane`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a command is one `CanvasOp` case; a public overlay is one `SparkleSpec` case; an action gate is one dual-column `ActionGate` row; a gauged concern is one `CanvasLane` row deriving its bound.
 
 ```csharp
@@ -334,7 +332,7 @@ public abstract partial record NavTarget : IValidityEvidence {
         frameCase: static target => ValidityClaim.Finite(frame: target.Frame) && target.Frame.Width > 0f && target.Frame.Height > 0f &&
             Zoom(target.MinZoom, target.MaxZoom) && Enum.IsDefined(target.Span));
 
-    internal Fin<Unit> Steer(HostCanvas surface, Op key);
+    internal Fin<Unit> Steer(HostCanvas surface);
 
     private static bool Zoom(float minimum, float maximum) =>
         ValidityClaim.Finite(value: minimum) && minimum > 0f && ValidityClaim.Finite(value: maximum) && minimum <= maximum;
@@ -383,7 +381,6 @@ public sealed partial class ActionGate : ICapability<ActionGate> {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record CanvasOp : IValidityEvidence {
     private CanvasOp() { }
     public sealed partial record NavigateCase(NavTarget Target) : CanvasOp;
@@ -408,39 +405,37 @@ public abstract partial record CanvasOp : IValidityEvidence {
         policyCase: static command => command.Filters.ForAll(static filters => filters.IsValid),
         editCase: static command => ValidityClaim.Evidence(evidence: Optional(command.Prompt)));
 
-    internal Fin<Op> Execute(HostCanvas surface, Op key) => Switch(
-        state: (Surface: surface, Key: key),
-        navigateCase: static (state, command) => command.Target.Steer(surface: state.Surface, key: state.Key)
+    internal Fin<> Execute(HostCanvas surface) => Switch(
+        state: surface,
+        navigateCase: static (state, command) => command.Target.Steer(surface: state)
             .Map(static _ => NavigateCase.SelfOp),
-        projectionCase: static (state, command) => state.Key.Catch(() =>
-            state.Surface.Projection = command.Next).Map(static _ => ProjectionCase.SelfOp),
-        dwellCase: static (state, command) => state.Key.Catch(() =>
-            state.Surface.MouseDwellDelay = command.Delay).Map(static _ => DwellCase.SelfOp),
-        sparkleCase: static (state, command) => state.Key.Catch(() =>
-            state.Surface.AddSparkle(command.Spec.Mint())).Map(static _ => SparkleCase.SelfOp),
-        marqueeOpenCase: static (state, _) => state.Key.Catch(
-            state.Surface.BeginWindowSelect).Map(static _ => MarqueeOpenCase.SelfOp),
-        marqueeCloseCase: static (state, _) => state.Key.Catch(
-            state.Surface.EndWindowSelect).Map(static _ => MarqueeCloseCase.SelfOp),
-        gatesCase: static (state, command) => state.Key.Catch(() => {
-                state.Surface.WindowSelectObjects = command.Gates.Admits(SelectAxis.Objects);
-                state.Surface.WindowSelectWires = command.Gates.Admits(SelectAxis.Wires);
-                state.Surface.WindowSelectGroups = command.Gates.Admits(SelectAxis.Groups);
-            }).Map(static _ => GatesCase.SelfOp),
-        policyCase: static (state, command) => state.Key.Catch(() => {
-                CanvasActions actions = state.Surface.AllowedActions;
+        projectionCase: static (state, command) => Try.lift(() =>
+            state.Projection = command.Next).Run().Bind(static inner => inner).Map(static _ => ProjectionCase.SelfOp),
+        dwellCase: static (state, command) => Try.lift(() =>
+            state.MouseDwellDelay = command.Delay).Run().Bind(static inner => inner).Map(static _ => DwellCase.SelfOp),
+        sparkleCase: static (state, command) => Try.lift(() =>
+            state.AddSparkle(command.Spec.Mint())).Run().Bind(static inner => inner).Map(static _ => SparkleCase.SelfOp),
+        marqueeOpenCase: static (state, _) => Try.lift(state.BeginWindowSelect).Run().Bind(static inner => inner).Map(static _ => MarqueeOpenCase.SelfOp),
+        marqueeCloseCase: static (state, _) => Try.lift(state.EndWindowSelect).Run().Bind(static inner => inner).Map(static _ => MarqueeCloseCase.SelfOp),
+        gatesCase: static (state, command) => Try.lift(() => {
+                state.WindowSelectObjects = command.Gates.Admits(SelectAxis.Objects);
+                state.WindowSelectWires = command.Gates.Admits(SelectAxis.Wires);
+                state.WindowSelectGroups = command.Gates.Admits(SelectAxis.Groups);
+            }).Run().Bind(static inner => inner).Map(static _ => GatesCase.SelfOp),
+        policyCase: static (state, command) => Try.lift(() => {
+                CanvasActions actions = state.AllowedActions;
                 toSeq(ActionGate.Items).Iter(gate => gate.Write(actions: actions, allowed: command.Allowed.Admits(gate)));
                 command.Filters.Iter(filters => {
-                    actions.MakeWireFilter = Op.ToHostSlot(filters.Make);
-                    actions.DeleteWireFilter = Op.ToHostSlot(filters.Delete);
+                    actions.MakeWireFilter = HostEdge.Slot(filters.Make);
+                    actions.DeleteWireFilter = HostEdge.Slot(filters.Delete);
                 });
-            }).Map(static _ => PolicyCase.SelfOp),
-        editCase: static (state, command) => state.Key.Catch(() =>
-            state.Surface.ShowInlineEditor(
+            }).Run().Bind(static inner => inner).Map(static _ => PolicyCase.SelfOp),
+        editCase: static (state, command) => Try.lift(() =>
+            state.ShowInlineEditor(
                 command.Prompt.Frame,
                 command.Prompt.Seed,
-                text => command.Prompt.Apply(text: text, key: state.Key),
-                Op.ToHostSlot(command.Prompt.Cancellation(key: state.Key)))).Map(static _ => EditCase.SelfOp));
+                text => command.Prompt.Apply(text: text),
+                HostEdge.Slot(command.Prompt.Cancellation()))).Run().Bind(static inner => inner).Map(static _ => EditCase.SelfOp));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -463,53 +458,49 @@ public sealed record InlinePrompt(
         Seed is not null && Parse is not null && Faults is not null,
         Cancel.ForAll(static callback => callback is not null));
 
-    internal IResult Apply(string text, Op key) => key.Catch(() =>
-            key.Need(value: text).Bind(input => Optional(Parse(input)).ToFin(Fail: key.InvalidResult())))
+    internal IResult Apply(string text) => Try.lift(() =>
+            Admit.Need(value: text).Bind(input => Optional(Parse(input)).ToFin(Fail: new KernelFault.InvalidResult()))).Run().Bind(static inner => inner)
         .IfFail(error => Grasshopper2.Parsing.Result<Unit>.Fail(
             error: error.Message, underlying: text, start: 0, after: text.Length));
 
-    internal Option<Action> Cancellation(Op key) => Cancel.Map(callback =>
-        (Action)(() => key.Catch(callback)
+    internal Option<Action> Cancellation() => Cancel.Map(callback =>
+        (Action)(() => Try.lift(callback).Run().Bind(static inner => inner)
             .IfFail(cause => ignore(Faults.Park(point: Hook, cause: cause)))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CanvasOperator {
-    public static Fin<TResult> Read<TResult>(CanvasQuery<TResult> query, Op? key = null) {
-        Op op = key.OrDefault();
-        return from valid in op.Need(value: query)
+    public static Fin<TResult> Read<TResult>(CanvasQuery<TResult> query) {
+        return from valid in Admit.Need(value: query)
                from output in GhSession.Run(
                    ScopeTarget.CanvasHost,
-                   scope => scope.Canvas.ToFin(op.MissingContext()).Bind(surface => valid.Read(surface, op)),
-                   key: op)
+                   scope => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => valid.Read(surface)))
                select output;
     }
 
-    public static Fin<GaugedSpan<CanvasLane>> Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null) {
-        Op active = key.OrDefault();
-        return from valid in active.AcceptValue(value: op)
-               from gauged in clock.Gauged<Op, CanvasLane>(
+    public static Fin<GaugedSpan<CanvasLane>> Apply(CanvasOp op, MonotonicTimeline clock) {
+        return from valid in Acceptance.Value(value: op)
+               from gauged in clock.Gauged< CanvasLane>(
                    lane: CanvasLane.Command,
                    work: active,
                    body: () => GhSession.Run(ScopeTarget.CanvasHost, scope =>
-                       scope.Canvas.ToFin(active.MissingContext())
+                       scope.Canvas.ToFin(new KernelFault.MissingContext())
                            .Bind(surface => valid.Execute(surface: surface, key: active)), key: active),
                    key: active)
                from identity in gauged.Value
                select gauged.Span;
     }
 
-    public static Fin<Unit> FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from live in op.Need(value: surface)
+    public static Fin<Unit> FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default) {
+        return from live in Admit.Need(value: surface)
                from admitted in delay
-                   .TraverseM(span => guard(span >= TimeSpan.Zero, op.InvalidInput()).ToFin().Map(_ => span))
+                   .TraverseM(span => guard(span >= TimeSpan.Zero, new KernelFault.InvalidInput()).ToFin().Map(_ => span))
                    .As()
                from _ in UiThread.Run(
-                   new UiDispatch<Unit>.Blocking(() => op.Catch(() => admitted.Match(
+                   new UiDispatch<Unit>.Blocking(() => Try.lift(() => admitted.Match(
                        Some: span => live.ScheduleRedraw(span),
-                       None: live.ScheduleRedraw))),
-                   DispatchLane.Immediate, op)
+                       None: live.ScheduleRedraw)).Run().Bind(static inner => inner)),
+                   DispatchLane.Immediate)
                select unit;
     }
 }

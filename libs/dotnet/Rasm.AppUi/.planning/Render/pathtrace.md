@@ -107,30 +107,28 @@ public readonly record struct RayHit(int Primitive, double T);
 public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSphere> PrimitiveBounds, Option<SpatialIndex> Index) {
     private int NodeCount => NodeLink.Count(Bounds);
 
-    public static Fin<Bvh> Build(MeshletCluster scene, TraceLimits limits, Op? key = null) {
+    public static Fin<Bvh> Build(MeshletCluster scene, TraceLimits limits) {
         Seq<ResidencyMeshlet> meshlets = scene.Clusters;
         if (meshlets.IsEmpty) { return Fin.Succ(new Bvh([], [], [], None)); }
-        Op op = key.OrDefault();
         return from policy in limits.Broadphase()
-               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy, op)
-               from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)], op)
+               from index in SpatialIndex.Build(SpatialKind.Bvh, [.. meshlets.Map(static m => Box(m.Bounds))], policy)
+               from view in Wired(index, [.. meshlets.Map(static m => m.Bounds)])
                select view;
     }
 
-    public Fin<Bvh> Refit(MeshletCluster scene, TraceLimits limits, Op? key = null) {
+    public Fin<Bvh> Refit(MeshletCluster scene, TraceLimits limits) {
         Seq<ResidencyMeshlet> moved = scene.Clusters;
-        Op op = key.OrDefault();
         return Index.Match(
-            None: () => Build(scene, limits, op),
+            None: () => Build(scene, limits),
             Some: held => moved.Count != held.Store.Order.Length
-                ? Build(scene, limits, op)
-                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))], op)
-                  from view in Wired(index, [.. moved.Map(static m => m.Bounds)], op)
+                ? Build(scene, limits)
+                : from index in held.Refit([.. moved.Map(static m => Box(m.Bounds))])
+                  from view in Wired(index, [.. moved.Map(static m => m.Bounds)])
                   select view);
     }
 
-    private static Fin<Bvh> Wired(SpatialIndex index, ImmutableArray<BoundingSphere> spheres, Op op) =>
-        index.Wire(op).Map(wire => new Bvh(wire.Bounds, wire.Nodes, spheres, Some(index)));
+    private static Fin<Bvh> Wired(SpatialIndex index, ImmutableArray<BoundingSphere> spheres) =>
+        index.Wire().Map(wire => new Bvh(wire.Bounds, wire.Nodes, spheres, Some(index)));
 
     private static BoundingBox Box(BoundingSphere sphere) => new(
         new Point3d(sphere.X - sphere.Radius, sphere.Y - sphere.Radius, sphere.Z - sphere.Radius),
@@ -358,10 +356,9 @@ public sealed record PathTracePass(
     GuidePolicy Guides,
     ShadePort Port,
     TraceLimits Limits) {
-    static readonly Op IntegrateOp = Op.Of(name: "appui.pathtrace.integrate");
 
     public RenderPass Present(string key, Atom<AccumulationTarget> film) =>
-        new RenderPass.Composite(key, (canvas, request, _) => Painted(canvas, request, film.Value));
+        new RenderPass.Composite((canvas, request, _) => Painted(canvas, request, film.Value));
 
     private Fin<Unit> Painted(SKCanvas canvas, RenderTargetRequest request, AccumulationTarget target) {
         using MemoryOwner<float> resolved = Denoise.Resolve(target);
@@ -386,9 +383,7 @@ public sealed record PathTracePass(
     private Fin<Unit> Integrate(
         AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed,
         CancelScope scope, Option<IProgress<double>> progress) =>
-        IntegrateOp.Catch(
-            () => Integrated(target, camera, rig, sampleBudget, sampleSeed, scope, progress),
-            scope.Source.Token);
+        Try.lift(() => Integrated(target, camera, rig, sampleBudget, sampleSeed, scope, progress)).Run().Bind(static inner => inner);
 
     private Fin<Unit> Integrated(
         AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed,
@@ -772,8 +767,8 @@ public sealed record ShadePort(
     Func<int, (double X, double Y, double Z), Option<SurfaceAttributes>> Resolve,
     Dimension ProxyTexels,
     MaterialBinding Materials,
-    Func<SurfacePoint, (double X, double Y, double Z), Fin<(ShadingFrame Frame, Direction Outgoing, Op Key)>> Admit,
-    Func<(double X, double Y, double Z), Context, Op, Fin<Direction>> DirectionOf) {
+    Func<SurfacePoint, (double X, double Y, double Z), Fin<(ShadingFrame Frame, Direction Outgoing)>> Admit,
+    Func<(double X, double Y, double Z), Context, Fin<Direction>> DirectionOf) {
     public SurfaceAttributes At(int primitive, (double X, double Y, double Z) at, BoundingSphere proxy) =>
         Resolve(primitive, at).IfNone(() => SurfaceAttributes.Proxy(proxy, at, ProxyTexels));
 }

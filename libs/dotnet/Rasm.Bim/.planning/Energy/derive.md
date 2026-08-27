@@ -12,7 +12,7 @@ Wire posture is HOST-LOCAL, foreign types emit-confined: each lowered `Hb.Model`
 ## [02]-[MODEL_DERIVE]
 
 - Owner: `EnergyDerive` the BIM-to-BEM lower fold (graph → honeybee HBJSON building envelope + energy library, graph → dragonfly DFJSON massing); `BoundaryRow` the closed boundary-condition vocabulary carrying one honeybee closure, its derived dragonfly projection, and the ONE `Admit` both the raise and the lower resolve a condition token through; `EnvelopeFace` the segment-aligned building-envelope row both arms read; `MaterialArm` the per-construction-family policy value one set lower is parameterized by; `LowerLog` the immutable accumulation threaded through every fold.
-- Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` — dispatches the frozen `Lowers` target table: the `hbjson` arm lowers each scoped `IfcSpace` and its opening sub-faces onto the honeybee building envelope + energy library, the `dfjson` arm folds the `Compose` tree onto dragonfly massing plates whose per-segment boundary conditions, window ratios, ground contact, and sky exposure read that same building envelope, with the site's un-massed neighbours lowered onto `ContextShade` and the shared georeference onto `ReferenceVector`; each surface and opening composition lowers through ONE property-case fold.
+- Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at)` → `Fin<EnergyOutcome.Emitted>` — dispatches the frozen `Lowers` target table: the `hbjson` arm lowers each scoped `IfcSpace` and its opening sub-faces onto the honeybee building envelope + energy library, the `dfjson` arm folds the `Compose` tree onto dragonfly massing plates whose per-segment boundary conditions, window ratios, ground contact, and sky exposure read that same building envelope, with the site's un-massed neighbours lowered onto `ContextShade` and the shared georeference onto `ReferenceVector`; each surface and opening composition lowers through ONE property-case fold.
 - Auto: lowered models carry the SEMANTIC building envelope and library only; simulation context — parameters, run period, conditioning, weather — is Compute's or the python recipe plane's, never authored on the lower. `Envelope` derives each space's bounding surfaces ONCE — face type, boundary row, footprint ring, attributed openings — so the two arms cannot drift about which wall carries which condition or which window, and the dragonfly arm joins those surfaces to floor-boundary SEGMENTS in plan within half a segment length so the parameter lists index the walls they describe.
 - Output: `LowerLog` threads the spaces/surfaces/openings/constructions tallies and the typed `Energy/exchange#ENERGY_EXCHANGE` `EnergyNote` degrade rows through every fold, and one `EnergyCensus` per emit projects it — the model's `Validate()` DataAnnotations results fold onto the SAME rows so the warning tally is one fold over one row family, never an exception and never a second counter. Every degrade names the node it dropped against, so a reader reaches the surface rather than a number.
 - Packages: HoneybeeSchema, DragonflySchema, Rasm.Element, Rasm, LanguageExt.Core, NodaTime
@@ -135,21 +135,21 @@ readonly record struct EnvelopeFace(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EnergyDerive {
-    static readonly FrozenDictionary<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Op, Fin<EnergyOutcome.Emitted>>> Lowers =
-        new KeyValuePair<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Op, Fin<EnergyOutcome.Emitted>>>[] {
+    static readonly FrozenDictionary<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Fin<EnergyOutcome.Emitted>>> Lowers =
+        new KeyValuePair<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Fin<EnergyOutcome.Emitted>>>[] {
             new(InterchangeFormat.Hbjson, Honeybee),
             new(InterchangeFormat.Dfjson, Dragonfly),
         }.ToFrozenDictionary();
 
     internal static Fin<EnergyOutcome.Emitted> Lower(
-        ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key) =>
+        ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at) =>
         Lowers.TryGetValue(target, out var arm)
-            ? arm(graph, scope, geometry, at, key)
+            ? arm(graph, scope, geometry, at)
             : EnergyProjector.Serves(target)
-                ? Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-graph-egress-pending", target.Key })))
-                : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-lower-unsupported", target.Key })));
+                ? Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-graph-egress-pending", target.Key })))
+                : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-lower-unsupported", target.Key })));
 
-    static Fin<EnergyOutcome.Emitted> Honeybee(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
+    static Fin<EnergyOutcome.Emitted> Honeybee(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at) {
         ContentAddress pedigree = ContentAddress.OfGraph(graph);
         var store = new Hb.ModelEnergyProperties();
         (Seq<Hb.Room> Rooms, LowerLog Log) built = SpacesUnder(graph, scope).Fold(
@@ -159,7 +159,7 @@ public static class EnergyDerive {
                 return (state.Rooms.Add(room), log);
             });
         if (built.Rooms.IsEmpty) {
-            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-lower-empty", InterchangeFormat.Hbjson.Key, Scoped(scope) })));
+            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-lower-empty", InterchangeFormat.Hbjson.Key, Scoped(scope) })));
         }
         var model = new Hb.Model($"rasm-energy-{pedigree.Value:x32}", new Hb.ModelProperties(energy: store),
             rooms: [.. built.Rooms], units: Hb.Units.Meters, tolerance: graph.Header.Tolerance);
@@ -179,7 +179,7 @@ public static class EnergyDerive {
                 return (state.Faces.Add(new Hb.Face(
                         Identifier(bound.Surface), Face3D(bound.Ring), bound.Face,
                         bound.Condition.Face(), new Hb.FacePropertiesAbridged(
-                            energy: Op.ToHostSlot(construction.Map(
+                            energy: HostEdge.Slot(construction.Map(
                                 static id => new Hb.FaceEnergyPropertiesAbridged(construction: id)))),
                         apertures: [.. apertures], doors: [.. doors])),
                     opened.Land(EnergySlot.Surface));
@@ -282,18 +282,18 @@ public static class EnergyDerive {
                 return opening.Classification.Code == IfcClass.Window.Key
                     ? (state.Apertures.Add(new Hb.Aperture(Identifier(opening), Face3D(ring),
                            new Hb.Outdoors(), new Hb.AperturePropertiesAbridged(
-                               energy: Op.ToHostSlot(construction.Map(
+                               energy: HostEdge.Slot(construction.Map(
                                    static id => new Hb.ApertureEnergyPropertiesAbridged(construction: id))))),
                        state.Doors, opened)
                     : (state.Apertures,
                        state.Doors.Add(new Hb.Door(Identifier(opening), Face3D(ring),
                            new Hb.Outdoors(), new Hb.DoorPropertiesAbridged(
-                               energy: Op.ToHostSlot(construction.Map(
+                               energy: HostEdge.Slot(construction.Map(
                                    static id => new Hb.DoorEnergyPropertiesAbridged(construction: id))))),
                        opened);
             });
 
-    static Fin<EnergyOutcome.Emitted> Dragonfly(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
+    static Fin<EnergyOutcome.Emitted> Dragonfly(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at) {
         ContentAddress pedigree = ContentAddress.OfGraph(graph);
         (Seq<Df.Building> Buildings, Seq<NodeId> Massed, LowerLog Log) built = graph.ObjectNodes
             .Filter(o => o.Classification.Code == IfcClass.Building.Key)
@@ -307,7 +307,7 @@ public static class EnergyDerive {
                            state.Massed.Add(building.Id), log);
                 });
         if (built.Buildings.IsEmpty) {
-            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-lower-empty", InterchangeFormat.Dfjson.Key, Scoped(scope) })));
+            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Capability, string.Join(':', new object?[] { "energy-lower-empty", InterchangeFormat.Dfjson.Key, Scoped(scope) })));
         }
         var model = new Df.Model($"rasm-massing-{pedigree.Value:x32}", new Df.ModelProperties(),
             buildings: [.. built.Buildings], units: Df.Units.Meters, tolerance: graph.Header.Tolerance,
@@ -467,7 +467,7 @@ public static class EnergyDerive {
 ## [03]-[TRANSLATE_MATRIX]
 
 - Owner: `EnergyTranslate` the OSM-centric translator matrix — one frozen `(source, target)` row table over the OpenStudio translators, never a per-pair method family; `TranslateLane` the one governance value each row carries (the observe hooks beside the managed abort token); `TranslateStage` the declared stage-fraction ladder every governed leg opens on; `TranslateProgress` the single SWIG director that is both the lane's progress adapter and its finest in-flight token read.
-- Entry: `EnergyTranslate.Run(EnergyDoc source, InterchangeFormat target, Instant at, Op key, TranslateLane lane)` → `Fin<EnergyOutcome.Emitted>` resolves the `(source, target)` matrix row — `osm→gbxml` (`GbXMLForwardTranslator.modelToGbXMLString`), `osm→idf` (`EnergyPlusForwardTranslator.translateModel` + `Workspace.save`), `gbxml→osm`/`idf→osm` (the reverse readers + `Model.save`), `osm→osm` (the `VersionTranslator` version-upgrade row) — and emits the translated bytes as an `EnergyArtifact` (no graph pedigree — a translation never touched the graph) with the translator `warnings()`/`errors()` tallied into the `Translated` census; every run threads ONE `TranslateProgress` director onto the verified translator overloads (`loadModelFromString(string, ProgressBar)`, `translateModel(Model, ProgressBar)`, `modelToGbXMLString(Model, ProgressBar)`, `loadModel(Path, ProgressBar)`) unconditionally, its `onPercentageUpdated(double)` override publishing through `TranslateStage.Native` — the roster's own projection mapping a translator percentage into the declared native span under that row's witness — onto the `Model/observability#HOOKS` `rasm.bim.energy.progress` observe point, and latching the lane token, so a long translation surfaces monotone stage positions and answers an abort with zero translator coupling and no per-call-site absence fork.
+- Entry: `EnergyTranslate.Run(EnergyDoc source, InterchangeFormat target, Instant at, TranslateLane lane)` → `Fin<EnergyOutcome.Emitted>` resolves the `(source, target)` matrix row — `osm→gbxml` (`GbXMLForwardTranslator.modelToGbXMLString`), `osm→idf` (`EnergyPlusForwardTranslator.translateModel` + `Workspace.save`), `gbxml→osm`/`idf→osm` (the reverse readers + `Model.save`), `osm→osm` (the `VersionTranslator` version-upgrade row) — and emits the translated bytes as an `EnergyArtifact` (no graph pedigree — a translation never touched the graph) with the translator `warnings()`/`errors()` tallied into the `Translated` census; every run threads ONE `TranslateProgress` director onto the verified translator overloads (`loadModelFromString(string, ProgressBar)`, `translateModel(Model, ProgressBar)`, `modelToGbXMLString(Model, ProgressBar)`, `loadModel(Path, ProgressBar)`) unconditionally, its `onPercentageUpdated(double)` override publishing through `TranslateStage.Native` — the roster's own projection mapping a translator percentage into the declared native span under that row's witness — onto the `Model/observability#HOOKS` `rasm.bim.energy.progress` observe point, and latching the lane token, so a long translation surfaces monotone stage positions and answers an abort with zero translator coupling and no per-call-site absence fork.
 - Packages: NREL.OpenStudio.macOS-arm64, Rasm, LanguageExt.Core, NodaTime
 - Growth: a new governance checkpoint is one `TranslateStage` row whose declared fraction the observe point reads with no arithmetic elsewhere; a new translation is one `Matrix` row over a verified translator member (SDD via `SddForwardTranslator`/`SddReverseTranslator` is the named next row); the matrix's SOURCE axis is closed at what the binding ships — no HBJSON reader exists, so a graph→OSM/gbXML/IDF egress is never a matrix row and stays the `energy-graph-egress-pending` `Refused/BimReason.Capability` refusal, the egress riding `Lower` HBJSON → the python peer's `honeybee-openstudio` wire → this matrix.
 - Boundary: OpenStudio publishes NO native interrupt — the `ProgressBar` director surface is percentage, range, and visibility alone — so the abort GRAIN is the `TranslateStage` boundary and the director callback, an observed abandonment discards the translated result at the next boundary rather than interrupting the running translator, and claiming a mid-translator abort is the overclaim this Law forecloses; abandonment lowers the LanguageExt `Errors.Cancelled`, the branch's one cancellation spelling, never a third `BimFault` case; an exception thrown across the SWIG director frame is the deleted form because it unwinds native frames holding live handles, so the director LATCHES and the managed boundary decides; every native leg crosses ONE kernel `Op.Catch` funnel, exceptional captures gain `BimBoundary.OpenStudioRaise` while retaining the original `Error`, and returned typed errors pass through unchanged; the translate temp-path crossings ride ONE `Scratch` bracket and the SWIG handle brackets are the named platform-forced statement boundary; `Workspace.save`/`Model.save` path-bound emits cross a bracketed scratch file exactly as the decode arms do; a matrix miss returns `Refused` with `BimReason.Codec`, an unreadable source `Refused` with `BimReason.Rejected`.
@@ -495,33 +495,33 @@ public sealed partial class TranslateStage {
 }
 
 public static class EnergyTranslate {
-    static readonly FrozenDictionary<(InterchangeFormat Source, InterchangeFormat Target), Func<EnergyDoc, Op, TranslateProgress, Fin<(byte[] Bytes, int Warnings)>>> Matrix =
-        new KeyValuePair<(InterchangeFormat, InterchangeFormat), Func<EnergyDoc, Op, TranslateProgress, Fin<(byte[], int)>>>[] {
-            new((InterchangeFormat.Osm,   InterchangeFormat.GbXml), static (doc, key, bar) => OsmTo(doc, key, bar, static (model, tally, progress, _) => {
+    static readonly FrozenDictionary<(InterchangeFormat Source, InterchangeFormat Target), Func<EnergyDoc, TranslateProgress, Fin<(byte[] Bytes, int Warnings)>>> Matrix =
+        new KeyValuePair<(InterchangeFormat, InterchangeFormat), Func<EnergyDoc, TranslateProgress, Fin<(byte[], int)>>>[] {
+            new((InterchangeFormat.Osm,   InterchangeFormat.GbXml), static (doc, key, bar) => OsmTo(doc, bar, static (model, tally, progress, _) => {
                 using Os.GbXMLForwardTranslator gb = new();
                 byte[] emitted = Encoding.UTF8.GetBytes(gb.modelToGbXMLString(model, progress));
                 return Fin.Succ((emitted, tally + Tally(gb.warnings(), gb.errors())));
             })),
-            new((InterchangeFormat.Osm,   InterchangeFormat.Idf),   static (doc, key, bar) => OsmTo(doc, key, bar, static (model, tally, progress, op) => {
+            new((InterchangeFormat.Osm,   InterchangeFormat.Idf),   static (doc, key, bar) => OsmTo(doc, bar, static (model, tally, progress, op) => {
                 using Os.EnergyPlusForwardTranslator ep = new();
                 using Os.Workspace idf = ep.translateModel(model, progress);
-                return Saved(op, w => idf.save(w, true))
+                return Saved(w => idf.save(w, true))
                     .Map(bytes => (bytes, tally + Tally(ep.warnings(), ep.errors())));
             })),
-            new((InterchangeFormat.Osm,   InterchangeFormat.Osm),   static (doc, key, bar) => OsmTo(doc, key, bar, static (model, tally, _, op) =>
-                Saved(op, w => model.save(w, true)).Map(bytes => (bytes, tally)))),
-            new((InterchangeFormat.GbXml, InterchangeFormat.Osm),   static (doc, key, bar) => ReverseTo(doc, key, bar)),
-            new((InterchangeFormat.Idf,   InterchangeFormat.Osm),   static (doc, key, bar) => ReverseTo(doc, key, bar)),
+            new((InterchangeFormat.Osm,   InterchangeFormat.Osm),   static (doc, key, bar) => OsmTo(doc, bar, static (model, tally, _, op) =>
+                Saved(w => model.save(w, true)).Map(bytes => (bytes, tally)))),
+            new((InterchangeFormat.GbXml, InterchangeFormat.Osm),   static (doc, key, bar) => ReverseTo(doc, bar)),
+            new((InterchangeFormat.Idf,   InterchangeFormat.Osm),   static (doc, key, bar) => ReverseTo(doc, bar)),
         }.ToFrozenDictionary();
 
-    internal static Fin<EnergyOutcome.Emitted> Run(EnergyDoc source, InterchangeFormat target, Instant at, Op key, TranslateLane lane) {
+    internal static Fin<EnergyOutcome.Emitted> Run(EnergyDoc source, InterchangeFormat target, Instant at, TranslateLane lane) {
         if (!Matrix.TryGetValue((source.Format, target), out var row)) {
-            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(key, BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-translate-miss", source.Format.Key, target.Key })));
+            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.Refused(BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-translate-miss", source.Format.Key, target.Key })));
         }
-        using TranslateProgress progress = new(lane, key);
-        return Opened(TranslateStage.Decoded, progress, lane, key)
-            .Bind(_ => row(source, key, progress))
-            .Bind(result => Opened(TranslateStage.Sealed, progress, lane, key).Map(_ => result))
+        using TranslateProgress progress = new(lane);
+        return Opened(TranslateStage.Decoded, progress, lane)
+            .Bind(_ => row(source, progress))
+            .Bind(result => Opened(TranslateStage.Sealed, progress, lane).Map(_ => result))
             .Map(result => {
                 EnergyArtifact artifact = EnergyArtifact.Of(target, result.Bytes, None, at);
                 return new EnergyOutcome.Emitted(artifact, new EnergyCensus(
@@ -531,23 +531,23 @@ public static class EnergyTranslate {
             });
     }
 
-    static Fin<Unit> Opened(TranslateStage stage, TranslateProgress progress, TranslateLane lane, Op key) {
+    static Fin<Unit> Opened(TranslateStage stage, TranslateProgress progress, TranslateLane lane) {
         ignore(progress.Open(stage));
         return lane.Cancel.IsCancellationRequested || progress.Abandoned
             ? Fin.Fail<Unit>(Errors.Cancelled)
             : Fin.Succ(unit);
     }
 
-    sealed class TranslateProgress(TranslateLane lane, Op key) : Os.ProgressBar {
+    sealed class TranslateProgress(TranslateLane lane) : Os.ProgressBar {
         public bool Abandoned { get; private set; }
 
         public Unit Open(TranslateStage stage) =>
-            lane.Hooks.IfSome(live => ignore(live.Fire(BimPoint.EnergyProgress, new BimFact.Progress(key, ProgressLane.Energy, stage.Mark), key)));
+            lane.Hooks.IfSome(live => ignore(live.Fire(BimPoint.EnergyProgress, new BimFact.Progress(ProgressLane.Energy, stage.Mark))));
 
         public override void onPercentageUpdated(double percentage) {
             Abandoned = Abandoned || lane.Cancel.IsCancellationRequested;
             lane.Hooks.IfSome(live => ignore(live.Fire(BimPoint.EnergyProgress,
-                new BimFact.Progress(key, ProgressLane.Energy, TranslateStage.Native(percentage)), key)));
+                new BimFact.Progress(ProgressLane.Energy, TranslateStage.Native(percentage)))));
         }
     }
 
@@ -561,68 +561,68 @@ public static class EnergyTranslate {
             ? Some(new BimFault.BoundaryFailed(BimBoundary.HostScratchWrite, cause))
             : None;
 
-    static Fin<T> Native<T>(Op key, Func<Fin<T>> leg) =>
-        key.Catch(leg, NativeFailure);
+    static Fin<T> Native<T>(Func<Fin<T>> leg) =>
+        Try.lift(leg).Run().Bind(static inner => inner);
 
-    static Fin<T> Scratch<T>(Option<ReadOnlyMemory<byte>> seed, Func<Os.Path, Func<Fin<byte[]>>, Fin<T>> cross, Op key) =>
-        IO.lift(() => key.Catch(() => {
+    static Fin<T> Scratch<T>(Option<ReadOnlyMemory<byte>> seed, Func<Os.Path, Func<Fin<byte[]>>, Fin<T>> cross) =>
+        IO.lift(() => Try.lift(() => {
                 string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
                 return Fin.Succ(temp);
-            }, ScratchFailure))
+            }).Run().Bind(static inner => inner))
             .Bracket(
                 Use: temp => IO.lift(() => seed.Match(
-                        Some: bytes => key.Catch(() => {
+                        Some: bytes => Try.lift(() => {
                             File.WriteAllBytes(temp, bytes.ToArray());
                             return Fin.Succ(unit);
-                        }, ScratchFailure),
+                        }).Run().Bind(static inner => inner),
                         None: static () => Fin.Succ(unit))
-                    .Bind(_ => Native(key, () => {
+                    .Bind(_ => Native(() => {
                         using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
-                        return cross(path, () => key.Catch(() => Fin.Succ(File.ReadAllBytes(temp)), ScratchFailure));
+                        return cross(path, () => Try.lift(() => Fin.Succ(File.ReadAllBytes(temp))).Run().Bind(static inner => inner));
                     }))),
-                Fin: temp => IO.lift(() => key.Catch(() => {
+                Fin: temp => IO.lift(() => Try.lift(() => {
                     File.Delete(temp);
                     return Fin.Succ(unit);
-                }, ScratchFailure)))
+                }).Run().Bind(static inner => inner)))
             .Try().runFin.As().Run();
 
-    static Fin<(byte[], int)> OsmTo(EnergyDoc doc, Op key, TranslateProgress bar, Func<Os.Model, int, Os.ProgressBar, Op, Fin<(byte[], int)>> emit) =>
-        Native(key, () => {
+    static Fin<(byte[], int)> OsmTo(EnergyDoc doc, TranslateProgress bar, Func<Os.Model, int, Os.ProgressBar, Fin<(byte[], int)>> emit) =>
+        Native(() => {
             using Os.VersionTranslator vt = new();
             using Os.OptionalModel optional = vt.loadModelFromString(doc.Text, bar);
             if (!optional.is_initialized()) {
-                return Fin.Fail<(byte[], int)>(new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, "energy-decode:osm:unreadable"));
+                return Fin.Fail<(byte[], int)>(new BimFault.Refused(BimScope.Energy, BimReason.Rejected, "energy-decode:osm:unreadable"));
             }
             bar.Open(TranslateStage.Translated);
             Os.Model model = optional.get();
-            return emit(model, Tally(vt.warnings(), vt.errors()), bar, key);
+            return emit(model, Tally(vt.warnings(), vt.errors()), bar);
         });
 
-    static Fin<(byte[], int)> ReverseTo(EnergyDoc doc, Op key, TranslateProgress bar) =>
-        Scratch(Some(doc.Bytes), (path, _) => Native(key, () => {
+    static Fin<(byte[], int)> ReverseTo(EnergyDoc doc, TranslateProgress bar) =>
+        Scratch(Some(doc.Bytes), (path, _) => Native(() => {
             if (doc.Format == InterchangeFormat.GbXml) {
                 using Os.GbXMLReverseTranslator gb = new();
                 using Os.OptionalModel fromGb = gb.loadModel(path, bar);
                 if (!fromGb.is_initialized()) {
-                    return Fin.Fail<(byte[], int)>(new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, "energy-decode:gbxml:unreadable"));
+                    return Fin.Fail<(byte[], int)>(new BimFault.Refused(BimScope.Energy, BimReason.Rejected, "energy-decode:gbxml:unreadable"));
                 }
                 bar.Open(TranslateStage.Emitted);
-                return Save(fromGb.get(), Tally(gb.warnings(), gb.errors()), key);
+                return Save(fromGb.get(), Tally(gb.warnings(), gb.errors()));
             }
             using Os.EnergyPlusReverseTranslator ep = new();
             using Os.OptionalModel fromIdf = ep.loadModel(path, bar);
             if (!fromIdf.is_initialized()) {
-                return Fin.Fail<(byte[], int)>(new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, "energy-decode:idf:unreadable"));
+                return Fin.Fail<(byte[], int)>(new BimFault.Refused(BimScope.Energy, BimReason.Rejected, "energy-decode:idf:unreadable"));
             }
             bar.Open(TranslateStage.Emitted);
-            return Save(fromIdf.get(), Tally(ep.warnings(), ep.errors()), key);
-        }), key);
+            return Save(fromIdf.get(), Tally(ep.warnings(), ep.errors()));
+        }));
 
-    static Fin<(byte[], int)> Save(Os.Model model, int warnings, Op key) =>
-        Saved(key, w => model.save(w, true)).Map(bytes => (bytes, warnings));
+    static Fin<(byte[], int)> Save(Os.Model model, int warnings) =>
+        Saved(w => model.save(w, true)).Map(bytes => (bytes, warnings));
 
-    static Fin<byte[]> Saved(Op key, Action<Os.Path> save) =>
-        Scratch(None, (path, read) => { save(path); return read(); }, key);
+    static Fin<byte[]> Saved(Action<Os.Path> save) =>
+        Scratch(None, (path, read) => { save(path); return read(); });
 
     static int Tally(Os.LogMessageVector warnings, Os.LogMessageVector errors) {
         using (warnings) using (errors) { return warnings.Count + errors.Count; }

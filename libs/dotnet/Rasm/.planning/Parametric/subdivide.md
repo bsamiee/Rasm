@@ -82,11 +82,11 @@ public readonly record struct FaceSample {
     public UnitInterval V { get; }
 
     // Three independent gates: Validation accumulates every refusal, and Fin is entered only after admission is complete.
-    public static Fin<FaceSample> Of(int face, double u, double v, Op key) =>
+    public static Fin<FaceSample> Of(int face, double u, double v) =>
         (
-            key.Demand(claim: face >= 0, value: face, requirement: "nonnegative face ordinal").ToValidation(),
-            key.AcceptValidated<UnitInterval>(candidate: u).ToValidation(),
-            key.AcceptValidated<UnitInterval>(candidate: v).ToValidation()
+            Admit.Demand(claim: face >= 0, value: face, requirement: "nonnegative face ordinal").ToValidation(),
+            FactoryBridge.Accept<UnitInterval>(candidate: u).ToValidation(),
+            FactoryBridge.Accept<UnitInterval>(candidate: v).ToValidation()
         ).Apply(static (ordinal, du, dv) => new FaceSample(face: ordinal, u: du, v: dv)).As().ToFin();
 }
 
@@ -115,17 +115,17 @@ public static class Subdivision {
 
     static readonly Atom<HashMap<(SubdivisionScheme Scheme, int Valence), StamBasis>> Bases = Atom(HashMap<(SubdivisionScheme, int), StamBasis>());
 
-    static Fin<StamBasis> Basis(SubdivisionScheme scheme, int valence, Op key) =>
+    static Fin<StamBasis> Basis(SubdivisionScheme scheme, int valence) =>
         Bases.Value.Find((scheme, valence)).Match(
             Some: Fin.Succ,
-            None: () => AssembleBasis(scheme, valence, key).Bind(minted =>
+            None: () => AssembleBasis(scheme, valence).Bind(minted =>
                 Cell.Claim(Bases, (scheme, valence), () => minted).Current
                     .Find((scheme, valence))
-                    .ToFin(Fail: key.InvalidResult())));
+                    .ToFin(Fail: new KernelFault.InvalidResult())));
 
-    static Fin<StamBasis> AssembleBasis(SubdivisionScheme scheme, int valence, Op key);
+    static Fin<StamBasis> AssembleBasis(SubdivisionScheme scheme, int valence);
 
-    public static Fin<SubdivisionResult> Apply(SubdivideOp op, Op? key = null) =>
+    public static Fin<SubdivisionResult> Apply(SubdivideOp op) =>
         op.Switch(
             state: key.OrDefault(),
             refine: static (k, r) => RefineOf(r, k),
@@ -137,30 +137,30 @@ public static class Subdivision {
     // Creases key on the canonical undirected (A < B) edge; Closures accumulates across levels inside Advance.
     sealed record State(Level Level, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners, Set<int> Region, int Closures);
 
-    static Fin<SubdivisionResult> RefineOf(SubdivideOp.Refine op, Op key) =>
-        Admit(op, key).Bind(seed =>
+    static Fin<SubdivisionResult> RefineOf(SubdivideOp.Refine op) =>
+        Admit().Bind(seed =>
             Range(0, op.Levels.Value).Fold(
                 Fin.Succ(seed),
                 (state, iteration) => state.Bind(current => Advance(op.Scheme, current, iteration)))
-            .Bind(final => Publish(op, final, key)));
+            .Bind(final => Publish(final)));
 
-    static Fin<(HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners)> Admit(MeshSpace space, Option<Sharpness> sharpness, Op key);
-    static Fin<State> Admit(SubdivideOp.Refine op, Op key);
+    static Fin<(HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners)> Admit(MeshSpace space, Option<Sharpness> sharpness);
+    static Fin<State> Admit(SubdivideOp.Refine op);
     static Fin<State> Advance(SubdivisionScheme scheme, State current, int iteration);
-    static Fin<SubdivisionResult> Publish(SubdivideOp.Refine op, State state, Op key);
+    static Fin<SubdivisionResult> Publish(SubdivideOp.Refine op, State state);
 
     // --- [STAM_LIMIT]
-    static Fin<SubdivisionResult> LimitOf(SubdivideOp.Limit op, Op key) =>
-        Admit(op, key)
-            .Bind(input => input.Op.Samples.TraverseM(sample => EvaluateLimit(input, sample, key)).As())
+    static Fin<SubdivisionResult> LimitOf(SubdivideOp.Limit op) =>
+        Admit()
+            .Bind(input => input.Op.Samples.TraverseM(sample => EvaluateLimit(input, sample)).As())
             .Map(rows => (SubdivisionResult)new SubdivisionResult.LimitField(
                 rows.Map(static row => row.Point),
                 rows.Map(static row => row.Normal)));
 
     // Face bounds and arity against Space.Native accumulate per sample; a triangular face further requires U.Value + V.Value <= 1.
-    static Fin<(SubdivideOp.Limit Op, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners)> Admit(SubdivideOp.Limit op, Op key);
+    static Fin<(SubdivideOp.Limit Op, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners)> Admit(SubdivideOp.Limit op);
     static Fin<(Point3d Point, Vector3d Normal)> EvaluateLimit(
-        (SubdivideOp.Limit Op, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners) input, FaceSample sample, Op key);
+        (SubdivideOp.Limit Op, HashMap<(int A, int B), double> Creases, HashMap<int, double> Corners) input, FaceSample sample);
 }
 ```
 

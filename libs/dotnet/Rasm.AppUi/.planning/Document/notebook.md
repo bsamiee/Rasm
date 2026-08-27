@@ -189,7 +189,7 @@ public sealed record Notebook {
 
     public static Fin<Notebook> Of(string key, Seq<NotebookCell> cells, HashMap<string, CellMetadata> metadata) =>
         toHashMap(cells.Map(static (cell, ordinal) => (cell.Id, (cell, ordinal)))) switch {
-            var at when at.Count == cells.Count => Fin.Succ(new Notebook(key, cells, at, metadata)),
+            var at when at.Count == cells.Count => Fin.Succ(new Notebook(cells, at, metadata)),
             _ => Fin.Fail<Notebook>(new KernelFault.InvalidValue("notebook cells", $"{key} contains duplicate cell identities")),
         };
 
@@ -324,7 +324,6 @@ public sealed record NotebookRecompute(
     Func<CellNodeMap, Seq<Rasm.AppHost.Runtime.ChainHash>, IO<Fin<Seq<string>>>> AffectedOrder,
     MonotonicTimeline Line,
     ChannelWriter<CellMark> Marks) {
-    static readonly Op Advance = Op.Of(name: "appui.notebook.recompute");
 
     public IO<Fin<Seq<string>>> Order(CellNodeMap nodes, Seq<string> changed) =>
         changed.TraverseM(nodes.Node).As().Match(
@@ -354,12 +353,12 @@ public sealed record NotebookRecompute(
         select advanced;
 
     IO<CellOutput> Marked(NotebookCell cell, int rank, NotebookRuntime runtime, HashMap<string, CellOutput> upstream) =>
-        from start in IO.lift(() => Line.Capture(Advance))
+        from start in IO.lift(() => Error.New(Advance.Message, Advance))
         from _opened in Publish(start.Map(at => (CellMark)new CellMark.Started(cell.Id, rank, at)))
         from output in Recovered(cell, runtime, upstream)
         from _closed in Publish(
             from at in start
-            from end in Line.Capture(Advance)
+            from end in Error.New(Advance.Message, Advance)
             from span in Line.Elapsed(at, end, Advance)
             select (CellMark)new CellMark.Settled(cell.Id, rank, span))
         select output;
@@ -504,7 +503,6 @@ public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, Ha
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class NotebookReplay {
-    static readonly Op Check = Op.Of(name: "appui.notebook.replay");
 
     public static readonly InstrumentSpec Mismatch = InstrumentSpec.Create(
         "rasm.appui.notebook.replay.mismatch", InstrumentKind.Count, MeasureForm.Whole, "{mismatch}",
@@ -648,7 +646,6 @@ public readonly record struct NotebookOutline(Seq<OutlineNode> Nodes) {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class NotebookChrome {
-    internal static readonly Op Paint = Op.Of(name: "appui.notebook.chrome");
 
     public static Seq<CellChrome> Rows(
         Notebook notebook,
@@ -658,7 +655,7 @@ public static class NotebookChrome {
         HashMap<string, double> measured,
         OutputCeiling ceiling,
         MonotonicTimeline line) =>
-        line.Capture(Paint) switch {
+        Error.New(Paint.Message, Paint) switch {
             var now => notebook.Cells.Map((cell, ordinal) => Row(
                 cell, ordinal, overlay, feed,
                 outputs.Find(cell.Id),

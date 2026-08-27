@@ -134,10 +134,10 @@ public sealed partial class CapabilityMetric {
                 + (value * value / (2.0 * double.Max(sampleSize - 1.0, 1.0))));
 
     private static CapabilityMetric Moment(string key, CapabilityScale scale, CapabilitySide? side) =>
-        new(key, CapabilityMethod.Moment, scale, Optional(side), Unadjusted);
+        new(CapabilityMethod.Moment, scale, Optional(side), Unadjusted);
 
     private static CapabilityMetric Quantile(string key, CapabilitySide? side) =>
-        new(key, CapabilityMethod.Percentile, CapabilityScale.Long, Optional(side), Unadjusted);
+        new(CapabilityMethod.Percentile, CapabilityScale.Long, Optional(side), Unadjusted);
 
     private static Option<double> Closest(CapabilitySpread spread, CapabilityTolerance tolerance) {
         Option<double> lower = CapabilitySide.Lower.Index(spread, tolerance);
@@ -182,10 +182,10 @@ public sealed partial class SpcChart {
     public double LowerLimit(double center, double band) =>
         Attribute ? double.Max(0.0, center - band) : center - band;
 
-    private static SpcChart Bounded(string key, bool attribute) => new(key, attribute, Set(SpcRuleClass.Limit));
+    private static SpcChart Bounded(string key, bool attribute) => new(attribute, Set(SpcRuleClass.Limit));
 
     private static SpcChart Western(string key, bool attribute) =>
-        new(key, attribute, Set(SpcRuleClass.Limit, SpcRuleClass.Zone, SpcRuleClass.Pattern));
+        new(attribute, Set(SpcRuleClass.Limit, SpcRuleClass.Zone, SpcRuleClass.Pattern));
 }
 
 [SmartEnum<string>]
@@ -209,14 +209,14 @@ public sealed partial class SpcRule {
     public Func<Arr<double>, bool> Breach { get; }
 
     private static SpcRule Limit(string key) =>
-        new(key, SpcRuleClass.Limit, window: 1, static values => values.Exists(static value => Math.Abs(value) > 1.0));
+        new(SpcRuleClass.Limit, window: 1, static values => values.Exists(static value => Math.Abs(value) > 1.0));
 
     private static SpcRule Zone(string key, int window, int minimum, double zone) =>
-        new(key, SpcRuleClass.Zone, window,
+        new(SpcRuleClass.Zone, window,
             values => int.Max(values.Count(value => value > zone), values.Count(value => value < -zone)) >= minimum);
 
     private static SpcRule Pattern(string key, int window, Func<Arr<double>, bool> breach) =>
-        new(key, SpcRuleClass.Pattern, window, breach);
+        new(SpcRuleClass.Pattern, window, breach);
 
     private static Arr<int> Steps(Arr<double> values) {
         Seq<double> walk = toSeq(values);
@@ -500,7 +500,7 @@ public sealed partial class DistributionFamily {
 
     private static DistributionFamily One(string key, DistributionSupport support,
         Func<CapabilityMoment, double, DistributionPolicy, DistributionParameters> seed) =>
-        new(key, support, (moment, sigma, policy) => Seq(seed(moment, sigma, policy)));
+        new(support, (moment, sigma, policy) => Seq(seed(moment, sigma, policy)));
 
     private static DistributionParameters LogParameters(double mean, double sigma) =>
         LogNormalOf(mean, Math.Sqrt(Math.Log(1.0 + Math.Pow(sigma / mean, 2.0))));
@@ -1036,7 +1036,6 @@ public static class Capability {
     internal const long ContributorLane = 0L;
     internal const long SharedFactorLane = 1L;
 
-    internal static readonly Op CapabilityOp = Op.Of(name: "fabrication:capability");
 
     internal static ValidationError Validation(string locus) => new($"capability:{locus}");
 
@@ -1202,7 +1201,7 @@ public static class Capability {
             series.ResidualMm.ToSeq().Map(static value => (Scalar)value), CapabilityOp)
         let banded = Tolerance.Of(ToleranceLane.Deviation, SpecHalfBand(tolerance, stat.Mean), CapabilityOp)
             .Map(static band => (StatContext)band).ToOption()
-        from accepted in CapabilityOp.AcceptValue(value: stat with { Context = banded })
+        from accepted in Acceptance.Value(value: stat with { Context = banded })
         select new CapabilityMoment(
             accepted.Mean,
             tolerance.Control.SubgroupSize == 1

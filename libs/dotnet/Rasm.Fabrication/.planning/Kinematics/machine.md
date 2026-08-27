@@ -316,7 +316,7 @@ public abstract partial record ToolAxisDemand : IValidityEvidence {
     private ToolAxisDemand() { }
 
     public sealed record Fixed(Vector3d Direction) : ToolAxisDemand;
-    public sealed record Cone(VectorCone Domain, Vector3d Preferred, Context Context, Op Key) : ToolAxisDemand;
+    public sealed record Cone(VectorCone Domain, Vector3d Preferred, Context Context) : ToolAxisDemand;
     public sealed record Indexed(Arr<Vector3d> Directions) : ToolAxisDemand;
 
     public bool IsValid => Switch(
@@ -695,7 +695,7 @@ public static class MachineTool {
         Arr<AxisMotion> limits = joints.Map(static joint => joint.Motion);
         Arr<double> seed = previous.Count == joints.Count ? previous : limits.Map(static limit => limit.Home);
         Vector<double> zero = CreateVector.Dense<double>(TaskRank);
-        return Op.Of(name: "machine-tool:inverse").Catch(() => Fin.Succ(
+        return Try.lift(() => Fin.Succ(
             new LevenbergMarquardtMinimizer(maximumIterations: kinematics.Inverse.RootIterations)
                 .FindMinimum(
                     ObjectiveFunction.NonlinearModel(
@@ -708,8 +708,8 @@ public static class MachineTool {
                     upperBound: limits.Map(static limit => limit.Max).ToArray(),
                     scales: limits.Map(static limit => limit.Max - limit.Min).ToArray(),
                     isFixed: null)
-                .MinimizingPoint))
-            .Bind(fitted => Op.Of(name: "machine-tool:conditioning").Catch(() => {
+                .MinimizingPoint)).Run().Bind(static inner => inner)
+            .Bind(fitted => Try.lift(() => {
                 Matrix<double> jacobian = Jacobian(kinematics, joints, fitted, pose);
                 Matrix<double> scaled = CreateMatrix.Dense<double>(TaskRank, joints.Count,
                     (row, column) => jacobian[row, column] * (limits[column].Max - limits[column].Min));
@@ -724,7 +724,7 @@ public static class MachineTool {
                     ? CandidateRows(kinematics, limits, pose, fitted.ToArray().ToArr())
                     : Fin.Fail<Seq<MachineCandidate>>(
                         FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:inverse-residual"));
-            }));
+            }).Run().Bind(static inner => inner));
     }
 
     private const int TaskRank = 6;

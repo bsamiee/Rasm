@@ -75,7 +75,7 @@ public sealed partial class PayloadPresence {
             .Map(Some));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Option<PayloadSlot>> Settle(Option<PayloadSlot> found, Mime wanted, Op key);
+    internal partial Fin<Option<PayloadSlot>> Settle(Option<PayloadSlot> found, Mime wanted);
 }
 
 [SmartEnum<string>]
@@ -117,10 +117,10 @@ public abstract partial record PayloadSlot : IDisposable {
     public sealed record Boxed(Mime Key, Type Carried, object Value) : PayloadSlot;
     public sealed record Resourced(Mime Key, Lease<IDisposable> Value) : PayloadSlot;
 
-    public static Fin<PayloadSlot> Box(Mime key, object value, Op op) =>
-        from held in op.Need(value: value)
-        from owned in guard(held is not IDisposable, op.InvalidInput())
-        select (PayloadSlot)new Boxed(Key: key, Carried: held.GetType(), Value: held);
+    public static Fin<PayloadSlot> Box(Mime key, object value) =>
+        from held in Admit.Need(value: value)
+        from owned in guard(held is not IDisposable, new KernelFault.InvalidInput())
+        select (PayloadSlot)new Boxed(Carried: held.GetType(), Value: held);
 
     public PayloadShape Shape { get; }
 
@@ -143,7 +143,7 @@ public abstract partial record PayloadSlot : IDisposable {
 
 - Owner: `TransferSurface` the leased destination — the system board or a per-drag bundle; `TransferOp` the closed verb family; `TransferWriteFact` the per-slot write outcome; `TransferOutcome` the closed response family; `Transfer` the one apply entry.
 - Cases: `TransferOp` is `Read(At, Shape, Presence)`, `Write(At, Seq<PayloadSlot>)`, `Probe(At)`, `Clear(At)`, and `Drag(Source, DragPlan)` — five verbs, one entry, one total dispatch, and a sixth verb breaks every site.
-- Entry: `Transfer.Apply(operation, key)` returns `ValueTask<Fin<TransferOutcome>>`; the outcome's case is recoverable from the verb, so no caller casts and no verb returns a different shape. An absent caller key resolves through the union's own generated `SelfOp` — the verb names itself, and the generator opt-in has its reader at `TransferOp.Key`.
+- Entry: `Transfer.Apply(operation)` returns `ValueTask<Fin<TransferOutcome>>`; the outcome's case is recoverable from the verb, so no caller casts and no verb returns a different shape. An absent caller key resolves through the union's own generated `SelfOp` — the verb names itself, and the generator opt-in has its reader at `TransferOp.Key`.
 - Auto: a write is ALL-OR-NOTHING at the slot grain and reports per slot — `Written` carries one `TransferWriteFact` per slot with its committed-or-rejected case, so a caller reads which format the platform refused instead of one aggregate failure. `Count` and `Failure` derive from that roster and are never stored.
 - Auto: the inventory's well-known presence is ONE `CapabilitySet<WellKnownFormat>` column read off the board's four probes. NAMED LOSS: the four independently named flags. Bought back by set algebra — a caller asking "does this board carry text or html" reads `AdmitsAll` over a set literal rather than composing two bools, and a fifth platform-named format is one vocabulary row rather than a fifth column on every reader.
 - Law: the surface is a LEASE and every case carries it, so a bundle staged for a drag that the host never starts is closed by the caller's own custody rather than surviving as a leaked data object.
@@ -169,12 +169,11 @@ public abstract partial record TransferSurface {
     public sealed record Board(Lease<Clipboard> Value) : TransferSurface;
     public sealed record Bundle(Lease<DataObject> Value) : TransferSurface;
 
-    public static Fin<TransferSurface> System(Op? key = null);
-    public static Fin<TransferSurface> Staged(Op? key = null);
+    public static Fin<TransferSurface> System();
+    public static Fin<TransferSurface> Staged();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[GenerateUnionOps]
 public abstract partial record TransferOp {
     private TransferOp() { }
     public sealed record Read(TransferSurface At, PayloadShape Shape, PayloadPresence Presence) : TransferOp;
@@ -183,12 +182,6 @@ public abstract partial record TransferOp {
     public sealed record Clear(TransferSurface At) : TransferOp;
     public sealed record Drag(Control Source, DragPlan Plan) : TransferOp;
 
-    internal Op Key => Switch(
-        read:  static _ => Read.SelfOp,
-        write: static _ => Write.SelfOp,
-        probe: static _ => Probe.SelfOp,
-        clear: static _ => Clear.SelfOp,
-        drag:  static _ => Drag.SelfOp);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -218,7 +211,7 @@ public abstract partial record TransferOutcome {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Transfer {
-    public static ValueTask<Fin<TransferOutcome>> Apply(TransferOp operation, Op? key = null);
+    public static ValueTask<Fin<TransferOutcome>> Apply(TransferOp operation);
 }
 ```
 
@@ -250,13 +243,13 @@ public readonly record struct DropOutcome(EtoPointF Location, DragEffects Allowe
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Drop {
-    public static Fin<Drop> Of(DragEventArgs provider, Op? key = null);
+    public static Fin<Drop> Of(DragEventArgs provider);
 
     public EtoPointF Location { get; }
     public DragEffects Allowed { get; }
     public TransferSurface Payload { get; }
 
-    public Fin<DropOutcome> Resolve(DragEffects effect, Op key, Option<(string Format, string Inner)> description = default);
+    public Fin<DropOutcome> Resolve(DragEffects effect, Option<(string Format, string Inner)> description = default);
 }
 ```
 

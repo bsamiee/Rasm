@@ -49,23 +49,23 @@ public sealed partial class RedrawPolicy {
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 internal static class RedrawScope {
-    internal static Fin<TOut> Within<TOut>(RhinoDoc document, RedrawPolicy redraw, Func<Fin<TOut>> body, Op key) =>
-        from prior in key.Catch(() => Fin.Succ(value: document.Views.RedrawEnabled))
+    internal static Fin<TOut> Within<TOut>(RhinoDoc document, RedrawPolicy redraw, Func<Fin<TOut>> body) =>
+        from prior in Try.lift(() => Fin.Succ(value: document.Views.RedrawEnabled)).Run().Bind(static inner => inner)
         let suppress = redraw.Traits.Admits(capability: RedrawAxis.Suppress)
-        let outcome = key.Catch(() =>
-            Op.SideWhen(suppress, () => document.Views.EnableRedraw(
+        let outcome = Try.lift(() =>
+            HostEdge.SideWhen(suppress, () => document.Views.EnableRedraw(
                         enable: false,
                         redrawDocument: redraw.Traits.Admits(capability: RedrawAxis.RepaintsDocument),
                         redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers)))
-                .Bind(_ => key.Catch(body)))
-        let restored = key.Catch(() => Fin.Succ(value: Op.SideWhen(suppress, () => document.Views.EnableRedraw(
+                .Bind(_ => Try.lift(body).Run().Bind(static inner => inner))).Run().Bind(static inner => inner)
+        let restored = Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(suppress, () => document.Views.EnableRedraw(
             enable: prior,
             redrawDocument: redraw.Traits.Admits(capability: RedrawAxis.RepaintsDocument),
-            redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers)))))
-        from value in outcome.Settled(release: () => restored, key: key)
-        from _ in key.Catch(() => Fin.Succ(value: Op.SideWhen(
+            redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers))))).Run().Bind(static inner => inner)
+        from value in outcome.Settled(release: () => restored)
+        from _ in Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(
             redraw.Traits.Admits(capability: RedrawAxis.Enabled),
-            () => document.Views.Redraw(deferred: redraw.Traits.Admits(capability: RedrawAxis.Defers)))))
+            () => document.Views.Redraw(deferred: redraw.Traits.Admits(capability: RedrawAxis.Defers))))).Run().Bind(static inner => inner)
         select value;
 }
 ```
@@ -97,19 +97,18 @@ internal static class DocumentCommit {
         RedrawPolicy redraw,
         Func<Fin<TResult>> run,
         Func<TResult, Fin<TOut>> project,
-        Op op,
         Option<Func<TResult, uint, TResult>> stamp = default) =>
-        RedrawScope.Within(document: document, redraw: redraw, key: op, body: () => op.Catch(() => {
+        RedrawScope.Within(document: document, redraw: redraw, body: () => Try.lift(() => {
             using UndoBracket undo = UndoBracket.Begin(document: document, name: name, recordsUndo: recordsUndo);
             Func<TResult, Fin<TResult>> stamped = undo.Stamper(
                 stamp: stamp.IfNone(static (result, _) => result),
                 key: op);
-            Fin<TOut> executed = guard(undo.Admitted, op.InvalidResult()).ToFin()
-                .Bind(_ => op.Catch(run))
+            Fin<TOut> executed = guard(undo.Admitted, new KernelFault.InvalidResult()).ToFin()
+                .Bind(_ => Try.lift(run).Run().Bind(static inner => inner))
                 .Bind(stamped)
-                .Bind(result => op.Catch(() => project(result)));
+                .Bind(result => Try.lift(() => project(result)).Run().Bind(static inner => inner));
             return undo.Seal(outcome: executed, key: op);
-        }));
+        }).Run().Bind(static inner => inner));
 
     internal static Fin<Seq<TKey>> Compensated<TSource, TKey>(
         Seq<TSource> source,
@@ -120,7 +119,7 @@ internal static class DocumentCommit {
         (Seq<TKey> Landed, Option<Error> Fault) outcome = source.Fold(
             (Landed: Seq<TKey>(), Fault: default(Option<Error>)),
             (state, value) => state.Fault.IsSome ? state : land(value).Match(
-                Succ: key => (state.Landed.Add(key), default(Option<Error>)),
+                Succ: key => (state.Landed.Add(), default(Option<Error>)),
                 Fail: error => (state.Landed, Some(error))));
         return outcome.Fault.Match(
             Some: cause => Unwound<TKey>(primary: cause, rollback(outcome.Landed), settle(source)),
@@ -204,27 +203,27 @@ internal ref struct UndoBracket {
         return new UndoBracket(document: document, custody: custody);
     }
 
-    public Func<TResult, Fin<TResult>> Stamper<TResult>(Func<TResult, uint, TResult> stamp, Op key) {
+    public Func<TResult, Fin<TResult>> Stamper<TResult>(Func<TResult, uint, TResult> stamp) {
         BracketCustody seat = custody;
         return result => seat.Switch(
-            state: (Result: result, Stamp: stamp, Key: key),
+            state: (Result: result, Stamp: stamp),
             unrecordedCase: static (held, _) => Fin.Succ(value: held.Result),
             ownedCase: static (held, owned) => Stamped(held: held, serial: owned.Serial),
             enlistedCase: static (held, enlisted) => Stamped(held: held, serial: enlisted.Serial),
-            refusedCase: static (held, _) => Fin.Fail<TResult>(error: held.Key.InvalidResult()));
+            refusedCase: static (held, _) => Fin.Fail<TResult>(error: new KernelFault.InvalidResult()));
 
         static Fin<TResult> Stamped(
-            (TResult Result, Func<TResult, uint, TResult> Stamp, Op Key) held, UndoSerial serial) =>
-            from fold in held.Key.Need(held.Stamp)
-            from stamped in held.Key.Catch(() => Fin.Succ(value: fold(held.Result, serial.Value)))
+            (TResult Result, Func<TResult, uint, TResult> Stamp) held, UndoSerial serial) =>
+            from fold in Admit.Need(held.Stamp)
+            from stamped in Try.lift(() => Fin.Succ(value: fold(held.Result, serial.Value))).Run().Bind(static inner => inner)
             select stamped;
     }
 
-    public Fin<TResult> Seal<TResult>(Fin<TResult> outcome, Op key) {
+    public Fin<TResult> Seal<TResult>(Fin<TResult> outcome) {
         if (phase == BracketPhase.Sealed) {
-            return Fin.Fail<TResult>(error: key.InvalidResult());
+            return Fin.Fail<TResult>(error: new KernelFault.InvalidResult());
         }
-        Fin<Option<Error>> closure = CloseBounded(key: key);
+        Fin<Option<Error>> closure = CloseBounded();
         phase = BracketPhase.Sealed;
         RhinoDoc owner = document;
         BracketCustody seat = custody;
@@ -233,18 +232,14 @@ internal ref struct UndoBracket {
                 Succ: recovered => recovered.Match(
                     Some: static fault => Fin.Fail<TResult>(error: fault),
                     None: () => Fin.Succ(value: result)),
-                Fail: open => Fin.Fail<TResult>(error: open + new DraftFault.HostRefused(
-                    Key: key,
-                    Member: nameof(UndoBracket.Close),
+                Fail: open => Fin.Fail<TResult>(error: open + new DraftFault.HostRefused(Member: nameof(UndoBracket.Close),
                     Detail: "undo record remains open after bounded close recovery"))),
             Fail: primary => closure.Match(
                 Succ: recovered => Fin.Fail<TResult>(error: recovered.Map(error => primary + error).IfNone(primary))
-                    .Rollback(() => Reversed(document: owner, custody: seat, key: key)),
+                    .Rollback(() => Reversed(document: owner, custody: seat)),
                 Fail: open => Fin.Fail<TResult>(error: primary
                     + open
-                    + new DraftFault.HostRefused(
-                        Key: key,
-                        Member: nameof(UndoBracket.Close),
+                    + new DraftFault.HostRefused(Member: nameof(UndoBracket.Close),
                         Detail: "undo record could not close, so rollback was not executed"))));
     }
 
@@ -252,26 +247,26 @@ internal ref struct UndoBracket {
         if (phase == BracketPhase.Sealed) {
             return;
         }
-        _ = CloseBounded(key: Op.Of());
+        _ = CloseBounded();
         phase = BracketPhase.Sealed;
     }
 
-    private Fin<Option<Error>> CloseBounded(Op key) => Close(key: key).BiBind(
+    private Fin<Option<Error>> CloseBounded() => Close().BiBind(
         Succ: static _ => Fin.Succ(Option<Error>.None),
-        Fail: first => Close(key: key)
+        Fail: first => Close()
             .Map(_ => Some(first))
             .BindFail(second => Fin.Fail<Option<Error>>(error: first + second)));
 
-    private Fin<Unit> Close(Op key) {
+    private Fin<Unit> Close() {
         if (phase != BracketPhase.Open) {
             return Fin.Succ(value: unit);
         }
         RhinoDoc owner = document;
         Fin<Unit> outcome = custody.Switch(
-            state: (Owner: owner, Key: key),
+            state: owner,
             unrecordedCase: static (_, _) => Fin.Succ(value: unit),
-            ownedCase: static (held, owned) => held.Key.Catch(() => held.Key.Confirm(
-                success: held.Owner.EndUndoRecord(undoRecordSerialNumber: owned.Serial.Value))),
+            ownedCase: static (held, owned) => Try.lift(() => Admit.Confirm(
+                success: held.EndUndoRecord(undoRecordSerialNumber: owned.Serial.Value))).Run().Bind(static inner => inner),
             enlistedCase: static (_, _) => Fin.Succ(value: unit),
             refusedCase: static (_, _) => Fin.Succ(value: unit));
         if (outcome.IsSucc) {
@@ -280,18 +275,16 @@ internal ref struct UndoBracket {
         return outcome;
     }
 
-    private static Fin<Unit> Reversed(RhinoDoc document, BracketCustody custody, Op key) =>
+    private static Fin<Unit> Reversed(RhinoDoc document, BracketCustody custody) =>
         custody.Switch(
-            state: (Document: document, Key: key),
+            state: document,
             unrecordedCase: static (_, _) => Fin.Succ(value: unit),
-            ownedCase: static (held, _) => held.Key.Catch(() =>
-                held.Key.Confirm(success: held.Document.Undo()).Map(_ => {
-                    held.Document.ClearRedoRecords();
+            ownedCase: static (held, _) => Try.lift(() =>
+                Admit.Confirm(success: held.Undo()).Map(_ => {
+                    held.ClearRedoRecords();
                     return unit;
-                })),
-            enlistedCase: static (held, _) => Fin.Fail<Unit>(error: new DraftFault.HostRefused(
-                Key: held.Key,
-                Member: nameof(UndoBracket.Reversed),
+                })).Run().Bind(static inner => inner),
+            enlistedCase: static (held, _) => Fin.Fail<Unit>(error: new DraftFault.HostRefused(Member: nameof(UndoBracket.Reversed),
                 Detail: "command-owned undo record requires boundary failure propagation")),
             refusedCase: static (_, _) => Fin.Succ(value: unit));
 }

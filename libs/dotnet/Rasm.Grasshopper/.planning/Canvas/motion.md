@@ -99,12 +99,12 @@ public static class Lerp {
     public static Interpolate<T> Of<T>(Func<T, T, UnitInterval, T> kernel) =>
         (a, b, t) => kernel(a, b, Factor(value: t));
 
-    public static Interpolate<Color> Perceptual(BlendPath path, FaultCell faults, Op key) =>
+    public static Interpolate<Color> Perceptual(BlendPath path, FaultCell faults) =>
         (a, b, t) => {
             UnitInterval factor = Factor(value: t);
-            return (from left in PaintColor.OfHost(host: a, key: key)
-                    from right in PaintColor.OfHost(host: b, key: key)
-                    from mixed in Tween.Between(from: left, to: right, at: factor, path: Some(path), key: key)
+            return (from left in PaintColor.OfHost(host: a)
+                    from right in PaintColor.OfHost(host: b)
+                    from mixed in Tween.Between(from: left, to: right, at: factor, path: Some(path))
                     from host in mixed.ToEto()
                     select host)
                 .IfFail(cause => (ignore(faults.Park(point: Hook, cause: cause)), factor.Value >= 1d ? b : a).Item2);
@@ -132,9 +132,9 @@ public static class Tweens {
 }
 
 public static class FlexDrive {
-    public static Fin<T> Run<T>(IFlexControl surface, Animated<T> tween, Op? key = null);
-    public static Fin<FrameWindow> Window(IFlexControl surface, Op? key = null);
-    public static Fin<float> ZoomGate(IFlexControl surface, ZoomThreshold threshold, Op? key = null);
+    public static Fin<T> Run<T>(IFlexControl surface, Animated<T> tween);
+    public static Fin<FrameWindow> Window(IFlexControl surface);
+    public static Fin<float> ZoomGate(IFlexControl surface, ZoomThreshold threshold);
 }
 ```
 
@@ -168,39 +168,37 @@ public sealed partial class NoticeGlyph {
     [UseDelegateFromConstructor]
     internal partial AnimatedPath MintRaw(float size, VectorAngle angle);
 
-    public Fin<AnimatedPath> Mint(float size, Option<VectorAngle> angle = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from span in op.Positive(value: size)
-               from path in op.Catch(() => Fin.Succ(MintRaw(size: (float)span, angle: angle.IfNone(VectorAngle.Create(value: 0d)))))
+    public Fin<AnimatedPath> Mint(float size, Option<VectorAngle> angle = default) {
+        return from span in Admit.Positive(value: size)
+               from path in Try.lift(() => Fin.Succ(MintRaw(size: (float)span, angle: angle.IfNone(VectorAngle.Create(value: 0d))))).Run().Bind(static inner => inner)
                select path;
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GlyphPath {
-    public static Fin<AnimatedPath> Custom(Seq<Option<PathSpec>> steps, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => steps.Fold(Fin.Succ(new AnimatedPath()), (held, step) => held.Bind(path => step.Match(
+    public static Fin<AnimatedPath> Custom(Seq<Option<PathSpec>> steps) {
+        return Try.lift(() => steps.Fold(Fin.Succ(new AnimatedPath()), (held, step) => held.Bind(path => step.Match(
             Some: figure => figure switch {
-                PathSpec.LineCase line => op.Catch(() => Fin.Succ((Op.Side(() => path.AddLine(line.From, line.To)), path).Item2)),
-                PathSpec.PolylineCase poly => op.Catch(() => Fin.Succ((Op.Side(() => path.AddLines(poly.Points.ToArray())), path).Item2)),
-                PathSpec.EllipseCase ring => op.Catch(() => Fin.Succ((Op.Side(() => path.AddCircle(new CircleF(ring.Frame))), path).Item2)),
-                PathSpec.ArcCase arc => op.Catch(() => Fin.Succ((Op.Side(() => path.AddArc(new ArcF(arc.Frame, (float)arc.Start.Value, (float)arc.Sweep.Value))), path).Item2)),
+                PathSpec.LineCase line => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddLine(line.From, line.To)), path).Item2)).Run().Bind(static inner => inner),
+                PathSpec.PolylineCase poly => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddLines(poly.Points.ToArray())), path).Item2)).Run().Bind(static inner => inner),
+                PathSpec.EllipseCase ring => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddCircle(new CircleF(ring.Frame))), path).Item2)).Run().Bind(static inner => inner),
+                PathSpec.ArcCase arc => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddArc(new ArcF(arc.Frame, (float)arc.Start.Value, (float)arc.Sweep.Value))), path).Item2)).Run().Bind(static inner => inner),
                 _ => Fin.Fail<AnimatedPath>(new KernelFault.InvalidValue(
-                    Label: figure.GetType().Name, Requirement: "a figure the host animated path strokes (line, polyline, circle, arc)", Key: Some(op))),
+                    Label: figure.GetType().Name, Requirement: "a figure the host animated path strokes (line, polyline, circle, arc)")),
             },
-            None: () => Fin.Succ((Op.Side(path.AddGap), path).Item2)))));
+            None: () => Fin.Succ((HostEdge.Side(path.AddGap), path).Item2))))).Run().Bind(static inner => inner);
     }
 
     public static Fin<Unit> Trace(
         AnimatedPath path, Graphics graphics, Pen pen, double phase, Option<UnitInterval> end,
-        PointF at, Option<(float Scale, VectorAngle Angle)> pose, Op? key = null);
+        PointF at, Option<(float Scale, VectorAngle Angle)> pose);
 }
 ```
 
 ## [05]-[PACER]
 
-- Owner: `CanvasPacer` — the lease-owned GH2 clock pacer over the KERNEL clock: `Mount(cadence, drives, accessibility, clock, faults, key)` admits a non-empty drive set — each drive a kernel `MotionScript` BESIDE its host `Action<MotionSample>` apply closure (the ruled host apply arm; the kernel names no apply hook) — creates one inert owned `UiClock` over the injected session timeline, seats it through `Cell.Seat`, and starts it only after ownership installed. Clock callback holds weak references to pacer and clock, so the clock never roots its owner and an abandoned pacer disposes the orphaned clock on the next tick.
+- Owner: `CanvasPacer` — the lease-owned GH2 clock pacer over the KERNEL clock: `Mount(cadence, drives, accessibility, clock, faults)` admits a non-empty drive set — each drive a kernel `MotionScript` BESIDE its host `Action<MotionSample>` apply closure (the ruled host apply arm; the kernel names no apply hook) — creates one inert owned `UiClock` over the injected session timeline, seats it through `Cell.Seat`, and starts it only after ownership installed. Clock callback holds weak references to pacer and clock, so the clock never roots its owner and an abandoned pacer disposes the orphaned clock on the next tick.
 - Law: `MotionDrive.Step` is the shared sampling path for this pacer and the platform display link — each successful beat steps every script at `beat.Evidence`, applies every sample through its own closure under `Op.Catch`, retains only continuing drives through one `Cell.Commit`, schedules ONE repaint for that write set through `GhSession.Apply(RepaintCase(Scheduled))`, and stops the clock after the terminal repaint request.
 - Law: an empty live set stops defensively and schedules nothing; a sampling or apply fault RETIRES its row, the survivor roster commits and the repaint schedules FIRST (commit-then-park — moved visuals never strand unpainted), then the fault returns on the beat path where the kernel `FaultPosture.Halt` stops the clock with the cause parked on the composition's `FaultCell` — no newest-only fault column exists here.
 - Law: custody is the kernel idiom — the clock seat is `Cell.Seat` over an option cell (a doubled mount reads `Ceded` and disposes its surplus with the refusal AGGREGATED), the release one-shot is the `Atom<bool>` latch through `Cell.Step`, and the drive roster advances through `Cell.Commit` — the two interlocked integer ladders and the five discarded swaps are unspellable.
@@ -225,27 +223,23 @@ public sealed class CanvasPacer : IDisposable {
     private readonly FaultCell faults;
     private readonly Atom<Option<Lease<UiClock>>> clock = Atom(Option<Lease<UiClock>>.None);
     private readonly Atom<bool> released = Atom(false);
-    private readonly Op operation;
 
     public static Fin<Lease<CanvasPacer>> Mount(
         PositiveMagnitude cadence,
         Seq<(MotionScript Script, Action<MotionSample> Apply)> drives,
         CapabilitySet<Accessibility> accessibility,
         MonotonicTimeline clock,
-        FaultCell faults,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in guard(!drives.IsEmpty, op.InvalidInput()).ToFin()
-               from scripts in drives.TraverseM(row => MotionDrive.Admit(script: row.Script, key: op).Map(_ => row)).As()
-               let pacer = new CanvasPacer(drives: scripts.Strict(), accessibility: accessibility, faults: faults, operation: op)
+        FaultCell faults) {
+        return from admitted in guard(!drives.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+               from scripts in drives.TraverseM(row => MotionDrive.Admit(script: row.Script).Map(_ => row)).As()
+               let pacer = new CanvasPacer(drives: scripts.Strict(), accessibility: accessibility, faults: faults)
                let weakPacer = new WeakReference<CanvasPacer>(pacer)
                from owned in UiClock.Of(
                    cadence: cadence,
-                   beat: beat => Tick(owner: weakPacer, beat: beat, key: op),
+                   beat: beat => Tick(owner: weakPacer, beat: beat),
                    posture: Some(FaultPosture.Halt),
                    faults: Some(faults),
-                   clock: Some(clock),
-                   key: op)
+                   clock: Some(clock))
                from mounted in pacer.Seat(owned: owned)
                select mounted;
     }
@@ -255,19 +249,19 @@ public sealed class CanvasPacer : IDisposable {
     private Fin<Lease<CanvasPacer>> Seat(Lease<UiClock> owned) =>
         Cell.Seat(cell: clock, mint: () => owned).Switch(
             state: operation,
-            committed: (op, _) => owned.Resource.Start(key: op)
+            committed: (op, _) => owned.Resource.Start()
                 .Map(_ => (Lease<CanvasPacer>)new Lease<CanvasPacer>.Owned(Value: this)),
-            ceded: (op, _) => Fin.Fail<Lease<CanvasPacer>>(op.InvalidResult())
+            ceded: (op, _) => Fin.Fail<Lease<CanvasPacer>>(new KernelFault.InvalidResult())
                 .Rollback(release: () => Fin.Succ(owned.Dispose()), key: op),
             refused: static (_, row) => Fin.Fail<Lease<CanvasPacer>>(row.Cause),
-            contended: static (op, _) => Fin.Fail<Lease<CanvasPacer>>(op.InvalidResult()));
+            contended: static (op, _) => Fin.Fail<Lease<CanvasPacer>>(new KernelFault.InvalidResult()));
 
     private Fin<Unit> Advance(PulseBeat beat) {
         Seq<(MotionScript Script, Action<MotionSample> Apply)> active = live.Value;
         if (active.IsEmpty) { return Stop(); }
         (Seq<Error> faulted, Seq<((MotionScript Script, Action<MotionSample> Apply) Row, bool Continues)> stepped) = active
             .Map(row => MotionDrive.Step(script: row.Script, beat: beat.Evidence, accessibility: accessibility, key: operation)
-                .Bind(step => operation.Catch(() => row.Apply(step.Sample))
+                .Bind(step => Try.lift(() => row.Apply(step.Sample)).Run().Bind(static inner => inner)
                     .Map(_ => (Row: row, step.Continues))))
             .Partition();
         Seq<(MotionScript Script, Action<MotionSample> Apply)> continuing =
@@ -279,20 +273,20 @@ public sealed class CanvasPacer : IDisposable {
                 .Bind(_ => state.Faulted.IsEmpty
                     ? continuing.IsEmpty ? Stop() : Fin.Succ(unit)
                     : Fin.Fail<Unit>(Error.Many(state.Faulted))),
-            ceded: static (state, _) => Fin.Fail<Unit>(state.Key.InvalidResult()),
+            ceded: static (state, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult()),
             refused: static (state, row) => Fin.Fail<Unit>(Error.Many([row.Cause, .. state.Faulted])),
-            contended: static (state, _) => Fin.Fail<Unit>(state.Key.InvalidResult()));
+            contended: static (state, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
     }
 
-    private Fin<Unit> Stop() => clock.Value.ToFin(operation.InvalidResult())
+    private Fin<Unit> Stop() => clock.Value.ToFin(new KernelFault.InvalidResult())
         .Bind(owned => owned.Resource.Stop(key: operation));
 
-    private static Fin<Unit> Tick(WeakReference<CanvasPacer> owner, PulseBeat beat, Op key) =>
+    private static Fin<Unit> Tick(WeakReference<CanvasPacer> owner, PulseBeat beat) =>
         owner.TryGetTarget(out CanvasPacer? active)
             ? active.Advance(beat: beat)
-            : Fin.Fail<Unit>(key.InvalidContext());
+            : Fin.Fail<Unit>(new KernelFault.InvalidContext());
 
-    private Fin<Unit> Release(Op key);
+    private Fin<Unit> Release();
 }
 ```
 
@@ -300,7 +294,7 @@ public sealed class CanvasPacer : IDisposable {
 
 - Owner: `BudgetRow` `[SmartEnum<string>]` realizing `IGaugeLane<BudgetRow>` — the closed budget vocabulary whose every bound DERIVES from the reference frame period as a dimensionless frame fraction: one row per judged cost axis, no millisecond literal anywhere, and the kernel gauge floor is what a `GaugedSpan<BudgetRow>` reads its bound from.
 - Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the result shape (`FrameWindow`, `FramePulse`, the kernel `PaintTally`, or a row-addressed raw cost).
-- Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null)` → `Fin<Seq<GaugedSpan<BudgetRow>>>` — EVERY measured axis answers as a kernel gauged span; the pass verdict is the consumer's own `Filter(span => span.Breached)` over the sequence (NAMED LOSS: the breach-only sequence — bought back by that one filter; the judging consumer writes each breached span through `Shell/telemetry.md`'s `GhInstruments.Breached`), and `Overrun` derives on the span. Supplied `PaceBand` bounds every row as `Period × Frames` — the band's own period, no reference division — so a ProMotion panel judges at its real frame budget and an absent band reads the kernel `Portable` declared row.
+- Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBand> pace = default)` → `Fin<Seq<GaugedSpan<BudgetRow>>>` — EVERY measured axis answers as a kernel gauged span; the pass verdict is the consumer's own `Filter(span => span.Breached)` over the sequence (NAMED LOSS: the breach-only sequence — bought back by that one filter; the judging consumer writes each breached span through `Shell/telemetry.md`'s `GhInstruments.Breached`), and `Overrun` derives on the span. Supplied `PaceBand` bounds every row as `Period × Frames` — the band's own period, no reference division — so a ProMotion panel judges at its real frame budget and an absent band reads the kernel `Portable` declared row.
 - Law: judgment happens at read time over results already settled — the gate never samples, never owns a clock, and never mutates a result; a breached span is shaped for the repo benchmark-claim fold, so the app-root benchmark suite consumes it without re-measuring.
 - Law: the host-free kernel families this boundary exercises carry corpus benchmark rows; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
 - Packages: LanguageExt.Core, Thinktecture, `Rasm.Parametric` (`IGaugeLane`, `GaugedSpan`, `PaceBand`), `Rasm.Interaction` (`PaintTally`), `Canvas/canvas.md` (`FramePulse`), `Rasm.Domain`.
@@ -346,11 +340,10 @@ public abstract partial record BudgetSubject {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BudgetGate {
     public static Fin<Seq<GaugedSpan<BudgetRow>>> Judge(
-        BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null) {
-        Op op = key.OrDefault();
+        BudgetSubject subject, Option<PaceBand> pace = default) {
         PaceBand band = pace.IfNone(PaceBand.Portable);
-        return op.Need(subject).Map(valid => valid.Switch(
-            state: (Band: band, Key: op),
+        return Admit.Need(subject).Map(valid => valid.Switch(
+            state: band,
             windowCase: static (s, c) => Spans(s, Seq((BudgetRow.FrameDraw, c.Window.Cost))),
             pulseCase: static (s, c) => Spans(s, Seq(
                 (BudgetRow.LayerGrid, c.Pulse.Grid), (BudgetRow.LayerWire, c.Pulse.Wire),
@@ -362,7 +355,7 @@ public static class BudgetGate {
     }
 
     private static Seq<GaugedSpan<BudgetRow>> Spans(
-        (PaceBand Band, Op Key) state, Seq<(BudgetRow Row, TimeSpan Cost)> rows) =>
+        (PaceBand Band) state, Seq<(BudgetRow Row, TimeSpan Cost)> rows) =>
         rows.Map(row => new GaugedSpan<BudgetRow>(
             Lane: row.Row, Work: state.Key, Elapsed: row.Cost, Bound: state.Band.Period * row.Frames)).Strict();
 }

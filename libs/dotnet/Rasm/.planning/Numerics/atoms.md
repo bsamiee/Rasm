@@ -172,11 +172,11 @@ public abstract partial record AnglePivot {
     public static AnglePivot World { get; } = new WorldCase();
     public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame);
     public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
-    internal Fin<AnglePivot> Admit(Op key) => Switch(
+    internal Fin<AnglePivot> Admit() => Switch(
         state: key,
         worldCase: static (_, pivot) => Fin.Succ<AnglePivot>(pivot),
-        frameCase: static (op, pivot) => Rasm.Domain.Admit.Plane(basis: pivot.Value, key: op).Map(_ => (AnglePivot)pivot),
-        normalCase: static (op, pivot) => guard(pivot.Value.IsValid, op.InvalidInput()).ToFin().Map(_ => (AnglePivot)pivot));
+        frameCase: static (pivot) => Rasm.Domain.Admit.Plane(basis: pivot.Value).Map(_ => (AnglePivot)pivot),
+        normalCase: static (pivot) => guard(pivot.Value.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (AnglePivot)pivot));
     internal double Compute(Vector3d a, Vector3d b) => Switch(
         state: (A: a, B: b),
         worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B),
@@ -188,16 +188,16 @@ public abstract partial record AnglePivot {
 public readonly partial struct VectorAngle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = Band.Angle.Guard(label: nameof(VectorAngle), value: ref value);
-    internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot, Op key) =>
-        from activePivot in pivot.Admit(key: key)
-        from angle in key.AcceptValidated<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
+    internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot) =>
+        from activePivot in pivot.Admit()
+        from angle in FactoryBridge.Accept<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
         select angle;
-    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, Option<AnglePivot> pivot, Op key) =>
-        from left in Direction.Of(value: a, context: context, key: key)
-        from right in Direction.Of(value: b, context: context, key: key)
-        from angle in Of(a: left, b: right, pivot: pivot.IfNone(AnglePivot.World), key: key)
+    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, Option<AnglePivot> pivot) =>
+        from left in Direction.Of(value: a, context: context)
+        from right in Direction.Of(value: b, context: context)
+        from angle in Of(a: left, b: right, pivot: pivot.IfNone(AnglePivot.World))
         select angle;
-    internal Fin<TOut> Project<TOut>(Op key) => ResultProjection.SelfOrValue<VectorAngle, double, TOut>(self: this, value: Value, key: key);
+    internal Fin<TOut> Project<TOut>() => ResultProjection.SelfOrValue<VectorAngle, double, TOut>(self: this, value: Value);
 }
 
 [SmartEnum<int>]
@@ -206,17 +206,17 @@ public sealed partial class VectorRelation {
     public static readonly VectorRelation Parallel = new(key: 1);
     public static readonly VectorRelation AntiParallel = new(key: -1);
     public static readonly VectorRelation Perpendicular = new(key: 2);
-    public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context, Op? key = null) =>
+    public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context) =>
         from model in Optional(context).ToFin(key.OrDefault().MissingContext())
-        from left in Direction.Of(value: a, context: model, key: key.OrDefault())
-        from right in Direction.Of(value: b, context: model, key: key.OrDefault())
+        from left in Direction.Of(value: a, context: model)
+        from right in Direction.Of(value: b, context: model)
         select (left.Value.IsParallelTo(other: right.Value, angleTolerance: model.Angle.Value), left.Value.IsPerpendicularTo(other: right.Value, angleTolerance: model.Angle.Value)) switch {
             (1, _) => Parallel,
             (-1, _) => AntiParallel,
             (_, true) => Perpendicular,
             _ => Oblique,
         };
-    internal Fin<TOut> Project<TOut>(Op key) => ResultProjection.Self<VectorRelation, TOut>(value: this, key: key);
+    internal Fin<TOut> Project<TOut>() => ResultProjection.Self<VectorRelation, TOut>(value: this);
 }
 
 [SmartEnum<int>]
@@ -244,14 +244,12 @@ public sealed partial class RgbProfile {
         double ambientLux,
         double backgroundLuminance,
         Surround surround,
-        string name,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Optional(illuminant).ToFin(Fail: op.InvalidInput())
-               from view in Optional(observer).ToFin(Fail: op.InvalidInput())
-               from label in Optional(name).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).ToFin(Fail: op.InvalidInput())
-               from ambient in op.AcceptValidated<PositiveMagnitude>(candidate: ambientLux)
-               from background in op.AcceptValidated<PositiveMagnitude>(candidate: backgroundLuminance)
+        string name) {
+        return from source in Optional(illuminant).ToFin(Fail: new KernelFault.InvalidInput())
+               from view in Optional(observer).ToFin(Fail: new KernelFault.InvalidInput())
+               from label in Optional(name).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).ToFin(Fail: new KernelFault.InvalidInput())
+               from ambient in FactoryBridge.Accept<PositiveMagnitude>(candidate: ambientLux)
+               from background in FactoryBridge.Accept<PositiveMagnitude>(candidate: backgroundLuminance)
                select new CamConfiguration(
                    whitePoint: source.GetWhitePoint(observer: view),
                    adaptingLuminance: ambient.Value / Math.PI / 5.0,
@@ -270,7 +268,7 @@ public sealed partial class RgbProfile {
     private readonly XyzConfiguration? xyz;
     private readonly DynamicRange range;
     private readonly Atom<HashMap<CamConfiguration, Configuration>> viewed = Atom(HashMap<CamConfiguration, Configuration>());
-    private RgbProfile(int key, RgbConfiguration rgb, DynamicRange range, XyzConfiguration? xyz = null) : this(key) {
+    private RgbProfile(int key, RgbConfiguration rgb, DynamicRange range, XyzConfiguration? xyz = null) : this() {
         (this.rgb, this.range, this.xyz) = (rgb, range, xyz);
         Configuration = new Configuration(rgbConfig: rgb, xyzConfig: xyz, dynamicRange: range);
     }
@@ -415,53 +413,53 @@ public sealed partial class PerceptualColor {
             ?? Band.Parameter.Guard(label: nameof(OpponentA), value: ref opponentA)
             ?? Band.Parameter.Guard(label: nameof(OpponentB), value: ref opponentB)
             ?? Band.Unit.Guard(label: nameof(Alpha), value: ref alpha);
-    public static Fin<PerceptualColor> Of(double lightness, double opponentA, double opponentB, double alpha = 1.0, Op? key = null) =>
+    public static Fin<PerceptualColor> Of(double lightness, double opponentA, double opponentB, double alpha = 1.0) =>
         Validate(lightness, opponentA, opponentB, alpha, out PerceptualColor? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
             : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
-    public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, double alpha = 1.0, Op? key = null) =>
+    public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, double alpha = 1.0) =>
         from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
-        from admitted in OfOklab(colour: new Unicolour(ColourSpace.Rgb255, red, green, blue, coverage.Value), alpha: coverage.Value, key: key)
+        from admitted in OfOklab(colour: new Unicolour(ColourSpace.Rgb255, red, green, blue, coverage.Value), alpha: coverage.Value)
         select admitted;
-    public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, byte alpha, Op? key = null) =>
-        OfRgb(red: red, green: green, blue: blue, alpha: alpha / (double)byte.MaxValue, key: key);
-    public static Fin<PerceptualColor> OfRgb(UnitInterval red, UnitInterval green, UnitInterval blue, RgbProfile profile, double alpha = 1.0, Op? key = null) =>
+    public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, byte alpha) =>
+        OfRgb(red: red, green: green, blue: blue, alpha: alpha / (double)byte.MaxValue);
+    public static Fin<PerceptualColor> OfRgb(UnitInterval red, UnitInterval green, UnitInterval blue, RgbProfile profile, double alpha = 1.0) =>
         from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
         from admitted in OfOklab(
             colour: new Unicolour(profile.Configuration, ColourSpace.Rgb, red.Value, green.Value, blue.Value, coverage.Value).ConvertToConfiguration(Configuration.Default),
-            alpha: coverage.Value, key: key)
+            alpha: coverage.Value)
         select admitted;
-    public static Fin<PerceptualColor> OfRgb(double red, double green, double blue, RgbProfile profile, double alpha = 1.0, Op? key = null) =>
+    public static Fin<PerceptualColor> OfRgb(double red, double green, double blue, RgbProfile profile, double alpha = 1.0) =>
         from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
         from admitted in Band.Parameter.Admits(value: red) && Band.Parameter.Admits(value: green) && Band.Parameter.Admits(value: blue)
             ? OfOklab(
                 colour: new Unicolour(profile.Configuration, ColourSpace.RgbLinear, red, green, blue, coverage.Value).ConvertToConfiguration(Configuration.Default),
-                alpha: coverage.Value, key: key)
+                alpha: coverage.Value)
             : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput())
         select admitted;
-    public static Fin<PerceptualColor> OfArgb(int packed, Op? key = null) =>
-        OfRgb(red: (byte)(packed >> 16), green: (byte)(packed >> 8), blue: (byte)packed, alpha: (byte)(packed >> 24), key: key);
-    public static Fin<PerceptualColor> OfHost(System.Drawing.Color host, Op? key = null) =>
-        OfArgb(packed: host.ToArgb(), key: key);
-    public static Fin<PerceptualColor> OfHost(Rhino.Display.Color4f host, Option<RgbTransfer> transfer = default, Op? key = null) =>
+    public static Fin<PerceptualColor> OfArgb(int packed) =>
+        OfRgb(red: (byte)(packed >> 16), green: (byte)(packed >> 8), blue: (byte)packed, alpha: (byte)(packed >> 24));
+    public static Fin<PerceptualColor> OfHost(System.Drawing.Color host) =>
+        OfArgb(packed: host.ToArgb());
+    public static Fin<PerceptualColor> OfHost(Rhino.Display.Color4f host, Option<RgbTransfer> transfer = default) =>
         transfer.IfNone(RgbTransfer.Encoded) == RgbTransfer.Linear
-            ? OfRgb(red: host.R, green: host.G, blue: host.B, profile: RgbProfile.Srgb, alpha: host.A, key: key)
+            ? OfRgb(red: host.R, green: host.G, blue: host.B, profile: RgbProfile.Srgb, alpha: host.A)
             : from red in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.R)
               from green in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.G)
               from blue in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.B)
-              from admitted in OfRgb(red: red, green: green, blue: blue, profile: RgbProfile.Srgb, alpha: host.A, key: key)
+              from admitted in OfRgb(red: red, green: green, blue: blue, profile: RgbProfile.Srgb, alpha: host.A)
               select admitted;
-    public static Fin<PerceptualColor> OfTemperature(double cct, double duv = 0.0, Locus locus = Locus.Blackbody, double luminance = 1.0, Op? key = null) =>
+    public static Fin<PerceptualColor> OfTemperature(double cct, double duv = 0.0, Locus locus = Locus.Blackbody, double luminance = 1.0) =>
         Band.Positive.Admits(value: cct) && Math.Abs(duv) <= 0.05 && (duv == 0.0 || locus == Locus.Blackbody)
         && Band.Nonnegative.Admits(value: luminance)
             ? OfOklab(
                 colour: duv == 0.0
                     ? new Unicolour(Configuration.Default, cct, locus, luminance)
                     : new Unicolour(Configuration.Default, new Temperature(cct, duv), luminance),
-                alpha: 1.0, key: key)
+                alpha: 1.0)
             : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
-    public static Fin<PerceptualColor> Achromatic(double lightness, double alpha = 1.0, Op? key = null) =>
-        Of(lightness: lightness, opponentA: 0.0, opponentB: 0.0, alpha: alpha, key: key);
+    public static Fin<PerceptualColor> Achromatic(double lightness, double alpha = 1.0) =>
+        Of(lightness: lightness, opponentA: 0.0, opponentB: 0.0, alpha: alpha);
     public PerceptualColor Mix(PerceptualColor other, UnitInterval amount, Option<BlendPath> path = default) {
         Unicolour mixed = path.IfNone(BlendPath.Oklch()).Mix(from: AsUnicolour(), to: other.AsUnicolour(), amount: amount.Value);
         return FromOklab(colour: mixed, alpha: mixed.Alpha.A);
@@ -485,7 +483,7 @@ public sealed partial class PerceptualColor {
         Hct hct = AsUnicolour().Hct;
         return OfOklab(colour: new Unicolour(ColourSpace.Hct, hct.H, hct.C, tone.Value * 100.0), alpha: Alpha);
     }
-    public Fin<PerceptualColor> ToneFor(PerceptualColor against, PositiveMagnitude ratio, ToneSweep sweep, Option<Dimension> grid = default, Op? key = null) {
+    public Fin<PerceptualColor> ToneFor(PerceptualColor against, PositiveMagnitude ratio, ToneSweep sweep, Option<Dimension> grid = default) {
         int direction = sweep.Step(against.ReferenceLightness), steps = grid.Map(static value => value.Value).IfNone(100);
         return toSeq(Enumerable.Range(0, steps).Append(steps))
             .Map(step => Tone(UnitInterval.Create(direction > 0 ? 1.0 - ((double)step / steps) : (double)step / steps)))
@@ -513,7 +511,7 @@ public sealed partial class PerceptualColor {
         transfer.IfNone(RgbTransfer.Encoded).Read(colour: gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour().ConvertToConfiguration(profile.Configuration))) switch {
             var (red, green, blue) => (red, green, blue, Alpha),
         };
-    public Fin<int> ToArgb(Option<GamutPolicy> gamut = default, Op? key = null) =>
+    public Fin<int> ToArgb(Option<GamutPolicy> gamut = default) =>
         gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour()) switch {
             { } bounded when GamutPolicy.Clipped.Contains(colour: bounded) => bounded.Rgb.Byte255.Clipped switch {
                 { } clipped => Fin.Succ(value: System.Drawing.Color.FromArgb(
@@ -524,18 +522,18 @@ public sealed partial class PerceptualColor {
             },
             _ => Fin.Fail<int>(error: key.OrDefault().InvalidResult(detail: "colour outside the display gamut")),
         };
-    public Fin<System.Drawing.Color> ToDrawing(Option<GamutPolicy> gamut = default, Op? key = null) =>
-        ToArgb(gamut: gamut, key: key).Map(static packed => System.Drawing.Color.FromArgb(packed));
-    public Fin<Rhino.Display.Color4f> ToColor4f(Option<GamutPolicy> gamut = default, Option<RgbTransfer> transfer = default, Op? key = null) =>
+    public Fin<System.Drawing.Color> ToDrawing(Option<GamutPolicy> gamut = default) =>
+        ToArgb(gamut: gamut).Map(static packed => System.Drawing.Color.FromArgb(packed));
+    public Fin<Rhino.Display.Color4f> ToColor4f(Option<GamutPolicy> gamut = default, Option<RgbTransfer> transfer = default) =>
         transfer.IfNone(RgbTransfer.Encoded) == RgbTransfer.Encoded && !GamutPolicy.Clipped.Contains(colour: gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour()))
             ? Fin.Fail<Rhino.Display.Color4f>(error: key.OrDefault().InvalidResult(detail: "colour outside the display gamut"))
             : ToRgb(profile: RgbProfile.Srgb, gamut: gamut, transfer: transfer) switch {
                 var (red, green, blue, alpha) => Fin.Succ(value: new Rhino.Display.Color4f((float)red, (float)green, (float)blue, (float)alpha)),
             };
     private Unicolour AsUnicolour() => new(ColourSpace.Oklab, Lightness, OpponentA, OpponentB, Alpha);
-    private static Fin<PerceptualColor> OfOklab(Unicolour colour, double alpha, Op? key = null) {
+    private static Fin<PerceptualColor> OfOklab(Unicolour colour, double alpha) {
         Oklab lab = colour.Oklab;
-        return Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key);
+        return Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha);
     }
     private static PerceptualColor FromOklab(Unicolour colour, double alpha) {
         Oklab lab = colour.Oklab;
@@ -613,96 +611,96 @@ public sealed partial class DecompositionMethod {
     public static readonly DecompositionMethod Texture = new(apply: TextureOf);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Decomposition> Apply(Transform source, Context context, Op key);
+    internal partial Fin<Decomposition> Apply(Transform source, Context context);
 
-    private static Fin<Decomposition> SimilarityOf(Transform source, Context context, Op key) {
+    private static Fin<Decomposition> SimilarityOf(Transform source, Context context) {
         TransformSimilarityType kind = source.DecomposeSimilarity(
             translation: out Vector3d translation,
             dilation: out double dilation,
             rotation: out Transform rotation,
             tolerance: context.Fractional);
         return kind is TransformSimilarityType.OrientationReversing or TransformSimilarityType.OrientationPreserving
-            ? (key.AcceptValue(translation), key.AcceptValue(dilation), key.AcceptValue(rotation))
+            ? (Acceptance.Value(translation), Acceptance.Value(dilation), Acceptance.Value(rotation))
                 .Apply((move, scale, spin) => (Decomposition)new Decomposition.Similarity(move, scale, spin,
                     ReversesOrientation: kind is TransformSimilarityType.OrientationReversing)).As()
-            : Fin.Fail<Decomposition>(key.InvalidResult());
+            : Fin.Fail<Decomposition>(new KernelFault.InvalidResult());
     }
 
-    private static Fin<Decomposition> RigidOf(Transform source, Context context, Op key) {
+    private static Fin<Decomposition> RigidOf(Transform source, Context context) {
         TransformRigidType kind = source.DecomposeRigid(
             translation: out Vector3d translation,
             rotation: out Transform rotation,
             tolerance: context.Fractional);
         return kind is TransformRigidType.RigidReversing or TransformRigidType.Rigid
-            ? (key.AcceptValue(translation), key.AcceptValue(rotation))
+            ? (Acceptance.Value(translation), Acceptance.Value(rotation))
                 .Apply((move, spin) => (Decomposition)new Decomposition.Rigid(move, spin,
                     ReversesOrientation: kind is TransformRigidType.RigidReversing)).As()
-            : Fin.Fail<Decomposition>(key.InvalidResult());
+            : Fin.Fail<Decomposition>(new KernelFault.InvalidResult());
     }
 
-    private static Fin<Decomposition> TranslationLinearOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> TranslationLinearOf(Transform source, Context context) =>
         source.DecomposeAffine(translation: out Vector3d translation, linear: out Transform linear)
-            ? (key.AcceptValue(value: translation), key.AcceptValue(value: linear))
+            ? (Acceptance.Value(value: translation), Acceptance.Value(value: linear))
                 .Apply(static (move, map) => (Decomposition)new Decomposition.TranslationLinear(Translation: move, Linear: map))
                 .As()
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> LinearTranslationOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> LinearTranslationOf(Transform source, Context context) =>
         source.DecomposeAffine(linear: out Transform linear, translation: out Vector3d translation)
-            ? (key.AcceptValue(value: linear), key.AcceptValue(value: translation))
+            ? (Acceptance.Value(value: linear), Acceptance.Value(value: translation))
                 .Apply(static (map, move) => (Decomposition)new Decomposition.LinearTranslation(Linear: map, Translation: move))
                 .As()
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> AffineFactorsOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> AffineFactorsOf(Transform source, Context context) =>
         source.DecomposeAffine(
             translation: out Vector3d translation,
             rotation: out Transform rotation,
             orthogonal: out Transform orthogonal,
             diagonal: out Vector3d diagonal)
-            ? (key.AcceptValue(value: translation), key.AcceptValue(value: rotation), key.AcceptValue(value: orthogonal), key.AcceptValue(value: diagonal))
+            ? (Acceptance.Value(value: translation), Acceptance.Value(value: rotation), Acceptance.Value(value: orthogonal), Acceptance.Value(value: diagonal))
                 .Apply(static (move, spin, basis, scale) => (Decomposition)new Decomposition.AffineFactors(
                     Translation: move,
                     Rotation: spin,
                     Orthogonal: basis,
                     Diagonal: scale))
                 .As()
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> SymmetricOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> SymmetricOf(Transform source, Context context) =>
         source.DecomposeSymmetric(matrix: out Transform matrix, diagonal: out Vector3d diagonal)
-            ? (key.AcceptValue(value: matrix), key.AcceptValue(value: diagonal))
+            ? (Acceptance.Value(value: matrix), Acceptance.Value(value: diagonal))
                 .Apply(static (basis, scale) => (Decomposition)new Decomposition.Symmetric(Basis: basis, Diagonal: scale))
                 .As()
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> QuaternionOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> QuaternionOf(Transform source, Context context) =>
         source.GetQuaternion(quaternion: out Rhino.Geometry.Quaternion quaternion)
         && quaternion.IsValid
         && Math.Abs(value: quaternion.Length - 1.0) <= Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: context.Fractional)
             ? Fin.Succ<Decomposition>(value: new Decomposition.Quaternion(Value: quaternion))
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> YawPitchRollOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> YawPitchRollOf(Transform source, Context context) =>
         source.GetYawPitchRoll(yaw: out double yaw, pitch: out double pitch, roll: out double roll)
-            ? (key.AcceptValue(value: yaw), key.AcceptValue(value: pitch), key.AcceptValue(value: roll))
+            ? (Acceptance.Value(value: yaw), Acceptance.Value(value: pitch), Acceptance.Value(value: roll))
                 .Apply(static (z, y, x) => (Decomposition)new Decomposition.YawPitchRoll(Yaw: z, Pitch: y, Roll: x))
                 .As()
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> EulerZYZOf(Transform source, Context context, Op key) =>
+    private static Fin<Decomposition> EulerZYZOf(Transform source, Context context) =>
         source.GetEulerZYZ(alpha: out double alpha, beta: out double beta, gamma: out double gamma)
-            ? (key.AcceptValue(value: alpha), key.AcceptValue(value: beta), key.AcceptValue(value: gamma))
+            ? (Acceptance.Value(value: alpha), Acceptance.Value(value: beta), Acceptance.Value(value: gamma))
                 .Apply(static (a, b, c) => (Decomposition)new Decomposition.EulerZYZ(Alpha: a, Beta: b, Gamma: c))
                 .As()
-            : Fin.Fail<Decomposition>(error: key.InvalidResult());
+            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
 
-    private static Fin<Decomposition> TextureOf(Transform source, Context context, Op key) {
+    private static Fin<Decomposition> TextureOf(Transform source, Context context) {
         source.DecomposeTextureMapping(
             offset: out Vector3d offset,
             repeat: out Vector3d repeat,
             rotation: out Vector3d rotation);
-        return (key.AcceptValue(value: offset), key.AcceptValue(value: repeat), key.AcceptValue(value: rotation))
+        return (Acceptance.Value(value: offset), Acceptance.Value(value: repeat), Acceptance.Value(value: rotation))
             .Apply(static (move, scale, spin) => (Decomposition)new Decomposition.Texture(
                 Offset: move,
                 Repeat: scale,
@@ -715,110 +713,107 @@ public sealed partial class DecompositionMethod {
 public sealed partial class TransformRewrite {
     public static readonly TransformRewrite Affine = new(apply: static (source, _, key) => {
         source.Affineize();
-        return key.AcceptValue(source);
+        return Acceptance.Value(source);
     });
     public static readonly TransformRewrite Linear = new(apply: static (source, _, key) => {
         source.Linearize();
-        return key.AcceptValue(source);
+        return Acceptance.Value(source);
     });
     public static readonly TransformRewrite Orthogonal = new(apply: static (source, context, key) =>
         source.Orthogonalize(Math.Max(EpsilonPolicy.SqrtEpsilon, context.Fractional))
-            ? key.AcceptValue(source)
-            : Fin.Fail<Transform>(error: key.InvalidResult()));
+            ? Acceptance.Value(source)
+            : Fin.Fail<Transform>(error: new KernelFault.InvalidResult()));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Transform> Apply(Transform source, Context context, Op key);
+    internal partial Fin<Transform> Apply(Transform source, Context context);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Placement {
-    public static Fin<Transform> Build(TransformSpec spec, Option<Context> context = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(spec).ToFin(Fail: op.InvalidInput()).Bind(request => request.Switch(
-            state: (Context: context, Key: op),
-            existing: static (state, value) => state.Key.AcceptInput(value: value.Value),
-            identity: static (state, _) => state.Key.AcceptValue(value: Transform.Identity),
+    public static Fin<Transform> Build(TransformSpec spec, Option<Context> context = default) {
+        return Optional(spec).ToFin(Fail: new KernelFault.InvalidInput()).Bind(request => request.Switch(
+            state: context,
+            existing: static (state, value) => Acceptance.Input(value: value.Value),
+            identity: static (state, _) => Acceptance.Value(value: Transform.Identity),
             translation: static (state, value) =>
-                from motion in state.Key.AcceptInput(value: value.Motion)
-                from result in state.Key.AcceptValue(value: Transform.Translation(motion: motion))
+                from motion in Acceptance.Input(value: value.Motion)
+                from result in Acceptance.Value(value: Transform.Translation(motion: motion))
                 select result,
             diagonal: static (state, value) =>
-                from diagonal in state.Key.AcceptInput(value: value.Values)
-                from result in state.Key.AcceptValue(value: Transform.Diagonal(diagonal: diagonal))
+                from diagonal in Acceptance.Input(value: value.Values)
+                from result in Acceptance.Value(value: Transform.Diagonal(diagonal: diagonal))
                 select result,
             uniformScale: static (state, value) =>
-                from anchor in state.Key.AcceptInput(value: value.Anchor)
-                from factor in state.Key.AcceptInput(value: value.Factor)
-                from result in state.Key.AcceptValue(value: Transform.Scale(anchor: anchor, scaleFactor: factor))
+                from anchor in Acceptance.Input(value: value.Anchor)
+                from factor in Acceptance.Input(value: value.Factor)
+                from result in Acceptance.Value(value: Transform.Scale(anchor: anchor, scaleFactor: factor))
                 select result,
             planeScale: static (state, value) =>
-                from plane in Admit.Plane(basis: value.Plane, key: state.Key)
-                from factors in state.Key.AcceptInput(value: value.Factors)
-                from result in state.Key.AcceptValue(value: Transform.Scale(
+                from plane in Admit.Plane(basis: value.Plane)
+                from factors in Acceptance.Input(value: value.Factors)
+                from result in Acceptance.Value(value: Transform.Scale(
                     plane: plane,
                     xScaleFactor: factors.X,
                     yScaleFactor: factors.Y,
                     zScaleFactor: factors.Z))
                 select result,
             axisRotation: static (state, value) =>
-                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
-                from angle in state.Key.AcceptInput(value: value.Angle)
-                from axis in Direction.Of(value: value.Axis, context: model, key: state.Key)
-                from center in state.Key.AcceptInput(value: value.Center)
-                from result in state.Key.AcceptValue(value: Transform.Rotation(
+                from model in state.ToFin(Fail: new KernelFault.MissingContext())
+                from angle in Acceptance.Input(value: value.Angle)
+                from axis in Direction.Of(value: value.Axis, context: model)
+                from center in Acceptance.Input(value: value.Center)
+                from result in Acceptance.Value(value: Transform.Rotation(
                     angleRadians: angle,
                     rotationAxis: axis.Value,
                     rotationCenter: center))
                 select result,
             sinCosRotation: static (state, value) =>
-                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
-                from sin in state.Key.AcceptInput(value: value.Sin)
-                from cos in state.Key.AcceptInput(value: value.Cos)
+                from model in state.ToFin(Fail: new KernelFault.MissingContext())
+                from sin in Acceptance.Input(value: value.Sin)
+                from cos in Acceptance.Input(value: value.Cos)
                 from _ in guard(
                     Math.Abs(value: ((sin * sin) + (cos * cos)) - 1.0)
                         <= Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: model.Fractional),
-                    state.Key.InvalidInput())
+                    new KernelFault.InvalidInput())
                     .ToFin()
-                from axis in Direction.Of(value: value.Axis, context: model, key: state.Key)
-                from center in state.Key.AcceptInput(value: value.Center)
-                from result in state.Key.AcceptValue(value: Transform.Rotation(
+                from axis in Direction.Of(value: value.Axis, context: model)
+                from center in Acceptance.Input(value: value.Center)
+                from result in Acceptance.Value(value: Transform.Rotation(
                     sinAngle: sin,
                     cosAngle: cos,
                     rotationAxis: axis.Value,
                     rotationCenter: center))
                 select result,
             centerRotation: static (state, value) =>
-                from angle in state.Key.AcceptInput(value: value.Angle)
-                from center in state.Key.AcceptInput(value: value.Center)
-                from result in state.Key.AcceptValue(value: Transform.Rotation(
+                from angle in Acceptance.Input(value: value.Angle)
+                from center in Acceptance.Input(value: value.Center)
+                from result in Acceptance.Value(value: Transform.Rotation(
                     angleRadians: angle,
                     rotationCenter: center))
                 select result,
             vectorRotation: static (state, value) =>
-                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
-                from start in Direction.Of(value: value.From, context: model, key: state.Key)
-                from end in Direction.Of(value: value.To, context: model, key: state.Key)
-                from center in state.Key.AcceptInput(value: value.Center)
-                from result in state.Key.AcceptValue(value: Transform.Rotation(
+                from model in state.ToFin(Fail: new KernelFault.MissingContext())
+                from start in Direction.Of(value: value.From, context: model)
+                from end in Direction.Of(value: value.To, context: model)
+                from center in Acceptance.Input(value: value.Center)
+                from result in Acceptance.Value(value: Transform.Rotation(
                     startDirection: start.Value,
                     endDirection: end.Value,
                     rotationCenter: center))
                 select result,
             basisRotation: static (state, value) =>
-                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
+                from model in state.ToFin(Fail: new KernelFault.MissingContext())
                 from source in RotationBasis(
                     x: value.X0,
                     y: value.Y0,
                     z: value.Z0,
-                    context: model,
-                    key: state.Key)
+                    context: model)
                 from target in RotationBasis(
                     x: value.X1,
                     y: value.Y1,
                     z: value.Z1,
-                    context: model,
-                    key: state.Key)
-                from result in state.Key.AcceptValue(value: Transform.Rotation(
+                    context: model)
+                from result in Acceptance.Value(value: Transform.Rotation(
                     x0: source.X,
                     y0: source.Y,
                     z0: source.Z,
@@ -827,127 +822,124 @@ public static class Placement {
                     z1: target.Z))
                 select result,
             yawPitchRoll: static (state, value) =>
-                from yaw in state.Key.AcceptInput(value: value.Yaw)
-                from pitch in state.Key.AcceptInput(value: value.Pitch)
-                from roll in state.Key.AcceptInput(value: value.Roll)
-                from result in state.Key.AcceptValue(value: Transform.RotationZYX(
+                from yaw in Acceptance.Input(value: value.Yaw)
+                from pitch in Acceptance.Input(value: value.Pitch)
+                from roll in Acceptance.Input(value: value.Roll)
+                from result in Acceptance.Value(value: Transform.RotationZYX(
                     yaw: yaw,
                     pitch: pitch,
                     roll: roll))
                 select result,
             eulerZYZ: static (state, value) =>
-                from alpha in state.Key.AcceptInput(value: value.Alpha)
-                from beta in state.Key.AcceptInput(value: value.Beta)
-                from gamma in state.Key.AcceptInput(value: value.Gamma)
-                from result in state.Key.AcceptValue(value: Transform.RotationZYZ(
+                from alpha in Acceptance.Input(value: value.Alpha)
+                from beta in Acceptance.Input(value: value.Beta)
+                from gamma in Acceptance.Input(value: value.Gamma)
+                from result in Acceptance.Value(value: Transform.RotationZYZ(
                     alpha: alpha,
                     beta: beta,
                     gamma: gamma))
                 select result,
             mirror: static (state, value) =>
-                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
-                from point in state.Key.AcceptInput(value: value.Point)
-                from normal in Direction.Of(value: value.Normal, context: model, key: state.Key)
-                from result in state.Key.AcceptValue(value: Transform.Mirror(
+                from model in state.ToFin(Fail: new KernelFault.MissingContext())
+                from point in Acceptance.Input(value: value.Point)
+                from normal in Direction.Of(value: value.Normal, context: model)
+                from result in Acceptance.Value(value: Transform.Mirror(
                     pointOnMirrorPlane: point,
                     normalToMirrorPlane: normal.Value))
                 select result,
             textureMapping: static (state, value) =>
-                from offset in state.Key.AcceptInput(value: value.Offset)
-                from repeat in state.Key.AcceptInput(value: value.Repeat)
-                from rotation in state.Key.AcceptInput(value: value.Rotation)
-                from result in state.Key.AcceptValue(value: Transform.TextureMapping(
+                from offset in Acceptance.Input(value: value.Offset)
+                from repeat in Acceptance.Input(value: value.Repeat)
+                from rotation in Acceptance.Input(value: value.Rotation)
+                from result in Acceptance.Value(value: Transform.TextureMapping(
                     offset: offset,
                     repeat: repeat,
                     rotation: rotation))
                 select result,
             planeMap: static (state, value) =>
-                from source in Admit.Plane(basis: value.From, key: state.Key)
-                from target in Admit.Plane(basis: value.To, key: state.Key)
-                from result in state.Key.AcceptValue(value: Transform.PlaneToPlane(
+                from source in Admit.Plane(basis: value.From)
+                from target in Admit.Plane(basis: value.To)
+                from result in Acceptance.Value(value: Transform.PlaneToPlane(
                     plane0: source,
                     plane1: target))
                 select result,
             planeBasisMap: static (state, value) =>
-                from source in Admit.Plane(basis: value.From, key: state.Key)
-                from target in Admit.Plane(basis: value.To, key: state.Key)
-                from result in state.Key.AcceptValue(value: Transform.ChangeBasis(
+                from source in Admit.Plane(basis: value.From)
+                from target in Admit.Plane(basis: value.To)
+                from result in Acceptance.Value(value: Transform.ChangeBasis(
                     plane0: source,
                     plane1: target))
                 select result,
             vectorBasisMap: static (state, value) =>
-                (state.Key.AcceptInput(value.X0), state.Key.AcceptInput(value.Y0), state.Key.AcceptInput(value.Z0),
-                 state.Key.AcceptInput(value.X1), state.Key.AcceptInput(value.Y1), state.Key.AcceptInput(value.Z1))
+                (Acceptance.Input(value.X0), Acceptance.Input(value.Y0), Acceptance.Input(value.Z0),
+                 Acceptance.Input(value.X1), Acceptance.Input(value.Y1), Acceptance.Input(value.Z1))
                     .Apply(static (x0, y0, z0, x1, y1, z1) => Transform.ChangeBasis(
                         X0: x0, Y0: y0, Z0: z0, X1: x1, Y1: y1, Z1: z1))
                     .As()
-                    .Bind(result => state.Key.AcceptValue(result)),
+                    .Bind(result => Acceptance.Value(result)),
             pointBasisMap: static (state, value) =>
-                (state.Key.AcceptInput(value.P0), state.Key.AcceptInput(value.X0), state.Key.AcceptInput(value.Y0),
-                 state.Key.AcceptInput(value.Z0), state.Key.AcceptInput(value.P1), state.Key.AcceptInput(value.X1),
-                 state.Key.AcceptInput(value.Y1), state.Key.AcceptInput(value.Z1))
+                (Acceptance.Input(value.P0), Acceptance.Input(value.X0), Acceptance.Input(value.Y0),
+                 Acceptance.Input(value.Z0), Acceptance.Input(value.P1), Acceptance.Input(value.X1),
+                 Acceptance.Input(value.Y1), Acceptance.Input(value.Z1))
                     .Apply(static (p0, x0, y0, z0, p1, x1, y1, z1) => Transform.ChangeBasis(
                         P0: p0, X0: x0, Y0: y0, Z0: z0,
                         P1: p1, X1: x1, Y1: y1, Z1: z1))
                     .As()
-                    .Bind(result => state.Key.AcceptValue(result)),
+                    .Bind(result => Acceptance.Value(result)),
             planarProjection: static (state, value) =>
-                from plane in Admit.Plane(basis: value.Plane, key: state.Key)
-                from result in state.Key.AcceptValue(value: Transform.PlanarProjection(plane: plane))
+                from plane in Admit.Plane(basis: value.Plane)
+                from result in Acceptance.Value(value: Transform.PlanarProjection(plane: plane))
                 select result,
             directionalProjection: static (state, value) =>
-                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
-                from plane in Admit.Plane(basis: value.Plane, key: state.Key)
-                from direction in Direction.Of(value: value.Direction, context: model, key: state.Key)
-                from result in state.Key.AcceptValue(value: Transform.ProjectAlong(
+                from model in state.ToFin(Fail: new KernelFault.MissingContext())
+                from plane in Admit.Plane(basis: value.Plane)
+                from direction in Direction.Of(value: value.Direction, context: model)
+                from result in Acceptance.Value(value: Transform.ProjectAlong(
                     plane: plane,
                     direction: direction.Value))
                 select result,
             shear: static (state, value) =>
-                from plane in Admit.Plane(basis: value.Plane, key: state.Key)
-                from x in state.Key.AcceptInput(value: value.X)
-                from y in state.Key.AcceptInput(value: value.Y)
-                from z in state.Key.AcceptInput(value: value.Z)
-                from result in state.Key.AcceptValue(value: Transform.Shear(
+                from plane in Admit.Plane(basis: value.Plane)
+                from x in Acceptance.Input(value: value.X)
+                from y in Acceptance.Input(value: value.Y)
+                from z in Acceptance.Input(value: value.Z)
+                from result in Acceptance.Value(value: Transform.Shear(
                     plane: plane,
                     x: x,
                     y: y,
                     z: z))
                 select result,
             compose: static (state, value) => value.Values
-                .TraverseM(transform => state.Key.AcceptInput(transform))
+                .TraverseM(transform => Acceptance.Input(transform))
                 .As()
                 .Map(static admitted => admitted.Fold(
                     initialState: Transform.Identity,
                     f: static (combined, next) => next * combined))
-                .Bind(result => state.Key.AcceptValue(result))));
+                .Bind(result => Acceptance.Value(result))));
     }
 
     extension(Transform source) {
-        public Fin<Transform> Inverse(Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.AcceptInput(value: source)
+        public Fin<Transform> Inverse() {
+            return from active in Acceptance.Input(value: source)
                    from inverse in active.TryGetInverse(inverseTransform: out Transform result)
-                       ? op.AcceptValue(value: result)
-                       : Fin.Fail<Transform>(error: op.InvalidResult())
+                       ? Acceptance.Value(value: result)
+                       : Fin.Fail<Transform>(error: new KernelFault.InvalidResult())
                    select inverse;
         }
 
-        public Fin<Decomposition> Decompose(DecompositionMethod method, Context context, Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.AcceptInput(value: source)
-                   from activeMethod in Optional(method).ToFin(Fail: op.InvalidInput())
-                   from model in Optional(context).ToFin(Fail: op.MissingContext())
-                   from result in activeMethod.Apply(source: active, context: model, key: op)
+        public Fin<Decomposition> Decompose(DecompositionMethod method, Context context) {
+            return from active in Acceptance.Input(value: source)
+                   from activeMethod in Optional(method).ToFin(Fail: new KernelFault.InvalidInput())
+                   from model in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
+                   from result in activeMethod.Apply(source: active, context: model)
                    select result;
         }
 
-        public Fin<Transform> Rewrite(TransformRewrite rewrite, Context context, Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.AcceptInput(value: source)
-                   from selector in Optional(rewrite).ToFin(Fail: op.InvalidInput())
-                   from model in Optional(context).ToFin(Fail: op.MissingContext())
-                   from result in selector.Apply(source: active, context: model, key: op)
+        public Fin<Transform> Rewrite(TransformRewrite rewrite, Context context) {
+            return from active in Acceptance.Input(value: source)
+                   from selector in Optional(rewrite).ToFin(Fail: new KernelFault.InvalidInput())
+                   from model in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
+                   from result in selector.Apply(source: active, context: model)
                    select result;
         }
 
@@ -957,21 +949,18 @@ public static class Placement {
         Vector3d x,
         Vector3d y,
         Vector3d z,
-        Context context,
-        Op key) =>
+        Context context) =>
         from frame in Admit.Plane(
             basis: new Plane(
                 origin: Point3d.Origin,
                 xDirection: x,
-                yDirection: y),
-            key: key)
-        from supplied in Direction.Of(value: z, context: context, key: key)
+                yDirection: y))
+        from supplied in Direction.Of(value: z, context: context)
         from relation in VectorRelation.Of(
             a: frame.ZAxis,
             b: supplied.Value,
-            context: context,
-            key: key)
-        from _ in guard(relation == VectorRelation.Parallel, key.InvalidInput())
+            context: context)
+        from _ in guard(relation == VectorRelation.Parallel, new KernelFault.InvalidInput())
         select (X: frame.XAxis, Y: frame.YAxis, Z: frame.ZAxis);
 }
 ```
@@ -995,52 +984,48 @@ public readonly record struct Direction : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(value: Value),
         Math.Abs(value: Value.Length - 1.0) <= EpsilonPolicy.SqrtEpsilon);
-    public static Fin<Direction> Of(Vector3d value, Context context, Op? key = null) =>
-        Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key.OrDefault()));
-    internal static Fin<Direction> Of(Vector3d value, double tolerance, Op key) =>
-        Admit.Directional(value: value, tolerance: tolerance, key: key).Bind(vector =>
-            vector.Unitize() ? Fin.Succ(new Direction(value: vector)) : Fin.Fail<Direction>(error: key.InvalidInput()));
-    private static Fin<Direction> Transported(Vector3d value, Op key) => Of(value: value, tolerance: EpsilonPolicy.SqrtEpsilon, key: key);
+    public static Fin<Direction> Of(Vector3d value, Context context) =>
+        Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value));
+    internal static Fin<Direction> Of(Vector3d value, double tolerance) =>
+        Admit.Directional(value: value, tolerance: tolerance).Bind(vector =>
+            vector.Unitize() ? Fin.Succ(new Direction(value: vector)) : Fin.Fail<Direction>(error: new KernelFault.InvalidInput()));
+    private static Fin<Direction> Transported(Vector3d value) => Of(value: value, tolerance: EpsilonPolicy.SqrtEpsilon);
     public static Direction operator -(Direction direction) => new(value: -direction.Value);
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
-    public Fin<Direction> Reflect(Direction normal, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Direction> Reflect(Direction normal) {
         Direction self = this;
         return Placement.Build(
                 spec: new TransformSpec.Mirror(
                     Point: Point3d.Origin,
-                    Normal: normal.Value),
-                key: op)
-            .Bind(transform => Transported(value: transform * self.Value, key: op));
+                    Normal: normal.Value))
+            .Bind(transform => Transported(value: transform * self.Value));
     }
-    public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
-        from activeIncident in key.AcceptValidated<PositiveMagnitude>(candidate: etaIncident)
-        from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)
+    public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted) =>
+        from activeIncident in FactoryBridge.Accept<PositiveMagnitude>(candidate: etaIncident)
+        from activeTransmitted in FactoryBridge.Accept<PositiveMagnitude>(candidate: etaTransmitted)
         let exiting = incident.Value * normal.Value > 0.0
         let orientedNormal = exiting switch { true => -normal.Value, false => normal.Value }
         let eta = activeIncident.Value / activeTransmitted.Value
         let cosI = Math.Clamp(value: -(incident.Value * orientedNormal), min: -1.0, max: 1.0)
         let k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)))
         from direction in k switch {
-            double rootable when rootable > -EpsilonPolicy.ZeroTolerance => Transported(value: (eta * incident.Value) + (((eta * cosI) - Math.Sqrt(d: Math.Max(val1: 0.0, val2: rootable))) * orientedNormal), key: key),
-            _ => Fin.Fail<Direction>(error: key.InvalidResult()),
+            double rootable when rootable > -EpsilonPolicy.ZeroTolerance => Transported(value: (eta * incident.Value) + (((eta * cosI) - Math.Sqrt(d: Math.Max(val1: 0.0, val2: rootable))) * orientedNormal)),
+            _ => Fin.Fail<Direction>(error: new KernelFault.InvalidResult()),
         }
         select direction;
-    public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) {
+    public Fin<Direction> ParallelTransport(Seq<Plane> frames) {
         Vector3d value = Value;
-        Op op = key.OrDefault();
-        return Admit.All(values: frames, claim: static frame => frame.IsValid, floor: 1, key: op).Bind(admittedFrames =>
+        return Admit.All(values: frames, claim: static frame => frame.IsValid, floor: 1).Bind(admittedFrames =>
             toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: admittedFrames.Count - 1))).Fold(
-                initialState: Transported(value: value, key: op),
+                initialState: Transported(value: value),
                 f: (acc, i) => acc.Bind(prev =>
                     Placement.Build(
                             spec: new TransformSpec.PlaneMap(
                                 From: admittedFrames[index: i - 1],
-                                To: admittedFrames[index: i]),
-                            key: op)
-                        .Bind(transform => Transported(value: transform * prev.Value, key: op)))));
+                                To: admittedFrames[index: i]))
+                        .Bind(transform => Transported(value: transform * prev.Value)))));
     }
-    internal Fin<TOut> Project<TOut>(Op key) => ResultProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value, key: key);
+    internal Fin<TOut> Project<TOut>() => ResultProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -1051,29 +1036,29 @@ public readonly record struct VectorSpan {
     public PositiveMagnitude Magnitude { get; }
     public Vector3d Value => Direction * Magnitude.Value;
     public Line Axis => new(from: Anchor, to: Anchor + Value);
-    public static Fin<VectorSpan> Of(Point3d anchor, Vector3d vector, Context context, Op? key = null) =>
-        from direction in Direction.Of(value: vector, context: context, key: key.OrDefault())
-        from span in Of(anchor: anchor, direction: direction, magnitude: vector.Length, key: key.OrDefault())
+    public static Fin<VectorSpan> Of(Point3d anchor, Vector3d vector, Context context) =>
+        from direction in Direction.Of(value: vector, context: context)
+        from span in Of(anchor: anchor, direction: direction, magnitude: vector.Length)
         select span;
-    internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
-        from point in key.AcceptValue(value: anchor)
-        from length in key.AcceptValidated<PositiveMagnitude>(candidate: magnitude)
+    internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude) =>
+        from point in Acceptance.Value(value: anchor)
+        from length in FactoryBridge.Accept<PositiveMagnitude>(candidate: magnitude)
         let span = new VectorSpan(anchor: point, direction: direction, magnitude: length)
-        from _ in guard(span.Axis.IsValid, key.InvalidResult())
+        from _ in guard(span.Axis.IsValid, new KernelFault.InvalidResult())
         select span;
-    internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
+    internal Fin<(double X, double Y)> Components(Plane frame) {
         Vector3d value = Value;
-        return Admit.Plane(basis: frame, key: key).Bind(validFrame =>
-            (key.AcceptValue(value: value * validFrame.XAxis), key.AcceptValue(value: value * validFrame.YAxis))
+        return Admit.Plane(basis: frame).Bind(validFrame =>
+            (Acceptance.Value(value: value * validFrame.XAxis), Acceptance.Value(value: value * validFrame.YAxis))
             .Apply(static (x, y) => (X: x, Y: y))
             .As());
     }
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         VectorSpan self = this;
-        return ResultProjection.Rows<VectorSpan, TOut>(self: self, key: key,
+        return ResultProjection.Rows<VectorSpan, TOut>(self: self,
             ProjectionRow.Of<Direction>(() => Fin.Succ(self.Direction)),
-            ProjectionRow.Of<Vector3d>(() => key.AcceptValue(value: self.Value)),
-            ProjectionRow.Of<Line>(() => key.AcceptValue(value: self.Axis)),
+            ProjectionRow.Of<Vector3d>(() => Acceptance.Value(value: self.Value)),
+            ProjectionRow.Of<Line>(() => Acceptance.Value(value: self.Axis)),
             ProjectionRow.Of<double>(() => Fin.Succ(self.Magnitude.Value)));
     }
 }
@@ -1082,18 +1067,18 @@ public readonly record struct VectorSpan {
 public readonly record struct VectorFrame {
     private VectorFrame(Plane value) => Value = value;
     public Plane Value { get; }
-    public static Fin<VectorFrame> Of(Point3d origin, Vector3d normal, Option<Vector3d> xHint, Context context, Op? key = null) =>
+    public static Fin<VectorFrame> Of(Point3d origin, Vector3d normal, Option<Vector3d> xHint, Context context) =>
         from point in key.OrDefault().AcceptValue(value: origin)
-        from z in Direction.Of(value: normal, context: context, key: key.OrDefault())
+        from z in Direction.Of(value: normal, context: context)
         let tangent = xHint.Map(raw => raw - (z.Value * (raw * z.Value))).Filter(v => !v.IsTiny(context.Absolute.Value)).IfNone(SeedPerpendicular(axis: z.Value))
-        from x in Direction.Of(value: tangent, context: context, key: key.OrDefault())
-        from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: key.OrDefault())
+        from x in Direction.Of(value: tangent, context: context)
+        from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context)
         let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
         from valid in Admit.Plane(basis: frame, key: key.OrDefault())
         select new VectorFrame(value: valid);
-    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context, Op? key = null) =>
-        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, isClosed: isClosed, context: context, key: key.OrDefault())
-            .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key.OrDefault())).As());
+    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context) =>
+        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, isClosed: isClosed, context: context)
+            .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context)).As());
     internal static Vector3d SeedPerpendicular(Vector3d axis) {
         Vector3d seed = Vector3d.Zero;
         return seed.PerpendicularTo(other: axis) && seed.Unitize() ? seed : Vector3d.XAxis;
@@ -1106,9 +1091,9 @@ public readonly record struct VectorFrame {
         }
         return normal;
     }
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         VectorFrame self = this;
-        return ResultProjection.Rows<VectorFrame, TOut>(self: self, key: key,
+        return ResultProjection.Rows<VectorFrame, TOut>(self: self,
             ProjectionRow.Of<Plane>(() => Admit.Plane(basis: self.Value, key: key)),
             ProjectionRow.Of<Transform>(() => Placement.Build(
                 spec: new TransformSpec.PlaneMap(
@@ -1125,59 +1110,54 @@ public readonly record struct VectorCone {
     public Direction Axis { get; }
     public VectorAngle HalfAngle { get; }
     public double SolidAngle => Math.Tau * (1.0 - Math.Cos(d: HalfAngle.Value));
-    public Fin<double> Spread(Op? key = null) =>
+    public Fin<double> Spread() =>
         HalfAngle.Value < Math.PI / 2.0
             ? Fin.Succ(Math.Tan(a: HalfAngle.Value))
             : Fin.Fail<double>(key.OrDefault().InvalidResult());
-    public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) =>
-        from _ in Admit.Cone(apex: apex, axis: axis, halfAngle: halfAngleRadians, key: key.OrDefault())
-        from direction in Direction.Of(value: axis, context: context, key: key.OrDefault())
+    public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context) =>
+        from _ in Admit.Cone(apex: apex, axis: axis, halfAngle: halfAngleRadians)
+        from direction in Direction.Of(value: axis, context: context)
         from angle in key.OrDefault().AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
         select new VectorCone(apex: apex, axis: direction, halfAngle: angle);
-    public Fin<bool> Contains(Vector3d query, Context context, Op? key = null) {
+    public Fin<bool> Contains(Vector3d query, Context context) {
         VectorCone cone = this;
-        return from probe in Direction.Of(value: query, context: context, key: key.OrDefault())
-               from angle in VectorAngle.Of(a: cone.Axis, b: probe, pivot: AnglePivot.World, key: key.OrDefault())
+        return from probe in Direction.Of(value: query, context: context)
+               from angle in VectorAngle.Of(a: cone.Axis, b: probe, pivot: AnglePivot.World)
                select angle.Value <= cone.HalfAngle.Value;
     }
-    public static Fin<VectorCone> Enclose(VectorCone left, VectorCone right, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from model in Optional(context).ToFin(op.MissingContext())
-               from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, op.InvalidInput())
-               from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World, key: op)
+    public static Fin<VectorCone> Enclose(VectorCone left, VectorCone right, Context context) {
+        return from model in Optional(context).ToFin(new KernelFault.MissingContext())
+               from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, new KernelFault.InvalidInput())
+               from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World)
                let envelope = (Theta: between.Value, A: left.HalfAngle.Value, B: right.HalfAngle.Value, Tolerance: model.Angle.Value, Half: (between.Value + left.HalfAngle.Value + right.HalfAngle.Value) * 0.5)
                let cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value)
                let rotationAxis = cross.IsTiny(model.Absolute.Value) switch { true => VectorFrame.SeedPerpendicular(axis: left.Axis.Value), false => cross }
                from result in (envelope.Theta + envelope.B <= envelope.A + envelope.Tolerance, envelope.Theta + envelope.A <= envelope.B + envelope.Tolerance, envelope.Theta <= envelope.Tolerance) switch {
                    (true, _, _) => Fin.Succ(left),
                    (_, true, _) => Fin.Succ(right),
-                   (_, _, true) => Of(apex: left.Apex, axis: (envelope.A >= envelope.B ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: envelope.A, val2: envelope.B), context: model, key: op),
-                   _ => guard(envelope.Half <= Math.PI + envelope.Tolerance, op.InvalidInput())
+                   (_, _, true) => Of(apex: left.Apex, axis: (envelope.A >= envelope.B ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: envelope.A, val2: envelope.B), context: model),
+                   _ => guard(envelope.Half <= Math.PI + envelope.Tolerance, new KernelFault.InvalidInput())
                        .Bind(_ => Placement.Build(
                            spec: new TransformSpec.AxisRotation(
                                Angle: envelope.Half - envelope.A,
                                Axis: rotationAxis,
                                Center: Point3d.Origin),
-                           context: Some(model),
-                           key: op))
+                           context: Some(model)))
                        .Bind(transform => Direction.Of(
                            value: transform * left.Axis.Value,
-                           context: model,
-                           key: op))
+                           context: model))
                        .Bind(axis => Of(
                            apex: left.Apex,
                            axis: axis.Value,
                            halfAngleRadians: Math.Min(val1: Math.PI, val2: envelope.Half),
-                           context: model,
-                           key: op)),
+                           context: model)),
                }
                select result;
     }
-    public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Seq<Direction>> PartitionBy(int sectors, Context context) {
         VectorCone cone = this;
-        return from sectorCount in op.AcceptValidated<Dimension>(candidate: sectors)
-               from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: cone.Axis.Value), context: context, key: op)
+        return from sectorCount in FactoryBridge.Accept<Dimension>(candidate: sectors)
+               from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: cone.Axis.Value), context: context)
                let stepAngle = Math.Tau / sectorCount.Value
                let lateral = Math.Sin(a: cone.HalfAngle.Value)
                let coaxial = Math.Cos(d: cone.HalfAngle.Value) * cone.Axis.Value
@@ -1187,12 +1167,10 @@ public readonly record struct VectorCone {
                                Angle: stepAngle * i,
                                Axis: cone.Axis.Value,
                                Center: Point3d.Origin),
-                           context: Some(context),
-                           key: op)
+                           context: Some(context))
                        .Bind(transform => Direction.Of(
                            value: coaxial + (lateral * (transform * rim.Value)),
-                           context: context,
-                           key: op))).As()
+                           context: context))).As()
                select rays;
     }
 }
@@ -1201,7 +1179,7 @@ public readonly record struct VectorCone {
 ## [05]-[CELL_LATTICE]
 
 - Owner: `CellLattice` is the kernel's ONE bounded rectangular cell lattice — an index-to-world affine, a per-axis cell census, and one budget ceiling admitted together. `LatticeInterpolation` rows carry the sample reconstruction each consumer reads. Construction is gated: the private constructor is unreachable except through `Of`, so an instance is its own admission evidence and every derived member is total.
-- Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null)` is the general admission, `Of(ReadOnlySpan<double> affine, …)` the host-neutral twelve-value form boundary and wire consumers round-trip through with `Affine` its projection dual — `Affine` and `Inverse` are the ONLY public transform projections, the host `Transform` pair and the ordinal helpers staying assembly-internal — and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` ceiling-halves each reducible axis for a pyramid level — an odd axis rounds up so the doubled coarse cells still cover the final source cell, only an axis with reducible cells doubles its basis column while a terminal axis keeps one cell and its existing basis, and a rank-three lattice floors at two layers so no coarse level silently collapses to a plane.
+- Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling)` is the general admission, `Of(ReadOnlySpan<double> affine, …)` the host-neutral twelve-value form boundary and wire consumers round-trip through with `Affine` its projection dual — `Affine` and `Inverse` are the ONLY public transform projections, the host `Transform` pair and the ordinal helpers staying assembly-internal — and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` ceiling-halves each reducible axis for a pyramid level — an odd axis rounds up so the doubled coarse cells still cover the final source cell, only an axis with reducible cells doubles its basis column while a terminal axis keeps one cell and its existing basis, and a rank-three lattice floors at two layers so no coarse level silently collapses to a plane.
 - Auto: `Of` computes and stores the inverse affine at admission, so `Locate` is a multiply rather than a per-call factorization and a singular map is unrepresentable past the gate. Host-neutral admission runs its twelve values through `Band.Parameter` before minting, so a wire-borne `NaN` never reaches the inverse. `Rank` derives from `Layers` — a one-layer lattice IS the plane, so no sibling 2D type exists and no consumer branches on dimension. `CellSize` reads the affine's per-axis column norm, and `CellMeasure` derives the exact cell area or volume from the basis itself — the cross-product norm at rank two, the absolute determinant at rank three — so rotation, anisotropy, and shear all measure exactly; admission refuses a non-affine map before the inverse is stored; `NodeCount` is the exact `Int128` derived node census — every operand widens before arithmetic and a planar lattice counts one node sheet, never a phantom second z-plane.
 - Law: the lattice is an admitted value and its evidence is its own construction; sweep census, budget, and outcome ride the consuming surface's result.
 - Packages: Rasm.Domain (project) for `Op`, `Context`, and the `Admit` vocabulary; LanguageExt.Core for the `Fin`/`Option` types; Thinktecture.Runtime.Extensions for the generated smart-enum owner; RhinoCommon for `Transform`, `Point3d`, and `BoundingBox`.
@@ -1238,44 +1216,41 @@ public readonly record struct CellLattice {
     public Dimension Layers { get; }
     public long Ceiling { get; }
 
-    public static Fin<CellLattice> Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<CellLattice> Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling) {
         Int128 cells = (Int128)columns.Value * rows.Value * layers.Value;
         return indexToWorld.IsAffine && indexToWorld.TryGetInverse(inverseTransform: out Transform inverse) && inverse.IsValid
             ? cells <= ceiling && Band.Count.Admits(value: ceiling)
                 ? Fin.Succ(new CellLattice(indexToWorld: indexToWorld, worldToIndex: inverse,
                       columns: columns, rows: rows, layers: layers, ceiling: ceiling))
-                : Fin.Fail<CellLattice>(error: new KernelFault.OutOfRange(Label: "lattice-cells", Scalar: double.CreateSaturating(cells), Requirement: $"<= {ceiling}", Key: Some(op)))
-            : Fin.Fail<CellLattice>(error: op.InvalidInput());
+                : Fin.Fail<CellLattice>(error: new KernelFault.OutOfRange(Label: "lattice-cells", Scalar: double.CreateSaturating(cells), Requirement: $"<= {ceiling}"))
+            : Fin.Fail<CellLattice>(error: new KernelFault.InvalidInput());
     }
 
-    public static Fin<CellLattice> Of(ReadOnlySpan<double> affine, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<CellLattice> Of(ReadOnlySpan<double> affine, Dimension columns, Dimension rows, Dimension layers, long ceiling) {
         return affine.Length is 12 && Band.Parameter.Admits(values: affine)
             ? Of(indexToWorld: new Transform {
                   M00 = affine[0], M01 = affine[1], M02 = affine[2],  M03 = affine[3],
                   M10 = affine[4], M11 = affine[5], M12 = affine[6],  M13 = affine[7],
                   M20 = affine[8], M21 = affine[9], M22 = affine[10], M23 = affine[11], M33 = 1.0 },
-                  columns: columns, rows: rows, layers: layers, ceiling: ceiling, key: op)
-            : Fin.Fail<CellLattice>(error: op.InvalidInput());
+                  columns: columns, rows: rows, layers: layers, ceiling: ceiling)
+            : Fin.Fail<CellLattice>(error: new KernelFault.InvalidInput());
     }
 
-    public static Fin<CellLattice> Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null) {
-        Op op = key.OrDefault();
-        if (!bounds.IsValid) { return Fin.Fail<CellLattice>(error: op.InvalidInput()); }
+    public static Fin<CellLattice> Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling) {
+        if (!bounds.IsValid) { return Fin.Fail<CellLattice>(error: new KernelFault.InvalidInput()); }
         Vector3d extent = bounds.Diagonal;
         (double Columns, double Rows, double Layers) counts =
             (Math.Ceiling(extent.X / cell.Value), Math.Ceiling(extent.Y / cell.Value), Math.Max(1.0, Math.Ceiling(extent.Z / cell.Value)));
         return counts is { Columns: >= 1.0 and <= int.MaxValue, Rows: >= 1.0 and <= int.MaxValue, Layers: >= 1.0 and <= int.MaxValue }
-            ? from columns in op.AcceptValidated<Dimension>((int)counts.Columns)
-              from rows in op.AcceptValidated<Dimension>((int)counts.Rows)
-              from layers in op.AcceptValidated<Dimension>((int)counts.Layers)
-              from scale in Placement.Build(spec: new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: cell.Value), key: op)
-              from shift in Placement.Build(spec: new TransformSpec.Translation(Motion: (Vector3d)bounds.Min), key: op)
-              from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, shift)), key: op)
-              from lattice in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: ceiling, key: op)
+            ? from columns in FactoryBridge.Accept<Dimension>((int)counts.Columns)
+              from rows in FactoryBridge.Accept<Dimension>((int)counts.Rows)
+              from layers in FactoryBridge.Accept<Dimension>((int)counts.Layers)
+              from scale in Placement.Build(spec: new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: cell.Value))
+              from shift in Placement.Build(spec: new TransformSpec.Translation(Motion: (Vector3d)bounds.Min))
+              from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, shift)))
+              from lattice in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: ceiling)
               select lattice
-            : Fin.Fail<CellLattice>(error: op.InvalidInput());
+            : Fin.Fail<CellLattice>(error: new KernelFault.InvalidInput());
     }
 
     public int Rank => Layers.Value > 1 ? 3 : 2;
@@ -1331,17 +1306,16 @@ public readonly record struct CellLattice {
         }
     }
 
-    public Fin<CellLattice> Coarsen(Op? key = null) {
-        Op op = key.OrDefault();
-        return from columns in op.AcceptValidated<Dimension>((Columns.Value / 2) + (Columns.Value % 2))
-               from rows in op.AcceptValidated<Dimension>((Rows.Value / 2) + (Rows.Value % 2))
-               from layers in op.AcceptValidated<Dimension>(Rank is 3 ? Math.Max(2, (Layers.Value / 2) + (Layers.Value % 2)) : 1)
+    public Fin<CellLattice> Coarsen() {
+        return from columns in FactoryBridge.Accept<Dimension>((Columns.Value / 2) + (Columns.Value % 2))
+               from rows in FactoryBridge.Accept<Dimension>((Rows.Value / 2) + (Rows.Value % 2))
+               from layers in FactoryBridge.Accept<Dimension>(Rank is 3 ? Math.Max(2, (Layers.Value / 2) + (Layers.Value % 2)) : 1)
                from scale in Placement.Build(spec: new TransformSpec.Diagonal(Values: new Vector3d(
                    x: Columns.Value > 1 ? 2.0 : 1.0,
                    y: Rows.Value > 1 ? 2.0 : 1.0,
-                   z: Rank is 3 && Layers.Value > 2 ? 2.0 : 1.0)), key: op)
-               from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, IndexToWorld)), key: op)
-               from level in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: Ceiling, key: op)
+                   z: Rank is 3 && Layers.Value > 2 ? 2.0 : 1.0)))
+               from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, IndexToWorld)))
+               from level in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: Ceiling)
                select level;
     }
 }
@@ -1375,31 +1349,31 @@ internal readonly record struct ProjectionRow(Type Output, Func<Fin<object>> Mak
 }
 
 internal static class ResultProjection {
-    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, Option<Type> owner, params ReadOnlySpan<ProjectionRow> rows) {
+    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Option<Type> owner, params ReadOnlySpan<ProjectionRow> rows) {
         foreach (ProjectionRow row in rows) {
             if (row.Output == typeof(TOut)) {
                 return row.Make().Map(static projected => (TOut)projected!);
             }
         }
-        return typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)self!) : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TSelf)), outputType: typeof(TOut)));
+        return typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)self!) : Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner.IfNone(typeof(TSelf)), OutputType: typeof(TOut)));
     }
-    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, params ReadOnlySpan<ProjectionRow> rows) => Rows<TSelf, TOut>(self: self, key: key, owner: default, rows: rows);
-    internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key, Option<Type> owner = default) =>
-        typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TSelf)), outputType: typeof(TOut)));
-    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key, Option<Type> owner = default) =>
+    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, params ReadOnlySpan<ProjectionRow> rows) => Rows<TSelf, TOut>(self: self, owner: default, rows: rows);
+    internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Option<Type> owner = default) =>
+        typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner.IfNone(typeof(TSelf)), OutputType: typeof(TOut)));
+    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Option<Type> owner = default) =>
         typeof(TOut) == typeof(TValue)
-            ? key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!)
-            : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
-    internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) =>
-        typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
-    internal static Fin<TOut> Values<TValue, TOut>(IEnumerable<TValue> values, Op key, Option<Type> owner = default) =>
+            ? Acceptance.Value(value: value).Map(static accepted => (TOut)(object)accepted!)
+            : Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner.IfNone(typeof(TValue)), OutputType: typeof(TOut)));
+    internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value) =>
+        typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value) : Self<TSelf, TOut>(value: self);
+    internal static Fin<TOut> Values<TValue, TOut>(IEnumerable<TValue> values, Option<Type> owner = default) =>
         typeof(TOut) == typeof(Seq<TValue>)
-            ? key.Accept(values: values).Map(static accepted => (TOut)(object)accepted!)
-            : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
-    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, ValidityClaim claim, Op key, Option<Type> owner = default) =>
+            ? Acceptance.Rows(values: values).Map(static accepted => (TOut)(object)accepted!)
+            : Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner.IfNone(typeof(TValue)), OutputType: typeof(TOut)));
+    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, ValidityClaim claim, Option<Type> owner = default) =>
         typeof(TOut) == typeof(TValue)
-            ? claim ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
-            : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
+            ? claim ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: new KernelFault.InvalidResult())
+            : Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner.IfNone(typeof(TValue)), OutputType: typeof(TOut)));
     internal static bool Accepts(Type raw, Type output, CapabilitySet<RawAdmission> admits) => raw switch {
         Type r when r == typeof(Vector3d) => output == typeof(Vector3d) || output == typeof(Direction) || (output == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude)),
         Type r when r == typeof(Plane) => output == typeof(Plane) || output == typeof(VectorFrame),
@@ -1408,22 +1382,22 @@ internal static class ResultProjection {
         Type r when r == typeof(double) || r == typeof(Circle) || r == typeof(Point3d) || r == typeof(Matrix) || r == typeof(Seq<double>) || r == typeof(SymmetricMatrix) => output == r,
         _ => false,
     };
-    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, CapabilitySet<RawAdmission> admits) =>
+    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Type owner, CapabilitySet<RawAdmission> admits) =>
         (raw, typeof(TOut)) switch {
-            (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),
-            (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: key.MissingContext()).Bind(model => Direction.Of(value: v, context: model, key: key).Bind(direction => direction.Project<TOut>(key: key))),
-            (Vector3d v, Type t) when t == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude) => key.AcceptValue(value: v).Bind(valid => Value<double, TOut>(value: valid.Length, key: key)),
-            (Plane p, Type t) when t == typeof(Plane) => Admit.Plane(basis: p, key: key).Bind(valid => Value<Plane, TOut>(value: valid, key: key)),
-            (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: key.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model, key: key).Bind(frame => frame.Project<TOut>(key: key))),
-            (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d, key: key),
-            (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c, key: key),
-            (Point3d p, Type t) when t == typeof(Point3d) => Value<Point3d, TOut>(value: p, key: key),
-            (Matrix matrix, Type t) when t == typeof(Matrix) => Custom<Matrix, TOut>(value: matrix, claim: matrix.IsValid, key: key),
-            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.ForAll(Band.Parameter.Admits) ? Fin.Succ((TOut)(object)ks) : Fin.Fail<TOut>(error: key.InvalidResult()),
-            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => Custom<SymmetricMatrix, TOut>(value: matrix, claim: matrix.IsValid, key: key),
-            (VectorAngle angle, Type t) when t == typeof(VectorAngle) || t == typeof(double) => angle.Project<TOut>(key: key),
-            (Direction direction, Type t) when t == typeof(Direction) || t == typeof(Vector3d) => direction.Project<TOut>(key: key),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(inputType: owner, outputType: typeof(TOut))),
+            (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v),
+            (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: new KernelFault.MissingContext()).Bind(model => Direction.Of(value: v, context: model).Bind(direction => direction.Project<TOut>())),
+            (Vector3d v, Type t) when t == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude) => Acceptance.Value(value: v).Bind(valid => Value<double, TOut>(value: valid.Length)),
+            (Plane p, Type t) when t == typeof(Plane) => Admit.Plane(basis: p).Bind(valid => Value<Plane, TOut>(value: valid)),
+            (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: new KernelFault.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model).Bind(frame => frame.Project<TOut>())),
+            (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d),
+            (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c),
+            (Point3d p, Type t) when t == typeof(Point3d) => Value<Point3d, TOut>(value: p),
+            (Matrix matrix, Type t) when t == typeof(Matrix) => Custom<Matrix, TOut>(value: matrix, claim: matrix.IsValid),
+            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.ForAll(Band.Parameter.Admits) ? Fin.Succ((TOut)(object)ks) : Fin.Fail<TOut>(error: new KernelFault.InvalidResult()),
+            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => Custom<SymmetricMatrix, TOut>(value: matrix, claim: matrix.IsValid),
+            (VectorAngle angle, Type t) when t == typeof(VectorAngle) || t == typeof(double) => angle.Project<TOut>(),
+            (Direction direction, Type t) when t == typeof(Direction) || t == typeof(Vector3d) => direction.Project<TOut>(),
+            _ => Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner, OutputType: typeof(TOut))),
         };
 }
 ```

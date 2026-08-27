@@ -127,7 +127,7 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
     static Fin<string> Named(ReadRelation readRelation, BackendScope state) =>
         toSeq(readRelation.NamedTable?.Names ?? []).Last
             .ToFin(new BackendFault.Unlowerable(state.Backend.Key, "<unnamed-relation>"))
-            .Bind(name => Op.Of().AcceptValidated<Identifier>(name).Map(state.Backend.Quote));
+            .Bind(name => FactoryBridge.Accept<Identifier>(name).Map(state.Backend.Quote));
 
     public override Fin<string> VisitFilterRelation(FilterRelation filterRelation, BackendScope state) =>
         from inner in Visit(filterRelation.Input, state)
@@ -177,7 +177,7 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
     public override Fin<string> VisitRootRelation(RootRelation rootRelation, BackendScope state) =>
         from inner in Visit(rootRelation.Input, state)
         from names in toSeq(rootRelation.Names)
-            .TraverseM(name => Op.Of().AcceptValidated<Identifier>(name).Map(state.Backend.Quote)).As()
+            .TraverseM(name => FactoryBridge.Accept<Identifier>(name).Map(state.Backend.Quote)).As()
         select $"SELECT {string.Join(", ", names.Map(static (name, index) => $"{Slot(index)} AS {name}"))} FROM ({inner}) AS root";
 
     // --- [EXPRESSIONS]
@@ -249,7 +249,7 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
             : Fin.Fail<double>(new BackendFault.Unlowerable(state.Backend.Key, $"<backend-fold:{TailFold}:{arguments.Count}>"));
 
     static Fin<Unit> Convention(string token, BackendScope state) =>
-        Op.Of().Row<string, QuantileRule>(token)
+        FactoryBridge.Row<string, QuantileRule>(token)
             .MapFail(_ => new BackendFault.Unlowerable(state.Backend.Key, $"<quantile-rule:{token}>"))
             .Bind(asked => asked == QuantileRule.Interpolated
                 ? Fin.Succ(unit)
@@ -292,7 +292,7 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
     public static Fin<Plan> Aggregate(AnalyticsSchema schema, Identifier relation, Seq<(Identifier Column, string Value)> matches,
         Seq<Identifier> keys, Seq<(Identifier Name, BackendFold Fold)> folds) =>
         from measures in folds.TraverseM(entry => Measured(schema, entry.Fold)).As()
-        from grouping in keys.TraverseM(key => Reference(schema, key)).As()
+        from grouping in keys.TraverseM(key => Reference(schema)).As()
         from plan in Build(schema, relation, matches, Seq<Identifier>(), keys + folds.Map(static entry => entry.Name),
             read => new AggregateRelation {
                 Input = read,
@@ -304,7 +304,7 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
     static Fin<Plan> Build(AnalyticsSchema schema, Identifier relation, Seq<(Identifier Column, string Value)> matches,
         Seq<Identifier> order, Seq<Identifier> names, Func<Relation, Relation> shape) =>
         from conditions in matches.TraverseM(match => Narrowed(schema, match)).As()
-        from sorts in order.TraverseM(key => names.IndexOf(key) is var slot && slot >= 0
+        from sorts in order.TraverseM(key => names.IndexOf() is var slot && slot >= 0
             ? Fin.Succ<Expression>(new DirectFieldReference { ReferenceSegment = new StructReferenceSegment { Field = slot } })
             : Fin.Fail<Expression>(new BackendFault.Unprovisioned($"<plan-order:{schema.Dataset}.{(string)key}>"))).As()
         select Rooted(relation, schema, conditions, sorts, names, shape);
@@ -571,7 +571,7 @@ public static class BackendRead {
 
     static IO<Fin<BackendResult<T>>> Ado<T>(
         AdoLeg leg, Backend backend, string lowered, Func<BackendRow, Fin<T>> shape, ProjectionContext frame) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+        IO.liftAsync(async () => (await Try.lift(async token => {
             long mark = frame.Mark();
             (Seq<IAsyncDisposable> leases, DbCommand command) = await leg.Open(lowered).ConfigureAwait(false);
             try {
@@ -585,11 +585,11 @@ public static class BackendRead {
                 await command.DisposeAsync().ConfigureAwait(false);
                 foreach (IAsyncDisposable lease in leases.Rev()) { await lease.DisposeAsync().ConfigureAwait(false); }
             }
-        }).ConfigureAwait(false)).MapFail(backend.ReadRefused));
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(backend.ReadRefused));
 
     static IO<Fin<BackendResult<T>>> Arrow<T>(
         BackendReach.Flight leg, Backend backend, string lowered, Func<BackendRow, Fin<T>> shape, ProjectionContext frame) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => await Try.lift(async _ => {
             long mark = frame.Mark();
             FlightInfo info = await leg.Client.ExecuteAsync(lowered, Transaction.NoTransaction).ConfigureAwait(false);
             Fin<Seq<T>> rows = Fin.Succ(Seq<T>());
@@ -599,7 +599,7 @@ public static class BackendRead {
                 }
             }
             return rows.Map(held => new BackendResult<T>(backend, lowered, held, info.TotalRecords, frame.Elapsed(mark)));
-        }).ConfigureAwait(false));
+        }).Run().Bind(static inner => inner).ConfigureAwait(false));
 
     static async ValueTask<Fin<Seq<T>>> Drain<T>(DbDataReader reader, Func<BackendRow, Fin<T>> shape) {
         List<T> rows = [];
@@ -635,7 +635,7 @@ public static class BackendLanding {
         NpgsqlDataSource store, AnalyticsSchema schema, Seq<Seq<ColumnCell>> rows, ProjectionContext frame) =>
         (Conformed(schema, Supplied(schema), rows), Landed(schema))
             .Apply(static (bound, landed) => (Bound: bound, Landed: landed)).As().ToFin().Match(
-            Succ: proved => IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+            Succ: proved => IO.liftAsync(async () => (await Try.lift(async token => {
                 string columns = string.Join(", ",
                     (Seq(Backend.TenantColumn) + proved.Bound.Map(static entry => entry.Column.Name)
                         + proved.Landed.Map(static stamp => stamp.Name).ToSeq()).Map(Backend.Series.Quote));
@@ -657,7 +657,7 @@ public static class BackendLanding {
                 }
                 ulong staged = await importer.CompleteAsync(token).ConfigureAwait(false);
                 return Fin<BackendWrite>.Succ(new BackendWrite(schema.Dataset, (long)staged, landedAt, frame.Correlation));
-            }).ConfigureAwait(false)).MapFail(Backend.Series.IngestRefused)),
+            }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(Backend.Series.IngestRefused)),
             Fail: error => IO.pure(Fin<BackendWrite>.Fail(error)));
 
     static Validation<Error, Seq<(ColumnRow Column, NpgsqlDbType Wire)>> Conformed(

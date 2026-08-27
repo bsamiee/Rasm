@@ -441,7 +441,7 @@ public static partial class Support {
             from rows in Planar(state, Some(hybrid.PlanarShare))
             from nodes in Tree(state)
             select new SupportDraft(rows, nodes, Bridges(state.Demand), Seq<SupportCoverage>()),
-        generated: static (state, generated) => Op.Of(name: "support:generated").Catch(() => generated.Project(state)));
+        generated: static (state, generated) => Try.lift(() => generated.Project(state)).Run().Bind(static inner => inner));
 
     private static Fin<Seq<SupportLayer>> Planar(SupportContext context, Option<Ratio> share = default) =>
         toSeq(Range(0, context.Stack.LayerCount).Reverse()).Fold(
@@ -765,14 +765,14 @@ internal static class SupportSites {
           select Fused(rows, labels);
 
     private static Fin<Map<int, int>> Components(int count, Seq<(int Left, int Right)> pairs) =>
-        Op.Of(name: "support:merge-components").Catch(() => {
+        Try.lift(() => {
         UndirectedGraph<int, SEquatableEdge<int>> graph = new();
         graph.AddVertexRange(Range(0, count));
         graph.AddEdgeRange(pairs.Map(static pair => new SEquatableEdge<int>(pair.Left, pair.Right)));
         Dictionary<int, int> labels = [];
         _ = graph.ConnectedComponents(labels);
         return Fin.Succ(toMap(toSeq(labels).Map(static row => (row.Key, row.Value))));
-    });
+    }).Run().Bind(static inner => inner);
 
     private static Seq<TreeSeed> Fused(Seq<TreeSeed> rows, Map<int, int> labels) => toSeq(
         toSeq(rows.Map((seed, ordinal) => (Seed: seed, Ordinal: ordinal)).GroupBy(slot => labels[slot.Ordinal]))
@@ -942,12 +942,12 @@ public sealed class SupportTopology {
     }
 
     private static Fin<BidirectionalGraph<int, SEquatableEdge<int>>> Built(Seq<SupportNode> nodes) =>
-        Op.Of(name: "support:graph-build").Catch(() => {
+        Try.lift(() => {
         BidirectionalGraph<int, SEquatableEdge<int>> graph = new();
         graph.AddVertexRange(nodes.Map(static node => node.Id));
         graph.AddEdgeRange(nodes.Bind(node => node.Parents.Map(parent => new SEquatableEdge<int>(parent, node.Id))));
         return Fin.Succ(graph);
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 public sealed record GraphEvidence(
@@ -980,7 +980,7 @@ public static class SupportGraph {
           select Projected(topology, facts);
 
     private static Fin<GraphFacts> Algorithms(SupportTopology topology) =>
-        Op.Of(name: "support:graph-algorithm").Catch(() => {
+        Try.lift(() => {
         Dictionary<int, int> components = [];
         return Fin.Succ(new GraphFacts(
             toSeq(topology.Graph.Roots()),
@@ -989,7 +989,7 @@ public static class SupportGraph {
             topology.Graph.WeaklyConnectedComponents(components),
             topology.Graph.ComputeTransitiveClosure(static (source, target) => new SEquatableEdge<int>(source, target)),
             topology.Graph.ComputeTransitiveReduction()));
-    });
+    }).Run().Bind(static inner => inner);
 
     private static GraphEvidence Projected(SupportTopology topology, GraphFacts facts) {
         Set<int> sinks = toSet(facts.Sinks);
@@ -1136,11 +1136,11 @@ public static partial class Support {
 }
 
 public static class SupportCodec {
-    public static Fin<ReadOnlyMemory<byte>> Write(SupportPolicy policy, SupportDraft projection, Op key) =>
+    public static Fin<ReadOnlyMemory<byte>> Write(SupportPolicy policy, SupportDraft projection) =>
         Bridges(
             Nodes(Layers(Factors(Policy(CanonicalWriter.Retaining(0.0), policy), policy.Factors), projection), projection),
             projection)
-            .ToBytes(key);
+            .ToBytes();
 
     private static CanonicalWriter Program(CanonicalWriter writer, SupportProgram program) => program.Switch(
         state: writer,

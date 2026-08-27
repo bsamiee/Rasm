@@ -21,7 +21,7 @@ Rasm.AppUi composes the kernel asset vocabulary through Avalonia. `AssetDeclarat
 - Auto: declaration order inside a key's `AssetDeclaration.Icons` IS fallback order; `Elected` derives the Fluent size from the package's own `IconSizeValues.Enumerable`; the filter chain folds ONCE per row before any arm draws, so `IconRender.Wire` round-trips what was drawn; every product admits through the asset plane's `BudgetedCache` instance.
 - Packages: Rasm (`AssetKey`, `AssetOrigin`, `AssetAnchor`, `AssetExtent`, `AssetRaster`, `RasterStack`, `AlphaLayout`, `IconPose`, `MirrorAxis`, `IconFilter`, `IconRender`, `PerceptualColor`, `BlendPath`, `Dimension`, `PositiveMagnitude`, `UnitInterval`, `VectorAngle`, `Op`, `FaultBand`, `[FaultCase]`, `Fault`), FluentIcons.Common, FluentIcons.Avalonia, Semi.Avalonia, Avalonia, Wacton.Unicolour (`Cvd` alone), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one `AssetDeclaration` row absorbs a new asset with its icon alternatives; a new host-typed payload is one `HostGlyph` case, never an origin case; a new byte source, product shape, rendering state, or reflection axis lands at the KERNEL and breaks the matching arm here loudly.
-- Boundary: ONE walk for both forms — the table fold produces the image, the request's `GlyphForm` projects it, so a pointer is the image rasterized through one `RenderTargetBitmap`. HOST-TYPED PAYLOADS ARE ROWS: a FluentIcons `Symbol`, a sized `Icon`, and a `SemiGlyph` ride `AssetRuntime.Bindings` under their own keys, their icon rows carrying `AssetOrigin.Vector(key)` alone — `Vector` reads the binding table first and falls to the avares SVG lane, two disjoint key sets walked as one lookup. Tint reads `ResolvedTheme.Paint(role, rung)` into `IconFilter.Tinted`; `Selected` REFUSES because selection is a token-ROLE election at `Theme/tokens`; `Disabled` folds to a coverage factor the one quantization crossing multiplies into alpha, rounded, never truncated. `AssetOrigin.Render` refuses: the kernel draw replays a `PaintProgram` onto an Eto target. `Raster` asks `RasterStack.Pixels` at the pose extent and uploads under the frame's own `AlphaLayout` straight from the kernel rows' span. `Stream` opens its factory EXACTLY ONCE per resolve. `Shipped` geometry builds once inside `Semi.Avalonia.Icons`, an unguarded replacement, so `AssetRuntime.Glyphs` is read on the UI thread alone. `Resolve` walks alternatives through `BindFail` — `operator |` evaluates both operands and decodes every lower row after the winner exists. Every known absence refuses on the result by name; throwing native calls cross `Op.Catch` with exact exception evidence.
+- Boundary: ONE walk for both forms — the table fold produces the image, the request's `GlyphForm` projects it, so a pointer is the image rasterized through one `RenderTargetBitmap`. HOST-TYPED PAYLOADS ARE ROWS: a FluentIcons `Symbol`, a sized `Icon`, and a `SemiGlyph` ride `AssetRuntime.Bindings` under their own keys, their icon rows carrying `AssetOrigin.Vector()` alone — `Vector` reads the binding table first and falls to the avares SVG lane, two disjoint key sets walked as one lookup. Tint reads `ResolvedTheme.Paint(role, rung)` into `IconFilter.Tinted`; `Selected` REFUSES because selection is a token-ROLE election at `Theme/tokens`; `Disabled` folds to a coverage factor the one quantization crossing multiplies into alpha, rounded, never truncated. `AssetOrigin.Render` refuses: the kernel draw replays a `PaintProgram` onto an Eto target. `Raster` asks `RasterStack.Pixels` at the pose extent and uploads under the frame's own `AlphaLayout` straight from the kernel rows' span. `Stream` opens its factory EXACTLY ONCE per resolve. `Shipped` geometry builds once inside `Semi.Avalonia.Icons`, an unguarded replacement, so `AssetRuntime.Glyphs` is read on the UI thread alone. `Resolve` walks alternatives through `BindFail` — `operator |` evaluates both operands and decodes every lower row after the winner exists. Every known absence refuses on the result by name; throwing native calls cross `Op.Catch` with exact exception evidence.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -143,7 +143,6 @@ public sealed record AssetRuntime(
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IconSurface {
-    static readonly Op Resolving = Op.Of(name: "appui.asset.resolve");
     public static readonly UnitInterval DisabledCover = UnitInterval.Create(0.38d);
 
     public static Fin<AssetProduct> Resolve(AssetRuntime runtime, AssetRequest request, ResolvedTheme resolved) =>
@@ -152,9 +151,9 @@ public static class IconSurface {
     static Fin<AssetProduct> Build(AssetRuntime runtime, AssetRequest request, ResolvedTheme resolved) =>
         from admitted in (
                 resolved.Metric(MetricFamily.Icon, request.Step).ToValidation<Error>(new AssetFault.SizeOffAxis($"{MetricFamily.Icon.Key}/{request.Step}")),
-                Resolving.AcceptValidated<PositiveMagnitude>(request.Scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{request.Scale}")).ToValidation())
+                FactoryBridge.Accept<PositiveMagnitude>(request.Scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{request.Scale}")).ToValidation())
             .Apply(static (dip, scale) => (Dip: dip, Scale: scale)).ToFin()
-        from edge in Resolving.AcceptValidated<Dimension>((int)double.Round(admitted.Dip))
+        from edge in FactoryBridge.Accept<Dimension>((int)double.Round(admitted.Dip))
         from extent in AssetExtent.Of(width: edge, height: edge, scale: admitted.Scale)
         let flipping = request.Flow is FlowDirection.RightToLeft
         from ranked in Rows(runtime.Rows, request.Key)
@@ -165,14 +164,13 @@ public static class IconSurface {
                 render: new IconRender(
                     Origin: row.Source,
                     Pose: IconPose.Upright(extent) with { Mirror = row.Mirror.Filter(_ => flipping) },
-                    Filters: new IconFilter.Tinted(tint).Cons(request.Filters)),
-                key: request.Key))))
+                    Filters: new IconFilter.Tinted(tint).Cons(request.Filters))))))
         from product in Formed(request.Form, picture, extent)
         select product;
 
     public static Fin<IImage> Materialize(AssetRuntime runtime, IconRender render, AssetKey key) =>
         Folded(render.Filters).Bind(paint => render.Origin.Switch(
-            state: (Runtime: runtime, Key: key, Pose: render.Pose, Paint: paint),
+            state: (Runtime: runtime, Pose: render.Pose, Paint: paint),
             resource: static (s, c) => Decoded(() => Optional(c.Anchor.Owner.GetManifestResourceStream(c.Anchor.ResourcePath)), s.Key).Map(image => Posed(image, s.Pose)),
             file: static (s, c) => Decoded(() => Some<System.IO.Stream>(System.IO.File.OpenRead((string)c.Location)), s.Key).Map(image => Posed(image, s.Pose)),
             stream: static (s, c) => Decoded(() => Optional(c.Open()), s.Key).Map(image => Posed(image, s.Pose)),
@@ -184,21 +182,21 @@ public static class IconSurface {
             vector: static (s, c) => s.Runtime.Bindings.TryGetValue(c.Key, out HostGlyph? bound)
                 ? Glyphed(s.Runtime, bound, s.Pose, s.Paint)
                 : Quantized(s.Paint).Bind(colour => s.Runtime.Svg.Image(c.Key, colour)).Map(image => Posed(image, s.Pose)),
-            source: static (s, c) => Resolving.Catch(() => Fin.Succ((Geometry)StreamGeometry.Parse(c.Text))).Bind(geometry => Drawn(geometry, s.Paint, s.Pose)),
+            source: static (s, c) => Try.lift(() => Fin.Succ((Geometry)StreamGeometry.Parse(c.Text))).Run().Bind(static inner => inner).Bind(geometry => Drawn(geometry, s.Paint, s.Pose)),
             render: static (s, _) => Fin.Fail<IImage>(new AssetFault.MaterializeRejected($"{s.Key}/{nameof(AssetOrigin.Render)}"))));
 
     static Fin<IImage> Glyphed(AssetRuntime runtime, HostGlyph bound, IconPose pose, GlyphPaint paint) =>
         Quantized(paint).Bind(colour => bound.Switch(
             state: (Runtime: runtime, Pose: pose, Paint: paint, Brush: new SolidColorBrush(colour)),
             symbolic: static (s, c) => c.Glyph.IsAvailable(c.Variant)
-                ? Resolving.Catch(() => Fin.Succ((IImage)new SymbolImage {
+                ? Try.lift(() => Fin.Succ((IImage)new SymbolImage {
                     Symbol = c.Glyph, IconVariant = c.Variant, FontSize = Dip(s.Pose), FlowDirection = Planed(s.Pose), Foreground = s.Brush,
-                })).Map(image => Rotated(image, s.Pose))
+                })).Run().Bind(static inner => inner).Map(image => Rotated(image, s.Pose))
                 : Fin.Fail<IImage>(new AssetFault.GlyphUnavailable($"{c.Glyph}/{c.Variant}")),
             sized: static (s, c) => Elected(c.Glyph, c.Variant, Dip(s.Pose))
-                .Bind(size => Resolving.Catch(() => Fin.Succ((IImage)new FluentImage {
+                .Bind(size => Try.lift(() => Fin.Succ((IImage)new FluentImage {
                     Icon = c.Glyph, IconVariant = c.Variant, IconSize = size, FontSize = Dip(s.Pose), FlowDirection = Planed(s.Pose), Foreground = s.Brush,
-                })))
+                })).Run().Bind(static inner => inner))
                 .Map(image => Rotated(image, s.Pose)),
             shipped: static (s, c) => Shipped(s.Runtime.Glyphs, c.Glyph).Bind(geometry => Drawn(geometry, s.Paint, s.Pose))));
 
@@ -229,14 +227,14 @@ public static class IconSurface {
         form.Switch(
             state: (Picture: picture, Extent: extent),
             image: static (s, _) => Fin.Succ<AssetProduct>(new AssetProduct.Glyph(s.Picture, Boxed(s.Extent), Optional(s.Picture as IDisposable))),
-            pointer: static (s, c) => Resolving.Catch(() => {
+            pointer: static (s, c) => Try.lift(() => {
                 using RenderTargetBitmap target = new(Boxed(s.Extent));
                 using (DrawingContext context = target.CreateDrawingContext()) {
                     s.Picture.Draw(context, new Rect(s.Picture.Size), new Rect(0d, 0d, s.Extent.PixelWidth, s.Extent.PixelHeight));
                 }
                 PixelPoint hot = new((int)(c.HotX.Value * s.Extent.PixelWidth), (int)(c.HotY.Value * s.Extent.PixelHeight));
                 return Fin.Succ<AssetProduct>(new AssetProduct.Pointer(new Cursor(target, hot), Boxed(s.Extent)));
-            }));
+            }).Run().Bind(static inner => inner));
 
     static Fin<IImage> Drawn(Geometry geometry, GlyphPaint paint, IconPose pose) =>
         geometry.Bounds is { Width: > 0d, Height: > 0d } bounds
@@ -301,14 +299,14 @@ public static class IconSurface {
             : Fin.Fail<Geometry>(new AssetFault.UnknownKey($"semi/{glyph.Key}"));
 
     static Fin<ImmutableArray<IconRow>> Rows(FrozenDictionary<AssetKey, ImmutableArray<IconRow>> table, AssetKey key) =>
-        table.TryGetValue(key, out ImmutableArray<IconRow> rows) ? Fin.Succ(rows) : Fin.Fail<ImmutableArray<IconRow>>(new AssetFault.UnknownKey(key.ToString()));
+        table.TryGetValue(out ImmutableArray<IconRow> rows) ? Fin.Succ(rows) : Fin.Fail<ImmutableArray<IconRow>>(new AssetFault.UnknownKey(key.ToString()));
 
     static Fin<IImage> Decoded(Func<Option<System.IO.Stream>> open, AssetKey key) =>
         open().ToFin(Fail: new AssetFault.MaterializeRejected($"{key}: origin opened no stream"))
-            .Bind(scoped => Custody.Bracket(() => Resolving.Catch(() => Fin.Succ((IImage)new Bitmap(scoped))), scoped));
+            .Bind(scoped => Custody.Bracket(() => Try.lift(() => Fin.Succ((IImage)new Bitmap(scoped))).Run().Bind(static inner => inner), scoped));
 
     static Fin<IImage> Uploaded(AssetRaster.Pixels frame) =>
-        Resolving.Catch(() => {
+        Try.lift(() => {
             (PixelFormat pixels, AlphaFormat alpha) = frame.Layout.Switch(
                 straight: static () => (PixelFormat.Bgra8888, AlphaFormat.Unpremul),
                 premultiplied: static () => (PixelFormat.Bgra8888, AlphaFormat.Premul),
@@ -318,7 +316,7 @@ public static class IconSurface {
                 unsafe { frame.Rows.AsSpan().CopyTo(new Span<byte>((void*)locked.Address, frame.Rows.Count)); }
             }
             return Fin.Succ<IImage>(surface);
-        });
+        }).Run().Bind(static inner => inner);
 
     static double Dip(IconPose pose) => Width(pose);
     static double Width(IconPose pose) => pose.Extent.Width.Value;
@@ -407,7 +405,7 @@ public static class PointerCatalog {
     public static Fin<Cursor> Resolve(AssetRuntime runtime, PointerRow row, double scale, ResolvedTheme resolved) =>
         row.Origin.Switch(
             state: (Runtime: runtime, Row: row, Scale: scale, Resolved: resolved),
-            platform: static (s, c) => s.Runtime.Cache.Platform(s.Row, () => Resolving.Catch(() => Fin.Succ(new Cursor(c.Type)))),
+            platform: static (s, c) => s.Runtime.Cache.Platform(s.Row, () => Try.lift(() => Fin.Succ(new Cursor(c.Type))).Run().Bind(static inner => inner)),
             drawn: static (s, c) => IconSurface
                 .Resolve(s.Runtime, new AssetRequest(c.Key, PointerStep, s.Scale, FlowDirection.LeftToRight, new GlyphForm.Pointer(c.HotX, c.HotY)), s.Resolved)
                 .Bind(static product => product.Cursor));
@@ -418,7 +416,7 @@ public static class PointerCatalog {
 
 - Owner: `BudgetedCache<TKey,TValue>` — the folder's ONE byte-budgeted, generation-stamped, least-touched-release cache every product plane composes (`Theme/typography` shaped runs, `Render/shading` shader and texture planes, `Render/meshlets` residency callers); `RetentionPosture` — the `[SmartEnum]` carrying the two retention laws as ROW DATA; `CacheSweep` — the lifecycle counts a cohort edge or a seal answers; `AssetCache` — the asset plane's instance over `AssetProduct`, owning the theme-swap and display-scale edges and the platform pointer handles.
 - Cases: `RetentionPosture.Generation` — a read below the live generation MISSES, because the cell backs a device handle a current draw dereferences; `RetentionPosture.Holder` — reads ignore generation and a retired cohort survives ONE grace rotation on its own lane, because retention is a consumer holding the value; the pressure lane is every instance's and rotates on every fill.
-- Entry: `BudgetedCache.Of(ceiling, posture, bytes, release, refuse)` — `Fin`; `Take(key, build)` — the one admission path and the pressure-lane edge; a CAS loser releases its OWN mint and returns the winner; `Retire(stale, advance)` — the cohort edge, raising the generation when `advance`; `Seal()` — drains the pressure counts (count instruments report what happened since the previous seal); `Dispose()` releases every lane and every live cell. `AssetCache.Cycle(rows)` and `Rescale(scale)` are the asset plane's two cohort edges and return the intrinsic `CacheSweep`; `Platform(row, mint)` seats a platform pointer handle under the row.
+- Entry: `BudgetedCache.Of(ceiling, posture, bytes, release, refuse)` — `Fin`; `Take(build)` — the one admission path and the pressure-lane edge; a CAS loser releases its OWN mint and returns the winner; `Retire(stale, advance)` — the cohort edge, raising the generation when `advance`; `Seal()` — drains the pressure counts (count instruments report what happened since the previous seal); `Dispose()` releases every lane and every live cell. `AssetCache.Cycle(rows)` and `Rescale(scale)` are the asset plane's two cohort edges and return the intrinsic `CacheSweep`; `Platform(row, mint)` seats a platform pointer handle under the row.
 - Auto: `Cycle` binds `ThemeCell.Rebuild` at composition and acts on the `Rematerialize.TintedAsset` row alone; `Rescale` binds the `Shell/hosts` `SurfaceFact.ScaleChanged` fact; every transition is one `Cell.Commit` over a single immutable state record, so the byte total, the touch order, the lanes, and the generation move as one value and a contended commit past the swap budget REFUSES rather than corrupting the ledger.
 - Packages: Rasm (`Cell`, `Transition`, `Dimension`, `Op`), Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new product plane is one `BudgetedCache.Of` call naming its posture, cost, and release; a new retention law is one `RetentionPosture` row; a new cohort cause on the asset plane is one `Retire` projection.
@@ -456,15 +454,14 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
     readonly Func<TValue, long> bytes;
     readonly Action<TValue> release;
     readonly Func<TKey, long, Error> refuse;
-    readonly Op key;
 
-    BudgetedCache(long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse, Op key) =>
-        (this.ceiling, this.posture, this.bytes, this.release, this.refuse, this.key) = (ceiling, posture, bytes, release, refuse, key);
+    BudgetedCache(long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse) =>
+        (this.ceiling, this.posture, this.bytes, this.release, this.refuse, this.key) = (ceiling, posture, bytes, release, refuse);
 
     public static Fin<BudgetedCache<TKey, TValue>> Of(
-        long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse, Op? key = null) =>
+        long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse) =>
         ceiling > 0L
-            ? Fin.Succ(new BudgetedCache<TKey, TValue>(ceiling, posture, bytes, release, refuse, key.OrDefault()))
+            ? Fin.Succ(new BudgetedCache<TKey, TValue>(ceiling, posture, bytes, release, refuse))
             : Fin.Fail<BudgetedCache<TKey, TValue>>(key.OrDefault().InvalidInput());
 
     public long Generation => ledger.Value.Generation;
@@ -512,9 +509,9 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
         }, Cell.SwapBudget);
         return moved switch {
             Transition<Ledger>.Committed when winner.IsSome =>
-                (release(minted), winner.ToFin(Fail: key.InvalidResult())).Item2,
+                (release(minted), winner.ToFin(Fail: new KernelFault.InvalidResult())).Item2,
             Transition<Ledger>.Committed => (due.Iter(release), Fin.Succ(minted)).Item2,
-            _ => (release(minted), Fin.Fail<TValue>(key.InvalidResult())).Item2,
+            _ => (release(minted), Fin.Fail<TValue>(new KernelFault.InvalidResult())).Item2,
         };
     }
 
@@ -571,7 +568,6 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
 }
 
 public sealed class AssetCache : IDisposable {
-    static readonly Op Caching = Op.Of(name: "appui.asset.cache");
     readonly BudgetedCache<AssetRequest, AssetProduct> products;
     readonly BudgetedCache<PointerRow, Cursor> pointers;
 
@@ -642,7 +638,6 @@ public sealed partial class SvgPosture {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class SvgLease(AssetKey key, SKSvg document, SvgPosture posture, Action detach) : IDisposable {
-    static readonly Op SceneOp = Op.Of(name: "appui.asset.svg.scene");
     public AssetKey Key { get; } = key;
     public SvgPosture Posture { get; } = posture;
 
@@ -675,66 +670,65 @@ public sealed class SvgLease(AssetKey key, SKSvg document, SvgPosture posture, A
             : Fin.Fail<T>(new AssetFault.MaterializeRejected($"{Key}/{Posture.Key}: row carries no {trait.Key}"));
 
     Fin<T> Locked<T>(Func<T> operation) =>
-        SceneOp.Catch(() => { lock (document.Sync) { return Fin.Succ(operation()); } });
+        Try.lift(() => { lock (document.Sync) { return Fin.Succ(operation()); } }).Run().Bind(static inner => inner);
 
     public void Dispose() => detach();
 }
 
 public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
-    static readonly Op Loading = Op.Of(name: "appui.asset.svg");
     readonly Atom<HashMap<AssetKey, SKSvg>> retained = Atom(HashMap<AssetKey, SKSvg>());
     readonly Atom<HashMap<(AssetKey Key, Color Tint), SvgImage>> images = Atom(HashMap<(AssetKey, Color), SvgImage>());
     readonly ITypefaceProvider typefaces = new FontManagerTypefaceProvider { FontManager = fonts };
 
     public Fin<SvgLease> Load(AssetKey key, SvgPosture posture, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation) =>
-        retained.Value.Find(key).Match(Some: Fin.Succ, None: () => AssetCatalog.Open(key, 1d).Bind(payload => Admit(key, payload)))
+        retained.Value.Find().Match(Some: Fin.Succ, None: () => AssetCatalog.Open(1d).Bind(payload => Admit(payload)))
             .Bind(document => Ensure(document, posture))
-            .Bind(document => Leased(key, document, posture, onAnimation));
+            .Bind(document => Leased(document, posture, onAnimation));
 
     public Fin<IImage> Image(AssetKey asset, Color tint) =>
         Load(asset, SvgPosture.PictureOnly, None).Bind(_ => AdmitImage(asset, tint)).Map(static image => (IImage)image);
 
     Fin<SKSvg> Admit(AssetKey key, System.IO.Stream payload) =>
-        Custody.Bracket(() => Loading.Catch(() => {
+        Custody.Bracket(() => Try.lift(() => {
             SKSvg document = new();
             document.Settings.TypefaceProviders?.Add(typefaces);
             return Fin.Succ((Document: document, Loaded: Optional(document.Load(payload))));
-        }), payload)
+        }).Run().Bind(static inner => inner), payload)
         .Bind(parsed => parsed.Loaded.IsSome
             ? Fin.Succ(parsed.Document)
             : (parsed.Document.Dispose(), Fin.Fail<SKSvg>(new AssetFault.MaterializeRejected($"svg {key}"))).Item2)
-        .Map(document => Cell.Claim(retained, key, () => document) switch {
+        .Map(document => Cell.Claim(retained, () => document) switch {
             Transition<HashMap<AssetKey, SKSvg>>.Committed => document,
             var ceded => (document.Dispose(), ceded.Current[key]).Item2,
         });
 
     Fin<SvgImage> AdmitImage(AssetKey key, Color tint) =>
-        images.Value.Find((key, tint)).Match(
+        images.Value.Find((tint)).Match(
             Some: Fin.Succ,
-            None: () => retained.Value.Find(key).ToFin(Fail: new AssetFault.UnknownKey(key.ToString()))
-                .Bind(document => Loading.Catch(() => { lock (document.Sync) { return Fin.Succ(Optional(document.SourceDocument)); } })
+            None: () => retained.Value.Find().ToFin(Fail: new AssetFault.UnknownKey(key.ToString()))
+                .Bind(document => Try.lift(() => { lock (document.Sync) { return Fin.Succ(Optional(document.SourceDocument)); } }).Run().Bind(static inner => inner)
                     .Bind(source => source.ToFin(Fail: new AssetFault.MaterializeRejected($"svg document {key}")))
-                    .Bind(source => Loading.Catch(() => Fin.Succ(new SvgImage { Source = SvgSource.LoadFromSvgDocument(source), CurrentColor = tint }))))
-                .Map(candidate => Cell.Claim(images, (key, tint), () => candidate) switch {
+                    .Bind(source => Try.lift(() => Fin.Succ(new SvgImage { Source = SvgSource.LoadFromSvgDocument(source), CurrentColor = tint })).Run().Bind(static inner => inner)))
+                .Map(candidate => Cell.Claim(images, (tint), () => candidate) switch {
                     Transition<HashMap<(AssetKey, Color), SvgImage>>.Committed => candidate,
-                    var ceded => (candidate.Source?.Dispose(), ceded.Current[(key, tint)]).Item2,
+                    var ceded => (candidate.Source?.Dispose(), ceded.Current[(tint)]).Item2,
                 }));
 
     static Fin<SKSvg> Ensure(SKSvg document, SvgPosture posture) =>
         !posture.Traits.Admits(SvgTrait.Scene)
             ? Fin.Succ(document)
-            : Loading.Catch(() => { lock (document.Sync) { return Fin.Succ(document.TryEnsureRetainedSceneGraph(out SvgSceneDocument? scene) && scene is not null); } })
+            : Try.lift(() => { lock (document.Sync) { return Fin.Succ(document.TryEnsureRetainedSceneGraph(out SvgSceneDocument? scene) && scene is not null); } }).Run().Bind(static inner => inner)
                 .Bind(built => built ? Fin.Succ(document) : Fin.Fail<SKSvg>(new AssetFault.MaterializeRejected("retained SVG scene unavailable")));
 
     static Fin<SvgLease> Leased(AssetKey key, SKSvg document, SvgPosture posture, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation) =>
-        Loading.Catch(() => { lock (document.Sync) {
+        Try.lift(() => { lock (document.Sync) {
             return Fin.Succ((posture.Traits.Admits(SvgTrait.Animate) ? onAnimation : None).Match(
                 Some: handler => {
                     document.AnimationInvalidated += handler;
-                    return new SvgLease(key, document, posture, () => { lock (document.Sync) { document.AnimationInvalidated -= handler; } });
+                    return new SvgLease(document, posture, () => { lock (document.Sync) { document.AnimationInvalidated -= handler; } });
                 },
-                None: () => new SvgLease(key, document, posture, static () => { })));
-        }});
+                None: () => new SvgLease(document, posture, static () => { })));
+        }}).Run().Bind(static inner => inner);
 
     public void Dispose() {
         HashMap<(AssetKey, Color), SvgImage> tints = default;
@@ -878,7 +872,7 @@ public sealed partial class AssetDeclaration {
         new($"history-{kind}", AssetKind.Vector, Avares($"vector/history-{kind}.svg"), [], [PreloadPartition.Chrome], Option<HostGlyph>.None, row => [Own(row, tint, mirror)]);
 
     private AssetDeclaration(string key, AssetKind kind, Uri source, ImmutableArray<(double, Uri)> variants, ImmutableArray<PreloadPartition> partitions, Option<HostGlyph> binding, Func<AssetDeclaration, ImmutableArray<IconRow>> icons) {
-        Asset = AssetKey.Create(key);
+        Asset = AssetKey.Create();
         Kind = kind; Source = source; Variants = variants; Partitions = partitions; Binding = binding; Icons = icons(this);
     }
 
@@ -895,7 +889,6 @@ public sealed partial class AssetDeclaration {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssetCatalog {
-    static readonly Op Opening = Op.Of(name: "appui.asset.open");
 
     static readonly FrozenDictionary<AssetKey, AssetDeclaration> Table = toSeq(AssetDeclaration.Items).ToFrozenDictionary(static row => row.Asset);
 
@@ -908,17 +901,17 @@ public static class AssetCatalog {
             Cache: cache);
 
     public static Fin<AssetDeclaration> Declared(AssetKey key) =>
-        Table.TryGetValue(key, out AssetDeclaration? row) ? Fin.Succ(row) : Fin.Fail<AssetDeclaration>(new AssetFault.UnknownKey(key.ToString()));
+        Table.TryGetValue(out AssetDeclaration? row) ? Fin.Succ(row) : Fin.Fail<AssetDeclaration>(new AssetFault.UnknownKey(key.ToString()));
 
     public static Fin<System.IO.Stream> Open(AssetKey key, double scale) =>
         from admitted in (
-                Opening.AcceptValidated<PositiveMagnitude>(scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{scale}")).ToValidation(),
-                Declared(key).ToValidation())
+                FactoryBridge.Accept<PositiveMagnitude>(scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{scale}")).ToValidation(),
+                Declared().ToValidation())
             .Apply(static (s, row) => (Scale: s, Declared: row)).ToFin()
         from bytes in admitted.Declared.Kind == AssetKind.Glyph
             ? Fin.Fail<Unit>(new AssetFault.MaterializeRejected($"{key}: glyph row ships no bytes"))
             : Fin.Succ(unit)
-        from stream in Opening.Catch(() => Fin.Succ(AssetLoader.Open(RasterAssets.Pick(admitted.Declared.Row, admitted.Scale.Value).Source)))
+        from stream in Try.lift(() => Fin.Succ(AssetLoader.Open(RasterAssets.Pick(admitted.Declared.Row, admitted.Scale.Value).Source))).Run().Bind(static inner => inner)
         select stream;
 
     public static Fin<Unit> Preload(
@@ -930,7 +923,7 @@ public static class AssetCatalog {
                 .Filter(row => row.Partitions.Any(elected.Contains))
                 .Traverse(row => Open(row.Asset, scale)
                     .Bind(payload => Custody.Bracket(
-                        () => Opening.Catch(() => Fin.Succ(ContentHash.Of(payload))), payload))
+                        () => Try.lift(() => Fin.Succ(ContentHash.Of(payload))).Run().Bind(static inner => inner), payload))
                     .Bind(digest => RasterAssets.Pick(row.Row, scale) switch {
                         var source => hooks.Fire(
                             at: AppUiPoint.Asset,

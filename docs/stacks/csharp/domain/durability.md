@@ -153,7 +153,7 @@ public sealed partial class CodecProfile {
             .WithMaximumDecompressedSize((int)Math.Min(maxBytes, int.MaxValue)));
 
     public Fin<Unit> Encode(IBufferWriter<byte> sink, Artifact artifact, CancellationToken token) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             if (Framed) { MessagePackSerializer.Serialize(sink, artifact, Write, token); }
             else {
                 sink.Write(artifact.Switch(
@@ -161,11 +161,11 @@ public sealed partial class CodecProfile {
                     delta: static d => d.Patch).Span);
             }
             return Fin.Succ(unit);
-        }, token);
+        }).Run().Bind(static inner => inner);
 
     public Fin<Artifact> Decode(ReadOnlySequence<byte> stored, long maxBytes, CancellationToken token) =>
         Framed
-            ? Op.Of().Catch(() => Fin.Succ(MessagePackSerializer.Deserialize<Artifact>(stored, Restore(maxBytes), token)), token)
+            ? Try.lift(() => Fin.Succ(MessagePackSerializer.Deserialize<Artifact>(stored, Restore(maxBytes), token))).Run().Bind(static inner => inner)
             : Fin.Fail<Artifact>(Error.New(7749, $"<raw-passthrough-never-reframed:{Key}>"));
 
     public async IAsyncEnumerable<Fin<Artifact>> Segments(Stream lane, long maxBytes, [EnumeratorCancellation] CancellationToken token = default) {
@@ -199,7 +199,7 @@ public static class Seal {
         string staged = $"{path}.{epoch}.staged";
         byte[] target = ArrayPool<byte>.Shared.Rent(LZ4Codec.MaximumOutputSize(plain.Length));
         try {
-            return Op.Of().Catch(() => {
+            return Try.lift(() => {
                 int encoded = LZ4Codec.Encode(plain.Span, target, level);
                 ReadOnlySpan<byte> stored = encoded > 0 && encoded < plain.Length ? target.AsSpan(0, encoded) : plain.Span;
                 ulong content = XxHash3.HashToUInt64(stored, classSeed);
@@ -214,7 +214,7 @@ public static class Seal {
                 }
                 File.Move(staged, path, overwrite: true);
                 return Fin.Succ(new SealedArtifact(path, plain.Length, stored.Length, stored.Length != plain.Length, content));
-            });
+            }).Run().Bind(static inner => inner);
         }
         finally { ArrayPool<byte>.Shared.Return(target); }
     }
@@ -292,7 +292,7 @@ public static class Restore {
     }
 
     static Fin<string> Guarded(Func<string> act) =>
-        Op.Of().Catch(() => Fin.Succ(act()));
+        Try.lift(() => Fin.Succ(act())).Run().Bind(static inner => inner);
 
     static Fin<string> Refusal(int tier, string evidence) => Fin.Fail<string>(Error.New(7740 + tier, $"<tier-{tier}>{evidence}"));
 }

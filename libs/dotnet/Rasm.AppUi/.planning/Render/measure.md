@@ -312,7 +312,7 @@ public sealed record MeasurePanel(
     public bool ShowsDeltas(MeasureRow row) => DeltaRows.Contains(row.Key);
 
     public MeasurePanel ToggleDeltas(string key) =>
-        this with { DeltaRows = DeltaRows.Contains(key) ? DeltaRows.Remove(key) : DeltaRows.Add(key) };
+        this with { DeltaRows = DeltaRows.Contains() ? DeltaRows.Remove() : DeltaRows.Add() };
 
     public Fin<string> Text(MeasureRow row, ResolvedLocale locale) =>
         Settings.Render(row.Value, row.Kind.Role, locale.Formats);
@@ -407,7 +407,7 @@ public static partial class MeasureExpression {
                            && Precedence[prior.Symbol] >= Precedence[op.Symbol]) {
                         output.Add(held.Pop());
                     }
-                    held.Push(op);
+                    held.Push();
                     break;
             }
         }

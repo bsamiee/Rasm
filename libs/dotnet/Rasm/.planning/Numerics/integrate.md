@@ -82,7 +82,7 @@ public sealed partial class RungeKuttaMethod {
             toSeq(coupling.Select(static row => toSeq(row))), toSeq(weights),
             embedded.Map(static pair => (toSeq(pair.Weights), pair.Order)), order);
         ButcherTableau.OrderConditions conditions = tableau.ConditionsOf(tableau.Weights, order);
-        return new(key: key, tableau: tableau, conditions: conditions,
+        return new(tableau: tableau, conditions: conditions,
             formula: DenseFormula.Identify(tableau));
     }
 }
@@ -131,13 +131,12 @@ internal readonly record struct ButcherTableau : IValidityEvidence {
             && pair.Weights.Count == StageCount
             && CoefficientsMatch(pair.Weights, 1.0)
             && ConditionsOf(pair.Weights, pair.Order).IsValid).IfNone(true));
-    internal Fin<ButcherTableau> Admit(OrderConditions conditions, Op key) =>
+    internal Fin<ButcherTableau> Admit(OrderConditions conditions) =>
         Valid(conditions)
             ? Fin.Succ(this)
             : Fin.Fail<ButcherTableau>(new KernelFault.InvalidValue(
                 Label: $"butcher-tableau:stages={StageCount}:order={MethodOrder}",
-                Requirement: $"every order condition within {CoefficientTolerance:e1} — failed {conditions.FailedConditionCount} of {conditions.CheckedConditionCount}, max residual {conditions.MaxResidual:e3}, verified order {conditions.VerifiedOrder}",
-                Key: key));
+                Requirement: $"every order condition within {CoefficientTolerance:e1} — failed {conditions.FailedConditionCount} of {conditions.CheckedConditionCount}, max residual {conditions.MaxResidual:e3}, verified order {conditions.VerifiedOrder}"));
     private static bool CoefficientsMatch(Seq<double> values, double expected) =>
         values.ForAll(double.IsFinite)
         && Math.Abs(value: values.Fold(initialState: 0.0, f: static (sum, value) => sum + value) - expected) <= CoefficientTolerance;
@@ -284,12 +283,12 @@ internal sealed partial class DenseFormula {
             && held.Fingerprint.Zip(tableau.Abscissae).All(pair =>
                 Math.Abs(pair.First - pair.Second) <= ButcherTableau.CoefficientTolerance)))
             .IfNone(GenericMomentFit);
-    internal Fin<Seq<double>> WeightsAt(double theta, int stageCount, Op key) => Evaluate(theta: theta, stageCount: stageCount, key: key, project: Horner);
-    internal Fin<Seq<double>> DerivativeAt(double theta, int stageCount, Op key) => Evaluate(theta: theta, stageCount: stageCount, key: key, project: HornerDerivative);
-    private Fin<Seq<double>> Evaluate(double theta, int stageCount, Op key, Func<double[], double, double> project) =>
+    internal Fin<Seq<double>> WeightsAt(double theta, int stageCount) => Evaluate(theta: theta, stageCount: stageCount, project: Horner);
+    internal Fin<Seq<double>> DerivativeAt(double theta, int stageCount) => Evaluate(theta: theta, stageCount: stageCount, project: HornerDerivative);
+    private Fin<Seq<double>> Evaluate(double theta, int stageCount, Func<double[], double, double> project) =>
         Published.Filter(held => held.Table.Length == stageCount)
-            .Map(held => key.Accept(values: held.Table.Select(row => project(row, theta))))
-            .IfNone(() => Fin.Fail<Seq<double>>(key.InvalidInput()));
+            .Map(held => Acceptance.Rows(values: held.Table.Select(row => project(row, theta))))
+            .IfNone(() => Fin.Fail<Seq<double>>(new KernelFault.InvalidInput()));
     private static double Horner(double[] row, double theta) {
         double accumulated = 0.0;
         for (int index = row.Length - 1; index >= 0; index--) { accumulated = (accumulated * theta) + row[index]; }
@@ -334,25 +333,25 @@ public readonly record struct DenseConditions(int StageCount, int MethodOrder, i
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DenseOutput {
-    internal static Fin<DenseConditions> Conditions(ButcherTableau tableau, DenseFormula family, DenseInterpolant interpolant, Op key) {
+    internal static Fin<DenseConditions> Conditions(ButcherTableau tableau, DenseFormula family, DenseInterpolant interpolant) {
         int order = DenseOrderFor(family: family, tableau: tableau);
-        return ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.0, key: key).Bind(zero =>
-            ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.5, key: key).Bind(mid =>
-                ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 1.0, key: key).Bind(one =>
-                    EndpointEvidence(family: family, tableau: tableau, interpolant: interpolant, order: order, key: key).Bind(evidence => {
+        return ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.0).Bind(zero =>
+            ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.5).Bind(mid =>
+                ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 1.0).Bind(one =>
+                    EndpointEvidence(family: family, tableau: tableau, interpolant: interpolant, order: order).Bind(evidence => {
                         DenseConditions conditions = new(
                             StageCount: tableau.StageCount, MethodOrder: tableau.MethodOrder, DenseOrder: order,
                             CheckedConditionCount: zero.CheckedConditionCount + mid.CheckedConditionCount + one.CheckedConditionCount,
                             FailedConditionCount: zero.FailedConditionCount + mid.FailedConditionCount + one.FailedConditionCount,
                             MaxResidual: Math.Max(val1: zero.MaxResidual, val2: Math.Max(val1: mid.MaxResidual, val2: one.MaxResidual)),
                             Endpoints: evidence, CorrectionSolve: mid.CorrectionSolve);
-                        return conditions.IsValid ? Fin.Succ(conditions) : Fin.Fail<DenseConditions>(key.InvalidResult());
+                        return conditions.IsValid ? Fin.Succ(conditions) : Fin.Fail<DenseConditions>(new KernelFault.InvalidResult());
                     }))));
     }
-    internal static Fin<Seq<double>> WeightsAt(ButcherTableau tableau, DenseFormula family, DenseInterpolant interpolant, double theta, Op key) =>
+    internal static Fin<Seq<double>> WeightsAt(ButcherTableau tableau, DenseFormula family, DenseInterpolant interpolant, double theta) =>
         !double.IsFinite(theta) || theta is < 0.0 or > 1.0
-            ? Fin.Fail<Seq<double>>(key.InvalidInput())
-            : Weights(family: family, tableau: tableau, interpolant: interpolant, order: DenseOrderFor(family: family, tableau: tableau), theta: theta, key: key)
+            ? Fin.Fail<Seq<double>>(new KernelFault.InvalidInput())
+            : Weights(family: family, tableau: tableau, interpolant: interpolant, order: DenseOrderFor(family: family, tableau: tableau), theta: theta)
                 .Map(static result => result.Values);
     private static int DenseOrderFor(DenseFormula family, ButcherTableau tableau) =>
         family.Published.IsSome
@@ -366,8 +365,8 @@ internal static class DenseOutput {
                 : anchors.Add(row.Stage));
     private readonly record struct ThetaProbe(int CheckedConditionCount, int FailedConditionCount, double MaxResidual, Option<LinearSolution> CorrectionSolve);
 
-    private static Fin<ThetaProbe> ProbeAt(DenseFormula family, ButcherTableau tableau, DenseInterpolant interpolant, int order, double theta, Op key) =>
-        Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: theta, key: key).Map(result => {
+    private static Fin<ThetaProbe> ProbeAt(DenseFormula family, ButcherTableau tableau, DenseInterpolant interpolant, int order, double theta) =>
+        Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: theta).Map(result => {
             Seq<double> weights = result.Values;
             (bool failed, double maxResidual) = MomentResidual(tableau: tableau, weights: weights, theta: theta, order: order);
             double endpoint = theta <= ButcherTableau.ThetaEndpointBand
@@ -381,28 +380,28 @@ internal static class DenseOutput {
                 MaxResidual: Math.Max(val1: maxResidual, val2: endpoint),
                 CorrectionSolve: result.Solve);
         });
-    private static Fin<EndpointResiduals> EndpointEvidence(DenseFormula family, ButcherTableau tableau, DenseInterpolant interpolant, int order, Op key) =>
+    private static Fin<EndpointResiduals> EndpointEvidence(DenseFormula family, ButcherTableau tableau, DenseInterpolant interpolant, int order) =>
         family.Published.IsSome
-            ? from atOne in family.WeightsAt(theta: 1.0, stageCount: tableau.StageCount, key: key)
-              from atZero in family.WeightsAt(theta: 0.0, stageCount: tableau.StageCount, key: key)
-              from derivOne in family.DerivativeAt(theta: 1.0, stageCount: tableau.StageCount, key: key)
-              from derivZero in family.DerivativeAt(theta: 0.0, stageCount: tableau.StageCount, key: key)
+            ? from atOne in family.WeightsAt(theta: 1.0, stageCount: tableau.StageCount)
+              from atZero in family.WeightsAt(theta: 0.0, stageCount: tableau.StageCount)
+              from derivOne in family.DerivativeAt(theta: 1.0, stageCount: tableau.StageCount)
+              from derivZero in family.DerivativeAt(theta: 0.0, stageCount: tableau.StageCount)
               select new EndpointResiduals(
                   ValueLeft: atZero.Fold(0.0, static (max, value) => Math.Max(max, Math.Abs(value))),
                   ValueRight: Math.Abs(value: atOne.Fold(initialState: 0.0, f: static (sum, value) => sum + value) - tableau.Weights.Fold(initialState: 0.0, f: static (sum, value) => sum + value)),
                   Derivatives: Some((Left: MaxDeviation(values: derivZero, target: 0), Right: MaxDeviation(values: derivOne, target: tableau.StageCount - 1))),
                   Coefficient: atOne.Zip(tableau.Weights).Fold(initialState: 0.0, f: static (max, pair) => Math.Max(val1: max, val2: Math.Abs(value: pair.First - pair.Second))))
-            : Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 1.0, key: key).Bind(atOne =>
-                Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.0, key: key).Map(atZero => new EndpointResiduals(
+            : Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 1.0).Bind(atOne =>
+                Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.0).Map(atZero => new EndpointResiduals(
                     ValueLeft: atZero.Values.Fold(0.0, static (max, value) => Math.Max(max, Math.Abs(value))),
                     ValueRight: Math.Abs(value: atOne.Values.Fold(initialState: 0.0, f: static (sum, value) => sum + value) - tableau.Weights.Fold(initialState: 0.0, f: static (sum, value) => sum + value)),
                     Derivatives: Option<(double Left, double Right)>.None,
                     Coefficient: atOne.Values.Zip(tableau.Weights).Fold(initialState: 0.0, f: static (max, pair) => Math.Max(val1: max, val2: Math.Abs(value: pair.First - pair.Second))))));
     private static double MaxDeviation(Seq<double> values, int target) =>
         values.AsIterable().Select((value, index) => Math.Abs(value: value - (index == target ? 1.0 : 0.0))).Aggregate(seed: 0.0, func: static (max, deviation) => Math.Max(val1: max, val2: deviation));
-    private static Fin<(Seq<double> Values, Option<LinearSolution> Solve)> Weights(DenseFormula family, ButcherTableau tableau, DenseInterpolant interpolant, int order, double theta, Op key) =>
+    private static Fin<(Seq<double> Values, Option<LinearSolution> Solve)> Weights(DenseFormula family, ButcherTableau tableau, DenseInterpolant interpolant, int order, double theta) =>
         family.Published.IsSome
-            ? family.WeightsAt(theta: theta, stageCount: tableau.StageCount, key: key).Map(static values => (Values: values, Solve: Option<LinearSolution>.None))
+            ? family.WeightsAt(theta: theta, stageCount: tableau.StageCount).Map(static values => (Values: values, Solve: Option<LinearSolution>.None))
             : theta <= ButcherTableau.ThetaEndpointBand
                 ? Fin.Succ((Values: toSeq(Enumerable.Repeat(element: 0.0, count: tableau.StageCount)), Solve: Option<LinearSolution>.None))
                 : 1.0 - theta <= ButcherTableau.ThetaEndpointBand
@@ -426,27 +425,27 @@ internal static class DenseOutput {
         }
     }
 
-    internal static Fin<DenseInterpolant> Interpolant(ButcherTableau tableau, DenseFormula family, Op key) {
+    internal static Fin<DenseInterpolant> Interpolant(ButcherTableau tableau, DenseFormula family) {
         int order = DenseOrderFor(family: family, tableau: tableau);
         if (family.Published.IsSome) { return Fin.Succ(new DenseInterpolant(Order: order, Basis: [], Solve: None)); }
         int stages = tableau.StageCount;
         double[] design = MomentDesign(tableau: tableau, stages: stages, order: order);
         return Range(0, order).ToSeq()
-            .TraverseM(moment => BasisColumn(tableau: tableau, design: design, stages: stages, order: order, moment: moment, key: key)).As()
+            .TraverseM(moment => BasisColumn(tableau: tableau, design: design, stages: stages, order: order, moment: moment)).As()
             .Map(columns => new DenseInterpolant(
                 Order: order,
                 Basis: [.. columns.Map(static column => column.Correction)],
                 Solve: columns.Last.Map(static column => column.Solve)));
     }
 
-    private static Fin<(double[] Correction, LinearSolution Solve)> BasisColumn(ButcherTableau tableau, double[] design, int stages, int order, int moment, Op key) {
+    private static Fin<(double[] Correction, LinearSolution Solve)> BasisColumn(ButcherTableau tableau, double[] design, int stages, int order, int moment) {
         double[] unit = new double[order];
         unit[moment] = 1.0;
-        return from preimage in MomentPreimage(tableau: tableau, stages: stages, order: order, rhs: new Arr<double>(unit), key: key)
-               from rows in key.AcceptValidated<Dimension>(stages)
-               from cols in key.AcceptValidated<Dimension>(order)
-               from matrix in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>(design), key: key)
-               from solved in matrix.LeastSquaresDetailed(rhs: preimage, key: key)
+        return from preimage in MomentPreimage(tableau: tableau, stages: stages, order: order, rhs: new Arr<double>(unit))
+               from rows in FactoryBridge.Accept<Dimension>(stages)
+               from cols in FactoryBridge.Accept<Dimension>(order)
+               from matrix in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>(design))
+               from solved in matrix.LeastSquaresDetailed(rhs: preimage)
                select (Correction: DesignProduct(design: design, solution: solved.Solution, stages: stages, order: order), Solve: solved);
     }
 
@@ -464,17 +463,17 @@ internal static class DenseOutput {
         }
         return design;
     }
-    private static Fin<Arr<double>> MomentPreimage(ButcherTableau tableau, int stages, int order, Arr<double> rhs, Op key) {
+    private static Fin<Arr<double>> MomentPreimage(ButcherTableau tableau, int stages, int order, Arr<double> rhs) {
         Seq<int> anchors = DistinctAnchors(tableau: tableau).Take(order);
-        if (anchors.Count < order) return Fin.Fail<Arr<double>>(key.InvalidInput());
+        if (anchors.Count < order) return Fin.Fail<Arr<double>>(new KernelFault.InvalidInput());
         double[] vandermonde = new double[order * order];
         for (int col = 0; col < order; col++) {
             double raised = 1.0;
             for (int row = 0; row < order; row++) { vandermonde[(row * order) + col] = raised; raised *= tableau.Abscissae[anchors[col]]; }
         }
-        return key.AcceptValidated<Dimension>(order).Bind(dim =>
-            Matrix.Of(rows: dim, cols: dim, entries: new Arr<double>(vandermonde), key: key))
-            .Bind(matrix => matrix.SolveDetailed(rhs: rhs, key: key))
+        return FactoryBridge.Accept<Dimension>(order).Bind(dim =>
+            Matrix.Of(rows: dim, cols: dim, entries: new Arr<double>(vandermonde)))
+            .Bind(matrix => matrix.SolveDetailed(rhs: rhs))
             .Map(solved => {
                 double[] preimage = new double[stages];
                 for (int index = 0; index < order; index++) preimage[anchors[index]] = solved.Solution[index];
@@ -599,8 +598,8 @@ public readonly record struct DenseOutputSpan<TState, TDelta> {
         DenseConditions conditions, IntegrationModule<TState, TDelta> module) =>
         (this.start, this.step, this.stages, this.tableau, this.family, this.interpolant, Conditions, this.module) =
             (start, step, stages, tableau, family, interpolant, conditions, module);
-    internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseFormula family, DenseOutput.DenseInterpolant interpolant, DenseConditions conditions, Op key) =>
-        DenseOutput.WeightsAt(tableau, family, interpolant, 1.0, key).Bind(weights => {
+    internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseFormula family, DenseOutput.DenseInterpolant interpolant, DenseConditions conditions) =>
+        DenseOutput.WeightsAt(tableau, family, interpolant, 1.0).Bind(weights => {
             TDelta reconstructed = module.Combine(coefficients: weights, deltas: stages);
             TDelta declared = module.Combine(coefficients: tableau.Weights, deltas: stages);
             double drift = module.Norm(arg: module.Sum(arg1: reconstructed, arg2: module.Scale(arg1: -1.0, arg2: declared)));
@@ -608,12 +607,12 @@ public readonly record struct DenseOutputSpan<TState, TDelta> {
             return double.IsFinite(drift) && drift <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: stageScale)
                 && stages.Count == tableau.StageCount && Math.Abs(value: step) > EpsilonPolicy.ZeroTolerance && conditions.IsValid
                 ? Fin.Succ(new DenseOutputSpan<TState, TDelta>(start, step, stages, tableau, family, interpolant, conditions, module))
-                : Fin.Fail<DenseOutputSpan<TState, TDelta>>(key.InvalidResult());
+                : Fin.Fail<DenseOutputSpan<TState, TDelta>>(new KernelFault.InvalidResult());
         });
-    public Fin<TState> PointAt(double theta, Op key) {
-        if (!double.IsFinite(theta) || theta is < 0.0 or > 1.0) return Fin.Fail<TState>(key.InvalidInput());
+    public Fin<TState> PointAt(double theta) {
+        if (!double.IsFinite(theta) || theta is < 0.0 or > 1.0) return Fin.Fail<TState>(new KernelFault.InvalidInput());
         DenseOutputSpan<TState, TDelta> self = this;
-        return DenseOutput.WeightsAt(self.tableau, self.family, self.interpolant, theta, key)
+        return DenseOutput.WeightsAt(self.tableau, self.family, self.interpolant, theta)
             .Map(weights => self.module.Add(arg1: self.start, arg2: self.step, arg3: self.module.Combine(coefficients: weights, deltas: self.stages)));
     }
 }
@@ -638,22 +637,22 @@ public abstract partial record RungeKuttaIntegrator {
         internal override DenseOutput.DenseInterpolant Interp { get; }
     }
     private RungeKuttaIntegrator() { }
-    public static Fin<RungeKuttaIntegrator> Fixed(RungeKuttaMethod method, Op key) =>
-        from active in Optional(method).ToFin(key.InvalidInput())
-        from tableau in active.Tableau.Admit(active.Conditions, key)
-        from fixedKind in guard(!active.Tableau.Embedded.IsSome, key.Unsupported(inputType: active.GetType(), outputType: typeof(FixedCase)))
-        from interp in DenseOutput.Interpolant(tableau: tableau, family: active.Formula, key: key)
-        from dense in DenseOutput.Conditions(tableau, active.Formula, interp, key)
+    public static Fin<RungeKuttaIntegrator> Fixed(RungeKuttaMethod method) =>
+        from active in Optional(method).ToFin(new KernelFault.InvalidInput())
+        from tableau in active.Tableau.Admit(active.Conditions)
+        from fixedKind in guard(!active.Tableau.Embedded.IsSome, new KernelFault.Unsupported(InputType: active.GetType(), OutputType: typeof(FixedCase)))
+        from interp in DenseOutput.Interpolant(tableau: tableau, family: active.Formula)
+        from dense in DenseOutput.Conditions(tableau, active.Formula, interp)
         select (RungeKuttaIntegrator)new FixedCase(method: active, dense: dense, interp: interp);
-    public static Fin<RungeKuttaIntegrator> Adaptive(RungeKuttaMethod method, double tolerance, Op key, Option<StepControl> control = default) {
+    public static Fin<RungeKuttaIntegrator> Adaptive(RungeKuttaMethod method, double tolerance, Option<StepControl> control = default) {
         StepControl controller = control.IfNone(StepControl.Default);
-        return from active in Optional(method).ToFin(key.InvalidInput())
-               from tableau in active.Tableau.Admit(active.Conditions, key)
-               from adaptiveKind in guard(active.Tableau.Embedded.IsSome, key.Unsupported(inputType: active.GetType(), outputType: typeof(AdaptiveCase)))
-               from admitted in guard(controller.IsValid, new KernelFault.InvalidValue(Label: nameof(StepControl), Requirement: "finite positive safety factor, ordered positive scale clamps, nonnegative reject budget, a step controller", Key: key))
-               from validated in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               from interp in DenseOutput.Interpolant(tableau: tableau, family: active.Formula, key: key)
-               from dense in DenseOutput.Conditions(tableau, active.Formula, interp, key)
+        return from active in Optional(method).ToFin(new KernelFault.InvalidInput())
+               from tableau in active.Tableau.Admit(active.Conditions)
+               from adaptiveKind in guard(active.Tableau.Embedded.IsSome, new KernelFault.Unsupported(InputType: active.GetType(), OutputType: typeof(AdaptiveCase)))
+               from admitted in guard(controller.IsValid, new KernelFault.InvalidValue(Label: nameof(StepControl), Requirement: "finite positive safety factor, ordered positive scale clamps, nonnegative reject budget, a step controller"))
+               from validated in FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance)
+               from interp in DenseOutput.Interpolant(tableau: tableau, family: active.Formula)
+               from dense in DenseOutput.Conditions(tableau, active.Formula, interp)
                select (RungeKuttaIntegrator)new AdaptiveCase(method: active, tolerance: validated, control: controller, dense: dense, interp: interp);
     }
     public abstract RungeKuttaMethod Method { get; }
@@ -662,31 +661,31 @@ public abstract partial record RungeKuttaIntegrator {
     public int RejectBudget => Switch(state: 0, fixedCase: static (s, _) => s, adaptiveCase: static (_, c) => c.Control.RejectBudget);
     public int MethodOrder => Method.Tableau.MethodOrder;
     public Option<int> EmbeddedOrder => Method.Tableau.Embedded.Map(static pair => pair.Order);
-    public static Fin<RungeKuttaIntegrator> Admit(RungeKuttaIntegrator value, Op key) =>
-        Optional(value).ToFin(key.InvalidInput());
-    public static Fin<RungeKuttaIntegrator> AdmitOrFixed(Option<RungeKuttaIntegrator> value, Op key) =>
-        value.Match(Some: Fin.Succ, None: () => Fixed(method: RungeKuttaMethod.RK4, key: key));
-    public Fin<IntegrationStep<TState, TDelta>> Step<TState, TDelta>(IntegrationModule<TState, TDelta> module, Func<TState, Fin<TDelta>> sample, TState state, double h, Op key, Option<StepHistory> history = default) => Switch(
-        state: (Module: module, Sample: sample, State: state, H: h, Key: key, History: history),
+    public static Fin<RungeKuttaIntegrator> Admit(RungeKuttaIntegrator value) =>
+        Optional(value).ToFin(new KernelFault.InvalidInput());
+    public static Fin<RungeKuttaIntegrator> AdmitOrFixed(Option<RungeKuttaIntegrator> value) =>
+        value.Match(Some: Fin.Succ, None: () => Fixed(method: RungeKuttaMethod.RK4));
+    public Fin<IntegrationStep<TState, TDelta>> Step<TState, TDelta>(IntegrationModule<TState, TDelta> module, Func<TState, Fin<TDelta>> sample, TState state, double h, Option<StepHistory> history = default) => Switch(
+        state: (Module: module, Sample: sample, State: state, H: h, History: history),
         fixedCase: static (s, c) =>
-            from ks in Stages(module: s.Module, sample: s.Sample, tableau: c.Method.Tableau, state: s.State, h: s.H, key: s.Key)
+            from ks in Stages(module: s.Module, sample: s.Sample, tableau: c.Method.Tableau, state: s.State, h: s.H)
             let next = s.Module.Add(arg1: s.State, arg2: s.H, arg3: s.Module.Combine(coefficients: c.Method.Tableau.Weights, deltas: ks))
-            from dense in DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, step: s.H, stages: ks, tableau: c.Method.Tableau, family: c.Method.Formula, interpolant: c.Interp, conditions: c.Dense, key: s.Key)
+            from dense in DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, step: s.H, stages: ks, tableau: c.Method.Tableau, family: c.Method.Formula, interpolant: c.Interp, conditions: c.Dense)
             select (IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.AcceptedCase(Next: next, SuggestedStep: s.H, Error: Option<double>.None, Dense: dense),
         adaptiveCase: static (s, c) =>
-            from embedded in c.Method.Tableau.Embedded.ToFin(s.Key.InvalidInput())
-            from ks in Stages(module: s.Module, sample: s.Sample, tableau: c.Method.Tableau, state: s.State, h: s.H, key: s.Key)
+            from embedded in c.Method.Tableau.Embedded.ToFin(new KernelFault.InvalidInput())
+            from ks in Stages(module: s.Module, sample: s.Sample, tableau: c.Method.Tableau, state: s.State, h: s.H)
             let primary = s.Module.Combine(coefficients: c.Method.Tableau.Weights, deltas: ks)
             let secondary = s.Module.Combine(embedded.Weights, ks)
             let err = Math.Abs(value: s.H) * s.Module.Norm(arg: s.Module.Sum(arg1: primary, arg2: s.Module.Scale(arg1: -1.0, arg2: secondary)))
             let scale = c.Control.Rescale(s.History, err, c.Tolerance.Value, 1.0 / (embedded.Order + 1.0))
             let next = s.Module.Add(s.State, s.H, primary)
             from result in err <= c.Tolerance.Value
-                ? DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, step: s.H, stages: ks, tableau: c.Method.Tableau, family: c.Method.Formula, interpolant: c.Interp, conditions: c.Dense, key: s.Key)
+                ? DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, step: s.H, stages: ks, tableau: c.Method.Tableau, family: c.Method.Formula, interpolant: c.Interp, conditions: c.Dense)
                     .Map(dense => (IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.AcceptedCase(next, s.H * scale, Some(err), dense))
                 : Fin.Succ((IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.RejectedCase(s.H * scale, err))
             select result);
-    private static Fin<Seq<TDelta>> Stages<TState, TDelta>(IntegrationModule<TState, TDelta> module, Func<TState, Fin<TDelta>> sample, ButcherTableau tableau, TState state, double h, Op key) =>
+    private static Fin<Seq<TDelta>> Stages<TState, TDelta>(IntegrationModule<TState, TDelta> module, Func<TState, Fin<TDelta>> sample, ButcherTableau tableau, TState state, double h) =>
         tableau.Coupling.Fold(
             initialState: Fin.Succ((Seq<TDelta>)[]),
             f: (acc, row) => acc.Bind(ks =>
@@ -699,7 +698,7 @@ public abstract partial record RungeKuttaIntegrator {
 
 - Owner: `QuadratureRoute` the `[SmartEnum<string>]` accuracy axis carrying each kernel's estimate delegate — value beside the optional error and L1 channels; `QuadratureDomain` the `[Union]` arity axis over genuine 1-D/2-D/3-D integrands, the Smolyak sparse grid, and the reference element — line, simplex, cube, prism, and pyramid rows alike; `ReferenceElement` the `[SmartEnum<string>]` row family whose rows carry the owned-build Gauss tables per reference domain — triangle/tet area-volume coordinates, `[-1,1]` cube tensor Gauss, triangle⊗line prism, conical pyramid; `IntegrationInterval` the bound value whose values alone encode finite or infinite extent; `Quadrature.Integrate` the one entry whose finite-guard-then-admit combinator reads the generated `Evaluate` delegate column once.
 - Cases: `QuadratureRoute` rows `DoubleExponential` · `GaussLegendre` · `GaussKronrod`; `QuadratureDomain` cases `Line` · `Rectangle` · `Cuboid` · `SparseGrid` · `Reference`; `ReferenceElement` rows `Line` · `Tri` · `Tet` · `Quad` · `Hex` · `Wedge` · `Pyramid`, each electing the smallest owned rule at or above a POSITIVE requested order over a roster the generated `ValidateConstructorArguments` hook sorts ascending and de-duplicates by exactness once at construction, and each row's declared order the TRUE exactness of its construction — `Order` is polynomial EXACTNESS, never node count — an `n`-point Gauss-Legendre leg carries `2n−1` — a prism is exact to `min(triangle degree, 2n−1)`, never the sum of its legs, and a conical product to the weaker of its base leg `2n−1` and its height leg `2m−3`, the `(1−z)²` collapse Jacobian costing the height leg two degrees; `Pyramid12` therefore carries three, and a second rung raising only the base leg earns no exactness and is the deleted form. `QuadratureRule` rows stay DISTINCT-BY-DESIGN over the classical quadrature families — the upstream is the Gauss-Legendre nodes and the published symmetric simplex rules, and each row carries its point/weight table as DATA built once at type init, the tensor, prism, and conical rows deriving from the three canonical 1-D Gauss node sets and the simplex rows from their published closed forms spelled as exact expressions.
-- Entry: `Quadrature.Integrate(QuadratureDomain domain, Option<QuadratureControl> control = default, Op? key = null)` — arity is the case, accuracy the route row, and the reference-element table the `Reference` case's election; no sibling integrator entry exists.
+- Entry: `Quadrature.Integrate(QuadratureDomain domain, Option<QuadratureControl> control = default)` — arity is the case, accuracy the route row, and the reference-element table the `Reference` case's election; no sibling integrator entry exists.
 - Auto: each arm wraps its integrand in a skip-counting guard because no MathNet route inspects returns and a pole poisons the weighted sum silently — `QuadratureControl.MaxSkipped` makes that loss budget explicit and defaults to zero; `Op.Catch` is the one inbound exception funnel over the whole dispatch, so an integrand or MathNet raise surfaces on the typed result with `KernelFault.Cancelled` keeping its own identity; the `Line` arm admits any NaN-free ascending interval, signed infinities included, because every MathNet facade it routes through substitutes an infinite limit itself, while rectangle, cuboid, and sparse-grid bounds refuse non-finite endpoints through `FiniteOrdered`; only `GaussKronrod` returns the `error`/`L1Norm` channel, so the error-budget and cancellation gates bind only where the channels are `Some`; `SparseGrid` folds the nested Clenshaw-Curtis combination formula — its signed coefficients through `SpecialFunctions.Binomial`, never a hand-rolled fold — through the private nested `Quadrature.Smolyak.Integrate` under `MaxSparseLevel`; `Reference` folds the elected reference-element table — the reference-domain integral, the consumer weighting each point by its own Jacobian at the isoparametric map it owns.
 - Law: a rule ladder that runs out REFUSES. `ReferenceElement.Rule` returns `Fin<QuadratureRule>` and faults typed when the requested order is nonpositive or exceeds every owned rule, computing the normalized ladder's terminal order locally and carrying it in the `KernelFault.OutOfRange` it returns, so no success-shaped under-integration ever reaches a caller who asked for a higher order; the constructor hook normalizes and never throws, so exhaustion — an accidentally empty roster included — stays inside the `Fin` carrier. The sixteen `QuadratureRule` tables are internal: `Rule` is the one election and no consumer bypasses its typed exhaustion proof.
 - Exemption: the Gauss/simplex table builders hold `List<(double, double, double, double)>` accumulators and raw `double[]` node/weight pairs inside the nested `Smolyak`; both are statement kernels — the first runs once at type init and freezes into `ImmutableArray`, the second is the per-call tensor-node walk the sparse fold streams — and neither escapes its owner.
@@ -845,12 +844,12 @@ public sealed partial class ReferenceElement {
 
     private readonly ImmutableArray<QuadratureRule> rules;
 
-    public Fin<QuadratureRule> Rule(int order, Op key) {
+    public Fin<QuadratureRule> Rule(int order) {
         int ceiling = rules.IsDefaultOrEmpty ? 0 : rules[^1].Order;
         return toSeq(rules).Find(rule => order > 0 && rule.Order >= order).ToFin(
             new KernelFault.OutOfRange(
                 Label: $"reference-rule:{Key}", Scalar: order,
-                Requirement: $"a positive order with an owned rule at or above it, ceiling {ceiling}", Key: key));
+                Requirement: $"a positive order with an owned rule at or above it, ceiling {ceiling}"));
     }
 
     static partial void ValidateConstructorArguments(
@@ -878,35 +877,33 @@ public sealed record QuadratureEvidence(
 public static class Quadrature {
     private const string FiniteOrderedRequirement = "finite ascending intervals and a positive order";
 
-    public static Fin<QuadratureEvidence> Integrate(QuadratureDomain domain, Option<QuadratureControl> control = default, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<QuadratureEvidence> Integrate(QuadratureDomain domain, Option<QuadratureControl> control = default) {
         QuadratureControl ctl = control.IfNone(QuadratureControl.Default);
-        return from active in Optional(domain).ToFin(op.InvalidInput())
-               from admitted in guard(ctl.IsValid, new KernelFault.InvalidValue(Label: nameof(QuadratureControl), Requirement: "finite positive budgets, unit-bounded floor, positive orders", Key: op))
-               from evidence in op.Catch(() => active.Switch(
+        return from active in Optional(domain).ToFin(new KernelFault.InvalidInput())
+               from admitted in guard(ctl.IsValid, new KernelFault.InvalidValue(Label: nameof(QuadratureControl), Requirement: "finite positive budgets, unit-bounded floor, positive orders"))
+               from evidence in Try.lift(() => active.Switch(
                    line: l => !(l.Bounds.Lower < l.Bounds.Upper)
                        ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(
                            Label: nameof(QuadratureDomain.Line),
-                           Requirement: "a NaN-free ascending interval",
-                           Key: Some(op)))
-                       : Counted(run: guard => Admit(outcome: l.Route.Evaluate(x => guard.Finite(l.F(x)), l.Bounds.Lower, l.Bounds.Upper, ctl), skipped: guard.Skipped, ctl: ctl, op: op)),
+                           Requirement: "a NaN-free ascending interval"))
+                       : Counted(run: guard => Admit(outcome: l.Route.Evaluate(x => guard.Finite(l.F(x)), l.Bounds.Lower, l.Bounds.Upper, ctl), skipped: guard.Skipped, ctl: ctl)),
                    rectangle: r => !FiniteOrdered(bounds: r.X) || !FiniteOrdered(bounds: r.Y) || r.Order <= 0
-                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Rectangle), Requirement: FiniteOrderedRequirement, Key: Some(op)))
-                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnRectangle((x, y) => guard.Finite(r.F(x, y)), r.X.Lower, r.X.Upper, r.Y.Lower, r.Y.Upper, r.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl, op: op)),
+                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Rectangle), Requirement: FiniteOrderedRequirement))
+                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnRectangle((x, y) => guard.Finite(r.F(x, y)), r.X.Lower, r.X.Upper, r.Y.Lower, r.Y.Upper, r.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl)),
                    cuboid: c => !FiniteOrdered(bounds: c.X) || !FiniteOrdered(bounds: c.Y) || !FiniteOrdered(bounds: c.Z) || c.Order <= 0
-                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Cuboid), Requirement: FiniteOrderedRequirement, Key: Some(op)))
-                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnCuboid((x, y, z) => guard.Finite(c.F(x, y, z)), c.X.Lower, c.X.Upper, c.Y.Lower, c.Y.Upper, c.Z.Lower, c.Z.Upper, c.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl, op: op)),
+                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Cuboid), Requirement: FiniteOrderedRequirement))
+                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnCuboid((x, y, z) => guard.Finite(c.F(x, y, z)), c.X.Lower, c.X.Upper, c.Y.Lower, c.Y.Upper, c.Z.Lower, c.Z.Upper, c.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl)),
                    sparseGrid: s => s.Bounds.Count is < 2 or > 20 || s.Level <= 0 || s.Level > ctl.MaxSparseLevel || s.Bounds.Exists(static b => !FiniteOrdered(bounds: b))
-                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.SparseGrid), Requirement: "2-20 finite dimensions inside the level budget", Key: Some(op)))
-                       : Counted(run: guard => Admit(outcome: Smolyak.Integrate(f: x => guard.Finite(s.F(x)), bounds: s.Bounds, level: s.Level), skipped: guard.Skipped, ctl: ctl, op: op)),
+                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.SparseGrid), Requirement: "2-20 finite dimensions inside the level budget"))
+                       : Counted(run: guard => Admit(outcome: Smolyak.Integrate(f: x => guard.Finite(s.F(x)), bounds: s.Bounds, level: s.Level), skipped: guard.Skipped, ctl: ctl)),
                    reference: x => x.Order <= 0
-                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Reference), Requirement: "a positive rule order", Key: Some(op)))
-                       : x.Element.Rule(order: x.Order, key: op).Bind(rule =>
+                       ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Reference), Requirement: "a positive rule order"))
+                       : x.Element.Rule(order: x.Order).Bind(rule =>
                            Counted(run: guard => {
                                double sum = 0.0;
                                foreach ((double px, double py, double pz, double weight) in rule.Points) sum += weight * guard.Finite(x.F(px, py, pz));
-                               return Admit(outcome: (Value: sum, Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl, op: op);
-                           }))))
+                               return Admit(outcome: (Value: sum, Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl);
+                           })))).Run().Bind(static inner => inner)
                select evidence;
     }
 
@@ -921,20 +918,20 @@ public static class Quadrature {
         }
     }
 
-    private static Fin<QuadratureEvidence> Admit((double Value, Option<double> Error, Option<double> L1Norm) outcome, int skipped, QuadratureControl ctl, Op op) =>
+    private static Fin<QuadratureEvidence> Admit((double Value, Option<double> Error, Option<double> L1Norm) outcome, int skipped, QuadratureControl ctl) =>
         !double.IsFinite(outcome.Value)
-            ? Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "quadrature-value", Scalar: outcome.Value, Requirement: "finite", Key: op))
+            ? Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "quadrature-value", Scalar: outcome.Value, Requirement: "finite"))
         : ctl.RequireErrorWitness && !outcome.Error.IsSome
-            ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: "convergence-witness", Requirement: "a route carrying its own error estimate, or RequireErrorWitness cleared", Key: Some(op)))
+            ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: "convergence-witness", Requirement: "a route carrying its own error estimate, or RequireErrorWitness cleared"))
         : skipped > ctl.MaxSkipped
-            ? Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "integrand-loss", Scalar: skipped, Requirement: $"<= {ctl.MaxSkipped} skipped samples", Key: op))
+            ? Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "integrand-loss", Scalar: skipped, Requirement: $"<= {ctl.MaxSkipped} skipped samples"))
         : outcome.Error is { IsSome: true, Case: double estimate }
           && estimate > Math.Max(val1: ctl.AbsoluteError, val2: ctl.RelativeError * Math.Abs(value: outcome.Value))
-            ? Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "error-over-budget", Scalar: estimate, Requirement: $"<= {Math.Max(val1: ctl.AbsoluteError, val2: ctl.RelativeError * Math.Abs(value: outcome.Value)):e3}", Key: op))
+            ? Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "error-over-budget", Scalar: estimate, Requirement: $"<= {Math.Max(val1: ctl.AbsoluteError, val2: ctl.RelativeError * Math.Abs(value: outcome.Value)):e3}"))
         : outcome.L1Norm.Map(l1 => l1 == 0.0 && outcome.Value == 0.0 ? 1.0 : Math.Abs(value: outcome.Value / l1)).Match(
             Some: ratio => double.IsFinite(ratio) && ratio >= ctl.CancellationFloor
                 ? Fin.Succ(new QuadratureEvidence(Value: outcome.Value, Error: outcome.Error, L1Norm: outcome.L1Norm, Ratio: Some(ratio), Skipped: skipped))
-                : Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "cancellation-breach", Scalar: ratio, Requirement: $">= {ctl.CancellationFloor:e3}", Key: op)),
+                : Fin.Fail<QuadratureEvidence>(new KernelFault.OutOfRange(Label: "cancellation-breach", Scalar: ratio, Requirement: $">= {ctl.CancellationFloor:e3}")),
             None: () => Fin.Succ(new QuadratureEvidence(Value: outcome.Value, Error: outcome.Error, L1Norm: None, Ratio: None, Skipped: skipped)));
 
     private static bool FiniteOrdered(IntegrationInterval bounds) =>

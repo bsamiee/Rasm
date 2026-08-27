@@ -78,25 +78,25 @@ public sealed partial class ContentKind {
     [UseDelegateFromConstructor]
     internal partial Seq<RenderContent> Roster(RhinoDoc document);
 
-    internal Fin<Unit> Attach(RhinoDoc document, RenderContent content, Op key) =>
-        key.Catch(() => key.Confirm(success: Added(document: document, content: content)));
+    internal Fin<Unit> Attach(RhinoDoc document, RenderContent content) =>
+        Try.lift(() => Admit.Confirm(success: Added(document: document, content: content))).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Detach(RhinoDoc document, RenderContent content, Op key) =>
-        key.Catch(() => key.Confirm(success: Removed(document: document, content: content)));
+    internal Fin<Unit> Detach(RhinoDoc document, RenderContent content) =>
+        Try.lift(() => Admit.Confirm(success: Removed(document: document, content: content))).Run().Bind(static inner => inner);
 
-    internal Fin<TOut> Table<TOut>(RhinoDoc document, ChangeReason reason, Func<RhinoDoc, Fin<TOut>> body, Op key) =>
-        Lease<TableScope>.Acquire(mint: () => new TableScope(kind: this, document: document, reason: reason), key: key)
-            .Bind(scope => scope.Use(body: _ => body(arg: document), key: key));
+    internal Fin<TOut> Table<TOut>(RhinoDoc document, ChangeReason reason, Func<RhinoDoc, Fin<TOut>> body) =>
+        Lease<TableScope>.Acquire(mint: () => new TableScope(kind: this, document: document, reason: reason))
+            .Bind(scope => scope.Use(body: _ => body(arg: document)));
 
-    public static Fin<ContentKind> Of(RenderContent? content, Op key) =>
-        key.Need(content).Bind(active =>
+    public static Fin<ContentKind> Of(RenderContent? content) =>
+        Admit.Need(content).Bind(active =>
             toSeq(Items)
                 .Filter(row => row.Holds(content: active))
                 .Head
-                .ToFin(Fail: key.InvalidResult(detail: active.GetType().Name)));
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(active.GetType().Name))));
 
-    internal static Fin<ContentKind> Of(RenderContentKind native, Op key) =>
-        key.Row<RenderContentKind, ContentKind>(native, static value => (int)value);
+    internal static Fin<ContentKind> Of(RenderContentKind native) =>
+        FactoryBridge.Row<RenderContentKind, ContentKind>(native, static value => (int)value);
 }
 
 [SmartEnum<int>]
@@ -114,8 +114,8 @@ public sealed partial class ChangeReason {
 
     internal RenderContent.ChangeContexts Native => (RenderContent.ChangeContexts)Key;
 
-    internal static Fin<ChangeReason> Of(RenderContent.ChangeContexts native, Op key) =>
-        key.Row<RenderContent.ChangeContexts, ChangeReason>(native, static value => (int)value);
+    internal static Fin<ChangeReason> Of(RenderContent.ChangeContexts native) =>
+        FactoryBridge.Row<RenderContent.ChangeContexts, ChangeReason>(native, static value => (int)value);
 }
 
 [SmartEnum<string>]
@@ -135,8 +135,8 @@ public sealed partial class ContentStyle : ICapability<ContentStyle> {
 
     internal int Bit { get; }
 
-    internal static Fin<CapabilitySet<ContentStyle>> Of(RenderContentStyles native, Op key) =>
-        CapabilitySet<ContentStyle>.OfMask(mask: (int)native, bit: static row => row.Bit, key: key);
+    internal static Fin<CapabilitySet<ContentStyle>> Of(RenderContentStyles native) =>
+        CapabilitySet<ContentStyle>.OfMask(mask: (int)native, bit: static row => row.Bit);
 }
 
 [SmartEnum<int>]
@@ -146,8 +146,8 @@ public sealed partial class ProxyKind {
     public static readonly ProxyKind Multi = new(key: (int)ProxyTypes.Multi);
     public static readonly ProxyKind Texture = new(key: (int)ProxyTypes.Texture);
 
-    internal static Fin<ProxyKind> Of(ProxyTypes native, Op key) =>
-        key.Row<ProxyTypes, ProxyKind>(native, static value => (int)value);
+    internal static Fin<ProxyKind> Of(ProxyTypes native) =>
+        FactoryBridge.Row<ProxyTypes, ProxyKind>(native, static value => (int)value);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -161,9 +161,9 @@ internal sealed class ChangeScope : IDisposable {
 
     public void Dispose() => content.EndChange();
 
-    internal static Fin<TOut> Write<TOut>(RenderContent content, ChangeReason reason, Func<RenderContent, Fin<TOut>> body, Op key) =>
-        Lease<ChangeScope>.Acquire(mint: () => new ChangeScope(content: content, reason: reason), key: key)
-            .Bind(scope => scope.Use(body: _ => body(arg: content), key: key));
+    internal static Fin<TOut> Write<TOut>(RenderContent content, ChangeReason reason, Func<RenderContent, Fin<TOut>> body) =>
+        Lease<ChangeScope>.Acquire(mint: () => new ChangeScope(content: content, reason: reason))
+            .Bind(scope => scope.Use(body: _ => body(arg: content)));
 }
 
 internal sealed class TableScope : IDisposable {
@@ -180,13 +180,13 @@ internal sealed class TableScope : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Bridge {
-    internal static Fin<TRow> Row<TRow, TNative>(this Op key, IEnumerable<TRow> rows, TNative native, Func<TRow, TNative> project)
+    internal static Fin<TRow> Row<TRow, TNative>(this , IEnumerable<TRow> rows, TNative native, Func<TRow, TNative> project)
         where TRow : class where TNative : notnull =>
         Optional(rows.FirstOrDefault(row => EqualityComparer<TNative>.Default.Equals(project(row), native)))
-            .ToFin(Fail: key.InvalidResult(detail: native.ToString() ?? string.Empty));
+            .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(native.ToString() ?? string.Empty)));
 
-    internal static Fin<Lease<RenderContent>> Minted(Func<RenderContent?> mint, Op key) =>
-        key.Catch(() => Optional(mint()).ToFin(Fail: key.InvalidResult()))
+    internal static Fin<Lease<RenderContent>> Minted(Func<RenderContent?> mint) =>
+        Try.lift(() => Optional(mint()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             .Map(static value => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: value));
 }
 ```
@@ -208,32 +208,30 @@ public abstract partial record ContentRef {
     private sealed record ById(Guid Value) : ContentRef;
     private sealed record AtSlot(Guid Root, Seq<string> Path) : ContentRef;
 
-    public static Fin<ContentRef> Of(Guid id, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<ContentRef> Of(Guid id) {
         return id != Guid.Empty
             ? Fin.Succ<ContentRef>(value: new ById(Value: id))
-            : Fin.Fail<ContentRef>(error: op.InvalidInput());
+            : Fin.Fail<ContentRef>(error: new KernelFault.InvalidInput());
     }
 
-    public static Fin<ContentRef> Of(Guid root, Op? key, params ReadOnlySpan<string> path) {
-        Op op = key.OrDefault();
-        return from _ in guard(root != Guid.Empty, op.InvalidInput())
-               from slots in toSeq(path.ToArray()).TraverseM(slot => op.AcceptText(value: slot)).As()
-               from __ in guard(!slots.IsEmpty, op.InvalidInput())
+    public static Fin<ContentRef> Of(Guid root, params ReadOnlySpan<string> path) {
+        return from _ in guard(root != Guid.Empty, new KernelFault.InvalidInput())
+               from slots in toSeq(path.ToArray()).TraverseM(slot => Acceptance.Text(value: slot)).As()
+               from __ in guard(!slots.IsEmpty, new KernelFault.InvalidInput())
                select (ContentRef)new AtSlot(Root: root, Path: slots);
     }
 
-    internal Fin<RenderContent> Resolve(RhinoDoc document, Op key) =>
+    internal Fin<RenderContent> Resolve(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
+            state: document,
             byId: static (ctx, address) =>
-                Optional(RenderContent.FromId(document: ctx.Document, id: address.Value)).ToFin(Fail: ctx.Op.MissingContext()),
+                Optional(RenderContent.FromId(document: ctx, id: address.Value)).ToFin(Fail: new KernelFault.MissingContext()),
             atSlot: static (ctx, address) =>
-                Optional(RenderContent.FromId(document: ctx.Document, id: address.Root)).ToFin(Fail: ctx.Op.MissingContext())
+                Optional(RenderContent.FromId(document: ctx, id: address.Root)).ToFin(Fail: new KernelFault.MissingContext())
                     .Bind(root => address.Path.Fold(
                         Fin.Succ(value: root),
                         (state, slot) => state.Bind(parent =>
-                            Optional(parent.FindChild(childSlotName: slot)).ToFin(Fail: ctx.Op.MissingContext())))));
+                            Optional(parent.FindChild(childSlotName: slot)).ToFin(Fail: new KernelFault.MissingContext())))));
 }
 ```
 
@@ -312,17 +310,16 @@ public sealed record HashProbe {
     public CapabilitySet<HashAxis> Axes { get; }
     public Seq<string> ExcludedParameters { get; }
 
-    public static Fin<HashProbe> Excluding(CapabilitySet<HashAxis> axes, Op? key, params ReadOnlySpan<string> parameters) {
-        Op op = key.OrDefault();
+    public static Fin<HashProbe> Excluding(CapabilitySet<HashAxis> axes, params ReadOnlySpan<string> parameters) {
         return toSeq(parameters.ToArray())
-            .TraverseM(parameter => op.AcceptText(value: parameter))
+            .TraverseM(parameter => Acceptance.Text(value: parameter))
             .As()
             .Map(excluded => new HashProbe(axes: axes, excludedParameters: excluded.Distinct()));
     }
 
-    internal Fin<HashWitness> Read(RenderContent content, Option<LinearWorkflow> workflow, Op key) {
+    internal Fin<HashWitness> Read(RenderContent content, Option<LinearWorkflow> workflow) {
         HashProbe self = this;
-        return key.Catch(() => Fin.Succ(value: new HashWitness(
+        return Try.lift(() => Fin.Succ(value: new HashWitness(
             Axes: self.Axes,
             Excluded: self.ExcludedParameters,
             Scope: HashScope.Of(documented: workflow.IsSome),
@@ -333,7 +330,7 @@ public sealed record HashProbe {
                 _ => content.RenderHashExclude(
                     flags: HashAxis.Flags(axes: self.Axes),
                     excludeParameterNames: string.Join(separator: ';', values: self.ExcludedParameters)),
-            })));
+            }))).Run().Bind(static inner => inner);
     }
 }
 
@@ -359,12 +356,12 @@ public sealed record ContentSnapshot(
     Option<string> SlotInParent,
     Seq<SlotState> Slots,
     int UseCount) : IDetachedDocumentResult {
-    public static Fin<ContentSnapshot> Of(RenderContent content, Op key) =>
-        key.Need(content).Bind(active => key.Catch(() =>
-            from kind in ContentKind.Of(content: active, key: key)
-            from styles in ContentStyle.Of(native: active.Styles, key: key)
-            from proxy in ProxyKind.Of(native: active.ProxyType, key: key)
-            from units in ModelUnit.Of(value: active.ModelUnits, key: key)
+    public static Fin<ContentSnapshot> Of(RenderContent content) =>
+        Admit.Need(content).Bind(active => Try.lift(() =>
+            from kind in ContentKind.Of(content: active)
+            from styles in ContentStyle.Of(native: active.Styles)
+            from proxy in ProxyKind.Of(native: active.ProxyType)
+            from units in ModelUnit.Of(value: active.ModelUnits)
             select new ContentSnapshot(
                 Key: active.Id,
                 TypeId: active.TypeId,
@@ -374,9 +371,9 @@ public sealed record ContentSnapshot(
                 DisplayName: active.DisplayName,
                 TypeName: active.TypeName,
                 TypeDescription: active.TypeDescription,
-                Notes: Op.Text(active.Notes),
-                Tags: Op.Text(active.Tags),
-                Category: Op.Text(active.Category),
+                Notes: HostEdge.Text(active.Notes),
+                Tags: HostEdge.Text(active.Tags),
+                Category: HostEdge.Text(active.Category),
                 Styles: styles,
                 Proxy: proxy,
                 Units: units,
@@ -384,9 +381,9 @@ public sealed record ContentSnapshot(
                 DocumentOwner: Optional(active.DocumentOwner).Map(static document => document.RuntimeSerialNumber),
                 DocumentAssociation: Optional(active.DocumentAssoc).Map(static document => document.RuntimeSerialNumber),
                 Parent: Optional(active.Parent).Map(static parent => parent.Id),
-                SlotInParent: Op.Text(active.ChildSlotName),
+                SlotInParent: HostEdge.Text(active.ChildSlotName),
                 Slots: SlotsOf(parent: active),
-                UseCount: active.UseCount())));
+                UseCount: active.UseCount())).Run().Bind(static inner => inner));
 
     private static Seq<SlotState> SlotsOf(RenderContent parent) =>
         toSeq(LanguageExt.List.unfold(
@@ -418,19 +415,19 @@ public abstract partial record ContentIo {
     private sealed record XmlCase(string Value) : ContentIo;
     private sealed record ArchiveCase(string Path) : ContentIo;
 
-    public static Fin<ContentIo> Xml(string value, Op? key = null) =>
+    public static Fin<ContentIo> Xml(string value) =>
         key.OrDefault().AcceptText(value: value).Map(static admitted => (ContentIo)new XmlCase(Value: admitted));
 
-    public static Fin<ContentIo> Archive(string path, Op? key = null) =>
+    public static Fin<ContentIo> Archive(string path) =>
         key.OrDefault().AcceptText(value: path).Map(static admitted => (ContentIo)new ArchiveCase(Path: admitted));
 
-    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document, Op key) =>
+    internal Fin<Lease<RenderContent>> Mint(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
+            state: document,
             xmlCase: static (ctx, source) =>
-                Bridge.Minted(mint: () => RenderContent.FromXml(xml: source.Value, doc: ctx.Document), key: ctx.Op),
+                Bridge.Minted(mint: () => RenderContent.FromXml(xml: source.Value, doc: ctx)),
             archiveCase: static (ctx, source) =>
-                Bridge.Minted(mint: () => RenderContent.LoadFromFile(filename: source.Path), key: ctx.Op));
+                Bridge.Minted(mint: () => RenderContent.LoadFromFile(filename: source.Path)));
 }
 ```
 

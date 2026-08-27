@@ -74,35 +74,35 @@ public abstract partial record DetailEdit {
     public sealed record Attach(ResourceId Detail) : DetailEdit;
     public sealed record Detach : DetailEdit;
 
-    internal Fin<Unit> Apply(Dimension dimension, Op key) => Switch(
-        (Dimension: dimension, Op: key),
-        attach: static (context, edit) => context.Op.Catch(() =>
-            Fin.Succ(value: Op.Side(() => context.Dimension.DetailMeasured = edit.Detail.Value))),
-        detach: static (context, _) => context.Op.Catch(() =>
-            Fin.Succ(value: Op.Side(() => context.Dimension.DetailMeasured = Guid.Empty))));
+    internal Fin<Unit> Apply(Dimension dimension) => Switch(
+        dimension,
+        attach: static (context, edit) => Try.lift(() =>
+            Fin.Succ(value: HostEdge.Side(() => context.DetailMeasured = edit.Detail.Value))).Run().Bind(static inner => inner),
+        detach: static (context, _) => Try.lift(() =>
+            Fin.Succ(value: HostEdge.Side(() => context.DetailMeasured = Guid.Empty))).Run().Bind(static inner => inner));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpanPoints(Point3d From, Point3d To, Point3d Line) {
-    internal Fin<Unit> Admit(Op key) => key.Accept(From, To, Line).Map(static _ => unit);
+    internal Fin<Unit> Admit() => Acceptance.Rows(From, To, Line).Map(static _ => unit);
 }
 
 public readonly record struct VertexPoints(Point3d Center, Point3d Def1, Point3d Def2, Point3d Line) {
-    internal Fin<Unit> Admit(Op key) => key.Accept(Center, Def1, Def2, Line).Map(static _ => unit);
+    internal Fin<Unit> Admit() => Acceptance.Rows(Center, Def1, Def2, Line).Map(static _ => unit);
 }
 
 public readonly record struct SpreadPoints(Point3d Ext1, Point3d Ext2, Point3d Dir1, Point3d Dir2, Point3d Line) {
-    internal Fin<Unit> Admit(Op key) => key.Accept(Ext1, Ext2, Dir1, Dir2, Line).Map(static _ => unit);
+    internal Fin<Unit> Admit() => Acceptance.Rows(Ext1, Ext2, Dir1, Dir2, Line).Map(static _ => unit);
 }
 
 public readonly record struct RadialPoints(Point3d Center, Point3d RadiusPoint, Point3d Line) {
-    internal Fin<Unit> Admit(Op key) => key.Accept(Center, RadiusPoint, Line).Map(static _ => unit);
+    internal Fin<Unit> Admit() => Acceptance.Rows(Center, RadiusPoint, Line).Map(static _ => unit);
 }
 
 public readonly record struct OrdinatePoints(Point3d Base, Point3d Def, Point3d Leader, double Kink1, double Kink2) {
-    internal Fin<Unit> Admit(Op key) =>
-        from _ in key.Accept(Base, Def, Leader)
-        from __ in key.Accept(Kink1, Kink2)
+    internal Fin<Unit> Admit() =>
+        from _ in Acceptance.Rows(Base, Def, Leader)
+        from __ in Acceptance.Rows(Kink1, Kink2)
         select unit;
 }
 
@@ -120,16 +120,15 @@ public sealed partial class DimFrame {
         ref Tolerance tolerance) {
         (Plane frame, Option<Vector3d> axis, Tolerance gate) = (plane, horizontal, tolerance);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-            (!frame.IsValid, static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Plane) }))),
-            (axis.Exists(static value => !value.IsValid || value.IsZero), static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Horizontal) }))),
-            (!axis.ForAll(value => value.IsPerpendicularTo(frame.Normal, gate.Value)), () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Horizontal), $"perpendicular to the frame normal within the {gate.Lane.Key} lane" })))));
+            (!frame.IsValid, static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Plane) }))),
+            (axis.Exists(static value => !value.IsValid || value.IsZero), static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Horizontal) }))),
+            (!axis.ForAll(value => value.IsPerpendicularTo(frame.Normal, gate.Value)), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Horizontal), $"perpendicular to the frame normal within the {gate.Lane.Key} lane" })))));
     }
 
     public static Fin<DimFrame> Of(
-        Plane plane, Context context, Option<Vector3d> horizontal = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from frame in op.AcceptValidated<DimFrame>(
+        Plane plane, Context context, Option<Vector3d> horizontal = default) {
+        return from domain in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
+               from frame in FactoryBridge.Accept<DimFrame>(
                    fault: Validate(plane, horizontal, domain.For(lane: ToleranceLane.Orientation), out DimFrame? admitted),
                    admitted: admitted)
                select frame;
@@ -152,65 +151,63 @@ public abstract partial record DimensionSpec {
     public sealed record MarkAt(DimFrame Frame, Point3d Center, double Radius) : DimensionSpec;
     public sealed record MarkOn(DimFrame Frame, GeometryHandle Source, double Parameter) : DimensionSpec;
 
-    internal Fin<Dimension> Mint(DimensionStyle style, Op op) =>
-        from _ in Admit(op)
-        from minted in op.Catch(() => Switch(
-                (Style: style, Op: op),
+    internal Fin<Dimension> Mint(DimensionStyle style) =>
+        from _ in Admit()
+        from minted in Try.lift(() => Switch(
+                style,
                 aligned: static (ctx, spec) => Fin.Succ<Dimension>(value: LinearDimension.Create(
-                    dimtype: AnnotationType.Aligned, dimStyle: ctx.Style, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
+                    dimtype: AnnotationType.Aligned, dimStyle: ctx, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
                     defpoint1: spec.Points.From, defpoint2: spec.Points.To, dimlinepoint: spec.Points.Line, rotationInPlane: 0.0)),
                 rotated: static (ctx, spec) => Fin.Succ<Dimension>(value: LinearDimension.Create(
-                    dimtype: AnnotationType.Rotated, dimStyle: ctx.Style, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
+                    dimtype: AnnotationType.Rotated, dimStyle: ctx, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
                     defpoint1: spec.Points.From, defpoint2: spec.Points.To, dimlinepoint: spec.Points.Line,
                     rotationInPlane: spec.RotationRadians)),
                 angularVertex: static (ctx, spec) => Fin.Succ<Dimension>(value: AngularDimension.Create(
-                    dimStyle: ctx.Style, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
+                    dimStyle: ctx, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
                     centerpoint: spec.Points.Center, defpoint1: spec.Points.Def1, defpoint2: spec.Points.Def2,
                     dimlinepoint: spec.Points.Line)),
                 angularSpread: static (ctx, spec) => Fin.Succ<Dimension>(value: AngularDimension.Create(
-                    dimStyle: ctx.Style, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
+                    dimStyle: ctx, plane: spec.Frame.Plane, horizontal: spec.Frame.Reference,
                     extpoint1: spec.Points.Ext1, extpoint2: spec.Points.Ext2, dirpoint1: spec.Points.Dir1,
                     dirpoint2: spec.Points.Dir2, dimlinepoint: spec.Points.Line)),
                 angularLines: static (ctx, spec) => Fin.Succ<Dimension>(value: AngularDimension.Create(
-                    dimStyle: ctx.Style, line1: spec.SideA, pointOnLine1: spec.OnA, line2: spec.SideB, pointOnLine2: spec.OnB,
+                    dimStyle: ctx, line1: spec.SideA, pointOnLine1: spec.OnA, line2: spec.SideB, pointOnLine2: spec.OnB,
                     pointOnAngularDimensionArc: spec.OnArc, bSetExtensionPoints: spec.Extension.Key)),
                 angularArc: static (ctx, spec) => Fin.Succ<Dimension>(
-                    value: new AngularDimension(arc: spec.Value, offset: spec.Offset) { ParentDimensionStyle = ctx.Style }),
+                    value: new AngularDimension(arc: spec.Value, offset: spec.Offset) { ParentDimensionStyle = ctx }),
                 radial: static (ctx, spec) => Fin.Succ<Dimension>(value: RadialDimension.Create(
-                    dimStyle: ctx.Style, dimtype: spec.Kind.Host, plane: spec.Frame.Plane,
+                    dimStyle: ctx, dimtype: spec.Kind.Host, plane: spec.Frame.Plane,
                     centerpoint: spec.Points.Center, radiuspoint: spec.Points.RadiusPoint, dimlinepoint: spec.Points.Line)),
                 ordinate: static (ctx, spec) => Fin.Succ<Dimension>(value: OrdinateDimension.Create(
-                    dimStyle: ctx.Style, plane: spec.Frame.Plane, direction: spec.Axis.Host,
+                    dimStyle: ctx, plane: spec.Frame.Plane, direction: spec.Axis.Host,
                     basepoint: spec.Points.Base, defpoint: spec.Points.Def, leaderpoint: spec.Points.Leader,
                     kinkoffset1: spec.Points.Kink1, kinkoffset2: spec.Points.Kink2)),
                 markAt: static (ctx, spec) => Fin.Succ<Dimension>(value: Centermark.Create(
-                    dimStyle: ctx.Style, plane: spec.Frame.Plane, centerPoint: spec.Center, radius: spec.Radius)),
-                markOn: static (ctx, spec) => spec.Source.Typed<Curve, Dimension>(key: ctx.Op, project: curve =>
+                    dimStyle: ctx, plane: spec.Frame.Plane, centerPoint: spec.Center, radius: spec.Radius)),
+                markOn: static (ctx, spec) => spec.Source.Typed<Curve, Dimension>(project: curve =>
                     from _ in guard(spec.Parameter >= curve.Domain.Min && spec.Parameter <= curve.Domain.Max,
-                        ctx.Op.InvalidInput()).ToFin()
+                        new KernelFault.InvalidInput()).ToFin()
                     from mark in Fin.Succ<Dimension>(value: Centermark.Create(
-                        dimStyle: ctx.Style, plane: spec.Frame.Plane, curve: curve, curveParameter: spec.Parameter))
-                    select mark)))
+                        dimStyle: ctx, plane: spec.Frame.Plane, curve: curve, curveParameter: spec.Parameter))
+                    select mark))).Run().Bind(static inner => inner)
         select minted;
 
-    private Fin<Unit> Admit(Op op) => Switch(
-        op,
-        aligned: static (key, spec) => spec.Points.Admit(key),
-        rotated: static (key, spec) => spec.Points.Admit(key).Bind(_ => key.Accept(spec.RotationRadians)).Map(static _ => unit),
-        angularVertex: static (key, spec) => spec.Points.Admit(key),
-        angularSpread: static (key, spec) => spec.Points.Admit(key),
+    private Fin<Unit> Admit() => Switch(aligned: static (key, spec) => spec.Points.Admit(),
+        rotated: static (key, spec) => spec.Points.Admit().Bind(_ => Acceptance.Rows(spec.RotationRadians)).Map(static _ => unit),
+        angularVertex: static (key, spec) => spec.Points.Admit(),
+        angularSpread: static (key, spec) => spec.Points.Admit(),
         angularLines: static (key, spec) =>
-            from lines in key.Accept(spec.SideA, spec.SideB)
-            from points in key.Accept(spec.OnA, spec.OnB, spec.OnArc)
+            from lines in Acceptance.Rows(spec.SideA, spec.SideB)
+            from points in Acceptance.Rows(spec.OnA, spec.OnB, spec.OnArc)
             select unit,
         angularArc: static (key, spec) =>
-            from arc in key.Accept(spec.Value)
-            from offset in key.Accept(spec.Offset)
+            from arc in Acceptance.Rows(spec.Value)
+            from offset in Acceptance.Rows(spec.Offset)
             select unit,
-        radial: static (key, spec) => spec.Points.Admit(key),
-        ordinate: static (key, spec) => spec.Points.Admit(key),
-        markAt: static (key, spec) => key.Accept(spec.Center).Bind(_ => key.Positive(value: spec.Radius)).Map(static _ => unit),
-        markOn: static (key, spec) => key.Accept(spec.Parameter).Map(static _ => unit));
+        radial: static (key, spec) => spec.Points.Admit(),
+        ordinate: static (key, spec) => spec.Points.Admit(),
+        markAt: static (key, spec) => Acceptance.Rows(spec.Center).Bind(_ => Admit.Positive(value: spec.Radius)).Map(static _ => unit),
+        markOn: static (key, spec) => Acceptance.Rows(spec.Parameter).Map(static _ => unit));
 }
 ```
 
@@ -236,17 +233,17 @@ public abstract partial record DimAdjust {
     public sealed record Ordinate(Plane Plane, OrdinateAxis Axis, OrdinatePoints Points) : DimAdjust;
     public sealed record Mark(Plane Plane, Point3d Center) : DimAdjust;
 
-    internal Fin<Unit> Apply(Dimension geometry, Op op) =>
-        Admit(op).Bind(_ => Switch(
-            (Geometry: geometry, Op: op),
+    internal Fin<Unit> Apply(Dimension geometry) =>
+        Admit().Bind(_ => Switch(
+            geometry,
             linear: static (ctx, fit) =>
-                from linear in ctx.Op.Need(ctx.Geometry as LinearDimension)
-                from _ in ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => linear.SetLocations(
-                    extensionLine1End: fit.Ext1End, extensionLine2End: fit.Ext2End, pointOnDimensionLine: fit.OnDimLine))))
+                from linear in Admit.Need(ctx as LinearDimension)
+                from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => linear.SetLocations(
+                    extensionLine1End: fit.Ext1End, extensionLine2End: fit.Ext2End, pointOnDimensionLine: fit.OnDimLine)))).Run().Bind(static inner => inner)
                 select unit,
             angularVertex: static (ctx, fit) =>
-                from angular in ctx.Op.Need(ctx.Geometry as AngularDimension)
-                from _ in ctx.Op.Confirm(success: angular.AdjustFromPoints(
+                from angular in Admit.Need(ctx as AngularDimension)
+                from _ in Admit.Confirm(success: angular.AdjustFromPoints(
                     plane: fit.Plane,
                     centerpoint: fit.Points.Center,
                     defpoint1: fit.Points.Def1,
@@ -254,8 +251,8 @@ public abstract partial record DimAdjust {
                     dimlinepoint: fit.Points.Line))
                 select unit,
             angularSpread: static (ctx, fit) =>
-                from angular in ctx.Op.Need(ctx.Geometry as AngularDimension)
-                from _ in ctx.Op.Confirm(success: angular.AdjustFromPoints(
+                from angular in Admit.Need(ctx as AngularDimension)
+                from _ in Admit.Confirm(success: angular.AdjustFromPoints(
                     plane: fit.Plane,
                     extpoint1: fit.Points.Ext1,
                     extpoint2: fit.Points.Ext2,
@@ -264,8 +261,8 @@ public abstract partial record DimAdjust {
                     dimlinepoint: fit.Points.Line))
                 select unit,
             radial: static (ctx, fit) =>
-                from radial in ctx.Op.Need(ctx.Geometry as RadialDimension)
-                from _ in ctx.Op.Confirm(success: radial.AdjustFromPoints(
+                from radial in Admit.Need(ctx as RadialDimension)
+                from _ in Admit.Confirm(success: radial.AdjustFromPoints(
                     plane: fit.Plane,
                     centerpoint: fit.Points.Center,
                     radiuspoint: fit.Points.RadiusPoint,
@@ -273,8 +270,8 @@ public abstract partial record DimAdjust {
                     rotationInPlane: fit.RotationRadians))
                 select unit,
             ordinate: static (ctx, fit) =>
-                from ordinate in ctx.Op.Need(ctx.Geometry as OrdinateDimension)
-                from _ in ctx.Op.Confirm(success: ordinate.AdjustFromPoints(
+                from ordinate in Admit.Need(ctx as OrdinateDimension)
+                from _ in Admit.Confirm(success: ordinate.AdjustFromPoints(
                     plane: fit.Plane,
                     direction: fit.Axis.Host,
                     basepoint: fit.Points.Base,
@@ -284,23 +281,21 @@ public abstract partial record DimAdjust {
                     kinkoffset2: fit.Points.Kink2))
                 select unit,
             mark: static (ctx, fit) =>
-                from mark in ctx.Op.Need(ctx.Geometry as Centermark)
-                from _ in ctx.Op.Confirm(success: mark.AdjustFromPoints(
+                from mark in Admit.Need(ctx as Centermark)
+                from _ in Admit.Confirm(success: mark.AdjustFromPoints(
                     plane: fit.Plane, centerPoint: fit.Center))
                 select unit));
 
-    private Fin<Unit> Admit(Op op) => Switch(
-        op,
-        linear: static (key, fit) => key.Accept(fit.Ext1End, fit.Ext2End, fit.OnDimLine).Map(static _ => unit),
-        angularVertex: static (key, fit) => key.Accept(fit.Plane).Bind(_ => fit.Points.Admit(key)),
-        angularSpread: static (key, fit) => key.Accept(fit.Plane).Bind(_ => fit.Points.Admit(key)),
+    private Fin<Unit> Admit() => Switch(linear: static (key, fit) => Acceptance.Rows(fit.Ext1End, fit.Ext2End, fit.OnDimLine).Map(static _ => unit),
+        angularVertex: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
+        angularSpread: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
         radial: static (key, fit) =>
-            from plane in key.Accept(fit.Plane)
-            from points in fit.Points.Admit(key)
-            from rotation in key.Accept(fit.RotationRadians)
+            from plane in Acceptance.Rows(fit.Plane)
+            from points in fit.Points.Admit()
+            from rotation in Acceptance.Rows(fit.RotationRadians)
             select unit,
-        ordinate: static (key, fit) => key.Accept(fit.Plane).Bind(_ => fit.Points.Admit(key)),
-        mark: static (key, fit) => key.Accept(fit.Plane).Bind(_ => key.Accept(fit.Center)).Map(static _ => unit));
+        ordinate: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
+        mark: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => Acceptance.Rows(fit.Center)).Map(static _ => unit));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -322,28 +317,28 @@ public sealed partial class DimPose {
         bool empty = position.IsNone && rotation.IsNone && textPoint.IsNone
             && plainUserText.IsNone && distanceScale.IsNone && detail.IsNone;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-            (empty, static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(DimPose) }))),
-            (position.Exists(static point => !point.IsValid), static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(TextPosition) }))),
-            (rotation.Exists(static value => !double.IsFinite(value)), () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(TextRotation), rotation.IfNone(double.NaN), "a finite radian rotation" })))));
+            (empty, static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(DimPose) }))),
+            (position.Exists(static point => !point.IsValid), static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(TextPosition) }))),
+            (rotation.Exists(static value => !double.IsFinite(value)), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(TextRotation), rotation.IfNone(double.NaN), "a finite radian rotation" })))));
     }
 
     public static Fin<DimPose> Of(
         Option<Point2d> textPosition = default, Option<double> textRotation = default,
         Option<TextPointMode> textPoint = default, Option<string> plainUserText = default,
-        Option<DraftScale> distanceScale = default, Option<DetailEdit> detail = default, Op? key = null) =>
+        Option<DraftScale> distanceScale = default, Option<DetailEdit> detail = default) =>
         key.OrDefault().AcceptValidated<DimPose>(
             fault: Validate(textPosition, textRotation, textPoint, plainUserText, distanceScale, detail, out DimPose? admitted),
             admitted: admitted);
 
-    internal Fin<Unit> Apply(Dimension geometry, Op key) =>
-        from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+    internal Fin<Unit> Apply(Dimension geometry) =>
+        from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
             TextPosition.Iter(position => geometry.TextPosition = position);
             TextRotation.Iter(rotation => geometry.TextRotation = rotation);
             TextPoint.Iter(mode => geometry.UseDefaultTextPoint = mode.Key);
             PlainUserText.Iter(text => geometry.PlainUserText = text);
             DistanceScale.Iter(scale => geometry.DistanceScale = scale.Value);
-        })))
-        from __ in Detail.Traverse(edit => edit.Apply(dimension: geometry, key: key)).As()
+        }))).Run().Bind(static inner => inner)
+        from __ in Detail.Traverse(edit => edit.Apply(dimension: geometry)).As()
         select unit;
 }
 ```
@@ -355,7 +350,7 @@ public sealed partial class DimPose {
 - Law: `LengthChannel` couples length-display selection with the matching zero-suppression reset as a row column — the page's rung-3 exemplar: the channel IS the behaviour, so no arm re-tests which of the two host members to call.
 - Law: absence never crosses as `null` — an optional attribute set and the unused history slot both project through the kernel's one host-slot spelling, so the boundary states which argument the host reads as "use the document's own".
 - Entry: `Dimensions.Commit` preserves the frozen wire and accepts the shared `DraftPlan<DimOp>` policy owner.
-- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/results` (`Op.ToHostSlot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
+- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/results` (`HostEdge.Slot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
 - Growth: a dimension verb is one case with its arm; the spine and every consumer read it unchanged.
 
 ```csharp
@@ -363,9 +358,9 @@ public sealed partial class DimPose {
 [SmartEnum]
 public sealed partial class LengthChannel {
     public static readonly LengthChannel Primary = new(apply: static (dimension, display) =>
-        Op.Side(() => dimension.SetDimensionLengthDisplayWithZeroSuppressionReset(display)));
+        HostEdge.Side(() => dimension.SetDimensionLengthDisplayWithZeroSuppressionReset(display)));
     public static readonly LengthChannel Alternate = new(apply: static (dimension, display) =>
-        Op.Side(() => dimension.SetAltDimensionLengthDisplayWithZeroSuppressionReset(display)));
+        HostEdge.Side(() => dimension.SetAltDimensionLengthDisplayWithZeroSuppressionReset(display)));
 
     [UseDelegateFromConstructor]
     internal partial Unit Apply(Dimension dimension, DimensionStyle.LengthDisplay display);
@@ -381,41 +376,40 @@ public abstract partial record DimOp {
     public sealed record Redisplay(TableTarget Target, LengthDisplayRow Display, LengthChannel Channel) : DimOp;
     public sealed record Style(TableTarget Target, AnnotationStyleOp Edit) : DimOp;
 
-    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
+    internal Fin<Unit> Apply(RhinoDoc document) => Switch(
+        document,
         place: static (ctx, edit) =>
-            from style in edit.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
-            from minted in edit.Spec.Mint(style: style, op: ctx.Op)
+            from style in edit.Style.Resolve(document: ctx, lens: StyleOp.Lens)
+            from minted in edit.Spec.Mint(style: style)
             from _ in new Lease<Dimension>.Owned(Value: minted).Use(owned =>
-                from _ in edit.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: ctx.Op).Map(static _ => unit)).As()
-                from __ in ctx.Op.Catch(() => ResourceId.Admit(ctx.Document.Objects.Add(
+                from _ in edit.Overrides.Traverse(patch => patch.Overlay(annotation: owned).Map(static _ => unit)).As()
+                from __ in Try.lift(() => ResourceId.Admit(ctx.Objects.Add(
                     geometry: owned,
-                    attributes: Op.ToHostSlot(edit.Attributes),
-                    history: Op.ToHostSlot(Option<HistoryRecord>.None),
-                    reference: false), ctx.Op))
+                    attributes: HostEdge.Slot(edit.Attributes),
+                    history: HostEdge.Slot(Option<HistoryRecord>.None),
+                    reference: false))).Run().Bind(static inner => inner)
                 select unit)
             select unit,
-        adjust: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
+        adjust: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => edit.Fit.Apply(geometry: dimension, op: key)),
-        repose: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
+        repose: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => edit.Pose.Apply(geometry: dimension, key: key)),
-        restate: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
-            (dimension, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => dimension.UpdateDimensionText(
+        restate: static (ctx, edit) => Amended(ctx, edit.Target,
+            (dimension, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => dimension.UpdateDimensionText(
                 dimension.DimensionStyle,
-                edit.Units.Map(static unit => unit.System).IfNone(ctx.Document.ModelUnitSystem)))))),
-        redisplay: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
-            (dimension, key) => key.Catch(() => Fin.Succ(value: edit.Channel.Apply(dimension, edit.Display.Host)))),
-        style: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
+                edit.Units.Map(static unit => unit.System).IfNone(ctx.ModelUnitSystem))))).Run().Bind(static inner => inner)),
+        redisplay: static (ctx, edit) => Amended(ctx, edit.Target,
+            (dimension, key) => Try.lift(() => Fin.Succ(value: edit.Channel.Apply(dimension, edit.Display.Host))).Run().Bind(static inner => inner)),
+        style: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => edit.Edit.Apply(annotation: dimension, op: key)));
 
     private static Fin<Unit> Amended(
         RhinoDoc document,
         TableTarget target,
-        Op op,
-        Func<Dimension, Op, Fin<Unit>> change) =>
-        TextOp.Reworked(document: document, target: target, op: op,
-            change: (annotation, key) => key.Need(annotation as Dimension)
-                .Bind(dimension => change(dimension, key)));
+        Func<Dimension, Fin<Unit>> change) =>
+        TextOp.Reworked(document: document, target: target,
+            change: (annotation, key) => Admit.Need(annotation as Dimension)
+                .Bind(dimension => change(dimension)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -426,10 +420,9 @@ public static class Dimensions {
             op: Op.Of(name: nameof(Dimensions)));
 
     public static Fin<DimAnswer> Ask(DocumentSession session, DimAsk request) {
-        Op op = Op.Of(name: nameof(Dimensions));
-        return from admitted in op.AcceptInput(value: request)
+        return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
                select answer;
     }
 }
@@ -492,136 +485,136 @@ public sealed partial class DimFamily {
     public static readonly DimFamily Linear = new(
         key: 0,
         probe: static geometry => geometry is LinearDimension,
-        facts: static (geometry, key) => key.Catch(() =>
-            from linear in key.Need(geometry as LinearDimension)
-            select (DimKindFacts)new DimKindFacts.Linear(linear.DistanceBetweenArrowTips)),
+        facts: static (geometry, key) => Try.lift(() =>
+            from linear in Admit.Need(geometry as LinearDimension)
+            select (DimKindFacts)new DimKindFacts.Linear(linear.DistanceBetweenArrowTips)).Run().Bind(static inner => inner),
         skeleton: static (geometry, scale, key) =>
-            from linear in key.Need(geometry as LinearDimension)
-            from points in key.Catch(() => linear.Get3dPoints(
+            from linear in Admit.Need(geometry as LinearDimension)
+            from points in Try.lift(() => linear.Get3dPoints(
                     out Point3d a, out Point3d b, out Point3d c, out Point3d d, out Point3d e, out Point3d f)
                 ? Fin.Succ(value: Seq(new DimPoint(DimPointRole.Extension1, a), new DimPoint(DimPointRole.Extension2, b),
                     new DimPoint(DimPointRole.Arrow1, c), new DimPoint(DimPointRole.Arrow2, d),
                     new DimPoint(DimPointRole.DimensionLine, e), new DimPoint(DimPointRole.Text, f)))
-                : Fin.Fail<Seq<DimPoint>>(key.InvalidResult()))
-            from lines in key.Catch(() => linear.GetDisplayLines(linear.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
+                : Fin.Fail<Seq<DimPoint>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from lines in Try.lift(() => linear.GetDisplayLines(linear.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
                 ? Fin.Succ(value: toSeq(rows))
-                : Fin.Fail<Seq<Line>>(key.InvalidResult()))
-            from box in TextBox(linear.GetTextRectangle, key)
+                : Fin.Fail<Seq<Line>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from box in TextBox(linear.GetTextRectangle)
             select new DimSkeleton(points, lines, Seq<Arc>(), box),
         text: static (geometry, units, key) =>
-            from linear in key.Need(geometry as LinearDimension)
-            from value in key.Catch(() => key.AcceptText(linear.GetDistanceDisplayText(units, linear.DimensionStyle)))
+            from linear in Admit.Need(geometry as LinearDimension)
+            from value in Try.lift(() => Acceptance.Text(linear.GetDistanceDisplayText(units, linear.DimensionStyle))).Run().Bind(static inner => inner)
             select value);
 
     public static readonly DimFamily Angular = new(
         key: 1,
         probe: static geometry => geometry is AngularDimension,
-        facts: static (geometry, key) => key.Catch(() =>
-            from angular in key.Need(geometry as AngularDimension)
+        facts: static (geometry, key) => Try.lift(() =>
+            from angular in Admit.Need(geometry as AngularDimension)
             select (DimKindFacts)new DimKindFacts.Angular(
                 StyleValue.Of(angular.AngleFormat), angular.AngleResolution, angular.AngleRoundoff,
-                StyleValue.Of(angular.AngleZeroSuppression))),
+                StyleValue.Of(angular.AngleZeroSuppression))).Run().Bind(static inner => inner),
         skeleton: static (geometry, scale, key) =>
-            from angular in key.Need(geometry as AngularDimension)
-            from points in key.Catch(() => angular.Get3dPoints(
+            from angular in Admit.Need(geometry as AngularDimension)
+            from points in Try.lift(() => angular.Get3dPoints(
                     out Point3d a, out Point3d b, out Point3d c, out Point3d d, out Point3d e, out Point3d f, out Point3d g)
                 ? Fin.Succ(value: Seq(new DimPoint(DimPointRole.Center, a), new DimPoint(DimPointRole.Definition1, b),
                     new DimPoint(DimPointRole.Definition2, c), new DimPoint(DimPointRole.DimensionLine, d),
                     new DimPoint(DimPointRole.Arrow1, e), new DimPoint(DimPointRole.Arrow2, f), new DimPoint(DimPointRole.Text, g)))
-                : Fin.Fail<Seq<DimPoint>>(key.InvalidResult()))
-            from display in key.Catch(() => angular.GetDisplayLines(angular.DimensionStyle, scale.Value, out Line[] lines, out Arc[] arcs)
+                : Fin.Fail<Seq<DimPoint>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from display in Try.lift(() => angular.GetDisplayLines(angular.DimensionStyle, scale.Value, out Line[] lines, out Arc[] arcs)
                 ? Fin.Succ(value: (Lines: toSeq(lines), Arcs: toSeq(arcs)))
-                : Fin.Fail<(Seq<Line> Lines, Seq<Arc> Arcs)>(key.InvalidResult()))
-            from box in TextBox(angular.GetTextRectangle, key)
+                : Fin.Fail<(Seq<Line> Lines, Seq<Arc> Arcs)>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from box in TextBox(angular.GetTextRectangle)
             select new DimSkeleton(points, display.Lines, display.Arcs, box),
         text: static (geometry, _, key) =>
-            from angular in key.Need(geometry as AngularDimension)
-            from value in key.Catch(() => key.AcceptText(angular.GetAngleDisplayText(angular.DimensionStyle)))
+            from angular in Admit.Need(geometry as AngularDimension)
+            from value in Try.lift(() => Acceptance.Text(angular.GetAngleDisplayText(angular.DimensionStyle))).Run().Bind(static inner => inner)
             select value);
 
     public static readonly DimFamily Radial = new(
         key: 2,
         probe: static geometry => geometry is RadialDimension,
-        facts: static (geometry, key) => key.Catch(() =>
-            from radial in key.Need(geometry as RadialDimension)
+        facts: static (geometry, key) => Try.lift(() =>
+            from radial in Admit.Need(geometry as RadialDimension)
             select (DimKindFacts)new DimKindFacts.Radial(
                 StyleValue.Of(radial.LeaderTextHorizontalAlignment),
                 StyleValue.Of(radial.LeaderArrowType),
                 radial.LeaderArrowSize,
                 ResourceId.Maybe(radial.LeaderArrowBlockId),
-                StyleValue.Of(radial.LeaderCurveStyle))),
+                StyleValue.Of(radial.LeaderCurveStyle))).Run().Bind(static inner => inner),
         skeleton: static (geometry, scale, key) =>
-            from radial in key.Need(geometry as RadialDimension)
-            from points in key.Catch(() => radial.Get3dPoints(
+            from radial in Admit.Need(geometry as RadialDimension)
+            from points in Try.lift(() => radial.Get3dPoints(
                     out Point3d a, out Point3d b, out Point3d c, out Point3d d)
                 ? Fin.Succ(value: Seq(new DimPoint(DimPointRole.Center, a), new DimPoint(DimPointRole.Radius, b),
                     new DimPoint(DimPointRole.DimensionLine, c), new DimPoint(DimPointRole.Knee, d)))
-                : Fin.Fail<Seq<DimPoint>>(key.InvalidResult()))
-            from lines in key.Catch(() => radial.GetDisplayLines(radial.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
+                : Fin.Fail<Seq<DimPoint>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from lines in Try.lift(() => radial.GetDisplayLines(radial.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
                 ? Fin.Succ(value: toSeq(rows))
-                : Fin.Fail<Seq<Line>>(key.InvalidResult()))
-            from box in TextBox(radial.GetTextRectangle, key)
+                : Fin.Fail<Seq<Line>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from box in TextBox(radial.GetTextRectangle)
             select new DimSkeleton(points, lines, Seq<Arc>(), box),
         text: static (geometry, units, key) =>
-            from radial in key.Need(geometry as RadialDimension)
-            from value in key.Catch(() => key.AcceptText(radial.GetDistanceDisplayText(units, radial.DimensionStyle)))
+            from radial in Admit.Need(geometry as RadialDimension)
+            from value in Try.lift(() => Acceptance.Text(radial.GetDistanceDisplayText(units, radial.DimensionStyle))).Run().Bind(static inner => inner)
             select value);
 
     public static readonly DimFamily Ordinate = new(
         key: 3,
         probe: static geometry => geometry is OrdinateDimension,
-        facts: static (geometry, key) => key.Catch(() =>
-            from ordinate in key.Need(geometry as OrdinateDimension)
-            from axis in key.AcceptValidated<OrdinateAxis>(candidate: (int)ordinate.Direction)
-            select (DimKindFacts)new DimKindFacts.Ordinate(axis, ordinate.KinkOffset1, ordinate.KinkOffset2)),
+        facts: static (geometry, key) => Try.lift(() =>
+            from ordinate in Admit.Need(geometry as OrdinateDimension)
+            from axis in FactoryBridge.Accept<OrdinateAxis>(candidate: (int)ordinate.Direction)
+            select (DimKindFacts)new DimKindFacts.Ordinate(axis, ordinate.KinkOffset1, ordinate.KinkOffset2)).Run().Bind(static inner => inner),
         skeleton: static (geometry, scale, key) =>
-            from ordinate in key.Need(geometry as OrdinateDimension)
-            from points in key.Catch(() => ordinate.Get3dPoints(
+            from ordinate in Admit.Need(geometry as OrdinateDimension)
+            from points in Try.lift(() => ordinate.Get3dPoints(
                     out Point3d a, out Point3d b, out Point3d c, out Point3d d, out Point3d e)
                 ? Fin.Succ(value: Seq(new DimPoint(DimPointRole.Definition1, a), new DimPoint(DimPointRole.Leader, b),
                     new DimPoint(DimPointRole.Kink1, c), new DimPoint(DimPointRole.Kink2, d), new DimPoint(DimPointRole.Text, e)))
-                : Fin.Fail<Seq<DimPoint>>(key.InvalidResult()))
-            from lines in key.Catch(() => ordinate.GetDisplayLines(ordinate.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
+                : Fin.Fail<Seq<DimPoint>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from lines in Try.lift(() => ordinate.GetDisplayLines(ordinate.DimensionStyle, scale.Value, out IEnumerable<Line> rows)
                 ? Fin.Succ(value: toSeq(rows))
-                : Fin.Fail<Seq<Line>>(key.InvalidResult()))
-            from box in TextBox(ordinate.GetTextRectangle, key)
+                : Fin.Fail<Seq<Line>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from box in TextBox(ordinate.GetTextRectangle)
             select new DimSkeleton(points, lines, Seq<Arc>(), box),
         text: static (geometry, units, key) =>
-            from ordinate in key.Need(geometry as OrdinateDimension)
-            from value in key.Catch(() => key.AcceptText(ordinate.GetDistanceDisplayText(units, ordinate.DimensionStyle)))
+            from ordinate in Admit.Need(geometry as OrdinateDimension)
+            from value in Try.lift(() => Acceptance.Text(ordinate.GetDistanceDisplayText(units, ordinate.DimensionStyle))).Run().Bind(static inner => inner)
             select value);
 
     public static readonly DimFamily Mark = new(
         key: 4,
         probe: static geometry => geometry is Centermark,
-        facts: static (geometry, key) => key.Catch(() =>
-            from mark in key.Need(geometry as Centermark)
-            select (DimKindFacts)new DimKindFacts.Mark(mark.Radius)),
-        skeleton: static (geometry, _, key) => Fin.Fail<DimSkeleton>(error: key.Unsupported(
-            valueType: geometry.GetType(), outputType: typeof(DimSkeleton))),
-        text: static (geometry, _, key) => Fin.Fail<string>(error: key.Unsupported(
-            valueType: geometry.GetType(), outputType: typeof(string))));
+        facts: static (geometry, key) => Try.lift(() =>
+            from mark in Admit.Need(geometry as Centermark)
+            select (DimKindFacts)new DimKindFacts.Mark(mark.Radius)).Run().Bind(static inner => inner),
+        skeleton: static (geometry, _, key) => Fin.Fail<DimSkeleton>(error: new KernelFault.Unsupported(
+            valueType: geometry.GetType(), OutputType: typeof(DimSkeleton))),
+        text: static (geometry, _, key) => Fin.Fail<string>(error: new KernelFault.Unsupported(
+            valueType: geometry.GetType(), OutputType: typeof(string))));
 
     [UseDelegateFromConstructor]
     internal partial bool Probe(Dimension geometry);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<DimKindFacts> Facts(Dimension geometry, Op key);
+    internal partial Fin<DimKindFacts> Facts(Dimension geometry);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<DimSkeleton> Skeleton(Dimension geometry, DraftScale scale, Op key);
+    internal partial Fin<DimSkeleton> Skeleton(Dimension geometry, DraftScale scale);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<string> Text(Dimension geometry, UnitSystem units, Op key);
+    internal partial Fin<string> Text(Dimension geometry, UnitSystem units);
 
-    internal static Fin<DimFamily> Of(Dimension geometry, Op key) =>
+    internal static Fin<DimFamily> Of(Dimension geometry) =>
         toSeq(Items).Find(row => row.Probe(geometry: geometry))
-            .ToFin(Fail: key.Unsupported(valueType: geometry.GetType(), outputType: typeof(DimFamily)));
+            .ToFin(Fail: new KernelFault.Unsupported(valueType: geometry.GetType(), OutputType: typeof(DimFamily)));
 
     private delegate bool TextRectProbe(out Point3d[] corners);
 
-    private static Fin<Arr<Point3d>> TextBox(TextRectProbe probe, Op key) => key.Catch(() =>
-        probe(out Point3d[] corners) ? Fin.Succ(value: toArray(corners)) : Fin.Fail<Arr<Point3d>>(key.InvalidResult()));
+    private static Fin<Arr<Point3d>> TextBox(TextRectProbe probe) => Try.lift(() =>
+        probe(out Point3d[] corners) ? Fin.Succ(value: toArray(corners)) : Fin.Fail<Arr<Point3d>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -651,60 +644,58 @@ public abstract partial record DimAsk {
     public sealed record TextTransform(TableTarget Target, ViewportInfo Viewport, DraftScale Scale, TextFacing Facing) : DimAsk;
     public sealed record Pieces(TableTarget Target) : DimAsk;
 
-    internal Fin<DimAnswer> Answer(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
+    internal Fin<DimAnswer> Answer(RhinoDoc document) => Switch(
+        document,
         state: static (ctx, ask) =>
-            from dimension in Resolved(ctx.Document, ask.Target, ctx.Op)
-            from annotation in TextState.Of(native: dimension.Native, key: ctx.Op)
-            from kind in ctx.Op.AcceptValidated<AnnotationKind>(candidate: (int)dimension.Geometry.AnnotationType)
-            from _ in guard(kind.Measures, ctx.Op.InvalidResult(detail: kind.Key.ToString(CultureInfo.InvariantCulture)))
-            from family in DimFamily.Of(geometry: dimension.Geometry, key: ctx.Op)
-            from facts in family.Facts(geometry: dimension.Geometry, key: ctx.Op)
-            from mode in ctx.Op.AcceptValidated<TextPointMode>(candidate: dimension.Geometry.UseDefaultTextPoint)
-            from scale in ctx.Op.AcceptValidated<DraftScale>(candidate: dimension.Geometry.DistanceScale)
+            from dimension in Resolved(ctx, ask.Target)
+            from annotation in TextState.Of(native: dimension.Native)
+            from kind in FactoryBridge.Accept<AnnotationKind>(candidate: (int)dimension.Geometry.AnnotationType)
+            from _ in guard(kind.Measures, new KernelFault.InvalidResult(Detail: Some(kind.Key.ToString(CultureInfo.InvariantCulture))))
+            from family in DimFamily.Of(geometry: dimension.Geometry)
+            from facts in family.Facts(geometry: dimension.Geometry)
+            from mode in FactoryBridge.Accept<TextPointMode>(candidate: dimension.Geometry.UseDefaultTextPoint)
+            from scale in FactoryBridge.Accept<DraftScale>(candidate: dimension.Geometry.DistanceScale)
             from settings in toSeq(StyleField.Items)
-                .TraverseM(field => field.Read(style: dimension.Geometry.DimensionStyle, key: ctx.Op)
+                .TraverseM(field => field.Read(style: dimension.Geometry.DimensionStyle)
                     .Map(value => new StyleSetting(Field: field, Value: value)))
                 .As()
             select (DimAnswer)new DimAnswer.State(new DimState(
                 annotation, kind, family, dimension.Geometry.NumericValue,
-                Op.Text(dimension.Geometry.PlainUserText),
+                HostEdge.Text(dimension.Geometry.PlainUserText),
                 dimension.Geometry.TextPosition, dimension.Geometry.TextRotation, mode,
                 ResourceId.Maybe(dimension.Geometry.DetailMeasured),
                 scale, dimension.Geometry.DimensionScale,
                 dimension.Geometry.DimensionStyle.DimensionScaleValue, settings, facts)),
         skeleton: static (ctx, ask) =>
-            from dimension in Resolved(ctx.Document, ask.Target, ctx.Op)
-            from family in DimFamily.Of(geometry: dimension.Geometry, key: ctx.Op)
-            from skeleton in family.Skeleton(geometry: dimension.Geometry, scale: ask.Scale, key: ctx.Op)
+            from dimension in Resolved(ctx, ask.Target)
+            from family in DimFamily.Of(geometry: dimension.Geometry)
+            from skeleton in family.Skeleton(geometry: dimension.Geometry, scale: ask.Scale)
             select (DimAnswer)new DimAnswer.Skeleton(skeleton),
         valueText: static (ctx, ask) =>
-            from dimension in Resolved(ctx.Document, ask.Target, ctx.Op)
-            from family in DimFamily.Of(geometry: dimension.Geometry, key: ctx.Op)
+            from dimension in Resolved(ctx, ask.Target)
+            from family in DimFamily.Of(geometry: dimension.Geometry)
             from text in family.Text(
                 geometry: dimension.Geometry,
-                units: ask.Units.Map(static unit => unit.System).IfNone(ctx.Document.ModelUnitSystem),
-                key: ctx.Op)
+                units: ask.Units.Map(static unit => unit.System).IfNone(ctx.ModelUnitSystem))
             select (DimAnswer)new DimAnswer.Formatted(text),
         textTransform: static (ctx, ask) =>
-            from dimension in Resolved(ctx.Document, ask.Target, ctx.Op)
-            from transform in ctx.Op.Catch(() => Fin.Succ(value: dimension.Geometry.GetTextTransform(
+            from dimension in Resolved(ctx, ask.Target)
+            from transform in Try.lift(() => Fin.Succ(value: dimension.Geometry.GetTextTransform(
                 viewport: ask.Viewport, style: dimension.Geometry.DimensionStyle,
-                textScale: ask.Scale.Value, drawForward: ask.Facing.Key)))
+                textScale: ask.Scale.Value, drawForward: ask.Facing.Key))).Run().Bind(static inner => inner)
             select (DimAnswer)new DimAnswer.Transformed(transform),
         pieces: static (ctx, ask) =>
-            from dimension in Resolved(ctx.Document, ask.Target, ctx.Op)
-            from products in ctx.Op.Catch(() => Optional(dimension.Geometry.Explode())
-                .Map(static values => toSeq(values)).ToFin(Fail: ctx.Op.InvalidResult()))
-            from handles in DraftCrossing.Crossed(products: products, op: ctx.Op)
+            from dimension in Resolved(ctx, ask.Target)
+            from products in Try.lift(() => Optional(dimension.Geometry.Explode())
+                .Map(static values => toSeq(values)).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            from handles in DraftCrossing.Crossed(products: products)
             select (DimAnswer)new DimAnswer.Pieces(handles));
 
     private static Fin<(AnnotationObjectBase Native, Dimension Geometry)> Resolved(
         RhinoDoc document,
-        TableTarget target,
-        Op key) =>
-        from annotation in TextAsk.Single(document: document, target: target, key: key)
-        from dimension in key.Need(annotation.AnnotationGeometry as Dimension)
+        TableTarget target) =>
+        from annotation in TextAsk.Single(document: document, target: target)
+        from dimension in Admit.Need(annotation.AnnotationGeometry as Dimension)
         select (annotation, dimension);
 }
 
@@ -717,10 +708,10 @@ public abstract partial record DimAnswer : IDetachedDocumentResult {
     public sealed record Transformed(Transform Value) : DimAnswer;
     public sealed record Pieces(Seq<GeometryHandle> Products) : DimAnswer;
 
-    public Fin<Unit> Release(Op? key = null) => SwitchPartially(
+    public Fin<Unit> Release() => SwitchPartially(
         context: key.OrDefault(),
         @default: static (_, _) => Fin.Succ(value: unit),
-        pieces: static (op, row) => Custody.Dispose(held: row.Products, key: op));
+        pieces: static (row) => Custody.Dispose(held: row.Products));
 }
 ```
 

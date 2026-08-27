@@ -70,7 +70,7 @@ public sealed partial class SimplifyMode {
     public static readonly SimplifyMode FeaturePreserve = new("feature-preserve", traits: CapabilitySet<SimplifyTrait>.Of(SimplifyTrait.Reversible, SimplifyTrait.Topology), weigh: Simplify.FeaturePins);
     public CapabilitySet<SimplifyTrait> Traits { get; }
     [UseDelegateFromConstructor]
-    public partial Fin<Unit> Weigh(SimplifyOp op, Context context, Op key, Memory<double> plane);
+    public partial Fin<Unit> Weigh(SimplifyOp op, Context context, Memory<double> plane);
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -116,13 +116,12 @@ public sealed record SimplifyPolicy {
         Option<FaceTarget> target = default, Option<double> hausdorffCeiling = default, Option<double> boundaryPenalty = default,
         Option<double> featurePinWeight = default, Option<double> creaseDihedral = default, Option<double> curvatureGain = default,
         Option<Dimension> voxelResolution = default, Option<Dimension> hausdorffSamplesPerFace = default,
-        Option<long> seed = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return (boundaryPenalty.Traverse(value => op.AcceptValidated<PositiveMagnitude>(candidate: value).ToValidation()).As(),
-                featurePinWeight.Traverse(value => op.AcceptValidated<PositiveMagnitude>(candidate: value).ToValidation()).As(),
-                curvatureGain.Traverse(value => op.AcceptValidated<PositiveMagnitude>(candidate: value).ToValidation()).As(),
-                hausdorffCeiling.Traverse(value => op.AcceptValidated<PositiveMagnitude>(candidate: value).ToValidation()).As(),
-                creaseDihedral.Traverse(value => op.AcceptValidated<VectorAngle>(candidate: value).ToValidation()).As())
+        Option<long> seed = default) {
+        return (boundaryPenalty.Traverse(value => FactoryBridge.Accept<PositiveMagnitude>(candidate: value).ToValidation()).As(),
+                featurePinWeight.Traverse(value => FactoryBridge.Accept<PositiveMagnitude>(candidate: value).ToValidation()).As(),
+                curvatureGain.Traverse(value => FactoryBridge.Accept<PositiveMagnitude>(candidate: value).ToValidation()).As(),
+                hausdorffCeiling.Traverse(value => FactoryBridge.Accept<PositiveMagnitude>(candidate: value).ToValidation()).As(),
+                creaseDihedral.Traverse(value => FactoryBridge.Accept<VectorAngle>(candidate: value).ToValidation()).As())
             .Apply(static (penalty, pin, gain, ceiling, crease) => (Penalty: penalty, Pin: pin, Gain: gain, Ceiling: ceiling, Crease: crease))
             .As().ToFin()
             .Bind(admitted => {
@@ -130,7 +129,7 @@ public sealed record SimplifyPolicy {
                 VectorAngle angle = admitted.Crease.IfNone(Canonical.CreaseDihedral);
                 (Dimension cells, Dimension samples) = (voxelResolution.IfNone(Canonical.VoxelResolution), hausdorffSamplesPerFace.IfNone(Canonical.HausdorffSamplesPerFace));
                 return guard((selected.IsFraction || selected.IsFaces) && angle.Value < Math.PI && cells.Value >= 2
-                             && samples.Value >= 1, op.InvalidInput())
+                             && samples.Value >= 1, new KernelFault.InvalidInput())
                     .ToFin()
                     .Map(_ => new SimplifyPolicy(selected, admitted.Ceiling, admitted.Penalty.IfNone(Canonical.BoundaryPenalty),
                         admitted.Pin.IfNone(Canonical.FeaturePinWeight), angle, admitted.Gain.IfNone(Canonical.CurvatureGain),
@@ -152,14 +151,14 @@ public sealed record DecimationResult(
     CapabilitySet<SimplifyTrait> Traits,
     Seq<FeatureEdge> Features,
     Seq<VertexSplit> Splits) {
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         DecimationResult self = this;
-        return ResultProjection.Rows<DecimationResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<DecimationResult, TOut>(self: self,
             ProjectionRow.Of<MeshSpace>(() => Fin.Succ(self.Mesh)),
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Features)),
             ProjectionRow.Of<Seq<VertexSplit>>(() => self.Traits.Admits(SimplifyTrait.Reversible)
                 ? Fin.Succ(self.Splits)
-                : Fin.Fail<Seq<VertexSplit>>(key.Unsupported(inputType: typeof(DecimationResult), outputType: typeof(Seq<VertexSplit>)))));
+                : Fin.Fail<Seq<VertexSplit>>(new KernelFault.Unsupported(InputType: typeof(DecimationResult), OutputType: typeof(Seq<VertexSplit>)))));
     }
 }
 
@@ -249,7 +248,7 @@ public static class Simplify {
             static void Bump(Dictionary<long, (int, int)> fan, int a, int b, int f) {
                 (int lo, int hi) = a < b ? (a, b) : (b, a);
                 long key = ((long)lo << 32) | (uint)hi;
-                fan[key] = fan.TryGetValue(key, out (int Count, int Face) row) ? (row.Count + 1, row.Face) : (1, f);
+                fan[key] = fan.TryGetValue(out (int Count, int Face) row) ? (row.Count + 1, row.Face) : (1, f);
             }
         }
 
@@ -266,8 +265,7 @@ public static class Simplify {
         ReferenceLane: "scalar Math.Max fold over the same pooled plane",
         SpeedupFloor: 1.0);
 
-    public static Fin<DecimationResult> Apply(SimplifyOp op, Op? key = null) {
-        Op token = key.OrDefault();
+    public static Fin<DecimationResult> Apply(SimplifyOp op) {
         Context context = op.Mesh.Tolerance;
         return (op.Mode.Traits.Admits(SimplifyTrait.Resample)
                 ? Voxelize(op.Mesh, op.Policy, context, token)
@@ -278,26 +276,26 @@ public static class Simplify {
                 int target = op.Policy.Target.Count(store.Live);
                 return store.Live == 0
                     ? Fin.Fail<DecimationResult>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "decimation: no live faces"))
-                    : Collapse(store, edit, op, target, context, token)
-                        .Bind(_ => Emit(store, edit, op, target, context, token));
+                    : Collapse(store, edit, target, context, token)
+                        .Bind(_ => Emit(store, edit, target, context, token));
             });
     }
 
     // --- [COLLAPSE]
-    static Fin<Unit> Collapse(QuadricStore store, MeshEdit edit, SimplifyOp op, int target, Context context, Op key) {
+    static Fin<Unit> Collapse(QuadricStore store, MeshEdit edit, SimplifyOp op, int target, Context context) {
         using MemoryOwner<double> weights = MemoryOwner<double>.Allocate(edit.VertexCount, AllocationMode.Clear);
-        return op.Mode.Weigh(op, context, key, weights.Memory).Bind(_ => {
+        return op.Mode.Weigh(context, weights.Memory).Bind(_ => {
             Accumulate(store, edit, weights.Memory, op.Policy);
             for (int u = 0; u < edit.VertexCount; u++) {
                 if (!store.Alive(u)) continue;
                 foreach (int v in store.Ring[u]) {
-                    if (v > u && store.Alive(v)) Enqueue(store, edit, u, v, key);
+                    if (v > u && store.Alive(v)) Enqueue(store, edit, u, v);
                 }
             }
             while (store.Live > target && store.Pq.TryDequeue(out Edge edge, out double _)) {
                 if (!store.Alive(edge.U) || !store.Alive(edge.V)
                     || store.Versions[edge.U] != edge.VersionU || store.Versions[edge.V] != edge.VersionV) continue;
-                if (CollapseValid(store, edit, edge.U, edge.V, edge.Target)) ApplyCollapse(store, edit, edge, key);
+                if (CollapseValid(store, edit, edge.U, edge.V, edge.Target)) ApplyCollapse(store, edit, edge);
             }
             return store.Live <= target
                 ? Fin.Succ(unit)
@@ -350,16 +348,15 @@ public static class Simplify {
         }
     }
 
-    static void Enqueue(QuadricStore store, MeshEdit edit, int u, int v, Op key) {
+    static void Enqueue(QuadricStore store, MeshEdit edit, int u, int v) {
         if (!store.Alive(u) || !store.Alive(v)) return;
         Quadric q = store.Quadrics[u] + store.Quadrics[v];
         (Point3d a, Point3d b) = (edit.Position(u), edit.Position(v));
         Fin<Arr<double>> solve = SymmetricMatrix.Of(
                 dim: Dimension.Create(3),
-                upper: new Arr<double>([(double)q.A00, (double)q.A01, (double)q.A02, (double)q.A11, (double)q.A12, (double)q.A22]),
-                key: key)
-            .Bind(matrix => matrix.DecomposeCholesky(key: key))
-            .Bind(cholesky => cholesky.SolveDetailed(new Arr<double>([(double)(-q.A03), (double)(-q.A13), (double)(-q.A23)]), key))
+                upper: new Arr<double>([(double)q.A00, (double)q.A01, (double)q.A02, (double)q.A11, (double)q.A12, (double)q.A22]))
+            .Bind(matrix => matrix.DecomposeCholesky())
+            .Bind(cholesky => cholesky.SolveDetailed(new Arr<double>([(double)(-q.A03), (double)(-q.A13), (double)(-q.A23)])))
             .Map(static result => result.Solution);
         (Point3d target, bool midpoint) = solve.Match(
             Succ: x => (new Point3d(x[0], x[1], x[2]), false),
@@ -397,7 +394,7 @@ public static class Simplify {
 
     static bool Touches(int a, int b, int c, int v) => a == v || b == v || c == v;
 
-    static void ApplyCollapse(QuadricStore store, MeshEdit edit, Edge edge, Op key) {
+    static void ApplyCollapse(QuadricStore store, MeshEdit edit, Edge edge) {
         (int u, int v, Point3d target) = (edge.U, edge.V, edge.Target);
         if (edge.UsedMidpoint) store.Midpoints++;
         store.Splits.Add(new VertexSplit(u, v, edit.Position(u), edit.Position(v), edge.Cost));
@@ -424,7 +421,7 @@ public static class Simplify {
         store.valid.Span[v] = false;
         store.Versions[u]++;
         foreach (int w in store.Ring[u]) {
-            if (store.Alive(w)) Enqueue(store, edit, u, w, key);
+            if (store.Alive(w)) Enqueue(store, edit, u, w);
         }
     }
 
@@ -434,11 +431,11 @@ public static class Simplify {
         return Fin.Succ(unit);
     }
 
-    internal static Fin<Unit> Curvature(SimplifyOp op, Context context, Op key, Memory<double> plane) =>
+    internal static Fin<Unit> Curvature(SimplifyOp op, Context context, Memory<double> plane) =>
         Uniform(plane).Bind(_ =>
             VectorCloud.Cluster(toSeq(Enumerable.Range(0, op.Mesh.Native.Vertices.Count)
                 .Select(index => (Point3d)op.Mesh.Native.Vertices[index])), context)
-                .Bind(cloud => VectorCloudMetric.PrincipalCurvature.Project<CurvatureResult>(cloud: cloud, policy: Option<NeighborhoodPolicy>.None, key: key))
+                .Bind(cloud => VectorCloudMetric.PrincipalCurvature.Project<CurvatureResult>(cloud: cloud, policy: Option<NeighborhoodPolicy>.None))
                 .Map(curvature => {
                     Span<double> w = plane.Span;
                     foreach (CurvatureSample sample in curvature.Samples) {
@@ -447,10 +444,10 @@ public static class Simplify {
                     return unit;
                 }));
 
-    internal static Fin<Unit> FeaturePins(SimplifyOp op, Context context, Op key, Memory<double> plane) =>
+    internal static Fin<Unit> FeaturePins(SimplifyOp op, Context context, Memory<double> plane) =>
         Uniform(plane).Bind(_ =>
-            MeshFeaturePolicy.Of(dihedralRadians: op.Policy.CreaseDihedral.Value, space: op.Mesh, faceRegions: Option<Arr<int>>.None, key: key)
-                .Bind(features => SegmentKernel.DetectFeatureEdgesDetailed(space: op.Mesh, policy: features, key: key))
+            MeshFeaturePolicy.Of(dihedralRadians: op.Policy.CreaseDihedral.Value, space: op.Mesh, faceRegions: Option<Arr<int>>.None)
+                .Bind(features => SegmentKernel.DetectFeatureEdgesDetailed(space: op.Mesh, policy: features))
                 .Map(features => {
                     Span<double> w = plane.Span;
                     foreach (FeatureEdge edge in features.Edges) {
@@ -462,28 +459,28 @@ public static class Simplify {
                 }));
 
     // --- [RESAMPLE]
-    static Fin<MeshSpace> Voxelize(MeshSpace mesh, SimplifyPolicy policy, Context context, Op key) {
+    static Fin<MeshSpace> Voxelize(MeshSpace mesh, SimplifyPolicy policy, Context context) {
         BoundingBox bounds = mesh.Bounds;
         bounds.Inflate(context.Absolute.Value);
-        return from sdf in SdfMeshPolicy.GeneralizedWinding(context: context, key: key)
-               from cell in key.AcceptValidated<PositiveMagnitude>(candidate: bounds.Diagonal.MaximumCoordinate / policy.VoxelResolution.Value)
+        return from sdf in SdfMeshPolicy.GeneralizedWinding(context: context)
+               from cell in FactoryBridge.Accept<PositiveMagnitude>(candidate: bounds.Diagonal.MaximumCoordinate / policy.VoxelResolution.Value)
                from grid in CellLattice.Of(bounds: bounds, cell: cell,
-                   ceiling: (long)policy.VoxelResolution.Value * policy.VoxelResolution.Value * policy.VoxelResolution.Value, key: key)
+                   ceiling: (long)policy.VoxelResolution.Value * policy.VoxelResolution.Value * policy.VoxelResolution.Value)
                from run in IsoSurface.Detailed(field: new ScalarField.SignedDistanceFromMeshCase(mesh, sdf), grid: grid,
-                   policy: IsoSurfacePolicy.Default, context: context, key: key)
-               from space in run.Space.ToFin(key.InvalidResult())
+                   policy: IsoSurfacePolicy.Default, context: context)
+               from space in run.Space.ToFin(new KernelFault.InvalidResult())
                select space;
     }
 
     // --- [EMIT]
-    static Fin<DecimationResult> Emit(QuadricStore store, MeshEdit edit, SimplifyOp op, int target, Context context, Op key) =>
-        edit.ToSpace(key).Bind(space =>
-            Hausdorff(op.Mesh, space, op.Policy, key).Bind(bound =>
+    static Fin<DecimationResult> Emit(QuadricStore store, MeshEdit edit, SimplifyOp op, int target, Context context) =>
+        edit.ToSpace().Bind(space =>
+            Hausdorff(op.Mesh, space, op.Policy).Bind(bound =>
                 op.Policy.HausdorffCeiling.Filter(ceiling => bound > ceiling.Value).Case is PositiveMagnitude breached
-                    ? Fin.Fail<DecimationResult>(key.InvalidResult($"hausdorff {bound:G6} over ceiling {breached.Value:G6}"))
+                    ? Fin.Fail<DecimationResult>(new KernelFault.InvalidResult(Detail: Some($"hausdorff {bound:G6} over ceiling {breached.Value:G6}")))
                     : (op.Mode.Equals(SimplifyMode.FeaturePreserve)
-                        ? MeshFeaturePolicy.Of(op.Policy.CreaseDihedral.Value, space, Option<Arr<int>>.None, key)
-                            .Bind(features => SegmentKernel.DetectFeatureEdgesDetailed(space: space, policy: features, key: key))
+                        ? MeshFeaturePolicy.Of(op.Policy.CreaseDihedral.Value, space, Option<Arr<int>>.None)
+                            .Bind(features => SegmentKernel.DetectFeatureEdgesDetailed(space: space, policy: features))
                             .Map(static features => features.Edges.Filter(static edge =>
                                 edge.Kind.Equals(MeshFeatureKind.Crease) || edge.Kind.Equals(MeshFeatureKind.Boundary)))
                         : Fin.Succ(Seq<FeatureEdge>()))
@@ -492,16 +489,16 @@ public static class Simplify {
                         op.Mode.Traits, features,
                         op.Mode.Traits.Admits(SimplifyTrait.Reversible) ? toSeq(store.Splits).Strict() : Seq<VertexSplit>()))));
 
-    static Fin<double> Hausdorff(MeshSpace source, MeshSpace simplified, SimplifyPolicy policy, Op key) {
+    static Fin<double> Hausdorff(MeshSpace source, MeshSpace simplified, SimplifyPolicy policy) {
         using MeshEdit edit = MeshEdit.Of(source);
         int count = edit.FaceCount * policy.HausdorffSamplesPerFace.Value;
         using MemoryOwner<Point3d> samples = MemoryOwner<Point3d>.Allocate(count, AllocationMode.Clear);
         int filled = SamplePoints(edit, policy.HausdorffSamplesPerFace.Value, policy.Seed, samples.Span);
-        if (filled == 0) return Fin.Fail<double>(key.InvalidResult());
+        if (filled == 0) return Fin.Fail<double>(new KernelFault.InvalidResult());
         using MemoryOwner<double> distances = MemoryOwner<double>.Allocate(filled, AllocationMode.Clear);
         for (int i = 0; i < filled; i++) {
             Point3d nearest = simplified.Native.ClosestPoint(samples.Span[i]);
-            if (!nearest.IsValid) return Fin.Fail<double>(key.InvalidResult($"hausdorff: nearest-query miss at sample {i}"));
+            if (!nearest.IsValid) return Fin.Fail<double>(new KernelFault.InvalidResult(Detail: Some($"hausdorff: nearest-query miss at sample {i}")));
             distances.Span[i] = samples.Span[i].DistanceTo(nearest);
         }
         return Fin.Succ(TensorPrimitives.Max<double>(distances.Span));

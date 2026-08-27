@@ -12,7 +12,7 @@ Materials OWNS the photo-to-PBR stage vocabulary and SPECIFIES inference; `Rasm.
 
 - Owner: `ModelRegistry` the frozen `ModelCard` table keyed by `ModelCardId` with its `Census` declaration gate; `StageRelation` the derived consume-emit index both directions read; `PbrStage`/`PriorField`/`ScoreField`/`StageSelection`/`LicenseClass`/`WeightPolicy`/`InferenceProvider`/`TensorPrecision`/`ProviderTrait`/`ModelTrait` `[SmartEnum]` bands; `StageProduct` `[Union]` the emission vocabulary; `TensorContract` the graph-shape carrier with `StageBinding` its output rows and `LatentInput` its seed-driven input; `ResidualBand` the divergence band; `ModelCard` the row.
 - Cases: stage {`Delight`, `Albedo`, `Normals`, `Depth`, `Svbrdf`, `IntrinsicAppearance`, `SpectralReflectance`, `SuperResolve`, `Tileability`}; product {`Channel`, `Prior`, `Measure`}; prior {`Delit`, `Depth`, `Spectral`}; score {`Tileability`}; selection {`Cover`, `Refine`}; licence {`Permissive`, `Copyleft`, `OpenRail`, `Research`, `Blocked`}; weight {`Redistributable`, `CallerSupplied`}; provider {`Cpu`, `CoreMl`, `WebGpu`} over trait {`Terminal`, `PinsFormat`}; model trait {`PhysicalChannelForbidden`, `Stochastic`}; precision {`Fp32`, `Fp16`}.
-- Entry: `public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy, Op key)` is the ONE selection fold — the requested stage, the caller's licence ceiling, and the provider preference resolve one card off the frozen rows, so a stage never names a model and a model swap is a row edit. `Select` fails `MaterialFault.Parameter` naming the stage on an unregistered stage, a stage whose every card exceeds the ceiling, or a `Blocked` card pinned explicitly — a stage with no admitted card is DECLARED absence, never a silent skip. `ModelRegistry.Census()` is the ONE declaration gate over the whole table, ACCUMULATING every breach so a broken row set names all of them at once; the type initializer is its first reader and the only construction on this page where the language offers no result.
+- Entry: `public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy)` is the ONE selection fold — the requested stage, the caller's licence ceiling, and the provider preference resolve one card off the frozen rows, so a stage never names a model and a model swap is a row edit. `Select` fails `MaterialFault.Parameter` naming the stage on an unregistered stage, a stage whose every card exceeds the ceiling, or a `Blocked` card pinned explicitly — a stage with no admitted card is DECLARED absence, never a silent skip. `ModelRegistry.Census()` is the ONE declaration gate over the whole table, ACCUMULATING every breach so a broken row set names all of them at once; the type initializer is its first reader and the only construction on this page where the language offers no result.
 - Law: a stage declares CONSUMES and EMITS and NOTHING else. `StageRelation` derives every dependency edge from the relation between them — one type-init index over the roster, forward (emitters by product) and inverse (a stage's own emitted keys) on ONE owner — so the plan's cover, closure, refine, and binding folds all read one lookup rather than re-walking `Items` per query, the order is derived rather than authored, and a stage carrying a `Requires` list contradicting its own inputs is unrepresentable. Widening a model's graph to a second input moves one `TensorContract` column and one `Consumes` row, with no fold edit.
 - Law: `Delight` emits `PriorField.Delit` and NOT `base_color` — a de-lit photograph is a de-shadowed sRGB observation still carrying view-dependent residue, so publishing it as a base-colour plane seats an intermediate the shading model then reads as measured reflectance. `Depth` emits `PriorField.Depth`, the monocular relative-inverse-depth prior anchoring the low-frequency ambiguity Frankot-Chellappa integration cannot recover; `height` stays the `Raster/filter#PLANE_OP` product `Raster/set#TEXTURE_SET` declares `Derived("geometry_normal")`, so no stage emits it and no card claims it. `SpectralReflectance` emits `PriorField.Spectral`, the per-wavelength `(η, k)` curve `surface#CONDUCTOR_IOR` grounds a metal from — a SET-LEVEL column beside `ConductorMetal`'s three-band `ComplexIor`, a substance fact one material carries and never a per-texel channel.
 - Law: FOUR STAGES AND THE REFINE PATH ARE UNREACHABLE TODAY, and the registry says so in ROWS rather than in silence. `Albedo`, `SpectralReflectance`, `Svbrdf`, and `Tileability` carry only `Blocked` cards and both `SuperResolve` rows are `Blocked`, so `Serviceable` answers false at every ceiling and the cover fold plans no route through them. That is the honest capability statement: the vocabulary, the plan algebra, the contract, and the admission gate are complete and exercised by the granted stages, and each blocked stage arms as ONE row edit the moment its weight card publishes a licence.
@@ -80,11 +80,11 @@ public abstract partial record StageProduct {
         Switch(channel: static c => Some(c.Field.Transfer), prior: static p => Some(p.Field.Transfer), measure: static _ => Option<PlaneTransfer>.None);
 
     public static Option<StageProduct> Parse(string key) =>
-        TextureChannel.TryGet(key, out TextureChannel? channel)
+        TextureChannel.TryGet(out TextureChannel? channel)
             ? Some<StageProduct>(new Channel(channel))
-            : PriorField.TryGet(key, out PriorField? prior)
+            : PriorField.TryGet(out PriorField? prior)
                 ? Some<StageProduct>(new Prior(prior))
-                : ScoreField.TryGet(key, out ScoreField? score)
+                : ScoreField.TryGet(out ScoreField? score)
                     ? Some<StageProduct>(new Measure(score))
                     : None;
 
@@ -357,25 +357,25 @@ public static class ModelRegistry {
                 $"<model-weight-artefact:{card.Id.Value}:{card.Weights.Key}>")));
 
     static Validation<Error, Unit> Breach(bool held, string token) =>
-        AdmissionSlots.Gate(held, new MaterialFault.Parameter(Op.Of(name: "model-registry"), token));
+        AdmissionSlots.Gate(held, new MaterialFault.Parameter(token));
 
     const int FeatherFloor = 8, FeatherCeiling = 32;
 
     static ModelRegistry() =>
         Census().IfFail(static faults => throw faults.ToException());
 
-    public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy, Op key) =>
+    public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy) =>
         policy.PinnedCard.Match(
             Some: id => Rows.TryGetValue(id, out ModelCard? pinned) && pinned.Stage == stage
-                ? Admissible(pinned, policy, key)
-                : new MaterialFault.Parameter(key, $"<model-card-unpinned:{id.Value}:{stage.Key}>"),
+                ? Admissible(pinned, policy)
+                : new MaterialFault.Parameter($"<model-card-unpinned:{id.Value}:{stage.Key}>"),
             None: () => toSeq(toSeq(Rows.Values)
                     .Filter(card => card.Stage == stage && card.Admits(policy.Ceiling))
                     .OrderBy(card => card.Providers.Exists(p => p == policy.Preferred) ? 0 : 1)
                     .ThenBy(static card => card.PartitionBound)
                     .ThenBy(static card => card.License.Rank))
                 .Head
-                .ToFin(new MaterialFault.Parameter(key, $"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
+                .ToFin(new MaterialFault.Parameter($"<model-stage-unserved:{stage.Key}@{policy.Ceiling.Key}>")));
 
     public static Option<PbrStage> EmitterOf(Seq<PbrStage> prefix, StageProduct product) =>
         prefix.Filter(stage => StageRelation.Emits(stage, product)).Last;
@@ -398,10 +398,10 @@ public static class ModelRegistry {
                            && table.Find(emitter).IfNone(false)))))
             .ToFrozenDictionary(static entry => entry.Key, static entry => entry.Value);
 
-    static Fin<ModelCard> Admissible(ModelCard card, StagePolicy policy, Op key) =>
+    static Fin<ModelCard> Admissible(ModelCard card, StagePolicy policy) =>
         card.Admits(policy.Ceiling)
             ? Fin.Succ(card)
-            : new MaterialFault.Parameter(key, $"<model-card-ungranted:{card.Id.Value}:{card.License.Key}>");
+            : new MaterialFault.Parameter($"<model-card-ungranted:{card.Id.Value}:{card.License.Key}>");
 
     static ModelCard Card(
         string id, PbrStage stage, LicenseClass license, string licenseId, WeightPolicy weights, Option<ContentAddress> artefact,
@@ -435,7 +435,7 @@ public static class ModelRegistry {
 ## [03]-[STAGE_PLAN]
 
 - Owner: `StagePlan` the planning fold; `StageIntent`/`StagePolicy` the request shapes; `StageInput` the producer binding; `InferenceTiling` the fixed-bucket tiling; `StageReplay`/`StageStep` the replay consult and the planned step it carries; `StageRequest`/`StageResult`/`StageOutput` the boundary records.
-- Entry: `public static Fin<Seq<StageStep>> Plan(StageIntent intent, Op key, Option<StageReplay> replay = default)` resolves the requested `StageProduct` set into the dependency-ordered step sequence — one entry for the whole plan, because a per-stage entrypoint pushes the ordering, the input binding, the extent threading, and the replay consult onto every caller; `StageResult.Admit(StageResult, ModelCard, StageRequest, Op)` is the ONE ingestion gate every returned result crosses — card echo, `Op` echo, product permission, output completeness, extent congruence, partition bound, and residual ceiling in one result — and `InferenceTiling.Of(width, height, contract, key)` derives the tiling from the card's own bucket roster.
+- Entry: `public static Fin<Seq<StageStep>> Plan(StageIntent intent, Option<StageReplay> replay = default)` resolves the requested `StageProduct` set into the dependency-ordered step sequence — one entry for the whole plan, because a per-stage entrypoint pushes the ordering, the input binding, the extent threading, and the replay consult onto every caller; `StageResult.Admit(StageResult, ModelCard, StageRequest, Op)` is the ONE ingestion gate every returned result crosses — card echo, `Op` echo, product permission, output completeness, extent congruence, partition bound, and residual ceiling in one result — and `InferenceTiling.Of(width, height, contract, key)` derives the tiling from the card's own bucket roster.
 - Law: resolution is COVER, then CLOSURE, then REFINE, and each pass reads row data AND the licence posture. `Cover` runs a greedy set cover over the SERVICEABLE `StageSelection.Cover` rows against the requested `StageProduct` set — one demand axis over channels AND priors, so the depth anchor and the spectral curve are requestable exactly as a channel is and a prior-emitting stage is reachable rather than orphaned. SERVICEABLE means the stage's whole consume-closure holds a granting card at the caller's ceiling, so the grant gate shapes the ROUTE instead of surfacing as a refusal three stages deep; the stage covering the most still-uncovered products wins and declaration order breaks every tie.
 - Law: `Closure` walks the roster in REVERSE declaration order ONCE, pulling each selected stage's consumed products back to their serviceable emitters through `StageRelation` — a single reverse pass is exact because the census asserts at type initialization that a consumed product is emitted by an earlier row. `Refine` ACCUMULATES the refinement chain against the target-over-source factor: each granted refine row whose `Scale` divides the remainder appends in declaration order, an anisotropic or unreachable target REFUSES, and a chained refinement binds its predecessor through the prefix rather than the cover stage's original.
 - Law: each stage's INPUT is its PRODUCER's output, never the source photo. `StageInput.Source` carries the intent's plane for a stage consuming nothing, and `StageInput.Produced` names the emitting stage and the product for a stage consuming one, which the executor resolves against the results it already holds. Handing every stage the same source blob runs a chain whose links never touch, its albedo estimator reading the raw photograph the delighting stage exists to replace.
@@ -461,12 +461,12 @@ public sealed record StageIntent(
     Seq<StageProduct> Requested, StagePolicy Policy) {
 
     public static Fin<StageIntent> Of(
-        ContentAddress source, Dimension width, Dimension height, Seq<StageProduct> requested, StagePolicy policy, Op key,
+        ContentAddress source, Dimension width, Dimension height, Seq<StageProduct> requested, StagePolicy policy,
         Option<(Dimension Width, Dimension Height)> target = default) =>
         requested.IsEmpty
-            ? new MaterialFault.Parameter(key, "<stage-intent-no-products>")
+            ? new MaterialFault.Parameter("<stage-intent-no-products>")
             : target.IfNone((width, height)) is var (tw, th) && (tw.Value < width.Value || th.Value < height.Value)
-                ? new MaterialFault.Parameter(key, $"<stage-target-below-source:{tw.Value}x{th.Value}<{width.Value}x{height.Value}>")
+                ? new MaterialFault.Parameter($"<stage-target-below-source:{tw.Value}x{th.Value}<{width.Value}x{height.Value}>")
                 : Fin.Succ(new StageIntent(source, width, height, tw, th, toSeq(requested.Distinct()), policy));
 }
 
@@ -483,9 +483,9 @@ public abstract partial record StageInput {
 }
 
 public readonly record struct InferenceTiling(Dimension TileWidth, Dimension TileHeight, int Columns, int Rows, int Overlap, string PadMode, string Bucket) {
-    public static Fin<InferenceTiling> Of(Dimension width, Dimension height, TensorContract contract, Op key) =>
+    public static Fin<InferenceTiling> Of(Dimension width, Dimension height, TensorContract contract) =>
         contract.BucketFor(width, height)
-            .ToFin(new MaterialFault.Parameter(key, $"<stage-no-bucket:{width.Value}x{height.Value}>"))
+            .ToFin(new MaterialFault.Parameter($"<stage-no-bucket:{width.Value}x{height.Value}>"))
             .Map(bucket => new InferenceTiling(bucket.Width, bucket.Height,
                 Columns: Steps(width.Value, bucket.Width.Value, contract.Overlap),
                 Rows: Steps(height.Value, bucket.Height.Value, contract.Overlap),
@@ -500,27 +500,27 @@ public sealed record StageRequest(
     PbrStage Stage, ModelCardId ModelCardId, Option<ContentAddress> Artefact, LicenseClass LicenseClass, Seq<StageInput> Inputs,
     Dimension InputWidth, Dimension InputHeight, Dimension OutputWidth, Dimension OutputHeight,
     int TileWidth, int TileHeight, int Overlap, string PadMode, string Bucket, string Layout,
-    InferenceProvider Provider, TensorPrecision Precision, ulong Seed, Op Op) {
+    InferenceProvider Provider, TensorPrecision Precision, ulong Seed) {
 
     public static Fin<StageRequest> Of(
-        ModelCard card, StageIntent intent, Seq<PbrStage> prefix, Dimension width, Dimension height, InferenceTiling tiles, Op key) =>
-        from _ in guard(card.License.Grants, new MaterialFault.Parameter(key, $"<stage-license-blocked:{card.Id.Value}>"))
+        ModelCard card, StageIntent intent, Seq<PbrStage> prefix, Dimension width, Dimension height, InferenceTiling tiles) =>
+        from _ in guard(card.License.Grants, new MaterialFault.Parameter($"<stage-license-blocked:{card.Id.Value}>"))
         from _seed in guard(!card.Traits.Admits(ModelTrait.Stochastic) || intent.Policy.Seed != 0UL,
-                new MaterialFault.Parameter(key, $"<stage-stochastic-seed-unset:{card.Id.Value}>"))
-        from inputs in Bind(card.Stage, intent, prefix, key)
+                new MaterialFault.Parameter($"<stage-stochastic-seed-unset:{card.Id.Value}>"))
+        from inputs in Bind(card.Stage, intent, prefix)
         let resolved = Preferred(card, intent.Policy)
         select new StageRequest(card.Stage, card.Id, card.Artefact, card.License, inputs, width, height,
             Dimension.Create(width.Value * card.Stage.Scale), Dimension.Create(height.Value * card.Stage.Scale),
             tiles.TileWidth.Value, tiles.TileHeight.Value, tiles.Overlap, tiles.PadMode, tiles.Bucket, card.Contract.TensorLayout,
-            resolved.Provider, resolved.Precision, card.Traits.Admits(ModelTrait.Stochastic) ? intent.Policy.Seed : 0UL, key);
+            resolved.Provider, resolved.Precision, card.Traits.Admits(ModelTrait.Stochastic) ? intent.Policy.Seed : 0UL);
 
-    static Fin<Seq<StageInput>> Bind(PbrStage stage, StageIntent intent, Seq<PbrStage> prefix, Op key) =>
+    static Fin<Seq<StageInput>> Bind(PbrStage stage, StageIntent intent, Seq<PbrStage> prefix) =>
         stage.Consumes().IsEmpty
             ? Fin.Succ(Seq<StageInput>(new StageInput.Source(intent.SourceKey)))
             : stage.Consumes().Traverse(product =>
                   ModelRegistry.EmitterOf(prefix, product)
                       .Map(emitter => (StageInput)new StageInput.Produced(emitter, product))
-                      .ToFin(new MaterialFault.Parameter(key, $"<stage-input-unemitted:{stage.Key}:{product.Key}>"))).As()
+                      .ToFin(new MaterialFault.Parameter($"<stage-input-unemitted:{stage.Key}:{product.Key}>"))).As()
               .Map(static bound => bound.Strict());
 
     static (InferenceProvider Provider, TensorPrecision Precision) Preferred(ModelCard card, StagePolicy policy) =>
@@ -540,33 +540,33 @@ public readonly record struct StageScore(StageProduct Role, double Value);
 public sealed record StageResult(
     PbrStage Stage, ModelCardId ModelCardId, ContentAddress Artefact, Seq<StageOutput> Outputs, Seq<StageScore> Scores,
     InferenceProvider ProviderUsed,
-    int PartitionCount, double ElapsedMs, double ReferenceDelta, bool ParityFresh, float Coverage, int TilesEmitted, Op Op) {
+    int PartitionCount, double ElapsedMs, double ReferenceDelta, bool ParityFresh, float Coverage, int TilesEmitted) {
 
-    public static Fin<StageResult> Admit(StageResult result, ModelCard card, StageRequest request, Op key) =>
+    public static Fin<StageResult> Admit(StageResult result, ModelCard card, StageRequest request) =>
         from _ in guard(result.ModelCardId == card.Id,
-                new MaterialFault.Parameter(key, $"<stage-card-mismatch:{result.ModelCardId.Value}!={card.Id.Value}>"))
+                new MaterialFault.Parameter($"<stage-card-mismatch:{result.ModelCardId.Value}!={card.Id.Value}>"))
         from _op in guard(result.Op == request.Op,
-                new MaterialFault.Parameter(key, $"<stage-op-mismatch:{card.Id.Value}>"))
+                new MaterialFault.Parameter($"<stage-op-mismatch:{card.Id.Value}>"))
         from _art in guard(request.Artefact.Map(declared => declared == result.Artefact).IfNone(true),
-                new MaterialFault.Parameter(key, $"<stage-artefact-mismatch:{card.Id.Value}:{result.Artefact.ToValue()}>"))
+                new MaterialFault.Parameter($"<stage-artefact-mismatch:{card.Id.Value}:{result.Artefact.ToValue()}>"))
         from __ in guard(result.Outputs.ForAll(output => card.Permits(output.Role))
                     && result.Scores.ForAll(score => card.Permits(score.Role)),
-                new MaterialFault.Parameter(key, $"<stage-product-forbidden:{card.Id.Value}>"))
+                new MaterialFault.Parameter($"<stage-product-forbidden:{card.Id.Value}>"))
         from ___ in guard(card.Contract.Outputs.ForAll(binding => binding.Product is StageProduct.Measure
                     ? result.Scores.Exists(s => s.Role.Key == binding.Product.Key)
                     : result.Outputs.Exists(o => o.Role.Key == binding.Product.Key)),
-                new MaterialFault.Parameter(key, $"<stage-outputs-short:{card.Id.Value}:{result.Outputs.Count}+{result.Scores.Count}>"))
+                new MaterialFault.Parameter($"<stage-outputs-short:{card.Id.Value}:{result.Outputs.Count}+{result.Scores.Count}>"))
         from _extent in guard(result.Outputs.Filter(static o => o.Role is StageProduct.Channel)
                     .ForAll(o => o.Width == request.OutputWidth && o.Height == request.OutputHeight),
-                new MaterialFault.Parameter(key, $"<stage-extent-mismatch:{card.Id.Value}:{request.OutputWidth.Value}x{request.OutputHeight.Value}>"))
+                new MaterialFault.Parameter($"<stage-extent-mismatch:{card.Id.Value}:{request.OutputWidth.Value}x{request.OutputHeight.Value}>"))
         from _shape in guard(result.Outputs.ForAll(output =>
                     card.Shaped(output.Role).ForAll(declared =>
                         declared.Transfer.ForAll(t => t == output.Transfer) && declared.Format.ForAll(f => f == output.Format))),
-                new MaterialFault.Parameter(key, $"<stage-plane-shape:{card.Id.Value}>"))
+                new MaterialFault.Parameter($"<stage-plane-shape:{card.Id.Value}>"))
         from ____ in guard(result.PartitionCount <= card.PartitionBound,
-                new MaterialFault.Parameter(key, $"<stage-partition-bound:{result.PartitionCount}/{card.PartitionBound}>"))
+                new MaterialFault.Parameter($"<stage-partition-bound:{result.PartitionCount}/{card.PartitionBound}>"))
         from _____ in guard(card.Residual.Admits(result.ReferenceDelta),
-                new MaterialFault.Parameter(key, $"<stage-reference-delta:{result.ReferenceDelta:R}/{card.Residual.Upper:R}>"))
+                new MaterialFault.Parameter($"<stage-reference-delta:{result.ReferenceDelta:R}/{card.Residual.Upper:R}>"))
         select result;
 
     public Seq<StageOutput> Planes => Outputs.Filter(static output => output.Role is StageProduct.Channel);
@@ -579,17 +579,16 @@ public readonly record struct StageStep(StageRequest Request, Option<StageResult
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StagePlan {
-    public static Fin<Seq<StageStep>> Plan(StageIntent intent, Op key, Option<StageReplay> replay = default) =>
-        from covered in Cover(intent.Requested, intent.Policy, key)
-        from ordered in Refine(Closure(covered, intent.Policy), intent, key)
-        from steps in Thread(ordered, intent, replay, key)
+    public static Fin<Seq<StageStep>> Plan(StageIntent intent, Option<StageReplay> replay = default) =>
+        from covered in Cover(intent.Requested, intent.Policy)
+        from ordered in Refine(Closure(covered, intent.Policy), intent)
+        from steps in Thread(ordered, intent, replay)
         select steps;
 
-    static Fin<Seq<PbrStage>> Cover(Seq<StageProduct> requested, StagePolicy policy, Op key) =>
+    static Fin<Seq<PbrStage>> Cover(Seq<StageProduct> requested, StagePolicy policy) =>
         requested.Filter(product => StageRelation.Covering(product, policy).IsEmpty) switch {
             var orphans when orphans.IsEmpty => Fin.Succ(Greedy(requested, policy, Seq<PbrStage>())),
-            var orphans => new MaterialFault.Parameter(key,
-                $"<stage-product-unproduced:{string.Join(',', orphans.Map(static p => p.Key))}@{policy.Ceiling.Key}>"),
+            var orphans => new MaterialFault.Parameter($"<stage-product-unproduced:{string.Join(',', orphans.Map(static p => p.Key))}@{policy.Ceiling.Key}>"),
         };
 
     static Seq<PbrStage> Greedy(Seq<StageProduct> uncovered, StagePolicy policy, Seq<PbrStage> chosen) =>
@@ -618,10 +617,10 @@ public static class StagePlan {
                 var reachable => toSeq(PbrStage.Items).Filter(stage => reachable.Exists(s => s == stage)).Strict(),
             };
 
-    static Fin<Seq<PbrStage>> Refine(Seq<PbrStage> ordered, StageIntent intent, Op key) {
+    static Fin<Seq<PbrStage>> Refine(Seq<PbrStage> ordered, StageIntent intent) {
         (int needW, int needH) = (intent.TargetWidth.Value / intent.Width.Value, intent.TargetHeight.Value / intent.Height.Value);
         if (needW != needH || intent.TargetWidth.Value != intent.Width.Value * needW || intent.TargetHeight.Value != intent.Height.Value * needH) {
-            return new MaterialFault.Parameter(key, $"<stage-target-anisotropic:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}>");
+            return new MaterialFault.Parameter($"<stage-target-anisotropic:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}>");
         }
         (Seq<PbrStage> plan, int remaining) = toSeq(PbrStage.Items
             .Where(stage => stage.Selection == StageSelection.Refine && ModelRegistry.Granted(stage, intent.Policy))
@@ -633,25 +632,25 @@ public static class StagePlan {
                     : state);
         return remaining == 1
             ? Fin.Succ(plan)
-            : new MaterialFault.Parameter(key, $"<stage-target-unreachable:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}:x{remaining}>");
+            : new MaterialFault.Parameter($"<stage-target-unreachable:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}:x{remaining}>");
     }
 
-    static Fin<Seq<StageStep>> Thread(Seq<PbrStage> ordered, StageIntent intent, Option<StageReplay> replay, Op key) =>
+    static Fin<Seq<StageStep>> Thread(Seq<PbrStage> ordered, StageIntent intent, Option<StageReplay> replay) =>
         ordered.FoldM(
             (Steps: Seq<StageStep>(), Prefix: Seq<PbrStage>(), Width: intent.Width, Height: intent.Height),
             (carried, stage) =>
-                from card in ModelRegistry.Select(stage, intent.Policy, key)
-                from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract, key)
-                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles, key)
-                from held in Consulted(replay, request, card, key)
+                from card in ModelRegistry.Select(stage, intent.Policy)
+                from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract)
+                from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles)
+                from held in Consulted(replay, request, card)
                 select (Steps: carried.Steps.Add(new StageStep(request, held)), Prefix: carried.Prefix.Add(stage),
                         Width: request.OutputWidth, Height: request.OutputHeight))
         .As()
         .Map(static carried => carried.Steps.Strict());
 
-    static Fin<Option<StageResult>> Consulted(Option<StageReplay> replay, StageRequest request, ModelCard card, Op key) =>
+    static Fin<Option<StageResult>> Consulted(Option<StageReplay> replay, StageRequest request, ModelCard card) =>
         replay.Bind(port => port(request))
-            .TraverseM(held => StageResult.Admit(held, card, request, key)).As();
+            .TraverseM(held => StageResult.Admit(held, card, request)).As();
 }
 ```
 

@@ -671,7 +671,7 @@ public sealed partial class Tessellation : IValidityEvidence {
     }
 
     // --- [PROJECTIONS]
-    public Fin<MeshSpace> ToMesh(Context context, Op? key = null) {
+    public Fin<MeshSpace> ToMesh(Context context) {
         using MeshEdit edit = MeshEdit.Of([], [], context);
         Dictionary<int, int> slot = new();
         foreach (int s in Store.Live) {
@@ -694,7 +694,7 @@ public sealed partial class Tessellation : IValidityEvidence {
                 edit.AddFace(slot[a], slot[flip ? c : b], slot[flip ? b : c]);
             }
         }
-        return edit.ToSpace(key.OrDefault());
+        return edit.ToSpace();
     }
 
     public Fin<(Arr<Point3d> Corners, Arr<(int A, int B, int C)> Faces)> Triangles() {
@@ -791,12 +791,11 @@ public sealed partial class Tessellation : IValidityEvidence {
         }
     }
 
-    public Fin<Arr<BoundedCell>> VoronoiDual(Polyline boundary, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Arr<BoundedCell>> VoronoiDual(Polyline boundary) {
         if (Kind != TessellationKind.Triangulation) {
             return new GeometryFault.UnsupportedTessellationProjection(Kind, typeof(Arr<BoundedCell>));
         }
-        return guard(boundary.IsClosed && boundary.Count >= 4 && boundary.All(static p => p.IsValid), op.InvalidInput()).ToFin()
+        return guard(boundary.IsClosed && boundary.Count >= 4 && boundary.All(static p => p.IsValid), new KernelFault.InvalidInput()).ToFin()
             >> (_ => ClipCells(boundary));
     }
 
@@ -871,9 +870,9 @@ public sealed partial class Tessellation : IValidityEvidence {
         }
     }
 
-    public Fin<MeshSpace> LowerHull(Context context, Op? key = null) =>
+    public Fin<MeshSpace> LowerHull(Context context) =>
         Kind == TessellationKind.Tetrahedralization
-            ? ToMesh(context, key)
+            ? ToMesh(context)
             : Fin.Fail<MeshSpace>(new GeometryFault.UnsupportedTessellationProjection(Kind, typeof(MeshSpace)));
 
     // --- [PRIVATE_KERNELS]

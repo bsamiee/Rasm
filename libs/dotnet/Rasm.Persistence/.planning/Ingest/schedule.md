@@ -12,7 +12,7 @@ This codec NEVER knows the element graph and NEVER computes schedule math: the p
 ## [02]-[SCHEDULE_SOURCE]
 
 - Owner: `ScheduleFormat` is the `[SmartEnum<string>]` egress axis; `DependencyKind` carries the four CPM dependency modalities; `ConstraintKind` carries the ten constraint modalities; `ScheduleUnit` carries unit and elapsed-unit rows; `DayKind` carries calendar day types; `RecurrenceEnd` closes recurrence termination; `ScheduleSpec` fixes `Origin` with the optional project selector; `ScheduleOp` closes `Parse | Serialize | Probe`; `ScheduleYield` closes `Projects | Written | Profile`; `ScheduleFault` is the row-boundary family; `ScheduleSource` owns the one `Run` dispatch.
-- Cases: `ScheduleOp.Parse(ScheduleSpec)` reads the container and projects each `ProjectFile` into `ScheduleProject`; `ScheduleOp.Serialize` writes the target format; `ScheduleOp.Probe` yields per-project profiles; `ScheduleFault` is `CodecReject | UnknownDialect | ProjectMissing | RowUnkeyed`; independent row failures accumulate as `Error.Many`.
+- Cases: `ScheduleOp.Parse(ScheduleSpec)` reads the container and projects each `ProjectFile` into `ScheduleProject`; `ScheduleOp.Serialize` writes the target format; `ScheduleHost.Probe` yields per-project profiles; `ScheduleFault` is `CodecReject | UnknownDialect | ProjectMissing | RowUnkeyed`; independent row failures accumulate as `Error.Many`.
 - Entry: `public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op)` — ONE polymorphic entry discriminating the closed op union through the generated total `Switch`, folding both legs through `Capture` so codec exceptions cannot escape the boundary.
 - Auto: the parse leg opens the `Origin` (path or caller-owned stream) once, calls `ReadAll` — NEVER the single-project `Read`, which silently truncates a multi-project XER to its first project, and NEVER an extension branch, because the reader format-sniffs — then projects each `ProjectFile` through `ProjectRows.Of`, the ONE IKVM boundary, where every nullable proxy column ADMITS — an identity refuses rather than defaulting to a key every other keyless row shares, and a nullable name, percentage, or currency crosses as `Option` — with the refusals accumulating across every family so one report names every offending row: activities from the flat `Tasks` container with the WBS parent threaded from `ChildTasks` reachability, the dependency network from each `Task.Predecessors` (`IList<Relation>` — reading one side of the symmetric pair so an edge lands once), the full calendar record (weekly day pattern via `GetCalendarDayType`/`GetCalendarHours`, `WorkWeeks` overrides, per-exception shift windows), resources and loading from `Resources`/`ResourceAssignments`; the serialize leg folds each `ScheduleProject` through `Synthesis.Fold` — anchor properties re-stamped, calendars rebuilt day-by-day (`SetWorkingDay`/`AddCalendarHours`/`AddWorkWeek`/`AddCalendarException` with each PERSISTED shift range re-added, never a fixed default shift), WBS children minted THROUGH their parent (`Task.AddTask()`), `Relation.Builder(file).PredecessorTask(pred).SuccessorTask(succ).Type(kind.Wire)` per relation with `.Lag(lag.Wire)` applied only on a present lag, `AddResource` and `Task.AddResourceAssignment(Resource)` per loading row — then writes through ONE `UniversalProjectWriter(to.Wire)` whose arity is the graph count; the probe leg reads `ProjectProperties` (`FileType` the parsed source dialect, `FileApplication`, `ProjectTitle`) and the container's task/relation counts, so a dialect census never pays `ProjectRows.Of` projection.
 - Packages: MPXJ.Net (`UniversalProjectReader.ReadAll`, `UniversalProjectWriter(FileFormat).Write` single and `IList` arities, `FileFormat`, `ProjectFile.Tasks`/`ChildTasks`/`Calendars`/`Resources`/`ResourceAssignments`/`ProjectProperties`/`AddTask`/`AddResource`/`AddCalendar`/`GetTaskByUniqueID`/`GetResourceByUniqueID`, `Task` schedule/early/late/actual/baseline/constraint/WBS accessors + `AddResourceAssignment`, `Relation.Builder`/`PredecessorTask`/`SuccessorTask`/`Type`/`Lag`, `RelationType`, `ConstraintType`, `Duration.DurationValue`/`Units`/`GetInstance`, all `TimeUnit` rows, `ProjectCalendar.CalendarExceptions`/`WorkWeeks`/`Type`/`AddWorkWeek`/`AddCalendarException`, `ProjectCalendarDays.GetCalendarDayType`/`GetCalendarHours`/`SetWorkingDay`/`AddCalendarHours`, `DayType` (all three members — `Default` is inheritance, not non-work), `TimeOnlyRange`, `DateOnlyRange`, `ResourceAssignment.Units`/`Work`/`Cost`/`BudgetCost`), Rasm (`Rasm/Domain/results#FAULT_BAND` `FaultBand`), Rasm.Persistence (`Element/graph#STORE_HOOKS` `ProjectionContext`, `Ingest/tabular#TABULAR_SOURCE` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
@@ -386,7 +386,7 @@ public static class ScheduleSource {
     static Option<string> Dialect(Seq<ScheduleProject> rows) => rows.Head.Bind(static r => r.Anchor.Dialect);
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).MapFail(ScheduleFault.Lift).ToValidation();
+        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).MapFail(ScheduleFault.Lift).ToValidation();
 }
 ```
 
@@ -432,7 +432,7 @@ public static class ProjectRows {
     }
 
     static Validation<Error, int> Keyed(string row, int? key, Option<string> detail) =>
-        Optional(key).ToValidation(
+        Optional().ToValidation(
             (Error)new ScheduleFault.RowUnkeyed(row, detail.IfNone("<unnamed>")));
 
     internal static Option<string> Text(string? value) =>
@@ -455,9 +455,7 @@ public static class ProjectRows {
         toSeq(file.Tasks).Traverse(task => Activity(task, parents)).As();
 
     static Validation<Error, ScheduleActivity> Activity(Task t, FrozenDictionary<int, int> parents) =>
-        Keyed("activity", t.UniqueID, Text(t.Name)).Map(key => new ScheduleActivity(
-            key,
-            parents.TryGetValue(key, out int parent) ? Some(parent) : None,
+        Keyed("activity", t.UniqueID, Text(t.Name)).Map(key => new ScheduleActivity(parents.TryGetValue(out int parent) ? Some(parent) : None,
             Text(t.Name), Text(t.WBS), Text(t.ActivityID),
             Optional(t.PercentageComplete), t.Critical, t.Milestone, t.Summary, Optional(t.OutlineLevel),
             Local(t.Start), Local(t.Finish), Local(t.EarlyStart), Local(t.EarlyFinish),
@@ -485,8 +483,7 @@ public static class ProjectRows {
         toSeq(file.Calendars).Traverse(Calendar).As();
 
     static Validation<Error, WorkCalendarRow> Calendar(ProjectCalendar calendar) =>
-        Keyed("calendar", calendar.UniqueID, Text(calendar.Name)).Map(key => new WorkCalendarRow(
-            key, Text(calendar.Name), toSeq(CalendarKind.Items).Find(row => row.Wire == calendar.Type),
+        Keyed("calendar", calendar.UniqueID, Text(calendar.Name)).Map(key => new WorkCalendarRow(Text(calendar.Name), toSeq(CalendarKind.Items).Find(row => row.Wire == calendar.Type),
             toSeq(WeekDays).Map(day => Day(calendar, day)),
             toSeq(calendar.WorkWeeks).Map(week => new WeekRow(
                 Text(week.Name), Date(week.DateRange?.Start), Date(week.DateRange?.End),
@@ -500,8 +497,7 @@ public static class ProjectRows {
         toSeq(file.Resources).Traverse(Resource).As();
 
     static Validation<Error, ResourceRow> Resource(MPXJ.Net.Resource r) =>
-        Keyed("resource", r.UniqueID, Text(r.Name)).Map(key => new ResourceRow(
-            key, Text(r.Name), Text(r.Group), toSeq(ResourceKind.Items).Find(row => row.Wire == r.Type),
+        Keyed("resource", r.UniqueID, Text(r.Name)).Map(key => new ResourceRow(Text(r.Name), Text(r.Group), toSeq(ResourceKind.Items).Find(row => row.Wire == r.Type),
             Optional(r.PeakUnits), toSeq(r.Availability).Map(static a => new ResourceAvailabilityRow(
                 Local(a.Range.Start), Local(a.Range.End), Optional(a.Units))),
             Optional(r.Calendar?.UniqueID), Optional(r.Cost), Optional(r.ActualCost), Optional(r.OvertimeCost)));
@@ -603,7 +599,7 @@ public static class Synthesis {
                 span.From.Map(static at => at.ToDateTimeUnspecified()).ToNullable(),
                 span.To.Map(static at => at.ToDateTimeUnspecified()).ToNullable(),
                 span.Units.ToNullable())));
-            resource.Calendar.Iter(key => row.Calendar = file.GetCalendarByUniqueID(key));
+            resource.Calendar.Iter(key => row.Calendar = file.GetCalendarByUniqueID());
             resource.Cost.Iter(cost => row.Cost = cost);
             resource.ActualCost.Iter(cost => row.ActualCost = cost);
             resource.OvertimeCost.Iter(cost => row.OvertimeCost = cost);
@@ -759,8 +755,7 @@ public static class ScheduleRows {
 
     static (string, string, string) Logic(TaskRelation edge, HashMap<int, string> identities) => (
         identities.Find(edge.Predecessor).IfNone($"key:{edge.Predecessor}"),
-        identities.Find(edge.Successor).IfNone($"key:{edge.Successor}"),
-        edge.Kind.Key);
+        identities.Find(edge.Successor).IfNone($"key:{edge.Successor}"));
 
     static (string, int) Loading(AssignmentRow row, HashMap<int, string> identities) => (
         identities.Find(row.Activity).IfNone($"key:{row.Activity}"),

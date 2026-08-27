@@ -119,15 +119,14 @@ public sealed record BuildPolicy {
     public PositiveMagnitude RefitGrowth { get; }
     public Dimension ParallelFloor { get; }
 
-    public static Fin<BuildPolicy> Of(int leafSize, int maxDepth, int sahBuckets, double refitGrowth, int parallelFloor, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.AcceptValidated<Dimension>(leafSize).ToValidation(),
-                op.AcceptValidated<Dimension>(maxDepth).ToValidation(),
-                op.AcceptValidated<Dimension>(sahBuckets).ToValidation(),
-                op.AcceptValidated<PositiveMagnitude>(refitGrowth).ToValidation(),
-                op.AcceptValidated<Dimension>(parallelFloor).ToValidation())
+    public static Fin<BuildPolicy> Of(int leafSize, int maxDepth, int sahBuckets, double refitGrowth, int parallelFloor) {
+        return (FactoryBridge.Accept<Dimension>(leafSize).ToValidation(),
+                FactoryBridge.Accept<Dimension>(maxDepth).ToValidation(),
+                FactoryBridge.Accept<Dimension>(sahBuckets).ToValidation(),
+                FactoryBridge.Accept<PositiveMagnitude>(refitGrowth).ToValidation(),
+                FactoryBridge.Accept<Dimension>(parallelFloor).ToValidation())
             .Apply((leaf, depth, buckets, growth, floor) => new BuildPolicy(leaf, depth, buckets, growth, floor)).As().ToFin()
-            .Bind(policy => guard(policy.LeafSize.Value <= PackedCountMax && policy.SahBuckets.Value > 1, op.InvalidInput()).ToFin()
+            .Bind(policy => guard(policy.LeafSize.Value <= PackedCountMax && policy.SahBuckets.Value > 1, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => policy));
     }
 
@@ -197,11 +196,10 @@ public sealed class SpatialIndex : IValidityEvidence {
         System.Array.ConvertAll(boxes, static box => 0.5 * (box.Min + box.Max));
 
     // --- [BUILD]
-    public static Fin<SpatialIndex> Build(SpatialKind kind, BoundingBox[] primitives, BuildPolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<SpatialIndex> Build(SpatialKind kind, BoundingBox[] primitives, BuildPolicy policy) {
         return from boxes in Admit(primitives)
                from built in kind.Build(boxes, Centroids(boxes), policy)
-               from _ in guard(built.IsValid, op.InvalidResult())
+               from _ in guard(built.IsValid, new KernelFault.InvalidResult())
                select built;
     }
 
@@ -414,52 +412,45 @@ public sealed class SpatialIndex : IValidityEvidence {
     }
 
     // --- [QUERY]
-    public Fin<Seq<int>> Query(BoundingBox box, Option<Sphere> ball = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(box.IsValid && ball.Match(static sphere => sphere.IsValid, static () => true), op.InvalidInput()).ToFin()
+    public Fin<Seq<int>> Query(BoundingBox box, Option<Sphere> ball = default) {
+        return guard(box.IsValid && ball.Match(static sphere => sphere.IsValid, static () => true), new KernelFault.InvalidInput()).ToFin()
             .Map(_ => LeafHits(Store, node => BoundingBox.Intersection(Store.Bound(node), box).IsValid ? NodeVerdict.Descend : NodeVerdict.Prune,
                 primitive => BoundingBox.Intersection(Primitives[primitive], box).IsValid
                     && ball.Match(sphere => Primitives[primitive].ClosestPoint(sphere.Center).DistanceTo(sphere.Center) <= sphere.Radius, static () => true)));
     }
 
-    public Fin<(Option<int> Id, double T)> Query(Ray3d ray, double maxT, Op? key = null) {
+    public Fin<(Option<int> Id, double T)> Query(Ray3d ray, double maxT) {
         Vector3d direction = ray.Direction;
-        Op op = key.OrDefault();
-        return guard(ray.Position.IsValid && direction.IsValid && direction.Unitize() && double.IsFinite(maxT) && maxT > 0.0, op.InvalidInput()).ToFin()
+        return guard(ray.Position.IsValid && direction.IsValid && direction.Unitize() && double.IsFinite(maxT) && maxT > 0.0, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => RayNearest(Store, Primitives, new Ray3d(ray.Position, direction), maxT));
     }
 
-    public Fin<Seq<int>> Query(Point3d point, int count, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(point.IsValid && count > 0, op.InvalidInput()).ToFin()
+    public Fin<Seq<int>> Query(Point3d point, int count) {
+        return guard(point.IsValid && count > 0, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => KNearest(Store, Primitives, point, count));
     }
 
-    public Fin<Seq<(int Left, int Right)>> Query(SpatialIndex other, double tolerance, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(double.IsFinite(tolerance) && tolerance >= 0.0, op.InvalidInput()).ToFin()
+    public Fin<Seq<(int Left, int Right)>> Query(SpatialIndex other, double tolerance) {
+        return guard(double.IsFinite(tolerance) && tolerance >= 0.0, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => OverlapPairs(this, other, tolerance, static (_, _) => true));
     }
 
-    public Fin<Seq<(int Left, int Right)>> Query(double tolerance, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(double.IsFinite(tolerance) && tolerance >= 0.0, op.InvalidInput()).ToFin()
+    public Fin<Seq<(int Left, int Right)>> Query(double tolerance) {
+        return guard(double.IsFinite(tolerance) && tolerance >= 0.0, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => OverlapPairs(this, this, tolerance, static (left, right) => left < right));
     }
 
-    public Fin<double[]> Query(Arr<Point3d> points, Arr<(Point3d A, Point3d B, Point3d C)> triangles, PositiveMagnitude betaSquared, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<double[]> Query(Arr<Point3d> points, Arr<(Point3d A, Point3d B, Point3d C)> triangles, PositiveMagnitude betaSquared) {
         return triangles.Count != Primitives.Length
             ? Fin.Fail<double[]>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, triangles.Count))
-            : guard(points.Count > 0, op.InvalidInput()).ToFin().Map<double[]>(_ => {
+            : guard(points.Count > 0, new KernelFault.InvalidInput()).ToFin().Map<double[]>(_ => {
                 (Vector3d[] dipole, Point3d[] weighted, double[] area) = Moments(Store, triangles);
                 return [.. points.AsIterable().Select(point => WindingAt(Store, triangles, betaSquared.Value, dipole, weighted, area, point))];
             });
     }
 
-    public Fin<Seq<int>> Query(CellLattice grid, int layer, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(layer >= 0 && layer < grid.Layers.Value, op.InvalidInput()).ToFin()
+    public Fin<Seq<int>> Query(CellLattice grid, int layer) {
+        return guard(layer >= 0 && layer < grid.Layers.Value, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => LeafHits(Store, node => CrossesLayer(Store.Bound(node), grid, layer) ? NodeVerdict.Descend : NodeVerdict.Prune,
                 primitive => CrossesLayer(Primitives[primitive], grid, layer)));
     }
@@ -616,12 +607,11 @@ public sealed class SpatialIndex : IValidityEvidence {
     }
 
     // --- [REFIT]
-    public Fin<SpatialIndex> Refit(BoundingBox[] revised, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<SpatialIndex> Refit(BoundingBox[] revised) {
         Fin<SpatialIndex> result = revised.Length != Primitives.Length
             ? Fin.Fail<SpatialIndex>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, revised.Length))
             : Admit(revised).Bind(Rebound);
-        return result.Bind(index => guard(index.IsValid, op.InvalidResult()).ToFin().Map(_ => index));
+        return result.Bind(index => guard(index.IsValid, new KernelFault.InvalidResult()).ToFin().Map(_ => index));
     }
 
     Fin<SpatialIndex> Rebound(BoundingBox[] updated) {
@@ -663,11 +653,10 @@ public sealed class SpatialIndex : IValidityEvidence {
     }
 
     // --- [WIRE]
-    public Fin<(float[] Bounds, long[] Nodes)> Wire(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<(float[] Bounds, long[] Nodes)> Wire() {
         for (int node = 0; node < Store.Count; node++)
             if (Store.LeafCount[node] > BuildPolicy.PackedCountMax || Store.ChildCount[node] > BuildPolicy.PackedCountMax)
-                return Fin.Fail<(float[] Bounds, long[] Nodes)>(op.InvalidInput());
+                return Fin.Fail<(float[] Bounds, long[] Nodes)>(new KernelFault.InvalidInput());
 
         int count = Store.Count;
         float[] bounds = new float[6 * count];

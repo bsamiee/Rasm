@@ -13,7 +13,7 @@ The reader supplies the entity reach and the ONE magnitude admission: components
 - Owner: `AnnexRegime` the `[SmartEnum<string>]` national design-regime roster — one row per `NationalAnnex` carrying the ISO 3166-1 alpha-2 the project nation is admitted by and, as the row's own KEY, the SAF `ExcelNationalCode` member the XLSX boundary writes, with `Of(ICountry)` and `Of(NationalAnnex)` the two shape-discriminated reads over its nested `FrozenDictionary` indexes; `EurocodePolicy` the Eurocode regime as ONE value — the `AnnexRegime` row every psi lookup keys through, the `IDesignSituation` the composition elected, the `CombinationSet` ULS axis, the seismic importance factor, the imposed-load category, the snow altitude band, and the permanent-action sense; `EurocodeAction` the `[SmartEnum<string>]` binding each action nature to the ONE `ENLoadCaseFactory` mint that answers both its psi set and its combination payload; `ActionRow` the resolved classification carrying the consumer-neutral case token beside the EN 1990 `ActionClass` nature; `CombinationSet` the ULS-set row carrying its own roster assembly; `PsiRow`/`GammaRow` the factor rows each carrying its own reader off the case and the situation; `Eurocode` the fold.
 - Law: `IDesignSituation` IS the package's own partial-factor policy contract and the ONLY public reach to the EN 1990 Table A1.2 gammas — every `ITableA1_2` implementation is INTERNAL to `VividOrange.Cases` and no public member yields one, so an `ITableA1_2` column on the policy names a value no caller constructs and strands the whole factor composition it fronts. The elected situation therefore carries the WHOLE set, and a two-factor slice stranding the leading-action and 6.10a-b reduction factors on every consumer is the deleted form.
 - Exemption: `CreateEquSetA` (both overloads) carries an unconditional `item2[1]`/`list[2]` tail after its leading-variable loop — `ArgumentOutOfRangeException` below two variable cases, a silent overwrite of the third combination above — so no input shape survives it intact; `CreateAccidental` is index-sound but takes the leading AEd `IVariableCase` as a REQUIRED argument this fold never holds, because the IFC action vocabulary classifies no accidental design action and the verb dereferences `accidentalCase.Name` unconditionally. The EQU and accidental rosters therefore CONSTRUCT the package's own combination records through `Sweep` under the elected situation — construction only, every gamma and psi still factoring inside `GetFactoredLoads` — and a fence re-electing either verb on the inputs this fold holds is the refuted form.
-- Entry: `Eurocode.RowOf(activity, policy)` walks the activity's load-group assignment and resolves its `ActionRow` two-tier; `Eurocode.Factors(row, policy, scale, key)` stamps the psi triple beside the situation's whole partial-factor set; `Eurocode.Combination(group, policy, scale, key)` lowers a `LOAD_COMBINATION_GROUP` onto the combination `Definition` expressions beside the factored design actions they produce, in ONE combination order both rows share.
+- Entry: `Eurocode.RowOf(activity, policy)` walks the activity's load-group assignment and resolves its `ActionRow` two-tier; `Eurocode.Factors(row, policy, scale)` stamps the psi triple beside the situation's whole partial-factor set; `Eurocode.Combination(group, policy, scale, key)` lowers a `LOAD_COMBINATION_GROUP` onto the combination `Definition` expressions beside the factored design actions they produce, in ONE combination order both rows share.
 - Auto: the `ActionRow` derivation is TWO-TIER — the specific `CaseSources` row over `IfcActionSourceTypeEnum`, else the group's `ActionType` nature with `PERMANENT_G` the dead permanent action and every other nature the imposed variable one — so a prestress, shrinkage, or settlement group factors permanent instead of silently mis-casing variable. An action with no mint carries no case and therefore no psi, the honest reading for a source the code does not classify, and the imposed mint is category-keyed so a psi row is ABSENT rather than defaulted onto whichever Category A-H the reader picked.
 - Output: the factor rows land as dimensionless `Measure` values beside `Coefficient` on the load-group or activity bag, so one consumer read covers every factor; the combination roster lands as the paired `Combinations` and `FactoredActions` lists, so a consumer reads the k-th definition against the actions it produced.
 - Packages: VividOrange.Cases, VividOrange.Countries, VividOrange.Loads, VividOrange.Standards.Eurocode, GeometryGymIFC_Core, UnitsNet, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -256,15 +256,15 @@ internal static class Eurocode {
     // --- [FACTORS]
 
     internal static Fin<Map<PropertyName, PropertyValue>> Factors(
-        ActionRow row, Option<EurocodePolicy> eurocode, UnitScheme scale, Op key) =>
+        ActionRow row, Option<EurocodePolicy> eurocode, UnitScheme scale) =>
         eurocode.Match(
             None: static () => Fin.Succ(Map<PropertyName, PropertyValue>()),
-            Some: policy => key.Catch(() => row.Action.Bind(action => action.Mint(policy, [])).Match(
+            Some: policy => Try.lift(() => row.Action.Bind(action => action.Mint(policy, [])).Match(
                     Some: variable => toSeq(PsiRow.Items).Map(psi => (psi.Name, psi.Read(variable).DecimalFractions)),
                     None: static () => Seq<(PropertyName, double)>())
-                + Partials(policy.Situation))
+                + Partials(policy.Situation)).Run().Bind(static inner => inner)
                 .Bind(rows => StructuralProjection.Measures(
-                    rows.Map(static factor => (factor.Item1, StructuralProjection.Anonymous, factor.Item2)), scale, key))
+                    rows.Map(static factor => (factor.Item1, StructuralProjection.Anonymous, factor.Item2)), scale))
                 .Map(factors => factors.Add(Situation,
                     StructuralProjection.Enumerated(policy.Situation.Class.ToString(), SituationKinds))));
 
@@ -274,15 +274,15 @@ internal static class Eurocode {
     // --- [COMBINATION]
 
     internal static Fin<Map<PropertyName, PropertyValue>> Combination(
-        IfcStructuralLoadGroup group, EurocodePolicy policy, UnitScheme scale, Op key) =>
+        IfcStructuralLoadGroup group, EurocodePolicy policy, UnitScheme scale) =>
         toSeq(group.IsGroupedBy)
             .Bind(static rel => toSeq(rel.RelatedObjects).Choose(static o => o is IfcStructuralLoadGroup g ? Some(g) : None))
-            .TraverseM(member => CaseOf(member, policy, scale, key))
+            .TraverseM(member => CaseOf(member, policy, scale))
             .As()
-            .Bind(cases => key.Catch(() => Elect(cases.Somes().ToList(), policy)))
+            .Bind(cases => Try.lift(() => Elect(cases.Somes().ToList(), policy)).Run().Bind(static inner => inner))
             .Bind(combinations => toSeq(combinations)
                 .Bind(static c => toSeq(c.GetFactoredLoads()).Bind(Components))
-                .TraverseM(row => StructuralProjection.Admit(row.Measure, row.Si, UnitScheme.Si, key))
+                .TraverseM(row => StructuralProjection.Admit(row.Measure, row.Si, UnitScheme.Si))
                 .As()
                 .Map(values => Map(
                     (Combinations, (PropertyValue)new PropertyValue.List(
@@ -324,11 +324,11 @@ internal static class Eurocode {
     // --- [CARRIER]
 
     private static Fin<Option<(ActionRow Row, ILoadCase Case)>> CaseOf(
-        IfcStructuralLoadGroup group, EurocodePolicy policy, UnitScheme scale, Op key) =>
+        IfcStructuralLoadGroup group, EurocodePolicy policy, UnitScheme scale) =>
         toSeq(group.IsGroupedBy)
             .Bind(static rel => toSeq(rel.RelatedObjects).Choose(static o => o is IfcStructuralActivity a ? Some(a) : None))
             .TraverseM(activity => Optional(activity.AppliedLoad).Match(
-                Some: load => Carrier(load, Application(activity.GlobalOrLocal), scale, key),
+                Some: load => Carrier(load, Application(activity.GlobalOrLocal), scale),
                 None: static () => Fin.Succ(Seq<ILoad>())))
             .As()
             .Map(carried => {
@@ -339,10 +339,10 @@ internal static class Eurocode {
                     : row.Action.Bind(action => action.Mint(policy, loads)).Map(variable => (Row: row, Case: (ILoadCase)variable));
             });
 
-    private static Fin<Seq<ILoad>> Carrier(IfcStructuralLoad load, LoadApplication application, UnitScheme scale, Op key) =>
+    private static Fin<Seq<ILoad>> Carrier(IfcStructuralLoad load, LoadApplication application, UnitScheme scale) =>
         LoadFamily.Of(load).Match(
             None: static () => Fin.Succ(Seq<ILoad>()),
-            Some: family => StructuralProjection.Measures(family.Vectors(load), scale, key).Map(si => family.Switch<Seq<ILoad>>(
+            Some: family => StructuralProjection.Measures(family.Vectors(load), scale).Map(si => family.Switch<Seq<ILoad>>(
                 singleForce: () => Seq<ILoad>(
                     new PointForce(
                         Force.FromNewtons(StructuralProjection.Si(si, StructuralRows.Force["X"])),

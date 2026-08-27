@@ -19,7 +19,7 @@
 - Entry: `Reconcile` aligns imported ids from GlobalId and unambiguous GlobalId-less type keys.
 - Entry: `Forest` and `DiffContent` project object topology and non-object content onto separate detection axes.
 - Entry: `ThreeWay` returns clean edits, typed conflicts, and tally evidence in one result.
-- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault channel; `EditWire.Wire(edit, key)` lowers one edit onto the generated message.
+- Entry: `Patch(script, base, target, policy)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault channel; `EditWire.Wire(edit)` lowers one edit onto the generated message.
 - Auto: Every base is `ContentAddress.Of(baseNode, base.Header.Tolerance)`.
 - Auto: `Members` diffs the binary `NodeWire` pair field by field off `NodeWire.Descriptor.Fields.InFieldNumberOrder()` through `IFieldAccessor` equality — message fields recurse, repeated and map fields compare whole, a presence flip names the path, a changed oneof arm names both arms.
 - Auto: `FieldMask.IsValid` gates the path set; `Merge` under `ReplaceMessageFields`/`ReplaceRepeatedFields`/`ReplacePrimitiveFields` applies it, so a primitive returning to its default crosses as a change — the member a ProtoJSON diff elided.
@@ -154,16 +154,16 @@ public sealed record MemberPatch(FieldMask Mask, NodeWire Prior, NodeWire Succes
         return patched;
     }
 
-    public static Fin<Option<MemberPatch>> Between(NodeWire prior, NodeWire successor, PatchPolicy policy, Op key) =>
+    public static Fin<Option<MemberPatch>> Between(NodeWire prior, NodeWire successor, PatchPolicy policy) =>
         MemberDiff.Paths(prior, successor) switch {
             { IsEmpty: true } => Fin.Succ(Option<MemberPatch>.None),
-            var paths => Masked(paths.Count <= policy.OperationCeiling ? paths : MemberDiff.TopLevel(prior, successor), prior, successor, key),
+            var paths => Masked(paths.Count <= policy.OperationCeiling ? paths : MemberDiff.TopLevel(prior, successor), prior, successor),
         };
 
-    static Fin<Option<MemberPatch>> Masked(Seq<string> paths, NodeWire prior, NodeWire successor, Op key) =>
+    static Fin<Option<MemberPatch>> Masked(Seq<string> paths, NodeWire prior, NodeWire successor) =>
         new FieldMask { Paths = { paths } } switch {
             var mask when FieldMask.IsValid(NodeWire.Descriptor, mask) => Fin.Succ(Some(new MemberPatch(mask, prior, successor))),
-            var mask => ElementFault.ValueRejected(key, $"<entity-edit-mask:{string.Join(',', mask.Paths)}>"),
+            var mask => ElementFault.ValueRejected($"<entity-edit-mask:{string.Join(',', mask.Paths)}>"),
         };
 }
 
@@ -171,9 +171,9 @@ public sealed record PatchPolicy {
     private PatchPolicy(int operationCeiling) => OperationCeiling = operationCeiling;
     public int OperationCeiling { get; }
 
-    public static Fin<PatchPolicy> Of(int operationCeiling, Op key) => operationCeiling > 0
+    public static Fin<PatchPolicy> Of(int operationCeiling) => operationCeiling > 0
         ? Fin.Succ(new PatchPolicy(operationCeiling))
-        : ElementFault.ValueRejected(key, $"<entity-edit-operation-ceiling:{operationCeiling}>");
+        : ElementFault.ValueRejected($"<entity-edit-operation-ceiling:{operationCeiling}>");
 }
 
 public static class MemberDiff {
@@ -204,15 +204,15 @@ public static class MemberDiff {
 }
 
 public static class EditWire {
-    public static Fin<Host.EntityEditWire> Wire(EntityEdit edit, Op key) => edit.Switch(
-        tombstone: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
+    public static Fin<Host.EntityEditWire> Wire(EntityEdit edit) => edit.Switch(
+        tombstone: row => Address().Map(id => new Host.EntityEditWire {
             Tombstone = new Host.EditTombstone { Key = id, Base = ContentHash.Wire(row.Base.ToValue()) },
         }),
-        members: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
+        members: row => Address().Map(id => new Host.EntityEditWire {
             Members = new Host.EditMembers { Key = id, Base = ContentHash.Wire(row.Base.ToValue()), Patch = { Ops(row.Patch) } },
         }));
 
-    static Fin<ByteString> Address(NodeId id, Op key) => ContentHash.Admit(id.ToValue(), key).Map(ContentHash.Wire);
+    static Fin<ByteString> Address(NodeId id) => ContentHash.Admit(id.ToValue()).Map(ContentHash.Wire);
 
     static Seq<Control.PatchOp> Ops(MemberPatch patch) =>
         toSeq(patch.Mask.Paths).Map(path => Op(patch, toSeq(path.Split('.'))));
@@ -282,10 +282,10 @@ public static class StructuralMerge {
     }
 
     public static Seq<EditOp> DiffContent(HashMap<NodeId, GraphNode> from, HashMap<NodeId, GraphNode> to) =>
-        toSeq(to.Map((key, node) => from.Find(key).Match(
-            Some: prior => prior.PropertyHash == node.PropertyHash ? (EditOp)new EditOp.Match(key) : new EditOp.Update(key, prior.PropertyHash, node.PropertyHash, prior.GeometryHash, node.GeometryHash),
+        toSeq(to.Map((key, node) => from.Find().Match(
+            Some: prior => prior.PropertyHash == node.PropertyHash ? (EditOp)new EditOp.Match() : new EditOp.Update(prior.PropertyHash, node.PropertyHash, prior.GeometryHash, node.GeometryHash),
             None: () => new EditOp.Insert(node))).Values)
-        + toSeq(from.Filter((key, _) => !to.ContainsKey(key)).Map(static (key, _) => (EditOp)new EditOp.Delete(key)).Values);
+        + toSeq(from.Filter((key, _) => !to.ContainsKey()).Map(static (key, _) => (EditOp)new EditOp.Delete()).Values);
 
     public static MergeOutcome ThreeWay(ElementGraph @base, ElementGraph ours, ElementGraph theirs, Func<NodeId, Option<OpLogEntry>> stampOurs, Func<NodeId, Option<OpLogEntry>> stampTheirs) {
         Seq<GraphNode> baseForest = Forest(@base), ourForest = Forest(ours), theirForest = Forest(theirs);
@@ -295,48 +295,48 @@ public static class StructuralMerge {
         HashMap<NodeId, GraphNode> oursByKey = toHashMap(ourForest.Map(static n => (n.Key, n)));
         HashMap<NodeId, GraphNode> theirsByKey = toHashMap(theirForest.Map(static n => (n.Key, n)));
         Seq<MergeConflict> conflicts = toSeq(ourEdits.Keys.Where(theirEdits.ContainsKey)
-            .Bind(key => Conflicts(key, ourEdits.Find(key).IfNone(HashMap<string, EditOp>()), theirEdits.Find(key).IfNone(HashMap<string, EditOp>()), stampOurs(key), stampTheirs(key)))
+            .Bind(key => Conflicts(ourEdits.Find().IfNone(HashMap<string, EditOp>()), theirEdits.Find().IfNone(HashMap<string, EditOp>()), stampOurs(), stampTheirs()))
             .Append(Cycles(ourEdits, oursByKey, ByOurs: true, stampOurs))
             .Append(Cycles(theirEdits, theirsByKey, ByOurs: false, stampTheirs)));
         HashSet<NodeId> poisoned = conflicts.Filter(static c => c.ConflictAxis.IsNone).Map(static c => c.Subject).ToHashSet();
         HashSet<(NodeId Key, string Axis)> conflictedAxes = conflicts.Bind(c => c.ConflictAxis.Map(axis => (c.Subject, axis)).ToSeq()).ToHashSet();
-        bool Excluded(NodeId key, string axis) => poisoned.Contains(key) || conflictedAxes.Contains((key, axis));
-        Seq<EditOp> merged = toSeq(ourEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(key, axis)).Values)).Values.Bind(static ops => ops)
-            .Append(theirEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(key, axis) && !ourEdits.Find(key).Map(a => a.ContainsKey(axis)).IfNone(false)).Values)).Values.Bind(static ops => ops)));
+        bool Excluded(NodeId key, string axis) => poisoned.Contains() || conflictedAxes.Contains((axis));
+        Seq<EditOp> merged = toSeq(ourEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(axis)).Values)).Values.Bind(static ops => ops)
+            .Append(theirEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(axis) && !ourEdits.Find().Map(a => a.ContainsKey(axis)).IfNone(false)).Values)).Values.Bind(static ops => ops)));
         return new MergeOutcome(merged, conflicts, Tally(merged, conflicts));
     }
 
     public static Fin<HashMap<NodeId, EntityEdit>> Patch(
-        Seq<EditOp> script, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
+        Seq<EditOp> script, ElementGraph @base, ElementGraph target, PatchPolicy policy) =>
         toSeq(script.GroupBy(static op => op.Target)).Fold(
             Fin.Succ(HashMap<NodeId, EntityEdit>()),
-            (state, group) => state.Bind(edits => Edit(group.Key, toSeq(group), @base, target, policy, key)
+            (state, group) => state.Bind(edits => Edit(toSeq(group), @base, target, policy)
                 .Map(edit => edit.Map(row => edits.AddOrUpdate(group.Key, row)).IfNone(edits))));
 
     static Fin<Option<EntityEdit>> Edit(
-        NodeId subject, Seq<EditOp> ops, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
+        NodeId subject, Seq<EditOp> ops, ElementGraph @base, ElementGraph target, PatchPolicy policy) =>
         (ops.Exists(static op => op is EditOp.Delete), ops.Exists(static op => op is EditOp.Insert)) switch {
-            (true, true) => ElementFault.DeltaConflict(key, $"<merge-edit-existence-conflict:{subject.ToValue()}>"),
+            (true, true) => ElementFault.DeltaConflict($"<merge-edit-existence-conflict:{subject.ToValue()}>"),
             (true, false) when target.Find(subject).IsSome =>
-                ElementFault.DeltaConflict(key, $"<merge-tombstone-target-present:{subject.ToValue()}>"),
+                ElementFault.DeltaConflict($"<merge-tombstone-target-present:{subject.ToValue()}>"),
             (true, false) => @base.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-tombstone-base-absent:{subject.ToValue()}>"))
+                .ToFin(ElementFault.NodeAbsent($"<merge-tombstone-base-absent:{subject.ToValue()}>"))
                 .Map(node => Some<EntityEdit>(new EntityEdit.Tombstone(
                     subject, ContentAddress.Of(node, @base.Header.Tolerance)))),
             (false, true) when @base.Find(subject).IsSome =>
-                ElementFault.DeltaConflict(key, $"<merge-insert-base-present:{subject.ToValue()}>"),
+                ElementFault.DeltaConflict($"<merge-insert-base-present:{subject.ToValue()}>"),
             (false, true) when ops.Exists(static op => op is not EditOp.Insert and not EditOp.Match) =>
-                ElementFault.DeltaConflict(key, $"<merge-insert-mixed-edit:{subject.ToValue()}>"),
+                ElementFault.DeltaConflict($"<merge-insert-mixed-edit:{subject.ToValue()}>"),
             (false, true) => target.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-insert-target-absent:{subject.ToValue()}>"))
+                .ToFin(ElementFault.NodeAbsent($"<merge-insert-target-absent:{subject.ToValue()}>"))
                 .Map(static _ => Option<EntityEdit>.None),
             _ => @base.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-base-absent:{subject.ToValue()}>"))
+                .ToFin(ElementFault.NodeAbsent($"<merge-members-base-absent:{subject.ToValue()}>"))
                 .Bind(before => target.Find(subject)
-                    .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-target-absent:{subject.ToValue()}>"))
-                    .Bind(after => ElementWire.Encode(before, @base.Header.Tolerance, key).Bind(beforeWire =>
-                        ElementWire.Encode(after, target.Header.Tolerance, key).Bind(afterWire =>
-                            MemberPatch.Between(beforeWire, afterWire, policy, key)
+                    .ToFin(ElementFault.NodeAbsent($"<merge-members-target-absent:{subject.ToValue()}>"))
+                    .Bind(after => ElementWire.Encode(before, @base.Header.Tolerance).Bind(beforeWire =>
+                        ElementWire.Encode(after, target.Header.Tolerance).Bind(afterWire =>
+                            MemberPatch.Between(beforeWire, afterWire, policy)
                                 .Map(patch => patch.Map(held => (EntityEdit)new EntityEdit.Members(
                                     subject, ContentAddress.Of(before, @base.Header.Tolerance), held))))))),
         };
@@ -421,33 +421,33 @@ public static class StructuralMerge {
         Option<ConflictSide> ourSide = Stamp(o);
         Option<ConflictSide> theirSide = Stamp(t);
         return ours.ContainsKey("delete") && theirs.Keys.Exists(static a => a != "delete")
-            ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(key, DeletedByOurs: true, ourSide, theirSide))
+            ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(DeletedByOurs: true, ourSide, theirSide))
             : theirs.ContainsKey("delete") && ours.Keys.Exists(static a => a != "delete")
-                ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(key, DeletedByOurs: false, ourSide, theirSide))
-                : toSeq(ours.Keys.Filter(theirs.ContainsKey).Choose(axis => Diverge(key, ours[axis], theirs[axis], ourSide, theirSide)));
+                ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(DeletedByOurs: false, ourSide, theirSide))
+                : toSeq(ours.Keys.Filter(theirs.ContainsKey).Choose(axis => Diverge(ours[axis], theirs[axis], ourSide, theirSide)));
     }
 
     static Option<MergeConflict> Diverge(NodeId key, EditOp ours, EditOp theirs, Option<ConflictSide> ourSide, Option<ConflictSide> theirSide) => (ours, theirs) switch {
-        (EditOp.Retype r1, EditOp.Retype r2) when r1.ToRole.Key != r2.ToRole.Key => new MergeConflict.TypeChange(key, r1.ToRole, r2.ToRole, ourSide, theirSide),
-        (EditOp.Move m1, EditOp.Move m2) when m1.ToParent != m2.ToParent => new MergeConflict.MoveMove(key, m1.ToParent, m2.ToParent, ourSide, theirSide),
-        (EditOp.Reorder r1, EditOp.Reorder r2) when r1.ToOrdinal != r2.ToOrdinal => new MergeConflict.ReorderReorder(key, r1.ToOrdinal, r2.ToOrdinal, ourSide, theirSide),
-        (EditOp.Update u1, EditOp.Update u2) when u1.ToGeometry != u2.ToGeometry => new MergeConflict.TopologyBreak(key, u1.ToGeometry, u2.ToGeometry, ourSide, theirSide),
-        (EditOp.Update u1, EditOp.Update u2) when u1.ToProperty != u2.ToProperty => new MergeConflict.ParallelEdit(key, ourSide, theirSide),
+        (EditOp.Retype r1, EditOp.Retype r2) when r1.ToRole.Key != r2.ToRole.Key => new MergeConflict.TypeChange(r1.ToRole, r2.ToRole, ourSide, theirSide),
+        (EditOp.Move m1, EditOp.Move m2) when m1.ToParent != m2.ToParent => new MergeConflict.MoveMove(m1.ToParent, m2.ToParent, ourSide, theirSide),
+        (EditOp.Reorder r1, EditOp.Reorder r2) when r1.ToOrdinal != r2.ToOrdinal => new MergeConflict.ReorderReorder(r1.ToOrdinal, r2.ToOrdinal, ourSide, theirSide),
+        (EditOp.Update u1, EditOp.Update u2) when u1.ToGeometry != u2.ToGeometry => new MergeConflict.TopologyBreak(u1.ToGeometry, u2.ToGeometry, ourSide, theirSide),
+        (EditOp.Update u1, EditOp.Update u2) when u1.ToProperty != u2.ToProperty => new MergeConflict.ParallelEdit(ourSide, theirSide),
         _ => Option<MergeConflict>.None,
     };
 
     static Seq<MergeConflict> Cycles(HashMap<NodeId, HashMap<string, EditOp>> edits, HashMap<NodeId, GraphNode> byKey, bool ByOurs, Func<NodeId, Option<OpLogEntry>> stamp) =>
-        toSeq(edits.Keys.Choose(key => ParentOf(key, edits, byKey).Filter(parent => IsDescendant(parent, key, byKey, HashSet<NodeId>()))
-            .Map(parent => (MergeConflict)new MergeConflict.ContainmentCycle(key, parent, ByOurs, Stamp(stamp(key))))));
+        toSeq(edits.Keys.Choose(key => ParentOf(edits, byKey).Filter(parent => IsDescendant(parent, byKey, HashSet<NodeId>()))
+            .Map(parent => (MergeConflict)new MergeConflict.ContainmentCycle(parent, ByOurs, Stamp(stamp())))));
 
     static Option<ConflictSide> Stamp(Option<OpLogEntry> entry) =>
         entry.Map(static e => new ConflictSide(new Hlc(e.Physical, e.Logical), e.Actor));
 
     static HashMap<NodeId, HashMap<string, EditOp>> ByKeyAxis(Seq<EditOp> script) =>
-        toHashMap(toSeq(script.Filter(static op => op is not EditOp.Match).GroupBy(static op => op.Target)).Map(static group => (group.Key, toHashMap(toSeq(group.GroupBy(static op => op.Axis)).Map(static axis => (axis.Key, axis.Last()))))));
+        toHashMap(toSeq(script.Filter(static op => op is not EditOp.Match).GroupBy(static op => op.Target)).Map(static group => (toHashMap(toSeq(group.GroupBy(static op => op.Axis)).Map(static axis => (axis.Key, axis.Last()))))));
 
     static Option<NodeId> ParentOf(NodeId key, HashMap<NodeId, HashMap<string, EditOp>> edits, HashMap<NodeId, GraphNode> byKey) =>
-        edits.Find(key).Bind(static axes => axes.Find("parent")).Bind(static op => op is EditOp.Move m ? m.ToParent : Option<NodeId>.None) | byKey.Find(key).Bind(static node => node.Parent);
+        edits.Find().Bind(static axes => axes.Find("parent")).Bind(static op => op is EditOp.Move m ? m.ToParent : Option<NodeId>.None) | byKey.Find().Bind(static node => node.Parent);
 
     static bool IsDescendant(NodeId candidate, NodeId root, HashMap<NodeId, GraphNode> byKey, HashSet<NodeId> seen) =>
         candidate == root || (!seen.Contains(candidate) && byKey.Find(candidate).Bind(static node => node.Parent).Map(parent => IsDescendant(parent, root, byKey, seen.Add(candidate))).IfNone(false));

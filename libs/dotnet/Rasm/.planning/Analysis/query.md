@@ -12,7 +12,7 @@
 
 ## [02]-[REQUEST_ALGEBRA]
 
-- Owner: `AnalysisVerb` `[SmartEnum<string>]` is the ENUMERABLE roster — one row per request case carrying its `AnalysisBand`, with `Arities` DERIVED off the case rather than declared. `ISingleQuery`/`IPairQuery`/`IServiceQuery` are the three arity floors a case realizes; `AnalysisQuery` `[Union]` mints the request vocabulary across those four bands, its public nested cases the construction surface and request cases being data rather than operations, so the union carries no `[GenerateUnionOps]`; factories survive only where they normalize boundary input or admit coupled arguments.
+- Owner: `AnalysisVerb` `[SmartEnum<string>]` is the ENUMERABLE roster — one row per request case carrying its `AnalysisBand`, with `Arities` DERIVED off the case rather than declared. `ISingleQuery`/`IPairQuery`/`IServiceQuery` are the three arity floors a case realizes; `AnalysisQuery` `[Union]` mints the request vocabulary across those four bands, its public nested cases the construction surface and request cases being data rather than operations, so the union carries no ``; factories survive only where they normalize boundary input or admit coupled arguments.
 - Cases: geometry stateless `Coerce`, `CurveForm`, `Vertices`, plus payload-bearing `SamplePoints` `SurfaceUv` `Closest` `SignedDistance`; family `Bounds` `Measure` `Location` `Curves` `Faces` `Topologies` `Meshes` `Points`; relation `Intersections` `Classification` `CurveDeviation` `SelfIntersection` `Ray` `Conformance`; spatial `SearchBox` `SearchSphere` `Overlap` `PointPairs`. `Conformance` is the one case realizing two floors — the input shape, never a second case or a mode, decides whether the runtime samples a pair or folds a stream of residuals the consumer measured.
 - Law: the CASE is the authority and the row its declared metadata — a case cannot compile without naming its `Verb`, so a new operation is one case and one row. Arity is the FLOOR a case realizes, never a set a row declares: a case claiming a shape it cannot build fails to compile, and `Arities` reads back off those floors, so the declaration bug the virtual `Build` triple once surfaced as a runtime `Unsupported` has no spelling left.
 - Law: the case↔row correspondence is PROVED at type init through the `Covered` accessor `Analyze.Rows` publishes — a verb row no case names, and two cases naming one verb, both raise there rather than reaching a caller as `Unsupported`.
@@ -58,13 +58,13 @@ public sealed partial class QueryArity : ICapability<QueryArity> {
 }
 
 internal interface ISingleQuery {
-    Operation<TGeometry, TOut> Build<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull;
+    Operation<TGeometry, TOut> Build<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull;
 }
 internal interface IPairQuery {
-    Operation<(TA A, TB B), TOut> Build<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull where TOut : notnull;
+    Operation<(TA A, TB B), TOut> Build<TA, TB, TOut>() where TA : notnull where TB : notnull where TOut : notnull;
 }
 internal interface IServiceQuery {
-    Operation<Unit, TOut> Build<TOut>(Op key) where TOut : notnull;
+    Operation<Unit, TOut> Build<TOut>() where TOut : notnull;
 }
 
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -135,167 +135,167 @@ public abstract partial record AnalysisQuery {
     // --- [GEOMETRY_BAND]
     public sealed record CoerceCase : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Coerce;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
             Capability.Coercible(source: typeof(TGeometry), target: typeof(TOut))
-                ? Operation<TGeometry, TOut>.Build(key: key, requirement: Some(Requirement.Basic), requiresContext: true, state: key,
+                ? Operation<TGeometry, TOut>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: key,
                     evaluator: static (op, geometry) =>
                         from context in Env.Asks
                         from value in geometry.CoerceTo<TOut>(context: context, key: op).ToEff()
                         from admitted in AnalysisOutput<TOut>.Project(key: op, values: Seq(value)).ToEff()
                         select admitted)
-                : key.Unsupported<TGeometry, TOut>();
+                : new KernelFault.Unsupported();
     }
     public sealed record CurveFormCase : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.CurveForm;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Operation<TGeometry, Rasm.Domain.CurveForm>.Build(key: key, requirement: Some(Requirement.Basic), requiresContext: true, state: key,
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Operation<TGeometry, Rasm.Domain.CurveForm>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from form in Normalization.CurveForm(source: geometry, key: op).Map(lease => lease.Use(curve => Normalization.CurveFormOf(curve: curve, context: context))).ToEff()
                     from admitted in AnalysisOutput<Rasm.Domain.CurveForm>.Project(key: op, values: Seq(form)).ToEff()
                     select admitted)
-                .As<TGeometry, TOut>(key: key);
+                .As<TGeometry, TOut>();
     }
     public sealed record VerticesCase : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Vertices;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Operation<TGeometry, Point3d>.Build(key: key, state: key,
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Operation<TGeometry, Point3d>.Build(state: key,
                 evaluator: static (op, geometry) =>
                     from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: op).ToEff()
                     from admitted in AnalysisOutput<Point3d>.Project(key: op, values: points).ToEff()
                     select admitted)
-                .As<TGeometry, TOut>(key: key);
+                .As<TGeometry, TOut>();
     }
     public sealed record SamplePointsCase(Dimension Count) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.SamplePoints;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Operation<TGeometry, Point3d>.Build(key: key, requiresContext: true, state: (Key: key, Count),
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Operation<TGeometry, Point3d>.Build(requiresContext: true, state: (Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: state.Count, Model: context), key: state.Key).ToEff()
                     from admitted in AnalysisOutput<Point3d>.Project(key: state.Key, values: points).ToEff()
                     select admitted)
-                .As<TGeometry, TOut>(key: key);
+                .As<TGeometry, TOut>();
     }
     public sealed record SurfaceUvCase(Point2d Uv) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.SurfaceUv;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Operation<TGeometry, Point2d>.Build(key: key, requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true, state: (Key: key, Uv),
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Operation<TGeometry, Point2d>.Build(requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true, state: (Uv),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from result in Normalization.SurfaceForm(source: geometry, key: state.Key).Bind(lease => lease.Use(surface => Evaluation.SurfaceUv(surface: surface, uv: state.Uv, context: context, key: state.Key))).ToEff()
+                    from result in Normalization.SurfaceForm(source: geometry, key: state.Key).Bind(lease => lease.Use(surface => Evaluation.SurfaceUv(surface: surface, uv: state.Uv, context: context))).ToEff()
                     from admitted in AnalysisOutput<Point2d>.Project(key: state.Key, values: Seq(result)).ToEff()
                     select admitted)
-                .As<TGeometry, TOut>(key: key);
+                .As<TGeometry, TOut>();
     }
     public sealed record ClosestCase(Point3d Target) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Closest;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Operation<TGeometry, ClosestHit>.Build(key: key, state: (Key: key, Target),
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Operation<TGeometry, ClosestHit>.Build(state: (Target),
                 evaluator: static (state, geometry) =>
                     from hit in geometry.Evaluate<ClosestHit>(request: new EvaluationRequest.Closest(Target: state.Target), key: state.Key).ToEff()
                     from admitted in AnalysisOutput<ClosestHit>.Project(key: state.Key, values: Seq(hit)).ToEff()
                     select admitted)
-                .As<TGeometry, TOut>(key: key);
+                .As<TGeometry, TOut>();
     }
     public sealed record SignedDistanceCase(Point3d Sample) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.SignedDistance;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Operation<TGeometry, double>.Build(key: key, state: (Key: key, Sample),
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Operation<TGeometry, double>.Build(state: (Sample),
                 evaluator: static (state, geometry) =>
                     from distance in geometry.Evaluate<double>(request: new EvaluationRequest.Signed(Sample: state.Sample), key: state.Key).ToEff()
                     from admitted in AnalysisOutput<double>.Project(key: state.Key, values: Seq(distance)).ToEff()
                     select admitted)
-                .As<TGeometry, TOut>(key: key);
+                .As<TGeometry, TOut>();
     }
 
     // --- [FAMILY_BAND]
     public sealed record BoundsCase(Bounds Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Bounds;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record MeasureCase(Measure Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Measure;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record LocationCase(Location Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Location;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>(key);
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record CurvesCase(Curves Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Curves;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record FacesCase(Faces Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Faces;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record TopologiesCase(Topologies Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Topologies;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record MeshesCase(Meshes Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Meshes;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
     public sealed record PointsCase(Points Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Points;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>();
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Query.Operation<TGeometry, TOut>();
     }
 
     // --- [RELATION_BAND]
     public sealed record IntersectionsCase : AnalysisQuery, IPairQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Intersections;
-        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>(Op key) => Relations.Intersect<TA, TB, TOut>(key: key);
+        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>() => Relations.Intersect<TA, TB, TOut>();
     }
     public sealed record ClassificationCase : AnalysisQuery, IPairQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Classification;
-        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>(Op key) => Relations.Classify<TA, TB, TOut>(key: key);
+        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>() => Relations.Classify<TA, TB, TOut>();
     }
     public sealed record CurveDeviationCase : AnalysisQuery, IPairQuery {
         public override AnalysisVerb Verb => AnalysisVerb.CurveDeviation;
-        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>(Op key) => Relations.Deviate<TA, TB, TOut>(key: key);
+        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>() => Relations.Deviate<TA, TB, TOut>();
     }
     public sealed record SelfIntersectionCase : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.SelfIntersection;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Relations.SelfIntersect<TGeometry, TOut>(key: key);
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Relations.SelfIntersect<TGeometry, TOut>();
     }
     public sealed record RayCase(RayQuery Query) : AnalysisQuery, ISingleQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Ray;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Relations.Cast<TGeometry, TOut>(query: Query, key: key);
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() => Relations.Cast<TGeometry, TOut>(query: Query);
     }
     public sealed record ConformanceCase(ConformanceMetric Metric, Option<Dimension> Count, Seq<double> Percentiles) : AnalysisQuery, ISingleQuery, IPairQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Conformance;
-        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
-            Count.IsNone ? ConformanceMetric.Measured<TGeometry, TOut>(metric: Metric, percentiles: Percentiles, key: key) : key.Unsupported<TGeometry, TOut>();
-        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>(Op key) =>
-            ConformanceMetric.Sampled<TA, TB, TOut>(metric: Metric, count: Count, percentiles: Percentiles, key: key);
+        Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>() =>
+            Count.IsNone ? ConformanceMetric.Measured<TGeometry, TOut>(metric: Metric, percentiles: Percentiles) : new KernelFault.Unsupported();
+        Operation<(TA A, TB B), TOut> IPairQuery.Build<TA, TB, TOut>() =>
+            ConformanceMetric.Sampled<TA, TB, TOut>(metric: Metric, count: Count, percentiles: Percentiles);
     }
 
     // --- [SPATIAL_BAND]
     public sealed record SearchBoxCase(NeighborIndex Index, BoundingBox Box) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.SearchBox;
-        Operation<Unit, TOut> IServiceQuery.Build<TOut>(Op key) =>
+        Operation<Unit, TOut> IServiceQuery.Build<TOut>() =>
             Box.IsValid
-                ? Search<TOut>(key: key, resolve: _ => Fin.Succ(Index), query: new NeighborQuery.BoxCase(Bounds: Box), anchor: Box.Center)
-                : Operation<Unit, TOut>.Reject(key: key, fault: key.InvalidInput());
+                ? Search<TOut>(resolve: _ => Fin.Succ(Index), query: new NeighborQuery.BoxCase(Bounds: Box), anchor: Box.Center)
+                : Operation<Unit, TOut>.Reject(fault: new KernelFault.InvalidInput());
     }
     public sealed record SearchSphereCase(NeighborIndex Index, Sphere Sphere) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.SearchSphere;
-        Operation<Unit, TOut> IServiceQuery.Build<TOut>(Op key) =>
+        Operation<Unit, TOut> IServiceQuery.Build<TOut>() =>
             Sphere.IsValid
-                ? Search<TOut>(key: key, resolve: _ => Fin.Succ(Index), query: new NeighborQuery.BallCase(Ball: Sphere), anchor: Sphere.Center)
-                : Operation<Unit, TOut>.Reject(key: key, fault: key.InvalidInput());
+                ? Search<TOut>(resolve: _ => Fin.Succ(Index), query: new NeighborQuery.BallCase(Ball: Sphere), anchor: Sphere.Center)
+                : Operation<Unit, TOut>.Reject(fault: new KernelFault.InvalidInput());
     }
     public sealed record OverlapCase(NeighborIndex Left, NeighborIndex Right, Tolerance Band) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Overlap;
-        Operation<Unit, TOut> IServiceQuery.Build<TOut>(Op key) =>
-            Search<TOut>(key: key, resolve: _ => Fin.Succ(Left), query: new NeighborQuery.OverlapsCase(Other: Right, Band: Band), anchor: Point3d.Origin);
+        Operation<Unit, TOut> IServiceQuery.Build<TOut>() =>
+            Search<TOut>(resolve: _ => Fin.Succ(Left), query: new NeighborQuery.OverlapsCase(Other: Right, Band: Band), anchor: Point3d.Origin);
     }
     public sealed record PointPairsCase(Seq<Point3d> Points, Seq<Point3d> Needles, NeighborQuery Probe) : AnalysisQuery, IServiceQuery {
         public override AnalysisVerb Verb => AnalysisVerb.PointPairs;
-        Operation<Unit, TOut> IServiceQuery.Build<TOut>(Op key) =>
-            Search<TOut>(key: key, resolve: op => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: Points), key: op), query: new NeighborQuery.PairsCase(Needles: Needles, Probe: Probe), anchor: Point3d.Origin);
+        Operation<Unit, TOut> IServiceQuery.Build<TOut>() =>
+            Search<TOut>(resolve: op => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: Points), key: op), query: new NeighborQuery.PairsCase(Needles: Needles, Probe: Probe), anchor: Point3d.Origin);
     }
 
     // --- [FACTORIES]
@@ -303,48 +303,48 @@ public abstract partial record AnalysisQuery {
     public static Fin<AnalysisQuery> Conformance(ConformanceMetric metric, Option<Dimension> count = default, Seq<double> percentiles = default) =>
         percentiles.IsEmpty || metric.Equals(ConformanceMetric.Distribution)
             ? Fin.Succ<AnalysisQuery>(new ConformanceCase(Metric: metric, Count: count, Percentiles: percentiles))
-            : Fin.Fail<AnalysisQuery>(Op.Of(name: AnalysisVerb.Conformance.Key).InvalidInput(axis: nameof(percentiles)));
+            : Fin.Fail<AnalysisQuery>(new KernelFault.InvalidInput(Axis: Some(nameof(percentiles))));
     public static AnalysisQuery PointPairs(ReadOnlySpan<Point3d> points, ReadOnlySpan<Point3d> needles, NeighborQuery probe) =>
         new PointPairsCase(Points: Seq(points), Needles: Seq(needles), Probe: probe);
 
     // --- [ARITY_DISPATCH]
-    internal Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull =>
+    internal Operation<TGeometry, TOut> Single<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull =>
         this is ISingleQuery single
-            ? single.Build<TGeometry, TOut>(key: key)
-            : key.Unsupported<TGeometry, TOut>();
-    internal Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull where TOut : notnull =>
+            ? single.Build<TGeometry, TOut>()
+            : new KernelFault.Unsupported();
+    internal Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>() where TA : notnull where TB : notnull where TOut : notnull =>
         this is IPairQuery pair
-            ? pair.Build<TA, TB, TOut>(key: key)
+            ? pair.Build<TA, TB, TOut>()
             : key.Unsupported<(TA A, TB B), TOut>();
-    internal Operation<Unit, TOut> Service<TOut>(Op key) where TOut : notnull =>
+    internal Operation<Unit, TOut> Service<TOut>() where TOut : notnull =>
         this is IServiceQuery served
-            ? served.Build<TOut>(key: key)
-            : key.Unsupported<Unit, TOut>();
+            ? served.Build<TOut>()
+            : new KernelFault.Unsupported();
 
     // --- [GEOMETRY_BAND_BUILDERS]
 
     // --- [SPATIAL_BAND_BUILDERS]
-    private static Operation<Unit, TOut> Search<TOut>(Op key, Func<Op, Fin<NeighborIndex>> resolve, NeighborQuery query, Point3d anchor) where TOut : notnull =>
-        Operation<Unit, TOut>.Service(key: key, state: (Key: key, Resolve: resolve, Query: query, Anchor: anchor), evaluate: static state =>
+    private static Operation<Unit, TOut> Search<TOut>(Func< Fin<NeighborIndex>> resolve, NeighborQuery query, Point3d anchor) where TOut : notnull =>
+        Operation<Unit, TOut>.Service(state: (Resolve: resolve, Query: query, Anchor: anchor), evaluate: static state =>
             from runtime in Env.EnvAsks
             from index in state.Resolve(state.Key).ToEff()
-            from answer in index.Query(query: state.Query, anchor: state.Anchor, key: state.Key, cancel: runtime.Cancellation).ToEff()
+            from answer in index.Query(query: state.Query, anchor: state.Anchor, cancel: runtime.Cancellation).ToEff()
             from projected in Project<TOut>(answer: answer, key: state.Key).ToEff()
             select projected);
-    private static Fin<Seq<TOut>> Project<TOut>(NeighborAnswer answer, Op key) => answer.Switch(
+    private static Fin<Seq<TOut>> Project<TOut>(NeighborAnswer answer) => answer.Switch(
         state: key,
-        hits: static (op, found) => AnalysisOutput<TOut>.Project(key: op, values: found.Values),
-        pairsFound: static (op, found) => AnalysisOutput<TOut>.Project(key: op, values: found.Values),
-        graph: static (op, _) => Fin.Fail<Seq<TOut>>(op.Unsupported(inputType: typeof(NeighborhoodGraph), outputType: typeof(TOut))));
+        hits: static (found) => AnalysisOutput<TOut>.Project(values: found.Values),
+        pairsFound: static (found) => AnalysisOutput<TOut>.Project(values: found.Values),
+        graph: static (_) => Fin.Fail<Seq<TOut>>(new KernelFault.Unsupported(InputType: typeof(NeighborhoodGraph), OutputType: typeof(TOut))));
 }
 ```
 
 ## [03]-[OPERATION_RUNTIME]
 
-- Owner: `Env` is the `Eff` reader runtime, its record shape host-frozen — the Grasshopper binding constructs it positionally and the sink is the defaulted trailing field, so every frozen construction spelling survives a new runtime field — and `Env.Live` is the ONE cancellation gate all four bodies bind. `Operation<TGeometry, TOut>` is the operation algebra behind a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) with one constructor per case, a `Prepare` gate ahead of every input-bearing evaluator, and one `Apply` fold over the `Body` `Switch` opening a `CostMark` before the fold and charging one `OpCost` capsule at ONE exit. `Analyze` is the ONE facade — `Scope` binding context, progress, cancellation, and sink; `From(RhinoDoc)` the one doc adapter; host-neutral `In` scope builders; `Query` closing three arities, `Run` four overloads over `Validation<Error, Seq<TOut>>`, and `Rows` publishing the proved verb roster. `AnalysisOutput<TOut>.Project` is the typed projection gate admitting every sequence through `Op.AcceptValue`, the one oracle; a row publishing a runtime-typed output reads the `Domain/validation` `OutputBinding` owner instead.
+- Owner: `Env` is the `Eff` reader runtime, its record shape host-frozen — the Grasshopper binding constructs it positionally and the sink is the defaulted trailing field, so every frozen construction spelling survives a new runtime field — and `Env.Live` is the ONE cancellation gate all four bodies bind. `Operation<TGeometry, TOut>` is the operation algebra behind a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) with one constructor per case, a `Prepare` gate ahead of every input-bearing evaluator, and one `Apply` fold over the `Body` `Switch` opening a `CostMark` before the fold and charging one `Cost` capsule at ONE exit. `Analyze` is the ONE facade — `Scope` binding context, progress, cancellation, and sink; `From(RhinoDoc)` the one doc adapter; host-neutral `In` scope builders; `Query` closing three arities, `Run` four overloads over `Validation<Error, Seq<TOut>>`, and `Rows` publishing the proved verb roster. `AnalysisOutput<TOut>.Project` is the typed projection gate admitting every sequence through `Op.AcceptValue`, the one oracle; a row publishing a runtime-typed output reads the `Domain/validation` `OutputBinding` owner instead.
 - Entry: `Analyze.Run<…>` closes single-query, pair-query, service-query, and already-built-operation inputs onto `Validation<Error, Seq<TOut>>` — one entry family discriminated by query and input shape, no `RunMany`/`RunPair`/`RunService` verb siblings; scoped execution threads `Analyze.In(…).With(progress).With(cancel).Run(operation, input)` and `With(factory, version, faults)` is the one sink mint, so a host never constructs a `TelemetrySink` beside the scope that carries it.
 - Auto: `Prepare` binds `Env.Live` first (`Errors.Cancelled`), absence second (`KernelFault.MissingGeometry`), then the `Requirement` matrix — an empty requirement still routes `GeometryBase` values through the validity-oracle admission so no geometry reaches an evaluator unvetted, while non-geometry service payloads pass untouched; a `Service` body carries no input and so reaches none of that fold, binding the same `Env.Live` ahead of its evaluator, so all four bodies refuse a cancelled run on the one direct-poll cancellation value the advertised `With(cancel)` surface promises and no second `IsCancellationRequested` ladder exists to forget the token; scope-less `Run` fails `KernelFault.MissingContext` when an operation `NeedsContext` and otherwise defaults to `Context.Of(units: UnitSystem.Millimeters)`; `Apply` flattens per-item chunks, feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect type, rejection staying data until execution.
-- Law: `Charge` is ONE member reading ONE exit value — `Match` collapses both legs of the fold onto that `Fin` and the outcome row and fault payload both derive from it, so cost evidence and fault evidence cannot name different verdicts for one call. Per-item evaluation distributes over input concatenation on the VALUE channel alone, because `Apply`'s cost capsule is an aggregation point billing one `OpCost` per call.
+- Law: `Charge` is ONE member reading ONE exit value — `Match` collapses both legs of the fold onto that `Fin` and the outcome row and fault payload both derive from it, so cost evidence and fault evidence cannot name different verdicts for one call. Per-item evaluation distributes over input concatenation on the VALUE channel alone, because `Apply`'s cost capsule is an aggregation point billing one `Cost` per call.
 - Law: a sink refusal PARKS on the composition's own bounded evidence cell at the fact's declared seat, never `ignore`d (branch RULINGS `[02]`) — telemetry can no more fail the analysis than it can vanish, and a full ring counts the loss as a number.
 - Output: `Validation<Error, Seq<TOut>>` is the public result carrier; faults accumulate the `Domain/results` `Fault` union, `KernelFault.Unsupported` the host probe discriminant.
 - Packages: LanguageExt.Core (the `Validation`/`Fin` types and `TraverseM`), Thinktecture.Runtime.Extensions (the `Body` `[Union]` and generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, `TelemetrySink`/`SignalFact`/`CostMark`, the `Op`/`Fault` types), RhinoCommon (`RhinoDoc` at the one `From` adapter, `UnitSystem`).
@@ -375,10 +375,10 @@ public sealed record Env(Context Context, Option<IProgress<double>> Progress, Ca
 }
 
 internal static class AnalysisOutput<TOut> {
-    public static Fin<Seq<TOut>> Project<TValue>(Op key, Seq<TValue> values) =>
+    public static Fin<Seq<TOut>> Project<TValue>(Seq<TValue> values) =>
         typeof(TOut) == typeof(TValue)
-            ? values.TraverseM(value => key.AcceptValue(value: value)).As().Map(static admitted => admitted.Map(static value => (TOut)(object)value!))
-            : Fin.Fail<Seq<TOut>>(key.Unsupported(inputType: typeof(TValue), outputType: typeof(TOut)));
+            ? values.TraverseM(value => Acceptance.Value(value: value)).As().Map(static admitted => admitted.Map(static value => (TOut)(object)value!))
+            : Fin.Fail<Seq<TOut>>(new KernelFault.Unsupported(InputType: typeof(TValue), OutputType: typeof(TOut)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -391,47 +391,45 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         internal sealed record Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate) : Body;
         internal sealed record Service(Func<Eff<Env, Seq<TOut>>> Evaluate) : Body;
     }
-    private Operation(Op key, Requirement requirement, bool requiresContext, Body body) {
+    private Operation(Requirement requirement, bool requiresContext, Body body) {
         Key = key;
         Requirement = requirement;
         RequiresContext = requiresContext;
         Execution = body;
     }
-    public Op Key { get; }
     internal Requirement Requirement { get; init; }
     internal bool RequiresContext { get; init; }
     private Body Execution { get; init; }
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
-    internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Option<Requirement> requirement = default, bool requiresContext = false) {
+    internal static Operation<TGeometry, TOut> Build<TState>(TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Option<Requirement> requirement = default, bool requiresContext = false) {
         Requirement active = requirement.IfNone(Requirement.None);
-        return new Operation<TGeometry, TOut>(key: key, requirement: active, requiresContext: requiresContext,
+        return new Operation<TGeometry, TOut>(requirement: active, requiresContext: requiresContext,
             body: new Body.PerItem(Evaluate: geometry =>
                 from prepared in Prepare(geometry: geometry, requirement: active)
                 from value in evaluator(arg1: state, arg2: prepared)
                 select value));
     }
-    internal static Operation<TGeometry, TOut> Aggregate(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> project, Option<Requirement> requirement = default, bool requiresContext = false) {
+    internal static Operation<TGeometry, TOut> Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> project, Option<Requirement> requirement = default, bool requiresContext = false) {
         Requirement active = requirement.IfNone(Requirement.None);
-        return new Operation<TGeometry, TOut>(key: key, requirement: active, requiresContext: requiresContext,
+        return new Operation<TGeometry, TOut>(requirement: active, requiresContext: requiresContext,
             body: new Body.Aggregate(Evaluate: geometry =>
                 from resolved in geometry.TraverseM(item => Prepare(geometry: item, requirement: active)).As()
                 from result in project(arg: resolved)
                 select result));
     }
-    internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
-        new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
-    internal static Operation<TGeometry, TOut> Service<TState>(Op key, TState state, Func<TState, Eff<Env, Seq<TOut>>> evaluate, bool requiresContext = false) =>
-        new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: () =>
+    internal static Operation<TGeometry, TOut> Reject(Error fault) =>
+        new(requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
+    internal static Operation<TGeometry, TOut> Service<TState>(TState state, Func<TState, Eff<Env, Seq<TOut>>> evaluate, bool requiresContext = false) =>
+        new(requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: () =>
             from _ in Env.Live
             from result in evaluate(arg: state)
             select result));
-    internal static Operation<TGeometry, TOut> Native<TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Option<Requirement> requirement = default, bool requiresContext = false) where TNative : notnull =>
-        Operation<TGeometry, TValue>.Build(
-            key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),
+    internal static Operation<TGeometry, TOut> Native<TNative, TValue, TState>(TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Option<Requirement> requirement = default, bool requiresContext = false) where TNative : notnull =>
+        Operation<TGeometry, TValue>.Build(requirement: requirement, requiresContext: requiresContext, state: (State: state, Project: project),
             evaluator: static (carried, geometry) => geometry switch {
                 TNative native => carried.Project(arg1: carried.State, arg2: native),
-                _ => Fin.Fail<Seq<TValue>>(carried.Key.Unsupported(inputType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
-            }).As<TGeometry, TOut>(key: key);
+                _ => Fin.Fail<Seq<TValue>>(new KernelFault.Unsupported(InputType: geometry.GetType(), OutputType: typeof(TValue))).ToEff(),
+            }).As<TGeometry, TOut>();
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
         from runtime in Env.EnvAsks
         from mark in Fin.Succ(CostMark.Start()).ToEff()
@@ -441,16 +439,16 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         from _ in Fin.Succ(Charge(runtime: runtime, key: Key, mark: mark, items: geometry.Count, exit: exit)).ToEff()
         from result in exit.ToEff()
         select result;
-    private static Unit Charge(Env runtime, Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
+    private static Unit Charge(Env runtime, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
         runtime.Telemetry.Iter(
-            sink => Facts(key: key, mark: mark, items: items, exit: exit)
-                .Choose(fact => sink.Tap(fact: fact, key: key).Match(
+            sink => Facts(mark: mark, items: items, exit: exit)
+                .Choose(fact => sink.Tap(fact: fact).Match(
                     Succ: static _ => Option<(HookId Seat, Error Cause)>.None,
                     Fail: cause => Some((Seat: fact.At.Id, Cause: cause))))
                 .Iter(parked => ignore(sink.Signals.Hooks.Faults.Park(point: parked.Seat, cause: parked.Cause))));
-    private static Seq<SignalFact> Facts(Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
+    private static Seq<SignalFact> Facts(CostMark mark, int items, Fin<Seq<TOut>> exit) =>
         Seq(
-            Some(SignalFact.Cost(cost: mark.Stop(key: key, domain: KernelDomain.Analysis, items: items,
+            Some(SignalFact.Cost(cost: mark.Stop(domain: KernelDomain.Analysis, items: items,
                 succeeded: exit.IsSucc))),
             exit.Match(
                 Succ: static _ => Option<SignalFact>.None,
@@ -491,9 +489,9 @@ public static class Analyze {
         public Scope With(IProgress<double> progress) => this with { Progress = Some(progress) };
         public Scope With(CancellationToken cancellation) => this with { Cancellation = cancellation };
         public Scope With(TelemetrySink telemetry) => this with { Telemetry = Some(telemetry) };
-        public Fin<Scope> With(IMeterFactory factory, string version, FaultCell faults, Op? key = null) {
+        public Fin<Scope> With(IMeterFactory factory, string version, FaultCell faults) {
             Scope self = this;
-            return TelemetrySink.Of(factory: factory, version: version, faults: faults, key: key.OrDefault())
+            return TelemetrySink.Of(factory: factory, version: version, faults: faults)
                 .Map(sink => self with { Telemetry = Some(sink) });
         }
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(Operation<TGeometry, TOut>? operation, params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
@@ -504,19 +502,16 @@ public static class Analyze {
     public static Scope In(UnitSystem units) => new(context: Context.Of(units: units).ToFin());
     public static Scope In(double absolute, double relative, double angle, UnitSystem units) =>
         new(context: Context.Of(absolute: absolute, relative: relative, angle: angle, units: units).ToFin());
-    public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
+    public static Scope In(Context context) => new(context: Optional(context).ToFin(new KernelFault.MissingContext()));
 
-    public static Operation<TGeometry, TOut> Query<TGeometry, TOut>(AnalysisQuery? query, Op? key = null) where TGeometry : notnull where TOut : notnull {
-        Op active = key.OrDefault();
-        return Optional(query).Map(q => q.Single<TGeometry, TOut>(key: active)).IfNone(() => Operation<TGeometry, TOut>.Reject(key: active, fault: active.InvalidInput()));
+    public static Operation<TGeometry, TOut> Query<TGeometry, TOut>(AnalysisQuery? query) where TGeometry : notnull where TOut : notnull {
+        return Optional(query).Map(q => q.Single<TGeometry, TOut>(key: active)).IfNone(() => Operation<TGeometry, TOut>.Reject(key: active, fault: new KernelFault.InvalidInput()));
     }
-    public static Operation<(TA A, TB B), TOut> Query<TA, TB, TOut>(AnalysisQuery? query, Op? key = null) where TA : notnull where TB : notnull where TOut : notnull {
-        Op active = key.OrDefault();
-        return Optional(query).Map(q => q.Pair<TA, TB, TOut>(key: active)).IfNone(() => Operation<(TA A, TB B), TOut>.Reject(key: active, fault: active.InvalidInput()));
+    public static Operation<(TA A, TB B), TOut> Query<TA, TB, TOut>(AnalysisQuery? query) where TA : notnull where TB : notnull where TOut : notnull {
+        return Optional(query).Map(q => q.Pair<TA, TB, TOut>(key: active)).IfNone(() => Operation<(TA A, TB B), TOut>.Reject(key: active, fault: new KernelFault.InvalidInput()));
     }
-    public static Operation<Unit, TOut> Query<TOut>(AnalysisQuery? query, Op? key = null) where TOut : notnull {
-        Op active = key.OrDefault();
-        return Optional(query).Map(q => q.Service<TOut>(key: active)).IfNone(() => Operation<Unit, TOut>.Reject(key: active, fault: active.InvalidInput()));
+    public static Operation<Unit, TOut> Query<TOut>(AnalysisQuery? query) where TOut : notnull {
+        return Optional(query).Map(q => q.Service<TOut>(key: active)).IfNone(() => Operation<Unit, TOut>.Reject(key: active, fault: new KernelFault.InvalidInput()));
     }
 
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(AnalysisQuery query, params ReadOnlySpan<TGeometry> input) where TGeometry : notnull where TOut : notnull =>
@@ -539,7 +534,7 @@ public static class Analyze {
             from context in scope.Match(
                 Some: static provided => provided.Context,
                 None: () => accepted.NeedsContext switch {
-                    true => Fin.Fail<Context>(accepted.Key.MissingContext()),
+                    true => Fin.Fail<Context>(new KernelFault.MissingContext()),
                     false => Context.Of(units: UnitSystem.Millimeters).ToFin(),
                 })
             from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation, Telemetry: telemetry))
@@ -548,14 +543,14 @@ public static class Analyze {
 }
 
 internal static class OperationLift {
-    extension(Op key) {
+    extension() {
         internal Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>() where TGeometry : notnull =>
-            Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(inputType: typeof(TGeometry), outputType: typeof(TOut)));
+            Operation<TGeometry, TOut>.Reject(fault: new KernelFault.Unsupported(InputType: typeof(TGeometry), OutputType: typeof(TOut)));
     }
     extension(object operation) {
-        internal Operation<TGeometry, TOut> As<TGeometry, TOut>(Op key) where TGeometry : notnull => operation switch {
+        internal Operation<TGeometry, TOut> As<TGeometry, TOut>() where TGeometry : notnull => operation switch {
             Operation<TGeometry, TOut> typed => typed,
-            _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(inputType: typeof(TGeometry), outputType: typeof(TOut))),
+            _ => Operation<TGeometry, TOut>.Reject(fault: new KernelFault.Unsupported(InputType: typeof(TGeometry), OutputType: typeof(TOut))),
         };
     }
 }
@@ -578,7 +573,7 @@ flowchart LR
     FamilyUnions -->|own Operation builder| Operation
     Operation -->|Prepare: Env.Live → admit → Requirement| Requirement
     Operation -->|Apply| Eff[Eff Env Seq TOut]
-    Operation -->|CostMark → OpCost at one exit| Sink[TelemetrySink tap]
+    Operation -->|CostMark → Cost at one exit| Sink[TelemetrySink tap]
     Sink -.->|refusal parks at the fact's seat| Cell[FaultCell bounded ring]
     Env -->|Context · Progress · Cancellation · Telemetry · Live| Eff
     Eff -->|AnalysisOutput → Op.AcceptValue| Oracle[one validity oracle]

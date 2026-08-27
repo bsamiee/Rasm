@@ -255,7 +255,7 @@ public sealed partial class ToolMeasure {
         Index.Value.TryGetValue(provider, out ToolMeasure? row) ? Some(row) : None;
 
     private static ToolMeasure Of<TMeasurement>(string key, MetricDimension dimension)
-        where TMeasurement : IToolingMeasurement => new(key, dimension, typeof(TMeasurement));
+        where TMeasurement : IToolingMeasurement => new(dimension, typeof(TMeasurement));
 }
 
 [SmartEnum<string>]
@@ -412,7 +412,7 @@ public sealed partial class ToolEdge {
     public static Fin<ToolEdge> Admit(ToolEdgeKey key, Option<string> grade, Option<string> locus,
         Option<string> programToolGroup, Seq<string> manufacturers, Seq<ToolAvailability> status,
         Seq<LifeBudget> life, Seq<ToolMetric> metrics) =>
-        Validate(key, grade, locus, programToolGroup, manufacturers, status, life, metrics, out ToolEdge edge)
+        Validate(grade, locus, programToolGroup, manufacturers, status, life, metrics, out ToolEdge edge)
             .Admitted(edge);
 }
 
@@ -769,7 +769,7 @@ public sealed partial class WorkItem {
 
     public static Fin<WorkItem> Admit(Operation op, ToolAssembly assembly, LifeDemand demand, CutterForm form,
         CutterForm required, Ratio formDiameterBand) =>
-        Validate(op, assembly, demand, form, required, formDiameterBand, out WorkItem item).Admitted(item);
+        Validate(assembly, demand, form, required, formDiameterBand, out WorkItem item).Admitted(item);
 }
 
 [ComplexValueObject]
@@ -911,8 +911,7 @@ public static class ToolCatalog {
         from gauge in Measured(state, ToolMeasure.FunctionalLength, identityText)
         from stickout in Measured(state, ToolMeasure.ProtrudingLength, identityText)
         from shank in Measured(state, ToolMeasure.ShankDiameter, identityText)
-        from assembly in ToolAssembly.Admit(new ToolAssemblyIngress(
-            key, identityText,
+        from assembly in ToolAssembly.Admit(new ToolAssemblyIngress(identityText,
             request.Value.CuttingToolArchetypeReference?.ToString() ?? string.Empty,
             request.Value.CuttingToolDefinition?.Format.ToString() ?? string.Empty,
             request.Value.CuttingToolDefinition?.Value ?? string.Empty, request.Tool, request.Holder,
@@ -1055,9 +1054,9 @@ public static class ToolCatalog {
     private static Fin<ToolEdge> AdmitEdge(ICuttingItem item, Instant observedAt) =>
         from key in ToolEdgeKey.Admit(item.ItemId ?? string.Join('-', item.Indices))
         from metrics in toSeq(item.Measurements).Traverse(AdmitMetric).As()
-        from life in toSeq(item.ItemLife).Traverse(row => AdmitLife(new ToolTarget.Edge(key), row, observedAt)).As()
+        from life in toSeq(item.ItemLife).Traverse(row => AdmitLife(new ToolTarget.Edge(), row, observedAt)).As()
         from status in Status(item.CutterStatus, item)
-        from edge in ToolEdge.Admit(key, Optional(item.Grade), Optional(item.Locus),
+        from edge in ToolEdge.Admit(Optional(item.Grade), Optional(item.Locus),
             Optional(item.ProgramToolGroup), toSeq(item.Manufacturers), status, life, metrics)
         select edge;
 
@@ -1185,7 +1184,7 @@ public static class ToolMagazine {
     public static Fin<KitOutcome> Kit(SlotMap slots, Seq<WorkItem> work, MagazinePolicy policy) => work.IsEmpty
         ? Fin.Fail<KitOutcome>(ToolKey.Tooling("magazine-kit:empty"))
         : toSeq(work.DistinctBy(static row =>
-                (row.Op, row.Assembly.Identity, row.Required, row.FormDiameterBand)))
+                (row.Assembly.Identity, row.Required, row.FormDiameterBand)))
             .FoldM<Fin, KitOutcome>(Seed(slots), (result, demand) => Allocate(result, demand, policy)).As();
 
     public static Fin<Seq<ToolChange>> Schedule(SlotMap slots, Seq<WorkItem> work, MagazinePolicy policy) =>
@@ -1268,21 +1267,21 @@ public static class ToolMagazine {
 
     private static KitOutcome Unplaced(KitOutcome result, WorkItem demand, ShortfallReason reason) {
         KitOutcome noted = result with {
-            Missing = result.Missing.Add(new KitShortfall(demand.Op, demand.Required, reason)),
+            Missing = result.Missing.Add(new KitShortfall(demand.Required, reason)),
         };
         return noted.Slots.FirstEmpty
-            .Map(slot => noted.Slots.Reserve(slot, demand.Op, demand.Required).Match(
+            .Map(slot => noted.Slots.Reserve(slot, demand.Required).Match(
                 Succ: updated => noted with {
-                    Reserved = noted.Reserved.Add((demand.Op, demand.Required)),
+                    Reserved = noted.Reserved.Add((demand.Required)),
                     Slots = updated,
                 },
                 Fail: _ => noted with {
                     Missing = noted.Missing
-                        .Add(new KitShortfall(demand.Op, demand.Required, ShortfallReason.SlotConflict)),
+                        .Add(new KitShortfall(demand.Required, ShortfallReason.SlotConflict)),
                 }))
             .IfNone(() => noted with {
                 Missing = noted.Missing
-                    .Add(new KitShortfall(demand.Op, demand.Required, ShortfallReason.NoFreeSlot)),
+                    .Add(new KitShortfall(demand.Required, ShortfallReason.NoFreeSlot)),
             });
     }
 
@@ -1319,17 +1318,17 @@ public static class ToolMagazine {
     private static Fin<ScheduleState> Step(ScheduleState state, SlotMap slots, WorkItem item, MagazinePolicy policy) =>
         from _ in item.Form.Fits(item.Required, item.FormDiameterBand)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(FabricationFault.Pairing(new RelationFault.OperationEquipment(item.Op, item.Assembly.Tool)))
+            : Fin.Fail<Unit>(FabricationFault.Pairing(new RelationFault.OperationEquipment(item.Assembly.Tool)))
         from selected in Select(slots, item, state, policy)
         from toSlot in slots.SlotOf(selected.Tool)
             .ToFin(ToolKey.Tooling("magazine:tool-unplaced"))
         let candidate = selected.Tool
         let previousSlot = state.Current.Bind(slots.SlotOf)
-        let trigger = state.OperationCommitted.Find((item.Op, selected.Basis)).IfNone(0.0)
+        let trigger = state.OperationCommitted.Find((selected.Basis)).IfNone(0.0)
         let changed = state.Current.ForAll(current => current.Identity != candidate.Identity)
         let behaviors = slots.Layout.Kind == Magazine.Manual
             ? policy.Behaviors.With(MagazineBehavior.Confirm) : policy.Behaviors
-        let change = new ToolChange(item.Op, trigger, toSlot,
+        let change = new ToolChange(trigger, toSlot,
             candidate.ProgramTool, candidate.LengthRegister, candidate.RadiusRegister,
             candidate.GaugeLength, candidate.RadiusOffset,
             candidate.Snapshot.LengthWear.Millimeters, candidate.Snapshot.RadiusWear.Millimeters,
@@ -1341,7 +1340,7 @@ public static class ToolMagazine {
             map.SetItem((candidate.Identity, row.Key), map.Find((candidate.Identity, row.Key)).IfNone(0.0)
                 + item.Demand.Claim(row.Value, policy.ReserveFloor)))
         let operationCommitted = item.Demand.Required.AsIterable().Fold(state.OperationCommitted, (map, row) =>
-            map.SetItem((item.Op, row.Key), map.Find((item.Op, row.Key)).IfNone(0.0) + row.Value))
+            map.SetItem((), map.Find(()).IfNone(0.0) + row.Value))
         let retired = item.Demand.Required.AsIterable().Exists(row =>
             candidate.Snapshot.Remaining(row.Key).ForAll(remaining =>
                 remaining - committed.Find((candidate.Identity, row.Key)).IfNone(0.0) <= 0.0))
@@ -1361,7 +1360,7 @@ public static class ToolMagazine {
                         .Filter(static life => life.Spare >= 0.0)
                         .Map(life => (Tool: tool, life.Basis, life.Spare))))
                 .OrderBy(row => policy.Order(state.Current, row.Tool, row.Spare)))
-            .Head.ToFin(new FabricationFault.NoToolForOp(item.Op, item.Required));
+            .Head.ToFin(new FabricationFault.NoToolForOp(item.Required));
 }
 ```
 

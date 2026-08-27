@@ -15,7 +15,7 @@ Structural law is one `Location` case per operation, each carrying its request d
 - Owner: `Division` `[Union]` — `Count`, `Length`, `Chord`, `Contour`, each carrying its generated scalar owner (`Dimension` for the count, `PositiveMagnitude` for every spacing) so primitive validity admits at the atom and only the model-dependent gates remain here: `Apply(Curve, Context, Op)` lowers each case to `Curve.DivideByCount`/`DivideByLength`/`DivideEquidistant`/`DivideAsContour` inside the generated fold, the one `Above` band gate reading the spacing against `ToleranceLane.Length`/`ToleranceLane.Chord` and the contour axis span against the length band, run inside `Locate.Divide`'s lease where the runtime `Context` is in hand; `Requirement` derives readiness by generated `Map` (`Requirement.CurveLength` for the length-driven cases), and each case is its own division LAW — arc-length, straight-line chord, and contour-plane spacing never collapse onto one distance knob.
 - Owner: `CurvatureSample` `readonly record struct` is the station carrier — the sampled point beside its signed scalar reading, finite on both columns through the `Domain/results` validity fold, so a negative Gaussian or mean curvature is a valid reading and only a degenerate host evaluation faults the sweep; `CurvatureOutput` `[Union]` — `Samples`, `Summary`, `Extrema(Direction, Band)` — is the one typed output algebra: `Accepts(Type)` derives the output shape each case publishes by generated `Map` (`CurvatureSample` for the two station cases, `Stat<Scalar>` for the summary), and `Reduce<TOut>` is the ONE station→output projection, `Summary` folding the readings through `Stat<Scalar>.Of` under the metric as `StatContext`, `Extrema` the `Stat.Extrema` plateau set under `Band` resolved against the runtime `Context`. The `ScalarMetric` rides the `Location` case directly — a page-local mode union re-deriving metric compatibility from the `Domain/stats` sparse payload columns is the deleted duplicate.
 - Owner: `Location` `[Union]` — the operation family the query routes, each case the request data one `Locate` builder consumes: `CurveAt(CurveAddress, CurveProjection)`, `SurfaceAt(Point2d, SurfaceProjection)`, `Closest(Point3d, SupportProjection)`, `PerpendicularFrames(Seq<double>)`, `CurveDerivative(CurveAddress, Dimension)`, `SurfaceDerivative(Point2d, Dimension)`, `Curvature(Dimension, ScalarMetric, CurvatureOutput)`, `Divide(Division)`, `Orientation(Plane)`, `Contains(Point3d, Plane)`, `ShortPath(Point2d, Point2d)`. Selector rows ride the case as payload, so the value vocabulary is the selector owner's and never a page-local mirror; `PerpendicularFrames` stays its own case because the host batch minimizes rotation across the ordered station sequence, which independent per-station frame reads never equal; samples, summary, and extrema are `CurvatureOutput` values on ONE `Curvature` case, never sibling cases; the cases construct directly, a forwarding factory per case the deleted form.
-- Entry: `Operation<TGeometry, TOut>(Op key)` is the generated `Switch` fold from case to operation threading the CALLER-OWNED `Op` — `AnalysisQuery.LocationCase.Build` receives that key and hands it through, so this page mints no key of its own — and direct `AnalysisQuery.LocationCase` construction is the ONLY public route in; no forwarding factory exposes a second surface.
+- Entry: `Operation<TGeometry, TOut>()` is the generated `Switch` fold from case to operation threading the CALLER-OWNED `Op` — `AnalysisQuery.LocationCase.Build` receives that key and hands it through, so this page mints no key of its own — and direct `AnalysisQuery.LocationCase` construction is the ONLY public route in; no forwarding factory exposes a second surface.
 - Law: the operation identity has ONE plane, the `Analysis/query` verb key threaded into every builder as `Op key`. A page-local key table beside it is the second identity plane the caller's key already retires, and a generated per-case key would restate the same duplication under another mechanism.
 - Law: the extremum plateau is a `ToleranceLane` on the case, resolved to a `Tolerance` at the sweep where the runtime `Context` is in hand — a stored double band cannot say WHICH gate widened the plateau, and a caller minting one has no document to mint it from. NAMED LOSS: the exact `band = 0.0` extremum; `ToleranceLane.Neglect` is the canonical row a caller names where no plateau is wanted, a sub-tolerance floor no measured curvature pair separates.
 - Output: the typed value sequence IS the result, `Stat<Scalar>` the `Domain/stats` summary carrier, and refusals ride the `Op` fault taxonomy: `Reject` for admission-invalid requests, `Unsupported` for impossible (case, geometry, output) combinations, `InvalidResult` for host-evaluation refusals.
@@ -55,12 +55,12 @@ public abstract partial record CurveAddress {
         normalized: Requirement.CurveLength,
         samples: Requirement.CurveLength);
 
-    internal Fin<Seq<double>> Resolve(Curve curve, Context context, Op key) => Switch(
-        state: (Curve: curve, Context: context, Key: key),
-        parameter: static (s, at) => guard(s.Curve.Domain.IncludesParameter(at.Value), s.Key.InvalidInput()).ToFin().Map(_ => Seq(at.Value)),
-        length: static (s, at) => guard(double.IsFinite(at.Value) && at.Value >= 0.0, s.Key.InvalidInput()).ToFin()
-            >> guard(s.Curve.LengthParameter(at.Value, out double t, s.Context.Fractional), s.Key.InvalidResult()).ToFin().Map(_ => Seq(t)),
-        normalized: static (s, at) => guard(s.Curve.NormalizedLengthParameter(at.Value.Value, out double t, s.Context.Fractional), s.Key.InvalidResult()).ToFin().Map(_ => Seq(t)),
+    internal Fin<Seq<double>> Resolve(Curve curve, Context context) => Switch(
+        state: (Curve: curve, Context: context),
+        parameter: static (s, at) => guard(s.Curve.Domain.IncludesParameter(at.Value), new KernelFault.InvalidInput()).ToFin().Map(_ => Seq(at.Value)),
+        length: static (s, at) => guard(double.IsFinite(at.Value) && at.Value >= 0.0, new KernelFault.InvalidInput()).ToFin()
+            >> guard(s.Curve.LengthParameter(at.Value, out double t, s.Context.Fractional), new KernelFault.InvalidResult()).ToFin().Map(_ => Seq(t)),
+        normalized: static (s, at) => guard(s.Curve.NormalizedLengthParameter(at.Value.Value, out double t, s.Context.Fractional), new KernelFault.InvalidResult()).ToFin().Map(_ => Seq(t)),
         samples: static (s, at) => Evaluation.CurveSampleParameters(s.Curve, at.Count.Value, s.Context, s.Key));
 }
 
@@ -78,26 +78,26 @@ public abstract partial record Division {
         chord: Requirement.CurveLength,
         contour: Requirement.Basic);
 
-    internal Fin<Seq<Point3d>> Apply(Curve curve, Context context, Op key) => Switch(
-        state: (Curve: curve, Context: context, Key: key),
-        count: static (s, row) => Optional(s.Curve.DivideByCount(row.Value.Value, true, out Point3d[] points) is double[] ? points : null).ToFin(s.Key.InvalidResult()).Map(static values => toSeq(values)),
+    internal Fin<Seq<Point3d>> Apply(Curve curve, Context context) => Switch(
+        state: (Curve: curve, Context: context),
+        count: static (s, row) => Optional(s.Curve.DivideByCount(row.Value.Value, true, out Point3d[] points) is double[] ? points : null).ToFin(new KernelFault.InvalidResult()).Map(static values => toSeq(values)),
         length: static (s, row) =>
             from _ in Above(row.Value.Value, s.Context.For(ToleranceLane.Length), s.Key)
-            from points in Optional(s.Curve.DivideByLength(row.Value.Value, true, out Point3d[] values) is double[] ? values : null).ToFin(s.Key.InvalidResult())
+            from points in Optional(s.Curve.DivideByLength(row.Value.Value, true, out Point3d[] values) is double[] ? values : null).ToFin(new KernelFault.InvalidResult())
             select toSeq(points),
         chord: static (s, row) =>
             from _ in Above(row.Value.Value, s.Context.For(ToleranceLane.Chord), s.Key)
-            from points in Optional(s.Curve.DivideEquidistant(row.Value.Value, out double[] _)).ToFin(s.Key.InvalidResult())
+            from points in Optional(s.Curve.DivideEquidistant(row.Value.Value, out double[] _)).ToFin(new KernelFault.InvalidResult())
             select toSeq(points),
         contour: static (s, row) =>
-            from start in s.Key.AcceptInput(row.Start)
-            from end in s.Key.AcceptInput(row.End)
+            from start in Acceptance.Input(row.Start)
+            from end in Acceptance.Input(row.End)
             from _ in Above(row.Interval.Value, s.Context.For(ToleranceLane.Length), s.Key)
-            from __ in guard(start.DistanceTo(end) > s.Context.For(ToleranceLane.Length).Value, s.Key.InvalidInput()).ToFin()
-            from points in Optional(s.Curve.DivideAsContour(start, end, row.Interval.Value)).Filter(static values => values.Length > 0).ToFin(s.Key.InvalidResult())
+            from __ in guard(start.DistanceTo(end) > s.Context.For(ToleranceLane.Length).Value, new KernelFault.InvalidInput()).ToFin()
+            from points in Optional(s.Curve.DivideAsContour(start, end, row.Interval.Value)).Filter(static values => values.Length > 0).ToFin(new KernelFault.InvalidResult())
             select toSeq(points));
 
-    private static Fin<Unit> Above(double value, Tolerance band, Op key) => guard(value > band.Value, key.InvalidInput()).ToFin();
+    private static Fin<Unit> Above(double value, Tolerance band) => guard(value > band.Value, new KernelFault.InvalidInput()).ToFin();
 }
 
 public readonly record struct CurvatureSample(Point3d Point, double Value) : IValidityEvidence {
@@ -116,12 +116,12 @@ public abstract partial record CurvatureOutput {
         summary: typeof(Stat<Scalar>),
         extrema: typeof(CurvatureSample));
 
-    internal Fin<Seq<TOut>> Reduce<TOut>(Seq<CurvatureSample> samples, ScalarMetric metric, Context context, Op key) => Switch(
-        state: (Samples: samples, Metric: metric, Context: context, Key: key),
-        samples: static (s, _) => s.Key.AcceptResults<CurvatureSample, TOut>(s.Samples),
-        summary: static (s, _) => Stat<Scalar>.Of(values: s.Samples.Map(static sample => (Scalar)sample.Value), key: s.Key, context: Some((StatContext)s.Metric))
-            .Bind(stat => s.Key.AcceptResults<Stat<Scalar>, TOut>(Seq(stat))),
-        extrema: static (s, row) => s.Key.AcceptResults<CurvatureSample, TOut>(Stat.Extrema(
+    internal Fin<Seq<TOut>> Reduce<TOut>(Seq<CurvatureSample> samples, ScalarMetric metric, Context context) => Switch(
+        state: (Samples: samples, Metric: metric, Context: context),
+        samples: static (s, _) => Acceptance.Results<CurvatureSample, TOut>(s.Samples),
+        summary: static (s, _) => Stat<Scalar>.Of(values: s.Samples.Map(static sample => (Scalar)sample.Value), context: Some((StatContext)s.Metric))
+            .Bind(stat => Acceptance.Results<Stat<Scalar>, TOut>(Seq(stat))),
+        extrema: static (s, row) => Acceptance.Results<CurvatureSample, TOut>(Stat.Extrema(
             items: s.Samples, projection: static sample => sample.Value, band: s.Context.For(row.Band), direction: row.Direction)));
 }
 
@@ -140,159 +140,158 @@ public abstract partial record Location {
     public sealed record Contains(Point3d Probe, Plane Frame) : Location;
     public sealed record ShortPath(Point2d Start, Point2d End) : Location;
 
-    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>(Op key) where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         state: key,
-        curveAt: static (op, row) => Locate.Curve<TGeometry, TOut>(row.Address, row.Projection, op),
-        surfaceAt: static (op, row) => Locate.Surface<TGeometry, TOut>(row.Uv, row.Projection, op),
-        closest: static (op, row) => Locate.Closest<TGeometry, TOut>(row.Probe, row.Projection, op),
-        perpendicularFrames: static (op, row) => Locate.Perpendicular<TGeometry, TOut>(row.Parameters, op),
-        curveDerivative: static (op, row) => Locate.CurveDerivative<TGeometry, TOut>(row.Address, row.Order, op),
-        surfaceDerivative: static (op, row) => Locate.SurfaceDerivative<TGeometry, TOut>(row.Uv, row.Order, op),
-        curvature: static (op, row) => Locate.Curvature<TGeometry, TOut>(row.Count, row.Metric, row.Output, op),
-        divide: static (op, row) => Locate.Divide<TGeometry, TOut>(row.By, op),
-        orientation: static (op, row) => Locate.Orientation<TGeometry, TOut>(row.Frame, op),
-        contains: static (op, row) => Locate.Contains<TGeometry, TOut>(row.Probe, row.Frame, op),
-        shortPath: static (op, row) => Locate.ShortPath<TGeometry, TOut>(row.Start, row.End, op));
+        curveAt: static (row) => Locate.Curve<TGeometry, TOut>(row.Address, row.Projection),
+        surfaceAt: static (row) => Locate.Surface<TGeometry, TOut>(row.Uv, row.Projection),
+        closest: static (row) => Locate.Closest<TGeometry, TOut>(row.Probe, row.Projection),
+        perpendicularFrames: static (row) => Locate.Perpendicular<TGeometry, TOut>(row.Parameters),
+        curveDerivative: static (row) => Locate.CurveDerivative<TGeometry, TOut>(row.Address, row.Order),
+        surfaceDerivative: static (row) => Locate.SurfaceDerivative<TGeometry, TOut>(row.Uv, row.Order),
+        curvature: static (row) => Locate.Curvature<TGeometry, TOut>(row.Count, row.Metric, row.Output),
+        divide: static (row) => Locate.Divide<TGeometry, TOut>(row.By),
+        orientation: static (row) => Locate.Orientation<TGeometry, TOut>(row.Frame),
+        contains: static (row) => Locate.Contains<TGeometry, TOut>(row.Probe, row.Frame),
+        shortPath: static (row) => Locate.ShortPath<TGeometry, TOut>(row.Start, row.End));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Locate {
-    internal static Operation<TGeometry, TOut> Curve<TGeometry, TOut>(CurveAddress address, CurveProjection projection, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Curve<TGeometry, TOut>(CurveAddress address, CurveProjection projection) where TGeometry : notnull =>
         Capability.CurveForm.Admits(typeof(TGeometry)) && projection.Accepts<TOut>()
-            ? Operation<TGeometry, TOut>.Build(key, requirement: Some(address.Requirement), requiresContext: true,
-                state: (Address: address, Projection: projection, Key: key),
+            ? Operation<TGeometry, TOut>.Build(requirement: Some(address.Requirement), requiresContext: true,
+                state: (Address: address, Projection: projection),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from values in Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
                         state.Address.Resolve(curve, context, state.Key).Bind(parameters => parameters
                             .TraverseM(t => state.Projection.Project<TOut>(curve, t, context, state.Key)).As()))).ToEff()
                     select values)
-            : key.Unsupported<TGeometry, TOut>();
+            : new KernelFault.Unsupported();
 
-    internal static Operation<TGeometry, TOut> Surface<TGeometry, TOut>(Point2d uv, SurfaceProjection projection, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Surface<TGeometry, TOut>(Point2d uv, SurfaceProjection projection) where TGeometry : notnull =>
         Capability.SurfaceForm.Admits(typeof(TGeometry)) && projection.Accepts<TOut>()
-            ? Operation<TGeometry, TOut>.Build(key, requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true,
-                state: (Uv: uv, Projection: projection, Key: key),
+            ? Operation<TGeometry, TOut>.Build(requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true,
+                state: (Uv: uv, Projection: projection),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from value in Normalization.SurfaceForm(geometry, state.Key).Bind(lease => lease.Use(surface =>
                         state.Projection.Project<TOut>(surface, state.Uv.X, state.Uv.Y, context, state.Key))).ToEff()
                     select Seq(value))
-            : key.Unsupported<TGeometry, TOut>();
+            : new KernelFault.Unsupported();
 
-    internal static Operation<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d probe, SupportProjection projection, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d probe, SupportProjection projection) where TGeometry : notnull =>
         (ValidityClaim.Finite(probe).Holds, Capability.Closest.Admits(typeof(TGeometry)), projection.Accepts<TOut>()) switch {
-            (false, _, _) => Operation<TGeometry, TOut>.Reject(key, key.InvalidInput()),
-            (true, true, true) => Operation<TGeometry, TOut>.Build(key, requiresContext: true,
-                state: (Probe: probe, Projection: projection, Key: key),
+            (false, _, _) => Operation<TGeometry, TOut>.Reject(new KernelFault.InvalidInput()),
+            (true, true, true) => Operation<TGeometry, TOut>.Build(requiresContext: true,
+                state: (Probe: probe, Projection: projection),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from space in SupportSpace.Of(geometry, state.Key).ToEff()
                     from hit in space.Closest(state.Probe, state.Key).ToEff()
                     from value in state.Projection.Project<TOut>(space, hit, state.Probe, context, state.Key).ToEff()
                     select Seq(value)),
-            _ => key.Unsupported<TGeometry, TOut>(),
+            _ => new KernelFault.Unsupported(),
         };
 
-    internal static Operation<TGeometry, TOut> Perpendicular<TGeometry, TOut>(Seq<double> parameters, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Perpendicular<TGeometry, TOut>(Seq<double> parameters) where TGeometry : notnull =>
         Capability.CurveForm.Admits(typeof(TGeometry))
-            ? Operation<TGeometry, Plane>.Build(key, requirement: Some(Requirement.CurveLength), state: (Parameters: parameters, Key: key),
+            ? Operation<TGeometry, Plane>.Build(requirement: Some(Requirement.CurveLength), state: parameters,
                 evaluator: static (state, geometry) => Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
-                    from ordered in Fin.Succ(toSeq(state.Parameters.Distinct().Order()))
-                    from _ in guard(!ordered.IsEmpty && ordered.ForAll(curve.Domain.IncludesParameter), state.Key.InvalidInput()).ToFin()
-                    from frames in Optional(curve.GetPerpendicularFrames(ordered)).ToFin(state.Key.InvalidResult())
-                    from accepted in state.Key.Accept(values: frames)
-                    select accepted)).ToEff()).As<TGeometry, TOut>(key)
-            : key.Unsupported<TGeometry, TOut>();
+                    from ordered in Fin.Succ(toSeq(state.Distinct().Order()))
+                    from _ in guard(!ordered.IsEmpty && ordered.ForAll(curve.Domain.IncludesParameter), new KernelFault.InvalidInput()).ToFin()
+                    from frames in Optional(curve.GetPerpendicularFrames(ordered)).ToFin(new KernelFault.InvalidResult())
+                    from accepted in Acceptance.Rows(values: frames)
+                    select accepted)).ToEff()).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported();
 
-    internal static Operation<TGeometry, TOut> CurveDerivative<TGeometry, TOut>(CurveAddress address, Dimension order, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> CurveDerivative<TGeometry, TOut>(CurveAddress address, Dimension order) where TGeometry : notnull =>
         Capability.CurveForm.Admits(typeof(TGeometry))
-            ? Operation<TGeometry, Vector3d>.Build(key, requirement: Some(address.Requirement), requiresContext: true,
-                state: (Address: address, Order: order, Key: key), evaluator: static (state, geometry) =>
+            ? Operation<TGeometry, Vector3d>.Build(requirement: Some(address.Requirement), requiresContext: true,
+                state: (Address: address, Order: order), evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from values in Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
                         state.Address.Resolve(curve, context, state.Key).Bind(parameters => parameters.TraverseM(t =>
-                            Optional(curve.DerivativeAt(t, state.Order.Value)).Filter(ds => state.Order.Value < ds.Length).ToFin(state.Key.InvalidResult())
-                                .Bind(ds => state.Key.AcceptValue(ds[state.Order.Value]))).As()))).ToEff()
-                    select values).As<TGeometry, TOut>(key)
-            : key.Unsupported<TGeometry, TOut>();
+                            Optional(curve.DerivativeAt(t, state.Order.Value)).Filter(ds => state.Order.Value < ds.Length).ToFin(new KernelFault.InvalidResult())
+                                .Bind(ds => Acceptance.Value(ds[state.Order.Value]))).As()))).ToEff()
+                    select values).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported();
 
-    internal static Operation<TGeometry, TOut> SurfaceDerivative<TGeometry, TOut>(Point2d uv, Dimension order, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> SurfaceDerivative<TGeometry, TOut>(Point2d uv, Dimension order) where TGeometry : notnull =>
         Capability.SurfaceForm.Admits(typeof(TGeometry))
-            ? Operation<TGeometry, Vector3d>.Build(key, requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true,
-                state: (Uv: uv, Order: order, Offset: ((order.Value - 1) * (order.Value + 2)) / 2, Width: order.Value + 1, Key: key),
+            ? Operation<TGeometry, Vector3d>.Build(requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true,
+                state: (Uv: uv, Order: order, Offset: ((order.Value - 1) * (order.Value + 2)) / 2, Width: order.Value + 1),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from values in Normalization.SurfaceForm(geometry, state.Key).Bind(lease => lease.Use(surface =>
                         Evaluation.SurfaceUv(surface, state.Uv, context, state.Key).Bind(at =>
                             surface.Evaluate(at.X, at.Y, state.Order.Value, out Point3d _, out Vector3d[] derivatives)
                             && derivatives.Length >= state.Offset + state.Width
-                                ? state.Key.Accept(values: derivatives.Skip(state.Offset).Take(state.Width))
-                                : Fin.Fail<Seq<Vector3d>>(state.Key.InvalidResult())))).ToEff()
-                    select values).As<TGeometry, TOut>(key)
-            : key.Unsupported<TGeometry, TOut>();
+                                ? Acceptance.Rows(values: derivatives.Skip(state.Offset).Take(state.Width))
+                                : Fin.Fail<Seq<Vector3d>>(new KernelFault.InvalidResult())))).ToEff()
+                    select values).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported();
 
-    internal static Operation<TGeometry, TOut> Divide<TGeometry, TOut>(Division division, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Divide<TGeometry, TOut>(Division division) where TGeometry : notnull =>
         Capability.CurveForm.Admits(typeof(TGeometry))
-            ? Operation<TGeometry, Point3d>.Build(key, requirement: Some(division.Requirement), requiresContext: true,
-                state: (Division: division, Key: key), evaluator: static (state, geometry) =>
+            ? Operation<TGeometry, Point3d>.Build(requirement: Some(division.Requirement), requiresContext: true,
+                state: division, evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from values in Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
-                        state.Division.Apply(curve, context, state.Key).Bind(points => state.Key.Accept(values: points)))).ToEff()
-                    select values).As<TGeometry, TOut>(key)
-            : key.Unsupported<TGeometry, TOut>();
+                        state.Apply(curve, context, state.Key).Bind(points => Acceptance.Rows(values: points)))).ToEff()
+                    select values).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported();
 
-    internal static Operation<TGeometry, TOut> Orientation<TGeometry, TOut>(Plane frame, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Orientation<TGeometry, TOut>(Plane frame) where TGeometry : notnull =>
         (frame.IsValid, Capability.CurveForm.Admits(typeof(TGeometry)), typeof(TOut) == typeof(CurveOrientation)) switch {
-            (false, _, _) => Operation<TGeometry, TOut>.Reject(key, key.InvalidInput()),
-            (true, true, true) => Operation<TGeometry, CurveOrientation>.Build(key, requirement: Some(Requirement.AreaMass), state: (Frame: frame, Key: key),
+            (false, _, _) => Operation<TGeometry, TOut>.Reject(new KernelFault.InvalidInput()),
+            (true, true, true) => Operation<TGeometry, CurveOrientation>.Build(requirement: Some(Requirement.AreaMass), state: frame,
                 evaluator: static (state, geometry) => Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
-                    curve.ClosedCurveOrientation(state.Frame) switch {
-                        CurveOrientation.Undefined => Fin.Fail<Seq<CurveOrientation>>(state.Key.InvalidResult()),
-                        CurveOrientation value => state.Key.Accept(value),
-                    })).ToEff()).As<TGeometry, TOut>(key),
-            _ => key.Unsupported<TGeometry, TOut>(),
+                    curve.ClosedCurveOrientation(state) switch {
+                        CurveOrientation.Undefined => Fin.Fail<Seq<CurveOrientation>>(new KernelFault.InvalidResult()),
+                        CurveOrientation value => Acceptance.Rows(value),
+                    })).ToEff()).As<TGeometry, TOut>(),
+            _ => new KernelFault.Unsupported(),
         };
 
-    internal static Operation<TGeometry, TOut> Contains<TGeometry, TOut>(Point3d probe, Plane frame, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Contains<TGeometry, TOut>(Point3d probe, Plane frame) where TGeometry : notnull =>
         (ValidityClaim.Finite(probe).Holds && frame.IsValid, Capability.CurveForm.Admits(typeof(TGeometry)), typeof(TOut) == typeof(PointContainment)) switch {
-            (false, _, _) => Operation<TGeometry, TOut>.Reject(key, key.InvalidInput()),
-            (true, true, true) => Operation<TGeometry, PointContainment>.Build(key, requirement: Some(Requirement.AreaMass), requiresContext: true,
-                state: (Probe: probe, Frame: frame, Key: key), evaluator: static (state, geometry) =>
+            (false, _, _) => Operation<TGeometry, TOut>.Reject(new KernelFault.InvalidInput()),
+            (true, true, true) => Operation<TGeometry, PointContainment>.Build(requirement: Some(Requirement.AreaMass), requiresContext: true,
+                state: (Probe: probe, Frame: frame), evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from values in Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
                         curve.Contains(state.Probe, state.Frame, context.Absolute.Value) switch {
-                            PointContainment.Unset => Fin.Fail<Seq<PointContainment>>(state.Key.InvalidResult()),
-                            PointContainment value => state.Key.Accept(value),
+                            PointContainment.Unset => Fin.Fail<Seq<PointContainment>>(new KernelFault.InvalidResult()),
+                            PointContainment value => Acceptance.Rows(value),
                         })).ToEff()
-                    select values).As<TGeometry, TOut>(key),
-            _ => key.Unsupported<TGeometry, TOut>(),
+                    select values).As<TGeometry, TOut>(),
+            _ => new KernelFault.Unsupported(),
         };
 
-    internal static Operation<TGeometry, TOut> ShortPath<TGeometry, TOut>(Point2d start, Point2d end, Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> ShortPath<TGeometry, TOut>(Point2d start, Point2d end) where TGeometry : notnull =>
         (start.IsValid && end.IsValid && start != end, Capability.SurfaceForm.Admits(typeof(TGeometry)), typeof(TOut) == typeof(Curve)) switch {
-            (false, _, _) => Operation<TGeometry, TOut>.Reject(key, key.InvalidInput()),
-            (true, true, true) => Operation<TGeometry, Curve>.Build(key, requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true,
-                state: (Start: start, End: end, Key: key), evaluator: static (state, geometry) =>
+            (false, _, _) => Operation<TGeometry, TOut>.Reject(new KernelFault.InvalidInput()),
+            (true, true, true) => Operation<TGeometry, Curve>.Build(requirement: Some(Requirement.SurfaceEvaluation), requiresContext: true,
+                state: (Start: start, End: end), evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from paths in Normalization.SurfaceForm(geometry, state.Key).Bind(lease => lease.Use(surface =>
                         from a in Evaluation.SurfaceUv(surface, state.Start, context, state.Key)
                         from b in Evaluation.SurfaceUv(surface, state.End, context, state.Key)
-                        from path in Optional(surface.ShortPath(a, b, context.Absolute.Value)).ToFin(state.Key.InvalidResult())
+                        from path in Optional(surface.ShortPath(a, b, context.Absolute.Value)).ToFin(new KernelFault.InvalidResult())
                         select Seq(path))).ToEff()
-                    select paths).As<TGeometry, TOut>(key),
-            _ => key.Unsupported<TGeometry, TOut>(),
+                    select paths).As<TGeometry, TOut>(),
+            _ => new KernelFault.Unsupported(),
         };
 
     // --- [CURVATURE_SWEEP]
-    internal static Operation<TGeometry, TOut> Curvature<TGeometry, TOut>(Dimension count, ScalarMetric metric, CurvatureOutput output, Op key) where TGeometry : notnull {
+    internal static Operation<TGeometry, TOut> Curvature<TGeometry, TOut>(Dimension count, ScalarMetric metric, CurvatureOutput output) where TGeometry : notnull {
         bool curve = Capability.CurveForm.Admits(typeof(TGeometry)) && metric.Vector.IsSome;
         bool surface = Capability.SurfaceForm.Admits(typeof(TGeometry)) && metric.Curvature.IsSome;
         return !output.Accepts(typeof(TOut)) || (!curve && !surface)
-            ? key.Unsupported<TGeometry, TOut>()
-            : Operation<TGeometry, TOut>.Build(key,
-                requirement: Some(curve ? Requirement.CurveLength : Requirement.SurfaceEvaluation), requiresContext: true,
-                state: (Curve: curve, Count: count, Metric: metric, Output: output, Key: key), evaluator: static (state, geometry) =>
+            ? new KernelFault.Unsupported()
+            : Operation<TGeometry, TOut>.Build(requirement: Some(curve ? Requirement.CurveLength : Requirement.SurfaceEvaluation), requiresContext: true,
+                state: (Curve: curve, Count: count, Metric: metric, Output: output), evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from samples in (state.Curve
                         ? Normalization.CurveForm(geometry, state.Key).Bind(lease => lease.Use(curve =>
@@ -303,17 +302,17 @@ internal static class Locate {
                     select result);
     }
 
-    private static Fin<Seq<CurvatureSample>> CurveSamples(Curve curve, Dimension count, ScalarMetric metric, Context context, Op key) =>
-        Evaluation.CurveSampleParameters(curve, count.Value, context, key).Bind(parameters => parameters
-            .TraverseM(t => metric.Of(curve.CurvatureAt(t), key)
+    private static Fin<Seq<CurvatureSample>> CurveSamples(Curve curve, Dimension count, ScalarMetric metric, Context context) =>
+        Evaluation.CurveSampleParameters(curve, count.Value, context).Bind(parameters => parameters
+            .TraverseM(t => metric.Of(curve.CurvatureAt(t))
                 .Map(value => new CurvatureSample(curve.PointAt(t), value))).As());
 
-    private static Fin<Seq<CurvatureSample>> SurfaceSamples(Surface surface, Dimension count, ScalarMetric metric, Context context, Op key) =>
-        Evaluation.SurfaceSampleUv(surface, count.Value, context, key).Bind(uvs => uvs.TraverseM(uv =>
-            Optional(surface.CurvatureAt(uv.X, uv.Y)).ToFin(key.InvalidResult()).Bind(bundle =>
+    private static Fin<Seq<CurvatureSample>> SurfaceSamples(Surface surface, Dimension count, ScalarMetric metric, Context context) =>
+        Evaluation.SurfaceSampleUv(surface, count.Value, context).Bind(uvs => uvs.TraverseM(uv =>
+            Optional(surface.CurvatureAt(uv.X, uv.Y)).ToFin(new KernelFault.InvalidResult()).Bind(bundle =>
                 new Lease<SurfaceCurvature>.Owned(bundle).Use(scoped => scoped.IsSet
-                    ? metric.Of(scoped, key).Map(value => new CurvatureSample(scoped.Point, value))
-                    : Fin.Fail<CurvatureSample>(key.InvalidResult())))).As());
+                    ? metric.Of(scoped).Map(value => new CurvatureSample(scoped.Point, value))
+                    : Fin.Fail<CurvatureSample>(new KernelFault.InvalidResult())))).As());
 }
 ```
 

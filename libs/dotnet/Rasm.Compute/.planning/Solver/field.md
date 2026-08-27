@@ -91,7 +91,7 @@ public sealed partial record DiscreteMesh(
         (ChunkGrid.Derive([checked((int)NodeCount)], components: 3, FieldPack.ChunkElementTarget),
          ChunkGrid.Derive([checked((int)ElementCount)], Element.Nodes, FieldPack.ChunkElementTarget))
             .Apply(static (nodes, cells) => (Nodes: nodes, Cells: cells)).As().ToFin()
-            .Bind(grids => Op.Of(name: "mesh.archive").Catch(() => {
+            .Bind(grids => Try.lift(() => {
                 H5Dataset<float[]> nodes = new(grids.Nodes.FileDims.ToArray(), grids.Nodes.Chunk.ToArray(), datasetCreation: policy.Creation());
                 H5Dataset<long[]> cells = new(grids.Cells.FileDims.ToArray(), grids.Cells.Chunk.ToArray(), datasetCreation: policy.Creation());
                 H5File graph = new() { ["nodes"] = nodes, ["connectivity"] = cells };
@@ -104,7 +104,7 @@ public sealed partial record DiscreteMesh(
                 using HdfWriter writer = HdfArchive.Begin(graph, sink, policy);
                 return writer.Open(nodes, grids.Nodes).WriteAll(Nodes.ToArray())
                     .Bind(_ => writer.Open(cells, grids.Cells).WriteAll(Connectivity.ToArray()));
-            }));
+            }).Run().Bind(static inner => inner));
 
     public ReadOnlySpan<float> Coordinates => Nodes.Span;
     public ReadOnlySpan<long> Indices => Connectivity.Span;

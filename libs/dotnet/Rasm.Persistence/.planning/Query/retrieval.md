@@ -78,7 +78,7 @@ public sealed partial class VectorMetric {
     public string Fn { get; }
     private CapabilitySet<EmbeddingArity> Arities { get; }
     private VectorMetric(string key, string op, string fn, CapabilitySet<EmbeddingArity> arities) : this(key) =>
-        (Op, Fn, Arities) = (op, fn, arities);
+        (Op, Fn, Arities) = (fn, arities);
 
     public Fin<Expression> Order(Expression column, EmbeddingArity arity, float[] probe) =>
         Arities.Require(CapabilitySet<EmbeddingArity>.Of(arity),
@@ -87,10 +87,10 @@ public sealed partial class VectorMetric {
                 Expression.Constant(arity.Probe(probe))));
 
     private static VectorMetric Numeric(string key, string op, string fn) =>
-        new(key, op, fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Dense, EmbeddingArity.Half, EmbeddingArity.Sparse));
+        new(fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Dense, EmbeddingArity.Half, EmbeddingArity.Sparse));
 
     private static VectorMetric Binary(string key, string op, string fn) =>
-        new(key, op, fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Bit));
+        new(fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Bit));
 }
 
 [SmartEnum<string>]
@@ -142,12 +142,12 @@ public static class SearchRoute {
 public static class ScaleoutRoute {
     public static IO<Fin<Seq<(UInt128 ContentKey, float Score)>>> Query(
         QdrantClient client, Identifier collection, ReadOnlyMemory<float> probe, Seq<PrefetchQuery> prefetch, ulong tenant, RetrievalLimit top) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => await Try.lift(async _ => {
             IReadOnlyList<ScoredPoint> hits = await client.QueryAsync(
                 (string)collection, query: probe.ToArray(), prefetch: [.. prefetch], limit: (ulong)top.Value, shardKeySelector: tenant).ConfigureAwait(false);
             return Fin.Succ(toSeq(hits).Map(static hit =>
                 (UInt128.Parse(hit.Payload["content-key"].StringValue, NumberStyles.HexNumber, CultureInfo.InvariantCulture), hit.Score)));
-        }).ConfigureAwait(false));
+        }).Run().Bind(static inner => inner).ConfigureAwait(false));
 }
 ```
 
@@ -568,7 +568,7 @@ public static class FusionRank {
 
     public static Seq<FusionHit> Fuse(Seq<(RetrievalBranch Branch, Seq<SetKey> Ranked)> branches) =>
         toSeq(branches
-            .Bind(static b => b.Ranked.Map((key, index) => (Key: key, b.Branch, Rank: index + 1)))
+            .Bind(static b => b.Ranked.Map((key, index) => (b.Branch, Rank: index + 1)))
             .GroupBy(static c => c.Key)
             .Select(group => new FusionHit(
                 group.Key,
@@ -582,13 +582,13 @@ public static class ResultCache {
         Func<TState, CancellationToken, ValueTask<T>> produce, HybridCache cache) {
         string subjectKey = subject.ContentKey.ToString("x32", CultureInfo.InvariantCulture);
         string operation = operationKey.ToString("x32", CultureInfo.InvariantCulture);
-        return IO.liftAsync(async () => await Op.Of().Catch(async token => Fin<T>.Succ(await cache.GetOrCreateAsync(
+        return IO.liftAsync(async () => await Try.lift(async token => Fin<T>.Succ(await cache.GetOrCreateAsync(
             $"{policy.Namespace}:{subjectKey}:{operation}",
             state,
             produce,
             new HybridCacheEntryOptions { Expiration = policy.TimeToLive.ToTimeSpan() },
             tags: [$"elementset:{subjectKey}"],
-            cancellationToken: token).ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.lift);
+            cancellationToken: token).ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift);
     }
 }
 
@@ -705,7 +705,7 @@ public static class DocumentCorpus {
         !store.Admits(Lane.Search)
         ? Fin.Fail<string>(new RetrievalFault.Mismatched("store-lane", Lane.Search.Key, store.Key))
         : (from admitted in Admit(query)
-           from predicate in Op.Of().Row<string, DocumentPredicate>(admitted.Predicate)
+           from predicate in FactoryBridge.Row<string, DocumentPredicate>(admitted.Predicate)
                .MapFail(_ => new RetrievalFault.Mismatched(
                    "document-predicate", string.Join("|", DocumentPredicate.Items.Select(static p => p.Key)), admitted.Predicate))
            select Composed(admitted, predicate, rank));

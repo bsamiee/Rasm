@@ -151,7 +151,6 @@ public sealed partial class ElementClass {
     public int MidInterior => Math.Max(0, Nodes - Corners - MidEdges - MidFaces);
     int QuadFacets => Faces.Count(static facet => facet.Length == 4);
 
-    private static readonly Op QuadratureKey = Op.Of(name: nameof(Quadrature));
 
     private static readonly Lazy<FrozenDictionary<ElementClass, Fin<QuadratureRule>>> Rules = new(
         static () => Items.ToFrozenDictionary(static row => row, static row => row.ReferenceDomain.Rule(order: row.IntegrationOrder, key: QuadratureKey)),

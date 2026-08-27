@@ -50,8 +50,8 @@ public readonly partial struct ProductKey {
     internal static Option<ProductKey> Maybe(Guid value) =>
         Optional(value).Filter(static id => id != Guid.Empty).Map(Create);
 
-    internal Fin<Unit> Admit(Op op) =>
-        op.AcceptValidated<ProductKey>(candidate: ToValue()).Map(static _ => unit);
+    internal Fin<Unit> Admit() =>
+        FactoryBridge.Accept<ProductKey>(candidate: ToValue()).Map(static _ => unit);
 }
 
 [SmartEnum<LicenseCapabilities>]
@@ -112,11 +112,11 @@ public sealed partial class LicenseNode {
 - Law: admission mirrors `LicenseData.IsValid` exactly — non-blank product license, serial, and title, a defined build row, and a positive count — so an admitted evidence value is one the host's own validity read accepts, and the refusal is this boundary's typed fault with no translation hop.
 - Owner: `LicenseState` detaches `LicenseStatus`; `LeaseEvidence` detaches `LicenseLease` through `LeaseMap`; `OwnerEvidence` detaches the two `GetLicenseOwner` out-parameters.
 - Law: the CloudZoo lease is `Option<CloudZooLease>`, not a valid-flag beside an expiry — the host publishes both off one lease record and a false flag left the expiry slot dead, which is a corner the option makes unrepresentable.
-- Law: every host string crosses through `Op.Text`, so a null and an empty registry field are one absence; the eleven fabricated empty strings this page carried were forged values the reader could not tell from a genuine blank the server sent.
+- Law: every host string crosses through `HostEdge.Text`, so a null and an empty registry field are one absence; the eleven fabricated empty strings this page carried were forged values the reader could not tell from a genuine blank the server sent.
 - Law: `LeaseEvidence` is a GENERATED projection — twelve mechanical member renames under one null policy is exactly the correspondence `[Mapper]` owns, and the two user mappings (`string?` to `Option<string>`, `DateTime?` to `Option<DateTime>`) are the whole policy the generator needs.
 - Law: `LicenseLeaseChangedEventArgs.Lease` mints a FRESH managed wrapper over a borrowed native pointer on every read, so the lease detaches inside the callback and no wrapper is retained past it.
 - Boundary: `LicenseData.ProductIcon` and `LicenseStatus.ProductIcon` are disposable native handles, so neither rides a detached record; the lease-changed hook answers its badge through the kernel raster owner and the boundary hands the host an icon it mints at that one boundary.
-- Packages: Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[UserMapping]`); Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/results` (`Op.Text`, `Op.Need`, `Op.Catch`, `Op.ToHostNullable`, `ValidityClaim`), `Domain/validation` (`Op.Row`, `CapabilitySet`); `Document/events` (`PluginKey`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseData` constructor and reads, `LicenseStatus`, `LicenseLease`).
+- Packages: Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[UserMapping]`); Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/results` (`HostEdge.Text`, `Op.Need`, `Op.Catch`, `HostEdge.Nullable`, `ValidityClaim`), `Domain/validation` (`Op.Row`, `CapabilitySet`); `Document/events` (`PluginKey`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseData` constructor and reads, `LicenseStatus`, `LicenseLease`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -149,21 +149,21 @@ public sealed partial class LicenseEvidence {
             ? validationError
             : new ValidationError(string.Join(" | ", new object?[] { nameof(LicenseEvidence), "a non-blank product licence, serial, and title, a defined build row, and a positive count" }));
 
-    internal Fin<LicenseData> Mint(Op op) => op.Catch(() => Fin.Succ(value: new LicenseData(
+    internal Fin<LicenseData> Mint() => Try.lift(() => Fin.Succ(value: new LicenseData(
         productLicense: ProductLicense,
         serialNumber: SerialNumber,
         licenseTitle: LicenseTitle,
         buildType: Build.Key,
         licenseCount: Count,
-        expirationDate: Op.ToHostNullable(Expires),
+        expirationDate: HostEdge.Nullable(Expires),
         productIcon: null,
         requiresOnlineValidation: Posture.Admits(LicensePosture.OnlineValidation),
-        isUpgradeFromPreviousVersion: Posture.Admits(LicensePosture.Upgrade))));
+        isUpgradeFromPreviousVersion: Posture.Admits(LicensePosture.Upgrade)))).Run().Bind(static inner => inner);
 
-    internal static Fin<LicenseEvidence> Detach(LicenseData data, Op op) =>
-        from row in op.Need(data)
-        from build in op.Row<LicenseBuildType, LicenseBuild>(row.BuildType)
-        from evidence in op.AcceptValidated<LicenseEvidence>(
+    internal static Fin<LicenseEvidence> Detach(LicenseData data) =>
+        from row in Admit.Need(data)
+        from build in FactoryBridge.Row<LicenseBuildType, LicenseBuild>(row.BuildType)
+        from evidence in FactoryBridge.Accept<LicenseEvidence>(
             fault: Validate(
                 row.ProductLicense,
                 row.SerialNumber,
@@ -216,7 +216,7 @@ public sealed record OwnerEvidence(Option<string> Owner, Option<string> Organiza
 internal static partial class LeaseMap {
     internal static partial LeaseEvidence Detach(LicenseLease source);
 
-    [UserMapping] private static Option<string> Text(string? value) => Op.Text(value);
+    [UserMapping] private static Option<string> Text(string? value) => HostEdge.Text(value);
 
     [UserMapping] private static Option<DateTime> Moment(DateTime? value) => Optional(value);
 }
@@ -229,11 +229,11 @@ internal static partial class LeaseMap {
 - Law: `RasmPlugIn` continues as a partial class here because the host declares its entitlement members `protected`; the arm is co-located with the derivation the language forces it onto, never lifted to a free-standing service that could not reach them. That co-location also gives every arm `lifecycle#ADAPTER`'s `Record` sink, so a refusal raised inside a host `out`-delegate reaches the bounded refusal ring instead of dying at the boundary.
 - Law: the validate callback is total by construction — a refused result, a faulted program, or a malformed reply all settle on `ErrorHideMessage` with an empty payload, because the host reads the `out` slot unconditionally and a null there faults inside native code.
 - Law: `ByBuild` is the capability-free overload the host supplies — it passes `NoCapabilities` and a null mask internally — so a request naming both a build and a grant set uses `ByCapability` and the two never merge.
-- Law: `Op.ToHostSlot` is the ONE null spelling at every host slot this arm writes — the text mask, the parent window, the expiry, and the badge icon — so five hand null-forgiving projections collapse to the kernel's one boundary arm.
-- Boundary: the three interactive host calls cross the kernel dispatch on the MODAL lane — `UiThread.Run(new UiDispatch<T>.Blocking(…), DispatchLane.Modal, key)` — because a licence dialog owns the host's input for its whole life; every other arm is a non-interactive host call made on the caller's thread.
+- Law: `HostEdge.Slot` is the ONE null spelling at every host slot this arm writes — the text mask, the parent window, the expiry, and the badge icon — so five hand null-forgiving projections collapse to the kernel's one boundary arm.
+- Boundary: the three interactive host calls cross the kernel dispatch on the MODAL lane — `UiThread.Run(new UiDispatch<T>.Blocking(…), DispatchLane.Modal)` — because a licence dialog owns the host's input for its whole life; every other arm is a non-interactive host call made on the caller's thread.
 - Boundary: the prompt arm admits an optional Eto parent — decompile-proven through the shipped Zoo client, `ZooClientParameters.ParentWindow` lands on `ValidationClient.UI.Models.LicenseUiModel.ParentWindow : Eto.Forms.Control` and feeds `MessageBox.Show`/dialog parenting directly, so the accepted concrete shape is an Eto `Control` and absence is the parentless floor the arm writes as null.
 - Boundary: the badge crosses as a kernel `AssetRaster` and the host's `out System.Drawing.Icon` slot is filled at this boundary alone — `GetHicon` hands the host an unmanaged icon handle whose lifetime the host then owns, while the leased bitmap disposes with its lease, so the conversion happens once here and no consumer holds a host icon.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `Op.ToHostSlot`), `Domain/validation` (`CapabilitySet.Mask`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`), `Interaction/asset` (`AssetRaster`), `Interaction/paint` (the GDI bitmap lease the badge carries); Eto.Forms (`Control` — `.api/api-eto-forms.md`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:113` — `GetLicense` both overloads, `AskUserForLicense`, `ReturnLicense`, `GetLicenseOwner`, `SetLicenseCapabilities`, `ValidateProductKeyDelegate`, `OnLeaseChangedDelegate`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `HostEdge.Slot`), `Domain/validation` (`CapabilitySet.Mask`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`), `Interaction/asset` (`AssetRaster`), `Interaction/paint` (the GDI bitmap lease the badge carries); Eto.Forms (`Control` — `.api/api-eto-forms.md`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:113` — `GetLicense` both overloads, `AskUserForLicense`, `ReturnLicense`, `GetLicenseOwner`, `SetLicenseCapabilities`, `ValidateProductKeyDelegate`, `OnLeaseChangedDelegate`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -282,74 +282,69 @@ public abstract partial record EntitleOutcome {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface ILicenseProgram {
-    Fin<LicenseReply> Validate(string productKey, Op key);
-    Fin<Option<AssetRaster>> LeaseChanged(Option<LeaseEvidence> lease, Op key);
+    Fin<LicenseReply> Validate(string productKey);
+    Fin<Option<AssetRaster>> LeaseChanged(Option<LeaseEvidence> lease);
 }
 
 public abstract partial class RasmPlugIn {
-    public Fin<EntitleOutcome> Entitlement(Entitle ask, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(ask).Bind(request => request.Switch(
-            op,
-            byCapability: (held, row) => held.Need(row.Program).Bind(program => held.Catch(() => GetLicense(
+    public Fin<EntitleOutcome> Entitlement(Entitle ask) {
+        return Admit.Need(ask).Bind(request => request.Switch(byCapability: (held, row) => Admit.Need(row.Program).Bind(program => Try.lift(() => GetLicense(
                     licenseCapabilities: (LicenseCapabilities)row.Grants.Mask(bit: LicenseGrant.Bit),
-                    textMask: Op.ToHostSlot(row.TextMask)!,
+                    textMask: HostEdge.Slot(row.TextMask)!,
                     validateProductKeyDelegate: Validator(program, held),
                     leaseChanged: LeaseWatcher(program, held))
                 ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Capability))
                 : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
-                    Key: held, Member: nameof(GetLicense))))),
-            byBuild: (held, row) => held.Need(row.Program).Bind(program => held.Catch(() => GetLicense(
+                    Key: held, Member: nameof(GetLicense)))).Run().Bind(static inner => inner)),
+            byBuild: (held, row) => Admit.Need(row.Program).Bind(program => Try.lift(() => GetLicense(
                     productBuildType: row.Build.Key,
                     validateProductKeyDelegate: Validator(program, held),
                     leaseChangedDelegate: LeaseWatcher(program, held))
                 ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Build))
                 : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
-                    Key: held, Member: nameof(GetLicense))))),
-            byPrompt: (held, row) => held.Need(row.Program).Bind(program => UiThread.Run(
-                new UiDispatch<EntitleOutcome>.Blocking(() => held.Catch(() => AskUserForLicense(
+                    Key: held, Member: nameof(GetLicense)))).Run().Bind(static inner => inner)),
+            byPrompt: (held, row) => Admit.Need(row.Program).Bind(program => UiThread.Run(
+                new UiDispatch<EntitleOutcome>.Blocking(() => Try.lift(() => AskUserForLicense(
                         productBuildType: row.Build.Key,
                         standAlone: row.Node,
-                        textMask: Op.ToHostSlot(row.TextMask)!,
-                        parentWindow: Op.ToHostSlot(row.Parent),
+                        textMask: HostEdge.Slot(row.TextMask)!,
+                        parentWindow: HostEdge.Slot(row.Parent),
                         validateProductKeyDelegate: Validator(program, held),
                         onLeaseChangedDelegate: LeaseWatcher(program, held))
                     ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Prompt))
                     : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
-                        Key: held, Member: nameof(AskUserForLicense))))),
+                        Key: held, Member: nameof(AskUserForLicense)))).Run().Bind(static inner => inner)),
                 DispatchLane.Modal,
                 held)),
-            release: (held, _) => held.Catch(() => ReturnLicense()
+            release: (held, _) => Try.lift(() => ReturnLicense()
                 ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Released())
                 : Fin.Fail<EntitleOutcome>(error: new PluginFault.HostRefused(
-                    Key: held, Member: nameof(ReturnLicense), Detail: nameof(EntitleOutcome.Released)))),
+                    Key: held, Member: nameof(ReturnLicense), Detail: nameof(EntitleOutcome.Released)))).Run().Bind(static inner => inner),
             declare: (held, row) => row.License.Admit(held)
-                .Bind(_ => held.Catch(() => SetLicenseCapabilities(
-                    textMask: Op.ToHostSlot(row.TextMask)!,
+                .Bind(_ => Try.lift(() => SetLicenseCapabilities(
+                    textMask: HostEdge.Slot(row.TextMask)!,
                     capabilities: (LicenseCapabilities)row.Grants.Mask(bit: LicenseGrant.Bit),
-                    licenseId: row.License.ToValue())))
+                    licenseId: row.License.ToValue())).Run().Bind(static inner => inner))
                 .Map<EntitleOutcome>(_ => new EntitleOutcome.Declared(Grants: row.Grants)),
-            owner: (held, _) => held.Catch(() => Op.Probe(() => {
+            owner: (held, _) => Try.lift(() => Admit.Probe(() => {
                     bool answered = GetLicenseOwner(
                         registeredOwner: out string owner, registeredOrganization: out string organization);
                     return (Ok: answered, Value: new OwnerEvidence(
-                        Owner: Op.Text(owner), Organization: Op.Text(organization)));
+                        Owner: HostEdge.Text(owner), Organization: HostEdge.Text(organization)));
                 })
                 .ToFin(Fail: new PluginFault.HostRefused(
                     Key: held, Member: nameof(GetLicenseOwner), Detail: nameof(OwnerEvidence)))
-                .Map<EntitleOutcome>(static evidence => new EntitleOutcome.Registered(Evidence: evidence)))));
+                .Map<EntitleOutcome>(static evidence => new EntitleOutcome.Registered(Evidence: evidence))).Run().Bind(static inner => inner)));
     }
 
-    private ValidateProductKeyDelegate Validator(ILicenseProgram program, Op op) =>
+    private ValidateProductKeyDelegate Validator(ILicenseProgram program) =>
         (string productKey, out LicenseData licenseData) => {
             Fin<(ValidateResult Verdict, LicenseData Data)> settled = Record(outcome:
-                from key in op.AcceptText(value: productKey)
-                from reply in op.Catch(() => program.Validate(productKey: key, key: op))
-                from projected in reply.Switch(
-                    op,
-                    accepted: static (held, row) => row.Evidence.Mint(held)
+                from key in Acceptance.Text(value: productKey)
+                from reply in Try.lift(() => program.Validate(productKey: key)).Run().Bind(static inner => inner)
+                from projected in reply.Switch(accepted: static (held, row) => row.Evidence.Mint(held)
                         .Map(static data => (Verdict: ValidateResult.Success, Data: data)),
-                    refusedLoudly: static (held, row) => held.AcceptText(value: row.Message)
+                    refusedLoudly: static (held, row) => Acceptance.Text(value: row.Message)
                         .Map(static message => (
                             Verdict: ValidateResult.ErrorShowMessage,
                             Data: new LicenseData { ErrorMessage = message })),
@@ -364,24 +359,22 @@ public abstract partial class RasmPlugIn {
             return verdict;
         };
 
-    private OnLeaseChangedDelegate LeaseWatcher(ILicenseProgram program, Op op) =>
+    private OnLeaseChangedDelegate LeaseWatcher(ILicenseProgram program) =>
         (LicenseLeaseChangedEventArgs args, out GdiIcon icon) => {
             Option<GdiIcon> badge = Record(outcome:
-                from row in op.Need(args)
-                from lease in op.Catch(() => Fin.Succ(value: Optional(row.Lease)))
-                from evidence in op.Catch(() => Fin.Succ(value: lease.Map(LeaseMap.Detach)))
-                from answer in op.Catch(() => program.LeaseChanged(lease: evidence, key: op))
-                from badged in answer.TraverseM(raster => Badge(raster, op)).As()
+                from row in Admit.Need(args)
+                from lease in Try.lift(() => Fin.Succ(value: Optional(row.Lease))).Run().Bind(static inner => inner)
+                from evidence in Try.lift(() => Fin.Succ(value: lease.Map(LeaseMap.Detach))).Run().Bind(static inner => inner)
+                from answer in Try.lift(() => program.LeaseChanged(lease: evidence)).Run().Bind(static inner => inner)
+                from badged in answer.TraverseM(raster => Badge(raster)).As()
                 select badged)
                 .Match(Succ: static value => value, Fail: static _ => Option<GdiIcon>.None);
-            icon = Op.ToHostSlot(badge)!;
+            icon = HostEdge.Slot(badge)!;
         };
 
-    private static Fin<GdiIcon> Badge(AssetRaster raster, Op op) => raster.Switch(
-        op,
-        toolkit: static (held, _) => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")),
-        gdi: static (held, row) => held.Catch(() =>
-            Fin.Succ(value: row.Bitmap.Use(static bitmap => GdiIcon.FromHandle(handle: bitmap.GetHicon())))),
+    private static Fin<GdiIcon> Badge(AssetRaster raster) => raster.Switch(toolkit: static (held, _) => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")),
+        gdi: static (held, row) => Try.lift(() =>
+            Fin.Succ(value: row.Bitmap.Use(static bitmap => GdiIcon.FromHandle(handle: bitmap.GetHicon())))).Run().Bind(static inner => inner),
         pixels: static (held, _) => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")));
 }
 ```
@@ -396,7 +389,7 @@ public abstract partial class RasmPlugIn {
 - Law: `GetOneLicenseStatus` answers null for an unlicensed product, so absence rides `Option<LicenseState>` and is not a fault.
 - Boundary: `ShowBuyLicenseUi` and `ShowLicenseValidationUi` are INTERACTIVE and cross the kernel dispatch on the modal lane; the buy dialog returns nothing, so its answer names the product it offered and carries no outcome the host does not publish.
 - Boundary: `LoginToCloudZoo` opens the host's own account flow; the account case answers the resulting identity as detached text off `RhinoApp`.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `Op.Text`, `Retriability`, `RedrivePolicy`), `Domain/validation` (`Op.Row`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`); `Document/events` (`PluginKey.Maybe`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseUtils.GetLicenseStatus`, `GetOneLicenseStatus`, `CheckOutLicense`, `CheckInLicense`, `ReturnLicense`, `ConvertLicense`, `DeleteLicense`, `IsCheckOutEnabled`, `LoginToCloudZoo`, `LogoutOfCloudZoo`, `ShowBuyLicenseUi`, `ShowLicenseValidationUi`), RhinoCommon runtime (`api-rhinocommon-runtime.md` — `RhinoApp.UserIsLoggedIn`, `RhinoApp.LoggedInUserName`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `HostEdge.Text`, `Retriability`, `RedrivePolicy`), `Domain/validation` (`Op.Row`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`); `Document/events` (`PluginKey.Maybe`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseUtils.GetLicenseStatus`, `GetOneLicenseStatus`, `CheckOutLicense`, `CheckInLicense`, `ReturnLicense`, `ConvertLicense`, `DeleteLicense`, `IsCheckOutEnabled`, `LoginToCloudZoo`, `LogoutOfCloudZoo`, `ShowBuyLicenseUi`, `ShowLicenseValidationUi`), RhinoCommon runtime (`api-rhinocommon-runtime.md` — `RhinoApp.UserIsLoggedIn`, `RhinoApp.LoggedInUserName`).
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -457,62 +450,58 @@ public abstract partial record LicenseVerdict {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Licenses {
-    public static Fin<LicenseVerdict> Ask(LicenseAsk ask, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(ask).Bind(request => request.Switch(
-            op,
-            census: static (held, _) => held.Catch(() => toSeq(LicenseUtils.GetLicenseStatus())
+    public static Fin<LicenseVerdict> Ask(LicenseAsk ask) {
+        return Admit.Need(ask).Bind(request => request.Switch(census: static (held, _) => Try.lift(() => toSeq(LicenseUtils.GetLicenseStatus())
                 .Traverse(status => State(status, held))
                 .As()
-                .Map<LicenseVerdict>(static rows => new LicenseVerdict.Rows(States: rows.Strict()))),
-            one: static (held, row) => row.Product.Admit(held).Bind(_ => held.Catch(() =>
+                .Map<LicenseVerdict>(static rows => new LicenseVerdict.Rows(States: rows.Strict()))).Run().Bind(static inner => inner),
+            one: static (held, row) => row.Product.Admit(held).Bind(_ => Try.lift(() =>
                 Optional(LicenseUtils.GetOneLicenseStatus(productid: row.Product.ToValue()))
                     .TraverseM(status => State(status, held))
                     .As()
-                    .Map<LicenseVerdict>(state => new LicenseVerdict.Row(state)))),
+                    .Map<LicenseVerdict>(state => new LicenseVerdict.Row(state))).Run().Bind(static inner => inner)),
             act: static (held, row) => row.Product.Admit(held)
-                .Bind(_ => held.Need(row.Verb))
-                .Bind(verb => held.Catch(() => Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.Acted(
-                    Verb: verb, Accepted: verb.Run(product: row.Product.ToValue()))))),
-            checkOutEnabled: static (held, _) => held.Catch(() => Fin.Succ<LicenseVerdict>(
-                value: new LicenseVerdict.CheckOut(Enabled: LicenseUtils.IsCheckOutEnabled()))),
-            session: static (held, row) => held.Need(row.Verb).Bind(verb => held.Catch(() => verb.Run()
+                .Bind(_ => Admit.Need(row.Verb))
+                .Bind(verb => Try.lift(() => Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.Acted(
+                    Verb: verb, Accepted: verb.Run(product: row.Product.ToValue())))).Run().Bind(static inner => inner)),
+            checkOutEnabled: static (held, _) => Try.lift(() => Fin.Succ<LicenseVerdict>(
+                value: new LicenseVerdict.CheckOut(Enabled: LicenseUtils.IsCheckOutEnabled()))).Run().Bind(static inner => inner),
+            session: static (held, row) => Admit.Need(row.Verb).Bind(verb => Try.lift(() => verb.Run()
                 ? Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.SessionSettled(Verb: verb))
                 : Fin.Fail<LicenseVerdict>(error: new PluginFault.Unreachable(
-                    Key: held, Member: verb.Key)))),
-            account: static (held, _) => held.Catch(() => Fin.Succ<LicenseVerdict>(
+                    Key: held, Member: verb.Key))).Run().Bind(static inner => inner)),
+            account: static (held, _) => Try.lift(() => Fin.Succ<LicenseVerdict>(
                 value: new LicenseVerdict.Signed(Account:
-                    (RhinoApp.UserIsLoggedIn ? Op.Text(RhinoApp.LoggedInUserName) : None).Match(
+                    (RhinoApp.UserIsLoggedIn ? HostEdge.Text(RhinoApp.LoggedInUserName) : None).Match(
                         Some: static user => (LicenseAccount)new LicenseAccount.SignedIn(User: user),
-                        None: static () => new LicenseAccount.SignedOut())))),
+                        None: static () => new LicenseAccount.SignedOut())))).Run().Bind(static inner => inner),
             buyUi: static (held, row) => row.Product.Admit(held).Bind(_ => UiThread.Run(
-                new UiDispatch<LicenseVerdict>.Blocking(() => held
-                    .Catch(() => LicenseUtils.ShowBuyLicenseUi(productId: row.Product.ToValue()))
+                new UiDispatch<LicenseVerdict>.Blocking(() => Try.lift(() => LicenseUtils.ShowBuyLicenseUi(productId: row.Product.ToValue())).Run().Bind(static inner => inner)
                     .Map<LicenseVerdict>(_ => new LicenseVerdict.BuyOffered(Product: row.Product))),
                 DispatchLane.Modal,
                 held)),
-            validateUi: static (held, row) => held.AcceptText(value: row.CdKey).Bind(cdkey => UiThread.Run(
-                new UiDispatch<LicenseVerdict>.Blocking(() => held.Catch(() => Fin.Succ<LicenseVerdict>(
-                    value: new LicenseVerdict.Validated(Accepted: LicenseUtils.ShowLicenseValidationUi(cdkey: cdkey))))),
+            validateUi: static (held, row) => Acceptance.Text(value: row.CdKey).Bind(cdkey => UiThread.Run(
+                new UiDispatch<LicenseVerdict>.Blocking(() => Try.lift(() => Fin.Succ<LicenseVerdict>(
+                    value: new LicenseVerdict.Validated(Accepted: LicenseUtils.ShowLicenseValidationUi(cdkey: cdkey)))).Run().Bind(static inner => inner)),
                 DispatchLane.Modal,
                 held))));
     }
 
-    private static Fin<LicenseState> State(LicenseStatus status, Op op) =>
-        from row in Optional(status).ToFin(Fail: new PluginFault.Unbound(Key: op, Member: nameof(LicenseStatus)))
-        from kind in op.Row<LicenseType, LicenseKind>(row.LicenseType)
-        from build in op.Row<LicenseBuildType, LicenseBuild>(row.BuildType)
+    private static Fin<LicenseState> State(LicenseStatus status) =>
+        from row in Optional(status).ToFin(Fail: new PluginFault.Unbound(Member: nameof(LicenseStatus)))
+        from kind in FactoryBridge.Row<LicenseType, LicenseKind>(row.LicenseType)
+        from build in FactoryBridge.Row<LicenseBuildType, LicenseBuild>(row.BuildType)
         select new LicenseState(
             Plugin: PluginKey.Maybe(row.PluginId),
             Product: ProductKey.Maybe(row.ProductId),
             Kind: kind,
             Build: build,
-            Title: Op.Text(row.LicenseTitle),
-            SerialNumber: Op.Text(row.SerialNumber),
+            Title: HostEdge.Text(row.LicenseTitle),
+            SerialNumber: HostEdge.Text(row.SerialNumber),
             Expires: Optional(row.ExpirationDate),
             CheckOutExpires: Optional(row.CheckOutExpirationDate),
-            RegisteredOwner: Op.Text(row.RegisteredOwner),
-            RegisteredOrganization: Op.Text(row.RegisteredOrganization),
+            RegisteredOwner: HostEdge.Text(row.RegisteredOwner),
+            RegisteredOrganization: HostEdge.Text(row.RegisteredOrganization),
             Lease: row.CloudZooLeaseIsValid
                 ? Some(new CloudZooLease(Expires: Optional(row.CloudZooLeaseExpiration)))
                 : None);
@@ -525,7 +514,7 @@ public static class Licenses {
 - Entry: `LicensePulse.Observe` binds `RhinoApp.LicenseStateChanged` through `Document/lifetime#SUBSCRIPTION`'s `Subscription.Attach` capsule, so attach and release are symmetric and this page mints no second subscription mechanism.
 - Law: the fact is a process-wide gate, not a per-product state — a consumer wanting product detail asks `Licenses.Ask` with a `One` case on the change.
 - Boundary: a sink fault records nowhere on this pipeline; the observation is a pure detach-and-deliver, and a consumer needing a ledger supplies one inside its own sink.
-- Packages: LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.Side`); `Document/lifetime` (`Subscription.Attach`); RhinoCommon runtime (`.api/api-rhinocommon-runtime.md:187` — `LicenseStateChangedEventArgs.CallingRhinoCommonAllowed`, `RhinoApp.LicenseStateChanged`).
+- Packages: LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `HostEdge.Side`); `Document/lifetime` (`Subscription.Attach`); RhinoCommon runtime (`.api/api-rhinocommon-runtime.md:187` — `LicenseStateChangedEventArgs.CallingRhinoCommonAllowed`, `RhinoApp.LicenseStateChanged`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -533,14 +522,13 @@ public sealed record LicenseFact(bool CallingAllowed);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LicensePulse {
-    public static Fin<Subscription> Observe(Action<LicenseFact> sink, Op? key = null) {
-        Op op = key.OrDefault();
-        return from receiver in op.Need(sink)
+    public static Fin<Subscription> Observe(Action<LicenseFact> sink) {
+        return from receiver in Admit.Need(sink)
                from subscription in Subscription.Attach(
                    subscribe: static (EventHandler<LicenseStateChangedEventArgs> handler) => RhinoApp.LicenseStateChanged += handler,
                    unsubscribe: static handler => RhinoApp.LicenseStateChanged -= handler,
-                   handler: (_, args) => ignore(op.Catch(() => Fin.Succ(value: Op.Side(() => receiver(
-                       arg: new LicenseFact(CallingAllowed: args.CallingRhinoCommonAllowed)))))))
+                   handler: (_, args) => ignore(Try.lift(() => Fin.Succ(value: HostEdge.Side(() => receiver(
+                       arg: new LicenseFact(CallingAllowed: args.CallingRhinoCommonAllowed))))).Run().Bind(static inner => inner)))
                select subscription;
     }
 }

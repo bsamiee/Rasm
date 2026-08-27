@@ -773,7 +773,7 @@ public sealed record AuditEvidence(
 public static class Audit {
     public static Fin<AuditEvidence> Preflight(SliceStack stack, AuditPolicy policy) =>
         from admitted in Admit(stack, policy)
-        from evidence in Op.Of(name: "audit:kernel").Catch(() => Fin.Succ(Run(admitted)))
+        from evidence in Try.lift(() => Fin.Succ(Run(admitted))).Run().Bind(static inner => inner)
         select evidence;
 
     private static Fin<AdmittedAudit> Admit(SliceStack stack, AuditPolicy policy) =>

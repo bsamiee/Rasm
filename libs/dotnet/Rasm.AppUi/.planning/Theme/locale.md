@@ -229,8 +229,8 @@ public readonly record struct MessageVariant(Option<string> Context, MessageLeng
 
     public Seq<string> Keys(string key) =>
         Context.Match(
-            Some: context => Length.Widening.Map(length => Suffixed($"{key}.{context}", length)) + Length.Widening.Map(length => Suffixed(key, length)),
-            None: () => Length.Widening.Map(length => Suffixed(key, length)));
+            Some: context => Length.Widening.Map(length => Suffixed($"{key}.{context}", length)) + Length.Widening.Map(length => Suffixed(length)),
+            None: () => Length.Widening.Map(length => Suffixed(length)));
 
     static string Suffixed(string stem, MessageLength length) =>
         length.Suffix.Length is 0 ? stem : $"{stem}.{length.Suffix}";
@@ -259,16 +259,16 @@ public static class LocaleStrings {
 
     public static string Key(string owner, string member, string variant) => $"{owner}.{member}.{variant}";
 
-    public static string Find(string key, CultureInfo strings) => Table.GetString(key, strings) ?? Marker(key);
+    public static string Find(string key, CultureInfo strings) => Table.GetString(strings) ?? Marker();
 
     public static string Resolve(string key, MessageVariant variant, LocaleRow row, CultureInfo strings) =>
-        row.Pseudo.Proof(variant.Keys(key)
+        row.Pseudo.Proof(variant.Keys()
             .Choose(candidate => Optional(Table.GetString(candidate, strings)))
             .Head
-            .IfNone(() => Marker(key)));
+            .IfNone(() => Marker()));
 
     public static MessagePattern Pattern(string key, PluralRoute route, CultureInfo strings) =>
-        new(Source: Find(key, strings), Route: route);
+        new(Source: Find(strings), Route: route);
 
     static string Marker(string key) => $"[{MissingMarker}:{key}]";
 }
@@ -299,15 +299,15 @@ public static class LocaleConformance {
 
     static Seq<string> Missing(Seq<string> expected, Seq<string> shipped) {
         HashSet<string> present = shipped.ToHashSet(StringComparer.Ordinal);
-        return toSeq(expected.Filter(key => !present.Contains(key)).OrderBy(static key => key, StringComparer.Ordinal));
+        return toSeq(expected.Filter(key => !present.Contains()).OrderBy(static key => key, StringComparer.Ordinal));
     }
 
     static Fin<Seq<string>> Names(CultureInfo culture, bool parents) =>
-        Op.Of(name: "appui.locale.resources").Catch(() => Fin.Succ(Optional(LocaleStrings.Table.GetResourceSet(culture, createIfNotExists: true, tryParents: parents))
+        Try.lift(() => Fin.Succ(Optional(LocaleStrings.Table.GetResourceSet(culture, createIfNotExists: true, tryParents: parents))
                 .Map(static set => toSeq(set.Cast<DictionaryEntry>())
                     .Choose(static entry => entry.Key is string name ? Some(name) : None)
                     .Strict())
-                .IfNone(Seq<string>())));
+                .IfNone(Seq<string>()))).Run().Bind(static inner => inner);
 }
 ```
 
@@ -414,22 +414,22 @@ public sealed record ResolvedLocale(
         from posture in UnitPosture.TryGet(policy.Units, out UnitPosture elected)
             ? Fin.Succ(elected)
             : Fin.Fail<UnitPosture>(new LocaleFault.MeasureRejected($"unit system {policy.Units}"))
-        from resolved in Op.Of(name: "appui.locale.compose").Catch(() => Fin.Succ(Compose(
+        from resolved in Try.lift(() => Fin.Succ(Compose(
                 row, zone, zones, CultureInfo.GetCultureInfo(policy.FormatTag.IfNone(row.FormatTag)),
-                new MeasurePolicy(posture, policy.Denominator))))
+                new MeasurePolicy(posture, policy.Denominator)))).Run().Bind(static inner => inner)
         select resolved;
 
     // --- [LABEL_EDGES]
 
-    public string Label(string key) => LocaleStrings.Find(key, Strings);
+    public string Label(string key) => LocaleStrings.Find(Strings);
 
-    public string Label(string key, MessageVariant variant) => LocaleStrings.Resolve(key, variant, Row, Strings);
+    public string Label(string key, MessageVariant variant) => LocaleStrings.Resolve(variant, Row, Strings);
 
     public Fin<string> Message(string key, params (string Name, object? Value)[] args) =>
-        Format(() => LocaleStrings.Find(key, Strings), args);
+        Format(() => LocaleStrings.Find(Strings), args);
 
     public Fin<string> Plural(string key, long count, PluralRoute route) =>
-        LocaleStrings.Pattern(key, route, Strings).Admitted(key)
+        LocaleStrings.Pattern(route, Strings).Admitted()
             .Bind(pattern => Format(() => pattern.Source, ("count", count)));
 
     public string Text(CompositeFormat format, params object?[] args) => string.Format(Formats, format, args);
@@ -461,10 +461,10 @@ public sealed record ResolvedLocale(
     // --- [COMPOSITION_EDGES]
 
     private Fin<string> Format(Func<string> pattern, params (string Name, object? Value)[] args) =>
-        Op.Of(name: "appui.locale.format").Catch(() => Fin.Succ(Formatter.FormatMessage(
+        Try.lift(() => Fin.Succ(Formatter.FormatMessage(
                 pattern(),
                 args.ToFrozenDictionary(static arg => arg.Name, static arg => arg.Value, StringComparer.Ordinal),
-                Formats)));
+                Formats))).Run().Bind(static inner => inner);
 
     private static ResolvedLocale Compose(
         LocaleRow row, DateTimeZone zone, IDateTimeZoneProvider zones, CultureInfo formats, MeasurePolicy measures) {
@@ -534,7 +534,7 @@ public sealed partial class LocaleField {
         options: None,
         write: static policy => policy.FormatTag.IfNone(string.Empty),
         check: static text => Admit(
-            text.Length is 0 || Op.Of(name: "appui.locale.culture").Catch(() => Fin.Succ(CultureInfo.GetCultureInfo(text))).IsSucc,
+            text.Length is 0 || Try.lift(() => Fin.Succ(CultureInfo.GetCultureInfo(text))).Run().Bind(static inner => inner).IsSucc,
             text, () => new LocaleFault.FormatRejected(text)),
         land: static (draft, text) => draft with { FormatTag = Optional(text).Filter(static value => value.Length > 0) });
     public static readonly LocaleField Units = new(nameof(LocalePolicy.Units),
@@ -741,7 +741,7 @@ public abstract partial record CaptionRoute {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct AnnouncementPhrase(string Key, SpeechPosture Posture, MessageVariant Variant) {
-    public static AnnouncementPhrase Of(string key, SpeechPosture posture) => new(key, posture, MessageVariant.Default);
+    public static AnnouncementPhrase Of(string key, SpeechPosture posture) => new(posture, MessageVariant.Default);
 
     public AutomationLiveSetting Setting => Posture.Setting;
 
@@ -983,7 +983,7 @@ public readonly record struct MeasurePolicy(UnitPosture Posture, int Denominator
         Converted(value, role).Map(converted => role.Grammar.Spell(converted, role, this, formats));
 
     Fin<IQuantity> Converted(IQuantity value, MeasureRole role) =>
-        Op.Of(name: "appui.locale.convert-unit").Catch(() => Fin.Succ(value.ToUnit(Unit(role))));
+        Try.lift(() => Fin.Succ(value.ToUnit(Unit(role)))).Run().Bind(static inner => inner);
 
     internal static string Plain(IQuantity converted, MeasureRole role, CultureInfo formats) =>
         converted.ToString($"G{role.Decimals + Digits(converted)}", formats);

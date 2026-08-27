@@ -194,7 +194,6 @@ public sealed class ThemeCell(
                     .Bind(committed => Rebuilt().Bind(_ => IO.lift<Fin<ResolvedTheme>>(() => Hooks.Fire(
                         AppUiPoint.Theme,
                         new AppUiFact.Theme(committed.Variant.Key, committed.Density.Key, request.Trigger.Key, Diff(step.Previous, committed)),
-                        Op.Of(name: "appui.theme.swap"),
                         body: _ => Fin.Succ(committed))))),
                 Fail: error => IO.pure(Fin.Fail<ResolvedTheme>(error)))),
             Fail: error => IO.pure(Fin.Fail<ResolvedTheme>(error))));
@@ -229,8 +228,8 @@ public sealed class ThemeCell(
                 Seq(nameof(ThemePolicy.Variant), nameof(ThemePolicy.Density), nameof(ThemePolicy.Accent)))));
 
     static FormField Picker(string key, Seq<string> keys, double pickerExtent) =>
-        FormField.Of(key, $"{ThemePolicy.Section}.{key}",
-            new ControlIntent.Select(key, SelectPosture.Closed,
+        FormField.Of($"{ThemePolicy.Section}.{key}",
+            new ControlIntent.Select(SelectPosture.Closed,
                 new OptionSource.Inline(keys.Map(row => new OptionRow(row, $"{ThemePolicy.Section}.{key}.{row}", None, None))),
                 VirtualWindowSpec.FixedRow(pickerExtent), IntentBinding.Of(PaintRole.Text)),
             FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit));
@@ -268,7 +267,7 @@ public sealed class ThemeCell(
             new ThemeRequest(ThemeVariantRow.HostMatched, Current.Value.Density, None, ThemeTrigger.Probe), preferences)));
 
     Fin<ResolvedTheme> Ran(ThemeRequest request, PreferenceCell preferences) =>
-        Op.Of(name: "appui.theme.swap").Catch(() => Swap(request, preferences).Run());
+        Try.lift(() => Swap(request, preferences).Run()).Run().Bind(static inner => inner);
 
     static Fin<ThemeRequest> Admitted(ThemePolicy policy) =>
         (Variant(policy.Variant), Density(policy.Density)) switch {
@@ -282,14 +281,14 @@ public sealed class ThemeCell(
         };
 
     static Option<ThemeVariantRow> Variant(string key) =>
-        ThemeVariantRow.TryGet(key, out ThemeVariantRow? row) ? Optional(row) : None;
+        ThemeVariantRow.TryGet(out ThemeVariantRow? row) ? Optional(row) : None;
 
     static Option<DensityRow> Density(string key) =>
-        DensityRow.TryGet(key, out DensityRow? row) ? Optional(row) : None;
+        DensityRow.TryGet(out DensityRow? row) ? Optional(row) : None;
 
     static uint Changed<T>(FrozenDictionary<TokenKey, T> previous, FrozenDictionary<TokenKey, T> next) =>
         (uint)previous.Keys.Concat(next.Keys).Distinct()
-            .Count(key => !previous.TryGetValue(key, out T? before) || !next.TryGetValue(key, out T? after) || !EqualityComparer<T>.Default.Equals(before, after));
+            .Count(key => !previous.TryGetValue(out T? before) || !next.TryGetValue(out T? after) || !EqualityComparer<T>.Default.Equals(before, after));
 
     static uint Diff(ResolvedTheme previous, ResolvedTheme next) =>
         previous.Equals(next)

@@ -154,13 +154,13 @@ public sealed partial class ChannelOrder {
 public sealed partial class ImageEgress {
     public static readonly ImageEgress Dib = new(
         key: 0,
-        write: static (window, path) => Op.Side(() => window.SaveDibAsBitmap(filename: path.Value)));
+        write: static (window, path) => HostEdge.Side(() => window.SaveDibAsBitmap(filename: path.Value)));
     public static readonly ImageEgress Opaque = new(
         key: 1,
-        write: static (window, path) => Op.Side(() => window.SaveRenderImageAs(filename: path.Value, saveAlpha: false)));
+        write: static (window, path) => HostEdge.Side(() => window.SaveRenderImageAs(filename: path.Value, saveAlpha: false)));
     public static readonly ImageEgress Alpha = new(
         key: 2,
-        write: static (window, path) => Op.Side(() => window.SaveRenderImageAs(filename: path.Value, saveAlpha: true)));
+        write: static (window, path) => HostEdge.Side(() => window.SaveRenderImageAs(filename: path.Value, saveAlpha: true)));
 
     [UseDelegateFromConstructor]
     internal partial Unit Write(RenderWindow window, DocumentPath path);
@@ -190,8 +190,8 @@ public abstract partial record RenderOutcome {
     public sealed record Finished : RenderOutcome;
     public sealed record Halted(RenderCode Code) : RenderOutcome;
 
-    internal static Fin<RenderOutcome> Of(RenderPipeline.RenderReturnCode code, Op key) =>
-        key.Row<RenderPipeline.RenderReturnCode, RenderCode>(candidate: code).Map(static row =>
+    internal static Fin<RenderOutcome> Of(RenderPipeline.RenderReturnCode code) =>
+        FactoryBridge.Row<RenderPipeline.RenderReturnCode, RenderCode>(candidate: code).Map(static row =>
             row == RenderCode.Ok ? (RenderOutcome)new Finished() : new Halted(Code: row));
 
     public bool IsValid => ValidityClaim.All(this is Finished);
@@ -242,34 +242,34 @@ public abstract partial record WindowOp : IValidityEvidence {
 
     internal bool Mutates => this is Add or Write or Adjust;
 
-    internal Fin<WindowYield> Apply(RenderWindow window, Op key) => Switch(
-        (Window: window, Op: key),
-        add: static (ctx, row) => Channels.AddTo(row.Channels, ctx.Window, ctx.Op).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
-        census: static (ctx, row) => Channels.CensusOn(row.Channels, ctx.Window, ctx.Op).Map(static rows => (WindowYield)new WindowYield.ChannelsCase(rows)),
-        write: static (ctx, row) => row.Block.Blit(ctx.Window, ctx.Op).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
-        adjust: static (ctx, row) => ctx.Op.Catch(() =>
-            Optional(ctx.Window.GetAdjust()).ToFin(ctx.Op.InvalidResult()).Map(held => {
+    internal Fin<WindowYield> Apply(RenderWindow window) => Switch(
+        window,
+        add: static (ctx, row) => Channels.AddTo(row.Channels, ctx).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
+        census: static (ctx, row) => Channels.CensusOn(row.Channels, ctx).Map(static rows => (WindowYield)new WindowYield.ChannelsCase(rows)),
+        write: static (ctx, row) => row.Block.Blit(ctx).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
+        adjust: static (ctx, row) => Try.lift(() =>
+            Optional(ctx.GetAdjust()).ToFin(new KernelFault.InvalidResult()).Map(held => {
                 held.Gamma = row.Gamma.Value;
                 held.Dither = row.Dither.Native;
-                ctx.Window.SetAdjust(imageAdjust: held);
+                ctx.SetAdjust(imageAdjust: held);
                 return (WindowYield)new WindowYield.SilentCase();
-            })),
-        read: static (ctx, row) => ctx.Op.Catch(() => {
-            using RenderWindow.Channel channel = ctx.Window.OpenChannel(id: row.Channel.Native);
-            return Optional(channel).ToFin(Fail: ctx.Op.InvalidResult()).Bind(open => ctx.Op.Catch(() => {
+            })).Run().Bind(static inner => inner),
+        read: static (ctx, row) => Try.lift(() => {
+            using RenderWindow.Channel channel = ctx.OpenChannel(id: row.Channel.Native);
+            return Optional(channel).ToFin(Fail: new KernelFault.InvalidResult()).Bind(open => Try.lift(() => {
                 float[] values = new float[checked(row.Extent.Width * row.Extent.Height * row.Order.Components)];
                 open.GetValues(
-                    rectangle: row.Origin.Window(extent: row.Extent),
+                    rectangle: row.Origin(extent: row.Extent),
                     stride: row.Extent.Width,
                     componentOrder: row.Order.Native,
                     values: ref values);
                 return Fin.Succ<WindowYield>(new WindowYield.ValuesCase(row.Channel, row.Origin, row.Extent, row.Order, values));
-            }));
-        }),
-        snapshot: static (ctx, _) => ctx.Op.Catch(() => Optional(ctx.Window.GetBitmap()).ToFin(Fail: ctx.Op.InvalidResult()))
-            .Bind(bitmap => CaptureArtifact.Raster(bitmap: bitmap, key: ctx.Op))
+            }).Run().Bind(static inner => inner));
+        }).Run().Bind(static inner => inner),
+        snapshot: static (ctx, _) => Try.lift(() => Optional(ctx.GetBitmap()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+            .Bind(bitmap => CaptureArtifact.Raster(bitmap: bitmap))
             .Map(static artifact => (WindowYield)new WindowYield.RasterCase(artifact)),
-        saveAs: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ((row.Egress.Write(ctx.Window, row.Target), row.Target).Item2))
+        saveAs: static (ctx, row) => Try.lift(() => Fin.Succ((row.Egress.Write(ctx, row.Target), row.Target).Item2)).Run().Bind(static inner => inner)
             .Map(settled => (WindowYield)new WindowYield.SavedCase(settled, row.Egress)));
 }
 
@@ -402,19 +402,19 @@ public sealed record PixelBlock {
         Extent.Height > 0,
         (long)Pixels.Length == (long)Extent.Width * Extent.Height);
 
-    public static Fin<PixelBlock> Of(Offset2i origin, Size2i extent, ReadOnlyMemory<Color4f> pixels, Op? key = null) {
+    public static Fin<PixelBlock> Of(Offset2i origin, Size2i extent, ReadOnlyMemory<Color4f> pixels) {
         PixelBlock candidate = new(origin, extent, pixels);
         return candidate.IsValid ? Fin.Succ(candidate) : Fin.Fail<PixelBlock>(key.OrDefault().InvalidInput());
     }
 
-    internal Fin<Unit> Blit(RenderWindow window, Op key) {
+    internal Fin<Unit> Blit(RenderWindow window) {
         PixelBlock self = this;
-        return key.Catch(() => {
+        return Try.lift(() => {
             System.Drawing.Rectangle region = self.Origin.Window(extent: self.Extent);
             window.SetRGBAChannelColors(rectangle: region, colors: self.Pixels.ToArray());
             window.InvalidateArea(region);
             return Fin.Succ(value: unit);
-        });
+        }).Run().Bind(static inner => inner);
     }
 }
 
@@ -427,11 +427,11 @@ internal static class Channels {
     internal static RenderWindow.StandardChannels Flags(CapabilitySet<RenderChannel> channels) =>
         (RenderWindow.StandardChannels)channels.Mask(static row => (int)row.Native);
 
-    internal static Fin<Unit> AddTo(CapabilitySet<RenderChannel> channels, RenderWindow window, Op key) =>
-        toSeq(channels.Held).TraverseM(row => key.Catch(() =>
-            key.Confirm(success: window.AddChannel(channel: row.Native)))).As().Map(static _ => unit);
+    internal static Fin<Unit> AddTo(CapabilitySet<RenderChannel> channels, RenderWindow window) =>
+        toSeq(channels.Held).TraverseM(row => Try.lift(() =>
+            Admit.Confirm(success: window.AddChannel(channel: row.Native))).Run().Bind(static inner => inner)).As().Map(static _ => unit);
 
-    internal static Fin<Seq<ChannelFact>> CensusOn(CapabilitySet<RenderChannel> channels, RenderWindow window, Op key) => key.Catch(() => {
+    internal static Fin<Seq<ChannelFact>> CensusOn(CapabilitySet<RenderChannel> channels, RenderWindow window) => Try.lift(() => {
         FrozenSet<Guid> requested = window.GetRequestedRenderChannels().ToFrozenSet();
         return toSeq(channels.Held).TraverseM(row => {
             CapabilitySet<FramebufferState> measured = CapabilitySet<FramebufferState>.None;
@@ -440,7 +440,7 @@ internal static class Channels {
             measured = requested.Contains(row.Id) ? measured.With(FramebufferState.Requested) : measured;
             return FramebufferState.Law.Admit(held: measured).Map(states => new ChannelFact(Channel: row, States: states));
         }).As().Map(static rows => rows.Strict());
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -457,23 +457,22 @@ internal sealed class JobAsync : AsyncRenderContext {
     private readonly CancellationTokenSource halt = new();
     private readonly Func<Error, Unit> record;
     private readonly Lock lifecycleGate = new();
-    private readonly Op key;
     private JobAsyncLifecycle lifecycle = new JobAsyncLifecycle.Idle();
 
-    internal JobAsync(AsyncProgram program, Func<Error, Unit> record, Op key) =>
-        (this.program, this.record, this.key) = (program, record, key);
+    internal JobAsync(AsyncProgram program, Func<Error, Unit> record) =>
+        (this.program, this.record, this.key) = (program, record);
 
     internal Fin<Unit> Launch() {
         lock (lifecycleGate) {
-            return from _ in guard(lifecycle is JobAsyncLifecycle.Idle, key.InvalidContext()).ToFin()
-                   from window in Optional(RenderWindow).ToFin(Fail: key.MissingContext())
-                   let opened = new RealtimePort(window, key)
-                   from installed in Fin.Succ(Op.Side(() => lifecycle = new JobAsyncLifecycle.Running(opened)))
-                   from started in key.Catch(() => key.Confirm(success: StartRenderThread(
+            return from _ in guard(lifecycle is JobAsyncLifecycle.Idle, new KernelFault.InvalidContext()).ToFin()
+                   from window in Optional(RenderWindow).ToFin(Fail: new KernelFault.MissingContext())
+                   let opened = new RealtimePort(window)
+                   from installed in Fin.Succ(HostEdge.Side(() => lifecycle = new JobAsyncLifecycle.Running(opened)))
+                   from started in Try.lift(() => Admit.Confirm(success: StartRenderThread(
                            threadStart: () => Settled(window: window, port: opened),
-                           threadName: program.ThreadName)))
+                           threadName: program.ThreadName))).Run().Bind(static inner => inner)
                        .MapFail(failure => (
-                           Op.Side(() => lifecycle = new JobAsyncLifecycle.Idle()),
+                           HostEdge.Side(() => lifecycle = new JobAsyncLifecycle.Idle()),
                            opened.Close(),
                            failure).Item3)
                    select unit;
@@ -481,11 +480,11 @@ internal sealed class JobAsync : AsyncRenderContext {
     }
 
     private void Settled(RenderWindow window, RealtimePort port) {
-        Fin<Unit> outcome = key.Catch(() => program.Render(port, halt.Token), token: halt.Token);
+        Fin<Unit> outcome = Try.lift(() => program.Render(port, halt.Token)).Run().Bind(static inner => inner);
         _ = outcome.IfFail(record);
-        _ = key.Catch(() => Fin.Succ(Op.Side(() => window.EndAsyncRender(successCode: outcome.IsSucc
+        _ = Try.lift(() => Fin.Succ(HostEdge.Side(() => window.EndAsyncRender(successCode: outcome.IsSucc
             ? RenderWindow.RenderSuccessCode.Completed
-            : RenderWindow.RenderSuccessCode.Failed)))).IfFail(record);
+            : RenderWindow.RenderSuccessCode.Failed)))).Run().Bind(static inner => inner).IfFail(record);
     }
 
     public override void StopRendering() {
@@ -495,14 +494,14 @@ internal sealed class JobAsync : AsyncRenderContext {
             lifecycle = new JobAsyncLifecycle.Stopped();
             _ = Custody.Release(
                     releases: Seq<Func<Fin<Unit>>>(
-                        () => key.Catch(halt.Cancel),
-                        () => key.Catch(JoinRenderThread),
-                        () => key.Catch(() => Fin.Succ(value: prior.Switch(
+                        () => Try.lift(halt.Cancel).Run().Bind(static inner => inner),
+                        () => Try.lift(JoinRenderThread).Run().Bind(static inner => inner),
+                        () => Try.lift(() => Fin.Succ(value: prior.Switch(
                             idle: static _ => unit,
                             running: static row => row.Port.Close(),
-                            stopped: static _ => unit))),
-                        () => program.Stopped.TraverseM(hook => key.Catch(hook)).As().Map(static _ => unit),
-                        () => key.Catch(() => base.StopRendering())),
+                            stopped: static _ => unit))).Run().Bind(static inner => inner),
+                        () => program.Stopped.TraverseM(hook => Try.lift(hook).Run().Bind(static inner => inner)).As().Map(static _ => unit),
+                        () => Try.lift(() => base.StopRendering()).Run().Bind(static inner => inner)),
                     key: key)
                 .IfFail(record);
         }
@@ -510,8 +509,8 @@ internal sealed class JobAsync : AsyncRenderContext {
 
     protected override void Dispose(bool isDisposing) {
         Seq<Func<Fin<Unit>>> releases = isDisposing
-            ? Seq<Func<Fin<Unit>>>(() => key.Catch(halt.Dispose), () => key.Catch(() => base.Dispose(isDisposing)))
-            : Seq<Func<Fin<Unit>>>(() => key.Catch(() => base.Dispose(isDisposing)));
+            ? Seq<Func<Fin<Unit>>>(() => Try.lift(halt.Dispose).Run().Bind(static inner => inner), () => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner))
+            : Seq<Func<Fin<Unit>>>(() => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner));
         _ = Custody.Release(releases: releases, key: key).IfFail(record);
     }
 }
@@ -520,7 +519,6 @@ internal sealed class JobPipeline : RenderPipeline {
     private readonly RenderProgram program;
     private readonly Option<JobAsync> detached;
     private readonly Ring<Error> faults;
-    private readonly Op key;
 
     internal JobPipeline(
         RhinoDoc document,
@@ -530,11 +528,10 @@ internal sealed class JobPipeline : RenderPipeline {
         CapabilitySet<RenderChannel> channels,
         RenderProgram program,
         Option<AsyncProgram> render,
-        Ring<Error> faults,
-        Op key)
+        Ring<Error> faults)
         : base(document, mode, plugin, extent.Native, plugin.Name, Channels.Flags(channels), reuseRenderWindow: false, clearLastRendering: true) {
-        (this.program, this.faults, this.key) = (program, faults, key);
-        detached = render.Map(plan => new JobAsync(plan, record: failure => Record(failure), key: key));
+        (this.program, this.faults, this.key) = (program, faults);
+        detached = render.Map(plan => new JobAsync(plan, record: failure => Record(failure)));
         _ = detached.Iter(context => {
             AsyncRenderContext bound = context;
             SetAsyncRenderContext(ref bound);
@@ -547,19 +544,19 @@ internal sealed class JobPipeline : RenderPipeline {
     }));
 
     protected override bool OnRenderBegin() =>
-        Accept(key.Catch(program.Begin)) && detached.Match(
+        Accept(Try.lift(program.Begin).Run().Bind(static inner => inner)) && detached.Match(
             Some: context => Accept(context.Launch()),
             None: static () => true);
 
     protected override bool OnRenderBeginQuiet(System.Drawing.Size imageSize) => program.BeginQuiet.Match(
-        Some: begin => Accept(Size2i.Of(width: imageSize.Width, height: imageSize.Height, key: key)
-            .Bind(extent => key.Catch(() => begin(extent)))),
+        Some: begin => Accept(Size2i.Of(width: imageSize.Width, height: imageSize.Height)
+            .Bind(extent => Try.lift(() => begin(extent)).Run().Bind(static inner => inner))),
         None: () => base.OnRenderBeginQuiet(imageSize));
 
     protected override bool OnRenderWindowBegin(RhinoView view, System.Drawing.Rectangle rect) =>
-        Accept(key.Catch(() => program.BeginRegion(rect)));
+        Accept(Try.lift(() => program.BeginRegion(rect)).Run().Bind(static inner => inner));
 
-    protected override void OnRenderEnd(RenderEndEventArgs e) => ignore(Accept(key.Catch(program.End)));
+    protected override void OnRenderEnd(RenderEndEventArgs e) => ignore(Accept(Try.lift(program.End).Run().Bind(static inner => inner)));
 
     public override bool SupportsPause() => program.Pause.IsSome;
 
@@ -567,7 +564,7 @@ internal sealed class JobPipeline : RenderPipeline {
 
     public override void ResumeRendering() => ignore(Accept(Seat(RunGate.Running)));
 
-    protected override bool ContinueModal() => key.Catch(program.Continue).Match(
+    protected override bool ContinueModal() => Try.lift(program.Continue).Run().Bind(static inner => inner).Match(
         Succ: static verdict => verdict.Continues,
         Fail: failure => { Record(failure); return false; });
 
@@ -582,24 +579,24 @@ internal sealed class JobPipeline : RenderPipeline {
 
     protected override bool IgnoreRhinoObject(RhinoObject obj) =>
         program.Scene.Bind(static scene => scene.Exclude).Match(
-            Some: exclude => key.Catch(() => Fin.Succ(exclude(obj))).Match(
+            Some: exclude => Try.lift(() => Fin.Succ(exclude(obj))).Run().Bind(static inner => inner).Match(
                 Succ: static excluded => excluded,
                 Fail: failure => { Record(failure); return false; }),
             None: () => base.IgnoreRhinoObject(obj));
 
     protected override bool AddRenderMeshToScene(RhinoObject obj, Material material, Mesh mesh) =>
         program.Scene.Match(
-            Some: scene => Accept(key.Catch(() => scene.Mesh(new SceneMesh(Subject: obj, Material: material, Geometry: mesh)))),
+            Some: scene => Accept(Try.lift(() => scene.Mesh(new SceneMesh(Subject: obj, Material: material, Geometry: mesh))).Run().Bind(static inner => inner)),
             None: () => base.AddRenderMeshToScene(obj, material, mesh));
 
     protected override bool AddLightToScene(LightObject light) =>
         program.Scene.Match(
-            Some: scene => Accept(key.Catch(() => scene.Light(light))),
+            Some: scene => Accept(Try.lift(() => scene.Light(light)).Run().Bind(static inner => inner)),
             None: () => base.AddLightToScene(light));
 
     internal Fin<Unit> Seat(RunGate posture) => program.Pause.Match(
-        Some: pause => key.Catch(() => pause(posture)),
-        None: () => Fin.Fail<Unit>(key.InvalidContext()));
+        Some: pause => Try.lift(() => pause(posture)).Run().Bind(static inner => inner),
+        None: () => Fin.Fail<Unit>(new KernelFault.InvalidContext()));
 
     internal Unit Record(Error failure) => ignore(faults.Park(item: failure));
 
@@ -619,58 +616,54 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
     private readonly Lock lifecycle = new();
     private readonly Atom<MountPhase> phase = Atom(MountPhase.Open);
-    private readonly Op key;
     private JobPipeline? pipeline;
     private PostEffectGate? gate;
     private uint documentSerial;
 
-    private RenderJob(DocumentSession session, PlugIn owner, Size2i extent, CapabilitySet<RenderChannel> channels, RenderProgram program, Option<AsyncProgram> render, Option<Func<EffectId, Fin<bool>>> decide, Op key) =>
+    private RenderJob(DocumentSession session, PlugIn owner, Size2i extent, CapabilitySet<RenderChannel> channels, RenderProgram program, Option<AsyncProgram> render, Option<Func<EffectId, Fin<bool>>> decide) =>
         (this.session, this.owner, this.extent, this.channels, this.program, this.render, this.decide, this.key) =
-        (session, owner, extent, channels, program, render, decide, key);
+        (session, owner, extent, channels, program, render, decide);
 
-    public static Fin<RenderJob> Open(DocumentSession session, PlugIn owner, Size2i extent, CapabilitySet<RenderChannel> channels, RenderProgram program, Option<AsyncProgram> render = default, Option<Func<EffectId, Fin<bool>>> gate = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from documentSession in Optional(session).ToFin(Fail: op.MissingContext())
-               from plugin in op.Need(owner)
-               from plan in op.Need(program)
-               from _ in guard(!channels.Held.Count.Equals(0), op.InvalidInput("channels"))
-               from __ in guard(extent.Width > 0 && extent.Height > 0, op.InvalidInput("extent"))
+    public static Fin<RenderJob> Open(DocumentSession session, PlugIn owner, Size2i extent, CapabilitySet<RenderChannel> channels, RenderProgram program, Option<AsyncProgram> render = default, Option<Func<EffectId, Fin<bool>>> gate = default) {
+        return from documentSession in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
+               from plugin in Admit.Need(owner)
+               from plan in Admit.Need(program)
+               from _ in guard(!channels.Held.Count.Equals(0), new KernelFault.InvalidInput(Axis: Some("channels")))
+               from __ in guard(extent.Width > 0 && extent.Height > 0, new KernelFault.InvalidInput(Axis: Some("extent")))
                from ___ in guard(render.Match(
                    Some: static detached => detached is { Render: not null } && !string.IsNullOrWhiteSpace(detached.ThreadName),
-                   None: static () => true), op.InvalidInput("render"))
-               from ____ in guard(gate.Match(Some: static value => value is not null, None: static () => true), op.InvalidInput("gate"))
-               select new RenderJob(documentSession, plugin, extent, channels, plan, render, gate, op);
+                   None: static () => true), new KernelFault.InvalidInput(Axis: Some("render")))
+               from ____ in guard(gate.Match(Some: static value => value is not null, None: static () => true), new KernelFault.InvalidInput(Axis: Some("gate")))
+               select new RenderJob(documentSession, plugin, extent, channels, plan, render, gate);
     }
 
     public Seq<Error> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    public Fin<RenderYield> Configure(RenderRequest request, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<RenderYield> Configure(RenderRequest request) {
         lock (lifecycle) {
-            return guard(!phase.Value.Closes, op.InvalidContext()).ToFin()
-                .Bind(_ => guard(request is not null && request.IsValid, op.InvalidInput()).ToFin())
+            return guard(!phase.Value.Closes, new KernelFault.InvalidContext()).ToFin()
+                .Bind(_ => guard(request is not null && request.IsValid, new KernelFault.InvalidInput()).ToFin())
                 .Bind(_ => session.Demand(
-                    use: document => Current(document, op).Bind(current => Apply(current, request, op)),
-                    key: op,
+                    use: document => Current(document).Bind(current => Apply(current, request)),
                     needs: request.Needs.ToArray()));
         }
     }
 
-    private Fin<RenderYield> Apply(JobPipeline current, RenderRequest request, Op key) => request.Switch(
-        (Job: this, Pipeline: current, Op: key),
-        run: static (ctx, row) => ctx.Job.Run(ctx.Pipeline, row.Scope, ctx.Op)
+    private Fin<RenderYield> Apply(JobPipeline current, RenderRequest request) => request.Switch(
+        (Job: this, Pipeline: current),
+        run: static (ctx, row) => ctx.Job.Run(ctx.Pipeline, row.Scope)
             .Map(outcome => (RenderYield)new RenderYield.Ran(row.Scope, outcome)),
         gate: static (ctx, row) => ctx.Pipeline.Seat(posture: row.Posture)
             .Map(_ => (RenderYield)new RenderYield.Gated(row.Posture)),
         window: static (ctx, row) => ctx.Job.WithWindow(ctx.Pipeline, row.Scope, window => row.Operations
-            .TraverseM(operation => operation.Apply(window, ctx.Op)).As()
-            .Map(done => (RenderYield)new RenderYield.Windowed(Operations: done.Count, Yields: done.Strict())), ctx.Op));
+            .TraverseM(operation => operation.Apply(window)).As()
+            .Map(done => (RenderYield)new RenderYield.Windowed(Operations: done.Count, Yields: done.Strict()))));
 
-    private Fin<JobPipeline> Current(RhinoDoc document, Op op) =>
+    private Fin<JobPipeline> Current(RhinoDoc document) =>
         pipeline is { } current && documentSerial == document.RuntimeSerialNumber
             ? Fin.Succ(current)
-            : Retire(op).Bind(_ => op.Catch(() => {
+            : Retire().Bind(_ => Try.lift(() => {
                 JobPipeline replacement = new(
                     document: document,
                     mode: session.Mode.Switch(
@@ -682,89 +675,82 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                     channels: channels,
                     program: program,
                     render: render,
-                    faults: faults,
-                    key: key);
+                    faults: faults);
                 (pipeline, documentSerial) = (replacement, document.RuntimeSerialNumber);
                 return Fin.Succ(replacement);
-            }).Bind(replacement => Arm(replacement, op).Map(_ => replacement)));
+            }).Run().Bind(static inner => inner).Bind(replacement => Arm(replacement).Map(_ => replacement)));
 
-    private Fin<Unit> Arm(JobPipeline current, Op op) => decide.TraverseM(predicate => WithWindow(
+    private Fin<Unit> Arm(JobPipeline current) => decide.TraverseM(predicate => WithWindow(
             current,
             new FramebufferScope.SessionCase(Wireframe: FramebufferRow.OmitWireframe, Source: FramebufferRow.PipelineSource),
-            window => op.Catch(() => {
-                PostEffectGate armed = new(predicate, current.Record, op);
+            window => Try.lift(() => {
+                PostEffectGate armed = new(predicate, current.Record);
                 window.RegisterPostEffectExecutionControl(ec: armed);
                 gate = armed;
                 return Fin.Succ(value: unit);
-            }),
-            op)).As().Map(static _ => unit);
+            }).Run().Bind(static inner => inner))).As().Map(static _ => unit);
 
-    private Fin<RenderOutcome> Run(JobPipeline current, RenderRun scope, Op key) {
+    private Fin<RenderOutcome> Run(JobPipeline current, RenderRun scope) {
         RenderJob self = this;
         return scope.Switch(
-            state: (Job: self, Pipeline: current, Op: key),
-            frame: static (ctx, _) => ctx.Op.Catch(() => RenderOutcome.Of(code: ctx.Pipeline.Render(), key: ctx.Op)),
+            state: (Job: self, Pipeline: current),
+            frame: static (ctx, _) => Try.lift(() => RenderOutcome.Of(code: ctx.Pipeline.Render())).Run().Bind(static inner => inner),
             region: static (ctx, request) =>
-                from lease in ViewportLease.Of(session: ctx.Job.session, target: request.Target, key: ctx.Op)
-                from outcome in lease.Use(borrow: row => ctx.Op.Catch(() => RenderOutcome.Of(
+                from lease in ViewportLease.Of(session: ctx.Job.session, target: request.Target)
+                from outcome in lease.Use(borrow: row => Try.lift(() => RenderOutcome.Of(
                     code: ctx.Pipeline.RenderWindow(
                         view: row.View,
                         rect: request.Origin.Window(extent: request.Extent),
                         inWindow: request.Placement.Native),
-                    key: ctx.Op)), key: ctx.Op)
+                    key: ctx.Op)).Run().Bind(static inner => inner))
                 select outcome);
     }
 
-    private Fin<TOut> WithWindow<TOut>(JobPipeline current, FramebufferScope scope, Func<RenderWindow, Fin<TOut>> borrow, Op? key = null) {
-        Op op = key.OrDefault();
+    private Fin<TOut> WithWindow<TOut>(JobPipeline current, FramebufferScope scope, Func<RenderWindow, Fin<TOut>> borrow) {
         return scope.Switch(
-            state: (Job: this, Pipeline: current, Borrow: borrow, Op: op),
+            state: (Job: this, Pipeline: current, Borrow: borrow),
             sessionCase: static (ctx, request) => ctx.Job.BorrowWindow(
                 mint: () => ctx.Pipeline.GetRenderWindow(request.Wireframe.Native, request.Source.Native),
-                borrow: ctx.Borrow,
-                key: ctx.Op),
+                borrow: ctx.Borrow),
             viewportCase: static (ctx, request) =>
-                from lease in ViewportLease.Of(ctx.Job.session, request.Target, ctx.Op)
+                from lease in ViewportLease.Of(ctx.Job.session, request.Target)
                 from result in lease.Use(row => row.Info(info => ctx.Job.BorrowWindow(
                     mint: () => ctx.Pipeline.GetRenderWindow(info, request.Source.Native, request.Origin.Window(request.Extent)),
-                    borrow: ctx.Borrow,
-                    key: ctx.Op), ctx.Op), ctx.Op)
+                    borrow: ctx.Borrow)))
                 select result,
             detachedCase: static (ctx, request) =>
-                from lease in ViewportLease.Of(ctx.Job.session, request.Target, ctx.Op)
+                from lease in ViewportLease.Of(ctx.Job.session, request.Target)
                 from result in lease.Use(row => row.Info(info => ctx.Job.BorrowWindow(
                     mint: () => {
                         RenderWindow window = RenderWindow.Create(request.Extent.Native);
                         window.SetView(info);
                         return window;
                     },
-                    borrow: ctx.Borrow,
-                    key: ctx.Op), ctx.Op), ctx.Op)
+                    borrow: ctx.Borrow)))
                 select result);
     }
 
-    private Fin<TOut> BorrowWindow<TOut>(Func<RenderWindow> mint, Func<RenderWindow, Fin<TOut>> borrow, Op key) =>
-        key.Catch(() => {
+    private Fin<TOut> BorrowWindow<TOut>(Func<RenderWindow> mint, Func<RenderWindow, Fin<TOut>> borrow) =>
+        Try.lift(() => {
             using RenderWindow window = mint();
-            return Optional(window).ToFin(Fail: key.InvalidResult()).Bind(borrow);
-        });
+            return Optional(window).ToFin(Fail: new KernelFault.InvalidResult()).Bind(borrow);
+        }).Run().Bind(static inner => inner);
 
-    private Fin<Unit> Retire(Op op) {
+    private Fin<Unit> Retire() {
         JobPipeline? current = pipeline;
         (pipeline, gate, documentSerial) = (null, null, 0u);
         if (current is null) { return Fin.Succ(unit); }
         return Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => op.Catch(() => Fin.Succ(current.Halt())),
-                () => op.Catch(() => { current.Dispose(); return Fin.Succ(unit); })),
-            key: op);
+                () => Try.lift(() => Fin.Succ(current.Halt())).Run().Bind(static inner => inner),
+                () => Try.lift(() => { current.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner)));
     }
 
     public void Dispose() {
         lock (lifecycle) {
-            _ = Op.SideWhen(
-                Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), key.InvalidContext()) is Transition<MountPhase>.Committed,
-                () => ignore(Retire(key).IfFail(failure => ignore(faults.Park(item: failure)))));
+            _ = HostEdge.SideWhen(
+                Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), new KernelFault.InvalidContext()) is Transition<MountPhase>.Committed,
+                () => ignore(Retire().IfFail(failure => ignore(faults.Park(item: failure)))));
         }
     }
 }
@@ -895,10 +881,10 @@ public abstract partial record RenderFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostRender;
     private RenderFault() { }
 
-    [FaultCase(0)] public sealed partial record SeatTaken(Op Key, Guid Engine) : RenderFault;
-    [FaultCase(1)] public sealed partial record SeatAbsent(Op Key, Guid Engine) : RenderFault;
-    [FaultCase(2)] public sealed partial record Unbound(Op Key, string Member) : RenderFault;
-    [FaultCase(3)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : RenderFault;
+    [FaultCase(0)] public sealed partial record SeatTaken(Guid Engine) : RenderFault;
+    [FaultCase(1)] public sealed partial record SeatAbsent(Guid Engine) : RenderFault;
+    [FaultCase(2)] public sealed partial record Unbound(string Member) : RenderFault;
+    [FaultCase(3)] public sealed partial record HostRefused(string Member, string Detail) : RenderFault;
 
     public sealed override string Message => Switch(
         seatTaken: static fault => $"Render engine '{fault.Engine}' already has a seat for '{fault.Key}'.",
@@ -919,10 +905,8 @@ public sealed record RealtimePassPolicy {
     public static Fin<RealtimePassPolicy> Of(
         Rasm.Numerics.Dimension maxPasses,
         CapabilitySet<RealtimeFeature> features,
-        Option<GpuTechnology> technology = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(maxPasses.Value > 0, op.InvalidInput(axis: nameof(maxPasses))).ToFin()
+        Option<GpuTechnology> technology = default) {
+        return guard(maxPasses.Value > 0, new KernelFault.InvalidInput(Axis: Some(nameof(maxPasses)))).ToFin()
             .Map(_ => new RealtimePassPolicy(maxPasses, features, technology.IfNone(GpuTechnology.Absent)));
     }
 }
@@ -940,13 +924,11 @@ public sealed record RealtimeChrome {
         HostText productName,
         CapabilitySet<HudFeature> features,
         Option<Func<Fin<HostText>>> status = default,
-        Option<Instant> started = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Option<Instant> started = default) {
         return guard(
                 !features.Admits(HudFeature.EditMaxPasses) || features.Admits(HudFeature.MaxPasses),
                 (Error)new KernelFault.InvalidValue(nameof(RealtimeChrome), "an editable max-pass field the HUD also displays")).ToFin()
-            .Bind(_ => op.Need(productName))
+            .Bind(_ => Admit.Need(productName))
             .Map(name => new RealtimeChrome(name, features, status, started));
     }
 }
@@ -1003,27 +985,26 @@ public sealed record LightAuthorityProgram(
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RealtimePort {
     private readonly Atom<Option<RenderWindow>> window;
-    private readonly Op key;
 
-    internal RealtimePort(RenderWindow window, Op key) =>
-        (this.window, this.key) = (Atom(Some(window)), key);
+    internal RealtimePort(RenderWindow window) =>
+        (this.window, this.key) = (Atom(Some(window)));
 
-    public Fin<Unit> Write(PixelBlock block) => Held().Bind(target => block.Blit(target, key));
+    public Fin<Unit> Write(PixelBlock block) => Held().Bind(target => block.Blit(target));
 
     public Fin<Unit> Progress(HostText caption, UnitInterval fraction) => Held().Bind(target =>
-        key.Catch(() => Fin.Succ(Op.Side(() => target.SetProgress(text: caption.Resolve(), progress: (float)fraction.Value)))));
+        Try.lift(() => Fin.Succ(HostEdge.Side(() => target.SetProgress(text: caption.Resolve(), progress: (float)fraction.Value)))).Run().Bind(static inner => inner));
 
     public Fin<Unit> Rendering(SwitchState state) => Held().Bind(target =>
-        key.Catch(() => Fin.Succ(Op.Side(() => target.SetIsRendering(is_rendering: state.Enabled)))));
+        Try.lift(() => Fin.Succ(HostEdge.Side(() => target.SetIsRendering(is_rendering: state.Enabled)))).Run().Bind(static inner => inner));
 
     public Fin<Unit> Invalidate(Option<(Offset2i Origin, Size2i Extent)> region = default) => Held().Bind(target =>
-        key.Catch(() => Fin.Succ(region.Match(
-            Some: row => Op.Side(() => target.InvalidateArea(row.Origin.Window(extent: row.Extent))),
-            None: () => Op.Side(target.Invalidate)))));
+        Try.lift(() => Fin.Succ(region.Match(
+            Some: row => HostEdge.Side(() => target.InvalidateArea(row.Origin.Window(extent: row.Extent))),
+            None: () => HostEdge.Side(target.Invalidate)))).Run().Bind(static inner => inner));
 
     internal Unit Close() => ignore(Cell.Take(window));
 
-    private Fin<RenderWindow> Held() => window.Value.ToFin(Fail: key.InvalidContext());
+    private Fin<RenderWindow> Held() => window.Value.ToFin(Fail: new KernelFault.InvalidContext());
 }
 
 public sealed class RealtimeSignal {
@@ -1044,28 +1025,26 @@ internal sealed class SeatRegistry<TSeat> where TSeat : notnull {
     private readonly Atom<HashMap<Guid, (SeatToken Token, TSeat Seat)>> seats =
         Atom(HashMap<Guid, (SeatToken Token, TSeat Seat)>());
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
-    private readonly Op key;
 
-    internal SeatRegistry(Op key) => this.key = key;
+    internal SeatRegistry() => this.key = key;
 
     internal Seq<Error> Faults => faults.Parked;
     internal long Shed => faults.Shed;
-    internal Op Anchor => key;
 
-    internal Fin<(SeatToken Token, TProof Proof)> Claim<TProof>(Guid engine, TSeat seat, Func<Fin<TProof>> install, Op op) {
+    internal Fin<(SeatToken Token, TProof Proof)> Claim<TProof>(Guid engine, TSeat seat, Func<Fin<TProof>> install) {
         SeatToken token = SeatToken.Create(Guid.NewGuid());
         return from _ in guard(engine != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity")).ToFin()
                from claimed in Cell.Claim(seats, engine, () => (token, seat)) is Transition<HashMap<Guid, (SeatToken, TSeat)>>.Committed
                    ? Fin.Succ(token)
-                   : Fin.Fail<SeatToken>(new RenderFault.SeatTaken(Key: op, Engine: engine))
-               from proof in op.Catch(install).Rollback(() => Fin.Succ(Release(engine, claimed)), op)
+                   : Fin.Fail<SeatToken>(new RenderFault.SeatTaken(Engine: engine))
+               from proof in Try.lift(install).Run().Bind(static inner => inner).Rollback(() => Fin.Succ(Release(engine, claimed)))
                select (claimed, proof);
     }
 
-    internal Fin<Unit> Retire(Guid engine, SeatToken token, Func<Fin<Unit>> uninstall, Op op) =>
-        from held in seats.Value.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: engine))
-        from owned in guard(held.Token == token, (Error)new RenderFault.SeatTaken(Key: op, Engine: engine))
-        from _ in Custody.Release(Seq<Func<Fin<Unit>>>(uninstall, () => Fin.Succ(Release(engine, token))), op)
+    internal Fin<Unit> Retire(Guid engine, SeatToken token, Func<Fin<Unit>> uninstall) =>
+        from held in seats.Value.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Engine: engine))
+        from owned in guard(held.Token == token, (Error)new RenderFault.SeatTaken(Engine: engine))
+        from _ in Custody.Release(Seq<Func<Fin<Unit>>>(uninstall, () => Fin.Succ(Release(engine, token))))
         select unit;
 
     internal Option<TSeat> Find(Guid engine) => seats.Value.Find(engine).Map(static row => row.Seat);
@@ -1085,33 +1064,29 @@ public static class RealtimeEngines {
     public static long Shed => Seats.Shed;
 
     public static Fin<(SeatToken Token, Seq<Guid> Installed)> Register(
-        Guid engine, RealtimeEnginePlan plan, PlugIn owner, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in guard(plan is { IsValid: true }, op.InvalidInput(axis: nameof(plan))).ToFin()
-               from plugin in op.Need(owner)
+        Guid engine, RealtimeEnginePlan plan, PlugIn owner) {
+        return from admitted in guard(plan is { IsValid: true }, new KernelFault.InvalidInput(Axis: Some(nameof(plan)))).ToFin()
+               from plugin in Admit.Need(owner)
                from claimed in Seats.Claim(engine, plan, () =>
-                   from rows in op.Catch(() => Optional(RealtimeDisplayMode.RegisterDisplayModes(plugin: plugin))
-                       .ToFin(Fail: new RenderFault.HostRefused(
-                           Key: op, Member: nameof(RealtimeDisplayMode.RegisterDisplayModes), Detail: "no descriptor set")))
+                   from rows in Try.lift(() => Optional(RealtimeDisplayMode.RegisterDisplayModes(plugin: plugin))
+                       .ToFin(Fail: new RenderFault.HostRefused(Member: nameof(RealtimeDisplayMode.RegisterDisplayModes), Detail: "no descriptor set"))).Run().Bind(static inner => inner)
                    let installed = toSeq(rows).Map(static row => row.GUID).Strict()
                    from matched in guard(
                        installed.Exists(row => row == engine),
                        (Error)new RenderFault.SeatAbsent(Key: op, Engine: engine))
-                   select installed, op)
+                   select installed)
                select claimed;
     }
 
-    public static Fin<Unit> Unregister(Guid engine, SeatToken token, PlugIn owner, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(owner).Bind(plugin => Seats.Retire(
-            engine, token, () => op.Catch(() => RealtimeDisplayMode.UnregisterDisplayModes(plugin: plugin)), op));
+    public static Fin<Unit> Unregister(Guid engine, SeatToken token, PlugIn owner) {
+        return Admit.Need(owner).Bind(plugin => Seats.Retire(
+            engine, token, () => Try.lift(() => RealtimeDisplayMode.UnregisterDisplayModes(plugin: plugin)).Run().Bind(static inner => inner)));
     }
 
     internal static Option<RealtimeEnginePlan> Plan(Guid engine) => Seats.Find(engine);
 
     internal static Unit Observe(Error failure) => Seats.Observe(failure);
 
-    internal static Op Anchor => Seats.Anchor;
 }
 
 public abstract class RealtimeEngineInfo : RealtimeDisplayModeClassInfo {
@@ -1147,7 +1122,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private readonly Atom<Option<ViewFrame>> viewed = Atom(Option<ViewFrame>.None);
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
     private readonly Lock lifecycleGate = new();
-    private readonly Op key = Op.Of(name: nameof(RealtimeEngine));
     private Option<RealtimeEnginePlan> bound;
 
     protected abstract Guid Engine { get; }
@@ -1173,13 +1147,13 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
                 : Option<RealtimeLifecycle>.None))));
         OnDrawMiddleground += (_, e) => ignore(Project(plan, e.Pipeline, ConduitPhase.Middleground, plan.Program.DrawMiddleground));
         OnDisplayPipelineSettingsChanged += (_, e) => ignore(Observe(
-            Appearance.Of(e.Attributes, key).Bind(concerns => key.Catch(() => plan.Program.SettingsChanged(concerns)))));
+            Appearance.Of(e.Attributes).Bind(concerns => Try.lift(() => plan.Program.SettingsChanged(concerns)).Run().Bind(static inner => inner))));
         return ignore(plan.Program.Hud.Iter(WireHud));
     }
 
     private Unit WireHud(Func<HudSignal, Fin<Unit>> signal) {
-        Unit Bind(HudControl control, HudGesture gesture, Action<EventHandler> subscribe) => Op.Side(() => subscribe(
-            (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.TouchCase(control, gesture)))))));
+        Unit Bind(HudControl control, HudGesture gesture, Action<EventHandler> subscribe) => HostEdge.Side(() => subscribe(
+            (_, _) => ignore(Observe(Try.lift(() => signal(new HudSignal.TouchCase(control, gesture))).Run().Bind(static inner => inner)))));
 
         Unit Control(
             HudControl control,
@@ -1211,8 +1185,8 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
             h => HudPostEffectsOnButtonLeftClicked += h, h => HudPostEffectsOnButtonRightClicked += h, h => HudPostEffectsOnButtonDoubleClicked += h);
         _ = Control(HudControl.PostEffectsOff, None,
             h => HudPostEffectsOffButtonLeftClicked += h, h => HudPostEffectsOffButtonRightClicked += h, h => HudPostEffectsOffButtonDoubleClicked += h);
-        MaxPassesChanged += (_, e) => ignore(Observe(key.Catch(() =>
-            signal(new HudSignal.MaxPassesCase(Passes: Rasm.Numerics.Dimension.Create(value: e.MaxPasses))))));
+        MaxPassesChanged += (_, e) => ignore(Observe(Try.lift(() =>
+            signal(new HudSignal.MaxPassesCase(Passes: Rasm.Numerics.Dimension.Create(value: e.MaxPasses)))).Run().Bind(static inner => inner)));
         return unit;
     }
 
@@ -1220,19 +1194,19 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     public override bool StartRenderer(int w, int h, RhinoDoc doc, ViewInfo view, ViewportInfo viewportInfo, bool forCapture, RenderWindow renderWindow) {
         lock (lifecycleGate) {
             Fin<RealtimeLifecycle.Priming> opened =
-                from _ in guard(lifecycle.Value is RealtimeLifecycle.Idle, key.InvalidContext()).ToFin()
-                from size in Size2i.Of(width: w, height: h, key: key)
-                from document in DocKey.Of(doc, key)
-                from intent in key.Row<bool, RenderIntent>(candidate: forCapture)
-                from window in key.Need(renderWindow)
-                let primed = new RealtimeLifecycle.Priming(new SpriteSheet(), new RealtimePort(window, key))
+                from _ in guard(lifecycle.Value is RealtimeLifecycle.Idle, new KernelFault.InvalidContext()).ToFin()
+                from size in Size2i.Of(width: w, height: h)
+                from document in DocKey.Of(doc)
+                from intent in FactoryBridge.Row<bool, RenderIntent>(candidate: forCapture)
+                from window in Admit.Need(renderWindow)
+                let primed = new RealtimeLifecycle.Priming(new SpriteSheet(), new RealtimePort(window))
                 from started in Bound(program => program.Start(new RealtimeStart(
                         Extent: size, Document: document, Intent: intent, Pixels: primed.Pixels, Signal: Signal())))
-                    .Rollback(() => Release(primed), key)
+                    .Rollback(() => Release(primed))
                 from seated in Fin.Succ(ignore(extent.Swap(_ => size)))
                 from stepped in Step(_ => Some<RealtimeLifecycle>(primed)) is Transition<RealtimeLifecycle>.Committed
                     ? Fin.Succ(primed)
-                    : Fin.Fail<RealtimeLifecycle.Priming>(key.InvalidContext())
+                    : Fin.Fail<RealtimeLifecycle.Priming>(new KernelFault.InvalidContext())
                 select stepped;
             return Observe(opened).IsSucc;
         }
@@ -1244,7 +1218,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
             _ = Step(static held => held is RealtimeLifecycle.Idle ? None : Some<RealtimeLifecycle>(new RealtimeLifecycle.Idle()))
                 is Transition<RealtimeLifecycle>.Committed
                 ? ignore(Observe(Custody.Release(
-                    Seq<Func<Fin<Unit>>>(() => Bound(static program => program.Shutdown()), () => Released(prior)), key)))
+                    Seq<Func<Fin<Unit>>>(() => Bound(static program => program.Shutdown()), () => Released(prior)))))
                 : unit;
         }
     }
@@ -1253,7 +1227,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         (width, height) = (extent.Value.Width, extent.Value.Height);
 
     public override bool OnRenderSizeChanged(int width, int height) => Observe(
-        from size in Size2i.Of(width: width, height: height, key: key)
+        from size in Size2i.Of(width: width, height: height)
         from _ in Fin.Succ(ignore(extent.Swap(_ => size)))
         from resized in Bound(program => program.Resized(size))
         select resized).IsSucc;
@@ -1261,9 +1235,9 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     public override void CreateWorld(RhinoDoc doc, ViewInfo viewInfo, DisplayPipelineAttributes displayPipelineAttributes) =>
         ignore(bound.Bind(static plan => plan.Program.World).Match(
             Some: build => Observe(
-                from document in DocKey.Of(doc, key)
-                from concerns in Appearance.Of(displayPipelineAttributes, key)
-                from built in key.Catch(() => build(new RealtimeWorld(document, viewInfo.Viewport.Id, concerns)))
+                from document in DocKey.Of(doc)
+                from concerns in Appearance.Of(displayPipelineAttributes)
+                from built in Try.lift(() => build(new RealtimeWorld(document, viewInfo.Viewport.Id, concerns))).Run().Bind(static inner => inner)
                 select built),
             None: () => { base.CreateWorld(doc, viewInfo, displayPipelineAttributes); return Fin.Succ(unit); }));
 
@@ -1286,16 +1260,16 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     public override bool ShowCaptureProgress() => bound.Bind(static plan => plan.Program.CaptureProgress).IsSome;
 
     public override double CaptureProgress() => bound.Bind(static plan => plan.Program.CaptureProgress).Match(
-        Some: read => Observe(key.Catch(read)).Match(Succ: static value => value.Value, Fail: static _ => 0d),
+        Some: read => Observe(Try.lift(read).Run().Bind(static inner => inner)).Match(Succ: static value => value.Value, Fail: static _ => 0d),
         None: base.CaptureProgress);
 
     public override void SetView(ViewInfo view) {
         base.SetView(view);
         _ = Observe(
-            from frame in key.Catch(() => Fin.Succ(new ViewFrame(View: view.Viewport.Id, Crc: ComputeViewportCrc(view))))
+            from frame in Try.lift(() => Fin.Succ(new ViewFrame(View: view.Viewport.Id, Crc: ComputeViewportCrc(view)))).Run().Bind(static inner => inner)
             from _ in Fin.Succ(ignore(viewed.Swap(_ => Some(frame))))
             from bound in bound.Bind(static plan => plan.Program.Viewed)
-                .TraverseM(seat => key.Catch(() => seat(frame))).As().Map(static _ => unit)
+                .TraverseM(seat => Try.lift(() => seat(frame)).Run().Bind(static inner => inner)).As().Map(static _ => unit)
             select bound);
     }
 
@@ -1316,7 +1290,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
     public override string HudCustomStatusText() => Chrome(
         chrome => chrome.Status.Match(
-            Some: status => Observe(key.Catch(status)).Match(Succ: static text => text.Resolve(), Fail: static _ => string.Empty),
+            Some: status => Observe(Try.lift(status).Run().Bind(static inner => inner)).Match(Succ: static text => text.Resolve(), Fail: static _ => string.Empty),
             None: static () => string.Empty),
         string.Empty);
 
@@ -1336,7 +1310,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     // --- [ENGINE_INTERNALS]
     private Fin<TOut> Bound<TOut>(Func<RealtimeProgram, Fin<TOut>> use) =>
         bound.ToFin(Fail: new RenderFault.Unbound(Key: key, Member: nameof(Bound)))
-            .Bind(plan => key.Catch(() => use(plan.Program)));
+            .Bind(plan => Try.lift(() => use(plan.Program)).Run().Bind(static inner => inner));
 
     private TOut Policy<TOut>(Func<RealtimePassPolicy, TOut> read, TOut fallback) =>
         Seated(plan => read(plan.Policy), fallback, member: nameof(Policy));
@@ -1354,14 +1328,13 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         return Observe(plan.Clock.Gauged<DrawTally, DispatchLane>(
                 lane: DispatchLane.Paced,
                 work: key,
-                body: () => self.lifecycle.Value.Held.ToFin(Fail: self.key.InvalidContext()).Bind(held =>
+                body: () => self.lifecycle.Value.Held.ToFin(Fail: new KernelFault.InvalidContext()).Bind(held =>
                     from frame in Fin.Succ(ConduitFrame.Of(pipeline, pipeline.Viewport, phase))
-                    from marks in self.key.Catch(() => project(frame))
+                    from marks in Try.lift(() => project(frame)).Run().Bind(static inner => inner)
                     from outcome in Marks.Paint(new Canvas.Pipeline(frame, held.Sprites), marks, self.key)
-                    select outcome),
-                key: key))
+                    select outcome)))
             .Bind(measured => (
-                Op.SideWhen(measured.Span.Breached, () => ignore(self.Observe(new RenderFault.HostRefused(
+                HostEdge.SideWhen(measured.Span.Breached, () => ignore(self.Observe(new RenderFault.HostRefused(
                     Key: self.key, Member: nameof(Project), Detail: $"{phase.Key} overran {measured.Span.Overrun}")))),
                 measured.Value).Item2)
             .Map(outcome => (outcome.Refused.Iter(cause => ignore(Observe(cause))), outcome).Item2);
@@ -1370,7 +1343,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private RealtimeSignal Signal() {
         RealtimeEngine self = this;
         return new RealtimeSignal(
-            redraw: () => self.Observe(self.key.Catch(self.SignalRedraw)),
+            redraw: () => self.Observe(Try.lift(self.SignalRedraw).Run().Bind(static inner => inner)),
             step: ordinal => self.Step(held => ordinal.Match(
                 Some: pass => held is RealtimeLifecycle.Live row
                     ? Some<RealtimeLifecycle>(row with { Pass = pass })
@@ -1381,19 +1354,17 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     }
 
     private Transition<RealtimeLifecycle> Step(Func<RealtimeLifecycle, Option<RealtimeLifecycle>> step) =>
-        Cell.Step(lifecycle, step, key.InvalidContext());
+        Cell.Step(lifecycle, step, new KernelFault.InvalidContext());
 
     private Fin<Unit> Released(RealtimeLifecycle prior) => prior.Held.TraverseM(held => Custody.Release(
             Seq<Func<Fin<Unit>>>(
                 () => Fin.Succ(held.Pixels.Close()),
-                () => held.Sprites.Release(key)),
-            key)).As().Map(static _ => unit);
+                () => held.Sprites.Release()))).As().Map(static _ => unit);
 
     private Fin<Unit> Release(RealtimeLifecycle.Priming primed) => Custody.Release(
         Seq<Func<Fin<Unit>>>(
             () => Fin.Succ(primed.Pixels.Close()),
-            () => primed.Sprites.Release(key)),
-        key);
+            () => primed.Sprites.Release()));
 
     private Fin<T> Observe<T>(Fin<T> result) {
         _ = result.IfFail(failure => ignore(faults.Park(item: failure)));
@@ -1413,32 +1384,28 @@ public static class LightAuthorities {
     internal static Unit Seat(Guid engine, LightAuthorityHost host) =>
         Hosts.AddOrUpdate(engine, host);
 
-    public static Fin<SeatToken> Register(Guid engine, LightAuthorityProgram program, PlugIn owner, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in guard(program is { IsValid: true }, op.InvalidInput(axis: nameof(program))).ToFin()
-               from plugin in op.Need(owner)
-               from claimed in Seats.Claim(engine, program, () => op.Catch(() => Fin.Succ(
-                   Op.Side(() => LightManagerSupport.RegisterLightManager(plugin)))), op)
+    public static Fin<SeatToken> Register(Guid engine, LightAuthorityProgram program, PlugIn owner) {
+        return from admitted in guard(program is { IsValid: true }, new KernelFault.InvalidInput(Axis: Some(nameof(program)))).ToFin()
+               from plugin in Admit.Need(owner)
+               from claimed in Seats.Claim(engine, program, () => Try.lift(() => Fin.Succ(
+                   HostEdge.Side(() => LightManagerSupport.RegisterLightManager(plugin)))).Run().Bind(static inner => inner))
                select claimed.Token;
     }
 
-    public static Fin<Unit> Unregister(Guid engine, SeatToken token, Op? key = null) {
-        Op op = key.OrDefault();
-        return Seats.Retire(engine, token, () => Fin.Succ(Hosts.Remove(engine)), op);
+    public static Fin<Unit> Unregister(Guid engine, SeatToken token) {
+        return Seats.Retire(engine, token, () => Fin.Succ(Hosts.Remove(engine)));
     }
 
-    public static Fin<Unit> Notify(DocumentSession session, Guid engine, LightChange change, Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Optional(session).ToFin(Fail: op.MissingContext())
-               from move in op.Need(change)
-               from host in Hosts.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: engine))
+    public static Fin<Unit> Notify(DocumentSession session, Guid engine, LightChange change) {
+        return from source in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
+               from move in Admit.Need(change)
+               from host in Hosts.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Engine: engine))
                from _ in source.Demand(
-                   use: document => op.Catch(() => {
+                   use: document => Try.lift(() => {
                        Light unread = default;
                        host.OnCustomLightEvent(document, move.Key, ref unread);
                        return Fin.Succ(value: unit);
-                   }),
-                   key: op,
+                   }).Run().Bind(static inner => inner),
                    needs: [SessionNeed.Read])
                select unit;
     }
@@ -1446,14 +1413,13 @@ public static class LightAuthorities {
     internal static TOut Answer<TOut>(Guid engine, RhinoDoc document, Func<LightAuthorityProgram, DocKey, Fin<TOut>> body, TOut fallback) =>
         (from program in Seats.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: Seats.Anchor, Engine: engine))
          from key in DocKey.Of(document, Seats.Anchor)
-         from result in Seats.Anchor.Catch(() => body(program, key))
+         from result in Try.lift(() => body(program)).Run().Bind(static inner => inner)
          select result).Match(
             Succ: static value => value,
             Fail: failure => (Seats.Observe(failure), fallback).Item2);
 }
 
 public abstract class LightAuthorityHost : LightManagerSupport {
-    private static readonly Op Key = Op.Of(name: nameof(LightAuthorityHost));
 
     protected abstract Guid Plugin { get; }
     protected abstract Guid Engine { get; }
@@ -1468,61 +1434,61 @@ public abstract class LightAuthorityHost : LightManagerSupport {
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
         LightArray target = light_array;
         _ = LightAuthorities.Answer(Engine, doc,
-            (program, key) => program.Roster(key).Map(rows => rows.Fold(unit, (_, row) => {
+            (program, key) => program.Roster().Map(rows => rows.Fold(unit, (_, row) => {
                 target.Append(row);
                 return unit;
             })),
             fallback: unit);
     }
 
-    public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) => Op.Settle(
+    public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) => HostEdge.Settle(
         slot: ref light,
         outcome: LightAuthorities.Answer(Engine, doc,
-            (program, key) => program.Resolve(key, uuid).Bind(found => found.ToFin(Fail: Key.InvalidResult())),
-            fallback: Fin.Fail<Light>(Key.InvalidResult())));
+            (program, key) => program.Resolve(uuid).Bind(found => found.ToFin(Fail: new KernelFault.InvalidResult())),
+            fallback: Fin.Fail<Light>(new KernelFault.InvalidResult())));
 
     public sealed override void ModifyLight(RhinoDoc doc, Light light) =>
-        _ = LightAuthorities.Answer(Engine, doc, (program, key) => program.Amend(key, light), fallback: unit);
+        _ = LightAuthorities.Answer(Engine, doc, (program, key) => program.Amend(light), fallback: unit);
 
     public sealed override bool DeleteLight(RhinoDoc doc, Light light, bool bUndelete) => LightAuthorities.Answer(
         Engine, doc,
-        (program, key) => Key.Row<bool, LightRetirement>(candidate: bUndelete)
-            .Bind(verb => program.Retire(key, light, verb))
+        (program, key) => FactoryBridge.Row<bool, LightRetirement>(candidate: bUndelete)
+            .Bind(verb => program.Retire(light, verb))
             .Map(static _ => true),
         fallback: false);
 
     public sealed override int ObjectSerialNumberFromLight(RhinoDoc doc, ref Light light) {
         Light carrier = light;
-        return LightAuthorities.Answer(Engine, doc, (program, key) => program.Serial(key, carrier), fallback: -1);
+        return LightAuthorities.Answer(Engine, doc, (program, key) => program.Serial(carrier), fallback: -1);
     }
 
     public sealed override string LightDescription(RhinoDoc doc, ref Light light) {
         Light carrier = light;
         return LightAuthorities.Answer(Engine, doc,
-            (program, key) => program.Describe(key, carrier).Map(static text => text.Resolve()), fallback: string.Empty);
+            (program, key) => program.Describe(carrier).Map(static text => text.Resolve()), fallback: string.Empty);
     }
 
     public sealed override bool OnEditLight(RhinoDoc doc, ref LightArray light_array) {
         Seq<Light> edited = Drained(light_array);
         return LightAuthorities.Answer(Engine, doc,
-            (program, key) => program.Edit(key, edited).Map(static _ => true), fallback: false);
+            (program, key) => program.Edit(edited).Map(static _ => true), fallback: false);
     }
 
     public sealed override void GroupLights(RhinoDoc doc, ref LightArray light_array) {
         Seq<Light> grouped = Drained(light_array);
-        _ = LightAuthorities.Answer(Engine, doc, (program, key) => program.Group(key, grouped), fallback: unit);
+        _ = LightAuthorities.Answer(Engine, doc, (program, key) => program.Group(grouped), fallback: unit);
     }
 
     public sealed override void UnGroup(RhinoDoc doc, ref LightArray light_array) {
         Seq<Light> grouped = Drained(light_array);
-        _ = LightAuthorities.Answer(Engine, doc, (program, key) => program.Ungroup(key, grouped), fallback: unit);
+        _ = LightAuthorities.Answer(Engine, doc, (program, key) => program.Ungroup(grouped), fallback: unit);
     }
 
     public override bool SetLightSolo(RhinoDoc doc, Guid uuid_light, bool bSolo) => LightAuthorities.Answer(
         Engine, doc,
         (program, key) => program.Solo.Match(
-            Some: solo => Key.Row<bool, SwitchState>(candidate: bSolo)
-                .Bind(state => solo.Set(key, uuid_light, state))
+            Some: solo => FactoryBridge.Row<bool, SwitchState>(candidate: bSolo)
+                .Bind(state => solo.Set(uuid_light, state))
                 .Map(static _ => true),
             None: () => Fin.Succ(base.SetLightSolo(doc, uuid_light, bSolo))),
         fallback: false);
@@ -1530,14 +1496,14 @@ public abstract class LightAuthorityHost : LightManagerSupport {
     public override bool GetLightSolo(RhinoDoc doc, Guid uuid_light) => LightAuthorities.Answer(
         Engine, doc,
         (program, key) => program.Solo.Match(
-            Some: solo => solo.Get(key, uuid_light).Map(static state => state.Enabled),
+            Some: solo => solo.Get(uuid_light).Map(static state => state.Enabled),
             None: () => Fin.Succ(base.GetLightSolo(doc, uuid_light))),
         fallback: false);
 
     public override int LightsInSoloStorage(RhinoDoc doc) => LightAuthorities.Answer(
         Engine, doc,
         (program, key) => program.Solo.Match(
-            Some: solo => solo.Count(key).Map(static count => count.Value),
+            Some: solo => solo.Count().Map(static count => count.Value),
             None: () => Fin.Succ(base.LightsInSoloStorage(doc))),
         fallback: 0);
 
@@ -1564,7 +1530,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 - Law: live-versus-baked is the union's discriminant, selected by the texture's own capability — a consumer asks for live first and falls to the baked case on refusal, and the fallback is a case transition, never a silent quality change. A live evaluator is INITIALIZED before the body sees it, because the host publishes `Initialize` as a separate verdict and an uninitialized evaluator answers colours no sampler measured; the bake takes the host's RETURN-shaped `SimulatedTexture` sibling, so the `ref`-fill and its `null!` seed have no spelling left.
 - Boundary: `PostEffectPipeline`, `PostEffectChannel`, `RenderWindow.Channel`, and `RenderWindow.ChannelGPU` stay inside `EffectPass`; an authored body BORROWS a `ChannelView` or `GpuHandle` for the length of the host bracket and only its own computed value crosses out — a texture id or pixel port that outlives the bracket names freed native memory, so neither port is a detached result. `TextureBake.Evaluate` disposes evaluator or simulation before detached egress.
 - Boundary: the owner-scoped key spelling is `key ?? this.key` — an `Op` fallback needs no receiver row, and the kernel publishes `OrDefault()` alone (branch `[03]` optional-key row), so no second arity is owed upward.
-- Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `Op.Row`, `Op.Settle`), `Domain/results` (`Op`, `Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/results` (`Custody`); NodaTime (`Duration`).
+- Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `Op.Row`, `HostEdge.Settle`), `Domain/results` (`Op`, `Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/results` (`Custody`); NodaTime (`Duration`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1630,7 +1596,7 @@ public sealed partial class BuiltinEffect {
     [UseDelegateFromConstructor]
     internal partial Guid Uuid();
 
-    public Fin<EffectId> Address(Op? key = null) => key.OrDefault().Catch(() => Fin.Succ(EffectId.Create(Uuid())));
+    public Fin<EffectId> Address() => key.OrDefault().Catch(() => Fin.Succ(EffectId.Create(Uuid())));
 
     internal static Option<BuiltinEffect> Named(EffectId effect) =>
         toSeq(Items).Find(row => row.Uuid() == effect.Value);
@@ -1655,23 +1621,22 @@ public abstract partial record EffectValue {
     public sealed record Text(HostText Value) : EffectValue;
     public sealed record Colour(PerceptualColor Value) : EffectValue;
 
-    internal Fin<object> Native(Op key) => Switch(
+    internal Fin<object> Native() => Switch(
         state: key,
         number: static (_, row) => Fin.Succ<object>(row.Value),
         whole: static (_, row) => Fin.Succ<object>(row.Value),
         flag: static (_, row) => Fin.Succ<object>(row.Value.Enabled),
         text: static (_, row) => Fin.Succ<object>(row.Value.Resolve()),
-        colour: static (op, row) => row.Value.ToArgb(key: op).Map(static packed => (object)packed));
+        colour: static (row) => row.Value.ToArgb().Map(static packed => (object)packed));
 
-    internal static Fin<EffectValue> Of(IConvertible held, Op key) => held switch {
-        bool flag => key.Row<bool, SwitchState>(candidate: flag).Map(static row => (EffectValue)new Flag(row)),
+    internal static Fin<EffectValue> Of(IConvertible held) => held switch {
+        bool flag => FactoryBridge.Row<bool, SwitchState>(candidate: flag).Map(static row => (EffectValue)new Flag(row)),
         int whole => Fin.Succ<EffectValue>(new Whole(whole)),
         double number => Fin.Succ<EffectValue>(new Number(number)),
         float number => Fin.Succ<EffectValue>(new Number(number)),
-        string text => key.AcceptText(value: text).Bind(admitted => key.Catch(() =>
-            Fin.Succ<EffectValue>(new Text(HostText.Create(english: admitted, context: 0))))),
-        _ => Fin.Fail<EffectValue>(new RenderFault.HostRefused(
-            Key: key, Member: nameof(PostEffects.PostEffectData.GetParameter), Detail: held.GetType().Name)),
+        string text => Acceptance.Text(value: text).Bind(admitted => Try.lift(() =>
+            Fin.Succ<EffectValue>(new Text(HostText.Create(english: admitted, context: 0)))).Run().Bind(static inner => inner)),
+        _ => Fin.Fail<EffectValue>(new RenderFault.HostRefused(Member: nameof(PostEffects.PostEffectData.GetParameter), Detail: held.GetType().Name)),
     };
 }
 
@@ -1696,20 +1661,18 @@ public abstract partial record EffectSource {
     public sealed record PlugInCase(PlugIn Owner) : EffectSource;
     public sealed record AssemblyCase(System.Reflection.Assembly Source, Guid PlugInId) : EffectSource;
 
-    internal Fin<Seq<Type>> Install(Op key) => Switch(
+    internal Fin<Seq<Type>> Install() => Switch(
         state: key,
-        plugInCase: static (op, row) => op.Catch(() =>
+        plugInCase: static (row) => Try.lift(() =>
             Optional(PostEffects.PostEffect.RegisterPostEffect(plugin: row.Owner))
-                .ToFin(Fail: new RenderFault.HostRefused(
-                    Key: op, Member: nameof(PostEffects.PostEffect.RegisterPostEffect), Detail: "no type set"))
-                .Map(static types => toSeq(types))),
-        assemblyCase: static (op, row) =>
+                .ToFin(Fail: new RenderFault.HostRefused(Member: nameof(PostEffects.PostEffect.RegisterPostEffect), Detail: "no type set"))
+                .Map(static types => toSeq(types))).Run().Bind(static inner => inner),
+        assemblyCase: static (row) =>
             from _ in guard(row.PlugInId != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(row.PlugInId), "a non-empty plug-in identity")).ToFin()
-            from types in op.Catch(() =>
+            from types in Try.lift(() =>
                 Optional(PostEffects.PostEffect.RegisterPostEffect(assembly: row.Source, pluginId: row.PlugInId))
-                    .ToFin(Fail: new RenderFault.HostRefused(
-                        Key: op, Member: nameof(PostEffects.PostEffect.RegisterPostEffect), Detail: "no type set"))
-                    .Map(static registered => toSeq(registered)))
+                    .ToFin(Fail: new RenderFault.HostRefused(Member: nameof(PostEffects.PostEffect.RegisterPostEffect), Detail: "no type set"))
+                    .Map(static registered => toSeq(registered))).Run().Bind(static inner => inner)
             select types);
 }
 
@@ -1731,30 +1694,30 @@ public abstract partial record PostEffectOp : IValidityEvidence {
 
     internal bool Mutates => this is not CensusCase;
 
-    internal Fin<Unit> Apply(PostEffects.PostEffectCollection collection, Op key) => Switch(
-        state: (Collection: collection, Op: key),
+    internal Fin<Unit> Apply(PostEffects.PostEffectCollection collection) => Switch(
+        state: collection,
         censusCase: static (_, _) => Fin.Succ(value: unit),
-        displayCase: static (ctx, row) => Data(ctx.Collection, row.Effect, ctx.Op).Bind(data => ctx.Op.Catch(() => {
+        displayCase: static (ctx, row) => Data(ctx, row.Effect).Bind(data => Try.lift(() => {
             data.On = row.State.Admits(EffectDisplay.On);
             data.Shown = row.State.Admits(EffectDisplay.Shown);
             return Fin.Succ(value: unit);
-        })),
-        reorderCase: static (ctx, row) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Collection.MovePostEffectBefore(
+        }).Run().Bind(static inner => inner)),
+        reorderCase: static (ctx, row) => Try.lift(() => Admit.Confirm(success: ctx.MovePostEffectBefore(
             id_move: row.Move.Value,
-            id_before: row.Before.Map(static before => before.Value).IfNone(Guid.Empty)))),
-        selectCase: static (ctx, row) => ctx.Op.Catch(() =>
-            ctx.Collection.SetSelectedPostEffect(type: row.Stage.Key, id: row.Effect.Value)),
-        tuneCase: static (ctx, row) => from data in Data(ctx.Collection, row.Effect, ctx.Op)
-                                       from native in row.Value.Native(ctx.Op)
-                                       from written in ctx.Op.Catch(() => ctx.Op.Confirm(
-                                           success: data.SetParameter(param_name: row.Field.Value, param_value: native)))
+            id_before: row.Before.Map(static before => before.Value).IfNone(Guid.Empty)))).Run().Bind(static inner => inner),
+        selectCase: static (ctx, row) => Try.lift(() =>
+            ctx.SetSelectedPostEffect(type: row.Stage.Key, id: row.Effect.Value)).Run().Bind(static inner => inner),
+        tuneCase: static (ctx, row) => from data in Data(ctx, row.Effect)
+                                       from native in row.Value.Native()
+                                       from written in Try.lift(() => Admit.Confirm(
+                                           success: data.SetParameter(param_name: row.Field.Value, param_value: native))).Run().Bind(static inner => inner)
                                        select written);
 
-    private static Fin<PostEffects.PostEffectData> Data(PostEffects.PostEffectCollection collection, EffectId effect, Op key) =>
-        key.Catch(() => {
+    private static Fin<PostEffects.PostEffectData> Data(PostEffects.PostEffectCollection collection, EffectId effect) =>
+        Try.lift(() => {
             PostEffects.PostEffectData cursor = collection.PostEffectDataFromId(id: effect.Value);
             return Fin.Succ((ignore(cursor.Id), cursor).Item2);
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 [SmartEnum<string>]
@@ -1817,61 +1780,54 @@ public abstract partial record TextureBake : IValidityEvidence {
     public Fin<TOut> Evaluate<TOut>(
         DocumentSession session,
         Func<TextureEvaluator, Fin<TOut>> live,
-        Func<SimulatedTexture, Fin<TOut>> baked,
-        Op? key = null)
+        Func<SimulatedTexture, Fin<TOut>> baked)
         where TOut : IDetachedDocumentResult {
-        Op op = key.OrDefault();
         TextureBake self = this;
-        return guard(session is not null && live is not null && baked is not null && IsValid, op.InvalidInput()).ToFin()
+        return guard(session is not null && live is not null && baked is not null && IsValid, new KernelFault.InvalidInput()).ToFin()
             .Bind(_ => session.Demand(
                 use: document => self.Switch(
-                    state: (Document: document, Live: live, Baked: baked, Op: op),
+                    state: (Document: document, Live: live, Baked: baked),
                     liveCase: static (ctx, bake) =>
-                        from texture in Texture(bake.Texture, ctx.Document, ctx.Op)
-                        from result in ctx.Op.Catch(() => {
+                        from texture in Texture(bake.Texture, ctx.Document)
+                        from result in Try.lift(() => {
                             RenderTexture.TextureEvaluatorFlags flags = toSeq(bake.Suppressed.Held).Fold(
                                 RenderTexture.TextureEvaluatorFlags.Normal,
                                 static (word, row) => word | row.Native);
                             using TextureEvaluator evaluator = texture.CreateEvaluator(flags);
                             return Optional(evaluator)
-                                .ToFin(Fail: new RenderFault.HostRefused(
-                                    Key: ctx.Op, Member: nameof(RenderTexture.CreateEvaluator), Detail: bake.Suppressed.Wire))
-                                .Bind(held => ctx.Op.Confirm(success: held.Initialize()).Map(_ => held))
+                                .ToFin(Fail: new RenderFault.HostRefused(Member: nameof(RenderTexture.CreateEvaluator), Detail: bake.Suppressed.Wire))
+                                .Bind(held => Admit.Confirm(success: held.Initialize()).Map(_ => held))
                                 .Bind(ctx.Live);
-                        })
+                        }).Run().Bind(static inner => inner)
                         select result,
                     bakedCase: static (ctx, bake) =>
-                        from texture in Texture(bake.Texture, ctx.Document, ctx.Op)
-                        from subject in Optional(ctx.Document.Objects.FindId(bake.Subject)).ToFin(ctx.Op.InvalidInput())
-                        from result in ctx.Op.Catch(() => {
+                        from texture in Texture(bake.Texture, ctx.Document)
+                        from subject in Optional(ctx.Document.Objects.FindId(bake.Subject)).ToFin(new KernelFault.InvalidInput())
+                        from result in Try.lift(() => {
                             using SimulatedTexture? simulated = texture.SimulatedTexture(
                                 tg: bake.Generation.Key, size: bake.Size.Value, obj: subject);
                             return Optional(simulated)
-                                .ToFin(Fail: new RenderFault.HostRefused(
-                                    Key: ctx.Op, Member: nameof(RenderTexture.SimulatedTexture), Detail: bake.Generation.Key.ToString()))
+                                .ToFin(Fail: new RenderFault.HostRefused(Member: nameof(RenderTexture.SimulatedTexture), Detail: bake.Generation.Key.ToString()))
                                 .Bind(ctx.Baked);
-                        })
+                        }).Run().Bind(static inner => inner)
                         select result),
-                key: op,
                 needs: [SessionNeed.Read]));
     }
 
-    private static Fin<RenderTexture> Texture(ContentRef address, RhinoDoc document, Op key) =>
-        from content in address.Resolve(document, key)
+    private static Fin<RenderTexture> Texture(ContentRef address, RhinoDoc document) =>
+        from content in address.Resolve(document)
         from texture in content is RenderTexture value
             ? Fin.Succ(value)
-            : Fin.Fail<RenderTexture>(new RenderFault.HostRefused(
-                Key: key, Member: nameof(ContentRef.Resolve), Detail: content.GetType().Name))
+            : Fin.Fail<RenderTexture>(new RenderFault.HostRefused(Member: nameof(ContentRef.Resolve), Detail: content.GetType().Name))
         select texture;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ChannelView {
     private readonly RenderWindow.Channel channel;
-    private readonly Op key;
 
-    internal ChannelView(RenderWindow.Channel channel, Size2i extent, ChannelOrder order, Op key) =>
-        (this.channel, Extent, Order, this.key) = (channel, extent, order, key);
+    internal ChannelView(RenderWindow.Channel channel, Size2i extent, ChannelOrder order) =>
+        (this.channel, Extent, Order, this.key) = (channel, extent, order);
 
     public Size2i Extent { get; }
     public ChannelOrder Order { get; }
@@ -1881,20 +1837,19 @@ public sealed class ChannelView {
             [float r, float g, float b, float a] => Fin.Succ(new Color4f(r, g, b, a)),
             [float grey] => Fin.Succ(new Color4f(grey, grey, grey, 1.0f)),
             [float r, float g, float b] => Fin.Succ(new Color4f(r, g, b, 1.0f)),
-            _ => Fin.Fail<Color4f>(new RenderFault.HostRefused(
-                Key: key, Member: nameof(RenderWindow.Channel.GetValues), Detail: Order.Key.ToString())),
+            _ => Fin.Fail<Color4f>(new RenderFault.HostRefused(Member: nameof(RenderWindow.Channel.GetValues), Detail: Order.Key.ToString())),
         });
 
     public Fin<PerceptualColor> Sample(Offset2i at) =>
-        Read(at).Bind(quad => PerceptualColor.OfHost(host: quad, transfer: RgbTransfer.Linear, key: key));
+        Read(at).Bind(quad => PerceptualColor.OfHost(host: quad, transfer: RgbTransfer.Linear));
 
     public Fin<Unit> Write(Offset2i at, Color4f value) =>
-        Within(at).Bind(_ => key.Catch(() => Fin.Succ(Op.Side(() => channel.SetValue(x: at.X, y: at.Y, value: value)))));
+        Within(at).Bind(_ => Try.lift(() => Fin.Succ(HostEdge.Side(() => channel.SetValue(x: at.X, y: at.Y, value: value)))).Run().Bind(static inner => inner));
 
     public Fin<Unit> Write(Offset2i at, PerceptualColor value) => Lowered(value).Bind(quad => Write(at, quad));
 
     public Fin<Unit> Accumulate(Offset2i at, Color4f value) =>
-        Within(at).Bind(_ => key.Catch(() => Fin.Succ(Op.Side(() => channel.AddValue(x: at.X, y: at.Y, value: value)))));
+        Within(at).Bind(_ => Try.lift(() => Fin.Succ(HostEdge.Side(() => channel.AddValue(x: at.X, y: at.Y, value: value)))).Run().Bind(static inner => inner));
 
     public Fin<Unit> Accumulate(Offset2i at, PerceptualColor value) => Lowered(value).Bind(quad => Accumulate(at, quad));
 
@@ -1902,8 +1857,8 @@ public sealed class ChannelView {
         from _ in Within(origin)
         from __ in guard(
             origin.X + extent.Width <= Extent.Width && origin.Y + extent.Height <= Extent.Height,
-            key.InvalidInput(axis: nameof(extent)))
-        from values in key.Catch(() => {
+            new KernelFault.InvalidInput(Axis: Some(nameof(extent))))
+        from values in Try.lift(() => {
             float[] buffer = new float[checked(extent.Width * extent.Height * Order.Components)];
             channel.GetValues(
                 rectangle: origin.Window(extent: extent),
@@ -1911,77 +1866,73 @@ public sealed class ChannelView {
                 componentOrder: Order.Native,
                 values: ref buffer);
             return Fin.Succ<ReadOnlyMemory<float>>(buffer);
-        })
+        }).Run().Bind(static inner => inner)
         select values;
 
-    public Fin<(float Low, float High)> Span => key.Catch(() => {
+    public Fin<(float Low, float High)> Span => Try.lift(() => {
         channel.GetMinMaxValues(min: out float low, max: out float high);
         return Fin.Succ(value: (Low: low, High: high));
-    });
+    }).Run().Bind(static inner => inner);
 
     private Fin<Unit> Within(Offset2i at) => guard(
         at.X < Extent.Width && at.Y < Extent.Height,
-        key.InvalidInput(axis: nameof(at))).ToFin();
+        new KernelFault.InvalidInput(Axis: Some(nameof(at)))).ToFin();
 
     private Fin<Color4f> Lowered(PerceptualColor value) =>
-        value.ToColor4f(gamut: GamutPolicy.Unbounded, transfer: RgbTransfer.Linear, key: key);
+        value.ToColor4f(gamut: GamutPolicy.Unbounded, transfer: RgbTransfer.Linear);
 }
 
 public sealed class EffectStateBag {
     private readonly PostEffects.PostEffectState state;
-    private readonly Op key;
 
-    internal EffectStateBag(PostEffects.PostEffectState state, Op key) => (this.state, this.key) = (state, key);
+    internal EffectStateBag(PostEffects.PostEffectState state) => (this.state, this.key) = (state);
 
-    public Fin<Option<T>> Read<T>(EffectField field) => key.Catch(() =>
-        Fin.Succ(Op.Probe<T>((out T held) => state.TryGetValue(name: field.Value, vValue: out held))));
+    public Fin<Option<T>> Read<T>(EffectField field) => Try.lift(() =>
+        Fin.Succ(Admit.Probe<T>((out T held) => state.TryGetValue(name: field.Value, vValue: out held)))).Run().Bind(static inner => inner);
 
     public Fin<Unit> Write<T>(EffectField field, T value) =>
-        key.Catch(() => key.Confirm(success: state.SetValue(name: field.Value, vValue: value)));
+        Try.lift(() => Admit.Confirm(success: state.SetValue(name: field.Value, vValue: value))).Run().Bind(static inner => inner);
 }
 
 public sealed class EffectPass {
     private readonly PostEffects.PostEffectPipeline pipeline;
-    private readonly Op key;
 
-    internal EffectPass(PostEffects.PostEffectPipeline pipeline, Offset2i origin, Size2i extent, Op key) =>
-        (this.pipeline, Origin, Extent, this.key) = (pipeline, origin, extent, key);
+    internal EffectPass(PostEffects.PostEffectPipeline pipeline, Offset2i origin, Size2i extent) =>
+        (this.pipeline, Origin, Extent, this.key) = (pipeline, origin, extent);
 
     public Offset2i Origin { get; }
     public Size2i Extent { get; }
-    public Fin<Size2i> Frame => key.Catch(() =>
-        pipeline.Dimensions() is var frame ? Size2i.Of(width: frame.Width, height: frame.Height, key: key) : Fin.Fail<Size2i>(key.InvalidResult()));
+    public Fin<Size2i> Frame => Try.lift(() =>
+        pipeline.Dimensions() is var frame ? Size2i.Of(width: frame.Width, height: frame.Height) : Fin.Fail<Size2i>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
     public bool GpuAllowed => pipeline.GPUAllowed;
     public bool Rendering => pipeline.IsRendering;
-    public Fin<Guid> Session => key.Catch(() => Fin.Succ(pipeline.RenderingId));
-    public Fin<float> PeakLuminance => key.Catch(() => Fin.Succ(value: pipeline.GetMaxLuminance()));
-    public Fin<Seq<EffectId>> Order => key.Catch(() => Fin.Succ(value: toSeq(pipeline.ExecutionOrder()).Map(EffectId.Create)));
+    public Fin<Guid> Session => Try.lift(() => Fin.Succ(pipeline.RenderingId)).Run().Bind(static inner => inner);
+    public Fin<float> PeakLuminance => Try.lift(() => Fin.Succ(value: pipeline.GetMaxLuminance())).Run().Bind(static inner => inner);
+    public Fin<Seq<EffectId>> Order => Try.lift(() => Fin.Succ(value: toSeq(pipeline.ExecutionOrder()).Map(EffectId.Create))).Run().Bind(static inner => inner);
 
-    public Fin<Duration> Elapsed => key.Catch(() => Fin.Succ(Duration.FromMilliseconds(
-        (double)pipeline.GetEndTimeInMilliseconds() - pipeline.GetStartTimeInMilliseconds())));
+    public Fin<Duration> Elapsed => Try.lift(() => Fin.Succ(Duration.FromMilliseconds(
+        (double)pipeline.GetEndTimeInMilliseconds() - pipeline.GetStartTimeInMilliseconds()))).Run().Bind(static inner => inner);
 
-    public Fin<Unit> Restart(Duration at, Op? key = null) {
-        Op op = key ?? this.key;
-        return guard(at >= Duration.Zero, op.InvalidInput(axis: nameof(at))).ToFin().Bind(_ => op.Catch(() =>
-            Fin.Succ(Op.Side(() => pipeline.SetStartTimeInMilliseconds(
-                checked((ulong)at.TotalMilliseconds))))));
+    public Fin<Unit> Restart(Duration at) {
+        return guard(at >= Duration.Zero, new KernelFault.InvalidInput(Axis: Some(nameof(at)))).ToFin().Bind(_ => Try.lift(() =>
+            Fin.Succ(HostEdge.Side(() => pipeline.SetStartTimeInMilliseconds(
+                checked((ulong)at.TotalMilliseconds))))).Run().Bind(static inner => inner));
     }
 
-    public Fin<TOut> Read<TOut>(RenderChannel channel, Func<ChannelView, Fin<TOut>> borrow, Op? key = null) =>
+    public Fin<TOut> Read<TOut>(RenderChannel channel, Func<ChannelView, Fin<TOut>> borrow) =>
         Borrowed(channel, new ChannelLease.Reading(), borrow, key ?? this.key);
 
-    public Fin<Unit> Write(RenderChannel channel, Func<ChannelView, Fin<Unit>> body, Op? key = null) =>
+    public Fin<Unit> Write(RenderChannel channel, Func<ChannelView, Fin<Unit>> body) =>
         Borrowed(channel, new ChannelLease.Writing(), body, key ?? this.key);
 
-    public Fin<TOut> Handle<TOut>(RenderChannel channel, Func<GpuHandle, Fin<TOut>> borrow, Op? key = null) {
-        Op op = key ?? this.key;
-        return guard(GpuAllowed, op.InvalidContext()).ToFin().Bind(_ => op.Catch(() => {
+    public Fin<TOut> Handle<TOut>(RenderChannel channel, Func<GpuHandle, Fin<TOut>> borrow) {
+        return guard(GpuAllowed, new KernelFault.InvalidContext()).ToFin().Bind(_ => Try.lift(() => {
             using PostEffects.PostEffectChannel port = pipeline.GetChannelForRead(id: channel.Id);
-            return Optional(port).ToFin(Fail: op.MissingContext()).Bind(active => {
+            return Optional(port).ToFin(Fail: new KernelFault.MissingContext()).Bind(active => {
                 using RenderWindow.ChannelGPU? texture = active.GPU();
-                return Optional(texture).ToFin(Fail: op.InvalidResult()).Bind(held =>
-                    from technology in op.Row<Rhino.Display.DisplayTechnology, GpuTechnology>(candidate: held.DisplayTechnology)
-                    from extent in Size2i.Of(width: held.Width(), height: held.Height(), key: op)
+                return Optional(texture).ToFin(Fail: new KernelFault.InvalidResult()).Bind(held =>
+                    from technology in FactoryBridge.Row<Rhino.Display.DisplayTechnology, GpuTechnology>(candidate: held.DisplayTechnology)
+                    from extent in Size2i.Of(width: held.Width(), height: held.Height())
                     let size = Rasm.Numerics.Dimension.Create(value: checked((int)held.PixelSize()))
                     from taken in borrow(technology.Key switch {
                         Rhino.Display.DisplayTechnology.OpenGL =>
@@ -1992,59 +1943,56 @@ public sealed class EffectPass {
                     })
                     select taken);
             });
-        }));
+        }).Run().Bind(static inner => inner));
     }
 
-    public Fin<Unit> CopyDown(RenderChannel channel, Op? key = null) {
-        Op op = key ?? this.key;
-        return guard(GpuAllowed, op.InvalidContext()).ToFin().Bind(_ => op.Catch(() => {
+    public Fin<Unit> CopyDown(RenderChannel channel) {
+        return guard(GpuAllowed, new KernelFault.InvalidContext()).ToFin().Bind(_ => Try.lift(() => {
             using PostEffects.PostEffectChannel source = pipeline.GetChannelForRead(id: channel.Id);
             using PostEffects.PostEffectChannel sink = pipeline.GetChannelForWrite(id: channel.Id);
-            return from live in Optional(source).ToFin(Fail: op.MissingContext())
-                   from target in Optional(sink).ToFin(Fail: op.MissingContext())
-                   from texture in Optional(live.GPU()).ToFin(Fail: op.InvalidResult())
-                   from pixels in Optional(target.CPU()).ToFin(Fail: op.InvalidResult())
-                   from _copied in op.Catch(() => Op.Side(() => { using (texture) using (pixels) { texture.CopyTo(channel: pixels); } }))
-                   from _committed in op.Catch(() => Op.Side(target.Commit))
+            return from live in Optional(source).ToFin(Fail: new KernelFault.MissingContext())
+                   from target in Optional(sink).ToFin(Fail: new KernelFault.MissingContext())
+                   from texture in Optional(live.GPU()).ToFin(Fail: new KernelFault.InvalidResult())
+                   from pixels in Optional(target.CPU()).ToFin(Fail: new KernelFault.InvalidResult())
+                   from _copied in Try.lift(() => HostEdge.Side(() => { using (texture) using (pixels) { texture.CopyTo(channel: pixels); } })).Run().Bind(static inner => inner)
+                   from _committed in Try.lift(() => HostEdge.Side(target.Commit)).Run().Bind(static inner => inner)
                    select unit;
-        }));
+        }).Run().Bind(static inner => inner));
     }
 
-    public Fin<Unit> Advance(Rasm.Numerics.Dimension rows, Op? key = null) {
-        Op op = key ?? this.key;
-        return op.Catch(() => Op.Side(() => ((IProgress<int>)pipeline).Report(value: rows.Value)));
+    public Fin<Unit> Advance(Rasm.Numerics.Dimension rows) {
+        return Try.lift(() => HostEdge.Side(() => ((IProgress<int>)pipeline).Report(value: rows.Value))).Run().Bind(static inner => inner);
     }
 
-    private Fin<TOut> Borrowed<TOut>(RenderChannel channel, ChannelLease lease, Func<ChannelView, Fin<TOut>> borrow, Op key) =>
-        Frame.Bind(frame => key.Catch(() => {
+    private Fin<TOut> Borrowed<TOut>(RenderChannel channel, ChannelLease lease, Func<ChannelView, Fin<TOut>> borrow) =>
+        Frame.Bind(frame => Try.lift(() => {
             using PostEffects.PostEffectChannel port = lease.Switch(
                 state: (Pipeline: pipeline, Channel: channel),
                 reading: static (ctx, _) => ctx.Pipeline.GetChannelForRead(id: ctx.Channel.Id),
                 writing: static (ctx, _) => ctx.Pipeline.GetChannelForWrite(id: ctx.Channel.Id));
-            return Optional(port).ToFin(Fail: key.MissingContext()).Bind(active => {
+            return Optional(port).ToFin(Fail: new KernelFault.MissingContext()).Bind(active => {
                 using RenderWindow.Channel? pixels = active.CPU();
-                return Optional(pixels).ToFin(Fail: key.InvalidResult())
-                    .Bind(view => borrow(new ChannelView(channel: view, extent: frame, order: channel.Order(), key: key)))
+                return Optional(pixels).ToFin(Fail: new KernelFault.InvalidResult())
+                    .Bind(view => borrow(new ChannelView(channel: view, extent: frame, order: channel.Order())))
                     .Bind(done => lease is ChannelLease.Writing
-                        ? key.Catch(() => Op.Side(active.Commit)).Map(_ => done)
+                        ? Try.lift(() => HostEdge.Side(active.Commit)).Run().Bind(static inner => inner).Map(_ => done)
                         : Fin.Succ(value: done));
             });
-        }));
+        }).Run().Bind(static inner => inner));
 }
 
 public abstract class EffectHost : PostEffects.PostEffect {
     private readonly EffectProgram program;
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
-    private readonly Op key;
 
-    protected EffectHost(EffectProgram program, Op? key = null) =>
+    protected EffectHost(EffectProgram program) =>
         (this.program, this.key) = (program, key ?? Op.Of(name: nameof(EffectHost)));
 
     public Seq<Error> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
     public EffectTiming Timing => Observe(
-        key.Row<PostEffects.PostEffectExecuteWhileRenderingOptions, EffectTiming>(candidate: ExecuteWhileRenderingOption),
+        FactoryBridge.Row<PostEffects.PostEffectExecuteWhileRenderingOptions, EffectTiming>(candidate: ExecuteWhileRenderingOption),
         EffectTiming.Always);
 
     public override Guid[] RequiredChannels => toSeq(program.Required.Held).Map(static row => row.Id).ToArray();
@@ -2057,63 +2005,62 @@ public abstract class EffectHost : PostEffects.PostEffect {
         Accept(Pass(pipeline, rect).Bind(pass => program.Execute(pass).Map(static _ => true)));
 
     public override bool ReadState(PostEffects.PostEffectState state) =>
-        Accept(key.Catch(() => program.Read(new EffectStateBag(state: state, key: key))).Map(static _ => true));
+        Accept(Try.lift(() => program.Read(new EffectStateBag(state: state, key: key))).Run().Bind(static inner => inner).Map(static _ => true));
 
     public override bool WriteState(ref PostEffects.PostEffectState state) {
         PostEffects.PostEffectState held = state;
-        return Accept(key.Catch(() => program.Write(new EffectStateBag(state: held, key: key))).Map(static _ => true));
+        return Accept(Try.lift(() => program.Write(new EffectStateBag(state: held, key: key))).Run().Bind(static inner => inner).Map(static _ => true));
     }
 
     public override void ResetToFactoryDefaults() =>
-        ignore(Accept(Amended(ChangeReason.Program, () => key.Catch(program.Reset)).Map(static _ => true)));
+        ignore(Accept(Amended(ChangeReason.Program, () => Try.lift(program.Reset).Run().Bind(static inner => inner)).Map(static _ => true)));
 
     public override bool GetParam(string param, ref object v) {
         Fin<object> resolved =
-            from field in key.AcceptValidated<EffectField>(candidate: param)
-            from held in key.Catch(() => program.Param(field))
-            from value in held.ToFin(Fail: key.InvalidResult(detail: param))
-            from native in value.Native(key)
+            from field in FactoryBridge.Accept<EffectField>(candidate: param)
+            from held in Try.lift(() => program.Param(field)).Run().Bind(static inner => inner)
+            from value in held.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(param)))
+            from native in value.Native()
             select native;
         _ = resolved.IfFail(cause => ignore(faults.Park(item: cause)));
-        return Op.Settle(slot: ref v, outcome: resolved);
+        return HostEdge.Settle(slot: ref v, outcome: resolved);
     }
 
     public override bool SetParam(string param, object v) => Accept(
-        from field in key.AcceptValidated<EffectField>(candidate: param)
+        from field in FactoryBridge.Accept<EffectField>(candidate: param)
         from held in v is IConvertible convertible
-            ? EffectValue.Of(convertible, key)
-            : Fin.Fail<EffectValue>(new RenderFault.HostRefused(Key: key, Member: nameof(SetParam), Detail: param))
-        from written in Amended(ChangeReason.Program, () => key.Catch(() => program.Tune(field, held)))
+            ? EffectValue.Of(convertible)
+            : Fin.Fail<EffectValue>(new RenderFault.HostRefused(Member: nameof(SetParam), Detail: param))
+        from written in Amended(ChangeReason.Program, () => Try.lift(() => program.Tune(field, held)).Run().Bind(static inner => inner))
         select true);
 
     public override void AddUISections(PostEffects.PostEffectUI ui) =>
-        ignore(program.Sections.Iter(seat => ignore(Accept(key.Catch(() => seat(ui)).Map(static _ => true)))));
+        ignore(program.Sections.Iter(seat => ignore(Accept(Try.lift(() => seat(ui)).Run().Bind(static inner => inner).Map(static _ => true)))));
 
     public override bool DisplayHelp() => program.Help.Match(
-        Some: show => Accept(key.Catch(show).Map(static _ => true)),
+        Some: show => Accept(Try.lift(show).Run().Bind(static inner => inner).Map(static _ => true)),
         None: static () => false);
 
     private Fin<Unit> Amended(ChangeReason reason, Func<Fin<Unit>> body) =>
-        from _ in key.Catch(() => Op.Side(() => BeginChange(changeContext: reason.Native)))
-        from settled in body().Rollback(() => key.Catch(() => Op.Side(() => ignore(EndChange()))), key)
+        from _ in Try.lift(() => HostEdge.Side(() => BeginChange(changeContext: reason.Native))).Run().Bind(static inner => inner)
+        from settled in body().Rollback(() => Try.lift(() => HostEdge.Side(() => ignore(EndChange()))).Run().Bind(static inner => inner))
         from closed in Custody.Release(
             Seq<Func<Fin<Unit>>>(
-                () => key.Catch(() => Op.Side(() => ignore(EndChange()))),
-                () => key.Catch(() => Op.Side(Changed))),
-            key)
+                () => Try.lift(() => HostEdge.Side(() => ignore(EndChange()))).Run().Bind(static inner => inner),
+                () => Try.lift(() => HostEdge.Side(Changed)).Run().Bind(static inner => inner)))
         select closed;
 
     private Fin<System.Drawing.Rectangle> Frame(PostEffects.PostEffectPipeline pipeline) =>
-        Optional(pipeline).ToFin(Fail: key.MissingContext()).Bind(active => key.Catch(() =>
+        Optional(pipeline).ToFin(Fail: new KernelFault.MissingContext()).Bind(active => Try.lift(() =>
             active.Dimensions() is var frame && frame.Width > 0 && frame.Height > 0
                 ? Fin.Succ(new System.Drawing.Rectangle(0, 0, frame.Width, frame.Height))
-                : Fin.Fail<System.Drawing.Rectangle>(error: key.InvalidResult())));
+                : Fin.Fail<System.Drawing.Rectangle>(error: new KernelFault.InvalidResult())).Run().Bind(static inner => inner));
 
     private Fin<EffectPass> Pass(PostEffects.PostEffectPipeline pipeline, System.Drawing.Rectangle rect) =>
-        from active in Optional(pipeline).ToFin(Fail: key.MissingContext())
-        from origin in Offset2i.Of(x: rect.X, y: rect.Y, key: key)
-        from extent in Size2i.Of(width: rect.Width, height: rect.Height, key: key)
-        select new EffectPass(pipeline: active, origin: origin, extent: extent, key: key);
+        from active in Optional(pipeline).ToFin(Fail: new KernelFault.MissingContext())
+        from origin in Offset2i.Of(x: rect.X, y: rect.Y)
+        from extent in Size2i.Of(width: rect.Width, height: rect.Height)
+        select new EffectPass(pipeline: active, origin: origin, extent: extent);
 
     private bool Accept<T>(Fin<T> result) => Observe(result.Map(static _ => true), false);
 
@@ -2125,65 +2072,50 @@ public abstract class EffectHost : PostEffects.PostEffect {
 internal sealed class PostEffectGate : PostEffects.PostEffectExecutionControl {
     private readonly Func<EffectId, Fin<bool>> decide;
     private readonly Func<Error, Unit> reject;
-    private readonly Op key;
 
-    internal PostEffectGate(Func<EffectId, Fin<bool>> decide, Func<Error, Unit> reject, Op key) =>
-        (this.decide, this.reject, this.key) = (decide, reject, key);
+    internal PostEffectGate(Func<EffectId, Fin<bool>> decide, Func<Error, Unit> reject) =>
+        (this.decide, this.reject, this.key) = (decide, reject);
 
     public override bool ReadyToExecutePostEffect(Guid postEffectId) =>
-        key.Catch(() => decide(EffectId.Create(postEffectId))).Match(
+        Try.lift(() => decide(EffectId.Create(postEffectId))).Run().Bind(static inner => inner).Match(
             Succ: static value => value,
             Fail: failure => (reject(failure), false).Item2);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Effects {
-    public static Fin<EffectRegistry> Register(EffectSource source, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(source)
-               from types in active.Install(op)
+    public static Fin<EffectRegistry> Register(EffectSource source) {
+        return from active in Admit.Need(source)
+               from types in active.Install()
                select new EffectRegistry(Registered: types.Strict());
     }
 
-    public static Fin<EffectRoster> Configure(DocumentSession session, Seq<PostEffectOp> ops, Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Optional(session).ToFin(Fail: op.MissingContext())
+    public static Fin<EffectRoster> Configure(DocumentSession session, Seq<PostEffectOp> ops) {
+        return from source in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
                from admitted in guard(
-                   !ops.IsEmpty && ops.ForAll(static row => row is { IsValid: true }), op.InvalidInput(axis: nameof(ops)))
+                   !ops.IsEmpty && ops.ForAll(static row => row is { IsValid: true }), new KernelFault.InvalidInput(Axis: Some(nameof(ops))))
                from roster in source.Demand(
-                   use: document => op.Catch(() => {
+                   use: document => Try.lift(() => {
                        using PostEffects.PostEffectCollection collection = document.RenderSettings.PostEffects;
                        return ops.TraverseM(row => row.Apply(collection: collection, key: op)).As()
                            .Bind(_ => Roster(collection: collection, op: op));
-                   }),
-                   key: op,
+                   }).Run().Bind(static inner => inner),
                    needs: ops.Exists(static row => row.Mutates)
                        ? [SessionNeed.Read, SessionNeed.Mutate]
                        : [SessionNeed.Read])
                select roster;
     }
 
-    private static Fin<EffectRoster> Roster(PostEffects.PostEffectCollection collection, Op op) =>
-        from rows in toSeq(collection).TraverseM(data => Detached(data: data, op: op)).As()
-        from selected in op.Catch(() => Fin.Succ(value: toSeq(EffectStage.Items)
-            .Choose(stage => Op.Probe<Guid>((out Guid chosen) => collection.GetSelectedPostEffect(type: stage.Key, id: out chosen))
+    private static Fin<EffectRoster> Roster(PostEffects.PostEffectCollection collection) =>
+        from rows in toSeq(collection).TraverseM(data => Detached(data: data)).As()
+        from selected in Try.lift(() => Fin.Succ(value: toSeq(EffectStage.Items)
+            .Choose(stage => Admit.Probe<Guid>((out Guid chosen) => collection.GetSelectedPostEffect(type: stage.Key, id: out chosen))
                 .Map(chosen => (stage, EffectId.Create(chosen))))
-            .ToHashMap()))
+            .ToHashMap())).Run().Bind(static inner => inner)
         select new EffectRoster(Rows: rows.Strict(), Selected: selected);
 
-    private static Fin<EffectFact> Detached(PostEffects.PostEffectData data, Op op) => op.Catch(() =>
-        from stage in op.Row<PostEffects.PostEffectType, EffectStage>(candidate: data.Type)
-        from name in op.AcceptText(value: data.LocalName)
-        let display = (data.On ? CapabilitySet<EffectDisplay>.Of(EffectDisplay.On) : CapabilitySet<EffectDisplay>.None)
-            is var held && data.Shown ? held.With(EffectDisplay.Shown) : held
-        let id = EffectId.Create(data.Id)
-        select new EffectFact(
-            Id: id,
-            Stage: stage,
-            Name: HostText.Create(english: name, context: 0),
-            Display: display,
-            Builtin: BuiltinEffect.Named(id),
-            Digest: data.DataCRC(current_remainder: 0u)));
+    private static Fin<EffectFact> Detached(PostEffects.PostEffectData data) => Try.lift(() =>
+        from stage in op.Row<PostEffects.PostEffectType).Run().Bind(static inner => inner);
 }
 
 [PostEffects.CustomPostEffect(
@@ -2359,8 +2291,7 @@ public sealed record QueuePolicy {
         CapabilitySet<QueueTrait> traits,
         Option<PackPolicy> residency = default,
         Option<Func<BakeDemand, Fin<Rasm.Numerics.Dimension>>> bakeSize = default,
-        Option<Func<ContentDigest, Fin<uint>>> contentDigest = default,
-        Op? key = null) =>
+        Option<Func<ContentDigest, Fin<uint>>> contentDigest = default) =>
         guard(capacity.Value > 0, key.OrDefault().InvalidInput(axis: nameof(capacity))).ToFin()
             .Map(_ => new QueuePolicy(capacity, baking, traits, residency, bakeSize, contentDigest));
 
@@ -2419,16 +2350,16 @@ public abstract partial record SceneDelta {
     public sealed record AttributesCase(Seq<Appearance> Concerns) : SceneDelta;
     public sealed record DynamicReadyCase : SceneDelta;
 
-    internal Fin<Unit> Release(Op key) => Switch(
+    internal Fin<Unit> Release() => Switch(
         state: key,
         viewCase: static (_, _) => Fin.Succ(unit),
-        geometryCase: static (op, row) => Custody.Release(
-            row.Added.Bind(static delta => delta.Patches).Strict(), static patch => Fin.Succ(patch.Geometry.Dispose()), op),
+        geometryCase: static (row) => Custody.Release(
+            row.Added.Bind(static delta => delta.Patches).Strict(), static patch => Fin.Succ(patch.Geometry.Dispose())),
         instanceCase: static (_, _) => Fin.Succ(unit),
         motionCase: static (_, _) => Fin.Succ(unit),
-        lightCase: static (op, row) => Custody.Release(row.Lights, static delta => Fin.Succ(delta.Data.Dispose()), op),
-        dynamicLightCase: static (op, row) => Custody.Release(row.Lights, static lease => Fin.Succ(lease.Dispose()), op),
-        sunCase: static (op, row) => op.Catch(() => Fin.Succ(row.Sun.Dispose())),
+        lightCase: static (row) => Custody.Release(row.Lights, static delta => Fin.Succ(delta.Data.Dispose())),
+        dynamicLightCase: static (row) => Custody.Release(row.Lights, static lease => Fin.Succ(lease.Dispose())),
+        sunCase: static (row) => Try.lift(() => Fin.Succ(row.Sun.Dispose())).Run().Bind(static inner => inner),
         materialCase: static (_, _) => Fin.Succ(unit),
         settingsCase: static (_, _) => Fin.Succ(unit),
         displaySettingsCase: static (_, _) => Fin.Succ(unit),
@@ -2453,26 +2384,25 @@ internal abstract partial record QueueCell {
 public sealed class SceneBatch : IDisposable {
     private readonly Seq<SceneDelta> deltas;
     private readonly Atom<MountPhase> phase = Atom(MountPhase.Open);
-    private readonly Op key;
 
-    internal SceneBatch(Seq<SceneDelta> deltas, Option<MonotonicStamp> opened, Option<MonotonicStamp> sealedAt, ModelUnit units, Op key) =>
-        (this.deltas, Opened, Sealed, Units, this.key) = (deltas, opened, sealedAt, units, key);
+    internal SceneBatch(Seq<SceneDelta> deltas, Option<MonotonicStamp> opened, Option<MonotonicStamp> sealedAt, ModelUnit units) =>
+        (this.deltas, Opened, Sealed, Units, this.key) = (deltas, opened, sealedAt, units);
 
     public Option<MonotonicStamp> Opened { get; }
     public Option<MonotonicStamp> Sealed { get; }
     public ModelUnit Units { get; }
     public Rasm.Numerics.Dimension Count => Rasm.Numerics.Dimension.Create(value: deltas.Count);
 
-    internal Fin<TResult> Use<TResult>(Func<Seq<SceneDelta>, Fin<TResult>> use, Op key) =>
-        from _ in guard(!phase.Value.Closes, key.InvalidContext()).ToFin()
-        from body in key.Need(use)
-        from result in key.Catch(() => body(deltas))
+    internal Fin<TResult> Use<TResult>(Func<Seq<SceneDelta>, Fin<TResult>> use) =>
+        from _ in guard(!phase.Value.Closes, new KernelFault.InvalidContext()).ToFin()
+        from body in Admit.Need(use)
+        from result in Try.lift(() => body(deltas)).Run().Bind(static inner => inner)
         select result;
 
     public Fin<Unit> Release() =>
-        Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), key.InvalidContext())
+        Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), new KernelFault.InvalidContext())
             is Transition<MountPhase>.Committed
-            ? Custody.Release(deltas, delta => delta.Release(key), key)
+            ? Custody.Release(deltas, delta => delta.Release())
             : Fin.Succ(unit);
 
     public void Dispose() => ignore(Release());
@@ -2535,19 +2465,18 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     private readonly MonotonicTimeline timeline;
     private readonly ModelUnit units;
     private readonly Context context;
-    private readonly Op key;
 
-    private SceneQueue(Guid plugin, uint document, ViewInfo view, QueuePolicy policy, MonotonicTimeline timeline, ModelUnit units, Context context, Op key)
+    private SceneQueue(Guid plugin, uint document, ViewInfo view, QueuePolicy policy, MonotonicTimeline timeline, ModelUnit units, Context context)
         : base(plugin, document, view, null,
             bRespectDisplayPipelineAttributes: policy.Traits.Admits(QueueTrait.RespectDisplayAttributes),
             bNotifyChanges: policy.Traits.Admits(QueueTrait.NotifyChanges)) =>
         (this.policy, this.timeline, this.units, this.context, this.key, lane) =
-        (policy, timeline, units, context, key, Open(policy, timeline, losses, key));
+        (policy, timeline, units, context, Open(policy, timeline, losses));
 
-    private SceneQueue(Guid plugin, CreatePreviewEventArgs preview, QueuePolicy policy, MonotonicTimeline timeline, ModelUnit units, Context context, Op key)
+    private SceneQueue(Guid plugin, CreatePreviewEventArgs preview, QueuePolicy policy, MonotonicTimeline timeline, ModelUnit units, Context context)
         : base(plugin, preview) =>
         (this.policy, this.timeline, this.units, this.context, this.key, lane) =
-        (policy, timeline, units, context, key, Open(policy, timeline, losses, key));
+        (policy, timeline, units, context, Open(policy, timeline, losses));
 
     public ChannelReader<SceneBatch> Deltas => lane.Reader;
 
@@ -2561,102 +2490,92 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         QueuePolicy policy,
         ModelUnit units,
         Context context,
-        TimeProvider clock,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from shape in op.Need(source)
-               from plugin in op.Need(owner)
-               from plan in op.Need(policy)
-               from regime in op.Need(units)
-               from ambient in op.Need(context)
-               from ticks in op.Need(clock)
-               from timeline in MonotonicTimeline.Of(provider: ticks, key: op)
+        TimeProvider clock) {
+        return from shape in Admit.Need(source)
+               from plugin in Admit.Need(owner)
+               from plan in Admit.Need(policy)
+               from regime in Admit.Need(units)
+               from ambient in Admit.Need(context)
+               from ticks in Admit.Need(clock)
+               from timeline in MonotonicTimeline.Of(provider: ticks)
                from queue in shape.Switch(
-                   (Plugin: plugin, Plan: plan, Timeline: timeline, Units: regime, Context: ambient, Op: op),
+                   (Plugin: plugin, Plan: plan, Timeline: timeline, Units: regime, Context: ambient),
                    liveCase: static (held, row) =>
-                       from lease in ViewportLease.Of(session: row.Session, target: row.Target, key: held.Op)
-                       from opened in lease.Use(borrow: seat => seat.Info(view => held.Op.Catch(() => Fin.Succ(new SceneQueue(
+                       from lease in ViewportLease.Of(session: row.Session, target: row.Target)
+                       from opened in lease.Use(borrow: seat => seat.Info(view => Try.lift(() => Fin.Succ(new SceneQueue(
                            plugin: held.Plugin.Id,
                            document: row.Session.Key,
                            view: view,
                            policy: held.Plan,
                            timeline: held.Timeline,
                            units: held.Units,
-                           context: held.Context,
-                           key: held.Op))), held.Op), key: held.Op)
+                           context: held.Context))).Run().Bind(static inner => inner)))
                        select opened,
-                   previewCase: static (held, row) => held.Op.Catch(() => Fin.Succ(new SceneQueue(
+                   previewCase: static (held, row) => Try.lift(() => Fin.Succ(new SceneQueue(
                        plugin: held.Plugin.Id,
                        preview: row.Args,
                        policy: held.Plan,
                        timeline: held.Timeline,
                        units: held.Units,
-                       context: held.Context,
-                       key: held.Op))))
+                       context: held.Context))).Run().Bind(static inner => inner))
                select queue;
     }
 
-    public Fin<Unit> Drive(QueueDrive drive, Op? key = null) {
-        Op op = key.OrDefault();
-        return from plan in op.Need(drive)
-               from _ in Live(op)
+    public Fin<Unit> Drive(QueueDrive drive) {
+        return from plan in Admit.Need(drive)
+               from _ in Live()
                from done in plan.Switch(
-                   (Queue: this, Op: op),
-                   worldCase: static (held, row) => held.Op.Catch(() =>
-                       Fin.Succ(Op.Side(() => held.Queue.CreateWorld(bFlushWhenReady: row.FlushWhenReady.Enabled)))),
-                   flushCase: static (held, _) => held.Op.Catch(() => Fin.Succ(Op.Side(held.Queue.Flush))),
-                   oneShotCase: static (held, _) => held.Op.Catch(() => Fin.Succ(Op.Side(held.Queue.OneShot))),
-                   materialsCase: static (held, _) => held.Op.Catch(() => Fin.Succ(Op.Side(held.Queue.RefreshMaterials))))
+                   this,
+                   worldCase: static (held, row) => Try.lift(() =>
+                       Fin.Succ(HostEdge.Side(() => held.CreateWorld(bFlushWhenReady: row.FlushWhenReady.Enabled)))).Run().Bind(static inner => inner),
+                   flushCase: static (held, _) => Try.lift(() => Fin.Succ(HostEdge.Side(held.Flush))).Run().Bind(static inner => inner),
+                   oneShotCase: static (held, _) => Try.lift(() => Fin.Succ(HostEdge.Side(held.OneShot))).Run().Bind(static inner => inner),
+                   materialsCase: static (held, _) => Try.lift(() => Fin.Succ(HostEdge.Side(held.RefreshMaterials))).Run().Bind(static inner => inner))
                select done;
     }
 
-    public Fin<ScenePulse> Pull(ScenePull pull, Op? key = null) {
-        Op op = key.OrDefault();
-        return from ask in op.Need(pull)
-               from _ in Live(op)
+    public Fin<ScenePulse> Pull(ScenePull pull) {
+        return from ask in Admit.Need(pull)
+               from _ in Live()
                from pulse in ask.Switch(
-                   (Queue: this, Op: op),
-                   viewCase: static (held, _) => held.Op.Catch(() =>
-                       Optional(held.Queue.GetQueueView()).ToFin(Fail: held.Op.MissingContext())
-                           .Map(static view => (ScenePulse)new ScenePulse.ViewPulse(View: view.Viewport.Id))),
-                   configCase: static (held, _) => held.Op.Catch(() =>
-                       Optional(held.Queue.GetQueueRenderSettings()).ToFin(Fail: held.Op.MissingContext())
-                           .Bind(settings => RenderConfig.Of(settings, held.Op))
-                           .Map(static config => (ScenePulse)new ScenePulse.ConfigPulse(config))),
-                   boundsCase: static (held, _) => held.Op.Catch(() => Fin.Succ<ScenePulse>(
-                       new ScenePulse.BoundsPulse(Bounds: held.Queue.GetQueueSceneBoundingBox(), Units: held.Queue.units))),
-                   sunCase: static (held, _) => held.Op.Catch(() =>
-                       Optional(held.Queue.GetQueueSun()).ToFin(Fail: held.Op.MissingContext())
+                   this,
+                   viewCase: static (held, _) => Try.lift(() =>
+                       Optional(held.GetQueueView()).ToFin(Fail: new KernelFault.MissingContext())
+                           .Map(static view => (ScenePulse)new ScenePulse.ViewPulse(View: view.Viewport.Id))).Run().Bind(static inner => inner),
+                   configCase: static (held, _) => Try.lift(() =>
+                       Optional(held.GetQueueRenderSettings()).ToFin(Fail: new KernelFault.MissingContext())
+                           .Bind(settings => RenderConfig.Of(settings))
+                           .Map(static config => (ScenePulse)new ScenePulse.ConfigPulse(config))).Run().Bind(static inner => inner),
+                   boundsCase: static (held, _) => Try.lift(() => Fin.Succ<ScenePulse>(
+                       new ScenePulse.BoundsPulse(Bounds: held.GetQueueSceneBoundingBox(), Units: held.units))).Run().Bind(static inner => inner),
+                   sunCase: static (held, _) => Try.lift(() =>
+                       Optional(held.GetQueueSun()).ToFin(Fail: new KernelFault.MissingContext())
                            .Map(static sun => (ScenePulse)new ScenePulse.SunPulse(
-                               Sun: new Lease<Light>.Owned(Value: (Light)sun.Duplicate())))),
-                   skylightCase: static (held, _) => held.Op.Catch(() =>
-                       Optional(held.Queue.GetQueueSkylight()).ToFin(Fail: held.Op.MissingContext())
-                           .Map(static sky => (ScenePulse)new ScenePulse.SkylightPulse(State: Sky(sky)))),
-                   groundCase: static (held, _) => held.Op.Catch(() =>
-                       Optional(held.Queue.GetQueueGroundPlane()).ToFin(Fail: held.Op.MissingContext())
-                           .Map(static ground => (ScenePulse)new ScenePulse.GroundPulse(State: Ground(ground)))))
+                               Sun: new Lease<Light>.Owned(Value: (Light)sun.Duplicate())))).Run().Bind(static inner => inner),
+                   skylightCase: static (held, _) => Try.lift(() =>
+                       Optional(held.GetQueueSkylight()).ToFin(Fail: new KernelFault.MissingContext())
+                           .Map(static sky => (ScenePulse)new ScenePulse.SkylightPulse(State: Sky(sky)))).Run().Bind(static inner => inner),
+                   groundCase: static (held, _) => Try.lift(() =>
+                       Optional(held.GetQueueGroundPlane()).ToFin(Fail: new KernelFault.MissingContext())
+                           .Map(static ground => (ScenePulse)new ScenePulse.GroundPulse(State: Ground(ground)))).Run().Bind(static inner => inner))
                select pulse;
     }
 
-    public Fin<Rasm.Numerics.Dimension> Drain(Func<SceneBatch, Fin<Unit>> take, Option<Env> env = default, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Rasm.Numerics.Dimension> Drain(Func<SceneBatch, Fin<Unit>> take, Option<Env> env = default) {
         SceneQueue self = this;
-        return from body in op.Need(take)
-               from _ in Live(op)
+        return from body in Admit.Need(take)
+               from _ in Live()
                from measured in timeline.Gauged<Rasm.Numerics.Dimension, DispatchLane>(
                    lane: DispatchLane.Deferred,
                    work: op,
-                   body: () => self.Apply(self.Taken(), body, env, op),
-                   key: op)
-               from applied in (Op.SideWhen(measured.Span.Breached, () => ignore(self.faults.Park(
-                       item: new RenderFault.HostRefused(
-                           Key: op, Member: nameof(Drain), Detail: measured.Span.Overrun.ToString())))),
+                   body: () => self.Apply(self.Taken(), body, env))
+               from applied in (HostEdge.SideWhen(measured.Span.Breached, () => ignore(self.faults.Park(
+                       item: new RenderFault.HostRefused(Member: nameof(Drain), Detail: measured.Span.Overrun.ToString())))),
                    measured.Value).Item2
                select applied;
     }
 
-    public Fin<Unit> Close(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Unit> Close() {
         SceneQueue self = this;
         return Cell.Step(
                 cell,
@@ -2665,15 +2584,14 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                     QueueCell.Sealing row => Some<QueueCell>(new QueueCell.Closed(row.Batch + row.Staged)),
                     _ => Option<QueueCell>.None,
                 },
-                op.InvalidContext()) switch {
+                new KernelFault.InvalidContext()) switch {
             Transition<QueueCell>.Committed { State: QueueCell.Closed closed } =>
                 Custody.Release(
                     Seq<Func<Fin<Unit>>>(
-                        () => self.Stranded(closed.Stranded, op),
-                        () => op.Catch(() => Fin.Succ(Op.Side(() => ignore(self.lane.Writer.TryComplete())))),
-                        () => self.Sweep(op),
-                        () => op.Catch(() => { self.Dispose(); return Fin.Succ(unit); })),
-                    op),
+                        () => self.Stranded(closed.Stranded),
+                        () => Try.lift(() => Fin.Succ(HostEdge.Side(() => ignore(self.lane.Writer.TryComplete())))).Run().Bind(static inner => inner),
+                        () => self.Sweep(),
+                        () => Try.lift(() => { self.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))),
             _ => Fin.Succ(unit),
         };
     }
@@ -2685,18 +2603,18 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override void ApplyMeshChanges(Guid[] deleted, List<Cq.Mesh> added) => StageBatch(
         source: toSeq(added),
         detach: Detach,
-        release: delta => Custody.Release(delta.Patches, static patch => Fin.Succ(patch.Geometry.Dispose()), key),
+        release: delta => Custody.Release(delta.Patches, static patch => Fin.Succ(patch.Geometry.Dispose())),
         project: rows => new SceneDelta.GeometryCase(Removed: toSeq(deleted).Strict(), Added: rows));
 
     protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<Cq.MeshInstance> addedOrChanged) => StageBatch(
         source: toSeq(addedOrChanged),
-        detach: payload => key.Catch(() => Fin.Succ(new InstanceDelta(
+        detach: payload => Try.lift(() => Fin.Succ(new InstanceDelta(
             Instance: payload.InstanceId,
             Root: payload.RootId,
             Parent: payload.ParentId,
             Mesh: payload.MeshId,
             Material: Touch(material: payload.MaterialId, instance: payload.InstanceId),
-            Placement: payload.Transform))),
+            Placement: payload.Transform))).Run().Bind(static inner => inner),
         release: static _ => Fin.Succ(unit),
         project: rows => new SceneDelta.InstanceCase(Removed: toSeq(deleted).Strict(), Upserted: rows));
 
@@ -2706,26 +2624,26 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override void ApplyLightChanges(List<Cq.Light> lightChanges) => StageBatch(
         source: toSeq(lightChanges),
         detach: payload =>
-            from change in key.Row<Cq.Light.Event, LightMotion>(candidate: payload.ChangeType)
-            from data in key.Catch(() => Fin.Succ(new Lease<Light>.Owned(Value: (Light)payload.Data.Duplicate())))
+            from change in FactoryBridge.Row<Cq.Light.Event, LightMotion>(candidate: payload.ChangeType)
+            from data in Try.lift(() => Fin.Succ(new Lease<Light>.Owned(Value: (Light)payload.Data.Duplicate()))).Run().Bind(static inner => inner)
             select new LightDelta(Id: payload.Id, Crc: payload.IdCrc, Change: change, Data: data),
         release: static delta => Fin.Succ(delta.Data.Dispose()),
         project: static rows => new SceneDelta.LightCase(Lights: rows));
 
     protected override void ApplyDynamicLightChanges(List<Light> dynamicLightChanges) => StageBatch(
         source: toSeq(dynamicLightChanges),
-        detach: payload => key.Catch(() => Fin.Succ<Lease<Light>>(new Lease<Light>.Owned(Value: (Light)payload.Duplicate()))),
+        detach: payload => Try.lift(() => Fin.Succ<Lease<Light>>(new Lease<Light>.Owned(Value: (Light)payload.Duplicate()))).Run().Bind(static inner => inner),
         release: static lease => Fin.Succ(lease.Dispose()),
         project: static rows => new SceneDelta.DynamicLightCase(Lights: rows));
 
-    protected override void ApplySunChanges(Light sun) => ignore(Observe(key.Catch(() => Fin.Succ(
-        Stage(new SceneDelta.SunCase(Sun: new Lease<Light>.Owned(Value: (Light)sun.Duplicate())))))));
+    protected override void ApplySunChanges(Light sun) => ignore(Observe(Try.lift(() => Fin.Succ(
+        Stage(new SceneDelta.SunCase(Sun: new Lease<Light>.Owned(Value: (Light)sun.Duplicate()))))).Run().Bind(static inner => inner)));
 
     protected override void ApplyMaterialChanges(List<Cq.Material> mats) => ignore(Stage(new SceneDelta.MaterialCase(
         Touches: toSeq(mats).Map(payload => Touch(material: payload.Id, instance: payload.MeshInstanceId)).Strict())));
 
     protected override void ApplyRenderSettingsChanges(RenderSettings rs) => ignore(Observe(
-        RenderConfig.Of(rs, key).Map(config => Stage(new SceneDelta.SettingsCase(Config: config)))));
+        RenderConfig.Of(rs).Map(config => Stage(new SceneDelta.SettingsCase(Config: config)))));
 
     protected override void ApplyRenderSettingsChanges(Cq.DisplayRenderSettings settings) =>
         ignore(Stage(new SceneDelta.DisplaySettingsCase()));
@@ -2733,8 +2651,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override void ApplyEnvironmentChanges(RenderEnvironment.Usage usage) => ignore(Observe(
         usage != RenderEnvironment.Usage.None && (usage | EnvironmentMask) == EnvironmentMask
             ? Fin.Succ(EnvironmentPolicy.Choose(row => (usage & row.Bit) != 0 ? Some(row.Role) : None).Strict())
-            : Fin.Fail<Seq<EnvironmentRole>>(new RenderFault.HostRefused(
-                Key: key, Member: nameof(ApplyEnvironmentChanges), Detail: usage.ToString()))
+            : Fin.Fail<Seq<EnvironmentRole>>(new RenderFault.HostRefused(Member: nameof(ApplyEnvironmentChanges), Detail: usage.ToString()))
         ).Map(roles => Stage(new SceneDelta.EnvironmentCase(Roles: roles))));
 
     protected override void ApplySkylightChanges(Cq.Skylight skylight) =>
@@ -2743,8 +2660,8 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override void ApplyGroundPlaneChanges(Cq.GroundPlane gp) =>
         ignore(Stage(new SceneDelta.GroundCase(State: Ground(gp))));
 
-    protected override void ApplyLinearWorkflowChanges(LinearWorkflow lw) => ignore(Observe(key.Catch(() =>
-        Fin.Succ(Stage(new SceneDelta.WorkflowCase(Evidence: WorkflowEvidence.Of(lw)))))));
+    protected override void ApplyLinearWorkflowChanges(LinearWorkflow lw) => ignore(Observe(Try.lift(() =>
+        Fin.Succ(Stage(new SceneDelta.WorkflowCase(Evidence: WorkflowEvidence.Of(lw))))).Run().Bind(static inner => inner)));
 
     protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<Cq.ClippingPlane> addedOrModified) =>
         ignore(Stage(new SceneDelta.ClipCase(
@@ -2755,13 +2672,13 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         ignore(Stage(new SceneDelta.DynamicClipCase(Changed: toSeq(changed).Map(QueueMap.Detach).Strict())));
 
     protected override void ApplyDisplayPipelineAttributesChanges(DisplayPipelineAttributes displayPipelineAttributes) =>
-        ignore(Observe(Appearance.Of(displayPipelineAttributes, key)
+        ignore(Observe(Appearance.Of(displayPipelineAttributes)
             .Map(concerns => Stage(new SceneDelta.AttributesCase(Concerns: concerns)))));
 
     // --- [NOTIFY_BRACKET]
     protected override void NotifyBeginUpdates() {
         base.NotifyBeginUpdates();
-        _ = opened.Swap(_ => timeline.Capture(key: key).ToOption());
+        _ = opened.Swap(_ => Error.New(key: key.Message, key: key).ToOption());
     }
 
     protected override void NotifyEndUpdates() {
@@ -2771,7 +2688,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                 static held => held is QueueCell.Open row && !row.Staged.IsEmpty
                     ? Some<QueueCell>(new QueueCell.Sealing(Batch: row.Staged, Staged: Seq<SceneDelta>()))
                     : Option<QueueCell>.None,
-                key.InvalidContext()) is Transition<QueueCell>.Committed { State: QueueCell.Sealing cut }
+                new KernelFault.InvalidContext()) is Transition<QueueCell>.Committed { State: QueueCell.Sealing cut }
             ? Publish(cut.Batch)
             : unit;
     }
@@ -2789,7 +2706,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override int BakingSize(RhinoObject obj, RenderMaterial material, TextureType type) => policy.BakeSize.Match(
         Some: size => Observe(
                 from slot in HostRow<TextureType>.Of(native: type, key: key)
-                from measured in key.Catch(() => size(new BakeDemand(Subject: obj.Id, Material: material.RenderHash, Slot: slot)))
+                from measured in Try.lift(() => size(new BakeDemand(Subject: obj.Id, Material: material.RenderHash, Slot: slot))).Run().Bind(static inner => inner)
                 select measured)
             .Match(Succ: static value => value.Value, Fail: _ => base.BakingSize(obj, material, type)),
         None: () => base.BakingSize(obj, material, type));
@@ -2797,20 +2714,20 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override uint ContentRenderHash(RenderContent content, CrcRenderHashFlags flags, string excluded, LinearWorkflow lw) =>
         policy.ContentDigest.Match(
             Some: digest => Observe(
-                    from probe in Op.Text(excluded).Match(
+                    from probe in HostEdge.Text(excluded).Match(
                         Some: named => HashProbe.Excluding(flags, named),
                         None: () => HashProbe.Excluding(flags))
                     from address in ContentRef.Of(content.Id)
-                    from hashed in key.Catch(() => digest(new ContentDigest(
-                        Content: address, Probe: probe, Workflow: WorkflowEvidence.Of(lw))))
+                    from hashed in Try.lift(() => digest(new ContentDigest(
+                        Content: address, Probe: probe, Workflow: WorkflowEvidence.Of(lw)))).Run().Bind(static inner => inner)
                     select hashed)
                 .Match(Succ: static value => value, Fail: _ => base.ContentRenderHash(content, flags, excluded, lw)),
             None: () => base.ContentRenderHash(content, flags, excluded, lw));
 
     // --- [QUEUE_INTERNALS]
-    private Fin<Unit> Live(Op op) => guard(cell.Value is not QueueCell.Closed, op.InvalidContext()).ToFin();
+    private Fin<Unit> Live() => guard(cell.Value is not QueueCell.Closed, new KernelFault.InvalidContext()).ToFin();
 
-    private static Channel<SceneBatch> Open(QueuePolicy policy, MonotonicTimeline timeline, Ring<QueueLoss> losses, Op key) =>
+    private static Channel<SceneBatch> Open(QueuePolicy policy, MonotonicTimeline timeline, Ring<QueueLoss> losses) =>
         Channel.CreateBounded<SceneBatch>(
             new BoundedChannelOptions(policy.Capacity.Value) {
                 FullMode = BoundedChannelFullMode.DropOldest,
@@ -2819,24 +2736,23 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             },
             dropped => {
                 _ = dropped.Release();
-                _ = losses.Park(item: new QueueLoss(At: timeline.Capture(key: key).ToOption(), Deltas: dropped.Count));
+                _ = losses.Park(item: new QueueLoss(At: Error.New(key: key.Message).ToOption(), Deltas: dropped.Count));
             });
 
     private Unit Publish(Seq<SceneDelta> cut) {
         SceneBatch batch = new(
             deltas: cut,
             opened: opened.Value,
-            sealedAt: timeline.Capture(key: key).ToOption(),
-            units: units,
-            key: key);
-        _ = Op.SideWhen(!lane.Writer.TryWrite(batch), () => {
+            sealedAt: Error.New(key: key.Message, key: key).ToOption(),
+            units: units);
+        _ = HostEdge.SideWhen(!lane.Writer.TryWrite(batch), () => {
             _ = batch.Release();
             _ = losses.Park(item: new QueueLoss(At: batch.Sealed, Deltas: batch.Count));
         });
         return ignore(Cell.Step(
             cell,
             static held => held is QueueCell.Sealing row ? Some<QueueCell>(new QueueCell.Open(row.Staged)) : None,
-            key.InvalidContext()));
+            new KernelFault.InvalidContext()));
     }
 
     private Transition<QueueCell> Stage(SceneDelta delta) {
@@ -2847,9 +2763,9 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                 QueueCell.Sealing row => Some<QueueCell>(row with { Staged = row.Staged.Add(delta) }),
                 _ => Option<QueueCell>.None,
             },
-            key.InvalidContext());
+            new KernelFault.InvalidContext());
         return staged is Transition<QueueCell>.Refused
-            ? (ignore(Observe(delta.Release(key))), staged).Item2
+            ? (ignore(Observe(delta.Release())), staged).Item2
             : staged;
     }
 
@@ -2863,15 +2779,15 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     private Fin<Seq<TOut>> DetachAll<TIn, TOut>(Seq<TIn> source, Func<TIn, Fin<TOut>> detach, Func<TOut, Fin<Unit>> release) =>
         source.Fold(
             Fin.Succ(Seq<TOut>()),
-            (accepted, input) => accepted.Bind(done => key.Catch(() => detach(input))
+            (accepted, input) => accepted.Bind(done => Try.lift(() => detach(input)).Run().Bind(static inner => inner)
                 .Map(done.Add)
-                .Rollback(done, release, key)));
+                .Rollback(done, release)));
 
-    private Fin<Rasm.Numerics.Dimension> Apply(Seq<SceneBatch> batches, Func<SceneBatch, Fin<Unit>> take, Option<Env> env, Op op) {
+    private Fin<Rasm.Numerics.Dimension> Apply(Seq<SceneBatch> batches, Func<SceneBatch, Fin<Unit>> take, Option<Env> env) {
         (Seq<Error> refused, Seq<Rasm.Numerics.Dimension> applied) = batches
             .Map(batch => env.Map(static held => held.Cancellation.IsCancellationRequested).IfNone(false)
                 ? batch.Release().Bind(_ => Fin.Fail<Rasm.Numerics.Dimension>(Errors.Cancelled))
-                : op.Catch(() => take(batch)).Match(
+                : Try.lift(() => take(batch)).Run().Bind(static inner => inner).Match(
                     Succ: _ => Fin.Succ(batch.Count),
                     Fail: cause => batch.Release().Match(
                         Succ: _ => Fin.Fail<Rasm.Numerics.Dimension>(cause),
@@ -2890,17 +2806,17 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         return held.Strict();
     }
 
-    private Fin<Unit> Sweep(Op op) {
+    private Fin<Unit> Sweep() {
         Seq<SceneBatch> residue = Taken();
         return Custody.Release(residue, batch => (
-            losses.Park(item: new QueueLoss(At: timeline.Capture(key: op).ToOption(), Deltas: batch.Count)),
-            batch.Release()).Item2, op);
+            losses.Park(item: new QueueLoss(At: Error.New(key: op.Message, key: op).ToOption(), Deltas: batch.Count)),
+            batch.Release()).Item2);
     }
 
-    private Fin<Unit> Stranded(Seq<SceneDelta> rows, Op op) => rows.IsEmpty
+    private Fin<Unit> Stranded(Seq<SceneDelta> rows) => rows.IsEmpty
         ? Fin.Succ(unit)
-        : (losses.Park(item: new QueueLoss(At: timeline.Capture(key: op).ToOption(), Deltas: Rasm.Numerics.Dimension.Create(value: rows.Count))),
-           Custody.Release(rows, delta => delta.Release(op), op)).Item2;
+        : (losses.Park(item: new QueueLoss(At: Error.New(key: op.Message).ToOption(), Deltas: Rasm.Numerics.Dimension.Create(value: rows.Count))),
+           Custody.Release(rows, delta => delta.Release())).Item2;
 
     private MaterialTouch Touch(uint material, uint instance) => new(
         Material: material,
@@ -2912,27 +2828,27 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             source: toSeq(payload.GetMeshes()),
             detach: Patch,
             release: static patch => Fin.Succ(patch.Geometry.Dispose()))
-        from delta in key.Catch(() => Fin.Succ(new MeshDelta(
+        from delta in Try.lift(() => Fin.Succ(new MeshDelta(
             Id: payload.Id(),
             Ocs: payload.OcsTransform,
             Mappings: toSeq(payload.Mappings).Map(QueueMap.Detach).Strict(),
-            Patches: patches.Strict())))
+            Patches: patches.Strict()))).Run().Bind(static inner => inner)
         select delta;
 
     private Fin<MeshPatch> Patch(Mesh native) =>
-        from geometry in key.Catch(() => Optional(native.Duplicate() as Mesh).ToFin(key.InvalidResult())
-            .Map(static duplicate => (Lease<Mesh>)new Lease<Mesh>.Owned(Value: duplicate)))
-        from patch in (from space in MeshSpace.Of(native: geometry.Resource, context: context, key: key)
-                       from answer in Reconciliation.Apply(new ReconcileOp.Encode(EncodeForm.Of(space)), key)
+        from geometry in Try.lift(() => Optional(native.Duplicate() as Mesh).ToFin(new KernelFault.InvalidResult())
+            .Map(static duplicate => (Lease<Mesh>)new Lease<Mesh>.Owned(Value: duplicate))).Run().Bind(static inner => inner)
+        from patch in (from space in MeshSpace.Of(native: geometry.Resource, context: context)
+                       from answer in Reconciliation.Apply(new ReconcileOp.Encode(EncodeForm.Of(space)))
                        from digest in answer.Switch(
                            state: key,
                            digest: static (_, row) => Fin.Succ(row.Value),
-                           reconciled: static (op, _) => Fin.Fail<GeometryHash>(op.InvalidResult(detail: nameof(ReconcileAnswer.Reconciled))))
+                           reconciled: static (op, _) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult(Detail: Some(nameof(ReconcileAnswer.Reconciled)))))
                        from residency in policy.Residency
-                           .TraverseM(pack => Encode.Apply(new PackOp.MeshPatch(Source: space, Policy: pack), key))
+                           .TraverseM(pack => Encode.Apply(new PackOp.MeshPatch(Source: space, Policy: pack)))
                            .As()
                        select new MeshPatch(Content: digest, Geometry: geometry, Residency: residency))
-            .Rollback(() => Fin.Succ(geometry.Dispose()), key)
+            .Rollback(() => Fin.Succ(geometry.Dispose()))
         select patch;
 
     private static Option<SkyDelta> Sky(Cq.Skylight payload) =>
@@ -2952,12 +2868,10 @@ public static class SceneMarks {
     public static Fin<DrawTally> Render(
         SceneBatch batch,
         Canvas canvas,
-        Func<MeshPatch, ShadedMaterial> material,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Optional(batch).ToFin(op.InvalidInput())
-               from project in Optional(material).ToFin(op.InvalidInput())
-               from rendered in source.Use(deltas => Marks.Paint(canvas, Project(deltas, project), op), op)
+        Func<MeshPatch, ShadedMaterial> material) {
+        return from source in Optional(batch).ToFin(new KernelFault.InvalidInput())
+               from project in Optional(material).ToFin(new KernelFault.InvalidInput())
+               from rendered in source.Use(deltas => Marks.Paint(canvas, Project(deltas, project)))
                select rendered;
     }
 

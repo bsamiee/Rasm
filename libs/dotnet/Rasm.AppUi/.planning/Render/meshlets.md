@@ -436,7 +436,7 @@ public sealed record ResidencyBudget(
         let prefetch = Prefetchable(sorted.Reachable, kept, budget - admitted.Bytes)
         select new ResidencyPlan(
             Resident: admitted.Kept,
-            Evict: prior.Resident.Map(static tile => tile.ContentKey).Filter(key => !kept.Contains(key)),
+            Evict: prior.Resident.Map(static tile => tile.ContentKey).Filter(key => !kept.Contains()),
             Instances: Instanced(kept),
             Prefetch: prefetch,
             Frame: frame);
@@ -519,17 +519,16 @@ public sealed partial class ResidencyPool {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class PrefetchLane {
-    private static readonly Op Fetch = Op.Of(name: "appui.meshlet.prefetch");
     private readonly Channel<PrefetchRequest> queue;
     private readonly Atom<long> shed = Atom(0L);
 
     private PrefetchLane(Channel<PrefetchRequest> queue) => this.queue = queue;
 
-    public static Fin<PrefetchLane> Of(int capacity, Op key) =>
+    public static Fin<PrefetchLane> Of(int capacity) =>
         capacity > 0
             ? Fin.Succ(new PrefetchLane(Channel.CreateBounded<PrefetchRequest>(
                 new BoundedChannelOptions(capacity) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true })))
-            : Fin.Fail<PrefetchLane>(key.InvalidInput());
+            : Fin.Fail<PrefetchLane>(new KernelFault.InvalidInput());
 
     public long Shed => shed.Value;
 
@@ -541,13 +540,13 @@ public sealed class PrefetchLane {
         RedrivePolicy policy, Action<Error> fault, CancellationToken token) =>
         IO.liftAsync(async () => {
             await foreach (PrefetchRequest request in queue.Reader.ReadAllAsync(token)) {
-                Fin<ReadOnlyMemory<byte>> bytes = await Fetch.Catch(async _ =>
-                    Fin.Succ(await IO.retry(policy.Curve, blobs.Read(request.ContentKey)).RunAsync().ConfigureAwait(false)), token)
+                Fin<ReadOnlyMemory<byte>> bytes = await Try.lift(async _ =>
+                    Fin.Succ(await IO.retry(policy.Curve, blobs.Read(request.ContentKey)).RunAsync().ConfigureAwait(false))).Run().Bind(static inner => inner)
                     .ConfigureAwait(false);
                 await bytes.Match(
                     Succ: async payload => {
-                        Fin<Unit> landed = await Fetch.Catch(async _ =>
-                            await upload(request.ContentKey, payload).RunAsync().ConfigureAwait(false), token)
+                        Fin<Unit> landed = await Try.lift(async _ =>
+                            await upload(request.ContentKey, payload).RunAsync().ConfigureAwait(false)).Run().Bind(static inner => inner)
                             .ConfigureAwait(false);
                         ignore(landed.IfFail(fun(fault)));
                         return unit;

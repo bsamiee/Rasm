@@ -44,7 +44,7 @@ public abstract partial record BlendKind {
 
     public double ErosionFactor { get; }
     public static BlendKind Hard { get; } = new HardCase();
-    public static Fin<BlendKind> Polynomial(double k, Op? key = null) =>
+    public static Fin<BlendKind> Polynomial(double k) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new PolynomialCase(K: v));
 
     internal double Smin(double a, double b) => Switch(state: (A: a, B: b),
@@ -73,10 +73,10 @@ public abstract partial record RayPolicy {
     public sealed record SegmentCase(BoundarySense Sense, PositiveMagnitude Length) : RayPolicy;
     public static RayPolicy Forward { get; } = new InfiniteCase(Sense: BoundarySense.Toward);
     public static RayPolicy Reverse { get; } = new InfiniteCase(Sense: BoundarySense.Away);
-    public static Fin<RayPolicy> Segment(double length, Option<BoundarySense> sense = default, Op? key = null) =>
+    public static Fin<RayPolicy> Segment(double length, Option<BoundarySense> sense = default) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: length)
             .Map(l => (RayPolicy)new SegmentCase(Sense: sense.IfNone(BoundarySense.Toward), Length: l));
-    internal Fin<TOut> Project<TOut>(Point3d origin, Direction direction, Context context, Op key);
+    internal Fin<TOut> Project<TOut>(Point3d origin, Direction direction, Context context);
 }
 
 [Union]
@@ -85,17 +85,16 @@ public abstract partial record BouncePolicy {
     public sealed record ReflectCase : BouncePolicy;
     public sealed record RefractCase(PositiveMagnitude EtaIncident, PositiveMagnitude EtaTransmitted) : BouncePolicy;
     public static BouncePolicy Reflect { get; } = new ReflectCase();
-    public static Fin<BouncePolicy> Refract(double etaIncident, double etaTransmitted, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.AcceptValidated<PositiveMagnitude>(etaIncident).ToValidation(),
-                op.AcceptValidated<PositiveMagnitude>(etaTransmitted).ToValidation())
+    public static Fin<BouncePolicy> Refract(double etaIncident, double etaTransmitted) {
+        return (FactoryBridge.Accept<PositiveMagnitude>(etaIncident).ToValidation(),
+                FactoryBridge.Accept<PositiveMagnitude>(etaTransmitted).ToValidation())
             .Apply(static (i, t) => (BouncePolicy)new RefractCase(i, t)).As().ToFin();
     }
-    internal Fin<Direction> Apply(Direction incident, Direction normal, Op key) => Switch(
-        state: (Incident: incident, Normal: normal, Key: key),
+    internal Fin<Direction> Apply(Direction incident, Direction normal) => Switch(
+        state: (Incident: incident, Normal: normal),
         reflectCase: static (s, _) => Fin.Succ(s.Incident.Reflect(normal: s.Normal)),
         refractCase: static (s, r) => Direction.Refract(incident: s.Incident, normal: s.Normal,
-            etaIncident: r.EtaIncident.Value, etaTransmitted: r.EtaTransmitted.Value, key: s.Key));
+            etaIncident: r.EtaIncident.Value, etaTransmitted: r.EtaTransmitted.Value));
 }
 
 [SmartEnum<long>(KeyMemberName = nameof(IDrawLane<FieldLane>.Lane))]
@@ -205,25 +204,23 @@ public abstract partial record SdfKind {
 
     public double Lipschitz { get; }
     internal abstract double Distance(Point3d local);
-    public static Fin<SdfKind> CappedCone(double halfHeight, double r1, double r2, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.AcceptValidated<PositiveMagnitude>(halfHeight).ToValidation(),
-                guard(r1 >= 0.0 && r2 >= 0.0 && (r1 > 0.0 || r2 > 0.0) && double.IsFinite(r1) && double.IsFinite(r2), op.InvalidInput()).ToFin().ToValidation())
+    public static Fin<SdfKind> CappedCone(double halfHeight, double r1, double r2) {
+        return (FactoryBridge.Accept<PositiveMagnitude>(halfHeight).ToValidation(),
+                guard(r1 >= 0.0 && r2 >= 0.0 && (r1 > 0.0 || r2 > 0.0) && double.IsFinite(r1) && double.IsFinite(r2), new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply((h, _) => (SdfKind)new CappedConeCase(h, r1, r2)).As().ToFin();
     }
-    public static Fin<SdfKind> Cone(double height, double halfAngleRadians, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.AcceptValidated<PositiveMagnitude>(height).ToValidation(),
-                op.AcceptValidated<VectorAngle>(halfAngleRadians).ToValidation())
+    public static Fin<SdfKind> Cone(double height, double halfAngleRadians) {
+        return (FactoryBridge.Accept<PositiveMagnitude>(height).ToValidation(),
+                FactoryBridge.Accept<VectorAngle>(halfAngleRadians).ToValidation())
             .Apply(static (h, a) => (Height: h, HalfAngle: a)).As().ToFin()
-            .Bind(pair => guard(pair.HalfAngle.Value < Math.PI / 2.0, op.InvalidInput()).ToFin()
+            .Bind(pair => guard(pair.HalfAngle.Value < Math.PI / 2.0, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SdfKind)new ConeCase(pair.Height, pair.HalfAngle)));
     }
 
-    internal Fin<double> SignedDistance(Point3d worldPoint, Plane pose, Op key) =>
+    internal Fin<double> SignedDistance(Point3d worldPoint, Plane pose) =>
         pose.RemapToPlaneSpace(ptSample: worldPoint, ptPlane: out Point3d local)
-            ? key.AcceptValue(value: Distance(local: local))
-            : Fin.Fail<double>(key.InvalidResult());
+            ? Acceptance.Value(value: Distance(local: local))
+            : Fin.Fail<double>(new KernelFault.InvalidResult());
 }
 ```
 
@@ -241,12 +238,11 @@ public abstract partial record SdfKind {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct NoisePolicy(int Seed, FieldLane Lane, Dimension Octaves, PositiveMagnitude Persistence, PositiveMagnitude Lacunarity, PositiveMagnitude Frequency) {
     internal int Lattice => unchecked((int)Deterministic.Stream(lanes: [Seed, Lane.Lane]));
-    public static Fin<NoisePolicy> Of(int seed, int octaves, double persistence, double lacunarity, double frequency, Option<FieldLane> lane = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.AcceptValidated<Dimension>(octaves).ToValidation(),
-                op.AcceptValidated<PositiveMagnitude>(persistence).ToValidation(),
-                op.AcceptValidated<PositiveMagnitude>(lacunarity).ToValidation(),
-                op.AcceptValidated<PositiveMagnitude>(frequency).ToValidation())
+    public static Fin<NoisePolicy> Of(int seed, int octaves, double persistence, double lacunarity, double frequency, Option<FieldLane> lane = default) {
+        return (FactoryBridge.Accept<Dimension>(octaves).ToValidation(),
+                FactoryBridge.Accept<PositiveMagnitude>(persistence).ToValidation(),
+                FactoryBridge.Accept<PositiveMagnitude>(lacunarity).ToValidation(),
+                FactoryBridge.Accept<PositiveMagnitude>(frequency).ToValidation())
             .Apply((count, gain, gap, rate) => new NoisePolicy(seed, lane.IfNone(FieldLane.Noise), count, gain, gap, rate)).As().ToFin();
     }
 }
@@ -316,16 +312,15 @@ public abstract partial record ScalarField {
     public sealed record SibsonCase(NaturalNeighborField Field, Arr<double> Values, ReconstructionFit Fit) : ScalarField(None);
     public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonSolve Solve) : ScalarField(None);
 
-    public static Fin<ScalarField> Lattice(CellLattice grid, Arr<double> values, Option<LatticeInterpolation> interp = default, Op? key = null) =>
+    public static Fin<ScalarField> Lattice(CellLattice grid, Arr<double> values, Option<LatticeInterpolation> interp = default) =>
         from _ in guard(values.Count == grid.CellCount && values.ForAll(double.IsFinite), key.OrDefault().InvalidInput()).ToFin()
         select (ScalarField)new LatticeCase(Grid: grid, Values: values, Interp: interp.IfNone(LatticeInterpolation.Linear));
-    public static Fin<ScalarField> Density(Point3d center, double spread, double strength, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.AcceptValidated<PositiveMagnitude>(spread).ToValidation(),
-                guard(double.IsFinite(strength) && center.IsValid, op.InvalidInput()).ToFin().ToValidation())
+    public static Fin<ScalarField> Density(Point3d center, double spread, double strength) {
+        return (FactoryBridge.Accept<PositiveMagnitude>(spread).ToValidation(),
+                guard(double.IsFinite(strength) && center.IsValid, new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply((s, _) => (ScalarField)new DensityCase(center, s, strength)).As().ToFin();
     }
-    public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources, Op? key = null) =>
+    public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources) =>
         guard(!sources.IsEmpty && sources.ForAll(v => v >= 0 && v < space.Native.Vertices.Count), key.OrDefault().InvalidInput())
             .ToFin().Map(_ => (ScalarField)new GeodesicCase(Space: space, Sources: sources));
 
@@ -337,27 +332,27 @@ public abstract partial record ScalarField {
     public static ScalarField operator *(ScalarField field, double scale) => new ScaledCase(Source: field, Scale: scale);
     public static ScalarField operator *(double scale, ScalarField field) => new ScaledCase(Source: field, Scale: scale);
 
-    internal Fin<double> SampleScalar(Point3d sample, Context context, Op key) =>
-        key.AcceptValue(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context, Key: key),
-            constantCase: static (s, c) => s.Key.AcceptValue(value: c.Value),
+    internal Fin<double> SampleScalar(Point3d sample, Context context) =>
+        Acceptance.Value(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context),
+            constantCase: static (s, c) => Acceptance.Value(value: c.Value),
             distanceCase: static (s, c) =>
-                from hit in c.Source.Closest(sample: s.Sample, key: s.Key)
+                from hit in c.Source.Closest(sample: s.Sample)
                 from raw in c.Source.SignedReach(hit: hit)
-                    ? c.Source.SignedDistance(sample: s.Sample, key: s.Key)
-                    : hit.Distance.ToFin(Fail: s.Key.InvalidResult())
+                    ? c.Source.SignedDistance(sample: s.Sample)
+                    : hit.Distance.ToFin(Fail: new KernelFault.InvalidResult())
                 select c.Sense.Sign * raw,
             csgCase: static (s, c) =>
                 (c.Left.SampleScalar(s.Sample, s.Context, s.Key).ToValidation(),
                  c.Right.SampleScalar(s.Sample, s.Context, s.Key).ToValidation())
                 .Apply((l, r) => c.Op.Combine(l, r, c.Smoothing)).As().ToFin(),
-            primitiveCase: static (s, c) => c.Shape.SignedDistance(worldPoint: s.Sample, pose: c.Pose, key: s.Key),
+            primitiveCase: static (s, c) => c.Shape.SignedDistance(worldPoint: s.Sample, pose: c.Pose),
             laplacianCase: static (s, c) => Nabla.LaplacianAt(
-                sampler: p => c.Source.SampleScalar(sample: p, context: s.Context, key: s.Key),
-                point: s.Sample, eps: c.Epsilon.Value, key: s.Key),
-            geodesicCase: static (s, c) => GeodesicKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: s.Sample, key: s.Key),
-            signedDistanceFromMeshCase: static (s, c) => MeshSdf.SignedDistanceDetailed(space: c.Space, policy: c.Policy, sample: s.Sample, key: s.Key).Map(static r => r.Distance),
-            latticeCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid, values: c.Values, interp: c.Interp, local: c.Grid.Locate(sample: s.Sample))),
-            poissonCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid.Grid, values: c.Grid.Chi, interp: LatticeInterpolation.Linear, local: c.Grid.Grid.Locate(sample: s.Sample)) - c.Gamma)));
+                sampler: p => c.Source.SampleScalar(sample: p, context: s.Context),
+                point: s.Sample, eps: c.Epsilon.Value),
+            geodesicCase: static (s, c) => GeodesicKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: s.Sample),
+            signedDistanceFromMeshCase: static (s, c) => MeshSdf.SignedDistanceDetailed(space: c.Space, policy: c.Policy, sample: s.Sample).Map(static r => r.Distance),
+            latticeCase: static (s, c) => Acceptance.Value(value: ReconstructLattice(grid: c.Grid, values: c.Values, interp: c.Interp, local: c.Grid.Locate(sample: s.Sample))),
+            poissonCase: static (s, c) => Acceptance.Value(value: ReconstructLattice(grid: c.Grid.Grid, values: c.Grid.Chi, interp: LatticeInterpolation.Linear, local: c.Grid.Grid.Locate(sample: s.Sample)) - c.Gamma)));
 
     private static double ReconstructLattice(CellLattice grid, Arr<double> values, LatticeInterpolation interp, Point3d local) {
         (int columns, int rows, int layers) = (grid.Columns.Value, grid.Rows.Value, grid.Layers.Value);
@@ -371,19 +366,18 @@ public abstract partial record ScalarField {
         return grid.Rank is 3 ? interp.Axis(tap: Plane, t: fz) : Plane(dz: 0);
     }
 
-    public Fin<Arr<double>> SampleLattice(CellLattice grid, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(grid.CellCount <= int.MaxValue, op.InvalidInput()).ToFin()
+    public Fin<Arr<double>> SampleLattice(CellLattice grid, Context context) {
+        return from _ in guard(grid.CellCount <= int.MaxValue, new KernelFault.InvalidInput()).ToFin()
                from values in toSeq(Enumerable.Range(0, (int)grid.CellCount)).TraverseM(index => {
                    (int column, int row, int layer) = grid.Coordinate(linear: index);
-                   return SampleScalar(sample: grid.Center(column: column, row: row, layer: layer), context: context, key: op)
-                       .MapFail(cause => cause + op.InvalidResult(detail: $"lattice-cell:{column},{row},{layer}"));
+                   return SampleScalar(sample: grid.Center(column: column, row: row, layer: layer), context: context)
+                       .MapFail(cause => cause + new KernelFault.InvalidResult(Detail: Some($"lattice-cell:{column},{row},{layer}")));
                }).As()
                select Arr.createRange(values);
     }
 
-    public Fin<FieldSample> SampleDetailed(Point3d sample, Context context, Op? key = null);
-    public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null);
+    public Fin<FieldSample> SampleDetailed(Point3d sample, Context context);
+    public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context);
 }
 ```
 
@@ -404,63 +398,63 @@ public abstract partial record VectorField {
     // --- [MESH_SOLVERS]
     public sealed record CrossFieldCase(MeshSpace Space, RosyOrder Order, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones) : VectorField;
 
-    public static Fin<VectorField> CrossField(MeshSpace space, RosyOrder order, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Op? key = null) =>
+    public static Fin<VectorField> CrossField(MeshSpace space, RosyOrder order, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones) =>
         guard(constraints.Map(rows => rows.ForAll(row => row.Vertex >= 0 && row.Vertex < space.Native.Vertices.Count)).IfNone(true)
               && cones.Map(rows => rows.ForAll(row => row.Vertex >= 0 && row.Vertex < space.Native.Vertices.Count && double.IsFinite(row.HolonomyDeficit))).IfNone(true),
               key.OrDefault().InvalidInput())
             .ToFin().Map(_ => (VectorField)new CrossFieldCase(Space: space, Order: order, Constraints: constraints, Cones: cones));
 
-    internal Fin<Vector3d> SampleVector(Point3d sample, Context context, Op key) =>
-        key.AcceptValue(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context, Key: key),
+    internal Fin<Vector3d> SampleVector(Point3d sample, Context context) =>
+        Acceptance.Value(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context),
             vortexCase: static (s, c) => RotationalField(anchor: c.Anchor, axis: c.Axis, falloff: c.Falloff, axial: 0.0, swirl: 1.0, state: s),
             helicalCase: static (s, c) => RotationalField(anchor: c.Anchor, axis: c.Axis, falloff: c.Falloff, axial: c.Axial, swirl: c.Swirl, state: s),
-            influenceCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context, key: s.Key,
+            influenceCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context,
                 hitToScaled: (hit, op) =>
-                    from distance in hit.Distance.ToFin(Fail: op.InvalidResult())
+                    from distance in hit.Distance.ToFin(Fail: new KernelFault.InvalidResult())
                     let residual = c.ShellRadius.Map(r => Math.Abs(distance - r.Value)).IfNone(distance)
                     let shellSign = c.ShellRadius.Map(r => distance >= r.Value ? 1.0 : -1.0).IfNone(1.0)
-                    from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, tolerance: s.Context.For(lane: ToleranceLane.Duplicate).Value, key: op)
+                    from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, tolerance: s.Context.For(lane: ToleranceLane.Duplicate).Value)
                     select (Raw: shellSign * (hit.Point - s.Sample), Scale: c.ShellRadius.IsSome ? residual * weight : weight)),
-            hitFieldCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context, key: s.Key,
+            hitFieldCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context,
                 hitToScaled: (hit, op) => c.Projection
-                    .Project<Vector3d>(space: c.Source, hit: hit, sample: s.Sample, context: s.Context, key: op)
+                    .Project<Vector3d>(space: c.Source, hit: hit, sample: s.Sample, context: s.Context)
                     .Map(static raw => (Raw: raw, Scale: 1.0))),
             coulombCase: static (s, c) => c.Charges
                 .Traverse(charge => RadialContribution(charge.Position, charge.Charge, s, c.Falloff).ToValidation()).As()
                 .Map(static terms => terms.Fold(Vector3d.Zero, static (sum, term) => sum + term)).ToFin(),
             clusterFieldCase: static (s, c) =>
-                from index in NeighborIndex.Of(source: new NeighborSource.ClusterCase(Cloud: c.Source), key: s.Key)
-                from answer in index.Query(query: new NeighborQuery.RadiusCase(R: c.Radius, Cap: Option<Dimension>.None, Metric: NeighborMetric.Euclidean), anchor: s.Sample, key: s.Key)
+                from index in NeighborIndex.Of(source: new NeighborSource.ClusterCase(Cloud: c.Source))
+                from answer in index.Query(query: new NeighborQuery.RadiusCase(R: c.Radius, Cap: Option<Dimension>.None, Metric: NeighborMetric.Euclidean), anchor: s.Sample)
                 from ids in answer switch {
                     NeighborAnswer.Graph { Value.Ids: [var row] } => Fin.Succ(toSeq(row)),
-                    _ => Fin.Fail<Seq<int>>(error: s.Key.InvalidResult()),
+                    _ => Fin.Fail<Seq<int>>(error: new KernelFault.InvalidResult()),
                 }
                 from terms in ids.Traverse(i => RadialContribution(c.Source.Vertices[i], c.Sense.Sign, s, c.Falloff).ToValidation()).As().ToFin()
                 select terms.Fold(Vector3d.Zero, static (sum, term) => sum + term),
             gradientCase: static (s, c) => Nabla.GradientAt(
-                sampler: p => c.Source.SampleScalar(sample: p, context: s.Context, key: s.Key),
-                point: s.Sample, eps: c.Epsilon.Value, key: s.Key),
+                sampler: p => c.Source.SampleScalar(sample: p, context: s.Context),
+                point: s.Sample, eps: c.Epsilon.Value),
             crossFieldCase: static (s, c) => SegmentKernel.CrossFieldAt(c.Space, c.Order, c.Constraints, c.Cones, s.Sample, s.Key),
-            tangentLogMapCase: static (s, c) => GeodesicKernel.LogMapAt(space: c.Space, source: c.Source, sample: s.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows, key: s.Key).Map(static r => r.Vector)
+            tangentLogMapCase: static (s, c) => GeodesicKernel.LogMapAt(space: c.Space, source: c.Source, sample: s.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows).Map(static r => r.Vector)
             ));
 
-    private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
+    private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context) state) {
         Vector3d r = state.Sample - anchor;
         Vector3d rPerp = r - ((r * axis.Value) * axis.Value);
-        return falloff.Weight(offset: rPerp, sample: state.Sample, tolerance: state.Context.For(lane: ToleranceLane.Duplicate).Value, key: state.Key)
+        return falloff.Weight(offset: rPerp, sample: state.Sample, tolerance: state.Context.For(lane: ToleranceLane.Duplicate).Value)
             .Map(w => w * ((axial * axis.Value) + (swirl * Vector3d.CrossProduct(a: axis.Value, b: rPerp))));
     }
-    private static Fin<Vector3d> RadialContribution(Point3d source, double scale, (Point3d Sample, Context Context, Op Key) state, Falloff falloff) {
+    private static Fin<Vector3d> RadialContribution(Point3d source, double scale, (Point3d Sample, Context Context) state, Falloff falloff) {
         Vector3d r = state.Sample - source;
         return r.Length <= state.Context.For(ToleranceLane.Duplicate).Value
             ? Fin.Succ(Vector3d.Zero)
             : falloff.Weight(r, state.Sample, state.Context.For(ToleranceLane.Duplicate).Value, state.Key).Map(w => scale * w / r.Length * r);
     }
-    private static Fin<Vector3d> ClosestDirected(SupportSpace source, Point3d sample, BoundarySense sense, Context context, Op key,
-        Func<ClosestHit, Op, Fin<(Vector3d Raw, double Scale)>> hitToScaled) =>
-        from hit in source.Closest(sample: sample, key: key)
-        from scaled in hitToScaled(hit, key)
-        from direction in Direction.Of(value: sense.Sign * scaled.Raw, context: context, key: key)
+    private static Fin<Vector3d> ClosestDirected(SupportSpace source, Point3d sample, BoundarySense sense, Context context,
+        Func<ClosestHit, Fin<(Vector3d Raw, double Scale)>> hitToScaled) =>
+        from hit in source.Closest(sample: sample)
+        from scaled in hitToScaled(hit)
+        from direction in Direction.Of(value: sense.Sign * scaled.Raw, context: context)
         select direction.Value * scaled.Scale;
 }
 ```
@@ -485,59 +479,57 @@ public abstract partial record TensorField {
     public sealed record ScaledCase(TensorField Source, double Scale) : TensorField;
     public sealed record BlendCase(Seq<TensorField> Fields, bool Average) : TensorField;
 
-    public static Fin<TensorField> Constant(SymmetricMatrix value, Op? key = null) =>
+    public static Fin<TensorField> Constant(SymmetricMatrix value) =>
         guard(value.Dimension.Value == 3, key.OrDefault().InvalidInput()).ToFin().Map(_ => (TensorField)new ConstantCase(Value: value));
-    public static Fin<TensorField> Warp(TensorField source, Transform map, Op? key = null) =>
+    public static Fin<TensorField> Warp(TensorField source, Transform map) =>
         guard(map.TryGetInverse(out _), key.OrDefault().InvalidInput()).ToFin().Map(_ => (TensorField)new WarpCase(Source: source, Map: map));
 
-    internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context, Op key) =>
-        key.AcceptValue(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context, Key: key),
+    internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context) =>
+        Acceptance.Value(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context),
             constantCase: static (s, c) => Fin.Succ(c.Value),
             curvatureCase: static (s, c) => c.Space.Native.ClosestPoint(testPoint: s.Sample, u: out double u, v: out double v)
-                ? c.Space.Sample<SymmetricMatrix>(SurfaceProjection.ShapeOperator, u: u, v: v, key: s.Key)
-                : Fin.Fail<SymmetricMatrix>(s.Key.InvalidResult()),
-            liftCase: static (s, c) => s.Key.Catch(() => Fin.Succ(c.Source(s.Sample)))
-                .Bind(raw => guard(raw.IsValid && raw.Dimension.Value == 3, s.Key.InvalidResult()).ToFin().Map(_ => raw)),
+                ? c.Space.Sample<SymmetricMatrix>(SurfaceProjection.ShapeOperator, u: u, v: v)
+                : Fin.Fail<SymmetricMatrix>(new KernelFault.InvalidResult()),
+            liftCase: static (s, c) => Try.lift(() => Fin.Succ(c.Source(s.Sample))).Run().Bind(static inner => inner)
+                .Bind(raw => guard(raw.IsValid && raw.Dimension.Value == 3, new KernelFault.InvalidResult()).ToFin().Map(_ => raw)),
             warpCase: static (s, c) => c.Map.TryGetInverse(out Transform inverse)
-                ? c.Source.SampleTensor(sample: inverse * s.Sample, context: s.Context, key: s.Key)
-                    .Bind(tensor => Congruence(tensor: tensor, map: c.Map, key: s.Key))
-                : Fin.Fail<SymmetricMatrix>(s.Key.InvalidInput()),
-            scaledCase: static (s, c) => c.Source.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)
-                .Bind(tensor => SymmetricMatrix.Of(dim: tensor.Dimension, upper: tensor.Upper.Map(v => v * c.Scale), key: s.Key)),
+                ? c.Source.SampleTensor(sample: inverse * s.Sample, context: s.Context)
+                    .Bind(tensor => Congruence(tensor: tensor, map: c.Map))
+                : Fin.Fail<SymmetricMatrix>(new KernelFault.InvalidInput()),
+            scaledCase: static (s, c) => c.Source.SampleTensor(sample: s.Sample, context: s.Context)
+                .Bind(tensor => SymmetricMatrix.Of(dim: tensor.Dimension, upper: tensor.Upper.Map(v => v * c.Scale))),
             blendCase: static (s, c) =>
                 from samples in c.Fields.Traverse(f => f.SampleTensor(s.Sample, s.Context, s.Key).ToValidation()).As().ToFin()
-                from head in samples.Head.ToFin(s.Key.InvalidResult())
-                from _ in guard(samples.ForAll(m => m.Dimension == head.Dimension), s.Key.InvalidResult())
+                from head in samples.Head.ToFin(new KernelFault.InvalidResult())
+                from _ in guard(samples.ForAll(m => m.Dimension == head.Dimension), new KernelFault.InvalidResult())
                 let scale = c.Average ? 1.0 / samples.Count : 1.0
                 let upper = Arr.createRange(toSeq(Enumerable.Range(0, head.Upper.Count))
                     .Map(i => scale * samples.Fold(0.0, (sum, matrix) => sum + matrix.Upper[i])))
                 from blended in SymmetricMatrix.Of(head.Dimension, upper, s.Key)
                 select blended));
 
-    public Fin<Seq<(double Eigenvalue, Direction Axis)>> PrincipalDirections(Point3d sample, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return SampleTensor(sample: sample, context: context, key: op)
-            .Bind(tensor => tensor.DecomposeEigenDetailed(key: op)).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude, key: op))
+    public Fin<Seq<(double Eigenvalue, Direction Axis)>> PrincipalDirections(Point3d sample, Context context) {
+        return SampleTensor(sample: sample, context: context)
+            .Bind(tensor => tensor.DecomposeEigenDetailed()).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude))
             .Bind(pairs => pairs.TraverseM(pair =>
-                Direction.Of(value: new Vector3d(x: pair.Eigenvector[0], y: pair.Eigenvector[1], z: pair.Eigenvector[2]), context: context, key: op)
+                Direction.Of(value: new Vector3d(x: pair.Eigenvector[0], y: pair.Eigenvector[1], z: pair.Eigenvector[2]), context: context)
                     .Map(axis => (pair.Eigenvalue, Axis: axis))).As());
     }
 
-    public Func<Point3d, Fin<SymmetricMatrix>> Sampler(Context context, Op? key = null) {
+    public Func<Point3d, Fin<SymmetricMatrix>> Sampler(Context context) {
         TensorField self = this;
-        Op op = key.OrDefault();
-        return point => self.SampleTensor(sample: point, context: context, key: op);
+        return point => self.SampleTensor(sample: point, context: context);
     }
 
-    private static Fin<SymmetricMatrix> Congruence(SymmetricMatrix tensor, Transform map, Op key) =>
-        from dim in key.AcceptValidated<Dimension>(candidate: 3)
+    private static Fin<SymmetricMatrix> Congruence(SymmetricMatrix tensor, Transform map) =>
+        from dim in FactoryBridge.Accept<Dimension>(candidate: 3)
         from rotation in Matrix.Of(rows: dim, cols: dim, entries: new Arr<double>([
-            map.M00, map.M01, map.M02, map.M10, map.M11, map.M12, map.M20, map.M21, map.M22]), key: key)
-        from half in rotation.Multiply(other: tensor.ToDense(), key: key)
-        from full in half.Multiply(other: rotation.Transpose(), key: key)
+            map.M00, map.M01, map.M02, map.M10, map.M11, map.M12, map.M20, map.M21, map.M22]))
+        from half in rotation.Multiply(other: tensor.ToDense())
+        from full in half.Multiply(other: rotation.Transpose())
         from packed in SymmetricMatrix.Of(dim: dim, upper: new Arr<double>([
             full.At(i: 0, j: 0), full.At(i: 0, j: 1), full.At(i: 0, j: 2),
-            full.At(i: 1, j: 1), full.At(i: 1, j: 2), full.At(i: 2, j: 2)]), key: key)
+            full.At(i: 1, j: 1), full.At(i: 1, j: 2), full.At(i: 2, j: 2)]))
         select packed;
 }
 ```

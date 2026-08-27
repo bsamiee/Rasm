@@ -48,7 +48,7 @@ public sealed partial class ContributorTag : ICapability<ContributorTag> {
     public int Rank { get; }
 
     public static CapabilitySet<ContributorTag> Admit(IEnumerable<string> keys) =>
-        CapabilitySet<ContributorTag>.Of([.. keys.Select(static key => TryGet(key, out ContributorTag? row) ? row : null).OfType<ContributorTag>()]);
+        CapabilitySet<ContributorTag>.Of([.. keys.Select(static key => TryGet(out ContributorTag? row) ? row : null).OfType<ContributorTag>()]);
 
     static IReadOnlyList<ContributorTag> ICapability<ContributorTag>.Items => Items;
 }
@@ -292,21 +292,20 @@ public sealed class UtilizationCell : IDisposable {
 
     private readonly PressureSource source;
     private readonly MonotonicTimeline line;
-    private readonly Op key;
     private readonly MeterListener listener = new();
     private readonly Atom<(Option<double> Cpu, Option<double> Memory)> observed = Atom((Option<double>.None, Option<double>.None));
     private readonly Atom<Sample> counted;
 
-    private UtilizationCell(PressureSource source, MonotonicTimeline line, Op key, MonotonicStamp seed) {
+    private UtilizationCell(PressureSource source, MonotonicTimeline line, MonotonicStamp seed) {
         this.source = source;
         this.line = line;
         this.key = key;
         counted = Atom<Sample>((None, seed, Duration.FromTimeSpan(Environment.CpuUsage.TotalTime)));
     }
 
-    public static Fin<UtilizationCell> Of(PressureSource source, MonotonicTimeline line, Op key) =>
-        line.Capture(key)
-            .Map(seed => new UtilizationCell(source, line, key, seed))
+    public static Fin<UtilizationCell> Of(PressureSource source, MonotonicTimeline line) =>
+        Error.New(key.Message)
+            .Map(seed => new UtilizationCell(source, line, seed))
             .Map(static held => held.source.Switch(
                 state: held,
                 metered: static (cell, row) => cell.Listening(row),
@@ -314,7 +313,7 @@ public sealed class UtilizationCell : IDisposable {
 
     public Fin<Utilization> Read() => source.Switch(
         state: this,
-        metered: static (held, _) => Op.Of().Catch(() => Fin.Succ(held.Pulled())).Bind(static usage => usage.ToFin(Unobserved)),
+        metered: static (held, _) => Try.lift(() => Fin.Succ(held.Pulled())).Run().Bind(static inner => inner).Bind(static usage => usage.ToFin(Unobserved)),
         runtime: static (held, _) => held.Counted());
 
     public void Dispose() => listener.Dispose();
@@ -326,7 +325,7 @@ public sealed class UtilizationCell : IDisposable {
     }
 
     Fin<Utilization> Counted() =>
-        line.Capture(key).Bind(now => Settled(Cell.Step(
+        Error.New(key.Message).Bind(now => Settled(Cell.Step(
             counted,
             held => Differenced(held, now, Duration.FromTimeSpan(Environment.CpuUsage.TotalTime)),
             Unmeasured)));
@@ -337,7 +336,7 @@ public sealed class UtilizationCell : IDisposable {
             : Fin.Fail<Utilization>(Unmeasured);
 
     Option<Sample> Differenced(Sample prior, MonotonicStamp now, Duration cpu) =>
-        from span in line.Elapsed(prior.At, now, key).ToOption().Filter(static held => held > TimeSpan.Zero)
+        from span in line.Elapsed(prior.At, now).ToOption().Filter(static held => held > TimeSpan.Zero)
         from ceiling in Some(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes).Filter(static bytes => bytes > 0L)
         select ((Option<Utilization>)Some(new Utilization(
                     double.Min(1d, (cpu - prior.Cpu).TotalSeconds / (span.TotalSeconds * Environment.ProcessorCount)),
@@ -564,8 +563,7 @@ public sealed class DegradationCell(
     IClock clock,
     CorrelationId correlation,
     InstrumentSet signals,
-    HookSet<AppHostPoint, AppHostFact, TelemetrySource> hooks,
-    Op key) : IHealthCheckPublisher {
+    HookSet<AppHostPoint, AppHostFact, TelemetrySource> hooks) : IHealthCheckPublisher {
     private readonly Atom<DegradationReading> cell = Atom(DegradationReading.Boot(clock.GetCurrentInstant(), correlation));
 
     public DegradationReading Read() => cell.Value;
@@ -588,7 +586,7 @@ public sealed class DegradationCell(
 
     Fin<DegradationReading> Fired(DegradationReading reading) =>
         signals.Level(AppHostMeasure.HealthLevel.Row, reading.Level.Rank)
-            .Bind(_ => hooks.Fire(at: AppHostPoint.Degradation, fact: new AppHostFact.Degradation(reading), key: key))
+            .Bind(_ => hooks.Fire(at: AppHostPoint.Degradation, fact: new AppHostFact.Degradation(reading)))
             .Map(_ => reading);
 }
 ```
@@ -758,7 +756,7 @@ public sealed class AlertCell(Seq<AlertRule> rules) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AlertEngine {
-    public sealed record Runtime(HookSet<AppHostPoint, AppHostFact, TelemetrySource> Hooks, Op Key);
+    public sealed record Runtime(HookSet<AppHostPoint, AppHostFact, TelemetrySource> Hooks);
 
     public static IO<Seq<Alert>> Sweep(Runtime runtime, AlertCell cell, DegradationReading reading, Instant at) =>
         cell.Rules
@@ -791,9 +789,9 @@ public static class AlertEngine {
             None: () => IO.pure((state, Option<Alert>.None)));
 
     public static (AlertState State, Option<Alert> Fired) Evaluate(
-        AlertRule rule, AlertState state, double value, Instant at, Op key) {
+        AlertRule rule, AlertState state, double value, Instant at) {
         var window = (state.Window.Add(value) is var w && w.Count > rule.Condition.Depth ? w.Tail : w).Strict();
-        var breached = Breached(rule.Condition, value, state.Window, state.Firing, key);
+        var breached = Breached(rule.Condition, value, state.Window, state.Firing);
         Option<Instant> breachedSince = breached && !state.Firing
             ? state.BreachedSince.Match(Some: static since => Some(since), None: () => Some(at))
             : None;
@@ -811,9 +809,9 @@ public static class AlertEngine {
         };
     }
 
-    public static Seq<Alert> Backtest(AlertRule rule, Seq<(Instant At, double Value)> history, Op key) =>
+    public static Seq<Alert> Backtest(AlertRule rule, Seq<(Instant At, double Value)> history) =>
         history.Fold((State: AlertState.Clear, Fired: Seq<Alert>()), (acc, sample) =>
-            Threaded(acc, Evaluate(rule, acc.State, sample.Value, sample.At, key))).Fired;
+            Threaded(acc, Evaluate(rule, acc.State, sample.Value, sample.At))).Fired;
 
     static (AlertState State, Seq<Alert> Fired) Threaded(
         (AlertState State, Seq<Alert> Fired) held, (AlertState State, Option<Alert> Fired) step) =>
@@ -827,12 +825,12 @@ public static class AlertEngine {
         (AlertState State, Option<Alert> Fired) step) =>
         step.Fired.Match(
             Some: alert => IO.lift(() => runtime.Hooks.Fire(
-                    at: AppHostPoint.Alert, fact: new AppHostFact.Alert(alert), key: runtime.Key))
+                    at: AppHostPoint.Alert, fact: new AppHostFact.Alert(alert)))
                 .Map(_ => step),
             None: () => IO.pure(step));
 
-    static bool Breached(AlertCondition condition, double value, Seq<double> baseline, bool firing, Op key) => condition.Switch(
-        state: (Value: value, Baseline: baseline, Firing: firing, Key: key),
+    static bool Breached(AlertCondition condition, double value, Seq<double> baseline, bool firing) => condition.Switch(
+        state: (Value: value, Baseline: baseline, Firing: firing),
         threshold: static (read, t) => read.Firing
             ? (t.Above ? read.Value >= t.Bound - t.Hysteresis : read.Value <= t.Bound + t.Hysteresis)
             : (t.Above ? read.Value > t.Bound : read.Value < t.Bound),
@@ -845,8 +843,8 @@ public static class AlertEngine {
                 .Map(fit => double.Abs(read.Value - fit) > f.EnvelopeWidth)
                 .IfNone(false));
 
-    static Option<double> Forecast(Seq<double> baseline, Op key) =>
-        SampleMoment.Of(baseline.Map(static (value, index) => Seq((double)index, value)), key)
+    static Option<double> Forecast(Seq<double> baseline) =>
+        SampleMoment.Of(baseline.Map(static (value, index) => Seq((double)index, value)))
             .ToOption()
             .Map(fit => fit.Mean[1] + Slope(fit) * (baseline.Count - fit.Mean[0]));
 

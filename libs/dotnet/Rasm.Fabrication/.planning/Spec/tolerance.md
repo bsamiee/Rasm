@@ -85,7 +85,7 @@ public sealed partial class ToleranceZoneKind {
     private static string Diametral => ZoneModifier.Diametral.Glyph.ToString(CultureInfo.InvariantCulture);
 
     private static ToleranceZoneKind Plain(string key, string prefix) =>
-        new(key, prefix, projects: false, static (second, _) => second.IsNone);
+        new(prefix, projects: false, static (second, _) => second.IsNone);
 
     public string Prefix { get; }
 
@@ -227,12 +227,12 @@ public sealed partial class FrameModifier {
     public static readonly FrameModifier LeastSquares = Associated("least-squares", "Ⓖ");
     public static readonly FrameModifier MinimaxTangent = Associated("minimax-tangent", "Ⓝ");
 
-    private static FrameModifier Anywhere(string key, string symbol) => new(key, symbol, static (_, _) => true);
-    private static FrameModifier Associated(string key, string symbol) => new(key, symbol,
+    private static FrameModifier Anywhere(string key, string symbol) => new(symbol, static (_, _) => true);
+    private static FrameModifier Associated(string key, string symbol) => new(symbol,
         static (characteristic, _) => characteristic.Class != FeatureClass.Runout);
-    private static FrameModifier Profiled(string key, string symbol) => new(key, symbol,
+    private static FrameModifier Profiled(string key, string symbol) => new(symbol,
         static (characteristic, _) => characteristic.ProfileContextual);
-    private static FrameModifier Sized(string key, string symbol) => new(key, symbol,
+    private static FrameModifier Sized(string key, string symbol) => new(symbol,
         static (_, scope) => scope == FeatureScope.Axis || scope == FeatureScope.MedianPlane
             || scope == FeatureScope.CenterPoint);
 
@@ -606,10 +606,10 @@ public sealed partial class FitLetter {
     public partial double ShaftMicrometers(double geometricMeanMm, ItSeries series);
 
     private static FitLetter Upper(string key, Func<double, ItSeries, double> shaft) =>
-        new(key, FitBound.Upper, tabulates: false, shaft);
+        new(FitBound.Upper, tabulates: false, shaft);
 
     private static FitLetter Lower(string key, Func<double, ItSeries, double> shaft) =>
-        new(key, FitBound.Lower, tabulates: false, shaft);
+        new(FitBound.Lower, tabulates: false, shaft);
 
     private static double Blend(string first, string second, double meanMm, ItSeries series) =>
         Math.Sqrt(Math.Abs(Get(first).ShaftMicrometers(meanMm, series))
@@ -643,9 +643,9 @@ public sealed partial class ItGradeName {
     public static readonly ItGradeName It17 = Multiple("IT17", 17, 1600.0);
     public static readonly ItGradeName It18 = Multiple("IT18", 18, 2500.0);
 
-    private static ItGradeName Interpolated(string key, int grade) => new(key, grade,
+    private static ItGradeName Interpolated(string key, int grade) => new(grade,
         diameterMm => InterpolatedMicrometers(grade, diameterMm));
-    private static ItGradeName Multiple(string key, int grade, double factor) => new(key, grade, d => Rounded(factor * Unit(d)));
+    private static ItGradeName Multiple(string key, int grade, double factor) => new(grade, d => Rounded(factor * Unit(d)));
     private static double InterpolatedMicrometers(int grade, double diameterMm) =>
         Rounded((0.8 + (0.020 * diameterMm))
             * Math.Pow(7.0 * Unit(diameterMm) / (0.8 + (0.020 * diameterMm)), (grade - 1) / 4.0));
@@ -688,7 +688,7 @@ public sealed partial class GeneralToleranceKind {
     public static readonly GeneralToleranceKind Symmetry = Measured("symmetry");
     public static readonly GeneralToleranceKind Runout = Measured("runout");
 
-    private static GeneralToleranceKind Measured(string key) => new(key, static limit => limit is GeneralLimit.Linear);
+    private static GeneralToleranceKind Measured(string key) => new(static limit => limit is GeneralLimit.Linear);
 
     [UseDelegateFromConstructor]
     public partial bool Admits(GeneralLimit limit);
@@ -925,9 +925,9 @@ public sealed partial class SurfaceMeasure {
 
     public Enum Unit { get; }
 
-    private static SurfaceMeasure Positive(string key, Enum unit) => new(key, unit,
+    private static SurfaceMeasure Positive(string key, Enum unit) => new(unit,
         static limit => limit.Holds(static value => double.IsFinite(value) && value > 0.0));
-    private static SurfaceMeasure Percent(string key) => new(key, RatioUnit.Percent,
+    private static SurfaceMeasure Percent(string key) => new(RatioUnit.Percent,
         static limit => limit.Holds(static value => double.IsFinite(value) && value is >= 0.0 and <= 100.0));
 
     [UseDelegateFromConstructor]
@@ -976,9 +976,9 @@ public sealed partial class SurfaceParameter {
     public static readonly SurfaceParameter Psm = Row("PSm", SurfaceProfile.Primary, SurfaceMeasure.Spacing);
 
     private static SurfaceParameter Row(string key, SurfaceProfile profile, SurfaceMeasure measure) =>
-        new(key, profile, measure, None);
+        new(profile, measure, None);
     private static SurfaceParameter Converted(string key, double raRatio) =>
-        new(key, SurfaceProfile.Roughness, SurfaceMeasure.Amplitude, Some(raRatio));
+        new(SurfaceProfile.Roughness, SurfaceMeasure.Amplitude, Some(raRatio));
 
     public SurfaceProfile Profile { get; }
     public SurfaceMeasure Measure { get; }
@@ -1187,7 +1187,7 @@ public sealed partial class ToleranceTerm {
         from _ in guard(double.IsFinite(nominalMm) && admitted.Grade.Diameter.Contains(nominalMm),
             ToleranceSpec.Range("tolerance-term:nominal", nominalMm, "finite and inside the fit diameter band"))
         let sizes = admitted.Sizes(nominalMm)
-        from term in Validate(key, sizes.LowerMm - nominalMm, sizes.UpperMm - nominalMm, sensitivity, distribution,
+        from term in Validate(sizes.LowerMm - nominalMm, sizes.UpperMm - nominalMm, sensitivity, distribution,
             out ToleranceTerm value).Admitted(value)
         select term;
 }
@@ -1383,14 +1383,14 @@ public sealed class FeatureControlWire : IToleranceEncoder {
             "a geometric tolerance, the one arm an ISO 1101 feature-control message spells"));
 
     static Fin<ReadOnlyMemory<byte>> Encode(FeatureControl control) =>
-        Op.Of(name: "fabrication:tolerance:feature-control").Catch(() => {
+        Try.lift(() => {
             Contract.FeatureControl wire = Project(control);
             IReadOnlyList<Buf.Validate.Violation> violations = Rules.Validate(wire);
             return violations.Count == 0
                 ? Fin.Succ<ReadOnlyMemory<byte>>(wire.ToByteArray())
                 : Fin.Fail<ReadOnlyMemory<byte>>(ToleranceSpec.Invalid("feature-control-wire:contract",
                     $"generated FeatureControl satisfying {string.Join(',', violations.Select(static row => row.RuleId))}"));
-        });
+        }).Run().Bind(static inner => inner);
 
     static Contract.FeatureControl Project(FeatureControl control) {
         Contract.FeatureControl wire = new() {
@@ -1431,7 +1431,7 @@ public sealed class FeatureControlWire : IToleranceEncoder {
     static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(
         Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
         where TRow : notnull where TEnum : struct, Enum =>
-        Total(rows, key, row => Lift<TEnum>(key(row)));
+        Total(rows, row => Lift<TEnum>(key(row)));
 
     static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(
         Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key, Func<TRow, TEnum> lift)
@@ -1468,7 +1468,6 @@ public abstract partial record ToleranceSpec {
     public sealed record General(GeneralTolerance Value) : ToleranceSpec;
     public sealed record Chain(ToleranceChain Value) : ToleranceSpec;
 
-    internal static readonly Op SpecOp = Op.Of(name: "fabrication:tolerance");
 
     internal static ValidationError Validation(string locus) => new($"tolerance:{locus}");
 
@@ -1571,7 +1570,7 @@ public abstract partial record ToleranceSpec {
             new ToleranceResult.Allowance(admitted.ToleranceMillimeters * admitted.AllowanceFactor.ToValue()));
 
     private static Fin<ToleranceResult.Projected> Projected(ToleranceRequest.Project demand) =>
-        from bytes in Op.Of(name: "tolerance:project:encode").Catch(() => demand.Encoder.Encode(demand.Value))
+        from bytes in Try.lift(() => demand.Encoder.Encode(demand.Value)).Run().Bind(static inner => inner)
         select new ToleranceResult.Projected(demand.Value, bytes);
 
     private static Fin<ToleranceResult.Scallop> Scallop(ToleranceRequest.Scallop demand) =>

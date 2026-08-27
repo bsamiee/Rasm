@@ -667,8 +667,7 @@ public static class FlatPattern {
         Canonical(unfold, bends).Map<FabricationResult>(key => new FabricationResult.FormedResult(
             unfold.Flat,
             bends,
-            bends.Map(static bend => bend.OverbendDeg).Fold(0.0, Math.Max),
-            key));
+            bends.Map(static bend => bend.OverbendDeg).Fold(0.0, Math.Max)));
 
     internal static Fin<ProcessBudget.Formed> FormedRow(
         MaterialSpec material,
@@ -1169,7 +1168,6 @@ public static class FlatPattern {
         dimple: static (target, value) => value.Footprint.CanonicalBytes(target.String(nameof(SheetForm.Dimple)))
             .Double(value.Depth.Millimeters).Double(value.ToolRadius.Millimeters));
 
-    private static readonly Op Key = Op.Of(name: nameof(FlatPattern));
 
     private sealed record SheetAssembly(
         Arr<Loop> Flat,

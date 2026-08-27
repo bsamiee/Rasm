@@ -135,7 +135,6 @@ public sealed partial class CfEpoch {
 }
 
 public static class WeatherIngress {
-    static readonly Op ReadKey = Op.Of(name: nameof(Read));
 
     public static Fin<WeatherObservations> Read(WeatherSource source, Option<SolarSite> overrideSite = default) =>
         source.Switch(
@@ -159,12 +158,12 @@ public static class WeatherIngress {
 
     static Fin<WeatherObservations> ReadEpw(WeatherRef weather, Option<SolarSite> overrideSite) =>
         File.Exists(weather.EpwPath)
-            ? ReadKey.Catch(() => {
+            ? Try.lift(() => {
                     using OpenStudio.Path epwPath = OpenStudio.OpenStudioUtilitiesCore.toPath(weather.EpwPath);
                     using OpenStudio.EpwFile epw = new(epwPath);
                     Fin<SolarSite> site = overrideSite.Match(
                         Some: Fin.Succ,
-                        None: () => ReadKey.AcceptValidated(SolarSite.Validate(
+                        None: () => FactoryBridge.Accept(SolarSite.Validate(
                             epw.latitude(), epw.longitude(),
                             Offset.FromTicks((long)(epw.timeZone() * NodaConstants.TicksPerHour)), epw.elevation(),
                             out SolarSite? admitted), admitted));
@@ -182,7 +181,7 @@ public static class WeatherIngress {
                             });
                         return Stream(admitted, readings, None);
                     });
-                })
+                }).Run().Bind(static inner => inner)
             : Fin.Fail<WeatherObservations>(new ComputeFault.AnalysisFailed(
                 SolvePhase.Admission, FailureKind.Input, $"<daylight-weather-missing:{weather.EpwPath}>"));
 
@@ -220,17 +219,16 @@ public static class WeatherIngress {
             : new ComputeFault.PayloadOverBounds($"<daylight-gridded-hours:{handle.Dataset("time").Space.Dimensions[0]}>");
 
     static Fin<MemoryOwner<double>> Column(HdfHandle handle, WeatherSource.Gridded source, string variable, int hours) =>
-        ReadKey.Catch(() => {
+        Try.lift(() => {
                 MemoryOwner<double> column = MemoryOwner<double>.Allocate(hours, AllocationMode.Clear);
                 handle.Dataset(variable).Read<double>(handle.Access, column.Span,
                     new HyperslabSelection(3, [0UL, (ulong)source.LatIndex, (ulong)source.LonIndex], [(ulong)hours, 1UL, 1UL]));
                 return Fin.Succ(column);
-            });
+            }).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DaylightAnalysis {
-    static readonly Op RunKey = Op.Of(name: nameof(Run));
     const string Unmeasured = "unmeasured";
 
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock) =>
@@ -265,7 +263,7 @@ public static class DaylightAnalysis {
                     + perez),
             None: () => Fin.Succ(Seq(AssessmentFact.Text("sky-state", "geometry-only"))))
         from matrix in probed.Match(
-            Some: sky => Matrix(findings, sky, request, sink, key).Map(Some),
+            Some: sky => Matrix(findings, sky, request, sink).Map(Some),
             None: static () => Fin.Succ(Option<ArtifactContent>.None))
         from result in AssessmentResult.Of(
             request.Route,

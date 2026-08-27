@@ -100,25 +100,25 @@ public abstract partial record RenderAspect {
         model: static row => row.Transform.IsValid,
         screen: static _ => true);
 
-    internal Fin<Unit> With(DisplayPipeline pipeline, Func<Fin<Unit>> draw, Op key) {
+    internal Fin<Unit> With(DisplayPipeline pipeline, Func<Fin<Unit>> draw) {
         bool acquired = false;
-        Fin<Unit> primary = key.Catch(() => {
+        Fin<Unit> primary = Try.lift(() => {
             Switch(
                 pipeline,
                 toggle: static (p, row) => row.Target.Push(p, row.State.Key),
-                cull: static (p, row) => Op.Side(() => p.PushCullFaceMode(row.Mode.Native)),
-                model: static (p, row) => Op.Side(() => p.PushModelTransform(row.Transform)),
-                screen: static (p, _) => Op.Side(p.Push2dProjection));
+                cull: static (p, row) => HostEdge.Side(() => p.PushCullFaceMode(row.Mode.Native)),
+                model: static (p, row) => HostEdge.Side(() => p.PushModelTransform(row.Transform)),
+                screen: static (p, _) => HostEdge.Side(p.Push2dProjection));
             acquired = true;
             return draw();
-        });
+        }).Run().Bind(static inner => inner);
         Fin<Unit> cleanup = acquired
-            ? key.Catch(() => Fin.Succ(Switch(
+            ? Try.lift(() => Fin.Succ(Switch(
                 pipeline,
                 toggle: static (p, row) => row.Target.Pop(p),
-                cull: static (p, _) => Op.Side(p.PopCullFaceMode),
-                model: static (p, _) => Op.Side(p.PopModelTransform),
-                screen: static (p, _) => Op.Side(p.PopProjection))))
+                cull: static (p, _) => HostEdge.Side(p.PopCullFaceMode),
+                model: static (p, _) => HostEdge.Side(p.PopModelTransform),
+                screen: static (p, _) => HostEdge.Side(p.PopProjection)))).Run().Bind(static inner => inner)
             : Fin.Succ(unit);
         return primary.Match(
             Succ: _ => cleanup,
@@ -132,16 +132,16 @@ public abstract partial record RenderAspect {
 public sealed partial class RenderSwitch {
     public static readonly RenderSwitch DepthTest = new(
         key: 0,
-        push: static (pipeline, enabled) => Op.Side(() => pipeline.PushDepthTesting(enabled)),
-        pop: static pipeline => Op.Side(pipeline.PopDepthTesting));
+        push: static (pipeline, enabled) => HostEdge.Side(() => pipeline.PushDepthTesting(enabled)),
+        pop: static pipeline => HostEdge.Side(pipeline.PopDepthTesting));
     public static readonly RenderSwitch DepthWrite = new(
         key: 1,
-        push: static (pipeline, enabled) => Op.Side(() => pipeline.PushDepthWriting(enabled)),
-        pop: static pipeline => Op.Side(pipeline.PopDepthWriting));
+        push: static (pipeline, enabled) => HostEdge.Side(() => pipeline.PushDepthWriting(enabled)),
+        pop: static pipeline => HostEdge.Side(pipeline.PopDepthWriting));
     public static readonly RenderSwitch ClipTest = new(
         key: 2,
-        push: static (pipeline, enabled) => Op.Side(() => pipeline.PushClipTesting(enabled)),
-        pop: static pipeline => Op.Side(pipeline.PopClipTesting));
+        push: static (pipeline, enabled) => HostEdge.Side(() => pipeline.PushClipTesting(enabled)),
+        pop: static pipeline => HostEdge.Side(pipeline.PopClipTesting));
 
     [UseDelegateFromConstructor]
     internal partial Unit Push(DisplayPipeline pipeline, bool enabled);
@@ -175,10 +175,10 @@ public abstract partial record ConduitCriterion {
 
     internal Unit Apply(DisplayConduit conduit) => Switch(
         conduit,
-        selection: static (c, row) => Op.Side(() => c.SetSelectionFilter(row.Use.Enabled, row.Use.SubObjects)),
-        objects: static (c, row) => Op.Side(() => c.SetObjectIdFilter(row.Ids.Distinct().AsEnumerable())),
-        geometry: static (c, row) => Op.Side(() => c.GeometryFilter = row.Kinds.Mask),
-        space: static (c, row) => Op.Side(() => c.SpaceFilter = row.Value.Key));
+        selection: static (c, row) => HostEdge.Side(() => c.SetSelectionFilter(row.Use.Enabled, row.Use.SubObjects)),
+        objects: static (c, row) => HostEdge.Side(() => c.SetObjectIdFilter(row.Ids.Distinct().AsEnumerable())),
+        geometry: static (c, row) => HostEdge.Side(() => c.GeometryFilter = row.Kinds.Mask),
+        space: static (c, row) => HostEdge.Side(() => c.SpaceFilter = row.Value.Key));
 }
 
 [SmartEnum<int>]
@@ -195,10 +195,10 @@ public sealed partial class SelectionUse {
 public sealed partial class BindUse {
     public static readonly BindUse Shared = new(
         key: 0,
-        bind: static (conduit, viewport) => Op.Side(() => conduit.Bind(viewport)));
+        bind: static (conduit, viewport) => HostEdge.Side(() => conduit.Bind(viewport)));
     public static readonly BindUse Exclusive = new(
         key: 1,
-        bind: static (conduit, viewport) => Op.Side(() => conduit.ExclusiveBind(viewport)));
+        bind: static (conduit, viewport) => HostEdge.Side(() => conduit.ExclusiveBind(viewport)));
 
     [UseDelegateFromConstructor]
     internal partial Unit Bind(DisplayConduit conduit, RhinoViewport viewport);
@@ -342,9 +342,7 @@ public sealed record ConduitProgram {
     public static Fin<ConduitProgram> Of(
         Seq<ConduitStep> steps,
         ConduitBinding binding,
-        Seq<ConduitCriterion> criteria,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Seq<ConduitCriterion> criteria) {
         bool ordered = steps.Map(static step => step.Bounds_)
             .Fold(
                 (Supplied: false, Valid: true),
@@ -355,16 +353,16 @@ public sealed record ConduitProgram {
         return (
                 (!steps.IsEmpty && steps.ForAll(static step => step is not null && step.Valid)
                     ? Validation<Error, Seq<ConduitStep>>.Success(steps)
-                    : Validation<Error, Seq<ConduitStep>>.Fail(op.InvalidInput(axis: nameof(steps)))),
+                    : Validation<Error, Seq<ConduitStep>>.Fail(new KernelFault.InvalidInput(Axis: Some(nameof(steps))))),
                 (criteria.ForAll(static criterion => criterion is not null && criterion.Valid) && Cases.Unique(criteria)
                     ? Validation<Error, Seq<ConduitCriterion>>.Success(criteria)
-                    : Validation<Error, Seq<ConduitCriterion>>.Fail(op.InvalidInput(axis: nameof(criteria)))),
+                    : Validation<Error, Seq<ConduitCriterion>>.Fail(new KernelFault.InvalidInput(Axis: Some(nameof(criteria))))),
                 (binding is { Valid: true }
                     ? Validation<Error, ConduitBinding>.Success(binding)
-                    : Validation<Error, ConduitBinding>.Fail(op.InvalidInput(axis: nameof(binding)))),
+                    : Validation<Error, ConduitBinding>.Fail(new KernelFault.InvalidInput(Axis: Some(nameof(binding))))),
                 (ordered
                     ? Validation<Error, Unit>.Success(unit)
-                    : Validation<Error, Unit>.Fail(op.InvalidInput(axis: nameof(BoundsRole)))))
+                    : Validation<Error, Unit>.Fail(new KernelFault.InvalidInput(Axis: Some(nameof(BoundsRole))))))
             .Apply(static (admitted, rows, bound, _) => (Steps: admitted, Criteria: rows, Binding: bound))
             .As().ToFin()
             .Map(held => new ConduitProgram(
@@ -413,11 +411,10 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private readonly ConduitProgram program;
     private readonly FaultCell faults;
     private readonly SpriteSheet sprites = new();
-    private readonly Op key;
     private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.conduit");
 
-    internal ConduitAdapter(ConduitProgram program, FaultCell faults, Op key) =>
-        (this.program, this.faults, this.key) = (program, faults, key);
+    internal ConduitAdapter(ConduitProgram program, FaultCell faults) =>
+        (this.program, this.faults, this.key) = (program, faults);
 
     protected override void ObjectCulling(CullObjectEventArgs e) => Invoke(() =>
         program.Culls
@@ -453,8 +450,8 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private Fin<Unit> Bounds(CalculateBoundingBoxEventArgs e, ConduitPhase phase) =>
         program.BoundsLanes.Find(phase).IfNone(Seq<ConduitStep.Bounds>())
             .TraverseM(step => step.Contribute(ConduitFrame.Of(e.Display, e.Viewport, phase))
-                .Bind(box => guard(box.IsValid, key.InvalidResult()).ToFin()
-                    .Map(_ => Op.Side(() => e.IncludeBoundingBox(box))))).As()
+                .Bind(box => guard(box.IsValid, new KernelFault.InvalidResult()).ToFin()
+                    .Map(_ => HostEdge.Side(() => e.IncludeBoundingBox(box))))).As()
             .Map(static _ => unit);
 
     private Fin<Unit> Draw(DrawEventArgs e, ConduitPhase phase) =>
@@ -464,15 +461,15 @@ internal sealed class ConduitAdapter : DisplayConduit {
                 return step.Projector switch {
                     DrawProjector.Frame projector => Render(frame, step.State, projector.Project(frame)),
                     DrawProjector.PerObject => Fin.Succ(unit),
-                    _ => Fin.Fail<Unit>(key.InvalidInput()),
+                    _ => Fin.Fail<Unit>(new KernelFault.InvalidInput()),
                 };
             }).As()
             .Map(static _ => unit);
 
     private Fin<Unit> Render(ConduitFrame frame, Seq<RenderAspect> state, Fin<Seq<DisplayMark>> projected) =>
         PipelineScope.With(frame.Pipeline, state, () => projected
-            .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks, key))
-            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: HookPoint, cause: cause)))), key);
+            .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks))
+            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: HookPoint, cause: cause)))));
 
     private Fin<Unit> Project(DrawObjectEventArgs e, ConduitStep.Draw step) {
         ConduitFrame frame = ConduitFrame.Of(e.Display, e.Viewport, step.Phase);
@@ -482,7 +479,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
         };
     }
 
-    private void Invoke(Func<Fin<Unit>> callback) => Observe(key.Catch(callback));
+    private void Invoke(Func<Fin<Unit>> callback) => Observe(Try.lift(callback).Run().Bind(static inner => inner));
 
     private void Observe<T>(Fin<T> outcome) =>
         outcome.IfFail(error => ignore((
@@ -491,19 +488,19 @@ internal sealed class ConduitAdapter : DisplayConduit {
 
     internal Fin<Unit> Release() => Custody.Release(
         releases: Seq<Func<Fin<Unit>>>(
-            () => key.Catch(() => { Enabled = false; return Fin.Succ(value: unit); }),
-            () => key.Catch(() => { UnbindAll(); return Fin.Succ(value: unit); }),
-            () => sprites.Release(key)),
+            () => Try.lift(() => { Enabled = false; return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+            () => Try.lift(() => { UnbindAll(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+            () => sprites.Release()),
         key: key);
 }
 
 internal static class PipelineScope {
-    internal static Fin<TResult> With<TResult>(DisplayPipeline pipeline, Seq<RenderAspect> state, Func<Fin<TResult>> draw, Op key) {
-        Fin<TResult> slot = Fin.Fail<TResult>(key.InvalidResult());
+    internal static Fin<TResult> With<TResult>(DisplayPipeline pipeline, Seq<RenderAspect> state, Func<Fin<TResult>> draw) {
+        Fin<TResult> slot = Fin.Fail<TResult>(new KernelFault.InvalidResult());
         Fin<Unit> crossed = toSeq(state.AsEnumerable().Reverse())
             .Fold<Func<Fin<Unit>>>(
                 () => (slot = draw()).Map(static _ => unit),
-                (next, aspect) => () => aspect.With(pipeline, next, key))();
+                (next, aspect) => () => aspect.With(pipeline, next))();
         return crossed.Bind(_ => slot);
     }
 }
@@ -519,10 +516,9 @@ public sealed class ConduitLease : IDisposable {
     private readonly ConduitAdapter adapter;
     private readonly FaultCell faults;
     private readonly Atom<LeaseGate> gate = Atom<LeaseGate>(new LeaseGate.Live());
-    private readonly Op key;
 
-    internal ConduitLease(ConduitAdapter adapter, FaultCell faults, Op key) =>
-        (this.adapter, this.faults, this.key) = (adapter, faults, key);
+    internal ConduitLease(ConduitAdapter adapter, FaultCell faults) =>
+        (this.adapter, this.faults, this.key) = (adapter, faults);
 
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
@@ -531,8 +527,8 @@ public sealed class ConduitLease : IDisposable {
         Transition<LeaseGate> claimed = Cell.Step(
             gate,
             static held => held is LeaseGate.Live ? Some<LeaseGate>(new LeaseGate.Released()) : None,
-            key.InvalidContext());
-        _ = Op.SideWhen(claimed is Transition<LeaseGate>.Committed, () => adapter.Release().IfFail(cause => {
+            new KernelFault.InvalidContext());
+        _ = HostEdge.SideWhen(claimed is Transition<LeaseGate>.Committed, () => adapter.Release().IfFail(cause => {
             _ = Cell.Step(gate, static held => held is LeaseGate.Released ? Some<LeaseGate>(new LeaseGate.Live()) : None, Errors.None);
             _ = faults.Park(point: HookId.Create(value: "rasm.rhino.display.conduit"), cause: cause);
         }));
@@ -543,36 +539,32 @@ public sealed class ConduitLease : IDisposable {
 public static class Conduits {
     public static Fin<ConduitLease> Mount(
         DocumentSession session,
-        ConduitProgram program,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in Optional(session).ToFin(op.MissingContext())
-               from admitted in Optional(program).ToFin(op.InvalidInput())
+        ConduitProgram program) {
+        return from owner in Optional(session).ToFin(new KernelFault.MissingContext())
+               from admitted in Optional(program).ToFin(new KernelFault.InvalidInput())
                from faults in Fin.Succ(DisplayFaults.Cell())
-               from adapter in Fin.Succ(new ConduitAdapter(admitted, faults, op))
-               from lease in (from __ in op.Catch(() => Fin.Succ(admitted.Criteria
-                                  .Fold(unit, static (_, criterion) => criterion.Apply(adapter))))
-                              from ___ in Bind(owner, adapter, admitted.Binding, op)
-                              from ____ in op.Catch(() => Fin.Succ((adapter.Enabled = true, unit).Item2))
-                              select new ConduitLease(adapter, faults, op))
-                                  .Rollback(release: adapter.Release, key: op)
+               from adapter in Fin.Succ(new ConduitAdapter(admitted, faults))
+               from lease in (from __ in Try.lift(() => Fin.Succ(admitted.Criteria
+                                  .Fold(unit, static (_, criterion) => criterion.Apply(adapter)))).Run().Bind(static inner => inner)
+                              from ___ in Bind(owner, adapter, admitted.Binding)
+                              from ____ in Try.lift(() => Fin.Succ((adapter.Enabled = true, unit).Item2)).Run().Bind(static inner => inner)
+                              select new ConduitLease(adapter, faults))
+                                  .Rollback(release: adapter.Release)
                select lease;
     }
 
-    private static Fin<Unit> Bind(DocumentSession session, ConduitAdapter adapter, ConduitBinding binding, Op key) => binding.Switch(
-        (Session: session, Adapter: adapter, Op: key),
+    private static Fin<Unit> Bind(DocumentSession session, ConduitAdapter adapter, ConduitBinding binding) => binding.Switch(
+        (Session: session, Adapter: adapter),
         global: static (_, _) => Fin.Succ(unit),
-        viewport: static (ctx, row) => ViewportLease.Of(ctx.Session, row.Target, ctx.Op)
+        viewport: static (ctx, row) => ViewportLease.Of(ctx.Session, row.Target)
             .Bind(lease => lease.Use(
-                borrow => ctx.Op.Catch(() => Fin.Succ((row.Use.Bind(ctx.Adapter, borrow.Viewport), unit).Item2)),
-                ctx.Op)));
+                borrow => Try.lift(() => Fin.Succ((row.Use.Bind(ctx.Adapter, borrow.Viewport), unit).Item2)).Run().Bind(static inner => inner))));
 }
 
 public sealed record ConduitVetoAsk(DocumentSession Session, ConduitProgram Program);
 
 public static class ConduitHooks {
-    public static Fin<Seq<Lease<IDisposable>>> Mount(PluginKey plugin, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Seq<Lease<IDisposable>>> Mount(PluginKey plugin) {
         return MountRegistry.MountAll(
             bindings: Seq(
                     (Point: RhinoPoint.DisplayCull, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Cull)),
@@ -580,12 +572,11 @@ public static class ConduitHooks {
                 .Map(row => (IHookBinding<RhinoPoint, PluginKey>)new HookBinding<RhinoPoint, PluginKey, ConduitVetoAsk, ConduitLease>(
                     Point: row.Point,
                     Owner: plugin,
-                    Bind: ask => guard(ask.Program.Steps.Exists(row.Carries), op.InvalidInput()).ToFin()
-                        .Bind(_ => Conduits.Mount(session: ask.Session, program: ask.Program, key: op)))),
-            key: op);
+                    Bind: ask => guard(ask.Program.Steps.Exists(row.Carries), new KernelFault.InvalidInput()).ToFin()
+                        .Bind(_ => Conduits.Mount(session: ask.Session, program: ask.Program)))));
     }
 
-    public static Fin<Unit> Release(PluginKey plugin, Op? key = null) =>
+    public static Fin<Unit> Release(PluginKey plugin) =>
         MountRegistry.Release(scope: plugin, key: key.OrDefault());
 }
 ```
@@ -617,17 +608,17 @@ public sealed partial class MeshComponent {
     public static readonly MeshComponent Face = new(
         key: (int)ComponentIndexType.MeshFace,
         paint: static (mesh, index, ink, op) => index >= 0 && index < mesh.Faces.Count
-            ? op.Confirm(mesh.VertexColors.SetColor(mesh.Faces[index], ink))
-            : Fin.Fail<Unit>(op.InvalidInput(axis: nameof(index))));
+            ? Admit.Confirm(mesh.VertexColors.SetColor(mesh.Faces[index], ink))
+            : Fin.Fail<Unit>(new KernelFault.InvalidInput(Axis: Some(nameof(index)))));
     public static readonly MeshComponent Ngon = new(
         key: (int)ComponentIndexType.MeshNgon,
         paint: static (mesh, index, ink, op) => index >= 0 && index < mesh.Ngons.Count
             ? toSeq(mesh.Ngons[index].BoundaryVertexIndexList())
-                .TraverseM(at => op.Confirm(mesh.VertexColors.SetColor((int)at, ink))).As().Map(static _ => unit)
-            : Fin.Fail<Unit>(op.InvalidInput(axis: nameof(index))));
+                .TraverseM(at => Admit.Confirm(mesh.VertexColors.SetColor((int)at, ink))).As().Map(static _ => unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidInput(Axis: Some(nameof(index)))));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Paint(Mesh mesh, int index, System.Drawing.Color ink, Op op);
+    internal partial Fin<Unit> Paint(Mesh mesh, int index, System.Drawing.Color ink);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -637,28 +628,25 @@ internal sealed record AnalysisProgram(
     Option<Func<RhinoObject, Mesh, DisplayPipeline, Fin<Unit>>> Draw);
 
 internal abstract class AnalysisMode : VisualAnalysisMode {
-    private readonly Op key = Op.Of(nameof(AnalysisMode));
     protected abstract AnalysisProgram Program { get; }
 
     protected override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
-        key.Catch(() => Program.Attributes(obj, attributes)).IfFail(OnFault);
+        Try.lift(() => Program.Attributes(obj, attributes)).Run().Bind(static inner => inner).IfFail(OnFault);
 
     protected override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
-        key.Catch(() => Program.Colors(obj, meshes)).IfFail(OnFault);
+        Try.lift(() => Program.Colors(obj, meshes)).Run().Bind(static inner => inner).IfFail(OnFault);
 
     protected override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) =>
-        Program.Draw.Iter(draw => key.Catch(() => draw(obj, mesh, pipeline)).IfFail(OnFault));
+        Program.Draw.Iter(draw => Try.lift(() => draw(obj, mesh, pipeline)).Run().Bind(static inner => inner).IfFail(OnFault));
 
-    internal static Fin<AnalysisMode> Register<TMode>(Op? key = null) where TMode : AnalysisMode {
-        Op op = key.OrDefault();
-        return op.Catch(() => Optional(VisualAnalysisMode.Register(typeof(TMode)) as AnalysisMode).ToFin(op.InvalidResult()));
+    internal static Fin<AnalysisMode> Register<TMode>() where TMode : AnalysisMode {
+        return Try.lift(() => Optional(VisualAnalysisMode.Register(typeof(TMode)) as AnalysisMode).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
     }
 
-    internal Fin<Unit> Activate(RhinoObject subject, ModeParticipation participation, Op? key = null) {
-        Op op = key.OrDefault();
-        return from target in Optional(subject).ToFin(op.InvalidInput())
-               from _ in op.Catch(() => op.Confirm(ObjectSupportsAnalysisMode(target)))
-               from activated in op.Catch(() => op.Confirm(target.EnableVisualAnalysisMode(this, participation.Key)))
+    internal Fin<Unit> Activate(RhinoObject subject, ModeParticipation participation) {
+        return from target in Optional(subject).ToFin(new KernelFault.InvalidInput())
+               from _ in Try.lift(() => Admit.Confirm(ObjectSupportsAnalysisMode(target))).Run().Bind(static inner => inner)
+               from activated in Try.lift(() => Admit.Confirm(target.EnableVisualAnalysisMode(this, participation.Key))).Run().Bind(static inner => inner)
                select unit;
     }
 
@@ -671,14 +659,14 @@ public abstract partial record AnalysisScale {
     public sealed record Declared(double Low, double High) : AnalysisScale;
     public sealed record Measured : AnalysisScale;
 
-    internal Fin<(double Low, double High)> Band(Seq<double> values, Op key) => Switch(
-        (Values: values, Op: key),
+    internal Fin<(double Low, double High)> Band(Seq<double> values) => Switch(
+        values,
         declared: static (held, row) => double.IsFinite(row.Low) && double.IsFinite(row.High) && row.High >= row.Low
             ? Fin.Succ((row.Low, row.High))
-            : Fin.Fail<(double, double)>(held.Op.InvalidInput()),
-        measured: static (held, _) => held.Values.IsEmpty
-            ? Fin.Fail<(double, double)>(held.Op.InvalidResult())
-            : Fin.Succ((held.Values.Min(double.PositiveInfinity), held.Values.Max(double.NegativeInfinity))));
+            : Fin.Fail<(double, double)>(new KernelFault.InvalidInput()),
+        measured: static (held, _) => held.IsEmpty
+            ? Fin.Fail<(double, double)>(new KernelFault.InvalidResult())
+            : Fin.Succ((held.Min(double.PositiveInfinity), held.Max(double.NegativeInfinity))));
 
     internal static UnitInterval Position(double value, (double Low, double High) band) =>
         UnitInterval.Create(value: band.High > band.Low
@@ -698,32 +686,30 @@ public sealed partial class AnalysisLaw {
 internal sealed class AnalysisOverlay : AnalysisMode {
     private readonly Atom<Option<AnalysisLaw>> law = Atom(Option<AnalysisLaw>.None);
     private readonly FaultCell faults = DisplayFaults.Cell();
-    private readonly Op key = Op.Of(nameof(AnalysisOverlay));
     private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.analysis");
 
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    internal Fin<Unit> Bind(AnalysisLaw value, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(value).ToFin(op.InvalidInput()).Bind(admitted =>
+    internal Fin<Unit> Bind(AnalysisLaw value) {
+        return Optional(value).ToFin(new KernelFault.InvalidInput()).Bind(admitted =>
             Cell.Seat(law, () => admitted).Switch(
                 state: op,
                 committed: static (_, _) => Fin.Succ(unit),
-                ceded: static (o, _) => Fin.Fail<Unit>(o.InvalidContext()),
+                ceded: static (o, _) => Fin.Fail<Unit>(new KernelFault.InvalidContext()),
                 refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-                contended: static (o, _) => Fin.Fail<Unit>(o.InvalidResult())));
+                contended: static (o, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult())));
     }
 
     protected override AnalysisProgram Program => new(
-        Attributes: (_, attributes) => key.Catch(() => Fin.Succ((Op.Side(() => attributes.ShadeVertexColors = true), unit).Item2)),
+        Attributes: (_, attributes) => Try.lift(() => Fin.Succ((HostEdge.Side(() => attributes.ShadeVertexColors = true), unit).Item2)).Run().Bind(static inner => inner),
         Colors: (subject, meshes) => Held(subject).Bind(held =>
             toSeq(meshes ?? []).Filter(static mesh => mesh is not null).TraverseM(mesh => Paint(mesh, held.Law, held.Context)).As().Map(static _ => unit)),
         Draw: None);
 
     private Fin<(AnalysisLaw Law, Context Context)> Held(RhinoObject subject) =>
-        from admitted in law.Value.ToFin(Fail: key.MissingContext())
-        from target in key.Need(subject)
+        from admitted in law.Value.ToFin(Fail: new KernelFault.MissingContext())
+        from target in Admit.Need(subject)
         from context in Rasm.Domain.Context.Of(doc: target.Document).ToFin()
         select (admitted, context);
 
@@ -732,20 +718,20 @@ internal sealed class AnalysisOverlay : AnalysisMode {
             .Run(operation: Analyze.Query<Mesh, MeshMetricSample>(query: held.Query, key: key), input: mesh)
             .ToFin()
         from band in held.Scale.Band(values: samples.Map(static row => row.Value).Strict(), key: key)
-        from cold in held.Cold.ToDrawing(key: key)
-        from _sized in key.Catch(() => Fin.Succ((Op.Side(() => {
+        from cold in held.Cold.ToDrawing()
+        from _sized in Try.lift(() => Fin.Succ((HostEdge.Side(() => {
             mesh.VertexColors.Clear();
             mesh.VertexColors.CreateMonotoneMesh(cold);
-        }), unit).Item2))
+        }), unit).Item2)).Run().Bind(static inner => inner)
         from painted in samples.TraverseM(sample => Ink(mesh, sample, held, band)).As()
         select unit;
 
     private Fin<Unit> Ink(Mesh mesh, MeshMetricSample sample, AnalysisLaw held, (double Low, double High) band) =>
         from mixed in held.Cold.Mix(
             other: held.Hot, amount: AnalysisScale.Position(value: sample.Value, band: band), path: held.Path).ToFin()
-        from ink in mixed.ToDrawing(key: key)
-        from component in key.Row<ComponentIndexType, MeshComponent>(sample.Source.ComponentIndexType, ordinal: static type => (int)type)
-        from painted in key.Catch(() => component.Paint(mesh: mesh, index: sample.Source.Index, ink: ink, op: key))
+        from ink in mixed.ToDrawing()
+        from component in FactoryBridge.Row<ComponentIndexType, MeshComponent>(sample.Source.ComponentIndexType, ordinal: static type => (int)type)
+        from painted in Try.lift(() => component.Paint(mesh: mesh, index: sample.Source.Index, ink: ink)).Run().Bind(static inner => inner)
         select painted;
 
     protected override Unit OnFault(Error error) => ignore(faults.Park(point: HookPoint, cause: error));
@@ -778,68 +764,62 @@ public sealed class RetainedOverlay : IDisposable {
     private readonly CustomDisplay display;
     private readonly Lock lifecycle = new();
     private readonly FaultCell faults = DisplayFaults.Cell();
-    private readonly Op key;
     private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.retained");
     private Seq<WorldMark> journal = Seq<WorldMark>();
     private bool released;
 
-    private RetainedOverlay(CustomDisplay display, Op key) => (this.display, this.key) = (display, key);
+    private RetainedOverlay(CustomDisplay display) => (this.display, this.key) = (display);
 
-    public static Fin<RetainedOverlay> Of(OverlayVisibility visibility, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Fin.Succ(new RetainedOverlay(new CustomDisplay(visibility.Key), op)));
+    public static Fin<RetainedOverlay> Of(OverlayVisibility visibility) {
+        return Try.lift(() => Fin.Succ(new RetainedOverlay(new CustomDisplay(visibility.Key)))).Run().Bind(static inner => inner);
     }
 
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    public Fin<RetainedState> Apply(RetainedRequest request, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<RetainedState> Apply(RetainedRequest request) {
         lock (lifecycle) {
-            return guard(!released, op.InvalidContext()).ToFin()
-                .Bind(_ => guard(request is not null && request.Valid, op.InvalidInput()).ToFin())
+            return guard(!released, new KernelFault.InvalidContext()).ToFin()
+                .Bind(_ => guard(request is not null && request.Valid, new KernelFault.InvalidInput()).ToFin())
                 .Bind(_ => request.Switch(
-                    (Self: this, Op: op),
+                    this,
                     add: static (ctx, row) => {
-                        Seq<WorldMark> prior = ctx.Self.journal;
+                        Seq<WorldMark> prior = ctx.journal;
                         return Marks.Paint(
-                                new Canvas.Retained(ctx.Self.display),
-                                row.Marks.Map(static mark => (DisplayMark)new DisplayMark.World(mark)),
-                                ctx.Op)
+                                new Canvas.Retained(ctx.display),
+                                row.Marks.Map(static mark => (DisplayMark)new DisplayMark.World(mark)))
                             .Bind(tally => tally.IsValid
-                                ? Fin.Succ((ctx.Self.journal = prior + row.Marks,
+                                ? Fin.Succ((ctx.journal = prior + row.Marks,
                                     new RetainedState(
-                                        ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                                        Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)
+                                        ctx.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
+                                        Rasm.Numerics.Dimension.Create(value: ctx.journal.Count))).Item2)
                                 : Fin.Fail<RetainedState>(Error.Many(tally.Refused)))
                             .Rollback(
-                                release: () => ctx.Self.Restore(prior, ctx.Op),
-                                key: ctx.Op);
+                                release: () => ctx.Restore(prior));
                     },
-                    visibility: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ((
-                        ctx.Self.display.Enabled = row.Value.Key,
-                        new RetainedState(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)),
-                    clear: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ((
-                        Op.Side(ctx.Self.display.Clear),
-                        ctx.Self.journal = Seq<WorldMark>(),
+                    visibility: static (ctx, row) => Try.lift(() => Fin.Succ((
+                        ctx.display.Enabled = row.Value.Key,
+                        new RetainedState(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.journal.Count))).Item2)).Run().Bind(static inner => inner),
+                    clear: static (ctx, _) => Try.lift(() => Fin.Succ((
+                        HostEdge.Side(ctx.display.Clear),
+                        ctx.journal = Seq<WorldMark>(),
                         new RetainedState(
-                            ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                            Rasm.Numerics.Dimension.Create(value: 0))).Item3)),
+                            ctx.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
+                            Rasm.Numerics.Dimension.Create(value: 0))).Item3)).Run().Bind(static inner => inner),
                     inspect: static (ctx, _) => Fin.Succ(new RetainedState(
-                        ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                        Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count)))));
+                        ctx.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
+                        Rasm.Numerics.Dimension.Create(value: ctx.journal.Count)))));
         }
     }
 
-    private Fin<Unit> Restore(Seq<WorldMark> prior, Op key) => key.Catch(() => {
-        _ = Op.Side(display.Clear);
+    private Fin<Unit> Restore(Seq<WorldMark> prior) => Try.lift(() => {
+        _ = HostEdge.Side(display.Clear);
         journal = Seq<WorldMark>();
         return Marks.Paint(
                 new Canvas.Retained(display),
-                prior.Map(static mark => (DisplayMark)new DisplayMark.World(mark)),
-                key)
+                prior.Map(static mark => (DisplayMark)new DisplayMark.World(mark)))
             .Map(_ => (journal = prior, unit).Item2);
-    });
+    }).Run().Bind(static inner => inner);
 
     public void Dispose() {
         lock (lifecycle) {
@@ -847,8 +827,8 @@ public sealed class RetainedOverlay : IDisposable {
             released = true;
             _ = Custody.Release(
                     releases: Seq<Func<Fin<Unit>>>(
-                        () => key.Catch(() => { display.Clear(); return Fin.Succ(value: unit); }),
-                        () => key.Catch(() => { display.Dispose(); return Fin.Succ(value: unit); })),
+                        () => Try.lift(() => { display.Clear(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+                        () => Try.lift(() => { display.Dispose(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)),
                     key: key)
                 .IfFail(cause => {
                     released = false;

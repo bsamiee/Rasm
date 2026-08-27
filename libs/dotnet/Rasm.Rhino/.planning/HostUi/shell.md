@@ -102,15 +102,15 @@ public sealed partial class CallbackObserver<T> {
                 ? new ValidationError(message: $"{nameof(Reject)} is absent.")
                 : null;
 
-    internal Unit Guard(Func<Fin<T>> project, Op op) {
-        Fin<T> result = op.Catch(project);
-        return op.Catch(() => {
+    internal Unit Guard(Func<Fin<T>> project) {
+        Fin<T> result = Try.lift(project).Run().Bind(static inner => inner);
+        return Try.lift(() => {
             Deliver(result);
             return Fin.Succ(value: unit);
-        }).Match(
+        }).Run().Bind(static inner => inner).Match(
             Succ: static _ => unit,
             Fail: primary => {
-                Error retained = op.Catch(() => Fin.Succ(value: Reject(primary))).Match(
+                Error retained = Try.lift(() => Fin.Succ(value: Reject(primary))).Run().Bind(static inner => inner).Match(
                     Succ: static _ => primary,
                     Fail: secondary => primary + secondary);
                 return ignore(faults.Park(item: retained));
@@ -180,19 +180,16 @@ internal abstract partial record PostedState {
 public static class HostThread {
     private sealed record Crossed<T>(Fin<T> Value) : IDetachedDocumentResult;
 
-    public static Fin<T> Run<T>(HostWork<T> work, Op? key = null) {
+    public static Fin<T> Run<T>(HostWork<T> work) {
         ArgumentNullException.ThrowIfNull(work);
-        Op op = key.OrDefault();
-        return work.Switch(
-            op,
-            execute: static (held, request) => RhinoApp.IsOnMainThread
-                ? held.Catch(request.Body)
+        return work.Switch(execute: static (held, request) => RhinoApp.IsOnMainThread
+                ? Try.lift(request.Body).Run().Bind(static inner => inner)
                 : Marshalled(body: request.Body, op: held, lane: DispatchLane.Immediate),
             posted: static (held, request) => RhinoApp.IsOnMainThread
-                ? held.Catch(request.Body)
+                ? Try.lift(request.Body).Run().Bind(static inner => inner)
                 : MarshalLatency.Measured(lane: DispatchLane.Deferred, work: held, body: () => Posted(request: request, op: held)),
             required: static (held, request) => RhinoApp.IsOnMainThread
-                ? held.Catch(request.Body)
+                ? Try.lift(request.Body).Run().Bind(static inner => inner)
                 : Fin.Fail<T>(error: new UiFault.OffThread(Key: held)),
             guarded: static (held, request) => RhinoApp.IsOnMainThread
                 ? Bracketed(request: request, op: held)
@@ -203,67 +200,64 @@ public static class HostThread {
                 body: () => Session(work: request, op: held)));
     }
 
-    internal static Fin<Unit> Release(Seq<Func<Fin<Unit>>> releases, Op? key = null) {
-        Op op = key.OrDefault();
-        return Run(work: new HostWork<Unit>.Execute(Body: () => Custody.Release(releases: releases, key: op)), key: op);
+    internal static Fin<Unit> Release(Seq<Func<Fin<Unit>>> releases) {
+        return Run(work: new HostWork<Unit>.Execute(Body: () => Custody.Release(releases: releases, key: op)));
     }
 
-    private static Fin<T> Bracketed<T>(HostWork<T>.Guarded request, Op op) =>
-        op.Catch(() => {
+    private static Fin<T> Bracketed<T>(HostWork<T>.Guarded request) =>
+        Try.lift(() => {
             using RiskyAction guard = new(description: request.Description.English);
             return request.Body();
-        });
+        }).Run().Bind(static inner => inner);
 
-    private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op, DispatchLane lane) =>
-        MarshalLatency.Measured(lane: lane, work: op, body: () => op.Catch(() => {
+    private static Fin<T> Marshalled<T>(Func<Fin<T>> body, DispatchLane lane) =>
+        MarshalLatency.Measured(lane: lane, work: op, body: () => Try.lift(() => {
             Atom<Option<Fin<T>>> landed = Atom(Option<Fin<T>>.None);
-            RhinoApp.InvokeAndWait(action: () => ignore(Cell.Seat(landed, () => op.Catch(body))));
-            return Settled(landed: landed, op: op, member: nameof(RhinoApp.InvokeAndWait));
-        }));
+            RhinoApp.InvokeAndWait(action: () => ignore(Cell.Seat(landed, () => Try.lift(body).Run().Bind(static inner => inner))));
+            return Settled(landed: landed, member: nameof(RhinoApp.InvokeAndWait));
+        }).Run().Bind(static inner => inner));
 
-    private static Fin<T> Posted<T>(HostWork<T>.Posted request, Op op) =>
-        op.Catch(() => {
+    private static Fin<T> Posted<T>(HostWork<T>.Posted request) =>
+        Try.lift(() => {
             Atom<PostedState> state = Atom<PostedState>(new PostedState.Pending());
             TaskCompletionSource<Fin<T>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
             RhinoApp.InvokeOnUiThread(
                 method: () => ignore(Cell.Step(
                         cell: state,
                         step: static held => held is PostedState.Pending ? Some<PostedState>(new PostedState.Running()) : None,
-                        declined: op.InvalidContext())
+                        declined: new KernelFault.InvalidContext())
                     is Transition<PostedState>.Committed
-                        ? (completed.TrySetResult(op.Catch(request.Body)),
-                           Cell.Step(state, static _ => Some<PostedState>(new PostedState.Settled()), op.InvalidContext())).Item2
-                        : Cell.Step(state, static held => Some(held), op.InvalidContext())),
+                        ? (completed.TrySetResult(Try.lift(request.Body).Run().Bind(static inner => inner)),
+                           Cell.Step(state, static _ => Some<PostedState>(new PostedState.Settled()), new KernelFault.InvalidContext())).Item2
+                        : Cell.Step(state, static held => Some(held), new KernelFault.InvalidContext())),
                 args: []);
             if (completed.Task.Wait(request.Wait.ToValue())) { return completed.Task.Result; }
             return Cell.Step(
                     cell: state,
                     step: static held => held is PostedState.Pending ? Some<PostedState>(new PostedState.Expired()) : None,
-                    declined: op.InvalidContext())
+                    declined: new KernelFault.InvalidContext())
                 .Switch(
                     state: (Op: op, Task: completed.Task),
                     committed: static (ctx, _) => Fin.Fail<T>(error: new UiFault.HostRejected(
                         Key: ctx.Op, Detail: nameof(RhinoApp.InvokeOnUiThread))),
-                    ceded: static (ctx, _) => Fin.Fail<T>(error: ctx.Op.InvalidResult()),
+                    ceded: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()),
                     refused: static (ctx, row) => row.State is PostedState.Settled
                         ? ctx.Task.Result
                         : Fin.Fail<T>(error: new UiFault.HostRejected(
                             Key: ctx.Op, Detail: nameof(RhinoApp.InvokeOnUiThread))),
-                    contended: static (ctx, _) => Fin.Fail<T>(error: ctx.Op.InvalidResult()));
-        });
+                    contended: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()));
+        }).Run().Bind(static inner => inner);
 
-    private static Fin<T> Session<T>(HostWork<T>.Session work, Op op) =>
-        work.Document
-            .Demand(
-                use: document => Fin.Succ(value: new Crossed<T>(Value: op.Catch(() => work.Body(document)))),
-                key: op,
+    private static Fin<T> Session<T>(HostWork<T>.Session work) =>
+        work.Document.Demand(
+                use: document => Fin.Succ(value: new Crossed<T>(Value: Try.lift(() => work.Body(document)).Run().Bind(static inner => inner))),
                 needs: work.Needs.ToArray())
             .Bind(static held => held.Value);
 
-    private static Fin<T> Settled<T>(Atom<Option<Fin<T>>> landed, Op op, string member) =>
+    private static Fin<T> Settled<T>(Atom<Option<Fin<T>>> landed, string member) =>
         landed.Value.Match(
             Some: static result => result,
-            None: () => Fin.Fail<T>(error: new UiFault.HostRejected(Key: op, Detail: member)));
+            None: () => Fin.Fail<T>(error: new UiFault.HostRejected(Detail: member)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -283,13 +277,11 @@ public static class MarshalLatency {
         PluginKey plugin,
         ILatencyContextProvider provider,
         ILatencyContextTokenIssuer issuer,
-        MonotonicTimeline timeline,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from live in op.Need(provider)
-               from mint in op.Need(issuer)
-               from clock in op.Need(timeline)
-               from row in op.Catch(() => Fin.Succ(value: new MarshalSeat(
+        MonotonicTimeline timeline) {
+        return from live in Admit.Need(provider)
+               from mint in Admit.Need(issuer)
+               from clock in Admit.Need(timeline)
+               from row in Try.lift(() => Fin.Succ(value: new MarshalSeat(
                    Plugin: plugin,
                    Provider: live,
                    Timeline: clock,
@@ -299,21 +291,21 @@ public static class MarshalLatency {
                    Overrun: mint.GetMeasureToken(OverrunMeasure),
                    Work: mint.GetTagToken(WorkTag),
                    Lane: mint.GetTagToken(LaneTag),
-                   Outcome: mint.GetTagToken(OutcomeTag))))
+                   Outcome: mint.GetTagToken(OutcomeTag)))).Run().Bind(static inner => inner)
                from seated in Cell.Seat(Seat, () => row).Switch(
                    state: op,
                    committed: static (_, _) => Fin.Succ(value: unit),
-                   ceded: static (held, _) => Fin.Fail<Unit>(error: held.InvalidContext()),
+                   ceded: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
                    refused: static (_, refusal) => Fin.Fail<Unit>(error: refusal.Cause),
-                   contended: static (held, _) => Fin.Fail<Unit>(error: held.InvalidResult()))
+                   contended: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))
                select (Lease<IDisposable>)new Lease<IDisposable>.Owned(Value: Subscription.Of(
                    detach: () => ignore(Cell.Step(
                        cell: Seat,
                        step: seated => seated.Filter(live2 => ReferenceEquals(live2, row)).IsSome ? Some(Option<MarshalSeat>.None) : None,
-                       declined: op.InvalidContext()))));
+                       declined: new KernelFault.InvalidContext()))));
     }
 
-    internal static Fin<T> Measured<T>(DispatchLane lane, Op work, Func<Fin<T>> body) =>
+    internal static Fin<T> Measured<T>(DispatchLane lane, Func<Fin<T>> body) =>
         Seat.Value.Match(
             None: body,
             Some: seat => {
@@ -418,9 +410,8 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
         new(Operations: Iterable<StatusProgram>.FromSpan(programs)
             .Fold(Seq<StatusOp>(), static (all, next) => all + next.Operations));
 
-    public Fin<Seq<ToastOutcome>> Apply(DocumentSession session, Op? key = null) {
+    public Fin<Seq<ToastOutcome>> Apply(DocumentSession session) {
         ArgumentNullException.ThrowIfNull(session);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<Seq<ToastOutcome>>.Session(
                 Document: session,
@@ -429,62 +420,59 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
                     from regime in ModelUnit.Of(value: document.ModelUnits, key: op)
                     from toasts in Operations.Fold(
                         Fin.Succ(value: Seq<ToastOutcome>()),
-                        (state, next) => state.Bind(carried => Apply(next: next, toasts: carried, regime: regime, op: op)))
-                    select toasts),
-            key: op);
+                        (state, next) => state.Bind(carried => Apply(next: next, toasts: carried, regime: regime)))
+                    select toasts));
     }
 
-    private static Fin<Seq<ToastOutcome>> Apply(StatusOp next, Seq<ToastOutcome> toasts, ModelUnit regime, Op op) =>
+    private static Fin<Seq<ToastOutcome>> Apply(StatusOp next, Seq<ToastOutcome> toasts, ModelUnit regime) =>
         next.Switch(
-            (Toasts: toasts, Regime: regime, Op: op),
-            prompt: static (held, write) => Admitted(text: write.Text, op: held.Op).Map(prompt => {
+            (Toasts: toasts, Regime: regime),
+            prompt: static (held, write) => Admitted(text: write.Text).Map(prompt => {
                 _ = write.Default.Match(
-                    Some: fallback => Op.Side(() => RhinoApp.SetCommandPrompt(
+                    Some: fallback => HostEdge.Side(() => RhinoApp.SetCommandPrompt(
                         prompt: prompt, promptDefault: fallback.Resolve())),
-                    None: () => Op.Side(() => RhinoApp.SetCommandPrompt(prompt: prompt)));
+                    None: () => HostEdge.Side(() => RhinoApp.SetCommandPrompt(prompt: prompt)));
                 return held.Toasts;
             }),
-            promptMessage: static (held, write) => Admitted(text: write.Text, op: held.Op)
-                .Map(prompt => (Op.Side(() => RhinoApp.SetCommandPromptMessage(prompt: prompt)), held.Toasts).Item2),
+            promptMessage: static (held, write) => Admitted(text: write.Text)
+                .Map(prompt => (HostEdge.Side(() => RhinoApp.SetCommandPromptMessage(prompt: prompt)), held.Toasts).Item2),
             pane: static (held, write) => write.Text.Match(
-                Some: text => Admitted(text: text, op: held.Op)
-                    .Map(message => (Op.Side(() => StatusBar.SetMessagePane(message: message)), held.Toasts).Item2),
-                None: () => Fin.Succ(value: (Op.Side(StatusBar.ClearMessagePane), held.Toasts).Item2)),
-            distance: static (held, write) => write.Unit.ScaleTo(target: held.Regime, key: held.Op)
-                .Map(scale => (Op.Side(() => StatusBar.SetDistancePane(distance: write.Value * scale)), held.Toasts).Item2),
-            number: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetNumberPane(number: write.Value)), held.Toasts).Item2),
-            point: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetPointPane(point: write.Value)), held.Toasts).Item2),
-            toast: static (held, write) => Fin.Succ(value: held.Toasts.Add(Shown(spec: write.Spec, op: held.Op))));
+                Some: text => Admitted(text: text)
+                    .Map(message => (HostEdge.Side(() => StatusBar.SetMessagePane(message: message)), held.Toasts).Item2),
+                None: () => Fin.Succ(value: (HostEdge.Side(StatusBar.ClearMessagePane), held.Toasts).Item2)),
+            distance: static (held, write) => write.Unit.ScaleTo(target: held.Regime)
+                .Map(scale => (HostEdge.Side(() => StatusBar.SetDistancePane(distance: write.Value * scale)), held.Toasts).Item2),
+            number: static (held, write) => Fin.Succ(value: (HostEdge.Side(() => StatusBar.SetNumberPane(number: write.Value)), held.Toasts).Item2),
+            point: static (held, write) => Fin.Succ(value: (HostEdge.Side(() => StatusBar.SetPointPane(point: write.Value)), held.Toasts).Item2),
+            toast: static (held, write) => Fin.Succ(value: held.Toasts.Add(Shown(spec: write.Spec))));
 
-    private static Fin<string> Admitted(HostText text, Op op) => op.AcceptText(value: text.English).Map(_ => text.Resolve());
+    private static Fin<string> Admitted(HostText text) => Acceptance.Text(value: text.English).Map(_ => text.Resolve());
 
-    private static ToastOutcome Shown(ToastSpec spec, Op op) =>
-        (from view in Optional(spec.View).ToFin(Fail: op.MissingContext())
-         from message in Admitted(text: spec.Message, op: op)
-         from raised in op.Catch(() => Fin.Succ(value: spec.Placement.Switch(
+    private static ToastOutcome Shown(ToastSpec spec) =>
+        (from view in Optional(spec.View).ToFin(Fail: new KernelFault.MissingContext())
+         from message in Admitted(text: spec.Message)
+         from raised in Try.lift(() => Fin.Succ(value: spec.Placement.Switch(
              (View: view, Message: message),
              standard: static (held, _) => held.View.ShowToast(held.Message),
              scaled: static (held, placed) => held.View.ShowToast(held.Message, placed.Height.ToValue()),
-             located: static (held, placed) => held.View.ShowToast(held.Message, placed.Height.ToValue(), placed.Point))))
+             located: static (held, placed) => held.View.ShowToast(held.Message, placed.Height.ToValue(), placed.Point)))).Run().Bind(static inner => inner)
          select ToastId.Create(value: raised))
         .Match<ToastOutcome>(Succ: static id => new ToastOutcome.Shown(Id: id), Fail: static fault => new ToastOutcome.Refused(Fault: fault));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PromptWatch {
-    public static Fin<Subscription> Observe(CallbackObserver<PromptFact> observer, Op? key = null) {
+    public static Fin<Subscription> Observe(CallbackObserver<PromptFact> observer) {
         ArgumentNullException.ThrowIfNull(observer);
-        Op op = key.OrDefault();
         Atom<long> ordinal = Atom(0L);
         EventHandler<CommandPromptChangedEventArgs> handler = (_, args) => ignore(observer.Guard(
             project: () => Fin.Succ(value: new PromptFact(
                 Prompt: args.Prompt,
-                Default: Op.Text(args.PromptDefault),
+                Default: HostEdge.Text(args.PromptDefault),
                 Options: toSeq(args.Options)
                     .Map(static option => new PromptOption(Index: option.Index, English: option.EnglishName, Local: option.LocalName))
                     .Strict(),
-                Ordinal: ordinal.Swap(static held => held + 1L))),
-            op: op));
+                Ordinal: ordinal.Swap(static held => held + 1L)))));
         return Subscription.Attach(
             subscribe: callback => RhinoApp.CommandPromptChanged += callback,
             unsubscribe: callback => RhinoApp.CommandPromptChanged -= callback,
@@ -536,12 +524,11 @@ public abstract partial record MeterGrant {
     public sealed record Owned(DocKey Document) : MeterGrant;
     public sealed record Foreign : MeterGrant;
 
-    internal static Fin<MeterGrant> Admit(int code, DocKey document, Op op) =>
+    internal static Fin<MeterGrant> Admit(int code, DocKey document) =>
         code switch {
             1 => Fin.Succ<MeterGrant>(value: new Owned(Document: document)),
             -1 => Fin.Succ<MeterGrant>(value: new Foreign()),
-            _ => Fin.Fail<MeterGrant>(error: new UiFault.HostRejected(
-                Key: op, Detail: nameof(StatusBar.ShowProgressMeter))),
+            _ => Fin.Fail<MeterGrant>(error: new UiFault.HostRejected(Detail: nameof(StatusBar.ShowProgressMeter))),
         };
 }
 
@@ -571,8 +558,7 @@ public sealed partial class ProgressPolicy {
         int lower,
         int upper,
         HostText label,
-        FrozenSet<ProgressFeature> features,
-        Op? key = null) =>
+        FrozenSet<ProgressFeature> features) =>
         key.OrDefault().AcceptValidated<ProgressPolicy>(
             Validate(lower: lower, upper: upper, label: label, features: features, obj: out ProgressPolicy? admitted),
             admitted);
@@ -597,7 +583,6 @@ public sealed class ProgressLease : IDisposable {
     }
 
     private readonly MeterGrant grant;
-    private readonly Op op;
     private readonly ProgressPolicy policy;
     private readonly FaultCell cell;
     private readonly Ring<Error> faults = ShellFaults.Ring();
@@ -613,9 +598,8 @@ public sealed class ProgressLease : IDisposable {
         ProgressPolicy policy,
         FaultCell cell,
         Option<CancellationTokenSource> abort,
-        Option<Subscription> escape,
-        Op op) {
-        (this.grant, this.policy, this.cell, this.abort, this.escape, this.op) = (grant, policy, cell, abort, escape, op);
+        Option<Subscription> escape) {
+        (this.grant, this.policy, this.cell, this.abort, this.escape, this.op) = (grant, policy, cell, abort, escape);
         reporter = new LeaseReporter(Lease: this);
         state = new LeaseState<(int, HostText)>.Live(Held: (policy.Lower, policy.Label));
     }
@@ -628,8 +612,7 @@ public sealed class ProgressLease : IDisposable {
 
     public CancellationToken Cancel => abort.Match(Some: static source => source.Token, None: static () => CancellationToken.None);
 
-    public Fin<ProgressReading> Advance(ProgressMove move, Op? key = null) {
-        Op held = key.OrDefault();
+    public Fin<ProgressReading> Advance(ProgressMove move) {
         return HostThread.Run(
             work: new HostWork<ProgressReading>.Execute(Body: () => {
                 lock (sync) {
@@ -637,27 +620,25 @@ public sealed class ProgressLease : IDisposable {
                         (Self: this, Move: move, Op: held),
                         live: static (ctx, row) =>
                             from next in ctx.Move.Switch(
-                                (Held: row.Held, Policy: ctx.Self.policy, Op: ctx.Op),
+                                (Held: row.Held, Policy: ctx.Self.policy),
                                 absolute: static (carried, step) => Bounded(
                                     position: step.Position,
                                     label: step.Label.IfNone(carried.Held.Label),
-                                    policy: carried.Policy,
-                                    op: carried.Op),
+                                    policy: carried.Policy),
                                 relative: static (carried, step) => Bounded(
                                     position: (long)carried.Held.Position + step.Delta,
                                     label: step.Label.IfNone(carried.Held.Label),
-                                    policy: carried.Policy,
-                                    op: carried.Op),
-                                label: static (carried, step) => carried.Op.AcceptText(value: step.Text.English)
+                                    policy: carried.Policy),
+                                label: static (carried, step) => Acceptance.Text(value: step.Text.English)
                                     .Map(_ => (Position: carried.Held.Position, Label: step.Text)))
                             from outcome in ctx.Self.grant.Switch(
-                                (Self: ctx.Self, Move: next, Op: ctx.Op),
+                                (Self: ctx.Self, Move: next),
                                 owned: static (carried, owner) => carried.Self.Drive(
-                                    document: owner.Document, move: carried.Move, op: carried.Op),
+                                    document: owner.Document, move: carried.Move),
                                 foreign: static (carried, _) => Fin.Succ(value: carried.Self.Reading(
                                     position: carried.Move.Position, label: carried.Move.Label, fault: None)))
                             select outcome,
-                        released: static (ctx, _) => Fin.Fail<ProgressReading>(error: ctx.Op.MissingContext()));
+                        released: static (ctx, _) => Fin.Fail<ProgressReading>(error: new KernelFault.MissingContext()));
                 }
             }),
             key: held);
@@ -688,22 +669,22 @@ public sealed class ProgressLease : IDisposable {
         releases: grant.Switch(
             this,
             owned: static (self, owner) => Seq<Func<Fin<Unit>>>(
-                () => self.op.Catch(() => StatusBar.HideProgressMeter(docSerialNumber: owner.Document)),
+                () => Try.lift(() => StatusBar.HideProgressMeter(docSerialNumber: owner.Document)).Run().Bind(static inner => inner),
                 self.Restore) + self.Disarm(),
             foreign: static (self, _) => Seq<Func<Fin<Unit>>>(self.Restore) + self.Disarm()),
         key: op);
 
     private Seq<Func<Fin<Unit>>> Disarm() => Seq<Func<Fin<Unit>>>(
-        () => op.Catch(() => Fin.Succ((escape.Iter(static row => row.Dispose()), unit).Item2)),
-        () => op.Catch(() => Fin.Succ((abort.Iter(static source => source.Dispose()), unit).Item2)));
+        () => Try.lift(() => Fin.Succ((escape.Iter(static row => row.Dispose()), unit).Item2)).Run().Bind(static inner => inner),
+        () => Try.lift(() => Fin.Succ((abort.Iter(static source => source.Dispose()), unit).Item2)).Run().Bind(static inner => inner));
 
-    private static Fin<(int Position, HostText Label)> Bounded(long position, HostText label, ProgressPolicy policy, Op op) =>
+    private static Fin<(int Position, HostText Label)> Bounded(long position, HostText label, ProgressPolicy policy) =>
         position >= policy.Lower && position <= policy.Upper
             ? Fin.Succ(value: ((int)position, label))
-            : Fin.Fail<(int, HostText)>(error: op.InvalidInput(axis: nameof(ProgressMove.Absolute.Position)));
+            : Fin.Fail<(int, HostText)>(error: new KernelFault.InvalidInput(Axis: Some(nameof(ProgressMove.Absolute.Position))));
 
-    private Fin<ProgressReading> Drive(DocKey document, (int Position, HostText Label) move, Op op) =>
-        op.Catch(() => {
+    private Fin<ProgressReading> Drive(DocKey document, (int Position, HostText Label) move) =>
+        Try.lift(() => {
             StatusBar.UpdateProgressMeter(
                 docSerialNumber: document,
                 label: move.Label.Resolve(),
@@ -714,30 +695,29 @@ public sealed class ProgressLease : IDisposable {
                 position: move.Position,
                 label: move.Label,
                 fault: policy.Features.Contains(ProgressFeature.Presence)
-                    ? Project(fraction: Fraction(position: move.Position), op: op).Match(
+                    ? Project(fraction: Fraction(position: move.Position)).Match(
                         Succ: static _ => Option<Error>.None, Fail: Some)
                     : None));
-        });
+        }).Run().Bind(static inner => inner);
 
-    private Fin<Unit> Project(UnitInterval fraction, Op op) =>
+    private Fin<Unit> Project(UnitInterval fraction) =>
         presence.Value.Match(
             Some: standing => standing.Resource.Steer(
-                operation: new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction)), key: op),
+                operation: new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction))),
             None: () =>
                 from mount in Presence.Apply(
                     operation: new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction)),
-                    faults: cell,
-                    key: op)
+                    faults: cell)
                 from seated in Cell.Seat(presence, () => mount).Switch(
                     state: (Op: op, Mount: mount),
                     committed: static (_, _) => Fin.Succ(value: unit),
-                    ceded: static (ctx, _) => (Op.Side(ctx.Mount.Dispose), Fin.Fail<Unit>(error: ctx.Op.InvalidContext())).Item2,
+                    ceded: static (ctx, _) => (HostEdge.Side(ctx.Mount.Dispose), Fin.Fail<Unit>(error: new KernelFault.InvalidContext())).Item2,
                     refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
-                    contended: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()))
+                    contended: static (ctx, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))
                 select seated);
 
     private Fin<Unit> Restore() => Cell.Take(presence).Current
-        .TraverseM(mount => op.Catch(() => Fin.Succ(value: mount.Dispose())))
+        .TraverseM(mount => Try.lift(() => Fin.Succ(value: mount.Dispose())).Run().Bind(static inner => inner))
         .As()
         .Map(static _ => unit);
 
@@ -762,13 +742,11 @@ public static class Progress {
         DocumentSession session,
         ProgressPolicy policy,
         FaultCell faults,
-        Func<ProgressLease, Fin<T>> body,
-        Op? key = null) {
+        Func<ProgressLease, Fin<T>> body) {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(faults);
         ArgumentNullException.ThrowIfNull(body);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<T>.Session(
                 Document: session,
@@ -782,24 +760,21 @@ public static class Progress {
                             label: policy.Label.Resolve(),
                             embedLabel: policy.Features.Contains(ProgressFeature.EmbeddedLabel),
                             showPercentComplete: policy.Features.Contains(ProgressFeature.Percentage)),
-                        document: session.Key,
-                        op: op)
+                        document: session.Key)
                     from armed in Armed(policy: policy, op: op)
                     from result in Bracketed(
                         lease: new ProgressLease(
                             grant: grant, policy: policy, cell: faults,
-                            abort: armed.Abort, escape: armed.Escape, op: op),
+                            abort: armed.Abort, escape: armed.Escape),
                         wait: policy.Features.Contains(ProgressFeature.WaitCursor),
-                        body: body,
-                        op: op)
-                    select result),
-            key: op);
+                        body: body)
+                    select result));
     }
 
-    private static Fin<(Option<CancellationTokenSource> Abort, Option<Subscription> Escape)> Armed(ProgressPolicy policy, Op op) {
+    private static Fin<(Option<CancellationTokenSource> Abort, Option<Subscription> Escape)> Armed(ProgressPolicy policy) {
         if (!policy.Features.Contains(ProgressFeature.Escape)) { return Fin.Succ((Option<CancellationTokenSource>.None, Option<Subscription>.None)); }
         CancellationTokenSource source = new();
-        EventHandler handler = (_, _) => ignore(op.Catch(source.Cancel));
+        EventHandler handler = (_, _) => ignore(Try.lift(source.Cancel).Run().Bind(static inner => inner));
         return Subscription.Attach(
                 subscribe: callback => RhinoApp.EscapeKeyPressed += callback,
                 unsubscribe: callback => RhinoApp.EscapeKeyPressed -= callback,
@@ -808,12 +783,12 @@ public static class Progress {
             .Rollback(source);
     }
 
-    private static Fin<T> Bracketed<T>(ProgressLease lease, bool wait, Func<ProgressLease, Fin<T>> body, Op op) =>
-        op.Catch(() => {
+    private static Fin<T> Bracketed<T>(ProgressLease lease, bool wait, Func<ProgressLease, Fin<T>> body) =>
+        Try.lift(() => {
             using WaitCursor? cursor = wait ? new WaitCursor() : null;
             return body(lease);
-        })
-        .Settled(held: Seq(lease), release: static held => held.Release(), key: op);
+        }).Run().Bind(static inner => inner)
+        .Settled(held: Seq(lease), release: static held => held.Release());
 }
 ```
 
@@ -844,18 +819,18 @@ public abstract partial record WindowScope {
 [SmartEnum]
 public sealed partial class WindowPolicy {
     public static readonly WindowPolicy Native = new(
-        styler: Some(new ChromeStyler(Dress: static (control, key) => key.Catch(() => {
+        styler: Some(new ChromeStyler(Dress: static (control, key) => Try.lift(() => {
             EtoExtensions.UseRhinoStyle(control);
             return control is Window window
                 ? Fin.Succ(value: ignore(EtoExtensions.RestorePosition(window, window.GetType())))
                 : Fin.Succ(value: unit);
-        }))),
-        persist: static (window, key) => key.Catch(() => EtoExtensions.SavePosition(window, window.GetType())));
+        }).Run().Bind(static inner => inner))),
+        persist: static (window, key) => Try.lift(() => EtoExtensions.SavePosition(window, window.GetType())).Run().Bind(static inner => inner));
     public static readonly WindowPolicy Localized = new(
-        styler: Some(new ChromeStyler(Dress: static (control, key) => key.Catch(() => control is Window window
-            ? Fin.Succ(value: Op.Side(() => EtoExtensions.LocalizeAndRestore(window, window.GetType())))
-            : Fin.Succ(value: unit)))),
-        persist: static (window, key) => key.Catch(() => EtoExtensions.SavePosition(window, window.GetType())));
+        styler: Some(new ChromeStyler(Dress: static (control, key) => Try.lift(() => control is Window window
+            ? Fin.Succ(value: HostEdge.Side(() => EtoExtensions.LocalizeAndRestore(window, window.GetType())))
+            : Fin.Succ(value: unit)).Run().Bind(static inner => inner))),
+        persist: static (window, key) => Try.lift(() => EtoExtensions.SavePosition(window, window.GetType())).Run().Bind(static inner => inner));
     public static readonly WindowPolicy Bare = new(
         styler: Option<ChromeStyler>.None,
         persist: static (_, _) => Fin.Succ(value: unit));
@@ -863,35 +838,31 @@ public sealed partial class WindowPolicy {
     public Option<ChromeStyler> Styler { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Persist(Window window, Op key);
+    internal partial Fin<Unit> Persist(Window window);
 
-    internal Fin<Unit> Prepare(Window window, Op key) =>
-        Styler.TraverseM(dress => dress.Dress(window, key)).As().Map(static _ => unit);
+    internal Fin<Unit> Prepare(Window window) =>
+        Styler.TraverseM(dress => dress.Dress(window)).As().Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShellWindows {
-    public static Fin<Window> Parent(WindowScope scope, Op? key = null) {
+    public static Fin<Window> Parent(WindowScope scope) {
         ArgumentNullException.ThrowIfNull(scope);
-        Op op = key.OrDefault();
-        return scope.Switch(
-            op,
-            application: static (held, _) => HostThread.Run(
-                work: new HostWork<Window>.Execute(Body: () => Optional(RhinoEtoApp.MainWindow).ToFin(Fail: held.MissingContext())),
+        return scope.Switch(application: static (held, _) => HostThread.Run(
+                work: new HostWork<Window>.Execute(Body: () => Optional(RhinoEtoApp.MainWindow).ToFin(Fail: new KernelFault.MissingContext())),
                 key: held),
             document: static (held, owned) => HostThread.Run(
                 work: new HostWork<Window>.Session(
                     Document: owned.Session,
                     Needs: [SessionNeed.Read],
-                    Body: document => Optional(RhinoEtoApp.MainWindowForDocument(document)).ToFin(Fail: held.MissingContext())),
+                    Body: document => Optional(RhinoEtoApp.MainWindowForDocument(document)).ToFin(Fail: new KernelFault.MissingContext())),
                 key: held));
     }
 
-    public static Fin<Form> Adopt(Form window, DocumentSession session, WindowPolicy policy, Op? key = null) {
+    public static Fin<Form> Adopt(Form window, DocumentSession session, WindowPolicy policy) {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(policy);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<Form>.Session(
                 Document: session,
@@ -906,98 +877,84 @@ public static class ShellWindows {
                                 unsubscribe: callback => window.Closed -= callback,
                                 handler: (EventHandler<EventArgs>)((_, _) => ignore(policy.Persist(window: window, key: op))))
                             from seated in Fin.Succ(value: ignore(Cell.Seat(attached, () => closed)))
-                            from shown in op.Catch(() => EtoExtensions.Show(window, document))
+                            from shown in Try.lift(() => EtoExtensions.Show(window, document)).Run().Bind(static inner => inner)
                             select window)
                         .Rollback(
-                            release: () => op.Catch(() => {
+                            release: () => Try.lift(() => {
                                 _ = Cell.Take(attached).Current.Iter(static row => row.Dispose());
                                 (window.Title, window.Location, window.WindowState) = prior;
                                 return Fin.Succ(value: unit);
-                            }),
+                            }).Run().Bind(static inner => inner),
                             key: op);
-                }),
-            key: op);
+                }));
     }
 
     public static Fin<TResult> Present<TResult>(
         Dialog<TResult> dialog,
         DocumentSession session,
-        Option<Control> parent = default,
-        Op? key = null) {
+        Option<Control> parent = default) {
         ArgumentNullException.ThrowIfNull(dialog);
         ArgumentNullException.ThrowIfNull(session);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<TResult>.Session(
                 Document: session,
                 Needs: [SessionNeed.Dialog],
                 Body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
-                    .ToFin(Fail: op.MissingContext())
-                    .Bind(owner => op.Catch(() => Fin.Succ(value: EtoExtensions.ShowSemiModal(dialog, document, owner))))),
-            key: op);
+                    .ToFin(Fail: new KernelFault.MissingContext())
+                    .Bind(owner => Try.lift(() => Fin.Succ(value: EtoExtensions.ShowSemiModal(dialog, document, owner))).Run().Bind(static inner => inner))));
     }
 
-    public static Fin<Unit> Present(Dialog dialog, DocumentSession session, Option<Control> parent = default, Op? key = null) {
+    public static Fin<Unit> Present(Dialog dialog, DocumentSession session, Option<Control> parent = default) {
         ArgumentNullException.ThrowIfNull(dialog);
         ArgumentNullException.ThrowIfNull(session);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<Unit>.Session(
                 Document: session,
                 Needs: [SessionNeed.Dialog],
                 Body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
-                    .ToFin(Fail: op.MissingContext())
-                    .Bind(owner => op.Catch(() => EtoExtensions.ShowSemiModal(dialog, document, owner)))),
-            key: op);
+                    .ToFin(Fail: new KernelFault.MissingContext())
+                    .Bind(owner => Try.lift(() => EtoExtensions.ShowSemiModal(dialog, document, owner)).Run().Bind(static inner => inner))));
     }
 
-    public static Fin<DialogResult> Present(CommonDialog dialog, DocumentSession session, Option<Control> parent = default, Op? key = null) {
+    public static Fin<DialogResult> Present(CommonDialog dialog, DocumentSession session, Option<Control> parent = default) {
         ArgumentNullException.ThrowIfNull(dialog);
         ArgumentNullException.ThrowIfNull(session);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<DialogResult>.Session(
                 Document: session,
                 Needs: [SessionNeed.Dialog],
                 Body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
-                    .ToFin(Fail: op.MissingContext())
-                    .Bind(owner => op.Catch(() => Fin.Succ(value: dialog.ShowDialog(owner))))),
-            key: op);
+                    .ToFin(Fail: new KernelFault.MissingContext())
+                    .Bind(owner => Try.lift(() => Fin.Succ(value: dialog.ShowDialog(owner))).Run().Bind(static inner => inner))));
     }
 
-    public static Fin<Seq<TWindow>> Discover<TWindow>(DocumentSession session, Op? key = null) where TWindow : Window {
+    public static Fin<Seq<TWindow>> Discover<TWindow>(DocumentSession session) where TWindow : Window {
         ArgumentNullException.ThrowIfNull(session);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<Seq<TWindow>>.Session(
                 Document: session,
                 Needs: [SessionNeed.Read],
-                Body: document => op.Catch(() => Fin.Succ(value: toSeq(EtoExtensions.WindowsFromDocument<TWindow>(document)).Strict()))),
-            key: op);
+                Body: document => Try.lift(() => Fin.Succ(value: toSeq(EtoExtensions.WindowsFromDocument<TWindow>(document)).Strict())).Run().Bind(static inner => inner)));
     }
 
-    public static Fin<DocKey> Owner(Form window, Op? key = null) {
+    public static Fin<DocKey> Owner(Form window) {
         ArgumentNullException.ThrowIfNull(window);
-        Op op = key.OrDefault();
         return HostThread.Run(
             work: new HostWork<DocKey>.Execute(
                 Body: () => Optional(EtoExtensions.GetRhinoDoc(window))
-                    .ToFin(Fail: op.MissingContext())
-                    .Bind(document => DocKey.Of(document: document, key: op))),
-            key: op);
+                    .ToFin(Fail: new KernelFault.MissingContext())
+                    .Bind(document => DocKey.Of(document: document, key: op))));
     }
 }
 
 public static class ShellTheme {
     public static ThemeVariant Current => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
-    public static Fin<Subscription> Observe(ThemePort theme, CallbackObserver<ThemeChange> observer, Op? key = null) {
+    public static Fin<Subscription> Observe(ThemePort theme, CallbackObserver<ThemeChange> observer) {
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(observer);
-        Op op = key.OrDefault();
         EventHandler handler = (_, _) => ignore(observer.Guard(
-            project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current), key: op),
-            op: op));
+            project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current), key: op)));
         return Subscription.Attach(
             subscribe: callback => ThemeSettings.ThemeChanged += callback,
             unsubscribe: callback => ThemeSettings.ThemeChanged -= callback,
@@ -1050,8 +1007,8 @@ public abstract partial record EntitlementFact {
     public sealed record Denied(Option<string> Reason) : EntitlementFact;
 
     internal static EntitlementFact Of(bool entitled, string? reason, string? signature) => entitled
-        ? new Granted(Signature: Op.Text(signature))
-        : new Denied(Reason: Op.Text(reason));
+        ? new Granted(Signature: HostEdge.Text(signature))
+        : new Denied(Reason: HostEdge.Text(reason));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1102,10 +1059,8 @@ public abstract partial record AssemblySource {
     public sealed record SearchFolder(string Path) : AssemblySource;
     public sealed record SearchFile(string Path) : AssemblySource;
 
-    internal Fin<AssemblySource> Admit(Op op) => Switch(
-        op,
-        searchFolder: static (held, row) => held.AcceptText(value: row.Path).Map<AssemblySource>(path => new SearchFolder(Path: path)),
-        searchFile: static (held, row) => held.AcceptText(value: row.Path).Map<AssemblySource>(path => new SearchFile(Path: path)));
+    internal Fin<AssemblySource> Admit() => Switch(searchFolder: static (held, row) => Acceptance.Text(value: row.Path).Map<AssemblySource>(path => new SearchFolder(Path: path)),
+        searchFile: static (held, row) => Acceptance.Text(value: row.Path).Map<AssemblySource>(path => new SearchFile(Path: path)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1120,43 +1075,40 @@ public sealed record ExtensionTally(PluginKey Plugin, int Applied, Option<Error>
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostFacts {
-    public static Fin<HostFact> Probe(HostProbe probe, Op? key = null) {
+    public static Fin<HostFact> Probe(HostProbe probe) {
         ArgumentNullException.ThrowIfNull(probe);
-        Op op = key.OrDefault();
-        return probe.Switch(
-            op,
-            process: static (held, _) => Process(op: held).Map<HostFact>(static snapshot => new HostFact.ProcessCase(Snapshot: snapshot)),
-            printers: static (held, _) => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.PrinterCase(
+        return probe.Switch(process: static (held, _) => Process(op: held).Map<HostFact>(static snapshot => new HostFact.ProcessCase(Snapshot: snapshot)),
+            printers: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.PrinterCase(
                 Printers: toSeq(HostUtils.GetPrinterNames()).Map(printer => new PrinterSlot(
                     Name: printer,
                     HorizontalDpi: HostUtils.GetPrinterDPI(printerName: printer, horizontal: true),
                     VerticalDpi: HostUtils.GetPrinterDPI(printerName: printer, horizontal: false),
                     Forms: toSeq(HostUtils.GetPrinterFormNames(printerName: printer)).Map(form => new PrintForm(
                         Name: form,
-                        Extent: Op.Probe<(double Width, double Height)>(() => (
+                        Extent: HostEdge.Probe<(double Width, double Height)>(() => (
                             HostUtils.GetPrinterFormSize(printer, form, out double width, out double height),
-                            (width, height))))).Strict())).Strict()))),
-            entitlement: static (held, _) => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.EntitlementCase(
+                            (width, height))))).Strict())).Strict()))).Run().Bind(static inner => inner),
+            entitlement: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.EntitlementCase(
                 Verdict: EntitlementFact.Of(
                     entitled: CloudHostUtils.IsEntitled,
                     reason: CloudHostUtils.DenyReason,
-                    signature: CloudHostUtils.Signature)))),
-            compute: static (held, _) => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.ComputeCase(
+                    signature: CloudHostUtils.Signature)))).Run().Bind(static inner => inner),
+            compute: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.ComputeCase(
                 Endpoints: toSeq(HostUtils.GetCustomComputeEndpoints())
                     .Map(static row => new HostEndpoint(Path: row.Item1, Contract: row.Item2))
-                    .Strict()))),
-            scripting: static (held, _) => held.Catch(() => Optional(PythonScript.Create())
-                .ToFin(Fail: held.InvalidResult(detail: nameof(PythonScript.Create)))
-                .Bind(engine => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.ScriptCase(
+                    .Strict()))).Run().Bind(static inner => inner),
+            scripting: static (held, _) => Try.lift(() => Optional(PythonScript.Create())
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(PythonScript.Create))))
+                .Bind(engine => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.ScriptCase(
                     Engine: ScriptEngineSnapshot.Create(
                         searchPaths: toSeq(PythonScript.SearchPaths).Strict(),
                         runtimeAssemblies: toSeq(PythonScript.RuntimeAssemblies())
                             .Map(static assembly => assembly.FullName ?? string.Empty).Strict(),
-                        contextId: engine.ContextId)))))));
+                        contextId: engine.ContextId)))).Run().Bind(static inner => inner))).Run().Bind(static inner => inner));
     }
 
-    public static Fin<HostSnapshot> Process(Op key) =>
-        key.Catch(() => {
+    public static Fin<HostSnapshot> Process() =>
+        Try.lift(() => {
             HostUtils.GetCurrentProcessInfo(processName: out string name, processVersion: out Version version);
             return Fin.Succ(value: HostSnapshot.Create(
                 processName: name,
@@ -1178,40 +1130,35 @@ public static class HostFacts {
                         .Map(static row => row.Item2)]),
                 referenceAssemblies: toSeq(HostUtils.GetSystemReferenceAssemblies()).Strict(),
                 searchPaths: toSeq(HostUtils.GetAssemblySearchPaths()).Strict()));
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 public static class HostAssemblies {
-    public static Fin<ExtensionTally> Extend(PluginKey plugin, Seq<AssemblySource> sources, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in sources.TraverseM(source => op.Need(source).Bind(row => row.Admit(op))).As()
+    public static Fin<ExtensionTally> Extend(PluginKey plugin, Seq<AssemblySource> sources) {
+        return from admitted in sources.TraverseM(source => Admit.Need(source).Bind(row => row.Admit())).As()
                from outcome in HostThread.Run(
                    work: new HostWork<ExtensionTally>.Execute(Body: () => Fin.Succ(value: admitted.Fold(
                        new ExtensionTally(Plugin: plugin, Applied: 0, Fault: None),
                        (held, source) => held.Fault.IsSome
                            ? held
-                           : op.Catch(() => source.Switch(
+                           : Try.lift(() => source.Switch(
                                    searchFolder: static row => AssemblyResolver.AddSearchFolder(folder: row.Path),
-                                   searchFile: static row => AssemblyResolver.AddSearchFile(file: row.Path)))
+                                   searchFile: static row => AssemblyResolver.AddSearchFile(file: row.Path))).Run().Bind(static inner => inner)
                                .Match(
                                    Succ: static _ => held with { Applied = held.Applied + 1 },
-                                   Fail: fault => held with { Fault = Some(fault) })))),
-                   key: op)
+                                   Fail: fault => held with { Fault = Some(fault) })))))
                select outcome;
     }
 
-    public static Fin<Assembly> Load(AssemblyIntake intake, Op? key = null) {
+    public static Fin<Assembly> Load(AssemblyIntake intake) {
         ArgumentNullException.ThrowIfNull(intake);
-        Op op = key.OrDefault();
-        return intake.Switch(
-            op,
-            fromPath: static (held, row) => held.AcceptText(value: row.Path)
-                .Bind(path => held.Catch(() => Optional(HostUtils.LoadAssemblyFrom(path: path))
-                    .ToFin(Fail: held.InvalidResult(detail: nameof(HostUtils.LoadAssemblyFrom))))),
-            fromStream: static (held, row) => held.Catch(() => Optional(HostUtils.LoadAssemblyFromStream(stream: row.Source))
-                .ToFin(Fail: held.InvalidResult(detail: nameof(HostUtils.LoadAssemblyFromStream)))),
-            fromName: static (held, row) => held.Catch(() => Optional(HostUtils.LoadAssemblyFromName(assemblyName: row.Name))
-                .ToFin(Fail: held.InvalidResult(detail: nameof(HostUtils.LoadAssemblyFromName)))));
+        return intake.Switch(fromPath: static (held, row) => Acceptance.Text(value: row.Path)
+                .Bind(path => Try.lift(() => Optional(HostUtils.LoadAssemblyFrom(path: path))
+                    .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFrom))))).Run().Bind(static inner => inner)),
+            fromStream: static (held, row) => Try.lift(() => Optional(HostUtils.LoadAssemblyFromStream(stream: row.Source))
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFromStream))))).Run().Bind(static inner => inner),
+            fromName: static (held, row) => Try.lift(() => Optional(HostUtils.LoadAssemblyFromName(assemblyName: row.Name))
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFromName))))).Run().Bind(static inner => inner));
     }
 }
 ```
@@ -1251,14 +1198,12 @@ public abstract partial record ScriptRun {
     public sealed record Expression(string Statements, string Formula) : ScriptRun;
     public sealed record Compiled(ScriptUnit Unit) : ScriptRun;
 
-    internal Fin<ScriptRun> Admit(Op op) => Switch(
-        op,
-        source: static (key, row) => key.AcceptText(value: row.Script).Map<ScriptRun>(script => new Source(Script: script)),
-        file: static (key, row) => key.AcceptText(value: row.Path).Map<ScriptRun>(path => new File(Path: path)),
-        fileInScope: static (key, row) => key.AcceptText(value: row.Path).Map<ScriptRun>(path => new FileInScope(Path: path)),
+    internal Fin<ScriptRun> Admit() => Switch(source: static (key, row) => Acceptance.Text(value: row.Script).Map<ScriptRun>(script => new Source(Script: script)),
+        file: static (key, row) => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new File(Path: path)),
+        fileInScope: static (key, row) => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new FileInScope(Path: path)),
         expression: static (key, row) =>
-            from statements in key.AcceptText(value: row.Statements)
-            from formula in key.AcceptText(value: row.Formula)
+            from statements in Acceptance.Text(value: row.Statements)
+            from formula in Acceptance.Text(value: row.Formula)
             select (ScriptRun)new Expression(Statements: statements, Formula: formula),
         compiled: static (_, row) => Fin.Succ<ScriptRun>(row));
 }
@@ -1291,8 +1236,8 @@ public sealed record NodeFunction {
     public Seq<bool> OptionalInputs { get; }
     public Seq<string> Outputs { get; }
 
-    internal static Fin<NodeFunction> Of(ComponentFunctionInfo info, Op key) =>
-        key.Catch(() => Fin.Succ(value: new NodeFunction(
+    internal static Fin<NodeFunction> Of(ComponentFunctionInfo info) =>
+        Try.lift(() => Fin.Succ(value: new NodeFunction(
             info: info,
             name: info.Name,
             space: info.Namespace,
@@ -1300,48 +1245,45 @@ public sealed record NodeFunction {
             component: info.ComponentGuid,
             inputs: toSeq(info.InputNames).Strict(),
             optionalInputs: toSeq(info.InputsOptional).Strict(),
-            outputs: toSeq(info.OutputNames).Strict())));
+            outputs: toSeq(info.OutputNames).Strict()))).Run().Bind(static inner => inner);
 
-    public Fin<NodeReturn> Call(Seq<object> arguments, NodeCallShape shape, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<NodeReturn> Call(Seq<object> arguments, NodeCallShape shape) {
         NodeFunction self = this;
-        return from mode in op.Need(shape)
-               from produced in op.Catch(() => {
+        return from mode in Admit.Need(shape)
+               from produced in Try.lift(() => {
                    object[] values = self.info.Evaluate(
                        args: arguments.AsEnumerable(), keepTree: mode.Key, warnings: out string[] warnings);
                    return Optional(values)
-                       .ToFin(Fail: op.InvalidResult(detail: nameof(ComponentFunctionInfo.Evaluate)))
+                       .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(ComponentFunctionInfo.Evaluate))))
                        .Map(rows => new NodeReturn(Values: toSeq(rows).Strict(), Warnings: toSeq(warnings ?? []).Strict()));
-               })
+               }).Run().Bind(static inner => inner)
                select produced;
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostScripts {
-    public static Fin<ScriptUnit> Compile(string script, Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in op.AcceptText(value: script)
-               from engine in Engine(op: op)
-               from code in op.Catch(() => Optional(engine.Compile(script: source))
-                   .ToFin(Fail: op.InvalidResult(detail: nameof(PythonScript.Compile))))
+    public static Fin<ScriptUnit> Compile(string script) {
+        return from source in Acceptance.Text(value: script)
+               from engine in Engine()
+               from code in Try.lift(() => Optional(engine.Compile(script: source))
+                   .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(PythonScript.Compile))))).Run().Bind(static inner => inner)
                select new ScriptUnit(Code: code, Engine: engine);
     }
 
-    public static Fin<ScriptOutcome> Run(ScriptRun run, Seq<ScriptBinding> bindings = default, Op? key = null) {
+    public static Fin<ScriptOutcome> Run(ScriptRun run, Seq<ScriptBinding> bindings = default) {
         ArgumentNullException.ThrowIfNull(run);
-        Op op = key.OrDefault();
-        return from admitted in run.Admit(op)
+        return from admitted in run.Admit()
                from prepared in bindings.TraverseM(binding =>
-                       from row in op.Need(binding)
-                       from name in op.AcceptText(value: row.Name)
+                       from row in Admit.Need(binding)
+                       from name in Acceptance.Text(value: row.Name)
                        select row with { Name = name })
                    .As()
-               from engine in admitted is ScriptRun.Compiled held ? Fin.Succ(value: held.Unit.Engine) : Engine(op: op)
+               from engine in admitted is ScriptRun.Compiled held ? Fin.Succ(value: held.Unit.Engine) : Engine()
                from outcome in HostThread.Run(
                    work: new HostWork<ScriptOutcome>.Execute(Body: () =>
-                       from _ in prepared.TraverseM(binding => op.Catch(() =>
-                               engine.SetVariable(name: binding.Name, value: binding.Value)))
+                       from _ in prepared.TraverseM(binding => Try.lift(() =>
+                               engine.SetVariable(name: binding.Name, value: binding.Value)).Run().Bind(static inner => inner))
                            .As()
                        from settled in admitted.Switch(
                            (Held: op, Engine: engine),
@@ -1354,41 +1296,38 @@ public static class HostScripts {
                            fileInScope: static (state, row) => Ran(
                                ran: () => state.Engine.ExecuteFileInScope(path: row.Path),
                                member: nameof(PythonScript.ExecuteFileInScope), op: state.Held),
-                           expression: static (state, row) => state.Held.Catch(() => Fin.Succ<ScriptOutcome>(
+                           expression: static (state, row) => Try.lift(() => Fin.Succ<ScriptOutcome>(
                                value: new ScriptOutcome.Value(Result: Optional(state.Engine.EvaluateExpression(
-                                   statements: row.Statements, expression: row.Formula))))),
-                           compiled: static (state, row) => state.Held.Catch(() => {
+                                   statements: row.Statements, expression: row.Formula))))).Run().Bind(static inner => inner),
+                           compiled: static (state, row) => Try.lift(() => {
                                row.Unit.Code.Execute(scope: state.Engine);
                                return Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran());
-                           }))
-                       select settled),
-                   key: op)
+                           }).Run().Bind(static inner => inner))
+                       select settled))
                select outcome;
     }
 
-    private static Fin<ScriptOutcome> Ran(Func<bool> ran, string member, Op op) =>
-        op.Catch(() => ran()
+    private static Fin<ScriptOutcome> Ran(Func<bool> ran, string member) =>
+        Try.lift(() => ran()
             ? Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran())
-            : Fin.Fail<ScriptOutcome>(error: new UiFault.HostRejected(Key: op, Detail: member)));
+            : Fin.Fail<ScriptOutcome>(error: new UiFault.HostRejected(Detail: member))).Run().Bind(static inner => inner);
 
-    private static Fin<PythonScript> Engine(Op op) =>
-        op.Catch(() => Optional(PythonScript.Create()).ToFin(Fail: op.InvalidResult(detail: nameof(PythonScript.Create))));
+    private static Fin<PythonScript> Engine() =>
+        Try.lift(() => Optional(PythonScript.Create()).ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(PythonScript.Create))))).Run().Bind(static inner => inner);
 }
 
 public static class NodeFunctions {
-    public static Fin<NodeFunction> Find(string fullName, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in op.AcceptText(value: fullName)
-               from info in op.Catch(() => Optional(Components.FindComponent(admitted)).ToFin(Fail: op.MissingContext()))
-               from function in NodeFunction.Of(info: info, key: op)
+    public static Fin<NodeFunction> Find(string fullName) {
+        return from admitted in Acceptance.Text(value: fullName)
+               from info in Try.lift(() => Optional(Components.FindComponent(admitted)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner)
+               from function in NodeFunction.Of(info: info)
                select function;
     }
 
-    public static Fin<Seq<NodeFunction>> Census(Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Fin.Succ(value: Components.NodeInCodeFunctions))
+    public static Fin<Seq<NodeFunction>> Census() {
+        return Try.lift(() => Fin.Succ(value: Components.NodeInCodeFunctions)).Run().Bind(static inner => inner)
             .Bind(table => toSeq(table.GetDynamicMembers())
-                .TraverseM(info => NodeFunction.Of(info: info, key: op))
+                .TraverseM(info => NodeFunction.Of(info: info))
                 .As()
                 .Map(static rows => rows.Strict()));
     }
@@ -1432,10 +1371,9 @@ public sealed record SkinProgram(
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class ShellSkin : Skin {
     private readonly SkinProgram program;
-    private readonly Op op;
     private readonly Ring<Error> faults = ShellFaults.Ring();
 
-    protected ShellSkin(SkinProgram program, Op? key = null) {
+    protected ShellSkin(SkinProgram program) {
         ArgumentNullException.ThrowIfNull(program);
         this.program = program;
         op = key.OrDefault();
@@ -1468,19 +1406,18 @@ public abstract class ShellSkin : Skin {
 
     protected override void ShowHelp() { base.ShowHelp(); Route(phase: new SkinPhase.HelpRequested()); }
 
-    private void Route(SkinPhase phase) => ignore(op.Catch(() => program.Phase(phase))
+    private void Route(SkinPhase phase) => ignore(Try.lift(() => program.Phase(phase)).Run().Bind(static inner => inner)
         .IfFail(failure => ignore(faults.Park(item: failure))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShellHooks {
-    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
+    public static Fin<IDisposable> Mount(PluginKey plugin) =>
         MountRegistry.Mount(
             binding: new HookBinding<RhinoPoint, PluginKey, Func<SkinPhase, Fin<Unit>>, SkinProgram>(
                 Point: RhinoPoint.HostUiSkin,
                 Owner: plugin,
-                Bind: static phase => Fin.Succ(value: SkinProgram.Inert with { Phase = phase })),
-            key: key);
+                Bind: static phase => Fin.Succ(value: SkinProgram.Inert with { Phase = phase })));
 }
 ```
 
@@ -1490,7 +1427,7 @@ public static class ShellHooks {
 - Owner: `HostEndpoints` binds the append-only host endpoint roster under process-lifetime custody because the host publishes no unregister.
 - Cases: `TokenAsk` is acquire, scoped acquire, or cached read — three cases over ONE base `ClientId` column, because every arm names the client it asks for and a three-arm switch to read it back was the column standing outside the union.
 - Entry: `Accounts.Ask(TokenAsk, Option<Action<LoginPulse>>, Option<Env>, Op?)` answers `ValueTask<Fin<TokenLease>>`; `TokenLease.Refresh`/`Revoke` answer `ValueTask<Fin<Unit>>`.
-- Auto: the accounts pipeline is ASYNCHRONOUS because the host's protected-code entry is. `Op.Catch<T>(Func<ValueTask<Fin<T>>>)` is the one async funnel and captures both the thrown and the faulted-task shapes onto the same fault categories, so the three `Task.Wait()` sync-over-async bridges have no spelling left and no caller blocks a thread on a completed task to reach a value it already has.
+- Auto: the accounts pipeline is ASYNCHRONOUS because the host's protected-code entry is. `Try.lift(Func<ValueTask<Fin<T>>>).Run().Bind(static inner => inner)` is the one async funnel and captures both the thrown and the faulted-task shapes onto the same fault categories, so the three `Task.Wait()` sync-over-async bridges have no spelling left and no caller blocks a thread on a completed task to reach a value it already has.
 - Law: interactive login confines to first acquisition; `TryCached` reads the secure token cache with no server call and no UI, so a headless composition answers it. `showUI` stays false on the scoped overload — the host raises its own browser flow off the progress callback, and the caller observes it as detached `LoginPulse` facts.
 - Law: login progress crosses as detached `LoginPulse` facts keyed on the `LoginPhase` vocabulary through `Op.Row` — a raw `RhinoAccoountsProgressInfo` (the host's own doubled-o spelling) never leaves the dispatch closure, and an unrostered host state reads `Other` rather than refusing a login that is otherwise proceeding.
 - Law: detached evidence carries FACTS, never verdicts a clock derives. `OauthEvidence` publishes its `Instant` expiry and the caller decides against its own timeline; `TokenLease.Live` re-reads the LIVE token, which is the only value that can answer. NAMED LOSS: the host's own `IsExpired` verdict at detach time — a stored copy disagreed with the lease the moment the record was held, and the expiry instant it derived from is the fact both readings share.
@@ -1516,21 +1453,19 @@ public abstract partial record TokenAsk(string ClientId) {
         string ClientId, string ClientSecret, Seq<string> Scopes, Option<string> Prompt, Option<int> MaxAge) : TokenAsk(ClientId);
     public sealed record TryCached(string ClientId, Seq<string> Scopes) : TokenAsk(ClientId);
 
-    internal Fin<TokenAsk> Admit(Op op) => Switch(
-        op,
-        acquire: static (key, row) =>
-            from id in key.AcceptText(value: row.ClientId)
-            from secret in key.AcceptText(value: row.ClientSecret)
+    internal Fin<TokenAsk> Admit() => Switch(acquire: static (key, row) =>
+            from id in Acceptance.Text(value: row.ClientId)
+            from secret in Acceptance.Text(value: row.ClientSecret)
             select (TokenAsk)new Acquire(ClientId: id, ClientSecret: secret),
         acquireScoped: static (key, row) =>
-            from id in key.AcceptText(value: row.ClientId)
-            from secret in key.AcceptText(value: row.ClientSecret)
-            from scopes in row.Scopes.TraverseM(scope => key.AcceptText(value: scope)).As()
+            from id in Acceptance.Text(value: row.ClientId)
+            from secret in Acceptance.Text(value: row.ClientSecret)
+            from scopes in row.Scopes.TraverseM(scope => Acceptance.Text(value: scope)).As()
             select (TokenAsk)new AcquireScoped(
                 ClientId: id, ClientSecret: secret, Scopes: scopes.Strict(), Prompt: row.Prompt, MaxAge: row.MaxAge),
         tryCached: static (key, row) =>
-            from id in key.AcceptText(value: row.ClientId)
-            from scopes in row.Scopes.TraverseM(scope => key.AcceptText(value: scope)).As()
+            from id in Acceptance.Text(value: row.ClientId)
+            from scopes in row.Scopes.TraverseM(scope => Acceptance.Text(value: scope)).As()
             select (TokenAsk)new TryCached(ClientId: id, Scopes: scopes.Strict()));
 }
 
@@ -1553,16 +1488,15 @@ public sealed record OauthEvidence(Option<Instant> Expires, Seq<string> Scopes);
 public sealed class TokenLease : IDisposable {
     private readonly Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> held;
     private readonly string clientId;
-    private readonly Op op;
 
-    internal TokenLease(IOpenIDConnectToken openId, IOAuth2Token oauth, string clientId, Op op) {
+    internal TokenLease(IOpenIDConnectToken openId, IOAuth2Token oauth, string clientId) {
         held = Atom(Some((openId, oauth)));
-        (this.clientId, this.op) = (clientId, op);
+        (this.clientId, this.op) = (clientId);
     }
 
     public string ClientId => clientId;
 
-    public Fin<OpenIdEvidence> OpenId(Op? key = null) => Read(
+    public Fin<OpenIdEvidence> OpenId() => Read(
         project: static pair => new OpenIdEvidence(
             Subject: pair.OpenId.Sub,
             Issuer: pair.OpenId.Iss,
@@ -1571,22 +1505,19 @@ public sealed class TokenLease : IDisposable {
             Expires: Moment(pair.OpenId.Exp),
             Emails: toSeq(pair.OpenId.Emails).Strict(),
             EmailVerified: Optional(pair.OpenId.EmailVerified),
-            Name: Op.Text(pair.OpenId.Name)),
-        key: key);
+            Name: HostEdge.Text(pair.OpenId.Name)));
 
-    public Fin<OauthEvidence> Oauth(Op? key = null) => Read(
+    public Fin<OauthEvidence> Oauth() => Read(
         project: static pair => new OauthEvidence(
             Expires: Moment(pair.Oauth.Exp),
-            Scopes: toSeq(pair.Oauth.Scope).Strict()),
-        key: key);
+            Scopes: toSeq(pair.Oauth.Scope).Strict()));
 
     public bool Live => held.Value.Map(static pair => !pair.Oauth.IsExpired).IfNone(false);
 
-    public ValueTask<Fin<Unit>> Refresh(Op? key = null) {
-        Op admitted = key.OrDefault();
-        return admitted.Catch(async _ => {
+    public ValueTask<Fin<Unit>> Refresh() {
+        return Try.lift(async _ => {
             if (held.Value.Case is not (IOpenIDConnectToken openId, IOAuth2Token oauth)) {
-                return Fin.Fail<Unit>(error: admitted.MissingContext());
+                return Fin.Fail<Unit>(error: new KernelFault.MissingContext());
             }
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
                 IOpenIDConnectToken updated = await RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(
@@ -1595,21 +1526,20 @@ public sealed class TokenLease : IDisposable {
                 _ = held.Swap(current => current.Map(row => (updated, row.Oauth)));
             }).ConfigureAwait(false);
             return Fin.Succ(value: unit);
-        });
+        }).Run().Bind(static inner => inner);
     }
 
-    public ValueTask<Fin<Unit>> Revoke(Op? key = null) {
-        Op admitted = key.OrDefault();
-        return admitted.Catch(async _ => {
+    public ValueTask<Fin<Unit>> Revoke() {
+        return Try.lift(async _ => {
             if (held.Value.Case is not (IOpenIDConnectToken _, IOAuth2Token oauth)) {
-                return Fin.Fail<Unit>(error: admitted.MissingContext());
+                return Fin.Fail<Unit>(error: new KernelFault.MissingContext());
             }
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: secret =>
                 RhinoAccountsManager.RevokeAuthTokenAsync(
                     oauth2Token: oauth, secretKey: secret, cancellationToken: CancellationToken.None))
                 .ConfigureAwait(false);
             return Fin.Succ(value: ignore(Cell.Take(held)));
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     public void Dispose() => ignore(Cell.Take(held));
@@ -1617,31 +1547,29 @@ public sealed class TokenLease : IDisposable {
     private static Option<Instant> Moment(DateTime? stamp) =>
         Optional(stamp).Map(static held => Instant.FromDateTimeUtc(held.ToUniversalTime()));
 
-    private Fin<T> Read<T>(Func<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth), T> project, Op? key = null) {
-        Op admitted = key.OrDefault();
-        return held.Value.ToFin(Fail: admitted.MissingContext())
-            .Bind(pair => admitted.Catch(() => Fin.Succ(value: project(pair))));
+    private Fin<T> Read<T>(Func<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth), T> project) {
+        return held.Value.ToFin(Fail: new KernelFault.MissingContext())
+            .Bind(pair => Try.lift(() => Fin.Succ(value: project(pair))).Run().Bind(static inner => inner));
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Accounts {
     public static ValueTask<Fin<TokenLease>> Ask(
-        TokenAsk ask, Option<Action<LoginPulse>> progress = default, Option<Env> env = default, Op? key = null) {
+        TokenAsk ask, Option<Action<LoginPulse>> progress = default, Option<Env> env = default) {
         ArgumentNullException.ThrowIfNull(ask);
-        Op op = key.OrDefault();
-        return ask.Admit(op).Match(
-            Succ: request => Dispatch(request: request, progress: progress, env: env, op: op),
+        return ask.Admit().Match(
+            Succ: request => Dispatch(request: request, progress: progress, env: env),
             Fail: fault => ValueTask.FromResult(Fin.Fail<TokenLease>(error: fault)));
     }
 
     private static ValueTask<Fin<TokenLease>> Dispatch(
-        TokenAsk request, Option<Action<LoginPulse>> progress, Option<Env> env, Op op) {
+        TokenAsk request, Option<Action<LoginPulse>> progress, Option<Env> env) {
         CancellationToken cancel = env.Map(static held => held.Cancellation).IfNone(CancellationToken.None);
-        return op.Catch(async token => {
-            LoginProgress pulse = new(info => progress.Iter(tap => ignore(op.Catch(() => tap(new LoginPulse(
-                Phase: op.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
-                Description: Op.Text(info.Description)))))));
+        return Try.lift(async token => {
+            LoginProgress pulse = new(info => progress.Iter(tap => ignore(Try.lift(() => tap(new LoginPulse(
+                Phase: FactoryBridge.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
+                Description: HostEdge.Text(info.Description)))).Run().Bind(static inner => inner))));
             Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> landed =
                 Atom(Option<(IOpenIDConnectToken, IOAuth2Token)>.None);
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
@@ -1652,7 +1580,7 @@ public static class Accounts {
                         secretKey: state.Secret, cancellationToken: state.Cancel),
                     acquireScoped: static (state, row) => RhinoAccountsManager.GetAuthTokensAsync(
                         clientId: row.ClientId, clientSecret: row.ClientSecret, scope: row.Scopes.AsEnumerable(),
-                        prompt: Op.ToHostSlot(row.Prompt), maxAge: Op.ToHostNullable(row.MaxAge),
+                        prompt: HostEdge.Slot(row.Prompt), maxAge: HostEdge.Nullable(row.MaxAge),
                         showUI: false, progress: state.Pulse,
                         secretKey: state.Secret, cancellationToken: state.Cancel),
                     tryCached: static (state, row) => Task.FromResult(row.Scopes.IsEmpty
@@ -1664,21 +1592,20 @@ public static class Accounts {
             }).ConfigureAwait(false);
             return landed.Value
                 .Filter(static row => row.OpenId is not null && row.Oauth is not null)
-                .ToFin(Fail: op.MissingContext())
-                .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId, op: op));
-        }, token: cancel);
+                .ToFin(Fail: new KernelFault.MissingContext())
+                .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId));
+        }).Run().Bind(static inner => inner);
     }
 }
 
 public static class HostEndpoints {
-    public static Fin<HostEndpoint> Register(string path, Type contract, Op? key = null) {
+    public static Fin<HostEndpoint> Register(string path, Type contract) {
         ArgumentNullException.ThrowIfNull(contract);
-        Op op = key.OrDefault();
-        return from admitted in op.AcceptText(value: path)
-               from row in op.Catch(() => {
+        return from admitted in Acceptance.Text(value: path)
+               from row in Try.lift(() => {
                    HostUtils.RegisterComputeEndpoint(endpointPath: admitted, t: contract);
                    return Fin.Succ(value: new HostEndpoint(Path: admitted, Contract: contract));
-               })
+               }).Run().Bind(static inner => inner)
                select row;
     }
 }
@@ -1696,7 +1623,7 @@ public static class HostEndpoints {
 - Law: `NamedSlot.Admit` revalidates one complete schema before native arguments exist, and the schema is a keyed carrier, so a duplicate key is unrepresentable rather than caught by a distinct-count guard.
 - Law: execution cancellation reads the kernel `Env`; its direct poll carries `Errors.Cancelled`, while caught cancellation remains `Op.Catch` custody.
 - Law: a decode or write fold holds its own PREFIX for release. A traverse abandons the values it already rehydrated, and every one of them is a native handle this boundary owns until the synchronous host call ends, so the fold accumulates and `Custody.Release` reverses and drains it.
-- Packages: `Rasm/Domain/results` (`Op`, `Cell`, `Transition`), `Domain/validation` (`Op.Probe`); `Rasm/Interaction/dispatch` (`UiFault`); `Rasm/Analysis/query` (`Env`); `Rasm.Rhino/Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), kernel `Domain/results` (`Custody`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`HostUtils.RegisterNamedCallback`/`RemoveNamedCallback`/`ExecuteNamedCallback`, `NamedParametersEventArgs` and its `TryGet*`/`Set` roster), `api-rhinocommon-fileio.md` (`SerializationOptions`), `api-rhinocommon-geometry.md` (`CommonObject.ToJSON`/`FromJSON`), `api-rhinocommon-meshing.md` (`MeshingParameters.ToEncodedString`/`FromEncodedString`).
+- Packages: `Rasm/Domain/results` (`Op`, `Cell`, `Transition`), `Domain/validation` (`HostEdge.Probe`); `Rasm/Interaction/dispatch` (`UiFault`); `Rasm/Analysis/query` (`Env`); `Rasm.Rhino/Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), kernel `Domain/results` (`Custody`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`HostUtils.RegisterNamedCallback`/`RemoveNamedCallback`/`ExecuteNamedCallback`, `NamedParametersEventArgs` and its `TryGet*`/`Set` roster), `api-rhinocommon-fileio.md` (`SerializationOptions`), `api-rhinocommon-geometry.md` (`CommonObject.ToJSON`/`FromJSON`), `api-rhinocommon-meshing.md` (`MeshingParameters.ToEncodedString`/`FromEncodedString`).
 - Growth: a new host parameter is ONE `NamedKind` row and ONE `NamedValue` case; nothing else edits.
 - Boundary: geometry, viewport, and meshing rows cross as serialized values, and the three live-handle readers the host also publishes — `TryGetObjRefs`, `TryGetRhinoObjects`, and the native window-handle pair — carry document handles and raw pointers this boundary's detachment law forecloses; object identity crosses on the `IdSet` row instead. `NamedLease` owns every rehydrated common object until the synchronous host call ends.
 
@@ -1732,99 +1659,99 @@ public abstract partial record NamedValue {
 [SmartEnum<int>]
 public sealed partial class NamedKind {
     public static readonly NamedKind Text = new(key: 0, payload: typeof(NamedValue.Text),
-        read: static (args, key) => Op.Probe<string>(() => (args.TryGetString(key, out string value), value))
+        read: static (args, key) => Admit.Probe<string>(() => (args.TryGetString(out string value), value))
             .Map<NamedValue>(value => new NamedValue.Text(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Text>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Text>(value, row => args.Set(row.Value))));
     public static readonly NamedKind TextSet = new(key: 1, payload: typeof(NamedValue.TextSet),
-        read: static (args, key) => Op.Probe<string[]>(() => (args.TryGetStrings(key, out string[] values), values))
+        read: static (args, key) => Admit.Probe<string[]>(() => (args.TryGetStrings(out string[] values), values))
             .Map<NamedValue>(values => new NamedValue.TextSet(Values: toSeq(values).Strict())),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.TextSet>(value, key, op, row => args.Set(key, row.Values.AsEnumerable()))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.TextSet>(value, row => args.Set(row.Values.AsEnumerable()))));
     public static readonly NamedKind Flag = new(key: 2, payload: typeof(NamedValue.Flag),
-        read: static (args, key) => Op.Probe<bool>(() => (args.TryGetBool(key, out bool value), value))
+        read: static (args, key) => Admit.Probe<bool>(() => (args.TryGetBool(out bool value), value))
             .Map<NamedValue>(value => new NamedValue.Flag(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Flag>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Flag>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Number = new(key: 3, payload: typeof(NamedValue.Number),
-        read: static (args, key) => Op.Probe<int>(() => (args.TryGetInt(key, out int value), value))
+        read: static (args, key) => Admit.Probe<int>(() => (args.TryGetInt(out int value), value))
             .Map<NamedValue>(value => new NamedValue.Number(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Number>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Number>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Count = new(key: 4, payload: typeof(NamedValue.Count),
-        read: static (args, key) => Op.Probe<uint>(() => (args.TryGetUnsignedInt(key, out uint value), value))
+        read: static (args, key) => Admit.Probe<uint>(() => (args.TryGetUnsignedInt(out uint value), value))
             .Map<NamedValue>(value => new NamedValue.Count(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Count>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Count>(value, row => args.Set(row.Value))));
     public static readonly NamedKind CountSet = new(key: 5, payload: typeof(NamedValue.CountSet),
-        read: static (args, key) => Op.Probe<uint[]>(() => (args.TryGetUints(key, out uint[] values), values))
+        read: static (args, key) => Admit.Probe<uint[]>(() => (args.TryGetUints(out uint[] values), values))
             .Map<NamedValue>(values => new NamedValue.CountSet(Values: toSeq(values).Strict())),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.CountSet>(value, key, op, row => args.Set(key, row.Values.AsEnumerable()))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.CountSet>(value, row => args.Set(row.Values.AsEnumerable()))));
     public static readonly NamedKind Scalar = new(key: 6, payload: typeof(NamedValue.Scalar),
-        read: static (args, key) => Op.Probe<double>(() => (args.TryGetDouble(key, out double value), value))
+        read: static (args, key) => Admit.Probe<double>(() => (args.TryGetDouble(out double value), value))
             .Map<NamedValue>(value => new NamedValue.Scalar(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Scalar>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Scalar>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Id = new(key: 7, payload: typeof(NamedValue.Id),
-        read: static (args, key) => Op.Probe<Guid>(() => (args.TryGetGuid(key, out Guid value), value))
+        read: static (args, key) => Admit.Probe<Guid>(() => (args.TryGetGuid(out Guid value), value))
             .Map<NamedValue>(value => new NamedValue.Id(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Id>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Id>(value, row => args.Set(row.Value))));
     public static readonly NamedKind IdSet = new(key: 8, payload: typeof(NamedValue.IdSet),
-        read: static (args, key) => Op.Probe<Guid[]>(() => (args.TryGetGuids(key, out Guid[] values), values))
+        read: static (args, key) => Admit.Probe<Guid[]>(() => (args.TryGetGuids(out Guid[] values), values))
             .Map<NamedValue>(values => new NamedValue.IdSet(Values: toSeq(values).Strict())),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.IdSet>(value, key, op, row => args.Set(key, row.Values.AsEnumerable()))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.IdSet>(value, row => args.Set(row.Values.AsEnumerable()))));
     public static readonly NamedKind Paint = new(key: 9, payload: typeof(NamedValue.Paint),
-        read: static (args, key) => Op.Probe<DrawingColor>(() => (args.TryGetColor(key, out DrawingColor value), value))
+        read: static (args, key) => Admit.Probe<DrawingColor>(() => (args.TryGetColor(out DrawingColor value), value))
             .Map<NamedValue>(value => new NamedValue.Paint(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Paint>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Paint>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Cell = new(key: 10, payload: typeof(NamedValue.Cell),
-        read: static (args, key) => Op.Probe<DrawingPoint>(() => (args.TryGetPoint2i(key, out DrawingPoint value), value))
+        read: static (args, key) => Admit.Probe<DrawingPoint>(() => (args.TryGetPoint2i(out DrawingPoint value), value))
             .Map<NamedValue>(value => new NamedValue.Cell(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Cell>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Cell>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Point = new(key: 11, payload: typeof(NamedValue.Point),
-        read: static (args, key) => Op.Probe<Point3d>(() => (args.TryGetPoint(key, out Point3d value), value))
+        read: static (args, key) => Admit.Probe<Point3d>(() => (args.TryGetPoint(out Point3d value), value))
             .Map<NamedValue>(value => new NamedValue.Point(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Point>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Point>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Vector = new(key: 12, payload: typeof(NamedValue.Vector),
-        read: static (args, key) => Op.Probe<Vector3d>(() => (args.TryGetVector(key, out Vector3d value), value))
+        read: static (args, key) => Admit.Probe<Vector3d>(() => (args.TryGetVector(out Vector3d value), value))
             .Map<NamedValue>(value => new NamedValue.Vector(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Vector>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Vector>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Segment = new(key: 13, payload: typeof(NamedValue.Segment),
-        read: static (args, key) => Op.Probe<Line>(() => (args.TryGetLine(key, out Line value), value))
+        read: static (args, key) => Admit.Probe<Line>(() => (args.TryGetLine(out Line value), value))
             .Map<NamedValue>(value => new NamedValue.Segment(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Segment>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Segment>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Sweep = new(key: 14, payload: typeof(NamedValue.Sweep),
-        read: static (args, key) => Op.Probe<Arc>(() => (args.TryGetArc(key, out Arc value), value))
+        read: static (args, key) => Admit.Probe<Arc>(() => (args.TryGetArc(out Arc value), value))
             .Map<NamedValue>(value => new NamedValue.Sweep(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Sweep>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Sweep>(value, row => args.Set(row.Value))));
     public static readonly NamedKind Frame = new(key: 15, payload: typeof(NamedValue.Frame),
-        read: static (args, key) => Op.Probe<Plane>(() => (args.TryGetPlane(key, out Plane value), value))
+        read: static (args, key) => Admit.Probe<Plane>(() => (args.TryGetPlane(out Plane value), value))
             .Map<NamedValue>(value => new NamedValue.Frame(Value: value)),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Frame>(value, key, op, row => args.Set(key, row.Value))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.Frame>(value, row => args.Set(row.Value))));
     public static readonly NamedKind PointSet = new(key: 16, payload: typeof(NamedValue.PointSet),
-        read: static (args, key) => Op.Probe<Point3d[]>(() => (args.TryGetPoints(key, out Point3d[] values), values))
+        read: static (args, key) => Admit.Probe<Point3d[]>(() => (args.TryGetPoints(out Point3d[] values), values))
             .Map<NamedValue>(values => new NamedValue.PointSet(Values: toSeq(values).Strict())),
-        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.PointSet>(value, key, op, row => args.Set(key, [.. row.Values]))));
+        write: Some<NamedWrite>(static (args, key, value, op) => Set<NamedValue.PointSet>(value, row => args.Set([.. row.Values]))));
     public static readonly NamedKind Geometry = new(key: 17, payload: typeof(NamedValue.Geometry),
-        read: static (args, key) => Op.Probe<GeometryBase[]>(() => (args.TryGetGeometry(key, out GeometryBase[] values), values))
+        read: static (args, key) => Admit.Probe<GeometryBase[]>(() => (args.TryGetGeometry(out GeometryBase[] values), values))
             .Map<NamedValue>(values => new NamedValue.Geometry(
                 Values: toSeq(values).Map(static value => value.ToJSON(new SerializationOptions())).Strict())),
         write: Some<NamedWrite>(static (args, key, value, op) => value is NamedValue.Geometry row
             ? from rehydrated in Rehydrate<GeometryBase>(
-                  encoded: row.Values, decode: static text => CommonObject.FromJSON(text) as GeometryBase, op: op)
-              from releases in Transfer(values: rehydrated, write: () => args.Set(key, rehydrated.AsEnumerable()), op: op)
+                  encoded: row.Values, decode: static text => CommonObject.FromJSON(text) as GeometryBase)
+              from releases in Transfer(values: rehydrated, write: () => args.Set(rehydrated.AsEnumerable()))
               select releases
-            : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: op.InvalidInput(axis: key))));
+            : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: new KernelFault.InvalidInput(Axis: Some()))));
     public static readonly NamedKind Camera = new(key: 18, payload: typeof(NamedValue.Camera),
-        read: static (args, key) => Op.Probe<ViewportInfo>(() => (args.TryGetViewport(key, out ViewportInfo value), value))
+        read: static (args, key) => Admit.Probe<ViewportInfo>(() => (args.TryGetViewport(out ViewportInfo value), value))
             .Map<NamedValue>(value => new NamedValue.Camera(Value: value.ToJSON(new SerializationOptions()))),
         write: Option<NamedWrite>.None);
     public static readonly NamedKind Meshing = new(key: 19, payload: typeof(NamedValue.Meshing),
-        read: static (args, key) => Op.Probe<MeshingParameters>(() => (args.TryGetMeshParameters(key, out MeshingParameters value), value))
+        read: static (args, key) => Admit.Probe<MeshingParameters>(() => (args.TryGetMeshParameters(out MeshingParameters value), value))
             .Map<NamedValue>(value => new NamedValue.Meshing(Value: value.ToEncodedString())),
         write: Some<NamedWrite>(static (args, key, value, op) => value is NamedValue.Meshing row
             ? from rehydrated in Rehydrate<MeshingParameters>(
-                  encoded: Seq(row.Value), decode: MeshingParameters.FromEncodedString, op: op)
-              from single in rehydrated.Head.ToFin(Fail: op.InvalidResult(detail: key))
-              from releases in Transfer(values: rehydrated, write: () => args.Set(key, single), op: op)
+                  encoded: Seq(row.Value), decode: MeshingParameters.FromEncodedString)
+              from single in rehydrated.Head.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some()))
+              from releases in Transfer(values: rehydrated, write: () => args.Set(single))
               select releases
-            : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: op.InvalidInput(axis: key))));
+            : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: new KernelFault.InvalidInput(Axis: Some()))));
 
-    internal delegate Fin<Seq<Func<Fin<Unit>>>> NamedWrite(NamedParametersEventArgs args, string key, NamedValue value, Op op);
+    internal delegate Fin<Seq<Func<Fin<Unit>>>> NamedWrite(NamedParametersEventArgs args, string key, NamedValue value);
 
     public Type Payload { get; }
     internal Option<NamedWrite> Write { get; }
@@ -1835,33 +1762,33 @@ public sealed partial class NamedKind {
     internal static readonly Lazy<HashMap<Type, NamedKind>> Rows =
         new(static () => toHashMap(toSeq(Items).Map(static row => (row.Payload, row))));
 
-    private static Fin<Seq<Func<Fin<Unit>>>> Set<TCase>(NamedValue value, string key, Op op, Action<TCase> write)
+    private static Fin<Seq<Func<Fin<Unit>>>> Set<TCase>(NamedValue value, string key, Action<TCase> write)
         where TCase : NamedValue =>
         value is TCase row
-            ? op.Catch(() => write(row)).Map(static _ => Seq<Func<Fin<Unit>>>())
-            : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: op.InvalidInput(axis: key));
+            ? Try.lift(() => write(row)).Run().Bind(static inner => inner).Map(static _ => Seq<Func<Fin<Unit>>>())
+            : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: new KernelFault.InvalidInput(Axis: Some()));
 
-    private static Fin<Seq<T>> Rehydrate<T>(Seq<string> encoded, Func<string, T?> decode, Op op)
+    private static Fin<Seq<T>> Rehydrate<T>(Seq<string> encoded, Func<string, T?> decode)
         where T : class, IDisposable {
         (Seq<T> Values, Option<Error> Fault) state = encoded.Fold(
             (Values: Seq<T>(), Fault: Option<Error>.None),
             (held, source) => held.Fault.IsSome
                 ? held
-                : op.Catch(() => Optional(decode(source)).ToFin(Fail: op.InvalidResult(detail: typeof(T).Name))).Match(
+                : Try.lift(() => Optional(decode(source)).ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(typeof(T).Name)))).Run().Bind(static inner => inner).Match(
                     Succ: value => (held.Values.Add(value), Option<Error>.None),
                     Fail: fault => (held.Values, Some(fault))));
         return state.Fault.Match(
             Some: fault => Fin.Fail<Seq<T>>(error: fault)
-                .Rollback(held: state.Values, release: static value => Fin.Succ(value: ignore(fun(value.Dispose)())), key: op),
+                .Rollback(held: state.Values, release: static value => Fin.Succ(value: ignore(fun(value.Dispose)()))),
             None: () => Fin.Succ(value: state.Values));
     }
 
-    private static Fin<Seq<Func<Fin<Unit>>>> Transfer<T>(Seq<T> values, Action write, Op op) where T : IDisposable {
+    private static Fin<Seq<Func<Fin<Unit>>>> Transfer<T>(Seq<T> values, Action write) where T : IDisposable {
         Seq<Func<Fin<Unit>>> releases = values.Rev()
             .Map(value => (Func<Fin<Unit>>)(() => Fin.Succ(value: ignore(fun(value.Dispose)()))));
-        return op.Catch(write)
+        return Try.lift(write).Run().Bind(static inner => inner)
             .Map(_ => releases)
-            .Rollback(release: () => HostThread.Release(releases: releases, key: op), key: op);
+            .Rollback(release: () => HostThread.Release(releases: releases, key: op));
     }
 }
 
@@ -1882,7 +1809,7 @@ public sealed partial class NamedSlot {
         ref string key,
         ref NamedKind kind,
         ref SlotPresence presence) =>
-        validationError = string.IsNullOrWhiteSpace(key)
+        validationError = string.IsNullOrWhiteSpace()
             ? new ValidationError(message: $"{nameof(Key)} is blank.")
             : kind is null
                 ? new ValidationError(message: $"{nameof(Kind)} is absent.")
@@ -1890,15 +1817,15 @@ public sealed partial class NamedSlot {
                     ? new ValidationError(message: $"{nameof(Presence)} is absent.")
                     : null;
 
-    internal static Fin<HashMap<string, NamedSlot>> Admit(Seq<NamedSlot> slots, Op op) =>
-        slots.TraverseM(slot => op.Need(slot).Bind(row => op.AcceptValidated<NamedSlot>(
-                Validate(key: row.Key, kind: row.Kind, presence: row.Presence, obj: out NamedSlot? admitted),
+    internal static Fin<HashMap<string, NamedSlot>> Admit(Seq<NamedSlot> slots) =>
+        slots.TraverseM(slot => Admit.Need(slot).Bind(row => FactoryBridge.Accept<NamedSlot>(
+                Validate(kind: row.Kind, presence: row.Presence, obj: out NamedSlot? admitted),
                 admitted)))
             .As()
             .Bind(admitted => admitted.Fold(
                 Fin.Succ(value: HashMap<string, NamedSlot>()),
                 (held, row) => held.Bind(schema => schema.ContainsKey(row.Key)
-                    ? Fin.Fail<HashMap<string, NamedSlot>>(error: op.InvalidInput(axis: row.Key))
+                    ? Fin.Fail<HashMap<string, NamedSlot>>(error: new KernelFault.InvalidInput(Axis: Some(row.Key)))
                     : Fin.Succ(value: schema.Add(row.Key, row)))));
 }
 
@@ -1911,21 +1838,21 @@ internal sealed class NamedLease {
 
     internal NamedLease Append(Func<Fin<Unit>> release) => new(releases: releases.Add(release));
 
-    internal Fin<T> Within<T>(Func<Fin<T>> body, Op op) =>
-        op.Catch(body).Settled(held: Seq(this), release: held => held.Release(op), key: op);
+    internal Fin<T> Within<T>(Func<Fin<T>> body) =>
+        Try.lift(body).Run().Bind(static inner => inner).Settled(held: Seq(this), release: held => held.Release());
 
-    private Fin<Unit> Release(Op op) => Cell.Step(
+    private Fin<Unit> Release() => Cell.Step(
             cell: state,
             step: static held => held is LeaseState<Unit>.Live ? Some<LeaseState<Unit>>(new LeaseState<Unit>.Released()) : None,
-            declined: op.InvalidContext())
+            declined: new KernelFault.InvalidContext())
         is Transition<LeaseState<Unit>>.Committed
-        ? HostThread.Release(releases: releases, key: op)
+        ? HostThread.Release(releases: releases)
         : Fin.Succ(value: unit);
 }
 
 internal sealed record NamedPacket(NamedParametersEventArgs Args, NamedLease Lease) {
-    internal Fin<T> Within<T>(Func<NamedParametersEventArgs, Fin<T>> body, Op op) =>
-        Lease.Within(body: () => body(Args), op: op);
+    internal Fin<T> Within<T>(Func<NamedParametersEventArgs, Fin<T>> body) =>
+        Lease.Within(body: () => body(Args));
 }
 
 public sealed record NamedBag {
@@ -1935,52 +1862,51 @@ public sealed record NamedBag {
 
     public HashMap<string, NamedValue> Rows { get; }
 
-    public Fin<NamedBag> Put(string name, NamedValue value, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in op.AcceptText(value: name)
-               from payload in op.Need(value)
-               from _ in guard(flag: Rows.Find(admitted).IsNone, False: op.InvalidInput(axis: admitted))
+    public Fin<NamedBag> Put(string name, NamedValue value) {
+        return from admitted in Acceptance.Text(value: name)
+               from payload in Admit.Need(value)
+               from _ in guard(flag: Rows.Find(admitted).IsNone, False: new KernelFault.InvalidInput(Axis: Some(admitted)))
                select new NamedBag(rows: Rows.Add(admitted, payload));
     }
 
-    public NamedBag Remove(string key) => new(rows: Rows.Remove(key));
+    public NamedBag Remove(string key) => new(rows: Rows.Remove());
 
-    public Option<NamedValue> Find(string key) => Rows.Find(key);
+    public Option<NamedValue> Find(string key) => Rows.Find();
 
-    internal Fin<NamedLease> WriteInto(NamedParametersEventArgs args, Op op) {
+    internal Fin<NamedLease> WriteInto(NamedParametersEventArgs args) {
         (Seq<Func<Fin<Unit>>> Releases, Option<Error> Fault) state = toSeq(Rows.AsIterable()).Fold(
             (Releases: Seq<Func<Fin<Unit>>>(), Fault: Option<Error>.None),
             (held, row) => held.Fault.IsSome
                 ? held
                 : row.Value.Kind
                     .Bind(static kind => kind.Write)
-                    .ToFin(Fail: op.InvalidInput(axis: row.Key))
-                    .Bind(write => write(args, row.Key, row.Value, op))
+                    .ToFin(Fail: new KernelFault.InvalidInput(Axis: Some(row.Key)))
+                    .Bind(write => write(args, row.Value))
                     .Match(
                         Succ: releases => held with { Releases = releases + held.Releases },
                         Fail: fault => held with { Fault = Some(fault) }));
         return state.Fault.Match(
             Some: fault => Fin.Fail<NamedLease>(error: fault)
-                .Rollback(release: () => HostThread.Release(releases: state.Releases, key: op), key: op),
+                .Rollback(release: () => HostThread.Release(releases: state.Releases, key: op)),
             None: () => Fin.Succ(value: new NamedLease(releases: state.Releases)));
     }
 
-    internal Fin<NamedPacket> Mint(Op op) {
+    internal Fin<NamedPacket> Mint() {
         NamedParametersEventArgs args = new();
-        return WriteInto(args: args, op: op)
+        return WriteInto(args: args)
             .Map(values => new NamedPacket(
                 Args: args,
                 Lease: values.Append(release: () => Fin.Succ(value: ignore(fun(args.Dispose)())))))
-            .Rollback(release: () => Fin.Succ(value: ignore(fun(args.Dispose)())), key: op);
+            .Rollback(release: () => Fin.Succ(value: ignore(fun(args.Dispose)())));
     }
 
-    internal static Fin<NamedBag> Detach(NamedParametersEventArgs args, HashMap<string, NamedSlot> schema, Op op) =>
+    internal static Fin<NamedBag> Detach(NamedParametersEventArgs args, HashMap<string, NamedSlot> schema) =>
         toSeq(schema.Values)
-            .TraverseM(slot => op.Catch(() => slot.Kind.Read(args: args, key: slot.Key).Match(
+            .TraverseM(slot => Try.lift(() => slot.Kind.Read(args: args).Match(
                 Some: value => Fin.Succ(value: Some((slot.Key, value))),
                 None: () => slot.Presence
-                    ? Fin.Fail<Option<(string, NamedValue)>>(error: op.InvalidResult(detail: slot.Key))
-                    : Fin.Succ(value: Option<(string, NamedValue)>.None))))
+                    ? Fin.Fail<Option<(string, NamedValue)>>(error: new KernelFault.InvalidResult(Detail: Some(slot.Key)))
+                    : Fin.Succ(value: Option<(string, NamedValue)>.None))).Run().Bind(static inner => inner))
             .As()
             .Map(static rows => new NamedBag(rows: toHashMap(rows.Choose(static row => row))));
 }
@@ -1995,14 +1921,14 @@ public sealed class NamedRegistry {
     public Seq<(string Name, PluginKey Plugin)> Census =>
         names.Value.AsIterable().ToSeq().Map(static row => (Name: row.Key, Plugin: row.Value.Plugin)).Strict();
 
-    internal Fin<Guid> Claim(string name, PluginKey plugin, Op op) {
+    internal Fin<Guid> Claim(string name, PluginKey plugin) {
         Guid token = Guid.NewGuid();
         return Cell.Claim(cell: names, key: name, mint: () => (plugin, token)).Switch(
             state: op,
             committed: static (_, _) => Fin.Succ(value: token),
-            ceded: static (held, _) => Fin.Fail<Guid>(error: held.InvalidContext()),
+            ceded: static (held, _) => Fin.Fail<Guid>(error: new KernelFault.InvalidContext()),
             refused: static (_, row) => Fin.Fail<Guid>(error: row.Cause),
-            contended: static (held, _) => Fin.Fail<Guid>(error: held.InvalidResult()));
+            contended: static (held, _) => Fin.Fail<Guid>(error: new KernelFault.InvalidResult()));
     }
 
     internal Unit Yield(string name, Guid token) => ignore(names.Swap(held =>
@@ -2019,29 +1945,27 @@ public static class NamedCallbacks {
         string name,
         Seq<NamedSlot> request,
         Func<NamedBag, Fin<NamedBag>> body,
-        Action<Error> report,
-        Op? key = null) {
+        Action<Error> report) {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(report);
-        Op op = key.OrDefault();
-        return from admitted in op.AcceptText(value: name)
-               from schema in NamedSlot.Admit(slots: request, op: op)
-               from claim in registry.Claim(name: admitted, plugin: plugin, op: op)
-               from seated in op.Catch(() => {
-                   EventHandler<NamedParametersEventArgs> handler = (_, args) => ignore(op.Catch(() =>
-                       (from bag in NamedBag.Detach(args: args, schema: schema, op: op)
-                        from reply in op.Catch(() => body(bag))
-                        from lease in reply.WriteInto(args: args, op: op)
-                        from served in lease.Within(body: static () => Fin.Succ(value: unit), op: op)
+        return from admitted in Acceptance.Text(value: name)
+               from schema in NamedSlot.Admit(slots: request)
+               from claim in registry.Claim(name: admitted, plugin: plugin)
+               from seated in Try.lift(() => {
+                   EventHandler<NamedParametersEventArgs> handler = (_, args) => ignore(Try.lift(() =>
+                       (from bag in NamedBag.Detach(args: args, schema: schema)
+                        from reply in Try.lift(() => body(bag)).Run().Bind(static inner => inner)
+                        from lease in reply.WriteInto(args: args)
+                        from served in lease.Within(body: static () => Fin.Succ(value: unit))
                         select served)
-                       .IfFail(failure => ignore(Op.Side(() => report(failure))))));
+                       .IfFail(failure => ignore(HostEdge.Side(() => report(failure))))).Run().Bind(static inner => inner));
                    HostUtils.RegisterNamedCallback(name: admitted, callback: handler);
                    return Fin.Succ(value: Subscription.Of(detach: () => {
                        HostUtils.RemoveNamedCallback(name: admitted);
                        _ = registry.Yield(name: admitted, token: claim);
                    }));
-               }).Rollback(release: () => Fin.Succ(value: registry.Yield(name: admitted, token: claim)), key: op)
+               }).Run().Bind(static inner => inner).Rollback(release: () => Fin.Succ(value: registry.Yield(name: admitted, token: claim)))
                select seated;
     }
 
@@ -2049,20 +1973,17 @@ public static class NamedCallbacks {
         string name,
         NamedBag bag,
         Seq<NamedSlot> response,
-        Option<Env> env = default,
-        Op? key = null) {
+        Option<Env> env = default) {
         ArgumentNullException.ThrowIfNull(bag);
-        Op op = key.OrDefault();
-        return from admitted in op.AcceptText(value: name)
-               from schema in NamedSlot.Admit(slots: response, op: op)
+        return from admitted in Acceptance.Text(value: name)
+               from schema in NamedSlot.Admit(slots: response)
                from _ in guard(
                    flag: env.Map(static held => !held.Cancellation.IsCancellationRequested).IfNone(true),
                    False: Errors.Cancelled)
-               from reply in bag.Mint(op: op).Bind(packet => packet.Within(
+               from reply in bag.Mint().Bind(packet => packet.Within(
                    body: args => HostUtils.ExecuteNamedCallback(name: admitted, args: args)
-                       ? NamedBag.Detach(args: args, schema: schema, op: op).Map(Some)
-                       : Fin.Succ(value: Option<NamedBag>.None),
-                   op: op))
+                       ? NamedBag.Detach(args: args, schema: schema).Map(Some)
+                       : Fin.Succ(value: Option<NamedBag>.None)))
                select reply;
     }
 }
@@ -2159,8 +2080,7 @@ public sealed partial class NoticeSpec {
         Option<HostText> cancelCaption = default,
         Option<HostText> alternateCaption = default,
         Option<FrozenDictionary<string, string>> metadata = default,
-        Seq<Assembly> guards = default,
-        Op? key = null) =>
+        Seq<Assembly> guards = default) =>
         key.OrDefault().AcceptValidated<NoticeSpec>(
             Validate(
                 title, message, description, severity, confirmCaption, cancelCaption, alternateCaption,
@@ -2169,14 +2089,13 @@ public sealed partial class NoticeSpec {
 
     public static Fin<NoticeSpec> OfRun(
         RunOutcome outcome, HostText message, Seq<Assembly> guards = default,
-        Option<HostText> confirmCaption = default, Option<HostText> alternateCaption = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(outcome)
-               from body in op.Need(message)
+        Option<HostText> confirmCaption = default, Option<HostText> alternateCaption = default) {
+        return from active in Admit.Need(outcome)
+               from body in Admit.Need(message)
                from spec in Of(
                    title: active.Label, message: body, severity: active.Severity,
                    confirmCaption: confirmCaption, alternateCaption: alternateCaption,
-                   metadata: Some(active.Facts), guards: guards, key: op)
+                   metadata: Some(active.Facts), guards: guards)
                select spec;
     }
 
@@ -2207,9 +2126,8 @@ public sealed partial class NoticeSpec {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer, Op op) {
+internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer) {
     private readonly CallbackObserver<NoticeFact> observer = observer;
-    private readonly Op op = op;
     private LeaseState<Unit> state = new LeaseState<Unit>.Live(Held: unit);
 
     internal Lock Sync { get; } = new();
@@ -2233,11 +2151,11 @@ internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer, Op op) {
         }
     }
 
-    internal Fin<T> Within<T>(Func<Fin<T>> body, Op key) {
+    internal Fin<T> Within<T>(Func<Fin<T>> body) {
         lock (Sync) {
             return state.Switch(
-                (Body: body, Key: key),
-                live: static (held, _) => held.Body(),
+                body,
+                live: static (held, _) => held(),
                 released: static (held, _) => Fin.Fail<T>(error: new UiFault.Released(Key: held.Key)));
         }
     }
@@ -2248,78 +2166,72 @@ public sealed class NoticeLease : IDisposable {
     private readonly HostNotice notice;
     private readonly NoticeGate gate;
     private readonly Subscription observation;
-    private readonly Op op;
 
-    private NoticeLease(HostNotice notice, NoticeGate gate, Subscription observation, Op op) =>
-        (this.notice, this.gate, this.observation, this.op) = (notice, gate, observation, op);
+    private NoticeLease(HostNotice notice, NoticeGate gate, Subscription observation) =>
+        (this.notice, this.gate, this.observation, this.op) = (notice, gate, observation);
 
     internal static Fin<NoticeLease> Of(
-        HostNotice notice, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline, Op op) {
-        NoticeGate gate = new(observer: observer.Fork(), op: op);
+        HostNotice notice, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline) {
+        NoticeGate gate = new(observer: observer.Fork());
         PropertyChangedEventHandler changed = (_, args) => ignore(gate.Deliver(() => Fin.Succ<NoticeFact>(
             value: new NoticeFact.ChangedCase(
                 Property: args.PropertyName ?? string.Empty,
-                At: timeline.Capture(key: op).ToOption()))));
+                At: Error.New(key: op.Message).ToOption()))));
         return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
                 () => Subscription.Acquire(
                     acquire: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = button =>
-                        ignore(gate.Deliver(() => op.Row<HostNoticeButton, NoticeReply>(button)
+                        ignore(gate.Deliver(() => FactoryBridge.Row<HostNoticeButton, NoticeReply>(button)
                             .Map<NoticeFact>(reply => new NoticeFact.ReplyCase(
-                                Reply: reply, At: timeline.Capture(key: op).ToOption()))))),
+                                Reply: reply, At: Error.New(key: op.Message).ToOption()))))),
                     release: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = null)),
                 () => Subscription.Attach(
                     subscribe: callback => notice.PropertyChanged += callback,
                     unsubscribe: callback => notice.PropertyChanged -= callback,
                     handler: changed)))
-            .Map(attached => new NoticeLease(notice: notice, gate: gate, observation: attached, op: op));
+            .Map(attached => new NoticeLease(notice: notice, gate: gate, observation: attached));
     }
 
     public Seq<Error> Faults => faults.Parked + gate.Faults;
     public long Shed => faults.Shed;
 
-    public Fin<Unit> Present(Op? key = null) => Crossing(body: static held => Op.Side(held.ShowModal), key: key);
+    public Fin<Unit> Present() => Crossing(body: static held => HostEdge.Side(held.ShowModal));
 
-    public Fin<Unit> Withdraw(Op? key = null) => Crossing(
-        body: static held => Op.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: held.HideModal)),
-        key: key);
+    public Fin<Unit> Withdraw() => Crossing(
+        body: static held => HostEdge.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: held.HideModal)));
 
-    public Fin<FrozenDictionary<string, string>> Metadata(Op? key = null) => Crossing(
-        body: static held => held.MetadataCopy.ToFrozenDictionary(StringComparer.Ordinal),
-        key: key);
+    public Fin<FrozenDictionary<string, string>> Metadata() => Crossing(
+        body: static held => held.MetadataCopy.ToFrozenDictionary(StringComparer.Ordinal));
 
-    public Fin<Unit> Annotate(string field, Option<string> value, Op? key = null) {
-        Op admitted = key.OrDefault();
-        return admitted.AcceptText(value: field).Bind(named => Crossing(
-            body: held => Op.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => ignore(value.Match(
-                Some: text => Op.Side(() => held[named] = text),
-                None: () => Op.Side(() => ignore(held.RemoveMetadata(key: named))))))),
+    public Fin<Unit> Annotate(string field, Option<string> value) {
+        return Acceptance.Text(value: field).Bind(named => Crossing(
+            body: held => HostEdge.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => ignore(value.Match(
+                Some: text => HostEdge.Side(() => held[named] = text),
+                None: () => HostEdge.Side(() => ignore(held.RemoveMetadata(key: named))))))),
             key: admitted));
     }
 
-    public Fin<Unit> Release(Op? key = null) {
-        Op admitted = key.OrDefault();
+    public Fin<Unit> Release() {
         if (!gate.Claimed()) { return Fin.Succ(value: unit); }
         HostNotice held = notice;
         Subscription attached = observation;
         return HostThread.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => admitted.Catch(attached.Dispose),
-                () => admitted.Catch(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => {
+                () => Try.lift(attached.Dispose).Run().Bind(static inner => inner),
+                () => Try.lift(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => {
                     held.HideModal();
                     _ = HostNoticeCenter.Notifications.Remove(held);
-                }))),
+                })).Run().Bind(static inner => inner)),
             key: admitted)
             .MapFail(failure => (faults.Park(item: failure), failure).Item2);
     }
 
     public void Dispose() => _ = Release();
 
-    private Fin<T> Crossing<T>(Func<HostNotice, T> body, Op? key = null) {
-        Op admitted = key.OrDefault();
+    private Fin<T> Crossing<T>(Func<HostNotice, T> body) {
         HostNotice held = notice;
         return HostThread.Run(
             work: new HostWork<T>.Execute(Body: () => gate.Within(
-                body: () => admitted.Catch(() => Fin.Succ(value: body(held))),
+                body: () => Try.lift(() => Fin.Succ(value: body(held))).Run().Bind(static inner => inner),
                 key: admitted)),
             key: admitted);
     }
@@ -2331,18 +2243,15 @@ public static class Notices {
         NoticeSpec spec,
         CallbackObserver<NoticeFact> observer,
         MonotonicTimeline timeline,
-        Func<NoticeLease, Fin<T>> body,
-        Op? key = null) {
+        Func<NoticeLease, Fin<T>> body) {
         ArgumentNullException.ThrowIfNull(spec);
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(timeline);
         ArgumentNullException.ThrowIfNull(body);
-        Op op = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<T>.Execute(Body: () => Mint(spec: spec, observer: observer, timeline: timeline, op: op)
-                .Bind(lease => op.Catch(() => body(lease))
-                    .Settled(held: Seq(lease), release: held => held.Release(key: op), key: op))),
-            key: op);
+            work: new HostWork<T>.Execute(Body: () => Mint(spec: spec, observer: observer, timeline: timeline)
+                .Bind(lease => Try.lift(() => body(lease)).Run().Bind(static inner => inner)
+                    .Settled(held: Seq(lease), release: held => held.Release()))));
     }
 
     public static Fin<Option<T>> Announce<T>(
@@ -2353,24 +2262,22 @@ public static class Notices {
         Func<NoticeLease, Fin<T>> body,
         Seq<Assembly> guards = default,
         Option<HostText> confirmCaption = default,
-        Option<HostText> alternateCaption = default,
-        Op? key = null) {
+        Option<HostText> alternateCaption = default) {
         ArgumentNullException.ThrowIfNull(body);
-        Op op = key.OrDefault();
         return outcome.TraverseM(settled =>
                 from spec in NoticeSpec.OfRun(
                     outcome: settled, message: message, guards: guards,
-                    confirmCaption: confirmCaption, alternateCaption: alternateCaption, key: op)
+                    confirmCaption: confirmCaption, alternateCaption: alternateCaption)
                 from answered in Use(
                     spec: spec, observer: observer, timeline: timeline,
-                    body: lease => lease.Present(key: op).Bind(_ => body(lease)), key: op)
+                    body: lease => lease.Present().Bind(_ => body(lease)))
                 select answered)
             .As();
     }
 
     private static Fin<NoticeLease> Mint(
-        NoticeSpec spec, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline, Op op) =>
-        op.Catch(() => {
+        NoticeSpec spec, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline) =>
+        Try.lift(() => {
             Seq<Assembly> allowed = spec.Guards.IsEmpty
                 ? spec.Guards
                 : (spec.Guards + Seq(typeof(Notices).Assembly)).Distinct().Strict();
@@ -2383,13 +2290,13 @@ public static class Notices {
                 _ = spec.ConfirmCaption.Iter(text => notice.ConfirmButtonTitle = text.Resolve());
                 _ = spec.CancelCaption.Iter(text => notice.CancelButtonTitle = text.Resolve());
                 _ = spec.AlternateCaption.Iter(text => notice.AlternateButtonTitle = text.Resolve());
-                _ = toSeq(spec.Metadata.AsEnumerable()).Iter(row => Op.Side(() => notice[row.Key] = row.Value));
+                _ = toSeq(spec.Metadata.AsEnumerable()).Iter(row => HostEdge.Side(() => notice[row.Key] = row.Value));
             });
-            return NoticeLease.Of(notice: notice, observer: observer, timeline: timeline, op: op)
-                .Bind(lease => op.Catch(() => HostNoticeCenter.Notifications.Add(notice))
+            return NoticeLease.Of(notice: notice, observer: observer, timeline: timeline)
+                .Bind(lease => Try.lift(() => HostNoticeCenter.Notifications.Add(notice)).Run().Bind(static inner => inner)
                     .Map(_ => lease)
-                    .Rollback(release: () => op.Catch(lease.Dispose), key: op));
-        });
+                    .Rollback(release: () => Try.lift(lease.Dispose).Run().Bind(static inner => inner)));
+        }).Run().Bind(static inner => inner);
 }
 ```
 
@@ -2414,7 +2321,7 @@ public static class Notices {
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-public delegate Fin<Seq<Func<Fin<Unit>>>> ShellSeat(Op key);
+public delegate Fin<Seq<Func<Fin<Unit>>>> ShellSeat();
 
 public sealed record NamedRow(
     string Name,
@@ -2443,16 +2350,14 @@ public sealed class ShellCapsule : IDisposable {
 
     private readonly Atom<LeaseState<Seq<Func<Fin<Unit>>>>> retire;
     private readonly Ring<Error> teardown = ShellFaults.Ring();
-    private readonly Op op;
 
     private ShellCapsule(
         PackageIdentity<PluginKey, HostSnapshot> identity,
         MonotonicTimeline timeline,
         FaultCell faults,
-        Seating seated,
-        Op op) {
+        Seating seated) {
         (Identity, Timeline, Faults, Themes, Names, this.op) =
-            (identity, timeline, faults, seated.Themes, seated.Names, op);
+            (identity, timeline, faults, seated.Themes, seated.Names);
         retire = Atom<LeaseState<Seq<Func<Fin<Unit>>>>>(new LeaseState<Seq<Func<Fin<Unit>>>>.Live(Held: seated.Retire));
     }
 
@@ -2466,18 +2371,16 @@ public sealed class ShellCapsule : IDisposable {
     public static Fin<Lease<ShellCapsule>> Open(
         PackageIdentity<PluginKey, HostSnapshot> identity,
         MonotonicTimeline timeline,
-        Op? key = null,
         params ReadOnlySpan<ShellMount> mounts) {
-        Op op = key.OrDefault();
         FaultCell faults = ShellFaults.Cell();
         return Iterable<ShellMount>.FromSpan(mounts)
             .Fold(
                 Fin.Succ(value: new Seating(Retire: Seq<Func<Fin<Unit>>>(), Themes: None, Names: None)),
                 (held, mount) => held.Bind(seated => Seat(
-                        mount: mount, seated: seated, identity: identity, timeline: timeline, faults: faults, op: op)
-                    .Rollback(release: () => Custody.Release(releases: seated.Retire.Rev(), key: op), key: op)))
+                        mount: mount, seated: seated, identity: identity, timeline: timeline, faults: faults)
+                    .Rollback(release: () => Custody.Release(releases: seated.Retire.Rev(), key: op))))
             .Map(seated => (Lease<ShellCapsule>)new Lease<ShellCapsule>.Owned(Value: new ShellCapsule(
-                identity: identity, timeline: timeline, faults: faults, seated: seated, op: op)));
+                identity: identity, timeline: timeline, faults: faults, seated: seated)));
     }
 
     public Fin<Unit> Release() {
@@ -2487,7 +2390,7 @@ public sealed class ShellCapsule : IDisposable {
                 step: held => held is LeaseState<Seq<Func<Fin<Unit>>>>.Live live
                     ? (drained = live.Held, Some<LeaseState<Seq<Func<Fin<Unit>>>>>(new LeaseState<Seq<Func<Fin<Unit>>>>.Released())).Item2
                     : None,
-                declined: op.InvalidContext())
+                declined: new KernelFault.InvalidContext())
             is Transition<LeaseState<Seq<Func<Fin<Unit>>>>>.Committed
             ? Custody.Release(releases: drained.Rev(), key: op).MapFail(failure =>
                 (teardown.Park(item: failure), failure).Item2)
@@ -2501,58 +2404,57 @@ public sealed class ShellCapsule : IDisposable {
         Seating seated,
         PackageIdentity<PluginKey, HostSnapshot> identity,
         MonotonicTimeline timeline,
-        FaultCell faults,
-        Op op) =>
+        FaultCell faults) =>
         mount.Switch(
-            (Seated: seated, Identity: identity, Timeline: timeline, Faults: faults, Op: op),
+            (Seated: seated, Identity: identity, Timeline: timeline, Faults: faults),
             marshal: static (held, row) => MarshalLatency.Mount(
                     plugin: held.Identity.Plugin, provider: row.Provider, issuer: row.Issuer,
-                    timeline: held.Timeline, key: held.Op)
-                .Map(lease => held.Seated with { Retire = held.Seated.Retire.Add(Retiring(lease, held.Op)) }),
+                    timeline: held.Timeline)
+                .Map(lease => held.Seated with { Retire = held.Seated.Retire.Add(Retiring(lease)) }),
             pacing: static (held, row) => UiThread.Tune(
                     policy: new StallPolicy(Pace: row.Band, Stretch: row.Stretch),
-                    clock: Some(held.Timeline), key: held.Op)
+                    clock: Some(held.Timeline))
                 .Map(_ => held.Seated),
             theme: static (held, row) =>
                 from grid in ThemeGrid.Freeze(
                         program: row.Program, initial: row.Initial, contrast: row.Contrast,
-                        clock: held.Timeline, key: held.Op)
+                        clock: held.Timeline)
                     .ToFin()
-                from theme in ThemePort.Of(grid: grid, key: held.Op)
+                from theme in ThemePort.Of(grid: grid)
                 select held.Seated with { Themes = Some(theme) },
             named: static (held, row) => {
                 NamedRegistry registry = NamedRegistry.Of();
                 return row.Rows
                     .TraverseM(entry => NamedCallbacks.Register(
                         registry: registry, plugin: held.Identity.Plugin, name: entry.Name, request: entry.Request,
-                        body: entry.Body, report: entry.Report, key: held.Op))
+                        body: entry.Body, report: entry.Report))
                     .As()
                     .Map(seats => held.Seated with {
                         Names = Some(registry),
-                        Retire = held.Seated.Retire + seats.Map(seat => Retiring(seat, held.Op)),
+                        Retire = held.Seated.Retire + seats.Map(seat => Retiring(seat)),
                     });
             },
             hooks: static (held, row) => row.Mounts
-                .TraverseM(mount => mount(held.Identity.Plugin, held.Op))
+                .TraverseM(mount => mount(held.Identity.Plugin))
                 .As()
-                .Map(seats => held.Seated with { Retire = held.Seated.Retire + seats.Map(seat => Retiring(seat, held.Op)) }),
-            vault: static (held, row) => row.Seat(held.Op)
+                .Map(seats => held.Seated with { Retire = held.Seated.Retire + seats.Map(seat => Retiring(seat)) }),
+            vault: static (held, row) => row.Seat()
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
-            engines: static (held, row) => row.Seat(held.Op)
+            engines: static (held, row) => row.Seat()
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
             resolver: static (held, row) => HostAssemblies
-                .Extend(plugin: held.Identity.Plugin, sources: row.Sources, key: held.Op)
+                .Extend(plugin: held.Identity.Plugin, sources: row.Sources)
                 .Bind(outcome => outcome.Fault.Match(
                     Some: Fin.Fail<Seating>,
                     None: () => Fin.Succ(value: held.Seated))),
             endpoints: static (held, row) => row.Rows
-                .TraverseM(entry => HostEndpoints.Register(path: entry.Path, contract: entry.Contract, key: held.Op))
+                .TraverseM(entry => HostEndpoints.Register(path: entry.Path, contract: entry.Contract))
                 .As()
                 .Map(_ => held.Seated));
 
-    private static Func<Fin<Unit>> Retiring(IDisposable seat, Op op) => () => op.Catch(seat.Dispose);
+    private static Func<Fin<Unit>> Retiring(IDisposable seat) => () => Try.lift(seat.Dispose).Run().Bind(static inner => inner);
 
-    private static Func<Fin<Unit>> Retiring(Lease<IDisposable> seat, Op op) => () => op.Catch(() => seat.Dispose());
+    private static Func<Fin<Unit>> Retiring(Lease<IDisposable> seat) => () => Try.lift(() => seat.Dispose()).Run().Bind(static inner => inner);
 }
 ```
 

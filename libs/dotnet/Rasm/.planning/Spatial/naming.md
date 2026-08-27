@@ -1,6 +1,6 @@
 # [RASM_TOPOLOGY_NAMING]
 
-Persistent topological naming survives every rebuild behind one `Naming.Apply(NamingOp, Op? key)` entry: the closed `NamingOp` `[Union]` folds `Track` re-anchoring names across a rebuild and `Resolve` minting the generation-zero table for a first build, over one `TopoName` lineage algebra spanning every `EntityKind`. `TopoName` is a content-address-derived `UInt128` reference identity — which entity, lineage-stable across generations — orthogonal to the content identity the reconciliation sibling bridges. Its fold accumulates every non-injective re-anchor into `Validation<Error, NameTable>` before exiting the one `Fin` result, so one verdict carries a defective rebuild's complete collision set, each row a `GeometryFault.NameCollision` (`Numerics/faults.md`).
+Persistent topological naming survives every rebuild behind one `Naming.Apply(NamingOp)` entry: the closed `NamingOp` `[Union]` folds `Track` re-anchoring names across a rebuild and `Resolve` minting the generation-zero table for a first build, over one `TopoName` lineage algebra spanning every `EntityKind`. `TopoName` is a content-address-derived `UInt128` reference identity — which entity, lineage-stable across generations — orthogonal to the content identity the reconciliation sibling bridges. Its fold accumulates every non-injective re-anchor into `Validation<Error, NameTable>` before exiting the one `Fin` result, so one verdict carries a defective rebuild's complete collision set, each row a `GeometryFault.NameCollision` (`Numerics/faults.md`).
 
 `Naming` reads `Rasm.Meshing` `MeshSpace` and the native `Mesh` topology as settled vocabulary — never re-minted — and consumes the `CanonicalTopology` the reconciliation sibling emits in this same `Rasm.Spatial` namespace; `TopoName`, `EntityKind`, `NamingOp`, and the lineage records are interior types that never cross a transport. Migration rides one `NamingPolicy.MigrationOverlap` fraction, and the emitted `NameTable` gates its own `IValidityEvidence` fold before every `Apply` returns.
 
@@ -12,7 +12,7 @@ Persistent topological naming survives every rebuild behind one `Naming.Apply(Na
 
 - Owner: `Naming.Apply` folds the `NamingOp` request algebra over one `TopoName` lineage; `TopoName` `[ValueObject<UInt128>]` is the single naming reference across every `EntityKind`, its modality carried in the `Kind` column of `NameEntry`. `NameTable` is the immutable per-generation registry of `Entries` keyed by `TopoName` at one `Generation`, registered `IValidityEvidence`; exact buckets and migration postings derive from the prior table inside `Anchor`, and vertex ordinals live only in fold state.
 - Cases: `EntityKind` rows `Vertex`, `Edge`, and `Face`, each carrying its one `Describe` delegate column that emits boundary names and fingerprint together; `NamingOp` cases `Track` and `Resolve`; `TrackOutcome` cases `Survived`, `Migrated`, and `Born`, derived from the `NameEntry` lineage columns through `Outcome`.
-- Entry: `Naming.Apply(NamingOp, Op? key)` is the one entry over both modalities. `Track(prior, rebuilt)` admits both inputs through `Op.AcceptInput` as one accumulating `Validation` before the generation advances, then walks every rebuilt entity, resolves its `TopoSignature` against exact buckets derived from the prior entries, and emits the table at `prior.Generation.Next(key)`, so monotonicity holds by construction and a computed successor routes its refusal on the same result rather than throwing; `Resolve(boundary)` runs the same fold against an empty generation-zero `NameTable` with every entity `Born`, so a first build and a re-anchor are one body discriminated by the op case. Collisions accumulate into `Validation<Error, NameTable>` and exit `.ToFin()`, keeping the public type `Fin<NameTable>`. `TopoName.Mint(kind, canonical, born)` derives the lineage-root name as a seed-zero `UInt128` over kind ordinal, born generation, and the entity's canonical word run — content-stable yet lineage-distinct across generations. Every preimage emits through the kernel `CanonicalWriter`: `Mint` and `TopoSignature.Of` both take the count frames `Rows`/`Sorted` write, a digest change no wire sees, because `TopoName` and `TopoSignature` are interior types no transport carries, and the frames close the collision an unframed word run, name list, and histogram spell together.
+- Entry: `Naming.Apply(NamingOp)` is the one entry over both modalities. `Track(prior, rebuilt)` admits both inputs through `Op.AcceptInput` as one accumulating `Validation` before the generation advances, then walks every rebuilt entity, resolves its `TopoSignature` against exact buckets derived from the prior entries, and emits the table at `prior.Generation.Next()`, so monotonicity holds by construction and a computed successor routes its refusal on the same result rather than throwing; `Resolve(boundary)` runs the same fold against an empty generation-zero `NameTable` with every entity `Born`, so a first build and a re-anchor are one body discriminated by the op case. Collisions accumulate into `Validation<Error, NameTable>` and exit `.ToFin()`, keeping the public type `Fin<NameTable>`. `TopoName.Mint(kind, canonical, born)` derives the lineage-root name as a seed-zero `UInt128` over kind ordinal, born generation, and the entity's canonical word run — content-stable yet lineage-distinct across generations. Every preimage emits through the kernel `CanonicalWriter`: `Mint` and `TopoSignature.Of` both take the count frames `Rows`/`Sorted` write, a digest change no wire sees, because `TopoName` and `TopoSignature` are interior types no transport carries, and the frames close the collision an unframed word run, name list, and histogram spell together.
 - Auto: `Naming.Apply` walks entities in `EntityKind` order so vertices anchor first and every edge or face resolves its incident vertices through the in-progress vertex ordinals of the generation being built — a genesis signature carries real names and generation g compares like-with-like against generation g−1. The `EntityKind` row owns the boundary feed: the vertex row takes no boundary names and separates by its WL-1 star fingerprint, while edges and faces feed resolved name multisets. Exact re-anchor is a bucket lookup over an ordered `Set<TopoName>` derived once from the prior entries and filtered against the current `Entries` — indistinguishable entities share a bucket, so an exhausted bucket falls through to migration or birth as growth. Misses migrate by maximum multiset overlap over migration-posting candidates, scored inside the `Parent` local search under the `NamingPolicy.MigrationOverlap` floor and a smallest-`TopoName` tiebreak, taken as one linear argmax fold. A `Migrated` or `Born` entry mints a fresh generation-salted name, refused as `NameCollision` against both current and prior identities. The vertex refinement pass stores each vertex's completed star as the following generation's migration material and gives a generation-fresh orphan star-overlap provenance. One `EntityKind` discriminant drives one fold body across vertex, edge, and face.
 - Output: `Apply` returns the `NameTable` of the generation it builds directly — the registry IS the result, its birth and last-seen generations and parent provenance the per-name lineage evidence, and `NameEntry.Outcome` derives the `Survived`/`Migrated`/`Born` classification from `Born`, `LastSeen`, and `Parent` alone. `NameTable : IValidityEvidence` declares one `ForAll` over `Entries` — every key equals its entry's `Name` and lineage generations stay ordered `Born ≤ LastSeen ≤ Generation` — gated through `Op.AcceptValue` before emission. Non-negativity is NOT among them: `Generation`'s own factory validation refuses a negative, so a claim re-asserting it never fails.
 - Packages: `Rasm.Meshing` (`MeshSpace`, native `Mesh`), `Rasm.Domain` (`ContentHash.Of`, the `Op` key type, `IValidityEvidence`), `Rasm.Numerics` (`GeometryFault`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Validation`/`HashMap`/`Seq`/`Option`), BCL inbox.
@@ -76,9 +76,9 @@ public readonly partial struct Generation {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0 ? null : new ValidationError("Generation must be >= 0.");
 
-    public Fin<Generation> Next(Op key) => Value == int.MaxValue
-        ? Fin.Fail<Generation>(key.InvalidResult())
-        : key.AcceptValidated<Generation>(candidate: Value + 1);
+    public Fin<Generation> Next() => Value == int.MaxValue
+        ? Fin.Fail<Generation>(new KernelFault.InvalidResult())
+        : FactoryBridge.Accept<Generation>(candidate: Value + 1);
 }
 
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -128,22 +128,21 @@ public sealed record NameTable(HashMap<TopoName, NameEntry> Entries, Generation 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Naming {
-    public static Fin<NameTable> Apply(NamingOp op, Op? key = null) {
-        Op minted = key.OrDefault();
+    public static Fin<NameTable> Apply(NamingOp op) {
         return op.Switch(
             state: minted,
             track: static (k, t) =>
-                (k.AcceptInput(t.Prior).ToValidation(), k.AcceptInput(t.Rebuilt).ToValidation())
+                (Acceptance.Input(t.Prior).ToValidation(), Acceptance.Input(t.Rebuilt).ToValidation())
                     .Apply(static (prior, rebuilt) => (Prior: prior, Rebuilt: rebuilt)).As().ToFin()
                     >> (input => input.Prior.Generation.Next(k)
                         >> (next => Anchor(input.Prior, input.Rebuilt, next, t.Policy.IfNone(NamingPolicy.Canonical), k))),
-            resolve: static (k, r) => k.AcceptInput(r.Boundary)
+            resolve: static (k, r) => Acceptance.Input(r.Boundary)
                 >> (boundary => Anchor(
                     new NameTable(HashMap<TopoName, NameEntry>(), Generation.Create(0)),
                     boundary, Generation.Create(0), NamingPolicy.Canonical, k)));
     }
 
-    static Fin<NameTable> Anchor(NameTable prior, CanonicalTopology rebuilt, Generation next, NamingPolicy policy, Op key) {
+    static Fin<NameTable> Anchor(NameTable prior, CanonicalTopology rebuilt, Generation next, NamingPolicy policy) {
         (HashMap<EntityKind, HashMap<TopoSignature, Set<TopoName>>> Exact, HashMap<TopoName, Set<TopoName>> Migration) indexes =
             prior.Entries.Values.Fold(
                 (Exact: HashMap<EntityKind, HashMap<TopoSignature, Set<TopoName>>>(), Migration: HashMap<TopoName, Set<TopoName>>()),
@@ -214,7 +213,7 @@ public static class Naming {
                     None: () => table));
 
         return folded.Collisions.IsEmpty
-            ? key.AcceptValue(refined)
+            ? Acceptance.Value(refined)
             : Validation.Fail<Error, NameTable>(Error.Many(folded.Collisions)).ToFin();
     }
 }

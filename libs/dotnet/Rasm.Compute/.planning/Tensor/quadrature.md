@@ -14,7 +14,7 @@ Kernel `Step` returns one `IntegrationStep` Accepted or Rejected and owns no rej
 
 - Owner: `MeasurePolicy` owns the accuracy policy; `QuadratureRun` folds kernel `QuadratureEvidence`; `Integration.Measure` returns that run and `Integration.Trace` returns `TrajectoryRun<TState>` directly.
 - Cases: `QuadratureDomain` arms arrive from the kernel — `Line` · `Rectangle` · `Cuboid` · `SparseGrid` · `Reference`; `QuadratureRoute` rows `DoubleExponential` · `GaussLegendre` · `GaussKronrod`; `ReferenceElement` rows `Line` · `Tri` · `Tet` · `Quad` · `Hex` · `Wedge` · `Pyramid`. This page adds no arity and no accuracy row.
-- Entry: `Integration.Measure(MeasurePolicy policy, Op key, params ReadOnlySpan<QuadratureDomain> domains)` absorbs the singular, batch, and empty call in one signature — a moment set, a polynomial-chaos coefficient sweep, and a single element integral are the same call at three arities; `Integration.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key)` delegates the fold to `[03]`'s `Trajectory.Trace` — the control's own `Spill` column selecting the archived leg — and mints the result over the same scope.
+- Entry: `Integration.Measure(MeasurePolicy policy, params ReadOnlySpan<QuadratureDomain> domains)` absorbs the singular, batch, and empty call in one signature — a moment set, a polynomial-chaos coefficient sweep, and a single element integral are the same call at three arities; `Integration.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control)` delegates the fold to `[03]`'s `Trajectory.Trace` — the control's own `Spill` column selecting the archived leg — and mints the result over the same scope.
 - Auto: batched domains are INDEPENDENT, so the fold is the applicative `Traverse` over `Validation<Error, QuadratureRun>` and a caller sees every refusing domain at once where a monadic fold reports only the first; the carrier alone selects that policy, and `ToFin` is the caller's own short-circuit egress. Kernel `Quadrature.Integrate` already owns the finite guard, the skip budget, the line domain's structural infinite-limit admission through the MathNet facades, the three-tier admission, and the `RequireErrorWitness` verdict, so this lane re-imposes none of them and adds only what the kernel cannot see: the Compute band, the lane scope, and the batch census.
 - Result: `QuadratureRun` carries the domain count, the summed skip census, the count of rows whose `Error` estimate is absent — unwitnessed —, and the batch's WORST reported channels — the largest error estimate and the smallest cancellation ratio — each `double?` because the wire edge is where absence collapses, and a batch of non-adaptive rows therefore reports honest absence rather than a zero no route measured; `TrajectoryRun<TState>` carries the method and embedded orders, the terminal key with the relax axis its disposition names, the achieved horizon, and the step/reject/sample census.
 - Packages: Rasm (project — the kernel integration floor, the archive session, the signal capsule), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
@@ -54,17 +54,17 @@ public sealed record QuadratureRun(Seq<QuadratureEvidence> Evidence) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Integration {
-    public static Validation<Error, QuadratureRun> Measure(MeasurePolicy policy, Op key, params ReadOnlySpan<QuadratureDomain> domains) =>
+    public static Validation<Error, QuadratureRun> Measure(MeasurePolicy policy, params ReadOnlySpan<QuadratureDomain> domains) =>
         domains.IsEmpty
             ? Validation<Error, QuadratureRun>.Fail(TensorReason.EmptyOperand.Fault("integration-domains"))
-            : Batch(pending: Iterable<QuadratureDomain>.FromSpan(domains), policy: policy, key: key);
+            : Batch(pending: Iterable<QuadratureDomain>.FromSpan(domains), policy: policy);
 
-    public static Fin<TrajectoryRun<TState>> Trace<TState, TDelta>(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key) =>
-        Trajectory.Trace(spec: spec, control: control, key: key);
+    public static Fin<TrajectoryRun<TState>> Trace<TState, TDelta>(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control) =>
+        Trajectory.Trace(spec: spec, control: control);
 
-    private static Validation<Error, QuadratureRun> Batch(Iterable<QuadratureDomain> pending, MeasurePolicy policy, Op key) =>
+    private static Validation<Error, QuadratureRun> Batch(Iterable<QuadratureDomain> pending, MeasurePolicy policy) =>
         pending
-            .Traverse(domain => Quadrature.Integrate(domain: domain, control: Some(policy.Accuracy), key: key)
+            .Traverse(domain => Quadrature.Integrate(domain: domain, control: Some(policy.Accuracy))
                 .ToValidation())
             .As()
             .Map(static rows => new QuadratureRun(Evidence: rows.ToSeq()));
@@ -76,7 +76,7 @@ public static class Integration {
 
 - Owner: `FieldState` the solver-domain carrier — a time component beside the value slab, so a NON-AUTONOMOUS field integrates on the kernel's autonomous `Step` with no second clock threaded through the fold; `FieldCarrier` the module mint deriving the kernel `IntegrationModule<FieldState, FieldState>` at an accepted state; `TrajectoryControl` the driver policy the kernel's `StepControl` does not carry, holding the lane and the optional spill beside its stepping columns; `TrajectorySpec` the run declaration carrying the station projector column and its once-read width; `TrajectoryPhase` the closed continue-or-done step the run iterates; `RelaxAxis` the knob a retryable terminal names; `TerminalDisposition` the run-level terminal partition; `TrajectoryRun` the run result holding the cursor whole; `Trajectory` the driver itself, its spilled leg landing the `[Stations.Count, width]` chunked station stream through the `Runtime/archive#HDF_ARCHIVE` `ArchiveSession` cursor.
 - Cases: `TrajectoryPhase` `Advancing` · `Halted`; `TerminalDisposition` `Converged` · `Relaxable(RelaxAxis)` · `Divergent`; `RelaxAxis` rows steps · step-floor · horizon · stations (4).
-- Entry: `Trajectory.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key)` — the carrier is a type argument, so one driver integrates a scalar ODE on the kernel `IntegrationModule<double, double>.Scalar`, a frequency-domain state on `.ComplexScalar`, and a field slab on `FieldCarrier.Of` with no per-carrier driver copy, and the control's own `Spill` column selects whether the harvest accumulates or streams.
+- Entry: `Trajectory.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control)` — the carrier is a type argument, so one driver integrates a scalar ODE on the kernel `IntegrationModule<double, double>.Scalar`, a frequency-domain state on `.ComplexScalar`, and a field slab on `FieldCarrier.Of` with no per-carrier driver copy, and the control's own `Spill` column selects whether the harvest accumulates or streams.
 - Auto: `Admit` gates the control, the span, and the ascending in-range station set ONCE and ACCUMULATES all three, so a caller handed a bad horizon and an unsorted station set learns both; the run is then a bounded `RepeatWhile` over the `TrajectoryPhase` step that short-circuits at the first `Halted`. Each advance clamps `h` to the remaining horizon and `MaxStep`, re-mints the carrier at the current state, calls the kernel `Step` with the run's own optional `StepHistory`, and dispatches its `Accepted`/`Rejected` outcome; each arm selects the next step under `MaxStep` and the remaining horizon FIRST and only then mints `StepHistory(error, nextStep / step)` — `Some` exactly when the outcome carried an error — so a `StepController.ProportionalIntegral` or `StepController.Gustafsson` controller reads the previous error beside the scale the run really applied rather than the stepper's uncapped suggestion, and a fixed method's `None` history degrades no memory-bearing law silently. The reject arm reads non-finite error, consecutive-reject budget, and the underflow floor as ONE flattened tuple pattern. Dense stations harvest INSIDE the accepted span through `DenseOutputSpan.PointAt`, one monotone station cursor, so fixed-output-time trajectories never re-trace the field and no span outlives its own step.
 - Result: `TrajectoryRun` holds the terminal disposition beside the CURSOR WHOLE — achieved horizon, step and reject census, the optional step history whose `Error` is the last measured error, station tally, and samples are the cursor's own columns and were hand-copied field by field into a parallel record before — plus the kernel's own reject budget; convergence, budget exhaustion, underflow, and a refusing field all return best-so-far and are indistinguishable without the disposition.
 - Packages: Rasm (project — the kernel integration floor, the archive session), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
@@ -210,13 +210,13 @@ public static class FieldCarrier {
 }
 
 public static class Trajectory {
-    public static Fin<TrajectoryRun<TState>> Trace<TState, TDelta>(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key) =>
+    public static Fin<TrajectoryRun<TState>> Trace<TState, TDelta>(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control) =>
         Admit(spec: spec, control: control).Bind(seeded => control.Spill.Match(
-            None: () => Fin.Succ(Settle(Run(seeded, spec, control, key, None), spec.Integrator.RejectBudget)),
-            Some: spill => Spilled(seeded, spec, control, key, spill)));
+            None: () => Fin.Succ(Settle(Run(seeded, spec, control, None), spec.Integrator.RejectBudget)),
+            Some: spill => Spilled(seeded, spec, control, spill)));
 
     private static Fin<TrajectoryRun<TState>> Spilled<TState, TDelta>(
-        TrajectoryCursor<TState> seeded, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key, TraceSpill spill) =>
+        TrajectoryCursor<TState> seeded, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, TraceSpill spill) =>
         ChunkGrid.Seat(fileDims: [(ulong)spec.Stations.Count, (ulong)spec.Width], chunks: [1u, (uint)spec.Width])
             .Bind(rows => ChunkGrid.Seat(fileDims: [(ulong)spec.Stations.Count], chunks: [(uint)spec.Stations.Count])
                 .Map(axis => (Rows: new ArchiveSlot<double>("stations", rows), Axis: new ArchiveSlot<double>("station-axis", axis))))
@@ -229,17 +229,17 @@ public static class Trajectory {
                     from _ in axis.Write(spec.Stations.ToArray())
                     from cursor in session.Cursor(slots.Rows)
                     select Settle(
-                        Run(seeded, spec, control, key, Some(new StationSink<TState>(cursor, state => spec.Project(state).ToArray()))),
+                        Run(seeded, spec, control, Some(new StationSink<TState>(cursor, state => spec.Project(state).ToArray()))),
                         spec.Integrator.RejectBudget)))
                 .Run());
 
     private sealed record StationSink<TState>(ChunkCursor<double> Cursor, Func<TState, double[]> Project);
 
     private static TrajectoryPhase<TState> Run<TState, TDelta>(
-        TrajectoryCursor<TState> seeded, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key, Option<StationSink<TState>> spill) =>
+        TrajectoryCursor<TState> seeded, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Option<StationSink<TState>> spill) =>
         IO.pure((TrajectoryPhase<TState>)new TrajectoryPhase<TState>.Advancing(seeded))
             .Map(phase => phase is TrajectoryPhase<TState>.Advancing advancing
-                ? Advance(cursor: advancing.Cursor, spec: spec, control: control, key: key, spill: spill)
+                ? Advance(cursor: advancing.Cursor, spec: spec, control: control, spill: spill)
                 : phase)
             .RepeatWhile(Schedule.recurs(control.MaxSteps), static phase => phase is TrajectoryPhase<TState>.Advancing)
             .Run();
@@ -262,25 +262,25 @@ public static class Trajectory {
             ? unit
             : TensorReason.PolicyInvalid.Fault("trajectory-stations", spec.Stations.Count.ToString(CultureInfo.InvariantCulture));
 
-    private static TrajectoryPhase<TState> Advance<TState, TDelta>(TrajectoryCursor<TState> cursor, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key, Option<StationSink<TState>> spill) {
+    private static TrajectoryPhase<TState> Advance<TState, TDelta>(TrajectoryCursor<TState> cursor, TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Option<StationSink<TState>> spill) {
         double step = Math.Min(val1: Math.Min(val1: cursor.Step, val2: control.MaxStep), val2: spec.Horizon - cursor.Time);
         return spec.Integrator
-            .Step(module: spec.Carrier(arg: cursor.State), sample: spec.Field, state: cursor.State, h: step, key: key, history: cursor.History)
+            .Step(module: spec.Carrier(arg: cursor.State), sample: spec.Field, state: cursor.State, h: step, history: cursor.History)
             .Match(
                 Succ: outcome => outcome.Switch(
-                    state: (Cursor: cursor, Step: step, Spec: spec, Control: control, Key: key, Spill: spill),
-                    acceptedCase: static (s, accepted) => Accepted(cursor: s.Cursor, step: s.Step, accepted: accepted, spec: s.Spec, control: s.Control, key: s.Key, spill: s.Spill),
+                    state: (Cursor: cursor, Step: step, Spec: spec, Control: control, Spill: spill),
+                    acceptedCase: static (s, accepted) => Accepted(cursor: s.Cursor, step: s.Step, accepted: accepted, spec: s.Spec, control: s.Control, spill: s.Spill),
                     rejectedCase: static (s, rejected) => Rejected(cursor: s.Cursor, step: s.Step, rejected: rejected, spec: s.Spec, control: s.Control)),
                 Fail: _ => (TrajectoryPhase<TState>)new TrajectoryPhase<TState>.Halted(cursor, new TerminalDisposition.Relaxable(RelaxAxis.Horizon)));
     }
 
     private static TrajectoryPhase<TState> Accepted<TState, TDelta>(
         TrajectoryCursor<TState> cursor, double step, IntegrationStep<TState, TDelta>.AcceptedCase accepted,
-        TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key, Option<StationSink<TState>> spill) {
+        TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Option<StationSink<TState>> spill) {
         double remaining = spec.Horizon - (cursor.Time + step);
         double proposed = Math.Min(accepted.SuggestedStep, control.MaxStep);
         double nextStep = remaining > control.MinStep ? Math.Min(proposed, remaining) : proposed;
-        return Harvest(cursor: cursor, at: cursor.Time, step: step, dense: accepted.Dense, stations: spec.Stations, key: key, spill: spill).Match(
+        return Harvest(cursor: cursor, at: cursor.Time, step: step, dense: accepted.Dense, stations: spec.Stations, spill: spill).Match(
             Succ: taken => Land(
                 cursor: cursor with {
                     Time = cursor.Time + step,
@@ -325,9 +325,9 @@ public static class Trajectory {
                 : new TrajectoryPhase<TState>.Advancing(cursor);
 
     private static Fin<(Seq<TrajectorySample<TState>> Samples, int Station)> Harvest<TState, TDelta>(
-        TrajectoryCursor<TState> cursor, double at, double step, DenseOutputSpan<TState, TDelta> dense, Seq<double> stations, Op key, Option<StationSink<TState>> spill) =>
+        TrajectoryCursor<TState> cursor, double at, double step, DenseOutputSpan<TState, TDelta> dense, Seq<double> stations, Option<StationSink<TState>> spill) =>
         stations.Skip(cursor.Station).TakeWhile(station => station <= at + step)
-            .TraverseM(station => dense.PointAt(theta: (station - at) / step, key: key).Map(state => new TrajectorySample<TState>(station, state)))
+            .TraverseM(station => dense.PointAt(theta: (station - at) / step).Map(state => new TrajectorySample<TState>(station, state)))
             .As()
             .Bind(taken => spill.Match(
                 Some: sink => taken
@@ -352,7 +352,7 @@ public static class Trajectory {
 - Packages: Rasm (project — the kernel transform band and its arena, `Numerics/atoms` `Dimension`/`PositiveMagnitude`/`SignedAxis`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new operator is one `SpectralSymbol` row with its generated symbol column and parity; a composite is a `Spectral.Then` chain; a tighter Hermitian band is one `SpectralControl` value; a new buffer layout is one kernel `SpectralArena` case, which breaks the `SpectralPlane` fold at compile time — zero new code path.
 - Boundary — symbols: every constant-coefficient periodic operator is one `SpectralSymbol` row applied pointwise to the forward transform; symbols compose by pointwise multiplication before a single inverse, and parity is row data the operator owns, never a `bool oddOrder` knob nor a bare `Func<double, Complex>` riding beside the call. `ZeroesNyquist` is DERIVED from the parity row rather than kept as a column beside it: an odd symbol is discontinuous across ±Nyquist and therefore zeroes that bin, which is a fact about the row, not a second value that can disagree with it.
-- Boundary — arena: the transform floor is the kernel's whole. `SpectralArena` is the ONE transform carrier and `arena.Transform(sense, scaling, key)` the one entry, so this lane picks the arena CASE its field parity implies and spells no transform of its own; `SpectralScaling.Unscaled` is the convention value because this lane READS BETWEEN the legs — an unscaled forward leaves the intermediate bins carrying true DFT coefficients so a symbol's magnitude IS the operator's transfer function, where a `1/√N` forward rescales every spectrum the imaginary-residual gate and any bin-domain consumer inspect, and the round-trip factor the `Unscaled` row carries is applied once on the way out. The symbol MULTIPLY stays this lane's because the kernel's own `Spectrum.Modulate` binds the interleaved plane arena alone and neither one-dimensional case reaches it — the generation of a multiplier is consumer domain policy exactly as tap generation is, and both legs' multiply is the same three-line fold over the arena's own layout. The split-spectrum wavenumber derives once from the transformed spectrum's own `Frequencies` read (ascending positives through Nyquist, then descending negatives, scaled by `2π`), because hand-indexing the bin applies an aliased symbol past the half length silently, and `WaveAxis` therefore owns the extent-to-rate projection alone rather than a second frequency table.
+- Boundary — arena: the transform floor is the kernel's whole. `SpectralArena` is the ONE transform carrier and `arena.Transform(sense, scaling)` the one entry, so this lane picks the arena CASE its field parity implies and spells no transform of its own; `SpectralScaling.Unscaled` is the convention value because this lane READS BETWEEN the legs — an unscaled forward leaves the intermediate bins carrying true DFT coefficients so a symbol's magnitude IS the operator's transfer function, where a `1/√N` forward rescales every spectrum the imaginary-residual gate and any bin-domain consumer inspect, and the round-trip factor the `Unscaled` row carries is applied once on the way out. The symbol MULTIPLY stays this lane's because the kernel's own `Spectrum.Modulate` binds the interleaved plane arena alone and neither one-dimensional case reaches it — the generation of a multiplier is consumer domain policy exactly as tap generation is, and both legs' multiply is the same three-line fold over the arena's own layout. The split-spectrum wavenumber derives once from the transformed spectrum's own `Frequencies` read (ascending positives through Nyquist, then descending negatives, scaled by `2π`), because hand-indexing the bin applies an aliased symbol past the half length silently, and `WaveAxis` therefore owns the extent-to-rate projection alone rather than a second frequency table.
 - Boundary — gate: `SpectralControl` binds the SPLIT leg ALONE, and the discriminant is field PARITY, never caller intent. Even-length fields ride the packed arena whose output is real by construction — no imaginary channel to measure, the floor goes unread, and the evidence reports `None`; passing a tighter floor with an even grid changes nothing the run does. That asymmetry is why the residual is `Option<double>`, never a `0.0` written by both legs — a reader treating a missing residual as a passed gate has inverted the one leg that proves Hermitian symmetry. The control arrives as an `Option`, so absence is a carrier rather than a nullable reference crossing a public boundary. The residual denominator floors at the smallest NORMAL double rather than at `double.Epsilon`, whose value is the smallest subnormal and which therefore names a quantity a hundred orders of magnitude below the guard it was standing in for.
 - Boundary — discriminant against the `Stats/signal#SIGNAL_LANE` `SpectralTransform` axis is spatial-versus-sampled, never availability: a symbol is a differential operator over a SPATIAL extent in angular wavenumber, that axis transform-and-invert, framing, and windowing over a SAMPLE RATE in bin frequency. Collapsing either end hands a spatial operator frame, hop, and window evidence it has none of, or a spectrogram a parity column no transform owns.
 
@@ -416,8 +416,8 @@ public readonly record struct WaveAxis(int Length, double Extent) {
 
     public Option<int> Nyquist => int.IsEvenInteger(Length) ? Some(Length >> 1) : None;
 
-    public Fin<double[]> Wavenumbers(Rasm.Numerics.Spectrum spectrum, Op key) =>
-        spectrum.Frequencies(axis: SignedAxis.PositiveX, key: key).Map(static cycles => {
+    public Fin<double[]> Wavenumbers(Rasm.Numerics.Spectrum spectrum) =>
+        spectrum.Frequencies(axis: SignedAxis.PositiveX).Map(static cycles => {
             double[] k = new double[cycles.Count];
             TensorPrimitives.Multiply<double>(cycles.AsSpan(), 2.0 * Math.PI, k);
             return k;
@@ -446,7 +446,7 @@ public sealed record SpectralEvidence(ImmutableArray<double> Field, Option<doubl
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SpectralOperator {
-    public static Fin<SpectralEvidence> Apply(ReadOnlySpan<double> field, WaveAxis axis, Spectral op, Option<SpectralControl> control, Op key) {
+    public static Fin<SpectralEvidence> Apply(ReadOnlySpan<double> field, WaveAxis axis, Spectral op, Option<SpectralControl> control) {
         if (field.Length != axis.Length || !TensorPrimitives.IsFiniteAll<double>(field)) {
             return TensorReason.ShapeMismatch.Fail<SpectralEvidence>("wave-axis-mismatch", $"field={field.Length}:axis={axis.Length}");
         }
@@ -454,18 +454,18 @@ public static class SpectralOperator {
         Fin<PositiveMagnitude> rate = axis.Rate;
         if (rate.Case is not PositiveMagnitude sampling) { return rate.Map(static _ => default(SpectralEvidence)!); }
         SpectralPlane plane = SpectralPlane.Of(field, sampling);
-        return plane.Arena.Transform(sense: SpectralSense.Forward, scaling: SpectralScaling.Unscaled, key: key)
-            .Bind(forward => axis.Wavenumbers(forward, key).Map(k => Modulated(plane, op, k, axis.Nyquist)))
-            .Bind(_ => plane.Arena.Transform(sense: SpectralSense.Inverse, scaling: SpectralScaling.Unscaled, key: key))
-            .Bind(inverse => Settled(plane, op, axis, inverse, control.IfNone(SpectralControl.Default)));
+        return plane.Arena.Transform(sense: SpectralSense.Forward, scaling: SpectralScaling.Unscaled)
+            .Bind(forward => axis.Wavenumbers(forward).Map(k => Modulated(plane, k, axis.Nyquist)))
+            .Bind(_ => plane.Arena.Transform(sense: SpectralSense.Inverse, scaling: SpectralScaling.Unscaled))
+            .Bind(inverse => Settled(plane, axis, inverse, control.IfNone(SpectralControl.Default)));
     }
 
     static Unit Modulated(SpectralPlane plane, Spectral op, double[] k, Option<int> nyquist) => plane.Switch(
-        state: (Op: op, K: k, Nyquist: nyquist),
+        state: (K: k, Nyquist: nyquist),
         packed: static (s, p) => {
             int half = p.Arena.Samples.Value >> 1;
             for (int bin = 0; bin <= half; bin++) {
-                Complex scaled = new Complex(p.Arena.Values[2 * bin], p.Arena.Values[(2 * bin) + 1]) * Factor(s.Op, s.K, s.Nyquist, bin);
+                Complex scaled = new Complex(p.Arena.Values[2 * bin], p.Arena.Values[(2 * bin) + 1]) * Factor(s.K, s.Nyquist, bin);
                 (p.Arena.Values[2 * bin], p.Arena.Values[(2 * bin) + 1]) = (scaled.Real, scaled.Imaginary);
             }
 
@@ -473,7 +473,7 @@ public static class SpectralOperator {
         },
         split: static (s, sp) => {
             for (int bin = 0; bin < sp.Arena.Real.Length; bin++) {
-                Complex scaled = new Complex(sp.Arena.Real[bin], sp.Arena.Imaginary[bin]) * Factor(s.Op, s.K, s.Nyquist, bin);
+                Complex scaled = new Complex(sp.Arena.Real[bin], sp.Arena.Imaginary[bin]) * Factor(s.K, s.Nyquist, bin);
                 (sp.Arena.Real[bin], sp.Arena.Imaginary[bin]) = (scaled.Real, scaled.Imaginary);
             }
 

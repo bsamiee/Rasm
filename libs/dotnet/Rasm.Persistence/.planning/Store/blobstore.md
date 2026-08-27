@@ -86,7 +86,7 @@ public readonly record struct BlobAdmission(ContentAddress Key, long Length, Dat
 
 public readonly record struct BlobPlacement(ContentAddress Key, Extent Extent, Rung Tier, ObjectCodec Codec, int Parts, int ResumedParts, Option<ContentAddress> Verified, Option<Instant> WormUntil, Option<string> ConditionToken, CorrelationId Correlation) {
     public static BlobPlacement From(ContentAddress key, Extent extent, Rung tier, ObjectCodec codec) =>
-        new(key, extent, tier, codec, 0, 0, None, None, None, CorrelationId.None);
+        new(extent, tier, codec, 0, 0, None, None, None, CorrelationId.None);
 }
 
 public readonly record struct GrantSigner(IAmazonS3 Client, string Bucket) {
@@ -188,7 +188,7 @@ public sealed partial class ObjectStore {
     public long ObjectCeiling => PartCeiling > long.MaxValue / PartCount ? long.MaxValue : PartCeiling * PartCount;
 
     public IO<(ReadOnlySequence<byte> Bytes, Option<WrappedKey> Dek)> Encode(ObjectCodec codec, ContentAddress key, ReadOnlySequence<byte> plain) =>
-        codec.Pack(Chunking, plain).Bind(packed => Encryption.SealSource(key, Chunking, packed));
+        codec.Pack(Chunking, plain).Bind(packed => Encryption.SealSource(Chunking, packed));
 
     public IO<Stream> Decode(ObjectClient client, BlobHandle handle, Option<(long Start, long End)> range, Func<ContentAddress, IO<Option<WrappedKey>>> envelope) {
         IO<Stream> Opened(Option<(long Start, long End)> window) =>
@@ -214,7 +214,7 @@ public sealed partial class ObjectStore {
     static IO<ReadOnlyMemory<byte>> Proven(BlobHandle handle, Option<(long Start, long End)> range, ReadOnlyMemory<byte> plain) =>
         range.IsSome || ContentAddress.Create(ContentHash.Of(plain, static (bytes, hash) => hash.Append(bytes.Span))) == handle.Key
             ? IO.pure(plain)
-            : IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(handle.Key, "content-key"));
+            : IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach("content-key"));
 
     public IO<BlobPlacement> Put(ObjectClient client, BlobHandle handle, BlobPlacement placement, ChunkManifest manifest, ReadOnlySequence<byte> source, Instant now) =>
         (ObjectIo.For(client).Multipart(this, Tier, handle, placement, manifest, source, now)
@@ -246,20 +246,20 @@ public sealed partial class ObjectStore {
     // --- [COMPOSITION]
     public BlobRemote Placement(ObjectClient client, ArtifactKind kind, ObjectCodec codec, Func<ContentAddress, IO<Option<WrappedKey>>> envelope, BlobLedger ledger, ProjectionContext frame) {
         RetentionClass cls = kind.Retention;
-        BlobHandle Named(ContentAddress key, long plain) => BlobName.Handle(key, client.Tenant, cls, codec, plain);
-        IO<BlobHandle> Resolved(ContentAddress key) => Head(client, Named(key, 0L))
-            .Bind(present => IO.lift(present.ToFin(new RemoteStoreFault.NotFound(key))
-                .Map(r => Named(key, r.Extent.Plain) with { Codec = r.Codec })));
+        BlobHandle Named(ContentAddress key, long plain) => BlobName.Handle(client.Tenant, cls, codec, plain);
+        IO<BlobHandle> Resolved(ContentAddress key) => Head(client, Named(0L))
+            .Bind(present => IO.lift(present.ToFin(new RemoteStoreFault.NotFound())
+                .Map(r => Named(r.Extent.Plain) with { Codec = r.Codec })));
         return new(
             Put: (admitted, stream) => ObjectIo.Drain(stream, source =>
                 BlobGc.WriteBlobFirst(this, client, admitted, kind, codec, source, ledger, frame).Map(static placement => placement.Key)),
-            Get: (key, range) => Resolved(key).Bind(handle => Decode(client, handle, range, envelope)),
-            Stat: key => Head(client, Named(key, 0L)),
-            Thaw: (key, window) => Rehydrate(client, Named(key, 0L), window),
-            Delete: key => Delete(client, Named(key, 0L)),
-            Sweep: keys => EraseMany(client, keys.Map(key => Named(key, 0L))),
+            Get: (key, range) => Resolved().Bind(handle => Decode(client, handle, range, envelope)),
+            Stat: key => Head(client, Named(0L)),
+            Thaw: (key, window) => Rehydrate(client, Named(0L), window),
+            Delete: key => Delete(client, Named(0L)),
+            Sweep: keys => EraseMany(client, keys.Map(key => Named(0L))),
             List: () => List(client),
-            Abandon: (key, session) => Abandon(client, Named(key, 0L), session, sink),
+            Abandon: (key, session) => Abandon(client, Named(0L), session, sink),
             Issue: demand => Grant(client, cls, demand, frame));
     }
 }
@@ -281,9 +281,9 @@ public readonly record struct ContentBlobPort(
     public static ContentBlobPort Of(BlobRemote remote, DataClassification classification) => new(
         Put: bytes => {
             ContentAddress key = ContentAddress.Create(ContentHash.Of(bytes, static (held, hash) => hash.Append(held.Span)));
-            return remote.Put(new BlobAdmission(key, bytes.Length, classification, None, None), new MemoryStream(bytes.ToArray()));
+            return remote.Put(new BlobAdmission(bytes.Length, classification, None, None), new MemoryStream(bytes.ToArray()));
         },
-        Get: key => remote.Get(key, None)
+        Get: key => remote.Get(None)
             .Bind(static stream => ObjectIo.Drain(stream, static source => IO.pure((ReadOnlyMemory<byte>)source.ToArray()))));
 }
 ```
@@ -352,7 +352,7 @@ public readonly record struct ObjectLeg(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 static class BlobName {
     public static BlobHandle Handle(ContentAddress key, TenantId tenant, RetentionClass cls, ObjectCodec codec, long plain) =>
-        new(key, $"{Prefix(tenant, cls)}{key.ToValue():x32}", codec, plain);
+        new($"{Prefix(tenant, cls)}{key.ToValue():x32}", codec, plain);
     public static string Prefix(TenantId tenant, RetentionClass cls) => $"{cls.Key}/{tenant.Text}/";
     public static ContentAddress OfName(string name) => ContentAddress.Create(UInt128.Parse(name.AsSpan(name.LastIndexOf('/') + 1), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
 }
@@ -367,7 +367,7 @@ public static class MultipartTransfer {
     static IO<Unit> Admitted(ObjectStore provider, ContentAddress key, long length) =>
         length <= provider.ObjectCeiling
             ? IO.pure(unit)
-            : IO.fail<Unit>(new RemoteStoreFault.Oversize(key, provider.Key, "object-ceiling"));
+            : IO.fail<Unit>(new RemoteStoreFault.Oversize("object-ceiling"));
 
     public static Seq<TransferPart> Parts(ChunkManifest manifest, ObjectStore provider) {
         (Seq<TransferPart> Done, PartCursor Open) packed = manifest.Chunks.Fold(
@@ -419,8 +419,7 @@ public static class ObjectIo {
         leg.Abort(session, handle);
 
     static BlobPlacement Formed(ContentAddress key, long stored, Rung tier, Func<string, string?> stated) =>
-        BlobPlacement.From(key,
-            long.TryParse(stated(ObjectCodec.PlainKey), NumberStyles.None, CultureInfo.InvariantCulture, out long plain)
+        BlobPlacement.From(long.TryParse(stated(ObjectCodec.PlainKey), NumberStyles.None, CultureInfo.InvariantCulture, out long plain)
                 ? new Extent(stored, plain)
                 : Extent.Passthrough(stored),
             tier, ObjectCodec.Observed(stated(ObjectCodec.CodecKey)));
@@ -430,50 +429,50 @@ public static class ObjectIo {
 
     public static IO<T> Drain<T>(Stream source, Func<ReadOnlySequence<byte>, IO<T>> use) =>
         IO.lift(static () => new ArrayPoolBufferWriter<byte>()).Bracket(
-            Use: writer => IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+            Use: writer => IO.liftAsync(async () => await Try.lift(async _ => {
                 await source.CopyToAsync(writer.AsStream()).ConfigureAwait(false);
                 return Fin<ReadOnlySequence<byte>>.Succ(new ReadOnlySequence<byte>(writer.WrittenMemory));
-            }).ConfigureAwait(false)).Bind(IO.lift).Bind(use),
-            Fin: writer => IO.lift(() => Op.Of().Catch(() => {
+            }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift).Bind(use),
+            Fin: writer => IO.lift(() => Try.lift(() => {
                 writer.Dispose();
                 source.Dispose();
                 return Fin<Unit>.Succ(unit);
-            })));
+            }).Run().Bind(static inner => inner)));
 
     internal static IO<T> Bound<T>(ObjectClient client, string provider, ObjectVerb verb, ContentAddress key, Func<Task<T>> call) =>
         client.Redrive.Carry(new StoreHop.Object(verb), provider,
-            IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
-                .MapFail(error => RemoteStoreFault.Lift(provider, verb, key, error)))
+            IO.liftAsync(async () => (await Try.lift(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
+                .MapFail(error => RemoteStoreFault.Lift(provider, verb, error)))
             .Bind(IO.lift));
 
     static IO<HttpResponseMessage> Sent(ObjectClient client, ObjectVerb verb, ContentAddress key, Func<Task<HttpResponseMessage>> call) =>
-        Bound(client, "presigned", verb, key, call).Bind(response => response.IsSuccessStatusCode
+        Bound(client, "presigned", verb, call).Bind(response => response.IsSuccessStatusCode
             ? IO.pure(response)
-            : IO.fail<HttpResponseMessage>(RemoteStoreFault.Granted(verb, key, response)));
+            : IO.fail<HttpResponseMessage>(RemoteStoreFault.Granted(verb, response)));
 
     // --- [LEGS]
     static ObjectLeg S3Leg(ObjectClient.S3 r) => new(
         Initiate: (store, tier, key, now, resume) => resume.Match(
             Some: IO.pure,
-            None: () => Bound(r, "s3", ObjectVerb.Write, key.Key, () => r.Client.InitiateMultipartUploadAsync(store.Stamp(new InitiateMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, StorageClass = tier.S3Class, ChecksumAlgorithm = store.Claim(key).Supplied, ChecksumType = store.Claim(key).Supplied is null ? null : ChecksumType.FULL_OBJECT }, key, now))).Map(static x => x.UploadId)),
-        Stage: (token, key, part, bytes) => Bound(r, "s3", ObjectVerb.Write, key.Key, () => r.Client.UploadPartAsync(new UploadPartRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, PartNumber = part.Number, PartSize = part.Length, InputStream = bytes.AsStream() })).Map(x => new CommittedPart(part.Number, x.ETag)),
-        Seal: (store, _, token, key, parts, _, _) => Bound(r, "s3", ObjectVerb.Write, key.Key, () => r.Client.CompleteMultipartUploadAsync(new CompleteMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, IfNoneMatch = "*", ChecksumXXHASH128 = store.Claim(key).Digest.ValueUnsafe(), PartETags = parts.Map(static p => new PartETag(p.Number, p.ETag)).ToList() })).Map(static _ => unit),
-        Abort: (token, key) => string.IsNullOrEmpty(token) ? IO.pure(unit) : Bound(r, "s3", ObjectVerb.Write, key.Key, () => r.Client.AbortMultipartUploadAsync(new AbortMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token })).Map(static _ => unit),
-        Committed: (token, key) => Bound(r, "s3", ObjectVerb.Write, key.Key, () => r.Client.ListPartsAsync(new ListPartsRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token })).Map(static x => toSeq(x.Parts).Map(static p => new CommittedPart(p.PartNumber, p.ETag))),
-        Fetch: (store, key, range) => Bound(r, "s3", ObjectVerb.Read, key.Key, () => r.Client.GetObjectAsync(store.Integrity.ApplyS3(new GetObjectRequest { BucketName = r.Bucket, Key = key.Name, ByteRange = range.Match(Some: static w => new ByteRange(w.Start, w.End), None: static () => null) }))).Map(static x => x.ResponseStream),
-        Head: (store, key) => Bound(r, "s3", ObjectVerb.Read, key.Key, () => r.Client.GetObjectMetadataAsync(r.Bucket, key.Name)).Map(x => Optional(Formed(key.Key, x.ContentLength, Rung.Of(StorageTier.Observed(x.StorageClass?.Value), store.Tier), slot => x.Metadata[slot]))),
-        Erase: key => Bound(r, "s3", ObjectVerb.Erase, key.Key, () => r.Client.DeleteObjectAsync(r.Bucket, key.Name)).Map(static _ => unit),
+            None: () => Bound(r, "s3", ObjectVerb.Write, () => r.Client.InitiateMultipartUploadAsync(store.Stamp(new InitiateMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, StorageClass = tier.S3Class, ChecksumAlgorithm = store.Claim().Supplied, ChecksumType = store.Claim().Supplied is null ? null : ChecksumType.FULL_OBJECT }, now))).Map(static x => x.UploadId)),
+        Stage: (token, key, part, bytes) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.UploadPartAsync(new UploadPartRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, PartNumber = part.Number, PartSize = part.Length, InputStream = bytes.AsStream() })).Map(x => new CommittedPart(part.Number, x.ETag)),
+        Seal: (store, _, token, key, parts, _, _) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.CompleteMultipartUploadAsync(new CompleteMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, IfNoneMatch = "*", ChecksumXXHASH128 = store.Claim().Digest.ValueUnsafe(), PartETags = parts.Map(static p => new PartETag(p.Number, p.ETag)).ToList() })).Map(static _ => unit),
+        Abort: (token, key) => string.IsNullOrEmpty(token) ? IO.pure(unit) : Bound(r, "s3", ObjectVerb.Write, () => r.Client.AbortMultipartUploadAsync(new AbortMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token })).Map(static _ => unit),
+        Committed: (token, key) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.ListPartsAsync(new ListPartsRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token })).Map(static x => toSeq(x.Parts).Map(static p => new CommittedPart(p.PartNumber, p.ETag))),
+        Fetch: (store, key, range) => Bound(r, "s3", ObjectVerb.Read, () => r.Client.GetObjectAsync(store.Integrity.ApplyS3(new GetObjectRequest { BucketName = r.Bucket, Key = key.Name, ByteRange = range.Match(Some: static w => new ByteRange(w.Start, w.End), None: static () => null) }))).Map(static x => x.ResponseStream),
+        Head: (store, key) => Bound(r, "s3", ObjectVerb.Read, () => r.Client.GetObjectMetadataAsync(r.Bucket, key.Name)).Map(x => Optional(Formed(x.ContentLength, Rung.Of(StorageTier.Observed(x.StorageClass?.Value), store.Tier), slot => x.Metadata[slot]))),
+        Erase: key => Bound(r, "s3", ObjectVerb.Erase, () => r.Client.DeleteObjectAsync(r.Bucket, key.Name)).Map(static _ => unit),
         EraseMany: page => Bound(r, "s3", ObjectVerb.Erase, default, () => r.Client.DeleteObjectsAsync(new DeleteObjectsRequest {
                 BucketName = r.Bucket, Quiet = false, Objects = page.Map(static h => new KeyVersion { Key = h.Name }).ToList(),
             })).Map(x => new EraseTally(page.Count, toSeq(x.DeleteErrors).Map(static e => (BlobName.OfName(e.Key), e.Code)))),
         Enumerate: () => Listed(r.Tenant, prefix => Bound(r, "s3", ObjectVerb.List, default, () => r.Client.ListObjectsV2Async(new ListObjectsV2Request { BucketName = r.Bucket, Prefix = prefix })).Map(static x => toSeq(x.S3Objects).Map(static o => BlobName.OfName(o.Key)))),
         Issue: (demand, handle, now) => Bound(r, "s3", ObjectVerb.Grant, handle.Key, () => r.Signer.Sign(demand, handle, now)),
         Retain: static (_, _, _) => IO.pure(unit),
-        Transition: (_, key, tier, _) => Bound(r, "s3", ObjectVerb.Transition, key.Key, () => r.Client.CopyObjectAsync(new CopyObjectRequest {
+        Transition: (_, key, tier, _) => Bound(r, "s3", ObjectVerb.Transition, () => r.Client.CopyObjectAsync(new CopyObjectRequest {
                 SourceBucket = r.Bucket, SourceKey = key.Name, DestinationBucket = r.Bucket, DestinationKey = key.Name,
                 StorageClass = tier.S3Class, MetadataDirective = S3MetadataDirective.COPY, TaggingDirective = TaggingDirective.COPY,
             })).Map(static _ => unit),
-        Rehydrate: (_, key, window) => (Bound(r, "s3", ObjectVerb.Restore, key.Key, () => r.Client.RestoreObjectAsync(new RestoreObjectRequest {
+        Rehydrate: (_, key, window) => (Bound(r, "s3", ObjectVerb.Restore, () => r.Client.RestoreObjectAsync(new RestoreObjectRequest {
                     BucketName = r.Bucket, Key = key.Name, Days = int.Max(1, (int)window.TotalDays), Tier = GlacierJobTier.Standard,
                 })).Map(static _ => (ThawState)new ThawState.Thawing(None))
             | @catch<IO, ThawState>(static e => e is RemoteStoreFault.Conflict or RemoteStoreFault.ProviderConflict, static _ => IO.pure<ThawState>(new ThawState.Thawing(None)))
@@ -492,12 +491,12 @@ public static class ObjectIo {
             }).ConfigureAwait(false);
             return new CommittedPart(part.Number, id);
         }),
-        Seal: (store, tier, token, key, parts, _, _) => Bound(r, "azure", ObjectVerb.Write, key.Key, () => r.Container.GetBlockBlobClient(token).CommitBlockListAsync(parts.Map(static p => p.ETag).ToList(), store.Stamp(new CommitBlockListOptions { Conditions = new BlobRequestConditions { IfNoneMatch = ETag.All }, AccessTier = tier.AzureTier }, key))).Map(static _ => unit),
+        Seal: (store, tier, token, key, parts, _, _) => Bound(r, "azure", ObjectVerb.Write, () => r.Container.GetBlockBlobClient(token).CommitBlockListAsync(parts.Map(static p => p.ETag).ToList(), store.Stamp(new CommitBlockListOptions { Conditions = new BlobRequestConditions { IfNoneMatch = ETag.All }, AccessTier = tier.AzureTier }))).Map(static _ => unit),
         Abort: static (_, _) => IO.pure(unit),
-        Committed: (token, key) => Bound(r, "azure", ObjectVerb.Write, key.Key, () => r.Container.GetBlockBlobClient(token).GetBlockListAsync(BlockListTypes.Uncommitted)).Map(static x => toSeq(x.Value.UncommittedBlocks).Map(static b => new CommittedPart(BitConverter.ToInt32(Convert.FromBase64String(b.Name)), b.Name))),
-        Fetch: (store, key, range) => Bound(r, "azure", ObjectVerb.Read, key.Key, () => r.Container.GetBlobClient(key.Name).DownloadStreamingAsync(store.Integrity.ApplyAzure(new BlobDownloadOptions { Range = range.Map(static w => new HttpRange(w.Start, w.End - w.Start + 1)).IfNone(default(HttpRange)) }))).Map(static x => x.Value.Content),
-        Head: (store, key) => Bound(r, "azure", ObjectVerb.Read, key.Key, () => r.Container.GetBlobClient(key.Name).GetPropertiesAsync()).Map(x => Optional(Formed(key.Key, x.Value.ContentLength, Rung.Of(StorageTier.Observed(x.Value.AccessTier), store.Tier), slot => x.Value.Metadata.TryGetValue(slot, out string? stated) ? stated : null))),
-        Erase: key => Bound(r, "azure", ObjectVerb.Erase, key.Key, () => r.Container.GetBlobClient(key.Name).DeleteIfExistsAsync()).Map(static _ => unit),
+        Committed: (token, key) => Bound(r, "azure", ObjectVerb.Write, () => r.Container.GetBlockBlobClient(token).GetBlockListAsync(BlockListTypes.Uncommitted)).Map(static x => toSeq(x.Value.UncommittedBlocks).Map(static b => new CommittedPart(BitConverter.ToInt32(Convert.FromBase64String(b.Name)), b.Name))),
+        Fetch: (store, key, range) => Bound(r, "azure", ObjectVerb.Read, () => r.Container.GetBlobClient(key.Name).DownloadStreamingAsync(store.Integrity.ApplyAzure(new BlobDownloadOptions { Range = range.Map(static w => new HttpRange(w.Start, w.End - w.Start + 1)).IfNone(default(HttpRange)) }))).Map(static x => x.Value.Content),
+        Head: (store, key) => Bound(r, "azure", ObjectVerb.Read, () => r.Container.GetBlobClient(key.Name).GetPropertiesAsync()).Map(x => Optional(Formed(x.Value.ContentLength, Rung.Of(StorageTier.Observed(x.Value.AccessTier), store.Tier), slot => x.Value.Metadata.TryGetValue(slot, out string? stated) ? stated : null))),
+        Erase: key => Bound(r, "azure", ObjectVerb.Erase, () => r.Container.GetBlobClient(key.Name).DeleteIfExistsAsync()).Map(static _ => unit),
         EraseMany: page => Bound(r, "azure", ObjectVerb.Erase, default, async () => {
             BlobBatchClient batches = r.Container.GetBlobBatchClient();
             using BlobBatch batch = batches.CreateBatch();
@@ -514,46 +513,46 @@ public static class ObjectIo {
         })),
         Issue: (demand, handle, now) => Bound(r, "azure", ObjectVerb.Grant, handle.Key, () => Task.FromResult<ObjectGrant>(new ObjectGrant.SignedUrl(r.Container.GetBlobClient(handle.Name).GenerateSasUri(demand.Request is GrantRequest.Write ? BlobSasPermissions.Write | BlobSasPermissions.Create : demand.Request is GrantRequest.Erase ? BlobSasPermissions.Delete : BlobSasPermissions.Read, (now + demand.Lifetime).ToDateTimeOffset())))),
         Retain: (store, key, now) => store.Lock.ApplyAzure(now).Match(
-            Some: apply => Bound(r, "azure", ObjectVerb.Write, key.Key, () => apply(r.Container.GetBlockBlobClient(key.Name), now)).Map(static _ => unit),
+            Some: apply => Bound(r, "azure", ObjectVerb.Write, () => apply(r.Container.GetBlockBlobClient(key.Name), now)).Map(static _ => unit),
             None: static () => IO.pure(unit)),
-        Transition: (_, key, tier, _) => Bound(r, "azure", ObjectVerb.Transition, key.Key, () => r.Container.GetBlobClient(key.Name).SetAccessTierAsync(tier.AzureTier)).Map(static _ => unit),
-        Rehydrate: (_, key, _) => Bound(r, "azure", ObjectVerb.Restore, key.Key, () => r.Container.GetBlobClient(key.Name).GetPropertiesAsync()).Bind(head =>
+        Transition: (_, key, tier, _) => Bound(r, "azure", ObjectVerb.Transition, () => r.Container.GetBlobClient(key.Name).SetAccessTierAsync(tier.AzureTier)).Map(static _ => unit),
+        Rehydrate: (_, key, _) => Bound(r, "azure", ObjectVerb.Restore, () => r.Container.GetBlobClient(key.Name).GetPropertiesAsync()).Bind(head =>
             !string.IsNullOrEmpty(head.Value.ArchiveStatus)
                 ? IO.pure<ThawState>(new ThawState.Thawing(None))
                 : StorageTier.Observed(head.Value.AccessTier) == Some(StorageTier.Archive)
-                    ? Bound(r, "azure", ObjectVerb.Restore, key.Key, () => r.Container.GetBlobClient(key.Name).SetAccessTierAsync(AccessTier.Hot, conditions: null, rehydratePriority: RehydratePriority.Standard)).Map(static _ => (ThawState)new ThawState.Thawing(None))
+                    ? Bound(r, "azure", ObjectVerb.Restore, () => r.Container.GetBlobClient(key.Name).SetAccessTierAsync(AccessTier.Hot, conditions: null, rehydratePriority: RehydratePriority.Standard)).Map(static _ => (ThawState)new ThawState.Thawing(None))
                     : IO.pure<ThawState>(new ThawState.Resident())));
 
     static ObjectLeg GcsLeg(ObjectClient.Gcs r) => new(
         Initiate: static (_, _, key, _, _) => IO.pure(key.Name),
         Stage: static (_, _, part, _) => IO.pure(new CommittedPart(part.Number, "")),
-        Seal: (store, tier, token, key, _, source, _) => Bound(r, "gcs", ObjectVerb.Write, key.Key, () => r.Client.UploadObjectAsync(store.Stamp(new Google.Apis.Storage.v1.Data.Object { Bucket = r.Bucket, Name = token, ContentType = "application/octet-stream", StorageClass = tier.GcsClass }, key), source.AsStream(), store.Stamp(new UploadObjectOptions { IfGenerationMatch = 0, ChunkSize = 8 * 1024 * 1024 }))).Map(static _ => unit),
+        Seal: (store, tier, token, key, _, source, _) => Bound(r, "gcs", ObjectVerb.Write, () => r.Client.UploadObjectAsync(store.Stamp(new Google.Apis.Storage.v1.Data.Object { Bucket = r.Bucket, Name = token, ContentType = "application/octet-stream", StorageClass = tier.GcsClass }), source.AsStream(), store.Stamp(new UploadObjectOptions { IfGenerationMatch = 0, ChunkSize = 8 * 1024 * 1024 }))).Map(static _ => unit),
         Abort: static (_, _) => IO.pure(unit),
         Committed: static (_, _) => IO.pure(Seq<CommittedPart>()),
-        Fetch: (store, key, range) => Bound(r, "gcs", ObjectVerb.Read, key.Key, async () => {
+        Fetch: (store, key, range) => Bound(r, "gcs", ObjectVerb.Read, async () => {
             MemoryStream sink = new();
             await r.Client.DownloadObjectAsync(r.Bucket, key.Name, sink, store.Integrity.ApplyGcs(new DownloadObjectOptions { Range = range.Match(Some: static w => new RangeHeaderValue(w.Start, w.End), None: static () => null) })).ConfigureAwait(false);
             sink.Position = 0;
             return (Stream)sink;
         }),
-        Head: (store, key) => Bound(r, "gcs", ObjectVerb.Read, key.Key, () => r.Client.GetObjectAsync(r.Bucket, key.Name)).Map(x => Optional(Formed(key.Key, (long)(x.Size ?? 0), Rung.Of(StorageTier.Observed(x.StorageClass), store.Tier), slot => x.Metadata?.GetValueOrDefault(slot)))),
-        Erase: key => Bound(r, "gcs", ObjectVerb.Erase, key.Key, () => r.Client.DeleteObjectAsync(r.Bucket, key.Name)).Map(static _ => unit),
+        Head: (store, key) => Bound(r, "gcs", ObjectVerb.Read, () => r.Client.GetObjectAsync(r.Bucket, key.Name)).Map(x => Optional(Formed((long)(x.Size ?? 0), Rung.Of(StorageTier.Observed(x.StorageClass), store.Tier), slot => x.Metadata?.GetValueOrDefault(slot)))),
+        Erase: key => Bound(r, "gcs", ObjectVerb.Erase, () => r.Client.DeleteObjectAsync(r.Bucket, key.Name)).Map(static _ => unit),
         EraseMany: page => page.TraverseM(handle => Bound(r, "gcs", ObjectVerb.Erase, handle.Key, () => r.Client.DeleteObjectAsync(r.Bucket, handle.Name)).Map(static _ => unit)).As()
             .Map(_ => new EraseTally(page.Count, Seq<(ContentAddress Key, string Code)>())),
         Enumerate: () => Listed(r.Tenant, prefix => Bound(r, "gcs", ObjectVerb.List, default,
             () => Task.FromResult(toSeq(r.Client.ListObjects(r.Bucket, prefix).Select(static o => BlobName.OfName(o.Name)))))),
         Issue: (demand, handle, _) => Bound(r, "gcs", ObjectVerb.Grant, handle.Key, () => r.Signer.SignAsync(r.Bucket, handle.Name, demand.Lifetime.ToTimeSpan(), demand.Request is GrantRequest.Write ? HttpMethod.Put : demand.Request is GrantRequest.Erase ? HttpMethod.Delete : HttpMethod.Get)).Map(static url => (ObjectGrant)new ObjectGrant.SignedUrl(new Uri(url))),
         Retain: (store, key, now) => store.Lock.ApplyGcs(now).Match(
-            Some: apply => Bound(r, "gcs", ObjectVerb.Write, key.Key, () => apply(r.Client, new Google.Apis.Storage.v1.Data.Object { Bucket = r.Bucket, Name = key.Name }, now)).Map(static _ => unit),
+            Some: apply => Bound(r, "gcs", ObjectVerb.Write, () => apply(r.Client, new Google.Apis.Storage.v1.Data.Object { Bucket = r.Bucket, Name = key.Name }, now)).Map(static _ => unit),
             None: static () => IO.pure(unit)),
-        Transition: (_, key, tier, _) => Bound(r, "gcs", ObjectVerb.Transition, key.Key, () => r.Client.CopyObjectAsync(r.Bucket, key.Name, r.Bucket, key.Name,
+        Transition: (_, key, tier, _) => Bound(r, "gcs", ObjectVerb.Transition, () => r.Client.CopyObjectAsync(r.Bucket, key.Name, r.Bucket, key.Name,
             new CopyObjectOptions { ExtraMetadata = new Google.Apis.Storage.v1.Data.Object { StorageClass = tier.GcsClass } })).Map(static _ => unit),
         Rehydrate: static (_, _, _) => IO.pure<ThawState>(new ThawState.Resident()));
 
     static ObjectLeg MinioLeg(ObjectClient.Minio r) => new(
         Initiate: static (_, _, key, _, _) => IO.pure(key.Name),
         Stage: static (_, _, part, _) => IO.pure(new CommittedPart(part.Number, "")),
-        Seal: (store, _, token, key, _, source, now) => Bound(r, "minio", ObjectVerb.Write, key.Key, async () => {
+        Seal: (store, _, token, key, _, source, now) => Bound(r, "minio", ObjectVerb.Write, async () => {
             using Stream stream = source.AsStream();
             PutObjectArgs request = new PutObjectArgs()
                 .WithBucket(r.Bucket)
@@ -562,24 +561,24 @@ public static class ObjectIo {
                 .WithObjectSize(source.Length)
                 .WithContentType("application/octet-stream")
                 .WithNotMatchETag("*");
-            await r.Client.PutObjectAsync(store.Stamp(request, key, now)).ConfigureAwait(false);
+            await r.Client.PutObjectAsync(store.Stamp(request, now)).ConfigureAwait(false);
             return unit;
         }),
-        Abort: (_, key) => Bound(r, "minio", ObjectVerb.Write, key.Key, async () => {
+        Abort: (_, key) => Bound(r, "minio", ObjectVerb.Write, async () => {
             await foreach (Upload upload in r.Client.ListIncompleteUploadsEnumAsync(new ListIncompleteUploadsArgs().WithBucket(r.Bucket).WithPrefix(key.Name)).ConfigureAwait(false))
                 await r.Client.RemoveIncompleteUploadAsync(new RemoveIncompleteUploadArgs().WithBucket(r.Bucket).WithObject(upload.Key)).ConfigureAwait(false);
             return unit;
         }),
         Committed: static (_, _) => IO.pure(Seq<CommittedPart>()),
-        Fetch: (_, key, range) => Bound(r, "minio", ObjectVerb.Read, key.Key, async () => {
+        Fetch: (_, key, range) => Bound(r, "minio", ObjectVerb.Read, async () => {
             MemoryStream sink = new();
             GetObjectArgs request = new GetObjectArgs().WithBucket(r.Bucket).WithObject(key.Name).WithCallbackStream(stream => stream.CopyTo(sink));
             await r.Client.GetObjectAsync(range.Match(Some: window => request.WithOffsetAndLength(window.Start, window.End - window.Start + 1), None: () => request)).ConfigureAwait(false);
             sink.Position = 0;
             return (Stream)sink;
         }),
-        Head: (store, key) => Bound(r, "minio", ObjectVerb.Read, key.Key, () => r.Client.StatObjectAsync(new StatObjectArgs().WithBucket(r.Bucket).WithObject(key.Name))).Map(x => Optional(Formed(key.Key, x.Size, new Rung.Assumed(store.Tier), slot => x.MetaData.GetValueOrDefault(slot)))),
-        Erase: key => Bound(r, "minio", ObjectVerb.Erase, key.Key, () => r.Client.RemoveObjectAsync(new RemoveObjectArgs().WithBucket(r.Bucket).WithObject(key.Name))).Map(static _ => unit),
+        Head: (store, key) => Bound(r, "minio", ObjectVerb.Read, () => r.Client.StatObjectAsync(new StatObjectArgs().WithBucket(r.Bucket).WithObject(key.Name))).Map(x => Optional(Formed(x.Size, new Rung.Assumed(store.Tier), slot => x.MetaData.GetValueOrDefault(slot)))),
+        Erase: key => Bound(r, "minio", ObjectVerb.Erase, () => r.Client.RemoveObjectAsync(new RemoveObjectArgs().WithBucket(r.Bucket).WithObject(key.Name))).Map(static _ => unit),
         EraseMany: page => Bound(r, "minio", ObjectVerb.Erase, default, () => r.Client.RemoveObjectsAsync(new RemoveObjectsArgs()
                 .WithBucket(r.Bucket)
                 .WithObjects(page.Map(static h => h.Name).ToList())))
@@ -598,23 +597,23 @@ public static class ObjectIo {
     static ObjectLeg PresignedLeg(ObjectClient.Presigned r) => new(
         Initiate: static (_, _, key, _, _) => IO.pure(key.Name),
         Stage: static (_, _, part, _) => IO.pure(new CommittedPart(part.Number, "")),
-        Seal: (_, _, _, key, _, source, _) => r.Minter(new GrantRequest.Write(key.Key, source.Length)).Bind(grant =>
-            Sent(r, ObjectVerb.Write, key.Key, () => grant.Switch(
-                formPost:  post => Posted(r.Http, post, key, source),
+        Seal: (_, _, _, key, _, source, _) => r.Minter(new GrantRequest.Write(source.Length)).Bind(grant =>
+            Sent(r, ObjectVerb.Write, () => grant.Switch(
+                formPost:  post => Posted(r.Http, post, source),
                 signedUrl: url => r.Http.PutAsync(url.Url, new ReadOnlyMemoryContent(source))))).Map(static _ => unit),
         Abort: static (_, _) => IO.pure(unit),
         Committed: static (_, _) => IO.pure(Seq<CommittedPart>()),
-        Fetch: (_, key, range) => r.Minter(new GrantRequest.Read(key.Key)).Bind(grant =>
-            Sent(r, ObjectVerb.Read, key.Key, () => {
+        Fetch: (_, key, range) => r.Minter(new GrantRequest.Read()).Bind(grant =>
+            Sent(r, ObjectVerb.Read, () => {
                 using HttpRequestMessage request = new(HttpMethod.Get, grant.Url);
                 _ = range.Map(w => request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(w.Start, w.End));
                 return r.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            })).Bind(static response => IO.liftAsync(async () => await Op.Of().Catch(async _ =>
-                Fin<Stream>.Succ(await response.Content.ReadAsStreamAsync().ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.lift)),
-        Head: (store, key) => r.Roster(Some(key.Key)).Map(rows =>
-            rows.Find(s => s.Key == key.Key).Map(s => BlobPlacement.From(key.Key, Extent.Passthrough(s.Length), new Rung.Assumed(store.Tier), ObjectCodec.Identity))),
-        Erase: key => r.Minter(new GrantRequest.Erase(key.Key)).Bind(grant =>
-            Sent(r, ObjectVerb.Erase, key.Key, () => r.Http.DeleteAsync(grant.Url))).Map(static _ => unit),
+            })).Bind(static response => IO.liftAsync(async () => await Try.lift(async _ =>
+                Fin<Stream>.Succ(await response.Content.ReadAsStreamAsync().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift)),
+        Head: (store, key) => r.Roster().Map(rows =>
+            rows.Find(s => s.Key == key.Key).Map(s => BlobPlacement.From(Extent.Passthrough(s.Length), new Rung.Assumed(store.Tier), ObjectCodec.Identity))),
+        Erase: key => r.Minter(new GrantRequest.Erase()).Bind(grant =>
+            Sent(r, ObjectVerb.Erase, () => r.Http.DeleteAsync(grant.Url))).Map(static _ => unit),
         EraseMany: page => page.TraverseM(handle => r.Minter(new GrantRequest.Erase(handle.Key)).Bind(grant =>
                 Sent(r, ObjectVerb.Erase, handle.Key, () => r.Http.DeleteAsync(grant.Url)))).As()
             .Map(_ => new EraseTally(page.Count, Seq<(ContentAddress Key, string Code)>())),

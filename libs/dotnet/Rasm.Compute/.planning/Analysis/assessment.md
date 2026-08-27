@@ -122,10 +122,10 @@ public sealed record AssessmentResult(
     public Instant At => Provenance.At;
 
     public static Fin<AssessmentResult> Of(
-        AssessmentRoute route, Seq<AssessmentFact> facts, Option<double> governingRatio, Instant at, Op key,
+        AssessmentRoute route, Seq<AssessmentFact> facts, Option<double> governingRatio, Instant at,
         Duration elapsed = default, Option<CorrelationId> correlation = default, int attempt = 0,
         Option<ArtifactContent> resultArtifact = default) =>
-        EvidenceRun.Of("rasm.compute", route.Key, route.SolverVersion, at, key, elapsed, correlation: correlation, attempt: attempt)
+        EvidenceRun.Of("rasm.compute", route.SolverVersion, at, elapsed, correlation: correlation, attempt: attempt)
             .Map(run => new AssessmentResult(route, facts, AssessmentVerdict.FromRatio(governingRatio), governingRatio, resultArtifact, run));
 }
 
@@ -337,10 +337,8 @@ public static partial class Analysis {
 
     const string CommissionedSuffix = "+commissioned";
 
-    static readonly Op CommissioningKey = Op.Of(name: nameof(Commission));
-
     public static Fin<AnalysisRoute> CommissioningRoute(AssessmentRoute assessed, NodeId element, PropertyName aspect) =>
-        CommissioningKey.AcceptValidated<AnalysisRoute>($"{assessed.Key}{CommissionedSuffix}:{element.ToValue()}:{(string)aspect}");
+        FactoryBridge.Accept<AnalysisRoute>($"{assessed.Key}{CommissionedSuffix}:{element.ToValue()}:{(string)aspect}");
 
     public static Fin<Commissioned> Commission(
         ElementGraph graph, Element element, CommissioningAsk ask, CorrelationId correlation, IClock clock) {
@@ -369,7 +367,7 @@ public static partial class Analysis {
             : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.WindowUnbounded, string.Empty));
 
     static Fin<(AssessmentPayload Payload, MeasureValue Measure)> Predicted(Element element, CommissioningAsk ask) =>
-        CommissioningKey.AcceptValidated<AnalysisRoute>(ask.Assessed.Key)
+        FactoryBridge.Accept<AnalysisRoute>(ask.Assessed.Key)
             .Bind(route => element.Assessments
                 .Find(row => row.Discipline == ask.Assessed.Discipline && row.Route == route
                     && row.Outcome.Capabilities.Admits(OutcomeCapability.Consumable))

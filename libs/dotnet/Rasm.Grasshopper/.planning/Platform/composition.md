@@ -12,7 +12,7 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 ## [02]-[IDENTITY]
 
 - Owner: kernel `PackageIdentity<HookScope, Unit>` (`Rasm/Domain/frame.md#[05]`) — the GH instantiation of the branch's one plugin-identity resolve; this page declares NO identity record of its own. `HookScope` (`Shell/hooks.md`) is the typed plugin key; the host-fact slot is `Unit` because GH publishes no host-package evidence beyond what the assembly answers.
-- Entry: `PackageIdentity<HookScope, Unit>.Resolve(pluginRoot, plugin, host: None, key)` — content root, version, and load context resolve at the kernel; `PackageIdentity<HookScope, Unit>.PluginSlot` is the one plugin dimension key every emitting surface reads.
+- Entry: `PackageIdentity<HookScope, Unit>.Resolve(pluginRoot, plugin, host: None)` — content root, version, and load context resolve at the kernel; `PackageIdentity<HookScope, Unit>.PluginSlot` is the one plugin dimension key every emitting surface reads.
 - Law: the plugin discriminator admits through the typed `HookScope` — the same key space the hook dispatch and the `gh.plugin` meter tag share — so the telemetry resource attribute and every per-plugin surface spell one identity by construction; a raw-string plugin parameter is the deleted fork.
 - Law: capsule cardinality is one per plugin `AssemblyLoadContext`, opened once at plugin load, never per canvas or component; a second plugin is a second resolve and a second open with its own discriminator.
 - Boundary: the AppHost lacing is the `apps/<app>/` plugin shell's alone — over one resolved identity the shell gates `ProfileSurface.Resolve` on the `HostRows.Gh2` row (`Tenancy.None`, `DeploymentTopology.InHost`, `LifecycleOwner.CallerOwned`, `Isolation.InProc`, no providers) under `TelemetryDomain.Grasshopper.Key`, `Environments.Production`, and the identity's content root and version, then opens `PluginTelemetryHost.Open` on the identity's `Alc` with the one self-minting `TelemetryContributorPort` `Shell/telemetry.md` spells — `TelemetrySource.Grasshopper.Key` scope, empty `Instruments`, `GhInstruments.Rows` published, `GhInstruments.Board` on the pack column — and the plugin discriminator read off the identity as `TelemetryDomain.Host.Measure(PackageIdentity<HookScope, Unit>.PluginSlot)`; `SignalGovernance.Rostered` refuses a bare literal. Lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law; `Environments.Production` floors the environment row and `OTEL_RESOURCE_ATTRIBUTES` outranks it at deploy.
@@ -22,8 +22,8 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 ## [03]-[ROOT]
 
 - Owner: `PlatformRoot` — the load-time capsule the shell opens once per plugin: the resolved identity, the session's ONE `MonotonicTimeline`, its ONE bounded `FaultCell`, the conversion-broker registry cell `Components/data.md`'s `Coerce` reads, and one release roster. Every process-wide registry the folder holds seats here, so no library page carries a composition-root static (folder RULINGS `[02]`).
-- Entry: `PlatformRoot.Open(pluginRoot, plugin, faultCapacity, time, key)` → `Fin<Lease<PlatformRoot>>` resolves the identity, mints the timeline and fault cell from one supplied time provider, and seats the empty broker cell; `Hold(Lease<T>, key)` transfers each mounted lease into root custody; disposal releases the mounted leases in reverse mount order through the lease.
-- Law: `MonotonicTimeline.Of(time, key)` is callable HERE and nowhere else in the folder (folder RULINGS `[02]`) — one injected timeline per session makes gauged spans from one gesture orderable, and each gauged owner takes `Clock` as a REQUIRED parameter. Production shells supply `TimeProvider.System`; test hosts supply fakes through the same slot.
+- Entry: `PlatformRoot.Open(pluginRoot, plugin, faultCapacity, time)` → `Fin<Lease<PlatformRoot>>` resolves the identity, mints the timeline and fault cell from one supplied time provider, and seats the empty broker cell; `Hold(Lease<T>)` transfers each mounted lease into root custody; disposal releases the mounted leases in reverse mount order through the lease.
+- Law: `MonotonicTimeline.Of(time)` is callable HERE and nowhere else in the folder (folder RULINGS `[02]`) — one injected timeline per session makes gauged spans from one gesture orderable, and each gauged owner takes `Clock` as a REQUIRED parameter. Production shells supply `TimeProvider.System`; test hosts supply fakes through the same slot.
 - Law: `Faults` is the whole callback-custody cell handed to every mount row that parks evidence and to `HookSet.Of(cell:)`; the root never accepts the kernel's default cell and no owner mints another ring, so `Parked`/`Shed`/`Lost` describe the complete plugin boundary.
 - Law: the broker registry is the root's INSTANCE, never a library static — the root constructs `Components/data.md`'s one `BrokerLedger`, scope-ranked conversion rows enroll against it at plugin load, and `Coerce` reads the ledger it was handed, so a collectible plugin ALC drops exactly its own rows with the root's lease.
 - Law: measurements write at their producing site through `Shell/telemetry.md`'s `GhInstruments` members and the journal keeps the event stream alone — the root tees nothing; the one write the root itself owns is `PaintProof.Judge`'s breach, which it hands to `GhInstruments.Proofed` because the judging site is this roster row.
@@ -61,7 +61,6 @@ namespace Rasm.Grasshopper.Platform;
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlatformRoot : IDisposable {
     private static readonly HookId ReleasePoint = HookId.Create(value: "rasm.grasshopper.platform.root");
-    private static readonly Op ReleaseOp = Op.Of(name: nameof(Dispose));
     private readonly Atom<Seq<Func<Fin<Unit>>>> mounts = Atom(Seq<Func<Fin<Unit>>>());
 
     private PlatformRoot(
@@ -78,9 +77,8 @@ public sealed class PlatformRoot : IDisposable {
 
     public BrokerLedger Brokers { get; }
 
-    public Fin<Unit> Hold<T>(Lease<T> mount, Op? key = null) where T : class, IDisposable {
-        Op op = key.OrDefault();
-        return op.Need(mount).Bind(held => Cell.Commit(mounts, rows => rows.Add(() => Fin.Succ(held.Dispose()))).Switch(
+    public Fin<Unit> Hold<T>(Lease<T> mount) where T : class, IDisposable {
+        return Admit.Need(mount).Bind(held => Cell.Commit(mounts, rows => rows.Add(() => Fin.Succ(held.Dispose()))).Switch(
             state: (Operation: op, Lease: held),
             committed: static (_, _) => Fin.Succ(unit),
             ceded: static (state, _) => Unwind(
@@ -90,20 +88,18 @@ public sealed class PlatformRoot : IDisposable {
                 state.Lease, new GhFault.Registration(state.Operation, nameof(PlatformRoot)), state.Operation)));
     }
 
-    private static Fin<Unit> Unwind<T>(Lease<T> held, Error primary, Op key) where T : class, IDisposable =>
-        Fin.Fail<Unit>(primary).Rollback(release: () => Fin.Succ(held.Dispose()), key: key);
+    private static Fin<Unit> Unwind<T>(Lease<T> held, Error primary) where T : class, IDisposable =>
+        Fin.Fail<Unit>(primary).Rollback(release: () => Fin.Succ(held.Dispose()));
 
     public static Fin<Lease<PlatformRoot>> Open(
         Assembly pluginRoot,
         HookScope plugin,
         Dimension faultCapacity,
-        TimeProvider time,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from provider in op.Need(time)
-               from capacity in op.AcceptValue(value: faultCapacity)
-               from identity in PackageIdentity<HookScope, Unit>.Resolve(pluginRoot: pluginRoot, plugin: plugin, key: op)
-               from clock in MonotonicTimeline.Of(provider: provider, key: op)
+        TimeProvider time) {
+        return from provider in Admit.Need(time)
+               from capacity in Acceptance.Value(value: faultCapacity)
+               from identity in PackageIdentity<HookScope, Unit>.Resolve(pluginRoot: pluginRoot, plugin: plugin)
+               from clock in MonotonicTimeline.Of(provider: provider)
                select (Lease<PlatformRoot>)new Lease<PlatformRoot>.Owned(Value: new PlatformRoot(
                    identity: identity,
                    clock: clock,

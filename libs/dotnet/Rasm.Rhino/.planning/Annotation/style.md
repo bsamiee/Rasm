@@ -51,13 +51,13 @@ namespace Rasm.Rhino.Annotation;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public static class DraftCrossing {
-    internal static Fin<Seq<GeometryHandle>> Crossed<TGeometry>(Seq<TGeometry> products, Op op)
+    internal static Fin<Seq<GeometryHandle>> Crossed<TGeometry>(Seq<TGeometry> products)
         where TGeometry : GeometryBase =>
         DocumentCommit.Compensated(
             source: products,
-            land: product => GeometryCrossing.Cross(source: product, mode: CrossingMode.Detach, key: op),
-            rollback: landed => Custody.Dispose(held: landed, key: op),
-            release: sources => Custody.Dispose(held: sources, key: op));
+            land: product => GeometryCrossing.Cross(source: product, mode: CrossingMode.Detach),
+            rollback: landed => Custody.Dispose(held: landed),
+            release: sources => Custody.Dispose(held: sources));
 }
 
 public readonly record struct TagSurface(
@@ -74,37 +74,37 @@ public abstract partial record TagEdit {
     public sealed record Clear : TagEdit;
     public sealed record Replace(HashMap<string, string> Tags) : TagEdit;
 
-    internal Fin<Unit> Apply(TagSurface owner, Op op) => Switch(
-        (Owner: owner, Op: op),
+    internal Fin<Unit> Apply(TagSurface owner) => Switch(
+        owner,
         set: static (context, edit) =>
-            context.Op.Confirm(success: context.Owner.Set(edit.Tag.Key.Value, edit.Tag.Value)),
-        delete: static (context, edit) => context.Op.Confirm(success: context.Owner.Drop(edit.Key.Value)),
-        clear: static (context, _) => context.Op.Catch(context.Owner.Clear),
+            Admit.Confirm(success: context.Set(edit.Tag.Key.Value, edit.Tag.Value)),
+        delete: static (context, edit) => Admit.Confirm(success: context.Drop(edit.Key.Value)),
+        clear: static (context, _) => Try.lift(context.Clear).Run().Bind(static inner => inner),
         replace: static (context, edit) =>
             from admitted in toSeq(edit.Tags.AsIterable()).Traverse(pair =>
-                (from name in context.Op.AcceptText(value: pair.Key)
-                 from value in context.Op.AcceptText(value: pair.Value)
+                (from name in Acceptance.Text(value: pair.Key)
+                 from value in Acceptance.Text(value: pair.Value)
                  select (Name: name, Value: value)).ToValidation()).As().ToFin()
-            from original in context.Op.Catch(() => Fin.Succ(value: TagOp.Snapshot(context.Owner.Read())))
-            from _ in context.Op.Catch(context.Owner.Clear)
+            from original in Try.lift(() => Fin.Succ(value: TagOp.Snapshot(context.Read()))).Run().Bind(static inner => inner)
+            from _ in Try.lift(context.Clear).Run().Bind(static inner => inner)
             from __ in DocumentCommit.Compensated(
                 source: admitted,
-                land: pair => context.Op.Confirm(success: context.Owner.Set(pair.Name, pair.Value)).Map(_ => pair.Name),
-                rollback: _ => Replay(rows: toSeq(original), owner: context.Owner, key: context.Op))
+                land: pair => Admit.Confirm(success: context.Set(pair.Name, pair.Value)).Map(_ => pair.Name),
+                rollback: _ => Replay(rows: toSeq(original), owner: context))
             select unit);
 
-    private static Fin<Unit> Replay(Seq<KeyValuePair<string, string>> rows, TagSurface owner, Op key) =>
-        from _ in key.Catch(owner.Clear)
-        from __ in rows.Traverse(pair => key.Confirm(success: owner.Set(pair.Key, pair.Value)).ToValidation()).As().ToFin()
+    private static Fin<Unit> Replay(Seq<KeyValuePair<string, string>> rows, TagSurface owner) =>
+        from _ in Try.lift(owner.Clear).Run().Bind(static inner => inner)
+        from __ in rows.Traverse(pair => Admit.Confirm(success: owner.Set(pair.Key, pair.Value)).ToValidation()).As().ToFin()
         select unit;
 }
 
 public readonly record struct ListSurface<TRow>(
     Func<int> Count,
-    Func<TRow, Op, Fin<Unit>> Append,
-    Func<int, Op, Fin<Unit>> Remove,
-    Option<Func<int, TRow, Op, Fin<Unit>>> Write,
-    Option<Func<Op, Fin<Unit>>> Purge,
+    Func<TRow, Fin<Unit>> Append,
+    Func<int, Fin<Unit>> Remove,
+    Option<Func<int, TRow, Fin<Unit>>> Write,
+    Option<Func< Fin<Unit>>> Purge,
     int Floor) where TRow : class;
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -115,75 +115,75 @@ public abstract partial record ListEdit<TRow> where TRow : class {
     public sealed record Remove(int Index) : ListEdit<TRow>;
     public sealed record Clear : ListEdit<TRow>;
 
-    internal Fin<Unit> Apply(ListSurface<TRow> surface, Op op) => Switch(
-        (Surface: surface, Op: op),
-        append: static (context, edit) => context.Surface.Append(edit.Row, context.Op),
+    internal Fin<Unit> Apply(ListSurface<TRow> surface) => Switch(
+        surface,
+        append: static (context, edit) => context.Append(edit.Row),
         replace: static (context, edit) =>
-            from _ in Bounded(surface: context.Surface, index: edit.Index, key: context.Op)
-            from __ in context.Surface.Write.Match(
-                Some: write => write(edit.Index, edit.Row, context.Op),
-                None: () => from ___ in context.Surface.Remove(edit.Index, context.Op)
-                            from ____ in context.Surface.Append(edit.Row, context.Op)
+            from _ in Bounded(surface: context, index: edit.Index)
+            from __ in context.Write.Match(
+                Some: write => write(edit.Index, edit.Row),
+                None: () => from ___ in context.Remove(edit.Index)
+                            from ____ in context.Append(edit.Row)
                             select unit)
             select unit,
         remove: static (context, edit) =>
-            from _ in Bounded(surface: context.Surface, index: edit.Index, key: context.Op)
-            from __ in guard(context.Surface.Count() > context.Surface.Floor, context.Op.InvalidInput())
-            from ___ in context.Surface.Remove(edit.Index, context.Op)
+            from _ in Bounded(surface: context, index: edit.Index)
+            from __ in guard(context.Count() > context.Floor, new KernelFault.InvalidInput())
+            from ___ in context.Remove(edit.Index)
             select unit,
         clear: static (context, _) =>
-            from purge in context.Surface.Purge.ToFin(context.Op.Unsupported(
-                valueType: typeof(TRow), outputType: typeof(Unit)))
-            from _ in guard(context.Surface.Floor is 0, context.Op.InvalidInput())
-            from __ in purge(context.Op)
+            from purge in context.Purge.ToFin(new KernelFault.Unsupported(
+                valueType: typeof(TRow), OutputType: typeof(Unit)))
+            from _ in guard(context.Floor is 0, new KernelFault.InvalidInput())
+            from __ in purge()
             select unit);
 
-    private static Fin<Unit> Bounded(ListSurface<TRow> surface, int index, Op key) =>
-        guard(index >= 0 && index < surface.Count(), key.InvalidInput()).ToFin();
+    private static Fin<Unit> Bounded(ListSurface<TRow> surface, int index) =>
+        guard(index >= 0 && index < surface.Count(), new KernelFault.InvalidInput()).ToFin();
 }
 
 public sealed record TableGrip<TComponent, TDef>(
     ResourceLens<TComponent> Lens,
     Func<TDef, ResourceName> Named,
-    Func<TComponent, Op, Fin<ResourceName>> Title,
+    Func<TComponent, Fin<ResourceName>> Title,
     Func<TComponent, int> Index,
     Func<TComponent, TComponent> Duplicate,
     Func<TComponent, TagSurface> Tags,
-    Func<RhinoDoc, TDef, Op, Fin<TComponent>> Mint,
-    Func<RhinoDoc, TComponent, TDef, Op, Fin<Unit>> Revise,
-    Func<TComponent, ResourceName, Op, Fin<Unit>> Retitle,
-    Func<RhinoDoc, TComponent, int, HostInteraction, Op, Fin<Unit>> Modify,
-    Func<RhinoDoc, TComponent, Op, Fin<ResourceIndex>> Seat,
-    Func<RhinoDoc, Seq<int>, HostInteraction, Op, Fin<Unit>> Retire,
-    Func<RhinoDoc, int, HostInteraction, Op, Fin<Unit>> Elect,
-    Option<Func<TComponent, Op, Fin<Func<Op, Fin<Unit>>>>> Scoped = default,
-    Option<Func<DraftPath, HostInteraction, Op, Fin<Seq<TComponent>>>> Ingest = default,
-    Option<Func<DraftPath, Seq<TComponent>, Op, Fin<Unit>>> Emit = default) where TComponent : class, IDisposable {
+    Func<RhinoDoc, TDef, Fin<TComponent>> Mint,
+    Func<RhinoDoc, TComponent, TDef, Fin<Unit>> Revise,
+    Func<TComponent, ResourceName, Fin<Unit>> Retitle,
+    Func<RhinoDoc, TComponent, int, HostInteraction, Fin<Unit>> Modify,
+    Func<RhinoDoc, TComponent, Fin<ResourceIndex>> Seat,
+    Func<RhinoDoc, Seq<int>, HostInteraction, Fin<Unit>> Retire,
+    Func<RhinoDoc, int, HostInteraction, Fin<Unit>> Elect,
+    Option<Func<TComponent, Fin<Func< Fin<Unit>>>>> Scoped = default,
+    Option<Func<DraftPath, HostInteraction, Fin<Seq<TComponent>>>> Ingest = default,
+    Option<Func<DraftPath, Seq<TComponent>, Fin<Unit>>> Emit = default) where TComponent : class, IDisposable {
     internal Fin<Unit> Revised(
-        ResourceRef target, RhinoDoc document, HostInteraction interaction, Op op,
-        Func<TComponent, Op, Fin<Unit>> revise) =>
-        from live in target.Resolve(document: document, lens: Lens, key: op)
+        ResourceRef target, RhinoDoc document, HostInteraction interaction,
+        Func<TComponent, Fin<Unit>> revise) =>
+        from live in target.Resolve(document: document, lens: Lens)
         let index = Index(live)
-        from copy in op.Catch(() => Fin.Succ(value: Duplicate(live)))
-        from _ in Bracketed(copy: copy, op: op, revise: revise)
-            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op), key: op)
-        from __ in Modify(document, copy, index, interaction, op)
-            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op), key: op)
-        from ___ in Custody.Dispose(held: Seq(copy), key: op)
+        from copy in Try.lift(() => Fin.Succ(value: Duplicate(live))).Run().Bind(static inner => inner)
+        from _ in Bracketed(copy: copy, revise: revise)
+            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op))
+        from __ in Modify(document, copy, index, interaction)
+            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op))
+        from ___ in Custody.Dispose(held: Seq(copy))
         select unit;
 
     internal bool Occupied(RhinoDoc document, ResourceName name) => Lens.ByName(document, name.Value) is not null;
 
-    private Fin<Unit> Bracketed(TComponent copy, Op op, Func<TComponent, Op, Fin<Unit>> revise) => Scoped.Match(
+    private Fin<Unit> Bracketed(TComponent copy, Func<TComponent, Fin<Unit>> revise) => Scoped.Match(
         Some: enter =>
-            from exit in enter(copy, op)
-            from outcome in revise(copy, op).Match(
-                Succ: _ => exit(op),
-                Fail: primary => exit(op).Match(
+            from exit in enter(copy)
+            from outcome in revise(copy).Match(
+                Succ: _ => exit(),
+                Fail: primary => exit().Match(
                     Succ: _ => Fin.Fail<Unit>(error: primary),
                     Fail: restore => Fin.Fail<Unit>(error: primary + restore)))
             select outcome,
-        None: () => revise(copy, op));
+        None: () => revise(copy));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -198,91 +198,88 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
     public sealed record Import(DraftPath Path, HostInteraction Interaction) : TableOp<TComponent, TDef>;
     public sealed record Export(DraftPath Path, Seq<ResourceRef> Targets) : TableOp<TComponent, TDef>;
 
-    internal Fin<Unit> Apply(TableGrip<TComponent, TDef> grip, RhinoDoc document, Op op) => Switch(
-        (Grip: grip, Document: document, Op: op),
+    internal Fin<Unit> Apply(TableGrip<TComponent, TDef> grip, RhinoDoc document) => Switch(
+        (Grip: grip, Document: document),
         author: static (context, edit) =>
             from _ in guard(!context.Grip.Occupied(context.Document, context.Grip.Named(edit.Def)),
-                context.Op.InvalidInput()).ToFin()
-            from minted in context.Grip.Mint(context.Document, edit.Def, context.Op)
+                new KernelFault.InvalidInput()).ToFin()
+            from minted in context.Grip.Mint(context.Document, edit.Def)
             from __ in new Lease<TComponent>.Owned(Value: minted).Use(owned =>
-                context.Grip.Seat(context.Document, owned, context.Op).Map(static _ => unit))
+                context.Grip.Seat(context.Document, owned).Map(static _ => unit))
             select unit,
         amend: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, interaction: edit.Interaction,
-            op: context.Op, revise: (copy, key) => context.Grip.Revise(context.Document, copy, edit.Def, key)),
+            target: edit.Target, document: context.Document, interaction: edit.Interaction, revise: (copy, key) => context.Grip.Revise(context.Document, copy, edit.Def)),
         rename: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, interaction: edit.Interaction,
-            op: context.Op, revise: (copy, key) => context.Grip.Retitle(copy, edit.Name, key)),
+            target: edit.Target, document: context.Document, interaction: edit.Interaction, revise: (copy, key) => context.Grip.Retitle(copy, edit.Name)),
         retag: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, interaction: edit.Interaction,
-            op: context.Op, revise: (copy, key) => edit.Edit.Apply(owner: context.Grip.Tags(copy), op: key)),
+            target: edit.Target, document: context.Document, interaction: edit.Interaction, revise: (copy, key) => edit.Edit.Apply(owner: context.Grip.Tags(copy), op: key)),
         delete: static (context, edit) =>
-            from _ in guard(!edit.Targets.IsEmpty, context.Op.InvalidInput()).ToFin()
+            from _ in guard(!edit.Targets.IsEmpty, new KernelFault.InvalidInput()).ToFin()
             from rows in edit.Targets.TraverseM(target => target.Resolve(
-                document: context.Document, lens: context.Grip.Lens, key: context.Op)).As()
+                document: context.Document, lens: context.Grip.Lens)).As()
             let indices = rows.Map(row => context.Grip.Index(row))
-            from __ in guard(indices.Distinct().Count == indices.Count, context.Op.InvalidInput())
-            from ___ in context.Grip.Retire(context.Document, indices, edit.Interaction, context.Op)
+            from __ in guard(indices.Distinct().Count == indices.Count, new KernelFault.InvalidInput())
+            from ___ in context.Grip.Retire(context.Document, indices, edit.Interaction)
             select unit,
         setCurrent: static (context, edit) =>
-            from row in edit.Target.Resolve(document: context.Document, lens: context.Grip.Lens, key: context.Op)
+            from row in edit.Target.Resolve(document: context.Document, lens: context.Grip.Lens)
             let index = context.Grip.Index(row)
-            from _ in context.Grip.Elect(context.Document, index, edit.Interaction, context.Op)
+            from _ in context.Grip.Elect(context.Document, index, edit.Interaction)
             select unit,
         import: static (context, edit) =>
-            from ingest in context.Grip.Ingest.ToFin(context.Op.Unsupported(
-                valueType: typeof(DraftPath), outputType: typeof(Seq<TComponent>)))
-            from read in ingest(edit.Path, edit.Interaction, context.Op)
-            from titles in read.TraverseM(native => context.Grip.Title(native, context.Op)).As()
-                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op)
+            from ingest in context.Grip.Ingest.ToFin(new KernelFault.Unsupported(
+                valueType: typeof(DraftPath), OutputType: typeof(Seq<TComponent>)))
+            from read in ingest(edit.Path, edit.Interaction)
+            from titles in read.TraverseM(native => context.Grip.Title(native)).As()
+                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op))
             from _ in guard(
                 !read.IsEmpty
                 && titles.Distinct().Count == titles.Count
                 && !titles.Exists(title => context.Grip.Occupied(context.Document, title)),
-                context.Op.InvalidInput())
-                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op)
+                new KernelFault.InvalidInput())
+                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op))
             from __ in DocumentCommit.Compensated(
                 source: read,
-                land: native => context.Grip.Seat(context.Document, native, context.Op),
+                land: native => context.Grip.Seat(context.Document, native),
                 rollback: landed => context.Grip.Retire(
-                    context.Document, landed.Map(static index => index.Value), HostInteraction.Silent, context.Op),
-                release: sources => Custody.Dispose(held: sources, key: context.Op))
+                    context.Document, landed.Map(static index => index.Value), HostInteraction.Silent),
+                release: sources => Custody.Dispose(held: sources))
             select unit,
         export: static (context, edit) =>
-            from emit in context.Grip.Emit.ToFin(context.Op.Unsupported(
-                valueType: typeof(Seq<TComponent>), outputType: typeof(DraftPath)))
+            from emit in context.Grip.Emit.ToFin(new KernelFault.Unsupported(
+                valueType: typeof(Seq<TComponent>), OutputType: typeof(DraftPath)))
             from rows in edit.Targets.TraverseM(target => target.Resolve(
-                document: context.Document, lens: context.Grip.Lens, key: context.Op)).As()
-            from _ in guard(!rows.IsEmpty, context.Op.InvalidInput())
-            from __ in emit(edit.Path, rows, context.Op)
+                document: context.Document, lens: context.Grip.Lens)).As()
+            from _ in guard(!rows.IsEmpty, new KernelFault.InvalidInput())
+            from __ in emit(edit.Path, rows)
             select unit);
 }
 
 public static class TargetResolution {
     extension(TableTarget target) {
-        internal Fin<(Guid Id, TNative Native)> Only<TNative>(RhinoDoc document, Op key) where TNative : RhinoObject =>
-            from ids in target.Resolve(document: document, key: key)
-            from id in ids switch { [Guid only] => Fin.Succ(value: only), _ => Fin.Fail<Guid>(error: key.InvalidInput()) }
-            from native in Optional(document.Objects.FindId(id)).ToFin(Fail: key.MissingContext())
-            from typed in key.Need(native as TNative)
+        internal Fin<(Guid Id, TNative Native)> Only<TNative>(RhinoDoc document) where TNative : RhinoObject =>
+            from ids in target.Resolve(document: document)
+            from id in ids switch { [Guid only] => Fin.Succ(value: only), _ => Fin.Fail<Guid>(error: new KernelFault.InvalidInput()) }
+            from native in Optional(document.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())
+            from typed in Admit.Need(native as TNative)
             select (id, typed);
     }
 }
 
 public static class DraftBorrow {
     extension(GeometryHandle handle) {
-        internal Fin<TResult> Typed<TNative, TResult>(Op key, Func<TNative, Fin<TResult>> project)
+        internal Fin<TResult> Typed<TNative, TResult>(Func<TNative, Fin<TResult>> project)
             where TNative : GeometryBase =>
-            handle.With(key: key, project: native => Optional(native as TNative)
-                .ToFin(Fail: key.InvalidInput())
+            handle.With(project: native => Optional(native as TNative)
+                .ToFin(Fail: new KernelFault.InvalidInput())
                 .Bind(project));
     }
 
     extension(Seq<GeometryHandle> handles) {
-        internal Fin<TResult> Typed<TNative, TResult>(Op key, Func<Seq<TNative>, Fin<TResult>> project)
+        internal Fin<TResult> Typed<TNative, TResult>(Func<Seq<TNative>, Fin<TResult>> project)
             where TNative : GeometryBase =>
             handles.Head.Match(
-                Some: head => head.Typed<TNative, TResult>(key: key, project: native =>
+                Some: head => head.Typed<TNative, TResult>(project: native =>
                     handles.Tail.Typed<TNative, TResult>(key: key, project: rest => project(Seq(native) + rest))),
                 None: () => project(Seq<TNative>()));
     }
@@ -294,7 +291,7 @@ public sealed partial class DraftScale {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value > 0.0
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DraftScale), value, "a finite positive drafting scale" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(DraftScale), value, "a finite positive drafting scale" }));
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -303,7 +300,7 @@ public sealed partial class DraftAngle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value)
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DraftAngle), value, "a finite radian rotation" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(DraftAngle), value, "a finite radian rotation" }));
 }
 
 [SmartEnum<int>]
@@ -408,8 +405,8 @@ public abstract partial record StyleValue {
 
 public readonly record struct FieldSeat<TOwner>(
     Func<StyleValue, bool> Accepts,
-    Func<TOwner, Op, Fin<StyleValue>> Read,
-    Func<TOwner, StyleValue, Op, Fin<Unit>> Write) where TOwner : class;
+    Func<TOwner, Fin<StyleValue>> Read,
+    Func<TOwner, StyleValue, Fin<Unit>> Write) where TOwner : class;
 
 public static class FieldTable<TOwner, THostEnum>
     where TOwner : class
@@ -432,7 +429,7 @@ public static class FieldTable<TOwner, THostEnum>
             static (value, _) => Fin.Succ<StyleValue>(value: StyleValue.Of(value)),
             static (value, key) => value is StyleValue.Choice { Value: TEnum member }
                 ? Fin.Succ(value: member)
-                : Fin.Fail<TEnum>(error: key.InvalidInput()),
+                : Fin.Fail<TEnum>(error: new KernelFault.InvalidInput()),
             static value => value is StyleValue.Choice { Value: TEnum member } choice
                 && choice.Family == EnumFamily.For<TEnum>()
                 && choice.Family.Admits(member));
@@ -454,7 +451,7 @@ public static class FieldTable<TOwner, THostEnum>
         Of(get, set,
             static (value, key) => PerceptualColor.OfHost(host: value, key: key)
                 .Map(static color => (StyleValue)new StyleValue.Tint(Value: color)),
-            static (value, key) => ((StyleValue.Tint)value).Value.ToDrawing(key: key),
+            static (value, key) => ((StyleValue.Tint)value).Value.ToDrawing(),
             static value => value is StyleValue.Tint);
 
     public static FieldSeat<TOwner> Anchor(Func<TOwner, Guid> get, Action<TOwner, Guid> set) =>
@@ -480,23 +477,23 @@ public static class FieldTable<TOwner, THostEnum>
     public static FieldSeat<TOwner> Of<T>(
         Func<TOwner, T> get,
         Action<TOwner, T> set,
-        Func<T, Op, Fin<StyleValue>> wrap,
-        Func<StyleValue, Op, Fin<T>> unwrap,
+        Func<T, Fin<StyleValue>> wrap,
+        Func<StyleValue, Fin<T>> unwrap,
         Func<StyleValue, bool> accepts) =>
         new(
             Accepts: accepts,
             Read: (owner, key) =>
-                from value in key.Catch(() => wrap(get(owner), key))
-                from _ in guard(accepts(value), key.InvalidResult())
+                from value in Try.lift(() => wrap(get(owner))).Run().Bind(static inner => inner)
+                from _ in guard(accepts(value), new KernelFault.InvalidResult())
                 select value,
             Write: (owner, value, key) =>
-                from typed in unwrap(value, key)
-                from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => set(owner, typed))))
+                from typed in unwrap(value)
+                from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => set(owner, typed)))).Run().Bind(static inner => inner)
                 select unit);
 
-    public static Fin<TRow> Row<TRow>(THostEnum field, Op key)
+    public static Fin<TRow> Row<TRow>(THostEnum field)
         where TRow : class, ISmartEnum<int, TRow, ValidationError> =>
-        key.Row<THostEnum, TRow>(
+        FactoryBridge.Row<THostEnum, TRow>(
             candidate: field, ordinal: static value => Convert.ToInt32(value, CultureInfo.InvariantCulture));
 }
 
@@ -605,10 +602,10 @@ public sealed partial class StyleField {
     internal partial bool Accepts(StyleValue value);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<StyleValue> Read(DimensionStyle style, Op key);
+    internal partial Fin<StyleValue> Read(DimensionStyle style);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Write(DimensionStyle style, StyleValue value, Op key);
+    internal partial Fin<Unit> Write(DimensionStyle style, StyleValue value);
 
     public static Seq<StyleField> On(StyleAxis axis) => ByAxis.Value[axis];
 
@@ -655,9 +652,8 @@ public sealed record StyleEdit {
     public StyleField Field { get; }
     public StyleValue Value { get; }
 
-    public static Fin<StyleEdit> Of(StyleField field, StyleValue value, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(field.Accepts(value: value), op.InvalidInput()).ToFin()
+    public static Fin<StyleEdit> Of(StyleField field, StyleValue value) {
+        return guard(field.Accepts(value: value), new KernelFault.InvalidInput()).ToFin()
             .Map(_ => new StyleEdit(field: field, value: value));
     }
 }
@@ -671,35 +667,33 @@ public sealed record StylePatch {
         Of(run: LanguageExt.Iterable<StyleEdit>.FromSpan(edits).ToSeq());
 
     public static Fin<StylePatch> Of(Seq<StyleEdit> run) {
-        Op op = Op.Of(name: nameof(StylePatch));
-        return from admitted in run.Traverse(edit => op.AcceptInput(value: edit).ToValidation()).As().ToFin()
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
+        return from admitted in run.Traverse(edit => Acceptance.Input(value: edit).ToValidation()).As().ToFin()
+               from _ in guard(!admitted.IsEmpty, new KernelFault.InvalidInput())
                select new StylePatch(edits: admitted);
     }
 
     public Fin<StylePatch> Within(StyleAxis axis) =>
         Of(run: Edits.Filter(edit => edit.Field.Axis == axis));
 
-    internal Fin<Unit> Apply(DimensionStyle style, Op key) =>
-        Edits.TraverseM(edit => edit.Field.Write(style: style, value: edit.Value, key: key)).As().Map(static _ => unit);
+    internal Fin<Unit> Apply(DimensionStyle style) =>
+        Edits.TraverseM(edit => edit.Field.Write(style: style, value: edit.Value)).As().Map(static _ => unit);
 
-    internal Fin<DimensionStyle> Overlay(AnnotationBase annotation, Op key) =>
-        from parent in Optional(annotation.ParentDimensionStyle).ToFin(Fail: key.MissingContext())
-        from child in key.Catch(() => Fin.Succ(value: parent.Duplicate(
-            newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId)))
-        from _ in Apply(style: child, key: key)
-            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key), key: key)
-        from attached in key.Confirm(success: annotation.SetOverrideDimStyle(overrideStyle: child))
-            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key), key: key)
+    internal Fin<DimensionStyle> Overlay(AnnotationBase annotation) =>
+        from parent in Optional(annotation.ParentDimensionStyle).ToFin(Fail: new KernelFault.MissingContext())
+        from child in Try.lift(() => Fin.Succ(value: parent.Duplicate(
+            newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId))).Run().Bind(static inner => inner)
+        from _ in Apply(style: child)
+            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key))
+        from attached in Admit.Confirm(success: annotation.SetOverrideDimStyle(overrideStyle: child))
+            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key))
         select child;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DraftStandard {
-    public static Fin<StylePatch> Patch(SheetSize size, LetteringForm form, DrawingScale scale, Op? key = null) {
-        Op op = key.OrDefault();
-        return from height in TextHeight.For(size: size, key: op)
-               from group in LineGroup.For(size: size, key: op)
+    public static Fin<StylePatch> Patch(SheetSize size, LetteringForm form, DrawingScale scale) {
+        return from height in TextHeight.For(size: size)
+               from group in LineGroup.For(size: size)
                let resolution = new DrawingPrecision(Scale: scale, Units: DrawingUnits.For(standard: size.Standard)).Form()
                let metrics = form.Metrics(height: height)
                let arrow = Terminator.ClosedArrow.Size(width: group.Wide)
@@ -724,7 +718,7 @@ public static class DraftStandard {
                    (StyleField.LengthResolution, new StyleValue.Whole(places)),
                    (StyleField.AlternateLengthResolution, new StyleValue.Whole(places)),
                    (StyleField.AngleResolution, new StyleValue.Whole(places)))
-                   .Traverse(row => StyleEdit.Of(field: row.Field, value: row.Value, key: op).ToValidation()).As().ToFin()
+                   .Traverse(row => StyleEdit.Of(field: row.Field, value: row.Value).ToValidation()).As().ToFin()
                from patch in StylePatch.Of(run: edits)
                select patch;
     }
@@ -754,11 +748,11 @@ public sealed partial class StyleDef {
     public StylePatch Patch { get; }
     public Option<ResourceId> Parent { get; }
 
-    internal Fin<Unit> Apply(DimensionStyle style, Op key) =>
-        from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => style.Name = Name.Value)))
-        from __ in key.Catch(() => Fin.Succ(value: Op.Side(() =>
-            style.ParentId = Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty))))
-        from ___ in Patch.Apply(style: style, key: key)
+    internal Fin<Unit> Apply(DimensionStyle style) =>
+        from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => style.Name = Name.Value))).Run().Bind(static inner => inner)
+        from __ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
+            style.ParentId = Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty)))).Run().Bind(static inner => inner)
+        from ___ in Patch.Apply(style: style)
         select unit;
 }
 
@@ -782,71 +776,71 @@ public abstract partial record StyleOp {
     internal static readonly TableGrip<DimensionStyle, StyleDef> Grip = new(
         Lens,
         Named: static def => def.Name,
-        Title: static (style, key) => key.AcceptValidated<ResourceName>(candidate: style.Name),
+        Title: static (style, key) => FactoryBridge.Accept<ResourceName>(candidate: style.Name),
         Index: static style => style.Index,
         Duplicate: static style => style.Duplicate(),
         Tags: static style => new TagSurface(
             style.GetUserStrings, style.SetUserString, style.DeleteUserString, style.DeleteAllUserStrings),
         Mint: static (_, def, key) =>
-            from shaped in key.Catch(() => Fin.Succ(value: new DimensionStyle()))
+            from shaped in Try.lift(() => Fin.Succ(value: new DimensionStyle())).Run().Bind(static inner => inner)
             from _ in def.Apply(style: shaped, key: key)
                 .Rollback(release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
             select shaped,
         Revise: static (_, copy, def, key) => def.Apply(style: copy, key: key),
-        Retitle: static (copy, name, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => copy.Name = name.Value))),
-        Modify: static (document, copy, index, interaction, key) => key.Confirm(success: document.DimStyles.Modify(
+        Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
+        Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.DimStyles.Modify(
             newSettings: copy, dimstyleIndex: index, quiet: interaction.IsQuiet)),
-        Seat: static (document, style, key) => key.Catch(() => ResourceIndex.Admit(
-            document.DimStyles.Add(dimstyle: style, reference: false), key)),
+        Seat: static (document, style, key) => Try.lift(() => ResourceIndex.Admit(
+            document.DimStyles.Add(dimstyle: style, reference: false))).Run().Bind(static inner => inner),
         Retire: static (document, indices, interaction, key) => indices
-            .TraverseM(index => key.Confirm(success: document.DimStyles.Delete(index: index, quiet: interaction.IsQuiet)))
+            .TraverseM(index => Admit.Confirm(success: document.DimStyles.Delete(index: index, quiet: interaction.IsQuiet)))
             .As().Map(static _ => unit),
-        Elect: static (document, index, interaction, key) => key.Confirm(success: document.DimStyles.SetCurrent(
+        Elect: static (document, index, interaction, key) => Admit.Confirm(success: document.DimStyles.SetCurrent(
             index: index, quiet: interaction.IsQuiet)));
 
-    internal Fin<Unit> Apply(RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document) =>
         Switch(
-            (Document: document, Op: op),
-            table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
+            document,
+            table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context),
             copy: static (context, edit) =>
-                from source in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
-                from _ in Grip.Revised(target: edit.Target, document: context.Document,
-                    interaction: edit.Interaction, op: context.Op,
-                    revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => style.CopyFrom(source)))))
+                from source in edit.Source.Resolve(document: context, lens: Lens)
+                from _ in Grip.Revised(target: edit.Target, document: context,
+                    interaction: edit.Interaction,
+                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => style.CopyFrom(source)))).Run().Bind(static inner => inner))
                 select unit,
             clearOverrides: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document,
-                    interaction: edit.Interaction, op: context.Op,
+                Grip.Revised(target: edit.Target, document: context,
+                    interaction: edit.Interaction,
                     revise: (style, key) => edit.Fields.IsEmpty
-                        ? key.Catch(() => Fin.Succ(value: Op.Side(style.ClearAllFieldOverrides)))
-                        : edit.Fields.TraverseM(field => key.Catch(() => Fin.Succ(value: Op.Side(
-                            () => style.ClearFieldOverride(field: field.Host))))).As().Map(static _ => unit)),
+                        ? Try.lift(() => Fin.Succ(value: HostEdge.Side(style.ClearAllFieldOverrides))).Run().Bind(static inner => inner)
+                        : edit.Fields.TraverseM(field => Try.lift(() => Fin.Succ(value: HostEdge.Side(
+                            () => style.ClearFieldOverride(field: field.Host)))).Run().Bind(static inner => inner)).As().Map(static _ => unit)),
             absorb: static (context, edit) =>
-                from style in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
-                from row in edit.Annotation.Only<AnnotationObjectBase>(document: context.Document, key: context.Op)
-                from annotation in context.Op.Need(row.Native.AnnotationGeometry)
-                from _ in context.Op.Catch(() => context.Document.DimStyles.Modify(dimstyle: style, annotation: annotation) switch {
+                from style in edit.Target.Resolve(document: context, lens: Lens)
+                from row in edit.Annotation.Only<AnnotationObjectBase>(document: context)
+                from annotation in Admit.Need(row.Native.AnnotationGeometry)
+                from _ in Try.lift(() => context.DimStyles.Modify(dimstyle: style, annotation: annotation) switch {
                     ModifyType.Modify or ModifyType.Override => Fin.Succ(value: unit),
-                    var refused => Fin.Fail<Unit>(error: context.Op.InvalidResult(detail: refused.ToString())),
-                })
+                    var refused => Fin.Fail<Unit>(error: new KernelFault.InvalidResult(Detail: Some(refused.ToString()))),
+                }).Run().Bind(static inner => inner)
                 select unit,
             reparent: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document,
-                    interaction: edit.Interaction, op: context.Op,
-                    revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(() =>
-                        style.ParentId = edit.Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty))))),
+                Grip.Revised(target: edit.Target, document: context,
+                    interaction: edit.Interaction,
+                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
+                        style.ParentId = edit.Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty)))).Run().Bind(static inner => inner)),
             scaleLengths: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document,
-                    interaction: edit.Interaction, op: context.Op,
-                    revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(
-                        () => style.ScaleLengthValues(scale: edit.Factor.Value))))),
+                Grip.Revised(target: edit.Target, document: context,
+                    interaction: edit.Interaction,
+                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(
+                        () => style.ScaleLengthValues(scale: edit.Factor.Value)))).Run().Bind(static inner => inner)),
             pageScale: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document,
-                    interaction: edit.Interaction, op: context.Op,
-                    revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => {
+                Grip.Revised(target: edit.Target, document: context,
+                    interaction: edit.Interaction,
+                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
                         style.ScaleLeftLengthMillimeters = edit.Left.Value;
                         style.ScaleRightLengthMillimeters = edit.Right.Value;
-                    })))));
+                    }))).Run().Bind(static inner => inner)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -855,11 +849,11 @@ public abstract partial record AnnotationStyleOp {
     public sealed record Restyle(StylePatch Patch) : AnnotationStyleOp;
     public sealed record Unstyle : AnnotationStyleOp;
 
-    internal Fin<Unit> Apply(AnnotationBase annotation, Op op) => Switch(
-        (Annotation: annotation, Op: op),
+    internal Fin<Unit> Apply(AnnotationBase annotation) => Switch(
+        annotation,
         restyle: static (context, edit) =>
-            edit.Patch.Overlay(annotation: context.Annotation, key: context.Op).Map(static _ => unit),
-        unstyle: static (context, _) => context.Op.Confirm(success: context.Annotation.ClearPropertyOverrides()));
+            edit.Patch.Overlay(annotation: context).Map(static _ => unit),
+        unstyle: static (context, _) => Admit.Confirm(success: context.ClearPropertyOverrides()));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -881,11 +875,10 @@ public sealed record DraftPlan<TOp> where TOp : class {
     public Seq<TOp> Operations { get; }
 
     public static Fin<DraftPlan<TOp>> Of(string name, DraftMode mode, params ReadOnlySpan<TOp> operations) {
-        Op op = Op.Of(name: nameof(DraftPlan<TOp>));
-        return from label in op.AcceptText(value: name)
-               from admittedMode in op.AcceptInput(value: mode)
-               from admittedRun in op.Accept(values: operations)
-               from _ in guard(!admittedRun.IsEmpty, op.InvalidInput())
+        return from label in Acceptance.Text(value: name)
+               from admittedMode in Acceptance.Input(value: mode)
+               from admittedRun in Acceptance.Rows(values: operations)
+               from _ in guard(!admittedRun.IsEmpty, new KernelFault.InvalidInput())
                select new DraftPlan<TOp>(name: label, mode: admittedMode, operations: admittedRun);
     }
 }
@@ -898,10 +891,9 @@ public static class Styles {
             op: Op.Of(name: nameof(Styles)));
 
     public static Fin<StyleAnswer> Ask(DocumentSession session, StyleAsk request) {
-        Op op = Op.Of(name: nameof(Styles));
-        return from admitted in op.AcceptInput(value: request)
+        return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
                select answer;
     }
 }
@@ -928,32 +920,32 @@ public abstract partial record StyleAsk {
     public sealed record Swatch(ResourceRef Target, PreviewSpec Preview) : StyleAsk;
     public sealed record MintName(Option<ResourceName> Root = default) : StyleAsk;
 
-    internal Fin<StyleAnswer> Answer(RhinoDoc document, Op op) =>
+    internal Fin<StyleAnswer> Answer(RhinoDoc document) =>
         Switch(
-            context: (Document: document, Op: op),
+            context: document,
             snapshot: static (ctx, ask) =>
-                from style in ask.Target.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
-                from state in StyleSnapshot.Of(style: style, document: ctx.Document, axis: ask.Axis, key: ctx.Op)
+                from style in ask.Target.Resolve(document: ctx, lens: StyleOp.Lens)
+                from state in StyleSnapshot.Of(style: style, document: ctx, axis: ask.Axis)
                 select (StyleAnswer)new StyleAnswer.State(Snapshot: state),
-            builtIns: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<StyleAnswer>(value: new StyleAnswer.Rows(
-                Styles: toSeq(ctx.Document.DimStyles.BuiltInStyles)
+            builtIns: static (ctx, _) => Try.lift(() => Fin.Succ<StyleAnswer>(value: new StyleAnswer.Rows(
+                Styles: toSeq(ctx.DimStyles.BuiltInStyles)
                     .Map(static style => new DimStyleRow(
                         Key: ResourceId.Create(style.Id),
                         Name: ResourceName.Create(style.Name),
                         Index: ResourceIndex.Create(style.Index))),
-                CurrentId: ResourceId.Create(ctx.Document.DimStyles.CurrentId)))),
+                CurrentId: ResourceId.Create(ctx.DimStyles.CurrentId)))).Run().Bind(static inner => inner),
             swatch: static (ctx, ask) =>
-                from style in ask.Target.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
-                from bitmap in ctx.Op.Catch(() => Optional(style.CreatePreviewBitmap(
+                from style in ask.Target.Resolve(document: ctx, lens: StyleOp.Lens)
+                from bitmap in Try.lift(() => Optional(style.CreatePreviewBitmap(
                         width: ask.Preview.Extent.PixelWidth,
                         height: ask.Preview.Extent.PixelHeight,
                         transparent: ask.Preview.Surface.UsesTransparency))
-                    .ToFin(Fail: ctx.Op.InvalidResult()))
+                    .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                 select (StyleAnswer)new StyleAnswer.Rendered(Swatch: new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap)),
             mintName: static (ctx, ask) =>
-                from minted in ctx.Op.Catch(() => ctx.Op.AcceptText(value: ask.Root.Match(
-                    Some: root => ctx.Document.DimStyles.GetUnusedStyleName(rootName: root.Value),
-                    None: () => ctx.Document.DimStyles.GetUnusedStyleName())))
+                from minted in Try.lift(() => Acceptance.Text(value: ask.Root.Match(
+                    Some: root => ctx.DimStyles.GetUnusedStyleName(rootName: root.Value),
+                    None: () => ctx.DimStyles.GetUnusedStyleName()))).Run().Bind(static inner => inner)
                 select (StyleAnswer)new StyleAnswer.Minted(Name: ResourceName.Create(minted)));
 }
 
@@ -981,9 +973,9 @@ public sealed partial class PreviewSpec {
 
     public static Fin<PreviewSpec> Of(
         PixelSpan width, PixelSpan height, PreviewSurface surface,
-        Option<PixelSpan> ceiling = default, Op? key = null) =>
+        Option<PixelSpan> ceiling = default) =>
         from extent in AssetExtent.Of(
-            width: width, height: height, scale: PositiveMagnitude.Create(1.0), max: ceiling, key: key)
+            width: width, height: height, scale: PositiveMagnitude.Create(1.0), max: ceiling)
         select Create(extent: extent, surface: surface);
 }
 
@@ -994,7 +986,7 @@ public sealed partial class StyleTagKey {
         value = value?.Trim() ?? string.Empty;
         validationError = value.Length > 0
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(StyleTagKey) }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(StyleTagKey) }));
     }
 }
 
@@ -1023,20 +1015,20 @@ public sealed record StyleSnapshot(
     ModelUnit LengthUnit,
     ModelUnit AlternateLengthUnit) : IDetachedDocumentResult {
     public static Fin<StyleSnapshot> Of(
-        DimensionStyle style, RhinoDoc document, Option<StyleAxis> axis, Op key) =>
-        from active in key.Need(style)
+        DimensionStyle style, RhinoDoc document, Option<StyleAxis> axis) =>
+        from active in Admit.Need(style)
         let scope = axis.Match(Some: StyleField.On, None: static () => toSeq(StyleField.Items))
         from settings in scope
-            .TraverseM(row => row.Read(style: active, key: key)
+            .TraverseM(row => row.Read(style: active)
                 .Map(value => new StyleSetting(Field: row, Value: value)))
             .As()
-        from root in key.Catch(() => Optional(document.DimStyles.FindRoot(styleId: active.Id, ignoreDeleted: true))
-            .ToFin(Fail: key.InvalidResult()))
+        from root in Try.lift(() => Optional(document.DimStyles.FindRoot(styleId: active.Id, ignoreDeleted: true))
+            .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
         from lengthUnit in ModelUnit.Of(
-            value: active.DimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber), key: key)
+            value: active.DimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber))
         from alternateLengthUnit in ModelUnit.Of(
-            value: active.AlternateDimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber), key: key)
-        from snapshot in key.Catch(() => Fin.Succ(value: new StyleSnapshot(
+            value: active.AlternateDimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber))
+        from snapshot in Try.lift(() => Fin.Succ(value: new StyleSnapshot(
             Key: ResourceId.Create(active.Id),
             Index: ResourceIndex.Create(active.Index),
             Name: ResourceName.Create(active.Name),
@@ -1053,7 +1045,7 @@ public sealed record StyleSnapshot(
             Current: document.DimStyles.CurrentId == active.Id,
             ScaleValue: active.DimensionScaleValue,
             LengthUnit: lengthUnit,
-            AlternateLengthUnit: alternateLengthUnit)))
+            AlternateLengthUnit: alternateLengthUnit))).Run().Bind(static inner => inner)
         select snapshot;
 }
 ```
@@ -1073,7 +1065,7 @@ public sealed partial class DraftCount {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DraftCount), value, "a non-negative tally" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(DraftCount), value, "a non-negative tally" }));
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -1083,7 +1075,7 @@ public sealed partial class DraftPath {
         value = value?.Trim() ?? string.Empty;
         validationError = value.Length > 0
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DraftPath) }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(DraftPath) }));
     }
 }
 
@@ -1091,18 +1083,16 @@ public sealed partial class DraftPath {
 internal static class DraftSpine {
     internal static Fin<Unit> Commit<TOp>(
         DocumentSession session, DraftPlan<TOp> plan,
-        Func<RhinoDoc, TOp, Op, Fin<Unit>> apply, Op op) where TOp : class =>
+        Func<RhinoDoc, TOp, Fin<Unit>> apply) where TOp : class =>
         session.Demand(
             use: document => DocumentCommit.Sealed(
                 document: document,
                 name: plan.Name,
                 recordsUndo: plan.Mode.Custody.Records,
                 redraw: plan.Mode.Redraw,
-                run: () => plan.Operations.TraverseM(operation => apply(document, operation, op)).As()
+                run: () => plan.Operations.TraverseM(operation => apply(document, operation)).As()
                     .Map(static _ => unit),
-                project: Fin.Succ,
-                op: op),
-            key: op,
+                project: Fin.Succ),
             needs: SessionNeed.Mutation(custody: plan.Mode.Custody, redraw: plan.Mode.Redraw).ToArray());
 }
 ```

@@ -29,9 +29,6 @@ The presentation surface is the client-facing design-review deliverable, and it 
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public static class TourOps {
-    public static readonly Op Key = Op.Of(name: "appui.tour.key");
-    public static readonly Op Stop = Op.Of(name: "appui.tour.stop");
-    public static readonly Op Frame = Op.Of(name: "appui.tour.frame");
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -82,7 +79,7 @@ public sealed partial class TourStop {
 
     public static Fin<TourStop> Admit(
         Viewpoint view, Duration dwell, MotionToken transition, Option<NarrationTrack> narration) =>
-        TourOps.Stop.AcceptValidated<TourStop>(
+        FactoryBridge.Accept<TourStop>(
             Validate(view, dwell, transition, narration, obj: out TourStop? stop), stop);
 }
 
@@ -100,7 +97,7 @@ public readonly record struct StopSeat(int Index, TourStop Stop, Duration Offset
 
 public sealed record ReviewTour {
     private ReviewTour(TourKey key, TourStop lead, Seq<TourStop> rest) {
-        (Key, Lead, Rest) = (key, lead, rest);
+        (Key, Lead, Rest) = (lead, rest);
         (Seats, Opening, Trailing) = Seated(lead, rest);
         Total = Trailing.End;
     }
@@ -120,8 +117,8 @@ public sealed record ReviewTour {
     public Duration Total { get; }
 
     public static Fin<ReviewTour> Of(string key, Seq<TourStop> stops) =>
-        (TourOps.Key.AcceptValidated<TourKey>(candidate: key).ToValidation(),
-         stops.Head.ToValidation<Error, TourStop>(new TourFault.Empty(key)))
+        (FactoryBridge.Accept<TourKey>(candidate: key).ToValidation(),
+         stops.Head.ToValidation<Error, TourStop>(new TourFault.Empty()))
         .Apply(static (admitted, lead) => (Key: admitted, Lead: lead))
         .ToFin()
         .Map(seed => new ReviewTour(seed.Key, seed.Lead, stops.Tail));
@@ -257,7 +254,7 @@ public sealed record TourFollow(
         IO.lift(() => Ticked(transport())).RepeatWhile(cadence, static state => state.Playing);
 
     TransportState Ticked(TransportState state) {
-        ignore(TourOps.Frame.AcceptValidated<FrameIndex, long>(state.Head.Index)
+        ignore(FactoryBridge.Accept<FrameIndex, long>(state.Head.Index)
             .Bind(Publish)
             .IfFail(error => Sink.Faults.Park(Sink.Point, error)));
         return state;
@@ -301,7 +298,7 @@ public sealed record TourFollow(
             .Bind(held => held.Field(CollabColumn.Tour, static leaf => leaf.Text)
                 .Filter(key => key == Tour.Key.Value)
                 .Bind(_ => held.Field(CollabColumn.Frame, static leaf => leaf.Whole)))
-            .Bind(static frame => TourOps.Frame.AcceptValidated<FrameIndex, long>(frame).ToOption())
+            .Bind(static frame => FactoryBridge.Accept<FrameIndex, long>(frame).ToOption())
             .Map(frame => new PresenterSeat(seat, frame));
 }
 ```
@@ -329,7 +326,7 @@ public sealed record NarrationTrack {
     public Option<string> Body { get; }
 
     public static Fin<NarrationTrack> Of(string title, Option<string> body) =>
-        TourOps.Stop.AcceptText(title).Map(admitted => new NarrationTrack(admitted, body));
+        Acceptance.Text(title).Map(admitted => new NarrationTrack(admitted, body));
 
     public Seq<NarrationRow> Resolve(FontChain chain) =>
         new NarrationRow(TypographyRole.Title, TextStyleRow.Resolve(TypographyRole.Title, chain), Title)
@@ -407,7 +404,7 @@ public abstract partial record TourSource {
         Duration Dwell,
         MotionToken Transition) : TourSource {
         public static TopicTour Of(string key, Seq<Rasm.Bim.Coordination.BcfTopic> topics) =>
-            new(key, topics, MotionToken.SpringGentle.Duration, MotionToken.Emphasized);
+            new(topics, MotionToken.SpringGentle.Duration, MotionToken.Emphasized);
     }
 
     public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Func<string, int> revision, Instant at) =>
@@ -527,7 +524,7 @@ public sealed record PresenterStrip(TourFollow Follow, StopSeat Cursor) {
         new ControlIntent.Toolbar(
             $"{SessionKey}.transport",
             Seq(PreviousIntent, NextIntent, PeekIntent)
-                .Map(static key => new ToolbarRow(Verb(key), OverflowMode.Never)),
+                .Map(static key => new ToolbarRow(Verb(), OverflowMode.Never)),
             Orientation.Horizontal,
             IntentBinding.Of(PaintRole.Panel));
 
@@ -542,9 +539,8 @@ public sealed record PresenterStrip(TourFollow Follow, StopSeat Cursor) {
             IntentBinding.Of(PaintRole.Panel));
 
     static ControlIntent Verb(string key) =>
-        new ControlIntent.Button(
-            key, $"{key}.label",
-            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some(key) });
+        new ControlIntent.Button($"{key}.label",
+            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some() });
 
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(SessionKey, screen => composition.Tour(screen.Surface).Body(composition.Window));
@@ -568,7 +564,7 @@ public sealed record StepAnnotations(StopSeat Seat, RedlineToolState Tools) {
     public IO<Fin<TriageBoard>> Commit(
         TriageBoard board, Guid issueGuid, Seq<PenSample> samples, ulong author, IClock clock,
         RedlinePlacement placement) =>
-        (from stroke in FinT.lift<IO, RedlineStroke>(StrokeCapture.Capture(Tools, samples, author, clock))
+        (from stroke in FinT.lift<IO, RedlineStroke>(Error.New(Tools.Message, Tools))
          from seated in new FinT<IO, TriageBoard>(
              StrokeCapture.Commit(board, issueGuid, Seat.Stop.View.Key, stroke, placement))
          select seated).runFin.As();

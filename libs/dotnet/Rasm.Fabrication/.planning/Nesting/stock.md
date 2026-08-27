@@ -823,7 +823,6 @@ public static class StockNest {
             .Ordinal(yield.SheetLowerBound),
             SnapshotOp);
 
-    private static readonly Op SnapshotOp = Op.Of(name: nameof(Digest));
 
     const double MeasureFreeGrid = 1.0;
 
@@ -847,7 +846,7 @@ public static class StockNest {
     readonly struct EvaluationAction(NestStrategy[] strategies, Seq<PackedPart>[] assignments, Seq<StockFrame> frames,
         EligibilityGraph eligibility, Fin<Option<ProviderRun>>[] results) : IAction2D {
         public void Invoke(int i, int j) => results[(i * assignments.Length) + j] =
-            Op.Of(name: "stock:provider").Catch(() => Evaluate(strategies[i], assignments[j], frames, eligibility));
+            Try.lift(() => Evaluate(strategies[i], assignments[j], frames, eligibility)).Run().Bind(static inner => inner);
     }
 }
 

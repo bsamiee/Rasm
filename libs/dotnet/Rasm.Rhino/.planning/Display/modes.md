@@ -48,7 +48,7 @@ public readonly record struct HostRow<TNative> where TNative : struct, Enum {
 
     public TNative Native { get; }
 
-    public static Fin<HostRow<TNative>> Of(TNative native, Op? key = null) => Enum.IsDefined(value: native)
+    public static Fin<HostRow<TNative>> Of(TNative native) => Enum.IsDefined(value: native)
         ? Fin.Succ(new HostRow<TNative>(native: native))
         : Fin.Fail<HostRow<TNative>>(key.OrDefault().InvalidInput(axis: typeof(TNative).Name));
 
@@ -125,10 +125,10 @@ public abstract partial record Fill {
     public sealed record Renderer : Fill;
     public sealed record Transparent : Fill;
 
-    internal static Fin<Fill> Of(DisplayPipelineAttributes source, Op key) => key.Catch(() => {
+    internal static Fin<Fill> Of(DisplayPipelineAttributes source) => Try.lift(() => {
         source.GetFill(out System.Drawing.Color topLeft, out System.Drawing.Color bottomLeft, out System.Drawing.Color topRight, out System.Drawing.Color bottomRight);
         return (Mode: source.FillMode, Colors: toSeq([topLeft, bottomLeft, topRight, bottomRight]));
-    }).Bind(row => row.Colors.TraverseM(color => PerceptualColor.OfRgb(color.R, color.G, color.B, color.A, key)).As()
+    }).Run().Bind(static inner => inner).Bind(row => row.Colors.TraverseM(color => PerceptualColor.OfRgb(color.R, color.G, color.B, color.A)).As()
         .Bind(colors => row.Mode switch {
             DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor => Fin.Succ<Fill>(new Default()),
             DisplayPipelineAttributes.FrameBufferFillMode.SolidColor => Fin.Succ<Fill>(new Solid(colors[0])),
@@ -137,7 +137,7 @@ public abstract partial record Fill {
             DisplayPipelineAttributes.FrameBufferFillMode.Bitmap => Fin.Succ<Fill>(new Bitmap()),
             DisplayPipelineAttributes.FrameBufferFillMode.Renderer => Fin.Succ<Fill>(new Renderer()),
             DisplayPipelineAttributes.FrameBufferFillMode.Transparent => Fin.Succ<Fill>(new Transparent()),
-            _ => Fin.Fail<Fill>(key.InvalidResult())
+            _ => Fin.Fail<Fill>(new KernelFault.InvalidResult())
         }));
 }
 
@@ -281,7 +281,7 @@ public sealed partial class DisplayAxis : ICapability<DisplayAxis> {
     [UseDelegateFromConstructor] internal partial bool Read(DisplayPipelineAttributes source);
 
     internal static Unit Seat(ConcernRow concern, CapabilitySet<DisplayAxis> held, DisplayPipelineAttributes target) =>
-        concern.Domain.Fold(unit, (_, row) => Op.Side(() => row.Write(target, held.Admits(row))));
+        concern.Domain.Fold(unit, (_, row) => HostEdge.Side(() => row.Write(target, held.Admits(row))));
 
     internal static CapabilitySet<DisplayAxis> Sweep(ConcernRow concern, DisplayPipelineAttributes source) =>
         CapabilitySet<DisplayAxis>.Of(concern.Domain.Filter(row => row.Read(source)).ToArray());
@@ -346,7 +346,7 @@ public sealed partial class ConcernRow {
     public static readonly ConcernRow Hatch = new(key: "hatch", read: Appearance.ReadHatch);
     public static readonly ConcernRow Pipeline = new(key: "pipeline", read: Appearance.ReadPipeline);
 
-    [UseDelegateFromConstructor] internal partial Fin<Appearance> Read(DisplayPipelineAttributes source, Op key);
+    [UseDelegateFromConstructor] internal partial Fin<Appearance> Read(DisplayPipelineAttributes source);
 
     internal Seq<DisplayAxis> Domain => Domains.Value.Find(this).IfNone(Seq<DisplayAxis>());
     internal bool Admits(CapabilitySet<DisplayAxis> held) => toSeq(held.Held).ForAll(row => row.Concern == this);
@@ -446,64 +446,64 @@ public abstract partial record Appearance {
             && row.PostGamma > 0f
             && row.RealtimePasses > 0);
 
-    internal static Fin<Unit> Write(Seq<Appearance> concerns, DisplayPipelineAttributes target, Op key) =>
+    internal static Fin<Unit> Write(Seq<Appearance> concerns, DisplayPipelineAttributes target) =>
         concerns.TraverseM(concern => Op.Of(name: $"{key.Value}.{concern.Row.Key}")
             .Catch(() => Fin.Succ(concern.Write(target)))).As()
             .Map(static _ => unit);
 
-    internal static Fin<Seq<Appearance>> Of(DisplayPipelineAttributes source, Op key) =>
-        Optional(source).ToFin(key.InvalidInput())
+    internal static Fin<Seq<Appearance>> Of(DisplayPipelineAttributes source) =>
+        Optional(source).ToFin(new KernelFault.InvalidInput())
             .Bind(live => toSeq(ConcernRow.Items).TraverseM(row => Op.Of(name: $"{key.Value}.{row.Key}")
-                .Catch(op => row.Read(live, op))).As());
+                .Catch(op => row.Read(live))).As());
 
-    private static Fin<PerceptualColor> Ink(System.Drawing.Color value, Op key) =>
-        PerceptualColor.OfRgb(value.R, value.G, value.B, value.A, key);
+    private static Fin<PerceptualColor> Ink(System.Drawing.Color value) =>
+        PerceptualColor.OfRgb(value.R, value.G, value.B, value.A);
 
-    private static Fin<Option<PerceptualColor>> Ink(bool used, System.Drawing.Color value, Op key) =>
-        used ? Ink(value, key).Map(Some) : Fin.Succ(Option<PerceptualColor>.None);
+    private static Fin<Option<PerceptualColor>> Ink(bool used, System.Drawing.Color value) =>
+        used ? Ink(value).Map(Some) : Fin.Succ(Option<PerceptualColor>.None);
 
     internal Unit Write(DisplayPipelineAttributes target) => Switch(
         target,
         shading: static (a, row) => Write(a, row),
         edges: static (a, row) => Write(a, row),
         lighting: static (a, row) => Write(a, row),
-        ground: static (a, row) => Op.Side(() => {
+        ground: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Ground, row.Axes, a);
             (a.GroundPlaneUsage, a.CustomGroundPlaneAltitude, a.CustomGroundPlaneColor) = (row.Usage.Ground, row.Altitude, Quant.Sys(row.Color));
         }),
         grid: static (a, row) => Write(a, row),
         subD: static (a, row) => Write(a, row),
-        mesh: static (a, row) => Op.Side(() => {
+        mesh: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Mesh, row.Axes, a);
             (a.MeshEdgeThickness, a.MeshNakedEdgeThickness, a.MeshNonmanifoldEdgeThickness) = (row.Width, row.Width, row.Width);
             (a.MeshEdgeColor, a.MeshNakedEdgeColor, a.MeshNonmanifoldEdgeColor) = (Quant.Sys(row.WireColor), Quant.Sys(row.NakedColor), Quant.Sys(row.NonManifoldColor));
             a.MeshVertexSize = row.VertexSize;
         }),
-        clipping: static (a, row) => Op.Side(() => {
+        clipping: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Clipping, row.Axes, a);
             (a.ClippingPlaneFillColorUsage, a.ClippingFillColor, a.ClippingShadeTransparency) = (row.FillUse.Native, Quant.Sys(row.FillColor), row.ShadeTransparency);
             (a.ClippingEdgeColorUsage, a.ClippingEdgeColor, a.ClippingEdgeThickness) = (row.EdgeUse.Native, Quant.Sys(row.EdgeColor), row.EdgeWidth);
         }),
         technical: static (a, row) => DisplayAxis.Seat(ConcernRow.Technical, row.Axes, a),
-        locked: static (a, row) => Op.Side(() => {
+        locked: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Locked, row.Axes, a);
             (a.LockedObjectUsage, a.LockedColor, a.LockedObjectTransparency) = (row.Usage.Native, Quant.Sys(row.Color), row.Transparency);
         }),
-        points: static (a, row) => Op.Side(() => {
+        points: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Points, row.Axes, a);
             (a.PointStyle, a.PointRadius) = (row.PointStyle.Native, row.PointRadius);
             (a.PointCloudStyle, a.PointCloudRadius) = (row.CloudStyle.Native, row.CloudRadius);
         }),
-        grips: static (a, row) => Op.Side(() => {
+        grips: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Grips, row.Axes, a);
             (a.ControlPolygonStyle, a.ControlPolygonWireThickness, a.ControlPolygonGripSize) = (row.Style.Native, row.WireWidth, row.Size);
             a.ControlPolygonUseFixedSingleColor = row.FixedColor.IsSome;
             _ = row.FixedColor.Iter(color => a.ControlPolygonColor = Quant.Sys(color));
         }),
-        fade: static (a, row) => Op.Side(() => a.SetColorFadeEffect(Quant.Sys(row.Color), row.Amount)),
-        dither: static (a, row) => Op.Side(() => a.SetDitherTransparencyEffect(row.Amount)),
-        hatch: static (a, row) => Op.Side(() => a.SetDiagonalHatchEffect(row.Strength, row.Width)),
-        pipeline: static (a, row) => Op.Side(() => {
+        fade: static (a, row) => HostEdge.Side(() => a.SetColorFadeEffect(Quant.Sys(row.Color), row.Amount)),
+        dither: static (a, row) => HostEdge.Side(() => a.SetDitherTransparencyEffect(row.Amount)),
+        hatch: static (a, row) => HostEdge.Side(() => a.SetDiagonalHatchEffect(row.Strength, row.Width)),
+        pipeline: static (a, row) => HostEdge.Side(() => {
             _ = DisplayAxis.Seat(ConcernRow.Pipeline, row.Axes, a);
             (a.LinearWorkflowUsage, a.PreProcessGamma, a.PostProcessGamma, a.RealtimeRenderPasses) = (row.Workflow.Workflow, row.PreGamma, row.PostGamma, row.RealtimePasses);
             (a.BoundingBoxMode, a.DynamicDisplayUsage) = (row.Bounds.Native, row.Dynamic.Native);
@@ -517,17 +517,17 @@ public abstract partial record Appearance {
         (a.FrontMaterialShine, a.FrontMaterialTransparency, a.FrontDiffuse, a.BackMaterialDiffuseColor) =
             (row.Shine, row.Transparency, Quant.Sys(row.Diffuse), Quant.Sys(row.BackDiffuse));
         (a.BackMaterialShine, a.BackMaterialTransparency) = (row.BackShine, row.BackTransparency);
-        _ = toSeq(FaceAxis.Items).Fold(unit, (_, axis) => Op.Side(() => axis.Front(a, row.Front.Admits(axis))));
+        _ = toSeq(FaceAxis.Items).Fold(unit, (_, axis) => HostEdge.Side(() => axis.Front(a, row.Front.Admits(axis))));
         _ = toSeq(FaceAxis.Items).Fold(unit, (_, axis) => ignore(axis.Back.Iter(seat => seat(a, row.Back.Admits(axis)))));
         return row.Fill.Switch(
             a,
-            @default: static (target, _) => Op.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor),
-            solid: static (target, fill) => Op.Side(() => { target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.SolidColor; target.SetFill(Quant.Sys(fill.Color)); }),
-            gradient: static (target, fill) => Op.Side(() => { target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient2Color; target.SetFill(Quant.Sys(fill.Top), Quant.Sys(fill.Bottom)); }),
-            corners: static (target, fill) => Op.Side(() => { target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient4Color; target.SetFill(Quant.Sys(fill.TopLeft), Quant.Sys(fill.BottomLeft), Quant.Sys(fill.TopRight), Quant.Sys(fill.BottomRight)); }),
-            bitmap: static (target, _) => Op.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Bitmap),
-            renderer: static (target, _) => Op.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Renderer),
-            transparent: static (target, _) => Op.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Transparent));
+            @default: static (target, _) => HostEdge.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor),
+            solid: static (target, fill) => HostEdge.Side(() => { target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.SolidColor; target.SetFill(Quant.Sys(fill.Color)); }),
+            gradient: static (target, fill) => HostEdge.Side(() => { target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient2Color; target.SetFill(Quant.Sys(fill.Top), Quant.Sys(fill.Bottom)); }),
+            corners: static (target, fill) => HostEdge.Side(() => { target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Gradient4Color; target.SetFill(Quant.Sys(fill.TopLeft), Quant.Sys(fill.BottomLeft), Quant.Sys(fill.TopRight), Quant.Sys(fill.BottomRight)); }),
+            bitmap: static (target, _) => HostEdge.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Bitmap),
+            renderer: static (target, _) => HostEdge.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Renderer),
+            transparent: static (target, _) => HostEdge.Side(() => target.FillMode = DisplayPipelineAttributes.FrameBufferFillMode.Transparent));
     }
 
     private static Unit Write(DisplayPipelineAttributes a, Edges row) {
@@ -548,7 +548,7 @@ public abstract partial record Appearance {
     private static Unit Write(DisplayPipelineAttributes a, Lighting row) {
         _ = DisplayAxis.Seat(ConcernRow.Lighting, row.Axes, a);
         (a.LightingScheme, a.AmbientLightingColor) = (row.Scheme.Native, Quant.Sys(row.Ambient));
-        _ = toSeq(ShadowAxis.Items).Fold(unit, (_, axis) => Op.Side(() => axis.Write(a, row.Shadows.Axes.Admits(axis))));
+        _ = toSeq(ShadowAxis.Items).Fold(unit, (_, axis) => HostEdge.Side(() => axis.Write(a, row.Shadows.Axes.Admits(axis))));
         (a.ShadowColor, a.ShadowIntensity, a.ShadowMemoryUsage) = (Quant.Sys(row.Shadows.Color), row.Shadows.Intensity, row.Shadows.MemoryUsage);
         (a.SkylightShadowQuality, a.ShadowSoftEdgeQuality, a.ShadowEdgeBlur, a.ShadowBiasX) =
             (row.Shadows.SkylightQuality, row.Shadows.SoftEdgeQuality, row.Shadows.EdgeBlur, row.Shadows.Bias);
@@ -577,12 +577,12 @@ public abstract partial record Appearance {
     }
 
     // --- [READERS]
-    internal static Fin<Appearance> ReadShading(DisplayPipelineAttributes a, Op key) =>
-        from objectColor in Ink(a.UseCustomObjectColor, a.ObjectColor, key)
-        from backface in HostRow<DisplayPipelineAttributes.BackfaceStyle>.Of(a.BackfaceDisplayStyle, key)
-        from diffuse in Ink(a.FrontDiffuse, key)
-        from backDiffuse in Ink(a.BackMaterialDiffuseColor, key)
-        from fill in Fill.Of(a, key)
+    internal static Fin<Appearance> ReadShading(DisplayPipelineAttributes a) =>
+        from objectColor in Ink(a.UseCustomObjectColor, a.ObjectColor)
+        from backface in HostRow<DisplayPipelineAttributes.BackfaceStyle>.Of(a.BackfaceDisplayStyle)
+        from diffuse in Ink(a.FrontDiffuse)
+        from backDiffuse in Ink(a.BackMaterialDiffuseColor)
+        from fill in Fill.Of(a)
         select (Appearance)new Shading(
             Axes: DisplayAxis.Sweep(ConcernRow.Shading, a),
             ObjectColor: objectColor, Backface: backface,
@@ -592,25 +592,25 @@ public abstract partial record Appearance {
             Front: CapabilitySet<FaceAxis>.Of(toSeq(FaceAxis.Items).Filter(axis => axis.FrontRead(a)).ToArray()),
             Back: CapabilitySet<FaceAxis>.Of(toSeq(FaceAxis.Items).Filter(axis => axis.BackRead.Map(read => read(a)).IfNone(false)).ToArray()));
 
-    internal static Fin<Appearance> ReadEdges(DisplayPipelineAttributes a, Op key) =>
-        from widthUse in key.Row(WidthUse.Items, a.GetSurfaceNakedEdgeThicknessUsage(), static row => row.Naked)
-        from edgeUse in HostRow<DisplayPipelineAttributes.SurfaceEdgeColorUse>.Of(a.SurfaceEdgeColorUsage, key)
-        from isoUse in HostRow<DisplayPipelineAttributes.SurfaceIsoColorUse>.Of(a.GetSurfaceIsoColorUsage(), key)
-        from color in Ink(a.SurfaceEdgeColor, key)
-        from single in Ink(a.UseSingleCurveColor, a.CurveColor, key)
-        from isoUv in Ink(a.SurfaceIsoUVColor, key)
-        from isoU in Ink(a.SurfaceIsoUColor, key)
-        from isoV in Ink(a.SurfaceIsoVColor, key)
+    internal static Fin<Appearance> ReadEdges(DisplayPipelineAttributes a) =>
+        from widthUse in FactoryBridge.Row(WidthUse.Items, a.GetSurfaceNakedEdgeThicknessUsage(), static row => row.Naked)
+        from edgeUse in HostRow<DisplayPipelineAttributes.SurfaceEdgeColorUse>.Of(a.SurfaceEdgeColorUsage)
+        from isoUse in HostRow<DisplayPipelineAttributes.SurfaceIsoColorUse>.Of(a.GetSurfaceIsoColorUsage())
+        from color in Ink(a.SurfaceEdgeColor)
+        from single in Ink(a.UseSingleCurveColor, a.CurveColor)
+        from isoUv in Ink(a.SurfaceIsoUVColor)
+        from isoU in Ink(a.SurfaceIsoUColor)
+        from isoV in Ink(a.SurfaceIsoVColor)
         select (Appearance)new Edges(
             Axes: DisplayAxis.Sweep(ConcernRow.Edges, a),
             Width: a.CurveThickness, WidthUse: widthUse, Scale: a.CurveThicknessScale, Color: color,
             ReductionPercent: a.SurfaceEdgeColorReduction, SingleCurveColor: single,
             EdgeColorUse: edgeUse, IsoColorUse: isoUse, IsoUv: isoUv, IsoU: isoU, IsoV: isoV);
 
-    internal static Fin<Appearance> ReadLighting(DisplayPipelineAttributes a, Op key) =>
-        from scheme in HostRow<DisplayPipelineAttributes.LightingSchema>.Of(a.LightingScheme, key)
-        from ambient in Ink(a.AmbientLightingColor, key)
-        from shadow in Ink(a.ShadowColor, key)
+    internal static Fin<Appearance> ReadLighting(DisplayPipelineAttributes a) =>
+        from scheme in HostRow<DisplayPipelineAttributes.LightingSchema>.Of(a.LightingScheme)
+        from ambient in Ink(a.AmbientLightingColor)
+        from shadow in Ink(a.ShadowColor)
         select (Appearance)new Lighting(
             Axes: DisplayAxis.Sweep(ConcernRow.Lighting, a),
             Scheme: scheme, Ambient: ambient,
@@ -621,22 +621,22 @@ public abstract partial record Appearance {
                 edgeBlur: a.ShadowEdgeBlur, bias: a.ShadowBiasX, transparencyTolerance: a.ShadowTransparencyTolerance,
                 clippingRadius: a.ShadowClippingRadius));
 
-    internal static Fin<Appearance> ReadGround(DisplayPipelineAttributes a, Op key) =>
-        from usage in key.Row(ScopeUse.Items, a.GroundPlaneUsage, static row => row.Ground)
-        from color in Ink(a.CustomGroundPlaneColor, key)
+    internal static Fin<Appearance> ReadGround(DisplayPipelineAttributes a) =>
+        from usage in FactoryBridge.Row(ScopeUse.Items, a.GroundPlaneUsage, static row => row.Ground)
+        from color in Ink(a.CustomGroundPlaneColor)
         select (Appearance)new Ground(
             Axes: DisplayAxis.Sweep(ConcernRow.Ground, a),
             Usage: usage, Altitude: a.CustomGroundPlaneAltitude, Color: color);
 
-    internal static Fin<Appearance> ReadGrid(DisplayPipelineAttributes a, Op key) =>
-        from planeVisibility in HostRow<DisplayPipelineAttributes.GridPlaneVisibilityMode>.Of(a.GridPlaneVisibility, key)
-        from axesColorUse in HostRow<DisplayPipelineAttributes.WorldAxesIconColorUse>.Of(a.WorldAxesIconColorUsage, key)
-        from thin in Ink(a.ViewSpecificAttributes.ThinGridLineColor, key)
-        from thick in Ink(a.ViewSpecificAttributes.ThickGridLineColor, key)
-        from x in Ink(a.ViewSpecificAttributes.WorldAxisColorX, key)
-        from y in Ink(a.ViewSpecificAttributes.WorldAxisColorY, key)
-        from z in Ink(a.ViewSpecificAttributes.WorldAxisColorZ, key)
-        from planeColor in Ink(a.GridPlaneColor, key)
+    internal static Fin<Appearance> ReadGrid(DisplayPipelineAttributes a) =>
+        from planeVisibility in HostRow<DisplayPipelineAttributes.GridPlaneVisibilityMode>.Of(a.GridPlaneVisibility)
+        from axesColorUse in HostRow<DisplayPipelineAttributes.WorldAxesIconColorUse>.Of(a.WorldAxesIconColorUsage)
+        from thin in Ink(a.ViewSpecificAttributes.ThinGridLineColor)
+        from thick in Ink(a.ViewSpecificAttributes.ThickGridLineColor)
+        from x in Ink(a.ViewSpecificAttributes.WorldAxisColorX)
+        from y in Ink(a.ViewSpecificAttributes.WorldAxisColorY)
+        from z in Ink(a.ViewSpecificAttributes.WorldAxisColorZ)
+        from planeColor in Ink(a.GridPlaneColor)
         select (Appearance)new Grid(
             Axes: DisplayAxis.Sweep(ConcernRow.Grid, a),
             ThinFrequency: a.ViewSpecificAttributes.ThinGridLineFrequency,
@@ -645,81 +645,81 @@ public abstract partial record Appearance {
             PlaneVisibility: planeVisibility, PlaneColor: planeColor,
             AxesSizePercent: a.AxesSizePercentage, AxesColorUse: axesColorUse);
 
-    internal static Fin<Appearance> ReadSubD(DisplayPipelineAttributes a, Op key) =>
-        from widthUse in key.Row(WidthUse.Items, a.SubDSmoothInteriorThicknessUsage, static row => row.SubD)
-        from smooth in Ink(a.SubDSmoothInteriorEdgeColor, key)
-        from crease in Ink(a.SubDCreaseInteriorEdgeColor, key)
-        from nonManifold in Ink(a.SubDNonManifoldEdgeColor, key)
-        from boundary in Ink(a.SubDBoundaryEdgeColor, key)
+    internal static Fin<Appearance> ReadSubD(DisplayPipelineAttributes a) =>
+        from widthUse in FactoryBridge.Row(WidthUse.Items, a.SubDSmoothInteriorThicknessUsage, static row => row.SubD)
+        from smooth in Ink(a.SubDSmoothInteriorEdgeColor)
+        from crease in Ink(a.SubDCreaseInteriorEdgeColor)
+        from nonManifold in Ink(a.SubDNonManifoldEdgeColor)
+        from boundary in Ink(a.SubDBoundaryEdgeColor)
         select (Appearance)new SubD(
             Axes: DisplayAxis.Sweep(ConcernRow.SubD, a),
             Width: a.SubDSmoothInteriorEdgeThickness, WidthUse: widthUse,
             Scale: a.SubDSmoothInteriorThicknessScale, SmoothColor: smooth, CreaseColor: crease,
             NonManifoldColor: nonManifold, BoundaryColor: boundary);
 
-    internal static Fin<Appearance> ReadMesh(DisplayPipelineAttributes a, Op key) =>
-        from wire in Ink(a.MeshEdgeColor, key)
-        from naked in Ink(a.MeshNakedEdgeColor, key)
-        from nonManifold in Ink(a.MeshNonmanifoldEdgeColor, key)
+    internal static Fin<Appearance> ReadMesh(DisplayPipelineAttributes a) =>
+        from wire in Ink(a.MeshEdgeColor)
+        from naked in Ink(a.MeshNakedEdgeColor)
+        from nonManifold in Ink(a.MeshNonmanifoldEdgeColor)
         select (Appearance)new Mesh(
             Axes: DisplayAxis.Sweep(ConcernRow.Mesh, a),
             Width: a.MeshEdgeThickness, VertexSize: a.MeshVertexSize,
             WireColor: wire, NakedColor: naked, NonManifoldColor: nonManifold);
 
-    internal static Fin<Appearance> ReadClipping(DisplayPipelineAttributes a, Op key) =>
-        from fillUse in HostRow<DisplayPipelineAttributes.ClippingPlaneFillColorUse>.Of(a.ClippingPlaneFillColorUsage, key)
-        from edgeUse in HostRow<DisplayPipelineAttributes.ClippingEdgeColorUse>.Of(a.ClippingEdgeColorUsage, key)
-        from fill in Ink(a.ClippingFillColor, key)
-        from edge in Ink(a.ClippingEdgeColor, key)
+    internal static Fin<Appearance> ReadClipping(DisplayPipelineAttributes a) =>
+        from fillUse in HostRow<DisplayPipelineAttributes.ClippingPlaneFillColorUse>.Of(a.ClippingPlaneFillColorUsage)
+        from edgeUse in HostRow<DisplayPipelineAttributes.ClippingEdgeColorUse>.Of(a.ClippingEdgeColorUsage)
+        from fill in Ink(a.ClippingFillColor)
+        from edge in Ink(a.ClippingEdgeColor)
         select (Appearance)new Clipping(
             Axes: DisplayAxis.Sweep(ConcernRow.Clipping, a),
             FillUse: fillUse, EdgeUse: edgeUse, FillColor: fill,
             EdgeColor: edge, EdgeWidth: a.ClippingEdgeThickness, ShadeTransparency: a.ClippingShadeTransparency);
 
-    internal static Fin<Appearance> ReadTechnical(DisplayPipelineAttributes a, Op key) =>
-        key.Catch(() => Fin.Succ<Appearance>(new Technical(Axes: DisplayAxis.Sweep(ConcernRow.Technical, a))));
+    internal static Fin<Appearance> ReadTechnical(DisplayPipelineAttributes a) =>
+        Try.lift(() => Fin.Succ<Appearance>(new Technical(Axes: DisplayAxis.Sweep(ConcernRow.Technical, a)))).Run().Bind(static inner => inner);
 
-    internal static Fin<Appearance> ReadLocked(DisplayPipelineAttributes a, Op key) =>
-        from usage in HostRow<DisplayPipelineAttributes.LockedObjectUse>.Of(a.LockedObjectUsage, key)
-        from color in Ink(a.LockedColor, key)
+    internal static Fin<Appearance> ReadLocked(DisplayPipelineAttributes a) =>
+        from usage in HostRow<DisplayPipelineAttributes.LockedObjectUse>.Of(a.LockedObjectUsage)
+        from color in Ink(a.LockedColor)
         select (Appearance)new Locked(
             Axes: DisplayAxis.Sweep(ConcernRow.Locked, a),
             Usage: usage, Color: color, Transparency: a.LockedObjectTransparency);
 
-    internal static Fin<Appearance> ReadPoints(DisplayPipelineAttributes a, Op key) =>
-        from style in key.Row(PointUse.Items, a.PointStyle, static row => row.Native)
-        from cloud in key.Row(PointUse.Items, a.PointCloudStyle, static row => row.Native)
+    internal static Fin<Appearance> ReadPoints(DisplayPipelineAttributes a) =>
+        from style in FactoryBridge.Row(PointUse.Items, a.PointStyle, static row => row.Native)
+        from cloud in FactoryBridge.Row(PointUse.Items, a.PointCloudStyle, static row => row.Native)
         select (Appearance)new Points(
             Axes: DisplayAxis.Sweep(ConcernRow.Points, a),
             PointStyle: style, PointRadius: a.PointRadius,
             CloudStyle: cloud, CloudRadius: a.PointCloudRadius);
 
-    internal static Fin<Appearance> ReadGrips(DisplayPipelineAttributes a, Op key) =>
-        from style in key.Row(PointUse.Items, a.ControlPolygonStyle, static row => row.Native)
-        from fixedColor in Ink(a.ControlPolygonUseFixedSingleColor, a.ControlPolygonColor, key)
+    internal static Fin<Appearance> ReadGrips(DisplayPipelineAttributes a) =>
+        from style in FactoryBridge.Row(PointUse.Items, a.ControlPolygonStyle, static row => row.Native)
+        from fixedColor in Ink(a.ControlPolygonUseFixedSingleColor, a.ControlPolygonColor)
         select (Appearance)new Grips(
             Axes: DisplayAxis.Sweep(ConcernRow.Grips, a),
             Style: style, WireWidth: a.ControlPolygonWireThickness, Size: a.ControlPolygonGripSize, FixedColor: fixedColor);
 
-    internal static Fin<Appearance> ReadFade(DisplayPipelineAttributes a, Op key) =>
-        key.Catch(() => {
+    internal static Fin<Appearance> ReadFade(DisplayPipelineAttributes a) =>
+        Try.lift(() => {
             a.GetColorFadeEffect(out System.Drawing.Color color, out float amount);
             return Fin.Succ((Color: color, Amount: amount));
-        }).Bind(row => Ink(row.Color, key).Map(color => (Appearance)new Fade(Color: color, Amount: row.Amount)));
+        }).Run().Bind(static inner => inner).Bind(row => Ink(row.Color).Map(color => (Appearance)new Fade(Color: color, Amount: row.Amount)));
 
-    internal static Fin<Appearance> ReadDither(DisplayPipelineAttributes a, Op key) =>
-        key.Catch(() => Fin.Succ<Appearance>(new Dither(Amount: a.GetDitherTransparencyEffect())));
+    internal static Fin<Appearance> ReadDither(DisplayPipelineAttributes a) =>
+        Try.lift(() => Fin.Succ<Appearance>(new Dither(Amount: a.GetDitherTransparencyEffect()))).Run().Bind(static inner => inner);
 
-    internal static Fin<Appearance> ReadHatch(DisplayPipelineAttributes a, Op key) =>
-        key.Catch(() => {
+    internal static Fin<Appearance> ReadHatch(DisplayPipelineAttributes a) =>
+        Try.lift(() => {
             a.GetDiagonalHatchEffect(out float strength, out float width);
             return Fin.Succ<Appearance>(new Hatch(Strength: strength, Width: width));
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<Appearance> ReadPipeline(DisplayPipelineAttributes a, Op key) =>
-        from workflow in key.Row(ScopeUse.Items, a.LinearWorkflowUsage, static row => row.Workflow)
-        from bounds in HostRow<DisplayPipelineAttributes.BoundingBoxDisplayMode>.Of(a.BoundingBoxMode, key)
-        from dynamic in HostRow<DisplayPipelineAttributes.DynamicDisplayUse>.Of(a.DynamicDisplayUsage, key)
+    internal static Fin<Appearance> ReadPipeline(DisplayPipelineAttributes a) =>
+        from workflow in FactoryBridge.Row(ScopeUse.Items, a.LinearWorkflowUsage, static row => row.Workflow)
+        from bounds in HostRow<DisplayPipelineAttributes.BoundingBoxDisplayMode>.Of(a.BoundingBoxMode)
+        from dynamic in HostRow<DisplayPipelineAttributes.DynamicDisplayUse>.Of(a.DynamicDisplayUsage)
         select (Appearance)new Pipeline(
             Axes: DisplayAxis.Sweep(ConcernRow.Pipeline, a),
             Workflow: workflow, PreGamma: a.PreProcessGamma, PostGamma: a.PostProcessGamma,
@@ -796,12 +796,12 @@ public abstract partial record ModePolicy {
 
     private Unit Write(DisplayModeDescription mode) => Switch(
         mode,
-        name: static (target, row) => Op.Side(() => target.EnglishName = row.Value),
+        name: static (target, row) => HostEdge.Side(() => target.EnglishName = row.Value),
         traits: static (target, row) => toSeq(ModeTrait.Items).Fold(unit, (_, trait) =>
-            Op.Side(() => trait.Write(target, row.Held.Admits(trait)))));
+            HostEdge.Side(() => trait.Write(target, row.Held.Admits(trait)))));
 
-    internal static Fin<Unit> Write(Seq<ModePolicy> policies, DisplayModeDescription mode, Op key) =>
-        policies.TraverseM(policy => key.Catch(() => Fin.Succ(policy.Write(mode)))).As().Map(static _ => unit);
+    internal static Fin<Unit> Write(Seq<ModePolicy> policies, DisplayModeDescription mode) =>
+        policies.TraverseM(policy => Try.lift(() => Fin.Succ(policy.Write(mode))).Run().Bind(static inner => inner)).As().Map(static _ => unit);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -841,32 +841,29 @@ internal abstract partial record ModeOp {
     internal sealed record ImportCase(string Path, HostInteraction Interaction) : ModeOp;
     internal sealed record ExportCase(ModeId Mode, string Path) : ModeOp;
 
-    internal Fin<Seq<DisplayModeDescription>> Apply(Op? key = null) {
-        Op op = key.OrDefault();
-        return Switch(
-            op,
-            censusCase: static (inner, _) => inner.Catch(() => Fin.Succ(toSeq(DisplayModeDescription.GetDisplayModes()))),
+    internal Fin<Seq<DisplayModeDescription>> Apply() {
+        return Switch(censusCase: static (inner, _) => Try.lift(() => Fin.Succ(toSeq(DisplayModeDescription.GetDisplayModes()))).Run().Bind(static inner => inner),
             findCase: static (inner, row) => Resolve(row.Mode, inner).Map(static mode => Seq(mode)),
-            namedCase: static (inner, row) => inner.Catch(() =>
-                Optional(DisplayModeDescription.FindByName(row.Name)).ToFin(inner.InvalidInput()).Map(static mode => Seq(mode))),
+            namedCase: static (inner, row) => Try.lift(() =>
+                Optional(DisplayModeDescription.FindByName(row.Name)).ToFin(new KernelFault.InvalidInput()).Map(static mode => Seq(mode))).Run().Bind(static inner => inner),
             blankCase: static (inner, row) => Mint(() => DisplayModeDescription.AddDisplayMode(row.Name), inner),
-            updateCase: static (inner, row) => inner.Catch(() =>
-                inner.Confirm(DisplayModeDescription.UpdateDisplayMode(row.Mode)).Map(_ => Seq(row.Mode))),
+            updateCase: static (inner, row) => Try.lift(() =>
+                Admit.Confirm(DisplayModeDescription.UpdateDisplayMode(row.Mode)).Map(_ => Seq(row.Mode))).Run().Bind(static inner => inner),
             copyCase: static (inner, row) => Mint(() => DisplayModeDescription.CopyDisplayMode(row.Source.Value, row.Name), inner),
             deleteCase: static (inner, row) => Resolve(row.Mode, inner)
-                .Bind(mode => inner.Catch(() => inner.Confirm(DisplayModeDescription.DeleteDisplayMode(row.Mode.Value)).Map(_ => Seq(mode)))),
+                .Bind(mode => Try.lift(() => Admit.Confirm(DisplayModeDescription.DeleteDisplayMode(row.Mode.Value)).Map(_ => Seq(mode))).Run().Bind(static inner => inner)),
             importCase: static (inner, row) => Mint(() => DisplayModeDescription.ImportFromFile(row.Path, !row.Interaction.IsQuiet), inner),
             exportCase: static (inner, row) => Resolve(row.Mode, inner)
-                .Bind(mode => inner.Catch(() => inner.Confirm(DisplayModeDescription.ExportToFile(mode, row.Path)).Map(_ => Seq(mode)))));
+                .Bind(mode => Try.lift(() => Admit.Confirm(DisplayModeDescription.ExportToFile(mode, row.Path)).Map(_ => Seq(mode))).Run().Bind(static inner => inner)));
     }
 
-    private static Fin<DisplayModeDescription> Resolve(ModeId id, Op key) =>
-        key.Catch(() => Optional(DisplayModeDescription.GetDisplayMode(id.Value)).ToFin(key.InvalidInput()));
+    private static Fin<DisplayModeDescription> Resolve(ModeId id) =>
+        Try.lift(() => Optional(DisplayModeDescription.GetDisplayMode(id.Value)).ToFin(new KernelFault.InvalidInput())).Run().Bind(static inner => inner);
 
-    private static Fin<Seq<DisplayModeDescription>> Mint(Func<Guid> mint, Op key) =>
-        key.Catch(() => mint() is var id && id != Guid.Empty
-            ? Resolve(ModeId.Create(id), key).Map(static mode => Seq(mode))
-            : Fin.Fail<Seq<DisplayModeDescription>>(key.InvalidResult()));
+    private static Fin<Seq<DisplayModeDescription>> Mint(Func<Guid> mint) =>
+        Try.lift(() => mint() is var id && id != Guid.Empty
+            ? Resolve(ModeId.Create(id)).Map(static mode => Seq(mode))
+            : Fin.Fail<Seq<DisplayModeDescription>>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
 }
 ```
 
@@ -926,8 +923,8 @@ public sealed partial class PanelState {
 
 [SmartEnum<int>]
 public sealed partial class CurvatureRange {
-    public static readonly CurvatureRange Automatic = new(key: 0, apply: static () => Op.Side(VisualAnalysisMode.CurvatureColorAutoRange));
-    public static readonly CurvatureRange Maximum = new(key: 1, apply: static () => Op.Side(VisualAnalysisMode.CurvatureColorMaxRange));
+    public static readonly CurvatureRange Automatic = new(key: 0, apply: static () => HostEdge.Side(VisualAnalysisMode.CurvatureColorAutoRange));
+    public static readonly CurvatureRange Maximum = new(key: 1, apply: static () => HostEdge.Side(VisualAnalysisMode.CurvatureColorMaxRange));
 
     [UseDelegateFromConstructor]
     internal partial Unit Apply();
@@ -1036,127 +1033,119 @@ public abstract partial record ModeOutcome : IDetachedDocumentResult {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Modes {
-    public static Fin<ModeOutcome> Configure(ModeRequest request, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(request is not null && request.Valid, op.InvalidInput()).ToFin().Bind(_ => request.Switch(
-            op,
-            apply: static (op, row) => row.Plan.Switch(
-                (Policies: row.Policies, Concerns: row.Concerns, Op: op),
-                existing: static (held, plan) => Resolve(plan.Id, held.Op)
-                    .Bind(mode => Commit(mode, held.Policies, held.Concerns, held.Op)),
-                derived: static (held, plan) => new ModeOp.CopyCase(plan.Source, plan.Name).Apply(held.Op)
-                    .Bind(modes => modes.Head.ToFin(held.Op.InvalidResult()))
-                    .Bind(mode => Commit(mode, held.Policies, held.Concerns, held.Op)
+    public static Fin<ModeOutcome> Configure(ModeRequest request) {
+        return guard(request is not null && request.Valid, new KernelFault.InvalidInput()).ToFin().Bind(_ => request.Switch(apply: static (op, row) => row.Plan.Switch(
+                (Policies: row.Policies, Concerns: row.Concerns),
+                existing: static (held, plan) => Resolve(plan.Id)
+                    .Bind(mode => Commit(mode, held.Policies, held.Concerns)),
+                derived: static (held, plan) => new ModeOp.CopyCase(plan.Source, plan.Name).Apply()
+                    .Bind(modes => modes.Head.ToFin(new KernelFault.InvalidResult()))
+                    .Bind(mode => Commit(mode, held.Policies, held.Concerns)
                         .Rollback(
-                            release: () => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply(held.Op).Map(static _ => unit),
+                            release: () => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply().Map(static _ => unit),
                             key: held.Op)),
-            bind: static (op, row) => Resolve(row.Mode, op)
-                .Bind(mode => ViewportLease.Of(row.Session, row.Target, op)
-                    .Bind(lease => lease.Use(borrow => op.Catch(() => Fin.Succ((borrow.Viewport.DisplayMode = mode, unit).Item2)), op)))
+            bind: static (op, row) => Resolve(row.Mode)
+                .Bind(mode => ViewportLease.Of(row.Session, row.Target)
+                    .Bind(lease => lease.Use(borrow => Try.lift(() => Fin.Succ((borrow.Viewport.DisplayMode = mode, unit).Item2)).Run().Bind(static inner => inner))))
                 .Map(_ => (ModeOutcome)new ModeOutcome.Bound(row.Mode)),
-            inspect: static (op, row) => ViewportLease.Of(row.Session, row.Target, op)
-                .Bind(lease => lease.Use(borrow => op.Catch(() => Optional(borrow.Viewport.DisplayMode).ToFin(op.InvalidResult()))
-                    .Bind(mode => Appearance.Of(mode.DisplayAttributes, op).Map(concerns => (
+            inspect: static (op, row) => ViewportLease.Of(row.Session, row.Target)
+                .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(borrow.Viewport.DisplayMode).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+                    .Bind(mode => Appearance.Of(mode.DisplayAttributes).Map(concerns => (
                         Mode: ModeId.Create(mode.Id),
                         Concerns: concerns,
-                        Traits: ModeTrait.Sweep(mode)))), op))
+                        Traits: ModeTrait.Sweep(mode))))))
                 .Map(state => (ModeOutcome)new ModeOutcome.Inspected(state.Mode, state.Concerns, state.Traits)),
-            capture: static (op, row) => Resolve(row.Mode, op)
-                .Bind(mode => ViewportLease.Of(row.Session, row.Target, op)
-                    .Bind(lease => lease.Use(borrow => op.Catch(() => Optional(row.Extent.Match(
+            capture: static (op, row) => Resolve(row.Mode)
+                .Bind(mode => ViewportLease.Of(row.Session, row.Target)
+                    .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(row.Extent.Match(
                         Some: size => borrow.View.CaptureToBitmap(size.Native, mode),
-                        None: () => borrow.View.CaptureToBitmap(mode))).ToFin(op.InvalidResult())), op)))
-                .Bind(bitmap => CaptureArtifact.Raster(bitmap, op))
+                        None: () => borrow.View.CaptureToBitmap(mode))).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner))))
+                .Bind(bitmap => CaptureArtifact.Raster(bitmap))
                 .Map(artifact => (ModeOutcome)new ModeOutcome.Captured(artifact)),
-            analyze: static (op, row) => Analyze(row.Session, row.Edit, op),
-            census: static (op, _) => Summarize(new ModeOp.CensusCase(), op),
-            named: static (op, row) => Summarize(new ModeOp.NamedCase(row.Name), op),
-            mint: static (op, row) => Summarize(new ModeOp.BlankCase(row.Name), op),
-            retire: static (op, row) => new ModeOp.DeleteCase(row.Mode).Apply(op)
+            analyze: static (op, row) => Analyze(row.Session, row.Edit),
+            census: static (op, _) => Summarize(new ModeOp.CensusCase()),
+            named: static (op, row) => Summarize(new ModeOp.NamedCase(row.Name)),
+            mint: static (op, row) => Summarize(new ModeOp.BlankCase(row.Name)),
+            retire: static (op, row) => new ModeOp.DeleteCase(row.Mode).Apply()
                 .Map(_ => (ModeOutcome)new ModeOutcome.Retired(row.Mode)),
-            import: static (op, row) => Summarize(new ModeOp.ImportCase(row.Path, row.Interaction), op),
-            export: static (op, row) => new ModeOp.ExportCase(row.Mode, row.Path).Apply(op)
+            import: static (op, row) => Summarize(new ModeOp.ImportCase(row.Path, row.Interaction)),
+            export: static (op, row) => new ModeOp.ExportCase(row.Mode, row.Path).Apply()
                 .Map(_ => (ModeOutcome)new ModeOutcome.Exported(row.Mode, row.Path))));
     }
 
-    private static Fin<DisplayModeDescription> Resolve(ModeId id, Op key) =>
-        new ModeOp.FindCase(id).Apply(key).Bind(modes => modes.Head.ToFin(key.InvalidResult()));
+    private static Fin<DisplayModeDescription> Resolve(ModeId id) =>
+        new ModeOp.FindCase(id).Apply().Bind(modes => modes.Head.ToFin(new KernelFault.InvalidResult()));
 
-    private static Fin<ModeOutcome> Summarize(ModeOp op, Op key) =>
-        op.Apply(key).Bind(modes => key.Catch(() =>
-            Fin.Succ<ModeOutcome>(new ModeOutcome.Resolved(modes.Map(ModeMap.Summary).Strict()))));
+    private static Fin<ModeOutcome> Summarize(ModeOp op) =>
+        op.Apply().Bind(modes => Try.lift(() =>
+            Fin.Succ<ModeOutcome>(new ModeOutcome.Resolved(modes.Map(ModeMap.Summary).Strict()))).Run().Bind(static inner => inner));
 
-    private static Fin<ModeOutcome> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns, Op key) =>
-        from prior in Appearance.Of(mode.DisplayAttributes, key)
-        from band in key.Catch(() => Fin.Succ(ModeTrait.Sweep(mode)))
-        from outcome in (from _ in Appearance.Write(concerns, mode.DisplayAttributes, key)
-                         from __ in ModePolicy.Write(policies, mode, key)
-                         from ___ in new ModeOp.UpdateCase(mode).Apply(key)
+    private static Fin<ModeOutcome> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns) =>
+        from prior in Appearance.Of(mode.DisplayAttributes)
+        from band in Try.lift(() => Fin.Succ(ModeTrait.Sweep(mode))).Run().Bind(static inner => inner)
+        from outcome in (from _ in Appearance.Write(concerns, mode.DisplayAttributes)
+                         from __ in ModePolicy.Write(policies, mode)
+                         from ___ in new ModeOp.UpdateCase(mode).Apply()
                          select (ModeOutcome)new ModeOutcome.Configured(ModeId.Create(mode.Id)))
-            .Rollback(release: () => Restore(mode, prior, band, key), key: key)
+            .Rollback(release: () => Restore(mode, prior, band))
         select outcome;
 
-    private static Fin<Unit> Restore(DisplayModeDescription mode, Seq<Appearance> concerns, CapabilitySet<ModeTrait> band, Op key) =>
-        Appearance.Write(concerns, mode.DisplayAttributes, key)
-            .Bind(_ => ModePolicy.Write(Seq<ModePolicy>(new ModePolicy.Traits(band)), mode, key));
+    private static Fin<Unit> Restore(DisplayModeDescription mode, Seq<Appearance> concerns, CapabilitySet<ModeTrait> band) =>
+        Appearance.Write(concerns, mode.DisplayAttributes)
+            .Bind(_ => ModePolicy.Write(Seq<ModePolicy>(new ModePolicy.Traits(band)), mode));
 
-    private static Fin<ModeOutcome> Analyze(DocumentSession session, AnalysisEdit edit, Op key) => edit.Switch(
-        (Session: session, Op: key),
-        set: static (ctx, row) => Set(ctx.Session, row.Objects, row.Kind, row.State, ctx.Op),
+    private static Fin<ModeOutcome> Analyze(DocumentSession session, AnalysisEdit edit) => edit.Switch(
+        session,
+        set: static (ctx, row) => Set(ctx, row.Objects, row.Kind, row.State),
         census: static (ctx, row) => ctx.Session.Demand(
-            document => ctx.Op.Catch(() => Optional(document.Objects.FindId(row.Object)).ToFin(ctx.Op.InvalidInput())
+            document => Try.lift(() => Optional(document.Objects.FindId(row.Object)).ToFin(new KernelFault.InvalidInput())
                 .Map(subject => (ModeOutcome)new ModeOutcome.AnalysisCensus(
                     row.Object,
-                    toSeq(subject.GetActiveVisualAnalysisModes()).Map(static mode => AnalysisId.Create(mode.Id))))),
-            ctx.Op,
+                    toSeq(subject.GetActiveVisualAnalysisModes()).Map(static mode => AnalysisId.Create(mode.Id))))).Run().Bind(static inner => inner),
             [SessionNeed.Read]),
         adjustMeshes: static (ctx, row) => ctx.Session.Demand(
-            document => Analysis(row.Kind, ctx.Op).Bind(mode => ctx.Op.Catch(() =>
-                ctx.Op.Confirm(VisualAnalysisMode.AdjustAnalysisMeshes(document, mode.Id)))
+            document => Analysis(row.Kind).Bind(mode => Try.lift(() =>
+                Admit.Confirm(VisualAnalysisMode.AdjustAnalysisMeshes(document, mode.Id))).Run().Bind(static inner => inner)
                 .Map(_ => (ModeOutcome)new ModeOutcome.AnalysisAdjusted(AnalysisId.Create(mode.Id)))),
-            ctx.Op,
             [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Dialog]),
         userInterface: static (ctx, row) => ctx.Session.Demand(
-            _ => Analysis(row.Kind, ctx.Op)
-                .Bind(mode => ctx.Op.Catch(() => Fin.Succ((
-                    Op.Side(() => mode.EnableUserInterface(row.Panel.Key)),
-                    (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2))),
-            ctx.Op,
+            _ => Analysis(row.Kind)
+                .Bind(mode => Try.lift(() => Fin.Succ((
+                    HostEdge.Side(() => mode.EnableUserInterface(row.Panel.Key)),
+                    (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2)).Run().Bind(static inner => inner)),
             [SessionNeed.Dialog]),
         range: static (ctx, row) => ctx.Session.Demand(
-            _ => ctx.Op.Catch(() => Fin.Succ((row.Value.Apply(), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)),
-            ctx.Op,
+            _ => Try.lift(() => Fin.Succ((row.Value.Apply(), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)).Run().Bind(static inner => inner),
             [SessionNeed.Dialog]),
-        overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>(ctx.Op)
+        overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>()
             .Bind(mode => ((AnalysisOverlay)mode).Bind(row.Law)
                 .Map(_ => (ModeOutcome)new ModeOutcome.OverlayBound(AnalysisId.Create(mode.Id)))),
-        retain: static (ctx, row) => RetainedOverlay.Of(row.Visibility.Key, ctx.Op)
+        retain: static (ctx, row) => RetainedOverlay.Of()
             .Map(lease => (ModeOutcome)new ModeOutcome.Retained(lease)));
 
-    private static Fin<ModeOutcome> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state, Op key) =>
+    private static Fin<ModeOutcome> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state) =>
         session.Demand(
-            document => Analysis(kind, key).Bind(mode => objects.TraverseM(id => key.Catch(() =>
-                    from subject in Optional(document.Objects.FindId(id)).ToFin(key.InvalidInput())
-                    from _ in guard(mode.ObjectSupportsAnalysisMode(subject), key.InvalidInput())
+            document => Analysis(kind).Bind(mode => objects.TraverseM(id => Try.lift(() =>
+                    from subject in Optional(document.Objects.FindId(id)).ToFin(new KernelFault.InvalidInput())
+                    from _ in guard(mode.ObjectSupportsAnalysisMode(subject), new KernelFault.InvalidInput())
                     let prior = AnalysisState.Of(toSeq(subject.GetActiveVisualAnalysisModes()).Exists(active => active.Id == mode.Id))
-                    select (Id: id, Subject: subject, Prior: prior))).As()
+                    select (Id: id, Subject: subject, Prior: prior)).Run().Bind(static inner => inner)).As()
                 .Bind(subjects => DocumentCommit.Compensated(
                         source: subjects.Filter(row => row.Prior != state),
-                        land: row => key.Catch(() => key.Confirm(row.Subject.EnableVisualAnalysisMode(mode, state.Enabled))).Map(_ => row),
-                        rollback: row => key.Catch(() => key.Confirm(row.Subject.EnableVisualAnalysisMode(mode, row.Prior.Enabled))).Map(static _ => unit))
-                    .Bind(touched => key.Catch(() => {
+                        land: row => Try.lift(() => Admit.Confirm(row.Subject.EnableVisualAnalysisMode(mode, state.Enabled))).Run().Bind(static inner => inner).Map(_ => row),
+                        rollback: row => Try.lift(() => Admit.Confirm(row.Subject.EnableVisualAnalysisMode(mode, row.Prior.Enabled))).Run().Bind(static inner => inner).Map(static _ => unit))
+                    .Bind(touched => Try.lift(() => {
                         document.Views.Redraw();
                         return Fin.Succ<ModeOutcome>(new ModeOutcome.AnalysisChanged(
                             subjects.Map(static row => row.Id),
                             touched.Map(static row => row.Id),
                             AnalysisId.Create(mode.Id),
                             state));
-                    })))),
-            key,
+                    }).Run().Bind(static inner => inner)))),
             [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Redraw]);
 
-    private static Fin<VisualAnalysisMode> Analysis(AnalysisKind kind, Op key) =>
-        key.Catch(() => Optional(VisualAnalysisMode.Find(kind.Id())).ToFin(key.InvalidResult()));
+    private static Fin<VisualAnalysisMode> Analysis(AnalysisKind kind) =>
+        Try.lift(() => Optional(VisualAnalysisMode.Find(kind.Id())).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
 }
 ```
 

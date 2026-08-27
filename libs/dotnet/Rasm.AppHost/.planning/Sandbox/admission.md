@@ -46,7 +46,7 @@ public sealed partial class PluginArtifact {
 
     public static Fin<PluginArtifact> Admit(
         string pluginId, ReadOnlyMemory<byte> component, Option<FileInfo> bundle, string contractRange) =>
-        Op.Of().AcceptValidated<PluginArtifact>(
+        FactoryBridge.Accept<PluginArtifact>(
             fault: Validate(pluginId, component, bundle, contractRange, out PluginArtifact? admitted),
             admitted: admitted);
 
@@ -137,13 +137,13 @@ public static class SupplyChainGate {
         public static Fin<Runtime> Of(
             TrustAnchor anchor, Func<AdmissionSubject, TrustPolicy> policyOf,
             DirectoryInfo staging, string hostContractVersion, ClockPolicy clocks) =>
-            Op.Of().Catch(() => anchor.Switch(
+            Try.lift(() => anchor.Switch(
                     pinnedCase: static row => row.Root is { Exists: true }
                         ? Fin.Succ<ITrustRootProvider>(new FileTrustRootProvider(row.Root))
                         : Fin.Fail<ITrustRootProvider>(new SupplyChainFault.TrustRootUnavailable(row.Root.FullName)),
                     tufCase: static row => Fin.Succ<ITrustRootProvider>(new TufTrustRootProvider(row.Repository, row.Options)))
                 .Map(provider => new Runtime(
-                    new SigstoreVerifier(provider, null), policyOf, staging, hostContractVersion, clocks)));
+                    new SigstoreVerifier(provider, null), policyOf, staging, hostContractVersion, clocks))).Run().Bind(static inner => inner);
     }
 
     public static IO<Validation<Error, SupplyChainAdmission>> Admit(Runtime gate, AdmissionSubject subject, CancellationToken token) =>
@@ -163,8 +163,7 @@ public static class SupplyChainGate {
             Fail: fault => IO.pure<Validation<Error, SupplyChainAdmission>>(Fail(fault)));
 
     static IO<Fin<SigstoreBundle>> Bundle(Probe probe, CancellationToken token) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(
-                async execution => Fin.Succ(await SigstoreBundle.LoadAsync(probe.Bundle, execution)), token))
+        IO.liftAsync(async () => (await Try.lift(async execution => Fin.Succ(await SigstoreBundle.LoadAsync(probe.Bundle, execution))).Run().Bind(static inner => inner))
             .MapFail(error => (Error)new SupplyChainFault.BundleUnreadable(probe.Subject, error)));
 
     static IO<string> ContentKey(Runtime gate, AdmissionSubject subject, CancellationToken token) => subject.Switch(

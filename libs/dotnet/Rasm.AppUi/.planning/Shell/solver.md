@@ -507,7 +507,6 @@ public sealed class LayoutSolver(
     InstrumentSet signals,
     HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
     Func<LayoutVar, Option<IVariableStore>> stores) : Panel {
-    private static readonly Op Pass = Op.Of(name: "appui.layout.pass");
 
     private readonly VariableEnv env = new(stores);
     private readonly Solver solver = new();
@@ -564,23 +563,23 @@ public sealed class LayoutSolver(
     private Option<Error> fault = None;
 
     protected override Size MeasureOverride(Size availableSize) {
-        (fault, mark) = (None, line.Capture(Pass));
+        (fault, mark) = (None, Error.New(Pass.Message, Pass));
         toSeq(Children).Iter(child => child.Measure(availableSize));
         ignore(Park(Suggest(availableSize.Width, availableSize.Height)
             .Bind(_ => Measured())
-            .Bind(_ => Op.Side(solver.Solve))));
+            .Bind(_ => HostEdge.Side(solver.Solve))));
         return new Size(
             Read(new LayoutVar(program.Panel, LayoutEdge.Width)).IfFail(_ => DesiredSize.Width),
             Read(new LayoutVar(program.Panel, LayoutEdge.Height)).IfFail(_ => DesiredSize.Height));
     }
 
     protected override Size ArrangeOverride(Size finalSize) {
-        ignore(Park(Suggest(finalSize.Width, finalSize.Height).Bind(_ => Op.Side(solver.Solve))));
+        ignore(Park(Suggest(finalSize.Width, finalSize.Height).Bind(_ => HostEdge.Side(solver.Solve))));
         toSeq(Children).Iter(child => ignore(SolvedRect(child).Match(
-            Succ: rect => Op.Side(() => child.Arrange(rect)),
+            Succ: rect => HostEdge.Side(() => child.Arrange(rect)),
             Fail: error => Fin.Fail<Unit>(Park(error)))));
         Option<Duration> elapsed = mark
-            .Bind(start => line.Capture(Pass).Bind(end => line.Elapsed(start, end, Pass)))
+            .Bind(start => Error.New(Pass.Message, Pass).Bind(end => line.Elapsed(start, end, Pass)))
             .Match(
                 Succ: span => Some(Duration.FromTimeSpan(span)),
                 Fail: error => (Park(error), Option<Duration>.None).Item2);

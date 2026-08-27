@@ -35,8 +35,8 @@ public sealed partial class GhContract {
     public static readonly GhContract Object = new("object");
 }
 
-public sealed record GhSubject(Op Operation, string Name);
-public sealed record GhEvidence(Op Operation, string Detail);
+public sealed record GhSubject(string Name);
+public sealed record GhEvidence(string Detail);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GhFault : Fault {
@@ -54,15 +54,15 @@ public abstract partial record GhFault : Fault {
         : GhFault($"grasshopper {Contract.Key} contract refused during {Evidence.Operation.Key}: {Evidence.Detail}");
 
     [FaultCase(2)]
-    public sealed partial record Conversion(Op Key, string Source, string Target, string Detail)
+    public sealed partial record Conversion(string Source, string Target, string Detail)
         : GhFault($"grasshopper conversion refused during {Key.Key}: {Source} -> {Target}: {Detail}");
 
     [FaultCase(3)]
-    public sealed partial record Registration(Op Key, string Detail)
+    public sealed partial record Registration(string Detail)
         : GhFault($"grasshopper registration refused during {Key.Key}: {Detail}");
 
     [FaultCase(4)]
-    public sealed partial record Overdue(Op Key, string Detail)
+    public sealed partial record Overdue(string Detail)
         : GhFault($"grasshopper operation overdue during {Key.Key}: {Detail}");
 }
 
@@ -191,9 +191,9 @@ public static class HostReads {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class GardenData {
-    public static Fin<Transfer<T>> Read<T>(IDataAccess access, int pin, PinAccess depth, Op? key = null) =>
+    public static Fin<Transfer<T>> Read<T>(IDataAccess access, int pin, PinAccess depth) =>
         depth.Switch(
-            state: (Access: access, Pin: pin, Key: key.OrDefault()),
+            state: (Access: access, Pin: pin),
             item: static held => held.Access.GetPear<T>(held.Pin, out Pear<T> pear)
                 ? Fin.Succ<Transfer<T>>(new Transfer<T>.OfPear(pear))
                 : Missing<Transfer<T>>(held.Pin, held.Key),
@@ -204,60 +204,59 @@ public static class GardenData {
                 ? Fin.Succ<Transfer<T>>(new Transfer<T>.OfTree(tree))
                 : Missing<Transfer<T>>(held.Pin, held.Key));
 
-    public static Fin<T> Read<T>(IDataAccess access, int pin, HostRead<T> read, Op? key = null) =>
+    public static Fin<T> Read<T>(IDataAccess access, int pin, HostRead<T> read) =>
         read.Ingress(access, pin, out T value)
             ? Fin.Succ(value)
-            : Missing<T>(pin, key.OrDefault());
+            : Missing<T>(pin);
 
-    public static Fin<Unit> Write<T>(IDataAccess access, int pin, Transfer<T> payload, Retention retention, Op? key = null) =>
+    public static Fin<Unit> Write<T>(IDataAccess access, int pin, Transfer<T> payload, Retention retention) =>
         payload.Switch(
-            state: (Access: access, Pin: pin, Retention: retention, Key: key.OrDefault()),
-            item: static (held, item) => held.Key.Catch(() => held.Access.SetItem(held.Pin, item.Value!, held.Retention.Applied(item.Meta))),
-            ofPear: static (held, row) => held.Key.Catch(() => held.Access.SetPear(held.Pin, Retag(row.Pear, held.Retention))),
-            ofTwig: static (held, row) => held.Key.Catch(() => held.Access.SetTwig(
+            state: (Access: access, Pin: pin, Retention: retention),
+            item: static (held, item) => Try.lift(() => held.Access.SetItem(held.Pin, item.Value!, held.Retention.Applied(item.Meta))).Run().Bind(static inner => inner),
+            ofPear: static (held, row) => Try.lift(() => held.Access.SetPear(held.Pin, Retag(row.Pear, held.Retention))).Run().Bind(static inner => inner),
+            ofTwig: static (held, row) => Try.lift(() => held.Access.SetTwig(
                 held.Pin,
                 held.Retention is Retention.Preserve
                     ? row.Twig
-                    : Garden.TwigFromPears(row.Twig.Pears.Select(pear => Retag(pear, held.Retention))))),
-            ofTree: static (held, row) => held.Key.Catch(() => held.Access.SetTree(
+                    : Garden.TwigFromPears(row.Twig.Pears.Select(pear => Retag(pear, held.Retention))))).Run().Bind(static inner => inner),
+            ofTree: static (held, row) => Try.lift(() => held.Access.SetTree(
                 held.Pin,
                 held.Retention is Retention.Preserve
                     ? row.Tree
-                    : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention), CancellationToken.None))));
+                    : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention), CancellationToken.None))).Run().Bind(static inner => inner));
 
-    public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload, Op? key = null) =>
+    public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload) =>
         payload.Switch(
             state: key.OrDefault(),
-            item: static (op, row) => op.Catch(() => Fin.Succ(Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)]))),
-            ofPear: static (op, row) => op.Catch(() => Fin.Succ(Garden.TreeFromPears([row.Pear]))),
-            ofTwig: static (op, row) => op.Catch(() => Fin.Succ(Garden.TreeFromTwigs([row.Twig]))),
+            item: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)]))).Run().Bind(static inner => inner),
+            ofPear: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromPears([row.Pear]))).Run().Bind(static inner => inner),
+            ofTwig: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromTwigs([row.Twig]))).Run().Bind(static inner => inner),
             ofTree: static (_, row) => Fin.Succ(row.Tree));
 
     public static Fin<Tree<TOut>> Zip<TLeft, TRight, TOut>(
-        Tree<TLeft> left, Tree<TRight> right, Func<TLeft, TRight, TOut> merge, CancellationToken cancel, Op? key = null) =>
+        Tree<TLeft> left, Tree<TRight> right, Func<TLeft, TRight, TOut> merge, CancellationToken cancel) =>
         key.OrDefault().Catch(() => Fin.Succ(Garden.PairWiseOp(left, right, merge, cancel)), cancel);
 
-    public static Fin<Tree<T>> Amend<T>(Tree<T> tree, Func<Pear<T>, Pear<T>> project, CancellationToken cancel, Op? key = null) =>
+    public static Fin<Tree<T>> Amend<T>(Tree<T> tree, Func<Pear<T>, Pear<T>> project, CancellationToken cancel) =>
         key.OrDefault().Catch(() => Fin.Succ(Garden.PearWiseOp(tree, project, cancel)), cancel);
 
     public static Fin<(Twig<T> Twig, Grasshopper2.Data.IExpressionReport Report)> Evaluate<T>(
         Twig<T> twig,
         Grasshopper2.Expressions.Expression expression,
-        Grasshopper2.Expressions.Resolver resolver,
-        Op? key = null) =>
+        Grasshopper2.Expressions.Resolver resolver) =>
         key.OrDefault().Catch(() => Fin.Succ((
             Twig: twig.Apply(expression, resolver, out Grasshopper2.Data.IExpressionReport report),
             Report: report)));
 
     public static Fin<Twig<TOut>> ConvertTwig<TIn, TOut>(
         Twig<TIn> twig, Grasshopper2.Types.Conversion.ConversionDelegate<TIn, TOut> convert,
-        CancellationToken cancel, Grasshopper2.Data.ConversionRecord record, Op? key = null) =>
+        CancellationToken cancel, Grasshopper2.Data.ConversionRecord record) =>
         key.OrDefault().Catch(() => Fin.Succ(twig.Convert(convert, cancel, record)), cancel);
 
     private static Pear<T> Retag<T>(Pear<T> pear, Retention retention) =>
         pear is null ? pear : Pear<T>.Create(pear.Item, retention.Applied(pear.Meta));
 
-    private static Fin<T> Missing<T>(int pin, Op key) => Fin.Fail<T>(new GhFault.Absent(new GhSubject(key, $"pin:{pin}")));
+    private static Fin<T> Missing<T>(int pin) => Fin.Fail<T>(new GhFault.Absent(new GhSubject($"pin:{pin}")));
 }
 ```
 
@@ -358,52 +357,46 @@ public sealed class BrokerLedger {
 }
 
 public static class Coerce {
-    public static Fin<TOut> To<TOut>(object? raw, BrokerLedger ledger, ConversionScope scope, Op? key = null) => raw switch {
-        null => Fin.Fail<TOut>(new GhFault.Absent(new GhSubject(key.OrDefault(), typeof(TOut).Name))),
+    public static Fin<TOut> To<TOut>(object? raw, BrokerLedger ledger, ConversionScope scope) => raw switch {
+        null => Fin.Fail<TOut>(new GhFault.Absent(new GhSubject(typeof(TOut).Name))),
         TOut direct => Fin.Succ(direct),
         _ => ledger.Resolved(raw.GetType(), typeof(TOut), scope)
-            .Fold(Fin.Fail<TOut>(new GhFault.Conversion(key.OrDefault(), raw.GetType().Name, typeof(TOut).Name, nameof(BrokerLedger))),
-                (state, row) => state | Projected<TOut>(raw, row, key.OrDefault()))
-            .BindFail(brokerFault => Served<TOut>(raw, key.OrDefault())
+            .Fold(Fin.Fail<TOut>(new GhFault.Conversion(raw.GetType().Name, typeof(TOut).Name, nameof(BrokerLedger))),
+                (state, row) => state | Projected<TOut>(raw, row))
+            .BindFail(brokerFault => Served<TOut>(raw)
                 .MapFail(serveFault => Error.Many([brokerFault, serveFault]))),
     };
 
-    public static Fin<CurveShape> CurveOf(object? raw, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(raw).ToFin(new GhFault.Absent(new GhSubject(op, nameof(CurveShape))))
-            .Bind(held => op.Catch(() => CurveProbe(held, op)));
+    public static Fin<CurveShape> CurveOf(object? raw) {
+        return Optional(raw).ToFin(new GhFault.Absent(new GhSubject(nameof(CurveShape))))
+            .Bind(held => Try.lift(() => CurveProbe(held)).Run().Bind(static inner => inner));
     }
 
-    public static Fin<SurfaceShape> SurfaceOf(object? raw, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(raw).ToFin(new GhFault.Absent(new GhSubject(op, nameof(SurfaceShape))))
-            .Bind(held => op.Catch(() => SurfaceProbe(held, op)));
+    public static Fin<SurfaceShape> SurfaceOf(object? raw) {
+        return Optional(raw).ToFin(new GhFault.Absent(new GhSubject(nameof(SurfaceShape))))
+            .Bind(held => Try.lift(() => SurfaceProbe(held)).Run().Bind(static inner => inner));
     }
 
-    private static Fin<TOut> Served<TOut>(object raw, Op key) =>
-        key.Catch(() =>
+    private static Fin<TOut> Served<TOut>(object raw) =>
+        Try.lift(() =>
             Grasshopper2.Types.Conversion.ConversionServer.Convert(raw, typeof(TOut), out object converted, out _, out string detail)
                 ? converted is TOut value
                     ? Fin.Succ(value)
-                    : Fin.Fail<TOut>(new GhFault.Conversion(key, converted?.GetType().Name ?? "<null>", typeof(TOut).Name, detail))
-                : Fin.Fail<TOut>(new GhFault.Conversion(key, raw.GetType().Name, typeof(TOut).Name, detail)));
+                    : Fin.Fail<TOut>(new GhFault.Conversion(converted?.GetType().Name ?? "<null>", typeof(TOut).Name, detail))
+                : Fin.Fail<TOut>(new GhFault.Conversion(raw.GetType().Name, typeof(TOut).Name, detail))).Run().Bind(static inner => inner);
 
-    private static Fin<TOut> Projected<TOut>(object raw, BrokerRow row, Op key) =>
+    private static Fin<TOut> Projected<TOut>(object raw, BrokerRow row) =>
         typeof(TOut).IsAssignableFrom(row.Target)
             ? row.Convert(raw).Bind(value => value is TOut projected
                 ? Fin.Succ(projected)
-                : Fin.Fail<TOut>(new GhFault.Conversion(
-                    key,
-                    value?.GetType().Name ?? "<null>",
+                : Fin.Fail<TOut>(new GhFault.Conversion(value?.GetType().Name ?? "<null>",
                     typeof(TOut).Name,
                     row.Target.Name)))
-            : Fin.Fail<TOut>(new GhFault.Conversion(
-                key,
-                row.Target.Name,
+            : Fin.Fail<TOut>(new GhFault.Conversion(row.Target.Name,
                 typeof(TOut).Name,
                 nameof(BrokerRow.Target)));
 
-    private static Fin<CurveShape> CurveProbe(object raw, Op key) =>
+    private static Fin<CurveShape> CurveProbe(object raw) =>
         Grasshopper2.Parameters.Standard.CurveBroker.CastOrConvert(
             raw, out Rhino.Geometry.Line line, out Grasshopper2.Types.Shapes.Triangle triangle, out Rhino.Geometry.Rectangle3d rectangle,
             out Rhino.Geometry.Polyline polyline, out Rhino.Geometry.Circle circle, out Rhino.Geometry.Arc arc, out Rhino.Geometry.Curve curve) switch {
@@ -414,22 +407,18 @@ public static class Coerce {
             Grasshopper2.Parameters.Standard.CurveType.Circle => new CurveShape.OfCircle(circle),
             Grasshopper2.Parameters.Standard.CurveType.Arc => new CurveShape.OfArc(arc),
             Grasshopper2.Parameters.Standard.CurveType.Curve => new CurveShape.OfCurve(curve),
-            _ => Fin.Fail<CurveShape>(new GhFault.Conversion(
-                key,
-                raw.GetType().Name,
+            _ => Fin.Fail<CurveShape>(new GhFault.Conversion(raw.GetType().Name,
                 nameof(CurveShape),
                 nameof(Grasshopper2.Parameters.Standard.CurveBroker))),
         };
 
-    private static Fin<SurfaceShape> SurfaceProbe(object raw, Op key) =>
+    private static Fin<SurfaceShape> SurfaceProbe(object raw) =>
         Grasshopper2.Parameters.Standard.SurfaceBroker.CastOrConvert(
             raw, out Rhino.Geometry.Surface surface, out Rhino.Geometry.Brep brep, out Rhino.Geometry.SubD subd) switch {
             Grasshopper2.Parameters.Standard.SurfaceLikeType.Surf => new SurfaceShape.OfSurface(surface),
             Grasshopper2.Parameters.Standard.SurfaceLikeType.Brep => new SurfaceShape.OfBrep(brep),
             Grasshopper2.Parameters.Standard.SurfaceLikeType.SubD => new SurfaceShape.OfSubD(subd),
-            _ => Fin.Fail<SurfaceShape>(new GhFault.Conversion(
-                key,
-                raw.GetType().Name,
+            _ => Fin.Fail<SurfaceShape>(new GhFault.Conversion(raw.GetType().Name,
                 nameof(SurfaceShape),
                 nameof(Grasshopper2.Parameters.Standard.SurfaceBroker))),
         };
@@ -455,20 +444,20 @@ namespace Rasm.Grasshopper.Components;
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record HostUnits(double Absolute, double Relative, Grasshopper2.Types.Numeric.Angle Angle, UnitSystem Units) {
-    public static Fin<HostUnits> Of(IDataAccess access, Op? key = null) =>
+    public static Fin<HostUnits> Of(IDataAccess access) =>
         access.GetTolerance(out double absolute, out double relative)
         && access.GetTolerance(out Grasshopper2.Types.Numeric.Angle angle)
         && access.GetUnitSystem(out UnitSystem units)
             ? Fin.Succ(new HostUnits(absolute, relative, angle, units))
-            : Fin.Fail<HostUnits>(new GhFault.Absent(new GhSubject(key.OrDefault(), nameof(HostUnits))));
+            : Fin.Fail<HostUnits>(new GhFault.Absent(new GhSubject(nameof(HostUnits))));
 
     public Validation<Error, Context> Context =>
         Rasm.Domain.Context.Of(Absolute, Relative, Angle.Radians, Units);
 
-    public Fin<double> ScalingTo(IDataAccess access, Rhino.UnitSystem target, Op? key = null) =>
+    public Fin<double> ScalingTo(IDataAccess access, Rhino.UnitSystem target) =>
         access.GetUnitScaling(target, out double factor)
             ? Fin.Succ(factor)
-            : Fin.Fail<double>(new GhFault.Absent(new GhSubject(key.OrDefault(), nameof(ScalingTo))));
+            : Fin.Fail<double>(new GhFault.Absent(new GhSubject(nameof(ScalingTo))));
 }
 ```
 

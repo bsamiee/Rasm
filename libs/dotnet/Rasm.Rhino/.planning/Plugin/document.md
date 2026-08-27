@@ -22,7 +22,7 @@
 - Boundary: `FileWriteOptions.RhinoDoc` is not detached into the intent — the crossing already carries the document as a `DocKey`, and a second document coordinate could disagree with it.
 - Boundary: `GetFileName()` is not detached either; `DestinationFileName` is the declared target and the host's derived name is a presentation of it.
 - Boundary: `SuppressDialogBoxes`, `SuppressAllInput`, and `AllowUserInterfaceWithHeadlessDocument` are host FILE-OPTIONS facts read at a save or open boundary, not interaction policy — they stay rows on this boundary and reach no kernel interaction owner.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op.Need`, `Op.Catch`, `Op.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op.Need`, `Op.Catch`, `HostEdge.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -89,10 +89,10 @@ public sealed record WriteIntent(
     Option<string> BackupFolder,
     Transform Placement,
     ArchiveMap Options) {
-    internal static Fin<WriteIntent> Detach(FileWriteOptions options, Op op) =>
-        from row in op.Need(options)
-        from payload in op.Catch(() => ArchiveMap.Detach(row.OptionsDictionary, op))
-        from intent in op.Catch(() => Fin.Succ(value: new WriteIntent(
+    internal static Fin<WriteIntent> Detach(FileWriteOptions options) =>
+        from row in Admit.Need(options)
+        from payload in Try.lift(() => ArchiveMap.Detach(row.OptionsDictionary)).Run().Bind(static inner => inner)
+        from intent in Try.lift(() => Fin.Succ(value: new WriteIntent(
             Toggles: CapabilitySet<WriteToggle>.Of(toSeq(WriteToggle.Items)
                 .Filter(toggle => toggle.Reads(value: row))
                 .ToArray()),
@@ -100,10 +100,10 @@ public sealed record WriteIntent(
             Rhino3dmVersion: row.Rhino3dmVersion,
             TypeIndex: row.FileTypeIndex,
             TypeId: Held(row.FileTypeId),
-            Destination: Op.Text(row.DestinationFileName),
-            BackupFolder: Op.Text(row.BackupFileFolder),
+            Destination: HostEdge.Text(row.DestinationFileName),
+            BackupFolder: HostEdge.Text(row.BackupFileFolder),
             Placement: row.Xform,
-            Options: payload)))
+            Options: payload))).Run().Bind(static inner => inner)
         select intent;
 
     internal static Option<Guid> Held(Guid value) => Optional(value).Filter(static id => id != Guid.Empty);
@@ -115,17 +115,17 @@ public sealed record ReadIntent(
     uint LinkedDefinition,
     Option<Guid> ReferenceGrandParentLayer,
     ArchiveMap Options) {
-    internal static Fin<ReadIntent> Detach(FileReadOptions options, Op op) =>
-        from row in op.Need(options)
-        from payload in op.Catch(() => ArchiveMap.Detach(row.OptionsDictionary, op))
-        from intent in op.Catch(() => Fin.Succ(value: new ReadIntent(
+    internal static Fin<ReadIntent> Detach(FileReadOptions options) =>
+        from row in Admit.Need(options)
+        from payload in Try.lift(() => ArchiveMap.Detach(row.OptionsDictionary)).Run().Bind(static inner => inner)
+        from intent in Try.lift(() => Fin.Succ(value: new ReadIntent(
             Toggles: CapabilitySet<ReadToggle>.Of(toSeq(ReadToggle.Items)
                 .Filter(toggle => toggle.Reads(value: row))
                 .ToArray()),
             WorkSessionReference: row.WorkSessionReferenceModelSerialNumber,
             LinkedDefinition: row.LinkedInstanceDefinitionSerialNumber,
             ReferenceGrandParentLayer: WriteIntent.Held(row.ReferenceModelGrandParentLayerId),
-            Options: payload)))
+            Options: payload))).Run().Bind(static inner => inner)
         select intent;
 }
 ```
@@ -143,9 +143,9 @@ public sealed record ReadIntent(
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface IParticipant {
     ArchiveSchema Schema { get; }
-    Fin<bool> Declares(WriteIntent intent, Op key);
-    Fin<ArchiveMap> Compose(DocKey document, WriteIntent intent, Op key);
-    Fin<Unit> Adopt(DocKey document, ReadIntent intent, ArchiveEnvelope envelope, Op key);
+    Fin<bool> Declares(WriteIntent intent);
+    Fin<ArchiveMap> Compose(DocKey document, WriteIntent intent);
+    Fin<Unit> Adopt(DocKey document, ReadIntent intent, ArchiveEnvelope envelope);
 }
 ```
 
@@ -190,20 +190,17 @@ public abstract partial record ParticipationAnswer {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Participation {
-    public static Fin<ParticipationAnswer> Cross(ParticipationAsk ask, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(ask).Bind(request => request.Switch(
-            op,
-            declared: static (held, row) =>
-                from participant in held.Need(row.Participant)
+    public static Fin<ParticipationAnswer> Cross(ParticipationAsk ask) {
+        return Admit.Need(ask).Bind(request => request.Switch(declared: static (held, row) =>
+                from participant in Admit.Need(row.Participant)
                 from intent in WriteIntent.Detach(row.Options, held)
-                from writes in held.Catch(() => participant.Declares(intent: intent, key: held))
+                from writes in Try.lift(() => participant.Declares(intent: intent, key: held)).Run().Bind(static inner => inner)
                 select (ParticipationAnswer)new ParticipationAnswer.DeclaredCase(Writes: writes),
             writeCase: static (held, row) =>
-                from participant in held.Need(row.Participant)
+                from participant in Admit.Need(row.Participant)
                 from document in DocKey.Of(document: row.Document, key: held)
                 from intent in WriteIntent.Detach(row.Options, held)
-                from payload in held.Catch(() => participant.Compose(document: document, intent: intent, key: held))
+                from payload in Try.lift(() => participant.Compose(document: document, intent: intent, key: held)).Run().Bind(static inner => inner)
                 from integrity in ArchiveIo.Cross(
                     archive: row.Writer,
                     schema: participant.Schema,
@@ -211,15 +208,15 @@ public static class Participation {
                     key: held)
                 select (ParticipationAnswer)new ParticipationAnswer.WrittenCase(Integrity: integrity),
             readCase: static (held, row) =>
-                from participant in held.Need(row.Participant)
+                from participant in Admit.Need(row.Participant)
                 from document in DocKey.Of(document: row.Document, key: held)
                 from intent in ReadIntent.Detach(row.Options, held)
                 from envelope in ArchiveIo.Cross(
                     archive: row.Reader,
                     schema: participant.Schema,
                     key: held)
-                from _ in held.Catch(() => participant.Adopt(
-                    document: document, intent: intent, envelope: envelope, key: held))
+                from _ in Try.lift(() => participant.Adopt(
+                    document: document, intent: intent, envelope: envelope, key: held)).Run().Bind(static inner => inner)
                 select (ParticipationAnswer)new ParticipationAnswer.ReadCase(Integrity: envelope.Integrity)));
     }
 }
@@ -276,9 +273,7 @@ public abstract partial record SettingsBridgeAnswer {
     public sealed record WatchCase(Subscription Watch) : SettingsBridgeAnswer;
     public sealed record DrainedCase(SettingsQueue Queue) : SettingsBridgeAnswer;
 
-    public Fin<SettingPath> Path(Op key) => Switch(
-        key,
-        pathCase: static (_, row) => Fin.Succ(value: row.Path),
+    public Fin<SettingPath> Path() => Switch(pathCase: static (_, row) => Fin.Succ(value: row.Path),
         persistedCase: static (_, _) => Elsewhere(),
         watchCase: static (_, _) => Elsewhere(),
         drainedCase: static (_, _) => Elsewhere());
@@ -289,16 +284,13 @@ public abstract partial record SettingsBridgeAnswer {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginSettings {
-    public static Fin<SettingsBridgeAnswer> Commit(SettingsBridge bridge, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(bridge).Bind(request => request.Switch(
-            op,
-            root: static (held, row) =>
+    public static Fin<SettingsBridgeAnswer> Commit(SettingsBridge bridge) {
+        return Admit.Need(bridge).Bind(request => request.Switch(root: static (held, row) =>
                 from _ in row.Plugin.Admit(held)
-                from load in held.Need(row.Load)
-                from __ in held.Catch(() => Optional(PlugIn.GetPluginSettings(
+                from load in Admit.Need(row.Load)
+                from __ in Try.lift(() => Optional(PlugIn.GetPluginSettings(
                         plugInId: row.Plugin.ToValue(), load: load))
-                    .ToFin(Fail: new PluginFault.Unbound(Key: held, Member: nameof(PlugIn.GetPluginSettings))))
+                    .ToFin(Fail: new PluginFault.Unbound(Key: held, Member: nameof(PlugIn.GetPluginSettings)))).Run().Bind(static inner => inner)
                 select (SettingsBridgeAnswer)new SettingsBridgeAnswer.PathCase(Path: new SettingPath(
                     Root: new SettingsRoot.PlugInCase(Plugin: row.Plugin),
                     Children: row.Children.Strict())),
@@ -314,18 +306,18 @@ public static class PluginSettings {
                     present: static (key, found) => found.States.Admits(PluginState.Loaded)
                         ? Fin.Succ(value: unit)
                         : Fin.Fail<Unit>(error: new KernelFault.InvalidValue(nameof(PlugIn.SavePluginSettings), "a loaded plug-in")))
-                from ___ in held.Catch(() => PlugIn.SavePluginSettings(plugInId: row.Plugin.ToValue()))
+                from ___ in Try.lift(() => PlugIn.SavePluginSettings(plugInId: row.Plugin.ToValue())).Run().Bind(static inner => inner)
                 select (SettingsBridgeAnswer)new SettingsBridgeAnswer.PersistedCase(Plugin: row.Plugin),
             persistOwner: static (held, row) =>
-                from owner in held.Need(row.Owner)
-                from plugin in held.AcceptValidated<PluginKey>(owner.Id)
-                from _ in held.Catch(owner.SaveSettings)
+                from owner in Admit.Need(row.Owner)
+                from plugin in FactoryBridge.Accept<PluginKey>(owner.Id)
+                from _ in Try.lift(owner.SaveSettings).Run().Bind(static inner => inner)
                 select (SettingsBridgeAnswer)new SettingsBridgeAnswer.PersistedCase(Plugin: plugin),
             watch: static (held, row) => (
-                    held.Need(row.Owner).ToValidation(),
-                    held.Need(row.Source).ToValidation(),
-                    held.Need(row.Path).ToValidation(),
-                    held.Need(row.Sink).ToValidation())
+                    Admit.Need(row.Owner).ToValidation(),
+                    Admit.Need(row.Source).ToValidation(),
+                    Admit.Need(row.Path).ToValidation(),
+                    Admit.Need(row.Sink).ToValidation())
                 .Apply(static (owner, source, path, sink) => (Owner: owner, Source: source, Path: path, Sink: sink))
                 .As()
                 .ToFin()
@@ -336,8 +328,8 @@ public static class PluginSettings {
                     sink: admitted.Sink,
                     key: held))
                 .Map<SettingsBridgeAnswer>(static subscription => new SettingsBridgeAnswer.WatchCase(Watch: subscription)),
-            drain: static (held, row) => held.Need(row.Queue)
-                .Bind(queue => held.Catch(queue.Drain).Map(_ => queue))
+            drain: static (held, row) => Admit.Need(row.Queue)
+                .Bind(queue => Try.lift(queue.Drain).Run().Bind(static inner => inner).Map(_ => queue))
                 .Map<SettingsBridgeAnswer>(static queue => new SettingsBridgeAnswer.DrainedCase(Queue: queue))));
     }
 }

@@ -123,23 +123,22 @@ public abstract partial record AnchorSource {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MacAnchor(
     NSView View, Option<NSWindow> Window, CGRect Bounds, Option<IMacViewHandler> Handler) {
-    public static Fin<MacAnchor> Of(AnchorSource source, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
-               from valid in op.Need(source)
+    public static Fin<MacAnchor> Of(AnchorSource source) {
+        return from _ in MacGate.Demand()
+               from valid in Admit.Need(source)
                from anchor in UiThread.Run(new UiDispatch<MacAnchor>.Blocking(() => valid.Switch(
                    state: op,
                    canvasCase: static (active, row) =>
-                       from view in Optional(row.Surface.GetContainerView()).ToFin(active.MissingContext())
+                       from view in Optional(row.Surface.GetContainerView()).ToFin(new KernelFault.MissingContext())
                        select (View: view, Handler: Optional(row.Surface.GetMacViewHandler())),
                    controlCase: static (active, row) =>
-                       from role in active.Need(row.Role)
-                       from handler in Optional(row.Surface.GetMacControl()).ToFin(active.MissingContext())
-                       from view in active.Catch(body: () => Optional(role.Select(handler: handler)).ToFin(active.MissingContext()))
+                       from role in Admit.Need(row.Role)
+                       from handler in Optional(row.Surface.GetMacControl()).ToFin(new KernelFault.MissingContext())
+                       from view in Try.lift(() => Optional(role.Select(handler: handler)).ToFin(new KernelFault.MissingContext())).Run().Bind(static inner => inner)
                        select (View: view, Handler: Optional(row.Surface.GetMacViewHandler())))
                    .Map(extracted => new MacAnchor(
                        View: extracted.View, Window: Optional(extracted.View.Window), Bounds: extracted.View.Bounds,
-                       Handler: extracted.Handler))), DispatchLane.Interactive, op)
+                       Handler: extracted.Handler))), DispatchLane.Interactive)
                select anchor;
     }
 }
@@ -217,11 +216,11 @@ internal static partial class NativeMap {
 public sealed record NativeMonitor(NSObject Token, MonitorPlan Plan) {
     private static readonly HookId Hook = HookId.Create(value: "rasm.grasshopper.platform.native");
 
-    internal NSEvent Receive(NSEvent raw, Op key) => key.Catch(body: () => {
+    internal NSEvent Receive(NSEvent raw) => Try.lift(() => {
         NativeInput evidence = NativeMap.Project(raw: raw, handler: Plan.Anchor.Bind(static anchor => anchor.Handler));
         Plan.Publish(obj: evidence);
         return Fin.Succ(Plan.Absorb(arg: evidence));
-    }).Match(
+    }).Run().Bind(static inner => inner).Match(
         Succ: absorbed => absorbed ? null! : raw,
         Fail: error => (Park(cell: Plan.Faults, error: error), raw).Item2);
 
@@ -232,34 +231,34 @@ public sealed record NativeMonitor(NSObject Token, MonitorPlan Plan) {
 }
 
 public sealed record GestureBinding(NSView View, GestureKind Kind, NSGestureRecognizer Recognizer, GesturePlan Plan) {
-    internal void Receive(Op key) => key.Catch(() => Plan.Publish(obj: new GestureInput(
+    internal void Receive() => Try.lift(() => Plan.Publish(obj: new GestureInput(
         Kind: Kind,
         State: Recognizer.State,
-        Location: Recognizer.LocationInView(view: View)))).IfFail(error => NativeMonitor.Park(cell: Plan.Faults, error: error));
+        Location: Recognizer.LocationInView(view: View)))).Run().Bind(static inner => inner).IfFail(error => NativeMonitor.Park(cell: Plan.Faults, error: error));
 }
 
 public sealed record PressureBinding(NSView View, Option<NSPressureConfiguration> Prior, NSPressureConfiguration Configuration);
 
-public sealed record WorkspaceWatch(MacAnchor Anchor, Action<WorkspaceFact> Publish, FaultCell Faults, Op Operation) {
+public sealed record WorkspaceWatch(MacAnchor Anchor, Action<WorkspaceFact> Publish, FaultCell Faults) {
     internal Fin<Unit> Refresh() =>
         from concessions in NativeLayer.ReadConcessions(key: Operation)
         from bounds in NativeLayer.ReadPace(anchor: Anchor, key: Operation)
-        from appearance in Operation.Catch(body: () => Fin.Succ(AppearanceRow.Of(dark: Anchor.View.HasDarkTheme())))
-        from emitted in Operation.Catch(() =>
-            Publish(obj: new WorkspaceFact(Concessions: concessions, Pace: bounds, Appearance: appearance)))
+        from appearance in Try.lift(() => Fin.Succ(AppearanceRow.Of(dark: Anchor.View.HasDarkTheme()))).Run().Bind(static inner => inner)
+        from emitted in Try.lift(() =>
+            Publish(obj: new WorkspaceFact(Concessions: concessions, Pace: bounds, Appearance: appearance))).Run().Bind(static inner => inner)
         select emitted;
 
-    internal void RefreshDeferred() => Operation.Catch(body: Refresh)
+    internal void RefreshDeferred() => Try.lift(Refresh).Run().Bind(static inner => inner)
         .IfFail(error => NativeMonitor.Park(cell: Faults, error: error));
 }
 
 public sealed class NativeHold<T> : IDisposable {
     private readonly Lazy<Unit> release;
 
-    internal NativeHold(T value, Func<Fin<Unit>> inverse, FaultCell faults, Op key) {
+    internal NativeHold(T value, Func<Fin<Unit>> inverse, FaultCell faults) {
         Value = value;
-        release = new Lazy<Unit>(() => UiThread.Run(new UiDispatch<Unit>.Blocking(() => key.Catch(inverse)),
-                DispatchLane.Interactive, key)
+        release = new Lazy<Unit>(() => UiThread.Run(new UiDispatch<Unit>.Blocking(() => Try.lift(inverse).Run().Bind(static inner => inner)),
+                DispatchLane.Interactive)
             .IfFail(error => NativeMonitor.Park(cell: faults, error: error)),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
@@ -271,14 +270,13 @@ public sealed class NativeHold<T> : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MacGate {
-    public static Fin<Unit> Demand(Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Unit> Demand() {
         if (!OperatingSystem.IsMacOS())
-            return Fin.Fail<Unit>(op.Unsupported(inputType: typeof(NSView), outputType: typeof(Unit)));
-        return from platform in op.Catch(body: () => Optional(global::Eto.Platform.Instance).ToFin(op.MissingContext()))
+            return Fin.Fail<Unit>(new KernelFault.Unsupported(InputType: typeof(NSView), OutputType: typeof(Unit)));
+        return from platform in Try.lift(() => Optional(global::Eto.Platform.Instance).ToFin(new KernelFault.MissingContext())).Run().Bind(static inner => inner)
                from admitted in guard(
                    platform is global::Eto.Mac.Platform && platform.IsMac && platform.IsValid,
-                   op.Unsupported(inputType: typeof(NSView), outputType: typeof(Unit)))
+                   new KernelFault.Unsupported(InputType: typeof(NSView), OutputType: typeof(Unit)))
                select admitted;
     }
 }
@@ -292,20 +290,19 @@ public static class NativeLayer {
         (Accessibility.InvertColors, static w => w.AccessibilityDisplayShouldInvertColors));
 
     private static Fin<Lease<NativeHold<T>>> Acquire<T>(
-        FaultCell faults, Op key, Func<Fin<(T Value, Func<Fin<Unit>> Release)>> mint, Func<Fin<Unit>> unwind) =>
-        from _ in MacGate.Demand(key: key)
-        from lease in UiThread.Run(new UiDispatch<Lease<NativeHold<T>>>.Blocking(() => key.Catch(body: mint)
+        FaultCell faults, Func<Fin<(T Value, Func<Fin<Unit>> Release)>> mint, Func<Fin<Unit>> unwind) =>
+        from _ in MacGate.Demand()
+        from lease in UiThread.Run(new UiDispatch<Lease<NativeHold<T>>>.Blocking(() => Try.lift(mint).Run().Bind(static inner => inner)
             .Map(minted => (Lease<NativeHold<T>>)new Lease<NativeHold<T>>.Owned(
-                Value: new NativeHold<T>(value: minted.Value, inverse: minted.Release, faults: faults, key: key)))
-            .Rollback(release: unwind, key: key)), DispatchLane.Interactive, key)
+                Value: new NativeHold<T>(value: minted.Value, inverse: minted.Release, faults: faults)))
+            .Rollback(release: unwind, key: key)), DispatchLane.Interactive)
         select lease;
 
-    public static Fin<Lease<NativeHold<NativeMonitor>>> Observe(MonitorPlan plan, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Lease<NativeHold<NativeMonitor>>> Observe(MonitorPlan plan) {
         NSObject? token = null;
         NativeMonitor? monitor = null;
-        return op.Need(plan).Bind(valid => Acquire<NativeMonitor>(
-            faults: valid.Faults, key: op,
+        return Admit.Need(plan).Bind(valid => Acquire<NativeMonitor>(
+            faults: valid.Faults,
             mint: () => {
                 NSObject active = NSEvent.AddLocalMonitorForEventsMatchingMask(
                     mask: valid.Mask,
@@ -314,26 +311,25 @@ public static class NativeLayer {
                 monitor = new NativeMonitor(Token: active, Plan: valid);
                 return Fin.Succ((Value: monitor, Release: (Func<Fin<Unit>>)(() => Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => { NSEvent.RemoveMonitor(eventMonitor: active); return Fin.Succ(unit); },
-                    () => { active.Dispose(); return Fin.Succ(unit); }), op))));
+                    () => { active.Dispose(); return Fin.Succ(unit); })))));
             },
             unwind: () => token is { } active
                 ? Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => { NSEvent.RemoveMonitor(eventMonitor: active); return Fin.Succ(unit); },
-                    () => { active.Dispose(); return Fin.Succ(unit); }), op)
+                    () => { active.Dispose(); return Fin.Succ(unit); }))
                 : Fin.Succ(unit)));
     }
 
-    public static Fin<Lease<NativeHold<GestureBinding>>> Gesture(MacAnchor anchor, GesturePlan plan, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Lease<NativeHold<GestureBinding>>> Gesture(MacAnchor anchor, GesturePlan plan) {
         NSGestureRecognizer? recognizer = null;
         bool attached = false;
         GestureBinding? binding = null;
-        return (from active in op.Need(anchor)
-                from valid in op.Need(plan)
+        return (from active in Admit.Need(anchor)
+                from valid in Admit.Need(plan)
                 from lease in Acquire<GestureBinding>(
-                    faults: valid.Faults, key: op,
+                    faults: valid.Faults,
                     mint: () => {
-                        NSGestureRecognizer minted = valid.Kind.Mint(action: () => binding?.Receive(key: op));
+                        NSGestureRecognizer minted = valid.Kind.Mint(action: () => binding?.Receive());
                         recognizer = minted;
                         valid.Configure(obj: minted);
                         active.View.AddGestureRecognizer(gestureRecognizer: minted);
@@ -341,23 +337,22 @@ public static class NativeLayer {
                         binding = new GestureBinding(View: active.View, Kind: valid.Kind, Recognizer: minted, Plan: valid);
                         return Fin.Succ((Value: binding, Release: (Func<Fin<Unit>>)(() => Custody.Release(Seq<Func<Fin<Unit>>>(
                             () => { active.View.RemoveGestureRecognizer(gestureRecognizer: minted); return Fin.Succ(unit); },
-                            () => { minted.Dispose(); return Fin.Succ(unit); }), op))));
+                            () => { minted.Dispose(); return Fin.Succ(unit); })))));
                     },
                     unwind: () => recognizer is { } minted
                         ? Custody.Release(Seq<Func<Fin<Unit>>>(
-                            () => { Op.SideWhen(condition: attached, action: () => active.View.RemoveGestureRecognizer(gestureRecognizer: minted)); return Fin.Succ(unit); },
-                            () => { minted.Dispose(); return Fin.Succ(unit); }), op)
+                            () => { HostEdge.SideWhen(condition: attached, action: () => active.View.RemoveGestureRecognizer(gestureRecognizer: minted)); return Fin.Succ(unit); },
+                            () => { minted.Dispose(); return Fin.Succ(unit); }))
                         : Fin.Succ(unit))
                 select lease);
     }
 
     public static Fin<Lease<NativeHold<PressureBinding>>> Pressure(
-        MacAnchor anchor, PressureRow behavior, FaultCell faults, Op? key = null) {
-        Op op = key.OrDefault();
+        MacAnchor anchor, PressureRow behavior, FaultCell faults) {
         NSPressureConfiguration? configuration = null;
         Option<NSPressureConfiguration> prior = default;
-        return op.Need(anchor).Bind(active => Acquire<PressureBinding>(
-            faults: faults, key: op,
+        return Admit.Need(anchor).Bind(active => Acquire<PressureBinding>(
+            faults: faults,
             mint: () => {
                 prior = Optional(active.View.PressureConfiguration);
                 NSPressureConfiguration minted = new(pressureBehavior: behavior.Host);
@@ -365,66 +360,61 @@ public static class NativeLayer {
                 active.View.PressureConfiguration = minted;
                 PressureBinding binding = new(View: active.View, Prior: prior, Configuration: minted);
                 return Fin.Succ((Value: binding, Release: (Func<Fin<Unit>>)(() => Custody.Release(Seq<Func<Fin<Unit>>>(
-                    () => guard(ReferenceEquals(active.View.PressureConfiguration, minted), op.InvalidContext()).ToFin()
-                        .Map(_ => Op.Side(() => active.View.PressureConfiguration = Op.ToHostSlot(prior)!)),
-                    () => { minted.Dispose(); return Fin.Succ(unit); }), op))));
+                    () => guard(ReferenceEquals(active.View.PressureConfiguration, minted), new KernelFault.InvalidContext()).ToFin()
+                        .Map(_ => HostEdge.Side(() => active.View.PressureConfiguration = HostEdge.Slot(prior)!)),
+                    () => { minted.Dispose(); return Fin.Succ(unit); })))));
             },
             unwind: () => configuration is { } minted
                 ? Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => ReferenceEquals(active.View.PressureConfiguration, minted)
-                        ? op.Catch(() => active.View.PressureConfiguration = Op.ToHostSlot(prior)!)
+                        ? Try.lift(() => active.View.PressureConfiguration = HostEdge.Slot(prior)!).Run().Bind(static inner => inner)
                         : Fin.Succ(unit),
-                    () => { minted.Dispose(); return Fin.Succ(unit); }), op)
+                    () => { minted.Dispose(); return Fin.Succ(unit); }))
                 : Fin.Succ(unit)));
     }
 
-    public static Fin<CGPoint> Convert(MacAnchor anchor, CGPoint point, Option<NSView> source, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
-               from view in op.Need(anchor).Map(static active => active.View)
-               from projected in UiThread.Run(new UiDispatch<CGPoint>.Blocking(() => op.Catch(body: () => Fin.Succ(view.ConvertPointFromView(
+    public static Fin<CGPoint> Convert(MacAnchor anchor, CGPoint point, Option<NSView> source) {
+        return from _ in MacGate.Demand()
+               from view in Admit.Need(anchor).Map(static active => active.View)
+               from projected in UiThread.Run(new UiDispatch<CGPoint>.Blocking(() => Try.lift(() => Fin.Succ(view.ConvertPointFromView(
                    point: point,
-                   view: Op.ToHostSlot(source)!)))), DispatchLane.Interactive, op)
+                   view: HostEdge.Slot(source)!))).Run().Bind(static inner => inner)), DispatchLane.Interactive)
                select projected;
     }
 
-    public static Fin<AppearanceRow> Appearance(MacAnchor anchor, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
-               from active in op.Need(anchor)
+    public static Fin<AppearanceRow> Appearance(MacAnchor anchor) {
+        return from _ in MacGate.Demand()
+               from active in Admit.Need(anchor)
                from row in UiThread.Run(new UiDispatch<AppearanceRow>.Blocking(() =>
-                   op.Catch(body: () => Fin.Succ(AppearanceRow.Of(dark: active.View.HasDarkTheme())))), DispatchLane.Interactive, op)
+                   Try.lift(() => Fin.Succ(AppearanceRow.Of(dark: active.View.HasDarkTheme()))).Run().Bind(static inner => inner)), DispatchLane.Interactive)
                select row;
     }
 
-    public static Fin<CapabilitySet<Accessibility>> Concessions(Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
+    public static Fin<CapabilitySet<Accessibility>> Concessions() {
+        return from _ in MacGate.Demand()
                from posture in UiThread.Run(new UiDispatch<CapabilitySet<Accessibility>>.Blocking(() =>
-                   ReadConcessions(key: op)), DispatchLane.Interactive, op)
+                   ReadConcessions()), DispatchLane.Interactive)
                select posture;
     }
 
-    public static Fin<PaceBounds> Pace(MacAnchor anchor, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
-               from active in op.Need(anchor)
+    public static Fin<PaceBounds> Pace(MacAnchor anchor) {
+        return from _ in MacGate.Demand()
+               from active in Admit.Need(anchor)
                from bounds in UiThread.Run(new UiDispatch<PaceBounds>.Blocking(() =>
-                   ReadPace(anchor: active, key: op)), DispatchLane.Interactive, op)
+                   ReadPace(anchor: active, key: op)), DispatchLane.Interactive)
                select bounds;
     }
 
     public static Fin<Lease<NativeHold<WorkspaceWatch>>> Watch(
-        MacAnchor anchor, Action<WorkspaceFact> publish, FaultCell faults, Op? key = null) {
-        Op op = key.OrDefault();
+        MacAnchor anchor, Action<WorkspaceFact> publish, FaultCell faults) {
         NSObject? screen = null;
         NSObject? display = null;
-        return (from active in op.Need(anchor)
-                from valid in op.Need(publish)
+        return (from active in Admit.Need(anchor)
+                from valid in Admit.Need(publish)
                 from lease in Acquire<WorkspaceWatch>(
-                    faults: faults, key: op,
+                    faults: faults,
                     mint: () => {
-                        WorkspaceWatch watch = new(Anchor: active, Publish: valid, Faults: faults, Operation: op);
+                        WorkspaceWatch watch = new(Anchor: active, Publish: valid, Faults: faults);
                         NSObject screenWatch = NSApplication.Notifications.ObserveDidChangeScreenParameters(
                             handler: (_, _) => watch.RefreshDeferred());
                         screen = screenWatch;
@@ -434,21 +424,21 @@ public static class NativeLayer {
                         return watch.Refresh().Map(_ => (Value: watch, Release: (Func<Fin<Unit>>)(() =>
                             Custody.Release(Seq<Func<Fin<Unit>>>(
                                 () => { displayWatch.Dispose(); return Fin.Succ(unit); },
-                                () => { screenWatch.Dispose(); return Fin.Succ(unit); }), op))));
+                                () => { screenWatch.Dispose(); return Fin.Succ(unit); })))));
                     },
                     unwind: () => Custody.Release(Seq<Func<Fin<Unit>>>(
                         () => { display?.Dispose(); return Fin.Succ(unit); },
-                        () => { screen?.Dispose(); return Fin.Succ(unit); }), op))
+                        () => { screen?.Dispose(); return Fin.Succ(unit); })))
                 select lease);
     }
 
-    internal static Fin<CapabilitySet<Accessibility>> ReadConcessions(Op key) => key.Catch(body: () =>
-        from workspace in Optional(NSWorkspace.SharedWorkspace).ToFin(key.MissingContext())
-        select CapabilitySet<Accessibility>.Of([.. ConcessionProbes.Filter(probe => probe.Read(workspace)).Map(static probe => probe.Row)]));
+    internal static Fin<CapabilitySet<Accessibility>> ReadConcessions() => Try.lift(() =>
+        from workspace in Optional(NSWorkspace.SharedWorkspace).ToFin(new KernelFault.MissingContext())
+        select CapabilitySet<Accessibility>.Of([.. ConcessionProbes.Filter(probe => probe.Read(workspace)).Map(static probe => probe.Row)])).Run().Bind(static inner => inner);
 
-    internal static Fin<PaceBounds> ReadPace(MacAnchor anchor, Op key) => key.Catch(body: () =>
-        from window in Optional(anchor.View.Window).ToFin(key.MissingContext())
-        from screen in Optional(window.Screen).ToFin(key.MissingContext())
+    internal static Fin<PaceBounds> ReadPace(MacAnchor anchor) => Try.lift(() =>
+        from window in Optional(anchor.View.Window).ToFin(new KernelFault.MissingContext())
+        from screen in Optional(window.Screen).ToFin(new KernelFault.MissingContext())
         let screenHandle = (nint)screen.Handle
         let maximumFrames = screen.MaximumFramesPerSecond
         let minimumInterval = screen.MinimumRefreshInterval
@@ -458,12 +448,12 @@ public static class NativeLayer {
             maximumFrames > 0 &&
             double.IsFinite(minimumInterval) && minimumInterval > 0.0 &&
             double.IsFinite(maximumInterval) && maximumInterval >= minimumInterval,
-            key.InvalidResult())
+            new KernelFault.InvalidResult())
         select new PaceBounds(
             ScreenHandle: screenHandle,
             MaximumFramesPerSecond: maximumFrames,
             MinimumRefreshInterval: minimumInterval,
-            MaximumRefreshInterval: maximumInterval));
+            MaximumRefreshInterval: maximumInterval)).Run().Bind(static inner => inner);
 }
 ```
 

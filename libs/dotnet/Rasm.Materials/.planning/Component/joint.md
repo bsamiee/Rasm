@@ -432,34 +432,34 @@ public static class JointSeed {
         new JointRow.Adhesive("joint.adhesive-pu-2mm",    AdhesiveClass.Polyurethane,       PositiveMagnitude.Create(2.0),  PositiveMagnitude.Create(30.0), PositiveMagnitude.Create(50.0)),
         new JointRow.Adhesive("joint.adhesive-ssg-12mm",  AdhesiveClass.SiliconeStructural, PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(1000.0)));
 
-    static Fin<SectionProfile> WeldProfileOf(JointRow.Weld row, Op key) => row.Geometry.Switch(
-        fillet: geometry => SectionProfile.FilletTriangle.Of(geometry.LegMm.Value, geometry.LegMm.Value, key),
-        groove: geometry => GrooveProfile(geometry, key),
-        plug: geometry => SectionProfile.Circle.Of(geometry.Hole.DiameterMm.Value, key),
-        slot: geometry => SectionProfile.Rectangle.Of(geometry.Hole.DiameterMm.Value, geometry.LengthMm.Value, key),
-        flareBevel: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value, key),
-        flareV: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value, key));
+    static Fin<SectionProfile> WeldProfileOf(JointRow.Weld row) => row.Geometry.Switch(
+        fillet: geometry => SectionProfile.FilletTriangle.Of(geometry.LegMm.Value, geometry.LegMm.Value),
+        groove: geometry => GrooveProfile(geometry),
+        plug: geometry => SectionProfile.Circle.Of(geometry.Hole.DiameterMm.Value),
+        slot: geometry => SectionProfile.Rectangle.Of(geometry.Hole.DiameterMm.Value, geometry.LengthMm.Value),
+        flareBevel: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value),
+        flareV: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value));
 
-    static Fin<SectionProfile> GrooveProfile(WeldGeometry.Groove geometry, Op key) {
+    static Fin<SectionProfile> GrooveProfile(WeldGeometry.Groove geometry) {
         GroovePrep p = geometry.Prep;
         double flare = p.IncludedAngleDeg > 0.0 ? 2.0 * Math.Tan(p.IncludedAngleDeg * Math.PI / 360.0) : Math.Tan(p.BevelAngleDeg * Math.PI / 180.0);
         double top = p.RootOpeningMm + geometry.DepthMm.Value * flare;
         return SectionProfile.Trapezium.Of(
             bottomWidthMm: p.RootOpeningMm, topWidthMm: top, depthMm: geometry.DepthMm.Value,
-            topOffsetMm: p.BevelAngleDeg > 0.0 ? (top - p.RootOpeningMm) / 2.0 : 0.0, key);
+            topOffsetMm: p.BevelAngleDeg > 0.0 ? (top - p.RootOpeningMm) / 2.0 : 0.0);
     }
 
-    static Fin<Unit> AdmitWeld(JointRow.Weld row, Op key) => row.Geometry.Switch(
+    static Fin<Unit> AdmitWeld(JointRow.Weld row) => row.Geometry.Switch(
         fillet: geometry => guard(geometry.LegMm.Value >= JointRow.Weld.MinimumFilletLegMm(geometry.PartMm.Value),
-            new KernelFault.InvalidValue(nameof(SectionProfile.FilletTriangle), "a fillet leg meeting the J2.4 minimum", Some(key))).ToFin(),
+            new KernelFault.InvalidValue(nameof(SectionProfile.FilletTriangle), "a fillet leg meeting the J2.4 minimum")).ToFin(),
         groove: geometry => guard(row.EffectiveThroatMm.IsSome,
-            new KernelFault.InvalidValue(nameof(row.EffectiveThroatMm), "a PJP effective throat after process deduction", Some(key))).ToFin(),
+            new KernelFault.InvalidValue(nameof(row.EffectiveThroatMm), "a PJP effective throat after process deduction")).ToFin(),
         plug: geometry => guard(geometry.Hole.DepthMm.Value >= HoleWeld.RequiredFillMm(geometry.PartMm.Value),
-            new KernelFault.InvalidValue(nameof(SectionProfile.Circle), "plug fill meeting the AWS minimum", Some(key))).ToFin(),
+            new KernelFault.InvalidValue(nameof(SectionProfile.Circle), "plug fill meeting the AWS minimum")).ToFin(),
         slot: geometry => from filled in guard(geometry.Hole.DepthMm.Value >= HoleWeld.RequiredFillMm(geometry.PartMm.Value),
-                new KernelFault.InvalidValue(nameof(SectionProfile.Outline), "slot fill meeting the AWS minimum", Some(key)))
+                new KernelFault.InvalidValue(nameof(SectionProfile.Outline), "slot fill meeting the AWS minimum"))
             from shaped in guard(geometry.LengthMm.Value >= geometry.Hole.DiameterMm.Value,
-                new KernelFault.InvalidValue(nameof(geometry.LengthMm), "at least the slot width", Some(key)))
+                new KernelFault.InvalidValue(nameof(geometry.LengthMm), "at least the slot width"))
             select unit,
         flareBevel: static _ => Fin.Succ(unit), flareV: static _ => Fin.Succ(unit));
 
@@ -472,7 +472,7 @@ public static class JointSeed {
             weld: static r => r.Substance, stud: static r => r.Substance, adhesive: static r => r.Substance),
         source: static _ => EvidenceGrade.Catalogue,
         standard: static row => new ComponentStandard(Body(row).Region, StandardJointThicknessMm: 0.0, Body(row)),
-        detail: Some<Func<JointRow, SectionProfile, Op, Fin<PropertyBag>>>(static (row, _, _) => JointDetail.Of(row, EvidenceGrade.Catalogue)),
+        detail: Some<Func<JointRow, SectionProfile, Fin<PropertyBag>>>(static (row, _, _) => JointDetail.Of(row, EvidenceGrade.Catalogue)),
         appearance: static row => row.Switch(
             weld: static r => r.Appearance,
             stud: static r => r.Grade.Appearance,
@@ -484,29 +484,29 @@ public static class JointSeed {
         stud: static _ => ComponentAuthority.Aws,
         adhesive: static _ => ComponentAuthority.Astm);
 
-    static Validation<Error, Unit> Coherence(JointRow row, Op key) => row.Switch(
-        weld: r => AdmitWeld(r, key).ToValidation().Map(static _ => unit),
-        stud: r => key.AcceptValidated<PositiveMagnitude>(candidate: r.RealizedLengthMm).ToValidation().Map(static _ => unit),
+    static Validation<Error, Unit> Coherence(JointRow row) => row.Switch(
+        weld: r => AdmitWeld(r).ToValidation().Map(static _ => unit),
+        stud: r => FactoryBridge.Accept<PositiveMagnitude>(candidate: r.RealizedLengthMm).ToValidation().Map(static _ => unit),
         adhesive: static _ => Validation<Error, Unit>.Success(unit));
 
-    static Fin<SectionProfile> ProfileOf(JointRow row, Op key) => row.Switch(
-        weld: r => WeldProfileOf(r, key),
-        stud: r => SectionProfile.Circle.Of(diameterMm: r.Class.DiameterMm, key),
-        adhesive: r => SectionProfile.Nominal.Of(nominalMm: r.BondMm.Value, key));
+    static Fin<SectionProfile> ProfileOf(JointRow row) => row.Switch(
+        weld: r => WeldProfileOf(r),
+        stud: r => SectionProfile.Circle.Of(diameterMm: r.Class.DiameterMm),
+        adhesive: r => SectionProfile.Nominal.Of(nominalMm: r.BondMm.Value));
 
     static readonly FrozenDictionary<ComponentId, JointRow> Rowset =
         Roster.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
 
-    public static Fin<JointRow> Resolve(Component component, Op key) =>
+    public static Fin<JointRow> Resolve(Component component) =>
         Rowset.TryGetValue(component.Designation, out JointRow row)
             ? Fin.Succ(row)
-            : new ComponentFault.ComponentMissing(key, ProfileRef.Of(component.Designation.Value));
+            : new ComponentFault.ComponentMissing(ProfileRef.Of(component.Designation.Value));
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        Resolve(component, key).Bind(row => SectionCapacity.Lift(row.Switch<CapacityLift>(
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        Resolve(component).Bind(row => SectionCapacity.Lift(row.Switch<CapacityLift>(
             weld: r => new CapacityLift.Weld(component.Designation, r, placement.LoadAngleDeg),
             adhesive: r => new CapacityLift.Adhesive(component.Designation, r),
-            stud: r => new CapacityLift.Stud(component.Designation, r, placement.StudGroup, placement.StudCount)), key));
+            stud: r => new CapacityLift.Stud(component.Designation, r, placement.StudGroup, placement.StudCount))));
 }
 ```
 

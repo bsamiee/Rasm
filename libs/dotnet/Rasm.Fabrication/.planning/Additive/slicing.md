@@ -845,7 +845,7 @@ public static partial class Slice {
                       select settled,
                   @implicit: static (state, plan) =>
                       from _gate in Gate(state.Stack, OpenSheetLaw.Reject)
-                      from settled in Voxel(plan.Op, state.Progress)
+                      from settled in Voxel(state.Progress)
                       select settled)
               select result;
 
@@ -878,7 +878,7 @@ public static partial class Slice {
         select result;
 
     private static Fin<AdditiveResult> Voxel(ImplicitOp op, Option<IProgress<double>> progress) =>
-        Sdf.Cli(op, progress)
+        Sdf.Cli(progress)
             .Map(static cli => new AdditiveResult(Seq<Move>(), cli.Layers, Seq(cli.Key).Concat(cli.Masks)));
 
     private static Fin<InfillLayer> Layer(
@@ -1210,7 +1210,7 @@ public static partial class Slice {
         progress.Iter(sink => sink.Report(planned <= 0 ? 1.0 : (double)settled / planned));
 
     private static Fin<T> Capture<T>(Func<Fin<T>> callback, string locus) =>
-        Op.Of(name: locus).Catch(callback);
+        Try.lift(callback).Run().Bind(static inner => inner);
 
     private static Point3d Centre(BoundingBox bound) => (bound.Min + bound.Max) * 0.5;
 }

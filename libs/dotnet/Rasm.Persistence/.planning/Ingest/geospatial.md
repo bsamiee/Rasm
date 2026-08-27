@@ -12,7 +12,7 @@ Every ingested feature lands as ONE `GeoFeatureRow`: decoded `Geometry`, canonic
 ## [02]-[GEO_SOURCE]
 
 - Owner: `GeoCapability` closes the wire-capability vocabulary over the kernel `ICapability` floor; `GeoFormat` carries one `CapabilitySet` column with the `Law` barring the illegal corner; `GeoAdmission` carries the shared factory, ordinate cap, codec instances, plural fold, `ToCellFrame` projection, and the GeoJSON mapper bound to that factory; `CrsPolicy` carries admitted payload SRIDs; `GeoSpec` fixes format, source, CRS, admission, H3 resolution, and layer, and derives the effective capability set; `GeoOp`/`GeoYield` close dispatch; `[FaultCase]` closes the case-grain fault roster; `GeoIngestFault` closes the accumulating family above it; `GeoSource` owns `Run`.
-- Cases: `GeoOp.Ingest` decodes into `Seq<GeoFeatureRow>`; `GeoOp.Egress` writes the selected container; `GeoOp.Probe` yields layer metadata. `GeoCapability` is `properties | measures | layers | crs-free | streamable`. `GeoIngestFault` is `CodecReject | CrsUnsupported | CrsMismatch | GeometryInvalid | CapabilityLoss | LayerMissing | ColumnUnknown`; independent cases accumulate as `Error.Many`.
+- Cases: `GeoOp.Ingest` decodes into `Seq<GeoFeatureRow>`; `GeoOp.Egress` writes the selected container; `GeoHost.Probe` yields layer metadata. `GeoCapability` is `properties | measures | layers | crs-free | streamable`. `GeoIngestFault` is `CodecReject | CrsUnsupported | CrsMismatch | GeometryInvalid | CapabilityLoss | LayerMissing | ColumnUnknown`; independent cases accumulate as `Error.Many`.
 - Entry: `Run(GeoOp, ProjectionContext)` is the ONE polymorphic entry; typed-property reification remains `GeoFeatureRow.Bind<T>` on the yielded row.
 - Auto: all codecs bind one factory and ordinate cap. `GeoSpec` admission folds ONE rule table — path, resolution, CRS-factory agreement, CRS pinning, layer selection, stream posture, measure loss, and the `CapabilityLaw` corner — reporting every violated rule in one error rather than the first. GeoPackage gates `GeoPackageBinaryHeader.SrsId` against both `CrsPolicy` and the registered spine before decoding, accumulating BOTH refusals per row. Strict parse and `Geometry.IsValid` precede minting. `ToCellFrame` preserves payload geometry while projecting a WGS84 indexing copy; non-`4326` output refuses before H3. Cell derivation covers points, multipoints, lines, multilines, polygons, multipolygons, and recursive collections — `Fill` itself splits an antimeridian-crossing polygon (`IsTransMeridian` gating its internal lon±360 `SplitGeometry`), so no caller-side hemisphere split exists; an unsupported collection member, invalid/uncovered cell set, or mixed resolution refuses without partial indexing. Egress derives the payload's DEMANDED capability set from the values themselves and diffs it against the spec's effective set, so one refusal names every capability the wire drops.
 - Packages: NetTopologySuite.IO.GeoPackage (`GeoPackageGeoReader`/`GeoPackageGeoWriter`/`GeoPackageBinaryHeader`), NetTopologySuite.IO.GeoJSON4STJ (`GeoJsonConverterFactory` via `GeoJsonProjection.Default.Factory`, `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>`, `NetTopologySuite.Features.Feature`/`FeatureCollection`/`AttributesTable`), NetTopologySuite (`WKBReader`/`WKBWriter`/`WKTReader`/`WKTWriter`/`NtsGeometryServices`/`GeometryFactory.CreateGeometryCollection`/`Geometry.IsValid`/`PrecisionModel`/`Ordinates`), pocketken.H3 (`H3Index.FromPoint`, `Geometry.Fill` — antimeridian split internal, `LineString.Fill`, `H3Index.Invalid`, the `ulong` durable form), Microsoft.Data.Sqlite (the GeoPackage container spine read — already admitted), Riok.Mapperly (the GeoJSON feature correspondence), Rasm (`Rasm/Domain/validation#CAPABILITY` `ICapability`/`CapabilitySet`/`CapabilityLaw`, `Rasm/Domain/results#FAULT_BAND` `FaultBand`), Rasm.Persistence (`Element/codec` `ContentAddress`/`GeoJsonProjection`, `Element/identity` `H3Cell`, `Element/graph#STORE_HOOKS` `ProjectionContext`, `Ingest/tabular#TABULAR_SOURCE` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
@@ -140,7 +140,7 @@ public readonly record struct GeoDecoded(Geometry Shape, GeoProperties Propertie
 
 public readonly record struct GeoFeatureRow(Geometry Shape, ReadOnlyMemory<byte> Wkb, ContentAddress Content, Seq<H3Cell> Cells, GeoProperties Properties) {
     public static Validation<Error, GeoFeatureRow> Of(GeoSpec spec, GeoDecoded feature) =>
-        GeoSource.Capture(spec.Format, () => spec.Admission.ToCellFrame(feature.Shape)).Bind(indexed =>
+        Error.New(spec.Format.Message, spec.Format).Bind(indexed =>
             AdmissionSlots.Accumulate(Seq(
                 AdmissionSlots.Gate(spec.Crs.Admits(feature.Shape.SRID), new GeoIngestFault.CrsUnsupported(feature.Shape.SRID)),
                 AdmissionSlots.Gate(feature.Shape.IsValid, new GeoIngestFault.GeometryInvalid(feature.Shape.GeometryType)),
@@ -153,7 +153,7 @@ public readonly record struct GeoFeatureRow(Geometry Shape, ReadOnlyMemory<byte>
         return AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(indexed.IsEmpty || !cells.IsEmpty, new GeoIngestFault.GeometryInvalid($"<h3-uncovered:{indexed.GeometryType}>")),
             AdmissionSlots.Gate(cells.AreOfSameResolution(), new GeoIngestFault.GeometryInvalid("<mixed-cell-resolution>"))))
-        .Bind(_ => GeoSource.Capture(spec.Format, () => spec.Admission.WkbOut.Write(feature.Shape))
+        .Bind(_ => Error.New(spec.Format.Message, spec.Format)
             .Map(wkb => new GeoFeatureRow(feature.Shape, wkb, ContentAddress.Of(wkb.AsSpan()), cells.Map(H3Cell.Of), feature.Properties)));
     }
 }
@@ -315,7 +315,7 @@ public static class GeoSource {
     static string Text(Origin source) => source.Read(path: File.ReadAllText, stream: static s => new StreamReader(s).ReadToEnd());
 
     internal static Validation<Error, TValue> Capture<TValue>(GeoFormat format, Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).MapFail(e => GeoIngestFault.Lift(format, e)).ToValidation();
+        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).MapFail(e => GeoIngestFault.Lift(format, e)).ToValidation();
 }
 
 public static class GeoCells {
@@ -380,10 +380,8 @@ public static class GeoCells {
 public static class GeoRows {
     extension(GeoFeatureRow row) {
         public Validation<Error, Option<T>> Bind<T>() => row.Properties.Switch(
-            deferred: static d => GeoSource.Capture(GeoFormat.GeoJson, () =>
-                d.Table.TryDeserializeJsonObject<T>(GeoWire.Options, out T? typed) ? Optional(typed) : None),
-            columns: static c => GeoSource.Capture(GeoFormat.GeoPackage, () => Optional(JsonSerializer.Deserialize<T>(
-                JsonSerializer.SerializeToUtf8Bytes(c.Bag.ToDictionary(static kv => kv.Key, static kv => kv.Value), GeoWire.Options), GeoWire.Options))),
+            deferred: static d => Error.New(GeoFormat.GeoJson.Message, GeoFormat.GeoJson),
+            columns: static c => Error.New(GeoFormat.GeoPackage.Message, GeoFormat.GeoPackage),
             bare: static _ => (Validation<Error, Option<T>>)Option<T>.None);
     }
 }
@@ -423,22 +421,14 @@ public sealed partial class GeoWire(GeoAdmission admission) {
         Collection(spec).Map(collection => toSeq(collection).Map(Decoded));
 
     public Validation<Error, Unit> Write(GeoSpec spec, Seq<GeoPayload> features) =>
-        GeoSource.Capture(GeoFormat.GeoJson, () => {
-            FeatureCollection collection = [];
-            features.Iter(payload => collection.Add(Featured(payload)));
-            return spec.Source.Read(
-                path:   p => { File.WriteAllBytes(p, JsonSerializer.SerializeToUtf8Bytes(collection, Options)); return unit; },
-                stream: s => { JsonSerializer.Serialize(s, collection, Options); return unit; });
-        });
+        Error.New(GeoFormat.GeoJson.Message, GeoFormat.GeoJson);
 
     public Validation<Error, Seq<GeoLayer>> Census(GeoSpec spec) =>
         Features(spec).Map(static rows => Seq(new GeoLayer(
             "features", 4326, "geometry", nameof(FeatureCollection), GeoOrdinateRule.Optional, GeoOrdinateRule.Forbidden, false, rows.Count)));
 
     static Validation<Error, FeatureCollection> Collection(GeoSpec spec) =>
-        GeoSource.Capture(GeoFormat.GeoJson, () => Optional(spec.Source.Read(
-            path:   static p => JsonSerializer.Deserialize<FeatureCollection>(File.ReadAllBytes(p), Options),
-            stream: static s => JsonSerializer.Deserialize<FeatureCollection>(s, Options))))
+        Error.New(GeoFormat.GeoJson.Message, GeoFormat.GeoJson)
         .Bind(static held => held.ToValidation(
             (Error)new GeoIngestFault.PayloadRejected("geojson", "<null-document>")));
 }
@@ -470,9 +460,7 @@ public static class GeoContainer {
         });
 
     static Validation<Error, TValue> Pathed<TValue>(GeoSpec spec, Func<string, Validation<Error, TValue>> read) =>
-        GeoSource.Capture(spec.Format, () => spec.Source.Read(
-            path:   read,
-            stream: static _ => (Validation<Error, TValue>)new GeoIngestFault.PayloadRejected("gpkg", "<container-needs-a-path>")))
+        Error.New(spec.Format.Message, spec.Format)
         .Bind(static inner => inner);
 
     static Validation<Error, Unit> Admitted(GeoSpec spec, int srid) =>
@@ -529,15 +517,12 @@ public static class GeoContainer {
             .Map(i => (reader.GetName(i), reader.IsDBNull(i) ? null : reader.GetValue(i))));
         return Header(spec.Format, payload).Bind(header =>
             AdmissionSlots.Accumulate(Seq(Admitted(spec, header.SrsId), Registered(layer.Srid, header.SrsId)))
-                .Bind(_ => GeoSource.Capture(spec.Format, () => spec.Admission.GpkgIn.Read(payload))
+                .Bind(_ => Error.New(spec.Format.Message, spec.Format)
                     .Map(shape => new GeoDecoded(shape, new GeoProperties.Columns(bag)))));
     }
 
     static Validation<Error, GeoPackageBinaryHeader> Header(GeoFormat format, byte[] payload) =>
-        GeoSource.Capture(format, () => {
-            using BinaryReader wire = new(new MemoryStream(payload));
-            return GeoPackageBinaryHeader.Read(wire);
-        });
+        Error.New(format.Message, format);
 
     static Validation<Error, Unit> Registered(int registered, int payload) =>
         AdmissionSlots.Gate(registered == payload, new GeoIngestFault.CrsMismatch(registered, payload));

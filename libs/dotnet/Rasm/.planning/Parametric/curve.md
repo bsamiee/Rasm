@@ -14,7 +14,7 @@ Every reachable failure routes its direct `GeometryFault` case or the resolved `
 - Cases: `ParametricOp` folds the request cases `Evaluate`, `Measure`, `Divide`, `Stations`, `Split`, `Reconstruct`, `Offset`, `Blend`, `Project`, `Intersect`, `Section`, `RoundedRectangle`, and `CardinalSpline`, each paired to one typed `ParametricResult` carrier and each carrying its unit-domain parameters and counts already admitted as `UnitInterval`/`Dimension`; the two planar constructions answer one `Outline` run because a rounded corner and a spline span lower to the same three primitives.
 - Entry: `Apply` discriminates the op case through the generated total `Switch` — the one entry, no per-op sibling family, and the one `Op` key threads into every kernel including the planar constructors; a region owner lowers closed loops under its own admitted fidelity and calls `Arrangement.Apply(PlanarOverlay)` itself.
 - Auto: each op case internalizes its vendored-engine kernel at the fence with no per-op knob; `Divide` and `Stations` share ONE `Stationize` arc→parameter kernel, and both offset lanes ride ONE `RefinePolicy.Run`.
-- Law: `RefinePolicy` carries a `Tolerance` — the lane-resolved deviation band, minted through `RefinePolicy.Of(context, limit, key)` onto `Fin<RefinePolicy>` — never a bare double, so a refusal names WHICH gate refused and a coarse-tolerance document does not chase a fabricated 1e-6. NAMED LOSS: the context-free `RefinePolicy.Canonical` static; a caller with no model context has no honest deviation band to spend.
+- Law: `RefinePolicy` carries a `Tolerance` — the lane-resolved deviation band, minted through `RefinePolicy.Of(context, limit)` onto `Fin<RefinePolicy>` — never a bare double, so a refusal names WHICH gate refused and a coarse-tolerance document does not chase a fabricated 1e-6. NAMED LOSS: the context-free `RefinePolicy.Canonical` static; a caller with no model context has no honest deviation band to spend.
 - Law: `Refinement` publishes the band the fit MET. `Limit` is a second lane-resolved `Tolerance` — the band a final still-breaching round may be accepted under — carried beside `Target`, both admitted at policy construction so half-present evidence is unrepresentable and no consumer reads a tolerance the refinement never cleared; `Rounds` counts rounds RUN while the zero-based `RefineRound.Index` stays internal. NAMED LOSS: `double Budget: 8.0`, a dimensionless multiplier on a document tolerance that admitted a fit eight times outside the band it published; a caller wanting slack now states an admitted allowance in model units and the default limit IS the target.
 - Law: `Order` and every count on this page are `Dimension`. NAMED LOSS: `int.Max(1, op.Order)`, a silent clamp answering order 1 where `locate.md` refuses the same request — three regimes for one concept across three pages collapse to the carrier's own guard.
 - Output: `Refinement` carries the deviation evidence on `Offsets`; `Refit` publishes the measured deviation and sample count of its one reconstruction pass and fabricates no band; `StationField` carries the frame batch `PerpendicularFrames` already proved orthonormal, with no second witness, and an empty batch refuses rather than publishing a fabricated zero; offset tallies are `Dimension` counts.
@@ -100,7 +100,7 @@ public sealed partial class RefinePolicy {
                 ? null
                 : new ValidationError("Refinement requires one deviation lane, an ordered limit, and at least four seeds.");
 
-    public static Fin<RefinePolicy> Of(Context context, Option<Tolerance> limit = default, Op? key = null) {
+    public static Fin<RefinePolicy> Of(Context context, Option<Tolerance> limit = default) {
         Tolerance target = context.For(lane: ToleranceLane.Deviation);
         Tolerance accepted = limit.IfNone(target);
         return key.OrDefault().AcceptValidated<RefinePolicy>(
@@ -176,7 +176,7 @@ public abstract partial record ParametricResult {
 }
 
 public static class Parametric {
-    public static Fin<ParametricResult> Apply(ParametricOp op, Op? key = null) =>
+    public static Fin<ParametricResult> Apply(ParametricOp op) =>
         op.Switch(
             state: key.OrDefault(),
             evaluate:         static (k, e) => EvaluateOf(e, k),
@@ -197,7 +197,7 @@ public static class Parametric {
             cardinalSpline:   static (k, c) => CardinalOf(c, k));
 
     // --- [EVALUATE_MEASURE]
-    static Fin<ParametricResult> EvaluateOf(ParametricOp.Evaluate op, Op key) =>
+    static Fin<ParametricResult> EvaluateOf(ParametricOp.Evaluate op) =>
         op.Curve.PerpendicularFrames([op.Parameter.Value]).Map(frames => {
             (Point3d point, Arr<Vector3d> derivatives) = op.Curve.RationalDerivatives(op.Parameter.Value, Some(op.Order));
             return (ParametricResult)new ParametricResult.Sample(
@@ -205,14 +205,14 @@ public static class Parametric {
                 frames[0], op.Curve.CurvatureAt(op.Parameter.Value));
         });
 
-    static Fin<ParametricResult> MeasureOf(ParametricOp.Measure op, Op key) =>
+    static Fin<ParametricResult> MeasureOf(ParametricOp.Measure op) =>
         op.At.Switch<Fin<(double Parameter, double Length)>>(
-                whole: _ => op.Curve.Length(key: key)
+                whole: _ => op.Curve.Length()
                     .Map(static length => (Parameter: 1.0, Length: length)),
-                parameter: value => op.Curve.LengthAt(value.Value, key: key)
+                parameter: value => op.Curve.LengthAt(value.Value)
                     .Map(length => (Parameter: value.Value, Length: length)),
-                point: value => op.Curve.ClosestParameter(value, key: key)
-                    .Bind(parameter => op.Curve.LengthAt(parameter, key: key)
+                point: value => op.Curve.ClosestParameter(value)
+                    .Bind(parameter => op.Curve.LengthAt(parameter)
                         .Map(length => (Parameter: parameter, Length: length))))
             .Bind(row => Fin.Succ((ParametricResult)new ParametricResult.Measured(
                 row.Length, row.Parameter, op.Curve.PointAt(row.Parameter),
@@ -221,20 +221,20 @@ public static class Parametric {
     // --- [STATION_KERNEL]
     private static readonly Dimension TableThreshold = Dimension.Create(value: 256);
 
-    static Fin<(Arr<double> Arcs, Arr<double> Parameters)> Stationize(NurbsForm.Curve curve, DivideRule rule, Op key) =>
+    static Fin<(Arr<double> Arcs, Arr<double> Parameters)> Stationize(NurbsForm.Curve curve, DivideRule rule) =>
         ArcTargets(curve, rule).Bind(arcs => arcs.Count < TableThreshold.Value
-            ? arcs.TraverseM(arc => curve.ParameterAtLength(arc, key: key)).As()
+            ? arcs.TraverseM(arc => curve.ParameterAtLength(arc)).As()
                 .Map(parameters => (Arcs: arcs, Parameters: new Arr<double>([.. parameters])))
-            : InvertByTable(curve, arcs, key));
+            : InvertByTable(curve, arcs));
 
     static Fin<Arr<double>> ArcTargets(NurbsForm.Curve curve, DivideRule rule);
-    static Fin<(Arr<double> Arcs, Arr<double> Parameters)> InvertByTable(NurbsForm.Curve curve, Arr<double> arcs, Op key);
+    static Fin<(Arr<double> Arcs, Arr<double> Parameters)> InvertByTable(NurbsForm.Curve curve, Arr<double> arcs);
 
-    static Fin<ParametricResult> StationsOf(ParametricOp.Stations op, Op key) =>
+    static Fin<ParametricResult> StationsOf(ParametricOp.Stations op) =>
         op.Curve.SubCurve(op.Plan.Start.Value, op.Plan.End.Value)
-            .Bind(window => Stationize(window, op.Plan.Rule, key).Bind(rows =>
+            .Bind(window => Stationize(window, op.Plan.Rule).Bind(rows =>
                 window.PerpendicularFrames([.. rows.Parameters]).Bind(frames => frames.Count == 0
-                    ? Fin.Fail<ParametricResult>(key.InvalidResult())
+                    ? Fin.Fail<ParametricResult>(new KernelFault.InvalidResult())
                     : Fin.Succ((ParametricResult)new ParametricResult.StationField(
                         rows.Arcs,
                         new Arr<double>([.. rows.Parameters.Select(parameter => op.Plan.Start.Value
@@ -243,7 +243,7 @@ public static class Parametric {
                         frames)))));
 
     // --- [SPLIT_RECONSTRUCT]
-    static Fin<ParametricResult> SplitOf(ParametricOp.Split op, Op key) =>
+    static Fin<ParametricResult> SplitOf(ParametricOp.Split op) =>
         toSeq(toSeq(op.At)
                 .Map(static parameter => parameter.Value)
                 .Filter(static parameter => parameter is > 0.0 and < 1.0)
@@ -257,54 +257,53 @@ public static class Parametric {
             .Map(static split => (ParametricResult)new ParametricResult.Pieces(
                 new Arr<NurbsForm.Curve>([.. split.Done.Add(split.Head)])));
 
-    static Fin<ParametricResult> ReconstructOf(ParametricOp.Reconstruct op, Op key) =>
+    static Fin<ParametricResult> ReconstructOf(ParametricOp.Reconstruct op) =>
         Stationize(
                 op.Curve,
-                new DivideRule.ByCount(Dimension.Create(value: int.Max(op.Fit.Degree.Value + 1, op.Samples.Value))),
-                key)
+                new DivideRule.ByCount(Dimension.Create(value: int.Max(op.Fit.Degree.Value + 1, op.Samples.Value))))
             .Bind(rows => Nurbs.Of(new NurbsInput.CurveFit(
-                new Arr<Point3d>([.. rows.Parameters.Select(op.Curve.PointAt)]), op.Fit), key))
+                new Arr<Point3d>([.. rows.Parameters.Select(op.Curve.PointAt)]), op.Fit)))
             .Bind(form => form is NurbsForm.Curve refit
                 ? DeviationAgainst(op.Curve, refit, 2 * op.Samples.Value).Map(deviation =>
                     (ParametricResult)new ParametricResult.Refit(refit, deviation, op.Samples))
-                : Fin.Fail<ParametricResult>(key.InvalidResult()));
+                : Fin.Fail<ParametricResult>(new KernelFault.InvalidResult()));
 
     static Fin<double> DeviationAgainst(NurbsForm.Curve reference, NurbsForm.Curve candidate, int probes);
 
     // --- [OFFSET_LOOP]
-    static Fin<ParametricResult> BlendOf(ParametricOp.Blend op, Op key);
-    static Fin<ParametricResult> ProjectOf(ParametricOp.Project op, Op key);
+    static Fin<ParametricResult> BlendOf(ParametricOp.Blend op);
+    static Fin<ParametricResult> ProjectOf(ParametricOp.Project op);
 
-    static Fin<ParametricResult> OffsetOf(ParametricOp.Offset op, Op key) =>
-        Stationize(op.Curve, new DivideRule.ByCount(op.Refine.Seed), key)
+    static Fin<ParametricResult> OffsetOf(ParametricOp.Offset op) =>
+        Stationize(op.Curve, new DivideRule.ByCount(op.Refine.Seed))
             .Bind(rows => op.Refine.Run(
                 seed: rows.Parameters,
                 fit: (stations, index) => stations.TraverseM(
                         parameter => OffsetLocus(op.Curve, op.Frame, op.Distance, parameter))
                     .As()
                     .Bind(samples => Nurbs.Of(new NurbsInput.CurveFit(
-                        new Arr<Point3d>([.. samples]), SplinePolicy.Canonical), key))
+                        new Arr<Point3d>([.. samples]), SplinePolicy.Canonical)))
                     .Bind(form => form is NurbsForm.Curve fit
-                        ? Fin.Succ(Probed(op, fit, stations, index))
-                        : Fin.Fail<RefineRound<NurbsForm.Curve, double>>(key.InvalidResult())),
+                        ? Fin.Succ(Probed(fit, stations, index))
+                        : Fin.Fail<RefineRound<NurbsForm.Curve, double>>(new KernelFault.InvalidResult())),
                 densify: Densified,
                 unconverged: deviation => new GeometryFault.OffsetUnconverged(Kind.Curve, deviation)))
-            .Bind(final => TrimLoops(op, final.Fit, final.Evidence, key));
+            .Bind(final => TrimLoops(final.Fit, final.Evidence));
 
     static Fin<Point3d> OffsetLocus(NurbsForm.Curve curve, Plane frame, double distance, double t);
     static RefineRound<NurbsForm.Curve, double> Probed(ParametricOp.Offset op, NurbsForm.Curve fit, Arr<double> stations, int index);
     static Arr<double> Densified(Arr<double> stations, Arr<double> breaching);
 
-    static Fin<ParametricResult> TrimLoops(ParametricOp.Offset op, NurbsForm.Curve fit, Refinement refinement, Op key);
+    static Fin<ParametricResult> TrimLoops(ParametricOp.Offset op, NurbsForm.Curve fit, Refinement refinement);
 
     // --- [PLANAR_CROSSINGS]
-    static Fin<ParametricResult> SectionOf(NurbsForm.Curve curve, Plane cut, Op key);
+    static Fin<ParametricResult> SectionOf(NurbsForm.Curve curve, Plane cut);
 
-    static Fin<ParametricResult> CrossingsOf(NurbsForm.Curve a, NurbsForm.Curve b, Axis plane, Op key);
+    static Fin<ParametricResult> CrossingsOf(NurbsForm.Curve a, NurbsForm.Curve b, Axis plane);
 
     // --- [PLANAR_CONSTRUCTION]
-    static Fin<ParametricResult> RoundedOf(ParametricOp.RoundedRectangle op, Op key);
-    static Fin<ParametricResult> CardinalOf(ParametricOp.CardinalSpline op, Op key);
+    static Fin<ParametricResult> RoundedOf(ParametricOp.RoundedRectangle op);
+    static Fin<ParametricResult> CardinalOf(ParametricOp.CardinalSpline op);
 }
 ```
 

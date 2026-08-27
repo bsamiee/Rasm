@@ -10,9 +10,9 @@
 
 - Owner: `Acquisition` the static import fold; `CaptureSource` `[Union]` the closed capture family; `AcquiredMaterial` the one import product; `BrdfSample` the goniophotometer angular record over `(θi, θo, Δφ)`; `CaptureMethod` `[SmartEnum<string>]` the instrument discriminant; `CaptureProvenance` the measurement record; `SpectralCurve` the durable sampled-spectrum carrier with its scale-invariant `LuminousEfficacy` fold; `SpectralKind` the reflective/emissive claim binding its own container part factory; `GlossCurve` the caller-supplied GU-to-roughness calibration row; `BrdfArchive` the admitted EPFL RGL tensor container over its `CaptureField`/`TensorDtype` vocabularies; `CaptureCalibration` the twenty-four measured chart patches.
 - Cases: capture {`MeasuredBrdf` (angular samples, the dielectric IOR seed, and the Fresnel discriminant — `Some` conductor fixes a measured `ComplexIor` so only `(αx, αy, φ)` fit, `None` fits the dielectric `(αx, αy, φ, η)`), `SvbrdfMap` (a per-texel field collapsed to one row and discarded), `SpectralReflectance` (a `SpectralCurve` with its metalness/roughness — the carrier that PERSISTS, where an `Spd` cannot answer what grid built it), `GlossMeter` (the tri-angle 20/60/85 GU triple over the caller's base row), `NeuralPlanes` (an admitted `TextureSet` with its `Seq<StageResult>` evidence and a fallback row — the planes SURVIVE)}. `CaptureMethod` admits every instrument as one ROW (goniophotometer, spectrophotometer, neural-SVBRDF, neural-planes, gloss-meter, the `finish#FINISH` Kubelka-Munk pigment mix, the authored sentinel), never a per-instrument capture type.
-- Entry: `public static Fin<AcquiredMaterial> Import(CaptureSource source, CaptureProvenance provenance, Context context, Op key, Option<CaptureCalibration> calibration = default)` — the ONE import path. `Context` carries the SOLVER LADDER: `SolvePolicy.Of(context, key)` derives the damped Gauss-Newton residual, step, and iteration bands off the model context, so the fit's convergence gates are a project's to tighten and never this page's constants. `CaptureCalibration` carries the one axis no capture value holds, applied at the single pre-admission site every arm crosses.
+- Entry: `public static Fin<AcquiredMaterial> Import(CaptureSource source, CaptureProvenance provenance, Context context, Option<CaptureCalibration> calibration = default)` — the ONE import path. `Context` carries the SOLVER LADDER: `SolvePolicy.Of(context)` derives the damped Gauss-Newton residual, step, and iteration bands off the model context, so the fit's convergence gates are a project's to tighten and never this page's constants. `CaptureCalibration` carries the one axis no capture value holds, applied at the single pre-admission site every arm crosses.
 - Entry: each arm produces `(row, provenance)`: `MeasuredBrdf` runs the kernel functor over `BrdfResidual`, projects onto the Disney `Roughness`/`Anisotropy`/`AnisotropyRotation` columns, and stamps the goniophotometer provenance with the witnessed residual and the observability witness; `SpectralReflectance` grounds through `surface#SPECTRAL_UPSAMPLE`; `SvbrdfMap` folds a REAL per-column mean; `GlossMeter` writes roughness ALONE; `NeuralPlanes` binds through the ONE `Raster/set#SET_BIND` `BindTarget.Summary` fold and returns the set beside the row, stamping the set digest as its device, the summed tiles as its sample count, the WORST stage reference delta as its residual, and the MOST RESTRICTIVE contributing card as its attribution.
-- Entry: `SyntheticGrid(seed, count, key)` mints the deterministic stratified capture the benchmark corpus pins — geometry, ground-truth alphas, and a ground-truth grain azimuth all derived from the seed through the KERNEL's one lane-keyed draw, reflectance the kernel forward model at those parameters, so the fit workload has a known answer in direction as well as magnitude and no fixture file exists. `BrdfArchive.Of(payload, key)` admits an EPFL RGL container and `Lower` turns it into the `Seq<BrdfSample>` the fit consumes and the per-band `SpectralCurve` the grounding does. `Freeze(curve, kind, key)`/`Thaw(payload, wavelengthCount, key)` are the durable pair a measured spectrum persists through, the provenance's own `WavelengthCount` the round-trip witness.
+- Entry: `SyntheticGrid(seed, count)` mints the deterministic stratified capture the benchmark corpus pins — geometry, ground-truth alphas, and a ground-truth grain azimuth all derived from the seed through the KERNEL's one lane-keyed draw, reflectance the kernel forward model at those parameters, so the fit workload has a known answer in direction as well as magnitude and no fixture file exists. `BrdfArchive.Of(payload, key)` admits an EPFL RGL container and `Lower` turns it into the `Seq<BrdfSample>` the fit consumes and the per-band `SpectralCurve` the grounding does. `Freeze(curve, kind, key)`/`Thaw(payload, wavelengthCount, key)` are the durable pair a measured spectrum persists through, the provenance's own `WavelengthCount` the round-trip witness.
 - Packages: Wacton.Unicolour (composed — `new Unicolour(PortValue.SceneLinear, Spd)` grounding, `RgbLinear.Triplet` channel reads, `IsInRgbGamut`, and the `DominantWavelength`/`ExcitationPurity`/`Temperature` chromaticity readout the provenance stamps), Wacton.Unicolour.Datasets (`Macbeth.All`, the 24-patch reference the chart solve targets), MathNet.Numerics (composed for the LINEAR chart solve ALONE — `Matrix<double>.Build.Dense`, `QR(QRMethod.Thin)`, `QR<double>.Solve`, `Control.UseManaged` the osx-arm64 provider), Rasm (project — `Op`, `Context`, `Deterministic`, and `Rasm.Solving` `Lm.Minimize`/`IDualResidual`/`DualModel`/`Dual<T>`/`SolvePolicy`), Rasm.Element (`ContentAddress`), `Rasm.Materials.Raster` (`TextureSet`, `SetBind.Bind`, `IngestProvenance`), `neural#MODEL_REGISTRY` (`StageResult`, `ModelRegistry.Rows`, `ModelCard`), TinyEXR.NET (the durable spectral container), DoubleDouble, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new capture modality is one `CaptureSource` case — never a per-capture material or a second import owner; a new numerical result shape is one `CaptureAssessment` case, while optional facts stay typed absence on their owner. A new fit parameter is one `(Lo, Hi)` row on `BrdfResidual.Bounds`; `Dof`, the differentiable box map, rank evidence, and the Jacobian derive from that row. A new tensor field is one `CaptureField` row carrying the rank its payload must hold.
 - Law: this page carves out FIVE measured kernels and nothing else — `Reflectance` (a fixed-width geometry evaluation), the chart least-squares, the `Freeze`/`Thaw` container legs, `SpectralCurve.LuminousEfficacy`, and the archive's extent walk — the same boundary-numeric carve `surface#SPECTRAL_UPSAMPLE` `ToCurve` names. Every other operation is expression-bodied and result-threaded. Deleted whole: the hand Gauss-Newton loop, its half-step damping, its thin-`QR` step, its truncated-pseudo-inverse fallback, and its central-difference Jacobian — each re-derived what the kernel functor owns, and its differencing step size was a number this page had no basis to choose.
@@ -91,13 +91,13 @@ public sealed partial class SpectralKind {
 public readonly record struct BrdfSample(double IncidentZenith, double OutgoingZenith, double AzimuthDelta, RgbSpectrum Reflectance);
 
 public readonly record struct SpectralCurve(int StartNm, int IntervalNm, ReadOnlyMemory<double> Coefficients) {
-    public static Fin<SpectralCurve> Of(int startNm, int intervalNm, ReadOnlyMemory<double> coefficients, Op key) =>
+    public static Fin<SpectralCurve> Of(int startNm, int intervalNm, ReadOnlyMemory<double> coefficients) =>
         intervalNm is not (0 or 1 or 5)
-            ? new MaterialFault.Parameter(key, $"<spectral-curve-interval:{intervalNm}>")
+            ? new MaterialFault.Parameter($"<spectral-curve-interval:{intervalNm}>")
             : startNm <= 0 || coefficients.Length < 2
-                ? new MaterialFault.Parameter(key, $"<spectral-curve-extent:{startNm}@{coefficients.Length}>")
+                ? new MaterialFault.Parameter($"<spectral-curve-extent:{startNm}@{coefficients.Length}>")
                 : coefficients.Span.ContainsAnyInRange(double.NegativeInfinity, -double.Epsilon)
-                    ? new MaterialFault.Parameter(key, "<spectral-curve-negative-coefficient>")
+                    ? new MaterialFault.Parameter("<spectral-curve-negative-coefficient>")
                     : Fin.Succ(new SpectralCurve(startNm, intervalNm, coefficients));
 
     public Spd ToSpd() => new(StartNm, IntervalNm, Coefficients.ToArray());
@@ -120,10 +120,10 @@ public readonly record struct SpectralCurve(int StartNm, int IntervalNm, ReadOnl
 }
 
 public readonly record struct CaptureCalibration(Seq<Unicolour> Patches) {
-    public static Fin<CaptureCalibration> Of(Seq<Unicolour> patches, Op key) =>
+    public static Fin<CaptureCalibration> Of(Seq<Unicolour> patches) =>
         patches.Count == toSeq(Macbeth.All).Count
             ? Fin.Succ(new CaptureCalibration(patches))
-            : new MaterialFault.Parameter(key, $"<capture-calibration-arity:{patches.Count}>");
+            : new MaterialFault.Parameter($"<capture-calibration-arity:{patches.Count}>");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -236,14 +236,14 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
     public bool Isotropic => Fields.Find(CaptureField.PhiI).Map(static phi => phi.Length <= 2).IfNone(true);
     public int WavelengthCount => Fields.Find(CaptureField.Wavelengths).Map(static grid => grid.Length).IfNone(0);
 
-    public static Fin<BrdfArchive> Of(ReadOnlyMemory<byte> payload, Op key) {
+    public static Fin<BrdfArchive> Of(ReadOnlyMemory<byte> payload) {
         if (payload.Length < 12 || BinaryPrimitives.ReadUInt64LittleEndian(payload.Span) != Magic) {
-            return new MaterialFault.Parameter(key, $"<brdf-archive-magic:{payload.Length}>");
+            return new MaterialFault.Parameter($"<brdf-archive-magic:{payload.Length}>");
         }
         var fields = HashMap<CaptureField, ReadOnlyMemory<double>>();
         var extents = HashMap<CaptureField, Seq<int>>();
         for (int cursor = 12; cursor < payload.Length;) {
-            Fin<(CaptureField Row, Seq<int> Shape, ReadOnlyMemory<double> Payload, int Next)> read = Field(payload, cursor, key);
+            Fin<(CaptureField Row, Seq<int> Shape, ReadOnlyMemory<double> Payload, int Next)> read = Field(payload, cursor);
             if (read.Case is not (CaptureField row, Seq<int> shape, ReadOnlyMemory<double> lanes, int next)) {
                 return read.Map(static _ => default(BrdfArchive)!);
             }
@@ -251,11 +251,11 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
         }
         return fields.Find(CaptureField.ThetaI).IsSome && fields.Find(CaptureField.Rgb).IsSome
             ? Fin.Succ(new BrdfArchive(fields, extents))
-            : new MaterialFault.Parameter(key, "<brdf-archive-incomplete>");
+            : new MaterialFault.Parameter("<brdf-archive-incomplete>");
     }
 
     static Fin<(CaptureField Row, Seq<int> Shape, ReadOnlyMemory<double> Payload, int Next)> Field(
-        ReadOnlyMemory<byte> payload, int at, Op key) {
+        ReadOnlyMemory<byte> payload, int at) {
         ReadOnlySpan<byte> bytes = payload.Span;
         int nameLength = BinaryPrimitives.ReadUInt16LittleEndian(bytes[at..]);
         string name = Encoding.ASCII.GetString(bytes.Slice(at + 2, nameLength));
@@ -264,23 +264,23 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
         Seq<int> shape = toSeq(Enumerable.Range(0, rank).Select(axis => (int)BinaryPrimitives.ReadUInt32LittleEndian(bytes[(head + 3 + (axis * 4))..])));
         int at0 = head + 3 + (rank * 4);
         return !CaptureField.TryGet(name, out CaptureField? row)
-            ? new MaterialFault.Parameter(key, $"<brdf-archive-field:{name}>")
+            ? new MaterialFault.Parameter($"<brdf-archive-field:{name}>")
             : !TensorDtype.TryGet(dtype, out TensorDtype? element)
-                ? new MaterialFault.Parameter(key, $"<brdf-archive-dtype:{name}:{dtype}>")
+                ? new MaterialFault.Parameter($"<brdf-archive-dtype:{name}:{dtype}>")
                 : row!.Rank != rank
-                    ? new MaterialFault.Parameter(key, $"<brdf-archive-rank:{name}:{rank}!={row.Rank}>")
+                    ? new MaterialFault.Parameter($"<brdf-archive-rank:{name}:{rank}!={row.Rank}>")
                     : shape.Fold(element!.Width, static (n, axis) => n * axis) switch {
                         var run when at0 + run <= bytes.Length =>
                             Fin.Succ((row, shape, element.Widen(payload.Slice(at0, run)), at0 + run)),
-                        var run => new MaterialFault.Parameter(key, $"<brdf-archive-truncated:{name}:{run}>"),
+                        var run => new MaterialFault.Parameter($"<brdf-archive-truncated:{name}:{run}>"),
                     };
     }
 
-    public Fin<Seq<BrdfSample>> Lower(Op key) =>
+    public Fin<Seq<BrdfSample>> Lower() =>
         (Fields.Find(CaptureField.ThetaI), Fields.Find(CaptureField.PhiI), Fields.Find(CaptureField.Rgb)) switch {
             (var thetaI, var phiI, var rgb) when thetaI.IsSome && rgb.IsSome =>
                 Fin.Succ(toSeq(Walk(thetaI.IfNone(default), phiI.IfNone(default), rgb.IfNone(default)))),
-            _ => new MaterialFault.Parameter(key, "<brdf-archive-unlowerable>"),
+            _ => new MaterialFault.Parameter("<brdf-archive-unlowerable>"),
         };
 
     IEnumerable<BrdfSample> Walk(ReadOnlyMemory<double> thetaI, ReadOnlyMemory<double> phiI, ReadOnlyMemory<double> rgb) {
@@ -300,13 +300,13 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
         }
     }
 
-    public Fin<SpectralCurve> Spectra(Op key) =>
+    public Fin<SpectralCurve> Spectra() =>
         (Fields.Find(CaptureField.Wavelengths), Fields.Find(CaptureField.Spectra)) switch {
             (var grid, var spectra) when grid.IsSome && spectra.IsSome && WavelengthCount > 1 =>
                 grid.IfNone(default) switch {
-                    var nm => SpectralCurve.Of((int)nm.Span[0], (int)Math.Round(nm.Span[1] - nm.Span[0]), spectra.IfNone(default)[..WavelengthCount], key),
+                    var nm => SpectralCurve.Of((int)nm.Span[0], (int)Math.Round(nm.Span[1] - nm.Span[0]), spectra.IfNone(default)[..WavelengthCount]),
                 },
-            _ => new MaterialFault.Parameter(key, $"<brdf-archive-no-spectra:{WavelengthCount}>"),
+            _ => new MaterialFault.Parameter($"<brdf-archive-no-spectra:{WavelengthCount}>"),
         };
 }
 
@@ -315,20 +315,20 @@ public static class Acquisition {
     static Acquisition() => Control.UseManaged();
 
     public static Fin<AcquiredMaterial> Import(
-        CaptureSource source, CaptureProvenance provenance, Context context, Op key, Option<CaptureCalibration> calibration = default) =>
+        CaptureSource source, CaptureProvenance provenance, Context context, Option<CaptureCalibration> calibration = default) =>
         source.Switch(
-            state: (provenance, context, key),
+            state: (provenance, context),
             measuredBrdf:        static (s, c) => FitBrdf(c.Samples, c.Ior, c.Conductor, s.provenance, s.context, s.key),
             svbrdfMap:           static (s, c) => AverageField(c.Texels, s.provenance, s.key),
             spectralReflectance: static (s, c) => GroundSpectral(c.Reflectance.ToSpd(), c.Metalness, c.Roughness, s.key)
                                                     .Map(row => AcquiredMaterial.Summary(row, s.provenance with { Method = CaptureMethod.Spectrophotometer })),
             neuralPlanes:        static (s, c) => ImportPlanes(c.Planes, c.Stages, c.Fallback, s.provenance, s.key),
             glossMeter:          static (s, c) => FitGloss(c, s.provenance, s.key))
-        .Bind(acquired => Calibrate(acquired, calibration, key))
-        .Bind(acquired => MaterialParameters.Of(acquired.Row, key).Map(row => acquired with { Row = row, Provenance = acquired.Provenance with {
+        .Bind(acquired => Calibrate(acquired, calibration))
+        .Bind(acquired => MaterialParameters.Of(acquired.Row).Map(row => acquired with { Row = row, Provenance = acquired.Provenance with {
             Chromaticity = ChromaticityEvidence.Of(row.BaseColor) } }));
 
-    static Fin<AcquiredMaterial> FitGloss(CaptureSource.GlossMeter c, CaptureProvenance provenance, Op key) =>
+    static Fin<AcquiredMaterial> FitGloss(CaptureSource.GlossMeter c, CaptureProvenance provenance) =>
         double.IsFinite(c.Gu20) && double.IsFinite(c.Gu60) && double.IsFinite(c.Gu85)
         && c.Gu20 >= 0.0 && c.Gu60 >= 0.0 && c.Gu85 >= 0.0
             ? c.Curve.Of(c.Gu20, c.Gu60, c.Gu85) switch {
@@ -340,18 +340,18 @@ public static class Acquisition {
                             AngularSamples = Some(3),
                             Assessment = None,
                         })),
-                var roughness => new MaterialFault.Parameter(key, $"<gloss-curve-out-of-unit:{roughness:R}>"),
+                var roughness => new MaterialFault.Parameter($"<gloss-curve-out-of-unit:{roughness:R}>"),
             }
-            : new MaterialFault.Parameter(key, $"<gloss-reading-out-of-range:{c.Gu20:R},{c.Gu60:R},{c.Gu85:R}>");
+            : new MaterialFault.Parameter($"<gloss-reading-out-of-range:{c.Gu20:R},{c.Gu60:R},{c.Gu85:R}>");
 
-    static Fin<AcquiredMaterial> Calibrate(AcquiredMaterial acquired, Option<CaptureCalibration> calibration, Op key) =>
+    static Fin<AcquiredMaterial> Calibrate(AcquiredMaterial acquired, Option<CaptureCalibration> calibration) =>
         calibration
-            .TraverseM(chart => Solve(chart, key).Map(fit => acquired with {
+            .TraverseM(chart => Solve(chart).Map(fit => acquired with {
                 Row = acquired.Row with { BaseColor = Correct(acquired.Row.BaseColor, fit.Matrix) },
                 Provenance = acquired.Provenance with { Calibrated = true, CalibrationDeltaE = Some(fit.DeltaE) } })).As()
             .Map(result => result.IfNone(acquired));
 
-    static Fin<(Matrix<double> Matrix, double DeltaE)> Solve(CaptureCalibration chart, Op key) {
+    static Fin<(Matrix<double> Matrix, double DeltaE)> Solve(CaptureCalibration chart) {
         Seq<Unicolour> reference = toSeq(Macbeth.All).Map(static patch => patch.ConvertToConfiguration(PortValue.SceneLinear));
         Matrix<double> measured = Matrix<double>.Build.Dense(chart.Patches.Count, 3, (row, band) => Band(chart.Patches[row], band));
         Matrix<double> target = Matrix<double>.Build.Dense(reference.Count, 3, (row, band) => Band(reference[row], band));
@@ -360,7 +360,7 @@ public static class Acquisition {
             ? Fin.Succ((fit, chart.Patches
                 .Map((patch, index) => Correct(patch, fit).Difference(reference[index], DeltaE.Ciede2000))
                 .Fold(0.0, static (sum, delta) => sum + delta) / chart.Patches.Count))
-            : new MaterialFault.Parameter(key, "<capture-calibration-degenerate>");
+            : new MaterialFault.Parameter("<capture-calibration-degenerate>");
     }
 
     static double Band(Unicolour colour, int index) =>
@@ -374,7 +374,7 @@ public static class Acquisition {
                 (t.First * fit[0, 2]) + (t.Second * fit[1, 2]) + (t.Third * fit[2, 2])),
         };
 
-    public static Fin<ReadOnlyMemory<byte>> Freeze(SpectralCurve curve, SpectralKind kind, Op key) {
+    public static Fin<ReadOnlyMemory<byte>> Freeze(SpectralCurve curve, SpectralKind kind) {
         float[] wavelengths = [.. Enumerable.Range(0, curve.Coefficients.Length).Select(i => (float)curve.WavelengthAt(i))];
         float[] samples = [.. curve.Coefficients.ToArray().Select(static v => (float)v)];
         WriterResult<byte[]> written = ExrFile.SaveToMemory(
@@ -382,22 +382,22 @@ public static class Acquisition {
             Compression.ZIP, options: null);
         return written is { IsSuccess: true, Value: { } bytes }
             ? Fin.Succ((ReadOnlyMemory<byte>)bytes)
-            : new MaterialFault.Parameter(key, $"<spectral-freeze:{written.Status}>");
+            : new MaterialFault.Parameter($"<spectral-freeze:{written.Status}>");
     }
 
-    public static Fin<(SpectralCurve Curve, SpectralKind Kind)> Thaw(ReadOnlyMemory<byte> payload, int wavelengthCount, Op key) {
+    public static Fin<(SpectralCurve Curve, SpectralKind Kind)> Thaw(ReadOnlyMemory<byte> payload, int wavelengthCount) {
         ReaderResult<TinyEXR.V3.Image> read = ExrFile.LoadFromMemory(payload, options: null);
         return read is { IsSuccess: true, Value: { } file } && toSeq(file.Parts).Head.Case is Part part && Spectral.IsSpectral(part.Header)
             ? SpectralKind.Of(Spectral.GetSpectrumType(part.Header)).Case is SpectralKind kind
                 ? Spectral.GetWavelengths(part.Header) is { Length: > 1 } grid && grid.Length == wavelengthCount
-                    ? Samples(part, key).Bind(samples =>
-                          SpectralCurve.Of((int)grid[0], (int)Math.Round(grid[1] - grid[0]), samples, key).Map(curve => (curve, kind)))
-                    : new MaterialFault.Parameter(key, $"<spectral-thaw-grid:{wavelengthCount}>")
-                : new MaterialFault.Parameter(key, $"<spectral-thaw-kind:{Spectral.GetSpectrumType(part.Header)}>")
-            : new MaterialFault.Parameter(key, $"<spectral-thaw:{read.Status}>");
+                    ? Samples(part).Bind(samples =>
+                          SpectralCurve.Of((int)grid[0], (int)Math.Round(grid[1] - grid[0]), samples).Map(curve => (curve, kind)))
+                    : new MaterialFault.Parameter($"<spectral-thaw-grid:{wavelengthCount}>")
+                : new MaterialFault.Parameter($"<spectral-thaw-kind:{Spectral.GetSpectrumType(part.Header)}>")
+            : new MaterialFault.Parameter($"<spectral-thaw:{read.Status}>");
     }
 
-    static Fin<ReadOnlyMemory<double>> Samples(Part part, Op key) =>
+    static Fin<ReadOnlyMemory<double>> Samples(Part part) =>
         part.GetLevel(0, 0) switch {
             var level => toSeq(toSeq(level.Channels)
                 .Filter(Spectral.IsSpectralChannel)
@@ -408,18 +408,18 @@ public static class Acquisition {
                 .OrderBy(static channel => channel.Nm))
                 .Map(channel => (double)MemoryMarshal.Cast<byte, float>(level.GetChannel(channel.Name).Data.Span)[0]) switch {
                 var samples => samples.IsEmpty
-                    ? Fin.Fail<ReadOnlyMemory<double>>(new MaterialFault.Parameter(key, "<spectral-thaw-no-channels>"))
+                    ? Fin.Fail<ReadOnlyMemory<double>>(new MaterialFault.Parameter("<spectral-thaw-no-channels>"))
                     : Fin.Succ((ReadOnlyMemory<double>)samples.ToArray()),
             },
         };
 
-    static Fin<AcquiredMaterial> ImportPlanes(TextureSet planes, Seq<StageResult> stages, MaterialParameters fallback, CaptureProvenance provenance, Op key) =>
+    static Fin<AcquiredMaterial> ImportPlanes(TextureSet planes, Seq<StageResult> stages, MaterialParameters fallback, CaptureProvenance provenance) =>
         stages.IsEmpty
-            ? new MaterialFault.Parameter(key, "<neural-planes-no-stage-evidence>")
-            : from binding in SetBind.Bind(planes, fallback, BindTarget.Summary, SamplerState.Default, key)
+            ? new MaterialFault.Parameter("<neural-planes-no-stage-evidence>")
+            : from binding in SetBind.Bind(planes, fallback, BindTarget.Summary, SamplerState.Default)
               from row in binding is SetBinding.Row bound
                   ? Fin.Succ(bound.Parameters)
-                  : Fin.Fail<MaterialParameters>(new MaterialFault.Graph(key, "<neural-planes-summary-not-a-row>"))
+                  : Fin.Fail<MaterialParameters>(new MaterialFault.Graph("<neural-planes-summary-not-a-row>"))
               select new AcquiredMaterial(row, Attributed(provenance, planes, stages), Some(planes));
 
     static CaptureProvenance Attributed(CaptureProvenance provenance, TextureSet planes, Seq<StageResult> stages) {
@@ -438,8 +438,8 @@ public static class Acquisition {
         };
     }
 
-    public static Fin<Seq<BrdfSample>> SyntheticGrid(int seed, int count, Op key) {
-        if (count < 1) { return new MaterialFault.Parameter(key, $"<synthetic-grid-count:{count}>"); }
+    public static Fin<Seq<BrdfSample>> SyntheticGrid(int seed, int count) {
+        if (count < 1) { return new MaterialFault.Parameter($"<synthetic-grid-count:{count}>"); }
         var (alphaX, alphaY) = (0.1 + 0.4 * Draw(seed, 0), 0.1 + 0.4 * Draw(seed, 1));
         double rotation = Draw(seed, 2) * double.Pi;
         int lanes = int.Max((int)double.Ceiling(double.Sqrt(count)), 1);
@@ -455,12 +455,12 @@ public static class Acquisition {
     static double Draw(int seed, long lane) => Deterministic.Unit(lanes: [lane], seed: seed);
 
     static Fin<AcquiredMaterial> FitBrdf(
-        Seq<BrdfSample> samples, double ior, Option<ComplexIor> conductor, CaptureProvenance provenance, Context context, Op key) =>
-        guard(samples.Count > (conductor.IsSome ? 3 : 4), new MaterialFault.Parameter(key, $"<measured-brdf-underdetermined:{samples.Count}>")).ToFin()
-            .Bind(_ => SolveGgx(samples, ior, conductor, context, key))
+        Seq<BrdfSample> samples, double ior, Option<ComplexIor> conductor, CaptureProvenance provenance, Context context) =>
+        guard(samples.Count > (conductor.IsSome ? 3 : 4), new MaterialFault.Parameter($"<measured-brdf-underdetermined:{samples.Count}>")).ToFin()
+            .Bind(_ => SolveGgx(samples, ior, conductor, context))
             .Bind(fit => SpectralUpsample.ToSpd(
-                    samples.Map(static s => s.Reflectance).Fold(RgbSpectrum.Black, static (acc, r) => acc.Add(r)).Scale(1.0 / samples.Count), key)
-                .Bind(spd => GroundSpectral(spd, metalness: conductor.IsSome ? 1.0 : 0.0, fit.Roughness, key))
+                    samples.Map(static s => s.Reflectance).Fold(RgbSpectrum.Black, static (acc, r) => acc.Add(r)).Scale(1.0 / samples.Count))
+                .Bind(spd => GroundSpectral(spd, metalness: conductor.IsSome ? 1.0 : 0.0, fit.Roughness))
                 .Map(row => AcquiredMaterial.Summary(
                              row with { Ior = fit.Eta, Anisotropy = fit.Anisotropy, AnisotropyRotation = fit.Rotation },
                              provenance with {
@@ -474,11 +474,11 @@ public static class Acquisition {
         double Roughness, double Anisotropy, double Rotation, double Eta,
         double Residual, Option<double> ConditionNumber, int Rank, int ParameterCount);
 
-    static Fin<BrdfFit> SolveGgx(Seq<BrdfSample> samples, double ior0, Option<ComplexIor> conductor, Context context, Op key) =>
+    static Fin<BrdfFit> SolveGgx(Seq<BrdfSample> samples, double ior0, Option<ComplexIor> conductor, Context context) =>
         new BrdfResidual(samples, ior0, conductor) switch {
-            var residual => SolvePolicy.Of(context: context, key: key)
-                .Bind(ladder => Lm.Minimize(new DualModel(residual), ladder, key))
-                .Bind(result => residual.Project(result, key)),
+            var residual => SolvePolicy.Of(context: context)
+                .Bind(ladder => Lm.Minimize(new DualModel(residual), ladder))
+                .Bind(result => residual.Project(result)),
         };
 
     sealed class BrdfResidual(Seq<BrdfSample> samples, double ior0, Option<ComplexIor> conductor) : IDualResidual {
@@ -505,7 +505,7 @@ public static class Acquisition {
                 eta:      u.Length == 4 ? Bound(u[3], Bounds[3]) : Dual<ddouble>.Of((ddouble)1.5),
                 conductor: conductor);
 
-        internal Fin<BrdfFit> Project(LmResult result, Op key) =>
+        internal Fin<BrdfFit> Project(LmResult result) =>
             result.IsValid
                 ? [.. Bounds.Zip(result.Parameters, static (box, free) => Bound(free, box))] switch {
                     var p => Fin.Succ(new BrdfFit(
@@ -520,7 +520,7 @@ public static class Acquisition {
                         Rank: Observable ? Dof : Dof - 2,
                         ParameterCount: Dof))
                 }
-                : new MaterialFault.Parameter(key, "<ggx-fit-diverged>");
+                : new MaterialFault.Parameter("<ggx-fit-diverged>");
 
         double AzimuthSpread => samples.Fold((Lo: double.MaxValue, Hi: double.MinValue),
             static (span, s) => (Math.Min(span.Lo, s.AzimuthDelta), Math.Max(span.Hi, s.AzimuthDelta))) switch {
@@ -566,9 +566,9 @@ public static class Acquisition {
         + (T.CreateChecked(RgbSpectrum.LuminanceWeights.G) * Microfacet<T>.FresnelConductor(cosI, T.CreateChecked(ior.Eta.G), T.CreateChecked(ior.K.G)))
         + (T.CreateChecked(RgbSpectrum.LuminanceWeights.B) * Microfacet<T>.FresnelConductor(cosI, T.CreateChecked(ior.Eta.B), T.CreateChecked(ior.K.B)));
 
-    static Fin<AcquiredMaterial> AverageField(Seq<MaterialParameters> texels, CaptureProvenance provenance, Op key) =>
+    static Fin<AcquiredMaterial> AverageField(Seq<MaterialParameters> texels, CaptureProvenance provenance) =>
         texels.IsEmpty
-            ? new MaterialFault.Parameter(key, "<svbrdf-map-empty>")
+            ? new MaterialFault.Parameter("<svbrdf-map-empty>")
             : Fin.Succ(AcquiredMaterial.Summary(
                         texels.Fold(FieldSum.Zero, static (acc, t) => acc.Add(t)).Mean(texels.Count),
                         provenance with { Method = CaptureMethod.NeuralSvbrdf, AngularSamples = Some(texels.Count) }));
@@ -597,10 +597,10 @@ public static class Acquisition {
         }
     }
 
-    static Fin<MaterialParameters> GroundSpectral(Spd reflectance, double metalness, double roughness, Op key) =>
+    static Fin<MaterialParameters> GroundSpectral(Spd reflectance, double metalness, double roughness) =>
         from color in Fin.Succ(new Unicolour(PortValue.SceneLinear, reflectance))
-        from _ in guard(GamutPolicy.Perceptual.Contains(color), new MaterialFault.Gamut(key, "<acquired-color-out-of-gamut>"))
-        from grounded in SpectralUpsample.SceneLinear(color, key)
+        from _ in guard(GamutPolicy.Perceptual.Contains(color), new MaterialFault.Gamut("<acquired-color-out-of-gamut>"))
+        from grounded in SpectralUpsample.SceneLinear(color)
         select new MaterialParameters(
             BaseColor: Linear(grounded.R, grounded.G, grounded.B), Metalness: metalness, Roughness: roughness, SpecularTint: 0.0, Anisotropy: 0.0, Ior: 1.5,
             Transmission: 0.0, TransmissionRoughness: 0.0, Sheen: 0.0, SheenTint: 0.0, Clearcoat: 0.0, ClearcoatRoughness: 0.0,

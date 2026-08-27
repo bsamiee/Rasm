@@ -62,11 +62,11 @@ public abstract partial record HolderState {
 public static class FabricationBenchClaims {
     public const string Suite = "rasm.fabrication";
 
-    public static readonly BenchClaim NfpPlacement = new(Op.Of(name: $"{Suite}/nfp-placement"), "Nest.Solve", "Nest.Solve", 1.0);
-    public static readonly BenchClaim IcpProbeFit = new(Op.Of(name: $"{Suite}/icp-probe-fit"), "Probe.Inspect", "Probe.Inspect", 1.0);
-    public static readonly BenchClaim SkeletonOffset = new(Op.Of(name: $"{Suite}/skeleton-offset"), "Skeleton.Walk", "Skeleton.Walk", 1.0);
-    public static readonly BenchClaim BendSearch = new(Op.Of(name: $"{Suite}/bend-search"), "BendSequence.Plan", "BendSequence.Plan", 1.0);
-    public static readonly BenchClaim ClearanceParallel = new(Op.Of(name: $"{Suite}/clearance-parallel"), "ParallelHelper.For2D", "CurveSkeleton.Clearance", 1.0);
+    public static readonly BenchClaim NfpPlacement = new("Nest.Solve", "Nest.Solve", 1.0);
+    public static readonly BenchClaim IcpProbeFit = new("Probe.Inspect", "Probe.Inspect", 1.0);
+    public static readonly BenchClaim SkeletonOffset = new("Skeleton.Walk", "Skeleton.Walk", 1.0);
+    public static readonly BenchClaim BendSearch = new("BendSequence.Plan", "BendSequence.Plan", 1.0);
+    public static readonly BenchClaim ClearanceParallel = new("ParallelHelper.For2D", "CurveSkeleton.Clearance", 1.0);
 }
 
 public sealed record AcceptedBenchmarkClaim {
@@ -87,7 +87,7 @@ public sealed record AcceptedBenchmarkClaim {
                 AdmissionSlots.Gate(judged is not null, FabConcern.Toolpath, "benchmark-claim:judge-absent", FabricationFault.Inadmissible)))
             .As()
             .ToFin()
-        from accepted in Op.Of().Catch(() => Fin.Succ(judged(bench.Claim, host)))
+        from accepted in Try.lift(() => Fin.Succ(judged(bench.Claim, host))).Run().Bind(static inner => inner)
         from _judged in accepted
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("guard", "benchmark-claim:refused"))
@@ -217,7 +217,6 @@ public sealed partial class VoxelRay {
 }
 
 public sealed class VoxelLease : IDisposable {
-    internal static readonly Op ReleaseBoundary = Op.Of(name: "guard:voxel-release");
 
     public Voxels Tool { get; }
     public Voxels Stock { get; }
@@ -838,12 +837,12 @@ public static class Guard {
         robot: static (_, row) => ProbeRobot(row));
 
     private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeVoxel(GuardProbe.Voxel probe, Point3d target) =>
-        Op.Of().Catch(probe.Acquire)
-            .Bind(lease => Op.Of().Catch(() => Fin.Succ(Seq(
+        Try.lift(probe.Acquire).Run().Bind(static inner => inner)
+            .Bind(lease => Try.lift(() => Fin.Succ(Seq(
                         (VoxelObstacle.Stock, lease.Stock),
                         (VoxelObstacle.Fixture, lease.Fixture),
                         (VoxelObstacle.Protected, lease.Protected))
-                    .Bind(row => VoxelContacts(lease.Tool, row.Item2, row.Item1, probe.Ray, target))))
+                    .Bind(row => VoxelContacts(lease.Tool, row.Item2, row.Item1, probe.Ray, target)))).Run().Bind(static inner => inner)
                 .Map(hazards => (hazards, Seq<string>()))
                 .Settled(lease.Release, VoxelLease.ReleaseBoundary));
 
@@ -860,7 +859,7 @@ public static class Guard {
     }
 
     private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeRobot(GuardProbe.Robot probe) =>
-        Op.Of().Catch(() => probe.Provider.Check(probe.Request))
+        Try.lift(() => probe.Provider.Check(probe.Request)).Run().Bind(static inner => inner)
             .Bind(collision => AdmitRobotEvidence(probe.Request, collision).Switch(
                 accepted: static row => Fin.Succ((
                     row.Contact.ToSeq().Map(static contact => (Hazard)new Hazard.Robot(contact)),
@@ -891,7 +890,7 @@ public static class Guard {
                             collision.Warnings));
 
     private static Fin<Seq<Loop>> Offset(Loop path, double distance, JoinType join, EndType end, OffsetPolicy policy) =>
-        PolygonAlgebra.Apply(new PolygonOp.Offset(Seq(path), new OffsetField.Uniform(distance), join, end, policy), Op.Of())
+        PolygonAlgebra.Apply(new PolygonOp.Offset(Seq(path), new OffsetField.Uniform(distance), join, end, policy))
             .Bind(static trace => trace
                 .Regioned(new KernelFault.InvalidValue("guard", "guard:offset-trace"))
                 .Map(static topology => topology.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)));
@@ -899,7 +898,7 @@ public static class Guard {
     private static Fin<Seq<ContactWitness>> Intersections(Seq<Loop> subject, Seq<Loop> clip) =>
         subject.IsEmpty || clip.IsEmpty
             ? Fin.Succ(Seq<ContactWitness>())
-            : PolygonAlgebra.Apply(new PolygonOp.Boolean(subject, clip, BooleanOp.Intersection, PolygonFill.NonZero), Op.Of())
+            : PolygonAlgebra.Apply(new PolygonOp.Boolean(subject, clip, BooleanOp.Intersection, PolygonFill.NonZero))
                 .Bind(static trace => trace
                     .Regioned(new KernelFault.InvalidValue("guard", "guard:intersection-trace"))
                     .Map(static topology => topology.Nodes.Filter(static node => !node.IsHole)

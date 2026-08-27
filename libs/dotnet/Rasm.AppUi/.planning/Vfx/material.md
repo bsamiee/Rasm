@@ -115,15 +115,13 @@ public sealed class TreatmentHost : Control {
     readonly PaintCatalog paints;
     readonly HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks;
     readonly HostSink faults;
-    readonly Op key;
 
     public TreatmentHost(
         SurfaceTreatment treatment,
         PaintCatalog paints,
         HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        HostSink faults,
-        Op key) =>
-        (this.treatment, this.paints, this.hooks, this.faults, this.key) = (treatment, paints, hooks, faults, key);
+        HostSink faults) =>
+        (this.treatment, this.paints, this.hooks, this.faults, this.key) = (treatment, paints, hooks, faults);
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
         base.OnAttachedToVisualTree(e);
@@ -140,7 +138,7 @@ public sealed class TreatmentHost : Control {
 
     public override void Render(DrawingContext context) =>
         context.Custom(new TreatmentOperation(
-            treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, hooks, faults, key));
+            treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, hooks, faults));
 }
 
 [Equatable(Explicit = true)]
@@ -150,8 +148,7 @@ public sealed partial record TreatmentOperation(
     [property: DefaultEquality] Rect Bounds,
     [property: DefaultEquality] UnitInterval Phase,
     HookSet<AppUiPoint, AppUiFact, TelemetrySource> Hooks,
-    HostSink Faults,
-    Op Key) : ICustomDrawOperation {
+    HostSink Faults) : ICustomDrawOperation {
 
     public bool Equals(ICustomDrawOperation? other) => Equals(other as TreatmentOperation);
 
@@ -170,7 +167,6 @@ public sealed partial record TreatmentOperation(
                 at: AppUiPoint.Effect,
                 fact: new AppUiFact.Effect(
                     Plane: "material",
-                    Key: Treatment.Tier.Key,
                     Outcome: Treatment.Glaze.Key,
                     Flag: Treatment.Glaze == Glazing.Translucent,
                     Count: (uint)Treatment.Stack.Count,
@@ -412,7 +408,6 @@ public sealed partial record SurfaceTreatment(
     [property: ReferenceEquality] EffectCatalog Effects) {
 
     static readonly UnitInterval Full = UnitInterval.Create(1d);
-    static readonly Op ReleaseOp = Op.Of(name: "appui.material.release");
 
     public static readonly UnitInterval Settled = Full;
 

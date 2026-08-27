@@ -13,7 +13,7 @@ Composition arrives settled. `Projection/relations#RELATION_ALGEBRA` lowered the
 
 - Owner: `SpatialStructure` the derived spatial-tree view over the shared `Graph/element#ELEMENT_GRAPH` `ElementGraph` — it holds the element graph (for node resolution and the non-owning `Reference` axis), a FOCUSED `QuikGraph` `BidirectionalGraph<NodeId, TypedEdge>` narrowed from the contract's own memoized `View(EdgeFilter.Spatial, EdgeOrientation.Forward)`, the content-resolved spatial `Root`, and the single-parent `Containment` index; `SpatialClass` the `[SmartEnum<string>]` spatial-interpretation vocabulary keyed on the IFC spatial entity-type string (the shared `Classification.Code` the generated `Model/elements#IFC_CLASS` ingress stamps), each row carrying its canonical nesting `Rank` — rank 0 the `IfcProject` root that aggregates the site, every deeper rank a container an element is contained in (`IfcSite`/`IfcBuilding`/`IfcFacility` (+ its concrete `IfcBridge`/`IfcRoad`/`IfcRailway`/`IfcMarineFacility` infra subtypes)/`IfcBuildingStorey`/`IfcFacilityPart` (+ its concrete `IfcBridgePart`/`IfcRoadPart`/`IfcRailwayPart`/`IfcMarinePart` leaves)/`IfcSpace`/`IfcExternalSpatialElement`), the `IsRoot`/`IsContainer` role and the `CanContain` rank law DERIVING from it; `SpatialAxis` the `[SmartEnum<string>]` traversal discriminant the one `Walk` routes on. There is NO stored tree (the structure is a fold over the element graph, rebuilt at the view boundary like the contract's own `QuikGraph` cache), NO parallel relationship union (the contract's neutral `Compose` owns the edges), and NO per-element spatial record (the `Object` node IS the spatial node).
 - Law: spatial ancestry resolves through `SpatialStructure.Ancestry` and nowhere else — the contract CEDED its `ContainerOf`/`ContainmentPath` walk here (E-E9) because a `Contain`-only climb taking `.Head` of a multi-parent set contradicted this precedence, so a second up-chain walk anywhere in the corpus is the deleted form and an Element-side climb composes `View(EdgeFilter.Spatial, EdgeOrientation.Ascending)` raw legs alone. The precedence itself runs `Compose.Contain` first, `Compose.Aggregate` second — an element crosses its non-spatial aggregate host to reach the spatial ancestors (a curtain-wall panel sits on the storey through its wall, the level membership a `Contain`-only walk structurally misses) and the `Contain` parent wins when a malformed graph carries both. That law lives HERE once: `Walk(from, SpatialAxis.Ancestors)`, the `Model/query#ELEMENT_SET` `SpatialReach.Ancestry` chain, and the `Projection/egress#IFC_EGRESS` scoped-emit closure all read `Ancestry`, so a second `Contain`/`Aggregate` `Choose` at a consumer is the fork this owner deletes. The walk is VIEW-free — it composes the contract's own memoized ascending scope, so a consumer holding no admitted `SpatialStructure` still reaches the identical chain — and it is cycle-guarded, a corrupt cycle shortening the chain rather than recursing. The `Containment` index stays `Contain`-ONLY because `Container` answers the single OWNING container, which an aggregate host is not.
-- Entry: `SpatialStructure.Of(ElementGraph graph, Op key)` accumulates root-cardinality, parent-uniqueness, rank-legality, root-parent, and reachability failures into `Validation<Error, SpatialStructure>` before admitting the rooted tree. `Walk(NodeId from, SpatialAxis axis)` dispatches every traversal modality through one `SpatialAxis` value. `SpatialStructure.ContainerOf(ElementGraph, NodeId)`, `SpatialStructure.ParentOf(ElementGraph, NodeId)`, and `SpatialStructure.Ancestry(ElementGraph, NodeId)` are the STATIC up-chain reads a consumer holding only the element graph composes — no view instance, no validation result, total; the contract ceded the containment read to this owner (E-E9), so `ContainerOf` is the direct-container answer the whole corpus reads. `CommonAncestors(Seq<(NodeId First, NodeId Second)> pairs)` batches rooted-tree pairs through `OfflineLeastCommonAncestor`; absent vertices remain absent from the result. `Separations()` joins second-level boundary pairs by separator.
+- Entry: `SpatialStructure.Of(ElementGraph graph)` accumulates root-cardinality, parent-uniqueness, rank-legality, root-parent, and reachability failures into `Validation<Error, SpatialStructure>` before admitting the rooted tree. `Walk(NodeId from, SpatialAxis axis)` dispatches every traversal modality through one `SpatialAxis` value. `SpatialStructure.ContainerOf(ElementGraph, NodeId)`, `SpatialStructure.ParentOf(ElementGraph, NodeId)`, and `SpatialStructure.Ancestry(ElementGraph, NodeId)` are the STATIC up-chain reads a consumer holding only the element graph composes — no view instance, no validation result, total; the contract ceded the containment read to this owner (E-E9), so `ContainerOf` is the direct-container answer the whole corpus reads. `CommonAncestors(Seq<(NodeId First, NodeId Second)> pairs)` batches rooted-tree pairs through `OfflineLeastCommonAncestor`; absent vertices remain absent from the result. `Separations()` joins second-level boundary pairs by separator.
 - Auto: `Of` narrows the contract's spatial view on the resolved source class (a `Compose.Aggregate` between containers, a `Compose.Contain` to an element) so the local `BidirectionalGraph` carries only the owning spatial subgraph — a curtain-wall→panel aggregation whose whole is a non-spatial element never enters the transitive closure, and the non-owning `Compose.Reference` never entered the `EdgeFilter.Spatial` scope at all; `Walk` dispatches the generated total `SpatialAxis.Switch` (compile-time exhaustive, no runtime `_` arm) with PER-AXIS totality — the narrowed-tree arms (`Descendants`/`Children`/`Contained`) guard vertex membership because `QuikGraph` `OutEdges` throws on an absent vertex, while `Ancestors`, `Referenced`, and `Container` read the shared view and the prebuilt index, all total over every node the snapshot holds — so every axis yields the empty `Seq` rather than a throw on a non-spatial node; the transitive descendants arm runs `BreadthFirstSearchAlgorithm` under a SCOPED `VertexTimeStamperObserver` (O(reachable), discovery time ordering the closure — never an all-vertex `TryFunc` path-probe sweep and never a raw event `+=` over a mutable accumulator), the direct children/contained arms read one `Adjacent` fold differing only by the flavour the `TypedEdge` leg carries; `Container`/`Containment` read the prebuilt single-parent index so container resolution is O(1) per element.
 - Packages: Rasm.Element (the shared `ElementGraph`/`Node`/`NodeId`/`Relationship`/`ComposeKind`/`Classification` and the `View(EdgeFilter, EdgeOrientation)` scope over `TypedEdge`), QuikGraph (the `BidirectionalGraph` container, the `AlgorithmExtensions` `OfflineLeastCommonAncestor` facade, and the `BreadthFirstSearchAlgorithm` under its `VertexTimeStamperObserver` attach scope), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Rasm (the kernel `Op` operation key the fault carries).
 - Growth: a new spatial-container level is one `SpatialClass` row carrying its rank (an IFC4.3 `IfcFacilityPart` subdivision and the IFC4 `IfcExternalSpatialElement` exterior region both ride the same fold); a new traversal direction is one `SpatialAxis` row and one `Walk` arm reading the same `TypedEdge` adjacency; a new spatial-decomposition flavor is one `ComposeKind` the contract already carries and one tag filter the `Walk` reads; a new up-chain consumer composes the static `Ancestry` and a new separation consumer composes `Separations` (a boundary-level refinement is one attr filter on its `Choose`), never a re-derived walk or boundary pairing; never a per-relationship `AssemblyRel` arm, never a per-direction `Traverse` method, and never a second stored spatial tree.
@@ -33,7 +33,6 @@ using Rasm.Element.Graph;
 using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
@@ -95,7 +94,7 @@ public sealed class SpatialStructure {
         Map<NodeId, NodeId> containment, Map<NodeId, Seq<NodeId>> boundaries) =>
         (this.graph, this.tree, Root, this.containment, this.boundaries) = (graph, tree, root, containment, boundaries);
 
-    public static Validation<Error, SpatialStructure> Of(ElementGraph graph, Op key) {
+    public static Validation<Error, SpatialStructure> Of(ElementGraph graph) {
         Seq<TypedEdge> spatial = toSeq(graph.View(EdgeFilter.Spatial, EdgeOrientation.Forward).Edges)
             .Filter(leg => ClassOf(graph, leg.Source).IsSome);
         BidirectionalGraph<NodeId, TypedEdge> tree = new(allowParallelEdges: true);
@@ -108,14 +107,14 @@ public sealed class SpatialStructure {
             .Filter(static group => group.Select(static leg => leg.Source).Distinct().Count() > 1)
             .Map(static group => group.Key);
         Validation<Error, NodeId> root = roots.Count switch {
-            0 => Fail<Error, NodeId>(new BimFault.Refused(key, BimScope.Model, BimReason.DanglingReference, string.Join(':', new object?[] { "spatial-root-miss" }))),
+            0 => Fail<Error, NodeId>(new BimFault.Refused(BimScope.Model, BimReason.DanglingReference, string.Join(':', new object?[] { "spatial-root-miss" }))),
             1 => Success<Error, NodeId>(roots[0]),
-            _ => Fail<Error, NodeId>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-root-cardinality", roots.Count.ToString(CultureInfo.InvariantCulture) }))),
+            _ => Fail<Error, NodeId>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-root-cardinality", roots.Count.ToString(CultureInfo.InvariantCulture) }))),
         };
         Validation<Error, Map<NodeId, NodeId>> parents = ambiguous.IsEmpty
             ? Success<Error, Map<NodeId, NodeId>>(spatial.Filter(static leg => Flavour(leg, ComposeKind.Contain))
                 .Fold(Map<NodeId, NodeId>(), static (map, leg) => map.AddOrUpdate(leg.Target, leg.Source)))
-            : Fail<Error, Map<NodeId, NodeId>>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-parent-ambiguous", string.Join(',', ambiguous.Map(static id => id.ToValue())) })));
+            : Fail<Error, Map<NodeId, NodeId>>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-parent-ambiguous", string.Join(',', ambiguous.Map(static id => id.ToValue())) })));
         Map<NodeId, Seq<NodeId>> boundaries = toSeq(graph.Edges)
             .Choose(static e => e is Relationship.Generic g
                     && string.Equals(g.WireName, IfcRelKind.SpaceBoundary.Key, StringComparison.Ordinal)
@@ -131,17 +130,17 @@ public sealed class SpatialStructure {
                 .Map(_ => (Parent: edge.Source, Child: edge.Target))));
         Validation<Error, Unit> hierarchy = inverted.IsEmpty
             ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-rank-inverted", string.Join(',', inverted.Map(static edge => $"{edge.Parent.Value}>{edge.Child.Value}")) })));
+            : Fail<Error, Unit>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-rank-inverted", string.Join(',', inverted.Map(static edge => $"{edge.Parent.Value}>{edge.Child.Value}")) })));
         LanguageExt.HashSet<NodeId> reached = toHashSet(roots.Count == 1 ? Reachable(tree, roots[0]) : Seq<NodeId>());
         Validation<Error, Unit> rootParent = roots.Count == 1 && tree.InEdges(roots[0]).Any()
-            ? Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-root-has-parent", roots[0].Value })))
+            ? Fail<Error, Unit>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-root-has-parent", roots[0].Value })))
             : Success<Error, Unit>(unit);
         Seq<NodeId> disconnected = roots.Count == 1
             ? toSeq(tree.Vertices).Filter(vertex => !reached.Contains(vertex))
             : Seq<NodeId>();
         Validation<Error, Unit> connectivity = disconnected.IsEmpty
             ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-disconnected", string.Join(',', disconnected.Map(static id => id.ToValue())) })));
+            : Fail<Error, Unit>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-disconnected", string.Join(',', disconnected.Map(static id => id.ToValue())) })));
         return (root, parents, hierarchy, rootParent, connectivity)
             .Apply((admittedRoot, admittedParents, _, _, _) => new SpatialStructure(graph, tree, admittedRoot, admittedParents, boundaries))
             .As();
@@ -220,7 +219,7 @@ public sealed class SpatialStructure {
 ## [03]-[LINEAR_POSITIONING]
 
 - Owner: `PositioningProjection` the linear-referencing deep reader — the positioning peer of the `Model/structural#STRUCTURAL_PROJECTION` reader, lowering the IFC4.3 alignment axis onto typed shared attribute payloads: the per-segment design parameters off each `IfcAlignmentSegment.DesignParameters` (`IfcAlignmentHorizontalSegment`/`IfcAlignmentVerticalSegment`/`IfcAlignmentCantSegment`), the `IfcReferent` station-mark `RestartDistance`, and each linearly-placed product's station/offset quadruple off its `IfcLinearPlacement.Distance` `IfcPointByDistanceExpression`. The rows land as one `Projection/semantic#SEMANTIC_PROJECTOR` `SourceBag` Import bag per entity, so every infra consumer addresses elements as "1+240 to 1+380" through the standing property machinery.
-- Entry: `PositioningProjection.Attrs(IfcObjectDefinition definition, UnitScheme scale, Op key)` reads one entity's positioning facts into the typed attr map — `Fin<T>` because a malformed station magnitude faults typed through `MeasureValue.OfSi`, never a swallowed NaN row; a non-positioning entity yields the empty map, so the `SourceBag` synthesis mints no empty bag. `PositioningRows` is the PUBLIC row vocabulary both the writer and every reader compose by static.
+- Entry: `PositioningProjection.Attrs(IfcObjectDefinition definition, UnitScheme scale)` reads one entity's positioning facts into the typed attr map — `Fin<T>` because a malformed station magnitude faults typed through `MeasureValue.OfSi`, never a swallowed NaN row; a non-positioning entity yields the empty map, so the `SourceBag` synthesis mints no empty bag. `PositioningRows` is the PUBLIC row vocabulary both the writer and every reader compose by static.
 - Auto: the segment arm switches `DesignParameters` — a horizontal segment lands `StartDirection` (angular), its radii/length/gravity-centre-height (lengths), and its `IfcAlignmentHorizontalSegmentTypeEnum` token as `Text`; a vertical segment lands its distance/length/height/radius lengths, the `StartGradient`/`EndGradient` dimensionless ratios, and its token; a cant segment lands its distance, its length, its four cant lengths, and its token — the segment's curve geometry stays content-keyed in `Representations`, never an inlined `StartPoint` coordinate; the referent arm lands `RestartDistance` (the `PredefinedType` `STATION`/`KILOMETREPOINT` token riding the node's own predefined read); the placement arm probes `IfcProduct.ObjectPlacement` for `IfcLinearPlacement` and lands the resolved station off `Distance.DistanceAlong` (the `IfcCurveMeasureSelect` length leg dimensioned, the parameter leg dimensionless) and its three offset lengths — the positioned element's alignment identity riding the rostered `Generic("IfcRelPositions")` edge the `Projection/relations#RELATION_ALGEBRA` roster already lands, never a duplicate bag row. EVERY magnitude crosses the ONE `UnitScheme.Coerce` native→SI transform keyed by its own `Dimension` — the length rows on the length axis, the direction on the declared plane angle, the ratios on neither — so no slot multiplies a bare `scale` field of its own.
 - Output: the attr rows are the station evidence the `Model/query#ELEMENT_SET` `ByProperty` range arm selects over (a station-interval query is `Range` over `PositioningRows.Station` with ZERO query edits), the `Rasm.AppUi` station-addressed reports render, and a setting-out or progress-reporting consumer keys on — the IFC4.3 infra support deepened from spatial-tree-only to the stationing axis this page's `Bridge`/`Road`/`Railway` `SpatialClass` rows already claim.
 - Packages: GeometryGymIFC_Core (`IfcAlignment`/`IfcAlignmentSegment`/`IfcAlignmentParameterSegment` concretes, `IfcLinearPlacement`, `IfcPointByDistanceExpression`, `IfcReferent`, `IfcRelPositions` — decompile-verified members), Rasm.Element (the shared `PropertyName`/`PropertyCategory` custody pair and `MeasureValue`), LanguageExt.Core, Rasm (the kernel `Op`).
@@ -233,7 +232,6 @@ using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Bim.Projection;
 using Rasm.Element.Properties;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
@@ -267,68 +265,64 @@ public static class PositioningRows {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PositioningProjection {
-    public static Fin<Map<PropertyName, PropertyValue>> Attrs(IfcObjectDefinition definition, UnitScheme scale, Op key) =>
+    public static Fin<Map<PropertyName, PropertyValue>> Attrs(IfcObjectDefinition definition, UnitScheme scale) =>
         definition switch {
             IfcAlignmentSegment segment => segment.DesignParameters switch {
-                IfcAlignmentHorizontalSegment h => Rows(key,
-                    (PositioningRows.SegmentKind, Token(h.PredefinedType.ToString())),
-                    (PositioningRows.StartDirection, Angle(h.StartDirection, scale, key)),
-                    (PositioningRows.StartRadiusOfCurvature, Length(h.StartRadiusOfCurvature, scale, key)),
-                    (PositioningRows.EndRadiusOfCurvature, Length(h.EndRadiusOfCurvature, scale, key)),
-                    (PositioningRows.SegmentLength, Length(h.SegmentLength, scale, key)),
-                    (PositioningRows.GravityCenterLineHeight, Length(h.GravityCenterLineHeight, scale, key))),
-                IfcAlignmentVerticalSegment v => Rows(key,
-                    (PositioningRows.SegmentKind, Token(v.PredefinedType.ToString())),
-                    (PositioningRows.StartDistAlong, Length(v.StartDistAlong, scale, key)),
-                    (PositioningRows.HorizontalLength, Length(v.HorizontalLength, scale, key)),
-                    (PositioningRows.StartHeight, Length(v.StartHeight, scale, key)),
-                    (PositioningRows.StartGradient, Ratio(v.StartGradient, key)),
-                    (PositioningRows.EndGradient, Ratio(v.EndGradient, key)),
-                    (PositioningRows.RadiusOfCurvature, Length(v.RadiusOfCurvature, scale, key))),
-                IfcAlignmentCantSegment c => Rows(key,
-                    (PositioningRows.SegmentKind, Token(c.PredefinedType.ToString())),
-                    (PositioningRows.StartDistAlong, Length(c.StartDistAlong, scale, key)),
-                    (PositioningRows.HorizontalLength, Length(c.HorizontalLength, scale, key)),
-                    (PositioningRows.StartCantLeft, Length(c.StartCantLeft, scale, key)),
-                    (PositioningRows.EndCantLeft, Length(c.EndCantLeft, scale, key)),
-                    (PositioningRows.StartCantRight, Length(c.StartCantRight, scale, key)),
-                    (PositioningRows.EndCantRight, Length(c.EndCantRight, scale, key))),
+                IfcAlignmentHorizontalSegment h => Rows((PositioningRows.SegmentKind, Token(h.PredefinedType.ToString())),
+                    (PositioningRows.StartDirection, Angle(h.StartDirection, scale)),
+                    (PositioningRows.StartRadiusOfCurvature, Length(h.StartRadiusOfCurvature, scale)),
+                    (PositioningRows.EndRadiusOfCurvature, Length(h.EndRadiusOfCurvature, scale)),
+                    (PositioningRows.SegmentLength, Length(h.SegmentLength, scale)),
+                    (PositioningRows.GravityCenterLineHeight, Length(h.GravityCenterLineHeight, scale))),
+                IfcAlignmentVerticalSegment v => Rows((PositioningRows.SegmentKind, Token(v.PredefinedType.ToString())),
+                    (PositioningRows.StartDistAlong, Length(v.StartDistAlong, scale)),
+                    (PositioningRows.HorizontalLength, Length(v.HorizontalLength, scale)),
+                    (PositioningRows.StartHeight, Length(v.StartHeight, scale)),
+                    (PositioningRows.StartGradient, Ratio(v.StartGradient)),
+                    (PositioningRows.EndGradient, Ratio(v.EndGradient)),
+                    (PositioningRows.RadiusOfCurvature, Length(v.RadiusOfCurvature, scale))),
+                IfcAlignmentCantSegment c => Rows((PositioningRows.SegmentKind, Token(c.PredefinedType.ToString())),
+                    (PositioningRows.StartDistAlong, Length(c.StartDistAlong, scale)),
+                    (PositioningRows.HorizontalLength, Length(c.HorizontalLength, scale)),
+                    (PositioningRows.StartCantLeft, Length(c.StartCantLeft, scale)),
+                    (PositioningRows.EndCantLeft, Length(c.EndCantLeft, scale)),
+                    (PositioningRows.StartCantRight, Length(c.StartCantRight, scale)),
+                    (PositioningRows.EndCantRight, Length(c.EndCantRight, scale))),
                 _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
             },
-            IfcReferent referent => Rows(key, (PositioningRows.RestartDistance, Length(referent.RestartDistance, scale, key))),
-            IfcProduct { ObjectPlacement: IfcLinearPlacement { Distance: { } distance } } => Rows(key,
-                (PositioningRows.Station, distance.DistanceAlong is IfcLengthMeasure along
-                    ? Length(along.Measure, scale, key)
+            IfcReferent referent => Rows((PositioningRows.RestartDistance, Length(referent.RestartDistance, scale))),
+            IfcProduct { ObjectPlacement: IfcLinearPlacement { Distance: { } distance } } => Rows((PositioningRows.Station, distance.DistanceAlong is IfcLengthMeasure along
+                    ? Length(along.Measure, scale)
                     : Option<Fin<PropertyValue>>.None),
                 (PositioningRows.StationParameter, distance.DistanceAlong is IfcParameterValue parameter
-                    ? Ratio(parameter.Measure, key)
+                    ? Ratio(parameter.Measure)
                     : Option<Fin<PropertyValue>>.None),
-                (PositioningRows.OffsetLateral, Length(distance.OffsetLateral, scale, key)),
-                (PositioningRows.OffsetVertical, Length(distance.OffsetVertical, scale, key)),
-                (PositioningRows.OffsetLongitudinal, Length(distance.OffsetLongitudinal, scale, key))),
+                (PositioningRows.OffsetLateral, Length(distance.OffsetLateral, scale)),
+                (PositioningRows.OffsetVertical, Length(distance.OffsetVertical, scale)),
+                (PositioningRows.OffsetLongitudinal, Length(distance.OffsetLongitudinal, scale))),
             _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
         };
 
-    static Fin<Map<PropertyName, PropertyValue>> Rows(Op key, params ReadOnlySpan<(PropertyName Name, Option<Fin<PropertyValue>> Value)> slots) =>
+    static Fin<Map<PropertyName, PropertyValue>> Rows(params ReadOnlySpan<(PropertyName Name, Option<Fin<PropertyValue>> Value)> slots) =>
         toSeq(Iterable<(PropertyName Name, Option<Fin<PropertyValue>> Value)>.FromSpan(slots))
             .Choose(static slot => slot.Value.Map(fin => fin.Map(value => (slot.Name, Value: value))))
             .TraverseM(identity).As()
             .Map(static rows => rows.Fold(Map<PropertyName, PropertyValue>(),
                 static (bag, row) => bag.AddOrUpdate(row.Name, row.Value)));
 
-    static Option<Fin<PropertyValue>> Length(double native, UnitScheme scale, Op key) =>
+    static Option<Fin<PropertyValue>> Length(double native, UnitScheme scale) =>
         double.IsFinite(native)
-            ? Some(MeasureValue.OfSi(Dimension.LengthDim, scale.Coerce(native, QuantityType.Length, Dimension.LengthDim), key).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            ? Some(MeasureValue.OfSi(Dimension.LengthDim, scale.Coerce(native, QuantityType.Length, Dimension.LengthDim)).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
             : Option<Fin<PropertyValue>>.None;
 
-    static Option<Fin<PropertyValue>> Angle(double native, UnitScheme scale, Op key) =>
+    static Option<Fin<PropertyValue>> Angle(double native, UnitScheme scale) =>
         double.IsFinite(native)
-            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, scale.Coerce(native, QuantityType.Angle, Dimension.Dimensionless), key).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, scale.Coerce(native, QuantityType.Angle, Dimension.Dimensionless)).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
             : Option<Fin<PropertyValue>>.None;
 
-    static Option<Fin<PropertyValue>> Ratio(double native, Op key) =>
+    static Option<Fin<PropertyValue>> Ratio(double native) =>
         double.IsFinite(native)
-            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, native, key).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
+            ? Some(MeasureValue.OfSi(Dimension.Dimensionless, native).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))
             : Option<Fin<PropertyValue>>.None;
 
     static Option<Fin<PropertyValue>> Token(string value) =>

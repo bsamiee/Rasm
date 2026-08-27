@@ -13,8 +13,8 @@
 ## [02]-[SLOTS]
 
 - Owner: `ShellPane` `[Union]` — the closed pane family the slot column resolves into: `TabsCase(TabControl)`, `StatusCase(StatusBar)`, `LayoutsCase(Seq<string>)`, `LayoutCase(string)`, `RecentCase(string)`, `RecentsCase(Seq<string>)`, `AnchorCase(Window)`. Heterogeneity is what earns the family; `object` with an `is` recovery is the deleted form, because an unconstrained probe admits any type argument and defers the mismatch to runtime.
-- Owner: `ShellSlot` `[SmartEnum<int>]` — 7 pane-anchor rows over ONE `[UseDelegateFromConstructor]` `Resolve(Op) -> Fin<ShellPane>` column, split across two row constructors by member residency: instance rows `Tabs` (key 0, `Editor.Tabs` → `TabbedPanel.TabControl`), `StatusBar` (key 1, `Editor.StatusBar` → `Grasshopper2.UI.StatusBar`), `RecentActive` (key 4, `Editor.MostRecentActiveDocument` → the recent-path `string`), `RecentLoaded` (key 5, `Editor.MostRecentLoadedDocuments` → `string[]`); static rows `DefinedLayouts` (key 2, `Editor.DefinedLayouts` → `IEnumerable<string>`), `InitialLayout` (key 3, `Editor.InitialLayout` → `string`), `HostAnchor` (key 6, `Editor.ThisOrRhino` → `Eto.Forms.Window`). Every instance row null-gates the singleton chain through `Optional(Editor.Instance).ToFin(key.MissingContext())`; the static rows read settings-backed statics and therefore resolve on a headless Rhino where every instance row refuses typed. `Editor.BreadCrumbs` is private on the host and is no row — a private pane is unreachable capability, not RESEARCH.
-- Entry: `EditorShell.Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project, Op? key = null)` → `Fin<TOut>` — the one typed egress. Each slot resolves inside one kernel `UiThread.Run` blocking marshal and the caller's projection runs inside the same marshal window, so a pane reference never escapes the window that resolved it — the same non-escape law `GhScope` carries on the session floor. Projection is a total `Switch` over `ShellPane`, so a consumer expecting one pane states its refusal for every other case at compile time and a new pane shape breaks every projection loudly.
+- Owner: `ShellSlot` `[SmartEnum<int>]` — 7 pane-anchor rows over ONE `[UseDelegateFromConstructor]` `Resolve(Op) -> Fin<ShellPane>` column, split across two row constructors by member residency: instance rows `Tabs` (key 0, `Editor.Tabs` → `TabbedPanel.TabControl`), `StatusBar` (key 1, `Editor.StatusBar` → `Grasshopper2.UI.StatusBar`), `RecentActive` (key 4, `Editor.MostRecentActiveDocument` → the recent-path `string`), `RecentLoaded` (key 5, `Editor.MostRecentLoadedDocuments` → `string[]`); static rows `DefinedLayouts` (key 2, `Editor.DefinedLayouts` → `IEnumerable<string>`), `InitialLayout` (key 3, `Editor.InitialLayout` → `string`), `HostAnchor` (key 6, `Editor.ThisOrRhino` → `Eto.Forms.Window`). Every instance row null-gates the singleton chain through `Optional(Editor.Instance).ToFin(new KernelFault.MissingContext())`; the static rows read settings-backed statics and therefore resolve on a headless Rhino where every instance row refuses typed. `Editor.BreadCrumbs` is private on the host and is no row — a private pane is unreachable capability, not RESEARCH.
+- Entry: `EditorShell.Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project)` → `Fin<TOut>` — the one typed egress. Each slot resolves inside one kernel `UiThread.Run` blocking marshal and the caller's projection runs inside the same marshal window, so a pane reference never escapes the window that resolved it — the same non-escape law `GhScope` carries on the session floor. Projection is a total `Switch` over `ShellPane`, so a consumer expecting one pane states its refusal for every other case at compile time and a new pane shape breaks every projection loudly.
 - Law: the slot column is the ONLY singleton read site for chrome panes — a consumer holding `Editor.Instance.Tabs` at a call site is the deleted form. Each row's host read stays typed to its own member and the projection closes it into `ShellPane`, so the null gate guards the host value rather than an erased reference; `Shell/chrome.md`'s hosts mint on their own surfaces (`Bar` construction, `InputPanel` construction, the static `Frame`, the canvas flex collection) and only the editor-resident panes route through this gate.
 - Boundary: `Editor.Canvas` and `Editor.Documents` resolve through `ScopeTarget`/`GhScope` on the session floor, never as slot rows — a slot is a chrome pane, a scope is a live work surface, and the two vocabularies never alias. Host editor carries no file-comparison surface.
 - Packages: Grasshopper2 (`Editor.Instance`, `Editor.ThisOrRhino`, the seven pane members), LanguageExt.Core, `Rasm.Domain` (`Op`, `Fault`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`).
@@ -32,8 +32,8 @@
 
 ## [04]-[OPERATOR]
 
-- Owner: `EditorShell` — the one editor-shell operator. `ShellOp` `[Union]` `[GenerateUnionOps]` closes the command family: `ToggleCase(ShellToggle Row, ToggleIntent Intent)` swings one shell axis under a NAMED intent, `GetterCase(Option<RhinoDoc> Target)` arbitrates the single Rhino handoff through the static `Editor.BeginRhinoGetter(RhinoDoc doc = null)` — `None` defers to the host's `RhinoDoc.ActiveDoc` default, and the member's `false` return (no target document, or a getter already active) settles as the kernel's `UiFault.HostRejected`, never a silently ignored bool. This handoff is the one boundary by which the editor yields input focus to a Rhino getter, so a direct `RhinoDoc` getter beside it bypasses the editor's arbitration and is the deleted form. Every shell command returns the `ShellFacts` it produced and no consumer issues a follow-up snapshot to learn what its own command did.
-- Entry: `EditorShell.Apply(ShellOp op, Op? key = null)` → `Fin<ShellFacts>` — the command gate; `EditorShell.Snapshot(Op? key = null)` → `Fin<ShellFacts>` — the state gate; `EditorShell.Grab<TOut>` — the `[02]` pane gate; `EditorShell.Mount(Seq<ShellOp> standing, Op? key = null)` → `Fin<Lease<ShellFacts>>` — the root-wired standing mount (`Platform/composition.md` row `[04]`): it captures the pre-mount `ShellFacts`, applies the standing ops as one traverse (a refusal unwinds by restoring the captured facts before the fault returns), and the settled lease's release restores those captured facts — the plugin leaves the editor shell exactly as it found it.
+- Owner: `EditorShell` — the one editor-shell operator. `ShellOp` `[Union]` `` closes the command family: `ToggleCase(ShellToggle Row, ToggleIntent Intent)` swings one shell axis under a NAMED intent, `GetterCase(Option<RhinoDoc> Target)` arbitrates the single Rhino handoff through the static `Editor.BeginRhinoGetter(RhinoDoc doc = null)` — `None` defers to the host's `RhinoDoc.ActiveDoc` default, and the member's `false` return (no target document, or a getter already active) settles as the kernel's `UiFault.HostRejected`, never a silently ignored bool. This handoff is the one boundary by which the editor yields input focus to a Rhino getter, so a direct `RhinoDoc` getter beside it bypasses the editor's arbitration and is the deleted form. Every shell command returns the `ShellFacts` it produced and no consumer issues a follow-up snapshot to learn what its own command did.
+- Entry: `EditorShell.Apply(ShellOp op)` → `Fin<ShellFacts>` — the command gate; `EditorShell.Snapshot()` → `Fin<ShellFacts>` — the state gate; `EditorShell.Grab<TOut>` — the `[02]` pane gate; `EditorShell.Mount(Seq<ShellOp> standing)` → `Fin<Lease<ShellFacts>>` — the root-wired standing mount (`Platform/composition.md` row `[04]`): it captures the pre-mount `ShellFacts`, applies the standing ops as one traverse (a refusal unwinds by restoring the captured facts before the fault returns), and the settled lease's release restores those captured facts — the plugin leaves the editor shell exactly as it found it.
 - Law: every case runs inside ONE marshal — scope acquisition through `ScopeTarget`, the host verb, and the facts projection share the window, so no command observes a shell another thread mutated mid-command, and every case body runs under `Op.Catch` so a throwing host member keeps its original exceptional `Error`.
 - Law: reveal is not a case — `SessionOp.RevealCase` on the session floor owns the public static `Editor.ShowEditor` (`EnsureVisible` is host-internal), and a second reveal spelling here forks the one session-command vocabulary; a consumer sequencing reveal-then-shell-work composes the two gates.
 - Boundary: `GetterCase` transports the optional `RhinoDoc` and adjudicates nothing about it — Rhino document semantics are `Rasm.Rhino`'s concern entirely, and the case exists because the handoff member lives on the GH2 editor.
@@ -78,18 +78,18 @@ public sealed partial class ShellSlot {
         read: static shell => shell.MostRecentLoadedDocuments, pane: static paths => new ShellPane.RecentsCase(Paths: toSeq(paths)));
     public static readonly ShellSlot HostAnchor = StaticRow(key: 6,
         read: static () => Editor.ThisOrRhino, pane: static host => new ShellPane.AnchorCase(Host: host));
-    [UseDelegateFromConstructor] internal partial Fin<ShellPane> Resolve(Op key);
+    [UseDelegateFromConstructor] internal partial Fin<ShellPane> Resolve();
 
     private static ShellSlot EditorRow<THost>(int key, Func<Editor, THost?> read, Func<THost, ShellPane> pane)
         where THost : class =>
         new(key: key, resolve: op =>
-            Optional(Editor.Instance).ToFin(op.MissingContext())
-                .Bind(shell => Optional(read(arg: shell)).ToFin(op.MissingContext()))
+            Optional(Editor.Instance).ToFin(new KernelFault.MissingContext())
+                .Bind(shell => Optional(read(arg: shell)).ToFin(new KernelFault.MissingContext()))
                 .Map(pane));
 
     private static ShellSlot StaticRow<THost>(int key, Func<THost?> read, Func<THost, ShellPane> pane)
         where THost : class =>
-        new(key: key, resolve: op => Optional(read()).ToFin(op.MissingContext()).Map(pane));
+        new(key: key, resolve: op => Optional(read()).ToFin(new KernelFault.MissingContext()).Map(pane));
 }
 
 [SmartEnum<int>]
@@ -110,24 +110,21 @@ public sealed partial class ShellToggle : ICapability<ShellToggle> {
     public static readonly ShellToggle UndoHistory = CanvasRow(key: "undo-history",
         read: static surface => surface.ShowUndoHistory, write: static (surface, value) => surface.ShowUndoHistory = value);
     public static CapabilityLaw<ShellToggle> Law => CapabilityLaw<ShellToggle>.Open;
-    [UseDelegateFromConstructor] internal partial Fin<bool> Read(GhScope scope, Op key);
-    [UseDelegateFromConstructor] internal partial Fin<Unit> Write(GhScope scope, bool value, Op key);
+    [UseDelegateFromConstructor] internal partial Fin<bool> Read(GhScope scope);
+    [UseDelegateFromConstructor] internal partial Fin<Unit> Write(GhScope scope, bool value);
 
     private static ShellToggle EditorRow(string key, Func<Editor, bool> read, Action<Editor, bool> write) =>
-        new(key: key,
-            read: (scope, op) => scope.Editor.ToFin(op.MissingContext()).Bind(shell => op.Catch(body: () => Fin.Succ(read(arg: shell)))),
-            write: (scope, value, op) => scope.Editor.ToFin(op.MissingContext()).Bind(shell => op.Catch(body: () =>
-                Fin.Succ(Op.Side(action: () => write(arg1: shell, arg2: value))))));
+        new(read: (scope, op) => scope.Editor.ToFin(new KernelFault.MissingContext()).Bind(shell => Try.lift(() => Fin.Succ(read(arg: shell))).Run().Bind(static inner => inner)),
+            write: (scope, value, op) => scope.Editor.ToFin(new KernelFault.MissingContext()).Bind(shell => Try.lift(() =>
+                Fin.Succ(HostEdge.Side(action: () => write(arg1: shell, arg2: value)))).Run().Bind(static inner => inner)));
 
     private static ShellToggle CanvasRow(string key, Func<Canvas, bool> read, Action<Canvas, bool> write) =>
-        new(key: key,
-            read: (scope, op) => scope.Canvas.ToFin(op.MissingContext()).Bind(surface => op.Catch(body: () => Fin.Succ(read(arg: surface)))),
-            write: (scope, value, op) => scope.Canvas.ToFin(op.MissingContext()).Bind(surface => op.Catch(body: () =>
-                Fin.Succ(Op.Side(action: () => write(arg1: surface, arg2: value))))));
+        new(read: (scope, op) => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => Try.lift(() => Fin.Succ(read(arg: surface))).Run().Bind(static inner => inner)),
+            write: (scope, value, op) => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => Try.lift(() =>
+                Fin.Succ(HostEdge.Side(action: () => write(arg1: surface, arg2: value)))).Run().Bind(static inner => inner)));
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record ShellOp {
     private ShellOp() { }
     public sealed record ToggleCase(ShellToggle Row, ToggleIntent Intent) : ShellOp;
@@ -143,54 +140,51 @@ public readonly record struct ShellFacts(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EditorShell {
-    public static Fin<TOut> Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project, Op? key = null) {
-        Op op = key.OrDefault();
-        return from row in op.Need(slot)
-               from valid in op.Need(project)
+    public static Fin<TOut> Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project) {
+        return from row in Admit.Need(slot)
+               from valid in Admit.Need(project)
                from output in UiThread.Run(new UiDispatch<TOut>.Blocking(
-                   () => row.Resolve(key: op).Bind(pane => op.Catch(body: () => valid(arg: pane)))),
-                   DispatchLane.Interactive, op)
+                   () => row.Resolve().Bind(pane => Try.lift(() => valid(arg: pane)).Run().Bind(static inner => inner))),
+                   DispatchLane.Interactive)
                select output;
     }
 
-    public static Fin<ShellFacts> Snapshot(Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<ShellFacts> Snapshot() {
         return UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
-            () => ScopeTarget.EditorHost.Acquire(key: op).Bind(scope => Project(scope: scope, key: op))),
-            DispatchLane.Interactive, op);
+            () => ScopeTarget.EditorHost.Acquire().Bind(scope => Project(scope: scope, key: op))),
+            DispatchLane.Interactive);
     }
 
-    public static Fin<ShellFacts> Apply(ShellOp op, Op? key = null) {
-        Op active = key.OrDefault();
-        return active.Need(op).Bind(valid =>
+    public static Fin<ShellFacts> Apply(ShellOp op) {
+        return Admit.Need().Bind(valid =>
             UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
                 () => ScopeTarget.EditorHost.Acquire(key: active).Bind(scope => valid.Switch(
                     state: (Scope: scope, Key: active),
                     toggleCase: static (s, c) =>
-                        from current in c.Row.Read(scope: s.Scope, key: s.Key)
-                        from _ in c.Row.Write(scope: s.Scope, value: c.Intent.Target(current: current), key: s.Key)
+                        from current in c.Row.Read(scope: s.Scope)
+                        from _ in c.Row.Write(scope: s.Scope, value: c.Intent.Target(current: current))
                         select unit,
-                    getterCase: static (s, c) => s.Key.Catch(body: () =>
-                        Editor.BeginRhinoGetter(doc: Op.ToHostSlot(c.Target))
+                    getterCase: static (s, c) => Try.lift(() =>
+                        Editor.BeginRhinoGetter(doc: HostEdge.Slot(c.Target))
                             ? Fin.Succ(unit)
-                            : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: nameof(Editor.BeginRhinoGetter)))))
+                            : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Detail: nameof(Editor.BeginRhinoGetter)))).Run().Bind(static inner => inner))
                     .Bind(_ => Project(scope: scope, key: active)))),
                 DispatchLane.Interactive, active));
     }
 
-    public static Fin<Lease<ShellFacts>> Mount(Seq<ShellOp> standing, Op? key = null);
+    public static Fin<Lease<ShellFacts>> Mount(Seq<ShellOp> standing);
 
-    private static Fin<ShellFacts> Project(GhScope scope, Op key) =>
-        from shell in scope.Editor.ToFin(key.MissingContext())
+    private static Fin<ShellFacts> Project(GhScope scope) =>
+        from shell in scope.Editor.ToFin(new KernelFault.MissingContext())
         from shown in ShellToggle.Items.Fold(
             Fin.Succ(CapabilitySet<ShellToggle>.None),
-            (acc, row) => acc.Bind(held => row.Read(scope: scope, key: key)
+            (acc, row) => acc.Bind(held => row.Read(scope: scope)
                 .BindFail(cause => cause is KernelFault.MissingContext ? Fin.Succ(false) : Fin.Fail<bool>(cause))
                 .Map(engaged => engaged ? held.With(row) : held)))
-        from facts in key.Catch(body: () => Fin.Succ(new ShellFacts(
+        from facts in Try.lift(() => Fin.Succ(new ShellFacts(
             Shown: shown,
             HasDocument: shell.Documents.Current is not null,
-            RecentCount: shell.MostRecentCount)))
+            RecentCount: shell.MostRecentCount))).Run().Bind(static inner => inner)
         select facts;
 }
 ```
@@ -230,7 +224,7 @@ flowchart LR
 |  [02]   | pane slots        | `ShellSlot`              | resolve column                 | `Resolve → Fin<ShellPane>`       |    7    |
 |  [03]   | swing intent      | `ToggleIntent`           | target column (E-G46)          | `Target(current) → bool`         |    3    |
 |  [04]   | shell axes        | `ShellToggle`            | capability rows, r/w columns   | `CapabilitySet` membership       |    3    |
-|  [05]   | shell commands    | `ShellOp`                | `[Union]` `[GenerateUnionOps]` | `Apply` → direct `ShellFacts`    |    2    |
+|  [05]   | shell commands    | `ShellOp`                | `[Union]` `` | `Apply` → direct `ShellFacts`    |    2    |
 |  [06]   | shell posture     | `ShellFacts`             | one `Shown` set, no bools      | `Snapshot → Fin<ShellFacts>`     |    1    |
 |  [07]   | typed pane egress | `EditorShell.Grab<TOut>` | total-`Switch`, one marshal    | `Grab → Fin<TOut>`               |    1    |
 |  [08]   | standing mount    | `EditorShell.Mount`      | capture-apply-restore lease    | `Mount → Fin<Lease<ShellFacts>>` |    1    |

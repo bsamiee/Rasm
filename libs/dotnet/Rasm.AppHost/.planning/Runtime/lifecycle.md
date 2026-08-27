@@ -19,7 +19,7 @@ Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm
 - Auto: every settled commit writes the lifecycle transition metric and fires `AppHostPoint.Phase` once with the committed fact; `Attach` projects the host lifetime tokens into transitions; `DegradationTap` folds each `DegradationReading` into the degraded or recovered step, so the degradation ladder is the sole producer of both and no caller commits a level by hand.
 - Packages: Microsoft.Extensions.Hosting, Microsoft.Extensions.Logging, Rasm (kernel `Cell`/`Transition`/`FaultBand`/`HookSet`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one phase row plus the `PhaseStep` rows naming it, or one trigger case with its step row; both break every dispatch site at compile time and neither adds a member.
-- Boundary: `PhaseStep` is the primary correspondence and everything else on this page derives from it — `From` is the admitting set, `To` the target, `Free` the evidence-free mint the phase-shaped overload needs, so a phase edge is stated ONCE and the three parallel total switches that restated it (next, derived, key) are gone with the hand-kept transition diagram that mirrored them a fourth time; NAMED LOSS — the rendered edge picture, recovered by the roster's own `From`/`To` columns, which ARE the edge list and cannot drift from the law they are. `Recovered` and `CaptureCompleted` were admitted by the old transition law with no producer anywhere, which made `Degraded` and `SupportCapture` absorbing states in practice; both now have one: the degradation ladder through `DegradationTap` and the capture bracket through `Captured`, whose finalizer reads the pre-capture phase off the cell so the resume target is state rather than a caller argument. `Lifecycle` is the named boundary capsule for the statement carve-out — the token registration and trap wiring carry language-owned statement forms while every other member stays expression-shaped; the candidate mints against the held commit inside `Cell.Step` and the ONE clock read is hoisted outside it, so a contended retry re-derives the commit from the state it actually lost to and never re-reads the clock; the fire is the SETTLED commit rather than the swap body, so a contended retry never publishes a commit the cell rejected, and the `Phase` row's Observe modality admits no veto — the only refusal `Fire` can answer is an unseated point, which is a composition defect and rides the typed result rather than an `ignore`; subscription is a `HookTap` row the composition hands `HookSet.Of`, so a per-capsule subscribe member and its detacher both delete and `hooks.Release(TelemetrySource.AppHost, key)` is the one teardown; evidence-bearing targets (faulted, capture-resume, upgrade) carry no `Free` mint, so the phase-shaped admission cannot reach them and fault evidence is never silently dropped; the boot self-loop row carries upgrade detection without leaving boot; `PhaseCommit.Trigger` is the step key, and the six boot events base at `FaultBand.SpineEventsBase` with the registry row `FaultBand.SpineEvents` holding the same value — the dual-owner invariant the kernel band law names, moving as one edit.
+- Boundary: `PhaseStep` is the primary correspondence and everything else on this page derives from it — `From` is the admitting set, `To` the target, `Free` the evidence-free mint the phase-shaped overload needs, so a phase edge is stated ONCE and the three parallel total switches that restated it (next, derived) are gone with the hand-kept transition diagram that mirrored them a fourth time; NAMED LOSS — the rendered edge picture, recovered by the roster's own `From`/`To` columns, which ARE the edge list and cannot drift from the law they are. `Recovered` and `CaptureCompleted` were admitted by the old transition law with no producer anywhere, which made `Degraded` and `SupportCapture` absorbing states in practice; both now have one: the degradation ladder through `DegradationTap` and the capture bracket through `Captured`, whose finalizer reads the pre-capture phase off the cell so the resume target is state rather than a caller argument. `Lifecycle` is the named boundary capsule for the statement carve-out — the token registration and trap wiring carry language-owned statement forms while every other member stays expression-shaped; the candidate mints against the held commit inside `Cell.Step` and the ONE clock read is hoisted outside it, so a contended retry re-derives the commit from the state it actually lost to and never re-reads the clock; the fire is the SETTLED commit rather than the swap body, so a contended retry never publishes a commit the cell rejected, and the `Phase` row's Observe modality admits no veto — the only refusal `Fire` can answer is an unseated point, which is a composition defect and rides the typed result rather than an `ignore`; subscription is a `HookTap` row the composition hands `HookSet.Of`, so a per-capsule subscribe member and its detacher both delete and `hooks.Release(TelemetrySource.AppHost)` is the one teardown; evidence-bearing targets (faulted, capture-resume, upgrade) carry no `Free` mint, so the phase-shaped admission cannot reach them and fault evidence is never silently dropped; the boot self-loop row carries upgrade detection without leaving boot; `PhaseCommit.Trigger` is the step key, and the six boot events base at `FaultBand.SpineEventsBase` with the registry row `FaultBand.SpineEvents` holding the same value — the dual-owner invariant the kernel band law names, moving as one edit.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ public static partial class LifecycleLog {
     public static partial void SignalTrapped(ILogger logger, string signal);
 }
 
-public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, CorrelationId correlationId, HookSet<AppHostPoint, AppHostFact, TelemetrySource> hooks, InstrumentSet instruments, Op key) {
+public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, CorrelationId correlationId, HookSet<AppHostPoint, AppHostFact, TelemetrySource> hooks, InstrumentSet instruments) {
     readonly Atom<PhaseCommit> cell = Atom(new PhaseCommit(RuntimePhase.Boot, RuntimePhase.Boot, new PhaseTrigger.Validated(), clocks.Now, Duration.Zero, profile, correlationId));
     public ConsumptionProfile Profile { get; } = profile;
     public ClockPolicy Clocks { get; } = clocks;
@@ -288,7 +288,7 @@ public static class FaultSpine {
                 Commit(host, capture, new FaultSource.Unhandled(
                     FaultWire.Observe(args.ExceptionObject as Exception is { } failure
                         ? Error.New(failure.Message, failure)
-                        : new KernelFault.InvalidResult(Op.Of(), Some($"{args.ExceptionObject}"))),
+                        : new KernelFault.InvalidResult(Some($"{args.ExceptionObject}"))),
                     TerminationKind.Of(args.IsTerminating)));
             EventHandler<UnobservedTaskExceptionEventArgs> unobserved = (_, args) => {
                 args.SetObserved();
@@ -322,7 +322,7 @@ public static class FaultSpine {
     public static IO<(Seq<FaultSource> Crashes, Option<PhaseTrigger> Upgrade)> ProbeMarkers(string supportRoot, Version current, JsonTypeInfo<BootMarker> codec, Seq<string> hostMarkers = default) =>
         from path in IO.pure(Path.Join(supportRoot, MarkerFile))
         from own in IO.lift(() => File.Exists(path)
-            ? Some(Op.Of(nameof(ProbeMarkers)).Catch(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllText(path), codec))))
+            ? Some(Try.lift(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllText(path), codec)))).Run().Bind(static inner => inner)
                 .Match(Succ: marker => (Crash: (FaultSource)new FaultSource.HostCrashMarker(path, marker), Marker: marker),
                        Fail: cause => (Crash: new FaultSource.MarkerDrifted(path, FaultWire.Observe(cause)), Marker: Option<BootMarker>.None)))
             : Option<(FaultSource Crash, Option<BootMarker> Marker)>.None)
@@ -405,8 +405,8 @@ public static class DrainConductor {
         host.Phase == RuntimePhase.Draining ? Fin.Succ(host.Latest) : host.Transition(RuntimePhase.Draining);
 
     static IO<BandFact> Step(DrainRow row, Lifecycle host, InstrumentSet instruments, Duration cooperative) =>
-        from work in IO.pure(Op.Of(row.Name))
-        from start in IO.lift(host.Clocks.Line.Capture(work))
+        from work in IO.pure()
+        from start in IO.lift(Error.New(work.Message, work))
         from lane in IO.lift(() => host.Spine.Derive(work, host.Clocks, DeadlineClass.DrainCooperative, cooperative)).Bracket(
             Use: scope => row.Drain(scope.Token)
                 .Map(static _ => DeadlineClass.DrainCooperative)
@@ -414,7 +414,7 @@ public static class DrainConductor {
                 .Timeout(cooperative.ToTimeSpan() + DeadlineClass.DrainForced.Bound)
                 .Catch(static error => error.Is(Errors.TimedOut) || error.Is(Errors.Cancelled), static _ => IO.pure(DeadlineClass.DrainForced)),
             Fin: static scope => IO.lift(fun(scope.Dispose)))
-        from finish in IO.lift(host.Clocks.Line.Capture(work))
+        from finish in IO.lift(Error.New(work.Message, work))
         from elapsed in IO.lift(host.Clocks.Line.Elapsed(start, finish, work))
         let bound = lane == DeadlineClass.DrainCooperative
             ? cooperative.ToTimeSpan()
@@ -431,7 +431,7 @@ public static class DrainConductor {
 ## [05]-[CANCEL_SPINE]
 
 - Owner: `CancelScope` — the one root source and every derived scope as provenance-carrying values; `CancelDeadline` carries the lane and effective allotment beside its timer.
-- Entry: `CancelScope Derive(Op segment, ClockPolicy clocks, Option<DeadlineClass> bound = default)` derives a local row allotment; `Derive(Op, ClockPolicy, DeadlineClass, Duration)` preserves a caller-inherited effective allotment without minting a second deadline owner.
+- Entry: `CancelScope Derive(ClockPolicy clocks, Option<DeadlineClass> bound = default)` derives a local row allotment; `Derive(Op, ClockPolicy, DeadlineClass, Duration)` preserves a caller-inherited effective allotment without minting a second deadline owner.
 - Packages: Rasm (kernel `Op`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one derivation row per scope axis — phase, queue, hop attempt; zero new surface.
 - Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of `Op` segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `BandFact.Name`; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.
@@ -440,25 +440,25 @@ public static class DrainConductor {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CancelDeadline(DeadlineClass Lane, Duration Allotted, CancellationTokenSource Source);
 
-public sealed record CancelScope(Seq<Op> Provenance, CancellationTokenSource Source, Option<CancelDeadline> Deadline = default) : IDisposable {
+public sealed record CancelScope(Seq<> Provenance, CancellationTokenSource Source, Option<CancelDeadline> Deadline = default) : IDisposable {
     public CancellationToken Token => Source.Token;
     public string Path => string.Join('/', Provenance.Map(static segment => segment.Value));
 
-    public static CancelScope Root(Op provenance) => new([provenance], new CancellationTokenSource());
+    public static CancelScope Root() => new([provenance], new CancellationTokenSource());
 
-    public CancelScope Derive(Op segment, ClockPolicy clocks, Option<DeadlineClass> bound = default) =>
+    public CancelScope Derive(ClockPolicy clocks, Option<DeadlineClass> bound = default) =>
         bound.Match(
             Some: row => Timed(Provenance.Add(segment), Source.Token,
                 new CancelDeadline(row, row.Allotted, new CancellationTokenSource(row.Bound, clocks.Time))),
             None: () => new CancelScope(Provenance.Add(segment), CancellationTokenSource.CreateLinkedTokenSource(Source.Token)));
 
-    public CancelScope Derive(Op segment, ClockPolicy clocks, DeadlineClass lane, Duration allotted) =>
+    public CancelScope Derive(ClockPolicy clocks, DeadlineClass lane, Duration allotted) =>
         Timed(Provenance.Add(segment), Source.Token,
             new CancelDeadline(lane, allotted, new CancellationTokenSource(allotted.ToTimeSpan(), clocks.Time)));
 
     public void Dispose() => ignore((Deadline.Iter(static deadline => deadline.Source.Dispose()), fun(Source.Dispose)()));
 
-    static CancelScope Timed(Seq<Op> provenance, CancellationToken parent, CancelDeadline deadline) =>
+    static CancelScope Timed(Seq<> provenance, CancellationToken parent, CancelDeadline deadline) =>
         new(provenance, CancellationTokenSource.CreateLinkedTokenSource(parent, deadline.Source.Token), Some(deadline));
 }
 ```

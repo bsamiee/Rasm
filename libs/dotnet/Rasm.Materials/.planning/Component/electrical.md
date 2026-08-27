@@ -62,8 +62,6 @@ public sealed partial class ConductorAlloy {
                 alloy.AppearanceMetal.IsSome,
                 new KernelFault.InvalidValue(nameof(alloy.AppearanceMetal), "a resolved conductor appearance", Some(Join))))
             .As().Map(static _ => unit));
-
-    static readonly Op Join = Op.Of(name: "conductor-appearance-parity");
 }
 
 [SmartEnum<string>]
@@ -366,7 +364,6 @@ public readonly record struct WireRow(WireSystem System, string Size, string Tag
 public static class ElectricalSeed {
     static readonly IfcBinding Conductor = IfcBinding.Of("IfcCableSegment", "CONDUCTORSEGMENT");
     static readonly PropertyName Ampacity = PropertyCategory.Materials.Row("Ampacity");
-    static readonly Op Proof = Op.Of(name: "electrical-roster-census");
 
     public static readonly Seq<WireRow> Roster =
         toSeq(WireSystem.Items).Bind(static system => system.Basis.Ratings(system));
@@ -384,25 +381,25 @@ public static class ElectricalSeed {
         family: ComponentFamily.Electrical,
         designation: static r => r.Designation,
         coherence: Coherence,
-        profile: static (r, key) => SectionProfile.Circle.Of(r.DiameterMm, key),
+        profile: static (r, key) => SectionProfile.Circle.Of(r.DiameterMm),
         substance: static r => r.System.Alloy.Substance,
         source: static r => r.System.Basis.Source,
         standard: static r => r.System.Basis.Standard,
-        detail: Some<Func<WireRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<WireRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static r => r.System.Alloy.Appearance,
         ifc: static _ => Conductor);
 
-    static Validation<Error, Unit> Coherence(WireRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(WireRow r) =>
         AdmissionSlots.Accumulate(Seq(
             RosterCensus.Value,
             AdmissionSlots.Gate(
                 double.IsFinite(r.Amps) && r.Amps > 0.0,
-                new KernelFault.OutOfRange(nameof(r.Amps), r.Amps, "finite and positive", Some(key))),
+                new KernelFault.OutOfRange(nameof(r.Amps), r.Amps, "finite and positive")),
             AdmissionSlots.Gate(
                 double.IsFinite(r.DiameterMm) && r.DiameterMm > 0.0,
-                new KernelFault.OutOfRange(nameof(r.DiameterMm), r.DiameterMm, "finite and positive", Some(key)))));
+                new KernelFault.OutOfRange(nameof(r.DiameterMm), r.DiameterMm, "finite and positive"))));
 
-    static Fin<PropertyBag> Detail(WireRow r, SectionProfile profile, Op key) =>
+    static Fin<PropertyBag> Detail(WireRow r, SectionProfile profile) =>
         from rating in ComponentDetail.Measured(Ampacity, Dimension.CurrentDim, r.Amps)
         select ComponentDetail.ProductRows([
             ComponentDetail.Token(DetailSchema.ConductorSize, r.Size),
@@ -413,8 +410,8 @@ public static class ElectricalSeed {
             rating,
         ]);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 

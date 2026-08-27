@@ -102,25 +102,25 @@ public static class InsulationSeed {
         substance: static r => r.Product.Substance,
         source: static r => r.Source,
         standard: static _ => Astm,
-        detail: Some<Func<InsulationRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<InsulationRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static r => r.Facer == Facer.None ? r.Product.Substance : MaterialId.Create($"facer.{r.Facer.Key}"));
 
-    static Validation<Error, Unit> Coherence(InsulationRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(InsulationRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 r.ExtentMm.IsSome == r.Form.Formed,
-                new KernelFault.InvalidValue(nameof(r.ExtentMm), "present exactly for formed insulation", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.ExtentMm), "present exactly for formed insulation")),
             AdmissionSlots.Gate(
                 double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0
                     && r.ExtentMm.ForAll(static e => double.IsFinite(e.WidthMm) && e.WidthMm > 0.0 && double.IsFinite(e.LengthMm) && e.LengthMm > 0.0),
-                new KernelFault.InvalidValue(nameof(InsulationRow), "positive finite thickness and formed extents", Some(key)))));
+                new KernelFault.InvalidValue(nameof(InsulationRow), "positive finite thickness and formed extents"))));
 
-    static Fin<SectionProfile> Profile(InsulationRow r, Op key) =>
+    static Fin<SectionProfile> Profile(InsulationRow r) =>
         r.ExtentMm.Match(
-            Some: extent => SectionProfile.Rectangle.Of(widthMm: extent.WidthMm, depthMm: r.ThicknessMm, key),
-            None: () => SectionProfile.Nominal.Of(r.ThicknessMm, key));
+            Some: extent => SectionProfile.Rectangle.Of(widthMm: extent.WidthMm, depthMm: r.ThicknessMm),
+            None: () => SectionProfile.Nominal.Of(r.ThicknessMm));
 
-    static Fin<PropertyBag> Detail(InsulationRow r, SectionProfile profile, Op key) =>
+    static Fin<PropertyBag> Detail(InsulationRow r, SectionProfile profile) =>
         from thickness in ComponentDetail.Measured(DetailSchema.PanelThickness, Dimension.LengthDim, r.ThicknessMm * 1e-3)
         from length in r.ExtentMm.TraverseM(extent =>
             ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, extent.LengthMm * 1e-3)).As()
@@ -138,8 +138,8 @@ public static class InsulationSeed {
     static Seq<(PropertyName Name, PropertyValue Value)> FacerRow(Facer facer) =>
         facer == Facer.None ? Empty : Seq(ComponentDetail.Token(DetailSchema.FacerClass, facer.Key));
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 

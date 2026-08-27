@@ -13,7 +13,7 @@
 ## [02]-[LAYER_GRAPH]
 
 - Owner: `LayerTrait` `[SmartEnum<string>]` realizing `ICapability<LayerTrait>` — the two independent style bits (`Clip` masks to bounds, `Rounded` caps and joins a stroke) as one set; every corner is legal, so the law is `CapabilityLaw.Open` and states it. `LayerStyle` — the ONE style shape both node families read: frame, background, an edge carried as a colour-and-width PAIR (a border colour with no width and a width with no colour are unrepresentable), corner radius, traits, and an optional mask. `StrokePlan` — only what a shape ADDS: the owned path, the interior fill, and the stroke edge pair; the former `StrokeStyle` twin carried the style's columns again under second names and its `Fill` collided with the layer background's. `LayerNode` `[Union]` is the recursive graph — `PlainCase` and `ShapeCase` mint boundary-owned layers, `HostedCase(Lease<CALayer>.Owned, …)` consumes a detached caller-configured layer under sole custody. `LayerPaint` is the one style mint; `LayerMount` the retained graph; `Compose.Mount` the entry.
-- Entry: `Compose.Mount(MacAnchor anchor, LayerNode node, Op? key = null)` → `Fin<Lease<LayerMount>>`. One recursive admission fold rejects malformed styles, dead lease payloads, and duplicate hosted or mask identities; the mount scope rejects any graph payload identical to the anchor root before custody can double. Materialization stays detached until the complete preorder graph and lookup exist; attachment is the final mutation; any failure reverses edges and view backing, releases every acquired native, and aggregates inverse faults with the originating refusal through the `Error` monoid.
+- Entry: `Compose.Mount(MacAnchor anchor, LayerNode node)` → `Fin<Lease<LayerMount>>`. One recursive admission fold rejects malformed styles, dead lease payloads, and duplicate hosted or mask identities; the mount scope rejects any graph payload identical to the anchor root before custody can double. Materialization stays detached until the complete preorder graph and lookup exist; attachment is the final mutation; any failure reverses edges and view backing, releases every acquired native, and aggregates inverse faults with the originating refusal through the `Error` monoid.
 - Entry: `LayerPaint.Plain` builds a `LayerStyle` and `LayerPaint.Stroked` a `StrokePlan`, every colour crossing `WideColor.ToLayer` and every path crossing `Eto.Mac.CGConversions.ToCG(this IGraphicsPath)` into an owned `Lease<CGPath>`. Minting is prefix-safe: a refused colour or path releases every lease already taken in the same call and aggregates the release fault into the refusal — the kernel's ruled disposal posture, never a discard.
 - Law: every scope refusal rides the result with its own cause — a graph payload aliasing the anchor root is `InvalidInput`, a host backing-layer mint answering null is `InvalidResult` naming the member, a transfer with no captured backing is `MissingContext` — and the native writes stay downstream of admission, which is what keeps a refused lease from moving any layer state before it refuses.
 - Law: `LayerNode` and its style shapes carry declared equality — `[Equatable]` with `[OrderedEquality]` on `Children` and member-level `[ReferenceEquality]` on every lease and mask handle — because a host handle publishes no content and two handles wrapping identical bytes are two resources with two lifetimes (the kernel paint page's cache-identity law, held here for the same reason).
@@ -103,17 +103,16 @@ public sealed class LayerMount : IDisposable {
     public IReadOnlyDictionary<int, CALayer> Lookup { get; }
     public int Count => Lookup.Count;
 
-    public Fin<CALayer> Find(int ordinal, Op? key = null);
+    public Fin<CALayer> Find(int ordinal);
 
-    public Fin<Unit> Reframe(int ordinal, CGRect frame, Op? key = null) {
-        Op op = key.OrDefault();
-        return from layer in Find(ordinal: ordinal, key: op)
+    public Fin<Unit> Reframe(int ordinal, CGRect frame) {
+        return from layer in Find(ordinal: ordinal)
                from settled in Compose.Mutate(
-                   body: () => layer.Frame = frame, posture: TransactionPosture.Instant, key: op)
+                   body: () => layer.Frame = frame, posture: TransactionPosture.Instant)
                select settled;
     }
 
-    public Fin<Unit> Release(Op? key = null);
+    public Fin<Unit> Release();
     public void Dispose() => _ = Release();
 }
 
@@ -124,14 +123,14 @@ internal sealed class NativeScope {
         public static readonly ScopeCustody Transferred = new(key: 1);
     }
 
-    internal Fin<T> Own<T>(T resource, Op key) where T : class, IDisposable;
-    internal Fin<T> Hold<T>(Lease<T> lease, Op key) where T : class, IDisposable;
-    internal Fin<Option<T>> Hold<T>(Option<Lease<T>> lease, Op key) where T : class, IDisposable;
+    internal Fin<T> Own<T>(T resource) where T : class, IDisposable;
+    internal Fin<T> Hold<T>(Lease<T> lease) where T : class, IDisposable;
+    internal Fin<Option<T>> Hold<T>(Option<Lease<T>> lease) where T : class, IDisposable;
     internal CALayer Index(CALayer layer);
     internal Unit Attach(CALayer parent, CALayer child);
-    internal Fin<CALayer> Bind(NSView view, Op key);
-    internal Fin<LayerMount> Transfer(CALayer root, CALayer top, FaultCell faults, Op key);
-    internal Fin<Unit> Unwind(Op key);
+    internal Fin<CALayer> Bind(NSView view);
+    internal Fin<LayerMount> Transfer(CALayer root, CALayer top, FaultCell faults);
+    internal Fin<Unit> Unwind();
 
 }
 
@@ -139,27 +138,25 @@ internal sealed class NativeScope {
 public static class LayerPaint {
     public static Fin<LayerStyle> Plain(
         CGRect frame, Option<PerceptualColor> background, Option<(PerceptualColor Colour, NFloat Width)> edge,
-        NFloat cornerRadius, CapabilitySet<LayerTrait> traits, Option<Lease<CALayer>> mask, Op? key = null);
+        NFloat cornerRadius, CapabilitySet<LayerTrait> traits, Option<Lease<CALayer>> mask);
 
     public static Fin<StrokePlan> Stroked(
-        IGraphicsPath path, Option<PerceptualColor> interior, Option<(PerceptualColor Colour, NFloat Width)> edge,
-        Op? key = null);
+        IGraphicsPath path, Option<PerceptualColor> interior, Option<(PerceptualColor Colour, NFloat Width)> edge);
 }
 
 public static class Compose {
-    public static Fin<Lease<LayerMount>> Mount(MacAnchor anchor, LayerNode node, Op? key = null);
+    public static Fin<Lease<LayerMount>> Mount(MacAnchor anchor, LayerNode node);
 
-    public static Fin<Unit> Mutate(Action body, TransactionPosture posture, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
-               from valid in op.Need(body)
+    public static Fin<Unit> Mutate(Action body, TransactionPosture posture) {
+        return from _ in MacGate.Demand()
+               from valid in Admit.Need(body)
                from settled in UiThread.Run(
-                   new UiDispatch<Unit>.Blocking(() => Fence(body: valid, posture: posture, completed: None, key: op)),
-                   DispatchLane.Immediate, op)
+                   new UiDispatch<Unit>.Blocking(() => Fence(body: valid, posture: posture, completed: None)),
+                   DispatchLane.Immediate)
                select settled;
     }
 
-    internal static Fin<Unit> Fence(Action body, TransactionPosture posture, Option<Action> completed, Op key);
+    internal static Fin<Unit> Fence(Action body, TransactionPosture posture, Option<Action> completed);
 }
 ```
 
@@ -215,22 +212,21 @@ public sealed class MotionAttachment : IDisposable {
         Action<MotionSample> apply,
         MonotonicTimeline clock,
         FaultCell faults,
-        Option<Action> completed = default,
-        Op? key = null);
+        Option<Action> completed = default);
 
     public void Dispose();
 
-    private Fin<Unit> Tick(Op key) =>
-        from beat in clock.Beat(seed: seed.Value, cadence: cadence, key: key)
-        from fact in workspace.Value.ToFin(key.InvalidResult())
-        from ceiling in key.AcceptValidated<PositiveMagnitude>(candidate: (double)fact.Pace.MaximumFramesPerSecond)
-        from pace in PaceBand.Portable.ScaleTo(ceiling: ceiling, key: key)
-        from _tuned in Retune(pace: pace, key: key)
-        from stepped in MotionDrive.Step(script: script, beat: beat, accessibility: fact.Concessions, key: key)
-        let terminal = stepped.Continues ? Option<Action>.None : Continuation(key: key)
+    private Fin<Unit> Tick() =>
+        from beat in clock.Beat(seed: seed.Value, cadence: cadence)
+        from fact in workspace.Value.ToFin(new KernelFault.InvalidResult())
+        from ceiling in FactoryBridge.Accept<PositiveMagnitude>(candidate: (double)fact.Pace.MaximumFramesPerSecond)
+        from pace in PaceBand.Portable.ScaleTo(ceiling: ceiling)
+        from _tuned in Retune(pace: pace)
+        from stepped in MotionDrive.Step(script: script, beat: beat, accessibility: fact.Concessions)
+        let terminal = stepped.Continues ? Option<Action>.None : Continuation()
         from applied in Compose.Fence(
-            body: () => apply(stepped.Sample), posture: TransactionPosture.Instant, completed: terminal, key: key)
-        select stepped.Continues ? unit : ignore(Pause(key: key));
+            body: () => apply(stepped.Sample), posture: TransactionPosture.Instant, completed: terminal)
+        select stepped.Continues ? unit : ignore(Pause());
 
     private sealed class LinkTarget : NSObject {
         private readonly Atom<Option<Action>> tick = Atom(Option<Action>.None);
@@ -247,7 +243,7 @@ public sealed class MotionAttachment : IDisposable {
 
 - Owner: `GlideKey` `[ValueObject<string>]` — the admitted managed key `CALayer.AddAnimation`/`RemoveAnimation` require, so the two raw-string guards the pair carried are one admission; `GlidePlan` `[Union]` — `TimedCase` pairs an explicitly owned or borrowed `CAAnimation` with its key, `SprungCase` carries the kernel `SpringShape` with its key path, endpoints, and `SettleBand`, projected onto `CASpringAnimation` at the attach (unit mass, `k = ω²`, `c = 2ζω`, duration from the kernel `Settle` projection); `TimingCurve` `[SmartEnum<int>]` closes the standard CoreAnimation timing names; `Glides` and `Curves` are the entries.
 - Law: `Glides.Animate` REFUSES a hand-authored `CASpringAnimation` on the timed arm — the spring door is `SprungCase`, so locally-authored spring constants cannot fork motion feel past the kernel mint (branch spring-parity ruling). CoreAnimation copies the attached animation, so an owned plan releases immediately after the call while a borrowed plan stays caller-held.
-- Law: the settle horizon reads `SpringShape.Settle(origin, target, band, key)` off the caller's `SettleBand` — the hand epsilon const is deleted, and `SettleBand.Perceptual` is the row a caller with no tighter band names.
+- Law: the settle horizon reads `SpringShape.Settle(origin, target, band)` off the caller's `SettleBand` — the hand epsilon const is deleted, and `SettleBand.Perceptual` is the row a caller with no tighter band names.
 - Law: sampled drives and host glides stay distinct by state ownership — a sampled drive exposes kernel state and retained completion through `MotionAttachment`; a glide delegates interpolation to CoreAnimation and owns only attachment and removal.
 - Packages: Microsoft.macOS (`CAAnimation`, `CASpringAnimation`, `CAMediaTimingFunction`, `CALayer`, `NSString`), Thinktecture.Runtime.Extensions, `Rasm.Parametric` (`SpringShape`, `SettleBand`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`). Consumer: `Canvas/paint.md`'s CoreAnimation overlay projection.
 - Growth: a new standard timing name is one `TimingCurve` row; a new host animation is one `GlidePlan` case on the one attachment lifecycle.
@@ -291,18 +287,18 @@ public abstract partial record GlidePlan {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Glides {
-    public static Fin<Unit> Animate(CALayer layer, GlidePlan plan, Op? key = null);
-    public static Fin<Unit> Halt(CALayer layer, GlideKey glide, Op? key = null);
+    public static Fin<Unit> Animate(CALayer layer, GlidePlan plan);
+    public static Fin<Unit> Halt(CALayer layer, GlideKey glide);
 }
 
 public static class Curves {
-    public static Fin<Lease<CAMediaTimingFunction>> Named(TimingCurve curve, Op? key = null);
+    public static Fin<Lease<CAMediaTimingFunction>> Named(TimingCurve curve);
 }
 ```
 
 ## [06]-[WIDE_COLOR]
 
-- Owner: `WideColor.ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default, Op? key = null)` → `Fin<Lease<CGColor>>` — the layer-graph crossing `LayerPaint` calls for every style colour: it composes `PerceptualColor.ToRgb(profile: RgbProfile.DisplayP3, gamut:)` and mints the `CGColor` DIRECTLY on the `CGColorSpaceNames.DisplayP3` space from the returned unit channels, so the projection reads the kernel tuple and owns one lifetime.
+- Owner: `WideColor.ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default)` → `Fin<Lease<CGColor>>` — the layer-graph crossing `LayerPaint` calls for every style colour: it composes `PerceptualColor.ToRgb(profile: RgbProfile.DisplayP3, gamut:)` and mints the `CGColor` DIRECTLY on the `CGColorSpaceNames.DisplayP3` space from the returned unit channels, so the projection reads the kernel tuple and owns one lifetime.
 - Law: this page passes no transfer, taking the `RgbTransfer.Encoded` default — the `CGColorSpaceNames.DisplayP3` mint consumes COMPANDED components, so a `RgbTransfer.Linear` read here hands scene-linear light to an encoded-channel constructor and darkens every swatch. Profile conversion, chromatic adaptation, and gamut mapping stay `PerceptualColor`'s, never a host-local pipeline.
 - Law: the `NSColor` round trip is REFUSED as the layer crossing — `CGConversions.ToCG(this NSColor)` re-spaces to sRGB and floors at opaque black without signalling, and its result borrows the receiver's lifetime; the direct mint has one lifetime and no clamp arm. Outbound Eto colour members `Color.ToNSUI()`/`Color.ToCG()` are refused with it — the folder's colour currency is the kernel `PerceptualColor`, never an Eto `Color`, so neither has an admitted ingress. `IMatrix.ToCG()` stays uncomposed while no layer or context transform crosses this boundary; a transform-bearing `LayerStyle` column takes it the moment one does. NAMED LOSS: the deleted `Project` (NSColor egress) and `OfSystem` (appearance-resolved ingress) arms — both had zero consumers; an OS swatch reads through kernel `ChromeRole.Sample`, and an AppKit `NSColor` consumer re-lands as one member on this owner.
 - Packages: Microsoft.macOS (`CGColor`, `CGColorSpace`, `CGColorSpaceNames`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`, `GamutPolicy`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
@@ -318,17 +314,16 @@ namespace Rasm.Grasshopper.Platform;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WideColor {
-    public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in MacGate.Demand(key: op)
-               from channels in op.Catch(body: () => Fin.Succ(colour.ToRgb(profile: RgbProfile.DisplayP3, gamut: Op.ToHostSlot(gamut))))
-               from space in op.Catch(body: () => Optional(CGColorSpace.CreateWithName(name: CGColorSpaceNames.DisplayP3)).ToFin(op.InvalidResult()))
-               from lease in op.Catch(body: () => Fin.Succ((Lease<CGColor>)new Lease<CGColor>.Owned(Value: new CGColor(
+    public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default) {
+        return from _ in MacGate.Demand()
+               from channels in Try.lift(() => Fin.Succ(colour.ToRgb(profile: RgbProfile.DisplayP3, gamut: HostEdge.Slot(gamut)))).Run().Bind(static inner => inner)
+               from space in Try.lift(() => Optional(CGColorSpace.CreateWithName(name: CGColorSpaceNames.DisplayP3)).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+               from lease in Try.lift(() => Fin.Succ((Lease<CGColor>)new Lease<CGColor>.Owned(Value: new CGColor(
                    colorspace: space,
                    components: [
                        NFloat.CreateChecked(channels.Red), NFloat.CreateChecked(channels.Green),
                        NFloat.CreateChecked(channels.Blue), NFloat.CreateChecked(channels.Alpha),
-                   ]))))
+                   ])))).Run().Bind(static inner => inner)
                select lease;
     }
 }

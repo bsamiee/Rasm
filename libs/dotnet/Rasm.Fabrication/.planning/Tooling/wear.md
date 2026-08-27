@@ -275,7 +275,7 @@ public sealed partial class WearChannel {
     private static WearChannel Of<TSignal>(string key, WearValueKind kind, string unit, SignalKind source,
         Func<TSignal, double> read)
         where TSignal : ConditionSignal =>
-        new(key, kind, unit, source, signal => read((TSignal)signal));
+        new(kind, unit, source, signal => read((TSignal)signal));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -355,7 +355,7 @@ public sealed partial class ConsumableSpec {
 
     public static Fin<ConsumableSpec> Admit(ConsumableKey key, ConsumableKind kind, ToolLifeBasis basis,
         double warning, double limit, bool reconditionable, int maximumReconditions, string evidence) =>
-        Validate(key, kind, basis, warning, limit, reconditionable, maximumReconditions, evidence,
+        Validate(kind, basis, warning, limit, reconditionable, maximumReconditions, evidence,
             out ConsumableSpec spec).Admitted(spec);
 }
 
@@ -768,7 +768,6 @@ public abstract partial record WearResult {
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToolWear {
-    private static readonly Op WearOp = Op.Of(name: "fabrication:tool-wear");
 
     public static Fin<WearResult> Apply(WearRequest request, Option<InstrumentSet> set = default) => request.Switch(
         state: set,

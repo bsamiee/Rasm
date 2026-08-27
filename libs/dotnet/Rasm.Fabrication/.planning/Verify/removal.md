@@ -308,7 +308,6 @@ public static class Removal {
     private static readonly CliMode Lease =
         new CliMode.Grayscale(ESliceMode.SignedDistance, MaskSampling.Interpolated, ESliceAxis.Z);
 
-    internal static readonly Op RemovalOp = Op.Of(name: "fabrication:removal");
 
     public static Fin<FabricationResult.VerificationResult> Verify(
         FabricationPolicy.Verify request,
@@ -764,7 +763,7 @@ public static partial class Removal {
         Seq<DeviationSample> samples = rows.Bind(static row => row.ToSeq());
         int unresolved = rows.Count - samples.Count;
         return SnapshotKey(policy, window, fieldKey, loops, metrics, samples, unresolved, tolerance).Map(key =>
-            new DeviationField(window.Setup, fieldKey, key, policy.Cutter, samples, unresolved, Span(samples)));
+            new DeviationField(window.Setup, fieldKey, policy.Cutter, samples, unresolved, Span(samples)));
     }
 
     private static Option<DeviationSample> Projected(Voxels actual, Vector3 nominal) =>
@@ -987,7 +986,7 @@ public static partial class Removal {
     }
 
     private static Fin<T> Capture<T>(Func<Fin<T>> native) =>
-        Op.Of(name: "removal:native").Catch(native);
+        Try.lift(native).Run().Bind(static inner => inner);
 }
 ```
 

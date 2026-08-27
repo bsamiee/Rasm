@@ -1135,7 +1135,7 @@ public sealed partial class ResidualStock {
     }
 
     public static Fin<ResidualStock> Admit(ContentKey key, Arr<Loop> uncut) =>
-        Validate(key, uncut, out ResidualStock stock).Admitted(stock);
+        Validate(uncut, out ResidualStock stock).Admitted(stock);
 }
 
 [ComplexValueObject]
@@ -1154,7 +1154,7 @@ public sealed partial class StockSnapshot {
     }
 
     public static Fin<StockSnapshot> Admit(int setup, ContentKey key, Arr<Loop> machined) =>
-        Validate(setup, key, machined, out StockSnapshot snapshot).Admitted(snapshot);
+        Validate(setup, machined, out StockSnapshot snapshot).Admitted(snapshot);
 }
 
 [ComplexValueObject]
@@ -1302,7 +1302,7 @@ public sealed partial class InspectionFeature {
         Option<double> toleranceMm,
         double uncertaintyMm,
         InspectionMethod method) =>
-        Validate(key, nominal, measured, toleranceMm, uncertaintyMm, method, out InspectionFeature feature)
+        Validate(nominal, measured, toleranceMm, uncertaintyMm, method, out InspectionFeature feature)
             .Admitted(feature);
 }
 ```

@@ -92,7 +92,7 @@ public static class WireReason {
     public static readonly Symbol ReadRefused = Symbol.Create("read-refused");
 
     public static Symbol Named(string text, Symbol fallback) =>
-        Op.Of().AcceptValidated<Symbol>(text).IfFail(_ => fallback);
+        FactoryBridge.Accept<Symbol>(text).IfFail(_ => fallback);
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -681,7 +681,7 @@ public static class MqttLane {
             ignore(SubscriptionLane.Submit(sink, ExternalValue.Parsed(
                 Payload(args.ApplicationMessage), spec, runtime.Clocks.Now, WireReason.Unparsed,
                 args.ApplicationMessage.CorrelationData is { Length: > 0 } key
-                    ? new EchoDiscriminator.Tokened(key)
+                    ? new EchoDiscriminator.Tokened()
                     : EchoDiscriminator.Unproven)));
             return Task.CompletedTask;
         };
@@ -1389,11 +1389,11 @@ public sealed record WriteAttempt(WriteVerdict Verdict, Option<double> Rendered,
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WriteBackSurface {
     public static IO<Host.WriteOutcomeWire> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
-        from key in IO.pure(Op.Of())
-        from start in IO.lift(runtime.Clocks.Line.Capture(key))
+        from key in IO.pure()
+        from start in IO.lift(Error.New(key.Message))
         from attempt in Conduct(runtime, spec, canonicalValue) | WireRecovery.Refused()
         from remembered in IO.lift(() => Remember(runtime, spec.BindingId, attempt.Verdict))
-        from outcome in Sealed(runtime, spec, canonicalValue, attempt, start, key)
+        from outcome in Sealed(runtime, spec, canonicalValue, attempt, start)
         select outcome;
 
     static IO<WriteAttempt> Conduct(LiveWireRuntime runtime, BindingSpec spec, double canonical) =>
@@ -1434,9 +1434,9 @@ public static class WriteBackSurface {
 
     static IO<Host.WriteOutcomeWire> Sealed(
         LiveWireRuntime runtime, BindingSpec spec, double canonical, WriteAttempt attempt,
-        MonotonicStamp start, Op key) =>
-        from end in IO.lift(runtime.Clocks.Line.Capture(key))
-        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end, key))
+        MonotonicStamp start) =>
+        from end in IO.lift(Error.New(key.Message))
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end))
         select LiveWireContract.Outcome(
             spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span));
 
@@ -1485,12 +1485,10 @@ public static class BindingHealth {
         from _ in stepped.Switch(
             committed: row => Levelled(runtime).Bind(_ => IO.lift(runtime.Hooks.Fire(
                 at: AppHostPoint.Binding,
-                fact: new AppHostFact.Binding(LiveWireContract.Status(handle, row.State)),
-                key: Op.Of()))),
-            ceded: _ => IO.fail<Unit>(new KernelFault.InvalidResult(Op.Of(), Some("Cell.Step returned Ceded"))),
+                fact: new AppHostFact.Binding(LiveWireContract.Status(handle, row.State))))),
+            ceded: _ => IO.fail<Unit>(new KernelFault.InvalidResult(Some("Cell.Step returned Ceded"))),
             refused: refused => IO.fail<Unit>(refused.Cause),
-            contended: row => IO.fail<Unit>(new KernelFault.InvalidResult(
-                Op.Of(), Some($"Cell.Step returned Contended after {row.Attempts.Value} attempts"))))
+            contended: row => IO.fail<Unit>(new KernelFault.InvalidResult(Some($"Cell.Step returned Contended after {row.Attempts.Value} attempts"))))
         select handle;
 
     static IO<Unit> Levelled(LiveWireRuntime runtime) => IO.lift(() => {

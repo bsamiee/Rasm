@@ -56,12 +56,10 @@ public sealed partial class ComposeShape {
     public static readonly ComposeShape Colour  = new("colour", static c => c.CreateColorKeyFrameAnimation());
     public static readonly ComposeShape Turn    = new("turn", static c => c.CreateQuaternionKeyFrameAnimation());
 
-    static readonly Op Minting = Op.Of(name: "appui.compose.mint");
-
     [UseDelegateFromConstructor]
     private partial KeyFrameAnimation Create(Compositor compositor);
 
-    public Fin<KeyFrameAnimation> Mint(Compositor compositor) => Minting.Catch(() => Fin.Succ(Create(compositor)));
+    public Fin<KeyFrameAnimation> Mint(Compositor compositor) => Try.lift(() => Fin.Succ(Create(compositor))).Run().Bind(static inner => inner);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -73,8 +71,6 @@ public abstract partial record ComposeValue {
     public sealed record Colour(Color Value) : ComposeValue;
     public sealed record Turn(Quaternion Value) : ComposeValue;
 
-    static readonly Op Insert = Op.Of(name: "appui.compose.keyframe");
-
     public ComposeShape Shape => Switch(
         scalar:  static _ => ComposeShape.Scalar,
         vector3: static _ => ComposeShape.Vector3,
@@ -84,11 +80,11 @@ public abstract partial record ComposeValue {
 
     public Fin<Unit> Frame(KeyFrameAnimation animation, float cue, IEasing easing) => Switch(
         state: (Animation: animation, Cue: cue, Easing: easing),
-        scalar:  static (s, cell) => Insert.Catch(() => ((ScalarKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)),
-        vector3: static (s, cell) => Insert.Catch(() => ((Vector3DKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)),
-        vector:  static (s, cell) => Insert.Catch(() => ((VectorKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)),
-        colour:  static (s, cell) => Insert.Catch(() => ((ColorKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)),
-        turn:    static (s, cell) => Insert.Catch(() => ((QuaternionKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)));
+        scalar:  static (s, cell) => Try.lift(() => ((ScalarKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)).Run().Bind(static inner => inner),
+        vector3: static (s, cell) => Try.lift(() => ((Vector3DKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)).Run().Bind(static inner => inner),
+        vector:  static (s, cell) => Try.lift(() => ((VectorKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)).Run().Bind(static inner => inner),
+        colour:  static (s, cell) => Try.lift(() => ((ColorKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)).Run().Bind(static inner => inner),
+        turn:    static (s, cell) => Try.lift(() => ((QuaternionKeyFrameAnimation)s.Animation).InsertKeyFrame(s.Cue, cell.Value, s.Easing)).Run().Bind(static inner => inner));
 }
 
 [SmartEnum<string>]
@@ -96,27 +92,25 @@ public abstract partial record ComposeValue {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComposeSlot {
     public static readonly ComposeSlot Opacity = new("Opacity", ComposeShape.Scalar, MotionAxis.Opacity,
-        static (visual, value) => Assign.Catch(() => visual.Opacity = ((ComposeValue.Scalar)value).Value));
+        static (visual, value) => Try.lift(() => visual.Opacity = ((ComposeValue.Scalar)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot Offset = new("Offset", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Assign.Catch(() => visual.Offset = ((ComposeValue.Vector3)value).Value));
+        static (visual, value) => Try.lift(() => visual.Offset = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot Translation = new("Translation", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Assign.Catch(() => visual.Translation = ((ComposeValue.Vector3)value).Value));
+        static (visual, value) => Try.lift(() => visual.Translation = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot Scale = new("Scale", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Assign.Catch(() => visual.Scale = ((ComposeValue.Vector3)value).Value));
+        static (visual, value) => Try.lift(() => visual.Scale = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot CenterPoint = new("CenterPoint", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Assign.Catch(() => visual.CenterPoint = ((ComposeValue.Vector3)value).Value));
+        static (visual, value) => Try.lift(() => visual.CenterPoint = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot RotationAngle = new("RotationAngle", ComposeShape.Scalar, MotionAxis.Transform,
-        static (visual, value) => Assign.Catch(() => visual.RotationAngle = ((ComposeValue.Scalar)value).Value));
+        static (visual, value) => Try.lift(() => visual.RotationAngle = ((ComposeValue.Scalar)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot Orientation = new("Orientation", ComposeShape.Turn, MotionAxis.Transform,
-        static (visual, value) => Assign.Catch(() => visual.Orientation = ((ComposeValue.Turn)value).Value));
+        static (visual, value) => Try.lift(() => visual.Orientation = ((ComposeValue.Turn)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot Size = new("Size", ComposeShape.Vector, MotionAxis.Extent,
-        static (visual, value) => Assign.Catch(() => visual.Size = ((ComposeValue.Vector)value).Value));
+        static (visual, value) => Try.lift(() => visual.Size = ((ComposeValue.Vector)value).Value).Run().Bind(static inner => inner));
     public static readonly ComposeSlot Color = new("Color", ComposeShape.Colour, MotionAxis.Colour,
         static (visual, value) => visual is CompositionSolidColorVisual fill
-            ? Assign.Catch(() => fill.Color = ((ComposeValue.Colour)value).Value)
+            ? Try.lift(() => fill.Color = ((ComposeValue.Colour)value).Value).Run().Bind(static inner => inner)
             : Fin.Fail<Unit>(new ComposeFault.SlotMismatch("Color drives a CompositionSolidColorVisual alone")));
-
-    static readonly Op Assign = Op.Of(name: "appui.compose.assign");
 
     public ComposeShape Shape { get; }
 
@@ -136,7 +130,6 @@ public sealed partial class ComposeSlot {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed record VisualMount(Visual Element, CompositionVisual Backing) {
-    static readonly Op Defer = Op.Of(name: "appui.compose.defer");
 
     public Compositor Compositor => Backing.Compositor;
 
@@ -155,7 +148,7 @@ public sealed record VisualMount(Visual Element, CompositionVisual Backing) {
 
     public Fin<Unit> Detach() => Deferred(() => ElementComposition.SetElementChildVisual(Element, null));
 
-    Fin<Unit> Deferred(Action mutate) => Defer.Catch(() => Compositor.RequestCompositionUpdate(mutate));
+    Fin<Unit> Deferred(Action mutate) => Try.lift(() => Compositor.RequestCompositionUpdate(mutate)).Run().Bind(static inner => inner);
 }
 ```
 
@@ -165,7 +158,7 @@ public sealed record VisualMount(Visual Element, CompositionVisual Backing) {
 - Cases: `ComposeSpan` = Collapsed | Running; `RunOutcome` = animated | assigned.
 - Law: `KeyFrameAnimation.Duration` validates the field it OVERWRITES rather than the incoming value, so a single `TimeSpan.Zero` assignment lands silently and the NEXT assignment of any value at all throws — the floor clamp is therefore the condition under which the property remains assignable, and its real upper bound is one day whatever the diagnostic claims. `ComposeSpan.Of` is the page's ONE duration admission and every timing path crosses it: the explicit run, the implicit trigger, and the render-thread tick, because a second clamp spelled at one of them keeps the floor and loses the ceiling.
 - Law: reduction, the duration bound, and the overshoot refusal resolve TOGETHER at one owner. The three paths differ only in what they do with a collapse — assign the terminal value, refuse the trigger map, or halt the tick — so the fold answers the closed decision and each caller takes its own arm; three copies of the protocol were three chances for the arms to disagree with nothing stating why.
-- Entry: `public static Fin<ComposeSpan> Of(MotionToken token)` — the one resolution; `public Fin<ComposeSpan> Admits(MotionAxis axis)` — the clamping-channel refusal, keyed on the axis a caller executes; `public static Fin<ComposeTrack> Of(ComposeSlot slot, Seq<(float Cue, ComposeValue Value)> frames)` — the track admission; `public Fin<Unit> Start(VisualMount mount, MotionToken token, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — mint, clamp, start, and publish the settled run through the AppUi effect point; reduced-motion resolution happens INSIDE, so a caller cannot start an unreduced run.
+- Entry: `public static Fin<ComposeSpan> Of(MotionToken token)` — the one resolution; `public Fin<ComposeSpan> Admits(MotionAxis axis)` — the clamping-channel refusal, keyed on the axis a caller executes; `public static Fin<ComposeTrack> Of(ComposeSlot slot, Seq<(float Cue, ComposeValue Value)> frames)` — the track admission; `public Fin<Unit> Start(VisualMount mount, MotionToken token, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` — mint, clamp, start, and publish the settled run through the AppUi effect point; reduced-motion resolution happens INSIDE, so a caller cannot start an unreduced run.
 - Auto: frames admit SORTED, non-empty, cue-domain-bounded, and shape-agreeing at construction, so `Terminal` is a last read rather than a sort per collapse and `Mint` needs no per-frame pairing check; the token's curve reaches the render thread through `MotionEasing`, so a composition keyframe and a styled transition evaluate the same kernel curve; a plan-driven run reads `MotionPlan.EnterToken`/`ExitToken`, which have already folded the reduction at their own owner.
 - Packages: Avalonia, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `Op`, `UnitInterval`)
 - Growth: a new animated surface is one `ComposeTrack` value over existing slots; a new run posture is one `RunOutcome` row; zero new surface.
@@ -220,8 +213,6 @@ public abstract partial record ComposeSpan {
 public sealed partial class ComposeTrack {
     public static readonly AnimationStopBehavior Settle = AnimationStopBehavior.SetToFinalValue;
 
-    static readonly Op Play = Op.Of(name: "appui.compose.start");
-
     public ComposeSlot Slot { get; }
 
     public Seq<(float Cue, ComposeValue Value)> Frames { get; }
@@ -229,13 +220,12 @@ public sealed partial class ComposeTrack {
     public ComposeValue Terminal => Frames[Frames.Count - 1].Value;
 
     public static Fin<ComposeTrack> Of(ComposeSlot slot, Seq<(float Cue, ComposeValue Value)> frames) =>
-        Play.AcceptValidated<ComposeTrack>(Validate(slot, frames, out ComposeTrack? admitted), admitted);
+        FactoryBridge.Accept<ComposeTrack>(Validate(slot, frames, out ComposeTrack? admitted), admitted);
 
     public Fin<Unit> Start(
         VisualMount mount,
         MotionToken token,
-        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
-        Op key) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         from span in ComposeSpan.Of(token).Bind(resolved => resolved.Admits(Slot.Axis))
         from outcome in span.Switch(
             running: run => Run(mount, run),
@@ -248,8 +238,7 @@ public sealed partial class ComposeTrack {
                 Outcome: outcome.Key,
                 Flag: span.Reduced,
                 Count: (uint)Frames.Count,
-                Measure: new EffectMeasure.Coordinate(span.Resolved.Key)),
-            key: key)
+                Measure: new EffectMeasure.Coordinate(span.Resolved.Key)))
         select unit;
 
     Fin<RunOutcome> Run(VisualMount mount, ComposeSpan.Running span) =>
@@ -262,12 +251,12 @@ public sealed partial class ComposeTrack {
             Frames.Traverse(frame => frame.Value.Frame(animation, frame.Cue, easing)).As().Map(_ => animation));
 
     Fin<Unit> Started(VisualMount mount, KeyFrameAnimation animation, TimeSpan duration) =>
-        Play.Catch(() => {
+        Try.lift(() => {
             animation.Duration = duration;
             animation.StopBehavior = Settle;
             animation.Target = Slot.Key;
             mount.Backing.StartAnimation(Slot.Key, animation);
-        });
+        }).Run().Bind(static inner => inner);
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref ComposeSlot slot, ref Seq<(float Cue, ComposeValue Value)> frames) {
@@ -309,8 +298,6 @@ public static class ImplicitPlan {
     public const string StartingValue = "this.StartingValue";
     public const string FinalValue = "this.FinalValue";
 
-    static readonly Op Seat = Op.Of(name: "appui.compose.trigger");
-
     public static Fin<ImplicitAnimationCollection> Of(Compositor compositor, MotionPlan plan, Seq<ComposeSlot> slots) =>
         from span in ComposeSpan.Of(plan.Enter)
         from running in span is ComposeSpan.Running run
@@ -318,11 +305,11 @@ public static class ImplicitPlan {
             : Fin.Fail<ComposeSpan.Running>(new ComposeFault.DurationRefused(
                 $"{plan.Key}: a collapsed plan mounts no trigger map — the assignment lands directly"))
         from admitted in slots.Traverse(slot => Admitted(plan, slot).Bind(row => running.Admits(row.Axis).Map(_ => row))).As()
-        from map in Seat.Catch(() => Fin.Succ(compositor.CreateImplicitAnimationCollection()))
+        from map in Try.lift(() => Fin.Succ(compositor.CreateImplicitAnimationCollection())).Run().Bind(static inner => inner)
         from seated in admitted
             .Traverse(slot => Trigger(compositor, slot, running).Map(animation => Seated(map, slot, animation))).As()
             .Map(_ => map)
-            .Rollback(() => Seat.Catch(map.Clear))
+            .Rollback(() => Try.lift(map.Clear).Run().Bind(static inner => inner))
         select seated;
 
     static Fin<ComposeSlot> Admitted(MotionPlan plan, ComposeSlot slot) =>
@@ -331,13 +318,13 @@ public static class ImplicitPlan {
             : Fin.Fail<ComposeSlot>(new ComposeFault.SlotMismatch($"{plan.Key} animates no {slot.Axis.Key} axis"));
 
     static Fin<KeyFrameAnimation> Trigger(Compositor compositor, ComposeSlot slot, ComposeSpan.Running span) =>
-        slot.Shape.Mint(compositor).Bind(animation => Seat.Catch(() => {
+        slot.Shape.Mint(compositor).Bind(animation => Try.lift(() => {
             MotionEasing easing = new(span.Resolved.Curve);
             animation.InsertExpressionKeyFrame(0f, StartingValue, easing);
             animation.InsertExpressionKeyFrame(1f, FinalValue, easing);
             animation.Duration = span.Span;
             animation.Target = slot.Key;
-        }).Map(_ => animation));
+        }).Run().Bind(static inner => inner).Map(_ => animation));
 
     static ImplicitAnimationCollection Seated(ImplicitAnimationCollection map, ComposeSlot slot, KeyFrameAnimation animation) {
         map[slot.Key] = animation;
@@ -390,14 +377,11 @@ public sealed record VfxState(SurfaceTreatment Spec, PaintCatalog Paints, Option
     public static readonly UnitInterval Origin = UnitInterval.Create(0d);
     public static readonly UnitInterval Settled = UnitInterval.Create(1d);
 
-    static readonly Op Arm = Op.Of(name: "appui.compose.arm");
-    static readonly Op Frame = Op.Of(name: "appui.compose.frame");
-
     public Transition<VfxStep> Apply(VfxMessage message, MonotonicTimeline line) => message.Switch(
         state: (Held: this, Line: line),
         retarget: static (s, row) => (Transition<VfxStep>)new Transition<VfxStep>.Committed(
             new VfxStep(s.Held with { Spec = row.Spec, Paints = row.Paints }, None)),
-        advance: static (s, row) => s.Line.Capture(Arm).Match(
+        advance: static (s, row) => Error.New(Arm.Message, Arm).Match(
             Succ: origin => (Transition<VfxStep>)new Transition<VfxStep>.Committed(new VfxStep(
                 s.Held with { Run = Some(new VfxRun(row.Resolved, row.Span, origin)), Phase = Origin }, s.Held.Run)),
             Fail: cause => new Transition<VfxStep>.Refused(new VfxStep(s.Held, None), cause)),
@@ -406,7 +390,7 @@ public sealed record VfxState(SurfaceTreatment Spec, PaintCatalog Paints, Option
 
     public Fin<Transition<VfxStep>> Tick(MonotonicTimeline line) => Run.Match(
         Some: armed =>
-            from now in line.Capture(Frame)
+            from now in Error.New(Frame.Message, Frame)
             from since in line.Elapsed(armed.Origin, now, Frame)
             let elapsed = armed.Elapsed(since)
             select elapsed.Value >= 1d
@@ -426,8 +410,6 @@ public static class VfxPoints {
 }
 
 public sealed class VfxHandler(VfxState seed, MonotonicTimeline line, HostSink sink) : CompositionCustomVisualHandler {
-    static readonly Op Leasing = Op.Of(name: "appui.compose.lease");
-    static readonly Op Invalidating = Op.Of(name: "appui.compose.invalidate");
 
     VfxState state = seed;
 
@@ -458,10 +440,10 @@ public sealed class VfxHandler(VfxState seed, MonotonicTimeline line, HostSink s
         };
     }
 
-    Fin<Unit> Armed() => Invalidating.Catch(() => {
+    Fin<Unit> Armed() => Try.lift(() => {
         Invalidate(GetRenderBounds());
         if (state.Run.IsSome) { RegisterForNextAnimationFrameUpdate(); }
-    });
+    }).Run().Bind(static inner => inner);
 
     SKRect Extent() => new(0f, 0f, (float)EffectiveSize.X, (float)EffectiveSize.Y);
 
@@ -470,23 +452,22 @@ public sealed class VfxHandler(VfxState seed, MonotonicTimeline line, HostSink s
 
 public sealed class VfxSurface(VisualMount owner, CompositionCustomVisual visual, IDisposable sizing, HostSink sink)
     : IDisposable {
-    static readonly Op Minting = Op.Of(name: "appui.compose.custom");
 
     public static Fin<VfxSurface> Mount(Visual element, VfxHandler handler, HostSink sink) =>
         from mount in VisualMount.Of(element)
-        from custom in Minting.Catch(() => Fin.Succ(mount.Compositor.CreateCustomVisual(handler)))
+        from custom in Try.lift(() => Fin.Succ(mount.Compositor.CreateCustomVisual(handler))).Run().Bind(static inner => inner)
         from tracking in Tracking(element, custom, sink)
         from seated in Resized(custom, element.Bounds.Size).Bind(_ => mount.Attach(custom)).Rollback(tracking)
         select new VfxSurface(mount, custom, tracking, sink);
 
     static Fin<IDisposable> Tracking(Visual element, CompositionCustomVisual visual, HostSink sink) =>
-        Minting.Catch(() => Fin.Succ<IDisposable>(element.GetObservable(Avalonia.Visual.BoundsProperty)
-            .Subscribe(bounds => sink.Collapse(IO.lift(Resized(visual, bounds.Size))))));
+        Try.lift(() => Fin.Succ<IDisposable>(element.GetObservable(Avalonia.Visual.BoundsProperty)
+            .Subscribe(bounds => sink.Collapse(IO.lift(Resized(visual, bounds.Size)))))).Run().Bind(static inner => inner);
 
     static Fin<Unit> Resized(CompositionCustomVisual visual, Size size) =>
-        Minting.Catch(() => visual.Size = new Vector(size.Width, size.Height));
+        Try.lift(() => visual.Size = new Vector(size.Width, size.Height)).Run().Bind(static inner => inner);
 
-    public Fin<Unit> Send(VfxMessage message) => Minting.Catch(() => visual.SendHandlerMessage(message));
+    public Fin<Unit> Send(VfxMessage message) => Try.lift(() => visual.SendHandlerMessage(message)).Run().Bind(static inner => inner);
 
     public void Dispose() {
         sizing.Dispose();

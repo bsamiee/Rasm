@@ -123,7 +123,7 @@ public sealed class ForeignProjector : IElementProjection {
         return (Node.PropertySet)seed.Relabel(NodeId.Of(new NodeSeed.Content(seed, tolerance)));
     }
 
-    static Fin<Node.Appearance> Appearance(dotbim.Element element, Op key) =>
+    static Fin<Node.Appearance> Appearance(dotbim.Element element) =>
         AppearanceSummary.Of(
             AppearanceVector.Create(
                 baseColorR:   AppearanceProjection.Linearize(element.Color.R / 255.0),
@@ -132,8 +132,7 @@ public sealed class ForeignProjector : IElementProjection {
                 metallic:     0.0,
                 roughness:    1.0,
                 opacity:      element.Color.A / 255.0,
-                transmissive: false),
-            key)
+                transmissive: false))
         .Map(static summary => {
             Node.Appearance draft = new(NodeId.Of(new NodeSeed.Placement()), summary);
             return (Node.Appearance)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, 0.0)));
@@ -227,7 +226,7 @@ public static partial class ForeignMap {
 ## [03]-[REINGEST]
 
 - Owner: `Reingest` the projector-polymorphic incremental re-ingest — `Advance` re-projects a revised source through ANY `IElementProjection` and reconciles it to a prior `ElementGraph` snapshot by `ExternalId` so a large model's minor revision costs the delta, not the whole graph; `ReingestResult` pairing the patched snapshot with the forward delta; `Reconcile` the `ExternalId`-keyed structural diff; `Candidates` the reverse type-minting export — one shared `TypeCandidate` per ingested `IfcTypeObject` the `semantic#SEMANTIC_PROJECTOR` `AdmitType` reconciler left UNresolved, read off that type node's `TypeSignatureSet` bookkeeping bag and its own property bags. Both members read a PROJECTED snapshot rather than foreign bytes, which is why they share this owner and why neither seats on the interchange codec.
-- Entry: `Reingest.Advance(IElementProjection projector, ElementGraph prior, ProjectionContext ctx, Op key)` — the caller decodes the revised source ONCE into its projector (`Exchange/import#IMPORT_PIPELINE` `BimIo.ImportIfc` then the IFC `SemanticProjector`, or a received `Base` then `ForeignProjector.Of`), so reingest never re-decodes a format and stays one polymorphic owner; `key.Catch` preserves a thrown foreign error exactly, while a documented terminal contract refusal can arrive already typed as `ElementFault.ProjectorFaulted`, and a corrupt reconcile delta naming an absent endpoint returns `ElementFault.NodeAbsent` at `Apply`. `Reingest.ExportTypeCandidates(ElementGraph graph, Op key)` projects the unreconciled types out of ANY projected snapshot — candidacy IS the `TypeSignatureSet` bag's PRESENCE, because a resolver hit lands `CanonicalTypeSeed` with no source bag at all, so the export reads the reconciliation verdict itself and never a second trust column.
+- Entry: `Reingest.Advance(IElementProjection projector, ElementGraph prior, ProjectionContext ctx)` — the caller decodes the revised source ONCE into its projector (`Exchange/import#IMPORT_PIPELINE` `BimIo.ImportIfc` then the IFC `SemanticProjector`, or a received `Base` then `ForeignProjector.Of`), so reingest never re-decodes a format and stays one polymorphic owner; `key.Catch` preserves a thrown foreign error exactly, while a documented terminal contract refusal can arrive already typed as `ElementFault.ProjectorFaulted`, and a corrupt reconcile delta naming an absent endpoint returns `ElementFault.NodeAbsent` at `Apply`. `Reingest.ExportTypeCandidates(ElementGraph graph)` projects the unreconciled types out of ANY projected snapshot — candidacy IS the `TypeSignatureSet` bag's PRESENCE, because a resolver hit lands `CanonicalTypeSeed` with no source bag at all, so the export reads the reconciliation verdict itself and never a second trust column.
 - Auto: `Advance` runs the projector once onto a `Genesis(ctx.Header)` seed, then `Reconcile` remaps each revised rooted `Object` to its prior identity by `ExternalId` — a re-projection mints FRESH neutral Guid-v7 ids, so identity matches on the stable external id — and rewrites every revised node and edge through the contract's own `Node.Relabel` and `Relationship.Remap`. Partitioning then runs ONCE: the remapped nodes split on prior presence, the present half yields the revised pairs whose `Generator.Equals` comparer reports a divergent member, and the prior keys absent from the revised set are the removals. Edges diff by structural equality over hashed membership.
 - Output: `ReingestResult` carries the patched `ElementGraph` and the forward `GraphDelta` the `Rasm.Persistence` event log stores — the delta IS the change set, its `Address(tolerance)` content key deduping a re-applied delta; the `Review/diff#MODEL_DIFF` `ElementChange` federation change-set is the SEPARATE review surface, not minted here.
 - Packages: Rasm.Element, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
@@ -238,11 +237,11 @@ public static partial class ForeignMap {
 public sealed record ReingestResult(ElementGraph Patched, GraphDelta Delta);
 
 public static class Reingest {
-    public static Fin<ReingestResult> Advance(IElementProjection projector, ElementGraph prior, ProjectionContext ctx, Op key) =>
-        key.Catch(() => projector.Project(ctx))
+    public static Fin<ReingestResult> Advance(IElementProjection projector, ElementGraph prior, ProjectionContext ctx) =>
+        Try.lift(() => projector.Project(ctx)).Run().Bind(static inner => inner)
             .Map(fresh => fresh.ReplayOnto(ElementGraph.Genesis(ctx.Header)))
             .Map(revised => Reconcile(prior, revised))
-            .Bind(delta => prior.Apply(delta, key).Map(patched => new ReingestResult(patched, delta)));
+            .Bind(delta => prior.Apply(delta).Map(patched => new ReingestResult(patched, delta)));
 
     static GraphDelta Reconcile(ElementGraph prior, ElementGraph revised) {
         var priorByExternal = prior.ObjectNodes
@@ -271,21 +270,21 @@ public static class Reingest {
             Some(revised.Header));
     }
 
-    public static Fin<Seq<TypeCandidate>> ExportTypeCandidates(ElementGraph graph, Op key) =>
+    public static Fin<Seq<TypeCandidate>> ExportTypeCandidates(ElementGraph graph) =>
         from types in graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Type)
-            .Traverse(node => graph.Bake(node.Id, key).Map(baked => (Node: node, Bags: baked.Properties))).As()
+            .Traverse(node => graph.Bake(node.Id).Map(baked => (Node: node, Bags: baked.Properties))).As()
         let library = Library(graph.Header.Step)
         from candidates in types
             .Choose(static type => type.Bags
                 .Filter(static bag => bag.SetName == SemanticProjector.TypeSignatureSet).Head
                 .Map(signature => (type.Node, type.Bags, Signature: signature)))
-            .Traverse(pair => Candidate(library, pair.Node, pair.Bags, pair.Signature, key)).As()
+            .Traverse(pair => Candidate(library, pair.Node, pair.Bags, pair.Signature)).As()
         select candidates;
 
-    static Fin<TypeCandidate> Candidate(string library, Node.Object node, Seq<PropertyBag> bags, PropertyBag signature, Op key) =>
+    static Fin<TypeCandidate> Candidate(string library, Node.Object node, Seq<PropertyBag> bags, PropertyBag signature) =>
         node.ExternalId
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected,
+            .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Rejected,
                 string.Join(':', new object?[] { "type-candidate-identity-missing", node.Id.ToValue() })))
             .Map(globalId => new TypeCandidate(
                 SourceLibrary:      library,

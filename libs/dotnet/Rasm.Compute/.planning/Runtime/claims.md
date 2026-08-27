@@ -115,7 +115,7 @@ public sealed partial class BenchmarkInput {
             .Match(Succ: static _ => null, Fail: static errors => BenchDistribution.Rejection("benchmark-input", errors));
 
     static Validation<Error, Unit> Extent(Seq<long> shape) =>
-        Op.Of(name: "benchmark.extent").Catch(() => Fin.Succ(shape.Fold(1L, static (extent, dimension) => checked(extent * dimension))))
+        Try.lift(() => Fin.Succ(shape.Fold(1L, static (extent, dimension) => checked(extent * dimension)))).Run().Bind(static inner => inner)
             .Map(static _ => unit)
             .MapFail(static _ => Rejected("extent", "overflow"))
             .ToValidation();

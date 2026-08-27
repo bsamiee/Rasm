@@ -63,7 +63,7 @@ public sealed partial class PrecastKind {
 public readonly record struct Erection(Option<string> LiftingInsert, Option<double> BearingLengthMm, Option<string> JointGrout) {
     public static readonly Erection Undeclared = new(None, None, None);
 
-    public Fin<Seq<(PropertyName, PropertyValue)>> Rows(Op key) =>
+    public Fin<Seq<(PropertyName, PropertyValue)>> Rows() =>
         from bearing in BearingLengthMm
             .TraverseM(mm => ComponentDetail.Measured(DetailSchema.BearingLength, Dimension.LengthDim, mm * 1e-3))
             .As()
@@ -116,8 +116,8 @@ public static class PrecastSeed {
     public static readonly Lazy<Fin<FrozenDictionary<ComponentId, PrecastRow>>> Table =
         SeedJoin.Of(Roster, static r => r.Designation);
 
-    public static Fin<PrecastRow> Resolve(Component component, Op key) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+    public static Fin<PrecastRow> Resolve(Component component) =>
+        SeedJoin.Resolve(Table, component.Designation);
 
     public static readonly SeedLaw<PrecastRow> Law = SeedLaw<PrecastRow>.Of(
         family: ComponentFamily.Precast,
@@ -127,28 +127,28 @@ public static class PrecastSeed {
         substance: static _ => Substance,
         source: static r => r.Source,
         standard: static _ => Us,
-        detail: Some<Func<PrecastRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<PrecastRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         ifc: static r => r.Kind.Ifc.IfNone(ComponentFamily.Precast.Ifc));
-    static Validation<Error, Unit> Coherence(PrecastRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(PrecastRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 r.Kind.Admits(r.Interior),
-                new KernelFault.InvalidValue(nameof(r.Interior), "an interior admitted by the precast kind", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.Interior), "an interior admitted by the precast kind")),
             AdmissionSlots.Gate(
                 r.Kind.Ifc.IsSome,
-                new KernelFault.InvalidValue(nameof(r.Kind.Ifc), "a bound IFC precast kind", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.Kind.Ifc), "a bound IFC precast kind")),
             AdmissionSlots.Gate(
                 double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.DepthMm) && r.DepthMm > 0.0,
-                new KernelFault.InvalidValue(nameof(PrecastRow), "positive finite width and depth", Some(key)))));
+                new KernelFault.InvalidValue(nameof(PrecastRow), "positive finite width and depth"))));
 
-    static Fin<SectionProfile> Profile(PrecastRow r, Op key) =>
+    static Fin<SectionProfile> Profile(PrecastRow r) =>
         (r.Interior is PrecastInterior.Cored cored ? cored.Cores : Option<Seq<VoidCell>>.None).Match(
-            Some: cells => SectionProfile.CellularRectangle.Of(r.WidthMm, r.DepthMm, cells, key),
-            None: () => SectionProfile.Rectangle.Of(r.WidthMm, r.DepthMm, key));
+            Some: cells => SectionProfile.CellularRectangle.Of(r.WidthMm, r.DepthMm, cells),
+            None: () => SectionProfile.Rectangle.Of(r.WidthMm, r.DepthMm));
 
-    static Fin<PropertyBag> Detail(PrecastRow r, SectionProfile profile, Op key) =>
+    static Fin<PropertyBag> Detail(PrecastRow r, SectionProfile profile) =>
         from interior in InteriorRows(r.Interior)
-        from stamps in r.Erection.Rows(key)
+        from stamps in r.Erection.Rows()
         select ComponentDetail.ProductRows([
             ComponentDetail.Token(SectionBasis, profile is SectionProfile.CellularRectangle ? "net" : "envelope"),
             ComponentDetail.Sourced(r.Source),
@@ -165,8 +165,8 @@ public static class PrecastSeed {
             PropertyCategory.Materials.Row("WytheAction"), wythes.Composite ? "composite" : "non-composite"))),
         solid: static _ => Fin.Succ(Seq<(PropertyName, PropertyValue)>()));
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 

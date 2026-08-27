@@ -69,7 +69,7 @@ public abstract partial record ModelSource {
         buffer:           static b => $"buffer:{b.Bytes.Length}");
 
     public Fin<ReadOnlyMemory<byte>> Acquire(SourceResolver resolver) {
-        return Op.Of(name: "model.source-acquire").Catch(() => Switch(
+        return Try.lift(() => Switch(
                 localFile: static f => File.Exists(f.Path)
                     ? Fin.Succ((ReadOnlyMemory<byte>)File.ReadAllBytes(f.Path))
                     : Fin.Fail<ReadOnlyMemory<byte>>(IdentityRefusal.SourceUnresolved.Fault()),
@@ -80,7 +80,7 @@ public abstract partial record ModelSource {
                     .ToFin((Error)IdentityRefusal.SourceUnresolved.Fault())
                     .Bind(port => port.Get(b.Row.Content).Try().Run()),
                 remoteFetch:     r => resolver.Remote(r.ArtifactId),
-                buffer:          static b => Fin.Succ(b.Bytes)));
+                buffer:          static b => Fin.Succ(b.Bytes))).Run().Bind(static inner => inner);
     }
 
     static Fin<ReadOnlyMemory<byte>> Read(Stream stream) {
@@ -173,7 +173,7 @@ public sealed partial record ModelIdentity(
 
     public Fin<(string Name, OrtValue Value)> Initializer(string name, OrtValue value) {
         return value.OnnxType == OnnxValueType.ONNX_TYPE_TENSOR
-            ? Op.Of(name: "model.initializer-shape").Catch(() => Fin.Succ(value.GetTensorTypeAndShape()))
+            ? Try.lift(() => Fin.Succ(value.GetTensorTypeAndShape())).Run().Bind(static inner => inner)
                 .Bind(info => Initializers.Find(slot => StringComparer.Ordinal.Equals(slot.Name, name)).Case is Slot slot
                     && slot.Shape is SlotShape.Tensor tensor
                     && tensor.Dtype == info.ElementDataType
@@ -389,13 +389,13 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
         .ToFin()
         .Bind(_ =>
             from root in archive.Group("bands")
-            from header in Op.Of(name: "model.graduation-archive-header").Catch(() => Fin.Succ((
+            from header in Try.lift(() => Fin.Succ((
                 EvidenceKey: UInt128.Parse(root.Attribute("evidence-key").Read<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                Children: toSeq(root.Children()))))
+                Children: toSeq(root.Children())))).Run().Bind(static inner => inner)
             from bands in header.Children.Traverse(child =>
-                from row in Op.Of(name: "model.graduation-archive-band").Catch(() => Fin.Succ((
+                from row in Try.lift(() => Fin.Succ((
                     Feature: child.Name,
-                    Kind: child.Attribute("kind").Read<string>())))
+                    Kind: child.Attribute("kind").Read<string>()))).Run().Bind(static inner => inner)
                 from massSet in archive.Dataset($"bands/{row.Feature}/mass")
                 from mass in ReadDoubles(archive, massSet)
                 from band in StringComparer.Ordinal.Equals(row.Kind, "numeric")
@@ -412,7 +412,7 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
             select admitted);
 
     static Fin<double[]> ReadDoubles(HdfHandle archive, NativeDataset dataset) =>
-        Op.Of(name: "model.graduation-archive-double").Catch(() => {
+        Try.lift(() => {
             ulong[] extent = dataset.Space.Dimensions;
             if (extent.Length != 1 || dataset.Type.Class != H5DataTypeClass.FloatingPoint || dataset.Type.Size != sizeof(double)) {
                 return Fin.Fail<double[]>((Error)IdentityRefusal.BandMalformed.Fault());
@@ -420,13 +420,13 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
             double[] values = new double[checked((int)extent[0])];
             dataset.Read<double>(archive.Access, values.AsSpan(), new HyperslabSelection(0, (ulong)values.Length));
             return Fin.Succ(values);
-        });
+        }).Run().Bind(static inner => inner);
 
     static Fin<string[]> ReadStrings(NativeDataset dataset) =>
-        Op.Of(name: "model.graduation-archive-string").Catch(() =>
+        Try.lift(() =>
             dataset.Space.Dimensions.Length == 1 && dataset.Type.Class == H5DataTypeClass.String
                 ? Fin.Succ(dataset.Read<string[]>())
-                : Fin.Fail<string[]>((Error)IdentityRefusal.BandMalformed.Fault()));
+                : Fin.Fail<string[]>((Error)IdentityRefusal.BandMalformed.Fault())).Run().Bind(static inner => inner);
 
     public Fin<DriftReport> Drift(Seq<FeatureSample> serving, DriftPolicy policy) {
         bool unique = serving.Map(static window => window.Feature).ToFrozenSet(StringComparer.Ordinal).Count == serving.Count;
@@ -560,7 +560,7 @@ public sealed partial record GraduationEvidence(string SchemaVersion, [property:
         .Apply(static (_, _, _) => unit).As();
 
     public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract) =>
-        Op.Of(name: "model.graduation-bundle-write").Catch(() => Fin.Succ((ReadOnlyMemory<byte>)JsonSerializer.SerializeToUtf8Bytes(this, contract)));
+        Try.lift(() => Fin.Succ((ReadOnlyMemory<byte>)JsonSerializer.SerializeToUtf8Bytes(this, contract))).Run().Bind(static inner => inner);
 
     static Fin<Unit> Resolvable(Seq<OwnerDescriptor> owners) {
         FrozenSet<string> declared = owners.Map(static owner => owner.Name).ToFrozenSet(StringComparer.Ordinal);

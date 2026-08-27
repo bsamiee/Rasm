@@ -19,7 +19,7 @@ Faults return `Model/faults#FAULT_BAND` `BimFault` through their `Detail` row; t
 - Law: the two axes cross SPARSELY in both directions — `zip` wraps the two text serializations alone, so a zipped ifcJSON names a wrapper nothing defines, and each serialization publishes across the releases whose schema it was authored against, so `Published(form, release)` refuses a pair no schema validates. A fused row set expressed the first invariant only as an absent row and the second not at all, which let this producer seal an artifact its own peer decoder refuses.
 - Law: `Ifc4X3` publishes under NO serialization — the ISO-approved 4.3 line carries the `IFC4X3_ADD2` identifier and every published artifact spells it, so the shared release stays in the roster to NAME that refusal rather than failing an unrecognised token at the peer.
 - Law: PUBLICATION and ADMISSION are two verdicts. `Published` gates the producer, so nothing is sealed that a peer refuses; `Sniff` gates the reader and admits every release the frozen `Model/elements#IFC_CLASS` `ReleaseMap.Lower` carries, release candidates included, because reading a legacy document is a capability while writing one is a claim. Collapsing the two onto one predicate either forfeits the legacy read or publishes the draft.
-- Entry: `IfcWireForm.Route(key)` resolves a form from its wire token and `IfcWireForm.Of(serialization, container, key)` admits a pair against the `Wraps` crossing; `form.Published(release, key)` is the emit precondition; `form.Sniff(bytes, key)` returns `Fin<GGRelease>` — the release the import path seeds the database with, read off the bytes BEFORE construction; `form.Seal(target, entry)`/`form.Admit(bytes, release)` are the two byte directions.
+- Entry: `IfcWireForm.Route()` resolves a form from its wire token and `IfcWireForm.Of(serialization, container)` admits a pair against the `Wraps` crossing; `form.Published(release)` is the emit precondition; `form.Sniff(bytes)` returns `Fin<GGRelease>` — the release the import path seeds the database with, read off the bytes BEFORE construction; `form.Seal(target, entry)`/`form.Admit(bytes, release)` are the two byte directions.
 - Auto: the descriptor DERIVES from two row reads — the container's extension wins where it names one, and its raised extent wins over the serialization's own, so a zipped payload is unwrapped to its whole document before the header read instead of having a text probe run over archive bytes. `Sniff` unwraps the container, slices the extent's window, runs the serialization's `Probe`, then refuses a refused row by name, parses the token onto the GeometryGym release, and gates `ReleaseMap.Lower` membership — the `IFC4X4_DRAFT` member excluded by law — so an absent header, an unparseable token, an unadmitted release, and an unproduced serialization are four verdicts and the import never guesses 4x3 over a 2x3 file [H8].
 - Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new serialization is one `IfcSerialization` row carrying its span and its three delegates; a new container is one `IfcContainer` row naming what it wraps; a new release span is a cell on the row that publishes it; a producer refusal is the `Refusal` column, never an absent row.
@@ -39,7 +39,6 @@ using Rasm.Element.Graph;
 using Rasm.Element.Properties;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 using GGRelease = GeometryGym.Ifc.ReleaseVersion;
 using BimHooks = Rasm.Domain.HookSet<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
@@ -225,30 +224,30 @@ public sealed record IfcWireForm {
     public int FidelityRank => Serialization.FidelityRank;
 
     public static Option<IfcWireForm> Route(string key) =>
-        ByKey.TryGetValue(key, out IfcWireForm? form) && form is { } resolved ? Some(resolved) : None;
+        ByKey.TryGetValue(out IfcWireForm? form) && form is { } resolved ? Some(resolved) : None;
 
-    public static Fin<IfcWireForm> Of(IfcSerialization serialization, IfcContainer container, Op key) =>
+    public static Fin<IfcWireForm> Of(IfcSerialization serialization, IfcContainer container) =>
         Route(container == IfcContainer.Plain ? serialization.Key : $"{serialization.Key}-{container.Key}")
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "ifc-form-uncontained", container.Key, serialization.Key })));
+            .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "ifc-form-uncontained", container.Key, serialization.Key })));
 
-    public Fin<Unit> Published(ReleaseVersion release, Op key) =>
+    public Fin<Unit> Published(ReleaseVersion release) =>
         Serialization.Refusal.Match(
-            Some: detail => Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Projection, BimReason.Capability,
+            Some: detail => Fin.Fail<Unit>(new BimFault.Refused(BimScope.Projection, BimReason.Capability,
                 string.Join(':', new object?[] { detail, Key, release.Key }))),
             None: () => Serialization.Releases.Contains(release)
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "ifc-form-unpublished", Key, release.Key }))));
+                : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "ifc-form-unpublished", Key, release.Key }))));
 
-    public Fin<GGRelease> Sniff(ReadOnlyMemory<byte> bytes, Op key) =>
-        key.Catch(() => Container.Unwrap(bytes)
+    public Fin<GGRelease> Sniff(ReadOnlyMemory<byte> bytes) =>
+        Try.lift(() => Container.Unwrap(bytes)
             .Bind(payload => Serialization.Probe(Extent.Slice(payload)))
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "schema-header", Key, Extent.Degrade })))
+            .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "schema-header", Key, Extent.Degrade })))
             .Bind(token => Serialization.Refusal.Match(
-                Some: detail => Fin.Fail<GGRelease>(new BimFault.Refused(key, BimScope.Projection, BimReason.Capability,
+                Some: detail => Fin.Fail<GGRelease>(new BimFault.Refused(BimScope.Projection, BimReason.Capability,
                     string.Join(':', new object?[] { detail, Key, token }))),
                 None: () => Enum.TryParse(token, ignoreCase: true, out GGRelease sniffed) && ReleaseMap.Lower.ContainsKey(sniffed)
                     ? Fin.Succ(sniffed)
-                    : Fin.Fail<GGRelease>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "schema-header", Key, "unmapped", token }))))));
+                    : Fin.Fail<GGRelease>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "schema-header", Key, "unmapped", token })))))).Run().Bind(static inner => inner);
 
     public Option<ReadOnlyMemory<byte>> Seal(DatabaseIfc target, string entry) => Serialization.Seal(target, entry);
 

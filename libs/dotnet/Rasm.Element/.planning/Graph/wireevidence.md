@@ -108,52 +108,52 @@ internal static partial class WireCodec {
   return w;
  }
 
- static Fin<global::Rasm.Element.Assessment.AssessmentPayload> ToAssessment(AssessmentWire w, Op key) =>
-  from discipline in ToDiscipline(w.Discipline, key)
-  from route in key.AcceptValidated<AnalysisRoute>(w.Route)
-  from input in ToKey(w.InputKey, key)
-  from outcome in ToOutcome(w.Outcome, key)
-  from results in ToValueMap(w.Results, key)
-  from diagnostic in ToDiagnostic(w.Diagnostic, key)
-  from artifact in Optional(w.ResultArtifact).Traverse(value => ToArtifactContent(value, "assessment.result_artifact", key)).As()
-  from content in ToContent(results, diagnostic, artifact, key)
-  from audit in Present(w.Provenance, "assessment.provenance", key)
-  from provenance in ToEvidenceRun(audit, key)
-  from dependsOn in toSeq(w.DependsOn).TraverseM(value => ToNodeId(value, key)).As()
+ static Fin<global::Rasm.Element.Assessment.AssessmentPayload> ToAssessment(AssessmentWire w) =>
+  from discipline in ToDiscipline(w.Discipline)
+  from route in FactoryBridge.Accept<AnalysisRoute>(w.Route)
+  from input in ToKey(w.InputKey)
+  from outcome in ToOutcome(w.Outcome)
+  from results in ToValueMap(w.Results)
+  from diagnostic in ToDiagnostic(w.Diagnostic)
+  from artifact in Optional(w.ResultArtifact).Traverse(value => ToArtifactContent(value, "assessment.result_artifact")).As()
+  from content in ToContent(results, diagnostic, artifact)
+  from audit in Present(w.Provenance, "assessment.provenance")
+  from provenance in ToEvidenceRun(audit)
+  from dependsOn in toSeq(w.DependsOn).TraverseM(value => ToNodeId(value)).As()
   from payload in global::Rasm.Element.Assessment.AssessmentPayload.Open(
-   discipline, route, input, outcome, content, provenance, key, toSet(dependsOn))
+   discipline, route, input, outcome, content, provenance, toSet(dependsOn))
   select payload;
 
  static Fin<PayloadContent> ToContent(
-  Map<PropertyName, PropertyValue> results, Option<global::Rasm.Element.Assessment.Diagnostic> diagnostic, Option<ArtifactContent> artifact, Op key) =>
+  Map<PropertyName, PropertyValue> results, Option<global::Rasm.Element.Assessment.Diagnostic> diagnostic, Option<ArtifactContent> artifact) =>
   diagnostic.Match(
    Some: d => Fin.Succ(PayloadContent.Failure(d)),
    None: () => results.IsEmpty && artifact.IsNone
     ? Fin.Succ(PayloadContent.Empty)
-    : PayloadContent.Results(results, artifact, key));
+    : PayloadContent.Results(results, artifact));
 
- static Fin<global::Rasm.Element.Assessment.ObservationSeries> ToObservation(ObservationWire w, Op key) =>
-  from sensor in key.AcceptValidated<SensorId>(w.Sensor)
-  from sampling in ToSampling(w.Sampling, key)
-  from quantity in ToSignature(w, key)
-  from window in ToInterval(w.WindowStart, w.WindowEnd, "observation.window", key)
+ static Fin<global::Rasm.Element.Assessment.ObservationSeries> ToObservation(ObservationWire w) =>
+  from sensor in FactoryBridge.Accept<SensorId>(w.Sensor)
+  from sampling in ToSampling(w.Sampling)
+  from quantity in ToSignature(w)
+  from window in ToInterval(w.WindowStart, w.WindowEnd, "observation.window")
   from chunks in toSeq(w.Chunks).TraverseM(chunk =>
-   from span in ToInterval(chunk.WindowStart, chunk.WindowEnd, "observation.chunk.window", key)
-   from artifact in ToArtifactContent(chunk.SeriesArtifact, "observation.chunk.series_artifact", key)
+   from span in ToInterval(chunk.WindowStart, chunk.WindowEnd, "observation.chunk.window")
+   from artifact in ToArtifactContent(chunk.SeriesArtifact, "observation.chunk.series_artifact")
    select new ObservationChunk(span, artifact, checked((int)chunk.SampleCount))).As()
-  from statistics in ToStatistics(w.Statistics, quantity, key)
-  from provenance in Optional(w.Provenance).Traverse(audit => ToSensorProvenance(audit, key)).As()
-  from aspect in key.AcceptValidated<PropertyName>(w.Aspect)
+  from statistics in ToStatistics(w.Statistics, quantity)
+  from provenance in Optional(w.Provenance).Traverse(audit => ToSensorProvenance(audit)).As()
+  from aspect in FactoryBridge.Accept<PropertyName>(w.Aspect)
   from series in global::Rasm.Element.Assessment.ObservationSeries.Rehydrate(
    sensor, aspect, quantity, sampling,
    Optional(w.Cadence).Map(static c => c.ToNodaDuration()),
-   window, chunks, statistics, provenance, key)
+   window, chunks, statistics, provenance)
   select series;
 
- static Fin<QuantitySignature> ToSignature(ObservationWire w, Op key) =>
-  from dimension in Present(w.Dimension, "observation.dimension", key)
-  from type in key.AcceptValidated<QuantityType>(dimension.QuantityType)
-  from signature in key.AcceptValidated<QuantitySignature>(QuantitySignature.Validate(
+ static Fin<QuantitySignature> ToSignature(ObservationWire w) =>
+  from dimension in Present(w.Dimension, "observation.dimension")
+  from type in FactoryBridge.Accept<QuantityType>(dimension.QuantityType)
+  from signature in FactoryBridge.Accept<QuantitySignature>(QuantitySignature.Validate(
    type,
    Dimension.Create(
     dimension.Length, dimension.Mass, dimension.Time, dimension.Current,
@@ -161,55 +161,55 @@ internal static partial class WireCodec {
    Opt(w.CanonicalUnit.Length > 0, w.CanonicalUnit), out QuantitySignature admitted), admitted)
   select signature;
 
- static Fin<global::Rasm.Element.Assessment.SeriesStatistics> ToStatistics(SeriesStatisticsWire? w, QuantitySignature quantity, Op key) =>
-  from summary in Present(w, "observation.statistics", key)
-  from span in Present(summary.Span, "observation.statistics.span", key)
+ static Fin<global::Rasm.Element.Assessment.SeriesStatistics> ToStatistics(SeriesStatisticsWire? w, QuantitySignature quantity) =>
+  from summary in Present(w, "observation.statistics")
+  from span in Present(summary.Span, "observation.statistics.span")
   from census in toSeq(summary.Census).TraverseM(entry =>
-   ToGrade(entry.Grade, key).Map(row => (Grade: row, Count: checked((int)entry.Count)))).As()
-  from figures in Figures(summary, quantity, key)
-  from total in OptMeasure(summary.Total, key)
+   ToGrade(entry.Grade).Map(row => (Grade: row, Count: checked((int)entry.Count)))).As()
+  from figures in Figures(summary, quantity)
+  from total in OptMeasure(summary.Total)
   from statistics in global::Rasm.Element.Assessment.SeriesStatistics.Of(
    census.Fold(Map<global::Rasm.Element.Assessment.ObservationGrade, int>(), static (map, entry) => map.Add(entry.Grade, entry.Count)),
-   span.ToNodaDuration(), figures, total, key)
+   span.ToNodaDuration(), figures, total)
   select statistics;
 
- static Fin<Option<MeasureStat>> Figures(SeriesStatisticsWire w, QuantitySignature quantity, Op key) =>
+ static Fin<Option<MeasureStat>> Figures(SeriesStatisticsWire w, QuantitySignature quantity) =>
   w.Moments is null
    ? Fin.Succ(Option<MeasureStat>.None)
-   : from minimum in Present(w.Minimum, "observation.statistics.minimum", key).Bind(m => ToMeasure(m, key))
-     from maximum in Present(w.Maximum, "observation.statistics.maximum", key).Bind(m => ToMeasure(m, key))
-     from mean in Present(w.Mean, "observation.statistics.mean", key).Bind(m => ToMeasure(m, key))
+   : from minimum in Present(w.Minimum, "observation.statistics.minimum").Bind(m => ToMeasure(m))
+     from maximum in Present(w.Maximum, "observation.statistics.maximum").Bind(m => ToMeasure(m))
+     from mean in Present(w.Mean, "observation.statistics.mean").Bind(m => ToMeasure(m))
      from low in Scalar.From(minimum.Si)
      from high in Scalar.From(maximum.Si)
      from stat in Rebuilt(new Stat<Scalar>(
        checked((int)w.Moments.Count), checked((int)w.Moments.Rejected), w.Moments.Mass,
-       low, high, mean.Si, w.Moments.M2, w.Moments.M3, w.Moments.M4, Option<StatContext>.None), key)
+       low, high, mean.Si, w.Moments.M2, w.Moments.M3, w.Moments.M4, Option<StatContext>.None))
      select Some(new MeasureStat(quantity, stat));
 
- static Fin<Stat<Scalar>> Rebuilt(Stat<Scalar> stat, Op key) =>
-  stat.IsValid ? Fin.Succ(stat) : new KernelFault.InvalidValue("element-wire.statistics", "moments must satisfy the statistic invariant", Some(key));
+ static Fin<Stat<Scalar>> Rebuilt(Stat<Scalar> stat) =>
+  stat.IsValid ? Fin.Succ(stat) : new KernelFault.InvalidValue("element-wire.statistics", "moments must satisfy the statistic invariant");
 
- static Fin<global::Rasm.Element.Assessment.SensorProvenance> ToSensorProvenance(SensorProvenanceWire audit, Op key) =>
-  from calibrated in Optional(audit.CalibratedAt).Traverse(date => key.Catch(() => date.ToLocalDate())).As()
-  from tolerance in Optional(audit.Tolerance).Traverse(band => ToBand(band, key)).As()
+ static Fin<global::Rasm.Element.Assessment.SensorProvenance> ToSensorProvenance(SensorProvenanceWire audit) =>
+  from calibrated in Optional(audit.CalibratedAt).Traverse(date => Try.lift(() => date.ToLocalDate()).Run().Bind(static inner => inner)).As()
+  from tolerance in Optional(audit.Tolerance).Traverse(band => ToBand(band)).As()
   select new global::Rasm.Element.Assessment.SensorProvenance(audit.Manufacturer, audit.Model, audit.Serial, calibrated, tolerance);
 
- static Fin<Option<global::Rasm.Element.Assessment.Diagnostic>> ToDiagnostic(DiagnosticWire? w, Op key) =>
+ static Fin<Option<global::Rasm.Element.Assessment.Diagnostic>> ToDiagnostic(DiagnosticWire? w) =>
   Optional(w).Traverse(d =>
-   (ToSolvePhase(d.Phase, key), ToFailureKind(d.Kind, key))
+   (ToSolvePhase(d.Phase), ToFailureKind(d.Kind))
     .Apply(static (phase, kind) => (phase, kind)).As()
-    .Bind(t => global::Rasm.Element.Assessment.Diagnostic.Of(t.phase, t.kind, d.Message, key, Opt(d.HasCode, d.Code)))).As();
+    .Bind(t => global::Rasm.Element.Assessment.Diagnostic.Of(t.phase, t.kind, d.Message, Opt(d.HasCode, d.Code)))).As();
 
- static Fin<global::Rasm.Element.Assessment.EvidenceRun> ToEvidenceRun(ProvenanceWire w, Op key) =>
-  from _window in BothOrNeither(w.WindowStart is not null, w.WindowEnd is not null, "provenance-window", key)
+ static Fin<global::Rasm.Element.Assessment.EvidenceRun> ToEvidenceRun(ProvenanceWire w) =>
+  from _window in BothOrNeither(w.WindowStart is not null, w.WindowEnd is not null, "provenance-window")
   from correlation in Opt(w.HasCorrelation, w.Correlation).Traverse(bytes =>
    bytes.Length == 16
     ? Fin.Succ(CorrelationId.Create(new Guid(bytes.Span, bigEndian: true)))
-    : (Fin<CorrelationId>)new KernelFault.InvalidValue("correlation-id", "carry 16 RFC-4122 bytes", Some(key))).As()
-  from at in Present(w.At, "provenance.at", key)
-  from elapsed in Present(w.Elapsed, "provenance.elapsed", key)
-  from window in Optional(w.WindowStart).Traverse(start => ToInterval(start, w.WindowEnd, "provenance.window", key)).As()
-  from run in global::Rasm.Element.Assessment.EvidenceRun.Of(w.Author, w.Tool, w.Version, at.ToInstant(), key,
+    : (Fin<CorrelationId>)new KernelFault.InvalidValue("correlation-id", "carry 16 RFC-4122 bytes")).As()
+  from at in Present(w.At, "provenance.at")
+  from elapsed in Present(w.Elapsed, "provenance.elapsed")
+  from window in Optional(w.WindowStart).Traverse(start => ToInterval(start, w.WindowEnd, "provenance.window")).As()
+  from run in global::Rasm.Element.Assessment.EvidenceRun.Of(w.Author, w.Tool, w.Version, at.ToInstant(),
     elapsed.ToNodaDuration(), window, correlation, checked((int)w.Attempt))
   select run;
 
@@ -217,9 +217,9 @@ internal static partial class WireCodec {
   Sha256 = ByteString.CopyFrom(Convert.FromHexString(reference.Sha256)), ArtifactBytes = reference.Bytes,
  };
 
- static Fin<ArtifactContent> ToArtifactContent(ArtifactRef? wire, string slot, Op key) =>
-  from admitted in Present(wire, slot, key)
-  from reference in ArtifactContent.Of(admitted.Sha256.Span, admitted.ArtifactBytes, key)
+ static Fin<ArtifactContent> ToArtifactContent(ArtifactRef? wire, string slot) =>
+  from admitted in Present(wire, slot)
+  from reference in ArtifactContent.Of(admitted.Sha256.Span, admitted.ArtifactBytes)
   select reference;
 
  static Rasm.Contracts.Element.Discipline ToWire(global::Rasm.Element.Classification.Discipline value) =>
@@ -242,7 +242,7 @@ internal static partial class WireCodec {
    environmental: static () => Rasm.Contracts.Element.Discipline.Environmental,
    cost: static () => Rasm.Contracts.Element.Discipline.Cost);
 
- static Fin<global::Rasm.Element.Classification.Discipline> ToDiscipline(Rasm.Contracts.Element.Discipline value, Op key) => value switch {
+ static Fin<global::Rasm.Element.Classification.Discipline> ToDiscipline(Rasm.Contracts.Element.Discipline value) => value switch {
   Rasm.Contracts.Element.Discipline.Structural => Fin.Succ(global::Rasm.Element.Classification.Discipline.Structural),
   Rasm.Contracts.Element.Discipline.Seismic => Fin.Succ(global::Rasm.Element.Classification.Discipline.Seismic),
   Rasm.Contracts.Element.Discipline.Wind => Fin.Succ(global::Rasm.Element.Classification.Discipline.Wind),
@@ -260,7 +260,7 @@ internal static partial class WireCodec {
   Rasm.Contracts.Element.Discipline.Circularity => Fin.Succ(global::Rasm.Element.Classification.Discipline.Circularity),
   Rasm.Contracts.Element.Discipline.Environmental => Fin.Succ(global::Rasm.Element.Classification.Discipline.Environmental),
   Rasm.Contracts.Element.Discipline.Cost => Fin.Succ(global::Rasm.Element.Classification.Discipline.Cost),
-  _ => Unmapped<global::Rasm.Element.Classification.Discipline>("discipline", value, key),
+  _ => Unmapped<global::Rasm.Element.Classification.Discipline>("discipline", value),
  };
 
  static Rasm.Contracts.Element.SamplingKind ToWire(global::Rasm.Element.Assessment.SamplingKind value) =>
@@ -272,14 +272,14 @@ internal static partial class WireCodec {
    minimum: static () => Rasm.Contracts.Element.SamplingKind.Minimum,
    maximum: static () => Rasm.Contracts.Element.SamplingKind.Maximum);
 
- static Fin<global::Rasm.Element.Assessment.SamplingKind> ToSampling(Rasm.Contracts.Element.SamplingKind value, Op key) => value switch {
+ static Fin<global::Rasm.Element.Assessment.SamplingKind> ToSampling(Rasm.Contracts.Element.SamplingKind value) => value switch {
   Rasm.Contracts.Element.SamplingKind.Instantaneous => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Instantaneous),
   Rasm.Contracts.Element.SamplingKind.Averaged => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Averaged),
   Rasm.Contracts.Element.SamplingKind.Total => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Total),
   Rasm.Contracts.Element.SamplingKind.Cumulative => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Cumulative),
   Rasm.Contracts.Element.SamplingKind.Minimum => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Minimum),
   Rasm.Contracts.Element.SamplingKind.Maximum => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Maximum),
-  _ => Unmapped<global::Rasm.Element.Assessment.SamplingKind>("sampling-kind", value, key),
+  _ => Unmapped<global::Rasm.Element.Assessment.SamplingKind>("sampling-kind", value),
  };
 
  static Rasm.Contracts.Element.ObservationGrade ToWire(global::Rasm.Element.Assessment.ObservationGrade value) =>
@@ -290,13 +290,13 @@ internal static partial class WireCodec {
    suspect: static () => Rasm.Contracts.Element.ObservationGrade.Suspect,
    missing: static () => Rasm.Contracts.Element.ObservationGrade.Missing);
 
- static Fin<global::Rasm.Element.Assessment.ObservationGrade> ToGrade(Rasm.Contracts.Element.ObservationGrade value, Op key) => value switch {
+ static Fin<global::Rasm.Element.Assessment.ObservationGrade> ToGrade(Rasm.Contracts.Element.ObservationGrade value) => value switch {
   Rasm.Contracts.Element.ObservationGrade.Measured => Fin.Succ(global::Rasm.Element.Assessment.ObservationGrade.Measured),
   Rasm.Contracts.Element.ObservationGrade.Validated => Fin.Succ(global::Rasm.Element.Assessment.ObservationGrade.Validated),
   Rasm.Contracts.Element.ObservationGrade.Substituted => Fin.Succ(global::Rasm.Element.Assessment.ObservationGrade.Substituted),
   Rasm.Contracts.Element.ObservationGrade.Suspect => Fin.Succ(global::Rasm.Element.Assessment.ObservationGrade.Suspect),
   Rasm.Contracts.Element.ObservationGrade.Missing => Fin.Succ(global::Rasm.Element.Assessment.ObservationGrade.Missing),
-  _ => Unmapped<global::Rasm.Element.Assessment.ObservationGrade>("observation-grade", value, key),
+  _ => Unmapped<global::Rasm.Element.Assessment.ObservationGrade>("observation-grade", value),
  };
 
  static Rasm.Contracts.Element.AssessmentOutcome ToWire(global::Rasm.Element.Assessment.AssessmentOutcome value) =>
@@ -310,7 +310,7 @@ internal static partial class WireCodec {
    stale: static () => Rasm.Contracts.Element.AssessmentOutcome.Stale,
    superseded: static () => Rasm.Contracts.Element.AssessmentOutcome.Superseded);
 
- static Fin<global::Rasm.Element.Assessment.AssessmentOutcome> ToOutcome(Rasm.Contracts.Element.AssessmentOutcome value, Op key) => value switch {
+ static Fin<global::Rasm.Element.Assessment.AssessmentOutcome> ToOutcome(Rasm.Contracts.Element.AssessmentOutcome value) => value switch {
   Rasm.Contracts.Element.AssessmentOutcome.Pending => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Pending),
   Rasm.Contracts.Element.AssessmentOutcome.Queued => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Queued),
   Rasm.Contracts.Element.AssessmentOutcome.Running => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Running),
@@ -319,7 +319,7 @@ internal static partial class WireCodec {
   Rasm.Contracts.Element.AssessmentOutcome.Cancelled => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Cancelled),
   Rasm.Contracts.Element.AssessmentOutcome.Stale => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Stale),
   Rasm.Contracts.Element.AssessmentOutcome.Superseded => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Superseded),
-  _ => Unmapped<global::Rasm.Element.Assessment.AssessmentOutcome>("assessment-outcome", value, key),
+  _ => Unmapped<global::Rasm.Element.Assessment.AssessmentOutcome>("assessment-outcome", value),
  };
 
  static Rasm.Contracts.Element.SolvePhase ToWire(global::Rasm.Element.Assessment.SolvePhase value) =>
@@ -329,12 +329,12 @@ internal static partial class WireCodec {
    extraction: static () => Rasm.Contracts.Element.SolvePhase.Extraction,
    publication: static () => Rasm.Contracts.Element.SolvePhase.Publication);
 
- static Fin<global::Rasm.Element.Assessment.SolvePhase> ToSolvePhase(Rasm.Contracts.Element.SolvePhase value, Op key) => value switch {
+ static Fin<global::Rasm.Element.Assessment.SolvePhase> ToSolvePhase(Rasm.Contracts.Element.SolvePhase value) => value switch {
   Rasm.Contracts.Element.SolvePhase.Admission => Fin.Succ(global::Rasm.Element.Assessment.SolvePhase.Admission),
   Rasm.Contracts.Element.SolvePhase.Solve => Fin.Succ(global::Rasm.Element.Assessment.SolvePhase.Solve),
   Rasm.Contracts.Element.SolvePhase.Extraction => Fin.Succ(global::Rasm.Element.Assessment.SolvePhase.Extraction),
   Rasm.Contracts.Element.SolvePhase.Publication => Fin.Succ(global::Rasm.Element.Assessment.SolvePhase.Publication),
-  _ => Unmapped<global::Rasm.Element.Assessment.SolvePhase>("solve-phase", value, key),
+  _ => Unmapped<global::Rasm.Element.Assessment.SolvePhase>("solve-phase", value),
  };
 
  static Rasm.Contracts.Element.FailureKind ToWire(global::Rasm.Element.Assessment.FailureKind value) =>
@@ -346,18 +346,18 @@ internal static partial class WireCodec {
    aborted: static () => Rasm.Contracts.Element.FailureKind.Aborted,
    foreign: static () => Rasm.Contracts.Element.FailureKind.Foreign);
 
- static Fin<global::Rasm.Element.Assessment.FailureKind> ToFailureKind(Rasm.Contracts.Element.FailureKind value, Op key) => value switch {
+ static Fin<global::Rasm.Element.Assessment.FailureKind> ToFailureKind(Rasm.Contracts.Element.FailureKind value) => value switch {
   Rasm.Contracts.Element.FailureKind.Input => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Input),
   Rasm.Contracts.Element.FailureKind.Numeric => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Numeric),
   Rasm.Contracts.Element.FailureKind.Resource => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Resource),
   Rasm.Contracts.Element.FailureKind.Timeout => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Timeout),
   Rasm.Contracts.Element.FailureKind.Aborted => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Aborted),
   Rasm.Contracts.Element.FailureKind.Foreign => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Foreign),
-  _ => Unmapped<global::Rasm.Element.Assessment.FailureKind>("failure-kind", value, key),
+  _ => Unmapped<global::Rasm.Element.Assessment.FailureKind>("failure-kind", value),
  };
 
- static Fin<T> Unmapped<T>(string slot, Enum value, Op key) =>
-  new KernelFault.InvalidValue(slot, $"admit defined value {value}", Some(key));
+ static Fin<T> Unmapped<T>(string slot, Enum value) =>
+  new KernelFault.InvalidValue(slot, $"admit defined value {value}");
 }
 ```
 

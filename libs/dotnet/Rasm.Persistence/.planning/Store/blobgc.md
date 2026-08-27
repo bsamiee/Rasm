@@ -118,12 +118,12 @@ public static class BlobGc {
         from _t in frame.Tenant.TenantId == client.Tenant ? IO.pure(unit) : IO.fail<Unit>(new RemoteStoreFault.Denied(admitted.Key, store.Key, "tenant-mismatch"))
         let key = admitted.Key
         let session = admitted.Session
-        let handle = BlobName.Handle(key, client.Tenant, kind.Retention, codec, source.Length)
-        from _o in ledger.Open(new PendingWrite(key, kind, source.Length, frame.Now(), session))
-        from formed in store.Encode(codec, key, source)
-        from resident in MultipartTransfer.Upload(store, client, handle, BlobPlacement.From(key, new Extent(formed.Bytes.Length, source.Length), new Rung.Assumed(store.Tier), codec) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, formed.Bytes), formed.Bytes, frame)
-        from _c in ledger.Catalog(new BlobCatalogRow(key, kind, resident.Extent, store.Tier, codec, admitted.Lineage, frame.Tenant.TenantId, admitted.Classification, resident.WormUntil, formed.Dek, frame.Now()))
-        from _x in ledger.Close(key)
+        let handle = BlobName.Handle(client.Tenant, kind.Retention, codec, source.Length)
+        from _o in ledger.Open(new PendingWrite(kind, source.Length, frame.Now(), session))
+        from formed in store.Encode(codec, source)
+        from resident in MultipartTransfer.Upload(store, client, handle, BlobPlacement.From(new Extent(formed.Bytes.Length, source.Length), new Rung.Assumed(store.Tier), codec) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, formed.Bytes), formed.Bytes, frame)
+        from _c in ledger.Catalog(new BlobCatalogRow(kind, resident.Extent, store.Tier, codec, admitted.Lineage, frame.Tenant.TenantId, admitted.Classification, resident.WormUntil, formed.Dek, frame.Now()))
+        from _x in ledger.Close()
         select resident;
 
     public static Func<ContentAddress, bool> InFlightFence(Seq<PendingWrite> pending, Instant now) =>
@@ -132,9 +132,9 @@ public static class BlobGc {
     static RetentionFact ToFact(BlobCatalogRow row) => new(row.Class, row.Key, row.Extent.Stored, row.Tier, row.At);
 
     static IO<Unit> Demote(ObjectStore store, ObjectClient client, RetentionClass cls, ContentAddress key, StorageTier colder, FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm, Instant now) {
-        BlobHandle handle = BlobName.Handle(key, client.Tenant, cls, ObjectCodec.Identity, 0L);
-        return worm.TryGetValue(key, out (string Mode, Instant Until) held) && now < held.Until
-            ? IO.fail<Unit>(new RemoteStoreFault.Locked(key, held.Mode, held.Until))
+        BlobHandle handle = BlobName.Handle(client.Tenant, cls, ObjectCodec.Identity, 0L);
+        return worm.TryGetValue(out (string Mode, Instant Until) held) && now < held.Until
+            ? IO.fail<Unit>(new RemoteStoreFault.Locked(held.Mode, held.Until))
             : store.Head(client, handle).Bind(present => present.Match(Some: resident => resident.Tier is Rung.Realized { Tier: var realized } && realized == colder, None: static () => false)
                 ? IO.pure(unit)
                 : store.Transition(client, handle, colder, now));
@@ -143,24 +143,22 @@ public static class BlobGc {
     static Func<Seq<ContentAddress>, IO<EraseTally>> WormEvict(ObjectStore store, ObjectClient client, RetentionClass cls, FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm, Instant now) =>
         keys => {
             (Seq<ContentAddress> Held, Seq<ContentAddress> Free) split =
-                keys.Partition(key => worm.TryGetValue(key, out (string Mode, Instant Until) w) && now < w.Until);
+                keys.Partition(key => worm.TryGetValue(out (string Mode, Instant Until) w) && now < w.Until);
             EraseTally refused = new(split.Held.Count, split.Held.Map(static key => (Key: key, Code: nameof(RemoteStoreFault.Locked))));
             return split.Free.IsEmpty
                 ? IO.pure(refused)
-                : store.EraseMany(client, split.Free.Map(key => BlobName.Handle(key, client.Tenant, cls, ObjectCodec.Identity, 0L))).Map(page => refused + page);
+                : store.EraseMany(client, split.Free.Map(key => BlobName.Handle(client.Tenant, cls, ObjectCodec.Identity, 0L))).Map(page => refused + page);
         };
 
     public static IO<Seq<SweepTally>> Sweep(ObjectStore store, ObjectClient client, Seq<BlobCatalogRow> catalog, Seq<PendingWrite> pending, Reachability reachable, Seq<Hold> holds, ProjectionContext frame) {
         FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm = catalog.Choose(static r => r.WormUntil.Map(u => (r.Key, (Mode: "worm", Until: u)))).ToFrozenDictionary(static t => t.Key, static t => t.Item2);
         Instant now = frame.Now();
         Func<ContentAddress, bool> fence = InFlightFence(pending, now);
-        Func<ContentAddress, bool> eligible = key => fence(key) && !(worm.TryGetValue(key, out (string Mode, Instant Until) w) && now < w.Until);
+        Func<ContentAddress, bool> eligible = key => fence() && !(worm.TryGetValue(out (string Mode, Instant Until) w) && now < w.Until);
         return toSeq(catalog.GroupBy(static row => row.Class)).TraverseM(group =>
-            RetentionSweep.Execute(
-                group.Key,
-                RetentionSweep.Run(group.Key, toSeq(group).Map(ToFact), holds, reachable, eligible, now, frame.Correlation).Verdicts,
+            RetentionSweep.Execute(RetentionSweep.Run(group.Key, toSeq(group).Map(ToFact), holds, reachable, eligible, now, frame.Correlation).Verdicts,
                 WormEvict(store, client, group.Key, worm, now),
-                (key, tier) => Demote(store, client, group.Key, key, tier, worm, now),
+                (key, tier) => Demote(store, client, tier, worm, now),
                 frame)).As();
     }
 

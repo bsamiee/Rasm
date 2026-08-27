@@ -173,7 +173,6 @@ public sealed record RevertibleOp(
     ActorKey Actor,
     RevertDelta Delta,
     Hlc At) {
-    static readonly Op Admission = Op.Of(name: "history.admit");
 
     public RevertKind Kind => Delta.Kind;
 
@@ -181,12 +180,12 @@ public sealed record RevertibleOp(
 
     public static Fin<RevertibleOp> Admit(string target, string identity, string actor, RevertDelta delta, Hlc at) =>
         (Named(target),
-         Admission.AcceptValidated<ContentIdentity>(identity).ToValidation(),
-         Admission.AcceptValidated<ActorKey>(actor).ToValidation(),
+         FactoryBridge.Accept<ContentIdentity>(identity).ToValidation(),
+         FactoryBridge.Accept<ActorKey>(actor).ToValidation(),
          delta.Admit())
         .Apply(static (named, content, author, admitted) => new RevertibleOp(named, content, author, admitted, at))
         .As()
-        .Bind(static op => Closed(op).Map(_ => op))
+        .Bind(static op => Closed().Map(_ => op))
         .ToFin();
 
     static Validation<Error, Unit> Closed(RevertibleOp op) =>
@@ -245,7 +244,7 @@ public sealed partial class RevertArm {
         static cursor => cursor with { ClientDepth = Dimension.Create(cursor.ClientDepth.Value + 1) },
         static (scope, direction, cursor, identity) => IO.lift<Fin<(RevertibleOp, RevertCursor)>>(() => scope.Log.Head(direction, cursor).Match(
             Some: op => direction.Drive(scope.Recorder)
-                ? Fin.Succ((op, direction.After(Client, cursor)))
+                ? Fin.Succ((direction.After(Client, cursor)))
                 : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.ApplyRejected(op.Target)),
             None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(direction.Absent(identity)))));
 
@@ -326,20 +325,19 @@ public readonly record struct RevertCursor(Dimension ClientDepth, Dimension Dura
 public readonly record struct RevertWalk(Seq<RevertibleOp> Ops, RevertCursor Next, Option<Error> Halt);
 
 public readonly record struct RevertRow(OpLogEntry Entry, RevertPayload Payload) {
-    static readonly Op Decode = Op.Of(name: "history.decode");
 
     public static Fin<RevertRow> Of(OpLogEntry entry) =>
         (Decoded(entry),
-         Decode.AcceptValidated<ContentIdentity>(entry.EntityKey).ToValidation(),
-         Decode.AcceptValidated<ActorKey>(entry.Actor).ToValidation())
+         FactoryBridge.Accept<ContentIdentity>(entry.EntityKey).ToValidation(),
+         FactoryBridge.Accept<ActorKey>(entry.Actor).ToValidation())
         .Apply(static (payload, _, _) => payload)
         .As()
         .Map(payload => new RevertRow(entry, payload))
         .ToFin();
 
     static Validation<Error, RevertPayload> Decoded(OpLogEntry entry) =>
-        Decode.Catch(() => Fin.Succ(Optional(
-                JsonSerializer.Deserialize<RevertPayload>(entry.Payload.Span, EvidenceOps.Wire))))
+        Try.lift(() => Fin.Succ(Optional(
+                JsonSerializer.Deserialize<RevertPayload>(entry.Payload.Span, EvidenceOps.Wire)))).Run().Bind(static inner => inner)
             .Bind(payload => payload.ToFin(
                 new HistoryFault.PayloadUndecodable($"{entry.EntityKey}@{entry.Sequence}")))
             .ToValidation();
@@ -363,7 +361,7 @@ public sealed class ClientLog {
     public Seq<RevertibleOp> Live(RevertCursor cursor) => Retained(Ops.Value, cursor);
 
     public Transition<Seq<RevertibleOp>> Push(RevertibleOp op, RevertCursor cursor) =>
-        Cell.Commit(Ops, held => Retained(held, cursor).Add(op));
+        Cell.Commit(Ops, held => Retained(held, cursor).Add());
 
     public Option<RevertibleOp> Head(RevertDirection direction, RevertCursor cursor) =>
         Head(Ops.Value, direction, cursor);
@@ -406,7 +404,7 @@ public sealed record RevertScope(
             (running, _) => running.Bind(walk => walk.Halt.IsSome
                 ? IO.pure(walk)
                 : Revert(direction, walk.Next, identity).Map(outcome => outcome.Match(
-                    Succ: step => walk with { Ops = walk.Ops.Add(step.Op), Next = step.Next },
+                    Succ: step => walk with { Ops = walk.Ops.Add(), Next = step.Next },
                     Fail: error => walk with { Halt = Some(error) }))));
 
     static RevertPage Admitted(Seq<OpLogEntry> entries) =>
@@ -510,11 +508,11 @@ public sealed record EditHistory(
         RevertibleOp op, RevertCursor cursor,
         HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         IO.lift(() => {
-            Recorder.PushCommand(op.ToCommand(op.Kind.Key, Scope.Apply, Park));
-            return Scope.Log.Push(op, cursor);
+            Recorder.PushCommand(op.ToCommand(Scope.Apply, Park));
+            return Scope.Log.Push(cursor);
         })
         .Map(settled => Fire(
-            op.Target, op.Kind.Key, new EditOutcome.Committed(op.Kind.Key),
+            op.Target, new EditOutcome.Committed(),
             settled is Transition<Seq<RevertibleOp>>.Committed ? RevertCursor.Start : cursor,
             hooks));
 
@@ -523,7 +521,7 @@ public sealed record EditHistory(
         HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         Scope.Revert(direction, cursor, identity).Map(outcome => outcome.Match(
             Succ: advanced => Fire(
-                advanced.Op.Target, advanced.Op.Kind.Key, direction.Outcome(advanced.Op.Kind.Key), advanced.Next, hooks),
+                advanced.Op.Target, direction.Outcome(), advanced.Next, hooks),
             Fail: error => Fire(
                 identity.Value, string.Empty, new EditOutcome.Rejected(error), cursor, hooks)));
 
@@ -571,7 +569,6 @@ public sealed record EditHistory(
         hooks.Fire(
             AppUiPoint.Edit,
             new AppUiFact.Edit(AppUiPoint.Edit.Key, Surface.Value, target, editor, outcome.GetType().Name),
-            Op.Of(name: "appui.history.edit"),
             body: _ => Fin.Succ(next));
 
     public static readonly InstrumentSpec Reverted = InstrumentSpec.Create(
@@ -750,14 +747,12 @@ public sealed record TimelineSurface(
 
     private static Seq<TimelineEntry> Rows(
         Seq<RevertibleOp> client, RevertPage durable, RevertCursor cursor, Option<RevertOrdinal> halted) =>
-        (client.Rev() + durable.Ops).Map(static (op, index) => (Ordinal: RevertOrdinal.Create(index), Op: op))
-            .Bind(row => Seated(
-                row.Op,
-                TimelineKey.Root(row.Ordinal.Value < client.Count ? RevertArm.Client : RevertArm.Durable, row.Ordinal),
+        (client.Rev() + durable.Ops).Map(static (op, index) => RevertOrdinal.Create(index))
+            .Bind(row => Seated(TimelineKey.Root(row.Ordinal.Value < client.Count ? RevertArm.Client : RevertArm.Durable, row.Ordinal),
                 RevertPhase.At(row.Ordinal, cursor.Position, halted)));
 
     private static Seq<TimelineEntry> Seated(RevertibleOp op, TimelineKey key, RevertPhase phase) =>
-        new TimelineEntry(key, op, phase)
+        new TimelineEntry(phase)
             .Cons(op.Delta.Children.Map((child, at) => new TimelineEntry(key with { Child = at }, child, phase)));
 
     public WindowLease<RealizedItem<FlatNode<TimelineEntry>>> Lease(

@@ -346,9 +346,9 @@ public sealed partial class FidelityTier {
     public string LabelKey => LocaleStrings.Key(nameof(FidelityTier), Key);
 
     public static Fin<FidelityTier> Elect(string key) =>
-        TryGet(key, out FidelityTier? row) && row is not null
+        TryGet(out FidelityTier? row) && row is not null
             ? Fin.Succ(row)
-            : Fin.Fail<FidelityTier>(new ContextFault.TierUnknown(key));
+            : Fin.Fail<FidelityTier>(new ContextFault.TierUnknown());
 }
 ```
 
@@ -361,8 +361,6 @@ public sealed record BudgetMeter(
     Option<Distribution<Elapsed>> Estimate) {
     const int PreviewPoints = 4096;
 
-    static readonly Op MeterKey = Op.Of(name: "appui.analysis.budget");
-
     public static Fin<BudgetMeter> Of(
         string tier,
         BoundingBox extent,
@@ -373,7 +371,7 @@ public sealed record BudgetMeter(
         Seq<Duration> priorRuns) =>
         from row in FidelityTier.Elect(tier)
         from ceiling in Ceiling(budget, quality, row, bytesPerCell)
-        from spacing in MeterKey.AcceptValidated<PositiveMagnitude>(candidate: pitch.Value * row.Pitch)
+        from spacing in FactoryBridge.Accept<PositiveMagnitude>(candidate: pitch.Value * row.Pitch)
             .MapFail(_ => (Error)new ContextFault.LatticeRejected($"pitch {pitch.Value} at {row.Key} x{row.Pitch}"))
         from solved in CellLattice.Of(extent, spacing, ceiling, MeterKey)
         from estimate in Estimated(priorRuns)

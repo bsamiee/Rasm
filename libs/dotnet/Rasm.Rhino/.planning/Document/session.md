@@ -34,7 +34,7 @@ public abstract partial record DraftFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostDraft;
     private DraftFault() { }
 
-    [FaultCase(0)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : DraftFault;
+    [FaultCase(0)] public sealed partial record HostRefused(string Member, string Detail) : DraftFault;
 
     public sealed override string Message => Switch(
         hostRefused: static fault => $"Draft host member '{fault.Member}' refused '{fault.Key}': {fault.Detail}");
@@ -77,31 +77,28 @@ public interface IDetachedDocumentResult { }
 public readonly partial struct DocKey : IDetachedDocumentResult {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
         validationError = value is 0u
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DocKey), 0d, "a positive runtime serial" }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(DocKey), 0d, "a positive runtime serial" }))
             : null;
 
-    internal Fin<RhinoDoc> Resolve(Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Optional(RhinoDoc.FromRuntimeSerialNumber(serialNumber: this))
-            .ToFin(Fail: op.MissingContext()));
+    internal Fin<RhinoDoc> Resolve() {
+        return Try.lift(() => Optional(RhinoDoc.FromRuntimeSerialNumber(serialNumber: this))
+            .ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner);
     }
 
-    public static Fin<DocKey> Of(RhinoDoc document, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Optional(document)
-            .ToFin(Fail: op.MissingContext())
-            .Bind(candidate => op.AcceptValidated<DocKey>(candidate: candidate.RuntimeSerialNumber)));
+    public static Fin<DocKey> Of(RhinoDoc document) {
+        return Try.lift(() => Optional(document)
+            .ToFin(Fail: new KernelFault.MissingContext())
+            .Bind(candidate => FactoryBridge.Accept<DocKey>(candidate: candidate.RuntimeSerialNumber))).Run().Bind(static inner => inner);
     }
 
-    public static Fin<Seq<DocKey>> Census(DocumentSet scope, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in op.Need(scope)
-               from documents in op.Catch(() => Fin.Succ(
+    public static Fin<Seq<DocKey>> Census(DocumentSet scope) {
+        return from admitted in Admit.Need(scope)
+               from documents in Try.lift(() => Fin.Succ(
                    value: toSeq(RhinoDoc.OpenDocuments(includeHeadless: admitted.IncludeHeadless))
                        .Filter(document => admitted.Admits(document: document))
-                       .Strict()))
+                       .Strict())).Run().Bind(static inner => inner)
                from keys in documents
-                   .Traverse(document => Of(document: document, key: op).ToValidation())
+                   .Traverse(document => Of(document: document).ToValidation())
                    .As()
                    .ToFin()
                select keys.Strict();
@@ -248,7 +245,6 @@ public sealed partial class SessionSnapshot : IDetachedDocumentResult {
         ref SessionPhase phase,
         ref CapabilitySet<SessionCondition> conditions,
         ref Option<Guid> activeCommand) {
-        Op op = Op.Of();
         CapabilitySet<SessionCondition> held = conditions;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (key == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Key) }))),
@@ -263,16 +259,15 @@ public sealed partial class SessionSnapshot : IDetachedDocumentResult {
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "a headless document acquires no point" }))));
     }
 
-    internal static Fin<SessionSnapshot> Of(RhinoDoc document, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(document).ToFin(Fail: op.MissingContext())
-               from facts in op.Catch(() => Fin.Succ(value: SessionMap.Facts(document: active)))
-               from identity in op.AcceptValidated<DocKey>(candidate: facts.Serial)
+    internal static Fin<SessionSnapshot> Of(RhinoDoc document) {
+        return from active in Optional(document).ToFin(Fail: new KernelFault.MissingContext())
+               from facts in Try.lift(() => Fin.Succ(value: SessionMap.Facts(document: active))).Run().Bind(static inner => inner)
+               from identity in FactoryBridge.Accept<DocKey>(candidate: facts.Serial)
                from path in Optional(facts.Path)
                    .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-                   .Traverse(value => DocumentPath.Of(value: value, key: op))
+                   .Traverse(value => DocumentPath.Of(value: value))
                    .As()
-               from snapshot in op.AcceptValidated<SessionSnapshot>(
+               from snapshot in FactoryBridge.Accept<SessionSnapshot>(
                    Validate(
                        identity,
                        path,
@@ -319,11 +314,11 @@ public sealed partial class WorksessionModel {
         ref DocumentPath path,
         ref WorksessionCustody custody) =>
         validationError = string.IsNullOrWhiteSpace(value: path.Value) || custody is null
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(WorksessionModel) }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(WorksessionModel) }))
             : null;
 
-    internal static Fin<WorksessionModel> Of(DocumentPath path, WorksessionCustody custody, Op key) =>
-        key.AcceptValidated<WorksessionModel>(Validate(path, custody, out WorksessionModel? admitted), admitted);
+    internal static Fin<WorksessionModel> Of(DocumentPath path, WorksessionCustody custody) =>
+        FactoryBridge.Accept<WorksessionModel>(Validate(path, custody, out WorksessionModel? admitted), admitted);
 }
 
 [ComplexValueObject]
@@ -348,7 +343,6 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
         ref int reportedCount,
         ref bool unsavedActive,
         ref HashMap<uint, DocumentPath> resolved) {
-        Op op = Op.Of();
         Seq<WorksessionModel> admittedModels = models.Choose(static model => Optional(model)).Strict();
         int difference = reportedCount - admittedModels.Count;
         int activeCount = admittedModels.Filter(static model => model.Custody == WorksessionCustody.Active).Count;
@@ -376,54 +370,50 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
 
     public bool Member(DocumentPath path) => Models.Exists(model => model.Path == path);
 
-    public static Fin<Option<DocumentPath>> FileOf(uint runtimeSerial, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in guard(runtimeSerial > 0u, op.InvalidInput()).ToFin()
-               from resolved in op.Catch(() => Optional(global::Rhino.DocObjects.Worksession.FileNameFromRuntimeSerialNumber(
+    public static Fin<Option<DocumentPath>> FileOf(uint runtimeSerial) {
+        return from admitted in guard(runtimeSerial > 0u, new KernelFault.InvalidInput()).ToFin()
+               from resolved in Try.lift(() => Optional(global::Rhino.DocObjects.Worksession.FileNameFromRuntimeSerialNumber(
                        runtimeSerialNumber: runtimeSerial))
                    .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-                   .Traverse(value => DocumentPath.Of(value: value, key: op))
-                   .As())
+                   .Traverse(value => DocumentPath.Of(value: value))
+                   .As()).Run().Bind(static inner => inner)
                select resolved;
     }
 
-    internal static Fin<WorksessionSnapshot> Of(RhinoDoc document, Op key, Seq<uint> modelSerials) =>
-        from owner in Optional(document).ToFin(Fail: key.MissingContext())
-        from identity in DocKey.Of(document: owner, key: key)
+    internal static Fin<WorksessionSnapshot> Of(RhinoDoc document, Seq<uint> modelSerials) =>
+        from owner in Optional(document).ToFin(Fail: new KernelFault.MissingContext())
+        from identity in DocKey.Of(document: owner)
         from active in Optional(owner.Path)
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-            .Traverse(value => DocumentPath.Of(value: value, key: key))
+            .Traverse(value => DocumentPath.Of(value: value))
             .As()
-        from worksession in key.Catch(() => Optional(owner.Worksession).ToFin(Fail: new DraftFault.HostRefused(
-            Key: key, Member: nameof(RhinoDoc.Worksession), Detail: "returned no worksession")))
-        from facts in key.Catch(() => Fin.Succ(value: SessionMap.Worksession(worksession: worksession)))
+        from worksession in Try.lift(() => Optional(owner.Worksession).ToFin(Fail: new DraftFault.HostRefused(Member: nameof(RhinoDoc.Worksession), Detail: "returned no worksession"))).Run().Bind(static inner => inner)
+        from facts in Try.lift(() => Fin.Succ(value: SessionMap.Worksession(worksession: worksession))).Run().Bind(static inner => inner)
         from paths in toSeq(facts.ModelPaths ?? [])
-            .Traverse(value => DocumentPath.Of(value: value, key: key).ToValidation())
+            .Traverse(value => DocumentPath.Of(value: value).ToValidation())
             .As()
             .ToFin()
         from definition in Optional(facts.FileName)
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-            .Traverse(value => DocumentPath.Of(value: value, key: key))
+            .Traverse(value => DocumentPath.Of(value: value))
             .As()
         from models in paths
             .Traverse(path => WorksessionModel.Of(
                 path: path,
                 custody: active.Exists(candidate => candidate == path)
                     ? WorksessionCustody.Active
-                    : WorksessionCustody.Reference,
-                key: key).ToValidation())
+                    : WorksessionCustody.Reference).ToValidation())
             .As()
             .ToFin()
         from requested in modelSerials
-            .Traverse(serial => (guard(serial > 0u, key.InvalidInput()).ToFin().Map(_ => serial)).ToValidation())
+            .Traverse(serial => (guard(serial > 0u, new KernelFault.InvalidInput()).ToFin().Map(_ => serial)).ToValidation())
             .As()
             .ToFin()
         from resolved in Resolve(
             worksession: worksession,
             requested: requested,
-            roster: models.Map(static model => model.Path).ToHashSet(),
-            key: key)
-        from snapshot in key.AcceptValidated<WorksessionSnapshot>(
+            roster: models.Map(static model => model.Path).ToHashSet())
+        from snapshot in FactoryBridge.Accept<WorksessionSnapshot>(
             Validate(
                 identity,
                 Optional(facts.Serial).Filter(static serial => serial > 0u),
@@ -440,29 +430,28 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
     private static Fin<HashMap<uint, DocumentPath>> Resolve(
         global::Rhino.DocObjects.Worksession worksession,
         Seq<uint> requested,
-        HashSet<DocumentPath> roster,
-        Op key) =>
-        from unique in guard(requested.Distinct().Count == requested.Count, key.InvalidInput())
+        HashSet<DocumentPath> roster) =>
+        from unique in guard(requested.Distinct().Count == requested.Count, new KernelFault.InvalidInput())
             .ToFin()
             .Map(_ => requested)
         from rows in unique
-            .Traverse(serial => key.Catch(() => Optional(worksession.ModelPathFromSerialNumber(modelSerialNumber: serial))
+            .Traverse(serial => Try.lift(() => Optional(worksession.ModelPathFromSerialNumber(modelSerialNumber: serial))
                     .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
-                    .ToFin(Fail: key.MissingContext())
-                    .Bind(value => DocumentPath.Of(value: value, key: key))
-                    .Map(path => (Serial: serial, Path: path)))
+                    .ToFin(Fail: new KernelFault.MissingContext())
+                    .Bind(value => DocumentPath.Of(value: value))
+                    .Map(path => (Serial: serial, Path: path))).Run().Bind(static inner => inner)
                 .ToValidation())
             .As()
             .ToFin()
         from _ in (
-                guard(rows.Count == unique.Count, key.InvalidResult()).ToFin().ToValidation(),
-                guard(rows.Map(static row => row.Serial).Distinct().Count == unique.Count, key.InvalidResult())
+                guard(rows.Count == unique.Count, new KernelFault.InvalidResult()).ToFin().ToValidation(),
+                guard(rows.Map(static row => row.Serial).Distinct().Count == unique.Count, new KernelFault.InvalidResult())
                     .ToFin()
                     .ToValidation(),
-                guard(unique.ForAll(serial => rows.Exists(row => row.Serial == serial)), key.InvalidResult())
+                guard(unique.ForAll(serial => rows.Exists(row => row.Serial == serial)), new KernelFault.InvalidResult())
                     .ToFin()
                     .ToValidation(),
-                guard(rows.ForAll(row => roster.Contains(key: row.Path)), key.InvalidResult())
+                guard(rows.ForAll(row => roster.Contains(key: row.Path)), new KernelFault.InvalidResult())
                     .ToFin()
                     .ToValidation())
             .Apply(static (_, _, _, _) => unit)
@@ -518,14 +507,13 @@ public sealed record WorksessionOp {
         verbs: Seq(WorksessionVerb.Detach, WorksessionVerb.Attach));
 
     private static Fin<WorksessionOp> Scriptable(DocumentPath model, Seq<WorksessionVerb> verbs) {
-        Op op = Op.Of();
-        return from admitted in guard(model != default, op.InvalidInput()).ToFin()
-               from safe in guard(model.Value.IndexOfAny(['\r', '\n', '"']) < 0, op.InvalidInput())
+        return from admitted in guard(model != default, new KernelFault.InvalidInput()).ToFin()
+               from safe in guard(model.Value.IndexOfAny(['\r', '\n', '"']) < 0, new KernelFault.InvalidInput())
                from program in verbs
-                   .Traverse(verb => op.Need(verb).ToValidation())
+                   .Traverse(verb => Admit.Need(verb).ToValidation())
                    .As()
                    .ToFin()
-               from nonempty in guard(!program.IsEmpty, op.InvalidInput())
+               from nonempty in guard(!program.IsEmpty, new KernelFault.InvalidInput())
                select new WorksessionOp(model: model, verbs: program.Strict());
     }
 }
@@ -538,18 +526,16 @@ public sealed record WorksessionOutcome(
 public static class SessionWorksession {
     extension(DocumentSession session) {
         public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
-            Op op = Op.Of();
             Seq<uint> serials = toSeq(modelSerials.ToArray());
-            return op.Need(session).Bind(scope => scope.Demand(
+            return Admit.Need(session).Bind(scope => scope.Demand(
                 use: document => WorksessionSnapshot.Of(document: document, key: op, modelSerials: serials),
                 key: op,
                 needs: [SessionNeed.Read]));
         }
 
-        public Fin<WorksessionOutcome> Worksession(WorksessionOp change, Op? key = null) {
-            Op op = key.OrDefault();
-            return from scope in op.Need(session)
-                   from request in op.Need(change)
+        public Fin<WorksessionOutcome> Worksession(WorksessionOp change) {
+            return from scope in Admit.Need(session)
+                   from request in Admit.Need(change)
                    from outcome in scope.Demand(
                        use: document =>
                            from before in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
@@ -568,37 +554,35 @@ public static class SessionWorksession {
                                    completed: completed,
                                    op: op))
                            select new WorksessionOutcome(Operation: request, Before: before, After: after),
-                       key: op,
                        needs: [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Acquire, SessionNeed.Interrupt])
                    select outcome;
         }
     }
 
-    private static Fin<Unit> Apply(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) =>
-        from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-        from admitted in guard(current.Member(path: model) == verb.Shift.Before, op.InvalidInput())
+    private static Fin<Unit> Apply(RhinoDoc document, DocumentPath model, WorksessionVerb verb) =>
+        from current in WorksessionSnapshot.Of(document: document, modelSerials: Seq<uint>())
+        from admitted in guard(current.Member(path: model) == verb.Shift.Before, new KernelFault.InvalidInput())
         from landed in (
-            from run in Run(document: document, model: model, verb: verb, op: op)
-            from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-            from exact in guard(proof.Member(path: model) == verb.Shift.After, op.InvalidResult())
+            from run in Run(document: document, model: model, verb: verb)
+            from proof in WorksessionSnapshot.Of(document: document, modelSerials: Seq<uint>())
+            from exact in guard(proof.Member(path: model) == verb.Shift.After, new KernelFault.InvalidResult())
             select unit)
-            .Rollback(() => Restore(document: document, model: model, completed: Seq(verb), op: op))
+            .Rollback(() => Restore(document: document, model: model, completed: Seq(verb)))
         select unit;
 
     private static Fin<Unit> Restore(
         RhinoDoc document,
         DocumentPath model,
-        Seq<WorksessionVerb> completed,
-        Op op) => completed.Rev()
+        Seq<WorksessionVerb> completed) => completed.Rev()
         .Traverse(verb => {
             WorksessionVerb inverse = verb.Inverse();
-            return (from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
+            return (from current in WorksessionSnapshot.Of(document: document, modelSerials: Seq<uint>())
                     from restored in current.Member(path: model) == inverse.Shift.After
                         ? Fin.Succ(value: unit)
-                        : from admitted in guard(current.Member(path: model) == inverse.Shift.Before, op.InvalidResult()).ToFin()
-                          from run in Run(document: document, model: model, verb: inverse, op: op)
-                          from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-                          from landed in guard(proof.Member(path: model) == inverse.Shift.After, op.InvalidResult())
+                        : from admitted in guard(current.Member(path: model) == inverse.Shift.Before, new KernelFault.InvalidResult()).ToFin()
+                          from run in Run(document: document, model: model, verb: inverse)
+                          from proof in WorksessionSnapshot.Of(document: document, modelSerials: Seq<uint>())
+                          from landed in guard(proof.Member(path: model) == inverse.Shift.After, new KernelFault.InvalidResult())
                           select unit
                     select restored).ToValidation();
         })
@@ -606,14 +590,13 @@ public static class SessionWorksession {
         .ToFin()
         .Map(static _ => unit);
 
-    private static Fin<Unit> Run(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) =>
-        op.Catch(() => RhinoApp.RunScript(
+    private static Fin<Unit> Run(RhinoDoc document, DocumentPath model, WorksessionVerb verb) =>
+        Try.lift(() => RhinoApp.RunScript(
             documentSerialNumber: document.RuntimeSerialNumber,
             script: verb.Script(model: model),
             echo: false)
                 ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(new DraftFault.HostRefused(
-                    Key: op, Member: nameof(RhinoApp.RunScript), Detail: $"{verb.Key}:{model.Value}")));
+                : Fin.Fail<Unit>(new DraftFault.HostRefused(Member: nameof(RhinoApp.RunScript), Detail: $"{verb.Key}:{model.Value}"))).Run().Bind(static inner => inner);
 }
 ```
 
@@ -648,12 +631,11 @@ public sealed partial class SessionMode {
     [UseDelegateFromConstructor]
     public partial CapabilitySet<LaneCapability> Capabilities();
 
-    public static Fin<SessionMode> OfRunMode(RunMode mode, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<SessionMode> OfRunMode(RunMode mode) {
         return mode switch {
             RunMode.Interactive => Fin.Succ(value: Interactive),
             RunMode.Scripted => Fin.Succ(value: Scripted),
-            var unknown => Fin.Fail<SessionMode>(error: op.InvalidResult(detail: unknown.ToString())),
+            var unknown => Fin.Fail<SessionMode>(error: new KernelFault.InvalidResult(Detail: Some(unknown.ToString()))),
         };
     }
 }
@@ -723,22 +705,22 @@ public sealed partial class SessionNeed {
     [UseDelegateFromConstructor] internal partial CapabilitySet<SessionCondition> Demands();
     [UseDelegateFromConstructor] internal partial CapabilitySet<SessionCondition> Barred();
 
-    internal Validation<Error, SessionNeed> Admit(SessionSnapshot snapshot, SessionMode mode, Op op) {
+    internal Validation<Error, SessionNeed> Admit(SessionSnapshot snapshot, SessionMode mode) {
         SessionNeed need = this;
         return FactoryValidation.Admit(
                 FactoryValidation.Violated(
                     (!mode.Capabilities().AdmitsAll(Lane()),
-                        () => need.Ground(op: op, axis: "lane", shortfall: mode.Capabilities().Missing(Lane()).Wire)),
-                    (!Stances().Admits(capability: snapshot.Phase.Stance), () => need.Ground(op: op, axis: "stance")),
+                        () => need.Ground(axis: "lane", shortfall: mode.Capabilities().Missing(Lane()).Wire)),
+                    (!Stances().Admits(capability: snapshot.Phase.Stance), () => need.Ground(axis: "stance")),
                     (!snapshot.Conditions.AdmitsAll(Demands()),
-                        () => need.Ground(op: op, axis: "demand", shortfall: snapshot.Conditions.Missing(Demands()).Wire)),
+                        () => need.Ground(axis: "demand", shortfall: snapshot.Conditions.Missing(Demands()).Wire)),
                     (toSeq(Barred().Held).Exists(row => snapshot.Conditions.Admits(capability: row)),
-                        () => need.Ground(op: op, axis: "barred"))))
+                        () => need.Ground(axis: "barred"))))
             .ToValidation()
             .Map(_ => need);
     }
 
-    private ValidationClause Ground(Op op, string axis, Option<string> shortfall = default) =>
+    private ValidationClause Ground(string axis, Option<string> shortfall = default) =>
         new(string.Join(" | ", new object?[] { op, Key, $"the '{Key}' need admitted on the '{axis}' axis"
                 + shortfall.Match(Some: static wire => $"; missing <{wire}>", None: static () => string.Empty) }));
 
@@ -770,19 +752,19 @@ public readonly partial struct DocumentPath : IDetachedDocumentResult {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value switch {
-            "" => new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DocumentPath) })),
+            "" => new ValidationError(string.Join(" | ", new object?[] { nameof(DocumentPath) })),
             var path when !Path.IsPathFullyQualified(path: path) =>
-                new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DocumentPath), "a fully qualified path" })),
+                new ValidationError(string.Join(" | ", new object?[] { nameof(DocumentPath), "a fully qualified path" })),
             _ => null,
         };
     }
 
-    public static Fin<DocumentPath> Of(string value, Op? key = null) =>
+    public static Fin<DocumentPath> Of(string value) =>
         key.OrDefault().AcceptValidated<DocumentPath>(candidate: value);
 
-    internal Fin<string> Resolve(DocumentFile file, Op key) =>
-        from policy in key.Need(file)
-        from pathAdmitted in guard(flag: policy.Admits(path: Value), False: key.InvalidInput())
+    internal Fin<string> Resolve(DocumentFile file) =>
+        from policy in Admit.Need(file)
+        from pathAdmitted in guard(flag: policy.Admits(path: Value), False: new KernelFault.InvalidInput())
         select Value;
 }
 
@@ -813,48 +795,43 @@ public abstract partial record SessionSource {
     public sealed record Archive(DocumentPath Path) : SessionSource;
     public sealed record Configured(DocumentPath Path, ArchiveMap Options) : SessionSource;
 
-    internal Fin<Lease<RhinoDoc>> Acquire(SessionMode mode, Op key) =>
-        from modeAdmitted in Admits(mode: mode, key: key)
+    internal Fin<Lease<RhinoDoc>> Acquire(SessionMode mode) =>
+        from modeAdmitted in Admits(mode: mode)
         from lease in Switch(
             state: key,
-            live: static (op, source) => Borrowed(document: Optional(source.Document).ToFin(Fail: op.MissingContext())),
-            active: static (op, _) => op.Catch(() =>
-                Borrowed(document: Optional(RhinoDoc.ActiveDoc).ToFin(Fail: op.MissingContext()))),
-            keyed: static (op, source) => Borrowed(document: source.Key.Resolve(key: op)),
-            opened: static (op, source) =>
-                from path in source.Path.Resolve(file: DocumentFile.ThreeDm, key: op)
-                from acquired in op.Catch(() => Borrowed(document: Optional(RhinoDoc.Open(
+            live: static (source) => Borrowed(document: Optional(source.Document).ToFin(Fail: new KernelFault.MissingContext())),
+            active: static (_) => Try.lift(() =>
+                Borrowed(document: Optional(RhinoDoc.ActiveDoc).ToFin(Fail: new KernelFault.MissingContext()))).Run().Bind(static inner => inner),
+            keyed: static (source) => Borrowed(document: source.Key.Resolve()),
+            opened: static (source) =>
+                from path in source.Path.Resolve(file: DocumentFile.ThreeDm)
+                from acquired in Try.lift(() => Borrowed(document: Optional(RhinoDoc.Open(
                         filePath: path,
                         wasAlreadyOpen: out _))
-                    .ToFin(Fail: new DraftFault.HostRefused(
-                        Key: op, Member: nameof(RhinoDoc.Open), Detail: path.Value))))
+                    .ToFin(Fail: new DraftFault.HostRefused(Member: nameof(RhinoDoc.Open), Detail: path.Value)))).Run().Bind(static inner => inner)
                 select acquired,
-            empty: static (op, _) => op.Catch(() => Minted(
+            empty: static (_) => Try.lift(() => Minted(
                 document: RhinoDoc.CreateHeadless(file3dmTemplatePath: string.Empty),
-                member: nameof(RhinoDoc.CreateHeadless),
-                key: op)),
-            template: static (op, source) => Headless(
+                member: nameof(RhinoDoc.CreateHeadless))).Run().Bind(static inner => inner),
+            template: static (source) => Headless(
                 path: source.Path,
                 open: static resolved => RhinoDoc.CreateHeadless(file3dmTemplatePath: resolved),
-                member: nameof(RhinoDoc.CreateHeadless),
-                key: op),
-            archive: static (op, source) => Headless(
+                member: nameof(RhinoDoc.CreateHeadless)),
+            archive: static (source) => Headless(
                 path: source.Path,
                 open: static resolved => RhinoDoc.OpenHeadless(file3dmPath: resolved),
-                member: nameof(RhinoDoc.OpenHeadless),
-                key: op),
-            configured: static (op, source) =>
-                from path in source.Path.Resolve(file: DocumentFile.Existing, key: op)
-                from options in op.Need(source.Options)
-                from minted in options.Mint(key: op)
-                from lease in op.Catch(() => Minted(
+                member: nameof(RhinoDoc.OpenHeadless)),
+            configured: static (source) =>
+                from path in source.Path.Resolve(file: DocumentFile.Existing)
+                from options in Admit.Need(source.Options)
+                from minted in options.Mint()
+                from lease in Try.lift(() => Minted(
                     document: RhinoDoc.OpenHeadless(filePath: path, options: minted),
-                    member: nameof(RhinoDoc.OpenHeadless),
-                    key: op))
+                    member: nameof(RhinoDoc.OpenHeadless))).Run().Bind(static inner => inner)
                 select lease)
         select lease;
 
-    private Fin<Unit> Admits(SessionMode mode, Op key) =>
+    private Fin<Unit> Admits(SessionMode mode) =>
         guard(
             flag: Switch(
                 state: mode.Capabilities().Admits(capability: LaneCapability.Live),
@@ -866,19 +843,19 @@ public abstract partial record SessionSource {
                 template: static (live, _) => !live,
                 archive: static (live, _) => !live,
                 configured: static (live, _) => !live),
-            False: key.InvalidInput()).ToFin();
+            False: new KernelFault.InvalidInput()).ToFin();
 
     private static Fin<Lease<RhinoDoc>> Borrowed(Fin<RhinoDoc> document) =>
         document.Map(static value => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: value));
 
-    private static Fin<Lease<RhinoDoc>> Headless(DocumentPath path, Func<string, RhinoDoc?> open, string member, Op key) =>
-        from resolved in path.Resolve(file: DocumentFile.ThreeDm, key: key)
-        from lease in key.Catch(() => Minted(document: open(arg: resolved), member: member, key: key))
+    private static Fin<Lease<RhinoDoc>> Headless(DocumentPath path, Func<string, RhinoDoc?> open, string member) =>
+        from resolved in path.Resolve(file: DocumentFile.ThreeDm)
+        from lease in Try.lift(() => Minted(document: open(arg: resolved), member: member)).Run().Bind(static inner => inner)
         select lease;
 
-    private static Fin<Lease<RhinoDoc>> Minted(RhinoDoc? document, string member, Op key) =>
+    private static Fin<Lease<RhinoDoc>> Minted(RhinoDoc? document, string member) =>
         Optional(document)
-            .ToFin(Fail: new DraftFault.HostRefused(Key: key, Member: member, Detail: "returned no document"))
+            .ToFin(Fail: new DraftFault.HostRefused(Member: member, Detail: "returned no document"))
             .Map(static value => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Owned(Value: value));
 }
 
@@ -911,9 +888,8 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         SessionSource source,
         SessionMode mode,
         params ReadOnlySpan<SessionNeed> needs) {
-        Op op = Op.Of();
-        return from admission in Admission.Pair(first: source, second: mode, key: op)
-               from demanded in AdmitNeeds(needs: needs, mode: admission.Second, op: op)
+        return from admission in Admission.Pair(first: source, second: mode)
+               from demanded in AdmitNeeds(needs: needs, mode: admission.Second)
                from session in Marshalled(
                    mode: admission.Second,
                    use: () =>
@@ -921,42 +897,34 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                        from adopted in Adopt(
                            acquired: acquired,
                            lane: admission.Second,
-                           granted: demanded,
-                           op: op)
-                       select adopted,
-                   op: op)
+                           granted: demanded)
+                       select adopted)
                select session;
     }
 
-    public Fin<SessionSnapshot> Snapshot(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<SessionSnapshot> Snapshot() {
         return Demand(
             use: document => SessionSnapshot.Of(document: document, key: op),
-            key: op,
             needs: [SessionNeed.Observe]);
     }
 
     internal Fin<TResult> Demand<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
-        Op? key = null,
         params ReadOnlySpan<SessionNeed> needs)
         where TResult : IDetachedDocumentResult =>
-        Within(use: use, key: key, needs: needs);
+        Within(use: use, needs: needs);
 
     internal Fin<Unit> Demand(
         Func<RhinoDoc, Fin<Unit>> use,
-        Op? key = null,
         params ReadOnlySpan<SessionNeed> needs) =>
-        Within(use: use, key: key, needs: needs);
+        Within(use: use, needs: needs);
 
     private Fin<TResult> Within<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
-        Op? key,
         ReadOnlySpan<SessionNeed> needs) {
-        Op op = key.OrDefault();
         return from admission in (
-                   op.Need(use).ToValidation(),
-                   AdmitNeeds(needs: needs, mode: Mode, op: op).ToValidation())
+                   Admit.Need(use).ToValidation(),
+                   AdmitNeeds(needs: needs, mode: Mode).ToValidation())
                    .Apply(static (body, requested) => (Body: body, Requested: requested))
                    .As()
                    .ToFin()
@@ -964,31 +932,25 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                    mode: Mode,
                    use: () => Bracketed(
                        use: admission.Body,
-                       requested: admission.Requested,
-                       op: op),
-                   op: op)
+                       requested: admission.Requested))
                select result;
     }
 
-    public Fin<Context> Context(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Context> Context() {
         return Demand(
             use: document => Rasm.Domain.Context.Of(doc: document)
                 .ToFin()
                 .Map(static value => new DetachedContext(Value: value)),
-            key: op,
             needs: [SessionNeed.Read])
             .Map(static detached => detached.Value);
     }
 
-    public Fin<SessionSnapshot> Interrupt(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<SessionSnapshot> Interrupt() {
         return Demand(
             use: document => {
                 document.TimeoutActiveGet();
                 return SessionSnapshot.Of(document: document, key: op);
             },
-            key: op,
             needs: [SessionNeed.Interrupt]);
     }
 
@@ -1000,55 +962,53 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                     : Some(held.Depth is 0
                         ? held with { Released = true }
                         : held with { Closing = true }),
-                Op.Of().InvalidResult())
+                new KernelFault.InvalidResult())
             .Switch(
                 state: this,
-                committed: static (session, row) => row.State.Released ? ignore(session.Release(op: Op.Of())) : unit,
+                committed: static (session, row) => row.State.Released ? ignore(session.Release()) : unit,
                 ceded: static (_, _) => unit,
                 refused: static (_, _) => unit,
                 contended: static (_, _) => unit));
 
     private Fin<TResult> Bracketed<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
-        LanguageExt.HashSet<SessionNeed> requested,
-        Op op) =>
-        IO.lift(() => Enter(op: op))
+        LanguageExt.HashSet<SessionNeed> requested) =>
+        IO.lift(() => Enter())
             .Bracket(
-                Use: _ => IO.lift(() => Proven(use: use, requested: requested, op: op)),
-                Fin: _ => IO.lift(() => Exit(op: op)))
+                Use: _ => IO.lift(() => Proven(use: use, requested: requested)),
+                Fin: _ => IO.lift(() => Exit()))
             .Run()
             .Flatten();
 
     private Fin<TResult> Proven<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
-        LanguageExt.HashSet<SessionNeed> requested,
-        Op op) =>
-        op.Catch(() =>
-            from grants in guard(requested.ForAll(granted.Contains), op.MissingContext()).ToFin()
-            from document in Key.Resolve(key: op)
-            from snapshot in SessionSnapshot.Of(document: document, key: op)
+        LanguageExt.HashSet<SessionNeed> requested) =>
+        Try.lift(() =>
+            from grants in guard(requested.ForAll(granted.Contains), new KernelFault.MissingContext()).ToFin()
+            from document in Key.Resolve()
+            from snapshot in SessionSnapshot.Of(document: document)
             from capabilities in requested.AsIterable()
-                .Traverse(need => need.Admit(snapshot: snapshot, mode: Mode, op: op))
+                .Traverse(need => need.Admit(snapshot: snapshot, mode: Mode))
                 .As()
                 .ToFin()
             from value in Optional(use(arg: document))
-                .ToFin(Fail: op.InvalidResult())
+                .ToFin(Fail: new KernelFault.InvalidResult())
                 .Bind(identity)
-            select value);
+            select value).Run().Bind(static inner => inner);
 
-    private Fin<Unit> Enter(Op op) =>
+    private Fin<Unit> Enter() =>
         Cell.Step(
             gate,
             static held => held.Released || held.Closing ? Option<SessionGate>.None : Some(held with { Depth = held.Depth + 1 }),
-            op.MissingContext())
+            new KernelFault.MissingContext())
         .Switch(
             state: op,
             committed: static (_, _) => Fin.Succ(unit),
-            ceded: static (key, _) => Fin.Fail<Unit>(key.MissingContext()),
+            ceded: static (_) => Fin.Fail<Unit>(new KernelFault.MissingContext()),
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (key, _) => Fin.Fail<Unit>(key.InvalidResult()));
+            contended: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
-    private Fin<Unit> Exit(Op op) =>
+    private Fin<Unit> Exit() =>
         Cell.Step(
             gate,
             static held => held.Depth > 0
@@ -1056,27 +1016,26 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                     ? held with { Depth = 0, Closing = false, Released = true }
                     : held with { Depth = held.Depth - 1 })
                 : Option<SessionGate>.None,
-            op.InvalidResult())
+            new KernelFault.InvalidResult())
         .Switch(
-            state: (Session: this, Key: op),
-            committed: static (held, row) => row.State.Released ? held.Session.Release(op: held.Key) : Fin.Succ(unit),
-            ceded: static (held, _) => Fin.Fail<Unit>(held.Key.InvalidResult()),
+            state: this,
+            committed: static (held, row) => row.State.Released ? held.Release() : Fin.Succ(unit),
+            ceded: static (held, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult()),
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (held, _) => Fin.Fail<Unit>(held.Key.InvalidResult()));
+            contended: static (held, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
-    private Fin<Unit> Release(Op op) => op.Catch(() => {
+    private Fin<Unit> Release() => Try.lift(() => {
         lease.Dispose();
         return Fin.Succ(value: unit);
-    });
+    }).Run().Bind(static inner => inner);
 
     private static Fin<LanguageExt.HashSet<SessionNeed>> AdmitNeeds(
         ReadOnlySpan<SessionNeed> needs,
-        SessionMode mode,
-        Op op) =>
-        from demanded in Admission.All(values: needs, key: op)
-        from nonempty in guard(flag: !demanded.IsEmpty, False: op.InvalidInput())
+        SessionMode mode) =>
+        from demanded in Admission.All(values: needs)
+        from nonempty in guard(flag: !demanded.IsEmpty, False: new KernelFault.InvalidInput())
         let distinct = toHashSet(demanded)
-        from unique in guard(flag: distinct.Count == demanded.Count, False: op.InvalidInput())
+        from unique in guard(flag: distinct.Count == demanded.Count, False: new KernelFault.InvalidInput())
         from modeAdmitted in distinct.AsIterable()
             .Traverse(need => need.AdmitsMode(mode: mode)
                 ? Validation<Error, SessionNeed>.Success(need)
@@ -1085,41 +1044,38 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             .ToFin()
         select distinct;
 
-    private static Fin<TResult> Marshalled<TResult>(SessionMode mode, Func<Fin<TResult>> use, Op op) =>
-        from lane in op.Need(mode)
-        from body in op.Need(use)
+    private static Fin<TResult> Marshalled<TResult>(SessionMode mode, Func<Fin<TResult>> use) =>
+        from lane in Admit.Need(mode)
+        from body in Admit.Need(use)
         from result in lane.Capabilities().Admits(capability: LaneCapability.Live)
-            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate, op)
+            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate)
             : body()
         select result;
 
     private static Fin<DocumentSession> Adopt(
         Lease<RhinoDoc> acquired,
         SessionMode lane,
-        LanguageExt.HashSet<SessionNeed> granted,
-        Op op) {
+        LanguageExt.HashSet<SessionNeed> granted) {
         RhinoDoc document = acquired.Resource;
-        Fin<DocumentSession> admitted = op.Catch(() =>
-            from snapshot in SessionSnapshot.Of(document: document, key: op)
+        Fin<DocumentSession> admitted = Try.lift(() =>
+            from snapshot in SessionSnapshot.Of(document: document)
             from laneAdmitted in guard(
                 flag: snapshot.Conditions.Admits(capability: SessionCondition.Headless)
                     != lane.Capabilities().Admits(capability: LaneCapability.Live),
-                False: op.InvalidInput())
+                False: new KernelFault.InvalidInput())
             from capabilities in granted.AsIterable()
-                .Traverse(need => need.Admit(snapshot: snapshot, mode: lane, op: op))
+                .Traverse(need => need.Admit(snapshot: snapshot, mode: lane))
                 .As()
                 .ToFin()
-            from key in DocKey.Of(document: document, key: op)
+            from key in DocKey.Of(document: document)
             from context in Rasm.Domain.Context.Of(doc: document).ToFin()
-            select new DocumentSession(
-                key: key,
-                mode: lane,
+            select new DocumentSession(mode: lane,
                 lease: acquired,
-                granted: granted));
+                granted: granted)).Run().Bind(static inner => inner);
         return admitted.Rollback(release: () => {
             acquired.Dispose();
             return Fin.Succ(value: unit);
-        }, key: op);
+        });
     }
 
     private sealed record DetachedContext(Rasm.Domain.Context Value) : IDetachedDocumentResult;
@@ -1127,17 +1083,17 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Admission {
-    internal static Fin<Seq<T>> All<T>(ReadOnlySpan<T> values, Op key) =>
+    internal static Fin<Seq<T>> All<T>(ReadOnlySpan<T> values) =>
         toSeq(values.ToArray())
-            .Traverse(value => key.Need(value).ToValidation())
+            .Traverse(value => Admit.Need(value).ToValidation())
             .As()
             .ToFin();
 
-    internal static Fin<(T1 First, T2 Second)> Pair<T1, T2>(T1 first, T2 second, Op key)
+    internal static Fin<(T1 First, T2 Second)> Pair<T1, T2>(T1 first, T2 second)
         where T1 : class where T2 : class =>
         (
-            key.Need(first).ToValidation(),
-            key.Need(second).ToValidation())
+            Admit.Need(first).ToValidation(),
+            Admit.Need(second).ToValidation())
         .Apply(static (one, two) => (First: one, Second: two))
         .As()
         .ToFin();
@@ -1180,8 +1136,7 @@ public sealed partial class DocumentSpace {
             absolute: document.ModelAbsoluteTolerance,
             relative: document.ModelRelativeTolerance,
             angle: document.ModelAngleToleranceRadians,
-            precision: document.ModelDistanceDisplayPrecision,
-            op: op),
+            precision: document.ModelDistanceDisplayPrecision),
         setTolerances: static (document, context) => {
             document.ModelAbsoluteTolerance = context.Absolute.Value;
             document.ModelRelativeTolerance = context.Relative.Value;
@@ -1201,8 +1156,7 @@ public sealed partial class DocumentSpace {
             absolute: document.PageAbsoluteTolerance,
             relative: document.PageRelativeTolerance,
             angle: document.PageAngleToleranceRadians,
-            precision: document.PageDistanceDisplayPrecision,
-            op: op),
+            precision: document.PageDistanceDisplayPrecision),
         setTolerances: static (document, context) => {
             document.PageAbsoluteTolerance = context.Absolute.Value;
             document.PageRelativeTolerance = context.Relative.Value;
@@ -1217,7 +1171,7 @@ public sealed partial class DocumentSpace {
     internal bool ModelUnits { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<UnitRegime> Read(RhinoDoc document, Op op);
+    internal partial Fin<UnitRegime> Read(RhinoDoc document);
 
     [UseDelegateFromConstructor]
     internal partial Unit SetTolerances(RhinoDoc document, Context context);
@@ -1245,17 +1199,15 @@ public abstract partial record RegimeChange {
 
     public static Fin<RegimeChange> Of(
         UnitSystem system,
-        UnitScaling scaling,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        UnitScaling scaling) {
         return from admission in (
-                   op.Need(scaling).ToValidation(),
-                   ModelUnit.Of(value: system, key: op).ToValidation())
+                   Admit.Need(scaling).ToValidation(),
+                   ModelUnit.Of(value: system).ToValidation())
                    .Apply(static (policy, unit) => (Policy: policy, Unit: unit))
                    .As()
                    .ToFin()
-               from native in op.Catch(() => Fin.Succ(value: LengthUnit.FromKnownUnitSystem(
-                   knownUnitSystem: admission.Unit.System)))
+               from native in Try.lift(() => Fin.Succ(value: LengthUnit.FromKnownUnitSystem(
+                   knownUnitSystem: admission.Unit.System))).Run().Bind(static inner => inner)
                select (RegimeChange)new Units(
                    native: native,
                    unit: admission.Unit,
@@ -1265,31 +1217,27 @@ public abstract partial record RegimeChange {
     public static Fin<RegimeChange> Of(
         string name,
         double metersPerUnit,
-        UnitScaling scaling,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        UnitScaling scaling) {
         return from admission in (
-                   op.AcceptText(value: name).ToValidation(),
-                   op.Positive(value: metersPerUnit).ToValidation())
+                   Acceptance.Text(value: name).ToValidation(),
+                   Admit.Positive(value: metersPerUnit).ToValidation())
                    .Apply(static (label, scale) => (Label: label, Scale: scale))
                    .As()
                    .ToFin()
-               from unitValue in op.Catch(() => Fin.Succ(value: LengthUnit.FromCustomUnitSystem(
+               from unitValue in Try.lift(() => Fin.Succ(value: LengthUnit.FromCustomUnitSystem(
                    name: admission.Label,
                    customUnitSize: admission.Scale,
-                   knownUnitSystem: UnitSystem.Meters)))
-               from change in Of(units: unitValue, scaling: scaling, key: op)
+                   knownUnitSystem: UnitSystem.Meters))).Run().Bind(static inner => inner)
+               from change in Of(units: unitValue, scaling: scaling)
                select change;
     }
 
     public static Fin<RegimeChange> Of(
         LengthUnit units,
-        UnitScaling scaling,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        UnitScaling scaling) {
         return (
-                op.Need(scaling).ToValidation(),
-                ModelUnit.Of(value: units, key: op).ToValidation())
+                Admit.Need(scaling).ToValidation(),
+                ModelUnit.Of(value: units).ToValidation())
             .Apply((policy, admitted) => (RegimeChange)new Units(
                 native: units,
                 unit: admitted,
@@ -1302,65 +1250,59 @@ public abstract partial record RegimeChange {
         double absolute,
         double relative,
         double angle,
-        LengthUnit units,
-        Op? key = null) =>
+        LengthUnit units) =>
         Context.Of(absolute: absolute, relative: relative, angle: angle, units: units)
             .ToFin()
             .Map(static value => (RegimeChange)new Tolerances(Value: value));
 
-    public static Fin<RegimeChange> Of(DrawingScale scale, DrawingUnits units, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admission in Admission.Pair(first: scale, second: units, key: op)
+    public static Fin<RegimeChange> Of(DrawingScale scale, DrawingUnits units) {
+        return from admission in Admission.Pair(first: scale, second: units)
                select (RegimeChange)new Precision(Value: new DrawingPrecision(Scale: admission.First, Units: admission.Second));
     }
 
     internal Fin<Unit> Apply(
         RhinoDoc document,
         DocumentSpace space,
-        UnitRegime before,
-        Op op) {
+        UnitRegime before) {
         Fin<Unit> mutation = Switch(
-            state: (Document: document, Space: space, Op: op),
-            units: static (context, change) => context.Op.Catch(() => context.Document.AdjustLengthUnits(
+            state: (Document: document, Space: space),
+            units: static (context, change) => Try.lift(() => context.Document.AdjustLengthUnits(
                     modelUnits: context.Space.ModelUnits,
                     units: change.Native,
                     scale: change.Scaling.HostScale)
                 ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(new DraftFault.HostRefused(
-                    Key: context.Op, Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "answered false"))),
-            tolerances: static (context, change) => context.Op.Catch(() => Fin.Succ(
+                : Fin.Fail<Unit>(new DraftFault.HostRefused(Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "answered false"))).Run().Bind(static inner => inner),
+            tolerances: static (context, change) => Try.lift(() => Fin.Succ(
                 value: context.Space.SetTolerances(
                     document: context.Document,
-                    context: change.Value))),
+                    context: change.Value))).Run().Bind(static inner => inner),
             precision: static (context, change) =>
-                from digits in change.Value.Digits(key: context.Op)
-                from written in context.Op.Catch(() => Fin.Succ(
-                    value: context.Space.SetPrecision(document: context.Document, digits: digits)))
+                from digits in change.Value.Digits()
+                from written in Try.lift(() => Fin.Succ(
+                    value: context.Space.SetPrecision(document: context.Document, digits: digits))).Run().Bind(static inner => inner)
                 select written);
         return mutation.Rollback(() => Restore(
             document: document,
             space: space,
             before: before,
-            scaling: None,
-            op: op));
+            scaling: None));
     }
 
-    internal Fin<bool> Matches(UnitRegime actual, Op op) =>
+    internal Fin<bool> Matches(UnitRegime actual) =>
         Switch(
-            state: (Regime: actual, Op: op),
-            units: static (held, change) => Fin.Succ(held.Regime.Unit == change.Unit),
+            state: actual,
+            units: static (held, change) => Fin.Succ(held.Unit == change.Unit),
             tolerances: static (held, change) => Fin.Succ(
-                held.Regime.Space.Absolute.Value == change.Value.Absolute.Value
-                && held.Regime.Space.Relative.Value == change.Value.Relative.Value
-                && held.Regime.Space.Angle.Value == change.Value.Angle.Value),
-            precision: static (held, change) => change.Value.Digits(key: held.Op)
-                .Map(digits => held.Regime.Digits == digits));
+                held.Space.Absolute.Value == change.Value.Absolute.Value
+                && held.Space.Relative.Value == change.Value.Relative.Value
+                && held.Space.Angle.Value == change.Value.Angle.Value),
+            precision: static (held, change) => change.Value.Digits()
+                .Map(digits => held.Digits == digits));
 
     internal Fin<Unit> Restore(
         RhinoDoc document,
         DocumentSpace space,
-        UnitRegime before,
-        Op op) =>
+        UnitRegime before) =>
         Restore(
             document: document,
             space: space,
@@ -1368,29 +1310,26 @@ public abstract partial record RegimeChange {
             scaling: Switch(
                 units: static change => Some(change.Scaling),
                 tolerances: static _ => None,
-                precision: static _ => None),
-            op: op);
+                precision: static _ => None));
 
     private static Fin<Unit> Restore(
         RhinoDoc document,
         DocumentSpace space,
         UnitRegime before,
-        Option<UnitScaling> scaling,
-        Op op) {
-        K<Validation<Error>, Unit> units = scaling.TraverseM(policy => op.Catch(() => document.AdjustLengthUnits(
+        Option<UnitScaling> scaling) {
+        K<Validation<Error>, Unit> units = scaling.TraverseM(policy => Try.lift(() => document.AdjustLengthUnits(
                     modelUnits: space.ModelUnits,
                     units: before.Native,
                     scale: policy.HostScale)
                 ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(new DraftFault.HostRefused(
-                    Key: op, Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "restore answered false"))))
+                : Fin.Fail<Unit>(new DraftFault.HostRefused(Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "restore answered false"))).Run().Bind(static inner => inner))
             .As().Map(static _ => unit).ToValidation();
-        K<Validation<Error>, Unit> tolerances = op.Catch(() => Fin.Succ(value: space.SetTolerances(
+        K<Validation<Error>, Unit> tolerances = Try.lift(() => Fin.Succ(value: space.SetTolerances(
             document: document,
-            context: before.Space))).ToValidation();
-        K<Validation<Error>, Unit> precision = op.Catch(() => Fin.Succ(value: space.SetPrecision(
+            context: before.Space))).Run().Bind(static inner => inner).ToValidation();
+        K<Validation<Error>, Unit> precision = Try.lift(() => Fin.Succ(value: space.SetPrecision(
             document: document,
-            digits: before.Digits))).ToValidation();
+            digits: before.Digits))).Run().Bind(static inner => inner).ToValidation();
         return (units, tolerances, precision)
             .Apply(static (_, _, _) => unit)
             .As()
@@ -1413,12 +1352,11 @@ public sealed record UnitRegime : IDetachedDocumentResult {
         double absolute,
         double relative,
         double angle,
-        int precision,
-        Op op) =>
+        int precision) =>
         (
-            ModelUnit.Of(value: units, key: op).ToValidation(),
+            ModelUnit.Of(value: units).ToValidation(),
             Context.Of(absolute: absolute, relative: relative, angle: angle, units: units),
-            guard(precision >= 0, (Error)new KernelFault.OutOfRange(Label: nameof(Digits), Scalar: precision, Requirement: "a non-negative digit count", Key: Some(op))).ToFin().ToValidation())
+            guard(precision >= 0, (Error)new KernelFault.OutOfRange(Label: nameof(Digits), Scalar: precision, Requirement: "a non-negative digit count")).ToFin().ToValidation())
         .Apply((admittedUnit, context, _) => new UnitRegime(
             native: units,
             unit: admittedUnit,
@@ -1456,25 +1394,21 @@ public sealed record RegimeOutcome : IDetachedDocumentResult {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SessionRegimes {
     extension(DocumentSession session) {
-        public Fin<UnitRegime> Regime(DocumentSpace space, Op? key = null) {
-            Op op = key.OrDefault();
-            return from admission in Admission.Pair(first: session, second: space, key: op)
+        public Fin<UnitRegime> Regime(DocumentSpace space) {
+            return from admission in Admission.Pair(first: session, second: space)
                    from regime in admission.First.Demand(
                        use: document => admission.Second.Read(document: document, op: op),
-                       key: op,
                        needs: [SessionNeed.Read])
                    select regime;
         }
 
         public Fin<RegimeOutcome> Adjust(
             DocumentSpace space,
-            RegimeChange change,
-            Op? key = null) {
-            Op op = key.OrDefault();
+            RegimeChange change) {
             return from admission in (
-                       op.Need(session).ToValidation(),
-                       op.Need(space).ToValidation(),
-                       op.Need(change).ToValidation())
+                       Admit.Need(session).ToValidation(),
+                       Admit.Need(space).ToValidation(),
+                       Admit.Need(change).ToValidation())
                        .Apply(static (scope, axis, request) => (
                            Scope: scope,
                            Axis: axis,
@@ -1492,26 +1426,22 @@ public static class SessionRegimes {
                                from applied in admission.Request.Apply(
                                    document: document,
                                    space: admission.Axis,
-                                   before: before,
-                                   op: op)
+                                   before: before)
                                from after in (
                                    from observed in admission.Axis.Read(document: document, op: op)
                                    from matches in admission.Request.Matches(actual: observed, op: op)
-                                   from exact in guard(flag: matches, False: op.InvalidResult())
+                                   from exact in guard(flag: matches, False: new KernelFault.InvalidResult())
                                    select observed).Rollback(() => admission.Request.Restore(
                                    document: document,
                                    space: admission.Axis,
-                                   before: before,
-                                   op: op))
+                                   before: before))
                                select RegimeOutcome.Pending(
                                    space: admission.Axis,
                                    change: admission.Request,
                                    before: before,
                                    after: after),
                            project: Fin.Succ,
-                           stamp: static (result, serial) => result.Seal(serial: serial),
-                           op: op),
-                       key: op,
+                           stamp: static (result, serial) => result.Seal(serial: serial)),
                        needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: RedrawPolicy.None).ToArray())
                    select outcome;
         }
@@ -1553,16 +1483,16 @@ public sealed partial class AngleGrammar {
         StringParser.ParseAngleExpressionRadians(text, out double value)
             && double.IsFinite(value)
             ? Fin.Succ(value: value)
-            : Fin.Fail<double>(error: op.InvalidInput()));
+            : Fin.Fail<double>(error: new KernelFault.InvalidInput()));
     public static readonly AngleGrammar Degrees = new(key: 1, parse: static (text, op) =>
         StringParser.ParseAngleExpressionDegrees(text, out double value)
             && RhinoMath.ToRadians(value) is var radians
             && double.IsFinite(radians)
             ? Fin.Succ(value: radians)
-            : Fin.Fail<double>(error: op.InvalidInput()));
+            : Fin.Fail<double>(error: new KernelFault.InvalidInput()));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<double> Parse(string text, Op op);
+    internal partial Fin<double> Parse(string text);
 }
 
 [SmartEnum<int>]
@@ -1642,62 +1572,61 @@ public abstract partial record UnitText : IDetachedDocumentResult {
     public static Fin<UnitText> Length(
         string text,
         Option<UnitDialect> dialect = default,
-        Option<UnitForm> form = default,
-        Op? key = null) =>
+        Option<UnitForm> form = default) =>
         key.OrDefault().AcceptText(value: text).Map(admitted => (UnitText)new LengthTextCase(
             text: admitted,
             dialect: dialect.IfNone(UnitDialect.Standard),
             form: form.IfNone(UnitForm.CleanDecimal)));
 
-    public static Fin<UnitText> Scale(string text, Option<UnitDialect> dialect = default, Op? key = null) =>
+    public static Fin<UnitText> Scale(string text, Option<UnitDialect> dialect = default) =>
         key.OrDefault().AcceptText(value: text)
             .Map(admitted => (UnitText)new ScaleTextCase(
                 text: admitted,
                 dialect: dialect.IfNone(UnitDialect.Standard)));
 
-    public static Fin<UnitText> Angle(string text, Option<AngleGrammar> grammar = default, Op? key = null) =>
+    public static Fin<UnitText> Angle(string text, Option<AngleGrammar> grammar = default) =>
         key.OrDefault().AcceptText(value: text)
             .Map(admitted => (UnitText)new AngleTextCase(text: admitted, grammar: grammar.IfNone(AngleGrammar.Radians)));
 
-    internal Fin<UnitText> Cross(UnitRegime regime, Op key) => Switch(
-        state: (Regime: regime, Op: key),
-        lengthTextCase: static (context, text) => context.Op.Catch(() => {
+    internal Fin<UnitText> Cross(UnitRegime regime) => Switch(
+        state: regime,
+        lengthTextCase: static (context, text) => Try.lift(() => {
             using LengthValue parsed = LengthValue.Create(
                 s: text.Text,
                 ps: text.Dialect.Settings(),
                 parsedAll: out bool parsedAll);
             return from _whole in guard(
                        flag: parsedAll && !parsed.IsUnset(),
-                       False: context.Op.InvalidInput()).ToFin()
-                   from value in context.Op.Catch(() => Fin.Succ(value: parsed.Length(units: context.Regime.Native)))
-                   from finite in guard(flag: double.IsFinite(value), False: context.Op.InvalidResult())
+                       False: new KernelFault.InvalidInput()).ToFin()
+                   from value in Try.lift(() => Fin.Succ(value: parsed.Length(units: context.Native))).Run().Bind(static inner => inner)
+                   from finite in guard(flag: double.IsFinite(value), False: new KernelFault.InvalidResult())
                    select (UnitText)new LengthValueCase(
                        value: value,
-                       unit: context.Regime.Unit,
+                       unit: context.Unit,
                        source: parsed.Units,
                        dialect: text.Dialect,
                        form: text.Form);
-        }),
+        }).Run().Bind(static inner => inner),
         lengthValueCase: static (context, value) =>
-            from scale in value.Unit.ScaleTo(target: context.Regime.Unit, key: context.Op)
+            from scale in value.Unit.ScaleTo(target: context.Unit)
             let converted = value.Value * scale
-            from finite in guard(flag: double.IsFinite(converted), False: context.Op.InvalidResult())
-            from rendered in context.Op.Catch(() => {
+            from finite in guard(flag: double.IsFinite(converted), False: new KernelFault.InvalidResult())
+            from rendered in Try.lift(() => {
                 using LengthValue formatted = LengthValue.Create(
                     length: converted,
-                    units: context.Regime.Native,
+                    units: context.Native,
                     format: value.Form.Native);
-                return guard(flag: !formatted.IsUnset(), False: context.Op.InvalidResult()).ToFin()
-                    .Bind(_ => context.Op.AcceptText(value: formatted.LengthString))
+                return guard(flag: !formatted.IsUnset(), False: new KernelFault.InvalidResult()).ToFin()
+                    .Bind(_ => Acceptance.Text(value: formatted.LengthString))
                     .Map(text => (UnitText)new LengthTextCase(
                         text: text,
                         dialect: value.Dialect,
                         form: value.Form));
-            })
+            }).Run().Bind(static inner => inner)
             select rendered,
-        scaleTextCase: static (context, text) => context.Op.Catch(() => {
+        scaleTextCase: static (context, text) => Try.lift(() => {
             using ScaleValue parsed = ScaleValue.Create(s: text.Text, ps: text.Dialect.Settings());
-            return guard(flag: !parsed.IsUnset(), False: context.Op.InvalidInput()).ToFin().Bind(_ => {
+            return guard(flag: !parsed.IsUnset(), False: new KernelFault.InvalidInput()).ToFin().Bind(_ => {
                 using LengthValue left = parsed.LeftLengthValue();
                 using LengthValue right = parsed.RightLengthValue();
                 double leftValue = left.Length();
@@ -1715,7 +1644,7 @@ public abstract partial record UnitText : IDetachedDocumentResult {
                             && rightValue > 0.0
                             && leftToRight > 0.0
                             && rightToLeft > 0.0,
-                        False: context.Op.InvalidResult())
+                        False: new KernelFault.InvalidResult())
                     .ToFin()
                     .Map(_ => (UnitText)new ScaleValueCase(
                         left: leftValue,
@@ -1725,25 +1654,24 @@ public abstract partial record UnitText : IDetachedDocumentResult {
                         leftToRight: leftToRight,
                         rightToLeft: rightToLeft));
             });
-        }),
-        scaleValueCase: static (context, _) => Fin.Fail<UnitText>(error: context.Op.Unsupported(
-            inputType: typeof(ScaleValueCase),
-            outputType: typeof(ScaleTextCase))),
-        angleTextCase: static (context, text) => text.Grammar.Parse(text: text.Text, op: context.Op)
+        }).Run().Bind(static inner => inner),
+        scaleValueCase: static (context, _) => Fin.Fail<UnitText>(error: new KernelFault.Unsupported(
+            InputType: typeof(ScaleValueCase),
+            OutputType: typeof(ScaleTextCase))),
+        angleTextCase: static (context, text) => text.Grammar.Parse(text: text.Text)
             .Map(static radians => (UnitText)new AngleValueCase(radians: radians)),
-        angleValueCase: static (context, _) => Fin.Fail<UnitText>(error: context.Op.Unsupported(
-            inputType: typeof(AngleValueCase),
-            outputType: typeof(AngleTextCase))));
+        angleValueCase: static (context, _) => Fin.Fail<UnitText>(error: new KernelFault.Unsupported(
+            InputType: typeof(AngleValueCase),
+            OutputType: typeof(AngleTextCase))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RegimeText {
     extension(DocumentSession session) {
-        public Fin<UnitText> Text(DocumentSpace space, UnitText text, Op? key = null) {
-            Op op = key.OrDefault();
-            return from request in op.Need(text)
-                   from regime in session.Regime(space: space, key: op)
-                   from crossed in request.Cross(regime: regime, key: op)
+        public Fin<UnitText> Text(DocumentSpace space, UnitText text) {
+            return from request in Admit.Need(text)
+                   from regime in session.Regime(space: space)
+                   from crossed in request.Cross(regime: regime)
                    select crossed;
         }
     }

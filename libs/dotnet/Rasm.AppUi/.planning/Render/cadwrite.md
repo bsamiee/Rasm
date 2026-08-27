@@ -13,7 +13,7 @@ Layer identity, line rhythm, and line width are all `Rasm/Drawing/sheet`'s: an `
 ## [02]-[CAD_DOCUMENT]
 
 - Owner: `CadDraw` the one `Seq<Seq<SheetEntity>>`-to-`CadDocument` fold with its layer and line-type registration, its single reframing, and its per-sheet placement.
-- Entry: `public static Fin<CadDocument> Build(SheetSize size, Seq<Seq<SheetEntity>> pages, Op? key = null)` — the whole set folds into ONE document: every distinct `(EdgeStyle, Part)` seat registers its layer and its line type once, then each page's entities place at that sheet's own model-space origin. The result is `Fin` because the layer name, the line width, and the frame margin are all kernel admissions.
+- Entry: `public static Fin<CadDocument> Build(SheetSize size, Seq<Seq<SheetEntity>> pages)` — the whole set folds into ONE document: every distinct `(EdgeStyle, Part)` seat registers its layer and its line type once, then each page's entities place at that sheet's own model-space origin. The result is `Fin` because the layer name, the line width, and the frame margin are all kernel admissions.
 - Auto: layer names are the kernel `LayerStandard.House` grammar projected through `HostLayerScheme.AutoCadFlat`, so a chrome stroke lands on its style's layer and a model-edge stroke carrying its kernel `Part` ordinal lands on that style's part-fielded layer, and a multi-part drawing's parts toggle independently in any CAD host; line types are `LineType.Rhythm(width)` at the sheet's own ISO 128-24 width, so a hidden line and a long-dashed-dotted axis emit distinguishable patterns and a widened line group re-spaces every dash with no edit here; the seat roster is DISTINCT before anything registers, so a layer and a line type enter the document's tables exactly once for the whole set; sheets lay at their own standard's pitch — the set's extent plus the frame's two facing margins — so sheet N's border never crosses sheet N+1's and the gap is the standard's clear space rather than an authored constant.
 - Packages: ACadSharp (`CadDocument`, `Entity`, `Line`, `Arc`, `MText`, `LwPolyline`, `Tables.Layer`, `Tables.LineType`, `CSMath.XYZ`/`XY`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`, `Seq.Traverse`, `HashMap`), Rasm (project — `Rasm/Drawing/sheet`: `SheetSize`, `SheetFrame`, `SheetMargin`, `LineType`, `LineWidth`, `LayerName`, `HostLayerScheme`; `Rasm/Domain/results`: `Op`), Rasm.AppUi `Render/drafting` (`SheetEntity`, `EdgeStyle`, `DraftFault`), BCL inbox
 - Growth: a new drawn primitive is one `SheetEntity` case that breaks this fold at compile time so no writer can silently drop it; a new drawing role is an `EdgeStyle` row whose layer and line type mint by construction; zero new surface.
@@ -24,8 +24,7 @@ Layer identity, line rhythm, and line width are all `Rasm/Drawing/sheet`'s: an `
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CadDraw {
-    public static Fin<CadDocument> Build(SheetSize size, Seq<Seq<SheetEntity>> pages, Op? key = null) {
-        Op seat = key.OrDefault();
+    public static Fin<CadDocument> Build(SheetSize size, Seq<Seq<SheetEntity>> pages) {
         CadDocument doc = new();
         ACadSharp.Tables.LineType solid = doc.LineTypes.Continuous;
         Fin<SheetMargin> margin = SheetFrame.For(size.Standard).Margin(size: size, key: seat);
@@ -54,9 +53,9 @@ public static class CadDraw {
 
     private static Fin<((EdgeStyle Style, Option<int> Part) Seat, Layer Layer)> Minted(
         CadDocument doc, ACadSharp.Tables.LineType solid, SheetSize size,
-        (EdgeStyle Style, Option<int> Part) seat, Op key) =>
-        from name in seat.Style.Layer(part: seat.Part, key: key)
-        from width in seat.Style.Width(size: size, key: key)
+        (EdgeStyle Style, Option<int> Part) seat) =>
+        from name in seat.Style.Layer(part: seat.Part)
+        from width in seat.Style.Width(size: size)
         select (Seat: seat, Layer: Registered(doc, HostLayerScheme.AutoCadFlat.Path(name), seat.Style.Type, width, solid));
 
     private static Layer Registered(
@@ -133,7 +132,7 @@ public static class CadDraw {
 
 - Owner: `DxfEncoding` the DXF serialization form; `CadVersionPolicy` the writer ABI value; `CadWriter` the three writer rows over one document fold.
 - Cases: `DxfEncoding` = ascii · binary; `CadWriter` = dwg · dxf · svg under the locked format literals.
-- Entry: `public Fin<byte[]> Emit(SheetSize size, Seq<Seq<SheetEntity>> pages, CadVersionPolicy version, Op? key = null)` — one row builds the shared document and serializes it through its own writer; the `Render/drafting#DRAFT_EMIT` `CadArm` gauges that call on the kernel timeline and delivers the bytes, so the writer row owns bytes and nothing else.
+- Entry: `public Fin<byte[]> Emit(SheetSize size, Seq<Seq<SheetEntity>> pages, CadVersionPolicy version)` — one row builds the shared document and serializes it through its own writer; the `Render/drafting#DRAFT_EMIT` `CadArm` gauges that call on the kernel timeline and delivers the bytes, so the writer row owns bytes and nothing else.
 - Packages: ACadSharp (`ACadVersion`, `IO.DwgWriter`, `IO.DxfWriter`, `IO.SvgWriter`, `IO.SvgConfiguration`), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `Rasm/Drawing/sheet`: `SheetSize`), Rasm.AppUi `Render/drafting` (`SheetEntity`), BCL inbox (`MemoryStream`, `Stream`)
 - Growth: a new CAD serialization is one `CadWriter` row carrying its own writer call; a new version axis is one `CadVersionPolicy` column; zero new surface.
 - Boundary: the version policy is ROW-THREADED — each writer row names the version column it reads and no writer arm carries a call-site literal, so the hardcoded `AutoCad2018` this replaces is the deleted form; the DXF serialization form is a `DxfEncoding` ROW rather than a `bool` on a policy record, and its `Binary` column is the HOST projection read at exactly one call, which is where boundary spellings belong; the SVG writer's `Configuration` is the `CadWriterBase<SvgConfiguration>` slot, so the policy row's line-weight ratio lands on the writer's own config rather than on a constructed one, and the `SKSvgCanvas` presentation arm is the deleted second-SVG-semantic form; all three rows fold the SAME document, so the three formats cannot carry different entities.
@@ -178,8 +177,8 @@ public sealed partial class CadWriter {
     [UseDelegateFromConstructor]
     internal partial void Serialize(CadDocument doc, CadVersionPolicy version, Stream sink);
 
-    public Fin<byte[]> Emit(SheetSize size, Seq<Seq<SheetEntity>> pages, CadVersionPolicy version, Op? key = null) =>
-        CadDraw.Build(size: size, pages: pages, key: key).Map(doc => {
+    public Fin<byte[]> Emit(SheetSize size, Seq<Seq<SheetEntity>> pages, CadVersionPolicy version) =>
+        CadDraw.Build(size: size, pages: pages).Map(doc => {
             using MemoryStream sink = new();
             Serialize(doc, version, sink);
             return sink.ToArray();

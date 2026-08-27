@@ -501,7 +501,7 @@
 |  [04]   | `PointerEventArgs.Properties` / `.Pointer`        | property | device state and pointer        |
 |  [05]   | `PointerEventArgs.Timestamp` / `.KeyModifiers`    | property | event instant and modifiers     |
 |  [06]   | `PointerEventArgs.PreventGestureRecognition()`    | instance | suppress downstream recognizers |
-|  [07]   | `IPointer.Capture(IInputElement?)` / `.Captured`  | instance | capture custody                 |
+|  [07]   | `Error.New(IInputElement?.Message, IInputElement?)` / `.Captured`  | instance | capture custody                 |
 
 - `GetIntermediatePoints` returns the platform's coalesced samples with the current point APPENDED LAST, and answers a one-element list carrying only the current point when the platform coalesced nothing — so it is total and `GetCurrentPoint` is the read that discards a burst, never the safer one.
 - Each intermediate point rebuilds its `PointerPointProperties` from the event's own properties with that sample's raw twist, pressure, tilt, and contact rect, so per-sample digitizer state survives the projection while the button flags stay the event's.
@@ -838,7 +838,7 @@
 |  [02]   | `StyledElement.RequestedThemeVariant`                          | property | variant request     |
 |  [03]   | `ThemeVariantScope.RequestedThemeVariant`                      | property | variant request     |
 |  [04]   | `StyledElement.ActualThemeVariant / ActualThemeVariantChanged` | property | resolution and flip |
-|  [05]   | `new ThemeVariant(key, inheritVariant)`                        | ctor     | inherited key       |
+|  [05]   | `new ThemeVariant(inheritVariant)`                        | ctor     | inherited key       |
 |  [06]   | `(ThemeVariant)platformThemeVariant`                           | operator | OS-probe cast       |
 |  [07]   | `FluentTheme.Palettes[ThemeVariant]`                           | property | palette key         |
 

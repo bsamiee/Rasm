@@ -70,47 +70,45 @@ public sealed class UiClock : IDisposable {
         Func<PulseBeat, Fin<Unit>> beat,
         Option<FaultPosture> posture = default,
         Option<FaultCell> faults = default,
-        Option<MonotonicTimeline> clock = default,
-        Op? key = null);
+        Option<MonotonicTimeline> clock = default);
 
-    public Fin<Unit> Start(Op key);
-    public Fin<Unit> Stop(Op key);
-    public Fin<Unit> Pause(Op key);
-    public Fin<Unit> Resume(Op key);
+    public Fin<Unit> Start();
+    public Fin<Unit> Stop();
+    public Fin<Unit> Pause();
+    public Fin<Unit> Resume();
 
-    public Fin<Lease<IDisposable>> Tap(Action<PulseBeat> observer, Op key);
+    public Fin<Lease<IDisposable>> Tap(Action<PulseBeat> observer);
 
     public Seq<IsolatedFault> Failures => faults.Parked;
     public long Shed => faults.Shed;
 
-    private Fin<Unit> Tick(Op key) =>
-        (from pulse in Advance(key: key)
-         from published in Fin.Succ(Publish(pulse: pulse, key: key))
+    private Fin<Unit> Tick() =>
+        (from pulse in Advance()
+         from published in Fin.Succ(Publish(pulse: pulse))
          from settled in body(arg: pulse)
          select settled).Match(
             Succ: static _ => Fin.Succ(unit),
             Fail: cause => posture.Settle(faults: faults, point: Point, cause: cause));
 
-    private Unit Publish(PulseBeat pulse, Op key) => observers.Value.Fold(
-        unit, (_, observer) => FaultGate.Isolate(faults: faults, publish: () => observer(obj: pulse), key: key));
+    private Unit Publish(PulseBeat pulse) => observers.Value.Fold(
+        unit, (_, observer) => FaultGate.Isolate(faults: faults, publish: () => observer(obj: pulse)));
 
-    private Fin<PulseBeat> Advance(Op key) =>
+    private Fin<PulseBeat> Advance() =>
         from held in Fin.Succ(cursor.Value)
-        from minted in timeline.Beat(seed: held.Seed, cadence: cadence, key: key)
+        from minted in timeline.Beat(seed: held.Seed, cadence: cadence)
         let pulse = PulseBeat.Of(beat: minted, prior: held.Last, cadence: cadence)
         from seated in Seat(
             observed: held.Seed,
-            next: new ClockCursor(Seed: BeatSeed.Previous(minted), Last: Some(pulse)),
-            key: key)
+            next: new ClockCursor(Seed: BeatSeed.Previous(minted), Last: Some(pulse)))
         select pulse;
 
-    private Fin<Unit> Seat(BeatSeed observed, ClockCursor next, Op key) =>
-        Cell.Step(cursor, held => held.Seed == observed ? Some(next) : None, key.InvalidResult()).Switch(
+    private Fin<Unit> Seat(BeatSeed observed, ClockCursor next) =>
+        Cell.Step(cursor, held => held.Seed == observed ? Some(next) : None, new KernelFault.InvalidResult()).Switch(
             state: key,
             committed: static (_, _) => Fin.Succ(unit),
-            ceded: static (op, _) => Fin.Fail<Unit>(op.InvalidResult()),
+            ceded: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()),
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (op, _) => Fin.Fail<Unit>(op.InvalidResult()));
+            contended: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
     public void Dispose();
 }

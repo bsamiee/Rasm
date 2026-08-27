@@ -221,10 +221,10 @@ public static class WireAdmission {
         return unit;
     }
 
-    public static Fin<Validation<Seq<BadRequest.Types.FieldViolation>, T>> Validate<T>(T message, Op key)
+    public static Fin<Validation<Seq<BadRequest.Types.FieldViolation>, T>> Validate<T>(T message)
         where T : IMessage =>
         Messages.ContainsKey(message.Descriptor.FullName)
-            ? key.Catch(() => Fin.Succ(Admission(message)))
+            ? Try.lift(() => Fin.Succ(Admission(message))).Run().Bind(static inner => inner)
             : Fin.Fail<Validation<Seq<BadRequest.Types.FieldViolation>, T>>(new HopFault.Malformed(
                 WireBoundary.ContractAdmission,
                 new WireViolation.UnrosteredMessage(message.Descriptor.FullName)));
@@ -250,8 +250,8 @@ public static class WireAdmission {
             : new Validation<Seq<BadRequest.Types.FieldViolation>, T>.Fail(violations);
     }
 
-    public static Fin<T> Admit<T>(T message, WireBoundary boundary, Op key) where T : IMessage =>
-        Validate(message, key).Bind(admission => admission.Match(
+    public static Fin<T> Admit<T>(T message, WireBoundary boundary) where T : IMessage =>
+        Validate(message).Bind(admission => admission.Match(
             Fail: violations => Fin.Fail<T>(new HopFault.Malformed(
                 boundary,
                 new WireViolation.Contract(message.Descriptor.FullName, violations))),
@@ -303,13 +303,13 @@ public static class WireJson {
         return Write(message, writer);
     }
 
-    public static Fin<T> Read<T>(TextReader source, Op key) where T : IMessage<T>, new() =>
-        key.Catch(() => Fin.Succ(Parser.Parse<T>(source)))
-            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
+    public static Fin<T> Read<T>(TextReader source) where T : IMessage<T>, new() =>
+        Try.lift(() => Fin.Succ(Parser.Parse<T>(source))).Run().Bind(static inner => inner)
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
 
-    public static Fin<T> Read<T>(Stream source, Op key) where T : IMessage<T>, new() {
+    public static Fin<T> Read<T>(Stream source) where T : IMessage<T>, new() {
         using StreamReader reader = new(source, Utf8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-        return Read<T>(reader, key);
+        return Read<T>(reader);
     }
 
     public static JsonElement Element(IMessage message) {
@@ -317,27 +317,27 @@ public static class WireJson {
         return parsed.RootElement.Clone();
     }
 
-    public static Fin<T> Read<T>(JsonElement payload, Op key) where T : IMessage<T>, new() =>
-        key.Catch(() => Fin.Succ(Parser.Parse<T>(payload.GetRawText())))
-            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
+    public static Fin<T> Read<T>(JsonElement payload) where T : IMessage<T>, new() =>
+        Try.lift(() => Fin.Succ(Parser.Parse<T>(payload.GetRawText()))).Run().Bind(static inner => inner)
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
 }
 
 public static class HostWire {
     public static ByteString Correlation(CorrelationId correlation) =>
         ByteString.CopyFrom(((Guid)correlation).ToByteArray(bigEndian: true));
 
-    public static Fin<CorrelationId> Correlation(ByteString wire, Op key) =>
+    public static Fin<CorrelationId> Correlation(ByteString wire) =>
         wire.Length == 16
             ? Fin.Succ(CorrelationId.Create(new Guid(wire.Span, bigEndian: true)))
-            : Fin.Fail<CorrelationId>(key.InvalidInput(nameof(CorrelationId)));
+            : Fin.Fail<CorrelationId>(new KernelFault.InvalidInput(Axis: Some(nameof(CorrelationId))));
 
     public static Clock.Hlc Stamp((Instant Physical, ulong Logical) hlc) =>
         new() { Physical = hlc.Physical.ToUnixTimeTicks(), Logical = hlc.Logical };
 
-    public static Fin<(Instant Physical, ulong Logical)> Stamp(Clock.Hlc wire, Op key) =>
+    public static Fin<(Instant Physical, ulong Logical)> Stamp(Clock.Hlc wire) =>
         wire.Physical >= 0L
             ? Fin.Succ((Instant.FromUnixTimeTicks(wire.Physical), wire.Logical))
-            : Fin.Fail<(Instant, ulong)>(key.InvalidInput(nameof(Clock.Hlc)));
+            : Fin.Fail<(Instant, ulong)>(new KernelFault.InvalidInput(Axis: Some(nameof(Clock.Hlc))));
 
     public static T Arm<T>(this T message, Action<T> arm) where T : class, IMessage<T> {
         arm(message);
@@ -413,7 +413,7 @@ public static partial class FaultWire {
             Tenant = context.Tenant.Map(static tenant => tenant.Text).IfNone(string.Empty),
             Recovery = Recovery(fault.Retriability),
             Violations = { context.Violations },
-        }).ToFin(Op.Of().InvalidResult($"<unseated-fault:{fault.Code}>"));
+        }).ToFin(new KernelFault.InvalidResult(Detail: Some($"<unseated-fault:{fault.Code}>")));
 
     // --- [STATUS]
     public static StatusCode Status(Error error) => error switch {
@@ -461,7 +461,7 @@ public static partial class FaultWire {
 
     // --- [DECODE]
     public static Fin<Option<RemoteFault>> Decode(RpcException raised) =>
-        Op.Of().Catch(() => Fin.Succ(Optional(raised.GetRpcStatus())))
+        Try.lift(() => Fin.Succ(Optional(raised.GetRpcStatus()))).Run().Bind(static inner => inner)
             .MapFail(captured => (Error)new HopFault.Malformed(
                 WireBoundary.RemoteStatus, new WireViolation.Captured(captured)))
             .Bind(status => status.Match(
@@ -471,7 +471,7 @@ public static partial class FaultWire {
     static Fin<Option<RemoteFault>> Recognized(Google.Rpc.Status status) =>
         toSeq(status.Details).Filter(static any => any.Is(Fault.FaultDetail.Descriptor)) switch {
             { IsEmpty: true } => Fin.Succ(Option<RemoteFault>.None),
-            { Count: 1 } one => Op.Of().Catch(() => Fin.Succ(one.Head.Unpack<Fault.FaultDetail>()))
+            { Count: 1 } one => Try.lift(() => Fin.Succ(one.Head.Unpack<Fault.FaultDetail>())).Run().Bind(static inner => inner)
                 .MapFail(captured => (Error)new HopFault.Malformed(
                     WireBoundary.RemoteDetail, new WireViolation.Captured(captured)))
                 .Bind(detail => Admit(detail, status.Message))
@@ -481,7 +481,7 @@ public static partial class FaultWire {
         };
 
     public static Fin<RemoteFault> Admit(Fault.FaultDetail detail, string message) =>
-        (Domain(detail), HostWire.Correlation(detail.Correlation, Op.Of()).ToValidation(), Stamp(detail.Stamp),
+        (Domain(detail), HostWire.Correlation(detail.Correlation).ToValidation(), Stamp(detail.Stamp),
          Recovery(detail.Recovery).ToValidation(), Tenant(detail.Tenant))
             .Apply((domain, correlation, stamp, recovery, tenant) => new RemoteFault(
                 domain, detail.Case, message, correlation, stamp.Physical, stamp.Logical, tenant, recovery,

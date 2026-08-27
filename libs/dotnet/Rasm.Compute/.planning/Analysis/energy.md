@@ -96,7 +96,7 @@ public static class EnergyToolchain {
             .Map(static token => token.Split('-', 2)[0]);
 
     static VersionProbe ProbeVersion(string executable) =>
-        Op.Of(name: "energy.version-probe").Catch(() => {
+        Try.lift(() => {
             using Process probe = new() {
                 StartInfo = new ProcessStartInfo(executable) {
                     ArgumentList = { "--version" }, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
@@ -108,7 +108,7 @@ public static class EnergyToolchain {
             probe.WaitForExit();
             _ = stderrDrain.GetAwaiter().GetResult();
             return Fin.Succ(banner.Length > 0 ? (VersionProbe)new VersionProbe.Reported(banner) : VersionProbe.Silent);
-        }).Match(Succ: static probe => probe, Fail: static cause => new VersionProbe.Failed(cause));
+        }).Run().Bind(static inner => inner).Match(Succ: static probe => probe, Fail: static cause => new VersionProbe.Failed(cause));
 
     static Option<string> Probe(string? path) => path is not null && File.Exists(path) ? Some(path) : None;
     static string? Join(string? dir, string exe) => dir is null ? null : Path.Combine(dir, exe);
@@ -486,7 +486,7 @@ public sealed partial class ResultMeasure {
     private ResultMeasure(string key, QuantityType type, Dimension dimension, UnitProvenance provenance) : this(key) =>
         (Type, Dimension, Provenance) = (type, dimension, provenance);
 
-    public Fin<MeasureValue> Admit(double si, Op key) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance), key);
+    public Fin<MeasureValue> Admit(double si) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance));
 }
 
 public readonly record struct ResultPoint(ResultMeasure Measure, ResultFuel Fuel, ResultEndUse Use, double Si);
@@ -510,13 +510,12 @@ public readonly record struct EndUseCell(double AnnualGj, Option<double> PeakW) 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class EnergySimulation {
-    static readonly Op RunKey = Op.Of(name: nameof(Run));
 
     static Fin<(A Value, Seq<AssessmentFact> Notes)> Leased<A>(string prefix, Func<string, WriterT<ReadLog, Fin, A>> use) =>
-        RunKey.Catch(() => Fin.Succ(Directory.CreateTempSubdirectory(prefix).FullName))
+        Try.lift(() => Fin.Succ(Directory.CreateTempSubdirectory(prefix).FullName)).Run().Bind(static inner => inner)
             .Bind(scratch => {
-                Fin<(A Value, ReadLog Log)> outcome = RunKey.Catch(() => Reads.Run(use(scratch)));
-                Seq<AssessmentFact> release = RunKey.Catch(() => { Directory.Delete(scratch, recursive: true); return Fin.Succ(unit); })
+                Fin<(A Value, ReadLog Log)> outcome = Try.lift(() => Reads.Run(use(scratch))).Run().Bind(static inner => inner);
+                Seq<AssessmentFact> release = Try.lift(() => { Directory.Delete(scratch, recursive: true); return Fin.Succ(unit); }).Run().Bind(static inner => inner)
                     .Match(Succ: static _ => Seq<AssessmentFact>(),
                            Fail: error => Seq(AssessmentFact.Text(ScratchRetained, $"{scratch}:{Tail(error.Message)}")));
                 return outcome.Map(ran => (ran.Value, ran.Log.Facts + release));
@@ -532,7 +531,7 @@ public static partial class EnergySimulation {
                     from _ in Reads.Writing(versionFacts, unit)
                     from build in BuildModel(graph, request, geometry, scratch)
                     from sqlPath in Reads.Lift(RunSubprocess(binary, build.IdfPath, request, scratch))
-                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, build.Model, build.Zones))
+                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(build.Model, build.Zones))
                     from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
                     from published in Reads.Lift(sink.Rows(readout.Rows).Run())
                     select (Readout: readout, Blob: blob))
@@ -764,14 +763,14 @@ public abstract partial record EnergyRoute {
 public static partial class EnergySimulation {
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock) =>
         request.Policy.Route.Switch(
-            subprocess: _ => RunLocal(graph, request, geometry, sink, key, clock),
-            cloud:      c => RunCloud(graph, request, c, sink, key, clock));
+            subprocess: _ => RunLocal(graph, request, geometry, sink, clock),
+            cloud:      c => RunCloud(graph, request, c, sink, clock));
 
     static Fin<AssessmentResult> RunCloud(ElementGraph graph, AssessmentRequest.Energy request, EnergyRoute.Cloud route, AssessmentSink sink, ContentAddress key, IClock clock) {
         Instant at = clock.GetCurrentInstant();
         return Leased(CloudScratch, scratch =>
                     from sqlPath in Reads.Lift(Orchestrate(route, scratch).Run())
-                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, route.Model, Seq<ZoneTarget>()))
+                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(route.Model, Seq<ZoneTarget>()))
                     from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
                     from published in Reads.Lift(sink.Rows(readout.Rows).Run())
                     select (Readout: readout, Blob: blob))

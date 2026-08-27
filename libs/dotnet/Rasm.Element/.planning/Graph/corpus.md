@@ -14,7 +14,7 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 ## [02]-[GRAPH_FORGE]
 
 - Owner: `CorpusProfile` the closed generation-parameter record — occurrence count, `[0,1]` edge density, bag width, discipline mix, composition depth, type-reuse ratio, observation stride and sample count, flavor stride, seed — result-returning through `Of`; `GraphForge` the deterministic realization fold.
-- Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key, typeRatio, observationStride, observationSamples, flavorStride)` admits positive counts, a unit-interval density, a non-empty discipline mix, a depth of at least one, and positive reuse, stride, and sample columns; numeric refusals stay `KernelFault.OutOfRange` while the empty discipline mix remains an Element semantic refusal; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)>` — the frozen snapshot a benchmark folds, the creating event body, and a native change record.
+- Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, typeRatio, observationStride, observationSamples, flavorStride)` admits positive counts, a unit-interval density, a non-empty discipline mix, a depth of at least one, and positive reuse, stride, and sample columns; numeric refusals stay `KernelFault.OutOfRange` while the empty discipline mix remains an Element semantic refusal; `GraphForge.Mint(profile)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)>` — the frozen snapshot a benchmark folds, the creating event body, and a native change record.
 - Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, WIDENED with a populated `StepHeader` and a one-override/one-axis `UnitScheme` — constants, so header bytes still never fork a grade), one `Node.Material` per type slot whose composition cycles the four `MaterialComposition` arms by slot ordinal and whose property bag carries the WHOLE twelve-case engineering roster, one deterministic Type `Object` per slot (id through the production `NodeId.Of(NodeSeed.TypeSeed)` streamed over `WriteIdentity`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` rows whose value case steps the fourteen-case `PropertyValue` family off the flat slot ordinal (its quotient stepping the five `TemporalValue` leaves), one quantity bag row through `MeasureValue.OfSi`, one `Computed` assessment cycling the discipline mix, and — every `ObservationStride`-th occurrence — one `ObservationSeries` opened at the corpus instant and grown by one `Encode`-minted chunk under a `From`-derived summary; one shared `Node.Appearance` and one `Node.Coverage` whose smallest-admissible level run carries the one-cell base and its `Coarsen`-derived successor (both blob keys off the corpus grid lane) that the whole model associates to; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition`/`Observation` assigns, the material `Associate`s carrying the `MaterialUsage` arm their material's composition slot selects (`LayerSet` and `ProfileSet` usage on the matching composition slots, the explicit `Unbound` arm elsewhere), the witness-resource `Associate`s under `MaterialUsage.Unbound`, `⌊density·nodes⌋` seeded `Connect` adjacencies, and — every `FlavorStride`-th occurrence — the `Compose.Contain`/`Nest`/`Reference` flavors, a `Void`, a realized `Connect` (on the strided pairs past occurrence zero) carrying occurrence zero as its distinct realizing intermediary beside a content-lane `Interface` key, and a `Generic` burying a `PropertyValue.Reference` in its attribute map. `AdmitOnto(Genesis(header))` admits the assembled normal-form delta, so `LegalLink` runs per forged edge.
 - Law: `Mint`'s witness run closes exactly six families, the optional-slot and presence duals (the realized `Connect` pair, the strided `OwnerHistory` with its alternating `Modified`, the alternating `EvidenceRun` window/correlation, the cycling `EvidenceGrade` roster with its expiry/attestation/run duals, the baked `ProfileSet` section), and two section pairs, and claims nothing wider — every `Node` case, every `Relationship` flavor, every `MaterialComposition` arm, every `MaterialPropertySet` case, every `MaterialUsage` arm, and every `PropertyValue` case with every `TemporalValue` leaf cross a graded witness; the strided `Connect` carries both optional slots (the realizing intermediary and the interface key), the coverage witness carries its two-level `Coarsen` run, and the mutation delta carries the removal and revision sections. Each cycle steps an ORDINAL whose run outsizes its family at the SMALLEST grade — four type slots against four composition arms and against the three usage arms riding the same slot ordinal, the whole twelve-case roster on every material, `Nodes × BagWidth` value slots against the fourteen cases times five leaves — so totality is a property of the arithmetic rather than of a grade's size. Sampled-curve coverage rides the thermal witness's `Some` conductivity curve, so `SampledCurveWire`, the `OptCurve` decode re-admission, and the `Curve` canon write cross every grade; the remaining curve columns ride `None`, so both presence duals witness.
 - Output: the mint result carries the frozen graph, the creating normal-form delta, and the mutation delta; `ContentAddress.OfGraph` supplies the snapshot's reproducibility fingerprint and `GraphDelta.Address` the mutation's.
@@ -83,18 +83,18 @@ public sealed record CorpusProfile {
  public int Fanout => Math.Max(2, (int)Math.Ceiling(Math.Pow(Nodes, 1.0 / Depth)));
 
  public static Fin<CorpusProfile> Of(
-  int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed, Op key,
+  int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed,
   int typeRatio = 16, int observationStride = 4, int observationSamples = 16, int flavorStride = 8) =>
   Accumulate(Seq(
-    In(nodes, Band.Positive, "corpus-profile-nodes", key).Map(static _ => unit),
-    In(density, Band.Unit, "corpus-profile-density", key).Map(static _ => unit),
-    In(bagWidth, Band.Positive, "corpus-profile-bag-width", key).Map(static _ => unit),
-    Gate(!disciplines.IsEmpty, key, "<corpus-profile-disciplines-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    In(depth, Band.Positive, "corpus-profile-depth", key).Map(static _ => unit),
-    In(typeRatio, Band.Positive, "corpus-profile-type-ratio", key).Map(static _ => unit),
-    In(observationStride, Band.Positive, "corpus-profile-observation-stride", key).Map(static _ => unit),
-    In(observationSamples, Band.Positive, "corpus-profile-observation-samples", key).Map(static _ => unit),
-    In(flavorStride, Band.Positive, "corpus-profile-flavor-stride", key).Map(static _ => unit)))
+    In(nodes, Band.Positive, "corpus-profile-nodes").Map(static _ => unit),
+    In(density, Band.Unit, "corpus-profile-density").Map(static _ => unit),
+    In(bagWidth, Band.Positive, "corpus-profile-bag-width").Map(static _ => unit),
+    Gate(!disciplines.IsEmpty, "<corpus-profile-disciplines-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    In(depth, Band.Positive, "corpus-profile-depth").Map(static _ => unit),
+    In(typeRatio, Band.Positive, "corpus-profile-type-ratio").Map(static _ => unit),
+    In(observationStride, Band.Positive, "corpus-profile-observation-stride").Map(static _ => unit),
+    In(observationSamples, Band.Positive, "corpus-profile-observation-samples").Map(static _ => unit),
+    In(flavorStride, Band.Positive, "corpus-profile-flavor-stride").Map(static _ => unit)))
    .Map(_ => new CorpusProfile(nodes, density, bagWidth, disciplines, depth, typeRatio, observationStride, observationSamples, flavorStride, seed))
    .ToFin();
 }
@@ -111,7 +111,7 @@ public static class GraphForge {
  static readonly NodeId Draft = Seeded(0, CorpusLane.Material, 0);
  static readonly Duration CorpusCadence = Duration.FromMinutes(15);
 
- public static Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)> Mint(CorpusProfile profile, Op key) {
+ public static Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)> Mint(CorpusProfile profile) {
   Header header = Header.Default(CorpusInstant) with {
    Step = new StepHeader(Seq("corpus"), "corpus-model", CorpusInstant, Seq("GraphForge"), Seq("Rasm"),
     "GraphForge", "Rasm.Element", Seq(ReleaseVersion.Ifc4X3Add2.Key)),
@@ -122,48 +122,48 @@ public static class GraphForge {
   };
   double tol = header.Tolerance;
   int typeCount = profile.TypeSlots;
-  return Classification.Of("corpus", "component", key).Bind(typeClass =>
-   Classification.Of("corpus", "occurrence", key).Bind(occClass =>
-    key.AcceptValidated<AnalysisRoute>("corpus.forge").Bind(route =>
-     Assessments(profile, route, key).Bind(payloads =>
-      Bags(profile, key).Bind(bags =>
-       Series(profile, key).Bind(series =>
-        Materials(profile, typeCount, tol, key).Bind(materials =>
-         Usages(typeCount, key).Bind(usages =>
-          Witnesses(header, tol, key).Map(witness =>
+  return Classification.Of("corpus", "component").Bind(typeClass =>
+   Classification.Of("corpus", "occurrence").Bind(occClass =>
+    FactoryBridge.Accept<AnalysisRoute>("corpus.forge").Bind(route =>
+     Assessments(profile, route).Bind(payloads =>
+      Bags(profile).Bind(bags =>
+       Series(profile).Bind(series =>
+        Materials(profile, typeCount, tol).Bind(materials =>
+         Usages(typeCount).Bind(usages =>
+          Witnesses(header, tol).Map(witness =>
            Assembled(profile, header, tol, typeCount, typeClass, occClass, payloads, bags, series, materials, usages, witness))
-           .Bind(built => Normalized(built.Delta, "mint", key).Bind(delta =>
-            Normalized(built.Mutation, "mutation", key).Bind(mutation =>
-             delta.AdmitOnto(ElementGraph.Genesis(header), key).Map(step =>
+           .Bind(built => Normalized(built.Delta, "mint").Bind(delta =>
+            Normalized(built.Mutation, "mutation").Bind(mutation =>
+             delta.AdmitOnto(ElementGraph.Genesis(header)).Map(step =>
               (step.Graph, step.Delta, mutation)))))))))))));
  }
 
- static Fin<GraphDelta> Normalized(GraphDelta delta, string section, Op key) =>
-  delta.NormalForm(key).ToFin().Map(_ => delta);
+ static Fin<GraphDelta> Normalized(GraphDelta delta, string section) =>
+  delta.NormalForm().ToFin().Map(_ => delta);
 
- static Fin<Seq<(int Index, ObservationSeries Series)>> Series(CorpusProfile profile, Op key) {
+ static Fin<Seq<(int Index, ObservationSeries Series)>> Series(CorpusProfile profile) {
   QuantitySignature quantity = QuantitySignature.Create(
    QuantityType.Create("Temperature"), Dimension.Create(0, 0, 0, 0, 1, 0, 0), Some("K"));
   return toSeq(Enumerable.Range(0, profile.Nodes)).Filter(i => i % profile.ObservationStride == 0).TraverseM(i =>
-   key.AcceptValidated<SensorId>($"corpus-sensor-{i}").Bind(sensor =>
+   FactoryBridge.Accept<SensorId>($"corpus-sensor-{i}").Bind(sensor =>
     ObservationSeries.Open(
       sensor, PropertyName.Create("corpus-aspect"), quantity, SamplingKind.Averaged, Some(CorpusCadence),
-      CorpusInstant, Some(new SensorProvenance("corpus", "GraphForge", $"{i}")), key)
-     .Bind(opened => Chunked(profile, i, key).Bind(block =>
+      CorpusInstant, Some(new SensorProvenance("corpus", "GraphForge", $"{i}")))
+     .Bind(opened => Chunked(profile, i).Bind(block =>
       SeriesStatistics
-       .From(block.Run, SamplingKind.Averaged, quantity, key)
-       .Bind(summary => opened.Append(block.Chunk, summary, key))))
+       .From(block.Run, SamplingKind.Averaged, quantity)
+       .Bind(summary => opened.Append(block.Chunk, summary))))
      .Map(grown => (i, grown)))).As();
  }
 
  static Fin<(ObservationChunk Chunk, Seq<(Instant At, double Si, ObservationGrade Grade)> Run)> Chunked(
-  CorpusProfile profile, int index, Op key) {
+  CorpusProfile profile, int index) {
   Seq<(Instant At, double Si, ObservationGrade Grade)> run =
    toSeq(Enumerable.Range(0, profile.ObservationSamples)).Map(s => (
     CorpusInstant + (CorpusCadence * s),
     290.0 + (Deterministic.Unit(lanes: [CorpusLane.Observation.Key, index, s], seed: profile.Seed) * 10.0),
     s % 8 == 7 ? ObservationGrade.Suspect : ObservationGrade.Measured));
-  return ObservationChunk.Encode(run, key).Map(block => (block.Chunk, run));
+  return ObservationChunk.Encode(run).Map(block => (block.Chunk, run));
  }
 
  static NodeId Seeded(long seed, CorpusLane lane, int ordinal) =>
@@ -183,34 +183,34 @@ public static class GraphForge {
  static Node Contented(Node draft, double tol) =>
   draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tol)));
 
- static Fin<Seq<AssessmentPayload>> Assessments(CorpusProfile profile, AnalysisRoute route, Op key) =>
+ static Fin<Seq<AssessmentPayload>> Assessments(CorpusProfile profile, AnalysisRoute route) =>
   toSeq(Enumerable.Range(0, profile.Nodes)).TraverseM(i =>
-   PropertyValue.Of(new PropertyValue.Number(0.5 + (i % 7) * 0.05), key).Bind(utilization =>
-    from run in EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant, key,
+   PropertyValue.Of(new PropertyValue.Number(0.5 + (i % 7) * 0.05)).Bind(utilization =>
+    from run in EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant,
       elapsed: Duration.FromSeconds(1 + (i % 3)),
       window: i % 2 == 0 ? Some(new Interval(CorpusInstant, CorpusInstant + Duration.FromHours(1))) : None,
       correlation: i % 2 == 1 ? Some(CorrelationId.Create(SeededGuid(profile.Seed, CorpusLane.AssessmentInput, i))) : None,
       attempt: 1)
-    from content in PayloadContent.Results(Map((PropertyName.Create("corpus-utilization"), utilization)), None, key)
+    from content in PayloadContent.Results(Map((PropertyName.Create("corpus-utilization"), utilization)), None)
     from payload in AssessmentPayload.Open(
      profile.Disciplines[i % profile.Disciplines.Count], route, Seed(profile.Seed, CorpusLane.AssessmentInput, i),
-     AssessmentOutcome.Computed, content, run, key)
+     AssessmentOutcome.Computed, content, run)
     select payload)).As();
 
- static Fin<Seq<(PropertyBag Props, QuantityBag Qty)>> Bags(CorpusProfile profile, Op key) =>
+ static Fin<Seq<(PropertyBag Props, QuantityBag Qty)>> Bags(CorpusProfile profile) =>
   toSeq(Enumerable.Range(0, profile.Nodes)).TraverseM(i =>
    toSeq(Enumerable.Range(0, profile.BagWidth)).TraverseM(j =>
-     Valued(profile, (i * profile.BagWidth) + j, i, key)
+     Valued(profile, (i * profile.BagWidth) + j, i)
       .Map(value => (PropertyName.Create($"corpus-p{j}"), value))).As()
     .Bind(rows => MeasureValue.OfSi(QuantityType.Create("Volume"), Dimension.Create(3, 0, 0, 0, 0, 0, 0), 1.0 + i * 0.5)
      .Map(volume => (
       new PropertyBag("corpus-pset", rows.Fold(Map<PropertyName, PropertyValue>(), static (m, r) => m.Add(r.Item1, r.Item2)), InheritanceMode.OccurrenceWins, EvidenceGrade.Derived),
       new QuantityBag("corpus-qset", Map((PropertyName.Create("corpus-q0"), volume)), InheritanceMode.OccurrenceWins, EvidenceGrade.Derived))))).As();
 
- static Fin<PropertyValue> Valued(CorpusProfile profile, int slot, int occurrence, Op key) =>
-  Raw(profile, slot, occurrence, key).Bind(value => PropertyValue.Of(value, key));
+ static Fin<PropertyValue> Valued(CorpusProfile profile, int slot, int occurrence) =>
+  Raw(profile, slot, occurrence).Bind(value => PropertyValue.Of(value));
 
- static Fin<PropertyValue> Raw(CorpusProfile profile, int slot, int occurrence, Op key) {
+ static Fin<PropertyValue> Raw(CorpusProfile profile, int slot, int occurrence) {
   double draw = Deterministic.Unit(lanes: [CorpusLane.Value.Key, slot], seed: profile.Seed);
   return (slot % PropertyCases) switch {
    0 => Fin.Succ((PropertyValue)new PropertyValue.Text($"corpus-text-{slot}")),
@@ -233,12 +233,12 @@ public static class GraphForge {
     Interpolation.Items[slot % Interpolation.Items.Count])),
    12 => Fin.Succ((PropertyValue)new PropertyValue.Complex("corpus-complex",
     Map((PropertyName.Create("corpus-inner"), (PropertyValue)new PropertyValue.Number(draw))))),
-   13 => Timed(slot, key).Map(static value => (PropertyValue)new PropertyValue.Temporal(value)),
+   13 => Timed(slot).Map(static value => (PropertyValue)new PropertyValue.Temporal(value)),
    var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:property-value:{unreached}>"),
   };
  }
 
- static Fin<TemporalValue> Timed(int slot, Op key) => ((slot / PropertyCases) % TemporalArms) switch {
+ static Fin<TemporalValue> Timed(int slot) => ((slot / PropertyCases) % TemporalArms) switch {
   0 => Fin.Succ<TemporalValue>(new TemporalValue.Date(CorpusInstant.InUtc().Date.PlusDays(slot))),
   1 => Fin.Succ<TemporalValue>(new TemporalValue.Moment(CorpusInstant.InUtc().LocalDateTime.PlusHours(slot))),
   2 => Fin.Succ<TemporalValue>(new TemporalValue.Time(CorpusInstant.InUtc().TimeOfDay.PlusMinutes(slot))),
@@ -250,68 +250,68 @@ public static class GraphForge {
  static Fin<MeasureValue> Metre(double si) =>
   MeasureValue.OfSi(QuantityType.Create("Length"), Dimension.Create(1, 0, 0, 0, 0, 0, 0), si);
 
- static Fin<Seq<Node>> Materials(CorpusProfile profile, int typeCount, double tol, Op key) =>
+ static Fin<Seq<Node>> Materials(CorpusProfile profile, int typeCount, double tol) =>
   toSeq(Enumerable.Range(0, typeCount)).TraverseM(t => {
    MaterialId material = MaterialId.Create($"corpus-material-{t}");
-   return Composed(material, t, key).Bind(composition =>
-    Properties(t, key).Map(properties =>
+   return Composed(material, t).Bind(composition =>
+    Properties(t).Map(properties =>
      Contented(new Node.Material(Seeded(profile.Seed, CorpusLane.Material, t), material, composition, properties), tol)));
   }).As();
 
- static Fin<MaterialComposition> Composed(MaterialId material, int slot, Op key) => (slot % CompositionArms) switch {
+ static Fin<MaterialComposition> Composed(MaterialId material, int slot) => (slot % CompositionArms) switch {
   0 => Fin.Succ(MaterialComposition.OfSingle(material)),
   1 => Metre(0.1 + slot * 0.01).Bind(thickness => MaterialComposition.OfLayerSet(
-   Seq(new MaterialLayer(material, thickness, $"corpus-layer-{slot}", Some(slot % 101), "corpus", Some(false))), key)),
+   Seq(new MaterialLayer(material, thickness, $"corpus-layer-{slot}", Some(slot % 101), "corpus", Some(false))))),
   2 => MaterialComposition.OfProfileSet(
-    Seq(new MaterialProfile(material, ProfileRef.Of("corpus", $"CP{slot}"), Some(slot % 101), "corpus", Seq<MeasureValue>())), key)
-   .Bind(admitted => Section(slot, key).Map(admitted.WithSection)),
+    Seq(new MaterialProfile(material, ProfileRef.Of("corpus", $"CP{slot}"), Some(slot % 101), "corpus", Seq<MeasureValue>())))
+   .Bind(admitted => Section(slot).Map(admitted.WithSection)),
   3 => MaterialComposition.OfConstituentSet(
-   Seq(new MaterialConstituent(material, "corpus", 0.5, "corpus-a"), new MaterialConstituent(material, "corpus", 0.5, "corpus-b")), key),
+   Seq(new MaterialConstituent(material, "corpus", 0.5, "corpus-a"), new MaterialConstituent(material, "corpus", 0.5, "corpus-b"))),
   var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:composition:{unreached}>"),
  };
 
- static Fin<Seq<MaterialUsage>> Usages(int typeCount, Op key) =>
+ static Fin<Seq<MaterialUsage>> Usages(int typeCount) =>
   toSeq(Enumerable.Range(0, typeCount)).TraverseM(t => (t % CompositionArms) switch {
    1 => Metre(0.05 + (t * 0.01)).Bind(offset => Metre(3.0 + t).Bind(extent =>
     MaterialUsage.LayerSet.Of(
      LayerSetDirection.Items[t % LayerSetDirection.Items.Count],
      DirectionSense.Items[t % DirectionSense.Items.Count],
-     Some(offset), Some(extent), key))),
+     Some(offset), Some(extent)))),
    2 => Metre(3.0 + t).Bind(extent =>
-    MaterialUsage.ProfileSet.Of(Some(1 + (t % CardinalPoint.Items.Count)), Some(extent), key)),
+    MaterialUsage.ProfileSet.Of(Some(1 + (t % CardinalPoint.Items.Count)), Some(extent))),
    0 or 3 => Fin.Succ((MaterialUsage)new MaterialUsage.Unbound()),
    var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:usage:{unreached}>"),
   }).As();
 
- static Fin<Seq<MaterialPropertySet>> Properties(int slot, Op key) =>
-  toSeq(Enumerable.Range(0, PropertySetCases)).TraverseM(c => Property(c, slot, key)).As();
+ static Fin<Seq<MaterialPropertySet>> Properties(int slot) =>
+  toSeq(Enumerable.Range(0, PropertySetCases)).TraverseM(c => Property(c, slot)).As();
 
- static Fin<MaterialPropertySet> Property(int ordinal, int slot, Op key) {
+ static Fin<MaterialPropertySet> Property(int ordinal, int slot) {
   double scale = 1.0 + (slot % 8) * 0.125;
-  return Evidence(ordinal, slot, key).Bind(evidence => ordinal switch {
-   0 => MaterialPropertySet.OfMechanical(2400.0 * scale, 30_000.0 * scale, 400.0 * scale, 550.0 * scale, 0.2, 1.0e-5, key, evidence),
-   1 => MaterialPropertySet.OfOrthotropic(500.0 * scale, 11_000.0 * scale, Some(7_400.0 * scale), 370.0 * scale, 690.0 * scale, 24.0 * scale, 2.5 * scale, 5.0e-6, key, evidence),
-   2 => SampledCurve.Of(new[] { 20.0, 200.0, 600.0 }, new[] { 1.0 * scale, 1.1 * scale, 1.4 * scale }, key)
-    .Bind(curve => MaterialPropertySet.OfThermal(1.7 * scale, 880.0 * scale, 0.25 * scale, 120.0, key, evidence, Some(curve))),
-   3 => Acoustic.Of(Bands(static band => 0.05 + band * 0.05), Bands(band => 20.0 + band + scale), key)
+  return Evidence(ordinal, slot).Bind(evidence => ordinal switch {
+   0 => MaterialPropertySet.OfMechanical(2400.0 * scale, 30_000.0 * scale, 400.0 * scale, 550.0 * scale, 0.2, 1.0e-5, evidence),
+   1 => MaterialPropertySet.OfOrthotropic(500.0 * scale, 11_000.0 * scale, Some(7_400.0 * scale), 370.0 * scale, 690.0 * scale, 24.0 * scale, 2.5 * scale, 5.0e-6, evidence),
+   2 => SampledCurve.Of(new[] { 20.0, 200.0, 600.0 }, new[] { 1.0 * scale, 1.1 * scale, 1.4 * scale })
+    .Bind(curve => MaterialPropertySet.OfThermal(1.7 * scale, 880.0 * scale, 0.25 * scale, 120.0, evidence, Some(curve))),
+   3 => Acoustic.Of(Bands(static band => 0.05 + band * 0.05), Bands(band => 20.0 + band + scale))
     .Map(spectrum => MaterialPropertySet.OfAcoustic(spectrum, evidence)),
-   4 => FireResistance.Of(Some(60), Some(90), Some(30), key)
+   4 => FireResistance.Of(Some(60), Some(90), Some(30))
     .Map(resistance => MaterialPropertySet.OfFire(FireRating.A1, resistance, evidence)),
    5 => MaterialPropertySet.OfEnvironmental(
-    MeasurementBasis.PerM3, [.. Enumerable.Repeat(scale, ImpactCategory.Items.Count * LifecycleStage.Items.Count)], 0.3, 0.6, key, evidence),
-   6 => key.AcceptValidated<Currency>("EUR").Bind(currency =>
-    MaterialPropertySet.OfCost(MeasurementBasis.PerM2, currency, 12.0 * scale, 8.0 * scale, 25.0 * scale, key, evidence)),
-   7 => MaterialPropertySet.OfDamping(0.02 * scale, Some((0.5, 0.001)), key, evidence),
-   8 => MaterialPropertySet.OfHygrothermal(0.18, 45.0 * scale, 180.0 * scale, Some(0.02), key, evidence),
-   9 => MaterialPropertySet.OfDurability(3.5 * scale, 1.0e-12, 0.3, key, evidence),
-   10 => MaterialPropertySet.OfOptical(0.6, 0.2, 0.2, 0.5, 0.25, 0.25, 0.0, 0.84, 0.84, key, evidence),
-   _ => MaterialPropertySet.OfElectrical(1.72e-8 * scale, 2.0 + scale, Some(2.0e7 * scale), Some(1.0 + scale), key, evidence),
+    MeasurementBasis.PerM3, [.. Enumerable.Repeat(scale, ImpactCategory.Items.Count * LifecycleStage.Items.Count)], 0.3, 0.6, evidence),
+   6 => FactoryBridge.Accept<Currency>("EUR").Bind(currency =>
+    MaterialPropertySet.OfCost(MeasurementBasis.PerM2, currency, 12.0 * scale, 8.0 * scale, 25.0 * scale, evidence)),
+   7 => MaterialPropertySet.OfDamping(0.02 * scale, Some((0.5, 0.001)), evidence),
+   8 => MaterialPropertySet.OfHygrothermal(0.18, 45.0 * scale, 180.0 * scale, Some(0.02), evidence),
+   9 => MaterialPropertySet.OfDurability(3.5 * scale, 1.0e-12, 0.3, evidence),
+   10 => MaterialPropertySet.OfOptical(0.6, 0.2, 0.2, 0.5, 0.25, 0.25, 0.0, 0.84, 0.84, evidence),
+   _ => MaterialPropertySet.OfElectrical(1.72e-8 * scale, 2.0 + scale, Some(2.0e7 * scale), Some(1.0 + scale), evidence),
   });
  }
 
- static Fin<PropertyEvidence> Evidence(int ordinal, int slot, Op key) =>
+ static Fin<PropertyEvidence> Evidence(int ordinal, int slot) =>
   (ordinal % 3 == 2
-    ? EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant, key).Map(Some)
+    ? EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant).Map(Some)
     : Fin.Succ(Option<EvidenceRun>.None))
    .Map(run => PropertyEvidence.Of(
      $"corpus-{ordinal}",
@@ -324,7 +324,7 @@ public static class GraphForge {
       : None,
      run: run));
 
- static Fin<SectionProperties> Section(int slot, Op key) {
+ static Fin<SectionProperties> Section(int slot) {
   double s = 1.0 + (slot % 4) * 0.25;
   return Metre(1.16 * s).Bind(perimeter => SectionProperties.OfMillimetres(
    5_380.0 * s, 83_560_000.0 * s, 6_040_000.0 * s, 201_000.0 * s, 125_900_000_000.0 * s,
@@ -332,22 +332,22 @@ public static class GraphForge {
    2_568.0 * s, 3_070.0 * s, 124.6, 33.5,
    300.0, 150.0, 1_160.0 * s, 35.0,
    0.0, 0.0, 0.0,
-   new Vector3(75.0, 150.0, 0.0), Some(new SectionForm(12, 4, 0.35, perimeter)), key));
+   new Vector3(75.0, 150.0, 0.0), Some(new SectionForm(12, 4, 0.35, perimeter))));
  }
 
  static double[] Bands(Func<int, double> shape) => [.. Enumerable.Range(0, AcousticBand.Items.Count).Select(shape)];
 
- static Fin<(Node Appearance, Node Coverage)> Witnesses(Header header, double tol, Op key) =>
-  AppearanceSummary.Of(AppearanceVector.Create(0.5, 0.5, 0.5, 0.0, 0.5, 1.0, transmissive: false), key).Bind(summary =>
+ static Fin<(Node Appearance, Node Coverage)> Witnesses(Header header, double tol) =>
+  AppearanceSummary.Of(AppearanceVector.Create(0.5, 0.5, 0.5, 0.0, 0.5, 1.0, transmissive: false)).Bind(summary =>
    CellLattice.Of([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-     LatticeAxis.Create(1), LatticeAxis.Create(1), LatticeAxis.Create(1), ceiling: 1L, key).Bind(grid =>
-    grid.Coarsen(key).Bind(coarse =>
-     CoverageBand.Of(0, "corpus-band", ChannelDtype.Float32, BandRole.Gray, key).Bind(band =>
-      (from raster in ArtifactContent.Of(ContentHash.Wire(Seed(CorpusGridSeed, CorpusLane.Grid, 0)).ToByteArray(), key)
-       from overview in ArtifactContent.Of(ContentHash.Wire(Seed(CorpusGridSeed, CorpusLane.Grid, 1)).ToByteArray(), key)
+     LatticeAxis.Create(1), LatticeAxis.Create(1), LatticeAxis.Create(1), ceiling: 1L).Bind(grid =>
+    grid.Coarsen().Bind(coarse =>
+     CoverageBand.Of(0, "corpus-band", ChannelDtype.Float32, BandRole.Gray).Bind(band =>
+      (from raster in ArtifactContent.Of(ContentHash.Wire(Seed(CorpusGridSeed, CorpusLane.Grid, 0)).ToByteArray())
+       from overview in ArtifactContent.Of(ContentHash.Wire(Seed(CorpusGridSeed, CorpusLane.Grid, 1)).ToByteArray())
        from grid in CoverageGrid.Of(
         CoverageKind.Field, Seq(new OverviewLevel(grid, raster), new OverviewLevel(coarse, overview)),
-        Seq(band), header.Reference, key)
+        Seq(band), header.Reference)
        select grid)
        .Map(grid => (
         Contented(new Node.Appearance(Draft, summary), tol),
@@ -486,63 +486,63 @@ public sealed partial class CorpusOp {
  public static readonly CorpusOp Tabulate = new("tabulate", RunTabulate);
 
  [UseDelegateFromConstructor]
- public partial Fin<CorpusWitness> Run(CorpusModel model, Op key);
+ public partial Fin<CorpusWitness> Run(CorpusModel model);
 
- static Fin<CorpusWitness> RunBake(CorpusModel model, Op key) =>
-  model.Graph.ObjectNodes.TraverseM(root => model.Graph.Bake(root.Id, key)).As()
-   .Bind(elements => Witness(model, Bake, elements.Count, model.Snapshot, key));
+ static Fin<CorpusWitness> RunBake(CorpusModel model) =>
+  model.Graph.ObjectNodes.TraverseM(root => model.Graph.Bake(root.Id)).As()
+   .Bind(elements => Witness(model, Bake, elements.Count, model.Snapshot));
 
- static Fin<CorpusWitness> RunFreeze(CorpusModel model, Op key) {
+ static Fin<CorpusWitness> RunFreeze(CorpusModel model) {
   ElementGraph frozen = WorkingGraph.Thaw(model.Graph).Freeze(model.Graph.Header);
-  return Checked(model, Freeze, frozen.Nodes.Count, ContentAddress.OfGraph(frozen), model.Snapshot, key);
+  return Checked(model, Freeze, frozen.Nodes.Count, ContentAddress.OfGraph(frozen), model.Snapshot);
  }
 
- static Fin<CorpusWitness> RunCanonicalBytes(CorpusModel model, Op key) =>
-  model.Delta.ToCanonicalBytes(model.Graph.Header.Tolerance, key).Bind(bytes =>
-   Witness(model, CanonicalBytes, bytes.Length, ContentAddress.Of(bytes.Span), key));
+ static Fin<CorpusWitness> RunCanonicalBytes(CorpusModel model) =>
+  model.Delta.ToCanonicalBytes(model.Graph.Header.Tolerance).Bind(bytes =>
+   Witness(model, CanonicalBytes, bytes.Length, ContentAddress.Of(bytes.Span)));
 
  static Node Selected(CorpusModel model) =>
   model.Graph.Nodes.Values.OrderBy(static node => node.Id.ToValue(), StringComparer.Ordinal).First();
 
- static Fin<CorpusWitness> RunEncodeNode(CorpusModel model, Op key) {
+ static Fin<CorpusWitness> RunEncodeNode(CorpusModel model) {
   Node node = Selected(model);
-  return ElementWire.Encode(node, model.Graph.Header.Tolerance, key).Bind(wire => key.Catch(() => {
+  return ElementWire.Encode(node, model.Graph.Header.Tolerance).Bind(wire => Try.lift(() => {
    using ArrayPoolBufferWriter<byte> sink = new();
    wire.WriteTo(sink);
-   return Witness(model, EncodeNode, sink.WrittenCount, ContentAddress.Of(sink.WrittenSpan), key);
-  }));
+   return Witness(model, EncodeNode, sink.WrittenCount, ContentAddress.Of(sink.WrittenSpan));
+  }).Run().Bind(static inner => inner));
  }
 
- static Fin<CorpusWitness> RunDecodeNode(CorpusModel model, Op key) {
+ static Fin<CorpusWitness> RunDecodeNode(CorpusModel model) {
   Node node = Selected(model);
   double tolerance = model.Graph.Header.Tolerance;
-  return ElementWire.Encode(node, tolerance, key).Bind(wire => key.Catch(() => {
+  return ElementWire.Encode(node, tolerance).Bind(wire => Try.lift(() => {
    using MemoryStream payload = new();
    wire.WriteTo(payload);
    payload.Position = 0;
    global::Rasm.Contracts.Element.NodeWire parsed =
     global::Rasm.Contracts.Element.NodeWire.Parser.ParseFrom(payload);
-   return ElementWire.Decode(parsed, key).Bind(decoded =>
+   return ElementWire.Decode(parsed).Bind(decoded =>
     Checked(
      model, DecodeNode, payload.Length,
-     ContentAddress.Of(decoded, tolerance), ContentAddress.Of(node, tolerance), key));
-  }));
+     ContentAddress.Of(decoded, tolerance), ContentAddress.Of(node, tolerance)));
+  }).Run().Bind(static inner => inner));
  }
 
- static Fin<CorpusWitness> RunTabulate(CorpusModel model, Op key) =>
-  GraphTable.Tabulate(model.Graph, key).Bind(snapshot =>
-   snapshot.Batches(key).Bind(_ => Witness(model, Tabulate, snapshot.Rows.Count, snapshot.Address, key)));
+ static Fin<CorpusWitness> RunTabulate(CorpusModel model) =>
+  GraphTable.Tabulate(model.Graph).Bind(snapshot =>
+   snapshot.Batches().Bind(_ => Witness(model, Tabulate, snapshot.Rows.Count, snapshot.Address)));
  static Fin<CorpusWitness> Checked(
-  CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact, ContentAddress expected, Op key) =>
+  CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact, ContentAddress expected) =>
   artifact == expected
-   ? Witness(model, operation, magnitude, artifact, key)
-   : new ElementFault.ValueRejected(key, $"<corpus-drift:{operation.Key}:{model.Grade.Key}>");
+   ? Witness(model, operation, magnitude, artifact)
+   : new ElementFault.ValueRejected($"<corpus-drift:{operation.Key}:{model.Grade.Key}>");
 
  static Fin<CorpusWitness> Witness(
-  CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact, Op key) =>
+  CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact) =>
   magnitude > 0
    ? Fin.Succ(new CorpusWitness(model.Grade, operation, magnitude, model.Snapshot, artifact))
-   : new ElementFault.ValueRejected(key, $"<corpus-operation-empty:{model.Grade.Key}:{operation.Key}>");
+   : new ElementFault.ValueRejected($"<corpus-operation-empty:{model.Grade.Key}:{operation.Key}>");
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -558,23 +558,22 @@ public static class CorpusGate {
   (ByteString.CopyFrom([0xFF, 0xFF]), false),
   (ByteString.CopyFrom([0xFF, 0xFE]), false));
 
- public static Fin<CorpusModel> Mint(CorpusGrade grade, Op key) =>
-  GraphForge.Mint(grade.Profile, key).Map(step =>
+ public static Fin<CorpusModel> Mint(CorpusGrade grade) =>
+  GraphForge.Mint(grade.Profile).Map(step =>
    new CorpusModel(grade, step.Graph, step.Delta, step.Mutation, ContentAddress.OfGraph(step.Graph)));
 
- public static Fin<ContentAddress> Stable(CorpusGrade grade, Op key) =>
-  IntegerCanonicality(key).Bind(_ => Mint(grade, key).Bind(first => Mint(grade, key).Bind(second =>
+ public static Fin<ContentAddress> Stable(CorpusGrade grade) =>
+  IntegerCanonicality().Bind(_ => Mint(grade).Bind(first => Mint(grade).Bind(second =>
    first.Snapshot == second.Snapshot
     ? Fin.Succ(first.Snapshot)
-    : Fin.Fail<ContentAddress>(new ElementFault.ValueRejected(key, $"<corpus-nondeterministic:{grade.Key}>")))));
+    : Fin.Fail<ContentAddress>(new ElementFault.ValueRejected($"<corpus-nondeterministic:{grade.Key}>")))));
 
- static Fin<Unit> IntegerCanonicality(Op key) => IntegerWireCases.TraverseM(row => {
+ static Fin<Unit> IntegerCanonicality() => IntegerWireCases.TraverseM(row => {
   Fin<PropertyValue> admitted = WireCodec.ToValue(
-   new global::Rasm.Contracts.Element.PropertyValueWire { Integer = row.Bytes }, key);
+   new global::Rasm.Contracts.Element.PropertyValueWire { Integer = row.Bytes });
   return admitted.IsSucc == row.Accepted
    ? Fin.Succ(unit)
-   : Fin.Fail<Unit>(new ElementFault.ValueRejected(
-      key, $"<integer-wire-canonicality:{Convert.ToHexString(row.Bytes.Span)}:expected={row.Accepted}>"));
+   : Fin.Fail<Unit>(new ElementFault.ValueRejected($"<integer-wire-canonicality:{Convert.ToHexString(row.Bytes.Span)}:expected={row.Accepted}>"));
  }).As().Map(static _ => unit);
 }
 ```

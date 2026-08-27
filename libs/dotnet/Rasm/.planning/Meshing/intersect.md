@@ -152,10 +152,10 @@ public static class Intersection {
         public CrossingStore(Dimension seed) { rows = new(seed.Value); }
 
         public int Intern(in Implicit point, CrossKey key) {
-            if (interned.TryGetValue(key, out int at)) { return at; }
+            if (interned.TryGetValue(out int at)) { return at; }
             if (point.IsExplicit && byBits.TryGetValue(Axis.BitKey(point.AsExplicit), out int shared)) { return interned[key] = shared; }
             int slot = rows.Count;
-            rows.Add(new CrossTable.Row(point, key));
+            rows.Add(new CrossTable.Row(point));
             if (point.IsExplicit) { byBits[Axis.BitKey(point.AsExplicit)] = slot; }
             return interned[key] = slot;
         }
@@ -163,9 +163,8 @@ public static class Intersection {
         public CrossTable Freeze() => new([.. rows], [.. segments], [.. coplanar]);
     }
 
-    public static Fin<IntersectResult> Apply(IntersectOp op, Op? key = null) {
-        Op site = key.OrDefault();
-        return Admit(op).Bind(_ => op.Switch(
+    public static Fin<IntersectResult> Apply(IntersectOp op) {
+        return Admit().Bind(_ => op.Switch(
             segmentSegment:   s => Fin.Succ((IntersectResult)new IntersectResult.Points(
                 CrossSegments2D(s.A, s.B, s.Plane).Map(static point => point.Round()).ToSeq())),
             segmentTriangle:  s => Fin.Succ((IntersectResult)new IntersectResult.Points(
@@ -312,25 +311,25 @@ public static class Intersection {
     }
 
     // --- [BROAD_PHASE]
-    static Fin<SpatialIndex> Bvh(MeshEdit soup, Op key) {
+    static Fin<SpatialIndex> Bvh(MeshEdit soup) {
         BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) { boxes[f] = soup.Bounds(f); }
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, key);
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical);
     }
 
     // --- [CROSSINGS]
-    static Fin<CrossingStore> Cross(IntersectOp.MeshMesh op, Op key) {
+    static Fin<CrossingStore> Cross(IntersectOp.MeshMesh op) {
         using MeshEdit ea = MeshEdit.Of(op.A);
         using MeshEdit eb = MeshEdit.Of(op.B);
-        return (Bvh(ea, key), Bvh(eb, key)).Apply((ia, ib) => (ia, ib)).As()
-            .Bind(t => t.ia.Query(t.ib, op.A.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
+        return (Bvh(ea), Bvh(eb)).Apply((ia, ib) => (ia, ib)).As()
+            .Bind(t => t.ia.Query(t.ib, op.A.Tolerance.For(ToleranceLane.MeshIntersection).Value))
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => PairCrossings(store, ea, eb, pair.Left, pair.Right, op.Policy)));
     }
 
-    static Fin<CrossingStore> SelfCross(IntersectOp.SelfMesh op, Op key) {
+    static Fin<CrossingStore> SelfCross(IntersectOp.SelfMesh op) {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
-        return Bvh(soup, key)
-            .Bind(index => index.Query(index, op.Mesh.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
+        return Bvh(soup)
+            .Bind(index => index.Query(index, op.Mesh.Tolerance.For(ToleranceLane.MeshIntersection).Value))
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => {
                 if (pair.Left >= pair.Right) { return store; }
                 (int a0, int a1, int a2) = soup.Face(pair.Left);
@@ -498,13 +497,13 @@ public static class Intersection {
         return store;
     }
 
-    static Fin<IntersectResult> FirstHit(IntersectOp.RayMesh op, Op key) {
+    static Fin<IntersectResult> FirstHit(IntersectOp.RayMesh op) {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
         (Point3d from, Point3d to) = (op.Ray.Position, op.Ray.PointAt(op.MaxT));
-        if (Axis.DominantOf(op.Ray.Direction, key).Case is not Axis axis) { return Fin.Fail<IntersectResult>(key.InvalidInput()); }
+        if (Axis.DominantOf(op.Ray.Direction).Case is not Axis axis) { return Fin.Fail<IntersectResult>(new KernelFault.InvalidInput()); }
         Sign forward = Sign.Of(axis.Along(op.Ray.Direction));
-        return Bvh(soup, key)
-            .Bind(index => index.Query(new BoundingBox([from, to]), key: key))
+        return Bvh(soup)
+            .Bind(index => index.Query(new BoundingBox([from, to])))
             .Map(faces => {
                 Option<Implicit> best = None;
                 foreach (int f in faces) {

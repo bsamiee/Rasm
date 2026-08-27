@@ -199,7 +199,7 @@ public abstract partial record CellTargetPlan : IValidityEvidence {
             : Fin.Fail<Seq<CellWaypoint>>(new KernelFault.InvalidValue("cell", "robot-cell:target-census")));
 
     private static Fin<Target> Capture(CellWaypoint waypoint, RobotCell cell, Move move, MotionDynamics dynamics) =>
-        Op.Of(name: "robot-cell:target").Catch(() => Fin.Succ(waypoint.Project(cell, move, dynamics)));
+        Try.lift(() => Fin.Succ(waypoint.Project(cell, move, dynamics))).Run().Bind(static inner => inner);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -223,31 +223,30 @@ public abstract partial record CellOutcome {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellLibrary {
     private CellLibrary() { }
-    private static readonly Op Boundary = Op.Of();
 
     public sealed record Refresh : CellLibrary;
     public sealed record Download(LibraryItem Item) : CellLibrary;
     public sealed record Remove(LibraryItem Item) : CellLibrary;
 
     public IO<CellCatalog> Run() =>
-        IO.lift(() => Boundary.Catch(() => Fin.Succ(new OnlineLibrary()))).Bracket(
+        IO.lift(() => Try.lift(() => Fin.Succ(new OnlineLibrary())).Run().Bind(static inner => inner)).Bracket(
             Use: library => Switch(
                 state: library,
                 refresh: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
-                    Boundary.Catch(async _ => {
+                    Try.lift(async _ => {
                         await source.UpdateLibraryAsync().ConfigureAwait(false);
                         return Fin.Succ(Catalog(source, verb));
-                    })).Bind(static result => IO.lift(result)),
+                    }).Run().Bind(static inner => inner)).Bind(static result => IO.lift(result)),
                 download: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
-                    Boundary.Catch(async _ => {
+                    Try.lift(async _ => {
                         await source.DownloadLibraryAsync(verb.Item).ConfigureAwait(false);
                         return Fin.Succ(Catalog(source, verb));
-                    })).Bind(static result => IO.lift(result)),
-                remove: static (source, verb) => IO.lift(() => Boundary.Catch(() => {
+                    }).Run().Bind(static inner => inner)).Bind(static result => IO.lift(result)),
+                remove: static (source, verb) => IO.lift(() => Try.lift(() => {
                     source.RemoveDownloadedLibrary(verb.Item);
                     return Fin.Succ(Catalog(source, verb));
-                })),
-            Fin: static library => IO.lift(() => Boundary.Catch(library.Dispose)));
+                }).Run().Bind(static inner => inner)),
+            Fin: static library => IO.lift(() => Try.lift(library.Dispose).Run().Bind(static inner => inner)));
 
     private static CellCatalog Catalog(OnlineLibrary source, CellLibrary verb) => new(verb, toSeq(source.Libraries.Keys));
 }
@@ -255,7 +254,6 @@ public abstract partial record CellLibrary {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellDrive {
     private CellDrive() { }
-    private static readonly Op Boundary = Op.Of();
 
     public sealed record Upload(
         Program Program,
@@ -265,36 +263,36 @@ public abstract partial record CellDrive {
     public sealed record Pause : CellDrive;
 
     public IO<CellDelivery> Run(RobotSystem system) =>
-        IO.lift(() => Boundary.Catch(() => Fin.Succ(Optional(system).Bind(static host => Optional(host.Remote)))))
+        IO.lift(() => Try.lift(() => Fin.Succ(Optional(system).Bind(static host => Optional(host.Remote)))).Run().Bind(static inner => inner))
             .Bind(channel => channel.Match(
                 Some: remote => Switch(
                     state: remote,
                     upload: static (drive, action) => action.Program is not null
                         && action.Artifact is { Kind: var kind } && kind == EgressKind.CutProgram
                         && action.Canonicalize is not null
-                            ? IO.lift(() => Boundary.Catch(() => Fin.Succ(action.Canonicalize(action.Program))))
+                            ? IO.lift(() => Try.lift(() => Fin.Succ(action.Canonicalize(action.Program))).Run().Bind(static inner => inner))
                                 .Bind(bytes => ContentKey.Of(EgressKind.CutProgram, bytes.Span) is var transferred
                                     && transferred.Digest == action.Artifact.Digest
-                                        ? IO.lift(() => Boundary.Catch(() => {
+                                        ? IO.lift(() => Try.lift(() => {
                                             drive.Upload(action.Program);
                                             return Fin.Succ(new CellDelivery(
                                                 CellDriveKind.Uploaded,
                                                 toSeq(drive.Log),
                                                 Some(transferred),
                                                 Optional(drive.IP)));
-                                        }))
+                                        }).Run().Bind(static inner => inner))
                                         : IO.fail<CellDelivery>(
                                             new KernelFault.InvalidValue("cell", "robot-cell:upload-digest")))
                             : IO.fail<CellDelivery>(
                                 new KernelFault.InvalidValue("cell", "robot-cell:upload-artifact")),
-                    play: static (drive, _) => IO.lift(() => Boundary.Catch(() => {
+                    play: static (drive, _) => IO.lift(() => Try.lift(() => {
                         drive.Play();
                         return Fin.Succ(new CellDelivery(CellDriveKind.Playing, toSeq(drive.Log), None, Optional(drive.IP)));
-                    })),
-                    pause: static (drive, _) => IO.lift(() => Boundary.Catch(() => {
+                    }).Run().Bind(static inner => inner)),
+                    pause: static (drive, _) => IO.lift(() => Try.lift(() => {
                         drive.Pause();
                         return Fin.Succ(new CellDelivery(CellDriveKind.Paused, toSeq(drive.Log), None, Optional(drive.IP)));
-                    }))),
+                    }).Run().Bind(static inner => inner))),
                 None: () => IO.fail<CellDelivery>(
                     new KernelFault.InvalidValue("cell", "robot-cell:remote-absent"))));
 }
@@ -324,7 +322,7 @@ public sealed partial class RobotCell {
         embedded: static (state, row) => Capture(() => FileIO.ParseRobotSystem(row.Xml, state.Base, state.Post)));
 
     private static Fin<RobotSystem> Capture(Func<RobotSystem> load) =>
-        Op.Of(name: "robot-cell:load").Catch(() => Fin.Succ(load()));
+        Try.lift(() => Fin.Succ(load())).Run().Bind(static inner => inner);
 }
 
 [ComplexValueObject]
@@ -672,7 +670,7 @@ public static class RobotProgram {
         int station,
         double instant,
         Option<CellPosedStation> prior) =>
-        Op.Of(name: "robot-cell:animate").Catch(() => {
+        Try.lift(() => {
                 program.Animate(instant, clock.Timebase.Native);
                 SimulationPose pose = program.CurrentSimulationPose;
                 Seq<Plane> poses = Range(0, pose.Kinematics.Count).ToSeq()
@@ -692,7 +690,7 @@ public static class RobotProgram {
                     Occupied: RobotBoundary.Occupied(toSeq(posed)),
                     PosedMeshes: posed.Length,
                     Errors: toSeq(pose.Kinematics).Bind(static solution => toSeq(solution.Errors))));
-            });
+            }).Run().Bind(static inner => inner);
 
     private static Fin<CellOutcome> Place(
         (RobotCell Cell, Seq<Move> Moves) admitted,
@@ -709,13 +707,13 @@ public static class RobotProgram {
         from _ in policy.MultiFileIndices.ForAll(index => index < targets.Count)
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("cell", "robot-cell:partition-range"))
-        from program in Op.Of(name: "robot-cell:program").Catch(() => Fin.Succ(new Program(
+        from program in Try.lift(() => Fin.Succ(new Program(
                 name: policy.ProgramName.Value,
                 robotSystem: system,
                 toolpaths: targets.Map(static target => (IToolpath)target).ToArray(),
                 initCommands: policy.Init.ValueUnsafe(),
                 multiFileIndices: policy.MultiFileIndices.IsEmpty ? null : policy.MultiFileIndices.ToArray(),
-                stepSize: policy.Dynamics.ChordTolerance)))
+                stepSize: policy.Dynamics.ChordTolerance))).Run().Bind(static inner => inner)
         select program;
 
     private static Fin<Seq<RobotCell>> Samples(RobotCell cell, CellPlacementPolicy policy) =>
@@ -735,11 +733,11 @@ public static class RobotProgram {
                 .ToFin(new KernelFault.InvalidValue("cell", $"robot-cell:placement-axis:{axis.Key}"))
                 .Map(value => axis.Project(cell.BaseFrame, value)))
             .As()
-        from placed in Op.Of(name: "robot-cell:placement-pose").Catch(() => {
+        from placed in Try.lift(() => {
                 Plane frame = cell.BaseFrame;
                 frame.Transform(transforms.Fold(Transform.Identity, static (combined, transform) => combined * transform));
                 return Fin.Succ(RobotCell.Create(cell.Source, frame, cell.ToolFrame));
-            })
+            }).Run().Bind(static inner => inner)
         select placed;
 
     private static Fin<CellPlacementCandidate> Evaluate(
@@ -750,9 +748,9 @@ public static class RobotProgram {
         CellPlacementPolicy placement) =>
         from targets in policy.Targets.Resolve(candidate, moves, policy.Dynamics, policy.Inverse)
         from normalized in Rebase(system, candidate.BaseFrame)
-        from solutions in Op.Of(name: "robot-cell:placement").Catch(() => Fin.Succ(system.Kinematics(
+        from solutions in Try.lift(() => Fin.Succ(system.Kinematics(
                 targets.ToArray(),
-                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe())))
+                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe()))).Run().Bind(static inner => inner)
             .Map(static rows => toSeq(rows))
         let joints = solutions.Map(static solution => solution.Joints.ToArr())
         let metrics = toSeq(CellPlacementMetric.Items).Fold(
@@ -762,10 +760,10 @@ public static class RobotProgram {
         select new CellPlacementCandidate(candidate, normalized, joints, diagnostics, metrics, placement.Burden(solutions));
 
     private static Fin<Plane> Rebase(RobotSystem system, Plane frame) =>
-        Op.Of(name: "robot-cell:placement-frame").Catch(() => {
+        Try.lift(() => {
                 system.BasePlane = RobotBoundary.ToR3(frame);
                 return Fin.Succ(RobotBoundary.FromR3(system.NumbersToPlane(system.PlaneToNumbers(system.BasePlane))));
-            });
+            }).Run().Bind(static inner => inner);
 
     private static Fin<CellPlacementCandidate> SelectPlacement(Seq<CellPlacementCandidate> ranked) =>
         from first in ranked.Head.ToFin(new KernelFault.InvalidValue("cell", "robot-cell:placement-empty"))
@@ -853,8 +851,8 @@ internal static class RobotBoundary {
             .Map(static (group, ordinal) => (Group: group, Ordinal: ordinal))
             .Traverse(row => (
                     CellVendor.Of(row.Group.Robot.Manufacturer).ToValidation(),
-                    Seated(key, row.Group).ToValidation())
-                .Apply((vendor, seats) => Row(industrial, key, row.Group, row.Ordinal, vendor, seats,
+                    Seated(row.Group).ToValidation())
+                .Apply((vendor, seats) => Row(industrial, row.Group, row.Ordinal, vendor, seats,
                     reach, processes, holding, coolant, capacities))
                 .As())
             .As()
@@ -870,8 +868,7 @@ internal static class RobotBoundary {
         return seats
             .Find(seat => seat.Ordinal < 0 || seat.Ordinal >= Machine.RobotAxes.Count)
             .Match(
-                Some: seat => Fin.Fail<Arr<(int, AxisTravel)>>(new FabricationFault.KinematicChainInadmissible(
-                    key, seat.Ordinal, nameof(Machine.RobotAxes))),
+                Some: seat => Fin.Fail<Arr<(int, AxisTravel)>>(new FabricationFault.KinematicChainInadmissible(seat.Ordinal, nameof(Machine.RobotAxes))),
                 None: () => Fin.Succ(seats.ToArr()));
     }
 

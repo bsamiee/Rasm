@@ -245,8 +245,7 @@ public static partial class InspectorSurface {
         focused: shape => {
             ignore(hooks.Fire(
                 AppUiPoint.Focus,
-                new AppUiFact.Focus(policy.Target(shape.Args.Context.Property), Focused: true),
-                Op.Of(name: "appui.inspector.focus")).IfFail(error => fun(() => fault(error))()));
+                new AppUiFact.Focus(policy.Target(shape.Args.Context.Property), Focused: true)).IfFail(error => fun(() => fault(error))()));
             return unit;
         },
         vetoing: shape => policy.Gate(shape.Args).Match(
@@ -281,8 +280,7 @@ public static partial class InspectorSurface {
         HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         hooks.Fire(
             AppUiPoint.Edit,
-            new AppUiFact.Edit(AppUiPoint.Edit.Key, policy.Surface, policy.Target(args.Property), editor, outcome.GetType().Name),
-            Op.Of(name: "appui.inspector.edit"));
+            new AppUiFact.Edit(AppUiPoint.Edit.Key, policy.Surface, policy.Target(args.Property), editor, outcome.GetType().Name));
 
     private static EditOutcome Outcome(RoutedCommandExecutedEventArgs args, string editor) =>
         (args.Property, args.Target) switch {
@@ -293,7 +291,7 @@ public static partial class InspectorSurface {
 
     public static Fin<Unit> ApplyAll(PropertyCellContext context, object? value) =>
         context.Factory is ICellEditFactory factory
-            ? Op.Of(name: "appui.inspector.apply").Catch(() => { factory.SetPropertyValue(context, value); return Fin.Succ(unit); })
+            ? Try.lift(() => { factory.SetPropertyValue(context, value); return Fin.Succ(unit); }).Run().Bind(static inner => inner)
             : Fin.Fail<Unit>(new EditFault.Invariant(context.Property.Name, "cell carries no materialized factory"));
 
     public static readonly InstrumentSpec Committed = InstrumentSpec.Create(
@@ -645,12 +643,10 @@ public static partial class InspectorSurface {
                 binding.Persist(binding.Commit(binding.Draft)).Match(
                     Succ: _ => ignore(hooks.Fire(
                         AppUiPoint.Edit,
-                        new AppUiFact.Edit("options", policy.Surface, binding.Section, binding.Reload.Key, nameof(EditOutcome.Persisted)),
-                        Op.Of(name: "appui.inspector.options")).IfFail(error => fun(() => fault(error))())),
+                        new AppUiFact.Edit("options", policy.Surface, binding.Section, binding.Reload.Key, nameof(EditOutcome.Persisted))).IfFail(error => fun(() => fault(error))())),
                     Fail: error => ignore(hooks.Fire(
                         AppUiPoint.Edit,
-                        new AppUiFact.Edit("options", policy.Surface, binding.Section, binding.Reload.Key, nameof(EditOutcome.Rejected)),
-                        Op.Of(name: "appui.inspector.options")).IfFail(cause => fun(() => fault(cause))())));
+                        new AppUiFact.Edit("options", policy.Surface, binding.Section, binding.Reload.Key, nameof(EditOutcome.Rejected))).IfFail(cause => fun(() => fault(cause))())));
             }
             return unit;
         };

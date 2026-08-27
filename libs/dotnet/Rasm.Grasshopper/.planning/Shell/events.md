@@ -119,7 +119,7 @@ using Rasm.Interaction;
 namespace Rasm.Grasshopper.Shell;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFact>>>, Op, Fin<IDisposable>> Bind) : IUiSource<GhFact> {
+public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFact>>>, Fin<IDisposable>> Bind) : IUiSource<GhFact> {
     // --- [CANVAS]
     public static readonly GhSource CanvasDocumentChanged = Canvas(key: "canvas.document-changed",
         wired: new EventTable<Canvas, EventArgs>(Add: static (c, h) => c.DocumentChanged += h, Drop: static (c, h) => c.DocumentChanged -= h),
@@ -185,28 +185,28 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
             Sealed(ledger, key: "history.node-moved", signal: UndoSignal.NodeMoved, new EventTable<History, UndoNodeMovedEventArgs>(Add: static (l, h) => l.NodeMoved += h, Drop: static (l, h) => l.NodeMoved -= h)));
 
     string IUiSource<GhFact>.Key => Key;
-    public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<GhFact>>> emit, Op key) => Bind(anchor, emit, key);
+    public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<GhFact>>> emit) => Bind(anchor, emit);
 
     private static GhSource Canvas<TArgs>(string key, EventTable<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
         where TArgs : EventArgs =>
         new(Key: key, Bind: (anchor, emit, op) => anchor switch {
-            EventAnchor.OnControl { Value: Canvas surface } => op.Catch(() => Fin.Succ(Hook(surface, wired, project, emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
+            EventAnchor.OnControl { Value: Canvas surface } => Try.lift(() => Fin.Succ(Hook(surface, wired, project, emit))).Run().Bind(static inner => inner),
+            _ => Fin.Fail<IDisposable>(new KernelFault.InvalidInput()),
         });
 
     private static GhSource Subject<THost, TArgs>(THost host, string key, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
         where TArgs : EventArgs =>
         new(Key: key, Bind: (anchor, emit, op) => anchor switch {
-            EventAnchor.Ambient => op.Catch(() => Fin.Succ(Hook(host, wired, project, emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
+            EventAnchor.Ambient => Try.lift(() => Fin.Succ(Hook(host, wired, project, emit))).Run().Bind(static inner => inner),
+            _ => Fin.Fail<IDisposable>(new KernelFault.InvalidInput()),
         });
 
     private static GhSource Listed(Document graph, string key, GraphSignal signal, EventTable<Document, ObjectEventArgs> wired) =>
-        Subject(graph, key, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
+        Subject(graph, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
     private static GhSource Pulsed(SolutionServer server, string key, SolutionSignal signal, EventTable<SolutionServer, SolutionEventArgs> wired) =>
-        Subject(server, key, wired, project: (_, args) => new GhFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: None));
+        Subject(server, wired, project: (_, args) => new GhFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: None));
     private static GhSource Sealed<TArgs>(History ledger, string key, UndoSignal signal, EventTable<History, TArgs> wired) where TArgs : EventArgs =>
-        Subject(ledger, key, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
+        Subject(ledger, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
 
     private static IDisposable Hook<THost, TArgs>(
         THost host, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project, Action<Func<Fin<GhFact>>> emit)
@@ -220,7 +220,7 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 
 ## [04]-[BRIDGES]
 
-- Owner: `HookBridge` — the two veto bridges the hook census names as this page's fire sites: `Window.Closing` and `Application.Terminating` carry `CancelEventArgs` the kernel fact projection cannot write back, so each bridge attaches the raw handler, fires its own point — `hooks.Fire(at: GrasshopperPoint.WindowClose, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)` at the closing bridge, `ShellTerminate` at the terminating one — and writes `args.Cancel = true` on the `Fail` leg — the one host readback in the module, stated rather than hidden in a source row.
+- Owner: `HookBridge` — the two veto bridges the hook census names as this page's fire sites: `Window.Closing` and `Application.Terminating` carry `CancelEventArgs` the kernel fact projection cannot write back, so each bridge attaches the raw handler, fires its own point — `hooks.Fire(at: GrasshopperPoint.WindowClose, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None))` at the closing bridge, `ShellTerminate` at the terminating one — and writes `args.Cancel = true` on the `Fail` leg — the one host readback in the module, stated rather than hidden in a source row.
 - Law: the bridge takes the hooks as a REQUIRED parameter (minted at `Platform/composition.md`); a mount with no hooks has no veto to consult and does not exist.
 - Law: the bridge is not an event row — the same host events also ride the kernel `UiSource.Closing`/`Terminating` rows as facts; the bridge exists only for the verdict write-back, so observation and governance stay two boundaries with two shapes.
 - Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookSet`, `Op`, `Lease<T>`).
@@ -236,14 +236,14 @@ namespace Rasm.Grasshopper.Shell;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HookBridge {
     public static Fin<Lease<IDisposable>> Closing(
-        Window window, HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, Op? key = null);
+        Window window, HookSet<GrasshopperPoint, HookSignal, HookScope> hooks);
 
     public static Fin<Lease<IDisposable>> Terminating(
-        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, Op? key = null);
+        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks);
 
     private static void Consult(
-        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, GrasshopperPoint at, CancelEventArgs args, Op key) =>
-        hooks.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)
+        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, GrasshopperPoint at, CancelEventArgs args) =>
+        hooks.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None))
             .IfFail(_ => { args.Cancel = true; });
 }
 ```

@@ -81,7 +81,7 @@ public static class Correlation {
         Store: nameof(Baggage),
         Read: static () => Optional(Baggage.GetBaggage(TenantContext.TenantSlot)),
         Write: static entry => ignore(Baggage.SetBaggage(
-            TenantContext.TenantSlot, Op.ToHostSlot(entry))));
+            TenantContext.TenantSlot, HostEdge.Slot(entry))));
 
     public static CorrelationId Mint() => CorrelationId.Create(Guid.CreateVersion7());
 
@@ -151,10 +151,10 @@ public static class TraceContext {
         };
 
     static IEnumerable<string> Get(Metadata carrier, string key) =>
-        carrier.GetAll(key).Select(static entry => entry.Value);
+        carrier.GetAll().Select(static entry => entry.Value);
 
     public static Metadata Inject(Metadata carrier) =>
-        Inject(carrier, static (c, key, value) => c.Add(key, value));
+        Inject(carrier, static (c, key, value) => c.Add(value));
 
     public static PropagationContext Extract(Metadata carrier) => Extract(carrier, Get);
 
@@ -163,13 +163,13 @@ public static class TraceContext {
 
     public static MqttApplicationMessageBuilder Inject(MqttApplicationMessageBuilder carrier) =>
         Inject(carrier, static (c, key, value) =>
-            ignore(c.WithUserProperty(key, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(value)))));
+            ignore(c.WithUserProperty(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(value)))));
 
     public static IDisposable Continue(ActivitySource source, MqttApplicationMessage carrier, string name, TenantAdoption adoption) =>
         Continue(source, carrier, Get, name, adoption, ActivityKind.Consumer);
 
     static IEnumerable<string> Get(MqttApplicationMessage carrier, string key) =>
-        (carrier.UserProperties ?? []).Where(entry => string.Equals(entry.Name, key, StringComparison.Ordinal))
+        (carrier.UserProperties ?? []).Where(entry => string.Equals(entry.Name, StringComparison.Ordinal))
             .Select(static entry => entry.ReadValueAsString());
 }
 
@@ -753,7 +753,7 @@ public static class SignalGovernance {
 - Output: `LatencyData` — the frozen checkpoint spans `ILatencyDataExporter` exports at the drain band, one span per drain, hop, and capture phase.
 - Packages: Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.DependencyInjection, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: one measured phase is one `LatencyCheckpoint` row recorded by one `Mark` call, and an emitting package's whole phase vocabulary is one `LatencyRoster` value on the composition the one registration already folds; zero new surface.
-- Boundary: `Mark` is the single checkpoint recorder and the three phase folds thread ONE `ILatencyContext` parameter — `DrainConductor.Drain(...)` at `Runtime/lifecycle#DRAIN_CONDUCTOR`, `OutboundSurface.Run(...)` at `Wire/outbound#OWNERSHIP_LAW`, and `SupportCapture.Capture(...)` at Observability/bundles#CAPTURE_PIPELINE, which opens its OWN ledger because it IS the operation rather than a fold inside one — so a phase boundary records through a resolved token rather than a per-fold `Stopwatch`, and `Seal` exports each frozen ledger at the telemetry drain band; a context threaded as a runtime-record COLUMN instead is the rejected placement, because the record outlives the operation while the ledger is one operation's and a pooled context returned at a fold's own `using` cannot be a field of a value that survives it; the recorder is cheaper than child spans and free of sampling coupling; the frozen spans read through the `ILatencyContext.LatencyData` accessor and `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exports at the telemetry drain band; `AddLatencyContext` registers the context once and the consuming folds thread it; the NAME registration is one folded table over this root's roster and every contributor's, across checkpoints, measures, and tags alike, because an unregistered name resolves to a positionless token whose writes drop with nothing raised — a contributor recording under its own unfolded roster is instrumented in prose and silent on the wire, which is why `ThrowOnUnregisteredNames` makes the omission a boot failure and why no contributor reaches its own `RegisterCheckpointNames` call to split the table.
+- Boundary: `Mark` is the single checkpoint recorder and the three phase folds thread ONE `ILatencyContext` parameter — `DrainConductor.Drain(...)` at `Runtime/lifecycle#DRAIN_CONDUCTOR`, `OutboundSurface.Run(...)` at `Wire/outbound#OWNERSHIP_LAW`, and `Error.New(....Message, ...)` at Observability/bundles#CAPTURE_PIPELINE, which opens its OWN ledger because it IS the operation rather than a fold inside one — so a phase boundary records through a resolved token rather than a per-fold `Stopwatch`, and `Seal` exports each frozen ledger at the telemetry drain band; a context threaded as a runtime-record COLUMN instead is the rejected placement, because the record outlives the operation while the ledger is one operation's and a pooled context returned at a fold's own `using` cannot be a field of a value that survives it; the recorder is cheaper than child spans and free of sampling coupling; the frozen spans read through the `ILatencyContext.LatencyData` accessor and `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exports at the telemetry drain band; `AddLatencyContext` registers the context once and the consuming folds thread it; the NAME registration is one folded table over this root's roster and every contributor's, across checkpoints, measures, and tags alike, because an unregistered name resolves to a positionless token whose writes drop with nothing raised — a contributor recording under its own unfolded roster is instrumented in prose and silent on the wire, which is why `ThrowOnUnregisteredNames` makes the omission a boot failure and why no contributor reaches its own `RegisterCheckpointNames` call to split the table.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -871,7 +871,7 @@ public sealed partial class DataClassification {
 
     public static Fin<DataClassification> Resolve(string taxonomy, string value) =>
         string.Equals(taxonomy, nameof(DataClassification), StringComparison.Ordinal)
-            ? Op.Of().AcceptValidated<DataClassification>(
+            ? FactoryBridge.Accept<DataClassification>(
                 fault: Validate(value, null, out DataClassification? row), admitted: row)
             : Fin.Fail<DataClassification>(new TelemetryFault.Taxonomy($"{taxonomy}:{value}"));
 }

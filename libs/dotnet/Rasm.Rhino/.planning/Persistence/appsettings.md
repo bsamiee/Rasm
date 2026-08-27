@@ -288,16 +288,16 @@ public sealed partial class AppSettingsFamily {
     public CapabilitySet<FamilyVerb> Verbs { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<AppState> Capture(Op op);
+    internal partial Fin<AppState> Capture();
 
     [UseDelegateFromConstructor]
-    internal partial Fin<AppState> Fallback(Op op);
+    internal partial Fin<AppState> Fallback();
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Apply(AppState state, Op op);
+    internal partial Fin<Unit> Apply(AppState state);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Reset(Op op);
+    internal partial Fin<Unit> Reset();
 
     private static AppSettingsFamily Of<TState>(
         string key,
@@ -306,9 +306,7 @@ public sealed partial class AppSettingsFamily {
         Func<TState>? preset = null,
         Action<TState>? update = null,
         Action? restore = null) where TState : class =>
-        new(
-            key,
-            verbs: CapabilitySet<FamilyVerb>.Of(Seq(
+        new(verbs: CapabilitySet<FamilyVerb>.Of(Seq(
                     (Held: true, Verb: FamilyVerb.Capture),
                     (Held: preset is not null, Verb: FamilyVerb.Preset),
                     (Held: update is not null, Verb: FamilyVerb.Apply),
@@ -316,25 +314,25 @@ public sealed partial class AppSettingsFamily {
                 .Filter(static row => row.Held)
                 .Map(static row => row.Verb)
                 .ToArray()),
-            capture: op => op.Catch(() => Fin.Succ(value: lift(arg: current()))),
+            capture: op => Try.lift(() => Fin.Succ(value: lift(arg: current()))).Run().Bind(static inner => inner),
             fallback: preset is null
-                ? op => Fin.Fail<AppState>(error: op.Unsupported(
-                    inputType: typeof(AppSettingsFamily), outputType: typeof(AppState)))
-                : op => op.Catch(() => Fin.Succ(value: lift(arg: preset()))),
+                ? op => Fin.Fail<AppState>(error: new KernelFault.Unsupported(
+                    InputType: typeof(AppSettingsFamily), OutputType: typeof(AppState)))
+                : op => Try.lift(() => Fin.Succ(value: lift(arg: preset()))).Run().Bind(static inner => inner),
             apply: update is null
-                ? static (_, op) => Fin.Fail<Unit>(error: op.Unsupported(
-                    inputType: typeof(AppState), outputType: typeof(Unit)))
-                : (state, op) => op.Catch(() => {
+                ? static (_, op) => Fin.Fail<Unit>(error: new KernelFault.Unsupported(
+                    InputType: typeof(AppState), OutputType: typeof(Unit)))
+                : (state, op) => Try.lift(() => {
                     update(obj: (TState)state.Payload);
                     return Fin.Succ(value: unit);
-                }),
+                }).Run().Bind(static inner => inner),
             reset: restore is null
-                ? op => Fin.Fail<Unit>(error: op.Unsupported(
-                    inputType: typeof(AppSettingsFamily), outputType: typeof(Unit)))
-                : op => op.Catch(() => {
+                ? op => Fin.Fail<Unit>(error: new KernelFault.Unsupported(
+                    InputType: typeof(AppSettingsFamily), OutputType: typeof(Unit)))
+                : op => Try.lift(() => {
                     restore();
                     return Fin.Succ(value: unit);
-                }));
+                }).Run().Bind(static inner => inner));
 }
 
 [SmartEnum<bool>]
@@ -532,16 +530,16 @@ public abstract partial record SwatchSlot {
 
     internal Unit Write(Color value) => Switch<Color, Unit>(
         state: value,
-        paintCase: static (color, row) => Op.Side(() => AppearanceSettings.SetPaintColor(whichColor: row.Slot, c: color)),
-        widgetCase: static (color, row) => Op.Side(() => AppearanceSettings.SetWidgetColor(whichColor: row.Slot, c: color)));
+        paintCase: static (color, row) => HostEdge.Side(() => AppearanceSettings.SetPaintColor(whichColor: row.Slot, c: color)),
+        widgetCase: static (color, row) => HostEdge.Side(() => AppearanceSettings.SetWidgetColor(whichColor: row.Slot, c: color)));
 
-    internal Fin<Color> Preset(Option<AppTheme> theme, Op op) => Switch<(Option<AppTheme> Theme, Op Op), Fin<Color>>(
-        state: (theme, op),
+    internal Fin<Color> Preset(Option<AppTheme> theme) => Switch<(Option<AppTheme> Theme), Fin<Color>>(
+        state: (theme),
         paintCase: static (s, row) => Fin.Succ(value: s.Theme.Match(
             Some: mode => AppearanceSettings.DefaultPaintColor(whichColor: row.Slot, darkMode: mode.Key),
             None: () => AppearanceSettings.DefaultPaintColor(whichColor: row.Slot))),
         widgetCase: static (s, row) => s.Theme.IsSome
-            ? Fin.Fail<Color>(error: s.Op.Unsupported(inputType: typeof(AppTheme), outputType: typeof(WidgetColor)))
+            ? Fin.Fail<Color>(error: new KernelFault.Unsupported(InputType: typeof(AppTheme), OutputType: typeof(WidgetColor)))
             : Fin.Succ(value: AppearanceSettings.DefaultWidgetColor(whichColor: row.Slot)));
 }
 
@@ -624,7 +622,7 @@ public abstract partial record AppAnswer {
 - Law: initial window placement returns admitted bounds without exposing the host out-parameter, and the auto-range solve keeps its `ref` state a local inside the catch frame.
 - Boundary: `SettingsRoot.ApplicationCase` (settings.md) owns the raw `PersistentSettings.RhinoAppSettings` node tree these families persist through; this page never writes a node, and settings.md never reaches a typed `Rhino.ApplicationSettings` owner. `HistorySettings` stays with Document undo governance, `ViewSettings.DefinedViewSet*` restore-scope flags and analysis states feed display-mode attachment, and `PlugIn.GetPluginSettings` custody stays with the plug-in root.
 - Growth: a new operation is one case, one `Mutates` arm, and one dispatch arm; the seat and the mutation fold are untouched.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`, `Traverse`, `Validation`); kernel `Domain/results` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Op.Side`, `Op.AcceptValidated`, `Op.AcceptText`, `Cell.Seat`, `Cell.Step`, `Transition`), `Domain/validation` (`CapabilitySet`); `Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), `Document/session` (`DocumentPath`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `CommandAliasList` roster, `ShortcutKeySettings` roster with `IsAcceptableKeyCombo`, `NeverRepeatList`, `FileSettings` path roster, `AppearanceSettings.InitialMainWindowPosition`, `CurvatureAnalysisSettings.CalculateCurvatureAutoRange`, `GeneralSettings.MouseSelectMode`/`MiddleMouseMode`/`UseExtrusions`/`SplitCreasedSurfaces`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`, `Traverse`, `Validation`); kernel `Domain/results` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `HostEdge.Side`, `Op.AcceptValidated`, `Op.AcceptText`, `Cell.Seat`, `Cell.Step`, `Transition`), `Domain/validation` (`CapabilitySet`); `Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), `Document/session` (`DocumentPath`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `CommandAliasList` roster, `ShortcutKeySettings` roster with `IsAcceptableKeyCombo`, `NeverRepeatList`, `FileSettings` path roster, `AppearanceSettings.InitialMainWindowPosition`, `CurvatureAnalysisSettings.CalculateCurvatureAutoRange`, `GeneralSettings.MouseSelectMode`/`MiddleMouseMode`/`UseExtrusions`/`SplitCreasedSurfaces`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -640,224 +638,216 @@ namespace Rasm.Rhino.Persistence;
 public static class AppSettings {
     private static readonly Atom<Option<PluginKey>> Seat = Atom(Option<PluginKey>.None);
 
-    public static Fin<Subscription> Mount(PluginKey writer, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in writer.Admit(op)
+    public static Fin<Subscription> Mount(PluginKey writer) {
+        return from admitted in writer.Admit()
                from _seated in Cell.Seat(cell: Seat, mint: () => writer).Switch(
                    state: op,
                    committed: static (_, _) => Fin.Succ(unit),
-                   ceded: static (op, _) => Fin.Fail<Unit>(error: op.InvalidContext()),
+                   ceded: static (_) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
                    refused: static (_, declined) => Fin.Fail<Unit>(error: declined.Cause),
-                   contended: static (op, _) => Fin.Fail<Unit>(error: op.InvalidResult()))
+                   contended: static (_) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))
                select Subscription.Of(detach: () => ignore(Cell.Step(
                    cell: Seat,
                    step: held => held.Exists(live => live == writer) ? Some(Option<PluginKey>.None) : None,
-                   declined: op.InvalidContext())));
+                   declined: new KernelFault.InvalidContext())));
     }
 
-    public static Fin<AppAnswer> Commit(AppOperation operation, Option<PluginKey> writer = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(operation)
-            .Bind(active => Admit(active, op))
-            .Bind(active => Seated(active, writer, op))
-            .Bind(active => active.Switch<Op, Fin<AppAnswer>>(
-                op,
-            captureCase: static (op, capture) => capture.Family.Capture(op: op)
+    public static Fin<AppAnswer> Commit(AppOperation operation, Option<PluginKey> writer = default) {
+        return Admit.Need(operation)
+            .Bind(active => Admit(active))
+            .Bind(active => Seated(active, writer))
+            .Bind(active => active.Switch< Fin<AppAnswer>>(captureCase: static (op, capture) => Error.New(op: op.Message, op: op)
                 .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state)),
             fallbackCase: static (op, fallback) => fallback.Theme.Match(
-                Some: theme => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.StateCase(
-                    State: new AppState.AppearanceCase(Value: theme.Preset())))),
-                None: () => fallback.Family.Fallback(op: op)
+                Some: theme => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.StateCase(
+                    State: new AppState.AppearanceCase(Value: theme.Preset())))).Run().Bind(static inner => inner),
+                None: () => fallback.Family.Fallback()
                     .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state))),
             applyCase: static (op, apply) => Mutated(
                 family: apply.State.Family,
-                write: () => apply.State.Family.Apply(state: apply.State, op: op),
-                op: op),
+                write: () => apply.State.Family.Apply(state: apply.State, op: op)),
             resetCase: static (op, reset) => Mutated(
                 family: reset.Family,
-                write: () => reset.Family.Reset(op: op),
-                op: op),
+                write: () => reset.Family.Reset()),
             themeCase: static (op, theme) => Mutated(
                 family: AppSettingsFamily.Appearance,
-                write: () => op.Catch(() => op.Confirm(success: theme.Theme.Adopt())),
-                op: op),
-            themeProbeCase: static (op, probe) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.ThemeCase(
+                write: () => Try.lift(() => Admit.Confirm(success: theme.Theme.Adopt())).Run().Bind(static inner => inner)),
+            themeProbeCase: static (op, probe) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.ThemeCase(
                 Theme: probe.Theme,
-                Seated: probe.Theme.Seated()))),
-            swatchCase: static (op, swatch) => op.Catch(() => {
+                Seated: probe.Theme.Seated()))).Run().Bind(static inner => inner),
+            swatchCase: static (op, swatch) => Try.lift(() => {
                 Color prior = swatch.Slot.Read();
                 swatch.Value.IfSome(swatch.Slot.Write);
-                return swatch.Slot.Preset(swatch.Theme, op).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
+                return swatch.Slot.Preset(swatch.Theme).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
                     Mutation: new SwatchMutation(
                         Slot: swatch.Slot,
                         Prior: prior,
                         Current: swatch.Slot.Read(),
                         Preset: preset)));
-            }),
+            }).Run().Bind(static inner => inner),
             aliasCase: static (op, alias) => Aliases(edit: alias.Edit, op: op),
             shortcutCase: static (op, shortcut) => Shortcuts(edit: shortcut.Edit, op: op),
             repeatCase: static (op, repeat) => Repeats(edit: repeat.Edit, op: op),
             pathCase: static (op, path) => Paths(edit: path.Edit, op: op),
             conductCase: static (op, conduct) => Mutated(
                 family: AppSettingsFamily.General,
-                write: () => op.Catch(() => {
+                write: () => Try.lift(() => {
                     conduct.Conduct.Switch(
                         mouseSelectCase: static mouse => GeneralSettings.MouseSelectMode = mouse.Mode,
                         middleMouseCase: static middle => GeneralSettings.MiddleMouseMode = middle.Mode,
                         extrusionCase: static extrusion => GeneralSettings.UseExtrusions = extrusion.Mode.Key,
                         creaseCase: static crease => GeneralSettings.SplitCreasedSurfaces = crease.Mode.Key);
                     return Fin.Succ(value: unit);
-                }),
-                op: op),
-            windowPositionCase: static (op, _) => op.Catch(() =>
+                }).Run().Bind(static inner => inner)),
+            windowPositionCase: static (op, _) => Try.lift(() =>
                 AppearanceSettings.InitialMainWindowPosition(out Rectangle bounds)
                     ? Fin.Succ<AppAnswer>(new AppAnswer.BoundsCase(bounds))
-                    : Fin.Fail<AppAnswer>(op.InvalidResult())),
-            autoRangeCase: static (op, range) => op.Catch(() => {
+                    : Fin.Fail<AppAnswer>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner),
+            autoRangeCase: static (op, range) => Try.lift(() => {
                 CurvatureAnalysisSettingsState state = range.Seed;
-                return op.Confirm(success: CurvatureAnalysisSettings.CalculateCurvatureAutoRange(
+                return Admit.Confirm(success: CurvatureAnalysisSettings.CalculateCurvatureAutoRange(
                         meshes: range.Meshes,
                         settings: ref state))
                     .Map(_ => (AppAnswer)new AppAnswer.StateCase(State: new AppState.CurvatureCase(Value: state)));
-            })));
+            }).Run().Bind(static inner => inner)));
     }
 
-    private static Fin<AppOperation> Seated(AppOperation operation, Option<PluginKey> writer, Op op) =>
+    private static Fin<AppOperation> Seated(AppOperation operation, Option<PluginKey> writer) =>
         operation.Mutates
             ? Seat.Value
                 .Filter(seat => writer.Exists(held => held == seat))
-                .ToFin(Fail: op.InvalidContext())
+                .ToFin(Fail: new KernelFault.InvalidContext())
                 .Map(_ => operation)
             : Fin.Succ(operation);
 
-    private static Fin<AppOperation> Admit(AppOperation operation, Op op) => operation.Switch<Op, Fin<AppOperation>>(
+    private static Fin<AppOperation> Admit(AppOperation operation) => operation.Switch< Fin<AppOperation>>(
         state: op,
-        captureCase: static (op, value) => Verb(value.Family, FamilyVerb.Capture, op).Map(_ => (AppOperation)value),
-        fallbackCase: static (op, value) => value.Theme.Match(
-            Some: _ => guard(value.Family == AppSettingsFamily.Appearance, op.InvalidInput())
+        captureCase: static (value) => Verb(value.Family, FamilyVerb.Capture).Map(_ => (AppOperation)value),
+        fallbackCase: static (value) => value.Theme.Match(
+            Some: _ => guard(value.Family == AppSettingsFamily.Appearance, new KernelFault.InvalidInput())
                 .ToFin()
                 .Map(_ => (AppOperation)value),
-            None: () => Verb(value.Family, FamilyVerb.Preset, op).Map(_ => (AppOperation)value)),
-        applyCase: static (op, value) => op.Need(value.State)
-            .Bind(state => Verb(state.Family, FamilyVerb.Apply, op))
+            None: () => Verb(value.Family, FamilyVerb.Preset).Map(_ => (AppOperation)value)),
+        applyCase: static (value) => Admit.Need(value.State)
+            .Bind(state => Verb(state.Family, FamilyVerb.Apply))
             .Map(_ => (AppOperation)value),
-        resetCase: static (op, value) => Verb(value.Family, FamilyVerb.Reset, op).Map(_ => (AppOperation)value),
-        themeCase: static (op, value) => op.Need(value.Theme).Map(_ => (AppOperation)value),
-        themeProbeCase: static (op, value) => op.Need(value.Theme).Map(_ => (AppOperation)value),
-        swatchCase: static (op, value) => op.Need(value.Slot)
-            .Bind(slot => guard(slot.Defined, op.InvalidInput()).ToFin())
+        resetCase: static (value) => Verb(value.Family, FamilyVerb.Reset).Map(_ => (AppOperation)value),
+        themeCase: static (value) => Admit.Need(value.Theme).Map(_ => (AppOperation)value),
+        themeProbeCase: static (value) => Admit.Need(value.Theme).Map(_ => (AppOperation)value),
+        swatchCase: static (value) => Admit.Need(value.Slot)
+            .Bind(slot => guard(slot.Defined, new KernelFault.InvalidInput()).ToFin())
             .Map(_ => (AppOperation)value),
-        aliasCase: static (op, value) => op.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+        aliasCase: static (value) => Admit.Need(value.Edit)
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.AliasCase(edit)),
-        shortcutCase: static (op, value) => op.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+        shortcutCase: static (value) => Admit.Need(value.Edit)
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.ShortcutCase(edit)),
-        repeatCase: static (op, value) => op.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+        repeatCase: static (value) => Admit.Need(value.Edit)
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.RepeatCase(edit)),
-        pathCase: static (op, value) => op.Need(value.Edit)
-            .Bind(edit => Admit(edit, op))
+        pathCase: static (value) => Admit.Need(value.Edit)
+            .Bind(edit => Admit(edit))
             .Map(edit => (AppOperation)new AppOperation.PathCase(edit)),
-        conductCase: static (op, value) => op.Need(value.Conduct)
-            .Bind(conduct => Admit(conduct, op))
+        conductCase: static (value) => Admit.Need(value.Conduct)
+            .Bind(conduct => Admit(conduct))
             .Map(conduct => (AppOperation)new AppOperation.ConductCase(conduct)),
         windowPositionCase: static (_, _) => Fin.Succ<AppOperation>(new AppOperation.WindowPositionCase()),
-        autoRangeCase: static (op, value) => (
-                op.Need(value.Seed).ToValidation(),
-                guard(!value.Meshes.IsEmpty, op.InvalidInput()).ToFin().ToValidation(),
-                value.Meshes.Traverse(mesh => op.Need(mesh).ToValidation()).As())
+        autoRangeCase: static (value) => (
+                Admit.Need(value.Seed).ToValidation(),
+                guard(!value.Meshes.IsEmpty, new KernelFault.InvalidInput()).ToFin().ToValidation(),
+                value.Meshes.Traverse(mesh => Admit.Need(mesh).ToValidation()).As())
             .Apply(static (seed, _, meshes) => (AppOperation)new AppOperation.AutoRangeCase(seed, meshes))
             .As()
             .ToFin());
 
-    private static Fin<AppSettingsFamily> Verb(AppSettingsFamily family, FamilyVerb verb, Op op) =>
-        op.Need(family).Bind(row => row.Verbs.Admits(verb)
+    private static Fin<AppSettingsFamily> Verb(AppSettingsFamily family, FamilyVerb verb) =>
+        Admit.Need(family).Bind(row => row.Verbs.Admits(verb)
             ? Fin.Succ(value: row)
-            : Fin.Fail<AppSettingsFamily>(error: op.Unsupported(
-                inputType: typeof(AppSettingsFamily), outputType: typeof(FamilyVerb))));
+            : Fin.Fail<AppSettingsFamily>(error: new KernelFault.Unsupported(
+                InputType: typeof(AppSettingsFamily), OutputType: typeof(FamilyVerb))));
 
-    private static Fin<AliasEdit> Admit(AliasEdit edit, Op op) => edit.Switch<Op, Fin<AliasEdit>>(
+    private static Fin<AliasEdit> Admit(AliasEdit edit) => edit.Switch< Fin<AliasEdit>>(
         state: op,
         rosterCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.RosterCase()),
         presetCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.PresetCase()),
-        probeCase: static (op, value) => op.AcceptValidated<AliasName>(value.Name.Value)
+        probeCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.ProbeCase(name)),
-        putCase: static (op, value) => Admit(value.Binding, op)
+        putCase: static (value) => Admit(value.Binding)
             .Map(binding => (AliasEdit)new AliasEdit.PutCase(binding)),
-        deleteCase: static (op, value) => op.AcceptValidated<AliasName>(value.Name.Value)
+        deleteCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.DeleteCase(name)),
-        mergeCase: static (op, value) => op.Need(value.Merge)
+        mergeCase: static (value) => Admit.Need(value.Merge)
             .Bind(merge => value.Bindings
-                .Map(binding => Admit(binding, op).ToValidation())
+                .Map(binding => Admit(binding).ToValidation())
                 .Traverse(static binding => binding)
                 .As()
                 .ToFin()
                 .Map(bindings => (AliasEdit)new AliasEdit.MergeCase(bindings, merge))));
 
-    private static Fin<AliasBinding> Admit(AliasBinding? binding, Op op) =>
-        from present in op.Need(binding)
+    private static Fin<AliasBinding> Admit(AliasBinding? binding) =>
+        from present in Admit.Need(binding)
         from admitted in (
-                op.AcceptValidated<AliasName>(present.Name.Value).ToValidation(),
-                op.AcceptValidated<MacroText>(present.Macro.Value).ToValidation())
+                FactoryBridge.Accept<AliasName>(present.Name.Value).ToValidation(),
+                FactoryBridge.Accept<MacroText>(present.Macro.Value).ToValidation())
             .Apply((name, macro) => new AliasBinding(name, macro, present.Instant))
             .As()
             .ToFin()
         select admitted;
 
-    private static Fin<ShortcutEdit> Admit(ShortcutEdit edit, Op op) => edit.Switch<Op, Fin<ShortcutEdit>>(
+    private static Fin<ShortcutEdit> Admit(ShortcutEdit edit) => edit.Switch< Fin<ShortcutEdit>>(
         state: op,
         rosterCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
         presetCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
-        assignCase: static (op, value) => Admit(value.Binding, op)
+        assignCase: static (value) => Admit(value.Binding)
             .Map(binding => (ShortcutEdit)new ShortcutEdit.AssignCase(binding)),
-        mergeCase: static (op, value) => op.Need(value.Merge)
+        mergeCase: static (value) => Admit.Need(value.Merge)
             .Bind(merge => value.Bindings
-                .Map(binding => Admit(binding, op).ToValidation())
+                .Map(binding => Admit(binding).ToValidation())
                 .Traverse(static binding => binding)
                 .As()
                 .ToFin()
                 .Map(bindings => (ShortcutEdit)new ShortcutEdit.MergeCase(bindings, merge))));
 
-    private static Fin<ShortcutBinding> Admit(ShortcutBinding? binding, Op op) =>
-        from present in op.Need(binding)
-        from admitted in Admit(present.Key, present.Modifier, present.Macro.Value, op)
+    private static Fin<ShortcutBinding> Admit(ShortcutBinding? binding) =>
+        from present in Admit.Need(binding)
+        from admitted in Admit(present.Modifier, present.Macro.Value)
         select admitted;
 
-    private static Fin<ShortcutBinding> Admit(KeyboardKey key, ModifierKey modifier, string? macro, Op op) =>
+    private static Fin<ShortcutBinding> Admit(KeyboardKey key, ModifierKey modifier, string? macro) =>
         from _key in guard(
-            Defined(key)
+            Defined()
             && FlagsDefined(modifier)
-            && ShortcutKeySettings.IsAcceptableKeyCombo(key: key, modifier: modifier),
-            op.InvalidInput()).ToFin()
-        from admittedMacro in op.AcceptValidated<MacroText>(macro)
-        select new ShortcutBinding(key, modifier, admittedMacro);
+            && ShortcutKeySettings.IsAcceptableKeyCombo(modifier: modifier),
+            new KernelFault.InvalidInput()).ToFin()
+        from admittedMacro in FactoryBridge.Accept<MacroText>(macro)
+        select new ShortcutBinding(modifier, admittedMacro);
 
-    private static Fin<RepeatEdit> Admit(RepeatEdit edit, Op op) => edit.Switch<Op, Fin<RepeatEdit>>(
+    private static Fin<RepeatEdit> Admit(RepeatEdit edit) => edit.Switch< Fin<RepeatEdit>>(
         state: op,
         rosterCase: static (_, _) => Fin.Succ<RepeatEdit>(new RepeatEdit.RosterCase()),
-        replaceCase: static (op, value) => value.CommandNames
-            .Traverse(name => op.AcceptText(value: name).ToValidation())
+        replaceCase: static (value) => value.CommandNames
+            .Traverse(name => Acceptance.Text(value: name).ToValidation())
             .As()
             .ToFin()
             .Map(names => (RepeatEdit)new RepeatEdit.ReplaceCase(names)));
 
-    private static Fin<PathEdit> Admit(PathEdit edit, Op op) => edit.Switch<Op, Fin<PathEdit>>(
+    private static Fin<PathEdit> Admit(PathEdit edit) => edit.Switch< Fin<PathEdit>>(
         state: op,
         rosterCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RosterCase()),
-        addCase: static (op, value) => (
-                DocumentPath.Of(value.Folder.Value, op).ToValidation(),
-                guard(value.IndexAt >= -1, op.InvalidInput()).ToFin().ToValidation())
+        addCase: static (value) => (
+                DocumentPath.Of(value.Folder.Value).ToValidation(),
+                guard(value.IndexAt >= -1, new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply((folder, _) => (PathEdit)new PathEdit.AddCase(folder, value.IndexAt))
             .As()
             .ToFin(),
-        removeCase: static (op, value) => DocumentPath.Of(value.Folder.Value, op)
+        removeCase: static (value) => DocumentPath.Of(value.Folder.Value)
             .Map(folder => (PathEdit)new PathEdit.RemoveCase(folder)),
-        findCase: static (op, value) => op.AcceptText(value.FileName)
+        findCase: static (value) => Acceptance.Text(value.FileName)
             .Map(name => (PathEdit)new PathEdit.FindCase(name)),
-        autosaveCase: static (op, value) => value.Commands.Match(
+        autosaveCase: static (value) => value.Commands.Match(
             Some: commands => commands
-                .Traverse(name => op.AcceptText(value: name).ToValidation())
+                .Traverse(name => Acceptance.Text(value: name).ToValidation())
                 .As()
                 .ToFin()
                 .Map(names => (PathEdit)new PathEdit.AutosaveCase(Some(names))),
@@ -866,16 +856,16 @@ public static class AppSettings {
         dataFolderCase: static (_, value) => Fin.Succ<PathEdit>(new PathEdit.DataFolderCase(value.CurrentUser)),
         templateFolderCase: static (_, value) => Fin.Succ<PathEdit>(new PathEdit.TemplateFolderCase(value.LanguageId)));
 
-    private static Fin<GeneralConduct> Admit(GeneralConduct conduct, Op op) => conduct.Switch<Op, Fin<GeneralConduct>>(
+    private static Fin<GeneralConduct> Admit(GeneralConduct conduct) => conduct.Switch< Fin<GeneralConduct>>(
         state: op,
-        mouseSelectCase: static (op, value) => Defined(value.Mode)
+        mouseSelectCase: static (value) => Defined(value.Mode)
             ? Fin.Succ<GeneralConduct>(value)
-            : Fin.Fail<GeneralConduct>(op.InvalidInput()),
-        middleMouseCase: static (op, value) => Defined(value.Mode)
+            : Fin.Fail<GeneralConduct>(new KernelFault.InvalidInput()),
+        middleMouseCase: static (value) => Defined(value.Mode)
             ? Fin.Succ<GeneralConduct>(value)
-            : Fin.Fail<GeneralConduct>(op.InvalidInput()),
-        extrusionCase: static (op, value) => op.Need(value.Mode).Map(_ => (GeneralConduct)value),
-        creaseCase: static (op, value) => op.Need(value.Mode).Map(_ => (GeneralConduct)value));
+            : Fin.Fail<GeneralConduct>(new KernelFault.InvalidInput()),
+        extrusionCase: static (value) => Admit.Need(value.Mode).Map(_ => (GeneralConduct)value),
+        creaseCase: static (value) => Admit.Need(value.Mode).Map(_ => (GeneralConduct)value));
 
     private static bool Defined<T>(T value) where T : struct, System.Enum => System.Enum.IsDefined(value);
 
@@ -891,8 +881,8 @@ public static class AppSettings {
     private static bool FlagsDefined<T>(T value) where T : struct, System.Enum =>
         (Bits(value) & ~FlagMask<T>.Admitted) == 0UL;
 
-    private static Fin<AppAnswer> Mutated(AppSettingsFamily family, Func<Fin<Unit>> write, Op op) {
-        AppObservation Observe() => family.Capture(op: op).Match(
+    private static Fin<AppAnswer> Mutated(AppSettingsFamily family, Func<Fin<Unit>> write) {
+        AppObservation Observe() => Error.New(op: op.Message).Match(
             Succ: state => (AppObservation)new AppObservation.ObservedCase(State: state),
             Fail: error => new AppObservation.FaultedCase(Family: family, Fault: error));
         AppObservation prior = Observe();
@@ -902,9 +892,7 @@ public static class AppSettings {
             Current: Observe())));
     }
 
-    private static Fin<AppAnswer> Aliases(AliasEdit edit, Op op) => edit.Switch<Op, Fin<AppAnswer>>(
-        op,
-        rosterCase: static (op, _) => AliasBindings(
+    private static Fin<AppAnswer> Aliases(AliasEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => AliasBindings(
             source: () => CommandAliasList.GetNames().Select(name =>
                 CommandAliasList.FindAlias(alias: name) is { } found
                     ? (Name: name, Macro: found.Macro, Instant: Some(found.Instant))
@@ -916,17 +904,17 @@ public static class AppSettings {
                 Macro: binding.Value,
                 Instant: Option<bool>.None)),
             op: op),
-        probeCase: static (op, probe) => op.Catch(() => CommandAliasList.IsAlias(alias: probe.Name.Value)
-            ? op.AcceptValidated<MacroText>(CommandAliasList.GetMacro(alias: probe.Name.Value))
+        probeCase: static (op, probe) => Try.lift(() => CommandAliasList.IsAlias(alias: probe.Name.Value)
+            ? FactoryBridge.Accept<MacroText>(CommandAliasList.GetMacro(alias: probe.Name.Value))
                 .Map(static macro => (AppAnswer)new AppAnswer.MacroCase(Macro: Some(macro)))
-            : Fin.Succ(value: (AppAnswer)new AppAnswer.MacroCase(Macro: None))),
-        putCase: static (op, put) => op.Catch(() => op.Confirm(success: CommandAliasList.IsAlias(alias: put.Binding.Name.Value)
+            : Fin.Succ(value: (AppAnswer)new AppAnswer.MacroCase(Macro: None))).Run().Bind(static inner => inner),
+        putCase: static (op, put) => Try.lift(() => Admit.Confirm(success: CommandAliasList.IsAlias(alias: put.Binding.Name.Value)
                 ? CommandAliasList.SetMacro(alias: put.Binding.Name.Value, macro: put.Binding.Macro.Value)
                 : CommandAliasList.Add(alias: put.Binding.Name.Value, macro: put.Binding.Macro.Value))
-            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())))),
-        deleteCase: static (op, delete) => op.Catch(() => op.Confirm(success: CommandAliasList.Delete(alias: delete.Name.Value))
-            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())))),
-        mergeCase: static (op, merge) => op.Catch(() => {
+            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())))).Run().Bind(static inner => inner),
+        deleteCase: static (op, delete) => Try.lift(() => Admit.Confirm(success: CommandAliasList.Delete(alias: delete.Name.Value))
+            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())))).Run().Bind(static inner => inner),
+        mergeCase: static (op, merge) => Try.lift(() => {
             CommandAliasList.Update(
                 aliases: merge.Bindings.Map(static binding => new CommandAlias(
                     alias: binding.Name.Value,
@@ -934,97 +922,88 @@ public static class AppSettings {
                     instant: binding.Instant.IfNone(noneValue: false))).AsIterable(),
                 replaceAll: merge.Merge.Key);
             return Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(CommandAliasList.GetNames())));
-        }));
+        }).Run().Bind(static inner => inner));
 
     private static Fin<AppAnswer> AliasBindings(
-        Func<IEnumerable<(string Name, string Macro, Option<bool> Instant)>> source,
-        Op op) =>
-        op.Catch(() => toSeq(source())
+        Func<IEnumerable<(string Name, string Macro, Option<bool> Instant)>> source) =>
+        Try.lift(() => toSeq(source())
             .Traverse(binding =>
-                (from name in op.AcceptValidated<AliasName>(binding.Name)
-                 from macro in op.AcceptValidated<MacroText>(binding.Macro)
+                (from name in FactoryBridge.Accept<AliasName>(binding.Name)
+                 from macro in FactoryBridge.Accept<MacroText>(binding.Macro)
                  select new AliasBinding(name, macro, binding.Instant)).ToValidation())
             .As()
             .ToFin()
-            .Map(static bindings => (AppAnswer)new AppAnswer.AliasesCase(Bindings: bindings)));
+            .Map(static bindings => (AppAnswer)new AppAnswer.AliasesCase(Bindings: bindings))).Run().Bind(static inner => inner);
 
-    private static Fin<AppAnswer> Shortcuts(ShortcutEdit edit, Op op) => edit.Switch<Op, Fin<AppAnswer>>(
-        op,
-        rosterCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetShortcuts, op: op),
+    private static Fin<AppAnswer> Shortcuts(ShortcutEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetShortcuts, op: op),
         presetCase: static (op, _) => Bindings(source: ShortcutKeySettings.GetDefaults, op: op),
         assignCase: static (op, assign) =>
-            from _written in op.Catch(() => ShortcutKeySettings.SetMacro(
-                key: assign.Binding.Key,
-                modifier: assign.Binding.Modifier,
-                macro: assign.Binding.Macro.Value))
+            from _written in Try.lift(() => ShortcutKeySettings.SetMacro(modifier: assign.Binding.Modifier,
+                macro: assign.Binding.Macro.Value)).Run().Bind(static inner => inner)
             from roster in Bindings(source: ShortcutKeySettings.GetShortcuts, op: op)
             select roster,
         mergeCase: static (op, merge) =>
-            from _updated in op.Catch(() => ShortcutKeySettings.Update(
+            from _updated in Try.lift(() => ShortcutKeySettings.Update(
                 shortcuts: merge.Bindings.Map(static binding => new KeyboardShortcut {
                     Key = binding.Key,
                     Modifier = binding.Modifier,
                     Macro = binding.Macro.Value,
                 }).AsIterable(),
-                replaceAll: merge.Merge.Key))
+                replaceAll: merge.Merge.Key)).Run().Bind(static inner => inner)
             from roster in Bindings(source: ShortcutKeySettings.GetShortcuts, op: op)
             select roster);
 
-    private static Fin<AppAnswer> Bindings(Func<KeyboardShortcut[]> source, Op op) =>
-        op.Catch(() => toSeq(source())
+    private static Fin<AppAnswer> Bindings(Func<KeyboardShortcut[]> source) =>
+        Try.lift(() => toSeq(source())
             .Filter(static shortcut => !string.IsNullOrWhiteSpace(value: shortcut.Macro))
-            .Traverse(shortcut => Admit(shortcut.Key, shortcut.Modifier, shortcut.Macro, op).ToValidation())
+            .Traverse(shortcut => Admit(shortcut.Modifier, shortcut.Macro).ToValidation())
             .As()
             .ToFin()
-            .Map(static bindings => (AppAnswer)new AppAnswer.ShortcutsCase(Bindings: bindings)));
+            .Map(static bindings => (AppAnswer)new AppAnswer.ShortcutsCase(Bindings: bindings))).Run().Bind(static inner => inner);
 
-    private static Fin<AppAnswer> Repeats(RepeatEdit edit, Op op) => edit.Switch<Op, Fin<AppAnswer>>(
-        op,
-        rosterCase: static (op, _) => Roster(op),
+    private static Fin<AppAnswer> Repeats(RepeatEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Roster(),
         replaceCase: static (op, replace) =>
-            from _landed in op.Catch(() => op.Confirm(
-                success: NeverRepeatList.SetList(commandNames: replace.CommandNames.ToArray()) >= 0))
-            from roster in Roster(op)
+            from _landed in Try.lift(() => Admit.Confirm(
+                success: NeverRepeatList.SetList(commandNames: replace.CommandNames.ToArray()) >= 0)).Run().Bind(static inner => inner)
+            from roster in Roster()
             select roster);
 
-    private static Fin<AppAnswer> Roster(Op op) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RepeatCase(
+    private static Fin<AppAnswer> Roster() => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RepeatCase(
         Roster: new RepeatRoster(
             Enabled: NeverRepeatList.UseNeverRepeatList,
-            CommandNames: toSeq(NeverRepeatList.CommandNames())))));
+            CommandNames: toSeq(NeverRepeatList.CommandNames()))))).Run().Bind(static inner => inner);
 
-    private static Fin<AppAnswer> Paths(PathEdit edit, Op op) => edit.Switch<Op, Fin<AppAnswer>>(
-        op,
-        rosterCase: static (op, _) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
-            Names: toSeq(FileSettings.GetSearchPaths())))),
-        addCase: static (op, add) => op.Catch(() => op.Confirm(
+    private static Fin<AppAnswer> Paths(PathEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
+            Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
+        addCase: static (op, add) => Try.lift(() => Admit.Confirm(
                 success: FileSettings.AddSearchPath(folder: add.Folder.Value, index: add.IndexAt) >= 0)
-            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))),
-        removeCase: static (op, remove) => op.Catch(() => op.Confirm(success: FileSettings.DeleteSearchPath(folder: remove.Folder.Value))
-            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))),
+            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
+        removeCase: static (op, remove) => Try.lift(() => Admit.Confirm(success: FileSettings.DeleteSearchPath(folder: remove.Folder.Value))
+            .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
         findCase: static (op, find) =>
-            from resolved in op.Catch(() => Optional(FileSettings.FindFile(fileName: find.FileName))
+            from resolved in Try.lift(() => Optional(FileSettings.FindFile(fileName: find.FileName))
                 .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
                 .Traverse(value => DocumentPath.Of(value: value, key: op))
-                .As())
+                .As()).Run().Bind(static inner => inner)
             select (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved),
         autosaveCase: static (op, autosave) => autosave.Commands.Match(
-            Some: commands => op.Catch(() => FileSettings.SetAutoSaveBeforeCommands(commands: commands.ToArray()))
+            Some: commands => Try.lift(() => FileSettings.SetAutoSaveBeforeCommands(commands: commands.ToArray())).Run().Bind(static inner => inner)
                 .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.AutoSaveBeforeCommands()))),
-            None: () => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
-                Names: toSeq(FileSettings.AutoSaveBeforeCommands()))))),
-        recentCase: static (op, _) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
-            Names: toSeq(FileSettings.RecentlyOpenedFiles())))),
-        dataFolderCase: static (op, data) => op.Catch(() => Optional(FileSettings.GetDataFolder(currentUser: data.CurrentUser))
+            None: () => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
+                Names: toSeq(FileSettings.AutoSaveBeforeCommands())))).Run().Bind(static inner => inner)),
+        recentCase: static (op, _) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
+            Names: toSeq(FileSettings.RecentlyOpenedFiles())))).Run().Bind(static inner => inner),
+        dataFolderCase: static (op, data) => Try.lift(() => Optional(FileSettings.GetDataFolder(currentUser: data.CurrentUser))
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
             .Traverse(value => DocumentPath.Of(value: value, key: op))
             .As()
-            .Map(static resolved => (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved))),
-        templateFolderCase: static (op, template) => op.Catch(() => Optional(
+            .Map(static resolved => (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved))).Run().Bind(static inner => inner),
+        templateFolderCase: static (op, template) => Try.lift(() => Optional(
                 FileSettings.DefaultTemplateFolderForLanguageID(languageID: template.LanguageId))
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
             .Traverse(value => DocumentPath.Of(value: value, key: op))
             .As()
-            .Map(static resolved => (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved))));
+            .Map(static resolved => (AppAnswer)new AppAnswer.ResolvedCase(Path: resolved))).Run().Bind(static inner => inner));
 }
 ```
 

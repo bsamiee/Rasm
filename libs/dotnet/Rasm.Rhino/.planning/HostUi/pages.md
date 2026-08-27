@@ -61,14 +61,14 @@ public sealed partial class PageReveal {
         key: "preferences-window", window: Resolved(RhinoEtoApp.ApplicationPreferencesWindowForPage));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Window> Window(OptionsDialogPage page, Op op);
+    internal partial Fin<Window> Window(OptionsDialogPage page);
 
-    private static Func<OptionsDialogPage, Op, Fin<Window>> Refused =>
+    private static Func<OptionsDialogPage, Fin<Window>> Refused =>
         static (_, op) => Fin.Fail<Window>(error: new UiFault.HostRejected(
             Key: op, Detail: $"{nameof(RhinoEtoApp)} publishes no reveal window for this seat"));
 
-    private static Func<OptionsDialogPage, Op, Fin<Window>> Resolved(Func<OptionsDialogPage, Window?> resolve) =>
-        (page, op) => op.Catch(() => Optional(resolve(page)).ToFin(Fail: op.MissingContext()));
+    private static Func<OptionsDialogPage, Fin<Window>> Resolved(Func<OptionsDialogPage, Window?> resolve) =>
+        (page, op) => Try.lift(() => Optional(resolve(page)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner);
 }
 
 [SmartEnum<string>]
@@ -97,7 +97,7 @@ public sealed partial class ObjectPageSeat {
     public static readonly ObjectPageSeat Decal = new(key: PropertyPageType.Decal);
     public static readonly ObjectPageSeat View = new(key: PropertyPageType.View);
 
-    public static Fin<ObjectPageSeat> OfHost(PropertyPageType candidate, Op? key = null) =>
+    public static Fin<ObjectPageSeat> OfHost(PropertyPageType candidate) =>
         key.OrDefault().Row<PropertyPageType, ObjectPageSeat>(candidate: candidate);
 }
 
@@ -153,24 +153,22 @@ public abstract partial record PagePlan {
         Func<SelectionEvidence, Fin<bool>> Display,
         Func<PageSignal, Fin<Unit>> Answer) : PagePlan;
 
-    internal Fin<PagePlan> Admit(Op op) => Switch(
-        op,
-        stacked: static (held, page) => (
-                held.Need(page.Seat).ToValidation(),
-                held.Need(page.Reveal).ToValidation(),
-                held.Need(page.Identity).ToValidation(),
-                held.Need(page.Content).ToValidation(),
-                held.Need(page.Answer).ToValidation())
+    internal Fin<PagePlan> Admit() => Switch(stacked: static (held, page) => (
+                Admit.Need(page.Seat).ToValidation(),
+                Admit.Need(page.Reveal).ToValidation(),
+                Admit.Need(page.Identity).ToValidation(),
+                Admit.Need(page.Content).ToValidation(),
+                Admit.Need(page.Answer).ToValidation())
             .Apply(static (seat, reveal, identity, content, answer) => (PagePlan)new Stacked(
                 Seat: seat, Reveal: reveal, Identity: identity, Content: content, Answer: answer))
             .As()
             .ToFin(),
         properties: static (held, page) => (
-                held.Need(page.Identity).ToValidation(),
-                held.Need(page.Scope).ToValidation(),
-                held.Need(page.Content).ToValidation(),
-                held.Need(page.Display).ToValidation(),
-                held.Need(page.Answer).ToValidation())
+                Admit.Need(page.Identity).ToValidation(),
+                Admit.Need(page.Scope).ToValidation(),
+                Admit.Need(page.Content).ToValidation(),
+                Admit.Need(page.Display).ToValidation(),
+                Admit.Need(page.Answer).ToValidation())
             .Apply(static (identity, scope, content, display, answer) => (PagePlan)new Properties(
                 Identity: identity, Scope: scope, Content: content, Display: display, Answer: answer))
             .As()
@@ -214,9 +212,9 @@ public abstract partial record PageSignal {
     public sealed record SelectionUpdated(SelectionEvidence Evidence) : PageSignal;
     public sealed record Refused(Error Fault) : PageSignal;
 
-    internal static Fin<PageSignal> Sized(int width, int height, Op op) =>
-        from measured in op.AcceptValidated<Rasm.Numerics.Dimension>(width)
-        from tall in op.AcceptValidated<Rasm.Numerics.Dimension>(height)
+    internal static Fin<PageSignal> Sized(int width, int height) =>
+        from measured in FactoryBridge.Accept<Rasm.Numerics.Dimension>(width)
+        from tall in FactoryBridge.Accept<Rasm.Numerics.Dimension>(height)
         select (PageSignal)new ParentSized(Width: measured, Height: tall);
 }
 
@@ -289,9 +287,9 @@ internal abstract partial record PageCustody {
             }),
         released: static _ => Option<PageCustody>.None);
 
-    internal Fin<(PageCustody Next, Option<Seq<IMount>> Release)> Left(Op key) => Switch(
+    internal Fin<(PageCustody Next, Option<Seq<IMount>> Release)> Left() => Switch(
         state: key,
-        live: static (op, row) => row.Active.Match(
+        live: static (row) => row.Active.Match(
             Some: held => held.Value is 1
                 ? row.Phase.Closes
                     ? Fin.Succ(((PageCustody)new Released(), Some(row.Children)))
@@ -299,8 +297,8 @@ internal abstract partial record PageCustody {
                 : Fin.Succ((
                     (PageCustody)(row with { Active = Some(Rasm.Numerics.Dimension.Create(value: held.Value - 1)) }),
                     Option<Seq<IMount>>.None)),
-            None: () => Fin.Fail<(PageCustody, Option<Seq<IMount>>)>(new UiFault.Released(Key: op))),
-        released: static (op, _) => Fin.Fail<(PageCustody, Option<Seq<IMount>>)>(new UiFault.Released(Key: op)));
+            None: () => Fin.Fail<(PageCustody, Option<Seq<IMount>>)>(new UiFault.Released())),
+        released: static (_) => Fin.Fail<(PageCustody, Option<Seq<IMount>>)>(new UiFault.Released()));
 
     internal (PageCustody Next, Option<Seq<IMount>> Release) Closed() => Switch(
         live: static row => row.Phase.Closes
@@ -329,10 +327,9 @@ public sealed class HostPage : IMount, IDisposable {
     private PageCustody custody = new PageCustody.Live(
         Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open);
 
-    private HostPage(PagePlan plan, PageLeaf leaf, Lease<ElementMount> content, Op key) =>
-        (this.plan, this.leaf, this.content, Key) = (plan, leaf, content, key);
+    private HostPage(PagePlan plan, PageLeaf leaf, Lease<ElementMount> content) =>
+        (this.plan, this.leaf, this.content, Key) = (plan, leaf, content);
 
-    public Op Key { get; }
 
     public PagePlan Plan => plan;
 
@@ -350,26 +347,22 @@ public sealed class HostPage : IMount, IDisposable {
         stacked: static _ => None,
         properties: static page => Some(page.Value));
 
-    public static Fin<HostPage> Realize(PagePlan plan, ElementRuntime runtime, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Accept<object>(plan, runtime).Bind(_ => HostThread.Run(
-            work: new HostWork<HostPage>.Required(Body: () => plan.Admit(op).Bind(admitted => admitted.Switch(
-                (Runtime: runtime, Op: op),
+    public static Fin<HostPage> Realize(PagePlan plan, ElementRuntime runtime) {
+        return Acceptance.Rows<object>(plan, runtime).Bind(_ => HostThread.Run(
+            work: new HostWork<HostPage>.Required(Body: () => plan.Admit().Bind(admitted => admitted.Switch(
+                runtime,
                 stacked: static (held, page) => Realized(
                     plan: page,
                     tree: page.Content,
-                    runtime: held.Runtime,
-                    op: held.Op,
+                    runtime: held,
                     seat: static (plan, control, at) => new PageLeaf.Stacked(
                         Value: new OptionsLeaf(plan: plan, content: control, op: at))),
                 properties: static (held, page) => Realized(
                     plan: page,
                     tree: page.Content,
-                    runtime: held.Runtime,
-                    op: held.Op,
+                    runtime: held,
                     seat: static (plan, control, at) => new PageLeaf.Properties(
-                        Value: new PropertiesLeaf(plan: plan, content: control, op: at)))))),
-            key: op));
+                        Value: new PropertiesLeaf(plan: plan, content: control, op: at))))))));
     }
 
     public Fin<Unit> Release() => Release(owner: None);
@@ -377,115 +370,101 @@ public sealed class HostPage : IMount, IDisposable {
     public void Dispose() => _ = Release(owner: None)
         .IfFail(fault => ignore(teardown.Park(item: fault)));
 
-    public Fin<Unit> Navigate(PageNav nav, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(nav).Bind(_ => HostThread.Run(
+    public Fin<Unit> Navigate(PageNav nav) {
+        return Admit.Need(nav).Bind(_ => HostThread.Run(
             work: new HostWork<Unit>.Execute(Body: () => StackedLeaf
-                .ToFin(Fail: Absent(nameof(StackedDialogPage), op))
-                .Bind(page => Within(body: () => nav.Apply(owner: this, page: page, op: op), op: op))),
-            key: op));
+                .ToFin(Fail: Absent(nameof(StackedDialogPage)))
+                .Bind(page => Within(body: () => nav.Apply(owner: this, page: page), op: op)))));
     }
 
-    public Fin<Window> Reveal(Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Window> Reveal() {
         return HostThread.Run(
             work: new HostWork<Window>.Execute(Body: () => Within(
                 body: () =>
-                    from stacked in StackedPlan.ToFin(Fail: op.InvalidInput())
-                    from page in StackedLeaf.ToFin(Fail: op.InvalidResult())
+                    from stacked in StackedPlan.ToFin(Fail: new KernelFault.InvalidInput())
+                    from page in StackedLeaf.ToFin(Fail: new KernelFault.InvalidResult())
                     from window in stacked.Reveal.Window(page: page, op: op)
                     select window,
-                op: op)),
-            key: op);
+                op: op)));
     }
 
-    public Fin<Seq<Guid>> Selection(ObjectKinds filter, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(filter).Bind(_ => HostThread.Run(
+    public Fin<Seq<Guid>> Selection(ObjectKinds filter) {
+        return Admit.Need(filter).Bind(_ => HostThread.Run(
             work: new HostWork<Seq<Guid>>.Execute(Body: () => PropertiesLeaf
-                .ToFin(Fail: Absent(nameof(ObjectPropertiesPage.GetSelectedObjects), op))
+                .ToFin(Fail: Absent(nameof(ObjectPropertiesPage.GetSelectedObjects)))
                 .Bind(page => Within(
-                    body: () => op.Catch(() => Fin.Succ(value: toSeq(page.GetSelectedObjects(filter.Mask))
+                    body: () => Try.lift(() => Fin.Succ(value: toSeq(page.GetSelectedObjects(filter.Mask))
                         .Map(static item => item.Id)
-                        .Strict())),
-                    op: op))),
-            key: op));
+                        .Strict())).Run().Bind(static inner => inner),
+                    op: op)))));
     }
 
-    public Fin<Unit> Modify(Func<Fin<Unit>> change, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(change).Bind(_ => HostThread.Run(
+    public Fin<Unit> Modify(Func<Fin<Unit>> change) {
+        return Admit.Need(change).Bind(_ => HostThread.Run(
             work: new HostWork<Unit>.Execute(Body: () => PropertiesLeaf
-                .ToFin(Fail: Absent(nameof(ObjectPropertiesPage.ModifyPage), op))
-                .Bind(page => Within(body: () => Modified(page: page, change: change, op: op), op: op))),
-            key: op));
+                .ToFin(Fail: Absent(nameof(ObjectPropertiesPage.ModifyPage)))
+                .Bind(page => Within(body: () => Modified(page: page, change: change), op: op)))));
     }
 
-    private static Fin<Unit> Modified(ObjectPropertiesPage page, Func<Fin<Unit>> change, Op op) {
+    private static Fin<Unit> Modified(ObjectPropertiesPage page, Func<Fin<Unit>> change) {
         Atom<Option<Fin<Unit>>> captured = Atom(Option<Fin<Unit>>.None);
-        return op.Catch(() => {
-            page.ModifyPage(callbackAction: _ => ignore(Cell.Seat(captured, () => op.Catch(change))));
-            return Cell.Take(captured).Current.ToFin(Fail: op.InvalidResult()).Bind(static held => held);
-        });
+        return Try.lift(() => {
+            page.ModifyPage(callbackAction: _ => ignore(Cell.Seat(captured, () => Try.lift(change).Run().Bind(static inner => inner))));
+            return Cell.Take(captured).Current.ToFin(Fail: new KernelFault.InvalidResult()).Bind(static held => held);
+        }).Run().Bind(static inner => inner);
     }
 
     private static Fin<HostPage> Realized<TPlan>(
         TPlan plan,
         ControlSpec tree,
         ElementRuntime runtime,
-        Op op,
-        Func<TPlan, Control, Op, PageLeaf> seat)
+        Func<TPlan, Control, PageLeaf> seat)
         where TPlan : PagePlan =>
-        ControlForge.Realize(spec: tree, runtime: runtime, key: op).Bind(outcome => op
-            .Catch(() => {
+        ControlForge.Realize(spec: tree, runtime: runtime).Bind(outcome => Try.lift(() => {
                 EtoExtensions.UseRhinoStyle(outcome.Resource.Host);
                 return Fin.Succ(value: new HostPage(
-                    plan: plan, leaf: seat(plan, outcome.Resource.Host, op), content: outcome, key: op));
-            })
+                    plan: plan, leaf: seat(plan, outcome.Resource.Host), content: outcome));
+            }).Run().Bind(static inner => inner)
             .Match(
                 Succ: page => Fin.Succ(value: page),
-                Fail: fault => outcome.Use(_ => Fin.Fail<HostPage>(error: fault), op)));
+                Fail: fault => outcome.Use(_ => Fin.Fail<HostPage>(error: fault))));
 
-    internal Fin<Unit> Retain(HostPage child, Action land, Action rollback, Op op) => Within(
+    internal Fin<Unit> Retain(HostPage child, Action land, Action rollback) => Within(
         body: () => {
             PageOwner owner = new PageOwner.Parent(Value: this);
-            return child.Claim(owner: owner, op: op).Bind(_ => op
-                .Catch(() => Fin.Succ(value: Op.Side(land)))
+            return child.Claim(owner: owner, op: op).Bind(_ => Try.lift(() => Fin.Succ(value: HostEdge.Side(land))).Run().Bind(static inner => inner)
                 .Match(
                     Succ: _ => Fin.Succ(value: Track(child)),
-                    Fail: primary => op
-                        .Catch(() => Fin.Succ(value: (Op.Side(rollback), child.Unclaim(owner)).Item2))
+                    Fail: primary => Try.lift(() => Fin.Succ(value: (HostEdge.Side(rollback), child.Unclaim(owner)).Item2)).Run().Bind(static inner => inner)
                         .Match(
                             Succ: _ => Fin.Fail<Unit>(error: primary),
                             Fail: cleanup => (Track(child), Fin.Fail<Unit>(error: primary + cleanup)).Item2)));
-        },
-        op: op);
+        });
 
     private Unit Track(HostPage child) {
         lock (sync) custody = custody.Adopted(child);
         return unit;
     }
 
-    private Fin<T> Within<T>(Func<Fin<T>> body, Op op) {
+    private Fin<T> Within<T>(Func<Fin<T>> body) {
         lock (sync) {
-            if (custody.Entered().Case is not PageCustody entered) return Fin.Fail<T>(error: new UiFault.Released(Key: op));
+            if (custody.Entered().Case is not PageCustody entered) return Fin.Fail<T>(error: new UiFault.Released());
             custody = entered;
         }
-        Fin<T> primary = op.Catch(body);
+        Fin<T> primary = Try.lift(body).Run().Bind(static inner => inner);
         Fin<Option<Seq<IMount>>> exited;
         lock (sync) {
-            exited = custody.Left(key: op).Map(step => {
+            exited = custody.Left().Map(step => {
                 custody = step.Next;
                 return step.Release;
             });
         }
         return primary.Settled(
             release: () => exited.Bind(release => release
-                .TraverseM(children => ReleaseTree(children, op)).As().Map(static _ => unit)),
-            key: op);
+                .TraverseM(children => ReleaseTree(children)).As().Map(static _ => unit)));
     }
 
-    internal Fin<Unit> ClaimMount(Guid token, Op op) => Claim(owner: new PageOwner.Mount(Token: token), op: op);
+    internal Fin<Unit> ClaimMount(Guid token) => Claim(owner: new PageOwner.Mount(Token: token));
 
     internal Unit UnclaimMount(Guid token) => Unclaim(owner: new PageOwner.Mount(Token: token));
 
@@ -498,13 +477,13 @@ public sealed class HostPage : IMount, IDisposable {
 
     internal Fin<Unit> ReleaseMount(Guid token) => Release(owner: Some<PageOwner>(new PageOwner.Mount(Token: token)));
 
-    private Fin<Unit> Claim(PageOwner owner, Op op) => Cell.Step(
+    private Fin<Unit> Claim(PageOwner owner) => Cell.Step(
             cell: claim,
             step: held => held.IsNone && !owner.Owns(this) ? Some(Some(owner)) : Option<Option<PageOwner>>.None,
-            declined: Contested(op))
+            declined: Contested())
         is Transition<Option<PageOwner>>.Committed
         ? Fin.Succ(value: unit)
-        : Fin.Fail<Unit>(error: Contested(op));
+        : Fin.Fail<Unit>(error: Contested());
 
     private Unit Unclaim(PageOwner owner) => ignore(Cell.Step(
         cell: claim,
@@ -518,24 +497,23 @@ public sealed class HostPage : IMount, IDisposable {
         return release.TraverseM(children => ReleaseTree(children, Key)).As().Map(static _ => unit);
     }
 
-    private Fin<Unit> ReleaseTree(Seq<IMount> children, Op key) =>
-        Custody.Release(held: children, release: static child => child.Release(), key: key)
-            .Settled(release: () => content.Use(outcome => outcome.Release(), key), key: key);
+    private Fin<Unit> ReleaseTree(Seq<IMount> children) =>
+        Custody.Release(held: children, release: static child => child.Release())
+            .Settled(release: () => content.Use(outcome => outcome.Release()));
 
-    private static Error Absent(string member, Op op) =>
-        new UiFault.HostRejected(Key: op, Detail: $"this page publishes no {member}");
+    private static Error Absent(string member) =>
+        new UiFault.HostRejected(Detail: $"this page publishes no {member}");
 
-    private static Error Contested(Op op) =>
-        new UiFault.HostRejected(Key: op, Detail: $"a {nameof(PageOwner)} other than the claimant answered");
+    private static Error Contested() =>
+        new UiFault.HostRejected(Detail: $"a {nameof(PageOwner)} other than the claimant answered");
 }
 
 internal sealed class OptionsLeaf : OptionsDialogPage {
     private readonly PagePlan.Stacked plan;
     private readonly Control content;
-    private readonly Op op;
 
-    internal OptionsLeaf(PagePlan.Stacked plan, Control content, Op op) : base(plan.Identity.Caption.English) =>
-        (this.plan, this.content, this.op) = (plan, content, op);
+    internal OptionsLeaf(PagePlan.Stacked plan, Control content) : base(plan.Identity.Caption.English) =>
+        (this.plan, this.content, this.op) = (plan, content);
 
     public override object PageControl => content;
     public override string LocalPageTitle => plan.Identity.Caption.Resolve();
@@ -554,18 +532,17 @@ internal sealed class OptionsLeaf : OptionsDialogPage {
     public override void OnHelp() => ignore(Answer(new PageSignal.Helped()));
     public override void OnCreateParent(nint hwndParent) => ignore(Answer(new PageSignal.ParentCreated(Handle: hwndParent)));
     public override void OnSizeParent(int width, int height) =>
-        ignore(PageSignal.Sized(width: width, height: height, op: op).Bind(Answer));
+        ignore(PageSignal.Sized(width: width, height: height).Bind(Answer));
 
-    private Fin<Unit> Answer(PageSignal signal) => op.Catch(() => plan.Answer(signal));
+    private Fin<Unit> Answer(PageSignal signal) => Try.lift(() => plan.Answer(signal)).Run().Bind(static inner => inner);
 }
 
 internal sealed class PropertiesLeaf : ObjectPropertiesPage {
     private readonly PagePlan.Properties plan;
     private readonly Control content;
-    private readonly Op op;
 
-    internal PropertiesLeaf(PagePlan.Properties plan, Control content, Op op) =>
-        (this.plan, this.content, this.op) = (plan, content, op);
+    internal PropertiesLeaf(PagePlan.Properties plan, Control content) =>
+        (this.plan, this.content, this.op) = (plan, content);
 
     public override object PageControl => content;
     public override string EnglishPageTitle => plan.Identity.Caption.English;
@@ -591,25 +568,25 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
     public override void OnHelp() => ignore(Answer(new PageSignal.Helped()));
     public override void OnCreateParent(nint hwndParent) => ignore(Answer(new PageSignal.ParentCreated(Handle: hwndParent)));
     public override void OnSizeParent(int width, int height) =>
-        ignore(PageSignal.Sized(width: width, height: height, op: op).Bind(Answer));
+        ignore(PageSignal.Sized(width: width, height: height).Bind(Answer));
 
-    private Fin<Unit> Answer(PageSignal signal) => op.Catch(() => plan.Answer(signal));
+    private Fin<Unit> Answer(PageSignal signal) => Try.lift(() => plan.Answer(signal)).Run().Bind(static inner => inner);
 
     private Fin<bool> Display(ObjectPropertiesPageEventArgs e) => WithEvidence(e, evidence =>
-        from included in op.Catch(() => Fin.Succ(value: e.IncludesObjectsType(
+        from included in Try.lift(() => Fin.Succ(value: e.IncludesObjectsType(
             objectTypes: plan.Scope.Kinds.Mask,
-            allMustMatch: plan.Scope.Reach.Admits(SelectionReach.Every))))
-        from visible in included ? op.Catch(() => plan.Display(evidence)) : Fin.Succ(value: false)
+            allMustMatch: plan.Scope.Reach.Admits(SelectionReach.Every)))).Run().Bind(static inner => inner)
+        from visible in included ? Try.lift(() => plan.Display(evidence)).Run().Bind(static inner => inner) : Fin.Succ(value: false)
         from shown in visible
             ? Answer(new PageSignal.SelectionShown(Evidence: evidence)).Map(static _ => true)
             : Fin.Succ(value: false)
         select shown);
 
     private Fin<T> WithEvidence<T>(ObjectPropertiesPageEventArgs e, Func<SelectionEvidence, Fin<T>> body) =>
-        op.Catch(() => Evidence(e).Bind(body));
+        Try.lift(() => Evidence(e).Bind(body)).Run().Bind(static inner => inner);
 
     private Fin<SelectionEvidence> Evidence(ObjectPropertiesPageEventArgs e) =>
-        from count in op.AcceptValidated<Rasm.Numerics.Dimension>(e.ObjectCount)
+        from count in FactoryBridge.Accept<Rasm.Numerics.Dimension>(e.ObjectCount)
         select new SelectionEvidence(
             Document: DocumentOf(e),
             EventOrdinal: e.EventRuntimeSerialNumber,
@@ -628,7 +605,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
 - Owner: `PageNav` is the stacked-page operation algebra; `PageStyle` carries the navigation emphasis and ink; `PageDirty`, `PageEmphasis`, and `PageDestination` key the three host flag slots.
 - Cases: activation, named or document-page reveal, removal, dirty state, retitle, child adoption, style, and a sequence that folds the same algebra.
 - Entry: `HostPage.Navigate` applies one case or traverses a sequence through the same fold.
-- Auto: every `void` host member rides `Op.Side`, so the fold is total over eight cases with no catch-all and a new verb breaks it loudly.
+- Auto: every `void` host member rides `HostEdge.Side`, so the fold is total over eight cases with no catch-all and a new verb breaks it loudly.
 - Law: `Adopt` claims child custody BEFORE host registration, records the child after landing, and both removes and unclaims it when landing fails — the three-step inverse a partial adoption would otherwise leave half-run.
 - Law: the navigation ink is a `PerceptualColor` and quantizes at the host slot alone, so no host colour crosses this owner's public signature.
 - Law: the navigation-style members exist on the platforms whose toolkit backend the host resolved, and that roster is DECLARED rather than probed. An ambient operating-system test answers which system is running, not which backend published the member, and the platform owner already holds the admitted answer.
@@ -674,43 +651,42 @@ public abstract partial record PageNav {
 
     private static readonly Seq<PlatformRow> Styling = Seq(PlatformRow.WinForms, PlatformRow.Wpf);
 
-    internal Fin<Unit> Apply(HostPage owner, StackedDialogPage page, Op op) =>
+    internal Fin<Unit> Apply(HostPage owner, StackedDialogPage page) =>
         Switch(
-            (Owner: owner, Page: page, Op: op),
-            activate: static (held, _) => Fin.Succ(value: Op.Side(held.Page.MakeActivePage)),
-            reveal: static (held, nav) => held.Op.AcceptText(value: nav.Title.Resolve()).Bind(title =>
+            (Owner: owner, Page: page),
+            activate: static (held, _) => Fin.Succ(value: HostEdge.Side(held.Page.MakeActivePage)),
+            reveal: static (held, nav) => Acceptance.Text(value: nav.Title.Resolve()).Bind(title =>
                 held.Page.SetActivePageTo(pageName: title, documentPropertiesPage: nav.Destination.Key)
                     ? Fin.Succ(value: unit)
-                    : Fin.Fail<Unit>(error: held.Op.InvalidResult(detail: title))),
-            remove: static (held, _) => Fin.Succ(value: Op.Side(held.Page.RemovePage)),
-            dirty: static (held, nav) => Fin.Succ(value: Op.Side(() => held.Page.Modified = nav.State.Key)),
-            retitle: static (held, nav) => held.Op.AcceptText(value: nav.Title.English)
-                .Map(title => Op.Side(() => held.Page.SetEnglishPageTitle(title))),
+                    : Fin.Fail<Unit>(error: new KernelFault.InvalidResult(Detail: Some(title)))),
+            remove: static (held, _) => Fin.Succ(value: HostEdge.Side(held.Page.RemovePage)),
+            dirty: static (held, nav) => Fin.Succ(value: HostEdge.Side(() => held.Page.Modified = nav.State.Key)),
+            retitle: static (held, nav) => Acceptance.Text(value: nav.Title.English)
+                .Map(title => HostEdge.Side(() => held.Page.SetEnglishPageTitle(title))),
             adopt: static (held, nav) =>
-                from child in held.Op.Need(nav.Child)
+                from child in Admit.Need(nav.Child)
                 from _ in child.StackedPlan
                     .Filter(static seated => seated.Seat == PageSeat.Child)
-                    .ToFin(Fail: held.Op.InvalidInput())
-                from leaf in child.StackedLeaf.ToFin(Fail: held.Op.InvalidResult())
+                    .ToFin(Fail: new KernelFault.InvalidInput())
+                from leaf in child.StackedLeaf.ToFin(Fail: new KernelFault.InvalidResult())
                 from added in held.Owner.Retain(
                     child: child,
                     land: () => held.Page.AddChildPage(pageToAdd: leaf),
-                    rollback: leaf.RemovePage,
-                    op: held.Op)
+                    rollback: leaf.RemovePage)
                 select added,
             styled: static (held, nav) =>
-                from platform in HostPlatform.Snapshot(key: held.Op)
+                from platform in HostPlatform.Snapshot()
                 from _ in platform.Row.Filter(Styling.Contains).ToFin(Fail: new UiFault.HostRejected(
                     Key: held.Op,
                     Detail: $"{nameof(StackedDialogPage.NavigationTextColor)} is published by "
                         + string.Join(", ", Styling.Map(static row => row.Key))))
-                from ink in nav.Style.Color.ToDrawing(key: held.Op)
-                select Op.Side(() => {
+                from ink in nav.Style.Color.ToDrawing()
+                select HostEdge.Side(() => {
                     held.Page.NavigationTextIsBold = nav.Style.Emphasis.Key;
                     held.Page.NavigationTextColor = ink;
                 }),
             sequence: static (held, nav) => nav.Steps
-                .TraverseM(step => step.Apply(owner: held.Owner, page: held.Page, op: held.Op))
+                .TraverseM(step => step.Apply(owner: held.Owner, page: held.Page))
                 .As()
                 .Map(static _ => unit));
 }
@@ -765,7 +741,7 @@ public sealed class MountedPages : IDisposable {
 
     public Option<Error> Fault { get; }
 
-    public Fin<Unit> Release(Op? key = null) => lease.Release(key.OrDefault());
+    public Fin<Unit> Release() => lease.Release();
 
     public void Dispose() => ignore(Release());
 }
@@ -781,14 +757,14 @@ internal sealed class PageRegistration {
 
     internal bool IsLive => state.Value is RegistrationState.Live;
 
-    internal Fin<Unit> Unclaim(Op key) => Close(next: new RegistrationState.Unclaimed(), key: key);
+    internal Fin<Unit> Unclaim() => Close(next: new RegistrationState.Unclaimed());
 
-    internal Fin<Unit> Release(Op key) => Close(next: new RegistrationState.Released(), key: key);
+    internal Fin<Unit> Release() => Close(next: new RegistrationState.Released());
 
-    private Fin<Unit> Close(RegistrationState next, Op key) => Cell.Step(
+    private Fin<Unit> Close(RegistrationState next) => Cell.Step(
             cell: state,
             step: held => held is RegistrationState.Live ? Some(next) : Option<RegistrationState>.None,
-            declined: new UiFault.Released(Key: key))
+            declined: new UiFault.Released())
         is Transition<RegistrationState>.Committed
         ? remove().Bind(_ => next is RegistrationState.Released
             ? page.ReleaseMount(token)
@@ -803,59 +779,56 @@ internal sealed class PageMountLease {
 
     internal Rasm.Numerics.Dimension LiveCount => Rasm.Numerics.Dimension.Create(value: registrations.Count(static row => row.IsLive));
 
-    internal Fin<Unit> Unclaim(Op op) => Drain(close: registration => registration.Unclaim(op), op: op);
+    internal Fin<Unit> Unclaim() => Drain(close: registration => registration.Unclaim());
 
-    internal Fin<Unit> Release(Op op) => Drain(close: registration => registration.Release(op), op: op);
+    internal Fin<Unit> Release() => Drain(close: registration => registration.Release());
 
-    private Fin<Unit> Drain(Func<PageRegistration, Fin<Unit>> close, Op op) => HostThread.Run(
+    private Fin<Unit> Drain(Func<PageRegistration, Fin<Unit>> close) => HostThread.Run(
         work: new HostWork<Unit>.Execute(Body: () => HostThread.Release(
             releases: registrations.Map(registration => (Func<Fin<Unit>>)(() => close(registration))),
-            key: op)),
-        key: op);
+            key: op)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PageMount {
-    public static Fin<MountedPages> Land(PageBasket basket, Seq<HostPage> pages, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(basket).Bind(_ => HostThread.Run(
+    public static Fin<MountedPages> Land(PageBasket basket, Seq<HostPage> pages) {
+        return Admit.Need(basket).Bind(_ => HostThread.Run(
             work: new HostWork<MountedPages>.Required(Body: () => pages
-                .Traverse(page => Prepared(page: page, basket: basket, op: op).ToValidation())
+                .Traverse(page => Prepared(page: page, basket: basket).ToValidation())
                 .As()
                 .ToFin()
                 .Bind(landings => {
                     Seq<PageLanding> admitted = landings.Strict();
                     Guid token = Guid.NewGuid();
-                    return Claim(landings: admitted, token: token, op: op)
-                        .Bind(_ => Commit(landings: admitted, token: token, op: op));
-                })),
-            key: op));
+                    return Claim(landings: admitted, token: token)
+                        .Bind(_ => Commit(landings: admitted, token: token));
+                }))));
     }
 
-    private static Fin<PageLanding> Prepared(HostPage page, PageBasket basket, Op op) =>
-        op.Need(page).Bind(admitted => basket.Switch(
-            (Page: admitted, Op: op),
+    private static Fin<PageLanding> Prepared(HostPage page, PageBasket basket) =>
+        Admit.Need(page).Bind(admitted => basket.Switch(
+            admitted,
             stacked: static (held, target) =>
-                from pages in held.Op.Need(target.Pages)
-                from plan in held.Page.StackedPlan.ToFin(Fail: held.Op.InvalidInput())
-                from _ in guard(flag: plan.Seat == target.Seat, False: held.Op.InvalidInput())
-                from leaf in held.Page.StackedLeaf.ToFin(Fail: held.Op.InvalidResult())
+                from pages in Admit.Need(target.Pages)
+                from plan in held.StackedPlan.ToFin(Fail: new KernelFault.InvalidInput())
+                from _ in guard(flag: plan.Seat == target.Seat, False: new KernelFault.InvalidInput())
+                from leaf in held.StackedLeaf.ToFin(Fail: new KernelFault.InvalidResult())
                 select new PageLanding(
-                    Page: held.Page,
+                    Page: held,
                     Add: () => pages.Add(item: leaf),
-                    Remove: Some<Func<Fin<Unit>>>(() => held.Op.Catch(() => held.Op.Confirm(
-                        success: pages.Remove(item: leaf))))),
+                    Remove: Some<Func<Fin<Unit>>>(() => Try.lift(() => Admit.Confirm(
+                        success: pages.Remove(item: leaf))).Run().Bind(static inner => inner))),
             properties: static (held, target) =>
-                from pages in held.Op.Need(target.Pages)
-                from leaf in held.Page.PropertiesLeaf.ToFin(Fail: held.Op.InvalidInput())
+                from pages in Admit.Need(target.Pages)
+                from leaf in held.PropertiesLeaf.ToFin(Fail: new KernelFault.InvalidInput())
                 select new PageLanding(
-                    Page: held.Page,
+                    Page: held,
                     Add: () => pages.Add(page: leaf),
                     Remove: None)));
 
-    private static Fin<Unit> Claim(Seq<PageLanding> landings, Guid token, Op op) =>
+    private static Fin<Unit> Claim(Seq<PageLanding> landings, Guid token) =>
         landings.Fold(Fin.Succ(Seq<PageLanding>()), (held, landing) => held.Bind(taken => landing.Page
-            .ClaimMount(token: token, op: op)
+            .ClaimMount(token: token)
             .Match(
                 Succ: _ => Fin.Succ(taken.Add(landing)),
                 Fail: fault => (
@@ -863,14 +836,14 @@ public static class PageMount {
                     Fin.Fail<Seq<PageLanding>>(error: fault)).Item2)))
             .Map(static _ => unit);
 
-    private static Fin<MountedPages> Commit(Seq<PageLanding> landings, Guid token, Op op) {
+    private static Fin<MountedPages> Commit(Seq<PageLanding> landings, Guid token) {
         (Rasm.Numerics.Dimension Releasable, Rasm.Numerics.Dimension Permanent, Seq<PageRegistration> Registrations, Option<Error> Fault) seed = (
             Releasable: Rasm.Numerics.Dimension.Create(value: 0),
             Permanent: Rasm.Numerics.Dimension.Create(value: 0),
             Registrations: Seq<PageRegistration>(),
             Fault: None);
         var state = foldWhile(
-            (held, landing) => op.Catch(() => Fin.Succ(value: Op.Side(landing.Add))).Match(
+            (held, landing) => Try.lift(() => Fin.Succ(value: HostEdge.Side(landing.Add))).Run().Bind(static inner => inner).Match(
                 Succ: _ => landing.Remove.Match(
                     Some: remove => held with {
                         Releasable = Rasm.Numerics.Dimension.Create(value: held.Releasable.Value + 1),
@@ -889,7 +862,7 @@ public static class PageMount {
                 _ = landings
                     .Skip(state.Releasable.Value + state.Permanent.Value)
                     .Iter(landing => ignore(landing.Page.UnclaimMount(token)));
-                Error fault = lease.Unclaim(op).Match(Succ: _ => primary, Fail: unclaim => primary + unclaim);
+                Error fault = lease.Unclaim().Match(Succ: _ => primary, Fail: unclaim => primary + unclaim);
                 return Fin.Succ(value: new MountedPages(
                     releasable: lease.LiveCount, permanent: state.Permanent, fault: Some(fault), lease: lease));
             },

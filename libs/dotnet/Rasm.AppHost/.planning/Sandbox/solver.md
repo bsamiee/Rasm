@@ -153,7 +153,7 @@ public static class SolverPluginContract {
     static Validation<Error, Seq<OpDeclaration>> Ceilings(SolverManifest manifest) =>
         manifest.Ops.Traverse(op =>
             op.Effect.Rank <= manifest.Kind.Effect.Rank && op.ArgumentSchema.ValueKind == JsonValueKind.Object
-                ? Success<Error, OpDeclaration>(op)
+                ? Success<Error, OpDeclaration>()
                 : Fail<Error, OpDeclaration>(new SolverFault.ContractRejected(
                     $"{manifest.PluginId}.{op.OpId}: {op.Effect.Key} over {manifest.Kind.Effect.Key} or unschema'd"))).As();
 
@@ -169,14 +169,14 @@ public static class SolverPluginContract {
             cost: op.Cost,
             permission: new PermissionShape(op.ObjectSet, op.Effect, DataClassification.UserContent),
             progress: manifest.Kind.Progress,
-            compile: compileOf(negotiation, op)));
+            compile: compileOf(negotiation)));
 }
 ```
 
 ## [04]-[SOLVER_HOSTING]
 
 - Owner: `Negotiation` the proven channel contract the compile closure is built over; `HostedSolver` the loaded, bound, and projected solver capsule; `SolverHostRuntime` the hosting dependency capsule; `SolverHost` the static load-and-project surface and the boot gate the module ledger seats.
-- Entry: `Register(SolverHostRuntime runtime, Seq<SolverManifest> declared, GrantScope scope, Op key)` returns `IO<Validation<Error, Seq<HostedSolver>>>` — the boot gate `Runtime/modules#MODULE_LEDGER` composes in the Sandbox module fold, hosting every declared manifest and accumulating every refusal so one boot names each bad plugin; `Host(SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope, Op key)` returns `IO<Validation<Error, HostedSolver>>` — one plugin per call; `Negotiate(SolverManifest manifest)` returns `Validation<Error, Negotiation>` — proves every channel the plugin's decoder declares is one its input `PackKind` tiles and freezes each channel's own `ChannelDtype.Tolerance` as the bound the encode boundary must hold.
+- Entry: `Register(SolverHostRuntime runtime, Seq<SolverManifest> declared, GrantScope scope)` returns `IO<Validation<Error, Seq<HostedSolver>>>` — the boot gate `Runtime/modules#MODULE_LEDGER` composes in the Sandbox module fold, hosting every declared manifest and accumulating every refusal so one boot names each bad plugin; `Host(SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope)` returns `IO<Validation<Error, HostedSolver>>` — one plugin per call; `Negotiate(SolverManifest manifest)` returns `Validation<Error, Negotiation>` — proves every channel the plugin's decoder declares is one its input `PackKind` tiles and freezes each channel's own `ChannelDtype.Tolerance` as the bound the encode boundary must hold.
 - Law: `Register` is the producer this page lacked entirely. Eleven declared owners reached no composition fence, so the whole extensibility contract was law with no producer; the module ledger seats this one entry and every owner below it is reached through it.
 - Law: ONE CHANNEL LEAVES THE FOLD. Every per-manifest refusal — a contract leg, an unresolvable artifact, a rejected signature, an unservable isolation axis, a refused registry write — reaches `Register` on `Validation<Error,T>`, where `Error` accumulates every independent refusal. Load legs still sequence on the IO error channel, since a manifest with no artifact must never reach a load; one `IO.fail` crossing that boundary short-circuits the traversal and leaves the boot naming the first bad plugin alone.
 - Law: a failing projection EVICTS the loaded plugin. `Host` acquires a `PluginInstance` owning a disposable Wasmtime capsule and previously let a refused registry projection return past it, leaving a linked store alive for process life; the fold now drains the vehicle through `QuotaControl.Evict` under a `CommandedCase` and re-raises, so the acquisition is bracketed by the outcome that owns it.
@@ -218,26 +218,26 @@ public sealed record SolverHostRuntime(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolverHost {
     public static IO<Validation<Error, Seq<HostedSolver>>> Register(
-        SolverHostRuntime runtime, Seq<SolverManifest> declared, GrantScope scope, Op key) =>
-        declared.TraverseM(manifest => Host(runtime, manifest, scope, key)).As()
+        SolverHostRuntime runtime, Seq<SolverManifest> declared, GrantScope scope) =>
+        declared.TraverseM(manifest => Host(runtime, manifest, scope)).As()
             .Map(static hosted => hosted.Traverse(static row => row).As());
 
     public static IO<Validation<Error, HostedSolver>> Host(
-        SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope, Op key) =>
+        SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope) =>
         (from valid in SolverPluginContract.Validate(manifest, runtime.Hosted)
          from negotiation in Negotiate(valid)
          select (Manifest: valid, Negotiation: negotiation)).Match(
-            Succ: proven => Loaded(runtime, proven.Manifest, scope, proven.Negotiation, key),
+            Succ: proven => Loaded(runtime, proven.Manifest, scope, proven.Negotiation),
             Fail: faults => IO.pure(Fail<Error, HostedSolver>(faults)));
 
     static IO<Validation<Error, HostedSolver>> Loaded(
-        SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope, Negotiation negotiation, Op key) =>
+        SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope, Negotiation negotiation) =>
         (from artifact in IO.lift(runtime.Resolve(manifest)
             .Bind(resolved => resolved.ContractRange == manifest.ContractRange
                 ? Fin.Succ(resolved)
                 : Fin.Fail<PluginArtifact>(new SolverFault.ContractRejected(
                     $"{manifest.PluginId}: {manifest.ContractRange} != {resolved.ContractRange}"))))
-        from instance in SandboxRows.Load(runtime.Row, artifact, scope, runtime.Sandbox, key)
+        from instance in SandboxRows.Load(runtime.Row, artifact, scope, runtime.Sandbox)
         from hosted in Projected(runtime, manifest, negotiation, instance).Catch(error =>
             QuotaControl.Evict(runtime.Sandbox, instance, new EvictionCause.CommandedCase(nameof(SolverHost)))
                 .Bind(_ => IO.fail<HostedSolver>(error)))
@@ -247,7 +247,7 @@ public static class SolverHost {
     static IO<HostedSolver> Projected(
         SolverHostRuntime runtime, SolverManifest manifest, Negotiation negotiation, PluginInstance instance) =>
         from _ in runtime.Project(SolverPluginContract.Descriptors(
-            manifest, negotiation, (proven, op) => runtime.CompileOf(instance, proven, op)))
+            manifest, negotiation, (proven, op) => runtime.CompileOf(instance, proven)))
         let handle = GrantHandleSurface.Bind(instance, runtime.Mcp)
         select new HostedSolver(manifest, instance, handle, negotiation);
 

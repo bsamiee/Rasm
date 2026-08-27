@@ -16,7 +16,7 @@ Selection composes settled owners. `Model/spatial#SPATIAL_STRUCTURE` owns the co
 ## [02]-[ELEMENT_SET]
 
 - Owner: `BimLeaf` is the Bim leaf family the shared `Predicate<TLeaf>` closes over — `Element(ElementLeaf)` the ONE wrapping arm carrying every contract-owned query dimension (kind, classification branch, attribute, property, material, composition, assignment, connection, void, assessment, generic wire) beside the five IFC-SCHEMA leaves the contract declines: `ByClass`/`ByDomain`/`ByPredefinedType` over the `Model/elements#IFC_CLASS` roster, `ByClassificationSystem` the system-membership existential, and `BySpatialContainer` the ceded containment reach. `SpatialReach`, `ObjectAttribute`, `ValueSource`, and `SetOperation` are the policy vocabularies its evaluation and its consumers compose. `ElementQuery` owns graph-bound selection, refinement, set algebra, effective-value reads, baking, and measured aggregation over the shared `Selection<NodeId>`; no wrapper duplicates the term identity.
-- Entry: `ElementQuery.Query(ElementGraph graph, BimTerm term)` folds the term over `graph.ObjectNodes`; the shared `And`/`Or`/`AndNot` flatten the boolean closure and `Predicate<BimLeaf>.Open` is the named vacuous conjunction; `BimLeaf.InZone`/`OfType`/`Classified` mint the derived terms whose shared spelling is a composition rather than one arm; `Combine(other, operation, key)` applies one `SetOperation` row after proving both queries share the same graph; `Where` refines the current selection; `Bake(key)` traverses the selected objects through the shared derivation path; `BimLeaf.Key(term)` streams any term through the shared `PredicateKey` into the content key a memo and a replayable selection share.
+- Entry: `ElementQuery.Query(ElementGraph graph, BimTerm term)` folds the term over `graph.ObjectNodes`; the shared `And`/`Or`/`AndNot` flatten the boolean closure and `Predicate<BimLeaf>.Open` is the named vacuous conjunction; `BimLeaf.InZone`/`OfType`/`Classified` mint the derived terms whose shared spelling is a composition rather than one arm; `Combine(other, operation)` applies one `SetOperation` row after proving both queries share the same graph; `Where` refines the current selection; `Bake()` traverses the selected objects through the shared derivation path; `BimLeaf.Key(term)` streams any term through the shared `PredicateKey` into the content key a memo and a replayable selection share.
 - Auto: evaluation is ONE parameterized fold — `Holds<TLeaf>` supplies the shared `Predicate<TLeaf>.Holds` its leaf verdict and its closure verdict, and the two leaf vocabularies (`BimLeaf` at the top, `ElementLeaf` inside every nested `NodeMatch`) instantiate it rather than forking a second walker. Both leaf dispatches are the Thinktecture generated total `Switch`, so a missing query dimension is a build error at every site rather than a silent fallthrough. Classification arms decide over the primary `Classification` AND the co-applied `Classifications` set, so a secondary standard-system code never escapes a branch facet; `ByProperty` decides set-name, property-name, and value through three independent `ValueMatch` restrictions over BOTH bag kinds on occurrence and type, so a patterned `Pset_.*` facet lowers whole without a heavy `Bake`; the incidence arms read the O(degree) `EdgesAt` index and decide every related endpoint through `MatchesNode`, whose `Where` case recurses the same fold on the resolved `Node.Object` so a non-`Object` target fails the nested probe structurally; `BySpatialContainer` reads its `SpatialReach` row's own chain projection, so the reach vocabulary owns the walk and the arm owns none of it.
 - Auto: the shared `Closure` arm answers with a GENUINE bounded transitive walk — one `BreadthFirstSearchAlgorithm` over the memoized `graph.View(EdgeFilter.Composition, EdgeOrientation.Ascending)` ascent, `TreeEdge` folding the per-vertex level and `GrayTarget` classifying a non-tree edge onto a queued vertex as the cyclic-`Compose` evidence `Bake` faults on — never an opaque-leaf pass-through, which is the contract's binding evaluator law. `WalkDepth` bounds the level and `WalkDepth.Whole` walks to fixpoint.
 - Law: verdicts carry FAULTS. `MatchVerdict` accumulates from both sides of every combinator and `Negate` flips only a CLEAN verdict, so a cyclic ascent or an unresolvable nested target keeps `Holds` false through any surrounding `Not` while its cause rides out on `ElementQuery.Faults` — where the deleted `bool` fold silently delivered or silently dropped a malformed arm and reported a healthy empty selection. Selection stays TOTAL regardless: evidence rides beside the answer, never a fault refusing a whole query for one bad node.
@@ -123,8 +123,6 @@ public abstract partial record BimLeaf {
 public sealed record ElementQuery {
     internal const string IfcSystem = "ifc";
 
-    static readonly Op Gate = Op.Of(name: nameof(ElementQuery));
-
     private ElementQuery(ElementGraph graph, Selection<NodeId> selection, Seq<Error> faults) {
         (Graph, Selection, Faults) = (graph, selection, faults);
         members = toHashSet(selection.Keys);
@@ -149,16 +147,16 @@ public sealed record ElementQuery {
     public Seq<string> GlobalIds => Objects.Choose(static o => o.ExternalId);
     public bool Holds(NodeId id) => members.Contains(id);
 
-    public Fin<Seq<Element>> Bake(Op key) => Objects.TraverseM(o => Graph.Bake(o.Id, key)).As();
+    public Fin<Seq<Element>> Bake() => Objects.TraverseM(o => Graph.Bake(o.Id)).As();
 
     public ElementQuery Union(ElementQuery other) => Derive(SetOperation.Union, other);
     public ElementQuery Intersect(ElementQuery other) => Derive(SetOperation.Intersect, other);
     public ElementQuery Except(ElementQuery other) => Derive(SetOperation.Except, other);
 
-    public Fin<ElementQuery> Combine(ElementQuery other, SetOperation operation, Op key) =>
+    public Fin<ElementQuery> Combine(ElementQuery other, SetOperation operation) =>
         ReferenceEquals(Graph, other.Graph) || ContentAddress.OfGraph(Graph) == ContentAddress.OfGraph(other.Graph)
             ? Fin.Succ(Derive(operation, other))
-            : Fin.Fail<ElementQuery>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "set-cross-graph", operation.Key })));
+            : Fin.Fail<ElementQuery>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "set-cross-graph", operation.Key })));
 
     ElementQuery Derive(SetOperation operation, ElementQuery other) =>
         new(Graph, operation.Apply(Selection, other.Selection), (Faults + other.Faults).Distinct().Strict());
@@ -266,7 +264,7 @@ public sealed record ElementQuery {
                             new ValueMatch.Exact(new PropertyValue.Text(p.Set)),
                             new ValueMatch.Exact(new PropertyValue.Text(p.Name))));
 
-    public static Fin<Option<MeasureValue>> SumOf(ElementGraph graph, Seq<NodeId> ids, ValueSource source, Op key) {
+    public static Fin<Option<MeasureValue>> SumOf(ElementGraph graph, Seq<NodeId> ids, ValueSource source) {
         Seq<PropertyValue> values = ids
             .Bind(id => graph.Find<Node.Object>(id).ToSeq())
             .Bind(o => ValuesOf(graph, o, source));
@@ -274,9 +272,9 @@ public sealed record ElementQuery {
             ? Fin.Succ(Option<MeasureValue>.None)
             : values.TraverseM(value => value is PropertyValue.Measure measure
                     ? Fin.Succ(measure.Value)
-                    : Fin.Fail<MeasureValue>(ElementFault.ValueRejected(key, $"<aggregate-non-measure:{value.GetType().Name}>")))
+                    : Fin.Fail<MeasureValue>(ElementFault.ValueRejected($"<aggregate-non-measure:{value.GetType().Name}>")))
                 .As()
-                .Bind(measures => MeasureValue.Sum(measures, key).Map(Some));
+                .Bind(measures => MeasureValue.Sum(measures).Map(Some));
     }
 
     static Seq<PropertyValue> EffectiveValues(ElementGraph graph, NodeId obj, ValueMatch set, ValueMatch name) {
@@ -319,7 +317,7 @@ public sealed record ElementQuery {
 ## [03]-[PREDICATE_PUSHDOWN]
 
 - Owner: `StorePlan` the store-side evaluation artifact — ONE parameterized SQL statement over the persisted BimOpenSchema flat fact tables and the in-process `Residue` term — and `StoreLowering.Lower` the two-phase split: the store-expressible subset lowers to SQL, the residue folds in-process over the returned candidates, and the split is SOUND by construction (the SQL phase selects a SUPERSET — a conjunction narrows with its expressible conjuncts and parks the rest on the residue; a disjunction lowers only when EVERY operand lowers, else the whole branch is residue; a negation lowers only over a lowerable operand whose clause is TOTAL, because SQL's third value makes `NOT` over a nullable fact column exclude exactly the absent-column rows the negation selects) — the same broad/narrow law the geospatial H3 prefilter holds at bit parity.
-- Entry: `StoreLowering.Lower(BimTerm term, Op key)` folds the term into a `StorePlan` — `Sql` the one `SELECT DISTINCT e.GlobalId` statement over the `FactTable.Entities` scan whose predicates join the remaining rows (`Strings` by `rowid` for the string-index columns, `StringParameters`/`DoubleParameters` through `Descriptors` for the property facts), `Parameters` the positional value list (every dynamic value a parameter — raw-string interpolation into engine SQL is the deleted form the Persistence trust gate names), `Residue` the remainder re-checked in-process; the executing lane is the `Rasm.Persistence/Query/columnar#COLUMNAR_LANE` analytical session, and the returned GlobalId candidates re-enter the algebra as `ByAttribute(GlobalId, OneOf(candidates))` conjoined with the residue over the materialized graph, so the store phase and the in-process phase agree bit-for-bit on the final set.
+- Entry: `StoreLowering.Lower(BimTerm term)` folds the term into a `StorePlan` — `Sql` the one `SELECT DISTINCT e.GlobalId` statement over the `FactTable.Entities` scan whose predicates join the remaining rows (`Strings` by `rowid` for the string-index columns, `StringParameters`/`DoubleParameters` through `Descriptors` for the property facts), `Parameters` the positional value list (every dynamic value a parameter — raw-string interpolation into engine SQL is the deleted form the Persistence trust gate names), `Residue` the remainder re-checked in-process; the executing lane is the `Rasm.Persistence/Query/columnar#COLUMNAR_LANE` analytical session, and the returned GlobalId candidates re-enter the algebra as `ByAttribute(GlobalId, OneOf(candidates))` conjoined with the residue over the materialized graph, so the store phase and the in-process phase agree bit-for-bit on the final set.
 - Auto: the expressible leaves are the flat projection's own axes — `ByClass` compares the `Category` fact, `ByDomain` expands to the roster's class-key partition (`IfcClass.Items` filtered by `Domain`, one `IN` parameter list), the shared `ByAttribute` over `GlobalId`/`Name` compares the entity columns, and the shared `ByProperty` with exact set/name restrictions lowers `Exact`/`OneOf`/`Range`/`Present` onto the parameter tables (`Value` string equality through the `FactTable.Strings` join, numeric bounds on the `FactTable.DoubleParameters` `Value` column — SI magnitudes by the fact convention); every classification, incidence, zone, spatial, patterned, transitive-`Closure`, and nested-`Where` term is residue, because graph topology stays the graph's and the flat projection carries no classification table beside the single `Category` column. `IN` lists narrow only over a NON-EMPTY value set: an empty set lowers to the canonical FALSE predicate through the one `InFragment` mint, because emitting `IN ()` breaks the statement and dropping the fragment widens the superset into a scan the residue never narrows.
 - Output: the `StorePlan` is the dataset-scale query evidence — "every fire-rated door on any current model" runs WHERE the data rests, saved queries and federation-wide reporting execute the same closed algebra, and the plan's `Residue` names exactly what ran in-process so the split is auditable per query. Chainage pushes DOWN whole: an exact set/name `ByProperty` carrying a `Range` lowers onto the `FactTable.DoubleParameters` SI-magnitude column and the alignment identity beside it onto the string join, so a station band over a whole infrastructure model is one statement with an empty residue.
 - Packages: Rasm.Element, LanguageExt.Core, Thinktecture.Runtime.Extensions (the `FactTable` `[SmartEnum<string>]` row table), Rasm; the fact-table vocabulary is the `Ara3D.BimOpenSchema` record surface (`Entity(LocalId, GlobalId, Document, Name, Category)`, `ParameterString`/`ParameterDouble(Entity, Descriptor, Value)`, `ParameterDescriptor(Name, Units, Group, Type)`, `EntityRelation(EntityA, EntityB, RelationType)` — decompile-verified; the `<Name>_<n>` projection-ordinal identifiers and the single-column `Strings` adapter are the `libs/dotnet/Rasm.Persistence/.api/api-ara3d-bimopenschema.md` `[IMPLEMENTATION_LAW]` law, that catalogue owning the package at the Persistence tier).
@@ -332,7 +330,6 @@ using LanguageExt;
 using Rasm.Element.Properties;
 using Rasm.Element.Query;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
 
@@ -360,7 +357,7 @@ public sealed record StorePlan(string Sql, Seq<object> Parameters, Option<BimTer
 public static class StoreLowering {
     readonly record struct Fragment(string Where, Seq<object> Parameters, bool Total);
 
-    public static StorePlan Lower(BimTerm term, Op key) {
+    public static StorePlan Lower(BimTerm term) {
         (Option<Fragment> store, Option<BimTerm> residue) = Split(term);
         return store.Match(
             Some: fragment => new StorePlan($"{EntityScan} WHERE {fragment.Where}", fragment.Parameters, residue),

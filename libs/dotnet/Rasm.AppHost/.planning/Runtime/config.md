@@ -109,9 +109,9 @@ public sealed partial class ConfigSource {
             var ranked => ranked.Filter(static row => (row.Reload == ReloadClass.Transition) != row.Rereads) is { IsEmpty: false } mismatched
                 ? Fin.Fail<IConfigurationManager>(Error.Many(mismatched.Map(static row =>
                     (Error)new ConfigError.SourceRejected(row.Key, $"reload={row.Reload.Key} rereads={row.Rereads}"))))
-                : Op.Of().Catch(() => Fin.Succ(ranked.Fold(
+                : Try.lift(() => Fin.Succ(ranked.Fold(
                         layer.ParentSnapshot.Map(parent => ((IConfigurationBuilder)manager).AddConfiguration(parent)).IfNone(manager),
-                        (builder, row) => row.Mount(builder, layer))))
+                        (builder, row) => row.Mount(builder, layer)))).Run().Bind(static inner => inner)
                     .Map(_ => manager),
         };
 
@@ -191,22 +191,22 @@ public abstract partial record ConfigError : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PolicyBinding {
     public static Validation<Error, T> Bind<T>(IConfigurationRoot root, string section) where T : notnull =>
-        Op.Of().Catch(() => Fin.Succ(Optional(
-                root.GetSection(section).Get<T>(static binder => binder.ErrorOnUnknownConfiguration = true))))
+        Try.lift(() => Fin.Succ(Optional(
+                root.GetSection(section).Get<T>(static binder => binder.ErrorOnUnknownConfiguration = true)))).Run().Bind(static inner => inner)
             .MapFail(error => (Error)new ConfigError.BindRejected(section, error))
             .Bind(configured => configured.ToFin((Error)new ConfigError.SectionAbsent(section)))
             .ToValidation();
 
     public static Validation<Error, Instant> BindInstant(IConfigurationRoot root, string key) =>
-        Admit(InstantPattern.ExtendedIso, root, key, nameof(InstantPattern.ExtendedIso));
+        Admit(InstantPattern.ExtendedIso, root, nameof(InstantPattern.ExtendedIso));
 
     public static Validation<Error, Duration> BindDuration(IConfigurationRoot root, string key) =>
-        Admit(DurationPattern.Roundtrip, root, key, nameof(DurationPattern.Roundtrip));
+        Admit(DurationPattern.Roundtrip, root, nameof(DurationPattern.Roundtrip));
 
     static Validation<Error, T> Admit<T>(IPattern<T> pattern, IConfigurationRoot root, string key, string named) =>
-        pattern.Parse(root.GetValue<string>(key) ?? string.Empty) is { Success: true } parsed
+        pattern.Parse(root.GetValue<string>() ?? string.Empty) is { Success: true } parsed
             ? Success<Error, T>(parsed.Value)
-            : Fail<Error, T>(new ConfigError.Scalar(key, $"text outside {named}"));
+            : Fail<Error, T>(new ConfigError.Scalar($"text outside {named}"));
 }
 ```
 
@@ -300,7 +300,7 @@ public static class OptionsAdmission {
             ? Error.Many(faults)
             : (Validation<Error, T>)policy;
 
-    public static Fin<Unit> Sweep(IStartupValidator validator) => Op.Of().Catch(validator.Validate);
+    public static Fin<Unit> Sweep(IStartupValidator validator) => Try.lift(validator.Validate).Run().Bind(static inner => inner);
 
     public static Unit Invalidate<T>(IOptionsMonitorCache<T> cache, Option<string> name = default) where T : class =>
         name is { IsSome: true, Case: string named } ? ignore(cache.TryRemove(named)) : (cache.Clear(), unit).Item2;
@@ -308,13 +308,13 @@ public static class OptionsAdmission {
     public static Validation<Error, (JsonObject Admitted, ReloadOutcome Outcome)> PatchSection(JsonObject live, string section, ReloadClass reload, JsonPatchDocument patch, Func<JsonObject, Validation<Error, Unit>> revalidate) =>
         reload == ReloadClass.Frozen
             ? (live, (ReloadOutcome)new ReloadOutcome.RestartRequired(section))
-            : Op.Of().Catch(() => {
+            : Try.lift(() => {
                     var faults = new List<ConfigError>();
                     var candidate = live.DeepClone().AsObject();
                     patch.ApplyTo(candidate, error => faults.Add(new ConfigError.Invariant(
                         error.Operation?.path ?? section, error.ErrorMessage)));
                     return Fin.Succ((Candidate: candidate, Faults: toSeq(faults)));
-                })
+                }).Run().Bind(static inner => inner)
                 .Match(
                     Succ: applied => applied.Faults is { IsEmpty: false } ops
                         ? (Validation<Error, (JsonObject, ReloadOutcome)>)Error.Many(ops.Map(static fault => (Error)fault))

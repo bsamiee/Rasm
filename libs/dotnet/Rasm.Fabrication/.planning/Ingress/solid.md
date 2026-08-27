@@ -218,7 +218,6 @@ public sealed partial class SolidPolicy {
     public SolidClosure Closure { get; }
     public RepairLaw Repair { get; }
     public Context Context { get; }
-    public Op Key { get; }
     public ThreeMfReadMode ThreeMf { get; }
 
     static partial void ValidateFactoryArguments(
@@ -230,7 +229,7 @@ public sealed partial class SolidPolicy {
         ref SolidClosure closure,
         ref RepairLaw repair,
         ref Context context,
-        ref Op key,
+        ref ,
         ref ThreeMfReadMode threeMf) {
         Seq<(string Slot, bool Admits)> slots = [
             ("solid-weld:grid-below-model", weld.GridMm.ForAll(grid => grid >= context.Absolute.Value)),
@@ -251,9 +250,8 @@ public sealed partial class SolidPolicy {
         SolidClosure closure,
         RepairLaw repair,
         Context context,
-        Op key,
         ThreeMfReadMode threeMf) =>
-        Validate(tolerance, units, weld, faces, closure, repair, context, key, threeMf, out SolidPolicy policy)
+        Validate(tolerance, units, weld, faces, closure, repair, context, threeMf, out SolidPolicy policy)
             .Admitted(policy);
 }
 
@@ -282,7 +280,7 @@ public sealed partial class SolidFormat {
 
     private static Fin<SolidDetached> ReadOcct(SolidSource source, byte[] payload, Func<string, OcctShape> import) =>
         OcctRuntime.TryGetNativeVersion(out string version, out string nativeError)
-        ? source.Policy.Key.Catch(() => SourceSnapshot.With(payload, Path.GetExtension(source.Path.Value), path => {
+        ? Try.lift(() => SourceSnapshot.With(payload, Path.GetExtension(source.Path.Value), path => {
             using OcctShape shape = import(path);
             if (shape.IsNull)
                 return Fin.Fail<SolidDetached>(SolidImport.Unfit(source.Path, "solid-occt:null-shape"));
@@ -301,11 +299,11 @@ public sealed partial class SolidFormat {
                         new SolidVertex(exact.MinX, exact.MinY, exact.MinZ),
                         new SolidVertex(exact.MaxX, exact.MaxY, exact.MaxZ))),
                     None, Seq<SolidDiagnostic>())));
-        }))
+        })).Run().Bind(static inner => inner)
         : Fin.Fail<SolidDetached>(SolidImport.Fault(source.Path, nativeError));
 
     private static Fin<SolidDetached> ReadThreeDm(SolidSource source, byte[] payload) =>
-        source.Policy.Key.Catch(() => SourceSnapshot.With(payload, ".3dm", path => {
+        Try.lift(() => SourceSnapshot.With(payload, ".3dm", path => {
             if (R3File.ReadWithLog(path, out string log) is not { } opened)
                 return Fin.Fail<SolidDetached>(SolidImport.Unfit(source.Path, "solid-3dm:null-document"));
             using R3File document = opened;
@@ -326,7 +324,7 @@ public sealed partial class SolidFormat {
                     .ToFin(SolidImport.Unfit(source.Path, "solid-3dm:no-mesh"))
                     .Map(mesh => new SolidDetached(
                         mesh, unit, new SolidProviderEvidence(None, parts, None, None, diagnostics))));
-        }));
+        })).Run().Bind(static inner => inner);
 
     private static Fin<Seq<SolidMesh>> Geometry(R3Object row, SolidPath path) => row.Geometry switch {
         R3Mesh mesh => Fin.Succ(Seq(SolidImport.FromThreeDm(mesh))),
@@ -336,7 +334,7 @@ public sealed partial class SolidFormat {
         _ => Fin.Succ(Seq<SolidMesh>()),
     };
 
-    private static Fin<SolidDetached> ReadThreeMf(SolidSource source, byte[] payload) => source.Policy.Key.Catch(() => {
+    private static Fin<SolidDetached> ReadThreeMf(SolidSource source, byte[] payload) => Try.lift(() => {
         Wrapper.GetLibraryVersion(out uint major, out uint minor, out uint micro);
         Seq<SolidDiagnostic> extensions = toSeq(ThreeMfExtension.Items).Choose(extension => {
             Wrapper.GetSpecificationVersion(extension.Namespace, out bool supported, out uint _, out uint _);
@@ -381,7 +379,7 @@ public sealed partial class SolidFormat {
                         Some($"{major}.{minor}.{micro}"), items.Count, None,
                         hasBuild ? Some(build) : None,
                         extensions + parts + rows.Bind(static row => row.Diagnostics) + warnings))));
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 public sealed record SolidProviderEvidence(
@@ -580,7 +578,7 @@ public sealed record ImportedSolid(
 
 public static partial class SolidImport {
     public static Eff<ImportedSolid> Read(SolidSource source) => Eff.lift(() =>
-        from raw in source.Policy.Key.Catch(() => Fin.Succ(File.ReadAllBytes(source.Path.Value)))
+        from raw in Try.lift(() => Fin.Succ(File.ReadAllBytes(source.Path.Value))).Run().Bind(static inner => inner)
             .MapFail(error => Classify(source.Path, error))
         from format in SolidFormat.Admit(source.Path)
         from detached in format.Read(source, raw)
@@ -588,7 +586,7 @@ public static partial class SolidImport {
         let scale = units.CanonicalValue
         from welded in Weld(detached.Mesh.Scale(scale), source.Policy, source.Path)
         from topology in SolidTopology.Measure(welded.Mesh, source.Policy.Context, source.Path)
-        from space in MeshSpace.Of(Native(welded.Mesh), source.Policy.Context, key: source.Policy.Key)
+        from space in MeshSpace.Of(Native(welded.Mesh), source.Policy.Context)
         from admitted in Repair(space, topology, source.Policy)
         from _ in Closure(topology, source.Policy.Closure, admitted.Repair, source.Path)
         let provider = detached.Evidence with {
@@ -620,10 +618,10 @@ public static partial class SolidImport {
                 vertices.Add(source);
                 continue;
             }
-            if (!coalesced.TryGetValue(key, out int mapped)) {
+            if (!coalesced.TryGetValue(out int mapped)) {
                 mapped = vertices.Count;
                 coalesced[key] = mapped;
-                vertices.Add(key);
+                vertices.Add();
             }
             remap[index] = mapped;
         }
@@ -700,7 +698,7 @@ public static partial class SolidImport {
 
     private static Fin<(MeshSpace Space, Option<SolidRepairEvidence> Repair)> Repair(
         MeshSpace space, SolidTopology topology, SolidPolicy policy) => policy.Repair.Applies(topology)
-            ? Heal.Repair(space, key: policy.Key)
+            ? Heal.Repair(space)
                 .Map(session => (session.Healed, Some(new SolidRepairEvidence(policy.Repair, session))))
             : Fin.Succ((space, Option<SolidRepairEvidence>.None));
 

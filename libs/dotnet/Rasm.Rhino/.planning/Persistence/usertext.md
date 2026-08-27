@@ -35,7 +35,6 @@ namespace Rasm.Rhino.Persistence;
 [ValidationError]
 public readonly partial struct TextKey : IDisallowDefaultValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        Op op = Op.Of();
         value = value?.Trim() ?? string.Empty;
         string candidate = value;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
@@ -50,7 +49,7 @@ public readonly partial struct TextKey : IDisallowDefaultValue {
 public readonly partial struct UserTextValue : IDisallowDefaultValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value is null
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(UserTextValue) }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(UserTextValue) }))
             : null;
 }
 
@@ -61,7 +60,6 @@ public sealed partial record TextSection(string Section, string Entry) {
         ref ValidationError? validationError,
         ref string section,
         ref string entry) {
-        Op op = Op.Of();
         section = section?.Trim() ?? string.Empty;
         entry = entry?.Trim() ?? string.Empty;
         (string group, string row) = (section, entry);
@@ -70,7 +68,7 @@ public sealed partial record TextSection(string Section, string Entry) {
                 (row.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Entry) })))));
     }
 
-    public static Fin<TextSection> Of(string section, string entry, Op? key = null) =>
+    public static Fin<TextSection> Of(string section, string entry) =>
         key.OrDefault().AcceptValidated<TextSection>(Validate(section, entry, out TextSection? value), value);
 
     internal string Wire => $"{Section}\\{Entry}";
@@ -101,16 +99,14 @@ public sealed partial record TextSearchPolicy(
         ref ValidationError? validationError,
         ref CapabilitySet<ObjectTextStore> stores,
         ref TextComparison comparison) {
-        Op op = Op.Of();
         TextComparison? posture = comparison;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (posture is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Comparison) })))));
     }
 
-    public static Fin<TextSearchPolicy> Of(CapabilitySet<ObjectTextStore> stores, TextComparison comparison, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TextSearchPolicy> Of(CapabilitySet<ObjectTextStore> stores, TextComparison comparison) {
         return from admitted in ObjectTextStore.Law.Admit(held: stores)
-               from policy in op.AcceptValidated<TextSearchPolicy>(
+               from policy in FactoryBridge.Accept<TextSearchPolicy>(
                    Validate(admitted, comparison, out TextSearchPolicy? value),
                    value)
                select policy;
@@ -128,20 +124,19 @@ public abstract partial record TextAddress {
     internal sealed record DocumentSectionCase(TextSection Address) : TextAddress;
     internal sealed record ObjectCase(ResourceId ObjectId, ObjectTextStore Store, TextKey Key) : TextAddress;
 
-    public static Fin<TextAddress> Document(string key, Op? okey = null) =>
+    public static Fin<TextAddress> Document(string key) =>
         okey.OrDefault().AcceptValidated<TextKey>(candidate: key)
             .Map<TextAddress>(static admitted => new DocumentKeyCase(Key: admitted));
 
-    public static Fin<TextAddress> Document(string section, string entry, Op? key = null) =>
-        TextSection.Of(section: section, entry: entry, key: key)
+    public static Fin<TextAddress> Document(string section, string entry) =>
+        TextSection.Of(section: section, entry: entry)
             .Map<TextAddress>(static admitted => new DocumentSectionCase(Address: admitted));
 
-    public static Fin<TextAddress> Object(Guid objectId, ObjectTextStore store, string key, Op? okey = null) {
-        Op op = okey.OrDefault();
+    public static Fin<TextAddress> Object(Guid objectId, ObjectTextStore store, string key) {
         return (
-                ResourceId.Admit(value: objectId, key: op).ToValidation(),
-                op.Need(value: store).ToValidation(),
-                op.AcceptValidated<TextKey>(candidate: key).ToValidation())
+                ResourceId.Admit(value: objectId).ToValidation(),
+                Admit.Need(value: store).ToValidation(),
+                FactoryBridge.Accept<TextKey>(candidate: key).ToValidation())
             .Apply(static (id, held, admitted) => (TextAddress)new ObjectCase(ObjectId: id, Store: held, Key: admitted))
             .As()
             .ToFin();
@@ -162,7 +157,7 @@ public abstract partial record TextEdit {
     internal sealed record SetCase(UserTextValue Value) : TextEdit;
     internal sealed record DeleteCase : TextEdit;
 
-    public static Fin<TextEdit> Set(string value, Op? key = null) =>
+    public static Fin<TextEdit> Set(string value) =>
         key.OrDefault().AcceptValidated<UserTextValue>(candidate: value)
             .Map<TextEdit>(static admitted => new SetCase(Value: admitted));
 
@@ -184,7 +179,7 @@ public abstract partial record TextObjectFilter {
 
     public static TextObjectFilter Kinds(ObjectType kinds) => new KindsCase(Kinds: kinds);
 
-    public static Fin<TextObjectFilter> Enumerated(ObjectEnumeratorSettings settings, Op? key = null) =>
+    public static Fin<TextObjectFilter> Enumerated(ObjectEnumeratorSettings settings) =>
         key.OrDefault().Need(value: settings).Map<TextObjectFilter>(static admitted => new EnumeratorCase(Settings: admitted));
 }
 
@@ -206,9 +201,8 @@ public abstract partial record TextMutationBatch {
             .Map<TextMutationBatch>(static admitted => new ObjectsCase(Mutations: admitted));
 
     private static Fin<Seq<TextMutation>> Admitted(ReadOnlySpan<TextMutation> mutations, bool objects) {
-        Op op = Op.Of();
         return from admitted in toSeq(mutations.ToArray())
-                   .Traverse(value => op.Need(value: value).ToValidation())
+                   .Traverse(value => Admit.Need(value: value).ToValidation())
                    .As()
                    .ToFin()
                from _nonempty in guard(!admitted.IsEmpty,
@@ -232,7 +226,6 @@ public abstract partial record TextQuery {
     public static TextQuery Document() => new ReadDocumentCase();
 
     public static Fin<TextQuery> Objects(params ReadOnlySpan<Guid> objectIds) {
-        Op op = Op.Of();
         return from admitted in toSeq(objectIds.ToArray())
                    .Traverse(id => ResourceId.Admit(value: id, key: op).ToValidation())
                    .As()
@@ -242,13 +235,12 @@ public abstract partial record TextQuery {
                select (TextQuery)new ReadObjectsCase(ObjectIds: admitted);
     }
 
-    public static Fin<TextQuery> Search(string key, string pattern, TextSearchPolicy policy, TextObjectFilter filter, Op? okey = null) {
-        Op op = okey.OrDefault();
+    public static Fin<TextQuery> Search(string key, string pattern, TextSearchPolicy policy, TextObjectFilter filter) {
         return (
-                op.AcceptValidated<TextKey>(candidate: key).ToValidation(),
-                op.AcceptValidated<UserTextValue>(candidate: pattern).ToValidation(),
-                op.Need(value: policy).ToValidation(),
-                op.Need(value: filter).ToValidation())
+                FactoryBridge.Accept<TextKey>(candidate: key).ToValidation(),
+                FactoryBridge.Accept<UserTextValue>(candidate: pattern).ToValidation(),
+                Admit.Need(value: policy).ToValidation(),
+                Admit.Need(value: filter).ToValidation())
             .Apply(static (admitted, wildcard, held, shape) => (TextQuery)new SearchCase(
                 Search: new TextSearch(Key: admitted, Pattern: wildcard, Policy: held, Filter: shape)))
             .As()
@@ -289,10 +281,9 @@ public sealed partial record ObjectTextSnapshot(
 [ComplexValueObject]
 [ValidationError]
 public sealed partial record TextMatch(ResourceId ObjectId, CapabilitySet<ObjectTextStore> Stores) {
-    public static Fin<TextMatch> Of(ResourceId objectId, CapabilitySet<ObjectTextStore> stores, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TextMatch> Of(ResourceId objectId, CapabilitySet<ObjectTextStore> stores) {
         return from admitted in ObjectTextStore.Law.Admit(held: stores)
-               from match in op.AcceptValidated<TextMatch>(Validate(objectId, admitted, out TextMatch? value), value)
+               from match in FactoryBridge.Accept<TextMatch>(Validate(objectId, admitted, out TextMatch? value), value)
                select match;
     }
 }
@@ -337,49 +328,42 @@ public sealed record TextPlan(Seq<TableOp> Operations, Seq<GeometryBase> Owned) 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UserTexts {
-    public static Fin<Unit> Commit(DocumentSession session, TextMutationBatch batch, Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in op.Need(value: session)
-               from request in op.Need(value: batch)
-               from completed in request.Switch<(DocumentSession Session, Op Op), Fin<Unit>>(
-                   state: (owner, op),
+    public static Fin<Unit> Commit(DocumentSession session, TextMutationBatch batch) {
+        return from owner in Admit.Need(value: session)
+               from request in Admit.Need(value: batch)
+               from completed in request.Switch<(DocumentSession Session), Fin<Unit>>(
+                   state: (owner),
                    documentCase: static (state, document) => state.Session.Demand(
-                       use: owner => MutateDocument(document: owner, mutations: document.Mutations, key: state.Op),
-                       key: state.Op,
+                       use: owner => MutateDocument(document: owner, mutations: document.Mutations),
                        needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: RedrawPolicy.None).ToArray()),
                    objectsCase: static (state, objects) =>
                        from plan in state.Session.Demand(
-                           use: owner => Plan(document: owner, mutations: objects.Mutations, key: state.Op),
-                           key: state.Op,
+                           use: owner => Plan(document: owner, mutations: objects.Mutations),
                            needs: [SessionNeed.Read])
-                       from _committed in CommitPlan(session: state.Session, plan: plan, key: state.Op)
+                       from _committed in CommitPlan(session: state.Session, plan: plan)
                        select unit)
                select completed;
     }
 
-    public static Fin<UserTextAnswer> Read(DocumentSession session, TextQuery query, Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in op.Need(value: session)
-               from request in op.Need(value: query)
-               from answer in request.Switch<(DocumentSession Session, Op Op), Fin<UserTextAnswer>>(
-                   state: (owner, op),
+    public static Fin<UserTextAnswer> Read(DocumentSession session, TextQuery query) {
+        return from owner in Admit.Need(value: session)
+               from request in Admit.Need(value: query)
+               from answer in request.Switch<(DocumentSession Session), Fin<UserTextAnswer>>(
+                   state: (owner),
                    readDocumentCase: static (state, _) => state.Session.Demand(
-                       use: document => ReadDocument(document: document, key: state.Op)
+                       use: document => ReadDocument(document: document)
                            .Map<UserTextAnswer>(static value => new UserTextAnswer.DocumentCase(Snapshot: value)),
-                       key: state.Op,
                        needs: [SessionNeed.Read]),
                    readObjectsCase: static (state, read) => state.Session.Demand(
                        use: document => read.ObjectIds
-                           .Traverse(id => ReadObject(document: document, objectId: id, key: state.Op).ToValidation())
+                           .Traverse(id => ReadObject(document: document, objectId: id).ToValidation())
                            .As()
                            .ToFin()
                            .Map<UserTextAnswer>(static values => new UserTextAnswer.ObjectsCase(Snapshots: values)),
-                       key: state.Op,
                        needs: [SessionNeed.Read]),
                    searchCase: static (state, search) => state.Session.Demand(
-                       use: document => Search(document: document, search: search.Search, key: state.Op)
+                       use: document => Search(document: document, search: search.Search)
                            .Map<UserTextAnswer>(static values => new UserTextAnswer.MatchesCase(Matches: values)),
-                       key: state.Op,
                        needs: [SessionNeed.Read]))
                select answer;
     }
@@ -388,7 +372,7 @@ public static class UserTexts {
         HashMap<TextKey, UserTextValue> Flat,
         HashMap<TextSection, UserTextValue> Sections);
 
-    private static Fin<Unit> MutateDocument(RhinoDoc document, Seq<TextMutation> mutations, Op key) =>
+    private static Fin<Unit> MutateDocument(RhinoDoc document, Seq<TextMutation> mutations) =>
         DocumentCommit.Sealed(
             document: document,
             name: nameof(Commit),
@@ -398,27 +382,23 @@ public static class UserTexts {
                 from seed in ReadDocument(document: document, key: key)
                 from folded in mutations.Fold(
                     Fin.Succ(value: new DocumentFold(Flat: seed.Flat, Sections: seed.Sections)),
-                    (state, mutation) => state.Bind(fold => Advance(document: document, fold: fold, mutation: mutation, key: key)))
+                    (state, mutation) => state.Bind(fold => Advance(document: document, fold: fold, mutation: mutation)))
                 from settled in ReadDocument(document: document, key: key)
                 from _proof in guard(
                     settled.Flat == folded.Flat && settled.Sections == folded.Sections,
-                    (Error)new PersistenceFault.Diverged(
-                        Key: key,
-                        Subject: nameof(DocumentTextSnapshot),
+                    (Error)new PersistenceFault.Diverged(Subject: nameof(DocumentTextSnapshot),
                         Expected: $"flat={folded.Flat.Count}:sections={folded.Sections.Count}",
                         Observed: $"flat={settled.Flat.Count}:sections={settled.Sections.Count}"))
                 select unit,
-            project: Fin.Succ,
-            op: key);
+            project: Fin.Succ);
 
-    private static Fin<DocumentFold> Advance(RhinoDoc document, DocumentFold fold, TextMutation mutation, Op key) =>
-        mutation.Address.Switch<(RhinoDoc Document, DocumentFold Fold, TextMutation Mutation, Op Op), Fin<DocumentFold>>(
-            state: (document, fold, mutation, key),
+    private static Fin<DocumentFold> Advance(RhinoDoc document, DocumentFold fold, TextMutation mutation) =>
+        mutation.Address.Switch<(RhinoDoc Document, DocumentFold Fold, TextMutation Mutation), Fin<DocumentFold>>(
+            state: (document, fold, mutation),
             documentKeyCase: static (state, address) => Written(
                     mutation: state.Mutation,
                     set: value => state.Document.Strings.SetString(address.Key.Value, value),
-                    delete: () => state.Document.Strings.Delete(address.Key.Value),
-                    key: state.Op)
+                    delete: () => state.Document.Strings.Delete(address.Key.Value))
                 .Map(_ => state.Fold with {
                     Flat = state.Mutation.Edit.Result.Match(
                         Some: value => state.Fold.Flat.AddOrUpdate(address.Key, value),
@@ -427,8 +407,7 @@ public static class UserTexts {
             documentSectionCase: static (state, address) => Written(
                     mutation: state.Mutation,
                     set: value => state.Document.Strings.SetString(address.Address.Section, address.Address.Entry, value),
-                    delete: () => state.Document.Strings.Delete(address.Address.Section, address.Address.Entry),
-                    key: state.Op)
+                    delete: () => state.Document.Strings.Delete(address.Address.Section, address.Address.Entry))
                 .Map(_ => state.Fold with {
                     Sections = state.Mutation.Edit.Result.Match(
                         Some: value => state.Fold.Sections.AddOrUpdate(address.Address, value),
@@ -440,13 +419,12 @@ public static class UserTexts {
     private static Fin<Unit> Written(
         TextMutation mutation,
         Func<string, string> set,
-        Action delete,
-        Op key) =>
-        key.Catch(() => mutation.Edit.Switch<Unit>(
+        Action delete) =>
+        Try.lift(() => mutation.Edit.Switch<Unit>(
                 setCase: write => { _ = set(write.Value.Value); return unit; },
-                deleteCase: _ => { delete(); return unit; }));
+                deleteCase: _ => { delete(); return unit; })).Run().Bind(static inner => inner);
 
-    private static Fin<TextPlan> Plan(RhinoDoc document, Seq<TextMutation> mutations, Op key) =>
+    private static Fin<TextPlan> Plan(RhinoDoc document, Seq<TextMutation> mutations) =>
         toSeq(ObjectTextStore.Items)
             .Bind(store => Grouped(mutations: mutations, store: store)
                 .OrderBy(static group => group.Key.Value)
@@ -456,8 +434,8 @@ public static class UserTexts {
             .Fold(
                 Fin.Succ(value: new TextPlan(Operations: Seq<TableOp>(), Owned: Seq<GeometryBase>())),
                 (state, batch) => state.Bind(plan =>
-                    (from source in Resolve(document: document, objectId: batch.ObjectId, key: key)
-                     from staged in Staged(source: source, store: batch.Store, mutations: batch.Mutations, key: key)
+                    (from source in Resolve(document: document, objectId: batch.ObjectId)
+                     from staged in Staged(source: source, store: batch.Store, mutations: batch.Mutations)
                      select new TextPlan(
                          Operations: plan.Operations.Add(staged.Operation),
                          Owned: staged.Owned.Match(
@@ -465,8 +443,7 @@ public static class UserTexts {
                              None: () => plan.Owned)))
                     .Rollback(
                         held: plan.Owned,
-                        release: geometry => key.Catch(geometry.Dispose),
-                        key: key)));
+                        release: geometry => Try.lift(geometry.Dispose).Run().Bind(static inner => inner))));
 
     private static HashMap<ResourceId, Seq<TextMutation>> Grouped(Seq<TextMutation> mutations, ObjectTextStore store) =>
         mutations
@@ -480,59 +457,55 @@ public static class UserTexts {
                     Some: held => held.Add(row.mutation),
                     None: () => Seq(row.mutation)));
 
-    private static Fin<(TableOp Operation, Option<GeometryBase> Owned)> Staged(RhinoObject source, ObjectTextStore store, Seq<TextMutation> mutations, Op key) =>
+    private static Fin<(TableOp Operation, Option<GeometryBase> Owned)> Staged(RhinoObject source, ObjectTextStore store, Seq<TextMutation> mutations) =>
         store == ObjectTextStore.Attributes
-            ? PlanAttributes(source: source, mutations: mutations, key: key)
+            ? PlanAttributes(source: source, mutations: mutations)
                 .Map(static operation => (Operation: operation, Owned: Option<GeometryBase>.None))
-            : PlanGeometry(source: source, mutations: mutations, key: key)
+            : PlanGeometry(source: source, mutations: mutations)
                 .Map(static staged => (Operation: staged.Operation, Owned: Some(staged.Owned)));
 
-    private static Fin<TableOp> PlanAttributes(RhinoObject source, Seq<TextMutation> mutations, Op key) =>
-        from detached in Freeze(read: () => source.Attributes.GetUserStrings(), key: key)
-        from planned in Project(values: detached, mutations: mutations, key: key)
+    private static Fin<TableOp> PlanAttributes(RhinoObject source, Seq<TextMutation> mutations) =>
+        from detached in Freeze(read: () => source.Attributes.GetUserStrings())
+        from planned in Project(values: detached, mutations: mutations)
         from target in TableTarget.Of(source.Id)
-        from change in key.AcceptValidated<AttributeChange>(
+        from change in FactoryBridge.Accept<AttributeChange>(
             AttributeChange.Validate(attributes =>
                 from _applied in mutations
                     .TraverseM(mutation => Settle(
                         get: attributes.GetUserString,
                         set: attributes.SetUserString,
                         delete: attributes.DeleteUserString,
-                        mutation: mutation,
-                        key: key))
+                        mutation: mutation))
                     .As()
-                from actual in Freeze(read: attributes.GetUserStrings, key: key)
+                from actual in Freeze(read: attributes.GetUserStrings)
                 from _proof in guard(
                     actual == planned,
-                    (Error)new PersistenceFault.Diverged(
-                        Key: key,
-                        Subject: nameof(PlanAttributes),
+                    (Error)new PersistenceFault.Diverged(Subject: nameof(PlanAttributes),
                         Expected: planned.Count.ToString(),
                         Observed: actual.Count.ToString()))
                 select unit,
                 out AttributeChange? value),
             value)
-        from operation in TableOp.Amend(target: target, change: change, interaction: HostInteraction.Quiet, key: key)
+        from operation in TableOp.Amend(target: target, change: change, interaction: HostInteraction.Quiet)
         select operation;
 
-    private static Fin<(TableOp Operation, GeometryBase Owned)> PlanGeometry(RhinoObject source, Seq<TextMutation> mutations, Op key) =>
-        from edited in key.Catch(() => Optional(source.Geometry.Duplicate()).ToFin(Fail: key.InvalidResult()))
+    private static Fin<(TableOp Operation, GeometryBase Owned)> PlanGeometry(RhinoObject source, Seq<TextMutation> mutations) =>
+        from edited in Try.lift(() => Optional(source.Geometry.Duplicate()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
         from operation in (
             from _applied in mutations
                 .TraverseM(mutation => Settle(
                     get: edited.GetUserString,
                     set: edited.SetUserString,
                     delete: edited.DeleteUserString,
-                    mutation: mutation,
-                    key: key))
+                    mutation: mutation))
                 .As()
             from target in TableTarget.Of(source.Id)
-            from replacement in TableOp.Replace(target: target, replacement: edited, modes: ModeRegard.Respect, key: key)
+            from replacement in TableOp.Replace(target: target, replacement: edited, modes: ModeRegard.Respect)
             select replacement)
             .Rollback(edited)
         select (Operation: operation, Owned: edited);
 
-    private static Fin<Unit> CommitPlan(DocumentSession session, TextPlan plan, Op key) =>
+    private static Fin<Unit> CommitPlan(DocumentSession session, TextPlan plan) =>
         Custody.Bracket(() => plan.Operations.IsEmpty
             ? Fin.Succ(value: unit)
             : from transaction in TableTransaction.Recorded(
@@ -540,18 +513,17 @@ public static class UserTexts {
                   RedrawPolicy.None,
                   Seq<TableCustomUndo>(),
                   plan.Operations.ToArray())
-              from _committed in Tables.Commit(session: session, transaction: transaction, key: key)
+              from _committed in Tables.Commit(session: session, transaction: transaction)
               select unit,
             plan);
 
     private static Fin<HashMap<TextKey, UserTextValue>> Project(
         HashMap<TextKey, UserTextValue> values,
-        Seq<TextMutation> mutations,
-        Op key) =>
+        Seq<TextMutation> mutations) =>
         mutations.Fold(
             Fin.Succ(value: values),
             (state, mutation) => state.Bind(plan =>
-                from address in Addressed(address: mutation.Address, key: key)
+                from address in Addressed(address: mutation.Address)
                 select mutation.Edit.Result.Match(
                     Some: value => plan.AddOrUpdate(address.Key, value),
                     None: () => plan.Remove(address.Key))));
@@ -560,36 +532,33 @@ public static class UserTexts {
         Func<string, string?> get,
         Func<string, string, bool> set,
         Func<string, bool> delete,
-        TextMutation mutation,
-        Op key) =>
-        from address in Addressed(address: mutation.Address, key: key)
-        from _accepted in key.Catch(() => Fin.Succ(value: mutation.Edit.Switch<bool>(
+        TextMutation mutation) =>
+        from address in Addressed(address: mutation.Address)
+        from _accepted in Try.lift(() => Fin.Succ(value: mutation.Edit.Switch<bool>(
             setCase: write => set(address.Key.Value, write.Value.Value),
-            deleteCase: _ => delete(address.Key.Value))))
-        from current in key.Catch(() => Value(source: get(address.Key.Value), key: key))
+            deleteCase: _ => delete(address.Key.Value)))).Run().Bind(static inner => inner)
+        from current in Try.lift(() => Value(source: get(address.Key.Value))).Run().Bind(static inner => inner)
         from _settled in current == mutation.Edit.Result
             ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: new PersistenceFault.Diverged(
-                Key: key,
-                Subject: address.Key.Value,
+            : Fin.Fail<Unit>(error: new PersistenceFault.Diverged(Subject: address.Key.Value,
                 Expected: mutation.Edit.Result.Match(Some: static value => value.Value, None: static () => "<absent>"),
                 Observed: current.Match(Some: static value => value.Value, None: static () => "<absent>")))
         select unit;
 
-    private static Fin<TextAddress.ObjectCase> Addressed(TextAddress address, Op key) =>
-        address.Switch<Op, Fin<TextAddress.ObjectCase>>(
+    private static Fin<TextAddress.ObjectCase> Addressed(TextAddress address) =>
+        address.Switch< Fin<TextAddress.ObjectCase>>(
             state: key,
-            documentKeyCase: static (op, value) => Fin.Fail<TextAddress.ObjectCase>(
+            documentKeyCase: static (value) => Fin.Fail<TextAddress.ObjectCase>(
                 error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Key.Value}'" }))),
-            documentSectionCase: static (op, value) => Fin.Fail<TextAddress.ObjectCase>(
+            documentSectionCase: static (value) => Fin.Fail<TextAddress.ObjectCase>(
                 error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Address.Wire}'" }))),
             objectCase: static (_, value) => Fin.Succ(value: value));
 
-    private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document, Op key) =>
-        from rows in key.Catch(() => toSeq(Enumerable.Range(0, document.Strings.Count))
-            .Traverse(index => Row(document: document, index: index, key: key).ToValidation())
+    private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document) =>
+        from rows in Try.lift(() => toSeq(Enumerable.Range(0, document.Strings.Count))
+            .Traverse(index => Row(document: document, index: index).ToValidation())
             .As()
-            .ToFin())
+            .ToFin()).Run().Bind(static inner => inner)
         from maps in rows.Fold(
             Fin.Succ(value: (Flat: HashMap<TextKey, UserTextValue>(), Sections: HashMap<TextSection, UserTextValue>())),
             (state, row) => state.Bind(held => row.Address.Switch<
@@ -598,72 +567,69 @@ public static class UserTexts {
                 state: held,
                 documentKeyCase: (maps, address) => maps.Flat.ContainsKey(address.Key)
                     ? Fin.Fail<(HashMap<TextKey, UserTextValue>, HashMap<TextSection, UserTextValue>)>(
-                        Collision(label: nameof(TextKey), raw: row.Raw, canonical: address.Key.Value, key: key))
+                        Collision(label: nameof(TextKey), raw: row.Raw, canonical: address.Key.Value))
                     : Fin.Succ(value: (maps.Flat.Add(address.Key, row.Value), maps.Sections)),
                 documentSectionCase: (maps, address) => maps.Sections.ContainsKey(address.Address)
                     ? Fin.Fail<(HashMap<TextKey, UserTextValue>, HashMap<TextSection, UserTextValue>)>(
-                        Collision(label: nameof(TextSection), raw: row.Raw, canonical: address.Address.Wire, key: key))
+                        Collision(label: nameof(TextSection), raw: row.Raw, canonical: address.Address.Wire))
                     : Fin.Succ(value: (maps.Flat, maps.Sections.Add(address.Address, row.Value))),
                 objectCase: (_, _) => Fin.Fail<(HashMap<TextKey, UserTextValue>, HashMap<TextSection, UserTextValue>)>(
                     error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { key, "a document address off the string table" }))))))
-        from counts in key.Catch(() => Fin.Succ(value: (Flat: document.Strings.DocumentUserTextCount, Sections: document.Strings.DocumentDataCount)))
+        from counts in Try.lift(() => Fin.Succ(value: (Flat: document.Strings.DocumentUserTextCount, Sections: document.Strings.DocumentDataCount))).Run().Bind(static inner => inner)
         from _proof in Proved(
             subject: nameof(DocumentTextSnapshot),
             expected: $"flat={counts.Flat}:sections={counts.Sections}",
             observed: $"flat={maps.Flat.Count}:sections={maps.Sections.Count}",
-            agreed: counts.Flat == maps.Flat.Count && counts.Sections == maps.Sections.Count,
-            key: key)
+            agreed: counts.Flat == maps.Flat.Count && counts.Sections == maps.Sections.Count)
         select new DocumentTextSnapshot(Flat: maps.Flat, Sections: maps.Sections);
 
-    private static Fin<(string Raw, TextAddress Address, UserTextValue Value)> Row(RhinoDoc document, int index, Op key) =>
-        from raw in key.Catch(() => Fin.Succ(value: document.Strings.GetKey(index)))
-        from value in key.AcceptValidated<UserTextValue>(candidate: document.Strings.GetValue(index))
+    private static Fin<(string Raw, TextAddress Address, UserTextValue Value)> Row(RhinoDoc document, int index) =>
+        from raw in Try.lift(() => Fin.Succ(value: document.Strings.GetKey(index))).Run().Bind(static inner => inner)
+        from value in FactoryBridge.Accept<UserTextValue>(candidate: document.Strings.GetValue(index))
         let separator = raw.IndexOf('\\', StringComparison.Ordinal)
         from address in separator < 0
             ? TextAddress.Document(key: raw, okey: key)
-            : TextAddress.Document(section: raw[..separator], entry: raw[(separator + 1)..], key: key)
+            : TextAddress.Document(section: raw[..separator], entry: raw[(separator + 1)..])
         select (raw, address, value);
 
-    private static Fin<ObjectTextSnapshot> ReadObject(RhinoDoc document, ResourceId objectId, Op key) =>
-        from source in Resolve(document: document, objectId: objectId, key: key)
+    private static Fin<ObjectTextSnapshot> ReadObject(RhinoDoc document, ResourceId objectId) =>
+        from source in Resolve(document: document, objectId: objectId)
         from stores in (
-                Freeze(read: () => source.Attributes.GetUserStrings(), key: key).ToValidation(),
-                Freeze(read: () => source.Geometry.GetUserStrings(), key: key).ToValidation())
+                Freeze(read: () => source.Attributes.GetUserStrings()).ToValidation(),
+                Freeze(read: () => source.Geometry.GetUserStrings()).ToValidation())
             .Apply(static (attributes, geometry) => (Attributes: attributes, Geometry: geometry))
             .As()
             .ToFin()
-        from count in key.Catch(() => Fin.Succ(value: source.Attributes.UserStringCount))
+        from count in Try.lift(() => Fin.Succ(value: source.Attributes.UserStringCount)).Run().Bind(static inner => inner)
         from _proof in Proved(
             subject: nameof(ObjectTextSnapshot),
             expected: count.ToString(),
             observed: stores.Attributes.Count.ToString(),
-            agreed: count == stores.Attributes.Count,
-            key: key)
+            agreed: count == stores.Attributes.Count)
         select new ObjectTextSnapshot(ObjectId: objectId, Attributes: stores.Attributes, Geometry: stores.Geometry);
 
-    private static Fin<Seq<TextMatch>> Search(RhinoDoc document, TextSearch search, Op key) =>
+    private static Fin<Seq<TextMatch>> Search(RhinoDoc document, TextSearch search) =>
         from found in toSeq(ObjectTextStore.Items)
             .TraverseM(store => search.Policy.Searches(store: store)
-                ? Find(document: document, search: search, store: store, key: key).Map(ids => (Store: store, Ids: ids))
+                ? Find(document: document, search: search, store: store).Map(ids => (Store: store, Ids: ids))
                 : Fin.Succ(value: (Store: store, Ids: Seq<Guid>())))
             .As()
         let census = found.Bind(static row => row.Ids).Distinct().OrderBy(static id => id).AsIterable().ToSeq()
         from matches in census
-            .Traverse(id => ResourceId.Admit(value: id, key: key)
+            .Traverse(id => ResourceId.Admit(value: id)
                 .Bind(admitted => TextMatch.Of(
                     objectId: admitted,
                     stores: CapabilitySet<ObjectTextStore>.Of(found
                         .Filter(row => row.Ids.Contains(id))
                         .Map(static row => row.Store)
-                        .ToArray()),
-                    key: key))
+                        .ToArray())))
                 .ToValidation())
             .As()
             .ToFin()
         select matches;
 
-    private static Fin<Seq<Guid>> Find(RhinoDoc document, TextSearch search, ObjectTextStore store, Op key) =>
-        from found in key.Catch(() => Fin.Succ(value: search.Filter.Switch<(RhinoDoc Document, TextSearch Search, ObjectTextStore Store), RhinoObject[]?>(
+    private static Fin<Seq<Guid>> Find(RhinoDoc document, TextSearch search, ObjectTextStore store) =>
+        from found in Try.lift(() => Fin.Succ(value: search.Filter.Switch<(RhinoDoc Document, TextSearch Search, ObjectTextStore Store), RhinoObject[]?>(
             state: (document, search, store),
             kindsCase: static (state, kinds) => state.Document.Objects.FindByUserString(
                 state.Search.Key.Value,
@@ -678,19 +644,19 @@ public static class UserTexts {
                 state.Search.Policy.Comparison.Key,
                 state.Store == ObjectTextStore.Geometry,
                 state.Store == ObjectTextStore.Attributes,
-                enumerator.Settings))))
+                enumerator.Settings)))).Run().Bind(static inner => inner)
         select toSeq(Optional(found).IfNone(System.Array.Empty<RhinoObject>())).Map(static value => value.Id);
 
-    private static Fin<RhinoObject> Resolve(RhinoDoc document, ResourceId objectId, Op key) =>
-        key.Catch(() => Optional(document.Objects.FindId(objectId.Value))
-            .ToFin(Fail: new PersistenceFault.AbsentEntry(Key: key, Table: "objects", Entry: objectId.Value.ToString())));
+    private static Fin<RhinoObject> Resolve(RhinoDoc document, ResourceId objectId) =>
+        Try.lift(() => Optional(document.Objects.FindId(objectId.Value))
+            .ToFin(Fail: new PersistenceFault.AbsentEntry(Table: "objects", Entry: objectId.Value.ToString()))).Run().Bind(static inner => inner);
 
-    private static Fin<HashMap<TextKey, UserTextValue>> Freeze(Func<NameValueCollection> read, Op key) =>
-        from source in key.Catch(() => Fin.Succ(value: read()))
+    private static Fin<HashMap<TextKey, UserTextValue>> Freeze(Func<NameValueCollection> read) =>
+        from source in Try.lift(() => Fin.Succ(value: read())).Run().Bind(static inner => inner)
         from rows in toSeq(source.AllKeys.OfType<string>())
             .Traverse(raw => (
-                    key.AcceptValidated<TextKey>(candidate: raw).ToValidation(),
-                    key.AcceptValidated<UserTextValue>(candidate: source[raw]).ToValidation())
+                    FactoryBridge.Accept<TextKey>(candidate: raw).ToValidation(),
+                    FactoryBridge.Accept<UserTextValue>(candidate: source[raw]).ToValidation())
                 .Apply(static (admitted, value) => (Raw: raw, Key: admitted, Value: value))
                 .As())
             .As()
@@ -698,19 +664,19 @@ public static class UserTexts {
         from map in rows.Fold(
             Fin.Succ(HashMap<TextKey, UserTextValue>()),
             (state, row) => state.Bind(held => held.ContainsKey(row.Key)
-                ? Fin.Fail<HashMap<TextKey, UserTextValue>>(Collision(label: nameof(TextKey), raw: row.Raw, canonical: row.Key.Value, key: key))
+                ? Fin.Fail<HashMap<TextKey, UserTextValue>>(Collision(label: nameof(TextKey), raw: row.Raw, canonical: row.Key.Value))
                 : Fin.Succ(value: held.Add(row.Key, row.Value))))
         select map;
 
-    private static Fin<Unit> Proved(string subject, string expected, string observed, bool agreed, Op key) => agreed
+    private static Fin<Unit> Proved(string subject, string expected, string observed, bool agreed) => agreed
         ? Fin.Succ(value: unit)
-        : Fin.Fail<Unit>(error: new PersistenceFault.Diverged(Key: key, Subject: subject, Expected: expected, Observed: observed));
+        : Fin.Fail<Unit>(error: new PersistenceFault.Diverged(Subject: subject, Expected: expected, Observed: observed));
 
-    private static Error Collision(string label, string raw, string canonical, Op key) =>
-        new PersistenceFault.Diverged(Key: key, Subject: label, Expected: raw, Observed: canonical);
+    private static Error Collision(string label, string raw, string canonical) =>
+        new PersistenceFault.Diverged(Subject: label, Expected: raw, Observed: canonical);
 
-    private static Fin<Option<UserTextValue>> Value(string? source, Op key) => source is null
+    private static Fin<Option<UserTextValue>> Value(string? source) => source is null
         ? Fin.Succ(value: Option<UserTextValue>.None)
-        : key.AcceptValidated<UserTextValue>(candidate: source).Map(Some);
+        : FactoryBridge.Accept<UserTextValue>(candidate: source).Map(Some);
 }
 ```

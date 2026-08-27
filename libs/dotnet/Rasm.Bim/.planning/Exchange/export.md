@@ -268,9 +268,9 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
     public static Fin<MaterialFinish> Of(AppearanceSummary surface, CapabilitySet<ExportTrait> traits) =>
         ExportCorner.Finish.Admit(traits).Map(held => new MaterialFinish(Some(surface), Seq<ChannelImage>(), held));
 
-    public Fin<uint> Rgba(Op key) =>
+    public Fin<uint> Rgba() =>
         Surface.Match(
-            Some: s => AppearanceProjection.Bytes(s.BaseColorR, s.BaseColorG, s.BaseColorB, s.Opacity, key)
+            Some: s => AppearanceProjection.Bytes(s.BaseColorR, s.BaseColorG, s.BaseColorB, s.Opacity)
                 .Map(static b => (uint)b.Red << 24 | (uint)b.Green << 16 | (uint)b.Blue << 8 | b.Alpha),
             None: static () => Fin.Succ(0xFFFFFFFFu));
 
@@ -324,13 +324,13 @@ public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<Chann
 }
 
 public readonly record struct MeshLanes(float[] Positions, float[] Normals) {
-    public static Fin<MeshLanes> Of(ImportedGeometry geometry, Op key) =>
-        (Admit(geometry, EncodingChannel.Position, key), Admit(geometry, EncodingChannel.Normal, key))
+    public static Fin<MeshLanes> Of(ImportedGeometry geometry) =>
+        (Admit(geometry, EncodingChannel.Position), Admit(geometry, EncodingChannel.Normal))
             .Apply(static (positions, normals) => new MeshLanes(positions, normals)).As().ToFin();
 
-    static Validation<Error, float[]> Admit(ImportedGeometry geometry, EncodingChannel channel, Op key) =>
+    static Validation<Error, float[]> Admit(ImportedGeometry geometry, EncodingChannel channel) =>
         BimExport.Lane(geometry, channel)
-            .ToValidation<Error>(new BimFault.Refused(key, BimScope.Export, BimReason.Unmapped, string.Join(':', new object?[] { "carrier-lane-absent", channel.Key, geometry.FormatKey })));
+            .ToValidation<Error>(new BimFault.Refused(BimScope.Export, BimReason.Unmapped, string.Join(':', new object?[] { "carrier-lane-absent", channel.Key, geometry.FormatKey })));
 }
 
 public sealed record ElementInstance(string GlobalId, string Name, string Class, UInt128 MeshKey, Matrix4x4 Placement, MaterialFinish Finish);
@@ -345,17 +345,17 @@ public sealed record ElementScene {
 
     public Seq<ElementInstance> Instances { get; }
 
-    public static Fin<ElementScene> Of(Map<UInt128, ImportedGeometry> pool, Seq<ElementInstance> instances, Op key) =>
+    public static Fin<ElementScene> Of(Map<UInt128, ImportedGeometry> pool, Seq<ElementInstance> instances) =>
         pool.IsEmpty
-            ? Fin.Fail<ElementScene>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "element-scene-empty" })))
+            ? Fin.Fail<ElementScene>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "element-scene-empty" })))
             : instances.Find(instance => !pool.ContainsKey(instance.MeshKey)).Match(
-                Some: miss => Fin.Fail<ElementScene>(new BimFault.Refused(key, BimScope.Export, BimReason.DanglingReference, string.Join(':', new object?[] { "element-scene-mesh-miss", miss.GlobalId, miss.MeshKey.ToString("x32", CultureInfo.InvariantCulture) }))),
+                Some: miss => Fin.Fail<ElementScene>(new BimFault.Refused(BimScope.Export, BimReason.DanglingReference, string.Join(':', new object?[] { "element-scene-mesh-miss", miss.GlobalId, miss.MeshKey.ToString("x32", CultureInfo.InvariantCulture) }))),
                 None: () => toSeq(pool.AsIterable())
-                    .Traverse(pair => MeshLanes.Of(pair.Value, key).Map(lanes => (pair.Key, lanes))).As()
+                    .Traverse(pair => MeshLanes.Of(pair.Value).Map(lanes => (pair.Key, lanes))).As()
                     .Map(rows => new ElementScene(pool, rows.ToMap(), instances)));
 
-    public static Fin<ElementScene> Of(ImportedGeometry soup, Op key) =>
-        MeshLanes.Of(soup, key).Map(lanes => Sole(soup, lanes));
+    public static Fin<ElementScene> Of(ImportedGeometry soup) =>
+        MeshLanes.Of(soup).Map(lanes => Sole(soup, lanes));
 
     static ElementScene Sole(ImportedGeometry soup, MeshLanes lanes) {
         UInt128 pooled = ContentHash.Of(soup.Lanes.Payload.Span);
@@ -366,9 +366,9 @@ public sealed record ElementScene {
 
     public Seq<KhrExtension> Obliges => Instances.Bind(static instance => instance.Finish.Obliges).Distinct();
 
-    public Fin<ImportedGeometry> Soup(Op key) => Pooled(key).Bind(pooled => pooled.Bake(key));
+    public Fin<ImportedGeometry> Soup() => Pooled().Bind(pooled => pooled.Bake());
 
-    public Fin<ImportedGeometry> Pooled(Op key) {
+    public Fin<ImportedGeometry> Pooled() {
         var lead = Pool.Values.ToSeq()[0];
         var keys = Pool.Keys.ToSeq();
         var ordinals = keys.Select(static (k, i) => (k, i)).ToMap();
@@ -394,7 +394,7 @@ public sealed record ElementScene {
             (vBase, iBase, slot) = (vBase + mesh.VertexCount, iBase + corners.Length, slot + 1);
         }
         var placed = Instances.Map(i => new MeshInstance(ordinals[i.MeshKey], i.Placement));
-        return Encode.Of(vertexTotal, lanes, key).Map(arena => new ImportedGeometry(
+        return Encode.Of(vertexTotal, lanes).Map(arena => new ImportedGeometry(
             lead.FormatKey, arena, indices, vertexTotal, indexTotal / 3, toSeq(blocks), placed, lead.At));
     }
 }
@@ -404,7 +404,7 @@ public abstract partial record ExportPayload {
     public sealed record Soup(ImportedGeometry Geometry) : ExportPayload;
     public sealed record Scene(ElementScene Elements) : ExportPayload;
 
-    public Fin<ImportedGeometry> Flat(Op key) => Switch(
+    public Fin<ImportedGeometry> Flat() => Switch(
         state: key,
         soup:  static (_, s) => Fin.Succ(s.Geometry),
         scene: static (k, s) => s.Elements.Soup(k));
@@ -414,33 +414,33 @@ public sealed record GlbScene(
     ModelRoot Model, Map<string, SharpGLTF.Schema2.Node> Nodes, Map<string, int> Rows, Seq<KhrExtension> Extensions);
 
 public static partial class BimExport {
-    public static Fin<ExportArtifact> Export(InterchangeFormat format, ExportPayload payload, InterchangePolicy policy, IClock clock, Op key) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Export, key).Bind(row => row.Codec.Switch(
-            sharpGltf:        () => GlbBytes(payload, policy, key).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            dotBim:           () => DotBimBytes(payload, key).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            sceneExchange:    () => Admitted(payload, key).Bind(pair => SceneBytes(format, pair.Geometry, pair.Lanes, key)).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            usdStage:         () => Admitted(payload, key).Bind(pair => Encoded(() => UsdBytes(format, pair.Geometry, pair.Lanes), key, "usd-export")).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
-            geometryGym:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-route", "use-ExportIfc", format.Key }))),
-            geospatialVector: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "geo-export-route", "GeoVector.Write", format.Key }))),
-            geospatialRaster: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            meshText:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            ply:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            pointCloud:       () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            acadSharp:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            stepIso10303:     () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
-            nativeCompanion:  () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
-            igesAnsi:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
-            saf:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "saf-export-graph-route", "use-SafEmit", format.Key }))),
-            cobieXlsx:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "cobie-export-graph-route", "use-CobieEmit", format.Key }))),
-            energyModel:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "energy-export-route", "EnergyExchange.Apply", format.Key }))),
-            ifc5Pending:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "export-catalogue-pending", format.Key })))));
+    public static Fin<ExportArtifact> Export(InterchangeFormat format, ExportPayload payload, InterchangePolicy policy, IClock clock) =>
+        InterchangeFormat.Admitted(format, InterchangeCapability.Export).Bind(row => row.Codec.Switch(
+            sharpGltf:        () => GlbBytes(payload, policy).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            dotBim:           () => DotBimBytes(payload).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            sceneExchange:    () => Admitted(payload).Bind(pair => SceneBytes(format, pair.Geometry, pair.Lanes)).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            usdStage:         () => Admitted(payload).Bind(pair => Encoded(() => UsdBytes(format, pair.Geometry, pair.Lanes), "usd-export")).Map(bytes => Sealed(format, bytes, policy, clock.GetCurrentInstant())),
+            geometryGym:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-route", "use-ExportIfc", format.Key }))),
+            geospatialVector: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "geo-export-route", "GeoVector.Write", format.Key }))),
+            geospatialRaster: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            meshText:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            ply:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            pointCloud:       () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            acadSharp:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            stepIso10303:     () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Export.Key, format.Key }))),
+            nativeCompanion:  () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
+            igesAnsi:         () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "export-needs-host", format.Key }))),
+            saf:              () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "saf-export-graph-route", "use-SafEmit", format.Key }))),
+            cobieXlsx:        () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "cobie-export-graph-route", "use-CobieEmit", format.Key }))),
+            energyModel:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "energy-export-route", "EnergyExchange.Apply", format.Key }))),
+            ifc5Pending:      () => Fin.Fail<ExportArtifact>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "export-catalogue-pending", format.Key })))));
 
-    public static Fin<GlbScene> Author(ElementScene scene, InterchangePolicy policy, Op key) =>
-        key.Catch(() => Staged(scene, policy))
+    public static Fin<GlbScene> Author(ElementScene scene, InterchangePolicy policy) =>
+        Try.lift(() => Staged(scene, policy)).Run().Bind(static inner => inner)
             ;
 
-    public static Fin<ExportArtifact> Emit(GlbScene scene, InterchangeFormat format, InterchangePolicy policy, IClock clock, Op key) =>
-        key.Catch(() => Sealed(format, WriteGlb(scene.Model, policy), policy, clock.GetCurrentInstant()))
+    public static Fin<ExportArtifact> Emit(GlbScene scene, InterchangeFormat format, InterchangePolicy policy, IClock clock) =>
+        Try.lift(() => Sealed(format, WriteGlb(scene.Model, policy), policy, clock.GetCurrentInstant())).Run().Bind(static inner => inner)
             ;
 
     internal static Option<float[]> Lane(ImportedGeometry geometry, EncodingChannel channel) =>
@@ -455,8 +455,8 @@ public static partial class BimExport {
             return raw;
         });
 
-    internal static Fin<(ImportedGeometry Geometry, MeshLanes Lanes)> Admitted(ExportPayload payload, Op key) =>
-        payload.Flat(key).Bind(flat => MeshLanes.Of(flat, key).Map(lanes => (flat, lanes)));
+    internal static Fin<(ImportedGeometry Geometry, MeshLanes Lanes)> Admitted(ExportPayload payload) =>
+        payload.Flat().Bind(flat => MeshLanes.Of(flat).Map(lanes => (flat, lanes)));
 
     static GlbScene Staged(ElementScene scene, InterchangePolicy policy) {
         var rows = scene.Instances.Select(static (instance, row) => (instance.GlobalId, row)).ToMap();
@@ -472,7 +472,7 @@ public static partial class BimExport {
         MaterialBuilder Finished(MaterialFinish finish) =>
             materials.TryGetValue(finish.Key, out MaterialBuilder? held) ? held : materials[finish.Key] = finish.Author();
         var pool = scene.Pool.Map((key, mesh) => {
-            var (row, finish) = byMesh.GetValueOrDefault(key, (nullRow, MaterialFinish.White));
+            var (row, finish) = byMesh.GetValueOrDefault((nullRow, MaterialFinish.White));
             return MeshOf(mesh, scene.Lanes[key], Finished(finish), Some(row));
         });
         var builder = new SceneBuilder();
@@ -491,11 +491,11 @@ public static partial class BimExport {
             Registered(policy, new ExportPayload.Scene(scene)));
     }
 
-    static Fin<byte[]> SceneBytes(InterchangeFormat format, ImportedGeometry geometry, MeshLanes lanes, Op key) {
+    static Fin<byte[]> SceneBytes(InterchangeFormat format, ImportedGeometry geometry, MeshLanes lanes) {
         using var context = new AssimpContext();
         return context.IsExportFormatSupported(format.Key)
-            ? Encoded(() => Blob(context, format, geometry, lanes), key, "scene-export")
-            : Fin.Fail<byte[]>(new BimFault.Refused(key, BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "scene-export-format", format.Key })));
+            ? Encoded(() => Blob(context, format, geometry, lanes), "scene-export")
+            : Fin.Fail<byte[]>(new BimFault.Refused(BimScope.Export, BimReason.Capability, string.Join(':', new object?[] { "scene-export-format", format.Key })));
     }
 
     static byte[] Blob(AssimpContext context, InterchangeFormat format, ImportedGeometry geometry, MeshLanes lanes) {
@@ -516,28 +516,28 @@ public static partial class BimExport {
         return context.ExportToBlob(scene, format.Key).Data;
     }
 
-    static Fin<byte[]> DotBimBytes(ExportPayload payload, Op key) =>
+    static Fin<byte[]> DotBimBytes(ExportPayload payload) =>
         payload.Switch(
                 state: key,
                 soup: static (k, s) => ElementScene.Of(s.Geometry, k),
                 scene: static (_, s) => Fin.Succ(s.Elements))
-            .Bind(scene => Wired(scene, key));
+            .Bind(scene => Wired(scene));
 
-    static Fin<byte[]> Wired(ElementScene scene, Op key) {
+    static Fin<byte[]> Wired(ElementScene scene) {
         Map<UInt128, int> ordinals = scene.Pool.Keys.Select(static (k, index) => (k, index)).ToMap();
         List<dotbim.Mesh> meshes = scene.Pool.AsIterable().Map(pair => new dotbim.Mesh {
             MeshId = ordinals[pair.Key],
             Coordinates = [.. scene.Lanes[pair.Key].Positions.Select(static v => (double)v)],
             Indices = [.. pair.Value.Indices.ToArray().Select(static i => (int)i)],
         }).ToList();
-        return scene.Instances.Traverse(instance => Placed(instance, ordinals, key)).As()
-            .Bind(elements => Encoded(() => Written(meshes, elements.ToList()), key, "bim-export"));
+        return scene.Instances.Traverse(instance => Placed(instance, ordinals)).As()
+            .Bind(elements => Encoded(() => Written(meshes, elements.ToList()), "bim-export"));
     }
 
-    static Fin<dotbim.Element> Placed(ElementInstance instance, Map<UInt128, int> ordinals, Op key) =>
+    static Fin<dotbim.Element> Placed(ElementInstance instance, Map<UInt128, int> ordinals) =>
         Matrix4x4.Decompose(instance.Placement, out var scale, out var rotation, out var translation)
         && Math.Abs(scale.X - 1f) <= RigidBand && Math.Abs(scale.Y - 1f) <= RigidBand && Math.Abs(scale.Z - 1f) <= RigidBand
-            ? instance.Finish.Rgba(key).Map(rgba => new dotbim.Element {
+            ? instance.Finish.Rgba().Map(rgba => new dotbim.Element {
                 MeshId = ordinals[instance.MeshKey],
                 Vector = new dotbim.Vector { X = translation.X, Y = translation.Y, Z = translation.Z },
                 Rotation = new dotbim.Rotation { Qx = rotation.X, Qy = rotation.Y, Qz = rotation.Z, Qw = rotation.W },
@@ -549,7 +549,7 @@ public static partial class BimExport {
                 },
                 Info = new Dictionary<string, string> { ["globalId"] = instance.GlobalId, ["name"] = instance.Name },
             })
-            : Fin.Fail<dotbim.Element>(new BimFault.Refused(key, BimScope.Export, BimReason.Rejected, string.Join(':', new object?[] { "dotbim-nonrigid-placement", instance.GlobalId })));
+            : Fin.Fail<dotbim.Element>(new BimFault.Refused(BimScope.Export, BimReason.Rejected, string.Join(':', new object?[] { "dotbim-nonrigid-placement", instance.GlobalId })));
 
     const float RigidBand = 1e-4f;
 
@@ -594,26 +594,26 @@ public static partial class BimExport {
 
     public static Fin<ExportArtifact> ExportIfc(
         InterchangeFormat format, ElementGraph graph, SemanticProjector projector,
-        InterchangePolicy policy, IClock clock, Option<EmitContext> context, Op key) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Export, key).Bind(row => row.Serialization
-            .ToFin(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-codec-miss", format.Key })))
-            .Bind(form => projector.Emit(graph, form, key, context)
+        InterchangePolicy policy, IClock clock, Option<EmitContext> context) =>
+        InterchangeFormat.Admitted(format, InterchangeCapability.Export).Bind(row => row.Serialization
+            .ToFin(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-codec-miss", format.Key })))
+            .Bind(form => projector.Emit(graph, form, context)
                 .Map(bytes => Sealed(row, bytes, policy, clock.GetCurrentInstant()))));
 
-    static Fin<byte[]> GlbBytes(ExportPayload payload, InterchangePolicy policy, Op key) =>
+    static Fin<byte[]> GlbBytes(ExportPayload payload, InterchangePolicy policy) =>
         policy.Compression switch {
-            KhrEncoder.Draco => Admitted(payload, key).Bind(pair => Encoded(() => DracoBytes(pair.Geometry, pair.Lanes, policy), key, "gltf-export")),
-            KhrEncoder.Meshopt => Admitted(payload, key).Bind(pair => Encoded(() => MeshoptBytes(pair.Geometry, pair.Lanes, policy), key, "gltf-export")),
-            KhrEncoder.None => Container(payload, policy, key).Bind(model => Encoded(() => WriteGlb(model, policy), key, "gltf-export")),
-            var unknown => Fin.Fail<byte[]>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "khr-encoder-unrouted", unknown.ToString() }))),
+            KhrEncoder.Draco => Admitted(payload).Bind(pair => Encoded(() => DracoBytes(pair.Geometry, pair.Lanes, policy), "gltf-export")),
+            KhrEncoder.Meshopt => Admitted(payload).Bind(pair => Encoded(() => MeshoptBytes(pair.Geometry, pair.Lanes, policy), "gltf-export")),
+            KhrEncoder.None => Container(payload, policy).Bind(model => Encoded(() => WriteGlb(model, policy), "gltf-export")),
+            var unknown => Fin.Fail<byte[]>(new BimFault.Refused(BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "khr-encoder-unrouted", unknown.ToString() }))),
         };
 
-    static Fin<byte[]> Encoded(Func<byte[]> encode, Op key, string detail) =>
-        key.Catch(encode);
+    static Fin<byte[]> Encoded(Func<byte[]> encode, string detail) =>
+        Try.lift(encode).Run().Bind(static inner => inner);
 
-    static Fin<ModelRoot> Container(ExportPayload payload, InterchangePolicy policy, Op key) =>
+    static Fin<ModelRoot> Container(ExportPayload payload, InterchangePolicy policy) =>
         payload.Switch(
-            state: (policy, key),
+            state: (policy),
             soup:  static (run, flat) => MeshLanes.Of(flat.Geometry, run.key).Map(lanes => SceneOf(flat.Geometry, lanes, run.policy)),
             scene: static (run, per) => Fin.Succ(Staged(per.Elements, run.policy).Model));
 
@@ -839,7 +839,7 @@ public static partial class BimExport {
 ## [03]-[TILE_METADATA]
 
 - Owner: `TileMetadata` the per-tile `EXT_structural_metadata` author over the shared `Graph/element#ELEMENT_GRAPH` `Element` semantic (the baked element, never a stored record) — one embedded schema carrying the element's `Classification` code, `ExternalId` GlobalId, name, and (as growth) the baked property/quantity columns, one `PropertyTable` per-feature value store, and the `EXT_mesh_features` feature-ID binding tying each GLB primitive vertex span to its element row so the Cesium 3D Tiles web peer resolves per-element metadata at pick time.
-- Entry: `TileMetadata.Attach(GlbScene scene, Seq<Element> elements, Op key)` authors the structural-metadata schema/class/property-table on the `Author`-minted GLB scene — the feature-ID VALUES are already in the model (the per-vertex `_FEATURE_ID_0` stamps `Staged` authored through the `FeatureVertex` fragment), so `Attach` only defines the schema and binds the table, never re-walking or re-stamping geometry; `Fin<T>` aborts on a registration fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; the per-tile metadata emit composes through the `Rasm.Compute` interchange codec `TILE_PARTITION` at the contract and `Rasm.Bim` authors the canonical schema shape and the extension surface.
+- Entry: `TileMetadata.Attach(GlbScene scene, Seq<Element> elements)` authors the structural-metadata schema/class/property-table on the `Author`-minted GLB scene — the feature-ID VALUES are already in the model (the per-vertex `_FEATURE_ID_0` stamps `Staged` authored through the `FeatureVertex` fragment), so `Attach` only defines the schema and binds the table, never re-walking or re-stamping geometry; `Fin<T>` aborts on a registration fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; the per-tile metadata emit composes through the `Rasm.Compute` interchange codec `TILE_PARTITION` at the contract and `Rasm.Bim` authors the canonical schema shape and the extension surface.
 - Auto: `Attach` defines the `Element` structural-metadata schema (one property per canonical column — `GlobalId` off `Element.ExternalId`, `Class` an `IfcClass` enumeration off `Element.Classification.Code`, `Name`, and as growth the baked-Pset columns off `Element.Properties`) and adds a per-feature `PropertyTable` whose ROWS ORDER BY the `GlbScene.Rows` ordinals — the one row space the `Staged` vertex stamps already index. Element semantics join by the shared GlobalId; an element-less row carries empty strings and the `Class` column's reserved `Unclassified` noData sentinel (a bare `IfNone(0)` silently claimed the first REAL `IfcClass` row). ONE `FeatureIDBuilder` binds per DISTINCT logical mesh with `nullFeatureId = Rows.Count`, so a shared-mesh repeat's null-row stamps resolve to "no feature" at pick rather than a wrong row.
 - Output: the authored `EXT_structural_metadata` schema and `PropertyTable` are the per-tile semantic the web peer reads — the same shared `Element` vocabulary a consumer reads at the `Exchange/wire#WIRE_PROJECTION`, projected onto the binary tile metadata so a Cesium consumer resolves per-element BIM semantics at pick without a second metadata mint.
 - Packages: SharpGLTF.Core, SharpGLTF.Ext.3DTiles, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element, Rasm
@@ -848,8 +848,8 @@ public static partial class BimExport {
 
 ```csharp
 public static class TileMetadata {
-    public static Fin<GlbScene> Attach(GlbScene scene, Seq<Element> elements, Op key) =>
-        key.Catch(() => Author(scene, elements));
+    public static Fin<GlbScene> Attach(GlbScene scene, Seq<Element> elements) =>
+        Try.lift(() => Author(scene, elements)).Run().Bind(static inner => inner);
 
     static GlbScene Author(GlbScene scene, Seq<Element> elements) {
         Tiles3DExtensions.RegisterExtensions();
@@ -878,7 +878,7 @@ public static class TileMetadata {
 ## [04]-[BIM_LOD]
 
 - Owner: `BimLod` the per-element LOD-pyramid leg ADDITIVE to the export path — one progressive-detail chain per element derived through the catalogued `Meshopt.Simplify`/`SimplifySloppy` decimation keyed by target triangle ratio, with the meshlet residency band through `Meshopt.BuildMeshlets` for the WebGPU raster path; the shared `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `MeshletBand` carrying each cluster with its cull sphere and normal cone (the local twin DELETED onto that owner, the meshopt `Meshlet`/`Bounds` ABI staying behind the `Cluster` arm); `LodLevel` the per-level record carrying the decimated index buffer, the target ratio, and the per-LOD content key the `Rasm.Compute/Runtime/tiles#TILE_PARTITION` pyramid content-addresses.
-- Entry: `BimLod.Pyramid(ImportedGeometry geometry, InterchangePolicy policy, Op key)` derives the LOD chain over the policy's ratio schedule (each level a `Meshopt.Simplify` at decreasing target index count, falling back to `Meshopt.SimplifySloppy` when the error threshold cannot be met), and `BimLod.Meshlets(ImportedGeometry geometry, Op key)` clusters the residency band through `Meshopt.BuildMeshlets` (bounded by `Meshopt.BuildMeshletsBound`, optimized per meshlet through `Meshopt.OptimizeMeshlet`) — `Fin<T>` aborts on a degenerate decimation captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; each level seals its own `ExportArtifact.ContentKey` so the web peer streams each LOD by view distance, the `TileMetadata` per-tile semantic riding each level unchanged.
+- Entry: `BimLod.Pyramid(ImportedGeometry geometry, InterchangePolicy policy)` derives the LOD chain over the policy's ratio schedule (each level a `Meshopt.Simplify` at decreasing target index count, falling back to `Meshopt.SimplifySloppy` when the error threshold cannot be met), and `BimLod.Meshlets(ImportedGeometry geometry)` clusters the residency band through `Meshopt.BuildMeshlets` (bounded by `Meshopt.BuildMeshletsBound`, optimized per meshlet through `Meshopt.OptimizeMeshlet`) — `Fin<T>` aborts on a degenerate decimation captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; each level seals its own `ExportArtifact.ContentKey` so the web peer streams each LOD by view distance, the `TileMetadata` per-tile semantic riding each level unchanged.
 - Output: each `LodLevel` carries its target ratio, resulting triangle count, the world-space `WorldError` deviation (`Meshopt.Simplify`'s relative `result_error` × `SimplifyScale` — solver evidence the result keeps, a discarded `out` error being the deleted form), and the per-LOD content key — the same `InterchangeIdentity` the full-resolution `ExportArtifact` seals, computed per level so the `Rasm.Compute/Runtime/tiles#TILE_PARTITION` pyramid content-addresses every detail level and the cross-libs `WEB_GEOMETRY_RESIDENCY_WIRE` splat/meshlet manifest the AppUi projection mints streams each LOD by view distance against a real per-level error bound.
 - Packages: Alimer.Bindings.MeshOptimizer, SharpGLTF.Core, NodaTime, LanguageExt.Core, Rasm.Element (the shared `MeshletBand`/`MeshBlock` band), Rasm
 - Growth: a new detail level is one ratio on the `InterchangePolicy.LodRatios` policy column (the schedule is policy data, never a fence-local constant), each landing one content-keyed `LodLevel` row on the pyramid; a new meshlet column is one field on the shared `MeshletBand`, never a second band beside it; the per-tile `TileMetadata` semantic rides each LOD unchanged; never a per-element full-resolution emit and never a second LOD or residency owner.
@@ -892,9 +892,9 @@ public sealed record LodLevel(
 
 
 public static class BimLod {
-    public static Fin<Seq<LodLevel>> Pyramid(ImportedGeometry geometry, InterchangePolicy policy, Op key) =>
-        MeshLanes.Of(geometry, key).Bind(lanes =>
-            key.Catch(() => Levels(geometry, lanes, policy)));
+    public static Fin<Seq<LodLevel>> Pyramid(ImportedGeometry geometry, InterchangePolicy policy) =>
+        MeshLanes.Of(geometry).Bind(lanes =>
+            Try.lift(() => Levels(geometry, lanes, policy)).Run().Bind(static inner => inner));
 
     static unsafe Seq<LodLevel> Levels(ImportedGeometry geometry, MeshLanes lanes, InterchangePolicy policy) {
         var source = new uint[geometry.Indices.Length];
@@ -962,9 +962,9 @@ public static class BimLod {
                 .Raw(MemoryMarshal.AsBytes(s.indices.AsSpan()))).Value);
     }
 
-    public static unsafe Fin<Seq<MeshletBand>> Meshlets(ImportedGeometry geometry, Op key) =>
-        MeshLanes.Of(geometry, key).Bind(lanes =>
-            key.Catch(() => Cluster(geometry, lanes)));
+    public static unsafe Fin<Seq<MeshletBand>> Meshlets(ImportedGeometry geometry) =>
+        MeshLanes.Of(geometry).Bind(lanes =>
+            Try.lift(() => Cluster(geometry, lanes)).Run().Bind(static inner => inner));
 
     static unsafe Seq<MeshletBand> Cluster(ImportedGeometry geometry, MeshLanes lanes) {
         var indices = new uint[geometry.Indices.Length];
@@ -1012,7 +1012,7 @@ public static class BimLod {
 ## [05]-[SCHEDULE_ANIMATION]
 
 - Owner: `ScheduleAnimation` the 4D-emit leg ADDITIVE to the export path — one glTF `Animation` baking the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element keyframe tracks: each `ConstructionTask`'s scheduled `Interval` drives a per-element visibility track (the element is invisible before its task starts and visible from its task start) with an optional scale track (the element grows from a zero-scale point to its full scale across its task window) so a viewer scrubs the construction sequence on the GLB timeline, and an optional in-progress base-colour track tints the element across its window through the material `KHR_animation_pointer` channel glTF's absent per-node colour property forces; `AnimationTrack` the per-element keyframe record carrying the element `GlobalId`, the appear-time and full-time seconds, the glTF `Node` the element's mesh binds to, and the logical material the colour track bound or the refusal a pooled material earns.
-- Entry: `BimExport.AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key)` bakes the schedule into the scene model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's glTF `Node` through the `Author`-minted `GlbScene` `GlobalId→Node` index (the element `GlobalId` is the shared `Graph/element#ELEMENT_GRAPH` `Object.ExternalId`; `Author` names each node by it, so the 4D leg binds the scene emitted — the retired caller-supplied index parameter is GONE), and authoring one `KHR_node_visibility` visibility channel (the `GrowInPlace` scale channel and the `policy.Tint` material base-colour channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel`/`CreateMaterialPropertyChannel` keyframe surface — `Fin<T>` aborts on a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshot share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At` resolves at the inverse instant (the schedule owner is the `BimModel`→`ElementGraph` cross-file alignment point its rebuild settles).
+- Entry: `BimExport.AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy)` bakes the schedule into the scene model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's glTF `Node` through the `Author`-minted `GlbScene` `GlobalId→Node` index (the element `GlobalId` is the shared `Graph/element#ELEMENT_GRAPH` `Object.ExternalId`; `Author` names each node by it, so the 4D leg binds the scene emitted — the retired caller-supplied index parameter is GONE), and authoring one `KHR_node_visibility` visibility channel (the `GrowInPlace` scale channel and the `policy.Tint` material base-colour channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel`/`CreateMaterialPropertyChannel` keyframe surface — `Fin<T>` aborts on a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshot share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At` resolves at the inverse instant (the schedule owner is the `BimModel`→`ElementGraph` cross-file alignment point its rebuild settles).
 - Auto: `AnimateSchedule` registers `KHR_node_visibility`, creates one `Animation`, and folds each element's assigned task windows into an `AnimationTrack` (appear = earliest `Interval.Start`, full = latest `Interval.End`, so a multi-task element appears at its earliest task). Each element gets a visibility track popping in at its appear time under the `STEP` interpolation the `bool` channel forces, the optional scale track grows it from zero across its window under `LINEAR`, and the optional tint track drives its material's `baseColorFactor` from the policy's active factor at appear to the material's OWN authored factor at settle — bound only where one node references one material no second node shares, because `Staged` pools materials on the finish key and a shared material tints every repeat on one element's schedule. `policy.SecondsOf` projects an `Interval` bound onto the float-seconds axis the `ConstructionState.At` snapshot reads, so the keyframe author and the snapshot never carry two clocks; the scene returns with `LogicalAnimations` populated so `Emit` seals the animated GLB and the `TileMetadata` semantic rides each frame unchanged.
 - Output: the `Seq<AnimationTrack>` is the 4D-emit evidence — each row carries the element `GlobalId`, the appear/full seconds, the bound `Node` logical index so the Cesium/three.js timeline scrub resolves the construction state at any timeline instant, and the `TintedMaterial` index the colour channel bound (absent where the policy carried no tint or a pooled material refused the 1:1 binding, so a reader tells an untinted run from a refused element instead of reading silence); the animated GLB the `WriteGlb` emits is the streamed 4D timeline a web viewer plays, the `Planning/schedule#SCHEDULE` `ScheduleNetwork.Identity` `(GeometryKey, ScheduleKey)` re-keying the animation only on a re-sequenced plan.
 - Packages: SharpGLTF.Core, SharpGLTF.Runtime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
@@ -1040,8 +1040,8 @@ public static partial class BimExport {
 
     const string BaseColorChannel = "BaseColor";
 
-    public static Fin<Seq<AnimationTrack>> AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy, Op key) =>
-        key.Catch(() => Tracks(scene, network, policy))
+    public static Fin<Seq<AnimationTrack>> AnimateSchedule(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy) =>
+        Try.lift(() => Tracks(scene, network, policy)).Run().Bind(static inner => inner)
             ;
 
     static Seq<AnimationTrack> Tracks(GlbScene scene, ScheduleNetwork network, ScheduleAnimationPolicy policy) {
@@ -1153,8 +1153,8 @@ public static class RoundTrip {
         IfcTriad.TraverseM(format => Verify(source, format, ctx, clock, reconciler, profiles).Map(report => (format.Key, report))).As()
             .Map(static rows => rows.ToMap());
 
-    static Fin<RoundTripReport> Compare(string formatKey, ElementGraph source, ElementGraph reimported, Op key) =>
-        (ElementsByExternal(source, key).ToValidation(), ElementsByExternal(reimported, key).ToValidation())
+    static Fin<RoundTripReport> Compare(string formatKey, ElementGraph source, ElementGraph reimported) =>
+        (ElementsByExternal(source).ToValidation(), ElementsByExternal(reimported).ToValidation())
             .Apply((sourceElements, reimportedElements) => {
                 var dropped = sourceElements.Keys.Filter(id => !reimportedElements.ContainsKey(id)).ToSeq();
                 var lossy = sourceElements
@@ -1165,10 +1165,10 @@ public static class RoundTrip {
                     formatKey, sourceElements.Count, sourceElements.Count - dropped.Count - lossy.Count, dropped, lossy);
             }).As().ToFin();
 
-    static Fin<Map<string, Element>> ElementsByExternal(ElementGraph graph, Op key) =>
+    static Fin<Map<string, Element>> ElementsByExternal(ElementGraph graph) =>
         graph.ObjectNodes
             .Choose(static o => o.ExternalId.Map(external => (External: external, o.Id)))
-            .TraverseM(row => graph.Bake(row.Id, key).Map(element => (row.External, element))).As()
+            .TraverseM(row => graph.Bake(row.Id).Map(element => (row.External, element))).As()
             .Map(static rows => rows.ToMap());
 
     static Seq<string> Divergence(Element source, Element reimported) =>
@@ -1180,7 +1180,7 @@ public static class RoundTrip {
 ## [07]-[TILE_AVAILABILITY]
 
 - Owner: `TileAvailability` the 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream author over the `subtree` package — the tileset AVAILABILITY structure (the Morton-ordered tile/content/child-subtree bitstreams telling a 3D-Tiles client which implicit nodes exist) the `SharpGLTF.Ext.3DTiles` `[3]-[TILE_METADATA]` per-tile CONTENT author cannot reach, the two meeting at the shared Morton tile index; `TileNode` the scheme-neutral per-tile authoring coordinate — `Lod` the subdivision level (mapped onto the quadtree `subtree.Tile.Z` level field or the octree `subtree.Tile3D.Level`), `X`/`Y` the in-level position, `Z` the octree vertical axis (unused under the `Quadtree` scheme, where `subtree.Tile` carries no spatial third axis), with the `Available`/`ContentUri`/`GeometricError` columns the `subtree.Tile` node carries; `SubtreeArtifact` the authored binary beside the facts decoded back out of it and the kernel content key addressing it — retiring the hand-rolled implicit-tiling bitstream.
-- Entry: `TileAvailability.Author(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` folds the tile list into the `.subtree` binary and READS IT BACK through `SubtreeReader.ReadSubtree` before returning, so the `SubtreeArtifact` it yields carries decoded facts and a bitstream that lost a node faults here rather than streaming nothing at a client, the `scheme` discriminant selecting the authoring root — `SubtreeCreator.GenerateSubtreefile(List<Tile>)` for `Quadtree` (each `TileNode` projected through `TileOf` onto `subtree.Tile(z: node.Lod, x, y, available)` so the LOD lands in the `Tile.Z` level field the Morton author folds on, carrying its `ContentUri`/`GeometricError`) and `SubtreeCreator3D.GenerateSubtreefile(List<Tile3D>)` for `Octree` (each projected through `TileOf3D` onto `subtree.Tile3D(level: node.Lod, x, y, z: node.Z)` so the octree gains its third spatial axis) — `Fin<T>` aborts on a degenerate tile list captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; `TileAvailability.AuthorMany(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme, Op key)` lifts to the matching `GenerateSubtreefiles` (the `Dictionary<Tile, byte[]>`/`Dictionary<Tile3D, byte[]>` multi-subtree overflow form) when the tileset exceeds one subtree's level budget, keying each binary by its root tile's `(Level, X, Y, Z)` coordinate (the library builds each root through `new Tile(level, x, y)`/`new Tile3D(level, x, y, z)`, so the root key reads the level-and-position identity, never the auxiliary `Tile.Lod` the author leaves zero).
+- Entry: `TileAvailability.Author(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme)` folds the tile list into the `.subtree` binary and READS IT BACK through `SubtreeReader.ReadSubtree` before returning, so the `SubtreeArtifact` it yields carries decoded facts and a bitstream that lost a node faults here rather than streaming nothing at a client, the `scheme` discriminant selecting the authoring root — `SubtreeCreator.GenerateSubtreefile(List<Tile>)` for `Quadtree` (each `TileNode` projected through `TileOf` onto `subtree.Tile(z: node.Lod, x, y, available)` so the LOD lands in the `Tile.Z` level field the Morton author folds on, carrying its `ContentUri`/`GeometricError`) and `SubtreeCreator3D.GenerateSubtreefile(List<Tile3D>)` for `Octree` (each projected through `TileOf3D` onto `subtree.Tile3D(level: node.Lod, x, y, z: node.Z)` so the octree gains its third spatial axis) — `Fin<T>` aborts on a degenerate tile list captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected`) lifting BARE onto the `Fin<T>` result (band 2600, `Fault`-derived), no `.ToError()` hop; `TileAvailability.AuthorMany(Seq<TileNode> tiles, ImplicitSubdivisionScheme scheme)` lifts to the matching `GenerateSubtreefiles` (the `Dictionary<Tile, byte[]>`/`Dictionary<Tile3D, byte[]>` multi-subtree overflow form) when the tileset exceeds one subtree's level budget, keying each binary by its root tile's `(Level, X, Y, Z)` coordinate (the library builds each root through `new Tile(level, x, y)`/`new Tile3D(level, x, y, z)`, so the root key reads the level-and-position identity, never the auxiliary `Tile.Lod` the author leaves zero).
 - Auto: `Author` maps each `TileNode` onto the `subtree.Tile` node (or `subtree.Tile3D` under the `Octree` scheme), authors the binary availability bitstream, and witnesses it — the re-read `Subtree` record's `ContentAvailability` bit at each node's own `LevelOffset` + `MortonOrder` address must equal that node's `Available`, a uniform stream answering from its `*Constant` where the reader leaves the `BitArray` null, and a divergence faulting with the offending Morton positions named. `TileAvailability` is deliberately NOT the assertion target: `SubtreeCreator` derives it as the ancestor CLOSURE of the content set, so it answers "does an implicit node exist here" where content answers "does this node carry a payload", and `SubtreeArtifact` counts each stream separately. `MortonIndex` buckets each tile's availability by its level and sets the bit cell at its `X`/`Y`(`/Z`) position, so tile and content availability order identically — a tile is "available with content" exactly when both bitstreams set the same Morton position, the same index the `[3]-[TILE_METADATA]` tile content keys off. Multi-subtree tilesets re-base child coordinates so the child-subtree availability pointers resolve.
 - Output: `SubtreeArtifact` carries the subdivision scheme, the authored level depth, the DECODED tile- and content-availability set counts, the `.subtree` bytes, and the kernel content key — measured off the emitted bitstream rather than re-reported off the input, so a caller reads what the client will read. Key minting rides the kernel seed-zero `ContentHash` over the shared `CanonicalWriter` fold, the one-hasher law `Sealed` and the `BimLod` per-level keys observe, so a tileset's availability binary and its glTF tile content address in ONE content space; the multi-subtree `AuthorMany` form returns the package's own `Fill`-padded per-root binaries, which are subtree-local bitstreams no whole-tileset node set addresses.
 - Packages: subtree, SharpGLTF.Ext.3DTiles, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element, Rasm
@@ -1195,16 +1195,16 @@ public sealed record SubtreeArtifact(
     ReadOnlyMemory<byte> Bytes, UInt128 ContentKey);
 
 public static class TileAvailability {
-    public static Fin<SubtreeArtifact> Author(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) =>
-        key.Catch(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
+    public static Fin<SubtreeArtifact> Author(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme) =>
+        Try.lift(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
                 ? subtree.SubtreeCreator3D.GenerateSubtreefile(tiles.Map(TileOf3D).ToList())
-                : subtree.SubtreeCreator.GenerateSubtreefile(tiles.Map(TileOf).ToList()))
-            .Bind(binary => Witness(binary, tiles, scheme, key));
+                : subtree.SubtreeCreator.GenerateSubtreefile(tiles.Map(TileOf).ToList())).Run().Bind(static inner => inner)
+            .Bind(binary => Witness(binary, tiles, scheme));
 
-    static Fin<SubtreeArtifact> Witness(byte[] binary, Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) {
+    static Fin<SubtreeArtifact> Witness(byte[] binary, Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme) {
         int levels = tiles.Max(static node => node.Lod) + 1;
         int cells = subtree.LevelOffset.GetLevelOffset(levels, scheme);
-        return key.Catch(() => subtree.SubtreeReader.ReadSubtree(new MemoryStream(binary, writable: false)))
+        return Try.lift(() => subtree.SubtreeReader.ReadSubtree(new MemoryStream(binary, writable: false))).Run().Bind(static inner => inner)
             .Bind(read => tiles
                 .Filter(node => Bit(read.ContentAvailability, read.ContentAvailabilityConstant, Position(node, scheme)) != node.Available)
                 .Map(node => Position(node, scheme)) is var divergent && divergent.IsEmpty
@@ -1215,7 +1215,7 @@ public static class TileAvailability {
                     binary,
                     ContentHash.Of((scheme, binary), static (s, writer) => writer.String($"subtree:{s.scheme}").Raw(s.binary))))
                 : Fin.Fail<SubtreeArtifact>(
-                    new BimFault.Refused(key, BimScope.Export, BimReason.Rejected, string.Join(':', new object?[] { "subtree-availability-mismatch", divergent.Count.ToString(), string.Join(',', divergent.Take(4)) }))));
+                    new BimFault.Refused(BimScope.Export, BimReason.Rejected, string.Join(':', new object?[] { "subtree-availability-mismatch", divergent.Count.ToString(), string.Join(',', divergent.Take(4)) }))));
     }
 
     static int Position(TileNode node, subtree.ImplicitSubdivisionScheme scheme) =>
@@ -1230,12 +1230,12 @@ public static class TileAvailability {
     static int Set(System.Collections.BitArray? bits, int constant, int cells) =>
         bits is { } array ? array.Cast<bool>().Count(static bit => bit) : constant != 0 ? cells : 0;
 
-    public static Fin<Map<(int Level, int X, int Y, int Z), byte[]>> AuthorMany(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme, Op key) =>
-        key.Catch(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
+    public static Fin<Map<(int Level, int X, int Y, int Z), byte[]>> AuthorMany(Seq<TileNode> tiles, subtree.ImplicitSubdivisionScheme scheme) =>
+        Try.lift(() => scheme == subtree.ImplicitSubdivisionScheme.Octree
                 ? subtree.SubtreeCreator3D.GenerateSubtreefiles(tiles.Map(TileOf3D).ToList())
                     .Select(static pair => ((pair.Key.Level, pair.Key.X, pair.Key.Y, pair.Key.Z), pair.Value)).ToMap()
                 : subtree.SubtreeCreator.GenerateSubtreefiles(tiles.Map(TileOf).ToList())
-                    .Select(static pair => ((pair.Key.Z, pair.Key.X, pair.Key.Y, 0), pair.Value)).ToMap());
+                    .Select(static pair => ((pair.Key.Z, pair.Key.X, pair.Key.Y, 0), pair.Value)).ToMap()).Run().Bind(static inner => inner);
 
     static subtree.Tile TileOf(TileNode node) =>
         new(node.Lod, node.X, node.Y, node.Available) { ContentUri = node.ContentUri, GeometricError = node.GeometricError };
@@ -1248,7 +1248,7 @@ public static class TileAvailability {
 ## [08]-[COBIE_EMIT]
 
 - Owner: `CobieEmit` the COBie 2.4 FM-handover author — a TRANSIENT `Xbim.IO.CobieExpress` `CobieModel` authored `Instances.New<T>` inside one transaction FROM the shared `ElementGraph` (never a held xBIM `IModel` authority beside the GeometryGym semantic authority, and never the `IfcToCoBieExpressExchanger` parallel xBIM-IFC reader — the element graph IS the source), sealed to the XLSX deliverable through the store's `ExportToTable` bridge.
-- Entry: `CobieEmit.Export(ElementGraph graph, Instant at, Op key)` → `Fin<CobieHandover>` (the sealed artifact beside the typed `CobieDegrade` roster) — folds the `Model/spatial#SPATIAL_STRUCTURE` view onto `CobieFacility`/`CobieFloor`/`CobieSpace`, each baked element onto `CobieComponent` (its reconciled type onto `CobieType`, deduplicated by the type node), and each Pset row onto a `CobieAttribute` per the `Semantics/properties#PROPERTY_TEMPLATES` template vocabulary (the template supplying the COBie attribute name and the shared `PropertyValue.Render` the value text); the artifact content key mints through the kernel seed-zero `ContentHash.Of` over the shared `CanonicalWriter` fold — the one content space every Exchange artifact addresses, never a second identity scheme.
+- Entry: `CobieEmit.Export(ElementGraph graph, Instant at)` → `Fin<CobieHandover>` (the sealed artifact beside the typed `CobieDegrade` roster) — folds the `Model/spatial#SPATIAL_STRUCTURE` view onto `CobieFacility`/`CobieFloor`/`CobieSpace`, each baked element onto `CobieComponent` (its reconciled type onto `CobieType`, deduplicated by the type node), and each Pset row onto a `CobieAttribute` per the `Semantics/properties#PROPERTY_TEMPLATES` template vocabulary (the template supplying the COBie attribute name and the shared `PropertyValue.Render` the value text); the artifact content key mints through the kernel seed-zero `ContentHash.Of` over the shared `CanonicalWriter` fold — the one content space every Exchange artifact addresses, never a second identity scheme.
 - Auto: authoring is ONE `BeginTransaction` scope committed once; the spatial containment restores from the shared `Compose.Contain` edges so a component lands on its floor/space, the type join rides the `Assign.TypeDefinition` edge, and an element with no spatial host lands facility-scoped rather than dropping; `CobieAttribute` values render through the SAME shared typed-value family the IFC egress raises, so a COBie cell and a Pset re-emit never disagree.
 - Output: the sealed `ExportArtifact` carries the XLSX bytes, the `InterchangeFormat` row, and the kernel content key — the FM-handover deliverable the CDE registers beside the IFC emit of the same graph.
 - Packages: Xbim.CobieExpress, Xbim.IO.CobieExpress, Xbim.CobieExpress.Exchanger (transitively the `EntityFactoryCobieExpress` schema factory), Rasm.Element, Rasm, LanguageExt.Core.
@@ -1273,12 +1273,12 @@ public readonly record struct CobieDegrade(CobieReason Reason, string Subject, O
 public sealed record CobieHandover(ExportArtifact Artifact, Seq<CobieDegrade> Degrades);
 
 public static class CobieEmit {
-    public static Fin<CobieHandover> Export(ElementGraph graph, Instant at, Op key) =>
-        key.Catch(() => {
+    public static Fin<CobieHandover> Export(ElementGraph graph, Instant at) =>
+        Try.lift(() => {
             using var model = new CobieModel();
             Seq<CobieDegrade> degrades;
             using (var txn = model.BeginTransaction("rasm-cobie")) {
-                degrades = Author(model, graph, key);
+                degrades = Author(model, graph);
                 txn.Commit();
             }
             using var stream = new MemoryStream();
@@ -1286,14 +1286,14 @@ public static class CobieEmit {
             return new CobieHandover(
                 BimExport.Sealed(InterchangeFormat.Cobie, stream.ToArray(), InterchangePolicy.Canonical, at),
                 report.Length > 0 ? degrades.Add(new CobieDegrade(CobieReason.TemplateUnmapped, report)) : degrades);
-        });
+        }).Run().Bind(static inner => inner);
 
-    static Seq<CobieDegrade> Author(CobieModel model, ElementGraph graph, Op key) =>
+    static Seq<CobieDegrade> Author(CobieModel model, ElementGraph graph) =>
         graph.ObjectNodes.Find(static o => o.Classification.Code == IfcClass.Building.Key).Match(
             None: () => Seq(new CobieDegrade(CobieReason.FacilityMissing, graph.Header.Schema.ToString())),
-            Some: root => Registered(model, graph, root, key));
+            Some: root => Registered(model, graph, root));
 
-    static Seq<CobieDegrade> Registered(CobieModel model, ElementGraph graph, Node.Object root, Op key) {
+    static Seq<CobieDegrade> Registered(CobieModel model, ElementGraph graph, Node.Object root) {
         CobieFacility facility = model.Instances.New<CobieFacility>(f => Named(f, root));
         HashMap<NodeId, CobieSpace> spaces = Parts(graph, root.Id, IfcClass.BuildingStorey).Fold(
             HashMap<NodeId, CobieSpace>(),
@@ -1317,14 +1317,14 @@ public static class CobieEmit {
             .Filter(node => !spaces.ContainsKey(node.Id)
                 && node.Classification.Code != IfcClass.Building.Key
                 && node.Classification.Code != IfcClass.BuildingStorey.Key)
-            .Fold(Seq<CobieDegrade>(), (log, node) => Landed(model, graph, node, spaces, types, templates, log, key));
+            .Fold(Seq<CobieDegrade>(), (log, node) => Landed(model, graph, node, spaces, types, templates, log));
     }
 
     static Seq<CobieDegrade> Landed(
         CobieModel model, ElementGraph graph, Node.Object node, HashMap<NodeId, CobieSpace> spaces,
         Dictionary<NodeId, CobieType> types, Map<(string Code, string Token), Map<string, PropertyTemplate>> templates,
-        Seq<CobieDegrade> log, Op key) =>
-        graph.Bake(node.Id, key).Match(
+        Seq<CobieDegrade> log) =>
+        graph.Bake(node.Id).Match(
             Succ: baked => Landed(model, graph, node, spaces, types, templates, log, baked),
             Fail: error => log.Add(new CobieDegrade(CobieReason.ElementUnbakeable, Identity(node), Some(error))));
 
@@ -1413,7 +1413,7 @@ public static class CobieEmit {
 ## [09]-[SAF_EMIT]
 
 - Owner: `SafEmit` the SAF structural-analysis XLSX author — GRAPH-SOURCED like the COBie leg and sharing its office-spreadsheet media type: the shared `ElementGraph` lowers through the ONE `Exchange/saf#SAF_EXCHANGE` `Workbook(graph, geometry, regime, key)` fold (the `Correspondence` rows its member spine, geometry crossing ONLY by content key through the shared `GeometrySource` port, the stated `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` electing the workbook's `ExcelNationalCode` design code), and the `SafCodec.Run` export leg validates the model and writes the workbook bytes this path seals.
-- Entry: `SafEmit.Export(ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime, SafServices services, Instant at, Op key)` → `Fin<ExportArtifact>` — the artifact content key mints through the ONE `Sealed` funnel every format arm shares, so the `rasm.bim.exchange.exported` observe point fires for a SAF emit exactly as for a GLB one and `BimFact.Exported` reads identically at the composition edge.
+- Entry: `SafEmit.Export(ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime, SafServices services, Instant at)` → `Fin<ExportArtifact>` — the artifact content key mints through the ONE `Sealed` funnel every format arm shares, so the `rasm.bim.exchange.exported` observe point fires for a SAF emit exactly as for a GLB one and `BimFact.Exported` reads identically at the composition edge.
 - Auto: the lowering and its named negatives are the structural owner's — the eccentricity STEP fragment, the thermal gradient rows, and the EN combination roster name no SAF cell and stay off the workbook by that owner's stated arms; validation severity gates inside the `Saf` export leg, so an Error-carrying model refuses typed before any byte is sealed.
 - Packages: StructuralAnalysisFormat, Rasm.Element, Rasm, NodaTime, LanguageExt.Core.
 - Growth: a new SAF worksheet is one arm on the structural owner's `Workbook`/`Author` folds beside its roster row — this path gains nothing; a new SAF schema version is the `SafServices.Target` value the composition states, never a version knob minted here.
@@ -1422,12 +1422,12 @@ public static class CobieEmit {
 ```csharp
 public static class SafEmit {
     public static Fin<ExportArtifact> Export(
-        ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime, SafServices services, Instant at, Op key) =>
-        SafCodec.Workbook(graph, geometry, regime, key).Bind(model => {
+        ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime, SafServices services, Instant at) =>
+        SafCodec.Workbook(graph, geometry, regime).Bind(model => {
             using MemoryStream stream = new();
             return SafCodec.Run(
                     new SafOp.Export(stream, model, services.Target),
-                    services.Imports, services.Exports, services.Validator, key)
+                    services.Imports, services.Exports, services.Validator)
                 .Map(_ => BimExport.Sealed(InterchangeFormat.Saf, stream.ToArray(), InterchangePolicy.Canonical, at));
         });
 }

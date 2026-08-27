@@ -71,12 +71,12 @@ public abstract partial record OpOutput {
 public static class CustomOps {
     public static Fin<SessionOptions> Register(SessionOptions options, SessionPolicy policy) =>
         policy.CustomOpLibraries.Traverse(static library => library.Verify().ToValidation()).As().ToFin()
-            .Bind(_ => Op.Of(name: "model.custom-op-register").Catch(() => {
+            .Bind(_ => Try.lift(() => {
                 policy.CustomOpLibraries.Iter(library => library.Switch(
                     bundled: _ => options.RegisterOrtExtensions(),
                     asset: asset => options.RegisterCustomOpLibrary(asset.Path)));
                 return Fin.Succ(options);
-            }));
+            }).Run().Bind(static inner => inner));
 
     static Option<long> Extent(ReadOnlySpan<long> shape) {
         long elements = 1L;
@@ -90,11 +90,11 @@ public static class CustomOps {
     public static Fin<OrtValue> StringSlots(OrtAllocator allocator, long[] shape) =>
         Extent(shape)
             .ToFin(EgressRefusal.SlotsSymbolic.Fault())
-            .Bind(_ => Op.Of(name: "model.string-slots").Catch(() => Fin.Succ(OrtValue.CreateTensorWithEmptyStrings(allocator, shape))));
+            .Bind(_ => Try.lift(() => Fin.Succ(OrtValue.CreateTensorWithEmptyStrings(allocator, shape))).Run().Bind(static inner => inner));
 
     extension(OrtValue value) {
         public Fin<OpOutput> Egress(SlotShape declared) =>
-            Op.Of(name: "model.egress").Catch(() => EgressAdmitted(value))
+            Try.lift(() => EgressAdmitted(value)).Run().Bind(static inner => inner)
                 .Bind(output => Covers(declared, output)
                     ? Fin.Succ(output)
                     : Fin.Fail<OpOutput>(EgressRefusal.SlotUnadmitted.Fault()));
@@ -183,9 +183,9 @@ public static class CustomOps {
 
     static Validation<Error, Seq<OpOutput.MapKey>> Keyed(OrtValue keys, TensorElementType dtype) => dtype switch {
         TensorElementType.String => Success<Error, Seq<OpOutput.MapKey>>(toSeq(keys.GetStringTensorAsArray())
-            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.String(key))),
+            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.String())),
         TensorElementType.Int64 => Success<Error, Seq<OpOutput.MapKey>>(toSeq(keys.GetTensorDataAsSpan<long>().ToArray())
-            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.Int64(key))),
+            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.Int64())),
         TensorElementType unmodeled =>
             Fail<Error, Seq<OpOutput.MapKey>>(EgressRefusal.MapKeyUnmodelled.Fault()),
     };
@@ -207,7 +207,7 @@ public static class CustomOps {
     static Fin<Seq<(OpOutput.MapKey Key, OpOutput.MapValue Value)>> Zip(
         Seq<OpOutput.MapKey> keys, Seq<OpOutput.MapValue> values, int cardinality) =>
         keys.Count == cardinality && values.Count == cardinality && keys.Distinct().Count == cardinality
-            ? Fin.Succ(keys.Zip(values, static (key, value) => (key, value)))
+            ? Fin.Succ(keys.Zip(values, static (key, value) => (value)))
             : Fin.Fail<Seq<(OpOutput.MapKey Key, OpOutput.MapValue Value)>>(
                 EgressRefusal.CardinalityMismatched.Fault());
 }

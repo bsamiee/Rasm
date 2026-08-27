@@ -131,14 +131,14 @@ public static class HdfArchive {
             Fail: error => IO.pure(Fin<A>.Fail(error))));
 
     public static Fin<HdfHandle> Open(HdfSource source, HdfArchivePolicy policy) =>
-        Op.Of(name: "hdf5.open").Catch(() => {
+        Try.lift(() => {
             H5DatasetAccess access = new() { ChunkCache = new SimpleReadingChunkCache(policy.ReadCacheSlots, policy.ReadCacheBytes) };
             return Fin.Succ(source.Switch(
                 state: access,
                 payload: static (a, payload) => new HdfHandle(H5File.Open(View(payload.Bytes), leaveOpen: false), parallel: false, a),
                 path: static (a, path) => new HdfHandle(H5File.OpenRead(path.File), parallel: true, a),
                 mapped: static (a, mapped) => new HdfHandle(H5File.Open(mapped.View), parallel: true, a)));
-        });
+        }).Run().Bind(static inner => inner);
 
     public static Fin<Seq<HdfHandle>> Fan(HdfSource source, HdfArchivePolicy policy, int workers) =>
         !source.Parallel
@@ -349,7 +349,7 @@ public sealed class ArchiveSession : IDisposable {
             ? Fin.Fail<ArchiveSession>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Input)))
             : slots.Map(static slot => slot.Path).Distinct().Count != slots.Count
             ? Fin.Fail<ArchiveSession>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(slots.Map(static slot => slot.Path).Distinct().Count, slots.Count))))
-            : Op.Of(name: "hdf5.session-open").Catch(() => {
+            : Try.lift(() => {
                 H5File graph = new();
                 Dictionary<IArchiveSlot, object> datasets = new(ReferenceEqualityComparer.Instance);
                 Dictionary<IArchiveSlot, ChunkState> states = new(ReferenceEqualityComparer.Instance);
@@ -357,7 +357,7 @@ public sealed class ArchiveSession : IDisposable {
                 attributes.Iter(pair => graph.Attributes[pair.Key] = pair.Value.Boxed);
                 grouped.Iter(set => set.Values.Iter(pair => Group(graph, set.Path).Attributes[pair.Key] = pair.Value.Boxed));
                 return Fin.Succ(new ArchiveSession(new HdfWriter(graph.BeginWrite(sink, new H5WriteOptions())), datasets, states));
-            });
+            }).Run().Bind(static inner => inner);
 
     static void Seat(H5File graph, IArchiveSlot slot, HdfArchivePolicy policy, Dictionary<IArchiveSlot, object> datasets) {
         string[] cells = slot.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -436,7 +436,7 @@ public sealed class HdfWriter : IDisposable {
     internal ChunkCursor<T> Open<T>(H5Dataset<T[]> slot, ChunkState state) where T : unmanaged => new(this, slot, state);
 
     internal Fin<Unit> Write<T>(H5Dataset<T[]> slot, T[] chunk, HyperslabSelection file) where T : unmanaged =>
-        Op.Of(name: "hdf5.chunk-write").Catch(() => { _writer.Write(slot, chunk, fileSelection: file); return Fin.Succ(unit); });
+        Try.lift(() => { _writer.Write(slot, chunk, fileSelection: file); return Fin.Succ(unit); }).Run().Bind(static inner => inner);
 
     public void Dispose() => _writer.Dispose();
 }

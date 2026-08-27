@@ -159,7 +159,7 @@ public sealed class FederationPlan {
             ? Fin.Fail<FederationPlan>(new FederationFault.SourceUncapable(source.Identity))
             : wire is PlanWire.Json { Body.Length: > WireLimits.Plan.SizeLimit } oversize
             ? Fin.Fail<FederationPlan>(new FederationFault.InvalidPlan($"<plan-size:{oversize.Body.Length}>"))
-            : Op.Of().Catch(() => Fin.Succ(wire.Switch<(Plan Ir, AdbcQuery Wire, UInt128 Digest)>(
+            : Try.lift(() => Fin.Succ(wire.Switch<(Plan Ir, AdbcQuery Wire, UInt128 Digest)>(
                     protobuf: static p => {
                         WirePlan parsed = WirePlan.Parser.ParseFrom(CodedInputStream.CreateWithLimits(
                             p.Bytes.AsStream(), WireLimits.Plan.SizeLimit, WireLimits.Plan.RecursionLimit));
@@ -179,7 +179,7 @@ public sealed class FederationPlan {
                                 w.String(door.Text).Sorted(door.Tables, static table => (string)table.Table, StringComparer.Ordinal,
                                     static (table, x) => { x.String((string)table.Table).Rows(toSeq(table.Schema.Names), static (name, y) => { y.String(name); }); });
                             }));
-                    })))
+                    }))).Run().Bind(static inner => inner)
                 .MapFail(static error => error.Exception.Case is SubstraitParseException or InvalidProtocolBufferException or InvalidJsonException
                     ? (Error)new FederationFault.SubstraitParse(error)
                     : error)
@@ -318,7 +318,7 @@ public static class SetLowering {
         scope.Models is [var model]
             ? toSeq(literal.Values.Expressions)
                 .TraverseM(row => row.Fields is [StringLiteral key, ..]
-                    ? Op.Of().Catch(() => Fin.Succ(new SetKey(model, NodeId.Create(key.Value))))
+                    ? Try.lift(() => Fin.Succ(new SetKey(model, NodeId.Create(key.Value)))).Run().Bind(static inner => inner)
                     : Fin.Fail<SetKey>(new FederationFault.InvalidPlan("<virtual-key>")))
                 .As()
             : Fin.Fail<Seq<SetKey>>(new FederationFault.InvalidPlan("<literal-model-ambiguous>"));
@@ -395,10 +395,10 @@ public static class Federation {
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
     static IO<Fin<FederatedResult>> OneShot(FederationPlan plan, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
-        IO.lift<Fin<LoweringTarget>>(() => Op.Of().Catch(() =>
+        IO.lift<Fin<LoweringTarget>>(() => Try.lift(() =>
                 plan.Ir.Relations is [Relation root, ..]
                     ? new FederationLowering().Visit(root, ports.Scope)
-                    : Fin.Fail<LoweringTarget>(new FederationFault.InvalidPlan("<empty-plan>")))
+                    : Fin.Fail<LoweringTarget>(new FederationFault.InvalidPlan("<empty-plan>"))).Run().Bind(static inner => inner)
             .MapFail(static error => error.Exception.Case is NotImplementedException
                 ? (Error)new FederationFault.UnsupportedRelation(error)
                 : error))
@@ -412,11 +412,11 @@ public static class Federation {
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
     static IO<Fin<FederatedResult>> Materialized(FederationPlan plan, FederationMode.Materialized mode, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
-        IO.lift<Fin<Plan>>(() => Op.Of().Catch(() => Fin.Succ(SubstraitToDifferentialCompute.Convert(
+        IO.lift<Fin<Plan>>(() => Try.lift(() => Fin.Succ(SubstraitToDifferentialCompute.Convert(
                 plan.Ir,
                 addWriteRelation: true,
                 (string)mode.View,
-                [.. mode.Keys.Map(static key => (string)key)])))
+                [.. mode.Keys.Map(static key => (string)key)]))).Run().Bind(static inner => inner)
             .MapFail(static error => error.Exception.Case is SubstraitParseException
                 ? (Error)new FederationFault.SubstraitParse(error)
                 : error))
@@ -535,8 +535,8 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
 
     internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ProjectionContext frame, AtomHashMap<UInt128, FederatedResult> hold) {
         Fin<Seq<RecordBatch>> held =
-            from key in ContentHash.Admit(ticket.Ticket.Span, Op.Of()).MapFail(_ => (Error)new FederationFault.TicketMalformed(ticket.Ticket.Length))
-            from result in hold.Find(key).ToFin(new FederationFault.TicketUnknown(key))
+            from key in ContentHash.Admit(ticket.Ticket.Span).MapFail(_ => (Error)new FederationFault.TicketMalformed(ticket.Ticket.Length))
+            from result in hold.Find().ToFin(new FederationFault.TicketUnknown())
             from batches in Batches(result)
             select batches;
         foreach (RecordBatch batch in held.Match(Succ: static batches => batches, Fail: fault => throw FaultWire.Raise(fault, Context(frame)))) {

@@ -64,11 +64,6 @@ public abstract partial record AnimationFault : Fault {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 public static class AnimationOps {
-    public static readonly Op Color = Op.Of(name: "appui.animation.color");
-    public static readonly Op Rate = Op.Of(name: "appui.animation.rate");
-    public static readonly Op Range = Op.Of(name: "appui.animation.range");
-    public static readonly Op Board = Op.Of(name: "appui.animation.board");
-    public static readonly Op Walk = Op.Of(name: "appui.animation.walkthrough");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -103,7 +98,7 @@ public static class TrackInterp {
     public static Avalonia.Media.Color OkLab(Avalonia.Media.Color a, Avalonia.Media.Color b, double t) =>
         (from lo in PerceptualColor.OfRgb(red: a.R, green: a.G, blue: a.B, alpha: a.A, key: AnimationOps.Color)
          from hi in PerceptualColor.OfRgb(red: b.R, green: b.G, blue: b.B, alpha: b.A, key: AnimationOps.Color)
-         from at in AnimationOps.Color.AcceptValidated<UnitInterval>(candidate: Math.Clamp(t, 0d, 1d))
+         from at in FactoryBridge.Accept<UnitInterval>(candidate: Math.Clamp(t, 0d, 1d))
          select lo.Mix(other: hi, amount: at, path: BlendPath.Oklab).ToRgb())
         .Match(
             Succ: static rgb => Avalonia.Media.Color.FromArgb(rgb.Alpha, rgb.Red, rgb.Green, rgb.Blue),
@@ -195,7 +190,7 @@ public abstract partial record Track(string Key) {
         toSeq(frames.OrderBy(static frame => frame.At)) switch {
             var sorted => sorted.Head.Match(
                 Some: lead => Fin.Succ(new Keyframes<T>(lead, sorted.Tail.ToArr())),
-                None: () => Fin<Keyframes<T>>.Fail(new AnimationFault.EmptyTrack(key))),
+                None: () => Fin<Keyframes<T>>.Fail(new AnimationFault.EmptyTrack())),
         };
 
     public Keyframes<KeyMark> Marks => Switch(
@@ -250,7 +245,7 @@ public abstract partial record Track(string Key) {
         frames.All switch {
             var held => edit(Marked(frames)).Traverse(row => row.Ordinal >= 0 && row.Ordinal < held.Count
                 ? Fin.Succ(new Keyframe<T>(row.At, held[row.Ordinal].Value, row.Easing))
-                : Fin.Fail<Keyframe<T>>(new AnimationFault.KeyMissing(key, row.Ordinal))).As(),
+                : Fin.Fail<Keyframe<T>>(new AnimationFault.KeyMissing(row.Ordinal))).As(),
         };
 
     public static T Sample<T>(Keyframes<T> frames, Duration t, Func<T, T, double, T> blend) =>
@@ -341,7 +336,7 @@ public sealed record Playhead(
     public FrameWindow Window => Range.IfNone(() => FrameWindow.Create(first: 0L, last: FrameCount - 1L));
 
     public Fin<Playhead> Ranged(long first, long last) =>
-        AnimationOps.Range.AcceptValidated<FrameWindow>(
+        FactoryBridge.Accept<FrameWindow>(
                 FrameWindow.Validate(first: first, last: last, obj: out FrameWindow? window), window)
             .Bind(admitted => admitted.Last < FrameCount
                 ? Fin.Succ(this with { Range = Some(admitted), Index = admitted.Clamp(Index) })
@@ -380,9 +375,9 @@ public sealed record TimelineSample(
 
 public sealed record Timeline(string Key, Seq<Track> Tracks, PositiveMagnitude FrameRate, PlaybackMode Mode) {
     public static Fin<Timeline> Of(string key, Seq<Track> tracks, double frameRate, PlaybackMode mode) =>
-        AnimationOps.Rate.AcceptValidated<PositiveMagnitude>(candidate: frameRate)
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: frameRate)
             .MapFail(static _ => (Error)new AnimationFault.RateOutOfDomain(frameRate))
-            .Map(rate => new Timeline(key, tracks, rate, mode));
+            .Map(rate => new Timeline(tracks, rate, mode));
 
     public Duration Total => Tracks.Map(static track => track.Duration).Max(Duration.Zero);
 
@@ -397,11 +392,11 @@ public readonly record struct SchedulePhase(Instant At, ConstructionPhase Phase,
 public static class SchedulePlayback {
     public static Fin<Timeline> FromSchedule(string key, Seq<SchedulePhase> phases, double fps, PlaybackMode mode) =>
         phases.Head.Match(
-            None: () => Fin.Fail<Timeline>(new AnimationFault.EmptyTrack(key)),
+            None: () => Fin.Fail<Timeline>(new AnimationFault.EmptyTrack()),
             Some: head => Track.OfVisibility(
                     $"{key}/state",
                     phases.Map(phase => new Keyframe<Seq<VisibilityOverride>>(phase.At - head.At, phase.State, MotionToken.Standard)))
-                .Bind(state => Timeline.Of(key, Seq(state), fps, mode)));
+                .Bind(state => Timeline.Of(Seq(state), fps, mode)));
 }
 ```
 
@@ -500,12 +495,12 @@ public static class Walkthrough {
 
     static IO<VisualArtifact> Sequenced(
         VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec, Func<Duration, TimelineSample, SKImageInfo, Fin<SKImage>> frame) =>
-        from start in IO.lift(() => runtime.Line.Capture(AnimationOps.Walk))
+        from start in IO.lift(() => Error.New(AnimationOps.Walk.Message, AnimationOps.Walk))
         from totals in Advance(runtime, timeline, spec, frame, None)
         from artifact in totals.Fault.Match(
             Some: IO.fail<VisualArtifact>,
             None: () =>
-                from end in IO.lift(() => runtime.Line.Capture(AnimationOps.Walk))
+                from end in IO.lift(() => Error.New(AnimationOps.Walk.Message, AnimationOps.Walk))
                 from elapsed in IO.lift(() => runtime.Line.Elapsed(start, end, AnimationOps.Walk))
                 let sequence = new VisualArtifact(
                     Kind, "frame-sequence",
@@ -731,9 +726,9 @@ public sealed record LaneBoard(
     Seq<LaneRow> Lanes, KeySnap Snap, PositiveMagnitude SnapReachPx, PositiveMagnitude PixelsPerSecond, PositiveMagnitude RowHeightPx) {
     public static Fin<LaneBoard> Of(
         Timeline timeline, double snapReachPx = 8d, double pixelsPerSecond = 120d, double rowHeightPx = 22d) =>
-        (AnimationOps.Board.AcceptValidated<PositiveMagnitude>(candidate: snapReachPx).ToValidation(),
-         AnimationOps.Board.AcceptValidated<PositiveMagnitude>(candidate: pixelsPerSecond).ToValidation(),
-         AnimationOps.Board.AcceptValidated<PositiveMagnitude>(candidate: rowHeightPx).ToValidation())
+        (FactoryBridge.Accept<PositiveMagnitude>(candidate: snapReachPx).ToValidation(),
+         FactoryBridge.Accept<PositiveMagnitude>(candidate: pixelsPerSecond).ToValidation(),
+         FactoryBridge.Accept<PositiveMagnitude>(candidate: rowHeightPx).ToValidation())
         .Apply((reach, scale, height) => new LaneBoard(
             timeline.Tracks.Map(static (track, index) => LaneRow.Of(track.Key, index)),
             KeySnap.Frame, reach, scale, height))

@@ -218,13 +218,13 @@ public readonly record struct ConnectorRow(
     public MaterialId Substance => Gauge.Map(static gauge => gauge.Substance).IfNone(GalvanizedSheet);
     public Option<ConnectorPlate> Plate => Gauge.Map(gauge => Type.BuildPlate(this, gauge));
 
-    public Fin<LoadResistance> Allowable(Op key) =>
-        key.AcceptValidated<LoadResistance>(LoadResistance.Validate(
+    public Fin<LoadResistance> Allowable() =>
+        FactoryBridge.Accept<LoadResistance>(LoadResistance.Validate(
             type: Type, download: DownloadKn, uplift: UpliftKn,
             lateralF1: LateralF1Kn, lateralF2: LateralF2Kn, out LoadResistance built), built);
 
-    public Fin<ConnectorCapacity> GovernedCapacity(DurationRow duration, Op key) =>
-        Allowable(key).Map(allowable => new ConnectorCapacity(
+    public Fin<ConnectorCapacity> GovernedCapacity(DurationRow duration) =>
+        Allowable().Map(allowable => new ConnectorCapacity(
             Type,
             LoadDirection.Download.Published(allowable).Map(cell => cell.DesignKn(duration)),
             LoadDirection.Uplift.Published(allowable).Map(cell => cell.DesignKn(duration)),
@@ -345,35 +345,35 @@ public static class ConnectorSeed {
         substance: static row => row.Substance,
         source: static _ => EvidenceGrade.Catalogue,
         standard: static row => new ComponentStandard(row.Report.Body.Region, StandardJointThicknessMm: 0.0, row.Report.Body),
-        detail: Some<Func<ConnectorRow, SectionProfile, Op, Fin<PropertyBag>>>(static (row, _, _) => ConnectorDetail.Of(row)),
+        detail: Some<Func<ConnectorRow, SectionProfile, Fin<PropertyBag>>>(static (row, _, _) => ConnectorDetail.Of(row)),
         appearance: static _ => Connectors.Galvanized,
         ifc: static row => IfcBinding.Of("IfcDiscreteAccessory", row.Type.IfcAccessoryType));
 
-    static Validation<Error, Unit> Coherence(ConnectorRow row, Op key) =>
+    static Validation<Error, Unit> Coherence(ConnectorRow row) =>
         AdmissionSlots.Accumulate(Seq(
-            row.Allowable(key).ToValidation().Map(static _ => unit),
+            row.Allowable().ToValidation().Map(static _ => unit),
             AdmissionSlots.Gate(
                 double.IsFinite(row.CarriedMemberWidthMm) && row.CarriedMemberWidthMm > 0.0
                 && double.IsFinite(row.CarriedMemberDepthMm) && row.CarriedMemberDepthMm > 0.0,
-                new KernelFault.InvalidValue(nameof(ConnectorRow), "positive finite connector and carried-member envelopes", Some(key))),
+                new KernelFault.InvalidValue(nameof(ConnectorRow), "positive finite connector and carried-member envelopes")),
             AdmissionSlots.Gate(row.Fasteners > 0,
-                new KernelFault.OutOfRange(nameof(row.Fasteners), row.Fasteners, "positive", Some(key)))));
+                new KernelFault.OutOfRange(nameof(row.Fasteners), row.Fasteners, "positive"))));
 
-    static Fin<SectionProfile> ProfileOf(ConnectorRow row, Op key) =>
+    static Fin<SectionProfile> ProfileOf(ConnectorRow row) =>
         row.Plate.Match(
-            Some: plate => SectionProfile.Rectangle.Of(plate.FootprintMm, plate.Stock.SheetThicknessMm, key),
-            None: () => SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm, key));
+            Some: plate => SectionProfile.Rectangle.Of(plate.FootprintMm, plate.Stock.SheetThicknessMm),
+            None: () => SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm));
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, ConnectorRow>>> Table =
         SeedJoin.Of(Roster, static row => row.Designation);
 
-    public static Fin<ConnectorRow> Resolve(Component component, Op key) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+    public static Fin<ConnectorRow> Resolve(Component component) =>
+        SeedJoin.Resolve(Table, component.Designation);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in Resolve(component, key)
-        from governed in row.GovernedCapacity(placement.ConnectorDuration, key)
-        from capacity in SectionCapacity.Lift(new CapacityLift.Connector(component.Designation, governed), key)
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from row in Resolve(component)
+        from governed in row.GovernedCapacity(placement.ConnectorDuration)
+        from capacity in SectionCapacity.Lift(new CapacityLift.Connector(component.Designation, governed))
         select capacity;
 }
 ```

@@ -98,7 +98,6 @@ public sealed record ObservationLane(
     ObservationSink Sink,
     Atom<HashMap<string, ObservationRun>> Runs) {
 
-    private static readonly Op Key = Op.Of(name: nameof(ObservationLane));
 
     private const string QualityName = "sensorquality";
 

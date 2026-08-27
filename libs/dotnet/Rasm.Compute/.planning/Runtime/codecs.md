@@ -161,7 +161,7 @@ public static class DeltaCodec {
     }
 
     internal static Fin<(ReadOnlyMemory<byte> Bytes, double Step)> NormalizeParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) =>
-        Op.Of(name: "delta.parametric-layout").Catch(() => Fin.Succ(ParametricNet(bytes, policy)));
+        Try.lift(() => Fin.Succ(ParametricNet(bytes, policy))).Run().Bind(static inner => inner);
 
     static (ReadOnlyMemory<byte> Bytes, double Step) ParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) {
         ReadOnlySpan<byte> stream = bytes.Span;
@@ -232,7 +232,6 @@ public static class DeltaCodec {
 
     // --- [PAYLOAD_FRAMING]
     private const int ChunkHeader = 16 + (sizeof(int) * 2);
-    private static readonly Op SplitKey = Op.Of(name: "delta.payload-split");
 
     static ReadOnlyMemory<byte> Concatenate(Seq<DeltaChunk> added, ReadOnlyMemory<byte> targetBytes) {
         int total = added.Sum(static c => c.ByteLength + ChunkHeader);
@@ -434,7 +433,7 @@ public abstract partial record LakeDataset {
     static readonly LocalDatePattern MonthSegment = LocalDatePattern.CreateWithInvariantCulture("'m'uuuu'_'MM");
 
     internal static Validation<Error, Identifier> Admitted(string raw) =>
-        Op.Of(name: nameof(Admitted)).AcceptValidated<Identifier>(raw.Replace('-', '_')).ToValidation();
+        FactoryBridge.Accept<Identifier>(raw.Replace('-', '_')).ToValidation();
 }
 
 public readonly record struct LakeLanding(

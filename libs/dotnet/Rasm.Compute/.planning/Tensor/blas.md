@@ -247,7 +247,7 @@ public static class OperandGate {
     public static Fin<Cholesky<double>> Definite(Matrix<double> spd) =>
         spd.RowCount != spd.ColumnCount
             ? TensorReason.ShapeMismatch.Fail<Cholesky<double>>("non-square-spd", $"{spd.RowCount}x{spd.ColumnCount}")
-            : Op.Of(name: "tensor.cholesky").Catch(() => Fin.Succ(spd.Cholesky()))
+            : Try.lift(() => Fin.Succ(spd.Cholesky())).Run().Bind(static inner => inner)
                 .Bind(static chol => double.IsFinite(chol.DeterminantLn)
                     ? Fin.Succ(chol)
                     : TensorReason.StructuralRank.Fail<Cholesky<double>>("spd-degenerate-logdet"));
@@ -277,12 +277,12 @@ public static class AtenFloor {
     public static void Configure() => ignore(Load.Value);
 
     static Fin<Unit> Probe() =>
-        Op.Of(name: "tensor.aten-load").Catch(() => {
+        Try.lift(() => {
             torch.set_num_threads(Environment.ProcessorCount);
             torch.set_default_dtype(ScalarType.Float64);
             using Tensor witness = torch.from_array(new[] { 0.0 }, ScalarType.Float64);
             return Fin.Succ(witness.NumberOfElements);
-        })
+        }).Run().Bind(static inner => inner)
         .Bind(static elements => elements == 1L
             ? Fin.Succ(unit)
             : TensorReason.ShapeMismatch.Fail<Unit>("aten-witness", elements.ToString(CultureInfo.InvariantCulture)));
@@ -357,13 +357,13 @@ public static class AtenDense {
     public static Fin<HeldFactor> Held(Matrix<double> operand) {
         using DisposeScope owner = torch.NewDisposeScope();
         using IDisposable noGrad = torch.inference_mode(true);
-        return Op.Of(name: "tensor.aten-lu-factor").Catch(() => {
+        return Try.lift(() => {
                 using Tensor a = Lift(operand);
                 (Tensor lu, Tensor pivots) = torch.linalg.lu_factor(a, pivot: true);
                 owner.Detach(lu);
                 owner.Detach(pivots);
                 return Fin.Succ(new HeldFactor(lu, pivots));
-            });
+            }).Run().Bind(static inner => inner);
     }
 
     public static Fin<Matrix<double>> Contract(Option<string> spec, Seq<Matrix<double>> operands) {
@@ -679,7 +679,7 @@ public sealed record BasisArtifact(
             use: staged => IO.lift<Fin<A>>(() => staged.Bind(stream => Encode(stream, policy, artifact).Bind(read))));
 
     static Fin<RecyclableMemoryStream> Encode(RecyclableMemoryStream staged, HdfArchivePolicy policy, BasisArtifact artifact) =>
-        Op.Of(name: "hdf5.basis-write").Catch(() => {
+        Try.lift(() => {
                 H5DatasetCreation creation = policy.Creation();
                 H5Group group = new() {
                     ["basis"] = new H5Dataset<double[,]>(artifact.Basis.ToArray(), chunks: [(uint)artifact.Basis.RowCount, 1u], datasetCreation: creation),
@@ -696,10 +696,10 @@ public sealed record BasisArtifact(
                 HdfArchive.Begin(new H5File { [artifact.Kind.Key] = group }, staged, policy).Dispose();
                 staged.Position = 0;
                 return Fin.Succ(staged);
-            });
+            }).Run().Bind(static inner => inner);
 
     public static Fin<BasisArtifact> Read(HdfHandle archive, BasisKind kind, Option<int> rank) =>
-        Op.Of(name: "hdf5.basis-read").Catch(() => {
+        Try.lift(() => {
                 NativeGroup group = archive.Group(kind.Key);
                 NativeDataset basisSet = archive.Dataset($"{kind.Key}/basis");
                 int rows = checked((int)basisSet.Space.Dimensions[0]);
@@ -729,14 +729,14 @@ public sealed record BasisArtifact(
                     .Fold(Map<string, double>(), (held, attribute) => held.Add(attribute.Name, attribute.Read<double>()));
                 Option<string> family = group.AttributeExists("family") ? Some(group.Attribute("family").Read<string>()) : None;
                 return Fin.Succ(new BasisArtifact(kind, Matrix<double>.Build.DenseOfRowMajor(rows, keep, slab.Span.ToArray()), values, support, gauges, family));
-            });
+            }).Run().Bind(static inner => inner);
 }
 ```
 
 ## [06]-[PROVIDER_CLAIMS]
 
 - Owner: the claim-gated provider-rank selection, the provenance snapshot taken at solve construction, and the `ResidualStream` fourth-order residual-moment accumulator the numeric lane owns over the kernel `Rasm/Domain/stats#MOMENTS` `Stat<Scalar>` result.
-- Entry: `LinearProvider.Select` consumes the resolved `BenchmarkRow` claim — the winner of `ModelResultIndex.Claim(rows, fingerprint)` resolved at composition against the running fingerprint under the index-owned `RecencyHorizon` and clock — so the chosen provider RID is claim-gated, never a static default; `SolveProvenance.Snapshot(LinearProvider provider)` captures the SELECTED row beside the `LinearAlgebraControl.Provider` type name and the public `Control.MaxDegreeOfParallelism` degree; `ResidualStream.Push(residual, key)` folds each witnessed solve residual into the kernel `Stat<Scalar>` result, whose `Variance`/`Deviation` read the caller-stated kernel `MomentNormalizer` policy; the `Selection`-class evidence row names the chosen provider and the claim that gated it.
+- Entry: `LinearProvider.Select` consumes the resolved `BenchmarkRow` claim — the winner of `ModelResultIndex.Claim(rows, fingerprint)` resolved at composition against the running fingerprint under the index-owned `RecencyHorizon` and clock — so the chosen provider RID is claim-gated, never a static default; `SolveProvenance.Snapshot(LinearProvider provider)` captures the SELECTED row beside the `LinearAlgebraControl.Provider` type name and the public `Control.MaxDegreeOfParallelism` degree; `ResidualStream.Push(residual)` folds each witnessed solve residual into the kernel `Stat<Scalar>` result, whose `Variance`/`Deviation` read the caller-stated kernel `MomentNormalizer` policy; the `Selection`-class evidence row names the chosen provider and the claim that gated it.
 - Auto: a native BLAS provider rank wins only behind a fingerprint-matched `BenchmarkRow` resolved by the Persistence `ModelResultIndex.Claim` owner and threaded in, never re-resolved here; bitwise-versus-bounded equality derives from the provider/type/degree triple because the partition-tree topology varies run-to-run, so a recorded value is correct for one core count only and bit-comparison on another host falsely flags tampering. The residual stream accumulates online fourth-order moments through the kernel `Stat<Scalar>.Merge` pairwise join `ResidualStream.Combine` composes, which re-enters the kernel's validity oracle; the stream admits only finite values because one `NaN` permanently poisons every moment.
 - Result: `SolveOutcome<T>` is the per-solve result. `SolveProvenance` captures the selected provider and active MathNet provider state, while `ResidualStream` is the numeric lane's moment carrier.
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, Rasm.Persistence (project), LanguageExt.Core, BCL inbox
@@ -755,15 +755,15 @@ public readonly partial record struct SolveProvenance(string Selected, string Pr
 public sealed record ResidualStream(Option<Stat<Scalar>> Held) {
     public static readonly ResidualStream Empty = new(None);
 
-    public ResidualStream Push(double residual, Op key) =>
+    public ResidualStream Push(double residual) =>
         Held.Match(
-            None: () => new ResidualStream(Stat<Scalar>.Of(Seq((Scalar)residual), key).ToOption()),
-            Some: prior => new ResidualStream(Stat<Scalar>.Update(prior, (Scalar)residual, key: key).ToOption() | prior));
+            None: () => new ResidualStream(Stat<Scalar>.Of(Seq((Scalar)residual)).ToOption()),
+            Some: prior => new ResidualStream(Stat<Scalar>.Update(prior, (Scalar)residual).ToOption() | prior));
 
-    public ResidualStream Combine(ResidualStream other, Op key) =>
+    public ResidualStream Combine(ResidualStream other) =>
         (Held, other.Held) switch {
             ({ IsSome: true, Case: Stat<Scalar> a }, { IsSome: true, Case: Stat<Scalar> b }) =>
-                new ResidualStream(Stat<Scalar>.Merge(a, b, key).ToOption()),
+                new ResidualStream(Stat<Scalar>.Merge(a, b).ToOption()),
             ({ IsSome: true }, _) => this,
             _ => other,
         };

@@ -72,10 +72,10 @@ public sealed partial class De9imMask {
 
     public static readonly De9imMask Any = Create("*********");
 
-    public static Fin<De9imMask> Of(string pattern, Op key) =>
+    public static Fin<De9imMask> Of(string pattern) =>
         Validate(pattern, out De9imMask? mask) is null && mask is { } admitted
             ? Fin.Succ(admitted)
-            : Fin.Fail<De9imMask>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "de9im", "mask", pattern })));
+            : Fin.Fail<De9imMask>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "de9im", "mask", pattern })));
 }
 
 [SmartEnum<string>]
@@ -172,7 +172,7 @@ public abstract partial record LinearAnswer {
 
 - Owner: `GeoModel` the admitted feature set under one precision/SRID root carrying the built-once `STRtree` broad phase over ordinals, the per-feature `IndexedPointInAreaLocator` memo, the `Repairs` census, the `GeoPredicate`-parameterized `SpatialJoin`, the three-valued `Locate`, the `Nearest` k-NN witness and the cross-tree `Clash`, the `Along` linear-referencing answer, the `Assemble` linework assembly, the `Bound`/`Setback`/`Dissolve` overlays, the H3 `Bucket`/`Cover`/`Within` coarse index, the `ToTiles` MVT LOD pyramid, and the partitioning `Project`; `GeoRepair` one row of the admission census; `GeoClash` the cross-model closest-pair evidence; `GeoImport`/`GeoRefusal` the partitioning projection outcome.
 - Law: `Of` is the ONE admission and `GeoModel` is a `sealed class` precisely so the compiler mints no `with` — a copy aliases the built-once index against a different feature set and surfaces stale broad-phase candidates, which the `Graph/element#ELEMENT_GRAPH` frozen-snapshot guard forbids; features are repaired ONCE at admission, so every downstream read is a double-admission if it re-scans validity.
-- Entry: `GeoModel.Of(features)` repairs, indexes, and publishes the census; `SpatialJoin(probe, predicate, mask)` runs one fused broad-and-narrow pass; `Locate(point)` answers the three-valued `Location` per areal candidate; `Nearest(probe, k)` stamps each hit with its component-indexed witness; `Clash(other, budget)` answers the cross-tree closest pair inside a budget; `Along(corridor, probe, key)` answers chainage; `Assemble(assembly, key)` folds linework; `Bound(form, budget, key)`, `Setback(parcel, distance, policy)`, and `Dissolve()` compose the overlays; `Bucket(resolution, key)`, `Cover(probe, crs, resolution, ring, key, test, shards)`, and `Within(cover, resolution, key)` are the DGGS index; `ToTiles(route, policy, key)` folds the LOD pyramid; `Corridors(reference, schema, source, reach, key)` resolves the indexed alignment roster; `Project(reference, schema, source, reach, token, ctx)` partitions the import.
+- Entry: `GeoModel.Of(features)` repairs, indexes, and publishes the census; `SpatialJoin(probe, predicate, mask)` runs one fused broad-and-narrow pass; `Locate(point)` answers the three-valued `Location` per areal candidate; `Nearest(probe, k)` stamps each hit with its component-indexed witness; `Clash(other, budget)` answers the cross-tree closest pair inside a budget; `Along(corridor, probe)` answers chainage; `Assemble(assembly)` folds linework; `Bound(form, budget)`, `Setback(parcel, distance, policy)`, and `Dissolve()` compose the overlays; `Bucket(resolution)`, `Cover(probe, crs, resolution, ring, test, shards)`, and `Within(cover, resolution)` are the DGGS index; `ToTiles(route, policy)` folds the LOD pyramid; `Corridors(reference, schema, source, reach)` resolves the indexed alignment roster; `Project(reference, schema, source, reach, token, ctx)` partitions the import.
 - Auto: the LOD pass simplifies each zoom's areal members as ONE coverage AFTER `CoverageValidator` proves they form one — `CoverageSimplifier` reassigns a shared edge to both polygons, so it silently repairs a set it never verified and a gapped or overlapping parcel set simplifies into geometry neither source polygon had; `Cover` tests `IsTransMeridian` BEFORE any fill and admits its result through `GeoCover.Of`, so an antimeridian-crossing site refuses by name rather than mis-covering and an uncanonical cell list never reaches the binary-search membership test; `Project` resolves the corridor roster ONCE before the fold, so every stamped occurrence stations against the same reprojected centrelines.
 - Output: `Repairs` is the admission's own census — one typed `TopologyValidationError` per feature the fixer had to touch, so an import states which features arrived broken and why, and an empty census means every feature admitted valid rather than that nothing was checked; `Nearest` carries `GeometryLocation` witnesses whose component and segment index name WHICH part of a multi-part feature the gap sits on; `GeoImport` states the accepted count, the merged delta, and every refusal beside its own feature ordinal; the `STRtree` broad phase and the H3 `Bucket`/`Cover` bucket key the same server-side cell, so an in-process membership test and the `h3-pg` SQL prefilter agree.
 - Packages: `NetTopologySuite`, `pocketken.H3`, `Rasm.Element`, `Rasm`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`
@@ -266,9 +266,9 @@ public sealed class GeoModel {
     }
 
     // --- [LINEAR_REFERENCING]
-    public static Fin<LinearAnswer> Along(GeoFeature corridor, LinearProbe probe, Op key) =>
+    public static Fin<LinearAnswer> Along(GeoFeature corridor, LinearProbe probe) =>
         corridor.Geometry.Dimension != OgcDimension.Curve
-            ? Fin.Fail<LinearAnswer>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-linear-noncurve", corridor.Kind.ToString() })))
+            ? Fin.Fail<LinearAnswer>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-linear-noncurve", corridor.Kind.ToString() })))
             : Fin.Succ(probe.Switch(
                 state: corridor.Geometry,
                 locate: static (line, p) => {
@@ -284,8 +284,8 @@ public sealed class GeoModel {
                 edge:   static (line, p) => new LinearAnswer.Run(new OffsetCurve(line, p.Distance, OffsetParameters).GetCurve())));
 
     // --- [ASSEMBLY]
-    public Fin<GeoAssembled> Assemble(GeoAssembly assembly, Op key) =>
-        key.Catch(() => assembly.Switch(
+    public Fin<GeoAssembled> Assemble(GeoAssembly assembly) =>
+        Try.lift(() => assembly.Switch(
             state: Features,
             faces: static (features, _) => {
                 var polygonizer = new Polygonizer();
@@ -304,7 +304,7 @@ public sealed class GeoModel {
                 builder.SetSites(GeoServices.Factory.BuildGeometry(features.Map(static f => f.Geometry)));
                 c.Clip.Iter(extent => builder.ClipEnvelope = extent);
                 return new GeoAssembled.Cells(Carry(features, Parts(builder.GetDiagram(GeoServices.Factory))));
-            }));
+            })).Run().Bind(static inner => inner);
 
     static Seq<Geometry> Merge(Seq<GeoFeature> features) {
         var merger = new LineMerger();
@@ -326,10 +326,10 @@ public sealed class GeoModel {
             features.Head.Bind(static f => f.SourceCrs)));
 
     // --- [OVERLAY]
-    public Fin<Geometry> Bound(GeoBound form, HullBudget budget, Op key) =>
+    public Fin<Geometry> Bound(GeoBound form, HullBudget budget) =>
         form.Scale == budget.Scale
             ? Fin.Succ(form.Of(Dissolve(), GeoServices.Factory.BuildGeometry(Features.Map(static f => f.Geometry)), budget.Value))
-            : Fin.Fail<Geometry>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-bound-budget", form.Key, form.Scale.Key, budget.Scale.Key })));
+            : Fin.Fail<Geometry>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-bound-budget", form.Key, form.Scale.Key, budget.Scale.Key })));
 
     public static readonly BufferParameters OffsetParameters = new() {
         JoinStyle = JoinStyle.Mitre,
@@ -346,26 +346,26 @@ public sealed class GeoModel {
             : OverlayNGRobust.Union(Features.Map(static f => f.Geometry).ToArray());
 
     // --- [DGGS]
-    public Fin<HashMap<ulong, Seq<GeoFeature>>> Bucket(int resolution, Op key) =>
-        Features.Traverse(f => f.Cell(resolution, key).Map(cell => (Cell: cell, Feature: f))).As()
+    public Fin<HashMap<ulong, Seq<GeoFeature>>> Bucket(int resolution) =>
+        Features.Traverse(f => f.Cell(resolution).Map(cell => (Cell: cell, Feature: f))).As()
             .Map(static pairs => pairs.Fold(
                 HashMap<ulong, Seq<GeoFeature>>(),
                 static (acc, pair) => pair.Cell.Match(
                     Some: id => acc.AddOrUpdate(id, Some: s => s.Add(pair.Feature), None: () => Seq(pair.Feature)),
                     None: () => acc)));
 
-    public Fin<Seq<GeoFeature>> Within(GeoCover cover, int resolution, Op key) =>
-        Bucket(resolution, key).Map(buckets => toSeq(buckets)
+    public Fin<Seq<GeoFeature>> Within(GeoCover cover, int resolution) =>
+        Bucket(resolution).Map(buckets => toSeq(buckets)
             .Filter(entry => cover.Contains(entry.Key))
             .Bind(static entry => entry.Value));
 
     public static Fin<GeoCover> Cover(
-        Geometry probe, Option<ProjectedCrs> crs, int resolution, int ring, Op key,
+        Geometry probe, Option<ProjectedCrs> crs, int resolution, int ring,
         VertexTestMode test = VertexTestMode.Any, Option<int> shards = default) =>
         GeoServices.Wgs84
-            .Bind(frame => new GeoFeature(probe, new AttributesTable(), crs).Reproject(frame, key))
+            .Bind(frame => new GeoFeature(probe, new AttributesTable(), crs).Reproject(frame))
             .Bind(wgs => wgs.Geometry.IsTransMeridian()
-                ? Fin.Fail<GeoCover>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-cover-rejected", "transmeridian", wgs.Bounds.MinX.ToString("F6", CultureInfo.InvariantCulture), wgs.Bounds.MaxX.ToString("F6", CultureInfo.InvariantCulture) })))
+                ? Fin.Fail<GeoCover>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-cover-rejected", "transmeridian", wgs.Bounds.MinX.ToString("F6", CultureInfo.InvariantCulture), wgs.Bounds.MaxX.ToString("F6", CultureInfo.InvariantCulture) })))
                 : Fin.Succ(wgs))
             .Bind(wgs => {
                 var fill = toSeq(shards.Match(
@@ -374,16 +374,16 @@ public sealed class GeoModel {
                 var expanded = ring > 0
                     ? fill.Bind(cell => cell.GridDiskDistances(ring).AsIterable().Map(static r => r.Index).ToSeq())
                     : fill;
-                return GeoCover.Of(expanded.Distinct().CanonicalizeCells(), key);
+                return GeoCover.Of(expanded.Distinct().CanonicalizeCells());
             });
 
     // --- [TILE_FOLD]
-    public Fin<VectorTileTree> ToTiles(Func<GeoFeature, Seq<(int Zoom, string Layer)>> route, TilePolicy policy, Op key) =>
+    public Fin<VectorTileTree> ToTiles(Func<GeoFeature, Seq<(int Zoom, string Layer)>> route, TilePolicy policy) =>
         GeoServices.Wgs84
-            .Bind(frame => Features.Traverse(f => f.Reproject(frame, key)).As())
+            .Bind(frame => Features.Traverse(f => f.Reproject(frame)).As())
             .Bind(wgs => {
                 var zooms = wgs.Bind(f => route(f).Map(static slot => slot.Zoom)).Distinct();
-                return zooms.Traverse(zoom => Simplified(wgs, policy.ToleranceAt(zoom), key).Map(placed => (zoom, placed))).As()
+                return zooms.Traverse(zoom => Simplified(wgs, policy.ToleranceAt(zoom)).Map(placed => (zoom, placed))).As()
                     .Map(byZoom => {
                         var lod = byZoom.ToMap();
                         var tree = new VectorTileTree();
@@ -393,7 +393,7 @@ public sealed class GeoModel {
                     });
             });
 
-    static Fin<Seq<Geometry>> Simplified(Seq<GeoFeature> features, double tolerance, Op key) {
+    static Fin<Seq<Geometry>> Simplified(Seq<GeoFeature> features, double tolerance) {
         var areal = features.Map(static (f, i) => (Ordinal: i, f.Geometry))
             .Filter(static row => row.Geometry.Dimension == OgcDimension.Surface);
         if (areal.IsEmpty) {
@@ -405,7 +405,7 @@ public sealed class GeoModel {
                 .Filter(static row => row.Edges.IsSome)
                 .Head
                 .Match(
-                    Some: row => Fin.Fail<Seq<Geometry>>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-coverage-unmatched", areal[row.Index].Ordinal.ToString(CultureInfo.InvariantCulture), tolerance.ToString("G17", CultureInfo.InvariantCulture) }))),
+                    Some: row => Fin.Fail<Seq<Geometry>>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-coverage-unmatched", areal[row.Index].Ordinal.ToString(CultureInfo.InvariantCulture), tolerance.ToString("G17", CultureInfo.InvariantCulture) }))),
                     None: () => {
                         Geometry[] coverage = CoverageSimplifier.SimplifyInner(patch, tolerance);
                         var placed = areal.Map((row, ordinal) => (row.Ordinal, Geometry: coverage[ordinal])).ToMap();
@@ -415,13 +415,13 @@ public sealed class GeoModel {
     }
 
     // --- [PROJECTION]
-    public Fin<GeoCorridors> Corridors(GeoReference reference, GeoSchema schema, Option<GeoVectorSource> source, double reach, Op key) =>
+    public Fin<GeoCorridors> Corridors(GeoReference reference, GeoSchema schema, Option<GeoVectorSource> source, double reach) =>
         Features
             .Filter(static f => f.Geometry.Dimension == OgcDimension.Curve)
-            .Filter(f => GeoClassifier.Classify(f, schema, source, key).ToOption()
+            .Filter(f => GeoClassifier.Classify(f, schema, source).ToOption()
                 .Exists(row => GeoClassifier.CorridorClasses.Contains(row.Class)))
             .Choose(static f => f.Text("id").Map(id => (Id: id, Feature: f)))
-            .Traverse(pair => pair.Feature.Reproject(reference, key).Map(line => new GeoCorridor(pair.Id, line))).As()
+            .Traverse(pair => pair.Feature.Reproject(reference).Map(line => new GeoCorridor(pair.Id, line))).As()
             .Map(corridors => GeoCorridors.Of(corridors, reach));
 
     public Fin<GeoImport> Project(
@@ -441,7 +441,7 @@ public sealed class GeoModel {
 ## [04]-[TILE_PYRAMID]
 
 - Owner: `TilePolicy` the ONE MVT tile-grid value the pyramid derives from; `GeoTiles` the MVT byte codec and the TileJSON catalog.
-- Entry: `TilePolicy.For(schema)` derives the policy from the source schema and `ToleranceAt(zoom)` answers one grid cell in degrees at that zoom; `GeoTiles.Encode(tree, policy, key)` streams every populated tile, `EncodeWorldTile(features, key)` emits the single anchored z0 tile, `Decode(bytes, x, y, zoom, key)` re-anchors stored bytes, and `Catalog(tree, name, urlTemplate, layers)` emits the TileJSON descriptor.
+- Entry: `TilePolicy.For(schema)` derives the policy from the source schema and `ToleranceAt(zoom)` answers one grid cell in degrees at that zoom; `GeoTiles.Encode(tree, policy)` streams every populated tile, `EncodeWorldTile(features)` emits the single anchored z0 tile, `Decode(bytes, x, y, zoom)` re-anchors stored bytes, and `Catalog(tree, name, urlTemplate, layers)` emits the TileJSON descriptor.
 - Auto: `Extent` is the tile-local integer grid the writer quantizes onto AND the divisor the per-zoom simplify tolerance reads — they are the SAME quantity, and carrying it in two places meant a caller who narrowed the grid for a high-precision layer got a tolerance computed against the other one; `IdAttributeName` is READ off `GeoSchema`, never spelled here, so a tile the AppUi Mapsui overlay picks joins back to a graph node with no second attribute lookup.
 - Output: the `Encode` byte rows keyed by tile id are the `{z}/{x}/{y}.mvt` delivery an object store serves, and `Catalog` is the TileJSON descriptor a MapLibre/Mapsui renderer discovers the pyramid through — its bounds and zoom span read off `GetExtents`, never hand-authored beside the pyramid.
 - Packages: `NetTopologySuite.IO.VectorTiles`, `NetTopologySuite.IO.VectorTiles.Mapbox`, `System.Text.Json`, `LanguageExt.Core`
@@ -460,19 +460,19 @@ public sealed record TilePolicy(uint Extent, string IdAttributeName) {
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class GeoTiles {
-    public static Fin<Seq<(ulong TileId, byte[] Bytes)>> Encode(VectorTileTree tree, TilePolicy policy, Op key) =>
-        key.Catch(() => toSeq(tree.GetTileIds()
+    public static Fin<Seq<(ulong TileId, byte[] Bytes)>> Encode(VectorTileTree tree, TilePolicy policy) =>
+        Try.lift(() => toSeq(tree.GetTileIds()
             .Select(id => {
                 using var buffer = new MemoryStream();
                 tree[id].Write(buffer, MapboxTileWriter.DefaultMinLinealExtent, MapboxTileWriter.DefaultMinPolygonalExtent,
                     policy.Extent, policy.IdAttributeName);
                 return (TileId: id, Bytes: buffer.ToArray());
-            })));
+            }))).Run().Bind(static inner => inner);
 
-    internal static Fin<byte[]> EncodeWorldTile(Seq<GeoFeature> features, Op key) =>
+    internal static Fin<byte[]> EncodeWorldTile(Seq<GeoFeature> features) =>
         GeoServices.Wgs84
-            .Bind(frame => features.Traverse(f => f.Reproject(frame, key)).As())
-            .Bind(wgs => key.Catch(() => {
+            .Bind(frame => features.Traverse(f => f.Reproject(frame)).As())
+            .Bind(wgs => Try.lift(() => {
                 var tile = new VectorTile { TileId = new NetTopologySuite.IO.VectorTiles.Tiles.Tile(0, 0, 0).Id };
                 var layer = new Layer { Name = "features" };
                 wgs.Iter(f => layer.Features.Add(new Feature(f.Geometry, f.Attributes)));
@@ -482,10 +482,10 @@ public static class GeoTiles {
                 tile.Write(buffer, MapboxTileWriter.DefaultMinLinealExtent, MapboxTileWriter.DefaultMinPolygonalExtent,
                     policy.Extent, policy.IdAttributeName);
                 return buffer.ToArray();
-            }));
+            }).Run().Bind(static inner => inner));
 
-    public static Fin<Seq<(string Layer, GeoFeature Feature)>> Decode(ReadOnlyMemory<byte> bytes, int x, int y, int zoom, Op key) =>
-        key.Catch(() => {
+    public static Fin<Seq<(string Layer, GeoFeature Feature)>> Decode(ReadOnlyMemory<byte> bytes, int x, int y, int zoom) =>
+        Try.lift(() => {
             using var stream = new MemoryStream(bytes.ToArray());
             VectorTile tile = new MapboxTileReader(GeoServices.Factory)
                 .Read(stream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, zoom), TilePolicy.Canonical.IdAttributeName);
@@ -493,7 +493,7 @@ public static class GeoTiles {
                 .Bind(layer => layer.Features.AsIterable()
                     .Map(f => (layer.Name, new GeoFeature(f.Geometry, f.Attributes, Option<ProjectedCrs>.None))))
                 .ToSeq();
-        });
+        }).Run().Bind(static inner => inner);
 
     public static string Catalog(VectorTileTree tree, string name, string urlTemplate, Seq<VectorLayer> layers) {
         tree.GetExtents(out double[] bounds, out int minZoom, out int maxZoom);

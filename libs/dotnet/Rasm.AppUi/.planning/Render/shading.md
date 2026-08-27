@@ -92,7 +92,7 @@ public abstract partial record ShadeSupply {
         values.IsEmpty ? Nothing : new Run(values.Map(static value => (float)value).ToArr());
 
     public static ShadeSupply Of(UInt128 key, Seq<TexturePlane> levels, SamplerState sampler, Option<MipPolicy> mip, int lane) =>
-        levels.IsEmpty ? Nothing : new Sampled(new PlaneUpload(key, levels, sampler, mip), lane);
+        levels.IsEmpty ? Nothing : new Sampled(new PlaneUpload(levels, sampler, mip), lane);
 }
 
 [SmartEnum<string>]
@@ -123,7 +123,7 @@ public sealed partial class EnvironmentRead {
     public bool Nearest { get; }
 
     private EnvironmentRead(string key, ShaderUniformKind kind, int lanes, Func<EnvironmentLight, ShadeSupply> supply)
-        : this(key, kind, lanes, nearest: false, supply) {
+        : this(kind, lanes, nearest: false, supply) {
     }
 
     [UseDelegateFromConstructor]
@@ -258,8 +258,8 @@ public sealed record ShaderSource(string Key, string Revision, string Sksl, stri
             $"{key}: colliding wgpu (group, slot)"),
         ShaderFault.Gate(bindings.Count(static row => row.Source is ShadeSource.Lobes) <= 1,
             $"{key}: a second lobe-weight slot"),
-        bindings.Traverse(row => Admit(key, row)).As())
-        .Apply((_, _, _, _, _) => new ShaderSource(key, revision, sksl, wgsl, bindings)).As().ToFin();
+        bindings.Traverse(row => Admit(row)).As())
+        .Apply((_, _, _, _, _) => new ShaderSource(revision, sksl, wgsl, bindings)).As().ToFin();
 
     static Validation<Error, Unit> Admit(string key, ShaderBinding row) =>
         RowGates.Traverse(gate => gate(row).Match(
@@ -323,7 +323,6 @@ public sealed record ShaderAsset(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ShaderAssetCache : IDisposable {
-    static readonly Op Shading = Op.Of(name: "appui.shader.cache");
 
     const long ProgramCeiling = 1L;
 
@@ -572,7 +571,7 @@ public readonly record struct ShadeUniforms(HashMap<string, BoundSlot> Slots, Ha
                 None: static () => Fin.Succ(ShadeSupply.Nothing)));
 
     static Fin<ShadeSupply> Seat(ShadeSupply.Sampled ladder, EnvironmentLight light, Func<TextureChannel, ShadeVec4> fallback) =>
-        Shading.AcceptValidated<UnitInterval>(fallback(TextureChannel.SpecularRoughness).X)
+        FactoryBridge.Accept<UnitInterval>(fallback(TextureChannel.SpecularRoughness).X)
             .Map(roughness => ladder.Upload.Levels[Math.Clamp((int)Math.Round(light.SpecularLevel(roughness)), 0, ladder.Upload.Levels.Count - 1)])
             .Map(level => ShadeSupply.Of(level.Key, Seq(level),
                 new SamplerState(ladder.Upload.Sampler.AddressU, ladder.Upload.Sampler.AddressV, FilterMode.Bilinear, ladder.Upload.Sampler.Frame),
@@ -595,8 +594,6 @@ public readonly record struct ShadeUniforms(HashMap<string, BoundSlot> Slots, Ha
         set.Tiled.Value().Exists(static proof => proof.Accepted) && set.Udim.IsEmpty ? AddressMode.Repeat : AddressMode.Clamp;
 
     static Seq<double> Take(ShadeVec4 texel, int components) => Seq(texel.X, texel.Y, texel.Z, texel.W).Take(components);
-
-    static readonly Op Shading = Op.Of(name: "appui.shader.shade");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -624,8 +621,6 @@ public abstract partial record BoundShade {
         surface.Canvas.DrawPaint(paint);
         return Fin.Succ(unit);
     }
-
-    static readonly Op Mounting = Op.Of(name: "appui.shader.mount");
 }
 
 public readonly record struct ShadePlan(
@@ -703,8 +698,6 @@ public static class ShaderShade {
                         .Map(_ => bind.Row.Swizzle.Iter(name => ignore(bind.Builder.Uniforms[name] = bind.Lane))),
                 wgpuTexture: static (bind, _) => Fin.Fail<Unit>(new ShaderFault.PlaneUnbindable(
                     $"{bind.Row.Name}: a wgpu texture reached the Ganesh bind"))));
-
-    static readonly Op Binding = Op.Of(name: "appui.shader.bind");
 }
 ```
 

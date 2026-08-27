@@ -10,7 +10,7 @@ THE KUBELKA-MUNK PIGMENT/COAT-STACK FINISH ENGINE. One `Finish.Resolve` static f
 
 - Owner: `Finish` static resolve fold; `FinishKind` `[SmartEnum<string>]` the finish-system discriminant whose fourteen rows ARE the finish space; `FinishHandling` the config-as-value behavior row (hiding, gloss, transmission, transmission roughness, coat bias, IOR, metalness, anisotropy and its grain rotation, sheen, specular tint, subsurface weight, the scatter radius, the substrate `BlendMode`, the `DeltaE` drift policy, the hue-constancy tolerance, the `ThinFilm` seed); `FinishMix` the `Pigment[]`/`double[]` Kubelka-Munk weight vector; `FinishLayer` `[Union]` the primer/base/glaze/topcoat ordered coat stack; `FinishPigment` `[SmartEnum<string>]` the closed Golden pigment vocabulary, one row per shipped `ArtistPaint` handle carrying its `Pigment` reflectance value and exposing the `MeasurementSpace` the mix runs under; `PigmentCapture` the two-background measured-pigment admission owning `Extract`, the per-wavelength `K`/`S` separation that mints a custom `Pigment` the same mix consumes.
 - Cases: kind {`Paint` (opaque dispersion wall paint, mid-rough), `Enamel` (hard alkyd/oil gloss trim film), `Lacquer` (thin fast-dry film reading as a built coat, `ClearcoatBias` 0.5), `Coating` (a thin tinted topcoat over a substrate, bias 0.6), `Varnish` (translucent amber wood film, `Multiply` over the substrate, coat-forward), `Stain` (penetrating translucent, `Multiply` over the substrate, `Transmission` 0.5 at `TransmissionRoughness` 0.35 — the in-film scatter), `Plaster` (opaque high-scattering near-Lambertian at `Subsurface` 0.35 over a millimetre-scale mineral scatter radius; a sealed/polished plaster takes its coat from the stack, never a hardcoded zero), `Limewash` (breathable semi-hiding mineral coat, ultra-matte, `Subsurface` 0.25 at the thinner sub-millimetre radius its single application leaves), `Powdercoat` (electrostatic polyester on architectural metal, satin, IOR 1.55), `Suede` (flocked suede-effect coat, `Sheen` 0.80 over `Subsurface` 0.20 with the forward-reddening fibre radius), `Metallic` (metal-flake basecoat, `Metalness` 0.85, always clearcoated), `Brushed` (directional brushed-metal coat — brushed stainless/aluminum trim — `Metalness` 1.0, `Anisotropy` 0.65 along a grain the row's own `AnisotropyRotation` states rather than one the lowering invents), `Pearlescent` (TiO2-coated mica interference basecoat, `Film` 380 nm at IOR 2.0 under a clearcoat), `Anodized` (electrolytic Al2O3 oxide on aluminum, `Metalness` 1.0, `Film` 220 nm at IOR 1.65)} — the closed finish-system family; a finish is a `FinishKind` row carrying its `FinishHandling` columns, never a finish subtype, an `IsOpaque` bool ladder, or a per-kind `Seed` arm. layer {`Primer` (hiding undercoat, `Normal` composite), `Base` (pigment-bearing color coat, `Normal` composite), `Glaze` (translucent decorative effect coat compositing by its OWN named `BlendMode`), `Topcoat` (protective clear/tinted coat — its tint `Multiply`-filters the composite, its `ThinFilm` rides to the row `Film` column, its weight/roughness seed the `Clearcoat` columns)} — the ordered coat stack substrate-to-outermost (each layer composites OVER the color below it, the topcoat last), a `FinishLayer` `[Union]` case, never a per-coat type.
-- Entry: `public static Fin<(MaterialParameters Row, CaptureProvenance Provenance)> Resolve(FinishKind kind, FinishMix mix, Seq<FinishLayer> stack, Op key, Option<MaterialParameters> substrate = default)` — the resolve fold admitting the coat stack ONCE (`AdmitStack` faults any non-finite or out-of-unit layer weight/roughness, so `Compose` never re-clamps), mixing the `FinishMix` through the admitted Kubelka-Munk constructor under the `ArtistPaint` sRGB/D50 `Configuration`, rebasing to ACEScg and grounding through the `surface#SPECTRAL_UPSAMPLE` `SceneLinear` owner, folding the coat stack over the mix through `Unicolour.Blend`, gating the composite through the imported `graph#MATERIAL_LIBRARY` ladder — the two row tolerance columns admitting ONCE through the kernel `Tolerance.Of(ToleranceLane.Spectral, …)` carrier before either gate reads one, then `SpectralAdmit` then `PointerAdmit` then `NearestChecker(composite, drift, row.Drift, key)` under the KIND'S OWN `DeltaE` metric (`Ciede2000` for pigment paints, `Cam16` for effect finishes, `Hyab` for the large-difference stain/varnish composites) then `HueConstant(composite, mix, hue, key)` witnessing the composite against the mix's Ebner-Fairchild constant-hue locus so a tint that walks off-hue fails rather than admitting a shifted color — seeding the row through the ONE `FinishKind.Seed` derivation over the handling columns (the substrate ground `substrate.Map(s => s.BaseColor).IfNone(PrimedGround)` so a stain over `wood.oak` composites over the REAL row it coats), landing the merged interference film (topcoat film wins over the kind seed) on the row's `Film` column, and re-admitting through `MaterialParameters.Of`; `Fin<T>` aborts on an empty or weight-mismatched mix (`MaterialFault.Parameter`), an out-of-unit coat weight or roughness (`MaterialFault.Parameter`, the stack admission), a Pointer-unreproducible reflectance, a ColorChecker drift beyond the row tolerance, or a hue-shifted tint (`MaterialFault.Gamut`, the case reused); arity is one — a multi-layer finish folds the `FinishLayer` `Seq` substrate-to-outermost (the left fold composites each successive layer OVER the accumulated color, so the topcoat lands last), never a per-layer method.
+- Entry: `public static Fin<(MaterialParameters Row, CaptureProvenance Provenance)> Resolve(FinishKind kind, FinishMix mix, Seq<FinishLayer> stack, Option<MaterialParameters> substrate = default)` — the resolve fold admitting the coat stack ONCE (`AdmitStack` faults any non-finite or out-of-unit layer weight/roughness, so `Compose` never re-clamps), mixing the `FinishMix` through the admitted Kubelka-Munk constructor under the `ArtistPaint` sRGB/D50 `Configuration`, rebasing to ACEScg and grounding through the `surface#SPECTRAL_UPSAMPLE` `SceneLinear` owner, folding the coat stack over the mix through `Unicolour.Blend`, gating the composite through the imported `graph#MATERIAL_LIBRARY` ladder — the two row tolerance columns admitting ONCE through the kernel `Tolerance.Of(ToleranceLane.Spectral, …)` carrier before either gate reads one, then `SpectralAdmit` then `PointerAdmit` then `NearestChecker(composite, drift, row.Drift)` under the KIND'S OWN `DeltaE` metric (`Ciede2000` for pigment paints, `Cam16` for effect finishes, `Hyab` for the large-difference stain/varnish composites) then `HueConstant(composite, mix, hue)` witnessing the composite against the mix's Ebner-Fairchild constant-hue locus so a tint that walks off-hue fails rather than admitting a shifted color — seeding the row through the ONE `FinishKind.Seed` derivation over the handling columns (the substrate ground `substrate.Map(s => s.BaseColor).IfNone(PrimedGround)` so a stain over `wood.oak` composites over the REAL row it coats), landing the merged interference film (topcoat film wins over the kind seed) on the row's `Film` column, and re-admitting through `MaterialParameters.Of`; `Fin<T>` aborts on an empty or weight-mismatched mix (`MaterialFault.Parameter`), an out-of-unit coat weight or roughness (`MaterialFault.Parameter`, the stack admission), a Pointer-unreproducible reflectance, a ColorChecker drift beyond the row tolerance, or a hue-shifted tint (`MaterialFault.Gamut`, the case reused); arity is one — a multi-layer finish folds the `FinishLayer` `Seq` substrate-to-outermost (the left fold composites each successive layer OVER the accumulated color, so the topcoat lands last), never a per-layer method.
 - Packages: Wacton.Unicolour (composed — `new Unicolour(Configuration, Pigment[], double[])` Kubelka-Munk weighted pigment mix under the pigments' own measurement space, `new Pigment(...)` single/two-constant construction, `Configuration`, `ConvertToConfiguration` for the scene-space rebase, `Blend(backdrop, BlendMode)` the W3C separable/non-separable compositing algebra with coverage riding the source alpha, `Mix` the scene-linear lerp, the `DeltaE` metric selector the drift policy names, the `.RgbLinear` accessor), Wacton.Unicolour.Datasets (composed — the `ArtistPaint` Golden 19-pigment `Pigment` reflectance set, `ArtistPaint.All`, the per-pigment `Pigment.Name`, and the `ArtistPaint.Configuration` sRGB/D50 working space; the `EbnerFairchild` constant-hue loci and `Macbeth` patches consumed through the imported `graph#MATERIAL_LIBRARY` gates), `surface#SPECTRAL_UPSAMPLE` (composed — `SpectralUpsample.SceneLinear` the ONE grounding owner over the `graph#MATERIAL_GRAPH` `PortValue.SceneLinear` Acescg working space), `graph#MATERIAL_LIBRARY` (composed — `MaterialParameters` + `ThinFilm` + the four-gate admission ladder), Rasm (project — `Op`, and the kernel `Domain/context#TOLERANCE_LANES` `Tolerance`/`ToleranceLane.Spectral` pair the two drift columns admit through, so no bare tolerance double reaches a gate), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new finish system is one `FinishKind` row — fourteen rows already span opaque paints, solvent films, over-substrate translucents, mineral coats, industrial polymer, sheened decorative, and effect/metal finishes (metallic, brushed, pearlescent, anodized); the row IS the behavior, `Seed` never grows an arm. A new coat role is one `FinishLayer` `[Union]` case naming its composite; a new blend behavior is a `BlendMode` member already owned by Unicolour, selected as a `Glaze` row value; a new drift policy is a `DeltaE` member on the kind row. A new pigment is one `FinishPigment` row binding an `ArtistPaint` handle or its own `new Pigment` measured-reflectance construction — the Kubelka-Munk mix is the closed admitted constructor, a pigment is a reflectance value not a mixing class, and a compile-time row is what makes an unregistered pigment unspellable rather than a runtime refusal; a measured pigment reflectance curve admitted from a spectrophotometer lands as one `new Pigment(start, interval, k, s, k1, k2, name)` two-constant construction — or, for an opaque single-scatterer like a `Plaster` lime/gypsum coat, one `new Pigment(start, interval, r, name)` single-constant construction — the SAME mix consumes. The finish output aligns to the OpenPBR `base`/`specular`/`coat`/`fuzz`/`thin_film` groups through the row columns the `surface#OPENPBR_SLAB` lowering reads and the `interchange#MATERIAL_WIRE` projects.
 - Law: the Kubelka-Munk inverse carries NO per-loop exemption. `PigmentCapture.Extract` walks its wavelength grid as a `Traverse` over `Enumerable.Range`, so the per-band solve is an expression chain that accumulates its own refusal with the wavelength named — the page declares ZERO `for`, `foreach`, and `if` statements, and its only branching is the pattern switch and the `guard` ladder the chain already owns.
@@ -103,23 +103,23 @@ public readonly record struct FinishHandling(
 }
 
 public readonly record struct FinishMix(Seq<FinishPigment> Pigments, Seq<double> Weights) {
-    public static Fin<FinishMix> Of(Seq<FinishPigment> pigments, Seq<double> weights, Op key) =>
+    public static Fin<FinishMix> Of(Seq<FinishPigment> pigments, Seq<double> weights) =>
         pigments.IsEmpty
-            ? new MaterialFault.Parameter(key, "<finish-mix-empty>")
+            ? new MaterialFault.Parameter("<finish-mix-empty>")
             : pigments.Count != weights.Count
-                ? new MaterialFault.Parameter(key, $"<finish-mix-arity:{pigments.Count}!={weights.Count}>")
+                ? new MaterialFault.Parameter($"<finish-mix-arity:{pigments.Count}!={weights.Count}>")
                 : weights.Exists(static w => !double.IsFinite(w) || w < 0.0)
-                    ? new MaterialFault.Parameter(key, "<finish-mix-weight-negative>")
+                    ? new MaterialFault.Parameter("<finish-mix-weight-negative>")
                     : weights.Fold(0.0, static (total, w) => total + w) switch {
-                        <= 0.0 => new MaterialFault.Parameter(key, "<finish-mix-weight-zero>"),
+                        <= 0.0 => new MaterialFault.Parameter("<finish-mix-weight-zero>"),
                         var total => Fin.Succ(new FinishMix(pigments, weights.Map(w => w / total))),
                     };
 
-    public Fin<Unicolour> Reflectance(Op key) =>
-        key.Catch(() => SpectralUpsample.SceneLinear(
+    public Fin<Unicolour> Reflectance() =>
+        Try.lift(() => SpectralUpsample.SceneLinear(
                 new Unicolour(FinishPigment.MeasurementSpace, Pigments.Map(static p => p.Reflectance).ToArray(), Weights.ToArray())
-                    .ConvertToConfiguration(PortValue.SceneLinear), key)
-            .Map(static rgb => new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, rgb.R, rgb.G, rgb.B)));
+                    .ConvertToConfiguration(PortValue.SceneLinear))
+            .Map(static rgb => new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, rgb.R, rgb.G, rgb.B))).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -157,17 +157,17 @@ public readonly record struct PigmentCapture(
     int StartNm, int IntervalNm, Seq<double> OverWhite, Seq<double> OverBlack,
     Seq<double> BackingWhite, Seq<double> BackingBlack, double ThicknessMicrons, double K1, double K2) {
 
-    public Fin<PigmentCapture> Of(Op key) =>
+    public Fin<PigmentCapture> Of() =>
         from _ in guard(Bands.ForAll(band => band.Count == OverWhite.Count) && !OverWhite.IsEmpty,
-                new MaterialFault.Parameter(key, $"<pigment-capture-grid:{OverWhite.Count},{OverBlack.Count},{BackingWhite.Count},{BackingBlack.Count}>"))
+                new MaterialFault.Parameter($"<pigment-capture-grid:{OverWhite.Count},{OverBlack.Count},{BackingWhite.Count},{BackingBlack.Count}>"))
         from __ in guard(Bands.Bind(static band => band).ForAll(Interior),
-                new MaterialFault.Parameter(key, "<pigment-capture-reflectance-singular>"))
+                new MaterialFault.Parameter("<pigment-capture-reflectance-singular>"))
         from ___ in guard(BackingWhite.Zip(BackingBlack).ForAll(static pair => Math.Abs(pair.Left - pair.Right) > BackingSeparation),
-                new MaterialFault.Parameter(key, "<pigment-capture-backings-degenerate>"))
+                new MaterialFault.Parameter("<pigment-capture-backings-degenerate>"))
         from ____ in guard(double.IsFinite(ThicknessMicrons) && ThicknessMicrons > 0.0,
-                new MaterialFault.Parameter(key, $"<pigment-capture-thickness:{ThicknessMicrons:R}>"))
-        from _____ in guard(Interior(K1) || K1 == 0.0, new MaterialFault.Parameter(key, $"<pigment-saunderson-k1:{K1:R}>"))
-        from ______ in guard(Interior(K2) || K2 == 0.0, new MaterialFault.Parameter(key, $"<pigment-saunderson-k2:{K2:R}>"))
+                new MaterialFault.Parameter($"<pigment-capture-thickness:{ThicknessMicrons:R}>"))
+        from _____ in guard(Interior(K1) || K1 == 0.0, new MaterialFault.Parameter($"<pigment-saunderson-k1:{K1:R}>"))
+        from ______ in guard(Interior(K2) || K2 == 0.0, new MaterialFault.Parameter($"<pigment-saunderson-k2:{K2:R}>"))
         select this;
 
     Seq<Seq<double>> Bands => Seq(OverWhite, OverBlack, BackingWhite, BackingBlack);
@@ -181,32 +181,32 @@ public readonly record struct PigmentCapture(
     public static double RatioAtHiding(double internalInfinite) =>
         (1.0 - internalInfinite) * (1.0 - internalInfinite) / (2.0 * internalInfinite);
 
-    public Fin<Pigment> Extract(string name, Op key) =>
-        from admitted in Of(key)
+    public Fin<Pigment> Extract(string name) =>
+        from admitted in Of()
         from bands in toSeq(Enumerable.Range(0, OverWhite.Count))
             .Traverse(i => Separate(
                 Internal(OverWhite[i], K1, K2), Internal(OverBlack[i], K1, K2),
                 Internal(BackingWhite[i], K1, K2), Internal(BackingBlack[i], K1, K2),
-                ThicknessMicrons / 1000.0, StartNm + (i * IntervalNm), key)).As()
+                ThicknessMicrons / 1000.0, StartNm + (i * IntervalNm))).As()
         select new Pigment(StartNm, IntervalNm,
             bands.Map(static band => band.K).ToArray(), bands.Map(static band => band.S).ToArray(), K1, K2, name);
 
-    static Fin<(double K, double S)> Separate(double rw, double rb, double gw, double gb, double thicknessMm, int nm, Op key) =>
-        from d in Separating((rw * gb) - (rb * gw), nm, key)
+    static Fin<(double K, double S)> Separate(double rw, double rb, double gw, double gb, double thicknessMm, int nm) =>
+        from d in Separating((rw * gb) - (rb * gw), nm)
         let u = (((1.0 + (rw * gw)) * gb) - ((1.0 + (rb * gb)) * gw)) / d
         let v = ((rw * (1.0 + (rb * gb))) - (rb * (1.0 + (rw * gw)))) / d
         let a = (u + v) / 2.0
-        from _ in guard(a > 1.0, new MaterialFault.Parameter(key, $"<pigment-solve-absorption:{nm}:{a:R}>"))
+        from _ in guard(a > 1.0, new MaterialFault.Parameter($"<pigment-solve-absorption:{nm}:{a:R}>"))
         let b = Math.Sqrt((a * a) - 1.0)
         let coth = (u - v) / (2.0 * b)
-        from __ in guard(coth > 1.0, new MaterialFault.Parameter(key, $"<pigment-solve-thickness:{nm}:{coth:R}>"))
+        from __ in guard(coth > 1.0, new MaterialFault.Parameter($"<pigment-solve-thickness:{nm}:{coth:R}>"))
         let s = Math.Atanh(1.0 / coth) / (b * thicknessMm)
         select ((a - 1.0) * s, s);
 
-    static Fin<double> Separating(double d, int nm, Op key) =>
+    static Fin<double> Separating(double d, int nm) =>
         Math.Abs(d) > Determinant
             ? Fin<double>.Succ(d)
-            : Fin<double>.Fail(new MaterialFault.Parameter(key, $"<pigment-solve-degenerate:{nm}:{d:R}>"));
+            : Fin<double>.Fail(new MaterialFault.Parameter($"<pigment-solve-degenerate:{nm}:{d:R}>"));
 
     const double Determinant = 1e-6;
 }
@@ -215,29 +215,29 @@ public static class Finish {
     static Unicolour Linear(double r, double g, double b) => new(PortValue.SceneLinear, ColourSpace.RgbLinear, r, g, b);
     internal static readonly Unicolour PrimedGround = Linear(0.92, 0.92, 0.90);
 
-    public static Fin<(MaterialParameters Row, CaptureProvenance Provenance)> Resolve(FinishKind kind, FinishMix mix, Seq<FinishLayer> stack, Op key, Option<MaterialParameters> substrate = default) =>
-        from layers in AdmitStack(stack, key)
-        from reflectance in mix.Reflectance(key)
+    public static Fin<(MaterialParameters Row, CaptureProvenance Provenance)> Resolve(FinishKind kind, FinishMix mix, Seq<FinishLayer> stack, Option<MaterialParameters> substrate = default) =>
+        from layers in AdmitStack(stack)
+        from reflectance in mix.Reflectance()
         let composed = layers.Fold(reflectance, static (below, layer) => layer.Compose(below))
-        from admitted in Admit(composed, reflectance, kind.Handling, key)
+        from admitted in Admit(composed, reflectance, kind.Handling)
         let top = TopcoatOf(layers)
         let seed = kind.Seed(admitted, substrate.Map(static s => s.BaseColor).IfNone(PrimedGround), top.Weight, top.Roughness,
             top.Film.Weight > 0.0 ? top.Film : kind.Handling.Film)
-        from row in MaterialParameters.Of(seed, key)
+        from row in MaterialParameters.Of(seed)
         select (row, MixProvenance(mix));
 
-    static Fin<Seq<FinishLayer>> AdmitStack(Seq<FinishLayer> stack, Op key) =>
+    static Fin<Seq<FinishLayer>> AdmitStack(Seq<FinishLayer> stack) =>
         stack.Find(static layer => !layer.Admissible)
-            .TraverseM(bad => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<finish-layer-out-of-unit:{bad.Role}>"))).As()
+            .TraverseM(bad => Fin.Fail<Unit>(new MaterialFault.Parameter($"<finish-layer-out-of-unit:{bad.Role}>"))).As()
             .Map(_ => stack);
 
-    static Fin<Unicolour> Admit(Unicolour composed, Unicolour mix, FinishHandling handling, Op key) =>
-        from drift in Tolerance.Of(ToleranceLane.Spectral, handling.DriftTolerance, key)
-        from hue in Tolerance.Of(ToleranceLane.Spectral, handling.HueTolerance, key)
-        from spectral in MaterialLibrary.SpectralAdmit(composed, key)
-        from surface in MaterialLibrary.PointerAdmit(spectral, key)
-        from _ in MaterialLibrary.NearestChecker(surface, drift, handling.Drift, key)
-        from anchored in MaterialLibrary.HueConstant(surface, mix, hue, key)
+    static Fin<Unicolour> Admit(Unicolour composed, Unicolour mix, FinishHandling handling) =>
+        from drift in Tolerance.Of(ToleranceLane.Spectral, handling.DriftTolerance)
+        from hue in Tolerance.Of(ToleranceLane.Spectral, handling.HueTolerance)
+        from spectral in MaterialLibrary.SpectralAdmit(composed)
+        from surface in MaterialLibrary.PointerAdmit(spectral)
+        from _ in MaterialLibrary.NearestChecker(surface, drift, handling.Drift)
+        from anchored in MaterialLibrary.HueConstant(surface, mix, hue)
         select anchored;
 
     static (double Weight, double Roughness, ThinFilm Film) TopcoatOf(Seq<FinishLayer> stack) =>

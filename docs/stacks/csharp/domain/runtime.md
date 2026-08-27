@@ -70,7 +70,7 @@ public static class Boot {
         HostApplicationBuilder builder = settings.DisableDefaults ? Host.CreateEmptyApplicationBuilder(settings) : Host.CreateApplicationBuilder(settings);
         builder.ConfigureContainer(new DefaultServiceProviderFactory(Validated));
         contribute(modality.Signals(builder.Services));
-        return Op.Of().Catch(() => Fin.Succ(builder.Build()));
+        return Try.lift(() => Fin.Succ(builder.Build())).Run().Bind(static inner => inner);
     }
 }
 ```
@@ -95,7 +95,7 @@ public static class Boot {
 public interface IPort { int Probe(); }
 public interface IStage { int Order { get; } }
 public sealed class CorePort : IPort { public int Probe() => 1; }
-public sealed class MeteredPort(IPort inner, TimeProvider clock) : IPort { public int Probe() => inner.Probe() + (int)(clock.GetTimestamp() & 1); }
+public sealed class MeteredPort(IPort inner, TimeProvider clock) : IPort { public int Probe() => Admit.Probe() + (int)(clock.GetTimestamp() & 1); }
 public sealed class Pump : BackgroundService { protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.CompletedTask; }
 
 public sealed record Module(string Key, Seq<ServiceDescriptor> Rows);
@@ -181,7 +181,7 @@ public static class PolicyCell {
     public static IDisposable Publish(IConfiguration root, IOptionsMonitor<LanePolicy> monitor, Atom<Seq<Error>> rejected) {
         ArgumentNullException.ThrowIfNull(root);
         return ChangeToken.OnChange(root.GetReloadToken, () => ignore(
-            Op.Of().Catch(() => Fin.Succ(monitor.CurrentValue)).Match(
+            Try.lift(() => Fin.Succ(monitor.CurrentValue)).Run().Bind(static inner => inner).Match(
                 Succ: candidate => candidate == Current.Value ? unit : ignore(Current.Swap(_ => candidate)),
                 Fail: error => ignore(rejected.Swap(facts => facts.Add(error))))));
     }
@@ -320,7 +320,7 @@ public sealed class DegradationFold : IHealthCheckPublisher {
 - Law: every cached read is `GetOrCreateAsync` over (derived key, explicit `TState`, static factory, options row, tags) — get-then-set pairs are stampede-unsafe by construction, a set is a read-through with a constant factory, and batch removal verbs fold the singular forms.
 - Law: topology is a flags value ORing per-call entry flags onto profile hard flags — L1-only, write-through, and probe postures are policy rows, and `DisableUnderlyingData` turns a miss into a default return with no factory run, the read-without-work row.
 - Law: L1 storage discriminates payload immutability — types proven immutable share instances while mutable payloads re-deserialize per read, so consumers can never alias a cached mutable and immutable records are the only performant payload shape.
-- Law: single-flight keys on (key, flags) and joiner cancellation is reference-counted — an impatient caller detaches without killing shared work, so observability counts joins, never factory runs.
+- Law: single-flight keys on (flags) and joiner cancellation is reference-counted — an impatient caller detaches without killing shared work, so observability counts joins, never factory runs.
 - Law: tags are validity predicates compared on every hit, never indexes — `RemoveByTagAsync` shadows by timestamp, `*` is the constant-cost global epoch, and shadowed entries free memory only at natural expiry — so the tag vocabulary stays small, closed, and declared beside the key derivation.
 - Law: keyed profiles absorb deployment shape — `AddKeyedHybridCache` rows carry L2 selection, serializer set, guards, and default entry options, with effective L1 lifetime clamped to the lesser of `LocalCacheExpiration` and `Expiration` and guard breaches degrading to factory-direct execution, never a fault; the memory-shim L2 is silently elided, so L2 behavior proves only against a real out-of-process backend.
 - Law: a cache slot holding a live `Delegate` roots the delegate's `AssemblyLoadContext`, so every delegate-caching owner declares an eviction surface — key removal plus tag purge — wired to load-context teardown; TTL expiry alone never unpins a collectible context.
@@ -337,8 +337,8 @@ public sealed class ReadLane(HybridCache cache) {
     static readonly HybridCacheEntryOptions ProbeOnly = new() { Flags = HybridCacheEntryFlags.DisableUnderlyingData | HybridCacheEntryFlags.DisableLocalCacheWrite };
 
     public ValueTask<Snapshot> Read(Func<string, CancellationToken, ValueTask<Snapshot>> load, string key, CancellationToken token) =>
-        cache.GetOrCreateAsync($"<lane-a>:{key}", (Load: load, Key: key),
-            static (state, ct) => state.Load(state.Key, ct),
+        cache.GetOrCreateAsync($"<lane-a>:{key}", load,
+            static (state, ct) => state(state.Key, ct),
             Populate, tags: ["<family-a>"], cancellationToken: token);
 
     public ValueTask<Snapshot> Peek(string key, CancellationToken token) =>
@@ -409,7 +409,7 @@ public static class Cadence {
     public static Option<ScheduleRow> Row(string key, string expression, int jitterSeed, string zoneId, Misfire policy, int band) =>
         (DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId),
          CronExpression.TryParse(expression, CronFormat.IncludeSeconds, jitterSeed, out CronExpression cron) ? Optional(cron) : None) switch {
-            ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(key, parsed, zone, policy, band),
+            ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(parsed, zone, policy, band),
             _ => None,
         };
     public static Option<(ScheduleRow Row, DateTimeOffset At)> Next(Seq<ScheduleRow> catalog, ClockPort clock) =>

@@ -216,7 +216,7 @@ public sealed partial class PartitionStrategy {
         ref int attemptFactor,
         ref double mergeAreaRatio) {
         K<Validation<Error>, Unit> numeric = (
-            AdmissionSlots.Gate(Witness.Keyed(key), FabConcern.Toolpath, "partition-strategy:key", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(Witness.Keyed(), FabConcern.Toolpath, "partition-strategy:key", FabricationFault.Inadmissible),
             AdmissionSlots.Gate(ValidityClaim.Positive(siteDensityPerMm2),
                 FabConcern.Toolpath, "partition-strategy:site-density", FabricationFault.Inadmissible),
             AdmissionSlots.Gate(siteFloor >= 3 && siteCeiling >= siteFloor,
@@ -454,13 +454,13 @@ public static class Partition {
     }
 
     private static Fin<Seq<Point3d>> Accept(PartitionRequest request, PartitionField field, Seq<Point3d> candidates) =>
-        Op.Of(name: "partition:accept").Catch(() => {
+        Try.lift(() => {
                 BoundingBox box = Box(request.Boundary, request.Projection.DepthMm);
                 return Fin.Succ(candidates.Map((point, index) => (
                     Point: point,
                     Draw: Deterministic.Unit(lanes: [(long)index, 2L], seed: request.Strategy.Sampling.Seed),
                     Acceptance: request.Strategy.Sampling.Density.Weight(box, point))).ToArr());
-            })
+            }).Run().Bind(static inner => inner)
             .Bind(rows => rows.ForAll(static row => double.IsFinite(row.Acceptance) && row.Acceptance is >= 0.0 and <= 1.0)
                 ? Fin.Succ(Sift(request, field, rows))
                 : Degenerate<Seq<Point3d>>(request.Strategy, rows.Count));
@@ -538,18 +538,18 @@ public static class Partition {
         Measure(Seq(boundary)).Map(static measured => measured.FilledArea);
 
     private static Fin<PolygonMeasure> Measure(Seq<Loop> paths) =>
-        PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero), Op.Of())
+        PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero))
             .Bind(static trace => trace.Measure(
                 new KernelFault.InvalidValue("partition", "partition:measure-trace")));
 
     private static Fin<Seq<Loop>> Intersect(Loop subject, Loop clip) =>
-        PolygonAlgebra.Apply(new PolygonOp.Boolean(Seq(subject), Seq(clip), BooleanOp.Intersection, PolygonFill.NonZero), Op.Of())
+        PolygonAlgebra.Apply(new PolygonOp.Boolean(Seq(subject), Seq(clip), BooleanOp.Intersection, PolygonFill.NonZero))
             .Bind(static trace => trace
                 .Regioned(new KernelFault.InvalidValue("partition", "partition:intersect-trace"))
                 .Map(static topology => topology.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)));
 
     private static Fin<(Seq<Edge3> Inside, Seq<Edge3> Outside)> Classify(Seq<Edge3> subject, Seq<Loop> clip) =>
-        PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(subject), clip, PolygonFill.NonZero), Op.Of())
+        PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(subject), clip, PolygonFill.NonZero))
             .Bind(static trace => trace
                 .Runs(new KernelFault.InvalidValue("partition", "partition:classify-trace"))
                 .Map(static split => (split.Inside.Bind(static run => run), split.Outside.Bind(static run => run))));

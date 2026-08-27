@@ -11,7 +11,7 @@ Both election tables DERIVE from the ingress rosters — the typed-measure mint 
 ## [02]-[VALUE_RAISE]
 
 - Owner: `ValueRaise` the egress value re-author — `Bag` the bag-node admission, `RaiseProperty` the generated total `IfcProperty` dispatch, `RaiseValue` the generated total cell dispatch, `MeasureMints`/`QuantityMints` the two ingress-derived mint tables, `BaseIdentities` the five base-dimension rows both canonical rungs read, `Elect` the one two-rung election, `RaiseQuantities`/`Nest` the group-prefix rebuild; `BoundSlot` the `[SmartEnum<string>]` naming the three IFC bound slots beside their shared reader and entity binder; `IfcDurationMapper` the `[Mapper]` crossing a NodaTime `Period` to the seven-scalar `IfcDuration`.
-- Entry: `ValueRaise.Bag(target, node, authored, scale, key)` returns `Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>>` — `None` where the node is not a bag or carries no values, the writer where it lowers; `ValueRaise.Quantity(target, name, measure, scale, key)` returns `Fin<IfcPhysicalQuantity>` because a physical quantity narrows losslessly or faults.
+- Entry: `ValueRaise.Bag(target, node, authored, scale)` returns `Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>>` — `None` where the node is not a bag or carries no values, the writer where it lowers; `ValueRaise.Quantity(target, name, measure, scale)` returns `Fin<IfcPhysicalQuantity>` because a physical quantity narrows losslessly or faults.
 - Law: the two carriers answer two questions. The `Option` is the ADMISSION verdict — a node that is not a bag, or a bag with no values — and the writer is the lowering with its ledger; one carrier answering both made a node this emit never authored indistinguishable from one it authored losslessly. The empty-bag skip is load-bearing rather than defensive: the `IfcPropertySet`/`IfcElementQuantity` ctors derive their database from their FIRST member, so an empty set throws at the boundary.
 - Law: election is ONE two-rung ladder — the ingested identity first, the base-dimension canonical second, the leg's own last rung last — instantiated per target mint rather than re-spelled per leg. The measure leg's last rung is a COUNTED flatten onto `IfcReal`; the quantity leg has no last rung and faults, because a bare real is still a measure while a wrong `IfcQuantityCount` claims a quantity type the source never carried.
 - Law: `Dimensionless` carries NO canonical row. `Count`, `Number`, `Ratio`, and `Angle` all sign the zero vector, so a dimension key cannot separate an integral tally from a real one; the derived dimensions carry none either, their preimage not being injective (`PressureDim` answers four measure types).
@@ -34,7 +34,6 @@ using Rasm.Element.Properties;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Projection;
 
@@ -114,17 +113,17 @@ internal static class ValueRaise {
         Row(mints, identity) | Row(canonical, dimension).Bind(fallback => Row(mints, fallback));
 
     static Option<TValue> Row<TKey, TValue>(FrozenDictionary<TKey, TValue> rows, TKey key) where TKey : notnull =>
-        rows.TryGetValue(key, out TValue? found) ? Optional(found) : None;
+        rows.TryGetValue(out TValue? found) ? Optional(found) : None;
 
     // --- [BAG_ADMISSION]
 
     public static Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>> Bag(
-        DatabaseIfc target, Node node, Map<NodeId, IfcObjectDefinition> authored, UnitScheme scale, Op key) => node switch {
+        DatabaseIfc target, Node node, Map<NodeId, IfcObjectDefinition> authored, UnitScheme scale) => node switch {
         Node.PropertySet ps when !ps.Bag.Values.IsEmpty => Some(ps.Bag.Values.AsIterable().ToSeq()
-            .Traverse(kv => RaiseProperty(target, authored, kv.Key, kv.Value, scale, key)).As()
+            .Traverse(kv => RaiseProperty(target, authored, kv.Value, scale)).As()
             .Map(properties => (IfcPropertySetDefinition)new IfcPropertySet(ps.Bag.SetName, properties))),
         Node.QuantitySet qs when !qs.Bag.Values.IsEmpty => Some(
-            Fidelity.Lift(Quantities(target, qs.Bag, scale, key))
+            Fidelity.Lift(Quantities(target, qs.Bag, scale))
                 .Map(quantities => (IfcPropertySetDefinition)new IfcElementQuantity(qs.Bag.SetName, quantities))),
         _ => Option<WriterT<FidelityLog, Fin, IfcPropertySetDefinition>>.None,
     };
@@ -132,9 +131,9 @@ internal static class ValueRaise {
     // --- [PROPERTY_RAISE]
 
     public static WriterT<FidelityLog, Fin, IfcProperty> RaiseProperty(
-        DatabaseIfc target, Map<NodeId, IfcObjectDefinition> authored, PropertyName name, PropertyValue value, UnitScheme scale, Op key) =>
-        value.Switch<(DatabaseIfc Db, Map<NodeId, IfcObjectDefinition> Authored, PropertyName Name, UnitScheme Scale, Op Key), WriterT<FidelityLog, Fin, IfcProperty>>(
-            state: (Db: target, Authored: authored, Name: name, Scale: scale, Key: key),
+        DatabaseIfc target, Map<NodeId, IfcObjectDefinition> authored, PropertyName name, PropertyValue value, UnitScheme scale) =>
+        value.Switch<(DatabaseIfc Db, Map<NodeId, IfcObjectDefinition> Authored, PropertyName Name, UnitScheme Scale), WriterT<FidelityLog, Fin, IfcProperty>>(
+            state: (Db: target, Authored: authored, Name: name, Scale: scale),
             text:       static (s, t) => Single(s, t),
             measure:    static (s, m) => Single(s, m),
             boolean:    static (s, b) => Single(s, b),
@@ -159,7 +158,7 @@ internal static class ValueRaise {
                 .Map(members => (IfcProperty)new IfcComplexProperty(s.Db, s.Name.ToValue(), c.UsageName, members)));
 
     static WriterT<FidelityLog, Fin, IfcProperty> Single(
-        (DatabaseIfc Db, Map<NodeId, IfcObjectDefinition> Authored, PropertyName Name, UnitScheme Scale, Op Key) s, PropertyValue value) =>
+        (DatabaseIfc Db, Map<NodeId, IfcObjectDefinition> Authored, PropertyName Name, UnitScheme Scale) s, PropertyValue value) =>
         RaiseValue(value, s.Scale, s.Key).Map(raised => (IfcProperty)new IfcPropertySingleValue(s.Db, s.Name.ToValue(), raised));
 
     static IfcPropertyReferenceValue Reference(
@@ -179,9 +178,9 @@ internal static class ValueRaise {
                 static (raised, row) => row.Bound.Match(Some: bound => row.Slot.Bind(raised, bound), None: () => raised)));
 
     static WriterT<FidelityLog, Fin, IfcPropertyTableValue> Table(
-        DatabaseIfc target, PropertyName name, PropertyValue.Table table, UnitScheme scale, Op key) =>
-        from defining in table.Rows.Traverse(r => RaiseValue(r.Defining, scale, key)).As()
-        from defined in table.Rows.Traverse(r => RaiseValue(r.Defined, scale, key)).As()
+        DatabaseIfc target, PropertyName name, PropertyValue.Table table, UnitScheme scale) =>
+        from defining in table.Rows.Traverse(r => RaiseValue(r.Defining, scale)).As()
+        from defined in table.Rows.Traverse(r => RaiseValue(r.Defined, scale)).As()
         select Filled(new IfcPropertyTableValue(target, name.ToValue()) { CurveInterpolation = Interp(table.Interp) }, defining, defined);
 
     static IfcPropertyTableValue Filled(IfcPropertyTableValue raised, Seq<IfcValue> defining, Seq<IfcValue> defined) {
@@ -192,26 +191,26 @@ internal static class ValueRaise {
 
     // --- [VALUE_RAISE]
 
-    static WriterT<FidelityLog, Fin, IfcValue> RaiseValue(PropertyValue value, UnitScheme scale, Op key) =>
-        value.Switch<(UnitScheme Scale, Op Key), WriterT<FidelityLog, Fin, IfcValue>>(
-            state: (Scale: scale, Key: key),
+    static WriterT<FidelityLog, Fin, IfcValue> RaiseValue(PropertyValue value, UnitScheme scale) =>
+        value.Switch<(UnitScheme Scale), WriterT<FidelityLog, Fin, IfcValue>>(
+            state: scale,
             text:       static (s, t) => Fidelity.Clean<IfcValue>(new IfcLabel(t.Value)),
-            measure:    static (s, m) => RaiseMeasure(m.Value, s.Scale),
+            measure:    static (s, m) => RaiseMeasure(m.Value, s),
             boolean:    static (s, b) => Fidelity.Clean<IfcValue>(new IfcBoolean(b.Value)),
             logical:    static (s, l) => Fidelity.Clean<IfcValue>(new IfcLogical(Logical(l.Value))),
             integer:    static (s, i) => Fidelity.Clean<IfcValue>(new IfcInteger(checked((long)i.Value))),
             number:     static (s, n) => Fidelity.Clean<IfcValue>(new IfcReal(n.Value)),
             binary:     static (s, b) => Fidelity.Clean<IfcValue>(new IfcBinary(b.Value.ToArray())),
             temporal:   static (s, t) => Fidelity.Clean(Temporal(t.Value)),
-            enumerated: static (s, e) => Uncellable(s.Key, nameof(PropertyValue.Enumerated)),
-            reference:  static (s, r) => Uncellable(s.Key, nameof(PropertyValue.Reference)),
-            bounded:    static (s, b) => Uncellable(s.Key, nameof(PropertyValue.Bounded)),
-            list:       static (s, l) => Uncellable(s.Key, nameof(PropertyValue.List)),
-            table:      static (s, t) => Uncellable(s.Key, nameof(PropertyValue.Table)),
-            complex:    static (s, c) => Uncellable(s.Key, nameof(PropertyValue.Complex)));
+            enumerated: static (s, e) => Uncellable(nameof(PropertyValue.Enumerated)),
+            reference:  static (s, r) => Uncellable(nameof(PropertyValue.Reference)),
+            bounded:    static (s, b) => Uncellable(nameof(PropertyValue.Bounded)),
+            list:       static (s, l) => Uncellable(nameof(PropertyValue.List)),
+            table:      static (s, t) => Uncellable(nameof(PropertyValue.Table)),
+            complex:    static (s, c) => Uncellable(nameof(PropertyValue.Complex)));
 
-    static WriterT<FidelityLog, Fin, IfcValue> Uncellable(Op key, string shape) =>
-        Fidelity.Lift(Fin.Fail<IfcValue>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "value-cell-unraisable", shape }))));
+    static WriterT<FidelityLog, Fin, IfcValue> Uncellable(string shape) =>
+        Fidelity.Lift(Fin.Fail<IfcValue>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "value-cell-unraisable", shape }))));
 
     static WriterT<FidelityLog, Fin, IfcValue> RaiseMeasure(MeasureValue measure, UnitScheme scale) =>
         scale.Render(measure).Value is var declared
@@ -237,14 +236,14 @@ internal static class ValueRaise {
 
     // --- [QUANTITY_NESTING]
 
-    static Fin<Seq<IfcPhysicalQuantity>> Quantities(DatabaseIfc target, QuantityBag bag, UnitScheme scale, Op key) =>
-        bag.Values.AsIterable().ToSeq().TraverseM(kv => Member(target, bag.Groups, kv.Key, kv.Value, scale, key)).As()
+    static Fin<Seq<IfcPhysicalQuantity>> Quantities(DatabaseIfc target, QuantityBag bag, UnitScheme scale) =>
+        bag.Values.AsIterable().ToSeq().TraverseM(kv => Member(target, bag.Groups, kv.Value, scale)).As()
             .Map(raised => Nest(bag.Groups, raised, ""));
 
     static Fin<(string Owner, IfcPhysicalQuantity Quantity)> Member(
-        DatabaseIfc target, Map<string, GroupIdentity> groups, PropertyName name, MeasureValue measure, UnitScheme scale, Op key) =>
+        DatabaseIfc target, Map<string, GroupIdentity> groups, PropertyName name, MeasureValue measure, UnitScheme scale) =>
         from owner in Fin.Succ(OwnerOf(groups, name))
-        from quantity in Quantity(target, owner.Length == 0 ? name : PropertyCategory.Neutral.Row(Leaf(name.ToValue())), measure, scale, key)
+        from quantity in Quantity(target, owner.Length == 0 ? name : PropertyCategory.Neutral.Row(Leaf(name.ToValue())), measure, scale)
         select (Owner: owner, Quantity: quantity);
 
     static string OwnerOf(Map<string, GroupIdentity> groups, PropertyName name) =>
@@ -268,10 +267,10 @@ internal static class ValueRaise {
     static string Leaf(string path) => path.LastIndexOf('.') is var cut && cut >= 0 ? path[(cut + 1)..] : path;
 
     public static Fin<IfcPhysicalQuantity> Quantity(
-        DatabaseIfc target, PropertyName name, MeasureValue measure, UnitScheme scale, Op key) =>
+        DatabaseIfc target, PropertyName name, MeasureValue measure, UnitScheme scale) =>
         Elect(measure.Type, measure.Dimension, QuantityMints, CanonicalQuantities)
             .Map(mint => mint(target, name.ToValue(), scale.Render(measure).Value))
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-type-unmapped", name.ToValue(), measure.Type.ToValue() })));
+            .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-type-unmapped", name.ToValue(), measure.Type.ToValue() })));
 }
 ```
 

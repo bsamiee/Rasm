@@ -173,26 +173,23 @@ public sealed class ChromeCell {
 
     public Option<ChannelReader<UiEvent<ChromeTrace>>> Traced => trace.Map(static drain => drain.Reader);
 
-    public ChromeDecision Decide(ChromeEvent happening, Grasshopper2.Doc.IAttributes host, Op? key = null) {
-        Op op = key.OrDefault();
-        ChromeDecision decision = op.Catch(() => Fin.Succ(chrome.Respond(
-                happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value))))
+    public ChromeDecision Decide(ChromeEvent happening, Grasshopper2.Doc.IAttributes host) {
+        ChromeDecision decision = Try.lift(() => Fin.Succ(chrome.Respond(
+                happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value)))).Run().Bind(static inner => inner)
             .IfFail(cause => (Park(cause), ChromeDecision.Pass).Item2);
         trace.Iter(drain => drain.Publish(
             source: ChromeSource.Row,
-            fact: () => Fin.Succ(new ChromeTrace(Kind: happening.Kind, Decision: decision)),
-            key: op).IfFail(Park));
+            fact: () => Fin.Succ(new ChromeTrace(Kind: happening.Kind, Decision: decision))).IfFail(Park));
         return decision;
     }
 
-    internal ChromeDecision Laid(Grasshopper2.UI.Skinning.Shape shape, Grasshopper2.Doc.IAttributes host, Op? key = null) {
-        Op op = key.OrDefault();
+    internal ChromeDecision Laid(Grasshopper2.UI.Skinning.Shape shape, Grasshopper2.Doc.IAttributes host) {
         Unit updated = Cell.Commit(skinShape, _ => Some(shape)).Switch(
             committed: static _ => unit,
-            ceded: _ => Park(op.InvalidResult(nameof(Laid))),
+            ceded: _ => Park(new KernelFault.InvalidResult(Detail: Some(nameof(Laid)))),
             refused: row => Park(row.Cause),
-            contended: _ => Park(op.InvalidResult(nameof(Laid))));
-        return Decide(new ChromeEvent.Layout(shape), host, op);
+            contended: _ => Park(new KernelFault.InvalidResult(Detail: Some(nameof(Laid)))));
+        return Decide(new ChromeEvent.Layout(shape), host);
     }
 
     private Unit Park(Error cause) => ignore(faults.Park(point: faultPoint, cause: cause));

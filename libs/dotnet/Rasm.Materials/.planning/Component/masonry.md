@@ -2,7 +2,7 @@
 
 THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `ComponentFamily` policy row (`ComponentFamily.Masonry`: `ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Rectangle` or `SectionProfile.CellularRectangle`, cross-nominal `GrossRectangleMm.WidthMm`) — a masonry unit is a `Component` row, never a `Brick` type. This page owns the FORM-law vocabularies (`Orientation`/`FaceShown`/`Cut`/`ClosureRule`/`SpecialShape`/`RecessShape`/`MortarProfile`/`MortarType`/`MortarSystem`/`EnMortarClass`/`EnMortarKind`/`RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`NaMortarBand`/`LateralAction`/`SizeTolerance`/`SizeRange`/`RatingPeriod`/`BondGeometry`/`BondName`), the `MortarJoint` joint specification, the `FrogGeometry`/`Perforation` generative void geometry, the `AUTHORED` regional row table, and the `MasonrySeed.Roster`/`Law` pair the ONE `component#COMPONENT_SEED` generator folds. A masonry unit carries no payload record of its own: its geometry is the BED-PLANE `SectionProfile.Rectangle`/`CellularRectangle` (W through-wall × L along-wall), its frog/perforation voids are TRUE-GRID `VoidCell` rows the `MasonryVoids` generator stations in that plane, its vocabulary columns are the kept SmartEnums, and its `HeightMm`/`CourseHeightMm`/tolerance/range/shape realization columns are seed-row values landing in the seed-built `MasonryDetail` bag (`Masonry` carries `DetailLane.Realization` — the EN 771-1 work-vs-actual tolerance band, the unit height, and the coursing module have no other landing surface).
 
-The unreinforced tension screen rides TWO published table families into the `capacity#SECTION_CAPACITY` `MasonryUnreinforced` columns through the `SectionCapacity.Lift(lift, key)` `CapacityLift.Masonry` case, the lift's `DesignBasis` selecting the read: `RuptureModulus` the TMS 402 Table `9.1.9.2` modulus of rupture `fr` keyed by `MortarSystem`/`MortarType`; `FlexuralStrengthEn` the EN 1996-1-1 clause `3.6.3(3)` NOTE-2 flexural pair `f_xk1`/`f_xk2` keyed by unit group, carrying beside it the Table `3.4` initial shear strength `f_vko` the same unit group keys; `FlexuralStrengthNa` the UK National Annex Table `NA.6` supersession keyed by water absorption, unit format, and wall thickness. One direction column (`RuptureModulus.SpanParallelToBed`) serves every read, the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). EN 1996-1-1 `8.1.4.1(2)P` requires unreinforced units to overlap on alternate courses, so an un-bonded pattern is not a weaker table row but an inadmissible unreinforced wall: `MasonrySeed.Capacity` REFUSES it typed, and `BondName.Overlap` derives the `8.1.4.1(3)` overlap from the bond's own course stagger.
+The unreinforced tension screen rides TWO published table families into the `capacity#SECTION_CAPACITY` `MasonryUnreinforced` columns through the `SectionCapacity.Lift(lift)` `CapacityLift.Masonry` case, the lift's `DesignBasis` selecting the read: `RuptureModulus` the TMS 402 Table `9.1.9.2` modulus of rupture `fr` keyed by `MortarSystem`/`MortarType`; `FlexuralStrengthEn` the EN 1996-1-1 clause `3.6.3(3)` NOTE-2 flexural pair `f_xk1`/`f_xk2` keyed by unit group, carrying beside it the Table `3.4` initial shear strength `f_vko` the same unit group keys; `FlexuralStrengthNa` the UK National Annex Table `NA.6` supersession keyed by water absorption, unit format, and wall thickness. One direction column (`RuptureModulus.SpanParallelToBed`) serves every read, the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). EN 1996-1-1 `8.1.4.1(2)P` requires unreinforced units to overlap on alternate courses, so an un-bonded pattern is not a weaker table row but an inadmissible unreinforced wall: `MasonrySeed.Capacity` REFUSES it typed, and `BondName.Overlap` derives the `8.1.4.1(3)` overlap from the bond's own course stagger.
 
 The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template bond reads its course set by wrapped index, a generated bond IS a plane-symmetry tiling — its `BondGeometry` row names a `Rasm/Parametric/patternmap#PATTERNING` `WallpaperGroup` (the complete 17-row plane census) with its motif seats in cell coordinates, and the FULL per-unit packing transform (offset + lateral + rotation + mirror parity) derives from the kernel `Patterning.Apply(PatternPlan)` orbit fold read band by band, the unit's own coordinating module the cell basis — so a new decorative bond is DATA over a closed theorem, never a per-index delegate and never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are the app root's; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, `SeedJoin`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
 
@@ -14,7 +14,7 @@ The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template
 
 - Owner: the masonry vocabulary (all FORM-law `[SmartEnum]`, each stacking `[KeyMemberComparer]` beside `[KeyMemberEqualityComparer]` so ordered key lookup matches the `ComponentFamily` row convention); `MasonrySeed` the roster, the seed law, and the basis-admitting capacity producer; `RatingPeriod` the published fire-period ladder; `UnitPlacement`/`CourseTemplate` the per-unit course transform; `BondOverlap` the EC6 overlap derivation; `MortarJoint` the generated-admission joint specification; `FrogGeometry`/`Perforation` the generative void geometry; `MasonryVoids` the `VoidCell` derivation + fallible void-class bucket; `MasonryBody` the substance axis keyed on its own `MaterialId`; `MasonryDetail` the seed-time realization bag AND the contract `Properties` lowering; `MasonryRow` the `AUTHORED` raw row; `MasonrySeed` the ONE fold the `component#CATALOGUE` composes with its `SeedJoin` body join.
 - Cases: orientation {stretcher/header/soldier/sailor/rowlock/shiner, each carrying its run/rise course footprint and its exposed `FaceShown`} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel, each carrying its cut-plane remainder + plane-normal orientation} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/birdsmouth/voussoir, each carrying its profile modifier + the voussoir radial taper} · mortar-profile {concave/v/weathered/struck/raked/flush/beaded/squeezed, each carrying its `RecessShape` cross-section} · mortar-type {M/S/N/O/K, the ASTM C270 proportion and strength row whose EN class DERIVES} · en-mortar-class {M1/M2,5/M5/M10/M15/M20 categorial + `Md` open} · en-mortar-kind {G/T/L} · mortar-system {portland-lime/mortar-cement/masonry-cement/air-entrained-portland-lime} · rupture-modulus {8 direction×form rows × 4 published MPa columns} · en flexural {7 unit-group rows × the four-column `FlexuralBand` pair × the Table 3.4 shear band} · na flexural {13 UK-annex rows × the three-column `NaBand` pair} · lateral-action {transient/permanent} · tolerance {T1/T2/Tm} · range {R1/R2/Rm} · authority {ASTM/BS/DIN/AS/IS, each carrying the region its own standards body publishes into} · profile {`Rectangle` a solid unit, `CellularRectangle` a frogged/cored unit}.
-- Entry: `ComponentSeed.Rows(context, MasonrySeed.Roster, MasonrySeed.Law)` — this page states the roster and the policy, never the fold, and the law's coherence proves the coordinating module, the whole frog declaration, the four dimensional columns through `ComponentUnit.Of`, the derived void fraction, and the EN 771-1 deviation and range bands TOGETHER, so a malformed row names every column it broke in one verdict. `BondName.Course(unit, jointMm, index, context, key)` resolves a course template or orbits the generated descriptor's wallpaper group and reads the band, `BondGeometry.Courses(unit, jointMm, courses, context, key)` the whole-stack primary the single-index read projects — the context resolves the `Orientation`/`Fraction` lanes the kernel `PatternPlan` carries and the extent admits through `PositiveMagnitude`; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate and `BondName.Overlap(unit, jointMm, context, key)` the EN 1996-1-1 `8.1.4.1(3)` overlap derivation; `MasonryDetail.Properties(profile, body, key)` lowers the `MasonryPhysics` row onto the contract `Thermal`/`Acoustic`/`Fire` cases; `SizeTolerance.WorkEnvelope(workMm, declaredMm, key)` is the EN 771-1 permitted actual-size range, ADMITTED on the kernel `Grade` tolerance lane, that the coursing tolerance and the GLB tessellation read.
+- Entry: `ComponentSeed.Rows(context, MasonrySeed.Roster, MasonrySeed.Law)` — this page states the roster and the policy, never the fold, and the law's coherence proves the coordinating module, the whole frog declaration, the four dimensional columns through `ComponentUnit.Of`, the derived void fraction, and the EN 771-1 deviation and range bands TOGETHER, so a malformed row names every column it broke in one verdict. `BondName.Course(unit, jointMm, index, context, key)` resolves a course template or orbits the generated descriptor's wallpaper group and reads the band, `BondGeometry.Courses(unit, jointMm, courses, context)` the whole-stack primary the single-index read projects — the context resolves the `Orientation`/`Fraction` lanes the kernel `PatternPlan` carries and the extent admits through `PositiveMagnitude`; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate and `BondName.Overlap(unit, jointMm, context)` the EN 1996-1-1 `8.1.4.1(3)` overlap derivation; `MasonryDetail.Properties(profile, body)` lowers the `MasonryPhysics` row onto the contract `Thermal`/`Acoustic`/`Fire` cases; `SizeTolerance.WorkEnvelope(workMm, declaredMm)` is the EN 771-1 permitted actual-size range, ADMITTED on the kernel `Grade` tolerance lane, that the coursing tolerance and the GLB tessellation read.
 - Packages: Rasm (project — `PositiveMagnitude` from `Rasm.Numerics`; `Op`/`Context`/`AcceptValidated` from `Rasm.Domain`), Rasm.Element (project — `MaterialId`, `PropertyBag`, the contract `DetailSchema`/`PropertyCategory`/`PropertyName`/`Dimension` currencies `MasonryDetail` composes, and the `MaterialPropertySet` its `Properties` lowering mints; every `DetailSchema.Realization` row a unit stamps is Element-declared at `Rasm.Element/Properties/property#DETAIL_SCHEMA`, never minted here), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[ComplexValueObject]` + generated `ValidateFactoryArguments`/`Validate`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, `ComparerAccessors`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Traverse` — the fail-loud RESULT law), BCL inbox; NO `VividOrange` — masonry is `AUTHORED` under `SEED_ROW_LAW` (no admitted producer owns EN 771/ASTM C216 masonry-unit tables; every value restates verbatim with per-column provenance).
 - Growth: a new template bond is one `BondName` row carrying its course set; a new generated bond is one `BondGeometry` row naming its wallpaper group and motif seats beside one `BondName` row — the symmetry census is closed by theorem, so the row is DATA and never a new derivation; a new orientation/cut/shape/mortar/tolerance row is one SmartEnum row; a new `fr` direction/form row, EN unit group, UK-annex row, or cementitious system is one `RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`MortarSystem` row; a thin-layer or lightweight mortar is one `MortarType` row declaring that `EnMortarKind`, which arms the EN table's T and L columns with zero type edits; a new regional unit is one `MasonryRow` — per `[DIFF_OF_NEXT_THING]`. A sibling family lands its own vocabulary on its own seed page.
 - Boundary: this page emits profiles, vocabulary rows, bags, contract property sets, and the seed fold. `MasonryVoids.Bucket` refuses an invalid derived fraction on `CoringRejected`; bond-orbit refusals lower once to `BondRejected`, and section-map membership derives from `ProfileTopology.Solvable`.
@@ -168,13 +168,13 @@ public sealed partial class EnMortarClass {
 
     static double OpenClassCeilingMpa => M20.FloorMpa.IfNone(OpenClassFloorMpa);
 
-    public Fin<double> DeclaredMpa(double declaredMpa, Op key) =>
+    public Fin<double> DeclaredMpa(double declaredMpa) =>
         this != Md
-            ? FloorMpa.ToFin(new ComponentFault.MortarUnavailable(key, declaredMpa))
+            ? FloorMpa.ToFin(new ComponentFault.MortarUnavailable(declaredMpa))
             : double.IsFinite(declaredMpa) && declaredMpa > OpenClassFloorMpa
                 && Math.Abs(declaredMpa % OpenClassStepMpa) < EpsilonPolicy.ZeroTolerance
                 ? Fin.Succ(declaredMpa)
-                : new ComponentFault.MortarUnavailable(key, declaredMpa);
+                : new ComponentFault.MortarUnavailable(declaredMpa);
 }
 
 [SmartEnum<string>]
@@ -424,9 +424,9 @@ public sealed partial class FlexuralStrengthNa {
         : waterAbsorptionPercent <= HighAbsorptionPercent ? ClayMidAbsorption
         : ClayHighAbsorption;
 
-    public static Fin<double> Block(double thicknessMm, double declaredStrengthMpa, NaMortarBand band, RuptureModulus rupture, Op key) =>
+    public static Fin<double> Block(double thicknessMm, double declaredStrengthMpa, NaMortarBand band, RuptureModulus rupture) =>
         !double.IsFinite(thicknessMm) || !double.IsFinite(declaredStrengthMpa) || thicknessMm <= 0.0 || declaredStrengthMpa <= 0.0
-            ? new KernelFault.InvalidValue(nameof(Block), "finite positive thickness and declared strength", Some(key))
+            ? new KernelFault.InvalidValue(nameof(Block), "finite positive thickness and declared strength")
         : declaredStrengthMpa >= BlockStrong175.DeclaredStrengthMpa.IfNone(17.5) ? Fin.Succ(Plane(BlockStrong175, band, rupture))
         : declaredStrengthMpa >= BlockStrong104.DeclaredStrengthMpa.IfNone(10.4) ? Fin.Succ(Plane(BlockStrong104, band, rupture))
         : Fin.Succ(Lerp(
@@ -461,12 +461,12 @@ public sealed partial class SizeTolerance {
     public double FloorMm { get; }
     public double SqrtCoefficient { get; }
 
-    public Fin<Tolerance> MeanDeviation(double workMm, double declaredMm, Op key) =>
+    public Fin<Tolerance> MeanDeviation(double workMm, double declaredMm) =>
         Tolerance.Of(ToleranceLane.Grade,
-            Math.Max(Math.Max(FloorMm, declaredMm), SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm))), key);
+            Math.Max(Math.Max(FloorMm, declaredMm), SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm))));
 
-    public Fin<(double LowMm, double HighMm)> WorkEnvelope(double workMm, double declaredMm, Op key) =>
-        MeanDeviation(workMm, declaredMm, key).Map(band => (workMm - band.Value, workMm + band.Value));
+    public Fin<(double LowMm, double HighMm)> WorkEnvelope(double workMm, double declaredMm) =>
+        MeanDeviation(workMm, declaredMm).Map(band => (workMm - band.Value, workMm + band.Value));
 }
 
 [SmartEnum<string>]
@@ -478,8 +478,8 @@ public sealed partial class SizeRange {
     public static readonly SizeRange Rm = new("Rm", sqrtCoefficient: 0.00);
     public double SqrtCoefficient { get; }
 
-    public Fin<Tolerance> PermittedRange(double workMm, Op key) =>
-        Tolerance.Of(ToleranceLane.Grade, SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm)), key);
+    public Fin<Tolerance> PermittedRange(double workMm) =>
+        Tolerance.Of(ToleranceLane.Grade, SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm)));
 }
 
 [SmartEnum<string>]
@@ -523,19 +523,18 @@ public sealed partial class BondGeometry {
 
     public bool Admits(double lengthOverHeight) => lengthOverHeight >= AspectLo && lengthOverHeight <= AspectHi;
 
-    public Fin<Seq<CourseTemplate>> Courses(ComponentUnit unit, double jointMm, int courses, Context context, Op key) =>
-        from plan in Plan(unit, jointMm, courses, context, key)
-        from planar in Patterning.Apply(plan, key)
+    public Fin<Seq<CourseTemplate>> Courses(ComponentUnit unit, double jointMm, int courses, Context context) =>
+        from plan in Plan(unit, jointMm, courses, context)
+        from planar in Patterning.Apply(plan)
         select Bands(planar, plan, courses);
 
-    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Context context, Op key) =>
-        Courses(unit, jointMm, Math.Abs(index) + 1, context, key).Bind(stack => stack.IsEmpty
-            ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(key, Some(index)))
+    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Context context) =>
+        Courses(unit, jointMm, Math.Abs(index) + 1, context).Bind(stack => stack.IsEmpty
+            ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(Some(index)))
             : Fin.Succ(stack[((index % stack.Count) + stack.Count) % stack.Count]));
 
-    Fin<PatternPlan> Plan(ComponentUnit unit, double jointMm, int courses, Context context, Op key) =>
-        key.AcceptValidated<PositiveMagnitude>(
-                Math.Sqrt(Math.Pow((unit.LengthMm.Value + jointMm) * 1e-3, 2.0) + Math.Pow((unit.HeightMm.Value + jointMm) * 1e-3 * courses, 2.0))
+    Fin<PatternPlan> Plan(ComponentUnit unit, double jointMm, int courses, Context context) =>
+        FactoryBridge.Accept<PositiveMagnitude>(Math.Sqrt(Math.Pow((unit.LengthMm.Value + jointMm) * 1e-3, 2.0) + Math.Pow((unit.HeightMm.Value + jointMm) * 1e-3 * courses, 2.0))
                 + (ExtentMarginCells * Math.Max(unit.LengthMm.Value, unit.HeightMm.Value) * 1e-3))
             .Map(extent => new PatternPlan(Group,
                 ((unit.LengthMm.Value + jointMm) * 1e-3, 0.0),
@@ -593,20 +592,20 @@ public sealed partial class BondName {
     public bool Fits(ComponentUnit unit) =>
         Geometry.Match(Some: g => g.Admits(unit.LengthOverHeight), None: () => true);
 
-    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Context context, Op key) =>
-        Stack(unit, jointMm, Math.Abs(index) + 1, context, key).Bind(stack => stack.IsEmpty
-            ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(key, Some(index)))
+    public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Context context) =>
+        Stack(unit, jointMm, Math.Abs(index) + 1, context).Bind(stack => stack.IsEmpty
+            ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(Some(index)))
             : Fin.Succ(stack[((index % stack.Count) + stack.Count) % stack.Count]));
 
-    public Fin<Seq<CourseTemplate>> Stack(ComponentUnit unit, double jointMm, int courses, Context context, Op key) =>
+    public Fin<Seq<CourseTemplate>> Stack(ComponentUnit unit, double jointMm, int courses, Context context) =>
         Geometry.Match(
-            Some: geometry => geometry.Courses(unit, jointMm, courses, context, key),
+            Some: geometry => geometry.Courses(unit, jointMm, courses, context),
             None: () => Courses.IsEmpty
-                ? Fin.Fail<Seq<CourseTemplate>>(new ComponentFault.BondRejected(key, None))
+                ? Fin.Fail<Seq<CourseTemplate>>(new ComponentFault.BondRejected(None))
                 : Fin.Succ(Courses));
 
-    public Fin<BondOverlap> Overlap(ComponentUnit unit, double jointMm, Context context, Op key) =>
-        Stack(unit, jointMm, OverlapSampleCourses, context, key).Map(stack => new BondOverlap(
+    public Fin<BondOverlap> Overlap(ComponentUnit unit, double jointMm, Context context) =>
+        Stack(unit, jointMm, OverlapSampleCourses, context).Map(stack => new BondOverlap(
             OverlapMm: Stagger(stack) * (unit.LengthMm.Value + jointMm) is var lapped && lapped > unit.LengthMm.Value
                 ? unit.LengthMm.Value
                 : Stagger(stack) * (unit.LengthMm.Value + jointMm),
@@ -695,10 +694,10 @@ public readonly partial struct MortarJoint {
             ? null
             : new ValidationError($"Mortar-joint widths must be finite and positive; received {headWidthMm:R} and {bedWidthMm:R}.");
 
-    public static Fin<MortarJoint> Of(double headMm, double bedMm, MortarProfile profile, MortarType mortar, Op key) =>
-        key.AcceptValidated<MortarJoint>(Validate(headMm, bedMm, profile, mortar, out MortarJoint joint), joint);
+    public static Fin<MortarJoint> Of(double headMm, double bedMm, MortarProfile profile, MortarType mortar) =>
+        FactoryBridge.Accept<MortarJoint>(Validate(headMm, bedMm, profile, mortar, out MortarJoint joint), joint);
 
-    public static Fin<MortarJoint> Standard(double thicknessMm, Op key) => Of(thicknessMm, thicknessMm, MortarProfile.Concave, MortarType.N, key);
+    public static Fin<MortarJoint> Standard(double thicknessMm) => Of(thicknessMm, thicknessMm, MortarProfile.Concave, MortarType.N);
 
     public double RecessDepthMm => BedWidthMm * Profile.DepthFactor;
 }
@@ -735,10 +734,10 @@ public static class MasonryVoids {
     const double PerforatedVoidFloor = 0.25;
     const int MultiCellHoleCount = 3;
 
-    public static Fin<Coring> Bucket(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm, Op key) =>
+    public static Fin<Coring> Bucket(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm) =>
         frog.VoidFraction(hMm) + perforation.VoidFraction(lMm, wMm) is var voids && double.IsFinite(voids) && voids is >= 0.0 and < 1.0
             ? Fin.Succ(Class(frog, perforation, wMm, hMm, lMm))
-            : new ComponentFault.CoringRejected(key, voids);
+            : new ComponentFault.CoringRejected(voids);
 
     public static Coring Class(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm) =>
         (perforation.Present, perforation.HoleCount, frog.VoidFraction(hMm) + perforation.VoidFraction(lMm, wMm), frog.Present, frog.Double) switch {
@@ -808,14 +807,13 @@ public static class WallAcoustics {
     const double MassLawOffsetDb = 47.0;
     const double HardMasonryAbsorption = 0.02;
 
-    public static Fin<Acoustic> Of(double arealMassKgPerM2, Op key) =>
+    public static Fin<Acoustic> Of(double arealMassKgPerM2) =>
         Acoustic.Of(
             AcousticBand.Items.Select(static _ => HardMasonryAbsorption).ToArray(),
             AcousticBand.Items
                 .OrderBy(static band => band.Key)
                 .Select(band => Math.Max(0.0, 20.0 * Math.Log10(Math.Max(arealMassKgPerM2, 1e-9) * band.CenterHz) - MassLawOffsetDb))
-                .ToArray(),
-            key);
+                .ToArray());
 }
 
 public static class MasonryDetail {
@@ -830,16 +828,16 @@ public static class MasonryDetail {
             courseHeight,
             ComponentDetail.Sourced(row.Source));
 
-    public static Fin<Seq<MaterialPropertySet>> Properties(SectionProfile profile, MasonryBody body, Op key) =>
+    public static Fin<Seq<MaterialPropertySet>> Properties(SectionProfile profile, MasonryBody body) =>
         from physics in Fin.Succ(MasonryPhysics.Of(profile, body))
         from thermal in MaterialPropertySet.OfThermal(
             conductivity: body.ConductivityWmK,
             specificHeat: body.SpecificHeatJKgK,
             uValue: 1.0 / physics.ThermalResistanceM2KPerW,
-            vapourResistanceFactor: body.VapourMu, key)
-        from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2, key)
+            vapourResistanceFactor: body.VapourMu)
+        from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2)
         from fire in physics.FireRating
-            .TraverseM(period => FireResistance.Of(FireCoverage.I, period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
+            .TraverseM(period => FireResistance.Of(FireCoverage.I).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
             .Map(static rows => rows.IfNone(Seq<MaterialPropertySet>()))
         select Seq(thermal, MaterialPropertySet.OfAcoustic(spectrum)) + fire;
 }
@@ -859,8 +857,8 @@ public static class MasonrySeed {
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, MasonryRow>>> Table =
         SeedJoin.Of(Roster, static r => r.Designation);
 
-    public static Fin<MasonryRow> Resolve(Component component, Op key) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+    public static Fin<MasonryRow> Resolve(Component component) =>
+        SeedJoin.Resolve(Table, component.Designation);
 
     const double CoursingClosureTolMm = 1.0;
 
@@ -869,58 +867,57 @@ public static class MasonrySeed {
         designation: static r => r.Designation,
         coherence: Coherence,
         profile: static (r, key) => r.Frog.Present || r.Perforation.Present
-            ? SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, MasonryVoids.Cells(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm), key)
-            : SectionProfile.Rectangle.Of(r.WMm, r.LMm, key),
+            ? SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, MasonryVoids.Cells(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm))
+            : SectionProfile.Rectangle.Of(r.WMm, r.LMm),
         substance: static r => r.Body.Material,
         source: static r => r.Source,
         standard: static r => new ComponentStandard(r.Authority.Region, r.JointMm, r.Authority),
-        detail: Some<Func<MasonryRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<MasonryRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         voids: static r => MasonryVoids.Class(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm));
 
-    static Validation<Error, Unit> Coherence(MasonryRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(MasonryRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(Math.Abs(r.CourseMm - (r.HMm + r.JointMm)) <= CoursingClosureTolMm,
-                new KernelFault.InvalidValue(nameof(r.CourseMm), "unit height plus joint thickness", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.CourseMm), "unit height plus joint thickness")),
             AdmissionSlots.Gate(r.Frog.Declared,
-                new KernelFault.InvalidValue(nameof(r.Frog), "all frog axes declared together or all absent", Some(key))),
-            ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key).ToValidation().Map(static _ => unit),
-            MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm, key).ToValidation().Map(static _ => unit),
-            r.Tolerance.MeanDeviation(r.LMm, declaredMm: 0.0, key).ToValidation().Map(static _ => unit),
-            r.Range.PermittedRange(r.LMm, key).ToValidation().Map(static _ => unit)));
+                new KernelFault.InvalidValue(nameof(r.Frog), "all frog axes declared together or all absent")),
+            ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm).ToValidation().Map(static _ => unit),
+            MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm).ToValidation().Map(static _ => unit),
+            r.Tolerance.MeanDeviation(r.LMm, declaredMm: 0.0).ToValidation().Map(static _ => unit),
+            r.Range.PermittedRange(r.LMm).ToValidation().Map(static _ => unit)));
 
-    static Fin<PropertyBag> Detail(MasonryRow r, SectionProfile profile, Op key) =>
-        from unit in ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key)
+    static Fin<PropertyBag> Detail(MasonryRow r, SectionProfile profile) =>
+        from unit in ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm)
         from bag in MasonryDetail.Of(r, unit.HeightMm, unit.CourseHeightMm)
         select bag;
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in SeedJoin.Resolve(Table, component.Designation, key)
-        from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from row in SeedJoin.Resolve(Table, component.Designation)
+        from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
         from pocketed in guard(
             row.Frog.NetBedAreaMm2(row.LMm, row.WMm) is var netBed && netBed > 0.0 && netBed <= row.LMm * row.WMm,
-            new ComponentFault.SectionIncoherent(key, component.Profile.GetType()))
+            new ComponentFault.SectionIncoherent(component.Profile.GetType()))
         from bonded in guard(placement.Basis != DesignBasis.En1996 || !placement.Rupture.StackBond,
-            new ComponentFault.BondRejected(key, None))
+            new ComponentFault.BondRejected(None))
         from annexed in placement.Basis == DesignBasis.En1996 && placement.Annex == NationalAnnex.UnitedKingdom
-            ? from absorption in row.WaterAbsorptionPercent.ToFin(new ComponentFault.WaterAbsorptionMissing(key, component.Designation))
-              from band in NaMortarBand.Of(placement.Mortar).ToFin(new ComponentFault.MortarBandMissing(key, placement.Mortar))
+            ? from absorption in row.WaterAbsorptionPercent.ToFin(new ComponentFault.WaterAbsorptionMissing(component.Designation))
+              from band in NaMortarBand.Of(placement.Mortar).ToFin(new ComponentFault.MortarBandMissing(placement.Mortar))
               from published in guard(
                   FlexuralStrengthNa.ForClay(absorption) is var annex
                   && (placement.Rupture.SpanParallelToBed ? annex.Fxk2 : annex.Fxk1).At(band) > 0.0,
-                  new ComponentFault.FlexuralCellMissing(key, component.Designation))
+                  new ComponentFault.FlexuralCellMissing(component.Designation))
               select row
             : Fin.Succ(row)
         from strength in row.Class
             .Bind(static declared => declared.NormalisedStrengthMpa)
             .Bind(fb => MaterialGrade.CmuOf(fb, placement.Mortar))
             .Bind(static grade => grade.CmuArm)
-            .ToFin(new ComponentFault.AssemblageStrengthMissing(key, component.Designation))
+            .ToFin(new ComponentFault.AssemblageStrengthMissing(component.Designation))
         from capacity in SectionCapacity.Lift(
             new CapacityLift.Masonry(
                 component.Designation, strength, solved, placement.HeightMm, placement.Basis,
                 RuptureModulus.For(component.Profile, placement.Rupture, groutedCellFraction: 0.0),
-                row.Body.EnGroup, placement.System, placement.Mortar),
-            key)
+                row.Body.EnGroup, placement.System, placement.Mortar))
         select capacity;
 }
 ```

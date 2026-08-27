@@ -121,11 +121,11 @@ public sealed record SessionPolicy(
     public static Fin<Seq<Initializer>> Pack(HdfHandle archive, ModelIdentity model) =>
         guard(archive.Exists("initializers"), (Error)new ComputeFault.Violation(ComputeArea.Model, new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.None())))
             .ToFin()
-            .Bind(_ => Op.Of(name: "model.initializer-pack-roster").Catch(() => Fin.Succ(toSeq(archive.Group("initializers").Children()).Map(static child => child.Name))))
+            .Bind(_ => Try.lift(() => Fin.Succ(toSeq(archive.Group("initializers").Children()).Map(static child => child.Name))).Run().Bind(static inner => inner))
             .Bind(names => names.Traverse(name => Packed(archive, model, name).ToValidation()).As().ToFin());
 
     static Fin<Initializer> Packed(HdfHandle archive, ModelIdentity model, string name) =>
-        Op.Of(name: "model.initializer-pack").Catch(() => {
+        Try.lift(() => {
                 NativeDataset dataset = archive.Dataset($"initializers/{name}");
                 long[] shape = [.. dataset.Space.Dimensions.Select(static dim => checked((long)dim))];
                 return TensorVocabulary.Admit(dataset.Type).Bind(row =>
@@ -134,7 +134,7 @@ public sealed record SessionPolicy(
                         : Fin.Fail<(OrtValue Value, UInt128 Key)>(new ComputeFault.Violation(ComputeArea.Model, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.Key(row.Key)))))
                     .Bind(staged => model.Initializer(name, staged.Value)
                         .Map(gated => new Initializer(gated.Name, gated.Value, staged.Key))));
-            });
+            }).Run().Bind(static inner => inner);
 
     static Fin<(OrtValue Value, UInt128 Key)> Staged<T>(HdfHandle archive, NativeDataset dataset, long[] shape) where T : unmanaged {
         long count = shape.Aggregate(1L, static (acc, dim) => acc * dim);
@@ -142,7 +142,7 @@ public sealed record SessionPolicy(
         ulong[] dims = [.. shape.Select(static dim => (ulong)dim)];
         dataset.Read<T>(archive.Access, staging.AsSpan(), new HyperslabSelection(shape.Length, new ulong[shape.Length], dims));
         UInt128 key = ContentHash.Of(MemoryMarshal.AsBytes<T>(staging.AsSpan()));
-        return TensorBridge.Ingress(staging, shape).Map(value => (Value: value, Key: key));
+        return TensorBridge.Ingress(staging, shape).Map(value => value);
     }
 
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -159,15 +159,15 @@ public sealed record SessionPolicy(
         }
 
         public static Fin<CustomOpLibrary> Admit(string path) =>
-            Op.Of(name: "model.custom-op-asset-admit").Catch(() => File.Exists(path)
+            Try.lift(() => File.Exists(path)
                     ? Fin.Succ<CustomOpLibrary>(new Asset(path, ContentHash.Of(File.ReadAllBytes(path))))
-                    : Fin.Fail<CustomOpLibrary>(new ComputeFault.ExtensionAssetMissing(path)));
+                    : Fin.Fail<CustomOpLibrary>(new ComputeFault.ExtensionAssetMissing(path))).Run().Bind(static inner => inner);
 
         public Fin<Unit> Verify() => Switch(
             bundled: static _ => Fin.Succ(unit),
-            asset: static library => Op.Of(name: "model.custom-op-asset-verify").Catch(() => File.Exists(library.Path) && ContentHash.Of(File.ReadAllBytes(library.Path)) == library.ContentKey
+            asset: static library => Try.lift(() => File.Exists(library.Path) && ContentHash.Of(File.ReadAllBytes(library.Path)) == library.ContentKey
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new ComputeFault.ExtensionAssetMissing(library.Path))));
+                    : Fin.Fail<Unit>(new ComputeFault.ExtensionAssetMissing(library.Path))).Run().Bind(static inner => inner));
 
         public string Identity => Switch(
             bundled: static _ => $"bundle:{OrtEnv.Instance().GetVersionString()}",
@@ -230,34 +230,34 @@ public sealed class ResidentPool<TKey, THandle>
         residents.AsIterable().Map(static pair => (Key: pair.Key, Held: pair.Value.Held));
 
     public Fin<Lease> Hold(TKey key, Option<int> cap, Func<Fin<THandle>> build, IClock clock, CancelScope scope) =>
-        Acquire(key, clock).Match(
+        Acquire(clock).Match(
             Some: Fin.Succ,
-            None: () => Op.Of(name: "model.resident-build").Catch(build, scope.Source.Token)
+            None: () => Try.lift(build).Run().Bind(static inner => inner)
                 .MapFail(error => ModelSessions.Faulted(scope, error))
-                .Bind(built => Publish(key, cap, built, clock)));
+                .Bind(built => Publish(cap, built, clock)));
 
     public Option<Lease> Acquire(TKey key, IClock clock) {
         Instant now = clock.GetCurrentInstant();
         Option<THandle> taken = None;
-        residents.SwapKey(key, seat => {
+        residents.SwapKey(seat => {
             taken = seat.Map(static row => row.Held);
             return seat.Map(row => row with { LastUsed = now, Leases = row.Leases + 1 });
         });
-        return taken.Map(held => new Lease(this, key, held, clock));
+        return taken.Map(held => new Lease(held, clock));
     }
 
     Fin<Lease> Publish(TKey key, Option<int> cap, THandle built, IClock clock) {
         Instant now = clock.GetCurrentInstant();
         Option<THandle> seated = None;
-        residents.SwapKey(key, seat => {
+        residents.SwapKey(seat => {
             seated = seat.Map(static row => row.Held);
             return seat.Match(
                 Some: row => Some(row with { LastUsed = now, Leases = row.Leases + 1 }),
                 None: () => Some(new Row(built, now, Leases: 1)));
         });
         return seated.Match(
-            Some: raced => Custody.Bracket(() => Fin.Succ(new Lease(this, key, raced, clock)), built),
-            None: () => Capped(cap).Map(_ => new Lease(this, key, built, clock)));
+            Some: raced => Custody.Bracket(() => Fin.Succ(new Lease(raced, clock)), built),
+            None: () => Capped(cap).Map(_ => new Lease(built, clock)));
     }
 
     Fin<Unit> Capped(Option<int> cap) =>
@@ -274,7 +274,7 @@ public sealed class ResidentPool<TKey, THandle>
 
     Option<THandle> Taken(TKey key, Func<Row, bool> admits) {
         Option<THandle> taken = None;
-        residents.SwapKey(key, seat => {
+        residents.SwapKey(seat => {
             taken = seat.Filter(row => row.Leases is 0 && admits(row)).Map(static row => row.Held);
             return taken.IsSome ? Option<Row>.None : seat;
         });
@@ -292,7 +292,7 @@ public sealed class ResidentPool<TKey, THandle>
     public Fin<int> Drain() => Unload(Instant.MaxValue).Map(static keys => keys.Count);
 
     void Release(TKey key, Instant at) =>
-        residents.SwapKey(key, seat => seat.Map(row => row with { LastUsed = at, Leases = Math.Max(row.Leases - 1, 0) }));
+        residents.SwapKey(seat => seat.Map(row => row with { LastUsed = at, Leases = Math.Max(row.Leases - 1, 0) }));
 }
 
 public static class ModelSessions {
@@ -349,9 +349,7 @@ public static class ModelSessions {
             .Map(_ => WarmRosters.Swap(rosters => rosters.Find(warm).IsSome
                 ? rosters
                 : rosters.Add(warm, new WarmRoster(Seed(model), policy.WarmBuckets))))
-            .Bind(_ => Fleet.Hold(
-                key,
-                Some(policy.ResidentSessions),
+            .Bind(_ => Fleet.Hold(Some(policy.ResidentSessions),
                 () => Open(warm, bytes, ep, policy, artifactDir, scope, clock, ep.AutoSelect)
                     .Bind(opened => Placement(opened.Session)
                         .Map(placement => new OrtResident(opened.Session, ep, warm, opened.WarmStart, placement))
@@ -363,9 +361,9 @@ public static class ModelSessions {
     public static OrtAllocator SharedAllocator(OrtEpDevice device, OrtDeviceMemoryType memory) {
         (ulong Device, OrtDeviceMemoryType Memory) key = (ProviderSnapshot.Fingerprint(device), memory);
         lock (Gate) {
-            if (SharedAllocators.Find(key).Case is DeviceArena raced) { return raced.Allocator; }
+            if (SharedAllocators.Find().Case is DeviceArena raced) { return raced.Allocator; }
             DeviceArena arena = new(device, memory, OrtEnv.Instance().CreateSharedAllocator(device, memory, OrtAllocatorType.ArenaAllocator, FrozenDictionary<string, string>.Empty));
-            SharedAllocators = SharedAllocators.Add(key, arena);
+            SharedAllocators = SharedAllocators.Add(arena);
             return arena.Allocator;
         }
     }
@@ -501,7 +499,7 @@ public static class ModelSessions {
     }
 
     static Fin<ArtifactIndexRow> CompileAdmitted(WarmKey resident, ReadOnlyMemory<byte> bytes, SessionPolicy policy, WarmSite site, CancelScope scope, Instant at, PlannedLoad load) =>
-        Op.Of(name: "model.compile").Catch(() => {
+        Try.lift(() => {
             using (load) {
                 using OrtModelCompilationOptions compile = new(load.Options);
                 compile.SetInputModelFromBuffer(bytes.ToArray());
@@ -513,10 +511,10 @@ public static class ModelSessions {
                 return AdmitContext(site, resident, policy, at)
                     .ToFin(new ComputeFault.Violation(ComputeArea.Model, new ComputeViolation.Required(ComputeSubject.Input)));
             }
-        }, scope.Source.Token).MapFail(error => Faulted(scope, error));
+        }).Run().Bind(static inner => inner).MapFail(error => Faulted(scope, error));
 
     static Fin<WarmSite> Site(WarmKey key, ExecutionProvider ep, SessionPolicy policy, string artifactDir, Seq<OrtEpDevice> devices) {
-        string artifactKey = ContextKey(key, devices.Head, ep.Warm);
+        string artifactKey = ContextKey(devices.Head, ep.Warm);
         string location = Path.Combine(artifactDir, artifactKey);
         return ep.Warmth(location, devices).Map(verdict => (verdict.Bound, Mapped: ReferenceEquals(ep.Warm, WarmForm.OptimizedGraph)) switch {
             (true, true) => (WarmSite)new WarmSite.Hit(artifactKey, verdict, GraphOptimizationLevel.ORT_DISABLE_ALL),
@@ -541,7 +539,7 @@ public static class ModelSessions {
             .Bind(load => OpenAdmitted(warm, bytes, ep, policy, site, scope, clock, load));
 
     static Fin<(InferenceSession Session, Option<ArtifactIndexRow> WarmStart)> OpenAdmitted(WarmKey warm, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, WarmSite site, CancelScope scope, IClock clock, PlannedLoad load) =>
-        Op.Of(name: "model.open").Catch(() => {
+        Try.lift(() => {
             using (load) {
                 return ep.Warm.Switch(
                     state: (Site: site, Bytes: bytes, Options: load.Options, Key: warm, Policy: policy, At: clock.GetCurrentInstant()),
@@ -554,7 +552,7 @@ public static class ModelSessions {
                     engineCache: static at => (
                         new InferenceSession(at.Bytes.ToArray(), at.Options, PrePacked), Option<ArtifactIndexRow>.None));
             }
-        }, scope.Source.Token).MapFail(error => Faulted(scope, error));
+        }).Run().Bind(static inner => inner).MapFail(error => Faulted(scope, error));
 
     static Fin<Unit> Admit(ModelIdentity model, ReadOnlyMemory<byte> bytes, SessionPolicy policy) =>
         guard(
@@ -575,7 +573,7 @@ public static class ModelSessions {
 
     static Fin<PlannedLoad> Options(ExecutionProvider ep, SessionPolicy policy, string artifactDir, WarmSite site, CancelScope scope, Seq<OrtEpDevice> devices) {
         SessionOptions options = new();
-        return Op.Of(name: "model.options").Catch(() => {
+        return Try.lift(() => {
                 options.GraphOptimizationLevel = site.Level;
                 options.ExecutionMode = policy.Execution;
                 options.EnableMemoryPattern = policy.Holds(SessionTrait.MemoryPattern);
@@ -587,7 +585,7 @@ public static class ModelSessions {
                 policy.Initializers.Iter(slot => options.AddInitializer(slot.Name, slot.Value));
                 ep.DevicePolicy.Iter(options.SetEpSelectionPolicy);
                 return Fin.Succ(options);
-            }, scope.Source.Token)
+            }).Run().Bind(static inner => inner)
             .Bind(built => ep.Register(built, new ArtifactSite(artifactDir, site.Path), policy.Precision, devices))
             .Bind(registered => CustomOps.Register(registered, policy))
             .MapFail(error => Faulted(scope, error))
@@ -606,7 +604,7 @@ public static class ModelSessions {
 
     static Option<ArtifactIndexRow> AdmitContext(WarmSite site, WarmKey resident, SessionPolicy policy, Instant at) =>
         from port in Blobs
-        from bytes in Op.Of(name: "model.warm-artifact-read").Catch(() => Fin.Succ((ReadOnlyMemory<byte>)File.ReadAllBytes(site.Path))).ToOption()
+        from bytes in Try.lift(() => Fin.Succ((ReadOnlyMemory<byte>)File.ReadAllBytes(site.Path))).Run().Bind(static inner => inner).ToOption()
         from address in port.Put(bytes).Try().Run().ToOption()
         select new ArtifactIndexRow(
             ArtifactKind.EpContext,

@@ -41,8 +41,8 @@ public sealed partial class Scramble {
         bits: static (value, key) => value ^ key,
         digit: static (digit, key, radix, _) => (uint)(((ulong)digit + key) % (ulong)radix));
     public static readonly Scramble Owen = new("owen", identity: false,
-        bits: static (value, key) => OwenNestedUniform(value, key),
-        digit: static (digit, key, radix, position) => RandomLinearDigit(digit, key, radix, position));
+        bits: static (value, key) => OwenNestedUniform(value),
+        digit: static (digit, key, radix, position) => RandomLinearDigit(digit, radix, position));
 
     public bool Identity { get; }
 
@@ -216,10 +216,10 @@ public sealed partial record LowDiscrepancy {
                     None: () => Fin.Succ(block),
                     Some: cursor => cursor.Write(block.Values).Map(_ => block))))
             .As()
-            .Bind(blocks => Settle(blocks, policy, key));
+            .Bind(blocks => Settle(blocks, policy));
 
-    static Fin<ReplicateFamily> Settle(Seq<ReplicateBlock> blocks, ReplicatePolicy policy, Op key) {
-        Fin<Stat<Scalar>> folded = Stat<Scalar>.Of(blocks.Map(static block => (Scalar)TensorPrimitives.Average<double>(block.Values)), key);
+    static Fin<ReplicateFamily> Settle(Seq<ReplicateBlock> blocks, ReplicatePolicy policy) {
+        Fin<Stat<Scalar>> folded = Stat<Scalar>.Of(blocks.Map(static block => (Scalar)TensorPrimitives.Average<double>(block.Values)));
         if (folded.Case is not Stat<Scalar> stat) { return folded.Map(static _ => default(ReplicateFamily)!); }
         double variance = stat.Variance(MomentNormalizer.Sample);
         double bound = StudentT.InvCDF(0.0, 1.0, policy.Replicates - 1, 0.5 + (policy.Confidence / 2.0)) * Math.Sqrt(variance / policy.Replicates);
@@ -311,7 +311,7 @@ public sealed partial record LowDiscrepancy {
         int position = 0;
         while (cursor > 0UL) {
             uint digit = (uint)(cursor % (ulong)radix);
-            inverse += scramble.Digit(digit, key, radix, position) * fraction;
+            inverse += scramble.Digit(digit, radix, position) * fraction;
             cursor /= (ulong)radix;
             fraction /= radix;
             position++;
@@ -424,7 +424,7 @@ public static class JoeKuo {
         from ceiling in Ceiling(degrees, dimensions)
         from coefficients in handle.Dataset("coefficients")
         from seeds in handle.Dataset("seeds")
-        from table in Op.Of(name: "joe-kuo-decode").Catch(() => {
+        from table in Try.lift(() => {
             int rows = dimensions - 1;
             int[] degree = new int[rows];
             uint[] polynomials = new uint[rows];
@@ -436,7 +436,7 @@ public static class JoeKuo {
             }
 
             return Fin.Succ(Recur(dimensions, degree, polynomials, payload));
-        })
+        }).Run().Bind(static inner => inner)
         select table;
 
     static Fin<Unit> Ceiling(NativeDataset degrees, int dimensions) =>
@@ -466,7 +466,7 @@ public static class JoeKuo {
     }
 
     static Fin<ReadOnlyMemory<byte>> Payload() =>
-        Op.Of(name: "joe-kuo-resource").Catch(() =>
+        Try.lift(() =>
             Optional(typeof(JoeKuo).Assembly.GetManifestResourceStream(Resource))
                 .ToFin(TensorReason.RowMissing.Fault("joe-kuo-resource", Resource))
                 .Map(static stream => {
@@ -475,7 +475,7 @@ public static class JoeKuo {
                         stream.CopyTo(staged);
                         return (ReadOnlyMemory<byte>)staged.ToArray();
                     }
-                }));
+                })).Run().Bind(static inner => inner);
 }
 ```
 
@@ -507,15 +507,15 @@ public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Ra
     public Fin<Matrix<double>> Evaluate(Matrix<double> queries) =>
         queries.RowCount == 0 || queries.ColumnCount != Centres.ColumnCount
             ? TensorReason.ShapeMismatch.Fail<Matrix<double>>("rbf-query-shape", $"{queries.RowCount}x{queries.ColumnCount}")
-            : OperandGate.Admit(queries).Bind(admitted => Op.Of(name: "rbf-evaluate").Catch(() => {
+            : OperandGate.Admit(queries).Bind(admitted => Try.lift(() => {
                 Matrix<double> phi = Matrix<double>.Build.Dense(admitted.RowCount, Centres.RowCount,
-                    (i, j) => Kernel.Weight(TensorPrimitives.Distance<double>(admitted.Row(i).AsArray(), Centres.Row(j).AsArray()), Radius));
+                    (i, j) => Kernel.Weight(TensorPrimitives.Distance<double>(FactoryBridge.Row(i).AsArray(), Centres.Row(j).AsArray()), Radius));
                 Matrix<double> field = phi.Multiply(Weights);
                 if (PolynomialOrder <= 0) { return Fin.Succ(field); }
                 Seq<int[]> terms = RadialFit.Monomials(admitted.ColumnCount, PolynomialOrder - 1);
-                Matrix<double> poly = Matrix<double>.Build.Dense(admitted.RowCount, terms.Count, (i, t) => RadialFit.Evaluate(admitted.Row(i), terms[t]));
+                Matrix<double> poly = Matrix<double>.Build.Dense(admitted.RowCount, terms.Count, (i, t) => RadialFit.Evaluate(FactoryBridge.Row(i), terms[t]));
                 return Fin.Succ(field + poly.Multiply(PolynomialCoefficients));
-            }))
+            }).Run().Bind(static inner => inner))
             .Bind(static field => TensorPrimitives.IsFiniteAll<double>(field.AsColumnMajorArray())
                 ? Fin.Succ(field)
                 : TensorReason.NonFinite.Fail<Matrix<double>>("rbf-evaluate"));
@@ -528,7 +528,7 @@ public static class RadialFit {
             .Apply(static (_, _) => unit).As().ToFin()
             .Bind(_ => OperandGate.Admit(centres))
             .Bind(_ => OperandGate.Admit(samples))
-            .Bind(_ => Op.Of(name: "rbf-design").Catch(() => {
+            .Bind(_ => Try.lift(() => {
                 Matrix<double> phi = Matrix<double>.Build.Dense(samples.RowCount, centres.RowCount,
                     (i, j) => kernel.Weight(TensorPrimitives.Distance<double>(samples.Row(i).AsArray(), centres.Row(j).AsArray()), radius));
                 if (kernel.PolynomialOrder <= 0) { return Fin.Succ(new RbfDesign(phi, 0, centres.RowCount)); }
@@ -539,7 +539,7 @@ public static class RadialFit {
                 Matrix<double> top = phi.Append(pSamples);
                 Matrix<double> bottom = pCentres.Transpose().Append(Matrix<double>.Build.Dense(terms.Count, terms.Count));
                 return Fin.Succ(new RbfDesign(top.Stack(bottom), terms.Count, centres.RowCount));
-            }))
+            }).Run().Bind(static inner => inner))
             .Bind(static design => TensorPrimitives.IsFiniteAll<double>(design.Matrix.AsColumnMajorArray())
                 ? Fin.Succ(design)
                 : TensorReason.NonFinite.Fail<RbfDesign>("rbf-design"));
@@ -550,7 +550,7 @@ public static class RadialFit {
             : OperandGate.Admit(design)
                 .Bind(_ => OperandGate.Admit(response))
                 .Bind(_ => DenseOps.Decompose(design, FactorizationKind.Svd))
-                .Bind(factor => Op.Of(name: "scatter-solve").Catch(() => Fin.Succ(factor.Solve(response))))
+                .Bind(factor => Try.lift(() => Fin.Succ(factor.Solve(response))).Run().Bind(static inner => inner))
                 .Bind(solution => (design.Multiply(solution) - response).FrobeniusNorm() / Math.Max(1.0, response.FrobeniusNorm()) is var residual
                     && tol.Admits(residual)
                         ? Fin.Succ(solution)

@@ -96,27 +96,27 @@ public abstract partial record Termination {
     public sealed record CriticalCaptureCase(Seq<Point3d> Sites, PositiveMagnitude CaptureRadius, Dimension LocalizationBudget) : Termination;
     private Termination() { }
 
-    internal Fin<Termination> Admit(Op key) => Switch(
+    internal Fin<Termination> Admit() => Switch(
         state: key,
         stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
         arcLengthCase: static (_, termination) => Fin.Succ<Termination>(termination),
         magnitudeFloorCase: static (_, termination) => Fin.Succ<Termination>(termination),
-        crossSurfaceCase: static (op, termination) =>
-            op.Need(termination.Surface).Map(static _ => (Termination)termination),
-        regionThresholdCase: static (op, termination) =>
-            from region in op.Need(termination.Region)
-            from threshold in op.Finite(termination.Threshold)
+        crossSurfaceCase: static (termination) =>
+            Admit.Need(termination.Surface).Map(static _ => (Termination)termination),
+        regionThresholdCase: static (termination) =>
+            from region in Admit.Need(termination.Region)
+            from threshold in Admit.Finite(termination.Threshold)
             select (Termination)termination,
         loopDetectedCase: static (_, termination) => Fin.Succ<Termination>(termination),
-        criticalCaptureCase: static (op, termination) =>
+        criticalCaptureCase: static (termination) =>
             !termination.Sites.IsEmpty && termination.Sites.ForAll(static site => site.IsValid)
                 ? Fin.Succ<Termination>(termination)
-                : Fin.Fail<Termination>(op.InvalidInput()));
-    internal static Fin<Termination> Admit(Termination value, Op key) =>
-        key.Need(value).Bind(termination => termination.Admit(key: key));
+                : Fin.Fail<Termination>(new KernelFault.InvalidInput()));
+    internal static Fin<Termination> Admit(Termination value) =>
+        Admit.Need(value).Bind(termination => termination.Admit());
 
-    internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
-        state: (Field: state, Sample: currentSample, Context: context, Key: key),
+    internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context) => Switch(
+        state: (Field: state, Sample: currentSample, Context: context),
         stepCountCase: static (s, c) => Decision(stop: s.Field.Steps >= c.Count.Value),
         arcLengthCase: static (s, c) => Decision(stop: s.Field.Arc >= c.Length.Value),
         magnitudeFloorCase: static (s, c) => Decision(stop: s.Sample.Length < c.Threshold.Value),
@@ -133,17 +133,15 @@ public abstract partial record Termination {
                 from hit in c.Surface.Closest(sample: point, key: s.Key)
                 from value in c.Surface.SignedReach(hit: hit)
                     ? c.Surface.SignedDistance(sample: point, key: s.Key)
-                    : Fin.Fail<double>(s.Key.Unsupported(inputType: c.Surface.SourceType, outputType: typeof(double)))
-                select value,
-            key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)),
+                    : Fin.Fail<double>(new KernelFault.Unsupported(InputType: c.Surface.SourceType, OutputType: typeof(double)))
+                select value).Map(@event => (Stop: @event.IsSome, Event: @event)),
         regionThresholdCase: static (s, c) => EvaluateEvent(
             state: s.Field, kind: TraceEventKind.RegionThreshold,
             tolerance: (
                 Residual: s.Context.Fractional * Math.Max(1.0, Math.Abs(c.Threshold)),
                 Position: s.Context.Absolute.Value),
             budget: c.LocalizationBudget.Value,
-            sample: point => c.Region.SampleScalar(sample: point, context: s.Context, key: s.Key).Map(value => value - c.Threshold),
-            key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)),
+            sample: point => c.Region.SampleScalar(sample: point, context: s.Context).Map(value => value - c.Threshold)).Map(@event => (Stop: @event.IsSome, Event: @event)),
         criticalCaptureCase: static (s, c) => EvaluateEvent(
             state: s.Field, kind: TraceEventKind.CriticalCapture,
             tolerance: (Residual: s.Context.Absolute.Value, Position: s.Context.Absolute.Value),
@@ -153,32 +151,31 @@ public abstract partial record Termination {
                     Some: held => Math.Min(val1: held, val2: point.DistanceTo(other: site)),
                     None: () => point.DistanceTo(other: site))))
                 .Map(nearest => nearest - c.CaptureRadius.Value)
-                .ToFin(Fail: s.Key.InvalidResult()),
-            key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)));
+                .ToFin(Fail: new KernelFault.InvalidResult())).Map(@event => (Stop: @event.IsSome, Event: @event)));
 
     private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>
         Fin.Succ((Stop: stop, Event: Option<TraceEvent>.None));
 
     private static Fin<Option<TraceEvent>> EvaluateEvent(
         StreamlineState state, TraceEventKind kind, (double Residual, double Position) tolerance,
-        int budget, Func<Point3d, Fin<double>> sample, Op key) =>
+        int budget, Func<Point3d, Fin<double>> sample) =>
         from currentValue in sample(state.Current)
         from output in state.Trail.Count < 2
             ? EndpointEvent(kind, (state.Current, state.Current, state.Current),
                 (currentValue, currentValue, currentValue), 0.0, tolerance)
-            : SegmentEvent(previous: state.Trail[state.Trail.Count - 2], current: state.Current, dense: state.Dense, currentValue: currentValue, kind: kind, tolerance: tolerance, budget: budget, sample: sample, key: key)
+            : SegmentEvent(previous: state.Trail[state.Trail.Count - 2], current: state.Current, dense: state.Dense, currentValue: currentValue, kind: kind, tolerance: tolerance, budget: budget, sample: sample)
         select output;
     private static Fin<Option<TraceEvent>> SegmentEvent(
         Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense,
         double currentValue, TraceEventKind kind, (double Residual, double Position) tolerance,
-        int budget, Func<Point3d, Fin<double>> sample, Op key) =>
+        int budget, Func<Point3d, Fin<double>> sample) =>
         from previousValue in sample(previous)
         from output in Math.Abs(previousValue) <= tolerance.Residual
             ? EndpointEvent(kind, (previous, current, previous), (previousValue, currentValue, previousValue), 0.0, tolerance)
             : Math.Abs(currentValue) <= tolerance.Residual
                 ? EndpointEvent(kind, (previous, current, current), (previousValue, currentValue, currentValue), 1.0, tolerance)
                 : Sign.Of(previousValue) != Sign.Of(currentValue)
-                    ? LocateRoot(previous: previous, current: current, dense: dense, previousValue: previousValue, currentValue: currentValue, kind: kind, tolerance: tolerance, budget: budget, sample: sample, key: key).Map(Some)
+                    ? LocateRoot(previous: previous, current: current, dense: dense, previousValue: previousValue, currentValue: currentValue, kind: kind, tolerance: tolerance, budget: budget, sample: sample).Map(Some)
                     : Fin.Succ(Option<TraceEvent>.None)
         select output;
     private static Fin<Option<TraceEvent>> EndpointEvent(
@@ -195,7 +192,7 @@ public abstract partial record Termination {
         Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense,
         double previousValue, double currentValue, TraceEventKind kind,
         (double Residual, double Position) tolerance, int budget,
-        Func<Point3d, Fin<double>> sample, Op key) {
+        Func<Point3d, Fin<double>> sample) {
         Fin<RootBracket> seed = Fin.Succ((
             A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0,
             Localized: Option<(Point3d At, double Value, double T)>.None, Iterations: 0));
@@ -213,12 +210,12 @@ public abstract partial record Termination {
                     Values: (previousValue, currentValue, settled.Value), Parameter: settled.T,
                     Tolerance: tolerance, Iterations: bracket.Iterations,
                     DenseOutput: dense.Map(static span => span.Conditions)))
-                : Fin.Fail<TraceEvent>(key.InvalidResult())
+                : Fin.Fail<TraceEvent>(new KernelFault.InvalidResult())
             select @event);
 
         Fin<RootBracket> Halve(RootBracket state) {
             double tm = 0.5 * (state.TA + state.TB);
-            return from mid in PointAt(previous: previous, current: current, dense: dense, theta: tm, key: key)
+            return from mid in PointAt(previous: previous, current: current, dense: dense, theta: tm)
                    from fm in sample(mid)
                    let hit = Math.Abs(fm) <= tolerance.Residual || mid.DistanceTo(state.A) <= tolerance.Position || mid.DistanceTo(state.B) <= tolerance.Position
                        ? Some((At: mid, Value: fm, T: tm))
@@ -230,15 +227,15 @@ public abstract partial record Termination {
 
         Fin<(Point3d At, double Value, double T)> Midpoint(RootBracket bracket) {
             double theta = 0.5 * (bracket.TA + bracket.TB);
-            return from at in PointAt(previous: previous, current: current, dense: dense, theta: theta, key: key)
+            return from at in PointAt(previous: previous, current: current, dense: dense, theta: theta)
                    from value in sample(at)
                    select (At: at, Value: value, T: theta);
         }
     }
-    private static Fin<Point3d> PointAt(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double theta, Op key) =>
+    private static Fin<Point3d> PointAt(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double theta) =>
         dense.Match(
-            Some: span => span.PointAt(theta: theta, key: key),
-            None: () => key.AcceptValue(value: previous + (theta * (current - previous))));
+            Some: span => span.PointAt(theta: theta),
+            None: () => Acceptance.Value(value: previous + (theta * (current - previous))));
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -303,11 +300,10 @@ public sealed record TopologyPolicy(
 
     public static Fin<TopologyPolicy> Of(
         double captureRadius, double stencilWidth,
-        Option<Dimension> transitionSteps = default, Option<Dimension> separatrixSteps = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from radius in op.AcceptValidated<PositiveMagnitude>(candidate: captureRadius)
-               from stencil in op.AcceptValidated<PositiveMagnitude>(candidate: stencilWidth)
-               from offset in op.AcceptValidated<PositiveMagnitude>(candidate: SeedFactor * radius.Value)
+        Option<Dimension> transitionSteps = default, Option<Dimension> separatrixSteps = default) {
+        return from radius in FactoryBridge.Accept<PositiveMagnitude>(candidate: captureRadius)
+               from stencil in FactoryBridge.Accept<PositiveMagnitude>(candidate: stencilWidth)
+               from offset in FactoryBridge.Accept<PositiveMagnitude>(candidate: SeedFactor * radius.Value)
                select new TopologyPolicy(
                    TransitionSteps: transitionSteps.IfNone(Dimension.Create(value: 64)),
                    SeparatrixSteps: separatrixSteps.IfNone(Dimension.Create(value: 4_096)),
@@ -316,9 +312,8 @@ public sealed record TopologyPolicy(
 }
 
 public sealed record FlowPartition(Dimension Cells, Func<int, Point3d> Representative, Func<Point3d, Option<int>> Locate) {
-    public static Fin<FlowPartition> Of(Dimension cells, Func<int, Point3d> representative, Func<Point3d, Option<int>> locate, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(representative is not null && locate is not null, op.InvalidInput()).ToFin()
+    public static Fin<FlowPartition> Of(Dimension cells, Func<int, Point3d> representative, Func<Point3d, Option<int>> locate) {
+        return from _ in guard(representative is not null && locate is not null, new KernelFault.InvalidInput()).ToFin()
                select new FlowPartition(cells, representative,
                    point => locate(point).Filter(cell => cell >= 0 && cell < cells.Value));
     }
@@ -384,7 +379,7 @@ internal readonly record struct StreamlineState(
 internal static class FlowKernel {
     internal static Fin<TOut> Trace<TOut>(
         VectorField source, Point3d seed, PositiveMagnitude initialStep,
-        RungeKuttaIntegrator integrator, Termination termination, Context context, Op key,
+        RungeKuttaIntegrator integrator, Termination termination, Context context,
         Option<TracePolicy> policy = default) =>
         from state in Range(0, policy.IfNone(TracePolicy.Default).MaxIterations.Value).FoldUntil(
             Fin.Succ(new StreamlineState(
@@ -395,14 +390,14 @@ internal static class FlowKernel {
                 Dense: Option<DenseOutputSpan<Point3d, Vector3d>>.None,
                 Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None)),
             (run, _) => run.Bind(current =>
-                from vector in source.SampleVector(sample: current.Current, context: context, key: key)
-                from decision in termination.Evaluate(state: current, currentSample: vector, context: context, key: key)
+                from vector in source.SampleVector(sample: current.Current, context: context)
+                from decision in termination.Evaluate(state: current, currentSample: vector, context: context)
                 from next in decision.Stop
                     ? Fin.Succ(current with { Event = decision.Event, Stop = Some(StreamlineStopKind.Terminated) })
                     : integrator.Step(
                             module: SpatialIntegration.Module,
-                            sample: point => source.SampleVector(sample: point, context: context, key: key),
-                            state: current.Current, h: current.H, key: key, history: current.History)
+                            sample: point => source.SampleVector(sample: point, context: context),
+                            state: current.Current, h: current.H, history: current.History)
                         .Map(step => step.Switch(
                             state: (State: current, Budget: integrator.RejectBudget),
                             acceptedCase: static (s, accepted) => s.State.Accept(accepted: accepted),
@@ -420,54 +415,54 @@ internal static class FlowKernel {
             MinStep: state.MinStep, MaxStep: state.MaxStep,
             TerminationPoint: state.Event.Map(static e => e.Points.Localized).IfNone(state.Current),
             Event: state.Event)
-        from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(key.InvalidResult())
-        from output in ProjectTrace<TOut>(valid, key)
+        from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(new KernelFault.InvalidResult())
+        from output in ProjectTrace<TOut>(valid)
         select output;
 
-    internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
-        ResultProjection.Rows<StreamlineTrace, TOut>(self: trace, key: key,
+    internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace) =>
+        ResultProjection.Rows<StreamlineTrace, TOut>(self: trace,
             ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(trace.Trail)),
-            ProjectionRow.Of<Polyline>(() => trace.IsComplete ? PolylineOf(trace, key) : Fin.Fail<Polyline>(key.InvalidResult())),
+            ProjectionRow.Of<Polyline>(() => trace.IsComplete ? PolylineOf(trace) : Fin.Fail<Polyline>(new KernelFault.InvalidResult())),
             ProjectionRow.Of<Curve>(() => trace.IsComplete
-                ? PolylineOf(trace, key).Bind(polyline => Optional(polyline.ToPolylineCurve()).ToFin(key.InvalidResult()).Map(static curve => (Curve)curve))
-                : Fin.Fail<Curve>(key.InvalidResult())));
+                ? PolylineOf(trace).Bind(polyline => Optional(polyline.ToPolylineCurve()).ToFin(new KernelFault.InvalidResult()).Map(static curve => (Curve)curve))
+                : Fin.Fail<Curve>(new KernelFault.InvalidResult())));
 
-    private static Fin<Polyline> PolylineOf(StreamlineTrace trace, Op key) {
+    private static Fin<Polyline> PolylineOf(StreamlineTrace trace) {
         Point3d[] points = trace.Event.Match(
             Some: @event => trace.Trail.AsIterable().Select((point, index) => index == trace.Trail.Count - 1 ? @event.Points.Localized : point).ToArray(),
             None: () => [.. trace.Trail.AsIterable()]);
         Polyline polyline = [.. points];
-        return polyline.IsValid ? key.AcceptValue(value: polyline) : Fin.Fail<Polyline>(key.InvalidResult());
+        return polyline.IsValid ? Acceptance.Value(value: polyline) : Fin.Fail<Polyline>(new KernelFault.InvalidResult());
     }
 }
 
 internal static class MorseAtlas {
     internal static Fin<TOut> Of<TOut>(
         VectorField source, FlowPartition partition, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator,
-        TopologyPolicy policy, Context context, Op key, Option<TracePolicy> tracePolicy = default) =>
+        TopologyPolicy policy, Context context, Option<TracePolicy> tracePolicy = default) =>
         from seeds in toSeq(Enumerable.Range(0, partition.Cells.Value))
-            .TraverseM(cell => key.AcceptValue(partition.Representative(cell))).As()
+            .TraverseM(cell => Acceptance.Value(partition.Representative(cell))).As()
         let horizon = (Termination)new Termination.StepCountCase(policy.TransitionSteps)
         from arcs in seeds.Map((seed, cell) => (Seed: seed, Cell: cell))
             .TraverseM(row => Transitions(source, partition, row.Cell, row.Seed, initialStep,
-                integrator, horizon, context, key, tracePolicy)).As()
+                integrator, horizon, context, tracePolicy)).As()
             .Map(static chunks => chunks.Bind(static chunk => chunk))
-        from condensed in Condense(arcs, partition.Cells.Value, key)
+        from condensed in Condense(arcs, partition.Cells.Value)
         let census = condensed.Census
         let sites = census.Map(row => seeds[row.Cell])
         from critical in census.Map((row, node) => (Row: row, Site: sites[node]))
             .TraverseM(entry => entry.Row.Recurrent
-                ? CriticalAt(source, entry.Site, policy, context, key)
+                ? CriticalAt(source, entry.Site, policy, context)
                     .Map(row => (Kind: Some(row.Kind), row.Unstable))
                 : Fin.Succ((Kind: Option<FixedPointKind>.None, Unstable: Seq<Vector3d>())))
             .As()
         from separatrices in SeparatrixRows(source: source, partition: partition, sites: sites, component: condensed.Component,
-            critical: critical, initialStep: initialStep, integrator: integrator, policy: policy, context: context, key: key)
+            critical: critical, initialStep: initialStep, integrator: integrator, policy: policy, context: context)
         let atlas = new MorseGraph(
             CellComponent: condensed.Component, Site: sites, Critical: critical.Map(static row => row.Kind),
             Arc: condensed.Arc, Crossing: condensed.Crossing, Separatrices: separatrices)
-        from valid in atlas.IsValid ? Fin.Succ(atlas) : Fin.Fail<MorseGraph>(key.InvalidResult())
-        from output in ResultProjection.Rows<MorseGraph, TOut>(self: valid, key: key,
+        from valid in atlas.IsValid ? Fin.Succ(atlas) : Fin.Fail<MorseGraph>(new KernelFault.InvalidResult())
+        from output in ResultProjection.Rows<MorseGraph, TOut>(self: valid,
             ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(valid.Site)),
             ProjectionRow.Of<Seq<Separatrix>>(() => Fin.Succ(valid.Separatrices)),
             ProjectionRow.Of<Seq<Line>>(() => Fin.Succ(valid.Arc.Map(arc =>
@@ -476,8 +471,8 @@ internal static class MorseAtlas {
 
     private static Fin<Seq<SEdge<int>>> Transitions(
         VectorField source, FlowPartition partition, int origin, Point3d seed, PositiveMagnitude initialStep,
-        RungeKuttaIntegrator integrator, Termination termination, Context context, Op key, Option<TracePolicy> policy) =>
-        FlowKernel.Trace<Seq<Point3d>>(source, seed, initialStep, integrator, termination, context, key, policy)
+        RungeKuttaIntegrator integrator, Termination termination, Context context, Option<TracePolicy> policy) =>
+        FlowKernel.Trace<Seq<Point3d>>(source, seed, initialStep, integrator, termination, context, policy)
             .Map(trail => trail.Fold((Cells: Seq<int>(), Last: Option<int>.None), (state, point) =>
                 partition.Locate(point) is { IsSome: true, Case: int cell } && state.Last != Some(cell)
                     ? (state.Cells.Add(cell), Some(cell))
@@ -487,8 +482,8 @@ internal static class MorseAtlas {
                 : cells.Zip(cells.Skip(1), static (from, to) => new SEdge<int>(from, to)));
 
     private static Fin<(Seq<int> Component, Seq<(int Cell, bool Recurrent)> Census,
-        Seq<(int From, int To)> Arc, Seq<int> Crossing)> Condense(Seq<SEdge<int>> arcs, int cells, Op key) =>
-        key.Catch(() => {
+        Seq<(int From, int To)> Arc, Seq<int> Crossing)> Condense(Seq<SEdge<int>> arcs, int cells) =>
+        Try.lift(() => {
             AdjacencyGraph<int, SEdge<int>> graph = arcs.ToAdjacencyGraph<int, SEdge<int>>(allowParallelEdges: false);
             graph.AddVertexRange(Enumerable.Range(0, cells));
             IMutableBidirectionalGraph<AdjacencyGraph<int, SEdge<int>>,
@@ -507,20 +502,20 @@ internal static class MorseAtlas {
                 Crossing: edge.Edges.Count));
             return Fin.Succ((toSeq(component), census,
                 links.Map(static row => (row.From, row.To)), links.Map(static row => row.Crossing)));
-        });
+        }).Run().Bind(static inner => inner);
 
     private static Fin<(FixedPointKind Kind, Seq<Vector3d> Unstable)> CriticalAt(
-        VectorField source, Point3d site, TopologyPolicy policy, Context context, Op key) =>
+        VectorField source, Point3d site, TopologyPolicy policy, Context context) =>
         from samples in Nabla.SampleAxes<Vector3d>(
-            sampler: point => source.SampleVector(sample: point, context: context, key: key),
-            point: site, eps: policy.StencilWidth.Value, key: key)
+            sampler: point => source.SampleVector(sample: point, context: context),
+            point: site, eps: policy.StencilWidth.Value)
         let inv2eps = 1.0 / (2.0 * policy.StencilWidth.Value)
         from jacobian in Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 3), entries: [
             (samples.X1.X - samples.X0.X) * inv2eps, (samples.Y1.X - samples.Y0.X) * inv2eps, (samples.Z1.X - samples.Z0.X) * inv2eps,
             (samples.X1.Y - samples.X0.Y) * inv2eps, (samples.Y1.Y - samples.Y0.Y) * inv2eps, (samples.Z1.Y - samples.Z0.Y) * inv2eps,
-            (samples.X1.Z - samples.X0.Z) * inv2eps, (samples.Y1.Z - samples.Y0.Z) * inv2eps, (samples.Z1.Z - samples.Z0.Z) * inv2eps], key: key)
-        from eigen in jacobian.DecomposeEigenDetailed(key: key)
-        from pairs in eigen.PairsIn(expected: EigenOrder.Factorization, key: key)
+            (samples.X1.Z - samples.X0.Z) * inv2eps, (samples.Y1.Z - samples.Y0.Z) * inv2eps, (samples.Z1.Z - samples.Z0.Z) * inv2eps])
+        from eigen in jacobian.DecomposeEigenDetailed()
+        from pairs in eigen.PairsIn(expected: EigenOrder.Factorization)
         let tolerance = EpsilonPolicy.SqrtEpsilon * pairs.Fold(
             0.0, static (peak, pair) => Math.Max(peak, pair.Eigenvalue.Magnitude))
         let spectrum = pairs.Map(static pair => pair.Eigenvalue)
@@ -547,7 +542,7 @@ internal static class MorseAtlas {
     private static Fin<Seq<Separatrix>> SeparatrixRows(
         VectorField source, FlowPartition partition, Seq<Point3d> sites, Seq<int> component,
         Seq<(Option<FixedPointKind> Kind, Seq<Vector3d> Unstable)> critical, PositiveMagnitude initialStep,
-        RungeKuttaIntegrator integrator, TopologyPolicy policy, Context context, Op key) {
+        RungeKuttaIntegrator integrator, TopologyPolicy policy, Context context) {
         Termination capture = new Termination.CriticalCaptureCase(sites, policy.CaptureRadius, TracePolicy.Default.LocalizationBudget);
         return critical.Map(static (row, node) => (Row: row, Node: node))
             .Filter(static entry => entry.Row.Kind
@@ -558,15 +553,15 @@ internal static class MorseAtlas {
                 (Node: entry.Node, Seed: sites[entry.Node] - (policy.SeedOffset.Value * direction)))))
             .TraverseM(seed => Follow(source: source, partition: partition, component: component, node: seed.Node,
                 seed: seed.Seed, initialStep: initialStep, integrator: integrator, termination: capture,
-                policy: policy, context: context, key: key))
+                policy: policy, context: context))
             .As();
     }
 
     private static Fin<Separatrix> Follow(
         VectorField source, FlowPartition partition, Seq<int> component, int node, Point3d seed, PositiveMagnitude initialStep,
-        RungeKuttaIntegrator integrator, Termination termination, TopologyPolicy policy, Context context, Op key) =>
+        RungeKuttaIntegrator integrator, Termination termination, TopologyPolicy policy, Context context) =>
         FlowKernel.Trace<StreamlineTrace>(source: source, seed: seed, initialStep: initialStep, integrator: integrator,
-                termination: termination, context: context, key: key,
+                termination: termination, context: context,
                 policy: Some(TracePolicy.Default with { MaxIterations = policy.SeparatrixSteps }))
             .Map(trace => new Separatrix(
                 From: node,

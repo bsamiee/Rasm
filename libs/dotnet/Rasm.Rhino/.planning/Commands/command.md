@@ -42,7 +42,7 @@ public sealed partial class CommandVerdict : IDetachedDocumentResult {
 
     public Result Native { get; }
 
-    public static Fin<CommandVerdict> OfNative(Result result, Op? key = null) =>
+    public static Fin<CommandVerdict> OfNative(Result result) =>
         Items.AsIterable().Find(verdict => verdict.Native == result)
             .ToFin(Fail: key.OrDefault().InvalidResult(detail: result.ToString()));
 }
@@ -62,7 +62,7 @@ public sealed partial class ReplayHook {
         ref ValidationError? validationError,
         ref Func<ReplayHistoryData, bool> regrow) =>
         validationError = regrow is null
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(Regrow) }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(Regrow) }))
             : validationError;
 }
 
@@ -73,16 +73,15 @@ public sealed class HistoryOwner {
 
     public Guid Id { get; }
 
-    public static Fin<HistoryOwner> Of(Command owner, Op? key = null) {
-        Op op = key.OrDefault(name: nameof(HistoryOwner));
-        return from admitted in op.Need(owner)
-               from _ in guard(admitted.Id != Guid.Empty, op.InvalidInput(axis: nameof(Id)))
+    public static Fin<HistoryOwner> Of(Command owner) {
+        return from admitted in Admit.Need(owner)
+               from _ in guard(admitted.Id != Guid.Empty, new KernelFault.InvalidInput(Axis: Some(nameof(Id))))
                select new HistoryOwner(owner: admitted, id: admitted.Id);
     }
 
-    internal Fin<Rhino.DocObjects.HistoryRecord> Mint(int version, Op key) =>
-        key.Catch(() => Optional(new Rhino.DocObjects.HistoryRecord(command: owner, version: version))
-            .ToFin(Fail: key.InvalidResult()));
+    internal Fin<Rhino.DocObjects.HistoryRecord> Mint(int version) =>
+        Try.lift(() => Optional(new Rhino.DocObjects.HistoryRecord(command: owner, version: version))
+            .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
 }
 
 [SmartEnum<int>]
@@ -109,11 +108,11 @@ public sealed partial class CommandPolicy {
         ref FaultNotice notice,
         ref Rasm.Numerics.Dimension stageBudget) =>
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-            (needs.IsEmpty, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Needs) }))),
-            (notice is null, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Notice) }))),
+            (needs.IsEmpty, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Needs) }))),
+            (notice is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Notice) }))),
             (stageBudget.Value > 65536,
                 () => new ValidationClause(string.Join(" | ", new object?[] {
-                    Op.Of(), nameof(StageBudget), stageBudget.Value, "a stage budget at or under 65536" }))));
+                    nameof(StageBudget), stageBudget.Value, "a stage budget at or under 65536" }))));
 }
 ```
 
@@ -134,7 +133,7 @@ public readonly partial struct StageKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value.Length is 0
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(StageKey) }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(StageKey) }))
             : validationError;
     }
 }
@@ -146,18 +145,18 @@ public abstract record Stage<TState>(Seq<StageKey> Successors) {
     public sealed record Commit(Func<CommandTurn<TState>, Fin<TableTransaction>> Plan, Func<TState, Fin<TState>> Fold, StageKey Next) : Stage<TState>(Seq(Next));
     public sealed record Halt(CommandVerdict Verdict) : Stage<TState>(Seq<StageKey>());
 
-    internal Fin<Unit> Admit(Op key) => this switch {
-        Effect row => guard(row.Run is not null, key.InvalidInput(axis: nameof(Effect.Run))).ToFin(),
-        Prompt row => guard(row.Request is not null && row.Fold is not null, key.InvalidInput(axis: nameof(Prompt))).ToFin(),
+    internal Fin<Unit> Admit() => this switch {
+        Effect row => guard(row.Run is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Effect.Run)))).ToFin(),
+        Prompt row => guard(row.Request is not null && row.Fold is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Prompt)))).ToFin(),
         Branch row => guard(
             row.Route is not null && !row.Targets.IsEmpty && row.Targets.Distinct().Count == row.Targets.Count,
-            key.InvalidInput(axis: nameof(Branch))).ToFin(),
-        Commit row => guard(row.Plan is not null && row.Fold is not null, key.InvalidInput(axis: nameof(Commit))).ToFin(),
-        Halt row => guard(row.Verdict is not null, key.InvalidInput(axis: nameof(Halt))).ToFin(),
-        _ => Fin.Fail<Unit>(error: key.InvalidInput()),
+            new KernelFault.InvalidInput(Axis: Some(nameof(Branch)))).ToFin(),
+        Commit row => guard(row.Plan is not null && row.Fold is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Commit)))).ToFin(),
+        Halt row => guard(row.Verdict is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Halt)))).ToFin(),
+        _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
     };
 
-    internal Fin<FlowStep<TState>> Apply(CommandTurn<TState> turn, Op key) => this switch {
+    internal Fin<FlowStep<TState>> Apply(CommandTurn<TState> turn) => this switch {
         Effect effect => effect.Run(arg: turn)
             .Map(state => (FlowStep<TState>)new FlowStep<TState>.Advance(Key: effect.Next, State: state)),
         Prompt prompt => prompt.Request(arg: turn.State)
@@ -171,16 +170,16 @@ public abstract record Stage<TState>(Seq<StageKey> Successors) {
                 undone: static (held, _) => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Back(State: held.Turn.State)),
                 timedOut: static (held, _) => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(CommandVerdict.Cancelled, held.Turn.State)),
                 exit: static (held, _) => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(CommandVerdict.Exit, held.Turn.State)))),
-        Branch branch => key.Catch(() => branch.Route(arg: turn.State) is var routed && branch.Targets.Contains(routed)
+        Branch branch => Try.lift(() => branch.Route(arg: turn.State) is var routed && branch.Targets.Contains(routed)
             ? Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Advance(Key: routed, State: turn.State))
-            : Fin.Fail<FlowStep<TState>>(error: key.InvalidInput(axis: nameof(Branch.Targets)))),
+            : Fin.Fail<FlowStep<TState>>(error: new KernelFault.InvalidInput(Axis: Some(nameof(Branch.Targets))))).Run().Bind(static inner => inner),
         Commit commit =>
             from plan in commit.Plan(arg: turn)
             from state in commit.Fold(arg: turn.State)
             from _ in Tables.Commit(session: turn.Session, transaction: plan)
             select (FlowStep<TState>)new FlowStep<TState>.Advance(Key: commit.Next, State: state),
         Halt halt => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(Verdict: halt.Verdict, State: turn.State)),
-        _ => Fin.Fail<FlowStep<TState>>(error: key.InvalidInput()),
+        _ => Fin.Fail<FlowStep<TState>>(error: new KernelFault.InvalidInput()),
     };
 }
 
@@ -206,20 +205,19 @@ public sealed record CommandFlow<TState> {
     public StageKey Entry { get; }
 
     public static Fin<CommandFlow<TState>> Of(StageKey entry, params ReadOnlySpan<(StageKey Key, Stage<TState> Stage)> rows) {
-        Op op = Op.Of(name: nameof(CommandFlow<>));
         Seq<(StageKey Key, Stage<TState> Stage)> candidates = toSeq(rows.ToArray());
-        return from _ in guard(!candidates.IsEmpty, op.InvalidInput()).ToFin()
-               from admittedEntry in op.AcceptValidated<StageKey>(candidate: entry.ToValue())
+        return from _ in guard(!candidates.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+               from admittedEntry in FactoryBridge.Accept<StageKey>(candidate: entry.ToValue())
                from admitted in candidates
-                   .Traverse(row => AdmitRow(row, op).ToValidation())
+                   .Traverse(row => AdmitRow(row).ToValidation())
                    .As()
                    .ToFin()
                let table = admitted.Strict()
-               from _____ in Topology(table: table, entry: admittedEntry, op: op)
+               from _____ in Topology(table: table, entry: admittedEntry)
                select new CommandFlow<TState>(rows: toHashMap(table), entry: admittedEntry);
     }
 
-    private static Fin<Unit> Topology(Seq<(StageKey Key, Stage<TState> Stage)> table, StageKey entry, Op op) {
+    private static Fin<Unit> Topology(Seq<(StageKey Key, Stage<TState> Stage)> table, StageKey entry) {
         QuikGraph.AdjacencyGraph<StageKey, QuikGraph.SEdge<StageKey>> graph =
             QuikGraph.GraphExtensions.ToAdjacencyGraph<StageKey, QuikGraph.SEdge<StageKey>>(
                 table.Bind(static row => row.Stage.Successors.Map(next => new QuikGraph.SEdge<StageKey>(row.Key, next)))
@@ -248,23 +246,22 @@ public sealed record CommandFlow<TState> {
     }
 
     public Fin<(CommandVerdict Verdict, TState State)> Drive(DocumentSession session, TState seed, CommandPolicy policy) {
-        Op op = Op.Of();
-        return op.Catch(() =>
-            from active in op.Need(policy)
+        return Try.lift(() =>
+            from active in Admit.Need(policy)
             from cursor in Range(0, active.StageBudget.Value)
                 .FoldUntil(
                     Fin.Succ(value: new FlowCursor<TState>(Key: Entry, State: seed, Trail: [], Verdict: None)),
-                    (held, _) => held.Bind(cursor => Step(session: session, held: cursor, op: op)),
+                    (held, _) => held.Bind(cursor => Step(session: session, held: cursor)),
                     static pair => pair.State.Match(
                         Succ: static cursor => cursor.Verdict.IsSome,
                         Fail: static _ => true))
-            from verdict in cursor.Verdict.ToFin(Fail: op.InvalidResult(detail: nameof(CommandPolicy.StageBudget)))
-            select (verdict, cursor.State));
+            from verdict in cursor.Verdict.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(CommandPolicy.StageBudget))))
+            select (verdict, cursor.State)).Run().Bind(static inner => inner);
     }
 
-    private Fin<FlowCursor<TState>> Step(DocumentSession session, FlowCursor<TState> held, Op op) =>
-        op.Catch(() => Rows.Find(held.Key).ToFin(Fail: op.MissingContext()).Bind(stage =>
-            stage.Apply(turn: new CommandTurn<TState>(Session: session, State: held.State), key: op).Bind(next => next switch {
+    private Fin<FlowCursor<TState>> Step(DocumentSession session, FlowCursor<TState> held) =>
+        Try.lift(() => Rows.Find(held.Key).ToFin(Fail: new KernelFault.MissingContext()).Bind(stage =>
+            stage.Apply(turn: new CommandTurn<TState>(Session: session, State: held.State)).Bind(next => next switch {
                 FlowStep<TState>.Advance move => Fin.Succ(held with {
                     Key = move.Key,
                     State = move.State,
@@ -274,17 +271,16 @@ public sealed record CommandFlow<TState> {
                     Some: frame => Fin.Succ(held with { Key = frame.Key, State = frame.State, Trail = held.Trail.Tail }),
                     None: () => Fin.Succ(held with { Verdict = Some(CommandVerdict.Cancelled) })),
                 FlowStep<TState>.Done terminal => Fin.Succ(held with { State = terminal.State, Verdict = Some(terminal.Verdict) }),
-                _ => Fin.Fail<FlowCursor<TState>>(error: op.InvalidResult()),
-            })));
+                _ => Fin.Fail<FlowCursor<TState>>(error: new KernelFault.InvalidResult()),
+            }))).Run().Bind(static inner => inner);
 
     private static Fin<(StageKey Key, Stage<TState> Stage)> AdmitRow(
-        (StageKey Key, Stage<TState> Stage) row,
-        Op op) =>
-        from stage in op.Need(row.Stage)
-        from key in op.AcceptValidated<StageKey>(candidate: row.Key.ToValue())
-        from _ in stage.Admit(op)
-        from __ in stage.Successors.TraverseM(next => op.AcceptValidated<StageKey>(candidate: next.ToValue())).As()
-        select (Key: key, Stage: stage);
+        (StageKey Key, Stage<TState> Stage) row) =>
+        from stage in Admit.Need(row.Stage)
+        from key in FactoryBridge.Accept<StageKey>(candidate: row.Key.ToValue())
+        from _ in stage.Admit()
+        from __ in stage.Successors.TraverseM(next => FactoryBridge.Accept<StageKey>(candidate: next.ToValue())).As()
+        select (Stage: stage);
 }
 ```
 
@@ -321,18 +317,17 @@ public abstract class RasmCommand<TSelf, TState> : Command
     protected abstract Fin<CommandFlow<TState>> Flow { get; }
 
     protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) {
-        Op op = Op.Of(name: typeof(TSelf).Name);
-        Fin<CommandVerdict> outcome = op.Catch(() =>
-            from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
-            from policy in op.Need(Policy)
+        Fin<CommandVerdict> outcome = Try.lift(() =>
+            from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
+            from policy in Admit.Need(Policy)
             from flow in Flow
             from lane in SessionMode.OfRunMode(mode: mode, key: op)
             from session in DocumentSession.Of(source: new SessionSource.Live(Document: doc), mode: lane, needs: policy.Needs.ToArray())
-            from verdict in op.Catch(() => {
+            from verdict in Try.lift(() => {
                 using DocumentSession active = session;
                 return flow.Drive(session: active, seed: Seed, policy: policy).Map(static facts => facts.Verdict);
-            })
-            select verdict);
+            }).Run().Bind(static inner => inner)
+            select verdict).Run().Bind(static inner => inner);
         FaultNotice notice = Optional(Policy).Map(static policy => policy.Notice).IfNone(FaultNotice.Announce);
         return outcome.Match(
             Succ: static verdict => verdict.Native,
@@ -340,12 +335,11 @@ public abstract class RasmCommand<TSelf, TState> : Command
     }
 
     protected sealed override bool ReplayHistory(ReplayHistoryData replayData) {
-        Op op = Op.Of(name: nameof(ReplayHistory));
         Option<CommandPolicy> policy = Optional(Policy);
         FaultNotice notice = policy.Map(static row => row.Notice).IfNone(FaultNotice.Announce);
-        return op.Catch(() => Fin.Succ(policy.Bind(static row => row.Replay).Match(
+        return Try.lift(() => Fin.Succ(policy.Bind(static row => row.Replay).Match(
                 Some: hook => hook.Regrow(arg: replayData),
-                None: static () => false)))
+                None: static () => false))).Run().Bind(static inner => inner)
             .Match(
                 Succ: static accepted => accepted,
                 Fail: error => CommandFaults.Refused(error: error, notice: notice, native: false));
@@ -374,9 +368,9 @@ public sealed partial class CommandActivity : ICapability<CommandActivity> {
 }
 
 public sealed record CommandQuery<TAnswer> {
-    internal CommandQuery(Func<Op, Fin<CommandQuery<TAnswer>>> admit, Func<Fin<TAnswer>> read) => (Admit, Read) = (admit, read);
+    internal CommandQuery(Func< Fin<CommandQuery<TAnswer>>> admit, Func<Fin<TAnswer>> read) => (Admit, Read) = (admit, read);
 
-    internal Func<Op, Fin<CommandQuery<TAnswer>>> Admit { get; }
+    internal Func< Fin<CommandQuery<TAnswer>>> Admit { get; }
     internal Func<Fin<TAnswer>> Read { get; }
 }
 
@@ -395,13 +389,13 @@ public static class CommandQuery {
             name: admitted, searchForEnglishName: language.Key)).Filter(static id => id != Guid.Empty)));
 
     public static CommandQuery<Option<string>> Name(Guid id, CommandLanguage language) => new(
-        admit: op => guard(id != Guid.Empty, op.InvalidInput(axis: nameof(id))).ToFin()
+        admit: op => guard(id != Guid.Empty, new KernelFault.InvalidInput(Axis: Some(nameof(id)))).ToFin()
             .Map(_ => CommandQuery.Name(id: id, language: language)),
         read: () => Fin.Succ(value: Optional(Command.LookupCommandName(
             commandId: id, englishName: language.Key)).Filter(static value => value.Length > 0)));
 
     public static CommandQuery<Seq<string>> Names(CommandLanguage language, CommandRoster roster) => new(
-        admit: op => from _ in op.Need(language) from __ in op.Need(roster) select Names(language, roster),
+        admit: op => from _ in Admit.Need(language) from __ in Admit.Need(roster) select Names(language, roster),
         read: () => Fin.Succ(value: toSeq(Command.GetCommandNames(english: language.Key, loaded: roster.Key))));
 
     public static CommandQuery<Seq<RecentCommand>> Recent { get; } = Free(
@@ -422,8 +416,8 @@ public static class CommandQuery {
         read: static () => Fin.Succ(value: RhinoApp.CommandPrompt));
 
     private static CommandQuery<TAnswer> Text<TAnswer>(string name, Func<string, Fin<TAnswer>> read) => new(
-        admit: op => op.AcceptText(value: name).Map(admitted => new CommandQuery<TAnswer>(
-            admit: static key => Fin.Fail<CommandQuery<TAnswer>>(error: key.InvalidResult()),
+        admit: op => Acceptance.Text(value: name).Map(admitted => new CommandQuery<TAnswer>(
+            admit: static key => Fin.Fail<CommandQuery<TAnswer>>(error: new KernelFault.InvalidResult()),
             read: () => read(admitted))),
         read: () => read(name));
 
@@ -530,7 +524,7 @@ internal static partial class CommandMap {
     [Riok.Mapperly.Abstractions.UserMapping]
     private static Fin<UndoMoment> Moment(UndoRedoEventArgs args) =>
         UndoMoment.Items.AsIterable().Find(moment => moment.Matches(args))
-            .ToFin(Fail: Op.Of(name: nameof(CommandMap)).InvalidResult());
+            .ToFin(Fail: new KernelFault.InvalidResult());
 
     [Riok.Mapperly.Abstractions.UserMapping]
     private static Seq<CommandOptionEvent> Options(CommandPromptChangedEventArgs args) =>
@@ -557,8 +551,7 @@ public sealed partial class CommandPulse {
                 at: RhinoPoint.CommandBegin,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.Started(Value: value),
-                    Fail: static error => new CommandFact.Rejected(Value: error)),
-                key: op))));
+                    Fail: static error => new CommandFact.Rejected(Value: error))))));
     public static readonly CommandPulse End = new(key: 1, point: static () => RhinoPoint.CommandEnd,
         attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<CommandEventArgs> handler) => Command.EndCommand += handler,
@@ -567,8 +560,7 @@ public sealed partial class CommandPulse {
                 at: RhinoPoint.CommandEnd,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.Ended(Value: value),
-                    Fail: static error => new CommandFact.Rejected(Value: error)),
-                key: op))));
+                    Fail: static error => new CommandFact.Rejected(Value: error))))));
     public static readonly CommandPulse UndoRedo = new(key: 2, point: static () => RhinoPoint.CommandUndo,
         attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<UndoRedoEventArgs> handler) => Command.UndoRedo += handler,
@@ -577,8 +569,7 @@ public sealed partial class CommandPulse {
                 at: RhinoPoint.CommandUndo,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.Undo(Value: value),
-                    Fail: static error => new CommandFact.Rejected(Value: error)),
-                key: op))));
+                    Fail: static error => new CommandFact.Rejected(Value: error))))));
     public static readonly CommandPulse Prompt = new(key: 3, point: static () => RhinoPoint.CommandPrompt,
         attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<CommandPromptChangedEventArgs> handler) => RhinoApp.CommandPromptChanged += handler,
@@ -587,43 +578,38 @@ public sealed partial class CommandPulse {
                 at: RhinoPoint.CommandPrompt,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.PromptChanged(Value: value),
-                    Fail: static error => new CommandFact.Rejected(Value: error)),
-                key: op))));
+                    Fail: static error => new CommandFact.Rejected(Value: error))))));
     public static readonly CommandPulse Escape = new(key: 4, point: static () => RhinoPoint.CommandEscape,
         attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler handler) => RhinoApp.EscapeKeyPressed += handler,
             unsubscribe: static handler => RhinoApp.EscapeKeyPressed -= handler,
             handler: (_, _) => ignore(hooks.Fire(
                 at: RhinoPoint.CommandEscape,
-                fact: new CommandFact.Escaped(Value: EscapeEvent.Signalled),
-                key: op))));
+                fact: new CommandFact.Escaped(Value: EscapeEvent.Signalled)))));
 
     [UseDelegateFromConstructor]
     internal partial RhinoPoint Point();
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Subscription> Attach(HookSet<RhinoPoint, CommandFact, PluginKey> hooks, Op op);
+    internal partial Fin<Subscription> Attach(HookSet<RhinoPoint, CommandFact, PluginKey> hooks);
 
     public static Fin<Subscription> Mount(
         HookSet<RhinoPoint, CommandFact, PluginKey> hooks,
-        Op? key = null,
         params ReadOnlySpan<CommandPulse> pulses) {
-        Op op = key.OrDefault(name: nameof(CommandPulse));
         Seq<CommandPulse> candidates = toSeq(pulses.ToArray());
-        return from active in op.Need(hooks)
-               from _ in guard(!candidates.IsEmpty && candidates.ForAll(static pulse => pulse is not null), op.InvalidInput())
+        return from active in Admit.Need(hooks)
+               from _ in guard(!candidates.IsEmpty && candidates.ForAll(static pulse => pulse is not null), new KernelFault.InvalidInput())
                from attached in Subscription.AttachAll(candidates.Distinct().Map(pulse =>
-                   (Func<Fin<Subscription>>)(() => pulse.Attach(active, op))))
+                   (Func<Fin<Subscription>>)(() => pulse.Attach(active))))
                select attached;
     }
 }
 
 public static class CommandRegistry {
-    public static Fin<TAnswer> Ask<TAnswer>(CommandQuery<TAnswer> query, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(query)
-            .Bind(request => request.Admit(op))
-            .Bind(request => op.Catch(request.Read));
+    public static Fin<TAnswer> Ask<TAnswer>(CommandQuery<TAnswer> query) {
+        return Admit.Need(query)
+            .Bind(request => request.Admit())
+            .Bind(request => Try.lift(request.Read).Run().Bind(static inner => inner));
     }
 }
 ```
@@ -643,29 +629,27 @@ public abstract partial record ScriptOp {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Scripting {
-    public static Fin<CommandVerdict> Run(DocumentSession session, ScriptOp script, Op? key = null) {
-        Op op = key.OrDefault();
-        return from request in op.Need(script)
-               from target in op.Need(session)
-               from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
+    public static Fin<CommandVerdict> Run(DocumentSession session, ScriptOp script) {
+        return from request in Admit.Need(script)
+               from target in Admit.Need(session)
+               from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
                from verdict in target.Demand(
                    use: document => request.Switch(
-                       state: (Serial: (uint)target.Key, Document: document, Op: op),
+                       state: (Serial: (uint)target.Key, Document: document),
                        macro: static (held, run) =>
-                           from text in held.Op.AcceptText(value: run.Text)
-                           from _ in guard(run.Echo is not null, held.Op.InvalidInput(axis: nameof(Macro.Echo)))
-                           from ok in held.Op.Catch(() => Fin.Succ(value: run.Display.Case switch {
+                           from text in Acceptance.Text(value: run.Text)
+                           from _ in guard(run.Echo is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Macro.Echo))))
+                           from ok in Try.lift(() => Fin.Succ(value: run.Display.Case switch {
                                string display => RhinoApp.RunScript(documentSerialNumber: held.Serial, script: text, mruDisplayString: display, echo: run.Echo.Key),
                                _ => RhinoApp.RunScript(documentSerialNumber: held.Serial, script: text, echo: run.Echo.Key),
-                           }))
+                           })).Run().Bind(static inner => inner)
                            select ok ? CommandVerdict.Completed : CommandVerdict.Failed,
                        named: static (held, run) =>
-                           from name in held.Op.AcceptText(value: run.CommandName)
-                           from _ in guard(Command.IsCommand(name: name), held.Op.InvalidInput(axis: nameof(Named.CommandName)))
-                           from native in held.Op.Catch(() => Fin.Succ(value: RhinoApp.ExecuteCommand(document: held.Document, commandName: name)))
+                           from name in Acceptance.Text(value: run.CommandName)
+                           from _ in guard(Command.IsCommand(name: name), new KernelFault.InvalidInput(Axis: Some(nameof(Named.CommandName))))
+                           from native in Try.lift(() => Fin.Succ(value: RhinoApp.ExecuteCommand(document: held.Document, commandName: name))).Run().Bind(static inner => inner)
                            from result in CommandVerdict.OfNative(result: native, key: held.Op)
                            select result),
-                   key: op,
                    needs: [SessionNeed.Acquire])
                select verdict;
     }
@@ -673,16 +657,14 @@ public static class Scripting {
     public static Fin<Unit> Proxy<TPayload>(
         DocumentSession session,
         Func<DocumentSession, SessionMode, TPayload, Fin<CommandVerdict>> body,
-        TPayload payload,
-        Op? key = null)
+        TPayload payload)
         where TPayload : notnull {
-        Op op = key.OrDefault();
-        return from target in op.Need(session)
-               from run in op.Need(body)
-               from data in op.Need(payload)
-               from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
+        return from target in Admit.Need(session)
+               from run in Admit.Need(body)
+               from data in Admit.Need(payload)
+               from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
                from dispatched in target.Demand(
-                   use: document => op.Catch(() => {
+                   use: document => Try.lift(() => {
                        Command.RunProxyCommand(
                            commandCallback: (_, mode, _) => SessionMode.OfRunMode(mode: mode, key: op)
                                .Bind(lane => run(arg1: target, arg2: lane, arg3: data))
@@ -695,8 +677,7 @@ public static class Scripting {
                            doc: document,
                            data: data);
                        return Fin.Succ(unit);
-                   }),
-                   key: op,
+                   }).Run().Bind(static inner => inner),
                    needs: [SessionNeed.Acquire])
                select dispatched;
     }

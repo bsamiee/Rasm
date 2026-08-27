@@ -16,7 +16,7 @@ The lifecycle family is contract-owned. `Environmental` carries a `MeasurementBa
 - Law: PROVENANCE IS PER GROUP, AND THE TWO GROUPS NEVER SHARE ONE. The impact vectors are TRANSCRIBED producer declarations carrying `PropertyEvidence.Declaration` with the EPD's own identity and expiry; the unit-cost triples are AUTHORED planning estimates carrying the `estimate` evidence class naming their basis, so a cost report can never cite a standard for a figure no standard publishes and a takeoff reading the contract evidence tells the two apart without a second column. `Ökobaudat` is the settled acquisition route for pending product declarations: the one source clearing full-matrix coverage and licence together — EN 15804+A2 with all thirteen indicators enforced at admission, `ND` marked explicitly, bulk XML and CSV, and a licence granting free redistribution of unmodified data under attribution. A carbon-first registry whose non-GWP fields are advisory cannot fill the `Matrix` column, and a licence forbidding storage forbids a catalogue outright. Admitted values carry VERBATIM per that licence, `ND` models as ABSENCE and never as zero, and a generic dataset admits discriminated by its own subtype.
 - Law: FULL_ROSTER PARITY IS DERIVED, NEVER ASSERTED (folder `RULINGS [02]`). The two catalogues are hand-maintained tables over one substance vocabulary, so their symmetric difference is computed at type init and a non-empty one throws with the divergent ids named. Both directions count: an engineering id with no lifecycle row makes `Lookup` answer an empty set for a material the module believes it prices, and a lifecycle row for no substance prices a material nothing can build. A type-init census has NO caller to fail onto — the fault precedes every `Op` a result could carry — so it breaks loudly at first touch exactly as the vendor factories break at their own derivation boundary, and this is the one throw the page admits.
 - Law: A COLUMN NO CONSUMER READS IS NOT A COLUMN. The row's magnitudes are RAW centrals: the contract `OfEnvironmental`/`OfCost` take doubles, so a per-column uncertainty carrier is allocated at the row constructor and unwrapped by the very next expression. The same reasoning already deleted the per-module GWP band, and it binds the two resource fractions and the three cost columns identically. A DECLARED estimate spread re-enters the day a BANDED `Environmental`/`Cost` case lands at the contract — as one column beside the vector, never as a wrap-and-discard.
-- Entry: `public static Fin<Seq<MaterialPropertySet>> Lower(SustainabilityRow row, Op key)` — ONE applicative join over four INDEPENDENT columns: the vector-XOR-matrix exclusivity gate, the `LifecycleStage.Items.Count` carbon-vector arity gate (a wrong-length vector fails at the lowering edge rather than being silently short-written by the contract `CarbonMatrix`), the environmental lowering (a carbon-only vector embedded into the full `(ImpactCategory × LifecycleStage)` matrix, or a full declaration passed straight through, landed via `OfEnvironmental` at the row's own basis), and the optional cost lowering over its parsed `Currency`. A row with a bad arity AND a bad currency faults BOTH in one `ManyErrors` — the guard ladder this replaces reported the first and hid the rest. `Lookup(id, key)` reads the memoized lowered catalogue and returns `Fin.Succ(empty)` for an unregistered id — lifecycle data is declared-or-absent, the asymmetric dual of the REQUIRED engineering `Lookup`. `Classification(id, key)` resolves the row's pair through the edition-unspecified `Classification.Of` and rides the `MaterialBinding` to the bound element's Object node.
+- Entry: `public static Fin<Seq<MaterialPropertySet>> Lower(SustainabilityRow row)` — ONE applicative join over four INDEPENDENT columns: the vector-XOR-matrix exclusivity gate, the `LifecycleStage.Items.Count` carbon-vector arity gate (a wrong-length vector fails at the lowering edge rather than being silently short-written by the contract `CarbonMatrix`), the environmental lowering (a carbon-only vector embedded into the full `(ImpactCategory × LifecycleStage)` matrix, or a full declaration passed straight through, landed via `OfEnvironmental` at the row's own basis), and the optional cost lowering over its parsed `Currency`. A row with a bad arity AND a bad currency faults BOTH in one `ManyErrors` — the guard ladder this replaces reported the first and hid the rest. `Lookup(id)` reads the memoized lowered catalogue and returns `Fin.Succ(empty)` for an unregistered id — lifecycle data is declared-or-absent, the asymmetric dual of the REQUIRED engineering `Lookup`. `Classification(id)` resolves the row's pair through the edition-unspecified `Classification.Of` and rides the `MaterialBinding` to the bound element's Object node.
 - Packages: Rasm.Element (project — `MaterialPropertySet.OfEnvironmental`/`OfCost`, the contract-owned `Environmental.CarbonMatrix` builder + `MatrixArity`, `LifecycleStage`/`ImpactCategory` the EN 15804+A2 matrix bands, `Currency`, `MeasurementBasis`, `PropertyEvidence.Of`/`PropertyEvidence.Declaration`, `EvidenceGrade`, the generic `Classification` + `Classification.Of`, `ElementFault.ValueRejected`, `MaterialId`), Rasm.Materials.Properties (project-local — the engineering roster the parity census reads, SAME namespace so no import), Rasm (project — `Op`), NodaTime (`LocalDate` the EPD validity expiry), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Validation<Error,_>`), BCL inbox (`FrozenDictionary`, `Lazy<T>`, `ImmutableArray<T>`, the `double[]` ingress vector). NO `UnitsNet` (CO2e and currency are domain bases, not SI dimensions), NO `QuantityRow` (a `StageGwp` or cost magnitude is basis-relative, not a dimensioned quantity), NO `MaterialFault` (every fault is the contract `ElementFault`).
 - Growth: a new EN 15804+A2 indicator is one contract `ImpactCategory` row and a new EN 15978 module one contract `LifecycleStage` row; a FULL-matrix declaration is the `Matrix` column `Lower` passes straight to `OfEnvironmental` with `CarbonMatrix` bypassed; a new declared basis is one contract `MeasurementBasis` row, a new classification code one `Uniclass` anchor, a new currency one opaque token the row supplies. A new known material is one `Rows` entry naming its `EcoProfile` anchor, its cost triple, and its code anchor. The ANCHOR is the growth axis that matters at scale: an eco-profile prices MASS PER DECLARED UNIT and therefore serves a whole family of grades, so a corrected industry figure is one anchor edit rather than a twenty-three-row sweep whose one missed row is a silent divergence, and `EcoProfile.At` is the ONE parameterized re-anchor for a family whose A1-A3 scales with a per-row quantity while every downstream module holds.
 - Boundary: `SustainabilityRow` is the published-DATA ingress, NOT a parallel domain union — the contract `Environmental`/`Cost` are the one typed carriers and `Lower` the `BOUNDARY_ADMISSION`, so the row stays `internal` and `Lookup` answering the ADMITTED set is the whole public surface. Each `StageGwp` module is a raw kgCO2e-per-basis-unit magnitude declared at the row's OWN basis: a per-kg steel EPD stays `PerKg`, a per-m² membrane `PerM2`, never force-normalized to a curated `PerM3`, and `Rasm.Compute` `AggregateEnvironmental` scales each ply by the basis-matching element quantity through the SAME basis-aware `DeclaredQuantity` derivation the cost fold uses. A negative module is VALID biogenic-sequestration or avoided-burden carbon — the timber A1-A3 credit, the metal D credit — and the contract guards FINITE alone on matrix cells; the fractions pass raw under the contract's one `[0,1]` gate, re-minting a `UnitInterval` here diverging from the one admission owner. The contract `Environmental` case is the FULL impact MATRIX and owns its intrinsic folds, so the cradle-to-gate `Gwp` is a DERIVED `(GwpTotal, A1A3)` read and the cradle-to-grave total the `WholeLifeGwp` fold — a headline scalar column double-stores what the matrix already carries, exactly as a row-level `Epd`/`ValidUntilYear` pair double-stores the `Declaration` evidence. The lowered cases land on the contract `Material` node the projector authors and `Rasm.Bim` reads `Pset_EnvironmentalImpactValues`/`Pset_ConstructionCosts`/`IfcClassificationReference` off that graph — no Materials wire carrier, and the multi-ply rollups are `Rasm.Compute`'s.
@@ -96,8 +96,6 @@ internal sealed record SustainabilityRow(
 public static class SustainabilityCatalogue {
     static readonly Validation<Error, Seq<MaterialPropertySet>> NoCost = Success<Error, Seq<MaterialPropertySet>>(Seq<MaterialPropertySet>());
 
-    static readonly Op LowerKey = Op.Of(name: "sustainability-catalogue-lower");
-
     static SustainabilityCatalogue() {
         string[] diverged = [
             .. Rows.Keys.Except(MaterialPropertyCatalogue.Rows.Keys)
@@ -161,23 +159,23 @@ public static class SustainabilityCatalogue {
     static readonly EcoProfile Strand     = new([2.91, 0.0, 0.0, 0.0, 0.0054, -1.496], "OBD-DrawnWire-Strand-231073e3", 2028, 0.00, 0.90);
     static readonly EcoProfile CopperTube = new([2.25, 0.0, 0.0, 0.0, 0.0333, -0.629], "OBD-CopperTubes-HME-afb0f967", 2029, 0.00, 0.95);
 
-    internal static Fin<Seq<MaterialPropertySet>> Lower(SustainabilityRow row, Op key) =>
+    internal static Fin<Seq<MaterialPropertySet>> Lower(SustainabilityRow row) =>
         (AdmissionSlots.Gate(
              row.Matrix.IsNone || row.StageGwp.IsEmpty,
-             new ElementFault.ValueRejected(key, "<environmental-declares-vector-and-matrix>")),
+             new ElementFault.ValueRejected("<environmental-declares-vector-and-matrix>")),
          AdmissionSlots.Gate(
              row.Matrix.IsSome || row.StageGwp.Length == LifecycleStage.Items.Count,
-             new ElementFault.ValueRejected(key, $"<stage-gwp-arity:{row.StageGwp.Length}:expected={LifecycleStage.Items.Count}>")),
+             new ElementFault.ValueRejected($"<stage-gwp-arity:{row.StageGwp.Length}:expected={LifecycleStage.Items.Count}>")),
          MaterialPropertySet.OfEnvironmental(
                  row.EnvironmentalBasis,
                  row.Matrix.IfNone(() => MaterialPropertySet.Environmental.CarbonMatrix(row.StageGwp)),
-                 row.Recycled, row.Recovery, key, row.Evidence)
+                 row.Recycled, row.Recovery, row.Evidence)
              .ToValidation(),
          row.Cost.Match(
              None: static () => NoCost,
-             Some: c => key.AcceptValidated<Currency>(c.Currency)
+             Some: c => FactoryBridge.Accept<Currency>(c.Currency)
                  .Bind(currency => MaterialPropertySet.OfCost(
-                     c.Basis, currency, c.Supply, c.Install, c.Lifecycle, key, SustainabilityRow.CostEstimate))
+                     c.Basis, currency, c.Supply, c.Install, c.Lifecycle, SustainabilityRow.CostEstimate))
                  .Map(static priced => Seq(priced))
                  .ToValidation()))
         .Apply(static (_, _, environmental, cost) => Seq(environmental) + cost).As()
@@ -369,17 +367,17 @@ public static class SustainabilityCatalogue {
                 .ToFrozenDictionary(static entry => entry.Key, static entry => entry.Sets.ThrowIfFail()),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-    public static Fin<Seq<MaterialPropertySet>> Lookup(MaterialId id, Op key) =>
+    public static Fin<Seq<MaterialPropertySet>> Lookup(MaterialId id) =>
         Lowered.Value.TryGetValue(id, out Seq<MaterialPropertySet> lowered)
             ? Fin.Succ(lowered)
             : Rows.TryGetValue(id, out SustainabilityRow? row)
-                ? Lower(row!, key)
+                ? Lower(row!)
                 : Fin.Succ(Seq<MaterialPropertySet>());
 
-    public static Fin<Option<Classification>> Classification(MaterialId id, Op key) =>
+    public static Fin<Option<Classification>> Classification(MaterialId id) =>
         Rows.TryGetValue(id, out SustainabilityRow? row)
             ? row!.Classification
-                .TraverseM(c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code, key))
+                .TraverseM(c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code))
                 .As()
             : Fin.Succ(Option<Classification>.None);
 }

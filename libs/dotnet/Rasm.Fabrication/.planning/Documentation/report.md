@@ -277,7 +277,7 @@ public sealed partial class CorrectionKind {
 - Law: `ProcessEvidence.Unfulfilled` diffs `ProcedureAssessment.Inspections` against the performed `WeldInspectionRow` set through `InspectionRequirement.Satisfies(NdtMethod)` — the ONE grain contract `Joining/procedure` owns — so a documentation-plane reconciliation never re-derives the family-to-method correspondence under a second vocabulary.
 - Law: `CalibrationRow` carries the interval `Period` and the `Impacted` record keys measured inside it, so an out-of-tolerance as-found reading is `Complete` only once its downstream impact is enumerated.
 - Law: `QualityObservation.Outcome` projects every evidence atom to one `EvidenceOutcome`; `EvidenceCensus.Of` folds rows into one bucket map and `Count` reads it BY ROW, so the partition is structural, `Severity` carries the worst outcome seen, and a new outcome needs no census column.
-- Law: `RecordRefusal` rows name operation rejections on `Op.InvalidResult(detail:)`; generated owners keep ephemeral `ValidationError` diagnostics until `Admitted` crosses to the kernel fault channel.
+- Law: `RecordRefusal` rows name operation rejections on `new KernelFault.InvalidResult(Detail: Some())`; generated owners keep ephemeral `ValidationError` diagnostics until `Admitted` crosses to the kernel fault channel.
 - Law: `QualityEvidence` owns the record pipeline and every column writer this plane's preimages chain. `Refusal` answers on the fabrication band under its own locus, `Refused`/`Gate` on the record op under its own detail, and `Fraction` is CLOSED on [0, 1] — the strictly-positive demand composes `static value => ValidityClaim.Positive(value).Holds` rather than riding a mode flag on the predicate.
 - Entry: `public static Fin<QualityRecord> QualityRecord.Admit(QualitySource source)` is the only record-creation entrypoint; `Documentation/passport` `QualityReport.Seal` is the only path out.
 - Exemption: the `extension(CanonicalWriter sink)` bodies are the byte kernel; every other body on this cluster is expression-shaped.
@@ -1146,22 +1146,22 @@ public abstract partial record QualityRecord {
         conformance: static _ => Seq<InspectionFeature>());
 
     public static Fin<QualityRecord> Admit(QualitySource source) =>
-        from admitted in QualityEvidence.RecordOp.Need(source)
+        from admitted in Admit.Need(source)
         from record in admitted.Switch(
             inspection: static value => Sampled(value.Lot, value.Readings, value.Measured.Features),
             residuals: static value => Sampled(value.Lot, value.Readings, Seq<InspectionFeature>()),
-            procedure: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new WeldInspection(evidence)),
-            material: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new MillCert(evidence)),
-            nonconformance: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Nonconformance(evidence)),
-            calibration: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Calibration(evidence)),
+            procedure: static value => Admit.Need(value.Evidence).Map(static evidence => (QualityRecord)new WeldInspection(evidence)),
+            material: static value => Admit.Need(value.Evidence).Map(static evidence => (QualityRecord)new MillCert(evidence)),
+            nonconformance: static value => Admit.Need(value.Evidence).Map(static evidence => (QualityRecord)new Nonconformance(evidence)),
+            calibration: static value => Admit.Need(value.Evidence).Map(static evidence => (QualityRecord)new Calibration(evidence)),
             declaration: static value =>
-                from declaration in QualityEvidence.RecordOp.Need(value.Declaration)
+                from declaration in Admit.Need(value.Declaration)
                 from _ in guard(declaration.Valid, QualityEvidence.Refused(RecordRefusal.Declaration))
                 from _lineage in guard(
                     !value.Records.IsEmpty && value.Records.Distinct().Count == value.Records.Count,
                     QualityEvidence.Refused(RecordRefusal.Lineage))
                 select (QualityRecord)new Conformance(declaration, value.Records, value.IssuedAt),
-            record: static value => QualityEvidence.RecordOp.Need(value.Value))
+            record: static value => Admit.Need(value.Value))
         select record;
 
     private static Fin<QualityRecord> Sampled(
@@ -1253,8 +1253,8 @@ public sealed partial class SampledLot {
         ref Option<CapabilityReport> capability,
         ref Option<ContentKey> prior) {
         if (lotSize < plan.SampleSize || subjects.IsEmpty
-            || !mrb.Keys.ForAll(key => subjects.ContainsKey(key))
-            || !chains.Keys.ForAll(key => subjects.ContainsKey(key))
+            || !mrb.Keys.ForAll(key => subjects.ContainsKey())
+            || !chains.Keys.ForAll(key => subjects.ContainsKey())
             || (stage.RequiresPrior && prior.IsNone))
             validationError = QualityEvidence.Validation("sampled-lot");
     }
@@ -1309,7 +1309,6 @@ public abstract partial record QualitySource {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class QualityEvidence {
-    internal static readonly Op RecordOp = Op.Of(name: "fabrication:quality-record");
 
     internal static ValidationError Validation(string locus) => new($"quality:{locus}");
 
@@ -1317,7 +1316,7 @@ public static class QualityEvidence {
         value.As(RatioUnit.DecimalFraction) is var fraction
         && double.IsFinite(fraction) && fraction >= 0.0 && fraction <= 1.0;
 
-    internal static Error Refused(RecordRefusal reason) => RecordOp.InvalidResult(detail: reason.Key);
+    internal static Error Refused(RecordRefusal reason) => new KernelFault.InvalidResult(Detail: Some(reason.Key));
 
     internal static FabricationFault Refusal(string locus) =>
         FabricationFault.Inadmissible(FabConcern.Documentation, $"quality:{locus}");
@@ -1388,7 +1387,7 @@ public static class QualityEvidence {
             .Maybe(row.AmbientTemperature, static (inner, value) => inner.Amount(value))
             .Maybe(row.AmbientHumidity, static (inner, value) => inner.Amount(value))
             .Window(row.Period)
-            .Rows(row.Impacted, static (inner, key) => inner.Key(key))
+            .Rows(row.Impacted, static (inner, key) => inner.Key())
             .Moment(row.DueAt).Discriminant(row.Verdict);
 
         internal CanonicalWriter Trace(TraceEvidence row) => sink
@@ -1474,7 +1473,7 @@ public static class QualityEvidence {
                 .Rows(value.Evidence.Characteristics, static (inner, characteristic) => inner.Characteristic(characteristic))
                 .Rows(value.Evidence.Features, static (inner, feature) => inner.Feature(feature))
                 .Maybe(value.Evidence.Capability, static (inner, report) => inner.Capability(report))
-                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key(key))
+                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key())
                 .Moment(value.Evidence.SampledAt),
             millCert: static (row, value) => row.Ordinal(1)
                 .Reference(value.Evidence.Report)
@@ -1488,7 +1487,7 @@ public static class QualityEvidence {
                 .Rows(value.Evidence.Inspections, static (inner, inspection) => inner.Ndt(inspection))
                 .Observations(value.Evidence.Execution.ToValue())
                 .Context(value.Evidence.Context)
-                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key(key)),
+                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key()),
             nonconformance: static (row, value) => row.Ordinal(3)
                 .Reference(value.Evidence.Product).String(value.Evidence.Number.ToValue())
                 .Reference(value.Evidence.Source).Ordinal(value.Evidence.AffectedQuantity)
@@ -1500,14 +1499,14 @@ public static class QualityEvidence {
                 .Observations(value.Evidence.Verification.ToValue())
                 .Maybe(value.Evidence.Effectiveness, static (inner, set) => inner.Observations(set.ToValue()))
                 .Maybe(value.Evidence.Recurrence, static (inner, number) => inner.String(number.ToValue()))
-                .Rows(value.Evidence.Evidence, static (inner, key) => inner.Key(key))
+                .Rows(value.Evidence.Evidence, static (inner, key) => inner.Key())
                 .Discriminant(value.Evidence.Verdict).Reference(value.Evidence.Authority)
                 .Moment(value.Evidence.OpenedAt)
                 .Maybe(value.Evidence.ClosedAt, static (inner, at) => inner.Moment(at)),
             calibration: static (row, value) => row.Ordinal(4).Calibration(value.Evidence),
             conformance: static (row, value) => row.Ordinal(5)
                 .Declaration(value.Declaration)
-                .Rows(value.Records, static (inner, key) => inner.Key(key))
+                .Rows(value.Records, static (inner, key) => inner.Key())
                 .Moment(value.IssuedAt));
     }
 }
@@ -1558,7 +1557,7 @@ public sealed partial class ScheduleKind {
     public Seq<PropertyName> RequiredRows => TypeRows + OccurrenceRows;
 
     private static ScheduleKind Of(string key, string row, Seq<PropertyName> type, Seq<PropertyName> occurrence, Seq<PropertyName> optional = default) =>
-        new(key, PropertyCategory.Fabrication.Row(row), type, occurrence, optional);
+        new(PropertyCategory.Fabrication.Row(row), type, occurrence, optional);
 
     static Option<ScheduleRow> Read(PropertyBag realization, PropertyName name) =>
         realization.Find(name).Map(value => new ScheduleRow(name, value));

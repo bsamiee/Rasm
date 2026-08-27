@@ -227,7 +227,7 @@ public static class JoinSurface {
          tag.Switch(state: unit,
             declared: static (_, d) => F.Pure(d.Key),
             derived:  static (_, d) => F.Pure($"{d.Source}:{d.Ordinal}")))
-        .Apply(static (code, rank, key) => new Composite(code, rank, key));
+        .Apply(static (code, rank, key) => new Composite(code, rank));
 }
 
 public static class IterativeSurface {

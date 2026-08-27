@@ -200,15 +200,15 @@ public static class Budgeted {
 [SmartEnum<string>]
 public sealed partial class LimitRow {
     public static readonly LimitRow Interactive = new("<row-a>", static key =>
-        RateLimitPartition.GetConcurrencyLimiter(key, static _ => new ConcurrencyLimiterOptions {
+        RateLimitPartition.GetConcurrencyLimiter(static _ => new ConcurrencyLimiterOptions {
             PermitLimit = 8, QueueLimit = 0, QueueProcessingOrder = QueueProcessingOrder.NewestFirst }));
     public static readonly LimitRow Sustained = new("<row-b>", static key =>
-        RateLimitPartition.GetTokenBucketLimiter(key, static _ => new TokenBucketRateLimiterOptions {
+        RateLimitPartition.GetTokenBucketLimiter(static _ => new TokenBucketRateLimiterOptions {
             TokenLimit = 64, TokensPerPeriod = 16, ReplenishmentPeriod = TimeSpan.FromSeconds(1), QueueLimit = 32 }));
     public static readonly LimitRow Windowed = new("<row-c>", static key =>
-        RateLimitPartition.GetSlidingWindowLimiter(key, static _ => new SlidingWindowRateLimiterOptions {
+        RateLimitPartition.GetSlidingWindowLimiter(static _ => new SlidingWindowRateLimiterOptions {
             PermitLimit = 600, SegmentsPerWindow = 6, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-    public static readonly LimitRow Exempt = new("<row-d>", static key => RateLimitPartition.GetNoLimiter<string>(key));
+    public static readonly LimitRow Exempt = new("<row-d>", static key => RateLimitPartition.GetNoLimiter<string>());
 
     [UseDelegateFromConstructor]
     public partial RateLimitPartition<string> Partition(string key);

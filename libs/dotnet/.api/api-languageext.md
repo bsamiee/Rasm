@@ -248,7 +248,7 @@
 
 `Error.New(string, Exception)` requires an argument statically typed as `Exception`: a derived or generic exception also converts implicitly to `Error`, making the two-argument call ambiguous with `Error.New(string, Error)`, so the capture site widens or casts before calling.
 
-`Errors` seats the package's own failure identities as a CLOSED negative-code block, so `Error.HasCode` and `Error.Is` classify a cooperative token trip apart from a deadline cut, an empty run apart from a refused verdict, and a drained source apart from a closed one; a message match over any of them re-classifies on rephrasing. A domain fault family therefore keeps its own codes clear of the `-2000000001`..`-2000000015` span, and the `Fallible.Catch(int Code, …)` arity below is the recovery form these codes exist to select.
+`Errors` seats the package's own failure identities as a CLOSED negative-code block, so `Error.HasCode` and `Error.Is` classify a cooperative token trip apart from a deadline cut, an empty run apart from a refused verdict, and a drained source apart from a closed one; a message match over any of them re-classifies on rephrasing. A domain fault family therefore keeps its own codes clear of the `-2000000001`..`-2000000015` span, and the `Try.lift(int Code).Run().Bind(static inner => inner)` arity below is the recovery form these codes exist to select.
 
 [ENTRYPOINT_SCOPE]: `Fallible<E, F>` — one recovery and roster-partition family binding every failing carrier
 

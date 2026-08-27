@@ -27,7 +27,7 @@ Tabular and hierarchical projection for the Rasm.AppUi grid surface: one `TableC
 - Auto: one row family derives columns, sort comparers, group descriptors, per-column filter admission, edit admission, cell validation, clipboard projection, aggregate specs, and export admission — nine concerns, one owner; `AutoGenerateColumns` stays false and `Columns` is populated by the `Column()` fold, which stamps every materialized column's roster key onto `SortMemberPath` so the column-axis snapshot, the cell-validation lookup, and the sort capture all address a column by key rather than by a position a reorder shifts; the `Sort` comparer column lands as `CustomSortComparer` beside `SortMemberPath` so value-object cells order by domain comparer rather than display text, and the `Cell` binding doubles as `ClipboardContentBinding` on bound columns so the grid's own `Ctrl+C` copy under `DataGridClipboardCopyMode.IncludeHeader` and the export fold project one column vocabulary.
 - Packages: Avalonia.Controls.DataGrid; Avalonia; DynamicData; UnitsNet; SkiaSharp; Thinktecture.Runtime.Extensions; LanguageExt.Core; Rasm (kernel `Op`, `CapabilitySet`, `ColumnTrait`, `Custody`); Rasm.AppUi/Shell/virtualization; Rasm.AppUi/Charts/tiles; Rasm.AppUi/Theme/locale.
 - Growth: one column row per field; a new cell kind is one `TableCellKind` row naming its bound family and its admitted traits; a new bound control family is one `BoundKind` row; a new filter sense is one `FilterOperator` row at its live-data owner; a new measure is one `TableMeasure` case; a sizing, visibility, or classification change is one trait or policy value; zero new surface.
-- Boundary: classification governs EVERY materialization channel — a classified column materializes ONLY the redacted presentation template (theme-token-resolved through the chrome's `Redacted` fold), read-only, unsortable, with no `Binding` and no `ClipboardContentBinding`, so display and the grid's own `Ctrl+C` copy structurally cannot carry the source cell value, and the column never enters filter, aggregate, paste, or export admission; row height and cell spacing arrive as density-token values; per-column control subclasses are the deleted form. `TableCellEdit` is the ONE edit authority and the `TableCellSlot` cases make its correspondence structural rather than guarded: a bound cell always carries its binding, a painted cell its display, an authored cell BOTH its display and its editor, and read-only versus editable is the CASE rather than a flag beside an absence — the retired slot record carried three optional columns an `Admit` proved and seven kind delegates then unwrapped, which is thirteen unsafe reads standing downstream of the one fold that existed to make them safe. CELL-LEVEL validation reaches the `:invalid` pseudo-class on BOUND columns alone and its producer is exact — `DataGridCell.IsValid` and `DataGridRow.IsValid` carry internal setters, so the only reachable writer is the grid's own `EndCellEdit` commit gate, which reads `DataValidationErrors.GetHasErrors` on the editing element and refuses the commit when the column carries a `CellEditBinding`; the attach fold therefore writes `DataValidationErrors.SetErrors` from `TableCellEdit.Set` inside `CellEditEnding`, which raises BEFORE that gate reads, so a refused candidate lands `:invalid` on the cell and its row and never leaves edit mode. A template-backed column generates no `CellEditBinding`, so its rule cannot reach the cell gate and validates at the row gate instead — that is the stated ceiling, not a gap. The value-driven format column is template-backed BY CONSTRUCTION because `DataGridColumn.CellStyleClasses` applies one class list to every cell of a column and cannot vary by value; the page mints that display template itself from the measure and the `ThresholdList`, so the cell background is the threshold family's own `Cell` colour crossing one boundary conversion from the resolved chart ink, this owner authors no brush, and the absent shade rides the kernel `Op.ToHostSlot` host-slot write rather than an unsafe unwrap that painted a null background on every unformatted cell. `TableCellKind.Spark` mounts the `Charts/tiles` `Sparkline.Render` offscreen chart rastered at the cell edge with its image and encoded data released through kernel `Custody.Bracket`, and it materializes for REALIZED rows alone because the grid recycles row containers through `LoadingRow`/`UnloadingRow` — a spark cell per source row is the rejected form. Column configuration is a boundary capsule (statement carve-out): `DataGridColumn` is package-owned mutable state whose posture members are settable properties rather than constructor slots, so the trait reads write in one place instead of once per kind delegate.
+- Boundary: classification governs EVERY materialization channel — a classified column materializes ONLY the redacted presentation template (theme-token-resolved through the chrome's `Redacted` fold), read-only, unsortable, with no `Binding` and no `ClipboardContentBinding`, so display and the grid's own `Ctrl+C` copy structurally cannot carry the source cell value, and the column never enters filter, aggregate, paste, or export admission; row height and cell spacing arrive as density-token values; per-column control subclasses are the deleted form. `TableCellEdit` is the ONE edit authority and the `TableCellSlot` cases make its correspondence structural rather than guarded: a bound cell always carries its binding, a painted cell its display, an authored cell BOTH its display and its editor, and read-only versus editable is the CASE rather than a flag beside an absence — the retired slot record carried three optional columns an `Admit` proved and seven kind delegates then unwrapped, which is thirteen unsafe reads standing downstream of the one fold that existed to make them safe. CELL-LEVEL validation reaches the `:invalid` pseudo-class on BOUND columns alone and its producer is exact — `DataGridCell.IsValid` and `DataGridRow.IsValid` carry internal setters, so the only reachable writer is the grid's own `EndCellEdit` commit gate, which reads `DataValidationErrors.GetHasErrors` on the editing element and refuses the commit when the column carries a `CellEditBinding`; the attach fold therefore writes `DataValidationErrors.SetErrors` from `TableCellEdit.Set` inside `CellEditEnding`, which raises BEFORE that gate reads, so a refused candidate lands `:invalid` on the cell and its row and never leaves edit mode. A template-backed column generates no `CellEditBinding`, so its rule cannot reach the cell gate and validates at the row gate instead — that is the stated ceiling, not a gap. The value-driven format column is template-backed BY CONSTRUCTION because `DataGridColumn.CellStyleClasses` applies one class list to every cell of a column and cannot vary by value; the page mints that display template itself from the measure and the `ThresholdList`, so the cell background is the threshold family's own `Cell` colour crossing one boundary conversion from the resolved chart ink, this owner authors no brush, and the absent shade rides the kernel `HostEdge.Slot` host-slot write rather than an unsafe unwrap that painted a null background on every unformatted cell. `TableCellKind.Spark` mounts the `Charts/tiles` `Sparkline.Render` offscreen chart rastered at the cell edge with its image and encoded data released through kernel `Custody.Bracket`, and it materializes for REALIZED rows alone because the grid recycles row containers through `LoadingRow`/`UnloadingRow` — a spark cell per source row is the rejected form. Column configuration is a boundary capsule (statement carve-out): `DataGridColumn` is package-owned mutable state whose posture members are settable properties rather than constructor slots, so the trait reads write in one place instead of once per kind delegate.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -123,17 +123,12 @@ public sealed partial class TableCellKind {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 public static class TableOps {
-    public static readonly Op Column = Op.Of("table/column");
-    public static readonly Op View = Op.Of("table/view-state");
-    public static readonly Op Pivot = Op.Of("table/pivot");
-    public static readonly Op Paste = Op.Of("table/paste");
-    public static readonly Op Export = Op.Of("table/export");
 }
 
 // --- [POLICIES] ------------------------------------------------------------------------
 
 public static class TableClause {
-    public static Validation<Error, Unit> Of(bool held, Op target, string detail) =>
+    public static Validation<Error, Unit> Of(bool held, string detail) =>
         held
             ? Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Fail(new EditFault.Invariant(target, detail));
@@ -170,7 +165,7 @@ public sealed record TableColumnMeasure<TRow>(
 
     public double Select(TRow row, ResolvedLocale locale) => Measure.Switch(
         state: (Row: row, Locale: locale),
-        quantity: static (s, q) => TableOps.Column.Catch(() => Fin.Succ(q.Value(s.Row).ToUnit(s.Locale.Measures.Unit(q.Role)).Value))
+        quantity: static (s, q) => Try.lift(() => Fin.Succ(q.Value(s.Row).ToUnit(s.Locale.Measures.Unit(q.Role)).Value)).Run().Bind(static inner => inner)
             .Match(Succ: static value => value, Fail: static _ => double.NaN),
         scalar: static (s, n) => n.Value(s.Row));
 
@@ -239,7 +234,7 @@ public sealed record TableColumnRow<TRow>(
                 ? None : Refused(row.Key, "a classified column carries no sort, measure, or edit"))));
 
     private static Option<Error> Refused(AggregateColumn key, string detail) =>
-        Some((Error)new EditFault.Invariant(key, detail));
+        Some((Error)new EditFault.Invariant(detail));
 }
 
 public sealed record TableChrome(
@@ -313,7 +308,7 @@ public static class TableSurface {
 
     private static IDataTemplate Formatted<TRow>(TableColumnMeasure<TRow> measure, TableChrome chrome) where TRow : notnull =>
         RowTemplate<TRow>(item => new Border {
-            Background = Op.ToHostSlot(measure.Shade(item, chrome.Ink, chrome.Locale)),
+            Background = HostEdge.Slot(measure.Shade(item, chrome.Ink, chrome.Locale)),
             Child = new TextBlock { Text = measure.Text(item, chrome.Locale).IfNone(string.Empty) },
         });
 
@@ -377,7 +372,6 @@ public static class TableSurface {
                 .Map(column => new GroupPlan<TRow, TKey, string>(
                     Of: item => column.Project(item, locale).IfNone(string.Empty),
                     Label: static group => group,
-                    Key: key,
                     Aggregates: rows.Specs(locale),
                     Order: Some<IComparer<string>>(StringComparer.Ordinal)));
     }
@@ -453,7 +447,7 @@ public sealed record TableViewState(
                         TableOps.View, "a column carries a non-finite or non-positive width"),
                     TableClause.Of(PageSize.ForAll(static size => size > 0), TableOps.View, "the page size is not positive"),
                     TableClause.Of(Expanded.Distinct().Count == Expanded.Count, TableOps.View, "the expansion set repeats a key"),
-                    TableClause.Of(Expanded.ForAll(static key => !string.IsNullOrWhiteSpace(key)),
+                    TableClause.Of(Expanded.ForAll(static key => !string.IsNullOrWhiteSpace()),
                         TableOps.View, "the expansion set carries a blank key"),
                     TableClause.Of(Window.ForAll(window => window.Admits(PageSize)),
                         TableOps.View, "the window bound disagrees with the snapshot"))
@@ -568,7 +562,7 @@ public static partial class TableColumnMap {
     public static partial TableColumnState ToState(DataGridColumn column);
 
     [UserMapping]
-    private static AggregateColumn Column(string key) => AggregateColumn.Create(key);
+    private static AggregateColumn Column(string key) => AggregateColumn.Create();
 }
 ```
 
@@ -680,7 +674,7 @@ public sealed class ExpansionState<TKey> where TKey : notnull {
 
     public static ExpansionState<TKey> Of(Seq<TKey> expanded) => new(toSet(expanded));
 
-    public bool IsExpanded(TKey key) => cell.Value.Contains(key);
+    public bool IsExpanded(TKey key) => cell.Value.Contains();
 
     public IObservable<Set<TKey>> Keys =>
         Observable
@@ -694,10 +688,10 @@ public sealed class ExpansionState<TKey> where TKey : notnull {
         Cell.Step(
             cell,
             held => verb.Switch(
-                state: (Held: held, Key: key),
-                expand: static s => s.Held.Contains(s.Key) ? Option<Set<TKey>>.None : Some(s.Held.Add(s.Key)),
-                collapse: static s => s.Held.Contains(s.Key) ? Some(s.Held.Remove(s.Key)) : Option<Set<TKey>>.None,
-                toggle: static s => Some(s.Held.Contains(s.Key) ? s.Held.Remove(s.Key) : s.Held.Add(s.Key))),
+                state: held,
+                expand: static s => s.Contains(s.Key) ? Option<Set<TKey>>.None : Some(s.Add(s.Key)),
+                collapse: static s => s.Contains(s.Key) ? Some(s.Remove(s.Key)) : Option<Set<TKey>>.None,
+                toggle: static s => Some(s.Contains(s.Key) ? s.Remove(s.Key) : s.Add(s.Key))),
             new EditFault.Invariant(TableOps.Column, $"expansion already reads '{verb.Key}'"));
 }
 
@@ -706,7 +700,7 @@ public static class ProjectionFold {
         public TableProjectionFeed<TRow, TKey> Project(
             TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key) =>
             projection.Switch(
-                state: (Source: source, Expansion: expansion, Key: key),
+                state: (Source: source, Expansion: expansion),
                 flat: static (s, _) => new TableProjectionFeed<TRow, TKey>(s.Source.Transform(Leaf), Unwindowed, Ungrouped),
                 treeFlattened: static (s, tree) => new TableProjectionFeed<TRow, TKey>(
                     tree.LoadChildren
@@ -766,8 +760,8 @@ public static class ProjectionFold {
         where TRow : notnull where TKey : notnull =>
         expansion
             .Scan((Seen: Set<TKey>(), Fresh: Seq<TKey>()), static (state, expanded) => (
-                Seen: expanded.Fold(state.Seen, static (seen, key) => seen.TryAdd(key)),
-                Fresh: toSeq(expanded.Filter(key => !state.Seen.Contains(key)))))
+                Seen: expanded.Fold(state.Seen, static (seen, key) => seen.TryAdd()),
+                Fresh: toSeq(expanded.Filter(key => !state.Seen.Contains()))))
             .SelectMany(static state => state.Fresh)
             .Select(load)
             .Merge();
@@ -822,7 +816,7 @@ public static class PivotFold {
 
     private static TableColumnRow<PivotRow> Axis(
         AggregateColumn key, TableCellKind kind, Func<PivotRow, string> project) =>
-        new(key, key, kind,
+        new(kind,
             new TableColumnAccess<PivotRow>.Plain(None, project),
             DataGridLength.Auto,
             CapabilitySet<ColumnTrait>.Of(ColumnTrait.Sortable, ColumnTrait.AutoSized));
@@ -1144,7 +1138,7 @@ public static class CommitSurface {
                 .Bind(_ => spec.Columns
                     .Traverse(key => rows
                         .Find(row => row.Key == key && row.Visible && row.Access is TableColumnAccess<TRow>.Plain)
-                        .ToFin(new EditFault.Invariant(key, "column is absent, hidden, or classified")))
+                        .ToFin(new EditFault.Invariant("column is absent, hidden, or classified")))
                     .As());
 
         public Fin<ReadOnlyMemory<byte>> Encode(TableExportSpec spec, Seq<TRow> items, ResolvedLocale locale) =>

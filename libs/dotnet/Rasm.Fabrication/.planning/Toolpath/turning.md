@@ -772,15 +772,15 @@ public static class Turning {
 
     private static Fin<TurnPass> Emit(int index, Loop profile, TurnDemand demand, TurnStep step) => step.Operation.Switch(
         state: (Index: index, Profile: profile, Demand: demand, Step: step),
-        rough: static (state, op) => Rough(state.Index, state.Profile, state.Demand, state.Step, op),
-        finish: static (state, op) => Finish(state.Index, state.Profile, state.Demand, state.Step, op),
-        plunge: static (state, op) => Plunge(state.Index, state.Demand, state.Step, op),
-        part: static (state, op) => Part(state.Index, state.Demand, state.Step, op),
-        axial: static (state, op) => Axial(state.Index, state.Demand, state.Step, op),
-        tap: static (state, op) => Tap(state.Index, state.Demand, state.Step, op),
+        rough: static (state, op) => Rough(state.Index, state.Profile, state.Demand, state.Step),
+        finish: static (state, op) => Finish(state.Index, state.Profile, state.Demand, state.Step),
+        plunge: static (state, op) => Plunge(state.Index, state.Demand, state.Step),
+        part: static (state, op) => Part(state.Index, state.Demand, state.Step),
+        axial: static (state, op) => Axial(state.Index, state.Demand, state.Step),
+        tap: static (state, op) => Tap(state.Index, state.Demand, state.Step),
         thread: static (state, op) => Thread(state.Index, state.Demand, state.Step, op.Spec),
-        knurl: static (state, op) => Knurl(state.Index, state.Demand, state.Step, op),
-        handoff: static (state, op) => Handoff(state.Index, state.Demand, state.Step, op));
+        knurl: static (state, op) => Knurl(state.Index, state.Demand, state.Step),
+        handoff: static (state, op) => Handoff(state.Index, state.Demand, state.Step));
 
     private static Fin<TurnPass> Rough(int index, Loop profile, TurnDemand demand, TurnStep step, LatheOp.Rough op) =>
         from moves in op.Kind.Sweep(profile, demand, new SweepDemand(op.Depth, op.RadialAllowance, op.AxialAllowance))
@@ -789,7 +789,7 @@ public static class Turning {
         select pass;
 
     private static Fin<TurnPass> Finish(int index, Loop profile, TurnDemand demand, TurnStep step, LatheOp.Finish op) =>
-        from moves in FinishMoves(profile, demand, op)
+        from moves in FinishMoves(profile, demand)
         from pass in Loaded(index, demand, step, moves, Seq<LatheDirective>(),
             Envelope(profile, demand, op.Kind.Side, op.RadialAllowance, op.AxialAllowance))
         select pass;
@@ -877,7 +877,7 @@ public static class Turning {
     private static Fin<Seq<Move>> Spline(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         from fit in FitPolicy.Of(context: profile.Tolerance, key: Key)
         let chord = profile.Tolerance.For(ToleranceLane.Chord).Value
-        from admittedChord in Key.AcceptValidated<PositiveMagnitude>(candidate: chord)
+        from admittedChord in FactoryBridge.Accept<PositiveMagnitude>(candidate: chord)
         from fitted in CurveAlgebra.Apply(new CurveOp.Admit(
             new CurveSource.Outline(profile, chord, fit),
             Key))
@@ -1273,7 +1273,6 @@ public static class Turning {
     private static SpindleMode Held(TurnDemand demand, double rpm) => new SpindleMode.ConstantRpm(
         demand.Spindle.MinimumRadius, RotationalSpeed.FromRevolutionsPerMinute(rpm));
 
-    private static readonly Op Key = Op.Of(name: nameof(Turning));
 
     private const int SingleEdge = 1;
 }

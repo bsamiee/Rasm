@@ -14,7 +14,7 @@
 
 - Owner: `ArenaPolicy` the arena policy row — capacity seed, the weld LANE, and the parallel floor every arena fold derives from; `MeshEdit` the `sealed class` single-writer arena over pooled SoA columns rented from `ArrayPool<T>.Shared` and grown by amortized doubling, carrying the union-find tolerance-grid weld and the determinant-derived affine transform — with the orientation repair a reversing map owes — as in-place verbs over its own columns, and composing `mesh.md`'s `MeshKernel.QuadDiagonal` for the exact split the mesh-ingress triangulation rides.
 - Cases: `Of` discriminates on argument type — an already-admitted `MeshSpace` or a raw triangle soup with its own `Context` — one owner, not a name pair; the soup modality is the kernel's one triangle-soup adapter, folding per-page `Soup(MeshSpace)` copies into a single `DuplicateNative` with quad faces split through the exact diagonal gate. Mutation verbs dirty-mark their slots — `SetFace` is the corner rewrite the decimate edge-collapse and remesh edge-flip land on, face indices stable under mutation; read projections return frozen span views, never copies.
-- Entry: arena admission is total, no gate — a `MeshSpace` is already-admitted truth and a raw soup's validity is decided at freeze. `ToSpace(Op key)` is the one publish boundary: a one-pass `TensorPrimitives.IsFiniteAll<double>` bulk gate per coordinate column, live faces rebuilt into a native `Mesh`, orphaned vertices compacted, then re-admission through `MeshSpace.Of` under the arena's OWN bound context; the finiteness gate routes `GeometryFault.DegenerateInput` with the offending slot, every other failure `MeshSpace.Of`'s own result. `Weld` welds in place at `Context.For(ArenaPolicy.Weld)`, sweeping to a merge-free pass, total.
+- Entry: arena admission is total, no gate — a `MeshSpace` is already-admitted truth and a raw soup's validity is decided at freeze. `ToSpace()` is the one publish boundary: a one-pass `TensorPrimitives.IsFiniteAll<double>` bulk gate per coordinate column, live faces rebuilt into a native `Mesh`, orphaned vertices compacted, then re-admission through `MeshSpace.Of` under the arena's OWN bound context; the finiteness gate routes `GeometryFault.DegenerateInput` with the offending slot, every other failure `MeshSpace.Of`'s own result. `Weld` welds in place at `Context.For(ArenaPolicy.Weld)`, sweeping to a merge-free pass, total.
 - Auto: `Of(MeshSpace)` calls `DuplicateNative` once, triangulates quads through the exact diagonal gate, and bulk-fills the columns; capacity grows by doubling every column together, so the offset-page under-allocation class — a store sized `2n` where the algorithm writes past it — is structurally impossible. `KillFace` tombstones a row and `ToSpace` compacts, the sentinel arena-internal and never observable past the freeze; dirty tracking is two packed bitsets replacing persistent `Set<int>` accumulation, enumerated for incremental consumers and cleared once the admission fill completes so a set bit names a kernel edit and never the build; `Parallel` runs a caller struct action over a caller-named index extent via `ParallelHelper`, allocation-free with the floor a policy row; the per-corner `uv` column — one pooled `Point2d` per corner — rents lazily on first `SetCornerUv`, rides faces so a weld never disturbs it, ingests per-vertex native texture coordinates at `Of(MeshSpace)`, and publishes wedge-faithfully at the freeze — a shared vertex whose corners disagree splits once per distinct UV, so no island's UV overwrites another's.
 - Law: the arena is build state, never evidence — the `MeshSpace` the freeze publishes is the hash-eligible artifact, and dirty bitsets are working state a consumer projects.
 - Packages: CommunityToolkit.HighPerformance (span planes, `ArrayPool` rent-resize, pooled kernel staging, `ParallelHelper` struct-action folds, packed bitsets), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll<double>` the freeze gate), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` freeze re-admission and native `Mesh` rebuild, `MeshKernel.QuadDiagonal` the exact ingress split gate — composed, never re-minted), `Rasm.Numerics` (`Dimension` the count carrier, `GeometryFault` the freeze fault), Rasm.Domain (`Context`, `ToleranceLane`, `Op`, `Kind`), QuikGraph (`ForestDisjointSet<int>` the weld partition — `MakeSet`/`Union`/`FindSet`, no page-local union-find), LanguageExt.Core (`Fin`/`Option` the freeze types), Rhino.Geometry (`Mesh`/`MeshFace`/`Point3d` native types, `Transform`/`Transform.Determinant` the transform pass's map and its orientation discriminant), BCL inbox (`ArrayPool<T>`).
@@ -239,7 +239,7 @@ public sealed class MeshEdit : IDisposable {
     }
 
     // --- [FREEZE]
-    public Fin<MeshSpace> ToSpace(Op key) {
+    public Fin<MeshSpace> ToSpace() {
         if (vertexCount > 0 && !(TensorPrimitives.IsFiniteAll<double>(X)
             && TensorPrimitives.IsFiniteAll<double>(Y) && TensorPrimitives.IsFiniteAll<double>(Z))) {
             int slot = 0;
@@ -258,7 +258,7 @@ public sealed class MeshEdit : IDisposable {
         }
         mesh.Compact();
         mesh.RebuildNormals();
-        return MeshSpace.Of(native: mesh, context: context, key: key);
+        return MeshSpace.Of(native: mesh, context: context);
     }
 
     void SplitWedges(Mesh mesh);

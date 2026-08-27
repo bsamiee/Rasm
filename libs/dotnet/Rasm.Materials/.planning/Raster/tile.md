@@ -14,7 +14,7 @@ Tiling is PROCEDURAL, never learned: a diffusion or sampler-loop tiling stage do
 - Owner: `TileLane` the DECLARED draw ordinals every jitter addresses through; `SeamAxis` the axis a seam line or healing band runs along; `TileSynth` the set-coherent tiling fold; `TileStrategy` `[SmartEnum<string>]` the four solver rows; `TilePlan` the channel-independent geometry; `TilePolicy` the caller's policy row; `WangEdge` the per-tile edge-digit assignment; `TileRun` the run record.
 - Cases: lane {`atlas`, `strip`} · axis {`vertical`, `horizontal`} · strategy {`offsetHeal` (half-offset wrap, per-row minimum-error dynamic-programming cut, feathered band), `graphCut` (grid minimum-cut over the overlap band by Edmonds-Karp residual reachability), `wang` (the COMPLETE colours⁴ edge-coloured family assembled into one atlas, boundary bands drawn from per-colour strips), `histogramBlend` (per-lane quantile-to-Gaussian transform over `filter#PLANE_OP` `OrderStatistics`, variance-preserving weighted blend, interpolated inverse)}.
 - Law: the guide channel decides the geometry alone. A set whose guide channel is absent REFUSES rather than falling back to an arbitrary present channel, because a plan derived from a different field than the caller graded is a plan the run misdescribes; a LAYERED set refuses outright, since the sampler bridge carries one layer and a cube face tiled independently of its neighbours has no shared boundary at all.
-- Entry: `public static Fin<(TextureSet Set, TileRun Run)> Tileify(TextureSet set, TilePolicy policy, Op key, TimeProvider? clock = null)` is the ONE entry — it solves the plan from the guide inside `Op.Catch` so a QuikGraph refusal remains exact, folds `Apply` over every channel and pack plane in PAIRING ORDER, re-admits the result through `set#TEXTURE_SET` `TextureSet.Of` so the tiled set re-keys, and grades it through `[03]-[TILE_GATE]`; `public static Fin<TexturePyramid> Apply(TilePlan plan, TexturePyramid pyramid, Op key, Option<TexturePyramid> paired = default)` is the per-plane fold the set fold drives and the only surface a caller composing a single plane reaches, and it refuses an extent mismatch or a layered plane rather than reading past a single-layer fold.
+- Entry: `public static Fin<(TextureSet Set, TileRun Run)> Tileify(TextureSet set, TilePolicy policy, TimeProvider? clock = null)` is the ONE entry — it solves the plan from the guide inside `Op.Catch` so a QuikGraph refusal remains exact, folds `Apply` over every channel and pack plane in PAIRING ORDER, re-admits the result through `set#TEXTURE_SET` `TextureSet.Of` so the tiled set re-keys, and grades it through `[03]-[TILE_GATE]`; `public static Fin<TexturePyramid> Apply(TilePlan plan, TexturePyramid pyramid, Option<TexturePyramid> paired = default)` is the per-plane fold the set fold drives and the only surface a caller composing a single plane reaches, and it refuses an extent mismatch or a layered plane rather than reading past a single-layer fold.
 - Packages: QuikGraph (composed — `AdjacencyGraph<int, Edge<int>>` the overlap-band flow graph, `Edge<int>` the REFERENCE edge, `ReversedEdgeAugmentorAlgorithm<int, Edge<int>>.AddReversedEdges` under a `using` whose own dispose retires them, `EdmondsKarpMaximumFlowAlgorithm<int, Edge<int>>(graph, capacities, edgeFactory, augmentor)`/`Compute`/`ResidualCapacities` the augmenting solve and the residual capacities the cut walk reads), MathNet.Numerics (composed — `Distributions.Normal.InvCDF`/`Normal.CDF` the Gaussian round trip), `Rasm.Numerics` (composed — `SpectralArena.Interleaved`/`Transform` and `Spectrum.Power` the kernel transform band `[03]` grades on), `Rasm` (project — `Deterministic.Of`/`Draw.At`/`Draw.Unit` the lane-keyed stateless draw and `IDrawLane<TSelf>` the declared-ordinal floor, `Dimension`, `Op`, `ValidityClaim`/`ValidityClaim.Evidence`/`WhenPresent`, `Evidence`/`Evidence.Of` the kernel probe evidence the `Tiled` fill and the run's `Score` ride), `plane#TEXTURE_PLANE` (composed — `TexturePlane`/`TexturePyramid`/`PlaneFormat`/`MipPolicy` and the `AsImage` decoded-level bridge), `set#TEXTURE_SET` (composed — `TextureSet`/`TextureChannel`/`ChannelPackPlane`/`TextureSetDraft`), `codec#RASTER_FAULT` (composed — `RasterFault` band 2460), `Rasm.Materials.Appearance.Texture` (composed — `ShadeVec4`), CommunityToolkit.HighPerformance (`ReadOnlyMemory2D<T>`/`ReadOnlySpan2D<T>` the plan's blend field and every staging plane, `SpanOwner<T>.Allocate` the per-row scratch the plane write accessor takes), BCL (`TimeProvider`, `ReferenceEqualityComparer`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new tiling method is one `TileStrategy` row carrying its `Solve` delegate — the plan shape already carries an offset, a per-texel blend field, and a quadrant table, so a method combining them differently needs no new carrier; a new policy knob is one `TilePolicy` column; a new plan geometry is one `TilePlan` column every strategy row leaves at its identity. There is NO per-strategy tiler type, NO `SeamlessTexture` surface, and NO per-channel tiling entry — the named defect is a second synthesizer, and the repair is a row.
 - Law: `TilePlan` carries exactly what `Fold` CONSUMES — a wrap offset, a `[0,1]` blend field with its band width, and the Wang table — and never a colour, a histogram, or a channel reference, which is what makes one plan legal over every plane of the roster at four component counts and five transfers. The two per-axis cuts ride on the run alone, folded into the field at solve time, because a plan whose applicator could honour a cut and drop the field is how a computed seam stops reaching the output.
@@ -96,26 +96,26 @@ public sealed record TileRun(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TileSynth {
     public static Fin<(TextureSet Set, TileRun Run)> Tileify(
-        TextureSet set, TilePolicy policy, Op key, Option<TimeProvider> clock = default) {
+        TextureSet set, TilePolicy policy, Option<TimeProvider> clock = default) {
         TimeProvider ticks = clock.IfNone(TimeProvider.System);
         long opened = ticks.GetTimestamp();
-        return from _ in guard(set.Layers.Value is 1, new RasterFault.Tile(key, $"<layered-set-has-no-shared-boundary:{set.Law.Key}:{set.Layers.Value}>"))
-               from guide in set.Channels.Find(policy.Guide).ToFin(new RasterFault.Tile(key, $"<tile-guide-absent:{policy.Guide.Key}>"))
-               from image in guide.AsImage(key)
-               from plan in key.Catch(() => Fin.Succ(
-                   policy.Strategy.Solve(image.Levels[0], policy, policy.Seed)))
+        return from _ in guard(set.Layers.Value is 1, new RasterFault.Tile($"<layered-set-has-no-shared-boundary:{set.Law.Key}:{set.Layers.Value}>"))
+               from guide in set.Channels.Find(policy.Guide).ToFin(new RasterFault.Tile($"<tile-guide-absent:{policy.Guide.Key}>"))
+               from image in guide.AsImage()
+               from plan in Try.lift(() => Fin.Succ(
+                   policy.Strategy.Solve(image.Levels[0], policy, policy.Seed))).Run().Bind(static inner => inner)
                from channels in PairingOrder(set.Channels)
                    .FoldM(HashMap<TextureChannel, TexturePyramid>(), (map, row) =>
-                       set.Channels.Find(row).ToFin(new RasterFault.Tile(key, $"<tile-channel-lost:{row.Key}>"))
-                           .Bind(pyramid => Apply(plan, pyramid, key, Companion(row, set.Channels).Bind(map.Find))
+                       set.Channels.Find(row).ToFin(new RasterFault.Tile($"<tile-channel-lost:{row.Key}>"))
+                           .Bind(pyramid => Apply(plan, pyramid, Companion(row, set.Channels).Bind(map.Find))
                                .Map(tiled => map.Add(row, tiled)))).As()
                from packs in set.Packs.TraverseM(pack =>
-                   Apply(plan, pack.Plane, key).Map(tiled => pack with { Plane = tiled })).As()
-               from regraded in channels.Find(policy.Guide).ToFin(new RasterFault.Tile(key, "<tile-guide-lost>"))
-               let scored = TileProof.Grade(regraded, policy, key)
+                   Apply(plan, pack.Plane).Map(tiled => pack with { Plane = tiled })).As()
+               from regraded in channels.Find(policy.Guide).ToFin(new RasterFault.Tile("<tile-guide-lost>"))
+               let scored = TileProof.Grade(regraded, policy)
                let graded = Evidence.Of(scored)
                from tiled in TextureSet.Of(new TextureSetDraft(set.Width, set.Height, set.Layers, set.Law, set.Convention,
-                   set.Alpha, set.HeightScaleMm, graded, set.Udim, channels, packs, set.Conductor, set.Material), key)
+                   set.Alpha, set.HeightScaleMm, graded, set.Udim, channels, packs, set.Conductor, set.Material))
                select (tiled, new TileRun(policy.Strategy, policy.Guide, Evidence.Of(scored.Map(static p => p.Score)),
                    plan.Cut, plan.CutY, plan.Wang, channels.Count + packs.Count, policy.Seed, ticks.GetElapsedTime(opened).TotalMilliseconds));
     }
@@ -139,18 +139,17 @@ public static class TileSynth {
         row.Pair.Bind(static name => TextureChannel.TryGet(name, out TextureChannel? companion) ? Some(companion) : None)
             .Filter(planes.ContainsKey);
 
-    public static Fin<TexturePyramid> Apply(TilePlan plan, TexturePyramid pyramid, Op key, Option<TexturePyramid> paired = default) =>
+    public static Fin<TexturePyramid> Apply(TilePlan plan, TexturePyramid pyramid, Option<TexturePyramid> paired = default) =>
         pyramid.Base.Width != plan.Width || pyramid.Base.Height != plan.Height
-            ? Fin.Fail<TexturePyramid>(new RasterFault.Tile(key, $"<tile-plan-extent-mismatch:{plan.Width.Value}x{plan.Height.Value}>"))
+            ? Fin.Fail<TexturePyramid>(new RasterFault.Tile($"<tile-plan-extent-mismatch:{plan.Width.Value}x{plan.Height.Value}>"))
             : pyramid.Base.Layers.Value is not 1
-                ? Fin.Fail<TexturePyramid>(new RasterFault.Tile(key, $"<tile-plane-layered:{pyramid.Base.Layers.Value}>"))
-                  : from image in pyramid.AsImage(key)
+                ? Fin.Fail<TexturePyramid>(new RasterFault.Tile($"<tile-plane-layered:{pyramid.Base.Layers.Value}>"))
+                  : from image in pyramid.AsImage()
                   from top in TexturePlane.Of(pyramid.Base.Format, pyramid.Base.Grid, pyramid.Base.Layers,
-                      pyramid.Base.Transfer, pyramid.Base.Alpha, pyramid.Base.Range, pyramid.Base.Primaries,
-                      key, AllocationMode.Default)
+                      pyramid.Base.Transfer, pyramid.Base.Alpha, pyramid.Base.Range, pyramid.Base.Primaries, AllocationMode.Default)
                   from chain in TexturePyramid.Of(
                           Fill(top, TileKernel.Fold(plan, image.Levels[0])),
-                          pyramid.Policy, key, paired)
+                          pyramid.Policy, paired)
                       .Rollback(top)
                   select chain;
 
@@ -364,7 +363,7 @@ internal static class TileKernel {
 
 - Owner: `TileProof` the minted evidence a `set#TEXTURE_SET` `TextureSet` carries, holding its own `Grade` mint; `TileGate` the measurement kernels; `TileScore` the measurement row.
 - Law: `TileProof` has no construction outside its own `Grade` — the constructor is PRIVATE and the mint is the type's own static, so no assembly-wide internal factory widens the reach — and `TextureSet.Tiled` therefore cannot be asserted, only earned; an ingested third-party set claiming tileability in its own manifest carries `Absent` until it is graded here.
-- Entry: `public static Fin<TileProof> TileProof.Grade(TexturePyramid pyramid, TilePolicy policy, Op key)` is the ONE probe — a grade is EVIDENCE, never a verdict, so a plane that tiles badly still MEASURES and the caller decides; deterministic signals read the plane's own decoded row accessor, and a learned scorer preserves its exact exceptional error while a non-finite answer fails as `RasterFault.Tile`.
+- Entry: `public static Fin<TileProof> TileProof.Grade(TexturePyramid pyramid, TilePolicy policy)` is the ONE probe — a grade is EVIDENCE, never a verdict, so a plane that tiles badly still MEASURES and the caller decides; deterministic signals read the plane's own decoded row accessor, and a learned scorer preserves its exact exceptional error while a non-finite answer fails as `RasterFault.Tile`.
 - Packages: `Rasm.Numerics` (composed — `SpectralArena.Interleaved`/`Transform`/`SpectralSense.Forward`/`SpectralScaling.Symmetric` the kernel transform band over the bounded luminance staging, `Spectrum.Power` the per-bin read), `plane#TEXTURE_PLANE` (composed — `TexturePyramid.Levels` the bounded grading level, `TexturePlane.Grid` the arena's own lattice, `TexturePlane.Read` the streaming decoded accessor both signals fold), CommunityToolkit.HighPerformance (`SpanOwner<T>` the row rentals), BCL inbox (`System.Numerics.Complex`), `Rasm` (project — `ValidityClaim`, `Evidence`/`Evidence.Of` the kernel probe evidence the `Learned` column and the `Tiled` fill ride).
 - Law: A GRADE IS ALWAYS PUBLISHED. `Grade` mints the proof it measured whatever that measurement says, `TileProof.AcceptBar` records the bar it was graded against, and `Accepted` is a predicate over the pair — so a below-bar set carries the real score it earned and a consumer can read how far short it fell. `TileSynth.Tileify` folds the probe outcome onto the set's `Tiled` column through the kernel `Evidence.Of(Fin<TileProof>)` mint, so the column holds three facts apart: `Measured` a grade that ran, its own `Accepted` the acceptance read; `Refused` a spectral band that rejected, carrying the band's own cause; `Absent` a set nothing ever graded. The deleted `Option` let a refused band, a below-bar grade, and an ungraded ingest all wear one `None`, and tileability stays earned evidence — it is now the measured-and-accepted read rather than bare presence.
 - Law: `TileScore.Learned` is the OPTIONAL fourth signal, RECORDED and never graded. `TilePolicy.Scorer` carries it as a CLOSURE the appearance frontier supplies — this owner sits below that frontier and names no model type, exactly as a press subject carries a radiance closure without naming a sky — and the frontier resolves the card, its licence class, and its tensor contract on its own side. The deterministic pair stays authoritative because it alone is reproducible across machines: folding a learned number into `Value` would make a stored proof unverifiable, and a retired weight file would take the verdict with it. The column rides kernel `Evidence<double>`: a scorer nothing supplied never ran and reads `Absent`, while a scorer that throws or answers a non-finite number RAN and reads `Refused` with its own cause — never faulting a grade whose reproducible half succeeded, and never masquerading as a scorer nobody configured.
@@ -394,14 +393,14 @@ public sealed record TileProof {
     public double AcceptBar { get; }
     public bool Accepted => Score.Value >= AcceptBar;
 
-    public static Fin<TileProof> Grade(TexturePyramid pyramid, TilePolicy policy, Op key) {
+    public static Fin<TileProof> Grade(TexturePyramid pyramid, TilePolicy policy) {
         TexturePlane spectral = TileGate.Level(pyramid, policy.GradeEdge);
         double ratio = TileGate.SeamRatio(pyramid.Base);
         double seam = 1.0 / (1.0 + Math.Max(0.0, ratio - 1.0));
         return TileGate.LatticeLeak(spectral).Map(leak =>
             new TileProof(policy.Strategy,
                 new TileScore(ratio, leak, Math.Clamp(seam * (1.0 - leak), 0.0, 1.0), spectral.Width,
-                    TileGate.CornerResidual(pyramid.Base, policy), TileGate.Learned(pyramid.Base, policy, key)),
+                    TileGate.CornerResidual(pyramid.Base, policy), TileGate.Learned(pyramid.Base, policy)),
                 policy.Seed, policy.AcceptScore));
     }
 }
@@ -437,19 +436,19 @@ internal static class TileGate {
         return met > 0 ? Some(total / (4 * met)) : None;
     }
 
-    internal static Evidence<double> Learned(TexturePlane plane, TilePolicy policy, Op key) =>
+    internal static Evidence<double> Learned(TexturePlane plane, TilePolicy policy) =>
         policy.Scorer.Match(
             Some: scorer => {
                 ShadeVec4[] staged = new ShadeVec4[plane.Width.Value * plane.Height.Value];
                 for (int row = 0; row < plane.Height.Value; row++) {
                     plane.ReadShade(row, layer: 0, staged.AsSpan(row * plane.Width.Value, plane.Width.Value));
                 }
-                return Evidence.Of(key.Catch(() => {
+                return Evidence.Of(Try.lift(() => {
                     double read = scorer(new ReadOnlyMemory2D<ShadeVec4>(staged, plane.Height.Value, plane.Width.Value));
                     return double.IsFinite(read)
                         ? Fin.Succ(read)
-                        : Fin.Fail<double>(new RasterFault.Tile(key, $"<tile-learned-nonfinite:{read}>"));
-                }));
+                        : Fin.Fail<double>(new RasterFault.Tile($"<tile-learned-nonfinite:{read}>"));
+                }).Run().Bind(static inner => inner));
             },
             None: static () => new Evidence<double>.Absent());
 

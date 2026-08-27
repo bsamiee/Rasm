@@ -107,8 +107,8 @@ internal sealed class TripletStencil : IDisposable {
         for (int t = 0; t < values.WrittenCount; t++) { yield return (row[t], col[t], value[t]); }
     }
 
-    internal Fin<SparseMatrix> Freeze(Dimension rowCount, Dimension colCount, Op key) =>
-        SparseMatrix.FromTriplets(rows: rowCount, cols: colCount, triplets: Triplets(), key: key);
+    internal Fin<SparseMatrix> Freeze(Dimension rowCount, Dimension colCount) =>
+        SparseMatrix.FromTriplets(rows: rowCount, cols: colCount, triplets: Triplets());
 
     public void Dispose() { rows.Dispose(); cols.Dispose(); values.Dispose(); }
 }
@@ -131,22 +131,22 @@ internal static class DecAssembly {
     private static FaceRead ReadFace(MeshKernel.IntrinsicMesh imesh, int faceIdx);
 
     // --- [DEC_OPERATORS]
-    internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key, Option<MeshLaplacian> kind = default) {
+    internal static Fin<DiscreteCalculus> Build(MeshSpace space, Option<MeshLaplacian> kind = default) {
         MeshLaplacian activeKind = kind.IfNone(MeshLaplacian.IntrinsicDelaunay);
-        return from imesh in activeKind.Snapshot(cache: space.Cache, key: key)
-               from laplacian in space.Laplacian(kind: activeKind, key: key)
+        return from imesh in activeKind.Snapshot(cache: space.Cache)
+               from laplacian in space.Laplacian(kind: activeKind)
                from topology in MeshKernel.TopologyDetailed(space: space)
-               from dec in Operators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
-               let transport = Evidence.Of(MeshKernel.SignpostTransportOf(space: space, imesh: imesh, key: key))
+               from dec in Operators(imesh: imesh, mass: laplacian.MassLumped, topology: topology)
+               let transport = Evidence.Of(MeshKernel.SignpostTransportOf(space: space, imesh: imesh))
                from harmonic in topology.Genus
                    .Filter((int genus) => ((2 * genus) + Math.Max(0, topology.BoundaryComponents - 1)) > 0)
-                   .TraverseM((int _) => HarmonicForms(calculus: dec, topology: topology, context: space.Tolerance, key: key)).As()
+                   .TraverseM((int _) => HarmonicForms(calculus: dec, topology: topology, context: space.Tolerance)).As()
                let calculus = dec with { Transport = transport, Harmonic = harmonic }
-               from _ in guard(calculus.IsValid, key.InvalidResult())
+               from _ in guard(calculus.IsValid, new KernelFault.InvalidResult())
                select calculus;
     }
 
-    private static Fin<DiscreteCalculus> Operators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, Topology topology, Op key) {
+    private static Fin<DiscreteCalculus> Operators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, Topology topology) {
         int vertCount = imesh.VertexCount, edgeCount = imesh.EdgeCount;
         int[] liveFaces = [.. imesh.LiveFaceIndices()];
         using TripletStencil d0 = new();
@@ -169,11 +169,11 @@ internal static class DecAssembly {
         double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
         double compositionTolerance = EpsilonPolicy.SqrtEpsilon * d1.Triplets().Aggregate(1.0, static (max, t) => Math.Max(max, Math.Abs(t.Value)));
         return admitted <= 0 || admitted + skipped.Sum() != liveFaces.Length
-            ? Fin.Fail<DiscreteCalculus>(key.Unsupported(inputType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(DiscreteCalculus)))
+            ? Fin.Fail<DiscreteCalculus>(new KernelFault.Unsupported(InputType: typeof(MeshKernel.IntrinsicMesh), OutputType: typeof(DiscreteCalculus)))
             : mass.Count != vertCount || !mass.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) || boundaryResidual > compositionTolerance
-            ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
-            : from D0 in d0.Freeze(rowCount: Dimension.Create(value: edgeCount), colCount: Dimension.Create(value: vertCount), key: key)
-              from D1 in d1.Freeze(rowCount: Dimension.Create(value: admitted), colCount: Dimension.Create(value: edgeCount), key: key)
+            ? Fin.Fail<DiscreteCalculus>(new KernelFault.InvalidResult())
+            : from D0 in d0.Freeze(rowCount: Dimension.Create(value: edgeCount), colCount: Dimension.Create(value: vertCount))
+              from D1 in d1.Freeze(rowCount: Dimension.Create(value: admitted), colCount: Dimension.Create(value: edgeCount))
               let assembly = DecAssemblyOf(imesh: imesh, topology: topology, D0: D0, D1: D1, mass: mass, star1: star1, star2: star2,
                   admitted: admitted, skippedDegenerate: skipped[FaceSkip.Degenerate.Key], skippedMissing: skipped[FaceSkip.Incomplete.Key],
                   boundaryResidual: boundaryResidual, compositionTolerance: compositionTolerance)
@@ -189,20 +189,20 @@ internal static class DecAssembly {
             .Select(e => MeshKernel.CotanEdgeWeightOf(imesh: imesh, edge: imesh.EdgeAt(index: e)))]);
 
     // --- [HARMONIC_ONE_FORMS]
-    private static Fin<HarmonicOneFormBasis> HarmonicForms(DiscreteCalculus calculus, Topology topology, Context context, Op key);
-    private static Fin<Arr<Arr<double>>> Star1OrthonormalForms(IEnumerable<Arr<double>> vectors, Arr<double> star1, Op key);
+    private static Fin<HarmonicOneFormBasis> HarmonicForms(DiscreteCalculus calculus, Topology topology, Context context);
+    private static Fin<Arr<Arr<double>>> Star1OrthonormalForms(IEnumerable<Arr<double>> vectors, Arr<double> star1);
     private static double Star1Inner(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Arr<double> star1);
     private static double MaxResidual(SparseMatrix matrix, Arr<Arr<double>> forms);
     private static double MaxCoClosedResidual(SparseMatrix d0, Arr<double> star1, Arr<Arr<double>> forms);
     private static double Star1OrthonormalResidual(Arr<Arr<double>> forms, Arr<double> star1);
 
     // --- [HODGE_DECOMPOSITION]
-    internal static Fin<HodgeDecomposition> HodgeDecomposeDetailed(DiscreteCalculus calculus, SparseMatrix stiffness, Arr<double> omega, Context context, Op key) =>
-        AdmitHodgeShapes(calculus: calculus, stiffness: stiffness, omega: omega, key: key)
+    internal static Fin<HodgeDecomposition> HodgeDecomposeDetailed(DiscreteCalculus calculus, SparseMatrix stiffness, Arr<double> omega, Context context) =>
+        AdmitHodgeShapes(calculus: calculus, stiffness: stiffness, omega: omega)
             .Bind(_ => stiffness.SingularSolveDetailed(
                 rhs: new Arr<double>(D0Transpose(d0: calculus.D0, edgeValues: HadamardEdge(left: calculus.Star1, right: omega))),
-                gauge: GaugePolicy.Pinned(indices: [0], mass: Some(calculus.Star0), shift: GaugeShift.MeanZero), context: context, key: key))
-            .Bind(solve => solve.Gauge.ToFin(key.InvalidResult()).Bind(gauge => {
+                gauge: GaugePolicy.Pinned(indices: [0], mass: Some(calculus.Star0), shift: GaugeShift.MeanZero), context: context))
+            .Bind(solve => solve.Gauge.ToFin(new KernelFault.InvalidResult()).Bind(gauge => {
                 int edgeCount = calculus.D0.Rows.Value;
                 Arr<Arr<double>> basis = calculus.Harmonic.Map(static (HarmonicOneFormBasis b) => b.Forms).IfNone(Arr<Arr<double>>.Empty);
                 double[] dAlpha = D0Apply(d0: calculus.D0, vertexValues: solve.Solution);
@@ -225,26 +225,26 @@ internal static class DecAssembly {
                 return witness.IsValid
                     ? Fin.Succ(new HodgeDecomposition(
                         Exact: new Arr<double>(dAlpha), Harmonic: new Arr<double>(harmonic), CoExact: new Arr<double>(coExact), Witness: witness))
-                    : Fin.Fail<HodgeDecomposition>(key.InvalidResult());
+                    : Fin.Fail<HodgeDecomposition>(new KernelFault.InvalidResult());
             }));
-    private static Fin<Unit> AdmitHodgeShapes(DiscreteCalculus calculus, SparseMatrix stiffness, Arr<double> omega, Op key);
+    private static Fin<Unit> AdmitHodgeShapes(DiscreteCalculus calculus, SparseMatrix stiffness, Arr<double> omega);
     private static HodgeWitness HodgeWitnessOf(DiscreteCalculus calculus, ReadOnlySpan<double> dAlpha,
         ReadOnlySpan<double> harmonic, ReadOnlySpan<double> coExact, ReadOnlySpan<double> omega,
         double harmonicEnergySquared, GaugeFix gauge, Tolerance slack);
     private static double[] HadamardEdge(Arr<double> left, Arr<double> right);
     private static double[] D0Apply(SparseMatrix d0, Arr<double> vertexValues);
     private static double[] D0Transpose(SparseMatrix d0, double[] edgeValues);
-    internal static Fin<Vector3d> WhitneyVectorAt(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Arr<double> oneForm, Point3d sample, Op key);
-    private static Fin<MeshKernel.IntrinsicMesh> LiftFlippedSources(MeshKernel.IntrinsicMesh mesh, Op key);
+    internal static Fin<Vector3d> WhitneyVectorAt(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Arr<double> oneForm, Point3d sample);
+    private static Fin<MeshKernel.IntrinsicMesh> LiftFlippedSources(MeshKernel.IntrinsicMesh mesh);
 
     // --- [HODGE_POINT_EVALUATION]
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct HodgeSolutionKey(VectorField Source, Context Context);
-    internal static Fin<HodgeDecomposition> HodgeSolutionOf(VectorField source, MeshSpace space, Context context, Op key);
-    internal static Fin<Vector3d> HodgeVectorAt(VectorField source, MeshSpace space, BoundarySense sense, Point3d sample, Context context, Op key) =>
-        from solved in HodgeSolutionOf(source: source, space: space, context: context, key: key)
-        from imesh in MeshLaplacian.IntrinsicDelaunay.Snapshot(cache: space.Cache, key: key)
-        from value in WhitneyVectorAt(space: space, imesh: imesh, sample: sample, key: key,
+    internal static Fin<HodgeDecomposition> HodgeSolutionOf(VectorField source, MeshSpace space, Context context);
+    internal static Fin<Vector3d> HodgeVectorAt(VectorField source, MeshSpace space, BoundarySense sense, Point3d sample, Context context) =>
+        from solved in HodgeSolutionOf(source: source, space: space, context: context)
+        from imesh in MeshLaplacian.IntrinsicDelaunay.Snapshot(cache: space.Cache)
+        from value in WhitneyVectorAt(space: space, imesh: imesh, sample: sample,
             oneForm: sense.Equals(BoundarySense.Toward) ? solved.Exact : SolenoidalOf(solved: solved))
         select value;
     private static Arr<double> SolenoidalOf(HodgeDecomposition solved) {
@@ -254,16 +254,16 @@ internal static class DecAssembly {
     }
 
     // --- [CROUZEIX_RAVIART]
-    internal static Fin<(SparseMatrix Matrix, SpectralAssembly Assembly)> HeatSystemLifted(MeshKernel.IntrinsicMesh mesh, double time, Op key) =>
+    internal static Fin<(SparseMatrix Matrix, SpectralAssembly Assembly)> HeatSystemLifted(MeshKernel.IntrinsicMesh mesh, double time) =>
         !mesh.HasFlips
-            ? HeatSystem(mesh: mesh, time: time, key: key, lifted: false)
-            : LiftFlippedSources(mesh: mesh, key: key).Bind(reanchored => reanchored.HasFlips
+            ? HeatSystem(mesh: mesh, time: time, lifted: false)
+            : LiftFlippedSources(mesh: mesh).Bind(reanchored => reanchored.HasFlips
                 ? Fin.Fail<(SparseMatrix, SpectralAssembly)>(
-                    key.Unsupported(inputType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SparseMatrix)))
-                : HeatSystem(mesh: reanchored, time: time, key: key, lifted: true));
-    internal static Fin<(SparseMatrix Matrix, SpectralAssembly Assembly)> HeatSystem(MeshKernel.IntrinsicMesh mesh, double time, Op key, bool lifted = false) {
+                    new KernelFault.Unsupported(InputType: typeof(MeshKernel.IntrinsicMesh), OutputType: typeof(SparseMatrix)))
+                : HeatSystem(mesh: reanchored, time: time, lifted: true));
+    internal static Fin<(SparseMatrix Matrix, SpectralAssembly Assembly)> HeatSystem(MeshKernel.IntrinsicMesh mesh, double time, bool lifted = false) {
         if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0 || !mesh.IsFrozen || mesh.EdgeCount == 0 || mesh.HasFlips)
-            return Fin.Fail<(SparseMatrix, SpectralAssembly)>(key.InvalidInput());
+            return Fin.Fail<(SparseMatrix, SpectralAssembly)>(new KernelFault.InvalidInput());
         int eCount = mesh.EdgeCount;
         using TripletStencil system = new();
         double[] mass = new double[eCount];
@@ -287,13 +287,13 @@ internal static class DecAssembly {
             }
         }
         for (int e = 0; e < eCount; e++) system.Diagonal(a: e, b: e + eCount, value: mass[e]);
-        return SymmetryGate(triplets: system.Triplets(), key: key)
-            .Bind(residuals => system.Freeze(rowCount: Dimension.Create(value: 2 * eCount), colCount: Dimension.Create(value: 2 * eCount), key: key)
+        return SymmetryGate(triplets: system.Triplets())
+            .Bind(residuals => system.Freeze(rowCount: Dimension.Create(value: 2 * eCount), colCount: Dimension.Create(value: 2 * eCount))
                 .Map(matrix => (Matrix: matrix, Assembly: EdgeConnectionAssemblyOf(mesh: mesh, matrix: matrix, mass: mass,
                     admitted: admitted, skippedDegenerate: skipped[FaceSkip.Degenerate.Key], skippedMissing: skipped[FaceSkip.Incomplete.Key],
                     residuals: residuals, lifted: lifted))));
     }
-    private static Fin<(double Residual, double Tolerance)> SymmetryGate(IEnumerable<(int Row, int Col, double Value)> triplets, Op key);
+    private static Fin<(double Residual, double Tolerance)> SymmetryGate(IEnumerable<(int Row, int Col, double Value)> triplets);
     private static SpectralAssembly EdgeConnectionAssemblyOf(MeshKernel.IntrinsicMesh mesh, SparseMatrix matrix, double[] mass,
         int admitted, int skippedDegenerate, int skippedMissing, (double Residual, double Tolerance) residuals, bool lifted);
     internal static Vector3d[] FaceField(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> stacked) {
@@ -334,21 +334,21 @@ internal static class DecAssembly {
 
     // --- [CDS_HOLONOMY]
     internal static Arr<double> AngleDefects(MeshKernel.IntrinsicMesh imesh);
-    internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) =>
+    internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones) =>
         from topology in MeshKernel.TopologyDetailed(space: space)
         from _ in guard(topology.Traits.Admits(MeshTrait.Closed) && topology.BoundaryComponents == 0
-            && topology.Genus is { IsSome: true, Case: 0 }, key.Unsupported(inputType: typeof(MeshSpace), outputType: typeof(Arr<double>)))
+            && topology.Genus is { IsSome: true, Case: 0 }, new KernelFault.Unsupported(InputType: typeof(MeshSpace), OutputType: typeof(Arr<double>)))
         let defects = AngleDefects(imesh: imesh)
-        from __ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones, key: key)
+        from __ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones)
         let u = ConeForm(imesh: imesh, defects: defects, cones: cones)
         let star1 = Star1(imesh: imesh)
         let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u)
-        from beta in space.Cache.Cholesky(key: key)
-            .Bind(factor => factor.SolveDetailed(rhs: rhs, key: key))
-            .Bind(solve => solve.IsValid ? Fin.Succ(solve.Solution) : Fin.Fail<Arr<double>>(key.InvalidResult()))
+        from beta in space.Cache.Cholesky()
+            .Bind(factor => factor.SolveDetailed(rhs: rhs))
+            .Bind(solve => solve.IsValid ? Fin.Succ(solve.Solution) : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()))
         let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta)
         select dBeta.Map(static (double value) => -value);
-    private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key);
+    private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones);
     private static Arr<double> ConeForm(MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones);
     private static Arr<double> IntrinsicCoexactRhs(MeshKernel.IntrinsicMesh imesh, Arr<double> star1, Arr<double> u);
     private static Arr<double> IntrinsicEdgeGradient(MeshKernel.IntrinsicMesh imesh, Arr<double> beta);
@@ -359,12 +359,12 @@ internal static class DecAssembly {
     internal static Arr<double> Divergence(Mesh mesh, Vector3d[] gradients);
 
     // --- [SPECTRAL_BASIS]
-    internal static Fin<SpectralBasisBundle> ComputeSpectralBasisDetailed(MeshSpace space, int k, Op key) =>
+    internal static Fin<SpectralBasisBundle> ComputeSpectralBasisDetailed(MeshSpace space, int k) =>
         Math.Min(val1: k, val2: space.Native.Vertices.Count - 1) switch {
-            < 1 => Fin.Fail<SpectralBasisBundle>(key.InvalidInput()),
-            int count => from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
-                         from eigen in laplacian.Stiffness.GeneralizedEigenpairsDetailed(mass: laplacian.MassConsistent, k: count, key: key)
-                         from pairs in eigen.PairsIn(expected: EigenOrder.Ascending, key: key)
+            < 1 => Fin.Fail<SpectralBasisBundle>(new KernelFault.InvalidInput()),
+            int count => from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay)
+                         from eigen in laplacian.Stiffness.GeneralizedEigenpairsDetailed(mass: laplacian.MassConsistent, k: count)
+                         from pairs in eigen.PairsIn(expected: EigenOrder.Ascending)
                          select new SpectralBasisBundle(
                              Basis: new SpectralBasis(
                                  Eigenvalues: new Arr<double>([.. pairs.Map(static pair => pair.Eigenvalue)]),

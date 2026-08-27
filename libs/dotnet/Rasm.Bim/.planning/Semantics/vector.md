@@ -14,7 +14,7 @@ Both codec columns ride the `Fin` result, so a row's own decode refuses by name 
 
 - Owner: `GeoVectorSource` the `[SmartEnum<string>]` format table whose rows carry the result-returning `decode`/`encode` codec pair; `AttributeFilter` the admitted non-blank OGR-SQL restriction; `GeoWindow` the ONE push-down request every decode arm reads.
 - Law: the encode column is OPTIONAL because ingest-only is a real row state, not an error state — a planar `GeoFeature` set cannot re-emit a 3D city model, so `CityJson` declares NO encoder and the absence faults typed at `Write`; a throwing delegate in a policy row makes an absent capability indistinguishable from a broken one and reads as support to anyone scanning the roster.
-- Entry: `Decode(bytes, window, key)` and `Encoder` are the row's two columns; `GeoWindow.Whole` is the unfiltered read and `GeoWindow.At(clip)` the spatial window; `AttributeFilter.Of(restriction, key)` admits an OGR-SQL `WHERE` body.
+- Entry: `Decode(bytes, window, key)` and `Encoder` are the row's two columns; `GeoWindow.Whole` is the unfiltered read and `GeoWindow.At(clip)` the spatial window; `AttributeFilter.Of(restriction)` admits an OGR-SQL `WHERE` body.
 - Packages: `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`
 - Growth: a new vector format is one row carrying its `decode`/`encode` pair, an OGR row closing over its driver token, with zero entry-point edits; a new push-down axis is one `GeoWindow` column every arm already receives; never a per-format importer family and never a boolean op on the OGR side.
 - Boundary: the row's delegate columns route decode AND encode with no call-site branch, so a call-site if-ladder over formats is the deleted form; the managed shapefile/FlatGeobuf/GeoParquet/KML codecs are the pure-managed defaults and admitting GDAL for a format a managed codec reads is the rejected form; a `managed` column beside the delegate restated which delegate the row already binds and no fence ever read it, so the managed/OGR partition is stated at this boundary and carried by `Exchange/format#FORMAT_AXIS`; an attribute filter reaches only a row whose codec can push it down, because a filter silently dropped returns a superset the caller cannot detect.
@@ -55,10 +55,10 @@ public sealed partial class AttributeFilter {
         if (value.Length == 0) { validationError = new ValidationError("attribute-filter-blank"); }
     }
 
-    public static Fin<AttributeFilter> Of(string restriction, Op key) =>
+    public static Fin<AttributeFilter> Of(string restriction) =>
         Validate(restriction, out AttributeFilter? filter) is null && filter is { } admitted
             ? Fin.Succ(admitted)
-            : Fin.Fail<AttributeFilter>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "attribute-filter", restriction })));
+            : Fin.Fail<AttributeFilter>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "attribute-filter", restriction })));
 }
 
 public sealed record GeoWindow(Option<Envelope> Clip, Option<AttributeFilter> Where) {
@@ -71,43 +71,43 @@ public sealed record GeoWindow(Option<Envelope> Clip, Option<AttributeFilter> Wh
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class GeoVectorSource {
     public static readonly GeoVectorSource Shapefile  = new("shapefile",
-        decode: static (bytes, window, key) => GeoVector.Shapefile(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteShapefile(features, crs, key)));
+        decode: static (bytes, window, key) => GeoVector.Shapefile(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteShapefile(features, crs)));
     public static readonly GeoVectorSource GeoJson    = new("geojson",
-        decode: static (bytes, window, key) => GeoVector.GeoJson(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoVector.WriteGeoJson(features, key)));
+        decode: static (bytes, window, key) => GeoVector.GeoJson(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, _, key) => GeoVector.WriteGeoJson(features)));
     public static readonly GeoVectorSource CityJson   = new("cityjson",
-        decode: static (bytes, window, key) => GeoVector.CityJson(bytes, window, key),
+        decode: static (bytes, window, key) => GeoVector.CityJson(bytes, window),
         encode: None);
     public static readonly GeoVectorSource FlatGeobuf = new("flatgeobuf",
-        decode: static (bytes, window, key) => GeoVector.FlatGeobuf(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoVector.WriteFlatGeobuf(features, key)));
+        decode: static (bytes, window, key) => GeoVector.FlatGeobuf(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, _, key) => GeoVector.WriteFlatGeobuf(features)));
     public static readonly GeoVectorSource GeoParquet = new("geoparquet",
-        decode: static (bytes, window, key) => GeoVector.GeoParquet(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoVector.WriteGeoParquet(features, key)));
+        decode: static (bytes, window, key) => GeoVector.GeoParquet(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, _, key) => GeoVector.WriteGeoParquet(features)));
     public static readonly GeoVectorSource Kml        = new("kml",
-        decode: static (bytes, window, key) => GeoKml.Read(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoKml.Write(features, key)));
+        decode: static (bytes, window, key) => GeoKml.Read(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, _, key) => GeoKml.Write(features)));
     public static readonly GeoVectorSource Kmz        = new("kmz",
-        decode: static (bytes, window, key) => GeoKml.Read(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoKml.WriteKmz(features, key)));
+        decode: static (bytes, window, key) => GeoKml.Read(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, _, key) => GeoKml.WriteKmz(features)));
     public static readonly GeoVectorSource Mvt        = new("mvt",
-        decode: static (bytes, window, key) => GeoTiles.Decode(bytes, 0, 0, 0, key).Map(static rows => rows.Map(static r => r.Feature)),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoTiles.EncodeWorldTile(features, key)));
+        decode: static (bytes, window, key) => GeoTiles.Decode(bytes, 0, 0, 0).Map(static rows => rows.Map(static r => r.Feature)),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, _, key) => GeoTiles.EncodeWorldTile(features)));
     public static readonly GeoVectorSource GeoPackage = new("geopackage",
-        decode: static (bytes, window, key) => GeoVector.Universal(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteUniversal("GPKG", features, crs, key)));
+        decode: static (bytes, window, key) => GeoVector.Universal(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteUniversal("GPKG", features, crs)));
     public static readonly GeoVectorSource Gml        = new("gml",
-        decode: static (bytes, window, key) => GeoVector.Universal(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteUniversal("GML", features, crs, key)));
+        decode: static (bytes, window, key) => GeoVector.Universal(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteUniversal("GML", features, crs)));
     public static readonly GeoVectorSource FileGdb    = new("filegdb",
-        decode: static (bytes, window, key) => GeoVector.Universal(bytes, window, key),
-        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteUniversal("OpenFileGDB", features, crs, key)));
+        decode: static (bytes, window, key) => GeoVector.Universal(bytes, window),
+        encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>>(static (features, crs, key) => GeoVector.WriteUniversal("OpenFileGDB", features, crs)));
 
     [UseDelegateFromConstructor]
-    public partial Fin<Seq<GeoFeature>> Decode(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key);
+    public partial Fin<Seq<GeoFeature>> Decode(ReadOnlyMemory<byte> bytes, GeoWindow window);
 
-    public Option<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>> Encoder { get; }
+    public Option<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Fin<byte[]>>> Encoder { get; }
 }
 ```
 
@@ -149,13 +149,13 @@ public abstract partial record OrthoDrape {
 public static class GeoKml {
     const string OrthoEntry = "files/ortho.png";
 
-    internal static Fin<Seq<GeoFeature>> Read(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        GeoVector.Planar(window, "kml", key, () => {
+    internal static Fin<Seq<GeoFeature>> Read(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        GeoVector.Planar(window, "kml", () => {
             using var stream = new MemoryStream(bytes.ToArray());
             KmlFile file;
             if (bytes.Span is [0x50, 0x4B, ..]) { using var kmz = KmzFile.Open(stream); file = kmz.GetDefaultKmlFile(); }
             else { file = KmlFile.Load(stream); }
-            Option<ProjectedCrs> crs = ProjectedCrs.Of("EPSG:4326", "", "", "", key).ToOption();
+            Option<ProjectedCrs> crs = ProjectedCrs.Of("EPSG:4326", "", "", "").ToOption();
             return Optional(file.Root switch { KmlDom.Kml k => k.Feature, KmlDom.Feature f => f, _ => null })
                 .Match(Some: root => Walk(root, crs), None: static () => Seq<GeoFeature>());
         });
@@ -204,20 +204,20 @@ public static class GeoKml {
         return document;
     }
 
-    internal static Fin<byte[]> Write(Seq<GeoFeature> features, Op key) =>
-        key.Catch(() => {
+    internal static Fin<byte[]> Write(Seq<GeoFeature> features) =>
+        Try.lift(() => {
             using var output = new MemoryStream();
             KmlFile.Create(new KmlDom.Kml { Feature = Build(features) }, duplicates: false).Save(output);
             return output.ToArray();
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<byte[]> WriteKmz(Seq<GeoFeature> features, Op key) =>
-        key.Catch(() => {
+    internal static Fin<byte[]> WriteKmz(Seq<GeoFeature> features) =>
+        Try.lift(() => {
             using var kmz = KmzFile.Create(KmlFile.Create(new KmlDom.Kml { Feature = Build(features) }, duplicates: false));
             using var output = new MemoryStream();
             kmz.Save(output);
             return output.ToArray();
-        });
+        }).Run().Bind(static inner => inner);
 
     public static Fin<byte[]> Site(
         Seq<GeoFeature> features,
@@ -225,12 +225,11 @@ public static class GeoKml {
         Func<GeoFeature, KmlElevation> elevationOf,
         Map<string, (Color32 Line, double WidthPx, Color32 Fill)> styles,
         Option<OrthoDrape> ortho,
-        Seq<GeoFeature> tour,
-        Op key) =>
+        Seq<GeoFeature> tour) =>
         GeoServices.Wgs84
-            .Bind(frame => features.Traverse(f => f.Reproject(frame, key)).As()
-                .Bind(wgs => tour.Traverse(t => t.Reproject(frame, key)).As().Map(route => (Wgs: wgs, Route: route))))
-            .Bind(site => key.Catch(() => {
+            .Bind(frame => features.Traverse(f => f.Reproject(frame)).As()
+                .Bind(wgs => tour.Traverse(t => t.Reproject(frame)).As().Map(route => (Wgs: wgs, Route: route))))
+            .Bind(site => Try.lift(() => {
                 var document = new KmlDom.Document { Name = "site-context" };
                 styles.Iter((id, row) => document.AddStyle(new KmlDom.Style {
                     Id = id,
@@ -247,7 +246,7 @@ public static class GeoKml {
                 using var output = new MemoryStream();
                 kmz.Save(output);
                 return output.ToArray();
-            }));
+            }).Run().Bind(static inner => inner));
 
     static KmlDom.GroundOverlay Drape(OrthoDrape ortho) {
         var overlay = new KmlDom.GroundOverlay {
@@ -273,7 +272,7 @@ public static class GeoKml {
         var mark = new KmlDom.Placemark {
             Name = feature.Text("name").IfNone(""),
             Geometry = Raise(feature.Geometry, elevation),
-            StyleUrl = Op.ToHostSlot(styleId.Map(static id => new Uri($"#{id}", UriKind.Relative))),
+            StyleUrl = HostEdge.Slot(styleId.Map(static id => new Uri($"#{id}", UriKind.Relative))),
         };
         var data = new KmlDom.ExtendedData();
         feature.Attributes.GetNames().AsIterable()
@@ -337,7 +336,7 @@ public static class GeoKml {
 
 - Owner: `GeoVector` the ingest-and-egress fold over the `GeoVectorSource` table — the managed shapefile/GeoJSON/CityJSON/FlatGeobuf/GeoParquet arms, the remote-`.fgb` `PackedRTree.StreamSearch` range read, the OGR universal arm with its typed field crossing, and the symmetric egress; `OgrField` the OGR `FieldType`-keyed read roster; `CityJsonHeader` the ONE CityJSON metadata-and-appearance admission; `GeoParquetSchema` and `HeaderCrs` the two columnar/header admissions.
 - Law: every OGR field crosses at its DECLARED `FieldType` — an integer column lands `PropertyValue.Integer`, a real lands `Number`, a date lands `Temporal` — because flattening to text makes "9" sort after "1250.5", makes a null and an empty string one value, and makes a date unorderable, so an IDS facet, a `Model/query` predicate, and a `Planning/cost` quantity all compare wrong on the same column the codec had already decoded correctly.
-- Entry: `Read(source, bytes, window, key)` dispatches the row's decode column; `Stream(fetch, window, key)` is the remote-`.fgb` range-read escalation; `CityJsonAppearance(bytes, key)` is the texture-roster entry over the same document the geometry arm decodes; `Write(source, features, crs, key)` dispatches the row's encoder and faults typed on its absence.
+- Entry: `Read(source, bytes, window)` dispatches the row's decode column; `Stream(fetch, window, key)` is the remote-`.fgb` range-read escalation; `CityJsonAppearance(bytes, key)` is the texture-roster entry over the same document the geometry arm decodes; `Write(source, features, crs, key)` dispatches the row's encoder and faults typed on its absence.
 - Auto: `Planar` is the ONE managed-codec admission — it refuses an attribute filter no managed codec can push down and traps the codec's own throw onto the typed lane fault, so no arm re-spells either; every produced `GeoFeature` re-enters `GeoModel.Of`, which is where `GeometryFixer.Fix` runs.
 - Output: the `Read` `Seq<GeoFeature>` is the universal vector ingest evidence `Semantics/model#GEO_MODEL` indexes and `Semantics/feature#GEO_FEATURE` `ToObject` lowers onto shared `Object` nodes; the `GeoVectorSource` row records which codec decoded, so the reader is one table read.
 - Packages: `NetTopologySuite`, `NetTopologySuite.IO.Esri.Shapefile`, `bertt.CityJSON`, `FlatGeobuf`, `GISBlox.IO.GeoParquet`, `MaxRev.Gdal.Core`, `NodaTime`, `Rasm.Element`, `LanguageExt.Core`
@@ -378,50 +377,50 @@ public static class OgrField {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeoVector {
-    public static Fin<Seq<GeoFeature>> Read(GeoVectorSource source, ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        source.Decode(bytes, window, key);
+    public static Fin<Seq<GeoFeature>> Read(GeoVectorSource source, ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        source.Decode(bytes, window);
 
-    internal static Fin<Seq<GeoFeature>> Planar(GeoWindow window, string source, Op key, Func<Seq<GeoFeature>> decode) =>
+    internal static Fin<Seq<GeoFeature>> Planar(GeoWindow window, string source, Func<Seq<GeoFeature>> decode) =>
         window.Where.IsSome
-            ? Fin.Fail<Seq<GeoFeature>>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", source, "attribute-pushdown-unsupported" })))
-            : key.Catch(decode);
+            ? Fin.Fail<Seq<GeoFeature>>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", source, "attribute-pushdown-unsupported" })))
+            : Try.lift(decode).Run().Bind(static inner => inner);
 
     static Seq<GeoFeature> Clipped(Seq<GeoFeature> features, GeoWindow window) =>
         window.Clip.Match(None: () => features, Some: env => features.Filter(f => f.Bounds.Intersects(env)));
 
     // --- [FLATGEOBUF]
-    internal static Fin<Seq<GeoFeature>> FlatGeobuf(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        Planar(window, "flatgeobuf", key, () => {
+    internal static Fin<Seq<GeoFeature>> FlatGeobuf(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        Planar(window, "flatgeobuf", () => {
             using var fgb = new MemoryStream(bytes.ToArray());
-            var crs = HeaderCrs(global::FlatGeobuf.Helpers.ReadHeader(fgb, out int _).UnPack(), key);
+            var crs = HeaderCrs(global::FlatGeobuf.Helpers.ReadHeader(fgb, out int _).UnPack());
             fgb.Position = 0;
             var rect = window.Clip.Match<Envelope?>(env => env, () => null);
             return global::FlatGeobuf.NTS.FeatureCollectionConversions.Deserialize(fgb, rect).AsIterable()
                 .Map(f => new GeoFeature(f.Geometry, f.Attributes, crs)).ToSeq();
         });
 
-    static Option<ProjectedCrs> HeaderCrs(global::FlatGeobuf.HeaderT header, Op key) =>
+    static Option<ProjectedCrs> HeaderCrs(global::FlatGeobuf.HeaderT header) =>
         Optional(header.Crs)
             .Bind(crs => crs.Code > 0
                 ? Some(($"EPSG:{crs.Code}", ""))
                 : Optional(crs.Wkt).Filter(static wkt => wkt.Length > 0).Map(static wkt => ("", wkt)))
-            .Bind(pair => ProjectedCrs.Of(pair.Item1, "", "", pair.Item2, key).ToOption());
+            .Bind(pair => ProjectedCrs.Of(pair.Item1, "", "", pair.Item2).ToOption());
 
-    public static Fin<Seq<GeoFeature>> Stream(PackedRTree.ReadNode fetch, Envelope window, Op key) =>
-        key.Catch(() => {
+    public static Fin<Seq<GeoFeature>> Stream(PackedRTree.ReadNode fetch, Envelope window) =>
+        Try.lift(() => {
             using var head = fetch(0, HeaderProbeBytes);
             var header = global::FlatGeobuf.Helpers.ReadHeader(head, out int headerSize);
             var schema = header.UnPack();
             ulong indexOrigin = 12uL + (ulong)headerSize;
             ulong bodyOrigin = indexOrigin + PackedRTree.CalcSize(header.FeaturesCount, header.IndexNodeSize);
             var sequences = new global::FlatGeobuf.NTS.FlatGeobufCoordinateSequenceFactory();
-            var crs = HeaderCrs(schema, key);
+            var crs = HeaderCrs(schema);
             return PackedRTree.StreamSearch(header.FeaturesCount, header.IndexNodeSize, window,
                     (offset, length) => fetch(indexOrigin + offset, length))
                 .AsIterable()
                 .Map(hit => Record(fetch, bodyOrigin + hit.Item1, sequences, schema, crs))
                 .ToSeq();
-        });
+        }).Run().Bind(static inner => inner);
 
     static GeoFeature Record(
         PackedRTree.ReadNode fetch, ulong origin,
@@ -439,8 +438,8 @@ public static class GeoVector {
     const ulong HeaderProbeBytes = 1UL << 16;
 
     // --- [GEOPARQUET]
-    internal static Fin<Seq<GeoFeature>> GeoParquet(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        Planar(window, "geoparquet", key, () => {
+    internal static Fin<Seq<GeoFeature>> GeoParquet(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        Planar(window, "geoparquet", () => {
             string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.parquet");
             File.WriteAllBytes(path, bytes.ToArray());
             try {
@@ -467,16 +466,16 @@ public static class GeoVector {
     }
 
     // --- [GEOJSON]
-    internal static Fin<Seq<GeoFeature>> GeoJson(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        Planar(window, "geojson", key, () => JsonSerializer.Deserialize<FeatureCollection>(bytes.Span, GeoWire.Json))
+    internal static Fin<Seq<GeoFeature>> GeoJson(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        Planar(window, "geojson", () => JsonSerializer.Deserialize<FeatureCollection>(bytes.Span, GeoWire.Json))
             .Bind(collection => Optional(collection)
-                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "geojson", "null-document" }))))
+                .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "geojson", "null-document" }))))
             .Map(collection => Clipped(collection.AsIterable()
                 .Map(f => new GeoFeature(f.Geometry, f.Attributes, Option<ProjectedCrs>.None)).ToSeq(), window));
 
     // --- [SHAPEFILE]
-    internal static Fin<Seq<GeoFeature>> Shapefile(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        Quartet(bytes, key).Bind(parts => Planar(window, "shapefile", key, () => {
+    internal static Fin<Seq<GeoFeature>> Shapefile(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        Quartet(bytes).Bind(parts => Planar(window, "shapefile", () => {
             var options = new ShapefileReaderOptions {
                 Factory = GeoServices.Factory,
                 MbrFilter = window.Clip.Match<Envelope?>(env => env, () => null),
@@ -484,17 +483,17 @@ public static class GeoVector {
             };
             Option<ProjectedCrs> crs = parts.Prj.Length == 0
                 ? Option<ProjectedCrs>.None
-                : ProjectedCrs.Of("", "", "", parts.Prj, key).ToOption();
+                : ProjectedCrs.Of("", "", "", parts.Prj).ToOption();
             using var shp = new MemoryStream(parts.Shp);
             using Stream dbf = parts.Dbf.Match(Some: static buffer => new MemoryStream(buffer), None: static () => Stream.Null);
             using var reader = NetTopologySuite.IO.Esri.Shapefile.OpenRead(shp, dbf, options);
             return reader.AsIterable().Map(feature => new GeoFeature(feature.Geometry, feature.Attributes, crs)).ToSeq();
         }));
 
-    static Fin<(byte[] Shp, Option<byte[]> Dbf, string Prj)> Quartet(ReadOnlyMemory<byte> bytes, Op key) =>
+    static Fin<(byte[] Shp, Option<byte[]> Dbf, string Prj)> Quartet(ReadOnlyMemory<byte> bytes) =>
         bytes.Span is not [0x50, 0x4B, ..]
             ? Fin.Succ((bytes.ToArray(), Option<byte[]>.None, ""))
-            : key.Catch(() => {
+            : Try.lift(() => {
                 using var archive = new ZipArchive(new MemoryStream(bytes.ToArray()), ZipArchiveMode.Read);
                 Option<byte[]> Entry(string extension) =>
                     Optional(archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(extension, StringComparison.OrdinalIgnoreCase)))
@@ -505,31 +504,31 @@ public static class GeoVector {
                             return buffer.ToArray();
                         });
                 return (Shp: Entry(".shp"), Dbf: Entry(".dbf"), Prj: Entry(".prj").Map(Encoding.UTF8.GetString).IfNone(""));
-            })
+            }).Run().Bind(static inner => inner)
             .Bind(parts => parts.Shp
-                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec,
+                .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Codec,
                     string.Join(':', new object?[] { "geo-format-lane", "vector", "shapefile", "zip-missing-shp" })))
                 .Map(shp => (shp, parts.Dbf, parts.Prj)));
 
     // --- [CITYJSON]
-    internal static Fin<Seq<GeoFeature>> CityJson(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        Planar(window, "cityjson", key, () => {
+    internal static Fin<Seq<GeoFeature>> CityJson(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        Planar(window, "cityjson", () => {
             var document = Document(bytes);
-            var header = CityJsonHeader.Of(document, key);
+            var header = CityJsonHeader.Of(document);
             return Clipped(document.ToFeatures(lod: null).AsIterable()
                 .Map(f => new GeoFeature(f.Geometry, f.Attributes, header.Crs)).ToSeq(), window);
         });
 
-    public static Fin<Seq<SurfaceTexture>> CityJsonAppearance(ReadOnlyMemory<byte> bytes, Op key) =>
-        key.Catch(() => CityJsonHeader.Of(Document(bytes), key).Textures)
+    public static Fin<Seq<SurfaceTexture>> CityJsonAppearance(ReadOnlyMemory<byte> bytes) =>
+        Try.lift(() => CityJsonHeader.Of(Document(bytes)).Textures).Run().Bind(static inner => inner)
             ;
 
     static CityJSON.CityJsonDocument Document(ReadOnlyMemory<byte> bytes) =>
         Newtonsoft.Json.JsonConvert.DeserializeObject<CityJSON.CityJsonDocument>(Encoding.UTF8.GetString(bytes.Span))!;
 
     // --- [OGR]
-    internal static Fin<Seq<GeoFeature>> Universal(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
-        GeoGdal.Vector(bytes, data => key.Catch(() =>
+    internal static Fin<Seq<GeoFeature>> Universal(ReadOnlyMemory<byte> bytes, GeoWindow window) =>
+        GeoGdal.Vector(bytes, data => Try.lift(() =>
             Enumerable.Range(0, data.GetLayerCount()).AsIterable()
                 .Bind(l => {
                     var layer = data.GetLayerByIndex(l);
@@ -538,9 +537,9 @@ public static class GeoVector {
                     layer.ResetReading();
                     return Cursor(layer);
                 })
-                .ToSeq())
+                .ToSeq()).Run().Bind(static inner => inner)
             ,
-            "ogr", key);
+            "ogr");
 
     static IEnumerable<GeoFeature> Cursor(OSGeo.OGR.Layer layer) {
         for (var feature = layer.GetNextFeature(); feature is not null; feature = layer.GetNextFeature()) {
@@ -558,13 +557,13 @@ public static class GeoVector {
     }
 
     // --- [EGRESS]
-    public static Fin<byte[]> Write(GeoVectorSource source, Seq<GeoFeature> features, Option<ProjectedCrs> crs, Op key) =>
+    public static Fin<byte[]> Write(GeoVectorSource source, Seq<GeoFeature> features, Option<ProjectedCrs> crs) =>
         source.Encoder.Match(
-            None: () => Fin.Fail<byte[]>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-vector-write-unsupported", source.Key }))),
-            Some: encode => encode(features, crs, key));
+            None: () => Fin.Fail<byte[]>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-vector-write-unsupported", source.Key }))),
+            Some: encode => encode(features, crs));
 
-    internal static Fin<byte[]> WriteFlatGeobuf(Seq<GeoFeature> features, Op key) =>
-        key.Catch(() => {
+    internal static Fin<byte[]> WriteFlatGeobuf(Seq<GeoFeature> features) =>
+        Try.lift(() => {
             using var output = new MemoryStream();
             var kind = features.Head
                 .Map(static f => global::FlatGeobuf.NTS.GeometryConversions.ToGeometryType(f.Geometry))
@@ -572,10 +571,10 @@ public static class GeoVector {
             global::FlatGeobuf.NTS.FeatureCollectionConversions.Serialize(
                 output, features.Map(static f => (IFeature)new Feature(f.Geometry, f.Attributes)), kind, dimensions: 3, columns: null);
             return output.ToArray();
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<byte[]> WriteGeoParquet(Seq<GeoFeature> features, Op key) =>
-        key.Catch(() => {
+    internal static Fin<byte[]> WriteGeoParquet(Seq<GeoFeature> features) =>
+        Try.lift(() => {
             const string geoColumn = "geometry";
             var table = new System.Data.DataTable();
             table.AddGeoColumn(geoColumn, 0, GISBlox.IO.GeoParquet.Common.GeometryFormat.WKB);
@@ -597,10 +596,10 @@ public static class GeoVector {
             using var output = new MemoryStream();
             GISBlox.IO.GeoParquet.GeoParquetWriter.Write(output, table, geoColumn);
             return output.ToArray();
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<byte[]> WriteShapefile(Seq<GeoFeature> features, Option<ProjectedCrs> crs, Op key) =>
-        key.Catch(() => {
+    internal static Fin<byte[]> WriteShapefile(Seq<GeoFeature> features, Option<ProjectedCrs> crs) =>
+        Try.lift(() => {
             using var shp = new MemoryStream();
             using var shx = new MemoryStream();
             using var dbf = new MemoryStream();
@@ -618,17 +617,17 @@ public static class GeoVector {
                     });
             }
             return output.ToArray();
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<byte[]> WriteGeoJson(Seq<GeoFeature> features, Op key) =>
-        key.Catch(() => {
+    internal static Fin<byte[]> WriteGeoJson(Seq<GeoFeature> features) =>
+        Try.lift(() => {
             var collection = new FeatureCollection();
             features.Iter(f => collection.Add(new Feature(f.Geometry, f.Attributes)));
             return JsonSerializer.SerializeToUtf8Bytes(collection, GeoWire.Json);
-        });
+        }).Run().Bind(static inner => inner);
 
-    internal static Fin<byte[]> WriteUniversal(string ogrDriver, Seq<GeoFeature> features, Option<ProjectedCrs> crs, Op key) =>
-        GeoGdal.Author(GdalSink.Temp, "", path => key.Catch(() => {
+    internal static Fin<byte[]> WriteUniversal(string ogrDriver, Seq<GeoFeature> features, Option<ProjectedCrs> crs) =>
+        GeoGdal.Author(GdalSink.Temp, "", path => Try.lift(() => {
             var columns = features
                 .Bind(static f => toSeq(f.Attributes.GetNames()).Map(name => (Name: name, Value: f.Attr(name))))
                 .Filter(static column => column.Value.IsSome)
@@ -637,7 +636,7 @@ public static class GeoVector {
                 .ToSeq();
             using (var driver = OSGeo.OGR.Ogr.GetDriverByName(ogrDriver))
             using (var data = driver.CreateDataSource(path, [])) {
-                using var srs = Op.ToHostSlot(crs.Map(SpatialRef));
+                using var srs = HostEdge.Slot(crs.Map(SpatialRef));
                 using var layer = data.CreateLayer("features", srs, OSGeo.OGR.wkbGeometryType.wkbUnknown, []);
                 columns.Iter(column => {
                     using var defn = new OSGeo.OGR.FieldDefn(column.Name, column.Type);
@@ -655,8 +654,8 @@ public static class GeoVector {
                 });
             }
             return File.ReadAllBytes(path);
-        }),
-        "ogr-write", key);
+        }).Run().Bind(static inner => inner),
+        "ogr-write");
 
     static OSGeo.OGR.FieldType OgrType(Option<object> sample) => sample.Match(
         Some: static value => value switch {
@@ -694,11 +693,11 @@ public static class GeoVector {
 }
 
 public sealed record CityJsonHeader(Option<ProjectedCrs> Crs, Seq<SurfaceTexture> Textures) {
-    public static CityJsonHeader Of(CityJSON.CityJsonDocument document, Op key) =>
+    public static CityJsonHeader Of(CityJSON.CityJsonDocument document) =>
         new(Optional(document.Metadata)
                 .Bind(static meta => Optional(meta.ReferenceSystem))
                 .Filter(static system => system.Length > 0)
-                .Bind(system => ProjectedCrs.Of(system, "", "", "", key).ToOption()),
+                .Bind(system => ProjectedCrs.Of(system, "", "", "").ToOption()),
             Textures(document));
 
     static Seq<SurfaceTexture> Textures(CityJSON.CityJsonDocument document) =>

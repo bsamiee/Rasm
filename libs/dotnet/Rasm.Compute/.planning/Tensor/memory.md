@@ -345,7 +345,7 @@ public sealed class StreamPool : IDisposable {
     public Unit Stamp(AllocationEvidence evidence) {
         ledger.Swap(held => held.Fold(evidence.Kind));
         if (evidence.Kind == StagingEventKind.Grant) {
-            Park(charges.Settle(new Charge(None, charges.Rates.Staged(evidence.GrantedBytes)), Op.Of(name: "compute.charge.staging")).Map(static _ => unit));
+            Park(charges.Settle(new Charge(None, charges.Rates.Staged(evidence.GrantedBytes))).Map(static _ => unit));
         }
         return unit;
     }
@@ -377,20 +377,20 @@ public sealed class StreamPool : IDisposable {
                 Fail: static error => IO.pure(Fin<RecyclableMemoryStream>.Fail(error))));
 
     public Fin<T> Read<T>(RecyclableMemoryStream stream, MessageParser<T> parser, WireLimits limits) where T : IMessage<T> =>
-        Op.Of(name: "stream-read").Catch(() => Fin.Succ(parser.ParseFrom(
-            CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit))));
+        Try.lift(() => Fin.Succ(parser.ParseFrom(
+            CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit)))).Run().Bind(static inner => inner);
 
     static Fin<long> Framed(IMessage message) =>
-        Op.Of(name: "stream-size").Catch(() => Fin.Succ((long)message.CalculateSize()));
+        Try.lift(() => Fin.Succ((long)message.CalculateSize())).Run().Bind(static inner => inner);
 
     Fin<RecyclableMemoryStream> Rent(CorrelationId correlation, (Option<long> Size, bool Contiguous) shape) =>
         shape.Size.Match(
-            None: () => Op.Of(name: "stream-rent").Catch(() => Fin.Succ(manager.GetStream(correlation, AllocationClass.RecyclableStream.Key))),
+            None: () => Try.lift(() => Fin.Succ(manager.GetStream(correlation, AllocationClass.RecyclableStream.Key))).Run().Bind(static inner => inner),
             Some: size =>
                 size <= 0 ? TensorReason.StagingOverBound.Fail<RecyclableMemoryStream>("stream-size", size.ToString(CultureInfo.InvariantCulture))
                 : shape.Contiguous && size > policy.MaximumBufferSize ? TensorReason.StagingOverBound.Fail<RecyclableMemoryStream>("stream-contiguous-cap", $"{size}>{policy.MaximumBufferSize}")
                 : size > policy.MaximumStreamCapacity ? TensorReason.StagingOverBound.Fail<RecyclableMemoryStream>("stream-cap", $"{size}>{policy.MaximumStreamCapacity}")
-                : Op.Of(name: "stream-rent").Catch(() => Fin.Succ(manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size, shape.Contiguous))));
+                : Try.lift(() => Fin.Succ(manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size, shape.Contiguous))).Run().Bind(static inner => inner));
 
     public void Dispose() {
         if (disposed) { return; }

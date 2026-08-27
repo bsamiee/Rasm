@@ -109,7 +109,7 @@ public readonly record struct OtlpTrust(Option<string> Authority, Option<string>
     public SocketsHttpHandler Mount(SocketsHttpHandler handler) {
         SslClientAuthenticationOptions ssl = handler.SslOptions;
         ignore((Certificate, Key)
-            .Apply(static (certificate, key) => X509Certificate2.CreateFromPemFile(certificate, key))
+            .Apply(static (certificate, key) => X509Certificate2.CreateFromPemFile(certificate))
             .Map(identity => ssl.ClientCertificates = [identity]));
         ignore(Authority.Map(chain => ssl.CertificateChainPolicy = new X509ChainPolicy {
             TrustMode = X509ChainTrustMode.CustomRootTrust,
@@ -128,7 +128,6 @@ public sealed class OtlpOfflineQueue(
     OtlpOfflinePolicy policy,
     InstrumentSet signals,
     MonotonicTimeline line) : IDisposable {
-    static readonly Op DrainWork = Op.Of(nameof(Drain));
 
     static readonly FrozenSet<string> FramingHeaders =
         FrozenSet.Create(StringComparer.OrdinalIgnoreCase, ["Content-Length", "Transfer-Encoding"]);
@@ -151,8 +150,8 @@ public sealed class OtlpOfflineQueue(
                 Fail: static _ => unit);
 
     Func<bool> Spent() =>
-        line.Capture(DrainWork).Match(
-            Succ: opened => () => line.Capture(DrainWork).Bind(now => line.Elapsed(opened, now, DrainWork))
+        Error.New(DrainWork.Message, DrainWork).Match(
+            Succ: opened => () => Error.New(DrainWork.Message, DrainWork).Bind(now => line.Elapsed(opened, now, DrainWork))
                 .Match(Succ: elapsed => elapsed >= DeadlineClass.OtlpDrain.Bound, Fail: static _ => true),
             Fail: static _ => static () => true);
 

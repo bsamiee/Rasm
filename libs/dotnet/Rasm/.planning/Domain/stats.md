@@ -15,7 +15,7 @@ Every summary composes the `Domain/results` `ValidityClaim` rows and re-enters t
 - Owner: `Scalar` and `Elapsed` are the two kernel measurement carriers, each a generated `[ValueObject<double>]` owner standing on the LanguageExt `Amount`/`DomainType` value-trait axes; `ScalarMetric` keyless `[SmartEnum]` carries one projection column per host payload shape; `ExtremumDirection` keyless `[SmartEnum]` owns the banded comparison the extremum fold asks — `Beats`/`Within` stay delegate-backed rows and only the fold seed derives by total generated `Map`; `StatContext` `[Union<ScalarMetric, Tolerance>]` carries summary provenance as two payload cases, absence riding `Option<StatContext>`; `MomentNormalizer` keyless `[SmartEnum]` and `QuantileRule` `[SmartEnum<string>]` are the two definition choices a reader states rather than inherits.
 - Cases: `Scalar`/`Elapsed`; `ScalarMetric` — `Magnitude`/`Gaussian`/`Mean`; `ExtremumDirection` — `Maximum`/`Minimum`; `StatContext` — `Metric`/`Band`; `MomentNormalizer` — `Population`/`Sample`; `QuantileRule` — `NearestRank`/`Interpolated`.
 - Law: the LanguageExt `LanguageExt.Traits.Domain` value traits ARE the constraint — `Amount<TSelf, double>` grants the ordered measure fragment `Stat` consumes (comparison, pairwise addition and subtraction, scalar multiply and divide, negation) and `DomainType<TSelf, double>` carries the `From`/`To` admission pair, so a bespoke scalar interface is the deleted form. Both axes are named on the constraint because `Amount` inherits only the arity-one `DomainType<SELF>` marker; the arity-two axis holding `From`/`To` is a separate declaration. `double` and NodaTime `Duration` cannot stand on the axis themselves — C# admits no retroactive interface implementation and a C# 14 `extension` block carries static members but never an interface implementation — so the kernel declares the two generated owners and `Stat<Scalar>`/`Distribution<Elapsed>` are what a bare-measure or duration reader spells. `MeasureValue` conforms the same way at `Rasm.Element`, never here: branch RULINGS `[02]` seats dimensioned measurement there and leaves kernel measures bare `double`, which is the whole reason `TCarrier` is a parameter rather than a widened field. `MomentNormalizer` is EXPLICIT at every call site: the collapse is loud, and the named loss is the implicit population default the old `Variance` column carried — a reader that meant the unbiased estimate and inherited the biased one had no site at which to notice.
-- Entry: `TCarrier.From(double) : Fin<TCarrier>` and instance `To()` are the axis's own admission and egress, the only carrier crossings on the page, and `Elapsed.OfDuration`/`ToDuration` the NodaTime bridge at the boundary; `metric.Of(value, key) : Fin<double>` projects one host scalar and refuses a payload the row carries no column for; `direction.Beats`/`Within` answer the banded comparison so no consumer multiplies a sign; `normalizer.Apply(m2, count, mass)` and `rule.Read(sorted, fraction)` are the two definition reads.
+- Entry: `TCarrier.From(double) : Fin<TCarrier>` and instance `To()` are the axis's own admission and egress, the only carrier crossings on the page, and `Elapsed.OfDuration`/`ToDuration` the NodaTime bridge at the boundary; `metric.Of(value) : Fin<double>` projects one host scalar and refuses a payload the row carries no column for; `direction.Beats`/`Within` answer the banded comparison so no consumer multiplies a sign; `normalizer.Apply(m2, count, mass)` and `rule.Read(sorted, fraction)` are the two definition reads.
 - Auto: `ScalarMetric` states its sparsity as DATA — three rows × two payload columns, three of them absent — so a new payload is one column and a new metric one row, never a third `Switch` carrying three more refusal arms. `MomentNormalizer.Sample` answers `NaN` at one observation OR at a weighted mass of one or less — the unbiased denominator is undefined at the first and negative below it — and a fabricated `0.0` certifies a spread no sample measured; the reader's own `ValidityClaim.Finite` screen is the guard. The `StatContext` `Band` payload carries the admitted `Tolerance` alone — a stored `bool WithinTolerance` and a coherence conjunct re-proving it both die, because the verdict derives from the summary's own extrema and the band's admission already happened at its lane.
 - Packages: LanguageExt.Core (`Traits.Domain.Amount`/`DomainType`, `Option`/`Fin`/`Seq`), Thinktecture.Runtime.Extensions (`[ValueObject<double>]`, default `ValidationError`, `[SmartEnum]` + `[UseDelegateFromConstructor]` columns, `[Union<T1, T2>]` with generated payload intake and case probes), NodaTime (`Duration.TotalSeconds`/`FromSeconds`), RhinoCommon (`Vector3d`/`SurfaceCurvature` payloads), `Rasm.Numerics` (`EpsilonPolicy.ZeroTolerance`).
 - Growth: a new measurement carrier is one generated owner declaring the same two axes — every fold, quantile, and extremum on the page is already generic in it, and `MeasureValue` at `Rasm.Element` conforms by the same bridge with no second contract; a new host payload is one `ScalarMetric` column and one `Of` arm; a new quantile convention is one `QuantileRule` row that every exact reader inherits at once.
@@ -42,11 +42,11 @@ public sealed partial class ScalarMetric {
     public static readonly ScalarMetric Mean = new(vector: None, curvature: Some<Func<SurfaceCurvature, double>>(static value => value.Mean));
     public Option<Func<Vector3d, double>> Vector { get; }
     public Option<Func<SurfaceCurvature, double>> Curvature { get; }
-    internal Fin<double> Of(Vector3d value, Op key) => Read(column: Vector, value: value, key: key);
-    internal Fin<double> Of(SurfaceCurvature value, Op key) => Read(column: Curvature, value: value, key: key);
-    private static Fin<double> Read<TPayload>(Option<Func<TPayload, double>> column, TPayload value, Op key) => column.Match(
-        Some: project => key.AcceptValue(value: value).Bind(admitted => key.AcceptValue(value: project(arg: admitted))),
-        None: () => Fin.Fail<double>(error: key.Unsupported(inputType: typeof(TPayload), outputType: typeof(double))));
+    internal Fin<double> Of(Vector3d value) => Read(column: Vector, value: value);
+    internal Fin<double> Of(SurfaceCurvature value) => Read(column: Curvature, value: value);
+    private static Fin<double> Read<TPayload>(Option<Func<TPayload, double>> column, TPayload value) => column.Match(
+        Some: project => Acceptance.Value(value: value).Bind(admitted => Acceptance.Value(value: project(arg: admitted))),
+        None: () => Fin.Fail<double>(error: new KernelFault.Unsupported(InputType: typeof(TPayload), OutputType: typeof(double))));
 }
 
 [SmartEnum]
@@ -89,12 +89,11 @@ public readonly partial struct StatContext;
     MultiplyOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     DivisionOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 public readonly partial struct Scalar : Amount<Scalar, double>, DomainType<Scalar, double> {
-    private static readonly Op Admission = Op.Of(name: nameof(Scalar));
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.Finite(value).Holds ? null
             : ValidationError.Create("Scalar admits a finite measurement; the host sentinel and the infinities do not.");
     public static Fin<Scalar> From(double repr) =>
-        Admission.AcceptValidated<Scalar>(Validate(repr, null, out Scalar value), value);
+        FactoryBridge.Accept<Scalar>(Validate(repr, null, out Scalar value), value);
     public double To() => (double)this;
     public static Scalar operator -(Scalar value) => Create(-(double)value);
 }
@@ -103,12 +102,11 @@ public readonly partial struct Scalar : Amount<Scalar, double>, DomainType<Scala
     MultiplyOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     DivisionOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 public readonly partial struct Elapsed : Amount<Elapsed, double>, DomainType<Elapsed, double> {
-    private static readonly Op Admission = Op.Of(name: nameof(Elapsed));
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.Finite(value).Holds ? null
             : ValidationError.Create("Elapsed admits a finite second count.");
     public static Fin<Elapsed> From(double repr) =>
-        Admission.AcceptValidated<Elapsed>(Validate(repr, null, out Elapsed value), value);
+        FactoryBridge.Accept<Elapsed>(Validate(repr, null, out Elapsed value), value);
     public double To() => (double)this;
     public static Elapsed operator -(Elapsed value) => Create(-(double)value);
     public static Fin<Elapsed> OfDuration(Duration span) => From(repr: span.TotalSeconds);
@@ -121,12 +119,12 @@ public readonly partial struct Elapsed : Amount<Elapsed, double>, DomainType<Ela
 - Owner: `Moments` is the ONE four-moment weighted Welford recurrence on the page, held as the fold state its two admission legs share; `Stat<TCarrier>` is the summary over that state, owning the sequence fold, the span SIMD leg, and the incremental `Update`; the non-generic `Stat` owner carries the carrier-free `Extrema<TItem>` banded fold; `SampleMoment` public `readonly record struct` owns weighted first and second moments — public because the AppHost health forecast (a separate assembly) composes `Of` and the indexer directly — as a packed upper-triangular covariance behind a symmetric `this[row, column]` indexer.
 - Law: `M2`/`M3`/`M4` are STORED, so `Update` advances the same recurrence the batch fold ran instead of reconstructing a second moment from a clamped variance, which keeps the incremental and batch legs identical the moment a stream hits the clamp. `Extrema` is the branch's ONE tolerance-banded extremum, taking an admitted `Tolerance` and an `ExtremumDirection` row; a hand max-fold beside a consumer is the deleted form. Packed-upper addressing delegates to `SymmetricMatrix.FlatIndex` — that member is the ONE packed-upper index mint, and `SampleMoment`'s indexer, its accumulation slices, and every `ILmModel` scatter read it, so a layout change is unrepresentable here.
 - Exemption: the `Of(ReadOnlySpan<double>)` two-pass and the `SampleMoment` accumulation are measured span kernels — statement bodies, pooled scratch, and index arithmetic confined to them, never reached by domain flow.
-- Entry: `Stat.Of(values, key, weights, context) : Fin<Stat<TCarrier>>` is the one sequence entry, discriminating on the weights `Option` so an unweighted call IS the mass-one call; `Stat.Of(plane, key)` admits an already-contiguous double plane through `TensorPrimitives`; `Stat.Update(prior, sample, weight, key)` advances a live stream; `Stat.Merge(left, right, key)` joins two independently folded summaries pairwise (the Pebay combination Update's single-point step specializes); `Stat.Extrema(items, projection, band, direction) : Seq<TItem>` folds any projected stream and `stat.WithinBand` is the band verdict a conformance reader takes off the summary; `SampleMoment.Of(rows, key, weights) : Fin<SampleMoment>` derives its dimension from the first row and refuses a ragged one.
+- Entry: `Stat.Of(values, key, weights, context) : Fin<Stat<TCarrier>>` is the one sequence entry, discriminating on the weights `Option` so an unweighted call IS the mass-one call; `Stat.Of(plane, key)` admits an already-contiguous double plane through `TensorPrimitives`; `Stat.Update(prior, sample, weight, key)` advances a live stream; `Stat.Merge(left, right, key)` joins two independently folded summaries pairwise (the Pebay combination Update's single-point step specializes); `Stat.Extrema(items, projection, band, direction) : Seq<TItem>` folds any projected stream and `stat.WithinBand` is the band verdict a conformance reader takes off the summary; `SampleMoment.Of(rows, weights) : Fin<SampleMoment>` derives its dimension from the first row and refuses a ragged one.
 - Auto: the Welford recurrence updates mean and all three central moments in one pass, so variance escapes the catastrophic cancellation of the naive sum-of-squares form; min/max ride the same fold. Non-finite samples and non-positive weights raise `Rejected` rather than failing the stream — that column carries the sentinel screen, and it screens the host `RhinoMath.UnsetValue` a bare `double.IsFinite` admits as an ordinary value. `Skewness` and `Kurtosis` divide by `M2` powers and answer `NaN` on a zero-spread sample, which is the undefined the IEEE spec already spells. `Extrema` tracks the running best under the row's own comparison, resets the hit set on strict improvement beyond the band, appends score-carrying ties within it, and re-proves every retained candidate against the FINAL extremum before `Rev()` restores encounter order. `SampleMoment.Of` normalizes supplied weights to unit sum or derives the uniform row, accumulates the whole upper triangle in ONE pass over rows — each row one vectorized `MultiplyAdd` per lead component, where a per-cell walk re-reads every row `d(d+1)/2` times — and clamps each diagonal at zero.
 - Law: `Stat<TCarrier>` and `SampleMoment` ARE the typed summaries, each conforming to `IValidityEvidence` with its invariant co-located as a `ValidityClaim.All` fold (`Stat`: count floor, non-negative rejection count, positive mass, ordered extrema, finite mean, non-negative `M2`, finite `M3`/`M4`; `SampleMoment`: shape-coherent packed lengths, finite moments, non-negative diagonals). Construction re-enters the oracle through `Op.AcceptValue`, so every minted summary is valid by construction. `CountExactly` states the packed lengths because an over-long buffer is as wrong as a short one; a `CountAtLeast` pair admits the first.
 - Packages: LanguageExt.Core (`Seq`/`Arr`/`Fin`/`Option`/`Fold`/`Zip`), System.Numerics.Tensors (`Average`/`Min`/`Max`/`Sum`/`SumOfSquares`/`Dot`/`Subtract`/`Multiply`/`MultiplyAdd`/`IsFiniteAll`), CommunityToolkit.HighPerformance (`SpanOwner<T>` pooled scratch), `Rasm.Numerics` (`SymmetricMatrix.FlatIndex`), Foundation.
 - Growth: a fifth moment is one `Moments` slot and one recurrence line; a new carrier costs nothing here; a new weighting is already the `Option<Seq<double>>` axis.
-- Boundary: sample admission runs once inside the fold and the summary's `IsValid` is the sole downstream evidence of a summarized stream. NAMED LOSS on the rejection column: a stream carrying one sentinel used to fail whole, and now yields a summary over its survivors — a caller demanding purity reads `Rejected == 0`, and only an all-sentinel or empty stream still faults `InvalidResult`. WITNESS for the collapse: the AppHost `Observability/health` anomaly band, a naive sum-of-squares fold that fabricated `(0d, 0d)` on an empty baseline, rebuilds as `Stat<Scalar>.Of(read.Baseline.Map(static v => (Scalar)v), key).Map(stat => double.Abs(read.Value - stat.Mean) > a.Sigma * stat.Deviation(MomentNormalizer.Population)).IfFail(false)` — the cancellation-prone denominator and the forged zero leave together.
+- Boundary: sample admission runs once inside the fold and the summary's `IsValid` is the sole downstream evidence of a summarized stream. NAMED LOSS on the rejection column: a stream carrying one sentinel used to fail whole, and now yields a summary over its survivors — a caller demanding purity reads `Rejected == 0`, and only an all-sentinel or empty stream still faults `InvalidResult`. WITNESS for the collapse: the AppHost `Observability/health` anomaly band, a naive sum-of-squares fold that fabricated `(0d, 0d)` on an empty baseline, rebuilds as `Stat<Scalar>.Of(read.Baseline.Map(static v => (Scalar)v)).Map(stat => double.Abs(read.Value - stat.Mean) > a.Sigma * stat.Deviation(MomentNormalizer.Population)).IfFail(false)` — the cancellation-prone denominator and the forged zero leave together.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -213,20 +211,20 @@ public readonly record struct Stat<TCarrier>(
         Count: Count, Rejected: Rejected, Mass: Mass,
         Minimum: Minimum.To(), Maximum: Maximum.To(),
         Mean: Mean, M2: M2, M3: M3, M4: M4);
-    public static Fin<Stat<TCarrier>> Of(Seq<TCarrier> values, Op key, Option<Seq<double>> weights = default, Option<StatContext> context = default) =>
+    public static Fin<Stat<TCarrier>> Of(Seq<TCarrier> values, Option<Seq<double>> weights = default, Option<StatContext> context = default) =>
         weights.Match(
             Some: mass => mass.Count == values.Count
                 ? Admit(
                     held: values.Zip(mass, static (value, weight) => (Value: value, Weight: weight))
                         .Fold(Moments.Seed, static (held, pair) => held.Step(sample: pair.Value.To(), weight: pair.Weight)),
-                    context: context, key: key)
-                : Fin.Fail<Stat<TCarrier>>(error: key.InvalidInput()),
+                    context: context)
+                : Fin.Fail<Stat<TCarrier>>(error: new KernelFault.InvalidInput()),
             None: () => Admit(
                 held: values.Fold(Moments.Seed, static (held, value) => held.Step(sample: value.To(), weight: 1.0)),
-                context: context, key: key));
+                context: context));
 
-    public static Fin<Stat<TCarrier>> Of(ReadOnlySpan<double> plane, Op key) {
-        if (plane.IsEmpty || !TensorPrimitives.IsFiniteAll(plane)) { return Fin.Fail<Stat<TCarrier>>(error: key.InvalidResult()); }
+    public static Fin<Stat<TCarrier>> Of(ReadOnlySpan<double> plane) {
+        if (plane.IsEmpty || !TensorPrimitives.IsFiniteAll(plane)) { return Fin.Fail<Stat<TCarrier>>(error: new KernelFault.InvalidResult()); }
         double mean = TensorPrimitives.Average<double>(plane);
         using SpanOwner<double> centred = SpanOwner<double>.Allocate(plane.Length);
         using SpanOwner<double> squares = SpanOwner<double>.Allocate(plane.Length);
@@ -240,27 +238,27 @@ public readonly record struct Stat<TCarrier>(
                 M2: TensorPrimitives.Sum<double>(squares.Span),
                 M3: TensorPrimitives.Dot<double>(squares.Span, centred.Span),
                 M4: TensorPrimitives.SumOfSquares<double>(squares.Span)),
-            context: None, key: key);
+            context: None);
     }
-    public static Fin<Stat<TCarrier>> Merge(Stat<TCarrier> left, Stat<TCarrier> right, Op? key = null) =>
+    public static Fin<Stat<TCarrier>> Merge(Stat<TCarrier> left, Stat<TCarrier> right) =>
         left.IsValid && right.IsValid && left.Context == right.Context
-            ? Admit(held: left.State.Join(other: right.State), context: left.Context, key: key.OrDefault())
+            ? Admit(held: left.State.Join(other: right.State), context: left.Context)
             : Fin.Fail<Stat<TCarrier>>(error: key.OrDefault().InvalidInput());
-    public static Fin<Stat<TCarrier>> Update(Stat<TCarrier> prior, TCarrier sample, Option<double> weight = default, Op? key = null) =>
+    public static Fin<Stat<TCarrier>> Update(Stat<TCarrier> prior, TCarrier sample, Option<double> weight = default) =>
         prior.IsValid
             ? Admit(held: prior.State.Step(sample: sample.To(), weight: weight.IfNone(1.0)),
-                context: prior.Context, key: key.OrDefault())
+                context: prior.Context)
             : Fin.Fail<Stat<TCarrier>>(error: key.OrDefault().InvalidInput());
-    private static Fin<Stat<TCarrier>> Admit(Moments held, Option<StatContext> context, Op key) =>
+    private static Fin<Stat<TCarrier>> Admit(Moments held, Option<StatContext> context) =>
         held.Count > 0
             ? from minimum in TCarrier.From(held.Minimum)
               from maximum in TCarrier.From(held.Maximum)
-              from summary in key.AcceptValue(value: new Stat<TCarrier>(
+              from summary in Acceptance.Value(value: new Stat<TCarrier>(
                   Count: held.Count, Rejected: held.Rejected, Mass: held.Mass,
                   Minimum: minimum, Maximum: maximum,
                   Mean: held.Mean, M2: held.M2, M3: held.M3, M4: held.M4, Context: context))
               select summary
-            : Fin.Fail<Stat<TCarrier>>(error: key.InvalidResult());
+            : Fin.Fail<Stat<TCarrier>>(error: new KernelFault.InvalidResult());
 }
 
 public static class Stat {
@@ -298,7 +296,7 @@ public readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<
                 Enumerable.Range(start: 0, count: Dimension).All(k => ValidityClaim.Nonnegative(self[k, k]).Holds));
         }
     }
-    public static Fin<SampleMoment> Of(Seq<Seq<double>> rows, Op key, Option<Seq<double>> weights = default) =>
+    public static Fin<SampleMoment> Of(Seq<Seq<double>> rows, Option<Seq<double>> weights = default) =>
         rows.Head.Map(static head => head.Count).IfNone(0) switch {
             int dimension when dimension > 0 && rows.ForAll(row => row.Count == dimension && row.ForAll(static value => ValidityClaim.Finite(value: value).Holds)) =>
                 weights.Match(
@@ -306,13 +304,13 @@ public readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<
                         double sum when raw.Count == rows.Count
                             && raw.ForAll(static value => ValidityClaim.Positive(value: value).Holds)
                             && Band.Positive.Admits(value: sum) =>
-                            MomentOf(rows: rows, weights: raw.Map(value => value / sum), dimension: dimension, key: key),
-                        _ => Fin.Fail<SampleMoment>(error: key.InvalidInput()),
+                            MomentOf(rows: rows, weights: raw.Map(value => value / sum), dimension: dimension),
+                        _ => Fin.Fail<SampleMoment>(error: new KernelFault.InvalidInput()),
                     },
-                    None: () => MomentOf(rows: rows, weights: rows.Map(_ => 1.0 / rows.Count), dimension: dimension, key: key)),
-            _ => Fin.Fail<SampleMoment>(error: key.InvalidInput()),
+                    None: () => MomentOf(rows: rows, weights: rows.Map(_ => 1.0 / rows.Count), dimension: dimension)),
+            _ => Fin.Fail<SampleMoment>(error: new KernelFault.InvalidInput()),
         };
-    private static Fin<SampleMoment> MomentOf(Seq<Seq<double>> rows, Seq<double> weights, int dimension, Op key) {
+    private static Fin<SampleMoment> MomentOf(Seq<Seq<double>> rows, Seq<double> weights, int dimension) {
         using SpanOwner<double> mean = SpanOwner<double>.Allocate(dimension, AllocationMode.Clear);
         using SpanOwner<double> upper = SpanOwner<double>.Allocate(dimension * (dimension + 1) / 2, AllocationMode.Clear);
         using SpanOwner<double> centred = SpanOwner<double>.Allocate(dimension);
@@ -330,7 +328,7 @@ public readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<
             int slot = SymmetricMatrix.FlatIndex(n: dimension, i: diagonal, j: diagonal);
             upper.Span[slot] = Math.Max(val1: 0.0, val2: upper.Span[slot]);
         }
-        return key.AcceptValue(value: new SampleMoment(
+        return Acceptance.Value(value: new SampleMoment(
             Dimension: dimension, Mean: new Arr<double>([.. mean.Span]), UpperCovariance: new Arr<double>([.. upper.Span])));
     }
 }
@@ -342,7 +340,7 @@ public readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<
 - Cases: `QuantileRule` selects the order-statistic definition every `Distribution` figure reads; absent, `Interpolated` is the row that lands.
 - Law: branch RULINGS splits this module by EXACT-versus-ESTIMATOR, never by reader count — `Distribution.Of` sorts a bounded sample and reads its own observations, `QuantileSketch` and `Rasm.Compute` `StreamMonitor.Quantile` estimate from constant state, and no bench gate compares an estimate against a held claim because the estimate grades a value no run produced. NAMED LOSS on the bench collapse: folding the three duration triples onto `Distribution<Elapsed>` drops three independently-chosen column sets, which is the point — one carried `(Median, P95, Iqr)`, one `(Mean, Median, P95, StdDev)`, one `(Median, P95)`, and a gate reading across them compared different statistics under one caption. What survives is the guarantee the ruling protects: exact order statistics over a bounded materialized sample, which `Distribution.Of` is and a sketch is not. Bounded selection is the third form on the same axis — EXACT over a stream under a k bound: `Ranked`'s eviction order is a REVERSED COMPARER minted from the direction row, never a negated priority, because negation is not an ordering — a `NaN` float key sorts arbitrarily and `int.MinValue` overflows — admission is STRICTLY better than the incumbent worst so bound-ties keep the first arrival and the fill is deterministic in encounter order, and `Drain` reverse-fills from the eviction head so no full sort re-ranks what the heap already ordered.
 - Exemption: the P² marker-adjustment walk is a measured span kernel — its statement body, inline marker rows, and index arithmetic never leave `Update`.
-- Entry: `Distribution.Of(values, percentiles, key, rule, context) : Fin<Distribution<TCarrier>>` admits percentiles through an ACCUMULATING `Validation`, so a caller passing three malformed percentiles learns all three; `Distribution.Of` is the published exact read and `rule.Read(sorted, fraction)` its assembly-internal convention arm over an already-admitted non-empty sample, so no consumer transcribes the convention and none reaches the rule with an empty roster; `QuantileSketch.Of(fraction, key)` seeds and `Update(prior, sample, key)` advances the sketch, `Estimate()` reading the current value; `Ranked.Top(source, keep, key, direction) : Seq<T>` is the one-shot bounded selection over any enumerable source, and `new Ranked<T,TKey>(keep, direction)` with `Offer(item, key)`/`Bound`/`Drain()` is the streaming arm a stateful walk composes — `Bound` answering the incumbent worst as the `Option` a `double.MaxValue` sentinel mis-spelled, which is exactly the admission threshold a pruning descent reads to skip whole subtrees.
+- Entry: `Distribution.Of(values, percentiles, rule, context) : Fin<Distribution<TCarrier>>` admits percentiles through an ACCUMULATING `Validation`, so a caller passing three malformed percentiles learns all three; `Distribution.Of` is the published exact read and `rule.Read(sorted, fraction)` its assembly-internal convention arm over an already-admitted non-empty sample, so no consumer transcribes the convention and none reaches the rule with an empty roster; `QuantileSketch.Of(fraction)` seeds and `Update(prior, sample)` advances the sketch, `Estimate()` reading the current value; `Ranked.Top(source, keep, direction) : Seq<T>` is the one-shot bounded selection over any enumerable source, and `new Ranked<T,TKey>(keep, direction)` with `Offer(item)`/`Bound`/`Drain()` is the streaming arm a stateful walk composes — `Bound` answering the incumbent worst as the `Option` a `double.MaxValue` sentinel mis-spelled, which is exactly the admission threshold a pruning descent reads to skip whole subtrees.
 - Auto: one sort serves median, both quartiles, and every percentile row; MAD folds a second sort over the absolute deviations from that median, which is one more order statistic off a sample already materialized rather than a second pass at each call site. `Estimate()` answers the exact order statistic below the marker count and the centre marker at and beyond it; an unfed sketch has NO quantile, and the `Option` is the absence a fabricated `0.0` cannot spell. `Percentiles` preserves CALLER order, so two distributions built from the same rows in different order compare unequal — a byte-deriving reader publishes its own canonical order first. `Ranked` keeps at most k of n candidates at O(n log k) offers and drains best-first in direction order — ascending keys under `Minimum`, descending under `Maximum`; the k bound admits UPSTREAM at each consumer's own typed gate (a query's own `K` guard, a store's positive limit carrier), the same admission-gated posture `rule.Read` holds over its non-empty sample, so the cell re-validates nothing.
 - Law: `Distribution` and `QuantileSketch` conform to `IValidityEvidence` (`Distribution`: nested summary evidence, finite median, non-negative IQR and MAD, every percentile row in `[0,100]` with a finite value; `QuantileSketch`: unit-open fraction, non-negative count, finite heights — marker width is STRUCTURAL on `MarkerRow`, so no conjunct re-checks it).
 - Packages: LanguageExt.Core (`Seq`/`Arr`/`Fin`/`Option`/`Validation`/`Traverse`/`ToFin`/`Order`), System.Numerics.Tensors (`IsFiniteAll`), Foundation BCL inbox (`Math`, `PriorityQueue<TElement,TPriority>` + `Comparer<T>.Create` — the one heap the selection cell wraps).
@@ -393,19 +391,19 @@ public readonly record struct Distribution<TCarrier>(
         ValidityClaim.Nonnegative(Mad.To()),
         Percentiles.ForAll(static row =>
             Band.Percentile.Admits(value: row.Percentile) && ValidityClaim.Finite(row.Value.To()).Holds));
-    public static Fin<Distribution<TCarrier>> Of(Seq<TCarrier> values, Seq<double> percentiles, Op key,
+    public static Fin<Distribution<TCarrier>> Of(Seq<TCarrier> values, Seq<double> percentiles,
         Option<QuantileRule> rule = default, Option<StatContext> context = default) =>
         percentiles.Traverse(row => Band.Percentile.Admits(row)
             ? Validation<Error, double>.Success(row)
-            : Validation<Error, double>.Fail(key.InvalidInput())).As().ToFin()
-            .Bind(rows => Stat<TCarrier>.Of(values: values, key: key, context: context)
+            : Validation<Error, double>.Fail(new KernelFault.InvalidInput())).As().ToFin()
+            .Bind(rows => Stat<TCarrier>.Of(values: values, context: context)
                 .Map(summary => (
                     Rows: rows,
                     Summary: summary,
                     Sorted: toSeq(values.Map(static value => value.To()).Filter(static value => ValidityClaim.Finite(value: value)).Order()),
                     Rule: rule.IfNone(QuantileRule.Interpolated))))
             .Bind(held => Settle(held: held, median: held.Rule.Read(sorted: held.Sorted, fraction: 0.5)))
-            .Bind(spread => key.AcceptValue(value: spread));
+            .Bind(spread => Acceptance.Value(value: spread));
     private static Fin<Distribution<TCarrier>> Settle(
         (Seq<double> Rows, Stat<TCarrier> Summary, Seq<double> Sorted, QuantileRule Rule) held, double median) =>
         from centre in TCarrier.From(median)
@@ -439,15 +437,14 @@ public readonly record struct QuantileSketch(double Fraction, int Count, MarkerR
         held.Sort();
         return Some(held[(int)Math.Clamp(value: Math.Round(a: Fraction * (Count - 1)), min: 0, max: Count - 1)]);
     }
-    public static Fin<QuantileSketch> Of(double fraction, Op? key = null) {
+    public static Fin<QuantileSketch> Of(double fraction) {
         if (fraction is not (> 0.0 and < 1.0)) { return Fin.Fail<QuantileSketch>(error: key.OrDefault().InvalidInput()); }
         MarkerRow positions = default;
         for (int marker = 0; marker < Markers; marker++) { positions[marker] = marker + 1.0; }
         return Fin.Succ(new QuantileSketch(Fraction: fraction, Count: 0, Heights: default, Positions: positions));
     }
-    public static Fin<QuantileSketch> Update(QuantileSketch prior, double sample, Op? key = null) {
-        Op op = key.OrDefault();
-        if (!ValidityClaim.Finite(value: sample).Holds) { return Fin.Fail<QuantileSketch>(error: op.InvalidInput()); }
+    public static Fin<QuantileSketch> Update(QuantileSketch prior, double sample) {
+        if (!ValidityClaim.Finite(value: sample).Holds) { return Fin.Fail<QuantileSketch>(error: new KernelFault.InvalidInput()); }
         MarkerRow q = prior.Heights;
         MarkerRow n = prior.Positions;
         int count = prior.Count;
@@ -456,7 +453,7 @@ public readonly record struct QuantileSketch(double Fraction, int Count, MarkerR
             while (slot > 0 && q[slot - 1] > sample) { q[slot] = q[slot - 1]; slot--; }
             q[slot] = sample;
             for (int marker = 0; marker <= count; marker++) { n[marker] = marker + 1.0; }
-            return op.AcceptValue(value: prior with { Count = count + 1, Heights = q, Positions = n });
+            return Acceptance.Value(value: prior with { Count = count + 1, Heights = q, Positions = n });
         }
         if (sample < q[0]) { q[0] = sample; }
         if (sample > q[4]) { q[4] = sample; }
@@ -477,7 +474,7 @@ public readonly record struct QuantileSketch(double Fraction, int Count, MarkerR
                 n[marker] += sign;
             }
         }
-        return op.AcceptValue(value: prior with { Count = count + 1, Heights = q, Positions = n });
+        return Acceptance.Value(value: prior with { Count = count + 1, Heights = q, Positions = n });
     }
 }
 
@@ -497,8 +494,8 @@ public sealed class Ranked<T, TKey> where TKey : IComparable<TKey> {
     public Option<TKey> Bound => heap.Count >= keep && heap.TryPeek(out _, out TKey worst) ? Some(worst) : None;
 
     public void Offer(T item, TKey key) {
-        if (heap.Count < keep) { heap.Enqueue(item, key); }
-        else if (heap.TryPeek(out _, out TKey worst) && heap.Comparer.Compare(key, worst) > 0) { heap.EnqueueDequeue(item, key); }
+        if (heap.Count < keep) { heap.Enqueue(item); }
+        else if (heap.TryPeek(out _, out TKey worst) && heap.Comparer.Compare(worst) > 0) { heap.EnqueueDequeue(item); }
     }
 
     public Seq<T> Drain() {

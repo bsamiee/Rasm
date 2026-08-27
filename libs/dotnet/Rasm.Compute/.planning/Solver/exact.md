@@ -281,7 +281,7 @@ public static class RoutingSearch {
                 : model.Validate().Bind(_ => Lower(model, policy, search, seed)));
 
     static Fin<KernelRun> Lower(RoutingProblem model, OptimizerPolicy policy, SearchContext search, ParetoFront seed) =>
-        Op.Of(name: "routing.solve").Catch(() => {
+        Try.lift(() => {
             using RoutingIndexManager manager = new(model.Nodes.Count, model.Vehicles.Count,
                 [.. model.Vehicles.Map(static v => v.Start)], [.. model.Vehicles.Map(static v => v.End)]);
             using RoutingModel routing = new(manager);
@@ -291,7 +291,7 @@ public static class RoutingSearch {
             model.Dimensions.Iter((index, spec) => routing.AddDimensionWithVehicleCapacity(
                 callbacks[index + 1], spec.Slack, [.. model.Vehicles.Map(static v => v.Capacity)], fix_start_cumul_to_zero: true, spec.Name));
             return Harvest(manager, routing, model, policy, search, seed);
-        });
+        }).Run().Bind(static inner => inner);
 
     static Fin<KernelRun> Harvest(RoutingIndexManager manager, RoutingModel routing, RoutingProblem model, OptimizerPolicy policy, SearchContext search, ParetoFront seed) {
         RoutingSearchParameters parameters = operations_research_constraint_solver.DefaultRoutingSearchParameters();

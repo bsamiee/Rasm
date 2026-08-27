@@ -246,7 +246,7 @@ public sealed partial class FeedstockLot {
         int exposureCount,
         Option<ContentKey> sieveHistory,
         Option<FeedstockLotKey> parent) =>
-        Validate(key, material, certificate, received, available, reuseCount, exposureCount, sieveHistory, parent,
+        Validate(material, certificate, received, available, reuseCount, exposureCount, sieveHistory, parent,
             out FeedstockLot lot).Admitted(lot);
 }
 
@@ -1054,7 +1054,6 @@ public static partial class ThreeMfCensusMap {
 
 ```csharp
 public static class ThreeMf {
-    private static readonly Op NativeWrite = Op.Of();
 
     public static Fin<ThreeMfArtifact> Write(ThreeMfDocument document, ThreeMfPolicy policy) =>
         (AdmissionSlots.Gate(Uris(document).Distinct().Count == Uris(document).Count,
@@ -1077,7 +1076,7 @@ public static class ThreeMf {
         present ? Set(extension) : Set<ThreeMfExtension>();
 
     private static Fin<ThreeMfArtifact> Native(ThreeMfDocument document, ThreeMfPolicy policy) =>
-        NativeWrite.Catch(() => {
+        Try.lift(() => {
             Set<ThreeMfExtension> extensions = Extensions(document);
             Seq<Error> missing = toSeq(extensions).Choose(extension => {
                 Wrapper.GetSpecificationVersion(extension.Namespace, out bool supported, out uint _, out uint _, out uint _);
@@ -1089,7 +1088,7 @@ public static class ThreeMf {
             return missing.IsEmpty
                 ? Bounded(document, policy, extensions)
                 : Fin.Fail<ThreeMfArtifact>(Error.Many(missing));
-        }, Provider);
+        }).Run().Bind(static inner => inner);
 
     private static Option<FabricationFault.ThreeMfWriteRejected> Provider(Error cause) =>
         cause.Exception

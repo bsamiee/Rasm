@@ -7,7 +7,7 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 ## [01]-[INDEX]
 
 - [02]-[CAPSULE]: `KernelDomain`, `TraceCarrier`, `SpanEdge`, `SpanBand` — the sub-domain roster, the causal-edge vocabulary, and the span band that conforms to `IHookSpan`.
-- [03]-[COST]: `OpCost`, `CostMark` — the per-operation billing capture and its settled verdict, declared ahead of the tap that meters them.
+- [03]-[COST]: `Cost`, `CostMark` — the per-operation billing capture and its settled verdict, declared ahead of the tap that meters them.
 - [04]-[TAP]: `FaultObservation`, `PointFacet`, `KernelPoint`, `SignalFact`, `SignalHooks`, `KernelInstrument`, `TelemetrySink` — structured fault projection, hook roster, fact vocabulary, emission bus, instruments, and the ONE emission entry.
 - [05]-[CONTRIBUTE]: `ClassifiedValue`, `Sensitivity`, `TelemetryContributorPort` — the sensitivity vocabulary and the one downward contribution fact a stratum hands a composing root.
 
@@ -50,7 +50,7 @@ public sealed partial class KernelDomain {
     public static readonly KernelDomain Analysis = new("analysis");
     public static readonly KernelDomain Interaction = new("interaction");
 
-    private KernelDomain(string key) : this(key, TraceScope.Create(value: $"rasm.rasm.{key}")) { }
+    private KernelDomain(string key) : this(TraceScope.Create(value: $"rasm.rasm.{key}")) { }
 
     public TraceScope Trace { get; }
 }
@@ -161,23 +161,23 @@ public sealed class SpanBand : IDisposable, IHookSpan {
 
     public Seq<string> Names => toSeq(sources.Values).Map(static source => source.Name).Strict();
 
-    public Fin<T> Traced<T>(TraceScope plane, Op key, Func<Fin<T>> body) => Traced(plane, key, _ => body());
+    public Fin<T> Traced<T>(TraceScope plane, Func<Fin<T>> body) => Traced(plane, _ => body());
 
-    public Fin<T> Traced<T>(TraceScope scope, Op key, Func<Activity?, Fin<T>> body, SpanEdge edge = default) {
+    public Fin<T> Traced<T>(TraceScope scope, Func<Activity?, Fin<T>> body, SpanEdge edge = default) {
         if (!sources.TryGetValue(scope, out ActivitySource? source)) { return Fin.Fail<T>(Unadmitted(scope)); }
-        if (!source.HasListeners()) { return key.Catch(() => body(null)); }
+        if (!source.HasListeners()) { return Try.lift(() => body(null)).Run().Bind(static inner => inner); }
         using Activity? span = source.StartActivity(key.ToString(), edge.Kind, edge.Context, tags: null, links: edge.Edges);
-        return key.Catch(() => body(span)).MapFail(error => Marked(span, error));
+        return Try.lift(() => body(span)).Run().Bind(static inner => inner).MapFail(error => Marked(span, error));
     }
 
-    public IO<T> Traced<T>(TraceScope scope, Op key, Func<Activity?, IO<T>> body, SpanEdge edge = default) =>
+    public IO<T> Traced<T>(TraceScope scope, Func<Activity?, IO<T>> body, SpanEdge edge = default) =>
         !sources.TryGetValue(scope, out ActivitySource? source)
             ? IO.fail<T>(Unadmitted(scope))
             : !source.HasListeners()
-            ? IO.lift(() => key.Catch(() => Fin.Succ(body(null)))).Bind(static effect => effect)
+            ? IO.lift(() => Try.lift(() => Fin.Succ(body(null))).Run().Bind(static inner => inner)).Bind(static effect => effect)
             : IO.lift(() => source.StartActivity(key.ToString(), edge.Kind, edge.Context, tags: null, links: edge.Edges))
                 .Bracket(
-                    Use: span => (IO.lift(() => key.Catch(() => Fin.Succ(body(span)))).Bind(static effect => effect) | @catch<IO, T>(static _ => true, error => IO.fail<T>(Marked(span, error)))).As(),
+                    Use: span => (IO.lift(() => Try.lift(() => Fin.Succ(body(span))).Run().Bind(static inner => inner)).Bind(static effect => effect) | @catch<IO, T>(static _ => true, error => IO.fail<T>(Marked(span, error)))).As(),
                     Fin: static span => IO.lift(() => ignore(span?.Dispose())));
 
     public void Dispose() {
@@ -202,11 +202,11 @@ public sealed class SpanBand : IDisposable, IHookSpan {
 
 ## [03]-[COST]
 
-- Owner: `CostMark` is the capture pair — a monotonic tick and the thread allocation counter, minted before the guarded work and folded by `Stop` into `OpCost`; `OpCost` is the uniform per-op evidence the app strata attribute to tenants, and its `Succeeded` column is the settled verdict every emitted outcome dimension reads.
-- Entry: `CostMark.Start()` mints the capture and `Stop` folds it into `OpCost`, carrying the settled verdict as the `Succeeded` column.
+- Owner: `CostMark` is the capture pair — a monotonic tick and the thread allocation counter, minted before the guarded work and folded by `Stop` into `Cost`; `Cost` is the uniform per-op evidence the app strata attribute to tenants, and its `Succeeded` column is the settled verdict every emitted outcome dimension reads.
+- Entry: `CostMark.Start()` mints the capture and `Stop` folds it into `Cost`, carrying the settled verdict as the `Succeeded` column.
 - Law: one capture per operation runtime — the operation marks before its body fold, the admission gate sits inside the marked window so admission cost charges to the operation that demanded it, and BOTH exits charge: the success leg records `Succeeded: true`, the fail leg `Succeeded: false` and publishes the fault fact, so cost and failure evidence never diverge and the outcome dimension keeps the two populations separable on one series.
 - Law: allocation delta is thread-local evidence, valid because the synchronous runtime runs the marked window on one thread; a thread-hopping lane keeps elapsed truth and reads the delta as an allocation floor, never a total.
-- Law: `OpCost` registers `IValidityEvidence`, so the fact reaches the one acceptance oracle like every kernel result.
+- Law: `Cost` registers `IValidityEvidence`, so the fact reaches the one acceptance oracle like every kernel result.
 - Packages: LanguageExt.Core, BCL inbox (`System.Diagnostics`).
 - Growth: a third settled verdict is a deliberate data-shape change replacing the `Succeeded` column whole, never a case bolted beside a Boolean it mirrors.
 - Boundary: the fabric never wraps a second timer or a sampling profiler — profile capture is the app stratum's, this row the per-op scalar truth.
@@ -219,8 +219,7 @@ namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct OpCost(
-    Op Key, KernelDomain Domain, TimeSpan Elapsed, long AllocatedBytes, int Items, bool Succeeded)
+public readonly record struct Cost(KernelDomain Domain, TimeSpan Elapsed, long AllocatedBytes, int Items, bool Succeeded)
     : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Nonnegative(value: Elapsed.TotalSeconds),
@@ -233,8 +232,8 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
     public static CostMark Start() =>
         new(Timestamp: Stopwatch.GetTimestamp(), Allocated: GC.GetAllocatedBytesForCurrentThread());
 
-    public OpCost Stop(Op key, KernelDomain domain, int items, bool succeeded) =>
-        new(Key: key, Domain: domain,
+    public Cost Stop(KernelDomain domain, int items, bool succeeded) =>
+        new(Domain: domain,
             Elapsed: Stopwatch.GetElapsedTime(startingTimestamp: Timestamp),
             AllocatedBytes: long.Max(0L, GC.GetAllocatedBytesForCurrentThread() - Allocated),
             Items: items, Succeeded: succeeded);
@@ -255,7 +254,7 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 - Law: fault observation traverses aggregate MEMBERSHIP and causal `Inner` separately under one fixed ceiling; each retained cause carries the generated `FaultId` or the exact exception `Type` and `HResult`, and `Truncated` states when more evidence existed. Message text, category, owner, and a wire discriminant never enter the projection.
 - Law: `KernelInstrument` owns the whole `rasm.fault.*` key family and each key states where it may be read — `OwnerSlot` and `PostureSlot` are the bounded pair the kernel counter mounts, `CodeSlot` an owner-specific opt-in metric dimension, `CaseSlot` a span tag and log field alone. A metric mounting the case token buys code-cardinality series for a spelling the code already keys, and a lowering copying it forks one identity into two a peer then joins on; an emitter prefixing its own project segment onto a fault axis forks one solution-wide dimension into a per-package pair no board can group, which is the fork this one roster forecloses. The posture VALUE is `Domain/results`'s `Retriability.Key`, so the key and the word it carries each have one owner.
 - Exemption: the write fold is a statement form because a `TagList` cannot cross a lambda; the listener gate precedes it, so a process with no exporter and no armed tally pays the key render, the boxed columns, and the tag fold on no operation.
-- Law: fact payloads are evidence, never live resources — `FaultCase` carries the already-lowered `Error` (both the substrate `Fault` union and the band-relative geometry faults arrive as `Error`, so one case serves both) and `CostCase` the settled `OpCost`; no case retains geometry, leases, or handles, and both fault families land in ONE dimension-discriminated counter, never two.
+- Law: fact payloads are evidence, never live resources — `FaultCase` carries the already-lowered `Error` (both the substrate `Fault` union and the band-relative geometry faults arrive as `Error`, so one case serves both) and `CostCase` the settled `Cost`; no case retains geometry, leases, or handles, and both fault families land in ONE dimension-discriminated counter, never two.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Collections.Immutable`, `System.Diagnostics`, `System.Diagnostics.Metrics`).
 - Growth: a new fact kind is one `PointFacet` row, one `SignalFact` case, and one arm in each of the two projections, both broken loudly by the generated `Switch` while the roster grows a seat per sub-domain unedited; a new kernel instrument is one `KernelInstrument` row and one row in the inline charged projection.
 - Boundary: `SignalFact` holds evidence over live resources, so a fact retains no geometry, lease, or handle and a subscriber reading one holds nothing the emitter must keep alive. `TelemetrySink` is composition-entered: an app stratum mints one per composition and threads it, and a kernel page never constructs, caches, or reaches an ambient sink. Quiet-path cost is structural — a subscriber-empty point folds an empty veto sequence and iterates an empty tap sequence, so a publish costs one keyed lookup and allocates nothing past its result.
@@ -385,10 +384,10 @@ public abstract partial record SignalFact : IHookFact<KernelPoint> {
     public bool Seats(KernelPoint at) => At == at;
 
     public sealed record FaultCase(KernelPoint Point, Error Fault) : SignalFact { public override KernelPoint At => Point; }
-    public sealed record CostCase(KernelPoint Point, OpCost Cost) : SignalFact { public override KernelPoint At => Point; }
+    public sealed record CostCase(KernelPoint Point, Cost Cost) : SignalFact { public override KernelPoint At => Point; }
 
     public static SignalFact Fault(KernelDomain domain, Error fault) => new FaultCase(KernelPoint.Of(domain, PointFacet.Fault), fault);
-    public static SignalFact Cost(OpCost cost) => new CostCase(KernelPoint.Of(cost.Domain, PointFacet.Cost), cost);
+    public static SignalFact Cost(Cost cost) => new CostCase(KernelPoint.Of(cost.Domain, PointFacet.Cost), cost);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -399,15 +398,13 @@ public sealed class SignalHooks {
 
     public static Fin<SignalHooks> Of(
         FaultCell faults,
-        Op key,
         Seq<HookGate<KernelPoint, SignalFact, TelemetrySource>> gates = default,
         Seq<HookTap<KernelPoint, SignalFact, TelemetrySource>> taps = default,
         Option<IHookSpan> span = default) =>
-        HookSet<KernelPoint, SignalFact, TelemetrySource>.Of(
-                key: key, gates: gates, taps: taps, span: span, cell: Some(faults))
+        HookSet<KernelPoint, SignalFact, TelemetrySource>.Of(gates: gates, taps: taps, span: span, cell: Some(faults))
             .Map(static mounted => new SignalHooks(mounted: mounted));
 
-    public Fin<SignalFact> Publish(SignalFact fact, Op key) => Hooks.Fire(at: fact.At, fact: fact, key: key);
+    public Fin<SignalFact> Publish(SignalFact fact) => Hooks.Fire(at: fact.At, fact: fact);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -418,15 +415,15 @@ public sealed class TelemetrySink {
 
     public SignalHooks Signals { get; }
 
-    public static Fin<TelemetrySink> Of(IMeterFactory factory, string version, FaultCell faults, Op key) =>
-        from hooks in SignalHooks.Of(faults: faults, key: key)
+    public static Fin<TelemetrySink> Of(IMeterFactory factory, string version, FaultCell faults) =>
+        from hooks in SignalHooks.Of(faults: faults)
         from mounted in InstrumentSet.Of(
             new LevelCells(),
             (TelemetryIdentity.Metered(factory, TelemetrySource.Kernel, version), KernelInstrument.Rows))
         select new TelemetrySink(hooks: hooks, mounted: mounted);
 
-    public Fin<SignalFact> Tap(SignalFact fact, Op key) =>
-        Signals.Publish(fact: fact, key: key).Bind(published => {
+    public Fin<SignalFact> Tap(SignalFact fact) =>
+        Signals.Publish(fact: fact).Bind(published => {
             Seq<(InstrumentSpec Row, double Value)> charged = published.Switch(
                 faultCase: static _ => Seq((KernelInstrument.Faults.Row, 1d)),
                 costCase: static row => Seq(

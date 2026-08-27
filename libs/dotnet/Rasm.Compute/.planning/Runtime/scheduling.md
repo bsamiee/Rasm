@@ -170,7 +170,6 @@ public sealed class LaneRuntime(
     Func<WorkItem, IO<Unit>> dispatch,
     Action<WorkLane, WorkItem, LanePressure> pressure)
 {
-    private static readonly Op Segment = Op.Of(nameof(LaneRuntime));
 
     private readonly Atom<LaneGate> gate = Atom<LaneGate>(new LaneGate.Open());
 
@@ -215,7 +214,7 @@ public sealed class LaneRuntime(
             new LaneHandle(
                 intent.Correlation,
                 intent.Spec.Lane,
-                intent.Scope.Derive(Op.Of($"{intent.Spec.Lane.Key}/{intent.Correlation}"), clocks)),
+                intent.Scope.Derive(clocks)),
             Interlocked.Increment(ref arrivals));
 
     private IO<Unit> Write(WorkItem item) =>
@@ -225,7 +224,7 @@ public sealed class LaneRuntime(
                 return Fin.Fail<Unit>(new ComputeFault.LaneSaturated($"<lane-saturated:{lane.Key}:{ceiling}:{depth}>"));
             }
 
-            Fin<MonotonicStamp> entered = clocks.Line.Capture(Segment);
+            Fin<MonotonicStamp> entered = Error.New(Segment.Message, Segment);
             bool parked = false;
             while (!channel.Writer.TryWrite(item)) {
                 parked = true;
@@ -236,7 +235,7 @@ public sealed class LaneRuntime(
 
             if (!parked) { return Fin.Succ(unit); }
             return from mark in entered
-                   from settled in clocks.Line.Capture(Segment)
+                   from settled in Error.New(Segment.Message, Segment)
                    from waited in clocks.Line.Elapsed(mark, settled, Segment)
                    select fun(() => pressure(lane, item, new LanePressure.Parked(waited.ToDuration())))();
         }).Bind(static landed => landed.Match(Succ: IO.pure, Fail: IO.fail<Unit>));
@@ -652,7 +651,6 @@ public sealed class JobGraph(
     CheckpointPort checkpoints,
     Func<Option<DeviceToken>, int> affinityRank,
     Dimension waveCeiling) {
-    private static readonly Op Segment = Op.Of(nameof(JobGraph));
 
     private readonly record struct JobLaunch(JobNode Node, UInt128 Key, bool Resume);
 
@@ -705,7 +703,7 @@ public sealed class JobGraph(
     }
 
     private IO<Fin<JobLedger>> Started(ClockPolicy clocks, Func<MonotonicStamp, IO<Fin<JobLedger>>> drive) =>
-        clocks.Line.Capture(Segment).Match(
+        Error.New(Segment.Message, Segment).Match(
             Succ: drive,
             Fail: fault => IO.pure(Fin.Fail<JobLedger>(fault)));
 
@@ -736,7 +734,7 @@ public sealed class JobGraph(
         select settled;
 
     private IO<Fin<JobLedger>> Settled(DriveState state, ClockPolicy clocks) =>
-        IO.pure(from now in clocks.Line.Capture(Segment)
+        IO.pure(from now in Error.New(Segment.Message, Segment)
                 from elapsed in clocks.Line.Elapsed(state.Started, now, Segment)
                 select Settle(state, elapsed.ToDuration()));
 
@@ -818,7 +816,7 @@ public sealed class JobGraph(
         bool resume = initial.Find(node.Id).Map(static state => state == JobState.Spilled).IfNone(false);
         return acc with {
             States = acc.States.SetItem(node.Id, speculative ? JobState.Speculative : JobState.Running),
-            Launches = acc.Launches.Add(new JobLaunch(node, key, resume)),
+            Launches = acc.Launches.Add(new JobLaunch(node, resume)),
             Global = acc.Global - 1,
             Tenant = acc.Tenant.AddOrUpdate(node.Tenant, static c => c + 1, 1),
             Speculated = acc.Speculated + (speculative ? 1 : 0),
@@ -928,7 +926,7 @@ public sealed class JobGraph(
         LanguageExt.HashSet<JobId> members = toHashSet(component);
         GangKey key = GangKey.Create(JobId.Of(JobId.Component, toSeq(component.Map(static id => id.ToValue()).Order(StringComparer.Ordinal))[0]).ToValue());
         return nodes.Map(node => members.Contains(node.Id)
-            ? node with { Gang = Some(key), DependsOn = node.DependsOn.Filter(dependency => !members.Contains(dependency)) }
+            ? node with { Gang = Some(), DependsOn = node.DependsOn.Filter(dependency => !members.Contains(dependency)) }
             : node);
     }
 

@@ -76,8 +76,8 @@ public readonly record struct MemberRow(ConcreteRole Role, MaterialGrade Grade, 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ConcreteDetail {
-    public static Fin<PropertyBag> Of(MemberRow row, GradeProperties.Concrete grade, double coverMm, EvidenceGrade source, Op key) =>
-        from joint in ComponentDetail.Joint("Cast", key)
+    public static Fin<PropertyBag> Of(MemberRow row, GradeProperties.Concrete grade, double coverMm, EvidenceGrade source) =>
+        from joint in ComponentDetail.Joint("Cast")
         from cover in ComponentDetail.Measured(DetailSchema.ConcreteCover, Dimension.LengthDim, coverMm * 1e-3)
         select ComponentDetail.RealizationRows(
             joint,
@@ -112,42 +112,42 @@ public static class ConcreteSeed {
         designation: static row => row.Designation,
         coherence: Coherence,
         profile: static (row, key) => row.Role.Round
-            ? SectionProfile.Circle.Of(row.DMm, key)
-            : SectionProfile.Rectangle.Of(row.WMm, row.DMm, key),
+            ? SectionProfile.Circle.Of(row.DMm)
+            : SectionProfile.Rectangle.Of(row.WMm, row.DMm),
         substance: static row => row.Grade.Substance,
         source: static _ => EvidenceGrade.User,
         standard: static row => new ComponentStandard(row.Grade.Authority.Region, StandardJointThicknessMm: 0.0, row.Grade.Authority),
-        detail: Some<Func<MemberRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<MemberRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         ifc: static row => row.Role.Ifc);
 
-    static Validation<Error, Unit> Coherence(MemberRow row, Op key) =>
+    static Validation<Error, Unit> Coherence(MemberRow row) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 row.Grade.Family == ComponentFamily.Concrete,
-                new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Concrete)),
+                new ComponentFault.GradeFamilyMismatch(row.Grade, ComponentFamily.Concrete)),
             AdmissionSlots.Gate(
                 row.Grade.ConcreteArm.IsSome,
-                new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Concrete)),
+                new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Concrete)),
             AdmissionSlots.Gate(
                 !row.Role.Strip || row.WMm == DesignStripMm,
-                new KernelFault.InvalidValue(nameof(row.WMm), "the declared one-metre design strip width", Some(key)))));
+                new KernelFault.InvalidValue(nameof(row.WMm), "the declared one-metre design strip width"))));
 
     const double DesignStripMm = 1000.0;
 
-    static Fin<PropertyBag> Detail(MemberRow row, SectionProfile profile, Op key) =>
-        from grade in row.Grade.ConcreteArm.ToFin(new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Concrete))
-        from cover in EnCover.Nominal(row.Exposure, row.Class, barDiameterMm: 0.0, key)
-        from bag in ConcreteDetail.Of(row, grade, cover, EvidenceGrade.User, key)
+    static Fin<PropertyBag> Detail(MemberRow row, SectionProfile profile) =>
+        from grade in row.Grade.ConcreteArm.ToFin(new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Concrete))
+        from cover in EnCover.Nominal(row.Exposure, row.Class, barDiameterMm: 0.0)
+        from bag in ConcreteDetail.Of(row, grade, cover, EvidenceGrade.User)
         select bag;
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, MemberRow>>> Table =
         SeedJoin.Of(Roster, static row => row.Designation);
 
-    public static Fin<MemberRow> Resolve(Component component, Op key) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+    public static Fin<MemberRow> Resolve(Component component) =>
+        SeedJoin.Resolve(Table, component.Designation);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 
@@ -224,11 +224,11 @@ public static class EnCover {
     const double DeviationMm = 10.0;
     const double FloorMm = 10.0;
 
-    public static Fin<double> Nominal(ExposureToken exposure, StructuralClass structural, double barDiameterMm, Op key) =>
+    public static Fin<double> Nominal(ExposureToken exposure, StructuralClass structural, double barDiameterMm) =>
         from bar in guard(double.IsFinite(barDiameterMm) && barDiameterMm >= 0.0,
-            new KernelFault.OutOfRange(nameof(barDiameterMm), barDiameterMm, "finite and non-negative", Some(key)))
+            new KernelFault.OutOfRange(nameof(barDiameterMm), barDiameterMm, "finite and non-negative"))
         from dur in exposure.Cover[structural.Ordinal].ToFin(
-            new ComponentFault.CoverCellMissing(key, exposure, structural))
+            new ComponentFault.CoverCellMissing(exposure, structural))
         select Math.Max(Math.Max(barDiameterMm, dur), FloorMm) + DeviationMm;
 }
 ```
@@ -237,32 +237,32 @@ public static class EnCover {
 
 - Owner: `ConcreteRc` — the concrete-side composition of the `reinforcement#RC_SECTION` boundary: `Assemble` resolves a SEED member and hands it to `RcSectionBuilder.Of` under the cover this page's regime derives, and `Capacity` the same composition through `RcSectionBuilder.Capacity` onto `capacity#SECTION_CAPACITY` `SectionCapacity.Resolve` — the end-to-end proof that a catalogued CIP member reaches `RcInteraction`/`RcElastic` with zero bespoke assembly.
 - Law: the probe-proven engine limit gates HERE, typed: `FaceReinforcementLayer` is POLYGON-ONLY — fed a `Circle` profile it throws `InvalidProfileTypeException` — while perimeter and placed layouts work on circles; a face case fails `FaceLayoutUnsupported` here.
-- Entry: `ConcreteRc.Assemble(member, barGrade, link, layout, annex, key)` derives cover from the member's exposure; `Capacity(..., intent, ...)` accepts only `RcCapacityIntent.Hull` or `.Elastic`, so non-RC build variants cannot enter this route.
+- Entry: `ConcreteRc.Assemble(member, barGrade, link, layout, annex)` derives cover from the member's exposure; `Capacity(..., intent, ...)` accepts only `RcCapacityIntent.Hull` or `.Elastic`, so non-RC build variants cannot enter this route.
 - Boundary: this owner derives NO section math and admits NO VividOrange surface — grade lowering, layer construction, the transformed-section carrier, and the capacity solve all stay behind `RcSectionBuilder`/`SectionCapacity`; the concrete contribution is exactly the member, the cover law, and the layout admissibility its own profile decides.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ConcreteRc {
-    public static Fin<RcSection> Assemble(Component member, MaterialGrade barGrade, BarRow link, Seq<RebarLayout> layout, NationalAnnex annex, Op key) =>
-        from row in ConcreteSeed.Resolve(member, key)
-        from admitted in Admissible(member, layout, key)
-        from grade in row.Grade.ConcreteArm.ToFin(new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Concrete))
-        from cover in EnCover.Nominal(row.Exposure, row.Class, LargestBarMm(link, layout), key)
-        from section in RcSectionBuilder.Of(member, grade.En, barGrade, link, layout, cover, annex, key)
+    public static Fin<RcSection> Assemble(Component member, MaterialGrade barGrade, BarRow link, Seq<RebarLayout> layout, NationalAnnex annex) =>
+        from row in ConcreteSeed.Resolve(member)
+        from admitted in Admissible(member, layout)
+        from grade in row.Grade.ConcreteArm.ToFin(new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Concrete))
+        from cover in EnCover.Nominal(row.Exposure, row.Class, LargestBarMm(link, layout))
+        from section in RcSectionBuilder.Of(member, grade.En, barGrade, link, layout, cover, annex)
         select section;
 
-    public static Fin<SectionCapacity> Capacity(Component member, MaterialGrade barGrade, BarRow link, Seq<RebarLayout> layout, RcCapacityIntent intent, CapacityPlacement placement, Op key) =>
-        from row in ConcreteSeed.Resolve(member, key)
-        from admitted in Admissible(member, layout, key)
-        from grade in row.Grade.ConcreteArm.ToFin(new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Concrete))
-        from cover in EnCover.Nominal(row.Exposure, row.Class, LargestBarMm(link, layout), key)
-        from capacity in RcSectionBuilder.Capacity(member, grade.En, barGrade, link, layout, cover, intent, placement, key)
+    public static Fin<SectionCapacity> Capacity(Component member, MaterialGrade barGrade, BarRow link, Seq<RebarLayout> layout, RcCapacityIntent intent, CapacityPlacement placement) =>
+        from row in ConcreteSeed.Resolve(member)
+        from admitted in Admissible(member, layout)
+        from grade in row.Grade.ConcreteArm.ToFin(new ComponentFault.GradeBodyMissing(row.Grade, ComponentFamily.Concrete))
+        from cover in EnCover.Nominal(row.Exposure, row.Class, LargestBarMm(link, layout))
+        from capacity in RcSectionBuilder.Capacity(member, grade.En, barGrade, link, layout, cover, intent, placement)
         select capacity;
 
-    static Fin<Unit> Admissible(Component member, Seq<RebarLayout> layout, Op key) =>
+    static Fin<Unit> Admissible(Component member, Seq<RebarLayout> layout) =>
         guard(member.Profile is not SectionProfile.Circle
                 || layout.ForAll(static item => item is not (RebarLayout.FaceCount or RebarLayout.FaceSpacing)),
-            new ComponentFault.FaceLayoutUnsupported(key, typeof(SectionProfile.Circle))).ToFin();
+            new ComponentFault.FaceLayoutUnsupported(typeof(SectionProfile.Circle))).ToFin();
 
     static double LargestBarMm(BarRow link, Seq<RebarLayout> layout) =>
         Math.Max(link.NominalDiameterMm, layout.Map(static item => item.Switch(

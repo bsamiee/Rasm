@@ -10,7 +10,7 @@ The three-tier model-QA owner exposes one model-health verdict over the frozen e
 ## [02]-[IDS_FACETS]
 
 - Owner: `RuleSeverity` the package-wide `[SmartEnum<string>]` enforcement band whose row carries its own `Blocking` policy — declared HERE at the `Rasm.Bim` root and composed by `Review/coordination#COORDINATION`'s rule library from its child namespace, so one severity vocabulary spans model-check verdicts and IDS findings; `IdsOutcome` the three-valued specification verdict (`Conformant`/`NonConformant`/`Indeterminate`, the last the partially-graded state a dropped requirement facet forces); `DropReason` the closed vocabulary of lowering gaps and `DroppedFacet` its per-facet row carrying the `FacetGroup.FacetUse` role and the foreign `Short()` label; `ClassificationReach` the closed authored-subclass axis (`Exact` the declared codes alone, `Pending` an unsettled `IncludeSubClasses`, `Subsumed` the resolver's closed branch payload); `IdsSpecification` the specification record carrying the applicability and requirement facet sets, the cardinality, its OWN declared `IfcSchemaVersions` axis, its enforcement band, and the facets no lowering lifts; `IdsResolved` the graded-specification evidence `Resolve` alone mints and `Audit` alone accepts; `IdsFacet` the closed `[Union]` (Entity, Attribute, Property, Classification, Material, PartOf) each carrying CONTRACT-LOWERED data — resolved `IfcClass`/`PredefinedType` sets, `ValueMatch` name and value restrictions, resolved `Classification` branches — admitted ONCE at parse so the interior never sees an `Xbim` `ValueConstraint`; `PartOfRelation` the `[SmartEnum<string>]` relation POLICY ROWS, each carrying its query-arm lowering delegate AND its foreign `PartOfFacet.PartOfRelation` member as row data; each `IdsFacet` arm `ToPredicate()` lowering GRAPH-FREE to a `Model/query#ELEMENT_SET` `BimTerm`, `Presence()` deriving the value-widened conditional form the Optional cardinality partitions against, and `FacetKey(schema)` projecting the stable requirement token as a shared `ContentAddress` over the ONE kernel hasher; `IdsAudit` the deterministic per-specification verdict; `IdsFileAudit` the IDS-document validity verdict.
-- Entry: `IdsSpecification.Parse(ReadOnlyMemory<byte> idsBytes, Op key)` admits an IDS XML document through `Xids.LoadBuildingSmartIDS`, reading each spec's own `Specification.IfcVersion` onto the `IfcSchemaVersions` axis through `IfcSchemaVersionHelper` and lowering every facet and every `ValueConstraint` onto the closed union, each unliftable facet leaving as a typed `DroppedFacet` and the SAME `GetAllowedCardinality` legality table gating the pairing HERE. `IdsSpecification.Resolve(Seq<IdsSpecification>, BsddPort, BsddPins, CancellationToken, Op)` is the result-returning dictionary step. `IdsResolved.Audit(ElementGraph graph)` folds applicability into one `BimTerm` scoped to the IFC-visible `ExternalId`-bearing universe, queries through `ElementQuery.Query`, refines requirements through `ElementQuery.Where`, and partitions through `IdsCardinality.Partition`. `IdsSpecification.Publish` is the ingress inverse and `AuditFile` validates the document's own conformance through `ids-lib` `Audit.Run`.
+- Entry: `IdsSpecification.Parse(ReadOnlyMemory<byte> idsBytes)` admits an IDS XML document through `Xids.LoadBuildingSmartIDS`, reading each spec's own `Specification.IfcVersion` onto the `IfcSchemaVersions` axis through `IfcSchemaVersionHelper` and lowering every facet and every `ValueConstraint` onto the closed union, each unliftable facet leaving as a typed `DroppedFacet` and the SAME `GetAllowedCardinality` legality table gating the pairing HERE. `IdsSpecification.Resolve(Seq<IdsSpecification>, BsddPort, BsddPins, CancellationToken, Op)` is the result-returning dictionary step. `IdsResolved.Audit(ElementGraph graph)` folds applicability into one `BimTerm` scoped to the IFC-visible `ExternalId`-bearing universe, queries through `ElementQuery.Query`, refines requirements through `ElementQuery.Where`, and partitions through `IdsCardinality.Partition`. `IdsSpecification.Publish` is the ingress inverse and `AuditFile` validates the document's own conformance through `ids-lib` `Audit.Run`.
 - Auto: `Parse` is the value-lowering boundary and every gap it cannot lower leaves as a NAMED `DropReason` on an `Either` Left channel, never a `Choose`-discarded `None` — `Matches` folds a facet's `ValueConstraint.AcceptedValues` onto `Seq<ValueMatch>` (an all-exact set collapses to one `OneOf`, a `PatternConstraint` to `Pattern`, a `RangeConstraint` to a dimension-checked `Range` whose inclusivity rides the `RangeBound` arm, a pure length-bearing `StructureConstraint` to `Length`, a pure digits-bearing one to `Digits`, an absent constraint to `Present`; only a StructureConstraint MIXING the two axes drops, because one component lowers to one `ValueMatch` and splitting ORs two partial matches into a false PASS — beside it a bounds-crossed or exclusive-coincident range drops as `UnsatisfiableRange`); `NameMatch` lowers a NAME-position constraint to ONE `ValueMatch` so patterned names survive; `Predefineds` expands a patterned predefined token against the resolved classes' `IdsSchema.PredefinedTokens` roster through the ONE shared matcher; `DataTypeOf` resolves the range-bound datatype from the facet or the `PropertySetInfo.Get` standard-Pset declaration; `Numeric` coerces bound literals through `ValueConstraint.TryGetNetType`/`ParseValue` in the IFC datatype's value space; `ResolveClasses` expands an Entity facet's `IfcType` to its `IdsSchema.ConcreteClasses` subtypes when `IncludeSubtypes` and expands a PATTERNED entity name against `IdsSchema.ClassRoster`, an entity facet resolving to no rostered class dropping as `UnknownClass` rather than lowering to a match-nothing predicate a Prohibited requirement reads as a model-wide pass; `ClassificationBranches` resolves the system through the `Semantics/classification#CLASSIFICATION_AXIS` roster and admits each code through the shared `Classification.Of` door, the facet's own code set being the branch the shared arm decides SET MEMBERSHIP over — the SUB-branch expansion is the `Resolve` step's, never a code-prefix derivation; `Audit` then folds each facet's graph-free `ToPredicate()` — the validation fold reuses the query algebra for BOTH selection and value with one total `Switch` — and stamps each verdict's `FacetKey` ONCE under the spec's schema.
 - Output: `IdsAudit` carries the specification name, the `Spec` document ordinal, the `Model` provenance digest (the shared `Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` snapshot address of the graph the fold ran over, so a stored verdict set names the model it graded and a re-audit after an edit re-keys), the spec-level `IdsCardinality`, the enforcement band, the applicable element count, the passed/failed `GlobalId` sets per facet with each facet's computed key, and the `DroppedFacet` rows; `IdsAudit.Outcome` is the three-valued verdict — `Indeterminate` whenever a facet dropped, else the spec-level applicable-count rule (`SpecSatisfied`) AND every requirement verdict passing — and `Conforms` reads its row column; `IdsFileAudit.Conforms`/`Errors` reads the `Status` and the captured diagnostics.
 - Packages: Xbim.InformationSpecifications, ids-lib, Microsoft.Extensions.Logging.Abstractions, Rasm.Element (the shared `ElementGraph`, the `Query/predicate#ELEMENT_PREDICATE` algebra, and the kernel `CanonicalWriter` (`Rasm/Domain/identity#CONTENT_KEY`) and `Projection/address#CONTENT_ADDRESS` codec the facet key and the snapshot digest ride), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
@@ -44,7 +44,6 @@ using Thinktecture;
 using Xbim.InformationSpecifications;
 using Xbim.InformationSpecifications.Cardinality;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 using ElementClassification = Rasm.Element.Classification.Classification;
 using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
 using ElementTerm = Rasm.Element.Query.Predicate<Rasm.Element.Query.ElementLeaf>;
@@ -146,7 +145,6 @@ public partial record IdsFacet {
     partial record Material(Seq<ValueMatch> Value);
     partial record PartOf(Option<IdsFacet> Container, PartOfRelation Relation);
 
-    internal static readonly Op Lowering = Op.Of(name: "ids-facet-lowering");
 
     public BimTerm ToPredicate() => Switch(
         entity:         static f => AnyOf(f.Classes.Bind(cls => f.Predefined.IsEmpty
@@ -261,23 +259,23 @@ public sealed record IdsSpecification(
     string Instructions = "",
     string Identifier = "") {
 
-    public static Fin<Seq<IdsSpecification>> Parse(ReadOnlyMemory<byte> idsBytes, Op key) =>
-        key.Catch(() => {
+    public static Fin<Seq<IdsSpecification>> Parse(ReadOnlyMemory<byte> idsBytes) =>
+        Try.lift(() => {
             using MemoryStream stream = new(idsBytes.ToArray());
             return Optional(Xids.LoadBuildingSmartIDS(stream, NullLogger.Instance))
                 .Map(static xids => toSeq(xids.AllSpecifications().Select(static (spec, i) => Project(spec) with { Ordinal = i })));
-        })
+        }).Run().Bind(static inner => inner)
         .Bind(loaded => loaded.ToFin(
-            new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "ids-lane", "parse", "load-empty" }))));
+            new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "ids-lane", "parse", "load-empty" }))));
 
-    public static Fin<Seq<IdsResolved>> Resolve(Seq<IdsSpecification> specifications, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
-        specifications.TraverseM(spec => Settle(spec, port, pins, token, key)).As();
+    public static Fin<Seq<IdsResolved>> Resolve(Seq<IdsSpecification> specifications, BsddPort port, BsddPins pins, CancellationToken token) =>
+        specifications.TraverseM(spec => Settle(spec, port, pins, token)).As();
 
-    static Fin<IdsResolved> Settle(IdsSpecification spec, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
+    static Fin<IdsResolved> Settle(IdsSpecification spec, BsddPort port, BsddPins pins, CancellationToken token) =>
         from applicability in spec.Applicability
-            .TraverseM(facet => Reached(facet, FacetGroup.FacetUse.Applicability, port, pins, token, key)).As()
+            .TraverseM(facet => Reached(facet, FacetGroup.FacetUse.Applicability, port, pins, token)).As()
         from requirements in spec.Requirements
-            .TraverseM(req => Reached(req.Facet, FacetGroup.FacetUse.Requirement, port, pins, token, key)
+            .TraverseM(req => Reached(req.Facet, FacetGroup.FacetUse.Requirement, port, pins, token)
                 .Map(reached => reached.Map(facet => req with { Facet = facet }))).As()
         select IdsResolved.Of(spec with {
             Applicability = applicability.Bind(static e => e.RightToSeq()),
@@ -285,49 +283,49 @@ public sealed record IdsSpecification(
             Dropped = spec.Dropped + applicability.Bind(Dropped) + requirements.Bind(Dropped),
         });
 
-    static Fin<Either<DroppedFacet, IdsFacet>> Reached(IdsFacet facet, FacetGroup.FacetUse role, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
+    static Fin<Either<DroppedFacet, IdsFacet>> Reached(IdsFacet facet, FacetGroup.FacetUse role, BsddPort port, BsddPins pins, CancellationToken token) =>
         facet switch {
             IdsFacet.Classification { Reach: ClassificationReach.Pending } c =>
-                Descend(c, port, pins, token, key)
+                Descend(c, port, pins, token)
                     .Map(reached => reached.MapLeft(reason => new DroppedFacet(role, c.Reach.Key, reason))),
             IdsFacet.PartOf p => p.Container.Match(
-                Some: inner => Reached(inner, role, port, pins, token, key)
+                Some: inner => Reached(inner, role, port, pins, token)
                     .Map(reached => reached.Map(settled => (IdsFacet)(p with { Container = Some(settled) }))),
                 None: () => Fin.Succ(Right<DroppedFacet, IdsFacet>(p))),
             _ => Fin.Succ(Right<DroppedFacet, IdsFacet>(facet)),
         };
 
-    static Fin<Either<DropReason, IdsFacet>> Descend(IdsFacet.Classification facet, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
-        facet.Branches.TraverseM(branch => Children(branch, port, pins, token, key)).As()
+    static Fin<Either<DropReason, IdsFacet>> Descend(IdsFacet.Classification facet, BsddPort port, BsddPins pins, CancellationToken token) =>
+        facet.Branches.TraverseM(branch => Children(branch, port, pins, token)).As()
             .Map(expanded => expanded.ForAll(static rows => rows.IsSome)
                 ? Right<DropReason, IdsFacet>(facet with {
                     Reach = new ClassificationReach.Subsumed(expanded.Somes().Bind(static rows => rows).Distinct()),
                 })
                 : Left<DropReason, IdsFacet>(DropReason.UnresolvedBranch));
 
-    static Fin<Option<Seq<ElementClassification>>> Children(ElementClassification branch, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
+    static Fin<Option<Seq<ElementClassification>>> Children(ElementClassification branch, BsddPort port, BsddPins pins, CancellationToken token) =>
         toSeq(ClassificationSystem.Items).Find(row => string.Equals(row.Key, branch.System, StringComparison.OrdinalIgnoreCase))
             .Match(
-                Some: system => BsddResolution.Resolve(system, branch.Code, port, pins, token, key)
+                Some: system => BsddResolution.Resolve(system, branch.Code, port, pins, token)
                     .Map(resolved => resolved.Children
-                        .Traverse(child => ElementClassification.Of(branch.System, child.Code, key).ToOption()).As()),
+                        .Traverse(child => ElementClassification.Of(branch.System, child.Code).ToOption()).As()),
                 None: static () => Fin.Succ(Option<Seq<ElementClassification>>.None));
 
-    public static Fin<byte[]> Publish(Seq<IdsSpecification> specifications, Op key) =>
-        from raised in specifications.Traverse(spec => Raisable(spec, key)).As()
-        from bytes in key.Catch(() => Serialize(raised))
+    public static Fin<byte[]> Publish(Seq<IdsSpecification> specifications) =>
+        from raised in specifications.Traverse(spec => Raisable(spec)).As()
+        from bytes in Try.lift(() => Serialize(raised)).Run().Bind(static inner => inner)
         select bytes;
 
     static Fin<(IdsSpecification Spec, Seq<IFacet> Applicability, Seq<(IFacet Facet, RequirementCardinalityOptions Options)> Requirements)> Raisable(
-        IdsSpecification spec, Op key) =>
+        IdsSpecification spec) =>
         spec.Requirements
-            .Traverse(req => Legal(new RequirementCardinalityOptions(Raise(req.Facet, spec.Schema), req.Cardinality.AuthoredFacet), req.Cardinality, key)).As()
+            .Traverse(req => Legal(new RequirementCardinalityOptions(Raise(req.Facet, spec.Schema), req.Cardinality.AuthoredFacet), req.Cardinality)).As()
             .Map(rows => (spec, spec.Applicability.Map(facet => Raise(facet, spec.Schema)), rows.Map(static row => (row.RelatedFacet, row))));
 
-    static Fin<RequirementCardinalityOptions> Legal(RequirementCardinalityOptions row, IdsCardinality cardinality, Op key) =>
+    static Fin<RequirementCardinalityOptions> Legal(RequirementCardinalityOptions row, IdsCardinality cardinality) =>
         row.GetAllowedCardinality().Contains(cardinality.AuthoredFacet)
             ? Fin.Succ(row)
-            : new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "cardinality-illegal", row.RelatedFacet.GetType().Name, cardinality.Key }));
+            : new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "cardinality-illegal", row.RelatedFacet.GetType().Name, cardinality.Key }));
 
     static byte[] Serialize(Seq<(IdsSpecification Spec, Seq<IFacet> Applicability, Seq<(IFacet Facet, RequirementCardinalityOptions Options)> Requirements)> raised) {
         Xids xids = new();
@@ -585,14 +583,14 @@ public sealed record IdsSpecification(
         attribute:      static (_, f) => (IFacet)new AttributeFacet { AttributeName = RaiseName(f.Name), AttributeValue = RaiseMatches(f.Value) },
         property:       static (_, f) => (IFacet)new IfcPropertyFacet { PropertySetName = RaiseName(f.Set), PropertyName = RaiseName(f.Name), PropertyValue = RaiseMatches(f.Value) },
         classification: static (_, f) => (IFacet)new IfcClassificationFacet {
-                            ClassificationSystem = Op.ToHostSlot(f.Branches.Head.Map(static b => new ValueConstraint(b.System))),
+                            ClassificationSystem = HostEdge.Slot(f.Branches.Head.Map(static b => new ValueConstraint(b.System))),
                             Identification = f.Branches.IsEmpty ? null : new ValueConstraint(f.Branches.Map(static b => b.Code)),
                             IncludeSubClasses = f.Reach.Subsumes,
                         },
         material:       static (_, f) => (IFacet)new MaterialFacet { Value = RaiseMatches(f.Value) },
         partOf:         static (s, f) => {
                             PartOfFacet raised = new() {
-                                EntityType = Op.ToHostSlot(f.Container.Bind(c => c is IdsFacet.Entity e ? Some((IfcTypeFacet)Raise(e, s)) : Option<IfcTypeFacet>.None)),
+                                EntityType = HostEdge.Slot(f.Container.Bind(c => c is IdsFacet.Entity e ? Some((IfcTypeFacet)Raise(e, s)) : Option<IfcTypeFacet>.None)),
                             };
                             raised.SetRelation(f.Relation.Foreign);
                             return (IFacet)raised;
@@ -612,12 +610,12 @@ public sealed record IdsSpecification(
                                         RaiseBound(r.Lower).Magnitude, RaiseBound(r.Lower).Inclusive,
                                         RaiseBound(r.Upper).Magnitude, RaiseBound(r.Upper).Inclusive)),
             ValueMatch.Length l  => Seq<IValueConstraintComponent>(new StructureConstraint {
-                                        MinLength = Op.ToHostNullable(l.Min),
-                                        MaxLength = Op.ToHostNullable(l.Max),
+                                        MinLength = HostEdge.Nullable(l.Min),
+                                        MaxLength = HostEdge.Nullable(l.Max),
                                     }),
             ValueMatch.Digits d  => Seq<IValueConstraintComponent>(new StructureConstraint {
-                                        TotalDigits = Op.ToHostNullable(d.Total),
-                                        FractionDigits = Op.ToHostNullable(d.Fraction),
+                                        TotalDigits = HostEdge.Nullable(d.Total),
+                                        FractionDigits = HostEdge.Nullable(d.Fraction),
                                     }),
             _                    => Seq<IValueConstraintComponent>(),
         });
@@ -636,13 +634,13 @@ public sealed record IdsSpecification(
                 exclusive: static e => ((string?)e.Value.Si.ToString("R", CultureInfo.InvariantCulture), false)),
             None: static () => ((string?)null, false));
 
-    public static Fin<IdsFileAudit> AuditFile(ReadOnlyMemory<byte> idsBytes, Op key) =>
-        key.Catch(() => {
+    public static Fin<IdsFileAudit> AuditFile(ReadOnlyMemory<byte> idsBytes) =>
+        Try.lift(() => {
             using MemoryStream stream = new(idsBytes.ToArray());
             BufferingLogger sink = new();
             global::IdsLib.Audit.Status status = global::IdsLib.Audit.Run(stream, new SingleAuditOptions { IdsVersion = IdsVersion.Ids1_0 }, sink);
             return new IdsFileAudit(status, LibraryInformation.AssemblyVersion, sink.Drain());
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 public sealed record IdsResolved {
@@ -726,7 +724,7 @@ public static class IdsSchema {
 
     public static Seq<string> ClassRoster(IfcSchemaVersions schema) =>
         Classes.GetOrAdd(schema, static key =>
-            toSeq(SchemaInfo.GetSchemas(key)).Bind(static graph => toSeq(graph).Map(static c => c.Name)).Distinct());
+            toSeq(SchemaInfo.GetSchemas()).Bind(static graph => toSeq(graph).Map(static c => c.Name)).Distinct());
 
     public static Seq<string> PredefinedTokens(string className, IfcSchemaVersions schema) =>
         Predefined.GetOrAdd((className, schema), static key =>
@@ -757,7 +755,7 @@ public static class IdsSchema {
 ## [03]-[MODEL_HEALTH]
 
 - Owner: `ModelHealth` the three-tier model-QA verdict — the ONE model-health entry `Rasm.AppUi` and the review pipeline read; `ModelFinding` the closed `[Union]` verdict family EVERY tier converges on — `Structural` carrying the shared `Rasm.Element/Projection/audit#AUDIT_FOLD` `AuditFinding` row WHOLE (neutral graph integrity and coverage, graded at the graph's own owner), `Baseline` carrying the `Semantics/properties#TEMPLATE_AUDIT` `TemplateFinding` row WHOLE (produced there against the buildingSMART templates, composed here — the spec-free ground truth), `Authored` the per-element failed IDS requirement with its full typed evidence (`IdsFacet`, `IdsCardinality`, the ordinal join identity, the computed facet key) — the case IS the tier discriminant, so tier dispatch is the generated `Switch` and a parallel tier vocabulary beside the family is the deleted form; `Severity` the derived `RuleSeverity` band; `Coordinate` the per-finding report group key.
-- Entry: `ModelHealth.Audit(ElementGraph graph, TemplateScope scope, Seq<IdsResolved> specifications, Func<IfcClass, Option<BsddClass>> dictionary, Op key)` runs all three tiers over the one frozen element graph — the STRUCTURAL tier composes the shared `ModelAudit.Of(graph, key)` under its default structural thresholds, so every model carries the neutral integrity-and-coverage grade beneath any IFC claim; the baseline tier ALWAYS runs (an empty specification set still yields the zero-configuration verdict, so every model carries a health floor before any IDS is authored), each authored specification folding through its own total `IdsResolved.Audit` — the parameter type is the gate, so a caller cannot hand this entry a specification whose dictionary reach never settled; `scope` is the `Semantics/properties#PROPERTY_TEMPLATES` `TemplateScope` policy value threaded straight into `TemplateAudit.Run`, so a `Handover` audit grades COBie completeness on the SAME baseline fold a `Standard` audit runs; the `Fin` results are the shared audit's uniform entry point and the baseline's shared `Bake`.
+- Entry: `ModelHealth.Audit(ElementGraph graph, TemplateScope scope, Seq<IdsResolved> specifications, Func<IfcClass, Option<BsddClass>> dictionary)` runs all three tiers over the one frozen element graph — the STRUCTURAL tier composes the shared `ModelAudit.Of(graph)` under its default structural thresholds, so every model carries the neutral integrity-and-coverage grade beneath any IFC claim; the baseline tier ALWAYS runs (an empty specification set still yields the zero-configuration verdict, so every model carries a health floor before any IDS is authored), each authored specification folding through its own total `IdsResolved.Audit` — the parameter type is the gate, so a caller cannot hand this entry a specification whose dictionary reach never settled; `scope` is the `Semantics/properties#PROPERTY_TEMPLATES` `TemplateScope` policy value threaded straight into `TemplateAudit.Run`, so a `Handover` audit grades COBie completeness on the SAME baseline fold a `Standard` audit runs; the `Fin` results are the shared audit's uniform entry point and the baseline's shared `Bake`.
 - Auto: `Findings` flattens every tier onto the one `ModelFinding` stream — every shared `AuditFinding` a `Structural` case, every baseline row a `Baseline` case, every `FacetVerdict.Failed` element an `Authored` case carrying its requirement ordinal, its computed facet key, and its specification's enforcement band — a pure fold over the stored tiers; `Conforms` is the one verdict: NO blocking finding AND every `IdsAudit.Conforms`, so a spec-free template-floor gap advises where the prior empty-baseline rule failed a model that satisfied every authored specification.
 - Output: `ModelHealth` stores the tiers typed — the shared `ModelAudit` whole, the `TemplateFinding` rows with their failing-axis evidence, and the `IdsAudit` rows with their cardinality rule and model snapshot digest — beside the `Scope` policy naming the baseline definition set. `Findings` is the derived projection, never a third stored copy.
 - Packages: Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
@@ -772,7 +770,6 @@ using Rasm.Bim.Semantics;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
@@ -798,9 +795,9 @@ public partial record ModelFinding {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModelHealth(TemplateScope Scope, ModelAudit Structural, Seq<TemplateFinding> Baseline, Seq<IdsAudit> Authored) {
 
-    public static Fin<ModelHealth> Audit(ElementGraph graph, TemplateScope scope, Seq<IdsResolved> specifications, Func<IfcClass, Option<BsddClass>> dictionary, Op key) =>
-        from structural in ModelAudit.Of(graph, key)
-        from baseline in TemplateAudit.Run(graph, scope, dictionary, key)
+    public static Fin<ModelHealth> Audit(ElementGraph graph, TemplateScope scope, Seq<IdsResolved> specifications, Func<IfcClass, Option<BsddClass>> dictionary) =>
+        from structural in ModelAudit.Of(graph)
+        from baseline in TemplateAudit.Run(graph, scope, dictionary)
         select new ModelHealth(scope, structural, baseline, specifications.Map(spec => spec.Audit(graph)));
 
     public Seq<ModelFinding> Findings =>

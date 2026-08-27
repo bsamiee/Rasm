@@ -137,11 +137,11 @@ public sealed partial class SearchQuery {
 
 public sealed record SearchRun(SearchQuery Query, ISearchStrategy Strategy) {
     public static Fin<SearchRun> Of(SearchQuery query) =>
-        Op.Of(name: "appui.search.compile").Catch(() => Fin.Succ(SearchStrategyFactory.Create(
+        Try.lift(() => Fin.Succ(SearchStrategyFactory.Create(
                 query.Terms,
                 !query.Options.Admits(SearchOption.CaseSensitive),
                 query.Options.Admits(SearchOption.WholeWords),
-                query.Grammar.Editor)))
+                query.Grammar.Editor))).Run().Bind(static inner => inner)
             .Map(strategy => new SearchRun(query, strategy));
 }
 ```
@@ -244,13 +244,13 @@ public static class SearchProjections {
     public static Seq<SearchDocument> Cells(SearchCorpus corpus) =>
         corpus.Notebooks.Bind(static notebook => notebook.Cells.Choose(cell => cell.Switch<string, Option<SearchDocument>>(
             state: notebook.Key,
-            code:      static (key, c) => Some(Cell(key, c.Id, c.Source)),
-            markdown:  static (key, m) => Some(Cell(key, m.Id, m.Source)),
+            code:      static (key, c) => Some(Cell(c.Id, c.Source)),
+            markdown:  static (key, m) => Some(Cell(m.Id, m.Source)),
             chart:     static (_, _) => Option<SearchDocument>.None,
             render:    static (_, _) => Option<SearchDocument>.None,
             viewpoint: static (_, _) => Option<SearchDocument>.None,
-            parameter: static (key, p) => Some(Cell(key, p.Id, p.Key)),
-            evidence:  static (key, e) => Some(Cell(key, e.Id, e.Query)))));
+            parameter: static (key, p) => Some(Cell(p.Id)),
+            evidence:  static (key, e) => Some(Cell(e.Id, e.Query)))));
 
     public static Seq<SearchDocument> Prose(SearchCorpus corpus) =>
         corpus.Prose.Map(static row => new SearchDocument(SearchSource.Prose, row.DocumentKey, None, row.Title, row.Source));
@@ -597,7 +597,7 @@ public static partial class SearchMap {
     private static Option<string> Held(string text) => Some(text);
 
     [UserMapping]
-    private static Option<AssetKey> Held(AssetKey key) => Some(key);
+    private static Option<AssetKey> Held(AssetKey key) => Some();
 }
 
 public static class SearchWire {

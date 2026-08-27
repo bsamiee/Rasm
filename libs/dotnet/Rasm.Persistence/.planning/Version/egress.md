@@ -63,10 +63,10 @@ public sealed record DrainLane(SinkKey Sink, Channel<OpLogEntry> Rows) {
     public Option<int> Depth => Rows.Reader.CanCount ? Some(Rows.Reader.Count) : None;
 
     public IO<Unit> Publish(OpLogEntry row) =>
-        IO.liftAsync(async env => await Op.Of().Catch(async token => {
+        IO.liftAsync(async env => await Try.lift(async token => {
             await Rows.Writer.WriteAsync(row, token).ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }, env.Token).ConfigureAwait(false)).Bind(IO.lift);
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift);
 
     public IO<Unit> Flush() => IO.lift(() => { Rows.Writer.TryComplete(); return unit; });
 }
@@ -120,7 +120,7 @@ public abstract partial record EgressFault : Fault {
     public sealed partial record LaneUnrealizable(SinkKey Sink, string Lane) : EgressFault();
 
     [FaultCase(5)]
-    public sealed partial record SettingsRejected(string Binding, string Detail, Option<Op> Key = default) : EgressFault();
+    public sealed partial record SettingsRejected(string Binding, string Detail, Option<> Key = default) : EgressFault();
 
     public override string Message => Switch(
         deadLetter:          static c => $"<dead-letter:{c.Sink.Value}:{c.ContentKey:x32}>:{c.Cause.Message}",
@@ -295,7 +295,7 @@ public static class EgressPump {
 ## [03]-[EGRESS_SINK]
 
 - Owner: `Egress.Envelope` the ONE mint of an `OpLogEntry`, composing `Rasm/Domain/event#ENVELOPE_MINT` so the branch owner's `Validate()` funnel runs on every projected row and the projection returns `IO<Fin<CloudEvent>>` — the store write a body past the row's `dataref` threshold takes is the one effect a mint carries, and it lands BEFORE the envelope publishes the address; `BindingCapability`/`BindingCaps` the transport capability vocabulary and its barred empty corner; `Binding` the transport roster carrying each transport's capability set, attribute prefix, routing member, settings roster, `dataref` policy, and honest degrade as COLUMNS; `ProtocolSettings` the admitted per-subscription slice over that roster; `Subscription` the delivery instance; `DeliveryAck` the one union every provider outcome folds to at its own boundary, so a raw `PubAckResponse`/`DeliveryResult`/`MessageId` never crosses into the pump and the union itself names no provider type; `KafkaAck` the one written-out leg fold, seated as a boundary owner beside the union rather than inside it; `SinkBinding.Watch` the cell every leg consults before folding.
-- Entry: `Egress.Envelope(row, sink, ports)` mints on `IO`; `Subscription.Deliver(envelope, row)` resolves the bound leg; `Subscription.Matches(envelope)` answers the filter AND-set; `ProtocolSettings.Admit(binding, settings, key)` is the ONE admission every subscription crosses at composition.
+- Entry: `Egress.Envelope(row, sink, ports)` mints on `IO`; `Subscription.Deliver(envelope, row)` resolves the bound leg; `Subscription.Matches(envelope)` answers the filter AND-set; `ProtocolSettings.Admit(binding, settings)` is the ONE admission every subscription crosses at composition.
 - Cases: closed transport rows over ONE envelope, each settling its own engine's answer rather than a shared convention. `http` enqueues `net.http_post` under an idempotency-key header and folds `net.http_response_result` on the NEXT drain, so a PENDING response resolves without a poller; `nats` reads BOTH `NatsResult.Error` (never reached the stream) and `PubAckResponse.Error` (the stream refused), because folding the result alone reports `Persisted` for a refused ack; `kafka` pins `EnableIdempotence` under an instrumented producer, since the dedup column claims broker-side suppression an unset flag leaves unconfigured, and that one flag then FORCES `acks=all`, `max.in.flight.requests.per.connection=5`, `retries=INT32_MAX`, and `queuing.strategy=fifo` — a producer whose supplied configuration contradicts any of them refuses to instantiate, so the row spells none of them as a settable key and bounds the forced retry through `message.timeout.ms` alone; `rabbitmq` sends `mandatory: true` and reads `PublishException.IsReturn`, because an unroutable message under `false` is discarded while the confirm still ACKS, and under `true` the return and the nack arrive as ONE exception type whose only discriminant is that flag — an unroutable address is terminal and a nack is the broker refusing a routable message, so folding both onto one verdict either letters a re-drivable row or re-drives an address no retry reaches; `pulsar` writes `SequenceId` as the durable op-log position incremented by one, because broker dedup keys on `(producer name, sequence id)` MONOTONICITY against a stored high-water mark and DotPulsar reads a ZERO id as the auto-assign sentinel for a per-producer counter that restarts at `InitialSequenceId` on every construction — a content key written there is unordered by construction and roughly half of every send lands at or beneath the mark, while the auto counter re-lands the whole replayed suffix beneath it after any restart, and BOTH are discarded as duplicates against a returned `MessageId` the fold reads as `Persisted`; only the op-log sequence stays monotone per stream and durable across restarts, and the increment keeps position zero off the sentinel; `redis`, `clickhouse`, and `wirenative` are house legs whose `Spec` column says so.
 - Cases: the AMQP row bounds its OWN in-flight window because the client publishes no sender-side credit member — the peer grants credit on its `Flow`, `SetCredit` has no sender counterpart, and the callback send appends to an unbounded internal list the moment credit is absent — so the awaited pair is the only admitted send and the window is a bounded `Channel` under `Wait`, settled in OFFER order exactly as the NATS concurrent futures settle. Row `mqtt` is BRANCH-OWNED because the published package compiles against a retired carrier shape and reaches structured mode alone; it pins `V500`, since every v5 field drops SILENTLY under `V311` — no throw, no reason code — and carries the one UNPREFIXED attribute map, a `ce-` or `ce_` spelling there being a conformance defect a peer silently drops.
 - Cases: the ClickHouse row's `Watch` cell is the one standing behind NO event — that driver declares zero connection events, never raises the inherited `StateChange`, and ships no pool type — so `State` echoes only an explicit `Open`/`Close` this fence already made. Instead an ACTIVE `PingAsync` probe on the composition root's own cadence feeds the same cell every event-bearing row writes, so the `Watch` arrow holds ONE shape across the family and only this row's producer differs; its table IS the `Query/datasets#WAREHOUSE_OPLOG` `WarehouseSchema.Table` with its `Columns` roster, and its read side the `Query/backend#BACKEND_FAMILY` `Backend.Fleet` row, so writer and reader share one typed vocabulary rather than two independently-authored shapes.
@@ -338,17 +338,16 @@ public abstract partial record WebhookSettle {
 
     public sealed record PerRequest : WebhookSettle;
     public sealed record PerEnvelope(Func<string, int, Fin<Seq<DeliveryDisposition>>> Read) : WebhookSettle {
-        public Fin<Seq<DeliveryAck>> Correlate(string request, Seq<CloudEvent> offered, Op key) =>
-            Read(request, offered.Count).Bind(answered => Correlated(offered, answered, key));
+        public Fin<Seq<DeliveryAck>> Correlate(string request, Seq<CloudEvent> offered) =>
+            Read(request, offered.Count).Bind(answered => Correlated(offered, answered));
     }
 
     private static Fin<Seq<DeliveryAck>> Correlated(
-        Seq<CloudEvent> offered, Seq<DeliveryDisposition> answered, Op key) => key.Catch(() => {
+        Seq<CloudEvent> offered, Seq<DeliveryDisposition> answered) => Try.lift(() => {
         Dictionary<string, DeliveryAck> byIdentity = new(StringComparer.Ordinal);
         foreach (DeliveryDisposition disposition in answered) {
             if (!byIdentity.TryAdd(disposition.Key, disposition.Ack)) {
-                return Fin.Fail<Seq<DeliveryAck>>(new EgressFault.SettingsRejected(
-                    Binding.Http.Key, $"<duplicate-disposition:{disposition.Key}>", Some(key)));
+                return Fin.Fail<Seq<DeliveryAck>>(new EgressFault.SettingsRejected($"<duplicate-disposition:{disposition.Key}>"));
             }
         }
 
@@ -356,17 +355,15 @@ public abstract partial record WebhookSettle {
         foreach (CloudEvent envelope in offered) {
             string identity = $"{envelope.Source}\0{envelope.Id}";
             if (!byIdentity.Remove(identity, out DeliveryAck? ack) || ack is null) {
-                return Fin.Fail<Seq<DeliveryAck>>(new EgressFault.SettingsRejected(
-                    Binding.Http.Key, $"<absent-disposition:{identity}>", Some(key)));
+                return Fin.Fail<Seq<DeliveryAck>>(new EgressFault.SettingsRejected($"<absent-disposition:{identity}>"));
             }
             correlated = correlated.Add(ack);
         }
 
         return byIdentity.Count == 0
             ? Fin.Succ(correlated)
-            : Fin.Fail<Seq<DeliveryAck>>(new EgressFault.SettingsRejected(
-                Binding.Http.Key, $"<foreign-disposition:{string.Join(',', byIdentity.Keys)}>", Some(key)));
-    });
+            : Fin.Fail<Seq<DeliveryAck>>(new EgressFault.SettingsRejected($"<foreign-disposition:{string.Join(',', byIdentity.Keys)}>"));
+    }).Run().Bind(static inner => inner);
 }
 
 public readonly record struct DatarefRow(int Threshold, bool Dual);
@@ -482,11 +479,11 @@ public sealed record ProtocolSettings {
 
     public Map<string, string> Values { get; }
 
-    public static Fin<ProtocolSettings> Admit(Binding binding, Map<string, string> settings, Op key) =>
+    public static Fin<ProtocolSettings> Admit(Binding binding, Map<string, string> settings) =>
         toSeq(binding.Required).Filter(name => settings.Find(name).IsNone) is { IsEmpty: false } absent
-            ? Fin.Fail<ProtocolSettings>(new EgressFault.SettingsRejected(binding.Key, $"<absent:{string.Join(',', absent)}>", Some(key)))
+            ? Fin.Fail<ProtocolSettings>(new EgressFault.SettingsRejected($"<absent:{string.Join(',', absent)}>"))
             : toSeq(settings.Keys).Filter(name => !binding.Required.Contains(name) && !binding.Optional.Contains(name)) is { IsEmpty: false } unknown
-                ? Fin.Fail<ProtocolSettings>(new EgressFault.SettingsRejected(binding.Key, $"<unknown:{string.Join(',', unknown)}>", Some(key)))
+                ? Fin.Fail<ProtocolSettings>(new EgressFault.SettingsRejected($"<unknown:{string.Join(',', unknown)}>"))
                 : Fin.Succ(new ProtocolSettings(settings));
 
     public string this[string name] => Values[name];
@@ -543,11 +540,11 @@ public static class EgressEventExtensions {
         ]));
 
     public static Fin<global::Rasm.Contracts.Event.Extensions> Of(
-        OpLogEntry row, Subscription sink, PayloadFrame framed, TraceCarrier trace, Op key) =>
+        OpLogEntry row, Subscription sink, PayloadFrame framed, TraceCarrier trace) =>
         row.Sequence < 0
             ? Fin.Fail<global::Rasm.Contracts.Event.Extensions>(
-                key.InvalidInput(nameof(OpLogEntry.Sequence)))
-            : key.Catch(() => Fin.Succ(Built(row, sink, framed, trace)));
+                new KernelFault.InvalidInput(Axis: Some(nameof(OpLogEntry.Sequence))))
+            : Try.lift(() => Fin.Succ(Built(row, sink, framed, trace))).Run().Bind(static inner => inner);
 
     static global::Rasm.Contracts.Event.Extensions Built(
         OpLogEntry row, Subscription sink, PayloadFrame framed, TraceCarrier trace) {
@@ -579,13 +576,12 @@ public static class Egress {
         };
 
     static Fin<CloudEvent> Minted(OpLogEntry row, Subscription sink, EgressPorts ports, PayloadFrame framed) {
-        Op key = Op.Of(name: nameof(Egress));
         EventType type = EventType.Of(Domain, subject: row.Family.Key, fact: row.Kind.Fact);
         EventSource source = EventSource.Of(domain: Domain, capability: "oplog");
         return
-            from id in key.AcceptValidated<EventId>(row.Id.Wire)
+            from id in FactoryBridge.Accept<EventId>(row.Id.Wire)
             from extensions in EgressEventExtensions.Of(
-                row, sink, framed, row.Trace.Continue().Map(ports.Carrier).IfNone(default(TraceCarrier)), key)
+                row, sink, framed, row.Trace.Continue().Map(ports.Carrier).IfNone(default(TraceCarrier)))
             from envelope in RasmEventEnvelope.Mint(
                 new RasmEventMint<global::Rasm.Contracts.Event.Extensions>(
                     Type: type,
@@ -597,8 +593,7 @@ public static class Egress {
                     DataContentType: Some(framed.ContentType),
                     Data: Carried(framed, sink),
                     Extensions: extensions),
-                EgressEventExtensions.Contract,
-                key)
+                EgressEventExtensions.Contract)
             select envelope;
     }
 
@@ -742,7 +737,7 @@ public abstract partial record CesqlFault : Fault {
     private CesqlFault() { }
 
     [FaultCase(0)]
-    public sealed partial record ParseError(string Detail, Option<Op> Key = default) : CesqlFault();
+    public sealed partial record ParseError(string Detail, Option<> Key = default) : CesqlFault();
     [FaultCase(1)]
     public sealed partial record MathError(string Operator, string Detail) : CesqlFault();
     [FaultCase(2)]
@@ -943,19 +938,19 @@ public sealed partial class CesqlOperator {
             fold(CesqlCast.Number(left.Value), CesqlCast.Number(right.Value)));
 
     static CesqlResult Arith(CesqlResult left, CesqlResult right, string op, Func<int, int, long> fold) =>
-        Widened(Admitted(left, CesqlCast.AsNumber), Admitted(right, CesqlCast.AsNumber), op,
+        Widened(Admitted(left, CesqlCast.AsNumber), Admitted(right, CesqlCast.AsNumber),
             fold(CesqlCast.Number(left.Value), CesqlCast.Number(right.Value)));
 
     static CesqlResult Widened(CesqlResult left, CesqlResult right, string op, long wide) => wide switch {
         >= int.MinValue and <= int.MaxValue => left.Join(right, (int)wide),
-        < 0 => left.Join(right, int.MinValue).Fault(new CesqlFault.MathError(op, "<int32-overflow>")),
-        _ => left.Join(right, int.MaxValue).Fault(new CesqlFault.MathError(op, "<int32-overflow>")),
+        < 0 => left.Join(right, int.MinValue).Fault(new CesqlFault.MathError("<int32-overflow>")),
+        _ => left.Join(right, int.MaxValue).Fault(new CesqlFault.MathError("<int32-overflow>")),
     };
 
     static CesqlResult Divided(CesqlResult left, CesqlResult right, string op) =>
         (Admitted(left, CesqlCast.AsNumber), Admitted(right, CesqlCast.AsNumber)) switch {
             (var l, var r) when CesqlCast.Number(right.Value) is 0 =>
-                l.Join(r, 0).Fault(new CesqlFault.MathError(op, "<divide-by-zero>")),
+                l.Join(r, 0).Fault(new CesqlFault.MathError("<divide-by-zero>")),
             (var l, var r) when op is "/" =>
                 l.Join(r, CesqlCast.Number(left.Value) / CesqlCast.Number(right.Value)),
             (var l, var r) => l.Join(r, CesqlCast.Number(left.Value) % CesqlCast.Number(right.Value)),
@@ -1031,18 +1026,18 @@ public static class Cesql {
             ? Return(found)
             : Parser<char>.Fail<CesqlFunction>($"<unknown-function:{name}>");
 
-    public static Fin<CesqlExpression> Compile(string text, Op key) =>
+    public static Fin<CesqlExpression> Compile(string text) =>
         Expression.Before(End).Parse(text).Match(
             success: static parsed => Fin.Succ(parsed),
-            failure: error => Fin.Fail<CesqlExpression>(new CesqlFault.ParseError(error.RenderErrorMessage(), Some(key))));
+            failure: error => Fin.Fail<CesqlExpression>(new CesqlFault.ParseError(error.RenderErrorMessage())));
 
     static Parser<char, Func<CesqlExpression, CesqlExpression, CesqlExpression>> Infix(CesqlOperator op, string spelling) =>
         Try(CIString(spelling)).Between(SkipWhitespaces).ThenReturn<Func<CesqlExpression, CesqlExpression, CesqlExpression>>(
-            (left, right) => new CesqlExpression.Binary(op, left, right));
+            (left, right) => new CesqlExpression.Binary(left, right));
 
     static Parser<char, Func<CesqlExpression, CesqlExpression>> Unary(CesqlOperator op, string spelling) =>
         Try(CIString(spelling)).Between(SkipWhitespaces).ThenReturn<Func<CesqlExpression, CesqlExpression>>(
-            operand => new CesqlExpression.Unary(op, operand));
+            operand => new CesqlExpression.Unary(operand));
 }
 ```
 

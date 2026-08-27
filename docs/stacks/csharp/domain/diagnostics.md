@@ -304,7 +304,7 @@ public static class EnvelopeBoundary {
     private static readonly Action<Dictionary<string, string>, string, string> Put =
         static (frame, key, value) => frame[key] = value;
     private static readonly Func<Dictionary<string, string>, string, IEnumerable<string>> Take =
-        static (frame, key) => frame.TryGetValue(key, out string held) ? [held] : [];
+        static (frame, key) => frame.TryGetValue(out string held) ? [held] : [];
 
     public static Dictionary<string, string> Depart(StampCell cell, ActivityContext current) {
         ArgumentNullException.ThrowIfNull(cell);

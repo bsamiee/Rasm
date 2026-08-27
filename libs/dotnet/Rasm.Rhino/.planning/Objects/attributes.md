@@ -30,7 +30,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Law: decal removal keys on `Decal.CRC` — the host removes by decal identity, so retract carries the snapshot's `Crc` column and the arm removes every live decal whose `CRC` matches; face-material removal keys on the plug-in guid the dictionary indexes.
 - Law: host quirks cross verbatim — `DecalCreateParams.StartLatitude`/`EndLatitude` carry the horizontal sweep and `StartLongitude`/`EndLongitude` the vertical (the host inverts the names), and `MaterialRefs.Create` swaps front and back values across its native boundary; neither is locally corrected, so a host repair never double-swaps.
 - Growth: a new writable axis adds one edit case, one admission arm, one apply arm, and its detached read projection when the page owns that read.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op`, `Op.Text`, `Op.Catch`, `Op.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op`, `HostEdge.Text`, `Op.Catch`, `Op.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -186,8 +186,8 @@ public sealed partial class AttachedModifier : ICapability<AttachedModifier> {
 }
 
 public static class AttributeShade {
-    internal static Fin<PerceptualColor> Of(System.Drawing.Color color, Op key) =>
-        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
+    internal static Fin<PerceptualColor> Of(System.Drawing.Color color) =>
+        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A);
 
     internal static System.Drawing.Color Rgb(PerceptualColor shade) =>
         shade.ToRgb() switch {
@@ -201,22 +201,22 @@ public abstract record RosterMove<TGrow, TCut> {
     public sealed record Extend(Seq<TGrow> Values) : RosterMove<TGrow, TCut>;
     public sealed record Retract(Seq<TCut> Keys) : RosterMove<TGrow, TCut>;
 
-    internal Fin<RosterMove<TGrow, TCut>> Admit(Func<TGrow, bool> grow, Func<TCut, bool> cut, Op key) => this switch {
-        Impose(var values) => Roster(values: values, valid: grow, floor: 0, key: key)
+    internal Fin<RosterMove<TGrow, TCut>> Admit(Func<TGrow, bool> grow, Func<TCut, bool> cut) => this switch {
+        Impose(var values) => Roster(values: values, valid: grow, floor: 0)
             .Map(static admitted => (RosterMove<TGrow, TCut>)new Impose(Values: admitted)),
-        Extend(var values) => Roster(values: values, valid: grow, floor: 1, key: key)
+        Extend(var values) => Roster(values: values, valid: grow, floor: 1)
             .Map(static admitted => (RosterMove<TGrow, TCut>)new Extend(Values: admitted)),
-        Retract(var keys) => Roster(values: keys, valid: cut, floor: 1, key: key)
+        Retract(var keys) => Roster(values: keys, valid: cut, floor: 1)
             .Map(static admitted => (RosterMove<TGrow, TCut>)new Retract(Keys: admitted)),
-        _ => Fin.Fail<RosterMove<TGrow, TCut>>(error: key.InvalidInput()),
+        _ => Fin.Fail<RosterMove<TGrow, TCut>>(error: new KernelFault.InvalidInput()),
     };
 
-    private static Fin<Seq<T>> Roster<T>(Seq<T> values, Func<T, bool> valid, int floor, Op key) =>
+    private static Fin<Seq<T>> Roster<T>(Seq<T> values, Func<T, bool> valid, int floor) =>
         from roster in values.TraverseM(value => valid(value)
             ? Fin.Succ(value: value)
-            : Fin.Fail<T>(error: key.InvalidInput())).As()
+            : Fin.Fail<T>(error: new KernelFault.InvalidInput())).As()
         let admitted = roster.Distinct()
-        from _ in guard(admitted.Count >= floor, key.InvalidInput())
+        from _ in guard(admitted.Count >= floor, new KernelFault.InvalidInput())
         select admitted;
 }
 
@@ -262,7 +262,6 @@ public sealed partial class DecalSeed {
         ref double minV,
         ref double maxU,
         ref double maxV) {
-        Op op = Op.Of();
         (Point3d Seat, Vector3d Up, Vector3d Across) frame = (origin, up, across);
         (double Transparency, double Height, double Radius) scalar = (transparency, height, radius);
         (double HorzStart, double HorzEnd, double VertStart, double VertEnd) sweep = (horzStart, horzEnd, vertStart, vertEnd);
@@ -325,7 +324,6 @@ public sealed partial class MaterialRefSeed {
         ref Guid backId,
         ref int frontIndex,
         ref int backIndex) {
-        Op op = Op.Of();
         (Guid Front, Guid Back, int FrontIndex, int BackIndex) face = (frontId, backId, frontIndex, backIndex);
         MaterialOrigin row = source;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
@@ -388,259 +386,257 @@ public abstract partial record AttributeEdit {
     public sealed record Tag(TagOp Operation) : AttributeEdit;
     public sealed record FaceMaterials(RosterMove<MaterialRefSeed, Guid> Move) : AttributeEdit;
 
-    internal Fin<AttributeEdit> Admit(Op op) =>
-        Switch(
-            op,
-            identity: static (key, edit) =>
-                from name in edit.Name.Traverse(text => key.AcceptText(value: text)).As()
-                from url in edit.Url.Traverse(text => key.AcceptText(value: text)).As()
-                from _ in guard(name.IsSome || url.IsSome, key.InvalidInput())
+    internal Fin<AttributeEdit> Admit() =>
+        Switch(identity: static (key, edit) =>
+                from name in edit.Name.Traverse(text => Acceptance.Text(value: text)).As()
+                from url in edit.Url.Traverse(text => Acceptance.Text(value: text)).As()
+                from _ in guard(name.IsSome || url.IsSome, new KernelFault.InvalidInput())
                 select (AttributeEdit)new Identity(Name: name, Url: url),
             layer: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
-            paint: static (key, edit) => key.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
-            plot: static (key, edit) => key.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
-            plotWeight: static (key, edit) => key.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit, key)),
+            paint: static (key, edit) => Admit.Need(edit.Source)
+                .Bind(source => SourceValue(source.FromObject, edit.Value, edit)),
+            plot: static (key, edit) => Admit.Need(edit.Source)
+                .Bind(source => SourceValue(source.FromObject, edit.Value, edit)),
+            plotWeight: static (key, edit) => Admit.Need(edit.Source)
+                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit)),
             linePattern: static (key, edit) =>
-                from source in key.Need(edit.Source)
-                from admitted in SourceValue(source.FromObject, edit.Index, edit, key)
+                from source in Admit.Need(edit.Source)
+                from admitted in SourceValue(source.FromObject, edit.Index, edit)
                 from _ in guard(edit.PatternScale
                     .Map(static value => double.IsFinite(value) && value > 0.0)
-                    .IfNone(noneValue: true), key.InvalidInput())
+                    .IfNone(noneValue: true), new KernelFault.InvalidInput())
                 select admitted,
             customLine: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
-            materialBind: static (key, edit) => key.Need(edit.Source)
-                .Bind(source => SourceValue(source.FromObject, edit.Index, edit, key)),
+            materialBind: static (key, edit) => Admit.Need(edit.Source)
+                .Bind(source => SourceValue(source.FromObject, edit.Index, edit)),
             shadows: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             wires: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             drawOrder: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
-            decorate: static (key, edit) => key.Need(edit.Ends).Map(_ => (AttributeEdit)edit),
+            decorate: static (key, edit) => Admit.Need(edit.Ends).Map(_ => (AttributeEdit)edit),
             realm: static (key, edit) => guard(
                 edit.Space is not null && edit.Space != ActiveSpaceUse.None
                 && edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
-                key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            groups: static (key, edit) => key.Need(edit.Move)
-                .Bind(move => move.Admit(grow: static index => index >= 0, cut: static index => index >= 0, key: key))
+                new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+            groups: static (key, edit) => Admit.Need(edit.Move)
+                .Bind(move => move.Admit(grow: static index => index >= 0, cut: static index => index >= 0))
                 .Map(static move => (AttributeEdit)new Groups(Move: move)),
             modeOverride: static (key, edit) => guard(
                 edit.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true)
                 && edit.Mode.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
-                key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+                new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             detailHide: static (key, edit) =>
-                from _ in guard(edit.Detail != Guid.Empty, key.InvalidInput()).ToFin()
-                from __ in key.Need(edit.Signal)
+                from _ in guard(edit.Detail != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
+                from __ in Admit.Need(edit.Signal)
                 select (AttributeEdit)edit,
-            detailBackground: static (key, edit) => key.Need(edit.Signal).Map(_ => (AttributeEdit)edit),
+            detailBackground: static (key, edit) => Admit.Need(edit.Signal).Map(_ => (AttributeEdit)edit),
             activity: static (key, edit) =>
-                from signal in key.Need(edit.Signal)
-                from move in key.Need(edit.Move)
-                from admitted in move.Admit(grow: static id => id != Guid.Empty, cut: static id => id != Guid.Empty, key: key)
+                from signal in Admit.Need(edit.Signal)
+                from move in Admit.Need(edit.Move)
+                from admitted in move.Admit(grow: static id => id != Guid.Empty, cut: static id => id != Guid.Empty)
                 select (AttributeEdit)new Activity(Move: admitted, Signal: signal),
-            sectionSource: static (key, edit) => key.Need(edit.Source).Map(_ => (AttributeEdit)edit),
+            sectionSource: static (key, edit) => Admit.Need(edit.Source).Map(_ => (AttributeEdit)edit),
             sectionIndex: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             sectionFace: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
-            label: static (key, edit) => key.Need(edit.Style).Map(_ => (AttributeEdit)edit),
-            hatchFill: static (key, edit) => guard(edit.Fill.IsSome || edit.Print.IsSome, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+            label: static (key, edit) => Admit.Need(edit.Style).Map(_ => (AttributeEdit)edit),
+            hatchFill: static (key, edit) => guard(edit.Fill.IsSome || edit.Print.IsSome, new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             hatchBoundary: static (key, edit) => guard(
                 edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
                 || edit.PlotColorSource.IsSome || edit.Pen.IsSome,
-                key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            anchorFrame: static (key, edit) => key.AcceptInput(value: edit.Frame).Map(_ => (AttributeEdit)edit),
-            anchorMove: static (key, edit) => key.AcceptInput(value: edit.Motion).Map(_ => (AttributeEdit)edit),
+                new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
+            anchorFrame: static (key, edit) => Acceptance.Input(value: edit.Frame).Map(_ => (AttributeEdit)edit),
+            anchorMove: static (key, edit) => Acceptance.Input(value: edit.Motion).Map(_ => (AttributeEdit)edit),
             meshing: static (key, edit) => edit.Encoded
                 .Traverse(text =>
-                    from accepted in key.AcceptText(value: text)
-                    from normalized in key.Catch(() => {
+                    from accepted in Acceptance.Text(value: text)
+                    from normalized in Try.lift(() => {
                         using MeshingParameters? parameters = MeshingParameters.FromEncodedString(accepted);
                         return parameters is null
-                            ? Fin.Fail<string>(error: key.InvalidInput())
+                            ? Fin.Fail<string>(error: new KernelFault.InvalidInput())
                             : Fin.Succ(value: parameters.ToEncodedString());
-                    })
+                    }).Run().Bind(static inner => inner)
                     select normalized)
                 .As()
                 .Map(encoded => (AttributeEdit)new Meshing(Encoded: encoded)),
             renderingReset: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
-            decals: static (key, edit) => key.Need(edit.Move)
-                .Bind(move => move.Admit(grow: static seed => seed is not null, cut: static crc => crc != 0, key: key))
+            decals: static (key, edit) => Admit.Need(edit.Move)
+                .Bind(move => move.Admit(grow: static seed => seed is not null, cut: static crc => crc != 0))
                 .Map(static move => (AttributeEdit)new Decals(Move: move)),
             tag: static (key, edit) =>
-                from operation in key.Need(edit.Operation)
-                from _ in guard(operation.Mutates, key.InvalidInput())
+                from operation in Admit.Need(edit.Operation)
+                from _ in guard(operation.Mutates, new KernelFault.InvalidInput())
                 select (AttributeEdit)edit,
-            faceMaterials: static (key, edit) => key.Need(edit.Move)
-                .Bind(move => move.Admit(grow: static seed => seed is not null, cut: static plugin => plugin != Guid.Empty, key: key))
+            faceMaterials: static (key, edit) => Admit.Need(edit.Move)
+                .Bind(move => move.Admit(grow: static seed => seed is not null, cut: static plugin => plugin != Guid.Empty))
                 .Map(static move => (AttributeEdit)new FaceMaterials(Move: move)));
 
-    private static Fin<AttributeEdit> SourceValue<TValue>(bool requires, Option<TValue> value, AttributeEdit edit, Op key) =>
-        guard(requires == value.IsSome, key.InvalidInput()).ToFin().Map(_ => edit);
+    private static Fin<AttributeEdit> SourceValue<TValue>(bool requires, Option<TValue> value, AttributeEdit edit) =>
+        guard(requires == value.IsSome, new KernelFault.InvalidInput()).ToFin().Map(_ => edit);
 
-    internal Fin<Unit> Apply(ObjectAttributes attributes, Op op) =>
+    internal Fin<Unit> Apply(ObjectAttributes attributes) =>
         Switch(
-            (Attributes: attributes, Op: op),
-            identity: static (context, edit) => context.Op.Catch(() => {
-                _ = edit.Name.Iter(name => context.Attributes.Name = name);
-                _ = edit.Url.Iter(url => context.Attributes.Url = url);
-            }),
-            layer: static (context, edit) => context.Op.Catch(() => context.Attributes.LayerIndex = edit.Index.Value),
-            paint: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.ColorSource = edit.Source.Key;
-                _ = edit.Value.Iter(shade => context.Attributes.ObjectColor = AttributeShade.Rgb(shade: shade));
-            }),
-            plot: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.PlotColorSource = edit.Source.Key;
-                _ = edit.Value.Iter(shade => context.Attributes.PlotColor = AttributeShade.Rgb(shade: shade));
-            }),
-            plotWeight: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.PlotWeightSource = edit.Source.Key;
-                _ = edit.Pen.Iter(pen => context.Attributes.PlotWeight = pen.ToHost());
-            }),
-            linePattern: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.LinetypeSource = edit.Source.Key;
-                _ = edit.Index.Iter(index => context.Attributes.LinetypeIndex = index.Value);
-                _ = edit.PatternScale.Iter(scale => context.Attributes.LinetypePatternScale = scale);
-            }),
-            customLine: static (context, edit) => context.Op.Catch(() => {
+            attributes,
+            identity: static (context, edit) => Try.lift(() => {
+                _ = edit.Name.Iter(name => context.Name = name);
+                _ = edit.Url.Iter(url => context.Url = url);
+            }).Run().Bind(static inner => inner),
+            layer: static (context, edit) => Try.lift(() => context.LayerIndex = edit.Index.Value).Run().Bind(static inner => inner),
+            paint: static (context, edit) => Try.lift(() => {
+                context.ColorSource = edit.Source.Key;
+                _ = edit.Value.Iter(shade => context.ObjectColor = AttributeShade.Rgb(shade: shade));
+            }).Run().Bind(static inner => inner),
+            plot: static (context, edit) => Try.lift(() => {
+                context.PlotColorSource = edit.Source.Key;
+                _ = edit.Value.Iter(shade => context.PlotColor = AttributeShade.Rgb(shade: shade));
+            }).Run().Bind(static inner => inner),
+            plotWeight: static (context, edit) => Try.lift(() => {
+                context.PlotWeightSource = edit.Source.Key;
+                _ = edit.Pen.Iter(pen => context.PlotWeight = pen.ToHost());
+            }).Run().Bind(static inner => inner),
+            linePattern: static (context, edit) => Try.lift(() => {
+                context.LinetypeSource = edit.Source.Key;
+                _ = edit.Index.Iter(index => context.LinetypeIndex = index.Value);
+                _ = edit.PatternScale.Iter(scale => context.LinetypePatternScale = scale);
+            }).Run().Bind(static inner => inner),
+            customLine: static (context, edit) => Try.lift(() => {
                 edit.Pattern.Match(
-                    Some: pattern => context.Attributes.SetCustomLinetype(linetype: pattern),
-                    None: () => context.Attributes.RemoveCustomLinetype());
-            }),
-            materialBind: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.MaterialSource = edit.Source.Key;
-                _ = edit.Index.Iter(index => context.Attributes.MaterialIndex = index.Value);
-            }),
-            shadows: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.CastsShadows = edit.Roles.Admits(capability: ShadowRole.Cast);
-                context.Attributes.ReceivesShadows = edit.Roles.Admits(capability: ShadowRole.Receive);
-            }),
-            wires: static (context, edit) => context.Op.Catch(() => context.Attributes.WireDensity = edit.Density),
-            drawOrder: static (context, edit) => context.Op.Catch(() => context.Attributes.DisplayOrder = edit.Rank),
-            decorate: static (context, edit) => context.Op.Catch(() => context.Attributes.ObjectDecoration = edit.Ends.Key),
-            realm: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.Space = edit.Space.Key;
-                context.Attributes.ViewportId = edit.Viewport.IfNone(noneValue: Guid.Empty);
-            }),
+                    Some: pattern => context.SetCustomLinetype(linetype: pattern),
+                    None: () => context.RemoveCustomLinetype());
+            }).Run().Bind(static inner => inner),
+            materialBind: static (context, edit) => Try.lift(() => {
+                context.MaterialSource = edit.Source.Key;
+                _ = edit.Index.Iter(index => context.MaterialIndex = index.Value);
+            }).Run().Bind(static inner => inner),
+            shadows: static (context, edit) => Try.lift(() => {
+                context.CastsShadows = edit.Roles.Admits(capability: ShadowRole.Cast);
+                context.ReceivesShadows = edit.Roles.Admits(capability: ShadowRole.Receive);
+            }).Run().Bind(static inner => inner),
+            wires: static (context, edit) => Try.lift(() => context.WireDensity = edit.Density).Run().Bind(static inner => inner),
+            drawOrder: static (context, edit) => Try.lift(() => context.DisplayOrder = edit.Rank).Run().Bind(static inner => inner),
+            decorate: static (context, edit) => Try.lift(() => context.ObjectDecoration = edit.Ends.Key).Run().Bind(static inner => inner),
+            realm: static (context, edit) => Try.lift(() => {
+                context.Space = edit.Space.Key;
+                context.ViewportId = edit.Viewport.IfNone(noneValue: Guid.Empty);
+            }).Run().Bind(static inner => inner),
             groups: static (context, edit) => edit.Move switch {
-                RosterMove<int, int>.Impose(var indices) => context.Op.Catch(() => {
-                    context.Attributes.RemoveFromAllGroups();
-                    _ = indices.Iter(index => context.Attributes.AddToGroup(groupIndex: index));
-                }),
-                RosterMove<int, int>.Extend(var indices) => context.Op.Catch(() =>
-                    _ = indices.Iter(index => context.Attributes.AddToGroup(groupIndex: index))),
-                RosterMove<int, int>.Retract(var indices) => context.Op.Catch(() =>
-                    _ = indices.Iter(index => context.Attributes.RemoveFromGroup(groupIndex: index))),
-                _ => Fin.Fail<Unit>(error: context.Op.InvalidInput()),
+                RosterMove<int, int>.Impose(var indices) => Try.lift(() => {
+                    context.RemoveFromAllGroups();
+                    _ = indices.Iter(index => context.AddToGroup(groupIndex: index));
+                }).Run().Bind(static inner => inner),
+                RosterMove<int, int>.Extend(var indices) => Try.lift(() =>
+                    _ = indices.Iter(index => context.AddToGroup(groupIndex: index))).Run().Bind(static inner => inner),
+                RosterMove<int, int>.Retract(var indices) => Try.lift(() =>
+                    _ = indices.Iter(index => context.RemoveFromGroup(groupIndex: index))).Run().Bind(static inner => inner),
+                _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             },
             modeOverride: static (context, edit) => edit.Mode
-                .Traverse(id => Optional(DisplayModeDescription.GetDisplayMode(id)).ToFin(Fail: context.Op.MissingContext()))
+                .Traverse(id => Optional(DisplayModeDescription.GetDisplayMode(id)).ToFin(Fail: new KernelFault.MissingContext()))
                 .As()
                 .Bind(mode => (mode.Case, edit.Viewport.Case) switch {
-                    (DisplayModeDescription resolved, Guid viewport) => context.Op.Confirm(
-                        success: context.Attributes.SetDisplayModeOverride(mode: resolved, rhinoViewportId: viewport)),
-                    (DisplayModeDescription resolved, null) => context.Op.Confirm(
-                        success: context.Attributes.SetDisplayModeOverride(mode: resolved)),
-                    (null, Guid viewport) => context.Op.Catch(() => context.Attributes.RemoveDisplayModeOverride(rhinoViewportId: viewport)),
-                    _ => context.Op.Catch(() => context.Attributes.RemoveDisplayModeOverride()),
+                    (DisplayModeDescription resolved, Guid viewport) => Admit.Confirm(
+                        success: context.SetDisplayModeOverride(mode: resolved, rhinoViewportId: viewport)),
+                    (DisplayModeDescription resolved, null) => Admit.Confirm(
+                        success: context.SetDisplayModeOverride(mode: resolved)),
+                    (null, Guid viewport) => Try.lift(() => context.RemoveDisplayModeOverride(rhinoViewportId: viewport)).Run().Bind(static inner => inner),
+                    _ => Try.lift(() => context.RemoveDisplayModeOverride()).Run().Bind(static inner => inner),
                 }),
-            detailHide: static (context, edit) => context.Op.Confirm(success: edit.Signal.On
-                ? context.Attributes.AddHideInDetailOverride(detailId: edit.Detail)
-                : context.Attributes.RemoveHideInDetailOverride(detailId: edit.Detail)),
-            detailBackground: static (context, edit) => context.Op.Catch(() => context.Attributes.DetailBackgroundVisible = edit.Signal.On),
+            detailHide: static (context, edit) => Admit.Confirm(success: edit.Signal.On
+                ? context.AddHideInDetailOverride(detailId: edit.Detail)
+                : context.RemoveHideInDetailOverride(detailId: edit.Detail)),
+            detailBackground: static (context, edit) => Try.lift(() => context.DetailBackgroundVisible = edit.Signal.On).Run().Bind(static inner => inner),
             activity: static (context, edit) => edit.Move switch {
-                RosterMove<Guid, Guid>.Impose(var viewports) => context.Op.Confirm(
-                    success: context.Attributes.SetActiveInViewportOverrides(viewportIds: viewports.ToArray(), active: edit.Signal.On)),
-                RosterMove<Guid, Guid>.Extend(var viewports) => viewports.TraverseM(viewport => context.Op.Confirm(
-                    success: context.Attributes.AddActiveInViewportOverride(viewportId: viewport, active: edit.Signal.On))).As()
+                RosterMove<Guid, Guid>.Impose(var viewports) => Admit.Confirm(
+                    success: context.SetActiveInViewportOverrides(viewportIds: viewports.ToArray(), active: edit.Signal.On)),
+                RosterMove<Guid, Guid>.Extend(var viewports) => viewports.TraverseM(viewport => Admit.Confirm(
+                    success: context.AddActiveInViewportOverride(viewportId: viewport, active: edit.Signal.On))).As()
                     .Map(static _ => unit),
-                RosterMove<Guid, Guid>.Retract(var viewports) => viewports.TraverseM(viewport => context.Op.Confirm(
-                    success: context.Attributes.RemoveActiveInViewportOverride(viewportId: viewport, active: edit.Signal.On))).As()
+                RosterMove<Guid, Guid>.Retract(var viewports) => viewports.TraverseM(viewport => Admit.Confirm(
+                    success: context.RemoveActiveInViewportOverride(viewportId: viewport, active: edit.Signal.On))).As()
                     .Map(static _ => unit),
-                _ => Fin.Fail<Unit>(error: context.Op.InvalidInput()),
+                _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             },
-            sectionSource: static (context, edit) => context.Op.Catch(() => context.Attributes.SectionAttributesSource = edit.Source.Key),
-            sectionIndex: static (context, edit) => context.Op.Catch(() =>
-                context.Attributes.SectionStyleIndex = edit.Index.Map(static index => index.Value).IfNone(noneValue: ResourceIndex.Absent)),
-            sectionFace: static (context, edit) => context.Op.Catch(() => {
+            sectionSource: static (context, edit) => Try.lift(() => context.SectionAttributesSource = edit.Source.Key).Run().Bind(static inner => inner),
+            sectionIndex: static (context, edit) => Try.lift(() =>
+                context.SectionStyleIndex = edit.Index.Map(static index => index.Value).IfNone(noneValue: ResourceIndex.Absent)).Run().Bind(static inner => inner),
+            sectionFace: static (context, edit) => Try.lift(() => {
                 edit.Style.Match(
-                    Some: style => context.Attributes.SetCustomSectionStyle(sectionStyle: style),
-                    None: () => context.Attributes.RemoveCustomSectionStyle());
-            }),
-            label: static (context, edit) => context.Op.Catch(() => context.Attributes.ClippingPlaneLabelStyle = edit.Style.Key),
-            hatchFill: static (context, edit) => context.Op.Catch(() => {
-                _ = edit.Fill.Iter(shade => context.Attributes.HatchBackgroundFillColor = AttributeShade.Rgb(shade: shade));
-                _ = edit.Print.Iter(shade => context.Attributes.HatchBackgroundFillPrintColor = AttributeShade.Rgb(shade: shade));
-            }),
-            hatchBoundary: static (context, edit) => context.Op.Catch(() => {
-                _ = edit.Visible.Iter(signal => context.Attributes.HatchBoundaryVisible = signal.On);
-                _ = edit.Color.Iter(shade => context.Attributes.HatchBoundaryColor = AttributeShade.Rgb(shade: shade));
-                _ = edit.PlotColor.Iter(shade => context.Attributes.HatchBoundaryPlotColor = AttributeShade.Rgb(shade: shade));
-                _ = edit.ColorSource.Iter(source => context.Attributes.HatchBoundaryColorSource = source.Key);
-                _ = edit.PlotColorSource.Iter(source => context.Attributes.HatchBoundaryPlotColorSource = source.Key);
-                _ = edit.Pen.Iter(pen => context.Attributes.HatchBoundaryPlotWeightMillimeters = pen.ToHost());
-            }),
-            anchorFrame: static (context, edit) => context.Op.Catch(() => context.Attributes.SetObjectFrame(plane: edit.Frame)),
-            anchorMove: static (context, edit) => context.Op.Catch(() => context.Attributes.SetObjectFrame(xform: edit.Motion)),
-            meshing: static (context, edit) => context.Op.Catch(() => {
+                    Some: style => context.SetCustomSectionStyle(sectionStyle: style),
+                    None: () => context.RemoveCustomSectionStyle());
+            }).Run().Bind(static inner => inner),
+            label: static (context, edit) => Try.lift(() => context.ClippingPlaneLabelStyle = edit.Style.Key).Run().Bind(static inner => inner),
+            hatchFill: static (context, edit) => Try.lift(() => {
+                _ = edit.Fill.Iter(shade => context.HatchBackgroundFillColor = AttributeShade.Rgb(shade: shade));
+                _ = edit.Print.Iter(shade => context.HatchBackgroundFillPrintColor = AttributeShade.Rgb(shade: shade));
+            }).Run().Bind(static inner => inner),
+            hatchBoundary: static (context, edit) => Try.lift(() => {
+                _ = edit.Visible.Iter(signal => context.HatchBoundaryVisible = signal.On);
+                _ = edit.Color.Iter(shade => context.HatchBoundaryColor = AttributeShade.Rgb(shade: shade));
+                _ = edit.PlotColor.Iter(shade => context.HatchBoundaryPlotColor = AttributeShade.Rgb(shade: shade));
+                _ = edit.ColorSource.Iter(source => context.HatchBoundaryColorSource = source.Key);
+                _ = edit.PlotColorSource.Iter(source => context.HatchBoundaryPlotColorSource = source.Key);
+                _ = edit.Pen.Iter(pen => context.HatchBoundaryPlotWeightMillimeters = pen.ToHost());
+            }).Run().Bind(static inner => inner),
+            anchorFrame: static (context, edit) => Try.lift(() => context.SetObjectFrame(plane: edit.Frame)).Run().Bind(static inner => inner),
+            anchorMove: static (context, edit) => Try.lift(() => context.SetObjectFrame(xform: edit.Motion)).Run().Bind(static inner => inner),
+            meshing: static (context, edit) => Try.lift(() => {
                 if (edit.Encoded.Case is string encoded) {
                     using MeshingParameters? parameters = MeshingParameters.FromEncodedString(encoded);
-                    if (parameters is null) { return Fin.Fail<Unit>(context.Op.InvalidResult()); }
-                    context.Attributes.CustomMeshingParameters = parameters;
-                    context.Attributes.EnableCustomMeshingParameters = true;
+                    if (parameters is null) { return Fin.Fail<Unit>(new KernelFault.InvalidResult()); }
+                    context.CustomMeshingParameters = parameters;
+                    context.EnableCustomMeshingParameters = true;
                 } else {
-                    context.Attributes.EnableCustomMeshingParameters = false;
-                    context.Attributes.CustomMeshingParameters = null;
+                    context.EnableCustomMeshingParameters = false;
+                    context.CustomMeshingParameters = null;
                 }
                 return Fin.Succ(value: unit);
-            }),
-            renderingReset: static (context, _) => context.Op.Catch(() => context.Attributes.ClearRenderingAttributes()),
+            }).Run().Bind(static inner => inner),
+            renderingReset: static (context, _) => Try.lift(() => context.ClearRenderingAttributes()).Run().Bind(static inner => inner),
             decals: static (context, edit) => edit.Move switch {
-                RosterMove<DecalSeed, int>.Impose(var seeds) => context.Op.Catch(() => context.Attributes.Decals.RemoveAllDecals())
-                    .Bind(_ => Grown(attributes: context.Attributes, seeds: seeds, key: context.Op)),
-                RosterMove<DecalSeed, int>.Extend(var seeds) => Grown(attributes: context.Attributes, seeds: seeds, key: context.Op),
-                RosterMove<DecalSeed, int>.Retract(var crcs) => context.Op.Catch(() =>
-                    toSeq(context.Attributes.Decals)
+                RosterMove<DecalSeed, int>.Impose(var seeds) => Try.lift(() => context.Decals.RemoveAllDecals()).Run().Bind(static inner => inner)
+                    .Bind(_ => Grown(attributes: context, seeds: seeds)),
+                RosterMove<DecalSeed, int>.Extend(var seeds) => Grown(attributes: context, seeds: seeds),
+                RosterMove<DecalSeed, int>.Retract(var crcs) => Try.lift(() =>
+                    toSeq(context.Decals)
                         .Filter(decal => crcs.Exists(crc => crc == decal.CRC))
-                        .TraverseM(decal => context.Op.Confirm(success: context.Attributes.Decals.Remove(decal: decal))).As()
-                        .Map(static _ => unit)),
-                _ => Fin.Fail<Unit>(error: context.Op.InvalidInput()),
+                        .TraverseM(decal => Admit.Confirm(success: context.Decals.Remove(decal: decal))).As()
+                        .Map(static _ => unit)).Run().Bind(static inner => inner),
+                _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             },
             tag: static (context, edit) => edit.Operation.Switch(
-                (context.Attributes, context.Op),
+                (context),
                 set: static (held, verb) =>
-                    from key in held.Op.AcceptText(value: verb.Key)
-                    from _ in held.Op.Confirm(success: held.Attributes.SetUserString(key: key, value: verb.Value))
+                    from key in Acceptance.Text(value: verb.Key)
+                    from _ in Admit.Confirm(success: held.SetUserString(value: verb.Value))
                     select unit,
-                read: static (held, _) => Fin.Fail<Unit>(error: held.Op.InvalidInput()),
-                readAll: static (held, _) => Fin.Fail<Unit>(error: held.Op.InvalidInput()),
+                read: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
+                readAll: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
                 delete: static (held, verb) =>
-                    from key in held.Op.AcceptText(value: verb.Key)
-                    from _ in held.Op.Confirm(success: held.Attributes.DeleteUserString(key: key))
+                    from key in Acceptance.Text(value: verb.Key)
+                    from _ in Admit.Confirm(success: held.DeleteUserString())
                     select unit,
-                clear: static (held, _) => held.Op.Catch(() => held.Attributes.DeleteAllUserStrings())),
+                clear: static (held, _) => Try.lift(() => held.DeleteAllUserStrings()).Run().Bind(static inner => inner)),
             faceMaterials: static (context, edit) => edit.Move switch {
-                RosterMove<MaterialRefSeed, Guid>.Impose(var seeds) => context.Op.Catch(() => context.Attributes.MaterialRefs.Clear())
-                    .Bind(_ => Bound(attributes: context.Attributes, seeds: seeds, key: context.Op)),
-                RosterMove<MaterialRefSeed, Guid>.Extend(var seeds) => Bound(attributes: context.Attributes, seeds: seeds, key: context.Op),
-                RosterMove<MaterialRefSeed, Guid>.Retract(var plugins) => plugins.TraverseM(plugin => context.Op.Confirm(
-                    success: context.Attributes.MaterialRefs.Remove(key: plugin))).As().Map(static _ => unit),
-                _ => Fin.Fail<Unit>(error: context.Op.InvalidInput()),
+                RosterMove<MaterialRefSeed, Guid>.Impose(var seeds) => Try.lift(() => context.MaterialRefs.Clear()).Run().Bind(static inner => inner)
+                    .Bind(_ => Bound(attributes: context, seeds: seeds)),
+                RosterMove<MaterialRefSeed, Guid>.Extend(var seeds) => Bound(attributes: context, seeds: seeds),
+                RosterMove<MaterialRefSeed, Guid>.Retract(var plugins) => plugins.TraverseM(plugin => Admit.Confirm(
+                    success: context.MaterialRefs.Remove(key: plugin))).As().Map(static _ => unit),
+                _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             });
 
-    private static Fin<Unit> Grown(ObjectAttributes attributes, Seq<DecalSeed> seeds, Op key) =>
-        seeds.TraverseM(seed => key.Catch(() => {
+    private static Fin<Unit> Grown(ObjectAttributes attributes, Seq<DecalSeed> seeds) =>
+        seeds.TraverseM(seed => Try.lift(() => {
                 using Decal? minted = Decal.Create(createParams: seed.Build());
                 return minted is null
-                    ? Fin.Fail<Unit>(error: key.InvalidResult())
-                    : guard(attributes.Decals.Add(decal: minted) != 0u, key.InvalidResult()).ToFin();
-            })).As()
+                    ? Fin.Fail<Unit>(error: new KernelFault.InvalidResult())
+                    : guard(attributes.Decals.Add(decal: minted) != 0u, new KernelFault.InvalidResult()).ToFin();
+            }).Run().Bind(static inner => inner)).As()
             .Map(static _ => unit);
 
-    private static Fin<Unit> Bound(ObjectAttributes attributes, Seq<MaterialRefSeed> seeds, Op key) =>
-        seeds.TraverseM(seed => key.Catch(() => {
+    private static Fin<Unit> Bound(ObjectAttributes attributes, Seq<MaterialRefSeed> seeds) =>
+        seeds.TraverseM(seed => Try.lift(() => {
                 using MaterialRef minted = attributes.MaterialRefs.Create(createParams: seed.Build());
                 attributes.MaterialRefs.Add(key: seed.PlugIn, value: minted);
-            })).As()
+            }).Run().Bind(static inner => inner)).As()
             .Map(static _ => unit);
 }
 ```
@@ -661,20 +657,18 @@ public sealed class AttributeProgram {
     public Seq<AttributeEdit> Edits { get; }
 
     public static Fin<AttributeProgram> Of(params ReadOnlySpan<AttributeEdit> edits) {
-        Op op = Op.Of(name: nameof(AttributeProgram));
         return from admitted in LanguageExt.Iterable<AttributeEdit>.FromSpan(edits).ToSeq()
-                   .TraverseM(edit => op.Need(edit).Bind(value => value.Admit(op: op))).As()
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
+                   .TraverseM(edit => Admit.Need(edit).Bind(value => value.Admit())).As()
+               from _ in guard(!admitted.IsEmpty, new KernelFault.InvalidInput())
                select new AttributeProgram(edits: admitted);
     }
 
     public Fin<AttributeChange> Change =>
-        Op.Of(name: nameof(AttributeProgram)).AcceptValidated<AttributeChange>(
+        FactoryBridge.Accept<AttributeChange>(
             AttributeChange.Validate(Apply, out AttributeChange? admitted), admitted);
 
     internal Fin<Unit> Apply(ObjectAttributes attributes) {
-        Op op = Op.Of(name: nameof(AttributeProgram));
-        return from working in op.Need(attributes)
+        return from working in Admit.Need(attributes)
                from _ in Edits.TraverseM(edit => edit.Apply(attributes: working, op: op)).As()
                select unit;
     }
@@ -700,13 +694,11 @@ public abstract partial record AttributeAsk {
     public sealed record Stored : AttributeAsk;
     public sealed record Resolved(Option<Guid> Viewport = default) : AttributeAsk;
 
-    internal Fin<AttributeAsk> Admit(Op op) =>
-        Switch(
-            op,
-            stored: static (_, ask) => Fin.Succ<AttributeAsk>(ask),
+    internal Fin<AttributeAsk> Admit() =>
+        Switch(stored: static (_, ask) => Fin.Succ<AttributeAsk>(ask),
             resolved: static (key, ask) => guard(
                 ask.Viewport.Map(static value => value != Guid.Empty).IfNone(noneValue: true),
-                key.InvalidInput()).ToFin().Map(_ => (AttributeAsk)ask));
+                new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeAsk)ask));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -723,11 +715,11 @@ public sealed record OverrideCensus(
     ObjectSignal DetailBackgroundVisible);
 
 public readonly record struct DecalSnapshot(int Crc, ObjectSignal Visible, DecalSeed Seed) {
-    internal static Fin<DecalSnapshot> Of(Decal decal, Op key) => key.Catch(() => {
+    internal static Fin<DecalSnapshot> Of(Decal decal) => Try.lift(() => {
         decal.GetUVBounds(out double minU, out double minV, out double maxU, out double maxV);
         decal.HorzSweep(out double horzStart, out double horzEnd);
         decal.VertSweep(out double vertStart, out double vertEnd);
-        return key.AcceptValidated<DecalSeed>(
+        return FactoryBridge.Accept<DecalSeed>(
                 fault: DecalSeed.Validate(
                     texture: decal.TextureInstanceId,
                     mapping: DecalFrame.Get(key: decal.Mapping),
@@ -751,12 +743,12 @@ public readonly record struct DecalSnapshot(int Crc, ObjectSignal Visible, Decal
                 admitted: admitted)
             .Map(seed => new DecalSnapshot(
                 Crc: decal.CRC, Visible: ObjectSignal.Of(on: decal.IsVisible), Seed: seed));
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 public readonly record struct MaterialRefSnapshot(Guid DictionaryKey, MaterialRefSeed Seed) {
-    internal static Fin<MaterialRefSnapshot> Of(Guid key, MaterialRef live, Op op) =>
-        op.AcceptValidated<MaterialRefSeed>(
+    internal static Fin<MaterialRefSnapshot> Of(Guid key, MaterialRef live) =>
+        FactoryBridge.Accept<MaterialRefSeed>(
                 fault: MaterialRefSeed.Validate(
                     plugIn: live.PlugInId,
                     source: MaterialOrigin.Get(key: live.MaterialSource),
@@ -811,29 +803,29 @@ public sealed record AttributeSnapshot(
     ItemColorOrigin HatchBoundaryColorSource,
     ItemColorOrigin HatchBoundaryPlotColorSource,
     PrintPen HatchBoundaryPen) : IDetachedDocumentResult {
-    internal static Fin<AttributeSnapshot> Of(ObjectAttributes attributes, Op key) =>
-        key.Catch(() => {
+    internal static Fin<AttributeSnapshot> Of(ObjectAttributes attributes) =>
+        Try.lift(() => {
             bool overrides = attributes.GetActiveInViewportOverrides(viewportIds: out Guid[] viewports, active: out bool active);
             MeshingParameters? customMesh = attributes.EnableCustomMeshingParameters
                 ? attributes.CustomMeshingParameters
                 : null;
-            return from layer in ResourceIndex.Admit(value: attributes.LayerIndex, key: key)
-                from print in PrintPen.OfHost(weight: attributes.PlotWeight, key: key)
-                from boundaryPen in PrintPen.OfHost(weight: attributes.HatchBoundaryPlotWeightMillimeters, key: key)
-                from objectColor in AttributeShade.Of(color: attributes.ObjectColor, key: key)
-                from plotColor in AttributeShade.Of(color: attributes.PlotColor, key: key)
-                from hatchFill in AttributeShade.Of(color: attributes.HatchBackgroundFillColor, key: key)
-                from hatchPrint in AttributeShade.Of(color: attributes.HatchBackgroundFillPrintColor, key: key)
-                from boundaryColor in AttributeShade.Of(color: attributes.HatchBoundaryColor, key: key)
-                from boundaryPlotColor in AttributeShade.Of(color: attributes.HatchBoundaryPlotColor, key: key)
+            return from layer in ResourceIndex.Admit(value: attributes.LayerIndex)
+                from print in PrintPen.OfHost(weight: attributes.PlotWeight)
+                from boundaryPen in PrintPen.OfHost(weight: attributes.HatchBoundaryPlotWeightMillimeters)
+                from objectColor in AttributeShade.Of(color: attributes.ObjectColor)
+                from plotColor in AttributeShade.Of(color: attributes.PlotColor)
+                from hatchFill in AttributeShade.Of(color: attributes.HatchBackgroundFillColor)
+                from hatchPrint in AttributeShade.Of(color: attributes.HatchBackgroundFillPrintColor)
+                from boundaryColor in AttributeShade.Of(color: attributes.HatchBoundaryColor)
+                from boundaryPlotColor in AttributeShade.Of(color: attributes.HatchBoundaryPlotColor)
                 from decals in attributes.Decals.AsIterable().ToSeq()
-                    .TraverseM(decal => DecalSnapshot.Of(decal: decal, key: key)).As()
+                    .TraverseM(decal => DecalSnapshot.Of(decal: decal)).As()
                 from materialRefs in attributes.MaterialRefs.AsIterable().ToSeq()
-                    .TraverseM(pair => MaterialRefSnapshot.Of(key: pair.Key, live: pair.Value, op: key)).As()
+                    .TraverseM(pair => MaterialRefSnapshot.Of(live: pair.Value)).As()
                 select new AttributeSnapshot(
                 ObjectId: attributes.ObjectId,
-                Name: Op.Text(attributes.Name),
-                Url: Op.Text(attributes.Url),
+                Name: HostEdge.Text(attributes.Name),
+                Url: HostEdge.Text(attributes.Url),
                 LayerIndex: layer,
                 LinetypeIndex: ResourceIndex.Maybe(value: attributes.LinetypeIndex),
                 MaterialIndex: ResourceIndex.Maybe(value: attributes.MaterialIndex),
@@ -877,7 +869,7 @@ public sealed record AttributeSnapshot(
                 HatchBoundaryColorSource: ItemColorOrigin.Get(key: attributes.HatchBoundaryColorSource),
                 HatchBoundaryPlotColorSource: ItemColorOrigin.Get(key: attributes.HatchBoundaryPlotColorSource),
                 HatchBoundaryPen: boundaryPen);
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 public readonly record struct EffectiveDisplay(
@@ -887,8 +879,8 @@ public readonly record struct EffectiveDisplay(
     PrintPen Print,
     Option<Guid> ModeOverride,
     Option<ObjectSignal> ActiveOverride) : IDetachedDocumentResult {
-    internal static Fin<EffectiveDisplay> Of(RhinoObject native, Rhino.RhinoDoc document, Option<Guid> viewport, Op key) =>
-        key.Catch(() => {
+    internal static Fin<EffectiveDisplay> Of(RhinoObject native, Rhino.RhinoDoc document, Option<Guid> viewport) =>
+        Try.lift(() => {
             ObjectAttributes attributes = native.Attributes;
             var resolved = viewport.Case is Guid scoped
                 ? (Draw: attributes.DrawColor(document: document, viewportId: scoped),
@@ -905,9 +897,9 @@ public readonly record struct EffectiveDisplay(
                     Weight: attributes.ComputedPlotWeight(document: document),
                     Mode: Option<Guid>.None,
                     Active: Option<ObjectSignal>.None);
-            return from draw in AttributeShade.Of(color: resolved.Draw, key: key)
-                   from plot in AttributeShade.Of(color: resolved.Plot, key: key)
-                   from print in PrintPen.OfHost(weight: resolved.Weight, key: key)
+            return from draw in AttributeShade.Of(color: resolved.Draw)
+                   from plot in AttributeShade.Of(color: resolved.Plot)
+                   from print in PrintPen.OfHost(weight: resolved.Weight)
                    select new EffectiveDisplay(
                        Id: native.Id,
                        Draw: draw,
@@ -915,28 +907,26 @@ public readonly record struct EffectiveDisplay(
                        Print: print,
                        ModeOverride: resolved.Mode,
                        ActiveOverride: resolved.Active);
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Attributes {
     public static Fin<AttributeAnswer> Ask(DocumentSession session, TableTarget target, AttributeAsk ask) {
-        Op op = Op.Of();
-        return from active in op.Need(ask).Bind(value => value.Admit(op: op))
+        return from active in Admit.Need(ask).Bind(value => value.Admit())
                from answer in session.Demand(
                    use: document =>
-                       from natives in Objects.Resolve(document: document, target: target, key: op)
+                       from natives in Objects.Resolve(document: document, target: target)
                        from folded in active.Switch(
-                           (Document: document, Natives: natives, Op: op),
+                           (Document: document, Natives: natives),
                            stored: static (ctx, _) => ctx.Natives
                                .TraverseM(native => AttributeSnapshot.Of(attributes: native.Attributes, key: ctx.Op)).As()
                                .Map(static rows => (AttributeAnswer)new AttributeAnswer.Declared(Rows: rows)),
                            resolved: static (ctx, ask) => ctx.Natives
                                .TraverseM(native => EffectiveDisplay.Of(
-                                   native: native, document: ctx.Document, viewport: ask.Viewport, key: ctx.Op)).As()
+                                   native: native, document: ctx.Document, viewport: ask.Viewport)).As()
                                .Map(static rows => (AttributeAnswer)new AttributeAnswer.Effective(Rows: rows)))
                        select folded,
-                   key: op,
                    needs: [SessionNeed.Read])
                select answer;
     }

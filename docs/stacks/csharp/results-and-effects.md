@@ -219,7 +219,7 @@ public static class Custody {
     }
 
     static Fin<Unit> Release(IDisposable? resource) =>
-        Op.Of().Catch(() => { resource?.Dispose(); return Fin.Succ(unit); });
+        Try.lift(() => { resource?.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner);
 }
 ```
 

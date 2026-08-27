@@ -234,7 +234,6 @@ public sealed record ProjectionEvidence(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Hlr {
-    private static readonly Op HlrOp = Op.Of(name: "fabrication:hidden-line");
 
     private readonly record struct Sourced(MeshSpace Model, Seq<BooleanComposition> Composition);
 
@@ -242,7 +241,7 @@ internal static class Hlr {
         FabricationPolicy.HiddenLine request,
         FabricationInput input,
         Func<ProjectionEvidence, FabricationResult> egress) =>
-        from admitted in input.Model.ToFin(HlrOp.InvalidInput())
+        from admitted in input.Model.ToFin(new KernelFault.InvalidInput())
         from sourced in Source(admitted, request.Policy.Source)
         from framed in request.Policy.Views
             .Traverse(view => ProjectionLeg(view, sourced.Model, request.Policy))
@@ -265,7 +264,7 @@ internal static class Hlr {
         Seq<ProjectionCharacteristic> characteristics) =>
         characteristics.Bind(characteristic => {
             double depth = camera.Depth(characteristic.ModelLocus);
-            return ValidityClaim.Positive(depth) ? Seq(new ProjectionAnchor(key, characteristic, camera.Project(characteristic.ModelLocus), depth))
+            return ValidityClaim.Positive(depth) ? Seq(new ProjectionAnchor(characteristic, camera.Project(characteristic.ModelLocus), depth))
                 : Seq<ProjectionAnchor>();
         });
 
@@ -307,7 +306,7 @@ internal static class Hlr {
                     : (state.Travelled + span,
                         Seat(row, span > 0.0 ? Math.Min((half - state.Travelled) / span, 1.0) : 0.0));
             }).Seat;
-        return new BalloonAnchor(key, part, seat.Locus, seat.Depth, run, chain.Count);
+        return new BalloonAnchor(part, seat.Locus, seat.Depth, run, chain.Count);
     }
 
     private static (Point3d Locus, double Depth) Seat(ProjectedSegment row, double at) => (
@@ -328,10 +327,10 @@ internal static class Hlr {
                     HlrOp)
                 from kept in result.Switch(
                     boolean: static value => Fin.Succ(value),
-                    overlay: static _ => Fin.Fail<ArrangementResult.Boolean>(HlrOp.InvalidResult()),
-                    complex: static _ => Fin.Fail<ArrangementResult.Boolean>(HlrOp.InvalidResult()))
+                    overlay: static _ => Fin.Fail<ArrangementResult.Boolean>(new KernelFault.InvalidResult()),
+                    complex: static _ => Fin.Fail<ArrangementResult.Boolean>(new KernelFault.InvalidResult()))
                 from solid in kept.Shells.Count == 1
-                    ? kept.Shells.Head.ToFin(HlrOp.InvalidResult())
+                    ? kept.Shells.Head.ToFin(new KernelFault.InvalidResult())
                     : Fin.Fail<MeshSpace>(new GeometryFault.DegenerateInput(
                         Kind.Mesh, None, "projection:severed-operand"))
                 select new Sourced(
@@ -342,8 +341,8 @@ internal static class Hlr {
         MeshSpace model,
         ProjectionDir direction,
         ProjectionPolicy policy) =>
-        from bounds in HlrOp.Catch(() => Fin.Succ(model.Native.GetBoundingBox(accurate: false)))
-        from _ in guard(bounds.IsValid, HlrOp.InvalidInput())
+        from bounds in Try.lift(() => Fin.Succ(model.Native.GetBoundingBox(accurate: false))).Run().Bind(static inner => inner)
+        from _ in guard(bounds.IsValid, new KernelFault.InvalidInput())
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)
         from camera in pose.ToCamera(model.Tolerance, HlrOp)

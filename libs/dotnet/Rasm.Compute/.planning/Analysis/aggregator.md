@@ -116,7 +116,6 @@ public static class AssemblyAggregator {
 
     private static readonly ImmutableArray<double> BandCentresHz = [.. AcousticBand.Items.Select(static band => band.CenterHz)];
 
-    private static readonly Op ContourKey = Op.Of(name: nameof(Stc));
 
     public static Fin<AssemblyProperty> Aggregate(MaterialComposition composition, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
         composition.Switch(

@@ -104,11 +104,11 @@ public sealed partial class SnapshotCodec {
         : Fin.Fail<byte[]>(new CodecFault.ShapeRefused(shape.Name));
 
     static Fin<object?> ProtoDecode(Type shape, ReadOnlyMemory<byte> payload) =>
-        Op.Of().Catch(() => Activator.CreateInstance(shape) is IMessage message
+        Try.lift(() => Activator.CreateInstance(shape) is IMessage message
             ? (message.MergeFrom(payload.Span), Fin.Succ<object?>(message)).Item2
-            : Fin.Fail<object?>(new CodecFault.ShapeRefused(shape.Name)));
+            : Fin.Fail<object?>(new CodecFault.ShapeRefused(shape.Name))).Run().Bind(static inner => inner);
 
-    public static Fin<SnapshotCodec> ByHeaderId(int headerId, Op? key = null) =>
+    public static Fin<SnapshotCodec> ByHeaderId(int headerId) =>
         key.OrDefault().Row<int, string, SnapshotCodec>(candidate: headerId, column: static row => row.HeaderId, match: None);
     public bool Serves(WireSurface surface) => Membership.Contains(surface);
 
@@ -140,16 +140,15 @@ public static class CborBlob {
         writer.WriteByteString(payload.Span);
         return writer.Encode();
     }
-    public static Fin<byte[]> Decode(ReadOnlyMemory<byte> payload, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => {
+    public static Fin<byte[]> Decode(ReadOnlyMemory<byte> payload) {
+        return Try.lift(() => {
             CborReader reader = new(payload, CborConformanceMode.Strict);
             if (reader.PeekState() == CborReaderState.Tag && reader.PeekTag() == CborTag.SelfDescribeCbor) reader.ReadTag();
             byte[] bytes = reader.ReadByteString();
             return reader.BytesRemaining == 0
                 ? Fin.Succ(bytes)
                 : Fin.Fail<byte[]>(new CodecFault.FrameRejected($"cbor-trailing:{reader.BytesRemaining}"));
-        });
+        }).Run().Bind(static inner => inner);
     }
 }
 
@@ -213,7 +212,7 @@ public sealed partial class CompressionPolicy {
 
     public int HeaderId { get; }
     public Option<ZstdTuning> Tuning { get; }
-    public static Fin<CompressionPolicy> ByHeaderId(int headerId, Op? key = null) =>
+    public static Fin<CompressionPolicy> ByHeaderId(int headerId) =>
         key.OrDefault().Row<int, string, CompressionPolicy>(candidate: headerId, column: static row => row.HeaderId, match: None);
     [UseDelegateFromConstructor] public partial Fin<byte[]> Pack(ReadOnlyMemory<byte> payload);
     [UseDelegateFromConstructor] public partial Fin<byte[]> Unpack(ReadOnlyMemory<byte> framed);
@@ -290,7 +289,7 @@ public sealed partial class HashPolicy {
     public int Bits { get; }
     public string HexFormat { get; }
     [UseDelegateFromConstructor] public partial UInt128 Compute(ReadOnlyMemory<byte> payload);
-    public static Fin<HashPolicy> ByDomainId(byte domainId, Op? key = null) =>
+    public static Fin<HashPolicy> ByDomainId(byte domainId) =>
         key.OrDefault().Row<byte, string, HashPolicy>(candidate: domainId, column: static row => row.DomainId, match: None);
 }
 ```
@@ -442,10 +441,10 @@ public static class Snapshots {
             .Bind(row => persist(row).Map(_ => row));
 
     public static IO<Seq<string>> Sweep(ProjectionContext frame, SnapshotRoute route, Seq<SnapshotCatalogRow> catalog) =>
-        IO.lift(() => Op.Of().Catch(() => Fin.Succ((Now: frame.Now(), Files: toSeq(Directory.EnumerateFiles(route.Directory))))))
+        IO.lift(() => Try.lift(() => Fin.Succ((Now: frame.Now(), Files: toSeq(Directory.EnumerateFiles(route.Directory))))).Run().Bind(static inner => inner))
             .Map(scan => scan.Files.Filter(file => !catalog.Exists(row => string.Equals(Path.GetFileName(file), $"{row.Id}{Suffix}", StringComparison.Ordinal)) && scan.Now - Instant.FromDateTimeUtc(File.GetLastWriteTimeUtc(file)) >= route.OrphanAge))
             .Bind(static orphans => orphans.TraverseM(static file =>
-                IO.lift(() => Op.Of().Catch(() => { File.Delete(file); return Fin<string>.Succ(file); }))).As());
+                IO.lift(() => Try.lift(() => { File.Delete(file); return Fin<string>.Succ(file); }).Run().Bind(static inner => inner))).As());
 
     static Fin<(Guid Id, SnapshotHeader Header)> Seal(SnapshotRoute route, Guid id, byte[] encoded) =>
         route.Format.Compression.Pack(encoded).Bind(packed =>
@@ -472,12 +471,11 @@ public static class Snapshots {
     }
 
     static Fin<SnapshotHeader> Read(ReadOnlySpan<byte> a) {
-        Op key = Op.Of();
         (uint magic, byte version, byte domain, int codec, int compression) = (BinaryPrimitives.ReadUInt32LittleEndian(a), a[4], a[5], BinaryPrimitives.ReadInt32LittleEndian(a[8..]), BinaryPrimitives.ReadInt32LittleEndian(a[12..]));
         (ulong fingerprint, ulong epoch, long plain, long stored) = (BinaryPrimitives.ReadUInt64LittleEndian(a[20..]), BinaryPrimitives.ReadUInt64LittleEndian(a[28..]), BinaryPrimitives.ReadInt64LittleEndian(a[36..]), BinaryPrimitives.ReadInt64LittleEndian(a[44..]));
         uint checksum = BinaryPrimitives.ReadUInt32LittleEndian(a[SnapshotHeader.ChecksumOffset..]);
-        return (Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.ContentOffset..SnapshotHeader.StoredOffset], key),
-                Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.StoredOffset..SnapshotHeader.ChecksumOffset], key))
+        return (Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.ContentOffset..SnapshotHeader.StoredOffset]),
+                Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.StoredOffset..SnapshotHeader.ChecksumOffset]))
             .Apply((content, storedDigest) => new SnapshotHeader(magic, version, domain, codec, compression, fingerprint, epoch, plain, stored, content, storedDigest, checksum))
             .As();
     }

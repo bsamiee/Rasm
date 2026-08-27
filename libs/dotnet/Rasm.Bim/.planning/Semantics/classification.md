@@ -12,7 +12,7 @@ The round-trip is BIDIRECTIONAL across three entries: `Classify` lowers a valida
 ## [02]-[CLASSIFICATION_AXIS]
 
 - Owner: `ClassificationSystem` the `[SmartEnum<string>]` standard classification-systems axis keyed on the system identifier, each row ONE `Func<BsddPins, SystemIdentity>` reader answering the four facts a dictionary address and a code gate need — the display `Title`, the version-free `Stem` (the ingest prefix identity a foreign-edition `Location` still matches), the hosted `Version`, and the compiled code shape — the stem and version deriving the versioned `DictionaryUri` (the bSDD identifier scheme is `{org}/{dictionary}/{version}`; a versionless class URI does not resolve, so the version-bearing row IS the live-lane admission and an unhosted system reads a blank version so its live leg degrades by construction); `SystemIdentity` that four-fact carrier and `BsddPins` the ONE policy record supplying the hosted version tokens plus the `Custom` project-system identity the `Project` row reads WHOLE, so a durable standard freezes its identity at declaration while a registry-republished version and a client asset-code scheme alike stay values a composition overrides. The projector lowers a resolved standard code onto the shared `Classification/classification#CLASSIFICATION_AXIS` `Classification` value the `Object` node carries and authors it back at egress. The shared `Classification` is the library-neutral `(system, code)` pair; this page is the standard-systems authority the contract defers to — it validates the code shape and resolves the bSDD dictionary class, then lowers onto the shared value, never re-declaring a classification value-object beside the contract.
-- Entry: `ClassificationSystem.Classify(string code, Option<string> title, BsddPins pins, Op key)` validates the raw code against the system's code-shape regex and lowers it onto a shared `Classification(Key, code, "", None, None, title)` value — the `title` the resolved concept name where a caller HAS one (the `Certify` lane carries the dictionary class's own) and `None` on the bare authoring path, so one entry spans both without a mode flag; `Fin<T>` aborts on a code-shape mismatch (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Unmapped`, the typed case lifting BARE off `key`, no `.ToError()` hop); `ClassificationSystem.Ingest(IfcClassificationReference reference, BsddPins pins, Op key)` is the import-ingress inverse resolving the standard system off the reference's `ReferencedSource` root dictionary title, the root's `Specification` dictionary-URI prefix, OR its `Location` identifier-URI prefix against the roster (the code off `Identification` or the trailing `Location` segment, the resolved `Title` off the reference's own `Name`), returning `Fin<Option<Classification>>` the `Projection/semantic#SEMANTIC_PROJECTOR` ingress accumulates onto the `Graph/element#NODE_MODEL` `Object` node's `Classifications` set (IFC admits MULTIPLE `IfcRelAssociatesClassification` per object) — `Succ(None)` for an unrostered source or a code-free reference so a foreign system rides the `Projection/relations#RELATION_ALGEBRA` `Generic` passthrough rather than a wrong lowering, `Fail` for the contract's own blank-token refusal a collapsed `None` masks as a foreign system; `ClassificationSystem.Author(DatabaseIfc db, IfcDefinitionSelect related, Classification classification, BsddPins pins)` is the egress entry the `Emit` composes per `Object` node — `None` for the `IfcSystem.Key` entity-type code (the `IfcClass` the object author already resolved) or an unrostered system, and otherwise authoring the `IfcRelAssociatesClassification` over an `IfcClassificationReference` whose `ReferencedSource` is the resolved system's edition-scoped dictionary, `Identification` the code, `Location` the identifier URI, and `Name` the shared `Title` — the members `Ingest` reads back, so the full identity survives the egress leg.
+- Entry: `ClassificationSystem.Classify(string code, Option<string> title, BsddPins pins)` validates the raw code against the system's code-shape regex and lowers it onto a shared `Classification(Key, code, "", None, None, title)` value — the `title` the resolved concept name where a caller HAS one (the `Certify` lane carries the dictionary class's own) and `None` on the bare authoring path, so one entry spans both without a mode flag; `Fin<T>` aborts on a code-shape mismatch (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Unmapped`, the typed case lifting BARE off `key`, no `.ToError()` hop); `ClassificationSystem.Ingest(IfcClassificationReference reference, BsddPins pins)` is the import-ingress inverse resolving the standard system off the reference's `ReferencedSource` root dictionary title, the root's `Specification` dictionary-URI prefix, OR its `Location` identifier-URI prefix against the roster (the code off `Identification` or the trailing `Location` segment, the resolved `Title` off the reference's own `Name`), returning `Fin<Option<Classification>>` the `Projection/semantic#SEMANTIC_PROJECTOR` ingress accumulates onto the `Graph/element#NODE_MODEL` `Object` node's `Classifications` set (IFC admits MULTIPLE `IfcRelAssociatesClassification` per object) — `Succ(None)` for an unrostered source or a code-free reference so a foreign system rides the `Projection/relations#RELATION_ALGEBRA` `Generic` passthrough rather than a wrong lowering, `Fail` for the contract's own blank-token refusal a collapsed `None` masks as a foreign system; `ClassificationSystem.Author(DatabaseIfc db, IfcDefinitionSelect related, Classification classification, BsddPins pins)` is the egress entry the `Emit` composes per `Object` node — `None` for the `IfcSystem.Key` entity-type code (the `IfcClass` the object author already resolved) or an unrostered system, and otherwise authoring the `IfcRelAssociatesClassification` over an `IfcClassificationReference` whose `ReferencedSource` is the resolved system's edition-scoped dictionary, `Identification` the code, `Location` the identifier URI, and `Name` the shared `Title` — the members `Ingest` reads back, so the full identity survives the egress leg.
 - Auto: `Classify` matches the trimmed code against the row's `CodeShape` regex (the shape enforcement a decorative code type never applies) and, on a match, hands the pair to the contract's ONE result-returning admission `Classification.Of(Key, code, key, title: title)` — the `[ComplexValueObject]` entry normalizing the system token, trimming the code, and accumulating its two frozen blank-token gates under the caller's `Op`, the edition-unspecified `Edition ""` and the `Source`/`EditionDate` annotations absent on every ingress path since neither a raw code nor a dictionary class carries a publisher edition — so a `"Ss_25_10_30"` lowers onto a `Classification("uniclass2015", "Ss_25_10_30", "")` and a code either gate rejects faults rather than lowering a malformed value; the containment hierarchy is the bSDD `Parent`/`Ancestry`/`Children` evidence the `[03]-[BSDD_RESOLUTION]` owner resolves, never a contract-side code-shape derivation. `Ingest` walks `RootSource` to the root `IfcClassification` ONCE: it matches a roster row by the dictionary `Name` equality, the root's `Specification` dictionary-URI through the shared `ByUri` version-free `Stem` prefix (the URI `Author` itself stamps, so the round-trip self-resolves even when a re-export strips per-reference `Location`s), or the reference `Location` prefix (a `Location` minted under ANY dictionary edition — a foreign 2015-edition reference, a future `ifc/4.6` class URI — still resolves its row), reads the code off `CodeOf` (`TailCode`-unescaping the `Location` trailing segment when the `Identification` is absent), and lowers the EDITION-SCOPED annotation bundle off that SAME root — the `Edition` token (IDENTITY on the contract), the `Source` publisher, and the `EditionDate` revision date (`IfcClassification.Edition`/`Source`/`EditionDate` decompile-confirmed) — while `TitleOf` reads the reference's OWN `IfcClassificationReference.Name` (distinct from the root dictionary `Name`) as the resolved concept `Title`, so the imported leg lands the FULL identity (edition + publisher + date + title) at the only path that can populate it rather than a perpetually edition-blank, title-`None` reference. `Author` resolves the row through the generated `TryGet` and authors the reference with the URI-escaped `Location` (`ClassUri`) so an OmniClass/MasterFormat code carrying spaces round-trips, the reference `Name` carrying the shared `Title` and the `(db, system, edition)`-keyed dictionary memo re-stamping the value's `Edition`/`Source`/`EditionDate` — the egress leg of the same identity `Ingest` lowers; the bSDD class-to-property mapping resolves separately through the `[03]-[BSDD_RESOLUTION]` owner.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm
 - Growth: a new classification standard is one `ClassificationSystem` row whose reader closes over its frozen `SystemIdentity`; a dictionary the public bSDD starts hosting is one version column on `BsddPins` plus the row's reader, never a shape edit; a PROJECT-OWN system is a `SystemIdentity` value on `BsddPins.Custom` with no roster edit at all, the `Project` row already reading it; a registry that re-publishes a dictionary version is one value the composition passes, never a durable-page edit; the shared `Classification` value-object absorbs any `(system, code)` pair with no contract edit; the bSDD lookup is the same dictionary that drives the IDS Classification facet and the bSDD-referenced property definitions, so a new dictionary is one URI row shared across `classification`, `properties`, and `validation`; never a per-system classifier type, never a parallel classification value-object beside the contract, and never a per-direction resolver (one `Classify`/`Ingest`/`Author` triad spans the whole round-trip).
@@ -30,7 +30,6 @@ using Rasm.Bim.Projection;
 using Rasm.Element.Classification;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Semantics;
 
@@ -63,7 +62,7 @@ public sealed partial class ClassificationSystem {
 
     static ClassificationSystem Standard(string key, string title, string stem, string pattern) {
         var identity = new SystemIdentity(title, stem, "", pattern);
-        return new ClassificationSystem(key, _ => identity);
+        return new ClassificationSystem(_ => identity);
     }
 
     public string Title(BsddPins pins) => Resolve(pins).Title;
@@ -77,10 +76,10 @@ public sealed partial class ClassificationSystem {
 
     public bool Hosted(BsddPins pins) => Resolve(pins).Version.Length > 0;
 
-    public Fin<Classification> Classify(string code, Option<string> title, BsddPins pins, Op key) =>
+    public Fin<Classification> Classify(string code, Option<string> title, BsddPins pins) =>
         CodeShape(pins).IsMatch(code.Trim())
-            ? Classification.Of(Key, code, key, title: title)
-            : Fin.Fail<Classification>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", Key, code })));
+            ? Classification.Of(Key, code, title: title)
+            : Fin.Fail<Classification>(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", Key, code })));
 
     public string ClassUri(string code, BsddPins pins) => $"{DictionaryUri(pins)}/class/{System.Uri.EscapeDataString(code.Trim())}";
 
@@ -93,14 +92,13 @@ public sealed partial class ClassificationSystem {
 
     internal static string TailCode(string uri) => System.Uri.UnescapeDataString(uri[(uri.LastIndexOf('/') + 1)..]);
 
-    public static Fin<Option<Classification>> Ingest(IfcClassificationReference reference, BsddPins pins, Op key) {
+    public static Fin<Option<Classification>> Ingest(IfcClassificationReference reference, BsddPins pins) {
         IfcClassification? dictionary = RootSource(reference);
         return (Optional(Items.FirstOrDefault(row => row.Title(pins) is { Length: > 0 } title && string.Equals(title, PropertyLowering.Stated(dictionary?.Name).IfNone(""), StringComparison.OrdinalIgnoreCase)))
             | ByUri(PropertyLowering.Stated(dictionary?.Specification).IfNone(""), pins)
             | ByUri(PropertyLowering.Stated(reference.Location).IfNone(""), pins))
             .Bind(system => Optional(CodeOf(reference)).Filter(static code => code.Length > 0).Map(code => (system, code)))
-            .TraverseM(found => Classification.Of(
-                    found.system.Key, found.code, key,
+            .TraverseM(found => Classification.Of(found.code,
                     edition: PropertyLowering.Stated(dictionary?.Edition).IfNone("").Trim(),
                     source: SourceOf(dictionary),
                     editionDate: EditionDateOf(dictionary),
@@ -159,7 +157,7 @@ public sealed partial class ClassificationSystem {
 ## [03]-[BSDD_RESOLUTION]
 
 - Owner: `BsddResolution` the live bSDD dictionary resolution over Compute's transport keyed on the `ClassificationSystem.DictionaryUri` and the code, degrading to the row's local code-shape policy when the endpoint was UNREACHED so ingest never blocks on the dictionary; `BsddClass`/`BsddProperty` the resolved evidence carrying the FULL `ClassContract.v1` surface — the class-scoped constraint surface the `Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey.Resolve` template, the IDS facets, and the shared `MeasureValue` coercion read, the forward + reverse relation set (`BsddRelation`), the authoritative containment (`Parent`/`Ancestry`/`Children` `BsddRef` rows — the parent a MasterFormat/Uniformat code string does not encode and the contract carries no derivation for, the dictionary being the ONLY source that states it), and the supersession surface (`Status`/`Replaces`/`ReplacedBy`/`Deprecation`); `BsddWire` the `[Mapper]` boundary transcription owning the result-free wire-row crossings; `BsddFederation` the cross-standard equivalence classes over the relation graph.
-- Entry: `BsddResolution.Resolve(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token, Op key)` resolves the full dictionary-class evidence over Compute's transport — `Fin<T>` returns the resolved `BsddClass` on a live hit; an UNREACHED endpoint degrades to the row's local code-shape policy APPLIED (`LocalShape` — a shape-passing code admits as property-free `Active` evidence, a shape-reject faults `BimFault.Refused` with `BimReason.Unmapped` with the same `classification-code-reject` detail `Classify` mints; unreachability itself never faults), while a REACHED endpoint whose body the decoder rejected retains the port's exact `Error` — the two are distinct states on the port's own return, never inferred from one collapsed failure. `BsddResolution.Certify(system, code, port, pins, token, key)` is the dictionary-certified authoring lowering composing `Resolve` → `BsddClass.Admit` → `Classify`, so a NEW code never lands on an `Inactive`/superseded class AND the certified value carries the dictionary's OWN code and concept title rather than discarding the evidence it just paid a round-trip for (offline the shape-gated degrade admits and the row's local shape gates alone — certification tightens when the dictionary answers, never blocks when it cannot). `BsddResolution.Search(text, scope, relatedIfcEntity, port, pins, token, key)` resolves a concept label or IFC entity to candidate `BsddHit` codes over `api/Class/Search/v1`, each hit carrying its server-order `Rank` — authoring-time, never the ingest path, no offline concept index exists, so an unreached endpoint faults `BimFault.Refused` with `BimReason.Codec` while a port failure retains its exact `Error`. `BsddResolution.Suggest(ElementGraph graph, Seq<ClassificationSystem> targets, BsddPort port, BsddPins pins, CancellationToken token, Op key)` is the graph-scale ENRICHMENT fold — every entity-type-classified occurrence with no classification in a target system resolves ranked candidate codes once per distinct QUERY key through the same `Search` wire (server order the rank, the roster the admission), returning per-element `ClassificationSuggestion` rows an authoring surface confirms in bulk through `Certify` — the as-received unclassified model gains its mandated Uniclass/OmniClass coverage without per-element hand lookup, the difference between a checker and an authoring assistant. `BsddFederation.Of(classes)` folds resolved evidence into the equivalence closure; `Translate(classification, target, pins, key)` lowers a code across standards onto the shared value over `Classification.Of`, returning `Fin<Seq<Classification>>` so a peer URI the contract refuses returns instead of vanishing into the same empty sequence an unrostered source yields; `Equivalent`/`EquivalentSet` answer the pairwise and set queries. EVERY live hop crosses the one `Fetch` member under the declared `RedrivePolicy Registry` — `RedrivePolicy.Of(Schedule.exponential | Schedule.maxDelay, bound)` composed through kernel `Redrive.Run` — so a transient registry refusal re-drives on the kernel curve instead of degrading a reachable dictionary to the offline shape gate.
+- Entry: `BsddResolution.Resolve(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token)` resolves the full dictionary-class evidence over Compute's transport — `Fin<T>` returns the resolved `BsddClass` on a live hit; an UNREACHED endpoint degrades to the row's local code-shape policy APPLIED (`LocalShape` — a shape-passing code admits as property-free `Active` evidence, a shape-reject faults `BimFault.Refused` with `BimReason.Unmapped` with the same `classification-code-reject` detail `Classify` mints; unreachability itself never faults), while a REACHED endpoint whose body the decoder rejected retains the port's exact `Error` — the two are distinct states on the port's own return, never inferred from one collapsed failure. `BsddResolution.Certify(system, code, port, pins, token)` is the dictionary-certified authoring lowering composing `Resolve` → `BsddClass.Admit` → `Classify`, so a NEW code never lands on an `Inactive`/superseded class AND the certified value carries the dictionary's OWN code and concept title rather than discarding the evidence it just paid a round-trip for (offline the shape-gated degrade admits and the row's local shape gates alone — certification tightens when the dictionary answers, never blocks when it cannot). `BsddResolution.Search(text, scope, relatedIfcEntity, port, pins, token)` resolves a concept label or IFC entity to candidate `BsddHit` codes over `api/Class/Search/v1`, each hit carrying its server-order `Rank` — authoring-time, never the ingest path, no offline concept index exists, so an unreached endpoint faults `BimFault.Refused` with `BimReason.Codec` while a port failure retains its exact `Error`. `BsddResolution.Suggest(ElementGraph graph, Seq<ClassificationSystem> targets, BsddPort port, BsddPins pins, CancellationToken token)` is the graph-scale ENRICHMENT fold — every entity-type-classified occurrence with no classification in a target system resolves ranked candidate codes once per distinct QUERY key through the same `Search` wire (server order the rank, the roster the admission), returning per-element `ClassificationSuggestion` rows an authoring surface confirms in bulk through `Certify` — the as-received unclassified model gains its mandated Uniclass/OmniClass coverage without per-element hand lookup, the difference between a checker and an authoring assistant. `BsddFederation.Of(classes)` folds resolved evidence into the equivalence closure; `Translate(classification, target, pins)` lowers a code across standards onto the shared value over `Classification.Of`, returning `Fin<Seq<Classification>>` so a peer URI the contract refuses returns instead of vanishing into the same empty sequence an unrostered source yields; `Equivalent`/`EquivalentSet` answer the pairwise and set queries. EVERY live hop crosses the one `Fetch` member under the declared `RedrivePolicy Registry` — `RedrivePolicy.Of(Schedule.exponential | Schedule.maxDelay, bound)` composed through kernel `Redrive.Run` — so a transient registry refusal re-drives on the kernel curve instead of degrading a reachable dictionary to the offline shape gate.
 - Auto: `Resolve` builds the class request from `ClassificationSystem.ClassUri(code, pins)` with `IncludeClassProperties`/`IncludeClassRelations`/`IncludeReverseRelations`/`IncludeChildClassReferences` (hierarchy and `parentClassReference` arrive by default), issues it over the injected `BsddPort` (the Compute transport boundary, ONE generic `Fetch<TWire>` — the page owns the resource query, the transport owns base URL, headers, the STJ camelCase decode, and the reached-versus-unreached discrimination), and projects the wire `BsddClassResponse` into the `BsddClass` evidence through `BsddClass.Of`: each `ClassProperty` projects through `Property` into a `BsddProperty` carrying the IFC `DataType`/Pset placement (the `Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey` template), the `ValueKind`/`AllowedValues`/`Pattern`/`Bounds` value constraints (the `Review/validation#IDS_FACETS` `ValueConstraint`), the shared `Dimension` built directly from the wire's SI exponent columns + `Units` (the shared `Properties/quantity#DIMENSION` owner's own generated factory, never a page-local exponent record beside it), and the `Status` (the IDS admission gate); each `ClassRelation` projects through `RelationOf` into a typed `BsddRelation`; the containment pointers project through the `BsddWire` mapper's generated `Ref` transcriptions. `BsddFederation.Of` folds the `IsEqualTo`/`IsSynonymOf` rows (forward AND reverse — an inbound equivalence declared by the OTHER dictionary counts) into a transient `UndirectedGraph<string, SEquatableEdge<string>>` ONE edge per relation, labels it through `AlgorithmExtensions.ConnectedComponents`, and projects each component whole onto every member URI — equivalence under a symmetric relation IS connected-component membership, so the linear component pass replaces the quadratic transitive-closure edge set and its per-source `GroupBy` re-projection; the QuikGraph fold is transient inside `Of`, `BsddFederation` carries data only. A transport miss degrades to `LocalShape` so a new standard becomes a dictionary-identity row, not a hardcoded code-shape table that drifts; the memoization keyed by dictionary URI rides Compute's transport, never a `Rasm.Persistence` reference. `Suggest` groups ONLY on the axes the query carries — the entity-class code and the search text — because the predefined token never reaches the request, and a group key carrying it split one query into N identical round-trips; the fold threads the caller's `CancellationToken` into every `Fetch`, so the abort grain is one in-flight request boundary and a request already dispatched runs to its own completion.
 - Output: the `BsddClass` is the authoritative classification evidence shared by `classification`, `properties`, and `validation`; the bSDD class-to-property mapping feeds the `Semantics/properties#PROPERTY_TEMPLATES` owner (`PropertyKey.Resolve(cls, predefined, schema, scope, Option<BsddClass>)` unioning the `BsddClass.Properties` dictionary rows OVER the offline `Xbim.Properties` catalogue floor under the caller's `TemplateScope` definition set, dictionary-wins), the IDS Classification + Property facets (the class URI is the facet value; `Pattern`/`Bounds`/`AllowedValues` narrow into an `Xbim.InformationSpecifications` `ValueConstraint`; `Status` gates admission), and the shared `MeasureValue` (a dimensioned property's `SiDimension` IS the shared `Dimension` the `UnitsNet` `BaseDimensions` projection reads); `BsddFederation` is the cross-standard translation evidence a multi-standard deliverable reads (`Translate` an OmniClass-classified model onto its Uniclass peers), and `Ancestry` is the authoritative inheritance chain a facet `partOf`/rollup read walks; each `BsddHit.Rank` is the server's own result ordinal, so a consumer re-ranks against the relevance the registry expressed rather than against a score the wire does not publish — so a new dictionary is one identity row across all consumers.
 - Law: requiredness is a CAPABILITY, not a flag — `BsddProperty.Traits` is a `CapabilitySet<TemplateTrait>` over the kernel `Domain/validation#CAPABILITY` carrier, `Declared` holding whenever a source answered at all and `Required` joining it when that source demanded the property, so the EMPTY set is the third state (the offline buildingSMART floor states no requiredness column) a `bool` asserted "optional" over and an `Option<bool>` carried only by wrapping one. A read of the axis folds out for absence through `Admits`, which the kernel carrier declares lawful; the `Require` refusal twin has no site on these two pages, because the only presence consumer is `Semantics/properties#TEMPLATE_AUDIT`, whose product is a `TemplateVerdict` row rather than a fault. The bSDD WIRE keeps its `bool IsRequired` column verbatim — the `additionalProperties:false` contract declares it, and re-shaping a wire member to match a domain carrier forks the transcription.
@@ -258,13 +256,13 @@ public sealed partial record BsddClass(
     [property: UnorderedEquality] Seq<string> Replaces = default,
     [property: UnorderedEquality] Seq<string> ReplacedBy = default,
     Option<string> Deprecation = default) {
-    public static Fin<BsddClass> Of(BsddClassResponse response, Op key) =>
+    public static Fin<BsddClass> Of(BsddClassResponse response) =>
         string.IsNullOrWhiteSpace(response.Code) || string.IsNullOrWhiteSpace(response.Uri)
-            ? Fin.Fail<BsddClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-class-malformed", response.Uri })))
-            : from status in StatusOf(response.Status, key)
-              from properties in BsddWire.Rows(response.ClassProperties).TraverseM(p => Property(p, key)).As()
-              from relations in BsddWire.Rows(response.ClassRelations).TraverseM(r => RelationOf(r, key)).As()
-              from reverse in BsddWire.Rows(response.ReverseClassRelations).TraverseM(r => RelationOf(r, key)).As()
+            ? Fin.Fail<BsddClass>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-class-malformed", response.Uri })))
+            : from status in StatusOf(response.Status)
+              from properties in BsddWire.Rows(response.ClassProperties).TraverseM(p => Property(p)).As()
+              from relations in BsddWire.Rows(response.ClassRelations).TraverseM(r => RelationOf(r)).As()
+              from reverse in BsddWire.Rows(response.ReverseClassRelations).TraverseM(r => RelationOf(r)).As()
               select new BsddClass(
                   response.Code, response.Name, BsddWire.Text(response.ClassType), BsddWire.Text(response.Definition), response.Uri,
                   properties, status, BsddWire.Rows(response.RelatedIfcEntityNames), relations, reverse,
@@ -275,14 +273,14 @@ public sealed partial record BsddClass(
                   BsddWire.Rows(response.ReplacingObjectCodes),
                   Optional(response.DeprecationExplanation).Filter(static s => s.Length > 0));
 
-    public Fin<BsddClass> Admit(Op key) =>
+    public Fin<BsddClass> Admit() =>
         Status != BsddStatus.Inactive
             ? Fin.Succ(this)
-            : Fin.Fail<BsddClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-superseded", Code, ReplacedBy.Head.IfNone("") })));
+            : Fin.Fail<BsddClass>(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-superseded", Code, ReplacedBy.Head.IfNone("") })));
 
-    static Fin<BsddProperty> Property(BsddClassResponse.ClassProperty p, Op key) =>
-        from kind in ValueKindOf(p.PropertyValueKind, key)
-        from status in StatusOf(p.PropertyStatus, key)
+    static Fin<BsddProperty> Property(BsddClassResponse.ClassProperty p) =>
+        from kind in ValueKindOf(p.PropertyValueKind)
+        from status in StatusOf(p.PropertyStatus)
         select new BsddProperty(
             Optional(p.PropertyCode).Filter(static c => c.Length > 0).IfNone(p.Name), p.Name,
             BsddWire.Text(p.DataType), BsddWire.Text(p.PropertySet), BsddWire.Text(p.PredefinedValue),
@@ -306,22 +304,22 @@ public sealed partial record BsddClass(
             BsddWire.Exponent(p.DimensionAmountOfSubstance), BsddWire.Exponent(p.DimensionLuminousIntensity))
         is var dimension && dimension != Dimension.Dimensionless ? Some(dimension) : None;
 
-    static Fin<BsddRelation> RelationOf(BsddClassResponse.ClassRelation relation, Op key) =>
+    static Fin<BsddRelation> RelationOf(BsddClassResponse.ClassRelation relation) =>
         relation.RelatedClassUri is not { Length: > 0 }
-            ? Fin.Fail<BsddRelation>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-relation-uri-missing" })))
+            ? Fin.Fail<BsddRelation>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-relation-uri-missing" })))
             : BsddRelationKind.TryGet(relation.RelationType, out BsddRelationKind? kind) && kind is { } resolved
                 ? Fin.Succ(new BsddRelation(resolved, relation.RelatedClassUri, BsddWire.Text(relation.RelatedClassName), Optional(relation.Fraction)))
-                : Fin.Fail<BsddRelation>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "relation-kind", relation.RelationType })));
+                : Fin.Fail<BsddRelation>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "relation-kind", relation.RelationType })));
 
-    static Fin<BsddValueKind> ValueKindOf(string? kind, Op key) =>
+    static Fin<BsddValueKind> ValueKindOf(string? kind) =>
         BsddValueKind.TryGet(BsddWire.Text(kind), out BsddValueKind? parsed) && parsed is { } value
             ? Fin.Succ(value)
-            : Fin.Fail<BsddValueKind>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "value-kind", kind })));
+            : Fin.Fail<BsddValueKind>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "value-kind", kind })));
 
-    static Fin<BsddStatus> StatusOf(string? status, Op key) =>
+    static Fin<BsddStatus> StatusOf(string? status) =>
         BsddStatus.TryGet(BsddWire.Text(status), out BsddStatus? parsed) && parsed is { } value
             ? Fin.Succ(value)
-            : Fin.Fail<BsddStatus>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "status", status })));
+            : Fin.Fail<BsddStatus>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "status", status })));
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
@@ -368,14 +366,13 @@ public sealed record BsddFederation(Map<string, Seq<string>> Equivalence, Map<st
     public bool Equivalent(string classUriA, string classUriB) =>
         string.Equals(classUriA, classUriB, StringComparison.OrdinalIgnoreCase) || EquivalentSet(classUriA).Contains(classUriB);
 
-    public Fin<Seq<Classification>> Translate(Classification classification, ClassificationSystem target, BsddPins pins, Op key) =>
+    public Fin<Seq<Classification>> Translate(Classification classification, ClassificationSystem target, BsddPins pins) =>
         ClassificationSystem.TryGet(classification.System, out ClassificationSystem? system) && system is { } row
             && target.Stem(pins) is { Length: > 0 } stem
             ? toSeq(EquivalentSet(row.ClassUri(classification.Code, pins))
                 .Filter(uri => uri.StartsWith(stem, StringComparison.OrdinalIgnoreCase))
                 .Distinct().OrderBy(identity))
-                .TraverseM(uri => Classification.Of(
-                    target.Key, ClassificationSystem.TailCode(uri), key, title: Names.Find(uri))).As()
+                .TraverseM(uri => Classification.Of(ClassificationSystem.TailCode(uri), title: Names.Find(uri))).As()
             : Fin.Succ(Seq<Classification>());
 }
 
@@ -415,25 +412,25 @@ public static class BsddResolution {
     static readonly RedrivePolicy Registry = RedrivePolicy.Of(
         law: Schedule.exponential(Duration.FromMilliseconds(250)) | Schedule.maxDelay(Duration.FromSeconds(4)), bound: 3);
 
-    static Fin<Option<TWire>> Fetch<TWire>(BsddPort port, string resource, CancellationToken token, Op key) =>
-        key.Catch(() => Redrive.Run(
+    static Fin<Option<TWire>> Fetch<TWire>(BsddPort port, string resource, CancellationToken token) =>
+        Try.lift(() => Redrive.Run(
             policy: Registry,
-            work: IO.lift(() => key.Catch(() => port.Fetch<TWire>(resource, token), token))).Run(), token);
+            work: IO.lift(() => Try.lift(() => port.Fetch<TWire>(resource, token)).Run().Bind(static inner => inner))).Run()).Run().Bind(static inner => inner);
 
-    public static Fin<BsddClass> Resolve(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
-        Fetch<BsddClassResponse>(port, ClassResource(system.ClassUri(code, pins)), token, key)
+    public static Fin<BsddClass> Resolve(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token) =>
+        Fetch<BsddClassResponse>(port, ClassResource(system.ClassUri(code, pins)), token)
             .Bind(reached => reached.Match(
-                Some: response => BsddClass.Of(response, key),
-                None: () => LocalShape(system, code, pins, key)));
+                Some: response => BsddClass.Of(response),
+                None: () => LocalShape(system, code, pins)));
 
-    public static Fin<Classification> Certify(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
-        Resolve(system, code, port, pins, token, key)
-            .Bind(cls => cls.Admit(key))
-            .Bind(admitted => system.Classify(admitted.Code, Optional(admitted.Name).Filter(static n => n.Length > 0), pins, key));
+    public static Fin<Classification> Certify(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token) =>
+        Resolve(system, code, port, pins, token)
+            .Bind(cls => cls.Admit())
+            .Bind(admitted => system.Classify(admitted.Code, Optional(admitted.Name).Filter(static n => n.Length > 0), pins));
 
-    public static Fin<Seq<BsddHit>> Search(string text, Seq<ClassificationSystem> scope, Option<string> relatedIfcEntity, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
-        Fetch<BsddSearchResponse>(port, SearchResource(text, scope, relatedIfcEntity, pins), token, key)
-            .Bind(reached => reached.ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-search-unreachable", text }))))
+    public static Fin<Seq<BsddHit>> Search(string text, Seq<ClassificationSystem> scope, Option<string> relatedIfcEntity, BsddPort port, BsddPins pins, CancellationToken token) =>
+        Fetch<BsddSearchResponse>(port, SearchResource(text, scope, relatedIfcEntity, pins), token)
+            .Bind(reached => reached.ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-search-unreachable", text }))))
             .Map(response => BsddWire.Rows(response.Classes).Map((hit, index) => HitOf(hit, index, pins)).Somes());
 
     static string ClassResource(string classUri) =>
@@ -446,17 +443,17 @@ public static class BsddResolution {
                 .Fold("", (acc, row) => $"{acc}&DictionaryUris={System.Uri.EscapeDataString(row.DictionaryUri(pins))}"),
             relatedIfcEntity.Match(Some: static entity => $"&RelatedIfcEntities={System.Uri.EscapeDataString(entity)}", None: static () => ""));
 
-    public static Fin<Seq<ClassificationSuggestion>> Suggest(ElementGraph graph, Seq<ClassificationSystem> targets, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
+    public static Fin<Seq<ClassificationSuggestion>> Suggest(ElementGraph graph, Seq<ClassificationSystem> targets, BsddPort port, BsddPins pins, CancellationToken token) =>
         toSeq(graph.ObjectNodes
             .Filter(o => string.Equals(o.Classification.System, ClassificationSystem.IfcSystem.Key, StringComparison.OrdinalIgnoreCase)
                 && o.Kind == ObjectKind.Occurrence
                 && targets.Exists(target => !o.Classifications.Exists(c => string.Equals(c.System, target.Key, StringComparison.OrdinalIgnoreCase))))
             .GroupBy(static o => o.Classification.Code))
-            .TraverseM(byClass => Search(byClass.Key, targets, Some(byClass.Key), port, pins, token, key)
+            .TraverseM(byClass => Search(targets, port, pins, token)
                 .Bind(coarse => Decisive(coarse, targets)
                     ? Fin.Succ(Rows(toSeq(byClass), targets, coarse))
                     : toSeq(byClass.GroupBy(static o => o.Name is { Length: > 0 } name ? name : o.Classification.Code))
-                        .TraverseM(byName => Search(byName.Key, targets, Some(byClass.Key), port, pins, token, key)
+                        .TraverseM(byName => Search(targets, port, pins, token)
                             .Map(refined => Rows(toSeq(byName), targets, refined)))
                         .As()
                         .Map(static grouped => grouped.Flatten())))
@@ -480,10 +477,10 @@ public static class BsddResolution {
                     hit.Name, hit.Uri, BsddWire.Rows(hit.RelatedIfcEntityNames), index))
             : None;
 
-    static Fin<BsddClass> LocalShape(ClassificationSystem system, string code, BsddPins pins, Op key) =>
+    static Fin<BsddClass> LocalShape(ClassificationSystem system, string code, BsddPins pins) =>
         system.Resolve(pins) is var row && row.Shape.IsMatch(code.Trim())
             ? Fin.Succ(new BsddClass(code, $"{row.Title}:{code}", "", "", $"{row.Stem}/class/{System.Uri.EscapeDataString(code.Trim())}", Seq<BsddProperty>(), BsddStatus.Active))
-            : Fin.Fail<BsddClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", system.Key, code })));
+            : Fin.Fail<BsddClass>(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", system.Key, code })));
 }
 ```
 

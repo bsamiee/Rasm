@@ -229,7 +229,7 @@ public sealed partial class WorkholdingKind {
         FixtureDemand[]? demands = null,
         FixtureMetric? axis = null,
         params FixtureMetric[] metrics) =>
-        new(key, role, holding, keepout, rule, contacts, bodies, Optional(bodyCeiling),
+        new(role, holding, keepout, rule, contacts, bodies, Optional(bodyCeiling),
             CapabilitySet<FixtureDemand>.Of(demands ?? []), Optional(axis), toSet(metrics));
 }
 
@@ -669,7 +669,7 @@ public sealed record ExclusionZone(
     }
 
     public Fin<CollisionZone> Collision =>
-        Fixtures.ZoneIdentity(this).Bind(key => CollisionZone.Admit(key, Bounds));
+        Fixtures.ZoneIdentity(this).Bind(key => CollisionZone.Admit(Bounds));
 
     public Option<Edge3> Banded(Edge3 segment, FixtureState state) => !Active.Contains(state)
         ? None
@@ -1460,10 +1460,10 @@ internal static class Fixtures {
     // --- [PROJECTION]
     internal static Fin<FixtureArtifact> Project(Fixture fixture, FixtureProjection projection) =>
         Keyed(fixture, projection).Map(key => projection.Switch<FixtureArtifact>(
-            machine: () => new FixtureArtifact.Machine(key, fixture.Zones, fixture.Spec.Datum, fixture.Constraint),
-            setupSheet: () => new FixtureArtifact.SetupSheet(key, fixture.Spec.Elements, fixture.Spec.Sequence, fixture.Spec.Datum, fixture.Constraint),
-            inspection: () => new FixtureArtifact.Inspection(key, fixture.Contacts, fixture.Spec.Datum, fixture.Constraint),
-            evidence: () => new FixtureArtifact.Evidence(key, fixture)));
+            machine: () => new FixtureArtifact.Machine(fixture.Zones, fixture.Spec.Datum, fixture.Constraint),
+            setupSheet: () => new FixtureArtifact.SetupSheet(fixture.Spec.Elements, fixture.Spec.Sequence, fixture.Spec.Datum, fixture.Constraint),
+            inspection: () => new FixtureArtifact.Inspection(fixture.Contacts, fixture.Spec.Datum, fixture.Constraint),
+            evidence: () => new FixtureArtifact.Evidence(fixture)));
 
     private static Fin<ContentKey> Keyed(Fixture fixture, FixtureProjection projection) =>
         FabricationCanon.Keyed(
@@ -1488,7 +1488,6 @@ internal static class Fixtures {
         zone.CanonicalBytes,
         Key);
 
-    private static readonly Op Key = Op.Of(name: nameof(Workholding));
 
     // --- [GEOMETRY]
     private static Fin<Seq<Edge3>> Segments(Point3d from, Move move, double error) =>
@@ -1548,7 +1547,7 @@ internal static class Fixtures {
 
     private static Fin<RegionTopology> Regions(Seq<Loop> subject, Seq<Loop> clip, BooleanOp kind, string locus) =>
         PolygonAlgebra
-            .Apply(new PolygonOp.Boolean(subject, clip, kind, PolygonFill.NonZero), Op.Of(name: locus))
+            .Apply(new PolygonOp.Boolean(subject, clip, kind, PolygonFill.NonZero))
             .Bind(trace => trace.Regioned(new KernelFault.InvalidValue("workholding", locus)));
 
     private static Fin<Seq<Seq<Edge3>>> Clipped(Seq<Seq<Edge3>> runs, Seq<Loop> clip) =>

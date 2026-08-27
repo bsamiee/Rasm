@@ -22,7 +22,7 @@ Consumption stays off the UI thread: one single-reader loop drains the kernel `E
 
 - Owner: `JournalLedger` readonly record struct — the committed fold state: partitions keyed by document identity (the session partition rides `Guid.Empty`) beside the next sequence and the appended and shed tallies, advanced by one pure `Folded` transition. Ordinal lives INSIDE the ledger, so one `Cell.Commit` settles the row, the sequence, and the tallies as one committed value — the split commit (an interlocked counter beside a CAS) tears an export into three figures that disagree.
 - Owner: `JournalExport` `[Equatable]` sealed record — the export projection: the selected rows in sequence order (`[OrderedEquality]`), the whole `JournalLedger` tally snapshot, and the capture stamp, detached from every live cell. `Signals` is the replay grounding this page promises: each row projects to its `Shell/hooks.md` `HookSignal`, so replay capture and analytics export are ONE record, never two recordings.
-- Entry: `SessionJournal.Of(MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default, Op? key = null)` → `Fin<SessionJournal>` — the clock is the session's one injected timeline (folder RULINGS `[02]`; no mint here) and the fault cell is the composition's; `Append(UiEvent<GhFact> fact, Op? key = null)` → `Fin<JournalRow>` — the partition derives from the fact; `Export(Option<Guid> document = default, Op? key = null)` → `Fin<JournalExport>` — `Some` exports one partition, `None` merges every partition ordered by sequence; `Mount(EvidenceDrain<GhFact> drain, …)` → `Fin<Lease<SessionJournal>>` — the off-thread drain consumer the composition root's roster names.
+- Entry: `SessionJournal.Of(MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default)` → `Fin<SessionJournal>` — the clock is the session's one injected timeline (folder RULINGS `[02]`; no mint here) and the fault cell is the composition's; `Append(UiEvent<GhFact> fact)` → `Fin<JournalRow>` — the partition derives from the fact; `Export(Option<Guid> document = default)` → `Fin<JournalExport>` — `Some` exports one partition, `None` merges every partition ordered by sequence; `Mount(EvidenceDrain<GhFact> drain, …)` → `Fin<Lease<SessionJournal>>` — the off-thread drain consumer the composition root's roster names.
 - Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source, its whole loop inside the kernel's ASYNC `Op.Catch` arm, so a cancelled drain keeps the `KernelFault.Cancelled` case and an unknown raise keeps its original exceptional `Error` on the composition's fault cell. Consumer stays a deliberately off-UI-thread `Task.Run`; disposal cancels, joins the task, then releases, so no unowned consumer survives its lease.
 - Law: every journal fault PARKS on the injected `FaultCell` — bounded ring, `Shed` and `Lost` counted — never a newest-only `Atom<Option<Error>>`; the release one-shot is the kernel `Atom<bool>` latch through `Cell.Step`.
 - Boundary: serialization, upload, and bundle formats are app-root concerns over the detached export; the journal never names a serializer or a wire.
@@ -79,7 +79,7 @@ public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Parti
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class JournalLog {
     internal const int ConsumerFault = 4711;
-    static JournalLog() => Op.SideWhen(
+    static JournalLog() => HostEdge.SideWhen(
         condition: ConsumerFault != FaultBand.GrasshopperLog.Code(offset: 11),
         action: static () => throw new InvalidOperationException("JournalLog.ConsumerFault drifted from FaultBand.GrasshopperLog."));
 
@@ -101,30 +101,28 @@ public sealed class SessionJournal : IDisposable {
     public Seq<IsolatedFault> Faults => faults.Parked.Filter(static fault => fault.Point == Hook);
 
     public static Fin<SessionJournal> Of(
-        MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default, Op? key = null);
+        MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default);
 
     public static Fin<Lease<SessionJournal>> Mount(
         EvidenceDrain<GhFact> drain, MonotonicTimeline clock, FaultCell faults,
-        Option<JournalPolicy> policy = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from journal in Of(clock: clock, faults: faults, policy: policy, key: op)
-               from mounted in op.Catch(() => journal.consuming = Task.Run(
-                   async () => (await op.Catch(async token => {
+        Option<JournalPolicy> policy = default) {
+        return from journal in Of(clock: clock, faults: faults, policy: policy)
+               from mounted in Try.lift(() => journal.consuming = Task.Run(
+                   async () => (await Try.lift(async token => {
                        await foreach (UiEvent<GhFact> fact in drain.Reader.ReadAllAsync(cancellationToken: token)) {
-                           journal.Append(fact: fact, key: op)
+                           journal.Append(fact: fact)
                                .Bind(_ => journal.Shed(drain: drain))
                                .IfFail(journal.Park);
                        }
                        return Fin.Succ(unit);
-                   }, token: journal.drain.Token)).IfFail(journal.Park)))
+                   }).Run().Bind(static inner => inner)).IfFail(journal.Park))).Run().Bind(static inner => inner)
                select (Lease<SessionJournal>)new Lease<SessionJournal>.Owned(Value: journal);
     }
 
-    public Fin<JournalRow> Append(UiEvent<GhFact> fact, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<JournalRow> Append(UiEvent<GhFact> fact) {
         Option<Guid> document = DocumentOf(fact: fact);
-        return from valid in op.AcceptValue(value: fact)
-               from live in guard(!released.Value, op.InvalidResult())
+        return from valid in Acceptance.Value(value: fact)
+               from live in guard(!released.Value, new KernelFault.InvalidResult())
                from committed in Cell.Commit(ledger, held => held.Folded(
                        document: document, fact: valid, capacity: policy.Capacity).Ledger)
                    .Switch(
@@ -132,16 +130,15 @@ public sealed class SessionJournal : IDisposable {
                        committed: (o, row) => row.State.Partitions
                            .Find(document.IfNone(Guid.Empty))
                            .Bind(static rows => rows.Last)
-                           .ToFin(o.InvalidResult()),
-                       ceded: static (o, _) => Fin.Fail<JournalRow>(o.InvalidResult()),
+                           .ToFin(new KernelFault.InvalidResult()),
+                       ceded: static (o, _) => Fin.Fail<JournalRow>(new KernelFault.InvalidResult()),
                        refused: static (_, row) => Fin.Fail<JournalRow>(row.Cause),
-                       contended: static (o, _) => Fin.Fail<JournalRow>(o.InvalidResult()))
+                       contended: static (o, _) => Fin.Fail<JournalRow>(new KernelFault.InvalidResult()))
                select committed;
     }
 
-    public Fin<JournalExport> Export(Option<Guid> document = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from stamp in clock.Capture(key: op)
+    public Fin<JournalExport> Export(Option<Guid> document = default) {
+        return from stamp in Error.New(key: op.Message)
                let held = ledger.Value
                let rows = document.Match(
                    Some: partition => held.Partitions.Find(partition).IfNone(Seq<JournalRow>()),

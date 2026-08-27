@@ -77,7 +77,7 @@ public abstract partial record BimFault : Fault {
     private BimFault() { }
 
     [FaultCase(0)]
-    public sealed partial record Refused(Op Key, BimScope Scope, BimReason Reason, string Detail) : BimFault {
+    public sealed partial record Refused(BimScope Scope, BimReason Reason, string Detail) : BimFault {
         public override string Message => Detail;
     }
 

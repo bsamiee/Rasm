@@ -65,12 +65,12 @@ public abstract partial record ReconstructionPolicy {
     public sealed record ApssCase(ApssPolicy Policy) : ReconstructionPolicy;
     public sealed record PoissonCase(PoissonPolicy Policy) : ReconstructionPolicy;
     public sealed record SibsonCase(SibsonPolicy Policy) : ReconstructionPolicy;
-    public static Fin<ReconstructionPolicy> Rbf(KernelKind kernel, double radius, double smoothing = 0.0, Op? key = null);
-    public static Fin<ReconstructionPolicy> Mls(MlsPolicy policy, Op? key = null);
-    public static Fin<ReconstructionPolicy> Levin(LevinMlsPolicy policy, Op? key = null);
-    public static Fin<ReconstructionPolicy> Apss(ApssPolicy policy, Op? key = null);
-    public static Fin<ReconstructionPolicy> Poisson(PoissonPolicy policy, Op? key = null);
-    public static Fin<ReconstructionPolicy> Sibson(SibsonPolicy policy, Op? key = null);
+    public static Fin<ReconstructionPolicy> Rbf(KernelKind kernel, double radius, double smoothing = 0.0);
+    public static Fin<ReconstructionPolicy> Mls(MlsPolicy policy);
+    public static Fin<ReconstructionPolicy> Levin(LevinMlsPolicy policy);
+    public static Fin<ReconstructionPolicy> Apss(ApssPolicy policy);
+    public static Fin<ReconstructionPolicy> Poisson(PoissonPolicy policy);
+    public static Fin<ReconstructionPolicy> Sibson(SibsonPolicy policy);
 }
 
 [Union]
@@ -80,10 +80,10 @@ public abstract partial record SdfMeshPolicy {
     public sealed record BoundaryCase(bool PositiveInside, SignedHeatTime Heat, PositiveMagnitude ResidualTolerance) : SdfMeshPolicy;
     public sealed record ClosedCase(bool PositiveInside, VolumeGridPolicy Grid, SignedHeatTime Heat,
         PositiveMagnitude ResidualTolerance, LatticeInterpolation Interpolation) : SdfMeshPolicy;
-    public static Fin<WindingCase> GeneralizedWinding(Context context, bool positiveInside = false, double betaSquared = 4.0, Op? key = null);
-    public static Fin<BoundaryCase> BoundarySignedHeat(Context context, Option<SignedHeatTime> heat = default, Option<PositiveMagnitude> residualTolerance = default, bool positiveInside = false, Op? key = null);
-    public static Fin<ClosedCase> ClosedSignedHeat(VolumeGridPolicy grid, Context context, Option<SignedHeatTime> heat = default, Option<PositiveMagnitude> residualTolerance = default, bool positiveInside = false, Op? key = null);
-    internal Fin<SdfMeshPolicy> Admit(Op key);
+    public static Fin<WindingCase> GeneralizedWinding(Context context, bool positiveInside = false, double betaSquared = 4.0);
+    public static Fin<BoundaryCase> BoundarySignedHeat(Context context, Option<SignedHeatTime> heat = default, Option<PositiveMagnitude> residualTolerance = default, bool positiveInside = false);
+    public static Fin<ClosedCase> ClosedSignedHeat(VolumeGridPolicy grid, Context context, Option<SignedHeatTime> heat = default, Option<PositiveMagnitude> residualTolerance = default, bool positiveInside = false);
+    internal Fin<SdfMeshPolicy> Admit();
 }
 
 [Union]
@@ -92,16 +92,16 @@ public abstract partial record SignedHeatDiscretization {
     public sealed record TetFemCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy) : SignedHeatDiscretization;
     public sealed record BoundarySourceCase(MeshSpace Space, SdfMeshPolicy.BoundaryCase Policy) : SignedHeatDiscretization;
     public sealed record ClosedVolumeGridCase(MeshSpace Space, SdfMeshPolicy.ClosedCase Policy) : SignedHeatDiscretization;
-    public static Fin<SignedHeatDiscretization> TetFem(TetMeshDomain domain, Option<TetSignedHeatPolicy> policy = default, Op? key = null);
-    public static Fin<SignedHeatDiscretization> BoundarySource(MeshSpace space, SdfMeshPolicy.BoundaryCase policy, Op? key = null);
-    public static Fin<SignedHeatDiscretization> ClosedVolumeGrid(MeshSpace space, SdfMeshPolicy.ClosedCase policy, Op? key = null);
+    public static Fin<SignedHeatDiscretization> TetFem(TetMeshDomain domain, Option<TetSignedHeatPolicy> policy = default);
+    public static Fin<SignedHeatDiscretization> BoundarySource(MeshSpace space, SdfMeshPolicy.BoundaryCase policy);
+    public static Fin<SignedHeatDiscretization> ClosedVolumeGrid(MeshSpace space, SdfMeshPolicy.ClosedCase policy);
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SignedHeatTime(Option<PositiveMagnitude> Explicit, PositiveMagnitude Coefficient) {
-    public static Fin<SignedHeatTime> Scaled(double coefficient = 1.0, Op? key = null);
-    public static Fin<SignedHeatTime> Fixed(double value, Op? key = null);
+    public static Fin<SignedHeatTime> Scaled(double coefficient = 1.0);
+    public static Fin<SignedHeatTime> Fixed(double value);
     internal double Resolve(double cellSize) =>
         Explicit.Map(static heat => heat.Value).IfNone(noneValue: Coefficient.Value * cellSize * cellSize);
 }
@@ -110,8 +110,8 @@ public readonly record struct SignedHeatTime(Option<PositiveMagnitude> Explicit,
 public readonly record struct VolumeGridPolicy(
     Option<Dimension> Resolution, Option<PositiveMagnitude> CellSize, PositiveMagnitude Padding,
     Dimension MaxNodes, UnitInterval KernelSofteningRatio) : IValidityEvidence {
-    public static Fin<VolumeGridPolicy> ByResolution(int resolution = 16, double padding = 1.0, Op? key = null);
-    public static Fin<VolumeGridPolicy> ByCellSize(double cellSize, double padding = 1.0, Op? key = null);
+    public static Fin<VolumeGridPolicy> ByResolution(int resolution = 16, double padding = 1.0);
+    public static Fin<VolumeGridPolicy> ByCellSize(double cellSize, double padding = 1.0);
     public static readonly Dimension DefaultMaxNodes = Dimension.Create(value: 1_000_000);
     public static readonly UnitInterval DefaultKernelSofteningRatio = UnitInterval.Create(value: 0.0625);
     public bool IsValid => ValidityClaim.All(Resolution.IsSome != CellSize.IsSome);
@@ -121,8 +121,8 @@ public readonly record struct VolumeGridPolicy(
 public readonly record struct TetSignedHeatPolicy(
     SignedHeatTime Heat, PositiveMagnitude ResidualTolerance, bool PositiveInside) {
     public static Fin<TetSignedHeatPolicy> Of(Context context, Option<SignedHeatTime> heat = default,
-        Option<PositiveMagnitude> residualTolerance = default, bool positiveInside = false, Op? key = null);
-    internal Fin<TetSignedHeatPolicy> Admit(Op key);
+        Option<PositiveMagnitude> residualTolerance = default, bool positiveInside = false);
+    internal Fin<TetSignedHeatPolicy> Admit();
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -133,7 +133,7 @@ public readonly record struct LevinMlsPolicy(
     public static Fin<LevinMlsPolicy> Of(double support, Context context, int polyDegree = 2, int minNeighbors = 6,
         double bracketFactor = 2.0, int maxOuterIter = 16, int normalMaxIter = 32, double ridgeLambda = 0.0,
         bool throughPoint = false, bool orientNormals = true,
-        Option<WeightKernel> weightKernel = default, Op? key = null);
+        Option<WeightKernel> weightKernel = default);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -141,19 +141,17 @@ public readonly record struct MlsPolicy(
     KernelKind Kernel, PositiveMagnitude Radius, WeightKernel WeightKernel, Tolerance Neglect,
     int MinNeighbors, UnitInterval NormalAgreementFloor) {
     public static Fin<MlsPolicy> Of(KernelKind kernel, double radius, Context context, int minNeighbors = 4,
-        Option<WeightKernel> weightKernel = default, Option<UnitInterval> normalAgreementFloor = default, Op? key = null);
+        Option<WeightKernel> weightKernel = default, Option<UnitInterval> normalAgreementFloor = default);
 }
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SibsonPolicy(Option<PositiveMagnitude> Tolerance, int MinNeighbors) {
-    public static Fin<SibsonPolicy> Of(double tolerance = 0.0, int minNeighbors = 5, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => from _ in guard(minNeighbors >= 5 && double.IsFinite(tolerance) && tolerance >= 0.0, op.InvalidInput())
+    public static Fin<SibsonPolicy> Of(double tolerance = 0.0, int minNeighbors = 5) =>
+        from _ in guard(minNeighbors >= 5 && double.IsFinite(tolerance) && tolerance >= 0.0, new KernelFault.InvalidInput())
                      from admitted in tolerance > 0.0
-                         ? op.AcceptValidated<PositiveMagnitude>(candidate: tolerance).Map(Some)
+                         ? FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance).Map(Some)
                          : Fin.Succ(Option<PositiveMagnitude>.None)
-                     select new SibsonPolicy(Tolerance: admitted, MinNeighbors: minNeighbors),
-        };
+                     select new SibsonPolicy(Tolerance: admitted, MinNeighbors: minNeighbors);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -161,7 +159,7 @@ public readonly record struct ApssPolicy(
     PositiveMagnitude Support, WeightKernel WeightKernel, double Beta, Tolerance NeglectEps, Tolerance EpsDegeneracy,
     Tolerance EpsPratt, int ProjMaxIter, Tolerance ProjTol, double StepDamping, int MinNeighbors) {
     public static Fin<ApssPolicy> Of(double support, Context context, Option<WeightKernel> weightKernel = default,
-        double beta = 1.0, int projMaxIter = 16, double stepDamping = 1.0, int minNeighbors = 6, Op? key = null);
+        double beta = 1.0, int projMaxIter = 16, double stepDamping = 1.0, int minNeighbors = 6);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -170,18 +168,16 @@ public readonly record struct PoissonPolicy(
     double PointWeight, bool Dirichlet, PositiveMagnitude ResidualTolerance, Option<PositiveMagnitude> Density) {
     public static Fin<PoissonPolicy> Of(Context context, int depth = 6, double width = 1.0, double scale = 1.1,
         double samplesPerNode = 1.5, double pointWeight = 0.0, bool dirichlet = false,
-        Option<PositiveMagnitude> residualTolerance = default, double density = 0.0, Op? key = null);
+        Option<PositiveMagnitude> residualTolerance = default, double density = 0.0);
 }
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct IsoSurfacePolicy(Dimension MaxRootSteps, double IsoValue) {
     public static readonly IsoSurfacePolicy Default = new(MaxRootSteps: Dimension.Create(value: 32), IsoValue: 0.0);
-    public static Fin<IsoSurfacePolicy> Of(int maxRootSteps = 32, double isoValue = 0.0, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => from steps in op.AcceptValidated<Dimension>(candidate: maxRootSteps)
-                     from _ in guard(steps.Value >= 1 && double.IsFinite(isoValue), op.InvalidInput())
-                     select new IsoSurfacePolicy(MaxRootSteps: steps, IsoValue: isoValue),
-        };
+    public static Fin<IsoSurfacePolicy> Of(int maxRootSteps = 32, double isoValue = 0.0) =>
+        from steps in FactoryBridge.Accept<Dimension>(candidate: maxRootSteps)
+                     from _ in guard(steps.Value >= 1 && double.IsFinite(isoValue), new KernelFault.InvalidInput())
+                     select new IsoSurfacePolicy(MaxRootSteps: steps, IsoValue: isoValue);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -243,7 +239,7 @@ public readonly record struct ApssFit(
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PoissonGrid(CellLattice Grid, Arr<double> Chi, Arr<double> Density) : IValidityEvidence {
-    internal static Fin<PoissonGrid> Of(CellLattice grid, Arr<double> chi, double[] density, Op key);
+    internal static Fin<PoissonGrid> Of(CellLattice grid, Arr<double> chi, double[] density);
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: Chi.Count, expected: (int)Grid.CellCount),
         ValidityClaim.CountExactly(count: Density.Count, expected: Chi.Count),
@@ -323,9 +319,9 @@ public readonly record struct TetFace(int A, int B, int C, int Cell0, int Cell1,
 public readonly record struct TetMeshDomain(
     Seq<Point3d> Vertices, Seq<TetCell> Cells, Seq<TetFace> Faces, Context Context, Arr<double> CellVolumes,
     Seq<int> BoundaryVertices, BoundingBox Bounds, int BoundaryFaceCount, int InteriorVertexCount, double TotalVolume) {
-    public static Fin<TetMeshDomain> Of(Seq<Point3d> vertices, Seq<TetCell> cells, Context context, Op? key = null);
-    internal Fin<TetMeshDomain> Admit(Op key);
-    internal static Fin<TetCellMetric> MetricOf(Point3d[] points, TetCell cell, Op key);
+    public static Fin<TetMeshDomain> Of(Seq<Point3d> vertices, Seq<TetCell> cells, Context context);
+    internal Fin<TetMeshDomain> Admit();
+    internal static Fin<TetCellMetric> MetricOf(Point3d[] points, TetCell cell);
     internal double MeanNodeSpacing();
 }
 internal readonly record struct TetCellMetric(double Volume, Vector3d[] Gradients) {
@@ -391,28 +387,26 @@ public abstract partial record SignedHeatOutcome {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Reconstruction {
-    public static Fin<ScalarField> Reconstruct(Seq<MlsSample> samples, ReconstructionPolicy policy, Context context, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => policy.Switch(
-                rbfCase:     c => BuildRbf(samples: samples.Map(static s => (s.Position, s.Value)), kernel: c.Kernel, radius: c.Radius, smoothing: c.Smoothing, key: op),
+    public static Fin<ScalarField> Reconstruct(Seq<MlsSample> samples, ReconstructionPolicy policy, Context context) =>
+        policy.Switch(
+                rbfCase:     c => BuildRbf(samples: samples.Map(static s => (s.Position, s.Value)), kernel: c.Kernel, radius: c.Radius, smoothing: c.Smoothing),
                 mlsCase:     c => AdmitAndSeat(samples: samples, mode: ReconstructionMode.MovingLeastSquares, floor: c.Policy.MinNeighbors,
                                       degree: 1, kernel: Some(c.Policy.Kernel), radius: Some(c.Policy.Radius.Value),
-                                      seat: fit => new ScalarField.MlsCase(Samples: samples, Kernel: c.Policy.Kernel, Radius: c.Policy.Radius, Fit: fit), key: op),
+                                      seat: fit => new ScalarField.MlsCase(Samples: samples, Kernel: c.Policy.Kernel, Radius: c.Policy.Radius, Fit: fit)),
                 levinCase:   c => AdmitAndSeat(samples: samples, mode: ReconstructionMode.LevinMovingLeastSquares, floor: c.Policy.MinNeighbors,
                                       degree: c.Policy.PolyDegree, kernel: Option<KernelKind>.None, radius: Some(c.Policy.Support.Value),
-                                      seat: fit => new ScalarField.LevinMlsCase(Samples: samples, Policy: c.Policy, Fit: fit), key: op),
+                                      seat: fit => new ScalarField.LevinMlsCase(Samples: samples, Policy: c.Policy, Fit: fit)),
                 apssCase:    c => AdmitAndSeat(samples: samples, mode: ReconstructionMode.AlgebraicPointSetSurfaces, floor: c.Policy.MinNeighbors,
                                       degree: 2, kernel: Option<KernelKind>.None, radius: Some(c.Policy.Support.Value),
-                                      seat: fit => new ScalarField.ApssCase(Samples: samples, Policy: c.Policy, Fit: fit), key: op),
-                poissonCase: c => BuildPoisson(samples: samples, policy: c.Policy, context: context, key: op),
+                                      seat: fit => new ScalarField.ApssCase(Samples: samples, Policy: c.Policy, Fit: fit)),
+                poissonCase: c => BuildPoisson(samples: samples, policy: c.Policy, context: context),
                 sibsonCase:  c => NaturalNeighborField.Of(sites: samples.Map(static s => s.Position),
-                                      tolerance: c.Policy.Tolerance.IfNone(noneValue: PositiveMagnitude.Create(value: context.Absolute.Value)), key: op).Bind(field =>
+                                      tolerance: c.Policy.Tolerance.IfNone(noneValue: PositiveMagnitude.Create(value: context.Absolute.Value))).Bind(field =>
                                   AdmitAndSeat(samples: samples, mode: ReconstructionMode.NaturalNeighbor, floor: c.Policy.MinNeighbors,
                                       degree: 0, kernel: Option<KernelKind>.None, radius: Option<double>.None,
                                       seat: fit => new ScalarField.SibsonCase(Field: field,
-                                          Values: new Arr<double>([.. samples.Map(static s => s.Value)]), Fit: fit), key: op))),
-        };
-    private static Fin<ScalarField> BuildRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, PositiveMagnitude radius, double smoothing, Op key) {
+                                          Values: new Arr<double>([.. samples.Map(static s => s.Value)]), Fit: fit))));
+    private static Fin<ScalarField> BuildRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, PositiveMagnitude radius, double smoothing) {
         (Point3d Position, double Value)[] points = [.. samples];
         int n = points.Length, tail = kernel.PolynomialOrder switch { 0 => 0, 1 => 1, _ => 4 };
         bool exact = smoothing <= EpsilonPolicy.ZeroTolerance;
@@ -438,13 +432,13 @@ public static class Reconstruction {
             for (int i = 0; i < n; i++) tailRow[i] = Basis(t, points[i].Position);
         }
         (Arr<double> entries, Arr<double> targets) = (new(designOwner.Span.ToArray()), new(rhs.ToArray()));
-        return from _ in guard(n >= 1, key.InvalidInput())
-               from rowDim in key.AcceptValidated<Dimension>(candidate: rows)
-               from colDim in key.AcceptValidated<Dimension>(candidate: cols)
-               from matrix in Matrix.Of(rows: rowDim, cols: colDim, entries: entries, key: key)
+        return from _ in guard(n >= 1, new KernelFault.InvalidInput())
+               from rowDim in FactoryBridge.Accept<Dimension>(candidate: rows)
+               from colDim in FactoryBridge.Accept<Dimension>(candidate: cols)
+               from matrix in Matrix.Of(rows: rowDim, cols: colDim, entries: entries)
                from solve in exact
-                   ? matrix.SolveDetailed(rhs: targets, key: key)
-                   : matrix.LeastSquaresDetailed(rhs: targets, key: key)
+                   ? matrix.SolveDetailed(rhs: targets)
+                   : matrix.LeastSquaresDetailed(rhs: targets)
                let coefficients = toArray(solve.Solution.Take(count: n))
                let fit = new ReconstructionFit(
                    Mode: exact ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation,
@@ -454,62 +448,62 @@ public static class Reconstruction {
                    Samples: samples, Kernel: kernel, Radius: radius, Coefficients: coefficients, Fit: fit);
     }
     private static Fin<ScalarField> AdmitAndSeat(Seq<MlsSample> samples, ReconstructionMode mode, int floor,
-        int degree, Option<KernelKind> kernel, Option<double> radius, Func<ReconstructionFit, ScalarField> seat, Op key) =>
+        int degree, Option<KernelKind> kernel, Option<double> radius, Func<ReconstructionFit, ScalarField> seat) =>
         from _ in guard(samples.Count >= floor && samples.ForAll(s =>
-            s.Position.IsValid && (!mode.RequiresNormals || s.Normal.IsValid) && double.IsFinite(s.Value)), key.InvalidInput())
+            s.Position.IsValid && (!mode.RequiresNormals || s.Normal.IsValid) && double.IsFinite(s.Value)), new KernelFault.InvalidInput())
         let fit = new ReconstructionFit(Mode: mode, Kernel: kernel, Radius: radius, Smoothing: Option<double>.None,
             SampleCount: samples.Count, CenterCount: samples.Count, PolynomialDegree: degree, Solve: Option<LinearSolution>.None)
         select seat(fit);
 
-    private static Fin<ScalarField> BuildPoisson(Seq<MlsSample> samples, PoissonPolicy policy, Context context, Op key) {
+    private static Fin<ScalarField> BuildPoisson(Seq<MlsSample> samples, PoissonPolicy policy, Context context) {
         int resolution = 1 << policy.Depth.Value;
-        return from bounds in key.AcceptValue(value: GrownBounds(samples: samples, scale: policy.Scale.Value))
-               from cell in key.AcceptValidated<PositiveMagnitude>(candidate: bounds.Diagonal.MaximumCoordinate / resolution)
-               from grid in CellLattice.Of(bounds: bounds, cell: cell, ceiling: (long)resolution * resolution * resolution, key: key)
-               from splat in key.AcceptValue(value: SplatNormals(samples: samples, grid: grid, policy: policy))
-               from laplacian in AssembleLaplacian(grid: grid, policy: policy, splat: splat, key: key)
+        return from bounds in Acceptance.Value(value: GrownBounds(samples: samples, scale: policy.Scale.Value))
+               from cell in FactoryBridge.Accept<PositiveMagnitude>(candidate: bounds.Diagonal.MaximumCoordinate / resolution)
+               from grid in CellLattice.Of(bounds: bounds, cell: cell, ceiling: (long)resolution * resolution * resolution)
+               from splat in Acceptance.Value(value: SplatNormals(samples: samples, grid: grid, policy: policy))
+               from laplacian in AssembleLaplacian(grid: grid, policy: policy, splat: splat)
                from solve in !policy.Dirichlet && policy.PointWeight <= 0.0
-                   ? laplacian.System.SingularSolveDetailed(rhs: laplacian.Rhs, gauge: GaugePolicy.Pinned(indices: [0]), context: context, key: key)
-                   : CholeskySparse.Of(symmetric: laplacian.System, key: key).Bind(factor => factor.SolveDetailed(rhs: laplacian.Rhs, key: key))
-               from _ in guard(solve.Residual <= policy.ResidualTolerance.Value, key.InvalidResult())
-               from gamma in key.AcceptValue(value: IsovalueOf(samples: samples, grid: grid, chi: solve.Solution, splat: splat))
-               from poissonGrid in PoissonGrid.Of(grid: grid, chi: solve.Solution, density: splat.Density, key: key)
+                   ? laplacian.System.SingularSolveDetailed(rhs: laplacian.Rhs, gauge: GaugePolicy.Pinned(indices: [0]), context: context)
+                   : CholeskySparse.Of(symmetric: laplacian.System).Bind(factor => factor.SolveDetailed(rhs: laplacian.Rhs))
+               from _ in guard(solve.Residual <= policy.ResidualTolerance.Value, new KernelFault.InvalidResult())
+               from gamma in Acceptance.Value(value: IsovalueOf(samples: samples, grid: grid, chi: solve.Solution, splat: splat))
+               from poissonGrid in PoissonGrid.Of(grid: grid, chi: solve.Solution, density: splat.Density)
                let poisson = PoissonSolveOf(policy: policy, grid: grid, splat: splat, laplacian: laplacian, solve: solve, gamma: gamma, sampleCount: samples.Count)
                select (ScalarField)new ScalarField.PoissonCase(Grid: poissonGrid, Gamma: gamma.Value, Solve: poisson);
     }
     private static BoundingBox GrownBounds(Seq<MlsSample> samples, double scale);
     private static (double[] Vector, double[] Density, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum) SplatNormals(Seq<MlsSample> samples, CellLattice grid, PoissonPolicy policy);
-    private static Fin<(SparseMatrix System, Arr<double> Rhs, int LaplacianNonZeros, int ScreeningNonZeros)> AssembleLaplacian(CellLattice grid, PoissonPolicy policy, (double[] Vector, double[] Density, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum) splat, Op key);
+    private static Fin<(SparseMatrix System, Arr<double> Rhs, int LaplacianNonZeros, int ScreeningNonZeros)> AssembleLaplacian(CellLattice grid, PoissonPolicy policy, (double[] Vector, double[] Density, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum) splat);
     private static (double Value, double StdDev) IsovalueOf(Seq<MlsSample> samples, CellLattice grid, Arr<double> chi, (double[] Vector, double[] Density, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum) splat);
     private static PoissonSolve PoissonSolveOf(PoissonPolicy policy, CellLattice grid, (double[] Vector, double[] Density, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum) splat, (SparseMatrix System, Arr<double> Rhs, int LaplacianNonZeros, int ScreeningNonZeros) laplacian, LinearSolution solve, (double Value, double StdDev) gamma, int sampleCount);
 
-    internal static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, PositiveMagnitude radius, Arr<double> coefficients, Point3d sample, Op key) =>
-        from _ in guard(coefficients.Count == samples.Count, key.InvalidInput())
-        from value in key.AcceptValue(value: samples.Map((s, index) => coefficients[index] * kernel.Weight(distance: sample.DistanceTo(other: s.Position), radius: radius)).Fold(0.0, static (acc, term) => acc + term))
+    internal static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, PositiveMagnitude radius, Arr<double> coefficients, Point3d sample) =>
+        from _ in guard(coefficients.Count == samples.Count, new KernelFault.InvalidInput())
+        from value in Acceptance.Value(value: samples.Map((s, index) => coefficients[index] * kernel.Weight(distance: sample.DistanceTo(other: s.Position), radius: radius)).Fold(0.0, static (acc, term) => acc + term))
         select value;
-    internal static Fin<(double Value, SampleFit Fit)> EvaluateMls(Seq<MlsSample> samples, MlsPolicy policy, Point3d sample, Context context, Op key) {
+    internal static Fin<(double Value, SampleFit Fit)> EvaluateMls(Seq<MlsSample> samples, MlsPolicy policy, Point3d sample, Context context) {
         return from hood in CollectNeighborhood(samples: samples, sample: sample, support: policy.Radius.Value, kernel: policy.WeightKernel,
-                   neglectEps: policy.Neglect.Value, minNeighbors: policy.MinNeighbors, context: context, key: key)
-               from design in DesignOf(hood: hood, key: key)
-               from solve in design.Matrix.LeastSquaresDetailed(rhs: design.Rhs, key: key)
-               from _ in guard(solve.FullRank.IfNone(noneValue: true), key.InvalidResult())
+                   neglectEps: policy.Neglect.Value, minNeighbors: policy.MinNeighbors, context: context)
+               from design in DesignOf(hood: hood)
+               from solve in design.Matrix.LeastSquaresDetailed(rhs: design.Rhs)
+               from _ in guard(solve.FullRank.IfNone(noneValue: true), new KernelFault.InvalidResult())
                let gradient = new Vector3d(x: solve.Solution[1], y: solve.Solution[2], z: solve.Solution[3])
                let agreement = AgreementOf(gradient: gradient, hood: hood)
-               from __ in guard(agreement >= policy.NormalAgreementFloor.Value, key.InvalidResult())
+               from __ in guard(agreement >= policy.NormalAgreementFloor.Value, new KernelFault.InvalidResult())
                select (Value: solve.Solution[0],
                    Fit: new SampleFit(Mode: ReconstructionMode.MovingLeastSquares, Kernel: Some(policy.Kernel), Radius: Some(policy.Radius.Value),
                        SampleCount: samples.Count, NeighborhoodCount: hood.Length, RejectedWeightCount: samples.Count - hood.Length,
                        WeightSum: hood.Sum(static n => n.Weight), Rank: Some(4),
                        Condition: Option<double>.None, NormalAgreement: Some(agreement), GradientNorm: Some(gradient.Length), Solve: Some(solve)));
-        static Fin<(Matrix Matrix, Arr<double> Rhs)> DesignOf(Neighbor[] hood, Op key);
+        static Fin<(Matrix Matrix, Arr<double> Rhs)> DesignOf(Neighbor[] hood);
         static double AgreementOf(Vector3d gradient, Neighbor[] hood);
     }
-    internal static Fin<(double Value, SampleFit Fit, LevinFit Levin)> EvaluateLevinMls(Seq<MlsSample> samples, LevinMlsPolicy policy, Point3d sample, Context context, Op key) =>
+    internal static Fin<(double Value, SampleFit Fit, LevinFit Levin)> EvaluateLevinMls(Seq<MlsSample> samples, LevinMlsPolicy policy, Point3d sample, Context context) =>
         from hood in CollectNeighborhood(samples: samples, sample: sample, support: policy.Support.Value, kernel: policy.WeightKernel,
-            neglectEps: policy.NeglectEps.Value, minNeighbors: policy.MinNeighbors, context: context, key: key)
-        from plane in ConvergeLevinPlane(hood: hood, sample: sample, policy: policy, key: key)
-        from _ in guard(plane.Planarity <= policy.PlanarityTau.Value, key.InvalidResult())
-        from fit in FitLevinHeight(hood: hood, plane: plane, policy: policy, key: key)
+            neglectEps: policy.NeglectEps.Value, minNeighbors: policy.MinNeighbors, context: context)
+        from plane in ConvergeLevinPlane(hood: hood, sample: sample, policy: policy)
+        from _ in guard(plane.Planarity <= policy.PlanarityTau.Value, new KernelFault.InvalidResult())
+        from fit in FitLevinHeight(hood: hood, plane: plane, policy: policy)
         let levin = new LevinFit(
             PlaneOrigin: plane.Origin, PlaneNormal: plane.Normal, MlsNormal: plane.MlsNormal, Offset: plane.Offset,
             FrameU: plane.FrameU, FrameV: plane.FrameV, Step1Iterations: plane.Step1Iterations, Step1Converged: plane.Step1Converged,
@@ -529,21 +523,21 @@ public static class Reconstruction {
                 Condition: Some(fit.DesignCondition), NormalAgreement: Some(fit.NormalAgreement),
                 GradientNorm: Some(fit.Gradient.Length), Solve: Some(fit.Solve)),
             Levin: levin);
-    private static Fin<LevinPlane> ConvergeLevinPlane(Neighbor[] hood, Point3d sample, LevinMlsPolicy policy, Op key);
+    private static Fin<LevinPlane> ConvergeLevinPlane(Neighbor[] hood, Point3d sample, LevinMlsPolicy policy);
     private readonly record struct LevinPlane(
         Point3d Origin, Vector3d Normal, Vector3d MlsNormal, double Offset, Vector3d FrameU, Vector3d FrameV,
         int Step1Iterations, bool Step1Converged, int RootIterations, double RootResidual, double SecondDerivative,
         int NormalIterations, double NormalResidual, double Lambda0, double Lambda2, double Planarity, double Step1Energy);
-    private static Fin<LevinHeight> FitLevinHeight(Neighbor[] hood, LevinPlane plane, LevinMlsPolicy policy, Op key);
+    private static Fin<LevinHeight> FitLevinHeight(Neighbor[] hood, LevinPlane plane, LevinMlsPolicy policy);
     private readonly record struct LevinHeight(
         double Value, Vector3d Gradient, int CoefficientCount, double Step2Residual, double Step2Rms,
         double DesignCondition, int Rank, double NormalAgreement, double ProjDisplacement, double ProjResidual,
         bool ProjConverged, LinearSolution Solve);
-    internal static Fin<(double Value, SampleFit Fit, ApssFit Apss)> EvaluateApss(Seq<MlsSample> samples, ApssPolicy policy, Point3d sample, Context context, Op key) =>
+    internal static Fin<(double Value, SampleFit Fit, ApssFit Apss)> EvaluateApss(Seq<MlsSample> samples, ApssPolicy policy, Point3d sample, Context context) =>
         from hood in CollectNeighborhood(samples: samples, sample: sample, support: policy.Support.Value, kernel: policy.WeightKernel,
-            neglectEps: policy.NeglectEps.Value, minNeighbors: policy.MinNeighbors, context: context, key: key)
-        from fit in AlgebraicSphereOf(hood: hood, support: policy.Support.Value, epsDegeneracy: policy.EpsDegeneracy.Value, epsPratt: policy.EpsPratt.Value, key: key)
-        from projected in key.AcceptValue(value: ProjectApss(fit: fit, sample: sample, policy: policy))
+            neglectEps: policy.NeglectEps.Value, minNeighbors: policy.MinNeighbors, context: context)
+        from fit in AlgebraicSphereOf(hood: hood, support: policy.Support.Value, epsDegeneracy: policy.EpsDegeneracy.Value, epsPratt: policy.EpsPratt.Value)
+        from projected in Acceptance.Value(value: ProjectApss(fit: fit, sample: sample, policy: policy))
         let gradient = fit.IsPlane ? fit.Hl : fit.Hl + (2.0 * fit.Hq * (Vector3d)sample)
         let value = fit.Hc + (fit.Hl * (Vector3d)sample) + (fit.Hq * ((Vector3d)sample * (Vector3d)sample))
         let apss = new ApssFit(
@@ -559,16 +553,16 @@ public static class Reconstruction {
                 Condition: Option<double>.None, NormalAgreement: Option<double>.None,
                 GradientNorm: Some(gradient.Length), Solve: Option<LinearSolution>.None),
             Apss: apss);
-    private static Fin<AlgebraicSphere> AlgebraicSphereOf(Neighbor[] hood, double support, double epsDegeneracy, double epsPratt, Op key);
+    private static Fin<AlgebraicSphere> AlgebraicSphereOf(Neighbor[] hood, double support, double epsDegeneracy, double epsPratt);
     private readonly record struct AlgebraicSphere(
         double Hc, Vector3d Hl, double Hq, double PrattNormSquared, bool IsPlane, double DegeneracyRatio,
         Point3d Center, double Radius, double MeanCurvature);
     private static (int Iterations, double Displacement, double TaubinResidual) ProjectApss(AlgebraicSphere fit, Point3d sample, ApssPolicy policy);
-    internal static Fin<(double Value, SampleFit Fit)> EvaluateSibson(NaturalNeighborField field, Arr<double> values, Point3d sample, Op key) =>
-        from weights in field.Weights(query: sample, key: key)
-        from _ in guard(!weights.IsEmpty && weights.ForAll(w => w.Site >= 0 && w.Site < values.Count), key.InvalidResult())
+    internal static Fin<(double Value, SampleFit Fit)> EvaluateSibson(NaturalNeighborField field, Arr<double> values, Point3d sample) =>
+        from weights in field.Weights(query: sample)
+        from _ in guard(!weights.IsEmpty && weights.ForAll(w => w.Site >= 0 && w.Site < values.Count), new KernelFault.InvalidResult())
         let sum = weights.Fold(0.0, static (acc, w) => acc + w.Weight)
-        from __ in guard(Math.Abs(value: 1.0 - sum) <= EpsilonPolicy.SqrtEpsilon, key.InvalidResult())
+        from __ in guard(Math.Abs(value: 1.0 - sum) <= EpsilonPolicy.SqrtEpsilon, new KernelFault.InvalidResult())
         select (
             Value: weights.Fold(0.0, (acc, w) => acc + (w.Weight * values[w.Site])),
             Fit: new SampleFit(Mode: ReconstructionMode.NaturalNeighbor, Kernel: Option<KernelKind>.None,
@@ -576,7 +570,7 @@ public static class Reconstruction {
                 RejectedWeightCount: values.Count - weights.Count, WeightSum: sum, Rank: Option<int>.None,
                 Condition: Option<double>.None, NormalAgreement: Option<double>.None,
                 GradientNorm: Option<double>.None, Solve: Option<LinearSolution>.None));
-    private static Fin<Neighbor[]> CollectNeighborhood(Seq<MlsSample> samples, Point3d sample, double support, WeightKernel kernel, double neglectEps, int minNeighbors, Context context, Op key) {
+    private static Fin<Neighbor[]> CollectNeighborhood(Seq<MlsSample> samples, Point3d sample, double support, WeightKernel kernel, double neglectEps, int minNeighbors, Context context) {
         double neglect = support * Math.Sqrt(d: Math.Log(d: 1.0 / neglectEps));
         Neighbor[] survivors = [.. samples
             .Map(s => (Sample: s, Offset: s.Position - sample))
@@ -584,50 +578,48 @@ public static class Reconstruction {
             .Map(pair => new Neighbor(Sample: pair.Sample, Offset: pair.Offset, Distance: pair.Offset.Length,
                 Weight: kernel.Weight(distance: pair.Offset.Length, support: PositiveMagnitude.Create(value: support))))
             .Filter(n => n.Weight > context.Relative.Value)];
-        return survivors.Length >= minNeighbors ? Fin.Succ(survivors) : Fin.Fail<Neighbor[]>(error: key.InvalidInput());
+        return survivors.Length >= minNeighbors ? Fin.Succ(survivors) : Fin.Fail<Neighbor[]>(error: new KernelFault.InvalidInput());
     }
     private readonly record struct Neighbor(MlsSample Sample, Vector3d Offset, double Distance, double Weight);
 }
 
 public static class SignedHeatSpine {
-    public static Fin<SignedHeatOutcome> Solve(SignedHeatDiscretization discretization, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => discretization.Switch(
-                tetFemCase:         c => SolveTetSignedHeat(domain: c.Domain, policy: c.Policy, key: op)
+    public static Fin<SignedHeatOutcome> Solve(SignedHeatDiscretization discretization) =>
+        discretization.Switch(
+                tetFemCase:         c => SolveTetSignedHeat(domain: c.Domain, policy: c.Policy)
                                              .Map(solved => (SignedHeatOutcome)new SignedHeatOutcome.TetCase(Values: solved.Values, Solve: solved.Solve)),
-                boundarySourceCase: c => BoundarySolutionOf(space: c.Space, policy: c.Policy, key: op)
+                boundarySourceCase: c => BoundarySolutionOf(space: c.Space, policy: c.Policy)
                                              .Map(static solution => (SignedHeatOutcome)solution),
-                closedVolumeGridCase: c => ClosedSolutionOf(space: c.Space, policy: c.Policy, key: op)
-                                             .Map(static solution => (SignedHeatOutcome)solution)),
-        };
+                closedVolumeGridCase: c => ClosedSolutionOf(space: c.Space, policy: c.Policy)
+                                             .Map(static solution => (SignedHeatOutcome)solution));
 
-    internal static Fin<SignedHeatOutcome.SurfaceCase> BoundarySolutionOf(MeshSpace space, SdfMeshPolicy.BoundaryCase policy, Op key) =>
+    internal static Fin<SignedHeatOutcome.SurfaceCase> BoundarySolutionOf(MeshSpace space, SdfMeshPolicy.BoundaryCase policy) =>
         space.Cache.Memoized(probe: (policy.Heat, policy.ResidualTolerance),
-            compute: () => ComputeSignedHeatDetailed(space: space, policy: policy, key: key));
-    internal static Fin<SignedHeatOutcome.VolumeCase> ClosedSolutionOf(MeshSpace space, SdfMeshPolicy.ClosedCase policy, Op key) =>
+            compute: () => ComputeSignedHeatDetailed(space: space, policy: policy));
+    internal static Fin<SignedHeatOutcome.VolumeCase> ClosedSolutionOf(MeshSpace space, SdfMeshPolicy.ClosedCase policy) =>
         space.Cache.Memoized(probe: (policy.Grid, policy.Heat, policy.ResidualTolerance, policy.Interpolation),
-            compute: () => ComputeClosedSignedHeatDetailed(space: space, policy: policy, key: key));
+            compute: () => ComputeClosedSignedHeatDetailed(space: space, policy: policy));
 
-    internal static Fin<(Arr<double> Values, TetSignedHeatSolve Solve)> SolveTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Op key);
-    internal static Fin<(double Value, TetSignedHeatSolve Solve, TetLocation Location)> SampleTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Arr<double> values, Point3d sample, Context context, Op key);
+    internal static Fin<(Arr<double> Values, TetSignedHeatSolve Solve)> SolveTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy);
+    internal static Fin<(double Value, TetSignedHeatSolve Solve, TetLocation Location)> SampleTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Arr<double> values, Point3d sample, Context context);
 
-    internal static Fin<SignedHeatOutcome.SurfaceCase> ComputeSignedHeatDetailed(MeshSpace space, SdfMeshPolicy.BoundaryCase policy, Op key) {
+    internal static Fin<SignedHeatOutcome.SurfaceCase> ComputeSignedHeatDetailed(MeshSpace space, SdfMeshPolicy.BoundaryCase policy) {
         double h = space.Cache.MeanEdgeLength;
-        if (h <= EpsilonPolicy.ZeroTolerance) return Fin.Fail<SignedHeatOutcome.SurfaceCase>(key.InvalidResult());
+        if (h <= EpsilonPolicy.ZeroTolerance) return Fin.Fail<SignedHeatOutcome.SurfaceCase>(new KernelFault.InvalidResult());
         double t = policy.Heat.Resolve(cellSize: 0.5 * h);
-        return from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
-               from _ in guard(!imesh.HasFlips, key.Unsupported(inputType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SignedHeatOutcome.SurfaceCase)))
-               from admitted in AdmitBoundarySignedHeat(space: space, imesh: imesh, key: key)
-               from heatFactor in space.Cache.EdgeConnectionCholeskyDetailed(time: t, key: key)
-               from heatSolve in heatFactor.Factor.SolveDetailed(rhs: admitted.Source.Rhs, key: key)
+        return from imesh in space.Cache.IntrinsicMeshSnapshot()
+               from _ in guard(!imesh.HasFlips, new KernelFault.Unsupported(InputType: typeof(MeshKernel.IntrinsicMesh), OutputType: typeof(SignedHeatOutcome.SurfaceCase)))
+               from admitted in AdmitBoundarySignedHeat(space: space, imesh: imesh)
+               from heatFactor in space.Cache.EdgeConnectionCholeskyDetailed(time: t)
+               from heatSolve in heatFactor.Factor.SolveDetailed(rhs: admitted.Source.Rhs)
                let faceField = DecAssembly.FaceField(mesh: space.Native, imesh: imesh, stacked: heatSolve.Solution)
                let divergence = DecAssembly.IntrinsicDivergence(mesh: space.Native, imesh: imesh, faceFields: faceField)
-               from poissonFactor in space.Cache.Cholesky(key: key)
-               from poissonSolve in poissonFactor.SolveDetailed(rhs: divergence, key: key)
+               from poissonFactor in space.Cache.Cholesky()
+               from poissonSolve in poissonFactor.SolveDetailed(rhs: divergence)
                from __ in guard(
                    heatSolve.Residual <= policy.ResidualTolerance.Value && poissonSolve.Residual <= policy.ResidualTolerance.Value,
-                   key.InvalidResult())
-               from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.Source.SourceVertices, vertexCount: space.Native.Vertices.Count, key: key)
+                   new KernelFault.InvalidResult())
+               from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.Source.SourceVertices, vertexCount: space.Native.Vertices.Count)
                select new SignedHeatOutcome.SurfaceCase(
                    Values: shifted,
                    Solve: new SignedHeatSolve(
@@ -640,65 +632,62 @@ public static class SignedHeatSpine {
                        SourceNormalAgreement: SourceNormalAgreementOf(space: space, imesh: imesh, source: admitted.Source, faceField: faceField)),
                    Topology: admitted.Topology);
     }
-    private static Fin<(Topology Topology, BoundarySignedHeatSource Source)> AdmitBoundarySignedHeat(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Op key);
-    private static Fin<Arr<double>> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices, int vertexCount, Op key);
+    private static Fin<(Topology Topology, BoundarySignedHeatSource Source)> AdmitBoundarySignedHeat(MeshSpace space, MeshKernel.IntrinsicMesh imesh);
+    private static Fin<Arr<double>> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices, int vertexCount);
 
-    internal static Fin<SignedHeatOutcome.VolumeCase> ComputeClosedSignedHeatDetailed(MeshSpace space, SdfMeshPolicy.ClosedCase policy, Op key);
-    private static Fin<VolumeSolve> VolumeSolveOf(BoundingBox source, VolumeGridPolicy grid, Op key);
-    internal static Fin<double> InterpolateVolumeGrid(VolumeSolve volume, Arr<double> values, Point3d sample, Op key);
+    internal static Fin<SignedHeatOutcome.VolumeCase> ComputeClosedSignedHeatDetailed(MeshSpace space, SdfMeshPolicy.ClosedCase policy);
+    private static Fin<VolumeSolve> VolumeSolveOf(BoundingBox source, VolumeGridPolicy grid);
+    internal static Fin<double> InterpolateVolumeGrid(VolumeSolve volume, Arr<double> values, Point3d sample);
     internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, Arr<Vector3d> SourceNormals, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
     private static Option<double> SourceNormalAgreementOf(MeshSpace space, MeshKernel.IntrinsicMesh imesh, BoundarySignedHeatSource source, Vector3d[] faceField);
 }
 
 public static class MeshSdf {
-    public static Fin<SdfMeshSample> SignedDistanceDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => policy.Admit(key: op).Bind(admitted => admitted.Switch(
+    public static Fin<SdfMeshSample> SignedDistanceDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample) =>
+        policy.Admit().Bind(admitted => admitted.Switch(
                 windingCase: active =>
-                    from field in WindingFieldOf(space: space, samples: [sample], policy: active, key: op)
-                    from winding in field.Length == 1 ? Fin.Succ(field[0]) : Fin.Fail<double>(op.InvalidResult())
+                    from field in WindingFieldOf(space: space, samples: [sample], policy: active)
+                    from winding in field.Length == 1 ? Fin.Succ(field[0]) : Fin.Fail<double>(new KernelFault.InvalidResult())
                     from hit in space.Native.ClosestPoint(testPoint: sample, pointOnMesh: out Point3d closest, maximumDistance: 0.0) >= 0
                         ? Fin.Succ(closest)
-                        : Fin.Fail<Point3d>(op.InvalidResult())
+                        : Fin.Fail<Point3d>(new KernelFault.InvalidResult())
                     let distance = sample.DistanceTo(other: hit)
                     let signed = Math.Abs(value: winding) > 0.5 ? -distance : distance
                     from topology in MeshKernel.TopologyDetailed(space: space)
                     select new SdfMeshSample(Distance: active.PositiveInside ? -signed : signed,
                         Solve: new SdfSolve.WindingCase(Topology: topology)),
                 boundaryCase: active =>
-                    from solution in SignedHeatSpine.BoundarySolutionOf(space: space, policy: active, key: op)
+                    from solution in SignedHeatSpine.BoundarySolutionOf(space: space, policy: active)
                     from point in Optional(space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: 0.0))
-                        .Filter(static candidate => candidate.FaceIndex >= 0).ToFin(op.InvalidResult())
+                        .Filter(static candidate => candidate.FaceIndex >= 0).ToFin(new KernelFault.InvalidResult())
                     from slots in CornerSlotsOf(face: space.Native.Faces[index: point.FaceIndex], triangle: point.Triangle)
-                        .ToFin(op.Unsupported(inputType: typeof(MeshPoint), outputType: typeof(double)))
-                    from _ in guard(slots.ForAll(slot => slot.Vertex >= 0 && slot.Vertex < solution.Values.Count), op.InvalidResult())
+                        .ToFin(new KernelFault.Unsupported(InputType: typeof(MeshPoint), OutputType: typeof(double)))
+                    from _ in guard(slots.ForAll(slot => slot.Vertex >= 0 && slot.Vertex < solution.Values.Count), new KernelFault.InvalidResult())
                     let signed = slots.Fold(0.0, (sum, slot) => sum + (point.T[slot.Slot] * solution.Values[index: slot.Vertex]))
                     select new SdfMeshSample(Distance: active.PositiveInside ? -signed : signed,
                         Solve: new SdfSolve.BoundaryCase(Topology: solution.Topology, Heat: solution.Solve)),
                 closedCase: active =>
-                    from solution in SignedHeatSpine.ClosedSolutionOf(space: space, policy: active, key: op)
-                    from signed in SignedHeatSpine.InterpolateVolumeGrid(volume: solution.Volume, values: solution.Values, sample: sample, key: op)
+                    from solution in SignedHeatSpine.ClosedSolutionOf(space: space, policy: active)
+                    from signed in SignedHeatSpine.InterpolateVolumeGrid(volume: solution.Volume, values: solution.Values, sample: sample)
                     select new SdfMeshSample(Distance: active.PositiveInside ? -signed : signed,
-                        Solve: new SdfSolve.ClosedCase(Topology: solution.Topology, Heat: solution.Solve, Volume: solution.Volume)))),
-        };
-    public static Fin<SdfSolve> Prewarm(MeshSpace space, SdfMeshPolicy policy, Op? key = null);
+                        Solve: new SdfSolve.ClosedCase(Topology: solution.Topology, Heat: solution.Solve, Volume: solution.Volume))));
+    public static Fin<SdfSolve> Prewarm(MeshSpace space, SdfMeshPolicy policy);
     internal readonly record struct WindingIndexKey;
-    internal static Fin<double[]> WindingFieldOf(MeshSpace space, Point3d[] samples, SdfMeshPolicy.WindingCase policy, Op key);
+    internal static Fin<double[]> WindingFieldOf(MeshSpace space, Point3d[] samples, SdfMeshPolicy.WindingCase policy);
     private static (BoundingBox[] Boxes, Point3d[] Triangles) TriangleSoup(MeshSpace space);
     private static Option<Seq<(int Slot, int Vertex)>> CornerSlotsOf(MeshFace face, char triangle);
 }
 
 public static class IsoSurface {
     private const double NativeFixedTolerance = 0.001;
-    public static Fin<IsoSurfaceRun> Detailed(ScalarField field, CellLattice grid, IsoSurfacePolicy policy, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return PreflightOf(field: field, context: context, key: op)
-            .Bind(preflight => op.Catch(() => {
+    public static Fin<IsoSurfaceRun> Detailed(ScalarField field, CellLattice grid, IsoSurfacePolicy policy, Context context) {
+        return PreflightOf(field: field, context: context)
+            .Bind(preflight => Try.lift(() => {
                 int failures = 0;
                 int resolution = Math.Min(val1: grid.Columns.Value, val2: Math.Min(val1: grid.Rows.Value, val2: grid.Layers.Value));
                 BoundingBox indexBox = new(min: Point3d.Origin, max: new Point3d(x: grid.Columns.Value, y: grid.Rows.Value, z: grid.Layers.Value));
                 double EvaluateIso(Point3d point) =>
-                    field.SampleScalar(sample: grid.IndexToWorld * point, context: context, key: op).Match(
+                    field.SampleScalar(sample: grid.IndexToWorld * point, context: context).Match(
                         Succ: value => value - policy.IsoValue,
                         Fail: _ => { _ = Interlocked.Increment(location: ref failures); return double.NaN; });
                 Mesh result = Mesh.CreateFromIsosurface(scalarFieldEvaluator: EvaluateIso, box: indexBox, resolution: resolution, RootFindingMaxSteps: policy.MaxRootSteps.Value);
@@ -716,28 +705,27 @@ public static class IsoSurface {
                     NakedBoundaryLoopCount: nakedBoundaryLoops,
                     FixedTolerance: NativeFixedTolerance, MeshPreflight: preflight);
                 return failures == 0 && result.IsValid
-                    ? MeshSpace.Of(source: new MeshSource.Native(Value: result), context: context, key: op).Map(space => Finish(Some(space)))
+                    ? MeshSpace.Of(source: new MeshSource.Native(Value: result), context: context).Map(space => Finish(Some(space)))
                     : Fin.Succ(Finish(Option<MeshSpace>.None));
-            }));
+            }).Run().Bind(static inner => inner));
     }
-    private static Fin<Option<SdfSolve>> PreflightOf(ScalarField field, Context context, Op key);
+    private static Fin<Option<SdfSolve>> PreflightOf(ScalarField field, Context context);
 }
 
 public static class IsoContour {
-    public static Fin<IsoContourResult> Detailed(ScalarField field, CellLattice grid, double isoValue, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from iso in op.AcceptValue(value: isoValue)
-               from _ in guard(grid.Rank is 2, op.InvalidInput())
-               from corners in CornerFieldOf(field: field, grid: grid, context: context, key: op)
-               from cells in op.AcceptValue(value: ClassifyCells(corners: corners, grid: grid, isovalue: iso))
-               from chains in ChainSegments(cells: cells, grid: grid, context: context, key: op)
+    public static Fin<IsoContourResult> Detailed(ScalarField field, CellLattice grid, double isoValue, Context context) {
+        return from iso in Acceptance.Value(value: isoValue)
+               from _ in guard(grid.Rank is 2, new KernelFault.InvalidInput())
+               from corners in CornerFieldOf(field: field, grid: grid, context: context)
+               from cells in Acceptance.Value(value: ClassifyCells(corners: corners, grid: grid, isovalue: iso))
+               from chains in ChainSegments(cells: cells, grid: grid, context: context)
                select new IsoContourResult(
                    Loops: chains.Loops, IsoValue: iso,
                    AmbiguousCellCount: cells.AmbiguousCount, OpenRunCount: chains.OpenRuns);
     }
-    private static Fin<double[]> CornerFieldOf(ScalarField field, CellLattice grid, Context context, Op key);
+    private static Fin<double[]> CornerFieldOf(ScalarField field, CellLattice grid, Context context);
     private static (Seq<(Point3d A, Point3d B)> Segments, int AmbiguousCount) ClassifyCells(double[] corners, CellLattice grid, double isovalue);
-    private static Fin<(Seq<Chain> Loops, int OpenRuns)> ChainSegments((Seq<(Point3d A, Point3d B)> Segments, int AmbiguousCount) cells, CellLattice grid, Context context, Op key);
+    private static Fin<(Seq<Chain> Loops, int OpenRuns)> ChainSegments((Seq<(Point3d A, Point3d B)> Segments, int AmbiguousCount) cells, CellLattice grid, Context context);
 }
 
 [StructLayout(LayoutKind.Auto)]

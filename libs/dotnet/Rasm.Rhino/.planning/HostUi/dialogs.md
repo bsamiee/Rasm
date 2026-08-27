@@ -69,11 +69,11 @@ public sealed partial class HostVerdict : ICapability<HostVerdict> {
 
     internal ShowMessageResult Host { get; }
 
-    internal static Fin<HostVerdict> OfHost(ShowMessageResult host, VerdictRoster roster, Op key) =>
-        key.Row<ShowMessageResult, HostVerdict>(candidate: host, column: static row => row.Host)
+    internal static Fin<HostVerdict> OfHost(ShowMessageResult host, VerdictRoster roster) =>
+        FactoryBridge.Row<ShowMessageResult, HostVerdict>(candidate: host, column: static row => row.Host)
             .Bind(row => roster.Answers.Admits(row)
                 ? Fin.Succ(value: row)
-                : Fin.Fail<HostVerdict>(error: key.InvalidResult(detail: row.Key)));
+                : Fin.Fail<HostVerdict>(error: new KernelFault.InvalidResult(Detail: Some(row.Key))));
 }
 
 [SmartEnum<ShowMessageIcon>]
@@ -181,13 +181,13 @@ public sealed partial class ChoiceMultiplicity {
 
     [UseDelegateFromConstructor]
     internal partial Fin<InquiryAnswer> Pick(
-        HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows, Op op);
+        HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows);
 
     private static Fin<InquiryAnswer> SelectScalar(
-        HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows, Op op) =>
+        HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows) =>
         from _ in guard(
                 flag: rows.Count(static pair => pair.Row.Selected) <= 1,
-                False: op.InvalidInput())
+                False: new KernelFault.InvalidInput())
             .ToFin()
         let captions = rows.Map(static pair => pair.Caption).ToArray()
         let seeded = rows.Find(static pair => pair.Row.Selected).Map(static pair => pair.Caption)
@@ -196,28 +196,28 @@ public sealed partial class ChoiceMultiplicity {
                 title: title.Resolve(), message: prompt.Resolve(), items: captions, selectedItem: caption),
             None: () => Dialogs.ShowListBox(
                 title: title.Resolve(), message: prompt.Resolve(), items: captions)) as string
-        from caption in Optional(picked).ToFin(Fail: new UiFault.Dismissed(Key: op))
-        from row in Resolved(rows: rows, caption: caption, op: op)
+        from caption in Optional(picked).ToFin(Fail: new UiFault.Dismissed())
+        from row in Resolved(rows: rows, caption: caption)
         select (InquiryAnswer)new InquiryAnswer.Choice(Key: row.Key);
 
     private static Fin<InquiryAnswer> SelectSet(
-        HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows, Op op) =>
+        HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows) =>
         from selected in Optional(Dialogs.ShowMultiListBox(
                 title: title.Resolve(),
                 message: prompt.Resolve(),
                 items: rows.Map(static pair => pair.Caption).ToArray(),
                 defaults: rows.Filter(static pair => pair.Row.Selected).Map(static pair => pair.Caption).ToArray()))
-            .ToFin(Fail: new UiFault.Dismissed(Key: op))
+            .ToFin(Fail: new UiFault.Dismissed())
         let chosen = toSeq(selected).Strict()
-        from _ in guard(flag: chosen.Distinct().Count == chosen.Count, False: op.InvalidResult())
-        from matched in chosen.TraverseM(caption => Resolved(rows: rows, caption: caption, op: op)).As()
+        from _ in guard(flag: chosen.Distinct().Count == chosen.Count, False: new KernelFault.InvalidResult())
+        from matched in chosen.TraverseM(caption => Resolved(rows: rows, caption: caption)).As()
         select (InquiryAnswer)new InquiryAnswer.Choices(Keys: matched.Map(static row => row.Key).Strict());
 
     private static Fin<InquiryRow.Choice> Resolved(
-        Seq<(string Caption, InquiryRow.Choice Row)> rows, string caption, Op op) =>
+        Seq<(string Caption, InquiryRow.Choice Row)> rows, string caption) =>
         rows.Find(pair => string.Equals(pair.Caption, caption, StringComparison.Ordinal))
             .Map(static pair => pair.Row)
-            .ToFin(Fail: op.InvalidResult(detail: caption));
+            .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(caption)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -342,14 +342,13 @@ public sealed partial class RangeInquiry {
 public static class Inquiries {
     private static readonly Rasm.Numerics.Dimension PreviewCap = Rasm.Numerics.Dimension.Create(value: 64);
 
-    public static Fin<InquiryAnswer> Ask(DocumentSession session, Inquiry request, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Accept<object>(session, request).Bind(_ => Framed<InquiryAnswer>(
+    public static Fin<InquiryAnswer> Ask(DocumentSession session, Inquiry request) {
+        return Acceptance.Rows<object>(session, request).Bind(_ => Framed<InquiryAnswer>(
             session: session,
             body: (frame, parent) => request.Switch(
-                (Frame: frame, Parent: parent, Op: op),
+                (Frame: frame, Parent: parent),
                 verdict: static (held, ask) =>
-                    from body in held.Op.AcceptText(value: ask.Body.Resolve())
+                    from body in Acceptance.Text(value: ask.Body.Resolve())
                     from settled in HostVerdict.OfHost(
                         host: Dialogs.ShowMessage(
                             parent: held.Parent,
@@ -360,15 +359,14 @@ public static class Inquiries {
                             defaultButton: ask.Policy.Default.Key,
                             options: ask.Policy.HostOptions,
                             mode: ask.Policy.HostMode),
-                        roster: ask.Policy.Roster,
-                        key: held.Op)
+                        roster: ask.Policy.Roster)
                     select (InquiryAnswer)new InquiryAnswer.Verdict(Value: settled),
-                transcript: static (held, ask) => held.Op.Catch(() => {
+                transcript: static (held, ask) => Try.lift(() => {
                     Dialogs.ShowTextDialog(message: ask.Body.Resolve(), title: ask.Title.Resolve());
                     return Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.Transcript());
-                }),
+                }).Run().Bind(static inner => inner),
                 pick: static (held, ask) => Keyed(rows: ask.Rows, op: held.Op).Bind(rows => ask.Multiplicity.Pick(
-                    title: ask.Title, prompt: ask.Prompt, rows: rows, op: held.Op)),
+                    title: ask.Title, prompt: ask.Prompt, rows: rows)),
                 check: static (held, ask) =>
                     from rows in Keyed(rows: ask.Rows, op: held.Op)
                     from states in Optional(Dialogs.ShowCheckListBox(
@@ -376,8 +374,8 @@ public static class Inquiries {
                             message: ask.Prompt.Resolve(),
                             items: rows.Map(static pair => pair.Caption).ToArray(),
                             checkState: rows.Map(static pair => pair.Row.Checked).ToArray()))
-                        .ToFin(Fail: new UiFault.Dismissed(Key: held.Op))
-                    from answer in Zipped(rows: rows, values: states, op: held.Op)
+                        .ToFin(Fail: new UiFault.Dismissed())
+                    from answer in Zipped(rows: rows, values: states)
                     select (InquiryAnswer)new InquiryAnswer.Checks(Rows: answer),
                 properties: static (held, ask) =>
                     from rows in Keyed(rows: ask.Rows, op: held.Op)
@@ -386,19 +384,19 @@ public static class Inquiries {
                             message: ask.Prompt.Resolve(),
                             items: rows.Map(static pair => pair.Caption).ToArray(),
                             values: rows.Map(static pair => pair.Row.Value).ToArray()))
-                        .ToFin(Fail: new UiFault.Dismissed(Key: held.Op))
-                    from answer in Zipped(rows: rows, values: values, op: held.Op)
+                        .ToFin(Fail: new UiFault.Dismissed())
+                    from answer in Zipped(rows: rows, values: values)
                     select (InquiryAnswer)new InquiryAnswer.Properties(Rows: answer),
                 menu: static (held, ask) =>
-                    from slots in MenuForge.Flatten(nodes: ask.Nodes, table: ask.Table, key: held.Op)
+                    from slots in MenuForge.Flatten(nodes: ask.Nodes, table: ask.Table)
                     let index = Dialogs.ShowContextMenu(
                         items: slots.Map(static slot => slot.Text).AsIterable(),
                         screenPoint: ask.ScreenPoint,
                         modes: slots.Map(static slot => slot.Mode.Key).AsIterable())
-                    from chosen in MenuForge.Choose(slots: slots, index: index, key: held.Op)
-                    from verb in chosen.ToFin(Fail: new UiFault.Dismissed(Key: held.Op))
+                    from chosen in MenuForge.Choose(slots: slots, index: index)
+                    from verb in chosen.ToFin(Fail: new UiFault.Dismissed())
                     select (InquiryAnswer)new InquiryAnswer.Menu(Verb: verb),
-                range: static (held, ask) => held.Op.Catch(() => {
+                range: static (held, ask) => Try.lift(() => {
                     using RangeDialog dialog = new(
                         min: ask.Request.Minimum,
                         max: ask.Request.Maximum,
@@ -410,31 +408,28 @@ public static class Inquiries {
                         probe: () => ShellWindows.Present(
                             dialog: dialog,
                             session: held.Frame.Session,
-                            parent: Some<Control>(held.Parent),
-                            key: held.Op),
-                        op: held.Op,
-                        answer: () => Ranged(request: ask.Request, minimum: dialog.Min, maximum: dialog.Max, op: held.Op));
-                }),
+                            parent: Some<Control>(held.Parent)),
+                        answer: () => Ranged(request: ask.Request, minimum: dialog.Min, maximum: dialog.Max));
+                }).Run().Bind(static inner => inner),
                 layers: static (held, ask) => ask.Scope.Switch(
-                    (Request: ask, held.Frame, held.Op),
+                    (Request: ask, held.Frame),
                     one: static (frame, scope) =>
                         from seeds in Roster(
                             values: frame.Request.Selected,
                             count: frame.Frame.Model.Layers.Count,
                             sentinel: None,
-                            failure: frame.Op.InvalidInput())
-                        from _ in guard(flag: seeds.Count <= 1, False: frame.Op.InvalidInput())
+                            failure: new KernelFault.InvalidInput())
+                        from _ in guard(flag: seeds.Count <= 1, False: new KernelFault.InvalidInput())
                         from answer in SelectLayer(
                             request: frame.Request, model: frame.Frame.Model, scope: scope,
-                            seed: seeds.Head.IfNone(-1), op: frame.Op)
+                            seed: seeds.Head.IfNone(-1))
                         select answer,
-                    many: static (frame, _) => Picked(request: frame.Request, model: frame.Frame.Model, op: frame.Op)
+                    many: static (frame, _) => Picked(request: frame.Request, model: frame.Frame.Model)
                         .Map<InquiryAnswer>(values => new InquiryAnswer.Layers(Indices: values)),
-                    material: static (frame, _) => Picked(request: frame.Request, model: frame.Frame.Model, op: frame.Op)
+                    material: static (frame, _) => Picked(request: frame.Request, model: frame.Frame.Model)
                         .Bind(values => Settled(
                             probe: () => Fin.Succ(value: Dialogs.ShowLayerMaterialDialog(
                                 frame.Frame.Model, values.AsIterable())),
-                            op: frame.Op,
                             answer: () => Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.LayerMaterial(Indices: values))))),
                 linetype: static (held, ask) => ask.Request.Switch(
                     held,
@@ -445,10 +440,10 @@ public static class Inquiries {
                         selectedLineTypeId: pick.Selected.IfNone(Guid.Empty)) is Guid id && id != Guid.Empty
                         ? held.Frame.Model.Linetypes.Find(id: id, ignoreDeletedLinetypes: true) >= 0
                             ? Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.LinetypeId(Value: id))
-                            : Fin.Fail<InquiryAnswer>(error: held.Op.InvalidResult())
-                        : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
+                            : Fin.Fail<InquiryAnswer>(error: new KernelFault.InvalidResult())
+                        : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed()),
                     byIndex: static (held, pick) => SelectLinetype(
-                        pick: pick, count: held.Frame.Model.Linetypes.Count, op: held.Op)),
+                        pick: pick, count: held.Frame.Model.Linetypes.Count)),
                 printWidth: static (held, ask) => {
                     double width = ask.Selected.Match(
                         Some: pen => Dialogs.ShowPrintWidths(
@@ -456,57 +451,50 @@ public static class Inquiries {
                         None: () => Dialogs.ShowPrintWidths(title: ask.Title.Resolve(), message: ask.Prompt.Resolve()));
                     return Settled(
                         probe: () => Fin.Succ(value: RhinoMath.IsValidDouble(width)),
-                        op: held.Op,
                         answer: () => PrintPen.OfHost(weight: width, key: held.Op)
                             .Map<InquiryAnswer>(static pen => new InquiryAnswer.PrintWidth(Value: pen)));
                 },
                 sun: static (held, _) => Settled(
                     probe: () => Fin.Succ(value: Dialogs.ShowSunDialog(sun: held.Frame.Model.Lights.Sun)),
-                    op: held.Op,
                     answer: static () => Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.SunChanged())),
-                shade: static (held, ask) => Shaded(ask: ask, parent: held.Parent, op: held.Op)),
-            op: op));
+                shade: static (held, ask) => Shaded(ask: ask, parent: held.Parent))));
     }
 
-    public static Fin<Option<TResult>> Ask<TResult>(DocumentSession session, PickerDemand<TResult> demand, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Accept<object>(session, demand).Bind(_ => Framed<Option<TResult>>(
+    public static Fin<Option<TResult>> Ask<TResult>(DocumentSession session, PickerDemand<TResult> demand) {
+        return Acceptance.Rows<object>(session, demand).Bind(_ => Framed<Option<TResult>>(
             session: session,
-            body: (_, parent) => demand.Present(anchor: Some<Control>(parent), key: op),
-            op: op));
+            body: (_, parent) => demand.Present(anchor: Some<Control>(parent), key: op)));
     }
 
     private static Fin<T> Framed<T>(
         DocumentSession session,
-        Func<(RhinoDoc Model, DocumentSession Session), Control, Fin<T>> body,
-        Op op) =>
+        Func<(RhinoDoc Model, DocumentSession Session), Control, Fin<T>> body) =>
         HostThread.Run(
             work: new HostWork<T>.Session(
                 Document: session,
                 Needs: [SessionNeed.Dialog],
                 Body: model => Optional(RhinoEtoApp.MainWindowForDocument(model))
-                    .ToFin(Fail: op.MissingContext())
-                    .Bind(parent => body((Model: model, Session: session), parent))),
-            key: op);
+                    .ToFin(Fail: new KernelFault.MissingContext())
+                    .Bind(parent => body((Model: model, Session: session), parent))));
 
-    private static Fin<InquiryAnswer> Settled(Func<Fin<bool>> probe, Op op, Func<Fin<InquiryAnswer>> answer) =>
-        op.Catch(probe).Bind(accepted => accepted
-            ? op.Catch(answer)
-            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: op)));
+    private static Fin<InquiryAnswer> Settled(Func<Fin<bool>> probe, Func<Fin<InquiryAnswer>> answer) =>
+        Try.lift(probe).Run().Bind(static inner => inner).Bind(accepted => accepted
+            ? Try.lift(answer).Run().Bind(static inner => inner)
+            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed()));
 
-    private static Fin<Seq<(string Caption, TRow Row)>> Keyed<TRow>(Seq<TRow> rows, Op op) where TRow : InquiryRow =>
-        from _ in guard(flag: !rows.IsEmpty, False: op.InvalidInput()).ToFin()
-        from keys in rows.TraverseM(row => op.AcceptValidated<InquiryKey>(row.Identity.ToValue())).As()
-        from __ in guard(flag: keys.Distinct().Count == keys.Count, False: op.InvalidInput())
-        from captions in rows.TraverseM(row => op.AcceptText(value: row.Label.Resolve())).As()
-        from ___ in guard(flag: captions.Distinct().Count == captions.Count, False: op.InvalidInput())
+    private static Fin<Seq<(string Caption, TRow Row)>> Keyed<TRow>(Seq<TRow> rows) where TRow : InquiryRow =>
+        from _ in guard(flag: !rows.IsEmpty, False: new KernelFault.InvalidInput()).ToFin()
+        from keys in rows.TraverseM(row => FactoryBridge.Accept<InquiryKey>(row.Identity.ToValue())).As()
+        from __ in guard(flag: keys.Distinct().Count == keys.Count, False: new KernelFault.InvalidInput())
+        from captions in rows.TraverseM(row => Acceptance.Text(value: row.Label.Resolve())).As()
+        from ___ in guard(flag: captions.Distinct().Count == captions.Count, False: new KernelFault.InvalidInput())
         select captions.Zip(rows).Strict();
 
     private static Fin<Seq<(InquiryKey Key, TValue Value)>> Zipped<TRow, TValue>(
-        Seq<(string Caption, TRow Row)> rows, IEnumerable<TValue> values, Op op) where TRow : InquiryRow =>
+        Seq<(string Caption, TRow Row)> rows, IEnumerable<TValue> values) where TRow : InquiryRow =>
         toSeq(values).Strict() is var settled && settled.Count == rows.Count
             ? Fin.Succ(value: rows.Map(static pair => pair.Row.Identity).Zip(settled).Strict())
-            : Fin.Fail<Seq<(InquiryKey Key, TValue Value)>>(error: op.InvalidResult());
+            : Fin.Fail<Seq<(InquiryKey Key, TValue Value)>>(error: new KernelFault.InvalidResult());
 
     private static Fin<Seq<int>> Roster(Seq<int> values, int count, Option<int> sentinel, Error failure) =>
         count >= 0
@@ -516,7 +504,7 @@ public static class Inquiries {
             : Fin.Fail<Seq<int>>(error: failure);
 
     private static Fin<InquiryAnswer> SelectLayer(
-        Inquiry.Layers request, RhinoDoc model, LayerInquiry.One scope, int seed, Op op) {
+        Inquiry.Layers request, RhinoDoc model, LayerInquiry.One scope, int seed) {
         bool setCurrent = scope.Current.Initial;
         int index = seed;
         bool accepted = Dialogs.ShowSelectLayerDialog(
@@ -528,16 +516,15 @@ public static class Inquiries {
         (int Index, bool Current) answered = (Index: index, Current: setCurrent);
         return Settled(
             probe: () => Fin.Succ(value: accepted),
-            op: op,
             answer: () =>
                 from admitted in Roster(
-                    values: Seq(answered.Index), count: model.Layers.Count, sentinel: None, failure: op.InvalidResult())
-                from currency in op.Row<bool, LayerCurrency>(candidate: answered.Current)
+                    values: Seq(answered.Index), count: model.Layers.Count, sentinel: None, failure: new KernelFault.InvalidResult())
+                from currency in FactoryBridge.Row<bool, LayerCurrency>(candidate: answered.Current)
                 select (InquiryAnswer)new InquiryAnswer.Layer(Index: admitted.Head, Currency: currency));
     }
 
-    private static Fin<InquiryAnswer> SelectLinetype(LinetypeInquiry.ByIndex pick, int count, Op op) =>
-        Roster(values: Seq(pick.Selected), count: count, sentinel: pick.ByLayer.Sentinel(), failure: op.InvalidInput())
+    private static Fin<InquiryAnswer> SelectLinetype(LinetypeInquiry.ByIndex pick, int count) =>
+        Roster(values: Seq(pick.Selected), count: count, sentinel: pick.ByLayer.Sentinel(), failure: new KernelFault.InvalidInput())
             .Bind(seeds => {
                 int index = seeds.Head;
                 bool accepted = Dialogs.ShowSelectLinetypeDialog(
@@ -545,54 +532,52 @@ public static class Inquiries {
                 int answered = index;
                 return Settled(
                     probe: () => Fin.Succ(value: accepted),
-                    op: op,
                     answer: () => Roster(
                             values: Seq(answered), count: count, sentinel: pick.ByLayer.Sentinel(),
-                            failure: op.InvalidResult())
+                            failure: new KernelFault.InvalidResult())
                         .Map<InquiryAnswer>(admitted => new InquiryAnswer.LinetypeIndex(Value: admitted.Head)));
             });
 
-    private static Fin<Seq<int>> Picked(Inquiry.Layers request, RhinoDoc model, Op op) =>
-        from _ in Roster(values: request.Selected, count: model.Layers.Count, sentinel: None, failure: op.InvalidInput())
+    private static Fin<Seq<int>> Picked(Inquiry.Layers request, RhinoDoc model) =>
+        from _ in Roster(values: request.Selected, count: model.Layers.Count, sentinel: None, failure: new KernelFault.InvalidInput())
         from picked in Dialogs.ShowSelectMultipleLayersDialog(
             defaultLayerIndices: request.Selected.AsIterable(),
             dialogTitle: request.Title.Resolve(),
             showNewLayerButton: request.Creation.Key,
             layerIndices: out int[] indices)
             ? Fin.Succ(value: toSeq(indices).Strict())
-            : Fin.Fail<Seq<int>>(error: new UiFault.Dismissed(Key: op))
-        from __ in guard(flag: !picked.IsEmpty, False: op.InvalidResult())
-        from admitted in Roster(values: picked, count: model.Layers.Count, sentinel: None, failure: op.InvalidResult())
+            : Fin.Fail<Seq<int>>(error: new UiFault.Dismissed())
+        from __ in guard(flag: !picked.IsEmpty, False: new KernelFault.InvalidResult())
+        from admitted in Roster(values: picked, count: model.Layers.Count, sentinel: None, failure: new KernelFault.InvalidResult())
         select admitted;
 
-    private static Fin<InquiryAnswer> Shaded(Inquiry.Shade ask, Control parent, Op op) {
+    private static Fin<InquiryAnswer> Shaded(Inquiry.Shade ask, Control parent) {
         Ring<Error> previews = new(cap: PreviewCap);
-        return ask.Seed.ToColor4f(key: op).Bind(seed => {
+        return ask.Seed.ToColor4f().Bind(seed => {
             Color4f colour = seed;
             bool accepted = Dialogs.ShowColorDialog(
                 parent: parent,
                 color: ref colour,
                 allowAlpha: ask.Alpha == AlphaMode.Alpha,
-                namedColorList: Op.ToHostSlot(ask.Palette),
-                colorCallback: Op.ToHostSlot(ask.Preview.Map(preview => new Dialogs.OnColorChangedEvent(
-                    live => ignore(PerceptualColor.OfHost(host: live, key: op)
+                namedColorList: HostEdge.Slot(ask.Palette),
+                colorCallback: HostEdge.Slot(ask.Preview.Map(preview => new Dialogs.OnColorChangedEvent(
+                    live => ignore(PerceptualColor.OfHost(host: live)
                         .Bind(preview)
                         .IfFail(fault => ignore(previews.Park(item: fault))))))));
             Color4f answered = colour;
             return Settled(
                 probe: () => Fin.Succ(value: accepted),
-                op: op,
                 answer: () => PerceptualColor.OfHost(host: answered, key: op).Map<InquiryAnswer>(
                     value => new InquiryAnswer.Shade(Value: value, PreviewFaults: previews.Parked)));
         });
     }
 
-    private static Fin<InquiryAnswer> Ranged(RangeInquiry request, double minimum, double maximum, Op op) =>
+    private static Fin<InquiryAnswer> Ranged(RangeInquiry request, double minimum, double maximum) =>
         from _ in guard(
                 flag: double.IsFinite(minimum) && double.IsFinite(maximum) && minimum <= maximum
                     && (request.MinimumEdge == RangeEdge.Adjustable || minimum >= request.Minimum)
                     && (request.MaximumEdge == RangeEdge.Adjustable || maximum <= request.Maximum),
-                False: op.InvalidResult())
+                False: new KernelFault.InvalidResult())
             .ToFin()
         select (InquiryAnswer)new InquiryAnswer.Range(Minimum: minimum, Maximum: maximum);
 }
@@ -603,7 +588,7 @@ public static class Inquiries {
 - Owner: `HostAsset` is the closed request family for the four productions no kernel asset origin can make; `HostProduct` carries their three answer shapes; `PreviewInk` closes the mesh-preview colour cardinality; `PatternPass` carries the linetype pattern pair whose presence selects the host overload; `PixelGround` carries the composite the pixel rasterizer alone publishes; `PreviewChannel` keys the host stroke channel; `PaletteEntry` is one admitted named colour.
 - Entry: `HostAssets.Render` admits the whole request, then routes on the document the request declares — only the mesh preview names a `DocumentSession` and demands `SessionNeed.Read`, and every other production runs in a plain command frame.
 - Auto: `HostAssets.Polarity` reads the host dark-mode probe once and answers a kernel `ThemeVariant`, so a caller following the host and a caller pinning a variant hand this owner ONE column and no tri-state optional bool exists.
-- Law: a resource, file, stream, scale-indexed set, or draw-program origin resolves at the KERNEL and never here — `AssetOrigin.Resolve(extent, stack, key)` already answers the raster in the asked product shape, so the three resource loaders, the scale-down selector, and the two output-typed cases this page carried are the deleted form. NAMED LOSS: the host's reduced-variant picker, which selected a smaller EMBEDDED image rather than resampling; recovered because a multi-variant asset is `AssetOrigin.Raster`, whose selection reads the asked extent as data.
+- Law: a resource, file, stream, scale-indexed set, or draw-program origin resolves at the KERNEL and never here — `AssetOrigin.Resolve(extent, stack)` already answers the raster in the asked product shape, so the three resource loaders, the scale-down selector, and the two output-typed cases this page carried are the deleted form. NAMED LOSS: the host's reduced-variant picker, which selected a smaller EMBEDDED image rather than resampling; recovered because a multi-variant asset is `AssetOrigin.Raster`, whose selection reads the asked extent as data.
 - Law: the SVG production stays because the rasterizer is Rhino's own — it adjusts for dark mode and composites onto a ground the toolkit decoder has no parameter for — so this owner takes the kernel origin family as its INPUT and answers the kernel raster carrier as its OUTPUT, and only the rasterization between them is host work.
 - Law: an origin the host rasterizer cannot read refuses TYPED naming the case. The rasterizer takes SVG document TEXT, which is exactly `AssetOrigin.Source`; every other origin case names a byte source the kernel already resolves, so routing one here would be this page decoding what the kernel owns.
 - Law: the ground rides its PRESENCE and selects the host member. `PixelsFromSvg` composites onto a ground under a declared coverage carriage and `BitmapFromSvg` publishes neither parameter, so a stated ground is a pixel ask and an absent one a bitmap ask — the same presence law the kernel number prompt states, and it forecloses the corner where a declared ground is silently dropped.
@@ -632,12 +617,12 @@ public abstract partial record PreviewInk {
     public sealed record Uniform(PerceptualColor Value) : PreviewInk;
     public sealed record PerMesh(Seq<PerceptualColor> Values) : PreviewInk;
 
-    internal Fin<Unit> Admit(Rasm.Numerics.Dimension meshes, Op op) => Switch(
-        (Meshes: meshes, Op: op),
+    internal Fin<Unit> Admit(Rasm.Numerics.Dimension meshes) => Switch(
+        meshes,
         document: static (_, _) => Fin.Succ(value: unit),
         uniform: static (_, _) => Fin.Succ(value: unit),
         perMesh: static (held, row) => guard(
-            flag: row.Values.Count == held.Meshes.Value, False: held.Op.InvalidInput()).ToFin());
+            flag: row.Values.Count == held.Value, False: new KernelFault.InvalidInput()).ToFin());
 
     internal Seq<PerceptualColor> Spread(PerceptualColor fallback, Rasm.Numerics.Dimension meshes) => Switch(
         (Fallback: fallback, Meshes: meshes),
@@ -670,16 +655,16 @@ public abstract partial record HostAsset {
         strokes: static _ => Option<DocumentSession>.None,
         palette: static _ => Option<DocumentSession>.None);
 
-    internal Fin<HostAsset> Admit(Op op) => Switch(
+    internal Fin<HostAsset> Admit() => Switch(
         state: op,
-        vector: static (op, ask) => op.Accept<object>(ask.Origin, ask.Extent, ask.Polarity).Map(static _ => unit),
-        meshPreview: static (op, ask) =>
-            from _ in op.Accept<object>(ask.Session, ask.Ink, ask.Extent)
-            from meshes in op.AcceptValidated<Rasm.Numerics.Dimension>(ask.Meshes.Count)
-            from __ in guard(flag: meshes.Value > 0, False: op.InvalidInput())
-            from ___ in ask.Ink.Admit(meshes: meshes, op: op)
+        vector: static (ask) => Acceptance.Rows<object>(ask.Origin, ask.Extent, ask.Polarity).Map(static _ => unit),
+        meshPreview: static (ask) =>
+            from _ in Acceptance.Rows<object>(ask.Session, ask.Ink, ask.Extent)
+            from meshes in FactoryBridge.Accept<Rasm.Numerics.Dimension>(ask.Meshes.Count)
+            from __ in guard(flag: meshes.Value > 0, False: new KernelFault.InvalidInput())
+            from ___ in ask.Ink.Admit(meshes: meshes)
             select unit,
-        strokes: static (op, ask) => op.Accept<object>(ask.Curve, ask.Linetype, ask.Extent).Map(static _ => unit),
+        strokes: static (ask) => Acceptance.Rows<object>(ask.Curve, ask.Linetype, ask.Extent).Map(static _ => unit),
         palette: static (_, _) => Fin.Succ(value: unit))
         .Map(_ => this);
 }
@@ -696,45 +681,42 @@ public abstract partial record HostProduct {
 public static class HostAssets {
     public static ThemeVariant Polarity => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
-    public static Fin<HostProduct> Render(HostAsset request, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(request)
-            .Bind(admitted => admitted.Admit(op))
+    public static Fin<HostProduct> Render(HostAsset request) {
+        return Admit.Need(request)
+            .Bind(admitted => admitted.Admit())
             .Bind(admitted => admitted.Document.Match(
                 Some: session => HostThread.Run(
                     work: new HostWork<HostProduct>.Session(
                         Document: session,
                         Needs: [SessionNeed.Read],
-                        Body: model => Produce(model: Some(model), request: admitted, op: op)),
-                    key: op),
+                        Body: model => Produce(model: Some(model), request: admitted))),
                 None: () => HostThread.Run(
-                    work: new HostWork<HostProduct>.Execute(Body: () => Produce(model: None, request: admitted, op: op)),
-                    key: op)));
+                    work: new HostWork<HostProduct>.Execute(Body: () => Produce(model: None, request: admitted)))));
     }
 
-    private static Fin<HostProduct> Produce(Option<RhinoDoc> model, HostAsset request, Op op) =>
+    private static Fin<HostProduct> Produce(Option<RhinoDoc> model, HostAsset request) =>
         request.Switch(
-            (Model: model, Op: op),
-            vector: static (held, ask) => Source(origin: ask.Origin, op: held.Op).Bind(text => ask.Ground.Match(
-                Some: ground => Pixels(text: text, ask: ask, ground: ground, op: held.Op),
-                None: () => Bitmap(text: text, ask: ask, op: held.Op))),
+            model,
+            vector: static (held, ask) => Source(origin: ask.Origin).Bind(text => ask.Ground.Match(
+                Some: ground => Pixels(text: text, ask: ask, ground: ground),
+                None: () => Bitmap(text: text, ask: ask))),
             meshPreview: static (held, ask) =>
-                from model in held.Model.ToFin(Fail: held.Op.MissingContext())
-                from fallback in held.Op.Catch(() => Fin.Succ(value: model.CreateDefaultAttributes().DrawColor(model)))
-                from neutral in PerceptualColor.OfHost(host: fallback, key: held.Op)
+                from model in held.ToFin(Fail: new KernelFault.MissingContext())
+                from fallback in Try.lift(() => Fin.Succ(value: model.CreateDefaultAttributes().DrawColor(model))).Run().Bind(static inner => inner)
+                from neutral in PerceptualColor.OfHost(host: fallback)
                 let meshes = Rasm.Numerics.Dimension.Create(value: ask.Meshes.Count)
                 from hosted in ask.Ink.Spread(fallback: neutral, meshes: meshes)
-                    .TraverseM(ink => ink.ToDrawing(key: held.Op))
+                    .TraverseM(ink => ink.ToDrawing())
                     .As()
-                from bitmap in held.Op.Catch(() => Optional(DrawingUtilities.CreateMeshPreviewImage(
+                from bitmap in Try.lift(() => Optional(DrawingUtilities.CreateMeshPreviewImage(
                         doc: model,
                         meshes: ask.Meshes,
                         colors: hosted,
                         size: Extent(ask.Extent)))
-                    .ToFin(Fail: held.Op.InvalidResult()))
+                    .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                 select (HostProduct)new HostProduct.Raster(Value: new AssetRaster.Gdi(
                     Scale: ask.Extent.Scale, Bitmap: new Lease<GdiBitmap>.Owned(Value: bitmap))),
-            strokes: static (held, ask) => held.Op.Catch(() => Optional(ask.Pattern.Match(
+            strokes: static (held, ask) => Try.lift(() => Optional(ask.Pattern.Match(
                     Some: pattern => DrawingUtilities.CreateLinetypePreviewGeometryEx(
                         ask.Curve,
                         ask.Linetype,
@@ -747,52 +729,50 @@ public static class HostAssets {
                         linetype: ask.Linetype,
                         width: ask.Extent.PixelWidth,
                         height: ask.Extent.PixelHeight)))
-                .ToFin(Fail: held.Op.InvalidResult())
+                .ToFin(Fail: new KernelFault.InvalidResult())
                 .Map(static runs => (HostProduct)new HostProduct.Strokes(
-                    Runs: toSeq(runs).Map(static run => toSeq(run).Strict()).Strict()))),
+                    Runs: toSeq(runs).Map(static run => toSeq(run).Strict()).Strict()))).Run().Bind(static inner => inner),
             palette: static (held, ask) => toSeq(ask.Source.IfNone(() => NamedColorList.Default))
-                .TraverseM(named => PerceptualColor.OfHost(host: named.Color, key: held.Op)
+                .TraverseM(named => PerceptualColor.OfHost(host: named.Color)
                     .Map(value => new PaletteEntry(Name: named.Name, Value: value)))
                 .As()
                 .Map(static entries => (HostProduct)new HostProduct.Palette(Entries: entries.Strict())));
 
-    private static Fin<string> Source(AssetOrigin origin, Op op) => origin.Switch(
+    private static Fin<string> Source(AssetOrigin origin) => origin.Switch(
         state: op,
-        resource: static (op, _) => Refused(nameof(AssetOrigin.Resource), op),
-        file: static (op, _) => Refused(nameof(AssetOrigin.File), op),
-        stream: static (op, _) => Refused(nameof(AssetOrigin.Stream), op),
-        raster: static (op, _) => Refused(nameof(AssetOrigin.Raster), op),
-        vector: static (op, _) => Refused(nameof(AssetOrigin.Vector), op),
-        source: static (op, row) => op.AcceptText(value: row.Text),
-        render: static (op, _) => Refused(nameof(AssetOrigin.Render), op));
+        resource: static (_) => Refused(nameof(AssetOrigin.Resource)),
+        file: static (_) => Refused(nameof(AssetOrigin.File)),
+        stream: static (_) => Refused(nameof(AssetOrigin.Stream)),
+        raster: static (_) => Refused(nameof(AssetOrigin.Raster)),
+        vector: static (_) => Refused(nameof(AssetOrigin.Vector)),
+        source: static (row) => Acceptance.Text(value: row.Text),
+        render: static (_) => Refused(nameof(AssetOrigin.Render)));
 
-    private static Fin<string> Refused(string origin, Op op) =>
-        Fin.Fail<string>(error: new UiFault.HostRejected(
-            Key: op,
-            Detail: $"{nameof(DrawingUtilities.BitmapFromSvg)} reads source text; {origin} resolves at the kernel"));
+    private static Fin<string> Refused(string origin) =>
+        Fin.Fail<string>(error: new UiFault.HostRejected(Detail: $"{nameof(DrawingUtilities.BitmapFromSvg)} reads source text; {origin} resolves at the kernel"));
 
-    private static Fin<HostProduct> Bitmap(string text, HostAsset.Vector ask, Op op) =>
-        op.Catch(() => Optional(DrawingUtilities.BitmapFromSvg(
+    private static Fin<HostProduct> Bitmap(string text, HostAsset.Vector ask) =>
+        Try.lift(() => Optional(DrawingUtilities.BitmapFromSvg(
                 svg: text,
                 width: ask.Extent.PixelWidth,
                 height: ask.Extent.PixelHeight,
                 adjustForDarkMode: ask.Polarity != ThemeVariant.Light))
-            .ToFin(Fail: op.InvalidResult())
+            .ToFin(Fail: new KernelFault.InvalidResult())
             .Map(bitmap => (HostProduct)new HostProduct.Raster(Value: new AssetRaster.Gdi(
-                Scale: ask.Extent.Scale, Bitmap: new Lease<GdiBitmap>.Owned(Value: bitmap)))));
+                Scale: ask.Extent.Scale, Bitmap: new Lease<GdiBitmap>.Owned(Value: bitmap))))).Run().Bind(static inner => inner);
 
-    private static Fin<HostProduct> Pixels(string text, HostAsset.Vector ask, PixelGround ground, Op op) =>
-        from backdrop in ground.Ground.ToDrawing(key: op)
-        from rows in op.Catch(() => Optional(DrawingUtilities.PixelsFromSvg(
+    private static Fin<HostProduct> Pixels(string text, HostAsset.Vector ask, PixelGround ground) =>
+        from backdrop in ground.Ground.ToDrawing()
+        from rows in Try.lift(() => Optional(DrawingUtilities.PixelsFromSvg(
                 svg: text,
                 width: ask.Extent.PixelWidth,
                 height: ask.Extent.PixelHeight,
                 premultiplyAlpha: ground.Layout == AlphaLayout.Premultiplied,
                 backgroundColor: backdrop,
                 adjustForDarkMode: ask.Polarity != ThemeVariant.Light))
-            .ToFin(Fail: op.InvalidResult()))
+            .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
         from raster in AssetRaster.OfPixels(
-            scale: ask.Extent.Scale, extent: ask.Extent, layout: ground.Layout, rows: toArray(rows), key: op)
+            scale: ask.Extent.Scale, extent: ask.Extent, layout: ground.Layout, rows: toArray(rows))
         select (HostProduct)new HostProduct.Raster(Value: raster);
 
     private static DrawingSize Extent(AssetExtent extent) =>

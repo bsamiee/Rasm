@@ -66,7 +66,7 @@
 - `DataType` discriminates the stored primitive, and the `Has*` probe family gates a read against a missing or wrong-typed item before the scalar accessor runs.
 
 [STACKING]:
-- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): a read that may miss lowers through `HasItem`/`FindItem` into `Option<Value>`; a `Storable<T>` round-trip folds to `Fin<T>` mapping a malformed archive to `Error`; the write side sequences through `Op.Side`/`Eff`, and a `StorableArray<T>` carries as `Seq<T>`.
+- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): a read that may miss lowers through `HasItem`/`FindItem` into `Option<Value>`; a `Storable<T>` round-trip folds to `Fin<T>` mapping a malformed archive to `Error`; the write side sequences through `HostEdge.Side`/`Eff`, and a `StorableArray<T>` carries as `Seq<T>`.
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `DataType` is owned as a `[SmartEnum]` discriminant so a stored-kind branch dispatches through exhaustive `Switch`; a folder value object stores through `IStorable.Store` as its `[ValueObject<T>]` key and reads back through `Storable<T>`.
 
 [LOCAL_ADMISSION]:

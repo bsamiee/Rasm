@@ -36,11 +36,11 @@ public abstract partial record ExchangeFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostExchange;
     private ExchangeFault() { }
 
-    [FaultCase(0)] public sealed partial record CodecUnknown(Op Key, string Requested) : ExchangeFault;
-    [FaultCase(1)] public sealed partial record AbilityMissing(Op Key, string Codec, string Ability) : ExchangeFault;
-    [FaultCase(2)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : ExchangeFault;
-    [FaultCase(3)] public sealed partial record Staging(Op Key, DocumentPath Target, string Stage) : ExchangeFault;
-    [FaultCase(4)] public sealed partial record Exhausted(Op Key, string Label, int Bound) : ExchangeFault;
+    [FaultCase(0)] public sealed partial record CodecUnknown(string Requested) : ExchangeFault;
+    [FaultCase(1)] public sealed partial record AbilityMissing(string Codec, string Ability) : ExchangeFault;
+    [FaultCase(2)] public sealed partial record HostRefused(string Member, string Detail) : ExchangeFault;
+    [FaultCase(3)] public sealed partial record Staging(DocumentPath Target, string Stage) : ExchangeFault;
+    [FaultCase(4)] public sealed partial record Exhausted(string Label, int Bound) : ExchangeFault;
 
     public sealed override string Message => Switch(
         codecUnknown: static fault => $"Exchange codec '{fault.Requested}' is unknown for '{fault.Key}'.",
@@ -49,8 +49,8 @@ public abstract partial record ExchangeFault : Fault {
         staging: static fault => $"Exchange staging for '{fault.Target}' failed at '{fault.Stage}' for '{fault.Key}'.",
         exhausted: static fault => $"Exchange budget '{fault.Label}' exhausted its bound of {fault.Bound} for '{fault.Key}'.");
 
-    internal static ExchangeFault Host(Op key, string member, Option<string> log) =>
-        new HostRefused(Key: key, Member: member, Detail: log.IfNone(noneValue: "refused without native detail"));
+    internal static ExchangeFault Host(string member, Option<string> log) =>
+        new HostRefused(Member: member, Detail: log.IfNone(noneValue: "refused without native detail"));
 
 }
 ```
@@ -110,43 +110,43 @@ public sealed partial class CollisionRule {
         settle: static (path, _, op) => guard(
             !System.IO.File.Exists(path: path.Value),
             new KernelFault.InvalidValue(path.Value, string.Join(" | ", new object?[] { op, "a destination no file occupies" }))).ToFin().Map(_ => path),
-        land: static (temporary, path, _, op) => Move(temporary, path, overwrite: false, op));
+        land: static (temporary, path, _, op) => Move(temporary, path, overwrite: false));
     public static readonly CollisionRule Replace = new(
         key: 1,
         settle: static (path, _, _) => Fin.Succ(value: path),
-        land: static (temporary, path, _, op) => Move(temporary, path, overwrite: true, op));
+        land: static (temporary, path, _, op) => Move(temporary, path, overwrite: true));
     public static readonly CollisionRule AppendOrdinal = new(
         key: 2,
         settle: static (path, bound, op) => OutputPolicy.Candidates(path, bound)
             .Find(static candidate => !System.IO.File.Exists(path: candidate.Value))
-            .ToFin(Fail: Spent(path: path, bound: bound, op: op)),
+            .ToFin(Fail: Spent(path: path, bound: bound)),
         land: Append);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<DocumentPath> Settle(DocumentPath path, Rasm.Numerics.Dimension bound, Op key);
+    internal partial Fin<DocumentPath> Settle(DocumentPath path, Rasm.Numerics.Dimension bound);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<DocumentPath> Land(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound, Op key);
+    internal partial Fin<DocumentPath> Land(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound);
 
-    private static Fin<DocumentPath> Move(string temporary, DocumentPath path, bool overwrite, Op op) => op.Catch(() => {
+    private static Fin<DocumentPath> Move(string temporary, DocumentPath path, bool overwrite) => Try.lift(() => {
         System.IO.File.Move(sourceFileName: temporary, destFileName: path.Value, overwrite: overwrite);
         return Fin.Succ(value: path);
-    });
+    }).Run().Bind(static inner => inner);
 
-    private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound, Op op) =>
+    private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound) =>
         OutputPolicy.Candidates(path, bound).Fold(
-            (Settled: false, Outcome: Fin.Fail<DocumentPath>(error: Spent(path: path, bound: bound, op: op))),
+            (Settled: false, Outcome: Fin.Fail<DocumentPath>(error: Spent(path: path, bound: bound))),
             (state, candidate) => state.Settled
                 ? state
-                : Move(temporary: temporary, path: candidate, overwrite: false, op: op).Match(
+                : Move(temporary: temporary, path: candidate, overwrite: false).Match(
                     Succ: landed => (Settled: true, Outcome: Fin.Succ(value: landed)),
                     Fail: failure => System.IO.File.Exists(path: candidate.Value)
                         ? state
                         : (Settled: true, Outcome: Fin.Fail<DocumentPath>(error: failure))))
             .Outcome;
 
-    private static Error Spent(DocumentPath path, Rasm.Numerics.Dimension bound, Op op) =>
-        new ExchangeFault.Exhausted(Key: op, Label: path.Value, Bound: bound.Value);
+    private static Error Spent(DocumentPath path, Rasm.Numerics.Dimension bound) =>
+        new ExchangeFault.Exhausted(Label: path.Value, Bound: bound.Value);
 }
 
 [SmartEnum<int>]
@@ -154,13 +154,13 @@ public sealed partial class DirectoryRule {
     public static readonly DirectoryRule Existing = new(key: 0, ensure: static (folder, op) =>
         guard(System.IO.Directory.Exists(folder), new KernelFault.InvalidValue(folder, string.Join(" | ", new object?[] { op, "an existing destination directory" }))).ToFin());
     public static readonly DirectoryRule Create = new(key: 1, ensure: static (folder, op) =>
-        op.Catch(() => {
+        Try.lift(() => {
             _ = System.IO.Directory.CreateDirectory(folder);
             return Fin.Succ(value: unit);
-        }));
+        }).Run().Bind(static inner => inner));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Ensure(string folder, Op key);
+    internal partial Fin<Unit> Ensure(string folder);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -175,7 +175,6 @@ public readonly partial struct ExchangeBudget : IDisallowDefaultValue {
         ref ValidationError? validationError,
         ref Rasm.Numerics.Dimension ioDegree,
         ref System.Threading.Tasks.TaskScheduler scheduler) {
-        Op op = Op.Of();
         (Rasm.Numerics.Dimension degree, System.Threading.Tasks.TaskScheduler? lane) = (ioDegree, scheduler);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (degree.Value <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(IoDegree), degree.Value, "a positive I/O degree" }))),
@@ -184,10 +183,8 @@ public readonly partial struct ExchangeBudget : IDisallowDefaultValue {
 
     public static Fin<ExchangeBudget> Of(
         Rasm.Numerics.Dimension ioDegree,
-        System.Threading.Tasks.TaskScheduler scheduler,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<ExchangeBudget>(
+        System.Threading.Tasks.TaskScheduler scheduler) {
+        return FactoryBridge.Accept<ExchangeBudget>(
             fault: Validate(ioDegree: ioDegree, scheduler: scheduler, item: out ExchangeBudget value),
             admitted: value);
     }
@@ -230,7 +227,6 @@ public sealed partial record OutputPolicy {
         ref CollisionRule collision,
         ref DirectoryRule directory,
         ref Rasm.Numerics.Dimension ordinalBound) {
-        Op op = Op.Of();
         (CollisionRule? rule, DirectoryRule? folder, Rasm.Numerics.Dimension bound) = (collision, directory, ordinalBound);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (rule is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Collision) }))),
@@ -241,19 +237,16 @@ public sealed partial record OutputPolicy {
     public static Fin<OutputPolicy> Of(
         CollisionRule collision,
         DirectoryRule directory,
-        Rasm.Numerics.Dimension ordinalBound,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<OutputPolicy>(
+        Rasm.Numerics.Dimension ordinalBound) {
+        return FactoryBridge.Accept<OutputPolicy>(
             Validate(collision: collision, directory: directory, ordinalBound: ordinalBound, item: out OutputPolicy? policy),
             policy);
     }
 
-    internal Fin<DocumentPath> Resolve(DocumentPath target, Option<FileCodec> codec = default, Op? key = null) {
-        Op op = key.OrDefault();
+    internal Fin<DocumentPath> Resolve(DocumentPath target, Option<FileCodec> codec = default) {
         DocumentPath requested = Requested(target: target, codec: codec);
-        return from _folder in Directory.Ensure(folder: Folder(path: requested), key: op)
-               from settled in Collision.Settle(path: requested, bound: OrdinalBound, key: op)
+        return from _folder in Directory.Ensure(folder: Folder(path: requested))
+               from settled in Collision.Settle(path: requested, bound: OrdinalBound)
                select settled;
     }
 
@@ -261,31 +254,27 @@ public sealed partial record OutputPolicy {
         DocumentPath target,
         Option<FileCodec> codec,
         Func<string, Fin<TStage>> stage,
-        Option<Func<byte[], Fin<Unit>>> validate = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Option<Func<byte[], Fin<Unit>>> validate = default) {
         DocumentPath requested = Requested(target: target, codec: codec);
         string directory = Folder(path: requested);
-        return from writer in op.Need(stage)
-               from _folder in Directory.Ensure(folder: directory, key: op)
+        return from writer in Admit.Need(stage)
+               from _folder in Directory.Ensure(folder: directory)
                from lease in Lease<StagedFile>.Acquire(
                    mint: () => new StagedFile(path: System.IO.Path.Join(
                        directory,
-                       $".{System.IO.Path.GetFileName(requested.Value)}.{Guid.NewGuid():N}.partial")),
-                   key: op)
+                       $".{System.IO.Path.GetFileName(requested.Value)}.{Guid.NewGuid():N}.partial")))
                from landed in lease.Use(
                    body: staged =>
                        from written in writer(arg: staged.Path)
-                       from bytes in ReadNonempty(target: requested, path: staged.Path, op: op)
+                       from bytes in ReadNonempty(target: requested, path: staged.Path)
                        from _checked in validate.Map(check => check(arg: bytes)).IfNone(Fin.Succ(value: unit))
                        from _durable in Flush(path: staged.Path, op: op)
                        from committed in Collision.Land(
-                           temporary: staged.Path, path: requested, bound: OrdinalBound, key: op)
+                           temporary: staged.Path, path: requested, bound: OrdinalBound)
                        select new Landed<TStage>(
                            Target: committed,
                            ContentKey: ContentHash.Of(canonicalBytes: bytes),
-                           Stage: written),
-                   key: op)
+                           Stage: written))
                select landed;
     }
 
@@ -302,13 +291,13 @@ public sealed partial record OutputPolicy {
 
     private static string Folder(DocumentPath path) => System.IO.Path.GetDirectoryName(path.Value) ?? string.Empty;
 
-    private static Fin<byte[]> ReadNonempty(DocumentPath target, string path, Op op) =>
-        op.Catch(() => Fin.Succ(value: System.IO.File.ReadAllBytes(path: path)))
+    private static Fin<byte[]> ReadNonempty(DocumentPath target, string path) =>
+        Try.lift(() => Fin.Succ(value: System.IO.File.ReadAllBytes(path: path))).Run().Bind(static inner => inner)
             .Bind(bytes => guard(
                 bytes.Length > 0,
-                new ExchangeFault.Staging(Key: op, Target: target, Stage: nameof(ReadNonempty))).ToFin().Map(_ => bytes));
+                new ExchangeFault.Staging(Target: target, Stage: nameof(ReadNonempty))).ToFin().Map(_ => bytes));
 
-    private static Fin<Unit> Flush(string path, Op op) => op.Catch(() => {
+    private static Fin<Unit> Flush(string path) => Try.lift(() => {
         using System.IO.FileStream stream = new(
             path: path,
             mode: System.IO.FileMode.Open,
@@ -316,7 +305,7 @@ public sealed partial record OutputPolicy {
             share: System.IO.FileShare.Read);
         stream.Flush(flushToDisk: true);
         return Fin.Succ(value: unit);
-    });
+    }).Run().Bind(static inner => inner);
 
     private sealed class StagedFile(string path) : IDisposable {
         internal string Path { get; } = path;
@@ -448,8 +437,8 @@ using Rasm.Rhino.Persistence;
 - Law: the sun arm is a read-modify-commit over one leased `RenderSettings` — the sub-owner mutation is inert until the same `RhinoDoc.RenderSettings` accessor takes the settings back, so a bound-and-forgotten `settings.Sun` write returns a success outcome for a synchronization that never lands.
 - Law: north is a DECLARED posture, never an implied one. `SunCase` carries a kernel `NorthPosture` row: `True` bears the model-north declination the anchor holds, `Project` bears zero because the model's own `+X` IS the drawing's north. The prior arm hard-assumed true north and re-derived the bearing with a bare `Atan2`/`ToDegrees` pair beside the branch's own north convention (folder `RULINGS` states that convention once); here the bearing admits as a `VectorAngle`, the posture's `Rotation` column answers the plan rotation, and degrees enter only at the host write.
 - Law: earth-required and model-required preconditions gate per arm through `EarthLocationIsSet`/`ModelLocationIsSet` — a projection over an unset anchor is a typed refusal, never a garbage transform.
-- Law: the inverse transform reads through `Op.Probe`, so the host's `bool`-plus-`out` pair folds to `Option<Transform>` at the boundary and no arm carries a `TryGet` shape inward.
-- Packages: `Domain/results` (`Op.Probe`, `Op.Catch`), `Rasm.Numerics` (`VectorAngle`), `Rasm.Drawing` (`NorthPosture`), RhinoCommon (`EarthAnchorPoint`, `RenderSettings`, `Sun`) per `.api/api-rhinocommon-document.md` and `.api/api-rhinocommon-rendersettings.md`.
+- Law: the inverse transform reads through `HostEdge.Probe`, so the host's `bool`-plus-`out` pair folds to `Option<Transform>` at the boundary and no arm carries a `TryGet` shape inward.
+- Packages: `Domain/results` (`HostEdge.Probe`, `Op.Catch`), `Rasm.Numerics` (`VectorAngle`), `Rasm.Drawing` (`NorthPosture`), RhinoCommon (`EarthAnchorPoint`, `RenderSettings`, `Sun`) per `.api/api-rhinocommon-document.md` and `.api/api-rhinocommon-rendersettings.md`.
 - Boundary: the model-to-earth transform is unit-aware — `GetModelToEarthTransform(modelUnits:)` receives the document's live `LengthUnit`, read inside the same demand window that uses it, so a stale unit regime cannot skew the projection.
 
 ```csharp
@@ -470,7 +459,6 @@ public readonly partial struct GeoPoint : IDisallowDefaultValue {
         ref double latitude,
         ref double longitude,
         ref double elevation) {
-        Op op = Op.Of();
         (double lat, double lon, double height) = (latitude, longitude, elevation);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (!double.IsFinite(lat) || lat is < -90d or > 90d, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Latitude), lat, "a finite value in [-90, 90]" }))),
@@ -478,9 +466,8 @@ public readonly partial struct GeoPoint : IDisallowDefaultValue {
                 (!double.IsFinite(height), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Elevation), height, "a finite elevation" })))));
     }
 
-    public static Fin<GeoPoint> Of(double latitude, double longitude, double elevation, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<GeoPoint>(
+    public static Fin<GeoPoint> Of(double latitude, double longitude, double elevation) {
+        return FactoryBridge.Accept<GeoPoint>(
             fault: Validate(latitude: latitude, longitude: longitude, elevation: elevation, item: out GeoPoint value),
             admitted: value);
     }
@@ -508,7 +495,6 @@ public sealed partial record EarthAnchor {
         ref Option<string> description) {
         name = name.Map(static text => text.Trim()).Filter(static text => !string.IsNullOrWhiteSpace(value: text));
         description = description.Map(static text => text.Trim()).Filter(static text => !string.IsNullOrWhiteSpace(value: text));
-        Op op = Op.Of();
         (Option<Point3d> origin, Option<Vector3d> north, Option<Vector3d> east) = (modelBasePoint, modelNorth, modelEast);
         int supplied = (origin.IsSome ? 1 : 0) + (north.IsSome ? 1 : 0) + (east.IsSome ? 1 : 0);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
@@ -527,10 +513,8 @@ public sealed partial record EarthAnchor {
         Option<Vector3d> modelNorth,
         Option<Vector3d> modelEast,
         Option<string> name = default,
-        Option<string> description = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<EarthAnchor>(
+        Option<string> description = default) {
+        return FactoryBridge.Accept<EarthAnchor>(
             Validate(
                 basepoint: basepoint,
                 elevationCoordinateSystem: elevationCoordinateSystem,
@@ -543,8 +527,8 @@ public sealed partial record EarthAnchor {
             anchor);
     }
 
-    internal static Fin<EarthAnchor> From(EarthAnchorPoint anchor, Op op) =>
-        from basepoint in Located(anchor: anchor, op: op)
+    internal static Fin<EarthAnchor> From(EarthAnchorPoint anchor) =>
+        from basepoint in Located(anchor: anchor)
         let modelSet = anchor.ModelLocationIsSet()
         from admitted in Of(
             basepoint: basepoint,
@@ -553,20 +537,18 @@ public sealed partial record EarthAnchor {
             modelNorth: modelSet ? Some(anchor.ModelNorth) : None,
             modelEast: modelSet ? Some(anchor.ModelEast) : None,
             name: Optional(anchor.Name),
-            description: Optional(anchor.Description),
-            key: op)
+            description: Optional(anchor.Description))
         select admitted;
 
-    internal static Fin<Option<GeoPoint>> Located(EarthAnchorPoint anchor, Op op) =>
+    internal static Fin<Option<GeoPoint>> Located(EarthAnchorPoint anchor) =>
         anchor.EarthLocationIsSet()
             ? GeoPoint.Of(
                 latitude: anchor.EarthBasepointLatitude,
                 longitude: anchor.EarthBasepointLongitude,
-                elevation: anchor.EarthBasepointElevation,
-                key: op).Map(Some)
+                elevation: anchor.EarthBasepointElevation).Map(Some)
             : Fin.Succ(Option<GeoPoint>.None);
 
-    internal Fin<Unit> Write(RhinoDoc document, Op op) => op.Catch(() => {
+    internal Fin<Unit> Write(RhinoDoc document) => Try.lift(() => {
         using EarthAnchorPoint anchor = new();
         _ = Basepoint.Iter(point => {
             anchor.EarthBasepointLatitude = point.Latitude;
@@ -581,7 +563,7 @@ public sealed partial record EarthAnchor {
         _ = Description.Iter(value => anchor.Description = value);
         document.EarthAnchorPoint = anchor;
         return Fin.Succ(value: unit);
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -608,54 +590,53 @@ public abstract partial record AnchorOp {
     public sealed record ToModelCase(Seq<GeoPoint> Points) : AnchorOp;
     public sealed record SunCase(NorthPosture Posture) : AnchorOp;
 
-    internal Fin<AnchorYield> Apply(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
-        readCase: static (ctx, _) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Any, use: static (anchor, _, op) =>
+    internal Fin<AnchorYield> Apply(RhinoDoc document) => Switch(
+        document,
+        readCase: static (ctx, _) => Anchored(ctx, AnchorDemand.Any, use: static (anchor, _, op) =>
             EarthAnchor.From(anchor: anchor, op: op).Map(static value => (AnchorYield)new AnchorYield.AnchorCase(Anchor: value))),
         writeCase: static (ctx, edit) =>
-            from anchor in ctx.Op.Need(edit.Anchor)
-            from _written in anchor.Write(document: ctx.Document, op: ctx.Op)
+            from anchor in Admit.Need(edit.Anchor)
+            from _written in anchor.Write(document: ctx)
             select (AnchorYield)new AnchorYield.AnchorCase(Anchor: anchor),
-        planeCase: static (ctx, _) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Model, use: static (anchor, _, op) => {
+        planeCase: static (ctx, _) => Anchored(ctx, AnchorDemand.Model, use: static (anchor, _, op) => {
             Plane plane = anchor.GetEarthAnchorPlane(anchorNorth: out Vector3d north);
-            return op.AcceptValue(value: plane)
+            return Acceptance.Value(value: plane)
                 .Map(admitted => (AnchorYield)new AnchorYield.PlaneCase(Plane: admitted, North: north));
         }),
-        compassCase: static (ctx, _) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Model, use: static (anchor, _, op) =>
-            op.AcceptValue(value: anchor.GetModelCompass())
+        compassCase: static (ctx, _) => Anchored(ctx, AnchorDemand.Model, use: static (anchor, _, op) =>
+            Acceptance.Value(value: anchor.GetModelCompass())
                 .Map(static plane => (AnchorYield)new AnchorYield.CompassCase(Plane: plane))),
-        orientCase: static (ctx, edit) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Model, use: (anchor, _, op) => {
+        orientCase: static (ctx, edit) => Anchored(ctx, AnchorDemand.Model, use: (anchor, _, op) => {
             Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out Vector3d north);
-            return from _source in op.AcceptValue(value: edit.Source)
-                   from _target in op.AcceptValue(value: target)
+            return from _source in Acceptance.Value(value: edit.Source)
+                   from _target in Acceptance.Value(value: target)
                    select (AnchorYield)new AnchorYield.TransformCase(
                        Value: Transform.PlaneToPlane(plane0: edit.Source, plane1: target), North: north);
         }),
-        toEarthCase: static (ctx, edit) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Located, use: (anchor, document, op) => {
+        toEarthCase: static (ctx, edit) => Anchored(ctx, AnchorDemand.Located, use: (anchor, document, op) => {
             Transform projection = anchor.GetModelToEarthTransform(modelUnits: document.ModelUnits);
-            return from _valid in op.AcceptValue(value: projection)
+            return from _valid in Acceptance.Value(value: projection)
                    from points in edit.Points.TraverseM(point => {
                        Point3d projected = point;
                        projected.Transform(xform: projection);
                        return GeoPoint.Of(
-                           latitude: projected.X, longitude: projected.Y, elevation: projected.Z, key: op);
+                           latitude: projected.X, longitude: projected.Y, elevation: projected.Z);
                    }).As()
                    select (AnchorYield)new AnchorYield.EarthCase(Points: points);
         }),
-        toModelCase: static (ctx, edit) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Located, use: (anchor, document, op) => {
+        toModelCase: static (ctx, edit) => Anchored(ctx, AnchorDemand.Located, use: (anchor, document, op) => {
             Transform projection = anchor.GetModelToEarthTransform(modelUnits: document.ModelUnits);
-            return op.Probe<Transform>(probe: projection.TryGetInverse, label: nameof(Transform.TryGetInverse))
+            return Admit.Probe<Transform>(probe: projection.TryGetInverse, label: nameof(Transform.TryGetInverse))
                 .Map(inverse => (AnchorYield)new AnchorYield.ModelCase(Points: edit.Points.Map(point => {
                     Point3d model = new(x: point.Latitude, y: point.Longitude, z: point.Elevation);
                     model.Transform(xform: inverse);
                     return model;
                 })));
         }),
-        sunCase: static (ctx, edit) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Located, use: (anchor, document, op) =>
-            from posture in op.Need(edit.Posture)
-            from bearing in op.AcceptValidated<VectorAngle>(
-                candidate: Math.Atan2(y: anchor.ModelNorth.Y, x: anchor.ModelNorth.X))
-            from _written in op.Catch(() => {
+        sunCase: static (ctx, edit) => Anchored(ctx, AnchorDemand.Located, use: (anchor, document, op) =>
+            from posture in Admit.Need(edit.Posture)
+            from bearing in FactoryBridge.Accept<VectorAngle>(candidate: Math.Atan2(y: anchor.ModelNorth.Y, x: anchor.ModelNorth.X))
+            from _written in Try.lift(() => {
                 using RenderSettings settings = document.RenderSettings;
                 using Sun sun = settings.Sun;
                 sun.Latitude = anchor.EarthBasepointLatitude;
@@ -663,20 +644,20 @@ public abstract partial record AnchorOp {
                 sun.North = RhinoMath.ToDegrees(radians: posture.Rotation(declination: bearing).Value);
                 document.RenderSettings = settings;
                 return Fin.Succ(value: unit);
-            })
+            }).Run().Bind(static inner => inner)
             select (AnchorYield)new AnchorYield.SunCase(Posture: posture)));
 
     private static Fin<AnchorYield> Anchored(
-        RhinoDoc document, Op op, AnchorDemand demand,
-        Func<EarthAnchorPoint, RhinoDoc, Op, Fin<AnchorYield>> use) =>
-        op.Catch(() => {
+        RhinoDoc document, AnchorDemand demand,
+        Func<EarthAnchorPoint, RhinoDoc, Fin<AnchorYield>> use) =>
+        Try.lift(() => {
             using EarthAnchorPoint? anchor = document.EarthAnchorPoint;
             return Optional(anchor)
                 .ToFin(Fail: new KernelFault.InvalidValue(nameof(RhinoDoc.EarthAnchorPoint), string.Join(" | ", new object?[] { op, "an earth anchor" })))
                 .Bind(live => demand.Accepts(anchor: live)
                     ? use(arg1: live, arg2: document, arg3: op)
                     : Fin.Fail<AnchorYield>(error: new KernelFault.InvalidValue(nameof(AnchorDemand), string.Join(" | ", new object?[] { op, $"an anchor whose location is '{demand.Key}'" }))));
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -764,13 +745,12 @@ public abstract partial record ExportScope {
     public sealed record AllCase : ExportScope;
     public sealed record SelectionCase : ExportScope;
 
-    internal Fin<FileWriteOptions> Carrier(FileCodec codec, Op op) => Switch(
-        state: (Codec: codec, Op: op),
+    internal Fin<FileWriteOptions> Carrier(FileCodec codec) => Switch(
+        state: codec,
         allCase: static (_, _) => Fin.Succ(value: false),
         selectionCase: static (ctx, _) => guard(
-            ctx.Codec.Has(CodecAbility.Selection),
-            new ExchangeFault.AbilityMissing(
-                Key: ctx.Op, Codec: ctx.Codec.Key, Ability: CodecAbility.Selection.Key)).ToFin().Map(_ => true))
+            ctx.Has(CodecAbility.Selection),
+            new ExchangeFault.AbilityMissing(Codec: ctx.Key, Ability: CodecAbility.Selection.Key)).ToFin().Map(_ => true))
         .Map(value => new FileWriteOptions {
             WriteSelectedObjectsOnly = value,
             SuppressAllInput = true,
@@ -806,7 +786,7 @@ public abstract partial record DocumentWritePolicy {
         archiveCase: static _ => WriteContent.DocumentAxes,
         templateCase: static _ => CapabilitySet<WriteContent>.None);
 
-    internal Fin<CapabilitySet<WriteContent>> Admit(Op op) {
+    internal Fin<CapabilitySet<WriteContent>> Admit() {
         (CapabilitySet<WriteContent> held, CapabilitySet<WriteContent> axes) = (Content, Axes);
         return from _axes in axes.Require(
                    demanded: held,
@@ -819,21 +799,21 @@ public abstract partial record DocumentWritePolicy {
                select admitted;
     }
 
-    internal Fin<FileCodec> Codec(DocumentPath target, Op op) => Switch(
-        (Target: target, Op: op),
-        saveAsCase: static (ctx, _) => Archived(op: ctx.Op),
-        documentCase: static (ctx, _) => Codecs.Detect(path: ctx.Target.Value)
-            .ToFin(Fail: new ExchangeFault.CodecUnknown(Key: ctx.Op, Requested: ctx.Target.Value)),
-        archiveCase: static (ctx, _) => Archived(op: ctx.Op),
-        templateCase: static (ctx, _) => Archived(op: ctx.Op));
+    internal Fin<FileCodec> Codec(DocumentPath target) => Switch(
+        target,
+        saveAsCase: static (ctx, _) => Archived(),
+        documentCase: static (ctx, _) => Codecs.Detect(path: ctx.Value)
+            .ToFin(Fail: new ExchangeFault.CodecUnknown(Key: ctx.Op, Requested: ctx.Value)),
+        archiveCase: static (ctx, _) => Archived(),
+        templateCase: static (ctx, _) => Archived());
 
-    private static Fin<FileCodec> Archived(Op op) =>
-        Codecs.Archive.ToFin(Fail: new ExchangeFault.CodecUnknown(Key: op, Requested: CodecAbility.Archive.Key));
+    private static Fin<FileCodec> Archived() =>
+        Codecs.Archive.ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: CodecAbility.Archive.Key));
 
-    internal Fin<Unit> Write(RhinoDoc document, string path, Op op) =>
-        Admit(op: op).Bind(content => Switch(
-            (Document: document, Path: path, Content: content, Op: op),
-            saveAsCase: static (ctx, policy) => ctx.Op.Confirm(success: ctx.Document.SaveAs(
+    internal Fin<Unit> Write(RhinoDoc document, string path) =>
+        Admit().Bind(content => Switch(
+            (Document: document, Path: path, Content: content),
+            saveAsCase: static (ctx, policy) => Admit.Confirm(success: ctx.Document.SaveAs(
                 file3dmPath: ctx.Path,
                 version: policy.Version.Map(static value => value.Value).IfNone(0),
                 saveSmall: ctx.Content.Admits(capability: WriteContent.Small),
@@ -841,19 +821,19 @@ public abstract partial record DocumentWritePolicy {
                 saveGeometryOnly: ctx.Content.Admits(capability: WriteContent.GeometryOnly),
                 savePluginData: ctx.Content.Admits(capability: WriteContent.PluginData),
                 useCompression: ctx.Content.Admits(capability: WriteContent.Compression))),
-            documentCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Document.WriteFile(
+            documentCase: static (ctx, _) => Admit.Confirm(success: ctx.Document.WriteFile(
                 path: ctx.Path, options: Host(content: ctx.Content))),
-            archiveCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Document.Write3dmFile(
+            archiveCase: static (ctx, _) => Admit.Confirm(success: ctx.Document.Write3dmFile(
                 path: ctx.Path, options: Host(content: ctx.Content))),
             templateCase: static (ctx, policy) =>
-                from archived in Archived(op: ctx.Op)
+                from archived in Archived()
                 from _extension in guard(
                     archived.EnsureExtension(path: ctx.Path) == ctx.Path,
                     new KernelFault.InvalidValue(nameof(TemplateCase), string.Join(" | ", new object?[] { ctx.Op, "a `.3dm` template destination" })))
-                from written in ctx.Op.Catch(() => policy.Version.Match(
-                    Some: version => ctx.Op.Confirm(success: ctx.Document.SaveAsTemplate(
+                from written in Try.lift(() => policy.Version.Match(
+                    Some: version => Admit.Confirm(success: ctx.Document.SaveAsTemplate(
                         file3dmTemplatePath: ctx.Path, version: version.Value)),
-                    None: () => ctx.Op.Confirm(success: ctx.Document.SaveAsTemplate(file3dmTemplatePath: ctx.Path))))
+                    None: () => Admit.Confirm(success: ctx.Document.SaveAsTemplate(file3dmTemplatePath: ctx.Path)))).Run().Bind(static inner => inner)
                 select written));
 
     internal static FileWriteOptions Host(CapabilitySet<WriteContent> content) => new() {
@@ -940,7 +920,6 @@ public sealed partial record ConversionPolicy {
         ref ValidationError? validationError,
         ref BatchPolicy batch,
         ref IoLane lane) {
-        Op op = Op.Of();
         (BatchPolicy policy, IoLane? admitted) = (batch, lane);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (admitted is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Lane) }))),
@@ -948,9 +927,8 @@ public sealed partial record ConversionPolicy {
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Lane), "a collecting posture beside a parallel lane" })))));
     }
 
-    public static Fin<ConversionPolicy> Of(BatchPolicy batch, IoLane lane, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<ConversionPolicy>(Validate(batch, lane, out ConversionPolicy? policy), policy);
+    public static Fin<ConversionPolicy> Of(BatchPolicy batch, IoLane lane) {
+        return FactoryBridge.Accept<ConversionPolicy>(Validate(batch, lane, out ConversionPolicy? policy), policy);
     }
 }
 
@@ -978,41 +956,37 @@ public sealed record ExchangeOutcome : IDetachedDocumentResult, IBatchYield {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Exchanges {
-    public static Fin<ExchangeOutcome> Run(DocumentSession session, ExchangeOp request, Op? key = null, ExchangeHalt halt = default) {
-        Op op = key.OrDefault();
-        return Apply(session: session, request: request, op: op, halt: halt, trace: None);
+    public static Fin<ExchangeOutcome> Run(DocumentSession session, ExchangeOp request, ExchangeHalt halt = default) {
+        return Apply(session: session, request: request, halt: halt, trace: None);
     }
 
     private static Fin<ExchangeOutcome> Apply(
         DocumentSession session,
         ExchangeOp request,
-        Op op,
         ExchangeHalt halt,
         Option<MutationTrace> trace) =>
-        from admitted in op.Need(request)
+        from admitted in Admit.Need(request)
         let effective = admitted.Halt(ambient: halt)
         from outcome in effective.Requested
             ? Fin.Succ(value: Withdrawn)
             : admitted.Switch(
-                (Session: session, Op: op, Halt: effective, Trace: trace),
+                (Session: session, Halt: effective, Trace: trace),
                 editCase: static (ctx, route) =>
-                    from edit in ctx.Op.Need(route.Edit)
-                    from snapshot in ctx.Session.Snapshot(key: ctx.Op)
+                    from edit in Admit.Need(route.Edit)
+                    from snapshot in ctx.Session.Snapshot()
                     from demanded in ctx.Session.Demand(
                         use: document => Recorded(
                             document: document,
                             edit: edit,
                             dirty: snapshot.Modified,
                             halt: ctx.Halt,
-                            op: ctx.Op,
                             trace: ctx.Trace),
-                        key: ctx.Op,
                         needs: [.. edit.Profile.Needs])
                     select demanded,
                 presetCase: static (ctx, route) =>
-                    from operation in ctx.Op.Need(route.Operation)
+                    from operation in Admit.Need(route.Operation)
                     from _attempt in Reached(trace: ctx.Trace, floor: route.Profile.Mutation)
-                    from _committed in Presets.Commit(session: ctx.Session, key: ctx.Op, operations: [operation])
+                    from _committed in Presets.Commit(session: ctx.Session, operations: [operation])
                     select ExchangeOutcome.Of(facts: Seq<ExchangeFact>()),
                 batchCase: static (ctx, route) => Fin.Succ(value: ExchangeOutcome.Programmed(
                     program: BatchProgram<ExchangeOutcome>.Fold(
@@ -1024,7 +998,6 @@ public static class Exchanges {
                             run: innerTrace => Apply(
                                 session: ctx.Session,
                                 request: inner,
-                                op: ctx.Op,
                                 halt: ctx.Halt,
                                 trace: innerTrace)))))
         select outcome;
@@ -1032,18 +1005,16 @@ public static class Exchanges {
     public static async System.Threading.Tasks.Task<Fin<ExchangeOutcome>> Run(
         Seq<(SessionSource Source, ExchangeOp Request)> rows,
         ConversionPolicy policy,
-        System.Threading.CancellationToken cancellationToken = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return await op.Need(policy).Match(
+        System.Threading.CancellationToken cancellationToken = default) {
+        return await Admit.Need(policy).Match(
             Succ: async admitted => {
                 ExchangeHalt effectiveHalt = admitted.Batch.Halt.Merge(ExchangeHalt.Of(token: cancellationToken));
                 Func<(SessionSource Source, ExchangeOp Request), int, BatchStep<ExchangeOutcome>> one = (row, index) => Step(
                     index: index,
-                    run: trace => op.Catch(() =>
+                    run: trace => Try.lift(() =>
                         from session in DocumentSession.Of(source: row.Source, mode: SessionMode.Headless, needs: [.. row.Request.Profile.Needs])
-                        from outcome in Use(session: session, request: row.Request, halt: effectiveHalt, op: op, trace: trace)
-                        select outcome));
+                        from outcome in Use(session: session, request: row.Request, halt: effectiveHalt, trace: trace)
+                        select outcome).Run().Bind(static inner => inner));
                 if (admitted.Lane is not IoLane.ParallelCase parallel) {
                     return Fin.Succ(value: ExchangeOutcome.Programmed(program: BatchProgram<ExchangeOutcome>.Fold(
                         rows: rows, halt: effectiveHalt, posture: admitted.Batch.Posture, run: one)));
@@ -1075,10 +1046,9 @@ public static class Exchanges {
         DocumentSession session,
         ExchangeOp request,
         ExchangeHalt halt,
-        Op op,
         Option<MutationTrace> trace) {
         using (session) {
-            return Apply(session: session, request: request, op: op, halt: halt, trace: trace);
+            return Apply(session: session, request: request, halt: halt, trace: trace);
         }
     }
 
@@ -1087,21 +1057,19 @@ public static class Exchanges {
         DocumentOp edit,
         bool dirty,
         ExchangeHalt halt,
-        Op op,
         Option<MutationTrace> trace) =>
         halt.Requested
             ? Fin.Succ(value: Withdrawn)
             : !edit.Profile.Mutation.Reaches(floor: MutationPhase.Attempted)
-                ? Dispatch(document: document, operation: edit, dirty: dirty, op: op)
+                ? Dispatch(document: document, operation: edit, dirty: dirty)
                 : from _attempt in Reached(trace: trace, floor: edit.Profile.Mutation)
                   from outcome in DocumentCommit.Sealed(
                       document: document,
                       name: edit.Profile.Surface,
                       recordsUndo: true,
                       redraw: RedrawPolicy.None,
-                      run: () => Dispatch(document: document, operation: edit, dirty: dirty, op: op),
-                      project: Fin.Succ,
-                      op: op)
+                      run: () => Dispatch(document: document, operation: edit, dirty: dirty),
+                      project: Fin.Succ)
                   select outcome;
 
     private static BatchStep<ExchangeOutcome> Step(int index, Func<Option<MutationTrace>, Fin<ExchangeOutcome>> run) {
@@ -1119,42 +1087,40 @@ public static class Exchanges {
     private static Fin<Unit> Reached(Option<MutationTrace> trace, MutationPhase floor) =>
         trace.Map(held => held.Reach(floor: floor)).IfNone(Fin.Succ(value: unit));
 
-    private static Fin<FileCodec> Settled(Option<FileCodec> codec, DocumentPath path, Op op) =>
+    private static Fin<FileCodec> Settled(Option<FileCodec> codec, DocumentPath path) =>
         (codec | Codecs.Detect(path: path.Value))
-            .ToFin(Fail: new ExchangeFault.CodecUnknown(Key: op, Requested: path.Value));
+            .ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: path.Value));
 
-    internal static Fin<UInt128> Keyed(string path, Op op) =>
-        op.Catch(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: path))));
+    internal static Fin<UInt128> Keyed(string path) =>
+        Try.lift(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: path)))).Run().Bind(static inner => inner);
 
-    private static Fin<ExchangeOutcome> Dispatch(RhinoDoc document, DocumentOp operation, bool dirty, Op op) =>
+    private static Fin<ExchangeOutcome> Dispatch(RhinoDoc document, DocumentOp operation, bool dirty) =>
         operation.Switch(
-            (Document: document, Dirty: dirty, Op: op),
+            (Document: document, Dirty: dirty),
             importCase: static (ctx, edit) =>
-                from tune in ctx.Op.Need(edit.Tune)
-                from codec in Settled(codec: edit.Codec, path: edit.Source, op: ctx.Op)
+                from tune in Admit.Need(edit.Tune)
+                from codec in Settled(codec: edit.Codec, path: edit.Source)
                 from _read in Codecs.Apply(
                     document: ctx.Document,
                     path: edit.Source,
                     codec: codec,
                     tune: tune,
-                    request: new CodecRequest.ImportCase(Carrier: new FileReadOptions { ImportMode = true }),
-                    key: ctx.Op)
+                    request: new CodecRequest.ImportCase(Carrier: new FileReadOptions { ImportMode = true }))
                 select ExchangeOutcome.One(fact: new ExchangeFact.ImportedCase(Source: edit.Source, Codec: codec)),
             exportCase: static (ctx, edit) =>
-                from scope in ctx.Op.Need(edit.Scope)
-                from tune in ctx.Op.Need(edit.Tune)
-                from output in ctx.Op.Need(edit.Output)
-                from codec in Settled(codec: edit.Codec, path: edit.Target, op: ctx.Op)
-                from settled in output.Resolve(target: edit.Target, codec: codec, key: ctx.Op)
-                from carrier in scope.Carrier(codec: codec, op: ctx.Op)
+                from scope in Admit.Need(edit.Scope)
+                from tune in Admit.Need(edit.Tune)
+                from output in Admit.Need(edit.Output)
+                from codec in Settled(codec: edit.Codec, path: edit.Target)
+                from settled in output.Resolve(target: edit.Target, codec: codec)
+                from carrier in scope.Carrier(codec: codec)
                 from _written in Codecs.Apply(
                     document: ctx.Document,
                     path: settled,
                     codec: codec,
                     tune: tune,
-                    request: new CodecRequest.ExportCase(Carrier: carrier),
-                    key: ctx.Op)
-                from keyed in Keyed(path: settled.Value, op: ctx.Op)
+                    request: new CodecRequest.ExportCase(Carrier: carrier))
+                from keyed in Keyed(path: settled.Value)
                 select ExchangeOutcome.One(
                     fact: new ExchangeFact.ArtifactCase(Target: settled, Codec: codec, ContentKey: keyed)),
             saveCase: static (ctx, _) =>
@@ -1162,35 +1128,35 @@ public static class Exchanges {
                     ? from _path in guard(
                           !string.IsNullOrWhiteSpace(value: ctx.Document.Path),
                           new KernelFault.InvalidValue(nameof(RhinoDoc.Path), string.Join(" | ", new object?[] { ctx.Op, "a document path" }))).ToFin()
-                      from _saved in ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Document.Save()))
+                      from _saved in Try.lift(() => Admit.Confirm(success: ctx.Document.Save())).Run().Bind(static inner => inner)
                       select ExchangeOutcome.One(fact: new ExchangeFact.SaveCase(Written: true))
                     : Fin.Succ(value: ExchangeOutcome.One(fact: new ExchangeFact.SaveCase(Written: false))),
             writeCase: static (ctx, edit) =>
-                from output in ctx.Op.Need(edit.Output)
-                from policy in ctx.Op.Need(edit.Policy)
-                from codec in policy.Codec(target: edit.Target, op: ctx.Op)
-                from settled in output.Resolve(target: edit.Target, codec: Some(codec), key: ctx.Op)
-                from _written in policy.Write(document: ctx.Document, path: settled.Value, op: ctx.Op)
-                from keyed in Keyed(path: settled.Value, op: ctx.Op)
+                from output in Admit.Need(edit.Output)
+                from policy in Admit.Need(edit.Policy)
+                from codec in policy.Codec(target: edit.Target)
+                from settled in output.Resolve(target: edit.Target, codec: Some(codec))
+                from _written in policy.Write(document: ctx.Document, path: settled.Value)
+                from keyed in Keyed(path: settled.Value)
                 select ExchangeOutcome.One(
                     fact: new ExchangeFact.ArtifactCase(Target: settled, Codec: codec, ContentKey: keyed)),
             geometryCase: static (ctx, edit) =>
                 from _rows in guard(
                     !edit.Geometry.IsEmpty,
                     new KernelFault.InvalidValue(nameof(DocumentOp.GeometryCase.Geometry), string.Join(" | ", new object?[] { ctx.Op, "geometry to exchange" }))).ToFin()
-                from policy in ctx.Op.Need(edit.Policy)
-                from output in ctx.Op.Need(edit.Output)
+                from policy in Admit.Need(edit.Policy)
+                from output in Admit.Need(edit.Output)
                 from archived in Codecs.Archive.ToFin(
                     Fail: new ExchangeFault.CodecUnknown(Key: ctx.Op, Requested: CodecAbility.Archive.Key))
-                from landed in ctx.Op.Catch(() => {
+                from landed in Try.lift(() => {
                     using File3dm archive = new();
                     using ObjectAttributes attributes = new();
                     Seq<Guid> added = edit.Geometry.Map(row => archive.Objects.Add(item: row, attributes: attributes)).Strict();
                     return guard(
                         added.ForAll(static id => id != Guid.Empty),
-                        ExchangeFault.Host(key: ctx.Op, member: nameof(File3dmObjectTable.Add), log: None)).ToFin().Bind(_ =>
-                        Archives.Land(archive: archive, target: edit.Target, policy: policy, output: output, op: ctx.Op));
-                })
+                        ExchangeFault.Host(member: nameof(File3dmObjectTable.Add), log: None)).ToFin().Bind(_ =>
+                        Archives.Land(archive: archive, target: edit.Target, policy: policy, output: output));
+                }).Run().Bind(static inner => inner)
                 select ExchangeOutcome.Of(
                     facts: Seq<ExchangeFact>(new ExchangeFact.ArtifactCase(
                         Target: landed.Target,
@@ -1202,8 +1168,8 @@ public static class Exchanges {
                         Detail: text,
                         Target: Some(landed.Target))).ToSeq()),
             anchorCase: static (ctx, edit) =>
-                ctx.Op.Need(edit.Edit)
-                    .Bind(request => request.Apply(document: ctx.Document, op: ctx.Op))
+                Admit.Need(edit.Edit)
+                    .Bind(request => request.Apply(document: ctx.Document))
                     .Map(yield => ExchangeOutcome.One(fact: new ExchangeFact.AnchorCase(Yield: yield))));
 }
 ```

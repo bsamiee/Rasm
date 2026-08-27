@@ -11,7 +11,7 @@ ONNX C-data residency classifies every `OrtValue` by backing location and owners
 
 - Owner: `OrtResidency` `[SmartEnum<string>]` the four-gate residency matrix over its `Locale` and `ReleaseOwner` columns; `TensorBridge` the static `OrtValue` C-data factory surface (carrier-keyed ingress, dtype-keyed egress, the device sink mint, the device-to-device relay, the residency probe); `PinnedPlane<T>` the ONE handle-rooted pin capsule every crossing that outlives its own statement takes; `DeviceMemory` the shared-allocator descriptor; `BindingSource` the `[Union]` naming what memory backs the next binding and who owns it; `FlowState` the `Live`/`Poisoned` capsule lifecycle; `BoundFlow` the ONE `OrtIoBinding` steady-state residency capsule the `Model/run#RUN_MODES` run-mode fold composes.
 - Cases: `OrtResidency` rows memory-backed · device-resident · output-value · span-view (4); `Locale` rows host · device (2); `ReleaseOwner` rows capsule · caller · session (3); `BindingSource` cases `Arena(long[] Shape)` · `Pinned(PinnedPlane<T>)` · `DeviceArena(DeviceMemory, long[] Shape)` · `DevicePointer(OrtMemoryInfo, long[] Shape, nint, long)` · `External(OrtExternalAllocation In, OrtExternalAllocation Out)` · `Encoded(EncodedTensor)` (6, each carrying its own `ReleaseOwner`); `FlowState` cases `Live` · `Poisoned(Error Cause)` (2).
-- Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, array, foreign-pointer, pinned-plane, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier SHAPE — the one axis a value's own type already decides; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed, Op key)` moves a device-resident pair whole on the producing device's own sync stream; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena, TensorDtype row)` leases the steady-state capsule and `flow.Rebind(BindingSource)` is its ONE re-binding entry — the four name-suffix rebind siblings are the deleted form, because what backs the next binding is a VALUE the caller hands over, never a method name the caller picks. `flow.Chain(BoundFlow next, Op key)` relays this capsule's device-resident sink into the next capsule's bound input under `Relay`. `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload, a native mint rejects, or the capsule is `Poisoned`.
+- Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, array, foreign-pointer, pinned-plane, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier SHAPE — the one axis a value's own type already decides; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed)` moves a device-resident pair whole on the producing device's own sync stream; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena, TensorDtype row)` leases the steady-state capsule and `flow.Rebind(BindingSource)` is its ONE re-binding entry — the four name-suffix rebind siblings are the deleted form, because what backs the next binding is a VALUE the caller hands over, never a method name the caller picks. `flow.Chain(BoundFlow next)` relays this capsule's device-resident sink into the next capsule's bound input under `Relay`. `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload, a native mint rejects, or the capsule is `Poisoned`.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule)
 - Growth: a new accelerator is one `DeviceMemory` descriptor over its `OrtEpDevice` reaching the existing `Allocate`/device-pointer ingress, never a per-call marshal helper; a new carrier is one `TensorBridge.Ingress` overload discriminating by carrier shape; a new BACKING is one `BindingSource` case carrying its own `ReleaseOwner` column, and the generated total `Switch` in `Rebind` breaks until its arm exists — where four sibling entrypoints let a fifth backing land as a fifth method nothing forced anyone to notice; the `DeviceResident` row is the one residency gate the `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row and the `Tensor/dispatch#DEVICE_KERNELS` `DeviceDispatch` both bind — a WGPU compute buffer and an ORT device value share this one residency row so device-ness is a residency discriminant, never a second tensor owner or a parallel device-residency matrix; the resolved shared `ONE_WGPU_DEVICE` adapter is what a composition root folds into the `device-wgpu` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` (present iff the adapter resolves), so the same device-presence fact the `DeviceResident` gate observes contributes the substrate key the `Substrate.DeviceWgpu` `!Providers.Contains(Key)` gate reads, never a raw `Device`/adapter handle pushed into `Providers`; zero new surface.
 - Boundary — carriers and release ownership: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Buffer ROOTING splits by ownership: `Tensor<T>.GetPinnableReference` roots a `fixed` region and serves the in-statement copy alone, so a managed plane whose pointer an `OrtValue` or a device submission holds past that region roots on `PinnedPlane<T>` instead, and the raw-`nint` ingress overload is reserved for genuinely FOREIGN memory (a device allocation, an ORT arena block) the caller can neither own nor pin — a managed buffer reaching that overload is the deleted unrooted form. A strided plane hands no contiguous pointer, so the pin repacks once through the non-throwing `TryFlattenTo` into a GRANTED rental the capsule releases with the handle; a plane with no dense dimension flattens element-wise, so that walk carries a stated ceiling and refuses past it rather than paying an unannounced traversal. Release ownership is a COLUMN on the `BindingSource` case, never a nulled field a reader reconstructs from call history: `Arena`, `Pinned`, `DevicePointer`, and `Encoded` mint capsule-owned values the capsule releases at the next rebind or at `Dispose`, while `DeviceArena` and `External` bind memory the CALLER owns — an `OrtMemoryAllocation` or an `OrtExternalAllocation` whose lifetime must outlive both the binding and this capsule — so the capsule releases neither. `Dispose` releases each owned native handle once.
@@ -88,10 +88,10 @@ public readonly record struct DeviceMemory(OrtEpDevice Device, OrtDeviceMemoryTy
     public OrtMemoryInfo Info => Device.GetMemoryInfo(MemoryType);
 
     public Fin<OrtAllocator> Shared() =>
-        Op.Of(name: "allocator-rejected").Catch(() => Fin.Succ(ModelSessions.SharedAllocator(Device, MemoryType)));
+        Try.lift(() => Fin.Succ(ModelSessions.SharedAllocator(Device, MemoryType))).Run().Bind(static inner => inner);
 
     public Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(TensorDtype row, long[] shape) =>
-        Shared().Bind(allocator => Op.Of(name: "device-sink").Catch(() => Fin.Succ((allocator, OrtValue.CreateAllocatedTensorValue(allocator, row.Element, shape)))));
+        Shared().Bind(allocator => Try.lift(() => Fin.Succ((allocator, OrtValue.CreateAllocatedTensorValue(allocator, row.Element, shape)))).Run().Bind(static inner => inner));
 }
 
 public sealed class PinnedPlane<T> : IDisposable where T : unmanaged {
@@ -139,7 +139,7 @@ public sealed class PinnedPlane<T> : IDisposable where T : unmanaged {
                 .Rollback(rent.Buffer));
 
     static Fin<PinnedPlane<T>> Rooted(TensorDtype row, Func<PinnedPlane<T>> root) =>
-        Op.Of(name: "pin-rejected").Catch(() => Fin.Succ(root()));
+        Try.lift(() => Fin.Succ(root())).Run().Bind(static inner => inner);
 
     public void Dispose() {
         if (disposed) { return; }
@@ -174,13 +174,12 @@ public static class TensorBridge {
     public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape) =>
         Shape(shape).Bind(admitted => device.Allocate(row, admitted.Shape));
 
-    public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed, Op key) =>
+    public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed) =>
         (Source: OrtResidency.Classify(produced.GetTensorMemoryInfo()), Sink: OrtResidency.Classify(consumed.GetTensorMemoryInfo())) is var pair
         && pair.Source.Locale == Locale.Device && pair.Sink.Locale == Locale.Device
             ? Custody.Bracket(
                 acquire: () => device.Device.CreateSyncStream(FrozenDictionary<string, string>.Empty),
-                project: stream => Op.Of(name: "relay-rejected").Catch(() => { OrtEnv.Instance().CopyTensors([produced], [consumed], stream); return Fin.Succ(unit); }),
-                key: key)
+                project: stream => Try.lift(() => { OrtEnv.Instance().CopyTensors([produced], [consumed], stream); return Fin.Succ(unit); }).Run().Bind(static inner => inner))
             : TensorReason.ResidencyMismatch.Fail<Unit>("relay-residency", pair.Source.Key, pair.Sink.Key);
 
     private static Fin<long[]> Covered(ReadOnlySpan<long> shape, long payload) =>
@@ -205,11 +204,11 @@ public static class TensorBridge {
         long[] admitted = shape.ToArray();
         return admitted.Length > 0 && TensorPrimitives.Min<long>(admitted) < 0
             ? TensorReason.ShapeMismatch.Fail<(long[], long)>("ingress-shape", TensorPrimitives.Min<long>(admitted).ToString(CultureInfo.InvariantCulture))
-            : Op.Of(name: "ingress-volume-overflow").Catch(() => Fin.Succ((admitted, admitted.Length == 0 ? 1L : checked(TensorPrimitives.Product<long>(admitted)))));
+            : Try.lift(() => Fin.Succ((admitted, admitted.Length == 0 ? 1L : checked(TensorPrimitives.Product<long>(admitted))))).Run().Bind(static inner => inner);
     }
 
     private static Fin<OrtValue> Minted(Func<OrtValue> mint) =>
-        Op.Of(name: "ingress-rejected").Catch(() => Fin.Succ(mint()));
+        Try.lift(() => Fin.Succ(mint())).Run().Bind(static inner => inner);
 
     private static Fin<TensorDtype> Projected<T>(OrtValue value, long destinationElements, bool dense) where T : unmanaged =>
         TensorVocabulary.Admit(value.GetTensorTypeAndShape().ElementDataType).Bind(row =>
@@ -235,7 +234,7 @@ public static class TensorBridge {
         Fin<TensorDtype> admitted = Projected<T>(value, destination.Length, dense: true);
         if (admitted.Case is not TensorDtype row) { return admitted.Map(static _ => unit); }
         Span<T> sink = destination;
-        return Op.Of(name: "egress-rejected").Catch(() => { value.GetTensorDataAsSpan<T>().CopyTo(sink); return Fin.Succ(unit); });
+        return Try.lift(() => { value.GetTensorDataAsSpan<T>().CopyTo(sink); return Fin.Succ(unit); }).Run().Bind(static inner => inner);
     }
 
     public static (Seq<(string Name, OrtResidency Gate)> Inputs, Seq<(string Name, OrtResidency Gate)> Outputs) Residency(InferenceSession session) {
@@ -272,7 +271,7 @@ public sealed class BoundFlow : IDisposable {
         OrtValue? bound = null, sink = null;
         RunOptions? options = null;
         OrtIoBinding? binding = null;
-        return Op.Of(name: "lease-rejected").Catch(() => {
+        return Try.lift(() => {
                 bound = OrtValue.CreateAllocatedTensorValue(arena, row.Element, shape);
                 sink = OrtValue.CreateAllocatedTensorValue(arena, row.Element, shape);
                 options = new RunOptions();
@@ -280,7 +279,7 @@ public sealed class BoundFlow : IDisposable {
                 binding.BindInput(inputName, bound);
                 binding.BindOutput(outputName, sink);
                 return Fin.Succ(new BoundFlow(session, binding, options, arena, row, inputName, outputName, bound, sink));
-            })
+            }).Run().Bind(static inner => inner)
             .Rollback(bound, sink, options, binding);
     }
 
@@ -309,25 +308,25 @@ public sealed class BoundFlow : IDisposable {
 
     public Fin<IDisposableReadOnlyCollection<OrtValue>> Run(RunOptions options) =>
         Refused<IDisposableReadOnlyCollection<OrtValue>>().Bind(_ =>
-            Op.Of(name: "bound-run").Catch(() => { Drive(options); return Fin.Succ(binding.GetOutputValues()); }));
+            Try.lift(() => { Drive(options); return Fin.Succ(binding.GetOutputValues()); }).Run().Bind(static inner => inner));
 
     public Fin<Unit> Flow<T>(ReadOnlySpan<T> input, in TensorSpan<T> output) where T : unmanaged {
         Fin<Unit> written = Write(input);
         if (written.Case is not Unit) { return written; }
-        Fin<Unit> driven = Op.Of(name: "bound-run").Catch(() => { Drive(run); return Fin.Succ(unit); });
+        Fin<Unit> driven = Try.lift(() => { Drive(run); return Fin.Succ(unit); }).Run().Bind(static inner => inner);
         return driven.Case is not Unit ? driven : TensorBridge.Egress(sink, output);
     }
 
-    public Fin<Unit> Chain(DeviceMemory device, BoundFlow next, Op key) =>
-        Refused().Bind(_ => next.Refused()).Bind(_ => TensorBridge.Relay(device, sink, next.bound, key));
+    public Fin<Unit> Chain(DeviceMemory device, BoundFlow next) =>
+        Refused().Bind(_ => next.Refused()).Bind(_ => TensorBridge.Relay(device, sink, next.bound));
 
     public Fin<Unit> Rebind(BindingSource source) =>
-        Refused().Bind(_ => Next(source).Bind(next => Op.Of(name: "rebind-rejected").Catch(() => {
+        Refused().Bind(_ => Next(source).Bind(next => Try.lift(() => {
                 binding.ClearBoundInputs();
                 binding.ClearBoundOutputs();
                 next.Bind(binding, inputName, outputName);
                 return Fin.Succ(unit);
-            })
+            }).Run().Bind(static inner => inner)
             .Match(
                 Succ: _ => { Adopt(source, next); return Fin.Succ(unit); },
                 Fail: error => Restore(error))));
@@ -346,9 +345,9 @@ public sealed class BoundFlow : IDisposable {
             .Bind(input => Minted(s, e.Tensor.WireExtents).Map(pair => Bound.Values(input, pair.Output))));
 
     private static Fin<(OrtValue Input, OrtValue Output)> Minted((OrtAllocator Arena, TensorDtype Row) s, long[] shape) =>
-        Op.Of(name: "rebind-mint").Catch(() => Fin.Succ((
+        Try.lift(() => Fin.Succ((
             OrtValue.CreateAllocatedTensorValue(s.Arena, s.Row.Element, shape),
-            OrtValue.CreateAllocatedTensorValue(s.Arena, s.Row.Element, shape))));
+            OrtValue.CreateAllocatedTensorValue(s.Arena, s.Row.Element, shape)))).Run().Bind(static inner => inner);
 
     private void Adopt(BindingSource source, Bound next) {
         OrtValue priorBound = bound, priorSink = sink;
@@ -360,13 +359,13 @@ public sealed class BoundFlow : IDisposable {
     }
 
     private Fin<Unit> Restore(Error cause) =>
-        Op.Of(name: "rebind-restore").Catch(() => {
+        Try.lift(() => {
             binding.ClearBoundInputs();
             binding.ClearBoundOutputs();
             binding.BindInput(inputName, bound);
             binding.BindOutput(outputName, sink);
             return Fin<Unit>.Fail(cause);
-        }).MapFail(restore => { state = new FlowState.Poisoned(restore); return restore; });
+        }).Run().Bind(static inner => inner).MapFail(restore => { state = new FlowState.Poisoned(restore); return restore; });
 
     private Fin<Unit> Refused() => Refused<Unit>().Map(static _ => unit);
 
@@ -498,8 +497,8 @@ public sealed record EncodedTensor(
 
     private Fin<Tensor<float>> Interleaved(Seq<ReadOnlyMemory<byte>> admitted, AllocationRequest staging) {
         int width = FeatureWidth, widest = Descriptors.Max(static d => d.Channel.Arity);
-        return Op.Of(name: "encoding-volume").Catch(() => Fin.Succ((
-                Plane: checked(Count * width), Lane: checked(Count * widest))))
+        return Try.lift(() => Fin.Succ((
+                Plane: checked(Count * width), Lane: checked(Count * widest)))).Run().Bind(static inner => inner)
             .Bind(sizes => AllocationClass.PooledMemory
                 .Rent<float>(staging with { RequestedBytes = (long)sizes.Plane * sizeof(float), Mode = AllocationMode.Default }, sizes.Plane)
                 .Bind(plane => AllocationClass.PooledMemory

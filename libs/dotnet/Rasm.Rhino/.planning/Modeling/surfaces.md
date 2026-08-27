@@ -92,39 +92,37 @@ public abstract partial record NetworkLaw : IValidityEvidence {
             ModelClaim.Handles(handles: law.UCurves), ModelClaim.Handles(handles: law.VCurves),
             law.UStart is not null, law.UEnd is not null, law.VStart is not null, law.VEnd is not null));
 
-    internal Fin<NurbsSurface> Build(Context domain, Op key) =>
+    internal Fin<NurbsSurface> Build(Context domain) =>
         Switch(
-            state: (Domain: domain, Op: key),
+            state: domain,
             auto: static (ctx, law) => ModelGate.BorrowMany<Curve, NurbsSurface>(
-                handles: law.Curves, key: ctx.Op, body: curves => Captured(ctx.Op, () => {
+                handles: law.Curves, body: curves => Captured(() => {
                     NurbsSurface? product = NurbsSurface.CreateNetworkSurface(
                         curves: curves.AsIterable(), continuity: (int)law.Continuity,
-                        edgeTolerance: ctx.Domain.Absolute.Value, interiorTolerance: ctx.Domain.Absolute.Value,
-                        angleTolerance: ctx.Domain.Angle.Value, error: out int error);
+                        edgeTolerance: ctx.Absolute.Value, interiorTolerance: ctx.Absolute.Value,
+                        angleTolerance: ctx.Angle.Value, error: out int error);
                     return (Product: product, Error: error);
                 })),
             uv: static (ctx, law) => ModelGate.BorrowMany<Curve, NurbsSurface>(
-                handles: law.UCurves, key: ctx.Op, body: uCurves =>
-                ModelGate.BorrowMany<Curve, NurbsSurface>(handles: law.VCurves, key: ctx.Op, body: vCurves =>
-                    Captured(ctx.Op, () => {
+                handles: law.UCurves, body: uCurves =>
+                ModelGate.BorrowMany<Curve, NurbsSurface>(handles: law.VCurves, body: vCurves =>
+                    Captured(() => {
                         NurbsSurface? product = NurbsSurface.CreateNetworkSurface(
                             uCurves: uCurves.AsIterable(), uContinuityStart: (int)law.UStart, uContinuityEnd: (int)law.UEnd,
                             vCurves: vCurves.AsIterable(), vContinuityStart: (int)law.VStart, vContinuityEnd: (int)law.VEnd,
-                            edgeTolerance: ctx.Domain.Absolute.Value, interiorTolerance: ctx.Domain.Absolute.Value,
-                            angleTolerance: ctx.Domain.Angle.Value, error: out int error);
+                            edgeTolerance: ctx.Absolute.Value, interiorTolerance: ctx.Absolute.Value,
+                            angleTolerance: ctx.Angle.Value, error: out int error);
                         return (Product: product, Error: error);
                     }))));
 
-    private static Fin<NurbsSurface> Captured(
-        Op key,
-        Func<(NurbsSurface? Product, int Error)> build) =>
-        key.Catch(() => {
+    private static Fin<NurbsSurface> Captured(Func<(NurbsSurface? Product, int Error)> build) =>
+        Try.lift(() => {
             (NurbsSurface? product, int error) = build();
             return product is not null && error == 0
                 ? Fin.Succ(value: product)
                 : Fin.Fail<NurbsSurface>(
-                    error: key.InvalidResult(detail: error.ToString(CultureInfo.InvariantCulture))).Rollback(product);
-        });
+                    error: new KernelFault.InvalidResult(Detail: Some(error.ToString(CultureInfo.InvariantCulture)))).Rollback(product);
+        }).Run().Bind(static inner => inner);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -380,7 +378,7 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 
 ## [03]-[OPERATION_PIPELINE]
 
-- Owner: `FreeformOp` `[Union]` `[GenerateUnionOps]` — the whole verified freeform-construction verb roster, each case carrying its own generated `SelfOp`; `HostSurfaces` — the one entry folding any operation spread into one owned geometry sequence.
+- Owner: `FreeformOp` `[Union]` `` — the whole verified freeform-construction verb roster, each case carrying its own generated `SelfOp`; `HostSurfaces` — the one entry folding any operation spread into one owned geometry sequence.
 - Law: the entry class holds the entry ALONE — the degree ceiling, the degree predicate, the grid-shape predicate, and the roster-membership probe that once sat beside `Build` are now the `SurfaceDegrees`/`SurfaceGrid` admission and the `CapabilitySet` type, so this page's static class matches every sibling pipeline's one-member shape.
 - Law: `NetworkLaw.Build` captures both native topologies and refuses a null product or a nonzero error code before ownership.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis, and a new case breaks the compile instead of falling through a catch-all to a silent refusal.
@@ -392,11 +390,10 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 - Law: variable offsetting is corner-driven construction — the four corner distances and the optional interior rows are one admitted law, the row spread selects the host overload, and the offset tolerance derives from the domain absolute tolerance, never a payload literal.
 - Law: solitary independent bits stay bools — `ScaleHeight`, `Periodic`, and `Smooth` each carry one axis with no legal-corner law and no host projection column, so a capability set over them buys a wire name and loses the compile-time reading.
 - Growth: a new freeform constructor is one `FreeformOp` case with its arm.
-- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — nurbs-surface build `:63-80`, surface build `:82-103`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), `Modeling/solids.md` (`ModelGate`), kernel `Domain/results` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — nurbs-surface build `:63-80`, surface build `:82-103`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), `Modeling/solids.md` (`ModelGate`), kernel `Domain/results` (`Op`, `` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-[GenerateUnionOps]
 public abstract partial record FreeformOp {
     private FreeformOp() { }
     public sealed record Network(NetworkLaw Law) : FreeformOp;
@@ -421,69 +418,69 @@ public abstract partial record FreeformOp {
     public sealed record Fit(GeometryHandle Surface, SurfaceFitLaw Law) : FreeformOp;
     public sealed record VariableOffset(GeometryHandle Surface, VariableOffsetLaw Law) : FreeformOp;
 
-    internal Fin<FreeformOp> Admitted(Op key) =>
+    internal Fin<FreeformOp> Admitted() =>
         Switch(
             context: key,
-            network: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Law), row.Law is { IsValid: true })),
-            railRevolve: static (op, row) => ModelClaim.Admits(row, op,
+            network: static (row) => ModelClaim.Admits(row, (nameof(row.Law), row.Law is { IsValid: true })),
+            railRevolve: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)), (nameof(row.Axis), row.Axis.IsValid)),
-            grid: static (op, row) => ModelClaim.Admits(row, op,
+            grid: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Shape), row.Shape.IsValid), (nameof(row.Fit), row.Fit is { IsValid: true }),
                 (nameof(row.Points), ValidityClaim.All(
                     ModelClaim.Points(points: row.Points), row.Points.Count == row.Shape.Count))),
-            corners: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Seed), row.Seed is { IsValid: true })),
-            ruled: static (op, row) => ModelClaim.Admits(row, op,
+            corners: static (row) => ModelClaim.Admits(row, (nameof(row.Seed), row.Seed is { IsValid: true })),
+            ruled: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second))),
-            geodesicCurve: static (op, row) => ModelClaim.Admits(row, op,
+            geodesicCurve: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface)),
                 (nameof(row.Points), ModelClaim.Rows(rows: row.Points, claim: static point => (ValidityClaim)point.IsValid))),
-            subDFriendly: static (op, row) => ModelClaim.Admits(row, op,
+            subDFriendly: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface))),
-            seed: static (op, row) => ModelClaim.Admits(row, op,
+            seed: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Value), row.Value is { IsValid: true }), (nameof(row.Form), row.Form is not null)),
-            planeGrid: static (op, row) => ModelClaim.Admits(row, op,
+            planeGrid: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Frame), row.Frame.IsValid),
                 (nameof(row.U), row.U.IsValid), (nameof(row.V), row.V.IsValid),
                 (nameof(row.Shape), row.Shape.IsValid)),
-            compatible: static (op, row) => ModelClaim.Admits(row, op,
+            compatible: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second))),
-            matchEdge: static (op, row) => ModelClaim.Admits(row, op,
+            matchEdge: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface)),
                 (nameof(row.TargetCurve), ModelClaim.Handle(handle: row.TargetCurve)),
                 (nameof(row.Law), row.Law.IsValid)),
-            extruded: static (op, row) => ModelClaim.Admits(row, op,
+            extruded: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Terminal), row.Terminal is { IsValid: true })),
-            periodic: static (op, row) => ModelClaim.Admits(row, op,
+            periodic: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface)), (nameof(row.Axis), row.Axis is not null)),
-            softEdit: static (op, row) => ModelClaim.Admits(row, op,
+            softEdit: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface)), (nameof(row.Law), row.Law.IsValid)),
-            rollingBall: static (op, row) => ModelClaim.Admits(row, op,
+            rollingBall: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.Radius), ValidityClaim.Positive(value: row.Radius)),
                 (nameof(row.At), row.At is { IsValid: true })),
-            tween: static (op, row) => ModelClaim.Admits(row, op,
+            tween: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.Count), ValidityClaim.CountAtLeast(count: row.Count, floor: 1)),
                 (nameof(row.Samples), ValidityClaim.CountAtLeast(count: row.Samples, floor: 1))),
-            sum: static (op, row) => ModelClaim.Admits(row, op,
+            sum: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Extent), row.Extent is { IsValid: true })),
-            boundedPlane: static (op, row) => ModelClaim.Admits(row, op,
+            boundedPlane: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Frame), row.Frame is { IsValid: true }), (nameof(row.Box), row.Box.IsValid)),
-            revolve: static (op, row) => ModelClaim.Admits(row, op,
+            revolve: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), row.Profile is { IsValid: true }), (nameof(row.Axis), row.Axis.IsValid),
                 (nameof(row.Sweep), ValidityClaim.WhenPresent(
                     facet: row.Sweep,
                     claim: static sweep => ValidityClaim.Finite(values: [sweep.StartRadians, sweep.EndRadians])))),
-            fit: static (op, row) => ModelClaim.Admits(row, op,
+            fit: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface)), (nameof(row.Law), row.Law is { IsValid: true })),
-            variableOffset: static (op, row) => ModelClaim.Admits(row, op,
+            variableOffset: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Surface), ModelClaim.Handle(handle: row.Surface)), (nameof(row.Law), row.Law.IsValid)));
 
     internal Fin<Seq<GeometryHandle>> Apply(Context domain) =>
@@ -492,8 +489,8 @@ public abstract partial record FreeformOp {
             network: static (model, edit) => edit.Law.Build(domain: model, key: Network.SelfOp)
                 .Bind(result => ModelGate.Single(Network.SelfOp, () => result)),
             railRevolve: static (_, edit) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(
-                handle: edit.Profile, key: RailRevolve.SelfOp, body: profile =>
-                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, key: RailRevolve.SelfOp, body: rail =>
+                handle: edit.Profile, body: profile =>
+                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, body: rail =>
                         ModelGate.Single(RailRevolve.SelfOp, () => NurbsSurface.CreateRailRevolvedSurface(
                             profile: profile, rail: rail, axis: edit.Axis, scaleHeight: edit.ScaleHeight)))),
             grid: static (_, edit) => edit.Fit.Switch(
@@ -514,17 +511,17 @@ public abstract partial record FreeformOp {
                     corner1: seed.A, corner2: seed.B, corner3: seed.C, corner4: seed.D,
                     tolerance: regime.Absolute.Value))),
             ruled: static (_, edit) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(
-                handle: edit.First, key: Ruled.SelfOp, body: first =>
-                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, key: Ruled.SelfOp, body: second =>
+                handle: edit.First, body: first =>
+                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         ModelGate.Single(Ruled.SelfOp,
                             () => NurbsSurface.CreateRuledSurface(curveA: first, curveB: second)))),
             geodesicCurve: static (model, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: GeodesicCurve.SelfOp, body: surface =>
+                handle: edit.Surface, body: surface =>
                     ModelGate.Single(GeodesicCurve.SelfOp, () => NurbsSurface.CreateCurveOnSurface(
                         surface: surface, points: edit.Points.AsIterable(),
                         tolerance: model.Absolute.Value, periodic: edit.Periodic))),
             subDFriendly: static (_, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: SubDFriendly.SelfOp, body: surface =>
+                handle: edit.Surface, body: surface =>
                     ModelGate.Single(SubDFriendly.SelfOp,
                         () => NurbsSurface.CreateSubDFriendly(surface: surface))),
             seed: static (_, edit) => ModelGate.Single(Seed.SelfOp,
@@ -535,21 +532,21 @@ public abstract partial record FreeformOp {
                     uDegree: edit.Shape.Degrees.U, vDegree: edit.Shape.Degrees.V,
                     uPointCount: edit.Shape.UPoints, vPointCount: edit.Shape.VPoints)),
             compatible: static (_, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.First, key: Compatible.SelfOp, body: first =>
-                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Second, key: Compatible.SelfOp, body: second =>
-                        Compatible.SelfOp.Catch(() =>
-                            ModelGate.Staged(op: Compatible.SelfOp, success: NurbsSurface.MakeCompatible(
+                handle: edit.First, body: first =>
+                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
+                        Try.lift(() =>
+                            ModelGate.Staged(success: NurbsSurface.MakeCompatible(
                                 surface0: first, surface1: second, nurb0: out NurbsSurface nurb0, nurb1: out NurbsSurface nurb1),
-                                ((GeometryBase[])[nurb0, nurb1], false))))),
+                                ((GeometryBase[])[nurb0, nurb1], false))).Run().Bind(static inner => inner))),
             matchEdge: static (model, edit) => ModelGate.Borrow<NurbsSurface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: MatchEdge.SelfOp, body: surface =>
-                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.TargetCurve, key: MatchEdge.SelfOp, body: target =>
+                handle: edit.Surface, body: surface =>
+                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.TargetCurve, body: target =>
                         ModelGate.Single(MatchEdge.SelfOp, () => surface.MatchToCurve(
                             side: edit.Law.Side, targetCurve: target, maxEndDistance: edit.Law.MaxEndDistance,
                             maxInteriorDistance: edit.Law.MaxInteriorDistance, matchTolerance: model.Absolute.Value,
                             maxLevel: edit.Law.MaxLevel)))),
             extruded: static (_, edit) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(
-                handle: edit.Profile, key: Extruded.SelfOp, body: profile =>
+                handle: edit.Profile, body: profile =>
                     edit.Terminal.Switch(
                         state: profile,
                         along: static (curve, terminal) => ModelGate.Single(Extruded.SelfOp,
@@ -557,18 +554,18 @@ public abstract partial record FreeformOp {
                         toApex: static (curve, terminal) => ModelGate.Single(Extruded.SelfOp,
                             () => Surface.CreateExtrusionToPoint(profile: curve, apexPoint: terminal.Apex)))),
             periodic: static (_, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: Periodic.SelfOp, body: surface =>
+                handle: edit.Surface, body: surface =>
                     ModelGate.Single(Periodic.SelfOp, () => Surface.CreatePeriodicSurface(
                         surface: surface, direction: edit.Axis.Native, bSmooth: edit.Smooth))),
             softEdit: static (model, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: SoftEdit.SelfOp, body: surface =>
+                handle: edit.Surface, body: surface =>
                     ModelGate.Single(SoftEdit.SelfOp, () => Surface.CreateSoftEditSurface(
                         surface: surface, uv: edit.Law.Uv, delta: edit.Law.Delta,
                         uLength: edit.Law.ULength, vLength: edit.Law.VLength,
                         tolerance: model.Absolute.Value, fixEnds: edit.Law.FixEnds))),
             rollingBall: static (model, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.First, key: RollingBall.SelfOp, body: first =>
-                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Second, key: RollingBall.SelfOp, body: second =>
+                handle: edit.First, body: first =>
+                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         edit.At.Switch(
                             state: (First: first, Second: second, Radius: edit.Radius, Tolerance: model.Absolute.Value),
                             auto: static ctx => ModelGate.Many(RollingBall.SelfOp,
@@ -583,19 +580,19 @@ public abstract partial record FreeformOp {
                                     surfaceA: ctx.First, uvA: seed.First, surfaceB: ctx.Second, uvB: seed.Second,
                                     radius: ctx.Radius, tolerance: ctx.Tolerance))))),
             tween: static (model, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.First, key: Tween.SelfOp, body: first =>
-                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Second, key: Tween.SelfOp, body: second =>
+                handle: edit.First, body: first =>
+                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         ModelGate.Many(Tween.SelfOp, () => Surface.CreateTweenSurfacesWithSampling(
                             surface0: first, surface1: second, numSurfaces: edit.Count,
                             numSamples: edit.Samples, tolerance: model.Absolute.Value)))),
             sum: static (_, edit) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(
-                handle: edit.Profile, key: Sum.SelfOp, body: profile =>
+                handle: edit.Profile, body: profile =>
                     edit.Extent.Switch(
                         state: profile,
                         byDirection: static (curve, extent) => ModelGate.Single(Sum.SelfOp,
                             () => SumSurface.Create(curve: curve, extrusionDirection: extent.Direction)),
                         byCurve: static (curve, extent) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(
-                            handle: extent.Second, key: Sum.SelfOp, body: second => ModelGate.Single(
+                            handle: extent.Second, body: second => ModelGate.Single(
                                 Sum.SelfOp, () => SumSurface.Create(curveA: curve, curveB: second))))),
             boundedPlane: static (_, edit) => edit.Frame.Switch(
                 state: edit.Box,
@@ -607,7 +604,7 @@ public abstract partial record FreeformOp {
             revolve: static (_, edit) => edit.Profile.Switch(
                 state: edit,
                 ofCurve: static (row, profile) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(
-                    handle: profile.Value, key: Revolve.SelfOp, body: revolute =>
+                    handle: profile.Value, body: revolute =>
                         ModelGate.Single(Revolve.SelfOp, () => row.Sweep.Match(
                             Some: sweep => RevSurface.Create(
                                 revoluteCurve: revolute, axisOfRevolution: row.Axis,
@@ -620,7 +617,7 @@ public abstract partial record FreeformOp {
                             startAngleRadians: sweep.StartRadians, endAngleRadians: sweep.EndRadians),
                         None: () => RevSurface.Create(revoluteLine: profile.Value, axisOfRevolution: row.Axis)))),
             fit: static (model, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: Fit.SelfOp, body: surface =>
+                handle: edit.Surface, body: surface =>
                     edit.Law.Switch(
                         state: (Surface: surface, Domain: model),
                         toTolerance: static (ctx, law) => ModelGate.Single(Fit.SelfOp, () => ctx.Surface.Fit(
@@ -632,7 +629,7 @@ public abstract partial record FreeformOp {
                             direction: law.Axis.Native, pointCount: law.PointCount, loftType: law.Kind,
                             refitTolerance: ctx.Domain.Absolute.Value)))),
             variableOffset: static (model, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Surface, key: VariableOffset.SelfOp, body: surface =>
+                handle: edit.Surface, body: surface =>
                     ModelGate.Single(VariableOffset.SelfOp, () => edit.Law.Interior.IsEmpty
                         ? surface.VariableOffset(
                             uMinvMin: edit.Law.UMinVMin, uMinvMax: edit.Law.UMinVMax,
@@ -654,7 +651,7 @@ public static class HostSurfaces {
             ModelGate.Entry(
                 runtime: runtime,
                 operations: captured,
-                admit: static (operation, key) => operation.Admitted(key: key),
+                admit: static (operation, key) => operation.Admitted(),
                 apply: static (operation, model) => operation.Apply(domain: model)).ToEff());
     }
 }

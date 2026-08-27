@@ -239,8 +239,8 @@ public sealed class XrObserverLane {
 
     private XrObserverLane(Channel<XrObservation> queue, Atom<long> shed) => (this.queue, this.shed) = (queue, shed);
 
-    public static Fin<XrObserverLane> Of(int capacity, Op key) {
-        if (capacity <= 0) { return Fin.Fail<XrObserverLane>(key.InvalidInput()); }
+    public static Fin<XrObserverLane> Of(int capacity) {
+        if (capacity <= 0) { return Fin.Fail<XrObserverLane>(new KernelFault.InvalidInput()); }
         Atom<long> shed = Atom(0L);
         Channel<XrObservation> queue = Channel.CreateBounded<XrObservation>(
             new BoundedChannelOptions(capacity) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true },
@@ -279,8 +279,7 @@ public sealed class ImmersiveSession : UiLease {
         IClock clock,
         XrObserverLane observer,
         Func<EyePass, Fin<FrameRender>> renderEye,
-        Func<ControlIntent, SKCanvas, SKImageInfo, Fin<Unit>> panelRender,
-        Op key) : base(key) =>
+        Func<ControlIntent, SKCanvas, SKImageInfo, Fin<Unit>> panelRender) : base() =>
         (Instance, System, Session, Tables, ViewConfig, Blend, EyeSwapchains, EyeExtent, EyeFormat, ReferenceSpace,
          ComfortPolicy, Line, Clock, Observer, RenderEye, PanelRender) =
         (instance, system, session, tables, viewConfig, blend, eyeSwapchains, eyeExtent, eyeFormat, referenceSpace,
@@ -317,7 +316,7 @@ public sealed class ImmersiveSession : UiLease {
 
     public Atom<Option<long>> Display { get; } = Atom(Option<long>.None);
 
-    public Fin<Unit> Acquire(XrHandle handle, Op key) => Accrue(() => handle.Destroy(Tables), key);
+    public Fin<Unit> Acquire(XrHandle handle) => Accrue(() => handle.Destroy(Tables));
 
     public static readonly InstrumentSpec Resolved = InstrumentSpec.Create(
         "rasm.appui.immersive.session.resolved", InstrumentKind.Count, MeasureForm.Whole, "{session}",
@@ -453,12 +452,11 @@ public abstract partial record XrFrameOutcome {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class XrSwapchain {
-    private static readonly Op SwapOp = Op.Of(name: "appui.immersive.swapchain");
 
     public const long InfiniteDuration = long.MaxValue;
 
     public static unsafe Fin<T> Bracket<T>(XR core, XrSurface surface, Swapchain swapchain, Func<uint, Fin<T>> body) =>
-        SwapOp.Catch(() => Bracketed(core, surface, swapchain, body));
+        Try.lift(() => Bracketed(core, surface, swapchain, body)).Run().Bind(static inner => inner);
 
     private static unsafe Fin<T> Bracketed<T>(XR core, XrSurface surface, Swapchain swapchain, Func<uint, Fin<T>> body) {
         SwapchainImageAcquireInfo acquire = new();
@@ -468,13 +466,13 @@ public static class XrSwapchain {
             return Fin.Fail<T>(new ImmersiveFault.NativeRefused(surface, nameof(XR.AcquireSwapchainImage), acquired));
         }
 
-        Fin<T> primary = SwapOp.Catch(() => {
+        Fin<T> primary = Try.lift(() => {
             SwapchainImageWaitInfo wait = new(timeout: InfiniteDuration);
             Result waited = core.WaitSwapchainImage(swapchain, &wait);
             return waited == Result.Success
                 ? body(image)
                 : Fin.Fail<T>(new ImmersiveFault.NativeRefused(surface, nameof(XR.WaitSwapchainImage), waited));
-        });
+        }).Run().Bind(static inner => inner);
         return primary.Settled(() => {
             SwapchainImageReleaseInfo release = new();
             Result outcome = core.ReleaseSwapchainImage(swapchain, &release);
@@ -489,10 +487,9 @@ public static class XrSwapchain {
 public static class XrPump {
     private const int DrainCeiling = 64;
 
-    private static readonly Op DrainKey = Op.Of(name: "appui.immersive.drain");
 
     extension(ImmersiveSession session) {
-        public unsafe IO<Seq<XrEvent>> Pump() => IO.lift(() => DrainKey.Catch(() => Drain(session)));
+        public unsafe IO<Seq<XrEvent>> Pump() => IO.lift(() => Try.lift(() => Drain(session)).Run().Bind(static inner => inner));
     }
 
     private static unsafe Fin<Seq<XrEvent>> Drain(ImmersiveSession session) {
@@ -546,7 +543,7 @@ public static class XrPump {
         Fin.Succ(Some<XrEvent>(new XrEvent.Lost(((EventDataEventsLost*)payload)->LostEventCount)));
 
     private static Option<XrEvent> Publish(ImmersiveSession session, XrSessionPhase phase, long at) =>
-        Cell.Step(session.Phase, held => held == phase ? Option<XrSessionPhase>.None : Some(phase), DrainKey.InvalidInput())
+        Cell.Step(session.Phase, held => held == phase ? Option<XrSessionPhase>.None : Some(phase), new KernelFault.InvalidInput())
             is Transition<XrSessionPhase>.Committed committed
             ? Some<XrEvent>(new XrEvent.Transitioned(committed.State, at))
             : None;
@@ -562,7 +559,7 @@ public static class XrPump {
             Option<(XrRequestLedger Next, SpatialRequest Row)> taken = held.Retire(outcome.Id);
             retired = taken.Map(static row => row.Row);
             return taken.Map(static row => row.Next);
-        }, DrainKey.InvalidInput()));
+        }, new KernelFault.InvalidInput()));
         return retired.Map(request => (XrEvent)new XrEvent.SpatialCompleted(request, outcome, now - request.At));
     }
 }
@@ -570,8 +567,6 @@ public static class XrPump {
 public static class XrFrame {
     private const uint EyeCount = 2u;
 
-    private static readonly Op SubmitKey = Op.Of(name: "appui.immersive.submit");
-    private static readonly Op FrameKey = Op.Of(name: "appui.immersive.frame");
 
     extension(ImmersiveSession session) {
         public unsafe IO<(XrFrameOutcome Outcome, Seq<XrEvent> Drained)> Frame(
@@ -621,7 +616,7 @@ public static class XrFrame {
 
     private static unsafe Fin<Option<FrameRender>> Submit(
         ImmersiveSession session, ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) =>
-        SubmitKey.Catch(() => Drawn(session, clock, budget, quality, camera));
+        Try.lift(() => Drawn(session, clock, budget, quality, camera)).Run().Bind(static inner => inner);
 
     private static unsafe Fin<Option<FrameRender>> Drawn(
         ImmersiveSession session, ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) {
@@ -798,11 +793,10 @@ public readonly record struct XrAction(string Name, string Localized, string Pro
 public readonly record struct PassthroughStyle(PerceptualColor Edge, UnitInterval TextureOpacity);
 
 public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action Handle)> Bound, Space ActionSpace) {
-    private static readonly Op InputKey = Op.Of(name: "appui.immersive.input");
 
-    public IO<Unit> Sync(ImmersiveSession session) => IO.lift(() => InputKey.Catch(() => Synced(session, this)));
+    public IO<Unit> Sync(ImmersiveSession session) => IO.lift(() => Try.lift(() => Synced(session, this)).Run().Bind(static inner => inner));
 
-    public Fin<Option<Posef>> Aim(ImmersiveSession session) => InputKey.Catch(() => Aimed(session, this));
+    public Fin<Option<Posef>> Aim(ImmersiveSession session) => Try.lift(() => Aimed(session, this)).Run().Bind(static inner => inner);
 
     private static unsafe Fin<Option<Posef>> Aimed(ImmersiveSession session, XrInput input) {
         if (session.Display.Value.Case is not long displayTime) { return Fin.Succ(Option<Posef>.None); }
@@ -827,7 +821,7 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
     private const SpaceLocationFlags Tracked = SpaceLocationFlags.OrientationValidBit | SpaceLocationFlags.PositionValidBit;
 
     public static unsafe Fin<XrInput> Bind(ImmersiveSession session, Seq<XrAction> actions) =>
-        InputKey.Catch(() => Bound(session, actions));
+        Try.lift(() => Bound(session, actions)).Run().Bind(static inner => inner);
 
     private static unsafe Fin<XrInput> Bound(ImmersiveSession session, Seq<XrAction> actions) {
         XR core = session.Tables.Core;
@@ -926,11 +920,10 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
 }
 
 public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer, PassthroughStyle Style, PassthroughFeed State) {
-    private static readonly Op PassKey = Op.Of(name: "appui.immersive.passthrough");
 
     public static unsafe Fin<Passthrough> Start(ImmersiveSession session, PassthroughStyle style) =>
         session.Tables.Passthrough.Match(
-            Some: api => PassKey.Catch(() => Started(session, api, style)),
+            Some: api => Try.lift(() => Started(session, api, style)).Run().Bind(static inner => inner),
             None: static () => Fin.Fail<Passthrough>(new ImmersiveFault.NativeRefused(
                 XrSurface.Passthrough, nameof(FBPassthrough), Result.ErrorExtensionNotPresent)));
 
@@ -956,7 +949,7 @@ public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer
 
     public Fin<Passthrough> Restyle(ImmersiveSession session, PassthroughStyle style) =>
         session.Tables.Passthrough.Match(
-            Some: api => PassKey.Catch(() => Restyled(this, api, style)),
+            Some: api => Try.lift(() => Restyled(this, api, style)).Run().Bind(static inner => inner),
             None: () => Fin.Succ(this));
 
     public Fin<Passthrough> Feed(ImmersiveSession session, PassthroughFeed feed) =>
@@ -985,9 +978,8 @@ public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer
 }
 
 public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, HashMap<int, FoveationProfileFB> Profiles) {
-    private static readonly Op ComfortKey = Op.Of(name: "appui.immersive.comfort");
 
-    public static unsafe Fin<XrComfort> Bind(ImmersiveSession session) => ComfortKey.Catch(() => Bound(session));
+    public static unsafe Fin<XrComfort> Bind(ImmersiveSession session) => Try.lift(() => Bound(session)).Run().Bind(static inner => inner);
 
     private static unsafe Fin<XrComfort> Bound(ImmersiveSession session) {
         if (session.Tables.RefreshRate.Case is not FBDisplayRefreshRate api) {
@@ -1237,20 +1229,19 @@ public readonly record struct RoomModel(UuidEXT Floor, UuidEXT Ceiling, Seq<Uuid
 public static class XrSpatial {
     private const long InfiniteDuration = long.MaxValue;
 
-    private static readonly Op SpatialKey = Op.Of(name: "appui.immersive.spatial");
 
     extension(ImmersiveSession session) {
         public unsafe IO<SpatialRequest> Request(SpatialIntent intent) =>
-            IO.lift(() => SpatialKey.Catch(() => Minted(session, intent, attempt: 0)));
+            IO.lift(() => Try.lift(() => Minted(session, intent, attempt: 0)).Run().Bind(static inner => inner));
 
-        public unsafe Fin<RoomSurface> Surface(Space space) => SpatialKey.Catch(() => Read(session, space));
+        public unsafe Fin<RoomSurface> Surface(Space space) => Try.lift(() => Read(session, space)).Run().Bind(static inner => inner);
 
-        public unsafe Fin<RoomModel> Room(Space space) => SpatialKey.Catch(() => Layout(session, space));
+        public unsafe Fin<RoomModel> Room(Space space) => Try.lift(() => Layout(session, space)).Run().Bind(static inner => inner);
 
         public unsafe Fin<Seq<SpaceQueryResultFB>> Recalled(ulong requestId) =>
-            SpatialKey.Catch(() => Retrieved(session, requestId));
+            Try.lift(() => Retrieved(session, requestId)).Run().Bind(static inner => inner);
 
-        public IO<Seq<XrEvent>> Expire() => IO.lift(() => SpatialKey.Catch(() => Swept(session)));
+        public IO<Seq<XrEvent>> Expire() => IO.lift(() => Try.lift(() => Swept(session)).Run().Bind(static inner => inner));
     }
 
     private static Fin<Seq<XrEvent>> Swept(ImmersiveSession session) {
@@ -1535,7 +1526,6 @@ public sealed record XrAnnotation(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class XrChrome {
-    private static readonly Op ChromeKey = Op.Of(name: "appui.immersive.chrome");
 
     public static unsafe Fin<XrPanel> Mount(
         ImmersiveSession session, string key, ControlIntent content,
@@ -1552,7 +1542,7 @@ public static class XrChrome {
             return Fin.Fail<XrPanel>(new ImmersiveFault.NativeRefused(
                 XrSurface.Frame, $"{nameof(XR.CreateSwapchain)}:panel/{key}", outcome));
         }
-        XrPanel panel = new(key, swapchain, extent, pose, pixelsPerMetre, content);
+        XrPanel panel = new(swapchain, extent, pose, pixelsPerMetre, content);
         return session.Acquire(new XrHandle.SwapchainHandle(swapchain), ChromeKey)
             .Map(_ => { ignore(session.Panels.Swap(held => held.Add(panel))); return panel; });
     }
@@ -1648,7 +1638,6 @@ public readonly record struct XrPanelSpec(string Key, ControlIntent Content, Pos
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class ImmersiveDeck {
-    private static readonly Op DeckKey = Op.Of(name: "appui.immersive.deck");
 
     private ImmersiveDeck(
         Atom<ImmersiveMode> mode,
@@ -1747,7 +1736,7 @@ public sealed class ImmersiveDeck {
         ignore(Cell.Step(Pending, held => {
             waiting = held.Find(done.Request.Id);
             return waiting.Map(_ => held.Remove(done.Request.Id));
-        }, DeckKey.InvalidInput()));
+        }, new KernelFault.InvalidInput()));
         return waiting.Match(
             Some: payload => XrChrome.Annotate(session, done.Outcome, payload.Measurement, payload.IssueKey).Match(
                 Succ: note => IO.lift(() => ignore(Annotations.Swap(held => held.Add(note))))

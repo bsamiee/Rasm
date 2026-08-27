@@ -169,8 +169,7 @@ public sealed partial class VectorUnit {
     internal FileAiWriteOptions.Units AiWrite { get; }
     internal FileEpsReadOptions.Units Eps { get; }
 
-    public static Fin<VectorUnit> For(ModelUnit unit, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<VectorUnit> For(ModelUnit unit) {
         return toSeq(Items)
             .Find(row => row.Unit == unit.System)
             .ToFin(Fail: new KernelFault.InvalidValue(nameof(VectorUnit), string.Join(" | ", new object?[] { op, $"a unit the vector engines name; got '{unit.System}'" })));
@@ -188,9 +187,7 @@ public abstract partial record VectorScale {
     public static Fin<VectorScale> Of(
         Option<VectorUnit> vectorUnit = default,
         Option<double> source = default,
-        Option<double> rhino = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Option<double> rhino = default) {
         return FactoryValidation.Admit(FactoryValidation.Violated(
                 (source.Exists(static value => !double.IsFinite(value) || value <= 0d),
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ScaledCase.Source), source.IfNone(noneValue: 0d), "a finite positive source scale" }))),
@@ -243,11 +240,11 @@ internal static class VectorLenses {
 - Owner: `FileCodec` `[SmartEnum<string>]` is the interchange matrix. Each row declares extensions, an ability set, and two engine columns; each engine composes polymorphic `Dials.Resolve`, while unsupported legs share one typed refusal.
 - Entry: `Codecs.Apply(RhinoDoc, DocumentPath, FileCodec, CodecTune, CodecRequest, Op?)` accepts one carrier union and dispatches once through the selected row. `Exchanges.Run` and `CodecPort.Dispatch` remain the only raw-document consumers.
 - Law: `Detect`, `Of`, `Filter`, `Archive`, and `EnsureExtension` derive from `Items` through lazy frozen indexes — the declaration list is the single source, a new row lands in every derived surface with zero additional edits, and a reserved key (`json`) is refused at the row-lookup boundary so wire payload spellings never collide with interchange formats. The dialog filter is indexed on both axes: each row's host filter fragment mints once, each phase's whole-roster string mints once, and a subset call joins already-minted fragments.
-- Law: every host `bool`-plus-`out` lookup crosses through `Op.Probe`, so the matrix carries no `TryGetValue` shape inward and `Resolve` reads as one alternative between two probes terminating in one typed `CodecUnknown`.
+- Law: every host `bool`-plus-`out` lookup crosses through `HostEdge.Probe`, so the matrix carries no `TryGetValue` shape inward and `Resolve` reads as one alternative between two probes terminating in one typed `CodecUnknown`.
 - Law: the vocabulary is closed — a format the matrix lacks is one new row, and a foreign plug-in's format reaches the document only through the host's own dialog dispatch, never through this matrix.
 - Law: engine outcomes normalize at the row through THREE factories, one per genuine axis. The host publishes two write verdict currencies — `FileObj.Write` and `FilePly.Write` answer `WriteFileResult` and every other engine answers `bool` — and that plurality is host-forced. The mint-arity axis was NOT: two of the prior six factories had zero callers and the remaining pair differed only by a lambda forwarding a three-argument mint to a two-argument one, which is a shell family, so every row now spells the carrier-bearing mint and the shells are gone. NAMED LOSS: the two-argument mint spelling at the rows that ignore the host carrier; each states `_` for it.
 - Law: a hand-spelled engine closure survives only where the row composes a scale lens or a host-owned transport (`Ai`, `Eps`, `Pdf`, `3dm`, `Xaml`).
-- Packages: `Domain/results` (`Op.Probe`, `Op.Catch`, `Op.Confirm`), `Domain/validation` (`CapabilitySet<T>`), `Exchange/operations` (`ExchangeFault`), `Exchange/options` (`FormatDial`, `FormatDial.Admit`, `Dials.Resolve`, `Dials.Scale`), RhinoCommon (the direct format engines, `FileReadOptions`, `FileWriteOptions`, `WriteFileResult`) per `.api/api-rhinocommon-fileio.md`.
+- Packages: `Domain/results` (`HostEdge.Probe`, `Op.Catch`, `Op.Confirm`), `Domain/validation` (`CapabilitySet<T>`), `Exchange/operations` (`ExchangeFault`), `Exchange/options` (`FormatDial`, `FormatDial.Admit`, `Dials.Resolve`, `Dials.Scale`), RhinoCommon (the direct format engines, `FileReadOptions`, `FileWriteOptions`, `WriteFileResult`) per `.api/api-rhinocommon-fileio.md`.
 - Growth: a new interchange format is one row naming its extensions, its ability set, and its two engine columns.
 - Boundary: `FilePdf` page authoring and raster encoding are `publish.md` egress; the `pdf`/`svg` rows here own only page-space vector import, and the raster rows are the extension authority each `RasterCodec` row admits itself against — the publish target vocabulary keys on `FileCodec` row identity, never on the raster ability.
 
@@ -258,9 +255,9 @@ public sealed partial class FileCodec {
     public static readonly FileCodec ThreeDm = new("3dm", Seq(".3dm"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Archive, CodecAbility.Import, CodecAbility.Export, CodecAbility.Selection),
         static (tune, carrier, doc, path, op) =>
-            op.Confirm(success: doc.Import(filePath: path, options: new Rhino.Collections.ArchivableDictionary())),
+            Admit.Confirm(success: doc.Import(filePath: path, options: new Rhino.Collections.ArchivableDictionary())),
         static (tune, carrier, doc, path, op) =>
-            op.Confirm(success: doc.Write3dmFile(path: path, options: carrier)));
+            Admit.Confirm(success: doc.Write3dmFile(path: path, options: carrier)));
     public static readonly FileCodec ThreeDs = new("3ds", Seq(".3ds"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Export),
         Reader(File3ds.Read, static () => new FormatDial.ThreeDsReadCase(), static (dial, _, _) => dial.Mint()),
@@ -271,12 +268,12 @@ public sealed partial class FileCodec {
     public static readonly FileCodec Ai = new("ai", Seq(".ai"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Export, CodecAbility.Vector),
         static (tune, carrier, doc, path, op) => Confirm(FileAi.Read(path, doc,
-            Dials.Scale(new FileAiReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.AiRead)), op),
+            Dials.Scale(new FileAiReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.AiRead))),
         static (tune, carrier, doc, path, op) => Confirm(FileAi.Write(path, doc,
             Dials.Scale(
                 Dials.Resolve(tune, carrier, static () => new FormatDial.AiWriteCase(), static (dial, policy, _) => dial.Mint(tune: policy)),
                 tune,
-                VectorLenses.AiWrite)), op));
+                VectorLenses.AiWrite))));
     public static readonly FileCodec Amf = new("amf", Seq(".amf"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Export), Unread,
         Writer(FileAmf.Write, static () => new FormatDial.AmfWriteCase(), static (dial, _, _) => dial.Mint()));
@@ -304,7 +301,7 @@ public sealed partial class FileCodec {
     public static readonly FileCodec Eps = new("eps", Seq(".eps"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Vector),
         static (tune, carrier, doc, path, op) => Confirm(FileEps.Read(path, doc,
-            Dials.Scale(new FileEpsReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.Eps)), op), Unwritten);
+            Dials.Scale(new FileEpsReadOptions { PreserveModelScale = tune.Fidelity.IsModel }, tune, VectorLenses.Eps))), Unwritten);
     public static readonly FileCodec Stl = new("stl", Seq(".stl"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Export),
         Reader(FileStl.Read, static () => new FormatDial.StlReadCase(), static (dial, _, _) => dial.Mint()),
@@ -363,7 +360,7 @@ public sealed partial class FileCodec {
         Writer(FileX3dv.Write, static () => new FormatDial.X3dvWriteCase(), static (dial, policy, _) => dial.Mint(tune: policy)));
     public static readonly FileCodec Xaml = new("xaml", Seq(".xaml"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Export), Unread,
-        static (tune, carrier, doc, path, op) => op.Confirm(success: doc.Export(filePath: path,
+        static (tune, carrier, doc, path, op) => Admit.Confirm(success: doc.Export(filePath: path,
             options: Dials.Resolve(
                 tune,
                 carrier,
@@ -395,7 +392,7 @@ public sealed partial class FileCodec {
             Dials.Scale(
                 Dials.Resolve(tune, carrier, static () => new FormatDial.PdfReadCase(), static (dial, policy, _) => dial.Mint(tune: policy)),
                 tune,
-                VectorLenses.Pdf)), op), Unwritten);
+                VectorLenses.Pdf))), Unwritten);
     public static readonly FileCodec Svg = new("svg", Seq(".svg"),
         CapabilitySet<CodecAbility>.Of(CodecAbility.Import, CodecAbility.Vector),
         Reader(FileSvg.Read, static () => new FormatDial.SvgReadCase(), static (dial, _, _) => dial.Mint()), Unwritten);
@@ -412,10 +409,10 @@ public sealed partial class FileCodec {
     public CapabilitySet<CodecAbility> Abilities { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> ReadEngine(CodecTune tune, FileReadOptions carrier, RhinoDoc document, string path, Op key);
+    internal partial Fin<Unit> ReadEngine(CodecTune tune, FileReadOptions carrier, RhinoDoc document, string path);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> WriteEngine(CodecTune tune, FileWriteOptions carrier, RhinoDoc document, string path, Op key);
+    internal partial Fin<Unit> WriteEngine(CodecTune tune, FileWriteOptions carrier, RhinoDoc document, string path);
 
     public bool Has(CodecAbility ability) => Abilities.Admits(capability: ability);
 
@@ -424,31 +421,29 @@ public sealed partial class FileCodec {
             ? path
             : path + Extensions.Head.IfNone(noneValue: string.Empty);
 
-    private static Fin<Unit> Confirm(bool success, Op op) => op.Confirm(success: success);
-    private static Fin<Unit> Confirm(WriteFileResult result, Op op) =>
-        op.Confirm(success: result == WriteFileResult.Success);
+    private static Fin<Unit> Confirm(bool success) => Admit.Confirm(success: success);
+    private static Fin<Unit> Confirm(WriteFileResult result) =>
+        Admit.Confirm(success: result == WriteFileResult.Success);
 
-    private static Fin<Unit> Unread(CodecTune tune, FileReadOptions carrier, RhinoDoc document, string path, Op key) =>
-        Fin.Fail<Unit>(error: new ExchangeFault.AbilityMissing(
-            Key: key, Codec: System.IO.Path.GetExtension(path), Ability: CodecAbility.Import.Key));
-    private static Fin<Unit> Unwritten(CodecTune tune, FileWriteOptions carrier, RhinoDoc document, string path, Op key) =>
-        Fin.Fail<Unit>(error: new ExchangeFault.AbilityMissing(
-            Key: key, Codec: System.IO.Path.GetExtension(path), Ability: CodecAbility.Export.Key));
+    private static Fin<Unit> Unread(CodecTune tune, FileReadOptions carrier, RhinoDoc document, string path) =>
+        Fin.Fail<Unit>(error: new ExchangeFault.AbilityMissing(Codec: System.IO.Path.GetExtension(path), Ability: CodecAbility.Import.Key));
+    private static Fin<Unit> Unwritten(CodecTune tune, FileWriteOptions carrier, RhinoDoc document, string path) =>
+        Fin.Fail<Unit>(error: new ExchangeFault.AbilityMissing(Codec: System.IO.Path.GetExtension(path), Ability: CodecAbility.Export.Key));
 
-    private static Func<CodecTune, FileReadOptions, RhinoDoc, string, Op, Fin<Unit>> Reader<TCase, TOptions>(
+    private static Func<CodecTune, FileReadOptions, RhinoDoc, string, Fin<Unit>> Reader<TCase, TOptions>(
         Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, FileReadOptions, TOptions> mint)
         where TCase : FormatDial =>
-        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)), op);
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)));
 
-    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Op, Fin<Unit>> Writer<TCase, TOptions>(
+    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Fin<Unit>> Writer<TCase, TOptions>(
         Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, FileWriteOptions, TOptions> mint)
         where TCase : FormatDial =>
-        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)), op);
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)));
 
-    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Op, Fin<Unit>> Writer<TCase, TOptions>(
+    private static Func<CodecTune, FileWriteOptions, RhinoDoc, string, Fin<Unit>> Writer<TCase, TOptions>(
         Func<string, RhinoDoc, TOptions, WriteFileResult> engine, Func<TCase> dial, Func<TCase, CodecTune, FileWriteOptions, TOptions> mint)
         where TCase : FormatDial =>
-        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)), op);
+        (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -463,12 +458,12 @@ internal abstract partial record CodecRequest {
         importCase: static _ => CodecPhase.Import,
         exportCase: static _ => CodecPhase.Export);
 
-    internal Fin<Unit> Dispatch(FileCodec codec, CodecTune tune, RhinoDoc document, string path, Op op) => Switch(
-        (Codec: codec, Tune: tune, Document: document, Path: path, Op: op),
+    internal Fin<Unit> Dispatch(FileCodec codec, CodecTune tune, RhinoDoc document, string path) => Switch(
+        (Codec: codec, Tune: tune, Document: document, Path: path),
         importCase: static (ctx, request) => ctx.Codec.ReadEngine(
-            tune: ctx.Tune, carrier: request.Carrier, document: ctx.Document, path: ctx.Path, key: ctx.Op),
+            tune: ctx.Tune, carrier: request.Carrier, document: ctx.Document, path: ctx.Path),
         exportCase: static (ctx, request) => ctx.Codec.WriteEngine(
-            tune: ctx.Tune, carrier: request.Carrier, document: ctx.Document, path: ctx.Path, key: ctx.Op));
+            tune: ctx.Tune, carrier: request.Carrier, document: ctx.Document, path: ctx.Path));
 }
 
 public static class Codecs {
@@ -500,23 +495,22 @@ public static class Codecs {
     public static Option<FileCodec> Detect(string path) =>
         Optional(System.IO.Path.GetExtension(path))
             .Filter(static ext => !string.IsNullOrWhiteSpace(value: ext))
-            .Bind(ext => Op.Probe<FileCodec>(probe: (out FileCodec row) => ByExtension.Value.TryGetValue(ext, out row!)));
+            .Bind(ext => Admit.Probe<FileCodec>(probe: (out FileCodec row) => ByExtension.Value.TryGetValue(ext, out row!)));
 
-    public static Fin<FileCodec> Of(string keyOrExtension, Op? key = null) {
-        Op op = key.OrDefault();
-        return from text in op.AcceptText(value: keyOrExtension)
+    public static Fin<FileCodec> Of(string keyOrExtension) {
+        return from text in Acceptance.Text(value: keyOrExtension)
                from _reserved in guard(
                    !Reserved.Contains(text),
-                   new ExchangeFault.CodecUnknown(Key: op, Requested: text))
-               from row in Resolve(text: text, op: op)
+                   new ExchangeFault.CodecUnknown(Requested: text))
+               from row in Resolve(text: text)
                select row;
     }
 
-    private static Fin<FileCodec> Resolve(string text, Op op) =>
-        (Op.Probe<FileCodec>(probe: (out FileCodec row) => FileCodec.TryGet(text.TrimStart('.'), out row!))
-            | Op.Probe<FileCodec>(probe: (out FileCodec row) =>
+    private static Fin<FileCodec> Resolve(string text) =>
+        (Admit.Probe<FileCodec>(probe: (out FileCodec row) => FileCodec.TryGet(text.TrimStart('.'), out row!))
+            | Admit.Probe<FileCodec>(probe: (out FileCodec row) =>
                 ByExtension.Value.TryGetValue(text.StartsWith('.') ? text : "." + text, out row!)))
-        .ToFin(Fail: new ExchangeFault.CodecUnknown(Key: op, Requested: text));
+        .ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: text));
 
     public static string Filter(CodecPhase phase, Seq<FileCodec> subset = default) =>
         subset.IsEmpty
@@ -531,21 +525,17 @@ public static class Codecs {
         DocumentPath path,
         FileCodec codec,
         CodecTune tune,
-        CodecRequest request,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        CodecRequest request) {
         return from _ability in guard(
                    codec.Has(request.Phase.Demands),
-                   new ExchangeFault.AbilityMissing(
-                       Key: op, Codec: codec.Key, Ability: request.Phase.Demands.Key)).ToFin()
+                   new ExchangeFault.AbilityMissing(Codec: codec.Key, Ability: request.Phase.Demands.Key)).ToFin()
                from _scale in guard(
                    tune.Scale.IsNone || codec.Has(CodecAbility.Vector),
-                   new ExchangeFault.AbilityMissing(
-                       Key: op, Codec: codec.Key, Ability: CodecAbility.Vector.Key))
+                   new ExchangeFault.AbilityMissing(Codec: codec.Key, Ability: CodecAbility.Vector.Key))
                from _dial in tune.Dial
-                   .TraverseM(dial => dial.Admit(codec: codec, phase: request.Phase, key: op)).As()
+                   .TraverseM(dial => dial.Admit(codec: codec, phase: request.Phase)).As()
                    .Map(static _ => unit)
-               from done in op.Catch(() => request.Dispatch(codec: codec, tune: tune, document: document, path: path.Value, op: op))
+               from done in Try.lift(() => request.Dispatch(codec: codec, tune: tune, document: document, path: path.Value)).Run().Bind(static inner => inner)
                select done;
     }
 }
@@ -574,24 +564,21 @@ public static class CodecPort {
 
     public static Option<Error> Refusal(Guid plugIn) => Refusals.Find(plugIn);
 
-    internal static Fin<FileTypeList> Register(Guid plugIn, CodecPhase phase, Op? key = null) {
-        Op op = key.OrDefault();
+    internal static Fin<FileTypeList> Register(Guid plugIn, CodecPhase phase) {
         FileTypeList list = new();
         return toSeq(FileCodec.Items)
             .Filter(row => row.Has(phase.Demands) && row != FileCodec.ThreeDm && !row.Extensions.IsEmpty)
             .Fold(
                 Fin.Succ(value: HashMap<(Guid, CodecPhase, int), FileCodec>()),
-                (result, row) => result.Bind(map => op.Catch(() => list.AddFileType(
+                (result, row) => result.Bind(map => Try.lift(() => list.AddFileType(
                         description: $"{row.Key.ToUpperInvariant()} ({string.Join(", ", row.Extensions)})",
                         extensions: row.Extensions.AsIterable(),
                         showOptionsButtonInFileDialog: OptionsButton) switch {
                     int index when index >= 0 => Fin.Succ(value: map.AddOrUpdate((plugIn, phase, index), row)),
                     var refused => Fin.Fail<HashMap<(Guid, CodecPhase, int), FileCodec>>(
-                        error: ExchangeFault.Host(
-                            key: op,
-                            member: nameof(FileTypeList.AddFileType),
+                        error: ExchangeFault.Host(member: nameof(FileTypeList.AddFileType),
                             log: Some($"answered {refused} for the '{row.Key}' row"))),
-                })))
+                }).Run().Bind(static inner => inner)))
             .Bind(bound => Seated(plugIn: plugIn, phase: phase, bound: bound, list: list));
     }
 
@@ -601,15 +588,13 @@ public static class CodecPort {
     }
 
     internal static Fin<Unit> Dispatch(Guid plugIn, int index, RhinoDoc document, string filename, CodecRequest request) {
-        Op op = Op.Of();
-        return Admitted(plugIn: plugIn, index: index, phase: request.Phase, filename: filename, op: op).Bind(seat =>
+        return Admitted(plugIn: plugIn, index: index, phase: request.Phase, filename: filename).Bind(seat =>
             Codecs.Apply(
                 document: document,
                 path: seat.Path,
                 codec: seat.Codec,
                 tune: CodecTune.Model,
-                request: request,
-                key: op));
+                request: request));
     }
 
     internal static T Collapsed<T, TValue>(Guid plugIn, Fin<TValue> outcome, Func<TValue, T> answer, T refused) =>
@@ -629,10 +614,10 @@ public static class CodecPort {
     }
 
     private static Fin<(FileCodec Codec, DocumentPath Path)> Admitted(
-        Guid plugIn, int index, CodecPhase phase, string filename, Op op) =>
+        Guid plugIn, int index, CodecPhase phase, string filename) =>
         from codec in Registry.Value.Find((plugIn, phase, index))
-            .ToFin(Fail: new ExchangeFault.CodecUnknown(Key: op, Requested: $"{phase.Key}#{index}"))
-        from path in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: filename)))
+            .ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: $"{phase.Key}#{index}"))
+        from path in Try.lift(() => Fin.Succ(value: DocumentPath.Create(value: filename))).Run().Bind(static inner => inner)
         select (Codec: codec, Path: path);
 }
 

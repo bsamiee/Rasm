@@ -183,8 +183,7 @@ public static class TelemetryBoard {
         Seq<SloRow> rows, IScheduler scheduler, Action<WatchCrossing> raise, Action<Error> fault) =>
         Lease<CompositeDisposable>.Acquire(
             () => new CompositeDisposable(rows.Bind(row => row.Watches
-                .Map(rule => WatchFold.Arm(rule, row.Burn, scheduler, raise, fault)))),
-            Op.Of(name: "telemetry.board.arm"));
+                .Map(rule => WatchFold.Arm(rule, row.Burn, scheduler, raise, fault)))));
 
     public static WatchRule Stale(string tileKey) => new(
         $"{tileKey}:stale", tileKey, WatchComparator.Stale,
@@ -560,7 +559,7 @@ public static class MetricPanel {
 
     static TableColumnRow<MetricReading> Column(
         string key, string path, TableCellKind kind, double weight, Func<MetricReading, string> export, ResolvedLocale locale) =>
-        new(AggregateColumn.Create(key), locale.Label(LocaleStrings.Key(nameof(MetricPanel), key)), kind,
+        new(AggregateColumn.Create(), locale.Label(LocaleStrings.Key(nameof(MetricPanel))), kind,
             new TableColumnAccess<MetricReading>.Plain(Some<BindingBase>(new Binding(path)), export),
             new DataGridLength(weight, DataGridLengthUnitType.Star),
             CapabilitySet<ColumnTrait>.Of(ColumnTrait.Sortable));

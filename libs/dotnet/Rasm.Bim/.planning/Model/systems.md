@@ -319,7 +319,7 @@ public static class DistributionNetwork {
 ## [03]-[SYSTEM_TRACE]
 
 - Owner: `SystemTrace` the reachability fold over one `DistributionSystem` view's port-and-element flow graph — the set of every distribution element reachable from a seed port or element through the connection network, folded by the shared `QuikGraph` graph-algorithm owner the `Planning/schedule#CRITICAL_PATH` topological order and the `Review/versioning#VERSION_GRAPH` common-ancestor walk also compose, never a hand-rolled visited-set walk; `TraceMode` the orientation policy (`Reach` the undirected both-directions closure, `Downstream`/`Upstream` the `FlowDirection`-oriented directed closure). The flow network is a graph over BOTH ports AND elements so the closure crosses each fitting (a tee's inlet port → the tee element → the tee's outlet ports → the next segment), the bipartite-style traversal the port-only adjacency the retired walk built never crossed.
-- Entry: `SystemTrace.From(DistributionSystem system, NodeId seed, TraceMode mode)` folds one explicit orientation over a transient `AdjacencyGraph<NodeId, SEdge<NodeId>>`, accumulates the closure through `BreadthFirstSearchAlgorithm` under two scoped observers, and partitions reached elements from reached ports as `TraceHop` rows carrying each node's ELEMENT-hop distance from the seed; `ReachedElements`/`ReachedPorts` are the DERIVED bare-reach projections, so a membership question still reads one hop while a ripple-banding consumer reads the distance column. `SystemTrace.Demand(ElementGraph graph, ValueSource source, Op key)` reduces reached effective values through `ElementQuery.SumOf`. `SystemTrace.Runs(ElementGraph graph, Option<ValueSource> resistance, Op key)` ranks every reached TERMINAL (a reached vertex with no outgoing oriented leg) by its best-route cost from the seed over the SAME retained oriented adjacency — the `ShortestPathsDijkstra` route fold, each element weighing its effective resistance value (segment length, fitting loss — a present non-measure faults the same `aggregate-non-measure` law `SumOf` returns, and a negative accumulated weight faults beside it because the route fold's optimality is a non-negativity precondition, never a silently wrong best route) with the hop-count identity when no source is named — descending, so the head IS the index run the duct-sizing, riser-diagram, and feeder-schedule reads start from; in a tree-shaped run the best route is the only route, so the ranking is exact, and a ring main ranks each terminal by its least-resistance route. An isolated system member yields itself; a seed outside the system yields an empty trace, so construction remains total without fabricating membership.
+- Entry: `SystemTrace.From(DistributionSystem system, NodeId seed, TraceMode mode)` folds one explicit orientation over a transient `AdjacencyGraph<NodeId, SEdge<NodeId>>`, accumulates the closure through `BreadthFirstSearchAlgorithm` under two scoped observers, and partitions reached elements from reached ports as `TraceHop` rows carrying each node's ELEMENT-hop distance from the seed; `ReachedElements`/`ReachedPorts` are the DERIVED bare-reach projections, so a membership question still reads one hop while a ripple-banding consumer reads the distance column. `SystemTrace.Demand(ElementGraph graph, ValueSource source)` reduces reached effective values through `ElementQuery.SumOf`. `SystemTrace.Runs(ElementGraph graph, Option<ValueSource> resistance)` ranks every reached TERMINAL (a reached vertex with no outgoing oriented leg) by its best-route cost from the seed over the SAME retained oriented adjacency — the `ShortestPathsDijkstra` route fold, each element weighing its effective resistance value (segment length, fitting loss — a present non-measure faults the same `aggregate-non-measure` law `SumOf` returns, and a negative accumulated weight faults beside it because the route fold's optimality is a non-negativity precondition, never a silently wrong best route) with the hop-count identity when no source is named — descending, so the head IS the index run the duct-sizing, riser-diagram, and feeder-schedule reads start from; in a tree-shaped run the best route is the only route, so the ranking is exact, and a ring main ranks each terminal by its least-resistance route. An isolated system member yields itself; a seed outside the system yields an empty trace, so construction remains total without fabricating membership.
 - Auto: `From` folds the system's `Ports` into the graph as ownership edges (each port ↔ its owner element, both directions — a port belongs to its element regardless of flow) and the system's `Flow` edges oriented by `TraceMode` over BOTH endpoint `FlowDirection`s (`Reach` adds both directions; a `Downstream` leg exists only where the emitting side holds `PortCapability.Emit` AND the receiving side holds `Receive`, so a `Source`→`Sink` edge carries one leg, a `NotDefined` pair conducts both ways, a `NotDefined`-against-`Source` edge still flows OUT of the source only, and two facing pure sources honestly sever the directed closure; `Upstream` is the mirror), the optional realizing fitting linked as an intermediate on each ORIENTED leg (emitting port → realizer → receiving port, so `Reach` keeps its bidirectional participation while a directed trace never crosses a connection backwards through its fitting); the reached closure accumulates through the `BreadthFirstSearchAlgorithm` under TWO SCOPED observers on the ONE walk — a `VertexTimeStamperObserver` whose discovery time orders the closure and a `VertexDistanceRecorderObserver` weighing each tree edge by whether its TARGET is an element, so the recorder accumulates the ELEMENT-hop distance rather than a vertex count the alternating port legs and the optional realizing fitting make unreadable (a directly connected neighbour measures one, a neighbour behind a fitting two, the fitting itself one) — O(reachable), the seed discovered first and seated at depth zero because the recorder records off TREE EDGES alone and no tree edge reaches a root, the same scoped-observer form the `Model/spatial#SPATIAL_STRUCTURE` `Reachable` holds, never an all-vertex `TryFunc` path-probe sweep and never a raw event `+=` over a mutable accumulator — and the fold partitions the reached vertices into the non-port reached elements and the reached ports by the port-set membership — the directed `Downstream` trace from an air-handling unit reaching every air terminal it feeds, the `Reach` trace from a shutoff valve reaching every fixture on its branch, both one fold over the QuikGraph adjacency; the trace reads the `DistributionSystem` view (one hop — the view already carries the ports with their `FlowDirection` and the deduped flow edges), never re-reading the element graph or re-resolving the port flow per query, and a consumer memoizes the trace against the owning system's `(MembershipKey, TopologyKey)` `Identity` so a re-trace re-folds only on a changed membership or adjacency.
 - Output: the `SystemTrace` reached-element `Seq<TraceHop>` is the depth-carrying downstream-network evidence the `Review/coordination#COORDINATION` `ImpactReport` flow leg bands each rippled element by, its `ReachedElements` projection the membership read the `Model/zones#ZONE_GRAPH` MEP grouping resolves a system's effective member closure from and the `Model/query#ELEMENT_SET` consumers intersect against a domain set — a "every air terminal fed from this air-handling unit" / "every fixture downstream of this shutoff valve" query is one `From` fold over the flow graph, the connectivity the single-membership zone overlay cannot express; `Demand` turns the same closure into the quantified network evidence the discipline sizes from — the accumulated terminal airflow behind a duct main, the fixture units on a riser branch, the connected load behind a feeder, each one result-returning `SumOf` reduction partitioned by the owning `Kind.Medium` — declared-property aggregation the `Rasm.AppUi` schedules and a `Rasm.Compute` sizing check consume without re-deriving connectivity; the ranked `Seq<SystemRun>` is the index-run evidence the same consumers read — each row the terminal, its route `NodeId` chain, and its accumulated resistance, the head row the hydraulically-critical run — declared-property ranking, never a pressure solve (the solve stays `Rasm.Compute`'s); the reached set is consumed by the `zoning`/`query`/`analysis` peers by reference, never re-derived per consumer.
 - Packages: QuikGraph, Rasm.Element, Rasm (the kernel `Op` the `Demand` reduction threads), LanguageExt.Core
@@ -340,7 +340,6 @@ using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
@@ -419,7 +418,7 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
         return new SystemTrace(seed, mode, reached.Filter(hop => !ports.Contains(hop.Node)), reached.Filter(hop => ports.Contains(hop.Node))) { Network = graph, Transit = transit };
     }
 
-    public Fin<Seq<SystemRun>> Runs(ElementGraph graph, Option<ValueSource> resistance, Op key) =>
+    public Fin<Seq<SystemRun>> Runs(ElementGraph graph, Option<ValueSource> resistance) =>
         ReachedElements
             .TraverseM(id => resistance
                 .Bind(source => graph.Find<Node.Object>(id).Map(o => (Object: o, Source: source)))
@@ -428,11 +427,11 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
                     Some: row => ElementQuery.ValuesOf(graph, row.Object, row.Source)
                         .TraverseM(value => value is PropertyValue.Measure measure
                             ? Fin.Succ(measure.Value.Si)
-                            : Fin.Fail<double>(ElementFault.ValueRejected(key, $"<aggregate-non-measure:{value.GetType().Name}>")))
+                            : Fin.Fail<double>(ElementFault.ValueRejected($"<aggregate-non-measure:{value.GetType().Name}>")))
                         .As()
                         .Map(weights => weights.IsEmpty ? 1.0 : weights.Fold(0.0, static (total, si) => total + si))
                         .Bind(weight => weight < 0d
-                            ? Fin.Fail<(NodeId Id, double Weight)>(ElementFault.ValueRejected(key, $"<route-weight-negative:{id.ToValue()}:{weight:R}>"))
+                            ? Fin.Fail<(NodeId Id, double Weight)>(ElementFault.ValueRejected($"<route-weight-negative:{id.ToValue()}:{weight:R}>"))
                             : Fin.Succ((Id: id, Weight: weight)))))
             .As()
             .Map(rows => {
@@ -447,8 +446,8 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
                     .OrderByDescending(static run => run.Cost));
             });
 
-    public Fin<Option<MeasureValue>> Demand(ElementGraph graph, ValueSource source, Op key) =>
-        ElementQuery.SumOf(graph, ReachedElements, source, key);
+    public Fin<Option<MeasureValue>> Demand(ElementGraph graph, ValueSource source) =>
+        ElementQuery.SumOf(graph, ReachedElements, source);
 
     internal static Seq<(NodeId From, NodeId To)> Orient(NodeId from, NodeId to, FlowDirection fromFlow, FlowDirection toFlow, TraceMode mode) =>
         mode.Legs.Admits(EdgeCapability.Unoriented)
@@ -470,7 +469,7 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
 
 - Owner: `Interference` the host-neutral clash-evidence record carrying the clashing `(NodeId, NodeId)` pair, the `ClashKind` (`Hard` overlapping solids, `Clearance` insufficient maintenance/insulation gap), the measured deficit (the penetration depth for a hard clash, the clearance shortfall for a clearance clash, both kernel-SI scalars), the two member disciplines (`IfcDomain` pair), and the priority rank a cross-discipline clash carries above an intra-discipline one; `ClashKind` the closed `[SmartEnum<string>]` clash partition; `InterferenceQuery` the proximity request keyed by the two members' `RepresentationContentHash` body geometry content keys with the clearance threshold, the host-neutral systems owner producing the request and reading the scalar deficit back, the kernel `Rasm` geometry owner resolving the content-keyed geometry and evaluating the solid intersection; `GeometryProximity` the injected kernel PORT — a `readonly record struct` of two decode legs (`Bounds` the content-keyed `BoundVolume` AABB, `Test` the precise `Fin<ProximityResult>` signed gap) beside the composition's minimum clearance, the SAME app-wired resolver shape the shared `Graph/element#NODE_MODEL` `GeometrySource` holds, never an interface floor for a two-arrow contract; `ClashIndex` the retained `SwiftCollections.Lean` broad phase — the `SwiftBVH` hard-overlap tree and the `SwiftSpatialHash` clearance ring over ONE `SwiftBucket` handle space; `InterferenceCheck` the fold pairing the distribution-run geometry against itself (cross-system) and against the static obstruction set — every other body-carrying occurrence, the Architecture-domain built elements included.
 - Cases: `ClashKind` rows `Hard` (overlapping solids, deficit = penetration depth) · `Clearance` (gap below the maintenance/insulation clearance, deficit = threshold − gap); an `Interference` carries the ordered member `NodeId` pair, the `ClashKind`, the SI deficit, and the discipline `IfcDomain` pair, a cross-discipline clash (`FirstDomain != SecondDomain`) ranking above an intra-discipline one through the `DisciplineWeight` ordering offset.
-- Entry: `InterferenceCheck.Build(ElementGraph graph, GeometryProximity proximity, Op key)` resolves every occurrence bound through the injected `Fin` result and seats the hard-overlap tree, the clearance ring, and the handle registry; `Candidates(ClashIndex)` reads the admitted run-to-run and run-to-static pairs off the tree; `Neighborhood(ClashIndex index, BoundVolume volume)` answers the clearance-ring modality the `Review/coordination#COORDINATION` clearance read consumes; `Interferences(ElementGraph graph, GeometryProximity proximity, Op key)` composes the build and the precise signed-gap test; `Refit(ClashIndex index, Seq<(int Handle, BoundVolume Bounds)> moved, Op key)` re-seats the entries a `ModelDiff` moved. Missing geometry aborts on the owning `BimFault`; hard and clearance evidence ranks by cross-discipline priority and deficit.
+- Entry: `InterferenceCheck.Build(ElementGraph graph, GeometryProximity proximity)` resolves every occurrence bound through the injected `Fin` result and seats the hard-overlap tree, the clearance ring, and the handle registry; `Candidates(ClashIndex)` reads the admitted run-to-run and run-to-static pairs off the tree; `Neighborhood(ClashIndex index, BoundVolume volume)` answers the clearance-ring modality the `Review/coordination#COORDINATION` clearance read consumes; `Interferences(ElementGraph graph, GeometryProximity proximity)` composes the build and the precise signed-gap test; `Refit(ClashIndex index, Seq<(int Handle, BoundVolume Bounds)> moved)` re-seats the entries a `ModelDiff` moved. Missing geometry aborts on the owning `BimFault`; hard and clearance evidence ranks by cross-discipline priority and deficit.
 - Auto: `Build` resolves each occurrence's clearance value ONCE (one `Bake` with one bag walk, never per pair), traverses `GeometryProximity.Bounds`, and seats the member's TIGHT volume under the handle `SwiftBucket.Add` returns — the registry OWNS the key space both structures index on, so no `NodeId` map sits beside them to desynchronize on a partial refit. The two structures answer the two modalities the `ClashKind` partition already names: `SwiftBVH.Query` the hard overlap on the geometry itself, `SwiftSpatialHash.QueryNeighborhood` the clearance ring on the padded cell neighborhood, so the clearance floor no longer widens every hard-clash candidate set. The ring's cell size DERIVES from the widest declared clearance, which is what makes the default one-ring padding cover every clearance question. Both `Query` surfaces sink into a `SwiftHashSet` — the package's own `ICollection` result contract — and the `other > self` handle gate IS the unordered-pair dedupe, so no `seen` set and no synthesized pair key exists. Only pairs this page's run/static policy admits reach `GeometryProximity.Test`. `Refit` gates every handle through `SwiftBucket.TryGetValue` first, and past that gate the hash's BOOLEAN refit return is the pair's verdict — the BVH leg returns void and reports nothing, so a hash refusal is the one observable a divergence produces.
 - Output: the ranked `Seq<Interference>` is the MEP coordination evidence the `Review/coordination#COORDINATION` `ClashProposal` fold consumes (the clash `NodeId` pair, kind, and deficit anchoring a proposed resolution and a BCF topic, the coordination owner resolving each member's `ExternalId` IFC `GlobalId` off the graph for the viewpoint) and the `Rasm.AppUi/Charts` clash report renders — a duct-vs-beam hard clash, a pipe-clearance violation, and a tray-vs-structure graze each carry their measured deficit and discipline pair on one host-neutral row.
 - Packages: Rasm.Element, Rasm, SwiftCollections.Lean, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -554,8 +553,8 @@ public static class InterferenceCheck {
         PropertyCategory.Neutral.Row("Clearance"),
         PropertyCategory.Neutral.Row("MaintenanceClearance"));
 
-    public static Fin<Seq<Interference>> Interferences(ElementGraph graph, GeometryProximity proximity, Op key) =>
-        Build(graph, proximity, key)
+    public static Fin<Seq<Interference>> Interferences(ElementGraph graph, GeometryProximity proximity) =>
+        Build(graph, proximity)
             .Bind(index => Candidates(index).TraverseM(pair => Clash(pair.A, pair.B, proximity)).As())
             .Map(static rows => toSeq(rows.Somes().OrderByDescending(static clash => clash.Rank)));
 
@@ -565,12 +564,12 @@ public static class InterferenceCheck {
         return toSeq(hits).Choose(handle => index.Registry.TryGetValue(handle, out var entry) ? Some(entry.Member) : None);
     }
 
-    public static Fin<ClashIndex> Build(ElementGraph graph, GeometryProximity proximity, Op key) =>
+    public static Fin<ClashIndex> Build(ElementGraph graph, GeometryProximity proximity) =>
         graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Occurrence)
             .TraverseM(o => IfcClass.TryGet(o.Classification.Code)
                 .Bind(c => o.Representations.Body.Map(body => (Class: c, Body: body)))
-                .TraverseM(row => ClearanceOf(graph, o.Id, key).Map(clearance =>
+                .TraverseM(row => ClearanceOf(graph, o.Id).Map(clearance =>
                     new ClashCandidate(o.Id, row.Class.Domain, row.Body, RolesOf(row.Class.Domain), clearance)))
                 .As())
             .As()
@@ -611,18 +610,18 @@ public static class InterferenceCheck {
         return toSeq(hits);
     }
 
-    public static Fin<ClashIndex> Refit(ClashIndex index, Seq<(int Handle, BoundVolume Bounds)> moved, Op key) =>
+    public static Fin<ClashIndex> Refit(ClashIndex index, Seq<(int Handle, BoundVolume Bounds)> moved) =>
         moved
             .TraverseM(row => index.Registry.TryGetValue(row.Handle, out var entry)
                 ? Fin.Succ((row.Handle, row.Bounds, entry.Member))
                 : Fin.Fail<(int Handle, BoundVolume Bounds, ClashCandidate Member)>(
-                    new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "clash-refit", "unindexed", row.Handle.ToString(CultureInfo.InvariantCulture) }))))
+                    new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "clash-refit", "unindexed", row.Handle.ToString(CultureInfo.InvariantCulture) }))))
             .Bind(admitted => admitted.TraverseM(row => {
                 index.Tree.UpdateEntryBounds(row.Handle, row.Bounds);
                 index.Registry[row.Handle] = (row.Member, row.Bounds);
                 return index.Ring.UpdateEntryBounds(row.Handle, row.Bounds)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "clash-refit", "rejected", row.Handle.ToString(CultureInfo.InvariantCulture) })));
+                    : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "clash-refit", "rejected", row.Handle.ToString(CultureInfo.InvariantCulture) })));
             }).As())
             .Map(_ => index);
 
@@ -638,8 +637,8 @@ public static class InterferenceCheck {
             ? Some(new Interference(a.Id, b.Id, ClashKind.Clearance, threshold - result.Gap, a.Domain, b.Domain))
             : None;
 
-    private static Fin<double> ClearanceOf(ElementGraph graph, NodeId member, Op key) =>
-        graph.Bake(member, key).Map(element => ClearanceKeys
+    private static Fin<double> ClearanceOf(ElementGraph graph, NodeId member) =>
+        graph.Bake(member).Map(element => ClearanceKeys
                 .Choose(name => element.Properties.Choose(bag => bag.Find(name)).Head)
                 .Choose(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : Option<double>.None)
                 .Fold(0d, static (max, si) => Math.Max(max, si)));

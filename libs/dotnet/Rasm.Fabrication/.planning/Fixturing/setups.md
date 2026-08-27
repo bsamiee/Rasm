@@ -458,14 +458,13 @@ public sealed record SetupDraft(
 public readonly record struct WcsAssignment(int Setup, WcsSlot Slot);
 
 public sealed record SetupChain(Seq<int> Operations, Seq<Arr<int>> Components, Seq<(int Before, int After)> Lineage) {
-    public Fin<ContentKey> Keyed(double toleranceMm, Op key) => FabricationCanon.Keyed(
+    public Fin<ContentKey> Keyed(double toleranceMm) => FabricationCanon.Keyed(
         EgressKind.Plan,
         toleranceMm,
         writer => writer
             .Rows(Operations, static (held, operation) => held.Ordinal(operation))
             .Rows(Components, static (held, component) => held.Rows(component.ToSeq(), static (row, member) => row.Ordinal(member)))
-            .Rows(Lineage, static (held, edge) => held.Ordinal(edge.Before).Ordinal(edge.After)),
-        key);
+            .Rows(Lineage, static (held, edge) => held.Ordinal(edge.Before).Ordinal(edge.After)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -620,10 +619,9 @@ internal static partial class Setups {
 
     private static Error Broken(SetupChain chain, double toleranceMm) =>
         chain.Keyed(toleranceMm, Key).Match(
-            Succ: static key => (Error)new FabricationFault.DatumLineageBroken(new FaultSubject.Lineage(key)),
+            Succ: static key => (Error)new FabricationFault.DatumLineageBroken(new FaultSubject.Lineage()),
             Fail: static fault => fault);
 
-    private static readonly Op Key = Op.Of(name: nameof(SetupSchedule));
 
     // --- [SEARCH]
     internal sealed record SearchSpace(
@@ -674,9 +672,8 @@ internal static partial class Setups {
                     order,
                     operations,
                     bounds,
-                    order.ToSeq().Fold(HashMap<int, double>(), (index, key) => index.Add(key,
-                        operations[key].Roster.FixtureKeys
-                            .Map(fixture => bounds[(key, fixture)])
+                    order.ToSeq().Fold(HashMap<int, double>(), (index, key) => index.Add(operations[key].Roster.FixtureKeys
+                            .Map(fixture => bounds[(fixture)])
                             .Min(double.PositiveInfinity))),
                     plan,
                     Atom(plan.Budget.NodeBudget),
@@ -948,8 +945,7 @@ internal static partial class Setups {
                 reduced,
                 state.Decisions,
                 state.Cost,
-                proof,
-                key));
+                proof));
     }
 
     internal static Fin<SetupSchedule> Rebase(SetupSchedule schedule, int setup, Plane measured) {

@@ -30,8 +30,8 @@ public static class Definitions {
             .Find(definition => string.Equals(definition.Name, name, StringComparison.OrdinalIgnoreCase)).ToNullable(),
         ByIndex: static (document, index) => Roster(document).Find(definition => definition.Index == index).ToNullable());
 
-    internal static Fin<InstanceDefinition> Resolve(ResourceRef target, RhinoDoc document, Op key) =>
-        target.Resolve(document: document, lens: Lens, key: key);
+    internal static Fin<InstanceDefinition> Resolve(ResourceRef target, RhinoDoc document) =>
+        target.Resolve(document: document, lens: Lens);
 
     private static Seq<InstanceDefinition> Roster(RhinoDoc document) =>
         toSeq(document.InstanceDefinitions.GetList(ignoreDeleted: false))
@@ -109,10 +109,10 @@ public sealed partial class SourceMode {
 
     internal bool Regenerates(CapabilitySet<LinkCondition> held) => held.AdmitsAll(required: Requires);
 
-    internal static Fin<SourceMode> Of(InstanceDefinitionUpdateType update, Op key) =>
+    internal static Fin<SourceMode> Of(InstanceDefinitionUpdateType update) =>
         (int)update is RetiredEmbeddedOrdinal
             ? Fin.Succ(value: Static)
-            : key.Row<int, SourceMode>((int)update);
+            : FactoryBridge.Row<int, SourceMode>((int)update);
 }
 
 [SmartEnum<int>]
@@ -123,8 +123,8 @@ public sealed partial class LayerScope {
 
     internal InstanceDefinitionLayerStyle Host => (InstanceDefinitionLayerStyle)Key;
 
-    internal static Fin<LayerScope> Of(InstanceDefinitionLayerStyle style, Op key) =>
-        key.Row<int, LayerScope>((int)style);
+    internal static Fin<LayerScope> Of(InstanceDefinitionLayerStyle style) =>
+        FactoryBridge.Row<int, LayerScope>((int)style);
 }
 
 [SmartEnum<string>]
@@ -161,13 +161,13 @@ public abstract partial record LinkState {
         bool Tenuous,
         bool SkipNested) : LinkState;
 
-    internal static Fin<LinkState> Of(InstanceDefinition definition, Op key) =>
-        from mode in SourceMode.Of(update: definition.UpdateType, key: key)
+    internal static Fin<LinkState> Of(InstanceDefinition definition) =>
+        from mode in SourceMode.Of(update: definition.UpdateType)
         from state in mode.Facets.Admits(capability: SourceFacet.Reads)
-            ? from path in DocumentPath.Of(value: definition.SourceArchive, key: key)
+            ? from path in DocumentPath.Of(value: definition.SourceArchive)
               from health in SourceHealth.Of(status: definition.ArchiveFileStatus)
-                  .ToFin(Fail: key.InvalidResult(detail: definition.ArchiveFileStatus.ToString()))
-              from scope in LayerScope.Of(style: definition.LayerStyle, key: key)
+                  .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(definition.ArchiveFileStatus.ToString())))
+              from scope in LayerScope.Of(style: definition.LayerStyle)
               select (LinkState)new Linked(
                   Path: path,
                   Mode: mode,
@@ -186,40 +186,36 @@ public abstract partial record BlockDependency {
     public sealed record Linetype(int Index) : BlockDependency;
     public sealed record Definition(ResourceRef Target) : BlockDependency;
 
-    internal Fin<BlockDependencyAnswer> Measure(InstanceDefinition owner, RhinoDoc document, Op key) => Switch(
-        context: (Owner: owner, Document: document, Op: key),
+    internal Fin<BlockDependencyAnswer> Measure(InstanceDefinition owner, RhinoDoc document) => Switch(
+        context: (Owner: owner, Document: document),
         layer: static (context, probe) => MeasureTable(
             index: probe.Index,
             owner: context.Owner,
             document: context.Document,
             count: static active => active.Layers.Count,
-            includes: static (definition, index) => definition.UsesLayer(layerIndex: index),
-            op: context.Op),
+            includes: static (definition, index) => definition.UsesLayer(layerIndex: index)),
         linetype: static (context, probe) => MeasureTable(
             index: probe.Index,
             owner: context.Owner,
             document: context.Document,
             count: static active => active.Linetypes.Count,
-            includes: static (definition, index) => definition.UsesLinetype(linetypeIndex: index),
-            op: context.Op),
+            includes: static (definition, index) => definition.UsesLinetype(linetypeIndex: index)),
         definition: static (context, probe) => Definitions.Resolve(
                 target: probe.Target,
-                document: context.Document,
-                key: context.Op)
-            .Bind(nested => context.Op.Catch(() => Fin.Succ(
+                document: context.Document)
+            .Bind(nested => Try.lift(() => Fin.Succ(
                 value: (BlockDependencyAnswer)new BlockDependencyAnswer.Nesting(
-                    Levels: context.Owner.UsesDefinition(otherIdefIndex: nested.Index))))));
+                    Levels: context.Owner.UsesDefinition(otherIdefIndex: nested.Index)))).Run().Bind(static inner => inner)));
 
     private static Fin<BlockDependencyAnswer> MeasureTable(
         int index,
         InstanceDefinition owner,
         RhinoDoc document,
         Func<RhinoDoc, int> count,
-        Func<InstanceDefinition, int, bool> includes,
-        Op op) => op.Catch(() => index >= 0 && index < count(arg: document)
+        Func<InstanceDefinition, int, bool> includes) => Try.lift(() => index >= 0 && index < count(arg: document)
         ? Fin.Succ(value: (BlockDependencyAnswer)new BlockDependencyAnswer.Uses(
             Value: includes(arg1: owner, arg2: index)))
-        : Fin.Fail<BlockDependencyAnswer>(error: op.InvalidInput()));
+        : Fin.Fail<BlockDependencyAnswer>(error: new KernelFault.InvalidInput())).Run().Bind(static inner => inner);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -245,8 +241,8 @@ public sealed partial class BlockUsage {
             ? null
             : new ValidationError(message: "Block usage demands a total equal to top-level plus nested.");
 
-    internal static Fin<BlockUsage> Of(int total, int topLevel, int nested, Op key) =>
-        key.AcceptValidated<BlockUsage>(
+    internal static Fin<BlockUsage> Of(int total, int topLevel, int nested) =>
+        FactoryBridge.Accept<BlockUsage>(
             fault: Validate(total, topLevel, nested, out BlockUsage? admitted),
             admitted: admitted);
 }
@@ -276,33 +272,31 @@ public abstract partial record Placement {
         public PlacementKind Kind { get; }
     }
 
-    public static Fin<Placement> Of(Transform motion, Op? key = null) =>
-        Motioned(motion: motion, key.OrDefault()).Map(static admitted => (Placement)new Bare(motion: admitted));
+    public static Fin<Placement> Of(Transform motion) =>
+        Motioned(motion: motion).Map(static admitted => (Placement)new Bare(motion: admitted));
 
-    public static Fin<Placement> Of(Transform motion, ObjectAttributes attributes, Op? key = null) {
-        Op op = key.OrDefault();
-        return (Motioned(motion: motion, op).ToValidation(), op.Need(attributes).ToValidation())
+    public static Fin<Placement> Of(Transform motion, ObjectAttributes attributes) {
+        return (Motioned(motion: motion).ToValidation(), Admit.Need(attributes).ToValidation())
             .Apply(static (admitted, held) => (Placement)new Attributed(motion: admitted, attributes: held))
             .As()
             .ToFin();
     }
 
     public static Fin<Placement> Of(
-        Transform motion, ObjectAttributes attributes, Lease<HistoryRecord> history, PlacementKind kind, Op? key = null) {
-        Op op = key.OrDefault();
+        Transform motion, ObjectAttributes attributes, Lease<HistoryRecord> history, PlacementKind kind) {
         return (
-                Motioned(motion: motion, op).ToValidation(),
-                op.Need(attributes).ToValidation(),
-                op.Need(history).ToValidation(),
-                op.Need(kind).ToValidation())
+                Motioned(motion: motion).ToValidation(),
+                Admit.Need(attributes).ToValidation(),
+                Admit.Need(history).ToValidation(),
+                Admit.Need(kind).ToValidation())
             .Apply(static (admitted, held, record, posture) =>
                 (Placement)new Recorded(motion: admitted, attributes: held, history: record, kind: posture))
             .As()
             .ToFin();
     }
 
-    private static Fin<Transform> Motioned(Transform motion, Op op) =>
-        guard(motion.IsValid, op.InvalidInput()).ToFin().Map(_ => motion);
+    private static Fin<Transform> Motioned(Transform motion) =>
+        guard(motion.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => motion);
 }
 
 [Equatable]
@@ -321,22 +315,22 @@ public sealed partial record BlockSnapshot(
     BlockStamp Stamp) {
     public bool InUse => !Placements.IsEmpty;
 
-    public static Fin<BlockSnapshot> Of(ResourceRef target, RhinoDoc document, ReferenceScope scope, Op key) =>
-        from address in key.Need(target)
-        from owner in key.Need(document)
-        from referenceScope in key.Need(scope)
-        from active in Definitions.Resolve(target: address, document: owner, key: key)
-        from snapshot in key.Catch(() => {
+    public static Fin<BlockSnapshot> Of(ResourceRef target, RhinoDoc document, ReferenceScope scope) =>
+        from address in Admit.Need(target)
+        from owner in Admit.Need(document)
+        from referenceScope in Admit.Need(scope)
+        from active in Definitions.Resolve(target: address, document: owner)
+        from snapshot in Try.lift(() => {
             Seq<RhinoObject> members = toSeq(active.GetObjects());
             Seq<InstanceObject> references = toSeq(active.GetReferences(wheretoLook: referenceScope.HostValue));
             int total = active.UseCount(topLevelReferenceCount: out int topLevel, nestedReferenceCount: out int nested);
 
             return from projected in members
                        .Traverse(member => (
-                           Optional(member).ToFin(Fail: key.InvalidResult()).ToValidation(),
-                           guard(member.Id != Guid.Empty, key.InvalidResult()).ToFin().ToValidation(),
-                           Optional(member.Geometry).ToFin(Fail: key.InvalidResult()).ToValidation(),
-                           Optional(member.Attributes).ToFin(Fail: key.InvalidResult()).ToValidation())
+                           Optional(member).ToFin(Fail: new KernelFault.InvalidResult()).ToValidation(),
+                           guard(member.Id != Guid.Empty, new KernelFault.InvalidResult()).ToFin().ToValidation(),
+                           Optional(member.Geometry).ToFin(Fail: new KernelFault.InvalidResult()).ToValidation(),
+                           Optional(member.Attributes).ToFin(Fail: new KernelFault.InvalidResult()).ToValidation())
                            .Apply(static (owner, _, shape, attributes) => new BlockMemberProjection(
                                Id: owner.Id,
                                Geometry: shape,
@@ -346,8 +340,8 @@ public sealed partial record BlockSnapshot(
                        .ToFin()
                    from placements in references
                        .Traverse(reference => Optional(reference)
-                           .ToFin(Fail: key.InvalidResult())
-                           .Bind(placed => guard(placed.Id != Guid.Empty, key.InvalidResult()).ToFin()
+                           .ToFin(Fail: new KernelFault.InvalidResult())
+                           .Bind(placed => guard(placed.Id != Guid.Empty, new KernelFault.InvalidResult()).ToFin()
                                .Map(_ => new BlockPlacement(
                                    Id: placed.Id,
                                    Motion: placed.InstanceXform,
@@ -357,31 +351,30 @@ public sealed partial record BlockSnapshot(
                        .ToFin()
                    from _valid in projected
                        .Traverse(member => (
-                           Valid(member.Geometry, key).ToValidation(),
-                           Valid(member.Attributes, key).ToValidation())
+                           Valid(member.Geometry).ToValidation(),
+                           Valid(member.Attributes).ToValidation())
                            .Apply(static (_, _) => unit)
                            .As())
                        .As()
                        .ToFin()
-                   from _ in guard(projected.Count == active.ObjectCount, key.InvalidResult())
+                   from _ in guard(projected.Count == active.ObjectCount, new KernelFault.InvalidResult())
                    let memberIds = projected.Map(static member => member.Id)
                    let crc = projected.Fold(0u, static (chain, member) =>
                        member.Geometry.DataCRC(currentRemainder: chain))
-                   from mode in SourceMode.Of(update: active.UpdateType, key: key)
-                   from link in LinkState.Of(definition: active, key: key)
-                   from usage in BlockUsage.Of(total: total, topLevel: topLevel, nested: nested, key: key)
-                   let description = Op.Text(active.Description)
+                   from mode in SourceMode.Of(update: active.UpdateType)
+                   from link in LinkState.Of(definition: active)
+                   from usage in BlockUsage.Of(total: total, topLevel: topLevel, nested: nested)
+                   let description = HostEdge.Text(active.Description)
                    from content in Identity(
                        state: new BlockIdentityState(
                            Name: active.Name,
                            Description: description,
                            Mode: mode,
                            Style: active.LayerStyle,
-                           Source: Op.Text(active.SourceArchive),
+                           Source: HostEdge.Text(active.SourceArchive),
                            SkipNested: active.SkipNestedLinkedDefinitions,
                            ObjectCount: active.ObjectCount,
-                           Members: projected),
-                       op: key)
+                           Members: projected))
                    select new BlockSnapshot(
                        Key: active.Id,
                        Index: active.Index,
@@ -395,19 +388,19 @@ public sealed partial record BlockSnapshot(
                        Usage: usage,
                        ContainerIds: toSeq(active.GetContainers()).Map(static container => container.Id),
                        Stamp: new BlockStamp(Geometry: GeometryCrc.Create(value: crc), Content: content));
-        })
+        }).Run().Bind(static inner => inner)
         select snapshot;
 
-    public Fin<BlockDependencyAnswer> Probe(BlockDependency dependency, RhinoDoc document, Op key) =>
-        key.Need(dependency)
-            .Bind(active => Resolve(document: document, key: key)
-                .Bind(owner => active.Measure(owner: owner, document: document, key: key)));
+    public Fin<BlockDependencyAnswer> Probe(BlockDependency dependency, RhinoDoc document) =>
+        Admit.Need(dependency)
+            .Bind(active => Resolve(document: document)
+                .Bind(owner => active.Measure(owner: owner, document: document)));
 
-    private Fin<InstanceDefinition> Resolve(RhinoDoc document, Op key) =>
-        ResourceRef.Of(id: Key).Bind(target => Definitions.Resolve(target: target, document: document, key: key));
+    private Fin<InstanceDefinition> Resolve(RhinoDoc document) =>
+        ResourceRef.Of(id: Key).Bind(target => Definitions.Resolve(target: target, document: document));
 
-    private static Fin<UInt128> Identity(BlockIdentityState state, Op op) =>
-        op.Catch(() => Fin.Succ(value: ContentHash.Of(
+    private static Fin<UInt128> Identity(BlockIdentityState state) =>
+        Try.lift(() => Fin.Succ(value: ContentHash.Of(
             state: state,
             chunks: static (held, writer) => {
                 _ = writer
@@ -421,7 +414,7 @@ public sealed partial record BlockSnapshot(
                     .Rows(held.Members, static (member, rows) => _ = rows
                         .I64(member.Geometry.DataCRC(currentRemainder: 0u))
                         .I64(member.Attributes.DataCRC(currentRemainder: 0u)));
-            })));
+            }))).Run().Bind(static inner => inner);
 
     private sealed record BlockIdentityState(
         string Name,
@@ -433,13 +426,12 @@ public sealed partial record BlockSnapshot(
         int ObjectCount,
         Seq<BlockMemberProjection> Members);
 
-    private static Fin<Unit> Valid(Rhino.Runtime.CommonObject value, Op op) => op.Catch(() =>
+    private static Fin<Unit> Valid(Rhino.Runtime.CommonObject value) => Try.lift(() =>
         value.IsValidWithLog(out string log)
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: new KernelFault.InvalidValue(
                 Label: value.GetType().Name,
-                Requirement: string.IsNullOrWhiteSpace(value: log) ? "Native object validity failed." : log,
-                Key: Some(op))));
+                Requirement: string.IsNullOrWhiteSpace(value: log) ? "Native object validity failed." : log))).Run().Bind(static inner => inner);
 }
 
 public sealed record BlockPlacement(Guid Id, Transform Motion, Point3d Insertion);
@@ -560,11 +552,10 @@ internal sealed partial class PreviewFrame {
         DefinedView projection,
         AssetExtent extent,
         RasterScale scale,
-        Op key,
         Option<PreviewBudget> budget = default) {
         PreviewBudget held = budget.IfNone(PreviewBudget.Default);
-        return from _ in guard(extent.PixelCount <= held.MaxPixels, key.InvalidInput(axis: nameof(PreviewBudget.MaxPixels))).ToFin()
-               from admitted in key.AcceptValidated<PreviewFrame>(
+        return from _ in guard(extent.PixelCount <= held.MaxPixels, new KernelFault.InvalidInput(Axis: Some(nameof(PreviewBudget.MaxPixels)))).ToFin()
+               from admitted in FactoryBridge.Accept<PreviewFrame>(
                    fault: Validate(projection, extent, scale, out PreviewFrame? frame),
                    admitted: frame)
                select admitted;
@@ -586,39 +577,38 @@ public abstract partial record BlockPreview {
     private BlockPreview() { }
     private sealed record Framed(PreviewFrame Frame, PreviewTarget Target) : BlockPreview;
 
-    public static Fin<BlockPreview> Of(PreviewFrame frame, PreviewTarget target, Op? key = null) {
-        Op op = key.OrDefault();
-        return (op.Need(frame).ToValidation(), op.Need(target).ToValidation())
+    public static Fin<BlockPreview> Of(PreviewFrame frame, PreviewTarget target) {
+        return (Admit.Need(frame).ToValidation(), Admit.Need(target).ToValidation())
             .Apply(static (admitted, modality) => (BlockPreview)new Framed(Frame: admitted, Target: modality))
             .As()
             .ToFin();
     }
 
-    internal Fin<System.Drawing.Bitmap> Render(InstanceDefinition definition, Op key) => Switch(
-        context: (Definition: definition, Op: key),
+    internal Fin<System.Drawing.Bitmap> Render(InstanceDefinition definition) => Switch(
+        context: definition,
         framed: static (context, spec) => spec.Target.Switch(
-            context: (context.Definition, context.Op, spec.Frame),
-            whole: static (held, target) => held.Op.Catch(() => Optional(held.Definition.CreatePreviewBitmap(
+            context: (context, spec.Frame),
+            whole: static (held, target) => Try.lift(() => Optional(held.CreatePreviewBitmap(
                     definedViewportProjection: held.Frame.Projection.Native,
                     displayMode: target.Mode.Host,
                     bitmapSize: held.Frame.ToSize(),
                     applyDpiScaling: held.Frame.Scale.ApplyDpiScaling))
-                .ToFin(Fail: held.Op.InvalidResult())),
-            member: static (held, target) => held.Op.Catch(() => Optional(held.Definition.CreatePreviewBitmap(
+                .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner),
+            member: static (held, target) => Try.lift(() => Optional(held.CreatePreviewBitmap(
                     definitionObjectId: target.MemberId.Value,
                     viewportProjection: held.Frame.Projection.Native,
                     displayMode: target.Mode.Host,
                     bitmapSize: held.Frame.ToSize(),
                     applyDpiScaling: held.Frame.Scale.ApplyDpiScaling))
-                .ToFin(Fail: held.Op.InvalidResult())),
-            axonometric: static (held, target) => held.Op.Catch(() => Optional(held.Definition.CreatePreviewBitmap(
+                .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner),
+            axonometric: static (held, target) => Try.lift(() => Optional(held.CreatePreviewBitmap(
                     displayModeId: target.DisplayModeId.Value,
                     viewportProjection: held.Frame.Projection.Native,
                     isometricCamera: target.Camera.Native,
                     drawDecorations: target.Decoration.Draw,
                     bitmapSize: held.Frame.ToSize(),
                     applyDpiScaling: held.Frame.Scale.ApplyDpiScaling))
-                .ToFin(Fail: held.Op.InvalidResult()))));
+                .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)));
 }
 ```
 

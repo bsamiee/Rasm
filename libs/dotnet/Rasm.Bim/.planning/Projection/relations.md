@@ -20,7 +20,7 @@ The roster is the ADMISSION for that wire-name — a `WireName` mints from a row
 - Law: the wire name is the ROW KEY, supplied at the ONE lowering site rather than repeated inside each passthrough arm. Twenty-one delegate literals restated column one of their own row and a census arm existed solely to prove they matched; the key supplied here makes that verdict unrepresentable rather than checked.
 - Law: a census hit proves CALLABILITY, never a name — a row's related slot resolves the exact `Add(memberType)` overload the fan-out invokes when the slot is a SET and its setter when it is single-valued, and the census, the ingest READ, and the egress FILL are ONE resolution. A name-only `GetMethod("Add")` matches several arities and throws the ambiguous match before naming which one it meant.
 - Law: an ABSENT endpoint attribute and an UNROOTED one are two verdicts. GeometryGym backs a missing endpoint with null; coalescing that to an empty string handed a malformed file and a projection gap to one fault whose detail was empty, and a federation manager reads no difference between a broken source and a missed projection.
-- Entry: `EdgeProjection.All(project, rooted, tolerance, scale, eurocode, templates, profiles, key)` returns `WriterT<FidelityLog, Fin, Seq<Relationship>>` — the fold's own fidelity facts RETURNED beside the edges, never a ledger this page holds; `IfcRelKind.Admit(wireName, key)` re-admits a crossed wire name against the roster; `kind.Author(db, relating, related, key, refined)` is the egress fill.
+- Entry: `EdgeProjection.All(project, rooted, tolerance, scale, eurocode, templates, profiles, key)` returns `WriterT<FidelityLog, Fin, Seq<Relationship>>` — the fold's own fidelity facts RETURNED beside the edges, never a ledger this page holds; `IfcRelKind.Admit(wireName)` re-admits a crossed wire name against the roster; `kind.Author(db, relating, related, refined)` is the egress fill.
 - Auto: the generic families take ONE row-driven fold reading the census-resolved slots — the relating endpoint through its slot, the related endpoints through theirs (a SET slot yielding its members, a single-valued slot the one), every value admitted through the same `IfcRoot` read, and the row's own derived `Inverted` deciding the shared orientation. The arm groups are INDEPENDENT and ACCUMULATE, so one dangling endpoint no longer hides every other family's rejects. Bespoke arms survive only where a real extra law lives: the ordered nest's running ordinal, the realizing fan-out, the many-to-many property attachment, and the three payload folds.
 - Auto: `IfcRelNests.RelatedObjects` is a schema `LIST`, so INGEST routes every nest through `Generic` stamping the egress-declared `SemanticProjector.NestOrdinal` attribute; ordinals are PER-PARENT CONTINUOUS across relations because `IsNestedBy` is a schema SET, so a parent with N nest relations collides per-relation zero-based indices and the egress per-parent merge interleaves nondeterministically. The typed `Compose{Nest}` case and its canonical bytes stay byte-identical for authored graphs.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -42,7 +42,6 @@ using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Projection;
 
@@ -121,10 +120,10 @@ public sealed partial class IfcRelKind {
 
     public WireName Wire => WireName.Create(Key);
 
-    public static Fin<IfcRelKind> Admit(WireName wireName, Op key) =>
+    public static Fin<IfcRelKind> Admit(WireName wireName) =>
         TryGet(wireName.Value, out IfcRelKind? row) && row is { } resolved
             ? Fin.Succ(resolved)
-            : Fin.Fail<IfcRelKind>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "rel-row-unbound", wireName.Value })));
+            : Fin.Fail<IfcRelKind>(new BimFault.Refused(BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "rel-row-unbound", wireName.Value })));
 
     public Relationship Edge(NodeId relating, NodeId related) => Lower(Wire, relating, related);
 
@@ -159,17 +158,17 @@ public sealed partial class IfcRelKind {
         toSeq(Items).Choose(static row => RelSlots.Of(row).Map(slots => (Row: row, Slots: slots)))
              .ToFrozenDictionary(static probe => probe.Row, static probe => probe.Slots));
 
-    public static Fin<RelSlots> SlotsOf(IfcRelKind row, Op key) =>
+    public static Fin<RelSlots> SlotsOf(IfcRelKind row) =>
         Census.Value.TryGetValue(row, out RelSlots? slots) && slots is { } resolved
             ? Fin.Succ(resolved)
-            : Fin.Fail<RelSlots>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "rel-row-unbound", row.Key })));
+            : Fin.Fail<RelSlots>(new BimFault.Refused(BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "rel-row-unbound", row.Key })));
 
-    public Fin<IfcRelationship> Author(DatabaseIfc db, IfcObjectDefinition relating, Seq<IfcObjectDefinition> related, Op key, Option<string> refined = default) =>
+    public Fin<IfcRelationship> Author(DatabaseIfc db, IfcObjectDefinition relating, Seq<IfcObjectDefinition> related, Option<string> refined = default) =>
         related.IsEmpty
-            ? Fin.Fail<IfcRelationship>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relation-related-empty", Key })))
-            : from slots in SlotsOf(this, key)
+            ? Fin.Fail<IfcRelationship>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relation-related-empty", Key })))
+            : from slots in SlotsOf()
               from rel in Optional(db.Factory.Construct(refined.IfNone(Key)) as IfcRelationship)
-                  .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relation-unconstructible", refined.IfNone(Key) })))
+                  .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relation-unconstructible", refined.IfNone(Key) })))
               select Filled(rel, slots, relating, related);
 
     static IfcRelationship Filled(IfcRelationship rel, RelSlots slots, IfcObjectDefinition relating, Seq<IfcObjectDefinition> related) {
@@ -185,17 +184,17 @@ public sealed partial class IfcRelKind {
 public static class EdgeProjection {
     public static WriterT<FidelityLog, Fin, Seq<Relationship>> All(
         IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScheme scale,
-        Option<EurocodePolicy> eurocode, TemplateScope templates, IIfcProfileStore profiles, Op key) =>
+        Option<EurocodePolicy> eurocode, TemplateScope templates, IIfcProfileStore profiles) =>
         from rows in Fidelity.Lift((
-            Decomposition(project, rooted, key)
-                .Concat(Connections(project, rooted, profiles, key))
-                .Concat(Generics(project, rooted, key))
-                .Concat(DefinesProperties(project, rooted, key))
-                .Concat(Structural(project, rooted, scale, eurocode, profiles, key))
-                .Concat(SpatialBoundaries(project, rooted, profiles, key))
+            Decomposition(project, rooted)
+                .Concat(Connections(project, rooted, profiles))
+                .Concat(Generics(project, rooted))
+                .Concat(DefinesProperties(project, rooted))
+                .Concat(Structural(project, rooted, scale, eurocode, profiles))
+                .Concat(SpatialBoundaries(project, rooted, profiles))
                 .Traverse(identity).As().Map(static groups => toSeq(groups.Flatten()))).ToFin())
         from factors in GroupFactors(project)
-        from materials in MaterialEdges(project, rooted, tolerance, scale, templates, profiles, key)
+        from materials in MaterialEdges(project, rooted, tolerance, scale, templates, profiles)
         select rows + materials;
 
     static WriterT<FidelityLog, Fin, Unit> GroupFactors(IfcProject project) =>
@@ -207,125 +206,125 @@ public static class EdgeProjection {
 
     // --- [ROW_FOLD]
 
-    static Validation<Error, Seq<Relationship>> Rows(IEnumerable<IfcRelationship> rels, IfcRelKind kind, Map<string, NodeId> rooted, Op key) =>
-        (IfcRelKind.SlotsOf(kind, key)).ToValidation().Bind(slots =>
+    static Validation<Error, Seq<Relationship>> Rows(IEnumerable<IfcRelationship> rels, IfcRelKind kind, Map<string, NodeId> rooted) =>
+        (IfcRelKind.SlotsOf(kind)).ToValidation().Bind(slots =>
             Landed(toSeq(rels).Bind(rel => slots.RelatedIds(rel).Map(related =>
-                from source in Endpoint(rooted, slots.RelatingId(rel), kind.Key, kind.Relating, key)
-                from target in Endpoint(rooted, related, kind.Key, kind.Related, key)
+                from source in Endpoint(rooted, slots.RelatingId(rel), kind.Relating)
+                from target in Endpoint(rooted, related, kind.Related)
                 select kind.Inverted ? kind.Edge(target, source) : kind.Edge(source, target)))));
 
     static Validation<Error, Seq<Relationship>> Landed(Seq<Validation<Error, Relationship>> rows) => rows.Traverse(identity).As();
 
-    static Validation<Error, NodeId> Endpoint(Map<string, NodeId> rooted, Option<string> globalId, string relationship, string attribute, Op key) =>
+    static Validation<Error, NodeId> Endpoint(Map<string, NodeId> rooted, Option<string> globalId, string relationship, string attribute) =>
         globalId
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "edge-endpoint-absent", relationship, attribute })))
-            .Bind(id => rooted.Find(id).ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "edge-endpoint-miss", relationship, attribute, id }))))
+            .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "edge-endpoint-absent", relationship, attribute })))
+            .Bind(id => rooted.Find(id).ToFin(new BimFault.Refused(BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "edge-endpoint-miss", relationship, attribute, id }))))
             .ToValidation();
 
     // --- [ARM_GROUPS]
 
-    static Seq<Validation<Error, Seq<Relationship>>> Decomposition(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
-        Rows(project.Extract<IfcRelAggregates>(), IfcRelKind.Aggregates, rooted, key),
-        Nests(project, rooted, key),
-        Rows(project.Extract<IfcRelContainedInSpatialStructure>(), IfcRelKind.ContainedInStructure, rooted, key),
-        Rows(project.Extract<IfcRelReferencedInSpatialStructure>(), IfcRelKind.ReferencedInStructure, rooted, key),
-        Rows(project.Extract<IfcRelVoidsElement>(), IfcRelKind.Voids, rooted, key),
-        Rows(project.Extract<IfcRelFillsElement>(), IfcRelKind.Fills, rooted, key),
-        Rows(project.Extract<IfcRelProjectsElement>(), IfcRelKind.Projects, rooted, key),
-        Rows(project.Extract<IfcRelAdheresToElement>(), IfcRelKind.Adheres, rooted, key));
+    static Seq<Validation<Error, Seq<Relationship>>> Decomposition(IfcProject project, Map<string, NodeId> rooted) => Seq(
+        Rows(project.Extract<IfcRelAggregates>(), IfcRelKind.Aggregates, rooted),
+        Nests(project, rooted),
+        Rows(project.Extract<IfcRelContainedInSpatialStructure>(), IfcRelKind.ContainedInStructure, rooted),
+        Rows(project.Extract<IfcRelReferencedInSpatialStructure>(), IfcRelKind.ReferencedInStructure, rooted),
+        Rows(project.Extract<IfcRelVoidsElement>(), IfcRelKind.Voids, rooted),
+        Rows(project.Extract<IfcRelFillsElement>(), IfcRelKind.Fills, rooted),
+        Rows(project.Extract<IfcRelProjectsElement>(), IfcRelKind.Projects, rooted),
+        Rows(project.Extract<IfcRelAdheresToElement>(), IfcRelKind.Adheres, rooted));
 
-    static Validation<Error, Seq<Relationship>> Nests(IfcProject project, Map<string, NodeId> rooted, Op key) =>
+    static Validation<Error, Seq<Relationship>> Nests(IfcProject project, Map<string, NodeId> rooted) =>
         Landed(toSeq(project.Extract<IfcRelNests>().AsIterable()
             .GroupBy(static rel => Anchor(rel.RelatingObject))
             .AsIterable()
             .SelectMany(group => group.SelectMany(static rel => rel.RelatedObjects).Select((child, ordinal) =>
-                from parent in Endpoint(rooted, Stated(group.Key), IfcRelKind.Nests.Key, IfcRelKind.Nests.Relating, key)
-                from part in Endpoint(rooted, Stated(child.GlobalId), IfcRelKind.Nests.Key, IfcRelKind.Nests.Related, key)
+                from parent in Endpoint(rooted, Stated(group.Key), IfcRelKind.Nests.Relating)
+                from part in Endpoint(rooted, Stated(child.GlobalId), IfcRelKind.Nests.Related)
                 select (Relationship)new Relationship.Generic(IfcRelKind.Nests.Wire, parent, part,
                     Map((SemanticProjector.NestOrdinal, (PropertyValue)new PropertyValue.Integer(ordinal))))))));
 
     static Option<string> Stated(string? value) => PropertyLowering.Stated(value);
 
-    static Seq<Validation<Error, Seq<Relationship>>> Connections(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) => Seq(
+    static Seq<Validation<Error, Seq<Relationship>>> Connections(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles) => Seq(
         Landed(toSeq(project.Extract<IfcRelConnectsElements>().AsIterable()
             .Where(static rel => rel is not (IfcRelConnectsWithRealizingElements or IfcRelConnectsPathElements))
             .Select(rel =>
-                from a in Endpoint(rooted, Stated(rel.RelatingElement?.GlobalId), IfcRelKind.ConnectsElements.Key, IfcRelKind.ConnectsElements.Relating, key)
-                from b in Endpoint(rooted, Stated(rel.RelatedElement?.GlobalId), IfcRelKind.ConnectsElements.Key, IfcRelKind.ConnectsElements.Related, key)
+                from a in Endpoint(rooted, Stated(rel.RelatingElement?.GlobalId), IfcRelKind.ConnectsElements.Relating)
+                from b in Endpoint(rooted, Stated(rel.RelatedElement?.GlobalId), IfcRelKind.ConnectsElements.Related)
                 select (Relationship)new Relationship.Connect(a, b, ConnectKind.Element, Option<NodeId>.None,
-                    PreserveInterface(rel.ConnectionGeometry, profiles, key))))),
+                    PreserveInterface(rel.ConnectionGeometry, profiles))))),
         Landed(toSeq(project.Extract<IfcRelConnectsPorts>().AsIterable()).Map(rel =>
-            from a in Endpoint(rooted, Stated(rel.RelatingPort?.GlobalId), IfcRelKind.ConnectsPorts.Key, IfcRelKind.ConnectsPorts.Relating, key)
-            from b in Endpoint(rooted, Stated(rel.RelatedPort?.GlobalId), IfcRelKind.ConnectsPorts.Key, IfcRelKind.ConnectsPorts.Related, key)
+            from a in Endpoint(rooted, Stated(rel.RelatingPort?.GlobalId), IfcRelKind.ConnectsPorts.Relating)
+            from b in Endpoint(rooted, Stated(rel.RelatedPort?.GlobalId), IfcRelKind.ConnectsPorts.Related)
             from r in Optional(rel.RealizingElement)
-                .TraverseM(element => Endpoint(rooted, Stated(element.GlobalId), IfcRelKind.ConnectsPorts.Key, "RealizingElement", key))
+                .TraverseM(element => Endpoint(rooted, Stated(element.GlobalId), "RealizingElement"))
                 .As()
             select (Relationship)new Relationship.Connect(a, b, ConnectKind.Port, r, Option<UInt128>.None))),
-        Rows(project.Extract<IfcRelConnectsPortToElement>(), IfcRelKind.ConnectsPortToElement, rooted, key),
-        Rows(project.Extract<IfcRelConnectsPathElements>(), IfcRelKind.ConnectsPathElements, rooted, key),
-        Rows(project.Extract<IfcRelInterferesElements>(), IfcRelKind.InterferesElements, rooted, key),
-        Rows(project.Extract<IfcRelSequence>(), IfcRelKind.Sequence, rooted, key),
-        Rows(project.Extract<IfcRelFlowControlElements>(), IfcRelKind.FlowControl, rooted, key),
-        Rows(project.Extract<IfcRelConnectsStructuralElement>(), IfcRelKind.ConnectsStructElement, rooted, key),
-        Realizing(project, rooted, profiles, key));
+        Rows(project.Extract<IfcRelConnectsPortToElement>(), IfcRelKind.ConnectsPortToElement, rooted),
+        Rows(project.Extract<IfcRelConnectsPathElements>(), IfcRelKind.ConnectsPathElements, rooted),
+        Rows(project.Extract<IfcRelInterferesElements>(), IfcRelKind.InterferesElements, rooted),
+        Rows(project.Extract<IfcRelSequence>(), IfcRelKind.Sequence, rooted),
+        Rows(project.Extract<IfcRelFlowControlElements>(), IfcRelKind.FlowControl, rooted),
+        Rows(project.Extract<IfcRelConnectsStructuralElement>(), IfcRelKind.ConnectsStructElement, rooted),
+        Realizing(project, rooted, profiles));
 
-    static Validation<Error, Seq<Relationship>> Realizing(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) =>
+    static Validation<Error, Seq<Relationship>> Realizing(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles) =>
         Landed(toSeq(project.Extract<IfcRelConnectsWithRealizingElements>().AsIterable().SelectMany(rel =>
             rel.RealizingElements.AsIterable().ToSeq() switch {
-                { IsEmpty: true } => Seq((Fin.Fail<Relationship>(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "realizing-elements-empty", rel.GlobalId })))).ToValidation()),
+                { IsEmpty: true } => Seq((Fin.Fail<Relationship>(new BimFault.Refused(BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "realizing-elements-empty", rel.GlobalId })))).ToValidation()),
                 var members => members.Map(member =>
-                    from a in Endpoint(rooted, Stated(rel.RelatingElement?.GlobalId), IfcRelKind.ConnectsRealizing.Key, IfcRelKind.ConnectsRealizing.Relating, key)
-                    from b in Endpoint(rooted, Stated(rel.RelatedElement?.GlobalId), IfcRelKind.ConnectsRealizing.Key, IfcRelKind.ConnectsRealizing.Related, key)
-                    from r in Endpoint(rooted, Stated(member.GlobalId), IfcRelKind.ConnectsRealizing.Key, "RealizingElements", key)
+                    from a in Endpoint(rooted, Stated(rel.RelatingElement?.GlobalId), IfcRelKind.ConnectsRealizing.Relating)
+                    from b in Endpoint(rooted, Stated(rel.RelatedElement?.GlobalId), IfcRelKind.ConnectsRealizing.Related)
+                    from r in Endpoint(rooted, Stated(member.GlobalId), "RealizingElements")
                     select (Relationship)new Relationship.Connect(a, b, ConnectKind.Element, Some(r),
-                        PreserveInterface(rel.ConnectionGeometry, profiles, key))),
+                        PreserveInterface(rel.ConnectionGeometry, profiles))),
             })));
 
-    static Option<UInt128> PreserveInterface(IfcConnectionGeometry? geometry, IIfcProfileStore profiles, Op key) =>
-        Optional(geometry).Map(surface => profiles.Preserve(surface, key));
+    static Option<UInt128> PreserveInterface(IfcConnectionGeometry? geometry, IIfcProfileStore profiles) =>
+        Optional(geometry).Map(surface => profiles.Preserve(surface));
 
-    static Seq<Validation<Error, Seq<Relationship>>> Generics(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
-        Rows(project.Extract<IfcRelDefinesByType>(), IfcRelKind.DefinesByType, rooted, key),
-        Rows(project.Extract<IfcRelAssignsToGroup>(), IfcRelKind.AssignsToGroup, rooted, key),
-        Rows(project.Extract<IfcRelCoversBldgElements>(), IfcRelKind.CoversElements, rooted, key),
-        Rows(project.Extract<IfcRelCoversSpaces>(), IfcRelKind.CoversSpaces, rooted, key),
-        Rows(project.Extract<IfcRelAssignsToControl>(), IfcRelKind.AssignsToControl, rooted, key),
-        Rows(project.Extract<IfcRelAssignsToProcess>(), IfcRelKind.AssignsToProcess, rooted, key),
-        Rows(project.Extract<IfcRelAssignsToProduct>(), IfcRelKind.AssignsToProduct, rooted, key),
-        Rows(project.Extract<IfcRelAssignsToActor>(), IfcRelKind.AssignsToActor, rooted, key),
-        Rows(project.Extract<IfcRelDeclares>(), IfcRelKind.Declares, rooted, key),
-        Rows(project.Extract<IfcRelServicesBuildings>(), IfcRelKind.ServicesBuildings, rooted, key),
-        Rows(project.Extract<IfcRelPositions>(), IfcRelKind.Positions, rooted, key),
-        Rows(project.Extract<IfcRelDefinesByObject>(), IfcRelKind.DefinesByObject, rooted, key));
+    static Seq<Validation<Error, Seq<Relationship>>> Generics(IfcProject project, Map<string, NodeId> rooted) => Seq(
+        Rows(project.Extract<IfcRelDefinesByType>(), IfcRelKind.DefinesByType, rooted),
+        Rows(project.Extract<IfcRelAssignsToGroup>(), IfcRelKind.AssignsToGroup, rooted),
+        Rows(project.Extract<IfcRelCoversBldgElements>(), IfcRelKind.CoversElements, rooted),
+        Rows(project.Extract<IfcRelCoversSpaces>(), IfcRelKind.CoversSpaces, rooted),
+        Rows(project.Extract<IfcRelAssignsToControl>(), IfcRelKind.AssignsToControl, rooted),
+        Rows(project.Extract<IfcRelAssignsToProcess>(), IfcRelKind.AssignsToProcess, rooted),
+        Rows(project.Extract<IfcRelAssignsToProduct>(), IfcRelKind.AssignsToProduct, rooted),
+        Rows(project.Extract<IfcRelAssignsToActor>(), IfcRelKind.AssignsToActor, rooted),
+        Rows(project.Extract<IfcRelDeclares>(), IfcRelKind.Declares, rooted),
+        Rows(project.Extract<IfcRelServicesBuildings>(), IfcRelKind.ServicesBuildings, rooted),
+        Rows(project.Extract<IfcRelPositions>(), IfcRelKind.Positions, rooted),
+        Rows(project.Extract<IfcRelDefinesByObject>(), IfcRelKind.DefinesByObject, rooted));
 
-    static Seq<Validation<Error, Seq<Relationship>>> DefinesProperties(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
+    static Seq<Validation<Error, Seq<Relationship>>> DefinesProperties(IfcProject project, Map<string, NodeId> rooted) => Seq(
         Landed(toSeq(project.Extract<IfcRelDefinesByProperties>().AsIterable()
             .SelectMany(rel => rel.RelatedObjects.SelectMany(o => rel.RelatingPropertyDefinition.Select(definition =>
-                from subject in Endpoint(rooted, Stated(o.GlobalId), IfcRelKind.DefinesByType.Key, "RelatedObjects", key)
-                from bag in Endpoint(rooted, Stated(definition.GlobalId), IfcRelKind.DefinesByType.Key, "RelatingPropertyDefinition", key)
+                from subject in Endpoint(rooted, Stated(o.GlobalId), "RelatedObjects")
+                from bag in Endpoint(rooted, Stated(definition.GlobalId), "RelatingPropertyDefinition")
                 select (Relationship)new Relationship.Assign(subject, bag, AssignKind.PropertyDefinition)))))));
 
     static Seq<Validation<Error, Seq<Relationship>>> Structural(
-        IfcProject project, Map<string, NodeId> rooted, UnitScheme scale, Option<EurocodePolicy> eurocode, IIfcProfileStore profiles, Op key) => Seq(
+        IfcProject project, Map<string, NodeId> rooted, UnitScheme scale, Option<EurocodePolicy> eurocode, IIfcProfileStore profiles) => Seq(
         Landed(toSeq(project.Extract<IfcRelConnectsStructuralMember>().AsIterable().Select(rel =>
-            from m in Endpoint(rooted, Stated(rel.RelatingStructuralMember?.GlobalId), IfcRelKind.ConnectsStructMember.Key, IfcRelKind.ConnectsStructMember.Relating, key)
-            from c in Endpoint(rooted, Stated(rel.RelatedStructuralConnection?.GlobalId), IfcRelKind.ConnectsStructMember.Key, IfcRelKind.ConnectsStructMember.Related, key)
-            from attrs in (StructuralProjection.Attrs(rel, scale, eurocode, profiles, key)).ToValidation()
+            from m in Endpoint(rooted, Stated(rel.RelatingStructuralMember?.GlobalId), IfcRelKind.ConnectsStructMember.Relating)
+            from c in Endpoint(rooted, Stated(rel.RelatedStructuralConnection?.GlobalId), IfcRelKind.ConnectsStructMember.Related)
+            from attrs in (StructuralProjection.Attrs(rel, scale, eurocode, profiles)).ToValidation()
             select (Relationship)new Relationship.Generic(IfcRelKind.ConnectsStructMember.Wire, m, c, attrs)))),
         Landed(toSeq(project.Extract<IfcRelConnectsStructuralActivity>().AsIterable().Select(rel =>
-            from item in Endpoint(rooted, Stated((rel.RelatingElement as IfcRoot)?.GlobalId), IfcRelKind.ConnectsStructActivity.Key, IfcRelKind.ConnectsStructActivity.Relating, key)
-            from act in Endpoint(rooted, Stated(rel.RelatedStructuralActivity?.GlobalId), IfcRelKind.ConnectsStructActivity.Key, IfcRelKind.ConnectsStructActivity.Related, key)
-            from attrs in (StructuralProjection.Attrs(rel, scale, eurocode, profiles, key)).ToValidation()
+            from item in Endpoint(rooted, Stated((rel.RelatingElement as IfcRoot)?.GlobalId), IfcRelKind.ConnectsStructActivity.Relating)
+            from act in Endpoint(rooted, Stated(rel.RelatedStructuralActivity?.GlobalId), IfcRelKind.ConnectsStructActivity.Related)
+            from attrs in (StructuralProjection.Attrs(rel, scale, eurocode, profiles)).ToValidation()
             select (Relationship)new Relationship.Generic(IfcRelKind.ConnectsStructActivity.Wire, item, act, attrs)))));
 
-    static Seq<Validation<Error, Seq<Relationship>>> SpatialBoundaries(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) => Seq(
+    static Seq<Validation<Error, Seq<Relationship>>> SpatialBoundaries(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles) => Seq(
         Landed(toSeq(project.Extract<IfcRelSpaceBoundary>().AsIterable().Select(rel =>
-            from s in Endpoint(rooted, Stated((rel.RelatingSpace as IfcRoot)?.GlobalId), IfcRelKind.SpaceBoundary.Key, IfcRelKind.SpaceBoundary.Relating, key)
-            from e in Endpoint(rooted, Stated(rel.RelatedBuildingElement?.GlobalId), IfcRelKind.SpaceBoundary.Key, IfcRelKind.SpaceBoundary.Related, key)
-            select (Relationship)new Relationship.Generic(IfcRelKind.SpaceBoundary.Wire, s, e, BoundaryAttrs(rel, profiles, key))))));
+            from s in Endpoint(rooted, Stated((rel.RelatingSpace as IfcRoot)?.GlobalId), IfcRelKind.SpaceBoundary.Relating)
+            from e in Endpoint(rooted, Stated(rel.RelatedBuildingElement?.GlobalId), IfcRelKind.SpaceBoundary.Related)
+            select (Relationship)new Relationship.Generic(IfcRelKind.SpaceBoundary.Wire, s, e, BoundaryAttrs(rel, profiles))))));
 
-    static Map<PropertyName, PropertyValue> BoundaryAttrs(IfcRelSpaceBoundary rel, IIfcProfileStore profiles, Op key) =>
-        PreserveInterface(rel.ConnectionGeometry, profiles, key).Fold(
+    static Map<PropertyName, PropertyValue> BoundaryAttrs(IfcRelSpaceBoundary rel, IIfcProfileStore profiles) =>
+        PreserveInterface(rel.ConnectionGeometry, profiles).Fold(
             Map((BoundaryRows.BoundaryLevel, (PropertyValue)new PropertyValue.Text(BoundaryLevelOf(rel)))),
             static (attrs, surface) => attrs.Add(SemanticProjector.InterfaceKey, new PropertyValue.Text(surface.ToString("X32"))));
 
@@ -336,18 +335,18 @@ public static class EdgeProjection {
 
     static WriterT<FidelityLog, Fin, Seq<Relationship>> MaterialEdges(
         IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScheme scale, TemplateScope templates,
-        IIfcProfileStore profiles, Op key) =>
+        IIfcProfileStore profiles) =>
         toSeq(project.Extract<IfcRelAssociatesMaterial>().AsIterable())
             .Traverse(rel =>
-                from relating in Fidelity.Lift(Optional(rel.RelatingMaterial).ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "material-relation-unbound", rel.GlobalId }))))
-                from material in Fidelity.Lift(MaterialProjection.Project(relating, tolerance, profiles, scale, key).Map(static node => node.Id))
-                from usage in Fidelity.Lift(UsageOf(relating, scale, key))
+                from relating in Fidelity.Lift(Optional(rel.RelatingMaterial).ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "material-relation-unbound", rel.GlobalId }))))
+                from material in Fidelity.Lift(MaterialProjection.Project(relating, tolerance, profiles, scale).Map(static node => node.Id))
+                from usage in Fidelity.Lift(UsageOf(relating, scale))
                 from bags in SemanticProjector.DefinitionOf(relating)
-                    .Map(definition => Fidelity.Lift(MaterialProjection.ImportedPsets(definition, rooted, scale, templates, key))
+                    .Map(definition => Fidelity.Lift(MaterialProjection.ImportedPsets(definition, rooted, scale, templates))
                         .Bind(narrowed => Fidelity.Told(narrowed.Log, narrowed.Value)))
                     .IfNone(Fidelity.Clean(Seq<PropertyBag>()))
                 from elements in Fidelity.Lift((toSeq(rel.RelatedObjects.AsIterable())
-                    .Map(o => Endpoint(rooted, Stated((o as IfcRoot)?.GlobalId), nameof(IfcRelAssociatesMaterial), "RelatedObjects", key))
+                    .Map(o => Endpoint(rooted, Stated((o as IfcRoot)?.GlobalId), nameof(IfcRelAssociatesMaterial), "RelatedObjects"))
                     .Traverse(identity).As()).ToFin())
                 select elements.Map(element => (Relationship)new Relationship.Associate(element, material, usage))
                     .Concat(bags.Map(bag => (Relationship)new Relationship.Assign(
@@ -357,17 +356,17 @@ public static class EdgeProjection {
 
     // --- [USAGE_ADMISSION]
 
-    static Fin<MaterialUsage> UsageOf(IfcMaterialSelect select, UnitScheme scale, Op key) => select switch {
+    static Fin<MaterialUsage> UsageOf(IfcMaterialSelect select, UnitScheme scale) => select switch {
         IfcMaterialLayerSetUsage u =>
-            from direction in Elected(LayerAxes, u.LayerSetDirection, key)
-            from sense in Elected(LayerSenses, u.DirectionSense, key)
-            from offset in Length(u.OffsetFromReferenceLine, scale, key)
-            from extent in Length(u.ReferenceExtent, scale, key)
-            from usage in MaterialUsage.LayerSet.Of(direction, sense, offset, extent, key)
+            from direction in Elected(LayerAxes, u.LayerSetDirection)
+            from sense in Elected(LayerSenses, u.DirectionSense)
+            from offset in Length(u.OffsetFromReferenceLine, scale)
+            from extent in Length(u.ReferenceExtent, scale)
+            from usage in MaterialUsage.LayerSet.Of(direction, sense, offset, extent)
             select usage,
         IfcMaterialProfileSetUsage u =>
-            from extent in Length(u.ReferenceExtent, scale, key)
-            from usage in MaterialUsage.ProfileSet.Of(OptionalCardinal(u.CardinalPoint), extent, key)
+            from extent in Length(u.ReferenceExtent, scale)
+            from usage in MaterialUsage.ProfileSet.Of(OptionalCardinal(u.CardinalPoint), extent)
             select usage,
         _ => Fin.Succ<MaterialUsage>(new MaterialUsage.Unbound()),
     };
@@ -385,14 +384,14 @@ public static class EdgeProjection {
             [IfcDirectionSenseEnum.NEGATIVE] = DirectionSense.Negative,
         }.ToFrozenDictionary();
 
-    static Fin<TRow> Elected<TMember, TRow>(FrozenDictionary<TMember, TRow> rows, TMember member, Op key) where TMember : notnull =>
+    static Fin<TRow> Elected<TMember, TRow>(FrozenDictionary<TMember, TRow> rows, TMember member) where TMember : notnull =>
         rows.TryGetValue(member, out TRow? row) && row is { } elected
             ? Fin.Succ(elected)
-            : Fin.Fail<TRow>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "material-usage-axis-unmapped", typeof(TMember).Name, $"{member}" })));
+            : Fin.Fail<TRow>(new BimFault.Refused(BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "material-usage-axis-unmapped", typeof(TMember).Name, $"{member}" })));
 
-    static Fin<Option<MeasureValue>> Length(double native, UnitScheme scale, Op key) =>
+    static Fin<Option<MeasureValue>> Length(double native, UnitScheme scale) =>
         double.IsFinite(native)
-            ? MeasureValue.OfSi(Dimension.LengthDim, scale.Coerce(native, QuantityType.Length, Dimension.LengthDim), key).Map(Some)
+            ? MeasureValue.OfSi(Dimension.LengthDim, scale.Coerce(native, QuantityType.Length, Dimension.LengthDim)).Map(Some)
             : Fin.Succ(Option<MeasureValue>.None);
 
     static Option<int> OptionalCardinal(IfcCardinalPointReference point) =>

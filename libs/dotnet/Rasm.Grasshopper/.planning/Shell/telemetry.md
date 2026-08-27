@@ -13,7 +13,7 @@ Every declaration composes the KERNEL telemetry module as found: instrument rows
 ## [02]-[CUSTODY]
 
 - Owner: `GhTelemetry` — the composition capsule pairing the factory-owned instrument spine with logger admission. `Of` mints the `Rasm.Grasshopper` meter through `IMeterFactory.Create(MeterOptions)` exactly once, stamping the composing plugin's identity as a meter-scope tag, hands it to the kernel `InstrumentSet` that owns every handle and the write path, and seats that set beside the logger factory on the one per-ALC cell `GhInstruments` and `GhLog` read.
-- Entry: `GhTelemetry.Of(IMeterFactory factory, HookScope plugin, Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null)` → `Fin<GhTelemetry>` — the one admission gate; `Instruments` and `Logs` are the two capability slots the capsule holds.
+- Entry: `GhTelemetry.Of(IMeterFactory factory, HookScope plugin, Option<ILoggerFactory> logs = default, Option<string> version = default)` → `Fin<GhTelemetry>` — the one admission gate; `Instruments` and `Logs` are the two capability slots the capsule holds.
 - Law: plugin identity is the typed `Shell/hooks.md` `HookScope` — the one process-global plugin key the `(point, scope)` hook registry and the `gh.plugin` meter tag share by construction, so the two per-plugin surfaces cannot fork their key space.
 - Law: the injected factory is the sole per-ALC meter lifetime owner — a composing plugin passes its `PluginTelemetryHost.Meters`, and `AssemblyLoadContext.Unloading` drives the host's `ForceFlush`-then-`Dispose` on both providers, so no instrument outlives its plugin and an unload never drops the tail of an export batch.
 - Law: `GhTelemetry.Dispose` releases the seat only — disposing the minted meter here competes with provider custody.
@@ -217,7 +217,7 @@ public static class GhInstruments {
             .TraverseM(row => set.Write(FramePhase, row.Item2.TotalSeconds,
                 InstrumentSet.Tags((DocSlot, Doc(document)), (PhaseSlot, row.Item1)))).As().Map(static _ => unit));
 
-    public static Fin<Unit> Settled(Option<Guid> document, Op operation, bool deferred, GaugedSpan<SessionLane> span) => Write(set =>
+    public static Fin<Unit> Settled(Option<Guid> document, bool deferred, GaugedSpan<SessionLane> span) => Write(set =>
         InstrumentSet.Tags((DocSlot, Doc(document)), (OpSlot, operation.ToString()), (DeferredSlot, deferred)) switch {
             var tags => set.Write(SessionAck, span.Elapsed.TotalSeconds, tags).Bind(_ => set.Write(SessionCommands, 1L, tags)),
         });
@@ -252,7 +252,7 @@ public static class GhInstruments {
         1L,
         InstrumentSet.Tags(
             (PointSlot, fault.Point.ToString()),
-            (KernelInstrument.OwnerSlot, Op.ToHostSlot(fault.Cause.Owner.Map(static owner => (object)owner.Key))),
+            (KernelInstrument.OwnerSlot, HostEdge.Slot(fault.Cause.Owner.Map(static owner => (object)owner.Key))),
             (KernelInstrument.PostureSlot, Redrive.Posture(fault.Cause).Key))));
 
     private static Fin<Unit> Write(Func<InstrumentSet, Fin<Unit>> write) =>
@@ -264,7 +264,7 @@ public static class GhInstruments {
     private static string Doc(Guid document) => document.ToString("N");
 
     private static object? Doc(Option<Guid> document) =>
-        Op.ToHostSlot(document.Map(static held => held.ToString("N")));
+        HostEdge.Slot(document.Map(static held => held.ToString("N")));
 }
 
 public static class GhLog {
@@ -289,14 +289,13 @@ public sealed class GhTelemetry : IDisposable {
 
     public static Fin<GhTelemetry> Of(
         IMeterFactory factory, HookScope plugin,
-        Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in op.Need(factory)
-               from identity in op.AcceptValue(value: plugin)
-               from telemetry in op.Catch(body: () => {
+        Option<ILoggerFactory> logs = default, Option<string> version = default) {
+        return from owner in Admit.Need(factory)
+               from identity in Acceptance.Value(value: plugin)
+               from telemetry in Try.lift(() => {
                    ILoggerFactory admitted = logs.IfNone(NullLoggerFactory.Instance);
                    InstrumentSet instruments = InstrumentSet.Of(new LevelCells(), (owner.Create(new MeterOptions(GhInstruments.MeterName) {
-                       Version = Op.ToHostSlot(version),
+                       Version = HostEdge.Slot(version),
                        Tags = [new KeyValuePair<string, object?>("gh.plugin", (string)identity)],
                    }), GhInstruments.Rows));
                    object token = new();
@@ -306,14 +305,14 @@ public sealed class GhTelemetry : IDisposable {
                        token: Cell.Seat<(object Token, ILoggerFactory Logs, InstrumentSet Instruments), object>(
                            cell: Seat,
                            mint: () => (Value: (Token: token, Logs: admitted, Instruments: instruments), Token: token)).Token));
-               })
+               }).Run().Bind(static inner => inner)
                select telemetry;
     }
 
     public void Dispose() => ignore(token.Map(held => Cell.Step(cell: Seat,
         step: seated => seated.Filter(row => ReferenceEquals(row.Token, held))
             .Map(_ => Option<(object, ILoggerFactory, InstrumentSet)>.None),
-        declined: Op.Of().InvalidContext())));
+        declined: new KernelFault.InvalidContext())));
 }
 ```
 

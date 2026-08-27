@@ -60,7 +60,7 @@ public sealed partial class SessionRole : ICapability<SessionRole> {
     public CapabilitySet<SessionCapability> Rights { get; }
 
     public static Fin<SessionRole> Of(string key) =>
-        TryGet(key, out SessionRole? row) ? Fin.Succ(row) : Fin.Fail<SessionRole>(new SessionFault.RoleUnknown($"session/role:{key}"));
+        TryGet(out SessionRole? row) ? Fin.Succ(row) : Fin.Fail<SessionRole>(new SessionFault.RoleUnknown($"session/role:{key}"));
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -136,7 +136,7 @@ public sealed partial class MembershipState {
                 new SessionFault.Conflict($"session/{subject.Value}: {prior.Key} -> {Key}"));
 
     public static Fin<MembershipState> Of(string key) =>
-        TryGet(key, out MembershipState? row) ? Fin.Succ(row) : Fin.Fail<MembershipState>(new SessionFault.Conflict($"session/state:{key}"));
+        TryGet(out MembershipState? row) ? Fin.Succ(row) : Fin.Fail<MembershipState>(new SessionFault.Conflict($"session/state:{key}"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -166,10 +166,10 @@ public static class MemberRegister {
     public const string GovernOrigin = "session";
 
     public static IO<Fin<Unit>> Govern(CollabDoc doc, IntentLedger ledger, MembershipOp op) =>
-        ledger.Commit(doc, new EditIntent.Membership(doc.Key, op), GovernOrigin);
+        ledger.Commit(doc, new EditIntent.Membership(), GovernOrigin);
 
     public static Fin<Unit> Apply(CollabDoc doc, MembershipOp op) =>
-        Read(doc, Subject(op)).Bind(prior => op.Switch(
+        Read(doc, Subject()).Bind(prior => op.Switch(
             state: (Doc: doc, Prior: prior),
             invite: static (ctx, i) => Land(ctx.Doc, ctx.Prior, MembershipState.Invited, i.At, Seq(
                 (CollabColumn.Identity, LoroVal.Of(ContainerKey.Of(i.Peer))),
@@ -200,7 +200,7 @@ public static class MemberRegister {
 
     public static Fin<Seq<MemberRow>> Roster(CollabDoc doc) =>
         doc.Read(CollabPath.Root(CollabRoot.Members), Seq<MemberRow>(), members =>
-            CollabDoc.Lift(() => toSeq(members.Keys()).Choose(key => Seated(members, key))));
+            CollabDoc.Lift(() => toSeq(members.Keys()).Choose(key => Seated(members))));
 
     public static ulong Subject(MembershipOp op) => op.Switch(
         invite: static i => i.Peer,
@@ -220,8 +220,8 @@ public static class MemberRegister {
         .IfNone(Fin.Fail<MemberRow>(new SessionFault.Conflict($"session/{peer}: register row omits state or role")));
 
     static Option<MemberRow> Seated(LoroMap members, string key) =>
-        ulong.TryParse(key, CultureInfo.InvariantCulture, out ulong peer)
-            ? members.Level(key, live => Admitted(peer, live).ToOption())
+        ulong.TryParse(CultureInfo.InvariantCulture, out ulong peer)
+            ? members.Level(live => Admitted(peer, live).ToOption())
             : None;
 }
 ```
@@ -362,16 +362,16 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
 
     Validation<Error, Unit> Governed(EditIntent intent, SessionRole role, Seq<MemberRow> roster) =>
         intent is EditIntent.Membership { Op: var op }
-            ? Probed(op, role, RosterView.Of(roster)) switch {
+            ? Probed(role, RosterView.Of(roster)) switch {
                 var probe => toSeq(RosterInvariant.Items)
-                    .Filter(Demanded(op).Admits)
+                    .Filter(Demanded().Admits)
                     .Traverse(invariant => invariant.Holds(probe))
                     .As().Map(static _ => unit),
             }
             : Success<Error, Unit>(unit);
 
     RosterProbe Probed(MembershipOp op, SessionRole role, RosterView view) =>
-        new(Actor, role, MemberRegister.Subject(op), Granted(op), view);
+        new(Actor, role, MemberRegister.Subject(), Granted(), view);
 
     public static CapabilitySet<RosterInvariant> Demanded(MembershipOp op) => op.Switch(
         invite: static _ => Delegation,
@@ -473,7 +473,7 @@ public sealed record SessionPresence(Presence Presence, CollabDoc Document) {
                 live.Find(row.Peer)
                     .Map(static state => new LoroVal(state))
                     .Bind(static held => held.Field(CollabColumn.Role, static leaf => leaf.Text))
-                    .Bind(static key => SessionRole.Of(key).ToOption()),
+                    .Bind(static key => SessionRole.Of().ToOption()),
                 live.ContainsKey(row.Peer))),
         });
 
@@ -576,7 +576,6 @@ public sealed record ActivityFeed(
     Channel<ActivityNotice> Notices,
     HostSink Sink) {
     public const int Depth = 32;
-    static readonly Op Minted = Op.Of(name: "appui.session.notice");
 
     public static ActivityFeed Of(
         PresenceSignals signals, CollabDoc document, NoticeKind kind, MonotonicTimeline line,
@@ -607,7 +606,7 @@ public sealed record ActivityFeed(
     Option<ActivityNotice> Noticed(DiffEvent diff) =>
         diff.TriggeredBy == EventTriggerKind.Import
             ? Attribute(diff).Bind(row => MemberRegister.Read(Document, row.Peer).ToOption()
-                .Bind(member => Line.Capture(Minted).ToOption()
+                .Bind(member => Error.New(Minted.Message, Minted).ToOption()
                     .Bind(at => ActivityNotice.Of(Kind, member, row.Target, at).ToOption())))
             : None;
 }

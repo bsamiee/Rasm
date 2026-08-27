@@ -96,26 +96,26 @@ public abstract partial record StreamMonitor {
         detector: static monitor => monitor.Id);
 
     public static Fin<StreamMonitor> OfEwma(string monitorId, double lambda, double falseAlarm, int warmup) =>
-        (Op.Of(name: nameof(OfEwma)).AcceptValidated<MonitorKey>(monitorId).ToValidation(),
-         Op.Of(name: nameof(OfEwma)).AcceptValidated<Smoothing>(lambda).ToValidation(),
-         Op.Of(name: nameof(OfEwma)).AcceptValidated<FalseAlarm>(falseAlarm).ToValidation(),
-         Op.Of(name: nameof(OfEwma)).AcceptValidated<Warmup>(warmup).ToValidation())
+        (FactoryBridge.Accept<MonitorKey>(monitorId).ToValidation(),
+         FactoryBridge.Accept<Smoothing>(lambda).ToValidation(),
+         FactoryBridge.Accept<FalseAlarm>(falseAlarm).ToValidation(),
+         FactoryBridge.Accept<Warmup>(warmup).ToValidation())
             .Apply(static (id, smoothing, alarm, warm) => (StreamMonitor)new Ewma(
                 id, smoothing, alarm.ControlLimit, warm, Level: 0d, Baseline: new Evidence<Stat<Scalar>>.Absent(), Count: 0L))
             .As()
             .ToFin();
 
     public static Fin<StreamMonitor> OfQuantile(string monitorId, double probability, double limit) =>
-        (Op.Of(name: nameof(OfQuantile)).AcceptValidated<MonitorKey>(monitorId).ToValidation(),
-         Op.Of(name: nameof(OfQuantile)).AcceptValidated<Threshold>(limit).ToValidation(),
+        (FactoryBridge.Accept<MonitorKey>(monitorId).ToValidation(),
+         FactoryBridge.Accept<Threshold>(limit).ToValidation(),
          QuantileSketch.Of(probability, Op.Of(name: nameof(OfQuantile))).ToValidation())
             .Apply(static (id, bound, sketch) => (StreamMonitor)new Quantile(id, bound, sketch))
             .As()
             .ToFin();
 
     public static Fin<StreamMonitor> OfDetector(string monitorId, int capacity, FittedModel detector) =>
-        (Op.Of(name: nameof(OfDetector)).AcceptValidated<MonitorKey>(monitorId).ToValidation(),
-         Op.Of(name: nameof(OfDetector)).AcceptValidated<WindowCapacity>(capacity).ToValidation(),
+        (FactoryBridge.Accept<MonitorKey>(monitorId).ToValidation(),
+         FactoryBridge.Accept<WindowCapacity>(capacity).ToValidation(),
          (detector.Carrier is EstimatorModel.Detector
              ? Fin.Succ(detector)
              : Fin.Fail<FittedModel>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Type(detector.Carrier.GetType()))))).ToValidation())
@@ -179,14 +179,14 @@ public static class MonitorLane {
                 : Fin.Fail<(StreamMonitor, MonitorVerdict)>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(next.Id.ToValue())))));
     }
 
-    static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Smoothed(StreamMonitor.Ewma held, Scalar sample, Instant at, Op key) {
+    static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Smoothed(StreamMonitor.Ewma held, Scalar sample, Instant at) {
         bool warm = held.Count >= held.Warmup.ToValue();
         Evidence<Stat<Scalar>> advanced = warm
             ? held.Baseline
             : held.Baseline.Switch(
-                measured: prior => Evidence.Of(Stat<Scalar>.Update(prior.Value, sample, key: key)),
+                measured: prior => Evidence.Of(Stat<Scalar>.Update(prior.Value, sample)),
                 refused: static failed => (Evidence<Stat<Scalar>>)failed,
-                absent: _ => Evidence.Of(Stat<Scalar>.Of(Seq(sample), key)));
+                absent: _ => Evidence.Of(Stat<Scalar>.Of(Seq(sample))));
 
         return advanced.Switch(
             refused: static failed => Fin.Fail<(StreamMonitor, MonitorVerdict)>(failed.Cause),
@@ -209,8 +209,8 @@ public static class MonitorLane {
             });
     }
 
-    static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Sketched(StreamMonitor.Quantile held, Scalar sample, Instant at, Op key) =>
-        QuantileSketch.Update(held.Sketch, sample.To(), key).Bind(advanced => advanced.Estimate()
+    static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Sketched(StreamMonitor.Quantile held, Scalar sample, Instant at) =>
+        QuantileSketch.Update(held.Sketch, sample.To()).Bind(advanced => advanced.Estimate()
             .ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(held.Id.ToValue()))))
             .Map(estimate => (
                 (StreamMonitor)(held with { Sketch = advanced }),

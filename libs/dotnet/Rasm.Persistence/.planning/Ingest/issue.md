@@ -120,7 +120,7 @@ public static class IssueSource {
 
     static Validation<Error, Seq<IssueTopic>> Keyed(Seq<IssueTopic> rows) =>
         toSeq(rows.GroupBy(static topic => topic.Key).Where(static group => group.Count() > 1).Select(static group => group.Key))
-            .Traverse(static key => (Validation<Error, Guid>)new IssueFault.TopicRejected(key, "<duplicate-key>")).As()
+            .Traverse(static key => (Validation<Error, Guid>)new IssueFault.TopicRejected("<duplicate-key>")).As()
             .Map(_ => rows);
 
     static Validation<Error, IssueTopic> Admit(IssueTopic topic, Func<string, Option<SetKey>> resolve) =>

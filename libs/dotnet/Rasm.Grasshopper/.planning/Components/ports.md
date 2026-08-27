@@ -36,10 +36,10 @@ public sealed partial class PinSide : ICapability<PinSide> {
 
     public static CapabilityLaw<PinSide> Law => CapabilityLaw<PinSide>.Open;
 
-    public static Fin<PinSide> Of(Side host, Op? key = null) => host switch {
+    public static Fin<PinSide> Of(Side host) => host switch {
         Side.Input => Fin.Succ(Input),
         Side.Output => Fin.Succ(Output),
-        _ => Fin.Fail<PinSide>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key.OrDefault(), $"{nameof(Side)}:{host}"))),
+        _ => Fin.Fail<PinSide>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{nameof(Side)}:{host}"))),
     };
 }
 
@@ -223,19 +223,19 @@ public abstract partial record PinTrim : IValidityEvidence {
             (trim.Flavour == TextFlavour.File || trim.FileExtensions.IsEmpty && !trim.WatchFiles),
         textPattern: static trim => Enum.IsDefined(trim.Kind));
 
-    internal Fin<Unit> Apply(IParameter parameter, Op key) => (this, parameter) switch {
-        (Vector trim, VectorParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Angle trim, AngleParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Boolean trim, BooleanParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Connection trim, ConnectionParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Integer trim, IntegerParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Number trim, NumberParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Numeric trim, NumericParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Curve trim, CurveParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Surface trim, SurfaceParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (Text trim, TextParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        (TextPattern trim, TextPatternParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
-        _ => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{GetType().Name}:{parameter.GetType().Name}"))),
+    internal Fin<Unit> Apply(IParameter parameter) => (this, parameter) switch {
+        (Vector trim, VectorParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Angle trim, AngleParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Boolean trim, BooleanParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Connection trim, ConnectionParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Integer trim, IntegerParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Number trim, NumberParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Numeric trim, NumericParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Curve trim, CurveParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Surface trim, SurfaceParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (Text trim, TextParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        (TextPattern trim, TextPatternParameter host) => Try.lift(() => TrimMap.Write(trim, host)).Run().Bind(static inner => inner),
+        _ => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{GetType().Name}:{parameter.GetType().Name}"))),
     };
 }
 
@@ -259,12 +259,12 @@ internal static partial class TrimMap {
 
     internal static void Write(PinTrim.Integer trim, IntegerParameter host) => ignore(trim.Posture.Switch(
         state: host,
-        plain: static (target, posture) => Op.Side(action: () => {
+        plain: static (target, posture) => HostEdge.Side(action: () => {
             target.IsIndex = false;
             target.Indexing = Grasshopper2.Parameters.Standard.IndexModifier.None;
             posture.Hint.Iter(hint => target.Hint = hint);
         }),
-        indexed: static (target, posture) => Op.Side(action: () => {
+        indexed: static (target, posture) => HostEdge.Side(action: () => {
             target.IsIndex = true;
             target.Indexing = posture.Indexing.Host;
         })));
@@ -341,21 +341,20 @@ public sealed record PinPlan {
     internal IParameter Mint(Func<string, string, string, Access, IParameter> bare) =>
         bare((string)Name, (string)Nick, Info, Access.Host);
 
-    public Fin<Unit> Realize(IParameter parameter, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Unit> Realize(IParameter parameter) {
         return Trim
-            .TraverseM(trim => op.AcceptValue(trim)
+            .TraverseM(trim => Acceptance.Value(trim)
                 .MapFail(_ => new GhFault.ContractRefused(
                     GhContract.Pin,
-                    new GhEvidence(op, $"{nameof(PinTrim)}:{trim.GetType().Name}")))
-                .Bind(valid => valid.Apply(parameter, op)))
+                    new GhEvidence($"{nameof(PinTrim)}:{trim.GetType().Name}")))
+                .Bind(valid => valid.Apply(parameter)))
             .As()
             .Bind(_ => Persistent
                 .TraverseM(held => Kind is not null && Kind.Family.Accepts(Kind.Carrier, held.Type)
-                    ? op.Catch(() => { parameter.PersistentDataWeak = held; })
+                    ? Try.lift(() => { parameter.PersistentDataWeak = held; }).Run().Bind(static inner => inner)
                     : Fin.Fail<Unit>(new GhFault.ContractRefused(
                         GhContract.Pin,
-                        new GhEvidence(op, $"{nameof(Persistent)}:{held.Type.Name}"))))
+                        new GhEvidence($"{nameof(Persistent)}:{held.Type.Name}"))))
                 .As())
             .Map(static _ => unit);
     }
@@ -400,15 +399,15 @@ internal abstract partial record PortBinding {
         inputCase: static _ => CapabilitySet<PinSide>.Of(PinSide.Input),
         outputCase: static _ => CapabilitySet<PinSide>.Of(PinSide.Output));
 
-    public Fin<IParameter> Bind(ModularInputAdder adder, PinPlan plan, Op key) => Switch(
-        bothCase: row => key.Catch(() => Fin.Succ(row.Input(adder, plan))),
-        inputCase: row => key.Catch(() => Fin.Succ(row.Value(adder, plan))),
-        outputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, nameof(PinSide.Input)))));
+    public Fin<IParameter> Bind(ModularInputAdder adder, PinPlan plan) => Switch(
+        bothCase: row => Try.lift(() => Fin.Succ(row.Input(adder, plan))).Run().Bind(static inner => inner),
+        inputCase: row => Try.lift(() => Fin.Succ(row.Value(adder, plan))).Run().Bind(static inner => inner),
+        outputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(nameof(PinSide.Input)))));
 
-    public Fin<IParameter> Bind(ModularOutputAdder adder, PinPlan plan, Op key) => Switch(
-        bothCase: row => key.Catch(() => Fin.Succ(row.Output(adder, plan))),
-        inputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, nameof(PinSide.Output)))),
-        outputCase: row => key.Catch(() => Fin.Succ(row.Value(adder, plan))));
+    public Fin<IParameter> Bind(ModularOutputAdder adder, PinPlan plan) => Switch(
+        bothCase: row => Try.lift(() => Fin.Succ(row.Output(adder, plan))).Run().Bind(static inner => inner),
+        inputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(nameof(PinSide.Output)))),
+        outputCase: row => Try.lift(() => Fin.Succ(row.Value(adder, plan))).Run().Bind(static inner => inner));
 }
 
 [SmartEnum<string>]
@@ -566,15 +565,15 @@ public sealed partial class PortRow {
     public static Seq<PortRow> Candidates(Type carrier, PortFamily family) =>
         toSeq(Items).Filter(row => row.Family == family && family.Accepts(row.Carrier, carrier)).Strict();
 
-    public static Validation<Error, PortRow> Admit(Type carrier, PortFamily family, Op? key = null) {
+    public static Validation<Error, PortRow> Admit(Type carrier, PortFamily family) {
         Seq<PortRow> candidates = Candidates(carrier, family);
         return candidates.Count switch {
             1 => Success<Error, PortRow>(candidates[0]),
-            _ => Fail<Error, PortRow>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key.OrDefault(), $"{carrier.Name}:{family}:{candidates.Count}"))),
+            _ => Fail<Error, PortRow>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{carrier.Name}:{family}:{candidates.Count}"))),
         };
     }
 
-    public Fin<Unit> Accepts(PinPlan plan, PinSide side, Op key) =>
+    public Fin<Unit> Accepts(PinPlan plan, PinSide side) =>
         (
             Side: Sides.Admits(side),
             Hidden: plan.Visibility == PinVisibility.Shown || Axes.Row(PortAxis.Hidden).Admits(side),
@@ -584,13 +583,13 @@ public sealed partial class PortRow {
             Trim: plan.Trim.ForAll(trim => AdmitsTrim(trim, side)),
             Persistent: plan.Persistent.ForAll(tree => Family.Accepts(Carrier, tree.Type))
         ) switch {
-            { Side: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{side}"))),
-            { Hidden: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{nameof(PinVisibility.Hidden)}:{side}"))),
-            { Access: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{nameof(PinPlan.Access)}:{side}"))),
-            { Presence: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{nameof(PinPlan.Presence)}:{side}"))),
-            { Appearance: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{nameof(PinPlan.Category)}:{side}"))),
-            { Trim: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{nameof(PinPlan.Trim)}:{side}"))),
-            { Persistent: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{Key}:{nameof(PinPlan.Persistent)}:{side}"))),
+            { Side: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{side}"))),
+            { Hidden: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{nameof(PinVisibility.Hidden)}:{side}"))),
+            { Access: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{nameof(PinPlan.Access)}:{side}"))),
+            { Presence: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{nameof(PinPlan.Presence)}:{side}"))),
+            { Appearance: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{nameof(PinPlan.Category)}:{side}"))),
+            { Trim: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{nameof(PinPlan.Trim)}:{side}"))),
+            { Persistent: false } => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{Key}:{nameof(PinPlan.Persistent)}:{side}"))),
             _ => Fin.Succ(unit),
         };
 
@@ -628,60 +627,55 @@ namespace Rasm.Grasshopper.Components;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Ports {
-    public static Validation<Error, Seq<IParameter>> Declare(ModularInputAdder adder, Seq<PinPlan> plans, Op? key = null) {
-        Op op = key.OrDefault();
-        return plans.Traverse(plan => Minted(plan, PinSide.Input, () => plan.Kind.Binding.Bind(adder, plan, op), op).ToValidation()).As();
+    public static Validation<Error, Seq<IParameter>> Declare(ModularInputAdder adder, Seq<PinPlan> plans) {
+        return plans.Traverse(plan => Minted(plan, PinSide.Input, () => plan.Kind.Binding.Bind(adder, plan)).ToValidation()).As();
     }
 
-    public static Validation<Error, Seq<IParameter>> Declare(ModularOutputAdder adder, Seq<PinPlan> plans, Op? key = null) {
-        Op op = key.OrDefault();
-        return plans.Traverse(plan => Minted(plan, PinSide.Output, () => plan.Kind.Binding.Bind(adder, plan, op), op).ToValidation()).As();
+    public static Validation<Error, Seq<IParameter>> Declare(ModularOutputAdder adder, Seq<PinPlan> plans) {
+        return plans.Traverse(plan => Minted(plan, PinSide.Output, () => plan.Kind.Binding.Bind(adder, plan)).ToValidation()).As();
     }
 
-    public static Fin<IParameter> DeclareEnum<T>(ModularInputAdder adder, PinPlan plan, T seed, Op? key = null) where T : struct, Enum {
-        Op op = key.OrDefault();
+    public static Fin<IParameter> DeclareEnum<T>(ModularInputAdder adder, PinPlan plan, T seed) where T : struct, Enum {
         string category = plan.Category.IfNone("");
         Eto.Drawing.Color colour = plan.Colour.IfNone(Eto.Drawing.Colors.Transparent);
-        return EnumType<T>(op).Bind(_ => plan.Kind == PortRow.Integer
-            ? plan.Kind.Accepts(plan, PinSide.Input, op).Bind(_ => op.Catch(() => Fin.Succ<IParameter>(plan.Visibility == PinVisibility.Shown
+        return EnumType<T>().Bind(_ => plan.Kind == PortRow.Integer
+            ? plan.Kind.Accepts(plan, PinSide.Input).Bind(_ => Try.lift(() => Fin.Succ<IParameter>(plan.Visibility == PinVisibility.Shown
                     ? adder.AddEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host)
-                    : adder.AddHiddenEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host))))
-                .Bind(parameter => plan.Realize(parameter, op).Map(_ => parameter))
-            : Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(op, $"{plan.Kind.Key}:{nameof(DeclareEnum)}"))));
+                    : adder.AddHiddenEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host))).Run().Bind(static inner => inner))
+                .Bind(parameter => plan.Realize(parameter).Map(_ => parameter))
+            : Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{plan.Kind.Key}:{nameof(DeclareEnum)}"))));
     }
 
-    public static Fin<IParameter> DeclareEnum<T>(ModularOutputAdder adder, PinPlan plan, Op? key = null) where T : struct, Enum {
-        Op op = key.OrDefault();
-        return EnumType<T>(op)
-            .Bind(_ => AcceptsOutputEnum(plan, op))
-            .Bind(_ => op.Catch(() => Fin.Succ<IParameter>(adder.RegularAdder.AddEnum<T>(
-                (string)plan.Name, (string)plan.Nick, plan.Info, plan.Access.Host))))
-            .Bind(parameter => plan.Realize(parameter, op).Map(_ => parameter));
+    public static Fin<IParameter> DeclareEnum<T>(ModularOutputAdder adder, PinPlan plan) where T : struct, Enum {
+        return EnumType<T>()
+            .Bind(_ => AcceptsOutputEnum(plan))
+            .Bind(_ => Try.lift(() => Fin.Succ<IParameter>(adder.RegularAdder.AddEnum<T>(
+                (string)plan.Name, (string)plan.Nick, plan.Info, plan.Access.Host))).Run().Bind(static inner => inner))
+            .Bind(parameter => plan.Realize(parameter).Map(_ => parameter));
     }
 
-    public static Validation<Error, Unit> Realize(ComponentParameters parameters, Seq<PinPlan> inputs, Seq<PinPlan> outputs, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Validation<Error, Unit> Realize(ComponentParameters parameters, Seq<PinPlan> inputs, Seq<PinPlan> outputs) {
         return (inputs.Map(static (plan, index) => (Plan: plan, Index: index))
-                .Traverse(row => op.Catch(() => Fin.Succ<IParameter>(parameters.Input(row.Index)))
-                    .Bind(parameter => row.Plan.Realize(parameter, op)).ToValidation()).As(),
+                .Traverse(row => Try.lift(() => Fin.Succ<IParameter>(parameters.Input(row.Index))).Run().Bind(static inner => inner)
+                    .Bind(parameter => row.Plan.Realize(parameter)).ToValidation()).As(),
             outputs.Map(static (plan, index) => (Plan: plan, Index: index))
-                .Traverse(row => op.Catch(() => Fin.Succ<IParameter>(parameters.Output(row.Index)))
-                    .Bind(parameter => row.Plan.Realize(parameter, op)).ToValidation()).As())
+                .Traverse(row => Try.lift(() => Fin.Succ<IParameter>(parameters.Output(row.Index))).Run().Bind(static inner => inner)
+                    .Bind(parameter => row.Plan.Realize(parameter)).ToValidation()).As())
             .Apply(static (_, _) => unit)
             .As();
     }
 
-    private static Fin<IParameter> Minted(PinPlan plan, PinSide side, Func<Fin<IParameter>> bind, Op key) =>
-        plan.Kind.Accepts(plan, side, key)
+    private static Fin<IParameter> Minted(PinPlan plan, PinSide side, Func<Fin<IParameter>> bind) =>
+        plan.Kind.Accepts(plan, side)
             .Bind(_ => bind())
-            .Bind(parameter => plan.Realize(parameter, key).Map(_ => parameter));
+            .Bind(parameter => plan.Realize(parameter).Map(_ => parameter));
 
-    private static Fin<Unit> EnumType<T>(Op key) where T : struct, Enum =>
+    private static Fin<Unit> EnumType<T>() where T : struct, Enum =>
         Enum.GetUnderlyingType(typeof(T)) == typeof(int) && !typeof(T).IsDefined(typeof(FlagsAttribute), inherit: false)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{typeof(T).Name}:{nameof(DeclareEnum)}")));
+            : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{typeof(T).Name}:{nameof(DeclareEnum)}")));
 
-    private static Fin<Unit> AcceptsOutputEnum(PinPlan plan, Op key) =>
+    private static Fin<Unit> AcceptsOutputEnum(PinPlan plan) =>
         plan.Kind == PortRow.Integer &&
         plan.Visibility == PinVisibility.Shown &&
         plan.Presence == PinPresence.MustExist &&
@@ -689,7 +683,7 @@ public static class Ports {
         plan.Colour.IsNone &&
         plan.Trim.IsNone
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{plan.Kind.Key}:{nameof(DeclareEnum)}:{nameof(PinSide.Output)}")));
+            : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence($"{plan.Kind.Key}:{nameof(DeclareEnum)}:{nameof(PinSide.Output)}")));
 }
 ```
 

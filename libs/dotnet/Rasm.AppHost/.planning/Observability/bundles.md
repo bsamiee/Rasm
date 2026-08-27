@@ -155,7 +155,7 @@ public sealed record SupportArtifact(
         Name: "signal-readings",
         Classification: DataClassification.HostIdentity,
         EstimatedBytes: 256 << 10,
-        Produce: _ => IO.lift(() => tally.Read(Op.Of())
+        Produce: _ => IO.lift(() => tally.Read()
                 .MapFail(fault => new SupportFault.ContributorFaulted("signal-readings", fault.Message, fault)))
             .Map(rows => Rendered(rows, new MaskLedger(redactor))));
 
@@ -313,7 +313,7 @@ public sealed partial record DumpTriage(
     static Fin<ClrRuntime> Runtime(DataTarget target) =>
         toSeq(target.ClrVersions).Head
             .Map(static version => version.CreateRuntime())
-            .ToFin(new KernelFault.InvalidResult(Op.Of(), Some("<no-clr-runtime-in-process-image>")));
+            .ToFin(new KernelFault.InvalidResult(Some("<no-clr-runtime-in-process-image>")));
 
     static DumpTriage Walked(ClrRuntime runtime, DumpPolicy policy) {
         using (runtime) {
@@ -344,11 +344,11 @@ public sealed partial record DumpTriage(
     public static string Path(string captureRoot) =>
         System.IO.Path.Join(captureRoot, $"dump-{Environment.ProcessId}.dmp");
 
-    public static Fin<Unit> Release(string captureRoot) => Op.Of().Catch(() => {
+    public static Fin<Unit> Release(string captureRoot) => Try.lift(() => {
         string path = Path(captureRoot);
         if (System.IO.File.Exists(path)) { System.IO.File.Delete(path); }
         return Fin.Succ(unit);
-    });
+    }).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -378,13 +378,13 @@ public static class DumpArtifacts {
     }
 
     static IO<ArtifactPayload> Captured(DumpPolicy policy, string path) =>
-        IO.liftAsync(async envIO => await Op.Of(nameof(Captured)).Catch(async token => {
+        IO.liftAsync(async envIO => await Try.lift(async token => {
             await new DiagnosticsClient(Environment.ProcessId)
                 .WriteDumpAsync(policy.Kind, path, policy.Flags, token).ConfigureAwait(false);
             return Fin.Succ(new ArtifactPayload(
                 new ReadOnlyMemory<byte>(await File.ReadAllBytesAsync(path, token).ConfigureAwait(false)),
                 MaskTally.Empty));
-        }, envIO.Token)).Bind(static captured => IO.lift(captured));
+        }).Run().Bind(static inner => inner)).Bind(static captured => IO.lift(captured));
 
     static IO<ArtifactPayload> Walked(DumpPolicy policy, string captureRoot, JsonTypeInfo<DumpTriage> contract) =>
         IO.lift(() => DumpTriage.Walk(DumpTriage.Path(captureRoot), policy))
@@ -396,7 +396,7 @@ public static class DumpArtifacts {
 ## [05]-[CAPTURE_PIPELINE]
 
 - Owner: `SupportFault` `[Union]` the fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Support`; `Code` derive SEALED); `SupportPolicy` the config-bound value row; `SupportRuntime` the bound capture context; `EntryState` `[Union]` the written-or-empty manifest state; `ArtifactRow` the interior row a producer yields; `SupportCapture` the window-freeze, coalesce, ordered fan-in, cleanup, and cap fold.
-- Entry: `SupportCapture.Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportOutcome>` — `IO` carries the freeze-fan-redact-cap-bundle effect and the fold opens, marks, and releases its OWN latency ledger.
+- Entry: `Error.New(SupportRuntime runtime.Message, SupportRuntime runtime)` returns `IO<SupportOutcome>` — `IO` carries the freeze-fan-redact-cap-bundle effect and the fold opens, marks, and releases its OWN latency ledger.
 - Law: the capture fold IS the operation, so it opens its own ledger where the drain conductor and the outbound hop RECEIVE one. That is the discriminant: a fold running inside a caller's operation takes the context that caller already opened, while a fold triggered by a fault commit, a watchdog miss, or a control verb has no ambient operation to take one from — which is why the ledger is a per-call factory column rather than a `SupportRuntime` field a pooled context outlives.
 - Law: every `Cleanup` delegate runs EXACTLY once. Folding runs OUTSIDE the compare-and-swap and the settled roster commits through `Cell.Commit`, where a fold inside the CAS body re-ran every release on each contended retry (E-A35).
 - Auto: the coalesce gate seats through `Cell.Seat`, so the winner reads `Committed` and every arriving trigger reads `Ceded` with the live correlation on the transition rather than probing the cell a second time; `IncidentBuffers.Flush` replays both held scopes into the frozen window before contributor fan-in and its own scope-count write rides its own path without gating the capture, because an incident bundle is the evidence of the failure being assembled; the artifact cut falls in ONE place, so the manifest's byte count, the content key's preimage, and the zip member are three reads of one projection.
@@ -481,7 +481,6 @@ public sealed record SupportRuntime(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupportCapture {
-    static readonly Op CaptureWork = Op.Of(nameof(Capture));
 
     public static IO<SupportOutcome> Capture(SupportRuntime runtime, SupportTrigger trigger) =>
         trigger.Facts() switch {
@@ -528,7 +527,7 @@ public static class SupportCapture {
         (kind.Dump | runtime.Watchdog.Map(static held => held.Policy)).IfNone(DumpPolicy.Snapshot);
 
     static IO<MonotonicStamp> Stamped(SupportRuntime runtime) =>
-        IO.lift(() => runtime.Clocks.Line.Capture(CaptureWork));
+        IO.lift(() => Error.New(CaptureWork.Message, CaptureWork));
 
     static IO<ArtifactRow> Produced(SupportArtifact row, CaptureWindow window, SupportPolicy policy) =>
         (row.Produce(window).Map(payload => Written(row, payload, policy))
@@ -543,7 +542,7 @@ public static class SupportCapture {
     static Seq<ArtifactRow> Refusal(Seq<ArtifactRow> faults, SupportArtifact row) =>
         row.Cleanup.Match(
             None: () => faults,
-            Some: release => Op.Of().Catch(release).Match(
+            Some: release => Try.lift(release).Run().Bind(static inner => inner).Match(
                 Succ: _ => faults,
                 Fail: error => faults.Add(Refused(
                     $"{row.Name}-cleanup", row.Classification,
@@ -672,7 +671,6 @@ internal static class BundleMap {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupportLedger {
-    static readonly Op BundleWork = Op.Of(nameof(Bundle));
 
     public static IO<SupportOutcome> Sweep(SupportRuntime runtime) =>
         IO.lift(() => runtime.Clocks.Now).Map(at => Swept(runtime, at));
@@ -685,7 +683,7 @@ public static class SupportLedger {
             manifest, path, new FileInfo(path).Length, Duration.FromTimeSpan(elapsed));
 
     static IO<TimeSpan> Spanned(ClockPolicy clocks, MonotonicStamp opened) =>
-        IO.lift(() => clocks.Line.Capture(BundleWork)
+        IO.lift(() => Error.New(BundleWork.Message, BundleWork)
                 .Bind(closed => clocks.Line.Elapsed(opened, closed, BundleWork)));
 
     static string Written(SupportRuntime runtime, SupportManifest manifest, Seq<ArtifactRow> rows) {

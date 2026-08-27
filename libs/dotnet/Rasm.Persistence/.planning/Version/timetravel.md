@@ -178,8 +178,8 @@ public static class TimeTravel {
         HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (ContentAddress.Of(e, a.Header.Tolerance).ToValue(), e)));
         HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (ContentAddress.Of(e, b.Header.Tolerance).ToValue(), e)));
         Seq<(Relationship Edge, ChangeKind Kind, Option<UInt128> Key)> changed =
-            toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Added, Some(key))).Values)
-            + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Removed, Some(key))).Values);
+            toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey()).Map(static (key, e) => (e, ChangeKind.Added)).Values)
+            + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey()).Map(static (key, e) => (e, ChangeKind.Removed)).Values);
         return changed.Bind(row => row.Edge.Members.Filter(query.Selects)
             .Map(node => new KeyDelta(node, nameof(ElementGraph.Edges), BlameAxis.Edge, row.Kind,
                 row.Kind == ChangeKind.Removed ? row.Key : None, row.Kind == ChangeKind.Added ? row.Key : None)));
@@ -245,11 +245,11 @@ public static class TimeTravel {
                 : IO.pure(new BisectOutcome(new BisectVerdict.NeverFlipped(), found.Probes)));
     }
 
-    static Fin<ScrubFrame> FlipFrame(int index, IEvent<GraphEvent> e, ElementGraph before, ElementGraph after, Op key) {
+    static Fin<ScrubFrame> FlipFrame(int index, IEvent<GraphEvent> e, ElementGraph before, ElementGraph after) {
         GraphMembers members = GraphMembers.Of(before);
         ContentAddress priorAddress = ContentAddress.OfGraph(members);
-        return from author in AuthorshipOf(e, key)
-               from step in members.Advance(e.Data.Body, key)
+        return from author in AuthorshipOf(e)
+               from step in members.Advance(e.Data.Body)
                let afterAddress = ContentAddress.OfGraph(step.Resolve(_ => GraphMembers.Of(after)))
                select new ScrubFrame(index, e.Version, e.Data.Lifecycle,
                    new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), author.Actor,
@@ -268,7 +268,7 @@ public static class TimeTravel {
         select (reconstructed.Graph, new Reconstruction(query.Cut, reconstructed.Version, events.Count, reconstructed.Floor, ContentAddress.OfGraph(reconstructed.Graph).ToValue()));
 
     static Option<(NodeId Node, string Member)> CellOf(MemberPath path) =>
-        toSeq(path.Segments).Choose(static seg => seg.Value is NodeId key ? Some(key) : None).Head
+        toSeq(path.Segments).Choose(static seg => seg.Value is NodeId key ? Some() : None).Head
             .Map(node => (node, path.ToString()));
 
     static Seq<(NodeId Node, string Member, BlameAxis Axis)> Touched(IEvent<GraphEvent> e) {
@@ -280,14 +280,14 @@ public static class TimeTravel {
             + delta.RemovedEdges.Bind(static r => r.Members.Map(ep => (ep, nameof(GraphDelta.RemovedEdges), BlameAxis.Edge)));
     }
 
-    static Fin<(string Actor, Guid Origin)> AuthorshipOf(IEvent<GraphEvent> e, Op key) =>
+    static Fin<(string Actor, Guid Origin)> AuthorshipOf(IEvent<GraphEvent> e) =>
         e.Headers is { } headers
         && headers.TryGetValue("actor", out object? actor)
         && actor?.ToString() is { Length: > 0 } subject
         && headers.TryGetValue("origin", out object? origin)
         && Guid.TryParse(origin?.ToString(), out Guid store)
             ? Fin.Succ((subject, store))
-            : Fin.Fail<(string Actor, Guid Origin)>(key.InvalidInput());
+            : Fin.Fail<(string Actor, Guid Origin)>(new KernelFault.InvalidInput());
 }
 ```
 

@@ -17,7 +17,7 @@ The module is GENERIC over the fact band it carries. `IUiFact` is the floor, `Ui
 - Owner: `DisplayFacts` the per-screen geometry and density snapshot; `Displays` the query surface over the screen set; `PointerSnapshot` the captured pointer frame; `InputState` the live device reads; `CursorRow` the cursor vocabulary; `PointerFact` the admitted per-event evidence.
 - Cases: a display query is `Primary`, `All`, `At(point)`, or `Covering(rect)` — four shapes over one entry, so an absent screen REFUSES on the result rather than dereferencing a null the host returns.
 - Cases: `CursorRow` carries the platform's whole built-in roster — ten pointer shapes and the eight directional resize shapes — because the roster's provenance is the host's own closed cursor set and a partial mirror sends a boundary back to naming host handles by hand.
-- Entry: `Displays.Resolve(query, key)` reads the screen set; `Displays.Capture(bounds, key)` is the ONE member minting a host image resource, and it returns a `Lease`; `InputState.Snapshot` captures the frame, `Held` reads the live provider predicate, `Locked` answers only for keys the platform's own lock set admits, and `Observe` leases a modifier watch.
+- Entry: `Displays.Resolve(query, key)` reads the screen set; `Error.New(bounds.Message, bounds)` is the ONE member minting a host image resource, and it returns a `Lease`; `InputState.Snapshot` captures the frame, `Held` reads the live provider predicate, `Locked` answers only for keys the platform's own lock set admits, and `Observe` leases a modifier watch.
 - Auto: every density and geometry column is an admitted owner, so a screen's scale, its backing scale, its two dots-per-inch readings, and its colour depth cannot enter as raw primitives and the validity fold states only the claims the owners do not already hold. Both the logical and the REAL scale ride the snapshot, because a backing scale and a logical scale disagree on exactly the displays a hairline is drawn wrong on.
 - Auto: `PointerFact` carries BOTH frames it was measured in — the control-local point and the content point — because a consumer that re-derives one from the other must know the scroll offset and the density, and every consumer that guessed produced a hit test off by the scroll. Finiteness is admitted at the boundary, so an interior consumer never re-checks.
 - Law: `PointerSnapshot` is a CAPTURED frame and `InputState.Held` is a LIVE read, and the two never substitute — a snapshot's button mask answers what was true when the frame was taken, and a gesture that reads it as "is the button down now" drops every release that happened since.
@@ -75,8 +75,8 @@ public sealed partial class CursorRow {
 
     [UseDelegateFromConstructor] internal partial Cursor Resolve();
 
-    public Fin<Unit> Apply(Control control, Op key);
-    public Fin<Unit> Override(Op key);
+    public Fin<Unit> Apply(Control control);
+    public Fin<Unit> Override();
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -106,7 +106,7 @@ public readonly record struct PointerSnapshot(EtoPointF Position, MouseButtons B
 public readonly record struct PointerFact(
     EtoPointF Local, EtoPointF Content, MouseButtons Buttons, Keys Modifiers,
     EtoSizeF Delta, Option<UnitInterval> Pressure) : IValidityEvidence {
-    public static Fin<PointerFact> Of(MouseEventArgs args, Control source, Op key);
+    public static Fin<PointerFact> Of(MouseEventArgs args, Control source);
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(value: Local.X), ValidityClaim.Finite(value: Local.Y),
@@ -127,15 +127,15 @@ public static class UiClaim {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class Displays {
-    public static Fin<Seq<DisplayFacts>> Resolve(DisplayQuery query, Op? key = null);
-    public static Fin<Lease<EtoImage>> Capture(EtoRectangleF bounds, Op? key = null);
+    public static Fin<Seq<DisplayFacts>> Resolve(DisplayQuery query);
+    public static Fin<Lease<EtoImage>> Capture(EtoRectangleF bounds);
 }
 
 public static class InputState {
-    public static Fin<PointerSnapshot> Snapshot(Op? key = null);
-    public static Fin<bool> Held(MouseButtons buttons, Op? key = null);
+    public static Fin<PointerSnapshot> Snapshot();
+    public static Fin<bool> Held(MouseButtons buttons);
     public static Option<bool> Locked(Keys key);
-    public static Fin<Lease<IDisposable>> Observe(Action<Keys> publish, Op? key = null);
+    public static Fin<Lease<IDisposable>> Observe(Action<Keys> publish);
 }
 ```
 
@@ -225,11 +225,11 @@ public sealed partial class PointerPhase {
 
     [UseDelegateFromConstructor] internal partial bool Admit(MouseEventArgs args);
 
-    internal Fin<IDisposable> Attach(Control control, Func<PointerFact, InputVerdict> respond, Op key) =>
-        Bind(control: control, respond: respond, key: key, table: Table, admit: Admit);
+    internal Fin<IDisposable> Attach(Control control, Func<PointerFact, InputVerdict> respond) =>
+        Bind(control: control, respond: respond, table: Table, admit: Admit);
 
     private static Fin<IDisposable> Bind(
-        Control control, Func<PointerFact, InputVerdict> respond, Op key,
+        Control control, Func<PointerFact, InputVerdict> respond,
         EventTable<Control, MouseEventArgs> table, Func<MouseEventArgs, bool> admit);
 }
 
@@ -244,11 +244,11 @@ public sealed partial class KeyPhase {
 
     internal EventTable<Control, KeyEventArgs> Table { get; }
 
-    internal Fin<IDisposable> Attach(Control control, Func<KeyEventArgs, InputVerdict> respond, Op key) =>
-        Bind(control: control, respond: respond, key: key, table: Table);
+    internal Fin<IDisposable> Attach(Control control, Func<KeyEventArgs, InputVerdict> respond) =>
+        Bind(control: control, respond: respond, table: Table);
 
     private static Fin<IDisposable> Bind(
-        Control control, Func<KeyEventArgs, InputVerdict> respond, Op key,
+        Control control, Func<KeyEventArgs, InputVerdict> respond,
         EventTable<Control, KeyEventArgs> table);
 }
 
@@ -371,7 +371,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Owner: `PickAxis` the pick capability vocabulary and `PickGates` its three named sets; `GripEdge` and `GripCorner` the two-dimensional grip vocabularies; `EdgeGrip` the grip family; `IUiSource<TFact>` the source floor; `UiSource` the Eto event-source roster; `EventAnchor` what a subscription attaches to; `Atomicity` the seating posture; `UiEvents` the one observe entry; `EvidenceDrain<TFact>` the bounded evidence channel and the total order's one minter.
 - Cases: `EventAnchor` is `OnControl`, `OnWindow`, `Ambient`, or `OnClock` — four attach shapes over one entry, so a subscription's lifetime is recoverable from the value. Five binders serve them, because the ambient case splits by publisher: an application event and a static input table are two host surfaces under one anchor.
 - Cases: `Atomicity` is `Partial` — a refused row leaves the others live and the subscription reports which — or `AllOrNothing`, which detaches every seated row and refuses the whole observe. Both are lawful postures a caller NAMES: a diagnostic panel wants whatever it can get and a replayable journal wants all or none, and neither can be inferred from the row set.
-- Entry: `UiEvents.Observe(anchor, drain, atomicity, key, rows)` attaches the named source rows into ONE drain and returns a `Lease<UiSubscription<TFact>>` whose disposal detaches every row in reverse order.
+- Entry: `UiEvents.Observe(anchor, drain, atomicity, rows)` attaches the named source rows into ONE drain and returns a `Lease<UiSubscription<TFact>>` whose disposal detaches every row in reverse order.
 - Auto: the roster carries 30 rows — twenty control, four window, five ambient, one clock — each naming its event table and the fact it projects. That pairing is the whole reason a consumer never writes `+=`: the table carries add and remove together, so a row stating a subscription it cannot undo is unspellable. The fourteen rows with a phase counterpart read that phase row's table rather than restating it.
 - Auto: pick capability is a `CapabilitySet<PickAxis>`, so the five-bool gate both boundaries carried becomes one column and the three named gates become three set literals — `Whole` is the full set, `Bodies` is the set difference the record-`with` subtraction was spelling by hand, and `Wiring` is a singleton. Each is accessor-backed, because the generated roster fills from its own static constructor and an eager static field would freeze an EMPTY set.
 - Law: the ORDINAL has one minter. `EvidenceDrain.Publish` mints the stamp and the ordinal together under one compare-and-swap and refuses at saturation, so two sources publishing in one frame serialize and a replay reads the order the sink observed. NAMED LOSS: the free `Action<UiEvent>` publication sink deletes — `Observe` writes into a drain and a consumer reads `drain.Reader`. Witness: an inline publish closure becomes a read loop over the reader, and that is precisely what makes the order replayable rather than callback-scheduled.
@@ -453,7 +453,7 @@ public abstract partial record EventAnchor {
 
 public interface IUiSource<TFact> where TFact : IUiFact {
     string Key { get; }
-    Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<TFact>>> emit, Op key);
+    Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<TFact>>> emit);
 }
 
 [SmartEnum<string>]
@@ -461,176 +461,176 @@ public interface IUiSource<TFact> where TFact : IUiFact {
 public sealed partial class UiSource : IUiSource<UiFact> {
     // --- [CONTROL]
     public static readonly UiSource PointerOver = new(key: "pointer.over",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.Over.Table, Gesture(PointerPhase.Over)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.Over.Table, Gesture(PointerPhase.Over)));
     public static readonly UiSource PointerLeave = new(key: "pointer.leave",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.Leave.Table, Gesture(PointerPhase.Leave)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.Leave.Table, Gesture(PointerPhase.Leave)));
     public static readonly UiSource PointerDown = new(key: "pointer.down",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.Down.Table, Gesture(PointerPhase.Down)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.Down.Table, Gesture(PointerPhase.Down)));
     public static readonly UiSource PointerDrag = new(key: "pointer.drag",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.Drag.Table, Gesture(PointerPhase.Drag)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.Drag.Table, Gesture(PointerPhase.Drag)));
     public static readonly UiSource PointerUp = new(key: "pointer.up",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.Up.Table, Gesture(PointerPhase.Up)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.Up.Table, Gesture(PointerPhase.Up)));
     public static readonly UiSource PointerWheel = new(key: "pointer.wheel",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.Wheel.Table, Gesture(PointerPhase.Wheel)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.Wheel.Table, Gesture(PointerPhase.Wheel)));
     public static readonly UiSource PointerDouble = new(key: "pointer.double",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, PointerPhase.DoubleClick.Table, Gesture(PointerPhase.DoubleClick)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, PointerPhase.DoubleClick.Table, Gesture(PointerPhase.DoubleClick)));
 
     public static readonly UiSource KeyDown = new(key: "key.down",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, KeyPhase.KeyDown.Table, Keyed(KeyPhase.KeyDown)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, KeyPhase.KeyDown.Table, Keyed(KeyPhase.KeyDown)));
     public static readonly UiSource KeyUp = new(key: "key.up",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit, KeyPhase.KeyUp.Table, Keyed(KeyPhase.KeyUp)));
+        attach: static (anchor, emit, key) => OnControl(anchor, emit, KeyPhase.KeyUp.Table, Keyed(KeyPhase.KeyUp)));
     public static readonly UiSource TextInput = new(key: "key.text",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnControl(anchor, emit,
             new EventTable<Control, TextInputEventArgs>(
                 Add: static (c, h) => c.TextInput += h, Drop: static (c, h) => c.TextInput -= h),
             static (_, args, _) => Fin.Succ<UiFact>(new UiFact.TextCase(Text: args.Text))));
 
     public static readonly UiSource DragEnter = new(key: "drag.enter",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, key, emit, DragPhase.Enter.Table, Dragged(DragPhase.Enter)));
+            OnControl(anchor, emit, DragPhase.Enter.Table, Dragged(DragPhase.Enter)));
     public static readonly UiSource DragOver = new(key: "drag.over",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, key, emit, DragPhase.Over.Table, Dragged(DragPhase.Over)));
+            OnControl(anchor, emit, DragPhase.Over.Table, Dragged(DragPhase.Over)));
     public static readonly UiSource DragLeave = new(key: "drag.leave",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, key, emit, DragPhase.Leave.Table, Dragged(DragPhase.Leave)));
+            OnControl(anchor, emit, DragPhase.Leave.Table, Dragged(DragPhase.Leave)));
     public static readonly UiSource DragDrop = new(key: "drag.drop",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, key, emit, DragPhase.Drop.Table, Dragged(DragPhase.Drop)));
+            OnControl(anchor, emit, DragPhase.Drop.Table, Dragged(DragPhase.Drop)));
     public static readonly UiSource DragEnd = new(key: "drag.end",
         attach: static (anchor, emit, key) =>
-            OnControl(anchor, key, emit, DragPhase.End.Table, Dragged(DragPhase.End)));
+            OnControl(anchor, emit, DragPhase.End.Table, Dragged(DragPhase.End)));
 
     public static readonly UiSource FocusGained = new(key: "focus.gained",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnControl(anchor, emit,
             new EventTable<Control, EventArgs>(
                 Add: static (c, h) => c.GotFocus += h, Drop: static (c, h) => c.GotFocus -= h),
             Focused(gained: true)));
     public static readonly UiSource FocusLost = new(key: "focus.lost",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnControl(anchor, emit,
             new EventTable<Control, EventArgs>(
                 Add: static (c, h) => c.LostFocus += h, Drop: static (c, h) => c.LostFocus -= h),
             Focused(gained: false)));
     public static readonly UiSource Resized = new(key: "control.resized",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnControl(anchor, emit,
             new EventTable<Control, EventArgs>(
                 Add: static (c, h) => c.SizeChanged += h, Drop: static (c, h) => c.SizeChanged -= h),
             static (control, _, _) => Fin.Succ<UiFact>(new UiFact.BoundsCase(Bounds: control.Bounds))));
     public static readonly UiSource Loaded = new(key: "control.loaded",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnControl(anchor, emit,
             new EventTable<Control, EventArgs>(
                 Add: static (c, h) => c.Load += h, Drop: static (c, h) => c.Load -= h),
             Staged<Control, EventArgs>(LifecycleStage.Load)));
     public static readonly UiSource Shown = new(key: "control.shown",
-        attach: static (anchor, emit, key) => OnControl(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnControl(anchor, emit,
             new EventTable<Control, EventArgs>(
                 Add: static (c, h) => c.Shown += h, Drop: static (c, h) => c.Shown -= h),
             Staged<Control, EventArgs>(LifecycleStage.Shown)));
 
     // --- [WINDOW]
     public static readonly UiSource Closing = new(key: "window.closing",
-        attach: static (anchor, emit, key) => OnWindow(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnWindow(anchor, emit,
             new EventTable<Window, CancelEventArgs>(
                 Add: static (w, h) => w.Closing += h, Drop: static (w, h) => w.Closing -= h),
             Staged<Window, CancelEventArgs>(LifecycleStage.Closing)));
     public static readonly UiSource Closed = new(key: "window.closed",
-        attach: static (anchor, emit, key) => OnWindow(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnWindow(anchor, emit,
             new EventTable<Window, EventArgs>(
                 Add: static (w, h) => w.Closed += h, Drop: static (w, h) => w.Closed -= h),
             Staged<Window, EventArgs>(LifecycleStage.Closed)));
     public static readonly UiSource StateChanged = new(key: "window.state",
-        attach: static (anchor, emit, key) => OnWindow(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnWindow(anchor, emit,
             new EventTable<Window, EventArgs>(
                 Add: static (w, h) => w.WindowStateChanged += h, Drop: static (w, h) => w.WindowStateChanged -= h),
             static (window, _, _) => Fin.Succ<UiFact>(new UiFact.StateCase(State: window.WindowState))));
     public static readonly UiSource DensityChanged = new(key: "window.density",
-        attach: static (anchor, emit, key) => OnWindow(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnWindow(anchor, emit,
             new EventTable<Window, EventArgs>(
                 Add: static (w, h) => w.LogicalPixelSizeChanged += h,
                 Drop: static (w, h) => w.LogicalPixelSizeChanged -= h),
-            static (window, _, op) => op.AcceptValidated<PositiveMagnitude>(
+            static (window, _, op) => FactoryBridge.Accept<PositiveMagnitude>(
                     PositiveMagnitude.Validate(window.LogicalPixelSize, provider: null, out PositiveMagnitude scale),
                     scale)
                 .Map(static admitted => (UiFact)new UiFact.DensityCase(Scale: admitted))));
 
     // --- [AMBIENT]
     public static readonly UiSource Initialized = new(key: "app.initialized",
-        attach: static (anchor, emit, key) => OnApp(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnApp(anchor, emit,
             new EventTable<Application, EventArgs>(
                 Add: static (a, h) => a.Initialized += h, Drop: static (a, h) => a.Initialized -= h),
             Staged<Application, EventArgs>(LifecycleStage.Initialized)));
     public static readonly UiSource Terminating = new(key: "app.terminating",
-        attach: static (anchor, emit, key) => OnApp(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnApp(anchor, emit,
             new EventTable<Application, CancelEventArgs>(
                 Add: static (a, h) => a.Terminating += h, Drop: static (a, h) => a.Terminating -= h),
             Staged<Application, CancelEventArgs>(LifecycleStage.Terminating)));
     public static readonly UiSource Raised = new(key: "app.raised",
-        attach: static (anchor, emit, key) => OnApp(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnApp(anchor, emit,
             new EventTable<Application, UnhandledExceptionEventArgs>(
                 Add: static (a, h) => a.UnhandledException += h,
                 Drop: static (a, h) => a.UnhandledException -= h),
-            static (_, args, op) => op.Need(value: args.ExceptionObject as Exception)
-                .Map(raised => (UiFact)new UiFact.FaultCase(Cause: op.Capture(raised)))));
+            static (_, args, op) => Admit.Need(value: args.ExceptionObject as Exception)
+                .Map(raised => (UiFact)new UiFact.FaultCase(Cause: Error.New(raised.Message, raised)))));
     public static readonly UiSource Notified = new(key: "app.notified",
-        attach: static (anchor, emit, key) => OnApp(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnApp(anchor, emit,
             new EventTable<Application, NotificationEventArgs>(
                 Add: static (a, h) => a.NotificationActivated += h,
                 Drop: static (a, h) => a.NotificationActivated -= h),
             static (_, args, _) => Fin.Succ<UiFact>(new UiFact.NoticeCase(Id: args.ID, Data: Optional(args.UserData)))));
     public static readonly UiSource ModifiersChanged = new(key: "input.modifiers",
-        attach: static (anchor, emit, key) => OnAmbient(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnAmbient(anchor, emit,
             static h => Keyboard.ModifiersChanged += h, static h => Keyboard.ModifiersChanged -= h,
             static _ => Fin.Succ<UiFact>(new UiFact.ModifierCase(Modifiers: Keyboard.Modifiers))));
 
     // --- [CLOCK]
     public static readonly UiSource Beat = new(key: "clock.beat",
-        attach: static (anchor, emit, key) => OnClock(anchor, key, emit,
+        attach: static (anchor, emit, key) => OnClock(anchor, emit,
             static (clock, observer, op) => clock.Tap(observer: observer, key: op),
             static beat => Fin.Succ<UiFact>(new UiFact.BeatCase(Beat: beat))));
 
     [UseDelegateFromConstructor]
-    public partial Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<UiFact>>> emit, Op key);
+    public partial Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<UiFact>>> emit);
 
     private static Fin<IDisposable> OnControl<TArgs>(
-        EventAnchor anchor, Op key, Action<Func<Fin<UiFact>>> emit,
+        EventAnchor anchor, Action<Func<Fin<UiFact>>> emit,
         EventTable<Control, TArgs> table,
-        Func<Control, TArgs, Op, Fin<UiFact>> project) where TArgs : EventArgs;
+        Func<Control, TArgs, Fin<UiFact>> project) where TArgs : EventArgs;
 
     private static Fin<IDisposable> OnWindow<TArgs>(
-        EventAnchor anchor, Op key, Action<Func<Fin<UiFact>>> emit,
+        EventAnchor anchor, Action<Func<Fin<UiFact>>> emit,
         EventTable<Window, TArgs> table,
-        Func<Window, TArgs, Op, Fin<UiFact>> project) where TArgs : EventArgs;
+        Func<Window, TArgs, Fin<UiFact>> project) where TArgs : EventArgs;
 
     private static Fin<IDisposable> OnApp<TArgs>(
-        EventAnchor anchor, Op key, Action<Func<Fin<UiFact>>> emit,
+        EventAnchor anchor, Action<Func<Fin<UiFact>>> emit,
         EventTable<Application, TArgs> table,
-        Func<Application, TArgs, Op, Fin<UiFact>> project) where TArgs : EventArgs;
+        Func<Application, TArgs, Fin<UiFact>> project) where TArgs : EventArgs;
 
     private static Fin<IDisposable> OnAmbient(
-        EventAnchor anchor, Op key, Action<Func<Fin<UiFact>>> emit,
+        EventAnchor anchor, Action<Func<Fin<UiFact>>> emit,
         Action<EventHandler<EventArgs>> add, Action<EventHandler<EventArgs>> drop,
-        Func<Op, Fin<UiFact>> project);
+        Func< Fin<UiFact>> project);
 
     private static Fin<IDisposable> OnClock(
-        EventAnchor anchor, Op key, Action<Func<Fin<UiFact>>> emit,
-        Func<UiClock, Action<PulseBeat>, Op, Fin<Lease<IDisposable>>> tap,
+        EventAnchor anchor, Action<Func<Fin<UiFact>>> emit,
+        Func<UiClock, Action<PulseBeat>, Fin<Lease<IDisposable>>> tap,
         Func<PulseBeat, Fin<UiFact>> project);
 
-    private static Func<Control, MouseEventArgs, Op, Fin<UiFact>> Gesture(PointerPhase phase) =>
-        (control, args, key) => PointerFact.Of(args: args, source: control, key: key)
+    private static Func<Control, MouseEventArgs, Fin<UiFact>> Gesture(PointerPhase phase) =>
+        (control, args, key) => PointerFact.Of(args: args, source: control)
             .Map(fact => (UiFact)new UiFact.GestureCase(
                 Fact: new GestureFact(Phase: phase, Fact: fact, Drag: Option<DragEvidence>.None)));
 
-    private static Func<Control, KeyEventArgs, Op, Fin<UiFact>> Keyed(KeyPhase phase) =>
+    private static Func<Control, KeyEventArgs, Fin<UiFact>> Keyed(KeyPhase phase) =>
         (_, args, _) => Fin.Succ<UiFact>(new UiFact.KeyCase(Key: args.Key, Modifiers: args.Modifiers, Phase: phase));
 
-    private static Func<Control, DragEventArgs, Op, Fin<UiFact>> Dragged(DragPhase phase) =>
+    private static Func<Control, DragEventArgs, Fin<UiFact>> Dragged(DragPhase phase) =>
         (_, args, _) => Fin.Succ<UiFact>(new UiFact.DragCase(At: args.Location, Effect: args.AllowedEffects, Phase: phase));
 
-    private static Func<TOwner, TArgs, Op, Fin<UiFact>> Staged<TOwner, TArgs>(LifecycleStage stage) =>
+    private static Func<TOwner, TArgs, Fin<UiFact>> Staged<TOwner, TArgs>(LifecycleStage stage) =>
         (_, _, _) => Fin.Succ<UiFact>(new UiFact.LifeCase(Stage: stage));
 
-    private static Func<Control, EventArgs, Op, Fin<UiFact>> Focused(bool gained) =>
+    private static Func<Control, EventArgs, Fin<UiFact>> Focused(bool gained) =>
         (_, _, _) => Fin.Succ<UiFact>(new UiFact.FocusCase(Gained: gained));
 }
 
@@ -668,16 +668,15 @@ public sealed class EvidenceDrain<TFact> : IDisposable where TFact : IUiFact {
     public static Fin<Lease<EvidenceDrain<TFact>>> Open(
         MonotonicTimeline clock,
         Option<DrainPolicy> policy = default,
-        Option<Action<UiEvent<TFact>>> onShed = default,
-        Op? key = null);
+        Option<Action<UiEvent<TFact>>> onShed = default);
 
     public ChannelReader<UiEvent<TFact>> Reader { get; }
     public long Shed { get; }
     public long Refused { get; }
 
-    public Fin<UiEvent<TFact>> Publish(IUiSource<TFact> source, Func<Fin<TFact>> fact, Op key);
+    public Fin<UiEvent<TFact>> Publish(IUiSource<TFact> source, Func<Fin<TFact>> fact);
 
-    public Fin<Unit> Complete(Op? key = null);
+    public Fin<Unit> Complete();
 
     public void Dispose();
 }
@@ -688,7 +687,6 @@ public static class UiEvents {
         EventAnchor anchor,
         EvidenceDrain<TFact> drain,
         Atomicity atomicity,
-        Op? key = null,
         params ReadOnlySpan<IUiSource<TFact>> rows) where TFact : IUiFact;
 }
 ```

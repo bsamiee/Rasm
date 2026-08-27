@@ -15,7 +15,7 @@ Every mutation enforces the contract's STRUCTURAL edge law through the generated
 - Owner: `WorkingGraph` the HAMT live-authoring form (`HashMap<NodeId, Node>` + `ImmutableList<Relationship>`); `GraphMutation` the `[Union]` mutation request; `GraphDelta` the immutable change record that IS the persistable event body; `NodeSlot` and `EdgeSlot` the per-key slot vocabularies whose `Advance` transition tables state BOTH coalescence laws as declared rows (the edge table carries no `Revised` position — an edge has no key to revise under, so the two tables are deliberately distinct types); `NodePartition` the three node lists as one value the slot fold projects onto; the structural edge law `LegalLink`/`LegalConnect`/`LegalAssign`.
 - Cases: `PutNode` (upsert a node — add if absent, revise if present, recording the before/after) · `DropNode` (remove a node and CASCADE its incident edges) · `Link` (add an edge after validating endpoint presence and structural legality) · `Unlink` (remove an edge by structural equality) · `Reheader` (establish/revise the model header on the model-creating event — the interactive-authoring counterpart to the projector's `GraphDelta.Reheader` builder) · `Batch` (a `Seq<GraphMutation>` folded fail-fast into one accumulated delta); the closed mutation family.
 - Cases: `NodeSlot` closes the per-id positions a delta can hold — `Absent` (untouched) · `Added` (minted) · `Revised` (re-set over a base-present node) · `Erased` (removed with its edges cascaded) · `Recreated` (the lone deliberate erase-then-mint pair on one id); `EdgeSlot` closes the per-edge positions — `Absent` · `Added` · `Erased` · `Restored` (the entangled erase-then-re-add pair a surviving node erase keeps load-bearing).
-- Entry: `WorkingGraph.Thaw(ElementGraph)` lowers a frozen snapshot into the HAMT form; `Apply(GraphMutation, key)` applies a mutation, `Fin<T>` returning the next `WorkingGraph` and the `GraphDelta` it produced (refusing `ElementFault.NodeAbsent` on a link to an absent endpoint or absent realizing intermediary, `ElementFault.RelationshipInvalid` on an illegal endpoint-kind pair, a non-`Generic` self-loop, or an endpoint-coincident realizing node, `ElementFault.DeltaConflict` on a drop-absent or duplicate link); `Freeze(header)` lifts the HAMT form back to a frozen `ElementGraph` under the resolved header (rebuilding the incidence index and `QuikGraph` view once), every caller resolving that header through the one `GraphDelta.HeaderFor(graph)` member; `GraphDelta.ReplayOnto(ElementGraph)` folds a delta into a frozen graph for the persistence rehydrate (re-applying RAW, the delta validated when produced); `GraphDelta.AdmitOnto(ElementGraph, Op)` is the structural-VALIDATING sibling routing a projector-built delta through `WorkingGraph.Apply` so `LegalLink` runs per `Link` (the `Projection/projection#PROJECTION_CONTRACT` `Assemble` admission step), `Fin<T>` returning the frozen graph and the re-derived event body and refusing `RelationshipInvalid`/`NodeAbsent`/`DeltaConflict` on a structurally-illegal projection. The snapshot-subtraction `Diff` DIED with zero consumers (its named consumers reach `Reheader`+`AdmitOnto`); a re-import event body re-derives at the producer that owns both snapshots when one materializes.
+- Entry: `WorkingGraph.Thaw(ElementGraph)` lowers a frozen snapshot into the HAMT form; `Apply(GraphMutation)` applies a mutation, `Fin<T>` returning the next `WorkingGraph` and the `GraphDelta` it produced (refusing `ElementFault.NodeAbsent` on a link to an absent endpoint or absent realizing intermediary, `ElementFault.RelationshipInvalid` on an illegal endpoint-kind pair, a non-`Generic` self-loop, or an endpoint-coincident realizing node, `ElementFault.DeltaConflict` on a drop-absent or duplicate link); `Freeze(header)` lifts the HAMT form back to a frozen `ElementGraph` under the resolved header (rebuilding the incidence index and `QuikGraph` view once), every caller resolving that header through the one `GraphDelta.HeaderFor(graph)` member; `GraphDelta.ReplayOnto(ElementGraph)` folds a delta into a frozen graph for the persistence rehydrate (re-applying RAW, the delta validated when produced); `GraphDelta.AdmitOnto(ElementGraph, Op)` is the structural-VALIDATING sibling routing a projector-built delta through `WorkingGraph.Apply` so `LegalLink` runs per `Link` (the `Projection/projection#PROJECTION_CONTRACT` `Assemble` admission step), `Fin<T>` returning the frozen graph and the re-derived event body and refusing `RelationshipInvalid`/`NodeAbsent`/`DeltaConflict` on a structurally-illegal projection. The snapshot-subtraction `Diff` DIED with zero consumers (its named consumers reach `Reheader`+`AdmitOnto`); a re-import event body re-derives at the producer that owns both snapshots when one materializes.
 - Auto: `Apply` dispatches the generated total `Switch`: `PutNode` adds or revises, `DropNode` removes the node and every incident edge in one sweep, `Link` admits one legal non-duplicate edge, `Unlink` removes one structural match, `Reheader` records only the header, and `Batch` left-folds sub-mutations through `Merge`. `LegalLink` and `LegalAssign` are generated total dispatches with no runtime-default arm, so an `AssignKind` row lands its arm here or the dispatch stops compiling. `WorkingGraph` preserves structural sharing on the HAMT until `Freeze` materializes the read snapshot.
 - Law: `NodeSlot.Advance` is the SINGLE statement of the node coalescence law — `Merge` folds it over the two sides' claim runs into the unique-per-id normal form (every node id in at most one of `{added, revised}`, remove-then-add the lone deliberate removed-and-added pair), and `NormalForm(key)` is exactly the fixpoint test that folding a delta's own claims re-derives its own lists — accumulated with a named token per conjunct, so a consumer reports WHICH invariant failed and no conjunct can drift from the fold that produces it and the ordered replay law `a.Merge(b).ReplayOnto(g) == b.ReplayOnto(a.ReplayOnto(g))` holds.
 - Output: the `GraphDelta` is the one change record — the Marten event body carrying the added/removed/revised nodes and added/removed edges, NOT a whole-graph snapshot per event; the inline `SingleStreamProjection` folds `GraphDelta → ElementGraph` through `ReplayOnto` so the read snapshot rebuilds from the delta stream, the periodic Marten snapshot (`Projections.Snapshot<T>(SnapshotLifecycle.Inline)`) bounding replay, the cadence reading `NodeCount`/`EdgeCount` for the change magnitude; `Address(tolerance)` derives the delta's ORDER-INDEPENDENT content key (the Persistence event dedup and the Version op-identity) STREAMED on the same `XxHash128` canonical path the node/edge/graph addresses use (`ToCanonicalBytes(tolerance, key)` the Fin byte leg only the parity corpus reads) — nodes sorted by id, edges by canonical bytes, the section counts self-delimiting the layout and every collection inside the node bytes count-prefixed per `Projection/address#IMPLEMENTATION_LAW` (the injectivity precondition of the raw-append `String(id)`+bytes joins), the full `Geospatial/reference#GEO_REFERENCE` `GeoReference` folded into the header contribution — so a re-applied, duplicated, or recording-order-permuted delta is detected by content, never a wall-clock; the `Generator.Equals` member diff (`Graph/element#ELEMENT_GRAPH` `ElementGraph.EqualityComparer.Default.Inequalities`) and the `GraphDelta` are the two change surfaces — the diff for a content-3-way merge, the delta for the forward event log.
@@ -154,16 +154,16 @@ public sealed record GraphDelta(
 
  public bool IsInert => AddedNodes.IsEmpty && RemovedNodes.IsEmpty && RevisedNodes.IsEmpty && AddedEdges.IsEmpty && RemovedEdges.IsEmpty;
 
- public Validation<Error, Unit> NormalForm(Op key) {
+ public Validation<Error, Unit> NormalForm() {
   NodePartition folded = Coalesced(Claims);
   return Accumulate(Seq(
-   Gate(folded.Added.Count == AddedNodes.Count, key, "<delta-denormal:added-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(folded.Removed.Count == RemovedNodes.Count, key, "<delta-denormal:removed-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(folded.Revised.Count == RevisedNodes.Count, key, "<delta-denormal:revised-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(RevisedNodes.ForAll(static revision => revision.Before.Id == revision.After.Id), key, "<delta-denormal:revision-id-mismatch>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(AddedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == AddedEdges.Count, key, "<delta-denormal:duplicate-added-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(RemovedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == RemovedEdges.Count, key, "<delta-denormal:duplicate-removed-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-   Gate(AddedEdges.ForAll(edge => !RemovedEdges.Contains(edge) || RemovedNodes.Exists(edge.Touches)), key, "<delta-denormal:unentangled-edge-pair>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
+   Gate(folded.Added.Count == AddedNodes.Count, "<delta-denormal:added-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(folded.Removed.Count == RemovedNodes.Count, "<delta-denormal:removed-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(folded.Revised.Count == RevisedNodes.Count, "<delta-denormal:revised-nodes>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(RevisedNodes.ForAll(static revision => revision.Before.Id == revision.After.Id), "<delta-denormal:revision-id-mismatch>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(AddedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == AddedEdges.Count, "<delta-denormal:duplicate-added-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(RemovedEdges.ToHashSet(EqualityComparer<Relationship>.Default).Count == RemovedEdges.Count, "<delta-denormal:duplicate-removed-edge>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+   Gate(AddedEdges.ForAll(edge => !RemovedEdges.Contains(edge) || RemovedNodes.Exists(edge.Touches)), "<delta-denormal:unentangled-edge-pair>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
  }
 
  public int NodeCount => AddedNodes.Count + RevisedNodes.Count + RemovedNodes.Count;
@@ -184,10 +184,10 @@ public sealed record GraphDelta(
  public ContentAddress Address(double tolerance) =>
   ContentAddress.Of(this, tolerance, (delta, w) => Written(delta, tolerance, w));
 
- public Fin<ReadOnlyMemory<byte>> ToCanonicalBytes(double tolerance, Op key) {
+ public Fin<ReadOnlyMemory<byte>> ToCanonicalBytes(double tolerance) {
   CanonicalWriter w = CanonicalWriter.Retaining(tolerance);
   Written(this, tolerance, w);
-  return w.ToBytes(key);
+  return w.ToBytes();
  }
 
  public GraphDelta Put(Node node) => Merge(GraphDelta.Empty with { AddedNodes = [node] });
@@ -206,7 +206,7 @@ public sealed record GraphDelta(
   return working.Freeze(HeaderFor(graph));
  }
 
- public Fin<(ElementGraph Graph, GraphDelta Delta)> AdmitOnto(ElementGraph graph, Op key) =>
+ public Fin<(ElementGraph Graph, GraphDelta Delta)> AdmitOnto(ElementGraph graph) =>
   IsInert && Header.IsNone
    ? Fin.Succ((graph, GraphDelta.Empty))
    : WorkingGraph.Thaw(graph)
@@ -215,7 +215,7 @@ public sealed record GraphDelta(
      + AddedNodes.Map(static node => (GraphMutation)new GraphMutation.PutNode(node))
      + RevisedNodes.Map(static revision => (GraphMutation)new GraphMutation.PutNode(revision.After))
      + RemovedEdges.Filter(edge => !RemovedNodes.Exists(edge.Touches)).Map(static edge => (GraphMutation)new GraphMutation.Unlink(edge))
-     + AddedEdges.Map(static edge => (GraphMutation)new GraphMutation.Link(edge))), key)
+     + AddedEdges.Map(static edge => (GraphMutation)new GraphMutation.Link(edge))))
     .Map(step => (step.Graph.Freeze(HeaderFor(graph)), step.Delta with { Header = Header }));
 }
 
@@ -248,9 +248,9 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
  internal WorkingGraph Attach(Relationship edge) => this with { Edges = Edges.Add(edge) };
  internal WorkingGraph Detach(Relationship edge) => this with { Edges = Edges.Remove(edge, EqualityComparer<Relationship>.Default) };
 
- public Fin<(WorkingGraph Graph, GraphDelta Delta)> Apply(GraphMutation mutation, Op key) =>
-  mutation.Switch<(WorkingGraph Graph, Op Key), Fin<(WorkingGraph, GraphDelta)>>(
-   (this, key),
+ public Fin<(WorkingGraph Graph, GraphDelta Delta)> Apply(GraphMutation mutation) =>
+  mutation.Switch<(WorkingGraph Graph), Fin<(WorkingGraph, GraphDelta)>>(
+   (),
    putNode: static (s, m) => Fin.Succ(s.Graph.Nodes.Find(m.Node.Id).Match(
     Some: prior => EqualityComparer<Node>.Default.Equals(prior, m.Node)
      ? (s.Graph, GraphDelta.Empty)
@@ -260,7 +260,7 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     ? s.Graph.Erase(m.Id) switch {
        var (next, cascaded) => Fin.Succ((next, GraphDelta.Empty with { RemovedNodes = [m.Id], RemovedEdges = cascaded })),
       }
-    : new ElementFault.DeltaConflict(s.Key, $"<drop-absent-node:{m.Id.ToValue()}>"),
+    : new ElementFault.DeltaConflict($"<drop-absent-node:{m.Id.ToValue()}>"),
    link: static (s, m) => LegalLink(m.Edge, s.Graph.Nodes, s.Key)
     .Bind(_ => s.Graph.Edges.Contains(m.Edge)
      ? new ElementFault.DeltaConflict(s.Key, "<duplicate-link>")
@@ -273,20 +273,20 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     Fin.Succ((Graph: s.Graph, Delta: GraphDelta.Empty)),
     (acc, next) => acc.Bind(state => state.Graph.Apply(next, s.Key).Map(step => (step.Graph, state.Delta.Merge(step.Delta))))));
 
- static Fin<Unit> BothObjects(Node relating, Node related, Op key, string detail) =>
-  relating is Node.Object && related is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, detail);
+ static Fin<Unit> BothObjects(Node relating, Node related, string detail) =>
+  relating is Node.Object && related is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(detail);
 
- static Fin<Unit> LegalLink(Relationship edge, HashMap<NodeId, Node> nodes, Op key) {
+ static Fin<Unit> LegalLink(Relationship edge, HashMap<NodeId, Node> nodes) {
   (NodeId relating, NodeId related) = edge.Endpoints;
   return edge.Members.Find(member => !nodes.ContainsKey(member)).Match(
-   Some: member => new ElementFault.NodeAbsent(key, $"<link-member-absent:{member.ToValue()}>"),
-   None: () => LegalPresent(edge, relating, related, nodes, key));
+   Some: member => new ElementFault.NodeAbsent($"<link-member-absent:{member.ToValue()}>"),
+   None: () => LegalPresent(edge, relating, related, nodes));
  }
 
- static Fin<Unit> LegalPresent(Relationship edge, NodeId relating, NodeId related, HashMap<NodeId, Node> nodes, Op key) =>
-   relating == related && edge is not Relationship.Generic ? new ElementFault.RelationshipInvalid(key, $"<link-self-loop:{relating.ToValue()}>")
-   : edge.Switch<(Node Relating, Node Related, HashMap<NodeId, Node> Nodes, Op Key), Fin<Unit>>(
-    (nodes[relating], nodes[related], nodes, key),
+ static Fin<Unit> LegalPresent(Relationship edge, NodeId relating, NodeId related, HashMap<NodeId, Node> nodes) =>
+   relating == related && edge is not Relationship.Generic ? new ElementFault.RelationshipInvalid($"<link-self-loop:{relating.ToValue()}>")
+   : edge.Switch<(Node Relating, Node Related, HashMap<NodeId, Node> Nodes), Fin<Unit>>(
+    (nodes[relating], nodes[related], nodes),
     compose: static (s, _) => BothObjects(s.Relating, s.Related, s.Key, "<compose-endpoints-must-be-objects>"),
     assign: static (s, a) => LegalAssign(a, s.Relating, s.Related, s.Key),
     associate: static (s, _) => s.Relating is Node.Object && s.Related is (Node.Material or Node.Appearance or Node.Coverage) ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(s.Key, "<associate-resource-must-be-material-appearance-or-coverage>"),
@@ -294,26 +294,26 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     @void: static (s, _) => BothObjects(s.Relating, s.Related, s.Key, "<void-endpoints-must-be-objects>"),
     generic: static (s, _) => Fin.Succ(unit));
 
- static Fin<Unit> LegalConnect(Relationship.Connect c, Node from, Node to, HashMap<NodeId, Node> nodes, Op key) =>
-  BothObjects(from, to, key, "<connect-endpoints-must-be-objects>")
+ static Fin<Unit> LegalConnect(Relationship.Connect c, Node from, Node to, HashMap<NodeId, Node> nodes) =>
+  BothObjects(from, to, "<connect-endpoints-must-be-objects>")
    .Bind(_ => c.Realizing.Match(
      None: () => Fin.Succ(unit),
      Some: realizing => realizing == c.From || realizing == c.To
-      ? new ElementFault.RelationshipInvalid(key, $"<connect-realizing-must-be-distinct:{realizing.ToValue()}>")
+      ? new ElementFault.RelationshipInvalid($"<connect-realizing-must-be-distinct:{realizing.ToValue()}>")
       : nodes.Find(realizing)
-       .ToFin(new ElementFault.NodeAbsent(key, $"<connect-realizing-absent:{realizing.ToValue()}>"))
-       .Bind(n => n is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<connect-realizing-must-be-object>"))));
+       .ToFin(new ElementFault.NodeAbsent($"<connect-realizing-absent:{realizing.ToValue()}>"))
+       .Bind(n => n is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid("<connect-realizing-must-be-object>"))));
 
- static Fin<Unit> LegalAssign(Relationship.Assign a, Node subject, Node definition, Op key) =>
-  subject is not Node.Object ? new ElementFault.RelationshipInvalid(key, "<assign-subject-must-be-object>")
+ static Fin<Unit> LegalAssign(Relationship.Assign a, Node subject, Node definition) =>
+  subject is not Node.Object ? new ElementFault.RelationshipInvalid("<assign-subject-must-be-object>")
   : a.SubKind.Switch(
-   propertyDefinition: () => definition is Node.PropertySet or Node.QuantitySet ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-property-definition-must-target-bag>"),
-   typeDefinition: () => definition is Node.Object o && o.Kind == ObjectKind.Type ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-type-definition-must-target-type-object>"),
-   group: () => definition is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-group-must-target-object>"),
-   assessment: () => definition is Node.Assessment ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-assessment-must-target-assessment>"),
-   observation: () => definition is not Node.Observation ? new ElementFault.RelationshipInvalid(key, "<assign-observation-must-target-observation>")
+   propertyDefinition: () => definition is Node.PropertySet or Node.QuantitySet ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid("<assign-property-definition-must-target-bag>"),
+   typeDefinition: () => definition is Node.Object o && o.Kind == ObjectKind.Type ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid("<assign-type-definition-must-target-type-object>"),
+   group: () => definition is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid("<assign-group-must-target-object>"),
+   assessment: () => definition is Node.Assessment ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid("<assign-assessment-must-target-assessment>"),
+   observation: () => definition is not Node.Observation ? new ElementFault.RelationshipInvalid("<assign-observation-must-target-observation>")
     : subject is Node.Object { Kind: ObjectKind.Occurrence } ? Fin.Succ(unit)
-    : new ElementFault.RelationshipInvalid(key, "<assign-observation-subject-must-be-occurrence>"));
+    : new ElementFault.RelationshipInvalid("<assign-observation-subject-must-be-occurrence>"));
 }
 ```
 

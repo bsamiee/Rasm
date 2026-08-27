@@ -123,7 +123,6 @@ public readonly record struct FreshnessBounds(Duration Fresh, Duration Stale, Du
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DataSource<TRow, TKey> where TRow : notnull where TKey : notnull {
-    private static readonly Op Ingress = Op.Of(name: "appui.livedata.ingress");
     private DataSource() { }
 
     public sealed record Opened(
@@ -166,11 +165,11 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             .Bind(admitted => Axes.Find(row => row.Carried(admitted) && !row.Reaches(this)).Match(
                 Some: row => Fin.Fail<SourcePolicy>(new LiveDataFault.Source($"{row.Axis} admits only {row.Cases}")),
                 None: () => Fin.Succ(admitted)))
-            .Map(admitted => OpenAdmitted(key, admitted, fault));
+            .Map(admitted => OpenAdmitted(admitted, fault));
 
     private Opened OpenAdmitted(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) {
-        SourceCache<TRow, TKey> cache = new(key);
-        DataFeed source = Feed(cache, key, policy, fault);
+        SourceCache<TRow, TKey> cache = new();
+        DataFeed source = Feed(cache, policy, fault);
         return new Opened(
             cache, source.Ordered, source.Transport, policy,
             new CompositeDisposable(cache, source.Subscription, Bounds(cache, policy, fault)));
@@ -189,7 +188,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
 
     private DataFeed Feed(ISourceCache<TRow, TKey> cache, Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) =>
         Switch(
-            state: (cache, key, policy, fault),
+            state: (cache, policy, fault),
             hostDocumentEvents: static (s, c) => Pump(
                 c.Facts, s.policy, "host-facts", s.fault,
                 fact => s.cache.Edit(updater => AdmitMode.Merge.Seat(updater, c.Project(fact)))),
@@ -247,14 +246,14 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         Func<CancellationToken, IAsyncEnumerable<T>> stream, Option<RedrivePolicy> redrive,
         ChannelWriter<T> writer, IObserver<bool> transport, string edge, Action<Error> fault, CancellationToken life) {
         for (int attempt = 0; !life.IsCancellationRequested;) {
-            Fin<Unit> pass = await Ingress.Catch(async token => {
+            Fin<Unit> pass = await Try.lift(async token => {
                 transport.OnNext(false);
                 await foreach (T item in stream(token).WithCancellation(token).ConfigureAwait(false)) {
                     await writer.WriteAsync(item, token).ConfigureAwait(false);
                     attempt = 0;
                 }
                 return Fin.Succ(unit);
-            }, life).ConfigureAwait(false);
+            }).Run().Bind(static inner => inner).ConfigureAwait(false);
             if (pass.Case is not Error error) { break; }
             if (error is KernelFault.Cancelled) { fault(error); break; }
             transport.OnNext(true);
@@ -277,7 +276,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         Func<Option<string>, Fin<(Seq<TRow> Rows, Option<string> Next)>> fetch,
         SourcePolicy policy,
         Action<Error> fault) {
-        SourceCache<TRow, TKey> staging = new(key);
+        SourceCache<TRow, TKey> staging = new();
         CancellationTokenSource life = new();
         SerialDisposable swap = new();
         IDisposable walk = policy.Source.Schedule(() => _ = Task.Run(async () => {
@@ -327,7 +326,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                 list,
                 bind(list),
                 list.Connect().Subscribe(
-                    changes => cache.Edit(updater => changes.Iter(change => Fold(updater, key, change, fault))),
+                    changes => cache.Edit(updater => changes.Iter(change => Fold(updater, change, fault))),
                     raw => fault(Error.New(raw.Message, raw)))),
             Some<IObservableList<TRow>>(list),
             Observable.Return(false));
@@ -843,8 +842,8 @@ public static class FilterLink {
 
     private static Fin<FilterTerm> Row<TRow>(string property, string sense, string[] operands, FilterSchema<TRow> schema)
         where TRow : notnull =>
-        Op.Of(name: nameof(PropertyName)).AcceptValidated<PropertyName>(property)
-            .Bind(key => schema.Field(key).ToFin(Fail: new LiveDataFault.Filter($"unknown property {property}")))
+        FactoryBridge.Accept<PropertyName>(property)
+            .Bind(key => schema.Field().ToFin(Fail: new LiveDataFault.Filter($"unknown property {property}")))
             .Bind(field => FilterSense.TryGet(sense, out FilterSense? row) && row is not null
                 ? toSeq(operands).Map(text => field.Property.Kind.Parse(Uri.UnescapeDataString(text))) switch {
                     var parsed => parsed.ForAll(static value => value.IsSome)
@@ -897,11 +896,11 @@ public sealed record ViewState(
 
     public Validation<Error, ViewState> Admit<TRow>(FilterSchema<TRow> schema) where TRow : notnull =>
         (Gate(Group.Distinct().Count == Group.Count, "grouping repeats a property"),
-         Gate(Group.ForAll(key => schema.Field(key).IsSome), "grouping names a property the schema does not carry"),
+         Gate(Group.ForAll(key => schema.Field().IsSome), "grouping names a property the schema does not carry"),
          Gate(Order.Map(static row => row.Key).Distinct().Count == Order.Count, "ordering repeats a property"),
          Gate(Order.ForAll(row => schema.Field(row.Key).IsSome), "ordering names a property the schema does not carry"),
          Gate(Visible.Distinct().Count == Visible.Count, "visibility repeats a property"),
-         Gate(Visible.ForAll(key => schema.Field(key).IsSome), "visibility names a property the schema does not carry"))
+         Gate(Visible.ForAll(key => schema.Field().IsSome), "visibility names a property the schema does not carry"))
             .Apply((_, _, _, _, _, _) => this).As();
 
     public bool Shows(PropertyName propertyKey) => Visible.IsEmpty || Visible.Contains(propertyKey);
@@ -922,7 +921,7 @@ public sealed record SnapshotPort<TScope, TKey, TValue>(
     Func<TScope, TKey, IO<Unit>> Drop)
     where TScope : notnull where TKey : notnull where TValue : notnull {
     public IO<Fin<TValue>> Recall(TScope scope, TKey key, Error absent) =>
-        Load(scope, key).Map(found => found.Match(
+        Load(scope).Map(found => found.Match(
             Some: row => Admit(scope, row),
             None: () => Fin.Fail<TValue>(absent)));
 
@@ -1224,7 +1223,6 @@ public abstract partial record LiveDataFault : Fault {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault, SortAndBindOptions Bind) {
-    private static readonly Op Observe = Op.Of(name: "appui.livedata.observe");
     public static readonly SortAndBindOptions Batched = new() { UseBinarySearch = true };
     public static readonly SortAndBindOptions Incremental = Batched with { ResetThreshold = int.MaxValue, ResetOnFirstTimeLoad = false };
 
@@ -1323,8 +1321,7 @@ public static class LiveDataOps {
                 .Where(static latest => latest.Adds + latest.Updates + latest.Removes + latest.Refreshes > 0)
                 .Select(latest => hooks.Fire(
                     AppUiPoint.LiveData,
-                    new AppUiFact.LiveData(slot.Value, latest.Adds, latest.Updates, latest.Removes, latest.Refreshes),
-                    Op.Of(name: AuditEdge)))
+                    new AppUiFact.LiveData(slot.Value, latest.Adds, latest.Updates, latest.Removes, latest.Refreshes)))
                 .Subscribe(
                     outcome => ignore(outcome.IfFail(error => fun(() => capsule.Fault(error))())),
                     raw => capsule.Fault(Error.New(raw.Message, raw)));
@@ -1448,16 +1445,16 @@ public sealed record OptionSet(
                 .Select(value => new OptionReading(group.Key, kpi.Key, value, kpi.Polarity)));
 
     private OptionSet Seated(OptionKey key, string name, Option<OptionKey> parent) => this with {
-        Options = Options.AddOrUpdate(key, new DesignOption(key, name, parent, Clock())),
+        Options = Options.AddOrUpdate(new DesignOption(name, parent, Clock())),
     };
 
     private Fin<DesignOption> Present(OptionKey key) =>
-        Options.Find(key).Match(
+        Options.Find().Match(
             Some: Fin.Succ,
             None: () => Fin.Fail<DesignOption>(new LiveDataFault.Options($"option {key} is absent")));
 
     private Fin<Unit> Absent(OptionKey key) =>
-        Options.ContainsKey(key)
+        Options.ContainsKey()
             ? Fin.Fail<Unit>(new LiveDataFault.Options($"option {key} already exists"))
             : Fin.Succ(unit);
 

@@ -102,7 +102,7 @@ public static class CompositionSurface {
     extension(ServiceCollection services) {
         public Fin<Unit> Compose(params ReadOnlySpan<ModuleContribution> modules) =>
             Iterable<ModuleContribution>.FromSpan(modules)
-                .TraverseM(module => Op.Of().Catch(() => Applied(services, module))
+                .TraverseM(module => Try.lift(() => Applied(services, module)).Run().Bind(static inner => inner)
                     .MapFail(error => (Error)new LifecycleFault.ModuleRejected(module.Module, error)))
                 .As()
                 .Map(_ => (fun(services.MakeReadOnly)(), unit).Item2);
@@ -172,7 +172,7 @@ public static class BoundaryActivation {
 
     extension(IServiceProvider provider) {
         public Fin<T> Activate<T>(params object[] dependencies) where T : notnull =>
-            Op.Of().Catch(() => Fin.Succ(dependencies.Length == 0
+            Try.lift(() => Fin.Succ(dependencies.Length == 0
                 ? ActivatorUtilities.GetServiceOrCreateInstance<T>(provider)
                 : (T)Plans.GetOrAdd(
                         typeof(T),
@@ -180,7 +180,7 @@ public static class BoundaryActivation {
                             typeof(T),
                             [.. supplied.Select(static value => value.GetType())]),
                         dependencies)
-                    .Invoke(provider, dependencies)!))
+                    .Invoke(provider, dependencies)!)).Run().Bind(static inner => inner)
                 .MapFail(error => (Error)new LifecycleFault.ActivationRejected(typeof(T).Name, error));
 
         public bool Available<T>(Option<object> key = default) where T : notnull =>
@@ -351,7 +351,6 @@ public sealed record RootInputs(
     ClockPolicy Clocks,
     CorrelationId Correlation,
     DeploymentTopology Topology,
-    Op Key,
     IConfiguration Configuration,
     RoleName Role,
     string Group,
@@ -666,7 +665,7 @@ public static class CompositionRoot {
                         ServiceLifetime.Singleton)))),
 
         new RootBinding.Seated("coordination-seat", static (services, inputs) =>
-            Op.Of().Catch(static () => Fin.Succ(LeasePolicy.Outlasts))
+            Try.lift(static () => Fin.Succ(LeasePolicy.Outlasts)).Run().Bind(static inner => inner)
                 .MapFail(static _ => (Error)new KernelFault.InvalidValue(
                     Label: $"{nameof(LeasePolicy)}.{nameof(LeasePolicy.Maintenance)}",
                     Requirement: "<a crash-staleness window outlasting the cooperative and forced drain bounds>"))
@@ -810,8 +809,8 @@ public static class CompositionRoot {
             KeyedLane.Proven(provider.GetRequiredService<ResiliencePipelineProvider<string>>())),
 
         new RootBinding.Proven("hop-checkpoint", static (provider, _) =>
-            Op.Of().Catch(() => Fin.Succ(provider.GetRequiredService<ILatencyContextTokenIssuer>()
-                    .GetCheckpointToken(LatencyCheckpoint.Hop.Key)))
+            Try.lift(() => Fin.Succ(provider.GetRequiredService<ILatencyContextTokenIssuer>()
+                    .GetCheckpointToken(LatencyCheckpoint.Hop.Key))).Run().Bind(static inner => inner)
                 .Bind(static token => token.Position >= 0
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new KernelFault.InvalidValue(
@@ -1043,13 +1042,12 @@ public static class CompositionRoot {
                     .ToFin(new SupplyChainFault.VersionIncompatible(
                         $"{manifest.PluginId}: {best.ToNormalizedString()} <left the catalog>"))));
 
-    static Unit Paced(IServiceProvider provider, Seq<HostedSolver> hosted, Op key) =>
+    static Unit Paced(IServiceProvider provider, Seq<HostedSolver> hosted) =>
         provider.GetRequiredService<Atom<Seq<HostedSolver>>>() is var roster
             && ignore(roster.Swap(_ => hosted)) is var _
             && EpochPacer.Open(
                 provider.GetRequiredService<SandboxRuntime>(),
-                () => roster.Value.Map(static row => row.Instance),
-                key) is var lease
+                () => roster.Value.Map(static row => row.Instance)) is var lease
             ? ignore(provider.GetRequiredService<Atom<Seq<DrainRow>>>().Swap(held => held.Add(
                 new DrainRow(nameof(EpochPacer), DrainBand.Compute, 0, _ => IO.lift(lease.Dispose)))))
             : unit;
@@ -1075,16 +1073,16 @@ public static class CompositionRoot {
         };
 
     static IO<Unit> Occurring(Atom<HashMap<string, ScheduleEntry>> roster, ClockPolicy clocks, string key) =>
-        roster.Value.Find(key).Match(
+        roster.Value.Find().Match(
             None: () => IO.pure(unit),
             Some: entry => SchedulePort.Next(entry, clocks.Now).Match(
-                None: () => IO.lift(() => ignore(roster.Swap(held => held.Remove(key)))),
+                None: () => IO.lift(() => ignore(roster.Swap(held => held.Remove()))),
                 Some: next => IO.yieldFor((next - clocks.Now).ToTimeSpan())
                     .Bind(_ => SchedulePort.Run(clocks, entry))
-                    .Bind(_ => Occurring(roster, clocks, key))));
+                    .Bind(_ => Occurring(roster, clocks))));
 
     static ScheduleEntry Cadence(string key, Duration every, DeadlineClass deadline, Func<IO<Unit>> work) =>
-        new(Key: key, Spec: new OccurrenceSpec.Every(every), Deadline: deadline,
+        new(Spec: new OccurrenceSpec.Every(every), Deadline: deadline,
             Lease: Some(LeasePolicy.Maintenance), Redrive: RedrivePolicy.None, Work: work);
 
     static ScheduleEntry Cadence(string key, ScheduleEntry declared, Func<IO<Unit>> work) =>
@@ -1114,17 +1112,16 @@ public sealed class BimComputeCompanion(
     public IO<Fin<TessellationCross>> Cross(
         Rasm.Bim.TessellationRequest request,
         CorrelationId correlation,
-        CancellationToken cancel,
-        Op key) {
+        CancellationToken cancel) {
         CallSpine spine = spines.Create(correlation);
         WireCall calls = services.Bind(spine);
         return FrameEdge.Frames(request.SourceBytes).Match(
             Succ: partition => FrameEdge.Put(calls, spine, partition, cancel).Bind(uploaded => uploaded.Match(
-                Succ: source => TessellationWire.Project(request, source, key).Match(
+                Succ: source => TessellationWire.Project(request, source).Match(
                     Succ: wire => CompanionEdge
                         .Tessellate(services, spine, pool, wire, cancel)
                         .Map(outcome => outcome.Bind(artifact =>
-                            TessellationWire.Admit(request, artifact.Response, artifact.Glb, key))),
+                            TessellationWire.Admit(request, artifact.Response, artifact.Glb))),
                     Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error))),
                 Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)))),
             Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)));

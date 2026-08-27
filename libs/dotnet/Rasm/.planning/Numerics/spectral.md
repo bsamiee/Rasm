@@ -117,10 +117,10 @@ public abstract partial record SpectralFilter {
             },
         powerCase: static (lambda, c) => lambda > EpsilonPolicy.SqrtEpsilon ? Math.Pow(x: lambda, y: c.Exponent) : 0.0,
         identityCase: static (_, _) => 1.0);
-    internal Fin<SpectralDescriptor> Evaluate(SpectralBasis basis, Option<Seq<int>> sources, Op key, Option<SpectralDescriptorPolicy> policy = default) =>
+    internal Fin<SpectralDescriptor> Evaluate(SpectralBasis basis, Option<Seq<int>> sources, Option<SpectralDescriptorPolicy> policy = default) =>
         policy.IfNone(noneValue: SpectralDescriptorPolicy.Raw) switch {
-            SpectralDescriptorPolicy active when basis.IsValid && active.IsValid => SpectralKernel.Evaluate(basis: basis, sources: sources, filter: this, policy: active, key: key),
-            _ => Fin.Fail<SpectralDescriptor>(key.InvalidInput()),
+            SpectralDescriptorPolicy active when basis.IsValid && active.IsValid => SpectralKernel.Evaluate(basis: basis, sources: sources, filter: this, policy: active),
+            _ => Fin.Fail<SpectralDescriptor>(new KernelFault.InvalidInput()),
         };
 }
 ```
@@ -254,16 +254,16 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
                 ValidityClaim.Evidence(evidence: Harmonic));
         }
     }
-    internal Fin<TOut> Project<TOut>(Op key) {
+    internal Fin<TOut> Project<TOut>() {
         DiscreteCalculus self = this;
-        return ResultProjection.Rows<DiscreteCalculus, TOut>(self: self, key: key,
+        return ResultProjection.Rows<DiscreteCalculus, TOut>(self: self,
             ProjectionRow.Of<SpectralAssembly>(() => Fin.Succ(self.Assembly)),
             ProjectionRow.Of<SignpostTransport>(() => self.Transport.Switch(
                 measured: static row => Fin.Succ(row.Value),
                 refused: static row => Fin.Fail<SignpostTransport>(row.Cause),
-                absent: _ => Fin.Fail<SignpostTransport>(key.InvalidResult()))),
-            ProjectionRow.Of<HarmonicOneFormBasis>(() => self.Harmonic.ToFin(key.InvalidResult())),
-            ProjectionRow.Of<HarmonicCensus>(() => self.Harmonic.Map(static basis => basis.Census).ToFin(key.InvalidResult())));
+                absent: _ => Fin.Fail<SignpostTransport>(new KernelFault.InvalidResult()))),
+            ProjectionRow.Of<HarmonicOneFormBasis>(() => self.Harmonic.ToFin(new KernelFault.InvalidResult())),
+            ProjectionRow.Of<HarmonicCensus>(() => self.Harmonic.Map(static basis => basis.Census).ToFin(new KernelFault.InvalidResult())));
     }
 }
 
@@ -292,7 +292,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 ## [04]-[DESCRIPTOR_ALGEBRA]
 
 - Owner: `SpectralDescriptorPolicy` is the normalization bundle (`NormalizeScale` × normalization × `IncludeZeroModes` × optional crop) with `Raw` the no-op row, admitted at the `Evaluate` entry beside the basis; `WaveProfile` and `DescriptorProfile` carry the WKS weighting and the descriptor's filter, policy, and counts; `SpectralDescriptor` is the values-and-profile carrier with `Normalize(normalization, key)` and `Rank(candidates, policy, key)`; `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking` carry ranking. `SpectralKernel` is the `internal static` evaluation owner — the dense-buffer filtered-signature kernel, value normalization through the `DescriptorNormalization` `Apply` column, and ranking off the `DescriptorDistance` compute column over one pre-lifted operand; the harmonic eps-rank default stays `Meshing/dec`'s, declared beside the construction that applies it.
-- Entry: `filter.Evaluate(basis, sources, key, policy)` is the evaluation entry; `descriptor.Normalize(normalization, key)` and `descriptor.Rank(candidates, policy, key)` the post-processing entries, normalization taking the ONE axis it honours rather than a four-axis bundle it refuses three arms of — one descriptor pipeline, no sibling evaluate/compare surfaces.
+- Entry: `filter.Evaluate(basis, sources, policy)` is the evaluation entry; `descriptor.Normalize(normalization)` and `descriptor.Rank(candidates, policy)` the post-processing entries, normalization taking the ONE axis it honours rather than a four-axis bundle it refuses three arms of — one descriptor pipeline, no sibling evaluate/compare surfaces.
 - Auto: WKS weights normalize to unit sum with the full `WaveProfile` minted inline, and the wave arm answers its OWN failure rather than the caller re-testing the case a line later; the profile carries no readiness mirror — `Policy`, `Wave`, and `SourceCount` ARE the facts, and `IsValid` ties the cropped prefix, the zero-mode census, and the wave's nonzero count to the policy that produced them; `RankDescriptors` re-normalizes a candidate on the value-normalization axis alone and REFUSES a scale, zero-mode, or crop mismatch, because those axes cannot be reconstructed once the eigenbasis is discarded.
 - Law: ranking short-circuits on the first unusable candidate rather than accumulating — a ranking is a JOINT verdict over the whole candidate set, so a partial ordering is a wrong ordering and there is no per-candidate outcome for a `Validation` to carry.
 - Exemption: `Evaluate` is a declared statement kernel — a dense per-eigenpair-per-vertex accumulation buffer, where a query fold churns allocations over `n · k` (`· |S|` pairwise) terms. The exemption covers ALLOCATION shape alone: every per-vertex arm rides `TensorPrimitives` over one pooled lane, and the accumulation walks `ki → s → v` so a source ordinate is read once per pair instead of once per vertex.
@@ -359,10 +359,10 @@ public readonly record struct SpectralDescriptor(Arr<double> Values, DescriptorP
         ValidityClaim.Evidence(evidence: Some(Profile)),
         ValidityClaim.CountExactly(count: Values.Count, expected: Profile.VertexCount),
         Values.ForAll(double.IsFinite));
-    public Fin<SpectralDescriptor> Normalize(DescriptorNormalization normalization, Op key) =>
-        SpectralKernel.Normalize(descriptor: this, normalization: normalization, key: key);
-    public Fin<SpectralRanking> Rank(Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) =>
-        SpectralKernel.RankDescriptors(query: this, candidates: candidates, policy: policy, key: key);
+    public Fin<SpectralDescriptor> Normalize(DescriptorNormalization normalization) =>
+        SpectralKernel.Normalize(descriptor: this, normalization: normalization);
+    public Fin<SpectralRanking> Rank(Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy) =>
+        SpectralKernel.RankDescriptors(query: this, candidates: candidates, policy: policy);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -379,35 +379,35 @@ public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<Spec
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class SpectralKernel {
-    internal static Fin<SpectralDescriptor> Evaluate(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
+    internal static Fin<SpectralDescriptor> Evaluate(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy) {
         int n = basis.VertexCount;
         int[] sourceSet = sources.Map(static values => values.AsIterable().ToArray()).IfNone([]);
         if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || toSet(sourceSet).Count != sourceSet.Length
             || (sourceSet.Length > 0 && (TensorPrimitives.Min<int>(sourceSet) < 0 || TensorPrimitives.Max<int>(sourceSet) >= n))) {
-            return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
+            return Fin.Fail<SpectralDescriptor>(error: new KernelFault.InvalidInput());
         }
-        if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) { return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult()); }
+        if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) { return Fin.Fail<SpectralDescriptor>(error: new KernelFault.InvalidResult()); }
         double zeroBand = basis.ZeroBand;
         int zeroModeCount = basis.Eigenvalues.AsIterable().Count(lambda => lambda <= zeroBand);
         Option<double> firstNonZero = basis.Eigenvalues.Find(lambda => lambda > zeroBand);
         bool scaleNormalized = policy.NormalizeScale;
-        if (scaleNormalized && firstNonZero.IsNone) { return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult()); }
+        if (scaleNormalized && firstNonZero.IsNone) { return Fin.Fail<SpectralDescriptor>(error: new KernelFault.InvalidResult()); }
         double scale = firstNonZero.IfNone(1.0);
         int[] eigenIndices = [.. Enumerable.Range(start: 0, count: basis.Eigenvalues.Count)
             .Where((int i) => policy.IncludeZeroModes || basis.Eigenvalues[index: i] > zeroBand)
             .Take(policy.CropCount.Map(static count => count.Value).IfNone(basis.Eigenvalues.Count))];
-        if (eigenIndices.Length == 0) { return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput()); }
+        if (eigenIndices.Length == 0) { return Fin.Fail<SpectralDescriptor>(error: new KernelFault.InvalidInput()); }
         double[] scaledEigenvalues = [.. eigenIndices.Select(k => scaleNormalized ? basis.Eigenvalues[index: k] / scale : basis.Eigenvalues[index: k])];
         return WeightsOf(filter: filter, eigenvalues: scaledEigenvalues, firstNonZero: firstNonZero,
-                zeroBand: scaleNormalized ? zeroBand / scale : zeroBand, key: key)
-            .Bind(weighted => Accumulated(basis: basis, eigenIndices: eigenIndices, weights: weighted.Weights, sourceSet: sourceSet, vertexCount: n, key: key)
-                .Bind((double[] values) => Rescaled(values: values, normalization: policy.Normalization, key: key))
+                zeroBand: scaleNormalized ? zeroBand / scale : zeroBand)
+            .Bind(weighted => Accumulated(basis: basis, eigenIndices: eigenIndices, weights: weighted.Weights, sourceSet: sourceSet, vertexCount: n)
+                .Bind((double[] values) => Rescaled(values: values, normalization: policy.Normalization))
                 .Map(values => new SpectralDescriptor(
                     Values: new Arr<double>(values),
                     Profile: new DescriptorProfile(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length,
                         Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length, Wave: weighted.Wave))));
     }
-    private static Fin<double[]> Accumulated(SpectralBasis basis, int[] eigenIndices, double[] weights, int[] sourceSet, int vertexCount, Op key) {
+    private static Fin<double[]> Accumulated(SpectralBasis basis, int[] eigenIndices, double[] weights, int[] sourceSet, int vertexCount) {
         double[] result = new double[vertexCount];
         using MemoryOwner<double> scratch = MemoryOwner<double>.Allocate(size: vertexCount);
         Span<double> lane = scratch.Span;
@@ -431,36 +431,36 @@ internal static class SpectralKernel {
             TensorPrimitives.Max<double>(result, 0.0, result);
             TensorPrimitives.Sqrt<double>(result, result);
         }
-        return TensorPrimitives.IsFiniteAll<double>(result) ? Fin.Succ(result) : Fin.Fail<double[]>(error: key.InvalidResult());
+        return TensorPrimitives.IsFiniteAll<double>(result) ? Fin.Succ(result) : Fin.Fail<double[]>(error: new KernelFault.InvalidResult());
     }
-    internal static Fin<SpectralDescriptor> Normalize(SpectralDescriptor descriptor, DescriptorNormalization normalization, Op key) =>
-        !descriptor.IsValid || normalization is null ? Fin.Fail<SpectralDescriptor>(key.InvalidInput())
+    internal static Fin<SpectralDescriptor> Normalize(SpectralDescriptor descriptor, DescriptorNormalization normalization) =>
+        !descriptor.IsValid || normalization is null ? Fin.Fail<SpectralDescriptor>(new KernelFault.InvalidInput())
         : descriptor.Profile.Policy.Normalization.Equals(normalization) ? Fin.Succ(descriptor)
-        : !descriptor.Profile.Policy.Normalization.Equals(DescriptorNormalization.Raw) ? Fin.Fail<SpectralDescriptor>(key.InvalidInput())
-        : from values in Rescaled(values: [.. descriptor.Values.AsIterable()], normalization: normalization, key: key)
+        : !descriptor.Profile.Policy.Normalization.Equals(DescriptorNormalization.Raw) ? Fin.Fail<SpectralDescriptor>(new KernelFault.InvalidInput())
+        : from values in Rescaled(values: [.. descriptor.Values.AsIterable()], normalization: normalization)
           let merged = descriptor.Profile.Policy with { Normalization = normalization }
           select new SpectralDescriptor(Values: new Arr<double>(values), Profile: descriptor.Profile with { Policy = merged });
-    internal static Fin<SpectralRanking> RankDescriptors(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) =>
+    internal static Fin<SpectralRanking> RankDescriptors(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy) =>
         !policy.IsValid || !query.IsValid || candidates.IsEmpty || !candidates.ForAll(static candidate => candidate.IsValid)
-            ? Fin.Fail<SpectralRanking>(key.InvalidInput())
-            : from normalizedQuery in NormalizeForRanking(descriptor: query, policy: policy.Descriptor, key: key)
-              from normalizedCandidates in candidates.TraverseM(candidate => NormalizeForRanking(descriptor: candidate, policy: policy.Descriptor, key: key)).As()
-              from ranks in RankNormalized(query: normalizedQuery, candidates: normalizedCandidates, policy: policy, key: key)
+            ? Fin.Fail<SpectralRanking>(new KernelFault.InvalidInput())
+            : from normalizedQuery in NormalizeForRanking(descriptor: query, policy: policy.Descriptor)
+              from normalizedCandidates in candidates.TraverseM(candidate => NormalizeForRanking(descriptor: candidate, policy: policy.Descriptor)).As()
+              from ranks in RankNormalized(query: normalizedQuery, candidates: normalizedCandidates, policy: policy)
               select new SpectralRanking(Query: normalizedQuery, Items: ranks, Policy: policy);
-    private static Fin<SpectralDescriptor> NormalizeForRanking(SpectralDescriptor descriptor, SpectralDescriptorPolicy policy, Op key) =>
+    private static Fin<SpectralDescriptor> NormalizeForRanking(SpectralDescriptor descriptor, SpectralDescriptorPolicy policy) =>
         !(descriptor.Profile.Policy with { Normalization = policy.Normalization }).Equals(policy)
-            ? Fin.Fail<SpectralDescriptor>(key.InvalidInput())
+            ? Fin.Fail<SpectralDescriptor>(new KernelFault.InvalidInput())
             : descriptor.Profile.Policy.Normalization.Equals(policy.Normalization)
                 ? Fin.Succ(descriptor)
-                : Normalize(descriptor: descriptor, normalization: policy.Normalization, key: key);
+                : Normalize(descriptor: descriptor, normalization: policy.Normalization);
     private static Fin<(double[] Weights, Option<WaveProfile> Wave)> WeightsOf(
-        SpectralFilter filter, double[] eigenvalues, Option<double> firstNonZero, double zeroBand, Op key) =>
+        SpectralFilter filter, double[] eigenvalues, Option<double> firstNonZero, double zeroBand) =>
         filter is SpectralFilter.WaveCase wave
             ? firstNonZero.Bind((double first) => WaveWeightsOf(wave, eigenvalues, first, zeroBand))
-                .Map(static ((double[] Weights, WaveProfile Profile) held) => (held.Weights, Wave: Some(held.Profile))).ToFin(key.InvalidResult())
+                .Map(static ((double[] Weights, WaveProfile Profile) held) => (held.Weights, Wave: Some(held.Profile))).ToFin(new KernelFault.InvalidResult())
             : ((double[])[.. eigenvalues.Select(filter.Weight)]) switch {
                 double[] weights when TensorPrimitives.IsFiniteAll<double>(weights) => Fin.Succ<(double[], Option<WaveProfile>)>((weights, Option<WaveProfile>.None)),
-                _ => Fin.Fail<(double[], Option<WaveProfile>)>(key.InvalidResult()),
+                _ => Fin.Fail<(double[], Option<WaveProfile>)>(new KernelFault.InvalidResult()),
             };
     private static Option<(double[] Weights, WaveProfile Profile)> WaveWeightsOf(
         SpectralFilter.WaveCase wave, double[] eigenvalues, double firstNonZero, double zeroBand) {
@@ -479,19 +479,19 @@ internal static class SpectralKernel {
             MaxLogEigenvalue: TensorPrimitives.Max<double>(positiveLogs));
         return profile.IsValid ? Some((normalized, profile)) : Option<(double[], WaveProfile)>.None;
     }
-    private static Fin<Seq<SpectralRank>> RankNormalized(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) {
+    private static Fin<Seq<SpectralRank>> RankNormalized(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy) {
         int valueCount = query.Values.Count;
-        if (valueCount <= 0 || candidates.Exists(candidate => candidate.Values.Count != valueCount)) { return Fin.Fail<Seq<SpectralRank>>(key.InvalidInput()); }
+        if (valueCount <= 0 || candidates.Exists(candidate => candidate.Values.Count != valueCount)) { return Fin.Fail<Seq<SpectralRank>>(new KernelFault.InvalidInput()); }
         DistanceOperand queryOperand = new([.. query.Values.AsIterable()]);
         SpectralRank[] ranks = [.. candidates.AsIterable()
             .Select((SpectralDescriptor candidate, int index) => new SpectralRank(Index: index, Distance: policy.Distance.Compute(a: queryOperand, b: new([.. candidate.Values.AsIterable()])), Descriptor: candidate))
             .OrderBy(static rank => rank.Distance).ThenBy(static rank => rank.Index)];
-        return System.Array.TrueForAll(ranks, static (SpectralRank rank) => double.IsFinite(rank.Distance)) ? Fin.Succ(toSeq(ranks)) : Fin.Fail<Seq<SpectralRank>>(key.InvalidResult());
+        return System.Array.TrueForAll(ranks, static (SpectralRank rank) => double.IsFinite(rank.Distance)) ? Fin.Succ(toSeq(ranks)) : Fin.Fail<Seq<SpectralRank>>(new KernelFault.InvalidResult());
     }
-    private static Fin<double[]> Rescaled(double[] values, DescriptorNormalization normalization, Op key) =>
+    private static Fin<double[]> Rescaled(double[] values, DescriptorNormalization normalization) =>
         TensorPrimitives.IsFiniteAll<double>(values)
-            ? normalization.Apply(values: values).Filter(static (double[] normalized) => TensorPrimitives.IsFiniteAll<double>(normalized)).ToFin(key.InvalidResult())
-            : Fin.Fail<double[]>(key.InvalidResult());
+            ? normalization.Apply(values: values).Filter(static (double[] normalized) => TensorPrimitives.IsFiniteAll<double>(normalized)).ToFin(new KernelFault.InvalidResult())
+            : Fin.Fail<double[]>(new KernelFault.InvalidResult());
 }
 ```
 

@@ -88,10 +88,10 @@ public readonly record struct HazRow(double RhoO, double RhoU);
 
 public partial record GradeProperties {
     public sealed partial record Aluminum {
-        public Fin<(double FoMpa, double FuMpa)> Strengths(ExtrusionForm form, double thicknessMm, Op key) =>
+        public Fin<(double FoMpa, double FuMpa)> Strengths(ExtrusionForm form, double thicknessMm) =>
             Bands.Find(band => band.Covers(form, thicknessMm))
                 .Map(static band => (band.FoMpa, band.FuMpa))
-                .ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Aluminum, typeof(AlloyBand)));
+                .ToFin(new ComponentFault.GradeBandMissing(ComponentFamily.Aluminum, typeof(AlloyBand)));
     }
 }
 
@@ -102,7 +102,7 @@ public sealed partial class MaterialGrade {
 // --- [TABLES] --------------------------------------------------------------------------
 public readonly record struct DieRow(
     string Designation, ExtrusionRole Role, MaterialGrade Grade, ExtrusionForm Form, double ElementMm,
-    ThermalBreakClass Break, Option<double> GlazingPocketMm, Func<Op, Fin<SectionProfile>> Build);
+    ThermalBreakClass Break, Option<double> GlazingPocketMm, Func< Fin<SectionProfile>> Build);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AluminumDetail {
@@ -134,60 +134,60 @@ public static class AluminumSeed {
     public static readonly Seq<DieRow> Roster = Seq(
         new DieRow("aluminum.mullion-50x120", ExtrusionRole.Mullion, MaterialGrade.A6063T5, ExtrusionForm.Profile, 3.0,
             ThermalBreakClass.PolyamideStrut, Some(25.0),
-            static key => SectionProfile.RectangleHollow.Of(widthMm: 50.0, depthMm: 120.0, wallMm: 3.0, innerFilletMm: 2.0, outerFilletMm: 2.0, key)),
+            static key => SectionProfile.RectangleHollow.Of(widthMm: 50.0, depthMm: 120.0, wallMm: 3.0, innerFilletMm: 2.0, outerFilletMm: 2.0)),
         new DieRow("aluminum.transom-50x80", ExtrusionRole.Transom, MaterialGrade.A6063T5, ExtrusionForm.Profile, 3.0,
             ThermalBreakClass.PolyamideStrut, Some(25.0),
-            static key => SectionProfile.RectangleHollow.Of(widthMm: 50.0, depthMm: 80.0, wallMm: 3.0, innerFilletMm: 2.0, outerFilletMm: 2.0, key)),
+            static key => SectionProfile.RectangleHollow.Of(widthMm: 50.0, depthMm: 80.0, wallMm: 3.0, innerFilletMm: 2.0, outerFilletMm: 2.0)),
         new DieRow("aluminum.i-120x80", ExtrusionRole.Structural, MaterialGrade.A6082T6, ExtrusionForm.Profile, 5.0,
             ThermalBreakClass.None, None,
-            static key => SectionProfile.IShape.Of(depthMm: 120.0, widthMm: 80.0, webMm: 5.0, flangeMm: 5.0, filletMm: 6.0, flangeToeMm: 5.0, key)),
+            static key => SectionProfile.IShape.Of(depthMm: 120.0, widthMm: 80.0, webMm: 5.0, flangeMm: 5.0, filletMm: 6.0, flangeToeMm: 5.0)),
         new DieRow("aluminum.tube-60x6", ExtrusionRole.Structural, MaterialGrade.A6082T6, ExtrusionForm.Tube, 6.0,
             ThermalBreakClass.None, None,
-            static key => SectionProfile.CircleHollow.Of(diameterMm: 60.0, wallMm: 6.0, key)),
+            static key => SectionProfile.CircleHollow.Of(diameterMm: 60.0, wallMm: 6.0)),
         new DieRow("aluminum.angle-60x6", ExtrusionRole.Structural, MaterialGrade.A6061T6, ExtrusionForm.Profile, 6.0,
             ThermalBreakClass.None, None,
-            static key => SectionProfile.Angle.Of(depthMm: 60.0, widthMm: 60.0, thicknessMm: 6.0, filletMm: 4.0, legToeMm: 6.0, key)),
+            static key => SectionProfile.Angle.Of(depthMm: 60.0, widthMm: 60.0, thicknessMm: 6.0, filletMm: 4.0, legToeMm: 6.0)),
         new DieRow("aluminum.sheet-3", ExtrusionRole.Panel, MaterialGrade.A5083, ExtrusionForm.Sheet, 3.0,
             ThermalBreakClass.None, None,
-            static key => SectionProfile.Rectangle.Of(widthMm: 1200.0, depthMm: 3.0, key)));
+            static key => SectionProfile.Rectangle.Of(widthMm: 1200.0, depthMm: 3.0)));
 
     public static readonly SeedLaw<DieRow> Law = SeedLaw<DieRow>.Of(
         family: ComponentFamily.Aluminum,
         designation: static die => die.Designation,
         coherence: Coherence,
-        profile: static (die, key) => die.Build(key),
+        profile: static (die, key) => die.Build(),
         substance: static die => die.Grade.Substance,
         source: static _ => EvidenceGrade.User,
         standard: static die => new ComponentStandard(die.Grade.Authority.Region, StandardJointThicknessMm: 0.0, die.Grade.Authority),
-        detail: Some<Func<DieRow, SectionProfile, Op, Fin<PropertyBag>>>(static (die, _, _) => AluminumDetail.Of(die)),
+        detail: Some<Func<DieRow, SectionProfile, Fin<PropertyBag>>>(static (die, _, _) => AluminumDetail.Of(die)),
         appearance: static _ => Render,
         ifc: static die => die.Role.Ifc);
 
-    static Validation<Error, Unit> Coherence(DieRow die, Op key) =>
+    static Validation<Error, Unit> Coherence(DieRow die) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(die.Grade.Family == ComponentFamily.Aluminum,
-                new ComponentFault.GradeFamilyMismatch(key, die.Grade, ComponentFamily.Aluminum)),
+                new ComponentFault.GradeFamilyMismatch(die.Grade, ComponentFamily.Aluminum)),
             AdmissionSlots.Gate(die.Grade.AluminumArm.IsSome,
-                new ComponentFault.GradeBodyMissing(key, die.Grade, ComponentFamily.Aluminum)),
+                new ComponentFault.GradeBodyMissing(die.Grade, ComponentFamily.Aluminum)),
             die.Grade.AluminumArm
-                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm, key).ToValidation().Map(static _ => unit)).As()
+                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm).ToValidation().Map(static _ => unit)).As()
                 .Map(static _ => unit)));
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, DieRow>>> Table =
         SeedJoin.Of(Roster, static die => die.Designation);
 
-    public static Fin<DieRow> Resolve(Component component, Op key) =>
-        SeedJoin.Resolve(Table, component.Designation, key);
+    public static Fin<DieRow> Resolve(Component component) =>
+        SeedJoin.Resolve(Table, component.Designation);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
         from based in guard(placement.Basis == DesignBasis.En1999,
-            new ComponentFault.BasisUnsupported(key, placement.Basis, ComponentFamily.Aluminum))
-        from die in Resolve(component, key)
-        from arm in die.Grade.AluminumArm.ToFin(new ComponentFault.GradeBodyMissing(key, die.Grade, ComponentFamily.Aluminum))
-        from banded in arm.Strengths(die.Form, die.ElementMm, key)
+            new ComponentFault.BasisUnsupported(placement.Basis, ComponentFamily.Aluminum))
+        from die in Resolve(component)
+        from arm in die.Grade.AluminumArm.ToFin(new ComponentFault.GradeBodyMissing(die.Grade, ComponentFamily.Aluminum))
+        from banded in arm.Strengths(die.Form, die.ElementMm)
         from capacity in SectionCapacity.Lift(new CapacityLift.Aluminum(
-            component.Designation, die.Grade, die.Form, banded.FoMpa, banded.FuMpa, solved, placement.Basis), key)
+            component.Designation, die.Grade, die.Form, banded.FoMpa, banded.FuMpa, solved, placement.Basis))
         select capacity;
 }
 ```

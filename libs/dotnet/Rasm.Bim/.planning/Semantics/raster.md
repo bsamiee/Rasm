@@ -136,7 +136,7 @@ public sealed record RasterBandInfo(
 
 - Owner: `GeoRaster` the GDAL raster ingest, the shared `Coverage`-node projection, and the contour/COG/warp/DEM derive legs; `BufferWidth` the closed read-width roster the stack read dispatches through; `SampleRows` the ONE GDAL-`DataType` roster carrying both the kernel storage row and the buffer width.
 - Law: pixels move through the PER-TYPE `Dataset.ReadRaster` overload family into a managed array matching the `Band.DataType` — a generic `<T>` call binds no overload on that SWIG surface — and the returned `CPLErr` gates the buffer before it becomes a band, because GDAL populates a read buffer BEFORE it reports failure and a discarded status publishes a zero-filled stack as pixel evidence; the abort grain is DECLARED, not assumed — GDAL publishes no interrupt across `Gdal.Open` or a windowed `ReadRaster`, so the token gates the ONE managed boundary this leg owns.
-- Entry: `Read(bytes, window, targetWidth, targetHeight, token, key)` opens the raster and reads the windowed band stack, every per-band schema, the mask, and the pyramid ONCE; `ToCoverage(tile, reference, field, overviewKey, ctx)` lands the shared `Node.Coverage`; `Contour(demBytes, interval, key)` vectorizes, `Cog(bytes, key)` transcodes, `Warp(bytes, target, key)` reprojects, and `DemProcess(demBytes, mode, key)` derives hillshade/slope/aspect.
+- Entry: `Read(bytes, window, targetWidth, targetHeight, token)` opens the raster and reads the windowed band stack, every per-band schema, the mask, and the pyramid ONCE; `ToCoverage(tile, reference, field, overviewKey, ctx)` lands the shared `Node.Coverage`; `Contour(demBytes, interval)` vectorizes, `Cog(bytes)` transcodes, `Warp(bytes, target)` reprojects, and `DemProcess(demBytes, mode)` derives hillshade/slope/aspect.
 - Auto: `Read` re-anchors the `GetGeoTransform` affine to the pixel window and resample ratio and folds the NTS extent off THIS affine's four corners (rotation honored), because stamping the SOURCE affine on a windowed or resampled buffer silently mislocates the tile; `ToCoverage` lowers the geo-transform onto the kernel `CellLattice` through `Placement.Build`'s `PointBasisMap` (the two rotation terms riding the affine's off-diagonal and the SIGNED pixel height preserved, so a north-up raster's negative Y scale is ordinary), derives every pyramid level as the base grid's `Coarsen` step, and lands a NON-ROOTED `Node.Coverage` whose `NodeId` is CONTENT-hashed over its own canonical bytes.
 - Output: the shared `Coverage` node is the by-reference field the terrain consumer and the `Exchange/export` 3D-Tiles terrain leg read — its `OverviewLevel` run letting a `Rasm.Compute` working-resolution route pick a level by `LevelFor`, size the fetch by `ByteLength(level)`, and read that level's bytes by its own `BlobKey` rather than the full base raster; the contour `GeoFeature` lines are the vectorized terrain the site model indexes.
 - Packages: `MaxRev.Gdal.Core`, `MaxRev.Gdal.MacosRuntime.Minimal.arm64`, `NetTopologySuite`, `ProjNET`, `CommunityToolkit.HighPerformance`, `Rasm.Element`, `Rasm`, `LanguageExt.Core`
@@ -172,7 +172,7 @@ public static class GeoRaster {
         (OSGeo.GDAL.DataType.GDT_CFloat32, (ChannelDtype.CFloat32, BufferWidth.Floats)),
         (OSGeo.GDAL.DataType.GDT_CFloat64, (ChannelDtype.CFloat64, BufferWidth.Doubles)));
 
-    public static Fin<RasterTile> Read(ReadOnlyMemory<byte> bytes, Option<Envelope> window, int targetWidth, int targetHeight, CancellationToken token, Op key) =>
+    public static Fin<RasterTile> Read(ReadOnlyMemory<byte> bytes, Option<Envelope> window, int targetWidth, int targetHeight, CancellationToken token) =>
         token.IsCancellationRequested
         ? Fin.Fail<RasterTile>(Errors.Cancelled)
         : GeoGdal.Raster(bytes, ".tif", dataset => {
@@ -180,7 +180,7 @@ public static class GeoRaster {
             dataset.GetGeoTransform(transform);
             var (xOff, yOff, xSize, ySize) = Pixels(window, transform, dataset.RasterXSize, dataset.RasterYSize);
             if (xSize <= 0 || ySize <= 0) {
-                return Fin.Fail<RasterTile>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "raster-window-disjoint", xOff.ToString(CultureInfo.InvariantCulture), yOff.ToString(CultureInfo.InvariantCulture) })));
+                return Fin.Fail<RasterTile>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "raster-window-disjoint", xOff.ToString(CultureInfo.InvariantCulture), yOff.ToString(CultureInfo.InvariantCulture) })));
             }
             var (rx, ry) = ((double)xSize / targetWidth, (double)ySize / targetHeight);
             double[] gt = [
@@ -193,20 +193,20 @@ public static class GeoRaster {
             int bands = dataset.RasterCount;
             var bandMap = Enumerable.Range(1, bands).ToArray();
             using var first = dataset.GetRasterBand(1);
-            Seq<RasterBandInfo> schema = Enumerable.Range(1, bands).AsIterable().Map(b => BandInfo(dataset.GetRasterBand(b), b - 1, key)).ToSeq();
+            Seq<RasterBandInfo> schema = Enumerable.Range(1, bands).AsIterable().Map(b => BandInfo(dataset.GetRasterBand(b), b - 1)).ToSeq();
             first.GetBlockSize(out int baseBlockX, out int baseBlockY);
             double baseCell = Math.Sqrt(Math.Abs((transform[1] * transform[5]) - (transform[2] * transform[4])));
-            Option<ProjectedCrs> sourceCrs = SourceFrame(dataset.GetProjectionRef(), key);
-            return from band in Materialize(dataset, first.DataType, xOff, yOff, xSize, ySize, targetWidth, targetHeight, bands, bandMap, key)
-                   from overviews in Overviews(first, dataset.RasterXSize, baseCell, key)
+            Option<ProjectedCrs> sourceCrs = SourceFrame(dataset.GetProjectionRef());
+            return from band in Materialize(dataset, first.DataType, xOff, yOff, xSize, ySize, targetWidth, targetHeight, bands, bandMap)
+                   from overviews in Overviews(first, dataset.RasterXSize, baseCell)
                    select new RasterTile(band, targetWidth, targetHeight, gt, extent, schema, overviews,
-                       baseBlockX, baseBlockY, sourceCrs, Mask(first, xOff, yOff, xSize, ySize, targetWidth, targetHeight, key));
-        }, "raster-read", key);
+                       baseBlockX, baseBlockY, sourceCrs, Mask(first, xOff, yOff, xSize, ySize, targetWidth, targetHeight));
+        }, "raster-read");
 
-    static Option<ProjectedCrs> SourceFrame(string wkt, Op key) =>
+    static Option<ProjectedCrs> SourceFrame(string wkt) =>
         wkt.Length == 0
             ? Option<ProjectedCrs>.None
-            : ProjectedCrs.Of("", "", "", wkt, key).ToOption();
+            : ProjectedCrs.Of("", "", "", wkt).ToOption();
 
     // --- [COVERAGE_PROJECTION]
     public static Fin<Node.Coverage> ToCoverage(
@@ -227,7 +227,7 @@ public static class GeoRaster {
             let draft = new Node.Coverage(NodeId.Of(new NodeSeed.Placement()), grid)
             select (Node.Coverage)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, ctx.Header.Tolerance))));
 
-    static Fin<CellLattice> Grid(RasterTile tile, Op key) =>
+    static Fin<CellLattice> Grid(RasterTile tile) =>
         from map in Placement.Build(
             spec: new TransformSpec.PointBasisMap(
                 Rhino.Geometry.Point3d.Origin,
@@ -235,39 +235,38 @@ public static class GeoRaster {
                 new Rhino.Geometry.Point3d(tile.GeoTransform[0], tile.GeoTransform[3], 0.0),
                 new Rhino.Geometry.Vector3d(tile.GeoTransform[1], tile.GeoTransform[4], 0.0),
                 new Rhino.Geometry.Vector3d(tile.GeoTransform[2], tile.GeoTransform[5], 0.0),
-                Rhino.Geometry.Vector3d.ZAxis),
-            key: key)
-        from columns in key.AcceptValidated<LatticeAxis>(candidate: tile.Width)
-        from rows in key.AcceptValidated<LatticeAxis>(candidate: tile.Height)
-        from layers in key.AcceptValidated<LatticeAxis>(candidate: 1)
+                Rhino.Geometry.Vector3d.ZAxis))
+        from columns in FactoryBridge.Accept<LatticeAxis>(candidate: tile.Width)
+        from rows in FactoryBridge.Accept<LatticeAxis>(candidate: tile.Height)
+        from layers in FactoryBridge.Accept<LatticeAxis>(candidate: 1)
         from grid in CellLattice.Of(
             indexToWorld: map, columns: columns, rows: rows, layers: layers,
-            ceiling: (long)tile.Width * tile.Height, key: key)
+            ceiling: (long)tile.Width * tile.Height)
         select grid;
 
     static Fin<Seq<OverviewLevel>> Pyramid(
         CellLattice basis, RasterTile tile, ArtifactContent raster,
-        Func<int, ArtifactContent> overview, Op key) =>
+        Func<int, ArtifactContent> overview) =>
         tile.Overviews.FoldM(
             (Grid: basis, Levels: Seq(new OverviewLevel(basis, raster, Blocked(tile.BaseBlockX, tile.BaseBlockY)))),
-            (carried, level) => carried.Grid.Coarsen(key).Bind(next =>
+            (carried, level) => carried.Grid.Coarsen().Bind(next =>
                 next.Columns.Value == level.Width && next.Rows.Value == level.Height
                     ? Fin.Succ((Grid: next, Levels: carried.Levels.Add(
                         new OverviewLevel(next, overview(level.Level), Blocked(level.BlockX, level.BlockY)))))
-                    : Fin.Fail<(CellLattice, Seq<OverviewLevel>)>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-pyramid-offchain", level.Level.ToString(CultureInfo.InvariantCulture), string.Create(provider: CultureInfo.InvariantCulture, $"{level.Width}x{level.Height}") })))))
+                    : Fin.Fail<(CellLattice, Seq<OverviewLevel>)>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-pyramid-offchain", level.Level.ToString(CultureInfo.InvariantCulture), string.Create(provider: CultureInfo.InvariantCulture, $"{level.Width}x{level.Height}") })))))
             .As()
             .Map(static carried => carried.Levels);
 
     static Option<(int X, int Y)> Blocked(int x, int y) => x > 0 && y > 0 ? Some((x, y)) : None;
 
-    static Fin<CoverageBand> Sampled(RasterBandInfo info, Op key) =>
+    static Fin<CoverageBand> Sampled(RasterBandInfo info) =>
         SampleRows.Find(info.DataType).Match(
             Some: row => CoverageBand.Of(
                 index: info.Index, name: $"band{info.Index}", sampleType: row.Storage,
-                role: Role(info.ColorInterp, info.Palette), key: key,
+                role: Role(info.ColorInterp, info.Palette),
                 noData: info.NoData, units: info.Units, offset: info.Offset, scale: info.Scale,
                 range: info.Range.Value().Map(static stat => (stat.Min, stat.Max)), palette: info.Palette),
-            None: () => Fin.Fail<CoverageBand>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-sample-unrepresentable", info.DataType.ToString() }))));
+            None: () => Fin.Fail<CoverageBand>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-sample-unrepresentable", info.DataType.ToString() }))));
 
     static readonly Map<OSGeo.GDAL.ColorInterp, BandRole> Roles = Map(
         (OSGeo.GDAL.ColorInterp.GCI_GrayIndex,    BandRole.Gray),
@@ -306,45 +305,45 @@ public static class GeoRaster {
 
     static Fin<RasterBand> Materialize(
         OSGeo.GDAL.Dataset dataset, OSGeo.GDAL.DataType dataType,
-        int xOff, int yOff, int xSize, int ySize, int width, int height, int bands, int[] bandMap, Op key) {
+        int xOff, int yOff, int xSize, int ySize, int width, int height, int bands, int[] bandMap) {
         int cells = width * height * bands;
         return SampleRows.Find(dataType).Match(
-            None: () => Fin.Fail<RasterBand>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-sample-unrepresentable", dataType.ToString() }))),
+            None: () => Fin.Fail<RasterBand>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-sample-unrepresentable", dataType.ToString() }))),
             Some: row => row.Width.Switch(
                 bytes: _ => Stacked(
                     new byte[cells], b => dataset.ReadRaster(xOff, yOff, xSize, ySize, b, width, height, bands, bandMap, 0, 0, 0),
-                    static b => new RasterBand.Bytes(b), key),
+                    static b => new RasterBand.Bytes(b)),
                 ints: _ => Stacked(
                     new int[cells], b => dataset.ReadRaster(xOff, yOff, xSize, ySize, b, width, height, bands, bandMap, 0, 0, 0),
-                    static b => new RasterBand.Ints(b), key),
+                    static b => new RasterBand.Ints(b)),
                 floats: _ => Stacked(
                     new float[cells], b => dataset.ReadRaster(xOff, yOff, xSize, ySize, b, width, height, bands, bandMap, 0, 0, 0),
-                    static b => new RasterBand.Floats(b), key),
+                    static b => new RasterBand.Floats(b)),
                 doubles: _ => Stacked(
                     new double[cells], b => dataset.ReadRaster(xOff, yOff, xSize, ySize, b, width, height, bands, bandMap, 0, 0, 0),
-                    static b => new RasterBand.Doubles(b), key)));
+                    static b => new RasterBand.Doubles(b))));
     }
 
-    static Fin<RasterBand> Stacked<T>(T[] buffer, Func<T[], OSGeo.GDAL.CPLErr> read, Func<T[], RasterBand> band, Op key)
+    static Fin<RasterBand> Stacked<T>(T[] buffer, Func<T[], OSGeo.GDAL.CPLErr> read, Func<T[], RasterBand> band)
         where T : struct {
         OSGeo.GDAL.CPLErr status = read(buffer);
         return status is OSGeo.GDAL.CPLErr.CE_Failure or OSGeo.GDAL.CPLErr.CE_Fatal
-            ? Fin.Fail<RasterBand>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "raster-read-rejected", status.ToString(), buffer.Length.ToString(CultureInfo.InvariantCulture) })))
+            ? Fin.Fail<RasterBand>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "raster-read-rejected", status.ToString(), buffer.Length.ToString(CultureInfo.InvariantCulture) })))
             : Fin.Succ(band(buffer));
     }
 
-    static Evidence<RasterBand> Mask(OSGeo.GDAL.Band band, int xOff, int yOff, int xSize, int ySize, int width, int height, Op key) =>
+    static Evidence<RasterBand> Mask(OSGeo.GDAL.Band band, int xOff, int yOff, int xSize, int ySize, int width, int height) =>
         MaskSource.Of(band.GetMaskFlags()).Exists(static row => row == MaskSource.AllValid)
             ? new Evidence<RasterBand>.Absent()
-            : Evidence.Of(key.Catch(() => {
+            : Evidence.Of(Try.lift(() => {
                 using OSGeo.GDAL.Band mask = band.GetMaskBand();
                 return Stacked(new byte[width * height],
                     b => mask.ReadRaster(xOff, yOff, xSize, ySize, b, width, height, 0, 0),
-                    static b => (RasterBand)new RasterBand.Bytes(b), key);
-            }).Bind(static read => read));
+                    static b => (RasterBand)new RasterBand.Bytes(b));
+            }).Run().Bind(static inner => inner).Bind(static read => read));
 
     // --- [BAND_SCHEMA]
-    static RasterBandInfo BandInfo(OSGeo.GDAL.Band band, int index, Op key) {
+    static RasterBandInfo BandInfo(OSGeo.GDAL.Band band, int index) {
         band.GetNoDataValue(out double noData, out int hasNoData);
         band.GetOffset(out double offset, out int _);
         band.GetScale(out double scale, out int _);
@@ -356,19 +355,19 @@ public static class GeoRaster {
             Units:       band.GetUnitType() ?? "",
             Offset:      offset,
             Scale:       scale,
-            Range:       Statistics(band, key),
+            Range:       Statistics(band),
             Histogram:   Histogram(band),
             Mask:        MaskSource.Of(band.GetMaskFlags()),
             Palette:     PaletteOf(band));
     }
 
-    static Evidence<BandStat> Statistics(OSGeo.GDAL.Band band, Op key) =>
+    static Evidence<BandStat> Statistics(OSGeo.GDAL.Band band) =>
         band.GetStatistics(1, 0, out double min, out double max, out double mean, out double stdDev) is OSGeo.GDAL.CPLErr.CE_None
             ? new Evidence<BandStat>.Measured(new BandStat(min, max, mean, stdDev))
-            : Evidence.Of(key.Catch(() =>
+            : Evidence.Of(Try.lift(() =>
                 band.ComputeStatistics(true, out double cMin, out double cMax, out double cMean, out double cDev, null, null) is OSGeo.GDAL.CPLErr.CE_None
                     ? Fin.Succ(new BandStat(cMin, cMax, cMean, cDev))
-                    : Fin.Fail<BandStat>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, "raster-statistics-unavailable"))).Bind(static stat => stat));
+                    : Fin.Fail<BandStat>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, "raster-statistics-unavailable"))).Run().Bind(static inner => inner).Bind(static stat => stat));
 
     static Evidence<BandHistogram> Histogram(OSGeo.GDAL.Band band) =>
         band.GetDefaultHistogram(out double min, out double max, out int _, out int[] buckets, 0, null, null) is OSGeo.GDAL.CPLErr.CE_None
@@ -392,21 +391,21 @@ public static class GeoRaster {
         }).ToSeq();
     }
 
-    static Fin<Seq<RasterOverview>> Overviews(OSGeo.GDAL.Band band, int baseWidth, double baseCell, Op key) =>
+    static Fin<Seq<RasterOverview>> Overviews(OSGeo.GDAL.Band band, int baseWidth, double baseCell) =>
         Enumerable.Range(0, band.GetOverviewCount()).AsIterable().ToSeq().Traverse(i => {
             using OSGeo.GDAL.Band level = band.GetOverview(i);
             level.GetBlockSize(out int blockX, out int blockY);
             return level.XSize > 0 && level.YSize > 0
                 ? Fin.Succ(new RasterOverview(i, level.XSize, level.YSize, baseCell * baseWidth / level.XSize, blockX, blockY))
-                : Fin.Fail<RasterOverview>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "raster-overview-degenerate", i.ToString(CultureInfo.InvariantCulture), level.XSize.ToString(CultureInfo.InvariantCulture), level.YSize.ToString(CultureInfo.InvariantCulture) })));
+                : Fin.Fail<RasterOverview>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "raster-overview-degenerate", i.ToString(CultureInfo.InvariantCulture), level.XSize.ToString(CultureInfo.InvariantCulture), level.YSize.ToString(CultureInfo.InvariantCulture) })));
         }).As();
 
     static byte Clamp(short channel) => (byte)Math.Clamp((int)channel, 0, 255);
 
     // --- [DERIVE_LEGS]
-    public static Fin<Seq<GeoFeature>> Contour(ReadOnlyMemory<byte> demBytes, double interval, Op key) =>
-        GeoGdal.Derive(demBytes, GdalSink.Memory, ".shp", (dem, sink) => key.Catch(() => {
-            Option<ProjectedCrs> demCrs = SourceFrame(dem.GetProjectionRef(), key);
+    public static Fin<Seq<GeoFeature>> Contour(ReadOnlyMemory<byte> demBytes, double interval) =>
+        GeoGdal.Derive(demBytes, GdalSink.Memory, ".shp", (dem, sink) => Try.lift(() => {
+            Option<ProjectedCrs> demCrs = SourceFrame(dem.GetProjectionRef());
             var options = new OSGeo.GDAL.GDALContourOptions(["-i", interval.ToString(CultureInfo.InvariantCulture), "-a", "elev"]);
             using var contoured = OSGeo.GDAL.Gdal.wrapper_GDALContourDestName(sink, dem, options, null, null);
             return Enumerable.Range(0, contoured.GetLayerCount()).AsIterable()
@@ -416,7 +415,7 @@ public static class GeoRaster {
                     return Traced(layer, demCrs);
                 })
                 .ToSeq();
-        }), "contour", key);
+        }).Run().Bind(static inner => inner), "contour");
 
     static IEnumerable<GeoFeature> Traced(OSGeo.OGR.Layer layer, Option<ProjectedCrs> crs) {
         for (var feature = layer.GetNextFeature(); feature is not null; feature = layer.GetNextFeature()) {
@@ -427,29 +426,29 @@ public static class GeoRaster {
         }
     }
 
-    public static Fin<byte[]> Cog(ReadOnlyMemory<byte> bytes, Op key) =>
-        Translated(bytes, ["-of", "COG", "-co", "COMPRESS=DEFLATE", "-co", "OVERVIEWS=AUTO"], "cog", key);
+    public static Fin<byte[]> Cog(ReadOnlyMemory<byte> bytes) =>
+        Translated(bytes, ["-of", "COG", "-co", "COMPRESS=DEFLATE", "-co", "OVERVIEWS=AUTO"], "cog");
 
-    public static Fin<byte[]> Warp(ReadOnlyMemory<byte> bytes, ProjectedCrs target, Op key) =>
-        GeoGdal.Derive(bytes, GdalSink.Temp, ".tif", (src, sink) => key.Catch(() => {
+    public static Fin<byte[]> Warp(ReadOnlyMemory<byte> bytes, ProjectedCrs target) =>
+        GeoGdal.Derive(bytes, GdalSink.Temp, ".tif", (src, sink) => Try.lift(() => {
             var options = new OSGeo.GDAL.GDALWarpAppOptions(
                 ["-t_srs", target.Wkt.Length > 0 ? target.Wkt : target.Name, "-r", "bilinear"]);
             using (OSGeo.GDAL.Gdal.Warp(sink, [src], options, null, null)) { }
             return File.ReadAllBytes(sink);
-        }), "warp", key);
+        }).Run().Bind(static inner => inner), "warp");
 
-    public static Fin<byte[]> DemProcess(ReadOnlyMemory<byte> demBytes, DemMode mode, Op key) =>
-        GeoGdal.Derive(demBytes, GdalSink.Temp, ".tif", (dem, sink) => key.Catch(() => {
+    public static Fin<byte[]> DemProcess(ReadOnlyMemory<byte> demBytes, DemMode mode) =>
+        GeoGdal.Derive(demBytes, GdalSink.Temp, ".tif", (dem, sink) => Try.lift(() => {
             var options = new OSGeo.GDAL.GDALDEMProcessingOptions(["-of", "GTiff", "-co", "COMPRESS=DEFLATE"]);
             using (OSGeo.GDAL.Gdal.wrapper_GDALDEMProcessing(sink, dem, mode.Key, null, options, null, null)) { }
             return File.ReadAllBytes(sink);
-        }), "dem", key);
+        }).Run().Bind(static inner => inner), "dem");
 
-    static Fin<byte[]> Translated(ReadOnlyMemory<byte> bytes, string[] arguments, string lane, Op key) =>
-        GeoGdal.Derive(bytes, GdalSink.Temp, ".tif", (src, sink) => key.Catch(() => {
+    static Fin<byte[]> Translated(ReadOnlyMemory<byte> bytes, string[] arguments, string lane) =>
+        GeoGdal.Derive(bytes, GdalSink.Temp, ".tif", (src, sink) => Try.lift(() => {
             using (OSGeo.GDAL.Gdal.wrapper_GDALTranslate(sink, src, new OSGeo.GDAL.GDALTranslateOptions(arguments), null, null)) { }
             return File.ReadAllBytes(sink);
-        }), lane, key);
+        }).Run().Bind(static inner => inner), lane);
 }
 ```
 

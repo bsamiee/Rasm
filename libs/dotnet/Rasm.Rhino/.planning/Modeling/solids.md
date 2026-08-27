@@ -66,11 +66,11 @@ public readonly partial struct ModelRuntime {
 
     internal IProgress<double>? ScalarReporter => ScalarProgress.ValueUnsafe();
 
-    internal Fin<TOut> Await<TOut>(Func<Task<TOut>> work, Op key) => key.Catch(() => {
+    internal Fin<TOut> Await<TOut>(Func<Task<TOut>> work) => Try.lift(() => {
         Task<TOut> running = work();
         running.Wait(Cancellation);
         return Fin.Succ(running.GetAwaiter().GetResult());
-    }, token: Cancellation);
+    }).Run().Bind(static inner => inner);
 }
 
 public sealed record ProcessFingerprint(
@@ -98,13 +98,12 @@ public static class BenchBand {
 
     public static Fin<(Fin<T> Outcome, BenchEvidence Evidence)> Measured<T>(
         MonotonicTimeline timeline, string operation, long inputScale, Func<Fin<T>> run) {
-        Op op = Op.Of(name: operation);
-        return from clock in op.Need(timeline)
-               from opened in clock.Capture(key: op)
+        return from clock in Admit.Need(timeline)
+               from opened in Error.New(key: op.Message, key: op)
                let allocated = GC.GetAllocatedBytesForCurrentThread()
-               let outcome = op.Catch(run)
-               from closed in clock.Capture(key: op)
-               from duration in clock.Elapsed(start: opened, end: closed, key: op)
+               let outcome = Try.lift(run).Run().Bind(static inner => inner)
+               from closed in Error.New(key: op.Message, key: op)
+               from duration in clock.Elapsed(start: opened, end: closed)
                select (outcome, new BenchEvidence(
                    Operation: operation,
                    InputScale: inputScale,
@@ -116,40 +115,38 @@ public static class BenchBand {
 }
 
 internal static class ModelGate {
-    internal static Fin<TResult> Borrow<TNative, TResult>(GeometryHandle handle, Op key, Func<TNative, Fin<TResult>> body)
+    internal static Fin<TResult> Borrow<TNative, TResult>(GeometryHandle handle, Func<TNative, Fin<TResult>> body)
         where TNative : GeometryBase =>
-        key.Need(handle).Bind(active => active.With(
-            key: key,
-            project: geometry => Optional(geometry as TNative)
-                .ToFin(Fail: key.Unsupported(inputType: geometry.GetType(), outputType: typeof(TNative)))
+        Admit.Need(handle).Bind(active => active.With(project: geometry => Optional(geometry as TNative)
+                .ToFin(Fail: new KernelFault.Unsupported(InputType: geometry.GetType(), OutputType: typeof(TNative)))
                 .Bind(body)));
 
     internal static Fin<TResult> BorrowMany<TNative, TResult>(
-        Seq<GeometryHandle> handles, Op key, Func<Seq<TNative>, Fin<TResult>> body, bool allowEmpty = false)
+        Seq<GeometryHandle> handles, Func<Seq<TNative>, Fin<TResult>> body, bool allowEmpty = false)
         where TNative : GeometryBase =>
         handles.IsEmpty && !allowEmpty
-            ? Fin.Fail<TResult>(error: key.InvalidInput())
-            : Nested(handles: handles, borrowed: Seq<TNative>(), key: key, body: body);
+            ? Fin.Fail<TResult>(error: new KernelFault.InvalidInput())
+            : Nested(handles: handles, borrowed: Seq<TNative>(), body: body);
 
-    internal static Fin<GeometryHandle> Own(GeometryBase? built, Op key) =>
-        Optional(built).ToFin(Fail: key.InvalidResult())
+    internal static Fin<GeometryHandle> Own(GeometryBase? built) =>
+        Optional(built).ToFin(Fail: new KernelFault.InvalidResult())
             .Map(fresh => new GeometryHandle(lease: new Lease<GeometryBase>.Owned(Value: fresh), mode: CrossingMode.Detach));
 
-    internal static Fin<Seq<GeometryHandle>> OwnMany(IEnumerable<GeometryBase>? built, Op key, bool allowEmpty = false) =>
-        Optional(built).Map(static values => toSeq(values)).ToFin(Fail: key.InvalidResult())
+    internal static Fin<Seq<GeometryHandle>> OwnMany(IEnumerable<GeometryBase>? built, bool allowEmpty = false) =>
+        Optional(built).Map(static values => toSeq(values)).ToFin(Fail: new KernelFault.InvalidResult())
             .Bind(fresh => fresh.IsEmpty && !allowEmpty
-                ? Fin.Fail<Seq<GeometryHandle>>(error: key.InvalidResult())
+                ? Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidResult())
                 : fresh.FoldM<Fin, Seq<GeometryHandle>>(Seq<GeometryHandle>(), (held, value) =>
-                    Own(built: value, key: key)
+                    Own(built: value)
                         .Map(handle => held.Add(value: handle))
-                        .Rollback(release: () => Custody.Dispose(held: held, key: key), key: key)));
+                        .Rollback(release: () => Custody.Dispose(held: held, key: key))));
 
     internal static Fin<Seq<GeometryHandle>> OwnEach<TSource>(
-        Seq<TSource> sources, Op key, Func<TSource, GeometryBase?> run, bool allowEmpty = false) =>
+        Seq<TSource> sources, Func<TSource, GeometryBase?> run, bool allowEmpty = false) =>
         sources.IsEmpty && !allowEmpty
-            ? Fin.Fail<Seq<GeometryHandle>>(error: key.InvalidResult())
+            ? Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidResult())
             : sources.FoldM<Fin, Seq<GeometryHandle>>(Seq<GeometryHandle>(), (held, source) =>
-                key.Catch(() => Own(built: run(source), key: key))
+                Try.lift(() => Own(built: run(source))).Run().Bind(static inner => inner)
                     .Map(handle => held.Add(value: handle))
                     .Rollback([.. held]));
 
@@ -162,14 +159,13 @@ internal static class ModelGate {
 
     internal static Fin<Seq<GeometryHandle>> Entry<TOp>(
         ModelRuntime runtime, Seq<TOp> operations,
-        Func<TOp, Op, Fin<TOp>> admit,
+        Func<TOp, Fin<TOp>> admit,
         Func<TOp, Context, Fin<Seq<GeometryHandle>>> apply) {
-        Op op = Op.Of();
-        return from domain in Optional(runtime.Domain).ToFin(Fail: op.MissingContext())
-               from _ in guard(!operations.IsEmpty, op.InvalidInput())
+        return from domain in Optional(runtime.Domain).ToFin(Fail: new KernelFault.MissingContext())
+               from _ in guard(!operations.IsEmpty, new KernelFault.InvalidInput())
                from admitted in operations
-                   .Traverse(operation => op.Need(operation)
-                       .Bind(active => admit(active, op))
+                   .Traverse(operation => Admit.Need(operation)
+                       .Bind(active => admit(active))
                        .ToValidation())
                    .As()
                    .ToFin()
@@ -179,98 +175,88 @@ internal static class ModelGate {
 
     internal static Fin<Seq<GeometryHandle>> Entry<TOp>(
         ModelRuntime runtime, ReadOnlySpan<TOp> operations,
-        Func<TOp, Op, Fin<TOp>> admit,
+        Func<TOp, Fin<TOp>> admit,
         Func<TOp, Context, Fin<Seq<GeometryHandle>>> apply) =>
         Entry(runtime: runtime, operations: toSeq(operations.ToArray()), admit: admit, apply: apply);
 
-    internal static Fin<Seq<GeometryHandle>> Single(
-        Op op, Func<GeometryBase?> run, CancellationToken token = default) =>
-        op.Catch(() => Own(built: run(), key: op).Map(Seq), token: token);
+    internal static Fin<Seq<GeometryHandle>> Single(Func<GeometryBase?> run, CancellationToken token = default) =>
+        Try.lift(() => Own(built: run()).Map(Seq)).Run().Bind(static inner => inner);
 
-    internal static Fin<Seq<GeometryHandle>> Many(
-        Op op, Func<System.Collections.Generic.IEnumerable<GeometryBase>?> run,
+    internal static Fin<Seq<GeometryHandle>> Many(Func<System.Collections.Generic.IEnumerable<GeometryBase>?> run,
         bool allowEmpty = false, CancellationToken token = default) =>
-        op.Catch(() => OwnMany(built: run(), key: op, allowEmpty: allowEmpty), token: token);
+        Try.lift(() => OwnMany(built: run(), allowEmpty: allowEmpty)).Run().Bind(static inner => inner);
 
-    internal static Fin<Seq<GeometryHandle>> Kept(Op op, GeometryBase working) =>
-        Own(built: working, key: op).Map(Seq);
+    internal static Fin<Seq<GeometryHandle>> Kept(GeometryBase working) =>
+        Own(built: working).Map(Seq);
 
-    internal static Fin<Seq<GeometryHandle>> Owned(
-        Op op, GeometryBase working, Func<GeometryBase?> run) =>
-        op.Catch(() => Own(built: run(), key: op)).Bind(owned =>
-            Relinquished(op: op, working: working, built: Seq(owned)));
+    internal static Fin<Seq<GeometryHandle>> Owned(GeometryBase working, Func<GeometryBase?> run) =>
+        Try.lift(() => Own(built: run())).Run().Bind(static inner => inner).Bind(owned =>
+            Relinquished(working: working, built: Seq(owned)));
 
-    internal static Fin<Seq<GeometryHandle>> OwnedMany(
-        Op op, GeometryBase working, Func<IEnumerable<GeometryBase>?> run,
+    internal static Fin<Seq<GeometryHandle>> OwnedMany(GeometryBase working, Func<IEnumerable<GeometryBase>?> run,
         bool allowEmpty = false) =>
-        op.Catch(() => OwnMany(built: run(), key: op, allowEmpty: allowEmpty)).Bind(owned =>
-            Relinquished(op: op, working: working, built: owned));
+        Try.lift(() => OwnMany(built: run(), allowEmpty: allowEmpty)).Run().Bind(static inner => inner).Bind(owned =>
+            Relinquished(working: working, built: owned));
 
-    internal static Fin<GeometryBase> Detached(GeometryBase? source, Op key) {
+    internal static Fin<GeometryBase> Detached(GeometryBase? source) {
         GeometryBase? detached = null;
-        Fin<GeometryBase> copied = from active in Optional(source).ToFin(Fail: key.InvalidResult())
-                                   from copy in key.Catch(() => Optional(active.Duplicate())
-                                       .ToFin(Fail: key.InvalidResult()))
+        Fin<GeometryBase> copied = from active in Optional(source).ToFin(Fail: new KernelFault.InvalidResult())
+                                   from copy in Try.lift(() => Optional(active.Duplicate())
+                                       .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                                    select (detached = copy)!;
         return copied
             .Settled(
-                release: () => Custody.Dispose(held: Optional(source).ToSeq(), key: key),
-                key: key)
+                release: () => Custody.Dispose(held: Optional(source).ToSeq(), key: key))
             .Rollback(
-                release: () => Custody.Dispose(held: Optional(detached).ToSeq(), key: key),
-                key: key);
+                release: () => Custody.Dispose(held: Optional(detached).ToSeq(), key: key));
     }
 
-    internal static Fin<Seq<GeometryBase>> DetachedMany(IEnumerable<GeometryBase>? source, Op key) =>
-        Optional(source).ToFin(Fail: key.InvalidResult()).Bind(rows => toSeq(rows).FoldM<Fin, Seq<GeometryBase>>(
+    internal static Fin<Seq<GeometryBase>> DetachedMany(IEnumerable<GeometryBase>? source) =>
+        Optional(source).ToFin(Fail: new KernelFault.InvalidResult()).Bind(rows => toSeq(rows).FoldM<Fin, Seq<GeometryBase>>(
             Seq<GeometryBase>(),
-            (held, row) => Detached(source: row, key: key)
+            (held, row) => Detached(source: row)
                 .Map(held.Add)
-                .Rollback(release: () => Custody.Dispose(held: held, key: key), key: key)));
+                .Rollback(release: () => Custody.Dispose(held: held, key: key))));
 
-    internal static Fin<Seq<GeometryHandle>> Staged(
-        Op op, params ReadOnlySpan<(System.Collections.Generic.IEnumerable<GeometryBase>? Values, bool AllowEmpty)> stages) =>
-        StageOwned(op: op, success: Option<bool>.None, stages: stages.ToArray());
+    internal static Fin<Seq<GeometryHandle>> Staged(params ReadOnlySpan<(System.Collections.Generic.IEnumerable<GeometryBase>? Values, bool AllowEmpty)> stages) =>
+        StageOwned(success: Option<bool>.None, stages: stages.ToArray());
 
-    internal static Fin<Seq<GeometryHandle>> Staged(
-        Op op, bool success,
+    internal static Fin<Seq<GeometryHandle>> Staged(bool success,
         params ReadOnlySpan<(System.Collections.Generic.IEnumerable<GeometryBase>? Values, bool AllowEmpty)> stages) =>
-        StageOwned(op: op, success: Some(success), stages: stages.ToArray());
+        StageOwned(success: Some(success), stages: stages.ToArray());
 
-    private static Fin<Seq<GeometryHandle>> StageOwned(
-        Op op, Option<bool> success,
+    private static Fin<Seq<GeometryHandle>> StageOwned(Option<bool> success,
         (System.Collections.Generic.IEnumerable<GeometryBase>? Values, bool AllowEmpty)[] stages) {
         Fin<Seq<Seq<GeometryHandle>>> captured = toSeq(stages).FoldM<Fin, Seq<Seq<GeometryHandle>>>(
             Seq<Seq<GeometryHandle>>(),
-            (held, stage) => op.Catch(() => OwnMany(
-                    built: stage.Values ?? Seq<GeometryBase>().AsEnumerable(), key: op, allowEmpty: stage.AllowEmpty))
+            (held, stage) => Try.lift(() => OwnMany(
+                    built: stage.Values ?? Seq<GeometryBase>().AsEnumerable(), allowEmpty: stage.AllowEmpty)).Run().Bind(static inner => inner)
                 .Map(held.Add)
                 .Rollback(
                     release: () => Custody.Dispose(
-                        held: held.Bind(static products => products), key: op),
-                    key: op));
+                        held: held.Bind(static products => products), key: op)));
         return from rows in captured
                let products = rows.Bind(static stage => stage)
                from _ in success
-                   .TraverseM(verdict => op.Confirm(success: verdict))
+                   .TraverseM(verdict => Admit.Confirm(success: verdict))
                    .As()
                    .Map(static _ => unit)
-                   .Rollback(release: () => Custody.Dispose(held: products, key: op), key: op)
+                   .Rollback(release: () => Custody.Dispose(held: products, key: op))
                select products;
     }
 
-    private static Fin<Seq<GeometryHandle>> Relinquished(Op op, GeometryBase working, Seq<GeometryHandle> built) =>
-        op.Catch(() => {
+    private static Fin<Seq<GeometryHandle>> Relinquished(GeometryBase working, Seq<GeometryHandle> built) =>
+        Try.lift(() => {
             working.Dispose();
             return Fin.Succ(value: built);
-        }).Rollback([.. built]);
+        }).Run().Bind(static inner => inner).Rollback([.. built]);
 
     private static Fin<TResult> Nested<TNative, TResult>(
-        Seq<GeometryHandle> handles, Seq<TNative> borrowed, Op key, Func<Seq<TNative>, Fin<TResult>> body)
+        Seq<GeometryHandle> handles, Seq<TNative> borrowed, Func<Seq<TNative>, Fin<TResult>> body)
         where TNative : GeometryBase =>
         handles.Head.Case switch {
-            GeometryHandle head => Borrow<TNative, TResult>(handle: head, key: key,
-                body: native => Nested(handles: handles.Tail, borrowed: borrowed.Add(value: native), key: key, body: body)),
+            GeometryHandle head => Borrow<TNative, TResult>(handle: head,
+                body: native => Nested(handles: handles.Tail, borrowed: borrowed.Add(value: native), body: body)),
             _ => body(arg: borrowed),
         };
 }
@@ -567,48 +553,46 @@ public abstract partial record SolidSeed : IValidityEvidence {
         fromRevolve: static seed => ModelClaim.Handle(handle: seed.Source),
         fromMesh: static seed => ModelClaim.Handle(handle: seed.Source));
 
-    internal Fin<GeometryHandle> Build(Context domain, Op key) =>
+    internal Fin<GeometryHandle> Build(Context domain) =>
         Switch(
-            context: (Domain: domain, Op: key),
-            ofBox: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateFromBox(box: seed.Value), key: ctx.Op)),
-            ofBounds: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateFromBox(box: seed.Value), key: ctx.Op)),
-            ofCorners: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(
-                built: Brep.CreateFromBox(corners: Seq(seed.A, seed.B, seed.C, seed.D, seed.E, seed.F, seed.G, seed.H).AsIterable()),
-                key: ctx.Op)),
-            ofCylinder: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(
+            context: domain,
+            ofBox: static (ctx, seed) => Try.lift(() => ModelGate.Own(built: Brep.CreateFromBox(box: seed.Value))).Run().Bind(static inner => inner),
+            ofBounds: static (ctx, seed) => Try.lift(() => ModelGate.Own(built: Brep.CreateFromBox(box: seed.Value))).Run().Bind(static inner => inner),
+            ofCorners: static (ctx, seed) => Try.lift(() => ModelGate.Own(
+                built: Brep.CreateFromBox(corners: Seq(seed.A, seed.B, seed.C, seed.D, seed.E, seed.F, seed.G, seed.H).AsIterable()))).Run().Bind(static inner => inner),
+            ofCylinder: static (ctx, seed) => Try.lift(() => ModelGate.Own(
                 built: Brep.CreateFromCylinder(
                     cylinder: seed.Value,
                     capBottom: seed.Caps.Admits(capability: CapEnd.Lower),
-                    capTop: seed.Caps.Admits(capability: CapEnd.Upper)),
-                key: ctx.Op)),
-            ofCone: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(
-                built: Brep.CreateFromCone(cone: seed.Value, capBottom: seed.Caps.Admits(capability: CapEnd.Lower)), key: ctx.Op)),
-            ofTorus: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateFromTorus(torus: seed.Value), key: ctx.Op)),
-            ofSphere: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateFromSphere(sphere: seed.Value), key: ctx.Op)),
-            quadSphere: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateQuadSphere(sphere: seed.Value), key: ctx.Op)),
-            baseball: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(
-                built: Brep.CreateBaseballSphere(center: seed.Center, radius: seed.Radius, tolerance: ctx.Domain.Absolute.Value), key: ctx.Op)),
-            cornerPoints: static (ctx, seed) => ctx.Op.Catch(() => ModelGate.Own(
+                    capTop: seed.Caps.Admits(capability: CapEnd.Upper)))).Run().Bind(static inner => inner),
+            ofCone: static (ctx, seed) => Try.lift(() => ModelGate.Own(
+                built: Brep.CreateFromCone(cone: seed.Value, capBottom: seed.Caps.Admits(capability: CapEnd.Lower)))).Run().Bind(static inner => inner),
+            ofTorus: static (ctx, seed) => Try.lift(() => ModelGate.Own(built: Brep.CreateFromTorus(torus: seed.Value))).Run().Bind(static inner => inner),
+            ofSphere: static (ctx, seed) => Try.lift(() => ModelGate.Own(built: Brep.CreateFromSphere(sphere: seed.Value))).Run().Bind(static inner => inner),
+            quadSphere: static (ctx, seed) => Try.lift(() => ModelGate.Own(built: Brep.CreateQuadSphere(sphere: seed.Value))).Run().Bind(static inner => inner),
+            baseball: static (ctx, seed) => Try.lift(() => ModelGate.Own(
+                built: Brep.CreateBaseballSphere(center: seed.Center, radius: seed.Radius, tolerance: ctx.Absolute.Value))).Run().Bind(static inner => inner),
+            cornerPoints: static (ctx, seed) => Try.lift(() => ModelGate.Own(
                 built: seed.Values.Count switch {
                     3 => Brep.CreateFromCornerPoints(
                         corner1: seed.Values[0], corner2: seed.Values[1], corner3: seed.Values[2],
-                        tolerance: ctx.Domain.Absolute.Value),
+                        tolerance: ctx.Absolute.Value),
                     4 => Brep.CreateFromCornerPoints(
                         corner1: seed.Values[0], corner2: seed.Values[1], corner3: seed.Values[2], corner4: seed.Values[3],
-                        tolerance: ctx.Domain.Absolute.Value),
+                        tolerance: ctx.Absolute.Value),
                     _ => null,
-                }, key: ctx.Op)),
-            fromSurface: static (ctx, seed) => ModelGate.Borrow<Surface, GeometryHandle>(handle: seed.Source, key: ctx.Op,
-                body: surface => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateFromSurface(surface: surface), key: ctx.Op))),
-            fromRevolve: static (ctx, seed) => ModelGate.Borrow<RevSurface, GeometryHandle>(handle: seed.Source, key: ctx.Op,
-                body: surface => ctx.Op.Catch(() => ModelGate.Own(
+                })).Run().Bind(static inner => inner),
+            fromSurface: static (ctx, seed) => ModelGate.Borrow<Surface, GeometryHandle>(handle: seed.Source,
+                body: surface => Try.lift(() => ModelGate.Own(built: Brep.CreateFromSurface(surface: surface), key: ctx.Op)).Run().Bind(static inner => inner)),
+            fromRevolve: static (ctx, seed) => ModelGate.Borrow<RevSurface, GeometryHandle>(handle: seed.Source,
+                body: surface => Try.lift(() => ModelGate.Own(
                     built: Brep.CreateFromRevSurface(
                         surface: surface,
                         capStart: seed.Caps.Admits(capability: CapEnd.Lower),
                         capEnd: seed.Caps.Admits(capability: CapEnd.Upper)),
-                    key: ctx.Op))),
-            fromMesh: static (ctx, seed) => ModelGate.Borrow<Mesh, GeometryHandle>(handle: seed.Source, key: ctx.Op,
-                body: mesh => ctx.Op.Catch(() => ModelGate.Own(built: Brep.CreateFromMesh(mesh: mesh, trimmedTriangles: seed.TrimmedTriangles), key: ctx.Op))));
+                    key: ctx.Op)).Run().Bind(static inner => inner)),
+            fromMesh: static (ctx, seed) => ModelGate.Borrow<Mesh, GeometryHandle>(handle: seed.Source,
+                body: mesh => Try.lift(() => ModelGate.Own(built: Brep.CreateFromMesh(mesh: mesh, trimmedTriangles: seed.TrimmedTriangles), key: ctx.Op)).Run().Bind(static inner => inner)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -632,29 +616,27 @@ public abstract partial record ExtrusionSeed : IValidityEvidence {
         ofPipe: static seed => ValidityClaim.All(
             seed.Value.IsValid, ValidityClaim.Positive(value: seed.OtherRadius)));
 
-    internal Fin<GeometryHandle> Build(Op key) =>
+    internal Fin<GeometryHandle> Build() =>
         Switch(
             context: key,
-            profile: static (op, seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile, key: op,
-                body: profile => op.Catch(() => ModelGate.Own(
+            profile: static (seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile,
+                body: profile => Try.lift(() => ModelGate.Own(
                     built: Extrusion.Create(planarCurve: profile, height: seed.Height, cap: seed.Cap),
-                    key: op))),
-            framedProfile: static (op, seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile, key: op,
-                body: profile => op.Catch(() => ModelGate.Own(
-                    built: Extrusion.Create(curve: profile, plane: seed.Frame, height: seed.Height, cap: seed.Cap), key: op))),
-            ofBox: static (op, seed) => op.Catch(() => ModelGate.Own(built: Extrusion.CreateBoxExtrusion(box: seed.Value, cap: seed.Cap), key: op)),
-            ofCylinder: static (op, seed) => op.Catch(() => ModelGate.Own(
+                    key: op)).Run().Bind(static inner => inner)),
+            framedProfile: static (seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile,
+                body: profile => Try.lift(() => ModelGate.Own(
+                    built: Extrusion.Create(curve: profile, plane: seed.Frame, height: seed.Height, cap: seed.Cap), key: op)).Run().Bind(static inner => inner)),
+            ofBox: static (seed) => Try.lift(() => ModelGate.Own(built: Extrusion.CreateBoxExtrusion(box: seed.Value, cap: seed.Cap))).Run().Bind(static inner => inner),
+            ofCylinder: static (seed) => Try.lift(() => ModelGate.Own(
                 built: Extrusion.CreateCylinderExtrusion(
                     cylinder: seed.Value,
                     capBottom: seed.Caps.Admits(capability: CapEnd.Lower),
-                    capTop: seed.Caps.Admits(capability: CapEnd.Upper)),
-                key: op)),
-            ofPipe: static (op, seed) => op.Catch(() => ModelGate.Own(
+                    capTop: seed.Caps.Admits(capability: CapEnd.Upper)))).Run().Bind(static inner => inner),
+            ofPipe: static (seed) => Try.lift(() => ModelGate.Own(
                 built: Extrusion.CreatePipeExtrusion(
                     cylinder: seed.Value, otherRadius: seed.OtherRadius,
                     capTop: seed.Caps.Admits(capability: CapEnd.Upper),
-                    capBottom: seed.Caps.Admits(capability: CapEnd.Lower)),
-                key: op)));
+                    capBottom: seed.Caps.Admits(capability: CapEnd.Lower)))).Run().Bind(static inner => inner));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -739,12 +721,12 @@ public readonly partial struct FilletLaw : IValidityEvidence {
 
     public bool IsValid => Shape is { IsValid: true };
 
-    internal Fin<Brep.FilletSurfaceSettings> Rig(Context domain, Op key) =>
-        key.Catch(() => {
+    internal Fin<Brep.FilletSurfaceSettings> Rig(Context domain) =>
+        Try.lift(() => {
             Brep.FilletSurfaceSettings settings = Shape.Bake(domain: domain, grants: Grants);
             settings.ContinueAcrossTangentFaces = Grants.Admits(capability: ShapeGrant.AcrossTangents);
             return Fin.Succ(value: settings);
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 public sealed record SectionFilletLaw(
@@ -803,8 +785,8 @@ public sealed record MatchLaw(
     public bool IsValid => ValidityClaim.All(
         Enum.IsDefined(Match), Enum.IsDefined(OtherEnd), Refinement is not null, Enum.IsDefined(PreserveIso));
 
-    internal Fin<MatchSrfSettings> Rig(Context domain, Op key) =>
-        key.Catch(() => {
+    internal Fin<MatchSrfSettings> Rig(Context domain) =>
+        Try.lift(() => {
             MatchSrfSettings settings = new(match: Match, otherEnd: OtherEnd) {
                 Average = Capabilities.Admits(capability: MatchCapability.Average),
                 MatchClosestPoints = Capabilities.Admits(capability: MatchCapability.ClosestPoints),
@@ -814,13 +796,13 @@ public sealed record MatchLaw(
             };
             _ = Refinement.Apply(settings: settings, domain: domain);
             return Fin.Succ(value: settings);
-        });
+        }).Run().Bind(static inner => inner);
 }
 ```
 
 ## [04]-[OPERATION_PIPELINE]
 
-- Owner: `SolidOp` `[Union]` `[GenerateUnionOps]` — the whole verified solid-construction verb roster, each case carrying its own generated `SelfOp`; `Solids` — the one entry folding any operation spread into owned geometry handles.
+- Owner: `SolidOp` `[Union]` `` — the whole verified solid-construction verb roster, each case carrying its own generated `SelfOp`; `Solids` — the one entry folding any operation spread into owned geometry handles.
 - Law: every construction arm returns the owned geometry produced by RhinoCommon directly; native diagnostics and correspondence outputs stay local when no caller consumes them.
 - Law: the pipeline is value-semantic — `Edit` duplicates its borrowed brep, runs the in-place host member on the working copy, and owns the copy (or the member's returned brep, disposing the copy) as the product; no operation mutates the geometry behind an input handle.
 - Law: boolean payload shape is admission — `SolidBooleanLaw` carries each set topology and manifold grant, and `PlanarBooleanLaw` carries union spread or exact pair.
@@ -830,11 +812,10 @@ public sealed record MatchLaw(
 - Boundary: sweep, loft, and patch construction is the lofting page's pipeline; freeform surface and curve construction is the surfaces and curves pages'; this pipeline owns the solid-topology verbs alone.
 - Boundary: this pipeline is unpaced because no Brep construction member consumes cancellation or progress; `ModelRuntime` supplies the shared context while meshing, lofting, and projection consume their pacing columns.
 - Growth: a new host solid verb is one case with its arm; the spine and every consumer read it with zero new surface.
-- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — the `Brep` boolean, fillet, blend, offset, shell, pipe, join, merge, match, split, trim, and extrusion rosters `:44-160`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Extrusion`, `ComponentIndex`, `MeshType`, `ExtrudeCornerType`), kernel `Domain/results` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/validation` (`CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — the `Brep` boolean, fillet, blend, offset, shell, pipe, join, merge, match, split, trim, and extrusion rosters `:44-160`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Extrusion`, `ComponentIndex`, `MeshType`, `ExtrudeCornerType`), kernel `Domain/results` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `` + generated `SelfOp`, `Fin`), kernel `Domain/validation` (`CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[GenerateUnionOps]
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SolidOp {
     private SolidOp() { }
@@ -886,40 +867,40 @@ public abstract partial record SolidOp {
     private static readonly CapabilityLaw<OffsetGrant> FaceOffsetGrants = CapabilityLaw<OffsetGrant>.Forbidden(
         barred: Seq(CapabilitySet<OffsetGrant>.Of(OffsetGrant.Extend), CapabilitySet<OffsetGrant>.Of(OffsetGrant.Shrink)));
 
-    internal Fin<SolidOp> Admitted(Op key) =>
+    internal Fin<SolidOp> Admitted() =>
         Switch(
             context: key,
-            boolean: static (op, row) => ModelClaim.Admits(row, op,
+            boolean: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Law), row.Law is { IsValid: true })),
-            planarBoolean: static (op, row) => ModelClaim.Admits(row, op,
+            planarBoolean: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Plane), row.Plane.IsValid), (nameof(row.Law), row.Law is { IsValid: true })),
-            solidify: static (op, row) => ModelClaim.Admits(row, op,
+            solidify: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Open), ModelClaim.Handles(handles: row.Open))),
-            filletEdges: static (op, row) => ModelClaim.Admits(row, op,
+            filletEdges: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Edges), ModelClaim.Rows(rows: row.Edges, claim: static edge => edge.IsValid)),
                 (nameof(row.Blend), Enum.IsDefined(row.Blend)), (nameof(row.Rail), Enum.IsDefined(row.Rail))),
-            faceFillet: static (op, row) => ModelClaim.Admits(row, op,
+            faceFillet: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstUv), row.FirstUv.IsValid),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondFace), ValidityClaim.CountAtLeast(count: row.SecondFace, floor: 0)),
                 (nameof(row.SecondUv), row.SecondUv.IsValid), (nameof(row.Law), row.Law.IsValid)),
-            faceCurveFillet: static (op, row) => ModelClaim.Admits(row, op,
+            faceCurveFillet: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Host), ModelClaim.Handle(handle: row.Host)),
                 (nameof(row.Face), ValidityClaim.CountAtLeast(count: row.Face, floor: 0)),
                 (nameof(row.Uv), row.Uv.IsValid), (nameof(row.Along), ModelClaim.Handle(handle: row.Along)),
                 (nameof(row.Parameter), ValidityClaim.Finite(value: row.Parameter)),
                 (nameof(row.Law), row.Law.IsValid)),
-            sectionFillet: static (op, row) => ModelClaim.Admits(row, op,
+            sectionFillet: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstUv), row.FirstUv.IsValid),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondFace), ValidityClaim.CountAtLeast(count: row.SecondFace, floor: 0)),
                 (nameof(row.SecondUv), row.SecondUv.IsValid), (nameof(row.Law), row.Law is { IsValid: true })),
-            blendSurface: static (op, row) => ModelClaim.Admits(row, op,
+            blendSurface: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstEdge), ValidityClaim.CountAtLeast(count: row.FirstEdge, floor: 0)),
@@ -931,7 +912,7 @@ public abstract partial record SolidOp {
                 (nameof(row.SecondDomain), row.SecondDomain.IsValid),
                 (nameof(row.SecondContinuity), Enum.IsDefined(row.SecondContinuity)),
                 (nameof(row.Reverse), row.Reverse is not null)),
-            blendSection: static (op, row) => ModelClaim.Admits(row, op,
+            blendSection: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.FirstEdge), ValidityClaim.CountAtLeast(count: row.FirstEdge, floor: 0)),
@@ -943,96 +924,96 @@ public abstract partial record SolidOp {
                 (nameof(row.SecondT), ValidityClaim.Finite(value: row.SecondT)),
                 (nameof(row.SecondContinuity), Enum.IsDefined(row.SecondContinuity)),
                 (nameof(row.Reverse), row.Reverse is not null)),
-            offsetSolid: static (op, row) => ModelClaim.Admits(row, op,
+            offsetSolid: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.Grants), SolidOffsetGrants.Admit(held: row.Grants).IsSucc)),
-            faceOffset: static (op, row) => ModelClaim.Admits(row, op,
+            faceOffset: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Face), ValidityClaim.CountAtLeast(count: row.Face, floor: 0)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.Grants), FaceOffsetGrants.Admit(held: row.Grants).IsSucc)),
-            shell: static (op, row) => ModelClaim.Admits(row, op,
+            shell: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.FacesToRemove), ModelClaim.Rows(
                     rows: row.FacesToRemove, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0), allowEmpty: true)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0))),
-            pipe: static (op, row) => ModelClaim.Admits(row, op,
+            pipe: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)),
                 (nameof(row.Law), row.Law is { IsValid: true }), (nameof(row.Cap), Enum.IsDefined(row.Cap))),
-            seed: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Value), row.Value is { IsValid: true })),
-            taperedExtrude: static (op, row) => ModelClaim.Admits(row, op,
+            seed: static (row) => ModelClaim.Admits(row, (nameof(row.Value), row.Value is { IsValid: true })),
+            taperedExtrude: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.Direction), ValidityClaim.Direction(value: row.Direction)),
                 (nameof(row.BasePoint), ValidityClaim.Finite(value: row.BasePoint)),
                 (nameof(row.DraftAngleRadians), ValidityClaim.Finite(value: row.DraftAngleRadians)),
                 (nameof(row.Corner), Enum.IsDefined(row.Corner))),
-            taperedExtrudeRef: static (op, row) => ModelClaim.Admits(row, op,
+            taperedExtrudeRef: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Direction), ValidityClaim.Direction(value: row.Direction)),
                 (nameof(row.Distance), ValidityClaim.All(ValidityClaim.Finite(value: row.Distance), row.Distance != 0.0)),
                 (nameof(row.DraftAngleRadians), ValidityClaim.Finite(value: row.DraftAngleRadians)),
                 (nameof(row.Reference), row.Reference.IsValid)),
-            planarFill: static (op, row) => ModelClaim.Admits(row, op,
+            planarFill: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Loops), ModelClaim.Handles(handles: row.Loops))),
-            edgeSurface: static (op, row) => ModelClaim.Admits(row, op,
+            edgeSurface: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Rails), ModelClaim.Handles(handles: row.Rails))),
-            trimmedPlane: static (op, row) => ModelClaim.Admits(row, op,
+            trimmedPlane: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Frame), row.Frame.IsValid), (nameof(row.Curves), ModelClaim.Handles(handles: row.Curves))),
-            join: static (op, row) => ModelClaim.Admits(row, op,
+            join: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets))),
-            joinEdges: static (op, row) => ModelClaim.Admits(row, op,
+            joinEdges: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstEdge), ValidityClaim.CountAtLeast(count: row.FirstEdge, floor: 0)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondEdge), ValidityClaim.CountAtLeast(count: row.SecondEdge, floor: 0))),
-            merge: static (op, row) => ModelClaim.Admits(row, op,
+            merge: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets))),
-            mergeFaces: static (op, row) => ModelClaim.Admits(row, op,
+            mergeFaces: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.Law), row.Law is { IsValid: true })),
-            match: static (op, row) => ModelClaim.Admits(row, op,
+            match: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Edge), ValidityClaim.CountAtLeast(count: row.Edge, floor: 0)),
                 (nameof(row.TargetCurves), ModelClaim.Handles(handles: row.TargetCurves)),
                 (nameof(row.Law), row.Law is { IsValid: true })),
-            extendToConnect: static (op, row) => ModelClaim.Admits(row, op,
+            extendToConnect: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handle(handle: row.First)),
                 (nameof(row.FirstFace), ValidityClaim.CountAtLeast(count: row.FirstFace, floor: 0)),
                 (nameof(row.Second), ModelClaim.Handle(handle: row.Second)),
                 (nameof(row.SecondFace), ValidityClaim.CountAtLeast(count: row.SecondFace, floor: 0)),
                 (nameof(row.At), row.At is { IsValid: true })),
-            splitPieces: static (op, row) => ModelClaim.Admits(row, op,
+            splitPieces: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitBy: static (op, row) => ModelClaim.Admits(row, op,
+            splitBy: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Cutters), ModelClaim.Handles(handles: row.Cutters))),
-            trim: static (op, row) => ModelClaim.Admits(row, op,
+            trim: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Cutter), row.Cutter is { IsValid: true })),
-            cutUp: static (op, row) => ModelClaim.Admits(row, op,
+            cutUp: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Curves), ModelClaim.Handles(handles: row.Curves))),
-            copyTrims: static (op, row) => ModelClaim.Admits(row, op,
+            copyTrims: static (row) => ModelClaim.Admits(row,
                 (nameof(row.TrimSource), ModelClaim.Handle(handle: row.TrimSource)),
                 (nameof(row.Face), ValidityClaim.CountAtLeast(count: row.Face, floor: 0)),
                 (nameof(row.SurfaceSource), ModelClaim.Handle(handle: row.SurfaceSource))),
-            edit: static (op, row) => ModelClaim.Admits(row, op,
+            edit: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Verb), row.Verb is { IsValid: true })),
-            simplify: static (op, row) => ModelClaim.Admits(row, op,
+            simplify: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            lite: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Value), row.Value is { IsValid: true })),
-            liteProfiled: static (op, row) => ModelClaim.Admits(row, op,
+            lite: static (row) => ModelClaim.Admits(row, (nameof(row.Value), row.Value is { IsValid: true })),
+            liteProfiled: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Outer), ModelClaim.Handle(handle: row.Outer)),
                 (nameof(row.Inners), ModelClaim.Handles(handles: row.Inners, allowEmpty: true)),
                 (nameof(row.Path), ValidityClaim.WhenPresent(facet: row.Path, claim: static path => ValidityClaim.All(
                     ValidityClaim.Finite(value: path.A), ValidityClaim.Finite(value: path.B),
                     ValidityClaim.Direction(value: path.Up))))),
-            liteRead: static (op, row) => ModelClaim.Admits(row, op,
+            liteRead: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Read), row.Read is { IsValid: true })));
 
@@ -1040,54 +1021,53 @@ public abstract partial record SolidOp {
         Switch(
             context: domain,
             boolean: static (model, edit) => {
-                Op op = Boolean.SelfOp;
                 return edit.Law.Switch(
-                    state: (Model: model, Op: op),
-                    union: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Breps, key: ctx.Op, body: breps =>
-                        ModelGate.Many(ctx.Op, () => Brep.CreateBooleanUnion(
-                            breps: breps.AsIterable(), tolerance: ctx.Model.Absolute.Value, manifoldOnly: law.ManifoldOnly))),
-                    intersection: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.First, key: ctx.Op, body: first =>
-                        ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Second, key: ctx.Op, body: second =>
-                            ModelGate.Many(ctx.Op, () => Brep.CreateBooleanIntersection(
+                    state: model,
+                    union: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Breps, body: breps =>
+                        ModelGate.Many(() => Brep.CreateBooleanUnion(
+                            breps: breps.AsIterable(), tolerance: ctx.Absolute.Value, manifoldOnly: law.ManifoldOnly))),
+                    intersection: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.First, body: first =>
+                        ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Second, body: second =>
+                            ModelGate.Many(() => Brep.CreateBooleanIntersection(
                                 firstSet: first.AsIterable(), secondSet: second.AsIterable(),
-                                tolerance: ctx.Model.Absolute.Value, manifoldOnly: law.ManifoldOnly)))),
-                    difference: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.First, key: ctx.Op, body: first =>
-                        ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Second, key: ctx.Op, body: second =>
-                            ModelGate.Many(ctx.Op, () => Brep.CreateBooleanDifference(
+                                tolerance: ctx.Absolute.Value, manifoldOnly: law.ManifoldOnly)))),
+                    difference: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.First, body: first =>
+                        ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Second, body: second =>
+                            ModelGate.Many(() => Brep.CreateBooleanDifference(
                                     firstSet: first.AsIterable(), secondSet: second.AsIterable(),
-                                    tolerance: ctx.Model.Absolute.Value, manifoldOnly: law.ManifoldOnly))),
-                    split: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.First, key: ctx.Op, body: first =>
-                        ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Second, key: ctx.Op, body: second =>
-                            ModelGate.Many(ctx.Op, () => Brep.CreateBooleanSplit(
-                                firstSet: first.AsIterable(), secondSet: second.AsIterable(), tolerance: ctx.Model.Absolute.Value)))));
+                                    tolerance: ctx.Absolute.Value, manifoldOnly: law.ManifoldOnly))),
+                    split: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.First, body: first =>
+                        ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Second, body: second =>
+                            ModelGate.Many(() => Brep.CreateBooleanSplit(
+                                firstSet: first.AsIterable(), secondSet: second.AsIterable(), tolerance: ctx.Absolute.Value)))));
             },
             planarBoolean: static (model, edit) => {
-                Op op = PlanarBoolean.SelfOp;
+                 = PlanarBoolean.SelfOp;
                 return edit.Law.Switch(
-                    state: (Edit: edit, Model: model, Op: op),
-                    union: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Breps, key: ctx.Op, body: breps =>
-                        ModelGate.Many(ctx.Op, () => Brep.CreatePlanarUnion(
-                            breps: breps.AsIterable(), plane: ctx.Edit.Plane, tolerance: ctx.Model.Absolute.Value))),
-                    intersection: static (ctx, law) => ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.First, key: ctx.Op, body: first =>
-                        ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.Second, key: ctx.Op, body: second =>
-                            ModelGate.Many(ctx.Op, () => Brep.CreatePlanarIntersection(
-                                b0: first, b1: second, plane: ctx.Edit.Plane, tolerance: ctx.Model.Absolute.Value)))),
-                    difference: static (ctx, law) => ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.First, key: ctx.Op, body: first =>
-                        ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.Second, key: ctx.Op, body: second =>
-                            ModelGate.Many(ctx.Op, () => Brep.CreatePlanarDifference(
-                                b0: first, b1: second, plane: ctx.Edit.Plane, tolerance: ctx.Model.Absolute.Value)))));
+                    state: (Edit: edit, Model: model),
+                    union: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Breps, body: breps =>
+                        ModelGate.Many(() => Brep.CreatePlanarUnion(
+                            breps: breps.AsIterable(), plane: ctx.Edit.Plane, tolerance: ctx.Absolute.Value))),
+                    intersection: static (ctx, law) => ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.First, body: first =>
+                        ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.Second, body: second =>
+                            ModelGate.Many(() => Brep.CreatePlanarIntersection(
+                                b0: first, b1: second, plane: ctx.Edit.Plane, tolerance: ctx.Absolute.Value)))),
+                    difference: static (ctx, law) => ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.First, body: first =>
+                        ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: law.Second, body: second =>
+                            ModelGate.Many(() => Brep.CreatePlanarDifference(
+                                b0: first, b1: second, plane: ctx.Edit.Plane, tolerance: ctx.Absolute.Value)))));
             },
             solidify: static (model, edit) => {
-                Op op = Solidify.SelfOp;
-                return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Open, key: op, body: open =>
-                    ModelGate.Many(op, () => Brep.CreateSolid(breps: open.AsIterable(), tolerance: model.Absolute.Value)));
+                 = Solidify.SelfOp;
+                return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Open, body: open =>
+                    ModelGate.Many(() => Brep.CreateSolid(breps: open.AsIterable(), tolerance: model.Absolute.Value)));
             },
             filletEdges: static (model, edit) => {
-                Op op = FilletEdges.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    from _ in guard(edit.Edges.ForAll(row => row.Edge < target.Edges.Count), op.InvalidInput())
+                 = FilletEdges.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    from _ in guard(edit.Edges.ForAll(row => row.Edge < target.Edges.Count), new KernelFault.InvalidInput())
                     from built in edit.Edges.Exists(static row => row.Law is RadiusLaw.Profiled)
-                        ? ModelGate.Many(op, () => Brep.CreateFilletEdgesVariableRadius(
+                        ? ModelGate.Many(() => Brep.CreateFilletEdgesVariableRadius(
                             brep: target,
                             edgeIndices: edit.Edges.Map(static row => row.Edge).AsIterable(),
                             edgeDistances: edit.Edges.AsEnumerable().ToDictionary(
@@ -1100,7 +1080,7 @@ public abstract partial record SolidOp {
                                         new BrepEdgeFilletDistance(edgeParameter: point.Parameter, filletDistance: point.Distance))])),
                             blendType: edit.Blend, railType: edit.Rail, setbackFillets: edit.Setback,
                             tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))
-                        : ModelGate.Many(op, () => Brep.CreateFilletEdges(
+                        : ModelGate.Many(() => Brep.CreateFilletEdges(
                             brep: target,
                             edgeIndices: edit.Edges.Map(static row => row.Edge).AsIterable(),
                             startRadii: edit.Edges.Map(static row => ((RadiusLaw.Constant)row.Law).Start).AsIterable(),
@@ -1110,92 +1090,91 @@ public abstract partial record SolidOp {
                     select built);
             },
             faceFillet: static (model, edit) => {
-                Op op = FaceFillet.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
-                        from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, op.InvalidInput())
+                 = FaceFillet.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
+                        from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, new KernelFault.InvalidInput())
                         from settings in edit.Law.Rig(domain: model, key: op)
-                        from built in op.Catch(() =>
-                            op.Confirm(success: Brep.CreateFilletSurface(
+                        from built in Try.lift(() =>
+                            Admit.Confirm(success: Brep.CreateFilletSurface(
                                 face0: first.Faces[edit.FirstFace], uv0: edit.FirstUv,
                                 face1: second.Faces[edit.SecondFace], uv1: edit.SecondUv,
                                 settings: settings, results: out Brep.FilletSurfaceResults results))
-                            .Bind(_ => Harvested(results: results, op: op)))
+                            .Bind(_ => Harvested(results: results, op: op))).Run().Bind(static inner => inner)
                         select built));
             },
             faceCurveFillet: static (model, edit) => {
-                Op op = FaceCurveFillet.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Host, key: op, body: host =>
-                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Along, key: op, body: along =>
-                        from _ in guard(edit.Face < host.Faces.Count, op.InvalidInput())
+                 = FaceCurveFillet.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Host, body: host =>
+                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Along, body: along =>
+                        from _ in guard(edit.Face < host.Faces.Count, new KernelFault.InvalidInput())
                         from settings in edit.Law.Rig(domain: model, key: op)
-                        from built in op.Catch(() =>
-                            op.Confirm(success: Brep.CreateFilletSurfaceCurve(
+                        from built in Try.lift(() =>
+                            Admit.Confirm(success: Brep.CreateFilletSurfaceCurve(
                                 face: host.Faces[edit.Face], uv: edit.Uv, curve: along, t: edit.Parameter,
                                 settings: settings, results: out Brep.FilletSurfaceResults results))
-                            .Bind(_ => Harvested(results: results, op: op)))
+                            .Bind(_ => Harvested(results: results, op: op))).Run().Bind(static inner => inner)
                         select built));
             },
             sectionFillet: static (model, edit) => {
-                Op op = SectionFillet.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
+                 = SectionFillet.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
                             edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count,
-                            op.InvalidInput())
+                            new KernelFault.InvalidInput())
                         from built in SectionFilleted(
                             first: first.Faces[edit.FirstFace], firstUv: edit.FirstUv,
                             second: second.Faces[edit.SecondFace], secondUv: edit.SecondUv,
-                            law: edit.Law, tolerance: model.Absolute.Value, op: op)
+                            law: edit.Law, tolerance: model.Absolute.Value)
                         select built));
             },
             blendSurface: static (_, edit) => {
-                Op op = BlendSurface.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
+                 = BlendSurface.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
                             edit.FirstFace < first.Faces.Count && edit.FirstEdge < first.Edges.Count
                             && edit.SecondFace < second.Faces.Count && edit.SecondEdge < second.Edges.Count,
-                            op.InvalidInput())
-                        from built in ModelGate.Many(op, () => Brep.CreateBlendSurface(
+                            new KernelFault.InvalidInput())
+                        from built in ModelGate.Many(() => Brep.CreateBlendSurface(
                             face0: first.Faces[edit.FirstFace], edge0: first.Edges[edit.FirstEdge], domain0: edit.FirstDomain, rev0: edit.Reverse.First, continuity0: edit.FirstContinuity,
                             face1: second.Faces[edit.SecondFace], edge1: second.Edges[edit.SecondEdge], domain1: edit.SecondDomain, rev1: edit.Reverse.Second, continuity1: edit.SecondContinuity))
                         select built));
             },
             blendSection: static (_, edit) => {
-                Op op = BlendSection.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
+                 = BlendSection.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
                             edit.FirstFace < first.Faces.Count && edit.FirstEdge < first.Edges.Count
                             && edit.SecondFace < second.Faces.Count && edit.SecondEdge < second.Edges.Count,
-                            op.InvalidInput())
-                        from built in ModelGate.Single(op, () => Brep.CreateBlendShape(
+                            new KernelFault.InvalidInput())
+                        from built in ModelGate.Single(() => Brep.CreateBlendShape(
                             face0: first.Faces[edit.FirstFace], edge0: first.Edges[edit.FirstEdge], t0: edit.FirstT, rev0: edit.Reverse.First, continuity0: edit.FirstContinuity,
                             face1: second.Faces[edit.SecondFace], edge1: second.Edges[edit.SecondEdge], t1: edit.SecondT, rev1: edit.Reverse.Second, continuity1: edit.SecondContinuity))
                         select built));
             },
             offsetSolid: static (model, edit) => {
-                Op op = OffsetSolid.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    op.Catch(() => {
+                 = OffsetSolid.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    Try.lift(() => {
                         Brep[] offsets = Brep.CreateOffsetBrep(
                             brep: target, distance: edit.Distance,
                             solid: edit.Grants.Admits(capability: OffsetGrant.Solid),
                             extend: edit.Grants.Admits(capability: OffsetGrant.Extend),
                             shrink: edit.Grants.Admits(capability: OffsetGrant.Shrink),
                             tolerance: model.Absolute.Value, outBlends: out Brep[] blends, outWalls: out Brep[] walls);
-                        return ModelGate.Staged(op: op,
-                            (offsets, false),
+                        return ModelGate.Staged((offsets, false),
                             (blends, true),
                             (walls, true));
-                    }));
+                    }).Run().Bind(static inner => inner));
             },
             faceOffset: static (model, edit) => {
-                Op op = FaceOffset.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    from _ in guard(edit.Face < target.Faces.Count, op.InvalidInput())
-                    from built in ModelGate.Single(op, () => Brep.CreateFromOffsetFace(
+                 = FaceOffset.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    from _ in guard(edit.Face < target.Faces.Count, new KernelFault.InvalidInput())
+                    from built in ModelGate.Single(() => Brep.CreateFromOffsetFace(
                         face: target.Faces[edit.Face], offsetDistance: edit.Distance,
                         offsetTolerance: model.Absolute.Value,
                         bothSides: edit.Grants.Admits(capability: OffsetGrant.BothSides),
@@ -1203,135 +1182,135 @@ public abstract partial record SolidOp {
                     select built);
             },
             shell: static (model, edit) => {
-                Op op = Shell.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    from _ in guard(edit.FacesToRemove.ForAll(face => face < target.Faces.Count), op.InvalidInput())
-                    from built in ModelGate.Many(op, () => Brep.CreateShell(
+                 = Shell.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    from _ in guard(edit.FacesToRemove.ForAll(face => face < target.Faces.Count), new KernelFault.InvalidInput())
+                    from built in ModelGate.Many(() => Brep.CreateShell(
                         brep: target, facesToRemove: edit.FacesToRemove.AsIterable(), distance: edit.Distance, tolerance: model.Absolute.Value))
                     select built);
             },
             pipe: static (model, edit) => {
-                Op op = Pipe.SelfOp;
-                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, key: op, body: rail =>
+                 = Pipe.SelfOp;
+                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, body: rail =>
                     edit.Law.Switch(
-                        state: (Rail: rail, Edit: edit, Tolerance: model.Absolute.Value, Angle: model.Angle.Value, Op: op),
-                        constant: static (ctx, law) => ModelGate.Many(ctx.Op, () => Brep.CreatePipe(
+                        state: (Rail: rail, Edit: edit, Tolerance: model.Absolute.Value, Angle: model.Angle.Value),
+                        constant: static (ctx, law) => ModelGate.Many(() => Brep.CreatePipe(
                             rail: ctx.Rail, radius: law.Radius, localBlending: ctx.Edit.LocalBlending, cap: ctx.Edit.Cap,
                             fitRail: ctx.Edit.FitRail, absoluteTolerance: ctx.Tolerance, angleToleranceRadians: ctx.Angle)),
-                        variable: static (ctx, law) => ModelGate.Many(ctx.Op, () => Brep.CreatePipe(
+                        variable: static (ctx, law) => ModelGate.Many(() => Brep.CreatePipe(
                             rail: ctx.Rail, railRadiiParameters: law.Rows.Map(static row => row.Parameter).AsIterable(),
                             radii: law.Rows.Map(static row => row.Radius).AsIterable(), localBlending: ctx.Edit.LocalBlending,
                             cap: ctx.Edit.Cap, fitRail: ctx.Edit.FitRail, absoluteTolerance: ctx.Tolerance, angleToleranceRadians: ctx.Angle)),
-                        thick: static (ctx, law) => ModelGate.Many(ctx.Op, () => Brep.CreateThickPipe(
+                        thick: static (ctx, law) => ModelGate.Many(() => Brep.CreateThickPipe(
                             rail: ctx.Rail, radius0: law.Radius0, radius1: law.Radius1, localBlending: ctx.Edit.LocalBlending,
                             cap: ctx.Edit.Cap, fitRail: ctx.Edit.FitRail, absoluteTolerance: ctx.Tolerance, angleToleranceRadians: ctx.Angle)),
-                        thickVariable: static (ctx, law) => ModelGate.Many(ctx.Op, () => Brep.CreateThickPipe(
+                        thickVariable: static (ctx, law) => ModelGate.Many(() => Brep.CreateThickPipe(
                             rail: ctx.Rail, railRadiiParameters: law.Rows.Map(static row => row.Parameter).AsIterable(),
                             radii0: law.Rows.Map(static row => row.Inner).AsIterable(), radii1: law.Rows.Map(static row => row.Outer).AsIterable(),
                             localBlending: ctx.Edit.LocalBlending, cap: ctx.Edit.Cap, fitRail: ctx.Edit.FitRail,
                             absoluteTolerance: ctx.Tolerance, angleToleranceRadians: ctx.Angle))));
             },
             seed: static (model, edit) => {
-                Op op = Seed.SelfOp;
-                return edit.Value.Build(domain: model, key: op).Map(Seq);
+                 = Seed.SelfOp;
+                return edit.Value.Build(domain: model).Map(Seq);
             },
             taperedExtrude: static (model, edit) => {
-                Op op = TaperedExtrude.SelfOp;
-                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Profile, key: op, body: profile =>
-                    ModelGate.Many(op, () => Brep.CreateFromTaperedExtrude(
+                 = TaperedExtrude.SelfOp;
+                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Profile, body: profile =>
+                    ModelGate.Many(() => Brep.CreateFromTaperedExtrude(
                         curveToExtrude: profile, distance: edit.Distance, direction: edit.Direction, basePoint: edit.BasePoint,
                         draftAngleRadians: edit.DraftAngleRadians, cornerType: edit.Corner,
                         tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value)));
             },
             taperedExtrudeRef: static (model, edit) => {
-                Op op = TaperedExtrudeRef.SelfOp;
-                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Profile, key: op, body: profile =>
-                    ModelGate.Many(op, () => Brep.CreateFromTaperedExtrudeWithRef(
+                 = TaperedExtrudeRef.SelfOp;
+                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Profile, body: profile =>
+                    ModelGate.Many(() => Brep.CreateFromTaperedExtrudeWithRef(
                         curve: profile, direction: edit.Direction, distance: edit.Distance,
                         draftAngle: edit.DraftAngleRadians, plane: edit.Reference, tolerance: model.Absolute.Value)));
             },
             planarFill: static (model, edit) => {
-                Op op = PlanarFill.SelfOp;
-                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Loops, key: op, body: loops =>
-                    ModelGate.Many(op, () => Brep.CreatePlanarBreps(inputLoops: loops.AsIterable(), tolerance: model.Absolute.Value)));
+                 = PlanarFill.SelfOp;
+                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Loops, body: loops =>
+                    ModelGate.Many(() => Brep.CreatePlanarBreps(inputLoops: loops.AsIterable(), tolerance: model.Absolute.Value)));
             },
             edgeSurface: static (_, edit) => {
-                Op op = EdgeSurface.SelfOp;
-                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Rails, key: op, body: rails =>
-                    from _ in guard(rails.Count >= 2 && rails.Count <= 4, op.InvalidInput())
-                    from built in ModelGate.Single(op, () => Brep.CreateEdgeSurface(curves: rails.AsIterable()))
+                 = EdgeSurface.SelfOp;
+                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Rails, body: rails =>
+                    from _ in guard(rails.Count >= 2 && rails.Count <= 4, new KernelFault.InvalidInput())
+                    from built in ModelGate.Single(() => Brep.CreateEdgeSurface(curves: rails.AsIterable()))
                     select built);
             },
             trimmedPlane: static (_, edit) => {
-                Op op = TrimmedPlane.SelfOp;
-                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, key: op, body: curves =>
-                    ModelGate.Single(op, () => Brep.CreateTrimmedPlane(plane: edit.Frame, curves: curves.AsIterable())));
+                 = TrimmedPlane.SelfOp;
+                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
+                    ModelGate.Single(() => Brep.CreateTrimmedPlane(plane: edit.Frame, curves: curves.AsIterable())));
             },
             join: static (model, edit) => {
-                Op op = Join.SelfOp;
-                return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Targets, key: op, body: targets =>
-                    op.Catch(() => {
+                 = Join.SelfOp;
+                return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Targets, body: targets =>
+                    Try.lift(() => {
                         Brep[] joined = Brep.JoinBreps(
                             brepsToJoin: targets.AsIterable(), tolerance: model.Absolute.Value,
                             angleTolerance: model.Angle.Value,
                             indexMap: out _);
                         return ModelGate.OwnMany(built: joined, key: op);
-                    }));
+                    }).Run().Bind(static inner => inner));
             },
             joinEdges: static (model, edit) => {
-                Op op = JoinEdges.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
+                 = JoinEdges.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
                             edit.FirstEdge < first.Edges.Count && edit.SecondEdge < second.Edges.Count,
-                            op.InvalidInput())
-                        from built in ModelGate.Single(op, () => Brep.CreateFromJoinedEdges(
+                            new KernelFault.InvalidInput())
+                        from built in ModelGate.Single(() => Brep.CreateFromJoinedEdges(
                             brep0: first, edgeIndex0: edit.FirstEdge, brep1: second, edgeIndex1: edit.SecondEdge, joinTolerance: model.Absolute.Value))
                         select built));
             },
             merge: static (model, edit) => {
-                Op op = Merge.SelfOp;
-                return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Targets, key: op, body: targets =>
-                    ModelGate.Single(op, () => Brep.MergeBreps(brepsToMerge: targets.AsIterable(), tolerance: model.Absolute.Value)));
+                 = Merge.SelfOp;
+                return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Targets, body: targets =>
+                    ModelGate.Single(() => Brep.MergeBreps(brepsToMerge: targets.AsIterable(), tolerance: model.Absolute.Value)));
             },
             mergeFaces: static (model, edit) => {
-                Op op = MergeFaces.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
+                 = MergeFaces.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         edit.Law.Switch(
-                            state: (First: first, Second: second, Model: model, Op: op),
-                            plain: static ctx => ModelGate.Single(ctx.Op, () => Brep.MergeSurfaces(
+                            state: (First: first, Second: second, Model: model),
+                            plain: static ctx => ModelGate.Single(() => Brep.MergeSurfaces(
                                 brep0: ctx.First, brep1: ctx.Second,
-                                tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value)),
-                            atPoints: static (ctx, law) => ModelGate.Single(ctx.Op, () => Brep.MergeSurfaces(
+                                tolerance: ctx.Absolute.Value, angleToleranceRadians: ctx.Angle.Value)),
+                            atPoints: static (ctx, law) => ModelGate.Single(() => Brep.MergeSurfaces(
                                 brep0: ctx.First, brep1: ctx.Second,
-                                tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value,
+                                tolerance: ctx.Absolute.Value, angleToleranceRadians: ctx.Angle.Value,
                                 point0: law.First, point1: law.Second, roundness: law.Roundness, smooth: law.Smooth)))));
             },
             match: static (model, edit) => {
-                Op op = Match.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.TargetCurves, key: op, body: curves =>
-                        from _ in guard(edit.Edge < target.Edges.Count, op.InvalidInput())
+                 = Match.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.TargetCurves, body: curves =>
+                        from _ in guard(edit.Edge < target.Edges.Count, new KernelFault.InvalidInput())
                         from settings in edit.Law.Rig(domain: model, key: op)
-                        from built in op.Catch(() =>
-                            ModelGate.Staged(op: op, success: Brep.CreateFromMatch(
+                        from built in Try.lift(() =>
+                            ModelGate.Staged(success: Brep.CreateFromMatch(
                                 edge: target.Edges[edit.Edge], targetCurves: curves.AsIterable(), settings: settings,
                                 matched: out Brep matched, target: out Brep matchTarget),
-                                ((Brep[])[matched, matchTarget], false)))
+                                ((Brep[])[matched, matchTarget], false))).Run().Bind(static inner => inner)
                         select built));
             },
             extendToConnect: static (model, edit) => {
-                Op op = ExtendToConnect.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, key: op, body: first =>
-                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, key: op, body: second =>
-                        from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, op.InvalidInput())
+                 = ExtendToConnect.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
+                    ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
+                        from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, new KernelFault.InvalidInput())
                         from __ in edit.At.Switch(
                             atEdges: at => guard(
                                 at.FirstEdge < first.Edges.Count && at.SecondEdge < second.Edges.Count,
-                                op.InvalidInput()),
+                                new KernelFault.InvalidInput()),
                             atPoints: static _ => Fin.Succ(value: unit))
-                        from built in op.Catch(() => {
+                        from built in Try.lift(() => {
                             (bool Connected, Brep First, Brep Second) result = edit.At.Switch(
                                 state: (First: first.Faces[edit.FirstFace], Second: second.Faces[edit.SecondFace], Tol: model.Absolute.Value, Angle: model.Angle.Value),
                                 atEdges: static (ctx, at) => {
@@ -1346,120 +1325,113 @@ public abstract partial record SolidOp {
                                         tol: ctx.Tol, angleTol: ctx.Angle, outBrep0: out Brep firstResult, outBrep1: out Brep secondResult);
                                     return (Connected: connected, First: firstResult, Second: secondResult);
                                 });
-                            return ModelGate.Staged(op: op, success: result.Connected,
+                            return ModelGate.Staged(success: result.Connected,
                                 ((Brep[])[result.First, result.Second], false));
-                        })
+                        }).Run().Bind(static inner => inner)
                         select built));
             },
             splitPieces: static (_, edit) => {
-                Op op = SplitPieces.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    op.Catch(() => {
+                 = SplitPieces.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    Try.lift(() => {
                         Brep[] pieces = Brep.SplitDisjointPieces(brep: target);
                         return ModelGate.OwnMany(built: pieces, key: op);
-                    }));
+                    }).Run().Bind(static inner => inner));
             },
             splitBy: static (model, edit) => {
-                Op op = SplitBy.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
-                    ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Cutters, key: op, body: cutters =>
+                 = SplitBy.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
+                    ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Cutters, body: cutters =>
                         cutters.Count == 1
-                            ? op.Catch(() => {
+                            ? Try.lift(() => {
                                 Brep[] pieces = target.Split(cutter: cutters[0], intersectionTolerance: model.Absolute.Value, toleranceWasRaised: out _);
                                 return ModelGate.OwnMany(built: pieces, key: op);
-                            })
-                            : ModelGate.Many(op, () => target.Split(cutters: cutters.AsIterable(), intersectionTolerance: model.Absolute.Value))));
+                            }).Run().Bind(static inner => inner)
+                            : ModelGate.Many(() => target.Split(cutters: cutters.AsIterable(), intersectionTolerance: model.Absolute.Value))));
             },
             trim: static (model, edit) => {
-                Op op = Trim.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: target =>
+                 = Trim.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     edit.Cutter.Switch(
-                        state: (Target: target, Tolerance: model.Absolute.Value, Op: op),
-                        byBrep: static (ctx, cutter) => ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: cutter.Cutter, key: ctx.Op,
-                            body: blade => ModelGate.Many(ctx.Op, () => ctx.Target.Trim(cutter: blade, intersectionTolerance: ctx.Tolerance))),
-                        byPlane: static (ctx, cutter) => ModelGate.Many(ctx.Op, () => ctx.Target.Trim(cutter: cutter.Cutter, intersectionTolerance: ctx.Tolerance))));
+                        state: (Target: target, Tolerance: model.Absolute.Value),
+                        byBrep: static (ctx, cutter) => ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: cutter.Cutter,
+                            body: blade => ModelGate.Many(() => ctx.Target.Trim(cutter: blade, intersectionTolerance: ctx.Tolerance))),
+                        byPlane: static (ctx, cutter) => ModelGate.Many(() => ctx.Target.Trim(cutter: cutter.Cutter, intersectionTolerance: ctx.Tolerance))));
             },
             cutUp: static (model, edit) => {
-                Op op = CutUp.SelfOp;
-                return ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: surface =>
-                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, key: op, body: curves =>
-                        ModelGate.Many(op, () => Brep.CutUpSurface(
+                 = CutUp.SelfOp;
+                return ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Source, body: surface =>
+                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
+                        ModelGate.Many(() => Brep.CutUpSurface(
                             surface: surface, curves: curves.AsIterable(), flip: edit.Flip,
                             fitTolerance: model.Absolute.Value, keepTolerance: model.Absolute.Value))));
             },
             copyTrims: static (model, edit) => {
-                Op op = CopyTrims.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.TrimSource, key: op, body: source =>
-                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.SurfaceSource, key: op, body: surface =>
-                        from _ in guard(edit.Face < source.Faces.Count, op.InvalidInput())
-                        from built in ModelGate.Single(op, () => Brep.CopyTrimCurves(
+                 = CopyTrims.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.TrimSource, body: source =>
+                    ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.SurfaceSource, body: surface =>
+                        from _ in guard(edit.Face < source.Faces.Count, new KernelFault.InvalidInput())
+                        from built in ModelGate.Single(() => Brep.CopyTrimCurves(
                             trimSource: source.Faces[edit.Face], surfaceSource: surface, tolerance: model.Absolute.Value))
                         select built));
             },
             edit: static (model, request) => {
-                Op op = Edit.SelfOp;
-                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: request.Target, key: op, body: source =>
-                    op.Catch(() => Optional(source.DuplicateBrep()).ToFin(Fail: op.InvalidResult()).Bind(working =>
-                        Edited(working: working, verb: request.Verb, domain: model, op: op).Rollback(working))));
+                 = Edit.SelfOp;
+                return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: request.Target, body: source =>
+                    Try.lift(() => Optional(source.DuplicateBrep()).ToFin(Fail: new KernelFault.InvalidResult()).Bind(working =>
+                        Edited(working: working, verb: request.Verb, domain: model).Rollback(working))).Run().Bind(static inner => inner));
             },
             simplify: static (_, edit) => {
-                Op op = Simplify.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: source =>
-                    ModelGate.Single(op, () => Brep.TryConvertBrep(geometry: source)));
+                 = Simplify.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
+                    ModelGate.Single(() => Brep.TryConvertBrep(geometry: source)));
             },
             lite: static (_, edit) => {
-                Op op = Lite.SelfOp;
-                return edit.Value.Build(key: op).Map(Seq);
+                 = Lite.SelfOp;
+                return edit.Value.Build().Map(Seq);
             },
             liteProfiled: static (_, edit) => {
-                Op op = LiteProfiled.SelfOp;
-                return ModelGate.Borrow<Extrusion, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: source =>
-                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Outer, key: op, body: outer =>
-                        ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Inners, key: op, allowEmpty: true, body: inners =>
-                            op.Catch(() => Optional(source.Duplicate() as Extrusion).ToFin(Fail: op.InvalidResult()).Bind(working => (
+                 = LiteProfiled.SelfOp;
+                return ModelGate.Borrow<Extrusion, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
+                    ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Outer, body: outer =>
+                        ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Inners, allowEmpty: true, body: inners =>
+                            Try.lift(() => Optional(source.Duplicate() as Extrusion).ToFin(Fail: new KernelFault.InvalidResult()).Bind(working => (
                                 from _ in edit.Path.Case switch {
-                                    (Point3d a, Point3d b, Vector3d up) => op.Confirm(success: working.SetPathAndUp(a: a, b: b, up: up)),
+                                    (Point3d a, Point3d b, Vector3d up) => Admit.Confirm(success: working.SetPathAndUp(a: a, b: b, up: up)),
                                     _ => Fin.Succ(value: unit),
                                 }
-                                from __ in op.Confirm(success: working.SetOuterProfile(outerProfile: outer, cap: edit.Cap))
+                                from __ in Admit.Confirm(success: working.SetOuterProfile(outerProfile: outer, cap: edit.Cap))
                                 from ___ in inners.FoldM<Fin, Unit>(unit, (_, inner) =>
-                                    op.Confirm(success: working.AddInnerProfile(innerProfile: inner)))
-                                from built in ModelGate.Kept(op, working)
+                                    Admit.Confirm(success: working.AddInnerProfile(innerProfile: inner)))
+                                from built in ModelGate.Kept(working)
                                 select built)
-                                .Rollback(working))))));
+                                .Rollback(working))).Run().Bind(static inner => inner))));
             },
             liteRead: static (_, edit) => {
-                Op op = LiteRead.SelfOp;
-                return ModelGate.Borrow<Extrusion, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: source =>
+                 = LiteRead.SelfOp;
+                return ModelGate.Borrow<Extrusion, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     edit.Read.Switch(
-                        state: (Source: source, Op: op),
-                        heavy: static (ctx, read) => ModelGate.Single(ctx.Op, () =>
-                            ctx.Source.ToBrep(splitKinkyFaces: read.SplitKinkyFaces)),
-                        wireframe: static ctx => ctx.Op
-                            .Catch(() => ModelGate.DetachedMany(source: ctx.Source.GetWireframe(), key: ctx.Op))
-                            .Bind(detached => ModelGate.Many(
-                                ctx.Op, () => detached.AsEnumerable())),
-                        mesh: static (ctx, read) => ctx.Op
-                            .Catch(() => ModelGate.Detached(
-                                source: ctx.Source.GetMesh(meshType: read.Kind), key: ctx.Op))
-                            .Bind(detached => ModelGate.Single(ctx.Op, () => detached)),
-                        profile: static (ctx, read) => ctx.Op
-                            .Catch(() => ModelGate.Detached(
-                                source: ctx.Source.Profile3d(profileIndex: read.Index, s: read.Station), key: ctx.Op))
-                            .Bind(detached => ModelGate.Single(ctx.Op, () => detached)),
-                        wallEdge: static (ctx, read) => ctx.Op
-                            .Catch(() => ModelGate.Detached(
-                                source: ctx.Source.WallEdge(ci: read.Component), key: ctx.Op))
-                            .Bind(detached => ModelGate.Single(ctx.Op, () => detached)),
-                        wallSurface: static (ctx, read) => ctx.Op
-                            .Catch(() => ModelGate.Detached(
-                                source: ctx.Source.WallSurface(ci: read.Component), key: ctx.Op))
-                            .Bind(detached => ModelGate.Single(ctx.Op, () => detached))));
+                        state: source,
+                        heavy: static (ctx, read) => ModelGate.Single(() =>
+                            ctx.ToBrep(splitKinkyFaces: read.SplitKinkyFaces)),
+                        wireframe: static ctx => Try.lift(() => ModelGate.DetachedMany(source: ctx.GetWireframe(), key: ctx.Op)).Run().Bind(static inner => inner)
+                            .Bind(detached => ModelGate.Many(() => detached.AsEnumerable())),
+                        mesh: static (ctx, read) => Try.lift(() => ModelGate.Detached(
+                                source: ctx.GetMesh(meshType: read.Kind), key: ctx.Op)).Run().Bind(static inner => inner)
+                            .Bind(detached => ModelGate.Single(() => detached)),
+                        profile: static (ctx, read) => Try.lift(() => ModelGate.Detached(
+                                source: ctx.Profile3d(profileIndex: read.Index, s: read.Station), key: ctx.Op)).Run().Bind(static inner => inner)
+                            .Bind(detached => ModelGate.Single(() => detached)),
+                        wallEdge: static (ctx, read) => Try.lift(() => ModelGate.Detached(
+                                source: ctx.WallEdge(ci: read.Component), key: ctx.Op)).Run().Bind(static inner => inner)
+                            .Bind(detached => ModelGate.Single(() => detached)),
+                        wallSurface: static (ctx, read) => Try.lift(() => ModelGate.Detached(
+                                source: ctx.WallSurface(ci: read.Component), key: ctx.Op)).Run().Bind(static inner => inner)
+                            .Bind(detached => ModelGate.Single(() => detached))));
             });
 
-    private static Fin<Seq<GeometryHandle>> Harvested(Brep.FilletSurfaceResults results, Op op) =>
-        ModelGate.Staged(op: op,
-            (FaceDup(face: results.Face0), true),
+    private static Fin<Seq<GeometryHandle>> Harvested(Brep.FilletSurfaceResults results) =>
+        ModelGate.Staged((FaceDup(face: results.Face0), true),
             (FaceDup(face: results.Face1), true),
             (results.Fillets, false),
             (results.OutBreps0, true),
@@ -1467,8 +1439,8 @@ public abstract partial record SolidOp {
 
     private static Fin<Seq<GeometryHandle>> SectionFilleted(
         BrepFace first, Point2d firstUv, BrepFace second, Point2d secondUv,
-        SectionFilletLaw law, double tolerance, Op op) =>
-        op.Catch(() => {
+        SectionFilletLaw law, double tolerance) =>
+        Try.lift(() => {
             System.Collections.Generic.List<Brep> trimmed0 = [];
             System.Collections.Generic.List<Brep> trimmed1 = [];
             System.Collections.Generic.List<Brep> fillets = [];
@@ -1491,65 +1463,61 @@ public abstract partial record SolidOp {
                 g2ChordalQuintic: static ctx => SurfaceFilletBase.CreateG2ChordalQuinticFilletSrf(
                     ctx.First, ctx.FirstUv, ctx.Second, ctx.SecondUv, ctx.Law.Radius, ctx.Tolerance,
                     ctx.Trimmed0, ctx.Trimmed1, ctx.Law.RailDegree, ctx.Law.Trim, ctx.Law.Extend, ctx.Fillets));
-            return op.Confirm(success: created).Bind(_ => Harvested(
-                fillets: fillets, trimmed0: trimmed0, trimmed1: trimmed1, op: op));
-        });
+            return Admit.Confirm(success: created).Bind(_ => Harvested(
+                fillets: fillets, trimmed0: trimmed0, trimmed1: trimmed1));
+        }).Run().Bind(static inner => inner);
 
     private static Fin<Seq<GeometryHandle>> Harvested(
         System.Collections.Generic.IEnumerable<Brep> fillets,
         System.Collections.Generic.IEnumerable<Brep> trimmed0,
-        System.Collections.Generic.IEnumerable<Brep> trimmed1,
-        Op op) =>
-        ModelGate.Staged(op: op,
-            (fillets, false),
+        System.Collections.Generic.IEnumerable<Brep> trimmed1) =>
+        ModelGate.Staged((fillets, false),
             (trimmed0, true),
             (trimmed1, true));
 
     private static System.Collections.Generic.IEnumerable<GeometryBase> FaceDup(BrepFace? face) =>
         face is null ? [] : [face.Duplicate()];
 
-    private static Fin<Seq<GeometryHandle>> Edited(Brep working, SolidEdit verb, Context domain, Op op) =>
+    private static Fin<Seq<GeometryHandle>> Edited(Brep working, SolidEdit verb, Context domain) =>
         verb.Switch(
-            state: (Working: working, Domain: domain, Op: op),
-            cap: static ctx => ModelGate.Owned(ctx.Op, ctx.Working, () => ctx.Working.CapPlanarHoles(tolerance: ctx.Domain.Absolute.Value)),
-            joinNaked: static ctx => ctx.Op.Catch(() => Fin.Succ(value: ctx.Working.JoinNakedEdges(tolerance: ctx.Domain.Absolute.Value)))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
+            state: (Working: working, Domain: domain),
+            cap: static ctx => ModelGate.Owned(ctx.Working, () => ctx.Working.CapPlanarHoles(tolerance: ctx.Domain.Absolute.Value)),
+            joinNaked: static ctx => Try.lift(() => Fin.Succ(value: ctx.Working.JoinNakedEdges(tolerance: ctx.Domain.Absolute.Value))).Run().Bind(static inner => inner)
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
             mergeCoplanar: static ctx =>
-                from _ in ctx.Op.Confirm(success: ctx.Working.MergeCoplanarFaces(
+                from _ in Admit.Confirm(success: ctx.Working.MergeCoplanarFaces(
                     tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value))
-                from built in ModelGate.Kept(ctx.Op, ctx.Working)
+                from built in ModelGate.Kept(ctx.Working)
                 select built,
             mergeFace: static (ctx, edit) =>
-                from _ in guard(edit.Face < ctx.Working.Faces.Count, ctx.Op.InvalidInput())
-                from __ in ctx.Op.Confirm(success: ctx.Working.MergeCoplanarFaces(
+                from _ in guard(edit.Face < ctx.Working.Faces.Count, new KernelFault.InvalidInput())
+                from __ in Admit.Confirm(success: ctx.Working.MergeCoplanarFaces(
                     faceIndex: edit.Face,
                     tolerance: ctx.Domain.Absolute.Value,
                     angleTolerance: ctx.Domain.Angle.Value))
-                from built in ModelGate.Kept(ctx.Op, ctx.Working)
+                from built in ModelGate.Kept(ctx.Working)
                 select built,
             mergeFacePair: static (ctx, edit) =>
                 from _ in guard(
                     edit.First < ctx.Working.Faces.Count && edit.Second < ctx.Working.Faces.Count,
-                    ctx.Op.InvalidInput())
-                from __ in ctx.Op.Confirm(success: ctx.Working.MergeCoplanarFaces(
+                    new KernelFault.InvalidInput())
+                from __ in Admit.Confirm(success: ctx.Working.MergeCoplanarFaces(
                     faceIndex0: edit.First, faceIndex1: edit.Second,
                     tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value))
-                from built in ModelGate.Kept(ctx.Op, ctx.Working)
+                from built in ModelGate.Kept(ctx.Working)
                 select built,
             unjoinEdges: static (ctx, edit) =>
-                from _ in guard(edit.Edges.ForAll(edge => edge < ctx.Working.Edges.Count), ctx.Op.InvalidInput())
-                from built in ModelGate.OwnedMany(
-                    op: ctx.Op,
-                    working: ctx.Working,
+                from _ in guard(edit.Edges.ForAll(edge => edge < ctx.Working.Edges.Count), new KernelFault.InvalidInput())
+                from built in ModelGate.OwnedMany(working: ctx.Working,
                     run: () => ctx.Working.UnjoinEdges(edgesToUnjoin: edit.Edges.AsIterable()))
                 select built,
-            removeHoles: static (ctx, edit) => ModelGate.Owned(ctx.Op, ctx.Working, () => ctx.Working.RemoveHoles(loops: edit.Loops.AsIterable(), tolerance: ctx.Domain.Absolute.Value)),
-            removeFins: static ctx => ctx.Op.Confirm(success: ctx.Working.RemoveFins()).Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            cullFaces: static ctx => ctx.Op.Confirm(success: ctx.Working.CullUnusedFaces()).Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            repair: static ctx => ctx.Op.Confirm(success: ctx.Working.Repair(tolerance: ctx.Domain.Absolute.Value)).Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
+            removeHoles: static (ctx, edit) => ModelGate.Owned(ctx.Working, () => ctx.Working.RemoveHoles(loops: edit.Loops.AsIterable(), tolerance: ctx.Domain.Absolute.Value)),
+            removeFins: static ctx => Admit.Confirm(success: ctx.Working.RemoveFins()).Bind(_ => ModelGate.Kept(ctx.Working)),
+            cullFaces: static ctx => Admit.Confirm(success: ctx.Working.CullUnusedFaces()).Bind(_ => ModelGate.Kept(ctx.Working)),
+            repair: static ctx => Admit.Confirm(success: ctx.Working.Repair(tolerance: ctx.Domain.Absolute.Value)).Bind(_ => ModelGate.Kept(ctx.Working)),
             reseam: static (ctx, edit) =>
-                from _ in guard(edit.Face < ctx.Working.Faces.Count, ctx.Op.InvalidInput())
-                from built in ModelGate.Owned(ctx.Op, ctx.Working, () => Brep.ChangeSeam(
+                from _ in guard(edit.Face < ctx.Working.Faces.Count, new KernelFault.InvalidInput())
+                from built in ModelGate.Owned(ctx.Working, () => Brep.ChangeSeam(
                     face: ctx.Working.Faces[edit.Face], direction: edit.Axis.Native,
                     parameter: edit.Parameter, tolerance: ctx.Domain.Absolute.Value))
                 select built);
@@ -1564,7 +1532,7 @@ public static class Solids {
             ModelGate.Entry(
                 runtime: runtime,
                 operations: captured,
-                admit: static (operation, key) => operation.Admitted(key: key),
+                admit: static (operation, key) => operation.Admitted(),
                 apply: static (operation, model) => operation.Apply(domain: model)).ToEff());
     }
 }

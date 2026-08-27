@@ -43,126 +43,117 @@ public abstract partial record Topologies {
     public sealed record ComponentsCase : Topologies;
     public sealed record ContainsPointCase(Point3d Point) : Topologies;
     public sealed record ScalarCase(TopologyScalar Scalar) : Topologies;
-    internal Op Key => Switch(
-        kindCase: static _ => Op.Of(name: nameof(KindCase)),
-        domainsCase: static _ => Op.Of(name: nameof(DomainsCase)),
-        solidOrientationCase: static _ => Op.Of(name: nameof(SolidOrientationCase)),
-        componentsCase: static _ => Op.Of(name: nameof(ComponentsCase)),
-        containsPointCase: static _ => Op.Of(name: nameof(ContainsPointCase)),
-        scalarCase: static _ => Op.Of(name: nameof(ScalarCase)));
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         state: Key,
         kindCase: static (key, _) =>
             (Capability.Universal(type: typeof(TGeometry)) || Rasm.Domain.Kind.Of(type: typeof(TGeometry)).IsSome)
                 ? typeof(TOut) switch {
-                    Type t when t == typeof(Kind) => Lift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k)), requiresContext: true).As<TGeometry, TOut>(key: key),
-                    Type t when t == typeof(Topology) => Lift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology)), requiresContext: true).As<TGeometry, TOut>(key: key),
-                    _ => key.Unsupported<TGeometry, TOut>(),
+                    Type t when t == typeof(Kind) => Lift<TGeometry, Kind>(state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => Acceptance.Rows(value: k)), requiresContext: true).As<TGeometry, TOut>(),
+                    Type t when t == typeof(Topology) => Lift<TGeometry, Topology>(state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => Acceptance.Rows(value: k.Topology)), requiresContext: true).As<TGeometry, TOut>(),
+                    _ => new KernelFault.Unsupported(),
                 }
-                : key.Unsupported<TGeometry, TOut>(),
+                : new KernelFault.Unsupported(),
         domainsCase: static (key, _) => typeof(TOut) == typeof(Interval) && (Capability.CurveForm.Admits(type: typeof(TGeometry)) || Capability.SurfaceForm.Admits(type: typeof(TGeometry)))
-            ? Lift<TGeometry, Interval, Op>(key: key, state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => op.Accept(values: domains))).As<TGeometry, TOut>(key: key)
-            : key.Unsupported<TGeometry, TOut>(),
+            ? Lift<TGeometry, Interval>(state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => Acceptance.Rows(values: domains))).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported(),
         solidOrientationCase: static (key, _) => typeof(TOut) == typeof(BrepSolidOrientation) && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
-            ? Lift<TGeometry, BrepSolidOrientation, Op>(key: key, state: key, extract: static (op, g, _) => OnGeometry(geometry: g, op: op,
+            ? Lift<TGeometry, BrepSolidOrientation>(state: key, extract: static (op, g, _) => OnGeometry(geometry: g,
                 onMesh: mesh => Fin.Succ(mesh.SolidOrientation() switch { 1 => BrepSolidOrientation.Outward, -1 => BrepSolidOrientation.Inward, _ => BrepSolidOrientation.None }),
-                onBrep: brep => Fin.Succ(brep.SolidOrientation)).Bind(orientation => op.Accept(value: orientation))).As<TGeometry, TOut>(key: key)
-            : key.Unsupported<TGeometry, TOut>(),
+                onBrep: brep => Fin.Succ(brep.SolidOrientation)).Bind(orientation => Acceptance.Rows(value: orientation))).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported(),
         componentsCase: static (key, _) =>
             (typeof(TOut) == typeof(Brep) || typeof(TOut) == typeof(Mesh))
             && (Capability.Universal(type: typeof(TGeometry)) || typeof(TOut).IsAssignableFrom(c: typeof(TGeometry)))
-                ? Lift<TGeometry, TOut, Op>(key: key, state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(components => ProjectPieces<TOut>(components: components, op: op))).As<TGeometry, TOut>(key: key)
-                : key.Unsupported<TGeometry, TOut>(),
+                ? Lift<TGeometry, TOut>(state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(components => ProjectPieces<TOut>(components: components, op: op))).As<TGeometry, TOut>()
+                : new KernelFault.Unsupported(),
         containsPointCase: static (key, cp) =>
             ValidityClaim.Finite(cp.Point).Holds && typeof(TOut) == typeof(bool) && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
-                ? Lift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: cp.Point), requirement: Some(Requirement.SolidTopology),
-                    extract: static (s, g, ctx) => OnGeometry(geometry: g, op: s.Key,
+                ? Lift<TGeometry, bool, (Point3d Target)>(state: (Key: key, Target: cp.Point), requirement: Some(Requirement.SolidTopology),
+                    extract: static (s, g, ctx) => OnGeometry(geometry: g,
                         onMesh: mesh => Fin.Succ(mesh.IsPointInside(point: s.Target, tolerance: ctx.For(lane: ToleranceLane.Distance).Value, strictlyIn: false)),
                         onBrep: brep => Fin.Succ(brep.IsPointInside(point: s.Target, tolerance: ctx.For(lane: ToleranceLane.Distance).Value, strictlyIn: false)))
-                        .Bind(contained => s.Key.Accept(value: contained))).As<TGeometry, TOut>(key: key)
-                : key.Unsupported<TGeometry, TOut>(),
+                        .Bind(contained => Acceptance.Rows(value: contained))).As<TGeometry, TOut>()
+                : new KernelFault.Unsupported(),
         scalarCase: static (_, scalar) => {
-            Op key = Op.Of(name: scalar.Scalar.Key);
             return scalar.Scalar.Output.Serves<TOut>() && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
-                ? Lift<TGeometry, TOut, (TopologyScalar Row, Op Key)>(key: key, state: (scalar.Scalar, key),
-                    extract: static (state, g, _) => OnGeometry(geometry: g, op: state.Key, onAny: native => state.Row.Extract(geometry: native, op: state.Key))
-                        .Bind(value => state.Row.Output.Admit<TOut>(values: Seq(value.Boxed), key: state.Key)))
-                : key.Unsupported<TGeometry, TOut>();
+                ? Lift<TGeometry, TOut, (TopologyScalar Row)>(state: (scalar.Scalar),
+                    extract: static (state, g, _) => OnGeometry(geometry: g, onAny: native => state.Row.Extract(geometry: native, op: state.Key))
+                        .Bind(value => state.Row.Output.Admit<TOut>(values: Seq(value.Boxed))))
+                : new KernelFault.Unsupported();
         });
 
-    internal static Fin<Seq<Interval>> DomainsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+    internal static Fin<Seq<Interval>> DomainsOf<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => g switch {
             Curve curve => Fin.Succ(Seq(curve.Domain)),
             Surface surface => Fin.Succ(Seq(surface.Domain(direction: 0), surface.Domain(direction: 1))),
-            object surfaceLike when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) => Normalization.SurfaceForm(source: surfaceLike, key: op).Bind(lease => lease.Use(surface => DomainsOf(geometry: surface, op: op))),
-            _ => Fin.Fail<Seq<Interval>>(op.Unsupported(g.GetType(), typeof(Interval))),
+            object surfaceLike when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) => Normalization.SurfaceForm(source: surfaceLike).Bind(lease => lease.Use(surface => DomainsOf(geometry: surface))),
+            _ => Fin.Fail<Seq<Interval>>(new KernelFault.Unsupported(g.GetType(), typeof(Interval))),
         });
-    internal static Fin<Seq<GeometryBase>> ComponentsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+    internal static Fin<Seq<GeometryBase>> ComponentsOf<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => g switch {
             Mesh mesh => Fin.Succ(toSeq(mesh.SplitDisjointPieces().Cast<GeometryBase>())),
-            Brep brep => BrepPieces(brep: brep, op: op),
-            GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native, key: op).Bind(lease => lease.Use(brep => BrepPieces(brep: brep, op: op))),
-            _ => Fin.Fail<Seq<GeometryBase>>(op.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
+            Brep brep => BrepPieces(brep: brep),
+            GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native).Bind(lease => lease.Use(brep => BrepPieces(brep: brep))),
+            _ => Fin.Fail<Seq<GeometryBase>>(new KernelFault.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
         });
-    internal static Fin<bool> ManifoldOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry(geometry: geometry, op: op,
+    internal static Fin<bool> ManifoldOf<TG>(TG geometry) where TG : notnull =>
+        OnGeometry(geometry: geometry,
             onMesh: static m => Fin.Succ(m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool _)),
             onBrep: static b => Fin.Succ(b.IsManifold));
-    internal static Fin<int> EulerOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry(geometry: geometry, op: op,
+    internal static Fin<int> EulerOf<TG>(TG geometry) where TG : notnull =>
+        OnGeometry(geometry: geometry,
             onMesh: static m => Fin.Succ(m.TopologyVertices.Count - m.TopologyEdges.Count + m.Faces.Count),
             onBrep: static b => Fin.Succ(b.Vertices.Count - b.Edges.Count + b.Faces.Count));
-    internal static Fin<int> BoundaryLoopsOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry(geometry: geometry, op: op,
-            onMesh: m => m.IsClosed ? Fin.Succ(0) : Optional(m.GetNakedEdges()).ToFin(op.InvalidResult()).Map(static loops => loops.Length),
+    internal static Fin<int> BoundaryLoopsOf<TG>(TG geometry) where TG : notnull =>
+        OnGeometry(geometry: geometry,
+            onMesh: m => m.IsClosed ? Fin.Succ(0) : Optional(m.GetNakedEdges()).ToFin(new KernelFault.InvalidResult()).Map(static loops => loops.Length),
             onBrep: static b => Fin.Succ(toSeq(b.Loops).Filter(static loop =>
                 (loop.LoopType is BrepLoopType.Outer or BrepLoopType.Inner) && toSeq(loop.Trims).Exists(static trim => trim.Edge is { Valence: EdgeAdjacency.Naked })).Count));
-    internal static Fin<bool> OrientableOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry(geometry: geometry, op: op,
+    internal static Fin<bool> OrientableOf<TG>(TG geometry) where TG : notnull =>
+        OnGeometry(geometry: geometry,
             onMesh: static m => Fin.Succ(m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented),
             onBrep: static b => Fin.Succ(b.IsManifold));
-    internal static Fin<int> GenusOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry(geometry: geometry, op: op, onAny: native =>
+    internal static Fin<int> GenusOf<TG>(TG geometry) where TG : notnull =>
+        OnGeometry(geometry: geometry, onAny: native =>
             OrientableOf(geometry: native, op: op).Bind(orientable => orientable
                 ? (EulerOf(geometry: native, op: op), BoundaryLoopsOf(geometry: native, op: op), PieceCount(geometry: native, op: op))
                     .Apply(static (euler, boundaries, components) => (2L * components) - euler - boundaries).As()
-                    .Bind(numerator => guard(numerator >= 0 && numerator % 2 == 0 && numerator / 2 <= int.MaxValue, op.InvalidResult()).ToFin().Map(_ => (int)(numerator / 2)))
-                : Fin.Fail<int>(op.Unsupported(inputType: native.GetType(), outputType: typeof(int)))));
-    internal static Fin<int> CountOf<TG>(TG geometry, Op op, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
-        OnGeometry(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
+                    .Bind(numerator => guard(numerator >= 0 && numerator % 2 == 0 && numerator / 2 <= int.MaxValue, new KernelFault.InvalidResult()).ToFin().Map(_ => (int)(numerator / 2)))
+                : Fin.Fail<int>(new KernelFault.Unsupported(InputType: native.GetType(), OutputType: typeof(int)))));
+    internal static Fin<int> CountOf<TG>(TG geometry, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
+        OnGeometry(geometry: geometry, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
 
-    private static Operation<TGeometry, TValue> Lift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Option<Requirement> requirement = default, bool requiresContext = false) where TGeometry : notnull =>
-        Analysis.Operation<TGeometry, TValue>.Build(
-            key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
+    private static Operation<TGeometry, TValue> Lift<TGeometry, TValue, TState>(TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Option<Requirement> requirement = default, bool requiresContext = false) where TGeometry : notnull =>
+        Analysis.Operation<TGeometry, TValue>.Build(requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
             evaluator: static (s, geometry) =>
                 from context in Env.Asks
                 from result in s.Extract(arg1: s.State, arg2: geometry, arg3: context).ToEff()
                 select result);
-    private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Op op, Func<Mesh, Fin<TResult>> onMesh, Func<Brep, Fin<TResult>> onBrep) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+    private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Func<Mesh, Fin<TResult>> onMesh, Func<Brep, Fin<TResult>> onBrep) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => g switch {
             Mesh mesh => onMesh(arg: mesh),
             Brep brep => onBrep(arg: brep),
-            object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike, key: op).Bind(lease => lease.Use(project: onBrep)),
-            _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
+            object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike).Bind(lease => lease.Use(project: onBrep)),
+            _ => Fin.Fail<TResult>(new KernelFault.Unsupported(g.GetType(), typeof(TResult))),
         });
-    private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Op op, Func<GeometryBase, Fin<TResult>> onAny) where TGeometry : notnull =>
-        OnGeometry(geometry: geometry, op: op, onMesh: mesh => onAny(arg: mesh), onBrep: brep => onAny(arg: brep));
-    private static Fin<Seq<GeometryBase>> BrepPieces(Brep brep, Op op) =>
+    private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Func<GeometryBase, Fin<TResult>> onAny) where TGeometry : notnull =>
+        OnGeometry(geometry: geometry, onMesh: mesh => onAny(arg: mesh), onBrep: brep => onAny(arg: brep));
+    private static Fin<Seq<GeometryBase>> BrepPieces(Brep brep) =>
         brep.GetConnectedComponents() switch {
             Brep[] components when components.Length > 0 => Fin.Succ(toSeq(components.Cast<GeometryBase>())),
-            _ when brep.IsValid => op.AcceptValue(brep).Map(static valid => Seq((GeometryBase)valid.DuplicateBrep())),
-            _ => Fin.Fail<Seq<GeometryBase>>(op.InvalidResult()),
+            _ when brep.IsValid => Acceptance.Value(brep).Map(static valid => Seq((GeometryBase)valid.DuplicateBrep())),
+            _ => Fin.Fail<Seq<GeometryBase>>(new KernelFault.InvalidResult()),
         };
-    private static Fin<Seq<TOut>> ProjectPieces<TOut>(Seq<GeometryBase> components, Op op) =>
+    private static Fin<Seq<TOut>> ProjectPieces<TOut>(Seq<GeometryBase> components) =>
         IO.pure(components).Bracket(
             Use: owned => IO.lift(() => owned.TraverseM(component => component is TOut typed
                 ? Fin.Succ(typed)
-                : Fin.Fail<TOut>(op.Unsupported(inputType: component.GetType(), outputType: typeof(TOut)))).As()),
+                : Fin.Fail<TOut>(new KernelFault.Unsupported(InputType: component.GetType(), OutputType: typeof(TOut)))).As()),
             Fin: static owned => IO.lift(() => owned.Filter(static component => component is not TOut).Iter(static component => component.Dispose())))
             .Run();
-    private static Fin<int> PieceCount<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
-        ComponentsOf(geometry: geometry, op: op).Bind(components => IO.pure(components).Bracket(
-                Use: owned => IO.lift(() => owned.Count > 0 ? Fin.Succ(owned.Count) : Fin.Fail<int>(op.InvalidResult())),
+    private static Fin<int> PieceCount<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        ComponentsOf(geometry: geometry).Bind(components => IO.pure(components).Bracket(
+                Use: owned => IO.lift(() => owned.Count > 0 ? Fin.Succ(owned.Count) : Fin.Fail<int>(new KernelFault.InvalidResult())),
                 Fin: static owned => IO.lift(() => owned.Iter(static component => component.Dispose())))
             .Run());
 }
@@ -196,11 +187,11 @@ public sealed partial class TopologyScalar {
     public static readonly TopologyScalar Euler = new(key: nameof(Euler), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.EulerOf(geometry: g, op: op).Map(MeasuredValue.Signed));
     public static readonly TopologyScalar BoundaryLoops = new(key: nameof(BoundaryLoops), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.BoundaryLoopsOf(geometry: g, op: op).Map(MeasuredValue.Count));
     public static readonly TopologyScalar Genus = new(key: nameof(Genus), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.GenusOf(geometry: g, op: op).Map(MeasuredValue.Count));
-    public static readonly TopologyScalar FaceCount = new(key: nameof(FaceCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, op: op, meshCount: static m => m.Faces.Count, brepCount: static b => b.Faces.Count).Map(MeasuredValue.Count));
-    public static readonly TopologyScalar EdgeCount = new(key: nameof(EdgeCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, op: op, meshCount: static m => m.TopologyEdges.Count, brepCount: static b => b.Edges.Count).Map(MeasuredValue.Count));
-    public static readonly TopologyScalar VertexCount = new(key: nameof(VertexCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, op: op, meshCount: static m => m.TopologyVertices.Count, brepCount: static b => b.Vertices.Count).Map(MeasuredValue.Count));
+    public static readonly TopologyScalar FaceCount = new(key: nameof(FaceCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, meshCount: static m => m.Faces.Count, brepCount: static b => b.Faces.Count).Map(MeasuredValue.Count));
+    public static readonly TopologyScalar EdgeCount = new(key: nameof(EdgeCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, meshCount: static m => m.TopologyEdges.Count, brepCount: static b => b.Edges.Count).Map(MeasuredValue.Count));
+    public static readonly TopologyScalar VertexCount = new(key: nameof(VertexCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, meshCount: static m => m.TopologyVertices.Count, brepCount: static b => b.Vertices.Count).Map(MeasuredValue.Count));
     public OutputBinding Output { get; }
-    [UseDelegateFromConstructor] internal partial Fin<MeasuredValue> Extract(GeometryBase geometry, Op op);
+    [UseDelegateFromConstructor] internal partial Fin<MeasuredValue> Extract(GeometryBase geometry);
 }
 ```
 
@@ -242,51 +233,42 @@ public abstract partial record Meshes {
     public sealed record VisiblePolygonCountCase : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
-    internal Op Key => Switch(
-        samplesCase: static _ => Op.Of(name: nameof(SamplesCase)),
-        faceQualityCase: static _ => Op.Of(name: nameof(FaceQualityCase)),
-        faceShapeCase: static _ => Op.Of(name: nameof(FaceShapeCase)),
-        atVisiblePolygonCase: static _ => Op.Of(name: nameof(AtVisiblePolygonCase)),
-        visiblePolygonCountCase: static _ => Op.Of(name: nameof(VisiblePolygonCountCase)),
-        nakedEdgesCase: static _ => Op.Of(name: nameof(NakedEdgesCase)),
-        outlineCase: static _ => Op.Of(name: nameof(OutlineCase)));
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         state: Key,
-        samplesCase: static (key, s) => Lift<TGeometry, TOut, MeshSample>(key: key, source: s.Group.Census(key: key)),
-        faceQualityCase: static (key, fq) => fq.Metric.Measure<TGeometry, TOut>(key: key),
+        samplesCase: static (key, s) => Lift<TGeometry, TOut, MeshSample>(key: key, source: s.Group.Census()),
+        faceQualityCase: static (key, fq) => fq.Metric.Measure<TGeometry, TOut>(),
         faceShapeCase: static (key, _) => typeof(TOut) == typeof(MeshFaceShape)
-            ? Lift<TGeometry, TOut, MeshFaceShape>(key: key, source: MeshMetric.Shapes(key: key))
-            : key.Unsupported<TGeometry, TOut>(),
-        atVisiblePolygonCase: static (key, at) => Lift<TGeometry, TOut, TopologyProjection>(key: key,
-            source: Analysis.Operation<Mesh, TopologyProjection>.Build(key: key, state: (Key: key, Selector: at.Value),
+            ? Lift<TGeometry, TOut, MeshFaceShape>(key: key, source: MeshMetric.Shapes())
+            : new KernelFault.Unsupported(),
+        atVisiblePolygonCase: static (key, at) => Lift<TGeometry, TOut, TopologyProjection>(source: Analysis.Operation<Mesh, TopologyProjection>.Build(state: (Key: key, Selector: at.Value),
                 evaluator: static (state, geometry) => PolygonsOf(mesh: geometry, key: state.Key).Bind(polygons => (Source: polygons, Index: state.Selector.IfNone(0)) switch {
-                    (Seq<MeshNgon> source, _) when source.Count == 0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()),
-                    (Seq<MeshNgon> source, int selected) when selected < 0 || selected >= source.Count => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
-                    (Seq<MeshNgon> source, int selected) => SourceOf(mesh: geometry, polygon: source[selected], key: state.Key)
+                    (Seq<MeshNgon> source, _) when source.Count == 0 => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.InvalidResult()),
+                    (Seq<MeshNgon> source, int selected) when selected < 0 || selected >= source.Count => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.InvalidInput()),
+                    (Seq<MeshNgon> source, int selected) => SourceOf(mesh: geometry, polygon: source[selected])
                         .Bind(component => TopologyProjection.Of(mesh: geometry, source: component))
-                        .Bind(projection => state.Key.Accept(value: projection)),
+                        .Bind(projection => Acceptance.Rows(value: projection)),
                 }).ToEff())),
-        visiblePolygonCountCase: static (key, _) => Lift<TGeometry, TOut, int>(key: key, source:
-            Analysis.Operation<Mesh, int>.Build(key: key, state: key, evaluator: static (op, mesh) => op.Accept(value: mesh.GetNgonAndFacesCount()).ToEff())),
-        nakedEdgesCase: static (key, _) => Lift<TGeometry, TOut, Polyline>(key: key, source:
-            Analysis.Operation<Mesh, Polyline>.Build(key: key, state: key, evaluator: static (op, mesh) => Optional(mesh.GetNakedEdges()).Map(loops => op.Accept(values: loops)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff())),
-        outlineCase: static (key, o) => Lift<TGeometry, TOut, Polyline>(key: key, source: o.Plane.IsValid
-            ? Analysis.Operation<Mesh, Polyline>.Build(key: key, state: (Key: key, Plane: o.Plane), evaluator: static (state, mesh) =>
-                Optional(mesh.GetOutlines(plane: state.Plane)).Map(outlines => state.Key.Accept(values: outlines)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff())
-            : Analysis.Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput())));
+        visiblePolygonCountCase: static (key, _) => Lift<TGeometry, TOut, int>(source:
+            Analysis.Operation<Mesh, int>.Build(state: key, evaluator: static (op, mesh) => Acceptance.Rows(value: mesh.GetNgonAndFacesCount()).ToEff())),
+        nakedEdgesCase: static (key, _) => Lift<TGeometry, TOut, Polyline>(source:
+            Analysis.Operation<Mesh, Polyline>.Build(state: key, evaluator: static (op, mesh) => Optional(mesh.GetNakedEdges()).Map(loops => Acceptance.Rows(values: loops)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff())),
+        outlineCase: static (key, o) => Lift<TGeometry, TOut, Polyline>(source: o.Plane.IsValid
+            ? Analysis.Operation<Mesh, Polyline>.Build(state: (Key: key, Plane: o.Plane), evaluator: static (state, mesh) =>
+                Optional(mesh.GetOutlines(plane: state.Plane)).Map(outlines => Acceptance.Rows(values: outlines)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff())
+            : Analysis.Operation<Mesh, Polyline>.Reject(key: key, fault: new KernelFault.InvalidInput())));
 
-    internal static Fin<ComponentIndex> SourceOf(Mesh mesh, MeshNgon polygon, Op key) =>
-        Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(key.InvalidResult())
-            .Bind(_ => Optional(polygon.FaceIndexList()).ToFin(key.InvalidResult()).Bind(faces => faces switch {
+    internal static Fin<ComponentIndex> SourceOf(Mesh mesh, MeshNgon polygon) =>
+        Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(new KernelFault.InvalidResult())
+            .Bind(_ => Optional(polygon.FaceIndexList()).ToFin(new KernelFault.InvalidResult()).Bind(faces => faces switch {
                 uint[] values when values.Length == 1 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) < 0 => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshFace, (int)values[0])),
                 uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
-                _ => Fin.Fail<ComponentIndex>(key.InvalidInput()),
+                _ => Fin.Fail<ComponentIndex>(new KernelFault.InvalidInput()),
             }));
-    internal static Fin<Seq<MeshNgon>> PolygonsOf(Mesh mesh, Op key) =>
-        Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult()).Map(static polygons => toSeq(polygons));
+    internal static Fin<Seq<MeshNgon>> PolygonsOf(Mesh mesh) =>
+        Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(new KernelFault.InvalidResult()).Map(static polygons => toSeq(polygons));
 
-    internal static Operation<TGeometry, TOut> Lift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
-        Analysis.Operation<TGeometry, TOut>.Native<Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, requirement: Some(source.Requirement), requiresContext: source.RequiresContext,
+    internal static Operation<TGeometry, TOut> Lift<TGeometry, TOut, TValue>(Operation<Mesh, TValue> source) where TGeometry : notnull =>
+        Analysis.Operation<TGeometry, TOut>.Native<Mesh, TValue, Operation<Mesh, TValue>>(state: source, requirement: Some(source.Requirement), requiresContext: source.RequiresContext,
             project: static (operation, mesh) => operation.Apply(geometry: Seq(mesh)));
 }
 
@@ -297,11 +279,11 @@ public sealed partial class MeshSampleGroup {
     public static readonly MeshSampleGroup Defect = new(capture: static mesh => Requirement.MeshReport(mesh: mesh, check: nameof(Defect)));
     public static readonly MeshSampleGroup Quality = new(capture: static _ => Fin.Succ(MeshCheckParameters.Defaults()));
     [UseDelegateFromConstructor] internal partial Fin<MeshCheckParameters> Capture(Mesh mesh);
-    internal Operation<Mesh, MeshSample> Census(Op key) =>
-        Operation<Mesh, MeshSample>.Build(key: key, state: (Key: key, Kinds: toSeq(MeshSampleKind.Items).Filter(kind => kind.Group.Equals(this)), Group: this),
+    internal Operation<Mesh, MeshSample> Census() =>
+        Operation<Mesh, MeshSample>.Build(state: (Kinds: toSeq(MeshSampleKind.Items).Filter(kind => kind.Group.Equals(this)), Group: this),
             evaluator: static (state, mesh) =>
-                from parameters in state.Group.Capture(mesh: mesh).ToEff()
-                from samples in state.Kinds.TraverseM(kind => kind.Sample(mesh: mesh, parameters: parameters, key: Op.Of(name: kind.Key)).Bind(value => state.Key.AcceptValue(value: new MeshSample(Kind: kind, Value: value)))).As().ToEff()
+                from parameters in Error.New(mesh: mesh.Message, mesh: mesh).ToEff()
+                from samples in state.Kinds.TraverseM(kind => kind.Sample(mesh: mesh, parameters: parameters).Bind(value => Acceptance.Value(value: new MeshSample(Kind: kind, Value: value)))).As().ToEff()
                 select samples);
 }
 
@@ -333,17 +315,17 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind UnusedVertices = new(key: nameof(UnusedVertices), group: MeshSampleGroup.Defect, sample: static (_, p, _) => Fin.Succ(MeasuredValue.Count(p.UnusedVertexCount)));
     public static readonly MeshSampleKind VertexFaceNormalsDiffer = new(key: nameof(VertexFaceNormalsDiffer), group: MeshSampleGroup.Defect, sample: static (_, p, _) => Fin.Succ(MeasuredValue.Count(p.VertexFaceNormalsDifferCount)));
     public static readonly MeshSampleKind ZeroLengthNormals = new(key: nameof(ZeroLengthNormals), group: MeshSampleGroup.Defect, sample: static (_, p, _) => Fin.Succ(MeasuredValue.Count(p.ZeroLengthNormalCount)));
-    public static readonly MeshSampleKind MaximumValence = new(key: nameof(MaximumValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, key: key, project: static stat => MeasuredValue.Count((int)stat.Maximum.Value)));
-    public static readonly MeshSampleKind MinimumValence = new(key: nameof(MinimumValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, key: key, project: static stat => MeasuredValue.Count((int)stat.Minimum.Value)));
+    public static readonly MeshSampleKind MaximumValence = new(key: nameof(MaximumValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, project: static stat => MeasuredValue.Count((int)stat.Maximum.Value)));
+    public static readonly MeshSampleKind MinimumValence = new(key: nameof(MinimumValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, project: static stat => MeasuredValue.Count((int)stat.Minimum.Value)));
     public static readonly MeshSampleKind BoundaryLoopCount = new(key: nameof(BoundaryLoopCount), group: MeshSampleGroup.Quality, sample: static (m, _, key) => TopologyScalar.BoundaryLoops.Extract(geometry: m, op: key));
     public static readonly MeshSampleKind Genus = new(key: nameof(Genus), group: MeshSampleGroup.Quality, sample: static (m, _, key) => TopologyScalar.Genus.Extract(geometry: m, op: key));
-    public static readonly MeshSampleKind AverageValence = new(key: nameof(AverageValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, key: key, project: static stat => MeasuredValue.Statistic(stat.Mean)));
+    public static readonly MeshSampleKind AverageValence = new(key: nameof(AverageValence), group: MeshSampleGroup.Quality, sample: static (m, _, key) => Valence(mesh: m, project: static stat => MeasuredValue.Statistic(stat.Mean)));
     internal MeshSampleGroup Group { get; }
-    [UseDelegateFromConstructor] internal partial Fin<MeasuredValue> Sample(Mesh mesh, MeshCheckParameters parameters, Op key);
-    private static Fin<MeasuredValue> Valence(Mesh mesh, Op key, Func<Stat<Scalar>, MeasuredValue> project) =>
+    [UseDelegateFromConstructor] internal partial Fin<MeasuredValue> Sample(Mesh mesh, MeshCheckParameters parameters);
+    private static Fin<MeasuredValue> Valence(Mesh mesh, Func<Stat<Scalar>, MeasuredValue> project) =>
         toSeq(Enumerable.Range(0, mesh.TopologyVertices.Count).Select(mesh.TopologyVertices.ConnectedEdgesCount)) switch {
-            { IsEmpty: true } => Fin.Fail<MeasuredValue>(key.InvalidResult()),
-            Seq<int> valences => Stat<Scalar>.Of(values: valences.Map(static valence => (Scalar)(double)valence), key: key).Map(project),
+            { IsEmpty: true } => Fin.Fail<MeasuredValue>(new KernelFault.InvalidResult()),
+            Seq<int> valences => Stat<Scalar>.Of(values: valences.Map(static valence => (Scalar)(double)valence)).Map(project),
         };
 }
 
@@ -355,118 +337,118 @@ internal readonly record struct PolygonProbe(Mesh Mesh, ComponentIndex Source, O
 public sealed partial class MeshMetric {
     public static readonly MeshMetric EdgeAspect = new(measure: EdgeAspectOf);
     public static readonly MeshMetric Area = new(measure: AreaOf);
-    public static readonly MeshMetric Perimeter = new(measure: static (probe, context, key) => Ring<double>(metric: VectorCloudMetric.Perimeter, probe: probe, context: context, key: key));
-    public static readonly MeshMetric Skewness = new(measure: static (probe, context, key) => Ring<double>(metric: VectorCloudMetric.Skewness, probe: probe, context: context, key: key));
+    public static readonly MeshMetric Perimeter = new(measure: static (probe, context, key) => Ring<double>(metric: VectorCloudMetric.Perimeter, probe: probe, context: context));
+    public static readonly MeshMetric Skewness = new(measure: static (probe, context, key) => Ring<double>(metric: VectorCloudMetric.Skewness, probe: probe, context: context));
     public static readonly MeshMetric DihedralAngle = new(measure: DihedralOf);
-    [UseDelegateFromConstructor] private partial Fin<double> Measure(PolygonProbe probe, Context context, Op key);
+    [UseDelegateFromConstructor] private partial Fin<double> Measure(PolygonProbe probe, Context context);
     private static readonly OutputBinding SampleBinding = OutputBinding.Of<MeshMetricSample>();
     private static readonly OutputBinding SummaryBinding = OutputBinding.Of<Stat<Scalar>>();
-    internal Operation<TGeometry, TOut> Measure<TGeometry, TOut>(Op key) where TGeometry : notnull =>
+    internal Operation<TGeometry, TOut> Measure<TGeometry, TOut>() where TGeometry : notnull =>
         SampleBinding.Serves<TOut>()
-            ? Meshes.Lift<TGeometry, TOut, MeshMetricSample>(key: key, source: Folded(key: key, terminal: static (samples, _) => Fin.Succ(samples)))
+            ? Meshes.Lift<TGeometry, TOut, MeshMetricSample>(source: Folded(key: key, terminal: static (samples, _) => Fin.Succ(samples)))
         : SummaryBinding.Serves<TOut>()
-            ? Meshes.Lift<TGeometry, TOut, Stat<Scalar>>(key: key, source: Folded(key: key, terminal: static (samples, op) =>
-                Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Value), key: op).Bind(stat => op.Accept(value: stat))))
-        : key.Unsupported<TGeometry, TOut>();
-    private Operation<Mesh, TValue> Folded<TValue>(Op key, Func<Seq<MeshMetricSample>, Op, Fin<Seq<TValue>>> terminal) where TValue : notnull =>
-        Operation<Mesh, TValue>.Build(key: key, state: (Key: key, Metric: this, Terminal: terminal), requirement: Some(Requirement.MeshCheck), requiresContext: true,
+            ? Meshes.Lift<TGeometry, TOut, Stat<Scalar>>(source: Folded(key: key, terminal: static (samples, op) =>
+                Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Value), key: op).Bind(stat => Acceptance.Rows(value: stat))))
+        : new KernelFault.Unsupported();
+    private Operation<Mesh, TValue> Folded<TValue>(Func<Seq<MeshMetricSample>, Fin<Seq<TValue>>> terminal) where TValue : notnull =>
+        Operation<Mesh, TValue>.Build(state: (Metric: this, Terminal: terminal), requirement: Some(Requirement.MeshCheck), requiresContext: true,
             evaluator: static (state, mesh) =>
                 from runtime in Env.EnvAsks
                 let moments = AtomHashMap(HashMap<int, (Vector3d Normal, double Area)>())
                 from values in Meshes.PolygonsOf(mesh: mesh, key: state.Key)
                     .Bind(polygons => polygons.TraverseM(polygon => runtime.Cancellation.IsCancellationRequested
                         ? Fin.Fail<MeshMetricSample>(Errors.Cancelled)
-                        : state.Metric.Sample(mesh: mesh, polygon: polygon, moments: moments, context: runtime.Context, key: state.Key)).As())
+                        : state.Metric.Sample(mesh: mesh, polygon: polygon, moments: moments, context: runtime.Context)).As())
                     .Bind(samples => state.Terminal(arg1: samples, arg2: state.Key)).ToEff()
                 select values);
-    internal static Operation<Mesh, MeshFaceShape> Shapes(Op key) =>
-        Operation<Mesh, MeshFaceShape>.Build(key: key, state: key, requirement: Some(Requirement.MeshCheck), requiresContext: true,
+    internal static Operation<Mesh, MeshFaceShape> Shapes() =>
+        Operation<Mesh, MeshFaceShape>.Build(state: key, requirement: Some(Requirement.MeshCheck), requiresContext: true,
             evaluator: static (op, mesh) =>
                 from runtime in Env.EnvAsks
                 let moments = AtomHashMap(HashMap<int, (Vector3d Normal, double Area)>())
                 from shapes in Meshes.PolygonsOf(mesh: mesh, key: op)
                     .Bind(polygons => polygons.TraverseM(polygon => runtime.Cancellation.IsCancellationRequested
                         ? Fin.Fail<MeshFaceShape>(Errors.Cancelled)
-                        : Probe(mesh: mesh, polygon: polygon, moments: moments, key: op)
-                            .Bind(probe => Ring<VectorCloudShape>(metric: VectorCloudMetric.Shape, probe: probe, context: runtime.Context, key: op)
+                        : Probe(mesh: mesh, polygon: polygon, moments: moments)
+                            .Bind(probe => Ring<VectorCloudShape>(metric: VectorCloudMetric.Shape, probe: probe, context: runtime.Context)
                                 .Map(shape => new MeshFaceShape(Source: probe.Source, Shape: shape)))).As()).ToEff()
                 select shapes);
-    internal Fin<MeshMetricSample> Sample(Mesh mesh, MeshNgon polygon, AtomHashMap<int, (Vector3d Normal, double Area)> moments, Context context, Op key) =>
-        Probe(mesh: mesh, polygon: polygon, moments: moments, key: key)
-            .Bind(probe => Measure(probe: probe, context: context, key: key).Map(value => (probe.Source, Value: value)))
-            .Bind(state => key.AcceptValue(value: new MeshMetricSample(Source: state.Source, Value: state.Value)));
-    private static Fin<PolygonProbe> Probe(Mesh mesh, MeshNgon polygon, AtomHashMap<int, (Vector3d Normal, double Area)> moments, Op key) =>
-        Meshes.SourceOf(mesh: mesh, polygon: polygon, key: key)
-            .Bind(source => VerticesOf(mesh: mesh, source: source, key: key)
+    internal Fin<MeshMetricSample> Sample(Mesh mesh, MeshNgon polygon, AtomHashMap<int, (Vector3d Normal, double Area)> moments, Context context) =>
+        Probe(mesh: mesh, polygon: polygon, moments: moments)
+            .Bind(probe => Measure(probe: probe, context: context).Map(value => (probe.Source, Value: value)))
+            .Bind(state => Acceptance.Value(value: new MeshMetricSample(Source: state.Source, Value: state.Value)));
+    private static Fin<PolygonProbe> Probe(Mesh mesh, MeshNgon polygon, AtomHashMap<int, (Vector3d Normal, double Area)> moments) =>
+        Meshes.SourceOf(mesh: mesh, polygon: polygon)
+            .Bind(source => VerticesOf(mesh: mesh, source: source)
                 .Map(vertices => new PolygonProbe(Mesh: mesh, Source: source, Vertices: Some(vertices), Moments: moments)));
-    private static Fin<Seq<Point3d>> VerticesOf(Mesh mesh, ComponentIndex source, Op key) => source switch {
+    private static Fin<Seq<Point3d>> VerticesOf(Mesh mesh, ComponentIndex source) => source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
             mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch {
                 true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)),
                 true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)),
-                false => Fin.Fail<Seq<Point3d>>(key.InvalidResult()),
+                false => Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidResult()),
             },
         { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
-            Optional(mesh.Ngons.NgonBoundaryVertexList(ngon: mesh.Ngons[ngon], bAppendStartPoint: false)).ToFin(key.InvalidResult()).Map(static points => toSeq(points)),
-        _ => Fin.Fail<Seq<Point3d>>(key.InvalidInput()),
+            Optional(mesh.Ngons.NgonBoundaryVertexList(ngon: mesh.Ngons[ngon], bAppendStartPoint: false)).ToFin(new KernelFault.InvalidResult()).Map(static points => toSeq(points)),
+        _ => Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidInput()),
     };
-    private static Fin<Seq<int>> FaceIndicesOf(Mesh mesh, int ngon, Op key) =>
-        Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(key.InvalidResult())
-            .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(key.InvalidResult())).As()
-                .Bind(indices => indices.IsEmpty ? Fin.Fail<Seq<int>>(key.InvalidResult()) : Fin.Succ(indices)));
-    private static Fin<TOut> Ring<TOut>(VectorCloudMetric metric, PolygonProbe probe, Context context, Op key) =>
-        probe.Vertices.Match(Some: Fin.Succ, None: () => VerticesOf(mesh: probe.Mesh, source: probe.Source, key: key))
-            .Bind(points => VectorCloud.Ring(points: points, context: context, key: key))
-            .Bind(cloud => metric.Project<TOut>(cloud: cloud, policy: Option<NeighborhoodPolicy>.None, key: key));
-    private static Fin<Vector3d> NormalOf(PolygonProbe probe, Context context, Op key) => probe.Source switch {
+    private static Fin<Seq<int>> FaceIndicesOf(Mesh mesh, int ngon) =>
+        Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(new KernelFault.InvalidResult())
+            .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(new KernelFault.InvalidResult())).As()
+                .Bind(indices => indices.IsEmpty ? Fin.Fail<Seq<int>>(new KernelFault.InvalidResult()) : Fin.Succ(indices)));
+    private static Fin<TOut> Ring<TOut>(VectorCloudMetric metric, PolygonProbe probe, Context context) =>
+        probe.Vertices.Match(Some: Fin.Succ, None: () => VerticesOf(mesh: probe.Mesh, source: probe.Source))
+            .Bind(points => VectorCloud.Ring(points: points, context: context))
+            .Bind(cloud => metric.Project<TOut>(cloud: cloud, policy: Option<NeighborhoodPolicy>.None));
+    private static Fin<Vector3d> NormalOf(PolygonProbe probe, Context context) => probe.Source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < probe.Mesh.Faces.Count =>
-            FaceMomentOf(probe: probe, face: face, context: context, key: key).Map(static moment => moment.Normal),
+            FaceMomentOf(probe: probe, face: face, context: context).Map(static moment => moment.Normal),
         { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < probe.Mesh.Ngons.Count =>
-            FaceIndicesOf(mesh: probe.Mesh, ngon: ngon, key: key)
+            FaceIndicesOf(mesh: probe.Mesh, ngon: ngon)
                 .Bind(faces => probe.Mesh.FaceNormals.Count >= probe.Mesh.Faces.Count
-                    ? faces.TraverseM(face => FaceMomentOf(probe: probe, face: face, context: context, key: key)).As()
-                        .Bind(moments => Rasm.Numerics.Direction.Of(value: moments.Fold(initialState: Vector3d.Zero, f: static (sum, moment) => sum + (moment.Normal * moment.Area)), context: context, key: key).Map(static direction => direction.Value))
-                    : Ring<Vector3d>(metric: VectorCloudMetric.Normal, probe: probe, context: context, key: key)),
-        _ => Fin.Fail<Vector3d>(key.InvalidInput()),
+                    ? faces.TraverseM(face => FaceMomentOf(probe: probe, face: face, context: context)).As()
+                        .Bind(moments => Rasm.Numerics.Direction.Of(value: moments.Fold(initialState: Vector3d.Zero, f: static (sum, moment) => sum + (moment.Normal * moment.Area)), context: context).Map(static direction => direction.Value))
+                    : Ring<Vector3d>(metric: VectorCloudMetric.Normal, probe: probe, context: context)),
+        _ => Fin.Fail<Vector3d>(new KernelFault.InvalidInput()),
     };
-    private static Fin<(Vector3d Normal, double Area)> FaceMomentOf(PolygonProbe probe, int face, Context context, Op key) =>
+    private static Fin<(Vector3d Normal, double Area)> FaceMomentOf(PolygonProbe probe, int face, Context context) =>
         probe.Moments.Find(face).Map(static moment => Fin.Succ(moment)).IfNone(() =>
             (probe.Mesh.FaceNormals.Count >= probe.Mesh.Faces.Count
-                ? from normal in Rasm.Numerics.Direction.Of(value: new Vector3d(probe.Mesh.FaceNormals[face]), context: context, key: key).Map(static direction => direction.Value)
-                  from area in Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context, key: key)
+                ? from normal in Rasm.Numerics.Direction.Of(value: new Vector3d(probe.Mesh.FaceNormals[face]), context: context).Map(static direction => direction.Value)
+                  from area in Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context)
                   select (Normal: normal, Area: area)
-                : (Ring<Vector3d>(metric: VectorCloudMetric.Normal, probe: probe.AtFace(face: face), context: context, key: key),
-                   Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context, key: key))
+                : (Ring<Vector3d>(metric: VectorCloudMetric.Normal, probe: probe.AtFace(face: face), context: context),
+                   Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context))
                     .Apply(static (normal, area) => (Normal: normal, Area: area)).As())
             .Map(moment => probe.Moments.FindOrMaybeAdd(face, () => Some(moment)).IfNone(moment)));
-    private static Fin<double> EdgeAspectOf(PolygonProbe probe, Context context, Op key) => probe.Source switch {
+    private static Fin<double> EdgeAspectOf(PolygonProbe probe, Context context) => probe.Source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < probe.Mesh.Faces.Count =>
             Fin.Succ(probe.Mesh.Faces.GetFaceAspectRatio(index: face)),
         { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < probe.Mesh.Ngons.Count =>
-            Ring<double>(metric: VectorCloudMetric.EdgeAspect, probe: probe, context: context, key: key),
-        _ => Fin.Fail<double>(key.InvalidInput()),
+            Ring<double>(metric: VectorCloudMetric.EdgeAspect, probe: probe, context: context),
+        _ => Fin.Fail<double>(new KernelFault.InvalidInput()),
     };
-    private static Fin<double> AreaOf(PolygonProbe probe, Context context, Op key) =>
+    private static Fin<double> AreaOf(PolygonProbe probe, Context context) =>
         probe.Source switch {
             { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < probe.Mesh.Ngons.Count =>
-                FaceIndicesOf(mesh: probe.Mesh, ngon: ngon, key: key)
-                    .Bind(faces => faces.TraverseM(face => FaceMomentOf(probe: probe, face: face, context: context, key: key)).As())
+                FaceIndicesOf(mesh: probe.Mesh, ngon: ngon)
+                    .Bind(faces => faces.TraverseM(face => FaceMomentOf(probe: probe, face: face, context: context)).As())
                     .Map(static moments => moments.Fold(initialState: 0.0, f: static (total, moment) => total + moment.Area)),
-            _ => Ring<double>(metric: VectorCloudMetric.Area, probe: probe, context: context, key: key),
+            _ => Ring<double>(metric: VectorCloudMetric.Area, probe: probe, context: context),
         };
-    private static Fin<double> DihedralOf(PolygonProbe probe, Context context, Op key) =>
-        NormalOf(probe: probe, context: context, key: key).Bind(normal =>
+    private static Fin<double> DihedralOf(PolygonProbe probe, Context context) =>
+        NormalOf(probe: probe, context: context).Bind(normal =>
             (probe.Source switch {
                 { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < probe.Mesh.Faces.Count => Fin.Succ(toSeq(probe.Mesh.Faces.AdjacentFaces(faceIndex: face))),
                 { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < probe.Mesh.Ngons.Count =>
-                    FaceIndicesOf(mesh: probe.Mesh, ngon: ngon, key: key)
+                    FaceIndicesOf(mesh: probe.Mesh, ngon: ngon)
                         .Map((Seq<int> parts) => parts.Bind((int face) => toSeq(probe.Mesh.Faces.AdjacentFaces(faceIndex: face))).Filter((int other) => !parts.Exists((int face) => face == other)).Distinct()),
-                _ => Fin.Fail<Seq<int>>(key.InvalidInput()),
+                _ => Fin.Fail<Seq<int>>(new KernelFault.InvalidInput()),
             }).Bind((Seq<int> neighbours) => neighbours
-                .TraverseM(other => NormalOf(probe: probe.AtFace(face: other), context: context, key: key)
-                    .Bind(neighbour => VectorAngle.Of(a: normal, b: neighbour, context: context, pivot: Option<AnglePivot>.None, key: key).Map(static angle => angle.Value))).As()
+                .TraverseM(other => NormalOf(probe: probe.AtFace(face: other), context: context)
+                    .Bind(neighbour => VectorAngle.Of(a: normal, b: neighbour, context: context, pivot: Option<AnglePivot>.None).Map(static angle => angle.Value))).As()
                 .Bind(angles => Stat.Extrema(items: angles, projection: static angle => angle, band: context.For(lane: ToleranceLane.Angle), direction: ExtremumDirection.Maximum)
-                    .Head.ToFin(key.InvalidResult()))));
+                    .Head.ToFin(new KernelFault.InvalidResult()))));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

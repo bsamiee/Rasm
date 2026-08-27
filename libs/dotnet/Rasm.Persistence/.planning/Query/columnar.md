@@ -235,7 +235,7 @@ public static class ColumnarLane {
     public static IO<ColumnarSession> Open(StoreProfile store, ColumnarProfile profile, StorePath dataSource, ExecutionThreads threads) =>
         !store.Admits(Lane)
         ? IO.fail<ColumnarSession>(new ColumnarFault.PolicyRefused("store-lane", store.Key))
-        : IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        : IO.liftAsync(async () => (await Try.lift(async _ => {
             DuckDBConnection anchor = new(profile.ConnectionString(dataSource, threads));
             await anchor.OpenAsync().ConfigureAwait(false);
             await using (DuckDBCommand bootstrap = anchor.CreateCommand()) {
@@ -247,32 +247,32 @@ public static class ColumnarLane {
             Seq<string> loaded = Seq<string>();
             while (await reader.ReadAsync().ConfigureAwait(false)) loaded = loaded.Add(reader.GetString(0));
             return Fin<ColumnarSession>.Succ(new ColumnarSession(anchor, profile, loaded));
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Bind(IO.lift)
         .Bind(static session => AdmitLoaded(session));
 
     static IO<ColumnarSession> AdmitLoaded(ColumnarSession session) {
-        Seq<string> missing = toSeq(session.Profile.Roster.Map(static extension => extension.Key)).Filter(key => !session.Loaded.Contains(key));
+        Seq<string> missing = toSeq(session.Profile.Roster.Map(static extension => extension.Key)).Filter(key => !session.Loaded.Contains());
         if (missing.IsEmpty) return IO.pure(session);
         session.Dispose();
         return IO.fail<ColumnarSession>(new ColumnarFault.ExtensionGap(string.Join(",", missing)));
     }
 
     public static IO<Unit> Register(ColumnarSession session) =>
-        IO.lift(() => Op.Of().Catch(() => {
+        IO.lift(() => Try.lift(() => {
             session.Anchor.RegisterScalarFunction<string>("uuid7", static () => Guid.CreateVersion7().ToString("N"));
             session.Anchor.RegisterScalarFunction<byte[], byte[]>("xxh128", static bytes => {
                 byte[] key = new byte[16];
-                BinaryPrimitives.WriteUInt128BigEndian(key, XxHash128.HashToUInt128(bytes));
+                BinaryPrimitives.WriteUInt128BigEndian(XxHash128.HashToUInt128(bytes));
                 return key;
             });
             return Fin<Unit>.Succ(unit);
-        }).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))));
 
     public static IO<Seq<T>> Query<T>(ColumnarSession session, FormattableString sql, Func<DuckDBDataReader, T> shape) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             DuckDBConnection lane = session.Lane();
             await using (lane.ConfigureAwait(false)) {
                 await using DuckDBCommand command = lane.CreateCommand();
@@ -284,28 +284,28 @@ public static class ColumnarLane {
                 while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(shape(reader));
                 return Fin<Seq<T>>.Succ(toSeq(rows));
             }
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Bind(IO.lift);
 
     public static IO<long> Append<T, TMap>(ColumnarSession session, Identifier table, Seq<T> rows) where TMap : DuckDBAppenderMap<T>, new() =>
-        IO.lift(() => Op.Of().Catch(() => {
+        IO.lift(() => Try.lift(() => {
             using DuckDBConnection lane = session.Lane();
             DuckDBMappedAppender<T, TMap> appender = lane.CreateAppender<T, TMap>((string)table);
             appender.AppendRecords(rows);
             appender.Close();
             return Fin<long>.Succ(rows.Count);
-        }).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.AppendRefused(table, engine.ErrorType, cause))));
 
     public static IO<Fin<Unit>> Mount(ColumnarSession session, Identifier alias, StorePath store, ColumnarExtension typed) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = $"ATTACH IF NOT EXISTS '{store}' AS {alias} (TYPE {typed.Key}, READ_ONLY)";
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.MountRefused(alias, engine.ErrorType, cause))));
 
     public static IO<Fin<Unit>> Secret(ColumnarSession session, SecretScope scope, Identifier name, Seq<(Identifier Key, string Value)> config, SecretStorage storage) =>
@@ -321,25 +321,25 @@ public static class ColumnarLane {
             (cause, engine) => new ColumnarFault.SecretRefused(name, engine.ErrorType, cause))));
 
     public static IO<T> ArrowStream<T>(AdbcConnection adbc, AdbcRequest request, Func<QueryResult, ValueTask<T>> drain) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => await Try.lift(async _ => {
             using AdbcStatement statement = adbc.CreateStatement();
             request.Apply(statement);
             QueryResult result = await statement.ExecuteQueryAsync().ConfigureAwait(false);
             return Fin<T>.Succ(await drain(result).ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift);
 
     public static IO<Fin<ArrowPartitions>> ArrowPartitions(AdbcConnection adbc, AdbcRequest request) =>
-        IO.lift<Fin<ArrowPartitions>>(() => Op.Of().Catch(() => {
+        IO.lift<Fin<ArrowPartitions>>(() => Try.lift(() => {
             using AdbcStatement statement = adbc.CreateStatement();
             request.Apply(statement);
             PartitionedResult split = statement.ExecutePartitioned();
             return Fin.Succ(new ArrowPartitions(adbc, split.Schema, split.AffectedRows, toSeq(split.PartitionDescriptors)));
-        }));
+        }).Run().Bind(static inner => inner));
 }
 
 public sealed record ArrowPartitions(AdbcConnection Connection, Schema Schema, long AffectedRows, Seq<PartitionDescriptor> Descriptors) {
     public IO<Fin<IArrowArrayStream>> Redeem(PartitionDescriptor descriptor) =>
-        IO.lift<Fin<IArrowArrayStream>>(() => Op.Of().Catch(() => Fin.Succ(Connection.ReadPartition(descriptor))));
+        IO.lift<Fin<IArrowArrayStream>>(() => Try.lift(() => Fin.Succ(Connection.ReadPartition(descriptor))).Run().Bind(static inner => inner));
 }
 
 [SmartEnum<string>]
@@ -357,15 +357,15 @@ public sealed partial class WarehouseDriver {
 
 public static class AdbcWarehouse {
     public static IO<Fin<AdbcConnection>> Open(WarehouseDriver driver, HashMap<string, string> parameters) =>
-        IO.lift<Fin<AdbcConnection>>(() => Op.Of().Catch(() => parameters.IsEmpty || parameters.Keys.Exists(string.IsNullOrWhiteSpace)
+        IO.lift<Fin<AdbcConnection>>(() => Try.lift(() => parameters.IsEmpty || parameters.Keys.Exists(string.IsNullOrWhiteSpace)
             ? Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused("adbc-parameters", driver.Key))
-            : Fin<AdbcConnection>.Succ(driver.Open(parameters.ToDictionary(static p => p.Key, static p => p.Value)).Connect(new Dictionary<string, string>()))));
+            : Fin<AdbcConnection>.Succ(driver.Open(parameters.ToDictionary(static p => p.Key, static p => p.Value)).Connect(new Dictionary<string, string>()))).Run().Bind(static inner => inner));
 
     public static IO<Fin<Seq<RecordBatch>>> Tabular(WarehouseDriver driver, HashMap<string, string> parameters, AdbcRequest request) =>
         Open(driver, parameters).Bind(opened => opened.Match(
             Succ: adbc => IO.pure(adbc).Bracket(
                 connection => ColumnarLane.ArrowStream(connection, request, Batches).Map(Fin.Succ),
-                static connection => IO.lift(() => Op.Of().Catch(() => { connection.Dispose(); return Fin<Unit>.Succ(unit); }))),
+                static connection => IO.lift(() => Try.lift(() => { connection.Dispose(); return Fin<Unit>.Succ(unit); }).Run().Bind(static inner => inner))),
             Fail: error => IO.pure(Fin<Seq<RecordBatch>>.Fail(error))));
 
     static ValueTask<Seq<RecordBatch>> Batches(QueryResult result) =>
@@ -493,30 +493,30 @@ public sealed partial class ArtifactClass {
         $"COPY ({body.Sql}) TO '{destination}' ({string.Join(", ",
             Seq(Some($"FORMAT {Format.Key}"), Some($"COMPRESSION {Codec.Key}"),
                 Rows.Map(static rows => $"ROW_GROUP_SIZE {rows.ToString(CultureInfo.InvariantCulture)}"), Format.ArrayRow,
-                PartitionKey.Map(static key => $"PARTITION_BY ({key})"), Some(Mode.Key),
+                PartitionKey.Map(static key => $"PARTITION_BY ({key})"),
                 Some($"KV_METADATA {{ stamp: '{stamp.ToString("x32", CultureInfo.InvariantCulture)}' }}")).Somes())})";
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArtifactEgress {
     public static IO<Fin<Unit>> Publish(ColumnarSession session, ArtifactClass artifact, CopyBody body, StorePath destination, UInt128 stamp) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = artifact.Egress(body, destination, stamp);
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.EgressRefused(destination, engine.ErrorType, cause))));
 
     public static IO<Fin<UInt128>> StampOf(ColumnarSession session, StorePath artifact) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
-            command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode(key) = 'stamp'";
+            command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode() = 'stamp'";
             command.Parameters.Add(new DuckDBParameter("path", (string)artifact));
             return Fin<Option<string>>.Succ(Optional(await command.ExecuteScalarAsync().ConfigureAwait(false)).Map(static held => (string)held));
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Map(captured => captured.Bind(stamp => stamp
             .Bind(static held => ParseStamp(held))
@@ -524,7 +524,7 @@ public static class ArtifactEgress {
 
     static Option<UInt128> ParseStamp(string held) {
         bool parsed = UInt128.TryParse(held, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt128 key);
-        return parsed ? Some(key) : None;
+        return parsed ? Some() : None;
     }
 
     public static FormattableString Generation(StorePath root) =>

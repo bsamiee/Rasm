@@ -139,10 +139,10 @@ public sealed class UpdateMachine {
               from start in IO.lift(() => host.Clocks.Now)
               from prior in IO.lift(() => Prior)
               from transferred in IO.liftAsync(async () =>
-                  await Op.Of().Catch(async execution => {
+                  await Try.lift(async execution => {
                       await manager.DownloadUpdatesAsync(found, progress.Report, execution).ConfigureAwait(false);
                       return Fin.Succ(unit);
-                  }, token))
+                  }).Run().Bind(static inner => inner))
               from admitted in transferred.Match(
                   Succ: _ => SupplyChainGate.Admit(gate, new AdmissionSubject.Release(found.TargetFullRelease, channel), token),
                   Fail: error => IO.pure<Validation<Error, SupplyChainAdmission>>(Fail<Error, SupplyChainAdmission>(error)))
@@ -160,10 +160,10 @@ public sealed class UpdateMachine {
         from _sealed in LatencySpine.Seal(drain.Exporter, drain.Latency)
         from _timed in IO.lift(() => rolloverDuration.Record(drained.Held.TotalSeconds, channel.Key))
         let rolling = (UpdateOutcome)new UpdateOutcome.Restarted(Target(asset))
-        from handed in IO.lift<Fin<Unit>>(() => Op.Of().Catch(() => {
+        from handed in IO.lift<Fin<Unit>>(() => Try.lift(() => {
             manager.ApplyUpdatesAndRestart(asset);
             return Fin.Succ(unit);
-        }, token: host.Spine.Token))
+        }).Run().Bind(static inner => inner))
         from settled in handed.Match(
             Succ: _ => IO.pure(rolling),
             Fail: error => IO.pure(UpdateOutcome.Reverted(
@@ -252,7 +252,7 @@ public sealed record FeedBinding(UpdateChannel Channel, Uri Feed) {
 
 - Owner: `DrainThread` the composition-supplied record carrying the conductor's telemetry tail; `RollVerdict` `[SmartEnum<string>]` the three wave verdicts; `RollStrategy` `[SmartEnum<string>]` the progressive-delivery axis with delegate-backed cohort planning over the features owner's `RolloutSegment` band, the `From(FlagVerdict)` verdict seat, and the shared advance fold; `FleetRuntime` the fleet-conductor dependency capsule; `NodeRoll` the per-node wave result; `FleetRoll` the lock-held wave conductor walking `MembershipView.Serving`.
 - Cases: three roll strategies — `Canary` rolls the probe cohort its own band answers, then expands over the remainder, `BlueGreen` swaps a parallel half-fleet cohort on a health-pass, `LinearWave` advances fixed-percentage increments with a bake window between waves; `RollVerdict` = advanced | held | rolled-back.
-- Entry: `Roll(FleetRuntime fleet, MembershipView membership, RollStrategy strategy, Op key)` returns `IO<Validation<Error, Seq<NodeRoll>>>` — refuses an empty serving set under the caller's `Op` before anything is acquired, takes `LeaseKey.Lock(FleetRoll.Section)` for the rollover section, plans the cohorts from `strategy.Plan(membership.Serving)`, rolls each cohort under the fence, waits on the post-roll `WireHealth.Evaluate` serving probe, and bakes the strategy's inter-wave dwell before the next cohort admits.
+- Entry: `Roll(FleetRuntime fleet, MembershipView membership, RollStrategy strategy)` returns `IO<Validation<Error, Seq<NodeRoll>>>` — refuses an empty serving set under the caller's `Op` before anything is acquired, takes `LeaseKey.Lock(FleetRoll.Section)` for the rollover section, plans the cohorts from `strategy.Plan(membership.Serving)`, rolls each cohort under the fence, waits on the post-roll `WireHealth.Evaluate` serving probe, and bakes the strategy's inter-wave dwell before the next cohort admits.
 - Law: one conductor per fleet is now STRUCTURAL — waves run inside `DistributedLock.Guard` over `LeaseKey.Lock(FleetRoll.Section)`, the fleet-wide `rollover-drain` name held as a page constant, so a second node contending the section reads `CoordinationFault.LockHeld` and rolls nothing, and a conductor whose lease lapses mid-wave surfaces `FenceRejected` instead of driving cohorts against another node's. Keying that lease on the caller's `Op` was the exclusion in name only: two conductors entering under two member names took two disjoint leases over one fleet.
 - Law: `FleetRuntime` supplies one clock for every node result in the wave.
 - Law: the wave verdict is a ROW rather than a bool beside three string constants. `Advances` answered a bool and the annotation fold re-derived a three-way disposition from it and a rollback scan, spelling three untyped tokens the annotation carried as `const string`; `RollVerdict` is one typed answer both the advance decision and the annotation read.
@@ -340,10 +340,10 @@ public static class FleetRoll {
     public const string Section = "rollover-drain";
 
     public static IO<Validation<Error, Seq<NodeRoll>>> Roll(
-        FleetRuntime fleet, MembershipView membership, RollStrategy strategy, Op key) =>
+        FleetRuntime fleet, MembershipView membership, RollStrategy strategy) =>
         membership.Serving.IsEmpty
             ? IO.pure(Fail<Error, Seq<NodeRoll>>(
-                CoordinationFault.Of(key.InvalidInput(nameof(MembershipView.Serving)))))
+                CoordinationFault.Of(new KernelFault.InvalidInput(Axis: Some(nameof(MembershipView.Serving))))))
             : DistributedLock.Acquire(fleet.Fence, fleet.Coordination, LeaseKey.Lock(Section)).Bind(acquired => acquired.Match(
                 Succ: held => DistributedLock
                     .Guard(fleet.Fence, held, Wave(fleet, strategy.Plan(membership.Serving), 0, strategy))

@@ -773,10 +773,10 @@ public static class ClimateFeed {
     static Fin<ClimateMount> Specced(ClimateReading reading, ClimateBrief brief, ClimateSource.Series row) =>
         reading.Render.Series.Bind(kind => $"climate.{reading.Key}.{row.Stream.Key}" switch {
             var key => reading.Legend
-                .Map(domain => Legend(brief, key, LegendDock.Right, domain, RampSegments).Map(Some))
+                .Map(domain => Legend(brief, LegendDock.Right, domain, RampSegments).Map(Some))
                 .IfNone(Fin.Succ(Option<LegendSpec>.None))
                 .Bind(legend => ChartSpec.Admit(
-                    ChartSpec.Of(key, brief.Policy,
+                    ChartSpec.Of(brief.Policy,
                             ChartLayer.Of(reading.Key, kind, row.Stream) with { Transforms = reading.Shape })
                         with {
                             XAxes = Seq(ChartAxis.Value),
@@ -788,8 +788,7 @@ public static class ClimateFeed {
 
     static Fin<LegendSpec> Legend(
         ClimateBrief brief, string key, LegendDock dock, LegendDomain domain, int segments) =>
-        LegendSpec.Admit(new LegendSpec(
-            key, domain, dock, Seq<LegendColumn>(), brief.Measure, segments, Some(key), None));
+        LegendSpec.Admit(new LegendSpec(domain, dock, Seq<LegendColumn>(), brief.Measure, segments, None));
 
     static Seq<ChartDatum> Observed(Seq<ChartDatum> rows) =>
         rows.Filter(static datum => datum.Arity >= ChartEncoding.Weighted.Arity);

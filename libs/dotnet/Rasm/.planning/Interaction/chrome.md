@@ -122,18 +122,18 @@ public abstract partial record CommandKind {
         toggle: static kind => Some(kind.Read()),
         pick: static kind => Some(kind.Read()));
 
-    internal Fin<Unit> Execute(Command host, Op key) => Switch(
-        state: (Host: host, Key: key),
-        act: static (held, kind) => held.Key.Catch(kind.Effect),
-        toggle: static (held, kind) => held.Key.Catch(() => Fin.Succ(Op.Side(() =>
-            kind.Write(held.Host is CheckCommand check && check.Checked)))),
-        pick: static (held, kind) => held.Key.Catch(() => Fin.Succ(Op.Side(kind.Choose))));
+    internal Fin<Unit> Execute(Command host) => Switch(
+        state: host,
+        act: static (held, kind) => Try.lift(kind.Effect).Run().Bind(static inner => inner),
+        toggle: static (held, kind) => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
+            kind.Write(held is CheckCommand check && check.Checked)))).Run().Bind(static inner => inner),
+        pick: static (held, kind) => Try.lift(() => Fin.Succ(HostEdge.Side(kind.Choose))).Run().Bind(static inner => inner));
 
     internal Unit Refresh(Command host) => Switch(
         state: host,
         act: static (_, _) => unit,
-        toggle: static (command, kind) => command is CheckCommand check ? Op.Side(() => check.Checked = kind.Read()) : unit,
-        pick: static (command, kind) => command is RadioCommand radio ? Op.Side(() => radio.Checked = kind.Read()) : unit);
+        toggle: static (command, kind) => command is CheckCommand check ? HostEdge.Side(() => check.Checked = kind.Read()) : unit,
+        pick: static (command, kind) => command is RadioCommand radio ? HostEdge.Side(() => radio.Checked = kind.Read()) : unit);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -173,33 +173,32 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
         new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
-    public Op Key { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
 
     string IUiSource<IUiFact>.Key => "intent.table";
 
     public static Fin<Lease<IntentTable>> Materialize(
-        Seq<IntentRow> rows, MonotonicTimeline clock, EvidenceDrain<IUiFact> drain, Op? key = null);
+        Seq<IntentRow> rows, MonotonicTimeline clock, EvidenceDrain<IUiFact> drain);
 
-    public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<IUiFact>>> emit, Op key);
+    public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<IUiFact>>> emit);
 
-    public Fin<Command> Verb(IntentKey key, Op? op = null);
+    public Fin<Command> Verb(IntentKey key);
 
-    public Fin<Unit> Invoke(IntentKey key, Op? op = null);
-    public Fin<Unit> RefreshAvailability(Op? key = null);
+    public Fin<Unit> Invoke(IntentKey key);
+    public Fin<Unit> RefreshAvailability();
 
-    public Fin<MenuBar> MenuOf(PlacementKey place, Op? key = null);
-    public Fin<ToolBar> BarOf(PlacementKey place, Op? key = null);
-    public Fin<Lease<ContextMenu>> PopupOf(PlacementKey place, Op? key = null);
+    public Fin<MenuBar> MenuOf(PlacementKey place);
+    public Fin<ToolBar> BarOf(PlacementKey place);
+    public Fin<Lease<ContextMenu>> PopupOf(PlacementKey place);
 
     public Fin<Unit> Release();
     public void Dispose() => _ = Release();
 
-    private static Fin<Unit> Distinct(Seq<IntentRow> rows, Op op);
+    private static Fin<Unit> Distinct(Seq<IntentRow> rows);
     private static Fin<(BoundIntent Entry, HashMap<GroupKey, RadioCommand> Heads)> Bind(
-        IntentRow row, HashMap<GroupKey, RadioCommand> heads, Op op);
+        IntentRow row, HashMap<GroupKey, RadioCommand> heads);
     private Seq<(PlacementSlot Slot, BoundIntent Entry)> Placed(PlacementKey place);
-    private static Fin<Unit> Severed(Seq<BoundIntent> entries, Op op);
+    private static Fin<Unit> Severed(Seq<BoundIntent> entries);
 }
 ```
 
@@ -258,10 +257,9 @@ public sealed class OwnedContextMenu : ContextMenu, IMount {
         new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
-    public Op Key { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
 
-    internal OwnedContextMenu(Seq<MenuBranch> branches, Op key);
+    internal OwnedContextMenu(Seq<MenuBranch> branches);
 
     public Fin<Unit> Release();
 
@@ -279,16 +277,16 @@ public sealed partial class MenuBudget {
 
 public static class MenuForge {
     public static Fin<Lease<ContextMenu>> Context(
-        Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default, Op? key = null);
+        Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default);
 
-    public static Fin<Unit> Attach(Control host, Lease<ContextMenu> menu, Op? key = null);
+    public static Fin<Unit> Attach(Control host, Lease<ContextMenu> menu);
 
-    public static Fin<Unit> Popup(Lease<ContextMenu> menu, Control anchor, EtoPointF at, Op? key = null);
+    public static Fin<Unit> Popup(Lease<ContextMenu> menu, Control anchor, EtoPointF at);
 
     public static Fin<Seq<MenuSlot>> Flatten(
-        Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default, Op? key = null);
+        Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default);
 
-    public static Fin<Option<IntentKey>> Choose(Seq<MenuSlot> slots, int index, Op? key = null);
+    public static Fin<Option<IntentKey>> Choose(Seq<MenuSlot> slots, int index);
 }
 ```
 
@@ -362,7 +360,6 @@ public abstract partial record WindowVerb {
 }
 
 public interface IMount {
-    Op Key { get; }
     Fin<Unit> Release();
 }
 
@@ -380,16 +377,16 @@ public abstract partial record MountCustody {
             : Some<MountCustody>(row with { Active = Some(Dimension.Create(value: row.Active.Map(static held => held.Value).IfNone(0) + 1)) }),
         released: static _ => Option<MountCustody>.None);
 
-    public Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Left(Op key) => Switch(
+    public Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Left() => Switch(
         state: key,
-        live: static (op, row) => row.Active.Match(
+        live: static (row) => row.Active.Match(
             Some: held => held.Value is 1
                 ? row.Phase.Closes
                     ? Fin.Succ(((MountCustody)new Released(), Some(row.Children)))
                     : Fin.Succ(((MountCustody)(row with { Active = None }), Option<Seq<IMount>>.None))
                 : Fin.Succ(((MountCustody)(row with { Active = Some(Dimension.Create(value: held.Value - 1)) }), Option<Seq<IMount>>.None)),
-            None: () => Unmatched(op)),
-        released: static (op, _) => Unmatched(op));
+            None: () => Unmatched()),
+        released: static (_) => Unmatched());
 
     public (MountCustody Next, Option<Seq<IMount>> Release) Closed() => Switch(
         live: static row => row.Phase.Closes
@@ -415,15 +412,13 @@ public abstract partial record MountCustody {
         live: static row => row.Owner,
         released: static _ => Option<IMount>.None);
 
-    private static Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Unmatched(Op key) =>
-        Fin.Fail<(MountCustody, Option<Seq<IMount>>)>(new UiFault.Rejected(
-            Key: key,
-            Field: FieldTag.Create(value: nameof(Live.Active)),
+    private static Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Unmatched() =>
+        Fin.Fail<(MountCustody, Option<Seq<IMount>>)>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(Live.Active)),
             Reason: RejectReason.UnmatchedLeave));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ChromeStyler(Func<Control, Op, Fin<Unit>> Dress);
+public sealed record ChromeStyler(Func<Control, Fin<Unit>> Dress);
 
 public sealed record WindowChrome(
     CapabilitySet<ShellCapability> Capabilities,
@@ -455,8 +450,8 @@ public sealed record WindowSpec(
     Option<PlacementKey> Menu,
     Option<PlacementKey> Bar,
     bool Activated) {
-    public Fin<Lease<WindowMount>> Realize(ElementRuntime runtime, Op? key = null);
-    public Fin<Lease<WindowMount>> Present(ElementRuntime runtime, Op? key = null);
+    public Fin<Lease<WindowMount>> Realize(ElementRuntime runtime);
+    public Fin<Lease<WindowMount>> Present(ElementRuntime runtime);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -469,14 +464,13 @@ public sealed class WindowMount : IMount, IDisposable {
         new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
-    public Op Key { get; }
     public Form Surface => surface.Resource;
     public ElementMount Plant => plant;
     public Seq<Error> ReleaseFaults => teardown.Value;
 
-    public Fin<Unit> Steer(WindowVerb verb, Op? key = null);
+    public Fin<Unit> Steer(WindowVerb verb);
 
-    public Fin<Unit> Adopt(IMount child, Op? key = null);
+    public Fin<Unit> Adopt(IMount child);
 
     public Fin<Unit> Release();
     public void Dispose() => _ = Release();
@@ -557,7 +551,7 @@ public sealed partial class AskVerdict {
 
     internal DialogResult Host { get; }
 
-    public static Fin<AskVerdict> OfHost(DialogResult host, Op? key = null);
+    public static Fin<AskVerdict> OfHost(DialogResult host);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -615,7 +609,7 @@ public abstract partial record PickerSpec {
             static answer => answer is PickerResult.Number picked ? Some(picked.Value) : None);
     }
 
-    public Fin<PickerResult> Present(Option<Control> anchor, Op? key = null);
+    public Fin<PickerResult> Present(Option<Control> anchor);
 
     private PickerDemand<TResult> Demand<TResult>(Func<PickerResult, Option<TResult>> shape) =>
         new(Spec: this, Shape: shape);
@@ -637,11 +631,11 @@ public abstract partial record PickerResult {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PickerDemand<TResult>(PickerSpec Spec, Func<PickerResult, Option<TResult>> Shape) {
-    public Fin<Option<TResult>> Present(Option<Control> anchor, Op? key = null);
+    public Fin<Option<TResult>> Present(Option<Control> anchor);
 }
 
 public sealed record FilterPlan(string Label, Seq<string> Extensions) {
-    internal Fin<FileFilter> Resolve(Op key);
+    internal Fin<FileFilter> Resolve();
 }
 
 public sealed record AskPolicy(
@@ -655,7 +649,7 @@ public sealed record AskPolicy(
 
     public static CapabilityLaw<AskTrait> Law => CapabilityLaw<AskTrait>.Open;
 
-    internal Fin<Unit> Admit(Op key);
+    internal Fin<Unit> Admit();
 
     private static readonly Lazy<AskPolicy> Seed = new(static () => new(
         Buttons: MessageBoxButtons.OK,
@@ -680,16 +674,14 @@ public sealed record Prompt<TResult>(
     FaultCell Faults) {
     public Fin<TResult> Ask(
         ElementRuntime runtime,
-        Func<Dialog<PromptSettle<TResult>>, Fin<PromptSettle<TResult>>> present,
-        Op? key = null);
+        Func<Dialog<PromptSettle<TResult>>, Fin<PromptSettle<TResult>>> present);
 
     public ValueTask<Fin<TResult>> Ask(
         ElementRuntime runtime,
         Func<Dialog<PromptSettle<TResult>>, ValueTask<Fin<PromptSettle<TResult>>>> present,
-        CancellationToken cancellation,
-        Op? key = null);
+        CancellationToken cancellation);
 
-    private Fin<Unit> Admit(Op op);
+    private Fin<Unit> Admit();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -699,14 +691,13 @@ internal sealed class PromptMount<TResult> : IMount, IDisposable {
         new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
-    public Op Key { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
 
     internal Dialog<PromptSettle<TResult>> Dialog { get; }
 
     internal Unit Cancel();
 
-    internal static Fin<TResult> Settle(PromptSettle<TResult> verdict, Op op);
+    internal static Fin<TResult> Settle(PromptSettle<TResult> verdict);
 
     public Fin<Unit> Release();
     public void Dispose() => _ = Release();
@@ -758,28 +749,27 @@ public abstract partial record PageFrame {
     public sealed record Bounded(EtoRectangleF Bounds) : PageFrame;
 
     public sealed record Sheet(SheetSize Size, SheetMargin Margin, SheetOrientation Orientation) : PageFrame {
-        internal Fin<EtoRectangleF> Inset(Op key) =>
-            from points in ModelUnit.Of(value: UnitSystem.PrinterPoints, key: key)
+        internal Fin<EtoRectangleF> Inset() =>
+            from points in ModelUnit.Of(value: UnitSystem.PrinterPoints)
             let laid = Orientation.Extent(size: Size)
             from surface in SheetSize.Custom(
-                width: laid.Width, height: laid.Height, standard: Size.Standard, key: key)
-            from extent in surface.In(unit: points, key: key)
-            from margin in Margin.In(unit: points, key: key)
+                width: laid.Width, height: laid.Height, standard: Size.Standard)
+            from extent in surface.In(unit: points)
+            from margin in Margin.In(unit: points)
             from admitted in margin.Left + margin.Right < extent.Width && margin.Top + margin.Bottom < extent.Height
                 ? Fin.Succ(new EtoRectangleF(
                     x: (float)margin.Left,
                     y: (float)margin.Top,
                     width: (float)(extent.Width - margin.Left - margin.Right),
                     height: (float)(extent.Height - margin.Top - margin.Bottom)))
-                : Fin.Fail<EtoRectangleF>(new UiFault.Rejected(
-                    Key: key, Field: FieldTag.Create(value: nameof(SheetMargin)), Reason: RejectReason.SheetInset))
+                : Fin.Fail<EtoRectangleF>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(SheetMargin)), Reason: RejectReason.SheetInset))
             select admitted;
     }
 
-    internal Fin<EtoRectangleF> Resolve(PrintPageEventArgs args, Op key) => Switch(
-        state: (Args: args, Key: key),
+    internal Fin<EtoRectangleF> Resolve(PrintPageEventArgs args) => Switch(
+        state: args,
         host: static (held, _) => Fin.Succ(new EtoRectangleF(
-            x: 0f, y: 0f, width: held.Args.PageSize.Width, height: held.Args.PageSize.Height)),
+            x: 0f, y: 0f, width: held.PageSize.Width, height: held.PageSize.Height)),
         printer: static (_, frame) => Fin.Succ(frame.Settings.PrintableArea),
         bounded: static (_, frame) => Fin.Succ(frame.Bounds),
         sheet: static (held, frame) => frame.Inset(held.Key));
@@ -795,7 +785,7 @@ public sealed partial class PageSpan {
             ? null
             : new ValidationError(message: "PageSpan requires a last page at or after its first.");
 
-    public static Fin<PageSpan> Of(Dimension first, Dimension last, Dimension pageCount, Op? key = null);
+    public static Fin<PageSpan> Of(Dimension first, Dimension last, Dimension pageCount);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -808,25 +798,24 @@ public abstract partial record PrintScope {
 
     internal Unit Apply(PrintSettings settings) => Switch(
         state: settings,
-        all: static (host, _) => Op.Side(() => host.PrintSelection = PrintSelection.AllPages),
-        selected: static (host, scope) => Op.Side(() => {
+        all: static (host, _) => HostEdge.Side(() => host.PrintSelection = PrintSelection.AllPages),
+        selected: static (host, scope) => HostEdge.Side(() => {
             host.PrintSelection = PrintSelection.SelectedPages;
             host.SelectedPageRange = new EtoRange(start: scope.Span.First.Value, end: scope.Span.Last.Value);
         }),
-        hostSelection: static (host, _) => Op.Side(() => host.PrintSelection = PrintSelection.Selection));
+        hostSelection: static (host, _) => HostEdge.Side(() => host.PrintSelection = PrintSelection.Selection));
 
-    internal Fin<Unit> Admit(Dimension pageCount, Op op) => Switch(
-        state: (PageCount: pageCount, Key: op),
+    internal Fin<Unit> Admit(Dimension pageCount) => Switch(
+        state: pageCount,
         all: static (_, _) => Fin.Succ(unit),
         selected: static (held, scope) =>
-            PageSpan.Of(first: scope.Span.First, last: scope.Span.Last, pageCount: held.PageCount, key: held.Key)
+            PageSpan.Of(first: scope.Span.First, last: scope.Span.Last, pageCount: held)
                 .Map(static _ => unit),
-        hostSelection: static (held, _) => Fin.Fail<Unit>(new UiFault.Rejected(
-            Key: held.Key, Field: FieldTag.Create(value: nameof(PrintScope)), Reason: RejectReason.HostSelection)));
+        hostSelection: static (held, _) => Fin.Fail<Unit>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(PrintScope)), Reason: RejectReason.HostSelection)));
 
     internal static Dimension Expected(PrintSettings settings, Dimension pageCount);
 
-    internal static Fin<PrintPageSeat> Seat(PrintSettings settings, int currentPage, Dimension pageCount, Op op);
+    internal static Fin<PrintPageSeat> Seat(PrintSettings settings, int currentPage, Dimension pageCount);
 }
 
 [Union(
@@ -851,8 +840,8 @@ public abstract partial record PrintPageFact : IValidityEvidence {
 [SmartEnum<int>]
 public sealed partial class CollatePosture {
     public static readonly CollatePosture Host = new(key: 0, apply: static _ => unit);
-    public static readonly CollatePosture Collated = new(key: 1, apply: static settings => Op.Side(() => settings.Collate = true));
-    public static readonly CollatePosture Uncollated = new(key: 2, apply: static settings => Op.Side(() => settings.Collate = false));
+    public static readonly CollatePosture Collated = new(key: 1, apply: static settings => HostEdge.Side(() => settings.Collate = true));
+    public static readonly CollatePosture Uncollated = new(key: 2, apply: static settings => HostEdge.Side(() => settings.Collate = false));
 
     [UseDelegateFromConstructor] internal partial Unit Apply(PrintSettings settings);
 }
@@ -860,8 +849,8 @@ public sealed partial class CollatePosture {
 [SmartEnum<int>]
 public sealed partial class PageOrder {
     public static readonly PageOrder Host = new(key: 0, apply: static _ => unit);
-    public static readonly PageOrder Forward = new(key: 1, apply: static settings => Op.Side(() => settings.Reverse = false));
-    public static readonly PageOrder Reverse = new(key: 2, apply: static settings => Op.Side(() => settings.Reverse = true));
+    public static readonly PageOrder Forward = new(key: 1, apply: static settings => HostEdge.Side(() => settings.Reverse = false));
+    public static readonly PageOrder Reverse = new(key: 2, apply: static settings => HostEdge.Side(() => settings.Reverse = true));
 
     [UseDelegateFromConstructor] internal partial Unit Apply(PrintSettings settings);
 }
@@ -872,7 +861,7 @@ public sealed record PrintSpec(
     PageOrder Order,
     SheetOrientation Orientation,
     PrintScope Scope) {
-    internal Fin<PrintSpec> Admit(Dimension pageCount, Op op) => Scope.Admit(pageCount: pageCount, op: op).Map(_ => this);
+    internal Fin<PrintSpec> Admit(Dimension pageCount) => Scope.Admit(pageCount: pageCount).Map(_ => this);
 
     internal PrintSettings Configure(Dimension pageCount);
 }
@@ -880,7 +869,7 @@ public sealed record PrintSpec(
 public readonly record struct PrintPageSeat(int Ordinal, int Source, int Expected);
 
 public sealed record PrintPage(PaintProgram Program, PageFrame Frame, ScenePolicy Policy) {
-    internal Fin<EtoRectangleF> Render(PrintPageEventArgs args, Op op);
+    internal Fin<EtoRectangleF> Render(PrintPageEventArgs args);
 }
 
 public sealed record PrintOutcome(
@@ -918,10 +907,10 @@ public sealed record PrintOutcome(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record PrintPlan(JobName Name, Seq<PrintPage> Pages, PrintSpec Spec, PrintRoute Route) {
-    public IO<PrintOutcome> Run(Op? key = null);
+    public IO<PrintOutcome> Run();
 
-    private Fin<Unit> Admit(Op op);
-    private Fin<Unit> Present(PrintDocument document, Op op);
+    private Fin<Unit> Admit();
+    private Fin<Unit> Present(PrintDocument document);
 }
 ```
 
@@ -986,19 +975,18 @@ public abstract partial record PresenceOp {
     public sealed record Pulse(PulseState State) : PresenceOp;
     public sealed record Badge(Option<string> Label) : PresenceOp;
 
-    internal Fin<Unit> Precondition(Op key) => Switch(
+    internal Fin<Unit> Precondition() => Switch(
         state: key,
         alert: static (_, _) => Fin.Succ(unit),
-        tray: static (op, _) => HostPlatform.Demand(
-            claim: new PlatformClaim.HandlerCase(Contract: typeof(TrayIndicator.IHandler)), key: op),
+        tray: static (_) => HostPlatform.Demand(
+            claim: new PlatformClaim.HandlerCase(Contract: typeof(TrayIndicator.IHandler))),
         pulse: static (_, _) => Fin.Succ(unit),
         badge: static (_, _) => Fin.Succ(unit));
 
-    internal static Fin<Unit> Anchored(Alert alert, Notification card, Op key) =>
+    internal static Fin<Unit> Anchored(Alert alert, Notification card) =>
         alert.Anchor.IsSome || !card.RequiresTrayIndicator
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new UiFault.Rejected(
-                Key: key, Field: FieldTag.Create(value: nameof(Alert)), Reason: RejectReason.TrayAnchor));
+            : Fin.Fail<Unit>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(Alert)), Reason: RejectReason.TrayAnchor));
 }
 
 [Union(
@@ -1013,7 +1001,7 @@ internal abstract partial record PresenceHold {
     internal sealed record PulseHold(PulseState Prior) : PresenceHold;
     internal sealed record BadgeHold(Option<string> Prior) : PresenceHold;
 
-    internal Fin<Unit> Restore(Op key);
+    internal Fin<Unit> Restore();
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1026,11 +1014,10 @@ public sealed class PresenceMount : IMount, IDisposable {
         new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
-    public Op Key { get; }
     public PresenceOp Applied { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
 
-    public Fin<Unit> Steer(PresenceOp operation, Op? key = null);
+    public Fin<Unit> Steer(PresenceOp operation);
 
     internal Option<TrayIndicator> Indicator => hold.Map(
         @default: static _ => Option<TrayIndicator>.None,
@@ -1042,7 +1029,7 @@ public sealed class PresenceMount : IMount, IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Presence {
-    public static Fin<Lease<PresenceMount>> Apply(PresenceOp operation, FaultCell faults, Op? key = null);
+    public static Fin<Lease<PresenceMount>> Apply(PresenceOp operation, FaultCell faults);
 }
 ```
 

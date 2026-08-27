@@ -16,7 +16,7 @@ The typed family is contract-owned — the `Rasm.Element` `MaterialPropertySet` 
 - Owner: `Published<T>` the shared evidence-bearing uncertainty carrier (private-minted — the `Of`/`Exact`/`Interval` triad is the only way in); `VapourResistance` the closed permeability class; `MechanicalSource` the closed mechanical-column source axis (`Authored` / `NailWire` / `EnSteel` / `EnRebar`); `NailWireClass` the ASTM F1667-S1 bending-yield band table; `SubstancePhysics` the shared family anchor a roster row references; `MaterialPropertyRow` the published-data ingress record; `MaterialPropertyCatalogue` the registered-row database; `Admit` the row→contract-case lowering; `Lookup` the projector-facing resolution.
 - Cases: one `MaterialPropertyRow` shape across all materials — a `SubstancePhysics` anchor (density, Poisson, expansion, conductivity, specific heat, vapour class, fire declaration, design damping) with the row's own `MechanicalSource`, and the optional acoustic, hygrothermal, optical, and electrical declarations only a characterized substance carries; `Admit` produces a `Seq<MaterialPropertySet>` of the contract `Mechanical`/`Thermal`/`Acoustic`/`Fire`/`Damping`/`Hygrothermal`/`Optical`/`Electrical` cases — each over a `MaterialId`, never a property subtype.
 - Law: AUTHORED transcriptions carry the catalogue's relative band and code-REGISTERED values cross EXACT (folder `RULINGS [02]`) — `Published.Of` admits through the `VividOrange` relative factory, `Published.Exact` mints the zero-width datum, and the contract's EXACTNESS-IS-BAND-ABSENCE rule then answers `None` at the `Measure` mint rather than offering `MeasureBand.Admit` a zero-width band that refuses its own re-admission. A DELEGATED vendor value never wears a fabricated spread. The carrier's constructor is CLOSED so no consumer can pair an `Exact` kind with a spread carrier, or a `Normal` kind with an absent distribution the `Band` lowering then cannot read.
-- Entry: `public static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key)` — resolves the `MechanicalSource` (the stored MPa triple, the F1667-S1 band read, or the vendor build whose documented grade refusal is classified with its cause by the kernel `Op.Catch` funnel), mints every dimensional column through the `QuantityRow` typed-mint rows with the `Published<T>.Band` provider-model→`MeasureBand` lowering, passes the scalar columns central-only (the contract guards Poisson `[0,0.5]`, μ `>= 1`, ζ `[0,1)`, εr `>= 1`, the isotherm `wf >= w80`, the optical conservation refinements), folds the acoustic declaration through the contract `Acoustic.Of` gate, the electrical declaration through the contract `OfElectrical` raw arity, and the fire declaration through `key.Row<string, FireRating>(reaction)` + the ONE contract `EuroclassSuffix` `[ObjectFactory<string>]` grammar (`key.AcceptValidated<EuroclassSuffix>(text)`) + the three-criterion `FireResistance.Of`. Only the `Strength` resolution BINDS; the eight discipline groups and the three fire columns are INDEPENDENT and ACCUMULATE applicatively, so a row with several rejected columns faults them ALL in one `Fin.Fail` `ManyErrors`. `Lookup(MaterialId id, Op key)` reads the memoized admitted catalogue and faults for an unregistered material — one polymorphic resolution, never a `GetMechanical`/`GetThermal` family.
+- Entry: `public static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row)` — resolves the `MechanicalSource` (the stored MPa triple, the F1667-S1 band read, or the vendor build whose documented grade refusal is classified with its cause by the kernel `Op.Catch` funnel), mints every dimensional column through the `QuantityRow` typed-mint rows with the `Published<T>.Band` provider-model→`MeasureBand` lowering, passes the scalar columns central-only (the contract guards Poisson `[0,0.5]`, μ `>= 1`, ζ `[0,1)`, εr `>= 1`, the isotherm `wf >= w80`, the optical conservation refinements), folds the acoustic declaration through the contract `Acoustic.Of` gate, the electrical declaration through the contract `OfElectrical` raw arity, and the fire declaration through `FactoryBridge.Row<string, FireRating>(reaction)` + the ONE contract `EuroclassSuffix` `[ObjectFactory<string>]` grammar (`FactoryBridge.Accept<EuroclassSuffix>(text)`) + the three-criterion `FireResistance.Of`. Only the `Strength` resolution BINDS; the eight discipline groups and the three fire columns are INDEPENDENT and ACCUMULATE applicatively, so a row with several rejected columns faults them ALL in one `Fin.Fail` `ManyErrors`. `Lookup(MaterialId id)` reads the memoized admitted catalogue and faults for an unregistered material — one polymorphic resolution, never a `GetMechanical`/`GetThermal` family.
 - Packages: Rasm.Element (project — `MaterialPropertySet` + its `Of*` admissions, `MeasureValue.OfSi`/`WithUncertainty`, `MeasureBand.Admit`, `UncertaintyKind`, `PropertyEvidence.Of`, `EvidenceGrade`, `FireRating` through kernel `Op.Row`, `EuroclassSuffix` (the `[ObjectFactory<string>]` grammar via the kernel `AcceptValidated` arm), `FireResistance.Of`, `Acoustic.Of`, `Discipline`, `MaterialId`, `ElementFault.ValueRejected`), Rasm.Materials.Component (project — `QuantityRow.OfNative`, `ComponentFault.GradeDerivation`, and the shared `EnGrade.GradeRefusal` classifier), VividOrange.Uncertainties + VividOrange.Uncertainties.Quantities (the four uncertainty models over the `double` and `IQuantity` carriers, the fluent `WithRelativeUncertainty`/`WithAbsoluteUncertainty`/`WithIntervalUncertainty` admissions, the `IntervalUncertaintyQuantity<TQuantity>` carrier the dimensional interval arm mints directly, the `IUncertainty<T>` kind interfaces), VividOrange.Materials (`EnSteelFactory`/`EnRebarFactory`/`EnSteelMaterial`/`EnSteelGrade`/`EnRebarGrade`/`EnSteelDeliveryCondition`/`IBiLinearMaterial`), VividOrange.Standards (`NationalAnnex`), UnitsNet (`Density`/`Pressure`/`ThermalConductivity`/`SpecificEntropy`/`Length` — raw-to-SI coercion at this boundary only), NodaTime (`LocalDate` evidence expiry), Rasm (project — `Op` + the `Op.Catch` trap funnel), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Seq`/`Option` + `Match`/`Map`), BCL inbox (`FrozenDictionary`, `Lazy<T>`, `ReadOnlyMemory<double>`, `ImmutableArray<T>`).
 - Growth: a new engineering property shared across materials is one column on the matching contract case the row gains a published column for and `Admit` lowers; a new known material is one `Rows` entry naming its `SubstancePhysics` anchor (the roster grows by row to thousands with no contract touch, and a corrected family figure is one anchor edit rather than a hundred-row sweep); a new vendor grade table or published-yield convention is one `MechanicalSource` case and one `Strength` arm, compiler-forced at the generated `Switch`; a new nail-wire class or diameter band is one `NailWireClass` row or one band entry; a new property discipline is one contract case — the `Damping`/`Hygrothermal`/`Optical`/`Electrical` cases landed exactly this way and this catalogue sources four of them.
 - Boundary: `MaterialPropertyRow` is the published-DATA ingress, NOT a parallel domain union — `Admit` is the one `BOUNDARY_ADMISSION`, so the row and every declaration beside it stay `internal` and the public surface is `Admit`/`Lookup` alone. The dimensional columns coerce to SI through `UnitsNet` reads inside the `QuantityRow`-typed mint, the provider uncertainty models lower to neutral `MeasureBand` bounds at exactly that mint, and provider types never cross into `Rasm.Element`. A SUBSTANCE HAS NO TRANSMITTANCE: the contract `Thermal` U-value column takes this mint's conductance at UNIT thickness — numerically λ, carrying no thickness at all — and the EN ISO 6946 assembly fold in `Rasm.Compute` owns every real U-value over a declared buildup. A SUBSTANCE HAS NO DYNAMIC STIFFNESS: EN 29052-1 `s'` is an installed-assembly quantity measured to differ across thicknesses of one declared product, so the contract's optional slot stays absent from every roster row. A SUBSTANCE CARRIES NO AMPACITY: the NEC 310.16 / IEC 60364-5-52 tables key on insulation temperature rating, installation method, and conductor grouping — component and assembly facts the electrical detail rows own. The vendor factories' documented `ArgumentException`/`MissingNationalAnnexException`/`InvalidSteelSpecificationException` failures become cause-bearing `GradeDerivation`; unknown throws remain exact and returned invalid values use the contract-owned refusal. No uncertainty value routes a VividOrange serializer, the canonical Rasm codec owning every wire; the `Optical`/`Hygrothermal` column sets align at the CONTRACT with the IFC material property sets `Rasm.Bim` emits, so neither side transcribes the other's member names. SUBSTANCE-ID CLOSURE is a hard invariant: every `Component.SubstanceId` a seed page mints resolves a row here — a seed-keyed id with no row is a projection-time `Lookup` fault — so a new seed substance lands with its row in the same campaign; a ply-cavity, stud-appearance, or adhesive-appearance id is NOT a substance key and never routes this catalogue.
@@ -103,14 +103,13 @@ public readonly record struct Published<T> {
     public Option<INormalDistributionUncertainty<T>> Normal { get; }
     public PropertyEvidence Evidence { get; }
 
-    public Fin<MeasureBand> Band(Func<T, double> si, double scale, Op key) =>
+    public Fin<MeasureBand> Band(Func<T, double> si, double scale) =>
         MeasureBand.Admit(
             Kind,
             si(Value.LowerBound) * scale,
             si(Value.UpperBound) * scale,
             Normal.Map(normal => si(normal.StandardDeviation) * scale),
-            Normal.Map(static normal => normal.CoverageFactor),
-            key);
+            Normal.Map(static normal => normal.CoverageFactor));
 }
 
 public static class Published {
@@ -202,8 +201,6 @@ public static class MaterialPropertyCatalogue {
 
     const double AuthoredBand = 0.05;
 
-    static readonly Op AdmitKey = Op.Of(name: "material-property-catalogue-admit");
-
     static readonly PropertyEvidence SteelTable =
         PropertyEvidence.Of("vendor", EvidenceGrade.Import, Some("en 1993-1-1 table 3.1 / vividorange.materials"));
     static readonly PropertyEvidence RebarTable =
@@ -211,66 +208,66 @@ public static class MaterialPropertyCatalogue {
     static readonly PropertyEvidence NailWireTable =
         PropertyEvidence.Of("vendor", EvidenceGrade.Import, Some("astm f1667 s1 / astm f1575 via nds 12.3.1b"));
 
-    internal static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key) =>
-        Strength(row.Mechanical, key).Bind(strength =>
-            (Mechanical(row, strength, key).ToValidation(),
-             Thermal(row, key).ToValidation(),
+    internal static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row) =>
+        Strength(row.Mechanical).Bind(strength =>
+            (Mechanical(row, strength).ToValidation(),
+             Thermal(row).ToValidation(),
              row.Acoustic.Traverse(a =>
-                 Acoustic.Of(a.Absorption, a.Sri, key, flowResistivity: a.FlowResistivityPaSPerM2, lossFactor: a.LossFactor)
+                 Acoustic.Of(a.Absorption, a.Sri, flowResistivity: a.FlowResistivityPaSPerM2, lossFactor: a.LossFactor)
                      .Map(spectrum => Seq(MaterialPropertySet.OfAcoustic(spectrum, row.Evidence))).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Physics.Fire.Traverse(f =>
-                 (key.Row<string, FireRating>(f.Reaction).ToValidation(),
-                  key.AcceptValidated<EuroclassSuffix>(f.Suffix).ToValidation(),
+                 (FactoryBridge.Row<string, FireRating>(f.Reaction).ToValidation(),
+                  FactoryBridge.Accept<EuroclassSuffix>(f.Suffix).ToValidation(),
                   (f.LoadBearingMinutes.IsNone && f.IntegrityMinutes.IsNone && f.InsulationMinutes.IsNone
                       ? Fin.Succ(FireResistance.None)
-                      : FireResistance.Of(f.LoadBearingMinutes, f.IntegrityMinutes, f.InsulationMinutes, key)).ToValidation())
+                      : FireResistance.Of(f.LoadBearingMinutes, f.IntegrityMinutes, f.InsulationMinutes)).ToValidation())
                      .Apply((reaction, suffix, resistance) => Seq(MaterialPropertySet.OfFire(reaction, suffix, resistance, row.Evidence))).As()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Physics.DampingRatio.Traverse(zeta =>
-                 MaterialPropertySet.OfDamping(zeta, Option<(double AlphaPerS, double BetaS)>.None, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfDamping(zeta, Option<(double AlphaPerS, double BetaS)>.None, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Hygrothermal.Traverse(h =>
-                 MaterialPropertySet.OfHygrothermal(h.Porosity, h.W80KgM3, h.WfKgM3, h.AValueKgM2SqrtS, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfHygrothermal(h.Porosity, h.W80KgM3, h.WfKgM3, h.AValueKgM2SqrtS, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Optical.Traverse(o =>
-                 MaterialPropertySet.OfOptical(o.VisibleT, o.VisibleRf, o.VisibleRb, o.SolarT, o.SolarRf, o.SolarRb, o.IrT, o.IrEf, o.IrEb, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfOptical(o.VisibleT, o.VisibleRf, o.VisibleRb, o.SolarT, o.SolarRf, o.SolarRb, o.IrT, o.IrEf, o.IrEb, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())),
              row.Electrical.Traverse(e =>
-                 MaterialPropertySet.OfElectrical(e.ResistivityOhmM, e.RelativePermittivity, e.DielectricStrengthVPerM, e.MagneticPermeabilityRelative, key, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
+                 MaterialPropertySet.OfElectrical(e.ResistivityOhmM, e.RelativePermittivity, e.DielectricStrengthVPerM, e.MagneticPermeabilityRelative, row.Evidence).Map(set => Seq(set)).ToValidation()).As()
                  .Map(static groups => groups.IfNone(Seq<MaterialPropertySet>())))
             .Apply(static (mechanical, thermal, acoustic, fire, damping, hygrothermal, optical, electrical) =>
                 Seq(mechanical, thermal) + acoustic + fire + damping + hygrothermal + optical + electrical).As()
             .ToFin());
 
-    static Fin<MaterialPropertySet> Mechanical(MaterialPropertyRow row, StrengthTriple strength, Op key) =>
+    static Fin<MaterialPropertySet> Mechanical(MaterialPropertyRow row, StrengthTriple strength) =>
         from density in Measure(Published.Of(UnitsNet.Density.FromKilogramsPerCubicMeter(row.Physics.DensityKgM3), AuthoredBand, row.Evidence),
-                                static q => q.KilogramsPerCubicMeter, QuantityRow.Density, key)
-        from youngs in Measure(strength.Youngs, static q => q.Pascals, QuantityRow.Pressure, key)
-        from proof in Measure(strength.Yield, static q => q.Pascals, QuantityRow.Pressure, key)
-        from ultimate in Measure(strength.Ultimate, static q => q.Pascals, QuantityRow.Pressure, key)
-        from set in MaterialPropertySet.OfMechanical(density, youngs, proof, ultimate, row.Physics.PoissonsRatio, row.Physics.ExpansionPerK, key, strength.Evidence)
+                                static q => q.KilogramsPerCubicMeter, QuantityRow.Density)
+        from youngs in Measure(strength.Youngs, static q => q.Pascals, QuantityRow.Pressure)
+        from proof in Measure(strength.Yield, static q => q.Pascals, QuantityRow.Pressure)
+        from ultimate in Measure(strength.Ultimate, static q => q.Pascals, QuantityRow.Pressure)
+        from set in MaterialPropertySet.OfMechanical(density, youngs, proof, ultimate, row.Physics.PoissonsRatio, row.Physics.ExpansionPerK, strength.Evidence)
         select set;
 
-    static Fin<MaterialPropertySet> Thermal(MaterialPropertyRow row, Op key) =>
+    static Fin<MaterialPropertySet> Thermal(MaterialPropertyRow row) =>
         from conductivity in Measure(Published.Of(ThermalConductivity.FromWattsPerMeterKelvin(row.Physics.ConductivityWMK), AuthoredBand, row.Evidence),
-                                     static q => q.WattsPerMeterKelvin, QuantityRow.ThermalConductivity, key)
+                                     static q => q.WattsPerMeterKelvin, QuantityRow.ThermalConductivity)
         from specificHeat in Measure(Published.Of(SpecificEntropy.FromJoulesPerKilogramKelvin(row.Physics.SpecificHeatJKgK), AuthoredBand, row.Evidence),
-                                     static q => q.JoulesPerKilogramKelvin, QuantityRow.SpecificEntropy, key)
+                                     static q => q.JoulesPerKilogramKelvin, QuantityRow.SpecificEntropy)
         from unitThickness in QuantityRow.HeatTransferCoefficient.OfNative(row.Physics.ConductivityWMK)
-        from set in MaterialPropertySet.OfThermal(conductivity, specificHeat, unitThickness, VapourFactor(row.Physics.Vapour), key, row.Evidence)
+        from set in MaterialPropertySet.OfThermal(conductivity, specificHeat, unitThickness, VapourFactor(row.Physics.Vapour), row.Evidence)
         select set;
 
     static double VapourFactor(VapourResistance vapour) => vapour.Switch(
         impermeable: static _ => double.PositiveInfinity,
         factor: static f => f.Mu);
 
-    static Fin<MeasureValue> Measure<TQuantity>(Published<TQuantity> datum, Func<TQuantity, double> si, QuantityRow row, Op key) where TQuantity : IQuantity =>
+    static Fin<MeasureValue> Measure<TQuantity>(Published<TQuantity> datum, Func<TQuantity, double> si, QuantityRow row) where TQuantity : IQuantity =>
         row.OfNative(si(datum.Value.CentralValue)).Bind(measure => datum.Kind == UncertaintyKind.Exact
             ? Fin.Succ(measure)
-            : datum.Band(si, row.Scale, key).Bind(band => measure.WithUncertainty(band, key)));
+            : datum.Band(si, row.Scale).Bind(band => measure.WithUncertainty(band)));
 
-    static Fin<StrengthTriple> Strength(MechanicalSource source, Op key) =>
+    static Fin<StrengthTriple> Strength(MechanicalSource source) =>
         source.Switch(
             state: key,
             authored: static (k, a) => Fin.Succ(new StrengthTriple(
@@ -285,15 +282,13 @@ public static class MaterialPropertyCatalogue {
                     Published.Exact(Pressure.FromMegapascals(n.UltimateMpa), NailWireTable),
                     NailWireTable)),
                 None: () => new ElementFault.ValueRejected(k, $"<nail-wire-diameter-unbanded:{n.Class.Key}:{n.ShankDiameterIn:R}>")),
-            enSteel: static (k, s) => k.Catch(() => {
+            enSteel: static (k, s) => Try.lift(() => {
                     EnSteelMaterial material = new(s.Grade, NationalAnnex.RecommendedValues);
                     material.Specification.DeliveryCondition = s.Delivery;
                     return Fin.Succ(EnSteelFactory.CreateBiLinear(material, Length.FromMillimeters(GradeThicknessMm)));
-                }, cause => EnGrade.GradeRefusal(k, cause))
+                }).Run().Bind(static inner => inner)
                 .Map(law => Delegated(law, SteelTable)),
-            enRebar: static (k, r) => k.Catch(
-                    () => Fin.Succ(EnRebarFactory.CreateBiLinear(r.Grade)),
-                    cause => EnGrade.GradeRefusal(k, cause))
+            enRebar: static (k, r) => Try.lift(() => Fin.Succ(EnRebarFactory.CreateBiLinear(r.Grade))).Run().Bind(static inner => inner)
                 .Map(law => Delegated(law, RebarTable)));
 
     static StrengthTriple Delegated(IBiLinearMaterial law, PropertyEvidence evidence) =>
@@ -578,12 +573,12 @@ public static class MaterialPropertyCatalogue {
                 .ToFrozenDictionary(static entry => entry.Key, static entry => entry.Sets.ThrowIfFail()),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-    public static Fin<Seq<MaterialPropertySet>> Lookup(MaterialId id, Op key) =>
+    public static Fin<Seq<MaterialPropertySet>> Lookup(MaterialId id) =>
         Admitted.Value.TryGetValue(id, out Seq<MaterialPropertySet> admitted)
             ? Fin.Succ(admitted)
             : Rows.TryGetValue(id, out MaterialPropertyRow? row)
-                ? Admit(row!, key)
-                : new ElementFault.ValueRejected(key, $"<unregistered-material-properties:{id.ToValue()}>");
+                ? Admit(row!)
+                : new ElementFault.ValueRejected($"<unregistered-material-properties:{id.ToValue()}>");
 
     static ReadOnlyMemory<double> Absorb(params ReadOnlySpan<double> bands) => bands.ToArray().AsMemory();
     static ReadOnlyMemory<double> Sri(params ReadOnlySpan<double> bands) => bands.ToArray().AsMemory();
@@ -595,7 +590,7 @@ public static class MaterialPropertyCatalogue {
 - Owner: `CementType` the binder axis carrying its own published ageing exponent; `DurabilityMix` the published `(cement × w/c)` chloride-migration row; `DurabilityCatalogue` the fib Annex B transcription and its `Resolve` lowering onto the contract `Durability` case.
 - Law: DURABILITY IS MIX-KEYED, NEVER SUBSTANCE-KEYED. The reference publishes the migration coefficient `D_RCM,0` and the ageing exponent `alpha` against binder type and equivalent water/cement ratio and against nothing else, and a strength class determines neither: one C30/37 is reachable at w/c 0.45 on CEM I and at w/c 0.55 on CEM III/B, whose migration coefficients differ by roughly sevenfold in OPPOSITE directions. A `Durability` column on a concrete substance row is therefore unfillable in principle rather than merely unfilled, and the roster carries none by construction.
 - Cases: three published binder rows — CEM I 42.5R, CEM I with fly ash at `k = 0.5`, and CEM III/B — each over the five published w/c steps. A binder the reference adds is one `CementType` row with its five `DurabilityMix` entries.
-- Entry: `public static Fin<MaterialPropertySet> Resolve(CementType cement, double waterCementRatio, double carbonationRateMmPerSqrtYear, Op key)` — reads the published pair and lowers through the contract `OfDurability`. The carbonation rate is a CALLER input because the reference keys it on exposure class rather than on mix, so the mix table answers exactly the two columns it publishes and the exposure class supplies the third.
+- Entry: `public static Fin<MaterialPropertySet> Resolve(CementType cement, double waterCementRatio, double carbonationRateMmPerSqrtYear)` — reads the published pair and lowers through the contract `OfDurability`. The carbonation rate is a CALLER input because the reference keys it on exposure class rather than on mix, so the mix table answers exactly the two columns it publishes and the exposure class supplies the third.
 - Packages: Rasm.Element (project — `MaterialPropertySet.OfDurability`, `PropertyEvidence`, `ElementFault.ValueRejected`), Rasm (project — `Op`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` the binder axis), LanguageExt.Core (`Fin`/`Option`), BCL inbox (`FrozenDictionary`).
 - Boundary: the table admits only the ratios the reference PRINTS. It publishes at 0.05 steps and an interpolated cell is a derivation rather than a transcription, so a ratio between two rows fails instead of blending them, and a ratio outside `[0.40, 0.60]` is outside the reference's stated validity domain and fails for that reason. The migration coefficient carries the reference's own coefficient of variation as a relative band and the ageing exponent its published mean and standard deviation, both stated on the row rather than assumed by a consumer; a project supplying a measured mix design substitutes a `Properties/assessment#ASSESSMENT_RECORD` `Measured` record and never edits this table.
 
@@ -646,13 +641,13 @@ public static class DurabilityCatalogue {
     public static Option<DurabilityMix> At(CementType cement, double waterCementRatio) =>
         Mixes.TryGetValue((cement.Key, waterCementRatio), out DurabilityMix mix) ? Some(mix) : Option<DurabilityMix>.None;
 
-    public static Fin<MaterialPropertySet> Resolve(CementType cement, double waterCementRatio, double carbonationRateMmPerSqrtYear, Op key) =>
+    public static Fin<MaterialPropertySet> Resolve(CementType cement, double waterCementRatio, double carbonationRateMmPerSqrtYear) =>
         At(cement, waterCementRatio)
-            .ToFin(new ElementFault.ValueRejected(key, waterCementRatio is >= MinWaterCementRatio and <= MaxWaterCementRatio
+            .ToFin(new ElementFault.ValueRejected(waterCementRatio is >= MinWaterCementRatio and <= MaxWaterCementRatio
                 ? $"<durability-mix-unprinted:{cement.Key}:{waterCementRatio:R}>"
                 : $"<durability-mix-out-of-domain:{cement.Key}:{waterCementRatio:R}:{MinWaterCementRatio:R}..{MaxWaterCementRatio:R}>"))
             .Bind(mix => MaterialPropertySet.OfDurability(
-                carbonationRateMmPerSqrtYear, mix.DrcmE12 * DrcmScaleToSi, cement.AlphaMean, key, MixTable));
+                carbonationRateMmPerSqrtYear, mix.DrcmE12 * DrcmScaleToSi, cement.AlphaMean, MixTable));
 }
 ```
 
@@ -661,7 +656,7 @@ public static class DurabilityCatalogue {
 - Owner: `ExposureClass` the EN 206:2013 Annex F Table F.1 durability-floor axis (max w/c, min cement, min strength class, min air, per exposure class); `SlumpBand`/`AggregateSize`/`AirBand` the closed ACI table keys; the `Water`/`WcStrength`/`CoarseFraction` published tables (ACI 211.1-91 R2002, SI appendix); `MixSpec` the caller's mix declaration; `MixProportion` the derived per-m³ mass row; `MixDesign.Proportion` the one absolute-volume fold.
 - Law: A MIX IS DECLARED, NEVER INFERRED FROM A STRENGTH CLASS — the same law the durability sibling carries: a C30/37 substance row determines no proportions, so the proportion fold takes a caller `MixSpec` and answers the published method's own derivation, and no substance roster column carries a mix. The tables publish the METHOD'S inputs and the job supplies what the method requires by test (§A3.3.1): the two aggregate specific gravities and the oven-dry-rodded coarse unit weight are REQUIRED spec columns, never defaults — the one published assumption is the cement specific gravity 3.15 (§A3.2.1, ASTM C 150/C 175 portlands; a blended cement supplies its tested value).
 - Cases: 18 `ExposureClass` rows (X0 · XC1-4 · XS1-3 · XD1-3 · XF1-4 · XA1-3, every cell as EN 206:2013 prints it, two-source verified); 3 `SlumpBand` × 8 `AggregateSize` water cells per lane with the printed dashes typed-absent; 6 SI strength anchors per lane with the air-entrained 40 MPa dash typed-absent; 8 × 4 coarse-fraction cells over the fineness-modulus band `[2.40, 3.00]`.
-- Entry: `public static Fin<MixProportion> MixDesign.Proportion(MixSpec spec, Op key)` — the ACI absolute-volume chain under the EN exposure floor: water and air from the `Water` row (`Air = None` reads the entrapped-air row, `Some(band)` the entrained target), w/c interpolated between the printed strength anchors on the spec's lane (the method's own interpolation practice; outside the printed band refuses) then CAPPED by the exposure's max w/c, the strength floor enforced (a target below the exposure's minimum class refuses typed), cement `max(water / wc, exposure minimum)`, coarse mass the fineness-interpolated volume fraction × the spec's dry-rodded unit weight, fine aggregate the absolute-volume remainder (a negative remainder refuses — the declared mix is over-constrained), and the proportion records the APPLIED w/c and whether an exposure floor governed.
+- Entry: `public static Fin<MixProportion> MixDesign.Proportion(MixSpec spec)` — the ACI absolute-volume chain under the EN exposure floor: water and air from the `Water` row (`Air = None` reads the entrapped-air row, `Some(band)` the entrained target), w/c interpolated between the printed strength anchors on the spec's lane (the method's own interpolation practice; outside the printed band refuses) then CAPPED by the exposure's max w/c, the strength floor enforced (a target below the exposure's minimum class refuses typed), cement `max(water / wc, exposure minimum)`, coarse mass the fineness-interpolated volume fraction × the spec's dry-rodded unit weight, fine aggregate the absolute-volume remainder (a negative remainder refuses — the declared mix is over-constrained), and the proportion records the APPLIED w/c and whether an exposure floor governed.
 - Packages: Rasm.Element (project — `ElementFault.ValueRejected`, `MaterialId`), Rasm (project — `Op`), Thinktecture.Runtime.Extensions (`[SmartEnum]` the four key vocabularies), LanguageExt.Core (`Fin`/`Option`), BCL inbox (`FrozenDictionary`/`ImmutableArray`).
 - Growth: a national-annex variant is a SIBLING exposure table beside this one, never edits to these cells — the CEN survey records most states substituting their own values, so the EN base table stays the transcription and a jurisdiction lands as its own keyed set; a new slump or aggregate row is one key row with its printed cells; a richer method edition (ACI 211.1-22 widened rosters) is a sibling anchor set, never cells blended into the -91 table.
 - Boundary: every cell transcribes the print — the SI appendix tables (mixing-water table, w/c-strength table, coarse-fraction table; the appendix table designators vary between printings, so no designator is hard-coded), EN 206:2013 Table F.1 with its footnotes carried as row comments — and an interpolated FM or strength value stays INSIDE the printed table with the out-of-band read refusing; the XF rows' 4,0 % air and the XA2/XA3 sulfate-resisting-cement obligation are row facts a specifier reads, not derivations; `MixSpec.Materials` binds the constituent `MaterialId`s as caller declarations (this page names no substance ids); the constituent-row projection is `Projection/component#COMPOSITION_AUTHOR` `Constituents`' — this owner answers masses and stops.
@@ -768,32 +763,32 @@ public static class MixDesign {
             [AggregateSize.A75]   = [0.82, 0.80, 0.78, 0.76], [AggregateSize.A150]  = [0.87, 0.85, 0.83, 0.81],
         }.ToFrozenDictionary();
 
-    public static Fin<MixProportion> Proportion(MixSpec spec, Op key) =>
-        from water in Cell(spec, key)
+    public static Fin<MixProportion> Proportion(MixSpec spec) =>
+        from water in Cell(spec)
         from _floor in spec.TargetMpa >= spec.Exposure.MinFckMpa
             ? Fin.Succ(unit)
-            : new ElementFault.ValueRejected(key, $"<mix-strength-below-exposure:{spec.Exposure.Key}:{spec.TargetMpa:R}:{spec.Exposure.StrengthClass}>")
-        from wcMethod in InterpolatedWc(spec, key)
+            : new ElementFault.ValueRejected($"<mix-strength-below-exposure:{spec.Exposure.Key}:{spec.TargetMpa:R}:{spec.Exposure.StrengthClass}>")
+        from wcMethod in InterpolatedWc(spec)
         let wcApplied = spec.Exposure.MaxWc.Match(Some: cap => Math.Min(wcMethod, cap), None: () => wcMethod)
         let cementMethod = water.KgM3 / wcApplied
         let cement = spec.Exposure.MinCementKgM3.Match(Some: floor => Math.Max(cementMethod, floor), None: () => cementMethod)
-        from coarseShare in InterpolatedCoarse(spec, key)
+        from coarseShare in InterpolatedCoarse(spec)
         let coarse = coarseShare * spec.CoarseDryRoddedKgM3
         let fineVolume = 1.0 - (water.KgM3 / WaterDensityKgM3) - (cement / (spec.CementSpecificGravity * WaterDensityKgM3))
             - (coarse / (spec.CoarseSpecificGravity * WaterDensityKgM3)) - water.AirFraction
         from fine in fineVolume > 0.0
             ? Fin.Succ(fineVolume * spec.FineSpecificGravity * WaterDensityKgM3)
-            : new ElementFault.ValueRejected(key, $"<mix-overconstrained:{spec.Exposure.Key}:{fineVolume:R}>")
+            : new ElementFault.ValueRejected($"<mix-overconstrained:{spec.Exposure.Key}:{fineVolume:R}>")
         select new MixProportion(
             CementKgM3: cement, WaterKgM3: water.KgM3, FineKgM3: fine, CoarseKgM3: coarse,
             AirFraction: water.AirFraction, WaterCement: water.KgM3 / cement,
             ExposureGoverned: cement > cementMethod || wcApplied < wcMethod);
 
-    static Fin<(double KgM3, double AirFraction)> Cell(MixSpec spec, Op key);
+    static Fin<(double KgM3, double AirFraction)> Cell(MixSpec spec);
 
-    static Fin<double> InterpolatedWc(MixSpec spec, Op key);
+    static Fin<double> InterpolatedWc(MixSpec spec);
 
-    static Fin<double> InterpolatedCoarse(MixSpec spec, Op key);
+    static Fin<double> InterpolatedCoarse(MixSpec spec);
 }
 ```
 

@@ -192,19 +192,19 @@ public static class TensorLayout {
     private static Fin<ImmutableArray<NRange>> SliceRanges<T>(Tensor<T> source, ImmutableArray<NRange> ranges) where T : unmanaged =>
         ranges.Length != source.Rank
             ? TensorReason.ShapeMismatch.Fail<ImmutableArray<NRange>>("slice-rank", $"{ranges.Length}!={source.Rank}")
-            : Op.Of(name: "tensor.slice-range").Catch(() => {
+            : Try.lift(() => {
                   for (int axis = 0; axis < ranges.Length; axis++) { _ = ranges[axis].GetOffsetAndLength(source.Lengths[axis]); }
                   return Fin.Succ(ranges);
-              });
+              }).Run().Bind(static inner => inner);
 
     private static Fin<ImmutableArray<nint>> PadLengths<T>(Tensor<T> source, ImmutableArray<nint> before, ImmutableArray<nint> after) where T : unmanaged =>
         before.Length != source.Rank || after.Length != source.Rank ? TensorReason.ShapeMismatch.Fail<ImmutableArray<nint>>("pad-rank", $"{before.Length}/{after.Length}/{source.Rank}")
         : before.Any(static d => d < 0) || after.Any(static d => d < 0) ? TensorReason.ShapeMismatch.Fail<ImmutableArray<nint>>("pad-negative", "extent")
-        : Op.Of(name: "tensor.pad-lengths").Catch(() => {
+        : Try.lift(() => {
               ImmutableArray<nint>.Builder padded = ImmutableArray.CreateBuilder<nint>(source.Rank);
               for (int axis = 0; axis < source.Rank; axis++) { padded.Add(checked(source.Lengths[axis] + before[axis] + after[axis])); }
               return Fin.Succ(padded.MoveToImmutable());
-          });
+          }).Run().Bind(static inner => inner);
 
     private static Tensor<T> Padded<T>(Tensor<T> source, ImmutableArray<nint> before, ImmutableArray<nint> lengths) where T : unmanaged {
         Tensor<T> padded = Tensor.CreateFromShape<T>(lengths.AsSpan());

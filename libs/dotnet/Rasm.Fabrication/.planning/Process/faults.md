@@ -21,7 +21,7 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen intege
 
 - Owner: `FabConcern` owns the plane census every fault case declares, and each `IWitnessKind` vocabulary owns one family's case predicates — the row that names a condition also decides whether a payload can describe it.
 - Cases: `FabConcern` carries one row per PLANE, not per folder — `Folder` names the namespace a fault census partitions by, `Stratum` names the position that plane holds, so `Process` states its atoms floor, terminal derivation, and telemetry fan separately, and `Kinematics` states motion apart from its consuming fleet. `RangeSide` carries the comparison a bound violation runs, so one `Range` witness replaces a floor case and a ceiling case that differ only in direction. `NestDefect` is the one failed-check vocabulary the inventory and lineage witnesses both carry, replacing parallel boolean columns a predicate had to sniff.
-- Auto: a kind row is `Of<TCase>(key, predicate)` — `Witness.Case` closes the type test, so the row's own predicate reads its case shape directly and a foreign payload fails the test rather than the predicate.
+- Auto: a kind row is `Of<TCase>(predicate)` — `Witness.Case` closes the type test, so the row's own predicate reads its case shape directly and a foreign payload fails the test rather than the predicate.
 - Boundary: a predicate asserts the CONDITION the row names, never the presence of an admitted operand — a generated union hands non-null cases, so a null clause is refuted ceremony. Correspondence-bearing rows re-run the correspondence they refuse, so a pair that actually corresponds cannot mint as an inadmissible pair.
 - Growth: a new failure condition is one row and one payload case; a new plane is one `FabConcern` row carrying its folder and stratum.
 
@@ -90,7 +90,7 @@ public sealed partial class EquipmentFault : IWitnessKind<EquipmentWitness> {
     public Func<EquipmentWitness, bool> Admits { get; }
 
     private static EquipmentFault Of<TWitness>(string key, Func<TWitness, bool> admits)
-        where TWitness : EquipmentWitness => new(key, Witness.Case<EquipmentWitness, TWitness>(admits));
+        where TWitness : EquipmentWitness => new(Witness.Case<EquipmentWitness, TWitness>(admits));
 }
 
 [SmartEnum<string>]
@@ -136,7 +136,7 @@ public sealed partial class DeriveFault : IWitnessKind<DeriveWitness> {
     public Func<DeriveWitness, bool> Admits { get; }
 
     private static DeriveFault Of<TWitness>(string key, Func<TWitness, bool> admits)
-        where TWitness : DeriveWitness => new(key, Witness.Case<DeriveWitness, TWitness>(admits));
+        where TWitness : DeriveWitness => new(Witness.Case<DeriveWitness, TWitness>(admits));
 }
 
 [SmartEnum<string>]
@@ -156,7 +156,7 @@ public sealed partial class SubjectKind : IWitnessKind<FaultSubject> {
     public Func<FaultSubject, bool> Admits { get; }
 
     private static SubjectKind Of<TSubject>(string key, Func<TSubject, bool> admits)
-        where TSubject : FaultSubject => new(key, Witness.Case<FaultSubject, TSubject>(admits));
+        where TSubject : FaultSubject => new(Witness.Case<FaultSubject, TSubject>(admits));
 }
 
 [SmartEnum<string>]
@@ -196,7 +196,7 @@ public sealed partial class JointFault : IWitnessKind<JointDiagnostic> {
     public Func<JointDiagnostic, bool> Admits { get; }
 
     private static JointFault Of<TDiagnostic>(string key, Func<TDiagnostic, bool> admits)
-        where TDiagnostic : JointDiagnostic => new(key, Witness.Case<JointDiagnostic, TDiagnostic>(admits));
+        where TDiagnostic : JointDiagnostic => new(Witness.Case<JointDiagnostic, TDiagnostic>(admits));
 
     private static bool Exceeded(int joint, double required, double limit) =>
         ValidityClaim.All(
@@ -283,7 +283,7 @@ public sealed partial class NestFault : IWitnessKind<NestWitness> {
     public Func<NestWitness, bool> Admits { get; }
 
     private static NestFault Of<TWitness>(string key, Func<TWitness, bool> admits)
-        where TWitness : NestWitness => new(key, Witness.Case<NestWitness, TWitness>(admits));
+        where TWitness : NestWitness => new(Witness.Case<NestWitness, TWitness>(admits));
 
     private static bool Angle(double value) => double.IsFinite(value) && value is >= -360.0 and <= 360.0;
 }
@@ -302,7 +302,7 @@ public sealed partial class SourceKind : IWitnessKind<SourceLocus> {
     public Func<SourceLocus, bool> Admits { get; }
 
     private static SourceKind Of<TLocus>(string key, Func<TLocus, bool> admits)
-        where TLocus : SourceLocus => new(key, Witness.Case<SourceLocus, TLocus>(admits));
+        where TLocus : SourceLocus => new(Witness.Case<SourceLocus, TLocus>(admits));
 }
 
 [SmartEnum<string>]
@@ -321,7 +321,7 @@ public sealed partial class RelationKind : IWitnessKind<RelationFault> {
     public Func<RelationFault, bool> Admits { get; }
 
     private static RelationKind Of<TPair>(string key, Func<TPair, bool> admits)
-        where TPair : RelationFault => new(key, Witness.Case<RelationFault, TPair>(admits));
+        where TPair : RelationFault => new(Witness.Case<RelationFault, TPair>(admits));
 }
 
 [SmartEnum<string>]
@@ -334,7 +334,7 @@ public sealed partial class KerfKind : IWitnessKind<KerfWitness> {
     public Func<KerfWitness, bool> Admits { get; }
 
     private static KerfKind Of<TWitness>(string key, Func<TWitness, bool> admits)
-        where TWitness : KerfWitness => new(key, Witness.Case<KerfWitness, TWitness>(admits));
+        where TWitness : KerfWitness => new(Witness.Case<KerfWitness, TWitness>(admits));
 }
 ```
 
@@ -569,7 +569,7 @@ public sealed partial class CollisionZone {
     }
 
     public static Fin<CollisionZone> Admit(ContentKey key, BoundingBox bounds) =>
-        Validate(key, bounds, out CollisionZone zone).Admitted(zone);
+        Validate(bounds, out CollisionZone zone).Admitted(zone);
 }
 
 [ComplexValueObject]

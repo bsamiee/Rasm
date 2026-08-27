@@ -277,9 +277,9 @@ public static class ElementClassifier {
             ((PrimitiveShape.Freeform, Some(IfcDomain.Electrical),     FitOrientation.Any),       (IfcClass.CableSegment,        "CONDUCTORSEGMENT", SizeBand.Fitting)));
 
     public static Fin<(IfcClass Class, PredefinedType Predefined)> Classify(
-        ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context, ReleaseVersion schema, Op key) =>
+        ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context, ReleaseVersion schema) =>
         ReconstructionContext.BiasOf(segment.DominantClass).Switch(
-            state: (primitive.Analytic, context, schema, key),
+            state: (primitive.Analytic, context, schema),
             excluded: static (s, _) => Fin.Fail<(IfcClass Class, PredefinedType Predefined)>(
                 new BimFault.Refused(s.key, BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "recon-unregistered", s.Analytic.Shape.Key, "asprs-excluded" }))),
             constructed: static (s, row) => row.Pin.Match(
@@ -287,7 +287,7 @@ public static class ElementClassifier {
                 None: () => Tabled(s.Analytic, row.Domain.IfNone(s.context.Discipline), s.context, s.schema, s.key)));
 
     static Fin<(IfcClass Class, PredefinedType Predefined)> Tabled(
-        PrimitiveAnalytic analytic, IfcDomain domain, ReconstructionContext context, ReleaseVersion schema, Op key) {
+        PrimitiveAnalytic analytic, IfcDomain domain, ReconstructionContext context, ReleaseVersion schema) {
         FitOrientation orientation = (analytic.Normal.Map(normal => context.OrientationOfNormal(normal))
                 | analytic.Direction.Map(direction => context.OrientationOfAxis(direction)))
             .IfNone(FitOrientation.Any);
@@ -295,14 +295,14 @@ public static class ElementClassifier {
                 | Table.Find((analytic.Shape, Some(domain), FitOrientation.Any))
                 | Table.Find((analytic.Shape, Option<IfcDomain>.None, orientation))
                 | Table.Find((analytic.Shape, Option<IfcDomain>.None, FitOrientation.Any)))
-            .ToFin(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-shape-miss", analytic.Shape.Key, domain.ToString(), orientation.ToString() })))
+            .ToFin(new BimFault.Refused(BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-shape-miss", analytic.Shape.Key, domain.ToString(), orientation.ToString() })))
             .Bind(row => row.Band.Admits(analytic.Gauge)
-                ? Admit(row.Class, row.Predefined, schema, key)
-                : Fin.Fail<(IfcClass, PredefinedType)>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-below-band", analytic.Shape.Key, row.Class.Key, analytic.Gauge.IfNone(0.0).ToString(CultureInfo.InvariantCulture) }))));
+                ? Admit(row.Class, row.Predefined, schema)
+                : Fin.Fail<(IfcClass, PredefinedType)>(new BimFault.Refused(BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-below-band", analytic.Shape.Key, row.Class.Key, analytic.Gauge.IfNone(0.0).ToString(CultureInfo.InvariantCulture) }))));
     }
 
-    static Fin<(IfcClass Class, PredefinedType Predefined)> Admit(IfcClass @class, string predefined, ReleaseVersion schema, Op key) =>
-        @class.AdmitPredefined(predefined, "", schema, key).Map(token => (@class, PredefinedType.Create(token)));
+    static Fin<(IfcClass Class, PredefinedType Predefined)> Admit(IfcClass @class, string predefined, ReleaseVersion schema) =>
+        @class.AdmitPredefined(predefined, "", schema).Map(token => (@class, PredefinedType.Create(token)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -339,12 +339,12 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
                 .Link(new Relationship.Assign(objectId, bag.Id, AssignKind.PropertyDefinition));
         });
 
-    Fin<Node.PropertySet> ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance, Op key) =>
-        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value, key)
-        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual, key)
-        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers, key)
-        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total, key)
-        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass, key)
+    Fin<Node.PropertySet> ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance) =>
+        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value)
+        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual)
+        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers)
+        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total)
+        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass)
         let bag = new PropertyBag(ReconstructionRows.Set, Map<PropertyName, PropertyValue>(
             (ReconstructionRows.FitConfidence,  new PropertyValue.Measure(confidence)),
             (ReconstructionRows.Residual,       new PropertyValue.Measure(residual)),
@@ -365,7 +365,7 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
 ## [03]-[LAS_INGEST]
 
 - Owner: `LasCloud` the decoded point carrier — position set (each `Position` a `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and Compute dense-LA substrate consume without a re-wrap), the per-point ASPRS `Classifications` the segmentation reduces to the `[02]-[RECONSTRUCTION]` `SegmentedCloud.DominantClass` hint, the unit-normalized `Colors` lane a colour-bearing point format carries, and the header facts (`ClassHistogram`, `CountsByReturn`, extrema, integer-grid `Scale`/`Offset`, `PointFormat`, CRS WKT, `CaptureLineage`, count, `Instant`); `CloudLevel` one decimated detail band over that carrier — retained indices, measured point count, meshopt cull sphere, per-level content key; `LasCompression` the `[SmartEnum<string>]` discriminant; `LasIngest` the dual-engine decode fold decoding raw `.las`/`.laz` bytes into the `LasCloud` the kernel registration/segmentation consume AND drawing that carrier's progressive-detail pyramid — `Themis.Las` owns the uncompressed codec, `Unofficial.laszip.netstandard` the compressed codec, `Alimer.Bindings.MeshOptimizer` the point decimation and the sphere bound, the kernel owns the fit; this owner re-mints none.
-- Entry: `LasIngest.Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key)` dispatches on `LasCompression.Sniff` (the offset-104 public-header byte whose high bit marks LASzip compression), routing the uncompressed leg through `ReadLas` and the compressed leg through `ReadLaz`; `LasIngest.Pyramid(LasCloud cloud, InterchangePolicy policy, Op key)` draws the detail bands over the `format#FORMAT_AXIS`-neighbouring `export#EXPORT_PIPELINE` `InterchangePolicy.LodRatios` schedule the mesh pyramid reads, weighting the draw by the `AttributeWeights` `base_color` row so a facade capture keeps its material boundaries; `Fin<T>` traps a malformed header, an unreadable archive, or a degenerate decimation into `Model/faults#FAULT_BAND` their original captured `Error` through `Op.Catch`, and a capture whose point count exceeds the int-domain decimator into `BimFault.Refused` with `BimReason.Capability` before any narrowing, the `Op`-keyed case IS the `Error`, never a `.ToError()` hop.
+- Entry: `LasIngest.Decode(ReadOnlyMemory<byte> bytes, Instant at)` dispatches on `LasCompression.Sniff` (the offset-104 public-header byte whose high bit marks LASzip compression), routing the uncompressed leg through `ReadLas` and the compressed leg through `ReadLaz`; `LasIngest.Pyramid(LasCloud cloud, InterchangePolicy policy)` draws the detail bands over the `format#FORMAT_AXIS`-neighbouring `export#EXPORT_PIPELINE` `InterchangePolicy.LodRatios` schedule the mesh pyramid reads, weighting the draw by the `AttributeWeights` `base_color` row so a facade capture keeps its material boundaries; `Fin<T>` traps a malformed header, an unreadable archive, or a degenerate decimation into `Model/faults#FAULT_BAND` their original captured `Error` through `Op.Catch`, and a capture whose point count exceeds the int-domain decimator into `BimFault.Refused` with `BimReason.Capability` before any narrowing, the `Op`-keyed case IS the `Error`, never a `.ToError()` hop.
 - Auto: `Sniff` selects the engine from the compression marker WITHOUT a full open; `ReadLas` streams the `Themis.Las` `LasReader` over one temp path (byte admission is path-bound — the one shipped `AsyncStreamHandler` is path-constructed), and `ReadLaz` folds the `laszip` decoder over the in-memory stream gating each non-zero C-API status through `Check`; both mask the classification format-correctly (formats 0-5 strip the flag bits `& 0x1F`, formats 6-10 keep the full class byte), fill the `Colors` lane on the colour-bearing formats alone (2/3/5/7/8/10, the 16-bit channel unit-normalized; every other format keeps the typed EMPTY lane rather than a black cloud a colour-weighted draw reads as uniform), read the header facts and the record-`2112` OGC WKT CRS, and assemble one `LasCloud` whose lineage is the kernel `XxHash128` over the raw bytes through the shared `CanonicalWriter` and whose `ClassHistogram` folds in one dense-array pass; `Pyramid` stages the float32 position lane ONCE (meshopt is a float kernel, the carrier a MathNet double the registration consumes) and folds each ratio through `Meshopt.SimplifyPoints`, keeping the RETAINED source indices rather than a copied point set and computing each band's `Meshopt.ComputeSphereBounds` cull sphere over the retained points alone, each level content-keyed off the cloud lineage so the tile pyramid addresses a capture's bands exactly as it addresses a mesh's; the per-point ASPRS classes feed the kernel segmentation reducing them to the per-segment modal `DominantClass`, and the CRS WKT feeds the app's `Header.Reference` `GeoReference` (`Semantics/georeference#GEO_PROJECTION` `ProjNET` leg) so a georeferenced capture lands in the canonical kernel frame.
 - Output: `LasCloud` is the decoded scan evidence — point/per-return counts, the `ClassHistogram` computed from the decoded class bytes (evidence the header cannot forge), header extrema and quantization, point-data-record format, colour-lane occupancy, and CRS WKT presence; the `CaptureLineage` over the source bytes joins the reconstructed model back to its capture — the `Pset_Reconstruction` `SourceCloud` row publishes THAT key, so the `Review/diff#MODEL_DIFF` federation diff and reality-capture playback re-fetch the exact LAS/LAZ through a join that closes, where the parameter-derived run key opens one nothing answers. `CloudLevel` is the per-band draw evidence — the MEASURED retained count (never the requested target, which the decimator may undershoot on a sparse capture), the cull sphere a client selects on, and the content key it streams by.
 - Packages: `Themis.Las` (the MIT pure-managed uncompressed ASPRS LAS reader over `MathNet.Numerics`), `Unofficial.laszip.netstandard` (the LGPL-2.1 separate-assembly pure-managed LASzip codec — `.laz` arithmetic decode, selective-channel decompression, the `.lax` spatial-index bbox query), `Alimer.Bindings.MeshOptimizer` (the colour-weighted point decimation and the sphere bound), `Rasm` (the kernel `Domain.ContentHash` and the `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
@@ -427,21 +427,21 @@ public static class LasIngest {
 
     static bool Colored(byte pointFormat) => pointFormat is 2 or 3 or 5 or 7 or 8 or 10;
 
-    public static Fin<LasCloud> Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key, Option<CloudWindow> window = default) =>
-        Decoded(LasCompression.Sniff(bytes.Span), bytes, window, at, key);
+    public static Fin<LasCloud> Decode(ReadOnlyMemory<byte> bytes, Instant at, Option<CloudWindow> window = default) =>
+        Decoded(LasCompression.Sniff(bytes.Span), bytes, window, at);
 
-    static Fin<LasCloud> Decoded(LasCompression codec, ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at, Op key) =>
+    static Fin<LasCloud> Decoded(LasCompression codec, ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) =>
         codec == LasCompression.Compressed
-            ? Trap(codec, key, () => ReadLaz(bytes, window, at))
-            : Trap(codec, key, () => ReadLas(bytes, window, at, key)).Bind(static read => read);
+            ? Trap(codec, () => ReadLaz(bytes, window, at))
+            : Trap(codec, () => ReadLas(bytes, window, at)).Bind(static read => read);
 
-    static Fin<T> Trap<T>(LasCompression codec, Op key, Func<T> read) =>
-        key.Catch(read);
+    static Fin<T> Trap<T>(LasCompression codec, Func<T> read) =>
+        Try.lift(read).Run().Bind(static inner => inner);
 
-    public static Fin<Seq<CloudLevel>> Pyramid(LasCloud cloud, InterchangePolicy policy, Op key) =>
+    public static Fin<Seq<CloudLevel>> Pyramid(LasCloud cloud, InterchangePolicy policy) =>
         cloud.PointCount > int.MaxValue
-            ? Fin.Fail<Seq<CloudLevel>>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "cloud-extent", cloud.PointCount.ToString(CultureInfo.InvariantCulture) })))
-            : key.Catch(() => Levels(cloud, policy, (int)cloud.PointCount));
+            ? Fin.Fail<Seq<CloudLevel>>(new BimFault.Refused(BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "cloud-extent", cloud.PointCount.ToString(CultureInfo.InvariantCulture) })))
+            : Try.lift(() => Levels(cloud, policy, (int)cloud.PointCount)).Run().Bind(static inner => inner);
 
     readonly record struct CloudStage(float[] Positions, ReadOnlyMemory<float> Colors, float Weight, int Count);
 
@@ -478,7 +478,7 @@ public static class LasIngest {
         if (status != 0) { throw new IOException(codec.get_error()); }
     }
 
-    static Fin<LasCloud> ReadLas(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at, Op key) {
+    static Fin<LasCloud> ReadLas(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.las");
         using (FileStream sink = File.Create(path)) { sink.Write(bytes.Span); }
         try {
@@ -506,7 +506,7 @@ public static class LasIngest {
                 .Map(static vlr => Encoding.UTF8.GetString(vlr.Data).TrimEnd('\0'));
             ILasHeader h = reader.Header;
             return scanned < reader.PointCount
-                ? Fin.Fail<LasCloud>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Rejected, string.Join(':', new object?[] { "cloud-truncated", scanned.ToString(CultureInfo.InvariantCulture), reader.PointCount.ToString(CultureInfo.InvariantCulture) })))
+                ? Fin.Fail<LasCloud>(new BimFault.Refused(BimScope.Reconstruct, BimReason.Rejected, string.Join(':', new object?[] { "cloud-truncated", scanned.ToString(CultureInfo.InvariantCulture), reader.PointCount.ToString(CultureInfo.InvariantCulture) })))
                 : Fin.Succ(Assemble(bytes, positions, classes, colors, crs, read, h.NumPointRecordsByReturn,
                     new Vector3(h.MinX, h.MinY, h.MinZ), new Vector3(h.MaxX, h.MaxY, h.MaxZ),
                     new Vector3(h.ScaleX, h.ScaleY, h.ScaleZ), new Vector3(h.OriginX, h.OriginY, h.OriginZ),

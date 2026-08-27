@@ -20,9 +20,9 @@ Session clock is the folder's ONE injected `MonotonicTimeline` (folder RULINGS `
 
 ## [03]-[OPERATOR]
 
-- Owner: `SessionOp` `[Union]` `[GenerateUnionOps]` closes reveal, execute, repaint, style, focus, and release. Each successful arm returns its generated `SelfOp`; no string verb or caller key substitutes for command identity. `RepaintPlan` `[Union]` carries exact host policy as case shape: `InvalidateCase` calls `Control.Invalidate`, `ScheduledCase` calls `ScheduleRedraw()`, and `DeferredCase(TimeSpan)` carries the nonnegative delay `ScheduleRedraw(TimeSpan)` requires — the delay lives ON the one case that reads it, so the option-plus-guard machinery two delay-free rows carried is unconstructible. `ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work, Option<FaultCell> Park)` selects its crossing posture by PAYLOAD PRESENCE: `None` rides the blocking sync crossing and the span proves settlement; `Some(cell)` rides the kernel `Queued` async crossing, the span proves admission only, and the eventual settlement fault PARKS on the supplied cell — a queued execute without a place for its fault to land is unconstructible, so no deferred failure can vanish.
+- Owner: `SessionOp` `[Union]` `` closes reveal, execute, repaint, style, focus, and release. Each successful arm returns its generated `SelfOp`; no string verb or caller key substitutes for command identity. `RepaintPlan` `[Union]` carries exact host policy as case shape: `InvalidateCase` calls `Control.Invalidate`, `ScheduledCase` calls `ScheduleRedraw()`, and `DeferredCase(TimeSpan)` carries the nonnegative delay `ScheduleRedraw(TimeSpan)` requires — the delay lives ON the one case that reads it, so the option-plus-guard machinery two delay-free rows carried is unconstructible. `ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work, Option<FaultCell> Park)` selects its crossing posture by PAYLOAD PRESENCE: `None` rides the blocking sync crossing and the span proves settlement; `Some(cell)` rides the kernel `Queued` async crossing, the span proves admission only, and the eventual settlement fault PARKS on the supplied cell — a queued execute without a place for its fault to land is unconstructible, so no deferred failure can vanish.
 - Owner: `SessionLane` `[SmartEnum<int>]` `IGaugeLane<SessionLane>` — the session gauge vocabulary: `Reveal` (editor creation is the slow path and carries the larger budget) and `Command` (every other verb). `Apply` answers the `Deferred` discriminator beside the `GaugedSpan<SessionLane>` — entry, acknowledgement, latency, and the budget verdict all derive from the kernel gauge, and the caller already holds the case it applied. For blocking commands, acknowledgement follows host settlement. For queued execution, acknowledgement follows queue admission and never claims that the deferred body succeeded.
-- Entry: `GhSession.Apply(SessionOp op, MonotonicTimeline clock, Op? key = null)` → `Fin<(bool Deferred, GaugedSpan<SessionLane> Span)>` — the command gate, the clock the session's injected timeline, REQUIRED; `GhSession.Run<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> project, Op? key = null)` → `Fin<TOut>` — the value gate. Two gates, two shapes of demand (settlement versus projection); everything else on the page is internal.
+- Entry: `GhSession.Apply(SessionOp op, MonotonicTimeline clock)` → `Fin<(bool Deferred, GaugedSpan<SessionLane> Span)>` — the command gate, the clock the session's injected timeline, REQUIRED; `GhSession.Run<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> project)` → `Fin<TOut>` — the value gate. Two gates, two shapes of demand (settlement versus projection); everything else on the page is internal.
 - Law: every blocking case acquires and mutates inside one kernel `UiThread.Run` window through the bound crossing. Queued `ExecuteCase` validates its target, lane, work, and park cell before admission, then reacquires scope inside the eventual crossing body. `Run` performs acquisition and projection inside one blocking crossing.
 - Law: every case body runs under `Op.Catch`. Failed blocking command or refused queue admission returns its fault without a span. Queued admission answers `Deferred = true`; a deferred settlement fault parks on the case's own `FaultCell` with the command's op, so the cell's ring is the queued-outcome stream and no fault is rewritten as successful settlement.
 - Law: `Apply` writes `GhInstruments.Settled` after the gauge closes — the bounded `op` tag is the case's generated `SelfOp`, the document tag the scope the case acquired when it acquired one, and a refused write rides the returned result — so `session.ack` and `session.commands` partition on the six cases at the one site that knows them.
@@ -64,17 +64,17 @@ public abstract partial record GhScope {
 [SmartEnum<int>]
 public sealed partial class ScopeTarget {
     public static readonly ScopeTarget EditorHost = new(key: 0, acquire: static key =>
-        Optional(Editor.Instance).ToFin(key.MissingContext()).Map(static shell => (GhScope)new GhScope.EditorCase(Shell: shell)));
+        Optional(Editor.Instance).ToFin(new KernelFault.MissingContext()).Map(static shell => (GhScope)new GhScope.EditorCase(Shell: shell)));
     public static readonly ScopeTarget CanvasHost = new(key: 1, acquire: static key =>
-        from shell in Optional(Editor.Instance).ToFin(key.MissingContext())
-        from surface in Optional(shell.Canvas).ToFin(key.MissingContext())
+        from shell in Optional(Editor.Instance).ToFin(new KernelFault.MissingContext())
+        from surface in Optional(shell.Canvas).ToFin(new KernelFault.MissingContext())
         select (GhScope)new GhScope.CanvasCase(Surface: surface));
     public static readonly ScopeTarget DocumentHost = new(key: 2, acquire: static key =>
-        from shell in Optional(Editor.Instance).ToFin(key.MissingContext())
-        from surface in Optional(shell.Canvas).ToFin(key.MissingContext())
-        from graph in Optional(surface.Document).ToFin(key.MissingContext())
+        from shell in Optional(Editor.Instance).ToFin(new KernelFault.MissingContext())
+        from surface in Optional(shell.Canvas).ToFin(new KernelFault.MissingContext())
+        from graph in Optional(surface.Document).ToFin(new KernelFault.MissingContext())
         select (GhScope)new GhScope.DocumentCase(Graph: graph, Surface: surface));
-    [UseDelegateFromConstructor] internal partial Fin<GhScope> Acquire(Op key);
+    [UseDelegateFromConstructor] internal partial Fin<GhScope> Acquire();
 }
 
 [Union]
@@ -86,7 +86,6 @@ public abstract partial record RepaintPlan {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record SessionOp {
     private SessionOp() { }
     public sealed partial record RevealCase(Option<string> Layout) : SessionOp;
@@ -105,87 +104,85 @@ public sealed partial class SessionLane : IGaugeLane<SessionLane> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class GhCrossing {
-    internal static Func<Fin<TOut>> Bind<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> body, Op key) =>
-        () => target.Acquire(key: key).Bind(scope => key.Catch(body: () => body(arg: scope)));
+    internal static Func<Fin<TOut>> Bind<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> body) =>
+        () => target.Acquire().Bind(scope => Try.lift(() => body(arg: scope)).Run().Bind(static inner => inner));
 }
 
 public static class GhSession {
     private static readonly HookId Hook = HookId.Create(value: "rasm.grasshopper.shell.session");
 
-    public static Fin<TOut> Run<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> project, Op? key = null) {
-        Op op = key.OrDefault();
-        return from row in op.Need(target)
-               from valid in op.Need(project)
+    public static Fin<TOut> Run<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> project) {
+        return from row in Admit.Need(target)
+               from valid in Admit.Need(project)
                from output in UiThread.Run(
-                   new UiDispatch<TOut>.Blocking(GhCrossing.Bind(target: row, body: valid, key: op)),
-                   DispatchLane.Interactive, op)
+                   new UiDispatch<TOut>.Blocking(GhCrossing.Bind(target: row, body: valid)),
+                   DispatchLane.Interactive)
                select output;
     }
 
-    public static Fin<(bool Deferred, GaugedSpan<SessionLane> Span)> Apply(SessionOp op, MonotonicTimeline clock, Op? key = null) {
-        Op active = key.OrDefault();
-        return active.Need(op).Bind(valid =>
-            from gauged in clock.Gauged<(Op Operation, bool Deferred), SessionLane>(
+    public static Fin<(bool Deferred, GaugedSpan<SessionLane> Span)> Apply(SessionOp op, MonotonicTimeline clock) {
+        return Admit.Need().Bind(valid =>
+            from gauged in clock.Gauged<(bool Deferred), SessionLane>(
                 lane: valid is SessionOp.RevealCase ? SessionLane.Reveal : SessionLane.Command,
                 work: active,
                 body: () => valid.Switch(
                     state: active,
                     revealCase: static (k, c) => UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                        k.Catch(() => Editor.ShowEditor(
+                        Try.lift(() => Editor.ShowEditor(
                             createVisible: true,
-                            layoutRules: Op.ToHostSlot(c.Layout))),
+                            layoutRules: HostEdge.Slot(c.Layout))).Run().Bind(static inner => inner),
                         DispatchLane.Interactive, k)
                         .Map(_ => (Operation: c.SelfOp, Deferred: false)),
                     executeCase: static (k, c) =>
-                        from target in k.Need(c.Target)
-                        from lane in k.Need(c.Lane)
-                        from work in k.Need(c.Work)
+                        from target in Admit.Need(c.Target)
+                        from lane in Admit.Need(c.Lane)
+                        from work in Admit.Need(c.Work)
                         from admitted in c.Park.Match(
-                            Some: cell => k.Catch(body: () => {
+                            Some: cell => Try.lift(() => {
                                 ValueTask<Fin<Unit>> eventual = UiThread.Run(
                                     new UiDispatch<Unit>.Queued(GhCrossing.Bind<Unit>(
                                         target: target,
-                                        body: scope => Fin.Succ(Op.Side(action: () => work(obj: scope))),
+                                        body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))),
                                         key: k)),
                                     lane, k);
-                                return Fin.Succ(Op.Side(action: () => ignore(SettleDeferred(eventual, cell, k))));
-                            }),
+                                return Fin.Succ(HostEdge.Side(action: () => ignore(SettleDeferred(eventual, cell, k))));
+                            }).Run().Bind(static inner => inner),
                             None: () => UiThread.Run(
                                 new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
                                     target: target,
-                                    body: scope => Fin.Succ(Op.Side(action: () => work(obj: scope))),
+                                    body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))),
                                     key: k)),
                                 lane, k))
                         select (Operation: c.SelfOp, Deferred: c.Park.IsSome),
                     repaintCase: static (k, c) => UiThread.Run(new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
                             target: ScopeTarget.CanvasHost,
-                            body: scope => scope.Canvas.ToFin(k.MissingContext()).Bind(surface => c.Plan.Switch(
+                            body: scope => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => c.Plan.Switch(
                                 state: (Surface: surface, Key: k),
-                                invalidateCase: static (s, _) => s.Key.Catch(() => s.Surface.Invalidate()),
-                                scheduledCase: static (s, _) => s.Key.Catch(() => s.Surface.ScheduleRedraw()),
+                                invalidateCase: static (s, _) => Try.lift(() => s.Surface.Invalidate()).Run().Bind(static inner => inner),
+                                scheduledCase: static (s, _) => Try.lift(() => s.Surface.ScheduleRedraw()).Run().Bind(static inner => inner),
                                 deferredCase: static (s, p) =>
-                                    from admitted in guard(p.Delay >= TimeSpan.Zero, (Error)s.Key.InvalidInput()).ToFin()
-                                    from painted in s.Key.Catch(() => s.Surface.ScheduleRedraw(p.Delay))
+                                    from admitted in guard(p.Delay >= TimeSpan.Zero, (Error)new KernelFault.InvalidInput()).ToFin()
+                                    from painted in Try.lift(() => s.Surface.ScheduleRedraw(p.Delay)).Run().Bind(static inner => inner)
                                     select painted)),
                             key: k)),
                             DispatchLane.Interactive, k)
                         .Map(_ => (Operation: c.SelfOp, Deferred: false)),
                     styleCase: static (k, c) =>
-                        from surface in k.Need(c.Surface)
+                        from surface in Admit.Need(c.Surface)
                         from styled in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                            k.Catch(surface.UseRhinoStyle)),
+                            Try.lift(surface.UseRhinoStyle).Run().Bind(static inner => inner)),
                             DispatchLane.Interactive, k)
                         select (Operation: c.SelfOp, Deferred: false),
                     focusCase: static (k, c) =>
-                        from surface in k.Need(c.Surface)
+                        from surface in Admit.Need(c.Surface)
                         from focused in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                            k.Catch(surface.Focus)),
+                            Try.lift(surface.Focus).Run().Bind(static inner => inner)),
                             DispatchLane.Interactive, k)
                         select (Operation: c.SelfOp, Deferred: false),
                     releaseCase: static (k, c) =>
-                        from surface in k.Need(c.Surface)
-                        from released in UiThread.Run(new UiDispatch<Unit>.Blocking(() => k.Catch(body: () =>
-                            Fin.Succ(surface.Use(project: static form => Op.Side(action: form.Close))))),
+                        from surface in Admit.Need(c.Surface)
+                        from released in UiThread.Run(new UiDispatch<Unit>.Blocking(() => Try.lift(() =>
+                            Fin.Succ(surface.Use(project: static form => HostEdge.Side(action: form.Close)))).Run().Bind(static inner => inner)),
                             DispatchLane.Interactive, k)
                         select (Operation: c.SelfOp, Deferred: false)),
                 key: active)
@@ -194,8 +191,8 @@ public static class GhSession {
             select (outcome.Deferred, gauged.Span));
     }
 
-    private static async Task SettleDeferred(ValueTask<Fin<Unit>> eventual, FaultCell faults, Op key) {
-        Fin<Unit> settled = await key.Catch(body: async _ => await eventual.ConfigureAwait(false));
+    private static async Task SettleDeferred(ValueTask<Fin<Unit>> eventual, FaultCell faults) {
+        Fin<Unit> settled = await Try.lift(async _ => await eventual.ConfigureAwait(false)).Run().Bind(static inner => inner);
         settled.IfFail(cause => ignore(faults.Park(point: Hook, cause: cause)));
     }
 }

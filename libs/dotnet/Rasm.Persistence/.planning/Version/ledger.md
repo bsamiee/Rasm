@@ -267,13 +267,13 @@ public static class OpLogWire {
     static readonly MessagePackSerializerOptions Options = SnapshotCodec.Binary.WithCompression(MessagePackCompression.None);
 
     public static Fin<byte[]> Encode(OpLogEntry entry) =>
-        Op.Of().Catch(() => Project(entry))
+        Try.lift(() => Project(entry)).Run().Bind(static inner => inner)
             .Bind(Admit)
-            .Bind(admitted => Op.Of().Catch(() => MessagePackSerializer.Serialize(Project(admitted), Options)))
+            .Bind(admitted => Try.lift(() => MessagePackSerializer.Serialize(Project(admitted), Options)).Run().Bind(static inner => inner))
             .MapFail(static error => new SyncFault.TransferEncode("oplog", error));
 
     public static Fin<OpLogEntry> Decode(ReadOnlyMemory<byte> payload) =>
-        Op.Of().Catch(() => MessagePackSerializer.Deserialize<OpLogEntryWire>(payload, Options))
+        Try.lift(() => MessagePackSerializer.Deserialize<OpLogEntryWire>(payload, Options)).Run().Bind(static inner => inner)
             .Bind(Admit)
             .MapFail(static error => new SyncFault.TransferDecode("oplog", error));
 
@@ -321,7 +321,7 @@ public static class OpLogWire {
         from _key in content == ContentHash.Of(wire.Payload.AsSpan())
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(Error.New("<oplog-content-key>"))
-        from admitted in Op.Of().Catch(() => new OpLogEntry(
+        from admitted in Try.lift(() => new OpLogEntry(
                 sequence,
                 OperationId.Create(origin, counter, context),
                 ModelId.Create(Uuid(wire.Model)),
@@ -334,7 +334,7 @@ public static class OpLogWire {
                 toSeq(wire.Closure.Select(BinaryPrimitives.ReadUInt128BigEndian)),
                 wire.Actor,
                 Instant.FromUnixTimeTicks(physical),
-                logical.Value))
+                logical.Value)).Run().Bind(static inner => inner)
         select admitted;
 
     static Fin<Unit> Shape(OpLogEntryWire wire) {
@@ -366,11 +366,11 @@ public static class OpLogWire {
             .Map(static slots => new VersionVector(toHashMap(slots)));
 
     static Fin<ColumnFamily> Family(string key) =>
-        toSeq(ColumnFamily.Items).Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
+        toSeq(ColumnFamily.Items).Find(row => string.Equals(StringComparison.Ordinal))
             .ToFin(Error.New($"<oplog-family:{key}>"));
 
     static Fin<SyncOpKind> Kind(string key) =>
-        toSeq(SyncOpKind.Items).Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
+        toSeq(SyncOpKind.Items).Find(row => string.Equals(StringComparison.Ordinal))
             .ToFin(Error.New($"<oplog-kind:{key}>"));
 
     public static byte[] Uuid(Guid value) {
@@ -468,7 +468,7 @@ public static class OpLog {
     static string EntityKey(IEvent<GraphEvent> e) => e.StreamKey ?? e.StreamId.ToString();
 
     static string HeaderValue(IEvent<GraphEvent> e, string key) =>
-        e.Headers is { } h && h.TryGetValue(key, out object? value) ? value?.ToString() ?? string.Empty : string.Empty;
+        e.Headers is { } h && h.TryGetValue(out object? value) ? value?.ToString() ?? string.Empty : string.Empty;
 
     public static Seq<OpLogEntry> Replay(Seq<OpLogEntry> feed, ReplayWindow window) =>
         toSeq(feed.Filter(window.Admits).OrderBy(static entry => entry.Sequence).Take(window.Take));
@@ -490,7 +490,7 @@ public static class OpLog {
     public static IO<OpLogEntry> Crdt(
         long sequence, ModelId model, string entityKey, SyncOpKind kind, CrdtOp op, string actor,
         DotSource dots, ProjectionContext frame) =>
-        CrdtWire.Encode(op).Match(
+        CrdtWire.Encode().Match(
             Succ: payload => Stamp(dots, frame, stamped => new OpLogEntry(
                 sequence, stamped.Id, model, entityKey, ColumnFamily.Crdt, kind,
                 payload, CrdtWire.ContentKey(payload), stamped.Trace, Seq<UInt128>(), actor,
@@ -498,7 +498,7 @@ public static class OpLog {
             Fail: IO.fail<OpLogEntry>);
 
     public static Seq<UInt128> TransferSet(OpLogEntry entry, Func<UInt128, bool> holds) =>
-        entry.Closure.Add(entry.ContentKey).Filter(key => !holds(key));
+        entry.Closure.Add(entry.ContentKey).Filter(key => !holds());
 }
 ```
 
@@ -646,8 +646,8 @@ public static class SyncMerge {
             : entry.ContentKey != CrdtWire.ContentKey(entry.Payload)
             ? IO.fail<ConflictResult>(new SyncFault.TransferDecode("crdt", Error.New("<crdt-content-key>")))
             : CrdtWire.Decode(entry.Payload)
-                .Bind(op => Admissible(entry.Id, op).Map(_ => op))
-                .Match(Succ: op => apply(entry.Id, op), Fail: IO.fail<ConflictResult>);
+                .Bind(op => Admissible(entry.Id).Map(_ => op))
+                .Match(Succ: op => apply(entry.Id), Fail: IO.fail<ConflictResult>);
 
     public static IO<SyncOutcome> Apply(SyncSession session, Seq<OpLogEntry> incoming) =>
         incoming.FoldM(
@@ -706,7 +706,7 @@ public static class SyncMerge {
 - Auto: intra-cluster replication is Marten's own daemon over the shared PostgreSQL, so this axis is the cross-store and offline lane. `HttpDelta` pulls a cursor-bounded segment and pushes the pending set; `SubtreeCheckout` fetches and applies the root envelope and its closure, then transfers the blob manifest; `SpeckleLikeDiff` hands the missing set to the SDK marshal.
 - Output: every transport run yields one `SyncOutcome`; the subtree-checkout transfer count rides its `Pushed` column. Each dial settles its own hop outcome at AppHost `OutboundSurface.Dispatch`, so transport evidence and merge evidence stay two records neither end re-derives.
 - Growth: a new transport is one case with one dispatch arm; a new exchange direction is one `SyncFlows` corner; a new rpc is one row on the corpus service with its `SyncWire` method, its `SyncEndpoint` override, and its `sync-rpc` manifest case landing together — a service-only or client-only declaration is deleted rather than padded with an unused adapter; a new graph-checkout shape is one entry over `OpLog.TransferSet`, never a second diff algebra.
-- Boundary: every dial rides the AppHost `OutboundHop` keyed pipeline — the three unary rpcs on `OutboundHop.Grpc` under a per-call idempotency key, the checkout stream on `OutboundHop.ServerStream` — so retry, backoff, breaker, rate limit, and hop deadlines are owned there and the database stays excluded from the hop law. `SyncWire` holds NO channel: the composition root mints one per peer and hands the intercepted `CallInvoker` the generated client binds, so a raw `GrpcChannel` here would ride no pipeline and no interceptor. Every reply admits through AppHost `WireAdmission.Admit(reply, WireBoundary.InboundPayload, Op.Of())` — this package holds no `ParseGuard`, and a second validator beside the host's would evaluate one rule graph twice.
+- Boundary: every dial rides the AppHost `OutboundHop` keyed pipeline — the three unary rpcs on `OutboundHop.Grpc` under a per-call idempotency key, the checkout stream on `OutboundHop.ServerStream` — so retry, backoff, breaker, rate limit, and hop deadlines are owned there and the database stays excluded from the hop law. `SyncWire` holds NO channel: the composition root mints one per peer and hands the intercepted `CallInvoker` the generated client binds, so a raw `GrpcChannel` here would ride no pipeline and no interceptor. Every reply admits through AppHost `WireAdmission.Admit(reply, WireBoundary.InboundPayload)` — this package holds no `ParseGuard`, and a second validator beside the host's would evaluate one rule graph twice.
 - Boundary: `OpLog.TransferSet` is the ONE set-difference algebra — the closure GEOMETRY-blob manifest with the root payload key, minus what the target holds — and it is the BLOB-transfer set the content-addressed store moves, NOT an op-log-entry fetch input; running a second walk-and-diff on the calling side is the deleted form, which is exactly why the manifest is ASKED for: the peer holds the stored root's whole closure where the caller sees only the frames the stream handed it. The checkout stream carries op-log ENVELOPES alone and resolves the root's closure ONE level, because `Closure` is already the transitive descendant set the projection sealed; the blob BYTES those envelopes reference ride the content-addressed store under the `TransferSet` answer and never this stream.
 - Boundary: the two cursor SPACES thread the exchange — the pull leg advances this store's position in the PEER's feed and the push leg the peer-returned confirmation in OURS — and overwriting one with the other resumes the next pull from this store's push frontier inside the PEER's sequence space, silently skipping every entry between. `SyncCursorWire.origin_store` names WHICH feed a position lives in, so `SyncEndpoint.Pull` refuses a cursor naming another store rather than slicing a foreign origin out of this feed, and genesis is the one origin-free spelling a first pull carries. A pulled or streamed generation that differs from this store's stays `SyncFault.SchemaMismatch`, the same refusal on both the segment and the per-frame arm.
 - Boundary: Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run. `SpeckleLikeDiff` keeps `HasObjects` and `SpeckleSend` as SDK-shaped ports precisely because a hub's membership answer is not this service's `TransferSet`, and collapsing the two would make one row's marshal answer for the other's rpc.
@@ -792,22 +792,22 @@ public static partial class SyncWireMap {
 
     private static Clock.Hlc Cell(SyncCursor cursor) => HostWire.Stamp((cursor.Physical, cursor.Logical));
 
-    public static Fin<SyncCursor> Admit(SyncCursorWire? wire, Op key) =>
-        Optional(wire).ToFin(key.InvalidInput(nameof(SyncCursorWire))).Bind(stated =>
-            (Store(stated.OriginStore, key).ToValidation(),
+    public static Fin<SyncCursor> Admit(SyncCursorWire? wire) =>
+        Optional(wire).ToFin(new KernelFault.InvalidInput(Axis: Some(nameof(SyncCursorWire)))).Bind(stated =>
+            (Store(stated.OriginStore).ToValidation(),
              OpLogWire.I63(stated.Sequence, "cursor").ToValidation(),
-             Optional(stated.Stamp).ToFin(key.InvalidInput(nameof(Clock.Hlc)))
-                 .Bind(held => HostWire.Stamp(held, key)).ToValidation())
+             Optional(stated.Stamp).ToFin(new KernelFault.InvalidInput(Axis: Some(nameof(Clock.Hlc))))
+                 .Bind(held => HostWire.Stamp(held)).ToValidation())
                 .Apply(static (origin, sequence, stamp) => new SyncCursor(origin, sequence, stamp.Physical, stamp.Logical))
                 .As().ToFin());
 
-    private static Fin<Guid> Store(ByteString origin, Op key) =>
+    private static Fin<Guid> Store(ByteString origin) =>
         origin.Length == 16
             ? Fin.Succ(OpLogWire.Uuid(origin.Span))
-            : Fin.Fail<Guid>(key.InvalidInput(axis: "cursor-origin-width"));
+            : Fin.Fail<Guid>(new KernelFault.InvalidInput(Axis: Some("cursor-origin-width")));
 
-    public static Fin<Seq<UInt128>> Keys(IEnumerable<ByteString> wire, Op key) =>
-        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span, key).ToValidation()).As().ToFin();
+    public static Fin<Seq<UInt128>> Keys(IEnumerable<ByteString> wire) =>
+        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span).ToValidation()).As().ToFin();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -819,7 +819,7 @@ public sealed record SyncWire(
             (client, options) => client
                 .PullAsync(new PullRequest { Cursor = SyncWireMap.ToWire(cursor), PageSize = PageSize }, options)
                 .ResponseAsync,
-            static reply => SyncWireMap.Admit(reply.Cursor, Op.Of()).Map(next =>
+            static reply => SyncWireMap.Admit(reply.Cursor).Map(next =>
                 (reply.SchemaFingerprint, toSeq(reply.Frames).Map(static frame => frame.Memory), next)));
 
     public IO<Fin<SyncCursor>> Push(string peer, Seq<ReadOnlyMemory<byte>> frames) =>
@@ -829,15 +829,15 @@ public sealed record SyncWire(
                 SchemaFingerprint = SchemaFingerprint,
                 Frames = { frames.Map(static frame => ByteString.CopyFrom(frame.Span)) },
             }, options).ResponseAsync,
-            static reply => SyncWireMap.Admit(reply.Acked, Op.Of()));
+            static reply => SyncWireMap.Admit(reply.Acked));
 
     public IO<Fin<Seq<UInt128>>> TransferSet(string peer, UInt128 root, Seq<UInt128> held) =>
         Dial(peer, string.Create(CultureInfo.InvariantCulture, $"transfer-set:{ContentHash.Hex(root)}.{held.Count}"),
             (client, options) => client.TransferSetAsync(new TransferSetRequest {
                 Root = ContentHash.Wire(root),
-                Held = { held.Map(static key => ContentHash.Wire(key)) },
+                Held = { held.Map(static key => ContentHash.Wire()) },
             }, options).ResponseAsync,
-            static reply => SyncWireMap.Keys(reply.Missing, Op.Of()));
+            static reply => SyncWireMap.Keys(reply.Missing));
 
     public IO<Fin<Seq<ReadOnlyMemory<byte>>>> Checkout(string peer, UInt128 root) =>
         Peers(peer).Match(
@@ -859,10 +859,10 @@ public sealed record SyncWire(
         Peers(peer).Match(
             Succ: seat => OutboundSurface.Dispatch<Fin<T>>(
                     Runtime,
-                    new OutboundHop.Grpc(seat.Address, key),
+                    new OutboundHop.Grpc(seat.Address),
                     async token => Stated(WireAdmission.Admit(
                             await call(seat.Client, new CallOptions(cancellationToken: token)).ConfigureAwait(false),
-                            WireBoundary.InboundPayload, Op.Of())
+                            WireBoundary.InboundPayload)
                         .Bind(admit)))
                 .Map(static settled => settled.Carried.Bind(static held => held)),
             Fail: static error => IO.pure(Fin.Fail<T>(error)));
@@ -881,7 +881,7 @@ public sealed record SyncWire(
     }
 
     private static Fin<ReadOnlyMemory<byte>> Frame(CheckoutResponse response, ulong fingerprint) =>
-        WireAdmission.Admit(response, WireBoundary.InboundPayload, Op.Of())
+        WireAdmission.Admit(response, WireBoundary.InboundPayload)
             .Bind(admitted => admitted.SchemaFingerprint == fingerprint
                 ? Fin.Succ(admitted.Frame.Memory)
                 : Fin.Fail<ReadOnlyMemory<byte>>(new SyncFault.SchemaMismatch(fingerprint, admitted.SchemaFingerprint)));
@@ -939,19 +939,19 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
 
     private IO<Fin<TransferSetResponse>> Manifest(TransferSetRequest request) =>
         IO.lift<Fin<(UInt128 Root, Seq<UInt128> Held)>>(() => Admitted(request).Bind(stated =>
-                (ContentHash.Admit(stated.Root.Span, Op.Of()).ToValidation(),
-                 SyncWireMap.Keys(stated.Held, Op.Of()).ToValidation())
+                (ContentHash.Admit(stated.Root.Span).ToValidation(),
+                 SyncWireMap.Keys(stated.Held).ToValidation())
                     .Apply(static (root, held) => (root, held)).As().ToFin()))
             .Bind(stated => stated.Match(
                 Succ: asked => runtime.Fetch(asked.Root).Map(fetched => fetched.Map(entry => new TransferSetResponse {
-                    Missing = { OpLog.TransferSet(entry, asked.Held.Contains).Map(static key => ContentHash.Wire(key)) },
+                    Missing = { OpLog.TransferSet(entry, asked.Held.Contains).Map(static key => ContentHash.Wire()) },
                 })),
                 Fail: static error => IO.pure(Fin.Fail<TransferSetResponse>(error))));
 
     private IO<Fin<Seq<ReadOnlyMemory<byte>>>> Subtree(CheckoutRequest request) =>
-        IO.lift<Fin<UInt128>>(() => Admitted(request).Bind(stated => ContentHash.Admit(stated.Root.Span, Op.Of())))
+        IO.lift<Fin<UInt128>>(() => Admitted(request).Bind(stated => ContentHash.Admit(stated.Root.Span)))
             .Bind(root => root.Match(
-                Succ: key => runtime.Fetch(key).Bind(fetched => fetched.Match(
+                Succ: key => runtime.Fetch().Bind(fetched => fetched.Match(
                     Succ: entry => entry.Closure.Traverse(runtime.Fetch).As().Map(rows =>
                         rows.Traverse(static row => row.ToValidation()).As().ToFin()
                             .Bind(descendants => OpLogWire.Encode(Seq(entry) + descendants))),
@@ -959,12 +959,12 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                 Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error))));
 
     private static Fin<T> Admitted<T>(T request) where T : IMessage =>
-        WireAdmission.Admit(request, WireBoundary.InboundPayload, Op.Of());
+        WireAdmission.Admit(request, WireBoundary.InboundPayload);
 
     private int Bounded(uint stated) => (int)Math.Min(stated, (uint)runtime.PageCap);
 
     private Fin<SyncCursor> Position(SyncCursorWire? wire) =>
-        SyncWireMap.Admit(wire, Op.Of()).Bind(cursor =>
+        SyncWireMap.Admit(wire).Bind(cursor =>
             cursor.OriginStoreId == runtime.StoreId || cursor.OriginStoreId == Guid.Empty
                 ? Fin.Succ(cursor)
                 : Fin.Fail<SyncCursor>(new SyncFault.ReplicationFaulted(

@@ -98,10 +98,10 @@ public sealed partial class SearchKey {
 
     public bool Accepts(double value) => accepts_(value);
 
-    static void Number(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(key, value);
-    static void Flag(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(key, value != 0.0);
-    static double ReadNumber(GeneratorParams parameters, string key) => parameters.GetSearchNumber(key);
-    static double ReadFlag(GeneratorParams parameters, string key) => parameters.GetSearchBool(key) ? 1.0 : 0.0;
+    static void Number(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(value);
+    static void Flag(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(value != 0.0);
+    static double ReadNumber(GeneratorParams parameters, string key) => parameters.GetSearchNumber();
+    static double ReadFlag(GeneratorParams parameters, string key) => parameters.GetSearchBool() ? 1.0 : 0.0;
 }
 
 [SmartEnum<string>]
@@ -227,7 +227,7 @@ public sealed record DecoderPin(
     uint HardwareVendorId,
     FrozenDictionary<string, string> ProviderOptions) {
     public Fin<Unit> Apply(Config config) =>
-        Op.Of(name: "generative.decoder-pin").Catch(() => {
+        Try.lift(() => {
             config.ClearProviders();
             config.AppendProvider(Provider);
             ProviderOptions.Iter(option => config.SetProviderOption(Provider, option.Key, option.Value));
@@ -235,21 +235,21 @@ public sealed record DecoderPin(
             config.SetDecoderProviderOptionsHardwareDeviceId(Provider, HardwareDeviceId);
             config.SetDecoderProviderOptionsHardwareVendorId(Provider, HardwareVendorId);
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 public sealed record RuntimeOption {
     static readonly FrozenSet<string> Banned = FrozenSet.Create(StringComparer.Ordinal, "terminate_session");
 
-    private RuntimeOption(string key, string value) => (Key, Value) = (key, value);
+    private RuntimeOption(string key, string value) => (Key, Value) = (value);
 
     public string Key { get; }
     public string Value { get; }
 
     public static Fin<RuntimeOption> Admit(string key, string value) =>
-        string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value) || Banned.Contains(key)
+        string.IsNullOrWhiteSpace() || string.IsNullOrWhiteSpace(value) || Banned.Contains()
             ? GenerativeRefusal.RuntimeOption.Fault<RuntimeOption>()
-            : Fin.Succ(new RuntimeOption(key, value));
+            : Fin.Succ(new RuntimeOption(value));
 }
 
 public sealed class ModelData {
@@ -266,7 +266,7 @@ public sealed class ModelData {
         byte[] owned = bytes.ToArray();
         return overlayJson.Length is 0
             ? Fin.Succ(new ModelData(filename, owned, overlayJson, ContentHash.Of(owned)))
-            : Op.Of(name: "generative.model-overlay").Catch(() => Fin.Succ(JsonNode.Parse(overlayJson) is JsonObject))
+            : Try.lift(() => Fin.Succ(JsonNode.Parse(overlayJson) is JsonObject)).Run().Bind(static inner => inner)
                 .Bind(valid => valid
                     ? Fin.Succ(new ModelData(filename, owned, overlayJson, ContentHash.Of(owned)))
                     : GenerativeRefusal.ModelOverlay.Fault<ModelData>());
@@ -283,10 +283,10 @@ public sealed class AdapterAsset {
     public static Fin<AdapterAsset> Admit(string name, string path) =>
         string.IsNullOrWhiteSpace(name) || !File.Exists(path)
             ? Fin.Fail<AdapterAsset>(new ComputeFault.ExtensionAssetMissing(path))
-            : Op.Of(name: "generative.adapter-admit").Catch(() => Fin.Succ(new AdapterAsset(name, path, ContentHash.Of(File.ReadAllBytes(path)))));
+            : Try.lift(() => Fin.Succ(new AdapterAsset(name, path, ContentHash.Of(File.ReadAllBytes(path))))).Run().Bind(static inner => inner);
 
     public Fin<Unit> Verify() =>
-        Op.Of(name: "generative.adapter-verify").Catch(() => Fin.Succ(ContentHash.Of(File.ReadAllBytes(Path))))
+        Try.lift(() => Fin.Succ(ContentHash.Of(File.ReadAllBytes(Path)))).Run().Bind(static inner => inner)
             .Bind(current => current == ContentKey
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new ComputeFault.ExtensionAssetMissing($"{Path}:content-changed")));
@@ -322,7 +322,7 @@ public sealed record ToolPolicy {
     public static Fin<ToolPolicy> Admit(string schemas, Set<string> names, Func<ToolRequest, CancellationToken, ValueTask<Fin<string>>> resolve, Duration deadline) =>
         names.IsEmpty || resolve is null || names.Exists(string.IsNullOrWhiteSpace) || deadline <= Duration.Zero
             ? GenerativeRefusal.ToolRoster.Fault<ToolPolicy>()
-            : Op.Of(name: "generative.tool-schemas").Catch(() => Fin.Succ(JsonNode.Parse(schemas) is not null))
+            : Try.lift(() => Fin.Succ(JsonNode.Parse(schemas) is not null)).Run().Bind(static inner => inner)
                 .Bind(valid => valid
                     ? Fin.Succ(new ToolPolicy(schemas, names, resolve, deadline))
                     : GenerativeRefusal.ToolSchemas.Fault<ToolPolicy>());
@@ -331,7 +331,7 @@ public sealed record ToolPolicy {
         int open = text.IndexOf('{', StringComparison.Ordinal);
         return Names.IsEmpty || open < 0
             ? Option<ToolRequest>.None
-            : Op.Of(name: "generative.tool-detect").Catch(() => Fin.Succ(JsonSerializer.Deserialize(text[open..], GenerativeWireContext.Default.ToolCallWire))).Match(
+            : Try.lift(() => Fin.Succ(JsonSerializer.Deserialize(text[open..], GenerativeWireContext.Default.ToolCallWire))).Run().Bind(static inner => inner).Match(
                 Succ: call => call is { } wire && Names.Contains(wire.Name)
                     ? Some(new ToolRequest(wire.Name, wire.Arguments.GetRawText()))
                     : Option<ToolRequest>.None,
@@ -346,7 +346,7 @@ public readonly record struct StopOracle(Set<int> EosIds, Set<int> TurnIds, Froz
 
     static Set<int> Probe(Tokenizer tokenizer) =>
         Seq<Func<int>>(tokenizer.GetEotTokenId, tokenizer.GetEorTokenId)
-            .Fold(Set<int>(), static (ids, read) => Op.Of(name: "generative.stop-token-probe").Catch(() => Fin.Succ(read())).Match(Succ: ids.Add, Fail: static _ => ids));
+            .Fold(Set<int>(), static (ids, read) => Try.lift(() => Fin.Succ(read())).Run().Bind(static inner => inner).Match(Succ: ids.Add, Fail: static _ => ids));
 
     public bool Reached(int token) => EosIds.Contains(token) || token == PadId;
     public bool Ends(int token) => Reached(token) || TurnIds.Contains(token);
@@ -443,27 +443,27 @@ public sealed partial record GenerationPolicy(
         ]);
 
     public Fin<Unit> Apply(GeneratorParams parameters, GenerationInput input) =>
-        Op.Of(name: "generative.search-apply").Catch(() => {
+        Try.lift(() => {
             Effective(input).Iter(row => row.Key.Apply(parameters, row.Value));
             if (Mode is GenerationMode.Guided guided) {
                 parameters.SetGuidance(guided.Kind.Type, guided.Data, enableFFTokens: false);
             }
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 
     public FrozenDictionary<SearchKey, double> Echo(GeneratorParams parameters, GenerationInput input) =>
         Effective(input).Keys.ToFrozenDictionary(static key => key, key => key.Echo(parameters));
 
     public Fin<Config> OpenConfig(string modelDir) =>
-        Op.Of(name: "generative.config-open").Catch(() => Fin.Succ(new Config(modelDir)))
+        Try.lift(() => Fin.Succ(new Config(modelDir))).Run().Bind(static inner => inner)
             .Bind(config =>
-                Op.Of(name: "generative.config-populate").Catch(() => {
+                Try.lift(() => {
                     InMemory.Iter(data => {
                         config.AddModelData(data.Filename, data.Bytes.ToArray());
                         if (data.OverlayJson.Length > 0) { config.Overlay(data.OverlayJson); }
                     });
                     return Fin.Succ(config);
-                })
+                }).Run().Bind(static inner => inner)
                     .Bind(opened => Decoder.Match(
                         Some: pin => pin.Apply(opened).Map(_ => opened),
                         None: () => Fin.Succ(opened)))
@@ -596,24 +596,24 @@ public sealed class AdapterSet : IDisposable {
     public Fin<AdapterSet> Load(AdapterAsset asset) =>
         loaded.Value.Contains(asset.Name)
             ? Fin.Succ(this)
-            : asset.Verify().Bind(_ => Op.Of(name: "generative.adapter-load").Catch(() => {
+            : asset.Verify().Bind(_ => Try.lift(() => {
                 adapters.LoadAdapter(asset.Path, asset.Name);
                 loaded.Swap(held => held.Add(asset.Name));
                 return Fin.Succ(this);
-            }));
+            }).Run().Bind(static inner => inner));
 
     public Fin<Unit> Unload(string name) =>
         !loaded.Value.Contains(name)
             ? Fin.Succ(unit)
-            : Op.Of(name: "generative.adapter-unload").Catch(() => {
+            : Try.lift(() => {
                 adapters.UnloadAdapter(name);
                 loaded.Swap(held => held.Remove(name));
                 return Fin.Succ(unit);
-            });
+            }).Run().Bind(static inner => inner);
 
     public Fin<Unit> Activate(Generator generator, string name) =>
         loaded.Value.Contains(name)
-            ? Op.Of(name: "generative.adapter-activate").Catch(() => { generator.SetActiveAdapter(adapters, name); return Fin.Succ(unit); })
+            ? Try.lift(() => { generator.SetActiveAdapter(adapters, name); return Fin.Succ(unit); }).Run().Bind(static inner => inner)
             : GenerativeRefusal.AdapterUnloaded.Fault<Unit>();
 
     public void Dispose() => adapters.Dispose();
@@ -648,7 +648,7 @@ public static partial class GenerativeRun {
             }));
 
     static Fin<DirectoryWitness> Measured(string modelDir) =>
-        Op.Of(name: "generative.resident-measure").Catch(() => {
+        Try.lift(() => {
             Seq<string> files = toSeq(Directory.EnumerateFiles(modelDir, "*", SearchOption.AllDirectories)
                 .Order(StringComparer.Ordinal).ToArray());
             UInt128 digest = ContentHash.Of(
@@ -661,16 +661,16 @@ public static partial class GenerativeRun {
                 digest, stats.Count,
                 stats.Sum(static info => info.Length),
                 stats.Fold(0L, static (newest, info) => Math.Max(newest, info.LastWriteTimeUtc.Ticks))));
-        });
+        }).Run().Bind(static inner => inner);
 
     static Fin<bool> Unchanged(string modelDir, DirectoryWitness witness) =>
-        Op.Of(name: "generative.resident-verify").Catch(() => {
+        Try.lift(() => {
             Seq<FileInfo> stats = toSeq(Directory.EnumerateFiles(modelDir, "*", SearchOption.AllDirectories)
                 .Select(static path => new FileInfo(path)).ToArray());
             return Fin.Succ(stats.Count == witness.Files
                 && stats.Sum(static info => info.Length) == witness.Bytes
                 && stats.Fold(0L, static (newest, info) => Math.Max(newest, info.LastWriteTimeUtc.Ticks)) == witness.NewestTicks);
-        });
+        }).Run().Bind(static inner => inner);
 
     static UInt128 Fingerprint(UInt128 digest, GenerationPolicy policy) =>
         ContentHash.Of((Digest: digest, Policy: policy), static (state, writer) => {
@@ -694,9 +694,7 @@ public static partial class GenerativeRun {
     static Fin<ResidentPool<UInt128, GenerativeResident>.Lease> Lease(string modelDir, GenerationPolicy policy, IClock clock, CancelScope scope) =>
         from witness in Witness(modelDir)
         let key = Fingerprint(witness.Digest, policy)
-        from held in Residents.Hold(
-            key,
-            Option<int>.None,
+        from held in Residents.Hold(Option<int>.None,
             () => Build(modelDir, witness, policy),
             clock,
             scope)
@@ -704,14 +702,14 @@ public static partial class GenerativeRun {
 
     static Fin<GenerativeResident> Build(string modelDir, DirectoryWitness witness, GenerationPolicy policy) =>
         policy.OpenConfig(modelDir).Bind(config =>
-            Op.Of(name: "generative.model-open").Catch(() => Fin.Succ(new Model(config)))
+            Try.lift(() => Fin.Succ(new Model(config))).Run().Bind(static inner => inner)
                 .Bind(session =>
                     from fresh in Unchanged(modelDir, witness)
                     from _ in guard(fresh, (Error)GenerativeRefusal.ResidentChanged.Fault())
-                    from __ in Op.Of(name: "generative.model-data-release").Catch(() => {
+                    from __ in Try.lift(() => {
                         policy.InMemory.Iter(data => config.RemoveModelData(data.Filename));
                         return Fin.Succ(unit);
-                    })
+                    }).Run().Bind(static inner => inner)
                     let set = new AdapterSet(session)
                     from ___ in policy.AdapterPaths.Traverse(row => set.Load(row).ToValidation()).As().ToFin().Rollback(set)
                     select new GenerativeResident(modelDir, config, session, set))
@@ -864,7 +862,7 @@ public static partial class GenerativeRun {
             }));
 
     static Fin<StagedRun> Staged(CancelScope scope, Func<Fin<StagedRun>> arm) =>
-        Op.Of(name: "generative.stage").Catch(arm, scope.Source.Token).MapFail(error => ModelSessions.Faulted(scope, error));
+        Try.lift(arm).Run().Bind(static inner => inner).MapFail(error => ModelSessions.Faulted(scope, error));
 }
 ```
 
@@ -1082,15 +1080,15 @@ public static partial class GenerativeRun {
         from _ in policy.Conforms(input)
         from lease in Lease(modelDir, policy, clock, scope)
         from opened in (
-            from parameters in Op.Of(name: "generative.parameters-open").Catch(() => Fin.Succ(new GeneratorParams(lease.Held.Session)), scope.Source.Token)
+            from parameters in Try.lift(() => Fin.Succ(new GeneratorParams(lease.Held.Session))).Run().Bind(static inner => inner)
             from applied in (
                 from __ in policy.Apply(parameters, input)
-                from generator in Op.Of(name: "generative.generator-open").Catch(() => Fin.Succ(new Generator(lease.Held.Session, parameters)), scope.Source.Token)
+                from generator in Try.lift(() => Fin.Succ(new Generator(lease.Held.Session, parameters))).Run().Bind(static inner => inner)
                 from held in (
-                    from ___ in Op.Of(name: "generative.runtime-options").Catch(() => {
+                    from ___ in Try.lift(() => {
                         policy.RuntimeOptions.Iter(option => generator.SetRuntimeOption(option.Key, option.Value));
                         return Fin.Succ(unit);
-                    }, scope.Source.Token)
+                    }).Run().Bind(static inner => inner)
                     from ____ in policy.Adapter.Map(name => lease.Held.Adapters.Activate(generator, name)).IfNone(Fin.Succ(unit))
                     from staged in Stage(lease.Held.Session, generator, policy, input, stop, scope)
                     select new Opened(lease, parameters, generator, staged))

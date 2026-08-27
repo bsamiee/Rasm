@@ -80,141 +80,136 @@ public abstract partial record SlotValue {
     public sealed record Ids(Seq<Guid> Values) : SlotValue;
     public sealed record Texts(Seq<string> Values) : SlotValue;
 
-    internal Fin<SlotValue> Admit(Op op) =>
-        Switch(
-            op,
-            toggle: static (_, slot) => Fin.Succ<SlotValue>(slot),
+    internal Fin<SlotValue> Admit() =>
+        Switch(toggle: static (_, slot) => Fin.Succ<SlotValue>(slot),
             count: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            scalar: static (key, slot) => guard(double.IsFinite(slot.Value), key.InvalidInput()).ToFin()
+            scalar: static (key, slot) => guard(double.IsFinite(slot.Value), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            point: static (key, slot) => key.AcceptInput(value: slot.Value).Map(_ => (SlotValue)slot),
-            direction: static (key, slot) => key.AcceptInput(value: slot.Value).Map(_ => (SlotValue)slot),
-            motion: static (key, slot) => key.AcceptInput(value: slot.Value).Map(_ => (SlotValue)slot),
+            point: static (key, slot) => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
+            direction: static (key, slot) => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
+            motion: static (key, slot) => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
             paint: static (_, slot) => Fin.Succ<SlotValue>(slot),
             id: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            text: static (key, slot) => key.Need(slot.Value).Map(_ => (SlotValue)slot),
-            curveSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, key.InvalidInput()).ToFin()
+            text: static (key, slot) => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
+            curveSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            surfaceSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, key.InvalidInput()).ToFin()
+            surfaceSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            brepSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, key.InvalidInput()).ToFin()
+            brepSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            meshSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, key.InvalidInput()).ToFin()
+            meshSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            source: static (key, slot) => key.Need(slot.Value).Map(_ => (SlotValue)slot),
+            source: static (key, slot) => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
             pointOnSource: static (key, slot) =>
-                from source in key.Need(slot.Value)
-                from point in key.AcceptInput(value: slot.At)
+                from source in Admit.Need(slot.Value)
+                from point in Acceptance.Input(value: slot.At)
                 select (SlotValue)new PointOnSource(Value: source, At: point),
             toggles: static (_, slot) => Fin.Succ<SlotValue>(slot),
             counts: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            scalars: static (key, slot) => guard(slot.Values.ForAll(double.IsFinite), key.InvalidInput()).ToFin()
+            scalars: static (key, slot) => guard(slot.Values.ForAll(double.IsFinite), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            points: static (key, slot) => slot.Values.TraverseM(value => key.AcceptInput(value)).As()
+            points: static (key, slot) => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
                 .Map(values => (SlotValue)new Points(Values: values)),
-            directions: static (key, slot) => slot.Values.TraverseM(value => key.AcceptInput(value)).As()
+            directions: static (key, slot) => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
                 .Map(values => (SlotValue)new Directions(Values: values)),
             paints: static (_, slot) => Fin.Succ<SlotValue>(slot),
             ids: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            texts: static (key, slot) => slot.Values.TraverseM(value => key.Need(value)).As()
+            texts: static (key, slot) => slot.Values.TraverseM(value => Admit.Need(value)).As()
                 .Map(values => (SlotValue)new Texts(Values: values)));
 
-    internal Fin<Unit> Write(RhinoDoc document, HistoryRecord record, SlotKey key, Op op) =>
-        op.Catch(() => Switch(
-            (Document: document, Record: record, Id: (int)key, Op: op),
-            toggle: static (context, slot) => context.Op.Confirm(success: context.Record.SetBool(id: context.Id, value: slot.Value)),
-            count: static (context, slot) => context.Op.Confirm(success: context.Record.SetInt(id: context.Id, value: slot.Value)),
-            scalar: static (context, slot) => context.Op.Confirm(success: context.Record.SetDouble(id: context.Id, value: slot.Value)),
-            point: static (context, slot) => context.Op.Confirm(success: context.Record.SetPoint3d(id: context.Id, value: slot.Value)),
-            direction: static (context, slot) => context.Op.Confirm(success: context.Record.SetVector3d(id: context.Id, value: slot.Value)),
-            motion: static (context, slot) => context.Op.Confirm(success: context.Record.SetTransorm(id: context.Id, value: slot.Value)),
-            paint: static (context, slot) => context.Op.Confirm(success: context.Record.SetColor(id: context.Id, value: slot.Value)),
-            id: static (context, slot) => context.Op.Confirm(success: context.Record.SetGuid(id: context.Id, value: slot.Value)),
-            text: static (context, slot) => context.Op.Confirm(success: context.Record.SetString(id: context.Id, value: slot.Value)),
-            curveSlot: static (context, slot) => context.Op.Confirm(success: context.Record.SetCurve(id: context.Id, value: slot.Value)),
-            surfaceSlot: static (context, slot) => context.Op.Confirm(success: context.Record.SetSurface(id: context.Id, value: slot.Value)),
-            brepSlot: static (context, slot) => context.Op.Confirm(success: context.Record.SetBrep(id: context.Id, value: slot.Value)),
-            meshSlot: static (context, slot) => context.Op.Confirm(success: context.Record.SetMesh(id: context.Id, value: slot.Value)),
+    internal Fin<Unit> Write(RhinoDoc document, HistoryRecord record, SlotKey key) =>
+        Try.lift(() => Switch(
+            (Document: document, Record: record, Id: (int)key),
+            toggle: static (context, slot) => Admit.Confirm(success: context.Record.SetBool(id: context.Id, value: slot.Value)),
+            count: static (context, slot) => Admit.Confirm(success: context.Record.SetInt(id: context.Id, value: slot.Value)),
+            scalar: static (context, slot) => Admit.Confirm(success: context.Record.SetDouble(id: context.Id, value: slot.Value)),
+            point: static (context, slot) => Admit.Confirm(success: context.Record.SetPoint3d(id: context.Id, value: slot.Value)),
+            direction: static (context, slot) => Admit.Confirm(success: context.Record.SetVector3d(id: context.Id, value: slot.Value)),
+            motion: static (context, slot) => Admit.Confirm(success: context.Record.SetTransorm(id: context.Id, value: slot.Value)),
+            paint: static (context, slot) => Admit.Confirm(success: context.Record.SetColor(id: context.Id, value: slot.Value)),
+            id: static (context, slot) => Admit.Confirm(success: context.Record.SetGuid(id: context.Id, value: slot.Value)),
+            text: static (context, slot) => Admit.Confirm(success: context.Record.SetString(id: context.Id, value: slot.Value)),
+            curveSlot: static (context, slot) => Admit.Confirm(success: context.Record.SetCurve(id: context.Id, value: slot.Value)),
+            surfaceSlot: static (context, slot) => Admit.Confirm(success: context.Record.SetSurface(id: context.Id, value: slot.Value)),
+            brepSlot: static (context, slot) => Admit.Confirm(success: context.Record.SetBrep(id: context.Id, value: slot.Value)),
+            meshSlot: static (context, slot) => Admit.Confirm(success: context.Record.SetMesh(id: context.Id, value: slot.Value)),
             source: static (context, slot) => slot.Value.Use(
                 document: context.Document,
-                body: source => context.Op.Confirm(success: context.Record.SetObjRef(id: context.Id, value: source)),
-                op: context.Op),
+                body: source => Admit.Confirm(success: context.Record.SetObjRef(id: context.Id, value: source))),
             pointOnSource: static (context, slot) => slot.Value.Use(
                 document: context.Document,
-                body: source => context.Op.Confirm(
-                    success: context.Record.SetPoint3dOnObject(id: context.Id, objref: source, value: slot.At)),
-                op: context.Op),
-            toggles: static (context, slot) => context.Op.Confirm(success: context.Record.SetBools(id: context.Id, values: slot.Values.AsIterable())),
-            counts: static (context, slot) => context.Op.Confirm(success: context.Record.SetInts(id: context.Id, values: slot.Values.AsIterable())),
-            scalars: static (context, slot) => context.Op.Confirm(success: context.Record.SetDoubles(id: context.Id, values: slot.Values.AsIterable())),
-            points: static (context, slot) => context.Op.Confirm(success: context.Record.SetPoint3ds(id: context.Id, values: slot.Values.AsIterable())),
-            directions: static (context, slot) => context.Op.Confirm(success: context.Record.SetVector3ds(id: context.Id, values: slot.Values.AsIterable())),
-            paints: static (context, slot) => context.Op.Confirm(success: context.Record.SetColors(id: context.Id, values: slot.Values.AsIterable())),
-            ids: static (context, slot) => context.Op.Confirm(success: context.Record.SetGuids(id: context.Id, values: slot.Values.AsIterable())),
-            texts: static (context, slot) => context.Op.Confirm(success: context.Record.SetStrings(id: context.Id, values: slot.Values.AsIterable()))));
+                body: source => Admit.Confirm(
+                    success: context.Record.SetPoint3dOnObject(id: context.Id, objref: source, value: slot.At))),
+            toggles: static (context, slot) => Admit.Confirm(success: context.Record.SetBools(id: context.Id, values: slot.Values.AsIterable())),
+            counts: static (context, slot) => Admit.Confirm(success: context.Record.SetInts(id: context.Id, values: slot.Values.AsIterable())),
+            scalars: static (context, slot) => Admit.Confirm(success: context.Record.SetDoubles(id: context.Id, values: slot.Values.AsIterable())),
+            points: static (context, slot) => Admit.Confirm(success: context.Record.SetPoint3ds(id: context.Id, values: slot.Values.AsIterable())),
+            directions: static (context, slot) => Admit.Confirm(success: context.Record.SetVector3ds(id: context.Id, values: slot.Values.AsIterable())),
+            paints: static (context, slot) => Admit.Confirm(success: context.Record.SetColors(id: context.Id, values: slot.Values.AsIterable())),
+            ids: static (context, slot) => Admit.Confirm(success: context.Record.SetGuids(id: context.Id, values: slot.Values.AsIterable())),
+            texts: static (context, slot) => Admit.Confirm(success: context.Record.SetStrings(id: context.Id, values: slot.Values.AsIterable())))).Run().Bind(static inner => inner);
 
-    internal Fin<SlotValue> Recover(ReplayHistoryData data, SlotKey key, Op? keyOp = null) {
-        Op op = keyOp.OrDefault();
-        return from active in op.Need(data)
-               from value in op.Catch(() => Switch(
-                   (Data: active, Id: (int)key, Op: op),
+    internal Fin<SlotValue> Recover(ReplayHistoryData data, SlotKey key) {
+        return from active in Admit.Need(data)
+               from value in Try.lift(() => Switch(
+                   (Data: active, Id: (int)key),
                    toggle: static (context, _) => context.Data.TryGetBool(context.Id, out bool value)
-                       ? Fin.Succ<SlotValue>(new Toggle(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Toggle(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    count: static (context, _) => context.Data.TryGetInt(context.Id, out int value)
-                       ? Fin.Succ<SlotValue>(new Count(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Count(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    scalar: static (context, _) => context.Data.TryGetDouble(context.Id, out double value)
-                       ? Fin.Succ<SlotValue>(new Scalar(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Scalar(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    point: static (context, _) => context.Data.TryGetPoint3d(context.Id, out Point3d value)
-                       ? Fin.Succ<SlotValue>(new Point(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Point(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    direction: static (context, _) => context.Data.TryGetVector3d(context.Id, out Vector3d value)
-                       ? Fin.Succ<SlotValue>(new Direction(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Direction(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    motion: static (context, _) => context.Data.TryGetTransform(context.Id, out Transform value)
-                       ? Fin.Succ<SlotValue>(new Motion(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Motion(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    paint: static (context, _) => context.Data.TryGetColor(context.Id, out System.Drawing.Color value)
-                       ? Fin.Succ<SlotValue>(new Paint(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Paint(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    id: static (context, _) => context.Data.TryGetGuid(context.Id, out Guid value)
-                       ? Fin.Succ<SlotValue>(new Id(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Id(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    text: static (context, _) => context.Data.TryGetString(context.Id, out string value)
-                       ? Fin.Succ<SlotValue>(new Text(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   curveSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(CurveSlot))),
-                   surfaceSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(SurfaceSlot))),
-                   brepSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(BrepSlot))),
-                   meshSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(MeshSlot))),
-                   source: static (context, _) => RecoverSource(context.Data, context.Id, context.Op)
+                       ? Fin.Succ<SlotValue>(new Text(value)) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
+                   curveSlot: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(CurveSlot))),
+                   surfaceSlot: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(SurfaceSlot))),
+                   brepSlot: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(BrepSlot))),
+                   meshSlot: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(MeshSlot))),
+                   source: static (context, _) => RecoverSource(context.Data, context.Id)
                        .Map(value => (SlotValue)new Source(value)),
                    pointOnSource: static (context, _) => context.Data.TryGetPoint3dOnObject(context.Id, out Point3d value)
-                       ? RecoverSource(context.Data, context.Id, context.Op)
+                       ? RecoverSource(context.Data, context.Id)
                            .Map(source => (SlotValue)new PointOnSource(source, value))
-                       : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   toggles: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(Toggles))),
+                       : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
+                   toggles: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(Toggles))),
                    counts: static (context, _) => context.Data.TryGetInts(context.Id, out int[] values)
-                       ? Fin.Succ<SlotValue>(new Counts(toSeq(values))) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
+                       ? Fin.Succ<SlotValue>(new Counts(toSeq(values))) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
                    scalars: static (context, _) => context.Data.TryGetDoubles(context.Id, out double[] values)
-                       ? Fin.Succ<SlotValue>(new Scalars(toSeq(values))) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   points: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(Points))),
-                   directions: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(Directions))),
-                   paints: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(Paints))),
+                       ? Fin.Succ<SlotValue>(new Scalars(toSeq(values))) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
+                   points: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(Points))),
+                   directions: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(Directions))),
+                   paints: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(Paints))),
                    ids: static (context, _) => context.Data.TryGetGuids(context.Id, out Guid[] values)
-                       ? Fin.Succ<SlotValue>(new Ids(toSeq(values))) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   texts: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
-                       valueType: typeof(ReplayHistoryData), outputType: typeof(Texts)))))
-               from admitted in value.Admit(op)
+                       ? Fin.Succ<SlotValue>(new Ids(toSeq(values))) : Fin.Fail<SlotValue>(new KernelFault.MissingContext()),
+                   texts: static (context, _) => Fin.Fail<SlotValue>(new KernelFault.Unsupported(
+                       valueType: typeof(ReplayHistoryData), OutputType: typeof(Texts))))).Run().Bind(static inner => inner)
+               from admitted in value.Admit()
                select admitted;
     }
 
-    private static Fin<HistorySource> RecoverSource(ReplayHistoryData data, int id, Op op) =>
-        op.Catch(() => {
+    private static Fin<HistorySource> RecoverSource(ReplayHistoryData data, int id) =>
+        Try.lift(() => {
             using ObjRef? source = data.GetRhinoObjRef(id: id);
-            return Optional(source).ToFin(Fail: op.MissingContext()).Bind(value => HistorySource.Capture(value, op));
-        });
+            return Optional(source).ToFin(Fail: new KernelFault.MissingContext()).Bind(value => Error.New(value.Message, value));
+        }).Run().Bind(static inner => inner);
 }
 ```
 
@@ -254,16 +249,16 @@ public sealed partial class HistorySource : IDetachedDocumentResult {
             ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(name: nameof(HistorySource)), nameof(Id) }))
             : validationError;
 
-    internal static Fin<HistorySource> Capture(ObjRef source, Op op) =>
-        op.AcceptValidated<HistorySource>(
+    internal static Fin<HistorySource> Capture(ObjRef source) =>
+        FactoryBridge.Accept<HistorySource>(
             fault: Validate(source.ObjectId, source.GeometryComponentIndex, out HistorySource? admitted),
             admitted: admitted);
 
-    internal Fin<T> Use<T>(RhinoDoc document, Func<ObjRef, Fin<T>> body, Op op) =>
-        op.Catch(() => {
+    internal Fin<T> Use<T>(RhinoDoc document, Func<ObjRef, Fin<T>> body) =>
+        Try.lift(() => {
             using ObjRef source = new(document, Id, Component);
             return body(source);
-        });
+        }).Run().Bind(static inner => inner);
 }
 
 public sealed class HistoryScript {
@@ -285,29 +280,27 @@ public sealed class HistoryScript {
         HistoryOwner owner,
         ReplaceSurvival copyOnReplace,
         params ReadOnlySpan<(SlotKey Key, SlotValue Value)> slots) {
-        Op op = Op.Of(name: nameof(HistoryScript));
-        return from _ in guard(version > 0, op.InvalidInput()).ToFin()
-               from seat in op.Need(owner)
-               from survival in op.Need(copyOnReplace)
-               from rows in toSeq(slots.ToArray()).TraverseM(slot => op.Need(slot.Value)
-                   .Bind(value => value.Admit(op: op))
+        return from _ in guard(version > 0, new KernelFault.InvalidInput()).ToFin()
+               from seat in Admit.Need(owner)
+               from survival in Admit.Need(copyOnReplace)
+               from rows in toSeq(slots.ToArray()).TraverseM(slot => Admit.Need(slot.Value)
+                   .Bind(value => value.Admit())
                    .Map(value => (slot.Key, value))).As()
-               from __ in guard(!rows.IsEmpty && rows.Map(static slot => slot.Key).Distinct().Count == rows.Count, op.InvalidInput())
+               from __ in guard(!rows.IsEmpty && rows.Map(static slot => slot.Key).Distinct().Count == rows.Count, new KernelFault.InvalidInput())
                select new HistoryScript(version: version, owner: seat, copyOnReplace: survival, slots: rows);
     }
 
-    public Fin<Lease<HistoryRecord>> Mint(RhinoDoc document, Op? key = null) {
-        Op op = key.OrDefault();
-        return from host in op.Need(document)
-               from record in Owner.Mint(version: Version, key: op)
+    public Fin<Lease<HistoryRecord>> Mint(RhinoDoc document) {
+        return from host in Admit.Need(document)
+               from record in Owner.Mint(version: Version)
                let held = (Lease<HistoryRecord>)new Lease<HistoryRecord>.Owned(Value: record)
                from lease in Slots
-                   .TraverseM(slot => slot.Value.Write(document: host, record: record, key: slot.Key, op: op)).As()
-                   .Bind(_ => op.Catch(() => {
+                   .TraverseM(slot => slot.Value.Write(document: host, record: record)).As()
+                   .Bind(_ => Try.lift(() => {
                        record.CopyOnReplaceObject = CopyOnReplace.Key;
                        return Fin.Succ(value: held);
-                   }))
-                   .Rollback(release: () => op.Catch(() => Fin.Succ(value: held.Dispose())), key: op)
+                   }).Run().Bind(static inner => inner))
+                   .Rollback(release: () => Try.lift(() => Fin.Succ(value: held.Dispose())).Run().Bind(static inner => inner))
                select lease;
     }
 }
@@ -373,24 +366,21 @@ public abstract partial record Regrown {
     public sealed record RawText(RawTextGrowth Value) : Regrown;
     public sealed record Instance(InstanceReferenceGeometry Value) : Regrown;
 
-    public Fin<Regrown> Admit(Op? key = null) {
-        Op op = key.OrDefault();
-        return Switch(
-            op,
-            point: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+    public Fin<Regrown> Admit() {
+        return Switch(point: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
             dot: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             line: static (gate, value) =>
-                from start in gate.AcceptInput(value.Value.From)
-                from end in gate.AcceptInput(value.Value.To)
-                from _ in guard(start != end, gate.InvalidInput())
+                from start in Acceptance.Input(value.Value.From)
+                from end in Acceptance.Input(value.Value.To)
+                from _ in guard(start != end, new KernelFault.InvalidInput())
                 select (Regrown)new Line(new LineGrowth(start, end)),
-            polyline: static (gate, value) => guard(value.Values.Count >= 2, gate.InvalidInput()).ToFin()
+            polyline: static (gate, value) => guard(value.Values.Count >= 2, new KernelFault.InvalidInput()).ToFin()
                 .Bind(_ => AdmitPoints(value.Values, gate))
                 .Map(points => (Regrown)new Polyline(points)),
-            arc: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            circle: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            ellipse: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            sphere: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+            arc: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            circle: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            ellipse: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            sphere: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
             curve: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             surface: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             extrusion: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
@@ -398,19 +388,19 @@ public abstract partial record Regrown {
             subD: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             brep: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             pointCloud: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            pointCloudPoints: static (gate, value) => guard(!value.Values.IsEmpty, gate.InvalidInput()).ToFin()
+            pointCloudPoints: static (gate, value) => guard(!value.Values.IsEmpty, new KernelFault.InvalidInput()).ToFin()
                 .Bind(_ => AdmitPoints(value.Values, gate))
                 .Map(points => (Regrown)new PointCloudPoints(points)),
             clippingPlane: static (gate, value) =>
-                from frame in gate.AcceptInput(value.Value.Frame)
+                from frame in Acceptance.Input(value.Value.Frame)
                 from _ in guard(
                     double.IsFinite(value.Value.U) && value.Value.U > 0.0
                     && double.IsFinite(value.Value.V) && value.Value.V > 0.0
                     && !value.Value.Viewports.IsEmpty,
-                    gate.InvalidInput())
+                    new KernelFault.InvalidInput())
                 from ids in value.Value.Viewports.TraverseM(id => id != Guid.Empty
                     ? Fin.Succ(id)
-                    : Fin.Fail<Guid>(gate.InvalidInput())).As()
+                    : Fin.Fail<Guid>(new KernelFault.InvalidInput())).As()
                 select (Regrown)new ClippingPlane(value.Value with { Frame = frame, Viewports = ids.Distinct() }),
             linearDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             radialDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
@@ -419,22 +409,22 @@ public abstract partial record Regrown {
             hatch: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             text: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
             rawText: static (gate, value) =>
-                from text in gate.AcceptText(value.Value.Text)
-                from frame in gate.AcceptInput(value.Value.Frame)
-                from height in gate.Positive(value.Value.Height)
-                from font in gate.AcceptText(value.Value.Font)
-                from emphasis in gate.Need(value.Value.Emphasis)
+                from text in Acceptance.Text(value.Value.Text)
+                from frame in Acceptance.Input(value.Value.Frame)
+                from height in Admit.Positive(value.Value.Height)
+                from font in Acceptance.Text(value.Value.Font)
+                from emphasis in Admit.Need(value.Value.Emphasis)
                 select (Regrown)new RawText(value.Value with {
                     Text = text, Frame = frame, Height = height, Font = font, Emphasis = emphasis,
                 }),
             instance: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value));
     }
 
-    internal Fin<Unit> Apply(ReplayHistoryResult result, Option<ObjectAttributes> attributes, Op op) {
+    internal Fin<Unit> Apply(ReplayHistoryResult result, Option<ObjectAttributes> attributes) {
         ObjectAttributes? nativeAttributes = attributes.Match<ObjectAttributes?>(
             Some: static value => value,
             None: static () => null);
-        return op.Catch(() => op.Confirm(success: Switch(
+        return Try.lift(() => Admit.Confirm(success: Switch(
             (Result: result, Attributes: nativeAttributes),
             point: static (context, value) => context.Result.UpdateToPoint(value.Value, context.Attributes),
             dot: static (context, value) => context.Result.UpdateToTextDot(value.Value, context.Attributes),
@@ -475,14 +465,14 @@ public abstract partial record Regrown {
                 context.Attributes),
             instance: static (context, value) => context.Result.UpdateToInstanceReferenceGeometry(
                 value.Value,
-                context.Attributes))));
+                context.Attributes)))).Run().Bind(static inner => inner);
     }
 
-    private static Fin<Seq<Point3d>> AdmitPoints(Seq<Point3d> values, Op op) =>
-        values.TraverseM(value => op.AcceptInput(value)).As();
+    private static Fin<Seq<Point3d>> AdmitPoints(Seq<Point3d> values) =>
+        values.TraverseM(value => Acceptance.Input(value)).As();
 
-    private static Fin<Unit> AdmitGeometry(GeometryBase? value, Op op) =>
-        guard(value is { IsValid: true }, op.InvalidInput()).ToFin();
+    private static Fin<Unit> AdmitGeometry(GeometryBase? value) =>
+        guard(value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin();
 }
 ```
 
@@ -504,48 +494,46 @@ public abstract partial record ReplayRoster {
     public sealed record Append(int Count) : ReplayRoster;
     public sealed record Retain(Seq<int> Indices) : ReplayRoster;
 
-    internal Fin<ReplayRoster> Admit(Op op) => Switch(
-        op,
-        preserve: static (_, value) => Fin.Succ<ReplayRoster>(value),
-        append: static (key, value) => guard(value.Count > 0, key.InvalidInput()).ToFin().Map(_ => (ReplayRoster)value),
+    internal Fin<ReplayRoster> Admit() => Switch(preserve: static (_, value) => Fin.Succ<ReplayRoster>(value),
+        append: static (key, value) => guard(value.Count > 0, new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)value),
         retain: static (key, value) => guard(
             !value.Indices.IsEmpty && value.Indices.ForAll(static index => index >= 0),
-            key.InvalidInput()).ToFin().Map(_ => (ReplayRoster)new Retain(value.Indices.Distinct())));
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)new Retain(value.Indices.Distinct())));
 
-    internal Fin<Seq<int>> Staging(int existing, Op op) =>
-        guard(existing >= 0, op.InvalidInput()).ToFin().Bind(_ => Switch(
-            (Existing: existing, Op: op),
-            preserve: static (context, _) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: context.Existing))),
-            append: static (context, value) => context.Op.Catch(() =>
-                Fin.Succ(toSeq(Enumerable.Range(start: 0, count: checked(context.Existing + value.Count))))),
+    internal Fin<Seq<int>> Staging(int existing) =>
+        guard(existing >= 0, new KernelFault.InvalidInput()).ToFin().Bind(_ => Switch(
+            existing,
+            preserve: static (context, _) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: context))),
+            append: static (context, value) => Try.lift(() =>
+                Fin.Succ(toSeq(Enumerable.Range(start: 0, count: checked(context + value.Count))))).Run().Bind(static inner => inner),
             retain: static (context, value) => guard(
-                value.Indices.ForAll(index => index < context.Existing),
-                context.Op.MissingContext()).ToFin().Map(_ => value.Indices)));
+                value.Indices.ForAll(index => index < context),
+                new KernelFault.MissingContext()).ToFin().Map(_ => value.Indices)));
 
-    internal Fin<Unit> Apply(ReplayHistoryData data, Op op) => op.Catch(() => {
+    internal Fin<Unit> Apply(ReplayHistoryData data) => Try.lift(() => {
         ReplayHistoryResult[] prior = data.Results;
         Fin<Unit> mutation = Switch(
-            (Data: data, Op: op),
+            data,
             preserve: static (_, _) => Fin.Succ(unit),
             append: static (context, value) => toSeq(Enumerable.Range(start: 0, count: value.Count))
-                .TraverseM(_ => context.Op.Catch(() => Optional(context.Data.AppendHistoryResult())
-                    .ToFin(Fail: context.Op.InvalidResult()).Map(static _ => unit))).As()
+                .TraverseM(_ => Try.lift(() => Optional(context.AppendHistoryResult())
+                    .ToFin(Fail: new KernelFault.InvalidResult()).Map(static _ => unit)).Run().Bind(static inner => inner)).As()
                 .Map(static _ => unit),
-            retain: static (context, value) => context.Op.Catch(() => {
-                ReplayHistoryResult[] current = context.Data.Results;
+            retain: static (context, value) => Try.lift(() => {
+                ReplayHistoryResult[] current = context.Results;
                 return value.Indices.TraverseM(index => index < current.Length
                         ? Fin.Succ(current[index])
-                        : Fin.Fail<ReplayHistoryResult>(context.Op.MissingContext())).As()
+                        : Fin.Fail<ReplayHistoryResult>(new KernelFault.MissingContext())).As()
                     .Map(rows => {
-                        context.Data.UpdateResultArray(newResults: rows.AsIterable());
+                        context.UpdateResultArray(newResults: rows.AsIterable());
                         return unit;
                     });
-            }));
+            }).Run().Bind(static inner => inner));
         return mutation.Rollback(release: () => {
             data.UpdateResultArray(newResults: prior);
             return Fin.Succ(value: unit);
-        }, key: op);
-    });
+        });
+    }).Run().Bind(static inner => inner);
 }
 
 public readonly ref struct ReplayFrame {
@@ -555,12 +543,11 @@ public readonly ref struct ReplayFrame {
 
     public Guid RecordId => data.RecordId;
     public int Version => data.HistoryVersion;
-    public Fin<SlotValue> Recover(SlotKey key, SlotValue shape, Op? op = null) => shape.Recover(data, key, op);
-    public Fin<T> Use<T>(HistorySource source, Func<ObjRef, Fin<T>> body, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(source)
-               from run in op.Need(body)
-               from result in active.Use(document: data.Document, body: run, op: op)
+    public Fin<SlotValue> Recover(SlotKey key, SlotValue shape) => shape.Recover(data);
+    public Fin<T> Use<T>(HistorySource source, Func<ObjRef, Fin<T>> body) {
+        return from active in Admit.Need(source)
+               from run in Admit.Need(body)
+               from result in active.Use(document: data.Document, body: run)
                select result;
     }
 }
@@ -586,20 +573,18 @@ public sealed class ReplayProgram {
         int version,
         ReplayRoster roster,
         ReplayStep regrow) {
-        Op op = Op.Of(name: nameof(ReplayProgram));
-        return from _ in guard(version > 0, op.InvalidInput()).ToFin()
-               from plan in op.Need(roster).Bind(value => value.Admit(op))
-               from body in op.Need(regrow)
+        return from _ in guard(version > 0, new KernelFault.InvalidInput()).ToFin()
+               from plan in Admit.Need(roster).Bind(value => value.Admit())
+               from body in Admit.Need(regrow)
                select new ReplayProgram(version: version, roster: plan, regrow: body);
     }
 
     public Fin<ReplayHook> Hook =>
-        Op.Of(name: nameof(ReplayProgram)).AcceptValidated<ReplayHook>(
+        FactoryBridge.Accept<ReplayHook>(
             ReplayHook.Validate(Delegate, out ReplayHook? admitted), admitted);
 
     internal Func<ReplayHistoryData, bool> Delegate => data => {
-        Op op = Op.Of(name: nameof(ReplayProgram));
-        return op.Catch(() => Drive(data: data, op: op)).Match(
+        return Try.lift(() => Drive(data: data, op: op)).Run().Bind(static inner => inner).Match(
             Succ: static replayed => replayed,
             Fail: error => {
                 _ = ObjectsTelemetry.Publish(site: FaultSite.Replay, error: error);
@@ -607,26 +592,25 @@ public sealed class ReplayProgram {
             });
     };
 
-    private Fin<bool> Drive(ReplayHistoryData data, Op op) {
+    private Fin<bool> Drive(ReplayHistoryData data) {
         ReplayProgram program = this;
-        return from active in op.Need(data)
+        return from active in Admit.Need(data)
                from replayed in active.HistoryVersion != program.Version
                    ? Fin.Succ(value: false)
-                   : from indices in program.roster.Staging(existing: active.Results.Length, op: op)
-                     from staged in indices.TraverseM(index => op.Catch(() => {
+                   : from indices in program.roster.Staging(existing: active.Results.Length)
+                     from staged in indices.TraverseM(index => Try.lift(() => {
                                  ReplayFrame frame = new(active);
                                  return program.regrow(in frame, index);
-                             })
-                             .Bind(proposed => proposed.Admit(op))).As()
-                     from _ in program.roster.Apply(active, op)
+                             }).Run().Bind(static inner => inner)
+                             .Bind(proposed => proposed.Admit())).As()
+                     from _ in program.roster.Apply(active)
                      from results in Fin.Succ(value: toSeq(active.Results))
-                     from __ in guard(results.Count == staged.Count, op.InvalidResult())
+                     from __ in guard(results.Count == staged.Count, new KernelFault.InvalidResult())
                      from ___ in results
                          .Map(static (result, index) => (Result: result, Index: index))
                          .TraverseM(row => staged[row.Index].Apply(
                              result: row.Result,
-                             attributes: Optional(row.Result.ExistingObject).Map(static held => held.Attributes),
-                             op: op)).As()
+                             attributes: Optional(row.Result.ExistingObject).Map(static held => held.Attributes))).As()
                      select true
                select replayed;
     }
@@ -653,23 +637,19 @@ public abstract partial record BondOp {
     public sealed record Detach : BondOp;
     public sealed record Survival(ReplaceSurvival Posture) : BondOp;
 
-    internal Fin<BondOp> Admit(Op op) =>
-        Switch(
-            op,
-            attach: static (key, bond) => key.Need(bond.Script).Map(_ => (BondOp)bond),
+    internal Fin<BondOp> Admit() =>
+        Switch(attach: static (key, bond) => Admit.Need(bond.Script).Map(_ => (BondOp)bond),
             detach: static (_, bond) => Fin.Succ<BondOp>(bond),
-            survival: static (key, bond) => key.Need(bond.Posture).Map(_ => (BondOp)bond));
+            survival: static (key, bond) => Admit.Need(bond.Posture).Map(_ => (BondOp)bond));
 
-    internal Fin<Unit> Apply(RhinoDoc document, RhinoObject native, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, RhinoObject native) =>
         Switch(
-            (Document: document, Native: native, Op: op),
-            attach: static (context, bond) => bond.Script.Mint(document: context.Document, key: context.Op)
+            (Document: document, Native: native),
+            attach: static (context, bond) => bond.Script.Mint(document: context.Document)
                 .Bind(lease => lease.Use(
-                    record => context.Op.Confirm(success: context.Native.SetHistory(history: record)),
-                    context.Op)),
-            detach: static (context, _) => context.Op.Confirm(success: context.Native.DeleteHistoryRecord()),
-            survival: static (context, bond) => context.Op
-                .Catch(() => context.Native.SetCopyHistoryOnReplace(bCopy: bond.Posture.Key)));
+                    record => Admit.Confirm(success: context.Native.SetHistory(history: record)))),
+            detach: static (context, _) => Admit.Confirm(success: context.Native.DeleteHistoryRecord()),
+            survival: static (context, bond) => Try.lift(() => context.Native.SetCopyHistoryOnReplace(bCopy: bond.Posture.Key)).Run().Bind(static inner => inner));
 }
 
 [ComplexValueObject]
@@ -682,7 +662,6 @@ public sealed partial class WebBudget {
         ref ValidationError? validationError,
         ref int maxNodes,
         ref long maxEdges) {
-        Op op = Op.Of(name: nameof(WebBudget));
         int nodes = maxNodes;
         long edges = maxEdges;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
@@ -690,7 +669,7 @@ public sealed partial class WebBudget {
                 (edges <= 0L, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(MaxEdges), edges, "positive" })))));
     }
 
-    public static Fin<WebBudget> Of(int maxNodes, long maxEdges, Op? key = null) =>
+    public static Fin<WebBudget> Of(int maxNodes, long maxEdges) =>
         key.OrDefault().AcceptValidated<WebBudget>(
             fault: Validate(maxNodes, maxEdges, out WebBudget? admitted),
             admitted: admitted);
@@ -714,7 +693,7 @@ public sealed partial class HistoryWeb {
     public static readonly HistoryWeb Condensation = new(key: 6, read: Chronicle.Condensation);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<WebAnswer> Read(RhinoDoc document, TableTarget target, WebBudget budget, Op op);
+    internal partial Fin<WebAnswer> Read(RhinoDoc document, TableTarget target, WebBudget budget);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -757,9 +736,7 @@ public sealed partial class HistoryConduct {
     internal partial Unit WriteRaw(bool value);
 
     private static HistoryConduct Row(int key, Func<bool> read, Action<bool> write) =>
-        new(
-            key: key,
-            readRaw: read,
+        new(readRaw: read,
             writeRaw: value => {
                 write(value);
                 return unit;
@@ -767,26 +744,25 @@ public sealed partial class HistoryConduct {
 
     private static readonly Lock Gate = new();
 
-    internal Fin<ObjectSignal> Read(Op op) => op.Catch(() => {
+    internal Fin<ObjectSignal> Read() => Try.lift(() => {
         lock (Gate) { return Fin.Succ(value: ObjectSignal.Of(on: ReadRaw())); }
-    });
+    }).Run().Bind(static inner => inner);
 
-    internal Fin<Unit> Write(ObjectSignal value, Op op) => op.Catch(() => {
+    internal Fin<Unit> Write(ObjectSignal value) => Try.lift(() => {
         lock (Gate) { return Fin.Succ(value: WriteRaw(value.On)); }
-    });
+    }).Run().Bind(static inner => inner);
 
-    internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) =>
-        Read(op).Bind(prior => Write(value: signal, op: op)
-            .Bind(_ => op.Catch(body)
-                .Settled(release: () => Write(value: prior, op: op), key: op)));
+    internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body) =>
+        Read().Bind(prior => Write(value: signal)
+            .Bind(_ => Try.lift(body).Run().Bind(static inner => inner)
+                .Settled(release: () => Write(value: prior, op: op))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Chronicle {
     public static Fin<Unit> Bind(
-        DocumentSession session, TableTarget target, BondOp bond, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(bond).Bind(value => value.Admit(op: op))
+        DocumentSession session, TableTarget target, BondOp bond) {
+        return from active in Admit.Need(bond).Bind(value => value.Admit())
                from _ in ObjectSpine.Commit(
                    session: session,
                    name: nameof(Chronicle),
@@ -794,96 +770,90 @@ public static class Chronicle {
                    run: (document, gate) => Objects.Resolve(document: document, target: target, key: gate)
                        .Bind(natives => natives.TraverseM(native => active.Apply(
                            document: document, native: native, op: gate)).As()
-                           .Map(static _ => unit)),
-                   op: op)
+                           .Map(static _ => unit)))
                select unit;
     }
 
     public static Fin<WebAnswer> Ask(DocumentSession session, WebAsk ask) {
-        Op op = Op.Of();
-        return from active in op.Need(ask)
+        return from active in Admit.Need(ask)
                from answer in session.Demand(
                    use: document => active.Switch(
-                       (Document: document, Op: op),
+                       document,
                        targeted: static (ctx, query) =>
-                           from target in ctx.Op.Need(query.Target)
-                           from view in ctx.Op.Need(query.View)
-                           from budget in ctx.Op.Need(query.Budget)
-                           from result in view.Read(document: ctx.Document, target: target, budget: budget, op: ctx.Op)
+                           from target in Admit.Need(query.Target)
+                           from view in Admit.Need(query.View)
+                           from budget in Admit.Need(query.Budget)
+                           from result in view.Read(document: ctx, target: target, budget: budget)
                            select result,
-                       census: static (ctx, _) => ctx.Op.Catch(() =>
-                           Fin.Succ(value: (WebAnswer)new WebAnswer.Count(Records: ctx.Document.Objects.HistoryRecordCount)))),
-                   key: op,
+                       census: static (ctx, _) => Try.lift(() =>
+                           Fin.Succ(value: (WebAnswer)new WebAnswer.Count(Records: ctx.Objects.HistoryRecordCount))).Run().Bind(static inner => inner)),
                    needs: [SessionNeed.Read])
                select answer;
     }
 
     public static Fin<ObjectSignal> Conduct(HistoryConduct row, Option<ObjectSignal> set = default) {
-        Op op = Op.Of();
-        return from active in op.Need(row)
+        return from active in Admit.Need(row)
                from _ in set.Traverse(signal => active.Write(value: signal, op: op)).As()
-               from value in active.Read(op)
+               from value in active.Read()
                select value;
     }
 
     public static Fin<T> Under<T>(HistoryConduct row, ObjectSignal signal, Func<Fin<T>> body) {
-        Op op = Op.Of();
-        return from active in op.Need(row)
-               from state in op.Need(signal)
-               from run in op.Need(body)
-               from result in active.Within(signal: state, body: run, op: op)
+        return from active in Admit.Need(row)
+               from state in Admit.Need(signal)
+               from run in Admit.Need(body)
+               from result in active.Within(signal: state, body: run)
                select result;
     }
 
-    internal static Fin<WebAnswer> Parents(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Adjacent(document: document, target: target, budget: budget, op: op,
+    internal static Fin<WebAnswer> Parents(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Adjacent(document: document, target: target, budget: budget,
             linked: static native => native.HistoryParents());
 
-    internal static Fin<WebAnswer> Children(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Adjacent(document: document, target: target, budget: budget, op: op,
+    internal static Fin<WebAnswer> Children(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Adjacent(document: document, target: target, budget: budget,
             linked: static native => native.HistoryChildren());
 
-    internal static Fin<WebAnswer> Order(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Projected(document, target, budget, op, static (graph, key) => GraphFold.Ordered(graph: graph, op: key)
+    internal static Fin<WebAnswer> Order(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Projected(document, target, budget, static (graph, key) => GraphFold.Ordered(graph: graph, op: key)
             .Map(static ordered => (WebAnswer)new WebAnswer.Ordered(UpdateOrder: ordered)));
 
-    internal static Fin<WebAnswer> Loops(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Projected(document, target, budget, op, static (graph, key) => key.Catch(() =>
-            Fin.Succ(value: (WebAnswer)new WebAnswer.Groups(Cyclic: GraphFold.Cycles(graph: graph)))));
+    internal static Fin<WebAnswer> Loops(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Projected(document, target, budget, static (graph, key) => Try.lift(() =>
+            Fin.Succ(value: (WebAnswer)new WebAnswer.Groups(Cyclic: GraphFold.Cycles(graph: graph)))).Run().Bind(static inner => inner));
 
-    internal static Fin<WebAnswer> Closure(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Projected(document, target, budget, op, static (graph, key) =>
+    internal static Fin<WebAnswer> Closure(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Projected(document, target, budget, static (graph, key) =>
             GraphProjection<Guid>.Closure.Project(graph: graph, op: key).Map(Edges));
 
-    internal static Fin<WebAnswer> Reduction(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Projected(document, target, budget, op, static (graph, key) => GraphFold.Reduced(graph: graph, op: key).Map(Edges));
+    internal static Fin<WebAnswer> Reduction(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Projected(document, target, budget, static (graph, key) => GraphFold.Reduced(graph: graph, op: key).Map(Edges));
 
-    internal static Fin<WebAnswer> Condensation(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Projected(document, target, budget, op, static (graph, key) => key.Catch(() => {
+    internal static Fin<WebAnswer> Condensation(RhinoDoc document, TableTarget target, WebBudget budget) =>
+        Projected(document, target, budget, static (graph, key) => Try.lift(() => {
             (Seq<Seq<Guid>> components, Seq<(int From, int To)> edges) = GraphFold.Condensed(graph: graph);
             return Fin.Succ(value: (WebAnswer)new WebAnswer.Condensed(Components: components, Edges: edges));
-        }));
+        }).Run().Bind(static inner => inner));
 
     private static Fin<WebAnswer> Adjacent(
-        RhinoDoc document, TableTarget target, WebBudget budget, Op op, Func<RhinoObject, Guid[]> linked) =>
-        from natives in Objects.Resolve(document: document, target: target, key: op)
-        from _ in guard(natives.Count <= budget.MaxNodes, op.InvalidResult(detail: nameof(WebBudget.MaxNodes)))
-        from rows in natives.TraverseM(native => op.Catch(() =>
-            Fin.Succ(value: (native.Id, toSeq(linked(native)))))).As()
+        RhinoDoc document, TableTarget target, WebBudget budget, Func<RhinoObject, Guid[]> linked) =>
+        from natives in Objects.Resolve(document: document, target: target)
+        from _ in guard(natives.Count <= budget.MaxNodes, new KernelFault.InvalidResult(Detail: Some(nameof(WebBudget.MaxNodes))))
+        from rows in natives.TraverseM(native => Try.lift(() =>
+            Fin.Succ(value: (native.Id, toSeq(linked(native))))).Run().Bind(static inner => inner)).As()
         from __ in guard(
             rows.Fold(0L, static (count, row) => checked(count + row.Item2.Count)) <= budget.MaxEdges,
-            op.InvalidResult(detail: nameof(WebBudget.MaxEdges)))
+            new KernelFault.InvalidResult(Detail: Some(nameof(WebBudget.MaxEdges))))
         select (WebAnswer)new WebAnswer.Edges(Rows: rows);
 
     private static Fin<WebAnswer> Projected(
         RhinoDoc document,
         TableTarget target,
         WebBudget budget,
-        Op op,
-        Func<Web, Op, Fin<WebAnswer>> project) =>
-        from natives in Objects.Resolve(document: document, target: target, key: op)
-        from graph in Woven(document: document, natives: natives, budget: budget, op: op)
-        from answer in project(graph, op)
+        Func<Web, Fin<WebAnswer>> project) =>
+        from natives in Objects.Resolve(document: document, target: target)
+        from graph in Woven(document: document, natives: natives, budget: budget)
+        from answer in project(graph)
         select answer;
 
     private static WebAnswer Edges(Web graph) =>
@@ -908,41 +878,40 @@ public static class Chronicle {
         internal WebWalk Refused(Error error) => this with { Refusal = Some(error) };
     }
 
-    private static Fin<Web> Woven(RhinoDoc document, Seq<RhinoObject> natives, WebBudget budget, Op op) =>
-        op.Catch(() => {
+    private static Fin<Web> Woven(RhinoDoc document, Seq<RhinoObject> natives, WebBudget budget) =>
+        Try.lift(() => {
             Web graph = new(allowParallelEdges: false);
             WebWalk walk = WebWalk.Of(seeds: natives.Map(static native => native.Id));
             while (walk.Running) {
-                walk = Advanced(walk: walk, graph: graph, document: document, budget: budget, op: op);
+                walk = Advanced(walk: walk, graph: graph, document: document, budget: budget);
             }
             return walk.Refusal.Match(
                 Some: Fin.Fail<Web>,
                 None: () => Fin.Succ(value: graph));
-        });
+        }).Run().Bind(static inner => inner);
 
-    private static WebWalk Advanced(WebWalk walk, Web graph, RhinoDoc document, WebBudget budget, Op op) =>
+    private static WebWalk Advanced(WebWalk walk, Web graph, RhinoDoc document, WebBudget budget) =>
         walk.Pending.Head.Match(
             None: () => walk,
             Some: id => walk.Nodes >= budget.MaxNodes
-                ? walk.Refused(error: op.InvalidResult(detail: nameof(WebBudget.MaxNodes)))
+                ? walk.Refused(error: new KernelFault.InvalidResult(Detail: Some(nameof(WebBudget.MaxNodes))))
                 : Incident(
                     walk: walk with { Pending = walk.Pending.Tail, Nodes = checked(walk.Nodes + 1) },
                     id: id,
                     graph: graph,
                     document: document,
-                    budget: budget,
-                    op: op));
+                    budget: budget));
 
-    private static WebWalk Incident(WebWalk walk, Guid id, Web graph, RhinoDoc document, WebBudget budget, Op op) {
+    private static WebWalk Incident(WebWalk walk, Guid id, Web graph, RhinoDoc document, WebBudget budget) {
         _ = graph.AddVertex(id);
         return Optional(document.Objects.FindId(id)).Match(
-            None: () => walk.Refused(error: op.MissingContext()),
+            None: () => walk.Refused(error: new KernelFault.MissingContext()),
             Some: native => toSeq(native.HistoryParents())
                 .Map(parent => (Edge: (Parent: parent, Child: id), Neighbour: parent))
                 .Concat(toSeq(native.HistoryChildren())
                     .Map(child => (Edge: (Parent: id, Child: child), Neighbour: child)))
                 .Fold(walk, (state, row) => Joined(
-                    walk: state, edge: row.Edge, neighbour: row.Neighbour, graph: graph, budget: budget, op: op)));
+                    walk: state, edge: row.Edge, neighbour: row.Neighbour, graph: graph, budget: budget)));
     }
 
     private static WebWalk Joined(
@@ -950,11 +919,10 @@ public static class Chronicle {
         (Guid Parent, Guid Child) edge,
         Guid neighbour,
         Web graph,
-        WebBudget budget,
-        Op op) {
+        WebBudget budget) {
         if (walk.Refusal.IsSome || walk.Edges.Contains(value: edge)) { return walk; }
         if (walk.Edges.Count >= budget.MaxEdges) {
-            return walk.Refused(error: op.InvalidResult(detail: nameof(WebBudget.MaxEdges)));
+            return walk.Refused(error: new KernelFault.InvalidResult(Detail: Some(nameof(WebBudget.MaxEdges))));
         }
 
         _ = graph.AddVerticesAndEdge(new SEdge<Guid>(edge.Parent, edge.Child));

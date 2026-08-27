@@ -41,7 +41,7 @@ namespace Rasm.Element.Properties;
 // --- [TYPES] ---------------------------------------------------------------------------
 file static class Probe {
  internal static Option<TValue> Find<TKey, TValue>(FrozenDictionary<TKey, TValue> table, TKey key) where TKey : notnull =>
-  table.TryGetValue(key, out TValue? held) ? Some(held!) : None;
+  table.TryGetValue(out TValue? held) ? Some(held!) : None;
 }
 
 [ComplexValueObject]
@@ -149,7 +149,7 @@ public sealed partial class QuantityType {
 ## [03]-[MEASURE_VALUE]
 
 - Owner: `MeasureValue` the SI-coerced measured-scalar carrier (`QuantityType Type` + `Dimension Dimension` + `double Si` + `Option<string> CanonicalUnit` + `Option<MeasureBand> Uncertainty`); `MeasureBand` the neutral uncertainty carrier; `UncertaintyKind` the closed uncertainty vocabulary whose `Gaussian` column dispatches propagation; `UnitProvenance` the `[Union]` naming HOW an SI-native mint's canonical unit resolves — `Derive` (the registry/dimension probe), `Label(string)` (a conventional token the registry cannot supply), `Carried(Option<string>)` (a triple a prior admission already stamped) — so the former five mint arities are ONE `OfSi` whose provenance is a value; `DimensionOp` the `[SmartEnum]` rows (`Product`/`Quotient`) carrying exponent composition, scalar op, first-order partials, and the zero-spanning-divisor widening policy, so `Combine` is ONE algebra owner and `Multiply`/`Divide` one-hop reads over it.
-- Entry: `Of(value, unit, key, expected)` admits through `Quantity.TryFrom` + the ONE `SiUnit` election, the optional `expected` family gating name identity (UnitsNet collapses lumen/candela/nit onto one signature, so NAME is load-bearing); `Of(value, unitAbbreviation, key, expected)` is the invariant-culture string ingress; `OfSi(type, dimension, si, provenance, key)` the SI-native mint (`provenance` defaults `Derive`); `OfSi(dimension, si, key)` the dimension-anonymous one-hop; `Combine(other, DimensionOp, key)` the cross-quantity algebra; `Scale(factor, key)` the type-preserving multiple; `Sum(measures, key)` the accumulating same-type reduction; `WithType` the band-preserving re-stamp; `WithUncertainty(band, key)` the contains-the-nominal band admission; `As(QuantityType)`/`In(Enum)`/`In(string)` the reads.
+- Entry: `Of(value, unit, expected)` admits through `Quantity.TryFrom` + the ONE `SiUnit` election, the optional `expected` family gating name identity (UnitsNet collapses lumen/candela/nit onto one signature, so NAME is load-bearing); `Of(value, unitAbbreviation, expected)` is the invariant-culture string ingress; `OfSi(type, dimension, si, provenance)` the SI-native mint (`provenance` defaults `Derive`); `OfSi(dimension, si)` the dimension-anonymous one-hop; `Combine(other, DimensionOp)` the cross-quantity algebra; `Scale(factor)` the type-preserving multiple; `Sum(measures)` the accumulating same-type reduction; `WithType` the band-preserving re-stamp; `WithUncertainty(band)` the contains-the-nominal band admission; `As(QuantityType)`/`In(Enum)`/`In(string)` the reads.
 - Auto: `Coerce` reprojects every admission through the ONE `SiUnit` election — declared `BaseUnitInfo` by default, one `SiElection` row per departure (a different coherent unit, or `None` refusing by name) — so the persisted scalar is base-normalized whatever the admission spelling; `Sum` accumulates EVERY cross-type member on `Validation` (naming index and type per offender) before the fold runs; band propagation is `CombineBand` kind-dispatched on the `Gaussian` column, corner envelopes fold in ONE pass through `MeasureBand.Envelope`, and every arm that would mint a zero-width band answers `None` (EXACTNESS IS BAND ABSENCE).
 - Output: a `MeasureValue` is the unit-checked magnitude a takeoff, a property facet, and a cost join read; `measure.Uncertainty` is absent exactly where the value is exact, and the uncertainty producer stays above the boundary.
 - Packages: UnitsNet (`Quantity.TryFrom`/`TryFromUnitAbbreviation` ingress, `Quantity.Infos`/`UnitInfo` the once-built index, `UnitConverter.TryConvert` the guarded egress — the struct-native `As` conversion under the hood; the instance `TryGetConversionFunction` store serves CUSTOM registrations only, decompile-proven, so binding it would MISS every built-in conversion — `QuantityInfo.BaseUnitInfo`/`BaseDimensions`), Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm` (kernel `Op`, `Op.Catch`).
@@ -182,24 +182,24 @@ public sealed record MeasureBand {
 
  public static Fin<MeasureBand> Admit(
   UncertaintyKind kind, double lowerSi, double upperSi,
-  Option<double> standardDeviationSi, Option<double> coverageFactor, Op key) =>
+  Option<double> standardDeviationSi, Option<double> coverageFactor) =>
   double.IsNaN(lowerSi)
-   ? new KernelFault.OutOfRange("measure-band-lower", lowerSi, "not be NaN", Some(key))
+   ? new KernelFault.OutOfRange("measure-band-lower", lowerSi, "not be NaN")
    : double.IsNaN(upperSi)
-    ? new KernelFault.OutOfRange("measure-band-upper", upperSi, "not be NaN", Some(key))
+    ? new KernelFault.OutOfRange("measure-band-upper", upperSi, "not be NaN")
     : lowerSi > upperSi
-   ? new ElementFault.ValueRejected(key, "<measure-band-bounds-invalid>")
+   ? new ElementFault.ValueRejected("<measure-band-bounds-invalid>")
    : kind == UncertaintyKind.Normal
     ? (standardDeviationSi, coverageFactor).Apply((sd, coverage) =>
-       (Finite(key, ("measure-band-lower", lowerSi), ("measure-band-upper", upperSi)),
-        In(sd, Band.Positive, "measure-band-standard-deviation", key),
-        In(coverage, Band.Positive, "measure-band-coverage-factor", key))
+       (Finite(("measure-band-lower", lowerSi), ("measure-band-upper", upperSi)),
+        In(sd, Band.Positive, "measure-band-standard-deviation"),
+        In(coverage, Band.Positive, "measure-band-coverage-factor"))
        .Apply((_, admittedSd, admittedCoverage) => new MeasureBand(kind, lowerSi, upperSi, Some(admittedSd), Some(admittedCoverage)))
        .As().ToFin())
       .As()
-      .IfNone(new ElementFault.ValueRejected(key, "<measure-band-normal-metadata-absent>"))
+      .IfNone(new ElementFault.ValueRejected("<measure-band-normal-metadata-absent>"))
     : standardDeviationSi.IsSome || coverageFactor.IsSome
-     ? new ElementFault.ValueRejected(key, "<measure-band-metadata-kind-mismatch>")
+     ? new ElementFault.ValueRejected("<measure-band-metadata-kind-mismatch>")
      : Fin.Succ(new MeasureBand(kind, lowerSi, upperSi, None, None));
 
  internal static readonly MeasureBand Unbounded =
@@ -261,33 +261,33 @@ public sealed record MeasureValue {
  public static readonly MeasureValue Zero =
   new(QuantityType.Scalar, Dimension.Dimensionless, 0.0, None, None);
 
- public Fin<MeasureValue> WithUncertainty(MeasureBand band, Op key) =>
+ public Fin<MeasureValue> WithUncertainty(MeasureBand band) =>
   band.LowerSi <= Si && band.UpperSi >= Si
    ? Fin.Succ(new MeasureValue(Type, Dimension, Si, CanonicalUnit, Some(band)))
-   : new ElementFault.ValueRejected(key, "<measure-band-excludes-nominal>");
+   : new ElementFault.ValueRejected("<measure-band-excludes-nominal>");
 
- public Fin<MeasureValue> WithType(QuantityType type, Op? key = null) =>
+ public Fin<MeasureValue> WithType(QuantityType type) =>
   Probe.Find(Registry.Value.Dimensions, type.ToValue()).Filter(expected => expected != Dimension).IsSome
-   ? new ElementFault.ValueRejected(key.OrDefault(), $"<measure-type-dimension-mismatch:{type.ToValue()}>")
+   ? new ElementFault.ValueRejected($"<measure-type-dimension-mismatch:{type.ToValue()}>")
    : Fin.Succ(new MeasureValue(type, Dimension, Si, CanonicalUnitFor(type, Dimension), Uncertainty));
 
- public static Fin<MeasureValue> Of(double value, Enum unit, Op key, Option<QuantityType> expected = default) =>
+ public static Fin<MeasureValue> Of(double value, Enum unit, Option<QuantityType> expected = default) =>
   !double.IsFinite(value)
-   ? new KernelFault.OutOfRange("measure", value, "be finite", Some(key))
+   ? new KernelFault.OutOfRange("measure", value, "be finite")
    : Quantity.TryFrom(value, unit, out IQuantity? quantity) && quantity is { } q
-    ? Coerce(q, key).Bind(admitted => Family(admitted, expected, key))
-    : new KernelFault.InvalidValue("measure-unit", $"resolve {unit}", Some(key));
+    ? Coerce(q).Bind(admitted => Family(admitted, expected))
+    : new KernelFault.InvalidValue("measure-unit", $"resolve {unit}");
 
- public static Fin<MeasureValue> Of(double value, string unit, Op key, Option<QuantityType> expected = default) =>
+ public static Fin<MeasureValue> Of(double value, string unit, Option<QuantityType> expected = default) =>
   !double.IsFinite(value)
-   ? new KernelFault.OutOfRange("measure", value, "be finite", Some(key))
+   ? new KernelFault.OutOfRange("measure", value, "be finite")
    : Quantity.TryFromUnitAbbreviation(CultureInfo.InvariantCulture, value, unit, out IQuantity? quantity) && quantity is { } q
-    ? Coerce(q, key).Bind(admitted => Family(admitted, expected, key))
-    : new KernelFault.InvalidValue("measure-unit", $"resolve {unit}", Some(key));
+    ? Coerce(q).Bind(admitted => Family(admitted, expected))
+    : new KernelFault.InvalidValue("measure-unit", $"resolve {unit}");
 
- static Fin<MeasureValue> Family(MeasureValue admitted, Option<QuantityType> expected, Op key) =>
+ static Fin<MeasureValue> Family(MeasureValue admitted, Option<QuantityType> expected) =>
   expected.Filter(family => family != admitted.Type).Match(
-   Some: family => Fin.Fail<MeasureValue>(new ElementFault.ValueRejected(key, $"<measure-family-mismatch:{family.ToValue()}:{admitted.Type.ToValue()}>")),
+   Some: family => Fin.Fail<MeasureValue>(new ElementFault.ValueRejected($"<measure-family-mismatch:{family.ToValue()}:{admitted.Type.ToValue()}>")),
    None: () => Fin.Succ(admitted));
 
  static readonly FrozenDictionary<string, Option<Enum>> SiElection = new Dictionary<string, Option<Enum>>(StringComparer.Ordinal) {
@@ -315,35 +315,34 @@ public sealed record MeasureValue {
 
  internal static Option<Dimension> DimensionOf(QuantityType type) => Probe.Find(Registry.Value.Dimensions, type.ToValue());
 
- public static Fin<MeasureValue> OfSi(QuantityType type, Dimension dimension, double si, Option<UnitProvenance> provenance = default, Op? key = null) {
-  Op op = key.OrDefault();
+ public static Fin<MeasureValue> OfSi(QuantityType type, Dimension dimension, double si, Option<UnitProvenance> provenance = default) {
   return !double.IsFinite(si)
-   ? new KernelFault.OutOfRange("measure-si", si, "be finite", Some(op))
+   ? new KernelFault.OutOfRange("measure-si", si, "be finite")
    : provenance.IfNone(UnitProvenance.Derive).Switch<Fin<MeasureValue>>(
     derive: _ => Probe.Find(Registry.Value.Dimensions, type.ToValue()).Filter(expected => expected != dimension).IsSome
-     ? new ElementFault.ValueRejected(op, $"<measure-type-dimension-mismatch:{type.ToValue()}>")
+     ? new ElementFault.ValueRejected($"<measure-type-dimension-mismatch:{type.ToValue()}>")
      : Fin.Succ(new MeasureValue(type, dimension, si, CanonicalUnitFor(type, dimension), None)),
     label: labeled => Registry.Value.Dimensions.ContainsKey(type.ToValue())
-     ? new ElementFault.ValueRejected(op, $"<measure-labeled-mint-registry-type:{type.ToValue()}>")
+     ? new ElementFault.ValueRejected($"<measure-labeled-mint-registry-type:{type.ToValue()}>")
      : Fin.Succ(new MeasureValue(type, dimension, si, Some(labeled.Unit), None)),
     carried: carried => Fin.Succ(new MeasureValue(type, dimension, si, carried.Unit, None)));
  }
 
- public static Fin<MeasureValue> OfSi(Dimension dimension, double si, Op? key = null) =>
-  OfSi(QuantityType.OfDimension(dimension), dimension, si, Some(UnitProvenance.Derive), key);
+ public static Fin<MeasureValue> OfSi(Dimension dimension, double si) =>
+  OfSi(QuantityType.OfDimension(dimension), dimension, si, Some(UnitProvenance.Derive));
 
  static Option<string> CanonicalUnitFor(QuantityType type, Dimension dimension) =>
   Probe.Find(Registry.Value.SiNames, type.ToValue()) | dimension.SiSymbol;
 
- static Fin<MeasureValue> Coerce(IQuantity quantity, Op key) =>
+ static Fin<MeasureValue> Coerce(IQuantity quantity) =>
   SiUnit(quantity.QuantityInfo)
-   .ToFin(new KernelFault.InvalidValue("measure-si-unit", $"resolve a coherent unit for {quantity.QuantityInfo.Name}", Some(key)))
-   .Bind(unit => key.Catch(() => Fin.Succ(quantity.ToUnit(unit))).Bind(si => Admit(si, key)));
+   .ToFin(new KernelFault.InvalidValue("measure-si-unit", $"resolve a coherent unit for {quantity.QuantityInfo.Name}"))
+   .Bind(unit => Try.lift(() => Fin.Succ(quantity.ToUnit(unit))).Run().Bind(static inner => inner).Bind(si => Admit(si)));
 
- static Fin<MeasureValue> Admit(IQuantity si, Op key) =>
+ static Fin<MeasureValue> Admit(IQuantity si) =>
   double.IsFinite((double)si.Value)
    ? Fin.Succ(new MeasureValue(QuantityType.Create(si.QuantityInfo.Name), Dimension.Of(si.QuantityInfo.BaseDimensions), (double)si.Value, Some(si.Unit.ToString()), None))
-   : new KernelFault.OutOfRange($"measure-si:{si.Unit}", (double)si.Value, "be finite", Some(key));
+   : new KernelFault.OutOfRange($"measure-si:{si.Unit}", (double)si.Value, "be finite");
 
  public Option<double> As(QuantityType type) => Type == type ? Some(Si) : None;
 
@@ -362,19 +361,18 @@ public sealed record MeasureValue {
  public Option<double> In(string unitName) =>
   Probe.Find(Registry.Value.Units, (Type.ToValue(), unitName)).Bind(In);
 
- public static Fin<MeasureValue> Sum(Seq<MeasureValue> measures, Op? key = null) {
-  Op op = key.OrDefault();
+ public static Fin<MeasureValue> Sum(Seq<MeasureValue> measures) {
   return measures.Head.Match(
    None: () => Fin.Succ(Zero),
    Some: head => Accumulate(measures.Tail.Map((member, index) => member.Type == head.Type
      ? Success<Error, Unit>(unit)
-     : Fail<Error, Unit>(new ElementFault.ValueRejected(op, $"<measure-sum-type-mismatch:index={index}:type={member.Type.ToValue()}>"))))
+     : Fail<Error, Unit>(new ElementFault.ValueRejected($"<measure-sum-type-mismatch:index={index}:type={member.Type.ToValue()}>"))))
     .ToFin()
     .Bind(_ => {
      MeasureValue total = measures.Tail.Fold(head, static (acc, next) => acc.Add(next));
      return double.IsFinite(total.Si)
       ? Fin.Succ(total)
-      : new KernelFault.OutOfRange("measure-sum", total.Si, "be finite", Some(op));
+      : new KernelFault.OutOfRange("measure-sum", total.Si, "be finite");
     }));
  }
 
@@ -383,11 +381,11 @@ public sealed record MeasureValue {
   return new MeasureValue(Type, Dimension, si, CanonicalUnit, CombineBand(this, other, si, static (l, r) => l + r, static (_, _) => (1.0, 1.0)));
  }
 
- public Fin<MeasureValue> Combine(MeasureValue other, DimensionOp op, Op? key = null) {
+ public Fin<MeasureValue> Combine(MeasureValue other, DimensionOp op) {
   Dimension composed = op.Compose(Dimension, other.Dimension);
   double si = op.Apply(Si, other.Si);
   if (!double.IsFinite(si)) {
-   return new KernelFault.OutOfRange($"measure-{op.Key}", si, "be finite", Some(key.OrDefault()));
+   return new KernelFault.OutOfRange($"measure-{op.Key}", si, "be finite", Some());
   }
   (MeasureBand lb, MeasureBand rb) = (EffectiveBand(this), EffectiveBand(other));
   Option<MeasureBand> band =
@@ -395,19 +393,19 @@ public sealed record MeasureValue {
    && op.WidensOnZeroSpanningDivisor && !(lb.Kind.Gaussian && rb.Kind.Gaussian)
    && rb.LowerSi <= 0.0 && rb.UpperSi >= 0.0
     ? Some(MeasureBand.Unbounded)
-    : CombineBand(this, other, si, op.Apply, op.Partials);
+    : CombineBand(other, si, op.Apply, op.Partials);
   return Fin.Succ(new MeasureValue(QuantityType.OfDimension(composed), composed, si, composed.SiSymbol, band));
  }
 
- public Fin<MeasureValue> Multiply(MeasureValue other, Op? key = null) => Combine(other, DimensionOp.Product, key);
- public Fin<MeasureValue> Divide(MeasureValue other, Op? key = null) => Combine(other, DimensionOp.Quotient, key);
+ public Fin<MeasureValue> Multiply(MeasureValue other) => Combine(other, DimensionOp.Product);
+ public Fin<MeasureValue> Divide(MeasureValue other) => Combine(other, DimensionOp.Quotient);
 
- public Fin<MeasureValue> Scale(double factor, Op? key = null) {
+ public Fin<MeasureValue> Scale(double factor) {
   double si = Si * factor;
   return double.IsFinite(si)
    ? Fin.Succ(new MeasureValue(Type, Dimension, si, CanonicalUnit,
       CombineBand(this, Exact(factor), si, static (l, r) => l * r, static (l, r) => (r, l))))
-   : new KernelFault.OutOfRange("measure-scale", si, "be finite", Some(key.OrDefault()));
+   : new KernelFault.OutOfRange("measure-scale", si, "be finite", Some());
  }
 
  static MeasureValue Exact(double scalar) => new(QuantityType.Scalar, Dimension.Dimensionless, scalar, None, None);
@@ -454,7 +452,7 @@ public sealed record MeasureValue {
 ## [04]-[UNIT_SCHEME]
 
 - Owner: `UnitScheme` the model-level declared-unit regime the `Header` carries — `Overrides` the `QuantityType`-grained display map (an IFC derived unit is DECLARED, never synthesized, so a compound display unit is an override row), `Axes` the `DimensionAxis`-keyed affine set (`UnitAxis(Factor, Offset, Token)` — the offset arm `IfcConversionBasedUnitWithOffset` requires, without which every Fahrenheit/Rankine property is a wrong number with no fault), `CultureName`/`Format` the presentation policy (a culture NAME, not a `CultureInfo` reference — a mutable reference type is not an equality-safe value column); `MeasureEvidence` the ONE conversion outcome (`Family`, original pair, canonical pair, `UnitResolution`, `CorrelationId`); `UnitResolution` the declared/inferred/assumed/overridden policy vocabulary — the column that SAYS a unit was assumed or caller-forced, without which a STEP file with no `SI_UNIT` header silently becomes millimetres.
-- Entry: `Coerce(native, type, dimension, Option<UnitAxis> declared = default)` lowers a project-unit magnitude onto SI — a per-VALUE declared axis overrides the regime whole-quantity (the IFC property/quantity-carried unit, affine and derived-multiplier forms included; ingress-only, so egress never reads it), else the `Angle` type arm reads the `PlaneAngle` axis, a pure single-axis dimension takes the affine `(native + Offset) × Factor`, a compound dimension composes the multiplicative factors per exponent (offsets do not distribute over products, the reason IFC carries them on base units alone); `Declare(axis, unit)`/`Declare(type, token)` build the regime one declaration at a time — the Bim ingress lowers `IfcUnitAssignment` row by row; `Render(measure)` re-emits declared units — override token first, declared-axis inverse for a pure single-axis measure, SI fallback; `Text(measure)` formats under the declared culture and format; `QuantityType.Admit(family, value, unit, resolution, key, correlation)` is the evidence-minting foreign admission — the expected-family gate plus the evidence mint in one entry.
+- Entry: `Coerce(native, type, dimension, Option<UnitAxis> declared = default)` lowers a project-unit magnitude onto SI — a per-VALUE declared axis overrides the regime whole-quantity (the IFC property/quantity-carried unit, affine and derived-multiplier forms included; ingress-only, so egress never reads it), else the `Angle` type arm reads the `PlaneAngle` axis, a pure single-axis dimension takes the affine `(native + Offset) × Factor`, a compound dimension composes the multiplicative factors per exponent (offsets do not distribute over products, the reason IFC carries them on base units alone); `Declare(axis, unit)`/`Declare(type, token)` build the regime one declaration at a time — the Bim ingress lowers `IfcUnitAssignment` row by row; `Render(measure)` re-emits declared units — override token first, declared-axis inverse for a pure single-axis measure, SI fallback; `Text(measure)` formats under the declared culture and format; `QuantityType.Admit(family, value, unit, resolution, correlation)` is the evidence-minting foreign admission — the expected-family gate plus the evidence mint in one entry.
 - Auto: `QuantityType.Relations`/`Reciprocals` seat the cross-quantity roster where the rows live, and `Consistency()` proves every declared relation against the registry's own dimensions (a roster row wired to the wrong UnitsNet family is the defect every metadata-sourced column reads as correct) — accumulating, so one run names every inconsistent row.
 - Output: `MeasureEvidence` is the audit row a Materials capture, a Fabrication solid ingress, and a Compute unit policy keep beside the admitted value; `Resolution` is its load-bearing column.
 - Packages: LanguageExt.Core (`Map`/`Option`), `Rasm` (kernel `CorrelationId`, `Op`), Thinktecture.Runtime.Extensions, BCL (`CultureInfo.GetCultureInfo`).
@@ -540,30 +538,29 @@ public sealed partial class QuantityType {
  public static Seq<(QuantityType Compound, QuantityType Left, QuantityType Right, DimensionOp Op)> Relations => RelationRows.Value;
  public static Seq<(QuantityType Left, QuantityType Right)> Reciprocals => ReciprocalRows.Value;
 
- public static Fin<Unit> Consistency(Op? key = null) {
-  Op op = key.OrDefault();
+ public static Fin<Unit> Consistency() {
   return Accumulate(
-   Relations.Map(row => Registered(row.Compound, op).Bind(compound =>
-     (Registered(row.Left, op), Registered(row.Right, op)).Apply((left, right) =>
+   Relations.Map(row => Registered(row.Compound).Bind(compound =>
+     (Registered(row.Left), Registered(row.Right)).Apply((left, right) =>
       compound == row.Op.Compose(left, right)).As()
       .Bind(holds => holds
        ? Success<Error, Unit>(unit)
-       : Fail<Error, Unit>(new ElementFault.ValueRejected(op, $"<quantity-relation-inconsistent:{row.Compound.ToValue()}>"))))
-   + Reciprocals.Map(pair => (Registered(pair.Left, op), Registered(pair.Right, op)).Apply((left, right) =>
+       : Fail<Error, Unit>(new ElementFault.ValueRejected($"<quantity-relation-inconsistent:{row.Compound.ToValue()}>"))))
+   + Reciprocals.Map(pair => (Registered(pair.Left), Registered(pair.Right)).Apply((left, right) =>
       left == Dimension.Dimensionless.Divide(right)).As()
       .Bind(holds => holds
        ? Success<Error, Unit>(unit)
-       : Fail<Error, Unit>(new ElementFault.ValueRejected(op, $"<quantity-reciprocal-inconsistent:{pair.Left.ToValue()}>")))))
+       : Fail<Error, Unit>(new ElementFault.ValueRejected($"<quantity-reciprocal-inconsistent:{pair.Left.ToValue()}>")))))
    ).ToFin();
  }
 
- static Validation<Error, Dimension> Registered(QuantityType type, Op op) =>
+ static Validation<Error, Dimension> Registered(QuantityType type) =>
   MeasureValue.DimensionOf(type).ToValidation<Error>(
-   new ElementFault.ValueRejected(op, $"<quantity-relation-unregistered:{type.ToValue()}>"));
+   new ElementFault.ValueRejected($"<quantity-relation-unregistered:{type.ToValue()}>"));
 
  public static Fin<(MeasureValue Value, MeasureEvidence Evidence)> Admit(
-  QuantityType family, double value, Enum unit, UnitResolution resolution, Op key, CorrelationId correlation) =>
-  MeasureValue.Of(value, unit, key, Some(family)).Map(admitted =>
+  QuantityType family, double value, Enum unit, UnitResolution resolution, CorrelationId correlation) =>
+  MeasureValue.Of(value, unit, Some(family)).Map(admitted =>
    (admitted, new MeasureEvidence(
     family, unit.ToString(), value,
     admitted.CanonicalUnit.IfNone(family.ToValue()), admitted.Si,
@@ -605,24 +602,24 @@ public sealed partial class QuantitySignature {
 }
 
 public sealed record MeasureStat(QuantitySignature Signature, Stat<Scalar> Figures) {
- public static Fin<MeasureStat> Of(QuantitySignature signature, Seq<MeasureValue> values, Op key, Option<Seq<double>> weights = default) =>
+ public static Fin<MeasureStat> Of(QuantitySignature signature, Seq<MeasureValue> values, Option<Seq<double>> weights = default) =>
   Accumulate(values.Map((member, index) => member.Type == signature.Type && member.Dimension == signature.Dimension
     ? Success<Error, Unit>(unit)
-    : Fail<Error, Unit>(new ElementFault.ValueRejected(key, $"<measure-stat-signature-mismatch:index={index}:type={member.Type.ToValue()}>"))))
+    : Fail<Error, Unit>(new ElementFault.ValueRejected($"<measure-stat-signature-mismatch:index={index}:type={member.Type.ToValue()}>"))))
    .ToFin()
    .Bind(_ => values.Traverse(member => Scalar.From(member.Si)).As())
-   .Bind(scalars => Stat<Scalar>.Of(scalars, key, weights))
+   .Bind(scalars => Stat<Scalar>.Of(scalars, weights))
    .Map(figures => new MeasureStat(signature, figures));
 
- public static Fin<MeasureStat> Of(QuantitySignature signature, Seq<double> si, Op key, Option<Seq<double>> weights = default) =>
+ public static Fin<MeasureStat> Of(QuantitySignature signature, Seq<double> si, Option<Seq<double>> weights = default) =>
   si.Traverse(sample => Scalar.From(sample)).As()
-   .Bind(scalars => Stat<Scalar>.Of(scalars, key, weights))
+   .Bind(scalars => Stat<Scalar>.Of(scalars, weights))
    .Map(figures => new MeasureStat(signature, figures));
 
- public static Fin<MeasureStat> Merge(MeasureStat left, MeasureStat right, Op key) =>
+ public static Fin<MeasureStat> Merge(MeasureStat left, MeasureStat right) =>
   left.Signature == right.Signature
-   ? Stat<Scalar>.Merge(left.Figures, right.Figures, key).Map(figures => new MeasureStat(left.Signature, figures))
-   : new ElementFault.ValueRejected(key, $"<measure-stat-merge-signature:{right.Signature.Type.ToValue()}>");
+   ? Stat<Scalar>.Merge(left.Figures, right.Figures).Map(figures => new MeasureStat(left.Signature, figures))
+   : new ElementFault.ValueRejected($"<measure-stat-merge-signature:{right.Signature.Type.ToValue()}>");
 
  public MeasureValue Minimum => MeasureValue.Reproject(Signature, Figures.Minimum.To());
  public MeasureValue Maximum => MeasureValue.Reproject(Signature, Figures.Maximum.To());

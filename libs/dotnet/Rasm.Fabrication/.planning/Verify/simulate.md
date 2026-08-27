@@ -667,7 +667,7 @@ public static class Simulate {
     internal static readonly Seq<MachineAxis> Addressable = Seq(MachineAxis.A, MachineAxis.B, MachineAxis.C);
 
     public static Fin<SimulationLedger> Execute(SimulatePolicy policy, Option<InstrumentSet> set = default, Option<SpanBand> band = default) =>
-        band.Traced(FabricationEngine.Simulate, Op.Of(), _ =>
+        band.Traced(FabricationEngine.Simulate, _ =>
             from ledger in policy.Source.Switch(
                 state: policy,
                 posted: static (law, row) => ExecutePosted(law, row.Program),

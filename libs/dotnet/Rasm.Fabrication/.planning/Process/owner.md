@@ -490,13 +490,12 @@ public sealed partial class FabricationRuntime {
     public static Fin<FabricationRuntime> Admit(
         IClock clock,
         CancellationToken cancel,
-        Op key,
         FabricationHooks? hooks = null,
         Option<IProgress<double>> progress = default,
         Option<HybridCache> memo = default,
         Option<InstrumentSet> instruments = default,
         Option<SpanBand> band = default) =>
-        Optional(hooks).Match(Some: Fin.Succ, None: () => FabricationHooks.Live(key))
+        Optional(hooks).Match(Some: Fin.Succ, None: () => FabricationHooks.Live())
             .Bind(hooks => Validate(clock, cancel, hooks, instruments, band, progress, memo,
                 out FabricationRuntime runtime).Admitted(runtime));
 
@@ -551,21 +550,21 @@ public static class FabricationCanon {
 
     // --- [CLOSE]
     public static Fin<(ReadOnlyMemory<byte> Preimage, ContentKey Key)> Sealed(
-        EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>
+        EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
         frame(CanonicalWriter.Retaining(grid))
-            .ToBytes(key)
+            .ToBytes()
             .Map(preimage => (preimage, ContentKey.Of(kind, preimage.Span)));
 
     public static Fin<ContentKey> Keyed(
-        EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>
-        Sealed(kind, grid, frame, key).Map(closed => closed.Key);
+        EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
+        Sealed(kind, grid, frame).Map(closed => closed.Key);
 
     public static UInt128 Ordered(double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
         ContentHash.Of(frame, static (emit, writer) => emit(writer), tolerance: grid);
 
     public static Fin<ContentKey> Keyed(
-        EgressKind kind, Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>
-        Keyed(kind, tolerance.Absolute.Value, frame, key);
+        EgressKind kind, Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame) =>
+        Keyed(kind, tolerance.Absolute.Value, frame);
 
     public static UInt128 Ordered(Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame) =>
         Ordered(tolerance.Absolute.Value, frame);
@@ -586,7 +585,7 @@ public static class Fabrication {
          let key = Op.Of()
          let started = runtime.Clock.GetCurrentInstant()
          let asked = new FabricationHookFact.Admission(input)
-         from admitted in runtime.Hooks.Fire(asked.At, asked, key, static fact => fact is FabricationHookFact.Admission settled
+         from admitted in runtime.Hooks.Fire(asked.At, asked, static fact => fact is FabricationHookFact.Admission settled
              ? Fin.Succ(settled.Input)
              : Fin.Fail<FabricationInput>(new KernelFault.InvalidValue("owner", "hook-admission:case")))
          from _dispatch in Ready(runtime, RunStage.Admitted)
@@ -614,7 +613,6 @@ public static class Fabrication {
         FabricationInput input,
         FabricationRuntime runtime,
         Instant started) {
-        Op key = Op.Of();
         Fin<FabricationResult> dispatched = await input.Policy.Switch(
             state:      (Input: input, Runtime: runtime),
             hiddenLine: static (state, policy) => Sync(Hlr.Solve(
@@ -655,9 +653,9 @@ public static class Fabrication {
                from provenance in Provenance(evidence.Produced, consumed)
                let sealedEvidence = evidence with { Provenance = provenance }
                from _mint in sealedEvidence.Produced
-                   .TraverseM(produced => Raised(runtime.Hooks, new FabricationHookFact.EgressMint(produced), key)).As().Map(static _ => unit)
-               from _points in Fired(runtime.Hooks, result, key)
-               from _handoff in Raised(runtime.Hooks, new FabricationHookFact.Delivery(sealedEvidence), key)
+                   .TraverseM(produced => Raised(runtime.Hooks, new FabricationHookFact.EgressMint(produced))).As().Map(static _ => unit)
+               from _points in Fired(runtime.Hooks, result)
+               from _handoff in Raised(runtime.Hooks, new FabricationHookFact.Delivery(sealedEvidence))
                from _duration in runtime.Instruments.Write(FabricationInstruments.RunDuration, (runtime.Clock.GetCurrentInstant() - started).TotalSeconds,
                    (FabricationInstruments.ProcessSlot, input.Process.Key),
                    (FabricationInstruments.VerificationSlot, sealedEvidence.Verified.Match(
@@ -694,24 +692,24 @@ public static class Fabrication {
     private static Seq<ContentKey> Consumed(FabricationInput input) =>
         input.Policy.Consumed + input.ParentRuns + input.Sources + input.MaterialCertificate.ToSeq();
 
-    private static Fin<Unit> Fired(FabricationHooks hooks, FabricationResult result, Op key) => result.Switch(
-        state: (Hooks: hooks, Key: key),
+    private static Fin<Unit> Fired(FabricationHooks hooks, FabricationResult result) => result.Switch(
+        state: hooks,
         hiddenLineResult: static (_, _) => Fin.Succ(unit),
         motion: static (_, _) => Fin.Succ(unit),
         placement: static (_, _) => Fin.Succ(unit),
         additiveResult: static (_, _) => Fin.Succ(unit),
         verificationResult: static (spine, verification) =>
-            Raised(spine.Hooks, new FabricationHookFact.VerifyVerdict(verification), spine.Key),
+            Raised(spine, new FabricationHookFact.VerifyVerdict(verification), spine.Key),
         inspectionResult: static (_, _) => Fin.Succ(unit),
         postedProgram: static (_, _) => Fin.Succ(unit),
         travelerDocument: static (_, _) => Fin.Succ(unit),
         fabricationPlan: static (spine, plan) => plan.Steps
-            .TraverseM(step => Raised(spine.Hooks, new FabricationHookFact.StageAdvance(step), spine.Key)).As().Map(static _ => unit),
+            .TraverseM(step => Raised(spine, new FabricationHookFact.StageAdvance(step), spine.Key)).As().Map(static _ => unit),
         formedResult: static (_, _) => Fin.Succ(unit),
         tubeFormed: static (_, _) => Fin.Succ(unit));
 
-    private static Fin<Unit> Raised(FabricationHooks hooks, FabricationHookFact fact, Op key) =>
-        hooks.Fire(fact.At, fact, key).Bind(admitted => admitted == fact
+    private static Fin<Unit> Raised(FabricationHooks hooks, FabricationHookFact fact) =>
+        hooks.Fire(fact.At, fact).Bind(admitted => admitted == fact
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("owner", $"hook-rewrite:{fact.At.Key}")));
 }

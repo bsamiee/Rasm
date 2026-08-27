@@ -10,7 +10,7 @@
 
 ## [02]-[SHARED_AXES]
 
-- Owner: `MeshEmission`, `SceneCarry`, `UnreferencedImport`, and `CsvColumn` are the cross-host capability vocabularies — one row per emitted content axis, each carrying one nullable setter column per host option type it reaches, so a per-format boolean roster is set algebra over one vocabulary and the null lives only on the roster row, admitted into `Option` at its single read. `HostAxis<TRow, THost>` is their ONE owner — the static value a case declares once per axis, carrying the axis name and the column, deriving `Legal` once behind a lazy, proving `Refusal(requested, key)` for the door, and writing `Seat(host, requested, baseline)` for the mint, so the door and the mint read the SAME case field. `SubDForm` `[SmartEnum<int>]` carries the SubD tessellation columns for both host `SubDMeshing` rosters; `AxisConvention` carries the Z-up/Y-up swap in BOTH directions off one row; `PlyEncoding` carries the ASCII-and-precision matrix two independent booleans were spelling. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products, each carrying its own all-defaults `Standard` value; the fit policy is one shape serving both IGES entity slots because the host columns share semantics and defaults, and both unstated slots read the same `Standard` instance.
+- Owner: `MeshEmission`, `SceneCarry`, `UnreferencedImport`, and `CsvColumn` are the cross-host capability vocabularies — one row per emitted content axis, each carrying one nullable setter column per host option type it reaches, so a per-format boolean roster is set algebra over one vocabulary and the null lives only on the roster row, admitted into `Option` at its single read. `HostAxis<TRow, THost>` is their ONE owner — the static value a case declares once per axis, carrying the axis name and the column, deriving `Legal` once behind a lazy, proving `Refusal(requested)` for the door, and writing `Seat(host, requested, baseline)` for the mint, so the door and the mint read the SAME case field. `SubDForm` `[SmartEnum<int>]` carries the SubD tessellation columns for both host `SubDMeshing` rosters; `AxisConvention` carries the Z-up/Y-up swap in BOTH directions off one row; `PlyEncoding` carries the ASCII-and-precision matrix two independent booleans were spelling. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products, each carrying its own all-defaults `Standard` value; the fit policy is one shape serving both IGES entity slots because the host columns share semantics and defaults, and both unstated slots read the same `Standard` instance.
 - Law: a shared vocabulary is earned only by two or more host surfaces sharing one axis — `MeshEmission`, `SceneCarry`, `UnreferencedImport`, `SubDForm`, and `AxisConvention` qualify; a single-host boolean rides its case field directly as boundary material, because a one-to-one `[SmartEnum]` mirror restates host truth (`FileStlWriteOptions.BinaryFile`, `FileLwoWriteOptions.WriteVersion6`, and `FileTxtWriteOptions.SurroundWithDoubleQuotes` therefore carry no row).
 - Law: the COLUMN is the legality. A capability row carrying no setter for a host cannot be written there, so `HostAxis.Legal` DERIVES each host's admissible set from the roster itself and no case declares a second hand-kept legal subset — `MeshEmission.VertexColors` reaching PLY, glTF, VRML, and X3D-V but not OBJ is the column roster's own shape. `FormatDial.Admit` REFUSES every requested row outside that set through the kernel's typed `CapabilitySet.Require` twin, which carries the shortfall; the prior seat wrote the legal rows and dropped the rest, so a caller asking OBJ for vertex colours received a silent nothing where the column law says refusal.
 - Law: `HostAxis.Seat` writes EVERY column the host owns on every mint, so an unstated axis writes its baseline value rather than leaving the host's own default standing under a different name; the write is TOTAL because the door already refused every requested row the host cannot carry. `FieldOverride` gate-pair writes ride the Document owner's own two arms — result-typed `Apply` for write-time admission, total `Through` for a payload its own type admitted at construction — so no Exchange page holds a gate-pair twin.
@@ -212,7 +212,7 @@ public readonly partial struct DracoDial {
             : new ValidationError(string.Join(" | ", new object?[] {
                 label, value, $"a Draco value in [{floor}, {ceiling}]" }));
 
-    public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits, Op? key = null) =>
+    public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits) =>
         key.OrDefault().AcceptValidated<DracoDial>(
             fault: Validate(
                 level: Rasm.Numerics.Dimension.Create(value: level),
@@ -248,8 +248,7 @@ public readonly partial struct ObjNgonDial {
         FileObjWriteOptions.NGons mode,
         int minFaces,
         bool includeUnweldedEdges = true,
-        bool cullInteriorVertexes = true,
-        Op? key = null) =>
+        bool cullInteriorVertexes = true) =>
         key.OrDefault().AcceptValidated<ObjNgonDial>(
             fault: Validate(
                 mode: mode,
@@ -321,7 +320,7 @@ internal sealed class HostAxis<TRow, THost>(string axis, Func<TRow, Action<THost
 
     internal CapabilitySet<TRow> Legal => legal.Value;
 
-    internal Option<ValidationClause> Refusal(Option<CapabilitySet<TRow>> requested, Op key) =>
+    internal Option<ValidationClause> Refusal(Option<CapabilitySet<TRow>> requested) =>
         requested.Bind(demanded => Legal.AdmitsAll(demanded)
             ? Option<ValidationClause>.None
             : Some(new ValidationClause(string.Join(" | ", new object?[] { key, axis, $"axis rows {typeof(THost).Name} writes <{Legal.Wire}>; unwritable <{Legal.Missing(demanded).Wire}>" }))));
@@ -391,14 +390,14 @@ public abstract partial record FormatDial {
 
     internal DialSeat Seat { get; }
 
-    private protected virtual Seq<ValidationClause> RefusalsFor(Op key) => Seq<ValidationClause>();
+    private protected virtual Seq<ValidationClause> RefusalsFor() => Seq<ValidationClause>();
 
-    internal Fin<Unit> Admit(FileCodec codec, CodecPhase phase, Op key) =>
+    internal Fin<Unit> Admit(FileCodec codec, CodecPhase phase) =>
         FactoryValidation.Admit(
             FactoryValidation.Violated(
                 (Seat.Codec != codec || Seat.Phase != phase, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(CodecTune.Dial), $"a dial seated at '{codec.Key}' in the '{phase.Key}' phase;"
                         + $" got '{Seat.Codec.Key}' in '{Seat.Phase.Key}'" }))))
-            + RefusalsFor(key: key));
+            + RefusalsFor());
 
     public sealed record ThreeDsWriteCase(
         Option<CapabilitySet<SceneCarry>> Scene = default,
@@ -406,7 +405,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<SceneCarry, File3dsWriteOptions> SceneAxis =
             new(axis: nameof(Scene), column: static row => row.ThreeDsWrite);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => SceneAxis.Refusal(Scene, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => SceneAxis.Refusal(Scene).ToSeq();
 
         internal File3dsWriteOptions Mint(CodecTune tune) {
             File3dsWriteOptions host = new() { MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default) };
@@ -424,7 +423,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<SceneCarry, File3dsReadOptions> SceneAxis =
             new(axis: nameof(Scene), column: static row => row.ThreeDsRead);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => SceneAxis.Refusal(Scene, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => SceneAxis.Refusal(Scene).ToSeq();
 
         internal File3dsReadOptions Mint() {
             File3dsReadOptions host = new();
@@ -510,7 +509,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<MeshEmission, FileObjWriteOptions> EmissionAxis =
             new(axis: nameof(Emission), column: static row => row.Obj);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => EmissionAxis.Refusal(Emission).ToSeq();
 
         internal FileObjWriteOptions Mint(CodecTune tune, FileWriteOptions carrier) {
             FileObjWriteOptions host = new(carrier) {
@@ -586,7 +585,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<MeshEmission, FilePlyWriteOptions> EmissionAxis =
             new(axis: nameof(Emission), column: static row => row.Ply);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => EmissionAxis.Refusal(Emission).ToSeq();
 
         internal FilePlyWriteOptions Mint(CodecTune tune, FileWriteOptions carrier) {
             PlyEncoding encoding = Encoding.IfNone(PlyEncoding.For(fidelity: tune.Fidelity));
@@ -624,8 +623,8 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<SceneCarry, FileDgnReadOptions> SceneAxis =
             new(axis: nameof(Scene), column: static row => row.DgnRead);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) =>
-            UnreferencedAxis.Refusal(Unreferenced, key).ToSeq() + SceneAxis.Refusal(Scene, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() =>
+            UnreferencedAxis.Refusal(Unreferenced).ToSeq() + SceneAxis.Refusal(Scene).ToSeq();
 
         internal FileDgnReadOptions Mint() {
             FileDgnReadOptions host = new() { GroupCellHeaders = GroupCellHeaders.IfNone(true) };
@@ -723,7 +722,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<UnreferencedImport, FileDwgReadOptions> UnreferencedAxis =
             new(axis: nameof(Unreferenced), column: static row => row.Dwg);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => UnreferencedAxis.Refusal(Unreferenced, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => UnreferencedAxis.Refusal(Unreferenced).ToSeq();
 
         internal FileDwgReadOptions Mint() {
             FileDwgReadOptions host = new() {
@@ -810,8 +809,8 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<MeshEmission, FileFbxWriteOptions> EmissionAxis =
             new(axis: nameof(Emission), column: static row => row.Fbx);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) =>
-            SceneAxis.Refusal(Scene, key).ToSeq() + EmissionAxis.Refusal(Emission, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() =>
+            SceneAxis.Refusal(Scene).ToSeq() + EmissionAxis.Refusal(Emission).ToSeq();
 
         internal FileFbxWriteOptions Mint(CodecTune tune) {
             FileFbxWriteOptions host = new() {
@@ -839,7 +838,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<SceneCarry, FileFbxReadOptions> SceneAxis =
             new(axis: nameof(Scene), column: static row => row.FbxRead);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => SceneAxis.Refusal(Scene, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => SceneAxis.Refusal(Scene).ToSeq();
 
         internal FileFbxReadOptions Mint() {
             FileFbxReadOptions host = new() {
@@ -1069,7 +1068,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<MeshEmission, FileVrmlWriteOptions> EmissionAxis =
             new(axis: nameof(Emission), column: static row => row.Vrml);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => EmissionAxis.Refusal(Emission).ToSeq();
 
         internal FileVrmlWriteOptions Mint(CodecTune tune) {
             FileVrmlWriteOptions host = new() {
@@ -1090,7 +1089,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<MeshEmission, FileX3dvWriteOptions> EmissionAxis =
             new(axis: nameof(Emission), column: static row => row.X3dv);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => EmissionAxis.Refusal(Emission).ToSeq();
 
         internal FileX3dvWriteOptions Mint(CodecTune tune) {
             FileX3dvWriteOptions host = new() { MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default) };
@@ -1155,7 +1154,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<CsvColumn, FileCsvWriteOptions> ColumnAxis =
             new(axis: nameof(Columns), column: static row => row.Csv);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => ColumnAxis.Refusal(Columns, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => ColumnAxis.Refusal(Columns).ToSeq();
 
         internal FileCsvWriteOptions Mint(CodecTune tune) {
             FileCsvWriteOptions host = new() { SurroundPointsWithDoubleQuotes = QuotedPoints.IfNone(true) };
@@ -1176,7 +1175,7 @@ public abstract partial record FormatDial {
         private static readonly HostAxis<MeshEmission, FileGltfWriteOptions> EmissionAxis =
             new(axis: nameof(Emission), column: static row => row.Gltf);
 
-        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+        private protected override Seq<ValidationClause> RefusalsFor() => EmissionAxis.Refusal(Emission).ToSeq();
 
         internal FileGltfWriteOptions Mint(CodecTune tune) {
             Option<DracoDial> draco = Draco

@@ -14,7 +14,7 @@ Shared `GeoReference` rides `Header`/`Coverage` only, never the `Object` node, c
 ## [02]-[GEO_PROJECTION]
 
 - Owner: `GeoReferenceProjector` the static IFC→shared projector folding the georeferencing level the model carries onto the shared `GeoReference` — the single `IfcGeometricRepresentationContext.HasCoordinateOperation` switched over `IfcMapConversion` (or `IfcMapConversionScaled` for per-axis scale) and the translation-only `IfcRigidOperation` (LoGeoRef 50 — the IFC4.3 rigid sibling carries no rotation and no scale, only the two coordinates + `Height` in the target CRS), else the first `IfcSite`'s `RefLatitude`/`RefLongitude`/`RefElevation` geographic position onto a WGS84 (`EPSG:4326`) reference (LoGeoRef 30), else `GeoReference.Identity`; and `GeoAuthored` the closed `[SmartEnum<string>]` level vocabulary the egress elects from the frame's own columns and returns. The `GeoReference`/`ProjectedCrs`/`VerticalCrs` value-objects are contract-owned (`Rasm.Element/Geospatial/reference`); this page projects the IFC surface onto them through the ONE `Carriers` read — the base-CRS `Name`/`GeodeticDatum`/`WellKnownText` and the projected-only `VerticalDatum`/`MapProjection`/`MapZone`, every one admitted through the `Projection/value#PROPERTY_LOWERING` `PropertyLowering.Stated` blank-or-absent entry the folder holds as its ONE GeometryGym-string admission — composing the metre-normalized scale and the shared `GeoReference.Admit`, never re-declaring the family, never re-deriving the admission, never minting a CRS parser, and never materializing a kernel transform.
-- Entry: `GeoReferenceProjector.Project(IfcProject project, UnitScheme model, Op key)` returns `Fin<GeoReference>` — a model with no map conversion AND no geographic site position returns `GeoReference.Identity` so ingest never blocks; an `IfcProjectedCRS` name present but resolving no identity at all raises `new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-name-unresolvable", name }))` over `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Capability` BARE (band 2600 owns the generated `Code`) rather than landing the federation on an unreferenced frame [M1]. The `Op key` and the MODEL `UnitScheme` both thread from the `Projection/semantic#SEMANTIC_PROJECTOR` fold head, which composes the success onto the `ElementGraph` `Header.Reference`; the MAP frame's own regime is derived per operation from the CRS it targets. `GeoReferenceProjector.Author(DatabaseIfc db, GeoReference reference, UnitScheme model, Op key)` is the egress inverse `Projection/egress#IFC_EGRESS` `Emit` composes beside `ReauthorHeader`, returning `Fin<GeoAuthored>` so a caller reads WHICH LoGeoRef level survived: `Unreferenced` for the `Identity` frame, `Geographic` for the EPSG:4326 site shape, `Rigid` for the translation-only metre-identity shape, `Conversion` for an isotropic scale, `Scaled` for an anisotropic one on a schema carrying the subtype — with `BimFault.Refused` with `BimReason.Rejected` on a database carrying no `IfcProject` and `BimFault.Refused` with `BimReason.DanglingReference` when the elected level's anchor entity is absent, each formerly a silent early return that reported success while writing nothing.
+- Entry: `GeoReferenceProjector.Project(IfcProject project, UnitScheme model)` returns `Fin<GeoReference>` — a model with no map conversion AND no geographic site position returns `GeoReference.Identity` so ingest never blocks; an `IfcProjectedCRS` name present but resolving no identity at all raises `new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-name-unresolvable", name }))` over `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Capability` BARE (band 2600 owns the generated `Code`) rather than landing the federation on an unreferenced frame [M1]. The `Op key` and the MODEL `UnitScheme` both thread from the `Projection/semantic#SEMANTIC_PROJECTOR` fold head, which composes the success onto the `ElementGraph` `Header.Reference`; the MAP frame's own regime is derived per operation from the CRS it targets. `GeoReferenceProjector.Author(DatabaseIfc db, GeoReference reference, UnitScheme model)` is the egress inverse `Projection/egress#IFC_EGRESS` `Emit` composes beside `ReauthorHeader`, returning `Fin<GeoAuthored>` so a caller reads WHICH LoGeoRef level survived: `Unreferenced` for the `Identity` frame, `Geographic` for the EPSG:4326 site shape, `Rigid` for the translation-only metre-identity shape, `Conversion` for an isotropic scale, `Scaled` for an anisotropic one on a schema carrying the subtype — with `BimFault.Refused` with `BimReason.Rejected` on a database carrying no `IfcProject` and `BimFault.Refused` with `BimReason.DanglingReference` when the elected level's anchor entity is absent, each formerly a silent early return that reported success while writing nothing.
 - Auto: `Project` is a three-arm fold. The map-conversion arm reads the rigid offset (`Eastings`/`Northings`/`OrthogonalHeight`), the `XAxisAbscissa`/`XAxisOrdinate` direction-cosine pair (each `double.NaN` when unset, coerced to the identity direction `(1,0)` so `RotationRadians` resolves to `0` rather than `Atan2(NaN,NaN)`), and the per-axis scale as the schema COMPOSES it — IFC4.3 gives `IfcMapConversion` ONE `Scale` applied equally to x, y and z (`1.0` when omitted) and puts the per-axis factors on the `IfcMapConversionScaled` subtype where the transform is `Scale × Factor(axis)` — so the shared axis is that PRODUCT. The rigid-operation arm reads `FirstCoordinate`/`SecondCoordinate` in its length-measured planar form ONLY, the `Project` guard pattern-binding BOTH as `IfcLengthMeasure` so each magnitude reads off the public `IfcMeasureValue.Measure` double with no boxed `Convert` hop, `Height` (NaN→`0.0`) likewise, identity direction and the map frame's own metre factor on all three scale axes; the angle-measured geographic-target form is left to the site arm's `Identity`. BOTH operation arms carry every map ordinate AND the composed axis scale through the ONE `UnitScheme.Coerce` entry over the MAP frame built from `IfcProjectedCRS.MapUnit`. The site arm folds `RefLatitude`/`RefLongitude` `IfcCompoundPlaneAngleMeasure` through `.Angle()` to decimal degrees and coerces `RefElevation` (NaN→`0.0`) through the MODEL regime — the one magnitude on this page that IS a project-unit length — then hands the literal `EPSG:4326` authority name with blank WKT/projection/zone carriers to the same `Admit`. Inside `Admit` the contract builds the three-state `ProjectedCrs`, resolving the EPSG code across the OGC URN and the authority form (a BARE numeric name carries no authority evidence and resolves none) while a WKT-defined or projection+zone CRS resolves WITHOUT an EPSG. `Author` elects its level from the frame's own columns through one TOLERANCE compare, authors ONE `IfcProjectedCRS` declaring NO `MapUnit`, and splits the scale back the way the schema composes it: three equal axes author the isotropic `Scale`, differing axes author `Scale = 1.0` with the three `Factor` columns, and differing axes on a pre-`IFC4X3_ADD2` target author the shared component isotropically and report `Conversion`, so the bounded anisotropy drop is a level a caller READS.
 - Output: the shared `GeoReference` is the coordinate-reference evidence the `Header` carries (and the `Semantics/raster#RASTER_INGEST` `Coverage` node carries for a georeferenced raster); its parameters feed a DOWNSTREAM host-bound kernel `Transform` consumer in the Rhino runtime, never a transform this host-neutral projector builds; the shared `CrsResolution` mode drives the `[03]-[GEODETIC_TRANSFORM]` EPSG-keyed-vs-WKT-keyed build path; the egress `GeoAuthored` level is the round-trip evidence an export audit reads — an ingest that recorded a rigid operation and an export reporting `Rigid` is a closed loop, where `Conversion` on the same frame names a level promotion.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Rasm (the host-neutral `Rasm.Domain.Op` key and the `UnitScheme` coercion entry), Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -29,7 +29,6 @@ using LanguageExt;
 using Rasm.Bim.Projection;
 using Rasm.Element.Geospatial;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
@@ -47,7 +46,7 @@ public sealed partial class GeoAuthored {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeoReferenceProjector {
-    public static Fin<GeoReference> Project(IfcProject project, UnitScheme model, Op key) =>
+    public static Fin<GeoReference> Project(IfcProject project, UnitScheme model) =>
         Optional(project.RepresentationContexts
                 .OfType<IfcGeometricRepresentationContext>()
                 .Select(static ctx => ctx.HasCoordinateOperation)
@@ -55,53 +54,53 @@ public static class GeoReferenceProjector {
                     || op is IfcRigidOperation { FirstCoordinate: IfcLengthMeasure, SecondCoordinate: IfcLengthMeasure }))
             .Match(
                 Some: op => op switch {
-                    IfcMapConversion conversion => FromMapConversion(conversion, key),
+                    IfcMapConversion conversion => FromMapConversion(conversion),
                     IfcRigidOperation { FirstCoordinate: IfcLengthMeasure first, SecondCoordinate: IfcLengthMeasure second } rigid
-                                                => FromRigidOperation(rigid, first, second, key),
+                                                => FromRigidOperation(rigid, first, second),
                     _                           => Fin.Succ(GeoReference.Identity),
                 },
                 None: () => Optional(project.Extract<IfcSite>().FirstOrDefault())
-                    .Match(Some: site => FromSite(site, model, key), None: static () => Fin.Succ(GeoReference.Identity)));
+                    .Match(Some: site => FromSite(site, model), None: static () => Fin.Succ(GeoReference.Identity)));
 
-    static Fin<GeoReference> FromMapConversion(IfcMapConversion conversion, Op key) {
+    static Fin<GeoReference> FromMapConversion(IfcMapConversion conversion) {
         Fin<(double X, double Y, double Z)> axes = conversion is IfcMapConversionScaled scaled
-            ? from s in Positive(conversion.Scale, nameof(IfcMapConversion.Scale), key)
-              from fx in Positive(scaled.FactorX, nameof(IfcMapConversionScaled.FactorX), key)
-              from fy in Positive(scaled.FactorY, nameof(IfcMapConversionScaled.FactorY), key)
-              from fz in Positive(scaled.FactorZ, nameof(IfcMapConversionScaled.FactorZ), key)
+            ? from s in Positive(conversion.Scale, nameof(IfcMapConversion.Scale))
+              from fx in Positive(scaled.FactorX, nameof(IfcMapConversionScaled.FactorX))
+              from fy in Positive(scaled.FactorY, nameof(IfcMapConversionScaled.FactorY))
+              from fz in Positive(scaled.FactorZ, nameof(IfcMapConversionScaled.FactorZ))
               select (s * fx, s * fy, s * fz)
-            : Positive(conversion.Scale, nameof(IfcMapConversion.Scale), key).Map(static s => (s, s, s));
+            : Positive(conversion.Scale, nameof(IfcMapConversion.Scale)).Map(static s => (s, s, s));
         double abscissa = double.IsNaN(conversion.XAxisAbscissa) ? 1.0 : conversion.XAxisAbscissa;
         double ordinate = double.IsNaN(conversion.XAxisOrdinate) ? 0.0 : conversion.XAxisOrdinate;
-        return from map in MapFrame(conversion.TargetCRS, key)
+        return from map in MapFrame(conversion.TargetCRS)
                from axis in axes
                from reference in Admit(
                    Metres(conversion.Eastings, map), Metres(conversion.Northings, map), Metres(conversion.OrthogonalHeight, map),
-                   abscissa, ordinate, Metres(axis.X, map), Metres(axis.Y, map), Metres(axis.Z, map), conversion.TargetCRS, key)
+                   abscissa, ordinate, Metres(axis.X, map), Metres(axis.Y, map), Metres(axis.Z, map), conversion.TargetCRS)
                select reference;
     }
 
-    static Fin<GeoReference> FromRigidOperation(IfcRigidOperation rigid, IfcLengthMeasure first, IfcLengthMeasure second, Op key) =>
-        MapFrame(rigid.TargetCRS, key).Bind(map => {
+    static Fin<GeoReference> FromRigidOperation(IfcRigidOperation rigid, IfcLengthMeasure first, IfcLengthMeasure second) =>
+        MapFrame(rigid.TargetCRS).Bind(map => {
             double metre = Metres(1.0, map);
             return Admit(
                 Metres(first.Measure, map), Metres(second.Measure, map),
                 Metres(double.IsNaN(rigid.Height) ? 0.0 : rigid.Height, map),
-                1.0, 0.0, metre, metre, metre, rigid.TargetCRS, key);
+                1.0, 0.0, metre, metre, metre, rigid.TargetCRS);
         });
 
-    static Fin<GeoReference> FromSite(IfcSite site, UnitScheme model, Op key) =>
+    static Fin<GeoReference> FromSite(IfcSite site, UnitScheme model) =>
         site.RefLatitude is null || site.RefLongitude is null
             ? Fin.Succ(GeoReference.Identity)
             : GeoReference.Admit(
                 site.RefLongitude.Angle(), site.RefLatitude.Angle(),
                 Metres(double.IsNaN(site.RefElevation) ? 0.0 : site.RefElevation, model),
-                1.0, 0.0, 1.0, 1.0, 1.0, "WGS84", "", "EPSG:4326", "", "", "", key);
+                1.0, 0.0, 1.0, 1.0, 1.0, "WGS84", "", "EPSG:4326", "", "", "");
 
-    static Fin<GeoReference> Admit(double e, double n, double h, double abscissa, double ordinate, double sx, double sy, double sz, IfcCoordinateReferenceSystem? crs, Op key) {
+    static Fin<GeoReference> Admit(double e, double n, double h, double abscissa, double ordinate, double sx, double sy, double sz, IfcCoordinateReferenceSystem? crs) {
         var (name, datum, vertical, wkt, mapProjection, mapZone) = Carriers(crs);
-        return GeoReference.Admit(e, n, h, abscissa, ordinate, sx, sy, sz, datum, vertical, name, wkt, mapProjection, mapZone, key)
-            .MapFail(_ => new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-name-unresolvable", name })));
+        return GeoReference.Admit(e, n, h, abscissa, ordinate, sx, sy, sz, datum, vertical, name, wkt, mapProjection, mapZone)
+            .MapFail(_ => new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-name-unresolvable", name })));
     }
 
     static (string Name, string GeodeticDatum, string VerticalDatum, string Wkt, string MapProjection, string MapZone) Carriers(IfcCoordinateReferenceSystem? crs) {
@@ -114,17 +113,17 @@ public static class GeoReferenceProjector {
                 projected.Bind(static p => PropertyLowering.Stated(p.MapZone)).IfNone(""));
     }
 
-    static Fin<UnitScheme> MapFrame(IfcCoordinateReferenceSystem? crs, Op key) =>
+    static Fin<UnitScheme> MapFrame(IfcCoordinateReferenceSystem? crs) =>
         (crs as IfcProjectedCRS)?.MapUnit is { } unit
-            ? Positive(unit.SIFactor(), nameof(IfcNamedUnit.SIFactor), key).Map(static factor => UnitScheme.Si with { L = factor })
+            ? Positive(unit.SIFactor(), nameof(IfcNamedUnit.SIFactor)).Map(static factor => UnitScheme.Si with { L = factor })
             : Fin.Succ(UnitScheme.Si);
 
     static double Metres(double native, UnitScheme frame) => frame.Coerce(native, QuantityType.Length, Dimension.LengthDim);
 
-    static Fin<double> Positive(double value, string column, Op key) =>
+    static Fin<double> Positive(double value, string column) =>
         double.IsFinite(value) && value > 0.0
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "map-scale-degenerate", column, value.ToString("R", CultureInfo.InvariantCulture) })));
+            : Fin.Fail<double>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "map-scale-degenerate", column, value.ToString("R", CultureInfo.InvariantCulture) })));
 
     static readonly double FrameEpsilon = Context.Canonical.For(ToleranceLane.Identity).Value;
 
@@ -144,23 +143,23 @@ public static class GeoReferenceProjector {
         : reference.Epsg == Some(4326) ? GeoAuthored.Geographic
         : GeoAuthored.Rigid;
 
-    public static Fin<GeoAuthored> Author(DatabaseIfc db, GeoReference reference, UnitScheme model, Op key) {
+    public static Fin<GeoAuthored> Author(DatabaseIfc db, GeoReference reference, UnitScheme model) {
         GeoAuthored level = Level(db, reference);
         if (level == GeoAuthored.Unreferenced) { return Fin.Succ(level); }
         if (db.Project is not IfcProject project) {
-            return Fin.Fail<GeoAuthored>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-author-projectless" })));
+            return Fin.Fail<GeoAuthored>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-author-projectless" })));
         }
         return level == GeoAuthored.Geographic
             ? Optional(project.Extract<IfcSite>().FirstOrDefault())
-                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "site" })))
-                .Bind(site => AuthorSite(site, reference, model, key))
+                .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "site" })))
+                .Bind(site => AuthorSite(site, reference, model))
             : Optional(project.RepresentationContexts.OfType<IfcGeometricRepresentationContext>().FirstOrDefault())
-                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "context" })))
+                .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "geo-author-anchor-miss", "context" })))
                 .Map(context => AuthorOperation(db, context, reference, level));
     }
 
-    static Fin<GeoAuthored> AuthorSite(IfcSite site, GeoReference reference, UnitScheme model, Op key) =>
-        MeasureValue.OfSi(Dimension.LengthDim, reference.OrthogonalHeight, key)
+    static Fin<GeoAuthored> AuthorSite(IfcSite site, GeoReference reference, UnitScheme model) =>
+        MeasureValue.OfSi(Dimension.LengthDim, reference.OrthogonalHeight)
             .Map(model.Render)
             .Map(declared => {
                 site.RefLongitude = new IfcCompoundPlaneAngleMeasure(reference.Eastings);
@@ -200,7 +199,7 @@ public static class GeoReferenceProjector {
 ## [03]-[GEODETIC_TRANSFORM]
 
 - Owner: `GeoTransform` the datum-bridging leg reprojecting raw ordinate spans between two shared `GeoReference` frames — EACH frame resolves its `ProjNET` `CoordinateSystem` off its OWN shared `CrsResolution` (`ManagedCs`: the `Wkt` arm the shared `CoordinateSystemFactory.CreateFromWkt` over the frame's own payload, the `Epsg` arm the SAME parser over the `EpsgWkt` definition one OSR `ImportFromEPSGA`/`ExportToWkt` hop resolves, because `ProjNET` ships no code registry at all), the ONE `CoordinateTransformationFactory.CreateFromCoordinateSystems(src, dst)` building the managed transform for EVERY resolvable pair (both-EPSG, both-WKT, and the MIXED EPSG↔WKT federation alike) — escalating an exotic datum-grid or dynamic-datum transform `ProjNET` cannot express to the `MaxRev.Gdal.Core` OSR PROJ engine (keyed by `ImportFromEPSGA` or `ImportFromWkt` to match the frame's resolution) per the `.api/api-projnet` escalation-boundary; `CsFactory` the one WKT parser, `TransformFactory` the one CS-pair build, and `ManagedFrames` the one `FrameKey`-keyed `CoordinateSystem` cache the `.api/api-projnet` `CRS_TRANSFORM` law names as the single owners. `EpochPosture` is the typed plate-motion arm `Reprojection` carries in place of a bool, and the managed batch dispatches on the transform's own declared `DimTarget` rank. The leg operates on the shared `GeoReference` frame and a `ProjNET`/OSR datum shift folded onto the kernel transform is the named contract violation.
-- Entry: `GeoTransform.Preflight(Seq<(string Model, GeoReference Frame)> frames, (double X, double Y, double Z) anchor, CancellationToken token, Op key)` returns `Fin<Seq<FrameAlignment>>` and folds a federation's frames into the complete pairwise `FrameAlignment` matrix on success — one row per unordered INDEX pair (so two models sharing a name both appear, where an ordinal name compare dropped every such pair), one probe reprojection per distinct FRAME-IDENTITY pair memoized across the run (an N-model federation over M distinct frames builds M(M−1)/2 transforms, not N(N−1)/2), every transform outcome a typed `FrameVerdict` row retaining its exact `Error` cause, the at-anchor displacement riding each row — the preflight artifact a coordination manager rules the federated join on before any element-level work runs. `GeoTransform.Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride, Op key)` applies the datum-to-datum transform IN PLACE on the interleaved double ordinate buffer when both frames carry a resolvable CRS (EPSG or WKT) that differs, returning `Fin<Reprojection>` — carrying the engine route, the shifted-vertex count, the ordinate RANK the transform spans, the forward→inverse round-trip residual, the central-difference anchor `AnchorScale`/`AnchorConvergence` distortion evidence, and the `EpochPosture` — each probe column an `Option<double>` so a REFUSED probe is a recorded absence and never a fabricated unit scale or zero residual: the additive cases (a source or target `CrsResolution.Unreferenced`, an identical CRS, or fewer than one full vertex) return `Reprojection.Identity` — engine `Identity`, zero shifted vertices, `EpochPosture.Unprobed`, and every evidence column `None`, because an identity leg PROBED nothing — so the datum leg never blocks a single-datum federation; a `CrsResolution.Projection` frame (the contract's typed projection+zone-only mode) faults `crs-projection-only-unbuildable` by CASE, and a pair whose two `VerticalCrs` height datums DIFFER faults `crs-vertical-untransformable` by name — no geoid model reaches either engine, so a horizontal-only shift that carries Z across a datum boundary lands a federation correct in plan and metres wrong in elevation — neither engine builds from a bare projection identity, and the empty-`Wkt` payload sniff is the deleted form; a differing, resolvable pair resolves EACH frame's `CoordinateSystem` through its `Resolution` generated total `Switch` (`ManagedCs`) into the ONE facade `CreateTransformation(src, dst)` managed build (a mixed EPSG↔WKT pair included), runs the strided batch once at the transform's own rank, escalates to the matching OSR build (`ImportFromEPSGA`/`ImportFromWkt`) when `ProjNET` cannot express the transform, and faults `BimFault.Refused` with `BimReason.Capability` BARE only when BOTH engines fail. The buffer is `double` end to end — a survey easting never narrows to `float` (the `Semantics/feature#GEO_FEATURE` precision contract) — and the NTS `CoordinateSequence` flatten plus the `Geometry.Apply` write-back is the geospatial CONSUMER's marshalling, so the leg stays geometry-library-neutral over raw ordinates. Composed BEFORE the downstream host-bound rigid map-conversion offset so a federated model lands in the shared datum before its local-engineering placement applies.
+- Entry: `GeoTransform.Preflight(Seq<(string Model, GeoReference Frame)> frames, (double X, double Y, double Z) anchor, CancellationToken token)` returns `Fin<Seq<FrameAlignment>>` and folds a federation's frames into the complete pairwise `FrameAlignment` matrix on success — one row per unordered INDEX pair (so two models sharing a name both appear, where an ordinal name compare dropped every such pair), one probe reprojection per distinct FRAME-IDENTITY pair memoized across the run (an N-model federation over M distinct frames builds M(M−1)/2 transforms, not N(N−1)/2), every transform outcome a typed `FrameVerdict` row retaining its exact `Error` cause, the at-anchor displacement riding each row — the preflight artifact a coordination manager rules the federated join on before any element-level work runs. `GeoTransform.Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride)` applies the datum-to-datum transform IN PLACE on the interleaved double ordinate buffer when both frames carry a resolvable CRS (EPSG or WKT) that differs, returning `Fin<Reprojection>` — carrying the engine route, the shifted-vertex count, the ordinate RANK the transform spans, the forward→inverse round-trip residual, the central-difference anchor `AnchorScale`/`AnchorConvergence` distortion evidence, and the `EpochPosture` — each probe column an `Option<double>` so a REFUSED probe is a recorded absence and never a fabricated unit scale or zero residual: the additive cases (a source or target `CrsResolution.Unreferenced`, an identical CRS, or fewer than one full vertex) return `Reprojection.Identity` — engine `Identity`, zero shifted vertices, `EpochPosture.Unprobed`, and every evidence column `None`, because an identity leg PROBED nothing — so the datum leg never blocks a single-datum federation; a `CrsResolution.Projection` frame (the contract's typed projection+zone-only mode) faults `crs-projection-only-unbuildable` by CASE, and a pair whose two `VerticalCrs` height datums DIFFER faults `crs-vertical-untransformable` by name — no geoid model reaches either engine, so a horizontal-only shift that carries Z across a datum boundary lands a federation correct in plan and metres wrong in elevation — neither engine builds from a bare projection identity, and the empty-`Wkt` payload sniff is the deleted form; a differing, resolvable pair resolves EACH frame's `CoordinateSystem` through its `Resolution` generated total `Switch` (`ManagedCs`) into the ONE facade `CreateTransformation(src, dst)` managed build (a mixed EPSG↔WKT pair included), runs the strided batch once at the transform's own rank, escalates to the matching OSR build (`ImportFromEPSGA`/`ImportFromWkt`) when `ProjNET` cannot express the transform, and faults `BimFault.Refused` with `BimReason.Capability` BARE only when BOTH engines fail. The buffer is `double` end to end — a survey easting never narrows to `float` (the `Semantics/feature#GEO_FEATURE` precision contract) — and the NTS `CoordinateSequence` flatten plus the `Geometry.Apply` write-back is the geospatial CONSUMER's marshalling, so the leg stays geometry-library-neutral over raw ordinates. Composed BEFORE the downstream host-bound rigid map-conversion offset so a federated model lands in the shared datum before its local-engineering placement applies.
 - Auto: `Reproject` short-circuits when either frame is `CrsResolution.Unreferenced`, when the two CRS identities are equal (same EPSG, or same `Crs` value), or when the buffer holds fewer than one full vertex; otherwise EACH frame resolves its `CoordinateSystem` through its own `Resolution` generated total `Switch` (`ManagedCs` — the `Epsg` arm `CsFactory.CreateFromWkt(EpsgWkt(code))` over the PROJ-resolved definition, the `Wkt` arm `CsFactory.CreateFromWkt(wkt)` over the frame's own payload, both behind the `ManagedFrames` `FrameKey` cache, the `Unreferenced` arm unreachable here since the short-circuit already returned) and the ONE `TransformFactory.CreateFromCoordinateSystems(srcCS, dstCS).MathTransform` builds the managed transform. That build is captured through `Op.Catch` onto an `Option<MathTransform>` so an EPSG code PROJ's own database does not carry, a WKT `ProjNET` cannot parse, or a datum `ProjNET` cannot express routes the OSR escalation rather than throwing across the boundary or re-entering a null. The `ProjNET` apply reads the transform's own `DimTarget` and takes the matching `api-projnet#ENTRYPOINTS` strided overload IN PLACE on the interleaved buffer — the three-column `Transform(xs, ys, zs, stride×3)` for a rank-3 transform, the two-column `Transform(xs, ys, stride×2)` for a planar one so the Z column is untouched BY CONSTRUCTION rather than by trusting each concrete transform's core to leave it alone — with no staging copy, and the `TransformCore` `while (num < xs.Length)` walk driving the count off the full-length first column so the last vertex is covered, a `stride` above three leaving the non-position interleave columns untouched; `Reprojection` records that rank so a survey audit reads whether the height column was reprojected at all. The OSR escalation deinterleaves the position columns into pooled `double[]` x/y/z, runs the one `Semantics/raster#RASTER_INGEST` `GeoGdal.Bootstrap` idempotent guard (`GdalBase.ConfigureAll` + `Osr.UseExceptions`), builds two `SpatialReference` keyed to match each frame's resolution through the TOTAL four-arm `CrsResolution` `Switch` (`ImportFromEPSGA` for an EPSG frame, `ImportFromWkt` for a WKT frame, the projection-only and unreferenced arms unreachable and empty by construction, `OAMS_TRADITIONAL_GIS_ORDER` pinning lon/lat against the GDAL-3 axis swap) and one `CoordinateTransformation` under the two options gates (`SetBallparkAllowed(false)` — a gridless pair faults, never a coarse ballpark shift; `SetOnlyBest(true)` — a missing best-accuracy operation faults, never a silent lower-accuracy fallback), elects the `EpochPosture` off each frame's `IsDynamic()` against its own shared `Epoch`, runs one `TransformPoints(count, xs, ys, zs)`, and reinterleaves; on BOTH engines the probe evidence rides the same shifted anchor — the `GetInverse`/`Inverse()` round-trip residual and the `Distortion` central-difference Jacobian probe are inner-`Op.Catch` recorded absences (`None`), never leg faults; `Preflight` keys its probe memo on each frame's RESOLUTION IDENTITY (its EPSG code, its WKT text, or its projection identity) so a federation of many models on few frames pays one build per frame pair and a memo HIT re-uses the stored probe without re-writing it, and it checks the caller's `CancellationToken` at each PAIR boundary — the managed grain the `RULINGS` native-lane row demands stated honestly, because an in-flight `TransformPoints` batch and an OSR pipeline build publish no interrupt of their own — lowering abandonment to `Errors.Cancelled` on the returned result, so no partial matrix can read as complete; the datum shift composes BEFORE the rigid offset so a model lands in the shared datum before its local-engineering-frame placement applies.
 - Packages: ProjNET, MaxRev.Gdal.Core, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new EPSG, WKT, or mixed CRS pair is the per-frame `ManagedCs` resolution joined by the one `TransformFactory.CreateFromCoordinateSystems` build, never a per-call factory; a new CRS-resolution mode is one arm on the shared `CrsResolution` that breaks BOTH `Switch` sites at compile time (the contract owns the discriminant, this leg owns the per-mode build); an exotic datum-grid or dynamic datum is the OSR PROJ pipeline's, resolved from the EPSG code or the WKT, never a hand-rolled Bursa-Wolf matrix; a float-buffered consumer widens to `double` at its OWN boundary and calls the one `Span<double>` leg, never a parallel `Span<float>` overload re-admitting the survey-precision-loss footgun; a denser batch is one `MathTransform`/`CoordinateTransformation` overload swap, never a second transform owner and never a per-vertex `ref` loop; a new PROJ pipeline gate is one `CoordinateTransformationOptions` setter row on the one OSR options build; a new plate-motion state is one `EpochPosture` row every consumer's compare breaks on; the coordinate epoch itself is the contract's `GeoReference.Epoch`, threaded through `SpatialReference.SetCoordinateEpoch` per frame, never a Bim-local epoch knob; a new probe evidence column is one `Option<double>` `Reprojection` field fed by the shared anchor probes, never a per-engine sibling; a new alignment verdict is one `FrameVerdict` case every matrix consumer's `Switch` breaks on at compile time, never a parallel per-consumer compatibility test.
@@ -262,9 +261,9 @@ public static class GeoTransform {
     static readonly CoordinateTransformationFactory TransformFactory = new();
     static readonly ConcurrentDictionary<string, CoordinateSystem> ManagedFrames = new(StringComparer.Ordinal);
 
-    public static Fin<Reprojection> Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride, Op key) {
+    public static Fin<Reprojection> Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride) {
         if (stride < 3 || ordinates.Length % stride != 0) {
-            return Fin.Fail<Reprojection>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-buffer-malformed", "stride", stride.ToString(CultureInfo.InvariantCulture), "length", ordinates.Length.ToString(CultureInfo.InvariantCulture) })));
+            return Fin.Fail<Reprojection>(new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-buffer-malformed", "stride", stride.ToString(CultureInfo.InvariantCulture), "length", ordinates.Length.ToString(CultureInfo.InvariantCulture) })));
         }
         bool sameFrame =
             (from s in source.Epsg from t in target.Epsg select s == t).IfNone(false) || source.Crs == target.Crs;
@@ -273,18 +272,18 @@ public static class GeoTransform {
             return Fin.Succ(Reprojection.Identity);
         }
         if ((ProjectionOnly(source) | ProjectionOnly(target)).Case is string gap) {
-            return Fin.Fail<Reprojection>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-projection-only-unbuildable", gap })));
+            return Fin.Fail<Reprojection>(new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-projection-only-unbuildable", gap })));
         }
         if (VerticalGap(source, target).Case is string vertical) {
-            return Fin.Fail<Reprojection>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-vertical-untransformable", vertical })));
+            return Fin.Fail<Reprojection>(new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-vertical-untransformable", vertical })));
         }
-        Option<MathTransform> managed = key.Catch(() =>
+        Option<MathTransform> managed = Try.lift(() =>
                 from src in ManagedCs(source)
                 from dst in ManagedCs(target)
-                select TransformFactory.CreateFromCoordinateSystems(src, dst).MathTransform)
+                select TransformFactory.CreateFromCoordinateSystems(src, dst).MathTransform).Run().Bind(static inner => inner)
             .Match(Succ: static t => t, Fail: static _ => Option<MathTransform>.None);
         if (managed.Case is not MathTransform transform) {
-            return Osr(source, target, ordinates, stride, key);
+            return Osr(source, target, ordinates, stride);
         }
         int count = ordinates.Length / stride;
         var (ox, oy, oz) = (ordinates[0], ordinates[1], ordinates[2]);
@@ -294,10 +293,10 @@ public static class GeoTransform {
         } else {
             transform.Transform(ordinates, ordinates[1..], stride, stride);
         }
-        var (scale, convergence) = Distortion((x, y) => { var (px, py, _) = transform.Transform(x, y, oz); return (px, py); }, ox, oy, key);
+        var (scale, convergence) = Distortion((x, y) => { var (px, py, _) = transform.Transform(x, y, oz); return (px, py); }, ox, oy);
         return AllFinite(ordinates, stride, count)
-            ? Fin.Succ(new Reprojection(GeoEngine.Managed, count, Some(rank), RoundTrip(transform, ordinates, ox, oy, oz, key), scale, convergence, EpochPosture.Unprobed))
-            : Fin.Fail<Reprojection>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key })));
+            ? Fin.Succ(new Reprojection(GeoEngine.Managed, count, Some(rank), RoundTrip(transform, ordinates, ox, oy, oz), scale, convergence, EpochPosture.Unprobed))
+            : Fin.Fail<Reprojection>(new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key })));
     }
 
     static Option<string> VerticalGap(GeoReference source, GeoReference target) =>
@@ -326,7 +325,7 @@ public static class GeoTransform {
         return wkt;
     }
 
-    static Fin<Reprojection> Osr(GeoReference source, GeoReference target, Span<double> ordinates, int stride, Op key) {
+    static Fin<Reprojection> Osr(GeoReference source, GeoReference target, Span<double> ordinates, int stride) {
         int count = ordinates.Length / stride;
         double[] xs = ArrayPool<double>.Shared.Rent(count);
         double[] ys = ArrayPool<double>.Shared.Rent(count);
@@ -336,7 +335,7 @@ public static class GeoTransform {
                 (xs[i], ys[i], zs[i]) = (ordinates[o], ordinates[o + 1], ordinates[o + 2]);
             }
             var (ox, oy, oz) = (xs[0], ys[0], zs[0]);
-            Fin<(Option<double> RoundTrip, Option<double> Scale, Option<double> Convergence, EpochPosture Epoch)> outcome = key.Catch(() => {
+            Fin<(Option<double> RoundTrip, Option<double> Scale, Option<double> Convergence, EpochPosture Epoch)> outcome = Try.lift(() => {
                 GeoGdal.Bootstrap();
                 using SpatialReference src = Crs(source);
                 using SpatialReference dst = Crs(target);
@@ -346,20 +345,20 @@ public static class GeoTransform {
                 EpochPosture epoch = EpochPosture.Pair(Posture(src, source), Posture(dst, target));
                 using var pipeline = new CoordinateTransformation(src, dst, options);
                 pipeline.TransformPoints(count, xs, ys, zs);
-                Option<double> roundTrip = key.Catch(() => {
+                Option<double> roundTrip = Try.lift(() => {
                     double[] rx = [xs[0]], ry = [ys[0]], rz = [zs[0]];
                     using CoordinateTransformation inverse = pipeline.GetInverse();
                     inverse.TransformPoints(1, rx, ry, rz);
                     return Hypot(rx[0] - ox, ry[0] - oy, rz[0] - oz);
-                }).ToOption();
-                var (scale, convergence) = Distortion((x, y) => { double[] p = [x, y, oz]; pipeline.TransformPoint(p); return (p[0], p[1]); }, ox, oy, key);
+                }).Run().Bind(static inner => inner).ToOption();
+                var (scale, convergence) = Distortion((x, y) => { double[] p = [x, y, oz]; pipeline.TransformPoint(p); return (p[0], p[1]); }, ox, oy);
                 return (roundTrip, scale, convergence, epoch);
-            });
+            }).Run().Bind(static inner => inner);
             bool outOfDomain = outcome.IsSucc && !AllFinite(xs, ys, zs, count);
             if (outcome.IsFail || outOfDomain) {
                 return Fin.Fail<Reprojection>(outOfDomain
-                    ? new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key }))
-                    : new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-pair-unreconcilable", source.Resolution.Key, target.Resolution.Key })));
+                    ? new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-out-of-domain", source.Resolution.Key, target.Resolution.Key }))
+                    : new BimFault.Refused(BimScope.Semantics, BimReason.Capability, string.Join(':', new object?[] { "crs-pair-unreconcilable", source.Resolution.Key, target.Resolution.Key })));
             }
             for (int i = 0, o = 0; i < count; i++, o += stride) {
                 (ordinates[o], ordinates[o + 1], ordinates[o + 2]) = (xs[i], ys[i], zs[i]);
@@ -377,17 +376,17 @@ public static class GeoTransform {
         : frame.Epoch.IsSome ? EpochPosture.Modelled
         : EpochPosture.Defaulted;
 
-    static Option<double> RoundTrip(MathTransform forward, ReadOnlySpan<double> shifted, double ox, double oy, double oz, Op key) {
+    static Option<double> RoundTrip(MathTransform forward, ReadOnlySpan<double> shifted, double ox, double oy, double oz) {
         (double sx, double sy, double sz) = (shifted[0], shifted[1], shifted[2]);
-        return key.Catch(() => {
+        return Try.lift(() => {
             (double x, double y, double z) = (sx, sy, sz);
             forward.Inverse().Transform(ref x, ref y, ref z);
             return Hypot(x - ox, y - oy, z - oz);
-        }).ToOption();
+        }).Run().Bind(static inner => inner).ToOption();
     }
 
-    static (Option<double> Scale, Option<double> Convergence) Distortion(Func<double, double, (double X, double Y)> map, double ox, double oy, Op key) =>
-        key.Catch(() => {
+    static (Option<double> Scale, Option<double> Convergence) Distortion(Func<double, double, (double X, double Y)> map, double ox, double oy) =>
+        Try.lift(() => {
             double h = Math.Max(Math.Max(Math.Abs(ox), Math.Abs(oy)), 1.0) * Context.Canonical.For(ToleranceLane.Probe).Value;
             var ((xe, ye), (xw, yw), (xn, yn), (xs, ys)) = (map(ox + h, oy), map(ox - h, oy), map(ox, oy + h), map(ox, oy - h));
             var (dXdx, dYdx, dXdy, dYdy) = ((xe - xw) / (2.0 * h), (ye - yw) / (2.0 * h), (xn - xs) / (2.0 * h), (yn - ys) / (2.0 * h));
@@ -395,7 +394,7 @@ public static class GeoTransform {
             return double.IsFinite(det) && det != 0.0
                 ? (Scale: Some(Math.Sqrt(Math.Abs(det))), Convergence: Some(Math.Atan2(dYdx, dXdx)))
                 : (Scale: Option<double>.None, Convergence: Option<double>.None);
-        }).IfFail((Option<double>.None, Option<double>.None));
+        }).Run().Bind(static inner => inner).IfFail((Option<double>.None, Option<double>.None));
 
     static bool AllFinite(ReadOnlySpan<double> ordinates, int stride, int count) {
         for (int i = 0, o = 0; i < count; i++, o += stride) {
@@ -425,7 +424,7 @@ public static class GeoTransform {
         return crs;
     }
 
-    public static Fin<Seq<FrameAlignment>> Preflight(Seq<(string Model, GeoReference Frame)> frames, (double X, double Y, double Z) anchor, CancellationToken token, Op key) =>
+    public static Fin<Seq<FrameAlignment>> Preflight(Seq<(string Model, GeoReference Frame)> frames, (double X, double Y, double Z) anchor, CancellationToken token) =>
         toSeq(from i in Enumerable.Range(0, frames.Count)
               from j in Enumerable.Range(i + 1, frames.Count - i - 1)
               select (Source: frames[i], Target: frames[j]))
@@ -433,7 +432,7 @@ public static class GeoTransform {
                 (Memo: Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)>(), Rows: Seq<FrameAlignment>()),
                 (state, pair) => token.IsCancellationRequested
                     ? Fin.Fail<(Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)> Memo, Seq<FrameAlignment> Rows)>(Errors.Cancelled)
-                    : Align(pair.Source, pair.Target, anchor, state.Memo, key) switch {
+                    : Align(pair.Source, pair.Target, anchor, state.Memo) switch {
                         var (memo, row) => Fin.Succ((memo, state.Rows.Add(row))),
                     })
             .As()
@@ -449,17 +448,17 @@ public static class GeoTransform {
     static (Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)> Memo, FrameAlignment Row) Align(
         (string Model, GeoReference Frame) source, (string Model, GeoReference Frame) target,
         (double X, double Y, double Z) anchor,
-        Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)> probes, Op key) {
+        Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)> probes) {
         if (source.Frame.Resolution == CrsResolution.Unreferenced || target.Frame.Resolution == CrsResolution.Unreferenced) {
             return (probes, new FrameAlignment(source.Model, target.Model,
-                new FrameVerdict.Unresolvable(new BimFault.Refused(key, BimScope.Semantics, BimReason.Capability, "crs-unreferenced")), None));
+                new FrameVerdict.Unresolvable(new BimFault.Refused(BimScope.Semantics, BimReason.Capability, "crs-unreferenced")), None));
         }
         (string, string) memo = (FrameKey(source.Frame), FrameKey(target.Frame));
         var (cache, probe) = probes.Find(memo).Match(
             Some: hit => (probes, hit),
             None: () => {
                 double[] ordinates = [anchor.X, anchor.Y, anchor.Z];
-                Fin<Reprojection> run = Reproject(source.Frame, target.Frame, ordinates, 3, key);
+                Fin<Reprojection> run = Reproject(source.Frame, target.Frame, ordinates, 3);
                 (Fin<Reprojection> Run, Option<double> Shift) fresh =
                     (run, Some(Hypot(ordinates[0] - anchor.X, ordinates[1] - anchor.Y, ordinates[2] - anchor.Z)));
                 return (probes.Add(memo, fresh), fresh);

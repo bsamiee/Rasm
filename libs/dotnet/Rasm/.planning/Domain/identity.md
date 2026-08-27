@@ -51,14 +51,14 @@ public sealed record ArtifactContent {
     public string Sha256 { get; }
     public ulong Bytes { get; }
 
-    public static Fin<ArtifactContent> Of(ReadOnlyMemory<byte> payload, Op key) =>
-        Of(SHA256.HashData(payload.Span), checked((ulong)payload.Length), key);
+    public static Fin<ArtifactContent> Of(ReadOnlyMemory<byte> payload) =>
+        Of(SHA256.HashData(payload.Span), checked((ulong)payload.Length));
 
-    public static Fin<ArtifactContent> Of(ReadOnlySpan<byte> sha256, ulong bytes, Op key) =>
+    public static Fin<ArtifactContent> Of(ReadOnlySpan<byte> sha256, ulong bytes) =>
         sha256.Length != SHA256.HashSizeInBytes
-            ? new KernelFault.InvalidValue("artifact-content.sha256", "carry 32 bytes", Some(key))
+            ? new KernelFault.InvalidValue("artifact-content.sha256", "carry 32 bytes")
             : bytes is not (> 0UL and <= MaxBytes)
-                ? new KernelFault.OutOfRange("artifact-content.bytes", bytes, 1UL, MaxBytes, Some(key))
+                ? new KernelFault.OutOfRange("artifact-content.bytes", bytes, 1UL, MaxBytes)
                 : Fin.Succ(new ArtifactContent(Convert.ToHexStringLower(sha256), bytes));
 }
 
@@ -165,7 +165,7 @@ public sealed class CanonicalWriter {
     // --- [CLOSE]
     internal UInt128 Digest() => accumulator.GetCurrentHashAsUInt128();
 
-    public Fin<ReadOnlyMemory<byte>> ToBytes(Op? key = null) =>
+    public Fin<ReadOnlyMemory<byte>> ToBytes() =>
         retained.Map(static buffer => buffer.WrittenMemory)
             .ToFin(Fail: key.OrDefault().InvalidContext());
 
@@ -212,17 +212,17 @@ public static class ContentHash {
         return ByteString.CopyFrom(bytes: wire);
     }
 
-    public static Fin<UInt128> Admit(ReadOnlySpan<char> hex, Op key) =>
+    public static Fin<UInt128> Admit(ReadOnlySpan<char> hex) =>
         hex.Length == 32
         && !hex.ContainsAnyInRange(lowInclusive: 'A', highInclusive: 'F')
         && UInt128.TryParse(s: hex, style: NumberStyles.AllowHexSpecifier, provider: CultureInfo.InvariantCulture, result: out UInt128 digest)
             ? Fin.Succ(value: digest)
-            : Fin.Fail<UInt128>(error: key.InvalidInput());
+            : Fin.Fail<UInt128>(error: new KernelFault.InvalidInput());
 
-    public static Fin<UInt128> Admit(ReadOnlySpan<byte> wire, Op key) =>
+    public static Fin<UInt128> Admit(ReadOnlySpan<byte> wire) =>
         wire.Length == 16
             ? Fin.Succ(value: BinaryPrimitives.ReadUInt128BigEndian(source: wire))
-            : Fin.Fail<UInt128>(error: key.InvalidInput(axis: "content-key-wire-width"));
+            : Fin.Fail<UInt128>(error: new KernelFault.InvalidInput(Axis: Some("content-key-wire-width")));
 }
 ```
 

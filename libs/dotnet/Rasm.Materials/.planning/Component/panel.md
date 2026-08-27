@@ -376,9 +376,9 @@ public static class LateralShear {
 
     public static Fin<double> Nominal(
         WspGrade grade, double thicknessIn, SheathingNail nail, LateralAssembly assembly,
-        double edgeSpacingIn, double framingWidthIn, int loadCase, Op key) =>
+        double edgeSpacingIn, double framingWidthIn, int loadCase) =>
         assembly.Switch(
-            state: (Grade: grade, ThicknessIn: thicknessIn, Nail: nail, EdgeIn: edgeSpacingIn, FramingIn: framingWidthIn, LoadCase: loadCase, Key: key),
+            state: (Grade: grade, ThicknessIn: thicknessIn, Nail: nail, EdgeIn: edgeSpacingIn, FramingIn: framingWidthIn, LoadCase: loadCase),
             shearWall: static x => Row(
                 toSeq(ShearWalls).Find(r => r.Grade == x.Grade && Same(r.PanelThicknessIn, x.ThicknessIn) && r.Nail == x.Nail),
                 r => Column(x.EdgeIn, [(6.0, r.At6In), (4.0, r.At4In), (3.0, r.At3In), (2.0, r.At2In)]), x),
@@ -391,7 +391,7 @@ public static class LateralShear {
 
     static Fin<double> Row<TRow>(
         Option<TRow> found, Func<TRow, Option<double>> cell,
-        (WspGrade Grade, double ThicknessIn, SheathingNail Nail, double EdgeIn, double FramingIn, int LoadCase, Op Key) x) =>
+        (WspGrade Grade, double ThicknessIn, SheathingNail Nail, double EdgeIn, double FramingIn, int LoadCase) x) =>
         found.Bind(cell).ToFin(new ComponentFault.LateralCellMissing(x.Key, x.Grade, x.Nail, x.ThicknessIn));
 
     static Option<double> Column(double spacingIn, ReadOnlySpan<(double SpacingIn, Option<double> Value)> columns) {
@@ -417,8 +417,8 @@ public readonly partial struct FastenPattern {
             ? null
             : new ValidationError($"Fastening spacings must be finite and positive and edge distance finite and non-negative; received {fieldSpacingMm:R}, {edgeSpacingMm:R}, {edgeDistanceMm:R}.");
 
-    public static Fin<FastenPattern> Of(double fieldMm, double edgeMm, double edgeDistMm, PanelFastening fastener, Op key) =>
-        key.AcceptValidated<FastenPattern>(Validate(fieldMm, edgeMm, edgeDistMm, fastener, out FastenPattern pattern), pattern);
+    public static Fin<FastenPattern> Of(double fieldMm, double edgeMm, double edgeDistMm, PanelFastening fastener) =>
+        FactoryBridge.Accept<FastenPattern>(Validate(fieldMm, edgeMm, edgeDistMm, fastener, out FastenPattern pattern), pattern);
 
     public int EdgeStations(PositiveMagnitude axisLengthMm) => Math.Max(2, (int)Math.Floor(axisLengthMm.Value / EdgeSpacingMm) + 1);
     public int FieldStations(PositiveMagnitude axisLengthMm) => Math.Max(2, (int)Math.Floor(axisLengthMm.Value / FieldSpacingMm) + 1);
@@ -633,74 +633,74 @@ public static class PanelSeed {
         substance: Substance,
         source: static r => r.Source,
         standard: static r => new ComponentStandard(r.Kind.Authority.Region, StandardJointThicknessMm: 0.0, r.Kind.Authority),
-        detail: Some<Func<PanelRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<PanelRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static r => r.Specification.FacingMaterial(r.Kind).IfNone(Substance(r)),
         ifc: static r => IfcBinding.Of(r.Kind.IfcEntity, r.Kind.IfcPredefinedType));
 
-    static Validation<Error, Unit> Coherence(PanelRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(PanelRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(r.Kind.Admits(r.Specification),
-                new KernelFault.InvalidValue(nameof(r.Specification), "a specification admitted by the panel kind", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.Specification), "a specification admitted by the panel kind")),
             AdmissionSlots.Gate(r.Specification.Coherent(),
-                new KernelFault.InvalidValue(nameof(r.Specification), "a coherent panel payload", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.Specification), "a coherent panel payload")),
             AdmissionSlots.Gate(
                 double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.LengthMm) && r.LengthMm > 0.0
                 && double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0,
-                new KernelFault.InvalidValue(nameof(PanelRow), "positive finite width, length, and thickness", Some(key))),
-            FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key).ToValidation().Map(static _ => unit),
-            DeckDrift(r, key)));
+                new KernelFault.InvalidValue(nameof(PanelRow), "positive finite width, length, and thickness")),
+            FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener).ToValidation().Map(static _ => unit),
+            DeckDrift(r)));
 
-    static Validation<Error, Unit> DeckDrift(PanelRow r, Op key) =>
-        Tolerance.Of(ToleranceLane.Match, DeckDriftMm, key).ToValidation()
+    static Validation<Error, Unit> DeckDrift(PanelRow r) =>
+        Tolerance.Of(ToleranceLane.Match, DeckDriftMm).ToValidation()
             .Bind(band => AdmissionSlots.Gate(r.Specification.Deck.ForAll(deck =>
                     Math.Abs(r.ThicknessMm - deck.Rib.RibDepthMm) <= band.Value
                     && Math.Abs(r.WidthMm - deck.Rib.CoverageMm) <= band.Value),
-                new KernelFault.InvalidValue(nameof(r.ThicknessMm), "deck gauge thickness and rib coverage", Some(key))));
+                new KernelFault.InvalidValue(nameof(r.ThicknessMm), "deck gauge thickness and rib coverage")));
 
     static MaterialId Substance(PanelRow r) =>
         r.Specification.Deck.Map(static deck => deck.Gauge.Substance).IfNone(r.Kind.Substance);
 
-    static Fin<SectionProfile> Profile(PanelRow r, Op key) =>
+    static Fin<SectionProfile> Profile(PanelRow r) =>
         r.Specification.Deck.Match(
             Some: deck => SectionProfile.Corrugated.Of(
                 coverWidthMm: deck.Rib.CoverageMm, ribDepthMm: deck.Rib.RibDepthMm, ribPitchMm: deck.Rib.RibPitchMm,
-                gaugeMm: deck.Gauge.BaseThicknessMm, topFlatMm: deck.Rib.TopFlatMm, bottomFlatMm: deck.Rib.BottomFlatMm, key),
+                gaugeMm: deck.Gauge.BaseThicknessMm, topFlatMm: deck.Rib.TopFlatMm, bottomFlatMm: deck.Rib.BottomFlatMm),
             None: () =>
-                from thickness in key.AcceptValidated<PositiveMagnitude>(candidate: r.ThicknessMm)
+                from thickness in FactoryBridge.Accept<PositiveMagnitude>(candidate: r.ThicknessMm)
                 from plies in r.Specification.Layup(r.Kind, thickness)
-                    .ToFin(new KernelFault.InvalidValue(nameof(r.ThicknessMm), "at least the built facing thickness", Some(key)))
-                from layered in SectionProfile.Layered.Of(plies, overallMm: r.ThicknessMm, widthMm: r.WidthMm, key)
+                    .ToFin(new KernelFault.InvalidValue(nameof(r.ThicknessMm), "at least the built facing thickness"))
+                from layered in SectionProfile.Layered.Of(plies, overallMm: r.ThicknessMm, widthMm: r.WidthMm)
                 select layered);
 
-    static Fin<PropertyBag> Detail(PanelRow r, SectionProfile profile, Op key) =>
-        from length in key.AcceptValidated<PositiveMagnitude>(candidate: r.LengthMm)
-        from thickness in key.AcceptValidated<PositiveMagnitude>(candidate: r.ThicknessMm)
-        from fastening in FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key)
+    static Fin<PropertyBag> Detail(PanelRow r, SectionProfile profile) =>
+        from length in FactoryBridge.Accept<PositiveMagnitude>(candidate: r.LengthMm)
+        from thickness in FactoryBridge.Accept<PositiveMagnitude>(candidate: r.ThicknessMm)
+        from fastening in FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener)
         from bag in PanelDetail.Of(length, thickness, r.Edge, r.Orientation, fastening, r.Specification, r.Source)
         select bag;
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in SeedJoin.Resolve(Table, component.Designation, key)
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        from row in SeedJoin.Resolve(Table, component.Designation)
         from capacity in row.Specification.Switch(
             deckSheet: deck =>
-                from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
-                from design in SteelDesign.Capacity(component.Profile, deck.Rib.Grade, solved, placement, key)
-                from lifted in SectionCapacity.Lift(new CapacityLift.DeckSheet(component.Designation, deck.Gauge, deck.Rib, design), key)
+                from solved in section.ToFin(new ComponentFault.SectionUnavailable(component.Designation))
+                from design in SteelDesign.Capacity(component.Profile, deck.Rib.Grade, solved, placement)
+                from lifted in SectionCapacity.Lift(new CapacityLift.DeckSheet(component.Designation, deck.Gauge, deck.Rib, design))
                 select lifted,
             woodPanel: wood =>
                 from nominal in LateralShear.Nominal(
                     wood.Grade, row.ThicknessMm / LateralShear.InchToMm, wood.Nail, placement.Assembly,
                     row.EdgeMm / LateralShear.InchToMm, placement.FramingWidthMm / LateralShear.InchToMm,
-                    placement.DiaphragmCase, key)
-                from design in placement.Hazard.Design(nominal, placement.Basis.Format, key)
-                from lifted in SectionCapacity.Lift(new CapacityLift.LateralPanel(component.Designation, design, placement.Hazard), key)
+                    placement.DiaphragmCase)
+                from design in placement.Hazard.Design(nominal, placement.Basis.Format)
+                from lifted in SectionCapacity.Lift(new CapacityLift.LateralPanel(component.Designation, design, placement.Hazard))
                 select lifted,
-            gypsumBoard: _ => Unpriced(component.Designation, key), facedBoard: _ => Unpriced(component.Designation, key),
-            foamBoard: _ => Unpriced(component.Designation, key), membrane: _ => Unpriced(component.Designation, key))
+            gypsumBoard: _ => Unpriced(component.Designation), facedBoard: _ => Unpriced(component.Designation),
+            foamBoard: _ => Unpriced(component.Designation), membrane: _ => Unpriced(component.Designation))
         select capacity;
 
-    static Fin<SectionCapacity> Unpriced(ComponentId subject, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, subject);
+    static Fin<SectionCapacity> Unpriced(ComponentId subject) =>
+        new ComponentFault.CapacityUnavailable(subject);
 }
 ```
 

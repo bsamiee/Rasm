@@ -14,7 +14,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 - Cases: `NodeWire.payload` mirrors the eight `Node` cases. Nested generated oneofs mirror `PropertyValue`, `TemporalValue`, `MaterialComposition`, and `MaterialPropertySet` only because a node payload can reach them. `CoverageSample` stays branch-interior because no node seats it.
 - Law: `NodeWire` exists to make `Persistence/Version/merge#STRUCTURAL_DIFF` field-mask edits schema-aware. It does not make the enclosing graph, delta algebra, relationship algebra, headers, redaction policy, or event framing a cross-language contract.
 - Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `BoundaryConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
-- Entry: `Encode(node, tolerance, key)` mints `content_address` under the caller's active graph tolerance and validates the generated result. `Decode(wire, key)` validates and re-admits every nested value, but does not claim address verification because tolerance belongs to the graph context at the persistence caller.
+- Entry: `Encode(node, tolerance, key)` mints `content_address` under the caller's active graph tolerance and validates the generated result. `Decode(wire)` validates and re-admits every nested value, but does not claim address verification because tolerance belongs to the graph context at the persistence caller.
 - Output: the caller retains producer-carried `content_address` as the held-node OCC base. It never derives that value from ProtoJSON or treats `NodeWire` as a manifest actor.
 - Packages: Celly.Protovalidate validates corpus rules; Google.Protobuf owns generated messages and descriptors; Rasm owns `ContentHash.Wire`/`Admit`; Mapperly owns field transcription; Thinktecture owns total union dispatch; LanguageExt owns `Fin` and presence; NodaTime.Serialization.Protobuf owns temporal projections.
 - Growth: a new seated `Node` case lands one corpus arm and one total mapping. A graph-local feature stays native unless a real manifest actor requires it; code generation never justifies widening the public contract surface.
@@ -74,12 +74,12 @@ public static partial class BoundaryConverters {
  [UserMapping] public static ByteString ToWire(NodeId id) =>
   ContentHash.Wire(UInt128.Parse(id.ToValue(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
  [UserMapping] public static string ToWire(MaterialId id) => id.ToValue();
- [UserMapping] public static ByteString ToWire(UInt128 key) => ContentHash.Wire(key);
+ [UserMapping] public static ByteString ToWire(UInt128 key) => ContentHash.Wire();
 
- public static Fin<UInt128> ToKey(ByteString wire, Op key) => ContentHash.Admit(wire.Span, key);
+ public static Fin<UInt128> ToKey(ByteString wire) => ContentHash.Admit(wire.Span);
 
- public static Fin<NodeId> ToNodeId(ByteString wire, Op key) =>
-  ContentHash.Admit(wire.Span, key)
+ public static Fin<NodeId> ToNodeId(ByteString wire) =>
+  ContentHash.Admit(wire.Span)
    .Map(static value => NodeId.Create(value.ToString("X32", CultureInfo.InvariantCulture)));
 
  // --- [CARRIER_CODECS]
@@ -101,22 +101,21 @@ public static partial class BoundaryConverters {
   return w;
  }
 
- public static Fin<MeasureValue> ToMeasure(MeasureValueWire? w, Op key) =>
+ public static Fin<MeasureValue> ToMeasure(MeasureValueWire? w) =>
   w is null
-   ? new KernelFault.InvalidValue("element-wire.measure", "required message is absent", Some(key))
+   ? new KernelFault.InvalidValue("element-wire.measure", "required message is absent")
    : w.Dimension is null
-    ? new KernelFault.InvalidValue("element-wire.measure.dimension", "required message is absent", Some(key))
-   : from type in key.AcceptValidated<QuantityType>(w.Dimension.QuantityType)
+    ? new KernelFault.InvalidValue("element-wire.measure.dimension", "required message is absent")
+   : from type in FactoryBridge.Accept<QuantityType>(w.Dimension.QuantityType)
      from measure in MeasureValue.OfSi(
       type,
       Dimension.Create(
        w.Dimension.Length, w.Dimension.Mass, w.Dimension.Time, w.Dimension.Current,
        w.Dimension.Temperature, w.Dimension.Amount, w.Dimension.LuminousIntensity),
-      w.Si,
-      key: key)
+      w.Si)
      from admitted in w.Uncertainty is null
       ? Fin.Succ(measure)
-      : ToMeasureBand(w.Uncertainty, key).Bind(band => measure.WithUncertainty(band, key))
+      : ToMeasureBand(w.Uncertainty).Bind(band => measure.WithUncertainty(band))
      select admitted;
 
  [UserMapping] public static MeasureBandWire ToWire(MeasureBand band) {
@@ -135,9 +134,9 @@ public static partial class BoundaryConverters {
   interval: static () => Rasm.Contracts.Element.UncertaintyKind.Interval,
   normal: static () => Rasm.Contracts.Element.UncertaintyKind.Normal);
 
- public static Fin<MeasureBand> ToMeasureBand(MeasureBandWire? w, Op key) =>
+ public static Fin<MeasureBand> ToMeasureBand(MeasureBandWire? w) =>
   w is null
-   ? new KernelFault.InvalidValue("element-wire.measure-band", "required message is absent", Some(key))
+   ? new KernelFault.InvalidValue("element-wire.measure-band", "required message is absent")
    : (w.Kind switch {
        Rasm.Contracts.Element.UncertaintyKind.Exact => Fin.Succ(UncertaintyKind.Exact),
        Rasm.Contracts.Element.UncertaintyKind.Absolute => Fin.Succ(UncertaintyKind.Absolute),
@@ -145,11 +144,11 @@ public static partial class BoundaryConverters {
        Rasm.Contracts.Element.UncertaintyKind.Interval => Fin.Succ(UncertaintyKind.Interval),
        Rasm.Contracts.Element.UncertaintyKind.Normal => Fin.Succ(UncertaintyKind.Normal),
        _ => Fin.Fail<UncertaintyKind>(new KernelFault.InvalidValue(
-        "element-wire.measure-band.kind", "name a defined non-default kind", Some(key))),
+        "element-wire.measure-band.kind", "name a defined non-default kind")),
       }).Bind(kind => MeasureBand.Admit(
        kind, w.LowerSi, w.UpperSi,
        w.HasStandardDeviationSi ? Some(w.StandardDeviationSi) : None,
-       w.HasCoverageFactor ? Some(w.CoverageFactor) : None, key));
+       w.HasCoverageFactor ? Some(w.CoverageFactor) : None));
 
  [UserMapping] public static ClassificationWire ToWire(Classification value) {
   ClassificationWire wire = new() { System = value.System, Code = value.Code, Edition = value.Edition };
@@ -159,14 +158,14 @@ public static partial class BoundaryConverters {
   return wire;
  }
 
- public static Fin<Classification> ToClassification(ClassificationWire? wire, Op key) =>
+ public static Fin<Classification> ToClassification(ClassificationWire? wire) =>
   wire is null
-   ? new KernelFault.InvalidValue("element-wire.classification", "required message is absent", Some(key))
+   ? new KernelFault.InvalidValue("element-wire.classification", "required message is absent")
    : from editionDate in Optional(wire.EditionDate)
-      .Traverse(date => key.Catch(() => date.ToLocalDate()))
+      .Traverse(date => Try.lift(() => date.ToLocalDate()).Run().Bind(static inner => inner))
       .As()
      from admitted in Classification.Of(
-      wire.System, wire.Code, key, wire.Edition,
+      wire.System, wire.Code, wire.Edition,
       source: wire.HasSource ? Some(wire.Source) : None, editionDate: editionDate,
       title: wire.HasTitle ? Some(wire.Title) : None)
      select admitted;
@@ -180,11 +179,11 @@ public static partial class BoundaryConverters {
  [UserMapping] public static PlacementWire? ToWire(Option<PlacementTransform> value) =>
   value.Match<PlacementWire?>(static placement => ToWire(placement), static () => null);
 
- public static Fin<PlacementTransform> ToPlacement(PlacementWire? wire, Op key) =>
+ public static Fin<PlacementTransform> ToPlacement(PlacementWire? wire) =>
   wire is null
-   ? new KernelFault.InvalidValue("element-wire.placement", "required message is absent", Some(key))
+   ? new KernelFault.InvalidValue("element-wire.placement", "required message is absent")
    : wire.Location is null || wire.Axis is null || wire.RefDirection is null
-    ? new KernelFault.InvalidValue("element-wire.placement", "carry location, axis, and ref_direction", Some(key))
+    ? new KernelFault.InvalidValue("element-wire.placement", "carry location, axis, and ref_direction")
     : Fin.Succ(PlacementTransform.Create(
        ToVector(wire.Location), ToVector(wire.Axis), ToVector(wire.RefDirection)));
 
@@ -209,54 +208,54 @@ internal static partial class WireCodec {
   }
  }
 
- static Fin<T> Iso<T>(NodaTime.Text.IPattern<T> pattern, string token, Op key) =>
+ static Fin<T> Iso<T>(NodaTime.Text.IPattern<T> pattern, string token) =>
   pattern.Parse(token) is { Success: true } parsed
    ? Fin.Succ(parsed.Value)
-   : new KernelFault.InvalidValue("element-wire.temporal", $"parse {token}", Some(key));
+   : new KernelFault.InvalidValue("element-wire.temporal", $"parse {token}");
 
- static Fin<Unit> BothOrNeither(bool left, bool right, string column, Op key) =>
-  left == right ? Fin.Succ(unit) : new KernelFault.InvalidValue($"element-wire.{column}", "carry both presence columns or neither", Some(key));
+ static Fin<Unit> BothOrNeither(bool left, bool right, string column) =>
+  left == right ? Fin.Succ(unit) : new KernelFault.InvalidValue($"element-wire.{column}", "carry both presence columns or neither");
 
- static Fin<Option<NodaTime.LocalDate>> ToDate(bool present, string iso, Op key) =>
-  Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token, key)).As();
+ static Fin<Option<NodaTime.LocalDate>> ToDate(bool present, string iso) =>
+  Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token)).As();
 
- static Fin<T> Present<T>(T? w, string column, Op key) where T : class =>
-  w is not null ? Fin.Succ(w) : new KernelFault.InvalidValue($"element-wire.{column}", "required message is absent", Some(key));
+ static Fin<T> Present<T>(T? w, string column) where T : class =>
+  w is not null ? Fin.Succ(w) : new KernelFault.InvalidValue($"element-wire.{column}", "required message is absent");
 
  static Fin<NodaTime.Interval> ToInterval(
-  Google.Protobuf.WellKnownTypes.Timestamp? start, Google.Protobuf.WellKnownTypes.Timestamp? end, string column, Op key) =>
-  from opened in Present(start, $"{column}.start", key)
-  from closed in Present(end, $"{column}.end", key)
+  Google.Protobuf.WellKnownTypes.Timestamp? start, Google.Protobuf.WellKnownTypes.Timestamp? end, string column) =>
+  from opened in Present(start, $"{column}.start")
+  from closed in Present(end, $"{column}.end")
   from window in opened.ToInstant() <= closed.ToInstant()
    ? Fin.Succ(new NodaTime.Interval(opened.ToInstant(), closed.ToInstant()))
-   : new KernelFault.InvalidValue($"element-wire.{column}", "window start must not follow its end", Some(key))
+   : new KernelFault.InvalidValue($"element-wire.{column}", "window start must not follow its end")
   select window;
 
- static Fin<Option<MeasureValue>> OptMeasure(MeasureValueWire? w, Op key) =>
-  Optional(w).Traverse(m => ToMeasure(m, key)).As();
+ static Fin<Option<MeasureValue>> OptMeasure(MeasureValueWire? w) =>
+  Optional(w).Traverse(m => ToMeasure(m)).As();
 
- static Fin<Option<SampledCurve>> OptCurve(SampledCurveWire? w, Op key) =>
+ static Fin<Option<SampledCurve>> OptCurve(SampledCurveWire? w) =>
   Optional(w).Traverse(c => SampledCurve.Of(
    c.Points.Select(static point => point.At).ToArray(),
-   c.Points.Select(static point => point.Value).ToArray(), key)).As();
+   c.Points.Select(static point => point.Value).ToArray())).As();
 
  static Option<T> Opt<T>(bool present, T value) => present ? Some(value) : None;
 
- static Fin<Map<PropertyName, T>> Named<T>(Seq<(PropertyName Name, T Value)> pairs, Op key) =>
+ static Fin<Map<PropertyName, T>> Named<T>(Seq<(PropertyName Name, T Value)> pairs) =>
   pairs.Fold(Fin.Succ(Map<PropertyName, T>()), (acc, pair) => acc.Bind(m => m.ContainsKey(pair.Name)
    ? new KernelFault.InvalidValue(
-      "element-wire.property-name", $"remain unique after ordinal-ignore-case admission; duplicate {pair.Name.ToValue()}", Some(key))
+      "element-wire.property-name", $"remain unique after ordinal-ignore-case admission; duplicate {pair.Name.ToValue()}")
    : Fin.Succ(m.Add(pair.Name, pair.Value))));
 
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementWire {
- public static Fin<NodeWire> Encode(Node node, double tolerance, Op key) =>
-  WireCodec.ToWire(node, tolerance, key).Bind(wire => WireCodec.Validate(wire, key));
+ public static Fin<NodeWire> Encode(Node node, double tolerance) =>
+  WireCodec.ToWire(node, tolerance).Bind(wire => WireCodec.Validate(wire));
 
- public static Fin<Node> Decode(NodeWire wire, Op key) =>
-  WireCodec.Validate(wire, key).Bind(valid => key.Catch(() => WireCodec.ToNode(valid, key)));
+ public static Fin<Node> Decode(NodeWire wire) =>
+  WireCodec.Validate(wire).Bind(valid => Try.lift(() => WireCodec.ToNode(valid)).Run().Bind(static inner => inner));
 }
 ```
 

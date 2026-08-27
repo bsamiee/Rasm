@@ -113,9 +113,9 @@ public abstract partial record MorphKind : IValidityEvidence {
         control: static kind => ValidityClaim.All(
             ModelClaim.Handle(handle: kind.OriginCurve), ModelClaim.Handle(handle: kind.TargetCurve)));
 
-    internal Fin<GeometryHandle> Morph(GeometryHandle target, CapabilitySet<MorphBehavior> tuning, Context context, Op key) =>
+    internal Fin<GeometryHandle> Morph(GeometryHandle target, CapabilitySet<MorphBehavior> tuning, Context context) =>
         Switch(
-            (Target: target, Tuning: tuning, Domain: context, Op: key),
+            (Target: target, Tuning: tuning, Domain: context),
             bend: static (ctx, kind) => Deformed(
                 mint: () => kind.Angle.Case switch {
                     double angle => new Morphs.BendSpaceMorph(
@@ -128,8 +128,8 @@ public abstract partial record MorphKind : IValidityEvidence {
                         symmetric: kind.Behavior.Admits(capability: BendBehavior.Symmetric)),
                 },
                 ctx: ctx),
-            flow: static (ctx, kind) => ModelGate.Borrow<Curve, GeometryHandle>(handle: kind.BaseRail, key: ctx.Op, body: baseRail =>
-                ModelGate.Borrow<Curve, GeometryHandle>(handle: kind.TargetRail, key: ctx.Op, body: targetRail => Deformed(
+            flow: static (ctx, kind) => ModelGate.Borrow<Curve, GeometryHandle>(handle: kind.BaseRail, body: baseRail =>
+                ModelGate.Borrow<Curve, GeometryHandle>(handle: kind.TargetRail, body: targetRail => Deformed(
                     mint: () => new Morphs.FlowSpaceMorph(
                         curve0: baseRail, curve1: targetRail,
                         reverseCurve0: kind.Behavior.Admits(capability: FlowBehavior.ReverseBase),
@@ -139,11 +139,11 @@ public abstract partial record MorphKind : IValidityEvidence {
             maelstrom: static (ctx, kind) => Deformed(
                 mint: () => new Morphs.MaelstromSpaceMorph(plane: kind.Frame, radius0: kind.Radius0, radius1: kind.Radius1, angle: kind.AngleRadians),
                 ctx: ctx),
-            splop: static (ctx, kind) => ModelGate.Borrow<Surface, GeometryHandle>(handle: kind.Surface, key: ctx.Op, body: surface => Deformed(
+            splop: static (ctx, kind) => ModelGate.Borrow<Surface, GeometryHandle>(handle: kind.Surface, body: surface => Deformed(
                 mint: () => new Morphs.SplopSpaceMorph(plane: kind.Frame, surface: surface, surfaceParam: kind.SurfaceUv, scale: kind.Scale, angle: kind.AngleRadians),
                 ctx: ctx)),
-            sporph: static (ctx, kind) => ModelGate.Borrow<Surface, GeometryHandle>(handle: kind.BaseSurface, key: ctx.Op, body: baseSurface =>
-                ModelGate.Borrow<Surface, GeometryHandle>(handle: kind.TargetSurface, key: ctx.Op, body: targetSurface => Deformed(
+            sporph: static (ctx, kind) => ModelGate.Borrow<Surface, GeometryHandle>(handle: kind.BaseSurface, body: baseSurface =>
+                ModelGate.Borrow<Surface, GeometryHandle>(handle: kind.TargetSurface, body: targetSurface => Deformed(
                     mint: () => {
                         Morphs.SporphSpaceMorph engine = kind.Alignment.Case switch {
                             (Point2d baseUv, Point2d targetUv) => new(surface0: baseSurface, surface1: targetSurface, surface0Param: baseUv, surface1Param: targetUv),
@@ -172,35 +172,35 @@ public abstract partial record MorphKind : IValidityEvidence {
                     InfiniteTwist = kind.Extent.Native,
                 },
                 ctx: ctx),
-            cage: static (ctx, kind) => ModelGate.Borrow<Mesh, GeometryHandle>(handle: kind.Reference, key: ctx.Op, body: reference =>
-                ModelGate.Borrow<Mesh, GeometryHandle>(handle: kind.Target, key: ctx.Op, body: cageTarget => Deformed(
+            cage: static (ctx, kind) => ModelGate.Borrow<Mesh, GeometryHandle>(handle: kind.Reference, body: reference =>
+                ModelGate.Borrow<Mesh, GeometryHandle>(handle: kind.Target, body: cageTarget => Deformed(
                     mint: () => new Morphs.MeshCageMorph(referenceMesh: reference, targetMesh: cageTarget),
                     ctx: ctx))),
-            control: static (ctx, kind) => ModelGate.Borrow<NurbsCurve, GeometryHandle>(handle: kind.OriginCurve, key: ctx.Op, body: origin =>
-                ModelGate.Borrow<NurbsCurve, GeometryHandle>(handle: kind.TargetCurve, key: ctx.Op, body: driven =>
-                    ctx.Op.Catch(() => {
+            control: static (ctx, kind) => ModelGate.Borrow<NurbsCurve, GeometryHandle>(handle: kind.OriginCurve, body: origin =>
+                ModelGate.Borrow<NurbsCurve, GeometryHandle>(handle: kind.TargetCurve, body: driven =>
+                    Try.lift(() => {
                         using MorphControl driver = new(originCurve: origin, targetCurve: driven);
                         driver.SpaceMorphTolerance = ctx.Domain.Absolute.Value;
                         driver.QuickPreview = ctx.Tuning.Admits(capability: MorphBehavior.QuickPreview);
                         driver.PreserveStructure = ctx.Tuning.Admits(capability: MorphBehavior.PreserveStructure);
-                        return Duplicated(target: ctx.Target, morph: working => ctx.Op.Confirm(success: driver.Morph(geometry: working)), key: ctx.Op);
-                    }))));
+                        return Duplicated(target: ctx.Target, morph: working => Admit.Confirm(success: driver.Morph(geometry: working)));
+                    }).Run().Bind(static inner => inner))));
 
     private static Fin<GeometryHandle> Deformed<TMorph>(
-        Func<TMorph> mint, (GeometryHandle Target, CapabilitySet<MorphBehavior> Tuning, Context Domain, Op Op) ctx)
+        Func<TMorph> mint, (GeometryHandle Target, CapabilitySet<MorphBehavior> Tuning, Context Domain) ctx)
         where TMorph : SpaceMorph, IDisposable =>
-        ctx.Op.Catch(() => {
+        Try.lift(() => {
             using TMorph active = mint();
             active.Tolerance = ctx.Domain.Absolute.Value;
             active.QuickPreview = ctx.Tuning.Admits(capability: MorphBehavior.QuickPreview);
             active.PreserveStructure = ctx.Tuning.Admits(capability: MorphBehavior.PreserveStructure);
-            return Duplicated(target: ctx.Target, morph: working => ctx.Op.Confirm(success: active.Morph(geometry: working)), key: ctx.Op);
-        });
+            return Duplicated(target: ctx.Target, morph: working => Admit.Confirm(success: active.Morph(geometry: working)));
+        }).Run().Bind(static inner => inner);
 
-    private static Fin<GeometryHandle> Duplicated(GeometryHandle target, Func<GeometryBase, Fin<Unit>> morph, Op key) =>
-        ModelGate.Borrow<GeometryBase, GeometryHandle>(handle: target, key: key, body: source =>
-            from _ in guard(SpaceMorph.IsMorphable(geometry: source), key.Unsupported(inputType: source.GetType(), outputType: typeof(GeometryBase)))
-            from working in key.Catch(() => Optional(source.Duplicate()).ToFin(Fail: key.InvalidResult()))
+    private static Fin<GeometryHandle> Duplicated(GeometryHandle target, Func<GeometryBase, Fin<Unit>> morph) =>
+        ModelGate.Borrow<GeometryBase, GeometryHandle>(handle: target, body: source =>
+            from _ in guard(SpaceMorph.IsMorphable(geometry: source), new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(GeometryBase)))
+            from working in Try.lift(() => Optional(source.Duplicate()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from morphed in morph(arg: working).Match(
                 Succ: _ => ModelGate.Own(built: working, key: key),
                 Fail: error => {
@@ -352,9 +352,9 @@ public readonly partial struct SquishLaw : IValidityEvidence {
         algorithm: Algorithm, mode: Mode, boundaryStretch: BoundaryStretch, boundaryCompress: BoundaryCompress,
         interiorStretch: InteriorStretch, interiorCompress: InteriorCompress, absoluteLimit: AbsoluteLimit, spring: Spring);
 
-    internal Fin<Lease<SquishParameters>> Rig(Op key) =>
-        Lease<SquishParameters>.Acquire(mint: static () => SquishParameters.Default, key: key)
-            .Bind(lease => key.Catch(() => {
+    internal Fin<Lease<SquishParameters>> Rig() =>
+        Lease<SquishParameters>.Acquire(mint: static () => SquishParameters.Default)
+            .Bind(lease => Try.lift(() => {
                 SquishParameters parameters = lease.Resource;
                 parameters.Algorithm = Algorithm;
                 parameters.PreserveTopology = Behavior.Admits(capability: SquishBehavior.PreserveTopology);
@@ -371,7 +371,7 @@ public readonly partial struct SquishLaw : IValidityEvidence {
                     boundaryBias: spring.Boundary,
                     deformationBias: spring.Deformation));
                 return Fin.Succ(value: lease);
-            }).Rollback(lease.Resource));
+            }).Run().Bind(static inner => inner).Rollback(lease.Resource));
 
     private static ValidityClaim Admits(
         SquishFlatteningAlgorithm algorithm,
@@ -393,16 +393,15 @@ public readonly partial struct SquishLaw : IValidityEvidence {
 
 ## [04]-[ALGEBRA]
 
-- Owner: `DeformOp` `[Union]` `[GenerateUnionOps]` — the sole operation algebra, each case carrying its generated `SelfOp`; `Deforms` — the one entry folding any operation spread into one owned geometry sequence.
+- Owner: `DeformOp` `[Union]` `` — the sole operation algebra, each case carrying its generated `SelfOp`; `Deforms` — the one entry folding any operation spread into one owned geometry sequence.
 - Law: the entry is `Build`, as on every sibling — one concept, one spelling across the eight Modeling rosters, and the `Apply` name stays where it means "run this operation" on `DeformOp` itself.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis and a new case breaks the compile rather than falling to a silent refusal.
 - Law: every arm returns only owned geometry handles through `ModelGate`; unconsumed native side channels close inside the producing call.
 - Law: engine custody splits on the host and is stated where it bites — `Squisher` and `MeshUnwrapper` are `IDisposable` and release after every geometry product has detached; `Unroller` holds no native handle and needs no release. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix, and every `Rollback` in the squish chain releases the exact accumulated prefix at its own edge.
 - Growth: a new deformation verb is one `DeformOp` case with its arm.
-- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `Get2dMesh`, `Get3dMesh`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`Seq`), Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `Get2dMesh`, `Get3dMesh`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `Lease<T>.Use`, `` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp
-[GenerateUnionOps]
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeformOp {
     private DeformOp() { }
@@ -412,24 +411,24 @@ public abstract partial record DeformOp {
     public sealed record SquishBack(GeometryHandle Pattern, Seq<GeometryHandle> Marks) : DeformOp;
     public sealed record Unwrap(Seq<GeometryHandle> Meshes, MeshUnwrapMethod Method, Option<Plane> Symmetry = default) : DeformOp;
 
-    internal Fin<DeformOp> Admitted(Op key) =>
+    internal Fin<DeformOp> Admitted() =>
         Switch(
             context: key,
-            morph: static (op, row) => ModelClaim.Admits(row, op,
+            morph: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Kind), row.Kind is { IsValid: true })),
-            unroll: static (op, row) => ModelClaim.Admits(row, op,
+            unroll: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Followers), row.Followers.IsValid), (nameof(row.Law), row.Law.IsValid)),
-            squish: static (op, row) => ModelClaim.Admits(row, op,
+            squish: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Law), row.Law.IsValid),
                 (nameof(row.Marks), ModelClaim.Handles(handles: row.Marks, allowEmpty: true)),
                 (nameof(row.Followers), row.Followers.IsValid)),
-            squishBack: static (op, row) => ModelClaim.Admits(row, op,
+            squishBack: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Pattern), ModelClaim.Handle(handle: row.Pattern)),
                 (nameof(row.Marks), ModelClaim.Handles(handles: row.Marks))),
-            unwrap: static (op, row) => ModelClaim.Admits(row, op,
+            unwrap: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Meshes), ModelClaim.Handles(handles: row.Meshes)),
                 (nameof(row.Method), Enum.IsDefined(row.Method)),
                 (nameof(row.Symmetry), ValidityClaim.WhenPresent(facet: row.Symmetry, claim: static symmetry => symmetry.IsValid))));
@@ -438,26 +437,26 @@ public abstract partial record DeformOp {
         Switch(
             domain,
             morph: static (model, edit) => {
-                Op op = Morph.SelfOp;
-                return edit.Kind.Morph(target: edit.Target, tuning: edit.Behavior, context: model, key: op)
+                 = Morph.SelfOp;
+                return edit.Kind.Morph(target: edit.Target, tuning: edit.Behavior, context: model)
                     .Map(product => Seq(product));
             },
             unroll: static (model, edit) => {
-                Op op = Unroll.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: source =>
-                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Followers.Curves, key: op, allowEmpty: true, body: followers =>
-                        op.Catch(() => {
+                 = Unroll.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
+                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Followers.Curves, allowEmpty: true, body: followers =>
+                        Try.lift(() => {
                             Fin<Unroller> admitted = source switch {
                                 Brep brep => Fin.Succ(value: new Unroller(brep: brep)),
                                 Surface surface => Fin.Succ(value: new Unroller(surface: surface)),
-                                _ => Fin.Fail<Unroller>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Unroller))),
+                                _ => Fin.Fail<Unroller>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Unroller))),
                             };
                             return admitted.Bind(active => {
                                 active.ExplodeOutput = edit.Law.Output.Native;
                                 active.ExplodeSpacing = edit.Law.Spacing;
                                 active.AbsoluteTolerance = model.Absolute.Value;
                                 active.RelativeTolerance = model.Fractional;
-                                _ = Op.SideWhen(!followers.IsEmpty, () => active.AddFollowingGeometry(curves: followers.AsIterable()));
+                                _ = HostEdge.SideWhen(!followers.IsEmpty, () => active.AddFollowingGeometry(curves: followers.AsIterable()));
                                 Brep[] flatBreps = active.PerformUnroll(
                                     unrolledCurves: out Curve[] flatCurves,
                                     unrolledPoints: out _,
@@ -468,20 +467,20 @@ public abstract partial record DeformOp {
                                     from flat in ModelGate.OwnMany(built: flatBreps, key: op)
                                         .Rollback([.. dots])
                                     from carriedHandles in ModelGate.OwnMany(
-                                            built: carried, key: op, allowEmpty: true)
+                                            built: carried, allowEmpty: true)
                                         .Rollback([.. flat])
                                         .Rollback([.. dots])
                                     let _ = dots.Iter(static dot => dot.Dispose())
                                     select flat + carriedHandles;
                             });
-                        })));
+                        }).Run().Bind(static inner => inner)));
             },
             squish: static (_, edit) => {
-                Op op = Squish.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: source =>
-                    ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, key: op, allowEmpty: true, body: marks =>
-                        from parameters in edit.Law.Rig(key: op)
-                        from flattened in parameters.Use(key: op, body: sp => op.Catch(() => {
+                 = Squish.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
+                    ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, allowEmpty: true, body: marks =>
+                        from parameters in edit.Law.Rig()
+                        from flattened in parameters.Use(key: op, body: sp => Try.lift(() => {
                             using Squisher engine = new();
                             System.Collections.Generic.List<GeometryBase> mapped = [];
                             Fin<GeometryHandle> flat = source switch {
@@ -489,26 +488,22 @@ public abstract partial record DeformOp {
                                     built: engine.SquishSurface(sp: sp, surface: surface, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
                                 Mesh mesh => ModelGate.Own(
                                     built: engine.SquishMesh(sp: sp, mesh3d: mesh, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
-                                _ => Fin.Fail<GeometryHandle>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Squisher))),
+                                _ => Fin.Fail<GeometryHandle>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Squisher))),
                             };
                             return flat.Rollback([.. mapped]).Bind(primary => (
-                                from crossed in ModelGate.OwnMany(built: mapped, key: op, allowEmpty: true)
+                                from crossed in ModelGate.OwnMany(built: mapped, allowEmpty: true)
                                 from directCurves in ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(
                                     handles: edit.Followers.Curves,
-                                    key: op,
                                     allowEmpty: true,
                                     body: curves => ModelGate.OwnEach(
                                         sources: curves,
-                                        key: op,
                                         run: engine.SquishCurve,
                                         allowEmpty: true)).Rollback([.. crossed])
                                 from directDots in ModelGate.BorrowMany<TextDot, Seq<GeometryHandle>>(
                                     handles: edit.Followers.Dots,
-                                    key: op,
                                     allowEmpty: true,
                                     body: dots => ModelGate.OwnEach(
                                         sources: dots,
-                                        key: op,
                                         run: engine.SquishTextDot,
                                         allowEmpty: true)).Rollback([.. crossed + directCurves])
                                 from nets in (edit.Law.Behavior.Admits(capability: SquishBehavior.CaptureNets)
@@ -519,31 +514,31 @@ public abstract partial record DeformOp {
                                     .Rollback([.. crossed + directCurves + directDots])
                                 select Seq(primary) + crossed + directCurves + directDots + nets)
                                 .Rollback(primary));
-                        }))
+                        }).Run().Bind(static inner => inner))
                         select flattened));
             },
             squishBack: static (_, edit) => {
-                Op op = SquishBack.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Pattern, key: op, body: pattern =>
-                    ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, key: op, body: marks =>
-                        from _ in op.Confirm(success: Squisher.Is2dPatternSquished(geometry: pattern))
-                        from restored in op.Catch(() => ModelGate.OwnMany(
-                            built: Squisher.SquishBack2dMarks(squishedGeometry: pattern, marks: marks.AsIterable()), key: op))
+                 = SquishBack.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Pattern, body: pattern =>
+                    ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, body: marks =>
+                        from _ in Admit.Confirm(success: Squisher.Is2dPatternSquished(geometry: pattern))
+                        from restored in Try.lift(() => ModelGate.OwnMany(
+                            built: Squisher.SquishBack2dMarks(squishedGeometry: pattern, marks: marks.AsIterable()), key: op)).Run().Bind(static inner => inner)
                         select restored));
             },
             unwrap: static (_, edit) => {
-                Op op = Unwrap.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Meshes, key: op, body: sources =>
+                 = Unwrap.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Meshes, body: sources =>
                     from working in sources.FoldM<Fin, Seq<Mesh>>(Seq<Mesh>(), (held, source) =>
-                        op.Catch(() => Optional(source.Duplicate() as Mesh).ToFin(Fail: op.InvalidResult()))
+                        Try.lift(() => Optional(source.Duplicate() as Mesh).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                             .Map(copy => held.Add(value: copy))
                             .Rollback([.. held]))
-                    from unwrapped in op.Catch(() => {
+                    from unwrapped in Try.lift(() => {
                             using MeshUnwrapper engine = new(meshes: working.AsIterable());
                             _ = edit.Symmetry.Iter(symmetry => engine.SymmetryPlane = symmetry);
-                            return op.Confirm(success: engine.Unwrap(method: edit.Method))
-                                .Bind(_ => ModelGate.Many(op, () => working.AsEnumerable()));
-                        })
+                            return Admit.Confirm(success: engine.Unwrap(method: edit.Method))
+                                .Bind(_ => ModelGate.Many(() => working.AsEnumerable()));
+                        }).Run().Bind(static inner => inner)
                         .Rollback([.. working])
                     select unwrapped);
             });
@@ -557,7 +552,7 @@ public static class Deforms {
             ModelGate.Entry(
                 runtime: runtime,
                 operations: captured,
-                admit: static (operation, key) => operation.Admitted(key: key),
+                admit: static (operation, key) => operation.Admitted(),
                 apply: static (operation, model) => operation.Apply(domain: model)).ToEff());
     }
 }

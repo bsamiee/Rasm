@@ -137,22 +137,17 @@ public static class RpcEdge {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WarmProbe {
-    private static readonly Op WarmEdge = Op.Of(name: "wire.warm");
 
     public static readonly WarmProbe Connectivity = new("connectivity", observable: true, warm: static (services, _) =>
-        IO.liftAsync(async envIO => await WarmEdge.Catch(
-            async token => {
+        IO.liftAsync(async envIO => await Try.lift(async token => {
                 await services.Channel.ConnectAsync(token).ConfigureAwait(false);
                 return Fin.Succ(services);
-            },
-            envIO.Token).ConfigureAwait(false)));
+            }).Run().Bind(static inner => inner).ConfigureAwait(false)));
 
     public static readonly WarmProbe RoundTrip = new("round-trip", observable: false, warm: static (services, call) =>
         IO.liftAsync(async envIO => {
-            Fin<HealthCheckResponse> outcome = (await WarmEdge.Catch(
-                async token => Fin.Succ(await call.Health.CheckAsync(
-                    new HealthCheckRequest(), cancellationToken: token).ResponseAsync.ConfigureAwait(false)),
-                envIO.Token).ConfigureAwait(false)).MapFail(RpcEdge.Rpc);
+            Fin<HealthCheckResponse> outcome = (await Try.lift(async token => Fin.Succ(await call.Health.CheckAsync(
+                    new HealthCheckRequest(), cancellationToken: token).ResponseAsync.ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(RpcEdge.Rpc);
             return outcome.Match(
                 Succ: _ => Fin.Succ(services),
                 Fail: error => error is WireFault.Unreachable
@@ -413,8 +408,6 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
     public const string CorrelationKey = "rasm-correlation";
     public const string RequestEncodingKey = "grpc-internal-encoding-request";
     public const string AuthorizationKey = "authorization";
-    private static readonly Op GrpcAwait = Op.Of(name: "wire.grpc-await");
-    private static readonly Op HttpAwait = Op.Of(name: "wire.http-await");
 
     public CorrelationId Correlation => correlation;
 
@@ -442,17 +435,13 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
     }
 
     public static IO<Fin<T>> Awaited<T>(Func<Task<T>> call, CancellationToken token) =>
-        IO.liftAsync(async _ => (await GrpcAwait.Catch(
-            async _ => Fin.Succ(await call().ConfigureAwait(false)),
-            token).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
+        IO.liftAsync(async _ => (await Try.lift(async _ => Fin.Succ(await call().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
 
     public IO<Fin<T>> AwaitedHttp<T>(string subject, CancellationToken token, Func<string, CancellationToken, Task<Fin<T>>> exchange) =>
         IO.liftAsync(async envIO => {
             using CancellationTokenSource budget = new(DeadlineClass.HopTotal.Bound);
             using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(token, envIO.Token, budget.Token);
-            Fin<T> outcome = await HttpAwait.Catch(
-                async active => await exchange(subject, active).ConfigureAwait(false),
-                linked.Token).ConfigureAwait(false);
+            Fin<T> outcome = await Try.lift(async active => await exchange(subject, active).ConfigureAwait(false)).Run().Bind(static inner => inner).ConfigureAwait(false);
             return outcome.MapFail(error =>
                 budget.IsCancellationRequested && !token.IsCancellationRequested && !envIO.Token.IsCancellationRequested
                     && error is KernelFault.Cancelled cancelled
@@ -691,8 +680,8 @@ public static class FrameEdge {
                 CopyReason: Some("artifact-frame-boundary"),
                 NativeAllocator: None,
                 NativeReservedBytes: None))
-            .Bind(evidence => Op.Of(name: "frame.artifact-copy").Catch(() =>
-                Fin.Succ(new FrameCopy(new ReadOnlyMemory<byte>(staged.ToArray()), evidence))));
+            .Bind(evidence => Try.lift(() =>
+                Fin.Succ(new FrameCopy(new ReadOnlyMemory<byte>(staged.ToArray()), evidence))).Run().Bind(static inner => inner));
 
     private static Fin<T> Drain<T>(
         StreamPool pool,

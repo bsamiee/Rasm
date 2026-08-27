@@ -51,12 +51,12 @@ public sealed partial class ParametricDirection {
 [SmartEnum]
 public sealed partial class SplineFit {
     public static readonly SplineFit Interpolate = new(
-        solve: static (basis, rhs, key) => basis.SolveDetailed(rhs, key: key));
+        solve: static (basis, rhs, key) => basis.SolveDetailed(rhs));
     public static readonly SplineFit Approximate = new(
-        solve: static (basis, rhs, key) => basis.SolveLeastSquaresDetailed(rhs, key: key));
+        solve: static (basis, rhs, key) => basis.SolveLeastSquaresDetailed(rhs));
 
     [UseDelegateFromConstructor]
-    public partial Fin<LinearSolution> Solve(SparseMatrix basis, Arr<double> rhs, Op key);
+    public partial Fin<LinearSolution> Solve(SparseMatrix basis, Arr<double> rhs);
 }
 
 [SmartEnum]
@@ -232,14 +232,14 @@ public abstract partial record NurbsForm {
         public Vector3d TangentAt(double t);
         public Vector3d CurvatureAt(double t);
 
-        public Fin<double> Length(Option<NurbsPolicy> policy = default, Op? key = null);
-        public Fin<double> LengthAt(double t, Option<NurbsPolicy> policy = default, Op? key = null);
+        public Fin<double> Length(Option<NurbsPolicy> policy = default);
+        public Fin<double> LengthAt(double t, Option<NurbsPolicy> policy = default);
 
-        public Fin<double> ParameterAtLength(double length, Option<NurbsPolicy> policy = default, Op? key = null);
+        public Fin<double> ParameterAtLength(double length, Option<NurbsPolicy> policy = default);
 
-        public Fin<double> ParameterAtChordLength(double t0, double chordLength, Option<NurbsPolicy> policy = default, Op? key = null);
+        public Fin<double> ParameterAtChordLength(double t0, double chordLength, Option<NurbsPolicy> policy = default);
 
-        public Fin<double> ClosestParameter(Point3d probe, Option<NurbsPolicy> policy = default, Op? key = null);
+        public Fin<double> ClosestParameter(Point3d probe, Option<NurbsPolicy> policy = default);
 
         public Fin<Arr<Plane>> PerpendicularFrames(ReadOnlySpan<double> parameters, Option<NurbsPolicy> policy = default);
 
@@ -282,7 +282,7 @@ public abstract partial record NurbsForm {
 
         public Fin<Curve> IsoCurve(double parameter, ParametricDirection direction);
 
-        public Fin<(double U, double V)> ClosestParameter(Point3d probe, Option<NurbsPolicy> policy = default, Option<(double U, double V)> seed = default, Op? key = null);
+        public Fin<(double U, double V)> ClosestParameter(Point3d probe, Option<NurbsPolicy> policy = default, Option<(double U, double V)> seed = default);
 
         public Fin<(Surface Head, Surface Tail)> SplitAt(double parameter, ParametricDirection direction);
         public Fin<Surface> Refine(ReadOnlySpan<double> insertions, ParametricDirection direction);
@@ -291,11 +291,11 @@ public abstract partial record NurbsForm {
         public Fin<Surface> ElevateDegree(Dimension target, ParametricDirection direction);
         public Fin<Arr<Surface>> DecomposeIntoBeziers();
         public Surface Transpose();
-        public Fin<double> Area(Option<NurbsPolicy> policy = default, Op? key = null);
+        public Fin<double> Area(Option<NurbsPolicy> policy = default);
     }
 
     // --- [IDENTITY_PROJECTION]
-    public Fin<EncodeForm> ToEncodeForm(Op? key = null) => Switch(
+    public Fin<EncodeForm> ToEncodeForm() => Switch(
         state: key.OrDefault(),
         curve: static (k, c) => EncodeForm.Of(
             new Arr<(int Degree, Arr<double> Knots)>([(c.Knots.Degree, c.Knots.Knots)]),
@@ -308,7 +308,7 @@ public abstract partial record NurbsForm {
 }
 
 public static class Nurbs {
-    public static Fin<NurbsForm> Of(NurbsInput input, Op? key = null) =>
+    public static Fin<NurbsForm> Of(NurbsInput input) =>
         input.Switch(
             state: key.OrDefault(),
             curve:      static (_, c) => AdmitCurve(c),
@@ -360,15 +360,15 @@ public static class Nurbs {
     }
 
     // --- [FITTING]
-    static Fin<NurbsForm> FitCurve(Arr<Point3d> samples, SplinePolicy policy, Op key);
-    static Fin<NurbsForm> FitSurface(Dimension countU, Arr<Point3d> samples, SplinePolicy policy, Op key);
+    static Fin<NurbsForm> FitCurve(Arr<Point3d> samples, SplinePolicy policy);
+    static Fin<NurbsForm> FitSurface(Dimension countU, Arr<Point3d> samples, SplinePolicy policy);
 
     // --- [CONSTRUCTIVE]
-    static Fin<NurbsForm> AdmitRuled(NurbsForm.Curve edge, NurbsForm.Curve opposite, Op key);
-    static Fin<NurbsForm> AdmitRevolved(NurbsForm.Curve profile, Line axis, double angleRadians, Op key);
+    static Fin<NurbsForm> AdmitRuled(NurbsForm.Curve edge, NurbsForm.Curve opposite);
+    static Fin<NurbsForm> AdmitRevolved(NurbsForm.Curve profile, Line axis, double angleRadians);
 
-    internal static Fin<double[]> ParameterizeSamples(Arr<Point3d> samples, ChordRule rule, Op key);
-    internal static Fin<KnotVector> AveragedKnots(double[] parameters, int degree, int controlCount, Op key);
+    internal static Fin<double[]> ParameterizeSamples(Arr<Point3d> samples, ChordRule rule);
+    internal static Fin<KnotVector> AveragedKnots(double[] parameters, int degree, int controlCount);
 }
 
 // --- [KERNELS] -------------------------------------------------------------------------
@@ -383,7 +383,7 @@ internal static class NurbsKernel {
     internal static Arr<NurbsForm.Curve> BezierSegments(NurbsForm.Curve curve);
     internal static NurbsForm.Curve Elevate(NurbsForm.Curve curve, int target);
 
-    internal static Fin<ddouble[]> CumulativeLengths(NurbsForm.Curve curve, NurbsPolicy policy, Op key) {
+    internal static Fin<ddouble[]> CumulativeLengths(NurbsForm.Curve curve, NurbsPolicy policy) {
         QuadratureControl control = QuadratureControl.Default with { LegendreOrder = policy.GaussOrder.Value, RequireErrorWitness = false };
         return toSeq(BezierSegments(curve))
             .TraverseM(segment => Quadrature.Integrate(
@@ -391,7 +391,7 @@ internal static class NurbsKernel {
                     F: t => CurveRationalDerivatives(segment, t, 1).Ders[0].Length,
                     Bounds: new IntegrationInterval(Lower: 0.0, Upper: 1.0),
                     Route: QuadratureRoute.GaussLegendre),
-                control: control, key: key)).As()
+                control: control)).As()
             .Map(static evidence => {
                 ddouble[] cumulative = new ddouble[evidence.Count + 1];
                 int s = 0;
@@ -411,18 +411,18 @@ internal static class NurbsKernel {
     }
 
     internal static Fin<double> NewtonProject(
-        NurbsForm.Curve curve, Point3d probe, double seedLo, double seedHi, NurbsPolicy policy, Op key) {
+        NurbsForm.Curve curve, Point3d probe, double seedLo, double seedHi, NurbsPolicy policy) {
         double Objective(double t) => CurveRationalDerivatives(curve, t, 2) switch
             { var jet => (jet.Point - probe) * jet.Ders[0] };
         double Slope(double t) => CurveRationalDerivatives(curve, t, 2) switch
             { var jet => (jet.Ders[0] * jet.Ders[0]) + ((jet.Point - probe) * jet.Ders[1]) };
 
-        return key.Catch(() => RobustNewtonRaphson.TryFindRoot(
+        return Try.lift(() => RobustNewtonRaphson.TryFindRoot(
                 Objective, Slope, seedLo, seedHi,
                 policy.ProjectTolerance, policy.ProjectIterations.Value, policy.ProjectSubdivision.Value,
                 out double root)
             ? Fin.Succ(root)
-            : Fin.Fail<double>(new GeometryFault.CurveProjectionUnconverged(probe)));
+            : Fin.Fail<double>(new GeometryFault.CurveProjectionUnconverged(probe))).Run().Bind(static inner => inner);
     }
 
     internal static double LengthTo(NurbsForm.Curve curve, ddouble[] cumulative, double t, NurbsPolicy policy);

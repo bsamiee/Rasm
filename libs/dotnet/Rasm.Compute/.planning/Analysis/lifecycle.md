@@ -392,7 +392,7 @@ public static class EpdCodec {
 ## [03]-[CARBON_RUNNER]
 
 - Owner: `LifecycleAssessment.Rollup` the ONE aggregation fold both disciplines instantiate; `RunCarbon`/`RunCost` the two entries naming their aggregation, facts, and acceptance target; `LifecycleAssessment.EnrichCarbon` the async ingress that decodes resolved declarations onto the contract `MaterialPropertySet.Environmental` and returns a graph-enriching `GraphDelta`; `EpdLadder` the descent roster and `Descend`/`Freshest`/`ToEnvironmental`/`Normalize`/`ServiceLife` the per-ply resolution; `LifecycleGraphReads.TakeoffOf` the baked-quantity read; the `CarbonQuery` request input.
-- Entry: `public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock)` and its cost sibling both call `Rollup`, which folds one `AssemblyAggregator` arm over each target's `MaterialComposition` and baked `ElementTakeoff`; `EnrichCarbon(ElementGraph graph, Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, AssessmentRequest.Carbon request, IClock clock, Op key)` resolves undeclared plies down the ladder and returns a typed `(GraphDelta, PlyGaps)` result.
+- Entry: `public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock)` and its cost sibling both call `Rollup`, which folds one `AssemblyAggregator` arm over each target's `MaterialComposition` and baked `ElementTakeoff`; `EnrichCarbon(ElementGraph graph, Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, AssessmentRequest.Carbon request, IClock clock)` resolves undeclared plies down the ladder and returns a typed `(GraphDelta, PlyGaps)` result.
 - Auto: `Rollup` resolves each ply's contract properties through one `Func<MaterialId, Fin<Seq<MaterialPropertySet>>>` keyed on the composition's native `MaterialId` (never a graph `NodeId`), and the per-element takeoff through `TakeoffOf`, so a baked and a catalogue-resolved declaration fold identically. `EnrichCarbon` enumerates the undeclared ply materials (the `MaterialId` set lacking the `Environmental` case, not the element's directly-associated material), resolves each down the `EpdQuery` descent — the category page's freshest non-expired candidate, that winner's own document, the industry-wide EPD, the generic estimate, then the category substitution line — `Normalize`s the declaration's cells to per-one-unit of its native basis and tags that `MeasurementBasis`, `ServiceLife`-scales the B stages against the request's reference study period, embeds every DECLARED indicator into the contract `(ImpactCategory × LifecycleStage)` matrix, and accumulates one monoid `GraphDelta` beside the `PlyGaps` ledger naming every ply the ingress could not resolve and why. Assessment stays a pure-sync graph read because every network call lives behind the explicit `EnrichCarbon` resolver, never inside the fold.
 - Law: a SKIPPED ply is a counted fact, never silence. The ingress splits failure by posture — a TERMINAL refusal (no fresh declaration, an unresolvable declared-unit basis, a missing method indicator) skips the ply and records its `PlyGap`, so `RunCarbon` fails the still-undeclared ply at its own fold with the ledger already naming which plies the catalogue could not answer for; a TRANSIENT or THROTTLED refusal ABORTS the pipeline, because a partial delta erases the outage and masks the plies a re-drive would still resolve. The posture is READ off the fault the transport published, never re-derived by a predicate over exception types — one authority for one fact.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`/`HashMap`/`WriterT`/`TraverseM`/`PartitionFallible`), Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet`/`OfEnvironmental`/`PropertyEvidence`/`EvidenceGrade`, `MaterialPropertyAccess.Environmental`, `ImpactCategory`/`LifecycleStage`, `MeasurementBasis`, `MaterialId`, `NodeId`, `Node.Material`, `GraphDelta.Put`, `MeasureValue.OfSi`, `QuantityType`, `UnitProvenance`, `Dimension`), UnitsNet (via `MeasureValue.Of` — the declared-unit abbreviation → SI coercion the basis tagging rides), Rasm (kernel — `MeasureBundle`/`MassKind` the takeoff carrier, `Retriability` the published posture the descent reads, `Op`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementTakeoff`/`PlyQuantity`/`Plies`/`PlyGap`/`PlyGaps`/`PlyDiscipline`, the `Analysis/assessment` `AnalysisReads` bag-read owner, the `Runtime/admission#DISPATCH_SPINE` `ComputeFault`/`AssessmentInputReason`, NodaTime (`Instant`), BCL inbox (`ImmutableArray<double>` the contract impact-matrix store).
@@ -414,11 +414,9 @@ public sealed partial class EpdLadder {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class LifecycleAssessment {
-    static readonly Op CarbonKey = Op.Of(name: nameof(RunCarbon));
-    static readonly Op CostKey = Op.Of(name: nameof(RunCost));
 
     static Fin<AssessmentResult> Rollup<TResult>(
-        ElementGraph graph, AssessmentRoute route, Seq<NodeId> targets, Op key, IClock clock,
+        ElementGraph graph, AssessmentRoute route, Seq<NodeId> targets, IClock clock,
         Func<MaterialComposition, ElementTakeoff, Fin<TResult>> aggregate,
         Func<NodeId, TResult, Fin<Seq<AssessmentFact>>> project,
         Func<TResult, Fin<Unit>> admit,
@@ -437,7 +435,7 @@ public static partial class LifecycleAssessment {
                 rows.Bind(static row => row.Facts),
                 acceptance(rows.Sum(static row => row.Total),
                     rows.Map(static row => row.Area).Somes() is { IsEmpty: false } areas ? Some(areas.Sum()) : None),
-                clock.GetCurrentInstant(), key));
+                clock.GetCurrentInstant()));
 
     public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock) =>
         Rollup(graph, request.Route, request.Targets, CarbonKey, clock,
@@ -458,11 +456,11 @@ public static partial class LifecycleAssessment {
             acceptance: (total, _) => request.Query.TargetKgCo2e.Filter(static target => target > 0.0).Map(target => total / target));
 
     public static async Task<Fin<(GraphDelta Delta, PlyGaps Gaps)>> EnrichCarbon(
-        ElementGraph graph, Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, AssessmentRequest.Carbon request, IClock clock, Op key) {
+        ElementGraph graph, Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, AssessmentRequest.Carbon request, IClock clock) {
         Instant now = clock.GetCurrentInstant();
         Seq<(Node.Material Material, Fin<MaterialPropertySet> Resolved)> resolved = Seq<(Node.Material, Fin<MaterialPropertySet>)>();
         foreach (Node.Material material in MissingDeclarations(graph, request.Targets)) {
-            resolved = resolved.Add((material, await Descend(epds, request.Query, material, now, key)));
+            resolved = resolved.Add((material, await Descend(epds, request.Query, material, now)));
         }
         return resolved.Find(static row => Aborts(row.Resolved)).Match(
             Some: aborted => Fin.Fail<(GraphDelta, PlyGaps)>(aborted.Resolved.Match(Succ: static _ => Error.Empty, Fail: static error => error)),
@@ -477,7 +475,7 @@ public static partial class LifecycleAssessment {
         resolved.Match(Succ: static _ => false, Fail: static error => error is Fault { Retriability: not Retriability.TerminalCase });
 
     static async Task<Fin<MaterialPropertySet>> Descend(
-        Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, CarbonQuery query, Node.Material material, Instant now, Op key) {
+        Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, CarbonQuery query, Node.Material material, Instant now) {
         Omf omf = query.OmfByMaterial.Find(material.MaterialKey.ToValue()).IfNone(query.Omf);
         Fin<EpdAnswer> page = await epds(new EpdQuery.Products(omf, query.Method));
         if (Aborts(page)) { return Fin.Fail<MaterialPropertySet>(page.Match(Succ: static _ => Error.Empty, Fail: static e => e)); }
@@ -487,7 +485,7 @@ public static partial class LifecycleAssessment {
             if (Aborts(answer)) { return Fin.Fail<MaterialPropertySet>(answer.Match(Succ: static _ => Error.Empty, Fail: static e => e)); }
             Option<MaterialPropertySet> admitted = answer.ToOption()
                 .Bind(rows => rows.Rows.Find(row => row.Declares(ImpactCategory.GwpTotal)))
-                .Bind(row => ToEnvironmental(row, query, key).ToOption());
+                .Bind(row => ToEnvironmental(row, query).ToOption());
             if (admitted.Case is MaterialPropertySet resolved) { return Fin.Succ(resolved); }
         }
         return Fin.Fail<MaterialPropertySet>(Missing(AssessmentInputReason.PlyPropertyAbsent, material.MaterialKey.ToValue()));
@@ -519,14 +517,13 @@ public static partial class LifecycleAssessment {
             | live.Head;
     }
 
-    static Fin<MaterialPropertySet> ToEnvironmental(EpdDeclaration declaration, CarbonQuery query, Op key) =>
+    static Fin<MaterialPropertySet> ToEnvironmental(EpdDeclaration declaration, CarbonQuery query) =>
         from basis in Normalize(declaration)
         let scaled = ServiceLife(declaration, query.ReferencePeriodYears)
         from admitted in MaterialPropertySet.OfEnvironmental(
             basis.Basis,
             Matrix(scaled.Map(cell => cell with { PerDeclaredUnit = cell.PerDeclaredUnit / basis.PerUnit })),
             recycledContent: None, endOfLifeRecovery: None,
-            key,
             declaration.Evidence)
         select admitted;
 
@@ -585,8 +582,6 @@ public static class LifecycleGraphReads {
                     .Map(measures => new ElementTakeoff(measures, graph.Magnitude(element, QuantityRows.NestWasteArea)))
                 : Fin.Fail<ElementTakeoff>(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MeasureAbsent, element.ToValue()));
     }
-
-    static readonly Op TakeoffKey = Op.Of(name: nameof(LifecycleGraphReads));
 }
 ```
 

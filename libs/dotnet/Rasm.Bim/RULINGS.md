@@ -47,7 +47,7 @@
 - Host-coupled constructors that solely author an entity confine to the `UnsafeAccessor` capsule as arguments — never a projector signature.
 - Model identity is SPAN-grade, never a metric dimension — models mint unbounded, so `rasm.bim.model` multiplies every instrument by model count.
 - Reading the kernel `RgbProfile.Srgb` transfer is no host crossing — the delegate spells no `Unicolour` type, and none reaches a signature here.
-- Format capability answers through ONE `Admitted(format, direction, key)` gate every entry composes — a capability column flips only WITH its arm.
+- Format capability answers through ONE `Admitted(format, direction)` gate every entry composes — a capability column flips only WITH its arm.
 - `BimFault.Refused` carries closed scope and reason axes; detail remains presentation evidence and drives no routing.
 - Graph→OSM/gbXML/IDF egress rides `Lower` HBJSON → peer wire → `Translate` — no HBJSON ingest feeds the translator matrix, so no direct arm.
 - Classifier rows demand per-segment-HONEST discrimination — composed, floor-relative, and point-absence signatures wait on kernel evidence.

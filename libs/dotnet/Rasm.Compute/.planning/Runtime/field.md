@@ -307,7 +307,7 @@ public static class FieldPack {
                         : Fail<Error, (FieldArtifact, FieldHeader)>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Consistent, new ContractEvidence.Count(payload.Length, header.GridCount)))))));
 
     public static Fin<ComputeArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at, Option<ResidualPredictor> predictor = default) =>
-        Op.Of(name: nameof(FieldEncode)).AcceptValidated<AdmittedField>(AdmittedField.Validate(field, policy, out AdmittedField? admitted), admitted)
+        FactoryBridge.Accept<AdmittedField>(AdmittedField.Validate(field, policy, out AdmittedField? admitted), admitted)
             .Bind(admitted => admitted.Policy.Storage.Switch(
                 state: (admitted.Field, Predictor: predictor),
                 exact: static (s, _) => Fin.Succ(s.Field with { MaxResidual = 0.0 }),
@@ -319,7 +319,7 @@ public static class FieldPack {
                     .Map(packed => ComputeArtifact.Of(formatKey, packed, at, [admitted.Policy.Storage.QuantizationBits, admitted.Policy.Storage.ErrorBound]))));
 
     static Fin<ReadOnlyMemory<byte>> Pack(FieldArtifact field, FieldCodecPolicy policy) =>
-        Op.Of(name: nameof(Pack)).AcceptValidated<FieldHeader>(FieldHeader.Validate(
+        FactoryBridge.Accept<FieldHeader>(FieldHeader.Validate(
             field.Station, field.Rank, field.Components, field.Count, field.Chunks.Length,
             policy.Storage, policy.Compression,
             toSeq(field.Grid.Grid.Span.ToArray()),
@@ -359,9 +359,9 @@ public static class FieldPack {
                 : Fail<Error, ulong[]>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(declared.Station + declared.Stations, 0d, extent[0])))));
 
     static Validation<Error, float[]> Read(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ChunkGrid grid, FieldElement element) =>
-        Op.Of(name: "hdf5.field-read").Catch(() => Fin.Succ(element == FieldElement.Double
+        Try.lift(() => Fin.Succ(element == FieldElement.Double
                 ? Narrowed(Slabbed<double>(source, access, window, grid))
-                : Slabbed<float>(source, access, window, grid)))
+                : Slabbed<float>(source, access, window, grid))).Run().Bind(static inner => inner)
             .ToValidation<Error>();
 
     static T[] Slabbed<T>(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ChunkGrid grid) where T : unmanaged {
@@ -390,7 +390,7 @@ public static class FieldPack {
     }
 
     public static Fin<ComputeArtifact> Hdf5Encode(FieldArtifact field, FieldCodecPolicy policy, HdfArchivePolicy archive, Stream sink, Instant at) =>
-        Op.Of(name: nameof(Hdf5Encode)).AcceptValidated<AdmittedField>(AdmittedField.Validate(field, policy, out AdmittedField? admitted), admitted)
+        FactoryBridge.Accept<AdmittedField>(AdmittedField.Validate(field, policy, out AdmittedField? admitted), admitted)
             .Bind(admitted => admitted.Policy.Storage.Switch(
                 state: (admitted, archive, sink, at),
                 exact: static (s, _) => Emit(s.admitted.Field with { MaxResidual = 0.0 }, s.admitted.Policy, s.archive, s.sink, s.at),
@@ -661,9 +661,9 @@ public static class InterchangeIo {
                 .Bind(admitted => {
                     int channels = (int)extent[1];
                     int frames = window.Frames(admitted.Samples);
-                    return Op.Of(name: "hdf5.waveform-read").Catch(() => Fin.Succ(admitted.Element == FieldElement.Double
+                    return Try.lift(() => Fin.Succ(admitted.Element == FieldElement.Double
                             ? FieldPack.Narrowed(Windowed<double>(source, handle.Access, window, frames, channels))
-                            : Windowed<float>(source, handle.Access, window, frames, channels)))
+                            : Windowed<float>(source, handle.Access, window, frames, channels))).Run().Bind(static inner => inner)
                         .ToValidation<Error>()
                         .Map(values => new WaveformCorpus(formatKey, dataset, channels, admitted.Samples, admitted.Rate, window, frames, values, at));
                 });

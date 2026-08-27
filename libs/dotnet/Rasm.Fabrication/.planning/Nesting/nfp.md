@@ -725,7 +725,7 @@ public static class Nest {
                 .ToFin(new FabricationFault.StockOverflow(parts.Count, plan.Yield.SheetCount))
                 .Bind(seed => KeyOf(placed, Seq<Remnant>(), plan.Evidence.Digest, seed.Tolerance))
                 .Map(key => (FabricationResult)new FabricationResult.Placement(placed, plan.Yield.UtilizationRatio,
-                    plan.Yield.UnplacedCount, Seq<Remnant>(), key)));
+                    plan.Yield.UnplacedCount, Seq<Remnant>())));
 
     internal static UInt128 Identity(Seq<Loop> loops, Context tolerance, Func<CanonicalWriter, CanonicalWriter> salt) =>
         FabricationCanon.Ordered(tolerance, writer =>
@@ -803,12 +803,12 @@ public static class Nest {
             relaxed: static (scope, row) => Relax(scope.state, row.Iterations, row.Strength),
             selected: static (scope, row) => Fin.Succ(Select(scope.state, scope.policy.Objective, row.Width)),
             repeated: static (scope, row) => Enumerable.Range(0, row.Count).ToSeq().FoldM<Fin, SearchState>(scope.state,
-                (cycle, _) => row.Body.FoldM<Fin, SearchState>(cycle, (inner, op) => Apply(op, inner, scope.parts,
+                (cycle, _) => row.Body.FoldM<Fin, SearchState>(cycle, (inner, op) => Apply(inner, scope.parts,
                     scope.inventory, scope.variants, scope.pairs, scope.policy, scope.graph)).As()).As(),
             bounded: static (scope, row) => row.Body.FoldM<Fin, SearchState>(scope.state, (inner, op) =>
                 inner.Evidence.Evaluated >= row.Evaluations
                     ? Fin.Succ(inner)
-                    : Apply(op, inner, scope.parts, scope.inventory, scope.variants, scope.pairs, scope.policy,
+                    : Apply(inner, scope.parts, scope.inventory, scope.variants, scope.pairs, scope.policy,
                         scope.graph)).As(),
             rectangular: static (scope, row) => NestRun.FromProfiles(
                     scope.parts,
@@ -1123,7 +1123,7 @@ public static class Nest {
                                         (EnginePhase.Moulds, evidence.Moulds),
                                         (EnginePhase.ChiralFloor, evidence.ChiralFloor))
                                     select (FabricationResult)new FabricationResult.Placement(
-                                        transforms, evidence.Utilization, evidence.Unplaced.Count, remnants, key));
+                                        transforms, evidence.Utilization, evidence.Unplaced.Count, remnants));
                         })))));
 
     static NestSearch Evidence(SearchRun run, NestSearch basis) {
@@ -1221,7 +1221,6 @@ public static class Nest {
             .Rows(toSeq(remnants.OrderBy(static row => row.Identity)), static (held, row) => held.U128(row.Identity)),
             PlacementOp);
 
-    private static readonly Op PlacementOp = Op.Of(name: nameof(KeyOf));
 
     static Fin<Loop> Admit(Loop loop, int index) => !loop.Closed
         ? Fin.Fail<Loop>(new FabricationFault.OpenLoop(FabConcern.Nesting, index))
@@ -1443,15 +1442,13 @@ internal sealed class PairMemo(HybridCache cache) {
         LocalCacheExpiration = TimeSpan.FromHours(8),
     };
 
-    static readonly Op MemoOp = Op.Of(name: "nest:pair-memo");
-
     long hits;
     long misses;
 
     public (long Hits, long Misses) Census => (Interlocked.Read(ref hits), Interlocked.Read(ref misses));
 
     public async ValueTask<Fin<NoFitPolygon>> GetOrBuild(UInt128 identity, Func<Fin<NoFitPolygon>> build, CancellationToken cancel) =>
-        await MemoOp.Catch(async execution => {
+        await Try.lift(async execution => {
             bool built = false;
             NoFitPolygon polygon = await cache.GetOrCreateAsync(
                 $"nfp:{ContentHash.Hex(identity)}",
@@ -1461,7 +1458,7 @@ internal sealed class PairMemo(HybridCache cache) {
                 cancellationToken: execution).ConfigureAwait(false);
             _ = Interlocked.Increment(ref built ? ref misses : ref hits);
             return Fin.Succ(polygon);
-        }, token: cancel).ConfigureAwait(false);
+        }).Run().Bind(static inner => inner).ConfigureAwait(false);
 }
 
 internal static class PairTable {
@@ -1473,11 +1470,9 @@ internal static class PairTable {
         CancellationToken cancel = default) {
         Variant[] rows = variants.Values.OrderBy(static row => row.PartId).ThenBy(static row => row.Rotation)
             .ThenBy(static row => row.Mirrored).ToArray();
-        return (await Op.Of(name: "nest:pair-table").Catch(
-                async execution => Fin.Succ(await memo.Match(
+        return (await Try.lift(async execution => Fin.Succ(await memo.Match(
                     Some: cache => Cached(rows, policy, cache, execution),
-                    None: () => ValueTask.FromResult(Parallel(rows, policy))).ConfigureAwait(false)),
-                token: cancel).ConfigureAwait(false))
+                    None: () => ValueTask.FromResult(Parallel(rows, policy))).ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
             .Bind(results => results.ToSeq().TraverseM(identity).As()
                 .Bind(pairs => Inner(toSeq(rows), inventory, policy).Map(inner => pairs.Concat(inner)))
                 .Map(static found => toHashMap(found.DistinctBy(static row => row.Identity)

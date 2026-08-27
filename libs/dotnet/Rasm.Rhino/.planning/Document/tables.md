@@ -38,15 +38,15 @@ public sealed partial class TableKind {
     public static readonly TableKind Manifest = new(key: 1, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
     public static readonly TableKind Bitmaps = new(key: 2, componentType: ModelComponentType.Image, reclaim: NoReclaim);
     public static readonly TableKind Materials = new(key: 3, componentType: ModelComponentType.Material, reclaim: NoReclaim);
-    public static readonly TableKind Linetypes = new(key: 4, componentType: ModelComponentType.LinePattern, reclaim: static (document, op) => Count(document.Linetypes.PurgeUnused(), op));
-    public static readonly TableKind Layers = new(key: 5, componentType: ModelComponentType.Layer, reclaim: static (document, op) => Count(document.Layers.PurgeUnused(), op));
-    public static readonly TableKind Groups = new(key: 6, componentType: ModelComponentType.Group, reclaim: static (document, op) => Count(document.Groups.PurgeUnused(), op));
-    public static readonly TableKind DimStyles = new(key: 7, componentType: ModelComponentType.DimStyle, reclaim: static (document, op) => Count(document.DimStyles.PurgeUnused(), op));
+    public static readonly TableKind Linetypes = new(key: 4, componentType: ModelComponentType.LinePattern, reclaim: static (document, op) => Count(document.Linetypes.PurgeUnused()));
+    public static readonly TableKind Layers = new(key: 5, componentType: ModelComponentType.Layer, reclaim: static (document, op) => Count(document.Layers.PurgeUnused()));
+    public static readonly TableKind Groups = new(key: 6, componentType: ModelComponentType.Group, reclaim: static (document, op) => Count(document.Groups.PurgeUnused()));
+    public static readonly TableKind DimStyles = new(key: 7, componentType: ModelComponentType.DimStyle, reclaim: static (document, op) => Count(document.DimStyles.PurgeUnused()));
     public static readonly TableKind Lights = new(key: 8, componentType: ModelComponentType.RenderLight, reclaim: NoReclaim);
-    public static readonly TableKind HatchPatterns = new(key: 9, componentType: ModelComponentType.HatchPattern, reclaim: static (document, op) => Count(document.HatchPatterns.PurgeUnused(), op));
+    public static readonly TableKind HatchPatterns = new(key: 9, componentType: ModelComponentType.HatchPattern, reclaim: static (document, op) => Count(document.HatchPatterns.PurgeUnused()));
     public static readonly TableKind Views = new(key: 10, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
     public static readonly TableKind NamedViews = new(key: 11, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
-    public static readonly TableKind InstanceDefinitions = new(key: 12, componentType: ModelComponentType.InstanceDefinition, reclaim: static (document, op) => Count(document.InstanceDefinitions.PurgeUnused(), op));
+    public static readonly TableKind InstanceDefinitions = new(key: 12, componentType: ModelComponentType.InstanceDefinition, reclaim: static (document, op) => Count(document.InstanceDefinitions.PurgeUnused()));
     public static readonly TableKind NamedConstructionPlanes = new(key: 13, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
     public static readonly TableKind NamedPositions = new(key: 14, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
     public static readonly TableKind NamedLayerStates = new(key: 15, componentType: ModelComponentType.Unset, reclaim: NoReclaim);
@@ -62,9 +62,9 @@ public sealed partial class TableKind {
     public ModelComponentType ComponentType { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<int> Reclaim(RhinoDoc document, Op key);
+    internal partial Fin<int> Reclaim(RhinoDoc document);
 
-    public static Fin<Seq<TableKind>> ForComponentType(ModelComponentType type, Op? key = null) =>
+    public static Fin<Seq<TableKind>> ForComponentType(ModelComponentType type) =>
         Enum.IsDefined(value: type)
             ? Fin.Succ(value: type switch {
                 ModelComponentType.Unset => Seq<TableKind>(),
@@ -75,11 +75,11 @@ public sealed partial class TableKind {
             })
             : Fin.Fail<Seq<TableKind>>(error: key.OrDefault().InvalidInput());
 
-    private static Fin<int> Count(int value, Op key) =>
-        guard(value >= 0, key.InvalidResult()).ToFin().Map(_ => value);
+    private static Fin<int> Count(int value) =>
+        guard(value >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => value);
 
-    private static Fin<int> NoReclaim(RhinoDoc document, Op key) =>
-        Fin.Fail<int>(error: key.Unsupported(inputType: typeof(TableKind), outputType: typeof(int)));
+    private static Fin<int> NoReclaim(RhinoDoc document) =>
+        Fin.Fail<int>(error: new KernelFault.Unsupported(InputType: typeof(TableKind), OutputType: typeof(int)));
 }
 ```
 
@@ -153,21 +153,19 @@ public sealed partial class ObjectKinds {
             ? new ValidationError(message: "Object kind set is empty.")
             : null;
 
-    public static Fin<ObjectKinds> OfMask(ObjectType mask, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<ObjectKinds> OfMask(ObjectType mask) {
         Seq<ObjectKind> rows = mask == ObjectType.AnyObject
             ? Seq(ObjectKind.AnyObject)
             : Items.AsIterable()
                 .Filter(row => row.Key != ObjectType.AnyObject && (mask & row.Key) == row.Key && row.Key != ObjectType.None)
                 .ToSeq();
-        return op.AcceptValidated<ObjectKinds>(
+        return FactoryBridge.Accept<ObjectKinds>(
             fault: Validate(rows.ToFrozenSet(), out ObjectKinds? admitted),
             admitted: admitted);
     }
 
-    public static Fin<ObjectKinds> Of(Op? key, params ReadOnlySpan<ObjectKind> values) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<ObjectKinds>(
+    public static Fin<ObjectKinds> Of(params ReadOnlySpan<ObjectKind> values) {
+        return FactoryBridge.Accept<ObjectKinds>(
             fault: Validate(toSeq(values.ToArray()).ToFrozenSet(), out ObjectKinds? admitted),
             admitted: admitted);
     }
@@ -249,8 +247,7 @@ public sealed partial class QuerySpec {
         Option<ResourceIndex> material = default,
         Option<string> name = default,
         Option<ActiveSpaceUse> space = default,
-        Option<ViewportTarget> viewport = default,
-        Op? key = null) =>
+        Option<ViewportTarget> viewport = default) =>
         key.OrDefault().AcceptValidated<QuerySpec>(
             fault: Validate(
                 axes.IfNone(QueryAxis.Baseline),
@@ -271,21 +268,21 @@ public sealed partial class QuerySpec {
         && !Axes.Admits(capability: QueryAxis.Hidden)
         && !Axes.Admits(capability: QueryAxis.InDefinitions);
 
-    internal Fin<ObjectEnumeratorSettings> Build(RhinoDoc document, Op key) =>
+    internal Fin<ObjectEnumeratorSettings> Build(RhinoDoc document) =>
         Viewport
-            .Traverse(target => target.ResolveViewport(document: document, key: key))
+            .Traverse(target => target.ResolveViewport(document: document))
             .As()
             .Map(resolved => {
                 ObjectEnumeratorSettings settings = toSeq(QueryAxis.Items).Fold(
                     new ObjectEnumeratorSettings(),
                     (held, axis) => axis.Seat(settings: held, held: Axes.Admits(capability: axis)));
                 settings.ObjectTypeFilter = Kinds.Mask;
-                settings.ClassTypeFilter = Op.ToHostSlot(Shape);
+                settings.ClassTypeFilter = HostEdge.Slot(Shape);
                 settings.LayerIndexFilter = Layer.Map(static value => value.Value).IfNone(noneValue: AnyIndex);
                 settings.MaterialIndexFilter = Material.Map(static value => value.Value).IfNone(noneValue: AnyMaterial);
                 settings.NameFilter = Name.IfNone(AnyName);
                 settings.SpaceFilter = Space.Key;
-                settings.ViewportFilter = Op.ToHostSlot(resolved);
+                settings.ViewportFilter = HostEdge.Slot(resolved);
                 return settings;
             });
 
@@ -317,28 +314,27 @@ public abstract partial record TablePredicate {
     private sealed record ColorCase(PerceptualColor Value) : TablePredicate;
     private sealed record BoundsCase(BoundingBox Region, BoundsMatch Match, Tolerance Band) : TablePredicate;
 
-    public static Fin<TablePredicate> Tag(string name, Option<string> expected = default, Op? key = null) =>
+    public static Fin<TablePredicate> Tag(string name, Option<string> expected = default) =>
         key.OrDefault().AcceptText(value: name).Map(valid => (TablePredicate)new TagCase(Key: valid, Expected: expected));
 
-    public static Fin<TablePredicate> Color(PerceptualColor value, Op? key = null) =>
+    public static Fin<TablePredicate> Color(PerceptualColor value) =>
         key.OrDefault().Need(value).Map(static admitted => (TablePredicate)new ColorCase(Value: admitted));
 
-    public static Fin<TablePredicate> Bounds(BoundingBox region, BoundsMatch match, Context context, double inflation = 0.0, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(region.IsValid, op.InvalidInput()).ToFin()
+    public static Fin<TablePredicate> Bounds(BoundingBox region, BoundsMatch match, Context context, double inflation = 0.0) {
+        return from _ in guard(region.IsValid, new KernelFault.InvalidInput()).ToFin()
                from predicate in (
-                op.Need(match).ToValidation(),
-                op.Need(context).ToValidation(),
-                op.Catch(() => Fin.Succ(value: toSeq(region.GetCorners())))
+                Admit.Need(match).ToValidation(),
+                Admit.Need(context).ToValidation(),
+                Try.lift(() => Fin.Succ(value: toSeq(region.GetCorners()))).Run().Bind(static inner => inner)
                     .Bind(corners =>
-                        from counted in guard(corners.Count is 8, op.InvalidInput()).ToFin()
+                        from counted in guard(corners.Count is 8, new KernelFault.InvalidInput()).ToFin()
                         from admitted in corners
-                            .Traverse(point => op.AcceptInput(value: point).ToValidation())
+                            .Traverse(point => Acceptance.Input(value: point).ToValidation())
                             .As()
                             .ToFin()
                         select admitted)
                     .ToValidation(),
-                guard(double.IsFinite(inflation) && inflation >= 0.0, op.InvalidInput())
+                guard(double.IsFinite(inflation) && inflation >= 0.0, new KernelFault.InvalidInput())
                     .ToFin()
                     .ToValidation())
                    .Apply((relation, domain, _, _) => (TablePredicate)new BoundsCase(
@@ -350,33 +346,33 @@ public abstract partial record TablePredicate {
                select predicate;
     }
 
-    internal Fin<bool> Match(RhinoDoc document, RhinoObject native, Op key) =>
+    internal Fin<bool> Match(RhinoDoc document, RhinoObject native) =>
         Switch(
-            state: (Document: document, Native: native, Op: key),
+            state: (Document: document, Native: native),
             tagCase: static (context, predicate) => Optional(context.Native.Attributes)
-                .ToFin(Fail: context.Op.InvalidResult())
-                .Map(attributes => Optional(attributes.GetUserString(key: predicate.Key))
+                .ToFin(Fail: new KernelFault.InvalidResult())
+                .Map(attributes => Optional(attributes.GetUserString())
                     .Map(stored => predicate.Expected
                         .Map(expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal))
                         .IfNone(noneValue: true))
                     .IfNone(noneValue: false)),
             colorCase: static (context, predicate) => Optional(context.Native.Attributes)
-                .ToFin(Fail: context.Op.InvalidResult())
-                .Bind(attributes => Shade(color: attributes.DrawColor(document: context.Document), key: context.Op))
+                .ToFin(Fail: new KernelFault.InvalidResult())
+                .Bind(attributes => Shade(color: attributes.DrawColor(document: context.Document)))
                 .Map(drawn => drawn.ToRgb() == predicate.Value.ToRgb()),
             boundsCase: static (context, predicate) => Optional(context.Native.Geometry)
-                .ToFin(Fail: context.Op.InvalidResult())
-                .Bind(geometry => geometry.BoundsOf(key: context.Op))
+                .ToFin(Fail: new KernelFault.InvalidResult())
+                .Bind(geometry => geometry.BoundsOf())
                 .Map(candidate => predicate.Match.Test(region: predicate.Region, candidate: candidate, band: predicate.Band)));
 
     private static BoundingBox Inflated(BoundingBox region, double amount) {
         BoundingBox expanded = region;
-        _ = Op.SideWhen(amount > 0.0, () => expanded.Inflate(xAmount: amount, yAmount: amount, zAmount: amount));
+        _ = HostEdge.SideWhen(amount > 0.0, () => expanded.Inflate(xAmount: amount, yAmount: amount, zAmount: amount));
         return expanded;
     }
 
-    internal static Fin<PerceptualColor> Shade(System.Drawing.Color color, Op key) =>
-        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
+    internal static Fin<PerceptualColor> Shade(System.Drawing.Color color) =>
+        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -387,22 +383,20 @@ public abstract partial record TableTarget {
     private sealed record QueryCase(QuerySpec Spec, Seq<TablePredicate> Predicates) : TableTarget;
 
     public static Fin<TableTarget> Of(params ReadOnlySpan<Guid> ids) {
-        Op op = Op.Of();
         return from values in toSeq(ids.ToArray())
                    .Traverse(id => (id != Guid.Empty
                        ? Fin.Succ(value: id)
-                       : Fin.Fail<Guid>(error: op.InvalidInput())).ToValidation())
+                       : Fin.Fail<Guid>(error: new KernelFault.InvalidInput())).ToValidation())
                    .As()
                    .ToFin()
                let distinct = values.Distinct()
-               from _ in guard(!distinct.IsEmpty, op.InvalidInput())
+               from _ in guard(!distinct.IsEmpty, new KernelFault.InvalidInput())
                select (TableTarget)new IdsCase(Values: distinct);
     }
 
     public static Fin<TableTarget> Query(QuerySpec spec, params ReadOnlySpan<TablePredicate> predicates) {
-        Op op = Op.Of();
         return (
-                op.Need(spec).ToValidation(),
+                Admit.Need(spec).ToValidation(),
                 Admission.All(values: predicates, key: op).ToValidation())
             .Apply(static (source, filters) => (TableTarget)new QueryCase(
                 Spec: source,
@@ -415,46 +409,44 @@ public abstract partial record TableTarget {
         idsCase: static _ => false,
         queryCase: static target => target.Spec.SelectsOnlyDeleted);
 
-    internal Fin<Seq<Guid>> Resolve(RhinoDoc document, Op key) =>
+    internal Fin<Seq<Guid>> Resolve(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
+            state: document,
             idsCase: static (_, target) => Fin.Succ(value: target.Values),
             queryCase: static (context, target) => Evaluate(
                     target: target,
-                    document: context.Document,
-                    key: context.Op)
+                    document: context)
                 .Map(static rows => rows.Map(static native => native.Id).Distinct()));
 
-    internal Fin<Seq<uint>> Serials(RhinoDoc document, Op key) =>
+    internal Fin<Seq<uint>> Serials(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
+            state: document,
             idsCase: static (context, target) => target.Values
-                .Traverse(id => Optional(context.Document.Objects.FindId(id))
-                    .ToFin(Fail: context.Op.InvalidResult())
-                    .Bind(native => guard(native.RuntimeSerialNumber > 0u, context.Op.InvalidResult()).ToFin()
+                .Traverse(id => Optional(context.Objects.FindId(id))
+                    .ToFin(Fail: new KernelFault.InvalidResult())
+                    .Bind(native => guard(native.RuntimeSerialNumber > 0u, new KernelFault.InvalidResult()).ToFin()
                         .Map(_ => native.RuntimeSerialNumber))
                     .ToValidation())
                 .As()
                 .ToFin(),
             queryCase: static (context, target) => Evaluate(
                     target: target,
-                    document: context.Document,
-                    key: context.Op)
+                    document: context)
                 .Bind(rows => rows
-                    .Traverse(native => guard(native.RuntimeSerialNumber > 0u, context.Op.InvalidResult()).ToFin()
+                    .Traverse(native => guard(native.RuntimeSerialNumber > 0u, new KernelFault.InvalidResult()).ToFin()
                         .Map(_ => native.RuntimeSerialNumber)
                         .ToValidation())
                     .As()
                     .ToFin()));
 
-    private static Fin<Seq<RhinoObject>> Evaluate(QueryCase target, RhinoDoc document, Op key) =>
-        from settings in target.Spec.Build(document: document, key: key)
+    private static Fin<Seq<RhinoObject>> Evaluate(QueryCase target, RhinoDoc document) =>
+        from settings in target.Spec.Build(document: document)
         from objects in Optional(document.Objects.GetObjectList(settings: settings))
-            .ToFin(Fail: key.InvalidResult())
+            .ToFin(Fail: new KernelFault.InvalidResult())
             .Map(static values => toSeq(values))
         from matches in objects
             .Traverse(native => target.Predicates
-                .Traverse(predicate => predicate.Match(document: document, native: native, key: key).ToValidation())
+                .Traverse(predicate => predicate.Match(document: document, native: native).ToValidation())
                 .As()
                 .Map(verdicts => (Native: native, Matches: verdicts.ForAll(identity))))
             .As()
@@ -519,63 +511,63 @@ public abstract partial record ViewportTarget {
 
     public static ViewportTarget Active { get; } = new ActiveCase();
 
-    public static Fin<ViewportTarget> Every(ReadOnlySpan<ViewportScope> scopes, Op? key = null) {
+    public static Fin<ViewportTarget> Every(ReadOnlySpan<ViewportScope> scopes) {
         Seq<ViewportScope> rows = toSeq(scopes.ToArray()).Strict();
         return guard(!rows.IsEmpty && rows.ForAll(static scope => scope is not null), key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (ViewportTarget)new EveryCase(Scopes: rows.ToFrozenSet()));
     }
-    public static Fin<ViewportTarget> Named(string name, Op? key = null) =>
+    public static Fin<ViewportTarget> Named(string name) =>
         key.OrDefault().AcceptText(value: name).Map(static valid => (ViewportTarget)new NamedCase(Name: valid));
-    public static Fin<ViewportTarget> Id(Guid viewportId, Op? key = null) =>
+    public static Fin<ViewportTarget> Id(Guid viewportId) =>
         guard(viewportId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => (ViewportTarget)new IdCase(ViewportId: viewportId));
-    public static Fin<ViewportTarget> Page(Guid pageViewId, Op? key = null) =>
+    public static Fin<ViewportTarget> Page(Guid pageViewId) =>
         guard(pageViewId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => (ViewportTarget)new PageCase(PageViewId: pageViewId));
-    public static Fin<ViewportTarget> Detail(Guid pageViewId, Guid detailId, Op? key = null) =>
+    public static Fin<ViewportTarget> Detail(Guid pageViewId, Guid detailId) =>
         guard(pageViewId != Guid.Empty && detailId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (ViewportTarget)new DetailCase(PageViewId: pageViewId, DetailId: detailId));
 
-    internal Fin<Seq<ViewportRef>> Resolve(RhinoDoc document, Op key) =>
+    internal Fin<Seq<ViewportRef>> Resolve(RhinoDoc document) =>
         Switch(
-            (Document: document, Op: key),
+            document,
             activeCase: static (ctx, _) =>
-                Optional(ctx.Document.Views.ActiveView).ToFin(Fail: ctx.Op.MissingContext())
+                Optional(ctx.Views.ActiveView).ToFin(Fail: new KernelFault.MissingContext())
                     .Map(view => Seq(ViewportRef.OfActive(view: view))),
             namedCase: static (ctx, target) =>
-                Optional(ctx.Document.Views.Find(mainViewportName: target.Name, compareCase: false))
-                    .ToFin(Fail: ctx.Op.InvalidInput())
+                Optional(ctx.Views.Find(mainViewportName: target.Name, compareCase: false))
+                    .ToFin(Fail: new KernelFault.InvalidInput())
                     .Map(view => Seq(ViewportRef.Of(view: view))),
             idCase: static (ctx, target) => (
-                    Optional(ctx.Document.Views.Find(mainViewportId: target.ViewportId))
+                    Optional(ctx.Views.Find(mainViewportId: target.ViewportId))
                         .Map(static view => ViewportRef.Of(view: view))
-                    | toSeq(ctx.Document.Views.GetPageViews())
+                    | toSeq(ctx.Views.GetPageViews())
                         .Bind(static page => toSeq(page.GetDetailViews())
                             .Map(detail => ViewportRef.OfDetail(view: page, detail: detail)))
                         .Find(row => row.Viewport.Id == target.ViewportId
                             || row.Detail.Exists(detail => detail.Id == target.ViewportId))
-                ).ToFin(Fail: ctx.Op.InvalidInput()).Map(static row => Seq(row)),
+                ).ToFin(Fail: new KernelFault.InvalidInput()).Map(static row => Seq(row)),
             pageCase: static (ctx, target) =>
-                PageOf(document: ctx.Document, pageViewId: target.PageViewId, key: ctx.Op)
+                PageOf(document: ctx, pageViewId: target.PageViewId)
                     .Map(page => Seq(ViewportRef.Of(view: page))),
             detailCase: static (ctx, target) =>
-                from page in PageOf(document: ctx.Document, pageViewId: target.PageViewId, key: ctx.Op)
+                from page in PageOf(document: ctx, pageViewId: target.PageViewId)
                 from detail in toSeq(page.GetDetailViews())
                     .Find(row => row.Id == target.DetailId || row.Viewport.Id == target.DetailId)
-                    .ToFin(Fail: ctx.Op.InvalidInput())
+                    .ToFin(Fail: new KernelFault.InvalidInput())
                 select Seq(ViewportRef.OfDetail(view: page, detail: detail)),
             everyCase: static (ctx, target) => Fin.Succ(
                 toSeq(target.Scopes)
                     .OrderBy(static scope => scope.Key)
-                    .Bind(scope => scope.Select(document: ctx.Document))
+                    .Bind(scope => scope.Select(document: ctx))
                     .Strict()));
 
-    internal Fin<ViewportRef> ResolveOne(RhinoDoc document, Op key) =>
-        Resolve(document: document, key: key).Bind(rows => Tables.One(rows: rows, key: key));
+    internal Fin<ViewportRef> ResolveOne(RhinoDoc document) =>
+        Resolve(document: document).Bind(rows => Tables.One(rows: rows));
 
-    internal Fin<RhinoViewport> ResolveViewport(RhinoDoc document, Op key) =>
-        ResolveOne(document: document, key: key).Map(static row => row.Viewport);
+    internal Fin<RhinoViewport> ResolveViewport(RhinoDoc document) =>
+        ResolveOne(document: document).Map(static row => row.Viewport);
 
-    private static Fin<RhinoPageView> PageOf(RhinoDoc document, Guid pageViewId, Op key) =>
-        toSeq(document.Views.GetPageViews()).Find(page => page.MainViewport.Id == pageViewId).ToFin(Fail: key.InvalidInput());
+    private static Fin<RhinoPageView> PageOf(RhinoDoc document, Guid pageViewId) =>
+        toSeq(document.Views.GetPageViews()).Find(page => page.MainViewport.Id == pageViewId).ToFin(Fail: new KernelFault.InvalidInput());
 }
 
 internal readonly record struct ViewportRef(RhinoView View, RhinoViewport Viewport, Option<DetailViewObject> Detail) {
@@ -586,8 +578,8 @@ internal readonly record struct ViewportRef(RhinoView View, RhinoViewport Viewpo
     internal static ViewportRef OfDetail(RhinoPageView view, DetailViewObject detail) =>
         new(View: view, Viewport: detail.Viewport, Detail: Some(detail));
 
-    internal Fin<TOut> Info<TOut>(Func<ViewportInfo, Fin<TOut>> project, Op key) =>
-        key.Catch(() => new Lease<ViewportInfo>.Owned(Value: new ViewportInfo(Viewport)).Use(project));
+    internal Fin<TOut> Info<TOut>(Func<ViewportInfo, Fin<TOut>> project) =>
+        Try.lift(() => new Lease<ViewportInfo>.Owned(Value: new ViewportInfo(Viewport)).Use(project)).Run().Bind(static inner => inner);
 }
 
 // --- [COMPONENT_ADDRESS]
@@ -599,7 +591,7 @@ public readonly partial struct ResourceId {
 
     internal static Option<ResourceId> Maybe(Guid value) => Optional(value).Filter(static id => id != Guid.Empty).Map(Create);
 
-    internal static Fin<ResourceId> Admit(Guid value, Op key) => Maybe(value).ToFin(Fail: key.InvalidResult());
+    internal static Fin<ResourceId> Admit(Guid value) => Maybe(value).ToFin(Fail: new KernelFault.InvalidResult());
 }
 
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -613,7 +605,7 @@ public readonly partial struct ResourceIndex {
     internal static Option<ResourceIndex> Maybe(int value) =>
         value >= 0 ? Some(Create(value)) : Option<ResourceIndex>.None;
 
-    internal static Fin<ResourceIndex> Admit(int value, Op key) => Maybe(value).ToFin(Fail: key.InvalidResult());
+    internal static Fin<ResourceIndex> Admit(int value) => Maybe(value).ToFin(Fail: new KernelFault.InvalidResult());
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -622,7 +614,7 @@ public readonly partial struct ResourceIndex {
 public sealed partial class ResourceName {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
-        validationError = value.Length > 0 ? null : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(ResourceName) }));
+        validationError = value.Length > 0 ? null : new ValidationError(string.Join(" | ", new object?[] { nameof(ResourceName) }));
     }
 }
 
@@ -638,27 +630,27 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
     public sealed record ByName : ResourceRef { internal ByName(ResourceName value) => Value = value; public ResourceName Value { get; } }
     public sealed record ByIndex : ResourceRef { internal ByIndex(ResourceIndex value) => Value = value; public ResourceIndex Value { get; } }
 
-    public static Fin<ResourceRef> Of(Guid id, Op? key = null) =>
+    public static Fin<ResourceRef> Of(Guid id) =>
         ResourceId.Maybe(id).Map(static value => (ResourceRef)new ById(value: value))
             .ToFin(Fail: key.OrDefault(name: nameof(ResourceRef)).InvalidInput());
 
-    public static Fin<ResourceRef> Of(string name, Op? key = null) =>
+    public static Fin<ResourceRef> Of(string name) =>
         key.OrDefault(name: nameof(ResourceRef)).AcceptText(value: name)
             .Map(static valid => (ResourceRef)new ByName(value: ResourceName.Create(valid)));
 
-    public static Fin<ResourceRef> Of(int index, Op? key = null) =>
+    public static Fin<ResourceRef> Of(int index) =>
         ResourceIndex.Admit(value: index, key: key.OrDefault(name: nameof(ResourceRef)))
             .Map(static value => (ResourceRef)new ByIndex(value: value));
 
-    internal Fin<TComponent> Resolve<TComponent>(RhinoDoc document, ResourceLens<TComponent> lens, Op key) where TComponent : class =>
+    internal Fin<TComponent> Resolve<TComponent>(RhinoDoc document, ResourceLens<TComponent> lens) where TComponent : class =>
         Switch(
-            state: (Document: document, Lens: lens, Op: key),
-            byId: static (ctx, address) => ctx.Op.Catch(() =>
-                Optional(ctx.Lens.ById(ctx.Document, address.Value.Value)).ToFin(Fail: ctx.Op.MissingContext())),
-            byName: static (ctx, address) => ctx.Op.Catch(() =>
-                Optional(ctx.Lens.ByName(ctx.Document, address.Value.Value)).ToFin(Fail: ctx.Op.MissingContext())),
-            byIndex: static (ctx, address) => ctx.Op.Catch(() =>
-                Optional(ctx.Lens.ByIndex(ctx.Document, address.Value.Value)).ToFin(Fail: ctx.Op.MissingContext())));
+            state: (Document: document, Lens: lens),
+            byId: static (ctx, address) => Try.lift(() =>
+                Optional(ctx.Lens.ById(ctx.Document, address.Value.Value)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner),
+            byName: static (ctx, address) => Try.lift(() =>
+                Optional(ctx.Lens.ByName(ctx.Document, address.Value.Value)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner),
+            byIndex: static (ctx, address) => Try.lift(() =>
+                Optional(ctx.Lens.ByIndex(ctx.Document, address.Value.Value)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner));
 }
 ```
 
@@ -795,13 +787,13 @@ public abstract partial record NamedRestore {
     private sealed record SpeedCase(int Index, ViewportTarget Target, double UnitsPerFrame, int DelayMs) : NamedRestore;
     private sealed record TimeCase(int Index, ViewportTarget Target, Rasm.Numerics.Dimension Frames, int DelayMs) : NamedRestore;
 
-    public static Fin<NamedRestore> Direct(int index, ViewportTarget target, Op? key = null) =>
-        Addressed(index: index, target: target, key.OrDefault())
+    public static Fin<NamedRestore> Direct(int index, ViewportTarget target) =>
+        Addressed(index: index, target: target)
             .ToFin()
             .Map(static address => (NamedRestore)new DirectCase(Index: address.Index, Target: address.Target));
 
-    public static Fin<NamedRestore> Proportional(int index, ViewportTarget target, Op? key = null) =>
-        Addressed(index: index, target: target, key.OrDefault())
+    public static Fin<NamedRestore> Proportional(int index, ViewportTarget target) =>
+        Addressed(index: index, target: target)
             .ToFin()
             .Map(static address => (NamedRestore)new ProportionalCase(Index: address.Index, Target: address.Target));
 
@@ -809,13 +801,11 @@ public abstract partial record NamedRestore {
         int index,
         ViewportTarget target,
         Rasm.Numerics.Dimension frames,
-        TimeSpan delay,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        TimeSpan delay) {
         return (
-                Addressed(index: index, target: target, op),
-                guard(frames.Value > 0, op.InvalidInput()).ToFin().ToValidation(),
-                Delay(delay: delay, op: op).ToValidation())
+                Addressed(index: index, target: target),
+                guard(frames.Value > 0, new KernelFault.InvalidInput()).ToFin().ToValidation(),
+                Delay(delay: delay).ToValidation())
             .Apply((address, _, ms) => (NamedRestore)new TimeCase(
                 Index: address.Index,
                 Target: address.Target,
@@ -829,13 +819,11 @@ public abstract partial record NamedRestore {
         int index,
         ViewportTarget target,
         double unitsPerFrame,
-        TimeSpan delay,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        TimeSpan delay) {
         return (
-                Addressed(index: index, target: target, op),
-                guard(double.IsFinite(unitsPerFrame) && unitsPerFrame > 0.0, op.InvalidInput()).ToFin().ToValidation(),
-                Delay(delay: delay, op: op).ToValidation())
+                Addressed(index: index, target: target),
+                guard(double.IsFinite(unitsPerFrame) && unitsPerFrame > 0.0, new KernelFault.InvalidInput()).ToFin().ToValidation(),
+                Delay(delay: delay).ToValidation())
             .Apply((address, _, ms) => (NamedRestore)new SpeedCase(
                 Index: address.Index,
                 Target: address.Target,
@@ -845,48 +833,48 @@ public abstract partial record NamedRestore {
             .ToFin();
     }
 
-    private static Validation<Error, (int Index, ViewportTarget Target)> Addressed(int index, ViewportTarget target, Op op) =>
+    private static Validation<Error, (int Index, ViewportTarget Target)> Addressed(int index, ViewportTarget target) =>
         (
-            guard(index >= 0, op.InvalidInput()).ToFin().ToValidation(),
-            op.Need(target).ToValidation())
+            guard(index >= 0, new KernelFault.InvalidInput()).ToFin().ToValidation(),
+            Admit.Need(target).ToValidation())
         .Apply((_, address) => (Index: index, Target: address))
         .As();
 
-    private static Fin<int> Delay(TimeSpan delay, Op op) =>
+    private static Fin<int> Delay(TimeSpan delay) =>
         guard(
             delay >= TimeSpan.Zero
             && delay.Ticks % TimeSpan.TicksPerMillisecond is 0
             && delay.TotalMilliseconds <= int.MaxValue,
-            op.InvalidInput()).ToFin().Map(_ => (int)delay.TotalMilliseconds);
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (int)delay.TotalMilliseconds);
 
-    internal Fin<Unit> Apply(RhinoDoc document, Op key) =>
+    internal Fin<Unit> Apply(RhinoDoc document) =>
         from address in Switch(
             directCase: static restore => Fin.Succ(value: (restore.Index, restore.Target)),
             proportionalCase: static restore => Fin.Succ(value: (restore.Index, restore.Target)),
             speedCase: static restore => Fin.Succ(value: (restore.Index, restore.Target)),
             timeCase: static restore => Fin.Succ(value: (restore.Index, restore.Target)))
-        from viewport in address.Target.ResolveViewport(document: document, key: key)
+        from viewport in address.Target.ResolveViewport(document: document)
         from applied in Switch(
-            state: (Document: document, Viewport: viewport, Op: key),
+            state: (Document: document, Viewport: viewport),
             directCase: static (context, restore) =>
-                from _ in context.Op.Confirm(success: context.Document.NamedViews.Restore(
+                from _ in Admit.Confirm(success: context.Document.NamedViews.Restore(
                     index: restore.Index,
                     viewport: context.Viewport))
                 select unit,
             proportionalCase: static (context, restore) =>
-                from _ in context.Op.Confirm(success: context.Document.NamedViews.RestoreWithAspectRatio(
+                from _ in Admit.Confirm(success: context.Document.NamedViews.RestoreWithAspectRatio(
                     index: restore.Index,
                     viewport: context.Viewport))
                 select unit,
             speedCase: static (context, restore) =>
-                from _ in context.Op.Confirm(success: context.Document.NamedViews.RestoreAnimatedConstantSpeed(
+                from _ in Admit.Confirm(success: context.Document.NamedViews.RestoreAnimatedConstantSpeed(
                     index: restore.Index,
                     viewport: context.Viewport,
                     units_per_frame: restore.UnitsPerFrame,
                     ms_delay: restore.DelayMs))
                 select unit,
             timeCase: static (context, restore) =>
-                from _ in context.Op.Confirm(success: context.Document.NamedViews.RestoreAnimatedConstantTime(
+                from _ in Admit.Confirm(success: context.Document.NamedViews.RestoreAnimatedConstantTime(
                     index: restore.Index,
                     viewport: context.Viewport,
                     frames: restore.Frames.Value,
@@ -909,33 +897,32 @@ public abstract partial record HistoryRoll {
 
     public static HistoryRoll ClearRedo { get; } = new ClearRedoCase();
 
-    public static Fin<HistoryRoll> ClearUndo(DeletedPolicy deleted, Option<uint> serial = default, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<HistoryRoll> ClearUndo(DeletedPolicy deleted, Option<uint> serial = default) {
         return (
-                op.Need(deleted).ToValidation(),
+                Admit.Need(deleted).ToValidation(),
                 guard(
                     serial.Map(static value => value > 0u).IfNone(noneValue: true),
-                    op.InvalidInput()).ToFin().ToValidation())
+                    new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply((policy, _) => (HistoryRoll)new ClearUndoCase(Deleted: policy, Serial: serial))
             .As()
             .ToFin();
     }
 
-    internal Fin<Unit> Apply(RhinoDoc document, Op key) =>
+    internal Fin<Unit> Apply(RhinoDoc document) =>
         Switch(
-            state: (Document: document, Op: key),
-            undoCase: static (context, _) => context.Op.Confirm(success: context.Document.Undo()),
-            redoCase: static (context, _) => context.Op.Confirm(success: context.Document.Redo()),
-            clearUndoCase: static (context, roll) => context.Op.Catch(() => {
+            state: document,
+            undoCase: static (context, _) => Admit.Confirm(success: context.Undo()),
+            redoCase: static (context, _) => Admit.Confirm(success: context.Redo()),
+            clearUndoCase: static (context, roll) => Try.lift(() => {
                 roll.Serial.Match(
-                    Some: serial => context.Document.ClearUndoRecords(undoSerialNumber: serial, purgeDeletedObjects: roll.Deleted.Key),
-                    None: () => context.Document.ClearUndoRecords(purgeDeletedObjects: roll.Deleted.Key));
+                    Some: serial => context.ClearUndoRecords(undoSerialNumber: serial, purgeDeletedObjects: roll.Deleted.Key),
+                    None: () => context.ClearUndoRecords(purgeDeletedObjects: roll.Deleted.Key));
                 return Fin.Succ(value: unit);
-            }),
-            clearRedoCase: static (context, _) => context.Op.Catch(() => {
-                context.Document.ClearRedoRecords();
+            }).Run().Bind(static inner => inner),
+            clearRedoCase: static (context, _) => Try.lift(() => {
+                context.ClearRedoRecords();
                 return Fin.Succ(value: unit);
-            }));
+            }).Run().Bind(static inner => inner));
 }
 
 [SmartEnum<string>]
@@ -1009,13 +996,12 @@ public abstract partial record TableOp {
     private sealed record RollCase(HistoryRoll Navigation) : TableOp;
 
     public static Fin<TableOp> Add(ObjectCustody custody, Option<ObjectAttributes> attributes = default, Option<HistoryRecord> history = default, params ReadOnlySpan<object> sources) {
-        Op op = Op.Of();
         return (
-                op.Need(custody).ToValidation(),
+                Admit.Need(custody).ToValidation(),
                 toSeq(sources.ToArray())
                     .Traverse(source => GeometryIntake.Of(source: source, key: op).ToValidation())
                     .As(),
-                guard(sources.Length > 0, op.InvalidInput()).ToFin().ToValidation())
+                guard(sources.Length > 0, new KernelFault.InvalidInput()).ToFin().ToValidation())
             .Apply(static (policy, values, _) => (TableOp)new AddCase(
                 Sources: values,
                 Attributes: attributes,
@@ -1025,28 +1011,26 @@ public abstract partial record TableOp {
             .ToFin();
     }
 
-    public static Fin<TableOp> Replace(TableTarget target, object replacement, ModeRegard modes, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableOp> Replace(TableTarget target, object replacement, ModeRegard modes) {
         return (
-                op.Need(target).ToValidation(),
-                GeometryIntake.Of(source: replacement, key: op).ToValidation(),
-                op.Need(modes).ToValidation())
+                Admit.Need(target).ToValidation(),
+                GeometryIntake.Of(source: replacement).ToValidation(),
+                Admit.Need(modes).ToValidation())
             .Apply(static (address, geometry, policy) =>
                 (TableOp)new ReplaceCase(Target: address, Replacement: geometry, Modes: policy))
             .As()
             .ToFin();
     }
 
-    public static Fin<TableOp> Delete(TableTarget target, HostInteraction interaction, ModeRegard modes, Op? key = null) =>
-        Admitted(first: target, second: interaction, third: modes, key: key, mint: static (address, dialogue, policy) =>
+    public static Fin<TableOp> Delete(TableTarget target, HostInteraction interaction, ModeRegard modes) =>
+        Admitted(first: target, second: interaction, third: modes, mint: static (address, dialogue, policy) =>
             new DeleteCase(Target: address, Interaction: dialogue, Modes: policy));
 
-    public static Fin<TableOp> Transform(TableTarget target, Transform motion, TransformPolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableOp> Transform(TableTarget target, Transform motion, TransformPolicy policy) {
         return (
-                op.Need(target).ToValidation(),
-                op.AcceptInput(value: motion).ToValidation(),
-                op.Need(policy).ToValidation())
+                Admit.Need(target).ToValidation(),
+                Acceptance.Input(value: motion).ToValidation(),
+                Admit.Need(policy).ToValidation())
             .Apply(static (address, transform, mode) => (TableOp)new TransformCase(
                 Target: address,
                 Motion: transform,
@@ -1055,65 +1039,61 @@ public abstract partial record TableOp {
             .ToFin();
     }
 
-    public static Fin<TableOp> Amend(TableTarget target, AttributeChange change, HostInteraction interaction, Op? key = null) =>
-        Admitted(first: target, second: change, third: interaction, key: key, mint: static (address, revise, dialogue) =>
+    public static Fin<TableOp> Amend(TableTarget target, AttributeChange change, HostInteraction interaction) =>
+        Admitted(first: target, second: change, third: interaction, mint: static (address, revise, dialogue) =>
             new AmendCase(Target: address, Change: revise, Interaction: dialogue));
 
-    public static Fin<TableOp> Select(TableTarget target, SelectionEdit edit, CapabilitySet<SelectionAxis> policy, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableOp> Select(TableTarget target, SelectionEdit edit, CapabilitySet<SelectionAxis> policy) {
         return (
-                op.Need(target).ToValidation(),
-                op.Need(edit).ToValidation())
+                Admit.Need(target).ToValidation(),
+                Admit.Need(edit).ToValidation())
             .Apply((address, mutation) => (TableOp)new SelectCase(Target: address, Edit: mutation, Policy: policy))
             .As()
             .ToFin();
     }
 
-    public static Fin<TableOp> State(TableTarget target, ObjectState state, ModeRegard modes, Op? key = null) =>
-        Admitted(first: target, second: state, third: modes, key: key, mint: static (address, mutation, policy) =>
+    public static Fin<TableOp> State(TableTarget target, ObjectState state, ModeRegard modes) =>
+        Admitted(first: target, second: state, third: modes, mint: static (address, mutation, policy) =>
             new StateCase(Target: address, State: mutation, Modes: policy));
 
-    public static Fin<TableOp> ClearSelection(SelectionClear scope, Op? key = null) =>
+    public static Fin<TableOp> ClearSelection(SelectionClear scope) =>
         key.OrDefault().Need(scope)
             .Map(value => (TableOp)new ClearSelectionCase(Scope: value));
 
-    public static Fin<TableOp> Flash(TableTarget target, FlashMode mode, Op? key = null) =>
-        Admitted(first: target, second: mode, key: key, mint: static (address, display) =>
+    public static Fin<TableOp> Flash(TableTarget target, FlashMode mode) =>
+        Admitted(first: target, second: mode, mint: static (address, display) =>
             new FlashCase(Target: address, Mode: display));
 
-    private static Fin<TableOp> Admitted<T1, T2>(T1 first, T2 second, Op? key, Func<T1, T2, TableOp> mint)
+    private static Fin<TableOp> Admitted<T1, T2>(T1 first, T2 second, Func<T1, T2, TableOp> mint)
         where T1 : class where T2 : class {
-        Op op = key.OrDefault();
         return (
-                op.Need(first).ToValidation(),
-                op.Need(second).ToValidation())
+                Admit.Need(first).ToValidation(),
+                Admit.Need(second).ToValidation())
             .Apply(mint)
             .As()
             .ToFin();
     }
 
-    private static Fin<TableOp> Admitted<T1, T2, T3>(T1 first, T2 second, T3 third, Op? key, Func<T1, T2, T3, TableOp> mint)
+    private static Fin<TableOp> Admitted<T1, T2, T3>(T1 first, T2 second, T3 third, Func<T1, T2, T3, TableOp> mint)
         where T1 : class where T2 : class where T3 : class {
-        Op op = key.OrDefault();
         return (
-                op.Need(first).ToValidation(),
-                op.Need(second).ToValidation(),
-                op.Need(third).ToValidation())
+                Admit.Need(first).ToValidation(),
+                Admit.Need(second).ToValidation(),
+                Admit.Need(third).ToValidation())
             .Apply(mint)
             .As()
             .ToFin();
     }
 
-    public static Fin<TableOp> Revive(TableTarget target, Op? key = null) =>
-        Retained(target: target, key: key, mint: static value => new ReviveCase(Target: value));
+    public static Fin<TableOp> Revive(TableTarget target) =>
+        Retained(target: target, mint: static value => new ReviveCase(Target: value));
 
-    public static Fin<TableOp> Expunge(TableTarget target, Op? key = null) =>
-        Retained(target: target, key: key, mint: static value => new ExpungeCase(Target: value));
+    public static Fin<TableOp> Expunge(TableTarget target) =>
+        Retained(target: target, mint: static value => new ExpungeCase(Target: value));
 
-    private static Fin<TableOp> Retained(TableTarget target, Op? key, Func<TableTarget, TableOp> mint) {
-        Op op = key.OrDefault();
-        return op.Need(target)
-            .Bind(value => value.SelectsDeleted ? Fin.Succ(value: mint(arg: value)) : Fin.Fail<TableOp>(op.InvalidInput()));
+    private static Fin<TableOp> Retained(TableTarget target, Func<TableTarget, TableOp> mint) {
+        return Admit.Need(target)
+            .Bind(value => value.SelectsDeleted ? Fin.Succ(value: mint(arg: value)) : Fin.Fail<TableOp>(new KernelFault.InvalidInput()));
     }
 
     public static Fin<TableOp> Cloud(
@@ -1123,18 +1103,16 @@ public abstract partial record TableOp {
         Arr<Point3d> box,
         ObjectCustody custody,
         Option<ObjectAttributes> attributes = default,
-        Option<HistoryRecord> history = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        Option<HistoryRecord> history = default) {
         return (
-                op.Need(custody).ToValidation(),
+                Admit.Need(custody).ToValidation(),
                 guard(
                     box.Count is 8
                     && x != default && y != default && z != default
                     && x.Value <= int.MaxValue / y.Value / z.Value,
-                    op.InvalidInput()).ToFin().ToValidation(),
+                    new KernelFault.InvalidInput()).ToFin().ToValidation(),
                 box.AsIterable().ToSeq()
-                    .Traverse(point => op.AcceptInput(value: point).ToValidation())
+                    .Traverse(point => Acceptance.Input(value: point).ToValidation())
                     .As())
             .Apply((policy, _, _) => (TableOp)new CloudCase(
                 X: x,
@@ -1148,11 +1126,10 @@ public abstract partial record TableOp {
             .ToFin();
     }
 
-    public static Fin<TableOp> Rebind(TableTarget target, ResourceIndex definitionIndex, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableOp> Rebind(TableTarget target, ResourceIndex definitionIndex) {
         return (
-                op.Need(target).ToValidation(),
-                op.Need(definitionIndex).ToValidation())
+                Admit.Need(target).ToValidation(),
+                Admit.Need(definitionIndex).ToValidation())
             .Apply(static (address, index) => (TableOp)new RebindCase(
                 Target: address,
                 DefinitionIndex: index))
@@ -1160,15 +1137,14 @@ public abstract partial record TableOp {
             .ToFin();
     }
 
-    public static Fin<TableOp> Reclaim(TableKind kind, Op? key = null) =>
+    public static Fin<TableOp> Reclaim(TableKind kind) =>
         Optional(kind).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => (TableOp)new ReclaimCase(Kind: value));
 
-    public static Fin<TableOp> ImportPage(DocumentPath path, Guid mainViewportId, string pageName, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableOp> ImportPage(DocumentPath path, Guid mainViewportId, string pageName) {
         return (
-                guard(path != default, op.InvalidInput()).ToFin().ToValidation(),
-                op.AcceptInput(value: mainViewportId).ToValidation(),
-                op.AcceptText(value: pageName).ToValidation())
+                guard(path != default, new KernelFault.InvalidInput()).ToFin().ToValidation(),
+                Acceptance.Input(value: mainViewportId).ToValidation(),
+                Acceptance.Text(value: pageName).ToValidation())
             .Apply((_, viewport, name) => (TableOp)new ImportPageCase(
                 Path: path,
                 MainViewportId: viewport,
@@ -1177,10 +1153,10 @@ public abstract partial record TableOp {
             .ToFin();
     }
 
-    public static Fin<TableOp> RestoreView(NamedRestore restore, Op? key = null) =>
+    public static Fin<TableOp> RestoreView(NamedRestore restore) =>
         Optional(restore).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => (TableOp)new RestoreViewCase(Restore: value));
 
-    public static Fin<TableOp> Roll(HistoryRoll navigation, Op? key = null) =>
+    public static Fin<TableOp> Roll(HistoryRoll navigation) =>
         Optional(navigation).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => (TableOp)new RollCase(Navigation: value));
 
     internal TableOpTraits Traits => Map(
@@ -1202,83 +1178,80 @@ public abstract partial record TableOp {
         restoreViewCase: TableOpTraits.Immediate,
         rollCase: TableOpTraits.Navigation);
 
-    internal Fin<Unit> Apply(RhinoDoc document, Option<Context> domain, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, Option<Context> domain) =>
         Switch(
-            (Document: document, Domain: domain, Op: op),
+            (Document: document, Domain: domain),
             addCase: static (context, edit) =>
-                from model in context.Domain.ToFin(Fail: context.Op.MissingContext())
-                from ids in edit.Sources.TraverseM(source => source.Admit(domain: model, key: context.Op)
+                from model in context.Domain.ToFin(Fail: new KernelFault.MissingContext())
+                from ids in edit.Sources.TraverseM(source => source.Admit(domain: model)
                     .Bind(lease => lease.Use(native => ResourceId.Admit(
                         value: context.Document.Objects.Add(
                             geometry: native,
-                            attributes: Op.ToHostSlot(edit.Attributes),
-                            history: Op.ToHostSlot(edit.History),
-                            reference: edit.Custody.Key),
-                        key: context.Op).Map(static id => id.Value)))).As()
+                            attributes: HostEdge.Slot(edit.Attributes),
+                            history: HostEdge.Slot(edit.History),
+                            reference: edit.Custody.Key)).Map(static id => id.Value)))).As()
                 select unit,
             replaceCase: static (context, edit) =>
-                from model in context.Domain.ToFin(Fail: context.Op.MissingContext())
-                from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
-                from single in Tables.One(rows: ids, key: context.Op)
-                from _ in edit.Replacement.Admit(domain: model, key: context.Op)
-                    .Bind(lease => lease.Use(native => context.Op.Confirm(success: context.Document.Objects.Replace(objectId: single, geometry: native, ignoreModes: edit.Modes.Key))))
+                from model in context.Domain.ToFin(Fail: new KernelFault.MissingContext())
+                from ids in edit.Target.Resolve(document: context.Document)
+                from single in Tables.One(rows: ids)
+                from _ in edit.Replacement.Admit(domain: model)
+                    .Bind(lease => lease.Use(native => Admit.Confirm(success: context.Document.Objects.Replace(objectId: single, geometry: native, ignoreModes: edit.Modes.Key))))
                 select unit,
             deleteCase: static (context, edit) =>
-                from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
+                from targets in edit.Target.Resolve(document: context.Document)
                 from _ in edit.Modes.Key
-                    ? targets.TraverseM(target => Optional(context.Document.Objects.FindId(target)).ToFin(Fail: context.Op.InvalidResult())
-                        .Bind(native => context.Op.Confirm(success: context.Document.Objects.Delete(obj: native, quiet: edit.Interaction.IsQuiet, ignoreModes: true)))).As().Map(static _ => unit)
-                    : context.Op.Confirm(success: context.Document.Objects.Delete(objectIds: targets.AsIterable(), quiet: edit.Interaction.IsQuiet) == targets.Count)
+                    ? targets.TraverseM(target => Optional(context.Document.Objects.FindId(target)).ToFin(Fail: new KernelFault.InvalidResult())
+                        .Bind(native => Admit.Confirm(success: context.Document.Objects.Delete(obj: native, quiet: edit.Interaction.IsQuiet, ignoreModes: true)))).As().Map(static _ => unit)
+                    : Admit.Confirm(success: context.Document.Objects.Delete(objectIds: targets.AsIterable(), quiet: edit.Interaction.IsQuiet) == targets.Count)
                 select unit,
             transformCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
                 step: id => ResourceId.Admit(
                     value: edit.Policy.Apply(table: context.Document.Objects, id: id, motion: edit.Motion),
-                    key: context.Op).Map(static _ => unit),
-                op: context.Op),
+                    key: context.Op).Map(static _ => unit)),
             amendCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
                 step: id =>
-                    from native in Optional(context.Document.Objects.FindId(id)).ToFin(Fail: context.Op.InvalidResult())
-                    from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: context.Op.InvalidResult())
+                    from native in Optional(context.Document.Objects.FindId(id)).ToFin(Fail: new KernelFault.InvalidResult())
+                    from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: new KernelFault.InvalidResult())
                     from _ in new Lease<ObjectAttributes>.Owned(Value: attributes).Use(owned =>
                         from __ in edit.Change.Revise(arg: owned)
-                        from ___ in context.Op.Confirm(success: context.Document.Objects.ModifyAttributes(
+                        from ___ in Admit.Confirm(success: context.Document.Objects.ModifyAttributes(
                             objectId: id,
                             newAttributes: owned,
                             quiet: edit.Interaction.IsQuiet))
                         select unit)
-                    select unit,
-                op: context.Op),
+                    select unit),
             selectCase: static (context, edit) =>
-                from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
+                from ids in edit.Target.Resolve(document: context.Document)
                 from _ in guard(
                     edit.Edit.Apply(table: context.Document.Objects, ids: ids.AsIterable(), held: edit.Policy) >= 0,
-                    context.Op.InvalidResult())
+                    new KernelFault.InvalidResult())
                 select unit,
             stateCase: static (context, edit) =>
-                from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
-                from _ in Tables.ApplyState(document: context.Document, targets: targets, state: edit.State, modes: edit.Modes, key: context.Op)
+                from targets in edit.Target.Resolve(document: context.Document)
+                from _ in Tables.ApplyState(document: context.Document, targets: targets, state: edit.State, modes: edit.Modes)
                 select unit,
             clearSelectionCase: static (context, edit) => guard(
                 context.Document.Objects.UnselectAll(ignorePersistentSelections: edit.Scope.Key) >= 0,
-                context.Op.InvalidResult()).ToFin(),
+                new KernelFault.InvalidResult()).ToFin(),
             flashCase: static (context, edit) =>
-                from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
-                from objects in targets.TraverseM(target => Optional(context.Document.Objects.FindId(target)).ToFin(Fail: context.Op.InvalidResult())).As()
-                from _ in context.Op.Catch(() => {
+                from targets in edit.Target.Resolve(document: context.Document)
+                from objects in targets.TraverseM(target => Optional(context.Document.Objects.FindId(target)).ToFin(Fail: new KernelFault.InvalidResult())).As()
+                from _ in Try.lift(() => {
                     context.Document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: edit.Mode.Key);
                     return Fin.Succ(value: unit);
-                })
+                }).Run().Bind(static inner => inner)
                 select unit,
             reviveCase: static (context, edit) => Lifecycle(
                 document: context.Document, target: edit.Target,
-                apply: static (objects, serial) => objects.Undelete(runtimeSerialNumber: serial), op: context.Op),
+                apply: static (objects, serial) => objects.Undelete(runtimeSerialNumber: serial)),
             expungeCase: static (context, edit) => Lifecycle(
                 document: context.Document, target: edit.Target,
-                apply: static (objects, serial) => objects.Purge(runtimeSerialNumber: serial), op: context.Op),
+                apply: static (objects, serial) => objects.Purge(runtimeSerialNumber: serial)),
             cloudCase: static (context, edit) =>
                 from id in ResourceId.Admit(
                     value: context.Document.Objects.AddOrderedPointCloud(
@@ -1286,39 +1259,37 @@ public abstract partial record TableOp {
                         yCt: edit.Y.Value,
                         zCt: edit.Z.Value,
                         box: edit.Box.ToArray(),
-                        attributes: Op.ToHostSlot(edit.Attributes),
-                        history: Op.ToHostSlot(edit.History),
-                        reference: edit.Custody.Key),
-                    key: context.Op)
+                        attributes: HostEdge.Slot(edit.Attributes),
+                        history: HostEdge.Slot(edit.History),
+                        reference: edit.Custody.Key))
                 select unit,
             rebindCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
-                step: id => context.Op.Confirm(success: context.Document.Objects.ReplaceInstanceObject(objectId: id, instanceDefinitionIndex: edit.DefinitionIndex.Value)),
-                op: context.Op),
-            reclaimCase: static (context, edit) => edit.Kind.Reclaim(document: context.Document, key: context.Op)
+                step: id => Admit.Confirm(success: context.Document.Objects.ReplaceInstanceObject(objectId: id, instanceDefinitionIndex: edit.DefinitionIndex.Value))),
+            reclaimCase: static (context, edit) => edit.Kind.Reclaim(document: context.Document)
                 .Map(static _ => unit),
             importPageCase: static (context, edit) =>
-                from path in edit.Path.Resolve(file: DocumentFile.ThreeDm, key: context.Op)
+                from path in edit.Path.Resolve(file: DocumentFile.ThreeDm)
                 let before = context.Document.Views.PageViewCount
-                from _ in context.Op.Confirm(success: context.Document.Views.ImportPageView(filename: path, mainViewportId: edit.MainViewportId, pageName: edit.PageName))
+                from _ in Admit.Confirm(success: context.Document.Views.ImportPageView(filename: path, mainViewportId: edit.MainViewportId, pageName: edit.PageName))
                 let imported = context.Document.Views.PageViewCount - before
-                from __ in guard(imported > 0, context.Op.InvalidResult())
+                from __ in guard(imported > 0, new KernelFault.InvalidResult())
                 select unit,
             restoreViewCase: static (context, edit) =>
-                from _ in edit.Restore.Apply(document: context.Document, key: context.Op)
+                from _ in edit.Restore.Apply(document: context.Document)
                 select unit,
             rollCase: static (context, edit) =>
-                from _ in edit.Navigation.Apply(document: context.Document, key: context.Op)
+                from _ in edit.Navigation.Apply(document: context.Document)
                 select unit);
 
-    private static Fin<Unit> Lifecycle(RhinoDoc document, TableTarget target, Func<ObjectTable, uint, bool> apply, Op op) =>
-        from targets in target.Serials(document: document, key: op)
-        from _ in targets.TraverseM(serial => op.Confirm(success: apply(document.Objects, serial))).As()
+    private static Fin<Unit> Lifecycle(RhinoDoc document, TableTarget target, Func<ObjectTable, uint, bool> apply) =>
+        from targets in target.Serials(document: document)
+        from _ in targets.TraverseM(serial => Admit.Confirm(success: apply(document.Objects, serial))).As()
         select unit;
 
-    private static Fin<Unit> Mapped(RhinoDoc document, TableTarget target, Func<Guid, Fin<Unit>> step, Op op) =>
-        from ids in target.Resolve(document: document, key: op)
+    private static Fin<Unit> Mapped(RhinoDoc document, TableTarget target, Func<Guid, Fin<Unit>> step) =>
+        from ids in target.Resolve(document: document)
         from _ in ids.TraverseM(step).As()
         select unit;
 }
@@ -1335,11 +1306,10 @@ public sealed class TableCustomUndo {
     private EventHandler<CustomUndoEventArgs> Handler { get; }
     private Option<object> Tag { get; }
 
-    public static Fin<TableCustomUndo> Of(string name, EventHandler<CustomUndoEventArgs> handler, Option<object> tag = default, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableCustomUndo> Of(string name, EventHandler<CustomUndoEventArgs> handler, Option<object> tag = default) {
         return (
-                op.AcceptText(value: name).ToValidation(),
-                op.Need(handler).ToValidation())
+                Acceptance.Text(value: name).ToValidation(),
+                Admit.Need(handler).ToValidation())
             .Apply((admitted, callback) => new TableCustomUndo(
                 name: admitted,
                 handler: callback,
@@ -1348,10 +1318,10 @@ public sealed class TableCustomUndo {
             .ToFin();
     }
 
-    internal Fin<string> Register(RhinoDoc document, Op key) =>
+    internal Fin<string> Register(RhinoDoc document) =>
         Tag.Match(
-            Some: tag => key.Confirm(success: document.AddCustomUndoEvent(description: Name, handler: Handler, tag: tag)),
-            None: () => key.Confirm(success: document.AddCustomUndoEvent(description: Name, handler: Handler)))
+            Some: tag => Admit.Confirm(success: document.AddCustomUndoEvent(description: Name, handler: Handler, tag: tag)),
+            None: () => Admit.Confirm(success: document.AddCustomUndoEvent(description: Name, handler: Handler)))
         .Map(_ => Name);
 }
 
@@ -1364,12 +1334,11 @@ public abstract partial record TableTransaction {
     private sealed record NavigationCase(TableOp Operation, RedrawPolicy Redraw) : TableTransaction;
 
     public static Fin<TableTransaction> Recorded(string name, RedrawPolicy redraw, Seq<TableCustomUndo> customUndo, params ReadOnlySpan<TableOp> operations) {
-        Op op = Op.Of();
         return from admitted in (
-                   op.AcceptText(value: name).ToValidation(),
-                   Admit(redraw: redraw, operations: operations, op: op).ToValidation(),
+                   Acceptance.Text(value: name).ToValidation(),
+                   Admit(redraw: redraw, operations: operations).ToValidation(),
                    customUndo
-                       .Traverse(item => op.Need(item).ToValidation())
+                       .Traverse(item => Admit.Need(item).ToValidation())
                        .As())
                    .Apply(static (transactionName, plan, undo) => (
                        Name: transactionName,
@@ -1382,7 +1351,7 @@ public abstract partial record TableTransaction {
                    && admitted.Plan.Operations.ForAll(static operation =>
                        operation.Traits.Demands().Admits(capability: OpTrait.RecordsUndo)
                        && !operation.Traits.Demands().Admits(capability: OpTrait.Navigates)),
-                   op.InvalidInput())
+                   new KernelFault.InvalidInput())
                select (TableTransaction)new RecordedCase(
                    Name: admitted.Name,
                    Operations: admitted.Plan.Operations,
@@ -1391,22 +1360,20 @@ public abstract partial record TableTransaction {
     }
 
     public static Fin<TableTransaction> Immediate(RedrawPolicy redraw, params ReadOnlySpan<TableOp> operations) {
-        Op op = Op.Of();
-        return from plan in Admit(redraw: redraw, operations: operations, op: op)
+        return from plan in Admit(redraw: redraw, operations: operations)
                from _ in guard(
                    plan.Operations.Count is 1
                    && plan.Operations.ForAll(static operation =>
                        !operation.Traits.Demands().Admits(capability: OpTrait.RecordsUndo)
                        && !operation.Traits.Demands().Admits(capability: OpTrait.Navigates)),
-                   op.InvalidInput())
+                   new KernelFault.InvalidInput())
                select (TableTransaction)new ImmediateCase(Operations: plan.Operations, Redraw: plan.Redraw);
     }
 
-    public static Fin<TableTransaction> Navigate(HistoryRoll navigation, RedrawPolicy redraw, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<TableTransaction> Navigate(HistoryRoll navigation, RedrawPolicy redraw) {
         return (
-                TableOp.Roll(navigation: navigation, key: op).ToValidation(),
-                op.Need(redraw).ToValidation())
+                TableOp.Roll(navigation: navigation).ToValidation(),
+                Admit.Need(redraw).ToValidation())
             .Apply(static (operation, policy) => (TableTransaction)new NavigationCase(
                 Operation: operation,
                 Redraw: policy))
@@ -1422,11 +1389,10 @@ public abstract partial record TableTransaction {
 
     private static Fin<(Seq<TableOp> Operations, RedrawPolicy Redraw)> Admit(
         RedrawPolicy redraw,
-        ReadOnlySpan<TableOp> operations,
-        Op op) =>
+        ReadOnlySpan<TableOp> operations) =>
         (
-            op.Need(redraw).ToValidation(),
-            Admission.All(values: operations, key: op).ToValidation())
+            Admit.Need(redraw).ToValidation(),
+            Admission.All(values: operations).ToValidation())
         .Apply(static (policy, program) => (
             Operations: program,
             Redraw: policy))
@@ -1449,21 +1415,21 @@ public abstract partial record GeometryIntake {
     private sealed record NativeCase(GeometryBase Source) : GeometryIntake;
     private sealed record ValueCase(object Source) : GeometryIntake;
 
-    public static Fin<GeometryIntake> Of(object source, Op? key = null) =>
+    public static Fin<GeometryIntake> Of(object source) =>
         Optional(source).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => value switch {
             GeometryBase native => (GeometryIntake)new NativeCase(Source: native),
             _ => new ValueCase(Source: value),
         });
 
-    internal Fin<Lease<GeometryBase>> Admit(Context domain, Op key) =>
+    internal Fin<Lease<GeometryBase>> Admit(Context domain) =>
         Switch(
-            state: (Domain: domain, Op: key),
+            state: domain,
             nativeCase: static (context, intake) =>
-                from _ in Require(source: intake.Source, domain: context.Domain)
+                from _ in Require(source: intake.Source, domain: context)
                 select (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: intake.Source),
             valueCase: static (context, intake) =>
-                from _ in Require(source: intake.Source, domain: context.Domain)
-                from lease in intake.Source.GeometryForm(key: context.Op)
+                from _ in Require(source: intake.Source, domain: context)
+                from lease in intake.Source.GeometryForm()
                 select lease);
 
     private static Fin<Unit> Require(object source, Context domain) =>
@@ -1480,33 +1446,30 @@ public abstract partial record GeometryIntake {
 public static class Tables {
     public static Fin<Unit> Commit(
         DocumentSession session,
-        TableTransaction transaction,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from admission in Admission.Pair(first: session, second: transaction, key: op)
+        TableTransaction transaction) {
+        return from admission in Admission.Pair(first: session, second: transaction)
                let plan = admission.Second.Materialize()
                from _ in admission.First.Demand(
-                   use: document => Run(document: document, plan: plan, op: op),
-                   key: op,
+                   use: document => Run(document: document, plan: plan),
                    needs: SessionNeed.Mutation(
                        undo: plan.Undo.Demands().Admits(capability: UndoTrait.Required),
                        redraw: plan.Redraw).ToArray())
                select unit;
     }
 
-    internal static Fin<T> One<T>(Seq<T> rows, Op key) =>
-        rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<T>(error: key.InvalidInput()) };
+    internal static Fin<T> One<T>(Seq<T> rows) =>
+        rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<T>(error: new KernelFault.InvalidInput()) };
 
-    internal static Fin<Unit> ApplyState(RhinoDoc document, Seq<Guid> targets, ObjectState state, ModeRegard modes, Op key) =>
+    internal static Fin<Unit> ApplyState(RhinoDoc document, Seq<Guid> targets, ObjectState state, ModeRegard modes) =>
         targets.TraverseM(target => Optional(document.Objects.FindId(target))
-            .ToFin(Fail: key.InvalidResult())
+            .ToFin(Fail: new KernelFault.InvalidResult())
             .Bind(native => state.Done(native: native)
                 ? Fin.Succ(value: unit)
                 : state.Apply(table: document.Objects, id: target, ignoreLayerMode: modes.Key)
                     ? Fin.Succ(value: unit)
-                    : Fin.Fail<Unit>(error: key.InvalidResult()))).As().Map(static _ => unit);
+                    : Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))).As().Map(static _ => unit);
 
-    private static Fin<Unit> Run(RhinoDoc document, TransactionPlan plan, Op op) =>
+    private static Fin<Unit> Run(RhinoDoc document, TransactionPlan plan) =>
         from domain in plan.Operations.Exists(static operation => operation.Traits.Demands().Admits(capability: OpTrait.RequiresContext))
             ? Rasm.Domain.Context.Of(doc: document).ToFin().Map(Some)
             : Fin.Succ(Option<Context>.None)
@@ -1518,10 +1481,9 @@ public static class Tables {
             run: () =>
                 from _registered in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, key: op)).As()
                 from _applied in plan.Operations
-                    .TraverseM(operation => operation.Apply(document: document, domain: domain, op: op)).As()
+                    .TraverseM(operation => operation.Apply(document: document, domain: domain)).As()
                 select unit,
-            project: Fin.Succ,
-            op: op)
+            project: Fin.Succ)
         select unit;
 }
 ```

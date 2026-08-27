@@ -13,7 +13,7 @@
 - Cases: `LicenseClass` rows `permissive`, `copyleft`, `openRail`, `research`, `blocked`; `StageInput` an empty-stage source row or a named-producer chained row; the two `TileProduct` modalities the lease reports.
 - Entry: `public static Fin<StageRequest> StageWireMap.Admit(ReadOnlySequence<byte> payload)` is the wire door — size gate, bounded parse, corpus rules, lowering, then the constraint fold — and `public static Fin<StageResultWire> StageWireMap.Result(StageResult result)` mints the answer; `public static Fin<StageRequest> StageRequest.Admit(StageRequest request)` is the accumulating constraint fold and `public Fin<TilePlan> Plan(int sourceChannels, Seq<TileProduct> products, TileAdmission admission, TileBlend blend, TileLayout layout)` the one plan construction.
 - Law: this end binds LOWERED PRIMITIVES alone. The corpus family is the wire vocabulary and the specifying end authors the rich records; the strata forbid naming one of them here, so every column lands as the value THIS package can read — a closed roster as its camelCase key string resolved through the roster this package owns, a content key as its hex32 string, a correlation key as a string echoed verbatim, an extent as the `int` every tile derivation and span index downstream already runs in. Opaque-key erasure is the deliberate consumer shape: a resolution that fails REFUSES rather than degrading, so a licence spelling this roster cannot honour never runs under a typo, and re-minting a rich value from a key is the drift a second vocabulary opens.
-- Law: enum columns lower through ONE fold. `Runtime/wire#PROTO_VOCABULARY` `WireKeys.Camel` is the single derivation from a generated enum member to this end's key string, so `Stage`, `License`, `Provider`, `Precision`, and `Pad` all read one rule and no `(enum, key)` table exists to drift. The outbound direction inverts by NAME under `IgnoreCase`, which is exact because every key this end publishes differs from its generated member only in casing.
+- Law: enum columns lower through ONE fold. `Runtime/wire#PROTO_VOCABULARY` `WireKeys.Camel` is the single derivation from a generated enum member to this end's key string, so `Stage`, `License`, `Provider`, `Precision`, and `Pad` all read one rule and no `(enum)` table exists to drift. The outbound direction inverts by NAME under `IgnoreCase`, which is exact because every key this end publishes differs from its generated member only in casing.
 - Law: `uint32` widens into `int` losslessly for every extent a grid can address, and the one value that cannot refuses. The checked fold overflows past `int.MaxValue` and `Admit` captures it onto the error channel, where an unchecked narrowing would hand every downstream span index a negative extent it reads as legal.
 - Law: identity crosses as SIXTEEN BYTES and this end renders it once. `ContentHash.Wire`/`ContentHash.Admit` are the byte projection and its inverse, and `ContentHash.Hex` the lowercase spelling every `StagePorts` blob key carries — one alphabet in both directions, so a key read inbound and written back outbound is byte-identical and `ContentHash.Admit` refusing uppercase is the proof no second spelling entered through the port. The absent artefact is the EMPTY string: the `bytes.len = 16` field rule refuses a present-but-empty column, so emptiness is absence and never a fabricated digest.
 - Law: Materials SPECIFIES and Compute EXECUTES. Stage, model-card, and role identities cross as OPAQUE KEYS and this end dispatches on none of them, so admitting a model, a stage, or an intermediate at the specifying end moves no surface here.
@@ -263,7 +263,7 @@ public static partial class StageWireMap {
         ParseGuard.Read(StageRequestWire.Parser, payload, WireLimits.Inbound).Bind(Lowered).Bind(StageRequest.Admit);
 
     static Fin<StageRequest> Lowered(StageRequestWire wire) =>
-        Op.Of().Catch(() => Fin.Succ(ToDomain(wire)))
+        Try.lift(() => Fin.Succ(ToDomain(wire))).Run().Bind(static inner => inner)
             .MapFail(static _ => (Error)StageRefusal.Extent.Fault());
 
     [MapProperty(nameof(StageRequestWire.Stage), nameof(StageRequest.Stage), Use = nameof(StageKey))]
@@ -285,7 +285,7 @@ public static partial class StageWireMap {
 
     // --- [RESULT_EGRESS]
     public static Fin<StageResultWire> Result(StageResult result) =>
-        Op.Of().Catch(() => Fin.Succ(ToWire(result)))
+        Try.lift(() => Fin.Succ(ToWire(result))).Run().Bind(static inner => inner)
             .MapFail(static _ => (Error)StageRefusal.Vocabulary.Fault());
 
     [MapProperty(nameof(StageResult.Stage), nameof(StageResultWire.Stage), Use = nameof(StageRow))]
@@ -320,8 +320,8 @@ public static partial class StageWireMap {
     [UserMapping] static uint Unsigned(int value) => checked((uint)value);
 
     [UserMapping] static string Hex(ByteString bytes) => bytes.IsEmpty ? string.Empty : ContentHash.Hex(Digest(bytes));
-    [UserMapping] static ByteString Bytes(string hex) => ContentHash.Wire(ContentHash.Admit(hex, Op.Of()).ThrowIfFail());
-    static UInt128 Digest(ByteString bytes) => ContentHash.Admit(bytes.Span, Op.Of()).ThrowIfFail();
+    [UserMapping] static ByteString Bytes(string hex) => ContentHash.Wire(ContentHash.Admit(hex).ThrowIfFail());
+    static UInt128 Digest(ByteString bytes) => ContentHash.Admit(bytes.Span).ThrowIfFail();
 
     [UserMapping] static TileBucket Bucket(BucketWire wire) => new(Whole(wire.Width), Whole(wire.Height));
 
@@ -346,16 +346,16 @@ public static partial class StageWireMap {
         };
 
     [UserMapping] static StageProductWire Role(string key) =>
-        Named(key, out PriorFieldWire prior)
+        Named(out PriorFieldWire prior)
             ? new StageProductWire { Prior = prior }
-            : Named(key, out ScoreFieldWire measure)
+            : Named(out ScoreFieldWire measure)
                 ? new StageProductWire { Measure = measure }
                 : new StageProductWire { Channel = key };
 
     static bool Named<TEnum>(string key, out TEnum row) where TEnum : struct, Enum {
         row = default;
         return key.Length > 0 && char.IsAsciiLetter(key[0])
-            && Enum.TryParse(key, ignoreCase: true, out row)
+            && Enum.TryParse(ignoreCase: true, out row)
             && !EqualityComparer<TEnum>.Default.Equals(row, default);
     }
 
@@ -431,7 +431,7 @@ public static partial class StageRun {
         from _ in guard(licensed.Grants, (Error)StageRefusal.Blocked.Fault())
         from precision in request.SelectedPrecision.ToFin(StageRefusal.Precision.Fault())
         from keys in Sources(request, produced)
-        from planes in keys.Traverse(key => ports.Read(key).ToValidation()).As().ToFin()
+        from planes in keys.Traverse(key => ports.Read().ToValidation()).As().ToFin()
         from __ in planes
             .Traverse(plane => guard(
                     plane.Width == request.InputWidth && plane.Height == request.InputHeight,
@@ -448,7 +448,7 @@ public static partial class StageRun {
             request.Stage, request.ModelCardId, outputs.Product.Artefact, outputs.Product.Products,
             outputs.Product.Scores, outputs.Provider.ReportKey, outputs.Product.Partitions,
             elapsed.TotalMilliseconds, verdict.Verdict.Delta, verdict.Fresh,
-            outputs.Product.Coverage, outputs.Product.Tiles, request.Op);
+            outputs.Product.Coverage, outputs.Product.Tiles);
 
     static Fin<Seq<string>> Sources(StageRequest request, HashMap<(string Stage, string Role), StageOutput> produced) =>
         request.Inputs.IsEmpty
@@ -546,7 +546,7 @@ public static partial class StageRun {
                                  from key in ports.Write(
                                      produced.Plane.Memory, plan.OutputWidth, plan.OutputHeight, produced.Product.Channels)
                                  select new StageOutput(
-                                     produced.Product.Role, key, plan.OutputWidth, plan.OutputHeight,
+                                     produced.Product.Role, plan.OutputWidth, plan.OutputHeight,
                                      shape.Transfer, shape.Format)).ToValidation())
                             .As()
                             .ToFin()

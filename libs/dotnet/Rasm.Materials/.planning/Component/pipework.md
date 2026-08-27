@@ -221,26 +221,26 @@ public static class PipeworkSeed {
         family: ComponentFamily.Pipework,
         designation: static r => r.Designation,
         coherence: Coherence,
-        profile: static (r, key) => SectionProfile.CircleHollow.Of(r.Size.OdMm, r.Size.WallMm, key),
+        profile: static (r, key) => SectionProfile.CircleHollow.Of(r.Size.OdMm, r.Size.WallMm),
         substance: static r => r.System.Substance,
         source: static r => r.System.Source,
         standard: static _ => UsAstm,
-        detail: Some<Func<PipeRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<PipeRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static r => r.System.Appearance,
         ifc: static r => r.System.Ifc);
 
-    static Validation<Error, Unit> Coherence(PipeRow r, Op key) =>
+    static Validation<Error, Unit> Coherence(PipeRow r) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 r.Size.RatedPsi.IsSome == r.System.Rated.IsSome,
-                new KernelFault.InvalidValue(nameof(r.Size.RatedPsi), "presence matching the pipe-system rating", Some(key))),
+                new KernelFault.InvalidValue(nameof(r.Size.RatedPsi), "presence matching the pipe-system rating")),
             AdmissionSlots.Gate(
                 double.IsFinite(r.Size.OdMm) && double.IsFinite(r.Size.WallMm)
                     && r.Size.WallMm > 0.0 && r.Size.OdMm > 2.0 * r.Size.WallMm,
-                new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus", Some(key)))));
+                new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus"))));
 
-    static Fin<PropertyBag> Detail(PipeRow r, SectionProfile profile, Op key) =>
-        from joint in ComponentDetail.Joint(r.System.Joint, key)
+    static Fin<PropertyBag> Detail(PipeRow r, SectionProfile profile) =>
+        from joint in ComponentDetail.Joint(r.System.Joint)
         from od in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Size.OdMm * 1e-3)
         from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, r.Size.WallMm * 1e-3)
         from rated in r.Size.RatedPsi.TraverseM(static psi => ComponentDetail.Measured(SegmentRows.WorkingPressure, Dimension.PressureDim, psi * PsiPa)).As()
@@ -255,8 +255,8 @@ public static class PipeworkSeed {
             .. hub.ToSeq(),
         ]);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 

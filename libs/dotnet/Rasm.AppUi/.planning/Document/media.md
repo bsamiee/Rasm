@@ -115,26 +115,25 @@ public sealed partial class RunDecoration : ICapability<RunDecoration> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MediaCodecRow {
-    static readonly Op Admitting = Op.Of(name: "appui.media.admit");
 
     public static readonly MediaCodecRow Raster = new(
         "image", visual: true, timed: false,
         Seq(".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"),
-        static (key, source) => Fin.Succ<MediaSurface>(new MediaSurface.Image(key, source, Stretch.Uniform)));
+        static (key, source) => Fin.Succ<MediaSurface>(new MediaSurface.Image(source, Stretch.Uniform)));
     public static readonly MediaCodecRow Vector = new(
         "svg", visual: true, timed: false,
         Seq(".svg"),
-        static (key, source) => Admitting.AcceptValidated<AssetKey>(source)
-            .Map<MediaSurface>(asset => new MediaSurface.Svg(key, source, asset))
+        static (key, source) => FactoryBridge.Accept<AssetKey>(source)
+            .Map<MediaSurface>(asset => new MediaSurface.Svg(source, asset))
             .MapFail(_ => (Error)new ContentFault.CodecAbsent($"media/vector: {source} is not an admitted asset")));
     public static readonly MediaCodecRow Video = new(
         "video", visual: true, timed: true,
         Seq(".mp4", ".mkv", ".webm", ".mov", ".m4v"),
-        static (key, source) => Fin.Succ<MediaSurface>(new MediaSurface.Video(key, source, PlaybackPolicy.Embedded)));
+        static (key, source) => Fin.Succ<MediaSurface>(new MediaSurface.Video(source, PlaybackPolicy.Embedded)));
     public static readonly MediaCodecRow Audio = new(
         "audio", visual: false, timed: true,
         Seq(".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus"),
-        static (key, source) => Fin.Succ<MediaSurface>(new MediaSurface.Audio(key, source, PlaybackPolicy.Embedded)));
+        static (key, source) => Fin.Succ<MediaSurface>(new MediaSurface.Audio(source, PlaybackPolicy.Embedded)));
 
     public bool Visual { get; }
 
@@ -149,7 +148,7 @@ public sealed partial class MediaCodecRow {
         toSeq(Items).Find(row => row.Extensions.Exists(extension =>
                 destination.EndsWith(extension, StringComparison.OrdinalIgnoreCase)))
             .ToFin(new ContentFault.CodecAbsent($"media/extension: {destination}"))
-            .Bind(row => row.Mint(key, destination));
+            .Bind(row => row.Mint(destination));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -485,8 +484,6 @@ public static class MarkdownRenderer {
                 .Map(session => (Editor: editor, Session: session)),
             Mounting);
 
-    static readonly Op Mounting = Op.Of(name: "appui.markdown.fence");
-
     static MarkdownRendered Plain(MarkdownRow.CodeFence fence, MarkdownStyling styling, MarkdownRendered acc, Error refusal) =>
         acc with {
             Blocks = acc.Blocks.Add(Recessed(new SelectableTextBlock {
@@ -775,7 +772,6 @@ public sealed record MediaRuntime(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class MediaSurfaces {
-    static readonly Op Mounting = Op.Of(name: "appui.media.materialize");
 
     public static readonly InstrumentSpec Mounted = InstrumentSpec.Create(
         "rasm.appui.media.mounted", InstrumentKind.Count, MeasureForm.Whole, "{mount}",
@@ -1636,7 +1632,7 @@ public sealed record DiffSeating(
     ResolvedTheme Resolved);
 
 public sealed record DiffSeat(DiffSurface Surface, Seq<DiffPane> Panes) : IDisposable {
-    public Option<DiffPane> Pane(string key) => Panes.Find(pane => string.Equals(pane.Key, key, StringComparison.Ordinal));
+    public Option<DiffPane> Pane(string key) => Panes.Find(pane => string.Equals(StringComparison.Ordinal));
 
     public DiffReading Reading =>
         Panes.Bind(pane => Surface.Regions(pane.Ordinal)) switch {
@@ -1651,7 +1647,6 @@ public sealed record DiffSeat(DiffSurface Surface, Seq<DiffPane> Panes) : IDispo
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class DiffSeats {
-    static readonly Op Seating = Op.Of(name: "appui.diff.seat");
 
     public static Fin<DiffSeat> Mount(DiffSurface surface, DiffSeating seating) =>
         surface.Hunks.IsEmpty
@@ -1671,15 +1666,15 @@ public static class DiffSeats {
 
     public static Fin<DiffSeat> Relayout(DiffSeat seat, DiffLayout layout, DiffSeating seating) =>
         Mount(seat.Surface with { Layout = layout }, seating)
-            .Bind(reseated => Seating.Catch(() => { seat.Dispose(); return Fin.Succ(reseated); }));
+            .Bind(reseated => Try.lift(() => { seat.Dispose(); return Fin.Succ(reseated); }).Run().Bind(static inner => inner));
 
     public static Fin<DiffSeat> Reveal(DiffSeat seat, int region) =>
         region >= 0 && seat.Panes.Exists(pane => region < seat.Surface.Regions(pane.Ordinal).Count)
             ? seat.Surface.Reveal(region) switch {
-                var revealed => Seating.Catch(() => {
+                var revealed => Try.lift(() => {
                     seat.Panes.Iter(pane => ignore(Refold(pane, revealed)));
                     return Fin.Succ(seat with { Surface = revealed });
-                }),
+                }).Run().Bind(static inner => inner),
             }
             : Fin.Fail<DiffSeat>(new ContentFault.UnresolvedRole($"diff/reveal: {region} names no collapsed run on this seat"));
 
@@ -1694,10 +1689,10 @@ public static class DiffSeats {
     static Fin<DiffSeat> Scrolled(DiffSeat seat, DiffSurface moved, string verb) =>
         moved.Hunks.IsEmpty
             ? Fin.Succ(seat with { Surface = moved })
-            : Seating.Catch(() => {
+            : Try.lift(() => {
                 seat.Panes.Iter(pane => pane.Editor.ScrollToLine(moved.Span(pane.Ordinal, moved.Cursor).First));
                 return Fin.Succ(seat with { Surface = moved });
-            });
+            }).Run().Bind(static inner => inner);
 
     public static Seq<TableColumnRow<PropertyDiffRow>> Columns() =>
         Seq(Column("property", nameof(PropertyDiffRow.Key), "diff.column.property", static row => row.Key),
@@ -1709,10 +1704,10 @@ public static class DiffSeats {
             .Filter(static row => row.Added || row.Removed || row.Changed);
 
     static Fin<DiffPane> Seated(DiffSurface surface, TextEditor editor, int ordinal, DiffSeating seating) =>
-        Seating.Catch(() => {
+        Try.lift(() => {
                 editor.Document = new TextDocument(surface.Text(ordinal));
                 return Fin.Succ(editor);
-            })
+            }).Run().Bind(static inner => inner)
             .Bind(seated => HunkBands.Attach(
                     seated, surface.Hunks, hunk => surface.Span(ordinal, hunk),
                     HunkPosture.Navigating, (hunk, _) => seating.Reveal(hunk)) switch {
@@ -1739,7 +1734,7 @@ public static class DiffSeats {
         CodePane.Fold(pane.Folding, pane.Editor.Document, surface.Regions(pane.Ordinal).Map(DiffFolds.ToFold));
 
     static TableColumnRow<PropertyDiffRow> Column(string key, string path, string header, Func<PropertyDiffRow, string> read) =>
-        new(AggregateColumn.Create(key), header, TableCellKind.Text,
+        new(AggregateColumn.Create(), header, TableCellKind.Text,
             new TableColumnAccess<PropertyDiffRow>.Plain(
                 Cell: Some<BindingBase>(new Binding(path)), Export: read),
             new DataGridLength(1d, DataGridLengthUnitType.Star),

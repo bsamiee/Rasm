@@ -469,13 +469,13 @@ public static class StressUpdate {
         ConstitutiveModel model, ReadOnlyMemory<double> strain, ConstitutiveState state, ConstitutiveParameters parameters, Instant at) =>
         from _ in Validate(model, strain, state, parameters)
         from verdict in ReturnMapVerdict(model, strain, state, parameters)
-        from result in Op.Of(name: "constitutive.energy-domain").Catch(() => {
+        from result in Try.lift(() => {
             HyperDual energy = model.Energy(HyperDual.Variables(strain), state, parameters);
             return Fin.Succ(new ConstitutiveResult(
                 energy.Inner.GetGradient().AsMemory(), RowMajor(energy.Inner.GetHessian()),
                 Evolve(model, state, strain, parameters, verdict.DGamma),
                 model.ModelKey, verdict.Iterations, verdict.Residual, at));
-        })
+        }).Run().Bind(static inner => inner)
         select result;
 
     internal static ReadOnlyMemory<double> RowMajor(double[,] hessian) {
@@ -601,13 +601,13 @@ public static class ContactEnforcement {
         double penalty, Seq<(int Slave, int Master)> broadPhasePairs, Instant at) =>
         from _ in Admit(contact, displacement, multipliers, penalty, broadPhasePairs)
         let gap = Gap(contact, displacement, broadPhasePairs)
-        from result in Op.Of(name: "contact.potential-domain").Catch(() => {
+        from result in Try.lift(() => {
             HyperDual potential = contact.Potential(HyperDual.Variables(gap.AsMemory()), penalty);
             return Fin.Succ(new ContactResult(
                 potential.Inner.GetGradient().AsMemory(), StressUpdate.RowMajor(potential.Inner.GetHessian()),
                 ConstraintHandling.AugmentedLagrangian.Advance(multipliers.Span.ToArray(), gap, penalty).AsMemory(),
                 Active(gap), TensorPrimitives.Max<double>(gap), at));
-        })
+        }).Run().Bind(static inner => inner)
         select result;
 
     static Fin<Unit> Admit(

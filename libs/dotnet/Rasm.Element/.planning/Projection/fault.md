@@ -33,20 +33,19 @@ namespace Rasm.Element.Projection;
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Element;
-    private ElementFault(Op key, string detail) { Key = key; Detail = detail; }
+    private ElementFault(string detail) { Key = key; Detail = detail; }
 
-    public Op Key { get; }
     public string Detail { get; }
     public override string Message => Detail;
 
-    [FaultCase(0)] public sealed partial record NodeAbsent(Op Key, string Detail) : ElementFault(Key, Detail);
-    [FaultCase(1)] public sealed partial record RelationshipInvalid(Op Key, string Detail) : ElementFault(Key, Detail);
-    [FaultCase(2)] public sealed partial record DeltaConflict(Op Key, string Detail) : ElementFault(Key, Detail);
-    [FaultCase(3)] public sealed partial record ValueRejected(Op Key, string Detail) : ElementFault(Key, Detail);
-    [FaultCase(4)] public sealed partial record ProjectionFailed(Op Key, string Detail) : ElementFault(Key, Detail);
-    [FaultCase(5)] public sealed partial record ProjectorFaulted(Op Key, Error Cause)
+    [FaultCase(0)] public sealed partial record NodeAbsent(string Detail) : ElementFault(Key, Detail);
+    [FaultCase(1)] public sealed partial record RelationshipInvalid(string Detail) : ElementFault(Key, Detail);
+    [FaultCase(2)] public sealed partial record DeltaConflict(string Detail) : ElementFault(Key, Detail);
+    [FaultCase(3)] public sealed partial record ValueRejected(string Detail) : ElementFault(Key, Detail);
+    [FaultCase(4)] public sealed partial record ProjectionFailed(string Detail) : ElementFault(Key, Detail);
+    [FaultCase(5)] public sealed partial record ProjectorFaulted(Error Cause)
         : ElementFault(Key, $"projector failed: {Cause.Message}"), ICausedFault;
-    [FaultCase(6)] public sealed partial record AddressUnstable(Op Key, string Detail) : ElementFault(Key, Detail);
+    [FaultCase(6)] public sealed partial record AddressUnstable(string Detail) : ElementFault(Key, Detail);
 }
 ```
 

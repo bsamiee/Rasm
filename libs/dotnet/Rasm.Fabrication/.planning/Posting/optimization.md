@@ -427,8 +427,8 @@ public static partial class Optimize {
         compact: static row => CompactPolicy.Validate(OptimizeMap.Mm(row.CollinearToleranceMm),
                 OptimizeMap.Mm(row.CocircularToleranceMm), out CompactPolicy policy)
             .Admitted(policy).Map<PassPolicy>(static value => new PassPolicy.Compact(value)).ToValidation(),
-        pattern: static row => (from minimum in Op.Of().AcceptValidated<PatternLength>(row.MinimumLength)
-                                from maximum in Op.Of().AcceptValidated<PatternLength>(row.MaximumLength)
+        pattern: static row => (from minimum in FactoryBridge.Accept<PatternLength>(row.MinimumLength)
+                                from maximum in FactoryBridge.Accept<PatternLength>(row.MaximumLength)
                                 from policy in PatternPolicy.Validate(
                                         minimum, maximum, row.MinimumOccurrences, row.FirstLabel,
                                         row.OccurrenceBudget, out PatternPolicy policy).Admitted(policy)
@@ -971,7 +971,7 @@ internal static class PatternCensus {
     }
 
     private static ulong Lane(UInt128 key) {
-        (ulong low, ulong high) = ContentHash.Halves(key);
+        (ulong low, ulong high) = ContentHash.Halves();
         return low ^ high;
     }
 

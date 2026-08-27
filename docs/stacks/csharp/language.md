@@ -256,7 +256,7 @@ public readonly ref struct Frame(ReadOnlySpan<double> values) {
 
 Form spotlight: a processed interpolated string carries the `\e` terminal escape — illegal in a raw literal, which emits the backslash verbatim — beside its `{weight,-8:F2}` alignment-plus-format hole, while the sibling `$$"""..."""` raw literal embeds JSON whose own single braces survive because the interpolation marker is doubled, its `{{int.Max(count, 0)}}` hole running full expression grammar with no quote juggling.
 
-Deleted forms: a `"[1m" + body + "[0m"` concatenation and a `string.Format("{{ \"key\": \"{0}\" }}", key)` whose escaped braces and positional holes the two literal forms replace.
+Deleted forms: a `"[1m" + body + "[0m"` concatenation and a `string.Format("{{ \"key\": \"{0}\" }}")` whose escaped braces and positional holes the two literal forms replace.
 
 ```csharp
 public static class Manifest {

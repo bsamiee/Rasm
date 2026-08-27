@@ -80,7 +80,7 @@ internal static class IfcUnits {
 ## [03]-[PROPERTY_LOWERING]
 
 - Owner: `PropertyLowering` the Bim-internal IFC value narrowing — `MeasureDimensions` the measure-type-to-shared-`Dimension` signature table, `Angular` the two rows whose Dimensionless signature nonetheless coerces on the declared plane angle, `ScalarKind` the `[SmartEnum]` row set narrowing every `IfcValue` leaf that carries its own value domain, `Lower` the eight-arm `IfcProperty` narrowing, `LowerValue` the scalar narrowing both the list and table arms take, and `Measure` the `IfcPhysicalSimpleQuantity` mint.
-- Entry: `PropertyLowering.Lower(property, rooted, scheme, key)` returns `WriterT<FidelityLog, Fin, PropertyValue>` — the narrowing's own drops RETURNED beside the value; `PropertyLowering.Measure(quantity, scheme, key)` returns `Fin<MeasureValue>` because a QTO quantity narrows losslessly or faults.
+- Entry: `PropertyLowering.Lower(property, rooted, scheme, key)` returns `WriterT<FidelityLog, Fin, PropertyValue>` — the narrowing's own drops RETURNED beside the value; `PropertyLowering.Measure(quantity, scheme)` returns `Fin<MeasureValue>` because a QTO quantity narrows losslessly or faults.
 - Law: the `QuantityType` a measure carries is the IFC MEASURE-TYPE NAME, never the dimension — the seven-exponent vector is not injective over quantity types (an `IfcForceMeasure`, an `IfcLinearMomentMeasure`, and an `IfcModulusOfRotationalSubgradeReactionMeasure` all sign `ForceDim`, and angle, ratio, and count all sit at `Dimensionless`), so the measure-type identity round-trips and a dimension key fabricates one. The shared registry keys UnitsNet quantity names, so an IFC measure type is an OPEN mint whose dimension this table alone answers.
 - Auto: `MeasureDimensions` rows are decompile-verified GG `IfcValue` types over their SI base, `Dimension.Create` exponent order `(L, M, T, I, Θ, N, J)`; the roster is closed by GG's SURFACE, not by the IFC schema — `IfcThermalResistanceMeasure` and `IfcTemperatureRateOfChangeMeasure` are absent from that surface and therefore carry no row, so a caller reaching for either takes the `MeasureUnmapped` Text drop rather than a row naming a type the assembly cannot produce. `ScalarKind` rows are keyed on the GG concrete and carry their own narrowing, so the row's key PROVES its delegate's cast and the index derives from the rows themselves.
 - Output: two COUNTED identity narrows — an off-table measure type preserves its magnitude as Text rather than claiming a wrong dimension (`MeasureUnmapped`), a non-Label IFC string subtype narrows to Text and re-emits `IfcLabel` (`StringIdentity`), and the non-rooted reference resource whose entity does not round-trip (`ReferenceResource`).
@@ -100,7 +100,6 @@ using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Thinktecture;
-using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Projection;
@@ -208,13 +207,13 @@ internal static class PropertyLowering {
 
     // --- [PROPERTY_NARROWING]
 
-    public static WriterT<FidelityLog, Fin, PropertyValue> Lower(IfcProperty property, Map<string, NodeId> rooted, UnitScheme scheme, Op key) =>
+    public static WriterT<FidelityLog, Fin, PropertyValue> Lower(IfcProperty property, Map<string, NodeId> rooted, UnitScheme scheme) =>
         property switch {
-            IfcPropertySingleValue sv => LowerValue(sv.NominalValue, scheme, sv.Unit, key),
+            IfcPropertySingleValue sv => LowerValue(sv.NominalValue, scheme, sv.Unit),
             IfcPropertyEnumeratedValue ev =>
-                from selected in ev.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null, key)).As()
+                from selected in ev.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null)).As()
                 from sanctioned in Optional(ev.EnumerationReference).Match(
-                    Some: reference => reference.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null, key)).As(),
+                    Some: reference => reference.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null)).As(),
                     None: static () => Fidelity.Clean(Seq<PropertyValue>()))
                 select (PropertyValue)new PropertyValue.Enumerated(selected, sanctioned),
             IfcPropertyReferenceValue rv =>
@@ -223,37 +222,37 @@ internal static class PropertyLowering {
                     None: () => Fidelity.Drop(FidelityDrop.ReferenceResource, ResourceAnchor(rv), ResourceId(rv)))
                     .Map(id => (PropertyValue)new PropertyValue.Reference(id, Stated(rv.UsageName))),
             IfcPropertyBoundedValue bv => Fidelity.Lift(
-                from lower in MeasureOpt(bv.LowerBoundValue, scheme, bv.Unit, key)
-                from upper in MeasureOpt(bv.UpperBoundValue, scheme, bv.Unit, key)
-                from setpoint in MeasureOpt(bv.SetPointValue, scheme, bv.Unit, key)
+                from lower in MeasureOpt(bv.LowerBoundValue, scheme, bv.Unit)
+                from upper in MeasureOpt(bv.UpperBoundValue, scheme, bv.Unit)
+                from setpoint in MeasureOpt(bv.SetPointValue, scheme, bv.Unit)
                 select (PropertyValue)new PropertyValue.Bounded(lower, upper, setpoint)),
             IfcPropertyListValue lv => lv.ListValues.AsIterable().ToSeq()
-                .Traverse(value => LowerValue(value, scheme, lv.Unit, key)).As()
+                .Traverse(value => LowerValue(value, scheme, lv.Unit)).As()
                 .Map(static rows => (PropertyValue)new PropertyValue.List(rows)),
             IfcPropertyTableValue tv => toSeq(tv.DefiningValues.Zip(tv.DefinedValues))
                 .Traverse(pair =>
-                    from defining in LowerValue(pair.First, scheme, tv.DefiningUnit, key)
-                    from defined in LowerValue(pair.Second, scheme, tv.DefinedUnit, key)
+                    from defining in LowerValue(pair.First, scheme, tv.DefiningUnit)
+                    from defined in LowerValue(pair.Second, scheme, tv.DefinedUnit)
                     select (defining, defined)).As()
                 .Map(cells => (PropertyValue)new PropertyValue.Table(cells, InterpolationOf(tv.CurveInterpolation))),
             IfcComplexProperty cp => cp.HasProperties.Values.AsIterable().ToSeq()
-                .Traverse(sub => Lower(sub, rooted, scheme, key).Map(lowered => (Name: RowName(sub), Value: lowered))).As()
+                .Traverse(sub => Lower(sub, rooted, scheme).Map(lowered => (Name: RowName(sub), Value: lowered))).As()
                 .Map(rows => (PropertyValue)new PropertyValue.Complex(cp.UsageName,
                     rows.Fold(Map<PropertyName, PropertyValue>(), static (bag, row) => bag.AddOrUpdate(row.Name, row.Value)))),
             _ => Fidelity.Clean<PropertyValue>(new PropertyValue.Text(Stated(property.Name).IfNone(""))),
         };
 
-    static WriterT<FidelityLog, Fin, PropertyValue> LowerValue(IfcValue? value, UnitScheme scheme, IfcUnit? declared, Op key) =>
+    static WriterT<FidelityLog, Fin, PropertyValue> LowerValue(IfcValue? value, UnitScheme scheme, IfcUnit? declared) =>
         Optional(value).Match(
             None: static () => Fidelity.Clean<PropertyValue>(new PropertyValue.Text("")),
             Some: present => ScalarKind.For(present.GetType()).Match(
                 Some: row => Fidelity.Clean(row.Narrow(present)),
-                None: () => Measured(present, scheme, declared, key)));
+                None: () => Measured(present, scheme, declared)));
 
-    static WriterT<FidelityLog, Fin, PropertyValue> Measured(IfcValue value, UnitScheme scheme, IfcUnit? declared, Op key) =>
+    static WriterT<FidelityLog, Fin, PropertyValue> Measured(IfcValue value, UnitScheme scheme, IfcUnit? declared) =>
         value switch {
             IfcMeasureValue or IfcDerivedMeasureValue => Signature(value).Match(
-                Some: row => Fidelity.Lift(MeasureOf(value, row, scheme, declared, key)
+                Some: row => Fidelity.Lift(MeasureOf(value, row, scheme, declared)
                     .Map(static measure => (PropertyValue)new PropertyValue.Measure(measure))),
                 None: () => Fidelity.Drop<PropertyValue>(FidelityDrop.MeasureUnmapped, value.GetType().Name, new PropertyValue.Text(value.ValueString))),
             IfcText or IfcIdentifier =>
@@ -274,12 +273,12 @@ internal static class PropertyLowering {
     static QuantityType Elect(string measureType) =>
         Angular.Contains(measureType) ? QuantityType.Angle : QuantityType.Create(measureType);
 
-    static Fin<MeasureValue> MeasureOf(IfcValue measure, Dimension dimension, UnitScheme scheme, IfcUnit? declared, Op key) =>
+    static Fin<MeasureValue> MeasureOf(IfcValue measure, Dimension dimension, UnitScheme scheme, IfcUnit? declared) =>
         MeasureValue.OfSi(QuantityType.Create(measure.GetType().Name), dimension,
-            Coerce(scheme, AsDouble(measure.Value), measure.GetType().Name, dimension, declared), key: key);
+            Coerce(scheme, AsDouble(measure.Value), measure.GetType().Name, dimension, declared));
 
-    static Fin<Option<MeasureValue>> MeasureOpt(IfcValue? value, UnitScheme scheme, IfcUnit? declared, Op key) =>
-        Signature(value).TraverseM(row => MeasureOf(value!, row, scheme, declared, key)).As();
+    static Fin<Option<MeasureValue>> MeasureOpt(IfcValue? value, UnitScheme scheme, IfcUnit? declared) =>
+        Signature(value).TraverseM(row => MeasureOf(value!, row, scheme, declared)).As();
 
     internal static readonly QuantityType Number = QuantityType.Create("Number");
 
@@ -290,11 +289,11 @@ internal static class PropertyLowering {
         [typeof(IfcQuantityNumber)] = Number,
     }.ToFrozenDictionary();
 
-    public static Fin<MeasureValue> Measure(IfcPhysicalSimpleQuantity quantity, UnitScheme scheme, Op key) =>
+    public static Fin<MeasureValue> Measure(IfcPhysicalSimpleQuantity quantity, UnitScheme scheme) =>
         QuantityTypes.TryGetValue(quantity.GetType(), out QuantityType? qto) && Signature(quantity.MeasureValue).Case is Dimension row
             ? MeasureValue.OfSi(qto, row,
-                Coerce(scheme, AsDouble(quantity.MeasureValue.Value), quantity.MeasureValue.GetType().Name, row, quantity.Unit), key: key)
-            : Fin.Fail<MeasureValue>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name })));
+                Coerce(scheme, AsDouble(quantity.MeasureValue.Value), quantity.MeasureValue.GetType().Name, row, quantity.Unit))
+            : Fin.Fail<MeasureValue>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name })));
 
     // --- [BOUNDARY_ADMISSION]
 

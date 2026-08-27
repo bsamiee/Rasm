@@ -13,7 +13,7 @@
 
 - Owner: `SkeletonPolicy` the Au weight/convergence/surgery policy row minted through `Of(Context, …)`, every budget a guarded value object, both convergence RATIOS `Tolerance` reads off the run's own context, the two magnitudes no lane owns required arguments rather than pinned literals, and the post-extraction resampling the `SmoothBranches` policy fact; `CurveSkeleton` the result and clearance-query owner carrying `SkeletonGraph` whole beside `SectionA`/`SectionB`/`Component` and offset's `ClearanceProbe`; `Skeletonize` the static surface.
 - Cases: the clearance family (`ClearanceNode` · `SkeletonArc` · `SkeletonGraph`) is `offset.md`'s, composed verbatim, and the result's node and arc rows ARE that family's rows, stored rather than re-minted.
-- Entry: `public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy, Op key)` — the ONE entry, one modality taking its mesh, policy, and site directly, the probe riding the result with no `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling. Admission gates `Traits.Require(Manifold, Oriented) ∧ BoundaryComponents == 0` over the landed `MeshKernel.TopologyDetailed` witness, routing `DegenerateInput` on an empty mesh or an open shell rather than a silent garbage graph — the trait half naming the MISSING traits and the boundary half its component count, so the two causes never wear one another's evidence; a stalled area ratio, an exhausted round budget, and an unusable solve all lower `CollapseStalled` on the round's own `Fin`, and an exhausted surgery queue `SkeletonStalled`.
+- Entry: `public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy)` — the ONE entry, one modality taking its mesh, policy, and site directly, the probe riding the result with no `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling. Admission gates `Traits.Require(Manifold, Oriented) ∧ BoundaryComponents == 0` over the landed `MeshKernel.TopologyDetailed` witness, routing `DegenerateInput` on an empty mesh or an open shell rather than a silent garbage graph — the trait half naming the MISSING traits and the boundary half its component count, so the two causes never wear one another's evidence; a stalled area ratio, an exhausted round budget, and an unusable solve all lower `CollapseStalled` on the round's own `Fin`, and an exhausted surgery queue `SkeletonStalled`.
 - Auto: admission snapshots the ORIGINAL positions and one-ring areas (the `W_H` anchoring denominators and the radius provenance) and opens ONE `MeshEdit.Of` arena with the policy floor threaded into `ArenaPolicy`. Contraction rides ONE bounded `FoldMaybe` over `MaxIterations`, the folder itself owning the stop: each round re-assembles the clamped cotangent stiffness from LIVE arena positions, factors `diag(W_H) + w_L·L_k` once through `CholeskySparse`, solves the three coordinate axes' mass-weighted right-hand sides through `SolveDetailed` and REFUSES a solve whose own evidence fold rejects its stop, writes contracted positions back, kills sub-floor faces, refreshes `W_H` off the collapsing one-ring areas, and scales `w_L` — the round FAILING `CollapseStalled` where the ratio still exceeds `CollapseAreaRatio` inside `StallBand`, and the post-budget guard lowering the same fault where the run leaves the threshold unmet, so no fall-through certifies an unconverged contraction as converged. Surgery then drains a cost-ordered `PriorityQueue` over FACE-BEARING edges: a dequeued edge collapses only while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge — the emerging 1D skeleton — survives untouched, each collapse folding the victim's merge set into the survivor. Extraction folds the survivors into an `UndirectedGraph`, takes `MinimumSpanningTreeKruskal` to prune contraction-noise cycles to the tree and span a multi-shell remnant as a forest, labels branches through `ConnectedComponents`, re-samples each maximal degree-2 chain's interior at uniform chord-length stations through `Interpolate.CubicSplineRobust` where `SmoothBranches` asks, then recovers `Radius` and `Witness` from the merge provenance as the Euclidean distance to the nearest original boundary vertex, and fits `SectionA`/`SectionB` as the merge set's two principal spreads in the arc-normal plane (frame from the arc tangent and the witness direction; an isotropic section reports `SectionB == Radius`), every node fact deriving from the settled coordinates rather than a post-result mutation.
 - Output: `CurveSkeleton` — the stored `SkeletonGraph` plus its section and component sidecars — the result and wire consumed by Fabrication; the live contraction arena never crosses the boundary.
 - Law: the sparse owner's solve is READ, never projected away — every axis solve gates `LinearSolution.IsValid` (which folds the solve stop's usability) and refuses typed, so an unusable factorization can never write positions back as if it had converged.
@@ -82,10 +82,10 @@ public sealed record CurveSkeleton(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Skeletonize {
-    public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy, Op key) =>
+    public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy) =>
         Admit(mesh, policy).Bind(_ => {
             using MeshEdit arena = MeshEdit.Of(mesh, ArenaPolicy.Canonical with { ParallelFloor = policy.ParallelFloor });
-            return Contract(arena, policy, key)
+            return Contract(arena, policy)
                 .Bind(state => Surgery(state, policy))
                 .Map(state => Extract(state, policy));
         });
@@ -114,7 +114,7 @@ public static class Skeletonize {
             wh[v] = attraction * Math.Sqrt(originalRingArea[v] / Math.Max(ringArea[v], areaFloor));
     }
 
-    static Fin<ContractState> Contract(MeshEdit arena, SkeletonPolicy policy, Op key) {
+    static Fin<ContractState> Contract(MeshEdit arena, SkeletonPolicy policy) {
         int n = arena.VertexCount;
         Point3d[] original = new Point3d[n];
         for (int v = 0; v < n; v++) { original[v] = arena.Position(v); }
@@ -131,7 +131,7 @@ public static class Skeletonize {
             (state, _) => state.Match(
                 Succ: active => active.Round > 0 && active.Ratio <= policy.CollapseAreaRatio.Value
                     ? None
-                    : Some(Round(arena, policy, active, wh, ringSeed, totalSeed, key)),
+                    : Some(Round(arena, policy, active, wh, ringSeed, totalSeed)),
                 Fail: static _ => None));
 
         return contracted.Bind(final =>
@@ -146,10 +146,10 @@ public static class Skeletonize {
 
     static Fin<(int Round, double Wl, double Ratio)> Round(
         MeshEdit arena, SkeletonPolicy policy, (int Round, double Wl, double Ratio) at,
-        double[] wh, double[] ringSeed, double totalSeed, Op key) =>
-        Assemble(arena, at.Wl, wh, policy.CotangentCeiling.Value, key)
-            .Bind(system => CholeskySparse.Of(symmetric: system, key: key))
-            .Bind(factor => SolveAxes(arena, factor, wh, at.Round, key))
+        double[] wh, double[] ringSeed, double totalSeed) =>
+        Assemble(arena, at.Wl, wh, policy.CotangentCeiling.Value)
+            .Bind(system => CholeskySparse.Of(symmetric: system))
+            .Bind(factor => SolveAxes(arena, factor, wh, at.Round))
             .Bind(_ => {
                 double areaFloor = arena.Tolerance.For(lane: ToleranceLane.Area).Value;
                 for (int f = 0; f < arena.FaceCount; f++) {
@@ -168,7 +168,7 @@ public static class Skeletonize {
                     : Fin.Succ((Round: round, Wl: at.Wl * policy.ContractionScale.Value, Ratio: ratio));
             });
 
-    static Fin<SparseMatrix> Assemble(MeshEdit arena, double wl, double[] wh, double ceiling, Op key) {
+    static Fin<SparseMatrix> Assemble(MeshEdit arena, double wl, double[] wh, double ceiling) {
         using TripletStencil stencil = new();
         double areaFloor = arena.Tolerance.For(lane: ToleranceLane.Area).Value;
         for (int f = 0; f < arena.FaceCount; f++) {
@@ -184,10 +184,10 @@ public static class Skeletonize {
             foreach ((int i, int j, double cot) in corners) { stencil.Laplace(i: i, j: j, w: 0.5 * wl * cot); }
         }
         for (int v = 0; v < arena.VertexCount; v++) { stencil.At(row: v, col: v, value: wh[v]); }
-        return stencil.Freeze(rowCount: Dimension.Create(arena.VertexCount), colCount: Dimension.Create(arena.VertexCount), key: key);
+        return stencil.Freeze(rowCount: Dimension.Create(arena.VertexCount), colCount: Dimension.Create(arena.VertexCount));
     }
 
-    static Fin<Unit> SolveAxes(MeshEdit arena, CholeskySparse factor, double[] wh, int round, Op key) {
+    static Fin<Unit> SolveAxes(MeshEdit arena, CholeskySparse factor, double[] wh, int round) {
         int n = arena.VertexCount;
         double[][] rhs = [new double[n], new double[n], new double[n]];
         for (int v = 0; v < n; v++) {
@@ -195,7 +195,7 @@ public static class Skeletonize {
             (rhs[0][v], rhs[1][v], rhs[2][v]) = (wh[v] * p.X, wh[v] * p.Y, wh[v] * p.Z);
         }
         return toSeq(rhs)
-            .TraverseM(axis => factor.SolveDetailed(rhs: new Arr<double>(axis), key: key)
+            .TraverseM(axis => factor.SolveDetailed(rhs: new Arr<double>(axis))
                 .Bind(solve => guard(solve.IsValid, new GeometryFault.CollapseStalled(round, solve.Residual))
                     .ToFin().Map(_ => solve.Solution)))
             .As()
@@ -477,7 +477,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 
 | [INDEX] | [AXIS_CONCERN]     | [OWNER]          | [RESULT]                                        | [CASES] |
 | :-----: | :----------------- | :--------------- | :---------------------------------------------- | :-----: |
-|  [01]   | Skeletonization    | `Skeletonize`    | `Apply(mesh, policy, key) → Fin<CurveSkeleton>` |    —    |
+|  [01]   | Skeletonization    | `Skeletonize`    | `Apply(mesh, policy) → Fin<CurveSkeleton>` |    —    |
 |  [02]   | Contraction policy | `SkeletonPolicy` | `Of(Context, …) → value` (lane columns)         |    —    |
 |  [03]   | Result + wire      | `CurveSkeleton`  | carrier (graph + sidecars frozen at extraction) |    —    |
 

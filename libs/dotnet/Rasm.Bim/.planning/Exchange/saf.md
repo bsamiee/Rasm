@@ -201,16 +201,16 @@ public readonly record struct CorrespondenceJoint(
 
 // --- [BOUNDARIES]
 internal static class SafCell {
-    internal static Validation<Error, string> Text(string? cell, string row, string column, Op key) =>
+    internal static Validation<Error, string> Text(string? cell, string row, string column) =>
         (Optional(cell).Filter(static value => value.Length > 0)
-            .ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", row, column, "absent" })))).ToValidation();
+            .ToFin(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", row, column, "absent" })))).ToValidation();
 
     internal static Validation<Error, double> Si<TQuantity>(
-        TQuantity? cell, Func<TQuantity, double> si, string row, string column, Op key) where TQuantity : struct, IQuantity =>
-        (Optional(cell).Map(si).ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", row, column, "absent" })))).ToValidation();
+        TQuantity? cell, Func<TQuantity, double> si, string row, string column) where TQuantity : struct, IQuantity =>
+        (Optional(cell).Map(si).ToFin(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", row, column, "absent" })))).ToValidation();
 
-    internal static Validation<Error, double> Number(object? cell, string row, string column, Op key) =>
-        (Optional(cell as double?).ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", row, column, "unreadable" })))).ToValidation();
+    internal static Validation<Error, double> Number(object? cell, string row, string column) =>
+        (Optional(cell as double?).ToFin(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", row, column, "unreadable" })))).ToValidation();
 
     internal static Validation<Error, Seq<A>> All<A>(Seq<Validation<Error, A>> rows) => rows.Traverse(identity).As();
 }
@@ -315,15 +315,15 @@ internal static partial class SafMapper {
     private static ExcelMemberThickness Plate(double si) => new() { ThicknessFirst = Length.FromMeters(si) };
 
     [UserMapping]
-    private static string? Cell(Option<string> value) => Op.ToHostSlot(value);
+    private static string? Cell(Option<string> value) => HostEdge.Slot(value);
 
     [UserMapping]
     private static ExcelCurveBehaviour? Cell(Option<ExcelCurveBehaviour> value) =>
-        Op.ToHostNullable(value);
+        HostEdge.Nullable(value);
 
     [UserMapping]
     private static ExcelNationalCode? Cell(Option<ExcelNationalCode> value) =>
-        Op.ToHostNullable(value);
+        HostEdge.Nullable(value);
 
     [UserMapping]
     private static ExcelFlexibleEnum<ExcelMember1DType>? Member1D(Option<string> role) => Flexible<ExcelMember1DType>(role);
@@ -343,28 +343,27 @@ public static class SafCodec {
         SafOp operation,
         IExcelImportService imports,
         IExcelExportService exports,
-        IExcelValidator validator,
-        Op key) =>
+        IExcelValidator validator) =>
         operation.Switch<Fin<ExcelModel>>(
-            import: request => key.Catch(() => imports.Import(request.Workbook, request.TargetVersion))
-                .Bind(model => Admitted(validator.ValidateForImport(model, request.TargetVersion, model.OriginalVersion), key)),
+            import: request => Try.lift(() => imports.Import(request.Workbook, request.TargetVersion)).Run().Bind(static inner => inner)
+                .Bind(model => Admitted(validator.ValidateForImport(model, request.TargetVersion, model.OriginalVersion))),
             export: request => Source(request).Apply(source =>
-                Admitted(validator.ValidateForExport(request.Model, request.TargetVersion, source), key)
-                    .Bind(model => key.Catch(() => exports.Export(request.Workbook, model, request.TargetVersion, source)))
+                Admitted(validator.ValidateForExport(request.Model, request.TargetVersion, source))
+                    .Bind(model => Try.lift(() => exports.Export(request.Workbook, model, request.TargetVersion, source)).Run().Bind(static inner => inner))
                     .Bind(result => result.IsSuccess
                         ? Fin.Succ(result.Model)
-                        : Fin.Fail<ExcelModel>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", "export", ExcelValidationResult.Format(result.ValidationResults) }))))));
+                        : Fin.Fail<ExcelModel>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", "export", ExcelValidationResult.Format(result.ValidationResults) }))))));
 
     private static Version Source(SafOp.Export request) => request.Model.OriginalVersion ?? request.TargetVersion;
 
-    private static Fin<ExcelModel> Admitted(ExcelModel model, Op key) =>
+    private static Fin<ExcelModel> Admitted(ExcelModel model) =>
         model.ValidationErrors.Any(static error => error.Severity == ExcelValidationMessageSeverity.Error)
-            ? Fin.Fail<ExcelModel>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", "validation", ExcelValidationResult.Format(model.ValidationErrors) })))
+            ? Fin.Fail<ExcelModel>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", "validation", ExcelValidationResult.Format(model.ValidationErrors) })))
             : Fin.Succ(model);
 
     // --- [CORRESPONDENCE]
 
-    public static Fin<Seq<CorrespondenceRow>> Correspondence(ElementGraph graph, Op key) {
+    public static Fin<Seq<CorrespondenceRow>> Correspondence(ElementGraph graph) {
         Seq<Relationship.Generic> generics = toSeq(graph.Edges).Choose(static edge => edge is Relationship.Generic g ? Some(g) : None);
         Map<NodeId, NodeId> physicals = generics
             .Filter(static edge => edge.WireName == IfcRelKind.ConnectsStructElement.Key)
@@ -375,7 +374,7 @@ public static class SafCodec {
                 .Filter(static row => row.Role == CorrespondenceRole.Member)
                 .Map(row => (Node: node, Kind: row)))
             .TraverseM(member => joints.Filter(joint => joint.Source == member.Node.Id)
-                .TraverseM(joint => JointOf(graph, joint, key)).As()
+                .TraverseM(joint => JointOf(graph, joint)).As()
                 .Map(resolved => new CorrespondenceRow(
                     member.Node.Id, physicals.Find(member.Node.Id), member.Kind, member.Node.PredefinedType.ToValue(),
                     physicals.Find(member.Node.Id)
@@ -385,15 +384,15 @@ public static class SafCodec {
             .As();
     }
 
-    private static Fin<CorrespondenceJoint> JointOf(ElementGraph graph, Relationship.Generic joint, Op key) =>
+    private static Fin<CorrespondenceJoint> JointOf(ElementGraph graph, Relationship.Generic joint) =>
         from kind in graph.Find(joint.Target)
             .Bind(static node => node is Node.Object o ? StructuralCorrespondence.OfAnalytical(o.Classification.Code) : None)
             .Filter(static row => row.Role == CorrespondenceRole.Connection)
-            .ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-connection-unrostered", joint.Target.ToValue() })))
+            .ToFin(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-connection-unrostered", joint.Target.ToValue() })))
         from eccentricity in joint.Attributes.Find(StructuralProjection.Eccentricity)
             .TraverseM(value => value is PropertyValue.Text text && UInt128.TryParse(text.Value, NumberStyles.HexNumber, null, out UInt128 parsed)
                 ? Fin.Succ(parsed)
-                : Fin.Fail<UInt128>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-eccentricity-malformed", joint.Target.ToValue() }))))
+                : Fin.Fail<UInt128>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-eccentricity-malformed", joint.Target.ToValue() }))))
             .As()
         select new CorrespondenceJoint(joint.Target, kind,
             joint.Attributes.Find(StructuralRows.AtStart)
@@ -403,8 +402,8 @@ public static class SafCodec {
     // --- [WORKBOOK]
 
     public static Fin<ExcelModel> Workbook(
-        ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime, Op key) =>
-        Correspondence(graph, key).Map(rows => {
+        ElementGraph graph, GeometrySource geometry, Option<AnnexRegime> regime) =>
+        Correspondence(graph).Map(rows => {
             Map<NodeId, Node.Object> objects = toMap(graph.ObjectNodes.Map(static node => (node.Id, node)));
             Seq<Relationship.Generic> generics = toSeq(graph.Edges).Choose(static edge => edge is Relationship.Generic g ? Some(g) : None);
             Seq<Relationship.Generic> joints = generics.Filter(static edge => edge.WireName == IfcRelKind.ConnectsStructMember.Key);
@@ -533,7 +532,7 @@ public static class SafCodec {
         return new ExcelRelConnectsStructuralMember {
             Name = $"{Host(objects, joint.Source)}-{Host(objects, joint.Target)}",
             Member = Host(objects, joint.Source),
-            Position = Op.ToHostNullable(joint.Attributes.Find(StructuralRows.AtStart)
+            Position = HostEdge.Nullable(joint.Attributes.Find(StructuralRows.AtStart)
                 .Bind(static value => value is PropertyValue.Boolean b ? Some(JointEnd.Of(b.Value)) : None)
                 .Map(static end => end.Position)),
             TranslationXType = restraint.Translations[0].Type,
@@ -578,7 +577,7 @@ public static class SafCodec {
         activities.Choose(static edge => edge.Attributes.Find(StructuralRows.Case).Bind(Text)).Distinct()
             .Map(token => (IExcelModuleObject)new ExcelStructuralLoadCase {
                 Name = token,
-                ActionType = Op.ToHostNullable(activities
+                ActionType = HostEdge.Nullable(activities
                     .Filter(edge => edge.Attributes.Find(StructuralRows.Case).Bind(Text) == Some(token))
                     .Choose(static edge => edge.Attributes.Find(StructuralRow.ActionClassRow.Name).Bind(Text)).Head
                     .Map(static nature => nature switch {
@@ -586,7 +585,7 @@ public static class SafCodec {
                         nameof(ActionClass.Accidental) => ExcelActionType.Accidental,
                         _ => ExcelActionType.Variable,
                     })),
-                LoadType = Op.ToHostNullable(SafCaseType.WireOf(token)),
+                LoadType = HostEdge.Nullable(SafCaseType.WireOf(token)),
             });
 
     private static Seq<IExcelModuleObject> Actions(Map<NodeId, Node.Object> objects, Relationship.Generic edge) {
@@ -654,7 +653,7 @@ public static class SafCodec {
                 .Exists(static row => row.Role == CorrespondenceRole.Connection)
                 ? new ActionHost(host, null, null, null, null)
                 : new ActionHost(null, host, ExcelCoordinateDefinition.Relative,
-                    Op.ToHostSlot(edge.Attributes.Find(StructuralRows.Station)
+                    HostEdge.Slot(edge.Attributes.Find(StructuralRows.Station)
                         .Bind(static value => value is PropertyValue.Measure m ? Some(m.Value.Si) : None)
                         .Map(static station => (object)station)),
                     ExcelOrigin.FromStart);
@@ -696,18 +695,18 @@ public static class SafCodec {
     // --- [AUTHORING]
 
     public static WriterT<FidelityLog, Fin, Unit> Author(
-        DatabaseIfc db, IfcSpatialElement host, ExcelModel model, Op key) =>
-        from admitted in Fidelity.Lift(Admit(model, key))
-        from analysis in Fidelity.Lift(Boundary(key, () =>
+        DatabaseIfc db, IfcSpatialElement host, ExcelModel model) =>
+        from admitted in Fidelity.Lift(Admit(model))
+        from analysis in Fidelity.Lift(Boundary(() =>
             new IfcStructuralAnalysisModel(host, "SAF", IfcAnalysisModelTypeEnum.LOADING_3D)))
-        from nodes in Fidelity.Lift(Boundary(key, () => Points(db, analysis, admitted.Points)))
-        from members in Fidelity.Lift(Boundary(key, () => Curves(db, analysis, admitted.Curves, nodes)))
-        from surfaces in Fidelity.Lift(Boundary(key, () => Surfaces(db, analysis, admitted.Surfaces, nodes)))
-        from cases in Fidelity.Lift(Boundary(key, () => LoadCases(analysis, admitted.Cases)))
-        from _supports in Supports(db, nodes, admitted.Supports, key)
-        from _hinges in Hinges(db, nodes, members, admitted, key)
-        from _combinations in Fidelity.Lift(Boundary(key, () => Combinations(analysis, cases, admitted.Combinations)))
-        from _actions in Fidelity.Lift(Boundary(key, () => Applied(db, cases, nodes, members, surfaces, admitted)))
+        from nodes in Fidelity.Lift(Boundary(() => Points(db, analysis, admitted.Points)))
+        from members in Fidelity.Lift(Boundary(() => Curves(db, analysis, admitted.Curves, nodes)))
+        from surfaces in Fidelity.Lift(Boundary(() => Surfaces(db, analysis, admitted.Surfaces, nodes)))
+        from cases in Fidelity.Lift(Boundary(() => LoadCases(analysis, admitted.Cases)))
+        from _supports in Supports(db, nodes, admitted.Supports)
+        from _hinges in Hinges(db, nodes, members, admitted)
+        from _combinations in Fidelity.Lift(Boundary(() => Combinations(analysis, cases, admitted.Combinations)))
+        from _actions in Fidelity.Lift(Boundary(() => Applied(db, cases, nodes, members, surfaces, admitted)))
         from _unmapped in Unmapped(model)
         select unit;
 
@@ -722,9 +721,9 @@ public static class SafCodec {
             .Map(static _ => unit);
 
     private static WriterT<FidelityLog, Fin, Unit> Supports(
-        DatabaseIfc db, Map<string, IfcStructuralPointConnection> nodes, Seq<SafSupport> supports, Op key) =>
+        DatabaseIfc db, Map<string, IfcStructuralPointConnection> nodes, Seq<SafSupport> supports) =>
         supports.TraverseM(support => nodes.Find(support.Node).Match(
-                Some: connection => Fidelity.Lift(Boundary(key, () => {
+                Some: connection => Fidelity.Lift(Boundary(() => {
                         connection.AppliedCondition = Condition(db, support.Name, support.Restraint);
                         return unit;
                     }))
@@ -734,10 +733,10 @@ public static class SafCodec {
 
     private static WriterT<FidelityLog, Fin, Unit> Hinges(
         DatabaseIfc db, Map<string, IfcStructuralPointConnection> nodes,
-        Map<string, IfcStructuralCurveMember> members, SafWorkbook admitted, Op key) =>
+        Map<string, IfcStructuralCurveMember> members, SafWorkbook admitted) =>
         admitted.Hinges.TraverseM(hinge => admitted.Ends(hinge)
                 .TraverseM(end => (members.Find(hinge.Member), nodes.Find(end))
-                    .Apply((member, connection) => Fidelity.Lift(Boundary(key, () => {
+                    .Apply((member, connection) => Fidelity.Lift(Boundary(() => {
                         _ = new IfcRelConnectsStructuralMember(member, connection) {
                             AppliedCondition = Condition(db, hinge.Name, hinge.Restraint),
                         };
@@ -756,53 +755,53 @@ public static class SafCodec {
             restraint.Translations[0].Translational(), restraint.Translations[1].Translational(), restraint.Translations[2].Translational(),
             restraint.Rotations[0].Rotational(), restraint.Rotations[1].Rotational(), restraint.Rotations[2].Rotational());
 
-    private static Fin<A> Boundary<A>(Op key, Func<A> author) =>
-        key.Catch(author);
+    private static Fin<A> Boundary<A>(Func<A> author) =>
+        Try.lift(author).Run().Bind(static inner => inner);
 
     // --- [ADMISSION]
 
-    private static Fin<SafWorkbook> Admit(ExcelModel model, Op key) =>
+    private static Fin<SafWorkbook> Admit(ExcelModel model) =>
         (
-            (SafCell.All(Rows<ExcelStructuralPointConnection>(model).Map(row => Point(row, key))),
-             SafCell.All(Rows<ExcelStructuralCurveMember>(model).Map(row => Curve(row, key))),
-             SafCell.All(Rows<ExcelStructuralSurfaceMember>(model).Map(row => Surface(row, key))),
-             SafCell.All(Rows<ExcelStructuralPointSupport>(model).Map(row => Support(row, key))),
-             SafCell.All(Rows<ExcelRelConnectsStructuralMember>(model).Map(row => Hinge(row, key))),
-             SafCell.All(Rows<ExcelStructuralLoadCase>(model).Map(row => Case(row, key))),
-             SafCell.All(Rows<ExcelStructuralLoadCombination>(model).Map(row => Combination(row, key))),
-             SafCell.All(Actions(model, key)))
+            (SafCell.All(Rows<ExcelStructuralPointConnection>(model).Map(row => Point(row))),
+             SafCell.All(Rows<ExcelStructuralCurveMember>(model).Map(row => Curve(row))),
+             SafCell.All(Rows<ExcelStructuralSurfaceMember>(model).Map(row => Surface(row))),
+             SafCell.All(Rows<ExcelStructuralPointSupport>(model).Map(row => Support(row))),
+             SafCell.All(Rows<ExcelRelConnectsStructuralMember>(model).Map(row => Hinge(row))),
+             SafCell.All(Rows<ExcelStructuralLoadCase>(model).Map(row => Case(row))),
+             SafCell.All(Rows<ExcelStructuralLoadCombination>(model).Map(row => Combination(row))),
+             SafCell.All(Actions(model)))
             .Apply((points, curves, surfaces, supports, hinges, cases, combinations, actions) =>
                 new SafWorkbook(points, curves, surfaces, supports, hinges, cases, combinations, actions)).As()).ToFin();
 
     private static Seq<TRow> Rows<TRow>(ExcelModel model) => toSeq(model.Objects.OfType<TRow>());
 
-    private static Validation<Error, SafPoint> Point(ExcelStructuralPointConnection row, Op key) =>
-        (SafCell.Text(row.Name, nameof(ExcelStructuralPointConnection), nameof(row.Name), key),
-         SafCell.Si(row.X, static c => c.Meters, nameof(ExcelStructuralPointConnection), nameof(row.X), key),
-         SafCell.Si(row.Y, static c => c.Meters, nameof(ExcelStructuralPointConnection), nameof(row.Y), key),
-         SafCell.Si(row.Z, static c => c.Meters, nameof(ExcelStructuralPointConnection), nameof(row.Z), key))
+    private static Validation<Error, SafPoint> Point(ExcelStructuralPointConnection row) =>
+        (SafCell.Text(row.Name, nameof(ExcelStructuralPointConnection), nameof(row.Name)),
+         SafCell.Si(row.X, static c => c.Meters, nameof(ExcelStructuralPointConnection), nameof(row.X)),
+         SafCell.Si(row.Y, static c => c.Meters, nameof(ExcelStructuralPointConnection), nameof(row.Y)),
+         SafCell.Si(row.Z, static c => c.Meters, nameof(ExcelStructuralPointConnection), nameof(row.Z)))
         .Apply((name, x, y, z) => new SafPoint(name, row.Id, x, y, z)).As();
 
-    private static Validation<Error, SafCurve> Curve(ExcelStructuralCurveMember row, Op key) =>
-        (SafCell.Text(row.Name, nameof(ExcelStructuralCurveMember), nameof(row.Name), key),
-         SafCell.Text(row.NodeStartName, nameof(ExcelStructuralCurveMember), nameof(row.NodeStartName), key),
-         SafCell.Text(row.NodeEndName, nameof(ExcelStructuralCurveMember), nameof(row.NodeEndName), key))
+    private static Validation<Error, SafCurve> Curve(ExcelStructuralCurveMember row) =>
+        (SafCell.Text(row.Name, nameof(ExcelStructuralCurveMember), nameof(row.Name)),
+         SafCell.Text(row.NodeStartName, nameof(ExcelStructuralCurveMember), nameof(row.NodeStartName)),
+         SafCell.Text(row.NodeEndName, nameof(ExcelStructuralCurveMember), nameof(row.NodeEndName)))
         .Apply((name, start, end) => new SafCurve(name, row.Id, start, end, Optional(row.Behaviour),
             Optional(row.Type).Bind(static type => type.IsOther ? Some(type.ToString()) : None))).As();
 
-    private static Validation<Error, SafSurface> Surface(ExcelStructuralSurfaceMember row, Op key) =>
-        (SafCell.Text(row.Name, nameof(ExcelStructuralSurfaceMember), nameof(row.Name), key),
-         SafCell.All(toSeq(row.Nodes ?? []).Map(corner => SafCell.Text(corner, nameof(ExcelStructuralSurfaceMember), nameof(row.Nodes), key)))
+    private static Validation<Error, SafSurface> Surface(ExcelStructuralSurfaceMember row) =>
+        (SafCell.Text(row.Name, nameof(ExcelStructuralSurfaceMember), nameof(row.Name)),
+         SafCell.All(toSeq(row.Nodes ?? []).Map(corner => SafCell.Text(corner, nameof(ExcelStructuralSurfaceMember), nameof(row.Nodes))))
             .Bind(corners => (corners.Count >= 3
                 ? Fin.Succ(corners)
-                : Fin.Fail<Seq<string>>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", nameof(ExcelStructuralSurfaceMember), nameof(row.Nodes), "under-three" })))).ToValidation()),
-         SafCell.Si(row.Thickness?.ThicknessFirst, static c => c.Meters, nameof(ExcelStructuralSurfaceMember), nameof(row.Thickness), key))
+                : Fin.Fail<Seq<string>>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", nameof(ExcelStructuralSurfaceMember), nameof(row.Nodes), "under-three" })))).ToValidation()),
+         SafCell.Si(row.Thickness?.ThicknessFirst, static c => c.Meters, nameof(ExcelStructuralSurfaceMember), nameof(row.Thickness)))
         .Apply((name, corners, thickness) => new SafSurface(name, row.Id, corners, row.Material ?? "", thickness,
             Optional(row.Type).Bind(static type => type.IsOther ? Some(type.ToString()) : None))).As();
 
-    private static Validation<Error, SafSupport> Support(ExcelStructuralPointSupport row, Op key) =>
-        (SafCell.Text(row.Name, nameof(ExcelStructuralPointSupport), nameof(row.Name), key),
-         SafCell.Text(row.Node, nameof(ExcelStructuralPointSupport), nameof(row.Node), key))
+    private static Validation<Error, SafSupport> Support(ExcelStructuralPointSupport row) =>
+        (SafCell.Text(row.Name, nameof(ExcelStructuralPointSupport), nameof(row.Name)),
+         SafCell.Text(row.Node, nameof(ExcelStructuralPointSupport), nameof(row.Node)))
         .Apply((name, node) => new SafSupport(name, node, new SafRestraint(
             Seq(Cell(row.TranslationXType, row.TranslationXStiffness?.NewtonsPerMeter),
                 Cell(row.TranslationYType, row.TranslationYStiffness?.NewtonsPerMeter),
@@ -811,9 +810,9 @@ public static class SafCodec {
                 Cell(row.RotationYType, row.RotationYStiffness?.NewtonMetersPerRadian),
                 Cell(row.RotationZType, row.RotationZStiffness?.NewtonMetersPerRadian))))).As();
 
-    private static Validation<Error, SafHinge> Hinge(ExcelRelConnectsStructuralMember row, Op key) =>
-        (SafCell.Text(row.Name, nameof(ExcelRelConnectsStructuralMember), nameof(row.Name), key),
-         SafCell.Text(row.Member, nameof(ExcelRelConnectsStructuralMember), nameof(row.Member), key))
+    private static Validation<Error, SafHinge> Hinge(ExcelRelConnectsStructuralMember row) =>
+        (SafCell.Text(row.Name, nameof(ExcelRelConnectsStructuralMember), nameof(row.Name)),
+         SafCell.Text(row.Member, nameof(ExcelRelConnectsStructuralMember), nameof(row.Member)))
         .Apply((name, member) => new SafHinge(name, member, Optional(row.Position), new SafRestraint(
             Seq(Cell(row.TranslationXType, row.TranslationXStiffness?.NewtonsPerMeter),
                 Cell(row.TranslationYType, row.TranslationYStiffness?.NewtonsPerMeter),
@@ -824,8 +823,8 @@ public static class SafCodec {
 
     private static SafConstraint Cell(ExcelConstraintType? type, double? si) => new(type, si ?? 0d);
 
-    private static Validation<Error, SafCase> Case(ExcelStructuralLoadCase row, Op key) =>
-        SafCell.Text(row.Name, nameof(ExcelStructuralLoadCase), nameof(row.Name), key)
+    private static Validation<Error, SafCase> Case(ExcelStructuralLoadCase row) =>
+        SafCell.Text(row.Name, nameof(ExcelStructuralLoadCase), nameof(row.Name))
             .Map(name => new SafCase(name, row.ActionType switch {
                 ExcelActionType.Permanent => IfcActionTypeEnum.PERMANENT_G,
                 ExcelActionType.Accidental => IfcActionTypeEnum.EXTRAORDINARY_A,
@@ -833,42 +832,42 @@ public static class SafCodec {
                 _ => IfcActionTypeEnum.NOTDEFINED,
             }, SafCaseType.SourceOf(Optional(row.LoadType)))).As();
 
-    private static Validation<Error, SafCombination> Combination(ExcelStructuralLoadCombination row, Op key) =>
-        (SafCell.Text(row.Name, nameof(ExcelStructuralLoadCombination), nameof(row.Name), key),
-         SafCell.All(toSeq(row.LoadCases ?? []).Map(c => SafCell.Text(c, nameof(ExcelStructuralLoadCombination), nameof(row.LoadCases), key))),
+    private static Validation<Error, SafCombination> Combination(ExcelStructuralLoadCombination row) =>
+        (SafCell.Text(row.Name, nameof(ExcelStructuralLoadCombination), nameof(row.Name)),
+         SafCell.All(toSeq(row.LoadCases ?? []).Map(c => SafCell.Text(c, nameof(ExcelStructuralLoadCombination), nameof(row.LoadCases)))),
          SafCell.All(toSeq(row.LoadFactors ?? []).Map(f =>
-             (Optional(f).ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", nameof(ExcelStructuralLoadCombination), nameof(row.LoadFactors), "absent" })))).ToValidation())))
+             (Optional(f).ToFin(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", nameof(ExcelStructuralLoadCombination), nameof(row.LoadFactors), "absent" })))).ToValidation())))
         .Apply((name, cases, factors) => new SafCombination(name, cases, factors,
             row.Category == ExcelLoadCaseCombinationCategory.UltimateLimitState))
         .Bind(combination => (combination.Cases.Count == combination.Factors.Count
             ? Fin.Succ(combination)
-            : Fin.Fail<SafCombination>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", nameof(ExcelStructuralLoadCombination), combination.Name, "factor-arity" })))).ToValidation()).As();
+            : Fin.Fail<SafCombination>(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", nameof(ExcelStructuralLoadCombination), combination.Name, "factor-arity" })))).ToValidation()).As();
 
-    private static Seq<Validation<Error, SafAction>> Actions(ExcelModel model, Op key) =>
+    private static Seq<Validation<Error, SafAction>> Actions(ExcelModel model) =>
         Rows<ExcelStructuralPointAction>(model).Map(row => Action(
             row.Name, row.LoadCase, LoadFamily.SingleForce, row.ReferenceNode, row.CoordinateSystem, ExcelLocation.Length,
-            Vector(row.DirectionVector, static q => q.Newtons), None, None, nameof(ExcelStructuralPointAction), key))
+            Vector(row.DirectionVector, static q => q.Newtons), None, None, nameof(ExcelStructuralPointAction)))
         + Rows<ExcelStructuralCurveAction>(model).Map(row => row.Distribution == ExcelCurveDistribution.Trapezoidal
-            ? Ramp(row, key)
+            ? Ramp(row)
             : Action(row.Name, row.LoadCase, LoadFamily.LinearForce, row.Member, row.CoordinateSystem, row.Location,
-                Vector(row.DirectionVector, static q => q.NewtonsPerMeter), None, None, nameof(ExcelStructuralCurveAction), key))
+                Vector(row.DirectionVector, static q => q.NewtonsPerMeter), None, None, nameof(ExcelStructuralCurveAction)))
         + Rows<ExcelStructuralSurfaceAction>(model).Map(row => Action(
             row.Name, row.LoadCase, LoadFamily.PlanarForce, row.Member2DReference, row.CoordinateSystem, ExcelLocation.Length,
             Directed(row.Direction, Optional(row.Value).Map(static v => v.Pascals)), None, None,
-            nameof(ExcelStructuralSurfaceAction), key))
+            nameof(ExcelStructuralSurfaceAction)))
         + Rows<ExcelStructuralCurveActionThermal>(model).Map(row => Action(
             row.Name, row.LoadCase, LoadFamily.Temperature, row.Member, ExcelCoordinateSystem.Global, ExcelLocation.Length,
             Optional(row.DeltaT).Map(static t => Seq(t.Kelvins, 0d, 0d)), None, None,
-            nameof(ExcelStructuralCurveActionThermal), key));
+            nameof(ExcelStructuralCurveActionThermal)));
 
-    private static Validation<Error, SafAction> Ramp(ExcelStructuralCurveAction row, Op key) =>
-        (Components(Vector(row.DirectionVector, static q => q.NewtonsPerMeter), nameof(ExcelStructuralCurveAction), key),
-         Components(Vector(row.DirectionVector2, static q => q.NewtonsPerMeter), nameof(ExcelStructuralCurveAction), key),
-         SafCell.Text(row.Name, nameof(ExcelStructuralCurveAction), nameof(row.Name), key),
-         SafCell.Text(row.LoadCase, nameof(ExcelStructuralCurveAction), nameof(row.LoadCase), key),
-         SafCell.Text(row.Member, nameof(ExcelStructuralCurveAction), nameof(row.Member), key),
-         SafCell.Number(row.StartPoint, nameof(ExcelStructuralCurveAction), nameof(row.StartPoint), key),
-         SafCell.Number(row.EndPoint, nameof(ExcelStructuralCurveAction), nameof(row.EndPoint), key))
+    private static Validation<Error, SafAction> Ramp(ExcelStructuralCurveAction row) =>
+        (Components(Vector(row.DirectionVector, static q => q.NewtonsPerMeter), nameof(ExcelStructuralCurveAction)),
+         Components(Vector(row.DirectionVector2, static q => q.NewtonsPerMeter), nameof(ExcelStructuralCurveAction)),
+         SafCell.Text(row.Name, nameof(ExcelStructuralCurveAction), nameof(row.Name)),
+         SafCell.Text(row.LoadCase, nameof(ExcelStructuralCurveAction), nameof(row.LoadCase)),
+         SafCell.Text(row.Member, nameof(ExcelStructuralCurveAction), nameof(row.Member)),
+         SafCell.Number(row.StartPoint, nameof(ExcelStructuralCurveAction), nameof(row.StartPoint)),
+         SafCell.Number(row.EndPoint, nameof(ExcelStructuralCurveAction), nameof(row.EndPoint)))
         .Apply((start, end, name, loadCase, member, from, to) => new SafAction(
             name, loadCase, LoadFamily.Configuration, member,
             row.CoordinateSystem != ExcelCoordinateSystem.Local, row.Location == ExcelLocation.Projection,
@@ -877,17 +876,17 @@ public static class SafCodec {
     private static Validation<Error, SafAction> Action(
         string? name, string? loadCase, LoadFamily family, string? target, ExcelCoordinateSystem system,
         ExcelLocation location, Option<Seq<double>> components, Option<double> start, Option<double> end,
-        string worksheet, Op key) =>
-        (SafCell.Text(name, worksheet, nameof(SafAction.Name), key),
-         SafCell.Text(loadCase, worksheet, nameof(SafAction.Case), key),
-         SafCell.Text(target, worksheet, nameof(SafAction.Target), key),
-         Components(components, worksheet, key))
+        string worksheet) =>
+        (SafCell.Text(name, worksheet, nameof(SafAction.Name)),
+         SafCell.Text(loadCase, worksheet, nameof(SafAction.Case)),
+         SafCell.Text(target, worksheet, nameof(SafAction.Target)),
+         Components(components, worksheet))
         .Apply((admitted, admittedCase, admittedTarget, values) => new SafAction(
             admitted, admittedCase, family, admittedTarget,
             system != ExcelCoordinateSystem.Local, location == ExcelLocation.Projection, values, start, end)).As();
 
-    private static Validation<Error, Seq<double>> Components(Option<Seq<double>> components, string worksheet, Op key) =>
-        (components.ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", worksheet, "components", "absent" })))).ToValidation();
+    private static Validation<Error, Seq<double>> Components(Option<Seq<double>> components, string worksheet) =>
+        (components.ToFin(new BimFault.Refused(BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "saf-invalid", worksheet, "components", "absent" })))).ToValidation();
 
     private static Option<Seq<double>> Vector<TQuantity>(
         ExcelLoadDirectionVector<TQuantity>? vector, Func<TQuantity, double> si) where TQuantity : struct, IQuantity =>

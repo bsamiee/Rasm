@@ -126,8 +126,8 @@ public sealed record GeoFeature(
 
     public GeoFeature Mapped(AffineTransformation map) => this with { Geometry = map.Transform(Geometry) };
 
-    public Fin<Option<ulong>> Cell(int resolution, Op key) =>
-        GeoServices.Wgs84.Bind(frame => Reproject(frame, key)).Map(wgs => {
+    public Fin<Option<ulong>> Cell(int resolution) =>
+        GeoServices.Wgs84.Bind(frame => Reproject(frame)).Map(wgs => {
             H3Index cell = H3Index.FromPoint(wgs.Anchor, resolution);
             return cell.IsValidCell ? Some((ulong)cell) : Option<ulong>.None;
         });
@@ -185,11 +185,11 @@ public sealed record GeoFeature(
                 .Link(new Relationship.Assign(objectId, pset.Id, AssignKind.PropertyDefinition));
         })));
 
-    Fin<Seq<(PropertyName Name, PropertyValue Value)>> Chainage(GeoCorridors corridors, Op key) =>
+    Fin<Seq<(PropertyName Name, PropertyValue Value)>> Chainage(GeoCorridors corridors) =>
         corridors.Nearest(this).Match(
-            Some: corridor => GeoModel.Along(corridor.Centreline, new LinearProbe.Locate(Anchor.Coordinate), key)
+            Some: corridor => GeoModel.Along(corridor.Centreline, new LinearProbe.Locate(Anchor.Coordinate))
                 .Bind(answer => answer is LinearAnswer.At hit
-                    ? (MeasureValue.OfSi(Dimension.LengthDim, hit.Station, key), MeasureValue.OfSi(Dimension.LengthDim, hit.Offset, key))
+                    ? (MeasureValue.OfSi(Dimension.LengthDim, hit.Station), MeasureValue.OfSi(Dimension.LengthDim, hit.Offset))
                     .Apply((station, offset) => Seq(
                         (AlignmentRow, (PropertyValue)new PropertyValue.Text(corridor.Alignment)),
                         (StationRow, new PropertyValue.Measure(station)),
@@ -217,10 +217,10 @@ public sealed record GeoFeature(
         var other             => new PropertyValue.Text(other.ToString() ?? ""),
     };
 
-    public Fin<GeoFeature> Reproject(GeoReference target, Op key) =>
-        SourceFrame(key).Bind(source => {
+    public Fin<GeoFeature> Reproject(GeoReference target) =>
+        SourceFrame().Bind(source => {
             Geometry shifted = Geometry.Copy();
-            var walk = new OrdinateReproject(source, target, key);
+            var walk = new OrdinateReproject(source, target);
             shifted.Apply(walk);
             return walk.Verdict.Map(_ => {
                 shifted.SRID = target.Epsg.IfNone(0);
@@ -231,13 +231,13 @@ public sealed record GeoFeature(
             });
         });
 
-    Fin<GeoReference> SourceFrame(Op key) =>
+    Fin<GeoReference> SourceFrame() =>
         SourceCrs.Match(
             Some: crs => GeoReference.Admit(0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, "", "",
-                crs.Name, crs.Wkt, crs.MapProjection, crs.MapZone, key),
+                crs.Name, crs.Wkt, crs.MapProjection, crs.MapZone),
             None: static () => Fin.Succ(GeoReference.Identity));
 
-    sealed class OrdinateReproject(GeoReference source, GeoReference target, Op key) : IEntireCoordinateSequenceFilter {
+    sealed class OrdinateReproject(GeoReference source, GeoReference target) : IEntireCoordinateSequenceFilter {
         Fin<Unit> verdict = Fin.Succ(unit);
         public Fin<Unit> Verdict => verdict;
         public bool Done => verdict.IsFail;
@@ -246,7 +246,7 @@ public sealed record GeoFeature(
         public void Filter(CoordinateSequence seq) =>
             verdict = seq switch {
                 PackedDoubleCoordinateSequence packed =>
-                    GeoTransform.Reproject(source, target, packed.GetRawCoordinates().AsSpan(), stride: seq.Dimension, key),
+                    GeoTransform.Reproject(source, target, packed.GetRawCoordinates().AsSpan(), stride: seq.Dimension),
                 _ => Copied(seq),
             };
 
@@ -258,7 +258,7 @@ public sealed record GeoFeature(
                     ordinates[(i * stride) + ordinate] = seq.GetOrdinate(i, ordinate);
                 }
             }
-            return GeoTransform.Reproject(source, target, ordinates.AsSpan(), stride: stride, key).Map(_ => {
+            return GeoTransform.Reproject(source, target, ordinates.AsSpan(), stride: stride).Map(_ => {
                 for (int i = 0; i < seq.Count; i++) {
                     for (int ordinate = 0; ordinate < stride; ordinate++) {
                         seq.SetOrdinate(i, ordinate, ordinates[(i * stride) + ordinate]);
@@ -304,10 +304,10 @@ public sealed record GeoCover {
 
     public IReadOnlyList<H3Index> Canonical { get; }
 
-    public static Fin<GeoCover> Of(IReadOnlyList<H3Index> canonical, Op key) =>
+    public static Fin<GeoCover> Of(IReadOnlyList<H3Index> canonical) =>
         canonical.IsCanonicalCells()
             ? Fin.Succ(new GeoCover(canonical))
-            : Fin.Fail<GeoCover>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-cover-rejected", "uncanonical", canonical.Count.ToString(CultureInfo.InvariantCulture) })));
+            : Fin.Fail<GeoCover>(new BimFault.Refused(BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "geo-cover-rejected", "uncanonical", canonical.Count.ToString(CultureInfo.InvariantCulture) })));
 
     public FrozenSet<ulong> Cells => Canonical.Select(static cell => (ulong)cell).ToFrozenSet();
 
@@ -365,9 +365,9 @@ public static class GeoClassifier {
             .Distinct()
             .ToFrozenSet(StringComparer.Ordinal);
 
-    public static Fin<GeoClass> Classify(GeoFeature feature, GeoSchema schema, Option<GeoVectorSource> source, Op key) {
+    public static Fin<GeoClass> Classify(GeoFeature feature, GeoSchema schema, Option<GeoVectorSource> source) {
         if (feature.Geometry.IsEmpty) {
-            return Fin.Fail<GeoClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "geo-feature-miss", "empty", feature.Kind.ToString() })));
+            return Fin.Fail<GeoClass>(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "geo-feature-miss", "empty", feature.Kind.ToString() })));
         }
         Option<string> tag = schema.Tags
             .Choose(column => feature.Text(column))
@@ -382,7 +382,7 @@ public static class GeoClassifier {
                 .Match(
                     Some: row => new GeoClass(row.Class, row.Predefined, new Evidence<string>.Measured(read)),
                     None: () => new GeoClass(Fallback.Class, Fallback.Predefined,
-                        new Evidence<string>.Refused(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "geo-feature-miss", "tag", read })))))));
+                        new Evidence<string>.Refused(new BimFault.Refused(BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "geo-feature-miss", "tag", read })))))));
     }
 }
 ```
@@ -392,7 +392,7 @@ public static class GeoClassifier {
 - Owner: `GeoWire` the `GeoFeature`'s two canonical wire projections per `docs/stacks/csharp/domain/data-interchange#GEO_INTERCHANGE` — the GeoJSON text and the GeoPackage binary blob; `GeoWkb` the ONE bidirectional OGR↔NTS bridge every GDAL leg and the GeoParquet geo-column cross; `GeoGdal` the once-per-process `MaxRev.Gdal.Core` bootstrap AND the ONE acquire-use-release bracket every `/vsimem` leg in this folder runs inside; `GdalSink` the closed sink vocabulary a derive leg writes through.
 - Cases: `GdalSink` arms `Memory` (a `/vsimem` path the same process unlinks) and `Temp` (a real temp file the managed read-back recovers, because this GDAL SWIG build exposes only `VSIFWriteL(string, …)` and NO `byte[]` `VSIFReadL`).
 - Law: `GdalBase.ConfigureAll()` MUST run before any `OSGeo.*` call, and a second bootstrap owner is the deleted form — every GDAL-touching page composes `GeoGdal.Bootstrap`; the `IsConfigured` read stays INSIDE the lazy factory so a foreign caller that already configured the process is not re-configured.
-- Entry: `GeoGdal.Bootstrap()` seats the drivers, PROJ paths, and the thrown SWIG error model; `GeoGdal.Derive(bytes, sink, suffix, run, lane, key)` acquires the `/vsimem` source and the sink path, opens the dataset, hands `run` the open dataset and the sink path, and releases BOTH on every arm; `GeoWire.ToGeoJson`/`ToGpkgBlob`/`FromGpkgBlob` project the row; `GeoWkb.ToNts`/`FromNts`/`ToOgr` cross the bridge.
+- Entry: `GeoGdal.Bootstrap()` seats the drivers, PROJ paths, and the thrown SWIG error model; `GeoGdal.Derive(bytes, sink, suffix, run, lane)` acquires the `/vsimem` source and the sink path, opens the dataset, hands `run` the open dataset and the sink path, and releases BOTH on every arm; `GeoWire.ToGeoJson`/`ToGpkgBlob`/`FromGpkgBlob` project the row; `GeoWkb.ToNts`/`FromNts`/`ToOgr` cross the bridge.
 - Auto: `Derive` rides `IO.Bracket`, so release brackets the ACQUISITION rather than the outcome — the three hand `try`/`finally` pairs it replaces each spelled one acquire/release policy three times and each released only what its own body acquired.
 - Output: a derive leg returns its own `Fin`, the lane naming which derivation refused; the bracket adds no value of its own because a released resource is not evidence.
 - Packages: `NetTopologySuite`, `NetTopologySuite.IO.GeoJSON4STJ`, `NetTopologySuite.IO.GeoPackage`, `MaxRev.Gdal.Core`, `MaxRev.Gdal.MacosRuntime.Minimal.arm64`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`
@@ -469,62 +469,62 @@ public static class GeoGdal {
 
     public static Fin<A> Derive<A>(
         ReadOnlyMemory<byte> bytes, GdalSink sink, string suffix,
-        Func<OSGeo.GDAL.Dataset, string, Fin<A>> run, string lane, Op key) =>
-        IO.lift(() => key.Catch(() => {
+        Func<OSGeo.GDAL.Dataset, string, Fin<A>> run, string lane) =>
+        IO.lift(() => Try.lift(() => {
                 Bootstrap();
                 string source = GdalSink.Memory.Mint(".tif");
                 OSGeo.GDAL.Gdal.FileFromMemBuffer(source, bytes.ToArray());
                 return Fin.Succ((Source: source, Sink: sink.Mint(suffix)));
-            }))
+            }).Run().Bind(static inner => inner))
             .Bracket(
-                Use: scope => IO.lift(() => key.Catch(() => {
+                Use: scope => IO.lift(() => Try.lift(() => {
                     using var dataset = OSGeo.GDAL.Gdal.Open(scope.Source, OSGeo.GDAL.Access.GA_ReadOnly);
                     return run(dataset, scope.Sink);
-                })),
-                Fin: scope => IO.lift(() => key.Catch(() => {
+                }).Run().Bind(static inner => inner)),
+                Fin: scope => IO.lift(() => Try.lift(() => {
                     GdalSink.Memory.Release(scope.Source);
                     return Fin.Succ(sink.Release(scope.Sink));
-                })))
+                }).Run().Bind(static inner => inner)))
             .Try().runFin.As().Run()
             ;
 
-    public static Fin<A> Raster<A>(ReadOnlyMemory<byte> bytes, string suffix, Func<OSGeo.GDAL.Dataset, Fin<A>> run, string lane, Op key) =>
-        IO.lift(() => key.Catch(() => {
+    public static Fin<A> Raster<A>(ReadOnlyMemory<byte> bytes, string suffix, Func<OSGeo.GDAL.Dataset, Fin<A>> run, string lane) =>
+        IO.lift(() => Try.lift(() => {
                 Bootstrap();
                 string source = GdalSink.Memory.Mint(suffix);
                 OSGeo.GDAL.Gdal.FileFromMemBuffer(source, bytes.ToArray());
                 return Fin.Succ(source);
-            }))
+            }).Run().Bind(static inner => inner))
             .Bracket(
-                Use: source => IO.lift(() => key.Catch(() => {
+                Use: source => IO.lift(() => Try.lift(() => {
                     using var dataset = OSGeo.GDAL.Gdal.Open(source, OSGeo.GDAL.Access.GA_ReadOnly);
                     return run(dataset);
-                })),
-                Fin: source => IO.lift(() => key.Catch(() => Fin.Succ(GdalSink.Memory.Release(source)))))
+                }).Run().Bind(static inner => inner)),
+                Fin: source => IO.lift(() => Try.lift(() => Fin.Succ(GdalSink.Memory.Release(source))).Run().Bind(static inner => inner)))
             .Try().runFin.As().Run()
             ;
 
-    public static Fin<A> Vector<A>(ReadOnlyMemory<byte> bytes, Func<OSGeo.OGR.DataSource, Fin<A>> run, string lane, Op key) =>
-        IO.lift(() => key.Catch(() => {
+    public static Fin<A> Vector<A>(ReadOnlyMemory<byte> bytes, Func<OSGeo.OGR.DataSource, Fin<A>> run, string lane) =>
+        IO.lift(() => Try.lift(() => {
                 Bootstrap();
                 string source = GdalSink.Memory.Mint("");
                 OSGeo.GDAL.Gdal.FileFromMemBuffer(source, bytes.ToArray());
                 return Fin.Succ(source);
-            }))
+            }).Run().Bind(static inner => inner))
             .Bracket(
-                Use: source => IO.lift(() => key.Catch(() => {
+                Use: source => IO.lift(() => Try.lift(() => {
                     using var data = OSGeo.OGR.Ogr.Open(source, 0);
                     return run(data);
-                })),
-                Fin: source => IO.lift(() => key.Catch(() => Fin.Succ(GdalSink.Memory.Release(source)))))
+                }).Run().Bind(static inner => inner)),
+                Fin: source => IO.lift(() => Try.lift(() => Fin.Succ(GdalSink.Memory.Release(source))).Run().Bind(static inner => inner)))
             .Try().runFin.As().Run()
             ;
 
-    public static Fin<A> Author<A>(GdalSink sink, string suffix, Func<string, Fin<A>> run, string lane, Op key) =>
-        IO.lift(() => key.Catch(() => { Bootstrap(); return Fin.Succ(sink.Mint(suffix)); }))
+    public static Fin<A> Author<A>(GdalSink sink, string suffix, Func<string, Fin<A>> run, string lane) =>
+        IO.lift(() => Try.lift(() => { Bootstrap(); return Fin.Succ(sink.Mint(suffix)); }).Run().Bind(static inner => inner))
             .Bracket(
-                Use: path => IO.lift(() => key.Catch(() => run(path))),
-                Fin: path => IO.lift(() => key.Catch(() => Fin.Succ(sink.Release(path)))))
+                Use: path => IO.lift(() => Try.lift(() => run(path)).Run().Bind(static inner => inner)),
+                Fin: path => IO.lift(() => Try.lift(() => Fin.Succ(sink.Release(path))).Run().Bind(static inner => inner)))
             .Try().runFin.As().Run()
             ;
 }

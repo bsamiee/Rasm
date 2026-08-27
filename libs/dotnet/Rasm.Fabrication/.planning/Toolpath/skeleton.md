@@ -483,11 +483,9 @@ public static class Skeleton {
             origins,
             index,
             CutSignature.Of(demand.Strategy.Cut, ToolKey(demand), demand.Engagement.Route.WorkOffset, demand.Cutter, path)))
-        from element in CutElement.Admit(
-            key,
-            ToolKey(demand),
+        from element in CutElement.Admit(ToolKey(demand),
             demand.Engagement.Route.WorkOffset,
-            new EntryFamily.Fixed(ElementVariant.Of(key, path, demand.Modality)))
+            new EntryFamily.Fixed(ElementVariant.Of(path, demand.Modality)))
         select element;
 
     private static string ToolKey(SkeletonDemand demand) =>

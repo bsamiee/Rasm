@@ -312,9 +312,9 @@ public sealed record ClipboardRow(
 
     public static readonly ClipboardRow Asset = RoundTrip(
         "application/x-rasm-asset-key",
-        copy: static payload => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(key.Key)) : None,
+        copy: static payload => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes()) : None,
         paste: static bytes => Encoding.UTF8.GetString(bytes.Span) is { Length: > 0 } key
-            ? (Validation<Error, DragPayload>)new DragPayload.AssetKey(key)
+            ? (Validation<Error, DragPayload>)new DragPayload.AssetKey()
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("empty asset key"));
 
     public static readonly ClipboardRow Uris = RoundTrip(
@@ -479,7 +479,7 @@ public static class InputFabric {
     private static Seq<(string Key, CommandPayload Payload)> Invocations(InputDevice device, Seq<DeviceAxis> sample) =>
         device.Switch(
             state: sample,
-            verbed: static (current, source) => source.ToIntents(current).Map(static key => (key, (CommandPayload)new CommandPayload.None())),
+            verbed: static (current, source) => source.ToIntents(current).Map(static key => ((CommandPayload)new CommandPayload.None())),
             midiSurface: static (current, source) => source.ToParameters(current).Map(static parameter => (
                 parameter.Key,
                 (CommandPayload)new CommandPayload.Text(parameter.Value.ToString("R", CultureInfo.InvariantCulture)))));
@@ -845,10 +845,10 @@ public static class InputDrivers {
         });
 
     private static Fin<Option<TDevice>> Named<TDevice>(Func<TDevice> resolve) =>
-        Op.Of(name: "appui.input.resolve").Catch(() => Fin.Succ(Optional(resolve())));
+        Try.lift(() => Fin.Succ(Optional(resolve()))).Run().Bind(static inner => inner);
 
     private static Fin<T> Trapped<T>(Func<T> reach, DeviceClass kind) =>
-        Op.Of(name: $"appui.input.{kind.Key}").Catch(() => Fin.Succ(reach()));
+        Try.lift(() => Fin.Succ(reach())).Run().Bind(static inner => inner);
 
     private static Fin<T> Present<T>(Option<T> found, InputDriverFault absent) =>
         found.Match(Some: Fin.Succ, None: () => Fin.Fail<T>(absent));

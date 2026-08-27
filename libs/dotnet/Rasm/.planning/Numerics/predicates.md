@@ -67,7 +67,7 @@ public sealed partial class Axis {
         return (CanonicalBits(p.X), CanonicalBits(p.Y), CanonicalBits(p.Z));
     }
 
-    public static Fin<Axis> DominantOf(Vector3d d, Op? key = null) {
+    public static Fin<Axis> DominantOf(Vector3d d) {
         (double x, double y, double z) = (Math.Abs(d.X), Math.Abs(d.Y), Math.Abs(d.Z));
         return d.IsValid && !d.IsZero
             && x <= Expansion.SplitCeiling && y <= Expansion.SplitCeiling && z <= Expansion.SplitCeiling
@@ -75,11 +75,11 @@ public sealed partial class Axis {
                 : Fin.Fail<Axis>(key.OrDefault().InvalidInput());
     }
 
-    public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c, Op? key = null) =>
-        DominantOf(Vector3d.CrossProduct(b - a, c - a), key);
+    public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c) =>
+        DominantOf(Vector3d.CrossProduct(b - a, c - a));
 
-    public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c, Point3d d, Op? key = null) =>
-        DominantOf(Vector3d.CrossProduct(c - a, d - b), key);
+    public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c, Point3d d) =>
+        DominantOf(Vector3d.CrossProduct(c - a, d - b));
 }
 
 [Union<Point3d, Implicit.SegmentIntersection, Implicit.LinePlaneIntersection, Implicit.ThreePlaneIntersection>(

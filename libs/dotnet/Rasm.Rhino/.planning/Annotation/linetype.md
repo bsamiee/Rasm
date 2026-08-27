@@ -55,10 +55,10 @@ public sealed partial class SegmentRow {
         double run = length;
         validationError = double.IsFinite(run) && run > 0.0
             ? null
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(Length), run, "a finite positive segment length" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(Length), run, "a finite positive segment length" }));
     }
 
-    public static Fin<SegmentRow> Of(double length, DashRole role, Op? key = null) =>
+    public static Fin<SegmentRow> Of(double length, DashRole role) =>
         key.OrDefault().AcceptValidated<SegmentRow>(
             fault: Validate(length, role, out SegmentRow? admitted), admitted: admitted);
 
@@ -107,18 +107,18 @@ public abstract partial record ShapeRow {
     public sealed record CurveShape(GeometryHandle Glyph, double Offset) : ShapeRow;
     public sealed record TextShape(TextSpec Spec, Plane Frame, ResourceRef Style, double Offset) : ShapeRow;
 
-    internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype, Op key) => Switch(
-        (Document: document, Linetype: linetype, Op: key),
-        curveShape: static (context, row) => row.Glyph.Typed<Curve, Unit>(key: context.Op, project: glyph =>
-            from offset in context.Op.Accept(row.Offset)
-            from _ in context.Op.Confirm(success: context.Linetype.AddShape(shapeCurve: glyph, offset: row.Offset))
+    internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype) => Switch(
+        (Document: document, Linetype: linetype),
+        curveShape: static (context, row) => row.Glyph.Typed<Curve, Unit>(project: glyph =>
+            from offset in Acceptance.Rows(row.Offset)
+            from _ in Admit.Confirm(success: context.Linetype.AddShape(shapeCurve: glyph, offset: row.Offset))
             select unit),
         textShape: static (context, row) =>
-            from frame in context.Op.Accept(row.Frame)
-            from style in row.Style.Resolve(document: context.Document, lens: StyleOp.Lens, key: context.Op)
-            from glyph in row.Spec.Mint(plane: row.Frame, style: style, key: context.Op)
-            from offset in context.Op.Accept(row.Offset)
-            from _ in context.Op.Confirm(success: context.Linetype.AddShape(text: glyph, offset: row.Offset))
+            from frame in Acceptance.Rows(row.Frame)
+            from style in row.Style.Resolve(document: context.Document, lens: StyleOp.Lens)
+            from glyph in row.Spec.Mint(plane: row.Frame, style: style)
+            from offset in Acceptance.Rows(row.Offset)
+            from _ in Admit.Confirm(success: context.Linetype.AddShape(text: glyph, offset: row.Offset))
             select unit);
 }
 
@@ -133,20 +133,20 @@ public sealed partial class TaperRow {
         ref ValidationError? validationError, ref double startWidth, ref Option<Point2d> mid, ref double endWidth) {
         (double start, Option<Point2d> waist, double end) = (startWidth, mid, endWidth);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-            (!double.IsFinite(start) || start <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(StartWidth), start, "a finite positive width" }))),
-            (!double.IsFinite(end) || end <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(EndWidth), end, "a finite positive width" }))),
-            (waist.Exists(static point => !point.IsValid), static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Mid) })))));
+            (!double.IsFinite(start) || start <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(StartWidth), start, "a finite positive width" }))),
+            (!double.IsFinite(end) || end <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(EndWidth), end, "a finite positive width" }))),
+            (waist.Exists(static point => !point.IsValid), static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Mid) })))));
     }
 
-    public static Fin<TaperRow> Of(double startWidth, double endWidth, Option<Point2d> mid = default, Op? key = null) =>
+    public static Fin<TaperRow> Of(double startWidth, double endWidth, Option<Point2d> mid = default) =>
         key.OrDefault().AcceptValidated<TaperRow>(
             fault: Validate(startWidth, mid, endWidth, out TaperRow? admitted), admitted: admitted);
 
-    internal Fin<Unit> Apply(Linetype linetype, Op key) => Mid.Match(
-        Some: point => key.Catch(() => Fin.Succ(value: Op.Side(
-            () => linetype.SetTaper(startWidth: StartWidth, taperPoint: point, endWidth: EndWidth)))),
-        None: () => key.Catch(() => Fin.Succ(value: Op.Side(
-            () => linetype.SetTaper(startWidth: StartWidth, endWidth: EndWidth)))));
+    internal Fin<Unit> Apply(Linetype linetype) => Mid.Match(
+        Some: point => Try.lift(() => Fin.Succ(value: HostEdge.Side(
+            () => linetype.SetTaper(startWidth: StartWidth, taperPoint: point, endWidth: EndWidth)))).Run().Bind(static inner => inner),
+        None: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(
+            () => linetype.SetTaper(startWidth: StartWidth, endWidth: EndWidth)))).Run().Bind(static inner => inner));
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -157,8 +157,8 @@ public sealed partial class PatternText {
         value = value?.Trim() ?? string.Empty;
         string candidate = value;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-            (candidate.Length is 0, static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(PatternText) }))),
-            (candidate.Length > 0 && !Runs(candidate: candidate), static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(PatternText), "an alignment token followed by a comma-separated signed run of segment lengths" })))));
+            (candidate.Length is 0, static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PatternText) }))),
+            (candidate.Length > 0 && !Runs(candidate: candidate), static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PatternText), "an alignment token followed by a comma-separated signed run of segment lengths" })))));
     }
 
     private static bool Runs(string candidate) {
@@ -197,16 +197,16 @@ public sealed partial class StrokeDef {
         ref PatternDistance distances, ref PatternLock @lock, ref HashMap<string, string> tags) {
         (Seq<SegmentRow> run, double stroke, HashMap<string, string> bag) = (segments, width, tags);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-            (run.IsEmpty, static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Segments) }))),
-            (!double.IsFinite(stroke) || stroke <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Width), stroke, "a finite positive stroke width" }))),
+            (run.IsEmpty, static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Segments) }))),
+            (!double.IsFinite(stroke) || stroke <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Width), stroke, "a finite positive stroke width" }))),
             (!bag.ForAll(static pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value)),
-                static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Tags) })))));
+                static () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Tags) })))));
     }
 
     public static Fin<StrokeDef> Of(
         ResourceName name, Seq<SegmentRow> segments, Seq<ShapeRow> shapes, Option<TaperRow> taper,
         LinetypeCap cap, LinetypeJoin join, double width, ModelUnit widthUnits, PatternDistance distances,
-        PatternLock @lock, HashMap<string, string> tags = default, Op? key = null) =>
+        PatternLock @lock, HashMap<string, string> tags = default) =>
         key.OrDefault().AcceptValidated<StrokeDef>(
             fault: Validate(name, segments, shapes, taper, cap, join, width, widthUnits, distances, @lock, tags,
                 out StrokeDef? admitted),
@@ -214,14 +214,14 @@ public sealed partial class StrokeDef {
 
     internal Seq<double> SignedRun => Segments.Map(static row => row.Signed);
 
-    internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype, Op key) =>
-        from segments in key.Confirm(success: linetype.SetSegments(segments: SignedRun.AsIterable()))
-        from cleared in key.Catch(() => Fin.Succ(value: Op.Side(linetype.RemoveAllShapes)))
-        from shapes in Shapes.TraverseM(shape => shape.Apply(document: document, linetype: linetype, key: key)).As()
+    internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype) =>
+        from segments in Admit.Confirm(success: linetype.SetSegments(segments: SignedRun.AsIterable()))
+        from cleared in Try.lift(() => Fin.Succ(value: HostEdge.Side(linetype.RemoveAllShapes))).Run().Bind(static inner => inner)
+        from shapes in Shapes.TraverseM(shape => shape.Apply(document: document, linetype: linetype)).As()
         from taper in Taper.Match(
-            Some: row => row.Apply(linetype: linetype, key: key),
-            None: () => key.Catch(() => Fin.Succ(value: Op.Side(linetype.RemoveTaper))))
-        from configured in key.Catch(() => Fin.Succ(value: Op.Side(() => {
+            Some: row => row.Apply(linetype: linetype),
+            None: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(linetype.RemoveTaper))).Run().Bind(static inner => inner))
+        from configured in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
             linetype.Name = Name.Value;
             linetype.LineCapStyle = Cap.Host;
             linetype.LineJoinStyle = Join.Host;
@@ -229,24 +229,24 @@ public sealed partial class StrokeDef {
             linetype.WidthUnits = WidthUnits.System;
             linetype.AlwaysModelDistances = Distances.Key;
             linetype.IsPatternLocked = Lock.Key;
-        })))
-        from tags in new TagEdit.Replace(Tags: Tags).Apply(owner: Surface(linetype), op: key)
+        }))).Run().Bind(static inner => inner)
+        from tags in new TagEdit.Replace(Tags: Tags).Apply(owner: Surface(linetype))
         select unit;
 
     internal static TagSurface Surface(Linetype linetype) => new(
         linetype.GetUserStrings, linetype.SetUserString, linetype.DeleteUserString, linetype.DeleteAllUserStrings);
 
-    internal static Fin<StrokeDef> Read(Linetype linetype, Op key) => key.Catch(() =>
+    internal static Fin<StrokeDef> Read(Linetype linetype) => Try.lift(() =>
         from _ in guard(!linetype.HasShapes && Optional(linetype.GetTaperPoints()).Map(static rows => rows.Length).IfNone(0) is 0,
-            key.Unsupported(valueType: typeof(Linetype), outputType: typeof(StrokeDef))).ToFin()
-        from name in key.AcceptValidated<ResourceName>(candidate: linetype.Name)
+            new KernelFault.Unsupported(valueType: typeof(Linetype), OutputType: typeof(StrokeDef))).ToFin()
+        from name in FactoryBridge.Accept<ResourceName>(candidate: linetype.Name)
         from segments in toSeq(Enumerable.Range(start: 0, count: linetype.SegmentCount))
-            .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index, key: key)).As()
-        from cap in key.AcceptValidated<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
-        from join in key.AcceptValidated<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)
-        from widthUnits in ModelUnit.Of(value: linetype.WidthUnits, key: key)
-        from distances in key.AcceptValidated<PatternDistance>(candidate: linetype.AlwaysModelDistances)
-        from lockState in key.AcceptValidated<PatternLock>(candidate: linetype.IsPatternLocked)
+            .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index)).As()
+        from cap in FactoryBridge.Accept<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
+        from join in FactoryBridge.Accept<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)
+        from widthUnits in ModelUnit.Of(value: linetype.WidthUnits)
+        from distances in FactoryBridge.Accept<PatternDistance>(candidate: linetype.AlwaysModelDistances)
+        from lockState in FactoryBridge.Accept<PatternLock>(candidate: linetype.IsPatternLocked)
         from definition in Of(
             name: name,
             segments: segments,
@@ -258,18 +258,16 @@ public sealed partial class StrokeDef {
             widthUnits: widthUnits,
             distances: distances,
             @lock: lockState,
-            tags: TagOp.Snapshot(linetype.GetUserStrings()),
-            key: key)
-        select definition);
+            tags: TagOp.Snapshot(linetype.GetUserStrings()))
+        select definition).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StrokeStandard {
     public static Fin<StrokeDef> Def(
-        ResourceName name, LineType type, LineWidth width, HashMap<string, string> tags = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from units in ModelUnit.Of(value: UnitSystem.Millimeters, key: op)
-               from segments in Rhythm(type: type, width: width, key: op)
+        ResourceName name, LineType type, LineWidth width, HashMap<string, string> tags = default) {
+        return from units in ModelUnit.Of(value: UnitSystem.Millimeters)
+               from segments in Rhythm(type: type, width: width)
                from definition in StrokeDef.Of(
                    name: name,
                    segments: segments,
@@ -281,18 +279,17 @@ public static class StrokeStandard {
                    widthUnits: units,
                    distances: PatternDistance.ModelUnits,
                    @lock: PatternLock.Editable,
-                   tags: tags,
-                   key: op)
+                   tags: tags)
                select definition;
     }
 
-    private static Fin<Seq<SegmentRow>> Rhythm(LineType type, LineWidth width, Op key) =>
+    private static Fin<Seq<SegmentRow>> Rhythm(LineType type, LineWidth width) =>
         type.IsContinuous
-            ? SegmentRow.Of(length: width.Width.Millimeters, role: DashRole.Dash, key: key).Map(static row => Seq(row))
+            ? SegmentRow.Of(length: width.Width.Millimeters, role: DashRole.Dash).Map(static row => Seq(row))
             : type.Rhythm(width: width)
                 .TraverseM(pair =>
-                    from drawn in SegmentRow.Of(length: pair.Drawn.Millimeters, role: DashRole.Dash, key: key)
-                    from gap in SegmentRow.Of(length: pair.Gap.Millimeters, role: DashRole.Gap, key: key)
+                    from drawn in SegmentRow.Of(length: pair.Drawn.Millimeters, role: DashRole.Dash)
+                    from gap in SegmentRow.Of(length: pair.Gap.Millimeters, role: DashRole.Gap)
                     select Seq(drawn, gap))
                 .As()
                 .Map(static runs => runs.Bind(static run => run));
@@ -332,11 +329,11 @@ public abstract partial record LinetypeOp {
     public sealed record Undelete(ResourceRef Target) : LinetypeOp;
     public sealed record LoadDefaults(DeletedRows Policy) : LinetypeOp;
 
-    internal static Fin<SegmentRow> Segment(Linetype linetype, int index, Op key) =>
-        key.Catch(() => {
+    internal static Fin<SegmentRow> Segment(Linetype linetype, int index) =>
+        Try.lift(() => {
             linetype.GetSegment(index: index, length: out double length, isSolid: out bool solid);
-            return SegmentRow.Of(length: double.Abs(length), role: solid ? DashRole.Dash : DashRole.Gap, key: key);
-        });
+            return SegmentRow.Of(length: double.Abs(length), role: solid ? DashRole.Dash : DashRole.Gap);
+        }).Run().Bind(static inner => inner);
 
     internal static readonly ResourceLens<Linetype> Lens = WithPolicy(DeletedRows.Ignore);
 
@@ -359,92 +356,92 @@ public abstract partial record LinetypeOp {
     internal static readonly TableGrip<Linetype, StrokeDef> Grip = new(
         Lens,
         Named: static def => def.Name,
-        Title: static (linetype, key) => key.AcceptValidated<ResourceName>(candidate: linetype.Name),
+        Title: static (linetype, key) => FactoryBridge.Accept<ResourceName>(candidate: linetype.Name),
         Index: static linetype => linetype.LinetypeIndex,
         Duplicate: static live => new Linetype(other: live),
         Tags: StrokeDef.Surface,
         Mint: static (document, def, key) =>
-            from shaped in key.Catch(() => Fin.Succ(value: new Linetype()))
-            from _ in def.Apply(document: document, linetype: shaped, key: key)
+            from shaped in Try.lift(() => Fin.Succ(value: new Linetype())).Run().Bind(static inner => inner)
+            from _ in def.Apply(document: document, linetype: shaped)
                 .Rollback(
                     release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
             select shaped,
-        Revise: static (document, copy, def, key) => def.Apply(document: document, linetype: copy, key: key),
-        Retitle: static (copy, name, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => copy.Name = name.Value))),
-        Modify: static (document, copy, index, interaction, key) => key.Confirm(success: document.Linetypes.Modify(
+        Revise: static (document, copy, def, key) => def.Apply(document: document, linetype: copy),
+        Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
+        Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.Linetypes.Modify(
             linetype: copy, index: index, quiet: interaction.IsQuiet)),
-        Seat: static (document, linetype, key) => key.Catch(() => ResourceIndex.Admit(
-            document.Linetypes.Add(linetype: linetype), key)),
-        Retire: static (document, indices, interaction, key) => key.Confirm(success: document.Linetypes.Delete(
+        Seat: static (document, linetype, key) => Try.lift(() => ResourceIndex.Admit(
+            document.Linetypes.Add(linetype: linetype))).Run().Bind(static inner => inner),
+        Retire: static (document, indices, interaction, key) => Admit.Confirm(success: document.Linetypes.Delete(
             indices: indices.AsIterable(), quiet: interaction.IsQuiet)),
-        Elect: static (document, index, interaction, key) => key.Confirm(success: document.Linetypes.SetCurrentLinetypeIndex(
+        Elect: static (document, index, interaction, key) => Admit.Confirm(success: document.Linetypes.SetCurrentLinetypeIndex(
             linetypeIndex: index, quiet: interaction.IsQuiet)),
-        Scoped: static (copy, key) => key.Catch(() => {
+        Scoped: static (copy, key) => Try.lift(() => {
             bool locked = copy.IsPatternLocked;
             copy.IsPatternLocked = false;
-            return Fin.Succ<Func<Op, Fin<Unit>>>(value: exit =>
-                exit.Catch(() => Fin.Succ(value: Op.Side(() => copy.IsPatternLocked = locked))));
-        }),
-        Ingest: static (path, _, key) => key.Catch(() => Optional(Linetype.ReadFromFile(path: path.Value))
+            return Fin.Succ<Func< Fin<Unit>>>(value: exit =>
+                Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.IsPatternLocked = locked))).Run().Bind(static inner => inner));
+        }).Run().Bind(static inner => inner),
+        Ingest: static (path, _, key) => Try.lift(() => Optional(Linetype.ReadFromFile(path: path.Value))
             .Map(static values => toSeq(values).Strict())
-            .ToFin(Fail: key.InvalidResult())));
+            .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner));
 
-    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
-        table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
+    internal Fin<Unit> Apply(RhinoDoc document) => Switch(
+        document,
+        table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context),
         authorPattern: static (context, edit) =>
-            from _ in guard(!Grip.Occupied(context.Document, edit.Name), context.Op.InvalidInput()).ToFin()
-            from built in context.Op.Catch(() => Optional(Linetype.CreateFromPatternString(
+            from _ in guard(!Grip.Occupied(context, edit.Name), new KernelFault.InvalidInput()).ToFin()
+            from built in Try.lift(() => Optional(Linetype.CreateFromPatternString(
                     patternString: edit.Pattern.Value, millimeters: edit.Measure.Key))
-                .ToFin(Fail: context.Op.InvalidResult()))
+                .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from __ in new Lease<Linetype>.Owned(Value: built).Use(owned =>
-                from ___ in context.Op.Catch(() => Fin.Succ(value: Op.Side(() => owned.Name = edit.Name.Value)))
-                from ____ in new TagEdit.Replace(Tags: edit.Tags).Apply(owner: StrokeDef.Surface(owned), op: context.Op)
-                from _____ in Grip.Seat(context.Document, owned, context.Op)
+                from ___ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => owned.Name = edit.Name.Value))).Run().Bind(static inner => inner)
+                from ____ in new TagEdit.Replace(Tags: edit.Tags).Apply(owner: StrokeDef.Surface(owned))
+                from _____ in Grip.Seat(context, owned)
                 select unit)
             select unit,
         authorReference: static (context, edit) =>
-            from definition in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
-            from name in context.Op.AcceptValidated<ResourceName>(candidate: definition.Name)
-            from _ in guard(!Grip.Occupied(context.Document, name), context.Op.InvalidInput())
-            from __ in context.Op.Catch(() =>
-                ResourceIndex.Admit(context.Document.Linetypes.AddReferenceLinetype(linetype: definition), context.Op))
+            from definition in edit.Source.Resolve(document: context, lens: Lens)
+            from name in FactoryBridge.Accept<ResourceName>(candidate: definition.Name)
+            from _ in guard(!Grip.Occupied(context, name), new KernelFault.InvalidInput())
+            from __ in Try.lift(() =>
+                ResourceIndex.Admit(context.Linetypes.AddReferenceLinetype(linetype: definition))).Run().Bind(static inner => inner)
             select unit,
         relist: static (context, edit) =>
-            from _ in guard(!edit.Edits.IsEmpty, context.Op.InvalidInput()).ToFin()
+            from _ in guard(!edit.Edits.IsEmpty, new KernelFault.InvalidInput()).ToFin()
             from __ in Grip.Revised(
-                target: edit.Target, document: context.Document,
-                interaction: edit.Interaction, op: context.Op,
+                target: edit.Target, document: context,
+                interaction: edit.Interaction,
                 revise: (copy, key) => edit.Edits
                     .TraverseM(row => row.Apply(surface: Run(copy), op: key)).As().Map(static _ => unit))
             select unit,
         revert: static (context, edit) =>
-            from linetype in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
-            from _ in context.Op.Confirm(success: context.Document.Linetypes.UndoModify(index: linetype.LinetypeIndex))
+            from linetype in edit.Target.Resolve(document: context, lens: Lens)
+            from _ in Admit.Confirm(success: context.Linetypes.UndoModify(index: linetype.LinetypeIndex))
             select unit,
         reset: static (context, edit) =>
-            Grip.Revised(target: edit.Target, document: context.Document,
-                interaction: edit.Interaction, op: context.Op,
-                revise: static (copy, key) => key.Catch(() => Fin.Succ(value: Op.Side(copy.Default)))),
+            Grip.Revised(target: edit.Target, document: context,
+                interaction: edit.Interaction,
+                revise: static (copy, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(copy.Default))).Run().Bind(static inner => inner)),
         undelete: static (context, edit) =>
-            from linetype in edit.Target.Resolve(document: context.Document, lens: ReviveLens, key: context.Op)
-            from _ in context.Op.Confirm(success: context.Document.Linetypes.Undelete(index: linetype.LinetypeIndex))
+            from linetype in edit.Target.Resolve(document: context, lens: ReviveLens)
+            from _ in Admit.Confirm(success: context.Linetypes.Undelete(index: linetype.LinetypeIndex))
             select unit,
         loadDefaults: static (context, edit) =>
-            from count in context.Op.Catch(() => Fin.Succ(value: context.Document.Linetypes.LoadDefaultLinetypes(
-                ignoreDeleted: edit.Policy.Key)))
-            from _ in guard(count >= 0, context.Op.InvalidResult())
+            from count in Try.lift(() => Fin.Succ(value: context.Linetypes.LoadDefaultLinetypes(
+                ignoreDeleted: edit.Policy.Key))).Run().Bind(static inner => inner)
+            from _ in guard(count >= 0, new KernelFault.InvalidResult())
             select unit);
 
     private static ListSurface<SegmentRow> Run(Linetype linetype) => new(
         Count: () => linetype.SegmentCount,
         Append: (row, key) =>
-            from index in key.Catch(() => Fin.Succ(value: linetype.AppendSegment(
-                length: row.Length, isSolid: row.Role == DashRole.Dash)))
-            from _ in guard(index >= 0, key.InvalidResult())
+            from index in Try.lift(() => Fin.Succ(value: linetype.AppendSegment(
+                length: row.Length, isSolid: row.Role == DashRole.Dash))).Run().Bind(static inner => inner)
+            from _ in guard(index >= 0, new KernelFault.InvalidResult())
             select unit,
-        Remove: (index, key) => key.Confirm(success: linetype.RemoveSegment(index: index)),
-        Write: Some<Func<int, SegmentRow, Op, Fin<Unit>>>((index, row, key) => key.Confirm(success: linetype.SetSegment(
+        Remove: (index, key) => Admit.Confirm(success: linetype.RemoveSegment(index: index)),
+        Write: Some<Func<int, SegmentRow, Fin<Unit>>>((index, row, key) => Admit.Confirm(success: linetype.SetSegment(
             index: index, length: row.Length, isSolid: row.Role == DashRole.Dash))),
         Purge: default,
         Floor: 1);
@@ -458,10 +455,9 @@ public static class Linetypes {
             op: Op.Of(name: nameof(Linetypes)));
 
     public static Fin<LinetypeAnswer> Ask(DocumentSession session, LinetypeAsk request) {
-        Op op = Op.Of(name: nameof(Linetypes));
-        return from admitted in op.AcceptInput(value: request)
+        return from admitted in Acceptance.Input(value: request)
                from answer in session.Demand(
-                   use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
+                   use: document => admitted.Answer(document: document, op: op), needs: [SessionNeed.Read])
                select answer;
     }
 }
@@ -525,20 +521,19 @@ public abstract partial record LinetypeAsk {
     public sealed record ForObject(TableTarget Target) : LinetypeAsk;
     public sealed record MintName : LinetypeAsk;
 
-    internal Fin<LinetypeAnswer> Answer(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
-        state: static (context, ask) => context.Op.Catch(() =>
-            from linetype in ask.Target.Resolve(document: context.Document, lens: LinetypeOp.Lens, key: context.Op)
-            from name in context.Op.AcceptValidated<ResourceName>(candidate: linetype.Name)
+    internal Fin<LinetypeAnswer> Answer(RhinoDoc document) => Switch(
+        document,
+        state: static (context, ask) => Try.lift(() =>
+            from linetype in ask.Target.Resolve(document: context, lens: LinetypeOp.Lens)
+            from name in FactoryBridge.Accept<ResourceName>(candidate: linetype.Name)
             from segments in toSeq(Enumerable.Range(start: 0, count: linetype.SegmentCount))
-                .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index, key: context.Op)).As()
-            from cap in context.Op.AcceptValidated<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
-            from join in context.Op.AcceptValidated<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)
-            from widthUnits in ModelUnit.Of(value: linetype.WidthUnits, key: context.Op)
-            from distances in context.Op.AcceptValidated<PatternDistance>(candidate: linetype.AlwaysModelDistances)
-            from lockState in context.Op.AcceptValidated<PatternLock>(candidate: linetype.IsPatternLocked)
-            from pattern in context.Op.AcceptValidated<PatternText>(
-                candidate: linetype.PatternString(millimeters: ask.Measure.Key))
+                .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index)).As()
+            from cap in FactoryBridge.Accept<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
+            from join in FactoryBridge.Accept<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)
+            from widthUnits in ModelUnit.Of(value: linetype.WidthUnits)
+            from distances in FactoryBridge.Accept<PatternDistance>(candidate: linetype.AlwaysModelDistances)
+            from lockState in FactoryBridge.Accept<PatternLock>(candidate: linetype.IsPatternLocked)
+            from pattern in FactoryBridge.Accept<PatternText>(candidate: linetype.PatternString(millimeters: ask.Measure.Key))
             select (LinetypeAnswer)new LinetypeAnswer.State(new StrokeSnapshot(
                 ResourceId.Create(linetype.Id),
                 ResourceIndex.Create(linetype.LinetypeIndex),
@@ -560,37 +555,30 @@ public abstract partial record LinetypeAsk {
                 linetype.InUse,
                 linetype.IsModified,
                 TagOp.Snapshot(linetype.GetUserStrings()),
-                pattern))),
+                pattern))).Run().Bind(static inner => inner),
         tableState: static (context, _) =>
-            from source in context.Op.AcceptValidated<LinetypeSource>(
-                candidate: context.Document.Linetypes.CurrentLinetypeSource)
-            from scale in context.Op.AcceptValidated<DraftScale>(
-                candidate: context.Document.Linetypes.LinetypeScale)
-            from active in context.Op.AcceptValidated<DraftCount>(
-                candidate: context.Document.Linetypes.ActiveCount)
-            from continuous in context.Op.AcceptValidated<ResourceName>(
-                candidate: context.Document.Linetypes.ContinuousLinetypeName)
-            from byLayer in context.Op.AcceptValidated<ResourceName>(
-                candidate: context.Document.Linetypes.ByLayerLinetypeName)
-            from byParent in context.Op.AcceptValidated<ResourceName>(
-                candidate: context.Document.Linetypes.ByParentLinetypeName)
+            from source in FactoryBridge.Accept<LinetypeSource>(candidate: context.Linetypes.CurrentLinetypeSource)
+            from scale in FactoryBridge.Accept<DraftScale>(candidate: context.Linetypes.LinetypeScale)
+            from active in FactoryBridge.Accept<DraftCount>(candidate: context.Linetypes.ActiveCount)
+            from continuous in FactoryBridge.Accept<ResourceName>(candidate: context.Linetypes.ContinuousLinetypeName)
+            from byLayer in FactoryBridge.Accept<ResourceName>(candidate: context.Linetypes.ByLayerLinetypeName)
+            from byParent in FactoryBridge.Accept<ResourceName>(candidate: context.Linetypes.ByParentLinetypeName)
             select (LinetypeAnswer)new LinetypeAnswer.Rows(new LinetypeTableState(
                 active,
-                ResourceIndex.Create(context.Document.Linetypes.CurrentLinetypeIndex),
+                ResourceIndex.Create(context.Linetypes.CurrentLinetypeIndex),
                 source,
                 scale,
                 continuous,
                 byLayer,
                 byParent)),
         forObject: static (context, ask) =>
-            from row in ask.Target.Only<RhinoObject>(document: context.Document, key: context.Op)
-            from index in context.Op.Catch(() => Fin.Succ(value: context.Document.Linetypes.LinetypeIndexForObject(
-                rhinoObject: row.Native)))
+            from row in ask.Target.Only<RhinoObject>(document: context)
+            from index in Try.lift(() => Fin.Succ(value: context.Linetypes.LinetypeIndexForObject(
+                rhinoObject: row.Native))).Run().Bind(static inner => inner)
             from address in ResourceRef.Of(index: index)
             select (LinetypeAnswer)new LinetypeAnswer.Resolved(address),
         mintName: static (context, _) =>
-            from name in context.Op.Catch(() => context.Op.AcceptValidated<ResourceName>(
-                candidate: context.Document.Linetypes.GetUnusedLinetypeName()))
+            from name in Try.lift(() => FactoryBridge.Accept<ResourceName>(candidate: context.Linetypes.GetUnusedLinetypeName())).Run().Bind(static inner => inner)
             select (LinetypeAnswer)new LinetypeAnswer.Minted(name));
 }
 

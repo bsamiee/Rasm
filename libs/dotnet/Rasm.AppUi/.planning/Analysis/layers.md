@@ -96,7 +96,7 @@ public sealed partial class ResultKind {
     public partial Fin<RenderPass> Pass(ResultLayer layer, ResultRuntime runtime);
 
     public static Option<ResultKind> Find(string key) =>
-        TryGet(key, out ResultKind? row) ? Optional(row) : None;
+        TryGet(out ResultKind? row) ? Optional(row) : None;
 
     public Validation<Error, Unit> Admit(ResultPayload payload) =>
         (Col(!payload.Samples.IsEmpty, $"{Key}: no samples"),
@@ -215,7 +215,7 @@ public abstract partial record ResultDomain {
         coded: static _ => Colormap.Tableau);
 
     public LegendSpec Legend(string key, Option<MeasureRole> measure, int segments) => Switch(
-        state: (Key: key, Measure: measure, Segments: segments),
+        state: (Measure: measure, Segments: segments),
         continuous: static (s, d) => new LegendSpec(
             s.Key, new LegendDomain.Continuous(d.Low, d.High), LegendDock.BottomRight,
             Seq<LegendColumn>(), s.Measure, Math.Max(s.Segments, 2), Some(s.Key), None),
@@ -288,11 +288,10 @@ public sealed record ResultLayer(
         Option<MeasureRole> measure,
         AveragingPosture averaging,
         LayerProvenance provenance) =>
-        (Col(!string.IsNullOrWhiteSpace(key), "layer carries no key"),
+        (Col(!string.IsNullOrWhiteSpace(), "layer carries no key"),
          kind.Admit(payload),
-         Spanned(key, domain))
-        .Apply((_, _, _) => new ResultLayer(
-            key, kind, payload, domain, measure, domain.Palette, averaging,
+         Spanned(domain))
+        .Apply((_, _, _) => new ResultLayer(kind, payload, domain, measure, domain.Palette, averaging,
             UnitInterval.Create(1d), Visible: true, Seq(provenance)))
         .ToFin();
 
@@ -407,10 +406,10 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
     public Fin<LayerStack> Reseat(ResultLayer layer) => Rewrite(layer.Key, _ => layer);
 
     public Fin<LayerStack> Toggle(string key) =>
-        Rewrite(key, static layer => layer with { Visible = !layer.Visible });
+        Rewrite(static layer => layer with { Visible = !layer.Visible });
 
     public Fin<LayerStack> Dim(string key, UnitInterval opacity) =>
-        Rewrite(key, layer => layer with { Opacity = opacity });
+        Rewrite(layer => layer with { Opacity = opacity });
 
     public Fin<LayerStack> Raise(string key, int by) =>
         Layers.Map(static (layer, index) => (Index: index, Layer: layer)).Find(row => row.Layer.Key == key).Match(
@@ -424,7 +423,7 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
         rest.Take(target) + Seq(moved) + rest.Skip(target);
 
     public Fin<LayerStack> Drop(string key) =>
-        Find(key).Match(
+        Find().Match(
             Some: layer => Fin.Succ(this with { Layers = Layers.Filter(held => held.Key != layer.Key) }),
             None: () => Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{key} is not mounted")));
 
@@ -440,7 +439,7 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
             .Fold(scene, LanguageExt.HashSet<string>());
 
     Fin<LayerStack> Rewrite(string key, Func<ResultLayer, ResultLayer> edit) =>
-        Find(key).Match(
+        Find().Match(
             Some: layer => Fin.Succ(this with { Layers = Layers.Map(held => held.Key == key ? edit(held) : held) }),
             None: () => Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{key} is not mounted")));
 }
@@ -493,7 +492,7 @@ public static class AnalysisLayers {
                         return screen.Write(Selection, merged.Selection);
                     }),
                 Alive = screen => key =>
-                    screen.Composition.Layers(screen.Surface).Find(key).IsSome,
+                    screen.Composition.Layers(screen.Surface).Find().IsSome,
             };
 
     public static ControlIntent Body(LayerStack stack, ProbeReading reading, VirtualWindowSpec window) =>
@@ -591,14 +590,13 @@ public static class AnalysisLayers {
                 seated.Layer.Visible,
                 checked((uint)seated.Layer.Payload.Samples.Count),
                 new EffectMeasure.Digest(provenance.Digest)),
-            key: Op.Of(name: RunQueueSurface.AdoptIntent),
             body: _ => Fin.Succ(seated.Stack))
         select landed;
 
     public static Fin<Unit> Observe(InstrumentSet set, LayerStack stack, Option<string> study, ProbeReading reading) =>
         from _ in set.Level(Mounted, stack.Layers.Count)
         from adopted in study.Match(
-            Some: key => set.Write(Adopted, 1L, InstrumentSet.Tags((AppUiTelemetry.SourceSlot, key))),
+            Some: key => set.Write(Adopted, 1L, InstrumentSet.Tags((AppUiTelemetry.SourceSlot))),
             None: static () => Fin.Succ(unit))
         from probed in set.Enabled(Seq(Probed))
             ? reading.Hits.TraverseM(hit => set.Write(Probed, 1L,
@@ -849,7 +847,6 @@ public sealed partial class BakeVerb {
                  layer.Visible,
                  checked((uint)layer.Payload.Samples.Count),
                  new EffectMeasure.Digest(provenance.Digest)),
-             key: Op.Of(name: Intent),
              body: _ => Fin.Succ(product)))
          select settled)
         .runFin.As();
@@ -866,8 +863,7 @@ public static class BakeFolds {
         IO.pure(
             from provenance in layer.Provenance
             let key = $"{AnalysisLayers.Plane}.{layer.Key}@{provenance.Correlation}"
-            from view in Viewpoint.Capture(
-                key, context.Revision(key),
+            from view in Viewpoint.Capture(context.Revision(),
                 context.Camera, context.Section, stack.Ground(context.Scene),
                 Seq<string>(), Seq<ViewMeasurement>(), context.Clock.GetCurrentInstant())
             select (BakeProduct)new BakeProduct.View(view));

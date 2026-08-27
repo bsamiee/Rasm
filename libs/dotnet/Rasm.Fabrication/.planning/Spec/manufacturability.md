@@ -148,10 +148,10 @@ public sealed partial class DfmConcern {
     public bool AppliesTo(ModalityClass cls) => Classes.Contains(cls);
 
     private static DfmConcern Any(string key, bool required) =>
-        For(key, required, ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined);
+        For(required, ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined);
 
     private static DfmConcern For(string key, bool required, params ModalityClass[] classes) =>
-        new(key, toSet(classes), required);
+        new(toSet(classes), required);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -188,9 +188,9 @@ public sealed partial class DfmProvenance {
     public static readonly DfmProvenance Probed = Stepped("probed");
 
     private static DfmProvenance Closed(string key) =>
-        new(key, static resolution => resolution is DfmResolution.Exact { IsValid: true });
+        new(static resolution => resolution is DfmResolution.Exact { IsValid: true });
     private static DfmProvenance Stepped(string key) =>
-        new(key, static resolution => resolution is DfmResolution.Discretized { IsValid: true });
+        new(static resolution => resolution is DfmResolution.Discretized { IsValid: true });
 
     [UseDelegateFromConstructor]
     public partial bool Admits(DfmResolution resolution);
@@ -797,7 +797,6 @@ public sealed record DfmReport(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Manufacturability {
-    internal static readonly Op DfmOp = Op.Of(name: "fabrication:manufacturability");
 
     internal static ValidationError Validation(string locus) => new($"manufacturability:{locus}");
 
@@ -834,9 +833,7 @@ public static class Manufacturability {
         from key in FabricationCanon.Keyed(
             EgressKind.QualityRecord, request.Policy.ArcTolerance.Millimeters,
             writer => Request(writer, request), DfmOp)
-        select new DfmReport(
-            key,
-            request.Component.RepresentationKey,
+        select new DfmReport(request.Component.RepresentationKey,
             evidence,
             verdicts,
             rows,

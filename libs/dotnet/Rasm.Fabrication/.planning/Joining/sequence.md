@@ -1108,7 +1108,6 @@ public static class Sequence {
             .Map(solved => Measured(kernel, loads + restraint, vector, solved));
     }
 
-    private static readonly Op Key = Op.Of(name: nameof(Sequence));
 
     private static DistortionField Measured(
         DistortionKernel kernel,

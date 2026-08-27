@@ -127,7 +127,7 @@ public abstract partial record SubDCreationLaw : IValidityEvidence {
         preset: static law => (ValidityClaim)(law.Row is not null),
         custom: static law => (ValidityClaim)law.Value.IsValid);
 
-    internal Fin<Lease<SubDCreationOptions>> Rig(Op key) =>
+    internal Fin<Lease<SubDCreationOptions>> Rig() =>
         Lease<SubDCreationOptions>.Acquire(
             mint: () => Switch(
                 preset: static law => law.Row.Mint(),
@@ -141,8 +141,7 @@ public abstract partial record SubDCreationLaw : IValidityEvidence {
                     MinimumConcaveCornerAngleRadians = law.Value.MinimumConcaveCornerAngleRadians,
                     MinimumConcaveCornerEdgeCount = law.Value.MinimumConcaveCornerEdgeCount,
                     InterpolateMeshVertices = law.Value.VertexInterpolation.Native,
-                }),
-            key: key);
+                }));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -223,9 +222,9 @@ public readonly partial struct SubDBrepLaw : IValidityEvidence {
 
     public bool IsValid => Admits(Packing, VertexProcess);
 
-    internal Fin<Lease<SubDToBrepOptions>> Rig(Op key) =>
+    internal Fin<Lease<SubDToBrepOptions>> Rig() =>
         Lease<SubDToBrepOptions>.Acquire(
-            mint: () => new SubDToBrepOptions(packFaces: Packing.Native, vertexProcess: VertexProcess), key: key);
+            mint: () => new SubDToBrepOptions(packFaces: Packing.Native, vertexProcess: VertexProcess));
 
     private static bool Admits(
         SubDFacePacking? packing,
@@ -279,20 +278,19 @@ public readonly partial struct SubDEdgeSelection : IValidityEvidence {
 
 ## [03]-[ALGEBRA]
 
-- Owner: `SubDEditVerb` `[Union]` `[GenerateUnionOps]` — the value-semantic edit algebra, each verb carrying its own generated `SelfOp` and its own arm; `SubDOp` `[Union]` `[GenerateUnionOps]` — the sole construction algebra; `SubDs` — the one entry folding any operation spread into one product sequence.
+- Owner: `SubDEditVerb` `[Union]` `` — the value-semantic edit algebra, each verb carrying its own generated `SelfOp` and its own arm; `SubDOp` `[Union]` `` — the sole construction algebra; `SubDs` — the one entry folding any operation spread into one product sequence.
 - Law: `SubDSurfaceInterpolator` is UNREACHABLE from this pipeline, so no scoped-interpolation family stands here. All four factories set `ContextId` from `subd.ParentRhinoObject().Id`, and `GeometryBase.Duplicate` mints its copy with a null parent, so every value-semantic edit — duplicating by construction — meets a null dereference before the solver exists; `SubD.InterpolateSurfacePoints(uint[], Point3d[])` builds that same solver internally and fails identically. `SubD.InterpolateSurfacePoints(Point3d[])` reaches the native directly and is the one detached-safe interpolation, so `Interpolate` runs whole-surface and gates its arity against the live vertex roster. `SetVertexPoint` remains the one id-addressed surface-point write, and RhinoCommon rules it unsuited to topologically near vertices, which is why no batch sibling stands beside it.
-- Law: each edit verb carries its OWN operation key — a refusal on `TagEdges` and a refusal on `Pack` reported one indistinguishable `Edit` key, so `[GenerateUnionOps]` on the verb roster names the verb in the fault while the borrow window stays keyed to `Edit`.
+- Law: each edit verb carries its OWN operation key — a refusal on `TagEdges` and a refusal on `Pack` reported one indistinguishable `Edit` key, so `` on the verb roster names the verb in the fault while the borrow window stays keyed to `Edit`.
 - Law: id space and index space never mix — `uint` is a host component ID (`SetVertexSurfacePoint`) and `int` is an offset into a live roster (`Subdivide(faceIndices)`, `SetVertexTags`, `SetEdgeTags`), while `ComponentIndex` is its own third space. No id takes an index bound, because `Vertices.Count` both refuses live ids above the roster length and admits dead ones below it, so the host's own `bool` is the only sound id gate; an index DOES take one, and that bound is the arm's guard against the live roster.
 - Law: quad-remesh composition feeds the meshing pipeline's `QuadRemesh` product to `FromMesh`; no second remesh entry exists here, and one- and two-rail sweeps are direct `SubDOp` cases because their admission, identity, timing, and consumer coincide.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis and a new case breaks the compile instead of falling through a catch-all to a silent refusal.
 - Law: `SubDs.Build` is `ModelGate.Entry` — capture, the non-empty guard, accumulating admission, and the custody-safe product fold remain folder-spine concerns. Construction arms own fresh geometry, the edit arm duplicates exactly once and rolls the duplicate back on failure, and the extraction arm detaches edge curves.
 - Growth: a new subd constructor is one `SubDOp` case with its arm; a new edit is one `SubDEditVerb` case with its arm and its generated key.
-- Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266` incl. `CreateFromMesh`/`CreateFromSurface`/`CreateFromLoft`/`CreateFromSweep`/`CreateQuadSphere`/`CreateGlobeSphere`/`CreateTriSphere`/`CreateIcosahedron`/`CreateFromCylinder`/`JoinSubDs`, `SubD` edit `:273-282` incl. `Subdivide`/`Offset`/`ToBrep`/`InterpolateSurfacePoints`/`MergeAllCoplanarFaces`/`PackFaces`/`Flip`/`TransformComponents`/`SetVertexSurfacePoint`/`UpdateAllTagsAndSectorCoefficients`/`UpdateSurfaceMeshCache`, `SubD` topology `:307-314` incl. `DuplicateEdgeCurves`/`SetVertexTags`/`SetEdgeTags`), `Modeling/lofting.md` (`SweepFrameLaw`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), kernel `Domain/results` (`Op`, `Op.Confirm`, `Op.Catch`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266` incl. `CreateFromMesh`/`CreateFromSurface`/`CreateFromLoft`/`CreateFromSweep`/`CreateQuadSphere`/`CreateGlobeSphere`/`CreateTriSphere`/`CreateIcosahedron`/`CreateFromCylinder`/`JoinSubDs`, `SubD` edit `:273-282` incl. `Subdivide`/`Offset`/`ToBrep`/`InterpolateSurfacePoints`/`MergeAllCoplanarFaces`/`PackFaces`/`Flip`/`TransformComponents`/`SetVertexSurfacePoint`/`UpdateAllTagsAndSectorCoefficients`/`UpdateSurfaceMeshCache`, `SubD` topology `:307-314` incl. `DuplicateEdgeCurves`/`SetVertexTags`/`SetEdgeTags`), `Modeling/lofting.md` (`SweepFrameLaw`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), kernel `Domain/results` (`Op`, `Op.Confirm`, `Op.Catch`, `Lease<T>.Use`, `` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[GenerateUnionOps]
 public abstract partial record SubDEditVerb : IValidityEvidence {
     private SubDEditVerb() { }
     public sealed record SubdivideAll(int Count = 1) : SubDEditVerb;
@@ -332,76 +330,75 @@ public abstract partial record SubDEditVerb : IValidityEvidence {
         Switch(
             (Working: working, Domain: domain),
             subdivideAll: static (ctx, edit) =>
-                from _ in SubdivideAll.SelfOp.Confirm(success: ctx.Working.Subdivide(count: edit.Count))
+                from _ in Admit.Confirm(success: ctx.Working.Subdivide(count: edit.Count))
                 from built in Refreshed(op: SubdivideAll.SelfOp, working: ctx.Working)
                 select built,
             subdivideFaces: static (ctx, edit) =>
                 from _ in guard(edit.Faces.ForAll(face => face < ctx.Working.Faces.Count),
-                    SubdivideFaces.SelfOp.InvalidInput(axis: nameof(edit.Faces)))
-                from __ in SubdivideFaces.SelfOp.Confirm(success: ctx.Working.Subdivide(faceIndices: edit.Faces.AsIterable()))
+                    new KernelFault.InvalidInput(Axis: Some(nameof(edit.Faces))))
+                from __ in Admit.Confirm(success: ctx.Working.Subdivide(faceIndices: edit.Faces.AsIterable()))
                 from built in Refreshed(op: SubdivideFaces.SelfOp, working: ctx.Working)
                 select built,
             interpolate: static (ctx, edit) =>
                 from _ in guard(edit.SurfacePoints.Count == ctx.Working.Vertices.Count,
-                    Interpolate.SelfOp.InvalidInput(axis: nameof(edit.SurfacePoints)))
-                from __ in Interpolate.SelfOp.Confirm(
+                    new KernelFault.InvalidInput(Axis: Some(nameof(edit.SurfacePoints))))
+                from __ in Admit.Confirm(
                     success: ctx.Working.InterpolateSurfacePoints(surfacePoints: edit.SurfacePoints.ToArray()))
                 from built in Refreshed(op: Interpolate.SelfOp, working: ctx.Working)
                 select built,
             setVertexPoint: static (ctx, edit) =>
-                from _ in SetVertexPoint.SelfOp.Confirm(success: ctx.Working.SetVertexSurfacePoint(
+                from _ in Admit.Confirm(success: ctx.Working.SetVertexSurfacePoint(
                     vertexIndex: edit.VertexId, surfacePoint: edit.SurfacePoint))
                 from built in Refreshed(op: SetVertexPoint.SelfOp, working: ctx.Working)
                 select built,
             shell: static (ctx, edit) => ModelGate.Owned(Shell.SelfOp, ctx.Working,
                 () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Solid)),
             mergeCoplanar: static ctx =>
-                from _ in MergeCoplanar.SelfOp.Confirm(success: ctx.Working.MergeAllCoplanarFaces(
+                from _ in Admit.Confirm(success: ctx.Working.MergeAllCoplanarFaces(
                     tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value))
                 from built in Refreshed(op: MergeCoplanar.SelfOp, working: ctx.Working)
                 select built,
-            pack: static ctx => Pack.SelfOp.Catch(() => {
+            pack: static ctx => Try.lift(() => {
                 _ = ctx.Working.PackFaces();
                 return ModelGate.Kept(Pack.SelfOp, ctx.Working);
-            }),
+            }).Run().Bind(static inner => inner),
             flip: static ctx =>
-                from _ in Flip.SelfOp.Confirm(success: ctx.Working.Flip())
+                from _ in Admit.Confirm(success: ctx.Working.Flip())
                 from built in Refreshed(op: Flip.SelfOp, working: ctx.Working)
                 select built,
             tagVertices: static (ctx, edit) =>
                 from _ in guard(edit.Vertices.ForAll(vertex => vertex < ctx.Working.Vertices.Count),
-                    TagVertices.SelfOp.InvalidInput(axis: nameof(edit.Vertices)))
-                from built in TagVertices.SelfOp.Catch(() => {
+                    new KernelFault.InvalidInput(Axis: Some(nameof(edit.Vertices))))
+                from built in Try.lift(() => {
                     ctx.Working.Vertices.SetVertexTags(vertexIndices: edit.Vertices.AsIterable(), tag: edit.Tag);
                     return Refreshed(op: TagVertices.SelfOp, working: ctx.Working);
-                })
+                }).Run().Bind(static inner => inner)
                 select built,
             tagEdges: static (ctx, edit) =>
                 from _ in guard(edit.Edges.ForAll(edge => edge < ctx.Working.Edges.Count),
-                    TagEdges.SelfOp.InvalidInput(axis: nameof(edit.Edges)))
-                from built in TagEdges.SelfOp.Catch(() => {
+                    new KernelFault.InvalidInput(Axis: Some(nameof(edit.Edges))))
+                from built in Try.lift(() => {
                     ctx.Working.Edges.SetEdgeTags(edgeIndices: edit.Edges.AsIterable(), tag: edit.Tag);
                     return Refreshed(op: TagEdges.SelfOp, working: ctx.Working);
-                })
+                }).Run().Bind(static inner => inner)
                 select built,
-            moveComponents: static (ctx, edit) => MoveComponents.SelfOp.Catch(() =>
+            moveComponents: static (ctx, edit) => Try.lift(() =>
                 ctx.Working.TransformComponents(
                         components: edit.Components.AsIterable(), xform: edit.Motion,
                         componentLocation: edit.Location) is uint moved && moved > 0u
                     ? Refreshed(op: MoveComponents.SelfOp, working: ctx.Working)
                     : Fin.Fail<Seq<GeometryHandle>>(
-                        error: MoveComponents.SelfOp.InvalidResult(detail: "no addressed component moved"))));
+                        error: new KernelFault.InvalidResult(Detail: Some("no addressed component moved")))).Run().Bind(static inner => inner));
 
-    private static Fin<Seq<GeometryHandle>> Refreshed(Op op, SubD working) =>
-        op.Catch(() => {
+    private static Fin<Seq<GeometryHandle>> Refreshed(SubD working) =>
+        Try.lift(() => {
             _ = working.UpdateAllTagsAndSectorCoefficients();
             _ = working.UpdateSurfaceMeshCache(lazyUpdate: false);
-            return ModelGate.Kept(op, working);
-        });
+            return ModelGate.Kept(working);
+        }).Run().Bind(static inner => inner);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-[GenerateUnionOps]
 public abstract partial record SubDOp {
     private SubDOp() { }
     public sealed record FromMesh(GeometryHandle Source, SubDCreationLaw Law) : SubDOp;
@@ -419,82 +416,82 @@ public abstract partial record SubDOp {
     public sealed record ToBrep(GeometryHandle Target, SubDBrepLaw Law) : SubDOp;
     public sealed record EdgeCurves(GeometryHandle Target, SubDEdgeSelection Selection) : SubDOp;
 
-    internal Fin<SubDOp> Admitted(Op key) =>
+    internal Fin<SubDOp> Admitted() =>
         Switch(
             context: key,
-            fromMesh: static (op, row) => ModelClaim.Admits(row, op,
+            fromMesh: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)), (nameof(row.Law), row.Law is { IsValid: true })),
-            fromSurface: static (op, row) => ModelClaim.Admits(row, op,
+            fromSurface: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Method), Enum.IsDefined(row.Method)), (nameof(row.Corners), row.Corners is not null)),
-            fromLoft: static (op, row) => ModelClaim.Admits(row, op,
+            fromLoft: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Shapes), ValidityClaim.All(
                     ModelClaim.Handles(handles: row.Shapes),
                     ValidityClaim.CountAtLeast(count: row.Shapes.Count, floor: row.Closure is { Native: true } ? 3 : 1))),
                 (nameof(row.Closure), row.Closure is not null),
                 (nameof(row.Features), row.Features is not null),
                 (nameof(row.Divisions), ValidityClaim.CountAtLeast(count: row.Divisions, floor: 1))),
-            fromSweepOne: static (op, row) => ModelClaim.Admits(row, op,
+            fromSweepOne: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)),
                 (nameof(row.Frame), row.Frame is { IsValid: true }),
                 (nameof(row.Shapes), ModelClaim.Handles(handles: row.Shapes)),
                 (nameof(row.Closure), row.Closure is not null), (nameof(row.Corners), row.Corners is not null)),
-            fromSweepTwo: static (op, row) => ModelClaim.Admits(row, op,
+            fromSweepTwo: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Rail1), ModelClaim.Handle(handle: row.Rail1)),
                 (nameof(row.Rail2), ModelClaim.Handle(handle: row.Rail2)),
                 (nameof(row.Shapes), ModelClaim.Handles(handles: row.Shapes)),
                 (nameof(row.Closure), row.Closure is not null), (nameof(row.Corners), row.Corners is not null)),
-            seedQuadSphere: static (op, row) => ModelClaim.Admits(row, op,
+            seedQuadSphere: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Value), row.Value.IsValid), (nameof(row.VertexLocation), Enum.IsDefined(row.VertexLocation))),
-            seedGlobeSphere: static (op, row) => ModelClaim.Admits(row, op,
+            seedGlobeSphere: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Value), row.Value.IsValid), (nameof(row.VertexLocation), Enum.IsDefined(row.VertexLocation)),
                 (nameof(row.AxialFaceCount), row.AxialFaceCount > 0u),
                 (nameof(row.EquatorialFaceCount), row.EquatorialFaceCount >= 3u)),
-            seedTriSphere: static (op, row) => ModelClaim.Admits(row, op,
+            seedTriSphere: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Value), row.Value.IsValid), (nameof(row.VertexLocation), Enum.IsDefined(row.VertexLocation))),
-            seedIcosahedron: static (op, row) => ModelClaim.Admits(row, op,
+            seedIcosahedron: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Value), row.Value.IsValid), (nameof(row.VertexLocation), Enum.IsDefined(row.VertexLocation))),
-            seedCylinder: static (op, row) => ModelClaim.Admits(row, op,
+            seedCylinder: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Value), row.Value.IsValid),
                 (nameof(row.CircumferenceFaceCount), row.CircumferenceFaceCount >= 3u),
                 (nameof(row.HeightFaceCount), row.HeightFaceCount > 0u),
                 (nameof(row.EndCap), Enum.IsDefined(row.EndCap)),
                 (nameof(row.EndCapEdgeTag), Enum.IsDefined(row.EndCapEdgeTag)),
                 (nameof(row.RadiusLocation), Enum.IsDefined(row.RadiusLocation))),
-            join: static (op, row) => ModelClaim.Admits(row, op,
+            join: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets)),
                 (nameof(row.Policy), row.Policy is not null)),
-            edit: static (op, row) => ModelClaim.Admits(row, op,
+            edit: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Verb), row.Verb is { IsValid: true })),
-            toBrep: static (op, row) => ModelClaim.Admits(row, op,
+            toBrep: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Law), row.Law.IsValid)),
-            edgeCurves: static (op, row) => ModelClaim.Admits(row, op,
+            edgeCurves: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Selection), row.Selection.IsValid)));
 
     internal Fin<Seq<GeometryHandle>> Apply(Context domain) =>
         Switch(
             context: domain,
             fromMesh: static (_, edit) => ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(
-                handle: edit.Source, key: FromMesh.SelfOp, body: mesh =>
-                    from held in edit.Law.Rig(key: FromMesh.SelfOp)
+                handle: edit.Source, body: mesh =>
+                    from held in edit.Law.Rig()
                     from built in held.Use(
                         body: options => ModelGate.Single(FromMesh.SelfOp, () => SubD.CreateFromMesh(mesh: mesh, options: options)),
                         key: FromMesh.SelfOp)
                     select built),
             fromSurface: static (_, edit) => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(
-                handle: edit.Source, key: FromSurface.SelfOp, body: surface =>
+                handle: edit.Source, body: surface =>
                     ModelGate.Single(FromSurface.SelfOp, () => SubD.CreateFromSurface(
                         surface: surface, method: edit.Method, corners: edit.Corners.Native))),
             fromLoft: static (_, edit) => ModelGate.BorrowMany<NurbsCurve, Seq<GeometryHandle>>(
-                handles: edit.Shapes, key: FromLoft.SelfOp, body: shapes => {
+                handles: edit.Shapes, body: shapes => {
                     (bool corners, bool creases) = edit.Features.Native;
                     return ModelGate.Single(FromLoft.SelfOp, () => SubD.CreateFromLoft(
                         curves: shapes.AsIterable(), closed: edit.Closure.Native, addCorners: corners,
                         addCreases: creases, divisions: edit.Divisions));
                 }),
             fromSweepOne: static (_, edit) => ModelGate.BorrowMany<NurbsCurve, Seq<GeometryHandle>>(
-                handles: edit.Shapes, key: FromSweepOne.SelfOp, body: shapes =>
-                    ModelGate.Borrow<NurbsCurve, Seq<GeometryHandle>>(handle: edit.Rail, key: FromSweepOne.SelfOp, body: rail => {
+                handles: edit.Shapes, body: shapes =>
+                    ModelGate.Borrow<NurbsCurve, Seq<GeometryHandle>>(handle: edit.Rail, body: rail => {
                         (SweepFrame frame, Vector3d normal) = edit.Frame.Native;
                         return ModelGate.Single(FromSweepOne.SelfOp, () => SubD.CreateFromSweep(
                             rail1: rail, shapes: shapes.AsIterable(), closed: edit.Closure.Native,
@@ -502,9 +499,9 @@ public abstract partial record SubDOp {
                             roadlikeNormal: normal));
                     })),
             fromSweepTwo: static (_, edit) => ModelGate.BorrowMany<NurbsCurve, Seq<GeometryHandle>>(
-                handles: edit.Shapes, key: FromSweepTwo.SelfOp, body: shapes =>
-                    ModelGate.Borrow<NurbsCurve, Seq<GeometryHandle>>(handle: edit.Rail1, key: FromSweepTwo.SelfOp, body: rail1 =>
-                        ModelGate.Borrow<NurbsCurve, Seq<GeometryHandle>>(handle: edit.Rail2, key: FromSweepTwo.SelfOp, body: rail2 =>
+                handles: edit.Shapes, body: shapes =>
+                    ModelGate.Borrow<NurbsCurve, Seq<GeometryHandle>>(handle: edit.Rail1, body: rail1 =>
+                        ModelGate.Borrow<NurbsCurve, Seq<GeometryHandle>>(handle: edit.Rail2, body: rail2 =>
                             ModelGate.Single(FromSweepTwo.SelfOp, () => SubD.CreateFromSweep(
                                 rail1: rail1, rail2: rail2, shapes: shapes.AsIterable(),
                                 closed: edit.Closure.Native, addCorners: edit.Corners.Native))))),
@@ -524,27 +521,27 @@ public abstract partial record SubDOp {
                     heightFaceCount: edit.HeightFaceCount, endCapStyle: edit.EndCap,
                     endCapEdgeTag: edit.EndCapEdgeTag, radiusLocation: edit.RadiusLocation)),
             join: static (model, edit) => ModelGate.BorrowMany<SubD, Seq<GeometryHandle>>(
-                handles: edit.Targets, key: Join.SelfOp, body: targets => {
+                handles: edit.Targets, body: targets => {
                     (bool creases, bool preserveSymmetry) = edit.Policy.Native;
                     return ModelGate.Many(Join.SelfOp, () => SubD.JoinSubDs(
                         subdsToJoin: targets.AsIterable(), tolerance: model.Absolute.Value,
                         joinedEdgesAreCreases: creases, preserveSymmetry: preserveSymmetry));
                 }),
             edit: static (model, request) => ModelGate.Borrow<SubD, Seq<GeometryHandle>>(
-                handle: request.Target, key: Edit.SelfOp, body: source =>
-                    Edit.SelfOp.Catch(() => {
+                handle: request.Target, body: source =>
+                    Try.lift(() => {
                         SubD working = (SubD)source.Duplicate();
                         return request.Verb.Apply(working: working, domain: model).Rollback(working);
-                    })),
+                    }).Run().Bind(static inner => inner)),
             toBrep: static (_, edit) => ModelGate.Borrow<SubD, Seq<GeometryHandle>>(
-                handle: edit.Target, key: ToBrep.SelfOp, body: subd =>
-                    from held in edit.Law.Rig(key: ToBrep.SelfOp)
+                handle: edit.Target, body: subd =>
+                    from held in edit.Law.Rig()
                     from built in held.Use(
                         body: options => ModelGate.Single(ToBrep.SelfOp, () => subd.ToBrep(options: options)),
                         key: ToBrep.SelfOp)
                     select built),
             edgeCurves: static (_, edit) => ModelGate.Borrow<SubD, Seq<GeometryHandle>>(
-                handle: edit.Target, key: EdgeCurves.SelfOp, body: subd => {
+                handle: edit.Target, body: subd => {
                     (bool boundary, bool interior, bool smooth, bool sharp, bool crease, bool clamp) = edit.Selection.Native;
                     return ModelGate.Many(EdgeCurves.SelfOp, () => subd.DuplicateEdgeCurves(
                             boundaryOnly: boundary, interiorOnly: interior, smoothOnly: smooth,
@@ -561,7 +558,7 @@ public static class SubDs {
             ModelGate.Entry(
                 runtime: runtime,
                 operations: captured,
-                admit: static (operation, key) => operation.Admitted(key: key),
+                admit: static (operation, key) => operation.Admitted(),
                 apply: static (operation, model) => operation.Apply(domain: model)).ToEff());
     }
 }

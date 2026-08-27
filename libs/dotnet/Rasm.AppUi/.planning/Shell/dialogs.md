@@ -372,7 +372,6 @@ public sealed record DialogPort(
     Option<Func<PickRequest, Task<Seq<FileLocation>>>> PickPipe);
 
 public sealed class DialogTopology {
-    private static readonly Op Reservation = Op.Of(name: "appui.dialog.reserve");
 
     private readonly Atom<Seq<QueuedToast>> held = Atom(Seq<QueuedToast>());
     private readonly Atom<bool> occupied = Atom(false);
@@ -430,14 +429,13 @@ public abstract partial record SessionVerb {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class DialogSurface {
-    private static readonly Op Registration = Op.Of(name: "appui.dialog.register");
 
     private static readonly CapabilitySet<MountTrait> CanvasReach = CapabilitySet<MountTrait>.Of(MountTrait.Canvas);
 
     public static Fin<DialogTopology> Derive(ConsumptionProfile profile, SurfaceMount mount, DialogPort port) =>
         MountPolicy.Of(mount) switch {
             var policy => RootKey.Of(profile.HostKey, policy.Key)
-                .Map(key => new DialogTopology(key, policy, Positioner(policy), port))
+                .Map(key => new DialogTopology(policy, Positioner(policy), port))
                 .ToFin(),
         };
 
@@ -832,7 +830,6 @@ public sealed record ToastPipe(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed class ToastPlane : WindowToastManager {
-    private static readonly Op Span = Op.Of(name: "appui.toast.span");
 
     private readonly Atom<HashMap<CorrelationId, LiveToast>> live = Atom(HashMap<CorrelationId, LiveToast>());
     private readonly MonotonicTimeline line;
@@ -879,12 +876,12 @@ public sealed class ToastPlane : WindowToastManager {
             ShowIcon = true,
             ShowClose = true,
         };
-        LiveToast entry = new(card, line.Capture(Span).ToOption(), note.Row);
+        LiveToast entry = new(card, Error.New(Span.Message, Span).ToOption(), note.Row);
         return entry.Bind(
             Observable.FromEventPattern<MessageClosedEventArgs>(card, nameof(ToastCard.MessageClosed))
                 .Subscribe(args => ignore(Closed(entry, note, seal, args.EventArgs.Reason))),
             Observable.FromEventPattern<PointerPressedEventArgs>(card, nameof(InputElement.PointerPressed))
-                .Subscribe(_ => note.IntentKey.Iter(key => ignore(raise(key).Run()))),
+                .Subscribe(_ => note.IntentKey.Iter(key => ignore(raise().Run()))),
             Hovered(card, entry)).Bind(_ => {
                 ignore(live.Swap(map => map.AddOrUpdate(note.Correlation, entry)));
                 return Seated(card, entry);
@@ -900,7 +897,7 @@ public sealed class ToastPlane : WindowToastManager {
 
     Option<Duration> Elapsed(LiveToast entry) =>
         from seated in entry.Shown
-        from end in line.Capture(Span).ToOption()
+        from end in Error.New(Span.Message, Span).ToOption()
         from span in line.Elapsed(seated, end, Span).ToOption()
         select Duration.FromTimeSpan(span);
 
@@ -959,7 +956,6 @@ public sealed class ToastPlane : WindowToastManager {
     Unit Paused(LiveToast entry) => entry.Unwind();
 
     sealed class LiveToast {
-        private static readonly Op Custody = Op.Of(name: "appui.toast.custody");
 
         private readonly Atom<Option<IDisposable>> linger = Atom(Option<IDisposable>.None);
         private readonly Atom<Option<Lease<IDisposable>>> bindings = Atom(Option<Lease<IDisposable>>.None);

@@ -256,16 +256,14 @@ public sealed partial class GCommand {
     public bool Serves(ProcessModality modality) => Modalities.IsEmpty || Modalities.Contains(modality);
 
     private static GCommand MotionRow(string key, string code, MotionRole role, params ReadOnlySpan<DialectFeature> requires) =>
-        new(key, code, ModalGroup.Motion, new CommandGrammar(Set<char>(), Motion, Set<char>(), WordValueLaw.Symbolic),
+        new(code, ModalGroup.Motion, new CommandGrammar(Set<char>(), Motion, Set<char>(), WordValueLaw.Symbolic),
             role, Set(requires.ToArray()), Set<ProcessModality>(), None);
     private static GCommand StateRow(string key, string code, ModalGroup group, params ReadOnlySpan<DialectFeature> requires) =>
-        new(key, code, group, Empty, MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
+        new(code, group, Empty, MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
     private static GCommand Aux(string key, string code, ModalGroup group, Set<char> allowed, params ReadOnlySpan<DialectFeature> requires) =>
-        new(key, code, group, new CommandGrammar(Set<char>(), allowed, Set<char>(), WordValueLaw.Symbolic),
+        new(code, group, new CommandGrammar(Set<char>(), allowed, Set<char>(), WordValueLaw.Symbolic),
             MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
-    private static GCommand CycleRow(string key, string code, Set<char> required, params ReadOnlySpan<DialectFeature> requires) => new(
-        key,
-        code,
+    private static GCommand CycleRow(string key, string code, Set<char> required, params ReadOnlySpan<DialectFeature> requires) => new(code,
         ModalGroup.Cycle,
         new CommandGrammar(required, required + Axes + Set('P', 'Q', 'L'), Set<char>(), WordValueLaw.Symbolic),
         MotionRole.None,
@@ -838,7 +836,6 @@ public sealed record ModalState(
 }
 
 public sealed class CutProgram {
-    private static readonly Op Mint = Op.Of(name: nameof(CutProgram));
 
     private Fin<ContentKey>? key;
     private Seq<UInt128>? keys;

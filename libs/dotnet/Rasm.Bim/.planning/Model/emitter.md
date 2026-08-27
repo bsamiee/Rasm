@@ -253,7 +253,7 @@ internal static class IfcOverlays {
 ## [03]-[TAXONOMY_EMITTER]
 
 - Owner: `IfcVocabularyEmitter` the OFFLINE BCL-reflection emitter whose output is the committed `Model/elements#IFC_CLASS` row region; `VocabularyRow` the row currency one render line commits. Span derivation is ATTRIBUTE-FIRST, index-corrected: class-level `[VersionAdded]` rides 85 roster types (`IfcBridge` IFC4X2, `IfcAlignment` IFC4X1, `IfcRoad` IFC4X3) and lowers release-exact through `Model/elements#IFC_CLASS` `ReleaseMap`, while the change index covers the unattributed majority at class grain and CORRECTS the token grain, where GG attributes diverge from schema truth both ways.
-- Entry: `Emit(Assembly gg, IfcVocabulary vocabulary, FrozenSet<(string Entity, string Predefined)> stamps, Op key)` returns `Fin<string>` — ONE entrypoint owning the whole regeneration: reflect the roster, gate the published membership, run the census, resolve disciplines, source spans, audit, render. The eight overlay parameters it once carried are the `IfcVocabulary` the caller already holds, so the signature states what the emit needs and nothing the data reconstructs.
+- Entry: `Emit(Assembly gg, IfcVocabulary vocabulary, FrozenSet<(string Entity, string Predefined)> stamps)` returns `Fin<string>` — ONE entrypoint owning the whole regeneration: reflect the roster, gate the published membership, run the census, resolve disciplines, source spans, audit, render. The eight overlay parameters it once carried are the `IfcVocabulary` the caller already holds, so the signature states what the emit needs and nothing the data reconstructs.
 - Auto: `Emit` reflects the `IfcObjectDefinition` closure through `Op.Catch`, drops the unpublished draft surface at the index membership gate (a verdict, never a fault), runs `Census` over the reflected `[Obsolete]` marks, resolves domain inheritance through one QuikGraph DAG, lowers class and token release attributes through `ReleaseMap`, audits orphaned stamps and identifier collisions, then renders deterministic declarations under stable markers. `Census` and `Audit` ACCUMULATE on `Validation` and cross back to the `Fin` result through the folder's `Error.Many`, so a pin bump reads every disagreement in one run instead of the first: a stale overlay row no longer hides an orphan stamp, and one entity's missing window no longer hides another's missing mark. The committed rows carry capability; the marker carries no version or provenance fact.
 - Packages: GeometryGymIFC_Core (the reflected attribute surface), QuikGraph (`BidirectionalGraph`, `TopologicalSort`, `BreadthFirstSearchAlgorithm`), `Rasm` (the kernel `Op`), Rasm.Element (the shared `ReleaseVersion`), LanguageExt.Core
 - Growth: a new IFC release is one `ReleaseMap` row over a shared roster row that ranks itself; every other change is a regenerated change index or one `IfcOverlays` row — the emit body absorbs none of them.
@@ -271,7 +271,6 @@ using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
 using Rasm.Element.Graph;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim.Model;
@@ -284,23 +283,23 @@ public readonly record struct VocabularyRow(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IfcVocabularyEmitter {
     public static Fin<string> Emit(
-        Assembly gg, IfcVocabulary vocabulary, FrozenSet<(string Entity, string Predefined)> stamps, Op key) =>
-        key.Catch(() => toSeq(gg.GetExportedTypes()
-                .Where(t => typeof(IfcObjectDefinition).IsAssignableFrom(t) && !t.IsGenericType && vocabulary.Spans.ContainsKey(t.Name))))
-            .Bind(roster => (Census(roster, vocabulary, key)).ToFin().Map(_ => roster))
-            .Bind(roster => DomainAtlas(roster, vocabulary.Claims, key)
+        Assembly gg, IfcVocabulary vocabulary, FrozenSet<(string Entity, string Predefined)> stamps) =>
+        Try.lift(() => toSeq(gg.GetExportedTypes()
+                .Where(t => typeof(IfcObjectDefinition).IsAssignableFrom(t) && !t.IsGenericType && vocabulary.Spans.ContainsKey(t.Name)))).Run().Bind(static inner => inner)
+            .Bind(roster => (Census(roster, vocabulary)).ToFin().Map(_ => roster))
+            .Bind(roster => DomainAtlas(roster, vocabulary.Claims)
                 .Bind(domains => roster
-                    .Traverse(entity => RowOf(entity, domains, vocabulary, key)).As()
-                    .Bind(rows => (Audit(rows, stamps, vocabulary, key)).ToFin())
+                    .Traverse(entity => RowOf(entity, domains, vocabulary)).As()
+                    .Bind(rows => (Audit(rows, stamps, vocabulary)).ToFin())
                     .Map(rows => Render(rows.OrderBy(static row => row.Entity, StringComparer.Ordinal)))));
 
     // --- [CENSUS]
 
-    private static Validation<Error, Unit> Census(Seq<Type> roster, IfcVocabulary vocabulary, Op key) =>
-        roster.Traverse(entity => Agrees(entity, vocabulary, key)).As().Map(static _ => unit);
+    private static Validation<Error, Unit> Census(Seq<Type> roster, IfcVocabulary vocabulary) =>
+        roster.Traverse(entity => Agrees(entity, vocabulary)).As().Map(static _ => unit);
 
-    private static Validation<Error, Unit> Agrees(Type entity, IfcVocabulary vocabulary, Op key) {
-        (Type Entity, bool Marked, Op Key) census = (entity, entity.GetCustomAttribute<ObsoleteAttribute>() is not null, key);
+    private static Validation<Error, Unit> Agrees(Type entity, IfcVocabulary vocabulary) {
+        (Type Entity, bool Marked) census = (entity, entity.GetCustomAttribute<ObsoleteAttribute>() is not null);
         return Verdict(vocabulary, entity.Name).Match(
             None: () => census.Marked ? Refuse(census, "window") : Success<Error, Unit>(unit),
             Some: verdict => verdict.Switch(
@@ -312,8 +311,8 @@ public static class IfcVocabularyEmitter {
                 ghost:              static (s, _) => Refuse(s, "ghost-shipped")));
     }
 
-    private static Validation<Error, Unit> Refuse((Type Entity, bool Marked, Op Key) census, string arm) =>
-        Fail<Error, Unit>(new BimFault.Refused(census.Key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "retirement-miss", arm, census.Entity.Name })));
+    private static Validation<Error, Unit> Refuse((Type Entity, bool Marked) census, string arm) =>
+        Fail<Error, Unit>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "retirement-miss", arm, census.Entity.Name })));
 
     private static Option<OverlayVerdict> Verdict(IfcVocabulary vocabulary, string entity) =>
         Optional(vocabulary.Verdicts.GetValueOrDefault(entity));
@@ -321,7 +320,7 @@ public static class IfcVocabularyEmitter {
     // --- [DOMAIN_ATLAS]
 
     private static Fin<HashMap<Type, IfcDomain>> DomainAtlas(
-        Seq<Type> roster, FrozenDictionary<string, DomainClaim> claims, Op key) {
+        Seq<Type> roster, FrozenDictionary<string, DomainClaim> claims) {
         BidirectionalGraph<Type, SEdge<Type>> dag = new(allowParallelEdges: false);
         dag.AddVertexRange(roster);
         roster.Iter(entity => Optional(entity.BaseType).Filter(dag.ContainsVertex).Iter(super => dag.AddEdge(new SEdge<Type>(super, entity))));
@@ -330,7 +329,7 @@ public static class IfcVocabularyEmitter {
             .OrderBy(static row => row.Claim.Tier.Key)
             .Fold(HashMap<Type, IfcDomain>(), (map, row) => row.Claim.Tier.Apply(dag, map, row.Vertex, row.Claim.Domain));
         return roster.Filter(vertex => !resolved.ContainsKey(vertex)) is { IsEmpty: false } uncovered
-            ? Fin.Fail<HashMap<Type, IfcDomain>>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "domain-root-miss", string.Join(',', uncovered.Map(static v => v.Name)) })))
+            ? Fin.Fail<HashMap<Type, IfcDomain>>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "domain-root-miss", string.Join(',', uncovered.Map(static v => v.Name)) })))
             : Fin.Succ(resolved);
     }
 
@@ -345,9 +344,9 @@ public static class IfcVocabularyEmitter {
 
     // --- [ROW_SOURCING]
 
-    private static Fin<VocabularyRow> RowOf(Type entity, HashMap<Type, IfcDomain> domains, IfcVocabulary vocabulary, Op key) =>
-        Introduced(entity.Name, entity.GetCustomAttribute<VersionAddedAttribute>(), vocabulary, inherit: None, key)
-            .Bind(introduced => Tokens(entity, introduced, vocabulary, key)
+    private static Fin<VocabularyRow> RowOf(Type entity, HashMap<Type, IfcDomain> domains, IfcVocabulary vocabulary) =>
+        Introduced(entity.Name, entity.GetCustomAttribute<VersionAddedAttribute>(), vocabulary, inherit: None)
+            .Bind(introduced => Tokens(entity, introduced, vocabulary)
                 .Map(tokens => new VocabularyRow(
                     entity.Name, domains[entity], introduced, RemovedIn(Verdict(vocabulary, entity.Name)),
                     Eligibility(entity, vocabulary), tokens)));
@@ -371,62 +370,62 @@ public static class IfcVocabularyEmitter {
                 .Map(static property => property.PropertyType).Filter(static pt => pt.IsEnum)
             | TokenEnum(t.BaseType));
 
-    private static Fin<Seq<PredefinedRow>> Tokens(Type entity, ReleaseVersion classIntroduced, IfcVocabulary vocabulary, Op key) =>
+    private static Fin<Seq<PredefinedRow>> Tokens(Type entity, ReleaseVersion classIntroduced, IfcVocabulary vocabulary) =>
         TokenEnum(entity).Match(
             None: () => Fin.Succ(Seq<PredefinedRow>()),
             Some: tokenEnum => toSeq(Enum.GetNames(tokenEnum))
                 .Filter(name => name is not ("NOTDEFINED" or "USERDEFINED") && vocabulary.Spans.ContainsKey(string.Concat(entity.Name, ".", name)))
                 .Traverse(name => Introduced(
                         string.Concat(entity.Name, ".", name), tokenEnum.GetField(name)?.GetCustomAttribute<VersionAddedAttribute>(),
-                        vocabulary, inherit: Some(classIntroduced), key)
+                        vocabulary, inherit: Some(classIntroduced))
                     .Map(introduced => new PredefinedRow(name, introduced))).As());
 
     private static Fin<ReleaseVersion> Introduced(
-        string indexKey, VersionAddedAttribute? attribute, IfcVocabulary vocabulary, Option<ReleaseVersion> inherit, Op key) =>
+        string indexKey, VersionAddedAttribute? attribute, IfcVocabulary vocabulary, Option<ReleaseVersion> inherit) =>
         (vocabulary.Spans.TryGetValue(indexKey, out Option<ReleaseVersion> pinned) ? pinned : None).Match(
             Some: Fin.Succ,
             None: () => attribute is { Release: var release }
                 ? ReleaseMap.Lower.TryGetValue(release, out ReleaseVersion? lowered) && lowered is { } low
                     ? Fin.Succ(low)
-                    : Fin.Fail<ReleaseVersion>(new BimFault.Refused(key, BimScope.Model, BimReason.Codec, string.Join(':', new object?[] { "release-unmapped", indexKey, release })))
-                : inherit.ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "introduction-miss", indexKey }))));
+                    : Fin.Fail<ReleaseVersion>(new BimFault.Refused(BimScope.Model, BimReason.Codec, string.Join(':', new object?[] { "release-unmapped", indexKey, release })))
+                : inherit.ToFin(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "introduction-miss", indexKey }))));
 
     // --- [GATE_ZERO]
 
     private static Validation<Error, Seq<VocabularyRow>> Audit(
-        Seq<VocabularyRow> rows, FrozenSet<(string Entity, string Predefined)> stamps, IfcVocabulary vocabulary, Op key) {
+        Seq<VocabularyRow> rows, FrozenSet<(string Entity, string Predefined)> stamps, IfcVocabulary vocabulary) {
         HashMap<string, VocabularyRow> byEntity = rows.Fold(HashMap<string, VocabularyRow>(), static (map, row) => map.AddOrUpdate(row.Entity, row));
-        return (Duplicated(rows, key), Stale(byEntity, vocabulary, key), Orphans(byEntity, stamps, key), Collided(rows, key))
+        return (Duplicated(rows), Stale(byEntity, vocabulary), Orphans(byEntity, stamps), Collided(rows))
             .Apply(static (_, _, _, _) => unit).As().Map(_ => rows);
     }
 
-    private static Validation<Error, Unit> Duplicated(Seq<VocabularyRow> rows, Op key) =>
+    private static Validation<Error, Unit> Duplicated(Seq<VocabularyRow> rows) =>
         Reported("entity-duplicated", toSeq(rows.GroupBy(static row => row.Entity, StringComparer.Ordinal)
-            .Where(static group => group.Count() > 1).Select(static group => group.Key)), key);
+            .Where(static group => group.Count() > 1).Select(static group => group.Key)));
 
-    private static Validation<Error, Unit> Stale(HashMap<string, VocabularyRow> byEntity, IfcVocabulary vocabulary, Op key) =>
+    private static Validation<Error, Unit> Stale(HashMap<string, VocabularyRow> byEntity, IfcVocabulary vocabulary) =>
         Reported("overlay-stale", (toSeq(vocabulary.Spans).Filter(static row => row.Value.IsSome).Map(static row => row.Key)
                 + toSeq(vocabulary.Verdicts.Keys).Filter(name => !Verdict(vocabulary, name).Exists(static v => v.IsGhost))
                 + toSeq(vocabulary.Claims.Keys))
             .Filter(overlay => overlay.Split('.') is var half && byEntity.Find(half[0]).Match(
                 Some: row => half.Length > 1 && !row.Tokens.Exists(t => t.Token == half[1]),
-                None: static () => true)), key);
+                None: static () => true)));
 
     private static Validation<Error, Unit> Orphans(
-        HashMap<string, VocabularyRow> byEntity, FrozenSet<(string Entity, string Predefined)> stamps, Op key) =>
+        HashMap<string, VocabularyRow> byEntity, FrozenSet<(string Entity, string Predefined)> stamps) =>
         Reported("stamp-orphan", stamps.AsIterable().ToSeq()
             .Filter(stamp => byEntity.Find(stamp.Entity).Match(
                 Some: row => stamp.Predefined is not ("" or "NOTDEFINED" or "USERDEFINED")
                     && !row.Tokens.IsEmpty && !row.Tokens.Exists(t => t.Token == stamp.Predefined),
                 None: static () => true))
-            .Map(static stamp => $"{stamp.Entity}.{stamp.Predefined}"), key);
+            .Map(static stamp => $"{stamp.Entity}.{stamp.Predefined}"));
 
-    private static Validation<Error, Unit> Collided(Seq<VocabularyRow> rows, Op key) =>
+    private static Validation<Error, Unit> Collided(Seq<VocabularyRow> rows) =>
         Reported("identifier-collision", toSeq(rows.Map(Identifier).GroupBy(static id => id, StringComparer.Ordinal)
-            .Where(static group => group.Count() > 1).Select(static group => group.Key)), key);
+            .Where(static group => group.Count() > 1).Select(static group => group.Key)));
 
-    private static Validation<Error, Unit> Reported(string arm, Seq<string> subjects, Op key) =>
-        subjects.IsEmpty ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", arm, string.Join(',', subjects) })));
+    private static Validation<Error, Unit> Reported(string arm, Seq<string> subjects) =>
+        subjects.IsEmpty ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", arm, string.Join(',', subjects) })));
 
     // --- [RENDER]
 
@@ -452,7 +451,7 @@ public static class IfcVocabularyEmitter {
 ## [04]-[REGENERATION]
 
 - Owner: `VocabularyRegeneration` the design-time runner a GeometryGym pin bump or a new IFC release executes — the ONE producer of the committed region, so the generator stops being law without a producer; `RegenerationRequest` the four admitted seeds (pinned assembly, EXPRESS change index, Materials stamp seeds, the committed source file); `EmittedRegion` the assembly, row count, and region digest one run commits.
-- Entry: `VocabularyRegeneration.Run(RegenerationRequest request, Op key)` returns `Fin<EmittedRegion>` and is the whole regeneration; `Main(string[] args)` is the process boundary the `Codegen` configuration starts, projecting that result onto an exit code. Invocation is `dotnet run --project libs/dotnet/Rasm.Bim/Rasm.Bim.csproj -c Codegen -- <assembly> <index> <stamps> <source>`; the configuration condition is the only thing it adds to the shipped library, whose `Debug`/`Release` output is unchanged.
+- Entry: `VocabularyRegeneration.Run(RegenerationRequest request)` returns `Fin<EmittedRegion>` and is the whole regeneration; `Main(string[] args)` is the process boundary the `Codegen` configuration starts, projecting that result onto an exit code. Invocation is `dotnet run --project libs/dotnet/Rasm.Bim/Rasm.Bim.csproj -c Codegen -- <assembly> <index> <stamps> <source>`; the configuration condition is the only thing it adds to the shipped library, whose `Debug`/`Release` output is unchanged.
 - Auto: the run admits its four seeds at the boundary, mints the `IfcVocabulary` through `IfcOverlays.Vocabulary`, runs `Emit`, then SPLICES the returned region between the committed marker pair — a source whose markers are absent, out of order, or duplicated refuses `region-marker-miss` rather than writing a region into an unknown position. `EmittedRegion.Region` content-keys the emitted region through the kernel `ContentHash.Of` so two runs over one pin prove identical without a text diff.
 - Packages: `Rasm` (the kernel `Op`, `ContentHash`), Rasm.Element (the shared `ReleaseVersion` the index admits to), LanguageExt.Core, BCL inbox
 - Growth: a new seed is one `RegenerationRequest` column and one admission; the emit body never learns about a file.
@@ -476,7 +475,6 @@ public readonly record struct EmittedRegion(string Assembly, int Rows, UInt128 R
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 public static class VocabularyRegeneration {
-    private static readonly Op Key = Op.Of(name: nameof(VocabularyRegeneration));
 
     private const string Open = "    // <generated-rows>";
     private const string Close = "    // <end generated-rows>";
@@ -492,28 +490,28 @@ public static class VocabularyRegeneration {
                 return 1;
             });
 
-    public static Fin<EmittedRegion> Run(RegenerationRequest request, Op key) =>
-        from assembly in key.Catch(() => Assembly.LoadFrom(request.Assembly))
-        from spans in ChangeIndex(request.Index, key)
-        from stamps in StampSeeds(request.Stamps, key)
-        from source in Text(request.Source, key)
-        from region in IfcVocabularyEmitter.Emit(assembly, IfcOverlays.Vocabulary(spans), stamps, key)
-        from written in Splice(request.Source, source, region, key)
+    public static Fin<EmittedRegion> Run(RegenerationRequest request) =>
+        from assembly in Try.lift(() => Assembly.LoadFrom(request.Assembly)).Run().Bind(static inner => inner)
+        from spans in ChangeIndex(request.Index)
+        from stamps in StampSeeds(request.Stamps)
+        from source in Text(request.Source)
+        from region in IfcVocabularyEmitter.Emit(assembly, IfcOverlays.Vocabulary(spans), stamps)
+        from written in Splice(request.Source, source, region)
         select new EmittedRegion(
             assembly.GetName().Name ?? request.Assembly,
             written.Count(c => c == '\n') - 1,
             ContentHash.Of(region, static (text, writer) => writer.String(text)));
 
-    private static Fin<string> Splice(string path, string source, string region, Op key) =>
+    private static Fin<string> Splice(string path, string source, string region) =>
         (source.IndexOf(Open, StringComparison.Ordinal), source.LastIndexOf(Open, StringComparison.Ordinal),
          source.IndexOf(Close, StringComparison.Ordinal), source.LastIndexOf(Close, StringComparison.Ordinal)) switch {
             (var open, var lastOpen, var close, var lastClose) when open >= 0 && open == lastOpen && close > open && close == lastClose =>
-                key.Catch(() => {
+                Try.lift(() => {
                     string spliced = string.Concat(source[..open], region, source[(close + Close.Length)..]);
                     File.WriteAllText(path, spliced);
                     return region;
-                }),
-            _ => Fin.Fail<string>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "region-marker-miss", path }))),
+                }).Run().Bind(static inner => inner),
+            _ => Fin.Fail<string>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "region-marker-miss", path }))),
         };
 
     // --- [ADMISSION]
@@ -523,30 +521,30 @@ public static class VocabularyRegeneration {
             ? Fin.Succ(new RegenerationRequest(assembly, index, stamps, source))
             : Fin.Fail<RegenerationRequest>(new BimFault.Refused(Key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "argument-arity", string.Join(' ', args) })));
 
-    private static Fin<FrozenDictionary<string, Option<ReleaseVersion>>> ChangeIndex(string path, Op key) =>
-        Rows(path, key).Bind(rows => rows
+    private static Fin<FrozenDictionary<string, Option<ReleaseVersion>>> ChangeIndex(string path) =>
+        Rows(path).Bind(rows => rows
             .Traverse(row => row.Split('\t') switch {
                 [var name] => Fin.Succ((Name: name, Release: Option<ReleaseVersion>.None)),
                 [var name, var release] => ReleaseVersion.TryGet(release, out ReleaseVersion? row) && row is { } known
                     ? Fin.Succ((Name: name, Release: Some(known)))
-                    : Fin.Fail<(string, Option<ReleaseVersion>)>(new BimFault.Refused(key, BimScope.Model, BimReason.Codec, string.Join(':', new object?[] { "release-unmapped", name, release }))),
-                var malformed => Fin.Fail<(string, Option<ReleaseVersion>)>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "index-malformed", string.Join('\t', malformed) }))),
+                    : Fin.Fail<(string, Option<ReleaseVersion>)>(new BimFault.Refused(BimScope.Model, BimReason.Codec, string.Join(':', new object?[] { "release-unmapped", name, release }))),
+                var malformed => Fin.Fail<(string, Option<ReleaseVersion>)>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "index-malformed", string.Join('\t', malformed) }))),
             }).As()
             .Map(static admitted => admitted.ToFrozenDictionary(static row => row.Name, static row => row.Release)));
 
-    private static Fin<FrozenSet<(string Entity, string Predefined)>> StampSeeds(string path, Op key) =>
-        Rows(path, key).Bind(rows => rows
+    private static Fin<FrozenSet<(string Entity, string Predefined)>> StampSeeds(string path) =>
+        Rows(path).Bind(rows => rows
             .Traverse(row => row.Split('\t') switch {
                 [var entity, var predefined] => Fin.Succ((Entity: entity, Predefined: predefined)),
-                var malformed => Fin.Fail<(string, string)>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "stamp-malformed", string.Join('\t', malformed) }))),
+                var malformed => Fin.Fail<(string, string)>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "stamp-malformed", string.Join('\t', malformed) }))),
             }).As()
             .Map(static admitted => admitted.ToFrozenSet()));
 
-    private static Fin<Seq<string>> Rows(string path, Op key) =>
-        Text(path, key).Map(static text => toSeq(text.Split('\n')).Map(static row => row.Trim()).Filter(static row => row.Length > 0));
+    private static Fin<Seq<string>> Rows(string path) =>
+        Text(path).Map(static text => toSeq(text.Split('\n')).Map(static row => row.Trim()).Filter(static row => row.Length > 0));
 
-    private static Fin<string> Text(string path, Op key) =>
-        key.Catch(() => File.ReadAllText(path));
+    private static Fin<string> Text(string path) =>
+        Try.lift(() => File.ReadAllText(path)).Run().Bind(static inner => inner);
 }
 ```
 

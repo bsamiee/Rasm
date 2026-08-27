@@ -648,7 +648,7 @@ public sealed class TwinLoop {
         Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive = default) =>
         policy.Invalid
             ? Fin.Fail<TwinLoop>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
-            : Op.Of(name: nameof(Of)).AcceptValidated<WindowCapacity>(policy.Scoring.WindowCapacity)
+            : FactoryBridge.Accept<WindowCapacity>(policy.Scoring.WindowCapacity)
                 .Map(capacity => new TwinLoop(baseline, detector, policy, capacity, suggested, clock, archive));
 
     public IO<Fin<bool>> ClaimRecalibration() {

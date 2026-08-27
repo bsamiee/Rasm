@@ -7,7 +7,7 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 ## [01]-[INDEX]
 
 - [02]-[CONTENT_ADDRESS]: `ContentAddress` owns structural identity and `BlobKey` the legacy XXH raw-payload key; kernel `ArtifactContent` owns SHA-256 artifact identity plus extent.
-- [03]-[INCREMENTAL_ADDRESS]: `GraphMembers` the delta-composable accumulator — the id-keyed node-address map and the digest-keyed edge multiset under the header they folded under, its `Of` seed, its typed incremental/refold `Advance(delta, key)` outcome, and the `ContentAddress.OfGraph(GraphMembers)` re-entry into the ONE private sorting fold.
+- [03]-[INCREMENTAL_ADDRESS]: `GraphMembers` the delta-composable accumulator — the id-keyed node-address map and the digest-keyed edge multiset under the header they folded under, its `Of` seed, its typed incremental/refold `Advance(delta)` outcome, and the `ContentAddress.OfGraph(GraphMembers)` re-entry into the ONE private sorting fold.
 - [04]-[IMPLEMENTATION_LAW]: the hasher, projection-split, ordering, exclusion, and verification laws every entry above answers to.
 
 ## [02]-[CONTENT_ADDRESS]
@@ -62,27 +62,27 @@ public sealed partial class ContentAddress {
 
  public static ValidationError? Validate(string? value, IFormatProvider? provider, out ContentAddress? item) {
   item = value is not null
-   && ContentHash.Admit(value, Op.Of()).ToOption() is { IsSome: true, Case: UInt128 parsed }
+   && ContentHash.Admit(value).ToOption() is { IsSome: true, Case: UInt128 parsed }
     ? Create(parsed)
     : null;
   return item is null ? ValidationError.Create($"<content-address-hex-invalid:{value}>") : null;
  }
 
- public static Fin<Unit> Verify(Node node, double tolerance, Op key) =>
+ public static Fin<Unit> Verify(Node node, double tolerance) =>
   node.Seed(tolerance).Switch<Fin<Unit>>(
    placement: static _ => Fin.Succ(unit),
-   typeSeed: seed => Remint(seed, node.Id, key),
-   content: seed => Remint(seed, node.Id, key),
-   precomputed: seed => Remint(seed, node.Id, key));
+   typeSeed: seed => Remint(seed, node.Id),
+   content: seed => Remint(seed, node.Id),
+   precomputed: seed => Remint(seed, node.Id));
 
- private static Fin<Unit> Remint(NodeSeed seed, NodeId stored, Op key) =>
+ private static Fin<Unit> Remint(NodeSeed seed, NodeId stored) =>
   NodeId.Of(seed) == stored
    ? Fin.Succ(unit)
-   : new ElementFault.AddressUnstable(key, $"<node-id-mismatch:{stored.ToValue()}>");
+   : new ElementFault.AddressUnstable($"<node-id-mismatch:{stored.ToValue()}>");
 
- public static Validation<Error, Unit> Verify(ElementGraph graph, Op key) =>
+ public static Validation<Error, Unit> Verify(ElementGraph graph) =>
   toSeq(graph.Nodes.Values)
-   .Traverse(n => Verify(n, graph.Header.Tolerance, key).ToValidation())
+   .Traverse(n => Verify(n, graph.Header.Tolerance).ToValidation())
    .As()
    .Map(static _ => unit);
 }
@@ -94,7 +94,7 @@ public sealed partial class BlobKey {
 
  public static ValidationError? Validate(string? value, IFormatProvider? provider, out BlobKey? item) {
   item = value is not null
-   && ContentHash.Admit(value, Op.Of()).ToOption() is { IsSome: true, Case: UInt128 parsed }
+   && ContentHash.Admit(value).ToOption() is { IsSome: true, Case: UInt128 parsed }
     ? Create(parsed)
     : null;
   return item is null ? ValidationError.Create($"<blob-key-hex-invalid:{value}>") : null;
@@ -107,8 +107,8 @@ public sealed partial class BlobKey {
 
 - Owner: `GraphMembers` is the delta-composable accumulator over the two member sets `OfGraph` sorts; `GraphMemberStep` is its typed incremental-or-refold outcome.
 - Law: the accumulator is a CACHE of the full-state fold, never a second algebra. `OfGraph(GraphMembers)` re-sorts both member sets and re-enters the SAME private `OfGraph(Header, Seq<UInt128>, Seq<UInt128>)` the graph entry calls, so incremental and full-state are byte-identical by construction rather than by agreement. SORTING is the order-independence mechanism and stays so: a commutative hash (XOR- or sum-folded member digests) makes the accumulator trivial and forks EVERY address already persisted solution-wide, so the sort is the cost the identical-bytes guarantee is bought with.
-- Entry: `GraphMembers.Of(ElementGraph)` seeds from a snapshot; `Advance(delta, key)` returns `Fin<GraphMemberStep>`; `ContentAddress.OfGraph(GraphMembers)` addresses the resolved members. `Incremental` carries the stepped members, while `Refold` carries the changed header a consumer uses to rebuild from its replayed full graph.
-- Auto: `Advance` gates `delta.NormalForm(key)` first; a changed grid validates removals against the retained old-grid identities and emits `Refold` before deriving any new-grid address, while a stable grid applies removals, adds, and revisions in replay order. `Drop` and `Retire` accumulate independent removal faults; within `Retire`, removals group by edge address so each multiset slot checks its demanded count once.
+- Entry: `GraphMembers.Of(ElementGraph)` seeds from a snapshot; `Advance(delta)` returns `Fin<GraphMemberStep>`; `ContentAddress.OfGraph(GraphMembers)` addresses the resolved members. `Incremental` carries the stepped members, while `Refold` carries the changed header a consumer uses to rebuild from its replayed full graph.
+- Auto: `Advance` gates `delta.NormalForm()` first; a changed grid validates removals against the retained old-grid identities and emits `Refold` before deriving any new-grid address, while a stable grid applies removals, adds, and revisions in replay order. `Drop` and `Retire` accumulate independent removal faults; within `Retire`, removals group by edge address so each multiset slot checks its demanded count once.
 - Output: a `GraphMembers` is the address's own preimage held live — a consumer that owns it answers "what is this snapshot's identity" without re-walking the graph, and `OfGraph` over it is the same value the recompute yields; `Advance` returns `NodeAbsent` on a node removal naming an absent id and `DeltaConflict` on an edge removal overdrawing a slot, because the multiset is exact and a negative count is unrepresentable.
 - Packages: LanguageExt.Core (`HashMap`/`Seq`/`Fin`/`Validation`/`Option` + the `Apply` join and `Fold` steps), `Rasm` (the kernel `Op` and `Rasm/Domain/validation#ADMISSION_SLOTS` `Accumulate`), `Graph/element#ELEMENT_GRAPH` (`ElementGraph`/`Header`/`Node`/`NodeId`), `Graph/delta#GRAPH_DELTA` (`GraphDelta` with its accumulated `NormalForm` gate and declared member sets).
 - Growth: a new member SET on the snapshot address is one column here and one section in the private fold, landed in the same edit so the two projections cannot diverge; a new delta slot is one arm in `Advance`. A second accumulator shape, a witness carrying a prior ADDRESS rather than its members, and an incremental path re-deriving the layout are each the deleted form.
@@ -144,20 +144,20 @@ public sealed record GraphMembers {
        (held, node) => held.AddOrUpdate(node.Id, ContentAddress.Of(node, graph.Header.Tolerance))),
       graph.Edges.Fold(HashMap<ContentAddress, int>(), (held, edge) => Admit(held, edge, graph.Header.Tolerance)));
 
- public Fin<GraphMemberStep> Advance(GraphDelta delta, Op key) =>
-  delta.NormalForm(key).ToFin().Bind(_ =>
+ public Fin<GraphMemberStep> Advance(GraphDelta delta) =>
+  delta.NormalForm().ToFin().Bind(_ =>
    delta.Header.Match(
-    None: () => Step(delta, Header, key),
+    None: () => Step(delta, Header),
     Some: next => next.SameGrid(Header)
-     ? Step(delta, next, key)
-     : Regrid(delta, next, key)));
+     ? Step(delta, next)
+     : Regrid(delta, next)));
 
- Fin<GraphMemberStep> Regrid(GraphDelta delta, Header next, Op key) =>
-  (Drop(Nodes, delta.RemovedNodes, key), Retire(Edges, delta.RemovedEdges, Header.Tolerance, key))
+ Fin<GraphMemberStep> Regrid(GraphDelta delta, Header next) =>
+  (Drop(Nodes, delta.RemovedNodes), Retire(Edges, delta.RemovedEdges, Header.Tolerance))
    .Apply((_, _) => (GraphMemberStep)new GraphMemberStep.Refold(next)).As().ToFin();
 
- Fin<GraphMemberStep> Step(GraphDelta delta, Header header, Op key) =>
-  (Drop(Nodes, delta.RemovedNodes, key), Retire(Edges, delta.RemovedEdges, header.Tolerance, key))
+ Fin<GraphMemberStep> Step(GraphDelta delta, Header header) =>
+  (Drop(Nodes, delta.RemovedNodes), Retire(Edges, delta.RemovedEdges, header.Tolerance))
    .Apply((kept, edges) => (GraphMemberStep)new GraphMemberStep.Incremental(new GraphMembers(
     header,
     (delta.AddedNodes + delta.RevisedNodes.Map(static revision => revision.After))
@@ -165,20 +165,20 @@ public sealed record GraphMembers {
     delta.AddedEdges.Fold(edges, (held, edge) => Admit(held, edge, header.Tolerance)))))
    .As().ToFin();
 
- static Validation<Error, HashMap<NodeId, ContentAddress>> Drop(HashMap<NodeId, ContentAddress> held, Seq<NodeId> removals, Op key) =>
+ static Validation<Error, HashMap<NodeId, ContentAddress>> Drop(HashMap<NodeId, ContentAddress> held, Seq<NodeId> removals) =>
   Accumulate(removals.Map(id => held.ContainsKey(id)
     ? Success<Error, Unit>(unit)
-    : Fail<Error, Unit>(new ElementFault.NodeAbsent(key, $"<members-remove-absent:{id.ToValue()}>"))))
+    : Fail<Error, Unit>(new ElementFault.NodeAbsent($"<members-remove-absent:{id.ToValue()}>"))))
    .Map(_ => removals.Fold(held, static (map, id) => map.Remove(id)));
 
  static Validation<Error, HashMap<ContentAddress, int>> Retire(
-  HashMap<ContentAddress, int> held, Seq<Relationship> removals, double tolerance, Op key) {
+  HashMap<ContentAddress, int> held, Seq<Relationship> removals, double tolerance) {
   HashMap<ContentAddress, int> demanded = removals.Fold(
    HashMap<ContentAddress, int>(),
    (map, edge) => map.AddOrUpdate(ContentAddress.Of(edge, tolerance), static count => count + 1, () => 1));
   return Accumulate(toSeq(demanded).Map(pair => held.Find(pair.Key).IfNone(0) >= pair.Value
     ? Success<Error, Unit>(unit)
-    : Fail<Error, Unit>(new ElementFault.DeltaConflict(key, $"<members-edge-absent:{ContentHash.Hex(pair.Key.ToValue())}>"))))
+    : Fail<Error, Unit>(new ElementFault.DeltaConflict($"<members-edge-absent:{ContentHash.Hex(pair.Key.ToValue())}>"))))
    .Map(_ => toSeq(demanded).Fold(held, static (map, pair) =>
     map.Find(pair.Key).IfNone(0) - pair.Value switch {
      > 0 and var remaining => map.AddOrUpdate(pair.Key, remaining),

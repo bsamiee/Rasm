@@ -204,9 +204,9 @@ public sealed partial class TextureChannel {
     public Option<string> MtlxInput =>
         Mtlx.Switch(
             state:     Key,
-            canonical: static (key, _) => Some(key),
-            scaled:    static (key, _) => Some(key),
-            split:     static (key, _) => Some(key),
+            canonical: static (key, _) => Some(),
+            scaled:    static (key, _) => Some(),
+            split:     static (key, _) => Some(),
             lowered:   static (_, l) => Some(l.Input),
             absent:    static (_, _) => Option<string>.None);
 
@@ -250,7 +250,7 @@ public sealed partial class ChannelPack {
 
 - Owner: `TextureSet` the extent-coherent content-keyed plane bundle; `UdimSheet` the ascending per-tile assembly the wire's `udim_tiles` column publishes, with `UdimResidency` its read policy; `TextureAtlas` the N-set packing product with `AtlasPlacement` its per-participant UV transform row; `LayerLaw` `[SmartEnum<string>]` the layer-cardinality axis; `UdimTile` `[ValueObject<int>]` the Mari tile index; `ChannelPackPlane` the packed-plane carrier over a `ChannelPack` row; `EgressSlot` `[Union]` the declared name subject; `EgressVariant` `[Union]` the one optional filename infix.
 - Cases: layer-law {`none` (exactly one layer), `cubeFaces` (exactly six, square extent), `array`, `volume`, `frames`} · egress-variant {`Whole`, `Udim`, `Mip`, `Layer`}.
-- Entry: `public static Fin<TextureSet> Of(TextureSetDraft draft, Op key)` is the ONE admission — a draft carries the raw bundle, `Of` runs the gate ladder and mints the content key, and no other construction path exists; `Egress(EgressSlot slot, EgressVariant variant, RasterFormat format, Op key)` renders the one egress leaf name for a channel and a pack alike over the declared `EgressSlot` cases, validating the requested variant's AXIS against the one axis the set occupies before it validates the variant's own bounds; `WithChannel`/`WithPack` re-admit through `Of` so a mutated set re-keys; `UdimSheet.Of(tiles, key)` assembles N single-tile sets into the one UDIM producer, proving tile uniqueness, vocabulary agreement, and roster agreement before the sheet keys over the ascending tile-key fold. The wire for both — the generated `Appearance.Set` with its per-tile plane-row repetition — mints at `Appearance/interchange#MATERIAL_WIRE` `AppearanceEgress.Set` over the corpus `appearance.proto` `Role` enum this roster bridges onto at `[04]`.
+- Entry: `public static Fin<TextureSet> Of(TextureSetDraft draft)` is the ONE admission — a draft carries the raw bundle, `Of` runs the gate ladder and mints the content key, and no other construction path exists; `Egress(EgressSlot slot, EgressVariant variant, RasterFormat format)` renders the one egress leaf name for a channel and a pack alike over the declared `EgressSlot` cases, validating the requested variant's AXIS against the one axis the set occupies before it validates the variant's own bounds; `WithChannel`/`WithPack` re-admit through `Of` so a mutated set re-keys; `UdimSheet.Of(tiles)` assembles N single-tile sets into the one UDIM producer, proving tile uniqueness, vocabulary agreement, and roster agreement before the sheet keys over the ascending tile-key fold. The wire for both — the generated `Appearance.Set` with its per-tile plane-row repetition — mints at `Appearance/interchange#MATERIAL_WIRE` `AppearanceEgress.Set` over the corpus `appearance.proto` `Role` enum this roster bridges onto at `[04]`.
 - Law: `Tiled` is EVIDENCE, never a flag — the column is the kernel `Evidence<TileProof>` and `tile#TILE_GATE` is the only surface that mints a proof, so a caller cannot assert tileability into a draft: an ingested or freshly pressed set carries `Absent` until the gate grades it, a graded set carries `Measured` with the proof's own `Accepted` as the acceptance read, and a grade whose spectral band rejected carries `Refused` with the band's own cause — the deleted `Option` read an ungraded ingest and a refused grade as one `None`. The wire's boolean `tiled` is the projection of the measured-and-accepted read, never its source.
 - Packages: `plane#TEXTURE_PLANE` (composed — `TexturePyramid` carrying each channel's levels and its own `Key`, `ChannelDtype` the alpha-conversion floor read through `PlaneFormat.Normalizes`, `PlaneFormat.WebLegal` the storage-side wire-reach gate, `NormalConvention` the provenance column), `codec#RASTER_CODEC` (composed — `RasterFormat.Extension` the ONE `<ext>` source, `CodecCapability.WireLegal`/`BlockCompressed` membership on `KtxPayload.Traits` the payload gates, `KtxPayload.Transcodable` the discriminant deciding whether a reader sees the store's own format), `tile#TILE_GATE` (composed — `TileProof`), `Rasm.Element.Projection` (composed — `ContentAddress.Create` plus generated raw-key `ToValue()`), `Rasm.Element.Composition` (the CONTRACT `MaterialId`), `Rasm.Materials.Appearance.Surface` (`ConductorMetal` the set-level conductor row), `Rasm.Domain` (`ContentHash.Of` the ONE identity entry and `ContentHash.Hex` the canonical X32 spelling, `ValidityClaim`, `Evidence` the kernel probe evidence the `Tiled` column rides), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox (`Encoding.UTF8` the total preimage projection).
 - Growth: a new layer modality is one `LayerLaw` row carrying its cardinality and extent predicates — cube maps, flipbooks, arrays, and volumes are rows, so a set shape never breaks for a new stacking; a new set-level fact is one `TextureSet` column and one `Of` gate; a new filename infix is one `EgressVariant` case, and a new container is one `codec#RASTER_CODEC` `RasterFormat` row the egress reads its extension off.
@@ -343,55 +343,55 @@ public sealed record TextureSet(
     Seq<UdimTile> Udim, HashMap<TextureChannel, TexturePyramid> Channels, Seq<ChannelPackPlane> Packs,
     Option<ConductorMetal> Conductor, Option<MaterialId> Material, UInt128 Key) : IValidityEvidence {
 
-    public static Fin<TextureSet> Of(TextureSetDraft draft, Op key) =>
-        Gates(draft, key)
+    public static Fin<TextureSet> Of(TextureSetDraft draft) =>
+        Gates(draft)
             .TraverseM(static gate => gate()).As()
             .Map(_ => new TextureSet(draft.Width, draft.Height, draft.Layers, draft.Law, draft.Convention, draft.Alpha,
                 draft.HeightScaleMm, draft.Tiled, toSeq(draft.Udim.OrderBy(static t => t.Value)), draft.Channels,
                 draft.Packs, draft.Conductor, draft.Material, Mint(draft)));
 
     // --- [SET_ADMISSION]
-    static Seq<Func<Fin<Unit>>> Gates(TextureSetDraft draft, Op key) =>
+    static Seq<Func<Fin<Unit>>> Gates(TextureSetDraft draft) =>
         Seq<Func<Fin<Unit>>>(
-            () => guard(!draft.Channels.IsEmpty || !draft.Packs.IsEmpty, new MaterialFault.Parameter(key, "<texture-set-empty>")),
-            () => guard(draft.Law.Admits(draft.Layers.Value), new MaterialFault.Parameter(key, $"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>")),
-            () => guard(!draft.Law.Square || draft.Width == draft.Height, new MaterialFault.Parameter(key, $"<layer-law-needs-square:{draft.Law.Key}:{draft.Width.Value}x{draft.Height.Value}>")),
+            () => guard(!draft.Channels.IsEmpty || !draft.Packs.IsEmpty, new MaterialFault.Parameter("<texture-set-empty>")),
+            () => guard(draft.Law.Admits(draft.Layers.Value), new MaterialFault.Parameter($"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>")),
+            () => guard(!draft.Law.Square || draft.Width == draft.Height, new MaterialFault.Parameter($"<layer-law-needs-square:{draft.Law.Key}:{draft.Width.Value}x{draft.Height.Value}>")),
             () => guard(
                 ((draft.Udim.IsEmpty ? 0 : 1)
                     + (draft.Layers.Value is 1 ? 0 : 1)
                     + (draft.Channels.Values.Exists(static p => p.Levels.Count > 1) || draft.Packs.Exists(static p => p.Plane.Levels.Count > 1) ? 1 : 0)) <= 1,
-                new MaterialFault.Parameter(key, "<variant-slot-double-occupied>")),
-            () => guard(draft.Packs.Map(static p => p.Pack).Distinct().Count() == draft.Packs.Count, new MaterialFault.Parameter(key, "<pack-duplicate-row>")),
+                new MaterialFault.Parameter("<variant-slot-double-occupied>")),
+            () => guard(draft.Packs.Map(static p => p.Pack).Distinct().Count() == draft.Packs.Count, new MaterialFault.Parameter("<pack-duplicate-row>")),
             () => guard(draft.HeightScaleMm.ForAll(static mm => double.IsFinite(mm) && mm > 0.0),
-                new MaterialFault.Parameter(key, $"<height-scale-invalid:{draft.HeightScaleMm.Map(static mm => mm.ToString("R", CultureInfo.InvariantCulture)).IfNone("none")}>")),
+                new MaterialFault.Parameter($"<height-scale-invalid:{draft.HeightScaleMm.Map(static mm => mm.ToString("R", CultureInfo.InvariantCulture)).IfNone("none")}>")),
             () => guard(draft.HeightScaleMm.IsNone || draft.Channels.ContainsKey(TextureChannel.Height),
-                new MaterialFault.Parameter(key, "<height-scale-without-height-channel>")),
-            () => toSeq(draft.Channels.AsIterable()).TraverseM(pair => AdmitChannel(draft, pair.Key, pair.Value, key)).As().Map(_ => unit),
-            () => draft.Packs.TraverseM(pack => AdmitPack(draft, pack, key)).As().Map(_ => unit));
+                new MaterialFault.Parameter("<height-scale-without-height-channel>")),
+            () => toSeq(draft.Channels.AsIterable()).TraverseM(pair => AdmitChannel(draft, pair.Value)).As().Map(_ => unit),
+            () => draft.Packs.TraverseM(pack => AdmitPack(draft, pack)).As().Map(_ => unit));
 
-    static Fin<Unit> AdmitChannel(TextureSetDraft draft, TextureChannel channel, TexturePyramid pyramid, Op key) =>
-        from _ in guard(pyramid.Base.Width == draft.Width && pyramid.Base.Height == draft.Height, new MaterialFault.Parameter(key, $"<channel-extent-mismatch:{channel.Key}>"))
-        from __ in guard(pyramid.Base.Layers == draft.Layers, new MaterialFault.Parameter(key, $"<channel-layer-mismatch:{channel.Key}>"))
-        from ___ in guard(pyramid.Base.Transfer.SceneReferred, new MaterialFault.Parameter(key, $"<display-referred-channel-plane:{channel.Key}:{pyramid.Base.Transfer.Key}>"))
-        from ____ in guard(pyramid.Base.Format.Components >= channel.Components, new MaterialFault.Parameter(key, $"<channel-components-narrow:{channel.Key}>"))
-        from _____ in guard(pyramid.Base.Alpha.Convertible(draft.Alpha, pyramid.Base.Format.Depth), new MaterialFault.Parameter(key, $"<alpha-crossing-quantizes:{channel.Key}:{pyramid.Base.Format.Key}>"))
-        from ______ in guard(channel.Payload.Traits.Admits(CodecCapability.WireLegal), new MaterialFault.Parameter(key, $"<channel-payload-not-wire-legal:{channel.Key}:{channel.Payload.Key}>"))
-        from _______ in guard(channel.Payload.Transcodable || pyramid.Base.Format.WebLegal, new MaterialFault.Parameter(key, $"<channel-store-unreachable-on-wire:{channel.Key}:{pyramid.Base.Format.Key}>"))
-        from ________ in guard(!draft.Packs.Exists(p => p.Present.Contains(channel)), new MaterialFault.Parameter(key, $"<channel-both-packed-and-standalone:{channel.Key}>"))
+    static Fin<Unit> AdmitChannel(TextureSetDraft draft, TextureChannel channel, TexturePyramid pyramid) =>
+        from _ in guard(pyramid.Base.Width == draft.Width && pyramid.Base.Height == draft.Height, new MaterialFault.Parameter($"<channel-extent-mismatch:{channel.Key}>"))
+        from __ in guard(pyramid.Base.Layers == draft.Layers, new MaterialFault.Parameter($"<channel-layer-mismatch:{channel.Key}>"))
+        from ___ in guard(pyramid.Base.Transfer.SceneReferred, new MaterialFault.Parameter($"<display-referred-channel-plane:{channel.Key}:{pyramid.Base.Transfer.Key}>"))
+        from ____ in guard(pyramid.Base.Format.Components >= channel.Components, new MaterialFault.Parameter($"<channel-components-narrow:{channel.Key}>"))
+        from _____ in guard(pyramid.Base.Alpha.Convertible(draft.Alpha, pyramid.Base.Format.Depth), new MaterialFault.Parameter($"<alpha-crossing-quantizes:{channel.Key}:{pyramid.Base.Format.Key}>"))
+        from ______ in guard(channel.Payload.Traits.Admits(CodecCapability.WireLegal), new MaterialFault.Parameter($"<channel-payload-not-wire-legal:{channel.Key}:{channel.Payload.Key}>"))
+        from _______ in guard(channel.Payload.Transcodable || pyramid.Base.Format.WebLegal, new MaterialFault.Parameter($"<channel-store-unreachable-on-wire:{channel.Key}:{pyramid.Base.Format.Key}>"))
+        from ________ in guard(!draft.Packs.Exists(p => p.Present.Contains(channel)), new MaterialFault.Parameter($"<channel-both-packed-and-standalone:{channel.Key}>"))
         from _________ in guard(!channel.OpenScale || !PlaneFormat.Normalizes(pyramid.Base.Format.Depth),
-            new MaterialFault.Parameter(key, $"<open-scale-channel-normalizing-store:{channel.Key}:{pyramid.Base.Format.Key}>"))
+            new MaterialFault.Parameter($"<open-scale-channel-normalizing-store:{channel.Key}:{pyramid.Base.Format.Key}>"))
         from __________ in guard(!channel.OpenScale || !channel.Payload.Traits.Admits(CodecCapability.BlockCompressed),
-            new MaterialFault.Parameter(key, $"<open-scale-channel-block-payload:{channel.Key}:{channel.Payload.Key}>"))
+            new MaterialFault.Parameter($"<open-scale-channel-block-payload:{channel.Key}:{channel.Payload.Key}>"))
         select unit;
 
-    static Fin<Unit> AdmitPack(TextureSetDraft draft, ChannelPackPlane pack, Op key) =>
-        from _ in guard(pack.Plane.Base.Width == draft.Width && pack.Plane.Base.Height == draft.Height, new MaterialFault.Parameter(key, $"<pack-extent-mismatch:{pack.Pack.Key}>"))
-        from __ in guard(pack.Plane.Base.Format.Components is 4, new MaterialFault.Parameter(key, $"<pack-plane-not-four-component:{pack.Pack.Key}>"))
-        from ___ in guard(pack.Plane.Base.Transfer == PlaneTransfer.Raw, new MaterialFault.Parameter(key, $"<pack-plane-not-raw:{pack.Pack.Key}>"))
-        from ____ in guard(pack.Plane.Base.Alpha == AlphaMode.None, new MaterialFault.Parameter(key, $"<pack-plane-carries-alpha:{pack.Pack.Key}>"))
-        from _____ in guard(!pack.Present.IsEmpty, new MaterialFault.Parameter(key, $"<pack-plane-no-present-slot:{pack.Pack.Key}>"))
-        from ______ in guard(pack.Present.ForAll(pack.Pack.Slots.Contains), new MaterialFault.Parameter(key, $"<pack-slot-foreign-channel:{pack.Pack.Key}>"))
-        from _______ in guard(pack.Present.ForAll(static c => !c.OpenScale), new MaterialFault.Parameter(key, $"<pack-slot-open-scale-channel:{pack.Pack.Key}>"))
+    static Fin<Unit> AdmitPack(TextureSetDraft draft, ChannelPackPlane pack) =>
+        from _ in guard(pack.Plane.Base.Width == draft.Width && pack.Plane.Base.Height == draft.Height, new MaterialFault.Parameter($"<pack-extent-mismatch:{pack.Pack.Key}>"))
+        from __ in guard(pack.Plane.Base.Format.Components is 4, new MaterialFault.Parameter($"<pack-plane-not-four-component:{pack.Pack.Key}>"))
+        from ___ in guard(pack.Plane.Base.Transfer == PlaneTransfer.Raw, new MaterialFault.Parameter($"<pack-plane-not-raw:{pack.Pack.Key}>"))
+        from ____ in guard(pack.Plane.Base.Alpha == AlphaMode.None, new MaterialFault.Parameter($"<pack-plane-carries-alpha:{pack.Pack.Key}>"))
+        from _____ in guard(!pack.Present.IsEmpty, new MaterialFault.Parameter($"<pack-plane-no-present-slot:{pack.Pack.Key}>"))
+        from ______ in guard(pack.Present.ForAll(pack.Pack.Slots.Contains), new MaterialFault.Parameter($"<pack-slot-foreign-channel:{pack.Pack.Key}>"))
+        from _______ in guard(pack.Present.ForAll(static c => !c.OpenScale), new MaterialFault.Parameter($"<pack-slot-open-scale-channel:{pack.Pack.Key}>"))
         select unit;
 
     static UInt128 Mint(TextureSetDraft draft) =>
@@ -408,18 +408,18 @@ public sealed record TextureSet(
         Law.Admits(Layers.Value),
         ValidityClaim.Evidence(Tiled.Value()));
 
-    public Fin<string> Egress(EgressSlot slot, EgressVariant variant, RasterFormat format, Op key) =>
+    public Fin<string> Egress(EgressSlot slot, EgressVariant variant, RasterFormat format) =>
         from _ in variant.Axis.Match(
             Some: axis => guard(Occupied == Some(axis),
-                new MaterialFault.Parameter(key, $"<egress-variant-axis:{slot.Name}:{axis}:{Occupied.IfNone("none")}>")),
-            None: () => guard(Occupied.IsNone, new MaterialFault.Parameter(key, $"<egress-whole-on-variant-set:{slot.Name}:{Occupied.IfNone("none")}>")))
+                new MaterialFault.Parameter($"<egress-variant-axis:{slot.Name}:{axis}:{Occupied.IfNone("none")}>")),
+            None: () => guard(Occupied.IsNone, new MaterialFault.Parameter($"<egress-whole-on-variant-set:{slot.Name}:{Occupied.IfNone("none")}>")))
         from __ in variant.Switch(
             whole: _ => Fin.Succ(unit),
-            udim:  u => guard(Udim.Exists(tile => tile == u.Tile), new MaterialFault.Parameter(key, $"<egress-udim-foreign-tile:{slot.Name}:{u.Tile.Value}>")),
+            udim:  u => guard(Udim.Exists(tile => tile == u.Tile), new MaterialFault.Parameter($"<egress-udim-foreign-tile:{slot.Name}:{u.Tile.Value}>")),
             mip:   m => format == RasterFormat.Ktx2
-                ? Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<ktx2-leaf-carries-own-pyramid:{slot.Name}>"))
-                : guard(Channels.Values.Exists(static p => p.Levels.Count > 1) || Packs.Exists(static p => p.Plane.Levels.Count > 1), new MaterialFault.Parameter(key, $"<egress-mip-on-flat-set:{slot.Name}:{m.Level}>")),
-            layer: l => guard(Layers.Value > 1 && l.Index < Layers.Value, new MaterialFault.Parameter(key, $"<egress-layer-out-of-range:{slot.Name}:{l.Index}>")))
+                ? Fin.Fail<Unit>(new MaterialFault.Parameter($"<ktx2-leaf-carries-own-pyramid:{slot.Name}>"))
+                : guard(Channels.Values.Exists(static p => p.Levels.Count > 1) || Packs.Exists(static p => p.Plane.Levels.Count > 1), new MaterialFault.Parameter($"<egress-mip-on-flat-set:{slot.Name}:{m.Level}>")),
+            layer: l => guard(Layers.Value > 1 && l.Index < Layers.Value, new MaterialFault.Parameter($"<egress-layer-out-of-range:{slot.Name}:{l.Index}>")))
         select $"materials/texture/{ContentHash.Hex(ContentAddress.Create(Key).ToValue())}/{slot.Name}{variant.Infix}.{format.Extension}";
 
     Option<string> Occupied =>
@@ -428,13 +428,13 @@ public sealed record TextureSet(
         : Channels.Values.Exists(static p => p.Levels.Count > 1) || Packs.Exists(static p => p.Plane.Levels.Count > 1) ? Some("mip")
         : Option<string>.None;
 
-    public Fin<TextureSet> WithChannel(TextureChannel channel, TexturePyramid pyramid, Op key) =>
+    public Fin<TextureSet> WithChannel(TextureChannel channel, TexturePyramid pyramid) =>
         Of(new TextureSetDraft(Width, Height, Layers, Law, Convention, Alpha, HeightScaleMm, Tiled, Udim,
-            Channels.AddOrUpdate(channel, pyramid), Packs, Conductor, Material), key);
+            Channels.AddOrUpdate(channel, pyramid), Packs, Conductor, Material));
 
-    public Fin<TextureSet> WithPack(ChannelPackPlane pack, Op key) =>
+    public Fin<TextureSet> WithPack(ChannelPackPlane pack) =>
         Of(new TextureSetDraft(Width, Height, Layers, Law, Convention, Alpha, HeightScaleMm, Tiled, Udim,
-            Channels.Filter((c, _) => !pack.Present.Contains(c)), Packs.Add(pack), Conductor, Material), key);
+            Channels.Filter((c, _) => !pack.Present.Contains(c)), Packs.Add(pack), Conductor, Material));
 }
 
 public sealed record UdimResidency(ResidencyPolicy Policy, long TexelBudget) {
@@ -444,12 +444,12 @@ public sealed record UdimResidency(ResidencyPolicy Policy, long TexelBudget) {
 
 public sealed record UdimSheet(
     Seq<UdimTile> Declared, Seq<(UdimTile Tile, TextureSet Set)> Tiles, UInt128 Key, UdimResidency Residency) {
-    public static Fin<UdimSheet> Of(Seq<(UdimTile Tile, TextureSet Set)> tiles, Op key) =>
-        from _ in guard(!tiles.IsEmpty, new MaterialFault.Parameter(key, "<udim-sheet-empty>"))
-        from __ in guard(tiles.Map(static t => t.Tile.Value).Distinct().Count() == tiles.Count, new MaterialFault.Parameter(key, "<udim-sheet-duplicate-tile>"))
-        from ___ in guard(tiles.ForAll(static t => t.Set.Udim.IsEmpty && t.Set.Layers.Value is 1), new MaterialFault.Parameter(key, "<udim-sheet-tile-carries-variant>"))
-        from ____ in guard(tiles.Map(static t => (t.Set.Convention, t.Set.Alpha, t.Set.Law)).Distinct().Count() is 1, new MaterialFault.Parameter(key, "<udim-sheet-vocabulary-divergent>"))
-        from _____ in guard(tiles.Map(Roster).Distinct().Count() is 1, new MaterialFault.Parameter(key, "<udim-sheet-roster-divergent>"))
+    public static Fin<UdimSheet> Of(Seq<(UdimTile Tile, TextureSet Set)> tiles) =>
+        from _ in guard(!tiles.IsEmpty, new MaterialFault.Parameter("<udim-sheet-empty>"))
+        from __ in guard(tiles.Map(static t => t.Tile.Value).Distinct().Count() == tiles.Count, new MaterialFault.Parameter("<udim-sheet-duplicate-tile>"))
+        from ___ in guard(tiles.ForAll(static t => t.Set.Udim.IsEmpty && t.Set.Layers.Value is 1), new MaterialFault.Parameter("<udim-sheet-tile-carries-variant>"))
+        from ____ in guard(tiles.Map(static t => (t.Set.Convention, t.Set.Alpha, t.Set.Law)).Distinct().Count() is 1, new MaterialFault.Parameter("<udim-sheet-vocabulary-divergent>"))
+        from _____ in guard(tiles.Map(Roster).Distinct().Count() is 1, new MaterialFault.Parameter("<udim-sheet-roster-divergent>"))
         let ordered = toSeq(tiles.OrderBy(static t => t.Tile.Value))
         select new UdimSheet(ordered.Map(static t => t.Tile), ordered, Mint(ordered), UdimResidency.Whole);
 
@@ -458,12 +458,12 @@ public sealed record UdimSheet(
     public UdimSheet Streaming(UdimResidency residency) =>
         this with { Residency = residency, Tiles = residency.Streams ? Seq<(UdimTile, TextureSet)>() : Tiles };
 
-    public Fin<(UdimSheet Sheet, TextureSet Set)> Resolve(UdimTile tile, Func<UdimTile, Fin<TextureSet>> mint, Op key) =>
+    public Fin<(UdimSheet Sheet, TextureSet Set)> Resolve(UdimTile tile, Func<UdimTile, Fin<TextureSet>> mint) =>
         Tiles.Find(row => row.Tile == tile).Match(
             Some: row => Fin.Succ((this, row.Set)),
             None: () => Declared.Exists(row => row == tile)
                 ? mint(tile).Map(seated => (Seat(tile, seated), seated))
-                : new MaterialFault.Parameter(key, $"<udim-sheet-foreign-tile:{tile.Value}>"));
+                : new MaterialFault.Parameter($"<udim-sheet-foreign-tile:{tile.Value}>"));
 
     UdimSheet Seat(UdimTile tile, TextureSet seated) =>
         Residency.Policy.Evicts
@@ -496,14 +496,14 @@ public readonly record struct AtlasPlacement(UInt128 SetKey, UnitInterval Offset
 
 public sealed record TextureAtlas(TextureSet Sheet, Seq<AtlasPlacement> Placements) {
     public static Fin<TextureAtlas> Of(
-        Seq<(TextureSet Set, AtlasPlacement Placement)> participants, TextureSetDraft sheet, int gutterRings, Op key) =>
-        from _ in guard(!participants.IsEmpty, new MaterialFault.Parameter(key, "<atlas-no-participants>"))
+        Seq<(TextureSet Set, AtlasPlacement Placement)> participants, TextureSetDraft sheet, int gutterRings) =>
+        from _ in guard(!participants.IsEmpty, new MaterialFault.Parameter("<atlas-no-participants>"))
         from __ in guard(participants.Map(static p => p.Placement.SetKey).Distinct().Count() == participants.Count,
-            new MaterialFault.Parameter(key, "<atlas-duplicate-participant>"))
+            new MaterialFault.Parameter("<atlas-duplicate-participant>"))
         from ___ in guard(participants.ForAll(static p => p.Placement.SetKey == p.Set.Key),
-            new MaterialFault.Parameter(key, "<atlas-placement-key-mismatch>"))
-        from ____ in guard(gutterRings > 0, new MaterialFault.Parameter(key, $"<atlas-gutter-rings:{gutterRings}>"))
-        from bound in TextureSet.Of(sheet, key)
+            new MaterialFault.Parameter("<atlas-placement-key-mismatch>"))
+        from ____ in guard(gutterRings > 0, new MaterialFault.Parameter($"<atlas-gutter-rings:{gutterRings}>"))
+        from bound in TextureSet.Of(sheet)
         select new TextureAtlas(bound, participants.Map(static p => p.Placement));
 }
 ```
@@ -511,7 +511,7 @@ public sealed record TextureAtlas(TextureSet Sheet, Seq<AtlasPlacement> Placemen
 ## [04]-[SET_INGEST]
 
 - Owner: `SetIngest` the classification fold, the python-wire decode boundary, the Element contract-roster admission, AND the draft lift; `PlaneProbe` the per-file evidence row; `IngestRefusal` `[SmartEnum<string>]` the closed reason axis every unresolved stem carries; `IngestSource` `[Union]` the classification input (directory probes · declared manifest · decoded python `Appearance.Set`); `WireVocabulary` the one bridge per closed Raster vocabulary onto the generated `appearance.proto` enums, derived from each row's key and proved total at type init; `WireLimits` the declared parse ceilings the appearance and declaration documents cross; `ClassifiedMap` the resolved row; `RosterBinding` the per-channel binding-policy row the contract roster lifts; `SetManifest` the accumulating result and its monoid.
-- Entry: `public static SetManifest Classify(IngestSource source)` is TOTAL and PURE — it never reads a file, never faults, and never infers past its arm's law; every unclaimed stem accumulates into `Unresolved` as a TYPED `(IngestRefusal Reason, string Detail)` pair, and the caller decides whether an incomplete manifest is admissible for its purpose. `public static (IngestSource Source, Seq<RosterBinding> Binding) Roster(TextureRoster roster, Seq<PlaneProbe> probes)` is the Element contract-roster admission. `public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire, Op key)` parses the generated `set.proto` `Set`, admits it once, and accepts only the structural `pbr` arm; baked and environment products are not classification inputs. `Draft` lifts the admitted manifest into texture drafts.
+- Entry: `public static SetManifest Classify(IngestSource source)` is TOTAL and PURE — it never reads a file, never faults, and never infers past its arm's law; every unclaimed stem accumulates into `Unresolved` as a TYPED `(IngestRefusal Reason, string Detail)` pair, and the caller decides whether an incomplete manifest is admissible for its purpose. `public static (IngestSource Source, Seq<RosterBinding> Binding) Roster(TextureRoster roster, Seq<PlaneProbe> probes)` is the Element contract-roster admission. `public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire)` parses the generated `set.proto` `Set`, admits it once, and accepts only the structural `pbr` arm; baked and environment products are not classification inputs. `Draft` lifts the admitted manifest into texture drafts.
 - Growth: a new alias is one entry on its channel's `Aliases` column — the resolver index DERIVES from `TextureChannel.Items`, so no second table exists to drift; a new packing token is one `ChannelPack` row; a new variant grammar is one token predicate in `Tokenize`; a new refusal shape is one `IngestRefusal` row and the mint site that hands it, so the reason axis stays bounded where a formatted token was unbounded; a new ingest-time repair is one arm in the lift's per-map conversion, never a second lift.
 - Law: PROVENANCE AND LICENCE are INGEST EVIDENCE, carried on `SetManifest` and `IngestIntent` as an `IngestProvenance` row and interpreted nowhere on this page. A licence class is the `Appearance/neural` `ModelCard.LicenseClass` band's vocabulary and this stratum names no frontier type, so the DECLARED token crosses UP and the frontier bands it — the same posture the primaries axis takes toward a container's declared chromaticity, recorded and never converted. Absence is honest and never a grant. It folds by FIRST evidence exactly as the convention does, and it never enters a set key: two providers shipping byte-identical planes address ONE blob, and their grants are facts about the acquisition rather than about the bytes. That is also the whole module-side landing a text-to-material SERVICE product needs — the existing `Stems` and `Declared` arms already accept a service's files under the same alias law, so no service-source `IngestSource` case exists and none is owed.
 - Law: the UV frame is a BINDING-time consumer fact and never a set payload. `texture#TEXTURE_UV` `SamplerState.Frame` carries it as a `UvFrame`, applied once inside `TextureUv.Sample`, so no `ClassifiedMap` column, no `TextureSet` column, and no wire field receives an offset, a scale, or a rotation — a per-tiling column inside the set forks the content key per consumer and destroys exactly the plane-level dedup the atlas boundary buys. `Rasm.Bim`'s `UvTransform` is NOT a `STRATA_TWIN` of `UvFrame`: it carries the `IfcCartesianTransformationOperator2D` decode Materials must never see, so it lowers onto the Element `TextureRoster` contract row's neutral frame columns at the Bim mint, and `SetIngest.Roster` lifts those columns onto `RosterBinding` rows BESIDE the manifest — binding policy the caller hands `SamplerState`, never a manifest or set column — so the Element row is the one place the two owners meet and neither package's transform name crosses the other.
@@ -619,13 +619,13 @@ public static class SetIngest {
                         Convention = WireVocabulary.Convention(p.Manifest.Pbr.NormalConvention),
                     }));
 
-    public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire, Op key) =>
-        key.Catch(() => Fin.Succ(Wire.Set.Parser.ParseFrom(
-                CodedInputStream.CreateWithLimits(wire.AsStream(), WireLimits.Manifest.SizeLimit, WireLimits.Manifest.RecursionLimit))))
-            .Bind(manifest => WireAdmission.Admit(manifest, WireBoundary.InboundPayload, key))
+    public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire) =>
+        Try.lift(() => Fin.Succ(Wire.Set.Parser.ParseFrom(
+                CodedInputStream.CreateWithLimits(wire.AsStream(), WireLimits.Manifest.SizeLimit, WireLimits.Manifest.RecursionLimit)))).Run().Bind(static inner => inner)
+            .Bind(manifest => WireAdmission.Admit(manifest, WireBoundary.InboundPayload))
             .Bind(manifest => manifest.ProductCase == Wire.Set.ProductOneofCase.Pbr
                 ? Fin.Succ<IngestSource>(new IngestSource.Peer(manifest))
-                : new MaterialFault.Parameter(key, $"<peer-manifest-product:{manifest.ProductCase}>"));
+                : new MaterialFault.Parameter($"<peer-manifest-product:{manifest.ProductCase}>"));
 
     static SetManifest Validate(ClassifiedMap map) =>
         toSeq(map.Channels.Filter(static c => !Index.Value.ContainsKey(c.Key)).Map(static c => c.Key)) is { IsEmpty: false } retired
@@ -723,18 +723,18 @@ public static class SetIngest {
         toSeq(stem.Split(['-', '_', '.', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     public static Fin<Seq<(Option<UdimTile> Tile, TextureSetDraft Draft)>> Draft(
-        SetManifest manifest, HashMap<string, TexturePyramid> planes, IngestIntent intent, Op key) =>
+        SetManifest manifest, HashMap<string, TexturePyramid> planes, IngestIntent intent) =>
         toSeq(manifest.Maps.GroupBy(static map => map.Tile.Map(static t => t.Value).IfNone(0)))
-            .TraverseM(group => Tile(toSeq(group), manifest.Convention, planes, intent, key)).As();
+            .TraverseM(group => Tile(toSeq(group), manifest.Convention, planes, intent)).As();
 
     static Fin<(Option<UdimTile> Tile, TextureSetDraft Draft)> Tile(
-        Seq<ClassifiedMap> maps, Option<NormalConvention> convention, HashMap<string, TexturePyramid> planes, IngestIntent intent, Op key) =>
-        from head in maps.Head.ToFin(new MaterialFault.Parameter(key, "<ingest-tile-empty>"))
+        Seq<ClassifiedMap> maps, Option<NormalConvention> convention, HashMap<string, TexturePyramid> planes, IngestIntent intent) =>
+        from head in maps.Head.ToFin(new MaterialFault.Parameter("<ingest-tile-empty>"))
         from _ in guard(maps.ForAll(map => map.Probe.Width == head.Probe.Width && map.Probe.Height == head.Probe.Height),
-            new MaterialFault.Parameter(key, $"<ingest-tile-extent-divergent:{head.Stem}>"))
+            new MaterialFault.Parameter($"<ingest-tile-extent-divergent:{head.Stem}>"))
         from bound in maps.FoldM((Channels: HashMap<TextureChannel, TexturePyramid>(), Packs: Seq<ChannelPackPlane>()), (carried, map) =>
-                from supplied in planes.Find(map.Stem).ToFin(new MaterialFault.Parameter(key, $"<ingest-plane-missing:{map.Stem}>"))
-                from converted in Converted(supplied, map, convention, key)
+                from supplied in planes.Find(map.Stem).ToFin(new MaterialFault.Parameter($"<ingest-plane-missing:{map.Stem}>"))
+                from converted in Converted(supplied, map, convention)
                 select map.Pack
                     .Map(pack => (carried.Channels, carried.Packs.Add(new ChannelPackPlane(pack, converted, map.Channels))))
                     .IfNone(() => (carried.Channels.AddOrUpdate(map.Channels[0], converted), carried.Packs))).As()
@@ -742,7 +742,7 @@ public static class SetIngest {
             convention.IfNone(NormalConvention.Gl), intent.Alpha, intent.HeightScaleMm, new Evidence<TileProof>.Absent(),
             head.Tile.ToSeq(), bound.Channels, bound.Packs, intent.Conductor, intent.Material));
 
-    static Fin<TexturePyramid> Converted(TexturePyramid pyramid, ClassifiedMap map, Option<NormalConvention> convention, Op key) {
+    static Fin<TexturePyramid> Converted(TexturePyramid pyramid, ClassifiedMap map, Option<NormalConvention> convention) {
         Seq<PlaneOp> ops =
             (convention == Some(NormalConvention.Dx) && map.Channels.Exists(IsNormal)
                 ? Seq<PlaneOp>(new PlaneOp.Swizzle(SwizzleLane.FlipGreen)) : Seq<PlaneOp>())
@@ -751,7 +751,7 @@ public static class SetIngest {
             ? Fin.Succ(pyramid)
             : pyramid.Levels
                 .FoldM(Seq<TexturePlane>(), (built, level) =>
-                    PlaneOp.Apply(level, ops, key)
+                    PlaneOp.Apply(level, ops)
                         .Map(result => built.Add(result.Plane))
                         .Rollback([.. built])).As()
                 .Bind(levels => Custody.Bracket(
@@ -857,10 +857,10 @@ public static class WireVocabulary {
         var d when d == ChannelDtype.Float32 => Wire.Depth.F32,
         _ => throw new InvalidOperationException($"<wire-depth-unsound:{row.Key}>"),
     };
-    public static Fin<Wire.Container> Container(RasterFormat row, Op key) =>
+    public static Fin<Wire.Container> Container(RasterFormat row) =>
         Containers.Value.TryGetValue(row, out Wire.Container container)
             ? Fin.Succ(container)
-            : new MaterialFault.Parameter(key, $"<wire-container-unrostered:{row.Key}>");
+            : new MaterialFault.Parameter($"<wire-container-unrostered:{row.Key}>");
 
     public static Option<TextureChannel> Channel(Wire.Role role) => Inverse(Roles.Value, role);
     public static Option<PlaneTransfer> Transfer(Wire.Transfer transfer) => Inverse(Transfers.Value, transfer);
@@ -889,7 +889,7 @@ public sealed record IngestIntent(AlphaMode Alpha, Option<double> HeightScaleMm,
 
 - Owner: `SetBind` the set-to-appearance lowering; `BindTarget` `[Union]` the requested lowering; `SetBinding` `[Union]` the produced carrier.
 - Cases: target {`Program` (the node DAG a renderer compiles once), `Point` (the per-texel parameter row a shade reconstructs), `Average` (the measured summary row the contract `AppearanceSummary` and the LOD fallback read)} · binding {`Program`, `Row`}.
-- Entry: `public static Fin<SetBinding> Bind(TextureSet set, MaterialParameters fallback, BindTarget target, SamplerState sampler, Op key)` — ONE entry whose modality discriminates on the target's own case, never on a name suffix or a boolean; the `fallback` row supplies every column the set does not carry, so a partial set always binds, and the `sampler` states HOW the set is read with no default anywhere on this page.
+- Entry: `public static Fin<SetBinding> Bind(TextureSet set, MaterialParameters fallback, BindTarget target, SamplerState sampler)` — ONE entry whose modality discriminates on the target's own case, never on a name suffix or a boolean; the `fallback` row supplies every column the set does not carry, so a partial set always binds, and the `sampler` states HOW the set is read with no default anywhere on this page.
 - Law: `sampler` is DEFAULTED NOWHERE — a caller that samples a set states its address modes, its filter, and its `UvFrame` exactly as `press#PRESS_PLAN` `PressSubject.Source`/`Slab` already carry theirs; a hardcoded `SamplerState.Default` at the binding arms wrapped every clamped decal, silently discarded every consumer's tiling, and left the UV frame no route to a bind.
 - Law: a fractional `BindTarget.Point.MipLevel` is honoured by `FilterMode.Trilinear` ALONE — every other row snaps to the `MipLevel`-nearest plane per `texture#TEXTURE_UV`'s own reconstruction law — so a caller deriving a level from a ray cone or a UV-density estimate binds trilinear or measures nothing, and a bounce crossing a level boundary pops under any other filter.
 - Exemption: `Mean` is the page's `[EXPRESSION_SPINE]` kernel — a fixed-extent row accumulation over a caller-owned scratch pair, the only statement-shaped body here.
@@ -921,48 +921,47 @@ public abstract partial record SetBinding {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SetBind {
-    public static Fin<SetBinding> Bind(TextureSet set, MaterialParameters fallback, BindTarget target, SamplerState sampler, Op key) =>
+    public static Fin<SetBinding> Bind(TextureSet set, MaterialParameters fallback, BindTarget target, SamplerState sampler) =>
         target.Switch(
-            state:   (Set: set, Fallback: fallback, Sampler: sampler, Key: key),
+            state:   (Set: set, Fallback: fallback, Sampler: sampler),
             program: static (s, _) => Dag(s.Set, s.Sampler, s.Key).Map(static g => (SetBinding)new SetBinding.Program(g)),
             point:   static (s, p) => Sample(s.Set, s.Fallback, p, s.Sampler, s.Key).Map(static r => (SetBinding)new SetBinding.Row(r)),
             average: static (s, _) => Summary(s.Set, s.Fallback, s.Key).Map(static r => (SetBinding)new SetBinding.Row(r)));
 
     static readonly UvSample Anchor = new(UnitInterval.Create(0.0), UnitInterval.Create(0.0), Vector3d.Zero, Vector3d.ZAxis, 0.0);
 
-    static Fin<MaterialGraph> Dag(TextureSet set, SamplerState sampler, Op key) =>
+    static Fin<MaterialGraph> Dag(TextureSet set, SamplerState sampler) =>
         set.Layers.Value > 1
-            ? Fin.Fail<MaterialGraph>(new MaterialFault.Parameter(key, $"<layered-set-has-no-uv-program:{set.Law.Key}:{set.Layers.Value}>"))
-            : from perturbed in MaterialGraph.Default.PortOf(ShadeChannel.NormalFrame, key)
-              from seats in toSeq(SinkSlot.Items).TraverseM(slot => SlotEdit(set, slot, sampler, key)).As()
+            ? Fin.Fail<MaterialGraph>(new MaterialFault.Parameter($"<layered-set-has-no-uv-program:{set.Law.Key}:{set.Layers.Value}>"))
+            : from perturbed in MaterialGraph.Default.PortOf(ShadeChannel.NormalFrame)
+              from seats in toSeq(SinkSlot.Items).TraverseM(slot => SlotEdit(set, slot, sampler)).As()
                   .Map(static edits => edits.Somes())
               from bound in MaterialGraph.Default.Author(
                   set.Channels.ContainsKey(TextureChannel.GeometryNormal)
                       ? seats.Add(new GraphEdit.Seat(new AppearanceNode.Normal(perturbed, SinkSlot.Normal.Port, Strength: 1.0)))
-                      : seats,
-                  key)
+                      : seats)
               select bound;
 
-    static Fin<Option<GraphEdit>> SlotEdit(TextureSet set, SinkSlot slot, SamplerState sampler, Op key) =>
+    static Fin<Option<GraphEdit>> SlotEdit(TextureSet set, SinkSlot slot, SamplerState sampler) =>
         set.Channels.Find(TextureChannel.BySlot(slot))
-            .TraverseM(pyramid => pyramid.AsImage(key).Map(image => (GraphEdit)new GraphEdit.Seat(
+            .TraverseM(pyramid => pyramid.AsImage().Map(image => (GraphEdit)new GraphEdit.Seat(
                 new AppearanceNode.Texture(slot.Port, Option<PortId>.None,
-                    Compose(TextureUv.Port(image, Anchor, sampler, slot.Modality, key), slot)))))
+                    Compose(TextureUv.Port(image, Anchor, sampler, slot.Modality), slot)))))
             .As();
 
     static Func<double, double, Option<double>, PortValue> Compose(Func<double, double, Option<double>, PortValue> port, SinkSlot slot) =>
         (u, v, parameter) => slot.Encode(port(u, v, parameter));
 
-    static Fin<MaterialParameters> Sample(TextureSet set, MaterialParameters fallback, BindTarget.Point at, SamplerState sampler, Op key) =>
+    static Fin<MaterialParameters> Sample(TextureSet set, MaterialParameters fallback, BindTarget.Point at, SamplerState sampler) =>
         toSeq(set.Channels.AsIterable())
-            .FoldM(fallback, (row, pair) => Read(pair.Value, at, sampler, key).Map(texel => Apply(pair.Key, row, texel))).As()
+            .FoldM(fallback, (row, pair) => Read(pair.Value, at, sampler).Map(texel => Apply(pair.Key, row, texel))).As()
             .Bind(row => set.Packs
-                .FoldM(row, (carried, pack) => Read(pack.Plane, at, sampler, key).Map(texel => Unpack(pack, carried, texel))).As())
-            .Bind(row => MaterialParameters.Of(row, key));
+                .FoldM(row, (carried, pack) => Read(pack.Plane, at, sampler).Map(texel => Unpack(pack, carried, texel))).As())
+            .Bind(row => MaterialParameters.Of(row));
 
-    static Fin<ShadeVec4> Read(TexturePyramid pyramid, BindTarget.Point at, SamplerState sampler, Op key) =>
-        from image in pyramid.AsImage(key)
-        from sample in TextureUv.Sample(image, new UvSample(at.U, at.V, Vector3d.Zero, Vector3d.ZAxis, at.MipLevel), sampler, key)
+    static Fin<ShadeVec4> Read(TexturePyramid pyramid, BindTarget.Point at, SamplerState sampler) =>
+        from image in pyramid.AsImage()
+        from sample in TextureUv.Sample(image, new UvSample(at.U, at.V, Vector3d.Zero, Vector3d.ZAxis, at.MipLevel), sampler)
         select sample;
 
     static MaterialParameters Apply(TextureChannel channel, MaterialParameters row, ShadeVec4 texel) =>
@@ -977,16 +976,16 @@ public static class SetBind {
 
     static double Lane(ShadeVec4 texel, int lane) => lane switch { 0 => texel.X, 1 => texel.Y, _ => texel.Z };
 
-    static Fin<MaterialParameters> Summary(TextureSet set, MaterialParameters fallback, Op key) {
+    static Fin<MaterialParameters> Summary(TextureSet set, MaterialParameters fallback) {
         Seq<(TextureChannel Key, TexturePyramid Value)> channels = toSeq(set.Channels.AsIterable());
         MeanSlot[] slots = [
             .. channels.Map(static pair => new MeanSlot(pair.Value.Base)),
             .. set.Packs.Map(static pack => new MeanSlot(pack.Plane.Base))];
         MeanStage stage = default;
-        return key.Catch(() => {
+        return Try.lift(() => {
                 ParallelHelper.ForEach<MeanSlot, MeanStage>(slots.AsMemory(), in stage);
                 return Fin.Succ(unit);
-            })
+            }).Run().Bind(static inner => inner)
             .Bind(_ => MaterialParameters.Of(
                 set.Packs
                     .Map((pack, index) => (Pack: pack, slots[channels.Count + index].Mean))
@@ -994,8 +993,7 @@ public static class SetBind {
                         channels
                             .Map((pair, index) => (pair.Key, slots[index].Mean))
                             .Fold(fallback, (carried, row) => Apply(row.Key, carried, row.Mean)),
-                        (carried, pair) => Unpack(pair.Pack, carried, pair.Mean)),
-                key));
+                        (carried, pair) => Unpack(pair.Pack, carried, pair.Mean))));
     }
 
     private struct MeanSlot(TexturePlane plane) {

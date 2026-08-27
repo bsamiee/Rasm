@@ -59,15 +59,15 @@ public abstract partial record MeshFidelity : IValidityEvidence {
         density: static fidelity => (ValidityClaim)fidelity.Value.IsValid,
         custom: static fidelity => (ValidityClaim)fidelity.Law.IsValid);
 
-    internal Fin<MeshingParameters> Rig(Context domain, Op key) =>
-        key.Catch(() => Fin.Succ(value: Switch(
+    internal Fin<MeshingParameters> Rig(Context domain) =>
+        Try.lift(() => Fin.Succ(value: Switch(
             domain,
             preset: static (_, fidelity) => fidelity.Row.Mint(),
             density: static (_, fidelity) => fidelity.Value.MinimumEdgeLength.Case switch {
                 double minimum => new MeshingParameters(density: fidelity.Value.Value, minimumEdgeLength: minimum),
                 _ => new MeshingParameters(density: fidelity.Value.Value),
             },
-            custom: static (model, fidelity) => fidelity.Law.Mint(domain: model))));
+            custom: static (model, fidelity) => fidelity.Law.Mint(domain: model)))).Run().Bind(static inner => inner);
 }
 
 [ComplexValueObject]
@@ -254,8 +254,8 @@ public readonly partial struct QuadLaw : IValidityEvidence {
             ValidityClaim.Nonnegative(value: targetEdgeLength),
             ValidityClaim.Nonnegative(value: adaptiveSize), adaptiveSize <= 100.0);
 
-    internal Fin<QuadRemeshParameters> Rig(Op key) =>
-        key.Catch(() => Fin.Succ(value: new QuadRemeshParameters {
+    internal Fin<QuadRemeshParameters> Rig() =>
+        Try.lift(() => Fin.Succ(value: new QuadRemeshParameters {
             TargetQuadCount = TargetQuadCount,
             TargetEdgeLength = TargetEdgeLength,
             AdaptiveSize = AdaptiveSize,
@@ -264,7 +264,7 @@ public readonly partial struct QuadLaw : IValidityEvidence {
             GuideCurveInfluence = GuideCurveInfluence,
             PreserveMeshArrayEdgesMode = PreserveMeshArrayEdgesMode,
             SymmetryAxis = Symmetry,
-        }));
+        })).Run().Bind(static inner => inner);
 }
 
 [ComplexValueObject]
@@ -297,8 +297,8 @@ public readonly partial struct WrapLaw : IValidityEvidence {
             ValidityClaim.CountAtLeast(count: smoothingIterations, floor: 0),
             ValidityClaim.CountAtLeast(count: polygonOptimization, floor: 0));
 
-    internal Fin<ShrinkWrapParameters> Rig(Op key) =>
-        key.Catch(() => Fin.Succ(value: new ShrinkWrapParameters {
+    internal Fin<ShrinkWrapParameters> Rig() =>
+        Try.lift(() => Fin.Succ(value: new ShrinkWrapParameters {
             TargetEdgeLength = TargetEdgeLength,
             Offset = Offset,
             SmoothingIterations = SmoothingIterations,
@@ -306,7 +306,7 @@ public readonly partial struct WrapLaw : IValidityEvidence {
             PolygonOptimization = PolygonOptimization,
             InflateVerticesAndPoints = Features.Admits(capability: WrapFeature.InflatePoints),
             PreserveColors = Features.Admits(capability: WrapFeature.PreserveColors),
-        }));
+        })).Run().Bind(static inner => inner);
 }
 
 [ComplexValueObject]
@@ -341,8 +341,8 @@ public readonly partial struct ReduceLaw : IValidityEvidence {
                 claim: static component => ValidityClaim.CountAtLeast(count: component.Index, floor: 0),
                 allowEmpty: true));
 
-    internal Fin<ReduceMeshParameters> Rig(ModelRuntime runtime, Op key) =>
-        key.Catch(() => Fin.Succ(value: new ReduceMeshParameters {
+    internal Fin<ReduceMeshParameters> Rig(ModelRuntime runtime) =>
+        Try.lift(() => Fin.Succ(value: new ReduceMeshParameters {
             DesiredPolygonCount = DesiredPolygonCount,
             AllowDistortion = Features.Admits(capability: ReduceFeature.AllowDistortion),
             Accuracy = Accuracy,
@@ -351,7 +351,7 @@ public readonly partial struct ReduceLaw : IValidityEvidence {
             LockedComponents = LockedComponents.ToArray(),
             CancelToken = runtime.Cancellation,
             ProgressReporter = runtime.ScalarReporter,
-        }));
+        })).Run().Bind(static inner => inner);
 }
 
 [ComplexValueObject]
@@ -663,88 +663,82 @@ public abstract partial record MeshEditIntent : IValidityEvidence {
         shutLine: static edit => ModelClaim.Rows(rows: edit.Profiles, claim: static profile => profile.IsValid),
         displace: static edit => (ValidityClaim)edit.Law.IsValid);
 
-    internal Fin<Seq<GeometryHandle>> Apply(Mesh working, ModelRuntime runtime, Op op) =>
+    internal Fin<Seq<GeometryHandle>> Apply(Mesh working, ModelRuntime runtime) =>
         Switch(
-            (Working: working, Runtime: runtime, Op: op),
+            (Working: working, Runtime: runtime),
             reduce: static (ctx, edit) =>
-                from parameters in edit.Law.Rig(runtime: ctx.Runtime, key: ctx.Op)
-                from _ in ctx.Op.Catch(
-                    () => ctx.Op.Confirm(success: ctx.Working.Reduce(parameters: parameters, threaded: false)),
-                    token: ctx.Runtime.Cancellation)
-                from built in ModelGate.Kept(ctx.Op, ctx.Working)
+                from parameters in edit.Law.Rig(runtime: ctx.Runtime)
+                from _ in Try.lift(() => Admit.Confirm(success: ctx.Working.Reduce(parameters: parameters, threaded: false))).Run().Bind(static inner => inner)
+                from built in ModelGate.Kept(ctx.Working)
                 select built,
-            weld: static (ctx, edit) => ctx.Op.Catch(() => {
+            weld: static (ctx, edit) => Try.lift(() => {
                 ctx.Working.Weld(
                     angleToleranceRadians: ctx.Runtime.Domain.Angle.Value,
                     preserveSurfaceParameters: edit.PreserveSurfaceParameters);
-                return ModelGate.Kept(ctx.Op, ctx.Working);
-            }),
-            unweld: static (ctx, edit) => ctx.Op.Catch(() => {
+                return ModelGate.Kept(ctx.Working);
+            }).Run().Bind(static inner => inner),
+            unweld: static (ctx, edit) => Try.lift(() => {
                 ctx.Working.Unweld(angleToleranceRadians: ctx.Runtime.Domain.Angle.Value, modifyNormals: edit.ModifyNormals);
-                return ModelGate.Kept(ctx.Op, ctx.Working);
-            }),
-            unweldEdges: static (ctx, edit) => ctx.Op
-                .Confirm(success: ctx.Working.UnweldEdge(edgeIndices: edit.Edges.AsIterable(), modifyNormals: edit.ModifyNormals))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            unweldVertices: static (ctx, edit) => ctx.Op
-                .Confirm(success: ctx.Working.UnweldVertices(topologyVertexIndices: edit.TopologyVertices.AsIterable(), modifyNormals: edit.ModifyNormals))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            offset: static (ctx, edit) => ModelGate.Owned(ctx.Op, ctx.Working,
+                return ModelGate.Kept(ctx.Working);
+            }).Run().Bind(static inner => inner),
+            unweldEdges: static (ctx, edit) => Admit.Confirm(success: ctx.Working.UnweldEdge(edgeIndices: edit.Edges.AsIterable(), modifyNormals: edit.ModifyNormals))
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            unweldVertices: static (ctx, edit) => Admit.Confirm(success: ctx.Working.UnweldVertices(topologyVertexIndices: edit.TopologyVertices.AsIterable(), modifyNormals: edit.ModifyNormals))
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            offset: static (ctx, edit) => ModelGate.Owned(ctx.Working,
                 () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Solid)),
-            offsetDirection: static (ctx, edit) => ctx.Op.Catch(() => {
+            offsetDirection: static (ctx, edit) => Try.lift(() => {
                 Mesh shelled = ctx.Working.Offset(
                     distance: edit.Distance,
                     solidify: edit.Solid,
                     direction: edit.Direction,
                     wallFacesOut: out _);
-                return ModelGate.Owned(ctx.Op, ctx.Working, () => shelled);
-            }),
-            heal: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Working.HealNakedEdges(distance: edit.Distance)).Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            fillHoles: static ctx => ctx.Op.Confirm(success: ctx.Working.FillHoles())
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            fillHole: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Working.FillHole(topologyEdgeIndex: edit.TopologyEdge))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            matchNaked: static (ctx, edit) => ctx.Op.Confirm(
+                return ModelGate.Owned(ctx.Working, () => shelled);
+            }).Run().Bind(static inner => inner),
+            heal: static (ctx, edit) => Admit.Confirm(success: ctx.Working.HealNakedEdges(distance: edit.Distance)).Bind(_ => ModelGate.Kept(ctx.Working)),
+            fillHoles: static ctx => Admit.Confirm(success: ctx.Working.FillHoles())
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            fillHole: static (ctx, edit) => Admit.Confirm(success: ctx.Working.FillHole(topologyEdgeIndex: edit.TopologyEdge))
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            matchNaked: static (ctx, edit) => Admit.Confirm(
                     success: ctx.Working.MatchEdges(distance: edit.Distance, rachet: edit.Ratchet))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            mergeCoplanar: static ctx => ctx.Op
-                .Confirm(success: ctx.Working.MergeAllCoplanarFaces(tolerance: ctx.Runtime.Domain.Absolute.Value, angleTolerance: ctx.Runtime.Domain.Angle.Value))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            smooth: static (ctx, edit) => ctx.Op.Confirm(success: edit.Law.Apply(target: ctx.Working, steps: edit.Steps.Value))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            smoothVertices: static (ctx, edit) => ctx.Op.Confirm(
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            mergeCoplanar: static ctx => Admit.Confirm(success: ctx.Working.MergeAllCoplanarFaces(tolerance: ctx.Runtime.Domain.Absolute.Value, angleTolerance: ctx.Runtime.Domain.Angle.Value))
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            smooth: static (ctx, edit) => Admit.Confirm(success: edit.Law.Apply(target: ctx.Working, steps: edit.Steps.Value))
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            smoothVertices: static (ctx, edit) => Admit.Confirm(
                     success: edit.Law.Apply(target: ctx.Working, steps: edit.Steps.Value, vertices: Some(edit.Vertices)))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            collapseEdgeLength: static (ctx, edit) => ctx.Op.Catch(() => ctx.Working.CollapseFacesByEdgeLength(
-                    bGreaterThan: edit.AboveThreshold, edgeLength: edit.EdgeLength))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            collapseArea: static (ctx, edit) => ctx.Op.Catch(() => ctx.Working.CollapseFacesByArea(
-                    lessThanArea: edit.LessThanArea, greaterThanArea: edit.GreaterThanArea))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            collapseAspectRatio: static (ctx, edit) => ctx.Op.Catch(() => ctx.Working.CollapseFacesByByAspectRatio(
-                    aspectRatio: edit.Value))
-                .Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            rebuildNormals: static ctx => ctx.Op.Catch(() => {
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            collapseEdgeLength: static (ctx, edit) => Try.lift(() => ctx.Working.CollapseFacesByEdgeLength(
+                    bGreaterThan: edit.AboveThreshold, edgeLength: edit.EdgeLength)).Run().Bind(static inner => inner)
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            collapseArea: static (ctx, edit) => Try.lift(() => ctx.Working.CollapseFacesByArea(
+                    lessThanArea: edit.LessThanArea, greaterThanArea: edit.GreaterThanArea)).Run().Bind(static inner => inner)
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            collapseAspectRatio: static (ctx, edit) => Try.lift(() => ctx.Working.CollapseFacesByByAspectRatio(
+                    aspectRatio: edit.Value)).Run().Bind(static inner => inner)
+                .Bind(_ => ModelGate.Kept(ctx.Working)),
+            rebuildNormals: static ctx => Try.lift(() => {
                 ctx.Working.RebuildNormals();
-                return ModelGate.Kept(ctx.Op, ctx.Working);
-            }),
-            unifyNormals: static ctx => ctx.Op.Catch(() => {
+                return ModelGate.Kept(ctx.Working);
+            }).Run().Bind(static inner => inner),
+            unifyNormals: static ctx => Try.lift(() => {
                 ctx.Working.UnifyNormals();
-                return ModelGate.Kept(ctx.Op, ctx.Working);
-            }),
-            orient: static (ctx, edit) => ctx.Op.Catch(() => {
+                return ModelGate.Kept(ctx.Working);
+            }).Run().Bind(static inner => inner),
+            orient: static (ctx, edit) => Try.lift(() => {
                 ctx.Working.Flip(
                     vertexNormals: edit.Law.Targets.Admits(capability: MeshOrientationTarget.VertexNormals),
                     faceNormals: edit.Law.Targets.Admits(capability: MeshOrientationTarget.FaceNormals),
                     faceOrientation: edit.Law.Targets.Admits(capability: MeshOrientationTarget.FaceOrientation),
                     ngonsBoundaryDirection: edit.Law.Targets.Admits(capability: MeshOrientationTarget.NgonBoundaries));
-                return ModelGate.Kept(ctx.Op, ctx.Working);
-            }),
-            compact: static ctx => ctx.Op.Confirm(success: ctx.Working.Compact()).Bind(_ => ModelGate.Kept(ctx.Op, ctx.Working)),
-            extractNonManifold: static (ctx, edit) => ctx.Op.Catch(() =>
-                ModelGate.Staged(op: ctx.Op,
-                    ((GeometryBase[])[ctx.Working.ExtractNonManifoldEdges(selective: edit.Selective), ctx.Working], false))),
-            edgeSoften: static (ctx, edit) => ModelGate.Owned(ctx.Op, ctx.Working,
+                return ModelGate.Kept(ctx.Working);
+            }).Run().Bind(static inner => inner),
+            compact: static ctx => Admit.Confirm(success: ctx.Working.Compact()).Bind(_ => ModelGate.Kept(ctx.Working)),
+            extractNonManifold: static (ctx, edit) => Try.lift(() =>
+                ModelGate.Staged(((GeometryBase[])[ctx.Working.ExtractNonManifoldEdges(selective: edit.Selective), ctx.Working], false))).Run().Bind(static inner => inner),
+            edgeSoften: static (ctx, edit) => ModelGate.Owned(ctx.Working,
                 () => ctx.Working.WithEdgeSoftening(
                     softeningRadius: edit.Law.Radius,
                     chamfer: edit.Law.Features.Admits(capability: MeshEdgeSoftenFeature.Chamfer),
@@ -754,13 +748,12 @@ public abstract partial record MeshEditIntent : IValidityEvidence {
             shutLine: static (ctx, edit) =>
                 ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(
                     handles: edit.Profiles.Map(static row => row.Curve),
-                    key: ctx.Op,
-                    body: curves => ModelGate.Owned(ctx.Op, ctx.Working,
+                    body: curves => ModelGate.Owned(ctx.Working,
                         () => ctx.Working.WithShutLining(
                             faceted: edit.Faceted,
                             tolerance: ctx.Runtime.Domain.Absolute.Value,
                             curves: curves.Zip(edit.Profiles).Map(static pair => pair.Item2.Rig(curve: pair.Item1)).AsEnumerable()))),
-            displace: static (ctx, edit) => ModelGate.Owned(ctx.Op, ctx.Working,
+            displace: static (ctx, edit) => ModelGate.Owned(ctx.Working,
                 () => ctx.Working.WithDisplacement(displacement: edit.Law.Rig())));
 }
 
@@ -987,74 +980,74 @@ public abstract partial record MeshOp {
     private static readonly CapabilityLaw<SeedGrant> ConeGrants =
         CapabilityLaw<SeedGrant>.Forbidden(barred: Seq(CapabilitySet<SeedGrant>.Of(SeedGrant.Circumscribe)));
 
-    internal Fin<MeshOp> Admitted(Op key) =>
+    internal Fin<MeshOp> Admitted() =>
         Switch(
             context: key,
-            fromGeometry: static (op, row) => ModelClaim.Admits(row, op,
+            fromGeometry: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Fidelity), row.Fidelity is { IsValid: true })),
-            fromSubD: static (op, row) => ModelClaim.Admits(row, op,
+            fromSubD: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Level), Enum.IsDefined(row.Level))),
-            cage: static (op, row) => ModelClaim.Admits(row, op,
+            cage: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source))),
-            fromBoundary: static (op, row) => ModelClaim.Admits(row, op,
+            fromBoundary: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Boundary), ModelClaim.Handle(handle: row.Boundary)),
                 (nameof(row.Fidelity), row.Fidelity is { IsValid: true })),
-            seedPlane: static (op, row) => ModelClaim.Admits(row, op,
+            seedPlane: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Frame), row.Frame.IsValid), (nameof(row.X), row.X.IsValid), (nameof(row.Y), row.Y.IsValid)),
-            seedBox: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Box), row.Box.IsValid)),
-            seedSphere: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Sphere), row.Sphere.IsValid)),
-            seedIcoSphere: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Sphere), row.Sphere.IsValid)),
-            seedQuadSphere: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Sphere), row.Sphere.IsValid)),
-            seedCylinder: static (op, row) => ModelClaim.Admits(row, op,
+            seedBox: static (row) => ModelClaim.Admits(row, (nameof(row.Box), row.Box.IsValid)),
+            seedSphere: static (row) => ModelClaim.Admits(row, (nameof(row.Sphere), row.Sphere.IsValid)),
+            seedIcoSphere: static (row) => ModelClaim.Admits(row, (nameof(row.Sphere), row.Sphere.IsValid)),
+            seedQuadSphere: static (row) => ModelClaim.Admits(row, (nameof(row.Sphere), row.Sphere.IsValid)),
+            seedCylinder: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Cylinder), row.Cylinder.IsValid),
                 (nameof(row.Grants), CylinderGrants.Admit(held: row.Grants).IsSucc)),
-            seedCone: static (op, row) => ModelClaim.Admits(row, op,
+            seedCone: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Cone), row.Cone.IsValid),
                 (nameof(row.Grants), ConeGrants.Admit(held: row.Grants).IsSucc)),
-            seedTorus: static (op, row) => ModelClaim.Admits(row, op, (nameof(row.Torus), row.Torus.IsValid)),
-            seedClosedPolyline: static (op, row) => ModelClaim.Admits(row, op,
+            seedTorus: static (row) => ModelClaim.Admits(row, (nameof(row.Torus), row.Torus.IsValid)),
+            seedClosedPolyline: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Boundary), row.Boundary is { IsValid: true })),
-            quadRemesh: static (op, row) => ModelClaim.Admits(row, op,
+            quadRemesh: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Law), row.Law.IsValid),
                 (nameof(row.Guides), ModelClaim.Handles(handles: row.Guides, allowEmpty: true)),
                 (nameof(row.FaceBlocks), ModelClaim.Rows(
                     rows: row.FaceBlocks, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0), allowEmpty: true))),
-            wrap: static (op, row) => ModelClaim.Admits(row, op,
+            wrap: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Sources), ModelClaim.Handles(handles: row.Sources)),
                 (nameof(row.Law), row.Law.IsValid),
                 (nameof(row.Fidelity), ValidityClaim.WhenPresent(
                     facet: row.Fidelity, claim: static fidelity => (ValidityClaim)fidelity.IsValid))),
-            curvePipe: static (op, row) => ModelClaim.Admits(row, op,
+            curvePipe: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)),
                 (nameof(row.Radius), ValidityClaim.Positive(value: row.Radius)),
                 (nameof(row.Accuracy), ValidityClaim.CountAtLeast(count: row.Accuracy, floor: 1)),
                 (nameof(row.Cap), Enum.IsDefined(row.Cap)),
                 (nameof(row.Intervals), ModelClaim.Rows(
                     rows: row.Intervals, claim: static interval => (ValidityClaim)interval.IsValid, allowEmpty: true))),
-            curveExtrude: static (op, row) => ModelClaim.Admits(row, op,
+            curveExtrude: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)),
                 (nameof(row.Direction), ValidityClaim.Direction(value: row.Direction)),
                 (nameof(row.Fidelity), ValidityClaim.WhenPresent(
                     facet: row.Fidelity, claim: static fidelity => (ValidityClaim)fidelity.IsValid)),
                 (nameof(row.Bounds), ValidityClaim.WhenPresent(
                     facet: row.Bounds, claim: static bounds => (ValidityClaim)bounds.IsValid))),
-            isosurface: static (op, row) => ModelClaim.Admits(row, op,
+            isosurface: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Field), row.Field is not null), (nameof(row.Box), row.Box.IsValid),
                 (nameof(row.RootFindingMaxSteps), ValidityClaim.CountAtLeast(count: row.RootFindingMaxSteps, floor: 1))),
-            fromLines: static (op, row) => ModelClaim.Admits(row, op,
+            fromLines: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Lines), ModelClaim.Handles(handles: row.Lines)),
                 (nameof(row.MaxFaceValence), ValidityClaim.CountAtLeast(count: row.MaxFaceValence, floor: 3))),
-            tessellate: static (op, row) => ModelClaim.Admits(row, op,
+            tessellate: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Points), ModelClaim.Points(points: row.Points)),
                 (nameof(row.Edges), ModelClaim.Rows(rows: row.Edges, claim: static loop => ModelClaim.Points(points: loop))),
                 (nameof(row.Frame), row.Frame.IsValid)),
-            convexHull: static (op, row) => ModelClaim.Admits(row, op,
+            convexHull: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Points), ValidityClaim.All(
                     ValidityClaim.CountAtLeast(count: row.Points.Count, floor: 4), ModelClaim.Points(points: row.Points)))),
-            patch: static (op, row) => ModelClaim.Admits(row, op,
+            patch: static (row) => ModelClaim.Admits(row,
                 (nameof(row.OuterBoundary), ValidityClaim.All(
                     ValidityClaim.CountAtLeast(count: row.OuterBoundary.Count, floor: 4),
                     ModelClaim.Points(points: row.OuterBoundary))),
@@ -1064,70 +1057,70 @@ public abstract partial record MeshOp {
                 (nameof(row.BothSideCurves), ModelClaim.Handles(handles: row.BothSideCurves, allowEmpty: true)),
                 (nameof(row.InnerPoints), ModelClaim.Points(points: row.InnerPoints, allowEmpty: true)),
                 (nameof(row.Divisions), ValidityClaim.CountAtLeast(count: row.Divisions, floor: 1))),
-            rebuild: static (op, row) => ModelClaim.Admits(row, op,
+            rebuild: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source))),
-            cleanup: static (op, row) => ModelClaim.Admits(row, op,
+            cleanup: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Sources), ModelClaim.Handles(handles: row.Sources))),
-            refineLoop: static (op, row) => ModelClaim.Admits(row, op,
+            refineLoop: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Formula), Enum.IsDefined(row.Formula)), (nameof(row.NakedEdges), Enum.IsDefined(row.NakedEdges))),
-            refineCatmullClark: static (op, row) => ModelClaim.Admits(row, op,
+            refineCatmullClark: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.NakedEdges), Enum.IsDefined(row.NakedEdges))),
-            subdivideMidEdge: static (op, row) => ModelClaim.Admits(row, op,
+            subdivideMidEdge: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Faces), ModelClaim.Rows(
                     rows: row.Faces, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0), allowEmpty: true))),
-            booleanUnion: static (op, row) => ModelClaim.Admits(row, op,
+            booleanUnion: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Inputs), ModelClaim.Handles(handles: row.Inputs))),
-            booleanIntersection: static (op, row) => ModelClaim.Admits(row, op,
+            booleanIntersection: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handles(handles: row.First)),
                 (nameof(row.Second), ModelClaim.Handles(handles: row.Second))),
-            booleanDifference: static (op, row) => ModelClaim.Admits(row, op,
+            booleanDifference: static (row) => ModelClaim.Admits(row,
                 (nameof(row.First), ModelClaim.Handles(handles: row.First)),
                 (nameof(row.Second), ModelClaim.Handles(handles: row.Second))),
-            booleanSplit: static (op, row) => ModelClaim.Admits(row, op,
+            booleanSplit: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets)),
                 (nameof(row.Cutters), ModelClaim.Handles(handles: row.Cutters))),
-            splitPlane: static (op, row) => ModelClaim.Admits(row, op,
+            splitPlane: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Plane), row.Plane.IsValid)),
-            splitMeshes: static (op, row) => ModelClaim.Admits(row, op,
+            splitMeshes: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Cutters), ModelClaim.Handles(handles: row.Cutters)),
                 (nameof(row.Policy), row.Policy is not null)),
-            splitDisjoint: static (op, row) => ModelClaim.Admits(row, op,
+            splitDisjoint: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitNonManifold: static (op, row) => ModelClaim.Admits(row, op,
+            splitNonManifold: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitProjectedPolylines: static (op, row) => ModelClaim.Admits(row, op,
+            splitProjectedPolylines: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Curves), ModelClaim.Handles(handles: row.Curves))),
-            splitUnweldedEdges: static (op, row) => ModelClaim.Admits(row, op,
+            splitUnweldedEdges: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            splitCount: static (op, row) => ModelClaim.Admits(row, op,
+            splitCount: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.MaxCount), ValidityClaim.CountAtLeast(count: row.MaxCount, floor: 1)),
                 (nameof(row.Mode), row.Mode is not null)),
-            partition: static (op, row) => ModelClaim.Admits(row, op,
+            partition: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.MaxVertexCount), ValidityClaim.CountAtLeast(count: row.MaxVertexCount, floor: 1)),
                 (nameof(row.MaxFaceCount), ValidityClaim.CountAtLeast(count: row.MaxFaceCount, floor: 1))),
-            matchEdges: static (op, row) => ModelClaim.Admits(row, op,
+            matchEdges: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Targets), ModelClaim.Handles(handles: row.Targets)), (nameof(row.Law), row.Law.IsValid)),
-            append: static (op, row) => ModelClaim.Admits(row, op,
+            append: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Sources), ModelClaim.Handles(handles: row.Sources))),
-            projectFaces: static (op, row) => ModelClaim.Admits(row, op,
+            projectFaces: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Indices), ModelClaim.Rows(
                     rows: row.Indices, claim: static index => ValidityClaim.CountAtLeast(count: index, floor: 0)))),
-            projectNakedEdges: static (op, row) => ModelClaim.Admits(row, op,
+            projectNakedEdges: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target))),
-            projectOutlines: static (op, row) => ModelClaim.Admits(row, op,
+            projectOutlines: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)), (nameof(row.Frame), row.Frame.IsValid)),
-            edit: static (op, row) => ModelClaim.Admits(row, op,
+            edit: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Verb), row.Verb is { IsValid: true })),
-            extrude: static (op, row) => ModelClaim.Admits(row, op,
+            extrude: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Components), ModelClaim.Rows(
                     rows: row.Components, claim: static component => ValidityClaim.CountAtLeast(count: component.Index, floor: 0))),
@@ -1137,50 +1130,50 @@ public abstract partial record MeshOp {
         Switch(
             runtime,
             fromGeometry: static (model, edit) => {
-                Op op = FromGeometry.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: source =>
+                 = FromGeometry.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, body: source =>
                     from parameters in edit.Fidelity.Rig(domain: model, key: op)
-                    from built in op.Catch(() => {
+                    from built in Try.lift(() => {
                         using MeshingParameters live = parameters;
                         return source switch {
-                            Brep brep => ModelGate.Many(op, () => Mesh.CreateFromBrep(brep: brep, meshingParameters: live)),
-                            Surface surface => ModelGate.Single(op, () => Mesh.CreateFromSurface(surface: surface, meshingParameters: live)),
-                            Extrusion extrusion => ModelGate.Single(op, () => Mesh.CreateFromExtrusion(extrusion: extrusion, meshingParameters: live)),
-                            _ => Fin.Fail<Seq<GeometryHandle>>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Mesh))),
+                            Brep brep => ModelGate.Many(() => Mesh.CreateFromBrep(brep: brep, meshingParameters: live)),
+                            Surface surface => ModelGate.Single(() => Mesh.CreateFromSurface(surface: surface, meshingParameters: live)),
+                            Extrusion extrusion => ModelGate.Single(() => Mesh.CreateFromExtrusion(extrusion: extrusion, meshingParameters: live)),
+                            _ => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Mesh))),
                         };
-                    })
+                    }).Run().Bind(static inner => inner)
                     select built);
             },
             fromSubD: static (_, edit) => {
-                Op op = FromSubD.SelfOp;
-                return ModelGate.Borrow<SubD, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: subd =>
-                    ModelGate.Single(op, () => Mesh.CreateFromSubD(subd: subd, displayDensity: edit.Level)));
+                 = FromSubD.SelfOp;
+                return ModelGate.Borrow<SubD, Seq<GeometryHandle>>(handle: edit.Source, body: subd =>
+                    ModelGate.Single(() => Mesh.CreateFromSubD(subd: subd, displayDensity: edit.Level)));
             },
             cage: static (_, edit) => {
-                Op op = Cage.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: source =>
+                 = Cage.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, body: source =>
                     source switch {
-                        SubD subd => ModelGate.Single(op, () => edit.TextureCoordinates
+                        SubD subd => ModelGate.Single(() => edit.TextureCoordinates
                             ? Mesh.CreateFromSubDControlNetWithTextureCoordinates(subd: subd)
                             : Mesh.CreateFromSubDControlNet(subd: subd)),
-                        Surface surface => ModelGate.Single(op, () => Mesh.CreateFromSurfaceControlNet(surface: surface)),
-                        _ => Fin.Fail<Seq<GeometryHandle>>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Mesh))),
+                        Surface surface => ModelGate.Single(() => Mesh.CreateFromSurfaceControlNet(surface: surface)),
+                        _ => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Mesh))),
                     });
             },
             fromBoundary: static (model, edit) => {
-                Op op = FromBoundary.SelfOp;
-                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Boundary, key: op, body: boundary =>
+                 = FromBoundary.SelfOp;
+                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Boundary, body: boundary =>
                     from parameters in edit.Fidelity.Rig(domain: model, key: op)
-                    from built in op.Catch(() => {
+                    from built in Try.lift(() => {
                         using MeshingParameters live = parameters;
-                        return ModelGate.Single(op, () => Mesh.CreateFromPlanarBoundary(
+                        return ModelGate.Single(() => Mesh.CreateFromPlanarBoundary(
                             boundary: boundary, parameters: live, tolerance: model.Domain.Absolute.Value));
-                    })
+                    }).Run().Bind(static inner => inner)
                     select built);
             },
             seedPlane: static (_, edit) => {
-                Op op = SeedPlane.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromPlane(
+                 = SeedPlane.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromPlane(
                     plane: edit.Frame,
                     xInterval: edit.X,
                     yInterval: edit.Y,
@@ -1188,35 +1181,35 @@ public abstract partial record MeshOp {
                     yCount: edit.YCount.Value));
             },
             seedBox: static (_, edit) => {
-                Op op = SeedBox.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromBox(
+                 = SeedBox.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromBox(
                     box: edit.Box,
                     xCount: edit.XCount.Value,
                     yCount: edit.YCount.Value,
                     zCount: edit.ZCount.Value));
             },
             seedSphere: static (_, edit) => {
-                Op op = SeedSphere.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromSphere(
+                 = SeedSphere.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromSphere(
                     sphere: edit.Sphere,
                     xCount: edit.XCount.Value,
                     yCount: edit.YCount.Value));
             },
             seedIcoSphere: static (_, edit) => {
-                Op op = SeedIcoSphere.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateIcoSphere(
+                 = SeedIcoSphere.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateIcoSphere(
                     sphere: edit.Sphere,
                     subdivisions: edit.Subdivisions.Value));
             },
             seedQuadSphere: static (_, edit) => {
-                Op op = SeedQuadSphere.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateQuadSphere(
+                 = SeedQuadSphere.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateQuadSphere(
                     sphere: edit.Sphere,
                     subdivisions: edit.Subdivisions.Value));
             },
             seedCylinder: static (_, edit) => {
-                Op op = SeedCylinder.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromCylinder(
+                 = SeedCylinder.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromCylinder(
                     cylinder: edit.Cylinder,
                     vertical: edit.Vertical.Value,
                     around: edit.Around.Value,
@@ -1226,8 +1219,8 @@ public abstract partial record MeshOp {
                     quadCaps: edit.Grants.Admits(capability: SeedGrant.QuadCaps)));
             },
             seedCone: static (_, edit) => {
-                Op op = SeedCone.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromCone(
+                 = SeedCone.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromCone(
                     cone: edit.Cone,
                     vertical: edit.Vertical.Value,
                     around: edit.Around.Value,
@@ -1235,128 +1228,127 @@ public abstract partial record MeshOp {
                     quadCaps: edit.Grants.Admits(capability: SeedGrant.QuadCaps)));
             },
             seedTorus: static (_, edit) => {
-                Op op = SeedTorus.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromTorus(
+                 = SeedTorus.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromTorus(
                     torus: edit.Torus,
                     vertical: edit.Vertical.Value,
                     around: edit.Around.Value));
             },
             seedClosedPolyline: static (_, edit) => {
-                Op op = SeedClosedPolyline.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromClosedPolyline(
+                 = SeedClosedPolyline.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromClosedPolyline(
                     polyline: edit.Boundary.Native));
             },
             quadRemesh: static (model, edit) => {
-                Op op = QuadRemesh.SelfOp;
-                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: source =>
-                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Guides, key: op, allowEmpty: true, body: guides =>
-                        from parameters in edit.Law.Rig(key: op)
+                 = QuadRemesh.SelfOp;
+                return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Source, body: source =>
+                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Guides, allowEmpty: true, body: guides =>
+                        from parameters in edit.Law.Rig()
                         from remeshed in (source switch {
                             Brep brep => model.Await(() => Mesh.QuadRemeshBrepAsync(
                                 brep: brep, parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
                             Mesh mesh when !edit.FaceBlocks.IsEmpty => model.Await(() => mesh.QuadRemeshAsync(
                                 faceBlocks: edit.FaceBlocks.AsIterable(), parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
                             Mesh mesh => model.Await(() => mesh.QuadRemeshAsync(
                                 parameters: parameters, guideCurves: guides.AsIterable(),
-                                progress: model.IntegerReporter, cancelToken: model.Cancellation), op),
-                            _ => Fin.Fail<Mesh>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Mesh))),
+                                progress: model.IntegerReporter, cancelToken: model.Cancellation)),
+                            _ => Fin.Fail<Mesh>(error: new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(Mesh))),
                         })
-                        from built in ModelGate.Single(op, () => remeshed)
+                        from built in ModelGate.Single(() => remeshed)
                         select built));
             },
             wrap: static (model, edit) => {
-                Op op = Wrap.SelfOp;
-                return ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Sources, key: op, body: sources =>
-                    from parameters in edit.Law.Rig(key: op)
-                    from built in op.Catch(() => (
+                 = Wrap.SelfOp;
+                return ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Sources, body: sources =>
+                    from parameters in edit.Law.Rig()
+                    from built in Try.lift(() => (
                         AllMeshes: sources.ForAll(static value => value is Mesh),
                         Cloud: sources.Count == 1 ? sources[0] as PointCloud : null,
                         Fidelity: edit.Fidelity.Case) switch {
-                        (true, _, null) => ModelGate.Single(op, () => Mesh.ShrinkWrap(
+                        (true, _, null) => ModelGate.Single(() => Mesh.ShrinkWrap(
                             meshes: sources.Map(static value => (Mesh)value).AsIterable(),
                             parameters: parameters,
                             token: model.Cancellation), token: model.Cancellation),
-                        (true, _, _) => Fin.Fail<Seq<GeometryHandle>>(error: op.InvalidInput()),
-                        (false, PointCloud cloud, null) => ModelGate.Single(op, () => Mesh.ShrinkWrap(
+                        (true, _, _) => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput()),
+                        (false, PointCloud cloud, null) => ModelGate.Single(() => Mesh.ShrinkWrap(
                             pointCloud: cloud,
                             parameters: parameters,
                             token: model.Cancellation), token: model.Cancellation),
-                        (false, PointCloud, _) => Fin.Fail<Seq<GeometryHandle>>(error: op.InvalidInput()),
-                        (false, _, MeshFidelity fidelity) => fidelity.Rig(domain: model, key: op).Bind(meshing => op.Catch(() => {
+                        (false, PointCloud, _) => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput()),
+                        (false, _, MeshFidelity fidelity) => fidelity.Rig(domain: model, key: op).Bind(meshing => Try.lift(() => {
                             using MeshingParameters live = meshing;
-                            return ModelGate.Single(op, () => Mesh.ShrinkWrap(
+                            return ModelGate.Single(() => Mesh.ShrinkWrap(
                                 geometryBases: sources.AsIterable(),
                                 parameters: parameters,
                                 meshingParameters: live,
                                 token: model.Cancellation), token: model.Cancellation);
-                        })),
-                        _ => Fin.Fail<Seq<GeometryHandle>>(error: op.MissingContext()),
-                    })
+                        }).Run().Bind(static inner => inner)),
+                        _ => Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.MissingContext()),
+                    }).Run().Bind(static inner => inner)
                     select built);
             },
             curvePipe: static (_, edit) => {
-                Op op = CurvePipe.SelfOp;
-                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Curve, key: op, body: curve =>
-                    ModelGate.Single(op, () => Mesh.CreateFromCurvePipe(
+                 = CurvePipe.SelfOp;
+                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Curve, body: curve =>
+                    ModelGate.Single(() => Mesh.CreateFromCurvePipe(
                         curve: curve, radius: edit.Radius, segments: edit.Segments.Value, accuracy: edit.Accuracy,
                         capType: edit.Cap, faceted: edit.Faceted,
                         intervals: edit.Intervals.IsEmpty ? null : edit.Intervals.AsIterable())));
             },
             curveExtrude: static (model, edit) => {
-                Op op = CurveExtrude.SelfOp;
-                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Curve, key: op, body: curve =>
+                 = CurveExtrude.SelfOp;
+                return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Curve, body: curve =>
                     edit.Fidelity.Case switch {
-                        MeshFidelity fidelity => fidelity.Rig(domain: model, key: op).Bind(parameters => op.Catch(() => {
+                        MeshFidelity fidelity => fidelity.Rig(domain: model, key: op).Bind(parameters => Try.lift(() => {
                             using MeshingParameters live = parameters;
-                            return ModelGate.Single(op, () => edit.Bounds.Case switch {
+                            return ModelGate.Single(() => edit.Bounds.Case switch {
                                 BoundingBox bounds => Mesh.CreateFromCurveExtrusion(curve: curve, direction: edit.Direction, parameters: live, boundingBox: bounds),
                                 _ => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction, parameters: live),
                             });
-                        })),
+                        }).Run().Bind(static inner => inner)),
                         _ => edit.Bounds.IsSome
-                            ? Fin.Fail<Seq<GeometryHandle>>(error: op.InvalidInput())
-                            : ModelGate.Single(op, () => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction)),
+                            ? Fin.Fail<Seq<GeometryHandle>>(error: new KernelFault.InvalidInput())
+                            : ModelGate.Single(() => Mesh.CreateExtrusion(profile: curve, direction: edit.Direction)),
                     });
             },
             isosurface: static (_, edit) => {
-                Op op = Isosurface.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromIsosurface(
+                 = Isosurface.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromIsosurface(
                     scalarFieldEvaluator: edit.Field, box: edit.Box,
                     resolution: edit.Resolution.Value, RootFindingMaxSteps: edit.RootFindingMaxSteps));
             },
             fromLines: static (model, edit) => {
-                Op op = FromLines.SelfOp;
-                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Lines, key: op, body: lines =>
-                    ModelGate.Single(op, () => Mesh.CreateFromLines(
+                 = FromLines.SelfOp;
+                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Lines, body: lines =>
+                    ModelGate.Single(() => Mesh.CreateFromLines(
                         lines: lines.ToArray(), maxFaceValence: edit.MaxFaceValence, tolerance: model.Domain.Absolute.Value)));
             },
             tessellate: static (_, edit) => {
-                Op op = Tessellate.SelfOp;
-                return ModelGate.Single(op, () => Mesh.CreateFromTessellation(
+                 = Tessellate.SelfOp;
+                return ModelGate.Single(() => Mesh.CreateFromTessellation(
                     points: edit.Points.AsIterable(),
                     edges: edit.Edges.Map(static loop => loop.AsIterable()).AsIterable(),
                     plane: edit.Frame, allowNewVertices: edit.AllowNewVertices));
             },
             convexHull: static (model, edit) => {
-                Op op = ConvexHull.SelfOp;
-                return op.Catch(() => {
+                 = ConvexHull.SelfOp;
+                return Try.lift(() => {
                     Mesh hull = Mesh.CreateConvexHull3D(
                         points: edit.Points.AsIterable(), hullFacets: out _,
                         tolerance: model.Domain.Absolute.Value, angleTolerance: model.Domain.Angle.Value);
                     return ModelGate.Own(built: hull, key: op).Map(handle => Seq(handle));
-                });
+                }).Run().Bind(static inner => inner);
             },
             patch: static (model, edit) => {
-                Op op = Patch.SelfOp;
-                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.InnerBoundaries, key: op, allowEmpty: true, body: inner =>
-                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.BothSideCurves, key: op, allowEmpty: true, body: bothSides =>
+                 = Patch.SelfOp;
+                return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.InnerBoundaries, allowEmpty: true, body: inner =>
+                    ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.BothSideCurves, allowEmpty: true, body: bothSides =>
                         ModelGate.BorrowMany<Surface, Seq<GeometryHandle>>(
                             handles: edit.PullbackSurface.ToSeq(),
-                            key: op,
                             allowEmpty: true,
-                            body: pullbacks => ModelGate.Single(op, () => Mesh.CreatePatch(
+                            body: pullbacks => ModelGate.Single(() => Mesh.CreatePatch(
                                 outerBoundary: new Polyline(collection: edit.OuterBoundary.AsIterable()),
                                 angleToleranceRadians: model.Domain.Angle.Value,
                                 pullbackSurface: pullbacks.IsEmpty ? null : pullbacks[0],
@@ -1367,23 +1359,23 @@ public abstract partial record MeshOp {
                                 divisions: edit.Divisions)))));
             },
             rebuild: static (_, edit) => {
-                Op op = Rebuild.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: mesh =>
-                    ModelGate.Single(op, () => Mesh.RebuildMesh(
+                 = Rebuild.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, body: mesh =>
+                    ModelGate.Single(() => Mesh.RebuildMesh(
                         mesh: mesh,
                         preserveTextureCoordinates: edit.Attributes.Admits(capability: MeshRebuildAttribute.TextureCoordinates),
                         preserveVertexColors: edit.Attributes.Admits(capability: MeshRebuildAttribute.VertexColors))));
             },
             cleanup: static (model, edit) => {
-                Op op = Cleanup.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Sources, key: op, body: sources =>
-                    ModelGate.Many(op, () => Mesh.CreateFromIterativeCleanup(
+                 = Cleanup.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Sources, body: sources =>
+                    ModelGate.Many(() => Mesh.CreateFromIterativeCleanup(
                         meshes: sources.AsIterable(), tolerance: model.Domain.Absolute.Value)));
             },
             refineLoop: static (_, edit) => {
-                Op op = RefineLoop.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: mesh =>
-                    ModelGate.Single(op, () => Mesh.CreateRefinedLoopMesh(
+                 = RefineLoop.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, body: mesh =>
+                    ModelGate.Single(() => Mesh.CreateRefinedLoopMesh(
                         mesh: mesh,
                         formula: edit.Formula,
                         settings: new MeshRefinements.RefinementSettings {
@@ -1392,9 +1384,9 @@ public abstract partial record MeshOp {
                         })));
             },
             refineCatmullClark: static (_, edit) => {
-                Op op = RefineCatmullClark.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: mesh =>
-                    ModelGate.Single(op, () => Mesh.CreateRefinedCatmullClarkMesh(
+                 = RefineCatmullClark.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, body: mesh =>
+                    ModelGate.Single(() => Mesh.CreateRefinedCatmullClarkMesh(
                         mesh: mesh,
                         settings: new MeshRefinements.RefinementSettings {
                             Level = edit.Level.Value,
@@ -1402,20 +1394,20 @@ public abstract partial record MeshOp {
                         })));
             },
             subdivideMidEdge: static (_, edit) => {
-                Op op = SubdivideMidEdge.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, key: op, body: mesh => op.Catch(() => {
+                 = SubdivideMidEdge.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Source, body: mesh => Try.lift(() => {
                     Mesh working = (Mesh)mesh.Duplicate();
-                    return op.Confirm(success: edit.Faces.IsEmpty
+                    return Admit.Confirm(success: edit.Faces.IsEmpty
                             ? working.Subdivide()
                             : working.Subdivide(faceIndices: edit.Faces.AsIterable()))
-                        .Bind(_ => ModelGate.Kept(op, working))
+                        .Bind(_ => ModelGate.Kept(working))
                         .Rollback(working);
-                }));
+                }).Run().Bind(static inner => inner));
             },
             booleanUnion: static (model, edit) => {
-                Op op = BooleanUnion.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Inputs, key: op, body: inputs =>
-                    Booled(op, model, options => {
+                 = BooleanUnion.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Inputs, body: inputs =>
+                    Booled(model, options => {
                         Mesh[] products = Mesh.CreateBooleanUnion(
                             meshes: inputs.AsIterable(), options: options,
                             commandResult: out Rhino.Commands.Result verdict, inputMap: out _);
@@ -1423,10 +1415,10 @@ public abstract partial record MeshOp {
                     }));
             },
             booleanIntersection: static (model, edit) => {
-                Op op = BooleanIntersection.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.First, key: op, body: first =>
-                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Second, key: op, body: second =>
-                        Booled(op, model, options => {
+                 = BooleanIntersection.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.First, body: first =>
+                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Second, body: second =>
+                        Booled(model, options => {
                             Mesh[] products = Mesh.CreateBooleanIntersection(
                                 firstSet: first.AsIterable(), secondSet: second.AsIterable(), options: options,
                                 result: out Rhino.Commands.Result verdict, inputMap: out _);
@@ -1434,10 +1426,10 @@ public abstract partial record MeshOp {
                         })));
             },
             booleanDifference: static (model, edit) => {
-                Op op = BooleanDifference.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.First, key: op, body: first =>
-                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Second, key: op, body: second =>
-                        Booled(op, model, options => {
+                 = BooleanDifference.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.First, body: first =>
+                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Second, body: second =>
+                        Booled(model, options => {
                             Mesh[] products = Mesh.CreateBooleanDifference(
                                 firstSet: first.AsIterable(), secondSet: second.AsIterable(), options: options,
                                 result: out Rhino.Commands.Result verdict, inputMap: out _);
@@ -1445,10 +1437,10 @@ public abstract partial record MeshOp {
                         })));
             },
             booleanSplit: static (model, edit) => {
-                Op op = BooleanSplit.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Targets, key: op, body: targets =>
-                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Cutters, key: op, body: cutters =>
-                        Booled(op, model, options => {
+                 = BooleanSplit.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Targets, body: targets =>
+                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Cutters, body: cutters =>
+                        Booled(model, options => {
                             Mesh[] products = Mesh.CreateBooleanSplit(
                                 meshesToSplit: targets.AsIterable(), meshSplitters: cutters.AsIterable(), options: options,
                                 result: out Rhino.Commands.Result verdict, inputMap: out _);
@@ -1456,18 +1448,18 @@ public abstract partial record MeshOp {
                         })));
             },
             splitPlane: static (_, edit) => {
-                Op op = SplitPlane.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => mesh.Split(plane: edit.Plane)));
+                 = SplitPlane.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => mesh.Split(plane: edit.Plane)));
             },
             splitMeshes: static (model, edit) => {
-                Op op = SplitMeshes.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Cutters, key: op, body: cutters =>
-                        op.Catch(() => {
+                 = SplitMeshes.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Cutters, body: cutters =>
+                        Try.lift(() => {
                             (bool coplanar, bool ngons) = edit.Policy.Native;
                             using TextLog log = new();
-                            return ModelGate.Many(op, () => mesh.Split(
+                            return ModelGate.Many(() => mesh.Split(
                                     meshes: cutters.AsIterable(),
                                     tolerance: model.Domain.For(lane: ToleranceLane.MeshIntersection).Value,
                                     splitAtCoplanar: coplanar,
@@ -1475,48 +1467,48 @@ public abstract partial record MeshOp {
                                     textLog: log,
                                     cancel: model.Cancellation,
                                     progress: model.ScalarReporter), token: model.Cancellation);
-                        }, token: model.Cancellation)));
+                        }).Run().Bind(static inner => inner)));
             },
             splitDisjoint: static (_, edit) => {
-                Op op = SplitDisjoint.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => mesh.SplitDisjointPieces()));
+                 = SplitDisjoint.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => mesh.SplitDisjointPieces()));
             },
             splitNonManifold: static (_, edit) => {
-                Op op = SplitNonManifold.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => mesh.SplitNon2Manifolds()));
+                 = SplitNonManifold.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => mesh.SplitNon2Manifolds()));
             },
             splitProjectedPolylines: static (model, edit) => {
-                Op op = SplitProjectedPolylines.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.BorrowMany<PolylineCurve, Seq<GeometryHandle>>(handles: edit.Curves, key: op, body: curves =>
-                        ModelGate.Many(op, () => mesh.SplitWithProjectedPolylines(
+                 = SplitProjectedPolylines.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.BorrowMany<PolylineCurve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
+                        ModelGate.Many(() => mesh.SplitWithProjectedPolylines(
                             curves: curves.AsIterable(), tolerance: model.Domain.Absolute.Value))));
             },
             splitUnweldedEdges: static (_, edit) => {
-                Op op = SplitUnweldedEdges.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => mesh.ExplodeAtUnweldedEdges()));
+                 = SplitUnweldedEdges.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => mesh.ExplodeAtUnweldedEdges()));
             },
             splitCount: static (_, edit) => {
-                Op op = SplitCount.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh => {
+                 = SplitCount.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh => {
                     (bool countSum, bool countTriangles) = edit.Mode.Native;
-                    return ModelGate.Many(op, () => Mesh.SplitMesh(
+                    return ModelGate.Many(() => Mesh.SplitMesh(
                         mesh: mesh, maxCount: edit.MaxCount, countSum: countSum, countTriangles: countTriangles));
                 });
             },
             partition: static (_, edit) => {
-                Op op = Partition.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => Mesh.PartitionMesh(
+                 = Partition.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => Mesh.PartitionMesh(
                         mesh: mesh, maxVertexCount: edit.MaxVertexCount, maxFaceCount: edit.MaxFaceCount)));
             },
             matchEdges: static (_, edit) => {
-                Op op = MatchEdges.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Targets, key: op, body: meshes =>
-                    ModelGate.Many(op, () => Mesh.MatchEdges(
+                 = MatchEdges.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Targets, body: meshes =>
+                    ModelGate.Many(() => Mesh.MatchEdges(
                         inputMeshes: meshes.AsIterable(), distance: edit.Law.Distance,
                         simpleSplits: edit.Law.Capabilities.Admits(capability: MeshMatchPolicy.SimpleSplits),
                         rachet: edit.Law.Capabilities.Admits(capability: MeshMatchPolicy.Ratchet),
@@ -1524,53 +1516,53 @@ public abstract partial record MeshOp {
                         join: edit.Law.Capabilities.Admits(capability: MeshMatchPolicy.JoinResult))));
             },
             append: static (_, edit) => {
-                Op op = Append.SelfOp;
-                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Sources, key: op, body: sources =>
-                    op.Catch(() => {
+                 = Append.SelfOp;
+                return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Sources, body: sources =>
+                    Try.lift(() => {
                         Mesh working = new();
                         working.Append(meshes: sources.AsIterable());
                         return ModelGate.Own(built: working, key: op).Map(handle => Seq(handle));
-                    }));
+                    }).Run().Bind(static inner => inner));
             },
             projectFaces: static (_, edit) => {
-                Op op = ProjectFaces.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh => {
+                 = ProjectFaces.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh => {
                     FrozenSet<int> selected = edit.Indices.ToFrozenSet();
                     return from _ in guard(
                                selected.All(index => index < mesh.Faces.Count),
-                               op.InvalidInput())
-                           from built in ModelGate.Single(op, () => Mesh.CreateFromFilteredFaceList(
+                               new KernelFault.InvalidInput())
+                           from built in ModelGate.Single(() => Mesh.CreateFromFilteredFaceList(
                                original: mesh,
                                inclusion: Enumerable.Range(start: 0, count: mesh.Faces.Count).Select(selected.Contains)))
                            select built;
                 });
             },
             projectNakedEdges: static (_, edit) => {
-                Op op = ProjectNakedEdges.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => Optional(mesh.GetNakedEdges())
+                 = ProjectNakedEdges.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => Optional(mesh.GetNakedEdges())
                         .Map(static rows => rows.Map(static row => new PolylineCurve(polyline: row)))
                         .IfNone(Seq<PolylineCurve>()), allowEmpty: true));
             },
             projectOutlines: static (_, edit) => {
-                Op op = ProjectOutlines.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    ModelGate.Many(op, () => Optional(mesh.GetOutlines(edit.Frame))
+                 = ProjectOutlines.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    ModelGate.Many(() => Optional(mesh.GetOutlines(edit.Frame))
                         .Map(static rows => rows.Map(static outline => new PolylineCurve(polyline: outline)))
                         .IfNone(Seq<PolylineCurve>()), allowEmpty: true));
             },
             edit: static (model, request) => {
-                Op op = Edit.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: request.Target, key: op, body: source =>
-                    op.Catch(() => {
+                 = Edit.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: request.Target, body: source =>
+                    Try.lift(() => {
                         Mesh working = (Mesh)source.Duplicate();
-                        return request.Verb.Apply(working: working, runtime: model, op: op).Rollback(working);
-                    }));
+                        return request.Verb.Apply(working: working, runtime: model).Rollback(working);
+                    }).Run().Bind(static inner => inner));
             },
             extrude: static (_, edit) => {
-                Op op = Extrude.SelfOp;
-                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, key: op, body: mesh =>
-                    op.Catch(() => {
+                 = Extrude.SelfOp;
+                return ModelGate.Borrow<Mesh, Seq<GeometryHandle>>(handle: edit.Target, body: mesh =>
+                    Try.lift(() => {
                         (bool uvn, bool edgeUvn) = edit.Law.Frame.Native;
                         using MeshExtruder engine = new(inputMesh: mesh, componentIndices: edit.Components.AsIterable()) {
                             Transform = edit.Law.Motion,
@@ -1581,24 +1573,23 @@ public abstract partial record MeshOp {
                             SurfaceParameterMode = edit.Law.SurfaceParameters,
                             FaceDirectionMode = edit.Law.FaceDirection,
                         };
-                        return op.Confirm(success: engine.ExtrudedMesh(
+                        return Admit.Confirm(success: engine.ExtrudedMesh(
                                 extrudedMeshOut: out Mesh extruded, componentIndicesOut: out _))
                             .Bind(_ => ModelGate.Own(built: extruded, key: op).Map(handle => Seq(handle)));
-                    }));
+                    }).Run().Bind(static inner => inner));
             });
 
-    private static Fin<Seq<GeometryHandle>> Booled(
-        Op op, ModelRuntime model,
+    private static Fin<Seq<GeometryHandle>> Booled(ModelRuntime model,
         Func<MeshBooleanOptions, (Mesh[] Products, Rhino.Commands.Result Verdict)> run) =>
-        op.Catch(() => {
+        Try.lift(() => {
             (Mesh[] products, Rhino.Commands.Result verdict) = run(new MeshBooleanOptions {
                 Tolerance = model.Domain.For(lane: ToleranceLane.MeshIntersection).Value,
                 CancellationToken = model.Cancellation,
                 ProgressReporter = model.ScalarReporter,
             });
-            return op.Confirm(success: verdict == Rhino.Commands.Result.Success)
-                .Bind(_ => ModelGate.OwnMany(built: products, key: op, allowEmpty: true));
-        }, token: model.Cancellation);
+            return Admit.Confirm(success: verdict == Rhino.Commands.Result.Success)
+                .Bind(_ => ModelGate.OwnMany(built: products, allowEmpty: true));
+        }).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -1609,7 +1600,7 @@ public static class HostMeshes {
             ModelGate.Entry(
                 runtime: runtime,
                 operations: captured,
-                admit: static (operation, key) => operation.Admitted(key: key),
+                admit: static (operation, key) => operation.Admitted(),
                 apply: (operation, _) => operation.Apply(runtime)).ToEff());
     }
 }

@@ -64,8 +64,8 @@ public readonly partial struct ProjectedCrs {
    : null;
  }
 
- public static Fin<ProjectedCrs> Of(string name, string mapProjection, string mapZone, string wkt, Op key) =>
-  key.AcceptValidated<ProjectedCrs>(
+ public static Fin<ProjectedCrs> Of(string name, string mapProjection, string mapZone, string wkt) =>
+  FactoryBridge.Accept<ProjectedCrs>(
    Validate(name, mapProjection, mapZone, wkt, default, out ProjectedCrs value),
    value);
 
@@ -101,8 +101,8 @@ public readonly partial struct VerticalCrs {
   }
  }
 
- public static Fin<VerticalCrs> Of(Option<int> epsg, string name, Op key) =>
-  key.AcceptValidated<VerticalCrs>(Validate(epsg, name, out VerticalCrs value), value);
+ public static Fin<VerticalCrs> Of(Option<int> epsg, string name) =>
+  FactoryBridge.Accept<VerticalCrs>(Validate(epsg, name, out VerticalCrs value), value);
 
  public CrsResolution Resolution => Epsg.IsSome ? CrsResolution.Epsg : CrsResolution.Projection;
 
@@ -161,16 +161,16 @@ public sealed partial record GeoReference {
  double eastings, double northings, double orthogonalHeight,
  double abscissa, double ordinate, double scaleX, double scaleY, double scaleZ,
  string geodeticDatum, string verticalDatum,
- string projectedCrsName, string wkt, string mapProjection, string mapZone, Op key,
+ string projectedCrsName, string wkt, string mapProjection, string mapZone,
  Option<double> epoch = default, Option<int> verticalEpsg = default) =>
- (Finite(key, ("map-eastings", eastings), ("map-northings", northings), ("map-orthogonal-height", orthogonalHeight)),
-  Direction(abscissa, ordinate, key),
-  In(scaleX, Band.Positive, "map-scale-x", key),
-  In(scaleY, Band.Positive, "map-scale-y", key),
-  In(scaleZ, Band.Positive, "map-scale-z", key),
-  Optional(epoch, Band.Positive, "coordinate-epoch", key),
-  AdmitCrs(projectedCrsName, wkt, mapProjection, mapZone, key),
-  AdmitVertical(verticalEpsg, verticalDatum, key))
+ (Finite(("map-eastings", eastings), ("map-northings", northings), ("map-orthogonal-height", orthogonalHeight)),
+  Direction(abscissa, ordinate),
+  In(scaleX, Band.Positive, "map-scale-x"),
+  In(scaleY, Band.Positive, "map-scale-y"),
+  In(scaleZ, Band.Positive, "map-scale-z"),
+  Optional(epoch, Band.Positive, "coordinate-epoch"),
+  AdmitCrs(projectedCrsName, wkt, mapProjection, mapZone),
+  AdmitVertical(verticalEpsg, verticalDatum))
  .Apply((_, direction, x, y, z, admittedEpoch, crs, vertical) => Uniform(x, y, z) switch {
    var (sx, sy, sz) => new GeoReference(
     eastings, northings, orthogonalHeight, direction.Abscissa, direction.Ordinate, sx, sy, sz,
@@ -188,23 +188,23 @@ public sealed partial record GeoReference {
    : (scaleX, scaleY, scaleZ);
  }
 
- private static Validation<Error, (double Abscissa, double Ordinate)> Direction(double abscissa, double ordinate, Op key) {
+ private static Validation<Error, (double Abscissa, double Ordinate)> Direction(double abscissa, double ordinate) {
   double magnitude = double.Hypot(abscissa, ordinate);
   return double.IsFinite(magnitude) && magnitude > 0.0
    ? (abscissa / magnitude, ordinate / magnitude)
-   : new ElementFault.ValueRejected(key, $"<map-conversion-direction-degenerate:{abscissa:R}:{ordinate:R}>");
+   : new ElementFault.ValueRejected($"<map-conversion-direction-degenerate:{abscissa:R}:{ordinate:R}>");
  }
 
- private static Validation<Error, Option<ProjectedCrs>> AdmitCrs(string name, string wkt, string mapProjection, string mapZone, Op key) =>
+ private static Validation<Error, Option<ProjectedCrs>> AdmitCrs(string name, string wkt, string mapProjection, string mapZone) =>
   (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(wkt) && string.IsNullOrWhiteSpace(mapProjection) && string.IsNullOrWhiteSpace(mapZone)
    ? Fin.Succ(Option<ProjectedCrs>.None)
-   : ProjectedCrs.Of(name, mapProjection, mapZone, wkt, key).Map(Some))
+   : ProjectedCrs.Of(name, mapProjection, mapZone, wkt).Map(Some))
   .ToValidation();
 
- private static Validation<Error, Option<VerticalCrs>> AdmitVertical(Option<int> epsg, string datum, Op key) =>
+ private static Validation<Error, Option<VerticalCrs>> AdmitVertical(Option<int> epsg, string datum) =>
   (epsg.IsNone && string.IsNullOrWhiteSpace(datum)
    ? Fin.Succ(Option<VerticalCrs>.None)
-   : VerticalCrs.Of(epsg, datum, key).Map(Some))
+   : VerticalCrs.Of(epsg, datum).Map(Some))
   .ToValidation();
 }
 ```

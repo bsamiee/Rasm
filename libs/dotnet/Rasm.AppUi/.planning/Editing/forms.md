@@ -161,7 +161,7 @@ public sealed record FieldCell(Option<FieldValue> Uniform, int Targets, Option<s
 public sealed record FormState(HashMap<FieldTag, FieldCell> Values) {
     public static readonly FormState Empty = new(HashMap<FieldTag, FieldCell>());
 
-    internal FormState Seat(FieldTag key, FieldCell value) => this with { Values = Values.AddOrUpdate(key, value) };
+    internal FormState Seat(FieldTag key, FieldCell value) => this with { Values = Values.AddOrUpdate(value) };
 
     public Fin<HashMap<string, JsonElement>> Payload() =>
         toSeq(Values)
@@ -189,12 +189,12 @@ public sealed record FieldMeasure(MeasureRole Role, QuantityInfo Family, Option<
         !StringComparer.Ordinal.Equals(Family.Name, value.QuantityInfo.Name)
             ? Fin.Fail<IQuantity>(new FormFault.MeasureRejected(Role.Key, value.QuantityInfo.Name))
             : locale.Measures.Unit(Role) switch {
-                var unit => Op.Of(name: "appui.form.measure").Catch(() => Fin.Succ(Quantity.From(
+                var unit => Try.lift(() => Fin.Succ(Quantity.From(
                         double.Clamp(
                             value.As(unit),
                             Floor.Map(edge => edge.As(unit)).IfNone(double.NegativeInfinity),
                             Ceiling.Map(edge => edge.As(unit)).IfNone(double.PositiveInfinity)),
-                        unit))),
+                        unit))).Run().Bind(static inner => inner),
             };
 }
 
@@ -353,7 +353,7 @@ public sealed record FormField(
         Option<string> helpKey = default,
         Option<FieldMeasure> measure = default,
         CommitPosture? posture = null) =>
-        new(key, labelKey, control, entry, Seq<FieldTag>(), new FieldRule.Always(), new FieldRule.Never(),
+        new(labelKey, control, entry, Seq<FieldTag>(), new FieldRule.Always(), new FieldRule.Never(),
             fallback, helpKey, measure, posture ?? CommitPosture.Deferred, rule);
 
     public static Validation<Error, FormField> Formula(
@@ -368,8 +368,7 @@ public sealed record FormField(
         SymbolicBuild.Build(new BuildSpec.Infix(source))
             .Bind(expression => expression.FreeSymbols.Traverse(FormSchema.Tag).As())
             .ToValidation()
-            .Map(edges => new FormField(
-                key, labelKey, control, FieldEntry.Formula, edges,
+            .Map(edges => new FormField(labelKey, control, FieldEntry.Formula, edges,
                 new FieldRule.Always(), new FieldRule.Never(),
                 Some((FieldValue)new FieldValue.Text(source)), helpKey, measure,
                 posture ?? CommitPosture.Deferred, rule));
@@ -377,14 +376,14 @@ public sealed record FormField(
 
 public sealed record FormSection(string Key, string TitleKey, Seq<FieldTag> FieldKeys, SectionChrome Chrome, Func<FormState, bool> Skip) {
     public static FormSection Of(string key, string titleKey, Seq<FieldTag> fieldKeys, SectionChrome? chrome = null) =>
-        new(key, titleKey, fieldKeys, chrome ?? SectionChrome.Grouped, static _ => false);
+        new(titleKey, fieldKeys, chrome ?? SectionChrome.Grouped, static _ => false);
 }
 
 public sealed record FormSchema {
     private readonly Lazy<HashMap<FieldTag, Seq<FormField>>> reach;
 
     private FormSchema(string key, string submitIntent, string commitIntent, FormGeometry geometry, Seq<FormField> fields, Seq<FormSection> sections) {
-        (Key, SubmitIntent, CommitIntent, Geometry, Fields, Sections) = (key, submitIntent, commitIntent, geometry, fields, sections);
+        (Key, SubmitIntent, CommitIntent, Geometry, Fields, Sections) = (submitIntent, commitIntent, geometry, fields, sections);
         Roster = fields.ToHashMap(static field => field.Key, static field => field);
         reach = new(() => Reach(fields), LazyThreadSafetyMode.ExecutionAndPublication);
     }
@@ -397,10 +396,9 @@ public sealed record FormSchema {
     public Seq<FormSection> Sections { get; }
     public HashMap<FieldTag, FormField> Roster { get; }
 
-    private static readonly Op Admission = Op.Of(name: nameof(FormSchema));
 
     public static Fin<FieldTag> Tag(string key) =>
-        Admission.AcceptValidated<FieldTag>(key);
+        FactoryBridge.Accept<FieldTag>();
 
     public static Validation<Error, FormSchema> Create(
         string key,
@@ -413,7 +411,7 @@ public sealed record FormSchema {
         Set<string> sectionKeys = toSet(sections.Map(static section => section.Key));
         Seq<FieldTag> seated = sections.Bind(static section => section.FieldKeys);
         return (
-            guard(!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(submitIntent) && !string.IsNullOrWhiteSpace(commitIntent),
+            guard(!string.IsNullOrWhiteSpace() && !string.IsNullOrWhiteSpace(submitIntent) && !string.IsNullOrWhiteSpace(commitIntent),
                 (Error)new FormFault.SchemaInvalid("form key, submit intent, or commit intent is empty")).ToValidation(),
             guard(fieldKeys.Count == fields.Count, (Error)new FormFault.SchemaInvalid($"{key}: duplicate field key")).ToValidation(),
             guard(fields.ForAll(static field => !string.IsNullOrWhiteSpace(field.LabelKey)),
@@ -429,7 +427,7 @@ public sealed record FormSchema {
             guard(seated.Count == fields.Count && toSet(seated) == fieldKeys,
                 (Error)new FormFault.SchemaInvalid($"{key}: sections do not partition the field set")).ToValidation(),
             guard(Graph(fields).IsDirectedAcyclicGraph(), (Error)new FormFault.SchemaInvalid($"{key}: dependency cycle")).ToValidation())
-            .Apply((_, _, _, _, _, _, _, _, _) => new FormSchema(key, submitIntent, commitIntent, geometry, fields, sections))
+            .Apply((_, _, _, _, _, _, _, _, _) => new FormSchema(submitIntent, commitIntent, geometry, fields, sections))
             .As();
     }
 
@@ -439,16 +437,16 @@ public sealed record FormSchema {
             .Map(_ => state);
 
     public Validation<Error, (FieldCell Value, FieldTag Changed)> With(FormState state, FieldTag key, JsonElement value, ResolvedLocale locale) =>
-        Roster.Find(key)
+        Roster.Find()
             .ToValidation((Error)new FormFault.FieldInvalid(key.Value, "unknown field"))
-            .Bind(field => field.Entry.Admit(field, state, value, locale).Map(admitted => (admitted, key)));
+            .Bind(field => field.Entry.Admit(field, state, value, locale).Map(admitted => (admitted)));
 
     public Validation<Error, FormState> Seat(FormState state, FieldTag key, JsonElement value, ResolvedLocale locale) =>
-        With(state, key, value, locale).Map(seated => state.Seat(seated.Changed, seated.Value));
+        With(state, value, locale).Map(seated => state.Seat(seated.Changed, seated.Value));
 
     public Seq<FormField> Affected(FieldTag changed) => reach.Value.Find(changed).IfNone(Seq<FormField>());
 
-    public Option<FormField> Field(FieldTag key) => Roster.Find(key);
+    public Option<FormField> Field(FieldTag key) => Roster.Find();
 
     static Validation<Error, Unit> Demanded(FormField field, FormState state) =>
         field.Required.Holds(state) && state.Values.Find(field.Key).Bind(static cell => cell.Uniform).IsNone
@@ -661,7 +659,7 @@ public static class FormChrome {
                 FormItem row = new() { Content = body };
                 FormItem.SetLabel(row, locale.Label(plan.Field.LabelKey));
                 FormItem.SetIsRequired(row, plan.Required);
-                plan.Field.HelpKey.Iter(key => ToolTip.SetTip(row, locale.Label(key)));
+                plan.Field.HelpKey.Iter(key => ToolTip.SetTip(row, locale.Label()));
                 plan.State.Apply(row);
                 return (Control)row;
             });
@@ -734,9 +732,9 @@ public static class FormChrome {
 
     static Fin<Seq<Control>> Badges(FieldPlan plan, MaterializeContext context) =>
         Seq(plan.Origin.Badge, plan.State.Rank > 0 ? plan.State.Badge : string.Empty)
-            .Filter(static key => !string.IsNullOrWhiteSpace(key))
+            .Filter(static key => !string.IsNullOrWhiteSpace())
             .Traverse(key => ControlFactory.Materialize(
-                new ControlIntent.Chip($"{plan.Field.Key.Value}.{key}", key, ChipPosture.Static, IntentBinding.Of(PaintRole.TextMuted)),
+                new ControlIntent.Chip($"{plan.Field.Key.Value}.{key}", ChipPosture.Static, IntentBinding.Of(PaintRole.TextMuted)),
                 context))
             .As();
 
@@ -981,8 +979,8 @@ public sealed record Selection<TItem>(
             Fail: static _ => SelectionSnapshot.Create(0, FrozenSet<string>.Empty));
 
     public Fin<SelectionSet> Capture(string documentKey, string key, string name) =>
-        !string.IsNullOrWhiteSpace(documentKey) && !string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(name)
-            ? Selected().Map(items => new SelectionSet(documentKey, key, name, toSet(items.Map(Identity))))
+        !string.IsNullOrWhiteSpace(documentKey) && !string.IsNullOrWhiteSpace() && !string.IsNullOrWhiteSpace(name)
+            ? Selected().Map(items => new SelectionSet(documentKey, name, toSet(items.Map(Identity))))
             : Fin.Fail<SelectionSet>(new FormFault.FieldInvalid("selection-set", "document, key, and name are required"));
 
     public Fin<Selection<TItem>> ApplySet(SelectionSet set, Seq<TItem> plane) =>
@@ -1054,9 +1052,9 @@ public static class SelectionChannel {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CommitPosture {
     public static readonly CommitPosture Deferred = new("deferred",
-        static (cell, key, value) => cell with { Pending = cell.Pending.AddOrUpdate(key, value) });
+        static (cell, key, value) => cell with { Pending = cell.Pending.AddOrUpdate(value) });
     public static readonly CommitPosture Immediate = new("immediate",
-        static (cell, key, value) => cell with { Committed = cell.Committed.Seat(key, value) });
+        static (cell, key, value) => cell with { Committed = cell.Committed.Seat(value) });
 
     [UseDelegateFromConstructor]
     public partial PendingForm Seat(PendingForm cell, FieldTag key, FieldCell value);
@@ -1066,7 +1064,7 @@ public sealed partial class CommitPosture {
 
 public sealed record OutcomeCount(InstrumentSpec Applied, InstrumentSpec Rejected, string Slot) {
     public Fin<Unit> Observe<T>(InstrumentSet set, string key, Fin<T> outcome) =>
-        set.Write(outcome.IsSucc ? Applied : Rejected, 1d, InstrumentSet.Tags((Slot, key)));
+        set.Write(outcome.IsSucc ? Applied : Rejected, 1d, InstrumentSet.Tags((Slot)));
 }
 
 public sealed record ParameterLane(RevertScope Scope, RevertCursor Cursor, string ContentIdentity, string Actor, Func<Hlc> Stamp) {
@@ -1084,18 +1082,18 @@ public sealed record ParameterLane(RevertScope Scope, RevertCursor Cursor, strin
 
     public ParameterLane Record(RevertibleOp op) {
         Scope.Recorder.PushCommand(op.ToCommand($"{ContentIdentity}:{op.Kind.Key}", Scope.Apply));
-        Scope.Log.Push(op, Cursor);
+        Scope.Log.Push(Cursor);
         return this with { Cursor = RevertCursor.Start };
     }
 
     public IO<Fin<(RevertibleOp Op, ParameterLane Next)>> Turn(RevertDirection direction) =>
         Scope.Revert(direction, Cursor, ContentIdentity)
-            .Map(outcome => outcome.Map(step => (step.Op, this with { Cursor = step.Next })));
+            .Map(outcome => outcome.Map(step => (this with { Cursor = step.Next })));
 }
 
 public sealed record ParameterSet(string Key, string SchemaKey, HashMap<FieldTag, FieldCell> Values) {
     public static ParameterSet Export(string key, FormSchema schema, FormState state) =>
-        new(key, schema.Key, toHashMap(toSeq(state.Values).Filter(pair => schema.Field(pair.Key).IsSome)));
+        new(toHashMap(toSeq(state.Values).Filter(pair => schema.Field(pair.Key).IsSome)));
 
     public Validation<Error, FormState> Import(FormSchema schema, FormState state, ResolvedLocale locale) =>
         !StringComparer.Ordinal.Equals(SchemaKey, schema.Key)
@@ -1123,10 +1121,10 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
     public FormState Projected => toSeq(Pending).Fold(Committed, static (state, pair) => state.Seat(pair.Key, pair.Value));
 
     public Validation<Error, PendingForm> Mark(FieldTag key, JsonElement value, ResolvedLocale locale) =>
-        Schema.With(Projected, key, value, locale)
-            .Bind(seated => Schema.Field(key)
+        Schema.With(Projected, value, locale)
+            .Bind(seated => Schema.Field()
                 .ToValidation((Error)new FormFault.FieldInvalid(key.Value, "unknown field"))
-                .Map(field => field.Posture.Seat(this, key, seated.Value)));
+                .Map(field => field.Posture.Seat(seated.Value)));
 
     public PendingForm Cancel() => this with { Pending = HashMap<FieldTag, FieldCell>() };
 
@@ -1163,11 +1161,11 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
         AppUiTelemetry.Contribute(version, Committals, Rejections);
 
     RevertibleOp Composite(Seq<FieldTag> marked, string actor, Hlc at) =>
-        new("parameters", Schema.Key, actor,
-            new RevertDelta.Composite(marked.Choose(key => Pending.Find(key).Bind(static cell => cell.Uniform).Map(after => new RevertibleOp(
-                key.Value, Schema.Key, actor,
+        new("parameters", actor,
+            new RevertDelta.Composite(marked.Choose(key => Pending.Find().Bind(static cell => cell.Uniform).Map(after => new RevertibleOp(
+                key.Value, actor,
                 new RevertDelta.Set(
-                    Committed.Values.Find(key).Bind(static cell => cell.Uniform).Map(FieldJson.Lower),
+                    Committed.Values.Find().Bind(static cell => cell.Uniform).Map(FieldJson.Lower),
                     FieldJson.Lower(after)),
                 at)))),
             at);

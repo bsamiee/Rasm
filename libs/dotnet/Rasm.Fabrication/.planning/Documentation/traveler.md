@@ -622,13 +622,13 @@ internal static class TravelerCanonicalCodec {
         "rasm.fabrication.traveler", "application/json", "utf-8");
 
     public static Fin<TravelerEncoding> Encode(TravelerCanonicalSource source) =>
-        Traveler.DocumentOp.Catch(() => {
+        Try.lift(() => {
                 JsonNode root = JsonSerializer.SerializeToNode(source, QualityReport.CanonicalJson)!;
                 using MemoryStream stream = new();
                 using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false }))
                     Write(writer, root);
                 return Fin.Succ(new TravelerEncoding(Descriptor, stream.ToArray()));
-            });
+            }).Run().Bind(static inner => inner);
 
     static void Write(Utf8JsonWriter writer, JsonNode node) {
         switch (node) {
@@ -739,14 +739,14 @@ internal static class TravelerPreimage {
                 .Identity(value.Identity).Discriminant(value.Process).String(value.Machine.Key)
                 .Coords(value.View.Forward).Coords(value.View.ScreenU).Coords(value.View.ScreenV)
                 .Moment(value.StampedAt)
-                .Rows(value.Sources, static (inner, key) => inner.Key(key)),
+                .Rows(value.Sources, static (inner, key) => inner.Key()),
             route: static (row, value) => row.Ordinal(1)
                 .Rows(value.Steps, static (inner, step) => inner
                     .Ordinal(step.Order).Discriminant(step.Process).String(step.Machine.Key)
                     .Maybe(step.Instance, static (cell, instance) => cell.Text(instance.ToValue()))
                     .Ordinal(step.Setup)
                     .Rows(toSeq(step.Operations), static (cell, operation) => cell.Ordinal(operation))
-                    .Maybe(step.Program, static (cell, key) => cell.Key(key)))
+                    .Maybe(step.Program, static (cell, key) => cell.Key()))
                 .Rows(value.Setups, static (inner, setup) => inner.Key(setup.Key))
                 .Rows(value.Stock, static (inner, snapshot) => inner.Ordinal(snapshot.Setup).Key(snapshot.Key))
                 .Rows(value.Controls, static (inner, control) => inner.Control(control))
@@ -767,7 +767,7 @@ internal static class TravelerPreimage {
             outputs: static (row, value) => row.Ordinal(5)
                 .Maybe(value.Dialect, static (inner, dialect) => inner.Discriminant(dialect))
                 .Rows(value.Results, static (inner, result) => inner
-                    .Rows(result.Keys, static (cell, key) => cell.Key(key))),
+                    .Rows(result.Keys, static (cell, key) => cell.Key())),
             quality: static (row, value) => row.Ordinal(6)
                 .Rows(value.Records, static (inner, record) => inner.Key(record.Key))
                 .Rows(value.Inspections, static (inner, link) => inner.Text(link.Feature.Key.ToValue()).Key(link.Record))
@@ -785,13 +785,13 @@ internal static class TravelerPreimage {
         internal CanonicalWriter Document(TravelerDocument document) => sink
             .Moment(document.StampedAt)
             .Rows(document.Sections, static (row, section) => row.Section(section))
-            .Rows(document.Composed, static (row, key) => row.Key(key));
+            .Rows(document.Composed, static (row, key) => row.Key());
 
         internal CanonicalWriter Amendment(TravelerAmendment amendment) => amendment.Switch(
             state: sink
                 .Key(amendment.Previous).Ordinal(amendment.Step.ToValue())
                 .Text(amendment.Actor.ToValue()).Moment(amendment.At)
-                .Rows(amendment.Evidence, static (row, key) => row.Key(key)),
+                .Rows(amendment.Evidence, static (row, key) => row.Key()),
             completed: static (row, value) => row.Ordinal(0)
                 .Moment(value.Started).I64(value.Actual.BclCompatibleTicks)
                 .Maybe(value.Estimate, static (inner, estimate) => inner
@@ -808,7 +808,6 @@ internal static class TravelerPreimage {
 }
 
 internal static class Traveler {
-    internal static readonly Op DocumentOp = Op.Of(name: "fabrication:traveler");
 
     internal static ValidationError Validation(string locus) => new($"traveler:{locus}");
 
@@ -827,8 +826,8 @@ internal static class Traveler {
         from document in Build(request, input, clock.GetCurrentInstant())
         from key in TravelerPreimage.Of(new TravelerCanonicalSource.Document(document))
         from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Document(document))
-        from amendments in SealAmendments(key, document, request.Corpus.Amendments)
-        let consumed = toSeq((Seq(key)
+        from amendments in SealAmendments(document, request.Corpus.Amendments)
+        let consumed = toSeq((Seq()
             + document.Composed
             + amendments.Map(static value => value.Amendment.Previous)
             + amendments.Bind(static value => value.Amendment.Evidence)
@@ -844,9 +843,8 @@ internal static class Traveler {
             document,
             encoded.Descriptor,
             encoded.Rendering,
-            key,
             consumed,
-            Seq(key) + amendments.Map(static value => value.Key),
+            Seq() + amendments.Map(static value => value.Key),
             request.Corpus.DigitalProductPassport,
             amendments)
         from _amendments in set.Write(FabricationInstruments.TravelerAmendments, artifact.Amendments.Count)
@@ -1006,8 +1004,7 @@ internal static class Traveler {
                         Results: state.Results.Add(new TravelerAmendmentArtifact(
                             amendment,
                             encoded.Descriptor,
-                            encoded.Rendering,
-                            key)),
+                            encoded.Rendering)),
                         States: state.States.SetItem(step, next)))
                 .Map(static state => state.Results),
         };

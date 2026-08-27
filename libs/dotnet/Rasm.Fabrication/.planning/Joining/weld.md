@@ -1014,7 +1014,7 @@ public sealed partial class WeldPlan {
         int beads,
         int lineageDepth,
         ContentKey key) =>
-        Validate(passes, actions, demands, maxHeatInputKjMm, beads, lineageDepth, key, out WeldPlan plan).Admitted(plan);
+        Validate(passes, actions, demands, maxHeatInputKjMm, beads, lineageDepth, out WeldPlan plan).Admitted(plan);
 
     public Fin<WeldView> Project(WeldProjection projection) => Fin.Succ(projection.Switch(
         state: this,
@@ -1051,11 +1051,9 @@ public static class Weld {
             demands,
             rows.Map(static row => row.MaxHeatInputKjMm).Fold(0.0, Math.Max),
             passes.Count,
-            depth,
-            key)
+            depth)
         select plan;
 
-    private static readonly Op Key = Op.Of(name: nameof(Weld));
 
     public static double HeatInput(double efficiency, double powerW, double arcTimeS, double weldLengthMm) =>
         efficiency * powerW * arcTimeS / (1000.0 * weldLengthMm);

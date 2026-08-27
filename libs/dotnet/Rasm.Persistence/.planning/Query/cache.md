@@ -118,7 +118,7 @@ public readonly partial struct CachePageSize {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct CloudRunKey(string RecipeDigest, Seq<UInt128> InputKeys, string ProjectSlug) {
-    public UInt128 Content => ContentHash.Of(this, static (key, writer) => {
+    public UInt128 Content => ContentHash.Of(static (key, writer) => {
         writer.String(key.RecipeDigest)
             .Rows(key.InputKeys, static (input, w) => { w.U128(input); })
             .String(key.ProjectSlug);
@@ -136,7 +136,7 @@ public sealed record ArtifactIndexRow(
     public RetentionClass Retention => Kind.Retention;
 
     public static ArtifactIndexRow Admit(ArtifactKind kind, string key, ReadOnlySpan<byte> bytes, DataClassification classification, Instant at, Option<UInt128> sourceKey) =>
-        new(kind, key, ContentAddress.Of(bytes), bytes.Length, classification, sourceKey, at);
+        new(kind, ContentAddress.Of(bytes), bytes.Length, classification, sourceKey, at);
 
     public static HashMap<UInt128, Seq<ArtifactIndexRow>> Project(Seq<ArtifactIndexRow> rows) =>
         rows.Fold(HashMap<UInt128, Seq<ArtifactIndexRow>>(), static (acc, row) =>
@@ -167,7 +167,7 @@ public sealed record ArtifactIndexRow(
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ModelResultKey(string ModelChecksum, UInt128 InputDigest, string ResultKey) {
-    public UInt128 Content => ContentHash.Of(this, static (key, writer) => {
+    public UInt128 Content => ContentHash.Of(static (key, writer) => {
         writer.String(key.ModelChecksum).U128(key.InputDigest).String(key.ResultKey);
     });
 
@@ -256,7 +256,7 @@ public sealed record BenchmarkRow {
     BenchmarkRow(string key, string route, Duration median, Duration p95, long allocatedBytes, long operations,
         Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
         (Key, Route, Median, P95, AllocatedBytes, Operations, Corpus, ArtifactKey, Fingerprint, At) =
-        (key, route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
+        (route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
 
     public string Key { get; }
     public string Route { get; }
@@ -352,11 +352,11 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
     public static StoreOptions Partition(StoreOptions opts) =>
         RollingWindow.CacheBlob.Declare<CacheBlob>(opts, static row => row.Window);
 
-    public bool TryGet(string key, IBufferWriter<byte> destination) => TryGetAsync(key, destination).AsTask().GetAwaiter().GetResult();
+    public bool TryGet(string key, IBufferWriter<byte> destination) => TryGetAsync(destination).AsTask().GetAwaiter().GetResult();
 
     public async ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token = default) {
         await using IDocumentSession session = store.LightweightSession();
-        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(key), token).ConfigureAwait(false);
+        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(), token).ConfigureAwait(false);
         DateTimeOffset stamp = now();
         if (row is null || row.ExpiresAt.Match(Some: expiresAt => expiresAt <= stamp, None: static () => false)) { return false; }
         if (row.SlidingExpiration.IsSome) {
@@ -368,13 +368,13 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
         return true;
     }
 
-    public void Set(string key, ReadOnlySequence<byte> value, DistributedCacheEntryOptions options) => SetAsync(key, value, options).AsTask().GetAwaiter().GetResult();
+    public void Set(string key, ReadOnlySequence<byte> value, DistributedCacheEntryOptions options) => SetAsync(value, options).AsTask().GetAwaiter().GetResult();
 
     public async ValueTask SetAsync(string key, ReadOnlySequence<byte> value, DistributedCacheEntryOptions options, CancellationToken token = default) {
         await using IDocumentSession session = store.LightweightSession();
         DateTimeOffset stamp = now();
         session.Store(new CacheBlob(
-            Physical(key),
+            Physical(),
             value.ToArray(),
             stamp,
             Optional(options.AbsoluteExpiration),
@@ -383,20 +383,20 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
         await session.SaveChangesAsync(token).ConfigureAwait(false);
     }
 
-    public byte[]? Get(string key) { ArrayBufferWriter<byte> writer = new(); return TryGet(key, writer) ? writer.WrittenSpan.ToArray() : null; }
-    public async Task<byte[]?> GetAsync(string key, CancellationToken token = default) { ArrayBufferWriter<byte> writer = new(); return await TryGetAsync(key, writer, token).ConfigureAwait(false) ? writer.WrittenSpan.ToArray() : null; }
-    public void Set(string key, byte[] value, DistributedCacheEntryOptions options) => Set(key, new ReadOnlySequence<byte>(value), options);
-    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) => SetAsync(key, new ReadOnlySequence<byte>(value), options, token).AsTask();
-    public void Refresh(string key) => RefreshAsync(key).GetAwaiter().GetResult();
+    public byte[]? Get(string key) { ArrayBufferWriter<byte> writer = new(); return TryGet(writer) ? writer.WrittenSpan.ToArray() : null; }
+    public async Task<byte[]?> GetAsync(string key, CancellationToken token = default) { ArrayBufferWriter<byte> writer = new(); return await TryGetAsync(writer, token).ConfigureAwait(false) ? writer.WrittenSpan.ToArray() : null; }
+    public void Set(string key, byte[] value, DistributedCacheEntryOptions options) => Set(new ReadOnlySequence<byte>(value), options);
+    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) => SetAsync(new ReadOnlySequence<byte>(value), options, token).AsTask();
+    public void Refresh(string key) => RefreshAsync().GetAwaiter().GetResult();
     public async Task RefreshAsync(string key, CancellationToken token = default) {
         await using IDocumentSession session = store.LightweightSession();
-        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(key), token).ConfigureAwait(false);
+        CacheBlob? row = await session.LoadAsync<CacheBlob>(Physical(), token).ConfigureAwait(false);
         if (row is null || row.SlidingExpiration.IsNone) { return; }
         session.Store(row with { ExpiresAt = Deadline(now(), row.AbsoluteExpiration, None, row.SlidingExpiration) });
         await session.SaveChangesAsync(token).ConfigureAwait(false);
     }
-    public void Remove(string key) => RemoveAsync(key).GetAwaiter().GetResult();
-    public async Task RemoveAsync(string key, CancellationToken token = default) { await using IDocumentSession session = store.LightweightSession(); session.Delete<CacheBlob>(Physical(key)); await session.SaveChangesAsync(token).ConfigureAwait(false); }
+    public void Remove(string key) => RemoveAsync().GetAwaiter().GetResult();
+    public async Task RemoveAsync(string key, CancellationToken token = default) { await using IDocumentSession session = store.LightweightSession(); session.Delete<CacheBlob>(Physical()); await session.SaveChangesAsync(token).ConfigureAwait(false); }
 
     string Physical(string key) => $"{storeKey}:{key}";
 
@@ -481,7 +481,7 @@ public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCach
         });
 
     static IO<T> Captured<T>(Func<Task<T>> crossing) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+        IO.liftAsync(async () => await Try.lift(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
             .Bind(IO.lift);
 
     string LogicalKey(string physical) {
@@ -594,7 +594,7 @@ public static class WideColumnIndex {
 public sealed record WideColumnLane(Mapper Mapper, StoreRedrivePort Redrive, CacheToken Cluster, CacheTtl Ttl) {
     IO<Fin<T>> Dialed<T>(ColumnVerb verb, Func<Task<T>> call) =>
         Redrive.Carry(new StoreHop.WideColumn(verb), (string)Cluster,
-            IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
+            IO.liftAsync(async () => (await Try.lift(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
                 .MapFail(CacheFault.Lift))
             .Bind(IO.lift))
         .Map(Fin.Succ)

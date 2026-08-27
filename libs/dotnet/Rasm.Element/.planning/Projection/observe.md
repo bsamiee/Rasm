@@ -83,20 +83,19 @@ public readonly record struct AssessmentTouch(Discipline Discipline, AnalysisRou
 
 [Union]
 public abstract partial record ElementFact : IHookFact<ElementPoint> {
- private ElementFact(Op key) { Key = key; }
+ private ElementFact() { Key = key; }
 
- public Op Key { get; }
 
- public sealed record DeltaApplied(Op Key, ContentAddress Delta, int Nodes, int Edges, Option<Header> Established, Seq<AssessmentTouch> Assessments) : ElementFact(Key);
- public sealed record Frozen(Op Key, ContentAddress Snapshot, int Nodes, int Edges) : ElementFact(Key);
- public sealed record Baked(Op Key, NodeId Root, Duration Elapsed) : ElementFact(Key);
- public sealed record Audited(Op Key, ContentAddress Snapshot, Seq<AuditTally> Findings, Duration Elapsed) : ElementFact(Key) {
+ public sealed record DeltaApplied(ContentAddress Delta, int Nodes, int Edges, Option<Header> Established, Seq<AssessmentTouch> Assessments) : ElementFact(Key);
+ public sealed record Frozen(ContentAddress Snapshot, int Nodes, int Edges) : ElementFact(Key);
+ public sealed record Baked(NodeId Root, Duration Elapsed) : ElementFact(Key);
+ public sealed record Audited(ContentAddress Snapshot, Seq<AuditTally> Findings, Duration Elapsed) : ElementFact(Key) {
   public int Total => Findings.Fold(0, static (count, tally) => count + tally.Count);
   public int Blocking => Findings.Filter(static tally => tally.Severity.Blocks).Fold(0, static (count, tally) => count + tally.Count);
   public int Drifts => Findings.Filter(static tally => tally.Category == AuditCategory.AddressDrift).Fold(0, static (count, tally) => count + tally.Count);
  }
- public sealed record Assembled(Op Key, ContentAddress Delta, int Projectors, int Nodes, int Edges, int Findings, Duration Elapsed) : ElementFact(Key);
- public sealed record Graded(Op Key, ConstraintSeverity Severity, Error Violation, ContentAddress FindingKey, Option<ConstraintWaiver> Waiver) : ElementFact(Key) {
+ public sealed record Assembled(ContentAddress Delta, int Projectors, int Nodes, int Edges, int Findings, Duration Elapsed) : ElementFact(Key);
+ public sealed record Graded(ConstraintSeverity Severity, Error Violation, ContentAddress FindingKey, Option<ConstraintWaiver> Waiver) : ElementFact(Key) {
   public Option<int> Code => Violation is Fault fault ? Some(fault.Code) : None;
  }
  public ElementPoint Point => Map(
@@ -125,25 +124,20 @@ public abstract partial record ElementFact : IHookFact<ElementPoint> {
   assembled: static f => Seq<(string Slot, object? Value)>((ElementInstrument.DeltaSlot, ContentHash.Hex(f.Delta.ToValue()))),
   graded: static _ => Seq<(string Slot, object? Value)>());
 
- public static ElementFact Of(Op key, GraphDelta delta, Header seed) => new DeltaApplied(
-  key, delta.Address(Grid(delta, seed)), delta.NodeCount, delta.EdgeCount, delta.Header, Touches(delta));
+ public static ElementFact Of(GraphDelta delta, Header seed) => new DeltaApplied(delta.Address(Grid(delta, seed)), delta.NodeCount, delta.EdgeCount, delta.Header, Touches(delta));
 
- public static ElementFact Of(Op key, ElementGraph graph) => new Frozen(
-  key, ContentAddress.OfGraph(graph), graph.Nodes.Count, graph.Edges.Length);
+ public static ElementFact Of(ElementGraph graph) => new Frozen(ContentAddress.OfGraph(graph), graph.Nodes.Count, graph.Edges.Length);
 
- public static ElementFact Of(Op key, NodeId root, Duration elapsed) => new Baked(key, root, elapsed);
+ public static ElementFact Of(NodeId root, Duration elapsed) => new Baked(root, elapsed);
 
- public static ElementFact Of(Op key, ModelAudit audit, Duration elapsed) => new Audited(
-  key, audit.Snapshot, audit.Tallies, elapsed);
+ public static ElementFact Of(ModelAudit audit, Duration elapsed) => new Audited(audit.Snapshot, audit.Tallies, elapsed);
 
- public static ElementFact Of(Op key, AssembledModel model, int projectors, Duration elapsed) => new Assembled(
-  key, model.Delta.Address(Grid(model.Delta, model.Graph.Header)),
+ public static ElementFact Of(AssembledModel model, int projectors, Duration elapsed) => new Assembled(model.Delta.Address(Grid(model.Delta, model.Graph.Header)),
   projectors, model.Delta.NodeCount, model.Delta.EdgeCount, model.Findings.Count, elapsed);
 
  static double Grid(GraphDelta delta, Header seed) => delta.Header.IfNone(seed).Tolerance;
 
- public static ElementFact Of(Op key, ConstraintFinding finding) => new Graded(
-  key, finding.Severity, finding.Violation, finding.Key, finding.Waiver);
+ public static ElementFact Of(ConstraintFinding finding) => new Graded(finding.Severity, finding.Violation, finding.Waiver);
 
  static Seq<AssessmentTouch> Touches(GraphDelta delta) =>
   (delta.AddedNodes + delta.RevisedNodes.Map(static r => r.After))
@@ -154,23 +148,22 @@ public abstract partial record ElementFact : IHookFact<ElementPoint> {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class ElementHooks {
- public static Fin<ElementHooks> Live(
-  Op key, Seq<ElementGate> gates = default, Seq<ElementObserver> taps = default,
+ public static Fin<ElementHooks> Live(Seq<ElementGate> gates = default, Seq<ElementObserver> taps = default,
   Option<SpanBand> band = default, Option<FaultCell> cell = default) =>
-  ElementHooks.Of(key, gates, taps, band.Map(static span => (IHookSpan)span), cell);
+  ElementHooks.Of(gates, taps, band.Map(static span => (IHookSpan)span), cell);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementTap {
- public static Fin<(ElementGraph Graph, GraphDelta Delta)> Admitted(ElementHooks hooks, GraphDelta delta, ElementGraph seed, Op key) =>
-  hooks.Fire(ElementPoint.DeltaApplied, ElementFact.Of(key, delta, seed.Header), key, fact => Marked(fact, () => delta.AdmitOnto(seed, key)))
-   .Bind(step => hooks.Fire(ElementPoint.Frozen, ElementFact.Of(key, step.Graph), key, fact => Marked(fact, () => Fin.Succ(step))));
+ public static Fin<(ElementGraph Graph, GraphDelta Delta)> Admitted(ElementHooks hooks, GraphDelta delta, ElementGraph seed) =>
+  hooks.Fire(ElementPoint.DeltaApplied, ElementFact.Of(delta, seed.Header), fact => Marked(fact, () => delta.AdmitOnto(seed)))
+   .Bind(step => hooks.Fire(ElementPoint.Frozen, ElementFact.Of(step.Graph), fact => Marked(fact, () => Fin.Succ(step))));
 
- public static Fin<Element> Baked(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph, NodeId root, Op key) =>
-  Timed(hooks, line, ElementPoint.Baked, key, () => graph.Bake(root, key), (_, elapsed) => ElementFact.Of(key, root, elapsed));
+ public static Fin<Element> Baked(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph, NodeId root) =>
+  Timed(hooks, line, ElementPoint.Baked, () => graph.Bake(root), (_, elapsed) => ElementFact.Of(root, elapsed));
 
- public static Fin<ModelAudit> Audited(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph, Op key) =>
-  Timed(hooks, line, ElementPoint.Audited, key, () => ModelAudit.Of(graph, key), (audit, elapsed) => ElementFact.Of(key, audit, elapsed));
+ public static Fin<ModelAudit> Audited(ElementHooks hooks, MonotonicTimeline line, ElementGraph graph) =>
+  Timed(hooks, line, ElementPoint.Audited, () => ModelAudit.Of(graph), (audit, elapsed) => ElementFact.Of(audit, elapsed));
 
  public static Fin<AssembledModel> Assembled(ElementHooks hooks, MonotonicTimeline line, ProjectionSuite suite, ElementGraph seed, ProjectionContext ctx) =>
   Timed(hooks, line, ElementPoint.Assembled, ctx.Key, () => ProjectionAssembly.Assemble(suite, seed, ctx),
@@ -180,13 +173,13 @@ public static class ElementTap {
     .Map(_ => model));
 
  static Fin<T> Timed<T>(
-  ElementHooks hooks, MonotonicTimeline line, ElementPoint at, Op key, Func<Fin<T>> body, Func<T, Duration, ElementFact> fact,
+  ElementHooks hooks, MonotonicTimeline line, ElementPoint at, Func<Fin<T>> body, Func<T, Duration, ElementFact> fact,
   Func<T, Fin<T>>? fan = null) =>
-  line.Capture(key).Bind(start =>
+  Error.New(key.Message).Bind(start =>
    body().Bind(value =>
-    line.Capture(key).Bind(end =>
-     line.Elapsed(start, end, key).Bind(elapsed =>
-      hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), key, admitted => Marked(admitted, () => Fin.Succ(value)))
+    Error.New(key.Message).Bind(end =>
+     line.Elapsed(start, end).Bind(elapsed =>
+      hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), admitted => Marked(admitted, () => Fin.Succ(value)))
        .Bind(landed => fan is null ? Fin.Succ(landed) : fan(landed))))));
 
  static Fin<T> Marked<T>(ElementFact fact, Func<Fin<T>> body) {
@@ -195,12 +188,11 @@ public static class ElementTap {
  }
 
  public static ElementObserver Events(EventExtensionContract<Extensions> contract, Hlc clock, Func<CloudEvent, Fin<Unit>> binding) {
-  Op key = Op.Of(name: "rasm.element.events");
-  return new(key, fact =>
-   from id in key.AcceptValidated<EventId>(Guid.CreateVersion7().ToString("N"))
+  return new(fact =>
+   from id in FactoryBridge.Accept<EventId>(Guid.CreateVersion7().ToString("N"))
    from envelope in RasmEventEnvelope.Publish(
     new RasmEventMint<Extensions>(fact.Point.Type, fact.Point.Source, id, fact.Subject, clock.Wall, None, None, null, new Extensions()),
-    contract, clock, key)
+    contract, clock)
    from _ in binding(envelope)
    select unit,
    Scope: Some(ElementPoint.Durable));
@@ -303,7 +295,7 @@ public sealed partial class ElementInstrument {
   new(Scope: TelemetrySource.Element, Version: version, Instruments: Rows, Planes: ElementPoint.Scopes);
 
  static partial void ValidateConstructorArguments(ref string key, ref InstrumentSpec row) {
-  if (!string.Equals(key, row.Name, StringComparison.Ordinal)) {
+  if (!string.Equals(row.Name, StringComparison.Ordinal)) {
    throw new ArgumentException($"<element-instrument:{key}>", nameof(row));
   }
  }
@@ -311,10 +303,10 @@ public sealed partial class ElementInstrument {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GraphInstrument {
- public static ElementObserver Tap(InstrumentSet set) => new(Op.Of(name: "rasm.element.instruments"), fact => Project(set, fact));
+ public static ElementObserver Tap(InstrumentSet set) => new(fact => Project(set, fact));
 
- public static Fin<IDisposable> Depth(InstrumentSet set, ElementHooks hooks, Op key) =>
-  set.Bind(ElementInstrument.TapFaults.Row, () => (double)hooks.Faults.Parked.Count, key, InstrumentSet.Tags(TenantContext.Current));
+ public static Fin<IDisposable> Depth(InstrumentSet set, ElementHooks hooks) =>
+  set.Bind(ElementInstrument.TapFaults.Row, () => (double)hooks.Faults.Parked.Count, InstrumentSet.Tags(TenantContext.Current));
 
  static Fin<Unit> Project(InstrumentSet set, ElementFact fact) =>
   fact.Switch<(InstrumentSet Rows, TenantContext Tenant), Fin<Unit>>(

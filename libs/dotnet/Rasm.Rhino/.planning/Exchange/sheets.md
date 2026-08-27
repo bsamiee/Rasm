@@ -54,17 +54,17 @@ public readonly record struct SheetSelect(
     public static SheetSelect All => default;
     public static SheetSelect Named(string name) => new(Name: Some(name));
 
-    public static Fin<SheetSelect> InVolume(SheetNumber number, Op? key = null) =>
+    public static Fin<SheetSelect> InVolume(SheetNumber number) =>
         number.Fields.Find(static pair => pair.Field.Equals(NamingField.Volume))
             .Map(static pair => new SheetSelect(Volume: Some(pair.Value)))
             .ToFin(new KernelFault.InvalidValue(
                 Label: nameof(Volume),
                 Requirement: "a sheet number whose standard sequences a volume field",
-                Key: Some(key.OrDefault())));
+                Key: Some()));
 
-    internal Fin<Seq<RhinoPageView>> Resolve(RhinoDoc document, Op op) {
+    internal Fin<Seq<RhinoPageView>> Resolve(RhinoDoc document) {
         SheetSelect self = this;
-        return op.Catch(() => {
+        return Try.lift(() => {
             Option<int> volume = self.Volume.Bind(name =>
                 Optional(document.PageViewGroups.FindName(name: name)).Map(static found => found.Index));
             Seq<RhinoPageView> pages = toSeq(document.Views.GetPageViews())
@@ -76,13 +76,13 @@ public readonly record struct SheetSelect(
                 .AsIterable()
                 .ToSeq();
             return Fin.Succ(value: pages);
-        });
+        }).Run().Bind(static inner => inner);
     }
 
-    internal Fin<RhinoPageView> Single(RhinoDoc document, Op op) =>
-        Resolve(document: document, op: op).Bind(pages => pages switch {
+    internal Fin<RhinoPageView> Single(RhinoDoc document) =>
+        Resolve(document: document).Bind(pages => pages switch {
             [var only] => Fin.Succ(value: only),
-            _ => Fin.Fail<RhinoPageView>(error: op.InvalidInput()),
+            _ => Fin.Fail<RhinoPageView>(error: new KernelFault.InvalidInput()),
         });
 }
 
@@ -99,20 +99,20 @@ public readonly record struct DetailSelect(
         Optional(detail.Attributes.Name).Filter(static text => !string.IsNullOrWhiteSpace(value: text))
         | Optional(detail.Viewport.Name).Filter(static text => !string.IsNullOrWhiteSpace(value: text));
 
-    internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page, Op op) {
+    internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page) {
         DetailSelect self = this;
-        return op.Catch(() => Fin.Succ(value: toSeq(page.GetDetailViews())
+        return Try.lift(() => Fin.Succ(value: toSeq(page.GetDetailViews())
             .Filter(detail =>
                 self.Id.Map(id => detail.Id == id || detail.Viewport.Id == id).IfNone(noneValue: true)
                 && self.Name.Map(name => NameOf(detail: detail).Map(found =>
                     string.Equals(a: found, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: true)
-                && self.Projection.Map(form => ProjectionForm.Of(detail: detail) == form).IfNone(noneValue: true))));
+                && self.Projection.Map(form => ProjectionForm.Of(detail: detail) == form).IfNone(noneValue: true)))).Run().Bind(static inner => inner);
     }
 
-    internal Fin<DetailViewObject> Single(RhinoPageView page, Op op) =>
-        Resolve(page: page, op: op).Bind(details => details switch {
+    internal Fin<DetailViewObject> Single(RhinoPageView page) =>
+        Resolve(page: page).Bind(details => details switch {
             [var only] => Fin.Succ(value: only),
-            _ => Fin.Fail<DetailViewObject>(error: op.InvalidInput()),
+            _ => Fin.Fail<DetailViewObject>(error: new KernelFault.InvalidInput()),
         });
 }
 ```
@@ -146,11 +146,11 @@ public readonly partial record struct LayerVeil(
 
     internal bool Applies => Resets || !Writes.IsEmpty;
 
-    internal Fin<LayerOp> Program(Guid viewport, Op op) =>
+    internal Fin<LayerOp> Program(Guid viewport) =>
         from purge in Resets
             ? LayerOverride.Purge(viewport: viewport).Map(static cleared => Seq(cleared))
             : Fin.Succ(value: Seq<LayerOverride>())
-        from bound in Writes.TraverseM(write => write.At(viewport: viewport, key: op)).As()
+        from bound in Writes.TraverseM(write => write.At(viewport: viewport)).As()
         from program in LayerOp.Amend(
             target: Layer,
             edits: (purge + bound).Map(LayerEdit.Override).ToArray())
@@ -177,11 +177,11 @@ public abstract partial record SheetScale {
     public sealed record LengthsCase(double PageLength, LengthUnit PageUnit, double ModelLength, LengthUnit ModelUnit) : SheetScale;
     public sealed record NamedCase(string Spelling) : SheetScale;
 
-    public static Fin<SheetScale> Ratio(DrawingScale scale, Op? key = null) =>
+    public static Fin<SheetScale> Ratio(DrawingScale scale) =>
         key.OrDefault().Need(value: scale).Map(static admitted => (SheetScale)new RatioCase(Scale: admitted));
 
-    public static Fin<SheetScale> Ratio(int paper, int model, SheetStandard standard, Op? key = null) =>
-        from admitted in DrawingScale.Of(paper: paper, model: model, key: key)
+    public static Fin<SheetScale> Ratio(int paper, int model, SheetStandard standard) =>
+        from admitted in DrawingScale.Of(paper: paper, model: model)
         select (SheetScale)new RatioCase(Scale: ScaleLadder.For(standard).Nearest(scale: admitted));
 
     internal static Option<DrawingScale> Live(DetailViewObject detail) =>
@@ -191,13 +191,11 @@ public abstract partial record SheetScale {
         double pageLength,
         LengthUnit pageUnit,
         double modelLength,
-        LengthUnit modelUnit,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from _page in op.Positive(value: pageLength)
-               from _model in op.Positive(value: modelLength)
-               from _pageUnit in ModelUnit.Of(value: pageUnit, key: op)
-               from _modelUnit in ModelUnit.Of(value: modelUnit, key: op)
+        LengthUnit modelUnit) {
+        return from _page in Admit.Positive(value: pageLength)
+               from _model in Admit.Positive(value: modelLength)
+               from _pageUnit in ModelUnit.Of(value: pageUnit)
+               from _modelUnit in ModelUnit.Of(value: modelUnit)
                select (SheetScale)new LengthsCase(
                    PageLength: pageLength, PageUnit: pageUnit,
                    ModelLength: modelLength, ModelUnit: modelUnit);
@@ -208,83 +206,82 @@ public abstract partial record SheetScale {
             ? Optional(formatted)
             : Option<string>.None;
 
-    internal Fin<(double PageLength, LengthUnit PageUnit, double ModelLength, LengthUnit ModelUnit)> Resolve(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
+    internal Fin<(double PageLength, LengthUnit PageUnit, double ModelLength, LengthUnit ModelUnit)> Resolve(RhinoDoc document) => Switch(
+        document,
         ratioCase: static (ctx, scale) =>
-            from _pageUnit in ModelUnit.Of(value: ctx.Document.PageUnits, key: ctx.Op)
-            from _modelUnit in ModelUnit.Of(value: ctx.Document.ModelUnits, key: ctx.Op)
-            select ((double)scale.Scale.Paper, ctx.Document.PageUnits, (double)scale.Scale.Model, ctx.Document.ModelUnits),
+            from _pageUnit in ModelUnit.Of(value: ctx.PageUnits)
+            from _modelUnit in ModelUnit.Of(value: ctx.ModelUnits)
+            select ((double)scale.Scale.Paper, ctx.PageUnits, (double)scale.Scale.Model, ctx.ModelUnits),
         lengthsCase: static (ctx, scale) =>
             from admitted in Lengths(
                 pageLength: scale.PageLength, pageUnit: scale.PageUnit,
-                modelLength: scale.ModelLength, modelUnit: scale.ModelUnit,
-                key: ctx.Op)
+                modelLength: scale.ModelLength, modelUnit: scale.ModelUnit)
             select (scale.PageLength, scale.PageUnit, scale.ModelLength, scale.ModelUnit),
-        namedCase: static (ctx, scale) => Parse(spelling: scale.Spelling, document: ctx.Document, op: ctx.Op));
+        namedCase: static (ctx, scale) => Parse(spelling: scale.Spelling, document: ctx));
 
-    internal Fin<Unit> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
-        from _parallel in guard(ProjectionForm.Of(detail: detail).Scaled, op.InvalidInput()).ToFin()
-        from resolved in Resolve(document: document, op: op)
-        from _scaled in op.Confirm(success:
+    internal Fin<Unit> Apply(DetailViewObject detail, RhinoDoc document) =>
+        from _parallel in guard(ProjectionForm.Of(detail: detail).Scaled, new KernelFault.InvalidInput()).ToFin()
+        from resolved in Resolve(document: document)
+        from _scaled in Admit.Confirm(success:
             detail.DetailGeometry.SetScale(
                 modelLength: resolved.ModelLength, modelUnits: resolved.ModelUnit,
                 pageLength: resolved.PageLength, pageUnits: resolved.PageUnit))
         select unit;
 
-    internal Fin<double> PageToModel(RhinoDoc document, Op op) =>
-        from resolved in Resolve(document: document, op: op)
-        from pageSource in ModelUnit.Of(value: resolved.PageUnit, key: op)
-        from pageTarget in ModelUnit.Of(value: document.PageUnits, key: op)
-        from pageFactor in pageSource.ScaleTo(target: pageTarget, key: op)
-        from modelSource in ModelUnit.Of(value: resolved.ModelUnit, key: op)
-        from modelTarget in ModelUnit.Of(value: document.ModelUnits, key: op)
-        from modelFactor in modelSource.ScaleTo(target: modelTarget, key: op)
+    internal Fin<double> PageToModel(RhinoDoc document) =>
+        from resolved in Resolve(document: document)
+        from pageSource in ModelUnit.Of(value: resolved.PageUnit)
+        from pageTarget in ModelUnit.Of(value: document.PageUnits)
+        from pageFactor in pageSource.ScaleTo(target: pageTarget)
+        from modelSource in ModelUnit.Of(value: resolved.ModelUnit)
+        from modelTarget in ModelUnit.Of(value: document.ModelUnits)
+        from modelFactor in modelSource.ScaleTo(target: modelTarget)
         let ratio = (resolved.PageLength * pageFactor) / (resolved.ModelLength * modelFactor)
         from admitted in double.IsFinite(ratio) && ratio > 0.0
             ? Fin.Succ(value: ratio)
-            : Fin.Fail<double>(error: op.InvalidResult())
+            : Fin.Fail<double>(error: new KernelFault.InvalidResult())
         select admitted;
 
-    internal Fin<DrawingScale> Declared(RhinoDoc document, Op op) => Switch(
-        (Document: document, Op: op),
+    internal Fin<DrawingScale> Declared(RhinoDoc document) => Switch(
+        document,
         ratioCase: static (_, scale) => Fin.Succ(value: scale.Scale),
-        lengthsCase: static (ctx, scale) => Reduced(scale: scale, document: ctx.Document, op: ctx.Op),
+        lengthsCase: static (ctx, scale) => Reduced(scale: scale, document: ctx),
         namedCase: static (ctx, scale) =>
-            from text in ctx.Op.AcceptText(value: scale.Spelling)
-            from admitted in DrawingScale.Admit(text: text, key: ctx.Op)
+            from text in Acceptance.Text(value: scale.Spelling)
+            from admitted in DrawingScale.Admit(text: text)
             select admitted.Scale);
 
-    private static Fin<DrawingScale> Reduced(SheetScale scale, RhinoDoc document, Op op) =>
-        from ratio in scale.PageToModel(document: document, op: op)
+    private static Fin<DrawingScale> Reduced(SheetScale scale, RhinoDoc document) =>
+        from ratio in scale.PageToModel(document: document)
         let terms = ratio <= 1.0 ? (Paper: 1.0, Model: 1.0 / ratio) : (Paper: ratio, Model: 1.0)
-        from paper in Whole(value: terms.Paper, op: op)
-        from model in Whole(value: terms.Model, op: op)
-        from admitted in DrawingScale.Of(paper: paper, model: model, key: op)
+        from paper in Whole(value: terms.Paper)
+        from model in Whole(value: terms.Model)
+        from admitted in DrawingScale.Of(paper: paper, model: model)
         select admitted;
 
-    private static Fin<int> Whole(double value, Op op) =>
+    private static Fin<int> Whole(double value) =>
         Math.Round(a: value) is var rounded
         && rounded is > 0.0 and <= int.MaxValue
         && Math.Abs(value: value - rounded) <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: Math.Abs(value: value))
             ? Fin.Succ(value: (int)rounded)
-            : Fin.Fail<int>(error: op.InvalidInput());
+            : Fin.Fail<int>(error: new KernelFault.InvalidInput());
 
-    private static Fin<(double, LengthUnit, double, LengthUnit)> Parse(string spelling, RhinoDoc document, Op op) =>
-        from text in op.AcceptText(value: spelling)
-        from resolved in DrawingScale.Admit(text: text, key: op).Match(
+    private static Fin<(double, LengthUnit, double, LengthUnit)> Parse(string spelling, RhinoDoc document) =>
+        from text in Acceptance.Text(value: spelling)
+        from resolved in DrawingScale.Admit(text: text).Match(
             Succ: row => Fin.Succ<(double, LengthUnit, double, LengthUnit)>(
                 (row.Scale.Paper, document.PageUnits, row.Scale.Model, document.ModelUnits)),
-            Fail: _ => Hosted(text: text, document: document, op: op))
+            Fail: _ => Hosted(text: text, document: document))
         select resolved;
 
-    private static Fin<(double, LengthUnit, double, LengthUnit)> Hosted(string text, RhinoDoc document, Op op) =>
-        op.Catch(() => {
+    private static Fin<(double, LengthUnit, double, LengthUnit)> Hosted(string text, RhinoDoc document) =>
+        Try.lift(() => {
             using ScaleValue? candidate = ScaleValue.Create(
                 s: text,
                 ps: global::Rhino.Input.StringParserSettings.DefaultParseSettings);
             return Optional(candidate)
                 .Filter(static value => !value.IsUnset())
-                .ToFin(Fail: op.InvalidInput())
+                .ToFin(Fail: new KernelFault.InvalidInput())
                 .Bind(scale => {
                     using LengthValue page = scale.LeftLengthValue();
                     using LengthValue model = scale.RightLengthValue();
@@ -296,27 +293,24 @@ public abstract partial record SheetScale {
                         pageLength: pageLength,
                         pageUnit: pageUnit,
                         modelLength: modelLength,
-                        modelUnit: modelUnit,
-                        key: op)
+                        modelUnit: modelUnit)
                         .Map(_ => (pageLength, pageUnit, modelLength, modelUnit));
                 });
-        });
+        }).Run().Bind(static inner => inner);
 
-    public static Fin<double> PaperLength(DetailViewObject detail, double modelLength, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _length in op.Positive(value: modelLength)
-               from paper in op.Catch(() => detail.TryGetPaperLength(modelLength, out double paperLength)
+    public static Fin<double> PaperLength(DetailViewObject detail, double modelLength) {
+        return from _length in Admit.Positive(value: modelLength)
+               from paper in Try.lift(() => detail.TryGetPaperLength(modelLength, out double paperLength)
                    ? Fin.Succ(value: paperLength)
-                   : Fin.Fail<double>(error: op.InvalidResult()))
+                   : Fin.Fail<double>(error: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                select paper;
     }
 
-    public static Fin<double> ModelLength(DetailViewObject detail, double paperLength, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _length in op.Positive(value: paperLength)
-               from model in op.Catch(() => detail.TryGetModelLength(paperLength, out double modelLength)
+    public static Fin<double> ModelLength(DetailViewObject detail, double paperLength) {
+        return from _length in Admit.Positive(value: paperLength)
+               from model in Try.lift(() => detail.TryGetModelLength(paperLength, out double modelLength)
                    ? Fin.Succ(value: modelLength)
-                   : Fin.Fail<double>(error: op.InvalidResult()))
+                   : Fin.Fail<double>(error: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                select model;
     }
 }
@@ -394,13 +388,13 @@ public readonly record struct DetailFrame(double X, double Y, double Width, doub
     internal Point2d Anchored(DetailAnchor anchor, Point2d offset) =>
         new(x: X + (Width * anchor.X) + offset.X, y: Y + (Height * anchor.Y) + offset.Y);
 
-    internal Fin<DetailFrame> Admitted(Op key) =>
-        IsValid ? Fin.Succ(value: this) : Fin.Fail<DetailFrame>(error: key.InvalidResult());
+    internal Fin<DetailFrame> Admitted() =>
+        IsValid ? Fin.Succ(value: this) : Fin.Fail<DetailFrame>(error: new KernelFault.InvalidResult());
 }
 
 internal readonly record struct LayoutContext(
     DetailFrame Current, DetailFrame Field, ZoneGrid Zones,
-    DetailAnchor Anchor, Point2d Offset, int Index, int Count, Op Key);
+    DetailAnchor Anchor, Point2d Offset, int Index, int Count);
 
 [SmartEnum]
 public sealed partial class DetailArrangement {
@@ -412,37 +406,37 @@ public sealed partial class DetailArrangement {
         return new DetailFrame(
             X: ctx.Field.X + ((ctx.Index % columns) * cellWidth),
             Y: ctx.Field.Y + ctx.Field.Height - (((ctx.Index / columns) + 1) * cellHeight),
-            Width: cellWidth, Height: cellHeight).Admitted(key: ctx.Key);
+            Width: cellWidth, Height: cellHeight).Admitted();
     });
-    public static readonly DetailArrangement FitPage = new(frame: static ctx => ctx.Field.Admitted(key: ctx.Key));
+    public static readonly DetailArrangement FitPage = new(frame: static ctx => ctx.Field.Admitted());
     public static readonly DetailArrangement AlignAnchor = new(frame: static ctx =>
         ctx.Field.Anchored(anchor: ctx.Anchor, offset: ctx.Offset) is var seat
             ? (ctx.Current with {
                 X = seat.X - (ctx.Current.Width * ctx.Anchor.X),
                 Y = seat.Y - (ctx.Current.Height * ctx.Anchor.Y),
-            }).Admitted(key: ctx.Key)
-            : Fin.Fail<DetailFrame>(error: ctx.Key.InvalidResult()));
+            }).Admitted()
+            : Fin.Fail<DetailFrame>(error: new KernelFault.InvalidResult()));
     public static readonly DetailArrangement DistributeHorizontal = new(frame: static ctx =>
         ctx.Field.Width / ctx.Count is var step
             ? (ctx.Current with { X = ctx.Field.X + (ctx.Index * step) + ((step - ctx.Current.Width) / 2.0) })
-                .Admitted(key: ctx.Key)
-            : Fin.Fail<DetailFrame>(error: ctx.Key.InvalidResult()));
+                .Admitted()
+            : Fin.Fail<DetailFrame>(error: new KernelFault.InvalidResult()));
     public static readonly DetailArrangement DistributeVertical = new(frame: static ctx =>
         ctx.Field.Height / ctx.Count is var step
             ? (ctx.Current with { Y = ctx.Field.Y + (ctx.Index * step) + ((step - ctx.Current.Height) / 2.0) })
-                .Admitted(key: ctx.Key)
-            : Fin.Fail<DetailFrame>(error: ctx.Key.InvalidResult()));
+                .Admitted()
+            : Fin.Fail<DetailFrame>(error: new KernelFault.InvalidResult()));
 
     [UseDelegateFromConstructor]
     internal partial Fin<DetailFrame> Frame(LayoutContext context);
 
     internal static Fin<(DetailFrame Field, ZoneGrid Zones)> Field(
-        SheetSize size, SheetOrientation orientation, ModelUnit units, Op key) =>
+        SheetSize size, SheetOrientation orientation, ModelUnit units) =>
         from frame in Fin.Succ(value: SheetFrame.For(standard: size.Standard))
-        from margin in frame.Margin(size: size, key: key)
-        from zones in frame.Zones(size: size, orientation: orientation, key: key)
-        from extent in size.In(unit: units, key: key)
-        from insets in margin.In(unit: units, key: key)
+        from margin in frame.Margin(size: size)
+        from zones in frame.Zones(size: size, orientation: orientation)
+        from extent in size.In(unit: units)
+        from insets in margin.In(unit: units)
         let oriented = orientation == SheetOrientation.Landscape
             ? (Width: extent.Height, Height: extent.Width)
             : (extent.Width, extent.Height)
@@ -450,7 +444,7 @@ public sealed partial class DetailArrangement {
             X: insets.Left,
             Y: insets.Bottom,
             Width: oriented.Width - insets.Left - insets.Right,
-            Height: oriented.Height - insets.Top - insets.Bottom).Admitted(key: key)
+            Height: oriented.Height - insets.Top - insets.Bottom).Admitted()
         select (field, zones);
 }
 
@@ -463,24 +457,24 @@ public sealed record DetailSpec(
     Option<Guid> DisplayMode,
     Option<SheetScale> Scale,
     CapabilitySet<DetailLock> Locks) {
-    internal Fin<string> Validate(RhinoDoc document, Op op) {
-        K<Validation<Error>, string> name = op.AcceptText(value: Name).ToValidation();
+    internal Fin<string> Validate(RhinoDoc document) {
+        K<Validation<Error>, string> name = Acceptance.Text(value: Name).ToValidation();
         K<Validation<Error>, Unit> corners = guard(
             Corner.IsValid && Opposite.IsValid && Corner != Opposite,
-            op.InvalidInput()).ToFin().ToValidation();
+            new KernelFault.InvalidInput()).ToFin().ToValidation();
         K<Validation<Error>, Unit> projection = guard(
             Enum.IsDefined(value: Projection) && Projection != Rhino.Display.DefinedViewportProjection.None,
-            op.InvalidInput()).ToFin().ToValidation();
+            new KernelFault.InvalidInput()).ToFin().ToValidation();
         K<Validation<Error>, Unit> mode = DisplayMode
             .Map(id => Optional(Rhino.Display.DisplayModeDescription.GetDisplayMode(id: id))
-                .ToFin(Fail: op.InvalidInput()).Map(static _ => unit))
+                .ToFin(Fail: new KernelFault.InvalidInput()).Map(static _ => unit))
             .IfNone(Fin.Succ(value: unit))
             .ToValidation();
         K<Validation<Error>, Unit> scaleProjection = guard(
             Scale.IsNone || ProjectionForm.Of(projection: Projection).Scaled,
-            op.InvalidInput()).ToFin().ToValidation();
+            new KernelFault.InvalidInput()).ToFin().ToValidation();
         K<Validation<Error>, Unit> scale = Scale
-            .Map(value => value.Resolve(document: document, op: op).Map(static _ => unit))
+            .Map(value => value.Resolve(document: document).Map(static _ => unit))
             .IfNone(Fin.Succ(value: unit))
             .ToValidation();
         return (name, corners, projection, mode, scaleProjection, scale)
@@ -493,29 +487,29 @@ public sealed record DetailSpec(
 [SmartEnum]
 public sealed partial class NamedDetailMode {
     public static readonly NamedDetailMode Save = new(changesViewport: false, apply: static (document, detail, name, op) =>
-        op.Confirm(success: document.NamedViews.Add(name: name, viewportId: detail.Viewport.Id) >= 0));
+        Admit.Confirm(success: document.NamedViews.Add(name: name, viewportId: detail.Viewport.Id) >= 0));
     public static readonly NamedDetailMode Restore = new(changesViewport: true, apply: static (document, detail, name, op) =>
         document.NamedViews.FindByName(name) is var index && index >= 0
-            ? op.Confirm(success: document.NamedViews.RestoreWithAspectRatio(index: index, viewport: detail.Viewport))
-            : Fin.Fail<Unit>(error: op.InvalidInput()));
+            ? Admit.Confirm(success: document.NamedViews.RestoreWithAspectRatio(index: index, viewport: detail.Viewport))
+            : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()));
 
     internal bool ChangesViewport { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Apply(RhinoDoc document, DetailViewObject detail, string name, Op key);
+    internal partial Fin<Unit> Apply(RhinoDoc document, DetailViewObject detail, string name);
 }
 
 [SmartEnum]
 public sealed partial class DetailCommit {
     public static readonly DetailCommit Viewport = new(precedence: 0, apply: static (detail, op) =>
-        op.Confirm(success: detail.CommitViewportChanges()));
+        Admit.Confirm(success: detail.CommitViewportChanges()));
     public static readonly DetailCommit Geometry = new(precedence: 1, apply: static (detail, op) =>
-        op.Confirm(success: detail.CommitChanges()));
+        Admit.Confirm(success: detail.CommitChanges()));
 
     internal int Precedence { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Apply(DetailViewObject detail, Op key);
+    internal partial Fin<Unit> Apply(DetailViewObject detail);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -546,79 +540,78 @@ public abstract partial record DetailState {
         activateCase: static _ => Seq<DetailCommit>(),
         deactivateCase: static _ => Seq<DetailCommit>());
 
-    private Fin<Unit> ValidateAxis(RhinoDoc document, DetailViewObject detail, Op op) => Switch(
-        (Document: document, Detail: detail, Op: op),
-        nameCase: static (ctx, state) => ctx.Op.AcceptText(value: state.Name).Map(static _ => unit),
-        locksCase: static (ctx, state) => ctx.Op.Need(value: state.Held).Map(static _ => unit),
+    private Fin<Unit> ValidateAxis(RhinoDoc document, DetailViewObject detail) => Switch(
+        (Document: document, Detail: detail),
+        nameCase: static (ctx, state) => Acceptance.Text(value: state.Name).Map(static _ => unit),
+        locksCase: static (ctx, state) => Admit.Need(value: state.Held).Map(static _ => unit),
         displayModeCase: static (ctx, state) => Optional(Rhino.Display.DisplayModeDescription.GetDisplayMode(id: state.Id))
-            .ToFin(Fail: ctx.Op.InvalidInput()).Map(static _ => unit),
+            .ToFin(Fail: new KernelFault.InvalidInput()).Map(static _ => unit),
         projectionCase: static (ctx, state) => guard(
             Enum.IsDefined(value: state.Projection) && state.Projection != Rhino.Display.DefinedViewportProjection.None,
-            ctx.Op.InvalidInput()).ToFin(),
+            new KernelFault.InvalidInput()).ToFin(),
         scaleCase: static (ctx, state) =>
-            from _resolved in ctx.Op.Need(state.Scale)
-                .Bind(scale => scale.Resolve(document: ctx.Document, op: ctx.Op))
+            from _resolved in Admit.Need(state.Scale)
+                .Bind(scale => scale.Resolve(document: ctx.Document))
             select unit,
         frameCase: static (ctx, state) =>
-            from _valid in guard(state.Frame.IsValid, ctx.Op.InvalidInput()).ToFin()
-            from _current in DetailFrameOf(detail: ctx.Detail, op: ctx.Op)
+            from _valid in guard(state.Frame.IsValid, new KernelFault.InvalidInput()).ToFin()
+            from _current in DetailFrameOf(detail: ctx.Detail)
             select unit,
         namedViewCase: static (ctx, state) =>
-            from mode in ctx.Op.Need(state.Mode)
-            from name in ctx.Op.AcceptText(value: state.Name)
+            from mode in Admit.Need(state.Mode)
+            from name in Acceptance.Text(value: state.Name)
             from _exists in mode == NamedDetailMode.Restore
-                ? guard(ctx.Document.NamedViews.FindByName(name) >= 0, ctx.Op.InvalidInput()).ToFin()
+                ? guard(ctx.Document.NamedViews.FindByName(name) >= 0, new KernelFault.InvalidInput()).ToFin()
                 : Fin.Succ(value: unit)
             select unit,
         veilsCase: static (ctx, state) =>
             from _veils in guard(
                 state.Veils.ForAll(static veil => veil.Layer is not null && veil.Writes.ForAll(static write => write is not null)),
-                ctx.Op.InvalidInput()).ToFin()
+                new KernelFault.InvalidInput()).ToFin()
 
             from _layers in state.Veils
                 .Filter(static veil => veil.Applies)
-                .TraverseM(veil => veil.Layer.Index(document: ctx.Document, includeDeleted: false, key: ctx.Op))
+                .TraverseM(veil => veil.Layer.Index(document: ctx.Document, includeDeleted: false))
                 .As()
             select unit,
-        clipCase: static (ctx, state) => ctx.Op.Need(state.Clip)
-            .Bind(clip => Clips.Validate(clip: clip, document: ctx.Document, detail: ctx.Detail, op: ctx.Op)),
+        clipCase: static (ctx, state) => Admit.Need(state.Clip)
+            .Bind(clip => Clips.Validate(clip: clip, document: ctx.Document, detail: ctx.Detail)),
         activateCase: static (_, _) => Fin.Succ(value: unit),
         deactivateCase: static (_, _) => Fin.Succ(value: unit));
 
-    internal Fin<Unit> Write(RhinoDoc document, RhinoPageView page, DetailViewObject detail, Op op) => Switch(
-        (Document: document, Page: page, Detail: detail, Op: op),
-        nameCase: static (ctx, state) => ctx.Op.Catch(() => {
+    internal Fin<Unit> Write(RhinoDoc document, RhinoPageView page, DetailViewObject detail) => Switch(
+        (Document: document, Page: page, Detail: detail),
+        nameCase: static (ctx, state) => Try.lift(() => {
             using ObjectAttributes? attributes = ctx.Detail.Attributes.Duplicate();
-            return Optional(attributes).ToFin(Fail: ctx.Op.InvalidResult()).Bind(owned => {
+            return Optional(attributes).ToFin(Fail: new KernelFault.InvalidResult()).Bind(owned => {
                 owned.Name = state.Name;
-                return ctx.Op.Confirm(success: ctx.Document.Objects.ModifyAttributes(
+                return Admit.Confirm(success: ctx.Document.Objects.ModifyAttributes(
                     objectId: ctx.Detail.Id,
                     newAttributes: owned,
                     quiet: true));
             });
-        }),
-        locksCase: static (ctx, state) => ctx.Op.Catch(() => {
+        }).Run().Bind(static inner => inner),
+        locksCase: static (ctx, state) => Try.lift(() => {
             _ = toSeq(CapabilitySet<DetailLock>.All.Held)
                 .Iter(row => row.Write(detail: ctx.Detail, held: state.Held.Admits(capability: row)));
             return Fin.Succ(value: unit);
-        }),
+        }).Run().Bind(static inner => inner),
         displayModeCase: static (ctx, state) => Optional(Rhino.Display.DisplayModeDescription.GetDisplayMode(id: state.Id))
-            .ToFin(Fail: ctx.Op.InvalidInput())
-            .Bind(mode => ctx.Op.Catch(() => {
+            .ToFin(Fail: new KernelFault.InvalidInput())
+            .Bind(mode => Try.lift(() => {
                 ctx.Detail.Viewport.DisplayMode = mode;
                 return Fin.Succ(value: unit);
-            })),
-        projectionCase: static (ctx, state) => ctx.Op.Confirm(success: ctx.Detail.Viewport.SetProjection(
+            }).Run().Bind(static inner => inner)),
+        projectionCase: static (ctx, state) => Admit.Confirm(success: ctx.Detail.Viewport.SetProjection(
             projection: state.Projection,
             viewName: ctx.Detail.Viewport.Name,
             updateConstructionPlane: false)),
         scaleCase: static (ctx, state) => state.Scale.Apply(
             detail: ctx.Detail,
-            document: ctx.Document,
-            op: ctx.Op),
+            document: ctx.Document),
         frameCase: static (ctx, state) =>
-            from current in DetailFrameOf(detail: ctx.Detail, op: ctx.Op)
-            from _moved in ctx.Op.Catch(() => {
+            from current in DetailFrameOf(detail: ctx.Detail)
+            from _moved in Try.lift(() => {
                 Transform toOrigin = Transform.Translation(new Vector3d(-current.X, -current.Y, 0.0));
                 Transform resize = Transform.Scale(
                     plane: Plane.WorldXY,
@@ -626,45 +619,41 @@ public abstract partial record DetailState {
                     yScaleFactor: state.Frame.Height / current.Height,
                     zScaleFactor: 1.0);
                 Transform toSeat = Transform.Translation(new Vector3d(state.Frame.X, state.Frame.Y, 0.0));
-                return ctx.Op.Confirm(success: ctx.Detail.Geometry.Transform(xform: toSeat * resize * toOrigin));
-            })
+                return Admit.Confirm(success: ctx.Detail.Geometry.Transform(xform: toSeat * resize * toOrigin));
+            }).Run().Bind(static inner => inner)
             select unit,
         namedViewCase: static (ctx, state) => state.Mode.Apply(
             document: ctx.Document,
             detail: ctx.Detail,
-            name: state.Name,
-            key: ctx.Op),
+            name: state.Name),
         veilsCase: static (ctx, state) => Veils(
             veils: state.Veils,
             document: ctx.Document,
-            detail: ctx.Detail,
-            op: ctx.Op),
+            detail: ctx.Detail),
         clipCase: static (ctx, state) => Clips.Apply(
             clip: state.Clip,
             document: ctx.Document,
             page: ctx.Page,
-            detail: ctx.Detail,
-            op: ctx.Op),
-        activateCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Page.SetActiveDetail(detailId: ctx.Detail.Id)),
-        deactivateCase: static (ctx, _) => ctx.Op.Catch(() => {
+            detail: ctx.Detail),
+        activateCase: static (ctx, _) => Admit.Confirm(success: ctx.Page.SetActiveDetail(detailId: ctx.Detail.Id)),
+        deactivateCase: static (ctx, _) => Try.lift(() => {
             ctx.Page.SetPageAsActive();
             return Fin.Succ(value: unit);
-        }));
+        }).Run().Bind(static inner => inner));
 
     internal static Fin<Unit> Validate(
         Seq<DetailState> program,
         RhinoDoc document,
-        DetailViewObject detail,
-        Op op) =>
-        from _program in guard(!program.IsEmpty && program.ForAll(static state => state is not null), op.InvalidInput()).ToFin()
+        DetailViewObject detail) =>
+        from _program in guard(!program.IsEmpty && program.ForAll(static state => state is not null), new KernelFault.InvalidInput()).ToFin()
         let settled = program.Fold(
             ProjectionForm.Of(detail: detail),
             static (form, state) => state is ProjectionCase projection ? ProjectionForm.Of(projection: projection.Projection) : form)
         from _finalScale in guard(
             settled.Scaled || !program.Exists(static state => state is ScaleCase),
-            op.InvalidInput())
+            new KernelFault.InvalidInput())
         from _axes in program
-            .Traverse(state => state.ValidateAxis(document: document, detail: detail, op: op).ToValidation())
+            .Traverse(state => state.ValidateAxis(document: document, detail: detail).ToValidation())
             .As()
             .ToFin()
         select unit;
@@ -673,110 +662,108 @@ public abstract partial record DetailState {
         Seq<DetailState> program,
         RhinoDoc document,
         RhinoPageView page,
-        DetailViewObject detail,
-        Op op) =>
-        from _valid in Validate(program: program, document: document, detail: detail, op: op)
+        DetailViewObject detail) =>
+        from _valid in Validate(program: program, document: document, detail: detail)
         let ordered = program
             .OrderBy(static state => state is ScaleCase ? 1 : 0)
             .AsIterable()
             .ToSeq()
-        from commits in ordered.TraverseM(state => state.Write(document: document, page: page, detail: detail, op: op)
+        from commits in ordered.TraverseM(state => state.Write(document: document, page: page, detail: detail)
             .Map(_ => state.Commits)).As()
         let folded = toSeq(commits.Bind(identity).Distinct().OrderBy(static commit => commit.Precedence).AsIterable())
-        from _committed in folded.TraverseM(commit => commit.Apply(detail: detail, key: op)).As()
+        from _committed in folded.TraverseM(commit => commit.Apply(detail: detail)).As()
         select folded;
 
-    private static Fin<Unit> Veils(Seq<LayerVeil> veils, RhinoDoc document, DetailViewObject detail, Op op) =>
+    private static Fin<Unit> Veils(Seq<LayerVeil> veils, RhinoDoc document, DetailViewObject detail) =>
         veils
             .Filter(static veil => veil.Applies)
             .TraverseM(veil =>
-                from program in veil.Program(viewport: detail.Viewport.Id, op: op)
-                from _landed in program.Apply(document: document, op: op)
+                from program in veil.Program(viewport: detail.Viewport.Id)
+                from _landed in program.Apply(document: document)
                 select unit)
             .As()
             .Map(static _ => unit);
 
-    internal static Fin<DetailFrame> DetailFrameOf(DetailViewObject detail, Op op) =>
-        op.Catch(() => {
+    internal static Fin<DetailFrame> DetailFrameOf(DetailViewObject detail) =>
+        Try.lift(() => {
             BoundingBox bounds = detail.Geometry.GetBoundingBox(accurate: true);
             DetailFrame frame = new(X: bounds.Min.X, Y: bounds.Min.Y, Width: bounds.Max.X - bounds.Min.X, Height: bounds.Max.Y - bounds.Min.Y);
-            return frame.Admitted(key: op);
-        });
+            return frame.Admitted();
+        }).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Clips {
-    internal static Fin<Unit> Validate(SheetClip clip, RhinoDoc document, DetailViewObject detail, Op op) => clip.Switch(
-        (Document: document, Detail: detail, Op: op),
+    internal static Fin<Unit> Validate(SheetClip clip, RhinoDoc document, DetailViewObject detail) => clip.Switch(
+        (Document: document, Detail: detail),
         addCase: static (ctx, seed) =>
-            from _plane in guard(seed.Plane.IsValid, ctx.Op.InvalidInput()).ToFin()
-            from _program in guard(seed.Program.ForAll(static edit => edit is not null), ctx.Op.InvalidInput())
+            from _plane in guard(seed.Plane.IsValid, new KernelFault.InvalidInput()).ToFin()
+            from _program in guard(seed.Program.ForAll(static edit => edit is not null), new KernelFault.InvalidInput())
             select unit,
-        attachCase: static (ctx, seat) => Plane(document: ctx.Document, id: seat.PlaneId, op: ctx.Op).Map(static _ => unit),
-        detachCase: static (ctx, seat) => Plane(document: ctx.Document, id: seat.PlaneId, op: ctx.Op).Map(static _ => unit),
+        attachCase: static (ctx, seat) => Plane(document: ctx.Document, id: seat.PlaneId).Map(static _ => unit),
+        detachCase: static (ctx, seat) => Plane(document: ctx.Document, id: seat.PlaneId).Map(static _ => unit),
         amendCase: static (ctx, seat) =>
-            from _plane in Plane(document: ctx.Document, id: seat.PlaneId, op: ctx.Op)
+            from _plane in Plane(document: ctx.Document, id: seat.PlaneId)
             from _program in guard(
                 !seat.Program.IsEmpty && seat.Program.ForAll(static edit => edit is not null),
-                ctx.Op.InvalidInput())
+                new KernelFault.InvalidInput())
             select unit,
         pruneCase: static (_, _) => Fin.Succ(value: unit));
 
-    internal static Fin<Unit> Apply(SheetClip clip, RhinoDoc document, RhinoPageView page, DetailViewObject detail, Op op) => clip.Switch(
-        (Document: document, Page: page, Detail: detail, Op: op),
+    internal static Fin<Unit> Apply(SheetClip clip, RhinoDoc document, RhinoPageView page, DetailViewObject detail) => clip.Switch(
+        (Document: document, Page: page, Detail: detail),
         addCase: static (ctx, seed) =>
-            from id in ctx.Op.Catch(() => {
+            from id in Try.lift(() => {
                 using ObjectAttributes attributes = new();
-                return ctx.Op.AcceptValue(value: ctx.Document.Objects.AddClippingPlane(
+                return Acceptance.Value(value: ctx.Document.Objects.AddClippingPlane(
                     plane: seed.Plane,
                     uMagnitude: seed.U.Value,
                     vMagnitude: seed.V.Value,
                     clippedViewportIds: Seq(ctx.Detail.Viewport.Id).AsIterable(),
                     attributes: attributes));
-            })
-            from _minted in guard(id != Guid.Empty, ctx.Op.InvalidResult())
-            from _programmed in Programmed(document: ctx.Document, id: id, program: seed.Program, op: ctx.Op)
+            }).Run().Bind(static inner => inner)
+            from _minted in guard(id != Guid.Empty, new KernelFault.InvalidResult())
+            from _programmed in Programmed(document: ctx.Document, id: id, program: seed.Program)
             select unit,
         attachCase: static (ctx, seat) => Membership(
             document: ctx.Document, id: seat.PlaneId,
-            edit: viewports => new ViewportOp.Add(Ids: viewports), page: ctx.Page, detail: ctx.Detail, op: ctx.Op),
+            edit: viewports => new ViewportOp.Add(Ids: viewports), page: ctx.Page, detail: ctx.Detail),
         detachCase: static (ctx, seat) => Membership(
             document: ctx.Document, id: seat.PlaneId,
-            edit: viewports => new ViewportOp.Remove(Ids: viewports), page: ctx.Page, detail: ctx.Detail, op: ctx.Op),
+            edit: viewports => new ViewportOp.Remove(Ids: viewports), page: ctx.Page, detail: ctx.Detail),
         amendCase: static (ctx, seat) => Programmed(
-            document: ctx.Document, id: seat.PlaneId, program: seat.Program, op: ctx.Op),
+            document: ctx.Document, id: seat.PlaneId, program: seat.Program),
         pruneCase: static (ctx, _) =>
             toSeq(ctx.Document.Objects.FindClippingPlanesForViewport(viewport: ctx.Detail.Viewport))
                 .TraverseM(plane =>
-                    from geometry in Optional(plane.ClippingPlaneGeometry).ToFin(Fail: ctx.Op.InvalidResult())
+                    from geometry in Optional(plane.ClippingPlaneGeometry).ToFin(Fail: new KernelFault.InvalidResult())
                     from _pruned in geometry.ViewportIds() is [Guid only] && only == ctx.Detail.Viewport.Id
-                        ? ctx.Op.Confirm(success: ctx.Document.Objects.Delete(objectId: plane.Id, quiet: true))
+                        ? Admit.Confirm(success: ctx.Document.Objects.Delete(objectId: plane.Id, quiet: true))
                         : Membership(
                             document: ctx.Document, id: plane.Id,
-                            edit: viewports => new ViewportOp.Remove(Ids: viewports), page: ctx.Page, detail: ctx.Detail, op: ctx.Op)
+                            edit: viewports => new ViewportOp.Remove(Ids: viewports), page: ctx.Page, detail: ctx.Detail)
                     select unit)
                 .As()
                 .Map(static _ => unit));
 
-    private static Fin<ClippingPlaneObject> Plane(RhinoDoc document, Guid id, Op op) =>
-        Optional(document.Objects.FindId(objectId: id) as ClippingPlaneObject).ToFin(Fail: op.InvalidInput());
+    private static Fin<ClippingPlaneObject> Plane(RhinoDoc document, Guid id) =>
+        Optional(document.Objects.FindId(objectId: id) as ClippingPlaneObject).ToFin(Fail: new KernelFault.InvalidInput());
 
-    private static Fin<Unit> Programmed(RhinoDoc document, Guid id, Seq<ClipOp> program, Op op) =>
-        from plane in Plane(document: document, id: id, op: op)
-        from geometry in op.Need(value: plane.ClippingPlaneGeometry)
-        from _applied in program.TraverseM(edit => edit.Apply(geometry: geometry, key: op)).As()
-        from _committed in program.IsEmpty ? Fin.Succ(value: unit) : op.Confirm(success: plane.CommitChanges())
+    private static Fin<Unit> Programmed(RhinoDoc document, Guid id, Seq<ClipOp> program) =>
+        from plane in Plane(document: document, id: id)
+        from geometry in Admit.Need(value: plane.ClippingPlaneGeometry)
+        from _applied in program.TraverseM(edit => edit.Apply(geometry: geometry)).As()
+        from _committed in program.IsEmpty ? Fin.Succ(value: unit) : Admit.Confirm(success: plane.CommitChanges())
         select unit;
 
     private static Fin<Unit> Membership(
-        RhinoDoc document, Guid id, Func<Seq<Guid>, ViewportOp> edit, RhinoPageView page, DetailViewObject detail, Op op) =>
-        from address in ViewportTarget.Detail(pageViewId: page.MainViewport.Id, detailId: detail.Id, key: op)
+        RhinoDoc document, Guid id, Func<Seq<Guid>, ViewportOp> edit, RhinoPageView page, DetailViewObject detail) =>
+        from address in ViewportTarget.Detail(pageViewId: page.MainViewport.Id, detailId: detail.Id)
         from proven in ViewportOp.Proven(document, address)
         from _programmed in Programmed(
             document: document,
             id: id,
-            program: Seq<ClipOp>(new ClipOp.Viewports(Value: edit(proven))),
-            op: op)
+            program: Seq<ClipOp>(new ClipOp.Viewports(Value: edit(proven))))
         select unit;
 }
 ```
@@ -856,12 +843,12 @@ public abstract partial record SheetOp {
     public sealed record RetireCase(SheetSelect Sheets) : SheetOp;
     public sealed record AdoptCase(DocumentPath Source, Guid SourceViewportId, string Name) : SheetOp;
     public sealed record OrderCase(Seq<string> Names) : SheetOp {
-        internal Fin<(Seq<string> Names, Seq<RhinoPageView> Pages)> Named(RhinoDoc document, Op op) =>
-            from names in Names.TraverseM(name => op.AcceptText(value: name)).As()
+        internal Fin<(Seq<string> Names, Seq<RhinoPageView> Pages)> Named(RhinoDoc document) =>
+            from names in Names.TraverseM(name => Acceptance.Text(value: name)).As()
             from _unique in guard(
                 names.Map(static name => name.ToUpperInvariant()).Distinct().Count == names.Count,
-                op.InvalidInput())
-            from pages in names.TraverseM(name => SheetSelect.Named(name: name).Single(document: document, op: op)).As()
+                new KernelFault.InvalidInput())
+            from pages in names.TraverseM(name => SheetSelect.Named(name: name).Single(document: document)).As()
             select (Names: names, Pages: pages);
     }
     public sealed record GroupCase(SheetSelect Sheets, SheetNumber Volume, GroupPolicy Policy) : SheetOp;
@@ -871,33 +858,32 @@ public abstract partial record SheetOp {
     public sealed record NumberCase(SheetSelect Sheets, NumberRule Rule) : SheetOp;
     public sealed record BatchCase(Seq<SheetOp> Program) : SheetOp;
 
-    internal Fin<SheetProfile> Admit(SheetProgramBudget budget, Op op) =>
-        from limit in op.Need(budget)
+    internal Fin<SheetProfile> Admit(SheetProgramBudget budget) =>
+        from limit in Admit.Need(budget)
         from charged in Charged(
             node: this,
             limit: limit,
             depth: 0,
-            state: new SheetCharge(Nodes: 0, Profile: SheetProfile.Empty),
-            op: op)
+            state: new SheetCharge(Nodes: 0, Profile: SheetProfile.Empty))
         select charged.Profile;
 
-    private static Fin<SheetCharge> Charged(SheetOp node, SheetProgramBudget limit, int depth, SheetCharge state, Op op) =>
-        from _bounds in guard(depth <= limit.Depth.Value && state.Nodes < limit.Nodes.Value, op.InvalidInput()).ToFin()
+    private static Fin<SheetCharge> Charged(SheetOp node, SheetProgramBudget limit, int depth, SheetCharge state) =>
+        from _bounds in guard(depth <= limit.Depth.Value && state.Nodes < limit.Nodes.Value, new KernelFault.InvalidInput()).ToFin()
         let entered = state with { Nodes = state.Nodes + 1 }
         from charged in node is BatchCase batch
             ? from _rows in guard(
                   !batch.Program.IsEmpty && batch.Program.ForAll(static child => child is not null),
-                  op.InvalidInput()).ToFin()
+                  new KernelFault.InvalidInput()).ToFin()
               from folded in batch.Program.Fold(
                   Fin.Succ(value: entered),
                   (result, child) => result.Bind(carried => Charged(
-                      node: child, limit: limit, depth: depth + 1, state: carried, op: op)))
+                      node: child, limit: limit, depth: depth + 1, state: carried)))
               select folded
-            : from _leaf in guard(node.IsLeafAdmitted(), op.InvalidInput()).ToFin()
+            : from _leaf in guard(node.IsLeafAdmitted(), new KernelFault.InvalidInput()).ToFin()
               let nested = node is StateCase program ? program.Program.Count : 0
               from _nested in guard(
                   (nested == 0 || depth < limit.Depth.Value) && entered.Nodes + nested <= limit.Nodes.Value,
-                  op.InvalidInput())
+                  new KernelFault.InvalidInput())
               select new SheetCharge(Nodes: entered.Nodes + nested, Profile: entered.Profile + node.LeafProfile)
         select charged;
 
@@ -981,47 +967,46 @@ public sealed record NumberRule(NamingStandard Standard, Seq<(NamingField Field,
             ? ordinal.ToString(format: new string('0', Math.Max(width, 1)), provider: CultureInfo.InvariantCulture)
             : string.Empty;
 
-    internal Fin<Seq<NumberSeat>> Seats(RhinoDoc document, Seq<RhinoPageView> pages, Op op) =>
-        from _standard in op.Need(value: Standard)
-        from _fields in guard(Fields.Map(static pair => pair.Field).Equals(Standard.Sequence), op.InvalidInput())
-        from _pages in guard(!pages.IsEmpty, op.InvalidInput())
-        from _start in guard(Start.Value > 0, op.InvalidInput())
+    internal Fin<Seq<NumberSeat>> Seats(RhinoDoc document, Seq<RhinoPageView> pages) =>
+        from _standard in Admit.Need(value: Standard)
+        from _fields in guard(Fields.Map(static pair => pair.Field).Equals(Standard.Sequence), new KernelFault.InvalidInput())
+        from _pages in guard(!pages.IsEmpty, new KernelFault.InvalidInput())
+        from _start in guard(Start.Value > 0, new KernelFault.InvalidInput())
         let all = toSeq(document.Views.GetPageViews())
         let selected = toHashSet(pages.Map(static page => page.MainViewport.Id))
         let untouched = all.Filter(page => !selected.Contains(page.MainViewport.Id))
         let maximum = all.Map(static page => page.PageNumber).Fold(-1, static (highest, value) => Math.Max(highest, value))
-        from temporaryBase in op.Catch(() => Fin.Succ(value: checked(
-            Math.Max(maximum, checked(Start.Value + pages.Count - 2)) + 1)))
+        from temporaryBase in Try.lift(() => Fin.Succ(value: checked(
+            Math.Max(maximum, checked(Start.Value + pages.Count - 2)) + 1))).Run().Bind(static inner => inner)
         from seats in pages.Map(static (page, index) => (Page: page, Index: index)).TraverseM(row =>
-            from ordinal in op.Catch(() => Fin.Succ(value: checked(Start.Value + row.Index)))
+            from ordinal in Try.lift(() => Fin.Succ(value: checked(Start.Value + row.Index))).Run().Bind(static inner => inner)
             from number in SheetNumber.Of(
                 standard: Standard,
-                fields: Fields.Map(pair => pair.Field.Equals(Seat) ? (pair.Field, Rendered(ordinal: ordinal)) : pair),
-                key: op)
-            from seat in op.Catch(() => Fin.Succ(value: new NumberSeat(
+                fields: Fields.Map(pair => pair.Field.Equals(Seat) ? (pair.Field, Rendered(ordinal: ordinal)) : pair))
+            from seat in Try.lift(() => Fin.Succ(value: new NumberSeat(
                 Page: row.Page,
                 Number: number,
                 Name: number.Text,
                 Ordinal: ordinal,
                 PageNumber: checked(ordinal - 1),
                 TemporaryName: $"{TemporaryPrefix}{row.Page.MainViewport.Id:N}",
-                TemporaryPageNumber: checked(temporaryBase + row.Index))))
+                TemporaryPageNumber: checked(temporaryBase + row.Index)))).Run().Bind(static inner => inner)
             select seat).As()
         from _names in guard(
             seats.Map(static seat => seat.Name.ToUpperInvariant()).Distinct().Count == seats.Count,
-            op.InvalidInput())
+            new KernelFault.InvalidInput())
         from _temporaryFinals in guard(
             !seats.Exists(seat => seats.Exists(other => string.Equals(
                 a: seat.Name,
                 b: other.TemporaryName,
                 comparisonType: StringComparison.OrdinalIgnoreCase))),
-            op.InvalidInput())
+            new KernelFault.InvalidInput())
         from _untouched in guard(
             !untouched.Exists(page => seats.Exists(seat =>
                 page.PageNumber == seat.PageNumber
                 || string.Equals(a: page.PageName, b: seat.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
                 || string.Equals(a: page.PageName, b: seat.TemporaryName, comparisonType: StringComparison.OrdinalIgnoreCase))),
-            op.InvalidInput())
+            new KernelFault.InvalidInput())
         select seats;
 }
 
@@ -1030,23 +1015,20 @@ public static class Sheets {
     public static Fin<Unit> Commit(
         DocumentSession session,
         SheetOp request,
-        SheetProgramBudget budget,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        SheetProgramBudget budget) {
         return from admission in (
-                   op.Need(session).ToValidation(),
-                   op.Need(request).ToValidation(),
-                   op.Need(budget).ToValidation())
+                   Admit.Need(session).ToValidation(),
+                   Admit.Need(request).ToValidation(),
+                   Admit.Need(budget).ToValidation())
                    .Apply(static (active, operation, limit) => (Session: active, Operation: operation, Budget: limit))
                    .As()
                    .ToFin()
-               from profile in admission.Operation.Admit(budget: admission.Budget, op: op)
-               from _sessioned in guard(admission.Operation is SheetOp.AdoptCase || !profile.Sessioned, op.InvalidInput())
+               from profile in admission.Operation.Admit(budget: admission.Budget)
+               from _sessioned in guard(admission.Operation is SheetOp.AdoptCase || !profile.Sessioned, new KernelFault.InvalidInput())
                from _committed in admission.Operation switch {
-                   SheetOp.AdoptCase adopt => Adopt(session: admission.Session, adopt: adopt, op: op),
+                   SheetOp.AdoptCase adopt => Adopt(session: admission.Session, adopt: adopt),
                    _ => admission.Session.Demand(
-                       use: document => Recorded(document: document, request: admission.Operation, profile: profile, op: op),
-                       key: op,
+                       use: document => Recorded(document: document, request: admission.Operation, profile: profile),
                        needs: [.. profile.Needs]),
                }
                select unit;
@@ -1055,223 +1037,214 @@ public static class Sheets {
     public static Fin<Unit> Preview(
         DocumentSession session,
         SheetOp request,
-        SheetProgramBudget budget,
-        Op? key = null) {
-        Op op = key.OrDefault();
+        SheetProgramBudget budget) {
         return from admission in (
-                   op.Need(session).ToValidation(),
-                   op.Need(request).ToValidation(),
-                   op.Need(budget).ToValidation())
+                   Admit.Need(session).ToValidation(),
+                   Admit.Need(request).ToValidation(),
+                   Admit.Need(budget).ToValidation())
                    .Apply(static (active, operation, limit) => (Session: active, Operation: operation, Budget: limit))
                    .As()
                    .ToFin()
-               from profile in admission.Operation.Admit(budget: admission.Budget, op: op)
-               from _sessioned in guard(!profile.Sessioned, op.InvalidInput())
-               from _stable in guard(admission.Operation is not SheetOp.BatchCase || !profile.Mutates, op.InvalidInput())
+               from profile in admission.Operation.Admit(budget: admission.Budget)
+               from _sessioned in guard(!profile.Sessioned, new KernelFault.InvalidInput())
+               from _stable in guard(admission.Operation is not SheetOp.BatchCase || !profile.Mutates, new KernelFault.InvalidInput())
                from _previewed in admission.Session.Demand(
-                   use: document => Preflight(document: document, request: admission.Operation, op: op),
-                   key: op,
+                   use: document => Preflight(document: document, request: admission.Operation),
                    needs: [SessionNeed.Read])
                select unit;
     }
 
-    private static Fin<Unit> Preflight(RhinoDoc document, SheetOp request, Op op) =>
+    private static Fin<Unit> Preflight(RhinoDoc document, SheetOp request) =>
         request.Switch(
-            (Document: document, Op: op),
+            document,
             ensureCase: static (ctx, edit) =>
-                from name in ctx.Op.AcceptText(value: edit.Spec.Name)
-                from existing in SheetSelect.Named(name: name).Resolve(document: ctx.Document, op: ctx.Op)
-                from _extent in edit.Spec.Plot.Map(policy => PageExtent(policy: policy, document: ctx.Document, op: ctx.Op).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
+                from name in Acceptance.Text(value: edit.Spec.Name)
+                from existing in SheetSelect.Named(name: name).Resolve(document: ctx)
+                from _extent in edit.Spec.Plot.Map(policy => PageExtent(policy: policy, document: ctx).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
                 from _ordinal in edit.Spec.Ordinal.Map(value => PageNumber(
-                    document: ctx.Document,
+                    document: ctx,
                     owner: existing.Head.Map(static page => page.MainViewport.Id),
-                    ordinal: value,
-                    op: ctx.Op).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
-                from _unique in guard(existing.Count <= 1, ctx.Op.InvalidInput())
+                    ordinal: value).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
+                from _unique in guard(existing.Count <= 1, new KernelFault.InvalidInput())
                 select unit,
             cloneCase: static (ctx, edit) =>
-                from _policy in ctx.Op.Need(edit.Policy)
-                from _pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+                from _policy in Admit.Need(edit.Policy)
+                from _pages in edit.Sheets.Resolve(document: ctx)
                 select unit,
             retireCase: static (ctx, edit) =>
-                from _pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+                from _pages in edit.Sheets.Resolve(document: ctx)
                 select unit,
-            adoptCase: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidInput()),
+            adoptCase: static (ctx, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             orderCase: static (ctx, edit) =>
-                from _named in edit.Named(document: ctx.Document, op: ctx.Op)
+                from _named in edit.Named(document: ctx)
                 select unit,
             groupCase: static (ctx, edit) =>
-                from _policy in ctx.Op.Need(edit.Policy)
-                from _pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+                from _policy in Admit.Need(edit.Policy)
+                from _pages in edit.Sheets.Resolve(document: ctx)
                 select unit,
             spawnCase: static (ctx, edit) =>
-                from _page in edit.Sheet.Single(document: ctx.Document, op: ctx.Op)
-                from _name in edit.Spec.Validate(document: ctx.Document, op: ctx.Op)
+                from _page in edit.Sheet.Single(document: ctx)
+                from _name in edit.Spec.Validate(document: ctx)
                 select unit,
             stateCase: static (ctx, edit) =>
-                from _changes in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (_, detail, _, _) =>
+                from _changes in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (_, detail, _, _) =>
                     DetailState.Validate(
                         program: edit.Program,
-                        document: ctx.Document,
-                        detail: detail,
-                        op: ctx.Op))
+                        document: ctx,
+                        detail: detail))
                 select unit,
             arrangeCase: static (ctx, edit) =>
-                from units in ModelUnit.Of(value: ctx.Document.PageUnits, key: ctx.Op)
-                from field in DetailArrangement.Field(size: edit.Size, orientation: edit.Orientation, units: units, key: ctx.Op)
-                from _changes in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (_, detail, index, count) =>
+                from units in ModelUnit.Of(value: ctx.PageUnits)
+                from field in DetailArrangement.Field(size: edit.Size, orientation: edit.Orientation, units: units)
+                from _changes in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (_, detail, index, count) =>
                     from current in DetailState.DetailFrameOf(detail: detail, op: ctx.Op)
                     from _frame in edit.Arrangement.Frame(context: new LayoutContext(
                         Current: current, Field: field.Field, Zones: field.Zones,
-                        Anchor: edit.Anchor, Offset: edit.Offset, Index: index, Count: count, Key: ctx.Op))
+                        Anchor: edit.Anchor, Offset: edit.Offset, Index: index, Count: count))
                     select unit)
                 select unit,
             numberCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from _seats in edit.Rule.Seats(document: ctx.Document, pages: pages, op: ctx.Op)
+                from pages in edit.Sheets.Resolve(document: ctx)
+                from _seats in edit.Rule.Seats(document: ctx, pages: pages)
                 select unit,
             batchCase: static (ctx, edit) =>
                 edit.Program
-                    .TraverseM(inner => Preflight(document: ctx.Document, request: inner, op: ctx.Op))
+                    .TraverseM(inner => Preflight(document: ctx, request: inner))
                     .As()
                     .Map(static _ => unit));
 
-    private static Fin<Unit> Recorded(RhinoDoc document, SheetOp request, SheetProfile profile, Op op) {
+    private static Fin<Unit> Recorded(RhinoDoc document, SheetOp request, SheetProfile profile) {
         if (!profile.Mutates) {
-            return Apply(document: document, request: request, op: op);
+            return Apply(document: document, request: request);
         }
         return DocumentCommit.Sealed(
             document: document,
             name: nameof(Sheets),
             recordsUndo: true,
             redraw: RedrawPolicy.Continuous,
-            run: () => Apply(document: document, request: request, op: op),
-            project: Fin.Succ,
-            op: op);
+            run: () => Apply(document: document, request: request),
+            project: Fin.Succ);
     }
 
-    private static Fin<(double Width, double Height)> PageExtent(PlotPolicy policy, RhinoDoc document, Op op) =>
-        from target in ModelUnit.Of(value: document.PageUnits, key: op)
-        from extent in policy.Size.In(unit: target, key: op)
+    private static Fin<(double Width, double Height)> PageExtent(PlotPolicy policy, RhinoDoc document) =>
+        from target in ModelUnit.Of(value: document.PageUnits)
+        from extent in policy.Size.In(unit: target)
         select policy.Orientation == SheetOrientation.Landscape
             ? (Width: extent.Height, Height: extent.Width)
             : extent;
 
-    private static Fin<int> PageNumber(RhinoDoc document, Option<Guid> owner, Rasm.Numerics.Dimension ordinal, Op op) =>
-        from _positive in guard(ordinal.Value > 0, op.InvalidInput()).ToFin()
+    private static Fin<int> PageNumber(RhinoDoc document, Option<Guid> owner, Rasm.Numerics.Dimension ordinal) =>
+        from _positive in guard(ordinal.Value > 0, new KernelFault.InvalidInput()).ToFin()
         let number = ordinal.Value - 1
         from _available in guard(
             !toSeq(document.Views.GetPageViews()).Exists(page =>
                 owner.Map(id => page.MainViewport.Id != id).IfNone(noneValue: true)
                     && page.PageNumber == number),
-            op.InvalidInput())
+            new KernelFault.InvalidInput())
         select number;
 
-    private static Fin<Unit> Adopt(DocumentSession session, SheetOp.AdoptCase adopt, Op op) =>
-        from name in op.AcceptText(value: adopt.Name)
+    private static Fin<Unit> Adopt(DocumentSession session, SheetOp.AdoptCase adopt) =>
+        from name in Acceptance.Text(value: adopt.Name)
         from row in TableOp.ImportPage(path: adopt.Source, mainViewportId: adopt.SourceViewportId, pageName: name)
         from transaction in TableTransaction.Recorded(nameof(Sheets), RedrawPolicy.Deferred, Seq<TableCustomUndo>(), row)
-        from _delegated in Tables.Commit(session: session, transaction: transaction, key: op)
+        from _delegated in Tables.Commit(session: session, transaction: transaction)
         select unit;
 
-    private static Fin<Unit> Apply(RhinoDoc document, SheetOp request, Op op) =>
+    private static Fin<Unit> Apply(RhinoDoc document, SheetOp request) =>
         request.Switch(
-            (Document: document, Op: op),
+            document,
             ensureCase: static (ctx, edit) =>
-                from name in ctx.Op.AcceptText(value: edit.Spec.Name)
-                from existing in SheetSelect.Named(name: name).Resolve(document: ctx.Document, op: ctx.Op)
+                from name in Acceptance.Text(value: edit.Spec.Name)
+                from existing in SheetSelect.Named(name: name).Resolve(document: ctx)
                 from page in existing switch {
                     [var found] => Fin.Succ(value: found),
                     [] =>
-                        from size in edit.Spec.Plot.Map(policy => PageExtent(policy: policy, document: ctx.Document, op: ctx.Op).Map(Some)).IfNone(Fin.Succ(value: Option<(double, double)>.None))
-                        from minted in ctx.Op.Catch(() => Optional(size.Case switch {
-                            (double width, double height) => ctx.Document.Views.AddPageView(title: name, pageWidth: width, pageHeight: height),
-                            _ => ctx.Document.Views.AddPageView(title: name),
-                        }).ToFin(Fail: ctx.Op.InvalidResult()))
+                        from size in edit.Spec.Plot.Map(policy => PageExtent(policy: policy, document: ctx).Map(Some)).IfNone(Fin.Succ(value: Option<(double, double)>.None))
+                        from minted in Try.lift(() => Optional(size.Case switch {
+                            (double width, double height) => ctx.Views.AddPageView(title: name, pageWidth: width, pageHeight: height),
+                            _ => ctx.Views.AddPageView(title: name),
+                        }).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                         select minted,
-                    _ => Fin.Fail<RhinoPageView>(error: ctx.Op.InvalidInput()),
+                    _ => Fin.Fail<RhinoPageView>(error: new KernelFault.InvalidInput()),
                 }
                 from _extent in edit.Spec.Plot.Map(policy =>
-                    PageExtent(policy: policy, document: ctx.Document, op: ctx.Op).Bind(resolved => ctx.Op.Catch(() => {
+                    PageExtent(policy: policy, document: ctx).Bind(resolved => Try.lift(() => {
                         page.PageWidth = resolved.Width;
                         page.PageHeight = resolved.Height;
                         return Fin.Succ(value: unit);
-                    }))).IfNone(Fin.Succ(value: unit))
+                    }).Run().Bind(static inner => inner))).IfNone(Fin.Succ(value: unit))
                 from _volume in edit.Spec.Volume.Map(volume =>
                     Seated(
-                        document: ctx.Document,
+                        document: ctx,
                         pages: Seq(page),
                         volume: volume,
-                        policy: GroupPolicy.Additive,
-                        op: ctx.Op)).IfNone(Fin.Succ(value: unit))
+                        policy: GroupPolicy.Additive)).IfNone(Fin.Succ(value: unit))
                 from _ordinal in edit.Spec.Ordinal.Map(ordinal =>
                     from number in PageNumber(
-                        document: ctx.Document,
+                        document: ctx,
                         owner: Some(page.MainViewport.Id),
-                        ordinal: ordinal,
-                        op: ctx.Op)
-                    from _set in ctx.Op.Catch(() => {
+                        ordinal: ordinal)
+                    from _set in Try.lift(() => {
                         page.PageNumber = number;
                         return page.PageNumber == number
                             ? Fin.Succ(value: unit)
-                            : Fin.Fail<Unit>(error: ctx.Op.InvalidResult());
-                    })
+                            : Fin.Fail<Unit>(error: new KernelFault.InvalidResult());
+                    }).Run().Bind(static inner => inner)
                     select unit).IfNone(Fin.Succ(value: unit))
                 select unit,
             cloneCase: static (ctx, edit) =>
-                from policy in ctx.Op.Need(edit.Policy)
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+                from policy in Admit.Need(edit.Policy)
+                from pages in edit.Sheets.Resolve(document: ctx)
                 from _copies in pages.TraverseM(page =>
-                    ctx.Op.Catch(() => Optional(page.Duplicate(duplicatePageGeometry: policy.IncludesGeometry)).ToFin(Fail: ctx.Op.InvalidResult()))).As()
+                    Try.lift(() => Optional(page.Duplicate(duplicatePageGeometry: policy.IncludesGeometry)).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)).As()
                 select unit,
             retireCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+                from pages in edit.Sheets.Resolve(document: ctx)
                 from _removed in pages.TraverseM(page =>
-                    from _pruned in DetailSelect.All.Resolve(page: page, op: ctx.Op).Bind(details =>
-                        details.TraverseM(detail => Clips.Apply(clip: new SheetClip.PruneCase(), document: ctx.Document, page: page, detail: detail, op: ctx.Op)).As().Map(static _ => unit))
-                    from _closed in ctx.Op.Confirm(success: ctx.Document.Views.Delete(page))
+                    from _pruned in DetailSelect.All.Resolve(page: page).Bind(details =>
+                        details.TraverseM(detail => Clips.Apply(clip: new SheetClip.PruneCase(), document: ctx, page: page, detail: detail)).As().Map(static _ => unit))
+                    from _closed in Admit.Confirm(success: ctx.Views.Delete(page))
                     select unit).As()
                 select unit,
-            adoptCase: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidInput()),
+            adoptCase: static (ctx, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             orderCase: static (ctx, edit) =>
-                from named in edit.Named(document: ctx.Document, op: ctx.Op)
-                from roster in ctx.Op.Catch(() => {
-                    Seq<RhinoPageView> current = toSeq(toSeq(ctx.Document.Views.GetPageViews()).OrderBy(static page => page.PageNumber).AsIterable());
+                from named in edit.Named(document: ctx)
+                from roster in Try.lift(() => {
+                    Seq<RhinoPageView> current = toSeq(toSeq(ctx.Views.GetPageViews()).OrderBy(static page => page.PageNumber).AsIterable());
                     LanguageExt.HashSet<Guid> seated = toHashSet(named.Pages.Map(static page => page.MainViewport.Id));
                     return Fin.Succ(value: named.Pages + current.Filter(page => !seated.Contains(page.MainViewport.Id)));
-                })
+                }).Run().Bind(static inner => inner)
                 from _rebound in roster
                     .Map(static (page, index) => (Page: page, Index: index))
                     .TraverseM(static row => Renumbered(page: row.Page, number: row.Index))
                     .As()
-                from _landed in ctx.Op.Catch(() => guard(
-                    toSeq(ctx.Document.Views.GetPageViews())
+                from _landed in Try.lift(() => guard(
+                    toSeq(ctx.Views.GetPageViews())
                         .OrderBy(static page => page.PageNumber)
                         .Select(static page => page.MainViewport.Id)
                         .AsIterable()
                         .ToSeq() == roster.Map(static page => page.MainViewport.Id),
-                    ctx.Op.InvalidResult()).ToFin())
+                    new KernelFault.InvalidResult()).ToFin()).Run().Bind(static inner => inner)
                 select unit,
             groupCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from policy in ctx.Op.Need(edit.Policy)
+                from pages in edit.Sheets.Resolve(document: ctx)
+                from policy in Admit.Need(edit.Policy)
                 from _seated in Seated(
-                    document: ctx.Document,
+                    document: ctx,
                     pages: pages,
                     volume: edit.Volume,
-                    policy: policy,
-                    op: ctx.Op)
+                    policy: policy)
                 select unit,
             spawnCase: static (ctx, edit) =>
-                from page in edit.Sheet.Single(document: ctx.Document, op: ctx.Op)
-                from name in edit.Spec.Validate(document: ctx.Document, op: ctx.Op)
-                from prior in ctx.Op.Catch(() => Fin.Succ(Optional(ctx.Document.Views.ActiveView)))
-                from _spawned in ctx.Op.Catch(() => {
-                        ctx.Document.Views.ActiveView = page;
+                from page in edit.Sheet.Single(document: ctx)
+                from name in edit.Spec.Validate(document: ctx)
+                from prior in Try.lift(() => Fin.Succ(Optional(ctx.Views.ActiveView))).Run().Bind(static inner => inner)
+                from _spawned in Try.lift(() => {
+                        ctx.Views.ActiveView = page;
                         page.SetPageAsActive();
                         return from detail in Optional(page.AddDetailView(
                                    title: name, corner0: edit.Spec.Corner, corner1: edit.Spec.Opposite, initialProjection: edit.Spec.Projection))
-                                   .ToFin(Fail: ctx.Op.InvalidResult())
+                                   .ToFin(Fail: new KernelFault.InvalidResult())
                                let program = Seq<DetailState>(
                                        new DetailState.NameCase(Name: name),
                                        new DetailState.ProjectionLockCase(Locked: edit.Spec.ProjectionLocked))
@@ -1279,61 +1252,57 @@ public static class Sheets {
                                    + edit.Spec.Scale.Map(static scale => (DetailState)new DetailState.ScaleCase(Scale: scale)).ToSeq()
                                from commit in DetailState.Apply(
                                    program: program,
-                                   document: ctx.Document,
+                                   document: ctx,
                                    page: page,
-                                   detail: detail,
-                                   op: ctx.Op)
+                                   detail: detail)
                                select unit;
-                    })
+                    }).Run().Bind(static inner => inner)
                     .Settled(
                         held: prior.ToSeq(),
-                        release: view => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Document.Views.ActiveView = view))),
-                        key: ctx.Op)
+                        release: view => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => ctx.Views.ActiveView = view))).Run().Bind(static inner => inner))
                 select unit,
             stateCase: static (ctx, edit) =>
-                from _rows in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, _, _) =>
+                from _rows in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (page, detail, _, _) =>
                     DetailState.Apply(
                         program: edit.Program,
-                        document: ctx.Document,
+                        document: ctx,
                         page: page,
-                        detail: detail,
-                        op: ctx.Op))
+                        detail: detail))
                 select unit,
             arrangeCase: static (ctx, edit) =>
-                from units in ModelUnit.Of(value: ctx.Document.PageUnits, key: ctx.Op)
-                from field in DetailArrangement.Field(size: edit.Size, orientation: edit.Orientation, units: units, key: ctx.Op)
-                from _rows in PerDetail(document: ctx.Document, sheets: edit.Sheets, details: edit.Details, op: ctx.Op, row: (page, detail, index, count) =>
+                from units in ModelUnit.Of(value: ctx.PageUnits)
+                from field in DetailArrangement.Field(size: edit.Size, orientation: edit.Orientation, units: units)
+                from _rows in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (page, detail, index, count) =>
                     from current in DetailState.DetailFrameOf(detail: detail, op: ctx.Op)
                     from frame in edit.Arrangement.Frame(context: new LayoutContext(
                         Current: current, Field: field.Field, Zones: field.Zones,
-                        Anchor: edit.Anchor, Offset: edit.Offset, Index: index, Count: count, Key: ctx.Op))
+                        Anchor: edit.Anchor, Offset: edit.Offset, Index: index, Count: count))
                     from _moved in DetailState.Apply(
                         program: Seq<DetailState>(new DetailState.FrameCase(Frame: frame)),
-                        document: ctx.Document,
+                        document: ctx,
                         page: page,
-                        detail: detail,
-                        op: ctx.Op)
+                        detail: detail)
                     select unit)
                 select unit,
             numberCase: static (ctx, edit) =>
-                from pages in edit.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
-                from seats in edit.Rule.Seats(document: ctx.Document, pages: pages, op: ctx.Op)
-                let untouched = toSeq(ctx.Document.Views.GetPageViews())
+                from pages in edit.Sheets.Resolve(document: ctx)
+                from seats in edit.Rule.Seats(document: ctx, pages: pages)
+                let untouched = toSeq(ctx.Views.GetPageViews())
                     .Filter(page => !pages.Exists(seated => seated.MainViewport.Id == page.MainViewport.Id))
                     .Map(static page => page.MainViewport.Id)
-                from _temporary in seats.TraverseM(seat => Seat(seat: seat, name: seat.TemporaryName, number: seat.TemporaryPageNumber, op: ctx.Op)).As()
+                from _temporary in seats.TraverseM(seat => Seat(seat: seat, name: seat.TemporaryName, number: seat.TemporaryPageNumber)).As()
                 from _final in seats.TraverseM(seat =>
-                    Seat(seat: seat, name: seat.Name, number: seat.PageNumber, op: ctx.Op)).As()
-                from _landed in Landed(document: ctx.Document, seats: seats, untouched: untouched, op: ctx.Op)
+                    Seat(seat: seat, name: seat.Name, number: seat.PageNumber)).As()
+                from _landed in Landed(document: ctx, seats: seats, untouched: untouched)
                 select unit,
             batchCase: static (ctx, edit) =>
                 edit.Program
-                    .TraverseM(inner => Apply(document: ctx.Document, request: inner, op: ctx.Op))
+                    .TraverseM(inner => Apply(document: ctx, request: inner))
                     .As()
                     .Map(static _ => unit));
 
-    private static Fin<Unit> Landed(RhinoDoc document, Seq<NumberSeat> seats, Seq<Guid> untouched, Op op) =>
-        op.Catch(() => {
+    private static Fin<Unit> Landed(RhinoDoc document, Seq<NumberSeat> seats, Seq<Guid> untouched) =>
+        Try.lift(() => {
             HashMap<Guid, (string Name, int Number)> landed = toHashMap(toSeq(document.Views.GetPageViews())
                 .Map(static page => (page.MainViewport.Id, (page.PageName, page.PageNumber))));
             LanguageExt.HashSet<int> seated = toHashSet(seats.Map(static seat => seat.PageNumber));
@@ -1341,38 +1310,37 @@ public static class Sheets {
                     guard(seats.ForAll(seat => landed.Find(seat.Page.MainViewport.Id)
                         .Map(row => string.Equals(a: row.Name, b: seat.Name, comparisonType: StringComparison.Ordinal)
                             && row.Number == seat.PageNumber)
-                        .IfNone(noneValue: false)), op.InvalidResult()).ToFin().ToValidation(),
+                        .IfNone(noneValue: false)), new KernelFault.InvalidResult()).ToFin().ToValidation(),
                     guard(untouched.ForAll(id => landed.Find(id)
                         .Map(row => !seated.Contains(row.Number))
-                        .IfNone(noneValue: true)), op.InvalidResult()).ToFin().ToValidation())
+                        .IfNone(noneValue: true)), new KernelFault.InvalidResult()).ToFin().ToValidation())
                 .Apply(static (_, _) => unit)
                 .As()
                 .ToFin();
-        });
+        }).Run().Bind(static inner => inner);
 
     private static Fin<Unit> Renumbered(RhinoPageView page, int number) =>
-        Op.Of(name: $"{nameof(SheetOp.OrderCase)}:{page.PageName}").Catch(() => {
+        Try.lift(() => {
             page.PageNumber = number;
             return Fin.Succ(value: unit);
-        });
+        }).Run().Bind(static inner => inner);
 
-    private static Fin<Unit> Seat(NumberSeat seat, string name, int number, Op op) => op.Catch(() => {
+    private static Fin<Unit> Seat(NumberSeat seat, string name, int number) => Try.lift(() => {
         seat.Page.PageName = name;
         seat.Page.PageNumber = number;
         return string.Equals(a: seat.Page.PageName, b: name, comparisonType: StringComparison.Ordinal)
                && seat.Page.PageNumber == number
             ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidResult());
-    });
+            : Fin.Fail<Unit>(error: new KernelFault.InvalidResult());
+    }).Run().Bind(static inner => inner);
 
     private static Fin<Seq<TRow>> PerDetail<TRow>(
         RhinoDoc document,
         SheetSelect sheets,
         DetailSelect details,
-        Op op,
         Func<RhinoPageView, DetailViewObject, int, int, Fin<TRow>> row) =>
-        sheets.Resolve(document: document, op: op).Bind(pages =>
-            pages.TraverseM(page => details.Resolve(page: page, op: op).Bind(found =>
+        sheets.Resolve(document: document).Bind(pages =>
+            pages.TraverseM(page => details.Resolve(page: page).Bind(found =>
                 found.Map(static (detail, index) => (Detail: detail, Index: index))
                     .TraverseM(entry => row(page, entry.Detail, entry.Index, found.Count))
                     .As()))
@@ -1383,34 +1351,33 @@ public static class Sheets {
         RhinoDoc document,
         Seq<RhinoPageView> pages,
         SheetNumber volume,
-        GroupPolicy policy,
-        Op op) =>
-        from admittedGroup in op.AcceptText(value: volume.Text)
-        from _pages in guard(!pages.IsEmpty, op.InvalidInput())
-        from pageGroup in op.Catch(() => document.PageViewGroups.FindName(name: admittedGroup) switch {
+        GroupPolicy policy) =>
+        from admittedGroup in Acceptance.Text(value: volume.Text)
+        from _pages in guard(!pages.IsEmpty, new KernelFault.InvalidInput())
+        from pageGroup in Try.lift(() => document.PageViewGroups.FindName(name: admittedGroup) switch {
             PageViewGroup existing => Fin.Succ(value: existing),
             _ => document.PageViewGroups.Add(new PageViewGroup { Name = admittedGroup }, pages.AsIterable()) switch {
-                int index when index >= 0 => Optional(document.PageViewGroups.FindIndex(index: index)).ToFin(Fail: op.InvalidResult()),
-                _ => Fin.Fail<PageViewGroup>(error: op.InvalidResult()),
+                int index when index >= 0 => Optional(document.PageViewGroups.FindIndex(index: index)).ToFin(Fail: new KernelFault.InvalidResult()),
+                _ => Fin.Fail<PageViewGroup>(error: new KernelFault.InvalidResult()),
             },
-        })
+        }).Run().Bind(static inner => inner)
         from _seated in pages.TraverseM(page =>
             from _removed in policy.IsExclusive
                 ? toSeq(page.GetPageViewGroupList())
                     .Filter(index => index != pageGroup.Index)
-                    .TraverseM(index => op.Confirm(success: page.RemoveFromPageViewGroup(pageViewGroupIndex: index)))
+                    .TraverseM(index => Admit.Confirm(success: page.RemoveFromPageViewGroup(pageViewGroupIndex: index)))
                     .As()
                     .Map(static _ => unit)
                 : Fin.Succ(value: unit)
             from _removedPostcondition in guard(
                 !policy.IsExclusive || toSeq(page.GetPageViewGroupList()).ForAll(index => index == pageGroup.Index),
-                op.InvalidResult())
+                new KernelFault.InvalidResult())
             from _added in page.IsInPageViewGroup(pageViewGroupIndex: pageGroup.Index)
                 ? Fin.Succ(value: unit)
-                : op.Confirm(success: page.AddToPageViewGroup(pageViewGroupIndex: pageGroup.Index))
+                : Admit.Confirm(success: page.AddToPageViewGroup(pageViewGroupIndex: pageGroup.Index))
             from _addedPostcondition in guard(
                 page.IsInPageViewGroup(pageViewGroupIndex: pageGroup.Index),
-                op.InvalidResult())
+                new KernelFault.InvalidResult())
             select unit).As()
         select unit;
 }

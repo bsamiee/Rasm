@@ -65,19 +65,18 @@ public abstract partial record CompareFault : Fault {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct GridKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string key) =>
-        validationError = string.IsNullOrWhiteSpace(key) ? new ValidationError("compare grid key is blank") : null;
+        validationError = string.IsNullOrWhiteSpace() ? new ValidationError("compare grid key is blank") : null;
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CompareAxis {
-    static readonly Op Seat = Op.Of(name: $"{CompareCells.Plane}.seat");
 
     public static readonly CompareAxis Option = new("option",
         static coord => coord.Option.Value,
         Seated<OptionKey>("option",
-            static member => Seat.AcceptValidated<OptionKey>(member).ToOption(),
+            static member => FactoryBridge.Accept<OptionKey>(member).ToOption(),
             static (coord, key) => coord with { Option = key }));
     public static readonly CompareAxis Analysis = new("analysis",
         static coord => coord.Analysis,
@@ -204,7 +203,6 @@ public sealed record CompareGridWire(
     RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class CompareGridMap {
-    static readonly Op Checkpoint = Op.Of(name: $"{CompareCells.Plane}.checkpoint");
 
     [MapNestedProperties(nameof(CompareGrid.Pinned))]
     public static partial CompareGridWire ToWire(CompareGrid grid);
@@ -216,12 +214,12 @@ public static partial class CompareGridMap {
         from option in Checkpoint.AcceptValidated<OptionKey>(wire.PinnedOption)
         from at in CompareAxis.Time.Seat(new CompareCoord(option, wire.PinnedAnalysis, default), wire.PinnedAt)
         from sync in Granted(wire.Sync)
-        from admitted in CompareGrid.Admit(new CompareGrid(key, rows, columns, wire.RowMembers, wire.ColumnMembers, at, wire.Cap, sync))
+        from admitted in CompareGrid.Admit(new CompareGrid(rows, columns, wire.RowMembers, wire.ColumnMembers, at, wire.Cap, sync))
         select admitted;
 
     static Fin<CapabilitySet<CompareLink>> Granted(string wire) =>
         toSeq(wire.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            .Traverse(static key => Checkpoint.Row<string, CompareLink>(key)).As()
+            .Traverse(static key => Checkpoint.Row<string, CompareLink>()).As()
             .Map(static rows => CapabilitySet<CompareLink>.Of(rows.ToArray()));
 
     // --- [CONVERTERS]
@@ -338,7 +336,6 @@ public sealed record CompareSync(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class CompareChannels {
-    static readonly Op Union = Op.Of(name: $"{CompareCells.Plane}.legend");
 
     public static Fin<CompareSync> Framed(CompareSync held, CompareFrame frame) =>
         Fin.Succ(held with { Camera = frame.Camera });
@@ -360,7 +357,7 @@ internal static class CompareChannels {
                 from sample in layers.Head.ToFin(
                     new CompareFault.LinkRejected("legend: no bound cell carries a visible layer"))
                 from readings in layers.Bind(static layer => Seq(layer.Domain.Span.Low, layer.Domain.Span.High))
-                    .Traverse(static reading => Union.AcceptValidated<Scalar>(reading)).As()
+                    .Traverse(static reading => FactoryBridge.Accept<Scalar>(reading)).As()
                     .MapFail(static _ => (Error)new CompareFault.LinkRejected("legend: a cell span is not a finite reading"))
                 from summary in Stat<Scalar>.Of(values: readings, key: Union)
                     .MapFail(static _ => (Error)new CompareFault.LinkRejected("legend: the cell spans summarize to nothing"))
@@ -564,7 +561,6 @@ public static class CompareBoard {
                  new EffectMeasure.Extent(
                      checked((uint)matrix.Grid.WalkedRows.Count),
                      checked((uint)matrix.Grid.WalkedColumns.Count))),
-             key: Op.Of(name: SheetIntent),
              body: _ => Fin.Succ(sheet)))
          select settled).runFin.As();
 

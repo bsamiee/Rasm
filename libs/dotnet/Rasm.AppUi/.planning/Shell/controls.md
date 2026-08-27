@@ -308,7 +308,7 @@ public sealed partial class NumericKind {
         AvaloniaProperty slot,
         Func<NumericRange, Fin<Control>> construct,
         Func<Control, NumericRange, Fin<Unit>> redress) =>
-        new(key, wire, control, slot, construct, redress);
+        new(wire, control, slot, construct, redress);
 
     static AvaloniaProperty Slot<T>() where T : struct, IComparable<T> => NumericUpDownBase<T>.ValueProperty;
 
@@ -330,11 +330,11 @@ public sealed partial class NumericKind {
             : Fin<Unit>.Fail(new ControlFault.RecyclingViolation(typeof(TControl).Name));
 
     static Fin<(T Min, T Max, T Step)> Narrow<T>(NumericRange range) where T : INumberBase<T> =>
-        Op.Of(name: "appui.control.narrow").Catch(() => Fin.Succ(range.Switch(
+        Try.lift(() => Fin.Succ(range.Switch(
                 integral: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
                 unsigned: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
                 real: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
-                precise: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)))));
+                precise: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step))))).Run().Bind(static inner => inner);
 }
 ```
 
@@ -505,10 +505,10 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
 - Owner: `ControlFactory` the one intent-to-control fold; `MaterializeContext` the composition-bound resolution columns.
 - Law: every `ICommand` rides `BehaviorBridge.Intent` — a `BindCommand` call site is the deleted form and the intent never carries a live command, only its key; a bound command ALWAYS attaches and the trigger column narrows which gesture raises it, so a control that resolved a verb it could never be invoked through is unrepresentable.
 - Law: the fold writes NO resolved appearance value. Emphasis and posture resolve one `ControlSkin` row onto `StyledElement.Theme`, the semantic `PaintRole` key and the `TypographyRole` key land as style classes, and the control theme's own `{DynamicResource}` setters carry every brush, metric, radius, and shadow.
-- Law: every control's id and name derive from `ControlIntent.Key` through the one `Apply` fold — the id is the key verbatim and the name is `MaterializeContext.Label(key)` off the composition-bound `Theme/locale` resolver.
+- Law: every control's id and name derive from `ControlIntent.Key` through the one `Apply` fold — the id is the key verbatim and the name is `MaterializeContext.Label()` off the composition-bound `Theme/locale` resolver.
 - Law: container arms recurse `Materialize` over child intents so a whole screen is one fold over one nested intent tree.
 - Entry: `public Fin<Control> Materialize(ControlIntent intent, MaterializeContext context)` — one polymorphic fold over the closed family; the `Fin` result aborts on an unbound command key, an unresolved skin row, an unavailable slot, a refused payload, or a recycling violation, sealing the typed `ControlFault`.
-- Auto: each arm constructs the compiled-template control its case names — the Avalonia core rows for text, content, choice, range, toggle, grid, tree, menu, tab, expander, and colour surfaces, and the Ursa rows for the families that roster lacks — binds its `ICommand` through `BehaviorBridge.Intent(context.Command(key))` exclusively, resolves its skin through `context.Skin(row)`, derives automation identity from the intent key, and admits values, activation, icons, and pending state through the typed `MaterializeContext` boundaries; no reflection path, per-kind materializer call site, runtime-XAML emission, or second binding bridge exists.
+- Auto: each arm constructs the compiled-template control its case names — the Avalonia core rows for text, content, choice, range, toggle, grid, tree, menu, tab, expander, and colour surfaces, and the Ursa rows for the families that roster lacks — binds its `ICommand` through `BehaviorBridge.Intent(context.Command())` exclusively, resolves its skin through `context.Skin(row)`, derives automation identity from the intent key, and admits values, activation, icons, and pending state through the typed `MaterializeContext` boundaries; no reflection path, per-kind materializer call site, runtime-XAML emission, or second binding bridge exists.
 - Packages: Avalonia, Avalonia.Controls.DataGrid, Avalonia.Controls.ColorPicker, Irihi.Ursa, Irihi.Ursa.Themes.Semi, Xaml.Behaviors.Avalonia, ReactiveUI, LanguageExt.Core, NodaTime
 - Growth: one fold arm and one `ShapeOf` arm per new `ControlIntent` case; a new container is one nesting arm recursing `Materialize`; zero new surface.
 - Boundary: `ControlFactory` is the named boundary capsule for the control-construction statement carve-out — each arm carries the control-construction statements while the dispatch stays one total generated `Switch`, so a new case breaks every site at compile time and a runtime `_` arm is the rejected form; the only `ICommand` binding bridge is `BehaviorBridge.Intent`, so `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor` property-expression wiring are rejected wholesale (the `[04]-[BOUNDARIES]` ReactiveUI-code-behind clause); the materialized control's value bridge resolves the typed `IntentBinding.ValueKey` against the `ShapeOf` row's OWN `Slot` through `MaterializeContext.Value`, never reflection over a string property path — a ValueKey on a case whose row declares no slot refuses as `SlotUnavailable`; each arm binds its compiled template through `TemplatedControl.Template` and its theme through `StyledElement.Theme`, the grid cell intents bind `DataGridTemplateColumn.CellTemplate`/`CellEditingTemplate`, and only runtime `AvaloniaRuntimeXamlLoader` inflation is rejected by `Surfaces.RejectRuntimeInflation`; the `Grid`, `Tree`, `Select`, and `MultiSelect` arms hand their `VirtualWindowSpec` to the `Shell/virtualization` `VirtualWindow` owner and take back the fabric's own `WindowLease<TView>`, so no arm mints a second lease record and no arm binds a raw change-set to `ItemsSource`; the `Overview` arm resolves its `OverviewFrame` stream through the named source column, so the downsample, the decoration lanes, and the drag-to-jump conversion all live at the one `Shell/virtualization` `OverviewScale` owner; a control that publishes a typed gesture VALUE resolves its verb through `MaterializeContext.Gesture` rather than `Command` — the arrow lowers the value onto an existing payload case at the raising surface so the verb stays a deck row; the tree indent rides the shipped level-to-padding multi-value converter over a `{DynamicResource}` indent thickness; the `Panel` and `Dock` arms hand their `ConstraintProgram` to the `Shell/solver` `LayoutSolver` panel and mount their children through `Mounted`, which stamps `LayoutSolver.ChildKeyProperty` from each child intent's `Key` before the child enters `Children`; the command key resolves against the boot-frozen `CommandDeck` so an unknown key aborts the materialize on the `Fin` result rather than binding a dead control; a resolved icon image is a `Theme/tokens` `Rematerialize.TintedAsset` roster member, so a theme swap rebuilds it through the swap's roster rather than through a second icon subscription here.
@@ -927,7 +927,7 @@ public static partial class ControlFactory {
         icon.Iter(image => item.Icon = new Avalonia.Controls.Image { Source = image });
         row.Gesture.Iter(gesture => item.InputGesture = gesture);
         command.Iter(resolved => item.Command = resolved);
-        row.CheckedKey.Iter(key => context.Value(key, item, MenuItem.IsCheckedProperty).Iter(lifetime => context.Own(item, lifetime)));
+        row.CheckedKey.Iter(key => context.Value(item, MenuItem.IsCheckedProperty).Iter(lifetime => context.Own(item, lifetime)));
         if (!children.IsEmpty) { item.ItemsSource = children.ToArray(); }
         return item;
     }
@@ -1037,7 +1037,7 @@ public static partial class ControlFactory {
 
     private static Option<(string Key, Option<AvaloniaProperty> Slot)> Second(ControlIntent intent) => intent.Switch(
         range: static c => Some((c.UpperKey, Some((AvaloniaProperty)RangeSlider.UpperValueProperty))),
-        dateInput: static c => c.UpperKey.Map(key => (key, c.Kind.UpperSlot)),
+        dateInput: static c => c.UpperKey.Map(key => (c.Kind.UpperSlot)),
         button: static _ => None, label: static _ => None, textInput: static _ => None,
         numberInput: static _ => None, pathInput: static _ => None, colorInput: static _ => None,
         select: static _ => None, multiSelect: static _ => None, slider: static _ => None,
@@ -1068,9 +1068,9 @@ public static partial class ControlFactory {
 
     private static Validation<Error, Option<ICommand>> Verb(Option<string> command, MaterializeContext context) =>
         command.Match(
-            Some: key => context.Command(key).Match(
+            Some: key => context.Command().Match(
                 Some: static resolved => Validation<Error, Option<ICommand>>.Success(Some(resolved)),
-                None: () => Validation<Error, Option<ICommand>>.Fail(new ControlFault.UnboundIntent(key))),
+                None: () => Validation<Error, Option<ICommand>>.Fail(new ControlFault.UnboundIntent())),
             None: () => Validation<Error, Option<ICommand>>.Success(None));
 
     private static Fin<Option<ICommand>> Required(Option<string> command, MaterializeContext context) =>
@@ -1086,7 +1086,7 @@ public static partial class ControlFactory {
     private static Validation<Error, Option<(string Key, AvaloniaProperty Slot)>> Slotted(ControlIntent intent, ControlShape shape) =>
         intent.Binding.ValueKey.Match(
             Some: key => shape.Slot.Match(
-                Some: slot => Validation<Error, Option<(string, AvaloniaProperty)>>.Success(Some((key, slot))),
+                Some: slot => Validation<Error, Option<(string, AvaloniaProperty)>>.Success(Some((slot))),
                 None: () => Validation<Error, Option<(string, AvaloniaProperty)>>.Fail(
                     new ControlFault.SlotUnavailable($"{intent.Key}:value"))),
             None: () => Validation<Error, Option<(string, AvaloniaProperty)>>.Success(None));
@@ -1143,7 +1143,7 @@ public static partial class ControlFactory {
 
     private static Fin<Unit> Pending(ControlIntent intent, Control control, MaterializeContext context) =>
         intent.Binding.Icon.Bind(static slot => slot.Pending).Match(
-            Some: key => context.Value(key, control, IconButton.IsLoadingProperty).Map(lifetime => context.Own(control, lifetime)),
+            Some: key => context.Value(control, IconButton.IsLoadingProperty).Map(lifetime => context.Own(control, lifetime)),
             None: () => Fin.Succ(unit));
 
     private static Fin<Unit> Fired(ControlIntent intent, Control control, Option<ICommand> command, MaterializeContext context) =>
@@ -1206,7 +1206,7 @@ public static partial class ControlFactory {
             });
 
     private static Control Watermarked(Control control, AvaloniaProperty slot, string key, MaterializeContext context) {
-        control.SetValue(slot, context.Label(key));
+        control.SetValue(slot, context.Label());
         return control;
     }
 

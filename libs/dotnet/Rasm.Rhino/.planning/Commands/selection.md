@@ -21,7 +21,7 @@
 - Law: pick provenance is ONE record over two independent presence axes, not four cases. A curve parameter and a surface parameter are each present or absent; the four case names spelled that cross product, the union's own producer already supplied the two `Option`s, and both hand ladders re-derived the product it had just destructured. NAMED LOSS: the arm names `Point`/`Curve`/`Surface`/`CurveOnSurface`; the discriminant is recoverable from `(Parameter, Uv)` presence and the sole producer at `Picks.Capture` reads them straight off the host probes.
 - Law: view identity is ONE record over a durable runtime serial and an OPTIONAL detail serial. The host spells "no detail" as `0`, so the sentinel dies at admission and the two former cases — whose only behavioural difference was a name, since both answered the same serial to `Live` — collapse. NAMED LOSS: the arm names `Main`/`Detail`, recoverable from `DetailSerial` presence.
 - Law: the component index is ADMITTED, not guarded per use. The host's two legal corners — an invalid type at index `-1`, a named type at a non-negative index — are the value object's construction law, so `Objects/state` composes the same owner instead of re-spelling the pattern (E-R55, seated at the LOWER stratum: `ARCHITECTURE.md:107,161` places Objects above Commands, so the shared owner lands here and Objects imports it).
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`, `PartitionFallible`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op`, `Op.Side`, `ValidityClaim`, the `Rollback` custody extension), `Analysis/query` (`AnalysisQuery`, `Analyze`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:217-219` — the `ObjRef` projector roster, `PickContext`, `ObjectTable.PickObjects`, the `GetBaseClass` result reads), RhinoCommon objects (`api-rhinocommon-objects.md:184` — `ObjRef` identity projection).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`, `PartitionFallible`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op`, `HostEdge.Side`, `ValidityClaim`, the `Rollback` custody extension), `Analysis/query` (`AnalysisQuery`, `Analyze`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:217-219` — the `ObjRef` projector roster, `PickContext`, `ObjectTable.PickObjects`, the `GetBaseClass` result reads), RhinoCommon objects (`api-rhinocommon-objects.md:184` — `ObjRef` identity projection).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -47,15 +47,14 @@ public sealed partial class PickMethod {
     public static readonly PickMethod WindowBox = new(key: (int)SelectionMethod.WindowBox);
     public static readonly PickMethod CrossingBox = new(key: (int)SelectionMethod.CrossingBox);
 
-    internal static Fin<PickMethod> Of(SelectionMethod native, Op key) =>
-        key.Row<int, PickMethod>((int)native);
+    internal static Fin<PickMethod> Of(SelectionMethod native) =>
+        FactoryBridge.Row<int, PickMethod>((int)native);
 }
 
 [ValueObject<ComponentIndex>]
 [ValidationError]
 public readonly partial struct PartIndex {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ComponentIndex value) {
-        Op op = Op.Of();
         ComponentIndex component = value;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (component is not ({ ComponentIndexType: ComponentIndexType.InvalidType, Index: -1 }
@@ -78,7 +77,6 @@ public sealed partial class PickOrigin {
         ref Point3d point,
         ref Option<double> parameter,
         ref Option<Point2d> uv) {
-        Op op = Op.Of();
         PickMethod row = method;
         Point3d seat = point;
         Option<double> curve = parameter;
@@ -96,9 +94,8 @@ public sealed partial class PickOrigin {
         PickMethod method,
         Point3d point,
         Option<double> parameter,
-        Option<Point2d> uv,
-        Op key) =>
-        key.AcceptValidated<PickOrigin>(
+        Option<Point2d> uv) =>
+        FactoryBridge.Accept<PickOrigin>(
             fault: Validate(method, point, parameter, uv, out PickOrigin? admitted), admitted: admitted);
 }
 
@@ -112,7 +109,6 @@ public sealed partial class PickView {
         ref ValidationError? validationError,
         ref uint runtimeSerial,
         ref Option<uint> detailSerial) {
-        Op op = Op.Of();
         uint serial = runtimeSerial;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (serial is 0u, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(RuntimeSerial), serial, "a live view serial" }))),
@@ -120,8 +116,8 @@ public sealed partial class PickView {
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(DetailSerial), 0d, "a live detail serial" })))));
     }
 
-    internal static Fin<Option<PickView>> Admit(Option<RhinoView> view, uint detailSerial, Op key) => view.Match(
-        Some: live => key.AcceptValidated<PickView>(
+    internal static Fin<Option<PickView>> Admit(Option<RhinoView> view, uint detailSerial) => view.Match(
+        Some: live => FactoryBridge.Accept<PickView>(
                 fault: Validate(
                     live.RuntimeSerialNumber,
                     detailSerial is 0u ? Option<uint>.None : Some(detailSerial),
@@ -130,11 +126,11 @@ public sealed partial class PickView {
             .Map(Some),
         None: () => detailSerial is 0u
             ? Fin.Succ(Option<PickView>.None)
-            : Fin.Fail<Option<PickView>>(error: key.InvalidResult()));
+            : Fin.Fail<Option<PickView>>(error: new KernelFault.InvalidResult()));
 
-    internal Fin<RhinoView> Live(Op key) =>
-        key.Catch(() => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: RuntimeSerial))
-            .ToFin(Fail: key.MissingContext()));
+    internal Fin<RhinoView> Live() =>
+        Try.lift(() => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: RuntimeSerial))
+            .ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -147,11 +143,10 @@ public sealed record PickCapture(
         Guid objectId,
         ComponentIndex component,
         PickOrigin origin,
-        Option<PickView> view,
-        Op key) =>
-        from part in key.AcceptValidated<PartIndex, ComponentIndex>(candidate: component)
-        from admittedOrigin in key.Need(origin)
-        from _ in guard(objectId != Guid.Empty, key.InvalidResult(detail: nameof(ObjectId)))
+        Option<PickView> view) =>
+        from part in FactoryBridge.Accept<PartIndex, ComponentIndex>(candidate: component)
+        from admittedOrigin in Admit.Need(origin)
+        from _ in guard(objectId != Guid.Empty, new KernelFault.InvalidResult(Detail: Some(nameof(ObjectId))))
         select new PickCapture(
             ObjectId: objectId,
             Component: part,
@@ -299,31 +294,31 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
         transformed: static _ => PickSlot.Pose,
         refreshClipping: static _ => PickSlot.Clipping);
 
-    internal Fin<Unit> Admit(Op key) => Switch(
+    internal Fin<Unit> Admit() => Switch(
         state: key,
-        inView: static (op, rule) => op.Need(rule.Value).Map(static _ => unit),
-        along: static (op, rule) => guard(rule.Value.IsValid, op.InvalidInput(axis: nameof(Along))).ToFin(),
-        styled: static (op, rule) => guard(rule.Value is not null, op.InvalidInput(axis: nameof(Styled))).ToFin(),
-        rendered: static (op, rule) => guard(rule.Value is not null, op.InvalidInput(axis: nameof(Rendered))).ToFin(),
-        gates: static (op, rule) => guard(
+        inView: static (rule) => Admit.Need(rule.Value).Map(static _ => unit),
+        along: static (rule) => guard(rule.Value.IsValid, new KernelFault.InvalidInput(Axis: Some(nameof(Along)))).ToFin(),
+        styled: static (rule) => guard(rule.Value is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Styled)))).ToFin(),
+        rendered: static (rule) => guard(rule.Value is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Rendered)))).ToFin(),
+        gates: static (rule) => guard(
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),
-            op.InvalidInput(axis: nameof(Gates))).ToFin(),
-        transformed: static (op, rule) => guard(rule.Value.IsValid, op.InvalidInput(axis: nameof(Transformed))).ToFin(),
+            new KernelFault.InvalidInput(Axis: Some(nameof(Gates)))).ToFin(),
+        transformed: static (rule) => guard(rule.Value.IsValid, new KernelFault.InvalidInput(Axis: Some(nameof(Transformed)))).ToFin(),
         refreshClipping: static (_, _) => Fin.Succ(value: unit));
 
-    internal Fin<Unit> Apply(PickContext context, Op key) => Switch(
-        state: (Target: context, Op: key),
-        inView: static (state, rule) => rule.Value.Live(state.Op)
-            .Bind(view => state.Op.Catch(() => Fin.Succ(Op.Side(() => state.Target.View = view)))),
-        along: static (state, rule) => state.Op.Catch(() => Fin.Succ(Op.Side(() => state.Target.PickLine = rule.Value))),
-        styled: static (state, rule) => state.Op.Catch(() => Fin.Succ(Op.Side(() => state.Target.PickStyle = rule.Value.Native))),
-        rendered: static (state, rule) => state.Op.Catch(() => Fin.Succ(Op.Side(() => state.Target.PickMode = rule.Value.Native))),
-        gates: static (state, rule) => state.Op.Catch(() => Fin.Succ(Op.Side(() => {
-            rule.Enabled.Held.Iter(row => row.Set(state.Target, enabled: true));
-            rule.Disabled.Held.Iter(row => row.Set(state.Target, enabled: false));
-        }))),
-        transformed: static (state, rule) => state.Op.Catch(() => Fin.Succ(Op.Side(() => state.Target.SetPickTransform(rule.Value)))),
-        refreshClipping: static (state, _) => state.Op.Catch(() => Fin.Succ(Op.Side(state.Target.UpdateClippingPlanes))));
+    internal Fin<Unit> Apply(PickContext context) => Switch(
+        state: context,
+        inView: static (state, rule) => rule.Value.Live()
+            .Bind(view => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.View = view))).Run().Bind(static inner => inner)),
+        along: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickLine = rule.Value))).Run().Bind(static inner => inner),
+        styled: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickStyle = rule.Value.Native))).Run().Bind(static inner => inner),
+        rendered: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickMode = rule.Value.Native))).Run().Bind(static inner => inner),
+        gates: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => {
+            rule.Enabled.Held.Iter(row => row.Set(state, enabled: true));
+            rule.Disabled.Held.Iter(row => row.Set(state, enabled: false));
+        }))).Run().Bind(static inner => inner),
+        transformed: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.SetPickTransform(rule.Value)))).Run().Bind(static inner => inner),
+        refreshClipping: static (state, _) => Try.lift(() => Fin.Succ(HostEdge.Side(state.UpdateClippingPlanes))).Run().Bind(static inner => inner));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -343,15 +338,15 @@ public sealed record PickPolicy {
         new PickRule.RefreshClipping(),
     ]);
 
-    public static Fin<PickPolicy> Of(Seq<PickRule> rules, Op? key = null) =>
+    public static Fin<PickPolicy> Of(Seq<PickRule> rules) =>
         RulePlan<PickRule, PickSlot>.Of(
                 rules: rules,
                 admit: static (rule, k) => rule.Admit(k),
                 key: key.OrDefault(name: nameof(PickPolicy)))
             .Map(static plan => new PickPolicy(plan: plan));
 
-    internal Fin<Unit> Apply(PickContext target, Op key) => Plan.Apply(
-        target: target, apply: static (rule, context, op) => rule.Apply(context, op), key: key);
+    internal Fin<Unit> Apply(PickContext target) => Plan.Apply(
+        target: target, apply: static (rule, context, op) => rule.Apply(context));
 }
 
 public sealed record PickGetterFact(GetResult Terminal, Option<int> Selected);
@@ -370,105 +365,94 @@ public sealed partial record PickOutcome(
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Picks {
-    public static Fin<PickCapture> Capture(ObjRef reference, Op? key = null) {
-        Op op = key.OrDefault(name: nameof(Capture));
-        return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext()).ToFin()
-               from active in op.Need(reference)
-               from admittedMethod in op.Catch(() => PickMethod.Of(native: active.SelectionMethod(), key: op))
-               from curve in CurveAt(reference: active, key: op)
-               from surface in SurfaceAt(reference: active, key: op)
-               from origin in op.Catch(() => PickOrigin.Of(
+    public static Fin<PickCapture> Capture(ObjRef reference) {
+        return from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext()).ToFin()
+               from active in Admit.Need(reference)
+               from admittedMethod in Try.lift(() => PickMethod.Of(native: active.SelectionMethod())).Run().Bind(static inner => inner)
+               from curve in CurveAt(reference: active)
+               from surface in SurfaceAt(reference: active)
+               from origin in Try.lift(() => PickOrigin.Of(
                    method: admittedMethod,
                    point: active.SelectionPoint(),
                    parameter: curve,
-                   uv: surface,
-                   key: op))
-               from view in op.Catch(() => PickView.Admit(
+                   uv: surface)).Run().Bind(static inner => inner)
+               from view in Try.lift(() => PickView.Admit(
                    view: Optional(active.SelectionView()),
-                   detailSerial: active.SelectionViewDetailSerialNumber(),
-                   key: op))
-               from capture in op.Catch(() => PickCapture.Admit(
+                   detailSerial: active.SelectionViewDetailSerialNumber())).Run().Bind(static inner => inner)
+               from capture in Try.lift(() => PickCapture.Admit(
                    objectId: active.ObjectId,
                    component: active.GeometryComponentIndex,
                    origin: origin,
-                   view: view,
-                   key: op))
+                   view: view)).Run().Bind(static inner => inner)
                select capture;
     }
 
-    private static Fin<Option<double>> CurveAt(ObjRef reference, Op key) => key.Catch(() => {
+    private static Fin<Option<double>> CurveAt(ObjRef reference) => Try.lift(() => {
         using Curve? curve = reference.CurveParameter(parameter: out double parameter);
         return Fin.Succ(value: curve is null ? Option<double>.None : Some(parameter));
-    });
+    }).Run().Bind(static inner => inner);
 
-    private static Fin<Option<Point2d>> SurfaceAt(ObjRef reference, Op key) => key.Catch(() => {
+    private static Fin<Option<Point2d>> SurfaceAt(ObjRef reference) => Try.lift(() => {
         using Surface? surface = reference.SurfaceParameter(u: out double u, v: out double v);
         return Fin.Succ(value: surface is null ? Option<Point2d>.None : Some(new Point2d(x: u, y: v)));
-    });
+    }).Run().Bind(static inner => inner);
 
-    public static Fin<PickOutcome> CaptureOwned(IEnumerable<ObjRef> references, Op? key = null) {
-        Op op = key.OrDefault(name: nameof(CaptureOwned));
-        return from source in op.Need(references)
-               from owned in op.Catch(() => Fin.Succ(toSeq(source).Strict()))
+    public static Fin<PickOutcome> CaptureOwned(IEnumerable<ObjRef> references) {
+        return from source in Admit.Need(references)
+               from owned in Try.lift(() => Fin.Succ(toSeq(source).Strict())).Run().Bind(static inner => inner)
                from _ in guard(
                    owned.ForAll(static reference => reference is not null),
-                   op.InvalidResult(detail: nameof(references)))
+                   new KernelFault.InvalidResult(Detail: Some(nameof(references))))
                from outcome in owned
-                   .Map(reference => Capture(reference: reference, key: op))
+                   .Map(reference => Capture(reference: reference))
                    .PartitionFallible()
                    .As()
                    .Map(static split => new PickOutcome(
                        Getter: None, Captures: split.Succs, Rejected: split.Fails))
-                   .Settled(release: () => Released(owned, op), key: op)
+                   .Settled(release: () => Released(owned))
                select outcome;
     }
 
-    private static Fin<Unit> Released(Seq<ObjRef> owned, Op key) => Custody.Release(
+    private static Fin<Unit> Released(Seq<ObjRef> owned) => Custody.Release(
         held: owned,
-        release: reference => key.Catch(() => Fin.Succ(value: Op.Side(reference.Dispose))),
-        key: key);
+        release: reference => Try.lift(() => Fin.Succ(value: HostEdge.Side(reference.Dispose))).Run().Bind(static inner => inner));
 
-    public static Fin<TOut> Part<TOut>(ObjRef reference, PartKind ask, Func<Picked, Fin<TOut>> project, Op? key = null)
+    public static Fin<TOut> Part<TOut>(ObjRef reference, PartKind ask, Func<Picked, Fin<TOut>> project)
         where TOut : notnull {
-        Op op = key.OrDefault(name: nameof(Part));
-        return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext()).ToFin()
-               from active in op.Need(reference)
-               from kind in op.Need(ask)
-               from body in op.Need(project)
-               from part in op.Catch(() => kind.Project(reference: active)
-                   .ToFin(op.Unsupported(inputType: typeof(ObjRef), outputType: typeof(Picked))))
-               from result in op.Catch(() => body(arg: part))
+        return from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext()).ToFin()
+               from active in Admit.Need(reference)
+               from kind in Admit.Need(ask)
+               from body in Admit.Need(project)
+               from part in Try.lift(() => kind.Project(reference: active)
+                   .ToFin(new KernelFault.Unsupported(InputType: typeof(ObjRef), OutputType: typeof(Picked)))).Run().Bind(static inner => inner)
+               from result in Try.lift(() => body(arg: part)).Run().Bind(static inner => inner)
                select result;
     }
 
-    public static Fin<GeometryHandle> Retain(ObjRef reference, PartKind ask, Op? key = null) {
-        Op op = key.OrDefault(name: nameof(Retain));
+    public static Fin<GeometryHandle> Retain(ObjRef reference, PartKind ask) {
         return Part(
             reference: reference,
             ask: ask,
             project: part => part.Geometry
-                .ToFin(op.Unsupported(inputType: typeof(Picked), outputType: typeof(GeometryBase)))
-                .Bind(geometry => GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach, key: op)),
-            key: op);
+                .ToFin(new KernelFault.Unsupported(InputType: typeof(Picked), OutputType: typeof(GeometryBase)))
+                .Bind(geometry => GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach)));
     }
 
-    public static Fin<PickOutcome> Execute(DocumentSession session, PickPolicy policy, Op? key = null) {
-        Op op = key.OrDefault(name: nameof(Execute));
-        return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext()).ToFin()
-               from target in op.Need(session)
-               from active in op.Need(policy)
+    public static Fin<PickOutcome> Execute(DocumentSession session, PickPolicy policy) {
+        return from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext()).ToFin()
+               from target in Admit.Need(session)
+               from active in Admit.Need(policy)
                from outcome in target.Demand(
                    use: document =>
-                       from defaultView in Optional(document.Views.ActiveView).ToFin(Fail: op.MissingContext())
-                       from projected in op.Catch(() => {
+                       from defaultView in Optional(document.Views.ActiveView).ToFin(Fail: new KernelFault.MissingContext())
+                       from projected in Try.lift(() => {
                            using PickContext context = new() { View = defaultView };
                            return active.Apply(target: context, key: op)
-                               .Bind(_ => op.Catch(() => Fin.Succ(document.Objects.PickObjects(pickContext: context))))
+                               .Bind(_ => Try.lift(() => Fin.Succ(document.Objects.PickObjects(pickContext: context))).Run().Bind(static inner => inner))
                                .Bind(references => CaptureOwned(references: references, key: op)
                                    .Map(held => held with { Getter = Participant(context) }));
-                       })
+                       }).Run().Bind(static inner => inner)
                        select projected,
-                   key: op,
                    needs: [SessionNeed.Read])
                select outcome;
     }
@@ -481,18 +465,16 @@ public static class Picks {
     public static Fin<Seq<TOut>> Measured<TOut>(
         DocumentSession session,
         AnalysisQuery ask,
-        Seq<GeometryBase> subjects,
-        Op? key = null)
+        Seq<GeometryBase> subjects)
         where TOut : notnull {
-        Op op = key.OrDefault(name: nameof(Measured));
-        return from active in op.Need(session)
-               from query in op.Need(ask)
+        return from active in Admit.Need(session)
+               from query in Admit.Need(ask)
                from _ in guard(
                    !subjects.IsEmpty && subjects.ForAll(static shape => shape is not null),
-                   op.InvalidInput(axis: nameof(subjects)))
-               from domain in active.Context(key: op)
+                   new KernelFault.InvalidInput(Axis: Some(nameof(subjects))))
+               from domain in active.Context()
                from measured in Analyze.In(context: domain)
-                   .Run(operation: Analyze.Query<GeometryBase, TOut>(query: query, key: op), input: [.. subjects])
+                   .Run(operation: Analyze.Query<GeometryBase, TOut>(query: query), input: [.. subjects])
                    .ToFin()
                select measured;
     }

@@ -18,7 +18,7 @@ Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner —
 - Owner: the `AssetOrigin` → `AbstractIcon` correspondence — one mint arm per kernel case: `Resource(AssetAnchor)` → `FromResource(anchor.ResourcePath, anchor.Owner)` (the assembly-keyed lookup; the host's `FromResource(Type)` convenience is the same call with the type's assembly and conventional name spelled at the boundary — the anchor states both facts, so no Type-anchored sibling union survives, and the convenience's implicit-name path is the NAMED LOSS: a consumer spells the conventional resource name explicitly); `File(FileLocation)` → `FromFile`; `Stream(Func<Stream>)` → `FromStream`, the factory opened EXACTLY ONCE per the kernel's stream law; `Raster(Seq<AssetRaster>)` → `FromBitmap(params Bitmap[])` over the set's `Toolkit` frames (a `Gdi` or `Pixels` frame refuses typed — GH2's factory takes Eto bitmaps, and the kernel's asked-shape law forbids silent conversion); `Source(string)` → `FromCode` — the host compiler the kernel's `Source` case exists for, through BOTH diagnostic channels; `Vector(AssetKey)` and `Render(Func<AssetExtent, Fin<PaintProgram>>)` refuse typed naming the case — GH2 publishes no by-key vector resolver, and a paint-program draw materializes at the kernel paint executor, not through an icon factory.
 - Owner: `IconDiagnostics` readonly record struct carries both `CodeDiagnostic` streams as `Seq` evidence; `CompileEvidence` readonly record struct detaches the `CodeCompiler` census — `References` (`ReferenceCount`), the four compile-policy flags (`GenerateInMemory`/`AllowUnsafe`/`AllowOverflow`/`AllowConcurrent`), `IncludeDebugData`, the `GetCachedSemanticModels` count, and the `GetCachedAssembly` full name; `IconHandle` sealed record binds the live `IIcon`, its host `IconType` kind, its kernel `AssetOrigin`, its `IconDiagnostics`, and its `Option<CompileEvidence>` — the admitted icon travels WITH the evidence that admitted it, so a diagnostic is never re-derived by recompiling and a consumer discriminating pixel from vector from compiled reads the host's own `Type` off the handle.
 - Law: an `IIcon` carries no disposal contract — the host interface declares `Type`, `States`, `FindState`, `SetState`, `MoveState`, `Draw`, and `DrawToBitmap` and nothing else — so the handle holds it as a plain reference and neither the handle nor the catalog is `IDisposable`; the leased resources on this page are the RENDERED products, never the icons. Wrapping a non-disposable host value in `Lease<T>` is unconstructible, and an `IDisposable` catalog with nothing to release advertises custody it does not hold.
-- Entry: `IconOwner.Mint(AssetOrigin origin, Op? key = null)` → `Fin<IconHandle>` — one gate, every kernel origin. `KernelFault.InvalidResult` answers a null factory result; a `FromCode` compile whose error stream is non-empty is `KernelFault.InvalidResult` carrying each error's `Description` and line/column as detail while the handle path preserves warnings as evidence — errors refuse, warnings ride. Compiler channel (`Mint` with `census: true`) reads `GetCachedWarnings`/`GetCachedErrors` for the same diagnostics and projects the census as `CompileEvidence` inside the dispatch window.
+- Entry: `IconOwner.Mint(AssetOrigin origin)` → `Fin<IconHandle>` — one gate, every kernel origin. `KernelFault.InvalidResult` answers a null factory result; a `FromCode` compile whose error stream is non-empty is `KernelFault.InvalidResult` carrying each error's `Description` and line/column as detail while the handle path preserves warnings as evidence — errors refuse, warnings ride. Compiler channel (`Mint` with `census: true`) reads `GetCachedWarnings`/`GetCachedErrors` for the same diagnostics and projects the census as `CompileEvidence` inside the dispatch window.
 - Law: minting marshals through the kernel `UiThread.Run` blocking arity — icon compilation and resource loading touch host drawing state — and every admission runs under `Op.Catch`, so a throwing host factory keeps its original exceptional `Error`.
 - Law: `CodeDiagnostic` carries `Description`/`Location`/`Length`/`Line`/`Column` with `IsWarning`/`IsError` discriminants — the evidence renders its own detail from these members, and the out-channel ORDER is load-bearing: warnings first, errors second; a consumer binding them reversed inverts the refusal policy.
 - Law: the `CodeCompiler` never leaves the gate — the census projects as `CompileEvidence` inside the dispatch window, so a caller diagnosing a missing reference reads a value while the host compiler, its `SemanticModel` set, and its cached assembly die with the mint. `AddReferenceAssembly` and the `CompileCSharpCode` family stay unreachable: this owner admits icons, never arbitrary assemblies.
@@ -29,7 +29,7 @@ Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner —
 ## [03]-[CATALOG]
 
 - Owner: `IconTag` `[ValueObject<string>]` — the icon identity: trimmed, non-blank, admitted once. Every sibling identity in this folder is an owner (`ChromeTag`, `HookScope`) and a raw `string` key beside them is the deleted form, because an unadmitted key reaches the catalog map and chrome call sites blank or padded.
-- Owner: `IconCatalog` sealed class — the frozen per-plugin icon registry: `Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows, Op? key = null)` mints EVERY row through the `[02]` gate before the catalog exists, so a misspelled resource, a broken vector-code icon, or a duplicate key is a freeze-time `Fault`, never a draw-time blank; `Find(IconTag key)` → `Option<IconHandle>` resolves a row, and `Handles` enumerates the frozen set for chrome that advertises its inventory.
+- Owner: `IconCatalog` sealed class — the frozen per-plugin icon registry: `Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows)` mints EVERY row through the `[02]` gate before the catalog exists, so a misspelled resource, a broken vector-code icon, or a duplicate key is a freeze-time `Fault`, never a draw-time blank; `Find(IconTag key)` → `Option<IconHandle>` resolves a row, and `Handles` enumerates the frozen set for chrome that advertises its inventory.
 - Law: the catalog is the consumer contract — a plugin declares its icon inventory as kernel-origin rows once and every `Shell/chrome.md` `IIcon` slot, every component `Nomen` pairing, and every tooltip icon resolves through `Find`; a loose `Mint` call at a chrome call site survives only for genuinely dynamic icons (user-authored vector code), because a static icon minted per use re-runs admission the catalog already proved.
 - Packages: LanguageExt.Core (`HashMap`, `Seq`, `Option`), `Rasm.Interaction` (`AssetOrigin`), Thinktecture.Runtime.Extensions, `Rasm.Domain`.
 - Growth: a new plugin icon is one row in its catalog's freeze call; the catalog type never changes.
@@ -130,129 +130,120 @@ public sealed class IconCatalog {
 
     public Seq<(IconTag Key, IconHandle Handle)> Handles => toSeq(rows.AsIterable().Map(static pair => (pair.Key, pair.Value)));
 
-    public static Fin<IconCatalog> Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows, Op? key = null) {
-        Op op = key.OrDefault();
-        return from nonEmpty in guard(!rows.IsEmpty, op.InvalidInput()).ToFin()
-               from unique in guard(rows.Map(static row => row.Key).Distinct().Count == rows.Count, op.InvalidInput())
-               from minted in rows.TraverseM(row => IconOwner.Mint(origin: row.Source, key: op).Map(handle => (row.Key, Handle: handle))).As()
+    public static Fin<IconCatalog> Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows) {
+        return from nonEmpty in guard(!rows.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+               from unique in guard(rows.Map(static row => row.Key).Distinct().Count == rows.Count, new KernelFault.InvalidInput())
+               from minted in rows.TraverseM(row => IconOwner.Mint(origin: row.Source).Map(handle => (row.Key, Handle: handle))).As()
                select new IconCatalog(rows: toHashMap(minted.Map(static row => (row.Key, row.Handle))));
     }
 
-    public Option<IconHandle> Find(IconTag key) => rows.Find(key);
+    public Option<IconHandle> Find(IconTag key) => rows.Find();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IconOwner {
-    public static Fin<IconHandle> Mint(AssetOrigin origin, bool census = false, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(origin).Bind(valid => UiThread.Run(new UiDispatch<IconHandle>.Blocking(() => valid.Switch(
-            state: (Origin: valid, Key: op, Census: census),
-            resource: static (s, c) => Clean(key: s.Key, origin: s.Origin,
+    public static Fin<IconHandle> Mint(AssetOrigin origin, bool census = false) {
+        return Admit.Need(origin).Bind(valid => UiThread.Run(new UiDispatch<IconHandle>.Blocking(() => valid.Switch(
+            state: (Origin: valid, Census: census),
+            resource: static (s, c) => Clean(origin: s.Origin,
                 mint: () => AbstractIcon.FromResource(c.Anchor.ResourcePath, c.Anchor.Owner)),
-            file: static (s, c) => Clean(key: s.Key, origin: s.Origin,
+            file: static (s, c) => Clean(origin: s.Origin,
                 mint: () => AbstractIcon.FromFile((string)c.Location)),
-            stream: static (s, c) => Clean(key: s.Key, origin: s.Origin,
+            stream: static (s, c) => Clean(origin: s.Origin,
                 mint: () => AbstractIcon.FromStream(c.Open())),
             raster: static (s, c) => c.Scales.Traverse(frame => frame is AssetRaster.Toolkit kit
                     ? Fin.Succ(kit.Bitmap)
-                    : Fin.Fail<Lease<Bitmap>>(s.Key.InvalidInput(axis: nameof(AssetRaster)))).As()
-                .Bind(frames => Clean(key: s.Key, origin: s.Origin,
+                    : Fin.Fail<Lease<Bitmap>>(new KernelFault.InvalidInput(Axis: Some(nameof(AssetRaster))))).As()
+                .Bind(frames => Clean(origin: s.Origin,
                     mint: () => AbstractIcon.FromBitmap([.. frames.Map(static lease => lease.Value)]))),
-            vector: static (s, _) => Fin.Fail<IconHandle>(s.Key.InvalidInput(axis: nameof(AssetOrigin.Vector))),
+            vector: static (s, _) => Fin.Fail<IconHandle>(new KernelFault.InvalidInput(Axis: Some(nameof(AssetOrigin.Vector)))),
             source: static (s, c) => s.Census
-                ? s.Key.Catch(body: () => {
+                ? Try.lift(() => {
                     IIcon? compiled = AbstractIcon.FromCode(c.Text, out CodeCompiler compiler);
                     IconDiagnostics notes = new(
                         Errors: toSeq(compiler.GetCachedErrors),
                         Warnings: toSeq(compiler.GetCachedWarnings));
                     return Compiled(s.Key, s.Origin, compiled, notes, Some(CompileEvidence.Of(compiler)));
-                })
-                : s.Key.Catch(body: () => {
+                }).Run().Bind(static inner => inner)
+                : Try.lift(() => {
                     IIcon? compiled = AbstractIcon.FromCode(c.Text, out CodeDiagnostic[] warnings, out CodeDiagnostic[] errors);
                     return Compiled(s.Key, s.Origin, compiled, new(Errors: toSeq(errors), Warnings: toSeq(warnings)), None);
-                }),
-            render: static (s, _) => Fin.Fail<IconHandle>(s.Key.InvalidInput(axis: nameof(AssetOrigin.Render))))),
-            DispatchLane.Interactive, op));
+                }).Run().Bind(static inner => inner),
+            render: static (s, _) => Fin.Fail<IconHandle>(new KernelFault.InvalidInput(Axis: Some(nameof(AssetOrigin.Render)))))),
+            DispatchLane.Interactive));
     }
 
-    public static Fin<Unit> Pose(IIcon icon, PoseShift shift, Op? key = null) {
-        Op op = key.OrDefault();
-        return from target in op.Need(icon)
-               from valid in op.Need(shift)
+    public static Fin<Unit> Pose(IIcon icon, PoseShift shift) {
+        return from target in Admit.Need(icon)
+               from valid in Admit.Need(shift)
                from settled in UiThread.Run(new UiDispatch<Unit>.Blocking(() => valid.Switch(
-                   state: (Icon: target, Key: op),
-                   jumpCase: static (s, c) => Gate(icon: s.Icon, state: c.State, key: s.Key)
-                       .Bind(_ => s.Key.Catch(() => s.Icon.SetState(c.Value, Op.ToHostSlot(c.State)))),
-                   glideCase: static (s, c) => Gate(icon: s.Icon, state: c.State, key: s.Key)
-                       .Bind(_ => s.Key.Catch(() => s.Icon.MoveState(
-                           c.Value, Op.ToHostSlot(c.State),
-                           Op.ToHostNullable(c.Span),
-                           Op.ToHostNullable(c.Curve))))),
-                   DispatchLane.Interactive, op)
+                   state: target,
+                   jumpCase: static (s, c) => Gate(icon: s, state: c.State)
+                       .Bind(_ => Try.lift(() => s.SetState(c.Value, HostEdge.Slot(c.State))).Run().Bind(static inner => inner)),
+                   glideCase: static (s, c) => Gate(icon: s, state: c.State)
+                       .Bind(_ => Try.lift(() => s.MoveState(
+                           c.Value, HostEdge.Slot(c.State),
+                           HostEdge.Nullable(c.Span),
+                           HostEdge.Nullable(c.Curve))).Run().Bind(static inner => inner))),
+                   DispatchLane.Interactive)
                select settled;
     }
 
-    public static Fin<Seq<IconState>> Poses(IIcon icon, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(icon).Bind(target => UiThread.Run(new UiDispatch<Seq<IconState>>.Blocking(
-            () => op.Catch(body: () => Fin.Succ(toSeq(target.States)))), DispatchLane.Interactive, op));
+    public static Fin<Seq<IconState>> Poses(IIcon icon) {
+        return Admit.Need(icon).Bind(target => UiThread.Run(new UiDispatch<Seq<IconState>>.Blocking(
+            () => Try.lift(() => Fin.Succ(toSeq(target.States))).Run().Bind(static inner => inner)), DispatchLane.Interactive));
     }
 
     public static Fin<IconContext> Filtered(
-        IconContext seed, Seq<IconFilter> chain, Option<IconPalette> palette = default, Op? key = null) {
-        Op op = key.OrDefault();
+        IconContext seed, Seq<IconFilter> chain, Option<IconPalette> palette = default) {
         return chain.Fold(
             Fin.Succ(palette.Match(Some: seed.WithPalette, None: () => seed)),
             (acc, filter) => acc.Bind(context => filter.Switch(
-                state: (Context: context, Key: op),
-                disabled: static (s, _) => Fin.Succ(s.Context.WithDisabledFilter()),
-                selected: static (s, _) => Fin.Fail<IconContext>(s.Key.InvalidInput(axis: nameof(IconFilter.Selected))),
-                greyscale: static (s, _) => Fin.Succ(s.Context.WithGreyscaleFilter()),
-                tinted: static (s, f) => Fin.Succ(s.Context.WithFilter(_ => Quantized(colour: f.Tint))),
-                fading: static (s, f) => Fin.Succ(s.Context.WithFadingFilter(Quantized(colour: f.Tint), (float)f.Strength)),
-                custom: static (s, f) => Fin.Succ(s.Context.WithFilter(host => Quantized(colour: f.Map(Perceptual(colour: host))))))));
+                state: context,
+                disabled: static (s, _) => Fin.Succ(s.WithDisabledFilter()),
+                selected: static (s, _) => Fin.Fail<IconContext>(new KernelFault.InvalidInput(Axis: Some(nameof(IconFilter.Selected)))),
+                greyscale: static (s, _) => Fin.Succ(s.WithGreyscaleFilter()),
+                tinted: static (s, f) => Fin.Succ(s.WithFilter(_ => Quantized(colour: f.Tint))),
+                fading: static (s, f) => Fin.Succ(s.WithFadingFilter(Quantized(colour: f.Tint), (float)f.Strength)),
+                custom: static (s, f) => Fin.Succ(s.WithFilter(host => Quantized(colour: f.Map(Perceptual(colour: host))))))));
     }
 
-    public static Fin<IconProduct> Draw(IIcon icon, IconDraw plan, Op? key = null) {
-        Op op = key.OrDefault();
-        return from target in op.Need(icon)
-               from valid in op.Need(plan)
+    public static Fin<IconProduct> Draw(IIcon icon, IconDraw plan) {
+        return from target in Admit.Need(icon)
+               from valid in Admit.Need(plan)
                from output in UiThread.Run(new UiDispatch<IconProduct>.Blocking(() => valid.Switch(
-                   state: (Icon: target, Key: op),
-                   surfaceCase: static (s, c) => s.Key.Catch(() => s.Icon.Draw(c.Target))
+                   state: target,
+                   surfaceCase: static (s, c) => Try.lift(() => s.Draw(c.Target)).Run().Bind(static inner => inner)
                        .Map(static _ => (IconProduct)new IconProduct.DrawnCase()),
-                   rasterCase: static (s, c) => s.Key.Catch(body: () =>
-                       Optional(s.Icon.DrawToBitmap(c.Extent, c.Padding, c.Backdrop)).ToFin(s.Key.InvalidResult()))
+                   rasterCase: static (s, c) => Try.lift(() =>
+                       Optional(s.DrawToBitmap(c.Extent, c.Padding, c.Backdrop)).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                        .Map(static frame => (IconProduct)new IconProduct.RasterCase(
                            Frame: new AssetRaster.Toolkit(Scale: PositiveMagnitude.One, Bitmap: new Lease<Bitmap>.Owned(Value: frame)))))),
-                   DispatchLane.Interactive, op)
+                   DispatchLane.Interactive)
                select output;
     }
 
-    public static Fin<IconProduct> Materialize(IconRender request, IconDraw plan, Op? key = null);
+    public static Fin<IconProduct> Materialize(IconRender request, IconDraw plan);
 
-    private static Fin<IconHandle> Clean(Op key, AssetOrigin origin, Func<IIcon?> mint) =>
-        key.Catch(body: () => Optional(mint()).ToFin(key.InvalidResult()))
+    private static Fin<IconHandle> Clean(AssetOrigin origin, Func<IIcon?> mint) =>
+        Try.lift(() => Optional(mint()).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             .Map(icon => new IconHandle(
                 Icon: icon, Kind: icon.Type, Origin: origin, Notes: IconDiagnostics.Clean, Compile: None));
 
-    private static Fin<IconHandle> Compiled(
-        Op key,
-        AssetOrigin origin,
+    private static Fin<IconHandle> Compiled(AssetOrigin origin,
         IIcon? compiled,
         IconDiagnostics notes,
         Option<CompileEvidence> evidence) =>
         notes.IsValid && compiled is not null
             ? Fin.Succ(new IconHandle(
                 Icon: compiled, Kind: compiled.Type, Origin: origin, Notes: notes, Compile: evidence))
-            : Fin.Fail<IconHandle>(key.InvalidResult(detail: string.Join(
+            : Fin.Fail<IconHandle>(new KernelFault.InvalidResult(Detail: Some(string.Join(
                 separator: "; ",
-                values: notes.Errors.Map(static row => $"{row.Description} ({row.Line},{row.Column})"))));
+                values: notes.Errors.Map(static row => $"{row.Description} ({row.Line},{row.Column})")))));
 
-    private static Fin<Unit> Gate(IIcon icon, Option<string> state, Op key) =>
+    private static Fin<Unit> Gate(IIcon icon, Option<string> state) =>
         state
-            .TraverseM(name => key.Catch(
-                body: () => Optional(icon.FindState(name)).ToFin(key.InvalidResult(detail: name)).Map(static _ => unit)))
+            .TraverseM(name => Try.lift(() => Optional(icon.FindState(name)).ToFin(new KernelFault.InvalidResult(Detail: Some(name))).Map(static _ => unit)).Run().Bind(static inner => inner))
             .As()
             .Map(static _ => unit);
 

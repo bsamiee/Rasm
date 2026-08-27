@@ -305,7 +305,6 @@ public static class SolveRoutes {
             .Bind(run => Witnessed(request, row, run));
     }
 
-    private static readonly Op TraceKey = Op.Of(name: "solve-traced");
 
     static Fin<SolveResult> Witnessed(RouteRequest request, SolveRoute.Traced row, TrajectoryRun<FieldState> run) {
         Option<double> lastError = run.Cursor.History.Map(static h => h.Error);
@@ -788,7 +787,7 @@ public static class SolveRoutes {
         request.System.Operator.RowCount > request.Policy.MaxDenseDofs.Value
             ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
             : request.Solve(request.System.Operator, request.System.Rhs, FactorKind.Lu).Bind(prestress =>
-                Op.Of(name: "solve.buckle-reduction").Catch(() => {
+                Try.lift(() => {
                     int n = request.System.Operator.RowCount;
                     Span2D<double> kg = GeometricStiffness(request, prestress, n);
                     foreach (long dof in request.System.Constrained) {
@@ -797,7 +796,7 @@ public static class SolveRoutes {
                     Matrix<double> linv = Matrix<double>.Build.OfStorage(request.System.Operator).Cholesky().Factor.Inverse();
                     Matrix<double> reduced = linv.Multiply(Matrix<double>.Build.Dense(n, n, (r, c) => -kg[r, c])).Multiply(linv.Transpose());
                     return Fin.Succ((Linv: linv, Reduced: reduced));
-                })
+                }).Run().Bind(static inner => inner)
                 .Bind(reduction => DenseOps.Decompose(reduction.Reduced, FactorizationKind.Evd)
                     .Bind(factorization => BucklingPairs(factorization, row.Pairs.Value, reduction.Linv.Transpose()))
                     .Map(pairs => request.Settled(pairs.Vectors, 1, 1, 0.0, new Convergence.Converged(0.0)) with {
@@ -1048,7 +1047,7 @@ public abstract partial record SolveHistory : IDisposable {
         archive.Match(
             None: () => Fin.Succ<SolveHistory>(new Inert()),
             Some: capability => ChunkGrid.Derive([grid.Steps.Value], components: dofs, FieldPack.ChunkElementTarget).ToFin()
-                .Bind(chunks => Op.Of(name: "solve.archive-open").Catch(() => {
+                .Bind(chunks => Try.lift(() => {
                     H5DatasetCreation creation = capability.Policy.Creation();
                     H5Dataset<double[]> u = new(chunks.FileDims.ToArray(), chunks.Chunk.ToArray(), datasetCreation: creation);
                     Option<(H5Dataset<double[]> V, H5Dataset<double[]> A)> slots = kinematic
@@ -1065,7 +1064,7 @@ public abstract partial record SolveHistory : IDisposable {
                     return Fin.Succ<SolveHistory>(new Live(
                         writer, writer.Open(u, chunks),
                         slots.Map(rows => (writer.Open(rows.V, chunks), writer.Open(rows.A, chunks)))));
-                }));
+                }).Run().Bind(static inner => inner));
 
     public Fin<Unit> Step(int step, double[] field, double[]? velocity = null, double[]? acceleration = null) =>
         Switch(
@@ -1088,7 +1087,7 @@ public static class SolveModes {
          select (Capability: capability, Values: values)).Match(
             None: () => Fin.Succ(unit),
             Some: row => ChunkGrid.Derive([row.Values.Length], components: checked((int)result.Dofs), FieldPack.ChunkElementTarget).ToFin()
-                .Bind(grid => Op.Of(name: "solve.archive-modes").Catch(() => {
+                .Bind(grid => Try.lift(() => {
                     int pairs = row.Values.Length, dofs = checked((int)result.Dofs);
                     H5Dataset<double[]> modes = new(grid.FileDims.ToArray(), grid.Chunk.ToArray(), datasetCreation: row.Capability.Policy.Creation());
                     H5File graph = new() { ["modes"] = modes, ["eigenvalues"] = row.Values.ToArray() };
@@ -1110,7 +1109,7 @@ public static class SolveModes {
                         landed = cursor.Write(flat.Slice(mode * dofs, dofs).ToArray());
                     }
                     return landed;
-                })));
+                }).Run().Bind(static inner => inner)));
 }
 
 public static class SolveCheckpoint {
@@ -1119,7 +1118,7 @@ public static class SolveCheckpoint {
         ConstitutiveState[] committed, Seq<double[]> multipliers) =>
         archive.Match(
             None: () => Fin.Succ(unit),
-            Some: capability => Op.Of(name: "solve.archive-checkpoint").Catch(() => {
+            Some: capability => Try.lift(() => {
                 H5File graph = new() { ["field"] = field };
                 Ledger(graph, committed);
                 if (!multipliers.IsEmpty) {
@@ -1131,7 +1130,7 @@ public static class SolveCheckpoint {
                 graph.Attributes["load"] = load;
                 using HdfWriter writer = HdfArchive.Begin(graph, capability.Sink(SolveArchiveKind.Checkpoint), capability.Policy);
                 return Fin.Succ(unit);
-            }));
+            }).Run().Bind(static inner => inner));
 
     static void Ledger(H5File graph, ConstitutiveState[] committed) {
         if (committed.Length == 0) { return; }

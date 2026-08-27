@@ -44,11 +44,11 @@ public readonly partial struct GeometryCrc {
 [SmartEnum<int>]
 public sealed partial class CustodyPosture {
     public static readonly CustodyPosture Immutable = new(key: 0,
-        admit: static op => Fin.Fail<Unit>(error: op.InvalidInput(axis: nameof(CustodyPosture))));
+        admit: static op => Fin.Fail<Unit>(error: new KernelFault.InvalidInput(Axis: Some(nameof(CustodyPosture)))));
     public static readonly CustodyPosture Mutable = new(key: 1, admit: static _ => Fin.Succ(value: unit));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> AdmitMutation(Op op);
+    internal partial Fin<Unit> AdmitMutation();
 }
 
 [SmartEnum]
@@ -60,22 +60,22 @@ public sealed partial class CrossingMode {
     public CustodyPosture Posture { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Lease<GeometryBase>> Acquire(GeometryBase geometry, Op key);
+    internal partial Fin<Lease<GeometryBase>> Acquire(GeometryBase geometry);
 
-    private static Fin<Lease<GeometryBase>> Borrowed(GeometryBase geometry, Op key) =>
+    private static Fin<Lease<GeometryBase>> Borrowed(GeometryBase geometry) =>
         geometry.IsDocumentControlled
-            ? Fin.Fail<Lease<GeometryBase>>(error: key.InvalidInput())
+            ? Fin.Fail<Lease<GeometryBase>>(error: new KernelFault.InvalidInput())
             : Fin.Succ<Lease<GeometryBase>>(value: new Lease<GeometryBase>.Borrowed(Value: geometry));
 
-    private static Fin<Lease<GeometryBase>> Detached(GeometryBase geometry, Op key) =>
-        Copy(duplicate: geometry.Duplicate, key: key);
+    private static Fin<Lease<GeometryBase>> Detached(GeometryBase geometry) =>
+        Copy(duplicate: geometry.Duplicate);
 
-    private static Fin<Lease<GeometryBase>> Shared(GeometryBase geometry, Op key) =>
-        Copy(duplicate: geometry.IsDocumentControlled ? geometry.Duplicate : geometry.DuplicateShallow, key: key);
+    private static Fin<Lease<GeometryBase>> Shared(GeometryBase geometry) =>
+        Copy(duplicate: geometry.IsDocumentControlled ? geometry.Duplicate : geometry.DuplicateShallow);
 
-    internal static Fin<Lease<GeometryBase>> Copy(Func<GeometryBase> duplicate, Op key) =>
-        key.Need(duplicate)
-            .Bind(factory => key.Catch(() => Optional(factory()).ToFin(Fail: key.InvalidResult())))
+    internal static Fin<Lease<GeometryBase>> Copy(Func<GeometryBase> duplicate) =>
+        Admit.Need(duplicate)
+            .Bind(factory => Try.lift(() => Optional(factory()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner))
             .Map(static geometry => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: geometry));
 }
 
@@ -111,26 +111,21 @@ public sealed class GeometryHandle : IDisposable {
     public CrossingMode Mode => mode;
     public HandleRelease Release => state.Value.Release;
 
-    public Fin<GeometryOutcome> Apply(GeometryOp operation, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(operation).Bind(request => Operate(operation: request, key: op));
+    public Fin<GeometryOutcome> Apply(GeometryOp operation) {
+        return Admit.Need(operation).Bind(request => Operate(operation: request));
     }
 
-    public Fin<GeometryOutcome> Compare(GeometryHandle other, GeometryComparison policy, Op? key = null) {
-        Op op = key.OrDefault();
-        return from target in op.Need(other)
-               from rule in op.Need(policy)
-               from outcome in Matched(other: target, policy: rule, key: op)
+    public Fin<GeometryOutcome> Compare(GeometryHandle other, GeometryComparison policy) {
+        return from target in Admit.Need(other)
+               from rule in Admit.Need(policy)
+               from outcome in Matched(other: target, policy: rule)
                select outcome;
     }
 
-    public Fin<Seq<TOut>> Measure<TOut>(Rasm.Analysis.Bounds request, Context context, Op? key = null) where TOut : notnull {
-        Op op = key.OrDefault();
-        return from query in op.Need(request)
-               from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from result in With(
-                   key: op,
-                   project: geometry => Analyze.In(context: domain)
+    public Fin<Seq<TOut>> Measure<TOut>(Rasm.Analysis.Bounds request, Context context) where TOut : notnull {
+        return from query in Admit.Need(request)
+               from domain in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
+               from result in With(project: geometry => Analyze.In(context: domain)
                        .Run(
                            operation: Analyze.Query<GeometryBase, TOut>(query: AnalysisQuery.Bounds(query: query), key: op),
                            input: geometry)
@@ -140,50 +135,49 @@ public sealed class GeometryHandle : IDisposable {
 
     public void Dispose() {
         lock (gate) {
-            Op op = Op.Of(name: nameof(Dispose));
             ignore(Cell.Step(
                 state,
                 held => held.Release is HandleRelease.Released && held.Pending.IsEmpty
                     ? Option<HandleState>.None
                     : Some(Settled(held: held, key: op)),
-                op.InvalidResult()));
+                new KernelFault.InvalidResult()));
         }
     }
 
-    internal Fin<TResult> With<TResult>(Op key, Func<GeometryBase, Fin<TResult>> project) {
+    internal Fin<TResult> With<TResult>(Func<GeometryBase, Fin<TResult>> project) {
         lock (gate) {
             HandleState held = state.Value;
             return held.Release.Active
-                ? key.Need(project)
-                    .Bind(body => key.Catch(() => key.AcceptInput(value: held.Lease.Resource).Bind(body)))
-                : Fin.Fail<TResult>(error: key.InvalidInput());
+                ? Admit.Need(project)
+                    .Bind(body => Try.lift(() => Acceptance.Input(value: held.Lease.Resource).Bind(body)).Run().Bind(static inner => inner))
+                : Fin.Fail<TResult>(error: new KernelFault.InvalidInput());
         }
     }
 
-    private Fin<GeometryOutcome> Operate(GeometryOp operation, Op key) =>
+    private Fin<GeometryOutcome> Operate(GeometryOp operation) =>
         operation.Trait == OpTrait.Mutates
-            ? Change(operation: operation, key: key)
-            : With(key: key, project: geometry =>
-                from result in Evaluate(geometry: geometry, operation: operation, key: key)
+            ? Change(operation: operation)
+            : With(project: geometry =>
+                from result in Evaluate(geometry: geometry, operation: operation)
                 let crc = GeometryCrc.Of(geometry: geometry)
                 select new GeometryOutcome(Result: result, Before: crc, After: crc, CleanupFaults: Seq<Error>()));
 
-    private Fin<GeometryOutcome> Matched(GeometryHandle other, GeometryComparison policy, Op key) {
+    private Fin<GeometryOutcome> Matched(GeometryHandle other, GeometryComparison policy) {
         Fin<GeometryOutcome> EvaluateActive() =>
-            key.Catch(() => {
+            Try.lift(() => {
                 HandleState left = state.Value;
                 HandleState right = other.state.Value;
                 return !left.Release.Active || !right.Release.Active
-                    ? Fin.Fail<GeometryOutcome>(error: key.InvalidInput())
-                    : from first in key.AcceptInput(value: left.Lease.Resource)
-                      from second in key.AcceptInput(value: right.Lease.Resource)
+                    ? Fin.Fail<GeometryOutcome>(error: new KernelFault.InvalidInput())
+                    : from first in Acceptance.Input(value: left.Lease.Resource)
+                      from second in Acceptance.Input(value: right.Lease.Resource)
                       let before = GeometryCrc.Of(geometry: first)
                       select new GeometryOutcome(
                           Result: new GeometryResult.Compared(Policy: policy, Equal: policy.Compare(left: first, right: second)),
                           Before: before,
                           After: before,
                           CleanupFaults: Seq<Error>());
-            });
+            }).Run().Bind(static inner => inner);
         if (ReferenceEquals(this, other)) {
             lock (gate) {
                 return EvaluateActive();
@@ -198,50 +192,50 @@ public sealed class GeometryHandle : IDisposable {
         }
     }
 
-    private Fin<GeometryOutcome> Change(GeometryOp operation, Op key) {
+    private Fin<GeometryOutcome> Change(GeometryOp operation) {
         lock (gate) {
             HandleState held = state.Value;
             if (!held.Release.Active) {
-                return Fin.Fail<GeometryOutcome>(error: key.InvalidInput());
+                return Fin.Fail<GeometryOutcome>(error: new KernelFault.InvalidInput());
             }
-            return from _ in mode.Posture.AdmitMutation(op: key)
-                   from prepared in key.Catch(() =>
-                       from active in key.AcceptInput(value: held.Lease.Resource)
+            return from _ in mode.Posture.AdmitMutation()
+                   from prepared in Try.lift(() =>
+                       from active in Acceptance.Input(value: held.Lease.Resource)
                        let before = GeometryCrc.Of(geometry: active)
-                       from working in CrossingMode.Copy(duplicate: active.Duplicate, key: key)
-                       select (Working: working, Before: before))
-                   from outcome in key.Catch(() => Evaluate(geometry: prepared.Working.Resource, operation: operation, key: key)).Match(
-                       Succ: result => Commit(working: prepared.Working, before: prepared.Before, result: result, key: key),
-                       Fail: error => Fin.Fail<GeometryOutcome>(error: Retain(candidate: prepared.Working, key: key)
+                       from working in CrossingMode.Copy(duplicate: active.Duplicate)
+                       select (Working: working, Before: before)).Run().Bind(static inner => inner)
+                   from outcome in Try.lift(() => Evaluate(geometry: prepared.Working.Resource, operation: operation)).Run().Bind(static inner => inner).Match(
+                       Succ: result => Commit(working: prepared.Working, before: prepared.Before, result: result),
+                       Fail: error => Fin.Fail<GeometryOutcome>(error: Retain(candidate: prepared.Working)
                            .Fold(error, static (primary, cleanup) => primary + cleanup)))
                    select outcome;
         }
     }
 
-    private Fin<GeometryOutcome> Commit(Lease<GeometryBase> working, GeometryCrc before, GeometryResult result, Op key) =>
-        key.AcceptValue(value: working.Resource).Match(
+    private Fin<GeometryOutcome> Commit(Lease<GeometryBase> working, GeometryCrc before, GeometryResult result) =>
+        Acceptance.Value(value: working.Resource).Match(
             Succ: admitted => {
                 GeometryCrc after = GeometryCrc.Of(geometry: admitted);
                 Lease<GeometryBase> previous = state.Value.Lease;
                 ignore(Cell.Commit(state, held => held with { Lease = working, Pending = held.Pending.Add(value: previous) }));
-                Seq<Error> cleanup = Sweep(key: key);
+                Seq<Error> cleanup = Sweep();
                 return Fin.Succ(value: new GeometryOutcome(
                     Result: result,
                     Before: before,
                     After: after,
                     CleanupFaults: cleanup));
             },
-            Fail: error => Fin.Fail<GeometryOutcome>(error: Retain(candidate: working, key: key)
+            Fail: error => Fin.Fail<GeometryOutcome>(error: Retain(candidate: working)
                 .Fold(error, static (primary, cleanup) => primary + cleanup)));
 
-    private Seq<Error> Retain(Lease<GeometryBase> candidate, Op key) {
+    private Seq<Error> Retain(Lease<GeometryBase> candidate) {
         ignore(Cell.Commit(state, held => held with { Pending = held.Pending.Add(value: candidate) }));
-        return Sweep(key: key);
+        return Sweep();
     }
 
-    private Seq<Error> Sweep(Op key) {
+    private Seq<Error> Sweep() {
         Seq<(Lease<GeometryBase> Candidate, Fin<Unit> Outcome)> attempts =
-            state.Value.Pending.Map(candidate => (Candidate: candidate, Outcome: DisposeLease(lease: candidate, key: key)));
+            state.Value.Pending.Map(candidate => (Candidate: candidate, Outcome: DisposeLease(lease: candidate)));
         (Seq<(Lease<GeometryBase> Candidate, Fin<Unit> Outcome)> settled, Seq<(Lease<GeometryBase> Candidate, Fin<Unit> Outcome)> refused) =
             attempts.Partition(static attempt => attempt.Outcome.IsSucc);
         ignore(settled);
@@ -251,10 +245,10 @@ public sealed class GeometryHandle : IDisposable {
             Fail: static error => Some(error)));
     }
 
-    private HandleState Settled(HandleState held, Op key) {
+    private HandleState Settled(HandleState held) {
         Seq<Lease<GeometryBase>> roster = held.Release.Active ? held.Pending.Add(value: held.Lease) : held.Pending;
         Seq<(Lease<GeometryBase> Candidate, Fin<Unit> Outcome)> attempts =
-            roster.Map(candidate => (Candidate: candidate, Outcome: DisposeLease(lease: candidate, key: key)));
+            roster.Map(candidate => (Candidate: candidate, Outcome: DisposeLease(lease: candidate)));
         (Seq<(Lease<GeometryBase> Candidate, Fin<Unit> Outcome)> settled, Seq<(Lease<GeometryBase> Candidate, Fin<Unit> Outcome)> refused) =
             attempts.Partition(static attempt => attempt.Outcome.IsSucc);
         ignore(settled);
@@ -267,41 +261,40 @@ public sealed class GeometryHandle : IDisposable {
         };
     }
 
-    private static Fin<GeometryResult> Evaluate(GeometryBase geometry, GeometryOp operation, Op key) =>
+    private static Fin<GeometryResult> Evaluate(GeometryBase geometry, GeometryOp operation) =>
         operation.Switch(
-            (Geometry: geometry, Op: key),
-            inspect: static (state, _) => Fin.Succ<GeometryResult>(value: new GeometryResult.Facts(Value: GeometryFacts.Of(geometry: state.Geometry))),
+            geometry,
+            inspect: static (state, _) => Fin.Succ<GeometryResult>(value: new GeometryResult.Facts(Value: GeometryFacts.Of(geometry: state))),
             crc: static (state, request) => Fin.Succ<GeometryResult>(value: new GeometryResult.Hashed(
-                Value: GeometryCrc.Create(value: state.Geometry.DataCRC(currentRemainder: request.Chain)))),
-            tag: static (state, request) => state.Op.Need(request.Value)
-                .Bind(tags => tags.Apply(state.Geometry, state.Op))
+                Value: GeometryCrc.Create(value: state.DataCRC(currentRemainder: request.Chain)))),
+            tag: static (state, request) => Admit.Need(request.Value)
+                .Bind(tags => tags.Apply(state))
                 .Map(static value => (GeometryResult)new GeometryResult.Tagged(Value: value)),
-            transform: static (state, request) => state.Op.Need(request.Motion)
-                .Bind(motion => motion.Apply(state.Geometry, state.Op))
+            transform: static (state, request) => Admit.Need(request.Motion)
+                .Bind(motion => motion.Apply(state))
                 .Map(static value => (GeometryResult)new GeometryResult.Transformed(Motion: value)),
-            bounds: static (state, request) => NativeBounds.Of(state.Geometry, request.Query, state.Op)
+            bounds: static (state, request) => NativeBounds.Of(state, request.Query)
                 .Map(static value => (GeometryResult)new GeometryResult.Bounded(Value: value)),
-            clip: static (state, request) => state.Op.Need(request.Value)
-                .Bind(clip => clip.Apply(state.Geometry, state.Op))
+            clip: static (state, request) => Admit.Need(request.Value)
+                .Bind(clip => clip.Apply(state))
                 .Map(static value => (GeometryResult)new GeometryResult.Clipped(Value: value)));
 
-    private static Fin<Unit> DisposeLease(Lease<GeometryBase> lease, Op key) =>
-        key.Catch(() => Fin.Succ(value: lease.Dispose()));
+    private static Fin<Unit> DisposeLease(Lease<GeometryBase> lease) =>
+        Try.lift(() => Fin.Succ(value: lease.Dispose())).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeometryCrossing {
-    public static Fin<GeometryHandle> Cross(object source, CrossingMode mode, Op? key = null) {
-        Op op = key.OrDefault();
-        return from value in op.Need(source)
-               from custody in op.Need(mode)
+    public static Fin<GeometryHandle> Cross(object source, CrossingMode mode) {
+        return from value in Admit.Need(source)
+               from custody in Admit.Need(mode)
                from admitted in value is ClippingPlaneSeed seed
-                   ? seed.Build(key: op).Map(static lease => (Lease: lease, Mode: CrossingMode.Detach))
-                   : value.GeometryForm(key: op).Bind(form => form.Switch(
-                       (Mode: custody, Op: op),
+                   ? seed.Build().Map(static lease => (Lease: lease, Mode: CrossingMode.Detach))
+                   : value.GeometryForm().Bind(form => form.Switch(
+                       custody,
                        owned: static (_, owned) => Fin.Succ((Lease: (Lease<GeometryBase>)owned, Mode: CrossingMode.Detach)),
-                       borrowed: static (state, borrowed) => state.Mode.Acquire(borrowed.Value, state.Op)
-                           .Map(lease => (Lease: lease, Mode: state.Mode))))
+                       borrowed: static (state, borrowed) => state.Acquire(borrowed.Value)
+                           .Map(lease => (Lease: lease, Mode: state))))
                select new GeometryHandle(lease: admitted.Lease, mode: admitted.Mode);
     }
 }
@@ -371,7 +364,7 @@ public sealed partial class GeometryBounds {
             ? null
             : new ValidationError(message: "Bounds query requires a frame and a finite nonnegative inflation vector.");
 
-    public static Fin<GeometryBounds> Of(BoundsFrame frame, Option<Vector3d> inflation = default, Op? key = null) =>
+    public static Fin<GeometryBounds> Of(BoundsFrame frame, Option<Vector3d> inflation = default) =>
         key.OrDefault().AcceptValidated<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
 }
 
@@ -383,15 +376,15 @@ public sealed record BoundsEvidence(
     Vector3d Diagonal,
     Arr<Point3d> Corners,
     Arr<Line> Edges) {
-    internal static Fin<BoundsEvidence> Of(BoundingBox value, Option<Vector3d> inflation, Op key) =>
-        from bounds in key.AcceptValue(value: value)
-        from evidence in key.Catch(() => Fin.Succ(value: inflation.Match(
+    internal static Fin<BoundsEvidence> Of(BoundingBox value, Option<Vector3d> inflation) =>
+        from bounds in Acceptance.Value(value: value)
+        from evidence in Try.lift(() => Fin.Succ(value: inflation.Match(
             Some: amount => {
                 BoundingBox expanded = bounds;
                 expanded.Inflate(xAmount: amount.X, yAmount: amount.Y, zAmount: amount.Z);
                 return Capture(raw: bounds, value: expanded);
             },
-            None: () => Capture(raw: bounds, value: bounds))))
+            None: () => Capture(raw: bounds, value: bounds)))).Run().Bind(static inner => inner)
         select evidence;
 
     private static BoundsEvidence Capture(BoundingBox raw, BoundingBox value) => new(
@@ -410,32 +403,32 @@ public abstract partial record NativeBounds {
     public sealed record Moved(BoundsEvidence Evidence, global::Rhino.Geometry.Transform Motion, Option<global::Rhino.Geometry.Transform> Inverse) : NativeBounds;
     public sealed record Framed(BoundsEvidence Local, Box World, Plane Frame) : NativeBounds;
 
-    internal static Fin<NativeBounds> Of(GeometryBase geometry, GeometryBounds query, Op key) =>
-        from request in key.Need(query)
-        from frame in key.Need(request.Frame)
+    internal static Fin<NativeBounds> Of(GeometryBase geometry, GeometryBounds query) =>
+        from request in Admit.Need(query)
+        from frame in Admit.Need(request.Frame)
         from result in frame.Switch(
-            (Geometry: geometry, Inflation: request.Inflation, Op: key),
+            (Geometry: geometry, Inflation: request.Inflation),
             axisAligned: static (state, bounds) =>
-                from value in state.Op.Catch(() => Fin.Succ(value: state.Geometry.GetBoundingBox(accurate: bounds.Fidelity.Host)))
-                from evidence in BoundsEvidence.Of(value, state.Inflation, state.Op)
+                from value in Try.lift(() => Fin.Succ(value: state.Geometry.GetBoundingBox(accurate: bounds.Fidelity.Host))).Run().Bind(static inner => inner)
+                from evidence in BoundsEvidence.Of(value, state.Inflation)
                 select (NativeBounds)new World(Evidence: evidence, Fidelity: bounds.Fidelity),
             transformed: static (state, bounds) =>
-                from domain in Optional(bounds.Domain).ToFin(Fail: state.Op.MissingContext())
-                from spec in state.Op.Need(bounds.Motion)
-                from motion in Placement.Build(spec: spec, context: Some(domain), key: state.Op)
-                from value in state.Op.Catch(() => Fin.Succ(value: state.Geometry.GetBoundingBox(xform: motion)))
-                from evidence in BoundsEvidence.Of(value, state.Inflation, state.Op)
+                from domain in Optional(bounds.Domain).ToFin(Fail: new KernelFault.MissingContext())
+                from spec in Admit.Need(bounds.Motion)
+                from motion in Placement.Build(spec: spec, context: Some(domain))
+                from value in Try.lift(() => Fin.Succ(value: state.Geometry.GetBoundingBox(xform: motion))).Run().Bind(static inner => inner)
+                from evidence in BoundsEvidence.Of(value, state.Inflation)
                 let inverse = motion.TryGetInverse(inverse: out global::Rhino.Geometry.Transform reversed)
                     ? Some(reversed)
                     : Option<global::Rhino.Geometry.Transform>.None
                 select (NativeBounds)new Moved(Evidence: evidence, Motion: motion, Inverse: inverse),
             oriented: static (state, bounds) =>
-                from plane in state.Op.Demand(claim: ValidityClaim.All(bounds.Value.IsValid), value: 0, requirement: "a valid plane").Map(_ => bounds.Value)
-                from raw in state.Op.Catch(() => {
+                from plane in Admit.Demand(claim: ValidityClaim.All(bounds.Value.IsValid), value: 0, requirement: "a valid plane").Map(_ => bounds.Value)
+                from raw in Try.lift(() => {
                     BoundingBox local = state.Geometry.GetBoundingBox(plane: plane, worldBox: out Box world);
                     return Fin.Succ(value: (Local: local, World: world));
-                })
-                from evidence in BoundsEvidence.Of(raw.Local, state.Inflation, state.Op)
+                }).Run().Bind(static inner => inner)
+                from evidence in BoundsEvidence.Of(raw.Local, state.Inflation)
                 select (NativeBounds)new Framed(Local: evidence, World: raw.World, Frame: plane))
         select result;
 }
@@ -453,55 +446,52 @@ public abstract partial record GeometryMotion {
         public Point3d Center { get; }
     }
 
-    public static Fin<GeometryMotion> Translate(Vector3d vector, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(ValidityClaim.Finite(value: vector), op.InvalidInput(axis: nameof(vector))).ToFin()
+    public static Fin<GeometryMotion> Translate(Vector3d vector) {
+        return guard(ValidityClaim.Finite(value: vector), new KernelFault.InvalidInput(Axis: Some(nameof(vector)))).ToFin()
             .Map(_ => (GeometryMotion)new Translation(vector: vector));
     }
 
-    public static Fin<GeometryMotion> Scale(double factor, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in op.Finite(value: factor)
-               from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from _ in guard(Math.Abs(value: admitted) > domain.For(lane: ToleranceLane.Neglect).Value, op.InvalidInput(axis: nameof(factor)))
+    public static Fin<GeometryMotion> Scale(double factor, Context context) {
+        return from admitted in Admit.Finite(value: factor)
+               from domain in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
+               from _ in guard(Math.Abs(value: admitted) > domain.For(lane: ToleranceLane.Neglect).Value, new KernelFault.InvalidInput(Axis: Some(nameof(factor))))
                select (GeometryMotion)new UniformScale(factor: admitted);
     }
 
-    public static Fin<GeometryMotion> Rotate(double angleRadians, Vector3d axis, Point3d center, Op? key = null) {
-        Op op = key.OrDefault();
-        return from angle in op.Finite(value: angleRadians)
-               from _axis in guard(ValidityClaim.Direction(value: axis), op.InvalidInput(axis: nameof(axis)))
-               from _center in guard(ValidityClaim.Finite(value: center), op.InvalidInput(axis: nameof(center)))
+    public static Fin<GeometryMotion> Rotate(double angleRadians, Vector3d axis, Point3d center) {
+        return from angle in Admit.Finite(value: angleRadians)
+               from _axis in guard(ValidityClaim.Direction(value: axis), new KernelFault.InvalidInput(Axis: Some(nameof(axis))))
+               from _center in guard(ValidityClaim.Finite(value: center), new KernelFault.InvalidInput(Axis: Some(nameof(center))))
                select (GeometryMotion)new Rotation(angleRadians: angle, axis: axis, center: center);
     }
 
-    internal Fin<AppliedMotion> Apply(GeometryBase geometry, Op key) => Switch(
-        (Geometry: geometry, Op: key),
+    internal Fin<AppliedMotion> Apply(GeometryBase geometry) => Switch(
+        geometry,
         matrix: static (state, edit) =>
-            from domain in Optional(edit.Domain).ToFin(Fail: state.Op.MissingContext())
-            from spec in state.Op.Need(edit.Value)
-            from value in Placement.Build(spec: spec, context: Some(domain), key: state.Op)
-            from _ in state.Op.Confirm(success: state.Geometry.Transform(xform: value))
+            from domain in Optional(edit.Domain).ToFin(Fail: new KernelFault.MissingContext())
+            from spec in Admit.Need(edit.Value)
+            from value in Placement.Build(spec: spec, context: Some(domain))
+            from _ in Admit.Confirm(success: state.Transform(xform: value))
             let uniformity = domain.For(lane: ToleranceLane.ScaleUniformity).Value
-            let inverse = value.TryGetInverse(inverse: out global::Rhino.Geometry.Transform reversed)
+            let inverse = value.TryGetInverse(inverse: out global::Rhino.Transform reversed)
                 ? Some(reversed)
-                : Option<global::Rhino.Geometry.Transform>.None
+                : Option<global::Rhino.Transform>.None
             let similarity = value.DecomposeSimilarity(
                 translation: out Vector3d similarityTranslation,
                 dilation: out double dilation,
-                rotation: out global::Rhino.Geometry.Transform similarityRotation,
+                rotation: out global::Rhino.Transform similarityRotation,
                 tolerance: uniformity)
             let rigidity = value.DecomposeRigid(
                 translation: out Vector3d rigidTranslation,
-                rotation: out global::Rhino.Geometry.Transform rigidRotation,
+                rotation: out global::Rhino.Transform rigidRotation,
                 tolerance: uniformity)
             let affine = value.DecomposeAffine(
                 translation: out Vector3d affineTranslation,
-                rotation: out global::Rhino.Geometry.Transform affineRotation,
-                orthogonal: out global::Rhino.Geometry.Transform orthogonal,
+                rotation: out global::Rhino.Transform affineRotation,
+                orthogonal: out global::Rhino.Transform orthogonal,
                 diagonal: out Vector3d diagonal)
                 ? Some((Translation: affineTranslation, Rotation: affineRotation, Orthogonal: orthogonal, Diagonal: diagonal))
-                : Option<(Vector3d Translation, global::Rhino.Geometry.Transform Rotation, global::Rhino.Geometry.Transform Orthogonal, Vector3d Diagonal)>.None
+                : Option<(Vector3d Translation, global::Rhino.Transform Rotation, global::Rhino.Transform Orthogonal, Vector3d Diagonal)>.None
             select (AppliedMotion)new AppliedMotion.Matrix(
                 Value: value,
                 Inverse: inverse,
@@ -514,17 +504,17 @@ public abstract partial record GeometryMotion {
                 RigidRotation: rigidRotation,
                 Affine: affine),
         translation: static (state, edit) =>
-            from _ in state.Op.Confirm(success: state.Geometry.Translate(translationVector: edit.Vector))
+            from _ in Admit.Confirm(success: state.Translate(translationVector: edit.Vector))
             select (AppliedMotion)new AppliedMotion.Native(
                 Value: edit,
                 Reverse: new Translation(vector: -edit.Vector)),
         uniformScale: static (state, edit) =>
-            from _ in state.Op.Confirm(success: state.Geometry.Scale(scaleFactor: edit.Factor))
+            from _ in Admit.Confirm(success: state.Scale(scaleFactor: edit.Factor))
             select (AppliedMotion)new AppliedMotion.Native(
                 Value: edit,
                 Reverse: new UniformScale(factor: 1.0 / edit.Factor)),
         rotation: static (state, edit) =>
-            from _ in state.Op.Confirm(success: state.Geometry.Rotate(
+            from _ in Admit.Confirm(success: state.Rotate(
                 angleRadians: edit.AngleRadians,
                 rotationAxis: edit.Axis,
                 rotationCenter: edit.Center))
@@ -569,37 +559,37 @@ public abstract partial record TagOp {
         delete: static _ => OpTrait.Mutates,
         clear: static _ => OpTrait.Mutates);
 
-    internal Fin<TagResult> Apply(GeometryBase geometry, Op key) => Switch(
-        (Geometry: geometry, Op: key),
+    internal Fin<TagResult> Apply(GeometryBase geometry) => Switch(
+        geometry,
         read: static (state, tag) =>
-            from name in state.Op.AcceptText(value: tag.Key)
-            select (TagResult)new TagResult.Value(Key: name, Stored: Optional(state.Geometry.GetUserString(key: name))),
-        readAll: static (state, _) => Fin.Succ<TagResult>(value: new TagResult.Snapshot(Stored: Snapshot(state.Geometry.GetUserStrings()))),
+            from name in Acceptance.Text(value: tag.Key)
+            select (TagResult)new TagResult.Value(Key: name, Stored: Optional(state.GetUserString(key: name))),
+        readAll: static (state, _) => Fin.Succ<TagResult>(value: new TagResult.Snapshot(Stored: Snapshot(state.GetUserStrings()))),
         set: static (state, tag) =>
-            from name in state.Op.AcceptText(value: tag.Key)
-            from value in state.Op.Need(tag.Value)
-            let before = Optional(state.Geometry.GetUserString(key: name))
-            from _ in state.Op.Confirm(success: state.Geometry.SetUserString(key: name, value: value))
-            let after = Optional(state.Geometry.GetUserString(key: name))
-            from __ in state.Op.Confirm(success: after.Equals(Some(value)))
+            from name in Acceptance.Text(value: tag.Key)
+            from value in Admit.Need(tag.Value)
+            let before = Optional(state.GetUserString(key: name))
+            from _ in Admit.Confirm(success: state.SetUserString(key: name, value: value))
+            let after = Optional(state.GetUserString(key: name))
+            from __ in Admit.Confirm(success: after.Equals(Some(value)))
             select (TagResult)new TagResult.Changed(Key: name, Before: before, After: after),
         delete: static (state, tag) =>
-            from name in state.Op.AcceptText(value: tag.Key)
-            let before = Optional(state.Geometry.GetUserString(key: name))
+            from name in Acceptance.Text(value: tag.Key)
+            let before = Optional(state.GetUserString(key: name))
             from _ in before.IsSome
-                ? state.Op.Confirm(success: state.Geometry.DeleteUserString(key: name))
+                ? Admit.Confirm(success: state.DeleteUserString(key: name))
                 : Fin.Succ(value: unit)
-            let after = Optional(state.Geometry.GetUserString(key: name))
-            from __ in state.Op.Confirm(success: after.IsNone)
+            let after = Optional(state.GetUserString(key: name))
+            from __ in Admit.Confirm(success: after.IsNone)
             select (TagResult)new TagResult.Changed(Key: name, Before: before, After: after),
         clear: static (state, _) =>
-            from before in Fin.Succ(Snapshot(state.Geometry.GetUserStrings()))
-            from _ in state.Op.Catch(() => {
-                state.Geometry.DeleteAllUserStrings();
+            from before in Fin.Succ(Snapshot(state.GetUserStrings()))
+            from _ in Try.lift(() => {
+                state.DeleteAllUserStrings();
                 return Fin.Succ(value: unit);
-            })
-            let after = Snapshot(state.Geometry.GetUserStrings())
-            from __ in state.Op.Confirm(success: after.IsEmpty)
+            }).Run().Bind(static inner => inner)
+            let after = Snapshot(state.GetUserStrings())
+            from __ in Admit.Confirm(success: after.IsEmpty)
             select (TagResult)new TagResult.Cleared(Before: before, After: after));
 
     internal static HashMap<string, string> Snapshot(System.Collections.Specialized.NameValueCollection native) =>
@@ -670,7 +660,7 @@ public sealed record GeometryFacts(
             Traits: CapabilitySet<GeometryTrait>.Of()
                 .Apply(held => geometry.IsDocumentControlled ? held.With(capability: GeometryTrait.DocumentControlled) : held)
                 .Apply(held => geometry.IsShallowDuplicate ? held.With(capability: GeometryTrait.Shallow) : held),
-            Invalidity: valid ? Option<string>.None : Op.Text(log),
+            Invalidity: valid ? Option<string>.None : HostEdge.Text(log),
             Content: GeometryCrc.Of(geometry: geometry),
             Tags: TagOp.Snapshot(geometry.GetUserStrings()));
     }
@@ -709,17 +699,17 @@ public abstract partial record FieldOverride<T> {
         set: static held => Some(held.Value),
         clear: static _ => Option<T>.None);
 
-    internal Fin<Unit> Apply(Func<T, Fin<T>> admit, Action<T> write, Action clear, Op key) => Switch(
-        state: (Admit: admit, Write: write, Clear: clear, Op: key),
+    internal Fin<Unit> Apply(Func<T, Fin<T>> admit, Action<T> write, Action clear) => Switch(
+        state: (Admit: admit, Write: write, Clear: clear),
         keep: static (_, _) => Fin.Succ(value: unit),
-        set: static (state, held) => state.Admit(arg: held.Value).Bind(admitted => state.Op.Catch(() => {
+        set: static (state, held) => state.Admit(arg: held.Value).Bind(admitted => Try.lift(() => {
             state.Write(obj: admitted);
             return Fin.Succ(value: unit);
-        })),
-        clear: static (state, _) => state.Op.Catch(() => {
+        }).Run().Bind(static inner => inner)),
+        clear: static (state, _) => Try.lift(() => {
             state.Clear();
             return Fin.Succ(value: unit);
-        }));
+        }).Run().Bind(static inner => inner));
 
     internal Unit Through<THost>(THost host, Action<THost, bool> gate, Action<THost, T> value) => Switch(
         state: (Host: host, Gate: gate, Value: value),
@@ -751,8 +741,8 @@ public sealed partial class ClipSet {
         validationError = valid ? null : new ValidationError(message: "Clip membership contains an invalid object id or layer index.");
     }
 
-    public static Fin<ClipSet> Of(Seq<Guid> objects, Seq<int> layers, Op key) =>
-        key.AcceptValidated<ClipSet>(fault: Validate(objects, layers, out ClipSet? admitted), value: admitted);
+    public static Fin<ClipSet> Of(Seq<Guid> objects, Seq<int> layers) =>
+        FactoryBridge.Accept<ClipSet>(fault: Validate(objects, layers, out ClipSet? admitted), value: admitted);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -761,13 +751,11 @@ public abstract partial record ClippingPlaneSeed {
     public sealed record Frame(Plane Value) : ClippingPlaneSeed;
     public sealed record Surface(PlaneSurface Value) : ClippingPlaneSeed;
 
-    internal Fin<Lease<GeometryBase>> Build(Op key) => Switch(
-        key,
-        frame: static (op, seed) =>
-            from _ in guard(seed.Value.IsValid, op.InvalidInput(axis: nameof(Plane))).ToFin()
+    internal Fin<Lease<GeometryBase>> Build() => Switch(frame: static (op, seed) =>
+            from _ in guard(seed.Value.IsValid, new KernelFault.InvalidInput(Axis: Some(nameof(Plane)))).ToFin()
             select (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: new ClippingPlaneSurface(plane: seed.Value)),
         surface: static (op, seed) =>
-            from plane in op.AcceptInput(value: seed.Value)
+            from plane in Acceptance.Input(value: seed.Value)
             select (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: new ClippingPlaneSurface(planeSurface: plane)));
 }
 
@@ -786,20 +774,19 @@ public abstract partial record ViewportOp {
     public sealed record Remove(Seq<Guid> Ids) : ViewportOp;
     public sealed record Replace(Seq<Guid> Ids) : ViewportOp;
 
-    internal Fin<Seq<Guid>> Resolve(Seq<Guid> before, Op key) =>
-        from current in Admit(before, key)
+    internal Fin<Seq<Guid>> Resolve(Seq<Guid> before) =>
+        from current in Admit(before)
         from desired in Switch(
-            (Current: current, Op: key),
-            add: static (state, edit) => Admit(edit.Ids, state.Op).Map(ids => Canonical(state.Current + ids)),
-            remove: static (state, edit) => Admit(edit.Ids, state.Op)
-                .Map(ids => state.Current.Filter(id => !ids.Exists(candidate => candidate == id))),
-            replace: static (state, edit) => Admit(edit.Ids, state.Op))
+            current,
+            add: static (state, edit) => Admit(edit.Ids).Map(ids => Canonical(state + ids)),
+            remove: static (state, edit) => Admit(edit.Ids)
+                .Map(ids => state.Filter(id => !ids.Exists(candidate => candidate == id))),
+            replace: static (state, edit) => Admit(edit.Ids))
         select desired;
 
     public static Fin<Seq<Guid>> Proven(RhinoDoc document, params ReadOnlySpan<ViewportTarget> targets) {
-        Op op = Op.Of();
         return toSeq(targets.ToArray())
-            .Traverse(target => op.Need(target)
+            .Traverse(target => Admit.Need(target)
                 .Bind(address => address.ResolveViewport(document: document, key: op))
                 .Map(static viewport => viewport.Id)
                 .ToValidation())
@@ -808,9 +795,9 @@ public abstract partial record ViewportOp {
             .Map(Canonical);
     }
 
-    private static Fin<Seq<Guid>> Admit(Seq<Guid> ids, Op key) =>
+    private static Fin<Seq<Guid>> Admit(Seq<Guid> ids) =>
         ids.Exists(static id => id == Guid.Empty)
-            ? Fin.Fail<Seq<Guid>>(error: key.InvalidInput())
+            ? Fin.Fail<Seq<Guid>>(error: new KernelFault.InvalidInput())
             : Fin.Succ(value: Canonical(ids));
 
     private static Seq<Guid> Canonical(Seq<Guid> ids) => toSeq(ids.Distinct().Order());
@@ -827,105 +814,104 @@ public abstract partial record ClipOp {
 
     internal OpTrait Trait => this is Read ? OpTrait.Observes : OpTrait.Mutates;
 
-    internal Fin<ClipTransition> Apply(GeometryBase geometry, Op key) =>
+    internal Fin<ClipTransition> Apply(GeometryBase geometry) =>
         geometry is ClippingPlaneSurface surface
-            ? from before in State(surface, key)
+            ? from before in State(surface)
               from _ in this.Switch(
-                  (Surface: surface, Before: before, Op: key),
+                  (Surface: surface, Before: before),
                   read: static (_, _) => Fin.Succ(value: unit),
-                  scope: static (state, edit) => Scoped(state.Surface, edit.Value, state.Op),
+                  scope: static (state, edit) => Scoped(state.Surface, edit.Value),
                   depth: static (state, edit) => edit.Value.Apply(
-                      admit: value => state.Op.Positive(value: value),
+                      admit: value => Admit.Positive(value: value),
                       write: value => {
                           state.Surface.PlaneDepth = value;
                           state.Surface.PlaneDepthEnabled = true;
                       },
-                      clear: () => state.Surface.PlaneDepthEnabled = false,
-                      key: state.Op),
-                  viewports: static (state, edit) => Viewported(state.Surface, state.Before.ViewportIds, edit.Value, state.Op),
-                  style: static (state, edit) => Styled(state.Surface, edit.DimensionStyleId, state.Op))
-              from after in State(surface, key)
-              from __ in Confirmed(this, before, after, key)
+                      clear: () => state.Surface.PlaneDepthEnabled = false),
+                  viewports: static (state, edit) => Viewported(state.Surface, state.Before.ViewportIds, edit.Value),
+                  style: static (state, edit) => Styled(state.Surface, edit.DimensionStyleId))
+              from after in State(surface)
+              from __ in Confirmed(before, after)
               select new ClipTransition(Before: before, After: after)
-            : Fin.Fail<ClipTransition>(error: key.InvalidInput());
+            : Fin.Fail<ClipTransition>(error: new KernelFault.InvalidInput());
 
-    private static Fin<ClipState> State(ClippingPlaneSurface surface, Op key) =>
-        key.Catch(() => {
+    private static Fin<ClipState> State(ClippingPlaneSurface surface) =>
+        Try.lift(() => {
             Seq<Guid> viewports = toSeq(surface.ViewportIds().Distinct().Order());
             Fin<ClipScope> scope = surface.ParticipationListsEnabled
-                ? ScopeOf(surface, key)
+                ? ScopeOf(surface)
                 : Fin.Succ<ClipScope>(value: new ClipScope.Everything());
             Fin<Option<double>> depth = surface.PlaneDepthEnabled
-                ? key.Positive(value: surface.PlaneDepth).Map(static value => Some(value))
+                ? Admit.Positive(value: surface.PlaneDepth).Map(static value => Some(value))
                 : Fin.Succ(Option<double>.None);
             return from admittedScope in scope
                    from admittedDepth in depth
                    from _ in viewports.Exists(static id => id == Guid.Empty)
-                       ? Fin.Fail<Unit>(error: key.InvalidResult())
+                       ? Fin.Fail<Unit>(error: new KernelFault.InvalidResult())
                        : Fin.Succ(value: unit)
                    select new ClipState(
                        Scope: admittedScope,
                        Depth: admittedDepth,
                        ViewportIds: viewports,
                        DimensionStyleId: Optional(surface.DimensionStyleId).Filter(static id => id != Guid.Empty));
-        });
+        }).Run().Bind(static inner => inner);
 
-    private static Fin<ClipScope> ScopeOf(ClippingPlaneSurface surface, Op key) {
+    private static Fin<ClipScope> ScopeOf(ClippingPlaneSurface surface) {
         surface.GetClipParticipation(
             objectIds: out IEnumerable<Guid> objects,
             layerIndices: out IEnumerable<int> layers,
             isExclusionList: out bool exclusion);
-        return ClipSet.Of(toSeq(objects), toSeq(layers), key).Map(set =>
+        return ClipSet.Of(toSeq(objects), toSeq(layers)).Map(set =>
             exclusion ? (ClipScope)new ClipScope.Except(Members: set) : new ClipScope.Only(Members: set));
     }
 
-    private static Fin<Unit> Scoped(ClippingPlaneSurface surface, ClipScope scope, Op key) =>
-        key.Need(scope).Bind(request => request.Switch(
-            (Surface: surface, Op: key),
-            everything: static (state, _) => state.Op.Catch(() => {
-                state.Surface.ClearClipParticipationLists();
-                state.Surface.ParticipationListsEnabled = false;
+    private static Fin<Unit> Scoped(ClippingPlaneSurface surface, ClipScope scope) =>
+        Admit.Need(scope).Bind(request => request.Switch(
+            surface,
+            everything: static (state, _) => Try.lift(() => {
+                state.ClearClipParticipationLists();
+                state.ParticipationListsEnabled = false;
                 return Fin.Succ(value: unit);
-            }),
-            only: static (state, set) => state.Op.Catch(() => {
-                state.Surface.SetClipParticipation(set.Members.Objects.AsIterable(), set.Members.Layers.AsIterable(), isExclusionList: false);
-                state.Surface.ParticipationListsEnabled = true;
+            }).Run().Bind(static inner => inner),
+            only: static (state, set) => Try.lift(() => {
+                state.SetClipParticipation(set.Members.Objects.AsIterable(), set.Members.Layers.AsIterable(), isExclusionList: false);
+                state.ParticipationListsEnabled = true;
                 return Fin.Succ(value: unit);
-            }),
-            except: static (state, set) => state.Op.Catch(() => {
-                state.Surface.SetClipParticipation(set.Members.Objects.AsIterable(), set.Members.Layers.AsIterable(), isExclusionList: true);
-                state.Surface.ParticipationListsEnabled = true;
+            }).Run().Bind(static inner => inner),
+            except: static (state, set) => Try.lift(() => {
+                state.SetClipParticipation(set.Members.Objects.AsIterable(), set.Members.Layers.AsIterable(), isExclusionList: true);
+                state.ParticipationListsEnabled = true;
                 return Fin.Succ(value: unit);
-            })));
+            }).Run().Bind(static inner => inner)));
 
-    private static Fin<Unit> Styled(ClippingPlaneSurface surface, Option<Guid> style, Op key) =>
+    private static Fin<Unit> Styled(ClippingPlaneSurface surface, Option<Guid> style) =>
         style.Match(
             Some: id => id == Guid.Empty
-                ? Fin.Fail<Unit>(error: key.InvalidInput())
-                : key.Catch(() => { surface.DimensionStyleId = id; return Fin.Succ(value: unit); }),
-            None: () => key.Catch(() => { surface.DimensionStyleId = Guid.Empty; return Fin.Succ(value: unit); }));
+                ? Fin.Fail<Unit>(error: new KernelFault.InvalidInput())
+                : Try.lift(() => { surface.DimensionStyleId = id; return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+            None: () => Try.lift(() => { surface.DimensionStyleId = Guid.Empty; return Fin.Succ(value: unit); }).Run().Bind(static inner => inner));
 
-    private static Fin<Unit> Viewported(ClippingPlaneSurface surface, Seq<Guid> before, ViewportOp operation, Op key) =>
-        from request in key.Need(operation)
-        from desired in request.Resolve(before, key)
+    private static Fin<Unit> Viewported(ClippingPlaneSurface surface, Seq<Guid> before, ViewportOp operation) =>
+        from request in Admit.Need(operation)
+        from desired in request.Resolve(before)
         from _ in before.Filter(id => !desired.Exists(candidate => candidate == id))
-            .TraverseM(id => key.Confirm(success: surface.RemoveClipViewportId(viewportId: id))).As()
+            .TraverseM(id => Admit.Confirm(success: surface.RemoveClipViewportId(viewportId: id))).As()
         from __ in desired.Filter(id => !before.Exists(candidate => candidate == id))
-            .TraverseM(id => key.Confirm(success: surface.AddClipViewportId(viewportId: id))).As()
+            .TraverseM(id => Admit.Confirm(success: surface.AddClipViewportId(viewportId: id))).As()
         select unit;
 
-    private static Fin<Unit> Confirmed(ClipOp operation, ClipState before, ClipState after, Op key) =>
+    private static Fin<Unit> Confirmed(ClipOp operation, ClipState before, ClipState after) =>
         operation.Switch(
-            (Before: before, After: after, Op: key),
-            read: static (state, _) => state.Op.Confirm(success: state.Before.Equals(state.After)),
-            scope: static (state, edit) => state.Op.Confirm(success: edit.Value.Equals(state.After.Scope)),
-            depth: static (state, edit) => state.Op.Confirm(success: edit.Value.Switch(
+            (Before: before, After: after),
+            read: static (state, _) => Admit.Confirm(success: state.Before.Equals(state.After)),
+            scope: static (state, edit) => Admit.Confirm(success: edit.Value.Equals(state.After.Scope)),
+            depth: static (state, edit) => Admit.Confirm(success: edit.Value.Switch(
                 keep: _ => state.Before.Depth.Equals(state.After.Depth),
                 set: held => state.After.Depth.Equals(Some(held.Value)),
                 clear: _ => state.After.Depth.IsNone)),
-            viewports: static (state, edit) => edit.Value.Resolve(state.Before.ViewportIds, state.Op)
-                .Bind(expected => state.Op.Confirm(success: expected.Equals(state.After.ViewportIds))),
-            style: static (state, edit) => state.Op.Confirm(success: edit.DimensionStyleId.Equals(state.After.DimensionStyleId)));
+            viewports: static (state, edit) => edit.Value.Resolve(state.Before.ViewportIds)
+                .Bind(expected => Admit.Confirm(success: expected.Equals(state.After.ViewportIds))),
+            style: static (state, edit) => Admit.Confirm(success: edit.DimensionStyleId.Equals(state.After.DimensionStyleId)));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -182,11 +182,11 @@ public static class GraphSession {
     const string SessionLoad = "LOAD 'age'; SET search_path = ag_catalog, \"$user\", public;";
 
     public static IO<Duration> Rebuild(IDocumentStore store) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => await Try.lift(async _ => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             return Fin<Duration>.Succ(await ReadRouter.AwaitNonStale(daemon, QueryLane.Cypher).RunAsync().ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift);
 
     public static Fin<SetKey> Decode(string? extractedModel, string? extractedId) =>
         extractedModel is { } model && Guid.TryParse(model, out Guid parsed) && extractedId is { } value
@@ -194,7 +194,7 @@ public static class GraphSession {
             : Fin.Fail<SetKey>(new CypherFault.Unresolvable("<vertex-identity-absent>"));
 
     public static Fin<AgtypePath> DecodePath(string json) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             using JsonDocument path = JsonDocument.Parse(json);
             Seq<(JsonElement Element, int Index)> steps = toSeq(path.RootElement.EnumerateArray().Select(static (element, index) => (Element: element, Index: index)));
             return steps.Filter(static s => (s.Index & 1) == 0)
@@ -203,7 +203,7 @@ public static class GraphSession {
                     vertices,
                     steps.Filter(static s => (s.Index & 1) == 1)
                         .Fold(0.0, static (cost, s) => cost + NumberProperty(s.Element, "cost"))));
-        });
+        }).Run().Bind(static inner => inner);
 
     static string? TextProperty(JsonElement element, string name) {
         bool found = element.GetProperty("properties").TryGetProperty(name, out JsonElement value);
@@ -220,7 +220,7 @@ public static class GraphSession {
 
     public static IO<Fin<Unit>> Define(NpgsqlDataSource source, CypherEnablement gate, GraphDdl ddl) =>
         gate is CypherEnablement.SelfHosted
-            ? IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+            ? IO.liftAsync(async () => (await Try.lift(async _ => {
                   await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
                   await using NpgsqlCommand command = connection.CreateCommand();
                   (string Sql, Seq<(string Name, object Value)> Args) lowering = ddl.Lower();
@@ -228,7 +228,7 @@ public static class GraphSession {
                   lowering.Args.Iter(argument => command.Parameters.AddWithValue(argument.Name, argument.Value));
                   await command.ExecuteNonQueryAsync().ConfigureAwait(false);
                   return Fin.Succ(unit);
-              }).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is NpgsqlException
+              }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is NpgsqlException
                   ? (Error)new CypherFault.MatchFailed(error)
                   : error))
             : IO.pure(Fin<Unit>.Fail(new CypherFault.Disabled()));
@@ -454,7 +454,7 @@ public static class GraphLane {
             while (await reader.ReadAsync().ConfigureAwait(false)) {
                 Fin<AgtypePath> step = GraphSession.Decode(
                     await reader.IsDBNullAsync(0).ConfigureAwait(false) ? null : reader.GetString(0),
-                    await reader.IsDBNullAsync(1).ConfigureAwait(false) ? null : reader.GetString(1)).Map(static key => new AgtypePath(Seq(key), 0.0));
+                    await reader.IsDBNullAsync(1).ConfigureAwait(false) ? null : reader.GetString(1)).Map(static key => new AgtypePath(Seq(), 0.0));
                 if (step.IsFail) { return step.Map(static _ => Seq<AgtypePath>()); }
                 step.Iter(paths.Add);
             }
@@ -633,7 +633,7 @@ public static class GraphLane {
         }, static error => new CypherFault.RouteFailed(error));
 
     static IO<Fin<T>> Captured<T>(Func<System.Threading.Tasks.Task<Fin<T>>> crossing, Func<Error, CypherFault> arm) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => await crossing().ConfigureAwait(false)).ConfigureAwait(false))
+        IO.liftAsync(async () => (await Try.lift(async _ => await crossing().ConfigureAwait(false)).Run().Bind(static inner => inner).ConfigureAwait(false))
             .MapFail(error => error.Exception.Case is NpgsqlException ? arm(error) : error));
 
     static async System.Threading.Tasks.Task<GraphResult> ReadRoute(NpgsqlCommand command) {

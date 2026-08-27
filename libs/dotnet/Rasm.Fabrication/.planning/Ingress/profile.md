@@ -335,13 +335,12 @@ public sealed record ProfileCensus(
     Seq<ProfileNotification> Notifications);
 
 public static partial class ProfileImport {
-    private static readonly Op ReadOp = Op.Of(name: nameof(ProfileImport));
 
     public static Eff<ProfileCensus> Probe(ProfileSource source) => Eff.lift(() =>
         ProfileFormat.Admit(source.Path).Bind(format => Capture(source.Path, notices => format.Switch(
             state: (Source: source, Format: format, Notices: notices),
             dxf: static state => ProbeDxf(state.Source, state.Format, state.Notices),
-            dwg: static state => ReadOp.Catch(() => Fin.Succ(File.ReadAllBytes(state.Source.Path.Value)))
+            dwg: static state => Try.lift(() => Fin.Succ(File.ReadAllBytes(state.Source.Path.Value))).Run().Bind(static inner => inner)
                 .MapFail(error => Classify(state.Source.Path, error))
                 .Bind(payload => Open(ProfileFormat.Dwg, state.Source, payload, state.Notices))
                 .Map(document => Census(
@@ -359,12 +358,12 @@ public static partial class ProfileImport {
         ProfileSource source,
         byte[] payload,
         Atom<Seq<ProfileNotification>> notices) =>
-        ReadOp.Catch(() => Fin.Succ(format.Read(payload, source.Policy.Reader,
-            (_, args) => notices.Swap(rows => rows.Add(Notice(args))))));
+        Try.lift(() => Fin.Succ(format.Read(payload, source.Policy.Reader,
+            (_, args) => notices.Swap(rows => rows.Add(Notice(args)))))).Run().Bind(static inner => inner);
 
     private static Fin<ProfileCensus> ProbeDxf(
         ProfileSource source, ProfileFormat format, Atom<Seq<ProfileNotification>> notices) =>
-        ReadOp.Catch(() => {
+        Try.lift(() => {
             NotificationEventHandler sink = (_, args) => notices.Swap(rows => rows.Add(Notice(args)));
             using DxfReader headerReader = new(source.Path.Value, sink);
             UnitsType units = headerReader.ReadHeader().InsUnits;
@@ -372,7 +371,7 @@ public static partial class ProfileImport {
             Seq<string> layers = toSeq(tableReader.ReadTables().Layers).Map(static layer => layer.Name).Strict();
             using DxfReader entityReader = new(source.Path.Value, sink);
             return Fin.Succ(Census(format, source, units, layers, toSeq(entityReader.ReadEntities()).Strict(), notices.Value));
-        }).MapFail(error => Classify(source.Path, error));
+        }).Run().Bind(static inner => inner).MapFail(error => Classify(source.Path, error));
 
     private static ProfileCensus Census(
         ProfileFormat format,
@@ -730,7 +729,7 @@ public static partial class ProfileImport {
         .ToFrozenDictionary();
 
     public static Eff<ImportedProfile> Read(ProfileSource source) => Eff.lift(() =>
-        from raw in ReadOp.Catch(() => Fin.Succ(File.ReadAllBytes(source.Path.Value)))
+        from raw in Try.lift(() => Fin.Succ(File.ReadAllBytes(source.Path.Value))).Run().Bind(static inner => inner)
             .MapFail(error => Classify(source.Path, error))
         from format in ProfileFormat.Admit(source.Path)
         from result in Capture(source.Path, notices =>
@@ -801,11 +800,11 @@ public static partial class ProfileImport {
 
     private static Fin<ProfileLowered> HatchContours(Hatch row, EntityLowering at) =>
         Planar(row.Normal, at)
-            .Bind(_ => ReadOp.Catch(() => Fin.Succ(
-                toSeq(row.Paths).Map((boundary, index) => (boundary, index)).Strict())))
+            .Bind(_ => Try.lift(() => Fin.Succ(
+                toSeq(row.Paths).Map((boundary, index) => (boundary, index)).Strict())).Run().Bind(static inner => inner))
             .Bind(boundaries => boundaries.Traverse(item =>
-                ReadOp.Catch(() => Fin.Succ(item.boundary.Edges.ToSeq()
-                    .Bind(edge => HatchEdge(row, edge, at.Policy.Spline.Value, at.Scale)).Strict()))
+                Try.lift(() => Fin.Succ(item.boundary.Edges.ToSeq()
+                    .Bind(edge => HatchEdge(row, edge, at.Policy.Spline.Value, at.Scale)).Strict())).Run().Bind(static inner => inner)
                     .Bind(spans => spans.IsEmpty
                         ? Fin.Fail<Loop>(Fault(at.Path, row, $"hatch:{item.index}:empty"))
                         : Loop.Admit(
@@ -872,8 +871,8 @@ public static partial class ProfileImport {
     }
 
     private static Fin<ProfileLowered> Insertion(Insert row, EntityLowering at) =>
-        ReadOp.Catch(() => Fin.Succ(toSeq(row.Explode()).Strict()
-                .Concat(toSeq(row.Attributes).Map(static attribute => (Entity)attribute)).Strict()))
+        Try.lift(() => Fin.Succ(toSeq(row.Explode()).Strict()
+                .Concat(toSeq(row.Attributes).Map(static attribute => (Entity)attribute)).Strict())).Run().Bind(static inner => inner)
             .Bind(children => children
                 .Map(static (child, index) => (Child: child, Ordinal: index))
                 .Traverse(child => Lower(at with {

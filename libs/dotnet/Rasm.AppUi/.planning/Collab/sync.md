@@ -25,7 +25,7 @@ One CRDT document is the LIVE merge authority for every co-edited AppUi surface,
   - Absence policy belongs to the READ, never to the resolve: `Use` faults `Detached` so a write path learns its level is unwritten, while `Read` folds that ONE fault to the caller's empty value and leaves `KindMismatch` on the result, so every projection whose first read precedes any write crosses one owner instead of re-spelling the fold per lens.
   - `GetByStrPath` is the text ingress alone — a path arriving from a link, route, or persisted anchor parses ONCE at the boundary onto the same result, and page code minting a text expression to hand back to the parser is the deleted form; `GetContainer(ContainerId)` closes the loop from a `LoroValue.Container` leaf or a `Diff` payload back to a live handle, so a subscriber projecting a change never re-derives the path its event already identified.
   - Every `Loro*`/`Cursor`/`Frontiers`/`VersionVector`/`ValueOrContainer` value is an `IDisposable` Rust-pointer wrapper and the boundary owns the foreign lifetime through the KERNEL custody algebra, never a hand latch: `Custody.Bracket` releases every scoped wrapper on success and refusal alike and AGGREGATES the release fault into the primary outcome, so a leaking free reads as a fault rather than as nothing; `Cell.Take` is the one release latch on both the handle and the document, so a take-and-clear transition drains the pending release exactly once and a second `Dispose` reads the empty post-state; `Interlocked.Exchange`, a read-then-clear sweep, and `ignore(Atom.Swap(...))` are the three deleted forms.
-  - `CollabRegister` owns the release of every resolved `ValueOrContainer` on BOTH descents — `Read` for a leaf and `Level` for a nested map — because `AsLoroMap` mints its own Rust Arc and leaves the probe that produced it standing: a level spelled `Get(key)?.AsLoroMap()` keeps that probe for the process lifetime. Both descents answer `Option<A>` because absence policy is the CALLER's, which is why they compose the statement `using` rather than the `Fin`-shaped kernel bracket — a lens's empty answer is not a typed refusal and lifting it onto one would make every unwritten level a fault.
+  - `CollabRegister` owns the release of every resolved `ValueOrContainer` on BOTH descents — `Read` for a leaf and `Level` for a nested map — because `AsLoroMap` mints its own Rust Arc and leaves the probe that produced it standing: a level spelled `Get()?.AsLoroMap()` keeps that probe for the process lifetime. Both descents answer `Option<A>` because absence policy is the CALLER's, which is why they compose the statement `using` rather than the `Fin`-shaped kernel bracket — a lens's empty answer is not a typed refusal and lifting it onto one would make every unwritten level a fault.
   - Engine unions `LoroValue`, `Diff`, and `ExportMode` pattern-match at their leaf at the boundary and never re-model as a parallel enum: `LoroVal` carries BOTH legs of the leaf correspondence — the `Of` mint and the `Text`/`Whole`/`Real`/`Flag`/`Stamp`/`Container`/`Field` projections — so every shape a register writes reads back through its declared inverse and an unexpected leaf reads absent rather than throwing.
   - `Lift` is the ONE fold from the `LoroException` hierarchy onto the typed family — `ImportUpdatesThatDependsOnOutdatedVersion` and `DecodeVersionVectorException` land `EpochMismatch`, the `Decode*` cases land `DecodeCorrupt`, `IncompatibleFutureEncodingException` lands `ImportIncompatible`, and the two detached-edit cases land `TimeTraveled`; every case carries the exact captured `Error` cause.
   - Retriability is a COLUMN on the fault, never a policy each consumer re-decides: `EpochMismatch` and `Contended` override `Transient` because a delta whose dependency has not arrived and a compare-and-swap that spent its budget both resolve by re-driving, while every other case inherits the kernel `Terminal` virtual — so `Collab/presence.md`'s `RedrivePolicy` classifies nothing of its own and a `bool IsTransient` beside the family is unspellable.
@@ -253,7 +253,6 @@ public sealed class CollabHandle {
 }
 
 public sealed class CollabDoc : IDisposable {
-    private static readonly Op LoroBoundary = Op.Of(name: "appui.collab.loro");
     private readonly Atom<Option<LoroDoc>> custody;
 
     private CollabDoc(LoroDoc doc, DocumentKey key) {
@@ -264,7 +263,7 @@ public sealed class CollabDoc : IDisposable {
     public DocumentKey Key { get; }
     public Atom<Seq<CollabHandle>> Handles { get; }
 
-    public static CollabDoc Of(LoroDoc doc, DocumentKey key) => new(doc, key);
+    public static CollabDoc Of(LoroDoc doc, DocumentKey key) => new(doc);
 
     public static CollabDoc Open(DocumentKey key, Option<CollabDocPolicy> policy = default) {
         LoroDoc doc = new();
@@ -272,7 +271,7 @@ public sealed class CollabDoc : IDisposable {
         doc.SetRecordTimestamp(resolved.RecordTimestamp);
         resolved.MergeIntervalMs.Iter(doc.SetChangeMergeInterval);
         resolved.Peer.Iter(doc.SetPeerId);
-        return Of(doc, key);
+        return Of(doc);
     }
 
     public Fin<CollabHandle> Attach(CollabAddress address) =>
@@ -334,7 +333,7 @@ public sealed class CollabDoc : IDisposable {
         Lift(mint).Bind(child => Custody.Bracket(() => write(child), child));
 
     internal static Fin<T> Lift<T>(Func<T> act) =>
-        LoroBoundary.Catch(() => Fin.Succ(act()), provider: Classify);
+        Try.lift(() => Fin.Succ(act())).Run().Bind(static inner => inner);
 
     private static Option<CollabFault> Classify(Error cause) =>
         cause.Exception is { IsSome: true, Case: Exception raised }
@@ -432,7 +431,7 @@ public static class CollabRegister {
         public Option<A> Read<A>(CollabColumn column, Func<LoroVal, Option<A>> project) => row.Read(column.Key, project);
 
         public Option<A> Read<A>(string key, Func<LoroVal, Option<A>> project) {
-            using ValueOrContainer? held = row.Get(key);
+            using ValueOrContainer? held = row.Get();
             return Optional(held?.AsValue()).Map(static leaf => new LoroVal(leaf)).Bind(project);
         }
 
@@ -441,7 +440,7 @@ public static class CollabRegister {
         public Option<A> Level<A>(ContainerKey key, Func<LoroMap, Option<A>> read) => row.Level(key.Value, read);
 
         public Option<A> Level<A>(string key, Func<LoroMap, Option<A>> read) {
-            using ValueOrContainer? held = row.Get(key);
+            using ValueOrContainer? held = row.Get();
             using LoroMap? level = held?.AsLoroMap();
             return Optional(level).Bind(read);
         }
@@ -596,16 +595,16 @@ public static class IntentApply {
                     (CollabColumn.At, LoroVal.Of(c.At)))))).As().Map(static _ => unit),
             tableRowCommit: static (doc, r) => doc.Use<LoroMap, Unit>(CollabAddress.Of(CollabRoot.Rows), rows =>
                 rows.Write(r.RowId, LoroVal.Of(r.Cells.GetRawText()))),
-            graphStructure: static (doc, g) => GraphRegister.Apply(doc, g.Op),
+            graphStructure: static (doc, g) => GraphRegister.Apply(doc),
             annotation: static (doc, a) => doc.Use<LoroMap, Unit>(CollabAddress.Of(CollabRoot.Annotations), notes =>
                 notes.Write(a.TargetId, LoroVal.Of(a.Payload.GetRawText()))),
             textRun: static (doc, t) => WithCellText(doc, t.CellId, text => t.Op.Switch(
                 state: text,
                 insert: static (text, op) => CollabDoc.Lift(() => { text.Insert(op.At, op.Text); return unit; }),
                 delete: static (text, op) => CollabDoc.Lift(() => { text.Delete(op.At, op.Len); return unit; }),
-                mark: static (text, op) => CollabDoc.Lift(() => { text.Mark(op.From, op.To, op.Key, LoroVal.Of(op.Value)); return unit; }))),
-            membership: static (doc, m) => MemberRegister.Apply(doc, m.Op),
-            issueCommit: static (doc, i) => IssueRegister.Apply(doc, i.IssueGuid, i.Op));
+                mark: static (text, op) => CollabDoc.Lift(() => { text.Mark(op.From, op.To, LoroVal.Of(op.Value)); return unit; }))),
+            membership: static (doc, m) => MemberRegister.Apply(doc),
+            issueCommit: static (doc, i) => IssueRegister.Apply(doc, i.IssueGuid));
 
     static Fin<Unit> WithCells(CollabDoc doc, Func<LoroMovableList, Fin<Unit>> write) =>
         doc.Use(CollabAddress.Of(CollabRoot.Cells), write);
@@ -688,7 +687,7 @@ public static class GraphRegister {
             .Map(static split => new RegisterRead<GraphNodeRow>(split.Succs, split.Fails));
 
     public static Fin<RegisterRead<GraphEdge>> ReadEdges(LoroMap edges) =>
-        CollabDoc.Lift(() => toSeq(edges.Keys()).Map(key => Edge(edges, key).ToFin()))
+        CollabDoc.Lift(() => toSeq(edges.Keys()).Map(key => Edge(edges).ToFin()))
             .Bind(static reads => reads.PartitionFallible().As())
             .Map(static split => new RegisterRead<GraphEdge>(split.Succs, split.Fails));
 
@@ -743,9 +742,8 @@ public static class GraphRegister {
         using LoroMap meta = tree.GetMeta(node);
         return (Required(meta, CollabColumn.Identity, static leaf => leaf.Text),
                 Required(meta, CollabColumn.Template, static leaf => leaf.Text)).Apply((key, template) =>
-            new GraphNodeRow(
-                key, template,
-                meta.Read(CollabColumn.Title, static leaf => leaf.Text).IfNone(key),
+            new GraphNodeRow(template,
+                meta.Read(CollabColumn.Title, static leaf => leaf.Text).IfNone(),
                 meta.Read(CollabColumn.Parent, static leaf => leaf.Text),
                 meta.Read(CollabColumn.X, static leaf => leaf.Real).IfNone(0d),
                 meta.Read(CollabColumn.Y, static leaf => leaf.Real).IfNone(0d),
@@ -758,7 +756,7 @@ public static class GraphRegister {
     }
 
     static Validation<Error, GraphEdge> Edge(LoroMap edges, string key) =>
-        edges.Level(key, static live =>
+        edges.Level(static live =>
             Some((Required(live, CollabColumn.From, End), Required(live, CollabColumn.To, End)).Apply((from, to) =>
                 new GraphEdge(from, to, new GraphWire(
                     live.Read(CollabColumn.Routing, static leaf => leaf.Case<ConnectorRoutingMode>()).IfNone(ConnectorRoutingMode.Auto),
@@ -779,9 +777,7 @@ public static class GraphRegister {
             .Map(node => new GraphEndpoint(node, leaf.Field(CollabColumn.Pin, static held => held.Text)));
 
     static Option<GraphPinRow> Slot(LoroMap cell) =>
-        cell.Read(CollabColumn.Identity, static leaf => leaf.Text).Map(key => new GraphPinRow(
-            key,
-            cell.Read(CollabColumn.Name, static leaf => leaf.Text).IfNone(key),
+        cell.Read(CollabColumn.Identity, static leaf => leaf.Text).Map(key => new GraphPinRow(cell.Read(CollabColumn.Name, static leaf => leaf.Text).IfNone(),
             cell.Read(CollabColumn.Alignment, static leaf => leaf.Case<PinAlignment>()).IfNone(PinAlignment.None),
             cell.Read(CollabColumn.Direction, static leaf => leaf.Case<PinDirection>()).IfNone(PinDirection.Bidirectional),
             (int)cell.Read(CollabColumn.Bus, static leaf => leaf.Whole).IfNone(1L)));
@@ -792,8 +788,8 @@ public static class GraphRegister {
 
     static Seq<A> Ordered<A>(LoroMap owner, CollabColumn hop, Func<LoroMap, Option<A>> read) =>
         owner.Level(hop, held => Some(toSeq(toSeq(held.Keys())
-                .Choose(static key => uint.TryParse(key, CultureInfo.InvariantCulture, out uint ordinal)
-                    ? Some((Ordinal: ordinal, Key: key))
+                .Choose(static key => uint.TryParse(CultureInfo.InvariantCulture, out uint ordinal)
+                    ? Some(ordinal)
                     : None)
                 .OrderBy(static slot => slot.Ordinal))
                 .Choose(slot => held.Level(slot.Key, read))))

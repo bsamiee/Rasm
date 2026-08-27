@@ -128,7 +128,6 @@ public abstract partial record Curves {
     public sealed record SilhouetteCase(Option<Vector3d> Direction, Option<double> DraftAngle, CapabilitySet<SilhouetteTrait> Traits) : Curves;
     public sealed record AtCase(Option<int> Value) : Curves;
     public sealed record FormCase(Option<int> Index) : Curves;
-    internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public static Curves All => new EdgesCase(Kind: Option<EdgeFeature>.None);
     public static Curves Boundary => new EdgesCase(Kind: Some(EdgeFeature.Boundary));
     public static Curves NakedOuter => new EdgesCase(Kind: Some(EdgeFeature.NakedOuter));
@@ -148,14 +147,14 @@ public abstract partial record Curves {
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         (Capability.Universal(type: typeof(TGeometry))
             || Kind.Of(type: typeof(TGeometry)).Exists(kind => CanProject(topology: kind.Topology, type: typeof(TGeometry)))) switch {
-            false => Key.Unsupported<TGeometry, TOut>(),
+            false => new KernelFault.Unsupported(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Curve) => Project<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static (p, _, _, op) => p.As<Curve>(key: op)),
+                Type t when t == typeof(Curve) => Project<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static (p, _, _, op) => p.As<Curve>()),
                 Type t when t == typeof(TopologyProjection) => Project<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static (p, _, _, _) => Fin.Succ(p)),
                 Type t when t == typeof(CurveFeature) => Project<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static (_, feature, _, _) => Fin.Succ(feature)),
                 Type t when t == typeof(ComponentIndex) => Project<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static (p, _, _, _) => Fin.Succ(p.Source)),
-                Type t when t == typeof(CurveForm) && this is FormCase => Project<TGeometry, TOut, CurveForm>(key: Key, aspect: this, project: static (p, _, context, op) => p.As<Curve>(key: op).Map(curve => Normalization.CurveFormOf(curve: curve, context: context))),
-                _ => Key.Unsupported<TGeometry, TOut>(),
+                Type t when t == typeof(CurveForm) && this is FormCase => Project<TGeometry, TOut, CurveForm>(key: Key, aspect: this, project: static (p, _, context, op) => p.As<Curve>().Map(curve => Normalization.CurveFormOf(curve: curve, context: context))),
+                _ => new KernelFault.Unsupported(),
             },
         };
 
@@ -212,14 +211,13 @@ public abstract partial record Curves {
         EdgeFeature.Boundary, EdgeFeature.Interior, EdgeFeature.NonManifold);
 
     // --- [BUILDERS]
-    internal static Operation<TGeometry, TOut> Project<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, CurveFeature, Context, Op, Fin<TValue>> project) where TGeometry : notnull =>
-        Analysis.Operation<TGeometry, TValue>.Build(
-            key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
+    internal static Operation<TGeometry, TOut> Project<TGeometry, TOut, TValue>(Curves aspect, Func<TopologyProjection, CurveFeature, Context, Fin<TValue>> project) where TGeometry : notnull =>
+        Analysis.Operation<TGeometry, TValue>.Build(state: (Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
                 from runtime in Env.EnvAsks
                 from kind in geometry.KindOf(context: runtime.Context).ToEff()
                 let feature = state.Aspect.Feature(topology: kind.Topology)
-                from curves in Extract(geometry: geometry, aspect: state.Aspect, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
+                from curves in Extract(geometry: geometry, aspect: state.Aspect, context: runtime.Context, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Switch(
                     state: curves,
                     edgesCase: static (items, _) => Fin.Succ(items),
@@ -228,20 +226,20 @@ public abstract partial record Curves {
                     silhouetteCase: static (items, _) => Fin.Succ(items),
                     atCase: static (items, at) => items.At(index: at.Value, key: Key),
                     formCase: static (items, form) => form.Index.IsSome ? items.At(index: form.Index, key: Key) : Fin.Succ(items)).ToEff()
-                from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => values.TraverseM(projection => state.Project(arg1: projection, arg2: feature, arg3: runtime.Context, arg4: state.Key)).As().Bind(projected => state.Key.Accept(values: projected))).ToEff()
-                select result).As<TGeometry, TOut>(key: key);
+                from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => values.TraverseM(projection => state.Project(arg1: projection, arg2: feature, arg3: runtime.Context, arg4: state.Key)).As().Bind(projected => Acceptance.Rows(values: projected))).ToEff()
+                select result).As<TGeometry, TOut>();
 
-    internal static Fin<Seq<TopologyProjection>> Extract<TGeometry>(TGeometry geometry, Curves aspect, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, aspect) switch {
+    internal static Fin<Seq<TopologyProjection>> Extract<TGeometry>(TGeometry geometry, Curves aspect, Context context, CancellationToken cancel) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => (g, aspect) switch {
             (Curve or Line or Polyline or Circle or Arc or Ellipse, Curves candidate) when ServesRun(candidate, BoundaryRun) || candidate is SegmentsCase =>
-                Input(source: g, aspect: aspect, op: op),
+                Input(source: g, aspect: aspect),
             (Brep brep, Curves candidate) when ServesRun(candidate, BrepEdgeRun) => BrepEdges(brep: brep, selector: aspect),
             (Brep brep, Curves candidate) when Serves(candidate, BrepLoopRun) =>
                 Matching(source: brep.Loops, selector: aspect,
                     describe: static loop => new EdgeDescriptor.OfLoop(LoopType: loop.LoopType),
                     project: loop => TopologyProjection.Of(curve: loop.To3dCurve(), source: new ComponentIndex(ComponentIndexType.BrepLoop, loop.LoopIndex))),
             (Brep brep, IsoCase iso) =>
-                toSeq(brep.Faces).TraverseM(face => Isolines(surface: face, iso: iso.Direction, normalized: iso.Normalized, op: op)
+                toSeq(brep.Faces).TraverseM(face => Isolines(surface: face, iso: iso.Direction, normalized: iso.Normalized)
                     .Bind(curves => curves.TraverseM(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex))).As())).As()
                     .Map(static nested => nested.Bind(static seq => seq)),
             (BrepFace face, Curves candidate) when ServesRun(candidate, BoundaryRun) =>
@@ -251,27 +249,27 @@ public abstract partial record Curves {
                 Matching(source: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count), selector: aspect,
                     describe: i => new EdgeDescriptor.OfMesh(ConnectedFaces: mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length),
                     project: i => TopologyProjection.Of(curve: mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), source: new ComponentIndex(ComponentIndexType.MeshTopologyEdge, i))),
-            (Surface surface, IsoCase iso) => SurfaceIso(surface: surface, iso: iso, op: op),
+            (Surface surface, IsoCase iso) => SurfaceIso(surface: surface, iso: iso),
             (object surfaceLike, IsoCase iso) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
-                Normalization.SurfaceForm(source: surfaceLike, key: op).Bind(lease => lease.Use(surface => SurfaceIso(surface: surface, iso: iso, op: op))),
+                Normalization.SurfaceForm(source: surfaceLike).Bind(lease => lease.Use(surface => SurfaceIso(surface: surface, iso: iso))),
             (object brepLike, Curves candidate) when ServesRun(candidate, BoundaryRun) && Capability.BrepForm.Admits(type: brepLike.GetType()) =>
-                Normalization.BrepForm(source: brepLike, key: op).Bind(lease => lease.Use(brep => BrepEdges(brep: brep, selector: aspect))),
+                Normalization.BrepForm(source: brepLike).Bind(lease => lease.Use(brep => BrepEdges(brep: brep, selector: aspect))),
             (SubD subd, EdgesCase { Kind.Case: null } or AtCase or SegmentsCase or FormCase) => SubDEdges(subd: subd),
-            (GeometryBase native, SilhouetteCase silhouette) => Silhouettes(geometry: native, silhouette: silhouette, context: context, op: op, cancel: cancel),
-            _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(g.GetType(), typeof(Curve))),
+            (GeometryBase native, SilhouetteCase silhouette) => Silhouettes(geometry: native, silhouette: silhouette, context: context, cancel: cancel),
+            _ => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.Unsupported(g.GetType(), typeof(Curve))),
         });
 
-    internal static Fin<Seq<Curve>> Isolines(Surface surface, IsoStatus iso, double normalized, Op op) => (iso, normalized is >= 0.0 and <= 1.0) switch {
+    internal static Fin<Seq<Curve>> Isolines(Surface surface, IsoStatus iso, double normalized) => (iso, normalized is >= 0.0 and <= 1.0) switch {
         (IsoStatus.West, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(1, face.Domain(0).T0))),
         (IsoStatus.East, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(1, face.Domain(0).T1))),
         (IsoStatus.South, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(0, face.Domain(1).T0))),
         (IsoStatus.North, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(0, face.Domain(1).T1))),
-        (IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North, _) => Optional(surface.IsoCurve(iso)).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
+        (IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North, _) => Optional(surface.IsoCurve(iso)).ToFin(new KernelFault.InvalidResult()).Map(static curve => Seq(curve)),
         (IsoStatus.X or IsoStatus.Y, true) when surface.Domain(iso == IsoStatus.X ? 0 : 1) is { IsValid: true } domain =>
             surface is BrepFace face
                 ? Fin.Succ(toSeq(face.TrimAwareIsoCurve(iso == IsoStatus.X ? 1 : 0, domain.ParameterAt(normalized))))
-                : Optional(surface.IsoCurve(iso, domain.ParameterAt(normalized))).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
-        _ => Fin.Fail<Seq<Curve>>(op.InvalidInput()),
+                : Optional(surface.IsoCurve(iso, domain.ParameterAt(normalized))).ToFin(new KernelFault.InvalidResult()).Map(static curve => Seq(curve)),
+        _ => Fin.Fail<Seq<Curve>>(new KernelFault.InvalidInput()),
     };
 
     private static CurveFeature EdgeFeatureFor(Topology topology) =>
@@ -280,19 +278,19 @@ public abstract partial record Curves {
         Matching(source: brep.Edges, selector: selector,
             describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
             project: edge => TopologyProjection.Of(curve: edge.DuplicateCurve(), source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex)));
-    private static Fin<Seq<TopologyProjection>> SurfaceIso(Surface surface, IsoCase iso, Op op) =>
-        Isolines(surface: surface, iso: iso.Direction, normalized: iso.Normalized, op: op)
+    private static Fin<Seq<TopologyProjection>> SurfaceIso(Surface surface, IsoCase iso) =>
+        Isolines(surface: surface, iso: iso.Direction, normalized: iso.Normalized)
             .Bind(curves => curves.TraverseM(curve => TopologyProjection.Of(curve: curve, source: new ComponentIndex(ComponentIndexType.NoType, 0))).As());
-    private static Fin<Seq<TopologyProjection>> Input(object source, Curves aspect, Op op) =>
-        Normalization.CurveForm(source: source, key: op).Bind(lease => lease.Use(native => aspect switch {
+    private static Fin<Seq<TopologyProjection>> Input(object source, Curves aspect) =>
+        Normalization.CurveForm(source: source).Bind(lease => lease.Use(native => aspect switch {
             Curves candidate when Serves(candidate, BoundaryRun) && native.TryGetPolyline(polyline: out Polyline polyline) && polyline.SegmentCount > 0 =>
                 toSeq(polyline.GetSegments().Select((segment, i) => TopologyProjection.Of(curve: new LineCurve(segment), source: new ComponentIndex(ComponentIndexType.PolycurveSegment, i)))).TraverseM(identity).As(),
             SegmentsCase segments => segments.Posture.Pieces(curve: native) switch {
                 Option<Curve[]> pieces when pieces.Case is Curve[] found && found.Length > 0 =>
                     toSeq(found.Select((piece, i) => TopologyProjection.Of(curve: piece, source: new ComponentIndex(ComponentIndexType.PolycurveSegment, i)))).TraverseM(identity).As(),
-                _ => Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Bind(whole => TopologyProjection.Of(curve: whole, source: new ComponentIndex(ComponentIndexType.PolycurveSegment, 0)).Map(static p => Seq(p))),
+                _ => Optional(native.DuplicateCurve()).ToFin(new KernelFault.InvalidResult()).Bind(whole => TopologyProjection.Of(curve: whole, source: new ComponentIndex(ComponentIndexType.PolycurveSegment, 0)).Map(static p => Seq(p))),
             },
-            _ => Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Bind(whole => TopologyProjection.Of(curve: whole, source: new ComponentIndex(ComponentIndexType.NoType, 0)).Map(static p => Seq(p))),
+            _ => Optional(native.DuplicateCurve()).ToFin(new KernelFault.InvalidResult()).Bind(whole => TopologyProjection.Of(curve: whole, source: new ComponentIndex(ComponentIndexType.NoType, 0)).Map(static p => Seq(p))),
         }));
     private static Fin<Seq<TopologyProjection>> Matching<TPrimitive>(IEnumerable<TPrimitive> source, Curves selector, Func<TPrimitive, EdgeDescriptor> describe, Func<TPrimitive, Fin<TopologyProjection>> project) =>
         toSeq(source).Filter(item => selector.Matches(descriptor: describe(arg: item))).TraverseM(project).As();
@@ -300,30 +298,30 @@ public abstract partial record Curves {
         _ = subd.UpdateSurfaceMeshCache(lazyUpdate: true);
         return toSeq(subd.DuplicateEdgeCurves().Select((curve, i) => TopologyProjection.Of(curve: curve, source: new ComponentIndex(type: ComponentIndexType.SubdEdge, index: i)))).TraverseM(identity).As();
     }
-    private static Fin<Seq<TopologyProjection>> Silhouettes(GeometryBase geometry, SilhouetteCase silhouette, Context context, Op op, CancellationToken cancel) =>
+    private static Fin<Seq<TopologyProjection>> Silhouettes(GeometryBase geometry, SilhouetteCase silhouette, Context context, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(Errors.Cancelled)
-            : Rasm.Numerics.Direction.Of(value: silhouette.Direction.IfNone(Vector3d.ZAxis), context: context, key: op).Map(static admitted => admitted.Value)
+            : Rasm.Numerics.Direction.Of(value: silhouette.Direction.IfNone(Vector3d.ZAxis), context: context).Map(static admitted => admitted.Value)
                 .Bind(direction => (geometry switch {
                     Brep or BrepFace or Mesh or Extrusion => Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Borrowed(Value: geometry)),
-                    Surface surface => Optional(surface.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: brep)),
-                    SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Map(static brep => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: brep)),
-                    _ => Fin.Fail<Lease<GeometryBase>>(op.Unsupported(geometry.GetType(), typeof(Curve))),
+                    Surface surface => Optional(surface.ToBrep()).ToFin(new KernelFault.InvalidResult()).Map(static brep => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: brep)),
+                    SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(new KernelFault.InvalidResult()).Map(static brep => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: brep)),
+                    _ => Fin.Fail<Lease<GeometryBase>>(new KernelFault.Unsupported(geometry.GetType(), typeof(Curve))),
                 }).Bind(lease => lease.Use(shape =>
                     Optional(silhouette.DraftAngle.Case switch {
                         double angle => Rhino.Geometry.Silhouette.ComputeDraftCurve(shape, angle, direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, cancel),
                         _ => Rhino.Geometry.Silhouette.Compute(shape, (SilhouetteType)silhouette.Traits.Mask(bit: static trait => trait.Bit), direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, [], cancel),
-                    }).ToFin(cancel.IsCancellationRequested ? Errors.Cancelled : op.InvalidResult())
+                    }).ToFin(cancel.IsCancellationRequested ? Errors.Cancelled : new KernelFault.InvalidResult())
                     .Bind(found => toSeq(found).TraverseM(sil => TopologyProjection.Of(curve: sil.Curve, source: sil.GeometryComponentIndex)).As()))));
 }
 
 internal static class IndexSelection {
     extension(Seq<TopologyProjection> items) {
-        internal Fin<Seq<TopologyProjection>> At(Option<int> index, Op key) =>
+        internal Fin<Seq<TopologyProjection>> At(Option<int> index) =>
             (items.Count, index.Case) switch {
-                (0, int) => Fin.Fail<Seq<TopologyProjection>>(key.InvalidInput()),
+                (0, int) => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.InvalidInput()),
                 (0, _) => Fin.Succ(Seq<TopologyProjection>()),
-                (int count, int at) when at < 0 || at >= count => Fin.Fail<Seq<TopologyProjection>>(key.InvalidInput()),
+                (int count, int at) when at < 0 || at >= count => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.InvalidInput()),
                 (_, int at) => Fin.Succ(Seq(items[at])),
                 _ => Fin.Succ(Seq(items[0])),
             };
@@ -360,20 +358,19 @@ public abstract partial record Faces {
     public sealed record AllCase : Faces;
     public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces;
     public sealed record AtCase(Option<int> Value) : Faces;
-    internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public static Faces All => new AllCase();
     public static Faces Top(Option<Vector3d> axis = default) => new RankedCase(Axis: axis.IfNone(Vector3d.ZAxis), Direction: ExtremumDirection.Maximum);
     public static Faces Bottom(Option<Vector3d> axis = default) => new RankedCase(Axis: axis.IfNone(Vector3d.ZAxis), Direction: ExtremumDirection.Minimum);
     public static Faces At(Option<int> index = default) => new AtCase(Value: index);
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         Capability.DecomposeFaces.Admits(type: typeof(TGeometry)) switch {
-            false => Key.Unsupported<TGeometry, TOut>(),
+            false => new KernelFault.Unsupported(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Build<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None,
                     project: static (chosen, _) => chosen.TraverseM(face => face.As<Brep>(key: Key)).As()
-                        .Bind(breps => Key.Accept(values: breps))),
+                        .Bind(breps => Acceptance.Rows(values: breps))),
                 Type t when t == typeof(TopologyProjection) => Build<TGeometry, TOut, TopologyProjection>(key: Key, selector: this, requirement: Requirement.None,
-                    project: static (chosen, _) => Key.Accept(values: chosen)),
+                    project: static (chosen, _) => Acceptance.Rows(values: chosen)),
                 Type t when t == typeof(Plane) => Build<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
                     project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>(key: Key).Bind(native => FrameAt(face: native, context: runtime, op: Key))).As()),
                 Type t when t == typeof(Point3d) => Build<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
@@ -383,26 +380,25 @@ public abstract partial record Faces {
                         .Bind(native => FrameAt(face: native, context: runtime, op: Key))
                         .Bind(frame => Rasm.Numerics.Direction.Of(value: frame.ZAxis, context: runtime, key: Key).Map(static direction => direction.Value))).As()),
                 Type t when t == typeof(ComponentIndex) => Build<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None,
-                    project: static (chosen, _) => Key.Accept(values: chosen.Map(static face => face.Source))),
+                    project: static (chosen, _) => Acceptance.Rows(values: chosen.Map(static face => face.Source))),
                 Type t when t == typeof(int) => Build<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None,
-                    project: static (chosen, _) => Key.Accept(values: chosen.Map(static face => face.Source.Index))),
+                    project: static (chosen, _) => Acceptance.Rows(values: chosen.Map(static face => face.Source.Index))),
                 Type t when t == typeof(Interval) => Build<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
                     project: static (chosen, _) => chosen.TraverseM(face => face.As<BrepFace>(key: Key).Bind(native => Topologies.DomainsOf(geometry: native, op: Key))).As().Map(static nested => nested.Bind(static domains => domains))),
-                _ => Key.Unsupported<TGeometry, TOut>(),
+                _ => new KernelFault.Unsupported(),
             },
         };
 
     private const double UnboundedSearch = 0.0;
 
-    internal static Fin<Plane> FrameAt(BrepFace face, Context context, Op op) =>
-        MassKind.CentroidOf(geometry: face, context: context, op: op).Bind(centroid =>
+    internal static Fin<Plane> FrameAt(BrepFace face, Context context) =>
+        MassKind.CentroidOf(geometry: face, context: context).Bind(centroid =>
             face.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: UnboundedSearch)
-                ? Evaluation.FrameAt(surface: face, uv: new Point2d(x: u, y: v), key: op)
-                : Fin.Fail<Plane>(op.InvalidResult()));
+                ? Evaluation.FrameAt(surface: face, uv: new Point2d(x: u, y: v))
+                : Fin.Fail<Plane>(new KernelFault.InvalidResult()));
 
-    private static Operation<TGeometry, TOut> Build<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Analysis.Operation<TGeometry, TValue>.Build(
-            key: key, state: (Key: key, Selector: selector, Project: project), requirement: Some(requirement), requiresContext: true,
+    private static Operation<TGeometry, TOut> Build<TGeometry, TOut, TValue>(Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
+        Analysis.Operation<TGeometry, TValue>.Build(state: (Selector: selector, Project: project), requirement: Some(requirement), requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from faces in Decompose(key: state.Key, geometry: geometry).ToEff()
@@ -412,22 +408,22 @@ public abstract partial record Faces {
                     rankedCase: static (s, ranked) => Ranked(state: s, axis: ranked.Axis, direction: ranked.Direction),
                     atCase: static (s, at) => s.Faces.At(index: at.Value, key: s.Key)).ToEff()
                 from result in TopologyProjection.Project(all: faces, chosen: chosen, project: values => state.Project(arg1: values, arg2: context)).ToEff()
-                select result).As<TGeometry, TOut>(key: key);
-    private static Fin<Seq<TopologyProjection>> Decompose<TGeometry>(Op key, TGeometry geometry) where TGeometry : notnull =>
-        Optional(geometry).ToFin(key.InvalidInput()).Bind(g => g switch {
+                select result).As<TGeometry, TOut>();
+    private static Fin<Seq<TopologyProjection>> Decompose<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => g switch {
             BrepFace face => TopologyProjection.Of(face: face).Map(static projection => Seq(projection)),
-            object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike, key: key).Bind(lease => lease.Switch(
+            object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike).Bind(lease => lease.Switch(
                 borrowed: static borrowed => toSeq(borrowed.Value.Faces).TraverseM(face => TopologyProjection.Of(face: face)).As(),
                 owned: static owned => owned.Project(static brep => toSeq(brep.Faces).TraverseM(face => TopologyProjection.Of(face: face)).As()
                     .Bind(faces => faces.TraverseM(face => face.DetachFrom(source: brep)).As())))),
-            _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
+            _ => Fin.Fail<Seq<TopologyProjection>>(new KernelFault.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
         });
-    private static Fin<Seq<TopologyProjection>> Ranked((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
+    private static Fin<Seq<TopologyProjection>> Ranked((Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
         state.Faces.IsEmpty switch {
             true => Fin.Succ(Seq<TopologyProjection>()),
-            false => from vector in Rasm.Numerics.Direction.Of(value: axis, context: state.Runtime, key: state.Key).Map(static direction => direction.Value)
-                     from ranked in state.Faces.TraverseM(face => face.As<BrepFace>(key: state.Key)
-                         .Bind(native => MassKind.CentroidOf(geometry: native, context: state.Runtime, op: state.Key))
+            false => from vector in Rasm.Numerics.Direction.Of(value: axis, context: state.Runtime).Map(static direction => direction.Value)
+                     from ranked in state.Faces.TraverseM(face => face.As<BrepFace>()
+                         .Bind(native => MassKind.CentroidOf(geometry: native, context: state.Runtime))
                          .Map(point => (Face: face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * vector))).As()
                      select Stat.Extrema(items: ranked, projection: static item => item.Score, band: state.Runtime.For(lane: ToleranceLane.Project), direction: direction).Map(static item => item.Face),
         };
@@ -465,46 +461,46 @@ public sealed partial class SpreadAspect {
         fit: static (points, _, _, op) => Fitted(points: points, op: op).Map(static fit => Seq<object>(fit)));
     public static readonly SpreadAspect PrincipalFrame = new(key: 1, output: OutputBinding.Of<Plane>(),
         fit: static (points, _, context, op) => Fitted(points: points, op: op)
-            .Bind(fit => Oriented(fit: fit, points: points, context: context, op: op)).Map(static plane => Seq<object>(plane)));
+            .Bind(fit => Oriented(fit: fit, points: points, context: context)).Map(static plane => Seq<object>(plane)));
     public static readonly SpreadAspect Distribution = new(key: 2, output: OutputBinding.Of<Stat<Scalar>>(),
-        fit: static (points, geometry, context, op) => MassKind.CentroidOf(geometry: geometry, context: context, op: op)
+        fit: static (points, geometry, context, op) => MassKind.CentroidOf(geometry: geometry, context: context)
             .Bind(centroid => Stat<Scalar>.Of(values: points.Map(point => (Scalar)point.DistanceTo(other: centroid)), key: op))
             .Map(static stat => Seq<object>(stat)));
     public static readonly SpreadAspect Collinear = new(key: 3, output: OutputBinding.Of<bool>(),
-        fit: static (points, _, context, op) => OnLine(points: points, tolerance: context.For(lane: ToleranceLane.LineDistance), op: op)
+        fit: static (points, _, context, op) => OnLine(points: points, tolerance: context.For(lane: ToleranceLane.LineDistance))
             .Map(static collinear => Seq<object>(collinear)));
     public static readonly SpreadAspect Coplanar = new(key: 4, output: OutputBinding.Of<bool>(),
         fit: static (points, _, context, _) => Fin.Succ(Seq<object>(points.Count <= 3
             || Point3d.ArePointsCoplanar(points.AsIterable(), context.For(lane: ToleranceLane.PlaneDistance).Value))));
 
     public OutputBinding Output { get; }
-    [UseDelegateFromConstructor] internal partial Fin<Seq<object>> Fit(Seq<Point3d> points, object geometry, Context context, Op op);
+    [UseDelegateFromConstructor] internal partial Fin<Seq<object>> Fit(Seq<Point3d> points, object geometry, Context context);
 
-    private static Fin<Plane> Fitted(Seq<Point3d> points, Op op) =>
+    private static Fin<Plane> Fitted(Seq<Point3d> points) =>
         (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane fit, maximumDeviation: out _), fit.IsValid) switch {
             (PlaneFitResult.Success, true) => Fin.Succ(fit),
-            _ => Fin.Fail<Plane>(op.InvalidResult()),
+            _ => Fin.Fail<Plane>(new KernelFault.InvalidResult()),
         };
-    private static Fin<double> Principal(Seq<Point3d> points, Plane fit, Context context, Op op) =>
-        points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op).Bind(span => span.Components(frame: fit, key: op))).As()
+    private static Fin<double> Principal(Seq<Point3d> points, Plane fit, Context context) =>
+        points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context).Bind(span => span.Components(frame: fit))).As()
             .Map(static planar => planar.Map(static row => Seq(row.X, row.Y)))
-            .Bind(rows => SampleMoment.Of(rows: rows, key: op))
-            .Bind(moment => SymmetricMatrix.Of(dim: Dimension.Create(value: moment.Dimension), upper: moment.UpperCovariance, key: op)
-                .Bind(covariance => covariance.DecomposeEigenDetailed(key: op)).Map(static solved => solved.Pairs))
-            .Bind(pairs => Stat.Extrema(items: pairs, projection: static pair => pair.Eigenvalue, band: context.For(lane: ToleranceLane.Residual), direction: ExtremumDirection.Maximum).Head.ToFin(op.InvalidResult()))
+            .Bind(rows => SampleMoment.Of(rows: rows))
+            .Bind(moment => SymmetricMatrix.Of(dim: Dimension.Create(value: moment.Dimension), upper: moment.UpperCovariance)
+                .Bind(covariance => covariance.DecomposeEigenDetailed()).Map(static solved => solved.Pairs))
+            .Bind(pairs => Stat.Extrema(items: pairs, projection: static pair => pair.Eigenvalue, band: context.For(lane: ToleranceLane.Residual), direction: ExtremumDirection.Maximum).Head.ToFin(new KernelFault.InvalidResult()))
             .Map(static dominant => Math.Atan2(y: dominant.Eigenvector[1], x: dominant.Eigenvector[0]));
-    private static Fin<Plane> Oriented(Plane fit, Seq<Point3d> points, Context context, Op op) =>
-        from angle in Principal(points: points, fit: fit, context: context, op: op)
-        from xAxis in Rasm.Numerics.Direction.Of(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle)), context: context, key: op).Map(static direction => direction.Value)
-        from yAxis in Rasm.Numerics.Direction.Of(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis), context: context, key: op).Map(static direction => direction.Value)
-        from plane in op.AcceptValue(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
+    private static Fin<Plane> Oriented(Plane fit, Seq<Point3d> points, Context context) =>
+        from angle in Principal(points: points, fit: fit, context: context)
+        from xAxis in Rasm.Numerics.Direction.Of(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle)), context: context).Map(static direction => direction.Value)
+        from yAxis in Rasm.Numerics.Direction.Of(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis), context: context).Map(static direction => direction.Value)
+        from plane in Acceptance.Value(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
         select plane;
-    private static Fin<bool> OnLine(Seq<Point3d> points, Tolerance tolerance, Op op) =>
+    private static Fin<bool> OnLine(Seq<Point3d> points, Tolerance tolerance) =>
         points.Count <= 2 || points.Head.Exists(anchor => points.ForAll(point => point.DistanceTo(anchor) <= tolerance.Value))
             ? Fin.Succ(true)
             : Line.TryFitLineToPoints(points.AsIterable(), out Line axis) && axis.IsValid
                 ? Fin.Succ(points.ForAll(point => axis.DistanceTo(point, false) <= tolerance.Value))
-                : Fin.Fail<bool>(op.InvalidResult());
+                : Fin.Fail<bool>(new KernelFault.InvalidResult());
 }
 
 [Union]
@@ -515,12 +511,6 @@ public abstract partial record Points {
     public sealed record VerticesCase : Points;
     public sealed record ControlPointsCase : Points;
     public sealed record SpreadCase(SpreadAspect Aspect) : Points;
-    internal Op Key => Switch(
-        extremaCase: static _ => Op.Of(name: nameof(ExtremaCase)),
-        edgeMidpointsCase: static _ => Op.Of(name: nameof(EdgeMidpointsCase)),
-        verticesCase: static _ => Op.Of(name: nameof(VerticesCase)),
-        controlPointsCase: static _ => Op.Of(name: nameof(ControlPointsCase)),
-        spreadCase: static _ => Op.Of(name: nameof(SpreadCase)));
     public static Points Quadrants => new ExtremaCase(Directions: Option<Seq<Vector3d>>.None);
     public static Points Extrema(Seq<Vector3d> directions) => new ExtremaCase(Directions: Some(value: directions));
     public static Points EdgeMidpoints => new EdgeMidpointsCase();
@@ -530,80 +520,73 @@ public abstract partial record Points {
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d) && Capability.CurveForm.Admits(type: typeof(TGeometry))
-            ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: c.Key, requirement: Some(Requirement.Basic), requiresContext: true, state: (Key: c.Key, c.Directions),
+            ? Analysis.Operation<TGeometry, Point3d>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: (Key: c.Key, c.Directions),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from lease in Normalization.CurveForm(source: geometry, key: state.Key).ToEff()
                     from points in lease.Use((Curve curve) => curve.IsValid switch {
-                        false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput()),
+                        false => Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidInput()),
                         true => state.Directions
                             .IfNone(SignedAxis.Cardinal(rank: Dimension.Create(value: curve.IsPlanar(tolerance: context.For(lane: ToleranceLane.PlaneDistance).Value) ? 2 : 3))
                                 .Map(static axis => axis.World))
-                            .TraverseM(axis => Rasm.Numerics.Direction.Of(value: axis, context: context, key: state.Key).Map(static direction => direction.Value))
+                            .TraverseM(axis => Rasm.Numerics.Direction.Of(value: axis, context: context).Map(static direction => direction.Value))
                             .As()
                             .Bind((Seq<Vector3d> directions) => directions.IsEmpty
-                                ? Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput())
+                                ? Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidInput())
                                 : directions.TraverseM((Vector3d direction) => Stat.Extrema(
                                         items: toSeq(curve.ExtremeParameters(direction: direction) ?? []).Map(curve.PointAt),
                                         projection: point => (Vector3d)point * direction,
                                         band: context.For(lane: ToleranceLane.Project),
                                         direction: ExtremumDirection.Maximum)
-                                    .Head.ToFin(state.Key.InvalidResult()))
+                                    .Head.ToFin(new KernelFault.InvalidResult()))
                                 .As()),
                     }).ToEff()
-                    select points).As<TGeometry, TOut>(key: c.Key)
-            : c.Key.Unsupported<TGeometry, TOut>(),
+                    select points).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported(),
         edgeMidpointsCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadEdges.Admits(type: typeof(TGeometry))
-            ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: c.Key, requiresContext: true, state: c.Key,
-                evaluator: static (op, geometry) => Curves.Project<TGeometry, Point3d, Point3d>(
-                    key: op,
-                    aspect: Curves.All,
-                    project: static (projection, _, _, key) => projection.As<Curve>(key: key).Map(static curve => curve.PointAtNormalizedLength(length: 0.5)))
-                    .Apply(geometry: Seq(geometry))).As<TGeometry, TOut>(key: c.Key)
-            : c.Key.Unsupported<TGeometry, TOut>(),
+            ? Analysis.Operation<TGeometry, Point3d>.Build(requiresContext: true, state: c.Key,
+                evaluator: static (op, geometry) => Curves.Project<TGeometry, Point3d, Point3d>(aspect: Curves.All,
+                    project: static (projection, _, _, key) => projection.As<Curve>().Map(static curve => curve.PointAtNormalizedLength(length: 0.5)))
+                    .Apply(geometry: Seq(geometry))).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported(),
         verticesCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadVertices.Admits(type: typeof(TGeometry))
-            ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: c.Key, state: c.Key,
+            ? Analysis.Operation<TGeometry, Point3d>.Build(state: c.Key,
                 evaluator: static (op, geometry) =>
                     from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: op).ToEff()
-                    from result in op.Accept(values: points).ToEff()
-                    select result).As<TGeometry, TOut>(key: c.Key)
-            : c.Key.Unsupported<TGeometry, TOut>(),
+                    from result in Acceptance.Rows(values: points).ToEff()
+                    select result).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported(),
         controlPointsCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadControlPoints.Admits(type: typeof(TGeometry))
-            ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: c.Key, state: c.Key,
+            ? Analysis.Operation<TGeometry, Point3d>.Build(state: c.Key,
                 evaluator: static (op, geometry) =>
                     from points in Lattice(geometry: geometry, op: op).ToEff()
-                    from result in op.Accept(values: points).ToEff()
-                    select result).As<TGeometry, TOut>(key: c.Key)
-            : c.Key.Unsupported<TGeometry, TOut>(),
+                    from result in Acceptance.Rows(values: points).ToEff()
+                    select result).As<TGeometry, TOut>()
+            : new KernelFault.Unsupported(),
         spreadCase: static s => s.Aspect.Output.Serves<TOut>() && Capability.ReadVertices.Admits(type: typeof(TGeometry))
-            ? Analysis.Operation<TGeometry, TOut>.Build(
-                key: s.Key, requiresContext: true, state: (Key: s.Key, s.Aspect),
+            ? Analysis.Operation<TGeometry, TOut>.Build(requiresContext: true, state: (Key: s.Key, s.Aspect),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: state.Key).ToEff()
-                    from fitted in state.Aspect.Fit(points: points, geometry: geometry, context: context, op: state.Key).ToEff()
+                    from fitted in state.Aspect.Fit(points: points, geometry: geometry, context: context).ToEff()
                     from result in state.Aspect.Output.Admit<TOut>(values: fitted, key: state.Key).ToEff()
                     select result)
-            : s.Key.Unsupported<TGeometry, TOut>());
+            : new KernelFault.Unsupported());
 
-    private static Fin<Seq<Point3d>> Lattice<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+    private static Fin<Seq<Point3d>> Lattice<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => g switch {
             NurbsCurve nurbs => Fin.Succ(NetOf(curve: nurbs)),
-            Curve curve => Optional(curve.ToNurbsCurve()).ToFin(op.InvalidResult())
+            Curve curve => Optional(curve.ToNurbsCurve()).ToFin(new KernelFault.InvalidResult())
                 .Map(static minted => new Lease<NurbsCurve>.Owned(Value: minted).Use(static owned => NetOf(curve: owned))),
             NurbsSurface nurbs => Fin.Succ(NetOf(surface: nurbs)),
-            Surface surface => Optional(surface.ToNurbsSurface()).ToFin(op.InvalidResult())
+            Surface surface => Optional(surface.ToNurbsSurface()).ToFin(new KernelFault.InvalidResult())
                 .Map(static minted => new Lease<NurbsSurface>.Owned(Value: minted).Use(static owned => NetOf(surface: owned))),
-            Brep brep => toSeq(brep.Faces).TraverseM(face => Optional(face.ToNurbsSurface()).ToFin(op.InvalidResult())
+            Brep brep => toSeq(brep.Faces).TraverseM(face => Optional(face.ToNurbsSurface()).ToFin(new KernelFault.InvalidResult())
                 .Map(static minted => new Lease<NurbsSurface>.Owned(Value: minted).Use(static owned => NetOf(surface: owned)))).As()
                 .Map(static nested => nested.Bind(static points => points)),
             object surfaceLike when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
-                Normalization.SurfaceForm(source: surfaceLike, key: op).Bind(lease => lease.Use(surface => Lattice(geometry: surface, op: op))),
-            _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
+                Normalization.SurfaceForm(source: surfaceLike).Bind(lease => lease.Use(surface => Lattice(geometry: surface))),
+            _ => Fin.Fail<Seq<Point3d>>(new KernelFault.Unsupported(g.GetType(), typeof(Point3d))),
         });
     private static Seq<Point3d> NetOf(NurbsCurve curve) =>
         toSeq(Enumerable.Range(0, curve.Points.Count).Select(i => curve.Points[i].Location).ToArray());

@@ -11,7 +11,7 @@ THE NODE-GRAPH APPEARANCE ENGINE and THE POLYMORPHIC MATERIAL LIBRARY. One `Appe
 
 - Owner: `MaterialGraph`/`CompiledGraph` over `AppearanceNode`; the `PortId`/`MathOp`/`MixOp`/`PortValue` graph vocabulary; the `GraphEdit` authoring request union and the `ShadeChannel` sink-port roster carrying each channel's read and re-seat; the `ShadePoint`/`SurfaceShade`/`PortSlot` evaluation models.
 - Cases: `Input` (constant/parameter source) · `Texture` (UV-sampled source — the `texture#TEXTURE_UV` `TextureUv.Port` closure) · `Math` (closed scalar/vector op over upstream ports) · `Mix` (parameterized `BlendMode` composite of two ports) · `Normal` (tangent-space perturbation of the shading frame) · `BsdfOutput` (the single sink assembling the closed lobe set into a `SurfaceShade`); authoring edit {`Node` (a node at a FREE port), `Seat` (a replacement at a TAKEN port), `Route` (a `ShadeChannel` re-seat onto an existing port)}; shade channel {base-color, metalness, roughness, normal-frame, emission}.
-- Entry: `public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades, Op key)` is the ONE evaluation path — `Raster/press#TEXTURE_PRESS` drives it per band, and the per-point `public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> window, Op key)` the integrator holds re-enters it over a one-element window, so no second environment representation exists to drift from and the path's own buffers allocate nothing — a per-point entry renting its own scratch and its own window prices two heap arrays per ray to spare a caller two arguments; the per-node `PortValue`/`Fin` productions remain the union's heap cost, deleted only by a value-shaped union this page does not mint — with `ScratchWidth` and `OperandWidth` the two `Compile`-resolved rentals a caller sizes against; `public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters, Op key)` is the ONE-SHOT convenience (Compile + Shade for a single sample), while the per-sample path `Compile`s ONCE into a frozen `CompiledGraph` and re-enters it per sample, so the hot loop pays the sort once per material, never per ray. `Fin<T>` aborts at COMPILE on a cyclic DAG (`MaterialFault.Graph`, key-correlated), a duplicate node id, a dangling port reference, a dependency on a non-producing port, or a missing/non-`BsdfOutput` sink, and at SHADE on a short span rental, a degenerate frame perturbation, or an out-of-gamut assembled shade — each shade-time failure re-wrapped with the failing TEXEL INDEX, since a plane fails at one of sixteen million points that all ran the same program (a port-TYPE mismatch cannot fault at all — the `PortValue.AsScalar`/`AsColor`/`AsVector` projections are total by construction); `MaterialGraph.Default` is the canonical Disney-principled wiring every library row drives through; `public Fin<MaterialGraph> Author(Seq<GraphEdit> edits, Op key)` is the ONE producer entry a caller composes a layered or masked appearance through — folding the closed `GraphEdit` request family over `Default` (or any compiled-clean graph) with the node `Admit` predicate and the sink re-seat proofs run at ADMISSION so the product is compile-clean by construction, `public Seq<PortId> Ports(int count)` the fresh id block a session names new wiring with, and `public Fin<PortId> PortOf(ShadeChannel channel, Op key)` the read that tells a composer where a channel is ALREADY wired, so lowering onto a standing graph transcribes no port integer.
+- Entry: `public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades)` is the ONE evaluation path — `Raster/press#TEXTURE_PRESS` drives it per band, and the per-point `public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> window)` the integrator holds re-enters it over a one-element window, so no second environment representation exists to drift from and the path's own buffers allocate nothing — a per-point entry renting its own scratch and its own window prices two heap arrays per ray to spare a caller two arguments; the per-node `PortValue`/`Fin` productions remain the union's heap cost, deleted only by a value-shaped union this page does not mint — with `ScratchWidth` and `OperandWidth` the two `Compile`-resolved rentals a caller sizes against; `public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters)` is the ONE-SHOT convenience (Compile + Shade for a single sample), while the per-sample path `Compile`s ONCE into a frozen `CompiledGraph` and re-enters it per sample, so the hot loop pays the sort once per material, never per ray. `Fin<T>` aborts at COMPILE on a cyclic DAG (`MaterialFault.Graph`, key-correlated), a duplicate node id, a dangling port reference, a dependency on a non-producing port, or a missing/non-`BsdfOutput` sink, and at SHADE on a short span rental, a degenerate frame perturbation, or an out-of-gamut assembled shade — each shade-time failure re-wrapped with the failing TEXEL INDEX, since a plane fails at one of sixteen million points that all ran the same program (a port-TYPE mismatch cannot fault at all — the `PortValue.AsScalar`/`AsColor`/`AsVector` projections are total by construction); `MaterialGraph.Default` is the canonical Disney-principled wiring every library row drives through; `public Fin<MaterialGraph> Author(Seq<GraphEdit> edits)` is the ONE producer entry a caller composes a layered or masked appearance through — folding the closed `GraphEdit` request family over `Default` (or any compiled-clean graph) with the node `Admit` predicate and the sink re-seat proofs run at ADMISSION so the product is compile-clean by construction, `public Seq<PortId> Ports(int count)` the fresh id block a session names new wiring with, and `public Fin<PortId> PortOf(ShadeChannel channel)` the read that tells a composer where a channel is ALREADY wired, so lowering onto a standing graph transcribes no port integer.
 - Packages: QuikGraph (composed — `AdjacencyGraph<PortId, SEdge<PortId>>` with `allowParallelEdges: false`, `AddVertexRange` admitting isolates, `AddVerticesAndEdge` per dependency edge, `AlgorithmExtensions.IsDirectedAcyclicGraph` the cheap cycle pre-gate, `AlgorithmExtensions.SourceFirstTopologicalSort` the Kahn order — the one graph-algorithm substrate `Rasm.Element`/`Rasm.Persistence`/`Rasm.Bim` already fold onto, admitted folder-locally against the central pin), Rasm (project — `Direction`/`VectorFrame`/`Context`/`Op`, `Rhino.Geometry.Point3d`/`Vector3d`/`Plane` at the host edge), Rasm.Element (the CONTRACT `MaterialId`, composed not re-declared), Rasm.Materials.Appearance.Bsdf (the `MaterialFault` band-2450 channel composed from `bsdf#SHADING_FRAME`), Wacton.Unicolour (color/spectral/compositing compose — `Mix`, `Blend(backdrop, BlendMode)`, the 16-member `BlendMode` vocabulary), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`; `System.Buffers.ArrayPool<PortValue>.Shared` for the one operand buffer a `Span` cannot carry through the generated `Switch` state, rented per fold and returned cleared). `texture#TEXTURE_UV` `TextureUv.Port` mints the `Texture` arm's closure — `texture` COMPOSES this page's `PortValue`/`PortId`/`ShadePoint`, so graph stays the LOWER owner and the `Texture` case carries only a host-free `Func<double,double,PortValue>`, never a `texture`-namespace type (no cyclic namespace dependency).
 - Growth: a new appearance operation is one `MathOp` row (the operation behavior rides the SmartEnum row's `[UseDelegateFromConstructor]` delegate — the roster spans arithmetic incl. floored `modulo`, the unary transcendental and rounding family, min/max, the vector ops, unit clamps, the Schlick weight, the `smoothstep`/`remap`/`range`/`contrast` signal curves, and the `if-greater`/`if-equal`/`switch` conditionals, each keyed to its MaterialX standard math category and each admitting its own operand count through its `Accepts` predicate column) or one `MixOp` row naming its `BlendMode` member (the blend behavior IS the `Mode` data column the ONE `Apply` derivation reads — never a new arm, never a hand-rolled channel composite); a genuinely new node KIND with no parameterization of the six is one `AppearanceNode` case; a new port channel is one `PortValue` case carrying its CLR carrier; a new lobe assembled at the sink is one `BsdfLobe` `[Union]` case on the `bsdf` page — never a per-effect graph variant and never a sibling node type. A new AUTHORING move is one `GraphEdit` case the generated `Switch` forces every fold site to route, and a sixth sink port is one `ShadeChannel` row carrying its read and its re-seat — never a per-op `Multiply`/`Screen`/`Lerp` factory family re-spelling the `MathOp`/`MixOp` rows the declaration already closes, and never a per-channel `RouteBaseColor`/`RouteEmission` entrypoint. `interchange#MATERIALX_DOCUMENT` projects its `NodeCategory`/`MtlxPort` map onto the `AppearanceNode` union and `PortValue` set, the MaterialX 1.39 node-graph alignment target.
 - Boundary: the node DAG is the only appearance-program shape — a per-material hand-written shade function is the deleted form; `PortValue` is the only inter-node channel and carries scalar/`Unicolour`/`Vector3d`/`VectorFrame` polarities so a node arm reads typed ports and never `object`; the `Color`→`Scalar` projection is the AP1 scene-linear luminance dot the `bsdf#LOBE_FAMILY` owner derives from the working space's own chromaticities (the AP1-primary luminance row consistent with the declared `Acescg` working space and the `bsdf#LOBE_FAMILY` `RgbSpectrum.Luminance` weights — a Rec709 weight on AP1-linear channels is the colorimetric defect, biasing a green-heavy mask), never a red-channel read, so a mask pulled from a color is photometrically weighted and cannot silently bias to red; the `Texture` arm carries the TOTAL `Func<double,double,Option<double>,PortValue>` closure the `texture#TEXTURE_UV` `TextureUv.Port(TextureSource, UvSample, SamplerState, Channel, Op)` mints and an `Option<PortId> Parameter` naming the upstream port that DRIVES it, so a field-parameterized ramp is one wired dependency rather than a source case — the node holds the delegate, the sampling fold lives on the `texture` page, and the arm never re-implements a sampler nor admits a raw caller-supplied lambda that bypasses the `Channel`-neutralized fault path; the `Normal` arm perturbs the composed Rasm.Numerics `VectorFrame` (tangent·bitangent·normal) and never re-mints a basis; the `BsdfOutput` arm assembles the `SurfaceShade` parameter snapshot (resolved base color, metalness, roughness, perturbed shading frame, emission) the renderer reads after `Assemble` probes ALL FIVE sink ports against the `ShadeChannel` row's own `PortKind` column and admits its weights through the SAME `MaterialParameters.InUnit` predicate a row admission takes — the lobe WEIGHTING is the downstream `surface#OPENPBR_SLAB` `SlabStack.ToLayered` lowering of the `MaterialParameters` row to the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` the integrator shades, the graph sink being the resolved parameter shade and the lobe math living wholly on the `bsdf`/`surface` pages, never re-derived here, color resolved through the directly-consumed Wacton.Unicolour `RgbConfiguration.Acescg` scene-linear owner; the `BsdfOutput` sink resolves through `Assemble` behind a pattern-matched sink probe (a non-`BsdfOutput` sink fails `MaterialFault.Graph`, never an unchecked cast), never a port write, so the environment carries no dead entry under the sink id and a downstream node cannot read a phantom `Scalar(1.0)`; the `Math` arm folds over its `MathOp` SmartEnum by delegate row so a new operation is a row, never a new arm, and the `MathOp.Fresnel` row supplies only the Schlick angular weight `(1−cosθ)⁵` for a `Mix` lobe blend — the full Fresnel term lives on `bsdf#MICROFACET_KERNEL`, never re-derived here; the `Mix` arm dispatches `b.AsColor.Blend(a.AsColor, Mode)` — the W3C separable/non-separable compositing algebra Unicolour owns, `a` the backdrop, `b` the source, the factor the blend opacity lerped in scene-linear `RgbLinear` — so all sixteen W3C modes are one data column and the prior three-mode hand-rolled `ChannelCompose` channel math is the deleted form; the `Lerp` row IS `BlendMode.Normal` spelled as the HDR-safe scene-linear `Unicolour.Mix` (the blend algebra clips to the `[0,1]` W3C reflectance domain; an over-unity INTERMEDIATE — a scaled mask, a `Math` product — keeps its `>1` channels through the linear arm, while a sink-bound emission port is NORMALIZED chromaticity by construction, `MaterialParameters.EmissionLuminance` carrying the energy, so the `Assemble` `InGamut` gate holds); the node algebra is POINTWISE by construction and the `AppearanceNode` union admits no neighbourhood operation — a blur, a normal-from-height integration, an ambient-occlusion sweep, or any other kernel reading a texel's neighbours lives at `Raster/filter#PLANE_OP` over a whole `Raster/plane#TEXTURE_PLANE`, because a DAG node evaluated per shading point has no neighbours to read, so a node kind pretending otherwise either fabricates them or forces every sample to carry a plane; the press bakes the DAG's pointwise field first and folds the plane algebra AFTER, so the two owners compose in one direction and neither re-implements the other; `Compile` folds the DAG onto the QuikGraph substrate ONCE — `AddVertexRange` admits every node so an isolate still orders, `AddVerticesAndEdge` adds one dependency→dependent `SEdge<PortId>` per KNOWN dependency (`allowParallelEdges: false` deduplicating an operand list naming one port twice), and one `ANSWERABILITY` sweep failing `MaterialFault.Graph` at COMPILE over the two failures a slot-addressed read cannot distinguish at runtime — a port no node declares (`<dangling-port>`) and a port whose node `Produces` nothing (`<non-producing-port>`, the sink a dependent named) — because both read an UNWRITTEN scratch cell carrying the previous texel's value rather than faulting, where the per-point map read once failed cleanly, so the proof is what keeps one path total and a per-texel liveness check is exactly the cost the frozen order exists to delete; `IsDirectedAcyclicGraph` pre-gates a cycle onto `MaterialFault.Graph` before `SourceFirstTopologicalSort` throws `NonAcyclicGraphException`, and the sink resolves to its `BsdfOutput` at COMPILE so no path re-probes a cast per sample; `ShadeSpan` then re-enters the frozen order against a caller-rented `Span<PortValue>` scratch and `Shade` re-enters `ShadeSpan` over a one-element window, so ONE `NodeEvaluator.Apply` algebra over pre-resolved operands and ONE `Assemble` reading that scratch DIRECTLY close every evaluation at the same gamut gate — a `Func<PortId, Fin<PortValue>>` port reader cannot exist here at all, since a lambda may not capture a `Span<T>`, and a second environment shape minted to dodge that is the divergence this collapse forecloses; the prior hand-rolled indegree/`Queue`/`CollectionsMarshal` Kahn kernel is DELETED for the substrate's own catalogued `AdjacencyGraph` construction API, and the page's ONE `[EXPRESSION_SPINE]` exemption is the `ShadeSpan` span kernel — a fixed-extent index walk over caller-owned buffers, the doctrine's named span-loop carve — while every admission, dispatch, and egress surface on the page is expression-bodied; `Context.Canonical` is the one tolerant `Context` the `Normal`/`ShadePoint` arms construct the `VectorFrame` through (a millimetre-scale model `Context` whose `Fin` admission the page resolves once, so a near-degenerate perturbation re-seeds a perpendicular tangent through the `Rasm.Numerics` owner rather than faulting mid-shade); `MaterialGraph.Default` carries the geometric frame unperturbed through one `Normal` node at `Strength 0` whose identity tangent-space sample `(0.5,0.5,1.0)` decodes to `+Z`, so a library row is parameters evaluated through this one standard graph, never a per-row graph type; a cycle, a dangling port, a duplicate node id, or a non-`BsdfOutput` sink returns `Fin.Fail` and never propagates a NaN shade outward; AUTHORING is the same algebra read backwards and shares its proof — `MaterialGraph.Author` folds the closed `GraphEdit` family through the SAME `Admit` predicate `Compile` runs, the only difference being the KNOWN-SET each hands it (`Compile` the whole node map, so a dependency declared later is legal; `Author` the nodes admitted so far, so an unresolved dependency IS a forward reference an incremental fold cannot have), and a second copy of the arity or answerability sweep beside it is the fork this sharing forecloses; the authoring product is an ordinary `MaterialGraph` that `Compile`s, `ShadeSpan`s, and lowers to WGSL through the one frozen-order path, so no authored-graph representation, builder type, or mutable node bag exists to diverge from the evaluated one; `Author` mints no `BsdfOutput` — the graph terminates ONCE and a caller layers onto `Default`'s sink through `Route`, so a second terminal is unrepresentable rather than resolved by an id compare at `Compile`; and a caller never hand-types a port integer, because `Ports` allocates above every authored id and `PortOf` reads whatever the sink already wires, which is what makes a mask blended against the standing base colour a two-edit sequence instead of a transcription of `Default`'s own wiring. LOWERING onto `Default` is `Seat`, never `Node` plus `Route`: a composer that owns the whole channel — the `Raster/set#SET_BIND` `Program` arm binding a texture set is the standing one — replaces the default's Input at that channel's OWN port, because authoring the covered channel at a fresh port instead leaves the default node orphaned in the compiled order, and an isolate the sort still admits pays a `PortValue` production per texel for a scratch cell nothing reads. `Seat` therefore refuses an absent port and a `Produces` flip, so a lowering carries `Default`'s topology BY CONSTRUCTION rather than by a second hand-wiring that must be re-checked against it every time either side widens.
@@ -197,9 +197,9 @@ public abstract partial record PortValue {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ShadePoint(Point3d Position, VectorFrame Frame, Vector3d ViewDirection, double U, double V) {
-    public static Fin<ShadePoint> Of(Point3d position, Vector3d normal, Vector3d view, Option<Vector3d> tangentHint, double u, double v, Context context, Op key) =>
-        from frame in VectorFrame.Of(origin: position, normal: normal, xHint: tangentHint, context: context, key: key)
-        from outgoing in Direction.Of(value: view, context: context, key: key)
+    public static Fin<ShadePoint> Of(Point3d position, Vector3d normal, Vector3d view, Option<Vector3d> tangentHint, double u, double v, Context context) =>
+        from frame in VectorFrame.Of(origin: position, normal: normal, xHint: tangentHint, context: context)
+        from outgoing in Direction.Of(value: view, context: context)
         select new ShadePoint(position, frame, outgoing.Value, u, v);
 }
 
@@ -275,9 +275,9 @@ public readonly record struct PortSlot(bool Produced, PortValue Value) {
 }
 
 public static class NodeEvaluator {
-    public static Fin<PortSlot> Apply(AppearanceNode node, ShadePoint point, MaterialParameters parameters, PortValue[] operands, Op key) =>
+    public static Fin<PortSlot> Apply(AppearanceNode node, ShadePoint point, MaterialParameters parameters, PortValue[] operands) =>
         node.Switch(
-            state:      (Point: point, Parameters: parameters, Operands: operands, Key: key),
+            state:      (Point: point, Parameters: parameters, Operands: operands),
             input:      static (s, i) => Fin.Succ(PortSlot.Of(i.Pull(s.Parameters))),
             texture:    static (s, t) => Fin.Succ(PortSlot.Of(t.Sample(s.Point.U, s.Point.V,
                             t.Parameter.Map(_ => s.Operands[0].AsScalar)))),
@@ -288,12 +288,12 @@ public static class NodeEvaluator {
 
     internal static double SchlickWeight(double cosTheta) { double m = System.Math.Clamp(1.0 - cosTheta, 0.0, 1.0); double m2 = m * m; return m2 * m2 * m; }
 
-    static Fin<PortValue> Perturb(AppearanceNode.Normal n, ShadePoint point, PortValue sample, Op key) =>
+    static Fin<PortValue> Perturb(AppearanceNode.Normal n, ShadePoint point, PortValue sample) =>
         from raw in Fin.Succ(sample.AsVector)
         let tangentSpace = new Vector3d((2.0 * raw.X - 1.0) * n.Strength, (2.0 * raw.Y - 1.0) * n.Strength, 2.0 * raw.Z - 1.0)
         let basis = point.Frame.Value
         let world = (basis.XAxis * tangentSpace.X) + (basis.YAxis * tangentSpace.Y) + (basis.ZAxis * tangentSpace.Z)
-        from perturbed in VectorFrame.Of(origin: basis.Origin, normal: world, xHint: Some(basis.XAxis), context: Context.Canonical, key: key)
+        from perturbed in VectorFrame.Of(origin: basis.Origin, normal: world, xHint: Some(basis.XAxis), context: Context.Canonical)
         select (PortValue)new PortValue.Frame(perturbed);
 }
 
@@ -314,75 +314,75 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
     static bool Answers(HashMap<PortId, AppearanceNode> known, PortId port) =>
         known.Find(port).Map(static n => n.Produces).IfNone(false);
 
-    static Fin<AppearanceNode.BsdfOutput> SinkOf(HashMap<PortId, AppearanceNode> known, PortId sink, Op key) =>
-        known.Find(sink).ToFin(new MaterialFault.Graph(key, "<sink-missing>"))
+    static Fin<AppearanceNode.BsdfOutput> SinkOf(HashMap<PortId, AppearanceNode> known, PortId sink) =>
+        known.Find(sink).ToFin(new MaterialFault.Graph("<sink-missing>"))
             .Bind(node => node is AppearanceNode.BsdfOutput output
                 ? Fin.Succ(output)
-                : Fin.Fail<AppearanceNode.BsdfOutput>(new MaterialFault.Graph(key, "<sink-not-bsdf-output>")));
+                : Fin.Fail<AppearanceNode.BsdfOutput>(new MaterialFault.Graph("<sink-not-bsdf-output>")));
 
-    public Fin<CompiledGraph> Compile(Op key) => key.Catch(() => {
+    public Fin<CompiledGraph> Compile() => Try.lift(() => {
         HashMap<PortId, AppearanceNode> byId = ByPort;
         AdjacencyGraph<PortId, SEdge<PortId>> dag = new(allowParallelEdges: false);
         dag.AddVertexRange(Nodes.Map(static n => n.Id));
         Nodes.Iter(n => n.Dependencies.Filter(byId.ContainsKey).Iter(d => dag.AddVerticesAndEdge(new SEdge<PortId>(d, n.Id))));
-        return from _ in guard(byId.Count == Nodes.Count, new MaterialFault.Graph(key, "<duplicate-node-id>"))
+        return from _ in guard(byId.Count == Nodes.Count, new MaterialFault.Graph("<duplicate-node-id>"))
                from _admitted in Nodes.Choose(n => Admit(n, byId)).Head
-                   .TraverseM(reason => Fin.Fail<Unit>(new MaterialFault.Graph(key, reason))).As()
-               from output in SinkOf(byId, Sink, key)
-               from ___ in guard(dag.IsDirectedAcyclicGraph(), new MaterialFault.Graph(key, "<cyclic-appearance-graph>"))
+                   .TraverseM(reason => Fin.Fail<Unit>(new MaterialFault.Graph(reason))).As()
+               from output in SinkOf(byId, Sink)
+               from ___ in guard(dag.IsDirectedAcyclicGraph(), new MaterialFault.Graph("<cyclic-appearance-graph>"))
                let order = toSeq(dag.SourceFirstTopologicalSort()).Map(id => byId[id])
                let slots = order.Map(static (node, index) => KeyValuePair.Create(node.Id, index)).ToFrozenDictionary()
                select new CompiledGraph(order, output, slots,
                    order.Map(node => node.Dependencies.Map(d => slots[d]).ToArray()).Strict());
-    });
+    }).Run().Bind(static inner => inner);
 
-    public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters, Op key) =>
-        Compile(key).Bind(compiled => compiled.Shade(
-            point, parameters, new PortValue[compiled.ScratchWidth], new SurfaceShade[1], key));
+    public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters) =>
+        Compile().Bind(compiled => compiled.Shade(
+            point, parameters, new PortValue[compiled.ScratchWidth], new SurfaceShade[1]));
 
     // --- [AUTHORING]
     public Seq<PortId> Ports(int count) =>
         toSeq(Enumerable.Range(Nodes.Fold(0, static (highest, n) => System.Math.Max(highest, n.Id.Value)) + 1, count)).Map(PortId.Create);
 
-    public Fin<MaterialGraph> Author(Seq<GraphEdit> edits, Op key) =>
-        edits.FoldM(this, (graph, edit) => graph.Apply(edit, key)).As();
+    public Fin<MaterialGraph> Author(Seq<GraphEdit> edits) =>
+        edits.FoldM((graph, edit) => graph.Apply(edit)).As();
 
-    Fin<MaterialGraph> Apply(GraphEdit edit, Op key) =>
+    Fin<MaterialGraph> Apply(GraphEdit edit) =>
         edit.Switch(
-            state: (Graph: this, Key: key),
-            node: static (s, n) => s.Graph.Admitted(n.Authored, s.Key),
-            seat: static (s, n) => s.Graph.Seated(n.Replacement, s.Key),
-            route: static (s, r) => s.Graph.Routed(r.Channel, r.Port, s.Key));
+            state: this,
+            node: static (s, n) => s.Admitted(n.Authored, s.Key),
+            seat: static (s, n) => s.Seated(n.Replacement, s.Key),
+            route: static (s, r) => s.Routed(r.Channel, r.Port, s.Key));
 
-    public Fin<PortId> PortOf(ShadeChannel channel, Op key) =>
-        SinkOf(ByPort, Sink, key).Map(channel.Port);
+    public Fin<PortId> PortOf(ShadeChannel channel) =>
+        SinkOf(ByPort, Sink).Map(channel.Port);
 
-    Fin<MaterialGraph> Admitted(AppearanceNode node, Op key) =>
+    Fin<MaterialGraph> Admitted(AppearanceNode node) =>
         ByPort switch { var known =>
             known.ContainsKey(node.Id)
-                ? Fin.Fail<MaterialGraph>(new MaterialFault.Graph(key, $"<authored-duplicate-node-id:{node.Id.Value}>"))
+                ? Fin.Fail<MaterialGraph>(new MaterialFault.Graph($"<authored-duplicate-node-id:{node.Id.Value}>"))
                 : node is AppearanceNode.BsdfOutput
-                    ? Fin.Fail<MaterialGraph>(new MaterialFault.Graph(key, $"<authored-second-sink:{node.Id.Value}>"))
+                    ? Fin.Fail<MaterialGraph>(new MaterialFault.Graph($"<authored-second-sink:{node.Id.Value}>"))
                     : Admit(node, known)
-                        .Map(reason => Fin.Fail<MaterialGraph>(new MaterialFault.Graph(key, reason)))
+                        .Map(reason => Fin.Fail<MaterialGraph>(new MaterialFault.Graph(reason)))
                         .IfNone(() => Fin.Succ(this with { Nodes = Nodes.Add(node) })) };
 
-    Fin<MaterialGraph> Seated(AppearanceNode node, Op key) =>
+    Fin<MaterialGraph> Seated(AppearanceNode node) =>
         ByPort switch { var known =>
-            known.Find(node.Id).ToFin(new MaterialFault.Graph(key, $"<seated-port-absent:{node.Id.Value}>"))
+            known.Find(node.Id).ToFin(new MaterialFault.Graph($"<seated-port-absent:{node.Id.Value}>"))
                 .Bind(standing => standing.Produces == node.Produces
                     ? Fin.Succ(standing)
-                    : Fin.Fail<AppearanceNode>(new MaterialFault.Graph(key, $"<seated-produces-flip:{node.Id.Value}>")))
+                    : Fin.Fail<AppearanceNode>(new MaterialFault.Graph($"<seated-produces-flip:{node.Id.Value}>")))
                 .Bind(_ => Admit(node, known)
-                    .Map(reason => Fin.Fail<MaterialGraph>(new MaterialFault.Graph(key, reason)))
+                    .Map(reason => Fin.Fail<MaterialGraph>(new MaterialFault.Graph(reason)))
                     .IfNone(() => Fin.Succ(this with { Nodes = Nodes.Map(n => n.Id == node.Id ? node : n) }))) };
 
-    Fin<MaterialGraph> Routed(ShadeChannel channel, PortId port, Op key) =>
+    Fin<MaterialGraph> Routed(ShadeChannel channel, PortId port) =>
         ByPort switch { var known =>
-            SinkOf(known, Sink, key)
+            SinkOf(known, Sink)
                 .Bind(sink => Answers(known, port)
                     ? Fin.Succ(this with { Nodes = Nodes.Map(n => n.Id == Sink ? channel.Route(sink, port) : n) })
-                    : Fin.Fail<MaterialGraph>(new MaterialFault.Graph(key, $"<route-unanswerable-port:{channel.Key}<-{port.Value}>"))) };
+                    : Fin.Fail<MaterialGraph>(new MaterialFault.Graph($"<route-unanswerable-port:{channel.Key}<-{port.Value}>"))) };
 
     public static readonly MaterialGraph Default = BuildDefault();
 
@@ -405,16 +405,16 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
 
     public ReadOnlySpan<int> Operands(int position) => OperandSlots[position];
 
-    public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> window, Op key) =>
-        ShadeSpan([point], parameters, scratch, window, key).Case is Error abandoned
+    public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> window) =>
+        ShadeSpan([point], parameters, scratch, window).Case is Error abandoned
             ? Fin.Fail<SurfaceShade>(abandoned)
             : window[0] is SurfaceShade shaded
                 ? Fin.Succ(shaded)
-                : Fin.Fail<SurfaceShade>(new MaterialFault.Graph(key, "<shade-window-unwritten>"));
+                : Fin.Fail<SurfaceShade>(new MaterialFault.Graph("<shade-window-unwritten>"));
 
-    public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades, Op key) {
+    public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades) {
         if (scratch.Length < ScratchWidth || shades.Length < points.Length) {
-            return Fin.Fail<Unit>(new MaterialFault.Graph(key, $"<shade-span-rental-short:{scratch.Length}/{ScratchWidth}:{shades.Length}/{points.Length}>"));
+            return Fin.Fail<Unit>(new MaterialFault.Graph($"<shade-span-rental-short:{scratch.Length}/{ScratchWidth}:{shades.Length}/{points.Length}>"));
         }
         PortValue[] operands = ArrayPool<PortValue>.Shared.Rent(OperandWidth);
         try {
@@ -423,11 +423,11 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
                     AppearanceNode node = Order[n];
                     int[] sources = OperandSlots[n];
                     for (int d = 0; d < sources.Length; d++) { operands[d] = scratch[sources[d]]; }
-                    Fin<PortSlot> produced = NodeEvaluator.Apply(node, points[p], parameters, operands, key);
+                    Fin<PortSlot> produced = NodeEvaluator.Apply(node, points[p], parameters, operands);
                     if (produced.Case is not PortSlot slot) { return produced.Map(static _ => unit); }
                     if (slot.Produced) { scratch[n] = slot.Value; }
                 }
-                Fin<SurfaceShade> shade = Assemble(Output, points[p], scratch, Slots, key);
+                Fin<SurfaceShade> shade = Assemble(Output, points[p], scratch, Slots);
                 if (shade.Case is not SurfaceShade assembled) { return shade.Map(static _ => unit); }
                 shades[p] = assembled;
             }
@@ -436,26 +436,26 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
         finally { ArrayPool<PortValue>.Shared.Return(operands, clearArray: true); }
     }
 
-    static Fin<SurfaceShade> Assemble(AppearanceNode.BsdfOutput sink, ShadePoint point, ReadOnlySpan<PortValue> scratch, FrozenDictionary<PortId, int> slots, Op key) {
+    static Fin<SurfaceShade> Assemble(AppearanceNode.BsdfOutput sink, ShadePoint point, ReadOnlySpan<PortValue> scratch, FrozenDictionary<PortId, int> slots) {
         foreach (ShadeChannel channel in ShadeChannel.Items) {
             PortValue produced = scratch[slots[channel.Port(sink)]];
             if (!ReferenceEquals(produced.Kind, channel.Kind)) {
-                return Fin.Fail<SurfaceShade>(new MaterialFault.Graph(key, $"<sink-port-kind:{channel.Key}:{produced.Kind.Key}>"));
+                return Fin.Fail<SurfaceShade>(new MaterialFault.Graph($"<sink-port-kind:{channel.Key}:{produced.Kind.Key}>"));
             }
         }
         if (scratch[slots[sink.NormalFrame]] is not PortValue.Frame frame) {
-            return Fin.Fail<SurfaceShade>(new MaterialFault.Graph(key, $"<sink-normal-not-frame:{sink.NormalFrame.Value}>"));
+            return Fin.Fail<SurfaceShade>(new MaterialFault.Graph($"<sink-normal-not-frame:{sink.NormalFrame.Value}>"));
         }
         double metalness = scratch[slots[sink.Metalness]].AsScalar, roughness = scratch[slots[sink.Roughness]].AsScalar;
         if (!MaterialParameters.InUnit(metalness) || !MaterialParameters.InUnit(roughness)) {
-            return Fin.Fail<SurfaceShade>(new MaterialFault.Parameter(key, $"<shade-weight-out-of-unit:{metalness:R},{roughness:R}>"));
+            return Fin.Fail<SurfaceShade>(new MaterialFault.Parameter($"<shade-weight-out-of-unit:{metalness:R},{roughness:R}>"));
         }
         SurfaceShade shade = new(
             scratch[slots[sink.BaseColor]].AsColor, metalness, roughness, frame.Value,
             scratch[slots[sink.Emission]].AsColor);
         return shade.InGamut
             ? Fin.Succ(shade)
-            : Fin.Fail<SurfaceShade>(new MaterialFault.Gamut(key, $"<shade-out-of-gamut:{shade.BaseColorLinear.Hex}>"));
+            : Fin.Fail<SurfaceShade>(new MaterialFault.Gamut($"<shade-out-of-gamut:{shade.BaseColorLinear.Hex}>"));
     }
 }
 ```
@@ -464,7 +464,7 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.Bsd
 
 - Owner: `MaterialLibrary` over `MaterialParameters` keyed by the contract `MaterialId`; `SubsurfaceRadius` the validated mean-free-path carrier; `ThinFilm` the validated interference-film carrier (the OpenPBR `thin_film` group as one value object); `ContrastGrade` the WCAG rung roster conforming the kernel `ICapability<TSelf>`; `MaterialParameters` the canonical row — the closed positional Disney core beside its init-defaulted enrichment band.
 - Cases: the `MaterialLibrary.Rows` fence IS the seed roster and the only roster — `metal.gold`/`metal.copper`/`metal.aluminum`/`metal.titanium`/`metal.iron`/`metal.steel`/`metal.silver`/`metal.chrome`/`metal.brass` (`metal.steel` the galvanized/structural-steel render row the `Component/component#COMPONENT_OWNER` `Component.AppearanceId` resolves — a warm-grey conductor distinct from the bluer `metal.iron`), `glass.crown`/`glass.flint`, `liquid.water`/`liquid.oil`, `gas.cavity`, `gem.diamond`, `stone.jade`/`stone.marble`, `plastic.abs`/`plastic.pvc`, `rubber.matte`, `polymer.adhesive` (the amber structural-epoxy render row a bonded `Component/joint#JOINT_FAMILY` `AdhesiveClass` joint's `AppearanceId` resolves — a smooth IOR-1.55 dielectric, distinct from the `metal.steel` base-metal `SubstanceId`), `skin.caucasian`/`skin.deep`, `fabric.velvet`/`fabric.silk`/`fabric.denim`, `paint.car-metallic`/`paint.clearcoat`, `ceramic.glazed`/`ceramic.porcelain`, `wax.beeswax`/`wax.candle`, `wood.oak`, `coat.gold-leaf` — each a row of `MaterialParameters` values the catalog grows by pure data addition (a new measured material is one row, not a new type), ZERO per-material types.
-- Entry: `public static Fin<MaterialParameters> Lookup(MaterialId id, Op key)` — `Fin<T>` aborts on an unregistered id and on the catalogue's own `Admission` census, the `Validation`-accumulated proof that every seed row clears `MaterialParameters.Of`, resolved once at type init and bound by both reads (`MaterialFault.Parameter`, key-correlated); an ad-hoc parameter vector admits through `MaterialParameters.Of` directly — the ONE row validation catalog rows and measured imports share, never a library-level forwarding alias; `Assign` is the profile-generalization entry mapping a masonry `Component` `MaterialId` to a catalog row through that same admission; `Named` re-bases a Datasets named colour into a row's scene-linear `BaseColor`; `NearestChecker` (metric-parameterized over the full `DeltaE` selector) and `HueConstant` (the Ebner-Fairchild constant-hue witness) both take the kernel `Tolerance` carrier on `ToleranceLane.Spectral`, so a gate's band is proved before it is read and the refusal names its lane; `PointerAdmit`/`SpectralAdmit` are the two fallible reproducibility gates over the kernel `GamutPolicy` rows whose `Bound` is the recovery; `Contrast`/`Requires`/`NearestIscc` the accessibility and designation projections over the `ContrastGrade` capability roster.
+- Entry: `public static Fin<MaterialParameters> Lookup(MaterialId id)` — `Fin<T>` aborts on an unregistered id and on the catalogue's own `Admission` census, the `Validation`-accumulated proof that every seed row clears `MaterialParameters.Of`, resolved once at type init and bound by both reads (`MaterialFault.Parameter`, key-correlated); an ad-hoc parameter vector admits through `MaterialParameters.Of` directly — the ONE row validation catalog rows and measured imports share, never a library-level forwarding alias; `Assign` is the profile-generalization entry mapping a masonry `Component` `MaterialId` to a catalog row through that same admission; `Named` re-bases a Datasets named colour into a row's scene-linear `BaseColor`; `NearestChecker` (metric-parameterized over the full `DeltaE` selector) and `HueConstant` (the Ebner-Fairchild constant-hue witness) both take the kernel `Tolerance` carrier on `ToleranceLane.Spectral`, so a gate's band is proved before it is read and the refusal names its lane; `PointerAdmit`/`SpectralAdmit` are the two fallible reproducibility gates over the kernel `GamutPolicy` rows whose `Bound` is the recovery; `Contrast`/`Requires`/`NearestIscc` the accessibility and designation projections over the `ContrastGrade` capability roster.
 - Packages: Rasm (project — the `Numerics/atoms#SCALAR_FLOOR` `RgbProfile.Acescg.Configuration` scene-linear instance `PortValue.SceneLinear` names, and the `GamutPolicy` `Pointer`/`MacAdam`/`Perceptual` reproducibility rows whose `Contains`/`Bound` pair this page's gates fail and recover through), Wacton.Unicolour (base-color/emission construction; the `IsImaginary` spectral-locus pre-test, the full 12-member `DeltaE` selector through `Difference` (the drift gate dispatches `Ciede2000`/`Cam16`/`Hyab` by the caller's policy row), and the `Contrast` WCAG ratio), Wacton.Unicolour.Datasets (composed for `Macbeth.All` ColorChecker validation, `Css`/`Xkcd`/`Nord` named-colour resolution, the `EbnerFairchild` `AllHue0..AllHue336` constant-hue loci driving `HueConstant` (`HungBerns` the admitted alternate loci family), and the `IsccNbs` 267 designation centroids driving `NearestIscc` — validation/reference only), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `System.Reflection` for the one definition-time Datasets field derivation)
 - Growth: a new material is one `MaterialLibrary.Rows` entry — a `MaterialId` key and a `MaterialParameters` value; a new appearance parameter shared by ALL materials is one init-defaulted column on `MaterialParameters` (every existing row binds unchanged — the `Film` thin-film carrier is exactly this growth, landed as the OpenPBR `thin_film` group's row source); a new gamut domain (the display RGB gate, the Pointer real-surface gate, the MacAdam spectral-limit gate) is one accessor predicate by domain, never a collapse of the three into one gate; a new drift metric is a `DeltaE` member the caller's policy row passes, never a second checker; a new reference dataset is one reflection-derived table over the admitted Datasets assembly; a new accessibility-preview is one read-only projection over the package's own selector, never a stored row. There is NO per-material type, NO `GoldMaterial`/`GlassMaterial` class, NO `MetalFactory`/`PlasticFactory`, and NO per-family graph variant — the named defect is a second material surface; the repair is a row. Measured-spectral grounding is settled per ROW rather than per family — the index corpus grounds the conductors and transparent dielectrics, the angular archive the woven and coated-paint rows, the reflectance libraries five named rows across stone, rubber, foliage, and skin — and every remaining row reads `Authored` as a measured verdict.
 - Boundary: `MaterialParameters` is the single material concept — its positional core is the closed Disney-principled parameter set (base color, metalness, roughness, specular tint, anisotropy, IOR, transmission, transmission roughness, sheen, sheen tint, clearcoat, clearcoat roughness, subsurface weight, subsurface radius, emission color, emission luminance) and every later axis lands as an INIT-DEFAULTED column so each catalogue row and sibling construction binds unchanged: the `Film` interference carrier (the OpenPBR `thin_film` group's ROW SOURCE the `surface#OPENPBR_SLAB` `OpenPbrSurface.Of` reads and the `finish#FINISH` pearlescent/anodized rows seed, validated once at `ThinFilm.Create` so a negative thickness, an out-of-unit weight, or a sub-unity film IOR is unrepresentable), the three OpenPBR tint colours `CoatColor`/`SpecularColor`/`FuzzColor` neutral at `PortValue.White` (so the `weathering#WEATHERING` `CoatColorTo`/`FuzzColorTo` trajectories, the tinted `finish#FINISH` rows, and the `Raster/set#TEXTURE_SET` `coat_color`/`specular_color`/`fuzz_color` planes each write a REAL column instead of a lens that collapsed a three-band tint to one luminance scalar), `BaseDiffuseRoughness` as the Oren-Nayar axis distinct from the specular roughness beside it, `AnisotropyRotation` as the unit-convention grain reference the `bsdf#LOBE_FAMILY` anisotropic lobes turn by, `ThinWalled` as the OpenPBR `geometry_thin_walled` double-sided-shell flag (a set-level boolean the `foliage.leaf`, `paper.sheet`, `fabric.silk`, and `fabric.denim` rows set, the wire's `GeometryThinWalled` column carries, and the `surface#OPENPBR_SLAB` `Slab.Base` reads to transmit at unit index — the texture roster correctly excludes it as no per-texel field), and `EmissionProvenance` as the typed-absence `EmissionInput` an ADMITTED emission magnitude carries WHOLE — the unit witness beside the chromaticity, CCT+Duv, relative-luminance, and gamut-map evidence the resolve took, so `interchange#MATERIAL_WIRE` mirrors the photometric measurement the way it already mirrors the `acquisition#ACQUISITION` capture measurement rather than stranding it at the resolve; base color and emission are constructed once through Wacton.Unicolour scene-linear `Acescg` so the table carries spectrally-grounded colors, never raw byte triples; `Metalness` is the conductor/dielectric PARTITION the `bsdf#LOBE_FAMILY` lobe weights read and `Ior` is the dielectric arm's own interface index at every row — the conductor arm grounds from the `surface#CONDUCTOR_IOR` `ConductorMetal` row the id names, so a "metal" and a "plastic" differ by the metalness, IOR, and roughness columns and by which measured metal the id resolves, never by type; a conductor's own `(η, k)` never enters this column, which is why the admitted IOR band is total rather than keyed on metalness; transmission>0 with IOR selects the dielectric-transmission lobe so glass, water, the sealed IGU cavity gas (`gas.cavity`, IOR 1.0 so its transmissive interface carries no Fresnel and the `Component/glazing#GLAZING_FAMILY` cavity layers shade as a clear non-refracting fill rather than the `liquid.water` proxy), and gems are rows differing only in IOR and transmission roughness; subsurface weight>0 routes the subsurface lobe so skin, wax, jade, and marble are rows differing only in subsurface radius (the per-channel mean-free-path carried as the validated three-band `SubsurfaceRadius` `[ComplexValueObject]`, a negative or non-finite millimetre band unrepresentable at `Create` so the inline negative-mfp guard `MaterialParameters.Of` once carried is gone); sheen>0 routes the sheen lobe so velvet, silk, and denim are rows differing only in sheen and roughness; clearcoat>0 layers the clearcoat lobe so car paint and glazed ceramic are rows differing only in clearcoat and clearcoat roughness; the profile consumer generalizes through `Assign`, which maps a masonry `Component` to a `MaterialId` row and NEVER mints a profile-specific material — `Component/masonry#MASONRY_FAMILY` is the cross-section owner the engine reads, never modifies, and an unmapped key falls back to the neutral `ceramic.porcelain` row rather than a fault so the profile consumer always shades; the Wacton.Unicolour.Datasets composition is validation/reference only — `NearestChecker` gates a candidate against the nearest `Macbeth.All` ColorChecker patch by `Unicolour.Difference` under the CALLER'S `DeltaE` metric (a drift beyond tolerance fails `MaterialFault.Gamut`; the metric is a policy value on the finish row, never a hidden default), `HueConstant` anchors a REFERENCE to its nearest `EbnerFairchild` constant-hue locus and requires the candidate within tolerance of that SAME locus (a tint that walked off-hue fails the reused `Gamut` case), `NearestIscc` projects the nearest of the 267 ISCC-NBS centroids as the standardized designation a specification prints, and `Named` re-bases a passed `Css`/`Xkcd`/`Nord` named `Unicolour` into a row's scene-linear `BaseColor` through `ConvertToConfiguration(SceneLinear)` FIRST (so the read channels are genuinely AP1-linear, not an sRGB-linear triple mislabelled as AP1 — the same colorimetric boundary the AP1 luminance honors); the ISCC/loci tables are ONE definition-time reflection derivation over the admitted assembly's own public static fields (`SYMBOLIC_REFERENCE`: the names and groups travel as the assembly's identifiers, never a hand-keyed 267-row transcription that drifts), the observer CMFs/illuminant SPDs/reflectance staying on the main Wacton.Unicolour owner the Datasets package does not carry; there are THREE gamut gates BY DOMAIN, never one collapse and never a nesting — `SurfaceShade.InGamut` reads `GamutPolicy.Perceptual.Contains` against the AP1 WORKING SPACE the `SceneLinear` configuration declares (the working-space bound every row evaluates through; ACEScg is wider than any display and is NOT contained in the Pointer volume, so a containment ladder over the three is the false claim this sentence deletes), `PointerAdmit` reads `GamutPolicy.Pointer` (the physical-reproducibility gate a pigment-mixed reflectance must pass, the predicate `Appearance/finish#FINISH` imports for its admission), and `SpectralAdmit` reads `GamutPolicy.MacAdam` (the absolute spectral-locus bound a reflectance physically reachable at its luminance must satisfy, a reflectance beyond the spectral locus first caught by `IsImaginary` so an imaginary colour fails before the MacAdam test), each domain-gate failing the SAME `MaterialFault.Gamut` case with its own domain reason string (the case is reused across all three, never a second fault) while the RECOVERY is the same kernel row's `Bound` — three INDEPENDENT domains named once in the kernel vocabulary, each carrying its predicate and its nearest-in-domain projection together, so a Materials-side projection rename over `MapToPointerGamut`/`MapToMacAdamLimits` is the deleted form (the `HueConstant` witness sits BESIDE them as a constancy check, never a fourth gamut); the accessibility projection is the kernel `PerceptualColor.Simulate(Cvd, UnitInterval)` — a folder-local preview that clamped a raw severity double instead of admitting it was the deleted form — and `Contrast` reads the WCAG ratio beside the `CapabilitySet<ContrastGrade>` of rungs it clears, each rung's published threshold living on its own row and the nesting carried by a `CapabilityLaw` a bool triple could not state (its eight corners spelled four reachable states), with `Requires` the entry a specification states its demanded rung through, refusing through the kernel `CapabilitySet.Require` door whose refuse arm receives the `Missing` complement, so a short pair names WHICH rungs it failed — READ-ONLY projections the color-specification boundary consumes, never stored library columns; every row evaluates to an in-gamut `SurfaceShade` through the same `MaterialGraph`.
@@ -567,14 +567,14 @@ public sealed record MaterialParameters(
 
     public Option<EmissionInput> EmissionProvenance { get; init; }
 
-    public static Fin<MaterialParameters> Of(MaterialParameters candidate, Op key) =>
+    public static Fin<MaterialParameters> Of(MaterialParameters candidate) =>
         from _ in guard(InUnit(candidate.Metalness) && InUnit(candidate.Roughness) && InUnit(candidate.SpecularTint) && InUnit(candidate.Anisotropy)
                 && InUnit(candidate.AnisotropyRotation) && InUnit(candidate.BaseDiffuseRoughness)
                 && InUnit(candidate.Transmission) && InUnit(candidate.TransmissionRoughness) && InUnit(candidate.Sheen) && InUnit(candidate.SheenTint)
-                && InUnit(candidate.Clearcoat) && InUnit(candidate.ClearcoatRoughness) && InUnit(candidate.Subsurface), new MaterialFault.Parameter(key, "<weight-out-of-unit>"))
-        from __ in guard(InIorRange(candidate.Ior), new MaterialFault.Parameter(key, $"<ior-out-of-range:{candidate.Ior}>"))
-        from ___ in guard(double.IsFinite(candidate.EmissionLuminance) && candidate.EmissionLuminance >= 0.0, new MaterialFault.Parameter(key, $"<emission-luminance-negative:{candidate.EmissionLuminance:R}>"))
-        from ____ in guard(candidate.Colours.ForAll(GamutPolicy.Perceptual.Contains), new MaterialFault.Gamut(key, "<row-color-out-of-gamut>"))
+                && InUnit(candidate.Clearcoat) && InUnit(candidate.ClearcoatRoughness) && InUnit(candidate.Subsurface), new MaterialFault.Parameter("<weight-out-of-unit>"))
+        from __ in guard(InIorRange(candidate.Ior), new MaterialFault.Parameter($"<ior-out-of-range:{candidate.Ior}>"))
+        from ___ in guard(double.IsFinite(candidate.EmissionLuminance) && candidate.EmissionLuminance >= 0.0, new MaterialFault.Parameter($"<emission-luminance-negative:{candidate.EmissionLuminance:R}>"))
+        from ____ in guard(candidate.Colours.ForAll(GamutPolicy.Perceptual.Contains), new MaterialFault.Gamut("<row-color-out-of-gamut>"))
         select candidate;
 
     internal static bool InUnit(double v) => double.IsFinite(v) && v is >= 0.0 and <= 1.0;
@@ -665,15 +665,15 @@ public static class MaterialLibrary {
             .ToFin()
             .Map(static _ => unit);
 
-    public static Fin<MaterialParameters> Lookup(MaterialId id, Op key) =>
+    public static Fin<MaterialParameters> Lookup(MaterialId id) =>
         from _ in Admission
         from row in Rows.TryGetValue(id, out MaterialParameters? found)
             ? Fin.Succ(found!)
-            : Fin.Fail<MaterialParameters>(new MaterialFault.Parameter(key, $"<unregistered-material:{id.ToValue()}>"))
+            : Fin.Fail<MaterialParameters>(new MaterialFault.Parameter($"<unregistered-material:{id.ToValue()}>"))
         select row;
 
-    public static Fin<MaterialParameters> Assign(MaterialId appearanceId, Op key) =>
-        Rows.ContainsKey(appearanceId) ? Lookup(appearanceId, key) : Lookup(Neutral, key);
+    public static Fin<MaterialParameters> Assign(MaterialId appearanceId) =>
+        Rows.ContainsKey(appearanceId) ? Lookup(appearanceId) : Lookup(Neutral);
 
     public static MaterialParameters Named(Unicolour reference, MaterialParameters template) {
         ColourTriplet ap1 = reference.ConvertToConfiguration(PortValue.SceneLinear).RgbLinear.Triplet;
@@ -687,46 +687,46 @@ public static class MaterialLibrary {
                 })
             .Map(static best => best.Row);
 
-    public static Fin<(Unicolour Patch, double DeltaE)> NearestChecker(Unicolour candidate, Tolerance tolerance, DeltaE metric, Op key) =>
+    public static Fin<(Unicolour Patch, double DeltaE)> NearestChecker(Unicolour candidate, Tolerance tolerance, DeltaE metric) =>
         MinBy(toSeq(Macbeth.All).Map(patch => (Patch: patch, DeltaE: candidate.Difference(patch, metric))), static row => row.DeltaE)
-            .ToFin(new MaterialFault.Parameter(key, "<colorchecker-set-empty>"))
+            .ToFin(new MaterialFault.Parameter("<colorchecker-set-empty>"))
             .Bind(nearest => nearest.DeltaE <= tolerance.Value
                 ? Fin.Succ(nearest)
-                : new MaterialFault.Gamut(key, $"<colorchecker-drift:{tolerance.Lane.Key}:deltaE={nearest.DeltaE:R}>"));
+                : new MaterialFault.Gamut($"<colorchecker-drift:{tolerance.Lane.Key}:deltaE={nearest.DeltaE:R}>"));
 
-    public static Fin<Unicolour> HueConstant(Unicolour candidate, Unicolour reference, Tolerance tolerance, Op key) =>
+    public static Fin<Unicolour> HueConstant(Unicolour candidate, Unicolour reference, Tolerance tolerance) =>
         MinBy(toSeq(HueLoci).Map(locus => (Locus: locus.Key, Anchor: LocusDelta(reference, locus.Value), Drift: LocusDelta(candidate, locus.Value))),
                 static row => row.Anchor)
-            .ToFin(new MaterialFault.Parameter(key, "<constant-hue-loci-empty>"))
+            .ToFin(new MaterialFault.Parameter("<constant-hue-loci-empty>"))
             .Bind(nearest => nearest.Drift <= tolerance.Value
                 ? Fin.Succ(candidate)
-                : new MaterialFault.Gamut(key, $"<hue-shifted-tint:{nearest.Locus}:deltaE={nearest.Drift:R}>"));
+                : new MaterialFault.Gamut($"<hue-shifted-tint:{nearest.Locus}:deltaE={nearest.Drift:R}>"));
 
     static double LocusDelta(Unicolour colour, IEnumerable<Unicolour> locus) =>
         locus.Min(member => colour.Difference(member, DeltaE.Ciede2000));
 
-    public static Fin<Unicolour> PointerAdmit(Unicolour reflectance, Op key) =>
+    public static Fin<Unicolour> PointerAdmit(Unicolour reflectance) =>
         GamutPolicy.Pointer.Contains(reflectance)
             ? Fin.Succ(reflectance)
-            : new MaterialFault.Gamut(key, $"<pointer-unreproducible-reflectance:{reflectance.Hex}>");
+            : new MaterialFault.Gamut($"<pointer-unreproducible-reflectance:{reflectance.Hex}>");
 
-    public static Fin<Unicolour> SpectralAdmit(Unicolour reflectance, Op key) =>
+    public static Fin<Unicolour> SpectralAdmit(Unicolour reflectance) =>
         reflectance.IsImaginary
-            ? new MaterialFault.Gamut(key, $"<imaginary-reflectance:{reflectance.Hex}>")
+            ? new MaterialFault.Gamut($"<imaginary-reflectance:{reflectance.Hex}>")
             : GamutPolicy.MacAdam.Contains(reflectance)
                 ? Fin.Succ(reflectance)
-                : new MaterialFault.Gamut(key, $"<macadam-unreproducible-reflectance:{reflectance.Hex}>");
+                : new MaterialFault.Gamut($"<macadam-unreproducible-reflectance:{reflectance.Hex}>");
 
     public static (double Ratio, CapabilitySet<ContrastGrade> Cleared) Contrast(Unicolour foreground, Unicolour background) =>
         foreground.Contrast(background) switch {
             var ratio => (ratio, CapabilitySet<ContrastGrade>.Of(toSeq(ContrastGrade.Items).Filter(rung => ratio >= rung.Ratio).ToArray())),
         };
 
-    public static Fin<double> Requires(Unicolour foreground, Unicolour background, CapabilitySet<ContrastGrade> required, Op key) =>
+    public static Fin<double> Requires(Unicolour foreground, Unicolour background, CapabilitySet<ContrastGrade> required) =>
         from admitted in ContrastGrade.Nested.Admit(required)
         let measured = Contrast(foreground, background)
         from _ in measured.Cleared.Require(admitted, missing =>
-            new MaterialFault.Gamut(key, $"<contrast-short:{measured.Ratio:R}:missing={missing.Wire}>"))
+            new MaterialFault.Gamut($"<contrast-short:{measured.Ratio:R}:missing={missing.Wire}>"))
         select measured.Ratio;
 
     public static (string Name, Unicolour Centroid, double DeltaE) NearestIscc(Unicolour candidate) =>

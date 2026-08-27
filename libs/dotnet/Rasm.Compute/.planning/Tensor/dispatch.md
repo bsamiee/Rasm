@@ -363,9 +363,9 @@ public static class TensorOps {
     private static Fin<A> Corner<A>(TensorOpFamily row, string form) => TensorReason.RowMissing.Fail<A>("kernel-form-miss", row.Key, form);
 
     public static Fin<TensorOpFamily> Admit(TensorOpFamily row, TensorArity arity, TensorDtype dtype) =>
-        row.Arity != arity ? TensorReason.OperandDomainMiss.Fail<TensorOpFamily>("op-arity", row.Key, $"{row.Arity.Key}!={arity.Key}")
+        row.Arity != arity ? TensorReason.OperandDomainMiss.Fail<TensorOpFamily>("op-arity", $"{row.Arity.Key}!={arity.Key}")
         : row.Admits(dtype.Domain) ? Fin.Succ(row)
-        : TensorReason.OperandDomainMiss.Fail<TensorOpFamily>("op-domain", row.Key, $"{dtype.Key}:{dtype.Domain}");
+        : TensorReason.OperandDomainMiss.Fail<TensorOpFamily>("op-domain", $"{dtype.Key}:{dtype.Domain}");
 
     public static Fin<Unit> Map<T>(TensorOpFamily row, UnaryForm form, ReadOnlySpan<T> x, Span<T> destination) where T : IFloatingPointIeee754<T> {
         if (x.Length != destination.Length) { return Mismatch(row, x.Length, destination.Length); }
@@ -656,7 +656,7 @@ public static class TensorOps {
             Some: measured => x.Length != destination.Length ? TensorReason.ShapeMismatch.Fail<Unit>("length-mismatch", row.Key, $"{x.Length}!={destination.Length}")
                 : TensorKernels<T>.Plain.GetValueOrDefault(row) is { } kernel
                 ? PartitionShape.Of(x.Length, budget, measured).Bind(shape =>
-                    Op.Of(name: "partition-threw").Catch(() => ParallelHelper.For(0, shape.Blocks, new MapBlock<T>(x, destination, shape.BlockSize, kernel), minimumActionsPerThread: 1)))
+                    Try.lift(() => ParallelHelper.For(0, shape.Blocks, new MapBlock<T>(x, destination, shape.BlockSize, kernel), minimumActionsPerThread: 1)).Run().Bind(static inner => inner))
                 : Miss<Unit>(row));
 
     public static Fin<Unit> Partition<T>(TensorOpFamily row, ReadOnlyMemory<T> x, ReadOnlyMemory<T> y, Memory<T> destination, CpuBudget budget, Option<BenchmarkRow> claim) where T : IFloatingPointIeee754<T> =>
@@ -665,7 +665,7 @@ public static class TensorOps {
             Some: measured => x.Length != destination.Length || y.Length != destination.Length ? TensorReason.ShapeMismatch.Fail<Unit>("length-mismatch", row.Key, $"{x.Length}/{y.Length}!={destination.Length}")
                 : TensorKernels<T>.Binary.GetValueOrDefault(row) is { } kernel
                 ? PartitionShape.Of(x.Length, budget, measured).Bind(shape =>
-                    Op.Of(name: "partition-threw").Catch(() => ParallelHelper.For(0, shape.Blocks, new ZipBlock<T>(x, y, destination, shape.BlockSize, kernel), minimumActionsPerThread: 1)))
+                    Try.lift(() => ParallelHelper.For(0, shape.Blocks, new ZipBlock<T>(x, y, destination, shape.BlockSize, kernel), minimumActionsPerThread: 1)).Run().Bind(static inner => inner))
                 : Miss<Unit>(row));
 }
 
@@ -725,9 +725,9 @@ public abstract partial record Tape {
 }
 
 public readonly record struct TapeStep(TensorOpFamily Op, ReadOnlyMemory<float> Primal, ReadOnlyMemory<float> Payload) {
-    public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal) => new(op, primal, ReadOnlyMemory<float>.Empty);
+    public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal) => new(primal, ReadOnlyMemory<float>.Empty);
 
-    public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> payload) => new(op, primal, payload);
+    public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> payload) => new(primal, payload);
 }
 
 public readonly record struct GeometryTape(TensorOpFamily Op, MeshAdjointSnapshot Snapshot);
@@ -853,16 +853,16 @@ public static class Directional {
     }
 
     public static Fin<MemoryOwner<float>> Operator(GeometryTape step, ReadOnlySpan<float> direction, AdjointMode mode) {
-        if (!GeometryAdjoint.Rows.TryGetValue(step.Op, out OperatorRow? row)) { return TensorReason.RowMissing.Fail<MemoryOwner<float>>("no-operator-row", step.Op.Key); }
+        if (!GeometryAdjoint.Rows.TryGetValue(out OperatorRow? row)) { return TensorReason.RowMissing.Fail<MemoryOwner<float>>("no-operator-row"); }
         Func<MeshAdjointSnapshot, Arr<double>, Fin<Arr<double>>> apply = mode.Switch(reverse: _ => row.Adjoint, forward: _ => row.Apply);
         using MemoryOwner<double> wide = MemoryOwner<double>.Allocate(direction.Length, AllocationMode.Clear);
         TensorPrimitives.ConvertChecked(direction, wide.Span);
         Arr<double> field = Arr.create<double>(wide.Span);
-        return Op.Of(name: "operator-adjoint").Catch(() => apply(step.Snapshot, field).Map(static result => {
+        return Try.lift(() => apply(step.Snapshot, field).Map(static result => {
             MemoryOwner<float> narrow = MemoryOwner<float>.Allocate(result.Count);
             TensorPrimitives.ConvertChecked<double, float>(result.ToArray(), narrow.Span);
             return narrow;
-        }));
+        })).Run().Bind(static inner => inner);
     }
 }
 
@@ -1056,14 +1056,14 @@ public sealed record DifferentiableOp(
         new(forward, Diagonal: false, vjp, jvp);
 
     static Fin<MemoryOwner<float>> Pointwise(TapeStep step, ReadOnlySpan<float> direction, PairedDerivative derivative) {
-        if (step.Primal.Length != direction.Length) { return TensorReason.ShapeMismatch.Fail<MemoryOwner<float>>("adjoint-length", step.Op.Key, $"{step.Primal.Length}!={direction.Length}"); }
-        if (!step.Payload.IsEmpty && step.Payload.Length != step.Primal.Length) { return TensorReason.ShapeMismatch.Fail<MemoryOwner<float>>("adjoint-payload", step.Op.Key, $"{step.Payload.Length}!={step.Primal.Length}"); }
+        if (step.Primal.Length != direction.Length) { return TensorReason.ShapeMismatch.Fail<MemoryOwner<float>>("adjoint-length", $"{step.Primal.Length}!={direction.Length}"); }
+        if (!step.Payload.IsEmpty && step.Payload.Length != step.Primal.Length) { return TensorReason.ShapeMismatch.Fail<MemoryOwner<float>>("adjoint-payload", $"{step.Payload.Length}!={step.Primal.Length}"); }
         MemoryOwner<float> local = MemoryOwner<float>.Allocate(direction.Length);
-        return Op.Of(name: "adjoint-threw").Catch(() => {
+        return Try.lift(() => {
             derivative(step.Primal.Span, step.Payload.Span, local.Span);
             TensorPrimitives.Multiply(local.Span, direction, local.Span);
             return Fin.Succ(local);
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     static void Complement(Span<float> s) {
@@ -1088,9 +1088,9 @@ public static class SensitivityLaw {
     }
 
     public static Fin<MemoryOwner<float>> Adjoint(TapeStep step, AdjointMode mode, ReadOnlySpan<float> seed) =>
-        DifferentiableOp.Rows.TryGetValue(step.Op, out DifferentiableOp? differentiable)
+        DifferentiableOp.Rows.TryGetValue(out DifferentiableOp? differentiable)
             ? mode.Switch(reverse: _ => differentiable.Vjp, forward: _ => differentiable.Jvp)(step, seed)
-            : TensorReason.RowMissing.Fail<MemoryOwner<float>>("no-adjoint-row", step.Op.Key);
+            : TensorReason.RowMissing.Fail<MemoryOwner<float>>("no-adjoint-row");
 
     static Fin<MemoryOwner<float>> Replayed(SpillCursor cursor, int ordinal, ReadOnlySpan<float> carried, AdjointMode mode) {
         using MemoryOwner<float> primal = MemoryOwner<float>.Allocate(cursor.Width);
@@ -1115,23 +1115,23 @@ public static class SensitivityLaw {
     }
 
     public static Fin<(double Value, Vector<double> Gradient)> Gradient(Func<DDScalar[], DDScalar> objective, double[] at) =>
-        Op.Of(name: "hyperdual-evaluation").Catch(() => {
+        Try.lift(() => {
             DDScalar f = objective(DDScalar.Variables(at, order: 1));
             double[] gradient = f.GetGradient();
             return double.IsFinite(f.Value) && TensorPrimitives.IsFiniteAll<double>(gradient)
                 ? Fin.Succ((f.Value, Vector<double>.Build.DenseOfArray(gradient)))
                 : TensorReason.NonFinite.Fail<(double, Vector<double>)>("hyperdual-nonfinite", $"n={at.Length}");
-        });
+        }).Run().Bind(static inner => inner);
 
     public static Fin<(double Value, Vector<double> Gradient, Matrix<double> Hessian)> Hessian(Func<DDScalar[], DDScalar> objective, double[] at) =>
-        Op.Of(name: "hyperdual-evaluation").Catch(() => {
+        Try.lift(() => {
             DDScalar f = objective(DDScalar.Variables(at, order: 2));
             double[] gradient = f.GetGradient();
             double[,] hessian = f.GetHessian();
             return double.IsFinite(f.Value) && TensorPrimitives.IsFiniteAll<double>(gradient) && Finite(hessian)
                 ? Fin.Succ((f.Value, Vector<double>.Build.DenseOfArray(gradient), Matrix<double>.Build.DenseOfArray(hessian)))
                 : TensorReason.NonFinite.Fail<(double, Vector<double>, Matrix<double>)>("hyperdual-nonfinite", $"n={at.Length}");
-        });
+        }).Run().Bind(static inner => inner);
 
     static bool Finite(double[,] block) =>
         TensorPrimitives.IsFiniteAll<double>(MemoryMarshal.CreateReadOnlySpan(ref block[0, 0], block.Length));
@@ -1187,7 +1187,7 @@ public static class EquivalenceLaw {
     public static Fin<EquivalenceProof> Prove(MonotonicTimeline timeline, CorrelationId correlation, EquivalencePolicy policy) {
         if (policy.SampleCount <= 0) { return TensorReason.BudgetExhausted.Fail<EquivalenceProof>("equivalence-sample-count", policy.Family.Key, policy.SampleCount.ToString(CultureInfo.InvariantCulture)); }
         MonotonicBeat mark = timeline.Capture();
-        return Op.Of(name: "equivalence-threw").Catch(() => {
+        return Try.lift(() => {
             using MemoryOwner<double> aOwner = MemoryOwner<double>.Allocate(policy.SampleCount, AllocationMode.Clear);
             using MemoryOwner<double> bOwner = MemoryOwner<double>.Allocate(policy.SampleCount, AllocationMode.Clear);
             ProofDraw.Fill(aOwner.Span, policy.Seed, lane: 0L, gaussian: true);
@@ -1202,7 +1202,7 @@ public static class EquivalenceLaw {
                     lowered: _ => KernelLowering.ProveGemm(a.Length, policy.Seed),
                     fixtured: _ => new ProofEvidence.Unmeasured($"fixture-kind:{policy.Family.Lowering.Key}"));
             return Fin.Succ(new EquivalenceProof(policy.Family, evidence, policy.SampleCount, timeline.Elapsed(mark), correlation));
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     static ProofEvidence ScalarTail(TensorOpFamily row, ReadOnlySpan<double> a, ReadOnlySpan<double> b) {
@@ -1482,7 +1482,7 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
     Fin<Unit> DrainScope(string key) {
         api.DevicePopErrorScope(device, ScopeSink, null);
         ext.DevicePoll(device, true, null);
-        return scopeFault is { } captured ? TensorReason.NativeRejected.Fail<Unit>("device-validation", key, captured) : Fin.Succ(unit);
+        return scopeFault is { } captured ? TensorReason.NativeRejected.Fail<Unit>("device-validation", captured) : Fin.Succ(unit);
     }
 
     public string Identity => identity;
@@ -1500,14 +1500,14 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
             ShaderModuleWGSLDescriptor wgslDesc = new() { Chain = new ChainedStruct { SType = SType.ShaderModuleWgslDescriptor }, Code = (byte*)code };
             ShaderModuleDescriptor moduleDesc = new() { NextInChain = (ChainedStruct*)&wgslDesc };
             module = api.DeviceCreateShaderModule(device, &moduleDesc);
-            if (module == null) { return TensorReason.NativeRejected.Fail<DeviceKernel>("device-shader", op.Key); }
+            if (module == null) { return TensorReason.NativeRejected.Fail<DeviceKernel>("device-shader"); }
             ComputePipelineDescriptor pipelineDesc = new() { Layout = null, Compute = new ProgrammableStageDescriptor { Module = module, EntryPoint = (byte*)entry } };
             pipeline = api.DeviceCreateComputePipeline(device, &pipelineDesc);
-            if (pipeline == null) { return TensorReason.NativeRejected.Fail<DeviceKernel>("device-pipeline", op.Key); }
+            if (pipeline == null) { return TensorReason.NativeRejected.Fail<DeviceKernel>("device-pipeline"); }
             layout = api.ComputePipelineGetBindGroupLayout(pipeline, 0);
-            if (layout == null) { return TensorReason.ShapeMismatch.Fail<DeviceKernel>("device-layout", op.Key); }
+            if (layout == null) { return TensorReason.ShapeMismatch.Fail<DeviceKernel>("device-layout"); }
             transferred = true;
-            return Fin.Succ(new DeviceKernel(op, element, (nuint)pipeline, (nuint)layout, (nuint)module));
+            return Fin.Succ(new DeviceKernel(element, (nuint)pipeline, (nuint)layout, (nuint)module));
         }
         catch (Exception ex) {
             return Fin.Fail<DeviceKernel>(Error.New(ex.Message, ex));
@@ -1568,7 +1568,7 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
                     BindGroupDescriptor groupDesc = new() { Layout = (BindGroupLayout*)step.Kernel.BindGroupLayout, EntryCount = (nuint)step.Bindings.Length, Entries = entryRoot };
                     group = api.DeviceCreateBindGroup(device, &groupDesc);
                 }
-                if (group == null) { return TensorReason.BudgetExhausted.Fail<Duration>("device-resource", step.Kernel.Op.Key); }
+                if (group == null) { return TensorReason.BudgetExhausted.Fail<Duration>("device-resource"); }
                 groups[index] = (nint)group;
                 ComputePassTimestampWrites timestampWrites = new() { QuerySet = timestamps, BeginningOfPassWriteIndex = (uint)(2 * index), EndOfPassWriteIndex = (uint)(2 * index + 1) };
                 ComputePassDescriptor passDesc = new() { TimestampWrites = &timestampWrites };
@@ -1632,7 +1632,7 @@ public static class DeviceKernels {
     public static Fin<DeviceKernel> Compile(WgpuDevice device, TensorOpFamily row) =>
         Wgsl.TryGetValue(row, out (string Source, TensorDtype Element) wgsl)
             ? Compiled.GetOrAdd((device.Identity, row), key => new Lazy<Fin<DeviceKernel>>(
-                () => device.Build(key.Op, wgsl.Element, wgsl.Source), LazyThreadSafetyMode.ExecutionAndPublication)).Value
+                () => device.Build(wgsl.Element, wgsl.Source), LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : TensorReason.RowMissing.Fail<DeviceKernel>("device-kernel-miss", row.Key);
 
     public static Fin<DevicePlan> Convolution(WgpuDevice device, ConvLaunch launch, ImmutableArray<int> gather, ImmutableArray<int> gemm) =>
@@ -1660,14 +1660,14 @@ public static class DeviceDispatch {
         if (plan.Steps.IsEmpty) { return TensorReason.EmptyOperand.Fail<DeviceBuffer>("empty-plan", "device"); }
         if (!residency.Device) { return TensorReason.ResidencyMismatch.Fail<DeviceBuffer>("device-residency-required", plan.Steps[0].Kernel.Op.Key); }
         foreach (DeviceStep step in plan.Steps) {
-            if (step.Bindings.IsDefaultOrEmpty) { return TensorReason.EmptyOperand.Fail<DeviceBuffer>("device-bindings-empty", step.Kernel.Op.Key); }
+            if (step.Bindings.IsDefaultOrEmpty) { return TensorReason.EmptyOperand.Fail<DeviceBuffer>("device-bindings-empty"); }
             if (step.Workgroups.X == 0 || step.Workgroups.Y == 0 || step.Workgroups.Z == 0) {
-                return TensorReason.BudgetExhausted.Fail<DeviceBuffer>("device-workgroups", step.Kernel.Op.Key, $"{step.Workgroups.X}x{step.Workgroups.Y}x{step.Workgroups.Z}");
+                return TensorReason.BudgetExhausted.Fail<DeviceBuffer>("device-workgroups", $"{step.Workgroups.X}x{step.Workgroups.Y}x{step.Workgroups.Z}");
             }
             foreach (int binding in step.Bindings) {
-                if (binding < 0 || binding >= roster.Length) { return TensorReason.AxisOutOfRange.Fail<DeviceBuffer>("device-binding-range", step.Kernel.Op.Key, $"{binding}/{roster.Length}"); }
+                if (binding < 0 || binding >= roster.Length) { return TensorReason.AxisOutOfRange.Fail<DeviceBuffer>("device-binding-range", $"{binding}/{roster.Length}"); }
                 if (roster[binding].ByteLength <= 0 || !roster[binding].Residency.Device) {
-                    return TensorReason.ResidencyMismatch.Fail<DeviceBuffer>("device-buffer-residency", step.Kernel.Op.Key, binding.ToString());
+                    return TensorReason.ResidencyMismatch.Fail<DeviceBuffer>("device-buffer-residency", binding.ToString());
                 }
             }
         }
@@ -1677,7 +1677,7 @@ public static class DeviceDispatch {
         if (row.Width.Case is not int width || width <= 0) { return TensorReason.DtypeMismatch.Fail<DeviceBuffer>("device-dtype-width", row.Key); }
         DeviceBuffer output = roster[terminalStep.Bindings[^1]];
         if (output.ByteLength % width != 0) { return TensorReason.ByteSpanMisaligned.Fail<DeviceBuffer>("device-output-alignment", terminal.Key, $"{output.ByteLength}%{width}"); }
-        return Op.Of(name: "device-submit").Catch(() => device.RecordAndSubmit(plan, roster)).Map(_ => output);
+        return Try.lift(() => device.RecordAndSubmit(plan, roster)).Run().Bind(static inner => inner).Map(_ => output);
     }
 
 }

@@ -14,7 +14,7 @@ Rebuilding composes each floor from its owner: the crossing table from `Intersec
 - Owner: `BooleanOp` `[SmartEnum]` (`Union`/`Difference`/`Intersection`/`Xor`) — each row carries the `[UseDelegateFromConstructor]` `Region` predicate column alone, the `ManifoldOpType` ordinal riding the generated exhaustive `Switch` at the `manifoldc` boundary (`ManifoldOpType` has no symmetric difference, so the `Xor` arm decomposes it as union-minus-intersection under its own handle custody); keep and orientation DERIVE over `Region` at their ONE consumer, one classification never four keep bodies; `PolygonFill` `[SmartEnum]` (`NonZero`/`EvenOdd`/`Positive`/`Negative`) the fill-rule rows whose `Inside` delegate classifies the overlay's signed winding count; `BooleanCensus` the one typed boolean evidence over two axes — the summing census columns and the nested `Option<ManifoldEvidence>` native axis carrying genus/V-E-F/volume/area guarantee BESIDE the operand-seated run windows, run ids, and per-triangle face ids its one `OperandOf` join reads, its PRESENCE the route evidence itself and its one optional slot spelling absence where the arm took no measure; the operand side riding one named `fromA` fact through the subdivision walk, translated to the crossing table's side ordinal at that boundary alone; `ArrangementPolicy` the policy row binding GWN accuracy, winding admission, the fill rule, the finite `ScaleCeiling`, the constrained `Substrate`, spatial/intersect policies, the weld `Arena`, and the execution-governance band BOTH routes read (`Cancel` token and `Progress` sink, a composition site projecting both down from the ambient `Env` in the one `with` expression it already owns); `PatchStore` the `Arrangement`-private single-writer patch arena (triangle corners, operand origin, per-operand inside bits) whose ONE published product is the immutable `Arr` column set on `ArrangementResult.Complex`; `ArrangementOp`/`ArrangementResult` the request/result unions; `Arrangement` the static surface.
 - Cases: `BooleanOp` 4 (`Union`/`Difference`/`Intersection`/`Xor`), `PolygonFill` 4, `ArrangementOp` 3 (`MeshBoolean`/`PlanarOverlay`/`CellComplex`), `ArrangementResult` 3 (`Boolean`/`Overlay`/`Complex`); the fence carries every roster. `MeshBoolean` carries its operands as one `Seq<MeshSpace>` — a pair is the two-element case, an N-solid fold one request — and `Boolean` returns `Seq<MeshSpace> Shells` so a severed result expresses its components on BOTH routes, the managed route decomposing its welded terminal through the one graph-walk owner and the native route reading its `manifold_decompose` vector. `PlanarOverlay` admits ring sets directly (the `Meshing/offset` self-overlap owner); `CellComplex` retains the classified arrangement un-welded for the `Rasm.Bim` solid classifier.
 - Entry: one polymorphic `Apply` discriminating on the op case; no `MeshBool`/`PolygonBool`/`BuildComplex` sibling statics, and every interior static takes the resolved `Op` outright. `Fin` routes `GeometryFault.DegenerateInput` on an empty mesh operand or an open/degenerate/non-finite overlay ring (rings arrive raw and admit here once; mesh operands carry the `MeshSpace` admission's evidence, the interior never re-validating), `ArrangementSubdivisionFailed` on a per-face substrate failure with its operand, face, and preserved cause, `NativeOperandRejected`/`NativeBooleanFailed` on a native status refusal, the direct cancellation cases — `SubdivisionCancelled`, `ClassificationCancelled`, `WeldCancelled`, `NativeBooleanCancelled` — EXACTLY when the governance token cancels, the native engine's `MANIFOLD_CANCELLED` status and the managed fold's stage reads each lowering its own case carrying the fraction the abandoning stage measured, and `ManifoldLibraryUnavailable` EXACTLY when combined operand faces exceed `ScaleCeiling` and the per-RID native asset does not resolve — under the ceiling the managed body serves every workload and the gate is never consulted; an over-ceiling `CellComplex` refuses TYPED as `CellComplexScaleExceeded`, the native engine emitting no classified cell set so the caller raises the revisable `ScaleCeiling` row for a managed run. Both volumetric cases share ONE fold with ONE soup admission per operand — gate, subdivision, classification, native raise, and emission read the same two arenas. `PlanarOverlay` returns oriented loops (outer CCW / holes CW) on intersect's chain vocabulary.
-- Auto: `MeshBoolean`/`CellComplex` run the shared `Arrange` fold — (1) `Intersection.Apply(IntersectOp.MeshMesh(a, b, policy.Narrow), key)` yields the frozen `CrossTable` (defining-entity crossing rows, per-face segments, coplanar constraint rows recorded on BOTH operand faces so the two surfaces split coherently on their shared curve); (2) per operand face, `table.OnFace` + `table.CoplanarOnFace` drive the subdivision — an un-cut face passes whole as one patch, a cut face builds `Tessellation.Build(TessellationOp.Points(...))` whose vertex rows are the three explicit corners and each crossing endpoint's `Implicit` construction interned by its `CrossKey`, piercing conforms `Conform.Crossing` rows carrying the OTHER operand's face plane and coplanar sub-segments the perpendicular plane `(S, T, S + ê)` through their carrier edge, the sub-triangles read back through `Triangles()` as corners beside face indices; (3) classification batches every patch probe (centroid nudged along the patch normal by the operand context's own `ToleranceLane.Offset` read) into ONE winding `SpatialIndex.Query(probes, otherSoup, BetaSquared)` per operand, its `double[]` scalars crossing `WindingThreshold` into the per-operand inside bits; (4) `MeshBoolean` reads `op.Region` on both arms of each patch's own membership — the patch survives where the two arms disagree and its winding flips where the outside arm holds — and welds through `MeshEdit.Of` + `MeshEdit.Weld` + `ToSpace`; `CellComplex` stops after (3) and copies the full arena into `ArrangementResult.Complex`'s immutable `Arr` columns. `PlanarOverlay` is the SAME algebra on rings: all ring vertices enter ONE constrained `Tessellation.Build` with every ring edge a `Conform.Edge`, each triangle's centroid gathers its exact SIGNED winding count against each operand's ring set (upward crossings +1 / downward −1, exact signs with no epsilon band), the policy's `PolygonFill` row classifies the raw count — `NonZero` canonical, so a self-overlapping cycle set resolves to its true covered region, with even-odd and one-sided fills the same walk under different rows — the region keeps per `op.Region(inA, inB)` directly, and the kept-region rim decomposes into oriented `Chain` loops through the folder's ONE `Chain.Of` owner over the substrate's own corner ordinals. Each managed stage — the two subdivision walks, the batched classification, the weld — OPENS by publishing its declared progress fraction and reading `policy.Cancel`, the subdivision walk re-reading the bare token per face, and the terminal welded result then decomposes into connected shells through the one QuikGraph component walk. Its native lane raises every operand ONCE and re-seats it through `manifold_as_original` so the result's runs name an operand the kernel declared, packs the operands into ONE `manifold_manifold_vec` and folds them in ONE `manifold_batch_boolean` call — `Xor` decomposing as union-minus-intersection over the same seated handles — then attaches the execution context to the RESULT, because a deferred batch op ignores an operand-attached context and returns one carrying none: `manifold_status` on that bound copy is the single eager force, the one point where `Cancel` reaches the evaluation and the progress read has anything to report. It reads the genus/census/volume/area guarantee off that forced handle, the run windows, run ids, and per-triangle face ids off its `meshgl64` as the attribution axis, and decomposes a severed result into shells.
+- Auto: `MeshBoolean`/`CellComplex` run the shared `Arrange` fold — (1) `Intersection.Apply(IntersectOp.MeshMesh(a, b, policy.Narrow))` yields the frozen `CrossTable` (defining-entity crossing rows, per-face segments, coplanar constraint rows recorded on BOTH operand faces so the two surfaces split coherently on their shared curve); (2) per operand face, `table.OnFace` + `table.CoplanarOnFace` drive the subdivision — an un-cut face passes whole as one patch, a cut face builds `Tessellation.Build(TessellationOp.Points(...))` whose vertex rows are the three explicit corners and each crossing endpoint's `Implicit` construction interned by its `CrossKey`, piercing conforms `Conform.Crossing` rows carrying the OTHER operand's face plane and coplanar sub-segments the perpendicular plane `(S, T, S + ê)` through their carrier edge, the sub-triangles read back through `Triangles()` as corners beside face indices; (3) classification batches every patch probe (centroid nudged along the patch normal by the operand context's own `ToleranceLane.Offset` read) into ONE winding `SpatialIndex.Query(probes, otherSoup, BetaSquared)` per operand, its `double[]` scalars crossing `WindingThreshold` into the per-operand inside bits; (4) `MeshBoolean` reads `op.Region` on both arms of each patch's own membership — the patch survives where the two arms disagree and its winding flips where the outside arm holds — and welds through `MeshEdit.Of` + `MeshEdit.Weld` + `ToSpace`; `CellComplex` stops after (3) and copies the full arena into `ArrangementResult.Complex`'s immutable `Arr` columns. `PlanarOverlay` is the SAME algebra on rings: all ring vertices enter ONE constrained `Tessellation.Build` with every ring edge a `Conform.Edge`, each triangle's centroid gathers its exact SIGNED winding count against each operand's ring set (upward crossings +1 / downward −1, exact signs with no epsilon band), the policy's `PolygonFill` row classifies the raw count — `NonZero` canonical, so a self-overlapping cycle set resolves to its true covered region, with even-odd and one-sided fills the same walk under different rows — the region keeps per `op.Region(inA, inB)` directly, and the kept-region rim decomposes into oriented `Chain` loops through the folder's ONE `Chain.Of` owner over the substrate's own corner ordinals. Each managed stage — the two subdivision walks, the batched classification, the weld — OPENS by publishing its declared progress fraction and reading `policy.Cancel`, the subdivision walk re-reading the bare token per face, and the terminal welded result then decomposes into connected shells through the one QuikGraph component walk. Its native lane raises every operand ONCE and re-seats it through `manifold_as_original` so the result's runs name an operand the kernel declared, packs the operands into ONE `manifold_manifold_vec` and folds them in ONE `manifold_batch_boolean` call — `Xor` decomposing as union-minus-intersection over the same seated handles — then attaches the execution context to the RESULT, because a deferred batch op ignores an operand-attached context and returns one carrying none: `manifold_status` on that bound copy is the single eager force, the one point where `Cancel` reaches the evaluation and the progress read has anything to report. It reads the genus/census/volume/area guarantee off that forced handle, the run windows, run ids, and per-triangle face ids off its `meshgl64` as the attribution axis, and decomposes a severed result into shells.
 - Output: `BooleanCensus` — the classified-patch census, keep survivor count, weld vertex-collapse count, and one slot absent wherever the arm took no measure: `Option<ManifoldEvidence>` the native lane's genus, V/E/F triple, volume, and area read off the forced result handle beside the run attribution measured from the same `meshgl64` — the manifoldness guarantee the tier-3 route is bought for, witnessed rather than asserted, and the ONE route authority, present exactly on a native result and absent on every managed one, guarantee and attribution never splitting into a half-native state. `ArrangementResult.Boolean.Shells` is the SOLE severance census — the shells themselves, never a count beside them that can disagree. Patch-count delta with that route evidence is the boolean evidence `Processing/session` carries as the heal-session payload, and `ManifoldEvidence.OperandOf` is the source key `Rasm.Bim` reconstruction joins an output face back to its operand on.
 - Law: every `ArrangementPolicy` column is a guarded value object — `PositiveMagnitude` accuracy and nudge, `UnitInterval` admission, `Dimension` ceiling — so a nonpositive or out-of-band policy is unrepresentable and the record carries no evidence fold; the interior reads `.Value` and never re-guards.
 - Exemption: mutable tables live inside one statement kernel and never freeze — the private `PatchStore`'s four SoA columns (the arena itself), `slotOf` per face build, `dense` per shell re-index, the QuikGraph `label` sink (the algorithm's own out-parameter shape), and the `rim` cancellation set per overlay. None survives its enclosing fold, and no fold publishes one.
@@ -153,29 +153,29 @@ public static partial class Arrangement {
             new((a.X + b.X + c.X) / 3.0, (a.Y + b.Y + c.Y) / 3.0, (a.Z + b.Z + c.Z) / 3.0);
     }
 
-    public static Fin<ArrangementResult> Apply(ArrangementOp op, Op? key = null) =>
+    public static Fin<ArrangementResult> Apply(ArrangementOp op) =>
         op.Switch(
             state: key.OrDefault(),
-            meshBoolean:   static (site, m) => Volumetric(m.Operands, Some(m.Op), m.Policy, site),
+            meshBoolean:   static (site, m) => Volumetric(m.Operands, m.Policy, site),
             planarOverlay: static (_, p) => Overlay(p),
             cellComplex:   static (site, c) => Volumetric(Seq(c.A, c.B), None, c.Policy, site));
 
-    static Fin<ArrangementResult> Volumetric(Seq<MeshSpace> operands, Option<BooleanOp> keep, ArrangementPolicy policy, Op key) =>
+    static Fin<ArrangementResult> Volumetric(Seq<MeshSpace> operands, Option<BooleanOp> keep, ArrangementPolicy policy) =>
         Gate(operands, policy).Bind(gate => (gate.Native, keep.Case) switch {
-            (true, BooleanOp op) => ManifoldGate.Boolean(operands, op, gate.First.Tolerance, policy, key),
+            (true, BooleanOp op) => ManifoldGate.Boolean(operands, gate.First.Tolerance, policy),
             (true, _) => Fin.Fail<ArrangementResult>(new GeometryFault.CellComplexScaleExceeded(gate.Faces, policy.ScaleCeiling)),
             (false, BooleanOp op) => operands.Tail
                 .FoldM((Solid: gate.First, Census: new BooleanCensus(0L, 0L, 0L)),
-                    (state, next) => Arrange(state.Solid, next, policy, key)
-                        .Bind(store => KeepAndWeld(store, op, state.Solid.Tolerance, policy, key))
+                    (state, next) => Arrange(state.Solid, next, policy)
+                        .Bind(store => KeepAndWeld(store, state.Solid.Tolerance, policy))
                         .Map(step => (Solid: step.Solid, Census: new BooleanCensus(
                             Classified: state.Census.Classified + step.Census.Classified,
                             Kept: state.Census.Kept + step.Census.Kept,
                             Welded: state.Census.Welded + step.Census.Welded))))
                 .As()
-                .Bind(final => Severed(final.Solid, policy, key).Map(shells =>
+                .Bind(final => Severed(final.Solid, policy).Map(shells =>
                     (ArrangementResult)new ArrangementResult.Boolean(shells, final.Census))),
-            (false, _) => Arrange(gate.First, gate.Second, policy, key).Map(store =>
+            (false, _) => Arrange(gate.First, gate.Second, policy).Map(store =>
                 (ArrangementResult)new ArrangementResult.Complex(
                     new([.. store.patches.AsSpan(0, store.count)]), new([.. store.fromA.AsSpan(0, store.count)]),
                     new([.. store.insideA.AsSpan(0, store.count)]), new([.. store.insideB.AsSpan(0, store.count)]),
@@ -208,7 +208,7 @@ public static partial class Arrangement {
     }
 
     // --- [SEVERANCE]
-    static Fin<Seq<MeshSpace>> Severed(MeshSpace solid, ArrangementPolicy policy, Op key) {
+    static Fin<Seq<MeshSpace>> Severed(MeshSpace solid, ArrangementPolicy policy) {
         using MeshEdit welded = MeshEdit.Of(solid);
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         for (int f = 0; f < welded.FaceCount; f++) {
@@ -221,11 +221,11 @@ public static partial class Arrangement {
         int shells = graph.ConnectedComponents(label);
         List<int>[] buckets = [.. Enumerable.Range(0, shells).Select(static _ => new List<int>())];
         for (int f = 0; f < welded.FaceCount; f++) { (int a, _, _) = welded.Face(f); buckets[label[a]].Add(f); }
-        return toSeq(buckets).TraverseM(bucket => Shell(welded, bucket, solid.Tolerance, policy, key)).As()
+        return toSeq(buckets).TraverseM(bucket => Shell(welded, bucket, solid.Tolerance, policy)).As()
             .Map(static shells => shells.Strict());
     }
 
-    static Fin<MeshSpace> Shell(MeshEdit welded, List<int> bucket, Context context, ArrangementPolicy policy, Op key) {
+    static Fin<MeshSpace> Shell(MeshEdit welded, List<int> bucket, Context context, ArrangementPolicy policy) {
         Dictionary<int, int> dense = new();
         List<Point3d> vertices = new();
         List<(int, int, int)> faces = new(bucket.Count);
@@ -239,24 +239,24 @@ public static partial class Arrangement {
             faces.Add((Slot(a), Slot(b), Slot(c)));
         }
         using MeshEdit edit = MeshEdit.Of([.. vertices], [.. faces], context, policy.Arena);
-        return edit.ToSpace(key);
+        return edit.ToSpace();
     }
 
     // --- [ARRANGE]
-    static Fin<PatchStore> Arrange(MeshSpace a, MeshSpace b, ArrangementPolicy policy, Op key) {
+    static Fin<PatchStore> Arrange(MeshSpace a, MeshSpace b, ArrangementPolicy policy) {
         using MeshEdit ea = MeshEdit.Of(a);
         using MeshEdit eb = MeshEdit.Of(b);
         PatchStore store = new(int.Max(ea.FaceCount + eb.FaceCount, 16));
-        return Intersection.Apply(new IntersectOp.MeshMesh(a, b, policy.Narrow), key)
+        return Intersection.Apply(new IntersectOp.MeshMesh(a, b, policy.Narrow))
             .Bind(result => result is IntersectResult.Chains chains
                 ? Fin.Succ(chains.Table)
-                : Fin.Fail<CrossTable>(key.InvalidResult()))
-            .Bind(table => Subdivided(store, ea, table, fromA: true, eb, policy, key)
-                .Bind(_ => Subdivided(store, eb, table, fromA: false, ea, policy, key)))
-            .Bind(_ => Classify(store, ea, eb, a.Tolerance, policy, key));
+                : Fin.Fail<CrossTable>(new KernelFault.InvalidResult()))
+            .Bind(table => Subdivided(store, ea, table, fromA: true, eb, policy)
+                .Bind(_ => Subdivided(store, eb, table, fromA: false, ea, policy)))
+            .Bind(_ => Classify(store, ea, eb, a.Tolerance, policy));
     }
 
-    static Fin<Unit> Subdivided(PatchStore store, MeshEdit soup, CrossTable table, bool fromA, MeshEdit other, ArrangementPolicy policy, Op key) {
+    static Fin<Unit> Subdivided(PatchStore store, MeshEdit soup, CrossTable table, bool fromA, MeshEdit other, ArrangementPolicy policy) {
         int side = fromA ? 0 : 1;
         UnitInterval progress = UnitInterval.Create(value: fromA ? 0.00 : 0.25);
         GeometryFault cancelled = new GeometryFault.SubdivisionCancelled(side, progress);
@@ -271,7 +271,7 @@ public static partial class Arrangement {
                 store.Add((ca, cb, cc), fromA);
                 continue;
             }
-            Fin<Unit> built = FaceBuild(store, table, cuts, flush, fromA, (ca, cb, cc), f, soup, other, policy, key);
+            Fin<Unit> built = FaceBuild(store, table, cuts, flush, fromA, (ca, cb, cc), f, soup, other, policy);
             if (built.IsFail) { return built; }
         }
         return Fin.Succ(unit);
@@ -281,7 +281,7 @@ public static partial class Arrangement {
         (int A, int B, int FaceA, int FaceB)[] cuts,
         (int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)[] flush,
         bool fromA, (Point3d A, Point3d B, Point3d C) face, int faceId,
-        MeshEdit soup, MeshEdit other, ArrangementPolicy policy, Op key) {
+        MeshEdit soup, MeshEdit other, ArrangementPolicy policy) {
         int side = fromA ? 0 : 1;
         List<Implicit> rows = new() { new(face.A), new(face.B), new(face.C) };
         Dictionary<CrossKey, int> slotOf = new();
@@ -291,7 +291,7 @@ public static partial class Arrangement {
             rows.Add(crossing.Point);
             return slotOf[crossing.Key] = rows.Count - 1;
         }
-        return Axis.DominantOf(face.A, face.B, face.C, key).Bind(plane => {
+        return Axis.DominantOf(face.A, face.B, face.C).Bind(plane => {
             Vector3d lift = plane.Basis;
             List<Conform> conforms = new(cuts.Length + flush.Length);
             foreach ((int A, int B, int FaceA, int FaceB) cut in cuts) {
@@ -314,7 +314,7 @@ public static partial class Arrangement {
         });
     }
 
-    static Fin<PatchStore> Classify(PatchStore store, MeshEdit ea, MeshEdit eb, Context context, ArrangementPolicy policy, Op key) {
+    static Fin<PatchStore> Classify(PatchStore store, MeshEdit ea, MeshEdit eb, Context context, ArrangementPolicy policy) {
         UnitInterval progress = UnitInterval.Create(value: 0.50);
         if (Opened(progress, policy)) { return Fin.Fail<PatchStore>(new GeometryFault.ClassificationCancelled(progress)); }
         Point3d[] probes = new Point3d[store.Count];
@@ -325,7 +325,7 @@ public static partial class Arrangement {
             Vector3d normal = Vector3d.CrossProduct(b - a, c - a);
             probes[p] = normal.IsTiny() ? centroid : centroid + (nudge * (normal / normal.Length));
         }
-        return (Field(probes, ea, policy, key), Field(probes, eb, policy, key)).Apply((wa, wb) => (wa, wb)).As()
+        return (Field(probes, ea, policy), Field(probes, eb, policy)).Apply((wa, wb) => (wa, wb)).As()
             .Map(t => {
                 for (int p = 0; p < store.Count; p++) {
                     store.insideA[p] = t.wa[p] > policy.WindingThreshold.Value;
@@ -335,7 +335,7 @@ public static partial class Arrangement {
             });
     }
 
-    static Fin<double[]> Field(Point3d[] probes, MeshEdit soup, ArrangementPolicy policy, Op key) {
+    static Fin<double[]> Field(Point3d[] probes, MeshEdit soup, ArrangementPolicy policy) {
         (Point3d A, Point3d B, Point3d C)[] triangles = new (Point3d A, Point3d B, Point3d C)[soup.FaceCount];
         BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) {
@@ -343,12 +343,12 @@ public static partial class Arrangement {
             triangles[f] = (soup.Position(a), soup.Position(b), soup.Position(c));
             boxes[f] = soup.Bounds(f);
         }
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad, key)
-            .Bind(built => built.Query(probes, triangles, policy.BetaSquared, key));
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad)
+            .Bind(built => built.Query(probes, triangles, policy.BetaSquared));
     }
 
     // --- [KEEP_AND_WELD]
-    static Fin<(MeshSpace Solid, BooleanCensus Census)> KeepAndWeld(PatchStore store, BooleanOp op, Context context, ArrangementPolicy policy, Op key) {
+    static Fin<(MeshSpace Solid, BooleanCensus Census)> KeepAndWeld(PatchStore store, BooleanOp op, Context context, ArrangementPolicy policy) {
         UnitInterval progress = UnitInterval.Create(value: 0.75);
         if (Opened(progress, policy)) { return Fin.Fail<(MeshSpace, BooleanCensus)>(new GeometryFault.WeldCancelled(progress)); }
         List<Point3d> vertices = new(3 * store.Count);
@@ -369,7 +369,7 @@ public static partial class Arrangement {
         using MeshEdit edit = MeshEdit.Of([.. vertices], [.. faces], context, policy.Arena);
         int before = edit.VertexCount;
         edit.Weld();
-        return edit.ToSpace(key).Map(solid =>
+        return edit.ToSpace().Map(solid =>
             (solid, new BooleanCensus(store.Count, kept, before - edit.VertexCount)));
     }
 
@@ -482,7 +482,7 @@ public static partial class Arrangement {
         [LibraryImport("manifoldc")] private static partial void manifold_delete_meshgl64(nint m);
         [LibraryImport("manifoldc")] private static partial void manifold_delete_execution_context(nint context);
 
-        internal static Fin<ArrangementResult> Boolean(Seq<MeshSpace> operands, BooleanOp op, Context context, ArrangementPolicy policy, Op key) {
+        internal static Fin<ArrangementResult> Boolean(Seq<MeshSpace> operands, BooleanOp op, Context context, ArrangementPolicy policy) {
             nint host = manifold_execution_context(manifold_alloc_execution_context());
             using CancellationTokenRegistration cancel = policy.Cancel.Register(() => manifold_execution_context_cancel(host));
             nint[] raised = new nint[operands.Count];
@@ -521,7 +521,7 @@ public static partial class Arrangement {
                 int status = manifold_status(observed);
                 policy.Progress.Iter(sink => sink.Report(manifold_execution_context_progress(host)));
                 return status switch {
-                    0 => Shells(observed, context, policy, key)
+                    0 => Shells(observed, context, policy)
                             .Map(shells => {
                                 BooleanCensus.ManifoldEvidence evidence = Evidence(observed, seated);
                                 return (ArrangementResult)new ArrangementResult.Boolean(shells, new BooleanCensus(
@@ -564,16 +564,16 @@ public static partial class Arrangement {
             nint vec = manifold_manifold_vec(manifold_alloc_manifold_vec(), (nuint)raised.Length);
             try {
                 for (int i = 0; i < raised.Length; i++) { manifold_manifold_vec_set(vec, (nuint)i, raised[i]); }
-                return manifold_batch_boolean(manifold_alloc_manifold(), vec, op);
+                return manifold_batch_boolean(manifold_alloc_manifold(), vec);
             }
             finally { manifold_delete_manifold_vec(vec); }
         }
 
-        static Fin<Seq<MeshSpace>> Shells(nint result, Context context, ArrangementPolicy policy, Op key) {
+        static Fin<Seq<MeshSpace>> Shells(nint result, Context context, ArrangementPolicy policy) {
             nint vec = manifold_decompose(manifold_alloc_manifold_vec(), result);
             try {
                 int count = (int)manifold_manifold_vec_length(vec);
-                return toSeq(Enumerable.Range(0, count)).TraverseM(at => Lower(vec, at, context, policy, key)).As()
+                return toSeq(Enumerable.Range(0, count)).TraverseM(at => Lower(vec, at, context, policy)).As()
                     .Map(static solids => solids.Strict());
             }
             finally { manifold_delete_manifold_vec(vec); }
@@ -599,7 +599,7 @@ public static partial class Arrangement {
             }
         }
 
-        static Fin<MeshSpace> Lower(nint vec, int at, Context context, ArrangementPolicy policy, Op key) {
+        static Fin<MeshSpace> Lower(nint vec, int at, Context context, ArrangementPolicy policy) {
             nint shell = manifold_manifold_vec_get(manifold_alloc_manifold(), vec, (nuint)at);
             nint mesh = manifold_get_meshgl64(manifold_alloc_meshgl64(), shell);
             try {
@@ -614,7 +614,7 @@ public static partial class Arrangement {
                 (int, int, int)[] faces = new (int, int, int)[nt];
                 for (int f = 0; f < nt; f++) { faces[f] = ((int)tris[3 * f], (int)tris[(3 * f) + 1], (int)tris[(3 * f) + 2]); }
                 using MeshEdit edit = MeshEdit.Of(vertices, faces, context, policy.Arena);
-                return edit.ToSpace(key);
+                return edit.ToSpace();
             }
             finally { manifold_delete_meshgl64(mesh); manifold_delete_manifold(shell); }
         }

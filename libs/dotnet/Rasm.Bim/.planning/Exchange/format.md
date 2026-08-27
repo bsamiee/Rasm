@@ -232,25 +232,25 @@ public sealed partial class InterchangeFormat {
 
     public bool RoundTrippable => Capabilities.AdmitsAll(InterchangeCorner.RoundTrip);
 
-    public static Fin<InterchangeFormat> Admitted(InterchangeFormat format, InterchangeCapability demanded, Op key) =>
+    public static Fin<InterchangeFormat> Admitted(InterchangeFormat format, InterchangeCapability demanded) =>
         from corner in InterchangeCorner.FormatLaw.Admit(format.Capabilities)
         from _ in corner.Require(
             CapabilitySet<InterchangeCapability>.Of(demanded),
-            missing => format.Refuse(missing, key))
+            missing => format.Refuse(missing))
         select format;
 
-    Error Refuse(CapabilitySet<InterchangeCapability> missing, Op key) {
+    Error Refuse(CapabilitySet<InterchangeCapability> missing) {
         bool importing = missing == InterchangeCorner.Read;
         BimScope scope = importing ? BimScope.Import : missing == InterchangeCorner.Write ? BimScope.Export : BimScope.Format;
         if (CataloguePending) {
-            return new BimFault.Refused(key, scope, BimReason.Codec,
+            return new BimFault.Refused(scope, BimReason.Codec,
                 string.Join(':', new object?[] { importing ? "import-catalogue-pending" : "export-catalogue-pending", Key, Codec.CataloguePackage.IfNone("") }));
         }
         if (Companion) {
-            return new BimFault.Refused(key, scope, BimReason.Capability,
+            return new BimFault.Refused(scope, BimReason.Capability,
                 string.Join(':', new object?[] { importing ? "import-needs-companion" : "export-needs-host", Key }));
         }
-        return new BimFault.Refused(key, BimScope.Format, BimReason.Codec,
+        return new BimFault.Refused(BimScope.Format, BimReason.Codec,
             string.Join(':', new object?[] { "direction-unsupported", missing.Wire, Key }));
     }
 
@@ -267,12 +267,12 @@ public sealed partial class InterchangeFormat {
         Items.GroupBy(static row => row.MediaType, StringComparer.OrdinalIgnoreCase)
             .ToFrozenDictionary(static group => group.Key, static group => group.MaxBy(static row => row.DetectRank)!, StringComparer.OrdinalIgnoreCase);
 
-    public static Fin<InterchangeFormat> Detect(string pathOrMediaTypeOrKey, Op key) =>
+    public static Fin<InterchangeFormat> Detect(string pathOrMediaTypeOrKey) =>
         TryGet(pathOrMediaTypeOrKey, out InterchangeFormat? byKey) && byKey is { } keyed ? Fin.Succ(keyed)
         : ByMediaType.TryGetValue(pathOrMediaTypeOrKey, out var byType) ? Fin.Succ(byType)
         : ByExtension.TryGetValue(ExtensionOf(pathOrMediaTypeOrKey), out var byExt) ? Fin.Succ(byExt)
         : CompoundSuffix(pathOrMediaTypeOrKey).ToFin(
-            new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", pathOrMediaTypeOrKey })));
+            new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", pathOrMediaTypeOrKey })));
 
     static string ExtensionOf(string input) =>
         Path.GetExtension(input) is { Length: > 0 } ext ? ext

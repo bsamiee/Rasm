@@ -132,10 +132,9 @@ public sealed class PointerLease : IDisposable {
     private readonly LifecycleGate lifecycle;
     private readonly Atom<long> rejected;
     private readonly FaultCell faults;
-    private readonly Op key;
-    internal PointerLease(Channel<ViewportPointerFact> channel, Atom<long> rejected, FaultCell faults, LifecycleGate lifecycle, Option<Func<ViewportPointerFact, InputVerdict>> veto, Op key) {
-        (this.channel, this.rejected, this.faults, this.lifecycle, this.key) = (channel, rejected, faults, lifecycle, key);
-        hook = new PointerHook(channel.Writer, rejected, faults, lifecycle, veto, key);
+    internal PointerLease(Channel<ViewportPointerFact> channel, Atom<long> rejected, FaultCell faults, LifecycleGate lifecycle, Option<Func<ViewportPointerFact, InputVerdict>> veto) {
+        (this.channel, this.rejected, this.faults, this.lifecycle, this.key) = (channel, rejected, faults, lifecycle);
+        hook = new PointerHook(channel.Writer, rejected, faults, lifecycle, veto);
     }
     public ChannelReader<ViewportPointerFact> Facts => channel.Reader;
     public Seq<IsolatedFault> Faults => faults.Parked;
@@ -147,13 +146,12 @@ public sealed class PointerLease : IDisposable {
     internal Fin<Unit> Enable() => Arm(enabled: true);
 
     private Fin<Unit> Arm(bool enabled) => HostThread.Run(
-        work: new HostWork<Unit>.Execute(Body: () => key.Catch(() => Fin.Succ((hook.Enabled = enabled, unit).Item2))),
+        work: new HostWork<Unit>.Execute(Body: () => Try.lift(() => Fin.Succ((hook.Enabled = enabled, unit).Item2)).Run().Bind(static inner => inner)),
         key: key);
 
     private Fin<Unit> Release() => lifecycle.Close(
         stop: () => Arm(enabled: false),
-        settle: () => Fin.Succ((channel.Writer.TryComplete(), unit).Item2),
-        key: key);
+        settle: () => Fin.Succ((channel.Writer.TryComplete(), unit).Item2));
 
     public void Dispose() => _ = Release().IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
 }
@@ -185,9 +183,8 @@ internal sealed class PointerHook : MouseCallback {
     private readonly FaultCell faults;
     private readonly LifecycleGate lifecycle;
     private readonly Option<Func<ViewportPointerFact, InputVerdict>> veto;
-    private readonly Op key;
-    internal PointerHook(ChannelWriter<ViewportPointerFact> sink, Atom<long> rejected, FaultCell faults, LifecycleGate lifecycle, Option<Func<ViewportPointerFact, InputVerdict>> veto, Op key) =>
-        (this.sink, this.rejected, this.faults, this.lifecycle, this.veto, this.key) = (sink, rejected, faults, lifecycle, veto, key);
+    internal PointerHook(ChannelWriter<ViewportPointerFact> sink, Atom<long> rejected, FaultCell faults, LifecycleGate lifecycle, Option<Func<ViewportPointerFact, InputVerdict>> veto) =>
+        (this.sink, this.rejected, this.faults, this.lifecycle, this.veto, this.key) = (sink, rejected, faults, lifecycle, veto);
     internal long Submitted => ordinal.Value;
     internal long Vetoed => vetoed.Value;
 
@@ -221,9 +218,9 @@ internal sealed class PointerHook : MouseCallback {
                     && (verdict == InputVerdict.Handled || verdict == InputVerdict.Capture)
                     ? (e.Cancel = true, ignore(vetoed.Swap(static count => count + 1)), projected with { Verdict = new PointerVerdict.Vetoed() }).Item3
                     : projected;
-            _ = Op.SideWhen(!sink.TryWrite(settled), () => ignore(rejected.Swap(static count => count + 1)));
+            _ = HostEdge.SideWhen(!sink.TryWrite(settled), () => ignore(rejected.Swap(static count => count + 1)));
             return Fin.Succ(unit);
-        }, static () => Fin.Succ(unit), key).IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
+        }, static () => Fin.Succ(unit)).IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
     }
 }
 
@@ -271,20 +268,20 @@ public abstract partial record GumballSeat {
         light: static row => row.Value is { IsValid: true },
         hatch: static row => row.Value is { IsValid: true });
 
-    internal Fin<Unit> Apply(GumballObject target, Op key) => Switch(
-        (Target: target, Op: key),
+    internal Fin<Unit> Apply(GumballObject target) => Switch(
+        target,
         bounds: static (ctx, row) => row.Frame.Match(
-            Some: frame => ctx.Op.Confirm(ctx.Target.SetFromBoundingBox(frame, row.Value)),
-            None: () => ctx.Op.Confirm(ctx.Target.SetFromBoundingBox(row.Value))),
-        line: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromLine(row.Value)),
-        plane: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromPlane(row.Value)),
-        arc: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromArc(row.Value)),
-        circle: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromCircle(row.Value)),
-        ellipse: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromEllipse(row.Value)),
-        curve: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromCurve(row.Value)),
-        extrusion: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromExtrusion(row.Value)),
-        light: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromLight(row.Value)),
-        hatch: static (ctx, row) => ctx.Op.Confirm(ctx.Target.SetFromHatch(row.Value)));
+            Some: frame => Admit.Confirm(ctx.SetFromBoundingBox(frame, row.Value)),
+            None: () => Admit.Confirm(ctx.SetFromBoundingBox(row.Value))),
+        line: static (ctx, row) => Admit.Confirm(ctx.SetFromLine(row.Value)),
+        plane: static (ctx, row) => Admit.Confirm(ctx.SetFromPlane(row.Value)),
+        arc: static (ctx, row) => Admit.Confirm(ctx.SetFromArc(row.Value)),
+        circle: static (ctx, row) => Admit.Confirm(ctx.SetFromCircle(row.Value)),
+        ellipse: static (ctx, row) => Admit.Confirm(ctx.SetFromEllipse(row.Value)),
+        curve: static (ctx, row) => Admit.Confirm(ctx.SetFromCurve(row.Value)),
+        extrusion: static (ctx, row) => Admit.Confirm(ctx.SetFromExtrusion(row.Value)),
+        light: static (ctx, row) => Admit.Confirm(ctx.SetFromLight(row.Value)),
+        hatch: static (ctx, row) => Admit.Confirm(ctx.SetFromHatch(row.Value)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -354,8 +351,7 @@ public sealed record GumballLook {
         PerceptualColor menu,
         int radius,
         int axisThickness,
-        int arcThickness,
-        Op? key = null) =>
+        int arcThickness) =>
         guard(radius > 0 && axisThickness > 0 && arcThickness > 0, key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => new GumballLook(handles, x, y, z, menu, radius, axisThickness, arcThickness));
 
@@ -369,7 +365,7 @@ public sealed record GumballLook {
             AxisThickness = AxisThickness,
             ArcThickness = ArcThickness,
         };
-        _ = toSeq(GumballHandle.Items).Fold(unit, (_, row) => Op.Side(() => row.Seat(settings, Handles.Admits(row))));
+        _ = toSeq(GumballHandle.Items).Fold(unit, (_, row) => HostEdge.Side(() => row.Seat(settings, Handles.Admits(row))));
         return settings;
     }
 }
@@ -387,51 +383,47 @@ public sealed class GumballRig : IDisposable {
     public GumballEvidence Evidence => new(conduit.TotalTransform, conduit.GumballTransform, grip.Value);
     public Seq<IsolatedFault> Faults => faults.Parked;
 
-    internal Fin<Unit> Grip(GumballGrip next, Op key) =>
-        Cell.Step(grip, held => held is GumballGrip.Released ? None : Some(next), key.InvalidContext()).Switch(
+    internal Fin<Unit> Grip(GumballGrip next) =>
+        Cell.Step(grip, held => held is GumballGrip.Released ? None : Some(next), new KernelFault.InvalidContext()).Switch(
             state: key,
             committed: static (_, _) => Fin.Succ(unit),
             ceded: static (_, _) => Fin.Succ(unit),
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (op, _) => Fin.Fail<Unit>(op.InvalidResult()));
+            contended: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
-    internal Fin<Option<HostRow<GumballMode>>> Pick(PickContext context, GetPoint point, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(context is not null && point is not null, op.InvalidInput()).ToFin()
-            .Bind(_ => op.Catch(() => conduit.PickGumball(context, point)))
-            .Bind(seated => Grip(seated ? new GumballGrip.Dragging() : new GumballGrip.Idle(), op).Map(_ =>
+    internal Fin<Option<HostRow<GumballMode>>> Pick(PickContext context, GetPoint point) {
+        return guard(context is not null && point is not null, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => Try.lift(() => conduit.PickGumball(context, point)).Run().Bind(static inner => inner))
+            .Bind(seated => Grip(seated ? new GumballGrip.Dragging() : new GumballGrip.Idle()).Map(_ =>
                 seated && conduit.PickResult is { } pick && pick.Mode != GumballMode.None
                     ? Some(HostRow<GumballMode>.Row(pick.Mode))
                     : Option<HostRow<GumballMode>>.None));
     }
 
-    public Fin<GumballEvidence> Move(GumballMove value, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(value is not null && value.Valid, op.InvalidInput()).ToFin()
-            .Bind(_ => op.Catch(() => value.Switch(
-                (Rig: this, Op: op),
-                ray: static (ctx, row) => ctx.Op.Confirm(ctx.Rig.conduit.UpdateGumball(row.Point, row.WorldLine)),
-                frame: static (ctx, row) => ctx.Op.Confirm(ctx.Rig.conduit.UpdateGumball(row.Value)))))
+    public Fin<GumballEvidence> Move(GumballMove value) {
+        return guard(value is not null && value.Valid, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => Try.lift(() => value.Switch(
+                this,
+                ray: static (ctx, row) => Admit.Confirm(ctx.conduit.UpdateGumball(row.Point, row.WorldLine)),
+                frame: static (ctx, row) => Admit.Confirm(ctx.conduit.UpdateGumball(row.Value)))).Run().Bind(static inner => inner))
             .Map(_ => Evidence);
     }
 
-    public Fin<GumballEvidence> Complete(Op? key = null) {
-        Op op = key.OrDefault();
-        return Grip(new GumballGrip.Idle(), op).Map(_ => Evidence);
+    public Fin<GumballEvidence> Complete() {
+        return Grip(new GumballGrip.Idle()).Map(_ => Evidence);
     }
 
-    internal Fin<Unit> Release(Op key) =>
-        Cell.Step(grip, held => held is GumballGrip.Released ? None : Some<GumballGrip>(new GumballGrip.Released()), key.InvalidContext()).Switch(
-            state: (Rig: this, Op: key),
+    internal Fin<Unit> Release() =>
+        Cell.Step(grip, held => held is GumballGrip.Released ? None : Some<GumballGrip>(new GumballGrip.Released()), new KernelFault.InvalidContext()).Switch(
+            state: this,
             committed: static (ctx, _) => Custody.Release(
                 releases: Seq<Func<Fin<Unit>>>(
-                    () => ctx.Op.Catch(() => { ctx.Rig.conduit.Enabled = false; return Fin.Succ(unit); }),
-                    () => ctx.Op.Catch(() => { ctx.Rig.conduit.Dispose(); return Fin.Succ(unit); }),
-                    () => ctx.Op.Catch(() => { ctx.Rig.gumball.Dispose(); return Fin.Succ(unit); })),
-                key: ctx.Op),
+                    () => Try.lift(() => { ctx.conduit.Enabled = false; return Fin.Succ(unit); }).Run().Bind(static inner => inner),
+                    () => Try.lift(() => { ctx.conduit.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
+                    () => Try.lift(() => { ctx.gumball.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))),
             ceded: static (_, _) => Fin.Succ(unit),
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (ctx, _) => Fin.Fail<Unit>(ctx.Op.InvalidResult()));
+            contended: static (ctx, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
     public void Dispose() => _ = Release(Op.Of(nameof(GumballRig)))
         .IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
@@ -439,21 +431,20 @@ public sealed class GumballRig : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Gumballs {
-    public static Fin<GumballRig> Mount(GumballSeat seat, ActiveSpaceUse space, GumballLook look, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(seat is not null && seat.Valid && space is not null && look is not null, op.InvalidInput()).ToFin()
-            .Bind(_ => op.Catch(() => Fin.Succ(new GumballObject())).Bind(ball =>
-            op.Catch(() => Fin.Succ(new GumballDisplayConduit(space.Key)))
-                .Rollback(release: () => { ball.Dispose(); return Fin.Succ(unit); }, key: op)
+    public static Fin<GumballRig> Mount(GumballSeat seat, ActiveSpaceUse space, GumballLook look) {
+        return guard(seat is not null && seat.Valid && space is not null && look is not null, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => Try.lift(() => Fin.Succ(new GumballObject())).Run().Bind(static inner => inner).Bind(ball =>
+            Try.lift(() => Fin.Succ(new GumballDisplayConduit(space.Key))).Run().Bind(static inner => inner)
+                .Rollback(release: () => { ball.Dispose(); return Fin.Succ(unit); })
                 .Bind(pipe => {
                     GumballRig rig = new(ball, pipe);
-                    return (from _ in op.Catch(() => seat.Apply(ball, op))
-                            from __ in op.Catch(() => {
+                    return (from _ in Try.lift(() => seat.Apply(ball)).Run().Bind(static inner => inner)
+                            from __ in Try.lift(() => {
                                 pipe.SetBaseGumball(ball, look.Native());
                                 pipe.Enabled = true;
                                 return unit;
-                            })
-                            select rig).Rollback(release: () => rig.Release(op), key: op);
+                            }).Run().Bind(static inner => inner)
+                            select rig).Rollback(release: () => rig.Release());
                 })));
     }
 }
@@ -658,8 +649,7 @@ internal sealed record WidgetSink(
     FaultCell Faults,
     Atom<long> Submitted,
     Atom<long> Rejected,
-    LifecycleGate Lifecycle,
-    Op Key) {
+    LifecycleGate Lifecycle) {
     private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.widget");
 
     internal Unit Paint(DrawEventArgs args) => Observe(Lifecycle.Within(
@@ -681,7 +671,7 @@ internal sealed record WidgetSink(
     internal Unit Emit(Func<WidgetFact> project) => Observe(Lifecycle.Within(
         body: () => {
             _ = Submitted.Swap(static count => count + 1);
-            _ = Op.SideWhen(!Writer.TryWrite(project()), () => ignore(Rejected.Swap(static count => count + 1)));
+            _ = HostEdge.SideWhen(!Writer.TryWrite(project()), () => ignore(Rejected.Swap(static count => count + 1)));
             return Fin.Succ(unit);
         },
         refused: static () => Fin.Succ(unit),
@@ -711,11 +701,11 @@ internal sealed class GripWidget : GripUserInterfaceObject {
         _ = spec.Constraint.Switch(
             this,
             free: static (_, _) => unit,
-            curve: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)),
-            line: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)),
-            arc: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)),
-            circle: static (owner, value) => Op.Side(() => owner.Constrain(value.Value)));
-        _ = Op.SideWhen(!spec.Snaps.IsEmpty, () => SetSnapPoints(spec.Snaps.AsEnumerable()));
+            curve: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)),
+            line: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)),
+            arc: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)),
+            circle: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)));
+        _ = HostEdge.SideWhen(!spec.Snaps.IsEmpty, () => SetSnapPoints(spec.Snaps.AsEnumerable()));
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
     protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
@@ -790,7 +780,7 @@ internal sealed class SvgWidget : UserInterfaceControl {
         _ = spec.Text.Iter(value => Text = value);
         _ = spec.AlignAcross.Iter(row => HorizontalAlignment = row.Native);
         _ = spec.AlignDown.Iter(row => VerticalAlignment = row.Native);
-        TrackingPoint = Op.ToHostNullable(spec.Tracking);
+        TrackingPoint = HostEdge.Nullable(spec.Tracking);
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
     protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
@@ -834,18 +824,16 @@ public sealed class WidgetHost : IDisposable {
     public long Rejected => rejected.Value;
     public Option<int> Buffered => channel.Reader.CanCount ? Some(channel.Reader.Count) : None;
 
-    public static Fin<WidgetHost> Of(ChannelPlan plan, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(plan is not null && plan.Overflow is not null, op.InvalidInput()).ToFin()
-            .Bind(_ => LifecycleGate.Of(plan.SettleWithin, op).Bind(lifecycle => op.Catch(() => {
+    public static Fin<WidgetHost> Of(ChannelPlan plan) {
+        return guard(plan is not null && plan.Overflow is not null, new KernelFault.InvalidInput()).ToFin()
+            .Bind(_ => LifecycleGate.Of(plan.SettleWithin).Bind(lifecycle => Try.lift(() => {
                 Atom<long> rejected = Atom(0L);
                 Channel<WidgetFact> channel = plan.Overflow.Bounded<WidgetFact>(plan.Capacity, rejected);
                 return Fin.Succ(new WidgetHost(channel, rejected, lifecycle));
-            })));
+            }).Run().Bind(static inner => inner)));
     }
 
-    public Fin<WidgetId> Mount(WidgetSpec spec, WidgetScope scope, CapabilitySet<WidgetVisibility> posture, Seq<Mark> marks, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<WidgetId> Mount(WidgetSpec spec, WidgetScope scope, CapabilitySet<WidgetVisibility> posture, Seq<Mark> marks) {
         return lifecycle.Within(
             body: () => guard(
                 spec is not null
@@ -854,44 +842,40 @@ public sealed class WidgetHost : IDisposable {
                     && scope.Valid
                     && WidgetVisibility.RequestLaw.Admit(held: posture).IsSucc
                     && marks.ForAll(static mark => mark is not null && mark.Valid),
-                op.InvalidInput()).ToFin().Bind(_ => {
+                new KernelFault.InvalidInput()).ToFin().Bind(_ => {
                     WidgetId identity = WidgetId.Create(Guid.NewGuid());
-                    WidgetSink sink = new(identity, channel.Writer, Atom(marks), faults, submitted, rejected, lifecycle, op);
-                    return from widget in op.Catch(() => spec.Switch(
+                    WidgetSink sink = new(identity, channel.Writer, Atom(marks), faults, submitted, rejected, lifecycle);
+                    return from widget in Try.lift(() => spec.Switch(
                                sink,
                                grip: static (state, row) => (UserInterfaceObjectBase)new GripWidget(row, state),
                                direction: static (state, row) => new DirectionWidget(row, state),
                                rotation: static (state, row) => new RotationWidget(row, state),
                                text: static (state, row) => new TextWidget(row, state),
                                svg: static (state, row) => new SvgWidget(row, state),
-                               slider: static (state, row) => new SliderWidget(row, state)))
+                               slider: static (state, row) => new SliderWidget(row, state))).Run().Bind(static inner => inner)
                            from retire in scope.Switch(
-                               (Widget: widget, Op: op),
-                               allDocuments: static (ctx, _) => ctx.Op.Confirm(ctx.Widget.RegisterForAllDocuments())
-                                   .Map(_ => (Func<Fin<Unit>>)(() => ctx.Op.Catch(ctx.Widget.Unregister))),
+                               widget,
+                               allDocuments: static (ctx, _) => Admit.Confirm(ctx.RegisterForAllDocuments())
+                                   .Map(_ => (Func<Fin<Unit>>)(() => Try.lift(ctx.Unregister).Run().Bind(static inner => inner))),
                                document: static (ctx, row) => row.Session.Demand(
-                                   use: doc => ctx.Op.Confirm(doc.ViewUserInterface.Add(ctx.Widget, row.Group)).Map(static _ => unit),
-                                   key: ctx.Op,
+                                   use: doc => Admit.Confirm(doc.ViewUserInterface.Add(ctx, row.Group)).Map(static _ => unit),
                                    needs: [SessionNeed.Mutate])
                                    .Map(_ => (Func<Fin<Unit>>)(() => row.Session.Demand(
-                                       use: doc => ctx.Op.Catch(() => ctx.Op.Confirm(doc.ViewUserInterface.Remove(ctx.Widget) > 0)),
-                                       key: ctx.Op,
+                                       use: doc => Try.lift(() => Admit.Confirm(doc.ViewUserInterface.Remove(ctx) > 0)).Run().Bind(static inner => inner),
                                        needs: [SessionNeed.Mutate]))))
                            let value = new WidgetMount(widget, sink, retire)
-                           from mountedId in SetPosture(value, posture, op)
-                               .Bind(_ => op.Catch(() => {
+                           from mountedId in SetPosture(value, posture)
+                               .Bind(_ => Try.lift(() => {
                                    _ = mounted.Add(identity, value);
                                    return Fin.Succ(identity);
-                               }))
+                               }).Run().Bind(static inner => inner))
                                .Rollback(release: retire, key: op)
                            select mountedId;
                 }),
-            refused: () => Fin.Fail<WidgetId>(op.InvalidContext()),
-            key: op);
+            refused: () => Fin.Fail<WidgetId>(new KernelFault.InvalidContext()));
     }
 
-    public Fin<WidgetState> Change(WidgetId identity, CapabilitySet<WidgetVisibility> posture, Option<Seq<Mark>> marks = default, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<WidgetState> Change(WidgetId identity, CapabilitySet<WidgetVisibility> posture, Option<Seq<Mark>> marks = default) {
         return lifecycle.Within(
             body: () => guard(
                 identity.Value != Guid.Empty
@@ -899,77 +883,68 @@ public sealed class WidgetHost : IDisposable {
                     && marks.Match(
                         Some: static rows => rows.ForAll(static mark => mark is not null && mark.Valid),
                         None: static () => true),
-                op.InvalidInput()).ToFin().Bind(_ => Find(identity, op).Bind(value =>
-                    op.Catch(() => Fin.Succ(State(identity, value))).Bind(prior =>
-                        SetPosture(value, posture, op)
+                new KernelFault.InvalidInput()).ToFin().Bind(_ => Find(identity).Bind(value =>
+                    Try.lift(() => Fin.Succ(State(identity, value))).Run().Bind(static inner => inner).Bind(prior =>
+                        SetPosture(value, posture)
                             .Map(_ => (ignore(marks.Iter(value.Sink.Retarget)), State(identity, value)).Item2)
                             .Rollback(
-                                release: () => SetPosture(value, prior.Posture, op),
+                                release: () => SetPosture(value, prior.Posture),
                                 key: op)))),
-            refused: () => Fin.Fail<WidgetState>(op.InvalidContext()),
-            key: op);
+            refused: () => Fin.Fail<WidgetState>(new KernelFault.InvalidContext()));
     }
 
-    public Fin<WidgetAnswer> Ask(WidgetId identity, WidgetProbe probe, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<WidgetAnswer> Ask(WidgetId identity, WidgetProbe probe) {
         return lifecycle.Within(
-            body: () => guard(identity.Value != Guid.Empty && probe is not null && probe.Valid, op.InvalidInput()).ToFin()
-                .Bind(_ => Find(identity, op))
+            body: () => guard(identity.Value != Guid.Empty && probe is not null && probe.Valid, new KernelFault.InvalidInput()).ToFin()
+                .Bind(_ => Find(identity))
                 .Bind(value => probe.Switch(
-                    (Native: value.Native, Op: op),
+                    value,
                     glyphs: static (ctx, row) => row.Session.Demand(
-                        use: doc => ctx.Op.Catch(() =>
-                            from view in Optional(doc.Views.Find(row.Viewport)).ToFin(ctx.Op.InvalidInput())
-                            from visible in ctx.Native switch {
+                        use: doc => Try.lift(() =>
+                            from view in Optional(doc.Views.Find(row.Viewport)).ToFin(new KernelFault.InvalidInput())
+                            from visible in ctx switch {
                                 DirectionWidget arrow => Fin.Succ(arrow.ArrowsVisibleInViewport(view.ActiveViewport)),
                                 RotationWidget arc => Fin.Succ(arc.ArcVisibleInViewport(view.ActiveViewport)),
-                                _ => Fin.Fail<bool>(ctx.Op.InvalidInput(axis: nameof(WidgetProbe.Glyphs))),
+                                _ => Fin.Fail<bool>(new KernelFault.InvalidInput(Axis: Some(nameof(WidgetProbe.Glyphs)))),
                             }
-                            select (WidgetAnswer)new WidgetAnswer.Glyphs(visible)),
-                        key: ctx.Op,
+                            select (WidgetAnswer)new WidgetAnswer.Glyphs(visible)).Run().Bind(static inner => inner),
                         needs: [SessionNeed.Read]),
-                    region: static (ctx, row) => ctx.Native is SvgWidget control
+                    region: static (ctx, row) => ctx is SvgWidget control
                         ? row.Session.Demand(
-                            use: doc => ctx.Op.Catch(() => {
+                            use: doc => Try.lift(() => {
                                 System.Drawing.RectangleF frame = control.ComputedRectangle(doc.Views.ActiveView, row.Space.Key);
                                 return Fin.Succ<WidgetAnswer>(new WidgetAnswer.Region(
                                     Origin: new Point2d(frame.X, frame.Y), Extent: new Vector2d(frame.Width, frame.Height)));
-                            }),
-                            key: ctx.Op,
+                            }).Run().Bind(static inner => inner),
                             needs: [SessionNeed.Read])
-                        : Fin.Fail<WidgetAnswer>(ctx.Op.InvalidInput(axis: nameof(WidgetProbe.Region))),
-                    formatted: static (ctx, _) => ctx.Native is SliderWidget slider
-                        ? ctx.Op.Catch(() => Fin.Succ<WidgetAnswer>(new WidgetAnswer.Formatted(
-                            Rendered: slider.ValueAsFormattedString(), Value: slider.Value)))
-                        : Fin.Fail<WidgetAnswer>(ctx.Op.InvalidInput(axis: nameof(WidgetProbe.Formatted))))),
-            refused: () => Fin.Fail<WidgetAnswer>(op.InvalidContext()),
-            key: op);
+                        : Fin.Fail<WidgetAnswer>(new KernelFault.InvalidInput(Axis: Some(nameof(WidgetProbe.Region)))),
+                    formatted: static (ctx, _) => ctx is SliderWidget slider
+                        ? Try.lift(() => Fin.Succ<WidgetAnswer>(new WidgetAnswer.Formatted(
+                            Rendered: slider.ValueAsFormattedString(), Value: slider.Value))).Run().Bind(static inner => inner)
+                        : Fin.Fail<WidgetAnswer>(new KernelFault.InvalidInput(Axis: Some(nameof(WidgetProbe.Formatted)))))),
+            refused: () => Fin.Fail<WidgetAnswer>(new KernelFault.InvalidContext()));
     }
 
-    public Fin<WidgetState> Inspect(WidgetId identity, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<WidgetState> Inspect(WidgetId identity) {
         return lifecycle.Within(
-            body: () => guard(identity.Value != Guid.Empty, op.InvalidInput()).ToFin()
-                .Bind(_ => Find(identity, op))
+            body: () => guard(identity.Value != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
+                .Bind(_ => Find(identity))
                 .Map(value => State(identity, value)),
-            refused: () => Fin.Fail<WidgetState>(op.InvalidContext()),
-            key: op);
+            refused: () => Fin.Fail<WidgetState>(new KernelFault.InvalidContext()));
     }
 
-    public Fin<Unit> Retire(WidgetId identity, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Unit> Retire(WidgetId identity) {
         return lifecycle.Within(
-            body: () => guard(identity.Value != Guid.Empty, op.InvalidInput()).ToFin()
-                .Bind(_ => Find(identity, op))
-                .Bind(value => Retire(identity, value, op)),
-            refused: () => Fin.Fail<Unit>(op.InvalidContext()),
-            key: op);
+            body: () => guard(identity.Value != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
+                .Bind(_ => Find(identity))
+                .Bind(value => Retire(identity, value)),
+            refused: () => Fin.Fail<Unit>(new KernelFault.InvalidContext()));
     }
 
-    private Fin<WidgetMount> Find(WidgetId identity, Op op) => mounted.Find(identity).ToFin(op.InvalidInput());
-    private Fin<Unit> Retire(WidgetId identity, WidgetMount value, Op op) =>
+    private Fin<WidgetMount> Find(WidgetId identity) => mounted.Find(identity).ToFin(new KernelFault.InvalidInput());
+    private Fin<Unit> Retire(WidgetId identity, WidgetMount value) =>
         from _ in value.Retire()
-        from __ in op.Catch(() => Fin.Succ((mounted.Remove(identity), unit).Item2))
+        from __ in Try.lift(() => Fin.Succ((mounted.Remove(identity), unit).Item2)).Run().Bind(static inner => inner)
         select unit;
 
     private static WidgetState State(WidgetId identity, WidgetMount value) => new(
@@ -979,18 +954,17 @@ public sealed class WidgetHost : IDisposable {
             || (row == WidgetVisibility.ActiveViewBound && value.Native.BoundToActiveView)
             || (row == WidgetVisibility.Registered && value.Native.IsRegistered())).ToArray()));
 
-    private static Fin<Unit> SetPosture(WidgetMount value, CapabilitySet<WidgetVisibility> posture, Op op) =>
-        op.Catch(() => {
+    private static Fin<Unit> SetPosture(WidgetMount value, CapabilitySet<WidgetVisibility> posture) =>
+        Try.lift(() => {
             value.Native.Visible = posture.Admits(WidgetVisibility.Shown);
             value.Native.BoundToActiveView = posture.Admits(WidgetVisibility.ActiveViewBound);
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 
-    private Fin<Unit> ReleaseAll(Op op) => Custody.Release(
+    private Fin<Unit> ReleaseAll() => Custody.Release(
         releases: mounted.AsIterable().ToSeq()
-            .Map(row => (Func<Fin<Unit>>)(() => Retire(identity: row.Key, value: row.Value, op: op)))
-            .Add(() => op.Catch(() => Fin.Succ((channel.Writer.TryComplete(), unit).Item2))),
-        key: op);
+            .Map(row => (Func<Fin<Unit>>)(() => Retire(identity: row.Key, value: row.Value)))
+            .Add(() => Try.lift(() => Fin.Succ((channel.Writer.TryComplete(), unit).Item2)).Run().Bind(static inner => inner)));
 
     public void Dispose() => _ = lifecycle.Close(
         stop: static () => Fin.Succ(unit),
@@ -1012,35 +986,32 @@ public sealed class WidgetHost : IDisposable {
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DisplayHooks {
-    public static Fin<Seq<Lease<IDisposable>>> Mount(HookMounts<RhinoPoint, PluginKey> mounts, PluginKey plugin, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Seq<Lease<IDisposable>>> Mount(HookMounts<RhinoPoint, PluginKey> mounts, PluginKey plugin) {
         return mounts.MountAll(
             bindings: Seq<IHookBinding<RhinoPoint, PluginKey>>(
                 new HookBinding<RhinoPoint, PluginKey, (ChannelPlan Plan, Option<Func<ViewportPointerFact, InputVerdict>> Veto), PointerLease>(
                     Point: RhinoPoint.DisplayPointer,
                     Owner: plugin,
                     Bind: static ask => {
-                        Op bind = Op.Of(name: nameof(DisplayHooks));
                         return guard(
                             ask.Plan is not null
                                 && ask.Plan.Overflow is not null
                                 && ask.Veto.Match(Some: static value => value is not null, None: static () => true),
-                            bind.InvalidInput()).ToFin().Bind(_ =>
+                            new KernelFault.InvalidInput()).ToFin().Bind(_ =>
                                 from lifecycle in LifecycleGate.Of(ask.Plan.SettleWithin, bind)
-                                from lease in bind.Catch(() => {
+                                from lease in Try.lift(() => {
                                     Atom<long> rejected = Atom(0L);
                                     FaultCell faults = DisplayFaults.Cell();
                                     Channel<ViewportPointerFact> channel = ask.Plan.Overflow.Bounded<ViewportPointerFact>(ask.Plan.Capacity, rejected);
                                     return Fin.Succ(new PointerLease(channel, rejected, faults, lifecycle, ask.Veto, bind));
-                                })
+                                }).Run().Bind(static inner => inner)
                                 from armed in lease.Enable()
                                 select lease);
                     }),
                 new HookBinding<RhinoPoint, PluginKey, ChannelPlan, WidgetHost>(
                     Point: RhinoPoint.DisplayWidget,
                     Owner: plugin,
-                    Bind: static ask => WidgetHost.Of(plan: ask))),
-            key: op);
+                    Bind: static ask => WidgetHost.Of(plan: ask))));
     }
 }
 ```

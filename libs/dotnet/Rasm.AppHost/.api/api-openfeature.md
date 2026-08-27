@@ -58,7 +58,7 @@
 
 - `Hook`: `BeforeAsync<T>(HookContext<T>, IReadOnlyDictionary<string, object>?, CancellationToken) -> ValueTask<EvaluationContext>`, `AfterAsync<T>(HookContext<T>, FlagEvaluationDetails<T>, …) -> ValueTask`, `ErrorAsync<T>(HookContext<T>, Exception, …) -> ValueTask`, and `FinallyAsync<T>(HookContext<T>, FlagEvaluationDetails<T>, …) -> ValueTask`; normal order is Before, After, Finally and an abnormal one is Error, Finally.
 - `HookContext<T>`: `FlagKey`, `DefaultValue`, `FlagValueType`, `EvaluationContext`, `ClientMetadata`, `ProviderMetadata`, `Data`.
-- `TrackingEventDetails`: construction is `TrackingEventDetails.Builder()` (a STATIC factory — the constructors are internal), then `Set(key, …)`/`SetValue(double?)`/`Build()`; `Empty` is the no-attribute value.
+- `TrackingEventDetails`: construction is `TrackingEventDetails.Builder()` (a STATIC factory — the constructors are internal), then `Set(…)`/`SetValue(double?)`/`Build()`; `Empty` is the no-attribute value.
 - `ProviderEventPayload`: `ProviderName`, `Type`, `Message`, `ErrorType`, `FlagsChanged`, `EventMetadata` — every column nullable, and the handler receives a NULLABLE payload.
 
 [PUBLIC_TYPE_SCOPE]: outcome vocabulary family
@@ -107,8 +107,8 @@
 | [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]              |
 | :-----: | :------------------------------------------------------------------------ | :------- | :------------------------ |
 |  [01]   | `EvaluationContext.Builder()`                                             | static   | context construction      |
-|  [02]   | `EvaluationContextBuilder.SetTargetingKey(key)`                           | instance | sticky bucketing key      |
-|  [03]   | `EvaluationContextBuilder.Set(key, value)`                                | instance | targeting attribute       |
+|  [02]   | `EvaluationContextBuilder.SetTargetingKey()`                           | instance | sticky bucketing key      |
+|  [03]   | `EvaluationContextBuilder.Set(value)`                                | instance | targeting attribute       |
 |  [04]   | `EvaluationContextBuilder.Build()`                                        | instance | immutable context         |
 |  [05]   | `new InMemoryProvider(flags)`                                             | ctor     | config-backed flag set    |
 |  [06]   | `InMemoryProvider.UpdateFlagsAsync(flags)`                                | instance | live flag reconfiguration |

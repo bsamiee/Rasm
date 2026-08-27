@@ -65,14 +65,14 @@ public abstract partial record ContentValue : IDetachedDocumentResult {
 
     internal ContentCarrier Carrier => ContentCarrier.Get(GetType());
 
-    internal static Fin<ContentValue> Of(object? payload, Op key) =>
-        ContentCarrier.Recover(payload: payload, key: key);
+    internal static Fin<ContentValue> Of(object? payload) =>
+        ContentCarrier.Recover(payload: payload);
 
-    internal Fin<Unit> Declare(FieldDeclaration declaration, Op key) =>
-        Carrier.Declare(declaration: declaration, payload: Boxed(), key: key);
+    internal Fin<Unit> Declare(FieldDeclaration declaration) =>
+        Carrier.Declare(declaration: declaration, payload: Boxed());
 
-    internal Fin<Unit> Write(FieldDictionary fields, string name, Op key) =>
-        Carrier.Write(fields: fields, name: name, payload: Boxed(), key: key);
+    internal Fin<Unit> Write(FieldDictionary fields, string name) =>
+        Carrier.Write(fields: fields, name: name, payload: Boxed());
 
     internal object? Boxed() => Carrier.Box(value: this);
 }
@@ -153,30 +153,30 @@ public sealed partial class ContentCarrier {
         read: static (payload, key) => payload switch {
             ByteArrayField field => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArray(field.Value))),
             byte[] value => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArray(value))),
-            _ => Fin.Fail<ContentValue>(error: key.InvalidResult()),
+            _ => Fin.Fail<ContentValue>(error: new KernelFault.InvalidResult()),
         },
         declare: static (declaration, payload, key) => declaration.Presentation is FieldPresentation.Plain && payload is byte[] bytes
-            ? key.Catch(() => { _ = declaration.Fields.Add(declaration.Name, bytes); return Fin.Succ(value: unit); })
-            : Fin.Fail<Unit>(error: key.InvalidInput()),
+            ? Try.lift(() => { _ = declaration.Fields.Add(declaration.Name, bytes); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)
+            : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
         writeHole: None,
         store: static (fields, name, payload, key) => payload is byte[] bytes
-            ? key.Catch(() => { fields.Set(name, bytes); return Fin.Succ(value: unit); })
-            : Fin.Fail<Unit>(error: key.InvalidInput()));
+            ? Try.lift(() => { fields.Set(name, bytes); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)
+            : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()));
     public static readonly ContentCarrier Null = new(
         key: typeof(ContentValue.Null), fieldType: typeof(NullField), payloadType: typeof(DBNull),
         box: static _ => null,
         acceptsRange: static (_, _) => false,
         read: static (payload, key) => payload is NullField or DBNull or null
             ? Fin.Succ<ContentValue>(value: new ContentValue.Null())
-            : Fin.Fail<ContentValue>(error: key.InvalidResult()),
+            : Fin.Fail<ContentValue>(error: new KernelFault.InvalidResult()),
         declare: static (declaration, _, key) => declaration.Presentation.Switch(
-            state: (Declaration: declaration, Op: key),
-            plain: static (ctx, _) => ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.Add(ctx.Declaration.Name, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
-            textured: static (ctx, row) => ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.AddTextured(ctx.Declaration.Name, ctx.Declaration.Prompt, row.TreatAsLinear, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
-            filename: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidInput())),
+            state: declaration,
+            plain: static (ctx, _) => Try.lift(() => { _ = ctx.Fields.Add(ctx.Name, ctx.Prompt, ctx.Section); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+            textured: static (ctx, row) => Try.lift(() => { _ = ctx.Fields.AddTextured(ctx.Name, ctx.Prompt, row.TreatAsLinear, ctx.Section); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+            filename: static (ctx, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidInput())),
         writeHole: Some((From: typeof(ContentValue.Null), To: typeof(NullField))),
         store: static (_, _, _, key) => Fin.Fail<Unit>(
-            error: key.Unsupported(inputType: typeof(ContentValue.Null), outputType: typeof(NullField))));
+            error: new KernelFault.Unsupported(InputType: typeof(ContentValue.Null), OutputType: typeof(NullField))));
 
     public Type FieldType { get; }
     public Type PayloadType { get; }
@@ -190,18 +190,18 @@ public sealed partial class ContentCarrier {
     internal partial bool AcceptsRange(ContentValue min, ContentValue max);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<ContentValue> Read(object? payload, Op key);
+    internal partial Fin<ContentValue> Read(object? payload);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Declare(FieldDeclaration declaration, object? payload, Op key);
+    internal partial Fin<Unit> Declare(FieldDeclaration declaration, object? payload);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Store(FieldDictionary fields, string name, object? payload, Op key);
+    internal partial Fin<Unit> Store(FieldDictionary fields, string name, object? payload);
 
-    internal Fin<Unit> Write(FieldDictionary fields, string name, object? payload, Op key) =>
+    internal Fin<Unit> Write(FieldDictionary fields, string name, object? payload) =>
         WriteHole.Match(
-            Some: hole => Fin.Fail<Unit>(error: key.Unsupported(inputType: hole.From, outputType: hole.To)),
-            None: () => Store(fields: fields, name: name, payload: payload, key: key));
+            Some: hole => Fin.Fail<Unit>(error: new KernelFault.Unsupported(InputType: hole.From, OutputType: hole.To)),
+            None: () => Store(fields: fields, name: name, payload: payload));
 
     private static readonly Lazy<(HashMap<Type, ContentCarrier> ByField, HashMap<Type, ContentCarrier> ByPayload)> Index = new(
         static () => toSeq(Items).Fold(
@@ -211,13 +211,13 @@ public sealed partial class ContentCarrier {
                 ByPayload: state.ByPayload.Add(row.PayloadType, row))),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
-    internal static Fin<ContentValue> Recover(object? payload, Op key) =>
+    internal static Fin<ContentValue> Recover(object? payload) =>
         payload is null
-            ? Null.Read(payload: null, key: key)
+            ? Null.Read(payload: null)
             : (payload is Field ? Index.Value.ByField : Index.Value.ByPayload)
                 .Find(payload.GetType())
-                .ToFin(Fail: key.InvalidResult(detail: payload.GetType().Name))
-                .Bind(row => row.Read(payload: payload, key: key));
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(payload.GetType().Name)))
+                .Bind(row => row.Read(payload: payload));
 
     private static ContentCarrier Row<TCase, T, TField>(
         Func<TField, T> read,
@@ -239,21 +239,21 @@ public sealed partial class ContentCarrier {
             read: (payload, op) => payload switch {
                 TField field => Fin.Succ<ContentValue>(value: TCase.Of(read(field))),
                 T value => Fin.Succ<ContentValue>(value: TCase.Of(value)),
-                _ => Fin.Fail<ContentValue>(error: op.InvalidResult()),
+                _ => Fin.Fail<ContentValue>(error: new KernelFault.InvalidResult()),
             },
             declare: (declaration, payload, op) => payload is T value
                 ? declaration.Presentation.Switch(
-                    state: (Declaration: declaration, Value: value, Op: op, Plain: plain, Textured: textured),
-                    plain: static (ctx, _) => ctx.Op.Catch(() => { _ = ctx.Plain(ctx.Declaration.Fields, ctx.Declaration.Name, ctx.Value, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
-                    textured: static (ctx, row) => ctx.Op.Catch(() => { _ = ctx.Textured(ctx.Declaration.Fields, ctx.Declaration.Name, ctx.Value, ctx.Declaration.Prompt, row.TreatAsLinear, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
+                    state: (Declaration: declaration, Value: value, Plain: plain, Textured: textured),
+                    plain: static (ctx, _) => Try.lift(() => { _ = ctx.Plain(ctx.Declaration.Fields, ctx.Declaration.Name, ctx.Value, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
+                    textured: static (ctx, row) => Try.lift(() => { _ = ctx.Textured(ctx.Declaration.Fields, ctx.Declaration.Name, ctx.Value, ctx.Declaration.Prompt, row.TreatAsLinear, ctx.Declaration.Section); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner),
                     filename: static (ctx, _) => ctx.Value is string path
-                        ? ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.AddFilename(ctx.Declaration.Name, path, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); })
-                        : Fin.Fail<Unit>(error: ctx.Op.InvalidInput()))
-                : Fin.Fail<Unit>(error: op.InvalidInput()),
+                        ? Try.lift(() => { _ = ctx.Declaration.Fields.AddFilename(ctx.Declaration.Name, path, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)
+                        : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()))
+                : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             writeHole: None,
             store: (fields, name, payload, op) => payload is T value
-                ? op.Catch(() => { write(fields, name, value); return Fin.Succ(value: unit); })
-                : Fin.Fail<Unit>(error: op.InvalidInput()));
+                ? Try.lift(() => { write(fields, name, value); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)
+                : Fin.Fail<Unit>(error: new KernelFault.InvalidInput()));
 }
 ```
 
@@ -286,19 +286,18 @@ public sealed record FieldSpec(
     FieldPresentation Presentation,
     Option<string> Prompt = default,
     int SectionId = 0) {
-    internal Fin<Unit> Declare(FieldDictionary fields, Op key) {
+    internal Fin<Unit> Declare(FieldDictionary fields) {
         FieldSpec self = this;
-        return from name in key.AcceptText(value: self.Name)
-               from value in key.Need(self.Value)
-               from presentation in key.Need(self.Presentation)
+        return from name in Acceptance.Text(value: self.Name)
+               from value in Admit.Need(self.Value)
+               from presentation in Admit.Need(self.Presentation)
                from _ in value.Declare(
                    declaration: new FieldDeclaration(
                        Fields: fields,
                        Name: name,
                        Prompt: self.Prompt.IfNone(name),
                        Section: self.SectionId,
-                       Presentation: presentation),
-                   key: key)
+                       Presentation: presentation))
                select unit;
     }
 }
@@ -317,8 +316,8 @@ public sealed partial class FieldRange {
             ? null
             : new ValidationError(string.Join(" | ", new object?[] { nameof(FieldRange), "an ordered carrier-equal scalar pair" }));
 
-    internal static Fin<FieldRange> Of(ContentValue min, ContentValue max, Op key) =>
-        key.AcceptValidated<FieldRange>(Validate(min, max, out FieldRange? range), range);
+    internal static Fin<FieldRange> Of(ContentValue min, ContentValue max) =>
+        FactoryBridge.Accept<FieldRange>(Validate(min, max, out FieldRange? range), range);
 }
 
 [ComplexValueObject]
@@ -352,10 +351,9 @@ public sealed partial class DynamicFieldSpec {
 
     public static Fin<DynamicFieldSpec> Of(
         string internalName, string localName, string englishName, ContentValue value,
-        Option<(ContentValue Min, ContentValue Max)> bounds, int sectionId, Op? key = null) {
-        Op op = key.OrDefault();
-        return from range in bounds.Traverse(row => FieldRange.Of(min: row.Min, max: row.Max, key: op)).As()
-               from admitted in op.AcceptValidated<DynamicFieldSpec>(
+        Option<(ContentValue Min, ContentValue Max)> bounds, int sectionId) {
+        return from range in bounds.Traverse(row => FieldRange.Of(min: row.Min, max: row.Max)).As()
+               from admitted in FactoryBridge.Accept<DynamicFieldSpec>(
                    Validate(internalName, localName, englishName, value, range, sectionId, out DynamicFieldSpec? created), created)
                select admitted;
     }
@@ -375,24 +373,23 @@ internal sealed class DynamicFieldScope : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DynamicFields {
-    internal static Fin<Unit> Declare(RenderContent content, bool automatic, Seq<DynamicFieldSpec> rows, Op key) =>
-        Lease<DynamicFieldScope>.Acquire(mint: () => new DynamicFieldScope(content: content, automatic: automatic), key: key)
+    internal static Fin<Unit> Declare(RenderContent content, bool automatic, Seq<DynamicFieldSpec> rows) =>
+        Lease<DynamicFieldScope>.Acquire(mint: () => new DynamicFieldScope(content: content, automatic: automatic))
             .Bind(scope => scope.Use(
                 body: _ => rows.TraverseM(row =>
-                    from admitted in key.Need(row)
+                    from admitted in Admit.Need(row)
                     let bounds = admitted.Bounds
                         .Map(static range => (Min: (object?)range.Min.Boxed(), Max: (object?)range.Max.Boxed()))
                         .IfNone((Min: null, Max: null))
-                    from created in key.Catch(() => key.Confirm(success: content.CreateDynamicField(
+                    from created in Try.lift(() => Admit.Confirm(success: content.CreateDynamicField(
                         internalName: admitted.InternalName,
                         localName: admitted.LocalName,
                         englishName: admitted.EnglishName,
                         value: admitted.Value.Boxed(),
                         minValue: bounds.Min,
                         maxValue: bounds.Max,
-                        sectionId: admitted.SectionId)))
-                    select created).As().Map(static _ => unit),
-                key: key));
+                        sectionId: admitted.SectionId))).Run().Bind(static inner => inner)
+                    select created).As().Map(static _ => unit)));
 }
 ```
 
@@ -417,27 +414,26 @@ public abstract partial record FieldBinding {
     private sealed record DirectCase(string Parameter) : FieldBinding;
     private sealed record AtSlotCase(string Parameter, string ChildSlot) : FieldBinding;
 
-    public static Fin<FieldBinding> Of(string parameter, Option<string> childSlot = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admittedParameter in op.AcceptText(value: parameter)
-               from admittedSlot in childSlot.Traverse(slot => op.AcceptText(value: slot)).As()
+    public static Fin<FieldBinding> Of(string parameter, Option<string> childSlot = default) {
+        return from admittedParameter in Acceptance.Text(value: parameter)
+               from admittedSlot in childSlot.Traverse(slot => Acceptance.Text(value: slot)).As()
                select admittedSlot.Match(
                    Some: slot => (FieldBinding)new AtSlotCase(Parameter: admittedParameter, ChildSlot: slot),
                    None: () => new DirectCase(Parameter: admittedParameter));
     }
 
-    internal Fin<Unit> Bind(RenderContent content, Field field, ChangeReason reason, Op key) =>
-        ChangeScope.Write(content: content, reason: reason, key: key, body: live => Switch(
-            state: (Content: live, Field: field, Reason: reason, Op: key),
-            directCase: static (ctx, binding) => ctx.Op.Catch(() => {
+    internal Fin<Unit> Bind(RenderContent content, Field field, ChangeReason reason) =>
+        ChangeScope.Write(content: content, reason: reason, body: live => Switch(
+            state: (Content: live, Field: field, Reason: reason),
+            directCase: static (ctx, binding) => Try.lift(() => {
                 ctx.Content.BindParameterToField(parameterName: binding.Parameter, field: ctx.Field, setEvent: ctx.Reason.Native);
                 return Fin.Succ(value: unit);
-            }),
-            atSlotCase: static (ctx, binding) => ctx.Op.Catch(() => {
+            }).Run().Bind(static inner => inner),
+            atSlotCase: static (ctx, binding) => Try.lift(() => {
                 ctx.Content.BindParameterToField(
                     parameterName: binding.Parameter, childSlotName: binding.ChildSlot, field: ctx.Field, setEvent: ctx.Reason.Native);
                 return Fin.Succ(value: unit);
-            })));
+            }).Run().Bind(static inner => inner)));
 }
 
 [SmartEnum<TextureType>]
@@ -470,17 +466,17 @@ public sealed partial class PbrChannel {
 
     internal Option<string> Literal { get; }
 
-    internal Fin<string> Name(Op key) => Literal.Match(Some: Fin.Succ, None: () => Slot(key: key));
+    internal Fin<string> Name() => Literal.Match(Some: Fin.Succ, None: () => Slot());
 
-    internal Fin<string> Slot(Op key) => Literal.IsSome
-        ? Fin.Fail<string>(error: key.Unsupported(inputType: typeof(PbrChannel), outputType: typeof(TextureType)))
-        : SlotOf(textureType: Key, key: key);
+    internal Fin<string> Slot() => Literal.IsSome
+        ? Fin.Fail<string>(error: new KernelFault.Unsupported(InputType: typeof(PbrChannel), OutputType: typeof(TextureType)))
+        : SlotOf(textureType: Key);
 
-    internal static Fin<string> SlotOf(TextureType textureType, Op key) =>
-        key.Catch(() =>
+    internal static Fin<string> SlotOf(TextureType textureType) =>
+        Try.lift(() =>
             Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(textureType: textureType))
                 .Filter(static name => !string.IsNullOrWhiteSpace(name))
-                .ToFin(Fail: key.InvalidResult(detail: textureType.ToString())));
+                .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(textureType.ToString())))).Run().Bind(static inner => inner);
 }
 
 [SmartEnum<string>]
@@ -506,69 +502,63 @@ public abstract partial record ParamScope {
     private sealed record ChildCase(string ChildSlot, string Requirement) : ParamScope;
     private sealed record ExtraCase(string Parameter, string Requirement) : ParamScope;
 
-    public static Fin<ParamScope> Named(ContentParameter parameter, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(parameter)
+    public static Fin<ParamScope> Named(ContentParameter parameter) {
+        return Admit.Need(parameter)
             .Map(static admitted => (ParamScope)new NamedCase(Parameter: admitted.Key));
     }
 
-    public static Fin<ParamScope> Named(PbrChannel channel, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(channel)
-               from name in active.Name(key: op)
+    public static Fin<ParamScope> Named(PbrChannel channel) {
+        return from active in Admit.Need(channel)
+               from name in active.Name()
                select (ParamScope)new NamedCase(Parameter: name);
     }
 
-    public static Fin<ParamScope> Child(PbrChannel channel, string requirement, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(channel)
-               from slot in active.Slot(key: op)
-               from admittedRequirement in op.AcceptText(value: requirement)
+    public static Fin<ParamScope> Child(PbrChannel channel, string requirement) {
+        return from active in Admit.Need(channel)
+               from slot in active.Slot()
+               from admittedRequirement in Acceptance.Text(value: requirement)
                select (ParamScope)new ChildCase(ChildSlot: slot, Requirement: admittedRequirement);
     }
 
-    public static Fin<ParamScope> Child(RenderMaterial.StandardChildSlots slot, string requirement, Op? key = null) {
-        Op op = key.OrDefault();
-        return from textureType in op.Catch(() => Fin.Succ(value: RenderMaterial.TextureTypeFromSlot(slot: slot)))
-               from name in PbrChannel.SlotOf(textureType: textureType, key: op)
-               from admittedRequirement in op.AcceptText(value: requirement)
+    public static Fin<ParamScope> Child(RenderMaterial.StandardChildSlots slot, string requirement) {
+        return from textureType in Try.lift(() => Fin.Succ(value: RenderMaterial.TextureTypeFromSlot(slot: slot))).Run().Bind(static inner => inner)
+               from name in PbrChannel.SlotOf(textureType: textureType)
+               from admittedRequirement in Acceptance.Text(value: requirement)
                select (ParamScope)new ChildCase(ChildSlot: name, Requirement: admittedRequirement);
     }
 
-    public static Fin<ParamScope> Extra(string parameter, string requirement, Op? key = null) {
-        Op op = key.OrDefault();
-        return from admittedParameter in op.AcceptText(value: parameter)
-               from admittedRequirement in op.AcceptText(value: requirement)
+    public static Fin<ParamScope> Extra(string parameter, string requirement) {
+        return from admittedParameter in Acceptance.Text(value: parameter)
+               from admittedRequirement in Acceptance.Text(value: requirement)
                select (ParamScope)new ExtraCase(Parameter: admittedParameter, Requirement: admittedRequirement);
     }
 
-    internal Fin<ContentValue> Read(RenderContent content, Op key) =>
+    internal Fin<ContentValue> Read(RenderContent content) =>
         Switch(
-            state: (Content: content, Op: key),
-            namedCase: static (ctx, scope) => ctx.Op.Catch(() => ContentValue.Of(
-                payload: ctx.Content.GetParameter(parameterName: scope.Parameter), key: ctx.Op)),
-            childCase: static (ctx, scope) => ctx.Op.Catch(() => ContentValue.Of(
-                payload: ctx.Content.GetChildSlotParameter(scope.ChildSlot, scope.Requirement), key: ctx.Op)),
-            extraCase: static (ctx, scope) => ctx.Op.Catch(() => ContentValue.Of(
-                payload: ctx.Content.GetExtraRequirementParameter(
+            state: content,
+            namedCase: static (ctx, scope) => Try.lift(() => ContentValue.Of(
+                payload: ctx.GetParameter(parameterName: scope.Parameter))).Run().Bind(static inner => inner),
+            childCase: static (ctx, scope) => Try.lift(() => ContentValue.Of(
+                payload: ctx.GetChildSlotParameter(scope.ChildSlot, scope.Requirement))).Run().Bind(static inner => inner),
+            extraCase: static (ctx, scope) => Try.lift(() => ContentValue.Of(
+                payload: ctx.GetExtraRequirementParameter(
                     contentParameterName: scope.Parameter,
-                    extraRequirementParameter: scope.Requirement),
-                key: ctx.Op)));
+                    extraRequirementParameter: scope.Requirement))).Run().Bind(static inner => inner));
 
     internal Fin<Unit> Write(
         RenderContent content, ContentValue value, ChangeReason reason,
-        RenderContent.ExtraRequirementsSetContexts context, Op key) =>
-        ChangeScope.Write(content: content, reason: reason, key: key, body: live => Switch(
-            state: (Content: live, Value: value, Context: context, Op: key),
-            namedCase: static (ctx, scope) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Content.SetParameter(
-                parameterName: scope.Parameter, value: ctx.Value.Boxed()))),
-            childCase: static (ctx, scope) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Content.SetChildSlotParameter(
-                scope.ChildSlot, scope.Requirement, ctx.Value.Boxed(), ctx.Context))),
-            extraCase: static (ctx, scope) => ctx.Op.Catch(() => ctx.Op.Confirm(success: ctx.Content.SetExtraRequirementParameter(
+        RenderContent.ExtraRequirementsSetContexts context) =>
+        ChangeScope.Write(content: content, reason: reason, body: live => Switch(
+            state: (Content: live, Value: value, Context: context),
+            namedCase: static (ctx, scope) => Try.lift(() => Admit.Confirm(success: ctx.Content.SetParameter(
+                parameterName: scope.Parameter, value: ctx.Value.Boxed()))).Run().Bind(static inner => inner),
+            childCase: static (ctx, scope) => Try.lift(() => Admit.Confirm(success: ctx.Content.SetChildSlotParameter(
+                scope.ChildSlot, scope.Requirement, ctx.Value.Boxed(), ctx.Context))).Run().Bind(static inner => inner),
+            extraCase: static (ctx, scope) => Try.lift(() => Admit.Confirm(success: ctx.Content.SetExtraRequirementParameter(
                 contentParameterName: scope.Parameter,
                 extraRequirementParameter: scope.Requirement,
                 value: ctx.Value.Boxed(),
-                sc: ctx.Context)))));
+                sc: ctx.Context))).Run().Bind(static inner => inner)));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -582,9 +572,9 @@ public sealed record FieldPortrait(
     bool HiddenInAutoUi) : IDetachedDocumentResult;
 
 public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentResult {
-    internal static Fin<FieldCensus> Of(FieldDictionary fields, Op key) =>
-        key.Catch(() => toSeq(fields)
-            .TraverseM(field => ContentValue.Of(payload: field, key: key).Map(value => new FieldPortrait(
+    internal static Fin<FieldCensus> Of(FieldDictionary fields) =>
+        Try.lift(() => toSeq(fields)
+            .TraverseM(field => ContentValue.Of(payload: field).Map(value => new FieldPortrait(
                 Name: field.Name,
                 Value: value,
                 TextureAmountMin: field.TextureAmountMin,
@@ -593,7 +583,7 @@ public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentRes
                 UseTextureAmount: field.UseTextureAmount,
                 HiddenInAutoUi: field.IsHiddenInAutoUI)))
             .As()
-            .Map(static rows => new FieldCensus(Rows: toArray(rows))));
+            .Map(static rows => new FieldCensus(Rows: toArray(rows)))).Run().Bind(static inner => inner);
 }
 ```
 

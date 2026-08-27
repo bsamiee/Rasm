@@ -396,7 +396,7 @@ public sealed record DesignProblem(
             Some: static tape => (AdjointTape)new AdjointTape.Symbolic(tape),
             None: () => new AdjointTape.Geometry(designMesh.Case is MeshAdjointSnapshot mesh
                 ? variables.Filter(static v => v.Free)
-                    .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
+                    .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(mesh)), None: () => Seq<GeometryTape>()))
                 : Seq<GeometryTape>()));
 
     public Option<RoutingProblem> Routing { get; init; } = None;
@@ -875,7 +875,7 @@ public static class Optimizer {
                 [.. Adjoint(problem, [.. theta]).IfFail([.. theta.Select(static _ => 0.0)])]))
             : ObjectiveFunction.Value(Value);
         return Probe(problem, oracle, start).Bind(baseline =>
-            Op.Of(name: "optimizer.smooth-minimize").Catch(() => Fin.Succ(row.Minimize(objective, Vector<double>.Build.DenseOfArray([.. start]), lower, upper, policy)))
+            Try.lift(() => Fin.Succ(row.Minimize(objective, Vector<double>.Build.DenseOfArray([.. start]), lower, upper, policy))).Run().Bind(static inner => inner)
                 .Bind(result => result.ReasonForExit is ExitCondition.InvalidValues or ExitCondition.None
                     ? Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Converged, new ContractEvidence.Status((int)result.ReasonForExit))))
                     : Probe(problem, oracle, problem.Clamp(result.MinimizingPoint.AsArray()))

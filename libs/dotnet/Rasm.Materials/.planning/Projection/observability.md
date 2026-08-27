@@ -20,7 +20,7 @@ Fact payloads compose Component, Appearance, Properties, and contract results. I
 
 - Owner: `MaterialsFact` — the closed evidence union every tap fires and every projection folds, its `At` column projecting the `[03]` roster row that owns each case.
 - Cases: `CatalogueAdmit` (the row a veto gate transforms or refuses pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityLift`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `CaptureProvenance`, wall duration), `WireMint` (material, `WireProvenance`), `ProjectionGate` (the `GraphDelta` a veto refuses or admits pre-merge), `TexturePress` (the lifted `PressRun` and the material it baked for), `TileSynth` (strategy, guide channel, and the lifted `TileRun` — the guide rides beside the run for the reason `StageInfer` carries its request: an unmeasured run still names the channel it ran against), `TileGrade` (strategy, the `Evidence<TileProof>` probe outcome the gate's `Fin` lifts through `Evidence.Of`, wall duration — its own case because a grade runs without synthesis and an ingested set earns its proof having passed no synthesizer), `PyramidBuild` (channel, mip policy, level count, texel census, fold duration — the one texture construction every press, ingest, and decode pays per channel), `SetIngest` (the claimed-stem census, the typed refusal rows, and the resolved convention), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
-- Entry: each composition-root decorator fires one case through `hooks.Fire(fact.At, fact, key)`; veto cases fire before catalogue freeze or graph merge.
+- Entry: each composition-root decorator fires one case through `hooks.Fire(fact.At, fact)`; veto cases fire before catalogue freeze or graph merge.
 - Auto: `At` is the PRIMARY CORRESPONDENCE between this union and the `[03]` roster — the generated total `Map` breaks at compile time on a case with no row or a row with no case, so no call site names a point and the pairing cannot drift. Elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new evidence shape is one `MaterialsFact` case, one `MaterialsPoint` row with its `At` arm, and one projection arm at `[04]`.
@@ -48,21 +48,21 @@ public abstract partial record MaterialsFact : IHookFact<MaterialsPoint> {
     private MaterialsFact() { }
 
     public sealed record CatalogueAdmit(ComponentRow Row) : MaterialsFact;
-    public sealed record SectionSolve(Op Key, string Profile, ComputedSection Section, Duration Elapsed) : MaterialsFact;
-    public sealed record CapacityCheck(Op Key, CapacityLift Lift, Utilisation Verdict, Duration Elapsed) : MaterialsFact;
-    public sealed record GraphCompile(Op Key, MaterialId Material, int Nodes, Duration Elapsed) : MaterialsFact;
-    public sealed record AcquisitionFit(Op Key, CaptureProvenance Provenance, Duration Elapsed) : MaterialsFact;
-    public sealed record WireMint(Op Key, MaterialId Material, WireProvenance Provenance) : MaterialsFact;
+    public sealed record SectionSolve(string Profile, ComputedSection Section, Duration Elapsed) : MaterialsFact;
+    public sealed record CapacityCheck(CapacityLift Lift, Utilisation Verdict, Duration Elapsed) : MaterialsFact;
+    public sealed record GraphCompile(MaterialId Material, int Nodes, Duration Elapsed) : MaterialsFact;
+    public sealed record AcquisitionFit(CaptureProvenance Provenance, Duration Elapsed) : MaterialsFact;
+    public sealed record WireMint(MaterialId Material, WireProvenance Provenance) : MaterialsFact;
     public sealed record ProjectionGate(GraphDelta Delta) : MaterialsFact;
 
-    public sealed record TexturePress(Op Key, Option<MaterialId> Material, PressRun Run) : MaterialsFact;
-    public sealed record TileSynth(Op Key, TileStrategy Strategy, TextureChannel Guide, TileRun Run) : MaterialsFact;
-    public sealed record TileGrade(Op Key, TileStrategy Strategy, Evidence<TileProof> Proof, Duration Elapsed) : MaterialsFact;
-    public sealed record PyramidBuild(Op Key, TextureChannel Channel, MipPolicy Policy, int Levels, long Texels, Duration Elapsed) : MaterialsFact;
-    public sealed record SetIngest(Op Key, int Claimed, Seq<(IngestRefusal Reason, string Detail)> Unresolved, Option<NormalConvention> Convention) : MaterialsFact;
-    public sealed record PlaneCodec(Op Key, RasterFormat Format, bool Encoded, long Bytes, Duration Elapsed) : MaterialsFact;
-    public sealed record StageInfer(Op Key, StageRequest Request, StageResult Result) : MaterialsFact;
-    public sealed record EnvironmentPrefilter(Op Key, string LightKey, string SkyModel, int SpecularMips, Duration Elapsed) : MaterialsFact;
+    public sealed record TexturePress(Option<MaterialId> Material, PressRun Run) : MaterialsFact;
+    public sealed record TileSynth(TileStrategy Strategy, TextureChannel Guide, TileRun Run) : MaterialsFact;
+    public sealed record TileGrade(TileStrategy Strategy, Evidence<TileProof> Proof, Duration Elapsed) : MaterialsFact;
+    public sealed record PyramidBuild(TextureChannel Channel, MipPolicy Policy, int Levels, long Texels, Duration Elapsed) : MaterialsFact;
+    public sealed record SetIngest(int Claimed, Seq<(IngestRefusal Reason, string Detail)> Unresolved, Option<NormalConvention> Convention) : MaterialsFact;
+    public sealed record PlaneCodec(RasterFormat Format, bool Encoded, long Bytes, Duration Elapsed) : MaterialsFact;
+    public sealed record StageInfer(StageRequest Request, StageResult Result) : MaterialsFact;
+    public sealed record EnvironmentPrefilter(string LightKey, string SkyModel, int SpecularMips, Duration Elapsed) : MaterialsFact;
 
     public bool Seats(MaterialsPoint at) => at == At;
 
@@ -145,10 +145,9 @@ public sealed partial class MaterialsPoint : IHookRoster<MaterialsPoint> {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class MaterialsHooks {
-    public static Fin<MaterialsHooks> Live(
-        Op key, Seq<MaterialsGate> gates = default, Seq<MaterialsObserver> taps = default,
+    public static Fin<MaterialsHooks> Live(Seq<MaterialsGate> gates = default, Seq<MaterialsObserver> taps = default,
         Option<FaultCell> cell = default) =>
-        MaterialsHooks.Of(key, gates, taps, Option<IHookSpan>.None, cell);
+        MaterialsHooks.Of(gates, taps, Option<IHookSpan>.None, cell);
 }
 ```
 
@@ -444,7 +443,7 @@ public sealed partial class MaterialsInstrument {
         new(Scope: TelemetrySource.Materials, Version: version, Instruments: Rows, Board: MaterialsDescriptors.Pack);
 
     static partial void ValidateConstructorArguments(ref string key, ref InstrumentSpec row) {
-        if (!string.Equals(key, row.Name, StringComparison.Ordinal)) {
+        if (!string.Equals(row.Name, StringComparison.Ordinal)) {
             throw new ArgumentException($"<materials-instrument:{key}>", nameof(row));
         }
     }
@@ -453,7 +452,7 @@ public sealed partial class MaterialsInstrument {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterialsTap {
     public static MaterialsObserver Tap(InstrumentSet set) =>
-        new(Op.Of(name: "rasm.materials.instruments"), fact => Project(set, fact));
+        new(fact => Project(set, fact));
 
     static readonly Seq<(MaterialsInstrument Row, Func<MaterialsHooks, Seq<(Option<string> Partition, Func<double> Read)>> Probe)> HookLevels =
         Seq<(MaterialsInstrument, Func<MaterialsHooks, Seq<(Option<string>, Func<double>)>>)>(
@@ -467,7 +466,7 @@ public static class MaterialsTap {
                 (Option<string>.None, () => hooks.Faults.Lost))));
 
     public static Fin<Seq<IDisposable>> Levels(
-        InstrumentSet set, MaterialsHooks hooks, Op key,
+        InstrumentSet set, MaterialsHooks hooks,
         params ReadOnlySpan<(MaterialsInstrument Row, Func<double> Read)> supplied) {
         Seq<(MaterialsInstrument Row, Func<double> Read)> offered = toSeq(supplied.ToArray());
         Seq<MaterialsInstrument> owed = toSeq(MaterialsInstrument.Items)
@@ -483,7 +482,7 @@ public static class MaterialsTap {
                     Requirement: "exactly one supplied reader for every composition-owned pulled roster row"))
                 : (HookLevels.Bind(probe => probe.Probe(hooks).Map(fan => (probe.Row, fan.Partition, fan.Read)))
                     + offered.Map(static row => (row.Row, Partition: Option<string>.None, row.Read)))
-                    .TraverseM(entry => set.Bind(entry.Row.Row, entry.Read, key, Partitioned(entry.Row, entry.Partition)))
+                    .TraverseM(entry => set.Bind(entry.Row.Row, entry.Read, Partitioned(entry.Row, entry.Partition)))
                     .As();
     }
 
@@ -734,15 +733,15 @@ public static partial class MaterialsLog {
     }
 
     [LoggerMessage(EventId = FaultBand.MaterialsLogBase, EventName = "MaterialsRefused", Level = LogLevel.Warning, Message = "materials {materials.op} refused")]
-    public static partial void Refused(ILogger logger, [TagName("materials.op")] Op op, int? faultCode, [LogProperties] Error fault);
+    public static partial void Refused(ILogger logger, [TagName("materials.op")] , int? faultCode, [LogProperties] Error fault);
 
     [LoggerMessage(EventId = FaultBand.MaterialsLogBase + 1, EventName = "MaterialsIsolated", Level = LogLevel.Warning, Message = "materials tap {materials.point} isolated")]
     public static partial void Isolated(ILogger logger, [TagName("materials.point")] HookId point, int? faultCode, [LogProperties] Error cause);
 
     extension<T>(Fin<T> step) {
-        public Fin<T> Logged(ILogger logger, Op key) =>
+        public Fin<T> Logged(ILogger logger) =>
             step.MapFail(error => {
-                Refused(logger, key, error is Fault fault ? fault.Code : null, error);
+                Refused(logger, error is Fault fault ? fault.Code : null, error);
                 return error;
             });
     }

@@ -14,9 +14,9 @@ One `Tabulate` fold flattens a frozen `ElementGraph` into ten typed row families
 
 - Owner: `TableRow` — the closed `[Union]` whose ten cases ARE the ten datasets, each carrying its flat column payload and the snapshot address, and each owning the ordered `Cells` projection its dataset's column declaration reads; `TableSnapshot` — the fold product pairing the graph `ContentAddress` with every emitted row.
 - Cases: `Classification` (one co-applied standard reference — the system, code, and edition triple keying it, beside the source, edition date, and title annotations; the PRIMARY entity-class triple stays denormalized on the object row because it keys that grain, so this family carries the secondary refs the object row cannot hold) · `Object` (one baked element — identity, kind, external id, the primary classification triple, predefined token, name, tag, type binding, container, containment depth, appearance key, part count) · `Property` (one bag entry — set, name, value kind, rendered text, the measure magnitude and quantity type where the entry is measured, source rank, inheritance mode) · `Quantity` (one quantity entry — set, name, quantity type, SI magnitude, canonical unit, the seven `Dimension` exponents, the optional uncertainty band) · `Material` (one material binding — material key, composition and usage tokens, the inheritance flag, layer count and buildup depth, the profile reference and baked section area) · `Section` (one baked profile-set section — the whole S-E1 algebra: profile key, LTB route token, the nineteen SI design columns, mono-symmetry, centroid, and the optional forming-shape witness — where the material row carries only the takeoff area) · `Edge` (one relationship — the edge content address, neutral kind, sub-kind, endpoints, realizing intermediary, nest ordinal, passthrough wire name, member count, containment predicate) · `Assessment` (one computed assessment — discipline, route, input key, outcome with its three behavior columns, provenance, the typed diagnostic, the result blob, the dependency and result counts) · `Observation` (one measured series — sensor deployment, observed aspect, quantity triple, sampling algebra, cadence, window bounds, chunk and sample counts, the graded census shares, the four summary magnitudes, the instrument audit) · `Coverage` (one raster band — raster key, coverage kind, CRS identity, the twelve index-to-world affine coefficients and the three-axis census, band index with its role, sample type, units, decode scale pair, pyramid depth, timeline depth, uncompressed byte length).
-- Entry: `row.Family` projects the dataset token through the generated `Map` over precomputed rows; `row.Cells` projects the ordered `Option<PropertyValue>` sequence the family's column declaration binds positionally, an absent cell reading `None` so a nullable column carries real absence rather than a sentinel; `TableSnapshot.Batches(key)` admits the whole row set through `TableFamily.Admit` and then groups every row under its family in roster order, the one value crossing the boundary.
+- Entry: `row.Family` projects the dataset token through the generated `Map` over precomputed rows; `row.Cells` projects the ordered `Option<PropertyValue>` sequence the family's column declaration binds positionally, an absent cell reading `None` so a nullable column carries real absence rather than a sentinel; `TableSnapshot.Batches()` admits the whole row set through `TableFamily.Admit` and then groups every row under its family in roster order, the one value crossing the boundary.
 - Auto: declaration order of a case's payload IS the column order its `Cells` arm emits and the order `TableFamily` declares, so a column edit and its field edit are one edit at one site; the event-time payload closes on its own instant, so `element.assessments` trails on the column its `Spine` names; the private lifts (`Text`/`Real`/`Whole`/`Big`/`Flag`/`Moment`/`Day`) are the only cell constructors, so every cell's `PropertyValue` case is fixed at the projection rather than chosen per column; a content key — the snapshot address, an edge address, an assessment input key, a result blob, an appearance key, a raster key — crosses as `Text` through kernel `ContentHash.Hex`, the canonical x32 spelling `Projection/address#CONTENT_ADDRESS` composes as the cross-runtime wire form.
-- Output: `TableSnapshot.Rows` is the flat typed read a consumer folds directly; `TableSnapshot.Batches(key)` is the admitted, erased per-family cell projection the columnar custodian lands.
+- Output: `TableSnapshot.Rows` is the flat typed read a consumer folds directly; `TableSnapshot.Batches()` is the admitted, erased per-family cell projection the columnar custodian lands.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`/`Map`), LanguageExt.Core (`Seq`/`Option`/`Map`), NodaTime (`Instant` the assessment and window stamps, `LocalDate` the calibration stamp), `Rasm` (the kernel `Op` and `ContentHash.Hex` content-key spelling), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.ToValue()` raw-key projection), BCL inbox (`BigInteger` the whole-number cell payload).
 - Growth: a new dataset is one `TableRow` case declaring its temporal category, with its `Cells` arm, its `TableFamily` row, and its projection in `[04]`; a new column is one payload field with its cell in the same arm and its `TableColumn` in the same row; never a sibling row type beside the union and never a dataset whose columns live apart from its payload.
 - Boundary: `TableRow.Object` shadows the simple name `Object` inside the union body exactly as `Node.Object` does at its own owner, and `TableRow.Classification` shadows the shared classification type the same way, so every construction spells the nested case and the generated arms read `@object:` and `classification:`; the row is a DERIVED projection carrying zero authority — the graph and its delta stream own truth, a dropped dataset rebuilds by re-tabulating, and writing a table row back into the graph is the deleted inversion; `Cells` carries no storage type, so a physical width, a nullability dialect, and a partition expression stay the custodian's; heavy payloads never enter a row — geometry, result artifacts, and raster coverages ride their content keys, which cross as text.
@@ -199,7 +199,7 @@ public abstract partial record TableRow {
 }
 
 public sealed record TableSnapshot(ContentAddress Address, Seq<TableRow> Rows) {
-    public Fin<Seq<TableBatch>> Batches(Op key) => TableFamily.Admit(Rows, key).ToFin().Map(_ => Grouped());
+    public Fin<Seq<TableBatch>> Batches() => TableFamily.Admit(Rows).ToFin().Map(_ => Grouped());
 
     Seq<TableBatch> Grouped() {
         HashMap<TableFamily, Seq<Seq<Option<PropertyValue>>>> filed = Rows.Fold(
@@ -217,7 +217,7 @@ public sealed record TableSnapshot(ContentAddress Address, Seq<TableRow> Rows) {
 ## [03]-[DATASET_ROSTER]
 
 - Owner: `TableType` — the producer's neutral physical-token roster carrying its `Admits` predicate over `PropertyValue`; `TableColumn` — one named, typed, nullability-carrying column; `TableSpine` — the closed temporal-category family binding each category to the clock column it implies; `TableDeclaration` — the producer-neutral dataset self-description (dotted name, `KeyColumns` identity, `TableSpine` category, optional `Measure`, ordered `Columns`) carrying `Wire`/`Admission`/`Conforms`, the ONE shape the boundary crossing keys on (E-M17 — a foreign `materials.*` producer instantiates it directly); `TableFamily` — the `[SmartEnum<string>]` roster of the ELEMENT-owned datasets, each row wrapping its declaration; `TableBatch` — one declaration's erased cell rows, the value crossing the boundary.
-- Entry: `declaration.Admission` projects the whole argument set the columnar custodian's admission gate takes, `Wire` its column-triple half; `declaration.Conforms(cells, key)` proves one row's arity and cell types against the declaration; `TableFamily.Admit(rows, key)` folds that proof over every element row; a foreign producer mints `new TableDeclaration(...)` over the same `TableType`/`TableColumn`/`TableSpine` vocabulary and crosses `TableBatch(declaration, rows)` — no roster edit, no contract sibling.
+- Entry: `declaration.Admission` projects the whole argument set the columnar custodian's admission gate takes, `Wire` its column-triple half; `declaration.Conforms(cells)` proves one row's arity and cell types against the declaration; `TableFamily.Admit(rows, key)` folds that proof over every element row; a foreign producer mints `new TableDeclaration(...)` over the same `TableType`/`TableColumn`/`TableSpine` vocabulary and crosses `TableBatch(declaration, rows)` — no roster edit, no contract sibling.
 - Auto: `TableType.Admits` is the per-token predicate over the contract's own `PropertyValue` cases, so the producer proves its declaration and its projection agree BEFORE anything crosses — a proof the custodian cannot run, because the custodian never sees a `PropertyValue`; `Conforms` accumulates through `Validation<Error, Unit>` so a malformed dataset reports every bad column at once, while the custodian's own arity gate re-proves the row against admitted identifiers on its side of the boundary; `TableSpine` fuses the family's temporal CATEGORY with the clock column that category implies, so `Event` carries the column the row itself stamps and `Landing` carries none and hands the axis to the custodian — a family declaring a category its columns contradict is unrepresentable here rather than refused downstream, and the category follows the dataset's own semantics under the branch analytics ruling.
 - Output: `Wire` is the schema handoff and `TableBatch` the row handoff; the pair is the whole producer surface, and nothing else about this page crosses.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` with the generated `Items` roster and key lookup), LanguageExt.Core (`Seq`/`Option`/`Validation`/`Error` + the applicative `Traverse` accumulation), `Projection/fault#FAULT_BAND` (`ElementFault.ValueRejected`).
@@ -244,9 +244,9 @@ public sealed partial class TableType {
 }
 
 public readonly record struct TableColumn(string Name, TableType Type, bool Nullable) {
-    public Validation<Error, Unit> Conforms(Option<PropertyValue> cell, Op key) => cell.Match(
-        None: () => Gate(Nullable, key, $"<table-cell-absent:{Name}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-        Some: value => Gate(Type.Admits(value), key, $"<table-cell-type:{Name}:{Type.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)));
+    public Validation<Error, Unit> Conforms(Option<PropertyValue> cell) => cell.Match(
+        None: () => Gate(Nullable, $"<table-cell-absent:{Name}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+        Some: value => Gate(Type.Admits(value), $"<table-cell-type:{Name}:{Type.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -273,11 +273,11 @@ public sealed record TableDeclaration(
         Seq<string> Key, string Spine, Option<string> Time, Option<string> Measure) Admission =>
         (Dataset, Wire, KeyColumns, Spine.Key, Spine.Time, Measure);
 
-    public Validation<Error, Unit> Conforms(Seq<Option<PropertyValue>> cells, Op key) =>
+    public Validation<Error, Unit> Conforms(Seq<Option<PropertyValue>> cells) =>
         cells.Count != Columns.Count
-            ? new ElementFault.ValueRejected(key, $"<table-arity:{Dataset}:{cells.Count}/{Columns.Count}>")
+            ? new ElementFault.ValueRejected($"<table-arity:{Dataset}:{cells.Count}/{Columns.Count}>")
             : Columns.Zip(cells, static (column, cell) => (Column: column, Cell: cell))
-                .Traverse(pair => pair.Column.Conforms(pair.Cell, key))
+                .Traverse(pair => pair.Column.Conforms(pair.Cell))
                 .As()
                 .Map(static _ => unit);
 }
@@ -286,7 +286,7 @@ public sealed record TableDeclaration(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TableFamily {
     private TableFamily(string key, Seq<string> keyColumns, TableSpine spine, Option<string> measure, Seq<TableColumn> columns)
-        : this(key, declaration: new TableDeclaration(key, keyColumns, spine, measure, columns)) { }
+        : this(declaration: new TableDeclaration(keyColumns, spine, measure, columns)) { }
 
     public static readonly TableFamily Objects = new("element.objects",
         Seq("snapshot", "element"), spine: new TableSpine.Landing(), Option<string>.None, Seq(
@@ -505,8 +505,8 @@ public sealed partial class TableFamily {
 
     public TableDeclaration Declaration { get; }
 
-    public static Validation<Error, Unit> Admit(Seq<TableRow> rows, Op key) =>
-        rows.Traverse(row => row.Family.Declaration.Conforms(row.Cells, key)).As().Map(static _ => unit);
+    public static Validation<Error, Unit> Admit(Seq<TableRow> rows) =>
+        rows.Traverse(row => row.Family.Declaration.Conforms(row.Cells)).As().Map(static _ => unit);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -516,9 +516,9 @@ public readonly record struct TableBatch(TableDeclaration Declaration, Seq<Seq<O
 ## [04]-[TABULATE_FOLD]
 
 - Owner: `GraphTable` — the one fold from a frozen `ElementGraph` to a `TableSnapshot`, and the per-family row projections it composes over the baked read and the raw edge array.
-- Entry: `GraphTable.Tabulate(graph, key, roots)` folds the whole snapshot by default and a named root set when supplied, refusing `ElementFault.NodeAbsent` on a root the graph does not declare and lifting every `Bake` failure — an absent root, a cyclic `Compose` ancestry — unchanged onto its own result.
+- Entry: `GraphTable.Tabulate(graph, roots)` folds the whole snapshot by default and a named root set when supplied, refusing `ElementFault.NodeAbsent` on a root the graph does not declare and lifting every `Bake` failure — an absent root, a cyclic `Compose` ancestry — unchanged onto its own result.
 - Auto: the fold reaches no clock at all — every snapshot family is landing-timed, so nothing here stamps an instant and `element.assessments` carries the one the assessment payload already holds; element, classification, property, quantity, material, assessment, observation, and coverage rows all project from the `Bake`-derived `Element`, so the named type→occurrence inheritance is applied exactly once and a table row can never disagree with what a consumer reads off the same baked element; edge rows project from `graph.Edges` directly because an edge carries no inheritance and needs no bake; the snapshot address mints once through `ContentAddress.OfGraph` and stamps every row, so one fold pays one graph hash; a scoped fold narrows edges to those whose `Members` touch the selected set, so a partial re-tabulation after a delta emits exactly the rows its roots own.
-- Output: a `TableSnapshot` whose `Rows` a consumer folds typed and whose admitted `Batches(key)` the columnar custodian lands.
+- Output: a `TableSnapshot` whose `Rows` a consumer folds typed and whose admitted `Batches()` the columnar custodian lands.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option` + `TraverseM`/`Choose`/`Bind`/`Fold`/`Exists`), QuikGraph (`BidirectionalGraph`/`TryFunc` + `AlgorithmExtensions.TreeBreadthFirstSearch` over the graph's own `View(EdgeFilter.Spatial, EdgeOrientation.Ascending)` — the object row's two spatial columns, never a view this page builds), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph`/`Of` plus generated raw-key `ToValue()`), `Rasm` (`ContentHash.Hex`), `Projection/fault#FAULT_BAND` (`ElementFault.NodeAbsent`), `Assessment/observation#SERIES_STATISTICS` (`Completeness`/`Observed`/`Consumable` + `Expected`), `Geospatial/coverage#COVERAGE_NODE` (`ByteLength`/`Grid`/`Bands`), NodaTime (`Duration.TotalSeconds`).
 - Growth: a new dataset is one projection member returning its `TableRow` case; a new column on an existing dataset is one argument in the projection that already builds its case; a scoped variant is a root set, never a second entrypoint.
 - Boundary: `Tabulate` is PURE over an already-frozen snapshot — it opens no store, resolves no geometry through `GeometrySource`, and reaches no ambient registry, so a caller supplies the graph and receives rows; heavy payloads stay behind their content keys, so a representation hash, a result blob, and a raster key cross as text and the artifact itself never enters a row; the edge row keys on the edge's own content address, so two structurally identical edges address as the one edge they are — the positional array index keying them apart is the deleted form, because array order is a snapshot artifact no consumer may join on; a family's row count is the graph's, never capped — the columnar stores carry no cardinality ceiling and a truncating fold silently under-reports a takeoff.
@@ -526,17 +526,17 @@ public readonly record struct TableBatch(TableDeclaration Declaration, Seq<Seq<O
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GraphTable {
-    public static Fin<TableSnapshot> Tabulate(ElementGraph graph, Op key, Option<Seq<NodeId>> roots = default) =>
-        Selected(graph, key, roots)
-            .Bind(objects => objects.TraverseM(node => graph.Bake(node.Id, key)).As())
+    public static Fin<TableSnapshot> Tabulate(ElementGraph graph, Option<Seq<NodeId>> roots = default) =>
+        Selected(graph, roots)
+            .Bind(objects => objects.TraverseM(node => graph.Bake(node.Id)).As())
             .Map(elements => Project(graph, elements, roots.IsSome));
 
-    static Fin<Seq<Node.Object>> Selected(ElementGraph graph, Op key, Option<Seq<NodeId>> roots) =>
+    static Fin<Seq<Node.Object>> Selected(ElementGraph graph, Option<Seq<NodeId>> roots) =>
         roots.Match(
             None: () => Fin.Succ(graph.ObjectNodes),
             Some: ids => toSeq(ids.ToFrozenSet())
                 .TraverseM(id => graph.Find<Node.Object>(id)
-                    .ToFin(new ElementFault.NodeAbsent(key, $"<tabulate-root-absent:{id.ToValue()}>"))).As());
+                    .ToFin(new ElementFault.NodeAbsent($"<tabulate-root-absent:{id.ToValue()}>"))).As());
 
     static TableSnapshot Project(ElementGraph graph, Seq<Element> elements, bool scoped) {
         ContentAddress address = ContentAddress.OfGraph(graph);

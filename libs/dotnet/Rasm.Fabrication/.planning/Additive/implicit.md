@@ -199,7 +199,7 @@ public abstract partial record FieldDefinition {
     public sealed record Generated(FieldKey Key, FieldExpression Program) : FieldDefinition;
 
     public static Fin<FieldDefinition> Admit(string key) =>
-        Admission.Of<FieldKind, string>(key).Map(static kind => (FieldDefinition)new Known(kind));
+        Admission.Of<FieldKind, string>().Map(static kind => (FieldDefinition)new Known(kind));
 
     public static Fin<FieldDefinition> Admit(FieldKey key, FieldExpression program) =>
         (AdmissionSlots.Gate(program.Valid, FabConcern.Additive, "implicit-field:generated-program", FabricationFault.Inadmissible),
@@ -208,7 +208,7 @@ public abstract partial record FieldDefinition {
             .Apply(static (_, _) => unit)
             .As()
             .ToFin()
-            .Map(_ => (FieldDefinition)new Generated(key, program));
+            .Map(_ => (FieldDefinition)new Generated(program));
 
     public FieldKey Identity => Switch(
         known: static definition => FieldKey.Create(definition.Kind.Key),
@@ -520,7 +520,7 @@ public abstract partial record VoxelMorphologyStep {
         spectral: static (state, step) => SpectralMorphology.Filter(state.Held, step, state.Policy));
 
     private static Fin<Voxels> Provider(Voxels held, Func<Voxels, Voxels> body) =>
-        Op.Of(name: "implicit:morphology").Catch(() => Fin.Succ(body(held))).Rollback(held);
+        Try.lift(() => Fin.Succ(body(held))).Run().Bind(static inner => inner).Rollback(held);
 }
 
 [SmartEnum]
@@ -539,38 +539,37 @@ public sealed partial class VoxelBoolean {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 file static class SpectralMorphology {
     internal static Fin<Voxels> Filter(Voxels held, VoxelMorphologyStep.Spectral step, ImplicitPolicy policy) {
-        Op key = Op.Of(name: nameof(Filter));
         SpectralShape shape = new(step.Anisotropy.DecimalFractions, step.Wavelength.Millimeters);
-        return from cell in key.AcceptValidated<PositiveMagnitude>(candidate: policy.Budget.VoxelSizeMm)
+        return from cell in FactoryBridge.Accept<PositiveMagnitude>(candidate: policy.Budget.VoxelSizeMm)
                from lattice in CellLattice.Of(
-                   bounds: policy.Budget.Bounds, cell: cell, ceiling: policy.Budget.VoxelCap, key: key)
-               from sampled in key.Catch(() => Fin.Succ<SpectralArena>(new SpectralArena.Interleaved(
+                   bounds: policy.Budget.Bounds, cell: cell, ceiling: policy.Budget.VoxelCap)
+               from sampled in Try.lift(() => Fin.Succ<SpectralArena>(new SpectralArena.Interleaved(
                        [.. Enumerable.Range(0, (int)lattice.CellCount)
                            .Select(index => lattice.Coordinate(index))
                            .Select(at => lattice.Center(at.Column, at.Row, at.Layer))
                            .Select(point => new Complex(
                                held.fSignedDistance(new Vector3((float)point.X, (float)point.Y, (float)point.Z)), 0.0))],
-                       lattice)))
-               from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric, key)
+                       lattice))).Run().Bind(static inner => inner)
+               from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric)
                from axes in Seq(SignedAxis.PositiveX, SignedAxis.PositiveY, SignedAxis.PositiveZ)
-                   .TraverseM(axis => forward.Frequencies(axis, key)).As()
+                   .TraverseM(axis => forward.Frequencies(axis)).As()
                let symbol = Enumerable.Range(0, (int)forward.Cells)
                    .Select(bin => lattice.Coordinate(bin))
                    .Select(at => step.Symbol.Of(
                        new Vector3d(axes[0][at.Column], axes[1][at.Row], axes[2][at.Layer]), shape))
                    .ToArray()
-               from modulated in forward.Modulate(symbol, key)
-               from inverted in modulated.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric, key)
+               from modulated in forward.Modulate(symbol)
+               from inverted in modulated.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric)
                from rebuilt in Rasterize(held, inverted, lattice, policy)
                select rebuilt;
     }
 
     private static Fin<Voxels> Rasterize(Voxels held, Spectrum filtered, CellLattice lattice, ImplicitPolicy policy) =>
-        Op.Of(name: "implicit:spectral-raster").Catch(() => {
+        Try.lift(() => {
             Voxels result = new(new FilteredField(held, filtered, lattice), FieldMath.Bounds(policy.Budget.Bounds));
             held.Dispose();
             return Fin.Succ(result);
-        }).Rollback(held);
+        }).Run().Bind(static inner => inner).Rollback(held);
 }
 
 file sealed class FilteredField(Voxels source, Spectrum filtered, CellLattice lattice) : IImplicit {
@@ -748,7 +747,7 @@ public sealed partial class VdbSource {
 
     public static Fin<VdbSource> Admit(
         ContentKey key, FileInfo path, FieldKey field, HashMap<string, string> requiredMetadata) =>
-        Validate(key, path, field, requiredMetadata, out VdbSource source).Admitted(source);
+        Validate(path, field, requiredMetadata, out VdbSource source).Admitted(source);
 }
 
 [ComplexValueObject]
@@ -880,14 +879,14 @@ public sealed class VoxelScope {
     public Fin<ContentKey> Vdb(FileInfo target, FieldKey field, HashMap<string, string> provenance) =>
         target.Directory is not { Exists: true }
             ? Fin.Fail<ContentKey>(new KernelFault.InvalidValue("implicit", "implicit-vdb:export-target"))
-            : Op.Of(name: "implicit-vdb:export").Catch(() => {
+            : Try.lift(() => {
                     using OpenVdbFile file = new();
                     _ = file.nAdd(Native, field.Value);
                     using FieldMetadata metadata = Native.oMetaData();
                     provenance.Iter(pair => metadata.SetValue(pair.Key, pair.Value));
                     file.SaveToFile(target.FullName);
                     return Fin.Succ(Metrics.Field);
-                });
+                }).Run().Bind(static inner => inner);
 }
 
 // --- [RUNTIME] -------------------------------------------------------------------------
@@ -897,10 +896,10 @@ file static class VoxelRuntime {
     public static Fin<T> Use<T>(Seq<ImplicitOp> operations, Func<Fin<T>> run) {
         ImplicitOp operation = operations[0];
         lock (Gate) {
-            return Op.Of(name: "implicit:runtime").Catch(() => {
+            return Try.lift(() => {
                     using Library.GlobalInstance runtime = new((float)operation.Policy.Budget.VoxelSizeMm);
                     return run();
-                }, cause => Provider(operation, cause));
+                }).Run().Bind(static inner => inner);
         }
     }
 
@@ -967,7 +966,7 @@ public static partial class Sdf {
             select new Rasterized(morphed, inputs.Map(static held => held.Calibration).Somes().Head));
 
     private static Fin<Voxels> Combine(Seq<Voxels> inputs, VoxelBoolean operation) =>
-        Op.Of(name: "implicit-composite").Catch(() => {
+        Try.lift(() => {
                 Voxels result = inputs[0].voxDuplicate();
                 try {
                     _ = operation.Apply(result, inputs.Skip(1));
@@ -980,7 +979,7 @@ public static partial class Sdf {
                 finally {
                     inputs.Iter(static input => input.Dispose());
                 }
-            });
+            }).Run().Bind(static inner => inner);
 
     private static Fin<Rasterized> Field(ImplicitOp.Field operation) =>
         from density in Acquire(operation.Cell.DensityField)
@@ -999,7 +998,7 @@ public static partial class Sdf {
         from calibration in FieldCalibration
             .Of(operation.Definition, operation.Cell, operation.Policy.Calibration)
             .Rollback(envelope)
-        from intersected in Op.Of(name: "implicit:intersect").Catch(() => Fin.Succ(
+        from intersected in Try.lift(() => Fin.Succ(
             envelope.voxIntersectImplicit(new PeriodicImplicit(
                 operation.Definition,
                 operation.Form,
@@ -1008,7 +1007,7 @@ public static partial class Sdf {
                 density,
                 scale,
                 axis,
-                calibration))), cause => VoxelRuntime.Provider(operation, cause))
+                calibration)))).Run().Bind(static inner => inner)
             .Rollback(envelope, calibration)
         from morphed in Morph(intersected, operation.Morphology, operation.Policy)
             .Rollback(envelope, calibration)
@@ -1047,7 +1046,7 @@ public static partial class Sdf {
                 from child in topology.Node(edge.Target).ToFin(Refusal("implicit-lattice:absent-node"))
                 select (Parent: parent, Child: child))
             .As()
-        from voxels in Op.Of(name: "implicit-lattice").Catch(() => {
+        from voxels in Try.lift(() => {
                 using PicoGK.Lattice lattice = new();
                 topology.Nodes.Iter(node => lattice.AddSphere(FieldMath.Vector(node.At), (float)node.Radius));
                 beams.Iter(beam => lattice.AddBeam(
@@ -1057,7 +1056,7 @@ public static partial class Sdf {
                     (float)beam.Child.Radius,
                     bRoundCap: true));
                 return Fin.Succ(new Voxels(lattice));
-            })
+            }).Run().Bind(static inner => inner)
         select voxels;
 
     private static Fin<Voxels> Subtract(Voxels scaffold, VoxelWire wire) =>
@@ -1073,15 +1072,15 @@ public static partial class Sdf {
 
     private static Fin<Voxels> Vdb(VdbSource source, double voxelSizeMm) =>
         from _ in VdbMetadata(source, voxelSizeMm)
-        from voxels in Op.Of(name: "implicit-vdb").Catch(() => {
+        from voxels in Try.lift(() => {
                 using OpenVdbFile file = new(source.Path.FullName);
                 using Voxels field = file.voxGet(source.Field.Value);
                 return Fin.Succ(field.voxDuplicate());
-            })
+            }).Run().Bind(static inner => inner)
         select voxels;
 
     private static Fin<Unit> VdbMetadata(VdbSource source, double voxelSizeMm) =>
-        VdbIdentity(source).Bind(_ => Op.Of(name: "implicit-vdb:metadata").Catch(() => {
+        VdbIdentity(source).Bind(_ => Try.lift(() => {
                 using OpenVdbFile file = new(source.Path.FullName);
                 if (!file.bIsPicoGKCompatible() || !file.fPicoGKVoxelSizeMM().Equals((float)voxelSizeMm))
                     return Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:voxel-size"));
@@ -1093,10 +1092,10 @@ public static partial class Sdf {
                     && string.Equals(actual, pair.Value, StringComparison.Ordinal))
                         ? Fin.Succ(unit)
                         : Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:metadata"));
-            }));
+            }).Run().Bind(static inner => inner));
 
     private static Fin<Unit> VdbIdentity(VdbSource source) =>
-        Op.Of(name: "implicit-vdb:identity").Catch(() => {
+        Try.lift(() => {
                 using FileStream payload = source.Path.OpenRead();
                 long canonicalLength = sizeof(int) + Encoding.UTF8.GetByteCount(source.Field.Value) + payload.Length;
                 if (canonicalLength > int.MaxValue)
@@ -1118,7 +1117,7 @@ public static partial class Sdf {
                         hash.Append(state.Field);
                         hash.Append(state.Payload);
                     }) == source.Key.Digest);
-            })
+            }).Run().Bind(static inner => inner)
             .Bind(matches => matches
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:identity")));
@@ -1127,7 +1126,7 @@ public static partial class Sdf {
         steps.Fold(Fin.Succ(voxels), (result, step) => result.Bind(held => step.Apply(held, policy)));
 
     private static Fin<Option<T>> Acquire<T>(Option<Func<Fin<T>>> source) where T : class, IDisposable =>
-        Op.Of(name: "implicit-driver").Catch(() => source.TraverseM(static factory => factory()).As());
+        Try.lift(() => source.TraverseM(static factory => factory()).As()).Run().Bind(static inner => inner);
 
     private static VoxelMetrics Measure(Rasterized raster, ContentKey field) {
         raster.Voxels.CalculateProperties(out float cubicMillimeters, out BBox3 properties);
@@ -1419,7 +1418,7 @@ public static partial class Sdf {
 
     private static Fin<CliStack> Vector(
         VoxelScope scope, ImplicitOp operation, CliMode.CliVector mode, Option<IProgress<double>> progress) =>
-        Op.Of(name: "implicit-cli:vector").Catch(() => {
+        Try.lift(() => {
                 IProgress<double>? sink = progress.ValueUnsafe();
                 PolySliceStack slices = scope.Native.oVectorize(
                     (float)operation.Policy.LayerHeight.Millimeters,
@@ -1435,11 +1434,11 @@ public static partial class Sdf {
                 return ImplicitCanonical
                     .Cli(slices, Seq(scope.Metrics.Field), operation.Policy, Some(mode), Op.Of(name: nameof(Vector)))
                     .Map(key => new CliStack(
-                        slices.nCount(), key, Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None));
-            }, cause => VoxelRuntime.Provider(operation, cause));
+                        slices.nCount(), Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None));
+            }).Run().Bind(static inner => inner);
 
     private static Fin<CliStack> Grayscale(VoxelScope scope, ImplicitOp operation, CliMode.Grayscale mode) =>
-        Op.Of(name: "implicit-cli:grayscale").Catch(() => {
+        Try.lift(() => {
                 ImageGrayScale image = scope.Native.imgAllocateSlice(out int voxelSlices, mode.Axis.Native);
                 Seq<Length> elevations = mode.Sampling.Elevations(operation.Policy, voxelSlices);
                 Fin<Seq<ContentKey>> masks = Fin.Succ(Seq<ContentKey>());
@@ -1458,15 +1457,15 @@ public static partial class Sdf {
                 return masks.Bind(settled => ImplicitCanonical
                     .MaskIndex(settled, scope.Metrics.Field, operation.Policy, mode, Op.Of(name: nameof(Grayscale)))
                     .Map(key => new CliStack(
-                        settled.Count, key, settled, Seq(scope.Metrics.Field), Some(scope.Metrics), None)));
-            }, cause => VoxelRuntime.Provider(operation, cause));
+                        settled.Count, settled, Seq(scope.Metrics.Field), Some(scope.Metrics), None)));
+            }).Run().Bind(static inner => inner);
 
     private static Fin<CliStack> Direct(ImplicitOp operation, CliMode.VdbCli mode, Option<IProgress<double>> progress) =>
         operation is not ImplicitOp.Vdb vdb || !operation.Morphology.IsEmpty || !vdb.Origin.Path.Exists
             ? Fail<CliStack>(operation)
             : VoxelRuntime.Use(Seq(operation), () =>
                 from _ in VdbMetadata(vdb.Origin, vdb.Policy.Budget.VoxelSizeMm)
-                from stack in Op.Of(name: "implicit-cli:direct").Catch(() => {
+                from stack in Try.lift(() => {
                         Vdb2Cli.Convert(
                             vdb.Origin.Path.FullName,
                             (float)vdb.Policy.LayerHeight.Millimeters,
@@ -1479,7 +1478,6 @@ public static partial class Sdf {
                                 Op.Of(name: nameof(Direct)))
                             .Map(key => new CliStack(
                                 imported.oSlices.nCount(),
-                                key,
                                 Seq<ContentKey>(),
                                 Seq(vdb.Origin.Key),
                                 None,
@@ -1490,7 +1488,7 @@ public static partial class Sdf {
                                     Witness.Keyed(imported.strWarnings)
                                         ? Seq(imported.strWarnings)
                                         : Seq<string>()))));
-                    }, cause => VoxelRuntime.Provider(operation, cause))
+                    }).Run().Bind(static inner => inner)
                 select stack);
 }
 ```
@@ -1511,8 +1509,7 @@ public static class ImplicitCanonical {
         PolySliceStack slices,
         Seq<ContentKey> fields,
         ImplicitPolicy policy,
-        Option<CliMode.CliVector> mode,
-        Op key) =>
+        Option<CliMode.CliVector> mode) =>
         FabricationCanon.Keyed(EgressKind.Cli, policy.Budget.VoxelSizeMm, writer => writer
             .Double(policy.LayerHeight.Millimeters)
             .Maybe(mode, static (row, value) => row
@@ -1520,8 +1517,7 @@ public static class ImplicitCanonical {
                 .Double(value.UnitsInMillimeters)
                 .Bool(value.AbsoluteOrigin))
             .Rows(fields, static (row, field) => field.CanonicalBytes(row))
-            .Rows(toSeq(Enumerable.Range(0, slices.nCount())), (row, layer) => Layer(row, slices.oSliceAt(layer))),
-            key);
+            .Rows(toSeq(Enumerable.Range(0, slices.nCount())), (row, layer) => Layer(row, slices.oSliceAt(layer))));
 
     public static Fin<ContentKey> Image(
         int layer,
@@ -1529,31 +1525,27 @@ public static class ImplicitCanonical {
         ImageGrayScale image,
         RasterFrame frame,
         ContentKey field,
-        ImplicitPolicy policy,
-        Op key) =>
+        ImplicitPolicy policy) =>
         FabricationCanon.Keyed(EgressKind.Cli, policy.Budget.VoxelSizeMm, writer => field
             .CanonicalBytes(writer
                 .Ordinal(layer).Double(elevation.Millimeters)
                 .Double(frame.VoxelSizeMm).Coords(frame.Origin)
                 .Ordinal(frame.Columns).Ordinal(frame.Rows).Ordinal(frame.Layers)
                 .Ordinal(image.nWidth).Ordinal(image.nHeight))
-            .Rows(toSeq(image.m_afValues), static (row, value) => row.Double(value)),
-            key);
+            .Rows(toSeq(image.m_afValues), static (row, value) => row.Double(value)));
 
     public static Fin<ContentKey> MaskIndex(
         Seq<ContentKey> masks,
         ContentKey field,
         ImplicitPolicy policy,
-        CliMode.Grayscale mode,
-        Op key) =>
+        CliMode.Grayscale mode) =>
         FabricationCanon.Keyed(EgressKind.Cli, policy.Budget.VoxelSizeMm, writer => field
             .CanonicalBytes(writer
                 .Double(policy.LayerHeight.Millimeters)
                 .Discriminant(mode.Render)
                 .Discriminant(mode.Axis)
                 .Discriminant(mode.Sampling))
-            .Rows(masks, static (row, mask) => mask.CanonicalBytes(row)),
-            key);
+            .Rows(masks, static (row, mask) => mask.CanonicalBytes(row)));
 
     private static CanonicalWriter Layer(CanonicalWriter writer, PolySlice slice) =>
         writer.Double(slice.fZPos())

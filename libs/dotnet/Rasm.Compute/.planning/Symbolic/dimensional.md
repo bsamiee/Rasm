@@ -132,10 +132,10 @@ public sealed record DimensionContext(Map<SymbolName, DimensionMonomial> Binding
             new ComputeFault.SymbolUndefined($"<undeclared-symbol:{symbol.ToValue()}>"));
 
     static Validation<Error, SymbolName> Admit(string name) =>
-        Op.Of(name: nameof(Admit)).AcceptValidated<SymbolName>(name).ToValidation();
+        FactoryBridge.Accept<SymbolName>(name).ToValidation();
 
     static Validation<Error, QuantityFamily> Family(string key) =>
-        QuantityFamily.TryGet(key, out QuantityFamily? row)
+        QuantityFamily.TryGet(out QuantityFamily? row)
             ? Success<Error, QuantityFamily>(row)
             : Fail<Error, QuantityFamily>(new ComputeFault.ParseRejected($"<symbolic-family-unknown:{key}>"));
 }

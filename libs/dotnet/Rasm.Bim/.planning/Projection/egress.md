@@ -18,7 +18,7 @@ GeometryGym's `ReleaseVersion` stays on this codec leg through `ReleaseRaise` an
 - Law: the emit is GATED then TOTAL — the `rasm.bim.projection.emit` veto brackets the WHOLE write through the capsule's GUARDED fire, so a deliverable policy refuses on the wire form, the raised schema, and the in-scope node count BEFORE a `DatabaseIfc` exists and a refusal is the emit's typed verdict rather than an artifact nobody wanted. A bare fire followed by an unconditional write is the deleted form.
 - Law: a re-author leg is a VALUE of one shape returning the writer carrier, so a `void` leg — whose failure no caller can observe and whose drops no ledger can count — is unrepresentable. Roster ORDER is the dependency: units declare before any magnitude raises, materials before the usages that wrap them, and the georeference inverse is the last rung before the seal.
 - Law: the per-node egress gate ACCUMULATES. One unmappable class, one schema-abstract row, or one unparseable predefined token used to abort the whole emit on a first defect, so an authoring pass saw one reject per run; `Validation<Error, T>` collects every reject across the roster and lowers once through the result aggregate.
-- Entry: `SemanticProjector.Emit(ElementGraph graph, IfcWireForm form, Op key, Option<EmitContext> context = default)` returns `Fin<ReadOnlyMemory<byte>>` — BYTES, the one currency, so no caller re-encodes a returned string and a zipped container is expressible. The `EmitContext` carrier holds the four orthogonal emit axes; the `IIfcProfileStore` and `BsddPins` capabilities ride the projector's primary constructor, so a second parameter re-passing an instance dependency is the deleted knob.
+- Entry: `SemanticProjector.Emit(ElementGraph graph, IfcWireForm form, Option<EmitContext> context = default)` returns `Fin<ReadOnlyMemory<byte>>` — BYTES, the one currency, so no caller re-encodes a returned string and a zipped container is expressible. The `EmitContext` carrier holds the four orthogonal emit axes; the `IIfcProfileStore` and `BsddPins` capabilities ride the projector's primary constructor, so a second parameter re-passing an instance dependency is the deleted knob.
 - Auto: `Emit` raises the schema, gates `form.Published(schema, key)` so nothing is sealed that a peer decoder refuses, slices the scope, resolves the `"ifc"`-classified `Object` roster ONCE off the sliced model, publishes its magnitude on the admission fact, and folds the authoring inside the guarded fire. A foreign-system node — a sibling projector's native capture classified outside `"ifc"` — is out of scope BY CLASSIFICATION, never a fault that aborts a federated emit. The gate then resolves the `IfcClass` row, rejects the schema-abstract supertype, admits the predefined token per-token against the `PredefinedRow` spans AND the class schema span [PREDEFINED_TOKEN_RULING][H8], constructs the entity (the `IfcProject` row through its db-binding ctor so the file carries its mandatory root context, every other row through `Factory.Construct`), stamps the admitted token through the type-init slot census, round-trips the `GlobalId` from `ExternalId` 1:1 or DERIVES it from the node's own id-inclusive `ContentAddress` [H6], and re-stamps the `OwnerHistory` with a `ChangeAction` diff-derived against the prior snapshot [H9].
 - Auto: the legs then run on one path over one `EmitFrame` — units declared and the tolerance re-declared through the shared `Render` inverse; materials authored ONCE per `Material` node with the per-occurrence `MaterialUsage` wrapping them [OCCURRENCE_USAGE_RULING]; the property and quantity bags raised through `Projection/raise#VALUE_RAISE` and bound by `IfcRelDefinesByProperties`; classifications registered per `Object` node; relationships re-authored ordinal-nests-first, then the realizing fan, then the rostered roster [NEUTRAL_EDGE_RULING]; the structural node payload re-stamped through the `Model/structural#STRUCTURAL_PROJECTION` inverse with its unconsumed-row residue counted; the context root's `Phase`/`LongName` restamped; the STEP header restored; and the georeference inverse authored at its own LoGeoRef level, its `Conversion` collapse over an anisotropy-carrying frame counted [M1].
 - Output: every bounded drop this leg incurs RETURNS on the `Fidelity` carrier and the joined ledger leaves through the single `Fidelity.Run` at the seal, so a refused write charges the ledger for nothing and a rerun re-derives the same ledger.
@@ -52,7 +52,6 @@ using Rasm.Element.Relations;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;
 using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 using GGRelease = GeometryGym.Ifc.ReleaseVersion;
 
@@ -82,8 +81,7 @@ public sealed record EmitFrame(
     ElementGraph Graph,
     Map<NodeId, IfcObjectDefinition> Authored,
     UnitScheme Scale,
-    EdgeBuckets Edges,
-    Op Key);
+    EdgeBuckets Edges);
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper]
@@ -114,34 +112,34 @@ public sealed partial class SemanticProjector {
 
     // --- [ENTRY]
 
-    public Fin<ReadOnlyMemory<byte>> Emit(ElementGraph graph, IfcWireForm form, Op key, Option<EmitContext> context = default) =>
-        Egress(graph, form, key, context).Map(static run => run.Bytes);
+    public Fin<ReadOnlyMemory<byte>> Emit(ElementGraph graph, IfcWireForm form, Option<EmitContext> context = default) =>
+        Egress(graph, form, context).Map(static run => run.Bytes);
 
     public Fin<(ReadOnlyMemory<byte> Bytes, FidelityLog Fidelity)> Egress(
-        ElementGraph graph, IfcWireForm form, Op key, Option<EmitContext> context = default) =>
-        form.Published(graph.Header.Schema, key)
-            .Bind(_ => ReleaseRaise(graph.Header.Schema, key))
+        ElementGraph graph, IfcWireForm form, Option<EmitContext> context = default) =>
+        form.Published(graph.Header.Schema)
+            .Bind(_ => ReleaseRaise(graph.Header.Schema))
             .Bind(release => {
                 EmitContext ctx = context.IfNone(EmitContext.Whole);
-                return Scoped(graph, ctx, key).Bind(model => {
+                return Scoped(graph, ctx).Bind(model => {
                     Seq<Node.Object> targets = model.Nodes.Values
                         .Choose(static node => node is Node.Object { Classification.System: "ifc" } obj ? Some(obj) : None)
                         .ToSeq();
-                    BimFact.Egress admission = new(key, form.Key, model.Header.Schema.Key, targets.Count);
+                    BimFact.Egress admission = new(targets.Count);
                     return ctx.Hooks.Match(
-                        Some: hooks => hooks.Fire(BimPoint.Egress, admission, key, _ => Write(model, targets, form, release, ctx, key)),
-                        None: () => Write(model, targets, form, release, ctx, key));
+                        Some: hooks => hooks.Fire(BimPoint.Egress, admission, _ => Write(model, targets, form, release, ctx)),
+                        None: () => Write(model, targets, form, release, ctx));
                 });
             });
 
     Fin<(ReadOnlyMemory<byte> Bytes, FidelityLog Fidelity)> Write(
-        ElementGraph graph, Seq<Node.Object> targets, IfcWireForm form, GGRelease release, EmitContext ctx, Op key) {
+        ElementGraph graph, Seq<Node.Object> targets, IfcWireForm form, GGRelease release, EmitContext ctx) {
         var target = new DatabaseIfc(release);
-        return AuthorAll(target, targets, graph, PriorIndex.Of(ctx.Prior), key)
-            .Bind(authored => Declared(target, graph, authored, ctx.Units.IfNone(graph.Header.Units), key))
+        return AuthorAll(target, targets, graph, PriorIndex.Of(ctx.Prior))
+            .Bind(authored => Declared(target, graph, authored, ctx.Units.IfNone(graph.Header.Units)))
             .Bind(frame => Fidelity.Run(Legs.TraverseM(leg => leg(this, frame)).As()))
             .Bind(run => form.Seal(target, Entry(graph, form, release))
-                .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "ifc-write-refused", form.Key })))
+                .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "ifc-write-refused", form.Key })))
                 .Map(bytes => (Bytes: bytes, Fidelity: run.Log)));
     }
 
@@ -150,9 +148,9 @@ public sealed partial class SemanticProjector {
 
     // --- [SCOPE]
 
-    static Fin<ElementGraph> Scoped(ElementGraph graph, EmitContext ctx, Op key) =>
+    static Fin<ElementGraph> Scoped(ElementGraph graph, EmitContext ctx) =>
         ctx.Scope.Match(
-            Some: selection => graph.Extract(Closure(graph, selection.Ids).ToSeq(), key),
+            Some: selection => graph.Extract(Closure(graph, selection.Ids).ToSeq()),
             None: () => Fin.Succ(graph));
 
     static LanguageExt.HashSet<NodeId> Closure(ElementGraph graph, Seq<NodeId> selected) {
@@ -174,18 +172,18 @@ public sealed partial class SemanticProjector {
 
     // --- [SCHEMA_RAISE]
 
-    internal static Fin<GGRelease> ReleaseRaise(ReleaseVersion schema, Op key) =>
+    internal static Fin<GGRelease> ReleaseRaise(ReleaseVersion schema) =>
         ReleaseMap.Raise.TryGetValue(schema, out GGRelease raised)
             ? Fin.Succ(raised)
-            : Fin.Fail<GGRelease>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "release-unraisable", schema.Key })));
+            : Fin.Fail<GGRelease>(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "release-unraisable", schema.Key })));
 
     // --- [NODE_GATE]
 
     Fin<Map<NodeId, IfcObjectDefinition>> AuthorAll(
-        DatabaseIfc target, Seq<Node.Object> targets, ElementGraph graph, PriorIndex prior, Op key) {
+        DatabaseIfc target, Seq<Node.Object> targets, ElementGraph graph, PriorIndex prior) {
         Map<IfcChangeActionEnum, IfcOwnerHistory> histories = Histories(target);
         return targets
-            .Traverse(obj => (Author(target, obj, graph.Header.Schema, graph.Header.Tolerance, key, prior, histories)).ToValidation()
+            .Traverse(obj => (Author(target, obj, graph.Header.Schema, graph.Header.Tolerance, prior, histories)).ToValidation()
                 .Map(entity => (Id: obj.Id, Entity: entity)))
             .As()
             .Map(rows => rows.Fold(Map<NodeId, IfcObjectDefinition>(), static (map, row) => map.AddOrUpdate(row.Id, row.Entity)))
@@ -207,17 +205,17 @@ public sealed partial class SemanticProjector {
     }
 
     static Fin<IfcObjectDefinition> Author(
-        DatabaseIfc target, Node.Object obj, ReleaseVersion schema, double tolerance, Op key,
+        DatabaseIfc target, Node.Object obj, ReleaseVersion schema, double tolerance,
         PriorIndex prior, Map<IfcChangeActionEnum, IfcOwnerHistory> histories) =>
-        IfcClass.Resolve(obj.Classification.Code, key)
-            .Bind(cls => cls.AdmitPredefined(obj.PredefinedType.ToValue(), obj.ObjectType.IfNone(""), schema, key)
+        IfcClass.Resolve(obj.Classification.Code)
+            .Bind(cls => cls.AdmitPredefined(obj.PredefinedType.ToValue(), obj.ObjectType.IfNone(""), schema)
                 .Bind(token => {
                     var entity = (IfcObjectDefinition)(cls == IfcClass.Project
                         ? new IfcProject(target, obj.Name)
                         : target.Factory.Construct(cls.Key));
                     entity.GlobalId = obj.ExternalId.IfNone(() => ParserIfc.EncodeGuid(ContentGuid(obj, tolerance)));
                     entity.Name = obj.Name;
-                    return StampPredefined(entity, cls, token, obj.ObjectType, key).Map(_ => {
+                    return StampPredefined(entity, cls, token, obj.ObjectType).Map(_ => {
                         obj.History.IfSome(_ => entity.OwnerHistory = histories[ChangeOf(obj, prior)]);
                         return entity;
                     });
@@ -237,9 +235,9 @@ public sealed partial class SemanticProjector {
                 .Map(slot => (Class: row.Key, Slot: slot)))
             .ToFrozenDictionary(static row => row.Class, static row => row.Slot, StringComparer.Ordinal);
 
-    static Fin<Unit> StampPredefined(IfcObjectDefinition entity, IfcClass cls, string token, Option<string> objectType, Op key) =>
+    static Fin<Unit> StampPredefined(IfcObjectDefinition entity, IfcClass cls, string token, Option<string> objectType) =>
         from labelled in Fin.Succ(Labelled(entity, token, objectType))
-        from stamped in Stamp(entity, cls, token, key)
+        from stamped in Stamp(entity, cls, token)
         select stamped;
 
     static Unit Labelled(IfcObjectDefinition entity, string token, Option<string> objectType) =>
@@ -251,12 +249,12 @@ public sealed partial class SemanticProjector {
             }, None: static () => unit)
             : unit;
 
-    static Fin<Unit> Stamp(IfcObjectDefinition entity, IfcClass cls, string token, Op key) =>
-        !PredefinedSlots.TryGetValue(cls.Key, out PropertyInfo? slot) || slot is null
+    static Fin<Unit> Stamp(IfcObjectDefinition entity, IfcClass cls, string token) =>
+        !PredefinedSlots.TryGetValue(out PropertyInfo? slot) || slot is null
             ? Fin.Succ(unit)
             : Enum.TryParse(slot.PropertyType, token, ignoreCase: true, out object? member)
                 ? Fin.Succ(Stamped(slot, entity, member))
-                : Fin.Fail<Unit>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-token-unstampable", entity.GetType().Name, token })));
+                : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "predefined-token-unstampable", entity.GetType().Name, token })));
 
     static Unit Stamped(PropertyInfo slot, IfcObjectDefinition entity, object? member) {
         slot.SetValue(entity, member);
@@ -279,16 +277,16 @@ public sealed partial class SemanticProjector {
             .ToFrozenDictionary(static row => row.Metric.ToString(), static row => row.Declared, StringComparer.Ordinal);
 
     static Fin<EmitFrame> Declared(
-        DatabaseIfc target, ElementGraph graph, Map<NodeId, IfcObjectDefinition> authored, UnitScheme regime, Op key) {
+        DatabaseIfc target, ElementGraph graph, Map<NodeId, IfcObjectDefinition> authored, UnitScheme regime) {
         regime.UnitFor(QuantityType.Length)
             .Bind(token => DeclaredFamilies.TryGetValue(token, out IfcUnitAssignment.Length family) ? Some(family) : None)
             .IfSome(family => { target.Project.UnitsInContext = new IfcUnitAssignment(target, family); });
         UnitScheme scale = IfcUnits.SchemeOf(target);
-        return MeasureValue.OfSi(Dimension.LengthDim, graph.Header.Tolerance, key)
+        return MeasureValue.OfSi(Dimension.LengthDim, graph.Header.Tolerance)
             .Map(scale.Render)
             .Map(declared => {
                 target.Tolerance = declared.Value;
-                return new EmitFrame(target, graph, authored, scale, Partitioned(graph), key);
+                return new EmitFrame(target, graph, authored, scale, Partitioned(graph));
             });
     }
 
@@ -307,9 +305,9 @@ public sealed partial class SemanticProjector {
 
     // --- [REGISTRATION]
 
-    static Fin<Unit> Register(IfcRelationship registered, Op key) =>
+    static Fin<Unit> Register(IfcRelationship registered) =>
         Optional(registered.Database)
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relationship-unregistered", registered.GetType().Name })))
+            .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relationship-unregistered", registered.GetType().Name })))
             .Map(static _ => unit);
 
     // --- [MATERIAL_LEG]
@@ -501,9 +499,9 @@ public sealed partial class SemanticProjector {
             ? Some(parsed)
             : Option<UInt128>.None;
 
-    Fin<Option<IfcConnectionGeometry>> InterfaceOf(Option<UInt128> content, Op key) =>
+    Fin<Option<IfcConnectionGeometry>> InterfaceOf(Option<UInt128> content) =>
         content.TraverseM(address => profiles.Find<IfcConnectionGeometry>(address)
-                .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "connection-interface-miss", address }))))
+                .ToFin(new BimFault.Refused(BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "connection-interface-miss", address }))))
             .As();
 
     static Option<IfcRelKind> RelKindOf(Relationship edge) => edge switch {

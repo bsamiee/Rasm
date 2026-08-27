@@ -14,7 +14,7 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Cases: `SurfaceOp` is the request `[Union]`, one case per surface operation; `SurfaceResult` the result `[Union]`, one typed carrier per request family; rule and policy rows are the vocabularies the ops read.
 - Entry: `Geodesics` takes the `UvTessellation` carrier, so the provenance proof is the parameter type.
 - Auto: every op composes the vendored engine with the landed distance, refit, and arena machinery; no evaluation arithmetic is local.
-- Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>, key)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane, key)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
+- Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>, key)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
 - Law: the curvature sweep's area is `NurbsForm.Surface.Area` on the same live surface — the engine's one area owner with its guarded cubature and error witness; a local Jacobian integral over a hardcoded unit rectangle re-derives that engine and suppresses its witness.
 - Law: the dense-projection seed lookup is `NeighborIndex` — Rasm `RULINGS [02]` seats bare-point neighborhoods there, and the query subject is a bare point. NAMED LOSS: the page-local `Supercluster.KDTree.Net` admission, its per-probe boxing of three doubles into an `IReadOnlyList<double>`, and a `.First()` that threw on an empty answer; the gain is one batch query, one owner, and a `Fin` result through the seed leg.
 - Law: `GeodesicPlan.Windows` selects the distance lane — `None` the cached heat-distance lane, `Some(policy)` exact MMP propagation under that caller-visible budget — and `VertexDistances` dispatches through `Windows.Match`; `ChainContours` copies `plan.Windows` onto `GeodesicField.Windows`, so the executed policy is result evidence that outlives the request — a heat field reads `None`, an exact field the budget that shaped it. The compact offset-plus-column contour layout stays; nested per-contour arrays add allocations and weaken the dense carrier. `UvTessellation` carries its own provenance and nothing beside it.
@@ -115,7 +115,7 @@ public abstract partial record SurfaceResult {
 }
 
 public static class Surfaces {
-    public static Fin<SurfaceResult> Apply(SurfaceOp op, Op? key = null) =>
+    public static Fin<SurfaceResult> Apply(SurfaceOp op) =>
         op.Switch(
             state: key.OrDefault(),
             tessellate:      static (k, t) => TessellateOf(t, k),
@@ -126,26 +126,26 @@ public static class Surfaces {
             project:         static (k, p) => ProjectOf(p, k));
 
     // --- [TESSELLATE]
-    static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op, Op key) =>
+    static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op) =>
         Lattice(op.Surface, op.Rule).Bind(grid =>
             op.Trim.Match(
-                Some: rings => TrimmedCells(grid, rings, op.Model, key)
-                    .Bind(cells => Lift(op.Surface, cells.Uv, _ => cells.Triangles, op.Model, key)),
+                Some: rings => TrimmedCells(grid, rings, op.Model)
+                    .Bind(cells => Lift(op.Surface, cells.Uv, _ => cells.Triangles, op.Model)),
                 None: () => Lift(
                     op.Surface,
                     new Arr<Point2d>([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]),
                     points => CellTriangles(grid.U.Length, grid.V.Length, points),
-                    op.Model, key)));
+                    op.Model)));
 
     static Fin<(double[] U, double[] V)> Lattice(NurbsForm.Surface surface, TessellateRule rule);
     static (int A, int B, int C)[] CellTriangles(int nu, int nv, ReadOnlySpan<Point3d> points);
-    static Fin<(Arr<Point2d> Uv, (int A, int B, int C)[] Triangles)> TrimmedCells((double[] U, double[] V) grid, Seq<Chain> rings, Context model, Op key);
+    static Fin<(Arr<Point2d> Uv, (int A, int B, int C)[] Triangles)> TrimmedCells((double[] U, double[] V) grid, Seq<Chain> rings, Context model);
 
-    static Fin<SurfaceResult> Lift(NurbsForm.Surface surface, Arr<Point2d> uv, Func<Point3d[], (int A, int B, int C)[]> cells, Context model, Op key) {
+    static Fin<SurfaceResult> Lift(NurbsForm.Surface surface, Arr<Point2d> uv, Func<Point3d[], (int A, int B, int C)[]> cells, Context model) {
         Point3d[] points = new Point3d[uv.Count];
         for (int i = 0; i < uv.Count; i++) { points[i] = surface.PointAt(uv[i].X, uv[i].Y); }
         using MeshEdit arena = MeshEdit.Of(points, cells(points), model);
-        return arena.ToSpace(key).Map(space => (SurfaceResult)new SurfaceResult.UvTessellation(surface, space, uv));
+        return arena.ToSpace().Map(space => (SurfaceResult)new SurfaceResult.UvTessellation(surface, space, uv));
     }
 
     // --- [ISOLINES]
@@ -161,54 +161,54 @@ public static class Surfaces {
     static Fin<(Arr<double> U, Arr<double> V)> IsoRows(NurbsForm.Surface surface, IsolineRule rule);
 
     // --- [GEODESICS]
-    static Fin<SurfaceResult> GeodesicsOf(SurfaceOp.Geodesics op, Op key) =>
+    static Fin<SurfaceResult> GeodesicsOf(SurfaceOp.Geodesics op) =>
         !op.Plan.IsValid
-            ? Fin.Fail<SurfaceResult>(key.InvalidInput())
-            : VertexDistances(op.Source, op.Plan, key).Map(distances =>
+            ? Fin.Fail<SurfaceResult>(new KernelFault.InvalidInput())
+            : VertexDistances(op.Source, op.Plan).Map(distances =>
                 (SurfaceResult)ChainContours(op.Source, distances, op.Plan));
 
-    static Fin<Arr<double>> VertexDistances(SurfaceResult.UvTessellation source, GeodesicPlan plan, Op key);
+    static Fin<Arr<double>> VertexDistances(SurfaceResult.UvTessellation source, GeodesicPlan plan);
     static SurfaceResult.GeodesicField ChainContours(SurfaceResult.UvTessellation source, Arr<double> distances, GeodesicPlan plan);
 
     // --- [NORMAL_OFFSET]
-    static Fin<SurfaceResult> NormalOffsetOf(SurfaceOp.NormalOffset op, Op key) =>
+    static Fin<SurfaceResult> NormalOffsetOf(SurfaceOp.NormalOffset op) =>
         op.Refine.Run(
             seed: GrevilleGrid(op.Surface),
-            fit: (grid, index) => OffsetFit(op, grid, index, key),
+            fit: (grid, index) => OffsetFit(grid, index),
             densify: Densified,
             unconverged: deviation => new GeometryFault.OffsetUnconverged(Kind.Surface, deviation))
         .Map(final => (SurfaceResult)new SurfaceResult.Offsets(final.Fit, final.Evidence));
 
     static Arr<Point2d> GrevilleGrid(NurbsForm.Surface surface);
-    static Fin<RefineRound<NurbsForm.Surface, Point2d>> OffsetFit(SurfaceOp.NormalOffset op, Arr<Point2d> grid, int index, Op key);
+    static Fin<RefineRound<NurbsForm.Surface, Point2d>> OffsetFit(SurfaceOp.NormalOffset op, Arr<Point2d> grid, int index);
     static Arr<Point2d> Densified(Arr<Point2d> grid, Arr<Point2d> breaching);
 
     // --- [CURVATURE_SAMPLE]
-    static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op, Op key) =>
-        op.Surface.Area(policy: op.Policy, key: key)
-            .Bind(area => SweepCurvature(op, area, key));
+    static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op) =>
+        op.Surface.Area(policy: op.Policy)
+            .Bind(area => SweepCurvature(area));
 
-    static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area, Op key);
+    static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area);
 
     // --- [PROJECTION]
-    static Fin<SurfaceResult> ProjectOf(SurfaceOp.Project op, Op key) =>
+    static Fin<SurfaceResult> ProjectOf(SurfaceOp.Project op) =>
         !op.Policy.IsValid
-            ? Fin.Fail<SurfaceResult>(key.InvalidInput())
-            : Seeds(op, key)
+            ? Fin.Fail<SurfaceResult>(new KernelFault.InvalidInput())
+            : Seeds()
                 .Bind(seeds => toSeq(op.Probes)
                     .Zip(toSeq(seeds), static (probe, seed) => (Probe: probe, Seed: seed))
-                    .TraverseM(row => op.Surface.ClosestParameter(row.Probe, Some(op.Policy.Nurbs), row.Seed, key)).As())
-                .Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])));
+                    .TraverseM(row => op.Surface.ClosestParameter(row.Probe, Some(op.Policy.Nurbs), row.Seed)).As())
+                .Map(uv => Emit(new Arr<(double U, double V)>([.. uv])));
 
-    static Fin<Arr<Option<(double U, double V)>>> Seeds(SurfaceOp.Project op, Op key) {
+    static Fin<Arr<Option<(double U, double V)>>> Seeds(SurfaceOp.Project op) {
         if (op.Probes.Count < op.Policy.SeedThreshold.Value) {
             return Fin.Succ(new Arr<Option<(double U, double V)>>([.. op.Probes.Map(static _ => Option<(double U, double V)>.None)]));
         }
         (Point3d[] seeds, Point2d[] seedUv) = SeedGrid(op.Surface, op.Policy);
-        return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(seeds)), key: key)
+        return NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: toSeq(seeds)))
             .Bind(index => NeighborKernel.GraphOf(
                 index: index, needles: [.. op.Probes], count: Some(Dimension.Create(value: 1)),
-                radius: Option<PositiveMagnitude>.None, key: key))
+                radius: Option<PositiveMagnitude>.None))
             .Map(graph => new Arr<Option<(double U, double V)>>([.. graph.Ids.Select(hits =>
                 hits.Length > 0 ? Some((seedUv[hits[0]].X, seedUv[hits[0]].Y)) : Option<(double U, double V)>.None)]));
     }

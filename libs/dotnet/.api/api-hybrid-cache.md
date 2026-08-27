@@ -26,7 +26,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `HybridCache` operations, each closing on `(HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default)`
-- Each key shape carries the stateful `(key, TState, Func<TState, CancellationToken, ValueTask<T>>)` row below and a stateless `(key, Func<CancellationToken, ValueTask<T>>)` mirror; threading caller state through `TState` keeps the factory delegate static and closure-free.
+- Each key shape carries the stateful `(TState, Func<TState, CancellationToken, ValueTask<T>>)` row below and a stateless `(Func<CancellationToken, ValueTask<T>>)` mirror; threading caller state through `TState` keeps the factory delegate static and closure-free.
 - Subclasses override the `string`-key read, `SetAsync`, and the singular `RemoveAsync`/`RemoveByTagAsync`; the span-key read and both batch forms stay virtual defaults folding onto them.
 
 | [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                           |

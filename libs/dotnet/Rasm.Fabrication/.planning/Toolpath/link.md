@@ -203,9 +203,7 @@ public sealed record ElementVariant(
         Seq<Move> moves,
         ProcessModality modality,
         Seq<MotionDirective> directives = default) =>
-        moves.Fold(ElementWalk.Empty, static (walk, move) => walk.Advanced(move)).Apply(walked => new ElementVariant(
-            key,
-            moves.Head.Map(static move => move.Target).IfNone(Point3d.Origin),
+        moves.Fold(ElementWalk.Empty, static (walk, move) => walk.Advanced(move)).Apply(walked => new ElementVariant(moves.Head.Map(static move => move.Target).IfNone(Point3d.Origin),
             walked.Cursor.IfNone(Point3d.Origin),
             moves,
             RotationPenalty: walked.Turning,
@@ -319,7 +317,7 @@ public sealed partial class CutElement {
     public static Fin<CutElement> Admit(string key, string toolKey, string workOffset, EntryFamily entry) =>
         from variants in Variants(entry)
         from checkedVariants in variants.TraverseM(AdmitVariant).As()
-        from admitted in Validate(key, toolKey, workOffset, entry, checkedVariants.ToArr(), out CutElement element)
+        from admitted in Validate(toolKey, workOffset, entry, checkedVariants.ToArr(), out CutElement element)
             .Admitted(element)
         select admitted;
 
@@ -384,7 +382,7 @@ public sealed partial class CutElement {
             Witness.Keyed(row.Key) && row.Entry.IsValid && row.Exit.IsValid && !row.Moves.IsEmpty
             && TensorPrimitives.IsFiniteAll<double>([row.RotationPenalty, row.ThermalExposure])
             && row.RotationPenalty >= 0.0 && row.ThermalExposure >= 0.0 && row.Pierces >= 0);
-        if (!(Witness.Keyed(key) && Witness.Keyed(toolKey) && Witness.Keyed(workOffset) && valid))
+        if (!(Witness.Keyed() && Witness.Keyed(toolKey) && Witness.Keyed(workOffset) && valid))
             validationError = new ValidationError("link:element");
     }
 
@@ -460,7 +458,7 @@ public sealed partial class Keepout {
     public static Fin<Keepout> Admit(string key, Loop footprint, KeepoutExtent extent, double marginMm) =>
         from regions in ArcOffset.Family(footprint, marginMm, "link:keepout-offset")
         let geometry = regions.Map(static loop => (Boundary: loop, Index: Index(loop))).ToArr()
-        from admitted in Validate(key, geometry, extent, marginMm, out Keepout keepout).Admitted(keepout)
+        from admitted in Validate(geometry, extent, marginMm, out Keepout keepout).Admitted(keepout)
         select admitted;
 
     static partial void ValidateFactoryArguments(
@@ -469,7 +467,7 @@ public sealed partial class Keepout {
         ref Arr<(Loop Boundary, IndexedPolyline<double> Index)> geometry,
         ref KeepoutExtent extent,
         ref double marginMm) {
-        if (!(Witness.Keyed(key) && !geometry.IsEmpty
+        if (!(Witness.Keyed() && !geometry.IsEmpty
             && geometry.ForAll(static row => row.Boundary.Closed && row.Boundary.Count >= 3)
             && extent.IsValid && double.IsFinite(marginMm) && marginMm >= 0.0))
             validationError = new ValidationError("keepout");
@@ -602,7 +600,7 @@ public sealed partial class LinkJob {
         select admitted;
 
     internal static Fin<T> Invoke<T>(Func<Fin<T>> callback) =>
-        Op.Of(name: "link:callback").Catch(callback);
+        Try.lift(callback).Run().Bind(static inner => inner);
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,

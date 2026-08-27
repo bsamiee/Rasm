@@ -25,7 +25,7 @@ Rasm.Compute owns the foreign-delivery boundary the suite admits sensor and dict
 - Law: a Core drop is COUNTED because nothing replays it. MQTT's bridge drops unobserved by design — the unacked QoS 1/2 delivery redelivers and the loss class is the broker's — while Core NATS carries no redelivery at all, so the identical silence renders a permanently lost sensor reading indistinguishable from one never published. `INatsConnection.MessageDropped` is the client's own overflow surface and it feeds the same refusal channel the expiry gate uses; the handler discriminates on `NatsMessageDroppedEventArgs.Subscription` identity, since under a wildcard filter the args' `Subject` is the PUBLISHED subject and matches no subscription's own spelling.
 - Law: the NATS subscription closes by FLUSHING. `SubscribeCoreAsync` holds the `INatsSub<byte[]>` whose `DrainAsync` sends UNSUB, fences on a PING/PONG round trip bounded by `NatsOpts.DrainPingTimeout`, and only then completes `Msgs`, so readings already bounded and already admitted reach the capture lane; the `SubscribeAsync` enumerable exposes no such verb, and cancelling it abandons exactly the window this row declared. NAMED LOSS: teardown now costs one round trip. Witness: a token-only stop discarded every buffered reading while every drop before it had been carefully accounted.
 - Law: subscription QoS is fixed at `AtLeastOnce` by the ack law rather than offered as a parameter. QoS 0 carries no redelivery, which makes `AutoAcknowledge = false` and `ProcessingFailed` pure ceremony, and QoS 2 pays a second round trip for an exactly-once guarantee the expiry gate and the content-keyed chunk already make unnecessary. NAMED LOSS: a deployment wanting fire-and-forget telemetry now states it as a row, not a call.
-- Entry: `BrokerChannels.Decode<T>(BrokerIngress ingress, BrokerBinding binding, BrokerDelivery delivery, ClockPolicy clocks, Op key)` is the ONE message-to-reading adapter — it captures the receiver arrival once, opens the consumer bracket through the delivery's own adoption, takes the STRUCTURED leg through `EventEnvelope.Decode` when the framing names an admitted event format and the BINARY leg through `BrokerCodec.Raise` over the row's prefixed carrier otherwise, preserves the producer's `recordedtime`, and projects the typed body. `BrokerChannels.Pump<T>(BrokerIngress ingress, BrokerBinding binding, BrokerSource source, string filter, ClockPolicy clocks, Op key, CancellationToken ct)` is the ONE subscription pump, yielding `IAsyncEnumerable<Fin<SensorReading<T>>>` — a subscribe refusal, a severed session, or an enumeration failure yields one CLASSIFIED terminal fault and ends the stream, and cancellation rethrows. `BrokerChannels.Capture(IAsyncEnumerable<Fin<SensorReading<TwinSignal>>> deliveries, CaptureAdmission admission, CancellationToken ct)` is the sink closing the loop — each delivery folds through `CaptureAdmission.Absorb`, and a refusal on either leg parks on the injected arrow rather than ending the subscription.
+- Entry: `BrokerChannels.Decode<T>(BrokerIngress ingress, BrokerBinding binding, BrokerDelivery delivery, ClockPolicy clocks)` is the ONE message-to-reading adapter — it captures the receiver arrival once, opens the consumer bracket through the delivery's own adoption, takes the STRUCTURED leg through `EventEnvelope.Decode` when the framing names an admitted event format and the BINARY leg through `BrokerCodec.Raise` over the row's prefixed carrier otherwise, preserves the producer's `recordedtime`, and projects the typed body. `BrokerChannels.Pump<T>(BrokerIngress ingress, BrokerBinding binding, BrokerSource source, string filter, ClockPolicy clocks, CancellationToken ct)` is the ONE subscription pump, yielding `IAsyncEnumerable<Fin<SensorReading<T>>>` — a subscribe refusal, a severed session, or an enumeration failure yields one CLASSIFIED terminal fault and ends the stream, and cancellation rethrows. `Error.New(IAsyncEnumerable<Fin<SensorReading<TwinSignal>>> deliveries.Message, IAsyncEnumerable<Fin<SensorReading<TwinSignal>>> deliveries)` is the sink closing the loop — each delivery folds through `CaptureAdmission.Absorb`, and a refusal on either leg parks on the injected arrow rather than ending the subscription.
 - Law: a terminal fault carries the transience its cause has. A broker that refuses a subscription with `NotAuthorized` or `TopicFilterInvalid` is deterministic and lands on an arm inheriting the kernel `Terminal` default, while a quota exceedance, a severed session, a connection failure, and a timeout land on `ComputeFault.EndpointUnreachable`, which PUBLISHES `Retriability.Transient` at its owner. NAMED LOSS: the one-string catch-all was shorter. Witness: it folded a disposed client and an invalid topic filter onto the same transient arm, so the re-drive policy re-attempted a refusal that answers identically forever, and it discarded the SUBACK result entirely, so a `NotAuthorized` grant read as a healthy subscription that simply never delivered.
 - Auto: content mode resolves from the message itself, never a subscription knob. Structured and binary legs both obtain declarations and whole-message admission from one `EventExtensionContract<event.Extensions>`, then derive lag, expiry, sampling, and creation trace from that message. NATS control frames resolve inside the binding reader and never reach decode.
 - Law: `Capture` admits each typed reading onto `WorkLane.CaptureIngest` through the one `AdmittedIntent` gate; the NATS `queueGroup` load-balances one subject across N capture subscribers.
@@ -165,9 +165,9 @@ public static class BrokerChannels {
         ]));
 
     public static class BrokerCodec {
-        public static Fin<CloudEvent> Structured(ReadOnlyMemory<byte> body, ContentType framing, Op key) =>
-            from declared in ExtensionContract.Declarations(key)
-            from rows in EventEnvelope.Decode(new EventFrame(Body: body, Framing: framing), declared, key)
+        public static Fin<CloudEvent> Structured(ReadOnlyMemory<byte> body, ContentType framing) =>
+            from declared in ExtensionContract.Declarations()
+            from rows in EventEnvelope.Decode(new EventFrame(Body: body, Framing: framing), declared)
             from single in rows is [CloudEvent envelope]
                 ? Fin.Succ(envelope)
                 : Fin.Fail<CloudEvent>(new ComputeFault.WireDecodeRejected($"<broker-batch-on-stream:{rows.Count}>"))
@@ -175,24 +175,24 @@ public static class BrokerChannels {
 
         public static Fin<CloudEvent> Raise(
             BrokerBinding binding, Seq<(string Name, string Value)> carried, ReadOnlyMemory<byte> body,
-            Option<ContentType> dataType, Op key) =>
-            from declared in ExtensionContract.Declarations(key)
+            Option<ContentType> dataType) =>
+            from declared in ExtensionContract.Declarations()
             from envelope in EventEnvelope.Raise(
                 attributes: carried.Choose(row => binding.Attribute(row.Name).Map(name => (Name: name, Value: row.Value))),
                 declared: declared,
-                data: body, dataType: dataType, key: key)
+                data: body, dataType: dataType)
             select envelope;
     }
 
     public static Fin<SensorReading<T>> Decode<T>(
-        BrokerIngress ingress, BrokerBinding binding, BrokerDelivery delivery, ClockPolicy clocks, Op key) {
+        BrokerIngress ingress, BrokerBinding binding, BrokerDelivery delivery, ClockPolicy clocks) {
         Instant received = clocks.Now;
         using IDisposable adopted = delivery.Adopt(ingress);
-        return Bounded(delivery.Body, key)
+        return Bounded(delivery.Body)
             .Bind(body => delivery.Framing.Filter(static type => EventFormat.Of(type).IsSome).Match(
-                Some: type => BrokerCodec.Structured(body, type, key),
-                None: () => BrokerCodec.Raise(binding, delivery.Carried, body, delivery.Framing, key)))
-            .Bind(envelope => ExtensionContract.Admit(envelope, key)
+                Some: type => BrokerCodec.Structured(body, type),
+                None: () => BrokerCodec.Raise(binding, delivery.Carried, body, delivery.Framing)))
+            .Bind(envelope => ExtensionContract.Admit(envelope)
                 .Map(extensions => (Envelope: envelope, Extensions: extensions, Received: received)))
             .Bind(Project<T>);
     }
@@ -203,14 +203,13 @@ public static class BrokerChannels {
         BrokerSource source,
         string filter,
         ClockPolicy clocks,
-        Op key,
         [EnumeratorCancellation] CancellationToken ct = default) {
         await foreach (Fin<BrokerDelivery> delivery in binding.Subscribe(source, filter, binding.Bridge, ct).WithCancellation(ct).ConfigureAwait(false)) {
-            yield return delivery.Bind(admitted => Decode<T>(ingress, binding, admitted, clocks, key));
+            yield return delivery.Bind(admitted => Decode<T>(ingress, binding, admitted, clocks));
         }
     }
 
-    private static Fin<ReadOnlyMemory<byte>> Bounded(ReadOnlyMemory<byte> body, Op key) =>
+    private static Fin<ReadOnlyMemory<byte>> Bounded(ReadOnlyMemory<byte> body) =>
         body.Length <= WireLimits.Inbound.SizeLimit
             ? Fin.Succ(body)
             : Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.PayloadOverBounds(
@@ -283,13 +282,11 @@ internal static class MqttBinding {
     }
 
     private static async Task<Option<Error>> Granted(IMqttClient client, string topicFilter, CancellationToken ct) =>
-        (await Op.Of(name: "mqtt-subscribe").Catch(
-            async _ => Fin.Succ(await client.SubscribeAsync(
+        (await Try.lift(async _ => Fin.Succ(await client.SubscribeAsync(
                 new MqttClientSubscribeOptionsBuilder()
                     .WithTopicFilter(topicFilter, MqttQualityOfServiceLevel.AtLeastOnce)
                     .Build(),
-                ct).ConfigureAwait(false)),
-            ct).ConfigureAwait(false))
+                ct).ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
         .Match(
             Succ: result => toSeq(result.Items)
                 .Find(static item => item.ResultCode >= MqttClientSubscribeResultCode.UnspecifiedError)
@@ -378,9 +375,7 @@ internal static class NatsBinding {
         INatsSub<byte[]> subscription, string subject, Channel<Error> shed,
         [EnumeratorCancellation] CancellationToken ct = default) {
         while (true) {
-            Fin<bool> advanced = await Op.Of(name: "nats-subscribe-next").Catch(
-                async _ => Fin.Succ(await subscription.Msgs.WaitToReadAsync(ct).ConfigureAwait(false)),
-                ct).ConfigureAwait(false);
+            Fin<bool> advanced = await Try.lift(async _ => Fin.Succ(await subscription.Msgs.WaitToReadAsync(ct).ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false);
 
             while (shed.Reader.TryRead(out Error? refusal)) {
                 yield return Fin.Fail<BrokerDelivery>(refusal);
@@ -406,7 +401,7 @@ internal static class NatsBinding {
                 : toSeq(message.Headers).Map(static row => (row.Key, row.Value.ToString())));
 
     private static IEnumerable<string> Carrier(NatsHeaders? carrier, string key) =>
-        carrier is not null && carrier.TryGetValue(key, out StringValues values) && !StringValues.IsNullOrEmpty(values)
+        carrier is not null && carrier.TryGetValue(out StringValues values) && !StringValues.IsNullOrEmpty(values)
             ? [values.ToString()]
             : [];
 }

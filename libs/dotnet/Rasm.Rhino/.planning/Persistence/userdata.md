@@ -95,12 +95,12 @@ public interface IArchiveCodec {
 
     Fin<ArchiveMap> Upgrade(ArchiveEnvelope envelope);
 
-    Fin<ArchiveIntegrity.WrittenCase> Write(BinaryArchiveWriter archive, ArchiveMap payload, Op op) =>
-        ArchiveIo.Cross(archive: archive, schema: Schema, payload: payload, key: op);
+    Fin<ArchiveIntegrity.WrittenCase> Write(BinaryArchiveWriter archive, ArchiveMap payload) =>
+        ArchiveIo.Cross(archive: archive, schema: Schema, payload: payload);
 
-    Fin<ArchiveMap> Read(BinaryArchiveReader archive, Op op) =>
-        ArchiveIo.Cross(archive: archive, schema: Schema, key: op)
-            .Bind(envelope => op.Catch(() => Upgrade(envelope)));
+    Fin<ArchiveMap> Read(BinaryArchiveReader archive) =>
+        ArchiveIo.Cross(archive: archive, schema: Schema)
+            .Bind(envelope => Try.lift(() => Upgrade(envelope)).Run().Bind(static inner => inner));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -108,75 +108,69 @@ public static class ArchiveIo {
     public static Fin<ArchiveIntegrity.WrittenCase> Cross(
         BinaryArchiveWriter archive,
         ArchiveSchema schema,
-        ArchiveMap payload,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from writer in op.Need(archive)
-               from frame in op.Need(schema)
-               from detached in op.Need(payload)
-               from native in detached.Mint(op)
-               from integrity in op.Catch(() => {
+        ArchiveMap payload) {
+        return from writer in Admit.Need(archive)
+               from frame in Admit.Need(schema)
+               from detached in Admit.Need(payload)
+               from native in detached.Mint()
+               from integrity in Try.lift(() => {
                    if (!writer.BeginWrite3dmChunk(frame.TypeCode, frame.Current.Major, frame.Current.Minor)) {
                        return Fin.Fail<ArchiveIntegrity.WrittenCase>(
-                           op.InvalidResult(detail: "Binary archive writer refused the chunk frame."));
+                           new KernelFault.InvalidResult(Detail: Some("Binary archive writer refused the chunk frame.")));
                    }
 
                    bool priorCrc = writer.EnableCRCCalculation(true);
-                   Fin<Unit> body = op.Catch(() => {
+                   Fin<Unit> body = Try.lift(() => {
                        writer.WriteDictionary(native);
                        writer.WriteEmptyCheckSum();
                        return Fin.Succ(unit);
-                   });
+                   }).Run().Bind(static inner => inner);
                    return body.Settled(
                            held: Seq<Func<Fin<Unit>>>(
-                               () => op.Catch(() => Fin.Succ(value: Op.Side(() => writer.EnableCRCCalculation(priorCrc)))),
-                               () => op.Catch(() => op.Confirm(success: writer.EndWrite3dmChunk()))),
-                           release: static settle => settle(),
-                           key: op)
+                               () => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => writer.EnableCRCCalculation(priorCrc)))).Run().Bind(static inner => inner),
+                               () => Try.lift(() => Admit.Confirm(success: writer.EndWrite3dmChunk())).Run().Bind(static inner => inner)),
+                           release: static settle => settle())
                        .Map(_ => new ArchiveIntegrity.WrittenCase(
                            frame.TypeCode,
                            writer.Archive3dmVersion,
                            frame.Current,
                            writer.WriteErrorOccured));
-               })
+               }).Run().Bind(static inner => inner)
                from _sound in guard(
                    integrity.IsValid,
-                   op.InvalidResult(detail: "Binary archive writer reported an integrity fault."))
+                   new KernelFault.InvalidResult(Detail: Some("Binary archive writer reported an integrity fault.")))
                select integrity;
     }
 
-    public static Fin<ArchiveEnvelope> Cross(BinaryArchiveReader archive, ArchiveSchema schema, Op? key = null) {
-        Op op = key.OrDefault();
-        return from reader in op.Need(archive)
-               from frame in op.Need(schema)
-               from captured in op.Catch(() => {
+    public static Fin<ArchiveEnvelope> Cross(BinaryArchiveReader archive, ArchiveSchema schema) {
+        return from reader in Admit.Need(archive)
+               from frame in Admit.Need(schema)
+               from captured in Try.lift(() => {
                    if (!reader.BeginRead3dmChunk(frame.TypeCode, out int major, out int minor)) {
                        return Fin.Fail<(ArchivableDictionary Native, ArchiveIntegrity.ReadCase Integrity)>(
-                           op.InvalidResult(detail: "Binary archive reader refused the chunk frame."));
+                           new KernelFault.InvalidResult(Detail: Some("Binary archive reader refused the chunk frame.")));
                    }
 
                    ArchiveVersion observed = ArchiveVersion.Create(major, minor);
                    if (!frame.Reads(observed)) {
                        return Fin.Fail<(ArchivableDictionary Native, ArchiveIntegrity.ReadCase Integrity)>(
-                               op.InvalidResult(detail: $"Archive schema '{observed.Major}.{observed.Minor}' is not readable."))
+                               new KernelFault.InvalidResult(Detail: Some($"Archive schema '{observed.Major}.{observed.Minor}' is not readable.")))
                            .Settled(
                                held: Seq(unit),
-                               release: _ => op.Catch(() => op.Confirm(
-                                   success: reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true))),
-                               key: op);
+                               release: _ => Try.lift(() => Admit.Confirm(
+                                   success: reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true))).Run().Bind(static inner => inner));
                    }
 
                    bool priorCrc = reader.EnableCRCCalculation(true);
-                   Fin<(ArchivableDictionary Native, bool Checksum)> body = op.Catch(() => Fin.Succ(value: (
+                   Fin<(ArchivableDictionary Native, bool Checksum)> body = Try.lift(() => Fin.Succ(value: (
                        Native: reader.ReadDictionary(),
-                       Checksum: reader.ReadCheckSum())));
+                       Checksum: reader.ReadCheckSum()))).Run().Bind(static inner => inner);
                    return body.Settled(
                            held: Seq<Func<Fin<Unit>>>(
-                               () => op.Catch(() => Fin.Succ(value: Op.Side(() => reader.EnableCRCCalculation(priorCrc)))),
-                               () => op.Catch(() => op.Confirm(
-                                   success: reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: false)))),
-                           release: static settle => settle(),
-                           key: op)
+                               () => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => reader.EnableCRCCalculation(priorCrc)))).Run().Bind(static inner => inner),
+                               () => Try.lift(() => Admit.Confirm(
+                                   success: reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: false))).Run().Bind(static inner => inner)),
+                           release: static settle => settle())
                        .Map(read => (
                            read.Native,
                            new ArchiveIntegrity.ReadCase(
@@ -185,11 +179,11 @@ public static class ArchiveIo {
                                observed,
                                read.Checksum,
                                reader.ReadErrorOccured)));
-               })
+               }).Run().Bind(static inner => inner)
                from _sound in guard(
                    captured.Integrity.IsValid,
-                   op.InvalidResult(detail: "Binary archive checksum or reader state is invalid."))
-               from payload in ArchiveMap.Detach(captured.Native, op)
+                   new KernelFault.InvalidResult(Detail: Some("Binary archive checksum or reader state is invalid.")))
+               from payload in ArchiveMap.Detach(captured.Native)
                select new ArchiveEnvelope(payload, captured.Integrity);
     }
 }
@@ -234,82 +228,76 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
         Succ: state => state.Exists(static payload => payload.Entries.Count > 0),
         Fail: static _ => false);
 
-    public Fin<ArchiveMap> Snapshot(Op? key = null) {
-        Op op = key.OrDefault();
-        return held.Value.Bind(state => state.Match(Succ, () => Initial.Bind(payload => Adopt(payload, op))));
+    public Fin<ArchiveMap> Snapshot() {
+        return held.Value.Bind(state => state.Match(Succ, () => Initial.Bind(payload => Adopt(payload))));
     }
 
-    public Fin<Unit> Replace(ArchiveMap payload, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(payload).Bind(admitted => Adopt(admitted, op)).Map(static _ => unit);
+    public Fin<Unit> Replace(ArchiveMap payload) {
+        return Admit.Need(payload).Bind(admitted => Adopt(admitted)).Map(static _ => unit);
     }
 
-    private static Fin<Guid> Pinned(Op op) =>
+    private static Fin<Guid> Pinned() =>
         typeof(TSelf).GetCustomAttributes(typeof(ClassIdAttribute), inherit: false) is [ClassIdAttribute pin]
         && pin.Id != Guid.Empty
             ? Fin.Succ(value: pin.Id)
-            : Fin.Fail<Guid>(error: op.InvalidResult(detail: $"'{typeof(TSelf).Name}' carries no [ClassId] pin."));
+            : Fin.Fail<Guid>(error: new KernelFault.InvalidResult(Detail: Some($"'{typeof(TSelf).Name}' carries no [ClassId] pin.")));
 
     protected sealed override bool Write(BinaryArchiveWriter archive) {
-        Op op = Op.Of();
-        return op.Catch(() => Pinned(op)
-            .Bind(_ => Snapshot(op))
-            .Bind(payload => ((IArchiveCodec)this).Write(archive, payload, op))
-            .Map(static _ => unit))
-            .Match(Succ: static _ => true, Fail: error => (Poison(error, op), false).Item2);
+        return Try.lift(() => Pinned()
+            .Bind(_ => Snapshot())
+            .Bind(payload => ((IArchiveCodec)this).Write(archive, payload))
+            .Map(static _ => unit)).Run().Bind(static inner => inner)
+            .Match(Succ: static _ => true, Fail: error => (Poison(error), false).Item2);
     }
 
     protected sealed override bool Read(BinaryArchiveReader archive) {
-        Op op = Op.Of();
-        return op.Catch(() => Pinned(op)
-            .Bind(_ => ((IArchiveCodec)this).Read(archive, op))
-            .Bind(payload => Adopt(payload, op))
-            .Map(static _ => unit))
-            .Match(Succ: static _ => true, Fail: error => (Poison(error, op), false).Item2);
+        return Try.lift(() => Pinned()
+            .Bind(_ => ((IArchiveCodec)this).Read(archive))
+            .Bind(payload => Adopt(payload))
+            .Map(static _ => unit)).Run().Bind(static inner => inner)
+            .Match(Succ: static _ => true, Fail: error => (Poison(error), false).Item2);
     }
 
     protected sealed override void OnDuplicate(UserData source) {
-        Op op = Op.Of();
-        op.Catch(() => source is TSelf typed
-            ? typed.Snapshot(op).Bind(payload => Adopt(payload, op)).Map(static _ => unit)
-            : Fin.Fail<Unit>(op.Unsupported(inputType: source.GetType(), outputType: typeof(TSelf))))
-            .Match(Succ: static _ => unit, Fail: error => Poison(error, op));
+        Try.lift(() => source is TSelf typed
+            ? typed.Snapshot().Bind(payload => Adopt(payload)).Map(static _ => unit)
+            : Fin.Fail<Unit>(new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(TSelf)))).Run().Bind(static inner => inner)
+            .Match(Succ: static _ => unit, Fail: error => Poison(error));
     }
 
     protected sealed override void OnTransform(Transform transform) {
-        Op op = Op.Of();
-        op.Catch(() => {
+        Try.lift(() => {
             base.OnTransform(transform);
-            return Snapshot(op)
+            return Snapshot()
                 .Bind(payload => TransformPayload(payload, transform))
-                .Bind(payload => Derive(payload, op));
-        }).Match(Succ: static _ => unit, Fail: error => Poison(error, op));
+                .Bind(payload => Derive(payload));
+        }).Run().Bind(static inner => inner).Match(Succ: static _ => unit, Fail: error => Poison(error));
     }
 
-    private Fin<ArchiveMap> Adopt(ArchiveMap payload, Op op) =>
-        Settle(step: _ => Some(payload), payload: payload, op: op);
+    private Fin<ArchiveMap> Adopt(ArchiveMap payload) =>
+        Settle(step: _ => Some(payload), payload: payload);
 
-    private Fin<ArchiveMap> Derive(ArchiveMap payload, Op op) =>
-        Settle(step: state => state.IsSucc ? Some(payload) : None, payload: payload, op: op);
+    private Fin<ArchiveMap> Derive(ArchiveMap payload) =>
+        Settle(step: state => state.IsSucc ? Some(payload) : None, payload: payload);
 
-    private Fin<ArchiveMap> Settle(Func<Fin<Option<ArchiveMap>>, Option<ArchiveMap>> step, ArchiveMap payload, Op op) =>
+    private Fin<ArchiveMap> Settle(Func<Fin<Option<ArchiveMap>>, Option<ArchiveMap>> step, ArchiveMap payload) =>
         Cell.Step(
                 cell: held,
                 step: state => step(state).Map(static next => Fin.Succ(Some(next))),
-                declined: op.InvalidContext())
+                declined: new KernelFault.InvalidContext())
             .Switch(
-                state: (Payload: payload, Op: op),
-                committed: static (ctx, _) => Fin.Succ(value: ctx.Payload),
-                ceded: static (ctx, _) => Fin.Fail<ArchiveMap>(error: ctx.Op.InvalidContext()),
+                state: payload,
+                committed: static (ctx, _) => Fin.Succ(value: ctx),
+                ceded: static (ctx, _) => Fin.Fail<ArchiveMap>(error: new KernelFault.InvalidContext()),
                 refused: static (_, row) => Fin.Fail<ArchiveMap>(error: row.Cause),
-                contended: static (ctx, _) => Fin.Fail<ArchiveMap>(error: ctx.Op.InvalidResult()));
+                contended: static (ctx, _) => Fin.Fail<ArchiveMap>(error: new KernelFault.InvalidResult()));
 
-    private Unit Poison(Error error, Op op) {
-        ignore(Cell.Step(cell: held, step: _ => Some(Fin.Fail<Option<ArchiveMap>>(error)), declined: op.InvalidContext()));
-        return Reported(error, op);
+    private Unit Poison(Error error) {
+        ignore(Cell.Step(cell: held, step: _ => Some(Fin.Fail<Option<ArchiveMap>>(error)), declined: new KernelFault.InvalidContext()));
+        return Reported(error);
     }
 
-    private Unit Reported(Error error, Op op) => op.Catch(() => Report(error))
+    private Unit Reported(Error error) => Try.lift(() => Report(error)).Run().Bind(static inner => inner)
         .Match(Succ: static _ => unit, Fail: static _ => unit);
 }
 ```
@@ -417,29 +405,27 @@ public sealed record CustodyProgram(Seq<CustodyStep> Steps, RedrawPolicy Redraw,
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Custody {
-    public static Fin<CustodyAnswer> Ask(CustodyQuery query, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(query)
-            .Bind(active => Admit(active, op))
-            .Bind(active => active.Switch<Op, Fin<CustodyAnswer>>(
+    public static Fin<CustodyAnswer> Ask(CustodyQuery query) {
+        return Admit.Need(query)
+            .Bind(active => Admit(active))
+            .Bind(active => active.Switch< Fin<CustodyAnswer>>(
                 state: op,
-                censusCase: static (op, census) => op.Catch(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.CensusCase(
-                    census.Target.UserData.Map(Describe).ToSeq()))),
-                probeCase: static (op, probe) => probe.Reference.Switch<(CommonObject Target, Op Op), Fin<CustodyAnswer>>(
-                    state: (probe.Target, op),
-                    idCase: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.PresenceCase(
-                        (CustodyPresence)ctx.Target.UserData.Contains(row.Value)))),
-                    typeCase: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.DescriptionCase(
-                        Optional(ctx.Target.UserData.Find(row.Value)).Map(Describe))))),
-                sharedCase: static (op, read) => Open(read.Target, op)
-                    .Bind(opened => ArchiveMap.Detach(opened.Dictionary, op)
+                censusCase: static (census) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.CensusCase(
+                    census.Target.UserData.Map(Describe).ToSeq()))).Run().Bind(static inner => inner),
+                probeCase: static (probe) => probe.Reference.Switch<(CommonObject Target), Fin<CustodyAnswer>>(
+                    state: (probe.Target),
+                    idCase: static (ctx, row) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.PresenceCase(
+                        (CustodyPresence)ctx.Target.UserData.Contains(row.Value)))).Run().Bind(static inner => inner),
+                    typeCase: static (ctx, row) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.DescriptionCase(
+                        Optional(ctx.Target.UserData.Find(row.Value)).Map(Describe)))).Run().Bind(static inner => inner)),
+                sharedCase: static (read) => Open(read.Target)
+                    .Bind(opened => ArchiveMap.Detach(opened.Dictionary)
                         .Map<CustodyAnswer>(map => new CustodyAnswer.SharedCase(map, opened.Origin)))));
     }
 
-    public static Fin<Unit> Commit(DocumentSession session, CustodyProgram program, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(program)
-            .Bind(request => Admit(request, op))
+    public static Fin<Unit> Commit(DocumentSession session, CustodyProgram program) {
+        return Admit.Need(program)
+            .Bind(request => Admit(request))
             .Bind(admitted => session.Demand(
                 use: document => DocumentCommit.Sealed(
                     document: document,
@@ -447,144 +433,137 @@ public static class Custody {
                     recordsUndo: true,
                     redraw: admitted.Redraw,
                     run: () => admitted.Steps
-                        .TraverseM(step => Land(step, op))
+                        .TraverseM(step => Land(step))
                         .As()
                         .Map(static _ => unit),
-                    project: Fin.Succ,
-                    op: op),
-                key: op,
+                    project: Fin.Succ),
                 needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: admitted.Redraw).ToArray()));
     }
 
-    private static Fin<CustodyProgram> Admit(CustodyProgram program, Op op) =>
+    private static Fin<CustodyProgram> Admit(CustodyProgram program) =>
         from steps in program.Steps
-            .Map(step => Admit(step, op).ToValidation())
+            .Map(step => Admit(step).ToValidation())
             .Traverse(static step => step)
             .As()
             .ToFin()
-        from _redraw in op.Need(program.Redraw)
-        from _nonEmpty in guard(!steps.IsEmpty, op.InvalidInput())
+        from _redraw in Admit.Need(program.Redraw)
+        from _nonEmpty in guard(!steps.IsEmpty, new KernelFault.InvalidInput())
         select program with { Steps = steps };
 
-    private static Fin<CustodyQuery> Admit(CustodyQuery query, Op op) => query.Switch<Op, Fin<CustodyQuery>>(
+    private static Fin<CustodyQuery> Admit(CustodyQuery query) => query.Switch< Fin<CustodyQuery>>(
         state: op,
-        censusCase: static (op, census) => op.Need(census.Target).Map(_ => (CustodyQuery)census),
-        probeCase: static (op, probe) => (
-                op.Need(probe.Target).ToValidation(),
-                probe.Reference.Switch<Op, Fin<UserDataRef>>(
+        censusCase: static (census) => Admit.Need(census.Target).Map(_ => (CustodyQuery)census),
+        probeCase: static (probe) => (
+                Admit.Need(probe.Target).ToValidation(),
+                probe.Reference.Switch< Fin<UserDataRef>>(
                     state: op,
-                    idCase: static (op, row) => guard(row.Value != Guid.Empty, op.InvalidInput())
+                    idCase: static (row) => guard(row.Value != Guid.Empty, new KernelFault.InvalidInput())
                         .ToFin()
                         .Map<UserDataRef>(_ => row),
-                    typeCase: static (op, row) => op.Need(row.Value)
-                        .Bind(type => guard(typeof(UserData).IsAssignableFrom(type), op.InvalidInput()).ToFin())
+                    typeCase: static (row) => Admit.Need(row.Value)
+                        .Bind(type => guard(typeof(UserData).IsAssignableFrom(type), new KernelFault.InvalidInput()).ToFin())
                         .Map<UserDataRef>(_ => row)).ToValidation())
             .Apply(static (target, reference) => (CustodyQuery)new CustodyQuery.ProbeCase(target, reference))
             .As()
             .ToFin(),
-        sharedCase: static (op, read) => op.Need(read.Target).Map(_ => (CustodyQuery)read));
+        sharedCase: static (read) => Admit.Need(read.Target).Map(_ => (CustodyQuery)read));
 
-    private static Fin<CustodyStep> Admit(CustodyStep step, Op op) => step.Switch<Op, Fin<CustodyStep>>(
+    private static Fin<CustodyStep> Admit(CustodyStep step) => step.Switch< Fin<CustodyStep>>(
         state: op,
-        attachCase: static (op, attach) => (op.Need(attach.Target).ToValidation(), AdmitAttach(attach.Value, op).ToValidation())
+        attachCase: static (attach) => (Admit.Need(attach.Target).ToValidation(), AdmitAttach(attach.Value).ToValidation())
             .Apply(static (target, value) => (CustodyStep)new CustodyStep.AttachCase(target, value))
             .As()
             .ToFin(),
-        removeCase: static (op, remove) => (
-                op.Need(remove.Target).ToValidation(),
-                op.Need(remove.Value).ToValidation(),
-                op.Need(remove.Disposal).ToValidation())
+        removeCase: static (remove) => (
+                Admit.Need(remove.Target).ToValidation(),
+                Admit.Need(remove.Value).ToValidation(),
+                Admit.Need(remove.Disposal).ToValidation())
             .Apply(static (target, value, disposal) => (CustodyStep)new CustodyStep.RemoveCase(target, value, disposal))
             .As()
             .ToFin(),
-        purgeCase: static (op, purge) => op.Need(purge.Target).Map(_ => (CustodyStep)purge),
-        copyCase: static (op, copy) => (op.Need(copy.Source).ToValidation(), op.Need(copy.Destination).ToValidation())
+        purgeCase: static (purge) => Admit.Need(purge.Target).Map(_ => (CustodyStep)purge),
+        copyCase: static (copy) => (Admit.Need(copy.Source).ToValidation(), Admit.Need(copy.Destination).ToValidation())
             .Apply(static (source, destination) => (CustodyStep)new CustodyStep.CopyCase(source, destination))
             .As()
             .ToFin(),
-        moveCase: static (op, move) => (
-                op.Need(move.Source).ToValidation(),
-                op.Need(move.Destination).ToValidation(),
-                op.Need(move.Placement).ToValidation())
+        moveCase: static (move) => (
+                Admit.Need(move.Source).ToValidation(),
+                Admit.Need(move.Destination).ToValidation(),
+                Admit.Need(move.Placement).ToValidation())
             .Apply(static (source, destination, placement) => (CustodyStep)new CustodyStep.MoveCase(source, destination, placement))
             .As()
             .ToFin(),
-        replaceCase: static (op, replace) => (op.Need(replace.Target).ToValidation(), op.Need(replace.Payload).ToValidation())
+        replaceCase: static (replace) => (Admit.Need(replace.Target).ToValidation(), Admit.Need(replace.Payload).ToValidation())
             .Apply(static (target, payload) => (CustodyStep)new CustodyStep.ReplaceCase(target, payload))
             .As()
             .ToFin(),
-        mergeCase: static (op, merge) => (
-                op.Need(merge.Target).ToValidation(),
-                op.Need(merge.Payload).ToValidation(),
-                op.Need(merge.Merge).ToValidation())
+        mergeCase: static (merge) => (
+                Admit.Need(merge.Target).ToValidation(),
+                Admit.Need(merge.Payload).ToValidation(),
+                Admit.Need(merge.Merge).ToValidation())
             .Apply(static (target, payload, policy) => (CustodyStep)new CustodyStep.MergeCase(target, payload, policy))
             .As()
             .ToFin());
 
-    private static Fin<UserData> AdmitAttach(UserData value, Op op) => op.Need(value)
+    private static Fin<UserData> AdmitAttach(UserData value) => Admit.Need(value)
         .Bind(active => active.GetType() is { IsClass: true, IsVisible: true } type
             && type.GetConstructor(Type.EmptyTypes) is not null
                 ? Fin.Succ(value: active)
-                : Fin.Fail<UserData>(error: op.InvalidInput()));
+                : Fin.Fail<UserData>(error: new KernelFault.InvalidInput()));
 
-    private static Fin<Unit> Land(CustodyStep step, Op op) => step.Switch<Op, Fin<Unit>>(
+    private static Fin<Unit> Land(CustodyStep step) => step.Switch< Fin<Unit>>(
         state: op,
-        attachCase: static (op, attach) => op.Catch(() => op.Confirm(success: attach.Target.UserData.Add(attach.Value))),
-        removeCase: static (op, remove) => op.Catch(() => op.Confirm(success: remove.Target.UserData.Remove(remove.Value)))
-            .Bind(_ => remove.Disposal.Key ? op.Catch(remove.Value.Dispose) : Fin.Succ(value: unit)),
-        purgeCase: static (op, purge) => op.Catch(() => purge.Target.UserData.Purge()),
-        copyCase: static (op, copy) => op.Catch(() => UserData.Copy(copy.Source, copy.Destination)),
-        moveCase: static (op, move) =>
-            from id in op.Catch(() => Fin.Succ(value: UserData.MoveUserDataFrom(move.Source)))
-            from _present in guard(id != Guid.Empty, op.InvalidResult(detail: "User-data move found no transferable custody."))
-            from _placed in op.Catch(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key))
+        attachCase: static (attach) => Try.lift(() => Admit.Confirm(success: attach.Target.UserData.Add(attach.Value))).Run().Bind(static inner => inner),
+        removeCase: static (remove) => Try.lift(() => Admit.Confirm(success: remove.Target.UserData.Remove(remove.Value))).Run().Bind(static inner => inner)
+            .Bind(_ => remove.Disposal.Key ? Try.lift(remove.Value.Dispose).Run().Bind(static inner => inner) : Fin.Succ(value: unit)),
+        purgeCase: static (purge) => Try.lift(() => purge.Target.UserData.Purge()).Run().Bind(static inner => inner),
+        copyCase: static (copy) => Try.lift(() => UserData.Copy(copy.Source, copy.Destination)).Run().Bind(static inner => inner),
+        moveCase: static (move) =>
+            from id in Try.lift(() => Fin.Succ(value: UserData.MoveUserDataFrom(move.Source))).Run().Bind(static inner => inner)
+            from _present in guard(id != Guid.Empty, new KernelFault.InvalidResult(Detail: Some("User-data move found no transferable custody.")))
+            from _placed in Try.lift(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key)).Run().Bind(static inner => inner)
             select unit,
-        replaceCase: static (op, replace) => Open(replace.Target, op)
-            .Bind(opened => Reseat(opened, replace.Payload, op)),
-        mergeCase: static (op, merge) => Open(merge.Target, op)
-            .Bind(opened => ArchiveMap.Detach(opened.Dictionary, op)
-                .Bind(current => current.Merge(merge.Payload, merge.Merge, op))
-                .Bind(payload => Reseat(opened, payload, op))));
+        replaceCase: static (replace) => Open(replace.Target)
+            .Bind(opened => Reseat(opened, replace.Payload)),
+        mergeCase: static (merge) => Open(merge.Target)
+            .Bind(opened => ArchiveMap.Detach(opened.Dictionary)
+                .Bind(current => current.Merge(merge.Payload, merge.Merge))
+                .Bind(payload => Reseat(opened, payload))));
 
     private static Fin<Unit> Reseat(
         (CommonObject Target, ArchivableDictionary Dictionary, SharedOrigin Origin) opened,
-        ArchiveMap payload,
-        Op op) =>
-        from prior in ArchiveMap.Detach(opened.Dictionary, op)
-        from _schema in prior.Diff(payload, op).Map(static _ => unit)
+        ArchiveMap payload) =>
+        from prior in ArchiveMap.Detach(opened.Dictionary)
+        from _schema in prior.Diff(payload).Map(static _ => unit)
         from settled in (
-            from _clear in op.Catch(opened.Dictionary.Clear)
-            from _write in payload.WriteTo(opened.Dictionary, op)
-            from current in ArchiveMap.Detach(opened.Dictionary, op)
+            from _clear in Try.lift(opened.Dictionary.Clear).Run().Bind(static inner => inner)
+            from _write in payload.WriteTo(opened.Dictionary)
+            from current in ArchiveMap.Detach(opened.Dictionary)
             from _proof in guard(
                 current.SameContent(payload),
-                op.InvalidResult(detail: "Shared user dictionary postcondition failed."))
+                new KernelFault.InvalidResult(Detail: Some("Shared user dictionary postcondition failed.")))
             select unit)
-            .Rollback(() => RestoreShared(opened, prior, op))
+            .Rollback(() => RestoreShared(opened, prior))
         select settled;
 
     private static Fin<Unit> RestoreShared(
         (CommonObject Target, ArchivableDictionary Dictionary, SharedOrigin Origin) opened,
-        ArchiveMap prior,
-        Op op) => opened.Origin.Key
-        ? from parent in Optional(opened.Dictionary.ParentUserData).ToFin(Fail: op.InvalidResult(
-                detail: "Created shared user dictionary has no attached custody owner."))
-          from _removed in op.Catch(() => op.Confirm(success: opened.Target.UserData.Remove(parent)))
-          from _released in op.Catch(parent.Dispose)
+        ArchiveMap prior) => opened.Origin.Key
+        ? from parent in Optional(opened.Dictionary.ParentUserData).ToFin(Fail: new KernelFault.InvalidResult(Detail: Some("Created shared user dictionary has no attached custody owner.")))
+          from _removed in Try.lift(() => Admit.Confirm(success: opened.Target.UserData.Remove(parent))).Run().Bind(static inner => inner)
+          from _released in Try.lift(parent.Dispose).Run().Bind(static inner => inner)
           select unit
-        : op.Catch(opened.Dictionary.Clear).Bind(_ => prior.WriteTo(opened.Dictionary, op));
+        : Try.lift(opened.Dictionary.Clear).Run().Bind(static inner => inner).Bind(_ => prior.WriteTo(opened.Dictionary));
 
     private static Fin<(CommonObject Target, ArchivableDictionary Dictionary, SharedOrigin Origin)> Open(
-        CommonObject target,
-        Op op) =>
-        op.Catch(() => {
+        CommonObject target) =>
+        Try.lift(() => {
             int before = target.UserData.Count;
             ArchivableDictionary? dictionary = target.UserDictionary;
             return dictionary is null
-                ? Fin.Fail<(CommonObject, ArchivableDictionary, SharedOrigin)>(error: op.InvalidResult(
-                    detail: "Shared user dictionary could not be attached."))
+                ? Fin.Fail<(CommonObject, ArchivableDictionary, SharedOrigin)>(error: new KernelFault.InvalidResult(Detail: Some("Shared user dictionary could not be attached.")))
                 : Fin.Succ(value: (target, dictionary, (SharedOrigin)(target.UserData.Count > before)));
-        });
+        }).Run().Bind(static inner => inner);
 
     private static UserDataSnapshot Describe(UserData value) => new(
         value.GetType().AssemblyQualifiedName ?? value.GetType().FullName ?? value.GetType().Name,

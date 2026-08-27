@@ -65,15 +65,15 @@ public sealed partial class CandidateRow {
         mint: static c => SnappingAction.CreateStraightenWireAction(c.Source, c.Target));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<SnappingAction> MintOn(CandidatePayload payload, Op key);
+    internal partial Fin<SnappingAction> MintOn(CandidatePayload payload);
 
-    public Fin<SnappingAction> Mint(CandidatePayload payload, Op? key = null) => MintOn(payload: payload, key: key.OrDefault());
+    public Fin<SnappingAction> Mint(CandidatePayload payload) => MintOn(payload: payload, key: key.OrDefault());
 
     private static CandidateRow Row<TCase>(int key, Func<TCase, SnappingAction> mint) where TCase : CandidatePayload =>
         new(key: key, mintOn: (payload, op) => payload is TCase matched
-            ? op.Catch(() => Fin.Succ(mint(matched)))
+            ? Try.lift(() => Fin.Succ(mint(matched))).Run().Bind(static inner => inner)
             : Fin.Fail<SnappingAction>(new KernelFault.InvalidValue(
-                Label: typeof(TCase).Name, Requirement: "the payload case this row mints from", Key: Some(op))));
+                Label: typeof(TCase).Name, Requirement: "the payload case this row mints from")));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -164,28 +164,27 @@ public readonly record struct StretchVerdict([property: Generator.Equals.Ordered
 public sealed class SnapField {
     private readonly SnappingConstraints constraints;
 
-    public static Fin<SnapField> Of(Document graph, SnapScope scope, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: scope).Bind(valid => valid.Switch(
-            state: (Graph: graph, Key: op),
-            excludingCase: static (s, c) => s.Key.Catch(() => Fin.Succ(
-                new SnapField(constraints: SnappingConstraints.CreateFromDocument(s.Graph, c.Dragged.ToArray())))),
-            selectionCase: static (s, c) => SelectionSide.Law.Admit(held: c.Sides).Bind(sides => s.Key.Catch(() => Fin.Succ(
+    public static Fin<SnapField> Of(Document graph, SnapScope scope) {
+        return Admit.Need(value: scope).Bind(valid => valid.Switch(
+            state: graph,
+            excludingCase: static (s, c) => Try.lift(() => Fin.Succ(
+                new SnapField(constraints: SnappingConstraints.CreateFromDocument(s, c.Dragged.ToArray())))).Run().Bind(static inner => inner),
+            selectionCase: static (s, c) => SelectionSide.Law.Admit(held: c.Sides).Bind(sides => Try.lift(() => Fin.Succ(
                 new SnapField(constraints: SnappingConstraints.CreateFromDocument(
-                    s.Graph,
+                    s,
                     sides.Admits(SelectionSide.Selected),
                     sides.Admits(SelectionSide.Unselected),
-                    Op.ToHostSlot(c.Filter)))))),
-            boxesCase: static (s, c) => s.Key.Catch(() => Fin.Succ(
-                new SnapField(constraints: new SnappingConstraints(c.Frames.ToArray()))))));
+                    HostEdge.Slot(c.Filter))))).Run().Bind(static inner => inner)),
+            boxesCase: static (s, c) => Try.lift(() => Fin.Succ(
+                new SnapField(constraints: new SnappingConstraints(c.Frames.ToArray())))).Run().Bind(static inner => inner)));
     }
 
-    public Fin<SnapPair> Solve(RectangleF target, RectangleF visibleLimit, SnappingSettings settings, Op key) {
+    public Fin<SnapPair> Solve(RectangleF target, RectangleF visibleLimit, SnappingSettings settings) {
         SnappingConstraints held = constraints;
-        return key.Catch(() => {
+        return Try.lift(() => {
             held.SnapRectangle(target, settings, visibleLimit, out SnappingAction snapX, out SnappingAction snapY);
             return Fin.Succ(new SnapPair(X: Optional(snapX), Y: Optional(snapY)));
-        });
+        }).Run().Bind(static inner => inner);
     }
 }
 
@@ -193,36 +192,36 @@ public sealed class SnapField {
 public readonly record struct SnapGrid {
     internal SnapSpace Space { get; }
 
-    public static Fin<SnapGrid> Orthogonal(double originX, double originY, double sizeX, Option<double> sizeY = default, Op? key = null);
+    public static Fin<SnapGrid> Orthogonal(double originX, double originY, double sizeX, Option<double> sizeY = default);
 
-    public Fin<SnapVerdict> Fix(double x, double y, Option<double> cutoff, Op key);
+    public Fin<SnapVerdict> Fix(double x, double y, Option<double> cutoff);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StretchPlan {
-    public static Fin<StretchVerdict> Solve(Seq<StretchRow> rows, float target, RoundingPosture rounding, Op key) =>
+    public static Fin<StretchVerdict> Solve(Seq<StretchRow> rows, float target, RoundingPosture rounding) =>
         from admitted in rows.Map((row, index) => (Row: row, Index: index)).Traverse(pair =>
-                key.AcceptValue(pair.Row)
+                Acceptance.Value(pair.Row)
                     .MapFail(_ => new KernelFault.InvalidValue(
-                        Label: $"row[{pair.Index}]", Requirement: "Min <= Ideal <= Max", Key: Some(key)))
+                        Label: $"row[{pair.Index}]", Requirement: "Min <= Ideal <= Max"))
                     .ToValidation())
             .As().ToFin()
-        from verdict in key.Catch(() => {
+        from verdict in Try.lift(() => {
             StretchLayoutSolver solver = new();
             admitted.Iter(row => solver.Add(row.Min, row.Max, row.Ideal));
             _ = solver.Solve(target);
-            Op.SideWhen(condition: rounding.Rounds, action: () => solver.Round());
+            HostEdge.SideWhen(condition: rounding.Rounds, action: () => solver.Round());
             return Fin.Succ(new StretchVerdict(
                 Lengths: toSeq(Enumerable.Range(0, solver.Count).Select(index => solver[index])).Strict()));
-        })
+        }).Run().Bind(static inner => inner)
         select verdict;
 }
 ```
 
 ## [04]-[ARRANGE]
 
-- Owner: `Axis` `[SmartEnum<int>]` — the distribution axis whose columns answer every read the fold makes (`Pivot`, `Lead`, `Trail`, `Extent`, and the delta composer), so the five `Vertical ? … : …` ternaries inside one fold are five row-column reads. `CanvasArrangement` `[Union]` `[GenerateUnionOps]` — RENAMED from `Arrangement`: the kernel `Meshing/arrangement.md` owns that simple name and the seating brings it into scope (the same rule that renamed `TransformSpec`); the kernel keeps the name. `CanvasLayout` — the one sealed-mutation gate answering `ArrangeFacts` beside its `GaugedSpan<CanvasLane>` on `CanvasLane.Arrange` — the local stamp-pair record and its stringly, unread `Verb` column are deleted onto the kernel gauge.
-- Entry: `CanvasLayout.Arrange(VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null)` → `Fin<(ArrangeFacts Facts, GaugedSpan<CanvasLane> Span)>` — the clock is REQUIRED (no mint, no option: two spans from one gesture under two clocks are unorderable) and the context supplies the device tolerance the zero-move filter reads.
+- Owner: `Axis` `[SmartEnum<int>]` — the distribution axis whose columns answer every read the fold makes (`Pivot`, `Lead`, `Trail`, `Extent`, and the delta composer), so the five `Vertical ? … : …` ternaries inside one fold are five row-column reads. `CanvasArrangement` `[Union]` `` — RENAMED from `Arrangement`: the kernel `Meshing/arrangement.md` owns that simple name and the seating brings it into scope (the same rule that renamed `TransformSpec`); the kernel keeps the name. `CanvasLayout` — the one sealed-mutation gate answering `ArrangeFacts` beside its `GaugedSpan<CanvasLane>` on `CanvasLane.Arrange` — the local stamp-pair record and its stringly, unread `Verb` column are deleted onto the kernel gauge.
+- Entry: `CanvasLayout.Arrange(VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context)` → `Fin<(ArrangeFacts Facts, GaugedSpan<CanvasLane> Span)>` — the clock is REQUIRED (no mint, no option: two spans from one gesture under two clocks are unorderable) and the context supplies the device tolerance the zero-move filter reads.
 - Law: mutation and undo are one act — per object, a `PivotAction` undo row is ADDED BEFORE `IAttributes.Move`, the host action captures the pre-move pivot, and the filled `ActionList` seals through `HistoryLedger.Seal` inside the same marshal window; a move without its undo record is unconstructible from this gate. Below-tolerance delta contributes no undo row — the filter reads `context.For(ToleranceLane.Hit)`, never a bare `!= 0f` float gate — and an arrangement whose every delta is under it seals nothing and answers `Moved: 0`.
 - Law: `VerbNoun` arrives minted — `Document/history.md` owns the mint and this gate never constructs one.
 - Boundary: snapped interactive movement during a drag is the host's own; whole-graph selection sweeps and structural verbs are `Document/document.md`'s transaction; the live snap-axis nudge state is a `Canvas/canvas.md` lens read surfaced as `NudgeVector` evidence.
@@ -258,7 +257,6 @@ public sealed partial class Axis {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record CanvasArrangement {
     private CanvasArrangement() { }
     public sealed record AlignCase(CandidateRow Edge, Seq<Guid> Objects) : CanvasArrangement;
@@ -277,34 +275,32 @@ public readonly record struct ArrangeFacts(int Moved, double Displacement) : IVa
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CanvasLayout {
     public static Fin<(ArrangeFacts Facts, GaugedSpan<CanvasLane> Span)> Arrange(
-        VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from valid in op.Need(value: plan)
+        VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context) {
+        return from valid in Admit.Need(value: plan)
                from gauged in clock.Gauged<ArrangeFacts, CanvasLane>(
                    lane: CanvasLane.Arrange,
                    work: op,
                    body: () => GhSession.Run(ScopeTarget.DocumentHost, scope =>
-                       scope.Document.ToFin(op.MissingContext()).Bind(graph =>
-                           Deltas(graph: graph, plan: valid, key: op).Bind(moves =>
-                               Commit(graph: graph, label: label, moves: moves, step: context.For(lane: ToleranceLane.Hit), key: op))), key: op),
-                   key: op)
+                       scope.Document.ToFin(new KernelFault.MissingContext()).Bind(graph =>
+                           Deltas(graph: graph, plan: valid).Bind(moves =>
+                               Commit(graph: graph, label: label, moves: moves, step: context.For(lane: ToleranceLane.Hit))))))
                from facts in gauged.Value
                select (facts, gauged.Span);
     }
 
-    private static Fin<Seq<(IAttributes Target, float Dx, float Dy)>> Deltas(Document graph, CanvasArrangement plan, Op key) =>
+    private static Fin<Seq<(IAttributes Target, float Dx, float Dy)>> Deltas(Document graph, CanvasArrangement plan) =>
         plan.Switch(
-            state: (Graph: graph, Key: key),
+            state: graph,
             alignCase: static (s, c) =>
-                from rows in Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
-                from anchor in rows.Head.ToFin(s.Key.InvalidInput())
+                from rows in Resolve(graph: s, objects: c.Objects)
+                from anchor in rows.Head.ToFin(new KernelFault.InvalidInput())
                 from moves in rows.Tail.TraverseM(row => c.Edge.Mint(
-                        payload: new CandidatePayload.AlignCase(Source: row.Bounds, Target: anchor.Bounds), key: s.Key)
+                        payload: new CandidatePayload.AlignCase(Source: row.Bounds, Target: anchor.Bounds))
                         .Map(action => (Target: row, Dx: action.ΔX, Dy: action.ΔY)))
                     .As()
                 select moves.Strict(),
             distributeCase: static (s, c) =>
-                Resolve(graph: s.Graph, objects: c.Objects, key: s.Key).Map(rows => {
+                Resolve(graph: s, objects: c.Objects).Map(rows => {
                     Seq<IAttributes> ordered = toSeq(rows.OrderBy(row => c.Along.Pivot(row: row))).Strict();
                     return ordered.Head.Match(
                         Some: head => ordered.Tail.Fold(
@@ -318,41 +314,41 @@ public static class CanvasLayout {
                         None: static () => Seq<(IAttributes, float, float)>());
                 }),
             gridCase: static (s, c) =>
-                from rows in Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
-                from grid in SnapGrid.Orthogonal(originX: c.Origin.X, originY: c.Origin.Y, sizeX: c.CellWidth, sizeY: Some(c.CellHeight), key: s.Key)
-                from moves in rows.TraverseM(row => grid.Fix(x: row.Pivot.X, y: row.Pivot.Y, cutoff: Option<double>.None, key: s.Key)
+                from rows in Resolve(graph: s, objects: c.Objects)
+                from grid in SnapGrid.Orthogonal(originX: c.Origin.X, originY: c.Origin.Y, sizeX: c.CellWidth, sizeY: Some(c.CellHeight))
+                from moves in rows.TraverseM(row => grid.Fix(x: row.Pivot.X, y: row.Pivot.Y, cutoff: Option<double>.None)
                         .Map(verdict => (Target: row, Dx: (float)(verdict.X - row.Pivot.X), Dy: (float)(verdict.Y - row.Pivot.Y))))
                     .As()
                 select moves.Strict(),
             nudgeCase: static (s, c) =>
-                Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
+                Resolve(graph: s, objects: c.Objects)
                     .Map(rows => rows.Map(row => (Target: row, Dx: c.Delta.Width, Dy: c.Delta.Height)).Strict()),
             straightenCase: static (s, c) =>
-                from source in Optional(s.Graph.Objects.FindParameter(c.Wire.Source)).ToFin(s.Key.InvalidInput())
-                from target in Optional(s.Graph.Objects.FindParameter(c.Wire.Target)).ToFin(s.Key.InvalidInput())
-                from owner in Optional(source.Attributes as IParameterAttributes).ToFin(s.Key.InvalidResult())
-                from into in Optional(target.Attributes as IParameterAttributes).ToFin(s.Key.InvalidResult())
+                from source in Optional(s.Objects.FindParameter(c.Wire.Source)).ToFin(new KernelFault.InvalidInput())
+                from target in Optional(s.Objects.FindParameter(c.Wire.Target)).ToFin(new KernelFault.InvalidInput())
+                from owner in Optional(source.Attributes as IParameterAttributes).ToFin(new KernelFault.InvalidResult())
+                from into in Optional(target.Attributes as IParameterAttributes).ToFin(new KernelFault.InvalidResult())
                 from action in CandidateRow.StraightenWire.Mint(
-                    payload: new CandidatePayload.WireCase(Source: owner.Outlet, Target: into.Inlet), key: s.Key)
+                    payload: new CandidatePayload.WireCase(Source: owner.Outlet, Target: into.Inlet))
                 select Seq((Target: (IAttributes)owner, Dx: action.ΔX, Dy: action.ΔY)));
 
-    private static Fin<Seq<IAttributes>> Resolve(Document graph, Seq<Guid> objects, Op key) =>
-        objects.TraverseM(id => Optional(graph.Objects.Find(id)).Bind(static obj => Optional(obj.Attributes)).ToFin(key.InvalidInput()))
+    private static Fin<Seq<IAttributes>> Resolve(Document graph, Seq<Guid> objects) =>
+        objects.TraverseM(id => Optional(graph.Objects.Find(id)).Bind(static obj => Optional(obj.Attributes)).ToFin(new KernelFault.InvalidInput()))
             .As().Map(static rows => rows.Strict());
 
     private static Fin<ArrangeFacts> Commit(
-        Document graph, VerbNoun label, Seq<(IAttributes Target, float Dx, float Dy)> moves, Tolerance step, Op key) {
+        Document graph, VerbNoun label, Seq<(IAttributes Target, float Dx, float Dy)> moves, Tolerance step) {
         Seq<(IAttributes Target, float Dx, float Dy)> real = moves
             .Filter(move => Math.Abs(move.Dx) > step.Value || Math.Abs(move.Dy) > step.Value).Strict();
         if (real.IsEmpty) { return Fin.Succ(new ArrangeFacts(Moved: 0, Displacement: 0d)); }
-        return key.Catch(() => {
+        return Try.lift(() => {
             ActionList actions = new();
             real.Iter(move => {
                 actions.Add(new PivotAction(move.Target.Owner));
                 move.Target.Move(move.Dx, move.Dy);
             });
             return Fin.Succ(actions);
-        }).Bind(actions => HistoryLedger.Seal(graph.Undo, actions, label, key).Map(_ => new ArrangeFacts(
+        }).Run().Bind(static inner => inner).Bind(actions => HistoryLedger.Seal(graph.Undo, actions, label).Map(_ => new ArrangeFacts(
             Moved: real.Count,
             Displacement: real.Fold(0d, static (sum, move) => sum + Math.Abs(move.Dx) + Math.Abs(move.Dy)))));
     }

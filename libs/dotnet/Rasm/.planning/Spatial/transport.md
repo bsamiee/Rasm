@@ -47,18 +47,15 @@ public sealed partial class CloudTransportPolicy {
                 ? new ValidationError(message: "CloudTransportPolicy requires admitted positive values.") : null;
 
     public static Fin<CloudTransportPolicy> Of(double regularization, int maxIterations, Context context,
-        bool debias = false, Option<double> massRelaxation = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from model in Admit.NotNull(value: context, key: op)
-               from reg in op.AcceptValidated<PositiveMagnitude>(regularization)
-               from cap in op.AcceptValidated<Dimension>(maxIterations)
+        bool debias = false, Option<double> massRelaxation = default) {
+        return from model in Admit.NotNull(value: context)
+               from reg in FactoryBridge.Accept<PositiveMagnitude>(regularization)
+               from cap in FactoryBridge.Accept<Dimension>(maxIterations)
                from relax in massRelaxation.TraverseM(value =>
-                   op.AcceptValidated<PositiveMagnitude>(value)).As()
-               from tolerance in op.AcceptValidated<PositiveMagnitude>(
-                   model.For(ToleranceLane.Convergence).Value)
-               from cutoff in op.AcceptValidated<PositiveMagnitude>(
-                   model.For(ToleranceLane.Neglect).Value)
-               from policy in op.AcceptValidated<CloudTransportPolicy>(
+                   FactoryBridge.Accept<PositiveMagnitude>(value)).As()
+               from tolerance in FactoryBridge.Accept<PositiveMagnitude>(model.For(ToleranceLane.Convergence).Value)
+               from cutoff in FactoryBridge.Accept<PositiveMagnitude>(model.For(ToleranceLane.Neglect).Value)
+               from policy in FactoryBridge.Accept<CloudTransportPolicy>(
                    Validate(reg, cap, debias, relax, tolerance, cutoff,
                        out CloudTransportPolicy? admitted), admitted)
                select policy;
@@ -99,29 +96,28 @@ public readonly record struct SinkhornSummary(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CloudTransport {
     public static Fin<TOut> Sinkhorn<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target,
-        CloudTransportPolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
-        return from src in Admit.NotNull(value: source, key: op)
-               from tgt in Admit.NotNull(value: target, key: op)
-               from active in Admit.NotNull(value: policy, key: op)
-               from srcMass in CloudKernel.MassOf(cluster: src, key: op)
-               from tgtMass in CloudKernel.MassOf(cluster: tgt, key: op)
-               from plan in Solve(src.Vertices, tgt.Vertices, srcMass, tgtMass, active, op)
+        CloudTransportPolicy policy) {
+        return from src in Admit.NotNull(value: source)
+               from tgt in Admit.NotNull(value: target)
+               from active in Admit.NotNull(value: policy)
+               from srcMass in CloudKernel.MassOf(cluster: src)
+               from tgtMass in CloudKernel.MassOf(cluster: tgt)
+               from plan in Solve(src.Vertices, tgt.Vertices, srcMass, tgtMass, active)
                from bias in active.Debias
-                   ? from selfS in Solve(src.Vertices, src.Vertices, srcMass, srcMass, active, op)
-                     from selfT in Solve(tgt.Vertices, tgt.Vertices, tgtMass, tgtMass, active, op)
+                   ? from selfS in Solve(src.Vertices, src.Vertices, srcMass, srcMass, active)
+                     from selfT in Solve(tgt.Vertices, tgt.Vertices, tgtMass, tgtMass, active)
                      from _ in guard(selfS.Converged && selfT.Converged,
-                         op.InvalidResult(detail: "sinkhorn-debias-unconverged"))
+                         new KernelFault.InvalidResult(Detail: Some("sinkhorn-debias-unconverged")))
                      select (Evidence: Some((Raw: plan.Distance, Source: selfS.Distance, Target: selfT.Distance)),
                          Distance: plan.Distance - (0.5 * selfS.Distance) - (0.5 * selfT.Distance))
                    : Fin.Succ((Evidence: Option<(double Raw, double Source, double Target)>.None,
                        Distance: plan.Distance))
-               from output in plan.Project<TOut>(src, tgt, bias.Distance, bias.Evidence, op)
+               from output in plan.Project<TOut>(src, tgt, bias.Distance, bias.Evidence)
                select output;
     }
 
     private static Fin<Plan> Solve(Seq<Point3d> source, Seq<Point3d> target, Arr<double> sourceMass,
-        Arr<double> targetMass, CloudTransportPolicy policy, Op key) {
+        Arr<double> targetMass, CloudTransportPolicy policy) {
         (int m, int n, double eps) = (source.Count, target.Count, policy.Regularization.Value);
         double minPositiveNormal = BitConverter.UInt64BitsToDouble(0x0010_0000_0000_0000UL);
         double logUnderflowFloor = Math.Log(minPositiveNormal);
@@ -201,7 +197,7 @@ public static class CloudTransport {
         return double.IsFinite(distance) && double.IsFinite(settled.Source) && double.IsFinite(settled.Target)
             ? Fin.Succ(new Plan(distance, entries, sourceMass, targetMass,
                 settled.Source, settled.Target, settled.Iterations, settled.Converged, floored, policy))
-            : Fin.Fail<Plan>(key.InvalidResult());
+            : Fin.Fail<Plan>(new KernelFault.InvalidResult());
     }
 
     private sealed class Plan(
@@ -212,25 +208,25 @@ public static class CloudTransport {
         internal bool Converged => converged;
 
         internal Fin<TOut> Project<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target,
-            double distance, Option<(double Raw, double Source, double Target)> bias, Op key) {
+            double distance, Option<(double Raw, double Source, double Target)> bias) {
             Fin<T> Settled<T>(Func<Fin<T>> row) =>
-                converged ? row() : Fin.Fail<T>(error: key.InvalidResult(detail: $"sinkhorn-unconverged:{iterations}"));
+                converged ? row() : Fin.Fail<T>(error: new KernelFault.InvalidResult(Detail: Some($"sinkhorn-unconverged:{iterations}")));
             Memory2D<double> plane = coupling.AsMemory().AsMemory2D(
                 height: sourceMass.Count, width: targetMass.Count);
-            return ResultProjection.Rows<Plan, TOut>(self: this, key: key, owner: typeof(VectorCloud),
-                ProjectionRow.Of<double>(() => Settled(() => key.AcceptValue(value: distance))),
+            return ResultProjection.Rows<Plan, TOut>(self: this, owner: typeof(VectorCloud),
+                ProjectionRow.Of<double>(() => Settled(() => Acceptance.Value(value: distance))),
                 ProjectionRow.Of<SinkhornSummary>(() =>
                     from pairs in CloudCorrespondenceSet.OfCoupling(source, target, plane,
-                        policy.CouplingCutoff.Value, sourceMass, targetMass, key)
-                    from summary in key.AcceptValue(new SinkhornSummary(distance, bias, policy,
+                        policy.CouplingCutoff.Value, sourceMass, targetMass)
+                    from summary in Acceptance.Value(new SinkhornSummary(distance, bias, policy,
                         converged, underflowFloored, sourceResidual, targetResidual, iterations, pairs))
                     select summary),
                 ProjectionRow.Of<CloudCorrespondenceSet>(() => Settled(() => CloudCorrespondenceSet.OfCoupling(
-                    source, target, plane, policy.CouplingCutoff.Value, sourceMass, targetMass, key))),
+                    source, target, plane, policy.CouplingCutoff.Value, sourceMass, targetMass))),
                 ProjectionRow.Of<Matrix>(() => Settled(() =>
-                    from rows in key.AcceptValidated<Dimension>(sourceMass.Count)
-                    from cols in key.AcceptValidated<Dimension>(targetMass.Count)
-                    from matrix in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. coupling]), key: key)
+                    from rows in FactoryBridge.Accept<Dimension>(sourceMass.Count)
+                    from cols in FactoryBridge.Accept<Dimension>(targetMass.Count)
+                    from matrix in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. coupling]))
                     select matrix)),
                 ProjectionRow.Of<VectorCloud>(() => Settled(() => {
                     List<Point3d> image = [];
@@ -242,7 +238,7 @@ public static class CloudTransport {
                         }
                         if (mass > policy.CouplingCutoff.Value) image.Add(new Point3d(weighted / mass));
                     }
-                    return VectorCloud.Cluster(points: toSeq(image), context: target.Tolerance, key: key);
+                    return VectorCloud.Cluster(points: toSeq(image), context: target.Tolerance);
                 })));
         }
     }
@@ -286,7 +282,7 @@ public readonly record struct CloudCorrespondenceSet(
 
     internal static Fin<CloudCorrespondenceSet> OfCoupling(VectorCloud.ClusterCase source,
         VectorCloud.ClusterCase target, Memory2D<double> coupling, double cutoff,
-        Arr<double> sourceMass, Arr<double> targetMass, Op key) {
+        Arr<double> sourceMass, Arr<double> targetMass) {
         (int rows, int columns) = (coupling.Height, coupling.Width);
         List<CloudCorrespondence> items = [];
         List<Scalar> distances = [];
@@ -314,13 +310,13 @@ public readonly record struct CloudCorrespondenceSet(
         Fin<Option<(Stat<Scalar> Coupling, Stat<Scalar> WeightedDistance,
             Distribution<Scalar> Distance)>> measured = samples.IsEmpty
             ? Fin.Succ(Option<(Stat<Scalar>, Stat<Scalar>, Distribution<Scalar>)>.None)
-            : from coupling in Stat<Scalar>.Of(mass.Map(static value => (Scalar)value), key)
-              from weighted in Stat<Scalar>.Of(samples, key, Some(mass))
-              from spread in Distribution<Scalar>.Of(samples, Seq(90.0, 95.0), key,
+            : from coupling in Stat<Scalar>.Of(mass.Map(static value => (Scalar)value))
+              from weighted in Stat<Scalar>.Of(samples, Some(mass))
+              from spread in Distribution<Scalar>.Of(samples, Seq(90.0, 95.0),
                   Some(QuantileRule.Interpolated))
               select Some((Coupling: coupling, WeightedDistance: weighted, Distance: spread));
         return from measurements in measured
-               from set in key.AcceptValue(new CloudCorrespondenceSet(
+               from set in Acceptance.Value(new CloudCorrespondenceSet(
                    toSeq(items), rows, columns, measurements,
                    coveredSource.Count, coveredTarget.Count,
                    coveredSource.Fold(0.0, (held, i) => held + sourceMass[i]),

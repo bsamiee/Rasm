@@ -172,7 +172,7 @@ public static class Coordinate {
         Option<LeaseToken> held,
         ProjectionContext frame,
         CancellationToken cancellationToken) =>
-        from sql in IO.lift(() => ops.Map(op => CaseSql.For(op, frame.Now())))
+        from sql in IO.lift(() => ops.Map(op => CaseSql.For(frame.Now())))
         from rows in sql.Exists(static row => row.RequiresToken) && held.IsNone
             ? IO.pure(Fin<Seq<CoordRow>>.Fail(new CoordinationFault.Refused("<missing-fence-token>")))
             : Bracket(session, ops, sql, held, frame, None, cancellationToken)
@@ -185,7 +185,7 @@ public static class Coordinate {
         ProjectionContext frame,
         CancellationToken cancellationToken) {
         CoordinationOp op = new CoordinationOp.OutboxAdvance(letter.Sink, letter.Sequence);
-        Seq<CoordinationOp> ops = Seq(op);
+        Seq<CoordinationOp> ops = Seq();
         return from sql in IO.lift(() => ops.Map(value => CaseSql.For(value, frame.Now())))
                from rows in Bracket(
                    session, ops, sql, Some(held), frame,
@@ -205,7 +205,7 @@ public static class Coordinate {
         ProjectionContext frame,
         Option<Action<IDocumentSession>> commit,
         CancellationToken cancellationToken) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+        IO.liftAsync(async () => (await Try.lift(async token => {
             await session.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = new((NpgsqlConnection)session.Connection!);
             Seq<LockScope> locks = toSeq(sql.Bind(static row => row.Locks).Distinct()
@@ -223,7 +223,7 @@ public static class Coordinate {
             else { commit.IfSome(apply => apply(session)); }
             await session.SaveChangesAsync(token).ConfigureAwait(false);
             return outcome;
-        }, cancellationToken).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
 
     public static IO<Fin<Seq<CoordRow>>> Verified(
         IDocumentSession session,
@@ -231,7 +231,7 @@ public static class Coordinate {
         Option<LeaseToken> held,
         ProjectionContext frame,
         CancellationToken cancellationToken) =>
-        from sql in IO.lift(() => ops.Map(op => CaseSql.For(op, frame.Now())))
+        from sql in IO.lift(() => ops.Map(op => CaseSql.For(frame.Now())))
         from rows in Truths(session, ops, sql, held, frame, cancellationToken)
         select rows;
 
@@ -242,14 +242,14 @@ public static class Coordinate {
         Option<LeaseToken> held,
         ProjectionContext frame,
         CancellationToken cancellationToken) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+        IO.liftAsync(async () => (await Try.lift(async token => {
             await session.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = new((NpgsqlConnection)session.Connection!);
             Seq<CaseSql> probes = sql.Map(static row => row with { Guarded = None, Wake = None });
             probes.Iter(row => batch.BatchCommands.Add(Bound(row.Truth, row.Binds, held, frame)));
             Seq<Seq<CoordRow>> sets = await Sets(batch, token).ConfigureAwait(false);
             return Project(ops, probes, sets, held);
-        }, cancellationToken).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
 
     static async Task Rollback(NpgsqlConnection connection, CancellationToken cancellationToken) {
         await using NpgsqlCommand undo = new(Undo, connection);
@@ -551,7 +551,7 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
 |  [04]   | read guard      | tenant RLS predicate structural on every READ  | no cross-tenant in-flight/lease/membership leak                      |
 |  [05]   | lock order      | `pg_advisory_xact_lock` in `LockRank` order    | released at commit AND rollback; a session lock survives both        |
 |  [06]   | port direction  | AppHost decodes Persistence-owned types        | four PORT rows + `MembershipView.Serving`; nothing crosses down      |
-|  [07]   | row canon       | `(key, state, fence, value, until, payload)`   | fence and case scalar never alias; `CaseSql.For` generates every row |
+|  [07]   | row canon       | `(state, fence, value, until, payload)`   | fence and case scalar never alias; `CaseSql.For` generates every row |
 |  [08]   | signal row      | fenced `(workflow, channel)` upsert            | `SignalPut`/`SignalLoad` decode `StepStatePort.SignalPut`/`SignalOf` |
 |  [09]   | throw crossing  | one `CoordinationFault.Lift` per operation leg | banded case on every `Fin`; a bare `Error` is the deleted form       |
 |  [10]   | retry axes      | kernel `Retriability` + `RetryShape` per case  | provider-classified contention waits; a fenced token rescopes        |

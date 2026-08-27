@@ -37,14 +37,14 @@ namespace Rasm.Rhino.Viewport;
 [SmartEnum<int>]
 public sealed partial class KeyGesture {
     public static readonly KeyGesture RotateInPlace = new(key: 0,
-        apply: static (vp, leftRight, amount, op) => op.Confirm(success: vp.KeyboardRotate(leftRight: leftRight, angleRadians: amount)));
+        apply: static (vp, leftRight, amount, op) => Admit.Confirm(success: vp.KeyboardRotate(leftRight: leftRight, angleRadians: amount)));
     public static readonly KeyGesture Dolly = new(key: 1,
-        apply: static (vp, leftRight, amount, op) => op.Confirm(success: vp.KeyboardDolly(leftRight: leftRight, amount: amount)));
+        apply: static (vp, leftRight, amount, op) => Admit.Confirm(success: vp.KeyboardDolly(leftRight: leftRight, amount: amount)));
     public static readonly KeyGesture DollyInOut = new(key: 2,
-        apply: static (vp, _, amount, op) => op.Confirm(success: vp.KeyboardDollyInOut(amount: amount)));
+        apply: static (vp, _, amount, op) => Admit.Confirm(success: vp.KeyboardDollyInOut(amount: amount)));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Apply(RhinoViewport viewport, bool leftRight, double amount, Op key);
+    internal partial Fin<Unit> Apply(RhinoViewport viewport, bool leftRight, double amount);
 }
 
 [SmartEnum<int>]
@@ -58,22 +58,22 @@ public sealed partial class GestureAxis {
 [SmartEnum<int>]
 public sealed partial class DragGesture {
     public static readonly DragGesture RotateAroundTarget = new(key: 0,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseRotateAroundTarget(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseRotateAroundTarget(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
     public static readonly DragGesture RotateCamera = new(key: 1,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseRotateCamera(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseRotateCamera(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
     public static readonly DragGesture InOutDolly = new(key: 2,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseInOutDolly(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseInOutDolly(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
     public static readonly DragGesture Magnify = new(key: 3,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseMagnify(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseMagnify(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
     public static readonly DragGesture Tilt = new(key: 4,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseTilt(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseTilt(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
     public static readonly DragGesture DollyZoom = new(key: 5,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseDollyZoom(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseDollyZoom(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
     public static readonly DragGesture LateralDolly = new(key: 6,
-        apply: static (vp, prev, curr, op) => op.Confirm(success: vp.MouseLateralDolly(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
+        apply: static (vp, prev, curr, op) => Admit.Confirm(success: vp.MouseLateralDolly(mousePreviousPoint: prev, mouseCurrentPoint: curr)));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Apply(RhinoViewport viewport, System.Drawing.Point previous, System.Drawing.Point current, Op key);
+    internal partial Fin<Unit> Apply(RhinoViewport viewport, System.Drawing.Point previous, System.Drawing.Point current);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -93,9 +93,9 @@ public readonly partial struct ScreenDrag : IDisallowDefaultValue {
             from.X != to.X || from.Y != to.Y,
             InRange(from.X), InRange(from.Y), InRange(to.X), InRange(to.Y))
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(ScreenDrag), "two distinct valid screen points inside the integer window" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(ScreenDrag), "two distinct valid screen points inside the integer window" }));
 
-    public static Fin<ScreenDrag> Of(Point2d from, Point2d to, Op? key = null) =>
+    public static Fin<ScreenDrag> Of(Point2d from, Point2d to) =>
         key.OrDefault().AcceptValidated<ScreenDrag>(fault: Validate(from, to, out ScreenDrag admitted), admitted: admitted);
 
     internal System.Drawing.Point Previous => new((int)From.X, (int)From.Y);
@@ -110,17 +110,15 @@ public abstract partial record GestureRequest {
     public sealed record Keyed(KeyGesture Verb, GestureAxis Axis, double Amount) : GestureRequest;
     public sealed record Dragged(DragGesture Verb, ScreenDrag Drag) : GestureRequest;
 
-    internal Fin<GestureRequest> Admit(Op op) => Switch(
-        op,
-        keyed: static (key, gesture) => key.Finite(value: gesture.Amount).Map(_ => (GestureRequest)gesture),
+    internal Fin<GestureRequest> Admit() => Switch(keyed: static (key, gesture) => Admit.Finite(value: gesture.Amount).Map(_ => (GestureRequest)gesture),
         dragged: static (_, gesture) => Fin.Succ((GestureRequest)gesture));
 
-    internal Fin<Unit> Apply(RhinoViewport viewport, Op key) => Switch(
-        (Viewport: viewport, Op: key),
+    internal Fin<Unit> Apply(RhinoViewport viewport) => Switch(
+        viewport,
         keyed: static (ctx, gesture) => gesture.Verb.Apply(
-            viewport: ctx.Viewport, leftRight: gesture.Axis.LeftRight, amount: gesture.Amount, key: ctx.Op),
+            viewport: ctx, leftRight: gesture.Axis.LeftRight, amount: gesture.Amount),
         dragged: static (ctx, gesture) => gesture.Verb.Apply(
-            viewport: ctx.Viewport, previous: gesture.Drag.Previous, current: gesture.Drag.Current, key: ctx.Op));
+            viewport: ctx, previous: gesture.Drag.Previous, current: gesture.Drag.Current));
 }
 ```
 
@@ -149,8 +147,8 @@ public sealed partial class FrustumForm {
 
 [SmartEnum<int>]
 public sealed partial class ProjectionLock {
-    public static readonly ProjectionLock Locked = new(key: 0, seat: static viewport => Op.Side(() => viewport.LockedProjection = true));
-    public static readonly ProjectionLock Unlocked = new(key: 1, seat: static viewport => Op.Side(() => viewport.LockedProjection = false));
+    public static readonly ProjectionLock Locked = new(key: 0, seat: static viewport => HostEdge.Side(() => viewport.LockedProjection = true));
+    public static readonly ProjectionLock Unlocked = new(key: 1, seat: static viewport => HostEdge.Side(() => viewport.LockedProjection = false));
 
     [UseDelegateFromConstructor]
     internal partial Unit Seat(RhinoViewport viewport);
@@ -190,45 +188,43 @@ public abstract partial record ProjectionChange {
         twoPoint: () => new TwoPointCase(TargetDistance: Option<double>.None, LensLength: lens),
         parallelReflected: static () => new ReflectedCase());
 
-    internal Fin<ProjectionChange> Admit(Op op) => Switch(
-        op,
-        parallelCase: static (_, row) => Fin.Succ((ProjectionChange)row),
-        perspectiveCase: static (key, row) => Lens(lens: row.LensLength, distance: row.TargetDistance, key: key).Map(_ => (ProjectionChange)row),
-        twoPointCase: static (key, row) => Lens(lens: row.LensLength, distance: row.TargetDistance, key: key).Map(_ => (ProjectionChange)row),
+    internal Fin<ProjectionChange> Admit() => Switch(parallelCase: static (_, row) => Fin.Succ((ProjectionChange)row),
+        perspectiveCase: static (key, row) => Lens(lens: row.LensLength, distance: row.TargetDistance).Map(_ => (ProjectionChange)row),
+        twoPointCase: static (key, row) => Lens(lens: row.LensLength, distance: row.TargetDistance).Map(_ => (ProjectionChange)row),
         reflectedCase: static (_, row) => Fin.Succ((ProjectionChange)row),
-        lensCase: static (key, row) => key.AcceptValidated<LensAngle>(candidate: (double)row.Angle).Map(_ => (ProjectionChange)row),
+        lensCase: static (key, row) => FactoryBridge.Accept<LensAngle>(candidate: (double)row.Angle).Map(_ => (ProjectionChange)row),
         lockCase: static (_, row) => Fin.Succ((ProjectionChange)row),
-        definedCase: static (key, row) => key.AcceptText(value: row.ViewName).Map(_ => (ProjectionChange)row),
-        isometricCase: static (key, row) => key.AcceptText(value: row.ViewName).Map(_ => (ProjectionChange)row));
+        definedCase: static (key, row) => Acceptance.Text(value: row.ViewName).Map(_ => (ProjectionChange)row),
+        isometricCase: static (key, row) => Acceptance.Text(value: row.ViewName).Map(_ => (ProjectionChange)row));
 
-    private static Fin<Unit> Lens(double lens, Option<double> distance, Op key) =>
-        from _lens in key.Positive(value: lens)
-        from _distance in distance.Traverse(value => key.Positive(value: value)).As()
+    private static Fin<Unit> Lens(double lens, Option<double> distance) =>
+        from _lens in Admit.Positive(value: lens)
+        from _distance in distance.Traverse(value => Admit.Positive(value: value)).As()
         select unit;
 
-    internal Fin<Unit> Apply(RhinoViewport viewport, Op key) =>
+    internal Fin<Unit> Apply(RhinoViewport viewport) =>
         Switch(
-            (Viewport: viewport, Op: key),
-            parallelCase: static (ctx, change) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelProjection(symmetricFrustum: change.Frustum.IsSymmetric)),
-            perspectiveCase: static (ctx, change) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToPerspectiveProjection(
+            viewport,
+            parallelCase: static (ctx, change) => Admit.Confirm(success: ctx.ChangeToParallelProjection(symmetricFrustum: change.Frustum.IsSymmetric)),
+            perspectiveCase: static (ctx, change) => Admit.Confirm(success: ctx.ChangeToPerspectiveProjection(
                 targetDistance: change.TargetDistance.IfNone(RhinoMath.UnsetValue),
                 symmetricFrustum: change.Frustum.IsSymmetric,
                 lensLength: change.LensLength)),
-            twoPointCase: static (ctx, change) => ctx.Viewport.CameraUp is var up && up.IsValid && !up.IsTiny()
-                ? ctx.Op.Confirm(success: ctx.Viewport.ChangeToTwoPointPerspectiveProjection(
+            twoPointCase: static (ctx, change) => ctx.CameraUp is var up && up.IsValid && !up.IsTiny()
+                ? Admit.Confirm(success: ctx.ChangeToTwoPointPerspectiveProjection(
                     lensLength: change.LensLength, up: up, targetDistance: change.TargetDistance.IfNone(RhinoMath.UnsetValue)))
-                : ctx.Op.Confirm(success: ctx.Viewport.ChangeToTwoPointPerspectiveProjection(
+                : Admit.Confirm(success: ctx.ChangeToTwoPointPerspectiveProjection(
                     lensLength: change.LensLength, up: Vector3d.Zero, targetDistance: change.TargetDistance.IfNone(RhinoMath.UnsetValue))),
-            reflectedCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection()),
-            lensCase: static (ctx, change) => ctx.Op.Catch(() => {
-                ctx.Viewport.CameraAngle = (double)change.Angle / 2.0;
+            reflectedCase: static (ctx, _) => Admit.Confirm(success: ctx.ChangeToParallelReflectedProjection()),
+            lensCase: static (ctx, change) => Try.lift(() => {
+                ctx.CameraAngle = (double)change.Angle / 2.0;
                 return Fin.Succ(value: unit);
-            }),
-            lockCase: static (ctx, change) => ctx.Op.Catch(() => Fin.Succ(value: change.State.Seat(viewport: ctx.Viewport))),
-            definedCase: static (ctx, change) => ctx.Op.Confirm(
-                success: ctx.Viewport.SetProjection(projection: change.Projection.Native, viewName: change.ViewName, updateConstructionPlane: change.CPlane.ShouldUpdate)),
-            isometricCase: static (ctx, change) => ctx.Op.Confirm(
-                success: ctx.Viewport.SetProjection(projection: change.Camera.Native, viewName: change.ViewName, updateConstructionPlane: change.CPlane.ShouldUpdate)));
+            }).Run().Bind(static inner => inner),
+            lockCase: static (ctx, change) => Try.lift(() => Fin.Succ(value: change.State.Seat(viewport: ctx))).Run().Bind(static inner => inner),
+            definedCase: static (ctx, change) => Admit.Confirm(
+                success: ctx.SetProjection(projection: change.Projection.Native, viewName: change.ViewName, updateConstructionPlane: change.CPlane.ShouldUpdate)),
+            isometricCase: static (ctx, change) => Admit.Confirm(
+                success: ctx.SetProjection(projection: change.Camera.Native, viewName: change.ViewName, updateConstructionPlane: change.CPlane.ShouldUpdate)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -242,35 +238,33 @@ public abstract partial record StackVerb {
     public sealed record CPlanePop : StackVerb;
     public sealed record SetCPlane(Plane Plane) : StackVerb;
 
-    internal Fin<StackVerb> Admit(Op op) => Switch(
-        op,
-        viewPush: static (_, row) => Fin.Succ((StackVerb)row),
+    internal Fin<StackVerb> Admit() => Switch(viewPush: static (_, row) => Fin.Succ((StackVerb)row),
         viewPop: static (_, row) => Fin.Succ((StackVerb)row),
         viewNext: static (_, row) => Fin.Succ((StackVerb)row),
         viewPrevious: static (_, row) => Fin.Succ((StackVerb)row),
-        cPlanePush: static (key, row) => guard(row.Plane.IsValid, key.InvalidInput()).ToFin().Map(_ => (StackVerb)row),
+        cPlanePush: static (key, row) => guard(row.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (StackVerb)row),
         cPlanePop: static (_, row) => Fin.Succ((StackVerb)row),
-        setCPlane: static (key, row) => guard(row.Plane.IsValid, key.InvalidInput()).ToFin().Map(_ => (StackVerb)row));
+        setCPlane: static (key, row) => guard(row.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (StackVerb)row));
 
-    internal Fin<StackMove> Apply(RhinoViewport viewport, Op key) =>
+    internal Fin<StackMove> Apply(RhinoViewport viewport) =>
         Switch(
-            (Viewport: viewport, Op: key),
-            viewPush: static (ctx, _) => ctx.Op.Catch(() => {
-                ctx.Viewport.PushViewProjection();
+            viewport,
+            viewPush: static (ctx, _) => Try.lift(() => {
+                ctx.PushViewProjection();
                 return Fin.Succ<StackMove>(new StackMove.Moved());
-            }),
-            viewPop: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(StackMove.Of(moved: ctx.Viewport.PopViewProjection()))),
-            viewNext: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(StackMove.Of(moved: ctx.Viewport.NextViewProjection()))),
-            viewPrevious: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(StackMove.Of(moved: ctx.Viewport.PreviousViewProjection()))),
-            cPlanePush: static (ctx, verb) => ctx.Op.Catch(() => {
-                ctx.Viewport.PushConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane });
+            }).Run().Bind(static inner => inner),
+            viewPop: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.PopViewProjection()))).Run().Bind(static inner => inner),
+            viewNext: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.NextViewProjection()))).Run().Bind(static inner => inner),
+            viewPrevious: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.PreviousViewProjection()))).Run().Bind(static inner => inner),
+            cPlanePush: static (ctx, verb) => Try.lift(() => {
+                ctx.PushConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane });
                 return Fin.Succ<StackMove>(new StackMove.Moved());
-            }),
-            cPlanePop: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(StackMove.Of(moved: ctx.Viewport.PopConstructionPlane()))),
-            setCPlane: static (ctx, verb) => ctx.Op.Catch(() => {
-                ctx.Viewport.SetConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane });
+            }).Run().Bind(static inner => inner),
+            cPlanePop: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.PopConstructionPlane()))).Run().Bind(static inner => inner),
+            setCPlane: static (ctx, verb) => Try.lift(() => {
+                ctx.SetConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane });
                 return Fin.Succ<StackMove>(new StackMove.Moved());
-            }));
+            }).Run().Bind(static inner => inner));
 }
 ```
 
@@ -303,7 +297,7 @@ public readonly partial struct RestoreSpeed {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.All(ValidityClaim.Finite(value), value > 0.0)
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(RestoreSpeed), value, "a finite positive units-per-frame rate" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(RestoreSpeed), value, "a finite positive units-per-frame rate" }));
 }
 
 [ValueObject<int>]
@@ -312,7 +306,7 @@ public readonly partial struct RestoreFrames {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value > 0
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(RestoreFrames), value, "a positive frame count" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(RestoreFrames), value, "a positive frame count" }));
 }
 
 [ValueObject<int>]
@@ -321,7 +315,7 @@ public readonly partial struct RestoreDelay {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(RestoreDelay), value, "a nonnegative millisecond delay" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(RestoreDelay), value, "a nonnegative millisecond delay" }));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -330,11 +324,11 @@ public abstract partial record RestoreCadence {
     public sealed record SpeedCase(RestoreSpeed Value) : RestoreCadence;
     public sealed record TimeCase(RestoreFrames Value) : RestoreCadence;
 
-    internal Fin<Unit> Apply(DocObjects.Tables.NamedViewTable views, int index, RhinoViewport viewport, RestoreDelay delay, Op key) => Switch(
-        (Views: views, Index: index, Viewport: viewport, Delay: delay, Op: key),
-        speedCase: static (ctx, cadence) => ctx.Op.Confirm(success: ctx.Views.RestoreAnimatedConstantSpeed(
+    internal Fin<Unit> Apply(DocObjects.Tables.NamedViewTable views, int index, RhinoViewport viewport, RestoreDelay delay) => Switch(
+        (Views: views, Index: index, Viewport: viewport, Delay: delay),
+        speedCase: static (ctx, cadence) => Admit.Confirm(success: ctx.Views.RestoreAnimatedConstantSpeed(
             ctx.Index, ctx.Viewport, (double)cadence.Value, (int)ctx.Delay)),
-        timeCase: static (ctx, cadence) => ctx.Op.Confirm(success: ctx.Views.RestoreAnimatedConstantTime(
+        timeCase: static (ctx, cadence) => Admit.Confirm(success: ctx.Views.RestoreAnimatedConstantTime(
             ctx.Index, ctx.Viewport, (int)cadence.Value, (int)ctx.Delay)));
 }
 
@@ -348,26 +342,24 @@ public abstract partial record RestorePace {
     public static RestorePace Instant { get; } = new InstantCase();
     public static RestorePace MatchAspect { get; } = new MatchAspectCase();
 
-    public static Fin<RestorePace> ConstantSpeed(double unitsPerFrame, int delayMilliseconds, Op? key = null) {
-        Op op = key.OrDefault();
-        return from speed in op.AcceptValidated<RestoreSpeed>(candidate: unitsPerFrame)
-               from delay in op.AcceptValidated<RestoreDelay>(candidate: delayMilliseconds)
+    public static Fin<RestorePace> ConstantSpeed(double unitsPerFrame, int delayMilliseconds) {
+        return from speed in FactoryBridge.Accept<RestoreSpeed>(candidate: unitsPerFrame)
+               from delay in FactoryBridge.Accept<RestoreDelay>(candidate: delayMilliseconds)
                select (RestorePace)new AnimatedCase(Cadence: new RestoreCadence.SpeedCase(Value: speed), Delay: delay);
     }
 
-    public static Fin<RestorePace> ConstantTime(int frames, int delayMilliseconds, Op? key = null) {
-        Op op = key.OrDefault();
-        return from count in op.AcceptValidated<RestoreFrames>(candidate: frames)
-               from delay in op.AcceptValidated<RestoreDelay>(candidate: delayMilliseconds)
+    public static Fin<RestorePace> ConstantTime(int frames, int delayMilliseconds) {
+        return from count in FactoryBridge.Accept<RestoreFrames>(candidate: frames)
+               from delay in FactoryBridge.Accept<RestoreDelay>(candidate: delayMilliseconds)
                select (RestorePace)new AnimatedCase(Cadence: new RestoreCadence.TimeCase(Value: count), Delay: delay);
     }
 
-    internal Fin<Unit> Apply(DocObjects.Tables.NamedViewTable views, int index, RhinoViewport viewport, Op key) => Switch(
-        (Views: views, Index: index, Viewport: viewport, Op: key),
-        instantCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Views.Restore(index: ctx.Index, viewport: ctx.Viewport)),
-        matchAspectCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Views.RestoreWithAspectRatio(index: ctx.Index, viewport: ctx.Viewport)),
+    internal Fin<Unit> Apply(DocObjects.Tables.NamedViewTable views, int index, RhinoViewport viewport) => Switch(
+        (Views: views, Index: index, Viewport: viewport),
+        instantCase: static (ctx, _) => Admit.Confirm(success: ctx.Views.Restore(index: ctx.Index, viewport: ctx.Viewport)),
+        matchAspectCase: static (ctx, _) => Admit.Confirm(success: ctx.Views.RestoreWithAspectRatio(index: ctx.Index, viewport: ctx.Viewport)),
         animatedCase: static (ctx, pace) => pace.Cadence.Apply(
-            views: ctx.Views, index: ctx.Index, viewport: ctx.Viewport, delay: pace.Delay, key: ctx.Op));
+            views: ctx.Views, index: ctx.Index, viewport: ctx.Viewport, delay: pace.Delay));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -378,34 +370,32 @@ public abstract partial record NamedViewOp {
     public sealed record RenameCase(ResourceName Name, ResourceName NewName) : NamedViewOp;
     public sealed record DeleteCase(ResourceName Name) : NamedViewOp;
 
-    internal Fin<NamedViewOp> Admit(Op op) => Switch(
-        op,
-        restoreCase: static (key, row) => key.Need(value: row.Pace).Map(_ => (NamedViewOp)row),
+    internal Fin<NamedViewOp> Admit() => Switch(restoreCase: static (key, row) => Admit.Need(value: row.Pace).Map(_ => (NamedViewOp)row),
         addCase: static (_, row) => Fin.Succ((NamedViewOp)row),
         renameCase: static (_, row) => Fin.Succ((NamedViewOp)row),
         deleteCase: static (_, row) => Fin.Succ((NamedViewOp)row));
 
-    internal Fin<Unit> Apply(RhinoDoc document, RhinoViewport viewport, Op key) =>
+    internal Fin<Unit> Apply(RhinoDoc document, RhinoViewport viewport) =>
         Switch(
-            (Document: document, Viewport: viewport, Op: key),
-            restoreCase: static (ctx, op) =>
-                from index in IndexOf(document: ctx.Document, name: op.Name, key: ctx.Op)
-                from _ in op.Pace.Apply(views: ctx.Document.NamedViews, index: index.Value, viewport: ctx.Viewport, key: ctx.Op)
+            (Document: document, Viewport: viewport),
+            restoreCase: static (ctx) =>
+                from index in IndexOf(document: ctx.Document, name: op.Name)
+                from _ in op.Pace.Apply(views: ctx.Document.NamedViews, index: index.Value, viewport: ctx.Viewport)
                 select unit,
-            addCase: static (ctx, op) => ResourceIndex
-                .Admit(value: ctx.Document.NamedViews.Add(name: op.Name.Value, viewportId: ctx.Viewport.Id), key: ctx.Op)
+            addCase: static (ctx) => ResourceIndex
+                .Admit(value: ctx.Document.NamedViews.Add(name: op.Name.Value, viewportId: ctx.Viewport.Id))
                 .Map(static _ => unit),
-            renameCase: static (ctx, op) =>
-                from index in IndexOf(document: ctx.Document, name: op.Name, key: ctx.Op)
-                from _ in ctx.Op.Confirm(success: ctx.Document.NamedViews.Rename(index: index.Value, newName: op.NewName.Value))
+            renameCase: static (ctx) =>
+                from index in IndexOf(document: ctx.Document, name: op.Name)
+                from _ in Admit.Confirm(success: ctx.Document.NamedViews.Rename(index: index.Value, newName: op.NewName.Value))
                 select unit,
-            deleteCase: static (ctx, op) =>
-                from index in IndexOf(document: ctx.Document, name: op.Name, key: ctx.Op)
-                from _ in ctx.Op.Confirm(success: ctx.Document.NamedViews.Delete(index: index.Value))
+            deleteCase: static (ctx) =>
+                from index in IndexOf(document: ctx.Document, name: op.Name)
+                from _ in Admit.Confirm(success: ctx.Document.NamedViews.Delete(index: index.Value))
                 select unit);
 
-    private static Fin<ResourceIndex> IndexOf(RhinoDoc document, ResourceName name, Op key) =>
-        ResourceIndex.Admit(value: document.NamedViews.FindByName(name: name.Value), key: key);
+    private static Fin<ResourceIndex> IndexOf(RhinoDoc document, ResourceName name) =>
+        ResourceIndex.Admit(value: document.NamedViews.FindByName(name: name.Value));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -415,39 +405,37 @@ public abstract partial record ClipLink {
     public sealed record DetachCase(ResourceId PlaneId, CommitPosture Commit) : ClipLink;
     public sealed record CensusCase : ClipLink;
 
-    public static Fin<ClipLink> Attach(Guid planeId, CommitPosture commit, Op? key = null) {
-        Op op = key.OrDefault();
-        return from id in ResourceId.Admit(value: planeId, key: op)
-               from posture in op.Need(value: commit)
+    public static Fin<ClipLink> Attach(Guid planeId, CommitPosture commit) {
+        return from id in ResourceId.Admit(value: planeId)
+               from posture in Admit.Need(value: commit)
                select (ClipLink)new AttachCase(PlaneId: id, Commit: posture);
     }
 
-    public static Fin<ClipLink> Detach(Guid planeId, CommitPosture commit, Op? key = null) {
-        Op op = key.OrDefault();
-        return from id in ResourceId.Admit(value: planeId, key: op)
-               from posture in op.Need(value: commit)
+    public static Fin<ClipLink> Detach(Guid planeId, CommitPosture commit) {
+        return from id in ResourceId.Admit(value: planeId)
+               from posture in Admit.Need(value: commit)
                select (ClipLink)new DetachCase(PlaneId: id, Commit: posture);
     }
 
     public static ClipLink Census { get; } = new CensusCase();
 
-    internal Fin<Seq<ResourceId>> Apply(RhinoDoc document, RhinoViewport viewport, Op key) =>
+    internal Fin<Seq<ResourceId>> Apply(RhinoDoc document, RhinoViewport viewport) =>
         Switch(
-            (Document: document, Viewport: viewport, Op: key),
+            (Document: document, Viewport: viewport),
             attachCase: static (ctx, link) =>
-                from plane in PlaneOf(document: ctx.Document, id: link.PlaneId, key: ctx.Op)
-                from _ in ctx.Op.Confirm(success: plane.AddClipViewport(viewport: ctx.Viewport, commit: link.Commit.Commits))
+                from plane in PlaneOf(document: ctx.Document, id: link.PlaneId)
+                from _ in Admit.Confirm(success: plane.AddClipViewport(viewport: ctx.Viewport, commit: link.Commit.Commits))
                 select Seq(link.PlaneId),
             detachCase: static (ctx, link) =>
-                from plane in PlaneOf(document: ctx.Document, id: link.PlaneId, key: ctx.Op)
-                from _ in ctx.Op.Confirm(success: plane.RemoveClipViewport(viewport: ctx.Viewport, commit: link.Commit.Commits))
+                from plane in PlaneOf(document: ctx.Document, id: link.PlaneId)
+                from _ in Admit.Confirm(success: plane.RemoveClipViewport(viewport: ctx.Viewport, commit: link.Commit.Commits))
                 select Seq(link.PlaneId),
-            censusCase: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ(
+            censusCase: static (ctx, _) => Try.lift(() => Fin.Succ(
                 toSeq(ctx.Document.Objects.FindClippingPlanesForViewport(viewport: ctx.Viewport))
-                    .Choose(static plane => ResourceId.Maybe(plane.Id)).Strict())));
+                    .Choose(static plane => ResourceId.Maybe(plane.Id)).Strict())).Run().Bind(static inner => inner));
 
-    private static Fin<DocObjects.ClippingPlaneObject> PlaneOf(RhinoDoc document, ResourceId id, Op key) =>
-        Optional(document.Objects.FindId(objectId: id.Value) as DocObjects.ClippingPlaneObject).ToFin(Fail: key.InvalidInput());
+    private static Fin<DocObjects.ClippingPlaneObject> PlaneOf(RhinoDoc document, ResourceId id) =>
+        Optional(document.Objects.FindId(objectId: id.Value) as DocObjects.ClippingPlaneObject).ToFin(Fail: new KernelFault.InvalidInput());
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -456,19 +444,19 @@ public sealed partial class RestoreFacet {
     public static readonly RestoreFacet CPlane = new(
         key: 0,
         read: static () => ApplicationSettings.ViewSettings.DefinedViewSetCPlane,
-        write: static on => Op.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetCPlane = on));
+        write: static on => HostEdge.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetCPlane = on));
     public static readonly RestoreFacet Projection = new(
         key: 1,
         read: static () => ApplicationSettings.ViewSettings.DefinedViewSetProjection,
-        write: static on => Op.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetProjection = on));
+        write: static on => HostEdge.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetProjection = on));
     public static readonly RestoreFacet Clipping = new(
         key: 2,
         read: static () => ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes,
-        write: static on => Op.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes = on));
+        write: static on => HostEdge.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes = on));
     public static readonly RestoreFacet Display = new(
         key: 3,
         read: static () => ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode,
-        write: static on => Op.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode = on));
+        write: static on => HostEdge.Side(() => ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode = on));
 
     [UseDelegateFromConstructor]
     internal partial bool Read();
@@ -487,24 +475,22 @@ public sealed partial class RestoreScope {
 
     public FrozenSet<RestoreFacet> Facets { get; }
 
-    internal Fin<TOut> Within<TOut>(Func<Fin<TOut>> body, Op key) {
+    internal Fin<TOut> Within<TOut>(Func<Fin<TOut>> body) {
         RestoreScope self = this;
-        return from run in key.Need(value: body)
-               from priors in key.Catch(() => Fin.Succ(toSeq(RestoreFacet.Items)
-                   .Map(static facet => (Facet: facet, Value: facet.Read())).Strict()))
+        return from run in Admit.Need(value: body)
+               from priors in Try.lift(() => Fin.Succ(toSeq(RestoreFacet.Items)
+                   .Map(static facet => (Facet: facet, Value: facet.Read())).Strict())).Run().Bind(static inner => inner)
                from result in Apply(
-                       rows: toSeq(RestoreFacet.Items).Map(facet => (Facet: facet, Value: self.Facets.Contains(facet))),
-                       key: key)
-                   .Bind(_ => key.Catch(run))
+                       rows: toSeq(RestoreFacet.Items).Map(facet => (Facet: facet, Value: self.Facets.Contains(facet))))
+                   .Bind(_ => Try.lift(run).Run().Bind(static inner => inner))
                    .Settled(
                        held: priors,
-                       release: static row => Fin.Succ(value: row.Facet.Write(on: row.Value)),
-                       key: key)
+                       release: static row => Fin.Succ(value: row.Facet.Write(on: row.Value)))
                select result;
     }
 
-    internal static Fin<Unit> Apply(Seq<(RestoreFacet Facet, bool Value)> rows, Op key) => rows
-        .Traverse(row => key.Catch(() => Fin.Succ(value: row.Facet.Write(on: row.Value))).ToValidation())
+    internal static Fin<Unit> Apply(Seq<(RestoreFacet Facet, bool Value)> rows) => rows
+        .Traverse(row => Try.lift(() => Fin.Succ(value: row.Facet.Write(on: row.Value))).Run().Bind(static inner => inner).ToValidation())
         .As()
         .ToFin()
         .Map(static _ => unit);
@@ -541,13 +527,13 @@ public sealed partial class RedrawWhat {
         landing: static _ => new RedrawTarget.NoneCase());
     public static readonly RedrawWhat Views = new(
         key: 1,
-        perRow: static view => Op.Side(view.Redraw),
-        terminal: static (document, count) => count >= ViewportBorrowMode.BroadcastFloor ? Op.Side(document.Views.Redraw) : unit,
+        perRow: static view => HostEdge.Side(view.Redraw),
+        terminal: static (document, count) => count >= ViewportBorrowMode.BroadcastFloor ? HostEdge.Side(document.Views.Redraw) : unit,
         landing: static target => new RedrawTarget.ViewCase(Target: target));
     public static readonly RedrawWhat Document = new(
         key: 2,
         perRow: static _ => unit,
-        terminal: static (document, _) => Op.Side(document.Views.Redraw),
+        terminal: static (document, _) => HostEdge.Side(document.Views.Redraw),
         landing: static _ => new RedrawTarget.DocumentCase());
 
     [UseDelegateFromConstructor]
@@ -584,7 +570,7 @@ public readonly partial struct FramePadding {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.All(ValidityClaim.Finite(value), value >= 0.0, value <= 1.0)
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(FramePadding), value, "a finite fraction in [0, 1]" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(FramePadding), value, "a finite fraction in [0, 1]" }));
 
     internal BoundingBox Inflate(BoundingBox subject) {
         BoundingBox padded = subject;
@@ -599,28 +585,25 @@ public sealed record CameraTrack(CameraPose From, CameraPose To, Context Context
         CameraPose from,
         CameraPose to,
         Context context,
-        Option<MotionInterpolation> interpolation = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return (CameraPose.Admit(pose: from, key: op).ToValidation(),
-                CameraPose.Admit(pose: to, key: op).ToValidation(),
-                guard(from.Projection == to.Projection, op.InvalidInput(axis: nameof(CameraPose.Projection))).ToFin().ToValidation(),
-                Optional(context).ToFin(Fail: op.MissingContext()).ToValidation(),
-                op.Need(value: interpolation.IfNone(MotionInterpolation.Slerp)).ToValidation())
+        Option<MotionInterpolation> interpolation = default) {
+        return (CameraPose.Admit(pose: from).ToValidation(),
+                CameraPose.Admit(pose: to).ToValidation(),
+                guard(from.Projection == to.Projection, new KernelFault.InvalidInput(Axis: Some(nameof(CameraPose.Projection)))).ToFin().ToValidation(),
+                Optional(context).ToFin(Fail: new KernelFault.MissingContext()).ToValidation(),
+                Admit.Need(value: interpolation.IfNone(MotionInterpolation.Slerp)).ToValidation())
             .Apply(static (source, destination, _, ambient, mode) =>
                 new CameraTrack(From: source, To: destination, Context: ambient, Interpolation: mode))
             .As()
             .ToFin();
     }
 
-    public Fin<CameraPose> Sample(UnitInterval progress, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<CameraPose> Sample(UnitInterval progress) {
         CameraTrack self = this;
         return from plane in self.Interpolation.Interpolate(
-                   a: self.From.Frame.Value, b: self.To.Frame.Value, t: progress, context: self.Context, key: op)
-               from frame in VectorFrame.Of(origin: plane.Origin, normal: plane.ZAxis, xHint: Some(plane.XAxis), context: self.Context, key: op)
-               from target in op.AcceptValue(value: self.From.Target + progress.Value * (self.To.Target - self.From.Target))
-               from angle in op.AcceptValidated<LensAngle>(candidate: double.Lerp((double)self.From.Angle, (double)self.To.Angle, progress.Value))
+                   a: self.From.Frame.Value, b: self.To.Frame.Value, t: progress, context: self.Context)
+               from frame in VectorFrame.Of(origin: plane.Origin, normal: plane.ZAxis, xHint: Some(plane.XAxis), context: self.Context)
+               from target in Acceptance.Value(value: self.From.Target + progress.Value * (self.To.Target - self.From.Target))
+               from angle in FactoryBridge.Accept<LensAngle>(candidate: double.Lerp((double)self.From.Angle, (double)self.To.Angle, progress.Value))
                select new CameraPose(Frame: frame, Target: target, Angle: angle, Projection: self.From.Projection);
     }
 }
@@ -637,52 +620,46 @@ public abstract partial record CameraOp {
     internal sealed record ClipCase(ClipLink Link) : CameraOp;
     internal sealed record ConventionCase(ViewPose Pose) : CameraOp;
 
-    public static Fin<CameraOp> Gesture(GestureRequest request, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: request).Bind(value => value.Admit(op: op))
+    public static Fin<CameraOp> Gesture(GestureRequest request) {
+        return Admit.Need(value: request).Bind(value => value.Admit())
             .Map(static valid => (CameraOp)new GestureCase(Request: valid));
     }
 
-    public static Fin<CameraOp> Project(ProjectionChange change, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: change).Bind(value => value.Admit(op: op))
+    public static Fin<CameraOp> Project(ProjectionChange change) {
+        return Admit.Need(value: change).Bind(value => value.Admit())
             .Map(static valid => (CameraOp)new ProjectCase(Change: valid));
     }
 
-    public static Fin<CameraOp> Pose(CameraPose pose, Op? key = null) =>
+    public static Fin<CameraOp> Pose(CameraPose pose) =>
         CameraPose.Admit(pose: pose, key: key.OrDefault())
             .Map(static admitted => (CameraOp)new PoseCase(Pose: admitted));
 
-    public static Fin<CameraOp> Stack(StackVerb verb, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: verb).Bind(value => value.Admit(op: op))
+    public static Fin<CameraOp> Stack(StackVerb verb) {
+        return Admit.Need(value: verb).Bind(value => value.Admit())
             .Map(static valid => (CameraOp)new StackCase(Verb: valid));
     }
 
-    public static Fin<CameraOp> Frame(BoundingBox subject, Option<FramePadding> padding = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(subject.IsValid, op.InvalidInput()).ToFin()
+    public static Fin<CameraOp> Frame(BoundingBox subject, Option<FramePadding> padding = default) {
+        return guard(subject.IsValid, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (CameraOp)new FrameCase(Subject: subject, Padding: padding.IfNone(FramePadding.Default)));
     }
 
-    public static Fin<CameraOp> Named(NamedViewOp verb, Option<RestoreScope> scope = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: verb).Bind(value => value.Admit(op: op))
+    public static Fin<CameraOp> Named(NamedViewOp verb, Option<RestoreScope> scope = default) {
+        return Admit.Need(value: verb).Bind(value => value.Admit())
             .Map(valid => (CameraOp)new NamedCase(Verb: valid, Scope: scope.IfNone(RestoreScope.Default)));
     }
 
-    public static Fin<CameraOp> Clip(ClipLink link, Op? key = null) =>
+    public static Fin<CameraOp> Clip(ClipLink link) =>
         key.OrDefault().Need(value: link).Map(static valid => (CameraOp)new ClipCase(Link: valid));
 
-    public static Fin<CameraOp> Convention(ViewPose pose, Op? key = null) =>
+    public static Fin<CameraOp> Convention(ViewPose pose) =>
         key.OrDefault().AcceptValue(value: pose).Map(static valid => (CameraOp)new ConventionCase(Pose: valid));
 }
 
 public sealed record CameraDrive(CameraTrack Track, MotionScript Script, Option<FrameClock> Clock) {
-    public static Fin<CameraDrive> Of(CameraTrack track, MotionScript script, Option<FrameClock> clock = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from path in op.Need(value: track)
-               from admitted in MotionDrive.Admit(script: script, key: op)
+    public static Fin<CameraDrive> Of(CameraTrack track, MotionScript script, Option<FrameClock> clock = default) {
+        return from path in Admit.Need(value: track)
+               from admitted in MotionDrive.Admit(script: script)
                select new CameraDrive(Track: path, Script: admitted, Clock: clock);
     }
 }
@@ -698,9 +675,9 @@ public sealed partial class ApplyPolicy {
 
     internal ApplyPolicy PerFrame() => Create(redraw: RedrawWhat.None, details: Details, active: Active);
 
-    internal Fin<Unit> CommitDetail(ViewportRef row, Op key) => row.Detail
+    internal Fin<Unit> CommitDetail(ViewportRef row) => row.Detail
         .TraverseM(detail => Details.Commits
-            ? key.Catch(() => key.Confirm(success: detail.CommitViewportChanges()))
+            ? Try.lift(() => Admit.Confirm(success: detail.CommitViewportChanges())).Run().Bind(static inner => inner)
             : Fin.Succ(value: unit))
         .As()
         .Map(static _ => unit);
@@ -724,54 +701,52 @@ internal sealed class CameraStage {
 
     private CameraStage(Seq<StagedRow> rows, ApplyPolicy frame) => (this.rows, this.frame) = (rows, frame);
 
-    internal static Fin<CameraStage> Of(DocumentSession session, ViewportTarget target, ApplyPolicy plan, Op key) =>
-        from owner in ViewportLease.Of(session: session, target: target, key: key)
+    internal static Fin<CameraStage> Of(DocumentSession session, ViewportTarget target, ApplyPolicy plan) =>
+        from owner in ViewportLease.Of(session: session, target: target)
         from census in owner.Use(
-            borrow: (_, row) => key.Catch(() => Fin.Succ(value: row.Viewport.Id)),
+            borrow: (_, row) => Try.lift(() => Fin.Succ(value: row.Viewport.Id)).Run().Bind(static inner => inner),
             terminal: static (_, _) => Fin.Succ(value: unit),
-            mode: ViewportBorrowMode.Observe,
-            key: key)
+            mode: ViewportBorrowMode.Observe)
         from staged in census
-            .Traverse(id => StagedRow.Of(session: session, address: target, viewportId: id, binding: plan.Active, key: key).ToValidation())
+            .Traverse(id => StagedRow.Of(session: session, address: target, viewportId: id, binding: plan.Active).ToValidation())
             .As()
             .ToFin()
         select new CameraStage(rows: staged.Strict(), frame: plan.PerFrame());
 
-    internal Fin<Unit> Frame(CameraPose pose, Op key) =>
-        rows.Traverse(row => row.Seat(pose: pose, plan: frame, key: key).ToValidation()).As().ToFin().Map(static _ => unit);
+    internal Fin<Unit> Frame(CameraPose pose) =>
+        rows.Traverse(row => row.Seat(pose: pose, plan: frame).ToValidation()).As().ToFin().Map(static _ => unit);
 
-    internal static Fin<Unit> Seat(CameraPose pose, RhinoViewport viewport, Op key) =>
-        from _projection in CameraSeat.Accepts(projection: pose.Projection, viewport: viewport, key: key)
-        from _seated in key.Catch(() => Fin.Succ(value: CameraSeat.Seat(viewport: viewport, pose: pose)))
+    internal static Fin<Unit> Seat(CameraPose pose, RhinoViewport viewport) =>
+        from _projection in CameraSeat.Accepts(projection: pose.Projection, viewport: viewport)
+        from _seated in Try.lift(() => Fin.Succ(value: CameraSeat.Seat(viewport: viewport, pose: pose))).Run().Bind(static inner => inner)
         select unit;
 }
 
 internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> PinnedActive) {
-    internal static Fin<StagedRow> Of(DocumentSession session, ViewportTarget address, Guid viewportId, ActiveBinding binding, Op key) =>
+    internal static Fin<StagedRow> Of(DocumentSession session, ViewportTarget address, Guid viewportId, ActiveBinding binding) =>
         (binding.Follows, address) switch {
-            (true, ViewportTarget.ActiveCase) => ViewportLease.Of(session: session, target: address, key: key)
+            (true, ViewportTarget.ActiveCase) => ViewportLease.Of(session: session, target: address)
                 .Map(static lease => new StagedRow(Lease: lease, PinnedActive: None)),
-            (false, ViewportTarget.ActiveCase) => ViewportTarget.Id(viewportId: viewportId, key: key)
-                .Bind(pinned => ViewportLease.Of(session: session, target: pinned, key: key))
+            (false, ViewportTarget.ActiveCase) => ViewportTarget.Id(viewportId: viewportId)
+                .Bind(pinned => ViewportLease.Of(session: session, target: pinned))
                 .Map(lease => new StagedRow(Lease: lease, PinnedActive: Some(viewportId))),
-            _ => ViewportTarget.Id(viewportId: viewportId, key: key)
-                .Bind(pinned => ViewportLease.Of(session: session, target: pinned, key: key))
+            _ => ViewportTarget.Id(viewportId: viewportId)
+                .Bind(pinned => ViewportLease.Of(session: session, target: pinned))
                 .Map(static lease => new StagedRow(Lease: lease, PinnedActive: None)),
         };
 
-    internal Fin<Unit> Seat(CameraPose pose, ApplyPolicy plan, Op key) =>
+    internal Fin<Unit> Seat(CameraPose pose, ApplyPolicy plan) =>
         Lease.Use(
             borrow: (document, row) =>
                 from _addressed in Addressed(document: document, key: key)
-                from _seated in CameraStage.Seat(pose: pose, viewport: row.Viewport, key: key)
+                from _seated in CameraStage.Seat(pose: pose, viewport: row.Viewport)
                 from _committed in plan.CommitDetail(row: row, key: key)
-                select unit,
-            key: key);
+                select unit);
 
-    private Fin<Unit> Addressed(RhinoDoc document, Op key) => PinnedActive
+    private Fin<Unit> Addressed(RhinoDoc document) => PinnedActive
         .TraverseM(id => guard(
             Optional(document.Views.ActiveView).Map(view => view.ActiveViewport.Id == id).IfNone(noneValue: false),
-            key.InvalidContext()).ToFin())
+            new KernelFault.InvalidContext()).ToFin())
         .As()
         .Map(static _ => unit);
 }
@@ -782,15 +757,13 @@ public static class Cameras {
         DocumentSession session,
         ViewportTarget target,
         CameraOp operation,
-        Option<ApplyPolicy> policy = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from address in op.Need(value: target)
-               from admitted in op.Need(value: operation)
+        Option<ApplyPolicy> policy = default) {
+        return from owner in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
+               from address in Admit.Need(value: target)
+               from admitted in Admit.Need(value: operation)
                let plan = policy.IfNone(ApplyPolicy.Default)
-               from lease in ViewportLease.Of(session: owner, target: address, key: op)
-               from outcome in Execute(lease: lease, operation: admitted, plan: plan, key: op)
+               from lease in ViewportLease.Of(session: owner, target: address)
+               from outcome in Execute(lease: lease, operation: admitted, plan: plan)
                select outcome;
     }
 
@@ -799,14 +772,12 @@ public static class Cameras {
         ViewportTarget target,
         CameraDrive drive,
         MonotonicTimeline timeline,
-        Option<ApplyPolicy> policy = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from address in op.Need(value: target)
-               from request in op.Need(value: drive)
+        Option<ApplyPolicy> policy = default) {
+        return from owner in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
+               from address in Admit.Need(value: target)
+               from request in Admit.Need(value: drive)
                let plan = policy.IfNone(ApplyPolicy.Default)
-               from stage in CameraStage.Of(session: owner, target: address, plan: plan, key: op)
+               from stage in CameraStage.Of(session: owner, target: address, plan: plan)
                from lease in MotionPump.Drive(
                    session: owner,
                    script: request.Script,
@@ -815,56 +786,53 @@ public static class Cameras {
                    apply: sample => Progressed(sample: sample, key: op)
                        .Bind(progress => request.Track.Sample(progress: progress, key: op))
                        .Bind(pose => stage.Frame(pose: pose, key: op)),
-                   clock: request.Clock,
-                   key: op)
+                   clock: request.Clock)
                select lease;
     }
 
-    private static Fin<CameraRun> Execute(ViewportLease lease, CameraOp operation, ApplyPolicy plan, Op key) =>
+    private static Fin<CameraRun> Execute(ViewportLease lease, CameraOp operation, ApplyPolicy plan) =>
         from rows in lease.Use(
             borrow: (document, row) =>
                 from before in Fin.Succ(row.Viewport.ChangeCounter)
                 from outcome in operation.Switch(
-                    (Document: document, Row: row, Op: key),
+                    (Document: document, Row: row),
                     gestureCase: static (ctx, op) => op.Request.Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
                     projectCase: static (ctx, op) => op.Change.Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
-                    poseCase: static (ctx, op) => CameraStage.Seat(pose: op.Pose, viewport: ctx.Row.Viewport, key: ctx.Op)
+                    poseCase: static (ctx, op) => CameraStage.Seat(pose: op.Pose, viewport: ctx.Row.Viewport)
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
                     stackCase: static (ctx, op) => op.Verb.Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
                         .Map(static move => (CameraOutcome)new CameraOutcome.StackedCase(Move: move)),
-                    frameCase: static (ctx, op) => ctx.Op
-                        .Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Padding.Inflate(subject: op.Subject)))
+                    frameCase: static (ctx, op) => Admit.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Padding.Inflate(subject: op.Subject)))
                         .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
                     namedCase: static (ctx, op) => op.Scope.Within(
-                        body: () => op.Verb.Apply(document: ctx.Document, viewport: ctx.Row.Viewport, key: ctx.Op)
+                        body: () => op.Verb.Apply(document: ctx.Document, viewport: ctx.Row.Viewport)
                             .Map(static _ => (CameraOutcome)new CameraOutcome.AppliedCase()),
                         key: ctx.Op),
-                    clipCase: static (ctx, op) => op.Link.Apply(document: ctx.Document, viewport: ctx.Row.Viewport, key: ctx.Op)
+                    clipCase: static (ctx, op) => op.Link.Apply(document: ctx.Document, viewport: ctx.Row.Viewport)
                         .Map(static planes => (CameraOutcome)new CameraOutcome.ClippedCase(Planes: planes)),
                     conventionCase: static (ctx, op) =>
                         from _lowered in ProjectionChange.Of(intent: op.Pose.Projection, lens: op.Pose.Lens)
                             .Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
-                        from _seated in ctx.Op.Catch(() => {
+                        from _seated in Try.lift(() => {
                             _ = CameraSeat.Seat(
                                 viewport: ctx.Row.Viewport,
                                 target: op.Pose.Target,
                                 location: op.Pose.Frame.Value.Origin,
                                 direction: op.Pose.Frame.Value.ZAxis);
-                            return ctx.Op.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Pose.Subject));
-                        })
+                            return Admit.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Pose.Subject));
+                        }).Run().Bind(static inner => inner)
                         select (CameraOutcome)new CameraOutcome.AppliedCase())
                 from _committed in plan.CommitDetail(row: row, key: key)
                 from _redrawn in Fin.Succ(value: plan.Redraw.PerRow(view: row.View))
                 select new RowEvidence(Before: before, After: row.Viewport.ChangeCounter, Outcome: outcome),
             terminal: (document, count) => Fin.Succ(value: plan.Redraw.Terminal(document: document, count: count)),
-            mode: ViewportBorrowMode.Mutate,
-            key: key)
+            mode: ViewportBorrowMode.Mutate)
         select new CameraRun(Operation: operation, Rows: rows, Redrew: plan.Redraw);
 
-    private static Fin<UnitInterval> Progressed(MotionSample sample, Op key) =>
-        key.AcceptValidated<UnitInterval>(candidate: double.Clamp(sample.Value, 0.0, 1.0));
+    private static Fin<UnitInterval> Progressed(MotionSample sample) =>
+        FactoryBridge.Accept<UnitInterval>(candidate: double.Clamp(sample.Value, 0.0, 1.0));
 }
 ```
 

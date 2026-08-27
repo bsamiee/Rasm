@@ -116,7 +116,7 @@ public sealed record DeterminismContext(
     FloatMode Mode,
     EnvFingerprint Fingerprint) {
     public Deterministic.Draw Address(string stream) {
-        (ulong low, ulong high) = ContentHash.Halves(ContentHash.Of(stream, static (key, writer) => writer.String(key)));
+        (ulong low, ulong high) = ContentHash.Halves(ContentHash.Of(stream, static (key, writer) => writer.String()));
         return new Deterministic.Draw(
             Seed: unchecked((long)Seed),
             Prefix: [unchecked((long)low), unchecked((long)high)]);
@@ -342,7 +342,7 @@ public static class DeterminismLogCodec {
     };
 
     static Validation<Error, UInt128> Admit(string text, DeterminismLogRow row) =>
-        ContentHash.Admit(text, Op.Of())
+        ContentHash.Admit(text)
             .MapFail(_ => new ReplayFault.ChainBroken(row.Sequence, "row-decode"))
             .ToValidation();
 }
@@ -602,7 +602,7 @@ public static class RecomputeGraph {
             ignore(builder.AddVertexRange(nodes.Map(static node => node.Hash)));
             ignore(builder.AddVerticesAndEdgeRange(nodes.SelectMany(static node =>
                 node.Inputs.Map(input => new SEquatableEdge<ChainHash>(input, node.Hash)))));
-            return Op.Of().Catch(() => Fin.Succ(toSeq(builder.TopologicalSort())))
+            return Try.lift(() => Fin.Succ(toSeq(builder.TopologicalSort()))).Run().Bind(static inner => inner)
                 .Map(order => new Graph(
                     nodes.Fold(HashMap<ChainHash, RecomputeNode>(), static (map, node) => map.Add(node.Hash, node)),
                     builder.ToArrayAdjacencyGraph(),
@@ -698,11 +698,11 @@ public sealed partial class ChaosKind {
     public static readonly ChaosKind Latency = new("latency", "Chaos.OnLatency",
         static (delay, _) => new ChaosInjection.Latency(delay), static row => row.Delay > Duration.Zero);
     public static readonly ChaosKind Fault = new("fault", "Chaos.OnFault",
-        static (_, key) => new ChaosInjection.Fault(key), Resolvable);
+        static (_, key) => new ChaosInjection.Fault(), Resolvable);
     public static readonly ChaosKind Outcome = new("outcome", "Chaos.OnOutcome",
-        static (_, key) => new ChaosInjection.Substituted(key), Resolvable);
+        static (_, key) => new ChaosInjection.Substituted(), Resolvable);
     public static readonly ChaosKind Behavior = new("behavior", "Chaos.OnBehavior",
-        static (_, key) => new ChaosInjection.Behavior(key), Resolvable);
+        static (_, key) => new ChaosInjection.Behavior(), Resolvable);
 
     public string Event { get; }
 

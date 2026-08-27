@@ -68,32 +68,31 @@ public abstract partial record ContourPolicy {
     public sealed record SurfaceIsoCase(IsoStatus Status, double Parameter) : ContourPolicy;
     public sealed record MeshScalarCase(Arr<double> Values, Seq<double> Levels) : ContourPolicy;
     private ContourPolicy() { }
-    public static Fin<ContourPolicy> Plane(Plane section, Op? key = null) =>
-        new PlaneCase(Section: section).Admit(key: key.OrDefault());
-    public static Fin<ContourPolicy> Axis(Point3d start, Point3d end, double interval, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.AcceptValidated<PositiveMagnitude>(candidate: interval)
-            .Bind(step => new AxisCase(Start: start, End: end, Interval: step).Admit(key: op));
+    public static Fin<ContourPolicy> Plane(Plane section) =>
+        new PlaneCase(Section: section).Admit();
+    public static Fin<ContourPolicy> Axis(Point3d start, Point3d end, double interval) {
+        return FactoryBridge.Accept<PositiveMagnitude>(candidate: interval)
+            .Bind(step => new AxisCase(Start: start, End: end, Interval: step).Admit());
     }
-    public static Fin<ContourPolicy> SurfaceIso(IsoStatus status, double parameter, Op? key = null) =>
-        new SurfaceIsoCase(Status: status, Parameter: parameter).Admit(key: key.OrDefault());
-    public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels, Op? key = null) =>
-        new MeshScalarCase(Values: values, Levels: levels).Admit(key: key.OrDefault());
-    internal Fin<ContourPolicy> Admit(Op key) => Switch(
+    public static Fin<ContourPolicy> SurfaceIso(IsoStatus status, double parameter) =>
+        new SurfaceIsoCase(Status: status, Parameter: parameter).Admit();
+    public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels) =>
+        new MeshScalarCase(Values: values, Levels: levels).Admit();
+    internal Fin<ContourPolicy> Admit() => Switch(
         state: key,
-        planeCase: static (op, policy) => Rasm.Domain.Admit.Plane(basis: policy.Section, key: op).Map(_ => (ContourPolicy)policy),
-        axisCase: static (op, policy) =>
-            from _ in Rasm.Domain.Admit.AllFinite(op, policy.Start, policy.End)
-            from __ in guard((policy.End - policy.Start).Length > 0.0, op.InvalidInput())
+        planeCase: static (policy) => Rasm.Domain.Admit.Plane(basis: policy.Section).Map(_ => (ContourPolicy)policy),
+        axisCase: static (policy) =>
+            from _ in Rasm.Domain.Admit.AllFinite(policy.Start, policy.End)
+            from __ in guard((policy.End - policy.Start).Length > 0.0, new KernelFault.InvalidInput())
             select (ContourPolicy)policy,
-        surfaceIsoCase: static (op, policy) => (policy.Status, policy.Parameter) switch {
+        surfaceIsoCase: static (policy) => (policy.Status, policy.Parameter) switch {
             (IsoStatus.X or IsoStatus.Y, double parameter) when double.IsFinite(parameter) => Fin.Succ<ContourPolicy>(policy),
             (IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West, _) => Fin.Succ<ContourPolicy>(policy),
-            _ => Fin.Fail<ContourPolicy>(op.InvalidInput()),
+            _ => Fin.Fail<ContourPolicy>(new KernelFault.InvalidInput()),
         },
-        meshScalarCase: static (op, policy) =>
-            from scalars in Rasm.Domain.Admit.All(toSeq(policy.Values.AsIterable()), static value => ValidityClaim.Finite(value: value), floor: 1, key: op)
-            from levels in Rasm.Domain.Admit.All(policy.Levels, static value => ValidityClaim.Finite(value: value), floor: 1, key: op)
+        meshScalarCase: static (policy) =>
+            from scalars in Rasm.Domain.Admit.All(toSeq(policy.Values.AsIterable()), static value => ValidityClaim.Finite(value: value), floor: 1)
+            from levels in Rasm.Domain.Admit.All(policy.Levels, static value => ValidityClaim.Finite(value: value), floor: 1)
             select (ContourPolicy)policy);
 }
 
@@ -104,101 +103,100 @@ public abstract partial record ExtractionDomain {
     public sealed record CloudCase : ExtractionDomain { internal CloudCase(VectorCloud value) => Value = value; public VectorCloud Value { get; } }
     public sealed record LatticeCase : ExtractionDomain { internal LatticeCase(CellLattice value) => Value = value; public CellLattice Value { get; } }
     private ExtractionDomain() { }
-    public static Fin<ExtractionDomain> Support(SupportSpace value, Op? key = null) =>
+    public static Fin<ExtractionDomain> Support(SupportSpace value) =>
         Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
-    public static Fin<ExtractionDomain> Mesh(MeshSpace value, Op? key = null) =>
+    public static Fin<ExtractionDomain> Mesh(MeshSpace value) =>
         key.OrDefault().Need(value.Native).Map(_ => (ExtractionDomain)new MeshCase(value: value));
-    public static Fin<ExtractionDomain> Cloud(VectorCloud value, Op? key = null) =>
-        Admit.NotNull(value, key.OrDefault()).Map(static cloud => (ExtractionDomain)new CloudCase(cloud));
-    public static Fin<ExtractionDomain> Lattice(CellLattice value, Op? key = null) =>
+    public static Fin<ExtractionDomain> Cloud(VectorCloud value) =>
+        Admit.NotNull(value).Map(static cloud => (ExtractionDomain)new CloudCase(cloud));
+    public static Fin<ExtractionDomain> Lattice(CellLattice value) =>
         key.OrDefault().AcceptValue(value: (ExtractionDomain)new LatticeCase(value: value));
-    public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(value).ToFin(op.InvalidInput()).Bind(source => source switch {
+    public static Fin<ExtractionDomain> Of(object? value, Context context) {
+        return Optional(value).ToFin(new KernelFault.InvalidInput()).Bind(source => source switch {
             ExtractionDomain domain => Fin.Succ(domain),
-            Mesh mesh => MeshSpace.Of(native: mesh, context: context, key: op).Bind(space => Mesh(value: space, key: op)),
-            VectorCloud cloud => Cloud(value: cloud, key: op),
-            PointCloud cloud => VectorCloud.Cluster(points: toSeq(cloud.GetPoints()), context: context, key: op).Bind(active => Cloud(value: active, key: op)),
-            CellLattice lattice => Lattice(value: lattice, key: op),
-            object candidate => SupportSpace.Of(value: candidate, key: op).Bind(space => Support(value: space, key: op)),
+            Mesh mesh => MeshSpace.Of(native: mesh, context: context).Bind(space => Mesh(value: space)),
+            VectorCloud cloud => Cloud(value: cloud),
+            PointCloud cloud => VectorCloud.Cluster(points: toSeq(cloud.GetPoints()), context: context).Bind(active => Cloud(value: active)),
+            CellLattice lattice => Lattice(value: lattice),
+            object candidate => SupportSpace.Of(value: candidate).Bind(space => Support(value: space)),
         });
     }
-    internal Fin<CurveBatch> Contours(ContourPolicy policy, Context context, Op key) => Switch(
-        state: (Policy: policy, Context: context, Key: key),
+    internal Fin<CurveBatch> Contours(ContourPolicy policy, Context context) => Switch(
+        state: (Policy: policy, Context: context),
         supportCase: static (state, domain) => domain.Value.Value switch {
-            Brep brep => state.Key.Catch(() => state.Policy.Switch(
-                state: (Brep: brep, Key: state.Key),
-                planeCase: static (s, p) => AcceptNative(Brep.CreateContourCurves(s.Brep, p.Section), ExtractionTolerance.RhinoDefault, s.Key),
-                axisCase: static (s, p) => AcceptNative(Brep.CreateContourCurves(s.Brep, p.Start, p.End, p.Interval.Value), ExtractionTolerance.RhinoDefault, s.Key),
-                surfaceIsoCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(Brep), typeof(ContourPolicy.SurfaceIsoCase))),
-                meshScalarCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(Brep), typeof(ContourPolicy.MeshScalarCase))))),
-            Mesh mesh => MeshSpace.Of(native: mesh, context: state.Context, key: state.Key)
-                .Bind(space => CurvesFromMesh(space: space, policy: state.Policy, key: state.Key)),
-            Surface surface => state.Key.Catch(() => state.Policy.Switch(
-                state: (Surface: surface, Key: state.Key),
+            Brep brep => Try.lift(() => state.Policy.Switch(
+                state: brep,
+                planeCase: static (s, p) => AcceptNative(Brep.CreateContourCurves(s, p.Section), ExtractionTolerance.RhinoDefault, s.Key),
+                axisCase: static (s, p) => AcceptNative(Brep.CreateContourCurves(s, p.Start, p.End, p.Interval.Value), ExtractionTolerance.RhinoDefault, s.Key),
+                surfaceIsoCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(Brep), typeof(ContourPolicy.SurfaceIsoCase))),
+                meshScalarCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(Brep), typeof(ContourPolicy.MeshScalarCase))))).Run().Bind(static inner => inner),
+            Mesh mesh => MeshSpace.Of(native: mesh, context: state.Context)
+                .Bind(space => CurvesFromMesh(space: space, policy: state.Policy)),
+            Surface surface => Try.lift(() => state.Policy.Switch(
+                state: surface,
                 surfaceIsoCase: static (s, p) =>
                     from frame in (p.Status switch {
                         IsoStatus.X => Fin.Succ((Direction: 1, Parameter: p.Parameter)),
                         IsoStatus.Y => Fin.Succ((Direction: 0, Parameter: p.Parameter)),
-                        IsoStatus.West => Fin.Succ((Direction: 1, Parameter: s.Surface.Domain(0).T0)),
-                        IsoStatus.East => Fin.Succ((Direction: 1, Parameter: s.Surface.Domain(0).T1)),
-                        IsoStatus.South => Fin.Succ((Direction: 0, Parameter: s.Surface.Domain(1).T0)),
-                        IsoStatus.North => Fin.Succ((Direction: 0, Parameter: s.Surface.Domain(1).T1)),
-                        _ => Fin.Fail<(int Direction, double Parameter)>(s.Key.InvalidInput()),
+                        IsoStatus.West => Fin.Succ((Direction: 1, Parameter: s.Domain(0).T0)),
+                        IsoStatus.East => Fin.Succ((Direction: 1, Parameter: s.Domain(0).T1)),
+                        IsoStatus.South => Fin.Succ((Direction: 0, Parameter: s.Domain(1).T0)),
+                        IsoStatus.North => Fin.Succ((Direction: 0, Parameter: s.Domain(1).T1)),
+                        _ => Fin.Fail<(int Direction, double Parameter)>(new KernelFault.InvalidInput()),
                     })
-                    from curves in s.Surface is BrepFace face
-                        ? Optional(face.TrimAwareIsoCurve(frame.Direction, frame.Parameter)).ToFin(s.Key.InvalidResult())
-                        : Optional(s.Surface.IsoCurve(frame.Direction, frame.Parameter)).ToFin(s.Key.InvalidResult()).Map(curve => (Curve[])[curve])
+                    from curves in s is BrepFace face
+                        ? Optional(face.TrimAwareIsoCurve(frame.Direction, frame.Parameter)).ToFin(new KernelFault.InvalidResult())
+                        : Optional(s.IsoCurve(frame.Direction, frame.Parameter)).ToFin(new KernelFault.InvalidResult()).Map(curve => (Curve[])[curve])
                     from batch in AcceptNative(curves, ExtractionTolerance.NotApplicable, s.Key)
                     select batch,
-                planeCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(Surface), typeof(ContourPolicy.PlaneCase))),
-                axisCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(Surface), typeof(ContourPolicy.AxisCase))),
-                meshScalarCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(Surface), typeof(ContourPolicy.MeshScalarCase))))),
-            VectorCloud.ClusterCase cloud => CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context, key: state.Key),
-            _ => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: domain.Value.SourceType, outputType: typeof(Seq<Curve>))),
+                planeCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(Surface), typeof(ContourPolicy.PlaneCase))),
+                axisCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(Surface), typeof(ContourPolicy.AxisCase))),
+                meshScalarCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(Surface), typeof(ContourPolicy.MeshScalarCase))))).Run().Bind(static inner => inner),
+            VectorCloud.ClusterCase cloud => CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context),
+            _ => Fin.Fail<CurveBatch>(error: new KernelFault.Unsupported(InputType: domain.Value.SourceType, OutputType: typeof(Seq<Curve>))),
         },
-        meshCase: static (state, domain) => CurvesFromMesh(space: domain.Value, policy: state.Policy, key: state.Key),
+        meshCase: static (state, domain) => CurvesFromMesh(space: domain.Value, policy: state.Policy),
         cloudCase: static (state, domain) => domain.Value is VectorCloud.ClusterCase cloud
-            ? CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context, key: state.Key)
-            : Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: domain.Value.GetType(), outputType: typeof(Seq<Curve>))),
-        latticeCase: static (state, domain) => state.Key.Catch(() => state.Policy.Switch(
+            ? CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context)
+            : Fin.Fail<CurveBatch>(error: new KernelFault.Unsupported(InputType: domain.Value.GetType(), OutputType: typeof(Seq<Curve>))),
+        latticeCase: static (state, domain) => Try.lift(() => state.Policy.Switch(
             state: (Grid: domain.Value, Context: state.Context, Key: state.Key),
             meshScalarCase: static (s, p) =>
-                from field in ScalarField.Lattice(s.Grid, p.Values, key: s.Key)
+                from field in ScalarField.Lattice(s.Grid, p.Values)
                 from results in p.Levels.TraverseM(level => IsoContour.Detailed(field, s.Grid, level, s.Context, s.Key)).As()
                 from batch in AcceptCurves(
                     results.Bind(static result => result.Loops.Map(static chain => (Curve)chain.Points.ToPolylineCurve())),
                     results.Sum(static result => result.Loops.Count), native: false,
-                    ExtractionTolerance.FromContext(s.Context.Absolute), s.Key)
+                    ExtractionTolerance.FromContext(s.Context.Absolute))
                 select batch,
-            planeCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(CellLattice), typeof(ContourPolicy.PlaneCase))),
-            axisCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(CellLattice), typeof(ContourPolicy.AxisCase))),
-            surfaceIsoCase: static (s, _) => Fin.Fail<CurveBatch>(s.Key.Unsupported(typeof(CellLattice), typeof(ContourPolicy.SurfaceIsoCase))))));
+            planeCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(CellLattice), typeof(ContourPolicy.PlaneCase))),
+            axisCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(CellLattice), typeof(ContourPolicy.AxisCase))),
+            surfaceIsoCase: static (s, _) => Fin.Fail<CurveBatch>(new KernelFault.Unsupported(typeof(CellLattice), typeof(ContourPolicy.SurfaceIsoCase))))).Run().Bind(static inner => inner));
 
-    private static Fin<CurveBatch> CurvesFromMesh(MeshSpace space, ContourPolicy policy, Op key) =>
-        key.Catch(() => policy.Switch(
-            state: (Space: space, Key: key),
+    private static Fin<CurveBatch> CurvesFromMesh(MeshSpace space, ContourPolicy policy) =>
+        Try.lift(() => policy.Switch(
+            state: space,
             planeCase: static (state, p) =>
-                Intersection.Apply(new IntersectOp.PlaneMesh(Cut: p.Section, Mesh: state.Space, Policy: IntersectPolicy.Canonical), state.Key)
+                Intersection.Apply(new IntersectOp.PlaneMesh(Cut: p.Section, Mesh: state, Policy: IntersectPolicy.Canonical), state.Key)
                     .Bind(result => result is IntersectResult.Chains chains
                         ? AcceptCurves(curves: chains.Walked.Map(static chain => (Curve)chain.Points.ToPolylineCurve()), attempted: chains.Walked.Count,
-                            native: false, tolerance: ExtractionTolerance.FromContext(state.Space.Tolerance.Absolute), key: state.Key)
-                        : Fin.Fail<CurveBatch>(state.Key.InvalidResult())),
-            axisCase: static (state, p) => AcceptNative(curves: Rhino.Geometry.Mesh.CreateContourCurves(meshToContour: state.Space.Native, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, tolerance: state.Space.Tolerance.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Space.Tolerance.Absolute), key: state.Key),
-            meshScalarCase: static (state, p) => ScalarIsolinesDetailed(mesh: state.Space.Native, values: p.Values, levels: p.Levels, context: state.Space.Tolerance, key: state.Key)
-                .Bind(result => AcceptCurves(curves: result.Curves, attempted: result.Census.StitchedCandidates, native: false, tolerance: ExtractionTolerance.FromContext(state.Space.Tolerance.For(ToleranceLane.Weld)), scalarIsoline: Some(result), key: state.Key)),
-            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(Mesh), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
-    private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
-        key.Catch(() => policy.Switch(
-            state: (Cloud: cloud, Context: context, Key: key),
-            axisCase: static (state, p) => state.Cloud.UseIndex(key: state.Key, project: pc => AcceptNative(curves: pc.CreateContourCurves(contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, absoluteTolerance: state.Context.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Context.Absolute), key: state.Key)),
-            planeCase: static (state, p) => state.Cloud.UseIndex(key: state.Key, project: pc => AcceptNative(curves: pc.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Context.Absolute), key: state.Key)),
-            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(PointCloud), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
-            meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(PointCloud), outputType: typeof(ContourPolicy.MeshScalarCase)))));
-    private static Fin<CurveBatch> AcceptNative(Curve[] curves, ExtractionTolerance tolerance, Op key) =>
-        Optional(curves).ToFin(key.InvalidResult())
-            .Bind(active => AcceptCurves(curves: toSeq(active), attempted: active.Length, native: true, tolerance: tolerance, key: key));
-    private static Fin<CurveBatch> AcceptCurves(Seq<Curve> curves, int attempted, bool native, ExtractionTolerance tolerance, Op key, Option<ScalarIsolineResult> scalarIsoline = default) {
+                            native: false, tolerance: ExtractionTolerance.FromContext(state.Tolerance.Absolute))
+                        : Fin.Fail<CurveBatch>(new KernelFault.InvalidResult())),
+            axisCase: static (state, p) => AcceptNative(curves: Rhino.Geometry.Mesh.CreateContourCurves(meshToContour: state.Native, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, tolerance: state.Tolerance.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Tolerance.Absolute)),
+            meshScalarCase: static (state, p) => ScalarIsolinesDetailed(mesh: state.Native, values: p.Values, levels: p.Levels, context: state.Tolerance)
+                .Bind(result => AcceptCurves(curves: result.Curves, attempted: result.Census.StitchedCandidates, native: false, tolerance: ExtractionTolerance.FromContext(state.Tolerance.For(ToleranceLane.Weld)), scalarIsoline: Some(result))),
+            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: new KernelFault.Unsupported(InputType: typeof(Mesh), OutputType: typeof(ContourPolicy.SurfaceIsoCase))))).Run().Bind(static inner => inner);
+    private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context) =>
+        Try.lift(() => policy.Switch(
+            state: (Cloud: cloud, Context: context),
+            axisCase: static (state, p) => state.Cloud.UseIndex(project: pc => AcceptNative(curves: pc.CreateContourCurves(contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, absoluteTolerance: state.Context.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Context.Absolute))),
+            planeCase: static (state, p) => state.Cloud.UseIndex(project: pc => AcceptNative(curves: pc.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Context.Absolute))),
+            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: new KernelFault.Unsupported(InputType: typeof(PointCloud), OutputType: typeof(ContourPolicy.SurfaceIsoCase))),
+            meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: new KernelFault.Unsupported(InputType: typeof(PointCloud), OutputType: typeof(ContourPolicy.MeshScalarCase))))).Run().Bind(static inner => inner);
+    private static Fin<CurveBatch> AcceptNative(Curve[] curves, ExtractionTolerance tolerance) =>
+        Optional(curves).ToFin(new KernelFault.InvalidResult())
+            .Bind(active => AcceptCurves(curves: toSeq(active), attempted: active.Length, native: true, tolerance: tolerance));
+    private static Fin<CurveBatch> AcceptCurves(Seq<Curve> curves, int attempted, bool native, ExtractionTolerance tolerance, Option<ScalarIsolineResult> scalarIsoline = default) {
         Seq<Curve> accepted = curves.Filter(static curve => curve is not null && curve.IsValid);
         return Fin.Succ(new CurveBatch(
             accepted, scalarIsoline,
@@ -206,11 +204,11 @@ public abstract partial record ExtractionDomain {
                 ScalarIsoline: scalarIsoline.Map(static result => result.Census))));
     }
 
-    private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
-        if (values.Count != mesh.Vertices.Count) return Fin.Fail<ScalarIsolineResult>(key.InvalidInput());
+    private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context) {
+        if (values.Count != mesh.Vertices.Count) return Fin.Fail<ScalarIsolineResult>(new KernelFault.InvalidInput());
         using Mesh triangulated = mesh.DuplicateMesh();
-        if (triangulated.Faces.QuadCount > 0 && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<ScalarIsolineResult>(key.InvalidResult());
-        if (triangulated.Vertices.Count != values.Count) return Fin.Fail<ScalarIsolineResult>(key.InvalidResult());
+        if (triangulated.Faces.QuadCount > 0 && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<ScalarIsolineResult>(new KernelFault.InvalidResult());
+        if (triangulated.Vertices.Count != values.Count) return Fin.Fail<ScalarIsolineResult>(new KernelFault.InvalidResult());
         Tolerance band = context.For(ToleranceLane.Fraction);
         Tolerance weld = context.For(ToleranceLane.Weld);
         List<(Point3d A, Point3d B)> segments = [];
@@ -333,172 +331,164 @@ public abstract partial record Extraction {
     public sealed record StreamBundleCase(VectorField Field, PositiveMagnitude InitialStep, RungeKuttaIntegrator Integrator, Termination Termination, ExtractionDomain Domain, SampleKind Seeds) : Extraction;
     public sealed record DrapeCase(Vector3d Direction, ExtractionDomain Domain, SampleKind Seeds) : Extraction;
     private Extraction() { }
-    public static Fin<Extraction> Probe(VectorField source, Point3d sample, Op? key = null) =>
-        Probe(source, sample, static (field, point) => (Extraction)new VectorProbeCase(field, point), key);
-    public static Fin<Extraction> Probe(ScalarField source, Point3d sample, Op? key = null) =>
-        Probe(source, sample, static (field, point) => (Extraction)new ScalarProbeCase(field, point), key);
-    public static Fin<Extraction> Probe(TensorField source, Point3d sample, Op? key = null) =>
-        Probe(source, sample, static (field, point) => (Extraction)new TensorProbeCase(field, point), key);
-    private static Fin<Extraction> Probe<TField>(TField source, Point3d sample, Func<TField, Point3d, Extraction> create, Op? key) where TField : class {
-        Op op = key.OrDefault();
-        return from field in op.Need(source)
-               from point in op.AcceptValue(sample)
+    public static Fin<Extraction> Probe(VectorField source, Point3d sample) =>
+        Probe(source, sample, static (field, point) => (Extraction)new VectorProbeCase(field, point));
+    public static Fin<Extraction> Probe(ScalarField source, Point3d sample) =>
+        Probe(source, sample, static (field, point) => (Extraction)new ScalarProbeCase(field, point));
+    public static Fin<Extraction> Probe(TensorField source, Point3d sample) =>
+        Probe(source, sample, static (field, point) => (Extraction)new TensorProbeCase(field, point));
+    private static Fin<Extraction> Probe<TField>(TField source, Point3d sample, Func<TField, Point3d, Extraction> create) where TField : class {
+        return from field in Admit.Need(source)
+               from point in Acceptance.Value(sample)
                select create(field, point);
     }
-    public static Fin<Extraction> Contour(ExtractionDomain domain, ContourPolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
-        return from validDomain in Admit.NotNull(value: domain, key: op)
-               from validPolicy in Optional(policy).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))
+    public static Fin<Extraction> Contour(ExtractionDomain domain, ContourPolicy policy) {
+        return from validDomain in Admit.NotNull(value: domain)
+               from validPolicy in Optional(policy).ToFin(new KernelFault.InvalidInput()).Bind(active => active.Admit())
                select (Extraction)new ContourCase(Domain: validDomain, Policy: validPolicy);
     }
-    public static Fin<Extraction> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) {
-        Op op = key.OrDefault();
-        return from validField in Optional(field).ToFin(op.InvalidInput())
-               from _ in guard(bounds.IsValid && bounds.Diagonal.Length > 0.0, op.InvalidInput())
-               from cells in op.AcceptValidated<Dimension>(candidate: resolution)
-               from steps in op.AcceptValidated<Dimension>(candidate: maxRootSteps)
+    public static Fin<Extraction> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps) {
+        return from validField in Optional(field).ToFin(new KernelFault.InvalidInput())
+               from _ in guard(bounds.IsValid && bounds.Diagonal.Length > 0.0, new KernelFault.InvalidInput())
+               from cells in FactoryBridge.Accept<Dimension>(candidate: resolution)
+               from steps in FactoryBridge.Accept<Dimension>(candidate: maxRootSteps)
                select (Extraction)new IsoSurfaceCase(Field: validField, Bounds: bounds, Resolution: cells, MaxRootSteps: steps);
     }
-    public static Fin<Extraction> Glyph(VectorField field, double scale, ExtractionDomain domain, SampleKind seeds, Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Admit.NotNull(value: field, key: op)
-               from magnitude in op.AcceptValidated<PositiveMagnitude>(candidate: scale)
-               from validDomain in Admit.NotNull(value: domain, key: op)
-               from validSeeds in SampleKind.Admit(value: seeds, key: op)
+    public static Fin<Extraction> Glyph(VectorField field, double scale, ExtractionDomain domain, SampleKind seeds) {
+        return from source in Admit.NotNull(value: field)
+               from magnitude in FactoryBridge.Accept<PositiveMagnitude>(candidate: scale)
+               from validDomain in Admit.NotNull(value: domain)
+               from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new GlyphCase(Field: source, Scale: magnitude, Domain: validDomain, Seeds: validSeeds);
     }
-    public static Fin<Extraction> Grid(ScalarField field, ExtractionDomain domain, SampleKind seeds, Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Admit.NotNull(value: field, key: op)
-               from validDomain in Admit.NotNull(value: domain, key: op)
-               from validSeeds in SampleKind.Admit(value: seeds, key: op)
+    public static Fin<Extraction> Grid(ScalarField field, ExtractionDomain domain, SampleKind seeds) {
+        return from source in Admit.NotNull(value: field)
+               from validDomain in Admit.NotNull(value: domain)
+               from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new GridCase(Field: source, Domain: validDomain, Seeds: validSeeds);
     }
-    public static Fin<Extraction> Drape(Vector3d direction, ExtractionDomain domain, SampleKind seeds, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(ValidityClaim.Finite(direction) && direction.Length > 0.0, op.InvalidInput()).ToFin()
-               from validDomain in Admit.NotNull(value: domain, key: op)
-               from validSeeds in SampleKind.Admit(value: seeds, key: op)
+    public static Fin<Extraction> Drape(Vector3d direction, ExtractionDomain domain, SampleKind seeds) {
+        return from _ in guard(ValidityClaim.Finite(direction) && direction.Length > 0.0, new KernelFault.InvalidInput()).ToFin()
+               from validDomain in Admit.NotNull(value: domain)
+               from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new DrapeCase(Direction: direction, Domain: validDomain, Seeds: validSeeds);
     }
-    public static Fin<Extraction> StreamBundle(VectorField field, double initialStep, Termination termination, ExtractionDomain domain, SampleKind seeds, Option<RungeKuttaIntegrator> integrator = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from source in Admit.NotNull(value: field, key: op)
-               from step in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-               from stop in Termination.Admit(value: termination, key: op)
-               from active in RungeKuttaIntegrator.AdmitOrFixed(value: integrator, key: op)
-               from validDomain in Admit.NotNull(value: domain, key: op)
-               from validSeeds in SampleKind.Admit(value: seeds, key: op)
+    public static Fin<Extraction> StreamBundle(VectorField field, double initialStep, Termination termination, ExtractionDomain domain, SampleKind seeds, Option<RungeKuttaIntegrator> integrator = default) {
+        return from source in Admit.NotNull(value: field)
+               from step in FactoryBridge.Accept<PositiveMagnitude>(candidate: initialStep)
+               from stop in Termination.Admit(value: termination)
+               from active in RungeKuttaIntegrator.AdmitOrFixed(value: integrator)
+               from validDomain in Admit.NotNull(value: domain)
+               from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new StreamBundleCase(Field: source, InitialStep: step, Integrator: active, Termination: stop, Domain: validDomain, Seeds: validSeeds);
     }
 
-    internal Fin<TOut> Project<TOut>(Context context, Op key) {
+    internal Fin<TOut> Project<TOut>(Context context) {
         return Switch(
-        state: (Context: context, Key: key),
-        vectorProbeCase: static (state, extraction) => ResultProjection.Rows<VectorProbeCase, TOut>(self: extraction, key: state.Key, owner: typeof(VectorProbeCase),
+        state: context,
+        vectorProbeCase: static (state, extraction) => ResultProjection.Rows<VectorProbeCase, TOut>(self: extraction, owner: typeof(VectorProbeCase),
             ProjectionRow.Of<LogMapResult>(() => extraction.Source is VectorField.TangentLogMapCase log
-                ? GeodesicKernel.LogMapAt(space: log.Space, source: log.Source, sample: extraction.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key)
-                : Fin.Fail<LogMapResult>(state.Key.Unsupported(inputType: extraction.Source.GetType(), outputType: typeof(LogMapResult)))),
+                ? GeodesicKernel.LogMapAt(space: log.Space, source: log.Source, sample: extraction.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows)
+                : Fin.Fail<LogMapResult>(new KernelFault.Unsupported(InputType: extraction.Source.GetType(), OutputType: typeof(LogMapResult)))),
             ProjectionRow.Of<LogMapTrace>(() => extraction.Source is VectorField.TangentLogMapCase log
-                ? GeodesicKernel.LogMapAt(space: log.Space, source: log.Source, sample: extraction.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key).Map(static result => result.Trace)
-                : Fin.Fail<LogMapTrace>(state.Key.Unsupported(inputType: extraction.Source.GetType(), outputType: typeof(LogMapTrace)))),
+                ? GeodesicKernel.LogMapAt(space: log.Space, source: log.Source, sample: extraction.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows).Map(static result => result.Trace)
+                : Fin.Fail<LogMapTrace>(new KernelFault.Unsupported(InputType: extraction.Source.GetType(), OutputType: typeof(LogMapTrace)))),
             ProjectionRow.Of<HodgeWitness>(() => extraction.Source is VectorField.HodgeCase hodge
-                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Map(static solved => solved.Witness)
-                : Fin.Fail<HodgeWitness>(state.Key.Unsupported(inputType: extraction.Source.GetType(), outputType: typeof(HodgeWitness)))),
+                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state).Map(static solved => solved.Witness)
+                : Fin.Fail<HodgeWitness>(new KernelFault.Unsupported(InputType: extraction.Source.GetType(), OutputType: typeof(HodgeWitness)))),
             ProjectionRow.Of<HarmonicCensus>(() => extraction.Source is VectorField.HodgeCase hodge
-                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Bind(solved => solved.Witness.Harmonic.ToFin(state.Key.InvalidResult()))
-                : Fin.Fail<HarmonicCensus>(state.Key.Unsupported(inputType: extraction.Source.GetType(), outputType: typeof(HarmonicCensus)))),
-            ProjectionRow.Of<Vector3d>(() => extraction.Source.SampleVector(sample: extraction.Sample, context: state.Context, key: state.Key)),
-            ProjectionRow.Of<double>(() => extraction.Source.SampleVector(sample: extraction.Sample, context: state.Context, key: state.Key).Map(static vector => vector.Length)),
-            ProjectionRow.Of<VectorSpan>(() => SpanAt(extraction.Source, extraction.Sample, state.Context, state.Key)),
-            ProjectionRow.Of<Direction>(() => SpanAt(extraction.Source, extraction.Sample, state.Context, state.Key).Bind(span => span.Project<Direction>(key: state.Key))),
-            ProjectionRow.Of<Line>(() => SpanAt(extraction.Source, extraction.Sample, state.Context, state.Key).Bind(span => span.Project<Line>(key: state.Key)))),
-        scalarProbeCase: static (state, extraction) => ResultProjection.Rows<ScalarProbeCase, TOut>(self: extraction, key: state.Key, owner: typeof(ScalarProbeCase),
-            ProjectionRow.Of<SdfSample>(() => extraction.Source.SampleSdfDetailed(sample: extraction.Sample, context: state.Context, key: state.Key)),
-            ProjectionRow.Of<FieldSample>(() => extraction.Source.SampleDetailed(sample: extraction.Sample, context: state.Context, key: state.Key)),
-            ProjectionRow.Of<double>(() => extraction.Source.SampleScalar(sample: extraction.Sample, context: state.Context, key: state.Key))),
-        tensorProbeCase: static (state, extraction) => ResultProjection.Rows<TensorProbeCase, TOut>(self: extraction, key: state.Key, owner: typeof(TensorProbeCase),
-            ProjectionRow.Of<SymmetricMatrix>(() => extraction.Source.SampleTensor(sample: extraction.Sample, context: state.Context, key: state.Key)),
-            ProjectionRow.Of<Seq<(double Eigenvalue, Direction Eigenvector)>>(() => extraction.Source.PrincipalDirections(sample: extraction.Sample, context: state.Context, key: state.Key))),
+                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state).Bind(solved => solved.Witness.Harmonic.ToFin(new KernelFault.InvalidResult()))
+                : Fin.Fail<HarmonicCensus>(new KernelFault.Unsupported(InputType: extraction.Source.GetType(), OutputType: typeof(HarmonicCensus)))),
+            ProjectionRow.Of<Vector3d>(() => extraction.Source.SampleVector(sample: extraction.Sample, context: state)),
+            ProjectionRow.Of<double>(() => extraction.Source.SampleVector(sample: extraction.Sample, context: state).Map(static vector => vector.Length)),
+            ProjectionRow.Of<VectorSpan>(() => SpanAt(extraction.Source, extraction.Sample, state, state.Key)),
+            ProjectionRow.Of<Direction>(() => SpanAt(extraction.Source, extraction.Sample, state, state.Key).Bind(span => span.Project<Direction>())),
+            ProjectionRow.Of<Line>(() => SpanAt(extraction.Source, extraction.Sample, state, state.Key).Bind(span => span.Project<Line>()))),
+        scalarProbeCase: static (state, extraction) => ResultProjection.Rows<ScalarProbeCase, TOut>(self: extraction, owner: typeof(ScalarProbeCase),
+            ProjectionRow.Of<SdfSample>(() => extraction.Source.SampleSdfDetailed(sample: extraction.Sample, context: state)),
+            ProjectionRow.Of<FieldSample>(() => extraction.Source.SampleDetailed(sample: extraction.Sample, context: state)),
+            ProjectionRow.Of<double>(() => extraction.Source.SampleScalar(sample: extraction.Sample, context: state))),
+        tensorProbeCase: static (state, extraction) => ResultProjection.Rows<TensorProbeCase, TOut>(self: extraction, owner: typeof(TensorProbeCase),
+            ProjectionRow.Of<SymmetricMatrix>(() => extraction.Source.SampleTensor(sample: extraction.Sample, context: state)),
+            ProjectionRow.Of<Seq<(double Eigenvalue, Direction Eigenvector)>>(() => extraction.Source.PrincipalDirections(sample: extraction.Sample, context: state))),
         contourCase: static (state, extraction) =>
-            from batch in extraction.Domain.Contours(policy: extraction.Policy, context: state.Context, key: state.Key)
-            from output in ResultProjection.Rows<ExtractionTally, TOut>(self: batch.Tally, key: state.Key, owner: typeof(ContourCase),
+            from batch in extraction.Domain.Contours(policy: extraction.Policy, context: state)
+            from output in ResultProjection.Rows<ExtractionTally, TOut>(self: batch.Tally, owner: typeof(ContourCase),
                 ProjectionRow.Of<Seq<Curve>>(() => Fin.Succ(batch.Curves)),
-                ProjectionRow.Of<ScalarIsolineResult>(() => batch.ScalarIsoline.ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineResult)))),
-                ProjectionRow.Of<IsolineCensus>(() => batch.ScalarIsoline.Map(static result => result.Census).ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(IsolineCensus)))))
+                ProjectionRow.Of<ScalarIsolineResult>(() => batch.ScalarIsoline.ToFin(Fail: new KernelFault.Unsupported(InputType: typeof(ContourPolicy), OutputType: typeof(ScalarIsolineResult)))),
+                ProjectionRow.Of<IsolineCensus>(() => batch.ScalarIsoline.Map(static result => result.Census).ToFin(Fail: new KernelFault.Unsupported(InputType: typeof(ContourPolicy), OutputType: typeof(IsolineCensus)))))
             select output,
         isoSurfaceCase: static (state, extraction) =>
-            from cell in state.Key.AcceptValidated<PositiveMagnitude>(
-                candidate: extraction.Bounds.Diagonal.MaximumCoordinate / extraction.Resolution.Value)
+            from cell in FactoryBridge.Accept<PositiveMagnitude>(candidate: extraction.Bounds.Diagonal.MaximumCoordinate / extraction.Resolution.Value)
             from grid in CellLattice.Of(bounds: extraction.Bounds, cell: cell,
-                ceiling: (long)extraction.Resolution.Value * extraction.Resolution.Value * extraction.Resolution.Value, key: state.Key)
+                ceiling: (long)extraction.Resolution.Value * extraction.Resolution.Value * extraction.Resolution.Value)
             from run in IsoSurface.Detailed(field: extraction.Field, grid: grid,
-                policy: IsoSurfacePolicy.Default with { MaxRootSteps = extraction.MaxRootSteps }, context: state.Context, key: state.Key)
-            from output in ResultProjection.Rows<IsoSurfaceRun, TOut>(self: run, key: state.Key, owner: typeof(IsoSurfaceCase),
-                ProjectionRow.Of<Mesh>(() => run.Space.ToFin(state.Key.InvalidResult()).Map(static space => space.DuplicateNative())),
-                ProjectionRow.Of<MeshSpace>(() => run.Space.ToFin(state.Key.InvalidResult())),
+                policy: IsoSurfacePolicy.Default with { MaxRootSteps = extraction.MaxRootSteps }, context: state)
+            from output in ResultProjection.Rows<IsoSurfaceRun, TOut>(self: run, owner: typeof(IsoSurfaceCase),
+                ProjectionRow.Of<Mesh>(() => run.Space.ToFin(new KernelFault.InvalidResult()).Map(static space => space.DuplicateNative())),
+                ProjectionRow.Of<MeshSpace>(() => run.Space.ToFin(new KernelFault.InvalidResult())),
                 ProjectionRow.Of<ExtractionTally>(() => Fin.Succ(new ExtractionTally(
                     Native: true, Attempted: 1, Emitted: run.Space.IsSome ? 1 : 0,
                     Tolerance: ExtractionTolerance.RhinoFixed(run.FixedTolerance), IsoSurface: Some(run)))))
             select output,
         glyphCase: static (state, extraction) => ProjectSamples<TOut, Line>(
-            seeds: extraction.Seeds, domain: extraction.Domain, context: state.Context, key: state.Key,
-            sample: (point, model, op) => extraction.Field.SampleVector(sample: point, context: model, key: op)
-                .Bind(vector => VectorSpan.Of(anchor: point, vector: vector, context: model, key: op))
+            seeds: extraction.Seeds, domain: extraction.Domain, context: state,
+            sample: (point, model, op) => extraction.Field.SampleVector(sample: point, context: model)
+                .Bind(vector => VectorSpan.Of(anchor: point, vector: vector, context: model))
                 .Map(span => new Line(span.Anchor, span.Anchor + (extraction.Scale.Value * span.Value))),
-            project: static (glyphs, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(GlyphCase),
-                Gated<Seq<Line>>(rejected, op, () => Fin.Succ(glyphs)))),
+            project: static (glyphs, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(GlyphCase),
+                Gated<Seq<Line>>(rejected, () => Fin.Succ(glyphs)))),
         gridCase: static (state, extraction) => ProjectSamples<TOut, (Point3d Point, double Value)>(
-            seeds: extraction.Seeds, domain: extraction.Domain, context: state.Context, key: state.Key,
-            sample: (point, model, op) => extraction.Field.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
-            project: static (samples, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(GridCase),
-                Gated<Seq<(Point3d Point, double Value)>>(rejected, op, () => samples.ForAll(static sample => ValidityClaim.Finite(sample.Point) && ValidityClaim.Finite(value: sample.Value))
+            seeds: extraction.Seeds, domain: extraction.Domain, context: state,
+            sample: (point, model, op) => extraction.Field.SampleScalar(sample: point, context: model).Map(value => (Point: point, Value: value)),
+            project: static (samples, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(GridCase),
+                Gated<Seq<(Point3d Point, double Value)>>(rejected, () => samples.ForAll(static sample => ValidityClaim.Finite(sample.Point) && ValidityClaim.Finite(value: sample.Value))
                     ? Fin.Succ(samples)
-                    : Fin.Fail<Seq<(Point3d Point, double Value)>>(op.InvalidResult())))),
+                    : Fin.Fail<Seq<(Point3d Point, double Value)>>(new KernelFault.InvalidResult())))),
         streamBundleCase: static (state, extraction) => ProjectSamples<TOut, StreamlineTrace>(
-            seeds: extraction.Seeds, domain: extraction.Domain, context: state.Context, key: state.Key,
-            sample: (seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: extraction.Field, seed: seed, initialStep: extraction.InitialStep, integrator: extraction.Integrator, termination: extraction.Termination, context: model, key: op),
-            project: static (traces, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(StreamBundleCase),
-                Streamed<StreamlineTrace>(rejected, op, traces),
-                Streamed<Polyline>(rejected, op, traces),
-                Streamed<Curve>(rejected, op, traces))),
+            seeds: extraction.Seeds, domain: extraction.Domain, context: state,
+            sample: (seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: extraction.Field, seed: seed, initialStep: extraction.InitialStep, integrator: extraction.Integrator, termination: extraction.Termination, context: model),
+            project: static (traces, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(StreamBundleCase),
+                Streamed<StreamlineTrace>(rejected, traces),
+                Streamed<Polyline>(rejected, traces),
+                Streamed<Curve>(rejected, traces))),
         drapeCase: static (state, extraction) => extraction.Domain is ExtractionDomain.MeshCase meshDomain
-            ? from samples in extraction.Seeds.Evaluate(domain: extraction.Domain, context: state.Context, key: state.Key)
-              from direction in Direction.Of(value: extraction.Direction, context: state.Context, key: state.Key)
-              from hits in state.Key.Catch(() => {
+            ? from samples in extraction.Seeds.Evaluate(domain: extraction.Domain, context: state)
+              from direction in Direction.Of(value: extraction.Direction, context: state)
+              from hits in Try.lift(() => {
                   Point3d[] projected = Rhino.Geometry.Intersect.Intersection.ProjectPointsToMeshesEx(
                       meshes: [meshDomain.Value.Native], points: samples.Points, direction: direction.Value,
-                      tolerance: state.Context.Absolute.Value, indices: out int[] indices);
-                  return state.Key.AcceptValue(value: (Projected: projected, Indices: indices));
-              })
+                      tolerance: state.Absolute.Value, indices: out int[] indices);
+                  return Acceptance.Value(value: (Projected: projected, Indices: indices));
+              }).Run().Bind(static inner => inner)
               let covered = toSeq(hits.Indices).Distinct().Count
               let tally = new ExtractionTally(
                   Native: true, Attempted: samples.Points.Count, Emitted: covered,
-                  Tolerance: ExtractionTolerance.FromContext(state.Context.Absolute), Sample: Some(samples.Tally))
-              from output in ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: state.Key, owner: typeof(DrapeCase),
+                  Tolerance: ExtractionTolerance.FromContext(state.Absolute), Sample: Some(samples.Tally))
+              from output in ResultProjection.Rows<ExtractionTally, TOut>(self: tally, owner: typeof(DrapeCase),
                   ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(toSeq(hits.Projected))),
                   ProjectionRow.Of<Seq<(int Source, Point3d Point)>>(() => Fin.Succ(toSeq(hits.Indices.Zip(hits.Projected, static (source, point) => (Source: source, Point: point))))))
               select output
-            : Fin.Fail<TOut>(state.Key.Unsupported(inputType: extraction.Domain.GetType(), outputType: typeof(DrapeCase))));
+            : Fin.Fail<TOut>(new KernelFault.Unsupported(InputType: extraction.Domain.GetType(), OutputType: typeof(DrapeCase))));
 
-        static Fin<VectorSpan> SpanAt(VectorField source, Point3d sample, Context context, Op key) =>
-            source.SampleVector(sample: sample, context: context, key: key)
-                .Bind(vector => VectorSpan.Of(anchor: sample, vector: vector, context: context, key: key));
+        static Fin<VectorSpan> SpanAt(VectorField source, Point3d sample, Context context) =>
+            source.SampleVector(sample: sample, context: context)
+                .Bind(vector => VectorSpan.Of(anchor: sample, vector: vector, context: context));
     }
 
-    private static ProjectionRow Gated<T>(int rejected, Op op, Func<Fin<T>> body) =>
-        ProjectionRow.Of<T>(() => rejected == 0 ? body() : Fin.Fail<T>(op.InvalidResult()));
+    private static ProjectionRow Gated<T>(int rejected, Func<Fin<T>> body) =>
+        ProjectionRow.Of<T>(() => rejected == 0 ? body() : Fin.Fail<T>(new KernelFault.InvalidResult()));
 
-    private static ProjectionRow Streamed<TShape>(int rejected, Op op, Seq<StreamlineTrace> traces) =>
-        Gated<Seq<TShape>>(rejected, op, () => traces.TraverseM(trace => FlowKernel.ProjectTrace<TShape>(trace: trace, key: op)).As());
+    private static ProjectionRow Streamed<TShape>(int rejected, Seq<StreamlineTrace> traces) =>
+        Gated<Seq<TShape>>(rejected, () => traces.TraverseM(trace => FlowKernel.ProjectTrace<TShape>(trace: trace, key: op)).As());
 
-    private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Op key, Func<Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionTally, Op, Fin<TOut>> project) =>
-        from samples in seeds.Evaluate(domain: domain, context: context, key: key)
-        let split = samples.Points.Map(point => sample(point, context, key)).Partition()
+    private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Func<Point3d, Context, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionTally, Fin<TOut>> project) =>
+        from samples in seeds.Evaluate(domain: domain, context: context)
+        let split = samples.Points.Map(point => sample(point, context)).Partition()
         let tally = new ExtractionTally(
             Native: false, Attempted: samples.Points.Count, Emitted: split.Succs.Count,
             Tolerance: ExtractionTolerance.NotApplicable, Sample: Some(samples.Tally))
-        from output in project(split.Succs, split.Fails.Count, tally, key)
+        from output in project(split.Succs, split.Fails.Count, tally)
         select output;
 }
 

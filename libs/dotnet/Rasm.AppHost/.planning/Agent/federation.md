@@ -78,7 +78,7 @@ public sealed partial class FederatedServer {
     public string Endpoint { get; private init; } = string.Empty;
 
     public static Validation<Error, FederatedServer> Admit(string server, TransportKind kind, string endpoint, TrustScope trust, StdioClientTransportOptions? stdio = null) =>
-        Op.Of().AcceptValidated<FederatedServer>(
+        FactoryBridge.Accept<FederatedServer>(
                 fault: Validate(server, provider: null, out FederatedServer? admitted),
                 admitted: admitted)
             .Map(row => row with {
@@ -252,13 +252,13 @@ public sealed record FederatedCall(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FederatedDispatch {
     public static Fin<CommandBody> Compile(FederatedServer server, PeerVerb verb, string op, CommandArguments arguments) =>
-        Fin.Succ(new CommandBody($"federated.{server.Value}{verb.Key}", op, arguments.Payload));
+        Fin.Succ(new CommandBody($"federated.{server.Value}{verb.Key}", arguments.Payload));
 
     public static FederatedCall Decode(CommandBody body, CorrelationId correlation) =>
         body.Surface["federated.".Length..] switch {
             var keyed => keyed.IndexOf('.') switch {
-                < 0 => new FederatedCall(keyed, PeerVerb.Tool, body.Op, body.Payload, correlation),
-                var dot => new FederatedCall(keyed[..dot], PeerVerb.Get(keyed[dot..]), body.Op, body.Payload, correlation),
+                < 0 => new FederatedCall(keyed, PeerVerb.Tool, body.Payload, correlation),
+                var dot => new FederatedCall(keyed[..dot], PeerVerb.Get(keyed[dot..]), body.Payload, correlation),
             },
         };
 
@@ -275,33 +275,29 @@ public static class FederatedDispatch {
         from _peer in OutboundSurface.Carry(runtime.Outbound, HopOf(server), ct => Peer(runtime, client, call, ct), Some(latency))
         from settled in IO.lift(runtime.Clocks.Line.Capture())
         from span in IO.lift(runtime.Clocks.Line.Elapsed(mark, settled))
-        select Fin.Succ(new DispatchResult($"federated.{call.Server}{call.Verb.Key}", call.Op, Duration.FromTimeSpan(span)));
+        select Fin.Succ(new DispatchResult($"federated.{call.Server}{call.Verb.Key}", Duration.FromTimeSpan(span)));
 
     static async Task<(HopOutcome Outcome, PeerAnswer Value)> Peer(FederationRuntime runtime, McpClient client, FederatedCall call, CancellationToken ct) {
         using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(runtime.CallTimeout);
         return await call.Verb.Switch(
             tool: async () => {
-                CallToolResult peer = await client.CallToolAsync(
-                    call.Op, Arguments(call.Payload), progress: null, options: null,
+                CallToolResult peer = await client.CallToolAsync(Arguments(call.Payload), progress: null, options: null,
                     cancellationToken: deadline.Token).ConfigureAwait(false);
                 return (peer.IsError is true
                     ? new HopOutcome.Refused(new FederationFault.ToolCallFaulted($"{call.Server}.{call.Op}"))
                     : (HopOutcome)new HopOutcome.Delivered(), (PeerAnswer)new PeerAnswer.Tool(peer));
             },
             resource: async () => {
-                ReadResourceResult peer = await client.ReadResourceAsync(
-                    call.Op, options: null, cancellationToken: deadline.Token).ConfigureAwait(false);
+                ReadResourceResult peer = await client.ReadResourceAsync(options: null, cancellationToken: deadline.Token).ConfigureAwait(false);
                 return ((HopOutcome)new HopOutcome.Delivered(), (PeerAnswer)new PeerAnswer.Resource(peer));
             },
             prompt: async () => {
-                GetPromptResult peer = await client.GetPromptAsync(
-                    call.Op, Arguments(call.Payload), options: null, cancellationToken: deadline.Token).ConfigureAwait(false);
+                GetPromptResult peer = await client.GetPromptAsync(Arguments(call.Payload), options: null, cancellationToken: deadline.Token).ConfigureAwait(false);
                 return ((HopOutcome)new HopOutcome.Delivered(), (PeerAnswer)new PeerAnswer.Prompt(peer));
             },
             template: async () => {
-                ReadResourceResult peer = await client.ReadResourceAsync(
-                    call.Op, Arguments(call.Payload), options: null, cancellationToken: deadline.Token).ConfigureAwait(false);
+                ReadResourceResult peer = await client.ReadResourceAsync(Arguments(call.Payload), options: null, cancellationToken: deadline.Token).ConfigureAwait(false);
                 return ((HopOutcome)new HopOutcome.Delivered(), (PeerAnswer)new PeerAnswer.Resource(peer));
             }).ConfigureAwait(false);
     }
@@ -350,14 +346,13 @@ public static partial class FederationProjection {
             template: static () => (EffectClass.Read, CostModel.Constant(new MeterVector(HashMap((CostUnit.Calls, 1L))))));
         return CapabilityDescriptor.Of(
             surface: $"federated.{server.Value}{verb.Key}",
-            op: op,
             arguments: new ArgumentContract.Native(SuiteContracts.Host.GetTypeInfo(typeof(JsonElement))),
             effect: effect,
             idempotency: Idempotency.Idempotent,
             cost: cost,
             permission: server.Trust.Floor(effect),
             progress: None,
-            compile: args => FederatedDispatch.Compile(server, verb, op, args));
+            compile: args => FederatedDispatch.Compile(server, verb, args));
     }
 }
 

@@ -390,7 +390,7 @@ public sealed partial class ProbeTargetKey {
     }
 
     public static Fin<ProbeTargetKey> Admit(ProbeCycle cycle, int feature, int sample) =>
-        Validate(cycle, feature, sample, out ProbeTargetKey key).Admitted(key);
+        Validate(cycle, feature, sample, out ProbeTargetKey key).Admitted();
 }
 
 [ComplexValueObject]
@@ -456,7 +456,7 @@ public sealed partial class ProbePlan {
         double clearanceMm,
         PositiveMagnitude travelLimitMm,
         Tolerance approach) =>
-        Validate(key, feature, cycle, band, count, attempts, feedMmPerMinute, clearanceMm,
+        Validate(feature, cycle, band, count, attempts, feedMmPerMinute, clearanceMm,
             travelLimitMm, approach, out ProbePlan plan).Admitted(plan);
 }
 ```
@@ -580,7 +580,7 @@ public sealed partial class StylusCalibration {
         double calibrationUncertaintyMm,
         Interval validity,
         Seq<ProbeLobe> lobes) =>
-        Validate(key, radiusMm, preTravelMm, probeFrame, thermalExpansionPerC, referenceTemperatureC,
+        Validate(radiusMm, preTravelMm, probeFrame, thermalExpansionPerC, referenceTemperatureC,
             thermalReference, calibrationUncertaintyMm, validity, lobes, out StylusCalibration calibration)
             .Admitted(calibration);
 
@@ -796,7 +796,6 @@ file sealed record ProbeReport(
 public static class Probe {
     private const double MadConsistency = 1.4826;
 
-    internal static readonly Op ProbeOp = Op.Of(name: "fabrication:probe");
 
     public static Fin<FabricationResult> Inspect(
         InspectPolicy policy, FabricationInput input, Option<InstrumentSet> set = default, Option<SpanBand> band = default) =>
@@ -846,8 +845,7 @@ public static class Probe {
                             Vector3d outward = Unit(sample.SurfaceNormal);
                             Vector3d direction = plan.Cycle.Approach(outward);
                             Point3d start = sample.Nominal - (direction * plan.ClearanceMm);
-                            return new ProbeTarget(
-                                key, plan, sample.Nominal, outward, direction,
+                            return new ProbeTarget(plan, sample.Nominal, outward, direction,
                                 start, start + (direction * plan.TravelLimitMm.Value));
                         }))
                     .Traverse(identity).As()))

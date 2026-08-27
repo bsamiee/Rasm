@@ -13,7 +13,7 @@ This page founds nothing: every silhouette, crossing, seed, section, crease, fil
 
 - Owner: `ViewKind` `[SmartEnum<string>]` discriminates the four operations, binding the shipped `ComparerAccessors.StringOrdinal` comparer and carrying ONE `CapabilitySet<ViewTrait>` column over the `Resolves`/`Retains` vocabulary; `ViewSubject` pairs one `MeshSpace` with its optional rigid `Pose` behind a fallible `Of`, so a default slot is unrepresentable and exploded views and positioned instances stay roster DATA applied once at admission; `PartSpan` is the union-soup offset row making face-to-part an O(1) read; `Camera` owns `Project`/`Depth`/`SideOf`/`ScreenBasis`, and `SideOf` IS the exact `Predicate.Orient3D` of the eye against a face; `EdgeKind` classifies silhouette/crease/boundary/intersection, `ProjectedSegment.Visible` derives the visible/hidden verdict from the invisibility count, `ViewPolicy` binds the `WeldCoplanar` contact decision and the part-keyed `Occludes` exception table beside the lane-derived crease dihedral, winding β², run `Context`, and composed `Narrow`/`Broad` policies; `PartContact` carries the interference roster with its `Penetrating` fact, `ProjectedSegment`/`DrawingProjection`/`EdgeHistogram` complete the emission and result surface over `SuccessorChain`, the ONE chain walk both Drawing carriers read; `ViewOp` owns the shared roster/pose/policy payload once while `Section` alone adds its cut plane, and `View` owns the ONE `Apply`; `ViewProjectionIntent`/`ViewConvention`/`ViewPose` are the drafting-convention catalog folding bounds-relative placement through ONE derived `Pose` body, whose `ToCamera` lowers the SAME pose onto this page's exact `Camera` and is that camera's ONLY mint.
 - Cases: `outline` is the visible slice of the SAME silhouette walk and QI solve (visible silhouette + boundary, no hidden set), never a parallel outliner; the four kinds differ ONLY in which slice of the shared solve they project and in `Section`'s cut delegation — one walk, one table, one solve, over one union soup whatever the roster count.
-- Entry: `public static Fin<DrawingProjection> View.Apply(ViewOp op, Op? key = null)` — the ONE entrypoint discriminating by op case through the generated total `Switch`, no `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling family and no assembly sibling: one part is a roster of one (`ViewSubject.Of`). Admission refusals ride the `Op` channel (`key.InvalidInput()` on a degenerate camera or an out-of-roster mask key), geometry defects ride `GeometryFault` family (`DegenerateInput` naming the part ordinal on a default, empty, or non-finite part; the same case naming the pair on a coplanar contact `WeldCoplanar` refuses), an empty locus routes `EmptyProjection`, a non-chain section result routes `Op.InvalidResult`, and a composed sibling fault surfaces unchanged — the fold never re-labels a sibling's typed fault.
+- Entry: `public static Fin<DrawingProjection> View.Apply(ViewOp op)` — the ONE entrypoint discriminating by op case through the generated total `Switch`, no `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling family and no assembly sibling: one part is a roster of one (`ViewSubject.Of`). Admission refusals ride the `Op` channel (`new KernelFault.InvalidInput()` on a degenerate camera or an out-of-roster mask key), geometry defects ride `GeometryFault` family (`DegenerateInput` naming the part ordinal on a default, empty, or non-finite part; the same case naming the pair on a coplanar contact `WeldCoplanar` refuses), an empty locus routes `EmptyProjection`, a non-chain section result routes `Op.InvalidResult`, and a composed sibling fault surfaces unchanged — the fold never re-labels a sibling's typed fault.
 - Auto: `Admit` traverses the roster one fallible `Seat` per part (`MeshEdit.Of(space).Apply(pose)` frozen through `ToSpace`, which reads the arena's OWN bound context; identity poses pass the space through) and `Freeze` welds the lifts into the offset union soup in one pass, projecting `PartSpan`, `FaceOwner`, and the complementary `Occludes`/`Draws` columns together — per-part vertex/face offsets make cross-part welds unrepresentable in the edge-incidence fold, emptiness and finiteness gate per part, and the mask table folds ONCE for every reader; `Contacts` runs the pairwise inter-part pass, ONE overlap `SpatialIndex.Query` of the memoized `MeshSpace.Bounds` index against itself pruning the pairs on the mesh-intersection lane, `IntersectOp.MeshMesh` resolving each survivor, the lattice's transversal `Segments` setting `Penetrating` and its `Coplanar` rows leaving it false as tangent contact; penetrating chains append as `EdgeKind.Intersection` locus edges (candidate-only, `Apex = -1`) with their synthetic vertices where the kind's traits admit `Contacts`, so inter-part contacts draw, the section cut pays no contact materialization, and the QI solve stays untouched; `Silhouettes` walks the edge-incidence fold once over the union — a boundary edge is always a silhouette, a two-face edge a silhouette exactly where its two faces' `SideOf` signs are opposite and nonzero, and a crease above the dihedral threshold lifts `EdgeKind.Crease` from the per-part `FeatureEdges` classification with the lift failure propagating — every locus edge tagged with its part and classifying face; `Resolve` owns the QI solve — QuikGraph-component labeling, the exact `SegmentSegment` crossing table, exact ±1 deltas off the eye–silhouette plane, and two-stage seeding (a batched `Winding` CULLS components the field places strictly outside, the exact `SegmentTriangle` battery counting every one it keeps) — reading only occlusion-eligible faces and occluder edges under the mask table; `Emit` splits each edge at its crossings, threads the running count, rounds coordinates ONCE, links same-visibility successors, retains hidden runs under `ViewTrait.Retains`, skips parts whose `Draws` column is false, and folds the flat and per-part histograms in one pass; `Section` partitions the per-part `PlaneMesh` chains closed/open, emitting an open chain as a typed row, never silently closed.
 - Output: `DrawingProjection` (visible/hidden `Seq<ProjectedSegment>` + `EdgeHistogram` + per-part `Parts` tallies + the `Contacts` interference roster) IS the typed result — each segment carries its exact `Invisibility`, `EdgeKind`, per-endpoint `Depth` cue, `Part` ordinal, and `SourceFace` (the classifying union-soup face, ABSENT on inter-part and section segments), so a dashed-hidden render, per-part layer assignment, depth-weighted line weight, or face-grain attribution reads the full set from one carrier; `PartContact` rows surface the pairwise pass as clash evidence — penetrating versus tangent per pair with the chain census — from work the locus already paid for; this owner mints no second identity, content-addressing through the `Polyline`/`Line` projection.
 - Packages: `Rasm.Meshing` (`MeshEdit.Of` soup adapter, `MeshEdit.Apply` the pose transform, `Intersection.Apply` for `PlaneMesh`/`SegmentSegment`/`SegmentTriangle`/`MeshMesh`, `Arrangement.Apply`/`ArrangementOp.PlanarOverlay` fill), `Rasm.Processing` (`MeshFeaturePolicy.Of` and the `FeatureEdges` dihedral vocabulary through `SegmentKernel.DetectFeatureEdgesDetailed`), `Rasm.Spatial` (`SpatialIndex.Build`, the overlap, box, and winding `Query` arms), `Rasm.Numerics` (`Predicate.Orient3D`, `Sign`, `Axis`, `VectorAngle`, `PositiveMagnitude`, `GeometryFault` family), `Rasm.Domain` (`Op`, `Kind`, `Context`, `ICapability`/`CapabilitySet`/`CapabilityLaw`), QuikGraph (`ConnectedComponents` component walk), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
@@ -113,22 +113,22 @@ public sealed partial class ViewConvention {
     public PositiveMagnitude DistanceFactor { get; }
     public PositiveMagnitude Lens { get; }
 
-    public Fin<ViewPose> Pose(BoundingBox subject, Option<Direction> facing, Context context, Op key) {
+    public Fin<ViewPose> Pose(BoundingBox subject, Option<Direction> facing, Context context) {
         ViewConvention row = this;
-        return from _ in guard(subject.IsValid && subject.Diagonal.Length > context.For(ToleranceLane.Length).Value, key.InvalidInput()).ToFin()
+        return from _ in guard(subject.IsValid && subject.Diagonal.Length > context.For(ToleranceLane.Length).Value, new KernelFault.InvalidInput()).ToFin()
                from horizontal in Direction.Of(
                    value: facing.Map(static hint => new Vector3d(hint.Value.X, hint.Value.Y, 0.0)).Filter(static bearing => !bearing.IsTiny()).IfNone(-Vector3d.YAxis),
-                   context: context, key: key)
+                   context: context)
                from look in Direction.Of(
                    value: (Math.Cos(row.Elevation) * (Transform.Rotation(angleRadians: row.Azimuth, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin) * horizontal.Value))
                         - (Math.Sin(row.Elevation) * Vector3d.ZAxis),
-                   context: context, key: key)
-               from standoff in key.Positive(value: subject.Diagonal.Length * row.DistanceFactor.Value)
+                   context: context)
+               from standoff in Admit.Positive(value: subject.Diagonal.Length * row.DistanceFactor.Value)
                from frame in VectorFrame.Of(
                    origin: subject.Center - (look.Value * standoff),
                    normal: look.Value,
                    xHint: Math.Abs(row.Elevation) >= Math.PI / 2.0 - context.For(ToleranceLane.Orientation).Value ? Some(horizontal.Value) : Option<Vector3d>.None,
-                   context: context, key: key)
+                   context: context)
                select new ViewPose(Frame: frame, Eye: subject.Center - (look.Value * standoff), Target: subject.Center, Subject: subject, Projection: row.Projection, Lens: row.Lens);
     }
 }
@@ -143,9 +143,8 @@ public readonly record struct ViewSubject {
     public MeshSpace Mesh { get; }
     public Option<Transform> Pose { get; }
 
-    public static Fin<ViewSubject> Of(MeshSpace mesh, Option<Transform> pose = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(mesh).Bind(seated => op.Need(seated.Native)).Map(_ => new ViewSubject(mesh, pose));
+    public static Fin<ViewSubject> Of(MeshSpace mesh, Option<Transform> pose = default) {
+        return Admit.Need(mesh).Bind(seated => Admit.Need(seated.Native)).Map(_ => new ViewSubject(mesh, pose));
     }
 }
 
@@ -154,14 +153,13 @@ public readonly record struct PartSpan(int VertexStart, int VertexCount, int Fac
 public sealed record PartContact(int A, int B, bool Penetrating, int Chains);
 
 public readonly record struct ViewPose(VectorFrame Frame, Point3d Eye, Point3d Target, BoundingBox Subject, ViewProjectionIntent Projection, PositiveMagnitude Lens) {
-    public Fin<Camera> ToCamera(Context tolerance, Op? key = null) {
-        Op op = key.OrDefault();
+    public Fin<Camera> ToCamera(Context tolerance) {
         ViewPose self = this;
-        return from look in Direction.Of(value: self.Target - self.Eye, context: tolerance, key: op)
+        return from look in Direction.Of(value: self.Target - self.Eye, context: tolerance)
                from _ in guard(!self.Projection.Perspective
                        || self.Subject.GetCorners().AsIterable().ForAll(c => (c - self.Eye) * look.Value > tolerance.For(ToleranceLane.Length).Value),
-                   op.InvalidInput())
-               from screen in Admit.Plane(basis: new Plane(origin: self.Target, normal: look.Value), key: op)
+                   new KernelFault.InvalidInput())
+               from screen in Admit.Plane(basis: new Plane(origin: self.Target, normal: look.Value))
                select Camera.Admitted(eye: self.Eye, direction: look.Value, screen: Rectified(screen, self.Projection),
                    perspective: self.Projection.Perspective, tolerance: tolerance);
     }
@@ -200,7 +198,7 @@ public sealed record Camera {
 
     public Sign SideOf(Point3d a, Point3d b, Point3d c) => Predicate.Orient3D(a, b, c, Eye);
 
-    public Fin<Transform> ScreenBasis(Op? key = null) =>
+    public Fin<Transform> ScreenBasis() =>
         Perspective
             ? Fin.Fail<Transform>(key.OrDefault().InvalidInput())
             : Fin.Succ(Transform.ChangeBasis(plane0: Plane.WorldXY, plane1: Screen));
@@ -226,9 +224,9 @@ public sealed record DrawingProjection(Seq<ProjectedSegment> Visible, Seq<Projec
 
     public Seq<Line> ToSegments() => (Visible + Hidden).Map(static s => new Line(s.ScreenA, s.ScreenB));
 
-    public Fin<ArrangementResult> Fill(ArrangementPolicy policy, Op? key = null) =>
+    public Fin<ArrangementResult> Fill(ArrangementPolicy policy) =>
         Arrangement.Apply(new ArrangementOp.PlanarOverlay(
-            A: Chains(Visible).Filter(static loop => loop.IsClosed), B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: policy), key);
+            A: Chains(Visible).Filter(static loop => loop.IsClosed), B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: policy));
 
     static Seq<Polyline> Chains(Seq<ProjectedSegment> set) =>
         SuccessorChain.Walk(set, static s => s.Next)
@@ -261,14 +259,13 @@ public sealed record ViewPolicy(
     public static Fin<ViewPolicy> Of(
         Context context, Option<VectorAngle> creaseDihedral = default, Option<PositiveMagnitude> betaSquared = default,
         Option<IntersectPolicy> narrow = default, Option<BuildPolicy> broad = default,
-        bool weldCoplanar = true, HashMap<int, bool> occludes = default, Op? key = null) {
-        Op op = key.OrDefault();
+        bool weldCoplanar = true, HashMap<int, bool> occludes = default) {
         return from dihedral in creaseDihedral.Match(
                    Some: static row => Fin.Succ(row),
-                   None: () => op.AcceptValidated<VectorAngle>(candidate: context.For(ToleranceLane.Torsal).Value))
+                   None: () => FactoryBridge.Accept<VectorAngle>(candidate: context.For(ToleranceLane.Torsal).Value))
                from admitted in betaSquared.Match(
                    Some: static row => Fin.Succ(row),
-                   None: () => op.AcceptValidated<PositiveMagnitude>(candidate: 4.0))
+                   None: () => FactoryBridge.Accept<PositiveMagnitude>(candidate: 4.0))
                select new ViewPolicy(dihedral, admitted, narrow.IfNone(IntersectPolicy.Canonical), broad.IfNone(BuildPolicy.Canonical), weldCoplanar, occludes, context);
     }
 }
@@ -309,10 +306,9 @@ public abstract partial record ViewOp {
 }
 
 public static class View {
-    public static Fin<DrawingProjection> Apply(ViewOp op, Op? key = null) {
-        Op k = key.OrDefault();
+    public static Fin<DrawingProjection> Apply(ViewOp op) {
         if (op.Parts.IsEmpty || op.Policy.Occludes.Keys.Exists(part => part < 0 || part >= op.Parts.Count)) {
-            return Fin.Fail<DrawingProjection>(k.InvalidInput());
+            return Fin.Fail<DrawingProjection>(new KernelFault.InvalidInput());
         }
         return op.Pose.ToCamera(op.Policy.Tolerance, k).Bind(camera =>
             Admit(op.Parts, op.Policy.Occludes, k).Bind(assembly =>
@@ -324,10 +320,10 @@ public static class View {
                     outline:    static (s, view) => Trace(s.Assembly, s.Contact, view, s.Camera, s.Key)))));
     }
 
-    static Fin<DrawingProjection> Trace(Assembly assembly, ContactSet contact, ViewOp op, Camera camera, Op key) =>
-        Silhouettes(assembly, contact.ContactEdges, camera, op.Policy, key).Bind(locus =>
+    static Fin<DrawingProjection> Trace(Assembly assembly, ContactSet contact, ViewOp op, Camera camera) =>
+        Silhouettes(assembly, contact.ContactEdges, camera, op.Policy).Bind(locus =>
             op.Kind.Traits.Admits(ViewTrait.Resolves)
-                ? Resolve(assembly, locus, contact.Roster, camera, op.Policy, op.Kind.Traits, key)
+                ? Resolve(assembly, locus, contact.Roster, camera, op.Policy, op.Kind.Traits)
                 : Fin.Succ(Emit(assembly, locus.Edges, [.. Enumerable.Repeat(Seq<(double T, int Delta)>(), locus.Edges.Count)], new int[locus.Edges.Count],
                     contact.Roster, camera, CapabilitySet<ViewTrait>.None, locus.V)));
 
@@ -338,20 +334,20 @@ public static class View {
 
     readonly record struct PartMesh(MeshSpace Posed, Point3d[] V, (int A, int B, int C)[] F);
 
-    static Fin<Assembly> Admit(Seq<ViewSubject> parts, HashMap<int, bool> occludes, Op key) =>
+    static Fin<Assembly> Admit(Seq<ViewSubject> parts, HashMap<int, bool> occludes) =>
         parts.Map(static (part, ordinal) => (Part: part, Ordinal: ordinal))
-            .TraverseM(entry => Seat(entry.Part, entry.Ordinal, key))
+            .TraverseM(entry => Seat(entry.Part, entry.Ordinal))
             .As()
             .Map(seated => Freeze(seated, occludes));
 
-    static Fin<PartMesh> Seat(ViewSubject subject, int ordinal, Op key) {
+    static Fin<PartMesh> Seat(ViewSubject subject, int ordinal) {
         if (subject.Mesh?.Native is null) {
             return Fin.Fail<PartMesh>(new GeometryFault.DegenerateInput(Kind.Mesh, ordinal, "default subject"));
         }
         return subject.Pose.Match(
             Some: pose => {
                 using MeshEdit arena = MeshEdit.Of(subject.Mesh);
-                return arena.Apply(pose).ToSpace(key);
+                return arena.Apply(pose).ToSpace();
             },
             None: () => Fin.Succ(subject.Mesh))
             .Bind(posed => Lift(posed, ordinal));
@@ -395,23 +391,23 @@ public static class View {
     // --- [CONTACT]
     internal readonly record struct ContactSet(Seq<PartContact> Roster, Seq<(Point3d A, Point3d B, int Part)> ContactEdges);
 
-    static Fin<ContactSet> Contacts(Assembly assembly, ViewPolicy policy, CapabilitySet<ViewTrait> traits, Op key) {
+    static Fin<ContactSet> Contacts(Assembly assembly, ViewPolicy policy, CapabilitySet<ViewTrait> traits) {
         if (assembly.Spans.Length < 2) return Fin.Succ(new ContactSet(Seq<PartContact>(), Seq<(Point3d, Point3d, int)>()));
         BoundingBox[] bounds = [.. assembly.Posed.Select(static space => space.Bounds)];
-        return SpatialIndex.Build(SpatialKind.Bvh, bounds, policy.Broad, key).Bind(index =>
-            index.Query(index, policy.Tolerance.For(ToleranceLane.MeshIntersection).Value, key).Bind(pairs =>
+        return SpatialIndex.Build(SpatialKind.Bvh, bounds, policy.Broad).Bind(index =>
+            index.Query(index, policy.Tolerance.For(ToleranceLane.MeshIntersection).Value).Bind(pairs =>
                 pairs.Filter(static pair => pair.Left < pair.Right)
                     .TraverseM(pair => Intersection
-                        .Apply(new IntersectOp.MeshMesh(assembly.Posed[pair.Left], assembly.Posed[pair.Right], policy.Narrow), key)
+                        .Apply(new IntersectOp.MeshMesh(assembly.Posed[pair.Left], assembly.Posed[pair.Right], policy.Narrow))
                         .Bind(result => result is IntersectResult.Chains chains
-                            ? Contact(pair.Left, pair.Right, chains, policy.WeldCoplanar, assembly.Draws, traits, key)
-                            : Fin.Fail<Option<(PartContact, Seq<(Point3d, Point3d, int)>)>>(key.InvalidResult())))
+                            ? Contact(pair.Left, pair.Right, chains, policy.WeldCoplanar, assembly.Draws, traits)
+                            : Fin.Fail<Option<(PartContact, Seq<(Point3d, Point3d, int)>)>>(new KernelFault.InvalidResult())))
                     .As()
                     .Map(static rows => rows.Bind(static row => row.ToSeq()))
                     .Map(static rows => new ContactSet(rows.Map(static row => row.Item1), rows.Bind(static row => row.Item2)))));
     }
 
-    static Fin<Option<(PartContact, Seq<(Point3d A, Point3d B, int Part)>)>> Contact(int a, int b, IntersectResult.Chains chains, bool weldCoplanar, bool[] draws, CapabilitySet<ViewTrait> traits, Op key) {
+    static Fin<Option<(PartContact, Seq<(Point3d A, Point3d B, int Part)>)>> Contact(int a, int b, IntersectResult.Chains chains, bool weldCoplanar, bool[] draws, CapabilitySet<ViewTrait> traits) {
         bool penetrating = chains.Table.Segments.Count > 0;
         bool coplanar = chains.Table.Coplanar.Count > 0;
         if (!penetrating && !coplanar) return Fin.Succ(Option<(PartContact, Seq<(Point3d, Point3d, int)>)>.None);
@@ -429,8 +425,8 @@ public static class View {
     // --- [SILHOUETTE]
     readonly record struct Locus(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> Edges, Sign[] Side, Point3d[] V);
 
-    static Fin<Locus> Silhouettes(Assembly assembly, Seq<(Point3d A, Point3d B, int Part)> contacts, Camera camera, ViewPolicy policy, Op key) =>
-        CreaseEdges(assembly, policy, key).Bind(creases => {
+    static Fin<Locus> Silhouettes(Assembly assembly, Seq<(Point3d A, Point3d B, int Part)> contacts, Camera camera, ViewPolicy policy) =>
+        CreaseEdges(assembly, policy).Bind(creases => {
             (Point3d[] V, (int A, int B, int C)[] F) soup = (assembly.V, assembly.F);
             Sign[] side = new Sign[soup.F.Length];
             for (int f = 0; f < soup.F.Length; f++) side[f] = camera.SideOf(soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
@@ -471,16 +467,16 @@ public static class View {
                 : Fin.Succ(new Locus(toSeq(edges), side, grown));
         });
 
-    static Fin<System.Collections.Generic.HashSet<(int A, int B)>> CreaseEdges(Assembly assembly, ViewPolicy policy, Op key) =>
+    static Fin<System.Collections.Generic.HashSet<(int A, int B)>> CreaseEdges(Assembly assembly, ViewPolicy policy) =>
         toSeq(Enumerable.Range(0, assembly.Posed.Length))
-            .TraverseM(p => Creases(assembly, p, policy, key))
+            .TraverseM(p => Creases(assembly, p, policy))
             .As()
             .Map(static sets => sets.Fold(new System.Collections.Generic.HashSet<(int A, int B)>(), static (union, set) => { union.UnionWith(set); return union; }));
 
-    static Fin<System.Collections.Generic.HashSet<(int A, int B)>> Creases(Assembly assembly, int part, ViewPolicy policy, Op key) {
+    static Fin<System.Collections.Generic.HashSet<(int A, int B)>> Creases(Assembly assembly, int part, ViewPolicy policy) {
         int offset = assembly.Spans[part].VertexStart;
-        return MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedral.Value, space: assembly.Posed[part], faceRegions: Option<Arr<int>>.None, key: key)
-            .Bind(features => SegmentKernel.DetectFeatureEdgesDetailed(space: assembly.Posed[part], policy: features, key: key))
+        return MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedral.Value, space: assembly.Posed[part], faceRegions: Option<Arr<int>>.None)
+            .Bind(features => SegmentKernel.DetectFeatureEdgesDetailed(space: assembly.Posed[part], policy: features))
             .Map(features => new System.Collections.Generic.HashSet<(int A, int B)>(features.Edges
                 .Filter(static e => e.Kind == MeshFeatureKind.Crease)
                 .Map(e => (int.Min(e.A, e.B) + offset, int.Max(e.A, e.B) + offset))));
@@ -495,23 +491,23 @@ public static class View {
         face.A != u && face.A != v ? face.A : face.B != u && face.B != v ? face.B : face.C;
 
     // --- [QI_SOLVE]
-    static Fin<DrawingProjection> Resolve(Assembly assembly, Locus locus, Seq<PartContact> contacts, Camera camera, ViewPolicy policy, CapabilitySet<ViewTrait> traits, Op key) {
+    static Fin<DrawingProjection> Resolve(Assembly assembly, Locus locus, Seq<PartContact> contacts, Camera camera, ViewPolicy policy, CapabilitySet<ViewTrait> traits) {
         int[] component = Components(locus.Edges);
         (BoundingBox[] boxes, Arr<(Point3d A, Point3d B, Point3d C)> triangles, int[] worldFace) = Occluders(assembly);
-        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad, key).Bind(world =>
-            Crossings(assembly, locus, camera, policy, key).Bind(table =>
-                Seeds(assembly, locus, component, camera, world, worldFace, triangles, policy, key).Map(seeds =>
+        return SpatialIndex.Build(SpatialKind.Bvh, boxes, policy.Broad).Bind(world =>
+            Crossings(assembly, locus, camera, policy).Bind(table =>
+                Seeds(assembly, locus, component, camera, world, worldFace, triangles, policy).Map(seeds =>
                     Emit(assembly, locus.Edges, table, System.Array.ConvertAll(component, label => seeds[label]), contacts, camera, traits, locus.V))));
     }
 
-    static Fin<Seq<(double T, int Delta)>[]> Crossings(Assembly assembly, Locus locus, Camera camera, ViewPolicy policy, Op key) {
+    static Fin<Seq<(double T, int Delta)>[]> Crossings(Assembly assembly, Locus locus, Camera camera, ViewPolicy policy) {
         (Line[] candidate2d, Line[] occluder2d, int[] occluderEdge) = ScreenSegments(locus.Edges, locus.V, camera, assembly.Occludes);
-        return SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(candidate2d), policy.Broad, key).Bind(cand =>
-            SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(occluder2d), policy.Broad, key).Bind(occ =>
-                cand.Query(occ, camera.Tolerance.For(ToleranceLane.MeshIntersection).Value, key).Bind(pairs =>
+        return SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(candidate2d), policy.Broad).Bind(cand =>
+            SpatialIndex.Build(SpatialKind.Bvh, SegmentBounds(occluder2d), policy.Broad).Bind(occ =>
+                cand.Query(occ, camera.Tolerance.For(ToleranceLane.MeshIntersection).Value).Bind(pairs =>
                     pairs.Filter(pair => pair.Left != occluderEdge[pair.Right] && assembly.Draws[locus.Edges[pair.Left].Part])
                         .TraverseM(pair => Intersection
-                            .Apply(new IntersectOp.SegmentSegment(candidate2d[pair.Left], occluder2d[pair.Right], Axis.Z), key)
+                            .Apply(new IntersectOp.SegmentSegment(candidate2d[pair.Left], occluder2d[pair.Right], Axis.Z))
                             .Map(result => result is IntersectResult.Points points
                                 ? points.Hits.Map(hit => (Edge: pair.Left, Row: (candidate2d[pair.Left].ClosestParameter(hit),
                                     Delta(locus, pair.Left, occluderEdge[pair.Right], camera))))
@@ -535,29 +531,29 @@ public static class View {
         };
     }
 
-    static Fin<int[]> Seeds(Assembly assembly, Locus locus, int[] component, Camera camera, SpatialIndex world, int[] worldFace, Arr<(Point3d A, Point3d B, Point3d C)> triangles, ViewPolicy policy, Op key) {
+    static Fin<int[]> Seeds(Assembly assembly, Locus locus, int[] component, Camera camera, SpatialIndex world, int[] worldFace, Arr<(Point3d A, Point3d B, Point3d C)> triangles, ViewPolicy policy) {
         Point3d[] seed = ComponentSeeds(locus.Edges, component, locus.V, camera);
         return toSeq(Enumerable.Range(0, seed.Length))
-            .TraverseM(i => Direction.Of(value: camera.Eye - seed[i], context: camera.Tolerance, key: key)
+            .TraverseM(i => Direction.Of(value: camera.Eye - seed[i], context: camera.Tolerance)
                 .Map(toEye => seed[i] + (camera.Tolerance.For(ToleranceLane.Approach).Value * toEye.Value)))
             .As()
             .Map(static probes => probes.ToArray())
-            .Bind(probes => world.Query(new Arr<Point3d>(probes), triangles, policy.BetaSquared, key))
+            .Bind(probes => world.Query(new Arr<Point3d>(probes), triangles, policy.BetaSquared))
             .Bind(field => toSeq(Enumerable.Range(0, seed.Length))
                 .TraverseM(i => field[i] <= 0.5
                     ? Fin.Succ(0)
-                    : StabCount(assembly, locus.Side, seed[i], camera, world, worldFace, policy, key))
+                    : StabCount(assembly, locus.Side, seed[i], camera, world, worldFace, policy))
                 .As()
                 .Map(static counts => counts.ToArray()));
     }
 
-    static Fin<int> StabCount(Assembly assembly, Sign[] side, Point3d seed, Camera camera, SpatialIndex world, int[] worldFace, ViewPolicy policy, Op key) =>
-        world.Query(new BoundingBox([seed, camera.Eye]), key: key)
+    static Fin<int> StabCount(Assembly assembly, Sign[] side, Point3d seed, Camera camera, SpatialIndex world, int[] worldFace, ViewPolicy policy) =>
+        world.Query(new BoundingBox([seed, camera.Eye]))
             .Bind(candidates => candidates
                 .Map(id => worldFace[id])
                 .Filter(f => side[f] == Sign.Positive)
                 .TraverseM(f => Intersection
-                    .Apply(new IntersectOp.SegmentTriangle(new Line(seed, camera.Eye), assembly.V[assembly.F[f].A], assembly.V[assembly.F[f].B], assembly.V[assembly.F[f].C]), key)
+                    .Apply(new IntersectOp.SegmentTriangle(new Line(seed, camera.Eye), assembly.V[assembly.F[f].A], assembly.V[assembly.F[f].B], assembly.V[assembly.F[f].C]))
                     .Map(static r => r is IntersectResult.Points p ? p.Hits.Count : 0))
                 .As()
                 .Map(static counts => counts.Fold(0, static (total, count) => total + count)));
@@ -615,13 +611,13 @@ public static class View {
     }
 
     // --- [SECTION]
-    static Fin<DrawingProjection> Cut(Assembly assembly, Seq<PartContact> contacts, Plane plane, Camera camera, ViewPolicy policy, Op key) =>
+    static Fin<DrawingProjection> Cut(Assembly assembly, Seq<PartContact> contacts, Plane plane, Camera camera, ViewPolicy policy) =>
         toSeq(Enumerable.Range(0, assembly.Posed.Length))
             .Filter(p => assembly.Draws[p])
-            .TraverseM(p => Intersection.Apply(new IntersectOp.PlaneMesh(plane, assembly.Posed[p], policy.Narrow), key)
+            .TraverseM(p => Intersection.Apply(new IntersectOp.PlaneMesh(plane, assembly.Posed[p], policy.Narrow))
                 .Bind(result => result is IntersectResult.Chains chains
                     ? Fin.Succ((Part: p, chains.Walked))
-                    : Fin.Fail<(int, Seq<Chain>)>(key.InvalidResult())))
+                    : Fin.Fail<(int, Seq<Chain>)>(new KernelFault.InvalidResult())))
             .As()
             .Map(cut => SectionDrawing(cut, contacts, camera, assembly.Spans.Length));
 

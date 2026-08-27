@@ -240,11 +240,10 @@ public sealed record PackPolicy(
 
     public static Fin<PackPolicy> Of(
         Context tolerance, SdfMeshPolicy sdf, Seq<int> geodesicSources = default, Option<NeighborhoodPolicy> cloud = default,
-        Option<PositiveMagnitude> curvatureStep = default, Option<Dimension> curvatureRounds = default, Op? key = null) {
-        Op op = key.OrDefault();
+        Option<PositiveMagnitude> curvatureStep = default, Option<Dimension> curvatureRounds = default) {
         return curvatureStep.Match(
                 Some: static row => Fin.Succ(row),
-                None: () => op.AcceptValidated<PositiveMagnitude>(candidate: tolerance.For(ToleranceLane.Mollification).Value))
+                None: () => FactoryBridge.Accept<PositiveMagnitude>(candidate: tolerance.For(ToleranceLane.Mollification).Value))
             .Map(step => new PackPolicy(geodesicSources, step, curvatureRounds.IfNone(Rounds), sdf, cloud, tolerance));
     }
 }
@@ -271,7 +270,7 @@ public abstract partial record PackOp {
         toolpath:      static _ => PackKind.Toolpath,
         gaussianSplat: static _ => PackKind.GaussianSplat);
 
-    internal HashMap<EncodingChannel, Func<Fin<float[]>>> Lanes(Op key) => Switch(
+    internal HashMap<EncodingChannel, Func<Fin<float[]>>> Lanes() => Switch(
         state: key,
         pointCloud: static (k, c) => {
             Fin<Vector3d[]> normals = VectorCloudMetric.OrientedNormals
@@ -326,19 +325,17 @@ public abstract partial record PackOp {
 }
 
 public static class Encode {
-    public static Fin<EncodedGeometry> Apply(PackOp op, Op? key = null) {
-        Op k = key.OrDefault();
-        return Census(op)
-            .Bind(count => PackChannels(op, op.Kind, count, k)
-                .Bind(packed => SourceDigest(op, k)
+    public static Fin<EncodedGeometry> Apply(PackOp op) {
+        return Census()
+            .Bind(count => PackChannels(op.Kind, count, k)
+                .Bind(packed => SourceDigest(k)
                     .Bind(digest => Witness(packed, digest, DigestRoot.Source))
                     .Map(witness => new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness))))
-            .Bind(geometry => k.AcceptValue(geometry));
+            .Bind(geometry => Acceptance.Value(geometry));
     }
 
-    public static Fin<EncodedGeometry> Of(int count, Seq<(EncodingChannel Channel, float[] Raw, Option<EncodingChannel> Mask)> lanes, Op? key = null) {
-        Op k = key.OrDefault();
-        if (count <= 0 || lanes.IsEmpty) return Fin.Fail<EncodedGeometry>(k.InvalidInput());
+    public static Fin<EncodedGeometry> Of(int count, Seq<(EncodingChannel Channel, float[] Raw, Option<EncodingChannel> Mask)> lanes) {
+        if (count <= 0 || lanes.IsEmpty) return Fin.Fail<EncodedGeometry>(new KernelFault.InvalidInput());
         Option<EncodingChannel> doubled = lanes.Fold(
             (Seen: Set<EncodingChannel>(), Dup: Option<EncodingChannel>.None),
             static (acc, lane) => acc.Seen.Contains(lane.Channel)
@@ -358,12 +355,12 @@ public static class Encode {
                 .Map(s => new PackedChannels(store, s.Packed)))
             .Bind(packed => Witness(packed, GeometryHash.Create(ContentHash.Of(packed.Store.Payload)), DigestRoot.Payload)
                 .Map(witness => new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness)))
-            .Bind(geometry => k.AcceptValue(geometry));
+            .Bind(geometry => Acceptance.Value(geometry));
     }
 
     // --- [PACK]
-    static Fin<PackedChannels> PackChannels(PackOp op, PackKind kind, int count, Op key) {
-        HashMap<EncodingChannel, Func<Fin<float[]>>> lanes = op.Lanes(key);
+    static Fin<PackedChannels> PackChannels(PackOp op, PackKind kind, int count) {
+        HashMap<EncodingChannel, Func<Fin<float[]>>> lanes = op.Lanes();
         return Extent(count, kind.Channels)
             .Map(_ => EncodedStore.Reserve(count, kind.Channels))
             .Bind(store => kind.Channels.Fold(Fin.Succ((Slot: 0, Offset: 0, Packed: Seq<PackedLane>())), (state, channel) =>
@@ -414,7 +411,7 @@ public static class Encode {
         return dtype.Mode == ToleranceMode.Relative ? delta / Math.Max(1f, TensorPrimitives.MaxMagnitude<float>(raw)) : delta;
     }
 
-    static Fin<GeometryHash> SourceDigest(PackOp op, Op key) => op.Switch(
+    static Fin<GeometryHash> SourceDigest(PackOp op) => op.Switch(
         state: key,
         pointCloud:    static (k, s) => Digest(EncodeForm.Of(s.Source), k),
         meshPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
@@ -424,12 +421,12 @@ public static class Encode {
         toolpath:      static (_, s) => Fin.Succ(GeometryHash.Create(s.Source.Digest)),
         gaussianSplat: static (k, s) => Digest(EncodeForm.Of(s.Source), k));
 
-    static Fin<GeometryHash> Digest(EncodeForm form, Op key) =>
-        Reconciliation.Apply(new ReconcileOp.Encode(form), key)
+    static Fin<GeometryHash> Digest(EncodeForm form) =>
+        Reconciliation.Apply(new ReconcileOp.Encode(form))
             .Bind(answer => answer.Switch(
                 state: key,
                 digest:     static (_, d) => Fin.Succ(d.Value),
-                reconciled: static (k, _) => Fin.Fail<GeometryHash>(k.InvalidResult())));
+                reconciled: static (k, _) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult())));
 
     // --- [CENSUS]
     static Fin<int> Census(PackOp op) => op.Switch(
@@ -558,21 +555,21 @@ public static class Encode {
     }
 
     // --- [FIELDS]
-    internal static Fin<float[]> Vertexwise(ScalarField field, MeshSpace space, Context tolerance, Op key) {
+    internal static Fin<float[]> Vertexwise(ScalarField field, MeshSpace space, Context tolerance) {
         Mesh native = space.Native;
         return toSeq(Enumerable.Range(0, native.Vertices.Count))
-            .TraverseM(i => field.SampleDetailed(native.Vertices.Point3dAt(i), tolerance, key).Map(static sample => (float)sample.Value))
+            .TraverseM(i => field.SampleDetailed(native.Vertices.Point3dAt(i), tolerance).Map(static sample => (float)sample.Value))
             .As()
             .Map(static values => values.ToArray());
     }
 
-    internal static Fin<float[]> Occupancy(MeshSpace space, CellLattice grid, PackPolicy policy, Op key) {
+    internal static Fin<float[]> Occupancy(MeshSpace space, CellLattice grid, PackPolicy policy) {
         ScalarField field = new ScalarField.SignedDistanceFromMeshCase(Space: space, Policy: policy.Sdf);
         double isoBand = policy.Tolerance.For(ToleranceLane.PlaneDistance).Value;
         return toSeq(Enumerable.Range(0, (int)grid.CellCount))
             .TraverseM(i => {
                 (int column, int row, int layer) = grid.Coordinate(i);
-                return field.SampleSdfDetailed(grid.Center(column: column, row: row, layer: layer), policy.Tolerance, key)
+                return field.SampleSdfDetailed(grid.Center(column: column, row: row, layer: layer), policy.Tolerance)
                     .Map(sample => sample.Value <= isoBand ? 1f : 0f);
             })
             .As()
@@ -722,7 +719,7 @@ public sealed partial record PackSchema(
         Of(kind: kind, fields: geometry.Descriptors.Map(static descriptor =>
             new PackSchemaField(descriptor.Channel, descriptor.Mask)));
 
-    public Fin<Unit> Describes(EncodedGeometry geometry, Op? key = null) {
+    public Fin<Unit> Describes(EncodedGeometry geometry) {
         PackSchema instance = Of(geometry: geometry, kind: Kind);
         return IsValid && geometry.IsValid && instance.IsValid && instance.SchemaId == SchemaId
             ? Fin.Succ(unit)
@@ -762,25 +759,23 @@ public static class EvidenceCodec {
         return wire;
     }
 
-    public static Fin<Unit> WriteBlock(BinaryWriter writer, ReadOnlySpan<ddouble> evidence, Op? key = null) {
-        Op k = key.OrDefault();
+    public static Fin<Unit> WriteBlock(BinaryWriter writer, ReadOnlySpan<ddouble> evidence) {
         ddouble[] block = evidence.ToArray();
-        return k.Catch(() => {
+        return Try.lift(() => {
             writer.Write(block.Length);
             foreach (ddouble value in block) { writer.Write(value); }
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
     }
 
-    public static Fin<ddouble[]> ReadBlock(BinaryReader reader, Dimension ceiling, Op? key = null) {
-        Op k = key.OrDefault();
-        return k.Catch(() => {
+    public static Fin<ddouble[]> ReadBlock(BinaryReader reader, Dimension ceiling) {
+        return Try.lift(() => {
             int count = reader.ReadInt32();
-            if (count < 0 || count > ceiling.Value) { return Fin.Fail<ddouble[]>(k.InvalidResult(detail: $"evidence block count {count} outside [0, {ceiling.Value}]")); }
+            if (count < 0 || count > ceiling.Value) { return Fin.Fail<ddouble[]>(new KernelFault.InvalidResult(Detail: Some($"evidence block count {count} outside [0, {ceiling.Value}]"))); }
             ddouble[] values = new ddouble[count];
             for (int i = 0; i < count; i++) { values[i] = reader.ReadDDouble(); }
             return Fin.Succ(values);
-        });
+        }).Run().Bind(static inner => inner);
     }
 }
 ```

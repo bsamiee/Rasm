@@ -158,9 +158,9 @@ public sealed record MeshPolicy {
     delegate bool Lookup<T>(string key, [MaybeNullWhen(false)] out T row);
 
     static Validation<Error, T> Resolve<T>(Lookup<T> lookup, string key, string axis) =>
-        lookup(key, out T? row)
+        lookup(out T? row)
             ? Success<Error, T>(row)
-            : Fail<Error, T>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Keys(axis, key))));
+            : Fail<Error, T>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Keys(axis))));
 
     static Validation<Error, Unit> Finite(double value) =>
         Refusal.Unless(double.IsFinite(value), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(value)));
@@ -224,7 +224,7 @@ public sealed record BoundaryShell {
 
         static void Tally(Dictionary<(int Lo, int Hi), (int Count, int Balance)> edges, int from, int to) {
             (int Lo, int Hi) key = from < to ? (from, to) : (to, from);
-            (int Count, int Balance) current = edges.GetValueOrDefault(key);
+            (int Count, int Balance) current = edges.GetValueOrDefault();
             edges[key] = (current.Count + 1, current.Balance + (from < to ? 1 : -1));
         }
     }
@@ -350,7 +350,7 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
                 long[] ids = new long[face.Length];
                 for (int i = 0; i < face.Length; i++) { ids[i] = Cells[cell * per + face[i]]; }
                 FaceKey key = FaceKey.Of(ids);
-                facets[key] = facets.TryGetValue(key, out (int Count, long[] Nodes) entry) ? (entry.Count + 1, entry.Nodes) : (1, ids);
+                facets[key] = facets.TryGetValue(out (int Count, long[] Nodes) entry) ? (entry.Count + 1, entry.Nodes) : (1, ids);
             }
         return toSet(facets.Values.Where(static facet => facet.Count == 1).SelectMany(static facet => facet.Nodes)).Count;
     }
@@ -359,7 +359,6 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class MeshLane {
-    private static readonly Op GenerateKey = Op.Of(name: nameof(Discretize));
 
     public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock) =>
         from built in policy.Algorithm.Strategy.Fill(boundary, ShellIndex.Of(boundary), policy)
@@ -490,7 +489,7 @@ public static class OctreeCore {
 
         public long Node((float X, float Y, float Z) p) {
             (long X, long Y, long Z) key = (Key(p.X, origin.X), Key(p.Y, origin.Y), Key(p.Z, origin.Z));
-            if (ids.TryGetValue(key, out long held)) { return held; }
+            if (ids.TryGetValue(out long held)) { return held; }
             long id = ids.Count;
             ids[key] = id;
             nodes.Add(p.X); nodes.Add(p.Y); nodes.Add(p.Z);
@@ -669,7 +668,7 @@ public sealed class Refinement {
 
     public long EdgeMid(long a, long b) {
         (long, long) key = a < b ? (a, b) : (b, a);
-        if (edgeMid.TryGetValue(key, out long mid)) { return mid; }
+        if (edgeMid.TryGetValue(out long mid)) { return mid; }
         mid = count++;
         for (int d = 0; d < 3; d++) { nodes.Add(0.5f * (nodes[(int)a * 3 + d] + nodes[(int)b * 3 + d])); }
         edgeMid[key] = mid;
@@ -692,7 +691,7 @@ public sealed class Refinement {
         Span<long> ids = stackalloc long[face.Length];
         for (int i = 0; i < face.Length; i++) { ids[i] = corners[face[i]]; }
         FaceKey key = FaceKey.Of(ids);
-        if (faceMid.TryGetValue(key, out long mid)) { return mid; }
+        if (faceMid.TryGetValue(out long mid)) { return mid; }
         mid = count++;
         Span<float> acc = stackalloc float[3];
         foreach (int v in face) for (int d = 0; d < 3; d++) { acc[d] += nodes[(int)corners[v] * 3 + d]; }

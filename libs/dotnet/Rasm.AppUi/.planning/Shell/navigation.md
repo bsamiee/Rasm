@@ -12,7 +12,7 @@ Rasm.AppUi composes one shell: a three-case `NavRequest` union over a `RouteVerb
 ## [02]-[ROUTING_SPINE]
 
 - Owner: `NavFault` the direct generated `[Union]` with one `[FaultCase]` leaf per navigation failure; `RouteVerb` the five-row verb roster whose columns are the deep-link literal AND the landing; `NavRequest` `[Union]` the three-case navigation vocabulary with the deep-link grammar; `ShellRoot` the shell-root capsule owning `IScreen`, the router cell, and the ordinal-frozen route index.
-- Cases: `NavRequest` = Route(verb, key) | Pop | View(viewKey); `RouteVerb` = push | replace | reset | modal | peek — the LANDING is each row's own delegate column, so the five stack-and-presenter semantics are rows and a sixth verb is one row with its landing beside it, never a new case plus two switch arms.
+- Cases: `NavRequest` = Route(verb) | Pop | View(viewKey); `RouteVerb` = push | replace | reset | modal | peek — the LANDING is each row's own delegate column, so the five stack-and-presenter semantics are rows and a sixth verb is one row with its landing beside it, never a new case plus two switch arms.
 - Entry: `public IO<Unit> Navigate(NavRequest request)` — `IO` carries the navigation effect; an unknown route key aborts on the `Error` channel.
 - Auto: `RoutedViewHost` re-resolves the view on every router transition; deep links and remote verbs enter through `Parse` with no second admission path; the transition direction is `NavRequest.Direction` — a projection of the case, so a back transition cannot play forward because a call site forgot a flag — and `ShellRoot.Direction` hands it to the `Theme/motion` `RouteCarrier.Bind` row before the stack write the transition plays.
 - Packages: ReactiveUI, ReactiveUI.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (kernel), BCL inbox
@@ -55,15 +55,15 @@ public abstract partial record NavFault : Fault {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RouteVerb {
     public static readonly RouteVerb Push = new("push",
-        static (root, key) => root.Forward(root.Router.Navigate, key, "push"));
+        static (root, key) => root.Forward(root.Router.Navigate, "push"));
     public static readonly RouteVerb Replace = new("replace",
-        static (root, key) => root.Swap(key, "replace"));
+        static (root, key) => root.Swap("replace"));
     public static readonly RouteVerb Reset = new("reset",
-        static (root, key) => root.Forward(root.Router.NavigateAndReset, key, "reset"));
+        static (root, key) => root.Forward(root.Router.NavigateAndReset, "reset"));
     public static readonly RouteVerb Modal = new("modal",
-        static (root, key) => root.Resolved(key, "modal").Bind(root.PresentModal));
+        static (root, key) => root.Resolved("modal").Bind(root.PresentModal));
     public static readonly RouteVerb Peek = new("peek",
-        static (root, key) => root.Resolved(key, "peek").Bind(root.PresentPeek));
+        static (root, key) => root.Resolved("peek").Bind(root.PresentPeek));
 
     [UseDelegateFromConstructor]
     public partial IO<Unit> Land(ShellRoot root, string routeKey);
@@ -99,8 +99,8 @@ public abstract partial record NavRequest {
                 ? Fin.Fail<NavRequest>(new NavFault.SchemeMismatch(deepLink))
                 : Segments(uri) switch {
                     [PopVerb] => Fin.Succ<NavRequest>(new Pop()),
-                    [ViewVerb, var key] => Fin.Succ<NavRequest>(new View(key)),
-                    [var verb, var key] when RouteVerb.TryGet(verb, out RouteVerb? row) => Fin.Succ<NavRequest>(new Route(row, key)),
+                    [ViewVerb, var key] => Fin.Succ<NavRequest>(new View()),
+                    [var verb, var key] when RouteVerb.TryGet(verb, out RouteVerb? row) => Fin.Succ<NavRequest>(new Route(row)),
                     [var verb, ..] => Fin.Fail<NavRequest>(new NavFault.UnknownVerb(verb)),
                     _ => Fin.Fail<NavRequest>(new NavFault.InvalidDeepLink(deepLink)),
                 }
@@ -174,23 +174,23 @@ public sealed class ShellRoot(
             view: static (root, c) => root.RecallView(c.ViewKey)));
 
     internal IO<Unit> Swap(string key, string verb) =>
-        Resolved(key, verb).Map(vm => ignore(Router.NavigationStack = [.. Router.NavigationStack.SkipLast(1), vm]));
+        Resolved(verb).Map(vm => ignore(Router.NavigationStack = [.. Router.NavigationStack.SkipLast(1), vm]));
 
     public Fin<IRoutableViewModel> Resolve(string key, SurfaceKey surface) =>
-        Routes.TryGetValue(key, out Func<IScreen, SurfaceKey, IRoutableViewModel>? make)
+        Routes.TryGetValue(out Func<IScreen, SurfaceKey, IRoutableViewModel>? make)
             ? Fin.Succ(make(this, surface))
-            : Fin.Fail<IRoutableViewModel>(new NavFault.UnknownRoute(key));
+            : Fin.Fail<IRoutableViewModel>(new NavFault.UnknownRoute());
 
-    public Fin<IRoutableViewModel> Resolve(string key) => Resolve(key, Surface(key));
+    public Fin<IRoutableViewModel> Resolve(string key) => Resolve(Surface());
 
     public Fin<Seq<RouteRestoreFact>> Restore(Seq<string> saved, string fallback) =>
         Resolve(fallback).Bind(fallbackScreen => {
             Seq<string> requested = saved.IsEmpty ? Seq(fallback) : saved;
             Seq<(RouteRestoreFact Fact, IRoutableViewModel Screen)> resolved = requested
-                .Map(key => Resolve(key).Match<(RouteRestoreFact, IRoutableViewModel)>(
-                    Succ: screen => (new RouteRestoreFact.Resolved(key), screen),
+                .Map(key => Resolve().Match<(RouteRestoreFact, IRoutableViewModel)>(
+                    Succ: screen => (new RouteRestoreFact.Resolved(), screen),
                     Fail: error => (
-                        new RouteRestoreFact.Fell(key, fallback, error as NavFault ?? new NavFault.UnknownRoute(key)),
+                        new RouteRestoreFact.Fell(fallback, error as NavFault ?? new NavFault.UnknownRoute()),
                         fallbackScreen)))
                 .Strict();
             Router.NavigationStack = [.. resolved.Map(static row => row.Screen)];
@@ -198,12 +198,12 @@ public sealed class ShellRoot(
         });
 
     internal IO<IRoutableViewModel> Resolved(string key, string verb) =>
-        Resolve(key).Match(
+        Resolve().Match(
             Succ: IO.pure,
             Fail: error => Count(RouteMiss, verb).Bind(_ => IO.fail<IRoutableViewModel>(error)));
 
     internal IO<Unit> Forward(ReactiveCommand<IRoutableViewModel, IRoutableViewModel> command, string key, string verb) =>
-        Resolved(key, verb).Bind(vm => IO.lift(async _ => { await command.Execute(vm).ConfigureAwait(true); return unit; }));
+        Resolved(verb).Bind(vm => IO.lift(async _ => { await command.Execute(vm).ConfigureAwait(true); return unit; }));
 
     internal IO<Unit> Back() =>
         IO.lift(async _ => { await Router.NavigateBack.Execute().ConfigureAwait(true); return unit; });
@@ -336,7 +336,7 @@ public sealed class ShellDockFactory(
     }
 
     private static Func<object?> Context(ShellRoot shell, Func<Error, Unit> stale, string key) => () =>
-        shell.Resolve(key).Match<object?>(
+        shell.Resolve().Match<object?>(
             Succ: static vm => vm,
             Fail: error => { ignore(stale(error)); return null; });
 
@@ -516,7 +516,7 @@ public static class LayoutLedger {
         ContentHash.Of(content, static (held, writer) => {
             ignore(writer.String(held.Payload));
             ignore(writer.Ordinal(held.RouteStack.Count));
-            held.RouteStack.Iter(key => ignore(writer.String(key)));
+            held.RouteStack.Iter(key => ignore(writer.String()));
         });
 
     public static IO<Option<LayoutCheckpoint>> Flush(IClock clock, LayoutPersistence port, Atom<Option<UInt128>> last) =>
@@ -607,8 +607,8 @@ public static class Workspaces {
             CapabilitySet<ChromeSlot>.Of(ChromeSlot.Nav, ChromeSlot.Menu, ChromeSlot.Status, ChromeSlot.Toolbar), "present"));
 
     public static Fin<WorkspaceRow> Find(string key) =>
-        Rows.Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
-            .ToFin(new NavFault.UnknownWorkspace(key));
+        Rows.Find(row => string.Equals(StringComparison.Ordinal))
+            .ToFin(new NavFault.UnknownWorkspace());
 }
 
 public sealed record WorkspaceCell(
@@ -665,7 +665,7 @@ public static class DocumentInstances {
             document.Id = key.Value;
             document.Title = title(route);
             document.Context = shell.Resolve(route).Match<object?>(Succ: static vm => vm, Fail: _ => template.Content);
-            ignore(minted(key));
+            ignore(minted());
             return document;
         };
 }

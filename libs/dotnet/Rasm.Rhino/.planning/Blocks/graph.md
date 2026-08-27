@@ -75,16 +75,16 @@ public sealed record GraphGrouping<TVertex> where TVertex : notnull {
 
 public sealed record GraphProjection<TVertex> where TVertex : notnull {
     public static readonly GraphProjection<TVertex> Closure = new(project: static (graph, op) =>
-        op.Catch(() => Fin.Succ(value: graph.ComputeTransitiveClosure(
-            edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target)))));
+        Try.lift(() => Fin.Succ(value: graph.ComputeTransitiveClosure(
+            edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target)))).Run().Bind(static inner => inner));
     public static readonly GraphProjection<TVertex> Reduction = new(project: static (graph, op) =>
         GraphFold.Reduced(graph: graph, op: op));
 
     private GraphProjection(
-        Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Op, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> project) =>
+        Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> project) =>
         Project = project;
 
-    internal Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Op, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> Project { get; }
+    internal Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> Project { get; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -103,27 +103,27 @@ internal sealed record Topology(
     Seq<(Guid Used, Guid Container)> Edges,
     Seq<PlacementNode> Placements,
     GraphEvidence Evidence) : IDetachedDocumentResult {
-    internal Fin<BidirectionalGraph<Guid, SEdge<Guid>>> Fold(Op key) {
+    internal Fin<BidirectionalGraph<Guid, SEdge<Guid>>> Fold() {
         Seq<Guid> nodes = Nodes.Map(static node => node.Key);
         LanguageExt.HashSet<Guid> keys = nodes.ToHashSet();
-        return from _present in guard(!nodes.IsEmpty, key.InvalidResult()).ToFin()
+        return from _present in guard(!nodes.IsEmpty, new KernelFault.InvalidResult()).ToFin()
                from _ in nodes
-                   .Traverse(node => guard(node != Guid.Empty, key.InvalidResult()).ToFin().ToValidation())
+                   .Traverse(node => guard(node != Guid.Empty, new KernelFault.InvalidResult()).ToFin().ToValidation())
                    .As()
                    .ToFin()
-               from __ in guard(keys.Count == nodes.Count, key.InvalidResult())
+               from __ in guard(keys.Count == nodes.Count, new KernelFault.InvalidResult())
                from ___ in Edges
                    .Traverse(edge => guard(
                        keys.Contains(value: edge.Used) && keys.Contains(value: edge.Container),
-                       key.InvalidResult()).ToFin().ToValidation())
+                       new KernelFault.InvalidResult()).ToFin().ToValidation())
                    .As()
                    .ToFin()
-               from graph in key.Catch(() => {
+               from graph in Try.lift(() => {
                    BidirectionalGraph<Guid, SEdge<Guid>> admitted = new(allowParallelEdges: false);
                    _ = admitted.AddVertexRange(nodes.AsIterable());
                    Edges.Iter(edge => admitted.AddEdge(new SEdge<Guid>(source: edge.Used, target: edge.Container)));
                    return Fin.Succ(value: admitted);
-               })
+               }).Run().Bind(static inner => inner)
                select graph;
     }
 }
@@ -177,8 +177,7 @@ public sealed partial class ClosureBudget {
         int maxArchives,
         long maxLinks,
         int maxDepth,
-        long maxBytes,
-        Op? key = null) =>
+        long maxBytes) =>
         key.OrDefault().AcceptValidated<ClosureBudget>(
             Validate(maxArchives, maxLinks, maxDepth, maxBytes, out ClosureBudget? admitted),
             admitted);
@@ -203,148 +202,146 @@ public abstract partial record BlockGraphAnswer : IDetachedDocumentResult {
 // --- [SERVICES] ------------------------------------------------------------------------
 public static partial class BlockGraph {
     public static Fin<BlockGraphAnswer> Ask(GraphSource source, BlockGraphAsk question) {
-        Op op = Op.Of();
-        return from active in op.Need(question)
+        return from active in Admit.Need(question)
                from answer in active.Switch(
-                   context: (Source: source, Op: op),
+                   context: source,
                    definitions: static (ctx, _) =>
-                       from topology in Of(source: ctx.Source, key: ctx.Op)
+                       from topology in Of(source: ctx, key: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Nodes(Values: topology.Nodes),
-                   containers: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from target in ctx.Op.Need(ask.Target)
-                       from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
+                   containers: static (ctx, ask) => Live(source: ctx, read: document =>
+                       from target in Admit.Need(ask.Target)
+                       from definition in Definitions.Resolve(target: target, document: document)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(
                            Keys: toSeq(definition.GetContainers()).Map(static container => container.Id))),
-                   references: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from target in ctx.Op.Need(ask.Target)
-                       from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
-                       from scope in ctx.Op.Need(ask.Scope)
+                   references: static (ctx, ask) => Live(source: ctx, read: document =>
+                       from target in Admit.Need(ask.Target)
+                       from definition in Definitions.Resolve(target: target, document: document)
+                       from scope in Admit.Need(ask.Scope)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Placements(
                            Evidence: GraphEvidence.Complete,
                            Values: toSeq(definition.GetReferences(wheretoLook: scope.HostValue))
                                .Map(instance => new PlacementNode(InstanceId: instance.Id, DefinitionId: definition.Id)))),
-                   nesting: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from outerTarget in ctx.Op.Need(ask.Outer)
-                       from innerTarget in ctx.Op.Need(ask.Inner)
-                       from outer in Definitions.Resolve(target: outerTarget, document: document, key: ctx.Op)
-                       from inner in Definitions.Resolve(target: innerTarget, document: document, key: ctx.Op)
+                   nesting: static (ctx, ask) => Live(source: ctx, read: document =>
+                       from outerTarget in Admit.Need(ask.Outer)
+                       from innerTarget in Admit.Need(ask.Inner)
+                       from outer in Definitions.Resolve(target: outerTarget, document: document)
+                       from inner in Definitions.Resolve(target: innerTarget, document: document)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Depth(
                            Levels: outer.UsesDefinition(otherIdefIndex: inner.Index))),
                    boundary: static (ctx, ask) =>
-                       from policy in ctx.Op.Need(ask.Policy)
-                       from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from graph in topology.Fold(key: ctx.Op)
-                       from values in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph)))
+                       from policy in Admit.Need(ask.Policy)
+                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from graph in topology.Fold()
+                       from values in Try.lift(() => Fin.Succ(value: policy.Select(graph))).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(Keys: values),
                    path: static (ctx, ask) =>
-                       from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from start in KeyOf(topology: topology, target: ask.From, op: ctx.Op)
-                       from finish in KeyOf(topology: topology, target: ask.To, op: ctx.Op)
-                       from graph in topology.Fold(key: ctx.Op)
-                       from path in ctx.Op.Catch(() => {
+                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from start in KeyOf(topology: topology, target: ask.From)
+                       from finish in KeyOf(topology: topology, target: ask.To)
+                       from graph in topology.Fold()
+                       from path in Try.lift(() => {
                            TryFunc<Guid, IEnumerable<SEdge<Guid>>> search = graph.TreeBreadthFirstSearch(start);
                            return search(finish, out IEnumerable<SEdge<Guid>> edges)
                                ? Fin.Succ(value: Seq(start).Concat(toSeq(edges).Map(static edge => edge.Target)))
-                               : Fin.Fail<Seq<Guid>>(error: ctx.Op.MissingContext());
-                       })
+                               : Fin.Fail<Seq<Guid>>(error: new KernelFault.MissingContext());
+                       }).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Path(Keys: path),
                    order: static (ctx, _) =>
-                       from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from graph in topology.Fold(key: ctx.Op)
+                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from graph in topology.Fold()
                        from ordered in GraphFold.Ordered(graph: graph, op: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Ordered(BakeOrder: ordered),
                    groups: static (ctx, ask) =>
-                       from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from policy in ctx.Op.Need(ask.Policy)
-                       from graph in topology.Fold(key: ctx.Op)
-                       from groups in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph)))
+                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from policy in Admit.Need(ask.Policy)
+                       from graph in topology.Fold()
+                       from groups in Try.lift(() => Fin.Succ(value: policy.Select(graph))).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Groups(Values: groups),
                    projection: static (ctx, ask) =>
-                       from policy in ctx.Op.Need(ask.Policy)
-                       from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from folded in topology.Fold(key: ctx.Op)
-                       from graph in policy.Project(folded, ctx.Op)
+                       from policy in Admit.Need(ask.Policy)
+                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from folded in topology.Fold()
+                       from graph in policy.Project(folded)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Graph(
-                           Edges: toSeq(graph.Edges).Map(static edge => (edge.Source, edge.Target))),
+                           Edges: toSeq(graph.Edges).Map(static edge => (edge, edge.Target))),
                    condensation: static (ctx, _) =>
-                       from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from graph in topology.Fold(key: ctx.Op)
-                       from condensed in ctx.Op.Catch(() => Fin.Succ(value: GraphFold.Condensed(graph: graph)))
+                       from topology in Complete(source: ctx, op: ctx.Op)
+                       from graph in topology.Fold()
+                       from condensed in Try.lift(() => Fin.Succ(value: GraphFold.Condensed(graph: graph))).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Condensed(
                            Components: condensed.Components,
                            Edges: condensed.Edges),
                    placed: static (ctx, _) =>
-                       from topology in Of(source: ctx.Source, key: ctx.Op)
+                       from topology in Of(source: ctx, key: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Placements(
                            Evidence: topology.Evidence,
                            Values: topology.Evidence == GraphEvidence.Complete ? topology.Placements : Seq<PlacementNode>()),
-                   tally: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from target in ctx.Op.Need(ask.Target)
-                       from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
-                       from usage in ctx.Op.Catch(() => {
+                   tally: static (ctx, ask) => Live(source: ctx, read: document =>
+                       from target in Admit.Need(ask.Target)
+                       from definition in Definitions.Resolve(target: target, document: document)
+                       from usage in Try.lift(() => {
                            int total = definition.UseCount(
                                topLevelReferenceCount: out int topLevel,
                                nestedReferenceCount: out int nested);
-                           return BlockUsage.Of(total: total, topLevel: topLevel, nested: nested, key: ctx.Op);
-                       })
+                           return BlockUsage.Of(total: total, topLevel: topLevel, nested: nested);
+                       }).Run().Bind(static inner => inner)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Usage(Counts: usage)),
                    archives: static (ctx, ask) =>
-                       from root in RootPath(source: ctx.Source, op: ctx.Op)
-                       from budget in ctx.Op.Need(ask.Budget)
-                       from report in ArchiveClosure(rootPath: root, budget: budget, op: ctx.Op)
+                       from root in RootPath(source: ctx, op: ctx.Op)
+                       from budget in Admit.Need(ask.Budget)
+                       from report in ArchiveClosure(rootPath: root, budget: budget)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Archives(Report: report))
                select answer;
     }
 
-    private static Fin<Topology> Complete(GraphSource source, Op op) =>
-        Of(source: source, key: op).Bind(topology => topology.Evidence == GraphEvidence.Complete
+    private static Fin<Topology> Complete(GraphSource source) =>
+        Of(source: source).Bind(topology => topology.Evidence == GraphEvidence.Complete
             ? Fin.Succ(value: topology)
-            : Fin.Fail<Topology>(error: op.InvalidResult(detail: nameof(GraphEvidence.OpaqueLinks))));
+            : Fin.Fail<Topology>(error: new KernelFault.InvalidResult(Detail: Some(nameof(GraphEvidence.OpaqueLinks)))));
 
-    private static Fin<Guid> KeyOf(Topology topology, ResourceRef target, Op op) =>
-        op.Need(target).Bind(active => active.Switch(
-            context: (Topology: topology, Op: op),
-            byId: static (ctx, value) => ctx.Topology.Nodes
+    private static Fin<Guid> KeyOf(Topology topology, ResourceRef target) =>
+        Admit.Need(target).Bind(active => active.Switch(
+            context: topology,
+            byId: static (ctx, value) => ctx.Nodes
                 .Find(node => node.Key == value.Value)
                 .Map(static node => node.Key)
-                .ToFin(Fail: ctx.Op.MissingContext()),
+                .ToFin(Fail: new KernelFault.MissingContext()),
             byName: static (ctx, value) => {
-                Seq<DefinitionNode> matches = ctx.Topology.Nodes
+                Seq<DefinitionNode> matches = ctx.Nodes
                     .Filter(node => string.Equals(node.Name, value.Value, StringComparison.OrdinalIgnoreCase))
                     .Strict();
                 return matches.Count switch {
-                    0 => Fin.Fail<Guid>(error: ctx.Op.MissingContext()),
-                    1 => matches.Head.Map(static node => node.Key).ToFin(Fail: ctx.Op.MissingContext()),
-                    _ => Fin.Fail<Guid>(error: ctx.Op.InvalidResult(detail: $"ambiguous definition name: {value.Value}")),
+                    0 => Fin.Fail<Guid>(error: new KernelFault.MissingContext()),
+                    1 => matches.Head.Map(static node => node.Key).ToFin(Fail: new KernelFault.MissingContext()),
+                    _ => Fin.Fail<Guid>(error: new KernelFault.InvalidResult(Detail: Some($"ambiguous definition name: {value.Value}"))),
                 };
             },
-            byIndex: static (ctx, value) => ctx.Topology.Nodes
+            byIndex: static (ctx, value) => ctx.Nodes
                 .Find(node => node.Index.Exists(index => index == value.Value))
                 .Map(static node => node.Key)
-                .ToFin(Fail: ctx.Op.MissingContext())));
+                .ToFin(Fail: new KernelFault.MissingContext())));
 
-    private static Fin<Topology> Of(GraphSource source, Op key) =>
-        key.Need(source).Bind(request => request.Switch(
+    private static Fin<Topology> Of(GraphSource source) =>
+        Admit.Need(source).Bind(request => request.Switch(
             context: key,
-            live: static (op, held) => op.Need(held.Session).Bind(session => session.Demand(
+            live: static (held) => Admit.Need(held.Session).Bind(session => session.Demand(
                 use: document => LiveTopology(document: document, op: op),
-                key: op,
                 needs: [SessionNeed.Read])),
-            loaded: static (op, held) => op.Need(held.Archive)
-                .Bind(archive => Offline(archive: archive, op: op)),
-            stored: static (op, held) =>
-                from path in op.AcceptText(value: held.Path)
-                from topology in op.Catch(() => Optional(File3dm.ReadWithLog(path: path, errorLog: out string log))
-                    .ToFin(Fail: op.InvalidResult(detail: log))
+            loaded: static (held) => Admit.Need(held.Archive)
+                .Bind(archive => Offline(archive: archive)),
+            stored: static (held) =>
+                from path in Acceptance.Text(value: held.Path)
+                from topology in Try.lift(() => Optional(File3dm.ReadWithLog(path: path, errorLog: out string log))
+                    .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(log)))
                     .Bind(archive => {
                         using (archive) {
-                            return Offline(archive: archive, op: op);
+                            return Offline(archive: archive);
                         }
-                    }))
+                    })).Run().Bind(static inner => inner)
                 select topology));
 
-    private static Fin<Topology> LiveTopology(RhinoDoc document, Op op) =>
-        op.Catch(() => {
+    private static Fin<Topology> LiveTopology(RhinoDoc document) =>
+        Try.lift(() => {
             Seq<InstanceDefinition> roster = toSeq(document.InstanceDefinitions.GetList(ignoreDeleted: true))
                 .Choose(static definition => Optional(definition));
             Seq<(Guid Used, Guid Container)> edges = roster.Bind(definition =>
@@ -353,7 +350,7 @@ public static partial class BlockGraph {
                 .GetReferences(wheretoLook: ReferenceScope.Direct.HostValue))
                 .Map(instance => new PlacementNode(InstanceId: instance.Id, DefinitionId: definition.Id)));
             return roster
-                .TraverseM(definition => SourceMode.Of(update: definition.UpdateType, key: op)
+                .TraverseM(definition => SourceMode.Of(update: definition.UpdateType)
                     .Map(source => new DefinitionNode(
                         Key: definition.Id,
                         Index: Some(definition.Index),
@@ -367,10 +364,10 @@ public static partial class BlockGraph {
                     Edges: edges,
                     Placements: placements,
                     Evidence: GraphEvidence.Complete));
-        });
+        }).Run().Bind(static inner => inner);
 
-    private static Fin<Topology> Offline(File3dm archive, Op op) =>
-        ModelUnit.Of(value: archive.Settings.ModelUnitSystem, key: op).Bind(units => op.Catch(() => {
+    private static Fin<Topology> Offline(File3dm archive) =>
+        ModelUnit.Of(value: archive.Settings.ModelUnitSystem).Bind(units => Try.lift(() => {
             Seq<InstanceDefinitionGeometry> roster = toSeq(archive.AllInstanceDefinitions);
             HashMap<Guid, Guid> owners = roster.Fold(
                 HashMap<Guid, Guid>(),
@@ -406,28 +403,27 @@ public static partial class BlockGraph {
                 Evidence: nodes.Exists(static node => node.Opaque)
                     ? GraphEvidence.OpaqueLinks
                     : GraphEvidence.Complete));
-        }));
+        }).Run().Bind(static inner => inner));
 
     private static Fin<BlockGraphAnswer> Live(
         GraphSource source,
-        Op op,
         Func<RhinoDoc, Fin<BlockGraphAnswer>> read) =>
         source.SwitchPartially(
             context: (Op: op, Read: read),
-            live: static (ctx, held) => ctx.Op.Need(held.Session)
-                .Bind(session => session.Demand(use: ctx.Read, key: ctx.Op, needs: [SessionNeed.Read])),
-            @default: static (ctx, _) => Fin.Fail<BlockGraphAnswer>(error: ctx.Op.Unsupported(
-                inputType: typeof(GraphSource),
-                outputType: typeof(BlockGraphAnswer))));
+            live: static (ctx, held) => Admit.Need(held.Session)
+                .Bind(session => session.Demand(use: ctx.Read, needs: [SessionNeed.Read])),
+            @default: static (ctx, _) => Fin.Fail<BlockGraphAnswer>(error: new KernelFault.Unsupported(
+                InputType: typeof(GraphSource),
+                OutputType: typeof(BlockGraphAnswer))));
 
-    private static Fin<string> RootPath(GraphSource source, Op op) =>
+    private static Fin<string> RootPath(GraphSource source) =>
         source.SwitchPartially(
             context: op,
-            stored: static (key, held) => key.AcceptText(value: held.Path),
-            loaded: static (key, held) => held.Path.ToFin(Fail: key.InvalidInput()).Bind(key.AcceptText),
-            @default: static (key, _) => Fin.Fail<string>(error: key.Unsupported(
-                inputType: typeof(GraphSource),
-                outputType: typeof(ClosureReport))));
+            stored: static (held) => Acceptance.Text(value: held.Path),
+            loaded: static (held) => held.Path.ToFin(Fail: new KernelFault.InvalidInput()).Bind(key.AcceptText),
+            @default: static (_) => Fin.Fail<string>(error: new KernelFault.Unsupported(
+                InputType: typeof(GraphSource),
+                OutputType: typeof(ClosureReport))));
 }
 
 internal static class GraphFold {
@@ -450,18 +446,17 @@ internal static class GraphFold {
         return Grouped(graph: graph, labels: labels, order: order);
     }
 
-    internal static Fin<Seq<TVertex>> Ordered<TVertex>(BidirectionalGraph<TVertex, SEdge<TVertex>> graph, Op op)
+    internal static Fin<Seq<TVertex>> Ordered<TVertex>(BidirectionalGraph<TVertex, SEdge<TVertex>> graph)
         where TVertex : notnull =>
-        op.Catch(() => graph.IsDirectedAcyclicGraph()
+        Try.lift(() => graph.IsDirectedAcyclicGraph()
             ? Fin.Succ(value: toSeq(graph.SourceFirstBidirectionalTopologicalSort()))
-            : Fin.Fail<Seq<TVertex>>(error: op.InvalidResult(detail: nameof(Cycles))));
+            : Fin.Fail<Seq<TVertex>>(error: new KernelFault.InvalidResult(Detail: Some(nameof(Cycles))))).Run().Bind(static inner => inner);
 
     internal static Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>> Reduced<TVertex>(
-        BidirectionalGraph<TVertex, SEdge<TVertex>> graph,
-        Op op) where TVertex : notnull =>
-        op.Catch(() => graph.IsDirectedAcyclicGraph()
+        BidirectionalGraph<TVertex, SEdge<TVertex>> graph) where TVertex : notnull =>
+        Try.lift(() => graph.IsDirectedAcyclicGraph()
             ? Fin.Succ(value: graph.ComputeTransitiveReduction())
-            : Fin.Fail<BidirectionalGraph<TVertex, SEdge<TVertex>>>(error: op.InvalidResult(detail: nameof(Cycles))));
+            : Fin.Fail<BidirectionalGraph<TVertex).Run().Bind(static inner => inner);
 
     internal static (Seq<Seq<TVertex>> Components, Seq<(int From, int To)> Edges) Condensed<TVertex>(
         BidirectionalGraph<TVertex, SEdge<TVertex>> graph,
@@ -523,7 +518,7 @@ The walk pins the canonical root directory and opens each dependency segment rel
 // --- [MODELS] --------------------------------------------------------------------------
 [Equatable(Explicit = true)]
 public sealed partial record ArchivePath : IComparable<ArchivePath> {
-    private ArchivePath(string key, string value) => (Key, Value) = (key, value);
+    private ArchivePath(string key, string value) => (Key, Value) = (value);
 
     [DefaultEquality] public string Key { get; }
     [IgnoreEquality] public string Value { get; }
@@ -604,12 +599,12 @@ public sealed partial class ArchivePlane {
 
     internal int Leaf => Read | NoFollow | CloseOnExec;
 
-    internal static Fin<ArchivePlane> Current(Op op) =>
+    internal static Fin<ArchivePlane> Current() =>
         OperatingSystem.IsMacOS() ? Fin.Succ(value: Darwin)
         : OperatingSystem.IsLinux() ? Fin.Succ(value: Linux)
-        : Fin.Fail<ArchivePlane>(error: op.Unsupported(
-            inputType: typeof(ArchiveRoot),
-            outputType: typeof(ClosureReport)));
+        : Fin.Fail<ArchivePlane>(error: new KernelFault.Unsupported(
+            InputType: typeof(ArchiveRoot),
+            OutputType: typeof(ClosureReport)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -631,10 +626,10 @@ public static partial class BlockGraph {
         private ArchiveRoot(Microsoft.Win32.SafeHandles.SafeFileHandle directory, ArchivePlane plane, string path) =>
             (this.directory, this.plane, this.path) = (directory, plane, path);
 
-        internal static Fin<ArchiveRoot> Open(string path, ArchivePlane plane, Op op) => op.Catch(() =>
+        internal static Fin<ArchiveRoot> Open(string path, ArchivePlane plane) => Try.lift(() =>
             Optional(System.IO.Path.GetPathRoot(path: System.IO.Path.GetFullPath(path: path)))
                 .Filter(static prefix => prefix.Length > 0)
-                .ToFin(Fail: op.InvalidInput())
+                .ToFin(Fail: new KernelFault.InvalidInput())
                 .Bind(prefix => {
                     string full = System.IO.Path.GetFullPath(path: path);
                     string[] segments = full[prefix.Length..].Split(
@@ -645,7 +640,7 @@ public static partial class BlockGraph {
                     try {
                         if (owned.IsInvalid) {
                             int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
-                            return Fin.Fail<ArchiveRoot>(error: op.InvalidResult(detail: $"open-root:{code}"));
+                            return Fin.Fail<ArchiveRoot>(error: new KernelFault.InvalidResult(Detail: Some($"open-root:{code}")));
                         }
                         foreach (string segment in segments) {
                             Microsoft.Win32.SafeHandles.SafeFileHandle next = OpenRelative(
@@ -655,7 +650,7 @@ public static partial class BlockGraph {
                             if (next.IsInvalid) {
                                 int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
                                 next.Dispose();
-                                return Fin.Fail<ArchiveRoot>(error: op.InvalidResult(detail: $"open-root-segment:{code}"));
+                                return Fin.Fail<ArchiveRoot>(error: new KernelFault.InvalidResult(Detail: Some($"open-root-segment:{code}")));
                             }
                             owned.Dispose();
                             owned = next;
@@ -668,9 +663,9 @@ public static partial class BlockGraph {
                             owned.Dispose();
                         }
                     }
-                }));
+                })).Run().Bind(static inner => inner);
 
-        internal Fin<ArchiveInput> Open(string candidate, Op op) => op.Catch(() => {
+        internal Fin<ArchiveInput> Open(string candidate) => Try.lift(() => {
             string relative = System.IO.Path.GetRelativePath(relativeTo: path, path: candidate);
             string[] segments = relative.Split(
                 separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
@@ -678,7 +673,7 @@ public static partial class BlockGraph {
             if (System.IO.Path.IsPathRooted(path: relative)
                 || segments.Length is 0
                 || segments.Any(static segment => segment is "." or "..")) {
-                return Fin.Fail<ArchiveInput>(error: op.InvalidContext());
+                return Fin.Fail<ArchiveInput>(error: new KernelFault.InvalidContext());
             }
 
             Microsoft.Win32.SafeHandles.SafeFileHandle? owned = null;
@@ -691,29 +686,28 @@ public static partial class BlockGraph {
                         flags: leaf ? plane.Leaf : plane.Walk);
                     if (next.IsInvalid) {
                         next.Dispose();
-                        return Fin.Fail<ArchiveInput>(error: op.InvalidResult(
-                            detail: $"open-segment:{System.Runtime.InteropServices.Marshal.GetLastPInvokeError()}"));
+                        return Fin.Fail<ArchiveInput>(error: new KernelFault.InvalidResult(Detail: Some($"open-segment:{System.Runtime.InteropServices.Marshal.GetLastPInvokeError()}")));
                     }
                     owned?.Dispose();
                     owned = next;
                 }
 
                 if (owned is null) {
-                    return Fin.Fail<ArchiveInput>(error: op.InvalidContext());
+                    return Fin.Fail<ArchiveInput>(error: new KernelFault.InvalidContext());
                 }
                 Microsoft.Win32.SafeHandles.SafeFileHandle admitted = owned;
                 owned = null;
                 long length = System.IO.RandomAccess.GetLength(handle: admitted);
                 if (length < 0) {
                     admitted.Dispose();
-                    return Fin.Fail<ArchiveInput>(error: op.InvalidResult());
+                    return Fin.Fail<ArchiveInput>(error: new KernelFault.InvalidResult());
                 }
                 return Fin.Succ(value: new ArchiveInput(handle: admitted, length: length));
             }
             finally {
                 owned?.Dispose();
             }
-        });
+        }).Run().Bind(static inner => inner);
 
         public void Dispose() => directory.Dispose();
     }
@@ -751,8 +745,7 @@ public static partial class BlockGraph {
         ArchiveRoot Root,
         string Anchor,
         ArchivePlane Plane,
-        ClosureBudget Budget,
-        Op Op);
+        ClosureBudget Budget);
 
     private sealed record ClosureWalk(
         Seq<ArchiveTarget> Pending,
@@ -798,14 +791,14 @@ public static partial class BlockGraph {
             };
     }
 
-    private static Fin<ClosureReport> ArchiveClosure(string rootPath, ClosureBudget budget, Op op) =>
-        from plane in ArchivePlane.Current(op: op)
-        from root in Canonical(path: rootPath, plane: plane, op: op)
-        from anchor in Optional(System.IO.Path.GetDirectoryName(path: root.Value)).ToFin(Fail: op.InvalidInput())
-        from handle in ArchiveRoot.Open(path: anchor, plane: plane, op: op)
-        from report in op.Catch(() => {
+    private static Fin<ClosureReport> ArchiveClosure(string rootPath, ClosureBudget budget) =>
+        from plane in ArchivePlane.Current()
+        from root in Canonical(path: rootPath, plane: plane)
+        from anchor in Optional(System.IO.Path.GetDirectoryName(path: root.Value)).ToFin(Fail: new KernelFault.InvalidInput())
+        from handle in ArchiveRoot.Open(path: anchor, plane: plane)
+        from report in Try.lift(() => {
             using (handle) {
-                ClosureScope scope = new(Root: handle, Anchor: anchor, Plane: plane, Budget: budget, Op: op);
+                ClosureScope scope = new(Root: handle, Anchor: anchor, Plane: plane, Budget: budget);
                 ClosureWalk settled = toSeq(Enumerable.Range(start: 0, count: checked(budget.MaxArchives + 1)))
                     .FoldWhile(
                         ClosureWalk.Of(root: new ArchiveTarget(
@@ -814,7 +807,7 @@ public static partial class BlockGraph {
                         walk => walk.Terminal is ClosureTerminal.Complete && !walk.Pending.IsEmpty);
                 return Fin.Succ(value: Reported(walk: settled));
             }
-        })
+        }).Run().Bind(static inner => inner)
         select report;
 
     private static ClosureWalk Step(ClosureWalk walk, ClosureScope scope) =>
@@ -893,8 +886,7 @@ public static partial class BlockGraph {
                 : System.IO.Path.Combine(
                     path1: System.IO.Path.GetDirectoryName(path: target.Path.Value) ?? string.Empty,
                     path2: link),
-            plane: scope.Plane,
-            op: scope.Op).Match(
+            plane: scope.Plane).Match(
             Fail: error => walk.Linked(
                 from: target.Path, link: link, resolved: Option<ArchivePath>.None, fault: Some(error)),
             Succ: resolved => Within(root: scope.Anchor, candidate: resolved.Value, comparison: scope.Plane.Comparison)
@@ -910,7 +902,7 @@ public static partial class BlockGraph {
                     from: target.Path,
                     link: link,
                     resolved: Some(resolved),
-                    fault: Some(scope.Op.InvalidContext())));
+                    fault: Some(new KernelFault.InvalidContext())));
 
     private static ClosureWalk Frontier(
         ClosureWalk walk,
@@ -953,11 +945,11 @@ public static partial class BlockGraph {
                 : walk.Terminal);
     }
 
-    private static Fin<ArchivePath> Canonical(string path, ArchivePlane plane, Op op) => op.Catch(() => {
+    private static Fin<ArchivePath> Canonical(string path, ArchivePlane plane) => Try.lift(() => {
         string full = System.IO.Path.TrimEndingDirectorySeparator(path: System.IO.Path.GetFullPath(path: path));
         return Optional(System.IO.Path.GetPathRoot(path: full))
             .Filter(static prefix => prefix.Length > 0)
-            .ToFin(Fail: op.InvalidInput())
+            .ToFin(Fail: new KernelFault.InvalidInput())
             .Map(prefix => ArchivePath.Of(
                 resolved: System.IO.Path.TrimEndingDirectorySeparator(path: System.IO.Path.GetFullPath(
                     path: full[prefix.Length..]
@@ -967,7 +959,7 @@ public static partial class BlockGraph {
                         .Aggregate(prefix, static (held, segment) => Resolved(
                             candidate: System.IO.Path.Combine(path1: held, path2: segment))))),
                 plane: plane));
-    });
+    }).Run().Bind(static inner => inner);
 
     private static string Resolved(string candidate) =>
         (System.IO.Directory.Exists(path: candidate)
@@ -983,11 +975,11 @@ public static partial class BlockGraph {
             && !relative.StartsWith(value: $"..{System.IO.Path.AltDirectorySeparatorChar}", comparisonType: comparison);
     }
 
-    private static Fin<ArchiveScan> InspectArchive(ArchiveInput input, Op op) => op.Catch(() => {
+    private static Fin<ArchiveScan> InspectArchive(ArchiveInput input) => Try.lift(() => {
         string snapshot = System.IO.Path.Combine(
             path1: System.IO.Path.GetTempPath(),
             path2: $"{Guid.NewGuid():N}.3dm");
-        Fin<ArchiveScan> primary = op.Catch(() => {
+        Fin<ArchiveScan> primary = Try.lift(() => {
             using SpanOwner<byte> lease = SpanOwner<byte>.Allocate(
                 size: checked((int)long.Clamp(value: input.Length, min: 1, max: SnapshotChunkBytes)));
             using (Microsoft.Win32.SafeHandles.SafeFileHandle output = System.IO.File.OpenHandle(
@@ -1005,7 +997,7 @@ public static partial class BlockGraph {
                         fileOffset: offset);
                     if (read <= 0) {
                         return Fin.Succ<ArchiveScan>(value: new ArchiveScan.Rejected(
-                            Error: op.InvalidResult(detail: "archive snapshot short read"),
+                            Error: new KernelFault.InvalidResult(Detail: Some("archive snapshot short read")),
                             NativeLog: string.Empty));
                     }
                     System.IO.RandomAccess.Write(
@@ -1016,7 +1008,7 @@ public static partial class BlockGraph {
                 }
                 if (System.IO.RandomAccess.GetLength(handle: input.Handle) != input.Length) {
                     return Fin.Succ<ArchiveScan>(value: new ArchiveScan.Rejected(
-                        Error: op.InvalidResult(detail: "archive length changed during snapshot"),
+                        Error: new KernelFault.InvalidResult(Detail: Some("archive length changed during snapshot")),
                         NativeLog: string.Empty));
                 }
             }
@@ -1024,21 +1016,20 @@ public static partial class BlockGraph {
             using File3dm? archive = File3dm.ReadWithLog(path: snapshot, errorLog: out string log);
             return archive is null
                 ? Fin.Succ<ArchiveScan>(value: new ArchiveScan.Rejected(
-                    Error: op.InvalidResult(detail: log),
+                    Error: new KernelFault.InvalidResult(Detail: Some(log)),
                     NativeLog: log))
-                : ModelUnit.Of(value: archive.Settings.ModelUnitSystem, key: op)
+                : ModelUnit.Of(value: archive.Settings.ModelUnitSystem)
                     .Map(units => (ArchiveScan)new ArchiveScan.Read(
                         Units: units,
                         Links: toSeq(archive.AllInstanceDefinitions)
                             .Choose(static definition => Optional(definition.SourceArchive)
                                 .Filter(static source => !string.IsNullOrWhiteSpace(value: source))),
                         NativeLog: log));
-        });
+        }).Run().Bind(static inner => inner);
         return primary.Settled(
             held: Seq(snapshot),
-            release: path => op.Catch(() => Fin.Succ(value: Op.Side(() => System.IO.File.Delete(path: path)))),
-            key: op);
-    });
+            release: path => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => System.IO.File.Delete(path: path)))).Run().Bind(static inner => inner));
+    }).Run().Bind(static inner => inner);
 }
 ```
 

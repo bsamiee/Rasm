@@ -62,7 +62,7 @@ public sealed partial class Cadence {
             : Fin.Fail<Unit>(new DocumentFault.Cadence(Key: key, Family: family)));
 
     [UseDelegateFromConstructor]
-    public partial Fin<Unit> Admits(Delivery delivery, EventFamily family, Op key);
+    public partial Fin<Unit> Admits(Delivery delivery, EventFamily family);
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -71,9 +71,9 @@ public abstract partial record DocumentFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostDocument;
     private DocumentFault() { }
 
-    [FaultCase(0)] public sealed partial record Cadence(Op Key, EventFamily Family) : DocumentFault;
-    [FaultCase(1)] public sealed partial record SeatDiverged(Op Key, RhinoPoint Point) : DocumentFault;
-    [FaultCase(2)] public sealed partial record RiderDuplicate(Op Key, RhinoPoint Point, PluginKey Plugin) : DocumentFault;
+    [FaultCase(0)] public sealed partial record Cadence(EventFamily Family) : DocumentFault;
+    [FaultCase(1)] public sealed partial record SeatDiverged(RhinoPoint Point) : DocumentFault;
+    [FaultCase(2)] public sealed partial record RiderDuplicate(RhinoPoint Point, PluginKey Plugin) : DocumentFault;
 
     public sealed override string Message => Switch(
         cadence: static fault => $"Document event family '{fault.Family}' refused the cadence for '{fault.Key}'.",
@@ -293,7 +293,7 @@ public sealed partial class EventFamily {
         Func<Option<DocKey>, EventPayload, Fin<Unit>> deliver,
         Action<Error> reject);
 
-    public static Fin<Seq<EventFamily>> In(EventBand band, Op? key = null) =>
+    public static Fin<Seq<EventFamily>> In(EventBand band) =>
         Optional(band)
             .ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(active => toSeq(Items).Filter(family => family.Band == active));
@@ -313,10 +313,9 @@ public sealed partial class EventFamily {
         Func<object?, TArgs, EventScope, Fin<Option<(Option<DocKey> Key, EventPayload Payload)>>> project) where TArgs : EventArgs =>
         (scope, journal, deliver, reject) => {
             EventHandler<TArgs> handler = (sender, args) => {
-                Op key = Op.Of(name: nameof(EventFamily));
-                Fin<Unit> outcome = key.Catch(() => project(sender, args, scope)).Match(
+                Fin<Unit> outcome = Try.lift(() => project(sender, args, scope)).Run().Bind(static inner => inner).Match(
                     Succ: projected => projected
-                        .TraverseM(fact => key.Catch(() => deliver(fact.Key, fact.Payload))).As().Map(static _ => unit),
+                        .TraverseM(fact => Try.lift(() => deliver(fact.Key, fact.Payload)).Run().Bind(static inner => inner)).As().Map(static _ => unit),
                     Fail: error => {
                         reject(obj: error);
                         return Fin.Fail<Unit>(error: error);
@@ -420,11 +419,11 @@ public sealed partial class EventFamily {
                 () => On(subscribe: subscribeOpen, unsubscribe: unsubscribeOpen, project: (_, args, watched) =>
                     open(arg: args).Bind(fact => {
                         _ = Cleared(journal: journal, family: family, move: bracket.Retain(key: correlateOpen(arg: args), value: fact.Key));
-                        return Gate(key: fact.Key, scope: watched, payload: fact.Payload);
+                        return Gate(scope: watched, payload: fact.Payload);
                     }))(scope, journal, deliver, reject),
                 () => On(subscribe: subscribeClose, unsubscribe: unsubscribeClose, project: (_, args, watched) =>
                     bracket.Release(key: correlateClose(arg: args))
-                        .Bind(key => Gate(key: key, scope: watched, payload: close(arg: args))))(scope, journal, deliver, reject)));
+                        .Bind(key => Gate(scope: watched, payload: close(arg: args))))(scope, journal, deliver, reject)));
         };
 
     private static Unit Cleared(StreamJournal journal, Func<EventFamily> family, CorrelationMove move) =>
@@ -478,16 +477,16 @@ public sealed partial class EventFamily {
 
         internal CorrelationMove Retain(TKey key, TValue value) {
             HashMap<TKey, TValue> standing = held.Value;
-            bool advanced = standing.Find(key).Map(prior => !EqualityComparer<TValue>.Default.Equals(x: prior, y: value)).IfNone(true);
+            bool advanced = standing.Find().Map(prior => !EqualityComparer<TValue>.Default.Equals(x: prior, y: value)).IfNone(true);
             if (!advanced) {
                 return new CorrelationMove.Held();
             }
-            int cleared = standing.Count >= capacity && !standing.ContainsKey(key: key) ? standing.Count : 0;
-            HashMap<TKey, TValue> next = (cleared > 0 ? HashMap<TKey, TValue>() : standing).AddOrUpdate(key, value);
+            int cleared = standing.Count >= capacity && !standing.ContainsKey() ? standing.Count : 0;
+            HashMap<TKey, TValue> next = (cleared > 0 ? HashMap<TKey, TValue>() : standing).AddOrUpdate(value);
             return Cell.Step(
                     cell: held,
                     step: current => current == standing ? Some(next) : None,
-                    declined: Op.Of(name: "CorrelationWindow").InvalidResult())
+                    declined: new KernelFault.InvalidResult())
                 is Transition<HashMap<TKey, TValue>>.Committed
                     ? new CorrelationMove.Advanced(Cleared: cleared)
                     : new CorrelationMove.Contended();
@@ -495,10 +494,10 @@ public sealed partial class EventFamily {
 
         internal Option<TValue> Release(TKey key) {
             HashMap<TKey, TValue> standing = held.Value;
-            return standing.Find(key).Bind(claimed => Cell.Step(
+            return standing.Find().Bind(claimed => Cell.Step(
                     cell: held,
-                    step: current => current == standing ? Some(current.Remove(key)) : None,
-                    declined: Op.Of(name: "CorrelationWindow").InvalidResult())
+                    step: current => current == standing ? Some(current.Remove()) : None,
+                    declined: new KernelFault.InvalidResult())
                 is Transition<HashMap<TKey, TValue>>.Committed
                     ? Some(claimed)
                     : Option<TValue>.None);
@@ -572,8 +571,7 @@ public sealed partial class ComponentTransition {
     internal static Fin<T> Named<T, TEvent>(TEvent value)
         where T : class, ISmartEnum<string, T, ValidationError>
         where TEvent : struct, Enum {
-        Op op = Op.Of(name: typeof(T).Name);
-        return Op.Text(Enum.GetName(value: value)).ToFin(Fail: op.InvalidResult()).Bind(key => op.Row<string, T>(key));
+        return HostEdge.Text(Enum.GetName(value: value)).ToFin(Fail: new KernelFault.InvalidResult()).Bind(key => FactoryBridge.Row<string, T>());
     }
 }
 
@@ -743,8 +741,8 @@ public sealed partial class FileChangeKind {
     public static readonly FileChangeKind Changed = new(key: (int)WatcherChangeTypes.Changed);
     public static readonly FileChangeKind Renamed = new(key: (int)WatcherChangeTypes.Renamed);
 
-    internal static Fin<FileChangeKind> Of(WatcherChangeTypes native, Op key) =>
-        key.Row<int, FileChangeKind>((int)native);
+    internal static Fin<FileChangeKind> Of(WatcherChangeTypes native) =>
+        FactoryBridge.Row<int, FileChangeKind>((int)native);
 }
 
 public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<string> PreviousPath);
@@ -936,9 +934,8 @@ public sealed partial class StreamPolicy {
         int journalCapacity,
         int deferredCapacity,
         int fileCapacity,
-        int correlationCapacity,
-        Op key) =>
-        key.AcceptValidated<StreamPolicy>(
+        int correlationCapacity) =>
+        FactoryBridge.Accept<StreamPolicy>(
             fault: Validate(
                 laneCapacity,
                 journalCapacity,
@@ -968,7 +965,7 @@ internal sealed class StreamJournal {
         ? (Slot: slot, Body: body)
         : (
             Slot: StreamSlot.SinkFault,
-            Body: new StreamBody.Faulted(Origin: None, Cause: Op.Of(name: nameof(StreamJournal)).InvalidInput()))));
+            Body: new StreamBody.Faulted(Origin: None, Cause: new KernelFault.InvalidInput()))));
 
     internal SubscriptionRelease Faults(SubscriptionRelease release) {
         _ = release is SubscriptionRelease.Faulted faulted
@@ -1100,7 +1097,6 @@ public sealed class Watch : IDisposable {
 }
 
 internal sealed class Emission {
-    private static readonly Op EmitKey = Op.Of(name: nameof(Emission));
     private readonly Delivery delivery;
     private readonly StreamJournal journal;
     private readonly Reentrancy gate = new();
@@ -1122,40 +1118,39 @@ internal sealed class Emission {
     internal Option<ChannelReader<DocEvent>> Reader => channel.Map(static value => value.Reader);
     private bool IsActive => active.Value;
 
-    internal static Fin<Emission> Open(Delivery delivery, StreamJournal journal, Op key) =>
-        key.Need(delivery).Bind(mode => mode.Switch(
-            (Journal: journal, Op: key),
-            inline: static (state, arm) => state.Op.Need(arm.Sink)
+    internal static Fin<Emission> Open(Delivery delivery, StreamJournal journal) =>
+        Admit.Need(delivery).Bind(mode => mode.Switch(
+            journal,
+            inline: static (state, arm) => Admit.Need(arm.Sink)
                 .Map(_ => new Emission(
                     delivery: arm,
-                    journal: state.Journal,
+                    journal: state,
                     channel: Option<Channel<DocEvent>>.None,
                     idle: Option<IdlePump<EventOrigin>>.None)),
-            deferred: static (state, arm) => state.Op.Need(arm.Sink)
+            deferred: static (state, arm) => Admit.Need(arm.Sink)
                 .Bind(_ => IdlePump<EventOrigin>.Open(
-                    capacity: Rasm.Numerics.Dimension.Create(value: state.Journal.Policy.DeferredCapacity),
-                    lost: (loss, origin) => ignore(state.Journal.Post(
+                    capacity: Rasm.Numerics.Dimension.Create(value: state.Policy.DeferredCapacity),
+                    lost: (loss, origin) => ignore(state.Post(
                         slot: loss == PumpLoss.Overflow ? StreamSlot.DeferredOverflow : StreamSlot.Cancelled,
-                        body: new StreamBody.Dropped(Origin: origin))),
-                    key: state.Op))
+                        body: new StreamBody.Dropped(Origin: origin)))))
                 .Map(pump => new Emission(
                     delivery: arm,
-                    journal: state.Journal,
+                    journal: state,
                     channel: Option<Channel<DocEvent>>.None,
                     idle: Some(pump))),
-            paced: static (state, arm) => state.Op.Need(arm.Lane).Bind(lane =>
-                state.Op.Catch(() => {
+            paced: static (state, arm) => Admit.Need(arm.Lane).Bind(lane =>
+                Try.lift(() => {
                     Channel<DocEvent> opened = lane.Open(
-                        policy: state.Journal.Policy,
-                        lost: (loss, fact) => ignore(state.Journal.Post(
+                        policy: state.Policy,
+                        lost: (loss, fact) => ignore(state.Post(
                             slot: StreamSlot.PacedLoss,
                             body: new StreamBody.Shed(Lane: lane, Loss: loss, Origin: fact.Origin))));
                     return Fin.Succ(value: new Emission(
                         delivery: arm,
-                        journal: state.Journal,
+                        journal: state,
                         channel: Some(opened),
                         idle: Option<IdlePump<EventOrigin>>.None));
-                }))));
+                }).Run().Bind(static inner => inner))));
 
     internal Fin<Unit> Emit(DocEvent fact) =>
         !IsActive
@@ -1164,13 +1159,13 @@ internal sealed class Emission {
                     (Owner: this, Fact: fact),
                     inline: static (state, mode) => state.Owner.Delivered(fact: state.Fact, run: () => mode.Sink(arg: state.Fact)),
                     deferred: static (state, mode) => state.Owner.idle
-                        .ToFin(EmitKey.InvalidResult())
+                        .ToFin(new KernelFault.InvalidResult())
                         .Bind(pump => pump.Enqueue(
                             tag: state.Fact.Origin,
                             alive: () => state.Owner.IsActive,
                             run: () => state.Owner.Delivered(fact: state.Fact, run: () => mode.Sink(arg: state.Fact)))),
                     paced: static (state, _) => state.Owner.channel
-                        .ToFin(EmitKey.InvalidResult())
+                        .ToFin(new KernelFault.InvalidResult())
                         .Map(opened => opened.Writer.TryWrite(item: state.Fact)
                             ? unit
                             : state.Owner.journal.Post(
@@ -1200,39 +1195,34 @@ public static class DocumentStream {
     private static readonly Atom<long> Sequence = Atom(0L);
 
     public static Fin<Watch> Observe(Observation request) {
-        Op op = Op.Of();
-        return op.Need(request).Bind(active => active.Switch(
-            op,
-            host: static (key, observation) => ObserveHost(request: observation, key: key),
+        return Admit.Need(request).Bind(active => active.Switch(host: static (key, observation) => ObserveHost(request: observation, key: key),
             file: static (key, observation) => ObserveFile(request: observation, key: key)));
     }
 
-    private static Fin<Watch> ObserveHost(Observation.Host request, Op key) =>
-        from scope in key.Need(request.Scope)
-        from delivery in key.Need(request.Delivery)
+    private static Fin<Watch> ObserveHost(Observation.Host request) =>
+        from scope in Admit.Need(request.Scope)
+        from delivery in Admit.Need(request.Delivery)
         from families in request.Families
-            .TraverseM(family => key.Need(family))
+            .TraverseM(family => Admit.Need(family))
             .As()
             .Map(static named => named.Distinct())
-            .Bind(named => named.IsEmpty ? Fin.Fail<Seq<EventFamily>>(error: key.InvalidInput()) : Fin.Succ(value: named))
-        from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery, family: family, key: key)).As()
+            .Bind(named => named.IsEmpty ? Fin.Fail<Seq<EventFamily>>(error: new KernelFault.InvalidInput()) : Fin.Succ(value: named))
+        from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery, family: family)).As()
         from watch in Mount(
             delivery: delivery,
             policy: request.Policy,
-            attach: (emission, journal) => Attach(scope: scope, families: families, emission: emission, journal: journal),
-            key: key)
+            attach: (emission, journal) => Attach(scope: scope, families: families, emission: emission, journal: journal))
         select watch;
 
     private static Fin<Watch> Mount(
         Delivery delivery,
         StreamPolicy policy,
-        Func<Emission, StreamJournal, Fin<Subscription>> attach,
-        Op key) =>
-        from bounds in key.Need(policy)
+        Func<Emission, StreamJournal, Fin<Subscription>> attach) =>
+        from bounds in Admit.Need(policy)
         let journal = new StreamJournal(
             watch: WatchKey.Create(value: Sequence.Swap(static held => held + 1L)),
             policy: bounds)
-        from emission in Emission.Open(delivery: delivery, journal: journal, key: key)
+        from emission in Emission.Open(delivery: delivery, journal: journal)
         from subscription in attach(emission, journal)
             .MapFail(error => {
                 emission.Cancel();
@@ -1251,21 +1241,20 @@ public static class DocumentStream {
             scope: scope,
             journal: journal,
             deliver: (key, payload) => emission.Emit(fact: new DocEvent(
-                Origin: new EventOrigin.Host(Family: family), Key: key, Payload: payload)),
+                Origin: new EventOrigin.Host(Family: family), Payload: payload)),
             reject: error => ignore(journal.Post(
                 slot: StreamSlot.CallbackFault,
                 body: new StreamBody.Faulted(Origin: Some<EventOrigin>(new EventOrigin.Host(Family: family)), Cause: error)))))));
 
-    private static Fin<Watch> ObserveFile(Observation.File request, Op key) =>
-        from path in key.AcceptText(value: request.Path)
-        from clock in key.Need(request.Clock)
-        from _ in guard(request.Debounce > TimeSpan.Zero, key.InvalidInput())
+    private static Fin<Watch> ObserveFile(Observation.File request) =>
+        from path in Acceptance.Text(value: request.Path)
+        from clock in Admit.Need(request.Clock)
+        from _ in guard(request.Debounce > TimeSpan.Zero, new KernelFault.InvalidInput())
         from watch in Mount(
             delivery: request.Delivery,
             policy: request.Policy,
             attach: (emission, journal) => AttachFile(
-                path: path, debounce: request.Debounce, clock: clock, emission: emission, journal: journal, key: key),
-            key: key)
+                path: path, debounce: request.Debounce, clock: clock, emission: emission, journal: journal))
         select watch;
 
     private static Fin<Subscription> AttachFile(
@@ -1273,13 +1262,12 @@ public static class DocumentStream {
         TimeSpan debounce,
         TimeProvider clock,
         Emission emission,
-        StreamJournal journal,
-        Op key) => key.Catch(() => {
+        StreamJournal journal) => Try.lift(() => {
             string fullPath = System.IO.Path.GetFullPath(path: path);
             string directory = System.IO.Path.GetDirectoryName(path: fullPath) ?? string.Empty;
             string filter = System.IO.Path.GetFileName(path: fullPath);
             if (directory.Length is 0 || filter.Length is 0 || !System.IO.Directory.Exists(path: directory)) {
-                return Fin.Fail<Subscription>(error: key.InvalidInput());
+                return Fin.Fail<Subscription>(error: new KernelFault.InvalidInput());
             }
             FileSystemWatcher? watcher = null;
             ITimer? timer = null;
@@ -1309,9 +1297,9 @@ public static class DocumentStream {
                     dueTime: Timeout.InfiniteTimeSpan,
                     period: Timeout.InfiniteTimeSpan);
                 timer = createdTimer;
-                Fin<Unit> Schedule() => key.Catch(() => createdTimer.Change(dueTime: debounce, period: Timeout.InfiniteTimeSpan)
+                Fin<Unit> Schedule() => Try.lift(() => createdTimer.Change(dueTime: debounce, period: Timeout.InfiniteTimeSpan)
                     ? Fin.Succ(value: unit)
-                    : Fin.Fail<Unit>(error: key.InvalidResult()));
+                    : Fin.Fail<Unit>(error: new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
                 Fin<Unit> Capture(FileEdge edge) {
                     _ = batch.Swap(current => current.Edges.Count < journal.Policy.FileCapacity
                         ? current with { Edges = current.Edges.Add(value: edge) }
@@ -1326,7 +1314,7 @@ public static class DocumentStream {
                     return Schedule();
                 }
                 Fin<Unit> Capture(FileSystemEventArgs args) =>
-                    from kind in FileChangeKind.Of(native: args.ChangeType, key: key)
+                    from kind in FileChangeKind.Of(native: args.ChangeType)
                     from _ in Capture(new FileEdge(Kind: kind, Path: args.FullPath, PreviousPath: Option<string>.None))
                     select unit;
                 Fin<Unit> Logged(Fin<Unit> outcome) => outcome.MapFail(error => {
@@ -1372,15 +1360,14 @@ public static class DocumentStream {
                     release: () => Custody.Release(
                         releases: Seq<Func<Fin<Unit>>>(
                             () => Optional(timer)
-                                .TraverseM(live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }))
+                                .TraverseM(live => Try.lift(() => { live.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))
                                 .As().Map(static _ => unit),
                             () => Optional(watcher)
-                                .TraverseM(live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }))
+                                .TraverseM(live => Try.lift(() => { live.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))
                                 .As().Map(static _ => unit)),
-                        key: key),
-                    key: key);
+                        key: key));
             }
-        });
+        }).Run().Bind(static inner => inner);
 
     private readonly record struct FileBatch(Seq<FileEdge> Edges, long Overflow);
 }
@@ -1469,9 +1456,9 @@ public readonly partial struct PluginKey {
     internal static Option<PluginKey> Maybe(Guid value) =>
         Optional(value).Filter(static id => id != Guid.Empty).Map(Create);
 
-    internal Fin<Unit> Admit(Op op) {
+    internal Fin<Unit> Admit() {
         ValidationError? fault = Validate(value: ToValue(), provider: null, out PluginKey? admitted);
-        return op.AcceptValidated<PluginKey>(fault: fault, admitted: admitted).Map(static _ => unit);
+        return FactoryBridge.Accept<PluginKey>(fault: fault, admitted: admitted).Map(static _ => unit);
     }
 }
 
@@ -1531,16 +1518,14 @@ public static class MountRegistry {
             ? Some((Point: point!, Owner: row.Value.Owner, Riders: toSeq(row.Value.Riders.Keys).Map(PluginKey.Create).Strict()))
             : None);
 
-    public static Fin<IDisposable> Mount<TAsk, TGrant>(HookBinding<RhinoPoint, PluginKey, TAsk, TGrant> binding, Op? key = null)
+    public static Fin<IDisposable> Mount<TAsk, TGrant>(HookBinding<RhinoPoint, PluginKey, TAsk, TGrant> binding)
         where TAsk : notnull
         where TGrant : notnull {
-        Op op = key.OrDefault();
-        return from _ in binding.Owner.Admit(op)
+        return from _ in binding.Owner.Admit()
                let plugin = binding.Owner.ToValue()
-               from mounted in Kernel.Mount(binding: binding, key: op)
+               from mounted in Kernel.Mount(binding: binding)
                from seat in Cell.Claim(
                        cell: Seats,
-                       key: binding.Point.Key,
                        mint: () => new PointSeat(
                            Owner: binding.Owner,
                            Ask: typeof(TAsk),
@@ -1548,47 +1533,45 @@ public static class MountRegistry {
                            Riders: HashMap((plugin, unit)),
                            Mounted: mounted))
                    .Switch(
-                       state: (Point: binding.Point, Plugin: plugin, Op: op, Mounted: mounted),
+                       state: (Point: binding.Point, Plugin: plugin, Mounted: mounted),
                        committed: static (ctx, _) => Fin.Succ((IDisposable)Subscription.Of(
                            detach: () => Unseat(pointKey: ctx.Point.Key, plugin: ctx.Plugin))),
-                       ceded: static (ctx, held) => (Op.Side(ctx.Mounted.Dispose), Ride<TAsk, TGrant>(
-                           seat: held.State[ctx.Point.Key], point: ctx.Point, plugin: ctx.Plugin, op: ctx.Op)).Item2,
+                       ceded: static (ctx, held) => (HostEdge.Side(ctx.Mounted.Dispose), Ride<TAsk, TGrant>(
+                           seat: held.State[ctx.Point.Key], point: ctx.Point, plugin: ctx.Plugin)).Item2,
                        refused: static (ctx, row) => Fin.Fail<IDisposable>(row.Cause),
-                       contended: static (ctx, _) => Fin.Fail<IDisposable>(ctx.Op.InvalidResult()))
+                       contended: static (ctx, _) => Fin.Fail<IDisposable>(new KernelFault.InvalidResult()))
                select seat;
     }
 
-    public static Fin<Seq<IDisposable>> MountAll(Seq<Func<Fin<IDisposable>>> mounts, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Seq<IDisposable>> MountAll(Seq<Func<Fin<IDisposable>>> mounts) {
         return mounts.FoldM<Fin, Seq<IDisposable>>(
             Seq<IDisposable>(),
-            (held, mount) => op.Need(mount)
-                .Bind(run => op.Catch(run))
+            (held, mount) => Admit.Need(mount)
+                .Bind(run => Try.lift(run).Run().Bind(static inner => inner))
                 .Map(seat => held.Add(seat))
-                .Rollback(held: held, release: seat => op.Catch(() => { seat.Dispose(); return Fin.Succ(value: unit); }), key: op));
+                .Rollback(held: held, release: seat => Try.lift(() => { seat.Dispose(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)));
     }
 
-    public static Fin<TGrant> Bind<TAsk, TGrant>(RhinoPoint point, TAsk ask, Op? key = null)
+    public static Fin<TGrant> Bind<TAsk, TGrant>(RhinoPoint point, TAsk ask)
         where TAsk : notnull
         where TGrant : notnull {
-        Op op = key.OrDefault();
-        return from active in op.Need(point)
-               from seat in Seats.Value.Find(active.Key).ToFin(Fail: op.MissingContext())
-               from grant in Kernel.Bind<TAsk, TGrant>(point: active, owner: seat.Owner, ask: ask, key: op)
+        return from active in Admit.Need(point)
+               from seat in Seats.Value.Find(active.Key).ToFin(Fail: new KernelFault.MissingContext())
+               from grant in Kernel.Bind<TAsk, TGrant>(point: active, owner: seat.Owner, ask: ask)
                select grant;
     }
 
-    private static Fin<IDisposable> Ride<TAsk, TGrant>(PointSeat seat, RhinoPoint point, Guid plugin, Op op) =>
+    private static Fin<IDisposable> Ride<TAsk, TGrant>(PointSeat seat, RhinoPoint point, Guid plugin) =>
         seat.Ask != typeof(TAsk) || seat.Grant != typeof(TGrant)
-            ? Fin.Fail<IDisposable>(new DocumentFault.SeatDiverged(Key: op, Point: point))
+            ? Fin.Fail<IDisposable>(new DocumentFault.SeatDiverged(Point: point))
             : seat.Riders.ContainsKey(plugin)
-                ? Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(Key: op, Point: point, Plugin: PluginKey.Create(plugin)))
+                ? Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(Point: point, Plugin: PluginKey.Create(plugin)))
                 : Cell.Step(
                         cell: Seats,
                         step: held => held.Find(point.Key).Bind(current => current.Riders.ContainsKey(plugin)
                             ? Option<HashMap<string, PointSeat>>.None
                             : Some(held.SetItem(point.Key, current with { Riders = current.Riders.Add(plugin, unit) }))),
-                        declined: new DocumentFault.RiderDuplicate(Key: op, Point: point, Plugin: PluginKey.Create(plugin)))
+                        declined: new DocumentFault.RiderDuplicate(Point: point, Plugin: PluginKey.Create(plugin)))
                     .Switch(
                         state: (Point: point, Plugin: plugin),
                         committed: static (ctx, _) => Fin.Succ((IDisposable)Subscription.Of(
@@ -1596,7 +1579,7 @@ public static class MountRegistry {
                         ceded: static (ctx, _) => Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(
                             Key: Op.Of(name: nameof(MountRegistry)), Point: ctx.Point, Plugin: PluginKey.Create(ctx.Plugin))),
                         refused: static (_, row) => Fin.Fail<IDisposable>(row.Cause),
-                        contended: static (ctx, _) => Fin.Fail<IDisposable>(Op.Of(name: nameof(MountRegistry)).InvalidResult()));
+                        contended: static (ctx, _) => Fin.Fail<IDisposable>(new KernelFault.InvalidResult()));
 
     private static Unit Unseat(string pointKey, Guid plugin) {
         Option<PointSeat> prior = Seats.Value.Find(pointKey);
@@ -1605,13 +1588,12 @@ public static class MountRegistry {
             Some: seat => seat.Riders.Remove(plugin) is var remaining && remaining.IsEmpty
                 ? held.Remove(pointKey)
                 : held.SetItem(pointKey, seat with { Riders = remaining })));
-        return prior.Filter(_ => !Seats.Value.ContainsKey(pointKey)).Map(seat => Op.Side(seat.Mounted.Dispose)).IfNone(unit);
+        return prior.Filter(_ => !Seats.Value.ContainsKey(pointKey)).Map(seat => HostEdge.Side(seat.Mounted.Dispose)).IfNone(unit);
     }
 }
 
 public static class DocumentHooks {
-    public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
-        Op op = key.OrDefault();
+    public static Fin<Seq<IDisposable>> Mount(PluginKey plugin) {
         Seq<Func<Fin<IDisposable>>> mounts = Seq(
                 (Point: RhinoPoint.DocumentLifecycle, Band: EventBand.Lifecycle),
                 (Point: RhinoPoint.DocumentStructure, Band: EventBand.Structure),
@@ -1625,15 +1607,13 @@ public static class DocumentHooks {
                     Point: row.Point,
                     Owner: plugin,
                     Bind: ask => EventFamily.In(band: row.Band, key: op)
-                        .Bind(families => DocumentStream.Observe(ask with { Families = families }))),
-                key: op)))
+                        .Bind(families => DocumentStream.Observe(ask with { Families = families }))))))
             .Add(() => MountRegistry.Mount(
                 binding: new HookBinding<RhinoPoint, PluginKey, Observation.File, Watch>(
                     Point: RhinoPoint.DocumentFile,
                     Owner: plugin,
-                    Bind: static ask => DocumentStream.Observe(ask)),
-                key: op));
-        return MountRegistry.MountAll(mounts: mounts, key: op);
+                    Bind: static ask => DocumentStream.Observe(ask))));
+        return MountRegistry.MountAll(mounts: mounts);
     }
 }
 ```

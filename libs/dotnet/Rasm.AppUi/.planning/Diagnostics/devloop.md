@@ -184,7 +184,6 @@ public static class DevLoopPoints {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DevLoop {
-    static readonly Op DispatcherOp = Op.Of(name: "appui.devloop.dispatcher-lag");
 
     public static IO<Unit> DispatcherLag(
         SurfaceScheduler boundary,
@@ -266,8 +265,7 @@ public static class DevLoop {
         IO.lift(() => install(
             fact => IO.lift(() => hooks.Fire(
                 AppUiPoint.PreCommit,
-                new AppUiFact.PreCommit(fact.DocumentKey, fact.Lamport, fact.Ops, fact.Origin, fact.Message),
-                Op.Of(name: "appui.devloop.pre-commit")))
+                new AppUiFact.PreCommit(fact.DocumentKey, fact.Lamport, fact.Ops, fact.Origin, fact.Message)))
                 .Map(static _ => unit)));
 
     public static Fin<string> CollabJson(Func<VersionVector, VersionVector, Fin<string>> export, VersionVector from, VersionVector to) =>

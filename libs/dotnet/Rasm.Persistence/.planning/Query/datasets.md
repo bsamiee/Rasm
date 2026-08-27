@@ -154,7 +154,7 @@ public static class SeriesLane {
                     Backend.Series.Key, new EngineFault("<facet-arity>", family.Key))));
 
     public static IO<Fin<Seq<SeriesJobHealth>>> Jobs(NpgsqlDataSource store, SeriesKind kind) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+        IO.liftAsync(async () => (await Try.lift(async token => {
             await using NpgsqlCommand command = store.CreateCommand(
                 "SELECT j.hypertable_name, s.job_status, s.last_successful_finish, s.total_failures " +
                 "FROM timescaledb_information.jobs j JOIN timescaledb_information.job_stats s ON s.job_id = j.job_id " +
@@ -168,7 +168,7 @@ public static class SeriesLane {
                     reader.GetInt64(3)));
             }
             return Fin<Seq<SeriesJobHealth>>.Succ(toSeq(rows));
-        }).ConfigureAwait(false)).MapFail(Backend.Series.ReadRefused));
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(Backend.Series.ReadRefused));
 
     public static readonly Identifier WeightedColumn = Identifier.Create("weighted");
 }
@@ -303,19 +303,19 @@ public static class AssessmentLane {
 
     public static Fin<Plan> Scan(UInt128 key, Option<Discipline> discipline) =>
         BackendPlan.Scan(AssessmentDataset.Schema,
-            Seq((AssessmentDataset.KeyColumn, ContentHash.Hex(key)))
+            Seq((AssessmentDataset.KeyColumn, ContentHash.Hex()))
             + discipline.Map(static row => (AssessmentDataset.DisciplineColumn, row.Key)).ToSeq());
 
     public static IO<Fin<BackendResult<T>>> Resident<T>(
         BackendReach reach, BackendScope scope, UInt128 key, Option<Discipline> discipline, Func<FactRow, T> mint) =>
-        Scan(key, discipline).Match(
+        Scan(discipline).Match(
             Succ: plan => BackendRead.Read(reach, plan, scope, BackendProjection.Point,
                 row => Shape(scope, row).Map(mint)),
             Fail: error => IO.pure(Fin<BackendResult<T>>.Fail(error)));
 
     // --- [FACT_PROJECTION]
     public static Validation<Error, Seq<ColumnCell>> Cells(FactRow row) =>
-        ElementWire.Encode(row.Value, Op.Of()).ToValidation().Map(json =>
+        ElementWire.Encode(row.Value).ToValidation().Map(json =>
             Seq<ColumnCell>(new ColumnCell.Key(row.Key),
                 new ColumnCell.Text(row.Discipline.Key),
                 new ColumnCell.Items(ColumnType.Utf8, row.Facets),
@@ -369,15 +369,14 @@ public static class AssessmentLane {
     // --- [FACT_INVERSE]
     public static Fin<FactRow> Shape(BackendScope scope, BackendRow row) {
                 AnalyticsSchema declaration = AssessmentDataset.Schema;
-        Op key = Op.Of();
         return (row.Key(scope.Backend, declaration.Ordinal(AssessmentDataset.KeyColumn)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.DisciplineColumn))
-                    .Bind(token => key.AcceptValidated<Discipline>(token)).ToValidation(),
+                    .Bind(token => FactoryBridge.Accept<Discipline>(token)).ToValidation(),
                 row.Items(scope.Backend, declaration.Ordinal(AssessmentDataset.FacetsColumn)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.NameColumn))
-                    .Bind(token => key.AcceptValidated<PropertyName>(token)).ToValidation(),
+                    .Bind(token => FactoryBridge.Accept<PropertyName>(token)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.ValueColumn))
-                    .Bind(json => ElementWire.Decode(json, key)).ToValidation())
+                    .Bind(json => ElementWire.Decode(json)).ToValidation())
             .Apply(static (content, discipline, facets, name, value) =>
                 (Key: content, Discipline: discipline, Facets: facets, Name: name, Value: value))
             .As().ToFin();

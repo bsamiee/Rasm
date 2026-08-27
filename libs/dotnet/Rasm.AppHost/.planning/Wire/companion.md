@@ -337,7 +337,7 @@ public static class ControlInbound {
         Func<CorrelationId, IO<A>> fold) =>
         from correlation in IO.lift(() => runtime.Support.Active.Value.IfNone(Correlation.Mint))
         from _audit in verb.Audit(detail).Match(
-            Some: reason => SupportCapture.Capture(runtime.Support, new SupportTrigger.Requested(correlation, SupportTriggerKind.ExternalCommand, reason)).Map(static _ => unit),
+            Some: reason => Error.New(runtime.Support.Message, runtime.Support).Map(static _ => unit),
             None: () => IO.pure(unit))
         from settled in IO.liftAsync(async () => {
             using var scope = TraceContext.Continue(runtime.Source, context.RequestHeaders, verb.Key, ControlRuntime.Adoption);
@@ -371,31 +371,30 @@ public sealed class ControlContractInterceptor(ControlRuntime runtime) : Interce
         TRequest request,
         ServerCallContext context,
         UnaryServerMethod<TRequest, TResponse> continuation) {
-        Op key = Op.Of(context.Method);
-        TRequest admitted = Direction(request, context, key, request: true);
+        TRequest admitted = Direction(request, context, request: true);
         TResponse response = await continuation(admitted, context).ConfigureAwait(false);
-        return Direction(response, context, key, request: false);
+        return Direction(response, context, request: false);
     }
 
-    private T Direction<T>(T message, ServerCallContext context, Op key, bool request)
+    private T Direction<T>(T message, ServerCallContext context, bool request)
         where T : class, Google.Protobuf.IMessage =>
-        WireAdmission.Validate(message, key).Match(
+        WireAdmission.Validate(message).Match(
             Succ: admission => admission.Match(
-                Fail: violations => Refused(message, context, key, request, violations),
+                Fail: violations => Refused(message, context, request, violations),
                 Succ: static admitted => admitted),
-            Fail: error => Broken<T>(context, key, error));
+            Fail: error => Broken<T>(context, error));
 
-    private T Refused<T>(T message, ServerCallContext context, Op key, bool request,
+    private T Refused<T>(T message, ServerCallContext context, bool request,
         Seq<Google.Rpc.BadRequest.Types.FieldViolation> violations)
         where T : Google.Protobuf.IMessage {
         Error fault = request
-            ? key.InvalidInput(message.Descriptor.FullName)
-            : key.InvalidResult(message.Descriptor.FullName);
+            ? new KernelFault.InvalidInput(Axis: Some(message.Descriptor.FullName))
+            : new KernelFault.InvalidResult(Detail: Some(message.Descriptor.FullName));
         throw FaultWire.Raise(fault, Context(context, violations));
     }
 
-    private T Broken<T>(ServerCallContext context, Op key, Error error) {
-        throw FaultWire.Raise(key.InvalidResult(error.Message), Context(context, Seq<Google.Rpc.BadRequest.Types.FieldViolation>()));
+    private T Broken<T>(ServerCallContext context, Error error) {
+        throw FaultWire.Raise(new KernelFault.InvalidResult(Detail: Some(error.Message)), Context(context, Seq<Google.Rpc.BadRequest.Types.FieldViolation>()));
     }
 
     private FaultContext Context(ServerCallContext context, Seq<Google.Rpc.BadRequest.Types.FieldViolation> violations) {
@@ -567,19 +566,19 @@ public static class PeerAdmission {
         : Fin.Fail<PeerCredential>(new CompanionFault.Excluded("peer-credential unavailable on this platform"));
 
     static Fin<PeerCredential> ReadLinux(Socket accepted) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             Span<byte> buffer = stackalloc byte[UcredSize];
             return Fin.Succ(accepted.GetRawSocketOption(SolSocketLinux, SoPeerCred, buffer) >= UcredSize
                 ? Optional(MemoryMarshal.Read<Ucred>(buffer))
                 : None);
-        })
+        }).Run().Bind(static inner => inner)
             .MapFail(static error => (Error)CompanionFault.Of(error))
             .Bind(read => read.Match(
                 cred => Fin.Succ(new PeerCredential(cred.Pid, cred.Uid)),
                 () => Fin.Fail<PeerCredential>(new CompanionFault.Credential("SO_PEERCRED short read"))));
 
     static Fin<PeerCredential> ReadDarwin(Socket accepted) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             Span<byte> credBuffer = stackalloc byte[XucredSize];
             Span<byte> pidBuffer = stackalloc byte[PidSize];
             return Fin.Succ(accepted.GetRawSocketOption(SolLocalMacos, LocalPeerCred, credBuffer) >= XucredSize
@@ -587,7 +586,7 @@ public static class PeerAdmission {
                 && accepted.GetRawSocketOption(SolLocalMacos, LocalPeerPid, pidBuffer) >= PidSize
                     ? Optional(new PeerCredential(BinaryPrimitives.ReadInt32LittleEndian(pidBuffer), cred.Uid))
                     : None);
-        })
+        }).Run().Bind(static inner => inner)
             .MapFail(static error => (Error)CompanionFault.Of(error))
             .Bind(read => read.ToFin(new CompanionFault.Credential("LOCAL_PEERCRED/LOCAL_PEERPID short read or version mismatch")));
 
@@ -750,13 +749,13 @@ public static class HostBinding {
     static Fin<BoundEndpoint> FreshBind(BindRequest request, HostBindPolicy row) => request.Address.Switch(
         unixPath: unix => Reclaim(request, unix).Map(origin =>
             new BoundEndpoint(request.Service, unix, origin, row.Reuse, Seq<Socket>())),
-        loopbackTcp: tcp => Op.Of().Catch(() => {
+        loopbackTcp: tcp => Try.lift(() => {
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             ReusePort.Apply(socket, row.Reuse);
             socket.Bind(new IPEndPoint(IPAddress.Loopback, request.Override.Port.IfNone(tcp.Port)));
             socket.Listen();
             return Fin.Succ(socket);
-        }).MapFail(static error => (Error)CompanionFault.Of(error))
+        }).Run().Bind(static inner => inner).MapFail(static error => (Error)CompanionFault.Of(error))
             .Map(socket => new BoundEndpoint(request.Service, tcp, BindOrigin.Fresh, row.Reuse, [socket])),
         inheritedFd: inherited => Fin.Fail<BoundEndpoint>(
             new CompanionFault.Bind($"inherited-fd-not-fresh:{inherited.Handles.Count}")));
@@ -764,13 +763,13 @@ public static class HostBinding {
     static Fin<BindOrigin> Reclaim(BindRequest request, BindAddress.UnixPath unix) =>
         !File.Exists(unix.SocketPath)
             ? Fin.Succ(BindOrigin.Fresh)
-            : Op.Of().Catch(() => {
+            : Try.lift(() => {
                 using var probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
                 probe.Connect(new UnixDomainSocketEndPoint(unix.SocketPath));
                 return Fin.Succ(true);
-            }).Match(
+            }).Run().Bind(static inner => inner).Match(
                 Succ: _ => Fin.Fail<BindOrigin>(new CompanionFault.Held(request.Service, unix.SocketPath)),
-                Fail: _ => Op.Of().Catch(() => { File.Delete(unix.SocketPath); return Fin.Succ(BindOrigin.Reclaimed); })
+                Fail: _ => Try.lift(() => { File.Delete(unix.SocketPath); return Fin.Succ(BindOrigin.Reclaimed); }).Run().Bind(static inner => inner)
                     .MapFail(static error => (Error)CompanionFault.Of(error)));
 
     static BoundEndpoint Settle(BindRequest request, HostBindPolicy row, Seq<SafeSocketHandle> handles) =>
@@ -789,7 +788,7 @@ public static partial class SystemdActivation {
         int.TryParse(BootVariable.ListenOwner.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int pid) && pid == Environment.ProcessId
         && int.TryParse(BootVariable.ListenCount.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int count) && count >= 1
             ? NameRun(BootVariable.ListenNames.Read(), activationName, count).Match(
-                Some: run => Op.Of().Catch(() => Fin.Succ(toSeq(Enumerable.Range(ListenFdsStart + run.Offset, run.Length)).Map(Cloexec).Strict()))
+                Some: run => Try.lift(() => Fin.Succ(toSeq(Enumerable.Range(ListenFdsStart + run.Offset, run.Length)).Map(Cloexec).Strict())).Run().Bind(static inner => inner)
                     .MapFail(static error => (Error)CompanionFault.Of(error)),
                 None: () => Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd fd run: {activationName}")))
             : Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd socket activation: {activationName}"));
@@ -856,14 +855,14 @@ public static partial class SecretAcquisition {
     public static Fin<int> Probe(nint query) =>
         SecItemCopyMatching(query, out _) switch {
             ErrSecSuccess => Fin.Succ(ErrSecSuccess),
-            ErrSecItemNotFound => Fin.Fail<int>(Op.Of().InvalidResult("keychain item absent")),
-            var status => Fin.Fail<int>(Op.Of().InvalidResult($"SecItemCopyMatching status {status}")),
+            ErrSecItemNotFound => Fin.Fail<int>(new KernelFault.InvalidResult(Detail: Some("keychain item absent"))),
+            var status => Fin.Fail<int>(new KernelFault.InvalidResult(Detail: Some($"SecItemCopyMatching status {status}"))),
         };
 
     public static Fin<int> Store(nint attributes) =>
         SecItemAdd(attributes, nint.Zero) is var status && status == ErrSecSuccess
             ? Fin.Succ(status)
-            : Fin.Fail<int>(Op.Of().InvalidResult($"SecItemAdd status {status}"));
+            : Fin.Fail<int>(new KernelFault.InvalidResult(Detail: Some($"SecItemAdd status {status}")));
 }
 
 public static class ReusePort {
@@ -910,7 +909,7 @@ stateDiagram-v2
 
 - Owner: `WebhookOrigin` and `WebhookRate` admit the abuse-protection DNS expression and positive requests-per-minute value; `WebhookAllowance` renders a numeric grant or the standard `*` unlimited grant; `IngressBody` owns one bounded immutable capture whose exact bytes feed both integrity verification and event decoding; `EventSemconv` stamps only CloudEvents attributes at this HTTP door; `Delivery` carries the per-request tally and refusal causes; `EventIngress` consumes the identity owner, `PolicyDescriptor.WebhookDelivery`, source and classification trust gates, an optional integrity verifier, and `WireAdmission.EventExtensions`.
 - Cases: required request origin with an optional positive request rate against allowed origin and an optional policy ceiling, whose absence means unlimited; every immediate consent carries `WebHook-Allowed-Rate`, bounded to the request when one exists and rendered as `*` only when neither request nor policy imposes a limit; token transport is exactly one `Authorization: Bearer` header or one `access_token` query value; JSON and Protobuf structured or batch media with Avro structured media select their exact `EventFormat` row; every generated `Extensions` field is declared from the generated descriptor; five `cloudevents.*` attributes stamp each admitted delivery.
-- Entry: `EventIngress.Validate(HttpRequest request, HttpResponse response, IngressPolicy policy)` handles the `OPTIONS` abuse-protection request and conveys consent only through grant headers. `EventIngress.Deliver(HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus, Op key)` authenticates and authorizes the delivery, verifies the exact request body when the app supplied an integrity dialect, admits the generated extension message through `WireAdmission.EventExtensions.Admit`, applies the injected domain projection under the principal's roster-resolved tenant, deduplicates, and dispatches each admitted envelope through `EventBus.Dispatch`.
+- Entry: `EventIngress.Validate(HttpRequest request, HttpResponse response, IngressPolicy policy)` handles the `OPTIONS` abuse-protection request and conveys consent only through grant headers. `EventIngress.Deliver(HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus)` authenticates and authorizes the delivery, verifies the exact request body when the app supplied an integrity dialect, admits the generated extension message through `WireAdmission.EventExtensions.Admit`, applies the injected domain projection under the principal's roster-resolved tenant, deduplicates, and dispatches each admitted envelope through `EventBus.Dispatch`.
 - Law: the CloudEvents ASP.NET package supplies no handshake, origin policy, or cross-format body custody. This boundary captures once under `IngressPolicy.BodyLimit`, refuses an empty body, assigns typed HTTP 415 evidence to absent or unsupported content media, verifies the immutable bytes when configured, and decodes those same bytes through the exact JSON, Protobuf, or Avro formatter row.
 - Law: origin is a DNS name expression, never a URL; callback is the separate URL-shaped field and the synchronous response does not reinterpret either. Request rate is absent or a positive integer greater than zero. Configured policy rate is the ceiling; absence is unlimited, so a requested rate receives that rate or the lower ceiling and an unrequested unlimited grant renders `*`.
 - Law: `WebHook-Request-Origin` rides EVERY delivery request, not the handshake alone, so a target re-reads the claimed origin per message rather than trusting one validation forever; current policy refuses a disallowed origin at that message without unregistering the whole subscription.
@@ -1017,16 +1016,16 @@ public sealed class IngressBody {
 
     public EventFrame Frame => new(Bytes, Framing);
 
-    public static async Task<Fin<IngressBody>> Capture(HttpRequest request, Dimension limit, Op key) =>
-        await AdmittedFraming(request, key).Match(
+    public static async Task<Fin<IngressBody>> Capture(HttpRequest request, Dimension limit) =>
+        await AdmittedFraming(request).Match(
             Fail: error => Task.FromResult(Fin.Fail<IngressBody>(error)),
-            Succ: framing => Captured(request, limit, framing, key)).ConfigureAwait(false);
+            Succ: framing => Captured(request, limit, framing)).ConfigureAwait(false);
 
-    private static Fin<ContentType> AdmittedFraming(HttpRequest request, Op key) =>
+    private static Fin<ContentType> AdmittedFraming(HttpRequest request) =>
         request.ContentType is not { Length: > 0 } media
             ? Fin.Fail<ContentType>(new CompanionFault.Handshake(
                 HeaderNames.ContentType, StatusCodes.Status415UnsupportedMediaType))
-            : key.Catch(() => Fin.Succ(new ContentType(media)))
+            : Try.lift(() => Fin.Succ(new ContentType(media))).Run().Bind(static inner => inner)
                 .MapFail(_ => (Error)new CompanionFault.Handshake(
                     HeaderNames.ContentType, StatusCodes.Status415UnsupportedMediaType))
                 .Bind(framing => EventFormat.Of(framing).IsSome
@@ -1035,8 +1034,8 @@ public sealed class IngressBody {
                         framing.MediaType, StatusCodes.Status415UnsupportedMediaType)));
 
     private static Task<Fin<IngressBody>> Captured(
-        HttpRequest request, Dimension limit, ContentType framing, Op key) =>
-        key.Catch(async _ => {
+        HttpRequest request, Dimension limit, ContentType framing) =>
+        Try.lift(async _ => {
             byte[] staging = GC.AllocateUninitializedArray<byte>(checked(limit.Value + 1));
             int count = 0;
             while (count <= limit.Value) {
@@ -1056,7 +1055,7 @@ public sealed class IngressBody {
             byte[] exact = GC.AllocateUninitializedArray<byte>(count);
             staging.AsSpan(0, count).CopyTo(exact);
             return Fin.Succ(new IngressBody(exact, framing));
-        }, request.HttpContext.RequestAborted);
+        }).Run().Bind(static inner => inner);
 }
 
 public sealed record IngressPolicy(
@@ -1068,7 +1067,7 @@ public sealed record IngressPolicy(
     Func<Uri, Fin<Unit>> Source,
     Func<DataGrade, Fin<Unit>> Classification,
     DedupeWindow Dedupe,
-    Func<CloudEvent, global::Rasm.Contracts.Event.Extensions, DataGrade, TenantContext, Op, Fin<DomainEvent>> Project,
+    Func<CloudEvent, global::Rasm.Contracts.Event.Extensions, DataGrade, TenantContext, Fin<DomainEvent>> Project,
     ClockPolicy Clocks);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -1085,17 +1084,17 @@ public static class EventIngress {
     }
 
     public static IO<Fin<Delivery>> Deliver(
-        HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus, Op key) =>
+        HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus) =>
         Authorized(request, policy).Bind(admission => admission.Match(
             Fail: error => IO.pure(Fin.Fail<Delivery>(error)),
             Succ: access => {
                 if (access.Credential.Query) response.Headers[HeaderNames.CacheControl] = "private";
                 return AllowedOrigin(request, policy).Match(
                     Fail: error => IO.pure(Fin.Fail<Delivery>(error)),
-                    Succ: _ => IO.liftAsync(async () => await Decoded(request, policy, key).ConfigureAwait(false))
+                    Succ: _ => IO.liftAsync(async () => await Decoded(request, policy).ConfigureAwait(false))
                         .Bind(decoded => decoded.Match(
                             Succ: envelopes => envelopes
-                                .TraverseM(envelope => Admitted(envelope, access.Principal, policy, bus, key)).As()
+                                .TraverseM(envelope => Admitted(envelope, access.Principal, policy, bus)).As()
                                 .Map(static members => members.Fold(
                                     Delivery.Empty, static (tally, member) => tally.Add(member)))
                                 .Map(Fin.Succ),
@@ -1163,29 +1162,29 @@ public static class EventIngress {
             ? Fin.Succ(value)
             : Fin.Fail<string>(new CompanionFault.Handshake(name));
 
-    static async Task<Fin<Seq<CloudEvent>>> Decoded(HttpRequest request, IngressPolicy policy, Op key) {
-        Fin<IngressBody> captured = await IngressBody.Capture(request, policy.BodyLimit, key).ConfigureAwait(false);
+    static async Task<Fin<Seq<CloudEvent>>> Decoded(HttpRequest request, IngressPolicy policy) {
+        Fin<IngressBody> captured = await Error.New(request.Message, request).ConfigureAwait(false);
         return captured.Bind(body => policy.Verify
             .Traverse(verify => verify(request, body.Bytes)).As()
-            .Bind(_ => WireAdmission.EventExtensions.Declarations(key))
-            .Bind(declared => EventEnvelope.Decode(body.Frame, declared, key)));
+            .Bind(_ => WireAdmission.EventExtensions.Declarations())
+            .Bind(declared => EventEnvelope.Decode(body.Frame, declared)));
     }
 
     static IO<Delivery> Admitted(
-        CloudEvent envelope, Principal principal, IngressPolicy policy, EventBus.Cell bus, Op key) =>
-        (from _ in EventEnvelope.Admit(envelope, key)
+        CloudEvent envelope, Principal principal, IngressPolicy policy, EventBus.Cell bus) =>
+        (from _ in EventEnvelope.Admit(envelope)
          from source in Optional(envelope.Source).ToFin(new KernelFault.InvalidValue(
-             Label: nameof(CloudEvent.Source), Requirement: "a present URI-reference source", Key: Some(key)))
+             Label: nameof(CloudEvent.Source), Requirement: "a present URI-reference source"))
          from _source in policy.Source(source)
-         from extensions in WireAdmission.EventExtensions.Admit(envelope, key)
+         from extensions in WireAdmission.EventExtensions.Admit(envelope)
          from grade in DataGrade.Validate(
                  extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
                  && admittedGrade is { } classification
              ? Fin.Succ(classification)
              : Fin.Fail<DataGrade>(new KernelFault.InvalidValue(
-                 Label: nameof(extensions.Dataclassification), Requirement: "an admitted DataGrade", Key: Some(key)))
+                 Label: nameof(extensions.Dataclassification), Requirement: "an admitted DataGrade"))
          from _classification in policy.Classification(grade)
-         from raised in policy.Project(envelope, extensions, grade, principal.Tenant, key)
+         from raised in policy.Project(envelope, extensions, grade, principal.Tenant)
          select (Event: raised, Externalized: extensions.HasDataref)).Match(
             Fail: error => IO.pure(Delivery.Empty with { Refusals = Seq(CompanionFault.Of(error)) }),
             Succ: admitted => policy.Dedupe.Admit($"{envelope.Source}\u0000{envelope.Id}", policy.Clocks.Now)

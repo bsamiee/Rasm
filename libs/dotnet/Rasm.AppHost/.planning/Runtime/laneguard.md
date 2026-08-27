@@ -55,7 +55,7 @@ public sealed partial class PipelineKey {
     public static PipelineKey Of(WorkLane lane) => Create(Head + lane.Key);
 
     public static Option<PipelineKey> Named(string? reported) =>
-        Op.Of().AcceptValidated<PipelineKey>(reported).ToOption();
+        FactoryBridge.Accept<PipelineKey>(reported).ToOption();
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (!(value ?? string.Empty).StartsWith(Head, StringComparison.Ordinal)) {
@@ -398,7 +398,7 @@ public static class LaneGuard {
             Captured(rejected))),
         ({ Exception: ErrorException domain }, _) => IO.fail<T>(domain.ToError()),
         ({ Exception: { } foreign }, _) => IO.fail<T>(Captured(foreign)),
-        _ => IO.fail<T>(new KernelFault.InvalidResult(Op.Of(), Some("<polly-outcome-empty>"))),
+        _ => IO.fail<T>(new KernelFault.InvalidResult(Some("<polly-outcome-empty>"))),
     };
 
     static Error Captured(Exception raised) => Error.New(raised.Message, raised);

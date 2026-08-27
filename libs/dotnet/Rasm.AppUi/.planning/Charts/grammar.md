@@ -271,7 +271,7 @@ public sealed record ChartSpec(
     double AnnotationTolerance,
     ChartPolicy Policy) {
     public static ChartSpec Of(string key, ChartPolicy policy, params ChartLayer[] layers) =>
-        new(key, toSeq(layers), Seq(ChartAxis.Time), Seq(ChartAxis.Value),
+        new(toSeq(layers), Seq(ChartAxis.Time), Seq(ChartAxis.Value),
             Seq<ChartSection>(), Seq<ChartAnnotation>(), None, None, None, 0d, policy);
 
     public ChartCanvas Canvas => Layers[0].Kind.Canvas;
@@ -385,7 +385,7 @@ public sealed record ChartSyncGroups(FrozenDictionary<string, object> Locks) {
         new(policies.Choose(static policy => policy.ScaleGroup).Distinct().ToFrozenDictionary(identity, static _ => new object()));
 
     public Fin<object> For(Option<string> group) => group.Match(
-        Some: key => Locks.TryGetValue(key, out object? shared)
+        Some: key => Locks.TryGetValue(out object? shared)
             ? Fin.Succ(shared)
             : Fin.Fail<object>(new ChartFault.SpecRejected($"sync-group/{key}: no lock minted at board activation")),
         None: static () => Fin.Succ<object>(new object()));
@@ -394,24 +394,24 @@ public sealed record ChartSyncGroups(FrozenDictionary<string, object> Locks) {
 public static class ChartSync {
     public static Fin<object> Mount(ChartSyncGroups groups, ChartPolicy policy, IChartView chart) =>
         groups.For(policy.ScaleGroup).Bind(shared =>
-            Op.Of(name: "appui.chart.mount").Catch(() => {
+            Try.lift(() => {
                 chart.SyncContext = shared;
                 return Fin.Succ(shared);
-            }));
+            }).Run().Bind(static inner => inner));
 
     public static Fin<Unit> Pair(Seq<ICartesianAxis> group) =>
         group.Count < 2
             ? Fin.Succ(unit)
-            : Op.Of(name: "appui.chart.pair").Catch(() => {
+            : Try.lift(() => {
                 Unit paired = group.Fold(unit, (_, axis) => {
                     axis.SharedWith = group.Filter(peer => !ReferenceEquals(peer, axis));
                     return unit;
                 });
                 return Fin.Succ(paired);
-            });
+            }).Run().Bind(static inner => inner);
 
     public static Fin<Unit> Apply(SourceGenCartesianChart chart, ChartPolicy policy, ChartInk ink) =>
-        Op.Of(name: "appui.chart.apply").Catch(() => {
+        Try.lift(() => {
             chart.ZoomMode = policy.Nav.Mode;
             chart.FindingStrategy = policy.Find.Strategy;
             chart.TooltipPosition = policy.Tooltip.Tooltip;
@@ -430,7 +430,7 @@ public static class ChartSync {
                 Fill = ink.Paint(ChartChrome.FrameFill),
             }.Value;
             return Fin.Succ(unit);
-        });
+        }).Run().Bind(static inner => inner);
 }
 ```
 
@@ -574,15 +574,15 @@ public static class GeoSeries {
     }
 
     static int Replaced(IList<GeoLand> lands, Dictionary<string, int> index, string key, GeoLand current) {
-        if (!index.TryGetValue(key, out int at)) { return Appended(lands, index, current); }
+        if (!index.TryGetValue(out int at)) { return Appended(lands, index, current); }
         lands[at].Value = current.Value;
         return 1;
     }
 
     static int Dropped(IList<GeoLand> lands, Dictionary<string, int> index, string key) {
-        if (!index.TryGetValue(key, out int at)) { return 0; }
+        if (!index.TryGetValue(out int at)) { return 0; }
         lands.RemoveAt(at);
-        index.Remove(key);
+        index.Remove();
         foreach ((string name, int seat) in index) {
             if (seat > at) { index[name] = seat - 1; }
         }

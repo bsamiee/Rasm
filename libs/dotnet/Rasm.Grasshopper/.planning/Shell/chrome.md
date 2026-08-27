@@ -26,7 +26,7 @@ Bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of ca
 ## [03]-[PANEL]
 
 - Owner: `PanelControl` `[Union]` — the category-scoped control rows a panel build folds through the `InputPanel.Add*` family, each returning its typed control: `LabelCase(string Text, bool Italic, string Tip)` (`AddLabel(string, bool italic, string tooltip)` → `Label`), `CheckCase(string Label, bool Initial, Action<bool> Changed, string Tip)` (`AddCheck` → `CheckBox`), `TextCase(string Label, Action<string> Changed, string Tip)` (`AddText` → `TextBox`), `BarCase(bool CategoryLabels, Option<int> RowHeight, Seq<BarItem> Items)` (`AddBar(bool, params BarItem[])`, the `Some` height selecting the `AddBar(bool, int, params BarItem[])` overload → `Bar`), `SpecCase(ControlSpec Spec, ElementRuntime Runtime)` (the kernel control-module boundary MADE REAL: the build realizes the spec through `ControlForge.Grow` and hands `mount.Host` to `Add(Control)`, the realized `ElementMount` joining the build's teardown custody), `HostCase(Control Surface)` (`Add(Control)` — the raw escape for a host-realized control that has no kernel spec). `PanelPlan` record — `Seq<PanelCategory>` where each `PanelCategory(ChromeTag Name, Seq<PanelControl> Rows)` opens through `BeginCategory` — whose returned `IDisposable` closes the category scope and is disposed by the fold after its rows land — then folds its rows in order.
-- Owner: `PanelOp` `[Union]` `[GenerateUnionOps]` — the panel verb family: `BuildCase(PanelPlan Plan)`, `MoveCase(ChromeTag Category, ChromeTag Above)` (`MoveCategoryBelow(string category, string above)`), `RenameCase(ChromeTag Category, ChromeTag Next)` (`RenameCategory`), `RemoveCase(ChromeTag Category)` (`RemoveCategory`), `EmbedCase` (`ToEtoControl()` — the panel projected as an embeddable `Control`, returned on the outcome), `FloatCase(Control Owner, PointF At, RectangleF Screen)` (`ShowAsForm(Control, PointF, RectangleF)` → `Form` — the floated panel returns as `Lease<Form>.Owned` on the outcome, so teardown rides `Shell/session.md`'s release custody and a dangling chrome form is unconstructible).
+- Owner: `PanelOp` `[Union]` `` — the panel verb family: `BuildCase(PanelPlan Plan)`, `MoveCase(ChromeTag Category, ChromeTag Above)` (`MoveCategoryBelow(string category, string above)`), `RenameCase(ChromeTag Category, ChromeTag Next)` (`RenameCategory`), `RemoveCase(ChromeTag Category)` (`RemoveCategory`), `EmbedCase` (`ToEtoControl()` — the panel projected as an embeddable `Control`, returned on the outcome), `FloatCase(Control Owner, PointF At, RectangleF Screen)` (`ShowAsForm(Control, PointF, RectangleF)` → `Form` — the floated panel returns as `Lease<Form>.Owned` on the outcome, so teardown rides `Shell/session.md`'s release custody and a dangling chrome form is unconstructible).
 - Law: the category build UNWINDS — the panel is a LIVE host surface, so a refused build removes every category it already opened through `RemoveCategory` in reverse order AND disposes every `ElementMount` its `SpecCase` rows realized before the aggregate refusal returns, with unwind refusals aggregating INTO that fault rather than vanishing (branch RULINGS `[02]`); no spec set can leave half a plan on live chrome, and the settled build's teardown owns its realized mounts the same way.
 - Law: the panel is the one category-structured control surface — a bespoke Eto form assembling label/check/text rows beside it re-derives what `InputPanel` owns and is the deleted form; a control family richer than the `Add*` set enters as `SpecCase` realized through the kernel forge — `HostCase` stays the raw escape for host-realized objects only — so the host roster bounds nothing and the kernel control module is COMPOSED, never advertised. Category verbs return `bool` — a `false` settles `UiFault.HostRejected` carrying the missing category tag, never a silent no-op.
 - Boundary: value admission for check/text callbacks is the consumer's — a callback that admits raw text into a domain owner composes the kernel `Rasm/Interaction` binding module's gate; this page wires the callback and adjudicates nothing.
@@ -44,7 +44,7 @@ Bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of ca
 ## [05]-[FLOATS]
 
 - Owner: `FloatSpec` — the one floating-button declaration mirroring the collection's `Add` shape: `FloatAnchor` `[Union]` discriminates placement (`CornerCase(FloatingPosition Corner)` → `FloatingButtonCollection.Add`, `PointCase(PointF At)` → `AddAnchored`), and the spec carries its `ChromeTag` name with the optional `Info`/`Tint`/`Icon` slots and the three named handler slots (`Click`/`MouseDown`/`MouseUp` — the `FloatingButtonHandler` parameter roles), every optional lowering to the host's `null` default. `FloatDress` — the present-slot dress record `(Option<string> Info, Option<IIcon> Icon, Option<Color> Tint)`: the former retitle/reicon/recolour sibling cases were one dress fact split three ways, so one write applies every present slot through `ModifyInfo`/`ModifyIcon`/`ModifyColour` and skips the absent. `AnchorPace` `[SmartEnum<int>]` — `Jump` (immediate) and `Glide` (the host's own animation) carrying `ModifyAnchor`'s boolean as a row column, so pace is a named row, never a bare mode flag.
-- Owner: `FloatOp` `[Union]` `[GenerateUnionOps]` — the verb family over one collection: `AddCase(FloatSpec Spec)`, `ShowCase(Seq<ChromeTag> Names)`, `HideCase(Seq<ChromeTag> Names)` (`Show`/`Hide(string[])`), `CloseCase(Seq<ChromeTag> Names)` (`Close(string[])`, the empty sequence settling through `CloseAll()`), `DressCase(ChromeTag Name, FloatDress Dress)`, `MoveCase(ChromeTag Name, PointF At, AnchorPace Pace)` (`ModifyAnchor`), `ProbeCase(Either<ChromeTag, PointF> Key)` (`FindByName`/`FindByPoint` — one probe case, the key's shape discriminates, ABSENCE answering `None` on the outcome so existence is the probe's own `IsSome` and no second existence verb survives), `RosterCase(bool VisibleOnly)` (`Buttons`/`VisibleButtons` — the collection census as live handles; reads are UI-affine, so enumeration rides the gate's marshal like every probe), `TallyCase(FloatingState State)` (`StateCount` — the lifecycle census returning its count on the outcome), `BindCase(ChromeTag Name, UiNumber Channel, string ValueKey)` (`FindByName` then `FloatingButton.MakeNumeric(UiNumber, string valueKey)` — the numeric-value channel with `NumericValue` and `ValueChanged` living on the found button).
+- Owner: `FloatOp` `[Union]` `` — the verb family over one collection: `AddCase(FloatSpec Spec)`, `ShowCase(Seq<ChromeTag> Names)`, `HideCase(Seq<ChromeTag> Names)` (`Show`/`Hide(string[])`), `CloseCase(Seq<ChromeTag> Names)` (`Close(string[])`, the empty sequence settling through `CloseAll()`), `DressCase(ChromeTag Name, FloatDress Dress)`, `MoveCase(ChromeTag Name, PointF At, AnchorPace Pace)` (`ModifyAnchor`), `ProbeCase(Either<ChromeTag, PointF> Key)` (`FindByName`/`FindByPoint` — one probe case, the key's shape discriminates, ABSENCE answering `None` on the outcome so existence is the probe's own `IsSome` and no second existence verb survives), `RosterCase(bool VisibleOnly)` (`Buttons`/`VisibleButtons` — the collection census as live handles; reads are UI-affine, so enumeration rides the gate's marshal like every probe), `TallyCase(FloatingState State)` (`StateCount` — the lifecycle census returning its count on the outcome), `BindCase(ChromeTag Name, UiNumber Channel, string ValueKey)` (`FindByName` then `FloatingButton.MakeNumeric(UiNumber, string valueKey)` — the numeric-value channel with `NumericValue` and `ValueChanged` living on the found button).
 - Law: the collection is the one float authority AND the one mint — `IFlexControl.FloatingButtons` (or the canvas's collection, the same object through the flex interface) is where every case lands; the `FloatingButton` constructor, the `Position*` relative-placement family, the `*Ux` animation channels, and the `AnchorChanged`/`ColourChanged`/`StateChanged` events are all `internal` on the host — none forms a contract, and a design leaning on them is leaning on phantoms.
 - Boundary: `FloatingButton.ValueChanged` is the button family's one public event stream and belongs in `Shell/events.md`'s source vocabulary as a float row; occlusion and placement resolve inside the host's internal layout — this owner declares and mutates, `Canvas/paint.md` owns the pixels.
 - Packages: Grasshopper2 (`FloatingButton`, `FloatingButtonCollection`, `FloatingPosition`, `FloatingState`, `FloatingButtonHandler`, `UiNumber`), Eto (`Color`, `PointF`), `Rasm.Domain`.
@@ -52,8 +52,8 @@ Bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of ca
 
 ## [06]-[GATE]
 
-- Owner: `ChromeTag` `[ValueObject<string>]` — the one chrome identity: ordinal, trimmed, non-blank; float names, bar item lookups, and panel categories all address through it. `ChromeIntent` `[Union]` closes the family-by-host pairing: `BarCase(Bar Target, Seq<BarItemSpec> Items)`, `BarPassCase(Bar Target, BarPass Pass)`, `BarMutateCase(BarMutation Change)`, `ColourBarsCase(Nomen Label, OpenColor.Family Seed, Action<OpenColor.Family> Changed)`, `PanelCase(InputPanel Target, PanelOp Verb)`, `TipCase(TooltipIntent Tip)`, `FloatCase(FloatingButtonCollection Target, FloatOp Verb)`. `ChromeOutcome` `[Union]` closes what a chrome host hands back: `BuiltCase(int Count)`, `PassedCase(Op Verb)` (the settled case's generated op, never a `nameof` string), `FoundItemCase(Option<BarItem> Value)`, `FoundFloatCase(Option<FloatingButton> Value)` (probe absence is data — a miss is `None`, not a fault, and existence derives as `IsSome`), `RosterCase(Seq<FloatingButton> Buttons)`, `CountCase(int Value)`, `ColourCase(ColourBars Bars)`, `EmbeddedCase(Control Surface)`, `FloatedCase(Lease<Form> Window)` — a probe returns its live host handle because chrome handles are UI-affine working values, not evidence to persist, and the floated panel returns leased so its teardown is owned.
-- Entry: `Chrome.Apply(ChromeIntent intent, Op? key = null)` → `Fin<ChromeOutcome>` — one gate, every family; each settlement runs inside ONE kernel `UiThread.Run` blocking marshal under `Op.Catch`, and a null target or a host-refused verb is a typed fault (`Op.Need` / `UiFault.HostRejected`), never a host exception or a silent no-op. `Chrome.Mount(Seq<ChromeIntent> standing, Op? key = null)` → `Fin<Lease<ChromeSeat>>` — the root-wired standing mount (`Platform/composition.md` row `[05]`): the traverse applies each intent in order, a refusal UNWINDS what already mounted (floated panels release, added floats close by tag, aggregate faults per branch RULINGS `[02]`) before the fault returns, and the settled lease's release runs that same inverse, so the plugin's standing chrome tears down as one owner.
+- Owner: `ChromeTag` `[ValueObject<string>]` — the one chrome identity: ordinal, trimmed, non-blank; float names, bar item lookups, and panel categories all address through it. `ChromeIntent` `[Union]` closes the family-by-host pairing: `BarCase(Bar Target, Seq<BarItemSpec> Items)`, `BarPassCase(Bar Target, BarPass Pass)`, `BarMutateCase(BarMutation Change)`, `ColourBarsCase(Nomen Label, OpenColor.Family Seed, Action<OpenColor.Family> Changed)`, `PanelCase(InputPanel Target, PanelOp Verb)`, `TipCase(TooltipIntent Tip)`, `FloatCase(FloatingButtonCollection Target, FloatOp Verb)`. `ChromeOutcome` `[Union]` closes what a chrome host hands back: `BuiltCase(int Count)`, `PassedCase()` (the settled case's generated op, never a `nameof` string), `FoundItemCase(Option<BarItem> Value)`, `FoundFloatCase(Option<FloatingButton> Value)` (probe absence is data — a miss is `None`, not a fault, and existence derives as `IsSome`), `RosterCase(Seq<FloatingButton> Buttons)`, `CountCase(int Value)`, `ColourCase(ColourBars Bars)`, `EmbeddedCase(Control Surface)`, `FloatedCase(Lease<Form> Window)` — a probe returns its live host handle because chrome handles are UI-affine working values, not evidence to persist, and the floated panel returns leased so its teardown is owned.
+- Entry: `Chrome.Apply(ChromeIntent intent)` → `Fin<ChromeOutcome>` — one gate, every family; each settlement runs inside ONE kernel `UiThread.Run` blocking marshal under `Op.Catch`, and a null target or a host-refused verb is a typed fault (`Op.Need` / `UiFault.HostRejected`), never a host exception or a silent no-op. `Chrome.Mount(Seq<ChromeIntent> standing)` → `Fin<Lease<ChromeSeat>>` — the root-wired standing mount (`Platform/composition.md` row `[05]`): the traverse applies each intent in order, a refusal UNWINDS what already mounted (floated panels release, added floats close by tag, aggregate faults per branch RULINGS `[02]`) before the fault returns, and the settled lease's release runs that same inverse, so the plugin's standing chrome tears down as one owner.
 - Law: the outer union discriminates the host family and the inner union its verb — the pairing is dependent payload, not joint dispatch, because a `FloatOp` is meaningless without its collection; a consumer never sequences host internals, and a new chrome family is one outer case carrying its inner verb union, every dispatch site breaking loudly.
 - Packages: Grasshopper2, Eto, `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`, `UiFault`), Thinktecture, LanguageExt.Core.
 - Growth: one case per new family; zero new gates.
@@ -142,7 +142,6 @@ public abstract partial record PanelControl {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record PanelOp {
     private PanelOp() { }
     public sealed record BuildCase(PanelPlan Plan) : PanelOp;
@@ -178,7 +177,6 @@ public abstract partial record FloatAnchor {
 }
 
 [Union]
-[GenerateUnionOps]
 public abstract partial record FloatOp {
     private FloatOp() { }
     public sealed record AddCase(FloatSpec Spec) : FloatOp;
@@ -228,7 +226,7 @@ public sealed record ChromeSeat(Seq<ChromeOutcome> Outcomes);
 public abstract partial record ChromeOutcome {
     private ChromeOutcome() { }
     public sealed record BuiltCase(int Count) : ChromeOutcome;
-    public sealed record PassedCase(Op Verb) : ChromeOutcome;
+    public sealed record PassedCase() : ChromeOutcome;
     public sealed record FoundItemCase(Option<BarItem> Value) : ChromeOutcome;
     public sealed record FoundFloatCase(Option<FloatingButton> Value) : ChromeOutcome;
     public sealed record RosterCase(Seq<FloatingButton> Buttons) : ChromeOutcome;
@@ -240,175 +238,174 @@ public abstract partial record ChromeOutcome {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Painters {
-    public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Shortcut(string lead, Either<Keys, char> chord, string tail, Op? key = null) =>
+    public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Shortcut(string lead, Either<Keys, char> chord, string tail) =>
         key.OrDefault().Catch(body: () => Fin.Succ(chord.Match(
             Left: keys => Frame.CreateShortcutPainter(lead, keys, tail),
             Right: glyph => Frame.CreateShortcutPainter(lead, glyph, tail))));
 
-    public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Composite(object[] parts, Op? key = null) =>
+    public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Composite(object[] parts) =>
         key.OrDefault().Catch(body: () => Fin.Succ(Frame.CreateTextAndIconPainter(parts)));
 }
 
 public static class Chrome {
-    public static Fin<ChromeOutcome> Apply(ChromeIntent intent, Op? key = null) {
-        Op active = key.OrDefault();
-        return active.Need(intent).Bind(valid => UiThread.Run(new UiDispatch<ChromeOutcome>.Blocking(() => valid.Switch(
+    public static Fin<ChromeOutcome> Apply(ChromeIntent intent) {
+        return Admit.Need(intent).Bind(valid => UiThread.Run(new UiDispatch<ChromeOutcome>.Blocking(() => valid.Switch(
             state: active,
-            barCase: static (k, c) => k.Need(c.Target).Bind(bar => {
-                var (fails, done) = c.Items.Map(item => k.Catch(() =>
-                    Append(bar: bar, item: item))).Partition();
+            barCase: static (k, c) => Admit.Need(c.Target).Bind(bar => {
+                var (fails, done) = c.Items.Map(item => Try.lift(() =>
+                    Append(bar: bar, item: item)).Run().Bind(static inner => inner)).Partition();
                 return fails.IsEmpty
                     ? Fin.Succ((ChromeOutcome)new ChromeOutcome.BuiltCase(Count: done.Count))
                     : Fin.Fail<ChromeOutcome>(Error.Many([.. fails]));
             }),
-            barPassCase: static (k, c) => k.Need(c.Target)
+            barPassCase: static (k, c) => Admit.Need(c.Target)
                 .Bind(bar => c.Pass.Switch(
                     state: (Bar: bar, Key: k),
-                    layoutCase: static (s, _) => Passed(key: s.Key, verb: s.Key, action: s.Bar.Layout),
-                    renderCase: static (s, p) => Passed(key: s.Key, verb: s.Key, action: () => s.Bar.Render(context: p.Surface)),
-                    tooltipCase: static (s, p) => Ruled(key: s.Key, verb: s.Key, name: p.At.ToString(),
+                    layoutCase: static (s, _) => Passed(verb: s.Key, action: s.Bar.Layout),
+                    renderCase: static (s, p) => Passed(verb: s.Key, action: () => s.Bar.Render(context: p.Surface)),
+                    tooltipCase: static (s, p) => Ruled(verb: s.Key, name: p.At.ToString(),
                         rule: () => s.Bar.ShowTooltipAt(location: p.At)),
-                    invalidateCase: static (s, _) => Passed(key: s.Key, verb: s.Key, action: s.Bar.Invalidate),
-                    tuneCase: static (s, p) => Passed(key: s.Key, verb: s.Key, action: () => {
+                    invalidateCase: static (s, _) => Passed(verb: s.Key, action: s.Bar.Invalidate),
+                    tuneCase: static (s, p) => Passed(verb: s.Key, action: () => {
                         p.Enabled.Iter(value => s.Bar.Enabled = value);
                         p.RowHeight.Iter(value => s.Bar.ElementHeight = value);
                         p.Style.Iter(value => s.Bar.Style = value);
                     }),
-                    findCase: static (s, p) => s.Key.Catch(body: () => Fin.Succ(Optional(s.Bar[(string)p.Name])))
+                    findCase: static (s, p) => Try.lift(() => Fin.Succ(Optional(s.Bar[(string)p.Name]))).Run().Bind(static inner => inner)
                         .Map(static item => (ChromeOutcome)new ChromeOutcome.FoundItemCase(Value: item)))),
             barMutateCase: static (k, c) => c.Change.Switch(
                 state: k,
-                radioSwing: static (op, m) => op.Catch(() => m.Target.Match(
+                radioSwing: static (m) => Try.lift(() => m.Target.Match(
                     Some: value => m.Item.SetState(state: value),
-                    None: () => m.Item.Toggle())),
-                radioDress: static (op, m) => op.Catch(() => {
+                    None: () => m.Item.Toggle())).Run().Bind(static inner => inner),
+                radioDress: static (m) => Try.lift(() => {
                     m.OnText.Iter(value => m.Item.OnText = value);
                     m.OffText.Iter(value => m.Item.OffText = value);
                     m.Optional.Iter(value => m.Item.Optional = value);
-                }),
-                fieldWrite: static (op, m) => op.Catch(() => m.Item.SetText(text: m.Text)),
-                fieldDress: static (op, m) => op.Catch(() =>
-                    m.Placeholder.Iter(value => m.Item.Placeholder = value))
+                }).Run().Bind(static inner => inner),
+                fieldWrite: static (m) => Try.lift(() => m.Item.SetText(text: m.Text)).Run().Bind(static inner => inner),
+                fieldDress: static (m) => Try.lift(() =>
+                    m.Placeholder.Iter(value => m.Item.Placeholder = value)).Run().Bind(static inner => inner)
                 .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: k)),
-            colourBarsCase: static (k, c) => k.Catch(body: () => {
+            colourBarsCase: static (k, c) => Try.lift(() => {
                 Bar.CreateStandardColourBars(c.Label, c.Seed, c.Changed, out Bar life, out Bar cool, out Bar warm);
                 return Fin.Succ((ChromeOutcome)new ChromeOutcome.ColourCase(Bars: new ColourBars(Life: life, Cool: cool, Warm: warm)));
-            }),
-            panelCase: static (k, c) => k.Need(c.Target).Bind(panel => Settle(panel: panel, verb: c.Verb, key: k)),
+            }).Run().Bind(static inner => inner),
+            panelCase: static (k, c) => Admit.Need(c.Target).Bind(panel => Settle(panel: panel, verb: c.Verb, key: k)),
             tipCase: static (k, c) => c.Tip.Switch(
                 state: k,
-                showCase: static (op, t) => Passed(key: op, verb: op, action: () => Present(content: t.Content)),
-                hideCase: static (op, _) => Passed(key: op, verb: op, action: Frame.Hide),
-                invalidateCase: static (op, _) => Passed(key: op, verb: op, action: Frame.Invalidate),
-                captureCase: static (op, t) => Passed(key: op, verb: op, action: () =>
-                    Frame.ScreencapFolder = Op.ToHostSlot(t.Folder))),
-            floatCase: static (k, c) => k.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb, key: k)))),
+                showCase: static (t) => Passed(verb: op, action: () => Present(content: t.Content)),
+                hideCase: static (_) => Passed(verb: op, action: Frame.Hide),
+                invalidateCase: static (_) => Passed(verb: op, action: Frame.Invalidate),
+                captureCase: static (t) => Passed(verb: op, action: () =>
+                    Frame.ScreencapFolder = HostEdge.Slot(t.Folder))),
+            floatCase: static (k, c) => Admit.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb, key: k)))),
             DispatchLane.Interactive, active));
     }
 
-    public static Fin<Lease<ChromeSeat>> Mount(Seq<ChromeIntent> standing, Op? key = null);
+    public static Fin<Lease<ChromeSeat>> Mount(Seq<ChromeIntent> standing);
 
-    private static Fin<ChromeOutcome> Passed(Op key, Op verb, Action action) =>
-        key.Catch(action)
+    private static Fin<ChromeOutcome> Passed(Action action) =>
+        Try.lift(action).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: verb));
 
     private static Unit Append(Bar bar, BarItemSpec item) => item.Switch(
-        pushCase: c => Op.Side(action: () => bar.AddPushButton(c.Icon, c.Label, c.Verb, c.Chord)),
-        radioCase: c => Op.Side(action: () => bar.AddRadioToggle(c.Icon, c.Label, c.Initial, c.Verb, c.Chord)),
-        fieldCase: c => Op.Side(action: () => bar.AddTextField(c.Icon, c.Label, c.Text, c.Placeholder)),
-        spacerCase: c => Op.Side(action: () => bar.AddSpacer(c.Label, c.MinimumWidth, c.MaximumWidth)),
-        sectionToggleCase: c => Op.Side(action: () => bar.AddToggle(c.Label, c.Initial, [.. c.Sections])),
-        itemCase: c => Op.Side(action: () => bar.Add(c.Element)),
+        pushCase: c => HostEdge.Side(action: () => bar.AddPushButton(c.Icon, c.Label, c.Verb, c.Chord)),
+        radioCase: c => HostEdge.Side(action: () => bar.AddRadioToggle(c.Icon, c.Label, c.Initial, c.Verb, c.Chord)),
+        fieldCase: c => HostEdge.Side(action: () => bar.AddTextField(c.Icon, c.Label, c.Text, c.Placeholder)),
+        spacerCase: c => HostEdge.Side(action: () => bar.AddSpacer(c.Label, c.MinimumWidth, c.MaximumWidth)),
+        sectionToggleCase: c => HostEdge.Side(action: () => bar.AddToggle(c.Label, c.Initial, [.. c.Sections])),
+        itemCase: c => HostEdge.Side(action: () => bar.Add(c.Element)),
         coloursCase: c => c.Range.Switch(
             state: (Bar: bar, Row: c),
-            lifeCase: static (s, _) => Op.Side(action: () => s.Bar.AddLifeColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
-            coolCase: static (s, _) => Op.Side(action: () => s.Bar.AddCoolColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
-            warmCase: static (s, _) => Op.Side(action: () => s.Bar.AddWarmColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
-            spectrumCase: static (s, r) => Op.Side(action: () => s.Bar.AddColours(s.Row.Label, [.. r.Spectrum], s.Row.Seed, s.Row.Changed))));
+            lifeCase: static (s, _) => HostEdge.Side(action: () => s.Bar.AddLifeColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
+            coolCase: static (s, _) => HostEdge.Side(action: () => s.Bar.AddCoolColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
+            warmCase: static (s, _) => HostEdge.Side(action: () => s.Bar.AddWarmColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
+            spectrumCase: static (s, r) => HostEdge.Side(action: () => s.Bar.AddColours(s.Row.Label, [.. r.Spectrum], s.Row.Seed, s.Row.Changed))));
 
     private static Unit Present(TooltipContent content) {
         bool warnings = content.Emphasis.Admits(TipEmphasis.Warnings);
         bool errors = content.Emphasis.Admits(TipEmphasis.Errors);
         return content.Detail.Switch(
-            plainCase: _ => Op.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, warnings, errors)),
-            itemsCase: d => Op.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, [.. d.Rows], warnings, errors)),
-            painterCase: d => Op.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, d.Paint, d.Extent, warnings, errors)));
+            plainCase: _ => HostEdge.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, warnings, errors)),
+            itemsCase: d => HostEdge.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, [.. d.Rows], warnings, errors)),
+            painterCase: d => HostEdge.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, d.Paint, d.Extent, warnings, errors)));
     }
 
-    private static Fin<ChromeOutcome> Settle(InputPanel panel, PanelOp verb, Op key) => verb.Switch(
-        state: (Panel: panel, Key: key),
-        buildCase: static (s, c) => Built(panel: s.Panel, plan: c.Plan, key: s.Key),
-        moveCase: static (s, c) => Ruled(key: s.Key, verb: c.SelfOp, name: (string)c.Category,
-            rule: () => s.Panel.MoveCategoryBelow((string)c.Category, (string)c.Above)),
-        renameCase: static (s, c) => Ruled(key: s.Key, verb: c.SelfOp, name: (string)c.Category,
-            rule: () => s.Panel.RenameCategory((string)c.Category, (string)c.Next)),
-        removeCase: static (s, c) => Ruled(key: s.Key, verb: c.SelfOp, name: (string)c.Category,
-            rule: () => s.Panel.RemoveCategory((string)c.Category)),
-        embedCase: static (s, c) => s.Key.Catch(body: () =>
-                Optional(s.Panel.ToEtoControl()).ToFin((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: "host returned nothing")))
+    private static Fin<ChromeOutcome> Settle(InputPanel panel, PanelOp verb) => verb.Switch(
+        state: panel,
+        buildCase: static (s, c) => Built(panel: s, plan: c.Plan),
+        moveCase: static (s, c) => Ruled(verb: c.SelfOp, name: (string)c.Category,
+            rule: () => s.MoveCategoryBelow((string)c.Category, (string)c.Above)),
+        renameCase: static (s, c) => Ruled(verb: c.SelfOp, name: (string)c.Category,
+            rule: () => s.RenameCategory((string)c.Category, (string)c.Next)),
+        removeCase: static (s, c) => Ruled(verb: c.SelfOp, name: (string)c.Category,
+            rule: () => s.RemoveCategory((string)c.Category)),
+        embedCase: static (s, c) => Try.lift(() =>
+                Optional(s.ToEtoControl()).ToFin((Error)new UiFault.HostRejected(Detail: "host returned nothing"))).Run().Bind(static inner => inner)
             .Map(static surface => (ChromeOutcome)new ChromeOutcome.EmbeddedCase(Surface: surface)),
-        floatCase: static (s, c) => s.Key.Catch(body: () =>
-                Optional(s.Panel.ShowAsForm(c.Owner, c.At, c.Screen)).ToFin((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: "host returned nothing")))
+        floatCase: static (s, c) => Try.lift(() =>
+                Optional(s.ShowAsForm(c.Owner, c.At, c.Screen)).ToFin((Error)new UiFault.HostRejected(Detail: "host returned nothing"))).Run().Bind(static inner => inner)
             .Map(static window => (ChromeOutcome)new ChromeOutcome.FloatedCase(Window: new Lease<Form>.Owned(Value: window))));
 
-    private static Fin<ChromeOutcome> Built(InputPanel panel, PanelPlan plan, Op key);
+    private static Fin<ChromeOutcome> Built(InputPanel panel, PanelPlan plan);
 
-    private static Fin<ChromeOutcome> Ruled(Op key, Op verb, string name, Func<bool> rule) =>
-        key.Catch(body: () => rule()
+    private static Fin<ChromeOutcome> Ruled(string name, Func<bool> rule) =>
+        Try.lift(() => rule()
             ? Fin.Succ((ChromeOutcome)new ChromeOutcome.PassedCase(Verb: verb))
-            : Fin.Fail<ChromeOutcome>((Error)new UiFault.HostRejected(Key: verb, Detail: name)));
+            : Fin.Fail<ChromeOutcome>((Error)new UiFault.HostRejected(Key: verb, Detail: name))).Run().Bind(static inner => inner);
 
-    private static Fin<Option<ElementMount>> Fill(InputPanel panel, PanelControl row, Op key) => row.Switch(
-        state: (Panel: panel, Key: key),
-        labelCase: static (s, c) => Fin.Succ((Op.Side(action: () => s.Panel.AddLabel(c.Text, c.Italic, c.Tip)), Option<ElementMount>.None).Item2),
-        checkCase: static (s, c) => Fin.Succ((Op.Side(action: () => s.Panel.AddCheck(c.Label, c.Initial, c.Changed, c.Tip)), Option<ElementMount>.None).Item2),
-        textCase: static (s, c) => Fin.Succ((Op.Side(action: () => s.Panel.AddText(c.Label, c.Changed, c.Tip)), Option<ElementMount>.None).Item2),
-        barCase: static (s, c) => Fin.Succ((Op.Side(action: () => c.RowHeight.Match(
-            Some: height => s.Panel.AddBar(c.CategoryLabels, height, [.. c.Items]),
-            None: () => s.Panel.AddBar(c.CategoryLabels, [.. c.Items]))), Option<ElementMount>.None).Item2),
-        specCase: static (s, c) => ControlForge.Grow(spec: c.Spec, runtime: c.Runtime, key: s.Key)
-            .Map(realized => (Op.Side(action: () => s.Panel.Add(realized.Host)), Some(realized)).Item2),
-        hostCase: static (s, c) => Fin.Succ((Op.Side(action: () => s.Panel.Add(c.Surface)), Option<ElementMount>.None).Item2));
+    private static Fin<Option<ElementMount>> Fill(InputPanel panel, PanelControl row) => row.Switch(
+        state: panel,
+        labelCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => s.AddLabel(c.Text, c.Italic, c.Tip)), Option<ElementMount>.None).Item2),
+        checkCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => s.AddCheck(c.Label, c.Initial, c.Changed, c.Tip)), Option<ElementMount>.None).Item2),
+        textCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => s.AddText(c.Label, c.Changed, c.Tip)), Option<ElementMount>.None).Item2),
+        barCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => c.RowHeight.Match(
+            Some: height => s.AddBar(c.CategoryLabels, height, [.. c.Items]),
+            None: () => s.AddBar(c.CategoryLabels, [.. c.Items]))), Option<ElementMount>.None).Item2),
+        specCase: static (s, c) => ControlForge.Grow(spec: c.Spec, runtime: c.Runtime)
+            .Map(realized => (HostEdge.Side(action: () => s.Add(realized.Host)), Some(realized)).Item2),
+        hostCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => s.Add(c.Surface)), Option<ElementMount>.None).Item2));
 
-    private static Fin<ChromeOutcome> Settle(FloatingButtonCollection floats, FloatOp verb, Op key) => verb.Switch(
-        state: (Floats: floats, Key: key),
-        addCase: static (s, c) => s.Key.Catch(() => c.Spec.Anchor.Switch(
-                state: (s.Floats, c.Spec),
-                cornerCase: static (held, a) => Op.Side(action: () => held.Floats.Add(
-                    a.Corner, (string)held.Spec.Name, Op.ToHostSlot(held.Spec.Info), Op.ToHostNullable(held.Spec.Tint), Op.ToHostSlot(held.Spec.Icon),
-                    Op.ToHostSlot(held.Spec.Click), Op.ToHostSlot(held.Spec.MouseDown), Op.ToHostSlot(held.Spec.MouseUp))),
-                pointCase: static (held, a) => Op.Side(action: () => held.Floats.AddAnchored(
-                    a.At, (string)held.Spec.Name, Op.ToHostSlot(held.Spec.Info), Op.ToHostNullable(held.Spec.Tint), Op.ToHostSlot(held.Spec.Icon),
-                    Op.ToHostSlot(held.Spec.Click), Op.ToHostSlot(held.Spec.MouseDown), Op.ToHostSlot(held.Spec.MouseUp))))
-            .Map(static _ => (ChromeOutcome)new ChromeOutcome.BuiltCase(Count: 1))),
-        showCase: static (s, c) => s.Key.Catch(() => s.Floats.Show([.. c.Names.Map(static n => (string)n)]))
+    private static Fin<ChromeOutcome> Settle(FloatingButtonCollection floats, FloatOp verb) => verb.Switch(
+        state: floats,
+        addCase: static (s, c) => Try.lift(() => c.Spec.Anchor.Switch(
+                state: (s, c.Spec),
+                cornerCase: static (held, a) => HostEdge.Side(action: () => held.Add(
+                    a.Corner, (string)held.Spec.Name, HostEdge.Slot(held.Spec.Info), HostEdge.Nullable(held.Spec.Tint), HostEdge.Slot(held.Spec.Icon),
+                    HostEdge.Slot(held.Spec.Click), HostEdge.Slot(held.Spec.MouseDown), HostEdge.Slot(held.Spec.MouseUp))),
+                pointCase: static (held, a) => HostEdge.Side(action: () => held.AddAnchored(
+                    a.At, (string)held.Spec.Name, HostEdge.Slot(held.Spec.Info), HostEdge.Nullable(held.Spec.Tint), HostEdge.Slot(held.Spec.Icon),
+                    HostEdge.Slot(held.Spec.Click), HostEdge.Slot(held.Spec.MouseDown), HostEdge.Slot(held.Spec.MouseUp))))
+            .Map(static _ => (ChromeOutcome)new ChromeOutcome.BuiltCase(Count: 1))).Run().Bind(static inner => inner),
+        showCase: static (s, c) => Try.lift(() => s.Show([.. c.Names.Map(static n => (string)n)])).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        hideCase: static (s, c) => s.Key.Catch(() => s.Floats.Hide([.. c.Names.Map(static n => (string)n)]))
+        hideCase: static (s, c) => Try.lift(() => s.Hide([.. c.Names.Map(static n => (string)n)])).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        closeCase: static (s, c) => s.Key.Catch(() => {
-                if (c.Names.IsEmpty) { s.Floats.CloseAll(); } else { s.Floats.Close([.. c.Names.Map(static n => (string)n)]); }
-            })
+        closeCase: static (s, c) => Try.lift(() => {
+                if (c.Names.IsEmpty) { s.CloseAll(); } else { s.Close([.. c.Names.Map(static n => (string)n)]); }
+            }).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        dressCase: static (s, c) => s.Key.Catch(() => {
-                c.Dress.Info.Iter(value => s.Floats.ModifyInfo((string)c.Name, value));
-                c.Dress.Icon.Iter(value => s.Floats.ModifyIcon((string)c.Name, value));
-                c.Dress.Tint.Iter(value => s.Floats.ModifyColour((string)c.Name, value));
-            })
+        dressCase: static (s, c) => Try.lift(() => {
+                c.Dress.Info.Iter(value => s.ModifyInfo((string)c.Name, value));
+                c.Dress.Icon.Iter(value => s.ModifyIcon((string)c.Name, value));
+                c.Dress.Tint.Iter(value => s.ModifyColour((string)c.Name, value));
+            }).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        moveCase: static (s, c) => s.Key.Catch(() =>
-                s.Floats.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate))
+        moveCase: static (s, c) => Try.lift(() =>
+                s.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate)).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        probeCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(c.Key.Match(
-                Left: name => Optional(s.Floats.FindByName((string)name)),
-                Right: at => Optional(s.Floats.FindByPoint(at)))))
+        probeCase: static (s, c) => Try.lift(() => Fin.Succ(c.Key.Match(
+                Left: name => Optional(s.FindByName((string)name)),
+                Right: at => Optional(s.FindByPoint(at))))).Run().Bind(static inner => inner)
             .Map(static found => (ChromeOutcome)new ChromeOutcome.FoundFloatCase(Value: found)),
-        rosterCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(toSeq(c.VisibleOnly ? s.Floats.VisibleButtons : s.Floats.Buttons)))
+        rosterCase: static (s, c) => Try.lift(() => Fin.Succ(toSeq(c.VisibleOnly ? s.VisibleButtons : s.Buttons))).Run().Bind(static inner => inner)
             .Map(static held => (ChromeOutcome)new ChromeOutcome.RosterCase(Buttons: held)),
-        tallyCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(s.Floats.StateCount(c.State)))
+        tallyCase: static (s, c) => Try.lift(() => Fin.Succ(s.StateCount(c.State))).Run().Bind(static inner => inner)
             .Map(static count => (ChromeOutcome)new ChromeOutcome.CountCase(Value: count)),
-        bindCase: static (s, c) => s.Key.Catch(body: () =>
-                Optional(s.Floats.FindByName((string)c.Name)).ToFin((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: (string)c.Name)))
-            .Bind(found => s.Key.Catch(() => found.MakeNumeric(c.Channel, c.ValueKey)))
+        bindCase: static (s, c) => Try.lift(() =>
+                Optional(s.FindByName((string)c.Name)).ToFin((Error)new UiFault.HostRejected(Detail: (string)c.Name))).Run().Bind(static inner => inner)
+            .Bind(found => Try.lift(() => found.MakeNumeric(c.Channel, c.ValueKey)).Run().Bind(static inner => inner))
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)));
 
 }
@@ -448,7 +445,7 @@ flowchart LR
 |  [05]   | settlement       | `ChromeTag` + `ChromeIntent` + `ChromeOutcome` + `Chrome`   | `Apply` + root-wired `Mount`   |   7+9   |
 
 - [01]-[TOOLBAR_ITEMS]: four closed `[Union]` families; refusals aggregate, survivors named as loss.
-- [02]-[INPUT_PANEL]: control rows + plan + `[GenerateUnionOps]` verbs; live chrome unwinds.
+- [02]-[INPUT_PANEL]: control rows + plan + `` verbs; live chrome unwinds.
 - [03]-[TOOLTIPS]: shared columns hoisted once, detail nested, emphasis a capability set.
 - [04]-[FLOATING_BUTTONS]: dress collapse, pace rows, probe absence as data (`DefinedCase` derived away).
 - [05]-[SETTLEMENT]: one intent union, one outcome union, one gate, one standing mount.

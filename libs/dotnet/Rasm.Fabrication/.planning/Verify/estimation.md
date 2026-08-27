@@ -257,7 +257,7 @@ public sealed partial class EvidenceKind {
     public Func<EstimateEvidence, bool> Admits { get; }
 
     private static EvidenceKind Of<TCase>(string key, bool repeatable, Func<TCase, bool> admits)
-        where TCase : EstimateEvidence => new(key, repeatable, Witness.Case<EstimateEvidence, TCase>(admits));
+        where TCase : EstimateEvidence => new(repeatable, Witness.Case<EstimateEvidence, TCase>(admits));
 }
 
 [SmartEnum<string>]

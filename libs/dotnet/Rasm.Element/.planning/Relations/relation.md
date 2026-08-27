@@ -133,10 +133,10 @@ public abstract partial class MaterialUsage {
 
   public static Fin<MaterialUsage> Of(
    LayerSetDirection direction, DirectionSense sense,
-   Option<MeasureValue> offsetFromReferenceLine, Option<MeasureValue> referenceExtent, Op key) =>
+   Option<MeasureValue> offsetFromReferenceLine, Option<MeasureValue> referenceExtent) =>
    Accumulate(Seq(
-     Length(offsetFromReferenceLine, "offset-from-reference-line", key),
-     Length(referenceExtent, "reference-extent", key)))
+     Length(offsetFromReferenceLine, "offset-from-reference-line"),
+     Length(referenceExtent, "reference-extent")))
     .Map(_ => (MaterialUsage)new LayerSet(direction, sense, offsetFromReferenceLine, referenceExtent))
     .ToFin();
  }
@@ -149,9 +149,9 @@ public abstract partial class MaterialUsage {
   private ProfileSet(Option<CardinalPoint> cardinalPoint, Option<MeasureValue> referenceExtent) =>
    (CardinalPoint, ReferenceExtent) = (cardinalPoint, referenceExtent);
 
-  public static Fin<MaterialUsage> Of(Option<int> cardinalPoint, Option<MeasureValue> referenceExtent, Op key) =>
-   from point in cardinalPoint.TraverseM(reference => key.Row<int, CardinalPoint>(reference)).As()
-   from _ in Length(referenceExtent, "reference-extent", key).ToFin()
+  public static Fin<MaterialUsage> Of(Option<int> cardinalPoint, Option<MeasureValue> referenceExtent) =>
+   from point in cardinalPoint.TraverseM(reference => FactoryBridge.Row<int, CardinalPoint>(reference)).As()
+   from _ in Length(referenceExtent, "reference-extent").ToFin()
    select (MaterialUsage)new ProfileSet(point, referenceExtent);
  }
 
@@ -164,8 +164,8 @@ public abstract partial class MaterialUsage {
    .Optional(u.CardinalPoint, static (point, writer) => writer.Ordinal(point.Key))
    .Optional(u.ReferenceExtent, static (value, writer) => writer.Measure(value)));
 
- private static Validation<Error, Unit> Length(Option<MeasureValue> measure, string slot, Op key) =>
-  Gate(measure.ForAll(static value => value.Dimension == Dimension.LengthDim), key, $"<material-usage-measure-not-length:{slot}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d));
+ private static Validation<Error, Unit> Length(Option<MeasureValue> measure, string slot) =>
+  Gate(measure.ForAll(static value => value.Dimension == Dimension.LengthDim), $"<material-usage-measure-not-length:{slot}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d));
 }
 
 [ValueObject<string>]

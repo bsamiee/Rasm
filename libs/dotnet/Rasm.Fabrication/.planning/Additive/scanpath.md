@@ -543,13 +543,13 @@ public static class SourcePartition {
                 new KernelFault.InvalidValue("scanpath", "scan:measure-trace")));
 
     private static Fin<Arr<(int Source, double Score)>> Elected(Seq<CandidateVector> vectors, SourcePolicy policy) =>
-        Op.Of(name: "scan:score-plane").Catch(() => {
+        Try.lift(() => {
             int capacity = checked(vectors.Count * policy.Sources.Count);
             using MemoryOwner<double> scores = MemoryOwner<double>.Allocate(capacity, AllocationMode.Clear);
             ScoreAction action = new(scores.Memory, policy.Sources.Count, vectors.ToArr(), policy.Sources);
             ParallelHelper.For2D(0, vectors.Count, 0, policy.Sources.Count, in action);
             return Fin.Succ(Elect(scores.Span, vectors.Count, policy.Sources.Count, policy.BalanceWeight.DecimalFractions));
-        });
+        }).Run().Bind(static inner => inner);
 
     private static Seq<LaserSource> Peers(CandidateVector vector, LaserSource source, Seq<FieldCell> fields, SourcePolicy policy) =>
         fields.Find(field => field.Source == source.Id)
@@ -846,7 +846,7 @@ public static class Scan {
         Option<SupportPlan> support,
         Option<InstrumentSet> set = default,
         Option<SpanBand> band = default) =>
-        band.Traced(FabricationEngine.Scan, Op.Of(), _ =>
+        band.Traced(FabricationEngine.Scan, _ =>
         from _policy in (
             AdmissionSlots.Gate(policy.DownSkinLayers > 0 && policy.UpSkinLayers > 0
                 && policy.MaximumVectors > 0 && policy.MaximumVectors < int.MaxValue,
@@ -895,7 +895,7 @@ public static class Scan {
             (EnginePhase.Jumps, evidence.Jumps),
             (EnginePhase.Remelts, evidence.Remelts),
             (EnginePhase.Stitches, evidence.Stitches))
-        select new ScanPlan(layers, bytes, evidence, key));
+        select new ScanPlan(layers, bytes, evidence));
 
     // --- [ZONING]
     private static Fin<Seq<ExposureRegion>> Regions(SliceStack stack, Option<SupportPlan> support, ScanPolicy policy) =>
@@ -1199,7 +1199,7 @@ public static class PowderSeed {
 
 // --- [CANONICAL_EGRESS] ----------------------------------------------------------------
 public static class ScanCodec {
-    public static Fin<ReadOnlyMemory<byte>> Write(ScanPolicy policy, Seq<ScanLayer> layers, Op key) {
+    public static Fin<ReadOnlyMemory<byte>> Write(ScanPolicy policy, Seq<ScanLayer> layers) {
         CanonicalWriter writer = CanonicalWriter.Retaining(0.0);
         Identity(writer, policy);
         writer.Rows(layers, static (sink, layer) => sink
@@ -1209,7 +1209,7 @@ public static class ScanCodec {
                 .Ordinal(source.Source.ToValue())
                 .Rows(source.Events, Event))
             .Rows(layer.Events, Event));
-        return writer.ToBytes(key);
+        return writer.ToBytes();
     }
 
     private static CanonicalWriter Event(CanonicalWriter writer, ScanEvent value) => value.Switch(

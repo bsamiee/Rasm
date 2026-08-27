@@ -61,14 +61,14 @@ public sealed class BimOpenSchemaProjection : FlatTableProjection {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FlatTableEgress {
     public static IO<Duration> Materialize(IDocumentStore store) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => await Try.lift(async _ => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             return Fin<Duration>.Succ(await ReadRouter.AwaitNonStale(daemon, QueryLane.Columnar).RunAsync().ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift);
 
     public static IO<long> WriteFrames(ColumnarSession session, BimData frames) =>
-        IO.lift(() => Op.Of().Catch(() => {
+        IO.lift(() => Try.lift(() => {
             IDataSet set = frames.ToDataSet();
             long written = 0;
             using DuckDBConnection lane = session.Lane();
@@ -89,7 +89,7 @@ public static class FlatTableEgress {
                 written += table.Rows.Count;
             }
             return Fin<long>.Succ(written);
-        }).MapFail(error => ColumnarFault.Lift(error,
+        }).Run().Bind(static inner => inner).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.AppendRefused("<bim-frames>", engine.ErrorType, cause))));
 
     static IDuckDBAppenderRow Cell(IDuckDBAppenderRow row, object? value) => value switch {
@@ -200,7 +200,7 @@ public static class FlatTableEgress {
 
     static Fin<long> Publish(Seq<RecordBatch> batches, string published, string directory, Schema fields,
         WriterProperties.SortingColumn[] order, Option<PmeCustody> custody) =>
-        Op.Of().Catch(() => {
+        Try.lift(() => {
             Directory.CreateDirectory(directory);
             string staging = Path.Combine(directory, $".{Path.GetFileName(published)}.{Guid.CreateVersion7():N}.tmp");
             using WriterProperties properties = custody.Match(
@@ -216,7 +216,7 @@ public static class FlatTableEgress {
             finally {
                 if (File.Exists(staging)) { File.Delete(staging); }
             }
-        });
+        }).Run().Bind(static inner => inner);
 
     static WriterPropertiesBuilder Tuned(WriterPropertiesBuilder builder, WriterProperties.SortingColumn[] order) =>
         builder.EnableStatistics()
@@ -225,14 +225,14 @@ public static class FlatTableEgress {
             .SortingColumns(order);
 
     public static IO<Fin<long>> PublishDelta(TableOptions table, Seq<AddAction> files, Identifier appId, long asOfVersion) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async _ => {
             using DeltaEngine engine = new(EngineOptions.Default);
             using DeltaTable delta = await engine.LoadTableAsync(table, CancellationToken.None).ConfigureAwait(false);
             long? held = await delta.GetLatestTransactionVersionAsync((string)appId, CancellationToken.None).ConfigureAwait(false);
             if (held is { } committed && committed >= asOfVersion) { return Fin.Succ(committed); }
             await delta.CreateWriteTransactionAsync([.. files], new CommitOptions { AppId = (string)appId, TransactionVersion = asOfVersion }, CancellationToken.None).ConfigureAwait(false);
             return Fin.Succ(asOfVersion);
-        }).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is DeltaLakeException
+        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is DeltaLakeException
             ? new ColumnarFault.DeltaRefused("<flat-table-generation>", error)
             : error));
 
@@ -250,7 +250,7 @@ public static class FlatTableEgress {
     }
 
     static IO<Unit> Unpublish(StorePath published) =>
-        IO.lift(() => Op.Of().Catch(() => {
+        IO.lift(() => Try.lift(() => {
             string path = (string)published;
             if (File.Exists(path)) { File.Delete(path); }
             string? generation = Path.GetDirectoryName(path);
@@ -258,7 +258,7 @@ public static class FlatTableEgress {
                 Directory.Delete(generation);
             }
             return Fin<Unit>.Succ(unit);
-        }));
+        }).Run().Bind(static inner => inner));
 }
 
 // --- [TABLES] --------------------------------------------------------------------------

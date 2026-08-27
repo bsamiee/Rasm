@@ -127,7 +127,7 @@ public sealed record RaiseState(
 
     public RaiseState Put(Node node) => this with { Delta = Delta.Put(node) };
     public RaiseState Link(Relationship edge) => this with { Delta = Delta.Link(edge) };
-    public RaiseState Blob(UInt128 key, FootprintPolygon ring) => this with { Footprints = Footprints.Add((key, ring)) };
+    public RaiseState Blob(UInt128 key, FootprintPolygon ring) => this with { Footprints = Footprints.Add((ring)) };
     public RaiseState Noted(Seq<EnergyNote> notes) => this with { Notes = Notes + notes };
     public RaiseState Note(EnergyReason reason, string subject) => Noted(Seq(new EnergyNote(reason, subject, 1)));
 
@@ -159,10 +159,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     internal static bool Serves(InterchangeFormat format) => Arms.ContainsKey(format);
 
-    public static Fin<EnergyProjector> Of(EnergyDoc doc, Op key) =>
+    public static Fin<EnergyProjector> Of(EnergyDoc doc) =>
         Serves(doc.Format)
             ? Fin.Succ(new EnergyProjector(doc))
-            : Fin.Fail<EnergyProjector>(new BimFault.Refused(key, BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-form-miss", doc.Format.Key })));
+            : Fin.Fail<EnergyProjector>(new BimFault.Refused(BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-form-miss", doc.Format.Key })));
 
     public Fin<GraphDelta> Project(ProjectionContext ctx) =>
         Arms.TryGetValue(doc.Format, out var arm)
@@ -176,9 +176,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // --- [HONEYBEE_ARM]
     Fin<RaiseState> Honeybee(ProjectionContext ctx) =>
-        ctx.Key.Catch(
-                () => Fin.Succ(Hb.Model.FromJson(doc.Text)),
-                cause => JsonFailure(BimBoundary.HoneybeeJson, cause))
+        Try.lift(() => Fin.Succ(Hb.Model.FromJson(doc.Text))).Run().Bind(static inner => inner)
             .Bind(model => model is null
                 ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
                 : RaiseRooms(Seeded(ctx, model.Identifier), Library(model), Rows(model.Rooms), ctx)
@@ -312,9 +310,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // --- [DRAGONFLY_ARM]
     Fin<RaiseState> Dragonfly(ProjectionContext ctx) =>
-        ctx.Key.Catch(
-                () => Fin.Succ(Df.Model.FromJson(doc.Text)),
-                cause => JsonFailure(BimBoundary.DragonflyJson, cause))
+        Try.lift(() => Fin.Succ(Df.Model.FromJson(doc.Text))).Run().Bind(static inner => inner)
             .Bind(model => model is null
                 ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
                 : Library(model) is var library
@@ -362,8 +358,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .Map(height => scope with { State = Assigned(grouped, spaceId, height), Zones = zones });
     }
 
-    static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance, Op key) =>
-        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling, key).Map(height => {
+    static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance) =>
+        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling).Map(height => {
             QuantityBag bag = new(QuantityRows.SpaceBaseQuantities,
                 Map((QuantityRows.Height, height)),
                 InheritanceMode.OccurrenceWins, EvidenceGrade.Import);
@@ -371,8 +367,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             return new Node.QuantitySet(NodeId.Of(new NodeSeed.Content(probe, tolerance)), bag);
         });
 
-    static Fin<Node.PropertySet> MultiplierEvidence(int multiplier, double tolerance, Op key) =>
-        MeasureValue.OfSi(Dimension.Dimensionless, multiplier, key).Map(value => {
+    static Fin<Node.PropertySet> MultiplierEvidence(int multiplier, double tolerance) =>
+        MeasureValue.OfSi(Dimension.Dimensionless, multiplier).Map(value => {
             PropertyBag bag = new(EnergyModelSet,
                 Map((StoryMultiplier, (PropertyValue)new PropertyValue.Measure(value))),
                 InheritanceMode.OccurrenceWins, EvidenceGrade.Import);
@@ -394,8 +390,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             _ => None,
         };
 
-    static Fin<T> Native<T>(Op key, BimBoundary boundary, Func<Fin<T>> leg) =>
-        key.Catch(leg, cause => NativeFailure(boundary, cause));
+    static Fin<T> Native<T>(BimBoundary boundary, Func<Fin<T>> leg) =>
+        Try.lift(leg).Run().Bind(static inner => inner);
 
     Fin<RaiseState> OsmFamily(ProjectionContext ctx) =>
         Decode(ctx, model => Native(ctx.Key, BimBoundary.OpenStudioRaise, () => RaiseOsm(model, ctx)));
@@ -650,7 +646,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     static (RaiseState State, UInt128 Key) Footprint(RaiseState state, FootprintPolygon ring, double tolerance) {
         UInt128 key = ContentAddress.Of(ring, tolerance, static (polygon, writer) =>
             polygon.Ring.Fold(writer, static (w, p) => w.Double(p.X).Double(p.Y).Double(p.Z))).Value;
-        return (state.Blob(key, ring), key);
+        return (state.Blob(ring));
     }
 
     static RaiseState UFactorEvidence(RaiseState state, NodeId surfaceId, Os.ConstructionBase construction, ProjectionContext ctx) {

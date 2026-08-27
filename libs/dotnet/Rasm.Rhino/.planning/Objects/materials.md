@@ -52,8 +52,8 @@ public sealed partial class MeshKind {
     internal string Wire { get; }
     internal MeshType Host => (MeshType)Key;
 
-    internal static Fin<MeshKind> Of(MeshType kind, Op key) =>
-        key.Row<MeshType, MeshKind>(candidate: kind, ordinal: static value => (int)value);
+    internal static Fin<MeshKind> Of(MeshType kind) =>
+        FactoryBridge.Row<MeshType, MeshKind>(candidate: kind, ordinal: static value => (int)value);
 }
 
 [SmartEnum<bool>]
@@ -73,28 +73,28 @@ public sealed partial class MeshDialog {
 [SmartEnum]
 public sealed partial class MaterialRealm {
     public static readonly MaterialRealm Legacy = new(
-        face: static (native, side, key) => MaterialMap.Detach(native.GetMaterial(frontMaterial: side.Key), key),
-        part: static (native, component, key) => MaterialMap.Detach(native.GetMaterial(componentIndex: component), key),
-        keyed: static (native, component, plugIn, key) => MaterialMap.Detach(native.GetMaterial(componentIndex: component, plugInId: plugIn), key),
-        under: static (native, component, plugIn, attributes, key) => MaterialMap.Detach(native.GetMaterial(componentIndex: component, plugInId: plugIn, attributes: attributes), key));
+        face: static (native, side, key) => MaterialMap.Detach(native.GetMaterial(frontMaterial: side.Key)),
+        part: static (native, component, key) => MaterialMap.Detach(native.GetMaterial(componentIndex: component)),
+        keyed: static (native, component, plugIn, key) => MaterialMap.Detach(native.GetMaterial(componentIndex: component, plugInId: plugIn)),
+        under: static (native, component, plugIn, attributes, key) => MaterialMap.Detach(native.GetMaterial(componentIndex: component, plugInId: plugIn, attributes: attributes)));
     public static readonly MaterialRealm Rendered = new(
-        face: static (native, side, key) => MaterialMap.Detach(native.GetRenderMaterial(frontMaterial: side.Key), key),
-        part: static (native, component, key) => MaterialMap.Detach(native.GetRenderMaterial(componentIndex: component), key),
-        keyed: static (native, component, plugIn, key) => MaterialMap.Detach(native.GetRenderMaterial(componentIndex: component, plugInId: plugIn), key),
-        under: static (native, component, plugIn, attributes, key) => MaterialMap.Detach(native.GetRenderMaterial(componentIndex: component, plugInId: plugIn, attributes: attributes), key));
+        face: static (native, side, key) => MaterialMap.Detach(native.GetRenderMaterial(frontMaterial: side.Key)),
+        part: static (native, component, key) => MaterialMap.Detach(native.GetRenderMaterial(componentIndex: component)),
+        keyed: static (native, component, plugIn, key) => MaterialMap.Detach(native.GetRenderMaterial(componentIndex: component, plugInId: plugIn)),
+        under: static (native, component, plugIn, attributes, key) => MaterialMap.Detach(native.GetRenderMaterial(componentIndex: component, plugInId: plugIn, attributes: attributes)));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<MaterialStamp> Face(RhinoObject native, SurfaceSide side, Op key);
+    internal partial Fin<MaterialStamp> Face(RhinoObject native, SurfaceSide side);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<MaterialStamp> Part(RhinoObject native, ComponentIndex component, Op key);
+    internal partial Fin<MaterialStamp> Part(RhinoObject native, ComponentIndex component);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<MaterialStamp> Keyed(RhinoObject native, ComponentIndex component, Guid plugIn, Op key);
+    internal partial Fin<MaterialStamp> Keyed(RhinoObject native, ComponentIndex component, Guid plugIn);
 
     [UseDelegateFromConstructor]
     internal partial Fin<MaterialStamp> Under(
-        RhinoObject native, ComponentIndex component, Guid plugIn, ObjectAttributes attributes, Op key);
+        RhinoObject native, ComponentIndex component, Guid plugIn, ObjectAttributes attributes);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -105,28 +105,26 @@ public abstract partial record MaterialScope {
     public sealed record PartFor(ComponentIndex Component, Guid PlugIn) : MaterialScope;
     public sealed record PartUnder(ComponentIndex Component, Guid PlugIn, AttributeProgram Program) : MaterialScope;
 
-    internal Fin<MaterialScope> Admit(Op key) =>
-        Switch(
-            key,
-            face: static (op, scope) => op.Need(scope.Side).Map(_ => (MaterialScope)scope),
+    internal Fin<MaterialScope> Admit() =>
+        Switch(face: static (op, scope) => Admit.Need(scope.Side).Map(_ => (MaterialScope)scope),
             part: static (_, scope) => Fin.Succ<MaterialScope>(scope),
-            partFor: static (op, scope) => guard(scope.PlugIn != Guid.Empty, op.InvalidInput()).ToFin().Map(_ => (MaterialScope)scope),
+            partFor: static (op, scope) => guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => (MaterialScope)scope),
             partUnder: static (op, scope) =>
-                from _ in guard(scope.PlugIn != Guid.Empty, op.InvalidInput()).ToFin()
-                from __ in op.Need(scope.Program)
+                from _ in guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
+                from __ in Admit.Need(scope.Program)
                 select (MaterialScope)scope);
 
-    internal Fin<MaterialStamp> Resolve(MaterialRealm realm, RhinoObject native, Op key) =>
+    internal Fin<MaterialStamp> Resolve(MaterialRealm realm, RhinoObject native) =>
         Switch(
-            (Realm: realm, Native: native, Op: key),
-            face: static (ctx, scope) => ctx.Op.Catch(() => ctx.Realm.Face(ctx.Native, scope.Side, ctx.Op)),
-            part: static (ctx, scope) => ctx.Op.Catch(() => ctx.Realm.Part(ctx.Native, scope.Component, ctx.Op)),
-            partFor: static (ctx, scope) => ctx.Op.Catch(() => ctx.Realm.Keyed(ctx.Native, scope.Component, scope.PlugIn, ctx.Op)),
-            partUnder: static (ctx, scope) => ctx.Op.Catch(() => {
+            (Realm: realm, Native: native),
+            face: static (ctx, scope) => Try.lift(() => ctx.Realm.Face(ctx.Native, scope.Side)).Run().Bind(static inner => inner),
+            part: static (ctx, scope) => Try.lift(() => ctx.Realm.Part(ctx.Native, scope.Component)).Run().Bind(static inner => inner),
+            partFor: static (ctx, scope) => Try.lift(() => ctx.Realm.Keyed(ctx.Native, scope.Component, scope.PlugIn)).Run().Bind(static inner => inner),
+            partUnder: static (ctx, scope) => Try.lift(() => {
                 using ObjectAttributes attributes = ctx.Native.Attributes.Duplicate();
                 return scope.Program.Apply(attributes)
-                    .Bind(_ => ctx.Realm.Under(ctx.Native, scope.Component, scope.PlugIn, attributes, ctx.Op));
-            }));
+                    .Bind(_ => ctx.Realm.Under(ctx.Native, scope.Component, scope.PlugIn, attributes));
+            }).Run().Bind(static inner => inner));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -148,16 +146,16 @@ public sealed partial class RenderMeshPolicy {
         }
     }
 
-    internal static Fin<RenderMeshPolicy> Capture(MeshingParameters native, Op key) =>
-        key.Catch(() => key.AcceptValidated<RenderMeshPolicy>(
+    internal static Fin<RenderMeshPolicy> Capture(MeshingParameters native) =>
+        Try.lift(() => FactoryBridge.Accept<RenderMeshPolicy>(
             fault: Validate(native.ToEncodedString(), out RenderMeshPolicy? admitted),
-            admitted: admitted));
+            admitted: admitted)).Run().Bind(static inner => inner);
 
-    internal Fin<T> Use<T>(Func<MeshingParameters, Fin<T>> body, Op key) =>
-        key.Catch(() => {
+    internal Fin<T> Use<T>(Func<MeshingParameters, Fin<T>> body) =>
+        Try.lift(() => {
             using MeshingParameters? native = MeshingParameters.FromEncodedString(ToValue());
-            return native is null ? Fin.Fail<T>(key.InvalidResult()) : body(native);
-        });
+            return native is null ? Fin.Fail<T>(new KernelFault.InvalidResult()) : body(native);
+        }).Run().Bind(static inner => inner);
 }
 
 [ValueObject<int>]
@@ -187,27 +185,25 @@ public abstract partial record ProviderValue : IDetachedDocumentResult {
         precise: static value => value.Value,
         text: static value => value.Value);
 
-    internal Fin<ProviderValue> Admit(Op key) =>
-        Switch(
-            key,
-            flag: static (_, value) => Fin.Succ<ProviderValue>(value),
+    internal Fin<ProviderValue> Admit() =>
+        Switch(flag: static (_, value) => Fin.Succ<ProviderValue>(value),
             signed: static (_, value) => Fin.Succ<ProviderValue>(value),
             unsigned: static (_, value) => Fin.Succ<ProviderValue>(value),
-            real: static (op, value) => guard(double.IsFinite(value.Value), op.InvalidInput()).ToFin()
+            real: static (op, value) => guard(double.IsFinite(value.Value), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (ProviderValue)value),
             precise: static (_, value) => Fin.Succ<ProviderValue>(value),
-            text: static (op, value) => op.AcceptText(value: value.Value)
+            text: static (op, value) => Acceptance.Text(value: value.Value)
                 .Map(text => (ProviderValue)new Text(Value: text)));
 
-    internal static Fin<ProviderValue> Of(IConvertible native, Op key) => (native switch {
+    internal static Fin<ProviderValue> Of(IConvertible native) => (native switch {
         bool value => Fin.Succ<ProviderValue>(new Flag(value)),
         sbyte or short or int or long => Fin.Succ<ProviderValue>(new Signed(native.ToInt64(System.Globalization.CultureInfo.InvariantCulture))),
         byte or ushort or uint or ulong => Fin.Succ<ProviderValue>(new Unsigned(native.ToUInt64(System.Globalization.CultureInfo.InvariantCulture))),
         float or double => Fin.Succ<ProviderValue>(new Real(native.ToDouble(System.Globalization.CultureInfo.InvariantCulture))),
         decimal value => Fin.Succ<ProviderValue>(new Precise(value)),
         string value => Fin.Succ<ProviderValue>(new Text(value)),
-        _ => Fin.Fail<ProviderValue>(key.InvalidResult(detail: native.GetTypeCode().ToString())),
-    }).Bind(value => value.Admit(key));
+        _ => Fin.Fail<ProviderValue>(new KernelFault.InvalidResult(Detail: Some(native.GetTypeCode().ToString()))),
+    }).Bind(value => value.Admit());
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -217,29 +213,27 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
     public sealed record Dialog(RenderMeshPolicy Policy, MeshDialog Prompt) : MeshBatch;
     public sealed record Styled(RenderMeshPolicy Policy, MeshUiStyle Style, Transform Motion) : MeshBatch;
 
-    internal Fin<MeshBatch> Admit(Op op) =>
-        Switch(
-            op,
-            worker: static (key, batch) =>
-                from policy in key.Need(batch.Policy)
-                from thread in key.Need(batch.Thread)
+    internal Fin<MeshBatch> Admit() =>
+        Switch(worker: static (key, batch) =>
+                from policy in Admit.Need(batch.Policy)
+                from thread in Admit.Need(batch.Thread)
                 select (MeshBatch)new Worker(Policy: policy, Thread: thread),
             dialog: static (key, batch) =>
-                from policy in key.Need(batch.Policy)
-                from prompt in key.Need(batch.Prompt)
+                from policy in Admit.Need(batch.Policy)
+                from prompt in Admit.Need(batch.Prompt)
                 select (MeshBatch)new Dialog(Policy: policy, Prompt: prompt),
             styled: static (key, batch) =>
-                from policy in key.Need(batch.Policy)
-                from motion in key.AcceptInput(value: batch.Motion)
+                from policy in Admit.Need(batch.Policy)
+                from motion in Acceptance.Input(value: batch.Motion)
                 select (MeshBatch)new Styled(Policy: policy, Style: batch.Style, Motion: motion));
 
-    internal Fin<MeshRun> Run(Seq<RhinoObject> natives, Op op) =>
+    internal Fin<MeshRun> Run(Seq<RhinoObject> natives) =>
         Switch(
-            (Natives: natives, Op: op),
+            natives,
             worker: static (context, batch) => batch.Policy.Use(
-                parameters => context.Op.Catch(() => {
+                parameters => Try.lift(() => {
                     Result verdict = RhinoObject.MeshObjects(
-                        rhinoObjects: context.Natives.AsIterable(),
+                        rhinoObjects: context.AsIterable(),
                         parameters: parameters,
                         meshes: out Mesh[] meshes,
                         attributes: out ObjectAttributes[] attributes,
@@ -249,15 +243,13 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
                         meshes: meshes,
                         attributes: attributes,
                         parameters: parameters,
-                        settle: policy => new Worker(Policy: policy, Thread: batch.Thread),
-                        op: context.Op);
-                }),
-                context.Op),
+                        settle: policy => new Worker(Policy: policy, Thread: batch.Thread));
+                }).Run().Bind(static inner => inner)),
             dialog: static (context, batch) => batch.Policy.Use(
-                parameters => context.Op.Catch(() => {
+                parameters => Try.lift(() => {
                     bool simple = batch.Prompt.Key;
                     Result verdict = RhinoObject.MeshObjects(
-                        rhinoObjects: context.Natives.AsIterable(),
+                        rhinoObjects: context.AsIterable(),
                         parameters: ref parameters,
                         simpleDialog: ref simple,
                         meshes: out Mesh[] meshes,
@@ -267,15 +259,13 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
                         meshes: meshes,
                         attributes: attributes,
                         parameters: parameters,
-                        settle: policy => new Dialog(Policy: policy, Prompt: MeshDialog.Of(simple: simple)),
-                        op: context.Op);
-                }),
-                context.Op),
+                        settle: policy => new Dialog(Policy: policy, Prompt: MeshDialog.Of(simple: simple)));
+                }).Run().Bind(static inner => inner)),
             styled: static (context, batch) => batch.Policy.Use(
-                parameters => context.Op.Catch(() => {
+                parameters => Try.lift(() => {
                     int style = batch.Style.Value;
                     Result verdict = RhinoObject.MeshObjects(
-                        rhinoObjects: context.Natives.AsIterable(),
+                        rhinoObjects: context.AsIterable(),
                         parameters: ref parameters,
                         uiStyle: ref style,
                         xform: batch.Motion,
@@ -287,24 +277,20 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
                         attributes: attributes,
                         parameters: parameters,
                         settle: policy => new Styled(
-                            Policy: policy, Style: MeshUiStyle.Create(style), Motion: batch.Motion),
-                        op: context.Op);
-                }),
-                context.Op));
+                            Policy: policy, Style: MeshUiStyle.Create(style), Motion: batch.Motion));
+                }).Run().Bind(static inner => inner)));
 
     private static Fin<MeshRun> Capture(
         Result verdict,
         Mesh[] meshes,
         ObjectAttributes[] attributes,
         MeshingParameters parameters,
-        Func<RenderMeshPolicy, MeshBatch> settle,
-        Op op) =>
-        (from policy in RenderMeshPolicy.Capture(parameters, op)
-         from terminal in CommandVerdict.OfNative(result: verdict, key: op)
+        Func<RenderMeshPolicy, MeshBatch> settle) =>
+        (from policy in Error.New(parameters.Message, parameters)
+         from terminal in CommandVerdict.OfNative(result: verdict)
          select new MeshRun(Verdict: terminal, Meshes: meshes, Attributes: attributes, Settled: settle(policy)))
         .Rollback(
-            release: () => ObjectPiece.Release(geometry: meshes, attributes: attributes, key: op),
-            key: op);
+            release: () => ObjectPiece.Release(geometry: meshes, attributes: attributes));
 }
 
 internal sealed record MeshRun(
@@ -312,24 +298,24 @@ internal sealed record MeshRun(
     Mesh[] Meshes,
     ObjectAttributes[] Attributes,
     MeshBatch Settled) {
-    internal Fin<Unit> Release(Op op) => ObjectPiece.Release(geometry: Meshes, attributes: Attributes, key: op);
+    internal Fin<Unit> Release() => ObjectPiece.Release(geometry: Meshes, attributes: Attributes);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class MaterialMap {
-    internal static Fin<MaterialStamp> Detach(Material? native, Op key) =>
-        Optional(native).ToFin(Fail: key.InvalidResult()).Map(Stamp);
+    internal static Fin<MaterialStamp> Detach(Material? native) =>
+        Optional(native).ToFin(Fail: new KernelFault.InvalidResult()).Map(Stamp);
 
-    internal static Fin<MaterialStamp> Detach(RenderMaterial? native, Op key) =>
-        Optional(native).ToFin(Fail: key.InvalidResult()).Map(Stamp);
+    internal static Fin<MaterialStamp> Detach(RenderMaterial? native) =>
+        Optional(native).ToFin(Fail: new KernelFault.InvalidResult()).Map(Stamp);
 
     private static partial MaterialStamp Stamp(Material native);
 
     private static partial MaterialStamp Stamp(RenderMaterial native);
 
     [UserMapping]
-    private static Option<string> Label(string value) => Op.Text(value);
+    private static Option<string> Label(string value) => HostEdge.Text(value);
 }
 ```
 
@@ -358,126 +344,124 @@ public sealed partial class MeshFallback {
 
 public sealed record MaterialAsk<TAnswer> {
     internal MaterialAsk(
-        Func<Op, Fin<MaterialAsk<TAnswer>>> admit, Func<Seq<RhinoObject>, Op, Fin<TAnswer>> read) =>
+        Func< Fin<MaterialAsk<TAnswer>>> admit, Func<Seq<RhinoObject>, Fin<TAnswer>> read) =>
         (Admit, Read) = (admit, read);
 
-    internal Func<Op, Fin<MaterialAsk<TAnswer>>> Admit { get; }
-    internal Func<Seq<RhinoObject>, Op, Fin<TAnswer>> Read { get; }
+    internal Func< Fin<MaterialAsk<TAnswer>>> Admit { get; }
+    internal Func<Seq<RhinoObject>, Fin<TAnswer>> Read { get; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MeshPieces(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : IDetachedDocumentResult {
-    public Fin<Unit> Release(Op op) => ObjectPiece.Release(rows: Rows, key: op);
+    public Fin<Unit> Release() => ObjectPiece.Release(rows: Rows);
 }
 
 public sealed record MeshHarvest(Seq<(Guid Id, ObjectPiece Product)> Rows, MeshBatch Settled) : IDetachedDocumentResult {
-    public Fin<Unit> Release(Op op) => ObjectPiece.Release(rows: Rows, key: op);
+    public Fin<Unit> Release() => ObjectPiece.Release(rows: Rows);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterialAsk {
     public static MaterialAsk<Seq<(Guid Id, MaterialStamp Stamp)>> Resolve(MaterialRealm realm, MaterialScope scope) => new(
         admit: op =>
-            from family in op.Need(realm)
-            from address in op.Need(scope).Bind(value => value.Admit(key: op))
+            from family in Admit.Need(realm)
+            from address in Admit.Need(scope).Bind(value => value.Admit())
             select Resolve(realm: family, scope: address),
         read: (natives, op) => natives
-            .TraverseM(native => scope.Resolve(realm, native, op).Map(stamp => (native.Id, stamp))).As());
+            .TraverseM(native => scope.Resolve(realm, native).Map(stamp => (native.Id, stamp))).As());
 
     public static MaterialAsk<Seq<(Guid Id, Seq<ComponentIndex> Components)>> PartCensus { get; } = Free(
         read: static (natives, op) => natives
-            .TraverseM(native => op.Catch(() => Fin.Succ(value: (native.Id, native.HasSubobjectMaterials
+            .TraverseM(native => Try.lift(() => Fin.Succ(value: (native.Id, native.HasSubobjectMaterials
                 ? toSeq(native.SubobjectMaterialComponents)
-                : Seq<ComponentIndex>())))).As());
+                : Seq<ComponentIndex>()))).Run().Bind(static inner => inner)).As());
 
     public static MaterialAsk<Seq<(Guid Id, Seq<MappingStamp> Values)>> MappingRoster { get; } = Free(
         read: static (natives, op) => natives
-            .TraverseM(native => op.Catch(() => (native.HasTextureMapping()
+            .TraverseM(native => Try.lift(() => (native.HasTextureMapping()
                 ? toSeq(native.GetTextureChannels())
-                : Seq<int>()).TraverseM(channel => op.Catch(() => {
+                : Seq<int>()).TraverseM(channel => Try.lift(() => {
                     using TextureMapping? mapping = native.GetTextureMapping(channel, out Transform objectTransform);
-                    return from admitted in Optional(mapping).ToFin(Fail: op.InvalidResult())
+                    return from admitted in Optional(mapping).ToFin(Fail: new KernelFault.InvalidResult())
                            from slot in MappingChannel.Admit(value: channel, key: op)
                            select new MappingStamp(
                                Channel: slot, Id: admitted.Id, ObjectTransform: objectTransform);
-                })).As().Map(values => (native.Id, values)))).As());
+                }).Run().Bind(static inner => inner)).As().Map(values => (native.Id, values))).Run().Bind(static inner => inner)).As());
 
     public static MaterialAsk<Seq<(Guid Id, int Count)>> CacheCensus(MeshKind kind, RenderMeshPolicy policy) => new(
         admit: op =>
-            from row in op.Need(kind)
-            from admitted in op.Need(policy)
+            from row in Admit.Need(kind)
+            from admitted in Admit.Need(policy)
             select CacheCensus(kind: row, policy: admitted),
         read: (natives, op) => policy.Use(
             parameters => natives
-                .TraverseM(native => op.Catch(() => Fin.Succ(value: (native.Id, native.MeshCount(
-                    meshType: kind.Host, parameters: parameters))))).As(),
-            op));
+                .TraverseM(native => Try.lift(() => Fin.Succ(value: (native.Id, native.MeshCount(
+                    meshType: kind.Host, parameters: parameters)))).Run().Bind(static inner => inner)).As()));
 
     public static MaterialAsk<MeshPieces> CachedMeshes(MeshKind kind) => new(
-        admit: op => op.Need(kind).Map(row => CachedMeshes(kind: row)),
+        admit: op => Admit.Need(kind).Map(row => CachedMeshes(kind: row)),
         read: (natives, op) => ObjectPiece.Acquire(
                 natives: natives,
-                detach: native => op.Catch(() =>
-                    Optional(native.GetMeshes(meshType: kind.Host)).ToFin(Fail: op.InvalidResult())
+                detach: native => Try.lift(() =>
+                    Optional(native.GetMeshes(meshType: kind.Host)).ToFin(Fail: new KernelFault.InvalidResult())
                         .Bind(meshes => ObjectPiece.DetachAll(
                             rows: toSeq(meshes).Map(static mesh => ((GeometryBase)mesh, Option<ObjectAttributes>.None)),
-                            key: op))),
-                key: op)
+                            key: op))).Run().Bind(static inner => inner))
             .Map(static rows => new MeshPieces(Rows: rows)));
 
     public static MaterialAsk<Seq<(Guid Id, Option<RenderMeshPolicy> Value)>> CachePolicy(MeshFallback fallback) => new(
-        admit: op => op.Need(fallback).Map(row => CachePolicy(fallback: row)),
+        admit: op => Admit.Need(fallback).Map(row => CachePolicy(fallback: row)),
         read: (natives, op) => natives
-            .TraverseM(native => op.Catch(() => fallback == MeshFallback.Document
+            .TraverseM(native => Try.lift(() => fallback == MeshFallback.Document
                 ? Fresh(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: true), key: op)
-                : Stored(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: false), key: op))
+                : Stored(policy: native.GetRenderMeshParameters(returnDocumentParametersIfUnset: false), key: op)).Run().Bind(static inner => inner)
                 .Map(value => (native.Id, value))).As());
 
     public static MaterialAsk<Seq<(Guid Id, bool Verdict)>> Meshable(MeshKind kind) => new(
-        admit: op => op.Need(kind).Map(row => Meshable(kind: row)),
+        admit: op => Admit.Need(kind).Map(row => Meshable(kind: row)),
         read: (natives, op) => natives
-            .TraverseM(native => op.Catch(() =>
-                Fin.Succ(value: (native.Id, native.IsMeshable(meshType: kind.Host))))).As());
+            .TraverseM(native => Try.lift(() =>
+                Fin.Succ(value: (native.Id, native.IsMeshable(meshType: kind.Host)))).Run().Bind(static inner => inner)).As());
 
     public static MaterialAsk<MeshHarvest> Harvest(MeshBatch batch) => new(
-        admit: op => op.Need(batch).Bind(value => value.Admit(op)).Map(value => Harvest(batch: value)),
+        admit: op => Admit.Need(batch).Bind(value => value.Admit()).Map(value => Harvest(batch: value)),
         read: (natives, op) => batch.Run(natives: natives, op: op)
             .Bind(run => run.Verdict == CommandVerdict.Completed
-                ? Harvested(meshes: run.Meshes, attributes: run.Attributes, key: op)
+                ? Harvested(meshes: run.Meshes, attributes: run.Attributes)
                     .Map(rows => new MeshHarvest(Rows: rows, Settled: run.Settled))
-                : Fin.Fail<MeshHarvest>(error: op.InvalidResult(detail: run.Verdict.Key.ToString(
-                        System.Globalization.CultureInfo.InvariantCulture)))
-                    .Rollback(release: () => run.Release(op), key: op)));
+                : Fin.Fail<MeshHarvest>(error: new KernelFault.InvalidResult(Detail: Some(run.Verdict.Key.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture))))
+                    .Rollback(release: () => run.Release(), key: op)));
 
     public static MaterialAsk<Seq<(Guid Id, Option<ProviderValue> Value)>> Knob(Guid provider, string name) => new(
         admit: op =>
-            from _ in guard(provider != Guid.Empty, op.InvalidInput()).ToFin()
-            from admitted in op.AcceptText(value: name)
+            from _ in guard(provider != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
+            from admitted in Acceptance.Text(value: name)
             select Knob(provider: provider, name: admitted),
         read: (natives, op) => natives
-            .TraverseM(native => op.Catch(() =>
+            .TraverseM(native => Try.lift(() =>
                 Optional(native.GetCustomRenderMeshParameter(providerId: provider, parameterName: name))
-                    .Traverse(value => ProviderValue.Of(value, op)).As()
-                    .Map(value => (native.Id, value)))).As());
+                    .Traverse(value => ProviderValue.Of(value)).As()
+                    .Map(value => (native.Id, value))).Run().Bind(static inner => inner)).As());
 
-    private static MaterialAsk<TAnswer> Free<TAnswer>(Func<Seq<RhinoObject>, Op, Fin<TAnswer>> read) =>
+    private static MaterialAsk<TAnswer> Free<TAnswer>(Func<Seq<RhinoObject>, Fin<TAnswer>> read) =>
         new(admit: _ => Fin.Succ(value: Free(read)), read: read);
 
-    private static Fin<Option<RenderMeshPolicy>> Fresh(MeshingParameters? policy, Op key) =>
+    private static Fin<Option<RenderMeshPolicy>> Fresh(MeshingParameters? policy) =>
         Optional(policy)
             .TraverseM(value => new Lease<MeshingParameters>.Owned(Value: value)
-                .Use(held => RenderMeshPolicy.Capture(held, key), key))
+                .Use(held => Error.New(held.Message, held)))
             .As();
 
-    private static Fin<Option<RenderMeshPolicy>> Stored(MeshingParameters? policy, Op key) =>
-        Optional(policy).Traverse(value => RenderMeshPolicy.Capture(value, key)).As();
+    private static Fin<Option<RenderMeshPolicy>> Stored(MeshingParameters? policy) =>
+        Optional(policy).Traverse(value => Error.New(value.Message, value)).As();
 
     private static Fin<Seq<(Guid Id, ObjectPiece Product)>> Harvested(
-        Mesh[]? meshes, ObjectAttributes[]? attributes, Op key) =>
-        from owners in Optional(attributes).ToFin(Fail: key.InvalidResult())
+        Mesh[]? meshes, ObjectAttributes[]? attributes) =>
+        from owners in Optional(attributes).ToFin(Fail: new KernelFault.InvalidResult())
             .Map(static values => toSeq(values).Map(static value => value.ObjectId).Strict())
-        from pieces in ObjectPiece.Paired(geometry: meshes, attributes: attributes, key: key)
-        from _ in guard(pieces.Count == owners.Count, key.InvalidResult())
+        from pieces in ObjectPiece.Paired(geometry: meshes, attributes: attributes)
+        from _ in guard(pieces.Count == owners.Count, new KernelFault.InvalidResult())
         select pieces.Map((piece, index) => (owners[index], piece)).Strict();
 }
 ```
@@ -522,57 +506,53 @@ public abstract partial record MaterialEdit {
         setCachePolicy: CapabilitySet<CommitDemand>.Of(CommitDemand.Undo),
         setKnob: CapabilitySet<CommitDemand>.Of(CommitDemand.Solo));
 
-    internal Fin<MaterialEdit> Admit(Op op) =>
-        Switch(
-            op,
-            setMapping: static (key, edit) =>
-                from channel in key.Need(edit.Channel)
-                from spec in key.Need(edit.Spec)
-                from profile in key.Need(edit.Profile)
-                from motion in edit.Motion.Traverse(value => key.AcceptInput(value: value)).As()
+    internal Fin<MaterialEdit> Admit() =>
+        Switch(setMapping: static (key, edit) =>
+                from channel in Admit.Need(edit.Channel)
+                from spec in Admit.Need(edit.Spec)
+                from profile in Admit.Need(edit.Profile)
+                from motion in edit.Motion.Traverse(value => Acceptance.Input(value: value)).As()
                 select (MaterialEdit)new SetMapping(
                     Channel: channel, Spec: spec, Profile: profile, Motion: motion),
             buildCache: static (key, edit) =>
-                from kind in key.Need(edit.Kind)
-                from policy in key.Need(edit.Policy)
-                from ignore in key.Need(edit.IgnoreCustom)
+                from kind in Admit.Need(edit.Kind)
+                from policy in Admit.Need(edit.Policy)
+                from ignore in Admit.Need(edit.IgnoreCustom)
                 select (MaterialEdit)new BuildCache(Kind: kind, Policy: policy, IgnoreCustom: ignore),
-            dropCache: static (key, edit) => key.Need(edit.Kind).Map(_ => (MaterialEdit)edit),
-            setCachePolicy: static (key, edit) => key.Need(edit.Policy)
+            dropCache: static (key, edit) => Admit.Need(edit.Kind).Map(_ => (MaterialEdit)edit),
+            setCachePolicy: static (key, edit) => Admit.Need(edit.Policy)
                 .Map(policy => (MaterialEdit)new SetCachePolicy(Policy: policy)),
             setKnob: static (key, edit) =>
-                from _ in guard(edit.Provider != Guid.Empty, key.InvalidInput()).ToFin()
-                from name in key.AcceptText(value: edit.Name)
-                from value in key.Need(edit.Value).Bind(item => item.Admit(key))
+                from _ in guard(edit.Provider != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
+                from name in Acceptance.Text(value: edit.Name)
+                from value in Admit.Need(edit.Value).Bind(item => item.Admit())
                 select (MaterialEdit)new SetKnob(Provider: edit.Provider, Name: name, Value: value));
 
-    internal Fin<Unit> Apply(RhinoObject native, Op op) =>
+    internal Fin<Unit> Apply(RhinoObject native) =>
         Switch(
-            (Native: native, Op: op),
-            setMapping: static (context, edit) => edit.Spec.Mint(edit.Profile.Cap, context.Op)
+            native,
+            setMapping: static (context, edit) => edit.Spec.Mint(edit.Profile.Cap)
                 .Bind(mapping => mapping.Use(value =>
-                    from _ in edit.Profile.Apply(value, context.Op)
-                    from __ in context.Op.Catch(() => Fin.Succ(value: edit.Motion.Case switch {
-                        Transform motion => context.Native.SetTextureMapping(
+                    from _ in edit.Profile.Apply(value)
+                    from __ in Try.lift(() => Fin.Succ(value: edit.Motion.Case switch {
+                        Transform motion => context.SetTextureMapping(
                             channel: edit.Channel.Value, tm: value, objectTransform: motion),
-                        _ => context.Native.SetTextureMapping(channel: edit.Channel.Value, tm: value),
-                    }))
-                    select unit, context.Op)),
+                        _ => context.SetTextureMapping(channel: edit.Channel.Value, tm: value),
+                    })).Run().Bind(static inner => inner)
+                    select unit)),
             buildCache: static (context, edit) => edit.Policy.Use(
-                parameters => context.Op.Catch(() => Fin.Succ(value: context.Native.CreateMeshes(
+                parameters => Try.lift(() => Fin.Succ(value: context.CreateMeshes(
                     meshType: edit.Kind.Host,
                     parameters: parameters,
-                    ignoreCustomParameters: edit.IgnoreCustom.Key))).Map(static _ => unit),
-                context.Op),
-            dropCache: static (context, edit) => context.Op.Catch(() => {
-                context.Native.DestroyMeshes(meshType: edit.Kind.Host);
+                    ignoreCustomParameters: edit.IgnoreCustom.Key))).Run().Bind(static inner => inner).Map(static _ => unit)),
+            dropCache: static (context, edit) => Try.lift(() => {
+                context.DestroyMeshes(meshType: edit.Kind.Host);
                 return Fin.Succ(unit);
-            }),
+            }).Run().Bind(static inner => inner),
             setCachePolicy: static (context, edit) => edit.Policy.Use(
-                parameters => context.Op.Confirm(success: context.Native.SetRenderMeshParameters(mp: parameters)),
-                context.Op),
-            setKnob: static (context, edit) => context.Op.Catch(() => context.Native.SetCustomRenderMeshParameter(
-                providerId: edit.Provider, parameterName: edit.Name, value: edit.Value.Native)));
+                parameters => Admit.Confirm(success: context.SetRenderMeshParameters(mp: parameters))),
+            setKnob: static (context, edit) => Try.lift(() => context.SetCustomRenderMeshParameter(
+                providerId: edit.Provider, parameterName: edit.Name, value: edit.Value)).Run().Bind(static inner => inner));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -584,7 +564,6 @@ public sealed partial class MaterialProgram {
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Seq<MaterialEdit> edits, ref CapabilitySet<CommitDemand> demands) {
-        Op op = Op.Of(name: nameof(MaterialProgram));
         if (edits.IsEmpty) {
             validationError = new ValidationError(string.Join(" | ", new object?[] { op, nameof(Edits) }));
             return;
@@ -599,11 +578,10 @@ public sealed partial class MaterialProgram {
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Edits), "a solo effect runs alone" })))));
     }
 
-    public static Fin<MaterialProgram> Of(Op? key = null, params ReadOnlySpan<MaterialEdit> edits) {
-        Op op = key.OrDefault();
+    public static Fin<MaterialProgram> Of(params ReadOnlySpan<MaterialEdit> edits) {
         return from requested in LanguageExt.Iterable<MaterialEdit>.FromSpan(edits).ToSeq()
-                   .TraverseM(edit => op.Need(edit).Bind(value => value.Admit(op: op))).As()
-               from admitted in op.AcceptValidated<MaterialProgram>(
+                   .TraverseM(edit => Admit.Need(edit).Bind(value => value.Admit())).As()
+               from admitted in FactoryBridge.Accept<MaterialProgram>(
                    fault: Validate(requested, CapabilitySet<CommitDemand>.Of(), out MaterialProgram? built),
                    admitted: built)
                select admitted;
@@ -615,24 +593,21 @@ public sealed partial class MaterialProgram {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Materials {
     public static Fin<TAnswer> Ask<TAnswer>(
-        DocumentSession session, TableTarget target, MaterialAsk<TAnswer> ask, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(ask).Bind(value => value.Admit(op))
+        DocumentSession session, TableTarget target, MaterialAsk<TAnswer> ask) {
+        return from active in Admit.Need(ask).Bind(value => value.Admit())
                from answer in session.Demand(
                    use: document =>
-                       from natives in Objects.Resolve(document: document, target: target, key: op)
-                       from folded in active.Read(natives, op)
+                       from natives in Objects.Resolve(document: document, target: target)
+                       from folded in active.Read(natives)
                        select folded,
-                   key: op,
                    needs: [SessionNeed.Read])
                select answer;
     }
 
     public static Fin<Unit> Commit(
-        DocumentSession session, TableTarget target, RedrawPolicy redraw, MaterialProgram program, Op? key = null) {
-        Op op = key.OrDefault();
-        return from policy in op.Need(redraw)
-               from plan in op.Need(program)
+        DocumentSession session, TableTarget target, RedrawPolicy redraw, MaterialProgram program) {
+        return from policy in Admit.Need(redraw)
+               from plan in Admit.Need(program)
                from _ in ObjectSpine.Commit(
                    session: session,
                    name: nameof(Materials),
@@ -641,7 +616,6 @@ public static class Materials {
                        .Bind(natives => natives.TraverseM(native => plan.Edits
                            .TraverseM(edit => edit.Apply(native: native, op: gate)).As()).As()
                            .Map(static _ => unit)),
-                   op: op,
                    recordsUndo: plan.RecordsUndo)
                select unit;
     }

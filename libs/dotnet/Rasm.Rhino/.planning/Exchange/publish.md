@@ -65,8 +65,8 @@ public sealed partial class RasterCodec {
     public bool Alpha { get; }
     public FileCodec Extension { get; }
 
-    internal Fin<FileCodec> Artifact(Op key) =>
-        guard(Extension.Has(CodecAbility.Raster), key.InvalidResult()).ToFin().Map(_ => Extension);
+    internal Fin<FileCodec> Artifact() =>
+        guard(Extension.Has(CodecAbility.Raster), new KernelFault.InvalidResult()).ToFin().Map(_ => Extension);
 }
 
 [ValueObject<int>]
@@ -99,13 +99,11 @@ public abstract partial record RasterPolicy {
 
     internal Seq<(Encoder Key, long Value)> Parameters() => Row.Rows;
 
-    internal Fin<RasterPolicy> Admit(Op op) => Switch(
-        op,
-        pngCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy),
+    internal Fin<RasterPolicy> Admit() => Switch(pngCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy),
         transparentPngCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy),
-        jpegCase: static (key, policy) => guard(policy.Quality != default, key.InvalidInput()).ToFin().Map(_ => (RasterPolicy)policy),
-        tiffCase: static (key, policy) => key.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
-        transparentTiffCase: static (key, policy) => key.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
+        jpegCase: static (key, policy) => guard(policy.Quality != default, new KernelFault.InvalidInput()).ToFin().Map(_ => (RasterPolicy)policy),
+        tiffCase: static (key, policy) => Admit.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
+        transparentTiffCase: static (key, policy) => Admit.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
         bmpCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy));
 
     private (RasterCodec Codec, bool Transparent, Seq<(Encoder Key, long Value)> Rows) Row => Switch(
@@ -122,22 +120,22 @@ public abstract partial record RasterPolicy {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Rasters {
-    internal static Fin<Unit> Save(System.Drawing.Bitmap bitmap, RasterPolicy policy, string path, Op key) =>
+    internal static Fin<Unit> Save(System.Drawing.Bitmap bitmap, RasterPolicy policy, string path) =>
         policy.Parameters() switch {
-            { IsEmpty: true } => key.Catch(() => {
+            { IsEmpty: true } => Try.lift(() => {
                 bitmap.Save(filename: path, format: policy.Codec.Image);
                 return Fin.Succ(value: unit);
-            }),
-            var rows => key.Catch(() => toSeq(ImageCodecInfo.GetImageEncoders())
+            }).Run().Bind(static inner => inner),
+            var rows => Try.lift(() => toSeq(ImageCodecInfo.GetImageEncoders())
                 .Find(codec => codec.FormatID == policy.Codec.Image.Guid)
-                .ToFin(Fail: key.InvalidResult())
-                .Bind(codec => key.Catch(() => {
+                .ToFin(Fail: new KernelFault.InvalidResult())
+                .Bind(codec => Try.lift(() => {
                     using EncoderParameters parameters = new(count: rows.Count);
                     _ = rows.Map(static (row, index) => (row, index)).Iter(entry =>
                         parameters.Param[entry.index] = new EncoderParameter(encoder: entry.row.Key, value: entry.row.Value));
                     bitmap.Save(filename: path, encoder: codec, encoderParams: parameters);
                     return Fin.Succ(value: unit);
-                }))),
+                }).Run().Bind(static inner => inner))).Run().Bind(static inner => inner),
         };
 }
 ```
@@ -286,10 +284,10 @@ public abstract partial record PdfMark {
     public sealed record PolylineCase(Seq<Point2d> Points, Option<PerceptualColor> Fill, PerceptualColor Stroke, LineWidth Width) : PdfMark;
     public sealed record ImageCase(PdfImageBytes Image, DetailFrame Placement, VectorAngle Angle) : PdfMark;
 
-    internal Fin<PdfMark> Admit(PdfImageBudget images, Op op) => Switch(
-        (Images: images, Op: op),
+    internal Fin<PdfMark> Admit(PdfImageBudget images) => Switch(
+        images,
         textCase: static (ctx, mark) =>
-            from _template in ctx.Op.AcceptText(value: mark.Template)
+            from _template in Acceptance.Text(value: mark.Template)
             from _shape in guard(
                 mark.Seat.IsValid
                 && mark.Height is not null
@@ -299,45 +297,45 @@ public abstract partial record PdfMark {
                 && mark.Across is not null
                 && mark.Down is not null
                 && mark.Stroke.ForAll(static stroke => stroke.Color is not null && stroke.Width is not null),
-                ctx.Op.InvalidInput())
+                new KernelFault.InvalidInput())
             select (PdfMark)mark,
         lineCase: static (ctx, mark) => guard(
             mark.From.IsValid && mark.To.IsValid && mark.Stroke is not null,
-            ctx.Op.InvalidInput()).ToFin().Map(_ => (PdfMark)mark),
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (PdfMark)mark),
         polylineCase: static (ctx, mark) => guard(
             mark.Points.Count >= 2
             && mark.Points.ForAll(static point => point.IsValid)
             && mark.Stroke is not null
             && mark.Fill.ForAll(static fill => fill is not null),
-            ctx.Op.InvalidInput()).ToFin().Map(_ => (PdfMark)mark),
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (PdfMark)mark),
         imageCase: static (ctx, mark) =>
             from _shape in guard(
                 mark.Image is not null && mark.Placement.IsValid,
-                ctx.Op.InvalidInput()).ToFin()
+                new KernelFault.InvalidInput()).ToFin()
             from _bytes in guard(
-                mark.Image.Value.Length <= ctx.Images.EncodedBytes.Value,
-                ctx.Op.InvalidInput())
-            from _decoded in ctx.Op.Catch(() => {
+                mark.Image.Value.Length <= ctx.EncodedBytes.Value,
+                new KernelFault.InvalidInput())
+            from _decoded in Try.lift(() => {
                 using System.IO.MemoryStream stream = new(buffer: mark.Image.Value.ToArray(), writable: false);
                 using System.Drawing.Bitmap decoded = new(stream: stream);
                 long pixels = (long)decoded.Width * decoded.Height;
                 return guard(
-                    decoded.Width > 0 && decoded.Height > 0 && pixels <= ctx.Images.Pixels.Value,
-                    ctx.Op.InvalidInput()).ToFin();
-            })
+                    decoded.Width > 0 && decoded.Height > 0 && pixels <= ctx.Pixels.Value,
+                    new KernelFault.InvalidInput()).ToFin();
+            }).Run().Bind(static inner => inner)
             select (PdfMark)mark);
 
-    internal Fin<Unit> Draw(FilePdf pdf, int page, StampScope scope, Op op) => Switch(
-        (Pdf: pdf, Page: page, Scope: scope, Op: op),
+    internal Fin<Unit> Draw(FilePdf pdf, int page, StampScope scope) => Switch(
+        (Pdf: pdf, Page: page, Scope: scope),
         textCase: static (ctx, mark) =>
-            from face in Face(family: mark.Family, form: mark.Form, op: ctx.Op)
-            from height in Points(length: mark.Height.Height, op: ctx.Op)
+            from face in Face(family: mark.Family, form: mark.Form)
+            from height in Points(length: mark.Height.Height)
             from stroke in mark.Stroke
-                .Traverse(row => Points(length: row.Width.Width, op: ctx.Op).Map(width => (Ink: row.Color, Width: width)))
+                .Traverse(row => Points(length: row.Width.Width).Map(width => (Ink: row.Color, Width: width)))
                 .As()
-            from fill in mark.Fill.ToDrawing(key: ctx.Op)
-            from ink in stroke.Traverse(row => row.Ink.ToDrawing(key: ctx.Op)).As()
-            from _drawn in ctx.Op.Catch(() => {
+            from fill in mark.Fill.ToDrawing()
+            from ink in stroke.Traverse(row => row.Ink.ToDrawing()).As()
+            from _drawn in Try.lift(() => {
                 ctx.Pdf.DrawText(
                     pageNumber: ctx.Page,
                     text: StampText.Render(template: mark.Template, scope: ctx.Scope),
@@ -349,31 +347,31 @@ public abstract partial record PdfMark {
                     horizontalAlignment: (TextHorizontalAlignment)mark.Across.Key,
                     verticalAlignment: (TextVerticalAlignment)mark.Down.Key);
                 return Fin.Succ(value: unit);
-            })
+            }).Run().Bind(static inner => inner)
             select unit,
         lineCase: static (ctx, mark) =>
-            from stroke in mark.Stroke.ToDrawing(key: ctx.Op)
-            from width in Points(length: mark.Width.Width, op: ctx.Op)
-            from _drawn in ctx.Op.Catch(() => {
+            from stroke in mark.Stroke.ToDrawing()
+            from width in Points(length: mark.Width.Width)
+            from _drawn in Try.lift(() => {
                 ctx.Pdf.DrawLine(
                     pageNumber: ctx.Page, from: Dot(point: mark.From), to: Dot(point: mark.To),
                     strokeColor: stroke, strokeWidth: width);
                 return Fin.Succ(value: unit);
-            })
+            }).Run().Bind(static inner => inner)
             select unit,
         polylineCase: static (ctx, mark) =>
-            from stroke in mark.Stroke.ToDrawing(key: ctx.Op)
-            from fill in mark.Fill.Traverse(row => row.ToDrawing(key: ctx.Op)).As()
-            from width in Points(length: mark.Width.Width, op: ctx.Op)
-            from _drawn in ctx.Op.Catch(() => {
+            from stroke in mark.Stroke.ToDrawing()
+            from fill in mark.Fill.Traverse(row => row.ToDrawing()).As()
+            from width in Points(length: mark.Width.Width)
+            from _drawn in Try.lift(() => {
                 ctx.Pdf.DrawPolyline(
                     pageNumber: ctx.Page, polyline: mark.Points.Map(Dot).ToArray(),
                     fillColor: fill.IfNone(System.Drawing.Color.Empty),
                     strokeColor: stroke, strokeWidth: width);
                 return Fin.Succ(value: unit);
-            })
+            }).Run().Bind(static inner => inner)
             select unit,
-        imageCase: static (ctx, mark) => ctx.Op.Catch(() => {
+        imageCase: static (ctx, mark) => Try.lift(() => {
             using System.IO.MemoryStream stream = new(buffer: mark.Image.Value.ToArray(), writable: false);
             using System.Drawing.Bitmap decoded = new(stream: stream);
             using System.Drawing.Bitmap detached = new(image: decoded);
@@ -383,29 +381,28 @@ public abstract partial record PdfMark {
                 width: (float)mark.Placement.Width, height: (float)mark.Placement.Height,
                 rotationInDegrees: (float)RhinoMath.ToDegrees(radians: mark.Angle.Value));
             return Fin.Succ(value: unit);
-        }));
+        }).Run().Bind(static inner => inner));
 
     internal static Fin<Unit> DrawAll(
-        Seq<PdfMark> marks, FilePdf pdf, int page, StampScope scope, Op op) =>
-        from _drawn in marks.TraverseM(mark => mark.Draw(pdf: pdf, page: page, scope: scope, op: op)).As()
+        Seq<PdfMark> marks, FilePdf pdf, int page, StampScope scope) =>
+        from _drawn in marks.TraverseM(mark => mark.Draw(pdf: pdf, page: page, scope: scope)).As()
         select unit;
 
-    private static Fin<Font> Face(ResourceName family, LetteringForm form, Op op) =>
+    private static Fin<Font> Face(ResourceName family, LetteringForm form) =>
         from query in FaceQuery.Of(
             form: new FaceForm.Axes(
                 Family: family.Value,
                 Weight: FaceWeight.Normal,
                 Slant: form.Slant.Value > 0.0 ? FaceSlant.Italic : FaceSlant.Upright,
                 Stretch: FaceStretch.Medium,
-                Decorations: CapabilitySet<FaceDecoration>.None),
-            key: op)
-        from face in query.Mint(key: op)
+                Decorations: CapabilitySet<FaceDecoration>.None))
+        from face in query.Mint()
         select face;
 
-    private static Fin<float> Points(Length length, Op op) =>
-        from millimetres in ModelUnit.Of(value: UnitSystem.Millimeters, key: op)
-        from points in ModelUnit.Of(value: UnitSystem.PrinterPoints, key: op)
-        from scale in millimetres.ScaleTo(target: points, key: op)
+    private static Fin<float> Points(Length length) =>
+        from millimetres in ModelUnit.Of(value: UnitSystem.Millimeters)
+        from points in ModelUnit.Of(value: UnitSystem.PrinterPoints)
+        from scale in millimetres.ScaleTo(target: points)
         select (float)(length.Millimeters * scale);
 
     private static System.Drawing.PointF Dot(Point2d point) => new(x: (float)point.X, y: (float)point.Y);
@@ -418,7 +415,7 @@ public abstract partial record PdfMark {
 - Law: the frame is CAPTURE intent and the kernel `Interaction/chrome` `PageFrame` is PRINT geometry — a page size, a printer's own settings, a bounded rectangle, or an issued sheet. Two owners under one name across two strata is the collision this rename closes, and no fence composes the other's cases.
 - Law: page order is evidence order — the resolved stream fixes ordinal and count before any egress, so `%pagenumber%`/`%pagecount%` tokens, PDF page indices, and per-page artifact names all read one numbering.
 - Law: SCALE evidence is per-source and typed — a detail page carries the detail's live `DrawingScale` so `%scale%` renders through the issued standard's own `ScaleNotation`, while whole-page, named-view, viewport, and blank sources carry none and the token falls to its host answer; a host-formatted `1:n` string is the lowering the render performs, never the evidence it carries.
-- Law: a blank page is a SHEET. The source names a `SheetSize` under its standard and the frame's admitted DPI resolves the host's dot extent, so `SheetSize.In(unit, key)` is the one projection and a caller-supplied pixel pair that no sheet series admits is unrepresentable (D3, D4).
+- Law: a blank page is a SHEET. The source names a `SheetSize` under its standard and the frame's admitted DPI resolves the host's dot extent, so `SheetSize.In(unit)` is the one projection and a caller-supplied pixel pair that no sheet series admits is unrepresentable (D3, D4).
 - Law: a multi-page raster or vector target lands one atomic artifact per page — the page's file name derives from the target stem through the token fold (`stem-%pagenumber%`, or `stem-%number%` where an issued block names a `SheetNumber`), and `OutputPolicy` settles each destination before a same-directory temporary artifact replaces it (D28).
 - Law: frame modality is structural. `Plan` accepts only `SettingsCase`, and `TransparentSpec` accepts only `TransparentCase`; no boolean or absent field reconstructs capture intent.
 - Law: resolution is the admitted `CaptureDpi` the capture pipeline owns, carried on both frame cases and read once — every downstream site consumes the admitted value instead of re-running `CaptureDpi.Of` over a raw double, and `CaptureFrame.Plot` seats the kernel `PlotResolution.Plot` row through the capture pipeline's own output-class arity, so the one DPI a frameless request inherits is a rostered output class rather than a literal (D80, D81).
@@ -452,11 +449,10 @@ public abstract partial record CaptureFrame {
         settingsCase: static frame => frame.DotsPerInch,
         transparentCase: static frame => frame.DotsPerInch);
 
-    internal Fin<int> Dots(Op? key = null) {
-        Op op = key.OrDefault();
+    internal Fin<int> Dots() {
         return (double)Dpi switch {
             var value when value <= int.MaxValue && value == Math.Truncate(d: value) => Fin.Succ(value: (int)value),
-            _ => Fin.Fail<int>(error: op.InvalidInput()),
+            _ => Fin.Fail<int>(error: new KernelFault.InvalidInput()),
         };
     }
 
@@ -472,11 +468,9 @@ public abstract partial record CaptureFrame {
         Option<CaptureArea> area = default,
         Option<CaptureScale> scale = default,
         Option<MediaLayout> layout = default,
-        Option<CaptureDecor> decor = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in CaptureDpi.Of(value: dpi, key: op)
-               from _pixels in pixels.Map(value => guard(value.IsValid, op.InvalidInput()).ToFin())
+        Option<CaptureDecor> decor = default) {
+        return from admitted in CaptureDpi.Of(value: dpi)
+               from _pixels in pixels.Map(value => guard(value.IsValid, new KernelFault.InvalidInput()).ToFin())
                    .IfNone(Fin.Succ(value: unit))
                select (CaptureFrame)new SettingsCase(
                    DotsPerInch: admitted,
@@ -491,35 +485,31 @@ public abstract partial record CaptureFrame {
         double dpi,
         Size2i pixels,
         Option<CapabilitySet<CaptureFeature>> facade = default,
-        Option<Rasm.Numerics.Dimension> realtimePasses = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from admitted in CaptureDpi.Of(value: dpi, key: op)
-               from _pixels in guard(pixels.IsValid, op.InvalidInput())
+        Option<Rasm.Numerics.Dimension> realtimePasses = default) {
+        return from admitted in CaptureDpi.Of(value: dpi)
+               from _pixels in guard(pixels.IsValid, new KernelFault.InvalidInput())
                select (CaptureFrame)new TransparentCase(
                    DotsPerInch: admitted, Extent: pixels, Facade: facade, RealtimePasses: realtimePasses);
     }
 
-    internal Fin<CapturePlan> Plan(CaptureSubject subject, Op key) => Switch(
-        (Subject: subject, Op: key),
+    internal Fin<CapturePlan> Plan(CaptureSubject subject) => Switch(
+        subject,
         settingsCase: static (ctx, frame) => CapturePlan.Of(
-            subject: ctx.Subject,
+            subject: ctx,
             area: frame.Area,
             scale: frame.Scale,
             layout: frame.Layout,
-            decor: frame.Decor,
-            key: ctx.Op),
-        transparentCase: static (ctx, _) => Fin.Fail<CapturePlan>(error: ctx.Op.InvalidInput()));
+            decor: frame.Decor),
+        transparentCase: static (ctx, _) => Fin.Fail<CapturePlan>(error: new KernelFault.InvalidInput()));
 
-    internal Fin<TransparentCaptureSpec> TransparentSpec(ViewportTarget target, Op key) => Switch(
-        (Target: target, Op: key),
-        settingsCase: static (ctx, _) => Fin.Fail<TransparentCaptureSpec>(error: ctx.Op.InvalidInput()),
+    internal Fin<TransparentCaptureSpec> TransparentSpec(ViewportTarget target) => Switch(
+        target,
+        settingsCase: static (ctx, _) => Fin.Fail<TransparentCaptureSpec>(error: new KernelFault.InvalidInput()),
         transparentCase: static (ctx, frame) => TransparentCaptureSpec.Of(
-            target: ctx.Target,
+            target: ctx,
             extent: frame.Extent,
             features: frame.Facade,
-            realtimePasses: frame.RealtimePasses,
-            key: ctx.Op));
+            realtimePasses: frame.RealtimePasses));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -544,37 +534,35 @@ public abstract partial record PageSource {
     public sealed record ViewportCase(ViewportTarget Target) : PageSource;
     public sealed record BlankCase(SheetSize Size, SheetOrientation Orientation, Rasm.Numerics.Dimension Count) : PageSource;
 
-    internal Fin<PageSource> Admit(Op op) => Switch(
-        op,
-        sheetsCase: static (key, source) => Optional(source.Sheets)
-            .ToFin(Fail: key.InvalidInput())
+    internal Fin<PageSource> Admit() => Switch(sheetsCase: static (key, source) => Optional(source.Sheets)
+            .ToFin(Fail: new KernelFault.InvalidInput())
             .Map(_ => (PageSource)source),
         detailsCase: static (key, source) =>
-            from _sheets in key.Need(source.Sheets)
-            from _details in key.Need(source.Details)
+            from _sheets in Admit.Need(source.Sheets)
+            from _details in Admit.Need(source.Details)
             select (PageSource)source,
         namedCase: static (key, source) =>
             from names in source.Names
-                .Traverse(name => key.AcceptText(value: name).ToValidation())
+                .Traverse(name => Acceptance.Text(value: name).ToValidation())
                 .As()
                 .ToFin()
-            from _count in guard(!names.IsEmpty, key.InvalidInput())
+            from _count in guard(!names.IsEmpty, new KernelFault.InvalidInput())
             select (PageSource)new NamedCase(Names: names),
         viewportCase: static (key, source) => Optional(source.Target)
-            .ToFin(Fail: key.InvalidInput())
+            .ToFin(Fail: new KernelFault.InvalidInput())
             .Map(_ => (PageSource)source),
         blankCase: static (key, source) => guard(
             source.Size is { IsValid: true } && source.Orientation is not null && source.Count.Value > 0,
-            key.InvalidInput()).ToFin().Map(_ => (PageSource)source));
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (PageSource)source));
 
-    internal Fin<Seq<PublishPage>> Resolve(RhinoDoc document, CaptureFrame frame, Option<TitleBlock> issue, Instant instant, Op op) => Switch(
-        (Document: document, Frame: frame, Issue: issue, Instant: instant, Op: op),
+    internal Fin<Seq<PublishPage>> Resolve(RhinoDoc document, CaptureFrame frame, Option<TitleBlock> issue, Instant instant) => Switch(
+        (Document: document, Frame: frame, Issue: issue, Instant: instant),
         sheetsCase: static (ctx, source) =>
-            from pages in source.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+            from pages in source.Sheets.Resolve(document: ctx.Document)
             let dpi = ctx.Frame.Dpi
             from captured in pages.Map(static (page, index) => (Page: page, Index: index)).TraverseM(row =>
-                from target in ViewportTarget.Page(pageViewId: row.Page.MainViewport.Id, key: ctx.Op)
-                from subject in CaptureSubject.Page(target: target, dpi: dpi, key: ctx.Op)
+                from target in ViewportTarget.Page(pageViewId: row.Page.MainViewport.Id)
+                from subject in CaptureSubject.Page(target: target, dpi: dpi)
                 select Page(
                     target: target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                     pageName: row.Page.PageName, viewName: row.Page.MainViewport.Name,
@@ -582,20 +570,19 @@ public abstract partial record PageSource {
                     ordinal: row.Index + 1, count: pages.Count, instant: ctx.Instant)).As()
             select captured,
         detailsCase: static (ctx, source) =>
-            from pixels in ctx.Frame.Pixels.ToFin(Fail: ctx.Op.InvalidInput())
+            from pixels in ctx.Frame.Pixels.ToFin(Fail: new KernelFault.InvalidInput())
             let dpi = ctx.Frame.Dpi
-            from pages in source.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
+            from pages in source.Sheets.Resolve(document: ctx.Document)
             from rows in pages
-                .TraverseM(page => source.Details.Resolve(page: page, op: ctx.Op).Map(details =>
+                .TraverseM(page => source.Details.Resolve(page: page).Map(details =>
                     details.Map(detail => (Page: page, Detail: detail))))
                 .As()
             let flat = rows.Bind(identity)
             from captured in flat.Map(static (row, index) => (Row: row, Index: index)).TraverseM(entry =>
                 from target in ViewportTarget.Detail(
                     pageViewId: entry.Row.Page.MainViewport.Id,
-                    detailId: entry.Row.Detail.Id,
-                    key: ctx.Op)
-                from subject in CaptureSubject.View(target: target, pixels: pixels, dpi: dpi, key: ctx.Op)
+                    detailId: entry.Row.Detail.Id)
+                from subject in CaptureSubject.View(target: target, pixels: pixels, dpi: dpi)
                 select Page(
                     target: target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                     pageName: entry.Row.Page.PageName, viewName: entry.Row.Detail.Viewport.Name,
@@ -603,11 +590,11 @@ public abstract partial record PageSource {
                     ordinal: entry.Index + 1, count: flat.Count, instant: ctx.Instant)).As()
             select captured,
         namedCase: static (ctx, source) =>
-            from pixels in ctx.Frame.Pixels.ToFin(Fail: ctx.Op.InvalidInput())
+            from pixels in ctx.Frame.Pixels.ToFin(Fail: new KernelFault.InvalidInput())
             let dpi = ctx.Frame.Dpi
             from captured in source.Names.Map(static (name, index) => (Name: name, Index: index)).TraverseM(row =>
-                from target in ViewportTarget.Named(name: row.Name, key: ctx.Op)
-                from subject in CaptureSubject.View(target: target, pixels: pixels, dpi: dpi, key: ctx.Op)
+                from target in ViewportTarget.Named(name: row.Name)
+                from subject in CaptureSubject.View(target: target, pixels: pixels, dpi: dpi)
                 select Page(
                     target: target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                     pageName: row.Name, viewName: row.Name,
@@ -615,24 +602,23 @@ public abstract partial record PageSource {
                     ordinal: row.Index + 1, count: source.Names.Count, instant: ctx.Instant)).As()
             select captured,
         viewportCase: static (ctx, source) =>
-            from pixels in ctx.Frame.Pixels.ToFin(Fail: ctx.Op.InvalidInput())
+            from pixels in ctx.Frame.Pixels.ToFin(Fail: new KernelFault.InvalidInput())
             let dpi = ctx.Frame.Dpi
-            from subject in CaptureSubject.View(target: source.Target, pixels: pixels, dpi: dpi, key: ctx.Op)
+            from subject in CaptureSubject.View(target: source.Target, pixels: pixels, dpi: dpi)
             select Seq(Page(
                 target: source.Target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                 pageName: string.Empty, viewName: string.Empty, scale: None,
                 ordinal: 1, count: 1, instant: ctx.Instant)),
         blankCase: static (ctx, source) =>
-            from dots in ctx.Frame.Dots(key: ctx.Op)
-            from inches in ModelUnit.Of(value: UnitSystem.Inches, key: ctx.Op)
-            from extent in source.Size.In(unit: inches, key: ctx.Op)
+            from dots in ctx.Frame.Dots()
+            from inches in ModelUnit.Of(value: UnitSystem.Inches)
+            from extent in source.Size.In(unit: inches)
             let oriented = source.Orientation == SheetOrientation.Landscape
                 ? (Width: extent.Height, Height: extent.Width)
                 : (extent.Width, extent.Height)
             from pixels in Size2i.Of(
                 width: (int)Math.Round(oriented.Width * dots),
-                height: (int)Math.Round(oriented.Height * dots),
-                key: ctx.Op)
+                height: (int)Math.Round(oriented.Height * dots))
             select toSeq(Enumerable.Range(1, source.Count.Value)).Map(ordinal => (PublishPage)new PublishPage.BlankCase(
                 Extent: pixels,
                 Stamp: ScopeOf(
@@ -686,22 +672,20 @@ public abstract partial record PublishTarget {
     public sealed record RasterCase(DocumentPath Target, RasterPolicy Policy, OutputPolicy Output) : PublishTarget;
     public sealed record SvgCase(DocumentPath Target, OutputPolicy Output) : PublishTarget;
 
-    internal Fin<PublishTarget> Admit(Op op) => Switch(
-        op,
-        pdfCase: static (key, target) =>
-            from _shape in guard(target.Target != default && target.Output is not null, key.InvalidInput()).ToFin()
-            from _policy in key.Need(target.Policy).Bind(policy => policy.Admit(op: key))
+    internal Fin<PublishTarget> Admit() => Switch(pdfCase: static (key, target) =>
+            from _shape in guard(target.Target != default && target.Output is not null, new KernelFault.InvalidInput()).ToFin()
+            from _policy in Admit.Need(target.Policy).Bind(policy => policy.Admit())
             select (PublishTarget)target,
         printerCase: static (key, target) => guard(
             !string.IsNullOrWhiteSpace(value: target.PrinterName) && target.Copies.Value >= 1,
-            key.InvalidInput()).ToFin().Map(_ => (PublishTarget)target),
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (PublishTarget)target),
         rasterCase: static (key, target) =>
-            from _shape in guard(target.Target != default && target.Output is not null, key.InvalidInput()).ToFin()
-            from _policy in key.Need(target.Policy).Bind(policy => policy.Admit(op: key))
+            from _shape in guard(target.Target != default && target.Output is not null, new KernelFault.InvalidInput()).ToFin()
+            from _policy in Admit.Need(target.Policy).Bind(policy => policy.Admit())
             select (PublishTarget)target,
         svgCase: static (key, target) => guard(
             target.Target != default && target.Output is not null,
-            key.InvalidInput()).ToFin().Map(_ => (PublishTarget)target));
+            new KernelFault.InvalidInput()).ToFin().Map(_ => (PublishTarget)target));
 }
 ```
 
@@ -737,12 +721,12 @@ public sealed record PdfPolicy(
 
     internal LayerEmission Emission => Plot.Map(static row => row.Emission).IfNone(LayerEmission.OptionalContent);
 
-    internal Fin<PdfPolicy> Admit(Op op) =>
-        from images in op.Need(Images)
-        from _custom in guard(CustomPages.ForAll(static page => page is not null), op.InvalidInput())
+    internal Fin<PdfPolicy> Admit() =>
+        from images in Admit.Need(Images)
+        from _custom in guard(CustomPages.ForAll(static page => page is not null), new KernelFault.InvalidInput())
         from _marks in (PageMarks + FinalMarks)
-            .TraverseM(mark => op.Need(mark)
-                .Bind(candidate => candidate.Admit(images: images, op: op)))
+            .TraverseM(mark => Admit.Need(mark)
+                .Bind(candidate => candidate.Admit(images: images)))
             .As()
         select this;
 }
@@ -763,11 +747,9 @@ public sealed record PublishRequest {
         PageSource source,
         Instant instant,
         Option<CaptureFrame> frame = default,
-        Option<TitleBlock> issue = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from carrier in op.Need(target).Bind(candidate => candidate.Admit(op: op))
-               from origin in op.Need(source).Bind(candidate => candidate.Admit(op: op))
+        Option<TitleBlock> issue = default) {
+        return from carrier in Admit.Need(target).Bind(candidate => candidate.Admit())
+               from origin in Admit.Need(source).Bind(candidate => candidate.Admit())
                let resolvedFrame = frame.IfNone(CaptureFrame.Plot)
                from _contract in Contract(carrier: carrier, origin: origin, frame: resolvedFrame, issue: issue)
                select new PublishRequest(
@@ -807,7 +789,7 @@ public sealed record PublishRequest {
             || issue.ForAll(block => block.SheetCount >= blank.Count.Value));
 
     private static K<Validation<Error>, Unit> Rule(bool held, [CallerMemberName] string rule = "") =>
-        guard(held, Op.Of(name: rule).InvalidInput()).ToFin().ToValidation();
+        guard(held, new KernelFault.InvalidInput()).ToFin().ToValidation();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -824,48 +806,45 @@ public static class Publishing {
     private static readonly System.Threading.Lock PdfGate = new();
 
     public static Fin<Unit> Run(
-        DocumentSession session, MonotonicTimeline timeline, PublishRequest request, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in op.Need(session)
-               from clock in op.Need(timeline)
-               from publication in op.Need(request)
-               from pages in active.Demand(
+        DocumentSession session, MonotonicTimeline timeline, PublishRequest request) {
+        return from active in Admit.Need(session)
+               from clock in Admit.Need(timeline)
+               from publication in Admit.Need(request)
+               from pages in Admit.Demand(
                    use: document => publication.Source.Resolve(
                        document: document,
                        frame: publication.Frame,
                        issue: publication.Issue,
-                       instant: publication.Instant,
-                       op: op)
+                       instant: publication.Instant)
                        .Map(static resolved => new ResolvedPages(Pages: resolved)),
-                   key: op,
                    needs: [SessionNeed.Read, SessionNeed.Export])
-               from _count in guard(!pages.Pages.IsEmpty, op.InvalidInput())
+               from _count in guard(!pages.Pages.IsEmpty, new KernelFault.InvalidInput())
                from _published in publication.Target.Switch(
-                   (Session: active, Timeline: clock, Request: publication, Pages: pages.Pages, Op: op),
-                   pdfCase: static (ctx, target) => Pdf(session: ctx.Session, request: ctx.Request, target: target, pages: ctx.Pages, op: ctx.Op),
+                   (Session: active, Timeline: clock, Request: publication, Pages: pages.Pages),
+                   pdfCase: static (ctx, target) => Pdf(session: ctx.Session, request: ctx.Request, target: target, pages: ctx.Pages),
                    printerCase: static (ctx, target) => Printer(
                        session: ctx.Session, frame: ctx.Request.Frame,
                        landing: new Landing.Printer(PrinterName: target.PrinterName, Copies: target.Copies),
-                       pages: ctx.Pages, op: ctx.Op),
+                       pages: ctx.Pages),
                    rasterCase: static (ctx, target) => Fanned(
-                       pages: ctx.Pages, op: ctx.Op,
+                       pages: ctx.Pages,
                        capture: target.Policy.Transparent
                            ? page => Transparent(
                                session: ctx.Session, timeline: ctx.Timeline,
-                               frame: ctx.Request.Frame, page: page, op: ctx.Op)
+                               frame: ctx.Request.Frame, page: page)
                            : page => Planned(
                                session: ctx.Session, frame: ctx.Request.Frame,
                                landing: new Landing.Raster(Target: target.Target, Policy: target.Policy, Output: target.Output),
-                               page: page, op: ctx.Op),
+                               page: page),
                        artifact: (page, capture, op2) => Raster(
                            capture: capture, page: page, target: target.Target, output: target.Output,
                            policy: target.Policy, op: op2)),
                    svgCase: static (ctx, target) => Fanned(
-                       pages: ctx.Pages, op: ctx.Op,
+                       pages: ctx.Pages,
                        capture: page => Planned(
                            session: ctx.Session, frame: ctx.Request.Frame,
                            landing: new Landing.Vector(Target: target.Target, Output: target.Output),
-                           page: page, op: ctx.Op),
+                           page: page),
                        artifact: (page, capture, op2) => Vector(capture: capture, page: page, target: target.Target, output: target.Output, op: op2)))
                select unit;
     }
@@ -876,33 +855,30 @@ public static class Publishing {
         DocumentSession session,
         CaptureFrame frame,
         Landing.Printer landing,
-        Seq<PublishPage> pages,
-        Op op) =>
-        from captured in pages.TraverseM(page => Captured(page: page, op: op)).As()
-        from plans in captured.TraverseM(page => frame.Plan(subject: page.Subject, key: op)).As()
+        Seq<PublishPage> pages) =>
+        from captured in pages.TraverseM(page => Captured(page: page)).As()
+        from plans in captured.TraverseM(page => frame.Plan(subject: page.Subject)).As()
         from _spooled in Captures.Stage(
             session: session,
             plans: plans.ToArray(),
             consume: prepared => prepared.Use(
                 body: rows =>
-                    from _arity in guard(rows.Count == plans.Count, op.InvalidResult()).ToFin()
-                    from _sent in op.Catch(() => op.Confirm(success: ViewCapture.SendToPrinter(
+                    from _arity in guard(rows.Count == plans.Count, new KernelFault.InvalidResult()).ToFin()
+                    from _sent in Try.lift(() => Admit.Confirm(success: ViewCapture.SendToPrinter(
                         printerName: landing.PrinterName,
                         settings: [.. rows],
-                        copies: landing.Copies.Value)))
+                        copies: landing.Copies.Value))).Run().Bind(static inner => inner)
                     select unit,
-                key: op),
-            key: op)
+                key: op))
         select unit;
 
     private static Fin<Unit> Fanned(
         Seq<PublishPage> pages,
         Func<PublishPage.CapturedCase, Fin<CaptureArtifact>> capture,
-        Func<PublishPage.CapturedCase, CaptureArtifact, Op, Fin<Unit>> artifact,
-        Op op) =>
+        Func<PublishPage.CapturedCase, CaptureArtifact, Fin<Unit>> artifact) =>
         from _landed in pages.TraverseM(page =>
-            from capturedPage in Captured(page: page, op: op)
-            from _delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art, op))
+            from capturedPage in Captured(page: page)
+            from _delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art))
             select unit).As()
         select unit;
 
@@ -910,84 +886,76 @@ public static class Publishing {
         DocumentSession session,
         CaptureFrame frame,
         Landing landing,
-        PublishPage.CapturedCase page,
-        Op op) =>
-        from plan in frame.Plan(subject: page.Subject, key: op)
+        PublishPage.CapturedCase page) =>
+        from plan in frame.Plan(subject: page.Subject)
         from artifact in Captures.Stage(
             session: session,
             plans: [plan],
             consume: prepared => prepared.Use(
                 body: rows =>
-                    from _arity in guard(rows.Count == 1, op.InvalidResult()).ToFin()
-                    from row in rows.Head.ToFin(Fail: op.MissingContext())
-                    from minted in Landed(landing: landing, row: row, op: op)
+                    from _arity in guard(rows.Count == 1, new KernelFault.InvalidResult()).ToFin()
+                    from row in rows.Head.ToFin(Fail: new KernelFault.MissingContext())
+                    from minted in Landed(landing: landing, row: row)
                     select minted,
-                key: op),
-            key: op)
+                key: op))
         select artifact;
 
-    private static Fin<CaptureArtifact> Landed(Landing landing, ViewCaptureSettings row, Op op) => landing.Switch(
-        (Row: row, Op: op),
+    private static Fin<CaptureArtifact> Landed(Landing landing, ViewCaptureSettings row) => landing.Switch(
+        row,
         raster: static (ctx, _) => Size2i
-            .Of(width: ctx.Row.MediaSize.Width, height: ctx.Row.MediaSize.Height, key: ctx.Op)
+            .Of(width: ctx.MediaSize.Width, height: ctx.MediaSize.Height)
             .Bind(extent => CaptureArtifact.Raster(
-                mint: () => ViewCapture.CaptureToBitmap(settings: ctx.Row),
+                mint: () => ViewCapture.CaptureToBitmap(settings: ctx),
                 extent: extent,
-                coverage: AlphaLayout.Opaque,
-                key: ctx.Op)),
-        vector: static (ctx, _) => ctx.Op
-            .Catch(() => Optional(ViewCapture.CaptureToSvg(settings: ctx.Row)).ToFin(Fail: ctx.Op.InvalidResult()))
+                coverage: AlphaLayout.Opaque)),
+        vector: static (ctx, _) => Try.lift(() => Optional(ViewCapture.CaptureToSvg(settings: ctx)).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             .Map(static svg => (CaptureArtifact)new CaptureArtifact.VectorCase(Svg: svg)),
-        printer: static (ctx, _) => Fin.Fail<CaptureArtifact>(error: ctx.Op.InvalidInput()),
-        save: static (ctx, _) => Fin.Fail<CaptureArtifact>(error: ctx.Op.InvalidInput()));
+        printer: static (ctx, _) => Fin.Fail<CaptureArtifact>(error: new KernelFault.InvalidInput()),
+        save: static (ctx, _) => Fin.Fail<CaptureArtifact>(error: new KernelFault.InvalidInput()));
 
     private static Fin<CaptureArtifact> Transparent(
-        DocumentSession session, MonotonicTimeline timeline, CaptureFrame frame, PublishPage.CapturedCase page, Op op) =>
-        from spec in frame.TransparentSpec(target: page.Target, key: op)
-        from request in CaptureRequest.Transparent(spec: spec, key: op)
-        from capture in Captures.Run(session: session, timeline: timeline, request: request, key: op)
+        DocumentSession session, MonotonicTimeline timeline, CaptureFrame frame, PublishPage.CapturedCase page) =>
+        from spec in frame.TransparentSpec(target: page.Target)
+        from request in CaptureRequest.Transparent(spec: spec)
+        from capture in Captures.Run(session: session, timeline: timeline, request: request)
         select capture;
 
-    private static Fin<PublishPage.CapturedCase> Captured(PublishPage page, Op op) =>
+    private static Fin<PublishPage.CapturedCase> Captured(PublishPage page) =>
         page is PublishPage.CapturedCase captured
             ? Fin.Succ(value: captured)
-            : Fin.Fail<PublishPage.CapturedCase>(error: op.InvalidInput());
+            : Fin.Fail<PublishPage.CapturedCase>(error: new KernelFault.InvalidInput());
 
     private static Fin<Unit> Raster(
         CaptureArtifact capture,
         PublishPage.CapturedCase page,
         DocumentPath target,
         OutputPolicy output,
-        RasterPolicy policy,
-        Op op) => capture switch {
-            CaptureArtifact.RasterCase raster => policy.Codec.Artifact(key: op).Bind(codec => Deliver(
+        RasterPolicy policy) => capture switch {
+            CaptureArtifact.RasterCase raster => policy.Codec.Artifact().Bind(codec => Deliver(
                 target: target,
                 scope: page.Stamp,
                 output: output,
                 codec: codec,
                 write: temporary => raster.Pixels.Use(bitmap =>
-                    Rasters.Save(bitmap: bitmap, policy: policy, path: temporary, key: op)),
-                op: op)),
-            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                    Rasters.Save(bitmap: bitmap, policy: policy, path: temporary)))),
+            _ => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()),
         };
 
     private static Fin<Unit> Vector(
         CaptureArtifact capture,
         PublishPage.CapturedCase page,
         DocumentPath target,
-        OutputPolicy output,
-        Op op) => capture switch {
+        OutputPolicy output) => capture switch {
             CaptureArtifact.VectorCase vector => Deliver(
                 target: target,
                 scope: page.Stamp,
                 output: output,
                 codec: FileCodec.Svg,
-                write: temporary => op.Catch(() => {
+                write: temporary => Try.lift(() => {
                     vector.Svg.Save(filename: temporary);
                     return Fin.Succ(value: unit);
-                }),
-                op: op),
-            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                }).Run().Bind(static inner => inner)),
+            _ => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()),
         };
 
     private static Fin<Unit> Deliver(
@@ -995,16 +963,15 @@ public static class Publishing {
         StampScope scope,
         OutputPolicy output,
         FileCodec codec,
-        Func<string, Fin<Unit>> write,
-        Op op) =>
-        from named in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: StampText.Render(
-            template: PageStem(target: target, scope: scope), scope: scope))))
-        from _landed in output.Land(target: named, codec: codec, stage: write, key: op)
+        Func<string, Fin<Unit>> write) =>
+        from named in Try.lift(() => Fin.Succ(value: DocumentPath.Create(value: StampText.Render(
+            template: PageStem(target: target, scope: scope), scope: scope)))).Run().Bind(static inner => inner)
+        from _landed in output.Land(target: named, codec: codec, stage: write)
         select unit;
 
-    internal static Fin<Unit> Land(Landing.Save landing, Func<DocumentPath, Fin<Unit>> write, Op op) =>
-        from writer in op.Need(value: write)
-        from settled in landing.Output.Resolve(target: landing.Target, codec: Some(landing.Codec), key: op)
+    internal static Fin<Unit> Land(Landing.Save landing, Func<DocumentPath, Fin<Unit>> write) =>
+        from writer in Admit.Need(value: write)
+        from settled in landing.Output.Resolve(target: landing.Target, codec: Some(landing.Codec))
         from _written in writer(arg: settled)
         select unit;
 
@@ -1019,91 +986,84 @@ public static class Publishing {
                     System.IO.Path.GetExtension(target.Value)));
 
     private static Fin<Unit> Pdf(
-        DocumentSession session, PublishRequest request, PublishTarget.PdfCase target, Seq<PublishPage> pages, Op op) =>
-        from pdf in op.Catch(() => Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult()))
-        from _grouping in op.Catch(() => {
+        DocumentSession session, PublishRequest request, PublishTarget.PdfCase target, Seq<PublishPage> pages) =>
+        from pdf in Try.lift(() => Optional(FilePdf.Create()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
+        from _grouping in Try.lift(() => {
             pdf.LayersAsOptionalContentGroups = target.Policy.Emission == LayerEmission.OptionalContent;
             return Fin.Succ(value: unit);
-        })
+        }).Run().Bind(static inner => inner)
         from minted in pages.TraverseM(page =>
-            from index in AddPage(session: session, frame: request.Frame, pdf: pdf, page: page, op: op)
+            from index in AddPage(session: session, frame: request.Frame, pdf: pdf, page: page)
             from _marks in PdfMark.DrawAll(
                 marks: target.Policy.PageMarks,
                 pdf: pdf,
                 page: index,
-                scope: page.Evidence,
-                op: op)
+                scope: page.Evidence)
             select (Page: index, Scope: page.Evidence)).As()
         from _final in minted
             .TraverseM(row => PdfMark.DrawAll(
                 marks: target.Policy.FinalMarks,
                 pdf: pdf,
                 page: row.Page,
-                scope: row.Scope,
-                op: op))
+                scope: row.Scope))
             .As()
         from _landed in target.Output.Land(
             target: target.Target,
             codec: FileCodec.Pdf,
-            stage: temporary => Flush(pdf: pdf, target: target, path: temporary, op: op),
-            key: op)
+            stage: temporary => Flush(pdf: pdf, target: target, path: temporary))
         select unit;
 
     private static Fin<int> AddPage(
         DocumentSession session,
         CaptureFrame frame,
         FilePdf pdf,
-        PublishPage page,
-        Op op) => page.Switch(
-            (Session: session, Frame: frame, Pdf: pdf, Op: op),
+        PublishPage page) => page.Switch(
+            (Session: session, Frame: frame, Pdf: pdf),
             blankCase: static (ctx, blank) =>
-                from dots in ctx.Frame.Dots(key: ctx.Op)
-                from minted in ctx.Op.Catch(() => {
+                from dots in ctx.Frame.Dots()
+                from minted in Try.lift(() => {
                     int page = ctx.Pdf.AddPage(
                         widthInDots: blank.Extent.Width,
                         heightInDots: blank.Extent.Height,
                         dotsPerInch: dots);
-                    return guard(page >= 0, ctx.Op.InvalidResult()).ToFin().Map(_ => page);
-                })
+                    return guard(page >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => page);
+                }).Run().Bind(static inner => inner)
                 select minted,
             capturedCase: static (ctx, captured) =>
-                from plan in ctx.Frame.Plan(subject: captured.Subject, key: ctx.Op)
+                from plan in ctx.Frame.Plan(subject: captured.Subject)
                 from minted in Captures.Stage(
                     session: ctx.Session,
                     plans: [plan],
                     consume: prepared => prepared.Use(
                         body: settings =>
-                            from _arity in guard(settings.Count == 1, ctx.Op.InvalidResult()).ToFin()
-                            from row in settings.Head.ToFin(Fail: ctx.Op.MissingContext())
-                            from added in ctx.Op.Catch(() => {
+                            from _arity in guard(settings.Count == 1, new KernelFault.InvalidResult()).ToFin()
+                            from row in settings.Head.ToFin(Fail: new KernelFault.MissingContext())
+                            from added in Try.lift(() => {
                                 int pageIndex = ctx.Pdf.AddPage(settings: row);
-                                return guard(pageIndex >= 0, ctx.Op.InvalidResult()).ToFin().Map(_ => pageIndex);
-                            })
+                                return guard(pageIndex >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => pageIndex);
+                            }).Run().Bind(static inner => inner)
                             select added,
-                        key: ctx.Op),
-                    key: ctx.Op)
+                        key: ctx.Op))
                 select minted);
 
     private static Fin<Unit> Flush(
         FilePdf pdf,
         PublishTarget.PdfCase target,
-        string path,
-        Op op) => op.Catch(() => {
+        string path) => Try.lift(() => {
             lock (PdfGate) {
                 PrintedPageDefinition[] prior = FilePdf.GetCustomPages();
-                return op.Catch(() => {
+                return Try.lift(() => {
                     FilePdf.SetCustomPages(pages: target.Policy.CustomPages.AsIterable());
                     pdf.Write(filename: path);
                     return Fin.Succ(value: unit);
-                })
+                }).Run().Bind(static inner => inner)
                     .Settled(
-                        release: () => op.Catch(() => {
+                        release: () => Try.lift(() => {
                             FilePdf.SetCustomPages(pages: prior);
                             return Fin.Succ(value: unit);
-                        }),
-                        key: op);
+                        }).Run().Bind(static inner => inner));
             }
-        });
+        }).Run().Bind(static inner => inner);
 }
 ```
 

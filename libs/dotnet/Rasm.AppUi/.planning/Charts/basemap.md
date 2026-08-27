@@ -95,7 +95,7 @@ public sealed partial class WidgetRow {
 
     static WidgetRow Of<TWidget>(string key, Func<Map, TWidget> mint, Action<TWidget, ChartInk> retint)
         where TWidget : class, IWidget =>
-        new(key, typeof(TWidget), map => mint(map),
+        new(typeof(TWidget), map => mint(map),
             (widget, ink) => { if (widget is TWidget typed) { retint(typed, ink); } });
 
     internal static void Text(IWidget widget, ChartInk ink) {
@@ -140,7 +140,7 @@ public sealed partial class TilePolicy {
     const int ResidentCeiling = 300;
     static readonly Duration CacheLife = Duration.FromDays(14);
 
-    public static Fin<TilePolicy> Of(string product, Option<string> cacheDirectory, Op? key = null) =>
+    public static Fin<TilePolicy> Of(string product, Option<string> cacheDirectory) =>
         key.OrDefault().AcceptValidated<TilePolicy>(
             Validate(
                 $"{product} ({HttpClientTools.GetDefaultApplicationUserAgent()})",
@@ -241,7 +241,7 @@ public sealed partial class ChoroplethSpec {
     public double Ceiling { get; }
     public int Steps { get; }
 
-    public static Fin<ChoroplethSpec> Of(string column, double floor, double ceiling, int steps, Op? key = null) =>
+    public static Fin<ChoroplethSpec> Of(string column, double floor, double ceiling, int steps) =>
         (Named(column), Bound(floor, "floor"), Bound(ceiling, "ceiling"), Stops(steps))
             .Apply(static (name, low, high, count) => (Name: name, Low: low, High: high, Count: count))
             .As()
@@ -317,10 +317,10 @@ public abstract partial record MapNav {
             double.IsFinite(v.Degrees) ? Fin.Succ(unit) : Refused("rotate-to"), nav => nav.RotateTo(v.Degrees)));
 
     static Fin<Unit> Finite(string key, MPoint center) =>
-        double.IsFinite(center.X) && double.IsFinite(center.Y) ? Fin.Succ(unit) : Refused(key);
+        double.IsFinite(center.X) && double.IsFinite(center.Y) ? Fin.Succ(unit) : Refused();
 
     static Fin<Unit> Positive(string key, double resolution) =>
-        double.IsFinite(resolution) && resolution > 0d ? Fin.Succ(unit) : Refused(key);
+        double.IsFinite(resolution) && resolution > 0d ? Fin.Succ(unit) : Refused();
 
     static Fin<Unit> Refused(string key) =>
         Fin.Fail<Unit>(new ChartFault.VisualDegenerate($"navigate/{key}: argument is out of range"));
@@ -366,14 +366,14 @@ public sealed partial class BasemapSurface {
 
     static Fin<Map> Mount(Map map, BasemapLayerRow row) => row.Switch(
         state: map,
-        tile: static (m, t) => Op.Of(name: "appui.basemap.tile").Catch(() => Fin.Succ((ILayer)new TileLayer(
-                    t.Source.Source(t.Policy), minTiles: t.Policy.MinTiles, maxTiles: t.Policy.MaxTiles) { Name = t.Key }))
+        tile: static (m, t) => Try.lift(() => Fin.Succ((ILayer)new TileLayer(
+                    t.Source.Source(t.Policy), minTiles: t.Policy.MinTiles, maxTiles: t.Policy.MaxTiles) { Name = t.Key })).Run().Bind(static inner => inner)
             .Map(layer => { m.Layers.Add(layer); return m; }),
         features: static (m, f) => GeoOverlay.Layer(f).Map(layer => { m.Layers.Add(layer); return m; }),
         widget: static (m, w) => Widgeted(m, w.Row.Key, () => m.Widgets.Add(w.Row.Mint(m))));
 
     static Fin<Map> Widgeted(Map map, string key, Action mount) =>
-        Op.Of(name: "appui.basemap.widget").Catch(() => { mount(); return Fin.Succ(map); });
+        Try.lift(() => { mount(); return Fin.Succ(map); }).Run().Bind(static inner => inner);
 
     static Fin<Map> Background(Map map, ResolvedTheme theme) =>
         theme.Paint(PaintRole.Surface, rung: 0)
@@ -412,7 +412,7 @@ public sealed partial class BasemapSurface {
     public IO<Fin<Unit>> Navigate(MapNav verb) =>
         IO.lift<Fin<Unit>>(() => verb.Move switch {
             var move => move.Admitted
-                .Bind(_ => Op.Of(name: "appui.basemap.navigate").Catch(() => { move.Apply(Control.Map.Navigator); return Fin.Succ(unit); }))
+                .Bind(_ => Try.lift(() => { move.Apply(Control.Map.Navigator); return Fin.Succ(unit); }).Run().Bind(static inner => inner))
                 .Bind(_ => Instruments.Write(Navigated, 1d,
                     InstrumentSet.Tags((AppUiTelemetry.IntentSlot, verb.Move.Key)))),
         });
@@ -559,7 +559,7 @@ public sealed class GeoTileProvider(
 
     Fin<Seq<GeometryFeature>> Decoded(TileInfo tile, ReadOnlyMemory<byte> bytes) =>
         Rasm.Bim.GeoTiles
-            .Decode(bytes, tile.Index.Col, tile.Index.Row, tile.Index.Level, Op.Of(name: "basemap-mvt"))
+            .Decode(bytes, tile.Index.Col, tile.Index.Row, tile.Index.Level)
             .Map(rows => rows.Map((row, ordinal) => new GeoOverlayRow(
                 $"{tile.Index.Level}/{tile.Index.Col}/{tile.Index.Row}/{ordinal}", row.Feature, None, Some(row.Layer))))
             .Bind(static rows => rows.Traverse(GeoOverlay.Project).As());
@@ -578,12 +578,12 @@ public sealed class MercatorFilter(Func<double, double, (double X, double Y)> pr
     public MapFrame Target { get; } = target;
 
     public Fin<NetTopologySuite.Geometries.Geometry> Reproject(NetTopologySuite.Geometries.Geometry geometry) =>
-        Op.Of(name: "appui.basemap.reproject").Catch(() => {
+        Try.lift(() => {
             NetTopologySuite.Geometries.Geometry crossed = geometry.Copy();
             crossed.Apply(this);
             crossed.SRID = Target.Srid;
             return Fin.Succ(crossed);
-        });
+        }).Run().Bind(static inner => inner);
 
     static double Principal(double lon) => lon - (360d * Math.Floor((lon + 180d) / 360d));
 
@@ -600,12 +600,12 @@ public sealed class MercatorFilter(Func<double, double, (double X, double Y)> pr
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeoOverlay {
     public static Fin<ILayer> Layer(BasemapLayerRow.Features row) =>
-        Source(row.Source).Bind(source => Op.Of(name: "appui.basemap.feature-layer").Catch(() => Fin.Succ((ILayer)new Mapsui.Layers.Layer(row.Key) {
+        Source(row.Source).Bind(source => Try.lift(() => Fin.Succ((ILayer)new Mapsui.Layers.Layer(row.Key) {
                 DataSource = source,
                 Style = new ThemeStyle(row.Symbology.Select),
                 MinVisible = row.MinVisible,
                 MaxVisible = row.MaxVisible,
-            })));
+            })).Run().Bind(static inner => inner));
 
     static Fin<IProvider> Source(FeatureSource source) => source.Switch(
         resident: static row => row.Rows
@@ -701,7 +701,7 @@ public sealed partial class BasemapSurface {
     public IO<VisualArtifact> Snapshot(VisualRuntime runtime, string key) =>
         from bytes in IO.lift(() => Control.GetSnapshot(Control.Map.Layers, RenderFormat.Png, quality: 100))
         from artifact in VisualCodec.Decode(bytes).Bracket(
-            image => VisualCodec.Encode(runtime, image, VisualCodec.Png, Artifact, key),
+            image => VisualCodec.Encode(runtime, image, VisualCodec.Png, Artifact),
             static image => IO.lift(() => { image.Dispose(); return unit; }))
         select artifact;
 }
@@ -775,7 +775,7 @@ public sealed partial class RedlineStyle {
     public double Opacity { get; }
     public Seq<double> Dash { get; }
 
-    public static Fin<RedlineStyle> Of(RedlineStroke stroke, double opacity, Seq<double> dash, Op? key = null) =>
+    public static Fin<RedlineStyle> Of(RedlineStroke stroke, double opacity, Seq<double> dash) =>
         key.OrDefault().AcceptValidated<RedlineStyle>(
             Validate(
                 stroke.Ink,
@@ -979,7 +979,7 @@ public sealed class RedlineSurface(
     static IO<Fin<Option<RedlineCommit>>> Local() => IO.pure(Fin.Succ(Option<RedlineCommit>.None));
 
     Fin<RedlineSession> Opened(RedlineVerb verb) =>
-        Op.Of(name: "appui.redline.open").Catch(() => Fin.Succ(verb.Switch(
+        Try.lift(() => Fin.Succ(verb.Switch(
                 state: Manager,
                 beginMark: static (manager, begin) => RedlineSession.Open(manager, begin.Kind.Mode),
                 modify: static (manager, _) => RedlineSession.Open(manager, EditMode.Modify),
@@ -988,7 +988,7 @@ public sealed class RedlineSurface(
                     state: (Manager: manager, commit.TargetId),
                     session: static (s, _) => RedlineSession.Seal(s.Manager, s.TargetId),
                     stroke: static (s, _) => RedlineSession.Snapshot(s.Manager, s.TargetId)),
-                discard: static (manager, _) => RedlineSession.Empty with { Authored = RedlineSession.Close(manager) })));
+                discard: static (manager, _) => RedlineSession.Empty with { Authored = RedlineSession.Close(manager) }))).Run().Bind(static inner => inner);
 
     IO<Fin<Option<RedlineCommit>>> Durable(
         RedlineLane lane, MonotonicTimeline line, Func<Fin<EditIntent>> seal,
@@ -1046,11 +1046,11 @@ public sealed class RedlineSurface(
                     EvidenceOps.Wire)));
 
     public Fin<(Fin<Unit> Applied, GaugedSpan<RedlineLane> Span)> Replay(RevertibleOp op, MonotonicTimeline line) =>
-        line.Gauged(RedlineLane.Replay, Op.Of(name: nameof(Replay)), () => Applied(op));
+        line.Gauged(RedlineLane.Replay, Op.Of(name: nameof(Replay)), () => Applied());
 
     Fin<Unit> Applied(RevertibleOp op) =>
         op.Delta is RevertDelta.Set set
-            ? Op.Of(name: "appui.redline.replay").Catch(() => {
+            ? Try.lift(() => {
                 toSeq(Marks.GetFeatures())
                     .Choose(feature => feature is GeometryFeature geometry
                         && geometry[FeatureSlot.Id] is string id && StringComparer.Ordinal.Equals(id, op.Target)
@@ -1058,7 +1058,7 @@ public sealed class RedlineSurface(
                     .Iter(stale => ignore(Marks.TryRemove(stale)));
                 return Fin.Succ(Optional(JsonSerializer.Deserialize<RedlineDelta>(set.After, EvidenceOps.Wire))
                     .Bind(static delta => delta is RedlineDelta.Upsert upsert ? Some(upsert.Mark) : None));
-            })
+            }).Run().Bind(static inner => inner)
                 .Bind(mark => mark.Match(
                     Some: row => Drawn(row, op.Target).Map(feature => { Marks.Add(feature); return unit; }),
                     None: static () => Fin.Succ(unit)))

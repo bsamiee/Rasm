@@ -120,7 +120,7 @@ public sealed partial class ObjectCodec {
     public IO<ReadOnlySequence<byte>> Pack(ChunkPolicy policy, ReadOnlySequence<byte> plain) =>
         this == Identity
             ? IO.pure(plain)
-            : IO.lift(() => Op.Of().Catch(() => {
+            : IO.lift(() => Try.lift(() => {
                 CodecFrame frame = CodecFrame.Of(policy, plain.Length);
                 byte[] packed = new byte[frame.Directory + plain.Length];
                 BinaryPrimitives.WriteUInt64BigEndian(packed, (ulong)plain.Length);
@@ -138,12 +138,12 @@ public sealed partial class ObjectCodec {
                     at += wrote;
                 }
                 return Fin<ReadOnlySequence<byte>>.Succ(new ReadOnlySequence<byte>(packed.AsMemory(0, (int)at)));
-            }));
+            }).Run().Bind(static inner => inner));
 
     public IO<ReadOnlyMemory<byte>> Unpack(ChunkPolicy policy, long plain, ReadOnlyMemory<byte> directory, long ordinal, ReadOnlySequence<byte> run) =>
         this == Identity
             ? IO.pure(run.IsSingleSegment ? run.First : run.ToArray())
-            : IO.lift(() => Op.Of().Catch(() => {
+            : IO.lift(() => Try.lift(() => {
                 CodecFrame frame = CodecFrame.Of(policy, plain);
                 long last = ordinal, at = 0L;
                 for (; at < run.Length && last < frame.Count; last++) at += frame.Length(directory.Span, last);
@@ -157,7 +157,7 @@ public sealed partial class ObjectCodec {
                     (read, wrote) = (read + span, wrote + frame.Span(index));
                 }
                 return Fin<ReadOnlyMemory<byte>>.Succ(opened.AsMemory(0, (int)wrote));
-            }));
+            }).Run().Bind(static inner => inner));
 }
 
 [SmartEnum<string>]
@@ -242,7 +242,7 @@ public abstract partial record ObjectEncryption {
 
     public IO<(ReadOnlySequence<byte> Bytes, Option<WrappedKey> Dek)> SealSource(ContentAddress key, ChunkPolicy policy, ReadOnlySequence<byte> plain) =>
         this is ClientSealed sealed_
-            ? sealed_.Acquire(key).Map(minted => {
+            ? sealed_.Acquire().Map(minted => {
                 SealFrame frame = SealFrame.Of(policy);
                 byte[] framed = new byte[frame.Sealed(plain.Length)];
                 try {
@@ -268,7 +268,7 @@ public abstract partial record ObjectEncryption {
         (this, dek) switch {
             (ClientSealed, { IsNone: true }) => IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(content, "client-seal-envelope")),
             (ClientSealed, _) when framed.Length < SealFrame.Overhead => IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(content, "client-seal-frame")),
-            (ClientSealed sealed_, { IsSome: true, Case: WrappedKey key }) => sealed_.Keyring.Unwrap(key, sealed_.Aad).Map(opened => {
+            (ClientSealed sealed_, { IsSome: true, Case: WrappedKey key }) => sealed_.Keyring.Unwrap(sealed_.Aad).Map(opened => {
                 SealFrame frame = SealFrame.Of(policy);
                 byte[] run = framed.ToArray();
                 byte[] plain = new byte[frame.Plain(run.LongLength)];
@@ -300,21 +300,21 @@ public abstract partial record ObjectEncryption {
         Func<Option<(long Start, long End)>, IO<Stream>> fetch) =>
         (this, range) switch {
             (ClientSealed, { IsSome: true, Case: (long Start, long End) window }) =>
-                from present in stat(key)
-                from resident in IO.lift(present.ToFin(new RemoteStoreFault.NotFound(key)))
+                from present in stat()
+                from resident in IO.lift(present.ToFin(new RemoteStoreFault.NotFound()))
                 let frame = SealFrame.Of(policy)
                 let plainLength = frame.Plain(resident.Extent.Stored)
                 from bounded in window is { Start: >= 0 } && window.End >= window.Start && window.End < plainLength
                     ? IO.pure(frame.Window(window.Start, window.End))
-                    : IO.fail<FrameWindow>(new RemoteStoreFault.InvalidRange(key, window.Start, window.End, plainLength))
-                from dek in envelope(key)
+                    : IO.fail<FrameWindow>(new RemoteStoreFault.InvalidRange(window.Start, window.End, plainLength))
+                from dek in envelope()
                 from raw in fetch(Some((bounded.Start, long.Min(bounded.End, resident.Extent.Stored - 1))))
-                from opened in ObjectIo.Drain(raw, run => OpenSource(key, policy, bounded.Start / (frame.Stride + SealFrame.Overhead), run, dek))
+                from opened in ObjectIo.Drain(raw, run => OpenSource(policy, bounded.Start / (frame.Stride + SealFrame.Overhead), run, dek))
                 select opened.Slice(checked((int)bounded.Skip), checked((int)(window.End - window.Start + 1))).AsStream(),
             (ClientSealed, _) =>
-                from dek in envelope(key)
+                from dek in envelope()
                 from raw in fetch(None)
-                from plain in ObjectIo.Drain(raw, run => OpenSource(key, policy, 0L, run, dek))
+                from plain in ObjectIo.Drain(raw, run => OpenSource(policy, 0L, run, dek))
                 select plain.AsStream(),
             _ => fetch(range),
         };

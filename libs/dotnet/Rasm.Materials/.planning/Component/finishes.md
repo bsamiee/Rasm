@@ -198,18 +198,18 @@ public abstract partial record CoveringSpecification {
         sfrm:        static _ => false,
         intumescent: static _ => false);
 
-    public Validation<Error, Unit> Certified(Op key) => Switch(
+    public Validation<Error, Unit> Certified() => Switch(
         paint:       static _ => Success<Error, Unit>(unit),
         tile:        static _ => Success<Error, Unit>(unit),
         resilient:   static _ => Success<Error, Unit>(unit),
         carpet:      static _ => Success<Error, Unit>(unit),
         ceiling:     row => AdmissionSlots.Gate(
             row.Seismic.Match(Some: category => category.Admits(row.Grid), None: true),
-            new KernelFault.InvalidValue(nameof(row.Grid), "a grid admitted by the seismic category", Some(key))),
+            new KernelFault.InvalidValue(nameof(row.Grid), "a grid admitted by the seismic category")),
         stone:       static _ => Success<Error, Unit>(unit),
         sfrm:        row => AdmissionSlots.Gate(
             row.DensityKgM3.Match(Some: row.Density.Admits, None: true),
-            new KernelFault.InvalidValue(nameof(row.DensityKgM3), "a measurement inside its SFRM density class", Some(key))),
+            new KernelFault.InvalidValue(nameof(row.DensityKgM3), "a measurement inside its SFRM density class")),
         intumescent: static _ => Success<Error, Unit>(unit));
 }
 
@@ -239,7 +239,7 @@ public static class CoveringRows {
 }
 
 public static class CoveringDetail {
-    public static Fin<PropertyBag> Of(CoveringRow row, PositiveMagnitude thicknessMm, Op key) =>
+    public static Fin<PropertyBag> Of(CoveringRow row, PositiveMagnitude thicknessMm) =>
         from thickness in ComponentDetail.Measured(ThicknessRow(row.Kind.Family), Dimension.LengthDim, thicknessMm.Value * 1e-3)
         from length in row.ModuleMm.TraverseM(module =>
             ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, module.LengthMm * 1e-3)).As()
@@ -326,27 +326,27 @@ public static class Covering {
         substance: static row => row.Kind.Substance,
         source: static row => row.Source,
         standard: static row => row.Kind.Standard,
-        detail: Some<Func<CoveringRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        detail: Some<Func<CoveringRow, SectionProfile, Fin<PropertyBag>>>(Detail),
         appearance: static row => row.Kind.Substance,
         ifc: static row => row.Kind.Ifc);
 
-    static Validation<Error, Unit> Coherence(CoveringRow row, Op key) =>
+    static Validation<Error, Unit> Coherence(CoveringRow row) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(
                 row.Kind.Admits(row.Specification),
-                new KernelFault.InvalidValue(nameof(row.Specification), "a specification admitted by the covering kind", Some(key))),
+                new KernelFault.InvalidValue(nameof(row.Specification), "a specification admitted by the covering kind")),
             AdmissionSlots.Gate(
                 row.ModuleMm.IsSome == row.Specification.Laid,
-                new KernelFault.InvalidValue(nameof(row.ModuleMm), "present exactly for laid coverings", Some(key))),
-            row.Specification.Certified(key)));
+                new KernelFault.InvalidValue(nameof(row.ModuleMm), "present exactly for laid coverings")),
+            row.Specification.Certified()));
 
-    static Fin<SectionProfile> ProfileOf(CoveringRow row, Op key) =>
+    static Fin<SectionProfile> ProfileOf(CoveringRow row) =>
         row.ModuleMm.Match(
-            Some: module => SectionProfile.Rectangle.Of(widthMm: module.WidthMm, depthMm: row.ThicknessMm, key),
-            None: () => SectionProfile.Nominal.Of(row.ThicknessMm, key));
+            Some: module => SectionProfile.Rectangle.Of(widthMm: module.WidthMm, depthMm: row.ThicknessMm),
+            None: () => SectionProfile.Nominal.Of(row.ThicknessMm));
 
-    static Fin<PropertyBag> Detail(CoveringRow row, SectionProfile profile, Op key) =>
-        CoveringDetail.Of(row, profile.GrossRectangleMm.DepthMm, key);
+    static Fin<PropertyBag> Detail(CoveringRow row, SectionProfile profile) =>
+        CoveringDetail.Of(row, profile.GrossRectangleMm.DepthMm);
 }
 
 // --- [POLICIES] ------------------------------------------------------------------------
@@ -354,8 +354,8 @@ public static class FinishSeed {
     public static readonly Seq<CoveringRow> Roster = Covering.RosterFor(ComponentFamily.Finish);
     public static readonly SeedLaw<CoveringRow> Law = Covering.LawFor(ComponentFamily.Finish);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 
@@ -410,8 +410,8 @@ public static class FireproofingSeed {
     public static readonly Seq<CoveringRow> Roster = Covering.RosterFor(ComponentFamily.Fireproofing);
     public static readonly SeedLaw<CoveringRow> Law = Covering.LawFor(ComponentFamily.Fireproofing);
 
-    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        new ComponentFault.CapacityUnavailable(key, component.Designation);
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement) =>
+        new ComponentFault.CapacityUnavailable(component.Designation);
 }
 ```
 

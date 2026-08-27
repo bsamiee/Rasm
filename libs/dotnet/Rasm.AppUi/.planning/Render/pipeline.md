@@ -431,8 +431,6 @@ public sealed class RenderGraph {
     private long ordinal;
     private readonly Atom<ResolveState> resolve = Atom(new ResolveState(0L, (0d, 0d), None, 1.0, None, None, false));
 
-    private static readonly Op ScheduleOp = Op.Of(name: "appui.render.schedule");
-    private static readonly Op PassOp = Op.Of(name: "appui.render.pass");
 
     public static Fin<RenderGraph> Of(
         Seq<RenderPass> passes, Atom<MeshletCluster> cluster, GpuBinding binding, GpuBinding.Raster fallback,
@@ -454,11 +452,11 @@ public sealed class RenderGraph {
 
     private static Fin<Seq<RenderPass>> Ordered(Seq<RenderPass> roster) =>
         roster.ToHashMap(static pass => pass.Key, static pass => pass) switch {
-            var byKey => ScheduleOp.Catch(() => Fin.Succ(toSeq(
+            var byKey => Try.lift(() => Fin.Succ(toSeq(
                     GraphExtensions.ToAdjacencyGraph<string, SEdge<string>>(
                         roster.Map(static pass => pass.Key),
                         key => Downstream(byKey[key], roster))
-                    .TopologicalSort())))
+                    .TopologicalSort()))).Run().Bind(static inner => inner)
                 .Map(order => order.Choose(byKey.Find)),
         };
 
@@ -560,10 +558,10 @@ public sealed class RenderGraph {
         public static readonly PassFold Empty = new(
             Seq<(string, Duration)>(), Seq<string>(), Duration.Zero, 0L, 0L, 0L, CullResult.Empty);
 
-        public PassFold Deferring(string key) => this with { Deferred = Deferred.Add(key) };
+        public PassFold Deferring(string key) => this with { Deferred = Deferred.Add() };
 
         public PassFold Ran(string key, Duration elapsed, PassAnswer answer) => this with {
-            Passes = Passes.Add((key, elapsed)),
+            Passes = Passes.Add((elapsed)),
             Elapsed = Elapsed + elapsed,
             Triangles = Triangles + answer.Triangles,
             Points = Points + answer.Points,
@@ -579,9 +577,9 @@ public sealed class RenderGraph {
             var charge when fold.Elapsed >= budget.Frame || fold.Triangles + charge.Estimate > budget.MaxTriangles =>
                 Fin.Succ(fold.Deferring(pass.Key)),
             var charge =>
-                from start in line.Capture(PassOp)
+                from start in Error.New(PassOp.Message, PassOp)
                 from answer in Guarded(pass, () => Run(pass, target, view, resolvePass, state, fold.Cut, charge.Cut))
-                from end in line.Capture(PassOp)
+                from end in Error.New(PassOp.Message, PassOp)
                 from elapsed in line.Elapsed(start, end, PassOp)
                 select fold.Ran(pass.Key, Duration.FromTimeSpan(elapsed), answer),
         };
@@ -869,17 +867,16 @@ public static class ResidencyMap {
     }
 
     public static Fin<Viewpoint> ParseView(string json) {
-        Op key = Op.Of(name: "appui.viewpoint.decode");
-        return key.Catch(() => View(WireJson.Parser.Parse<Host.ViewpointWire>(json), key));
+        return Try.lift(() => View(WireJson.Parser.Parse<Host.ViewpointWire>(json))).Run().Bind(static inner => inner);
     }
 
-    private static Fin<Viewpoint> View(Host.ViewpointWire wire, Op key) {
+    private static Fin<Viewpoint> View(Host.ViewpointWire wire) {
         return
             from camera in Camera(wire.Camera)
-            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row, key)).As()
+            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row)).As()
             from at in Optional(wire.At)
                 .ToFin(new ViewportFault.ContextUnavailable("viewpoint/decode: timestamp is absent"))
-                .Bind(value => key.Catch(() => Fin.Succ(value.ToInstant())))
+                .Bind(value => Try.lift(() => Fin.Succ(value.ToInstant())).Run().Bind(static inner => inner))
             from view in Viewpoint.Capture(
                 wire.Key,
                 checked((int)wire.Version),
@@ -971,8 +968,8 @@ public static class ResidencyMap {
         return wire;
     }
 
-    private static Fin<ViewMeasurement> Measurement(Host.ViewMeasurementWire wire, Op key) =>
-        toSeq(wire.Vertices).TraverseM(point => Point(point, key)).As().Map(vertices => new ViewMeasurement(
+    private static Fin<ViewMeasurement> Measurement(Host.ViewMeasurementWire wire) =>
+        toSeq(wire.Vertices).TraverseM(point => Point(point)).As().Map(vertices => new ViewMeasurement(
             wire.Key,
             vertices,
             UnitsNet.Length.FromMeters(wire.TotalMeters),
@@ -985,8 +982,8 @@ public static class ResidencyMap {
             Position = Point(point.Position),
         };
 
-    private static Fin<ViewMeasurementPoint> Point(Host.ViewMeasurementPointWire point, Op key) =>
-        ContentHash.Admit(point.SourceKey.Span, key).Map(source => new ViewMeasurementPoint(
+    private static Fin<ViewMeasurementPoint> Point(Host.ViewMeasurementPointWire point) =>
+        ContentHash.Admit(point.SourceKey.Span).Map(source => new ViewMeasurementPoint(
             source,
             checked((int)point.SampleIndex),
             Point(point.Position)));

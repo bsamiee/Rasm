@@ -24,7 +24,7 @@
 - Owner: `PluginFault` is this boundary's plug-in admission family on `FaultBand.HostPlugin 4960/5` — the folder ruling seats ONE fault family per band row at the band's owner page, and `census#ADMISSION`, `document#CROSSING`, and `licensing#PIPELINE` all code on it. `Unreachable` is the only case overriding `Retriability`, because the Zoo and CloudZoo arms are the only network-backed host calls in the domain and a terminal classification there would refuse a retry the caller is entitled to.
 - Law: `CommandRegistrar` is window-scoped — the adapter mints it for the `CreateCommands` call and closes it on return, because `RegisterCommand` is meaningless once the host has finished command creation; the seat state is a closed `RegistrarState` stepped through `Cell.Step`, so a closed registrar refuses typed instead of consulting a boolean latch.
 - Boundary: `RegisterCommand(Command)` stays behind the registrar, so a consumer hands a `RasmCommand<TSelf,TState>` leaf and never a bare host delegate.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/results` (`Op`, `Op.Side`, `Op.Text`, `Lease<T>`, `Cell`, `Transition`, `FaultBand`, `Retriability`, `ValidityClaim`, `Custody`), `Domain/hooks` (`Ring<T>`), `Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Parametric/projections` (`MonotonicTimeline`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:53` — `LoadReturnCode`; `:81` — `OnLoad`/`OnShutdown`/`ResetMessageBoxes`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/results` (`Op`, `HostEdge.Side`, `HostEdge.Text`, `Lease<T>`, `Cell`, `Transition`, `FaultBand`, `Retriability`, `ValidityClaim`, `Custody`), `Domain/hooks` (`Ring<T>`), `Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Parametric/projections` (`MonotonicTimeline`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:53` — `LoadReturnCode`; `:81` — `OnLoad`/`OnShutdown`/`ResetMessageBoxes`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -85,13 +85,13 @@ public abstract partial record PluginFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostPlugin;
     private PluginFault() { }
 
-    [FaultCase(0)] public sealed partial record Unbound(Op Key, string Member) : PluginFault;
-    [FaultCase(1)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : PluginFault;
-    [FaultCase(2)] public sealed partial record Unreachable(Op Key, string Member) : PluginFault {
+    [FaultCase(0)] public sealed partial record Unbound(string Member) : PluginFault;
+    [FaultCase(1)] public sealed partial record HostRefused(string Member, string Detail) : PluginFault;
+    [FaultCase(2)] public sealed partial record Unreachable(string Member) : PluginFault {
         public override Retriability Retriability => Retriability.Transient;
     }
-    [FaultCase(3)] public sealed partial record Dismissed(Op Key, string Member) : PluginFault;
-    [FaultCase(4)] public sealed partial record SeatTaken(Op Key, string Seat) : PluginFault;
+    [FaultCase(3)] public sealed partial record Dismissed(string Member) : PluginFault;
+    [FaultCase(4)] public sealed partial record SeatTaken(string Seat) : PluginFault;
 
     public sealed override string Message => Switch(
         unbound: static fault => $"Plugin member '{fault.Member}' is unbound for '{fault.Key}'.",
@@ -105,20 +105,18 @@ public abstract partial record PluginFault : Fault {
 public sealed class CommandRegistrar {
     private readonly Atom<RegistrarState> state = Atom<RegistrarState>(new RegistrarState.Open());
     private readonly Func<Command, bool> seat;
-    private readonly Op op;
 
-    internal CommandRegistrar(Func<Command, bool> seat, Op op) {
+    internal CommandRegistrar(Func<Command, bool> seat) {
         this.seat = seat;
         this.op = op;
     }
 
     public Fin<Unit> Add(Command command) =>
-        from _ in guard(state.Value is RegistrarState.Open, op.InvalidContext()).ToFin()
-        from row in op.Need(command)
-        from seated in op.Catch(() => seat(arg: row)
+        from _ in guard(state.Value is RegistrarState.Open, new KernelFault.InvalidContext()).ToFin()
+        from row in Admit.Need(command)
+        from seated in Try.lift(() => seat(arg: row)
             ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: new PluginFault.HostRefused(
-                Key: op, Member: nameof(PlugIn.RegisterCommand), Detail: row.EnglishName)))
+            : Fin.Fail<Unit>(error: new PluginFault.HostRefused(Member: nameof(PlugIn.RegisterCommand), Detail: row.EnglishName))).Run().Bind(static inner => inner)
         select seated;
 
     internal Transition<RegistrarState> Close() => Cell.Step(
@@ -143,15 +141,15 @@ public sealed class CommandRegistrar {
 // --- [SERVICES] ------------------------------------------------------------------------
 internal interface IPluginCapability {
     Type Contract { get; }
-    Fin<object> Publish(Op key);
+    Fin<object> Publish();
 }
 
-public sealed record PluginCapability<TContract>(Func<Op, Fin<TContract>> Publish) : IPluginCapability
+public sealed record PluginCapability<TContract>(Func< Fin<TContract>> Publish) : IPluginCapability
     where TContract : class {
     Type IPluginCapability.Contract => typeof(TContract);
 
-    Fin<object> IPluginCapability.Publish(Op key) =>
-        key.Catch(() => Publish(arg: key)).Map(static published => (object)published);
+    Fin<object> IPluginCapability.Publish() =>
+        Try.lift(() => Publish(arg: key)).Run().Bind(static inner => inner).Map(static published => (object)published);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -178,7 +176,7 @@ public sealed partial class PluginBoot {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(PluginBoot), "complete prerequisite, settings, and mount rosters beside a time provider" }));
 
     public static Fin<PluginBoot> Of(
-        Seq<PluginAct> prerequisites, Seq<SettingKey> settings, Seq<ShellMount> mounts, TimeProvider clock, Op? key = null) =>
+        Seq<PluginAct> prerequisites, Seq<SettingKey> settings, Seq<ShellMount> mounts, TimeProvider clock) =>
         key.OrDefault().AcceptValidated<PluginBoot>(
             fault: Validate(prerequisites, settings, mounts, clock, out PluginBoot? admitted),
             admitted: admitted);
@@ -272,8 +270,7 @@ public abstract partial class RasmPlugIn : PlugIn {
         Lost: refusals.Lost);
 
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
-        Op op = Op.Of(name: nameof(OnLoad));
-        LoadEvidence evidence = Held(op).Bind(program => Boot(program: program, op: op)).Match(
+        LoadEvidence evidence = Held().Bind(program => Boot(program: program, op: op)).Match(
             Succ: static _ => new LoadEvidence(Verdict: LoadVerdict.Loaded, Message: string.Empty, Fault: None),
             Fail: error => new LoadEvidence(
                 Verdict: Optional(Program).Map(static program => program.Refusal).IfNone(LoadVerdict.RefusedLoudly),
@@ -284,21 +281,19 @@ public abstract partial class RasmPlugIn : PlugIn {
         return evidence.Verdict.Key;
     }
 
-    private Fin<PluginRoot> Boot(PluginProgram program, Op op) => Record(outcome:
+    private Fin<PluginRoot> Boot(PluginProgram program) => Record(outcome:
         from identity in PackageIdentity<PluginKey, HostSnapshot>.Resolve(
             pluginRoot: GetType().Assembly,
             plugin: program.Key,
-            host: Some<Func<Op, Fin<Option<HostSnapshot>>>>(key => HostFacts.Process(key: key).Map(Some)),
-            key: op)
-        from timeline in MonotonicTimeline.Of(provider: program.Boot.Clock, key: op)
+            host: Some<Func< Fin<Option<HostSnapshot>>>>(key => HostFacts.Process().Map(Some)))
+        from timeline in MonotonicTimeline.Of(provider: program.Boot.Clock)
         from registry in program.Boot.Prerequisites
-            .Traverse(act => PluginRegistry.Commit(act: act, key: op))
+            .Traverse(act => PluginRegistry.Commit(act: act))
             .As()
         from seated in PluginSettings.Commit(
             bridge: new SettingsBridge.Root(
-                Plugin: program.Key, Load: SettingsLoad.Deferred, Children: program.Boot.Settings),
-            key: op)
-        from settings in seated.Path(key: op)
+                Plugin: program.Key, Load: SettingsLoad.Deferred, Children: program.Boot.Settings))
+        from settings in seated.Path()
         from capsule in ShellCapsule.Open(
             identity: identity, timeline: timeline, mounts: program.Boot.Mounts.ToArray())
         let resolved = new PluginRoot(
@@ -308,12 +303,11 @@ public abstract partial class RasmPlugIn : PlugIn {
             Capsule: capsule,
             Settings: settings,
             Registry: registry.Strict())
-        from _ in op.Confirm(success: Cell.Seat(cell: root, mint: () => resolved) is Transition<Option<PluginRoot>>.Committed)
-        from __ in Route(phase: new PluginPhase.Loading(Root: resolved), op: op)
+        from _ in Admit.Confirm(success: Cell.Seat(cell: root, mint: () => resolved) is Transition<Option<PluginRoot>>.Committed)
+        from __ in Route(phase: new PluginPhase.Loading(Root: resolved))
         select resolved);
 
     protected sealed override void CreateCommands() {
-        Op op = Op.Of(name: nameof(CreateCommands));
         base.CreateCommands();
         CommandRegistrar registrar = new(seat: RegisterCommand, op: op);
         ignore(Route(phase: new PluginPhase.CommandsCreating(Registrar: registrar), op: op));
@@ -321,48 +315,42 @@ public abstract partial class RasmPlugIn : PlugIn {
     }
 
     protected sealed override void OnShutdown() {
-        Op op = Op.Of(name: nameof(OnShutdown));
         base.OnShutdown();
         ignore(Route(phase: new PluginPhase.ShuttingDown(), op: op));
-        ignore(Release(op: op));
+        ignore(Release());
     }
 
     protected sealed override void ResetMessageBoxes() {
-        Op op = Op.Of(name: nameof(ResetMessageBoxes));
         base.ResetMessageBoxes();
         ignore(Route(phase: new PluginPhase.MessageBoxReset(), op: op));
     }
 
     public sealed override bool DisplayHelp(nint windowHandle) {
-        Op op = Op.Of(name: nameof(DisplayHelp));
         bool handled = base.DisplayHelp(windowHandle: windowHandle);
         return handled || Route(phase: new PluginPhase.HelpAsked(Window: windowHandle), op: op).IsSucc;
     }
 
     public sealed override object GetPlugInObject() {
-        Op op = Op.Of(name: nameof(GetPlugInObject));
         object fallback = base.GetPlugInObject();
         return Record(outcome:
-            from program in Held(op)
+            from program in Held()
             from capability in program.Capability.ToFin(Fail: new PluginFault.Unbound(Key: op, Member: nameof(GetPlugInObject)))
-            from published in capability.Publish(key: op)
+            from published in capability.Publish()
             select published)
             .Match(Succ: static value => value, Fail: _ => fallback);
     }
 
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
-        Op op = Op.Of(name: nameof(OptionsDialogPages));
         base.OptionsDialogPages(pages: pages);
-        ignore(op.Need(pages).Bind(seat => Route(
+        ignore(Admit.Need(pages).Bind(seat => Route(
             phase: new PluginPhase.OptionsPages(
                 Basket: new PageBasket.Stacked(Pages: seat, Seat: PageSeat.Options)), op: op)));
     }
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
-        Op op = Op.Of(name: nameof(DocumentPropertiesDialogPages));
         base.DocumentPropertiesDialogPages(doc: doc, pages: pages);
         ignore(
-            from seat in op.Need(pages)
+            from seat in Admit.Need(pages)
             from document in DocKey.Of(document: doc, key: op)
             from answer in Route(
                 phase: new PluginPhase.DocumentPages(
@@ -372,14 +360,12 @@ public abstract partial class RasmPlugIn : PlugIn {
     }
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
-        Op op = Op.Of(name: nameof(ObjectPropertiesPages));
         base.ObjectPropertiesPages(collection: collection);
-        ignore(op.Need(collection).Bind(seat => Route(
+        ignore(Admit.Need(collection).Bind(seat => Route(
             phase: new PluginPhase.ObjectPages(Basket: new PageBasket.Properties(Pages: seat)), op: op)));
     }
 
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) {
-        Op op = Op.Of(name: nameof(ShouldCallWriteDocument));
         bool declared = base.ShouldCallWriteDocument(options: options);
         return declared || Cross(
             ask: program => new ParticipationAsk.Declared(Participant: program.Archive, Options: options),
@@ -389,7 +375,6 @@ public abstract partial class RasmPlugIn : PlugIn {
     }
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
-        Op op = Op.Of(name: nameof(WriteDocument));
         base.WriteDocument(doc: doc, archive: archive, options: options);
         ignore(Cross(
             ask: program => new ParticipationAsk.WriteCase(
@@ -398,7 +383,6 @@ public abstract partial class RasmPlugIn : PlugIn {
     }
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
-        Op op = Op.Of(name: nameof(ReadDocument));
         base.ReadDocument(doc: doc, archive: archive, options: options);
         ignore(Cross(
             ask: program => new ParticipationAsk.ReadCase(
@@ -406,12 +390,12 @@ public abstract partial class RasmPlugIn : PlugIn {
             op: op));
     }
 
-    private Fin<PluginProgram> Held(Op op) =>
-        Optional(Program).ToFin(Fail: new PluginFault.Unbound(Key: op, Member: nameof(Program)));
+    private Fin<PluginProgram> Held() =>
+        Optional(Program).ToFin(Fail: new PluginFault.Unbound(Member: nameof(Program)));
 
-    private Fin<PhaseAnswer> Route(PluginPhase phase, Op op) => Record(outcome:
-        from program in Held(op)
-        from answer in op.Catch(() => program.Phase(arg: phase))
+    private Fin<PhaseAnswer> Route(PluginPhase phase) => Record(outcome:
+        from program in Held()
+        from answer in Try.lift(() => program.Phase(arg: phase)).Run().Bind(static inner => inner)
         from _ in Retain(answer: answer)
         select answer);
 
@@ -420,25 +404,24 @@ public abstract partial class RasmPlugIn : PlugIn {
         observed: static (_, _) => Fin.Succ(value: unit),
         mounted: static (cell, row) => Fin.Succ(value: ignore(cell.Swap(held => held.Add(value: row.Outcome)))));
 
-    private Fin<ParticipationAnswer> Cross(Func<PluginProgram, ParticipationAsk> ask, Op op) => Record(outcome:
-        from program in Held(op)
-        from answer in Participation.Cross(ask: ask(arg: program), key: op)
+    private Fin<ParticipationAnswer> Cross(Func<PluginProgram, ParticipationAsk> ask) => Record(outcome:
+        from program in Held()
+        from answer in Participation.Cross(ask: ask(arg: program))
         select answer);
 
-    private Fin<Unit> Release(Op op) => Record(outcome:
+    private Fin<Unit> Release() => Record(outcome:
         from held in Cell.Take(cell: mounts).Switch(
             state: op,
             committed: static (_, row) => Fin.Succ(value: row.State),
             ceded: static (_, row) => Fin.Succ(value: row.State),
             refused: static (_, row) => Fin.Fail<Seq<MountedPages>>(error: row.Cause),
-            contended: static (key, _) => Fin.Fail<Seq<MountedPages>>(
-                error: new PluginFault.HostRefused(Key: key, Member: nameof(Release), Detail: nameof(Cell.Take))))
+            contended: static (_) => Fin.Fail<Seq<MountedPages>>(
+                error: new PluginFault.HostRefused(Member: nameof(Release), Detail: nameof(Cell.Take))))
         from settled in Custody.Release(
             releases: held.Rev()
-                .Map(mounted => (Func<Fin<Unit>>)(() => op.Catch(() => mounted.Release(key: op))))
+                .Map(mounted => (Func<Fin<Unit>>)(() => Try.lift(() => mounted.Release()).Run().Bind(static inner => inner)))
                 + root.Value.Map(row => (Func<Fin<Unit>>)(() =>
-                    row.Capsule.Use(static _ => Fin.Succ(value: unit), op))).ToSeq(),
-            key: op)
+                    row.Capsule.Use(static _ => Fin.Succ(value: unit)))).ToSeq())
         select settled);
 
     private Fin<T> Record<T>(Fin<T> outcome) => outcome.MapFail(error => {

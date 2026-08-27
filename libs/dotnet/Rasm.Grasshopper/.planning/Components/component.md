@@ -94,9 +94,9 @@ public sealed record ProcessScope {
             ? GardenData.Write(Access, pin, payload, retention, Operation)
                 .Bind(_ => Cell.Commit(Emitted, held => held.Add(Spec.Outputs[pin])).Switch(
                     committed: static _ => Fin.Succ(unit),
-                    ceded: _ => Fin.Fail<Unit>(Operation.InvalidResult(nameof(Write))),
+                    ceded: _ => Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some(nameof(Write)))),
                     refused: static row => Fin.Fail<Unit>(row.Cause),
-                    contended: _ => Fin.Fail<Unit>(Operation.InvalidResult(nameof(Write)))))
+                    contended: _ => Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some(nameof(Write))))))
             : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Component, new GhEvidence(Operation, $"output:{pin}")));
 
     public Unit Notify(Notice notice) => notice.Report(Access);
@@ -148,12 +148,12 @@ public sealed record BakePolicy(
     public Grasshopper2.Bake.BakeContext Context(
         string process, Guid id, Rhino.RhinoDoc document, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
         new(name: process, id: id, document: document,
-            attributes: Op.ToHostSlot(attributes)!, user: Defaults, meta: Overrides);
+            attributes: HostEdge.Slot(attributes)!, user: Defaults, meta: Overrides);
 
     public Grasshopper2.Bake.BakeContext Context(
         string process, Guid id, Rhino.FileIO.File3dm file, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
         new(name: process, id: id, file: file,
-            attributes: Op.ToHostSlot(attributes)!, user: Defaults, meta: Overrides);
+            attributes: HostEdge.Slot(attributes)!, user: Defaults, meta: Overrides);
 }
 
 public sealed record Lifecycle(
@@ -192,34 +192,33 @@ public sealed record ComponentSpec {
     public Option<ComponentChrome> Chrome { get; init; } = default;
 
     public Validation<Error, ComponentSpec> Admit() {
-        Op op = Op.Of();
         return (
-            Inputs.Traverse(plan => Sided(plan, PinSide.Input, op)).As(),
-            Outputs.Traverse(output => Sided(output.Plan, PinSide.Output, op)).As(),
-            Topology(op),
-            Iteration(op),
+            Inputs.Traverse(plan => Sided(plan, PinSide.Input)).As(),
+            Outputs.Traverse(output => Sided(output.Plan, PinSide.Output)).As(),
+            Topology(),
+            Iteration(),
             Guid.TryParse(IoId, out _)
                 ? Success<Error, Unit>(unit)
-                : Fail<Error, Unit>(new GhFault.Registration(op, nameof(IoId))))
+                : Fail<Error, Unit>(new GhFault.Registration(nameof(IoId))))
             .Apply((_, _, _, _, _) => this)
             .As();
     }
 
-    private Validation<Error, Unit> Topology(Op key) => Execution.Declared.Match(
+    private Validation<Error, Unit> Topology() => Execution.Declared.Match(
         Some: depth => Inputs.ForAll(plan => plan.Access == depth && plan.Presence == PinPresence.MustExist)
             && Outputs.ForAll(output => output.Plan.Access == depth)
                 ? Success<Error, Unit>(unit)
-                : Fail<Error, Unit>(new GhFault.ContractRefused(GhContract.Component, new GhEvidence(key, $"{nameof(Execution)}:{depth}"))),
+                : Fail<Error, Unit>(new GhFault.ContractRefused(GhContract.Component, new GhEvidence($"{nameof(Execution)}:{depth}"))),
         None: static () => Success<Error, Unit>(unit));
 
-    private Validation<Error, Unit> Iteration(Op key) => Iterations.Switch(
+    private Validation<Error, Unit> Iteration() => Iterations.Switch(
         host: static _ => Success<Error, Unit>(unit),
         custom: _ => Threading.IsNone
             ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new GhFault.ContractRefused(GhContract.Component, new GhEvidence(key, nameof(Threading)))));
+            : Fail<Error, Unit>(new GhFault.ContractRefused(GhContract.Component, new GhEvidence(nameof(Threading)))));
 
-    private static Validation<Error, PinPlan> Sided(PinPlan plan, PinSide side, Op key) =>
-        plan.Kind.Accepts(plan: plan, side: side, key: key).Map(_ => plan).ToValidation();
+    private static Validation<Error, PinPlan> Sided(PinPlan plan, PinSide side) =>
+        plan.Kind.Accepts(plan: plan, side: side).Map(_ => plan).ToValidation();
 }
 ```
 
@@ -270,51 +269,50 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 
     public override bool BakeCapable => spec.Bakeable.IsSome;
 
-    public Fin<string[]> Emit(Grasshopper2.Bake.BakeContext context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from row in spec.Bakeable.ToFin(op.Unsupported(inputType: GetType(), outputType: typeof(string[])))
-               from shapes in op.Catch(body: () => Fin.Succ(BakeShapes(context: context, mode: row.Update)))
+    public Fin<string[]> Emit(Grasshopper2.Bake.BakeContext context) {
+        return from row in spec.Bakeable.ToFin(new KernelFault.Unsupported(InputType: GetType(), OutputType: typeof(string[])))
+               from shapes in Try.lift(() => Fin.Succ(BakeShapes(context: context, mode: row.Update))).Run().Bind(static inner => inner)
                select shapes;
     }
 
     protected override Grasshopper2.UI.Icon.IIcon IconInternal => spec.Icon.IfNone(base.IconInternal);
 
     protected override void AddInputs(ModularInputAdder inputs) =>
-        ignore(Ports.Declare(inputs, spec.Inputs, Op.Of()).IfFail(Panic<Seq<IParameter>>));
+        ignore(Ports.Declare(inputs, spec.Inputs).IfFail(Panic<Seq<IParameter>>));
 
     protected override void AddOutputs(ModularOutputAdder outputs) =>
-        ignore(Ports.Declare(outputs, spec.Outputs.Map(static output => output.Plan).Strict(), Op.Of())
+        ignore(Ports.Declare(outputs, spec.Outputs.Map(static output => output.Plan).Strict())
             .IfFail(Panic<Seq<IParameter>>));
 
     protected override void Process(IDataAccess access) =>
-        ignore(Scope(access, access.Solution.Token, Op.Of()).Match(
+        ignore(Scope(access, access.Solution.Token).Match(
             Succ: scope => Complete(scope, spec.Execution.Run(scope), Some(access)),
             Fail: fault => Capture(fault, Some(access))));
 
     protected override void Process(IDataAccess[] iterations, CancellationToken token) =>
         ignore(spec.Iterations.Switch(
-            state: (Self: this, Iterations: iterations, Token: token, Key: Op.Of()),
+            state: (Self: this, Iterations: iterations, Token: token),
             host: static (state, _) => state.Self.HostIterations(state.Iterations, state.Token, state.Key),
             custom: static (state, policy) => state.Self.CustomIterations(state.Iterations, state.Token, policy, state.Key)));
 
     protected override void BeforeProcess(Grasshopper2.Doc.Solution solution) =>
-        ignore(Track(Stage(spec.Lifecycle.Before, solution, Op.Of())));
+        ignore(Track(Stage(spec.Lifecycle.Before, solution)));
 
     protected override void PreProcess(Grasshopper2.Doc.Solution solution) =>
-        ignore(Track(Stage(spec.Lifecycle.Pre, solution, Op.Of())));
+        ignore(Track(Stage(spec.Lifecycle.Pre, solution)));
 
     protected override void PostProcess(Grasshopper2.Doc.Solution solution, Grasshopper2.Doc.FleetingCustomData data) =>
-        ignore(Track(Stage(spec.Lifecycle.Post, solution, data, Op.Of())));
+        ignore(Track(Stage(spec.Lifecycle.Post, solution, data)));
 
     protected override ITree PostProcessTree(ITree tree, int output, Grasshopper2.Doc.Solution solution) =>
         spec.Lifecycle.PostTree.Match(
-            Some: stage => Track(Op.Of().Catch(() => stage(tree, output, solution)), tree),
+            Some: stage => Track(Try.lift(() => stage(tree, output, solution)).Run().Bind(static inner => inner), tree),
             None: () => tree);
 
     public override void AppendToInputPanel(Grasshopper2.UI.InputPanel.InputPanel panel) =>
-        ignore(Track(Op.Of().Catch(() => base.AppendToInputPanel(panel))
+        ignore(Track(Try.lift(() => base.AppendToInputPanel(panel)).Run().Bind(static inner => inner)
             .Bind(_ => spec.Panel
-                .TraverseM(append => Op.Of().Catch(() => append(panel)))
+                .TraverseM(append => Try.lift(() => append(panel)).Run().Bind(static inner => inner))
                 .As()
                 .Map(static _ => unit))));
 
@@ -325,10 +323,10 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 
     public override void VariableParameterMaintenance() =>
         ignore(state == MountState.Mounted
-            ? Track(Maintained(Op.Of()))
-            : Maintained(Op.Of()).IfFail(Panic<Unit>));
+            ? Track(Maintained())
+            : Maintained().IfFail(Panic<Unit>));
 
-    public Fin<Unit> Flex(PinSide side, int index, PinVisibility visibility, Grasshopper2.Undo.ActionList undo, Op? key = null) {
+    public Fin<Unit> Flex(PinSide side, int index, PinVisibility visibility, Grasshopper2.Undo.ActionList undo) {
         ModularList list = side.Switch(state: this, input: static self => self.ModularInputs, output: static self => self.ModularOutputs);
         return key.OrDefault().Catch(() => visibility.Switch(
             state: (List: list, Index: index, Undo: undo),
@@ -336,8 +334,8 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             hidden: static s => s.List.Hide(s.Index, s.Undo)));
     }
 
-    private Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel, Op key) =>
-        HostUnits.Of(access, key).Map(units => new ProcessScope {
+    private Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel) =>
+        HostUnits.Of(access).Map(units => new ProcessScope {
             Access = access,
             Spec = spec,
             Units = units,
@@ -345,45 +343,42 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             Operation = key,
         });
 
-    private Fin<Seq<ProcessScope>> Scopes(IDataAccess[] iterations, CancellationToken cancel, Op key) =>
-        toSeq(iterations).TraverseM(access => Scope(access, cancel, key)).As();
+    private Fin<Seq<ProcessScope>> Scopes(IDataAccess[] iterations, CancellationToken cancel) =>
+        toSeq(iterations).TraverseM(access => Scope(access, cancel)).As();
 
     private static Fin<Unit> Stage(
         Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> stage,
-        Grasshopper2.Doc.Solution solution,
-        Op key) => stage
-            .TraverseM(action => key.Catch(() => action(solution)))
+        Grasshopper2.Doc.Solution solution) => stage
+            .TraverseM(action => Try.lift(() => action(solution)).Run().Bind(static inner => inner))
             .As()
             .Map(static _ => unit);
 
     private static Fin<Unit> Stage(
         Option<Func<Grasshopper2.Doc.Solution, Grasshopper2.Doc.FleetingCustomData, Fin<Unit>>> stage,
         Grasshopper2.Doc.Solution solution,
-        Grasshopper2.Doc.FleetingCustomData data,
-        Op key) => stage
-            .TraverseM(action => key.Catch(() => action(solution, data)))
+        Grasshopper2.Doc.FleetingCustomData data) => stage
+            .TraverseM(action => Try.lift(() => action(solution, data)).Run().Bind(static inner => inner))
             .As()
             .Map(static _ => unit);
 
-    private Fin<Unit> Maintained(Op key) => spec.Maintain
-        .TraverseM(maintain => key.Catch(() => maintain(Parameters)))
+    private Fin<Unit> Maintained() => spec.Maintain
+        .TraverseM(maintain => Try.lift(() => maintain(Parameters)).Run().Bind(static inner => inner))
         .As()
         .Map(static _ => unit)
         .Bind(_ => Ports.Realize(
             Parameters,
             spec.Inputs,
-            spec.Outputs.Map(static output => output.Plan).Strict(),
-            key).ToFin());
+            spec.Outputs.Map(static output => output.Plan).Strict()).ToFin());
 
-    private Unit HostIterations(IDataAccess[] iterations, CancellationToken token, Op key) =>
-        key.Catch(() => Fin.Succ(Op.Side(() => ProcessHost(iterations, token))), token)
+    private Unit HostIterations(IDataAccess[] iterations, CancellationToken token) =>
+        Try.lift(() => Fin.Succ(HostEdge.Side(() => ProcessHost(iterations, token)))).Run().Bind(static inner => inner)
             .IfFail(fault => Capture(fault, None));
 
     private void ProcessHost(IDataAccess[] iterations, CancellationToken token) => base.Process(iterations, token);
 
-    private Unit CustomIterations(IDataAccess[] iterations, CancellationToken token, IterationPolicy.Custom policy, Op key) =>
-        Scopes(iterations, token, key).Match(
-            Succ: scopes => Complete(scopes, key.Catch(() => policy.Step(scopes, token), token)),
+    private Unit CustomIterations(IDataAccess[] iterations, CancellationToken token, IterationPolicy.Custom policy) =>
+        Scopes(iterations, token).Match(
+            Succ: scopes => Complete(scopes, Try.lift(() => policy.Step(scopes, token)).Run().Bind(static inner => inner)),
             Fail: fault => Capture(fault, None));
 
     private Unit Complete(Seq<ProcessScope> scopes, Fin<Unit> result) =>
@@ -483,8 +478,8 @@ public abstract class SpecPlugin : Grasshopper2.Framework.Plugin {
 }
 
 public static class Catalogue {
-    public static Validation<Error, PluginSpec> Audit(PluginSpec plugin, Op? key = null) =>
-        plugin.Exported.Traverse(type => Exported(type, key.OrDefault())).As().Map(_ => plugin);
+    public static Validation<Error, PluginSpec> Audit(PluginSpec plugin) =>
+        plugin.Exported.Traverse(type => Exported(type)).As().Map(_ => plugin);
 
     public static Seq<Type> Exported(PluginSpec plugin, FaultCell faults, HookId point) => Audit(plugin).Match(
         Succ: static audited => audited.Exported,
@@ -493,29 +488,29 @@ public static class Catalogue {
             throw fault.ToException();
         });
 
-    public static Fin<Unit> Load(PluginSource source, Op? key = null) => source.Switch(
+    public static Fin<Unit> Load(PluginSource source) => source.Switch(
         state: key.OrDefault(),
-        location: static (op, row) => op.Catch(() =>
+        location: static (row) => Try.lift(() =>
                 Grasshopper2.Framework.PluginServer.LoadPlugin(row.Path, out Grasshopper2.Framework.FailureInfo failure)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GhFault.Registration(op, $"{row.Path}:{failure}"))),
-        binary: static (op, row) => op.Catch(() =>
+                    : Fin.Fail<Unit>(new GhFault.Registration($"{row.Path}:{failure}"))).Run().Bind(static inner => inner),
+        binary: static (row) => Try.lift(() =>
                 Grasshopper2.Framework.PluginServer.LoadPlugin(row.Location, row.Value, out Grasshopper2.Framework.FailureInfo failure)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new GhFault.Registration(op, $"{row.Location}:{failure}"))));
+                    : Fin.Fail<Unit>(new GhFault.Registration($"{row.Location}:{failure}"))).Run().Bind(static inner => inner));
 
     public static Option<Grasshopper2.Framework.Plugin> OwnerOf(Grasshopper2.Doc.IDocumentObject subject) =>
         Optional(Grasshopper2.Framework.PluginServer.FindPluginForObject(subject));
 
-    private static Validation<Error, Type> Exported(Type type, Op key) =>
+    private static Validation<Error, Type> Exported(Type type) =>
         (type.GetInterfaces().Any(contract =>
                 contract.IsGenericType
                 && contract.GetGenericTypeDefinition() == typeof(IComponentDeclaration<>)
                 && contract.GenericTypeArguments.Single() == type),
             Attribute.IsDefined(type, typeof(GrasshopperIO.IoIdAttribute))) switch {
             (true, true) => type,
-            (false, _) => new GhFault.Registration(key, $"{type.Name}:{typeof(IComponentDeclaration<>).Name}"),
-            (_, false) => new GhFault.Registration(key, $"{type.Name}:{nameof(GrasshopperIO.IoIdAttribute)}"),
+            (false, _) => new GhFault.Registration($"{type.Name}:{typeof(IComponentDeclaration<>).Name}"),
+            (_, false) => new GhFault.Registration($"{type.Name}:{nameof(GrasshopperIO.IoIdAttribute)}"),
         };
 }
 ```

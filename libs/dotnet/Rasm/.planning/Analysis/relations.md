@@ -56,7 +56,7 @@ public sealed partial class IntersectionTangency {
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) : IValidityEvidence {
-    public static Fin<RayQuery> Of(Ray3d ray, Option<int> maxReflections = default, Op? key = null) =>
+    public static Fin<RayQuery> Of(Ray3d ray, Option<int> maxReflections = default) =>
         key.OrDefault().AcceptValue(value: new RayQuery(Ray: ray, MaxReflections: maxReflections.IfNone(noneValue: 1)));
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Ray.Position),
@@ -114,12 +114,12 @@ public abstract partial record IntersectionHit : IValidityEvidence {
             o.OverlapB.IsValid,
             o.Curve.Map(static curve => curve.IsValid).IfNone(noneValue: true)));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
-    internal static Fin<Seq<TOut>> Project<TOut>(Seq<IntersectionHit> hits, Op key) =>
-        hits.TraverseM(hit => key.AcceptValue(value: hit)).As().BiBind(
+    internal static Fin<Seq<TOut>> Project<TOut>(Seq<IntersectionHit> hits) =>
+        hits.TraverseM(hit => Acceptance.Value(value: hit)).As().BiBind(
             Succ: admitted => HitProjection.For(output: typeof(TOut))
-                .ToFin(key.Unsupported(inputType: typeof(IntersectionHit), outputType: typeof(TOut)))
+                .ToFin(new KernelFault.Unsupported(InputType: typeof(IntersectionHit), OutputType: typeof(TOut)))
                 .BiBind(
-                    Succ: row => Releasing(hits: admitted, transfers: row.Transfers, result: row.Binding.Admit<TOut>(values: row.Of(hits: admitted), key: key)),
+                    Succ: row => Releasing(hits: admitted, transfers: row.Transfers, result: row.Binding.Admit<TOut>(values: row.Of(hits: admitted))),
                     Fail: cause => DropCurves(hits: admitted, result: Fin.Fail<Seq<TOut>>(cause))),
             Fail: cause => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(cause)));
     private static Fin<Seq<TOut>> Releasing<TOut>(Seq<IntersectionHit> hits, bool transfers, Fin<Seq<TOut>> result) =>
@@ -161,7 +161,7 @@ internal sealed partial class HitProjection {
 - Law: `PairOrder.Pairs<T>` is ONE generic permutation — the build-time probe folds it over `Type`, the runtime scan over the admitted values — so the probe and the scan cannot disagree on which pairs a row is offered.
 - Law: only a MISSING ROW admits the next attempt. Scans seed on `KernelFault.Unsupported` and continue solely while the settled cause is that fault, so a cancelled mesh/mesh pair or an invalid ray stops the fold rather than being masked by a second lookup that also has no row.
 - Auto: finite-segment discipline is per-row — line/line demands both parameters in `[0, 1]`, line/circle and line/sphere filter to the finite segment at `ToleranceLane.Distance`, line/box clamps the interval against `[0, 1]` preserving direction. Event-derived rows lease the host event set and convert overlap events under the re-parameterization law: when a `Line` proxy clamps, the A-interval re-derives through the B-interval's normalized clamp so both intervals describe the same clamped overlap, trimming the sub-curve off the source; the clamping band travels WITH the line in one `Option` pair, so a band riding no line is unrepresentable. Solved-array rows demand the host flag, and the rows naming `Solved`'s `acceptPartial` fact — curve/brep and the trim-aware ray — also accept found geometry a false-returning host still reports; every row tags curves `Curve` or `Overlap` per its semantic. Trim-aware ray rows size a proxy `LineCurve` by the target's bounding diagonal and keep only forward hits (`(p − origin) · direction ≥ 0`). Host intersectors taking an OVERLAP tolerance beside their distance tolerance read two lanes — `ToleranceLane.Distance` and the coincidence lane `ToleranceLane.Weld` — so neither axis rides the other's value.
-- Packages: RhinoCommon (`Intersection.LineLine`/`LinePlane`/`PlanePlane`/`LineCircle`/`LineSphere`/`LineBox`/`CurveLine`/`CurveCurve`/`CurvePlane`/`CurveBrepFace`/`CurveBrep`/`CurveSurface`/`SurfaceSurface`/`BrepPlane`/`BrepSurface`/`BrepBrep`/`MeshLineSorted`/`MeshPlane`/`MeshMesh`/`MeshRay`/`RayShoot`, `CurveIntersections`, `MeshIntersectionCache`, `LineCircleIntersection`/`LineSphereIntersection`, `TextLog`), `Rasm.Domain` (`ToleranceLane` rows, `Normalization.CurveForm`, `Capability` rows, `Lease`, `Op.ToHostSlot`, `Op`/`Fault`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon (`Intersection.LineLine`/`LinePlane`/`PlanePlane`/`LineCircle`/`LineSphere`/`LineBox`/`CurveLine`/`CurveCurve`/`CurvePlane`/`CurveBrepFace`/`CurveBrep`/`CurveSurface`/`SurfaceSurface`/`BrepPlane`/`BrepSurface`/`BrepBrep`/`MeshLineSorted`/`MeshPlane`/`MeshMesh`/`MeshRay`/`RayShoot`, `CurveIntersections`, `MeshIntersectionCache`, `LineCircleIntersection`/`LineSphereIntersection`, `TextLog`), `Rasm.Domain` (`ToleranceLane` rows, `Normalization.CurveForm`, `Capability` rows, `Lease`, `HostEdge.Slot`, `Op`/`Fault`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new geometry pair is ONE row — admission, shape, compute — and every relation operation, output gate, and consumer reads it with zero edits; a new result shape is one `IntersectionResult` case + its `Native`, `Tag`, and `Elements` arms, `CanProject` and `Project` reading them; a new host intersector (a SubD band when the host ships one) is rows, never a parallel dispatcher.
 - Boundary: the table IS the dispatch — a `switch` over type pairs or an `IntersectAB` method family beside it is the deleted form. Every host-minted disposable is leased under `using` or `Lease`, and a host-minted ARRAY the row does not transfer into a hit carrier releases on every non-transferring exit; a bare host handle crossing an expression boundary is the named leak. Mesh rows thread `ToleranceLane.MeshIntersection` and return `Errors.Cancelled` on a direct token poll, never an empty result. This table captures the host's parametric machinery and never re-mints the predicate-exact robust computation.
 
@@ -209,14 +209,14 @@ internal sealed partial class RayTarget {
     public static readonly RayTarget BrepCast = new(reflections: Dimension.Create(value: 1),
         admits: static type => typeof(Brep).IsAssignableFrom(c: type) || Capability.BrepForm.Admits(type: type),
         shoot: static (query, target, env, op) => target is Brep brep
-            ? Relations.TrimAwareRay(query: query, brep: brep, env: env, op: op)
-            : Normalization.BrepForm(source: target, key: op).Bind(lease => lease.Use(body: lowered => Relations.TrimAwareRay(query: query, brep: lowered, env: env, op: op), key: op)));
+            ? Relations.TrimAwareRay(query: query, brep: brep, env: env)
+            : Normalization.BrepForm(source: target, key: op).Bind(lease => lease.Use(body: lowered => Relations.TrimAwareRay(query: query, brep: lowered, env: env), key: op)));
     public Dimension Reflections { get; }
     [UseDelegateFromConstructor] internal partial bool Admits(Type type);
-    [UseDelegateFromConstructor] internal partial Fin<IntersectionResult> Shoot(RayQuery query, object target, Env env, Op op);
+    [UseDelegateFromConstructor] internal partial Fin<IntersectionResult> Shoot(RayQuery query, object target, Env env);
     internal static Option<RayTarget> For(Type target) => toSeq(Items).Find(predicate: row => row.Admits(type: target));
-    internal Fin<RayQuery> Admit(RayQuery query, Op op) =>
-        query.MaxReflections <= Reflections.Value ? Fin.Succ(query) : Fin.Fail<RayQuery>(op.InvalidInput(axis: nameof(RayQuery.MaxReflections)));
+    internal Fin<RayQuery> Admit(RayQuery query) =>
+        query.MaxReflections <= Reflections.Value ? Fin.Succ(query) : Fin.Fail<RayQuery>(new KernelFault.InvalidInput(Axis: Some(nameof(RayQuery.MaxReflections))));
 }
 
 [Union]
@@ -253,7 +253,7 @@ internal abstract partial record IntersectionResult {
         lines: Serves, points: Serves, intervals: Serves,
         polylines: static (o, p) => o == typeof(IntersectionKind) || Serves(output: o, shape: p),
         hits: static (o, _) => HitProjection.For(output: o).IsSome);
-    internal Fin<Seq<TOut>> Project<TOut>(Op key) => Switch(
+    internal Fin<Seq<TOut>> Project<TOut>() => Switch(
         state: key,
         lines: Uniform<TOut>, points: Uniform<TOut>, intervals: Uniform<TOut>,
         polylines: static (k, p) => typeof(TOut) == typeof(IntersectionKind)
@@ -261,8 +261,8 @@ internal abstract partial record IntersectionResult {
             : Uniform<TOut>(key: k, shape: p),
         hits: static (k, h) => IntersectionHit.Project<TOut>(hits: h.Values, key: k));
     private static bool Serves(Type output, IntersectionResult shape) => shape.Native.Declared == output;
-    private static Fin<Seq<TOut>> Uniform<TOut>(Op key, IntersectionResult shape) =>
-        shape.Native.Admit<TOut>(values: shape.Elements, key: key);
+    private static Fin<Seq<TOut>> Uniform<TOut>(IntersectionResult shape) =>
+        shape.Native.Admit<TOut>(values: shape.Elements);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -270,8 +270,8 @@ internal static partial class Relations {
     private readonly record struct IntersectionCase(
         Func<Type, Type, bool> Supports,
         IntersectionResult Shape,
-        Func<object, object, Env, Op, Fin<IntersectionResult>> Compute) {
-        internal static IntersectionCase Pair<TL, TR>(IntersectionResult shape, Func<TL, TR, Env, Op, Fin<IntersectionResult>> compute) where TL : notnull where TR : notnull =>
+        Func<object, object, Env, Fin<IntersectionResult>> Compute) {
+        internal static IntersectionCase Pair<TL, TR>(IntersectionResult shape, Func<TL, TR, Env, Fin<IntersectionResult>> compute) where TL : notnull where TR : notnull =>
             new(
                 Supports: static (l, r) => typeof(TL).IsAssignableFrom(l) && typeof(TR).IsAssignableFrom(r),
                 Shape: shape,
@@ -301,28 +301,28 @@ internal static partial class Relations {
         IntersectionCase.Pair<Line, Box>(IntersectionResult.IntervalsShape, static (a, b, env, _) =>
             Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Interval interval) ? SegmentInterval(interval: interval) : Seq<Interval>()))),
         IntersectionCase.Pair<Line, Curve>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            CurveAgainst(a: b, b: a, env: env, op: op, intersect: static (curve, line, tolerance, overlap) => Intersection.CurveLine(curve, line, tolerance, overlap), clamp: Some((Line: a, Band: env.Context.For(lane: ToleranceLane.Distance))))),
+            CurveAgainst(a: b, b: a, env: env, intersect: static (curve, line, tolerance, overlap) => Intersection.CurveLine(curve, line, tolerance, overlap), clamp: Some((Line: a, Band: env.Context.For(lane: ToleranceLane.Distance))))),
         IntersectionCase.Pair<Curve, Curve>(IntersectionResult.HitsShape, static (a, b, env, op) =>
             new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, env.Context.For(lane: ToleranceLane.Weld).Value)).Use(hits =>
-                env.Cancellation.IsCancellationRequested ? Fin.Fail<IntersectionResult>(Errors.Cancelled) : HitsFromEvents(hits: Optional(hits), key: op, source: Some(a)))),
+                env.Cancellation.IsCancellationRequested ? Fin.Fail<IntersectionResult>(Errors.Cancelled) : HitsFromEvents(hits: Optional(hits), source: Some(a)))),
         IntersectionCase.Pair<Curve, Plane>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            CurveAgainst(a: a, b: b, env: env, op: op, intersect: static (curve, plane, tolerance, _) => Intersection.CurvePlane(curve, plane, tolerance))),
+            CurveAgainst(a: a, b: b, env: env, intersect: static (curve, plane, tolerance, _) => Intersection.CurvePlane(curve, plane, tolerance))),
         IntersectionCase.Pair<Curve, Line>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            CurveAgainst(a: a, b: b, env: env, op: op, intersect: static (curve, line, tolerance, overlap) => Intersection.CurveLine(curve, line, tolerance, overlap), clamp: Some((Line: b, Band: env.Context.For(lane: ToleranceLane.Distance))))),
+            CurveAgainst(a: a, b: b, env: env, intersect: static (curve, line, tolerance, overlap) => Intersection.CurveLine(curve, line, tolerance, overlap), clamp: Some((Line: b, Band: env.Context.For(lane: ToleranceLane.Distance))))),
         IntersectionCase.Pair<Curve, BrepFace>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            Solved(acceptPartial: false, solved: Intersection.CurveBrepFace(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Overlap, op: op, cancel: env.Cancellation)),
+            Solved(acceptPartial: false, solved: Intersection.CurveBrepFace(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Overlap, cancel: env.Cancellation)),
         IntersectionCase.Pair<Curve, Brep>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            Solved(acceptPartial: true, solved: Intersection.CurveBrep(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Overlap, op: op, cancel: env.Cancellation)),
+            Solved(acceptPartial: true, solved: Intersection.CurveBrep(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Overlap, cancel: env.Cancellation)),
         IntersectionCase.Pair<Curve, Surface>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            CurveAgainst(a: a, b: b, env: env, op: op, intersect: static (curve, surface, tolerance, overlap) => Intersection.CurveSurface(curve, surface, tolerance, overlap))),
+            CurveAgainst(a: a, b: b, env: env, intersect: static (curve, surface, tolerance, overlap) => Intersection.CurveSurface(curve, surface, tolerance, overlap))),
         IntersectionCase.Pair<Surface, Surface>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            Solved(acceptPartial: false, solved: Intersection.SurfaceSurface(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, op: op, cancel: env.Cancellation)),
+            Solved(acceptPartial: false, solved: Intersection.SurfaceSurface(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, cancel: env.Cancellation)),
         IntersectionCase.Pair<Brep, Plane>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            Solved(acceptPartial: false, solved: Intersection.BrepPlane(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, op: op, cancel: env.Cancellation)),
+            Solved(acceptPartial: false, solved: Intersection.BrepPlane(a, b, env.Context.For(lane: ToleranceLane.Distance).Value, out Curve[] curves, out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, cancel: env.Cancellation)),
         IntersectionCase.Pair<Brep, Surface>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            Solved(acceptPartial: false, solved: Intersection.BrepSurface(brep: a, surface: b, tolerance: env.Context.For(lane: ToleranceLane.Distance).Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, op: op, cancel: env.Cancellation)),
+            Solved(acceptPartial: false, solved: Intersection.BrepSurface(brep: a, surface: b, tolerance: env.Context.For(lane: ToleranceLane.Distance).Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, cancel: env.Cancellation)),
         IntersectionCase.Pair<Brep, Brep>(IntersectionResult.HitsShape, static (a, b, env, op) =>
-            Solved(acceptPartial: false, solved: Intersection.BrepBrep(brepA: a, brepB: b, tolerance: env.Context.For(lane: ToleranceLane.Distance).Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, op: op, cancel: env.Cancellation)),
+            Solved(acceptPartial: false, solved: Intersection.BrepBrep(brepA: a, brepB: b, tolerance: env.Context.For(lane: ToleranceLane.Distance).Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: Optional(curves), points: Optional(points), kind: IntersectionKind.Curve, cancel: env.Cancellation)),
         IntersectionCase.Pair<Mesh, Line>(IntersectionResult.PointsShape, static (a, b, _, _) =>
             Fin.Succ((IntersectionResult)new IntersectionResult.Points(toSeq(Intersection.MeshLineSorted(a, b, out int[] _) ?? [])))),
         IntersectionCase.Pair<Mesh, Plane>(IntersectionResult.PolylinesShape, static (a, b, env, _) =>
@@ -332,61 +332,60 @@ internal static partial class Relations {
                         .Map(static polyline => (Curve: polyline, Kind: IntersectionKind.Curve)))))),
         IntersectionCase.Pair<Mesh, Mesh>(IntersectionResult.PolylinesShape, static (a, b, env, op) =>
             new Lease<TextLog>.Owned(Value: new TextLog()).Use(log =>
-                Intersection.MeshMesh(meshes: [a, b], tolerance: env.Context.For(lane: ToleranceLane.MeshIntersection).Value, intersections: out Polyline[] crossings, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] overlaps, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: log, cancel: env.Cancellation, progress: Op.ToHostSlot(env.Progress)) switch {
+                Intersection.MeshMesh(meshes: [a, b], tolerance: env.Context.For(lane: ToleranceLane.MeshIntersection).Value, intersections: out Polyline[] crossings, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] overlaps, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: log, cancel: env.Cancellation, progress: HostEdge.Slot(env.Progress)) switch {
                     true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(
                         toSeq(Optional(crossings).ToSeq().Bind(static found => found)).Map(static polyline => (Curve: polyline, Kind: IntersectionKind.Curve))
                         + toSeq(Optional(overlaps).ToSeq().Bind(static found => found)).Map(static polyline => (Curve: polyline, Kind: IntersectionKind.Overlap)))),
                     false when env.Cancellation.IsCancellationRequested => Fin.Fail<IntersectionResult>(Errors.Cancelled),
-                    false => Fin.Fail<IntersectionResult>(op.InvalidResult()),
+                    false => Fin.Fail<IntersectionResult>(new KernelFault.InvalidResult()),
                 })),
         new IntersectionCase(
             Supports: static (l, r) => l == typeof(RayQuery) && RayTarget.For(target: r).IsSome,
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
-                RayTarget.For(target: right.GetType()).ToFin(op.Unsupported(inputType: right.GetType(), outputType: typeof(IntersectionResult)))
-                    .Bind(row => row.Admit(query: (RayQuery)left, op: op).Bind(query => row.Shoot(query: query, target: right, env: env, op: op)))),
+                RayTarget.For(target: right.GetType()).ToFin(new KernelFault.Unsupported(InputType: right.GetType(), OutputType: typeof(IntersectionResult)))
+                    .Bind(row => row.Admit(query: (RayQuery)left, op: op).Bind(query => row.Shoot(query: query, target: right, env: env)))),
         new IntersectionCase(
             Supports: static (l, r) => l != typeof(Curve) && !typeof(Curve).IsAssignableFrom(c: l) && Capability.CurveForm.Admits(type: l)
                 && (Capability.CurveForm.Admits(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)),
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
-                Normalization.CurveForm(source: left, key: op).Bind(lease => lease.Use(body: curve => Scan(left: curve, right: right, env: env, op: op), key: op))),
+                Normalization.CurveForm(source: left, key: op).Bind(lease => lease.Use(body: curve => Scan(left: curve, right: right, env: env), key: op))),
         new IntersectionCase(
             Supports: static (l, r) => r != typeof(Curve) && !typeof(Curve).IsAssignableFrom(c: r) && Capability.CurveForm.Admits(type: r)
                 && (Capability.CurveForm.Admits(type: l) || l == typeof(Plane) || l == typeof(Line) || typeof(Surface).IsAssignableFrom(l) || typeof(Brep).IsAssignableFrom(l) || typeof(BrepFace).IsAssignableFrom(l)),
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
-                Normalization.CurveForm(source: right, key: op).Bind(lease => lease.Use(body: curve => Scan(left: left, right: curve, env: env, op: op), key: op))));
+                Normalization.CurveForm(source: right, key: op).Bind(lease => lease.Use(body: curve => Scan(left: left, right: curve, env: env), key: op))));
 
     internal static Option<IntersectionResult> ShapeOf(Type left, Type right, Type output, PairOrder order) =>
         order.Pairs(left: left, right: right).Fold(
             initialState: Option<IntersectionResult>.None,
             f: (found, row) => found.IsSome ? found : IntersectionCases.Find(predicate: entry => entry.Supports(row.Left, row.Right) && entry.Shape.CanProject(output)).Map(static entry => entry.Shape));
-    internal static Fin<IntersectionResult> IntersectionOf<TL, TR>(TL left, TR right, Env env, Op op, PairOrder order) where TL : notnull where TR : notnull =>
-        (Optional(left).ToFin(op.InvalidInput()), Optional(right).ToFin(op.InvalidInput())).Apply(static (l, r) => (L: (object)l, R: (object)r)).As()
+    internal static Fin<IntersectionResult> IntersectionOf<TL, TR>(TL left, TR right, Env env, PairOrder order) where TL : notnull where TR : notnull =>
+        (Optional(left).ToFin(new KernelFault.InvalidInput()), Optional(right).ToFin(new KernelFault.InvalidInput())).Apply(static (l, r) => (L: (object)l, R: (object)r)).As()
             .Bind(pair => order.Pairs(left: pair.L, right: pair.R).Fold(
-                initialState: Fin.Fail<IntersectionResult>(op.Unsupported(pair.L.GetType(), pair.R.GetType())),
+                initialState: Fin.Fail<IntersectionResult>(new KernelFault.Unsupported(pair.L.GetType(), pair.R.GetType())),
                 f: (settled, attempt) => settled.BindFail(cause =>
                     cause is KernelFault.Unsupported
-                        ? Scan(left: attempt.Left, right: attempt.Right, env: env, op: op)
+                        ? Scan(left: attempt.Left, right: attempt.Right, env: env)
                         : Fin.Fail<IntersectionResult>(cause))));
-    internal static Fin<IntersectionResult> ClassifiedOf<TL, TR>(TL left, TR right, Env env, Op op) where TL : notnull where TR : notnull =>
-        Normalization.CurveForm(source: left, key: op).Bind(leftLease => leftLease.Use(
+    internal static Fin<IntersectionResult> ClassifiedOf<TL, TR>(TL left, TR right, Env env) where TL : notnull where TR : notnull =>
+        Normalization.CurveForm(source: left).Bind(leftLease => leftLease.Use(
             body: leftCurve => Normalization.CurveForm(source: right, key: op).Bind(rightLease => rightLease.Use(
-                body: rightCurve => Scan(left: leftCurve, right: rightCurve, env: env, op: op)
+                body: rightCurve => Scan(left: leftCurve, right: rightCurve, env: env)
                     .Bind(result => result.Switch(
-                        state: (Env: env, Op: op, Left: leftCurve, Right: rightCurve),
+                        state: (Env: env, Left: leftCurve, Right: rightCurve),
                         lines: Unenriched, points: Unenriched, intervals: Unenriched, polylines: Unenriched,
-                        hits: static (s, h) => EnrichTangency(hits: h.Values, left: s.Left, right: s.Right, context: s.Env.Context, key: s.Op)
+                        hits: static (s, h) => EnrichTangency(hits: h.Values, left: s.Left, right: s.Right, context: s.Env.Context)
                             .Map(static enriched => (IntersectionResult)new IntersectionResult.Hits(Values: enriched)))),
-                key: op)),
-            key: op));
+                key: op))));
     private static Fin<IntersectionResult> Unenriched<TState>(TState _, IntersectionResult shape) => Fin.Succ(shape);
-    private static Fin<IntersectionResult> Scan(object left, object right, Env env, Op op) =>
+    private static Fin<IntersectionResult> Scan(object left, object right, Env env) =>
         env.Cancellation.IsCancellationRequested
             ? Fin.Fail<IntersectionResult>(Errors.Cancelled)
             : IntersectionCases.Find(predicate: row => row.Supports(left.GetType(), right.GetType()))
-                .ToFin(op.Unsupported(left.GetType(), right.GetType()))
+                .ToFin(new KernelFault.Unsupported(left.GetType(), right.GetType()))
                 .Bind(row => row.Compute(arg1: left, arg2: right, arg3: env, arg4: op));
     private static bool OnFiniteLine(Line line, Point3d point, Tolerance band) =>
         ValidityClaim.Finite(point).Holds && point.DistanceTo(other: line.ClosestPoint(testPoint: point, limitToFiniteSegment: true)) <= band.Value;
@@ -397,10 +396,10 @@ internal static partial class Relations {
                 t1: interval.T0 <= interval.T1 ? Math.Min(max, 1.0) : Math.Max(min, 0.0))),
             _ => Seq<Interval>(),
         };
-    private static Fin<IntersectionResult> HitsFromEvents(Option<CurveIntersections> hits, Op key, Option<Curve> source = default, Option<(Line Line, Tolerance Band)> clamp = default) =>
+    private static Fin<IntersectionResult> HitsFromEvents(Option<CurveIntersections> hits, Option<Curve> source = default, Option<(Line Line, Tolerance Band)> clamp = default) =>
         hits.Match(
             Some: native => toSeq(native.AsIterable()).Partition(predicate: static hit => hit.IsPoint || hit.IsOverlap) switch {
-                (_, Seq<IntersectionEvent> foreign) when !foreign.IsEmpty => Fin.Fail<IntersectionResult>(key.InvalidResult(detail: nameof(IntersectionEvent))),
+                (_, Seq<IntersectionEvent> foreign) when !foreign.IsEmpty => Fin.Fail<IntersectionResult>(new KernelFault.InvalidResult(Detail: Some(nameof(IntersectionEvent)))),
                 (Seq<IntersectionEvent> modelled, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(Values: modelled.Bind(hit => hit switch {
                     { IsPoint: true } => clamp.Map(c => OnFiniteLine(line: c.Line, point: hit.PointB, band: c.Band)).IfNone(noneValue: true)
                         ? Seq(IntersectionHit.At(point: hit.PointA))
@@ -413,35 +412,35 @@ internal static partial class Relations {
                 }))),
             },
             None: static () => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(Values: Seq<IntersectionHit>())));
-    private static Fin<IntersectionResult> Solved(bool acceptPartial, bool solved, Option<Curve[]> curves, Option<Point3d[]> points, IntersectionKind kind, Op op, CancellationToken cancel) =>
+    private static Fin<IntersectionResult> Solved(bool acceptPartial, bool solved, Option<Curve[]> curves, Option<Point3d[]> points, IntersectionKind kind, CancellationToken cancel) =>
         (Curves: toSeq(curves.IfNone([])), Points: toSeq(points.IfNone([]))) switch {
             (Seq<Curve> found, Seq<Point3d> hits) => (solved || (acceptPartial && (!found.IsEmpty || !hits.IsEmpty)), cancel.IsCancellationRequested) switch {
                 (_, true) => Releasing(owned: found, result: Fin.Fail<IntersectionResult>(Errors.Cancelled)),
                 (true, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(Values: found.Map<IntersectionHit>(curve => new IntersectionHit.CurveCase(Curve: curve, CurveKind: kind)) + hits.Map(static point => IntersectionHit.At(point: point)))),
-                _ => Releasing(owned: found, result: Fin.Fail<IntersectionResult>(op.InvalidResult())),
+                _ => Releasing(owned: found, result: Fin.Fail<IntersectionResult>(new KernelFault.InvalidResult())),
             },
         };
     private static Fin<IntersectionResult> Releasing(Seq<Curve> owned, Fin<IntersectionResult> result) {
         _ = owned.Iter(static curve => curve.Dispose());
         return result;
     }
-    private static Fin<IntersectionResult> CurveAgainst<TRight>(Curve a, TRight b, Env env, Op op, Func<Curve, TRight, double, double, CurveIntersections?> intersect, Option<(Line Line, Tolerance Band)> clamp = default) {
+    private static Fin<IntersectionResult> CurveAgainst<TRight>(Curve a, TRight b, Env env, Func<Curve, TRight, double, double, CurveIntersections?> intersect, Option<(Line Line, Tolerance Band)> clamp = default) {
         using CurveIntersections? hits = intersect(
             arg1: a, arg2: b,
             arg3: env.Context.For(lane: ToleranceLane.Distance).Value,
             arg4: env.Context.For(lane: ToleranceLane.Weld).Value);
-        return HitsFromEvents(hits: Optional(hits), key: op, source: Some(a), clamp: clamp);
+        return HitsFromEvents(hits: Optional(hits), source: Some(a), clamp: clamp);
     }
-    private static Fin<Seq<IntersectionHit>> EnrichTangency(Seq<IntersectionHit> hits, Curve left, Curve right, Context context, Op key) =>
+    private static Fin<Seq<IntersectionHit>> EnrichTangency(Seq<IntersectionHit> hits, Curve left, Curve right, Context context) =>
         hits.TraverseM(hit => hit switch {
             IntersectionHit.PointCase point when point.Tangency.Equals(IntersectionTangency.Unknown) =>
-                TangencyAt(left: left, right: right, point: point.Point, context: context, key: key)
+                TangencyAt(left: left, right: right, point: point.Point, context: context)
                     .Map(tangency => IntersectionHit.At(point: point.Point, tangency: Some(tangency))),
             _ => Fin.Succ(hit),
         }).As();
-    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context, Op key) =>
+    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context) =>
         (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
-            (true, true) => Rasm.Numerics.VectorRelation.Of(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr), context: context, key: key)
+            (true, true) => Rasm.Numerics.VectorRelation.Of(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr), context: context)
                 .Map(static relation => relation.Equals(Rasm.Numerics.VectorRelation.Parallel) || relation.Equals(Rasm.Numerics.VectorRelation.AntiParallel)
                     ? IntersectionTangency.Tangent
                     : IntersectionTangency.Transversal)
@@ -450,7 +449,7 @@ internal static partial class Relations {
                     : Fin.Fail<IntersectionTangency>(cause)),
             _ => Fin.Succ(IntersectionTangency.Unknown),
         };
-    internal static Fin<IntersectionResult> TrimAwareRay(RayQuery query, Brep brep, Env env, Op op) {
+    internal static Fin<IntersectionResult> TrimAwareRay(RayQuery query, Brep brep, Env env) {
         BoundingBox box = brep.GetBoundingBox(accurate: true);
         using LineCurve ray = new(line: new Line(
             start: query.Ray.Position,
@@ -463,9 +462,8 @@ internal static partial class Relations {
                 curves: Optional(curves),
                 points: Some<Point3d[]>([.. points.Where(point => (point - query.Ray.Position) * query.Ray.Direction >= 0.0)]),
                 kind: IntersectionKind.Overlap,
-                op: op,
                 cancel: env.Cancellation)
-            : Fin.Fail<IntersectionResult>(op.InvalidResult());
+            : Fin.Fail<IntersectionResult>(new KernelFault.InvalidResult());
     }
 }
 ```
@@ -476,7 +474,7 @@ internal static partial class Relations {
 - Entry: each builder is the target of an `Analysis/query` relation-band case, `Pair`- or `Single`-dispatched; build-time gates read `IntersectionResult.Supports`, `Capability.CurveForm` admission of both deviation operands, and the curve-or-mesh self-intersection admission seated on `SelfIntersect`, so an inadmissible combination rejects onto `KernelFault.Unsupported` before any geometry is touched.
 - Auto: `Pair` resolves the pair through `RequirementContext.Pair` — kind-resolve both operands, apply `Requirement.Basic`, under cancellation — except when one operand is a `RayQuery`: the ray is a request value, not geometry, so it admits through `Op.AcceptInput` while the geometry operand alone runs the readiness gate on whichever side it rides. `Deviate` escalates both operands to `Requirement.CurveLength`, since a below-tolerance curve carries no meaningful deviation. `SelfIntersect` runs under `Requirement.Basic` and discriminates curve (leased `Intersection.CurveSelf` events) from mesh (`GetSelfIntersections` at `ToleranceLane.MeshIntersection`, perforations tagged `Curve`, overlaps `Overlap`), a direct cancellation poll returning `Errors.Cancelled`. Every builder projects through the shape's `Project<TOut>`, so the output gate, oracle, and curve-disposal law apply uniformly.
 - Law: `CurveDeviation` constructs once and admits WHOLE through `AcceptValue` — its own claims refuse a non-finite, negative, or unordered host answer, so no per-field admission precedes it — and its band is the admitted `ToleranceLane.Deviation` `Tolerance` the verdict derives from; intersection answers carry no side carrier — the typed hits ARE the evidence, each oracle-admitted.
-- Packages: RhinoCommon (`Curve.GetDistancesBetweenCurves`/`ClosestPoint`/`TangentAt`/`Trim`/`PointAt`, `Intersection.CurveSelf`, `Mesh.GetSelfIntersections`, `CurveIntersections`, `TextLog`), `Rasm.Domain` (`RequirementContext.Pair`, `Requirement` rows, `Normalization.CurveForm`, `Capability.CurveForm`, `Tolerance`/`ToleranceLane`, `Lease`, `Op.ToHostSlot`, `Op`/`Fault`), `Rasm.Numerics` (`VectorRelation.Of` — the tangency verb), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (`Curve.GetDistancesBetweenCurves`/`ClosestPoint`/`TangentAt`/`Trim`/`PointAt`, `Intersection.CurveSelf`, `Mesh.GetSelfIntersections`, `CurveIntersections`, `TextLog`), `Rasm.Domain` (`RequirementContext.Pair`, `Requirement` rows, `Normalization.CurveForm`, `Capability.CurveForm`, `Tolerance`/`ToleranceLane`, `Lease`, `HostEdge.Slot`, `Op`/`Fault`), `Rasm.Numerics` (`VectorRelation.Of` — the tangency verb), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new pairwise relation (a clearance query, a minimal-distance witness pair) is one builder over the same `Pair` spine with its kernel — admission, preparation, and projection are inherited; a new self-intersecting form is one `SelfIntersectionOf` arm with its disjunct in the `SelfIntersect` gate.
 - Boundary: `Pair` is the one pair-admission spine — a builder re-deriving kind resolution, readiness, or ray asymmetry locally is the deleted repetition. Classification never re-intersects and never re-leases: it opens the curve pair ONCE and hands the live natives to both the scan and the enrichment, a second curve-pair intersector or a second form recovery for tangency being the killed form; the tangency probe degrades to `Unknown` on the projection's OWN refusal — `KernelFault.Unsupported` and `KernelFault.InvalidResult` alone — since an unclassifiable contact is still a contact, while a cancellation or bad input rides out as itself rather than reading as a verdict. Deviation is exact by contract — the host extremum computation, never a sampled estimate, and `Analysis/measure`'s sampled conformance pipeline short-circuits to `DeviationOf` when exactness is demanded. Self-intersection disposal is total: event sets lease, and mesh polylines lift into owned curves the hit carriers dispose under the projection law.
 
@@ -493,101 +491,93 @@ namespace Rasm.Analysis;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Relations {
-    internal static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull =>
-        Pair<TA, TB, TOut>(
-            key: key,
-            supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), order: PairOrder.Unordered),
-            compute: static (a, b, env, op) => IntersectionOf(left: a, right: b, env: env, op: op, order: PairOrder.Unordered));
-    internal static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull =>
-        Pair<TA, TB, TOut>(
-            key: key,
-            supported: Capability.CurveForm.Admits(type: typeof(TA)) && Capability.CurveForm.Admits(type: typeof(TB))
+    internal static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+        Pair<TA, TB, TOut>(supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), order: PairOrder.Unordered),
+            compute: static (a, b, env, op) => IntersectionOf(left: a, right: b, env: env, order: PairOrder.Unordered));
+    internal static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+        Pair<TA, TB, TOut>(supported: Capability.CurveForm.Admits(type: typeof(TA)) && Capability.CurveForm.Admits(type: typeof(TB))
                        && IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), order: PairOrder.Unordered)
                        && (typeof(TOut) == typeof(IntersectionHit) || typeof(TOut) == typeof(IntersectionTangency)),
-            compute: static (a, b, env, op) => ClassifiedOf(left: a, right: b, env: env, op: op));
-    internal static Operation<(TA A, TB B), TOut> Deviate<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull =>
+            compute: static (a, b, env, op) => ClassifiedOf(left: a, right: b, env: env));
+    internal static Operation<(TA A, TB B), TOut> Deviate<TA, TB, TOut>() where TA : notnull where TB : notnull =>
         (Capability.CurveForm.Admits(type: typeof(TA)) && Capability.CurveForm.Admits(type: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
-            ? Operation<(TA A, TB B), TOut>.Build(
-                key: key, requiresContext: true, state: key,
+            ? Operation<(TA A, TB B), TOut>.Build(requiresContext: true, state: key,
                 evaluator: static (op, pair) =>
                     from runtime in Env.EnvAsks
-                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToFin().ToEff()
-                    from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context, op: op).ToEff()
+                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToFin().ToEff()
+                    from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context).ToEff()
                     from result in AnalysisOutput<TOut>.Project(key: op, values: Seq(deviation)).ToEff()
                     select result)
             : key.Unsupported<(TA A, TB B), TOut>();
-    internal static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>(Op key) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>() where TGeometry : notnull =>
         ((typeof(TGeometry) == typeof(object)
             || typeof(Curve).IsAssignableFrom(c: typeof(TGeometry))
             || typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)))
          && IntersectionResult.HitsShape.CanProject(output: typeof(TOut)))
-            ? Operation<TGeometry, TOut>.Build(
-                key: key, requirement: Some(Requirement.Basic), state: key,
+            ? Operation<TGeometry, TOut>.Build(requirement: Some(Requirement.Basic), state: key,
                 evaluator: static (op, geometry) =>
                     from runtime in Env.EnvAsks
-                    from result in SelfIntersectionOf(geometry: geometry, env: runtime, op: op).ToEff()
-                    from typed in result.Project<TOut>(key: op).ToEff()
+                    from result in SelfIntersectionOf(geometry: geometry, env: runtime).ToEff()
+                    from typed in result.Project<TOut>().ToEff()
                     select typed)
-            : key.Unsupported<TGeometry, TOut>();
-    internal static Operation<TGeometry, TOut> Cast<TGeometry, TOut>(RayQuery query, Op key) where TGeometry : notnull =>
+            : new KernelFault.Unsupported();
+    internal static Operation<TGeometry, TOut> Cast<TGeometry, TOut>(RayQuery query) where TGeometry : notnull =>
         IntersectionResult.Supports(left: typeof(RayQuery), right: typeof(TGeometry), output: typeof(TOut), order: PairOrder.Ordered)
-            ? Operation<TGeometry, TOut>.Build(
-                key: key, requiresContext: true, state: (Key: key, Query: query),
+            ? Operation<TGeometry, TOut>.Build(requiresContext: true, state: (Key: key, Query: query),
                 evaluator: static (state, geometry) =>
                     from runtime in Env.EnvAsks
-                    from ray in state.Key.AcceptInput(value: state.Query).ToEff()
+                    from ray in Acceptance.Input(value: state.Query).ToEff()
                     from ready in Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin().ToEff()
-                    from result in IntersectionOf(left: ray, right: ready, env: runtime, op: state.Key, order: PairOrder.Ordered).ToEff()
-                    from typed in result.Project<TOut>(key: state.Key).ToEff()
+                    from result in IntersectionOf(left: ray, right: ready, env: runtime, order: PairOrder.Ordered).ToEff()
+                    from typed in result.Project<TOut>().ToEff()
                     select typed)
-            : key.Unsupported<TGeometry, TOut>();
+            : new KernelFault.Unsupported();
 
-    internal static Fin<CurveDeviation> DeviationOf<TL, TR>(TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
-        Normalization.CurveForm(source: left, key: op)
-            .Bind(leftLease => leftLease.Use(leftCurve => Normalization.CurveForm(source: right, key: op)
-                .Bind(rightLease => rightLease.Use(rightCurve => DeviationOf(left: leftCurve, right: rightCurve, context: context, op: op)))));
-    internal static Fin<CurveDeviation> DeviationOf(Curve left, Curve right, Context context, Op op) {
+    internal static Fin<CurveDeviation> DeviationOf<TL, TR>(TL left, TR right, Context context) where TL : notnull where TR : notnull =>
+        Normalization.CurveForm(source: left)
+            .Bind(leftLease => leftLease.Use(leftCurve => Normalization.CurveForm(source: right)
+                .Bind(rightLease => rightLease.Use(rightCurve => DeviationOf(left: leftCurve, right: rightCurve, context: context)))));
+    internal static Fin<CurveDeviation> DeviationOf(Curve left, Curve right, Context context) {
         Tolerance band = context.For(lane: ToleranceLane.Deviation);
         return Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: band.Value, maxDistance: out double maxDistance, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDistance, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
-            true => op.AcceptValue(value: new CurveDeviation(
+            true => Acceptance.Value(value: new CurveDeviation(
                 MinimumDistance: minDistance, MinimumA: left.PointAt(t: minA), MinimumB: right.PointAt(t: minB),
                 MaximumDistance: maxDistance, MaximumA: left.PointAt(t: maxA), MaximumB: right.PointAt(t: maxB),
                 Band: band)),
-            false => Fin.Fail<CurveDeviation>(op.InvalidResult()),
+            false => Fin.Fail<CurveDeviation>(new KernelFault.InvalidResult()),
         };
     }
-    internal static Fin<IntersectionResult> SelfIntersectionOf<TGeometry>(TGeometry geometry, Env env, Op op) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (env.Cancellation.IsCancellationRequested, g) switch {
+    internal static Fin<IntersectionResult> SelfIntersectionOf<TGeometry>(TGeometry geometry, Env env) where TGeometry : notnull =>
+        Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(g => (env.Cancellation.IsCancellationRequested, g) switch {
             (true, _) => Fin.Fail<IntersectionResult>(Errors.Cancelled),
-            (_, Curve curve) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveSelf(curve: curve, tolerance: env.Context.For(lane: ToleranceLane.Distance).Value)).Use(hits => HitsFromEvents(hits: Optional(hits), key: op, source: Some(curve))),
+            (_, Curve curve) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveSelf(curve: curve, tolerance: env.Context.For(lane: ToleranceLane.Distance).Value)).Use(hits => HitsFromEvents(hits: Optional(hits), source: Some(curve))),
             (_, Mesh mesh) => new Lease<TextLog>.Owned(Value: new TextLog()).Use(log =>
-                mesh.GetSelfIntersections(tolerance: env.Context.For(lane: ToleranceLane.MeshIntersection).Value, perforations: out Polyline[] perforations, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] overlaps, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: log, cancel: env.Cancellation, progress: Op.ToHostSlot(env.Progress)) switch {
+                mesh.GetSelfIntersections(tolerance: env.Context.For(lane: ToleranceLane.MeshIntersection).Value, perforations: out Polyline[] perforations, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] overlaps, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: log, cancel: env.Cancellation, progress: HostEdge.Slot(env.Progress)) switch {
                     true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(Values:
                         toSeq(Optional(perforations).ToSeq().Bind(static found => found)).Map<IntersectionHit>(static polyline => new IntersectionHit.CurveCase(Curve: polyline.ToNurbsCurve(), CurveKind: IntersectionKind.Curve))
                         + toSeq(Optional(overlaps).ToSeq().Bind(static found => found)).Map<IntersectionHit>(static polyline => new IntersectionHit.CurveCase(Curve: polyline.ToNurbsCurve(), CurveKind: IntersectionKind.Overlap)))),
                     false when env.Cancellation.IsCancellationRequested => Fin.Fail<IntersectionResult>(Errors.Cancelled),
-                    false => Fin.Fail<IntersectionResult>(op.InvalidResult()),
+                    false => Fin.Fail<IntersectionResult>(new KernelFault.InvalidResult()),
                 }),
-            _ => Fin.Fail<IntersectionResult>(op.Unsupported(g.GetType(), typeof(IntersectionResult))),
+            _ => Fin.Fail<IntersectionResult>(new KernelFault.Unsupported(g.GetType(), typeof(IntersectionResult))),
         });
-    private static Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key, bool supported, Func<TA, TB, Env, Op, Fin<IntersectionResult>> compute) where TA : notnull where TB : notnull =>
+    private static Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(bool supported, Func<TA, TB, Env, Fin<IntersectionResult>> compute) where TA : notnull where TB : notnull =>
         supported switch {
-            true => Operation<(TA A, TB B), TOut>.Build(
-                key: key, requiresContext: true, state: (Key: key, Compute: compute),
+            true => Operation<(TA A, TB B), TOut>.Build(requiresContext: true, state: (Key: key, Compute: compute),
                 evaluator: static (state, pair) =>
                     from runtime in Env.EnvAsks
                     from resolved in (RayRole(a: pair.A, b: pair.B).Case switch {
                         (RayQuery query, GeometryBase target, bool rayLeads) =>
-                            (state.Key.AcceptInput(value: query), Requirement.Basic.Apply(context: runtime.Context, value: target, cancel: runtime.Cancellation).ToFin())
+                            (Acceptance.Input(value: query), Requirement.Basic.Apply(context: runtime.Context, value: target, cancel: runtime.Cancellation).ToFin())
                                 .Apply((admitted, ready) => rayLeads
                                     ? (A: (TA)(object)admitted, B: (TB)(object)ready)
                                     : (A: (TA)(object)ready, B: (TB)(object)admitted)).As(),
-                        _ => runtime.Context.Pair(a: pair.A, b: pair.B, op: state.Key, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation)
+                        _ => runtime.Context.Pair(a: pair.A, b: pair.B, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation)
                             .ToFin()
                             .Map(static resolved => (resolved.A, resolved.B)),
                     }).ToEff()
                     from result in state.Compute(resolved.A, resolved.B, runtime, state.Key).ToEff()
-                    from typed in result.Project<TOut>(key: state.Key).ToEff()
+                    from typed in result.Project<TOut>().ToEff()
                     select typed),
             false => key.Unsupported<(TA A, TB B), TOut>(),
         };

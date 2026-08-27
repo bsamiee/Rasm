@@ -14,7 +14,7 @@ Element-graph interchange stays out of Bim: the `ElementGraph`/`GraphDelta` snap
 
 ## [02]-[WIRE_PROJECTION]
 
-- Entry: `IfcWire.Of(format, bytes, schema, content, at, key)` is the ONE construction — the record's ctor is private, so every wire in the solution resolved its format row and carried a payload BY CONSTRUCTION and no interior member re-tests a column; `IfcWire.Seal(SemanticProjector projector, ElementGraph graph, InterchangeFormat format, Option<EmitContext> context, Instant at, Op key)` is the producer egress (the profiles resolver is the projector's ctor-held capability, never a `Seal` parameter — the `EmitContext` carrier rides through whole, so a diff-prior, a scoped trade-package slice, or a declared unit regime wires with zero `Seal` edits) and `IfcWire.Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles)` the consumer ingress; `IfcWire.Negotiate(Seq<string> accepted, Op key)` resolves the highest-fidelity IFC serialization a peer admits. `Fin<T>` aborts on a non-round-trippable `format` row (`Model/faults#FAULT_BAND` `wire-encode`), on the `Projection/egress#IFC_EGRESS` gate faults `SemanticProjector.Emit` raises, and on a malformed-bytes decode or an `IfcLegality`-rejected projection (`wire-decode`) — each typed `BimFault` case lifting BARE onto the result with no `.ToError()` hop, the gate vocabulary itself owned by the egress and legality pages rather than restated here. Artifact identity is the SEMANTIC graph address, never a positional DTO and never the byte hash.
+- Entry: `IfcWire.Of(format, bytes, schema, content, at, key)` is the ONE construction — the record's ctor is private, so every wire in the solution resolved its format row and carried a payload BY CONSTRUCTION and no interior member re-tests a column; `IfcWire.Seal(SemanticProjector projector, ElementGraph graph, InterchangeFormat format, Option<EmitContext> context, Instant at)` is the producer egress (the profiles resolver is the projector's ctor-held capability, never a `Seal` parameter — the `EmitContext` carrier rides through whole, so a diff-prior, a scoped trade-package slice, or a declared unit regime wires with zero `Seal` edits) and `IfcWire.Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles)` the consumer ingress; `IfcWire.Negotiate(Seq<string> accepted)` resolves the highest-fidelity IFC serialization a peer admits. `Fin<T>` aborts on a non-round-trippable `format` row (`Model/faults#FAULT_BAND` `wire-encode`), on the `Projection/egress#IFC_EGRESS` gate faults `SemanticProjector.Emit` raises, and on a malformed-bytes decode or an `IfcLegality`-rejected projection (`wire-decode`) — each typed `BimFault` case lifting BARE onto the result with no `.ToError()` hop, the gate vocabulary itself owned by the egress and legality pages rather than restated here. Artifact identity is the SEMANTIC graph address, never a positional DTO and never the byte hash.
 - Auto: `Seal` re-authors the graph through `SemanticProjector.Emit` at the `Projection/wireform#IFC_WIRE_FORM` `IfcWireForm` the row resolves — the form's own seal writing the container and handing back BYTES this shared stores whole — stamps the wire-form-INDEPENDENT `ContentAddress.OfGraph(graph)` and the `graph.Header.Schema`, so a STEP and an ifcJSON of one model carry one `Content` and a peer joins them; `Admit` decodes through the ONE GeometryGym decode owner — `Exchange/import#IMPORT_PIPELINE` `BimIo.ImportIfc`, the schema sniffed off the bytes BEFORE construction — hands a fresh `SemanticProjector` to `ProjectionAssembly.Assemble` over an `ElementGraph.Genesis(ctx.Header)` seed (the projector's own `GraphDelta.Reheader` overriding the seed header), and runs the `IfcLegality` IFC-semantic legality (the relationship law with the vocabulary arms) so an illegal or out-of-roster projection never freezes a graph; `Negotiate` folds the IFC `InterchangeFormat` rows by the `IfcWireForm.FidelityRank` column so a peer that reads only ifcJSON receives ifcJSON without a call-site branch.
 - Output: `IfcWire` is the one cross-runtime IFC contract — the ifcopenshell companion and the web peer decode the same bytes the .NET branch emits; the `Content` joins the artifact to the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` geometry-blob store (the `RepresentationContentHash` body keys inside the graph are cross-runtime stable) and the element graph the `Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec` persists; `WireParity` carries the cross-runtime contract as the shared `Content` (`Agrees` — a peer that decodes the same bytes and projects its OWN graph computes the same `ContentAddress`) and the C#-host re-seal as `Reproduces` (host-local emit determinism), so a cross-runtime peer is checked by `Agrees` and never by a byte compare (the GeometryGym/ifcopenshell/web serializers emit divergent byte layouts for one graph).
 - Packages: GeometryGymIFC_Core, Generator.Equals, Rasm.Element, LanguageExt.Core, NodaTime, Rasm
@@ -64,26 +64,26 @@ public sealed partial record IfcWire {
     public long ByteCount => Bytes.Length;
 
     public static Fin<IfcWire> Of(
-        string format, ReadOnlyMemory<byte> bytes, ReleaseVersion schema, ContentAddress content, Instant at, Op key) =>
-        (Rostered(format, key), Payload(bytes, format, key))
+        string format, ReadOnlyMemory<byte> bytes, ReleaseVersion schema, ContentAddress content, Instant at) =>
+        (Rostered(format), Payload(bytes, format))
             .Apply((row, payload) => new IfcWire(row.Key, payload, schema, content, at)).As().ToFin();
 
-    static Validation<Error, InterchangeFormat> Rostered(string value, Op key) =>
+    static Validation<Error, InterchangeFormat> Rostered(string value) =>
         toSeq(InterchangeFormat.Items).Find(row => StringComparer.Ordinal.Equals(value, row.Key))
-            .ToValidation<Error>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", value })));
+            .ToValidation<Error>(new BimFault.Refused(BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", value })));
 
-    static Validation<Error, ReadOnlyMemory<byte>> Payload(ReadOnlyMemory<byte> bytes, string format, Op key) =>
+    static Validation<Error, ReadOnlyMemory<byte>> Payload(ReadOnlyMemory<byte> bytes, string format) =>
         bytes.IsEmpty
-            ? Validation<Error, ReadOnlyMemory<byte>>.Fail(new BimFault.Refused(key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format })))
+            ? Validation<Error, ReadOnlyMemory<byte>>.Fail(new BimFault.Refused(BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format })))
             : Validation<Error, ReadOnlyMemory<byte>>.Success(bytes);
 
     public static Fin<IfcWire> Seal(
         SemanticProjector projector, ElementGraph graph, InterchangeFormat format,
-        Option<EmitContext> context, Instant at, Op key) =>
+        Option<EmitContext> context, Instant at) =>
         format.Serialization.Filter(_ => format.RoundTrippable).Match(
-            Some: form => projector.Emit(graph, form, key, context).Bind(bytes =>
-                Of(format.Key, bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at, key)),
-            None: () => Fin.Fail<IfcWire>(new BimFault.Refused(key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format.Key }))));
+            Some: form => projector.Emit(graph, form, context).Bind(bytes =>
+                Of(bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at)),
+            None: () => Fin.Fail<IfcWire>(new BimFault.Refused(BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format.Key }))));
 
     public Fin<ElementGraph> Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles) =>
         from format in Rostered(Format, ctx.Key).ToFin()
@@ -100,8 +100,8 @@ public sealed partial record IfcWire {
             (Error)new BimFault.Refused(ctx.Key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-decode", $"schema:{Schema.Key}:{graph.Header.Schema.Key}" })))
         select graph;
 
-    public static Fin<InterchangeFormat> Negotiate(Seq<string> accepted, Op key) =>
-        Mutual(toHashSet(accepted)).ToFin(new BimFault.Refused(key, BimScope.Wire, BimReason.Codec, string.Join(':', new object?[] { "wire-no-mutual", string.Join(',', accepted) })));
+    public static Fin<InterchangeFormat> Negotiate(Seq<string> accepted) =>
+        Mutual(toHashSet(accepted)).ToFin(new BimFault.Refused(BimScope.Wire, BimReason.Codec, string.Join(':', new object?[] { "wire-no-mutual", string.Join(',', accepted) })));
 
     static Option<InterchangeFormat> Mutual(HashSet<string> offered) =>
         Serializations.Value.Find(f => offered.Contains(f.Key) || offered.Contains(f.MediaType));

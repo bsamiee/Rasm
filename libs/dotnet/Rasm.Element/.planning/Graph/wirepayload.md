@@ -35,11 +35,11 @@ namespace Rasm.Element.Graph;
 internal static partial class WireCodec {
  static readonly Validator GraphRules = new([GraphReflection.Descriptor]);
 
- internal static Fin<T> Validate<T>(T wire, Op key) where T : class, IMessage =>
-  key.Catch(() => GraphRules.Validate(wire) switch {
+ internal static Fin<T> Validate<T>(T wire) where T : class, IMessage =>
+  Try.lift(() => GraphRules.Validate(wire) switch {
    [] => Fin.Succ(wire),
-   _ => Fin.Fail<T>(key.InvalidInput(wire.Descriptor.FullName)),
-  });
+   _ => Fin.Fail<T>(new KernelFault.InvalidInput(Axis: Some(wire.Descriptor.FullName))),
+  }).Run().Bind(static inner => inner);
 
  internal static ObjectWire ToWire(Node.Object node) {
   ObjectWire wire = new() {
@@ -91,10 +91,10 @@ internal static partial class WireCodec {
   return wire;
  }
 
- internal static Fin<NodeWire> ToWire(Node node, double tolerance, Op key) =>
-  key.Catch(() => node.Switch<Fin<NodeWire>>(
+ internal static Fin<NodeWire> ToWire(Node node, double tolerance) =>
+  Try.lift(() => node.Switch<Fin<NodeWire>>(
    @object: value => Fin.Succ(new() { Id = ToWire(value.Id), Object = ToWire(value) }),
-   material: value => ToWire(value, key).Map(payload => new NodeWire { Id = ToWire(value.Id), Material = payload }),
+   material: value => ToWire(value).Map(payload => new NodeWire { Id = ToWire(value.Id), Material = payload }),
    propertySet: value => Fin.Succ(new() { Id = ToWire(value.Id), PropertySet = ToWire(value.Bag) }),
    quantitySet: value => Fin.Succ(new() { Id = ToWire(value.Id), QuantitySet = ToWire(value.Bag) }),
    assessment: value => Fin.Succ(new() { Id = ToWire(value.Id), Assessment = ToWire(value.Payload) }),
@@ -104,76 +104,76 @@ internal static partial class WireCodec {
   .Map(wire => {
    wire.ContentAddress = ToWire(ContentAddress.Of(node, tolerance).ToValue());
    return wire;
-  }));
+  })).Run().Bind(static inner => inner);
 
- internal static Fin<Node> ToNode(NodeWire wire, Op key) =>
-  ToNodeId(wire.Id, key).Bind(id => wire.PayloadCase switch {
-   NodeWire.PayloadOneofCase.Object => ToObject(id, wire.Object, key),
-   NodeWire.PayloadOneofCase.Material => ToMaterial(id, wire.Material, key),
-   NodeWire.PayloadOneofCase.PropertySet => ToBag(wire.PropertySet, key).Map(bag => (Node)new Node.PropertySet(id, bag)),
-   NodeWire.PayloadOneofCase.QuantitySet => ToBag(wire.QuantitySet, key).Map(bag => (Node)new Node.QuantitySet(id, bag)),
-   NodeWire.PayloadOneofCase.Assessment => ToAssessment(wire.Assessment, key).Map(payload => (Node)new Node.Assessment(id, payload)),
-   NodeWire.PayloadOneofCase.Appearance => ToAppearance(id, wire.Appearance, key),
-   NodeWire.PayloadOneofCase.Coverage => ToCoverage(wire.Coverage, key).Map(grid => (Node)new Node.Coverage(id, grid)),
-   NodeWire.PayloadOneofCase.Observation => ToObservation(wire.Observation, key).Map(series => (Node)new Node.Observation(id, series)),
-   _ => new KernelFault.InvalidValue("element-wire.node.payload", "one payload arm is required", Some(key)),
+ internal static Fin<Node> ToNode(NodeWire wire) =>
+  ToNodeId(wire.Id).Bind(id => wire.PayloadCase switch {
+   NodeWire.PayloadOneofCase.Object => ToObject(id, wire.Object),
+   NodeWire.PayloadOneofCase.Material => ToMaterial(id, wire.Material),
+   NodeWire.PayloadOneofCase.PropertySet => ToBag(wire.PropertySet).Map(bag => (Node)new Node.PropertySet(id, bag)),
+   NodeWire.PayloadOneofCase.QuantitySet => ToBag(wire.QuantitySet).Map(bag => (Node)new Node.QuantitySet(id, bag)),
+   NodeWire.PayloadOneofCase.Assessment => ToAssessment(wire.Assessment).Map(payload => (Node)new Node.Assessment(id, payload)),
+   NodeWire.PayloadOneofCase.Appearance => ToAppearance(id, wire.Appearance),
+   NodeWire.PayloadOneofCase.Coverage => ToCoverage(wire.Coverage).Map(grid => (Node)new Node.Coverage(id, grid)),
+   NodeWire.PayloadOneofCase.Observation => ToObservation(wire.Observation).Map(series => (Node)new Node.Observation(id, series)),
+   _ => new KernelFault.InvalidValue("element-wire.node.payload", "one payload arm is required"),
   });
 
- static Fin<Node> ToAppearance(NodeId id, AppearanceWire wire, Op key) =>
-  from appearanceKey in ToKey(wire.AppearanceKey, key)
+ static Fin<Node> ToAppearance(NodeId id, AppearanceWire wire) =>
+  from appearanceKey in ToKey(wire.AppearanceKey)
   from summary in AppearanceSummary.Rehydrate(appearanceKey, AppearanceVector.Create(
    wire.BaseColorR, wire.BaseColorG, wire.BaseColorB, wire.Metallic, wire.Roughness,
-   wire.Opacity, wire.Transmissive), key)
+   wire.Opacity, wire.Transmissive))
   select (Node)new Node.Appearance(id, summary);
 
- static Fin<Node> ToObject(NodeId id, ObjectWire wire, Op key) =>
-  from kind in ToObjectKind(wire.Kind, key)
-  from classificationWire in Present(wire.Classification, "object.classification", key)
-  from classification in ToClassification(classificationWire, key)
-  from classifications in toSeq(wire.Classifications).TraverseM(row => ToClassification(row, key)).As()
-  from spanWire in Present(wire.Span, "object.span", key)
-  from span in ToSpan(spanWire, key)
+ static Fin<Node> ToObject(NodeId id, ObjectWire wire) =>
+  from kind in ToObjectKind(wire.Kind)
+  from classificationWire in Present(wire.Classification, "object.classification")
+  from classification in ToClassification(classificationWire)
+  from classifications in toSeq(wire.Classifications).TraverseM(row => ToClassification(row)).As()
+  from spanWire in Present(wire.Span, "object.span")
+  from span in ToSpan(spanWire)
   from representations in toSeq(wire.Representations).TraverseM(row =>
-   from slot in ToRepresentationSlot(row.Kind, key)
-   from hash in ToKey(row.Key, key)
+   from slot in ToRepresentationSlot(row.Kind)
+   from hash in ToKey()
    select (Key: slot, Value: hash)).As()
-  from representationMap in UniqueMap(representations, "object.representations", key)
-  from history in Optional(wire.History).Traverse(value => ToHistory(value, key)).As()
-  from placement in Optional(wire.Placement).Traverse(value => ToPlacement(value, key)).As()
+  from representationMap in UniqueMap(representations, "object.representations")
+  from history in Optional(wire.History).Traverse(value => ToHistory(value)).As()
+  from placement in Optional(wire.Placement).Traverse(value => ToPlacement(value)).As()
   select (Node)new Node.Object(
    id, kind, Opt(wire.HasExternalId, wire.ExternalId), classification,
    PredefinedType.Create(wire.PredefinedType), Opt(wire.HasObjectType, wire.ObjectType),
    wire.Name, wire.Tag, new RepresentationContentHash(representationMap), history, span,
    classifications, placement);
 
- static Fin<SchemaSpan> ToSpan(SchemaSpanWire wire, Op key) =>
-  from introduced in ToReleaseVersion(wire.IntroducedIn, key)
-  from removed in Opt(wire.HasRemovedIn, wire.RemovedIn).Traverse(value => ToReleaseVersion(value, key)).As()
+ static Fin<SchemaSpan> ToSpan(SchemaSpanWire wire) =>
+  from introduced in ToReleaseVersion(wire.IntroducedIn)
+  from removed in Opt(wire.HasRemovedIn, wire.RemovedIn).Traverse(value => ToReleaseVersion(value)).As()
   select new SchemaSpan(introduced, removed);
 
- static Fin<OwnerHistory> ToHistory(OwnerHistoryWire wire, Op key) =>
-  from created in Present(wire.Created, "owner-history.created", key)
+ static Fin<OwnerHistory> ToHistory(OwnerHistoryWire wire) =>
+  from created in Present(wire.Created, "owner-history.created")
   from modified in Optional(wire.Modified).Traverse(value => Fin.Succ(value.ToInstant())).As()
-  from action in ToChangeAction(wire.ChangeAction, key)
-  from state in ToObjectState(wire.State, key)
+  from action in ToChangeAction(wire.ChangeAction)
+  from state in ToObjectState(wire.State)
   select new OwnerHistory(wire.OwningUser, wire.OwningApplication, created.ToInstant(), modified, action, state);
 
- static Fin<Map<TKey, TValue>> UniqueMap<TKey, TValue>(Seq<(TKey Key, TValue Value)> rows, string column, Op key)
+ static Fin<Map<TKey, TValue>> UniqueMap<TKey, TValue>(Seq<(TKey Key, TValue Value)> rows, string column)
   where TKey : notnull => rows.Fold(
    Fin.Succ(Map<TKey, TValue>()),
    (state, row) => state.Bind(map => map.ContainsKey(row.Key)
     ? Fin.Fail<Map<TKey, TValue>>(new KernelFault.InvalidValue(
-     $"element-wire.{column}", "keys remain unique after domain admission", Some(key)))
+     $"element-wire.{column}", "keys remain unique after domain admission"))
     : Fin.Succ(map.Add(row.Key, row.Value))));
 
  static WireObjectKind ToWire(ObjectKind value) => value.Switch(
   occurrence: static () => WireObjectKind.Occurrence,
   type: static () => WireObjectKind.Type);
 
- static Fin<ObjectKind> ToObjectKind(WireObjectKind value, Op key) => value switch {
+ static Fin<ObjectKind> ToObjectKind(WireObjectKind value) => value switch {
   WireObjectKind.Occurrence => Fin.Succ(ObjectKind.Occurrence),
   WireObjectKind.Type => Fin.Succ(ObjectKind.Type),
-  _ => Fin.Fail<ObjectKind>(key.InvalidInput(nameof(ObjectWire.Kind))),
+  _ => Fin.Fail<ObjectKind>(new KernelFault.InvalidInput(Axis: Some(nameof(ObjectWire.Kind)))),
  };
 
  static WireReleaseVersion ToWire(ReleaseVersion value) => value.Switch(
@@ -184,14 +184,14 @@ internal static partial class WireCodec {
   ifc4X3Add2: static () => WireReleaseVersion.Ifc4X3Add2,
   ifc5: static () => WireReleaseVersion.Ifc5);
 
- static Fin<ReleaseVersion> ToReleaseVersion(WireReleaseVersion value, Op key) => value switch {
+ static Fin<ReleaseVersion> ToReleaseVersion(WireReleaseVersion value) => value switch {
   WireReleaseVersion.Ifc2X3 => Fin.Succ(ReleaseVersion.Ifc2X3),
   WireReleaseVersion.Ifc4 => Fin.Succ(ReleaseVersion.Ifc4),
   WireReleaseVersion.Ifc4X1 => Fin.Succ(ReleaseVersion.Ifc4X1),
   WireReleaseVersion.Ifc4X3 => Fin.Succ(ReleaseVersion.Ifc4X3),
   WireReleaseVersion.Ifc4X3Add2 => Fin.Succ(ReleaseVersion.Ifc4X3Add2),
   WireReleaseVersion.Ifc5 => Fin.Succ(ReleaseVersion.Ifc5),
-  _ => Fin.Fail<ReleaseVersion>(key.InvalidInput(nameof(SchemaSpanWire.IntroducedIn))),
+  _ => Fin.Fail<ReleaseVersion>(new KernelFault.InvalidInput(Axis: Some(nameof(SchemaSpanWire.IntroducedIn)))),
  };
 
  static WireRepresentationKind ToWire(RepresentationSlot value) => value.Switch(
@@ -207,7 +207,7 @@ internal static partial class WireCodec {
   lighting: static () => WireRepresentationKind.Lighting,
   reference: static () => WireRepresentationKind.Reference);
 
- static Fin<RepresentationSlot> ToRepresentationSlot(WireRepresentationKind value, Op key) => value switch {
+ static Fin<RepresentationSlot> ToRepresentationSlot(WireRepresentationKind value) => value switch {
   WireRepresentationKind.Body => Fin.Succ(RepresentationSlot.Body),
   WireRepresentationKind.Axis => Fin.Succ(RepresentationSlot.Axis),
   WireRepresentationKind.FootPrint => Fin.Succ(RepresentationSlot.FootPrint),
@@ -219,7 +219,7 @@ internal static partial class WireCodec {
   WireRepresentationKind.Cog => Fin.Succ(RepresentationSlot.Cog),
   WireRepresentationKind.Lighting => Fin.Succ(RepresentationSlot.Lighting),
   WireRepresentationKind.Reference => Fin.Succ(RepresentationSlot.Reference),
-  _ => Fin.Fail<RepresentationSlot>(key.InvalidInput(nameof(RepresentationWire.Kind))),
+  _ => Fin.Fail<RepresentationSlot>(new KernelFault.InvalidInput(Axis: Some(nameof(RepresentationWire.Kind)))),
  };
 
  static WireChangeAction ToChangeAction(string value) => value switch {
@@ -231,13 +231,13 @@ internal static partial class WireCodec {
   _ => throw new InvalidOperationException($"<owner-history-change-action:{value}>"),
  };
 
- static Fin<string> ToChangeAction(WireChangeAction value, Op key) => value switch {
+ static Fin<string> ToChangeAction(WireChangeAction value) => value switch {
   WireChangeAction.Nochange => Fin.Succ("NOCHANGE"),
   WireChangeAction.Modified => Fin.Succ("MODIFIED"),
   WireChangeAction.Added => Fin.Succ("ADDED"),
   WireChangeAction.Deleted => Fin.Succ("DELETED"),
   WireChangeAction.Notdefined => Fin.Succ("NOTDEFINED"),
-  _ => Fin.Fail<string>(key.InvalidInput(nameof(OwnerHistoryWire.ChangeAction))),
+  _ => Fin.Fail<string>(new KernelFault.InvalidInput(Axis: Some(nameof(OwnerHistoryWire.ChangeAction)))),
  };
 
  static WireObjectState ToObjectState(string value) => value switch {
@@ -249,13 +249,13 @@ internal static partial class WireCodec {
   _ => throw new InvalidOperationException($"<owner-history-state:{value}>"),
  };
 
- static Fin<string> ToObjectState(WireObjectState value, Op key) => value switch {
+ static Fin<string> ToObjectState(WireObjectState value) => value switch {
   WireObjectState.Readwrite => Fin.Succ("READWRITE"),
   WireObjectState.Readonly => Fin.Succ("READONLY"),
   WireObjectState.Locked => Fin.Succ("LOCKED"),
   WireObjectState.Readwritelocked => Fin.Succ("READWRITELOCKED"),
   WireObjectState.Readonlylocked => Fin.Succ("READONLYLOCKED"),
-  _ => Fin.Fail<string>(key.InvalidInput(nameof(OwnerHistoryWire.State))),
+  _ => Fin.Fail<string>(new KernelFault.InvalidInput(Axis: Some(nameof(OwnerHistoryWire.State)))),
  };
 }
 ```

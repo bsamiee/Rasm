@@ -216,7 +216,7 @@ flowchart LR
 
 - Owner: `PointSample` the single LiDAR return; `PointFamily` the nominal grouping each ASPRS code sits in; `PointClass` `[SmartEnum<byte>]` the classification vocabulary; `CapturePalette` the DERIVED classification ink; `PointOctreeNode` the render-domain LOD node; `PointCloudSource` the decoded point set holding the kernel index it built. The octree is `Rasm/.planning/Spatial/index.md#[02]-[SPATIAL_INDEX]`'s — the partition, the Morton ordering, the cell cut, AND the nearest-neighbour query are `SpatialKind.Octree`'s through `SpatialIndex.Build` and its `Query` arms; page-local remains the render-domain fold over the decoded nodes.
 - Exemption: the wire decode is a measured kernel — two index sweeps over the node stream, statement-bodied because the depth sweep and the bottom-up sample fold both write per-node slots keyed by ordinal, exactly as `Sorted`'s LSD radix is. The three per-node scratch runs are pooled `SpanOwner<T>` spans, and the positional `Where((_, at) => at % stride == 0)` that allocated an enumerator per node inside that kernel is now the named `Strided` fold.
-- Entry: `PointCloudSource.Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode, Op? key = null)` takes the SAME `CaptureAdmission` ladder, then the kernel broad phase; `Visible(Frustum frustum, ViewCamera camera, double lodScale, LodPolicy lod, long ceiling)` narrows to the LOD cut under the batch ceiling; `Snap((double X, double Y, double Z) requested, UnitsNet.Length tolerance, Op? key = null)` resolves a world point to one resident return as a `ViewMeasurementPoint`; `CapturePalette.Of(Colormap map)` admits the classification ink once.
+- Entry: `PointCloudSource.Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode)` takes the SAME `CaptureAdmission` ladder, then the kernel broad phase; `Visible(Frustum frustum, ViewCamera camera, double lodScale, LodPolicy lod, long ceiling)` narrows to the LOD cut under the batch ceiling; `Snap((double X, double Y, double Z) requested, UnitsNet.Length tolerance)` resolves a world point to one resident return as a `ViewMeasurementPoint`; `CapturePalette.Of(Colormap map)` admits the classification ink once.
 - Law: the RETAINED `SpatialIndex` is the query owner. `Materialized` keeps what the build produced, so `Snap` is the k-nearest `SpatialIndex.Query` arm in the same primitive space the build admitted — the leaf filter, the run gather, the `Distinct`, and the min-fold that stood in for it are all the kernel's, and building an index only to hand-scan past it is the deleted form the sibling `Render/pathtrace` `Bvh` already forecloses by retaining its own.
 - Law: what a measurement IS belongs to `Render/measure#MEASURE_MODE` — kinds, folds, pinning, and the `ViewMeasurement` projection. This owner answers the one question that page declares outside itself: which resident return a requested coordinate resolves to. `Snap` therefore ANSWERS the settled `ViewMeasurementPoint` and mints no overlay, segment, angle, or viewpoint projection of its own.
 - Auto: each point carries its position, the classification byte, the intensity, and the RGB colour; the LOD tree is BUILT by the kernel — every return admits as its own degenerate `BoundingBox`, the `BuildPolicy` DERIVES from the payload's declared octree depth and composes the kernel's `BuildPolicy.Of` admission, and `SpatialIndex.Wire` yields the frozen node stream the render fold decodes ONCE per build through the `Render/pathtrace` `NodeLink` reader; that fold lands the columns the draw reads — each node's `Level` from one forward sweep, its resident `Count` and strided sample run from one bottom-up sweep, its `SampleStride` from its depth below the deepest level, and its PARENT's bounds carried as a column so the half-open cut compares against a real extent without an O(n) index-back into the node seq; residency keys off the SOURCE's payload `ContentKey`, one per cloud, never a mirror on every node.
@@ -330,10 +330,10 @@ public sealed partial record PointCloudSource(
     [property: IgnoreEquality] Option<SpatialIndex> Index,
     [property: IgnoreEquality] BoundingSphere Bounds) {
     public static Fin<PointCloudSource> Decode(
-        GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode, Op? key = null) =>
+        GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode) =>
         CaptureAdmission.Of(ResidencyKind.PointSplat, payload, budget, decode)
             .Bind(decoded => decoded.Switch(
-                points: row => Materialized(backend, payload, row, key.OrDefault()),
+                points: row => Materialized(backend, payload, row),
                 splats: _ => Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed(
                     $"{ResidencyKind.PointSplat.Key}/decode:{ResidencyMarshal.KeyHex(payload.ContentKey)}"))));
 
@@ -359,18 +359,18 @@ public sealed partial record PointCloudSource(
             None: static () => true);
 
     public Fin<ViewMeasurementPoint> Snap(
-        (double X, double Y, double Z) requested, UnitsNet.Length tolerance, Op? key = null) =>
+        (double X, double Y, double Z) requested, UnitsNet.Length tolerance) =>
         Index
             .ToFin(Fail: (Error)new CaptureFault.SnapAbsent($"snap/unindexed:{ResidencyMarshal.KeyHex(ContentKey)}"))
-            .Bind(index => Nearest(index, requested, key.OrDefault()))
+            .Bind(index => Nearest(index, requested))
             .Bind(ordinal => ordinal
                 .Filter(at => Gap(requested, Points[at].Position) <= tolerance)
                 .Map(at => new ViewMeasurementPoint(ContentKey, at, Placed(Points[at])))
                 .ToFin(Fail: new CaptureFault.SnapAbsent(
                     $"snap/{ResidencyMarshal.KeyHex(ContentKey)}: no resident return within {tolerance}")));
 
-    private static Fin<Option<int>> Nearest(SpatialIndex index, (double X, double Y, double Z) requested, Op op) =>
-        index.Query(new Point3d(requested.X, requested.Y, requested.Z), 1, op).Map(static ordered => ordered.Head);
+    private static Fin<Option<int>> Nearest(SpatialIndex index, (double X, double Y, double Z) requested) =>
+        index.Query(new Point3d(requested.X, requested.Y, requested.Z), 1).Map(static ordered => ordered.Head);
 
     private static UnitsNet.Length Gap((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
         UnitsNet.Length.FromMeters(Math.Sqrt(
@@ -379,10 +379,10 @@ public sealed partial record PointCloudSource(
     private static System.Numerics.Vector3 Placed(PointSample sample) => new(sample.X, sample.Y, sample.Z);
 
     private static Fin<PointCloudSource> Materialized(
-        GpuBackend backend, ResidencyPayload payload, CaptureDecoded.Points decoded, Op op) =>
+        GpuBackend backend, ResidencyPayload payload, CaptureDecoded.Points decoded) =>
         (from policy in Broadphase(decoded.OctreeDepth)
-         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy, op)
-         from stream in index.Wire(op)
+         from index in SpatialIndex.Build(SpatialKind.Octree, [.. decoded.Samples.Map(Box)], policy)
+         from stream in index.Wire()
          select new PointCloudSource(
              payload.ContentKey, backend, decoded.Samples, Decoded(stream), Some(index),
              new BoundingSphere(payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius)))
@@ -470,7 +470,7 @@ public sealed partial record PointCloudSource(
 - Cases: `CapturePass` = Splat | Point, both discriminating on the source they hold. Neither stores a key: `Kind`, `Content`, and `Key` are DERIVATIONS off the case and its source, so the pass identity the census, the residency plan, the retained decode, and the raster label all read is one value with one spelling.
 - Law: a massive scan arrives as MANY per-cell payloads, each under the watermark and each carrying its OWN `ContentKey`, and `Resident` folds the `Render/meshlets` `ResidencyPlan` into decoded passes. Only plan-named tiles decode; a held tile REUSES the decode it already paid for; every key the plan dropped RETIRES in the same transition; and the retained decode is charged in BYTES against its own ceiling — RULINGS `[02]:17` and `[02]:172` count what the record HOLDS, and a cache pinning the decode of a billion-point cloud while charging only the encoded payload is the exact shape those rows name. The `DecodeDeferred` fault narrows to a monolithic payload above the watermark or a single decode over the whole ceiling: the typed instruction that the producer must deliver the tiled census.
 - Law: a refused decode PARKS. `Retriability` on the fault itself decides how long — a deferral re-enters on the redrive window, a malformed payload never does — so the implicit unbounded per-frame retry that used to follow a refusal costs one census lookup instead of one decode. The window counts FRAMES off the plan's own ordinal rather than composing the kernel `RedrivePolicy` curve, and the discriminant is that a curve re-drives an IO effect on a wall clock while this decode is pure over bytes the census already holds.
-- Entry: `CaptureTileSet.Of(GpuBackend, HashMap<UInt128, ResidencyPayload> census, ResidencyBudget, long decodeCeiling, CaptureDecode, CaptureComposites, Op? key)` — `Fin`, the cache mint refusing a non-positive ceiling; `Resident(ResidencyPlan plan)` — TOTAL, answering the frame's passes, its elected sort, the refusals it parked, and the cache sweep; `CaptureResidency.Rows` — the EXECUTABLE `RenderPass` projection the pass-roster composition mounts, the same seat `ClusterCull.DrawRows` takes for meshlet geometry; `CaptureTileSet.Observe(InstrumentSet set, CaptureResidency residency)` — the level and count writes.
+- Entry: `CaptureTileSet.Of(GpuBackend, HashMap<UInt128, ResidencyPayload> census, ResidencyBudget, long decodeCeiling, CaptureDecode, CaptureComposites)` — `Fin`, the cache mint refusing a non-positive ceiling; `Resident(ResidencyPlan plan)` — TOTAL, answering the frame's passes, its elected sort, the refusals it parked, and the cache sweep; `CaptureResidency.Rows` — the EXECUTABLE `RenderPass` projection the pass-roster composition mounts, the same seat `ClusterCull.DrawRows` takes for meshlet geometry; `CaptureTileSet.Observe(InstrumentSet set, CaptureResidency residency)` — the level and count writes.
 - Auto: both cases emit one `Geometry`-family `RenderPass` over the active target at `CutPhase.Whole`, charging and reporting zero triangles because a splat composite and a point composite draw none; both take the frame's own `FrameView`, so the splat composite orders through `SplatSource.Sorted` and the point composite cuts through `PointCloudSource.Visible` against the camera the frame is drawing rather than one a closure bound a frame earlier; the sort the resident SET elects threads into the splat arm at the pass, so a set that grew past one tile switches to tile-major with NO decode repeated and no re-seat of the cache; `CaptureRaster` is the floor those delegates bind — the whole sorted ellipsoid set composites in a SINGLE `DrawAtlas` over `SKRotationScaleMatrix` transforms under `SKBlendMode.Plus`, and a resident point cell in a SINGLE `DrawVertices` batch.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, SkiaSharp, Rasm (project — `Cell`/`Transition` the cell transitions, `Retriability` the park law, `InstrumentSpec` the declarations)
 - Growth: a new capture path is one `CapturePass` case plus its `Mints` row, the retention, the park, and the sort election folding it with no further edit; a retuned point footprint is one `CaptureRaster.PointRadius` value; zero new surface.
@@ -603,16 +603,14 @@ public sealed class CaptureTileSet {
         ResidencyBudget budget,
         long decodeCeiling,
         CaptureDecode decode,
-        CaptureComposites composites,
-        Op? key = null) =>
+        CaptureComposites composites) =>
         BudgetedCache<UInt128, CapturePass>.Of(
             ceiling: decodeCeiling,
             posture: RetentionPosture.Holder,
             bytes: static pass => pass.DecodedBytes,
             release: static _ => { },
             refuse: (at, cost) => new CaptureFault.DecodeDeferred(
-                $"capture/decode-ceiling:{ResidencyMarshal.KeyHex(at)} costs {cost}b over {decodeCeiling}b"),
-            key: key)
+                $"capture/decode-ceiling:{ResidencyMarshal.KeyHex(at)} costs {cost}b over {decodeCeiling}b"))
             .Map(cache => new CaptureTileSet(backend, census, budget, cache, decode, composites));
 
     public CaptureResidency Resident(ResidencyPlan plan) {
@@ -629,7 +627,7 @@ public sealed class CaptureTileSet {
             frame.Passes,
             SplatSort.For(payloads.Count),
             frame.Refused,
-            decoded.Retire(stale: (key, _) => !named.Contains(key), advance: false));
+            decoded.Retire(stale: (key, _) => !named.Contains(), advance: false));
     }
 
     private static readonly FrozenDictionary<ResidencyKind, Func<CaptureTileSet, ResidencyPayload, Fin<CapturePass>>> Mints =
@@ -649,7 +647,7 @@ public sealed class CaptureTileSet {
                 $"capture/kind:{payload.Kind.Key} carries no capture arm"));
 
     private bool Admits(UInt128 key, long frame) =>
-        parked.Value.Find(key).Match(
+        parked.Value.Find().Match(
             Some: row => row.Posture.Switch(
                 terminalCase: static _ => false,
                 transientCase: _ => frame - row.Frame >= RedriveFrames,
@@ -657,7 +655,7 @@ public sealed class CaptureTileSet {
             None: static () => true);
 
     private Error Park(UInt128 key, long frame, Error cause) =>
-        (ignore(Cell.Commit(parked, held => held.AddOrUpdate(key, new ParkedTile(frame, Posture(cause))))), cause).Item2;
+        (ignore(Cell.Commit(parked, held => held.AddOrUpdate(new ParkedTile(frame, Posture(cause))))), cause).Item2;
 
     private static Retriability Posture(Error cause) =>
         cause is Fault expected ? expected.Retriability : Retriability.Terminal;
@@ -709,7 +707,7 @@ public sealed record CaptureClip(string Key, Seq<CaptureEpoch> Epochs) {
     public Fin<Track> OnTimeline(string key) =>
         Epochs.Head.Match(
             None: () => Fin.Fail<Track>(new CaptureFault.PayloadMalformed($"clip/empty:{Key}")),
-            Some: head => Track.OfFieldIndex(key, Epochs.Map(epoch => new Keyframe<int>(
+            Some: head => Track.OfFieldIndex(Epochs.Map(epoch => new Keyframe<int>(
                 epoch.At - head.At, epoch.Index, MotionToken.Standard))));
 }
 ```

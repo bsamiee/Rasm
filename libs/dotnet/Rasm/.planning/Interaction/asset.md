@@ -85,7 +85,7 @@ public readonly record struct AssetExtent(
     public static readonly Dimension Ceiling = Dimension.Create(value: 16_384);
 
     public static Fin<AssetExtent> Of(
-        Dimension width, Dimension height, PositiveMagnitude scale, Option<Dimension> max = default, Op? key = null);
+        Dimension width, Dimension height, PositiveMagnitude scale, Option<Dimension> max = default);
 
     public int PixelWidth => (int)Measured(Width);
     public int PixelHeight => (int)Measured(Height);
@@ -124,12 +124,10 @@ public abstract partial record AssetRaster {
     }
 
     public static Fin<AssetRaster> OfPixels(
-        PositiveMagnitude scale, AssetExtent extent, AlphaLayout layout, Arr<byte> rows, Op? key = null) =>
+        PositiveMagnitude scale, AssetExtent extent, AlphaLayout layout, Arr<byte> rows) =>
         rows.Count == extent.PixelCount * layout.Channels
             ? Fin.Succ<AssetRaster>(new Pixels(scale: scale, extent: extent, layout: layout, rows: rows))
-            : Fin.Fail<AssetRaster>(new UiFault.Rejected(
-                Key: key.OrDefault(),
-                Field: FieldTag.Create(value: nameof(Pixels.Rows)),
+            : Fin.Fail<AssetRaster>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(Pixels.Rows)),
                 Reason: RejectReason.PackedRows));
 
     public PositiveMagnitude Scale => Switch(
@@ -154,7 +152,7 @@ public abstract partial record AssetOrigin {
     public sealed record Source(string Text) : AssetOrigin;
     public sealed record Render(Func<AssetExtent, Fin<PaintProgram>> Draw) : AssetOrigin;
 
-    public Fin<AssetRaster> Resolve(AssetExtent extent, RasterStack stack, Op? key = null);
+    public Fin<AssetRaster> Resolve(AssetExtent extent, RasterStack stack);
 }
 ```
 
@@ -162,7 +160,7 @@ public abstract partial record AssetOrigin {
 
 - Owner: `IconPose` the orientation an origin is drawn under; `MirrorAxis` the reflection axis a mirrored pose names; `IconFilter` the closed rendering-state family a host surface asks for, one entry of the chain the render carries.
 - Cases: `Disabled`, `Selected`, and `Greyscale` are the payload-free states both boundaries spelled as name suffixes on separate assets; `Tinted` carries the colour it replaces toward; `Fading` carries a colour and the `UnitInterval` strength it blends at; `Custom` carries the map a boundary hands the host for a transform no row names.
-- Law: the tint rides its CASE. A colour column beside a filter row is two authorities over one fact and admits the corner where a tint is set under a non-tinting state — a value nothing reads, which the case form makes unspellable rather than refusable. NAMED LOSS: `IconRender.Of`'s pairing admission and its typed refusal both delete. Witness: `IconRender.Of(origin, pose, IconFilter.Tinted, tint: Some(colour), key)` becomes `new IconRender(origin, pose, Seq1<IconFilter>(new IconFilter.Tinted(colour)))`.
+- Law: the tint rides its CASE. A colour column beside a filter row is two authorities over one fact and admits the corner where a tint is set under a non-tinting state — a value nothing reads, which the case form makes unspellable rather than refusable. NAMED LOSS: `IconRender.Of`'s pairing admission and its typed refusal both delete. Witness: `IconRender.Of(origin, pose, IconFilter.Tinted, tint: Some(colour))` becomes `new IconRender(origin, pose, Seq1<IconFilter>(new IconFilter.Tinted(colour)))`.
 - Law: STRENGTH rides the fading case alone, and the two colour-bearing cases are two operations rather than one with an intensity knob — `Tinted` replaces toward its colour and `Fading` blends toward it at a bounded fraction. Folding the strength onto `Tinted` would make `Tinted(colour, 1.0)` and `Fading(colour, 1.0)` two spellings of one draw, and the boundary that carried `Fading(Color, float Strength)` against a bare tint is exactly where the strength was lost. Witness: `Rasm.Grasshopper` `Shell/icons.md`'s `Fading(colour, 0.4f)` becomes `new IconFilter.Fading(colour, UnitInterval.Create(0.4))`.
 - Law: an empty CHAIN is the one spelling of unfiltered, so no payload-free `None` row exists. A row meaning "no filter" beside a chain that can simply be empty is a second authority over one fact, and a chain holding `None` beside a real filter reads as an operation the host must then be told to skip. NAMED LOSS: the `"none"` wire key retires with the row; a persisted empty chain carries the same fact with no token at all.
 - Law: pose, filter, and tint are ORTHOGONAL axes on one value, never a name product — a `disabled-rotated-icon.png` roster is three axes flattened into a filename space that grows multiplicatively, and the flattening is exactly why both boundaries carried near-duplicate asset sets.

@@ -58,13 +58,13 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
     internal Kind FaultKind { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<FitPrimitive> Solve(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key);
+    internal partial Fin<FitPrimitive> Solve(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance);
 
     [UseDelegateFromConstructor]
     internal partial FitPrimitive Rebuild(ReadOnlySpan<double> parameters);
 
     // --- [MINIMAL_SOLVERS]
-    static Fin<FitPrimitive> SolvePlane(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
+    static Fin<FitPrimitive> SolvePlane(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]], c = cloud[draw[2]];
         Vector3d normal = Vector3d.CrossProduct(b - a, c - a);
         return normal.IsTiny(EpsilonPolicy.ZeroTolerance)
@@ -72,22 +72,22 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             : Fin.Succ((FitPrimitive)new FitPrimitive.Plane(new Rhino.Geometry.Plane(a, normal)));
     }
 
-    static Fin<FitPrimitive> SolveSphere(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
+    static Fin<FitPrimitive> SolveSphere(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]], c = cloud[draw[2]], d = cloud[draw[3]];
         return Matrix.Of(
                 Dimension.Create(3), Dimension.Create(3),
-                new Arr<double>([b.X - a.X, b.Y - a.Y, b.Z - a.Z, c.X - a.X, c.Y - a.Y, c.Z - a.Z, d.X - a.X, d.Y - a.Y, d.Z - a.Z]), key)
+                new Arr<double>([b.X - a.X, b.Y - a.Y, b.Z - a.Z, c.X - a.X, c.Y - a.Y, c.Z - a.Z, d.X - a.X, d.Y - a.Y, d.Z - a.Z]))
             .Bind(lhs => lhs.SolveDetailed(new Arr<double>([
                 0.5 * (b.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin)),
                 0.5 * (c.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin)),
-                0.5 * (d.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin))]), key))
+                0.5 * (d.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin))])))
             .Map(solved => {
                 Point3d origin = new(solved.Solution[0], solved.Solution[1], solved.Solution[2]);
                 return (FitPrimitive)new FitPrimitive.Sphere(new Rhino.Geometry.Sphere(origin, origin.DistanceTo(a)));
             });
     }
 
-    static Fin<FitPrimitive> SolveCylinder(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
+    static Fin<FitPrimitive> SolveCylinder(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) {
         Vector3d axis = normals.Match(
             Some: field => Vector3d.CrossProduct(field[draw[0]], field[draw[1]]),
             None: () => cloud[draw[1]] - cloud[draw[0]]);
@@ -124,9 +124,9 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Cylinder, draw[0], "degenerate-section")));
     }
 
-    static Fin<FitPrimitive> SolveCone(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) =>
+    static Fin<FitPrimitive> SolveCone(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) =>
         normals.Match(
-            Some: field => ApexFromNormals(cloud, draw, field, key).Bind(apex => {
+            Some: field => ApexFromNormals(cloud, draw, field).Bind(apex => {
                 Vector3d u0 = Unit(cloud[draw[0]] - apex), u1 = Unit(cloud[draw[1]] - apex), u2 = Unit(cloud[draw[2]] - apex);
                 Vector3d axis = Vector3d.CrossProduct(u1 - u0, u2 - u0);
                 if (axis.IsTiny(EpsilonPolicy.ZeroTolerance))
@@ -142,7 +142,7 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             }),
             None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Cone, None, "no-normal-field")));
 
-    static Fin<FitPrimitive> SolveTorus(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) =>
+    static Fin<FitPrimitive> SolveTorus(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) =>
         normals.Match(
             Some: field => {
                 Vector3d cross = Vector3d.CrossProduct(field[draw[0]], field[draw[1]]);
@@ -172,7 +172,7 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             },
             None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Torus, None, "no-normal-field")));
 
-    static Fin<FitPrimitive> SolveLine(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
+    static Fin<FitPrimitive> SolveLine(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]];
         Vector3d direction = b - a;
         return direction.IsTiny(EpsilonPolicy.ZeroTolerance)
@@ -180,7 +180,7 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             : Fin.Succ((FitPrimitive)new FitPrimitive.Line(new Rhino.Geometry.Line(a, b)));
     }
 
-    static Fin<FitPrimitive> SolveCircle(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
+    static Fin<FitPrimitive> SolveCircle(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]], c = cloud[draw[2]];
         Vector3d normal = Vector3d.CrossProduct(b - a, c - a);
         if (normal.IsTiny(EpsilonPolicy.ZeroTolerance))
@@ -218,7 +218,7 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             ((a2 * (c.U - b.U)) + (b2 * (a.U - c.U)) + (c2 * (b.U - a.U))) / d));
     }
 
-    static Fin<Point3d> ApexFromNormals(Point3d[] cloud, int[] draw, Vector3d[] normals, Op key) {
+    static Fin<Point3d> ApexFromNormals(Point3d[] cloud, int[] draw, Vector3d[] normals) {
         int n = draw.Length;
         double[] lhs = new double[n * 3];
         double[] rhs = new double[n];
@@ -227,8 +227,8 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             (lhs[i * 3], lhs[(i * 3) + 1], lhs[(i * 3) + 2]) = (nrm.X, nrm.Y, nrm.Z);
             rhs[i] = nrm.X * cloud[draw[i]].X + nrm.Y * cloud[draw[i]].Y + nrm.Z * cloud[draw[i]].Z;
         }
-        return Matrix.Of(Dimension.Create(n), Dimension.Create(3), new Arr<double>(lhs), key)
-            .Bind(design => design.LeastSquaresDetailed(new Arr<double>(rhs), key))
+        return Matrix.Of(Dimension.Create(n), Dimension.Create(3), new Arr<double>(lhs))
+            .Bind(design => design.LeastSquaresDetailed(new Arr<double>(rhs)))
             .Map(solved => new Point3d(solved.Solution[0], solved.Solution[1], solved.Solution[2]));
     }
 
@@ -315,8 +315,8 @@ public sealed record FitPolicy(
     long Seed,
     Dimension Neighbors,
     SolvePolicy Refine) {
-    public static Fin<FitPolicy> Of(Context context, Op key, Option<SolvePolicy> refine = default) =>
-        refine.Match(Some: Fin.Succ, None: () => SolvePolicy.Of(context: context, key: key))
+    public static Fin<FitPolicy> Of(Context context, Option<SolvePolicy> refine = default) =>
+        refine.Match(Some: Fin.Succ, None: () => SolvePolicy.Of(context: context))
             .Map(solve => new FitPolicy(
                 ConsensusCost.Msac, SampleMode.Random,
                 UnitInterval.Create(0.5), UnitInterval.Create(0.999),
@@ -622,12 +622,11 @@ public static class Fit {
         }
     }
 
-    public static Fin<Fitted> Apply(FitOp op, Context tolerance, Op? key = null) {
-        Op ok = key.OrDefault();
-        return ok.Catch(() => {
+    public static Fin<Fitted> Apply(FitOp op, Context tolerance) {
+        return Try.lift(() => {
             Deterministic.Draw draw = new(Seed: op.Policy.Seed, Prefix: [.. op.Kinds.Map(static kind => kind.Lane)]);
             int[] whole = [.. Enumerable.Range(0, op.Cloud.Length)];
-            return Validate(op)
+            return Validate()
                 .Bind(_ => NeighborIndex.Of(new NeighborSource.PointsCase(toSeq(op.Cloud)), ok))
                 .Bind(index => Order(op.Cloud, op.Normals, op.Policy, tolerance, ok)
                     .Bind(order => op.Kinds
@@ -641,7 +640,7 @@ public static class Fit {
                             ? Fin.Fail<Fitted>(new GeometryFault.InsufficientInliers(fraction, op.Policy.InlierFloor))
                             : Refine(best, op.Cloud, op.Normals, index, whole, op.Policy, tolerance, ok);
                     }));
-        });
+        }).Run().Bind(static inner => inner);
     }
 
     static Fin<Unit> Validate(FitOp op) {
@@ -682,16 +681,16 @@ public static class Fit {
 
     static Option<Candidate> Draw(
         Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] order, int[] whole,
-        FitKind kind, FitPolicy policy, Context tolerance, Deterministic.Draw draw, Op key) {
+        FitKind kind, FitPolicy policy, Context tolerance, Deterministic.Draw draw) {
         double threshold = policy.InlierScale.Value * tolerance.Absolute.Value;
         double t2 = threshold * threshold;
         Deterministic.Draw lane = draw.At(TrialLane, kind.Lane);
         Option<Candidate> best = None;
         int budget = policy.MaxTrials.Value, support = 0;
         for (int trial = 0; trial < budget; trial++) {
-            int[] sample = Sample(order, cloud, index, kind, policy, trial, lane, key);
-            if (kind.Solve(cloud, sample, normals, tolerance, key).Case is not FitPrimitive primitive) continue;
-            (ddouble cost, Arr<int> inliers) = Score(primitive, cloud, normals, index, whole, policy, t2, threshold, key);
+            int[] sample = Sample(order, cloud, index, kind, policy, trial, lane);
+            if (kind.Solve(cloud, sample, normals, tolerance).Case is not FitPrimitive primitive) continue;
+            (ddouble cost, Arr<int> inliers) = Score(primitive, cloud, normals, index, whole, policy, t2, threshold);
             if (inliers.Count > support) {
                 support = inliers.Count;
                 double fraction = (double)support / cloud.Length;
@@ -707,7 +706,7 @@ public static class Fit {
 
     static (ddouble Cost, Arr<int> Inliers) Score(
         FitPrimitive primitive, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole,
-        FitPolicy policy, double t2, double threshold, Op key) {
+        FitPolicy policy, double t2, double threshold) {
         if (!policy.Cost.Saturating)
             return Scored(primitive, cloud, whole, ddouble.Zero, normals, policy, t2, threshold);
         Option<(Point3d Center, double Reach)> support = primitive.Switch(
@@ -721,7 +720,7 @@ public static class Fit {
             circle:   static (t, c) => Some((c.Curve.Center, c.Curve.Radius + t)));
         return support.Match(
             Some: ball => NeighborKernel.GraphOf(index, [ball.Center], Option<Dimension>.None,
-                Some(PositiveMagnitude.Create(ball.Reach)), key).Match(
+                Some(PositiveMagnitude.Create(ball.Reach))).Match(
                 Succ: graph => Scored(primitive, cloud, graph.Ids[0],
                     policy.Cost.Cost(t2, t2) * (cloud.Length - graph.Ids[0].Length), normals, policy, t2, threshold),
                 Fail: _ => Scored(primitive, cloud, whole, ddouble.Zero, normals, policy, t2, threshold)),
@@ -745,9 +744,9 @@ public static class Fit {
         return (cost, new Arr<int>(inliers));
     }
 
-    static Fin<int[]> Order(Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, Context tolerance, Op key) {
+    static Fin<int[]> Order(Point3d[] cloud, Option<Vector3d[]> normals, FitPolicy policy, Context tolerance) {
         int[] indices = [.. Enumerable.Range(0, cloud.Length)];
-        if (policy.Sampling != SampleMode.Prosac) return key.AcceptValue(indices);
+        if (policy.Sampling != SampleMode.Prosac) return Acceptance.Value(indices);
         return normals.Match(
                 Some: field => {
                     Vector3d mean = Vector3d.Zero;
@@ -755,14 +754,14 @@ public static class Fit {
                     Vector3d mode = FitKind.Unit(mean);
                     double[] rank = new double[field.Length];
                     for (int i = 0; i < field.Length; i++) rank[i] = Math.Abs(field[i] * mode);
-                    return key.AcceptValue(rank);
+                    return Acceptance.Value(rank);
                 },
-                None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None, key)
-                    .Bind(stats => stats.Cov.DecomposeEigenDetailed(key)
-                        .Bind(solved => solved.PairsIn(EigenOrder.DescendingMagnitude, key))
+                None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None)
+                    .Bind(stats => stats.Cov.DecomposeEigenDetailed()
+                        .Bind(solved => solved.PairsIn(EigenOrder.DescendingMagnitude))
                         .Map(eigen => (stats.Mean, Eigen: eigen)))
                     .Bind(pca => {
-                        if (pca.Eigen.Count < 3) return Fin.Fail<double[]>(key.InvalidResult());
+                        if (pca.Eigen.Count < 3) return Fin.Fail<double[]>(new KernelFault.InvalidResult());
                         Vector3d axis = new(pca.Eigen[2].Eigenvector[0], pca.Eigen[2].Eigenvector[1], pca.Eigen[2].Eigenvector[2]);
                         double floor = Math.Max(Math.Sqrt(Math.Abs(pca.Eigen[2].Eigenvalue)), tolerance.Absolute.Value);
                         double[] rank = new double[cloud.Length];
@@ -770,7 +769,7 @@ public static class Fit {
                             Vector3d rel = cloud[i] - (Point3d.Origin + pca.Mean);
                             rank[i] = 1.0 / (1.0 + Math.Abs(rel * axis) / floor);
                         }
-                        return key.AcceptValue(rank);
+                        return Acceptance.Value(rank);
                     }))
             .Map(rank => {
                 System.Array.Sort(indices, (a, b) => rank[b].CompareTo(rank[a]));
@@ -778,9 +777,9 @@ public static class Fit {
             });
     }
 
-    static int[] Sample(int[] order, Point3d[] cloud, NeighborIndex index, FitKind kind, FitPolicy policy, int trial, Deterministic.Draw lane, Op key) =>
+    static int[] Sample(int[] order, Point3d[] cloud, NeighborIndex index, FitKind kind, FitPolicy policy, int trial, Deterministic.Draw lane) =>
         policy.Sampling.Switch(
-            state: (Order: order, Cloud: cloud, Index: index, Kind: kind, Policy: policy, Trial: trial, State: lane.At(trial).State, Key: key),
+            state: (Order: order, Cloud: cloud, Index: index, Kind: kind, Policy: policy, Trial: trial, State: lane.At(trial).State),
             random: static s => {
                 ulong draw = s.State;
                 return UniformDraw(s.Order, s.Kind.MinimalSamples, ref draw);
@@ -828,14 +827,14 @@ public static class Fit {
     }
 
     // --- [REFINE]
-    static Fin<Fitted> Refine(Candidate seed, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole, FitPolicy policy, Context tolerance, Op key) =>
-        Lm.Minimize(new Model(seed.Primitive, cloud, seed.Inliers), policy.Refine, key).Bind(result => {
+    static Fin<Fitted> Refine(Candidate seed, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole, FitPolicy policy, Context tolerance) =>
+        Lm.Minimize(new Model(seed.Primitive, cloud, seed.Inliers), policy.Refine).Bind(result => {
             FitPrimitive refined = seed.Primitive.Kind.Rebuild(result.Parameters.AsSpan());
             double threshold = policy.InlierScale.Value * tolerance.Absolute.Value;
-            (ddouble _, Arr<int> mask) = Score(refined, cloud, normals, index, whole, policy, threshold * threshold, threshold, key);
+            (ddouble _, Arr<int> mask) = Score(refined, cloud, normals, index, whole, policy, threshold * threshold, threshold);
             return mask.IsEmpty
-                ? Fin.Fail<Fitted>(key.InvalidResult())
-                : key.AcceptValue(new Fitted(
+                ? Fin.Fail<Fitted>(new KernelFault.InvalidResult())
+                : Acceptance.Value(new Fitted(
                     refined, mask,
                     (double)ddouble.Sqrt(mask.Select(i => { double d = refined.Distance(cloud[i]); return (ddouble)d * d; }).Sum()) / Math.Sqrt(mask.Count),
                     UnitInterval.Create((double)mask.Count / cloud.Length), seed.Trial, result.Iterations));

@@ -12,7 +12,7 @@
 
 - Owner: `DevelopPolicy` the policy row (`Width` the geodesic edge spacing admitted once as `PositiveMagnitude` · `Stations` the per-strip station count · `Torsal` the lane-resolved ruling residual gate · `Isometry` the lane-resolved per-strip witness ceiling the acceptance reads · `Seed` the UV seed polyline the distance field grows from, `None` = the `u = 0` boundary isoline, an empty supplied polyline canonicalized to `None` at `Of`); `DevelopOp` the request `[Union]` (`Decompose` the strip partition + rulings for inspection · `Unroll` the full pipeline through the witness and atlas); `StripField` the SoA wire (edge offset-columns in UV · ruling endpoint/residual columns — component labels and the layout forest are `Emit`-local, computed after unrolling and never stored as decomposition output); `Isometry` the evidence row (the per-strip `Witness` column with its one derived `Stat<Scalar>` band, `Witness.Count` the strip census · `Torsal` the one `Stat<Scalar>` derived off the field's `TorsalResidual` column, `Torsal.Count` the ruling census · `Components`); `DevelopmentResult` the result `[Union]`; `Development` the static entry.
 - Cases: `DevelopOp` cases `Decompose` · `Unroll` (2 — inspection versus fabrication modality, `Unroll` composing `Decompose`'s own fold, never a re-derivation); `DevelopmentResult` cases `Strips` · `Unrolled` (2).
-- Entry: `public static Fin<DevelopmentResult> Apply(DevelopOp op, Op? key = null)` — the ONE entry discriminating on the op case; both cases take the `SurfaceResult.UvTessellation` carrier, so the UV-provenance input law is the parameter TYPE.
+- Entry: `public static Fin<DevelopmentResult> Apply(DevelopOp op)` — the ONE entry discriminating on the op case; both cases take the `SurfaceResult.UvTessellation` carrier, so the UV-provenance input law is the parameter TYPE.
 - Auto: `Decompose` composes the geodesic distance through `Surfaces.Apply(SurfaceOp.Geodesics)` under `Some(WindowPropagationPolicy.Default)` on the `k·Width` ladder, takes the iso-distance contours as strip EDGES (UV and world columns lerp-consistent by the tessellation's own provenance), assigns faces to bands by vertex distance, and roots the torsal coplanarity residual per station (arc-spaced on the lower edge) through `Brent.TryFindRoot` coupled by one `Op.Catch`-funnelled `Broyden.FindRoot` pass; a station short of the `Torsal` band records into `TorsalResidual` rather than faulting, because a mildly non-torsal ruling that still unrolls within budget is fabrication-acceptable and the witness is the acceptance criterion. `Unroll` develops each strip by rigid placement on exact edge lengths — ruling quads split on the shorter diagonal, the triangle chain seated from the origin by two-circle intersection with no solve or relaxation — accumulates the squared edge defect and its edge count per strip in `ddouble`, answers the RMS defect as the WITNESS, narrows at readout onto the isometry band, and faults `Isometry` breaches as `Strip`; layout folds strip adjacency into an `UndirectedGraph` of length-tagged shared-rail edges, reads `ConnectedComponents` and the `Tag`-weighted `MinimumSpanningTreeKruskal`, threads that tagged forest through `PlacementOrder` so placement never rescans the field, and the atlas emits one `UvIsland` per strip with edge `FeatureEdge` cuts beside a cross-check `Distortion`.
 - Law: the layout tree is KRUSKAL, not Prim. Prim returns one component's tree, so on a multi-component strip graph — the ordinary case for a trimmed surface — a Prim ordering silently drops every strip outside the seeded component and the atlas packs a subset while `Components` reports the truth. Kruskal returns the forest the component labels already promise.
 - Law: the two gates are `Tolerance` values off `ToleranceLane.Torsal` and `ToleranceLane.Deviation`, minted through `DevelopPolicy.Of(context, width)`. NAMED LOSS: the `DevelopPolicy.Canonical` static and its 1e-8/1e-10 literals; a fabrication gate a document's own tolerance did not set is a number nobody can defend at acceptance. `Width` stays a caller value because an edge spacing is a design width in model units, not a tolerance; it crosses the `AcceptValidated` bridge once at `Of`, so the interior never re-gates the scalar.
@@ -44,7 +44,7 @@ public sealed record DevelopPolicy(
     PositiveMagnitude Width, Dimension Stations, Tolerance Torsal, Tolerance Isometry,
     Option<Arr<Point2d>> Seed) {
     public static Fin<DevelopPolicy> Of(
-        Context context, double width, Option<Arr<Point2d>> seed = default, Op? key = null) =>
+        Context context, double width, Option<Arr<Point2d>> seed = default) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: width)
             .Map(admitted => new DevelopPolicy(
                 Width: admitted, Stations: Dimension.Create(value: 32),
@@ -79,30 +79,30 @@ public abstract partial record DevelopmentResult {
 }
 
 public static class Development {
-    public static Fin<DevelopmentResult> Apply(DevelopOp op, Op? key = null) =>
+    public static Fin<DevelopmentResult> Apply(DevelopOp op) =>
         op.Switch(
             state: key.OrDefault(),
             decompose: static (k, d) => DecomposeOf(d.Source, d.Policy, k).Map(static field => (DevelopmentResult)new DevelopmentResult.Strips(field)),
             unroll:    static (k, u) => DecomposeOf(u.Source, u.Policy, k).Bind(field => UnrollOf(u.Source, u.Policy, field, k)));
 
     // --- [STRIP_DECOMPOSITION]
-    static Fin<StripField> DecomposeOf(SurfaceResult.UvTessellation source, DevelopPolicy policy, Op key) =>
+    static Fin<StripField> DecomposeOf(SurfaceResult.UvTessellation source, DevelopPolicy policy) =>
         Surfaces.Apply(
                 new SurfaceOp.Geodesics(source, new GeodesicPlan(
-                    SeedOf(source, policy), LevelLadder(source, policy.Width), Some(WindowPropagationPolicy.Default))), key)
+                    SeedOf(source, policy), LevelLadder(source, policy.Width), Some(WindowPropagationPolicy.Default))))
             .Bind(edges => edges.SwitchPartially(
-                state: (Source: source, Policy: policy, Key: key),
-                @default: static (state, _) => Fin.Fail<StripField>(state.Key.InvalidResult()),
+                state: (Source: source, Policy: policy),
+                @default: static (state, _) => Fin.Fail<StripField>(new KernelFault.InvalidResult()),
                 geodesicField: static (state, field) =>
                     Rulings(state.Source, state.Policy, field, state.Key)));
 
     static Arr<Point2d> SeedOf(SurfaceResult.UvTessellation source, DevelopPolicy policy);
     static Arr<double> LevelLadder(SurfaceResult.UvTessellation source, PositiveMagnitude width);
 
-    static Fin<StripField> Rulings(SurfaceResult.UvTessellation source, DevelopPolicy policy, SurfaceResult.GeodesicField edges, Op key);
+    static Fin<StripField> Rulings(SurfaceResult.UvTessellation source, DevelopPolicy policy, SurfaceResult.GeodesicField edges);
 
     // --- [EXACT_UNROLL]
-    static Fin<DevelopmentResult> UnrollOf(SurfaceResult.UvTessellation source, DevelopPolicy policy, StripField field, Op key) =>
+    static Fin<DevelopmentResult> UnrollOf(SurfaceResult.UvTessellation source, DevelopPolicy policy, StripField field) =>
         (field.RailOffsets.Count - 1) switch {
             0 => Fin.Fail<DevelopmentResult>(new GeometryFault.NoDevelopableStrips()),
             int strips => Range(0, strips).ToSeq()
@@ -111,7 +111,7 @@ public static class Development {
                         ? Fin.Succ(unrolled)
                         : Fin.Fail<UnrolledStrip>(new GeometryFault.StripIsometryExceeded(strip, (double)unrolled.Witness, policy.Isometry))).ToValidation())
                 .As().ToFin()
-                .Bind(unrolled => Emit(source, field, unrolled, key)),
+                .Bind(unrolled => Emit(source, field, unrolled)),
         };
 
     internal readonly record struct UnrolledStrip(Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Planar, ddouble Witness, double MaxJacobianRatio);
@@ -119,7 +119,7 @@ public static class Development {
     static Fin<UnrolledStrip> Develop(SurfaceResult.UvTessellation source, StripField field, int strip);
 
     // --- [LAYOUT_AND_ATLAS]
-    static Fin<DevelopmentResult> Emit(SurfaceResult.UvTessellation source, StripField field, Seq<UnrolledStrip> strips, Op key) {
+    static Fin<DevelopmentResult> Emit(SurfaceResult.UvTessellation source, StripField field, Seq<UnrolledStrip> strips) {
         UndirectedGraph<int, STaggedEdge<int, double>> adjacency = new(allowParallelEdges: false);
         adjacency.AddVertexRange(Enumerable.Range(0, strips.Count));
         adjacency.AddEdgeRange(SharedRails(field));
@@ -127,14 +127,14 @@ public static class Development {
         int componentCount = adjacency.ConnectedComponents(components);
         Arr<int> componentOf = new([.. Enumerable.Range(0, strips.Count).Select(strip => components[strip])]);
         return Atlas(source, field, strips, componentOf, toSeq(adjacency.MinimumSpanningTreeKruskal(
-            static edge => 1.0 / (1.0 + edge.Tag))), componentCount, key);
+            static edge => 1.0 / (1.0 + edge.Tag))), componentCount);
     }
 
     static Seq<STaggedEdge<int, double>> SharedRails(StripField field);
     internal static Arr<int> PlacementOrder(Seq<UnrolledStrip> strips, Arr<int> componentOf, Seq<STaggedEdge<int, double>> forest);
     static Fin<DevelopmentResult> Atlas(
         SurfaceResult.UvTessellation source, StripField field, Seq<UnrolledStrip> strips,
-        Arr<int> componentOf, Seq<STaggedEdge<int, double>> forest, int componentCount, Op key);
+        Arr<int> componentOf, Seq<STaggedEdge<int, double>> forest, int componentCount);
 }
 ```
 

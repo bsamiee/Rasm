@@ -162,7 +162,7 @@ public sealed partial class ModelPrecision {
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static Option<ModelPrecision> FromWire(string wire) =>
-        toSeq(Items).Find(row => row.WireKey.Exists(key => StringComparer.Ordinal.Equals(key, wire)));
+        toSeq(Items).Find(row => row.WireKey.Exists(key => StringComparer.Ordinal.Equals(wire)));
 
     static FrozenDictionary<string, string> Qdq(CapabilitySet<NumericTrait> posture) =>
         posture.Admits(NumericTrait.QuantizedGraph)
@@ -345,7 +345,7 @@ public sealed partial class ExecutionProvider {
         Func<ModelPrecision, FrozenDictionary<string, string>> sessionKeys,
         Option<string> ordinalKey,
         Option<ExecutionProviderDevicePolicy> devicePolicy, OrtHardwareDeviceType hardwareAffinity, WarmForm warm,
-        Action<SessionOptions, Dictionary<string, string>> registerRow) : this(key) {
+        Action<SessionOptions, Dictionary<string, string>> registerRow) : this() {
         (ProviderName, WireKey, HostGate, EpOptions, LocationOptions, SessionKeys, OrdinalKey, DevicePolicy, HardwareAffinity, Warm, RegisterRow) =
             (providerName, wireKey, hostGate, epOptions, locationOptions, sessionKeys, ordinalKey, devicePolicy, hardwareAffinity, warm, registerRow);
         ranked = new(() => toSeq(Devices
@@ -379,11 +379,11 @@ public sealed partial class ExecutionProvider {
     public static ExecutionProvider Floor => Cpu;
 
     public static ExecutionProvider Resolve(string key) =>
-        TryGet(key, out ExecutionProvider? row) && row.Available ? row : Floor;
+        TryGet(out ExecutionProvider? row) && row.Available ? row : Floor;
 
     public static ExecutionProvider FromWire(string wire) =>
         toSeq(Items)
-            .Find(row => row.WireKey.Exists(key => StringComparer.Ordinal.Equals(key, wire)))
+            .Find(row => row.WireKey.Exists(key => StringComparer.Ordinal.Equals(wire)))
             .Match(Some: static row => Resolve(row.Key), None: static () => Floor);
 
     public string ReportKey => WireKey.IfNone(Key);
@@ -411,19 +411,19 @@ public sealed partial class ExecutionProvider {
                 Vetoes.IsEmpty || !Devices.IsEmpty,
                 (Error)new ComputeFault.SubstrateUnavailable(
                     $"<ep-vetoed:{Key}:{string.Join(';', Vetoes.Map(static row => $"{row.Device}={row.Reason}:{row.Code}"))}>")).ToFin())
-            .Bind(_ => Op.Of(name: "model.provider-register").Catch(() => {
+            .Bind(_ => Try.lift(() => {
                 toSeq(SessionKeys(precision).Concat(precision.QdqKeys)).Iter(entry => options.AddSessionConfigEntry(entry.Key, entry.Value));
                 Dictionary<string, string> registerOptions = Registered(precision, artifacts, devices);
                 if (devices.IsEmpty) { RegisterRow(options, registerOptions); }
                 else { options.AppendExecutionProvider(OrtEnv.Instance(), devices.ToList(), registerOptions); }
                 return Fin.Succ(options);
-            }));
+            }).Run().Bind(static inner => inner));
 
     Dictionary<string, string> Registered(ModelPrecision precision, ArtifactSite artifacts, Seq<OrtEpDevice> devices) =>
         toHashMap(EpOptions(precision))
             .AddOrUpdateRange(LocationOptions(artifacts))
             .AddOrUpdateRange(OrdinalKey.Bind(key => Ordinal(devices)
-                .Map(ordinal => (key, ordinal.ToString(CultureInfo.InvariantCulture))))
+                .Map(ordinal => (ordinal.ToString(CultureInfo.InvariantCulture))))
                 .ToSeq())
             .ToDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
 
@@ -436,8 +436,8 @@ public sealed partial class ExecutionProvider {
     public Fin<Option<OrtCompiledModelCompatibility>> Compatible(string compiledModelPath, Seq<OrtEpDevice> devices) =>
         devices.IsEmpty
             ? Fin.Succ(Option<OrtCompiledModelCompatibility>.None)
-            : Op.Of(name: "model.provider-compatibility").Catch(() => Fin.Succ(Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
-                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName)))));
+            : Try.lift(() => Fin.Succ(Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
+                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName))))).Run().Bind(static inner => inner);
 
     public Fin<WarmVerdict> Warmth(string warmPath, Seq<OrtEpDevice> devices) =>
         !Warm.Present(warmPath)
@@ -480,9 +480,7 @@ public sealed partial class ExecutionProvider {
         Option<string> wireKey = default,
         Option<ExecutionProviderDevicePolicy> devicePolicy = default,
         Option<Func<ArtifactSite, FrozenDictionary<string, string>>> locationOptions = default) =>
-        new(
-            key,
-            providerName,
+        new(providerName,
             wireKey,
             hostGate,
             epOptions,

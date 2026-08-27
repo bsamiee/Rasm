@@ -48,8 +48,6 @@ public abstract partial record AnnouncementHost {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 public static class AccessAnchors {
-    public static readonly Op Admitting = Op.Of(name: "appui.accessibility.admit");
-    public static readonly Op Cueing = Op.Of(name: "appui.accessibility.cue");
     public static readonly HookId VoicePoint = HookId.Create("rasm.appui.accessibility.voice");
 }
 
@@ -85,13 +83,12 @@ public readonly record struct SpatialCue(string ElementId, SignedUnit Pan, Posit
         from axis in Admit(right.Length(), "zero-right-axis")
         let delta = node.Center - listener
         from distance in Admit(delta.Length(), "listener-coincident")
-        from pan in AccessAnchors.Cueing.AcceptValidated<SignedUnit>(
-            candidate: Math.Clamp(Vector3.Dot(delta, right) / (distance.Value * axis.Value), -1d, 1d))
-        from gain in AccessAnchors.Cueing.AcceptValidated<UnitInterval>(candidate: 1d / (1d + distance.Value))
+        from pan in FactoryBridge.Accept<SignedUnit>(candidate: Math.Clamp(Vector3.Dot(delta, right) / (distance.Value * axis.Value), -1d, 1d))
+        from gain in FactoryBridge.Accept<UnitInterval>(candidate: 1d / (1d + distance.Value))
         select new SpatialCue(node.ElementId, pan, distance, gain);
 
     static Fin<PositiveMagnitude> Admit(float measure, string reason) =>
-        AccessAnchors.Cueing.AcceptValidated<PositiveMagnitude>(candidate: measure)
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: measure)
             .MapFail(_ => (Error)new AccessFault.GeometryRejected(reason));
 }
 
@@ -135,7 +132,7 @@ public sealed record SceneAccessTree(
             .Head;
 
     public Fin<Option<SceneAccessNode>> Step(Vector3 from, Vector3 direction) =>
-        AccessAnchors.Admitting.AcceptValidated<PositiveMagnitude>(candidate: direction.Length())
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: direction.Length())
             .MapFail(static _ => (Error)new AccessFault.GeometryRejected("zero-direction"))
             .Map(bearing => Ranked.Top(
                     Positioned().Choose(cell => Alignment(cell.Node.Center - from, direction, bearing)
@@ -151,7 +148,7 @@ public sealed record SceneAccessTree(
         Ordered.Map(static (node, index) => (Node: node, Index: index));
 
     static Option<double> Alignment(Vector3 delta, Vector3 direction, PositiveMagnitude bearing) =>
-        AccessAnchors.Admitting.AcceptValidated<PositiveMagnitude>(candidate: delta.Length()).ToOption()
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: delta.Length()).ToOption()
             .Map(span => Vector3.Dot(delta, direction) / (span.Value * bearing.Value));
 
     static Validation<Error, Seq<SceneAccessNode>> Unique(Seq<SceneAccessNode> nodes) =>
@@ -247,8 +244,8 @@ public static class AccessOps {
         }
 
         StyledElement Voiced(AnnouncementRow row, string text, FaultCell faults) {
-            ignore(AccessOps.Cueing.Catch(() =>
-                    Fin.Succ(Redrive.Run(row.Redrive, row.Voice(row.Phrase.Setting, text)).Run()))
+            ignore(Try.lift(() =>
+                    Fin.Succ(Redrive.Run(row.Redrive, row.Voice(row.Phrase.Setting, text)).Run())).Run().Bind(static inner => inner)
                 .IfFail(error => ignore(faults.Park(AccessAnchors.VoicePoint, error))));
             return element;
         }
@@ -362,7 +359,6 @@ public abstract partial record AssertionFloor {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 public static class GateAnchors {
-    public static readonly Op Asserting = Op.Of(name: "appui.accessibility.assert");
     public static readonly UnitInterval FullDeficiency = UnitInterval.Create(value: 1d);
 }
 
@@ -381,7 +377,7 @@ public static class ContrastGate {
         from over in Admit(background)
         from under in Admit(canvas)
         let backdrop = over.Blend(under)
-        from measure in GateAnchors.Asserting.AcceptValidated<Scalar>(candidate: ink.Blend(backdrop).Contrast(backdrop))
+        from measure in FactoryBridge.Accept<Scalar>(candidate: ink.Blend(backdrop).Contrast(backdrop))
         select measure;
 
     public static Fin<PerceptualAssertion> Assert(AssertionPair pair, ThemeVariantRow variant, AssertionFloor floor) =>
@@ -401,7 +397,7 @@ public static class ContrastGate {
         from under in Admit(pair.Canvas)
         let seen = left.Blend(under).Simulate(row.Lens, GateAnchors.FullDeficiency)
         let other = right.Blend(under).Simulate(row.Lens, GateAnchors.FullDeficiency)
-        from measure in GateAnchors.Asserting.AcceptValidated<Scalar>(candidate: seen.Difference(other, Some(row.Metric)))
+        from measure in FactoryBridge.Accept<Scalar>(candidate: seen.Difference(other, Some(row.Metric)))
         select measure;
 
     static Fin<PerceptualColor> Admit(Color color) =>
@@ -536,7 +532,7 @@ public static class AccessProof {
             .As();
 
     static Validation<Error, Color> Paint(ResolvedTheme resolved, TokenKey key) =>
-        resolved.Paints.TryGetValue(key, out Color value)
+        resolved.Paints.TryGetValue(out Color value)
             ? Success<Error, Color>(value)
             : Fail<Error, Color>(new AccessFault.PaintUnresolved(key.Value));
 

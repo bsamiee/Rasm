@@ -62,19 +62,18 @@ public abstract partial record BoardFault : Fault {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct BoardBox(Scalar X, Scalar Y, PositiveMagnitude Width, PositiveMagnitude Height, int Z) {
-    static readonly Op Admission = Op.Of(name: "appui.board.box");
 
     public static Fin<BoardBox> Of(double x, double y, double width, double height, int z) =>
         (Scalar.From(x).ToValidation(), Scalar.From(y).ToValidation(),
-         Admission.AcceptValidated<PositiveMagnitude>(candidate: width).ToValidation(),
-         Admission.AcceptValidated<PositiveMagnitude>(candidate: height).ToValidation())
+         FactoryBridge.Accept<PositiveMagnitude>(candidate: width).ToValidation(),
+         FactoryBridge.Accept<PositiveMagnitude>(candidate: height).ToValidation())
             .Apply((left, top, wide, high) => new BoardBox(left, top, wide, high, z))
             .As().ToFin();
 
     public Rect Rect => new(X.To(), Y.To(), Width.Value, Height.Value);
 
     public Fin<BoardBox> FittedTo(FrameCrop crop) =>
-        Admission.AcceptValidated<PositiveMagnitude>(candidate: Width.Value / crop.Aspect)
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: Width.Value / crop.Aspect)
             .Map(high => this with { Height = high });
 }
 
@@ -106,7 +105,7 @@ public sealed partial class FrameCrop {
 
     public static Fin<FrameCrop> Admit(
         UnitInterval left, UnitInterval top, UnitInterval right, UnitInterval bottom, PositiveMagnitude scale) =>
-        Op.Of(name: "appui.board.crop").AcceptValidated<FrameCrop>(
+        FactoryBridge.Accept<FrameCrop>(
             Validate(left, top, right, bottom, scale, out FrameCrop? crop), crop);
 }
 
@@ -154,11 +153,11 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
         viewFrame: static (key, frame) => Fin.Succ<BoardItem>(frame with { ViewKey = key }),
         statCard: static (key, card) => Op.Of(name: "appui.board.reference")
             .AcceptValidated<MetricBinding>(MetricBinding.Validate(
-                card.Binding.MetricKey, key, card.Binding.Measure, out MetricBinding? bound), bound)
+                card.Binding.MetricKey, card.Binding.Measure, out MetricBinding? bound), bound)
             .Map<BoardItem>(binding => card with { Binding = binding }),
         sheetFrame: static (key, sheet) => Fin.Succ<BoardItem>(sheet with { SheetKey = key }),
-        textNote: static (key, note) => Unreferenced(key, note),
-        ink: static (key, marks) => Unreferenced(key, marks));
+        textNote: static (key, note) => Unreferenced(note),
+        ink: static (key, marks) => Unreferenced(marks));
 
     public bool Chromed => Switch(
         viewFrame: static frame => frame.ShowChrome,
@@ -217,8 +216,8 @@ public abstract partial record BoardEdit {
 
 public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Instant At) {
     public static Fin<Board> Of(string key, string title, Seq<BoardItem> items, IClock clock) =>
-        (Named(key, nameof(key)), Named(title, nameof(title)), Distinct(items))
-            .Apply((_, _, roster) => new Board(key, title, roster, clock.GetCurrentInstant()))
+        (Named(nameof()), Named(title, nameof(title)), Distinct(items))
+            .Apply((_, _, roster) => new Board(title, roster, clock.GetCurrentInstant()))
             .As().ToFin();
 
     public Fin<Board> Place(BoardItem item, IClock clock) =>
@@ -458,10 +457,9 @@ public sealed record BoardTemplate(string Key, string Name, Seq<BoardItem> Skele
 
 public static class BoardTemplates {
     public static Fin<BoardTemplate> Seal(Board board, string key, string name, IClock clock) =>
-        (Named(key, nameof(key)), Named(name, nameof(name)),
+        (Named(nameof()), Named(name, nameof(name)),
          board.Items.Traverse(static item => item.WithReference(None).ToValidation()).As())
-            .Apply((_, _, skeleton) => new BoardTemplate(
-                key, name,
+            .Apply((_, _, skeleton) => new BoardTemplate(name,
                 skeleton,
                 board.Items.Filter(static item => item.Reference.IsSome).Map(TemplateSlot.Of),
                 clock.GetCurrentInstant()))
@@ -614,8 +612,6 @@ public static class BoardPrint {
 public static class BoardPublish {
     public const string Kind = "board";
 
-    static readonly Op PublishOp = Op.Of(name: "appui.board.publish");
-
     public static IO<Fin<PublishedBoard>> Publish(PublishRun run) => run.Arm.Fold(run);
 
     internal static IO<Fin<PublishedBoard>> Reported(PublishRun run) =>
@@ -642,7 +638,7 @@ public static class BoardPublish {
             .Map(static blocks => blocks.Bind(static block => block));
 
     static Fin<byte[]> Structure(Board board) =>
-        PublishOp.Catch(() => Fin.Succ(JsonSerializer.SerializeToUtf8Bytes(board, EvidenceOps.Wire)));
+        Try.lift(() => Fin.Succ(JsonSerializer.SerializeToUtf8Bytes(board, EvidenceOps.Wire))).Run().Bind(static inner => inner);
 }
 ```
 

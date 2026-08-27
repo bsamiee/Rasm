@@ -121,7 +121,7 @@ public sealed partial class AlertSeverity {
 
     internal static Tolerance Stride => StrideBand.Value;
     private static readonly Lazy<Tolerance> StrideBand = new(static () =>
-        Tolerance.Of(lane: ToleranceLane.Duplicate, value: EpsilonPolicy.SqrtEpsilon, key: Op.Of(name: "objective.stride")).ThrowIfFail());
+        Tolerance.Of(lane: ToleranceLane.Duplicate, value: EpsilonPolicy.SqrtEpsilon).ThrowIfFail());
 
     public int Rank { get; }
 
@@ -372,8 +372,7 @@ public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record BenchClaim(
-    Op Claim, string VectorizedLane, string ReferenceLane, double SpeedupFloor, Option<string> Corpus = default)
+public sealed record BenchClaim(string VectorizedLane, string ReferenceLane, double SpeedupFloor, Option<string> Corpus = default)
     : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: SpeedupFloor),
@@ -390,8 +389,8 @@ public sealed class BenchLedger {
 
     public static Fin<BenchLedger> Of(params ReadOnlySpan<BenchClaim> claims) {
         Seq<BenchClaim> rows = toSeq(claims.ToArray());
-        HashMap<Op, int> census = rows.Fold(
-            HashMap<Op, int>(),
+        HashMap< int> census = rows.Fold(
+            HashMap< int>(),
             static (held, row) => held.AddOrUpdate(row.Claim, static seats => seats + 1, static () => 1));
         return (rows.Traverse(row => row.IsValid
                     ? Validation<Error, BenchClaim>.Success(row)
@@ -404,9 +403,9 @@ public sealed class BenchLedger {
             .Apply(static (admitted, _) => new BenchLedger(rows: admitted)).As().ToFin();
     }
 
-    public Seq<BenchClaim> Unproven(Seq<(Op Claim, Option<UInt128> Corpus)> proven) {
-        HashMap<Op, Option<UInt128>> index = proven.Fold(
-            HashMap<Op, Option<UInt128>>(),
+    public Seq<BenchClaim> Unproven(Seq<(Option<UInt128> Corpus)> proven) {
+        HashMap< Option<UInt128>> index = proven.Fold(
+            HashMap< Option<UInt128>>(),
             static (held, proof) => held.AddOrUpdate(
                 proof.Claim,
                 seated => seated.IsSome ? seated : proof.Corpus,

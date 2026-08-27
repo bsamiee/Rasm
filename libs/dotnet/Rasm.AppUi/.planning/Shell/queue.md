@@ -212,7 +212,6 @@ public static class RunReport {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class RunQueueSurface {
-    static readonly Op QueueOp = Op.Of(name: "appui.screen.queue");
     public const string Key = "run.queue";
     public const string RowsKey = "run.queue.rows";
     public const string ExpandIntent = "run.queue.expand";
@@ -251,7 +250,7 @@ public static class RunQueueSurface {
         output.State.Switch(
             draftCase: _ => Fin<Unit>.Fail(new ScreenFault.QueueRejected($"{output.Key}:unsealed")),
             sealedCase: sealedRow => sealedRow.Adopt
-                .Map(key => raise(key, new CommandPayload.Single(output.Key)))
+                .Map(key => raise(new CommandPayload.Single(output.Key)))
                 .ToFin(new ScreenFault.QueueRejected($"{output.Key}:no adoption verb")));
 
     public static ControlIntent Body(Seq<ReportChip> chips, Set<string> live, VirtualWindowSpec window) =>
@@ -286,7 +285,7 @@ public static class RunQueueSurface {
                 State = new StateLens(
                     static screen => screen.Blank() with { Expansion = screen.Read(Expansion, Set<string>()) },
                     static (screen, merged) => screen.Write(Expansion, merged.Expansion)),
-                Alive = screen => key => screen.Read(Live, Set<string>()).Contains(key),
+                Alive = screen => key => screen.Read(Live, Set<string>()).Contains(),
             };
 
     static Unit Seat(ProductScreen screen, ScreenComposition composition, Seq<RunCard> cards) {
@@ -301,7 +300,7 @@ public static class RunQueueSurface {
                 .Filter(held => held.At == card.At)
                 .Match(
                     Some: held => Fin.Succ(held.Rows),
-                    None: () => QueueOp.Catch(() => card.Origin.Timeline(source).Run())
+                    None: () => Try.lift(() => card.Origin.Timeline(source).Run()).Run().Bind(static inner => inner)
                         .Bind(static read => read)
                         .Map(found => found.Map(timeline => RunReport.Rows(card, timeline)).IfNone(Seq<RunReportRow>())))))
             .Strict();

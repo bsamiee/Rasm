@@ -145,7 +145,7 @@ public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<Identity
     public IdentityContext CreateDbContext(string[] args) {
         ArgumentNullException.ThrowIfNull(args);
         IdentityShapeRow row = args is [string key, ..]
-            ? IdentityShapeRow.Get(key)
+            ? IdentityShapeRow.Get()
             : throw new InvalidOperationException("<identity-design-profile:absent>");
         return new IdentityContext(
             (DbContextOptions<IdentityContext>)row.Design(new DbContextOptionsBuilder<IdentityContext>())
@@ -363,7 +363,7 @@ public sealed partial class IdentityPolicy {
             state: (spelled.ToArray(), Key),
             uuidV7Key:      static s => Sized(s, static value => new StoreKey.Surrogate(new Guid(value, bigEndian: true))),
             uuidV7Backfill: static s => Sized(s, static value => new StoreKey.Surrogate(new Guid(value, bigEndian: true))),
-            contentHashKey: static s => ContentHash.Admit(s.Bytes, Op.Of()).Map(static value => (StoreKey)new StoreKey.Content(value))
+            contentHashKey: static s => ContentHash.Admit(s.Bytes).Map(static value => (StoreKey)new StoreKey.Content(value))
                 .MapFail(_ => (Error)new IdentityFault.KeyMalformed($"<key-width:{s.Row}:{s.Bytes.Length}>")),
             naturalKey:     static s => Text(s),
             namespaceKey:   static s => Sized(s, static value => new StoreKey.Surrogate(new Guid(value, bigEndian: true))));
@@ -376,7 +376,7 @@ public sealed partial class IdentityPolicy {
             : Fin<StoreKey>.Fail(new IdentityFault.KeyMalformed($"<key-width:{state.Row}:{state.Bytes.Length}>"));
 
     static Fin<StoreKey> Text((byte[] Bytes, string Row) state) =>
-        Op.Of().Catch(() => Fin.Succ((StoreKey)new StoreKey.Natural(StrictUtf8.GetString(state.Bytes))));
+        Try.lift(() => Fin.Succ((StoreKey)new StoreKey.Natural(StrictUtf8.GetString(state.Bytes)))).Run().Bind(static inner => inner);
     }
 
     static Guid NamespaceUuid(Guid ns, ReadOnlySpan<byte> name) {
@@ -504,9 +504,9 @@ public static class IdentityDispatch {
 
     public static IO<Fin<IdentityOutcome>> Run(IdentityLease lease, IdentityOp op, ProjectionContext frame, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(lease);
-        ArgumentNullException.ThrowIfNull(op);
-        return Admit(lease, op).Match(
-            Succ: facts => Bracket(lease, op, facts, frame, cancellationToken),
+        ArgumentNullException.ThrowIfNull();
+        return Admit(lease).Match(
+            Succ: facts => Bracket(lease, facts, frame, cancellationToken),
             Fail: error => IO.pure(Fin<IdentityOutcome>.Fail(error)));
     }
 
@@ -529,8 +529,8 @@ public static class IdentityDispatch {
             store.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
             store.Database.AutoSavepointsEnabled = true;
             return await store.Database.CreateExecutionStrategy().ExecuteAsync(
-                (Store: store, Op: op, Facts: facts, Profile: lease.Profile),
-                static (state, inner) => Execute(state.Store, state.Op, state.Facts, state.Profile, inner),
+                (Store: store, Facts: facts, Profile: lease.Profile),
+                static (state, inner) => Execute(state.Store, state.Facts, state.Profile, inner),
                 Probe(facts),
                 token).ConfigureAwait(false);
         }, error => IdentityFault.Rejected(facts.Verb, error), cancellationToken).ConfigureAwait(false));
@@ -545,12 +545,12 @@ public static class IdentityDispatch {
 
     static Task<Fin<IdentityOutcome>> Execute(IdentityContext store, IdentityOp op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) =>
         facts.Replayable
-            ? Leg(store, op, facts, profile, token)
-            : Enlisted(store, op, facts, profile, token);
+            ? Leg(store, facts, profile, token)
+            : Enlisted(store, facts, profile, token);
 
     static async Task<Fin<IdentityOutcome>> Enlisted(IdentityContext store, IdentityOp op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) {
         await using IDbContextTransaction transaction = await store.Database.BeginTransactionAsync(token).ConfigureAwait(false);
-        Fin<IdentityOutcome> outcome = await Leg(store, op, facts, profile, token).ConfigureAwait(false);
+        Fin<IdentityOutcome> outcome = await Leg(store, facts, profile, token).ConfigureAwait(false);
         if (outcome.IsSucc) { await transaction.CommitAsync(token).ConfigureAwait(false); }
         return outcome;
     }
@@ -874,12 +874,12 @@ public sealed partial class EnvelopeAad {
     public string Partition { get; }
     public UInt128 TenantDigest { get; }
     public FrozenDictionary<string, string> Context => new Dictionary<string, string> { ["partition"] = Partition, ["tenant"] = TenantDigest.ToString(TenantId.Wire, CultureInfo.InvariantCulture) }.ToFrozenDictionary();
-    public static Fin<EnvelopeAad> Of(string partition, TenantId tenant, Op key) =>
-        CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance).String(partition).String(tenant.Text).ToBytes(key)
+    public static Fin<EnvelopeAad> Of(string partition, TenantId tenant) =>
+        CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance).String(partition).String(tenant.Text).ToBytes()
             .Bind(framed => {
                 Span<byte> digest = stackalloc byte[32];
                 _ = System.Security.Cryptography.CryptographicOperations.HashData(System.Security.Cryptography.HashAlgorithmName.SHA256, framed.Span, digest);
-                return ContentHash.Admit(digest[..16], key).Map(half => new EnvelopeAad(partition, half));
+                return ContentHash.Admit(digest[..16]).Map(half => new EnvelopeAad(partition, half));
             });
 }
 
@@ -1105,17 +1105,17 @@ public static class SchemaGate {
     }
 
     static Fin<SchemaVerdict> Materialized(DbContext store) =>
-        Op.Of().Catch(() => Fin.Succ(fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables())))
+        Try.lift(() => Fin.Succ(fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables()))).Run().Bind(static inner => inner)
             .Map(static _ => (SchemaVerdict)new SchemaVerdict.Serving())
             .MapFail(static error => new IdentityFault.ApplyFailed(error));
 
     public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement) =>
         placement.Held.Admits(PlacementAxis.Materializes)
-            ? IO.liftAsync(async () => await Op.Of().Catch(async _ => {
+            ? IO.liftAsync(async () => await Try.lift(async _ => {
                 await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync().ConfigureAwait(false);
                 await store.Advanced.ApplyRollingPartitionsAsync().ConfigureAwait(false);
                 return Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving());
-            }).ConfigureAwait(false))
+            }).Run().Bind(static inner => inner).ConfigureAwait(false))
                 .Bind(result => IO.lift(result.MapFail(static error => new IdentityFault.ApplyFailed(error))))
             : IO.pure<SchemaVerdict>(new SchemaVerdict.Serving());
 }

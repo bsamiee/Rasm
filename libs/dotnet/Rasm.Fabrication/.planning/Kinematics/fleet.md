@@ -127,7 +127,7 @@ public sealed partial class DemandKey {
 
     private static DemandKey Of(
         string key, DemandUnit unit, double fallback, double minimum, Option<double> maximum) =>
-        new(key, PropertyCategory.Fabrication.Row(key), unit, fallback, minimum, maximum);
+        new(PropertyCategory.Fabrication.Row(), unit, fallback, minimum, maximum);
 
     internal Fin<double> Read(Map<PropertyName, double> quantities) {
         double value = quantities.Find(Row).IfNone(Fallback);
@@ -151,7 +151,7 @@ public abstract partial record CapabilityRequest {
     public static readonly CapabilityRequest Routing = new Always();
     public static readonly CapabilityRequest Cell = new OnCell();
 
-    public static CapabilityRequest Flag(string key) => new Flagged(PropertyCategory.Fabrication.Row(key));
+    public static CapabilityRequest Flag(string key) => new Flagged(PropertyCategory.Fabrication.Row());
 }
 
 [SmartEnum<string>]
@@ -187,7 +187,7 @@ internal sealed record FleetDemand(
     Map<DemandKey, double> Scalars,
     CapabilitySet<FleetCapability> Requested,
     ConstitutiveState State) {
-    public double this[DemandKey key] => Scalars.Find(key).IfNone(key.Fallback);
+    public double this[DemandKey key] => Scalars.Find().IfNone(key.Fallback);
 
     public Length TurnedDiameter =>
         Length.FromMillimeters(Math.Max(this[DemandKey.WorkpieceDiameter], Fleet.Planar(Part).Min));
@@ -213,7 +213,7 @@ internal sealed record FleetDemand(
                 && quantities.Find(flag.Row).Exists(static value => double.IsFinite(value) && value != 0.0))
             .ToArray());
 
-    private static double Read(Map<DemandKey, double> scalars, DemandKey key) => scalars.Find(key).IfNone(key.Fallback);
+    private static double Read(Map<DemandKey, double> scalars, DemandKey key) => scalars.Find().IfNone(key.Fallback);
 }
 ```
 
@@ -226,7 +226,7 @@ internal sealed record FleetDemand(
 - Law: the admitted process roster is stated ONCE, on the base column. Every assessment arm previously re-tested the correspondence its own `Admits` had already decided; the station fold filters on `Admits` before an arm runs, so a re-test is a second statement of one fact.
 - Law: `FactVerdict` carries THREE states and the third is `NotDemanded`, never a `true` over a zero demand. Payload off a cell and certification no component requested both reported `Pass` with demand and available at zero, so a feasibility read conflated a satisfied dimension with an unasked one and a rejection census counted the unasked as passing.
 - Law: `StationAssessment` carries ONE verdict, not a `(Present, Fits)` pair. Absent-yet-fitting is that product's fourth corner and nothing means it; the pair's only consumer conjoined both columns anyway, so the second carrier stated nothing and no reader read it.
-- Law: station validity reaches the kernel oracle. `ProcessEnvelope` implements `IValidityEvidence` and composes `ValidityClaim` rows, so `OpAcceptance.ValidityOf` answers on the envelope's own fold; the page-local `double.IsFinite && > 0` predicate it replaces was a hand twin of `ValidityClaim.Positive` sitting beside an admitted kernel.
+- Law: station validity reaches the kernel oracle. `ProcessEnvelope` implements `IValidityEvidence` and composes `ValidityClaim` rows, so `Acceptance.ValidityOf` answers on the envelope's own fold; the page-local `double.IsFinite && > 0` predicate it replaces was a hand twin of `ValidityClaim.Positive` sitting beside an admitted kernel.
 - Auto: `SpindleWindow.Required` composes `Process/physics#BUDGET_FOLD` `SurfaceSpeed.Rpm` over the CUTTING diameter — the one forward cutting-speed relation in the package — so no arm re-derives `vc * 1000 / (pi * D)`.
 - Growth: a new station modality is one `ProcessEnvelope` case with its three base columns and one assessment arm; a new capacity dimension is one `StationCapacity` case over an existing `CapacityAxis` row.
 - Packages: `Rasm/Domain/results#VALIDITY_FOLD` supplies `IValidityEvidence` and every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
@@ -1350,7 +1350,7 @@ public static class Fleet {
         from resolved in (
                 Machine.Resolve(registration.MachineKey).ToValidation(),
                 registration.MaterialKeys
-                    .Traverse(static key => Admission.Of<Material, string>(key).ToValidation())
+                    .Traverse(static key => Admission.Of<Material, string>().ToValidation())
                     .As()
                     .Map(toSet))
             .Apply(static (kind, materials) => (Kind: kind, Materials: materials))
@@ -1576,7 +1576,7 @@ public static class Fleet {
 - Owner: `InstanceWindow` owns one staffed span on one physical station; `FleetAvailability` owns the window census per `MachineInstanceKey` and composes `AvailabilityPlan.Finish` as its finite-capacity seat; `AssignmentCost` owns one demand-to-instance promise row; `FleetAssignment` owns the cover result.
 - Law: capacity is finite PER STATION. A machine CLASS with two installed instances runs two lots at once and a class with one runs one; scheduling against the class treats every instance as unbounded parallelism, which is exactly the promise a shop cannot keep. `PlannedStep.Instance` is the reservation this census answers.
 - Law: the assignment's own cost matrix is RETAINED. A solver that hands back a seat and drops the promise interval that justified it leaves a schedule no reader can audit, so every considered pair publishes its cost row beside the chosen cover.
-- Entry: `FleetAvailability.Of(MachineFleet, DateInterval)` generates the census; `FleetAvailability.Seat(key, ready, effort)` returns the completion instant or refuses `MachineInstanceUnavailable`; `Fleet.Assign(Seq<DemandSlot>, FleetAvailability)` covers a demand roster and refuses `FleetAssignmentInfeasible` where no cover exists.
+- Entry: `FleetAvailability.Of(MachineFleet, DateInterval)` generates the census; `FleetAvailability.Seat(ready, effort)` returns the completion instant or refuses `MachineInstanceUnavailable`; `Fleet.Assign(Seq<DemandSlot>, FleetAvailability)` covers a demand roster and refuses `FleetAssignmentInfeasible` where no cover exists.
 - Auto: `HungarianAlgorithm` binds no graph container — its whole input is the rectangular cost matrix — so the fold builds one `int[,]` of promise seconds, computes the assignment, and reads `AgentsTasks` back as demand-to-instance seats. A pair whose instance cannot seat the effort costs `Blocked`, a saturating value the result never publishes as a promise: a seat landing on one is what makes the cover infeasible.
 - Result: `FleetAssignment` carries the seated pairs with their promise instants, EVERY considered cost row, and the unassigned demand ordinals.
 - Exemption: `Costs` fills a rectangular `int[,]` because that array IS the solver's whole input contract; the fold that reads it back is expression-shaped.

@@ -96,7 +96,7 @@ public static class FrameCodec {
     }
 
     static Fin<Variant> Admit(string key) =>
-        Op.Of().AcceptValidated<Variant>(fault: Variant.Validate(key, CultureInfo.InvariantCulture, out Variant? variant), admitted: variant);
+        FactoryBridge.Accept<Variant>(fault: Variant.Validate(CultureInfo.InvariantCulture, out Variant? variant), admitted: variant);
 }
 ```
 
@@ -135,9 +135,9 @@ public static class Tally {
     public readonly record struct Roll(int Count, int Peak, int FirstAt);
 
     public static Fin<int> RankOf(ReadOnlySpan<char> key) =>
-        Probe.TryGetValue(key, out int rank)
+        Probe.TryGetValue(out int rank)
             ? Fin.Succ(rank)
-            : Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(key), Requirement: "a registered tally key"));
+            : Fin.Fail<int>(new KernelFault.InvalidValue(Label: nameof(), Requirement: "a registered tally key"));
 
     public static ImmutableArray<(int Rank, string Key, Roll Roll)> Fold(params ReadOnlySpan<(string Key, int Score)> rows) {
         Dictionary<string, Roll> rolls = new Dictionary<string, Roll>(rows.Length, StringComparer.Ordinal);
