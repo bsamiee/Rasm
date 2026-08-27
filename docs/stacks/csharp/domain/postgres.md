@@ -58,9 +58,6 @@ public static class StoreProfile {
             .EnablePhysicalOpenTracing());
         return profile.Build();
     }
-
-    public static TracerProviderBuilder Traces(TracerProviderBuilder root) => root.AddNpgsql();
-    public static MeterProviderBuilder Meters(MeterProviderBuilder root) => root.AddNpgsqlInstrumentation();
 }
 ```
 

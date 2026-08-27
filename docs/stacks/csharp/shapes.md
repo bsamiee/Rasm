@@ -19,7 +19,7 @@ When a concept matches several signatures, the most specific row wins.
 |  [07]   | interior product, no invariant, no admission    | record or readonly record struct   | structural      |
 |  [08]   | combinable capability set                       | vocabulary items in a frozen set   | key             |
 |  [09]   | runtime-sourced vocabulary                      | keyed owner plus frozen registry   | key             |
-|  [10]   | cross-product or externally sourced policy key  | frozen table                       | composite key   |
+|  [10]   | irreducible pair policy or foreign lookup key   | frozen table                       | composite key   |
 |  [11]   | foreign wire enum, ABI bits, or kernel ordinal  | language enum at the boundary only | ordinal         |
 |  [12]   | foreign code must add cases                     | manual interface or hierarchy      | declared        |
 |  [13]   | property-graph relation over a foreign taxonomy | neutral verb `[Union]` + `Generic` | case            |
@@ -41,8 +41,8 @@ When a concept matches several signatures, the most specific row wins.
 - `UseLanguageEnum(boundary)`: permit only foreign wire enum, ABI bit layout, measured-kernel ordinal, or an alias-bearing host roster whose distinct names share one ordinal — a 1:1 owned wrapper cannot preserve the alias identity the host defines as truth, so host mapping members answer that correspondence; re-close at boundary conversion.
 
 [BEHAVIOR_FUNCTIONS]:
-- `PlaceBehavior(selector)`: use generated `Switch` for call-site variation, behavior columns or case members for family-owned policy, `Items`-derived frozen indexes for single-axis lookup, and generated-owner tables only for cross-products, startup-admitted external policy, or outside-family keys.
-- `RejectExternalDictionary(key)`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or one `Items`-derived frozen index; cross-product tables survive only with generated-owner keys and startup totality against the `Items` product.
+- `PlaceBehavior(selector)`: use generated `Switch` for call-site variation and behavior columns or case members for family-owned policy; materialize an index only for repeated lookup by a foreign or non-derivable key, and a product table only when each cell owns irreducible pair-specific policy.
+- `RejectExternalDictionary(key)`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or direct derivation; retained indexes prove repeated foreign-key lookup, and retained product tables prove cell-specific policy plus startup totality.
 
 [CHANGE_FUNCTIONS]:
 - `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key moves to conversion and wire boundaries.
@@ -114,7 +114,6 @@ public static class ShapeOps {
         where TQuantity : IAdditionOperators<TQuantity, TQuantity, TQuantity> =>
         parts.Aggregate(seed, static (sum, next) => sum + next);
 
-    public static bool Exceeds(Shape shape, double rawBound) => shape > rawBound;
 }
 ```
 
@@ -182,7 +181,7 @@ public static class AxisAlgebra {
 [LOOKUP_LIFECYCLE]:
 - Law: validity belongs to keys, never instances; no invalid item is constructible, callers choose `Get`, `TryGet`, or `Validate`, and exception catching is the wrong verb.
 - Law: startup probes force the `LazyThreadSafetyMode.ExecutionAndPublication` lazy, assign indices, build the frozen lookup, fail-fast duplicate keys, and cache one poisoning across metadata consumers walking `Items`.
-- Law: derived indexes project from `Items` through accessors, never eager static initializers; the accessor read supplies the materialization edge, and string-keyed vocabularies use the zero-allocation span alternate lookup.
+- Law: secondary values compute from the item and generated key at use; a materialized `Items`-derived index serves repeated lookup by a foreign or non-derivable key, initializes through an accessor, and uses the zero-allocation span alternate lookup for string keys.
 - Law: a value a BASE-CONSTRUCTOR argument demands rides a `Lazy<Fin<T>>` accessor — the lazy defers admission to first use, the result holds the verdict, and the fault surfaces on the host failure channel at the read; an eager `static readonly` field running the admission inside the loader's type-init frame is the forbidden form this clause names the alternative for.
 - Boundary: items are static per load context and generic instantiation; each closed type argument has its own materialization and poisoning, and values cross isolation boundaries as keys re-admitted on the far side.
 

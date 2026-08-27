@@ -1,6 +1,6 @@
 # [SURFACES_AND_DISPATCH]
 
-A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `[Union]` under one total `Switch` so a new verb breaks every dispatch site instead of growing a sibling, arity collapses into `params ReadOnlySpan<T>` and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the policy owner. Seven dispatch forms are selected by where ownership lives — five resolve at the value (state-threaded `Switch`, behavior-on-the-vocabulary-item, frozen table, trait-derived operation family, the keyed declaration that is table, vocabulary, and admission factory at once) and two at the type (the `IObjectFactory<TOwner,TValue,TError>` constraint open over the owner family, the instance-interface floor a foreign assembly implements) — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one `K<F,A>` arrow dispatching `Fin`, `Eff`, `IO`, and `Validation` together. Aspects split at one point: definition-time weaves below the admission boundary in the generator-owned order, composition-time transformers above it in a `Schedule`-and-rank-driven order that is itself a value. Each entrypoint internalizes policy resolution, routing, retry, telemetry, and lifecycle, so the consumer composes outcomes and never orchestrates internals; the surface narrows by absorption, never omission — a capability leaves the surface only by landing inside the owner as a case, a row, or a policy value. Surface spam is the defect this page refuses — sibling `Create`/`Update`/`CreateMany` families, per-arity overload sets, `bool`/`mode`/`batch` knobs, `RunFin`/`RunEff` per-carrier copies, member-less marker interfaces read by `is`, direction-split sibling owners where the domain admits an inverse, and hand-spelled aspect towers re-written at every call site.
+A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `[Union]` under one total `Switch` so a new verb breaks every dispatch site instead of growing a sibling, arity collapses into `params ReadOnlySpan<T>` and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the policy owner. Seven dispatch forms are selected by where ownership lives — five resolve at the value (state-threaded `Switch`, behavior-on-the-vocabulary-item, irreducible indexed policy, trait-derived operation family, the keyed declaration that is table, vocabulary, and admission factory at once) and two at the type (the `IObjectFactory<TOwner,TValue,TError>` constraint open over the owner family, the instance-interface floor a foreign assembly implements) — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one `K<F,A>` arrow dispatching `Fin`, `Eff`, `IO`, and `Validation` together. Aspects split at one point: definition-time weaves below the admission boundary in the generator-owned order, composition-time transformers above it in a `Schedule`-and-rank-driven order that is itself a value. Each entrypoint internalizes policy resolution, routing, retry, telemetry, and lifecycle, so the consumer composes outcomes and never orchestrates internals; the surface narrows by absorption or direct use. Surface spam is the defect this page refuses — sibling `Create`/`Update`/`CreateMany` families, per-arity overload sets, `bool`/`mode`/`batch` knobs, `RunFin`/`RunEff` per-carrier copies, member-less marker interfaces read by `is`, direction-split sibling owners where the domain admits an inverse, and hand-spelled aspect towers re-written at every call site.
 
 ## [01]-[FORM_CHOOSER]
 
@@ -12,7 +12,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 |  [02]   | one verb, varying arity                       | `params ReadOnlySpan<T>` absorber                 | per-arity overload family         |
 |  [03]   | consumer owns logic, vocabulary owns coverage | state-threaded `Switch`                           | distributed `_`-armed `switch`    |
 |  [04]   | vocabulary item is the behavior               | `[UseDelegateFromConstructor]` row                | repeated full-coverage `Switch`   |
-|  [05]   | key is a value, result is static data         | `Lazy<FrozenDictionary>` index                    | dictionary restating rows         |
+|  [05]   | repeated foreign-key lookup of owned policy   | `Lazy<FrozenDictionary>` index                    | derivable-value cache             |
 |  [06]   | dependent dispatch loops to a fixpoint        | `Monad.recur` over `Next<A,B>`                    | step union/open recursion/`while` |
 |  [07]   | receiver is foreign, behavior is local        | extension block                                   | wrapper that renames receiver     |
 |  [08]   | input shape, not nominal type, discriminates  | structural pattern                                | `is`-chain over open input        |
@@ -27,6 +27,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Law: one concern exposes one entrypoint; a verb family is a `[Union]` with one case per verb under one total dispatch.
 - Law: each sibling's preamble becomes its case constructor and the shared validation becomes the dispatch prologue.
 - Law: full-coverage generated `Switch` is the totality proof; a new case breaks every dispatch site at compile time, never a runtime-silent `_` arm.
+- Law: when generic owner members already express the operation, consumers call them directly and the sibling entrypoints delete.
 - Law: state-threaded arm arity splits by owner — a `[Union]` arm is the two-parameter `(state, case)` lambda while a `[SmartEnum]` arm takes the state alone — and the leading parameter is named `state` unless `SwitchMapStateParameterName` renames it; a wrong-arity arm re-binds overload resolution away from the threaded form or fails late, so every arm spells its full arity even when a slot is discarded.
 - Law: arms returning sibling case types leave best-common-type inference empty (CS0411); the first arm casts to the union base — or the call spells explicit `Switch` type arguments — and the anchor is load-bearing, never a redundant cast.
 - Law: a per-case rewrite homes on the union owner rather than as a case ladder at each translating caller, with the transform itself threaded through the state slot, so every arm stays `static` and closure-free and each caller reads one call; a rewrite captured by the lambda instead closes over caller state and forfeits the generated dispatch's allocation-free form.
@@ -117,7 +118,7 @@ public static class BatchSurface {
 [POLICY_VALUES]:
 - Law: a policy parameter arrives pre-constructed and carries its own behavior; the entrypoint invokes the value it was handed, and no `if`/`switch` reconstructs at dispatch what the value already encodes.
 - Law: a stateless union case (`T1IsStateless = true`) is the shape for configuration-free policy entries; wrapping it in `Option<T>` stacks a second optionality on a discriminant that already models absence.
-- Use: a frozen policy table whose projection comparer keyed on the request's discriminant declares which dimension governs selection, collapsing payload differences onto one row.
+- Use: a frozen table for repeated discriminant lookup when its cells own policy not derivable from the request or vocabulary item.
 - Reject: a boolean parameter selecting between two bodies; a behavioral near-twin chosen by flag rather than by the value that encodes the boundary behavior.
 
 [OPTIONAL_CONTEXT]:
@@ -190,9 +191,6 @@ public static class MarkerBoundary {
             : Fin.Succ(marker!.Switch(state: input,
                 markA: static value => value.Score,
                 markB: static value => value.Score * 2));
-
-    public static ImmutableArray<string> Advertised() => [.. Marker.Items.Select(static item => item.Key)];
-    public static Option<Marker> Probe(string key) => Marker.TryGet(key, out Marker marker) ? Optional(marker) : None;
 }
 ```
 
@@ -275,11 +273,6 @@ public static class Boundary {
         TOwner.Validate(value, culture, out TOwner? item) is { } fault
             ? Fin.Fail<TOwner>(fault)
             : Fin.Succ(item!);
-
-    public static Fin<TOwner> AdmitText<TOwner, TError>(ReadOnlySpan<char> text)
-        where TOwner : IObjectFactory<TOwner, ReadOnlySpan<char>, TError>
-        where TError : Error, IValidationError<TError> =>
-        Admit<TOwner, ReadOnlySpan<char>, TError>(text);
 }
 
 public interface IProjection<in TIn, TOut> {

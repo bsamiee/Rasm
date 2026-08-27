@@ -104,7 +104,7 @@ public static class FrameCodec {
 
 [READ_MOSTLY_AND_PROBE]:
 - Owner: `FrozenDictionary`, `FrozenSet`, and the `GetAlternateLookup<ReadOnlySpan<char>>` span-key probe on both the frozen and live forms.
-- Rule: a frozen table passes an explicit comparer, an alternate lookup requires an ordinal-family comparer implementing `IAlternateEqualityComparer`, and `TryGetAlternateLookup` is the non-throwing acquisition; the live `Dictionary`/`HashSet` alternate lookups also expose `TryAdd` and `Remove`, so span-keyed mutation needs no interim string.
+- Rule: when repeated lookup of non-derivable data warrants a frozen table, it passes an explicit comparer; an alternate lookup requires an ordinal-family comparer implementing `IAlternateEqualityComparer`, and `TryGetAlternateLookup` is the non-throwing acquisition; the live `Dictionary`/`HashSet` alternate lookups also expose `TryAdd` and `Remove`, so span-keyed mutation needs no interim string.
 - Reject: a static `Dictionary` rebuilt per call where `FrozenDictionary` bakes once; a string-key lookup copied per call; a `ToString` materialization before a keyed probe where the span lookup reads the source directly.
 
 [IMMUTABLE_BOUNDARY_PAYLOAD]:

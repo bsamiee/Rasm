@@ -404,10 +404,6 @@ public static class UnitBoundary {
         Quantity.TryParse(typeof(Length), text, out IQuantity? parsed) && parsed is Length raw
             ? Fin.Succ(new AdmittedSpan(raw.As(LengthUnit.Meter), (double)raw.Value, raw.Unit.ToString()))
             : Fin.Fail<AdmittedSpan>(Error.New(8501, $"<unparsed:{text}>"));
-
-    public static Length Folded(IEnumerable<Length> parts) => UnitMath.Sum(parts, LengthUnit.Meter);
-
-    public static Speed Derived(Length span, Duration window) => span / window;
 }
 
 public sealed record MotionRow(Duration Response, double DampingFraction) {

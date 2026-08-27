@@ -180,12 +180,6 @@ An effect carries the runtime; `Eff<RT,T>` and `IO<T>` defer boundary work until
 public sealed record Runtime(Mode Mode, TimeProvider Clock, Atom<HashMap<CodeValue, Report>> Cache, CancellationToken Cancel);
 
 public static class Capability {
-    public static readonly Eff<Runtime, Mode> AskMode =
-        Eff.runtime<Runtime>().Map(static runtime => runtime.Mode).As();
-
-    public static readonly Eff<Runtime, DateTimeOffset> Now =
-        Eff.runtime<Runtime>().Map(static runtime => runtime.Clock.GetUtcNow()).As();
-
     public static Eff<Runtime, Report> InMode(Eff<Mode, Report> scoped) =>
         Eff.local<Runtime, Mode, Report>(static runtime => runtime.Mode, scoped);
 }

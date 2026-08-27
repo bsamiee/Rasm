@@ -57,9 +57,8 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 Universal code law: binds every language, present or future; `docs/stacks/<language>/` deepens it per stack and never weakens it.
 
 [CRITICAL]:
-- ALWAYS ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected and rebuilt on sight.
 - ALWAYS land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
-- ALWAYS model the full domain on every owner — a missing axis is a defect, not thrift, and zero current consumers never lowers the bar.
+- NEVER introduce a member, type, cache, table, or layer that only renames, relays, stores, or projects an expression already available from its inputs or owner.
 - NEVER use weak, unbounded, or erased types where the language can express the domain precisely.
 - NEVER use exception-style control flow in domain logic; use typed results and the required route's recovery patterns.
 - NEVER spell absence as null, sentinel, or magic default past the boundary; absence rides an option-shaped carrier consumers unwrap.
@@ -78,8 +77,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS hunt both directions — a literal encoding a decision becomes a policy row; a knob set whose combinations the body re-derives collapses.
 - ALWAYS test parameters by deletion — one the input value or policy already reconstructs was a knob; collapse it into the owner.
 - ALWAYS treat a hardcoded instance roster as seed data for the algebraic owner; a closed member set is lawful only where the owner decides it.
-- ALWAYS declare one primary correspondence and derive every secondary map, type, and name from it — the derivation is the executable spec.
-- ALWAYS keep one authority per derived value — a hand-kept mirror derives from its roster, or the invariant states at both owners, moving as one.
+- ALWAYS declare one primary correspondence and compute secondary values from it at use; materialization requires repeated expensive work or a non-derivable lookup.
 - ALWAYS return typed exhaustion faults when a bounded budget runs out — a success-shaped fall-through certifies unconverged as converged.
 - ALWAYS declare one recovery posture per fault reason at the family owner; cross-cutting policy composes as values, never per call site.
 
