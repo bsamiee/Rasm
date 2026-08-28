@@ -564,8 +564,8 @@ public sealed partial class SeamPlacement {
     }
 
     private static Option<double> DistributedScore(Loop perimeter, Point3d reference, int layer, int index) {
-        const double GoldenFraction = 0.6180339887498948;
-        int target = (int)Math.Floor(layer * GoldenFraction % 1.0 * perimeter.Count);
+        const double SeamAdvance = 0.6180339887498948;
+        int target = (int)Math.Floor(layer * SeamAdvance % 1.0 * perimeter.Count);
         int distance = Math.Abs(index - target);
         return Some((double)Math.Min(distance, perimeter.Count - distance));
     }

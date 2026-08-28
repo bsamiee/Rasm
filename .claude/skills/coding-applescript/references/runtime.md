@@ -30,7 +30,7 @@ end run
 
 Serialization mode follows the payload's shape. An OSA structure — an AppleScript list, record, or nested value — binds `-s s`, which prints recompilable source-like values; the default `-s h` display form collapses distinct list and record shapes into identical text. A JXA `JSON.stringify` result is already text, so its transport rides the default serialization, passing the returned string to stdout verbatim — `-s s` on that path re-quotes the value into a source literal and breaks the caller's parse.
 
-`-s e` keeps script errors on stderr; `-s o` routes them to stdout, so a golden test asserts the serialized OSA error text as the primary value, never a specific exit code. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one value without interleaved logging.
+`-s e` keeps script errors on stderr; `-s o` routes them to stdout, so a test asserts the serialized OSA error text as the primary value, never a specific exit code. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one value without interleaved logging.
 
 ```bash
 osascript -s s -e 'return {{"foo", "bar"}, {"foo", {"bar"}}}'
