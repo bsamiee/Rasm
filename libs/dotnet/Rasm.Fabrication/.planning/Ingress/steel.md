@@ -16,7 +16,7 @@
 - Cases: `SteelSource` closes path, text, and byte ingress; `SteelFeature` closes every readable DSTV feature payload; `SteelParseKind` closes the parser exception hierarchy by most-derived row.
 - Law: the header admits from ONE `SteelHeaderRow` argument. Twenty-four positional arguments at a call site make a transposed pair — a flange width where a flange thickness belongs — invisible to the compiler and to every reader; the row names each column once at the mapper that lifts it.
 - Law: `DstvMap` is the ONE table. `Posting/dialect` `Nc1Canonical.Header` is its exact inverse and composes it through `[IncludeMappingConfiguration]`, so the header correspondence is stated once and a round trip becomes a build fact rather than two rosters that drift.
-- Auto: generated owners validate policy, header, and aggregate values; `SteelBlockKind` supplies statement identity, contour correspondence, and topology sign; `SteelParseKind` classifies a `ParseException` by inheritance depth so declaration order is free; `SteelProfileCode.Admits` gates each located element's face before any geometry is built.
+- Auto: generated owners validate policy, header, and aggregate values — the header's `profile-code` slot refuses `SteelProfileCode.Unknown` at CONSTRUCTION, because that row carries an empty face roster and every located element on such a header would be refused one gate later, far from the transcription that caused it; `SteelBlockKind` supplies statement identity, contour correspondence, and topology sign; `SteelParseKind` classifies a `ParseException` by inheritance depth so declaration order is free; `SteelProfileCode.Admits` gates each located element's face before any geometry is built.
 - Result: `SteelPart.Topology` preserves outer, hole, parent, depth, area, and bounds evidence; `SteelPart.Placed` resolves each face-local feature into part coordinates with contour bulges beside transformed vertices; `SteelPart.Preparations` publishes the per-edge groove demand the skewed contour points state, keyed on the boundary ordinal a run's profile column shares.
 - Packages: `DSTV.Net` owns asynchronous parsing; `Riok.Mapperly` owns field transcription; `Thinktecture.Runtime.Extensions` owns cases and policy rows; `LanguageExt.Core` owns effects, accumulation, and immutable carriers; `UnitsNet` owns physical values; `Loop` composes `CavalierContours` for arc measures; `PolygonAlgebra` composes `Clipper2` for hierarchy and fill.
 - Growth: a readable block lands as one `SteelFeature` case, one `SteelBlockKind` row, and one Mapperly declaration; a parser fault lands as one `SteelParseKind` row; a profile or face convention lands as one `SteelProfileCode` or `SteelFace` row; a new source or view lands as one generated case or row.
@@ -310,6 +310,7 @@ public sealed partial class SteelHeader {
             flangeStartCut.As(AngleUnit.Radian), flangeEndCut.As(AngleUnit.Radian)];
         Seq<(string Slot, bool Admits)> slots = [
             ("identity", Witness.Keyed(profile) && Witness.Keyed(steelQuality)),
+            ("profile-code", profileCode != SteelProfileCode.Unknown),
             ("quantity", quantityOfPieces > 0),
             ("extent", extent.ForAll(static value => ValidityClaim.Positive(value).Holds)),
             ("section", section.ForAll(static value => double.IsFinite(value) && value >= 0.0)),

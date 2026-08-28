@@ -456,7 +456,7 @@ public sealed partial class SpectralSymbol {
 - Exemption: `Apply`'s provider bodies, `SpectralMorphology.Rasterize`, and `FilteredField.fSignedDistance` are statement capsules — a native handle mutates or is replaced in place, and the reconstruction is a per-query lattice fold with no expression form.
 - Entry: `VoxelMorphologyStep.Apply(Voxels, ImplicitPolicy)` is the one entrypoint, so the morphology fold never learns which capsule class a step belongs to.
 - Auto: the provider bracket releases the held handle on the failure arm, so a mid-chain native throw never strands a lease; the reconstruction interpolates TRILINEARLY over the eight surrounding cell centres, so the filtered field is continuous and the smoothness the spectral law spends a transform pair to obtain survives its return.
-- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `Spectrum`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket), LanguageExt.Core.
+- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `Spectrum`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket; `Custody.Settled`/`Custody.Dispose` — the both-arms release folding a whole operand `Seq`; `Admit.Need` — the empty-operand refusal ahead of the fold), LanguageExt.Core.
 - Growth: a native transform is one `VoxelMorphologyStep` case; a frequency-domain transform is one `SpectralSymbol` row under the single `Spectral` case.
 - Boundary: a native failure carries the provider's own cause forward on the composed error, because the provider owns that taxonomy and the fabrication case names only the operation and its budget.
 
@@ -840,7 +840,7 @@ public abstract partial record ImplicitOp(
 - Entry: `Sdf.Voxelize<T>(Seq<ImplicitOp>, Func<Arr<VoxelScope>, Fin<T>>)` is the single materializing entrypoint for one or many compatible fields.
 - Auto: admission accumulates every operation fault before native allocation. `Raster` intersects the field operation's own `Envelope` occupancy through `voxIntersectImplicit` rather than rasterizing the whole budget box, because a full-bounds construction allocates the entire budget before discarding almost all of it. `Occupied` rejects an empty rasterization before it posts an empty program. Lattice scaffolds read the ONE `SupportTopology` `support#SUPPORT_TOPOLOGY` publishes, so the support edge set is never reconstructed and a missing parent is impossible by the owner's own admission.
 - Result: `VoxelMetrics` carries physical volume, queried bounds, native memory, committed field identity, and the `CalibrationStats` the quantile pass measured.
-- Packages: `PicoGK` (implicit rasterization and intersection, lattice beams and nodes, metrics, ray-cast, mesh extraction, VDB read and write with field metadata), QuikGraph (`SEquatableEdge` endpoints off the published topology), kernel `Rasm.Domain` (`Custody.Rollback` the failure-arm release every acquire-chain fold composes, `Custody.Bracket` the both-arms release under `Consume` — disposer faults appended onto the primary), LanguageExt.Core.
+- Packages: `PicoGK` (implicit rasterization and intersection, lattice beams and nodes, metrics, ray-cast, mesh extraction, VDB read and write with field metadata), QuikGraph (`SEquatableEdge` endpoints off the published topology), kernel `Rasm.Domain` (`Custody.Rollback` the failure-arm release every acquire-chain fold composes, `Custody.Bracket` the both-arms release under `Consume`, `Custody.Settled`/`Custody.Dispose` the both-arms release folding a whole operand `Seq` — disposer faults appended onto the primary), LanguageExt.Core.
 - Growth: a materializing consumer is one `Voxelize` callback.
 - Boundary: `PeriodicImplicit.fSignedDistance` copies the provider's by-reference callback value before use; VDB source identity travels with its field name and required metadata; the document container is what NAMES a field, so the direct single-field write cannot serve an egress whose import lane resolves by name.
 
@@ -967,11 +967,13 @@ public static partial class Sdf {
 
     private static Fin<Voxels> Combine(Seq<Voxels> inputs, VoxelBoolean operation) {
         Voxels? result = null;
-        return Try.lift(() => {
-                result = inputs[0].voxDuplicate();
-                _ = operation.Apply(result, inputs.Skip(1));
-                return result;
-            }).Run()
+        return Admit.Need(inputs.Head)
+            .Bind(seed => Try.lift(() => {
+                Voxels duplicated = seed.voxDuplicate();
+                result = duplicated;
+                _ = operation.Apply(duplicated, inputs.Skip(1));
+                return duplicated;
+            }).Run())
             .Rollback(result)
             .Settled(() => Custody.Dispose(inputs));
     }
