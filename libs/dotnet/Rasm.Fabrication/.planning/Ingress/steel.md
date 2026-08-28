@@ -117,6 +117,8 @@ public sealed partial class SteelFace {
         new Point3d(local.X, -local.Y, 0.0), true);
     public static readonly SteelFace Rear = new("H", static (header, local) =>
         new Point3d(-local.X, header.WebThickness.As(LengthUnit.Millimeter), local.Y), true);
+    public static readonly SteelFace Unknown = new("?", static (_, local) =>
+        new Point3d(local.X, 0.0, local.Y), false);
 
     public Func<SteelHeader, Point3d, Point3d> Place { get; }
     public bool Reverses { get; }
@@ -130,6 +132,7 @@ public sealed partial class SteelFace {
 
 [SmartEnum<string>]
 public sealed partial class SteelProfileCode {
+    public static readonly SteelProfileCode Unknown = new("?", Seq<SteelFace>());
     public static readonly SteelProfileCode I = new("I", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
     public static readonly SteelProfileCode U = new("U", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
     public static readonly SteelProfileCode C = new("C", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
@@ -461,12 +464,10 @@ internal static partial class DstvMap {
     public static partial SteelFeature.Numeration Numeration(DstvNumeration source);
 
     [UserMapping]
-    internal static SteelFace Face(string code) => SteelFace.Of(code)
-        .IfNone(() => throw new InvalidDataException($"steel-face:{code}"));
+    internal static SteelFace Face(string code) => SteelFace.Of(code).IfNone(SteelFace.Unknown);
 
     [UserMapping]
-    internal static SteelProfileCode Profile(char code) => SteelProfileCode.Of(code)
-        .IfNone(() => throw new InvalidDataException($"steel-profile:{code}"));
+    internal static SteelProfileCode Profile(char code) => SteelProfileCode.Of(code).IfNone(SteelProfileCode.Unknown);
 
     [UserMapping]
     internal static Point3d LocatedPoint(LocatedElement source) => new(source.XCoord, source.YCoord, 0.0);

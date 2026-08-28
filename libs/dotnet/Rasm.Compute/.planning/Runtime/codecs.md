@@ -161,9 +161,9 @@ public static class DeltaCodec {
     }
 
     internal static Fin<(ReadOnlyMemory<byte> Bytes, double Step)> NormalizeParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) =>
-        Try.lift(() => Fin.Succ(ParametricNet(bytes, policy))).Run().Bind(static inner => inner);
+        Try.lift(() => ParametricNet(bytes, policy)).Run().Bind(static inner => inner);
 
-    static (ReadOnlyMemory<byte> Bytes, double Step) ParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) {
+    static Fin<(ReadOnlyMemory<byte> Bytes, double Step)> ParametricNet(ReadOnlyMemory<byte> bytes, DeltaPolicy policy) {
         ReadOnlySpan<byte> stream = bytes.Span;
         int directions = BinaryPrimitives.ReadInt32LittleEndian(stream);
         int cursor = sizeof(int);
@@ -175,13 +175,16 @@ public static class DeltaCodec {
         cursor += sizeof(int) + (weights * sizeof(double));
         int controls = BinaryPrimitives.ReadInt32LittleEndian(stream[cursor..]);
         int netOffset = cursor + sizeof(int);
-        if (directions < 1 || weights != controls || netOffset + (controls * 3 * sizeof(double)) != stream.Length) { throw new InvalidDataException($"<extent:{directions}:{weights}:{controls}:{stream.Length}>"); }
-        if (policy.QuantizationBits <= 0) { return (bytes, 0d); }
+        if (directions < 1 || weights != controls || netOffset + (controls * 3 * sizeof(double)) != stream.Length) {
+            return Fin.Fail<(ReadOnlyMemory<byte>, double)>(new ComputeFault.Violation(ComputeArea.Runtime,
+                new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(stream.Length, netOffset + (controls * 3 * sizeof(double))))));
+        }
+        if (policy.QuantizationBits <= 0) { return Fin.Succ(((ReadOnlyMemory<byte>)bytes, 0d)); }
         byte[] normalized = stream.ToArray();
         Span<double> net = MemoryMarshal.Cast<byte, double>(normalized.AsSpan(netOffset));
         double step = GridStep<double>(net, policy);
         Quantization.Code<double>(net, net, step);
-        return (normalized, step);
+        return Fin.Succ(((ReadOnlyMemory<byte>)normalized, step));
     }
 
     static T GridStep<T>(ReadOnlySpan<T> source, DeltaPolicy policy) where T : IFloatingPointIeee754<T> {

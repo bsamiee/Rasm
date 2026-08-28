@@ -327,6 +327,10 @@ public static class SparseOps {
             return Fin.Succ(unit);
         }).Run().Bind(static inner => inner);
 
+    internal readonly record struct SparseArchiveRead(
+        int Rows, int Columns, SparseFormat Format, string Kind, long Ordering, long Fill,
+        double Frobenius, bool Symmetric, int[] Permutation, int[] Major, int[] Minor, double[] Payload);
+
     internal static Fin<SparseExchange> ReadArchive(ExchangeSource source) =>
         source is not ExchangeSource.Archived archived
             ? TensorReason.RowMissing.Fail<SparseExchange>("hdf5-source")
@@ -337,10 +341,11 @@ public static class SparseOps {
               from permutation in archived.Handle.Dataset("A/permutation")
               from read in Try.lift(() => {
                   long[] shape = group.Attribute("shape").Read<long[]>();
-                  if (shape is not [> 0L, > 0L]) { throw new InvalidDataException("hdf5 sparse shape"); }
+                  if (shape is not [> 0L, > 0L]) { return TensorReason.RowMissing.Fail<SparseArchiveRead>("hdf5-sparse-shape"); }
                   string wireFormat = group.Attribute("format").Read<string>();
-                  SparseFormat format = toSeq(SparseFormat.Items).Find(row => row.PointerForm && StringComparer.Ordinal.Equals(row.Key, wireFormat))
-                      .IfNone(() => throw new InvalidDataException($"hdf5 sparse format: {wireFormat}"));
+                  if (toSeq(SparseFormat.Items).Find(row => row.PointerForm && StringComparer.Ordinal.Equals(row.Key, wireFormat)) is not { Case: SparseFormat format }) {
+                      return TensorReason.RowMissing.Fail<SparseArchiveRead>($"hdf5-sparse-format:{wireFormat}");
+                  }
                   int major = checked((int)(format.MajorIsRow ? shape[0] : shape[1]));
                   ulong[] valueShape = values.Space.Dimensions;
                   ulong[] pointerShape = pointers.Space.Dimensions;
@@ -349,7 +354,7 @@ public static class SparseOps {
                   if (valueShape.Length != 1 || indexShape.Length != 1 || indexShape[0] != valueShape[0]
                       || pointerShape.Length != 1 || pointerShape[0] != (ulong)major + 1UL
                       || permutationShape.Length != 1 || permutationShape[0] != (ulong)shape[1]) {
-                      throw new InvalidDataException("hdf5 sparse dataset extents");
+                      return TensorReason.RowMissing.Fail<SparseArchiveRead>("hdf5-sparse-extents");
                   }
                   int nonZeros = checked((int)values.Space.Dimensions[0]);
                   int[] indptr = new int[major + 1];
@@ -360,7 +365,7 @@ public static class SparseOps {
                   indices.Read<int>(archived.Handle.Access, minor.AsSpan(), new HyperslabSelection(0, (ulong)nonZeros));
                   values.Read<double>(archived.Handle.Access, payload.AsSpan(), new HyperslabSelection(0, (ulong)nonZeros));
                   permutation.Read<int>(archived.Handle.Access, applied.AsSpan(), new HyperslabSelection(0, (ulong)applied.Length));
-                  return Fin.Succ((Rows: checked((int)shape[0]), Columns: checked((int)shape[1]),
+                  return Fin.Succ(new SparseArchiveRead(Rows: checked((int)shape[0]), Columns: checked((int)shape[1]),
                       Format: format, Kind: group.Attribute("kind").Read<string>(),
                       Ordering: group.Attribute("ordering").Read<long>(), Fill: group.Attribute("fill").Read<long>(),
                       Frobenius: group.Attribute("frobenius").Read<double>(), Symmetric: group.Attribute("symmetric").Read<bool>(),
@@ -370,9 +375,7 @@ public static class SparseOps {
               from storage in Ingest(read.Format, read.Rows, read.Columns, read.Major, read.Minor, read.Payload)
               select (SparseExchange)new SparseExchange.Archive(storage, meta);
 
-    static Fin<SparseArchiveMeta> AdmitsArchive(
-        (int Rows, int Columns, SparseFormat Format, string Kind, long Ordering, long Fill, double Frobenius, bool Symmetric,
-         int[] Permutation, int[] Major, int[] Minor, double[] Payload) read) {
+    static Fin<SparseArchiveMeta> AdmitsArchive(SparseArchiveRead read) {
         Option<FactorKind> kind = toSeq(FactorKind.Items).Find(row => StringComparer.Ordinal.Equals(row.Key, read.Kind));
         bool held = read.Format.PointerForm
             && read.Ordering is >= 0L and <= 3L

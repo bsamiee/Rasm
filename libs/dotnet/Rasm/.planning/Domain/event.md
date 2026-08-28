@@ -213,10 +213,11 @@ public sealed record RasmEvent<TExtensions>(
     where TExtensions : class, IMessage<TExtensions>;
 
 public readonly record struct EventField(CloudEventAttribute Attribute, object Value) {
-    public static CloudEventAttribute Declare(string name, CloudEventAttributeType type) =>
+    public static Fin<CloudEventAttribute> Declare(string name, CloudEventAttributeType type) =>
         name.Length is > 0 and <= 20
-            ? CloudEventAttribute.CreateExtension(name, type)
-            : throw new ArgumentOutOfRangeException(nameof(name), name, "CloudEvents extension names carry at most twenty characters");
+            ? Fin.Succ(CloudEventAttribute.CreateExtension(name, type))
+            : Fin.Fail<CloudEventAttribute>(new KernelFault.OutOfRange(
+                Label: name, Scalar: name.Length, Requirement: "one to twenty characters"));
 }
 
 public sealed record EventExtensionContract<TExtensions>(
@@ -225,8 +226,9 @@ public sealed record EventExtensionContract<TExtensions>(
     Validator Validator)
     where TExtensions : class, IMessage<TExtensions> {
 
-    public Fin<Seq<CloudEventAttribute>> Declarations() => Try.lift(() => Fin.Succ(
-        toSeq(Descriptor.Fields.InFieldNumberOrder()).Map(Declare))).Run().Bind(static inner => inner);
+    public Fin<Seq<CloudEventAttribute>> Declarations() =>
+        Try.lift(() => toSeq(Descriptor.Fields.InFieldNumberOrder()).Traverse(Declare).As())
+            .Run().Bind(static inner => inner);
 
     public Fin<Seq<EventField>> Project(TExtensions message) =>
         message.Descriptor == Descriptor
@@ -243,9 +245,12 @@ public sealed record EventExtensionContract<TExtensions>(
                 Label: message.Descriptor.FullName, Requirement: Descriptor.FullName));
         }
         foreach (FieldDescriptor field in Descriptor.Fields.InFieldNumberOrder()) {
-            CloudEventAttribute attribute = Declare(field);
-            object? held = envelope[attribute];
-            if (held is not null) field.Accessor.SetValue(message, ToGenerated(field: field, value: held));
+            Fin<Unit> seated = Declare(field).Bind(attribute => envelope[attribute] switch {
+                null => Fin.Succ(unit),
+                object held => ToGenerated(field: field, value: held)
+                    .Map(generated => HostEdge.Side(() => field.Accessor.SetValue(message, generated))),
+            });
+            if (seated.IsFail) { return seated.Map(_ => message); }
         }
         return Valid(message).Map(_ => message);
     }).Run().Bind(static inner => inner);
@@ -258,7 +263,11 @@ public sealed record EventExtensionContract<TExtensions>(
                 return Fin.Fail<TExtensions>(new KernelFault.InvalidValue(
                     Label: slot, Requirement: $"a {Descriptor.FullName} field carrying the causal slot"));
             }
-            value.Iter(held => field.Accessor.SetValue(stamped, ToGenerated(field: field, value: held)));
+            Fin<Unit> seated = value.Match(
+                Some: held => ToGenerated(field: field, value: held)
+                    .Map(generated => HostEdge.Side(() => field.Accessor.SetValue(stamped, generated))),
+                None: () => Fin.Succ(unit));
+            if (seated.IsFail) { return seated.Map(_ => stamped); }
         }
         return Fin.Succ(stamped);
     }).Run().Bind(static inner => inner);
@@ -277,22 +286,26 @@ public sealed record EventExtensionContract<TExtensions>(
             ? Fin.Fail<EventField>(new KernelFault.InvalidValue(
                 Label: field.FullName,
                 Requirement: "a timestamp aligned to the CloudEvents SDK's 100-nanosecond instant"))
-            : Try.lift(() => Fin.Succ(new EventField(
-                Attribute: Declare(field), Value: ToEnvelope(field: field, value: value)))).Run().Bind(static inner => inner);
+            : Try.lift(() =>
+                from attribute in Declare(field)
+                from envelopeValue in ToEnvelope(field: field, value: value)
+                select new EventField(Attribute: attribute, Value: envelopeValue))
+                .Run().Bind(static inner => inner);
 
-    private static CloudEventAttribute Declare(FieldDescriptor field) =>
-        EventField.Declare(field.JsonName, AttributeType(field));
+    private static Fin<CloudEventAttribute> Declare(FieldDescriptor field) =>
+        AttributeType(field).Bind(type => EventField.Declare(field.JsonName, type));
 
-    private static CloudEventAttributeType AttributeType(FieldDescriptor field) => field.FieldType switch {
-        FieldType.Bool => CloudEventAttributeType.Boolean,
+    private static Fin<CloudEventAttributeType> AttributeType(FieldDescriptor field) => field.FieldType switch {
+        FieldType.Bool => Fin.Succ(CloudEventAttributeType.Boolean),
         FieldType.Int32 or FieldType.SInt32 or FieldType.SFixed32
-            or FieldType.UInt32 or FieldType.Fixed32 => CloudEventAttributeType.Integer,
-        FieldType.String when StringRule(field) is StringRules.WellKnownOneofCase.Uri => CloudEventAttributeType.Uri,
-        FieldType.String when StringRule(field) is StringRules.WellKnownOneofCase.UriRef => CloudEventAttributeType.UriReference,
-        FieldType.String => CloudEventAttributeType.String,
-        FieldType.Bytes => CloudEventAttributeType.Binary,
-        FieldType.Message when field.MessageType.FullName == Timestamp.Descriptor.FullName => CloudEventAttributeType.Timestamp,
-        _ => throw new NotSupportedException($"{field.FullName} cannot project {field.FieldType} onto a CloudEvents attribute type"),
+            or FieldType.UInt32 or FieldType.Fixed32 => Fin.Succ(CloudEventAttributeType.Integer),
+        FieldType.String when StringRule(field) is StringRules.WellKnownOneofCase.Uri => Fin.Succ(CloudEventAttributeType.Uri),
+        FieldType.String when StringRule(field) is StringRules.WellKnownOneofCase.UriRef => Fin.Succ(CloudEventAttributeType.UriReference),
+        FieldType.String => Fin.Succ(CloudEventAttributeType.String),
+        FieldType.Bytes => Fin.Succ(CloudEventAttributeType.Binary),
+        FieldType.Message when field.MessageType.FullName == Timestamp.Descriptor.FullName => Fin.Succ(CloudEventAttributeType.Timestamp),
+        _ => Fin.Fail<CloudEventAttributeType>(new KernelFault.Unsupported(
+            InputType: typeof(FieldDescriptor), OutputType: typeof(CloudEventAttributeType))),
     };
 
     private static StringRules.WellKnownOneofCase StringRule(FieldDescriptor field) {
@@ -302,25 +315,27 @@ public sealed record EventExtensionContract<TExtensions>(
             : StringRules.WellKnownOneofCase.None;
     }
 
-    private static object ToEnvelope(FieldDescriptor field, object value) => AttributeType(field) switch {
-        var type when type == CloudEventAttributeType.Integer => checked(Convert.ToInt32(value, CultureInfo.InvariantCulture)),
-        var type when type == CloudEventAttributeType.Uri => new Uri((string)value, UriKind.Absolute),
-        var type when type == CloudEventAttributeType.UriReference => new Uri((string)value, UriKind.RelativeOrAbsolute),
-        var type when type == CloudEventAttributeType.Binary => ((ByteString)value).ToByteArray(),
-        var type when type == CloudEventAttributeType.Timestamp => ((Timestamp)value).ToDateTimeOffset(),
-        _ => value,
-    };
+    private static Fin<object> ToEnvelope(FieldDescriptor field, object value) =>
+        AttributeType(field).Map(type => type switch {
+            var carried when carried == CloudEventAttributeType.Integer => checked(Convert.ToInt32(value, CultureInfo.InvariantCulture)),
+            var carried when carried == CloudEventAttributeType.Uri => new Uri((string)value, UriKind.Absolute),
+            var carried when carried == CloudEventAttributeType.UriReference => new Uri((string)value, UriKind.RelativeOrAbsolute),
+            var carried when carried == CloudEventAttributeType.Binary => ((ByteString)value).ToByteArray(),
+            var carried when carried == CloudEventAttributeType.Timestamp => ((Timestamp)value).ToDateTimeOffset(),
+            _ => value,
+        });
 
-    private static object ToGenerated(FieldDescriptor field, object value) => field.FieldType switch {
-        FieldType.Bool => (bool)value,
-        FieldType.Int32 or FieldType.SInt32 or FieldType.SFixed32 => (int)value,
-        FieldType.UInt32 or FieldType.Fixed32 => checked((uint)(int)value),
-        FieldType.String when value is Uri reference => reference.OriginalString,
-        FieldType.String => (string)value,
-        FieldType.Bytes => ByteString.CopyFrom((byte[])value),
+    private static Fin<object> ToGenerated(FieldDescriptor field, object value) => field.FieldType switch {
+        FieldType.Bool => Fin.Succ<object>((bool)value),
+        FieldType.Int32 or FieldType.SInt32 or FieldType.SFixed32 => Fin.Succ<object>((int)value),
+        FieldType.UInt32 or FieldType.Fixed32 => Fin.Succ<object>(checked((uint)(int)value)),
+        FieldType.String when value is Uri reference => Fin.Succ<object>(reference.OriginalString),
+        FieldType.String => Fin.Succ<object>((string)value),
+        FieldType.Bytes => Fin.Succ<object>(ByteString.CopyFrom((byte[])value)),
         FieldType.Message when field.MessageType.FullName == Timestamp.Descriptor.FullName =>
-            Timestamp.FromDateTimeOffset((DateTimeOffset)value),
-        _ => throw new NotSupportedException($"{field.FullName} cannot admit {field.FieldType} from a CloudEvents attribute"),
+            Fin.Succ<object>(Timestamp.FromDateTimeOffset((DateTimeOffset)value)),
+        _ => Fin.Fail<object>(new KernelFault.Unsupported(
+            InputType: typeof(CloudEventAttribute), OutputType: typeof(FieldDescriptor))),
     };
 }
 
@@ -360,27 +375,28 @@ public static partial class EventEnvelope {
         attributes.Select(static row => row.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != attributes.Count
             ? Fin.Fail<CloudEvent>(new KernelFault.InvalidValue(
                 Label: nameof(attributes), Requirement: "one value per CloudEvents attribute name"))
-            : Try.lift(() => Fin.Succ(attributes.Fold(
-            new CloudEvent(CloudEventsSpecVersion.V1_0, declared) {
-                Data = data,
-                DataContentType = HostEdge.Slot(dataType.Map(static type => type.ToString())),
-            },
-            static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value)))).Run().Bind(static inner => inner)
-            .Bind(envelope => Admit(envelope, key));
+            : Try.lift(() => attributes.Fold(
+                Fin.Succ(new CloudEvent(CloudEventsSpecVersion.V1_0, declared) {
+                    Data = data,
+                    DataContentType = HostEdge.Slot(dataType.Map(static type => type.ToString())),
+                }),
+                static (held, row) => held.Bind(envelope => Admitted(envelope: envelope, name: row.Name, value: row.Value))))
+            .Run().Bind(static inner => inner)
+            .Bind(Admit);
 
-    private static CloudEvent Admitted(CloudEvent envelope, string name, string value) {
+    private static Fin<CloudEvent> Admitted(CloudEvent envelope, string name, string value) {
         if (name == CloudEventsSpecVersion.SpecVersionAttribute.Name) {
-            CloudEventsSpecVersion version = CloudEventsSpecVersion.FromVersionId(value)
-                ?? throw new ArgumentException($"Unknown CloudEvents specversion: {value}", nameof(value));
-            if (version != envelope.SpecVersion) {
-                throw new ArgumentException($"Expected CloudEvents specversion {envelope.SpecVersion.VersionId}, not {value}", nameof(value));
-            }
-            return envelope;
+            return Optional(CloudEventsSpecVersion.FromVersionId(value))
+                .ToFin(new KernelFault.InvalidValue(Label: name, Requirement: "a known CloudEvents specversion"))
+                .Bind(version => version == envelope.SpecVersion
+                    ? Fin.Succ(envelope)
+                    : Fin.Fail<CloudEvent>(new KernelFault.InvalidValue(
+                        Label: name, Requirement: envelope.SpecVersion.VersionId)));
         }
         ignore(Optional(envelope.SpecVersion.GetAttribute(name)).Match(
             Some: core => ignore(envelope[core] = core.Parse(value)),
             None: () => ignore(EventCarrier.Write(envelope: envelope, field: name, value: value))));
-        return envelope;
+        return Fin.Succ(envelope);
     }
 
 }

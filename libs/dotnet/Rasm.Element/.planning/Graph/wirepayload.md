@@ -41,7 +41,10 @@ internal static partial class WireCodec {
    _ => Fin.Fail<T>(new KernelFault.InvalidInput(Axis: Some(wire.Descriptor.FullName))),
   }).Run().Bind(static inner => inner);
 
- internal static ObjectWire ToWire(Node.Object node) {
+ internal static Fin<ObjectWire> ToWire(Node.Object node) =>
+  node.History.Traverse(ToWire).As().Map(history => Seated(node, history));
+
+ static ObjectWire Seated(Node.Object node, Option<OwnerHistoryWire> history) {
   ObjectWire wire = new() {
    Kind = ToWire(node.Kind),
    Classification = ToWire(node.Classification),
@@ -52,7 +55,7 @@ internal static partial class WireCodec {
   };
   node.ExternalId.IfSome(value => wire.ExternalId = value);
   node.ObjectType.IfSome(value => wire.ObjectType = value);
-  node.History.IfSome(value => wire.History = ToWire(value));
+  history.IfSome(value => wire.History = value);
   node.Placement.IfSome(value => wire.Placement = ToWire(value));
   wire.Classifications.AddRange(node.Classifications.Map(ToWire));
   wire.Representations.AddRange(node.Representations.ByIdentifier.Map(static pair => new RepresentationWire {
@@ -79,21 +82,25 @@ internal static partial class WireCodec {
   return wire;
  }
 
- static OwnerHistoryWire ToWire(OwnerHistory history) {
-  OwnerHistoryWire wire = new() {
+ static Fin<OwnerHistoryWire> ToWire(OwnerHistory history) =>
+  from action in ToChangeAction(history.ChangeAction)
+  from state in ToObjectState(history.State)
+  select ApplyModified(new OwnerHistoryWire {
    OwningUser = history.OwningUser,
    OwningApplication = history.OwningApplication,
    Created = history.Created.ToTimestamp(),
-   ChangeAction = ToChangeAction(history.ChangeAction),
-   State = ToObjectState(history.State),
-  };
-  history.Modified.IfSome(value => wire.Modified = value.ToTimestamp());
+   ChangeAction = action,
+   State = state,
+  }, history.Modified);
+
+ static OwnerHistoryWire ApplyModified(OwnerHistoryWire wire, Option<Instant> modified) {
+  modified.IfSome(value => wire.Modified = value.ToTimestamp());
   return wire;
  }
 
  internal static Fin<NodeWire> ToWire(Node node, double tolerance) =>
   Try.lift(() => node.Switch<Fin<NodeWire>>(
-   @object: value => Fin.Succ(new() { Id = ToWire(value.Id), Object = ToWire(value) }),
+   @object: value => ToWire(value).Map(payload => new NodeWire { Id = ToWire(value.Id), Object = payload }),
    material: value => ToWire(value).Map(payload => new NodeWire { Id = ToWire(value.Id), Material = payload }),
    propertySet: value => Fin.Succ(new() { Id = ToWire(value.Id), PropertySet = ToWire(value.Bag) }),
    quantitySet: value => Fin.Succ(new() { Id = ToWire(value.Id), QuantitySet = ToWire(value.Bag) }),
@@ -222,13 +229,13 @@ internal static partial class WireCodec {
   _ => Fin.Fail<RepresentationSlot>(new KernelFault.InvalidInput(Axis: Some(nameof(RepresentationWire.Kind)))),
  };
 
- static WireChangeAction ToChangeAction(string value) => value switch {
-  "NOCHANGE" => WireChangeAction.Nochange,
-  "MODIFIED" => WireChangeAction.Modified,
-  "ADDED" => WireChangeAction.Added,
-  "DELETED" => WireChangeAction.Deleted,
-  "NOTDEFINED" => WireChangeAction.Notdefined,
-  _ => throw new InvalidOperationException($"<owner-history-change-action:{value}>"),
+ static Fin<WireChangeAction> ToChangeAction(string value) => value switch {
+  "NOCHANGE" => Fin.Succ(WireChangeAction.Nochange),
+  "MODIFIED" => Fin.Succ(WireChangeAction.Modified),
+  "ADDED" => Fin.Succ(WireChangeAction.Added),
+  "DELETED" => Fin.Succ(WireChangeAction.Deleted),
+  "NOTDEFINED" => Fin.Succ(WireChangeAction.Notdefined),
+  _ => Fin.Fail<WireChangeAction>(new KernelFault.InvalidInput(Axis: Some(nameof(OwnerHistoryWire.ChangeAction)))),
  };
 
  static Fin<string> ToChangeAction(WireChangeAction value) => value switch {
@@ -240,13 +247,13 @@ internal static partial class WireCodec {
   _ => Fin.Fail<string>(new KernelFault.InvalidInput(Axis: Some(nameof(OwnerHistoryWire.ChangeAction)))),
  };
 
- static WireObjectState ToObjectState(string value) => value switch {
-  "READWRITE" => WireObjectState.Readwrite,
-  "READONLY" => WireObjectState.Readonly,
-  "LOCKED" => WireObjectState.Locked,
-  "READWRITELOCKED" => WireObjectState.Readwritelocked,
-  "READONLYLOCKED" => WireObjectState.Readonlylocked,
-  _ => throw new InvalidOperationException($"<owner-history-state:{value}>"),
+ static Fin<WireObjectState> ToObjectState(string value) => value switch {
+  "READWRITE" => Fin.Succ(WireObjectState.Readwrite),
+  "READONLY" => Fin.Succ(WireObjectState.Readonly),
+  "LOCKED" => Fin.Succ(WireObjectState.Locked),
+  "READWRITELOCKED" => Fin.Succ(WireObjectState.Readwritelocked),
+  "READONLYLOCKED" => Fin.Succ(WireObjectState.Readonlylocked),
+  _ => Fin.Fail<WireObjectState>(new KernelFault.InvalidInput(Axis: Some(nameof(OwnerHistoryWire.State)))),
  };
 
  static Fin<string> ToObjectState(WireObjectState value) => value switch {

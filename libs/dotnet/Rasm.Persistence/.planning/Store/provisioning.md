@@ -426,8 +426,8 @@ public static class ClusterProvision {
         demand.Epoch);
 
     public static IO<ProvisionVerdict> Verify(NpgsqlDataSource source, ClusterDemand demand) =>
-        IO.liftAsync(async () => await Try.lift(async token => {
-            await using NpgsqlConnection connection = await source.OpenConnectionAsync(token).ConfigureAwait(false);
+        IO.liftAsync(async () => {
+            await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlBatch batch = connection.CreateBatch();
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT current_setting('shared_preload_libraries')"));
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT extname, extversion FROM pg_extension"));
@@ -437,25 +437,31 @@ public static class ClusterProvision {
             });
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT coalesce(max(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)), 0)::bigint FROM pg_replication_slots WHERE restart_lsn IS NOT NULL"));
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT count(*)::bigint FROM pg_index WHERE NOT indisvalid"));
-            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(token).ConfigureAwait(false);
-            if (!await reader.ReadAsync(token).ConfigureAwait(false)) {
-                throw new InvalidDataException("<provision-result-missing:shared_preload_libraries>");
-            }
+            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync().ConfigureAwait(false);
+            if (!await reader.ReadAsync().ConfigureAwait(false)) { return Refused(demand, "shared_preload_libraries"); }
             FrozenSet<string> preloaded = reader.GetString(0)
                 .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal);
-            if (await reader.ReadAsync(token).ConfigureAwait(false)) {
-                throw new InvalidDataException("<provision-result-duplicate:shared_preload_libraries>");
-            }
-            return Fold(demand, new ClusterReading(
-                Preloaded: preloaded,
-                Versions: toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false)),
-                Available: (await Next(reader, static row => row.GetString(0)).ConfigureAwait(false)).ToFrozenSet(StringComparer.Ordinal),
-                Settings: toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false)),
-                SlotLag: await NextScalar(reader, static row => row.GetInt64(0), "slot-lag").ConfigureAwait(false),
-                InvalidIndexes: await NextScalar(reader, static row => row.GetInt64(0), "invalid-indexes").ConfigureAwait(false)));
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift)
+            if (await reader.ReadAsync().ConfigureAwait(false)) { return Refused(demand, "shared_preload_libraries"); }
+            HashMap<string, string> versions = toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false));
+            FrozenSet<string> available = (await Next(reader, static row => row.GetString(0)).ConfigureAwait(false)).ToFrozenSet(StringComparer.Ordinal);
+            HashMap<string, string> settings = toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false));
+            Fin<long> slotLag = await NextScalar(reader, static row => row.GetInt64(0), "slot-lag").ConfigureAwait(false);
+            Fin<long> invalidIndexes = await NextScalar(reader, static row => row.GetInt64(0), "invalid-indexes").ConfigureAwait(false);
+            return (slotLag, invalidIndexes)
+                .Apply((lag, invalid) => Fold(demand, new ClusterReading(
+                    Preloaded: preloaded, Versions: versions, Available: available, Settings: settings,
+                    SlotLag: lag, InvalidIndexes: invalid)))
+                .As().ToFin()
+                .Match(Succ: static verdict => verdict,
+                       Fail: fault => (ProvisionVerdict)new ProvisionVerdict.Faulted(ServerFault.Lift(fault), demand.Epoch));
+        })
         | @catch<IO, ProvisionVerdict>(static _ => true,
             error => IO.pure((ProvisionVerdict)new ProvisionVerdict.Faulted(ServerFault.Lift(error), demand.Epoch)));
+
+    static ProvisionVerdict Refused(ClusterDemand demand, string name) =>
+        new ProvisionVerdict.Faulted(
+            ServerFault.Lift(new KernelFault.InvalidValue(Label: name, Requirement: "exactly one verification row")),
+            demand.Epoch);
 
     static ProvisionVerdict Fold(ClusterDemand demand, ClusterReading read) =>
         (PreloadGap(demand, read) | ExtensionGap(demand, read) | SettingGap(demand, read))
@@ -564,11 +570,12 @@ public static class ClusterProvision {
         return rows;
     }
 
-    static async Task<T> NextScalar<T>(NpgsqlDataReader reader, Func<NpgsqlDataReader, T> read, string name) {
+    static async Task<Fin<T>> NextScalar<T>(NpgsqlDataReader reader, Func<NpgsqlDataReader, T> read, string name) {
         Seq<T> rows = await Next(reader, read).ConfigureAwait(false);
         return rows.Count == 1
-            ? rows.Head
-            : throw new InvalidDataException($"<provision-result-{(rows.IsEmpty ? "missing" : "duplicate")}:{name}>");
+            ? Fin.Succ(rows[0])
+            : Fin.Fail<T>(new KernelFault.OutOfRange(
+                Label: name, Scalar: rows.Count, Requirement: "exactly one verification row"));
     }
 }
 ```

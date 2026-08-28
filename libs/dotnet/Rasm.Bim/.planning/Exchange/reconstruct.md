@@ -432,10 +432,10 @@ public static class LasIngest {
 
     static Fin<LasCloud> Decoded(LasCompression codec, ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) =>
         codec == LasCompression.Compressed
-            ? Trap(codec, () => ReadLaz(bytes, window, at))
-            : Trap(codec, () => ReadLas(bytes, window, at)).Bind(static read => read);
+            ? Trap(() => ReadLaz(bytes, window, at))
+            : Trap(() => ReadLas(bytes, window, at));
 
-    static Fin<T> Trap<T>(LasCompression codec, Func<T> read) =>
+    static Fin<T> Trap<T>(Func<Fin<T>> read) =>
         Try.lift(read).Run().Bind(static inner => inner);
 
     public static Fin<Seq<CloudLevel>> Pyramid(LasCloud cloud, InterchangePolicy policy) =>
@@ -474,9 +474,11 @@ public static class LasIngest {
                 .Raw(MemoryMarshal.AsBytes(s.indices.AsSpan()))).Value);
     }
 
-    static void Check(laszip codec, int status) {
-        if (status != 0) { throw new IOException(codec.get_error()); }
-    }
+    static Fin<Unit> Check(laszip codec, int status) =>
+        status == 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new BimFault.Refused(BimScope.Reconstruct, BimReason.Capability,
+                string.Join(':', new object?[] { "laszip", status.ToString(CultureInfo.InvariantCulture), codec.get_error() })));
 
     static Fin<LasCloud> ReadLas(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.las");
@@ -514,16 +516,20 @@ public static class LasIngest {
         } finally { File.Delete(path); }
     }
 
-    static LasCloud ReadLaz(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) {
+    static Fin<LasCloud> ReadLaz(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) {
         using MemoryStream stream = MemoryMarshal.TryGetArray(bytes, out ArraySegment<byte> segment)
             ? new(segment.Array!, segment.Offset, segment.Count, writable: false)
             : new(bytes.ToArray(), writable: false);
         laszip codec = laszip.create();
-        Check(codec, codec.decompress_selective(LASZIP_DECOMPRESS_SELECTIVE.CHANNEL_RETURNS_XY | LASZIP_DECOMPRESS_SELECTIVE.Z | LASZIP_DECOMPRESS_SELECTIVE.CLASSIFICATION | LASZIP_DECOMPRESS_SELECTIVE.RGB));
-        Check(codec, codec.open_reader_stream(stream, out _, leaveOpen: true));
+        Fin<Unit> status = Check(codec, codec.decompress_selective(LASZIP_DECOMPRESS_SELECTIVE.CHANNEL_RETURNS_XY | LASZIP_DECOMPRESS_SELECTIVE.Z | LASZIP_DECOMPRESS_SELECTIVE.CLASSIFICATION | LASZIP_DECOMPRESS_SELECTIVE.RGB))
+            .Bind(_ => Check(codec, codec.open_reader_stream(stream, out _, leaveOpen: true)));
+        if (status.IsFail) { return status.Map(static _ => default(LasCloud)!); }
         try {
-            Check(codec, codec.get_number_of_point(out long count));
-            bool clipped = window.Map(w => Windowed(codec, w)).IfNone(false);
+            status = Check(codec, codec.get_number_of_point(out long count));
+            if (status.IsFail) { return status.Map(static _ => default(LasCloud)!); }
+            Fin<bool> windowed = window.Map(w => Windowed(codec, w)).IfNone(Fin.Succ(false));
+            if (windowed.IsFail) { return windowed.Map(static _ => default(LasCloud)!); }
+            bool clipped = windowed.IfFail(false);
             bool colored = Colored((byte)(codec.header.point_data_format & 0x7F));
             Vector<double>[] positions = new Vector<double>[count];
             byte[] classes = new byte[count];
@@ -532,12 +538,15 @@ public static class LasIngest {
             long read = 0;
             for (long i = 0; i < count; i++) {
                 if (clipped) {
-                    Check(codec, codec.read_inside_point(out bool done));
+                    status = Check(codec, codec.read_inside_point(out bool done));
+                    if (status.IsFail) { return status.Map(static _ => default(LasCloud)!); }
                     if (done) { break; }
                 } else {
-                    Check(codec, codec.read_point());
+                    status = Check(codec, codec.read_point());
+                    if (status.IsFail) { return status.Map(static _ => default(LasCloud)!); }
                 }
-                Check(codec, codec.get_coordinates(xyz));
+                status = Check(codec, codec.get_coordinates(xyz));
+                if (status.IsFail) { return status.Map(static _ => default(LasCloud)!); }
                 if (!clipped && window.Exists(w => !w.Holds(xyz[0], xyz[1]))) { continue; }
                 positions[read] = Vector<double>.Build.DenseOfArray(xyz);
                 classes[read] = codec.point.extended_point_type != 0 ? codec.point.extended_classification : codec.point.classification;
@@ -554,21 +563,22 @@ public static class LasIngest {
             ulong[] byReturn = h.extended_number_of_point_records > 0
                 ? h.extended_number_of_points_by_return
                 : System.Array.ConvertAll(h.number_of_points_by_return, static c => (ulong)c);
-            return Assemble(bytes, positions, classes, colors, crs, (ulong)read, byReturn,
+            return Fin.Succ(Assemble(bytes, positions, classes, colors, crs, (ulong)read, byReturn,
                 new Vector3(h.min_x, h.min_y, h.min_z), new Vector3(h.max_x, h.max_y, h.max_z),
                 new Vector3(h.x_scale_factor, h.y_scale_factor, h.z_scale_factor),
                 new Vector3(h.x_offset, h.y_offset, h.z_offset),
-                (byte)(h.point_data_format & 0x7F), at);
+                (byte)(h.point_data_format & 0x7F), at));
         } finally { codec.close_reader(); }
     }
 
-    static bool Windowed(laszip codec, CloudWindow window) {
-        Check(codec, codec.has_spatial_index(out bool indexed, out _));
-        if (!indexed) { return false; }
-        Check(codec, codec.inside_rectangle(window.MinX, window.MinY, window.MaxX, window.MaxY, out bool empty));
-        if (empty) { return false; }
-        Check(codec, codec.exploit_spatial_index(true));
-        return true;
+    static Fin<bool> Windowed(laszip codec, CloudWindow window) {
+        Fin<Unit> indexing = Check(codec, codec.has_spatial_index(out bool indexed, out _));
+        if (indexing.IsFail) { return indexing.Map(static _ => false); }
+        if (!indexed) { return Fin.Succ(false); }
+        Fin<Unit> clipping = Check(codec, codec.inside_rectangle(window.MinX, window.MinY, window.MaxX, window.MaxY, out bool empty));
+        if (clipping.IsFail) { return clipping.Map(static _ => false); }
+        if (empty) { return Fin.Succ(false); }
+        return Check(codec, codec.exploit_spatial_index(true)).Map(static _ => true);
     }
 
     static LasCloud Assemble(

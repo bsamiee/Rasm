@@ -125,17 +125,15 @@ public static class ConverterOptions {
 }
 
 public sealed class IdentityContext : DbContext {
-    readonly Option<IdentityShapeRow> shape;
+    readonly IdentityShapeRow shape;
 
-    public IdentityContext(DbContextOptions<IdentityContext> options) : base(options) => shape = None;
-    public IdentityContext(DbContextOptions<IdentityContext> options, IdentityShapeRow row) : base(options) => shape = Some(row);
+    public IdentityContext(DbContextOptions<IdentityContext> options, IdentityShapeRow row) : base(options) => shape = row;
 
     public DbSet<ElementIdentity> Identities => Set<ElementIdentity>();
     public DbSet<NodeCell> Cells => Set<NodeCell>();
 
     protected override void OnModelCreating(ModelBuilder model) {
-        IdentityShapeRow row = shape.IfNone(static () => throw new InvalidOperationException("<identity-shape:runtime-model-build>"));
-        model.ApplyConfiguration(new IdentityShape(row));
+        model.ApplyConfiguration(new IdentityShape(shape));
         model.ApplyConfiguration(new NodeCellShape());
     }
 }
@@ -144,7 +142,7 @@ public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<Identity
     public IdentityContext CreateDbContext(string[] args) {
         IdentityShapeRow row = args is [string key, ..]
             ? IdentityShapeRow.Get(key)
-            : throw new InvalidOperationException("<identity-design-profile:absent>");
+            : IdentityShapeRow.Server;
         return new IdentityContext(
             (DbContextOptions<IdentityContext>)row.Design(new DbContextOptionsBuilder<IdentityContext>())
                 .UseSnakeCaseNamingConvention().UseThinktectureValueConverters(Configuration.Default).Options,
@@ -172,7 +170,7 @@ public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfigura
         identity.Property(static e => e.Acl).HasColumnType(shape.Json)
             .HasConversion(
                 static acl => System.Text.Json.JsonSerializer.Serialize(acl, ElementJson.Options),
-                static json => System.Text.Json.JsonSerializer.Deserialize<ObjectAcl>(json, ElementJson.Options) ?? throw new System.Text.Json.JsonException("<object-acl:null>"));
+                static json => System.Text.Json.JsonSerializer.Deserialize<ObjectAcl>(json, ElementJson.Options)!);
         shape.Geometry.Match(
             Some: geometry => {
                 identity.Property(static e => e.Bounds).HasColumnType(geometry.Column);
